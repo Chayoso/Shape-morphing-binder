@@ -1,0 +1,43 @@
+name: diffmpm_v1.8.0
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Build Environment & Python
+  - python=3.10
+  - vs2022_win-64
+  - cmake>=3.20
+  - ninja
+  - pip=24.0
+  - pybind11>=2.11
+  - setuptools=68.0.0
+
+  # Common Scientific & Utility Libraries
+  - h5py==3.10.0
+  - numpy==1.24.1
+  - scipy==1.12.0
+  - scikit-learn
+  - opencv==4.8.1
+  - matplotlib
+  - pillow==10.2.0
+  - plyfile==1.0.3
+  - tqdm==4.66.1
+  - pyyaml
+  - PyMCubes==0.1.4
+
+  - pip:
+    - imageio
+
+    # PyTorch for CUDA 12.8
+    # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 (PyTorch for CUDA 12.8)
+
+    # Local submodules (editable mode)
+    # - pip install -e gaussian-splatting/submodules/diff-gaussian-rasterization (diff-gauss)
+    # - pip install -e gaussian-splatting/submodules/fused-ssim (fused-ssim)
+    # - pip install -e gaussian-splatting/submodules/simple-knn (simple-knn)
+
+    # Simulation package
+    # pip install -e . --no-build-isolation (DiffMPM3DLib)
+
+    #$env:DIFFMPM_DIAGNOSTICS = "1" (for debugging Volume Particles)
+    #$env:GS_DEBUG="1" (for debugging Gaussian Splatting)

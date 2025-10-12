@@ -1,0 +1,106 @@
+# 3DGS Shape Morphing setting file
+
+# Input/Output file path
+input_mesh_path: "assets/bunny.obj"
+target_mesh_path: "assets/bunny.obj"
+output_dir: "output/"
+
+# ===================================================================
+# DiffMPM for Shape Morphing setting
+# ===================================================================
+simulation:
+  # Grid setting
+  grid_dx: 1                             # Grid cell size (CRITICAL for AABB radius)
+  points_per_cell_cuberoot: 2            # Number of points per cell (cubic root)
+  grid_min_point: [-16.0, -16.0, -16.0]  # Grid minimum coordinate
+  grid_max_point: [16.0, 16.0, 16.0]     # Grid maximum coordinate
+  
+  # Material properties (Lame parameters)
+  lam: 38888.89                   # λ (Volume elastic modulus)
+  mu:  58333.3                    # μ (Shear elastic modulus)
+  density: 75.0                   # Density
+  
+  # Simulation parameters
+  dt: 0.00833333333               # Time step (1/120)
+  drag: 0.5                       # Drag coefficient
+  external_force: [0.0, 0.0, 0.0] # External force (gravity, etc.)
+  smoothing_factor: 0.955         # Smoothing factor
+
+# Optimization setting
+optimization:
+  num_animations: 1              # Number of animation episodes
+  num_timesteps:  10              # Number of time steps per episode
+  control_stride: 10              # Control frame interval
+  max_gd_iters: 1                 # Maximum number of gradient descent iterations
+  max_ls_iters: 10                # Maximum number of line search iterations
+  initial_alpha: 0.01             # Initial step size
+  gd_tol: 0.0001                  # Gradient tolerance
+
+# Output setting
+output:
+  export_ply: false               # Export PLY file
+  output_format: "ply"            # Output format
+
+# ===================================================================
+# UPSAMPLING SETTINGS (RUNTIME SURFACE)
+# ===================================================================
+sampling:
+  runtime_surface:
+    thr_percentile: 20.0          # Density threshold, selects top N% of points as sampling candidates.
+    soft_tau: 1e-3                # Temperature parameter to soften sampling probabilities.
+    hysteresis: 0.03              # Hysteresis value to prevent rapid toggling of sampling/removal.
+    ema_beta: 0.95                # Exponential Moving Average (EMA) weight for temporal smoothing of attributes like density.
+    M: 180000                     # Target total number of points after upsampling.
+    surf_jitter_alpha: 0.35       # Strength of jitter (noise) to add to newly created points.
+    thickness: 0.12               # Virtual thickness of the reconstructed surface.
+    density_gamma: 2.5            # Gamma correction factor applied to density values for distribution adjustment.
+    sigma0: 0.1                   # Initial Gaussian standard deviation for methods like Kernel Density Estimation (KDE).
+    ed:
+      enabled: true               # Enable/disable the Embedded Deformation graph.
+      num_nodes: 180              # Number of nodes in the deformation graph.
+      node_knn: 8                 # Number of neighboring nodes to connect for each graph node (k-NN).
+      point_knn_nodes: 8          # Number of nearest graph nodes each point connects to.
+      lambda_lap: 1.0e-2          # Weight for Laplacian regularization (for graph smoothness).
+    hole_filling:
+      enabled: false              # Enable/disable the surface hole-filling feature.
+    post_equalize:
+      enabled: true               # Enable post-upsampling point distribution equalization.
+      iters: 3                    # Number of iterations for the equalization process.
+      k: 24                       # Number of neighbors each point considers for equalization (k-NN).
+      step: 0.45                  # Step size for moving points in each iteration (repulsion strength).
+      radius_mul: 1.0             # Multiplier for the equalization radius.
+      project_to_shell: true      # Whether to project points back onto the surface shell after equalization.
+
+# ===================================================================
+# RENDER SETTINGS (RUNTIME RENDERER)
+# ===================================================================
+render:
+  num_frames: 1         
+  schedule: uniform       # or uniform (0..T-1 uniformly sample)
+  bg: [1.0, 1.0, 1.0]     # bg color (RGB 0-1)
+  particle_color: [0.27, 0.51, 0.71]  # particle color (RGB 0-1)
+  
+  lighting:
+    model: phong                       # Lambertian or Phong
+    type: directional                  # or "point"
+    direction: [0.3, -0.5, 0.8]        # directional
+    two_sided: true                    # essential: remove artifacts
+    ambient: 0.18                      # recommended to slightly increase from default 0.10
+    diffuse: 0.85
+    specular: 0.10
+    shininess: 32
+    
+camera:
+  width:  3840
+  height: 2160
+  fx: 1425.0                           # Focal length in pixels X 
+  fy: 1425.0                           # Focal length in pixels Y 
+  cx: 1920.0                           # Principal point X 
+  cy: 1080.0                           # Principal point Y
+  znear: 0.01
+  zfar: 100.0
+  lookat:
+    eye:    [20.0,  -25.0,  15.0]      # camera position (behind origin on -Z side)
+    target: [ 0.0,    0.0,   0.0]      # look at the origin
+    up:     [ 0.0,    0.0,   1.0]      # Up vector
+
