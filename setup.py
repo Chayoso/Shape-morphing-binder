@@ -18,8 +18,16 @@ Setup script for DiffMPM Python bindings (release-focused).
 
 import os, sys
 from pathlib import Path
-from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
+
+# Try to import PyTorch's CppExtension for better compatibility
+try:
+    from torch.utils.cpp_extension import CppExtension, BuildExtension
+    TORCH_AVAILABLE = True
+except ImportError:
+    from pybind11.setup_helpers import Pybind11Extension as CppExtension
+    from pybind11.setup_helpers import build_ext as BuildExtension
+    TORCH_AVAILABLE = False
 
 project_root = Path(__file__).parent
 include_dir = project_root / "include"
@@ -42,6 +50,25 @@ if diagnostics:
     # Prefer reproducible build (disable LTO) when diagnostics are on
     deterministic = True
     print("[setup.py] DIAGNOSTICS enabled: defining -DDIAGNOSTICS and disabling LTO")
+
+# PyTorch integration: Auto-detect or force via environment variable
+# Set DIFFMPM_WITH_TORCH=0 to explicitly DISABLE torch support
+force_disable = os.environ.get("DIFFMPM_WITH_TORCH", "auto") == "0"
+
+if force_disable or not TORCH_AVAILABLE:
+    print("[setup.py] INFO: PyTorch integration DISABLED")
+    if force_disable:
+        print("[setup.py]       (explicitly disabled via DIFFMPM_WITH_TORCH=0)")
+    else:
+        print("[setup.py]       (PyTorch not found)")
+    with_torch = False
+else:
+    # PyTorch is available and not disabled
+    import torch
+    with_torch = True
+    define_macros.append(("DIFFMPM_WITH_TORCH", None))
+    print(f"[setup.py] OK: PyTorch integration ENABLED (torch {torch.__version__})")
+    print(f"[setup.py]     Using torch.utils.cpp_extension.CppExtension for compatibility")
 
 
 # Precision toggle
@@ -129,10 +156,12 @@ include_dirs = [
     str(diffmpm_lib_dir),
 ]
 
+# Build extension module
+# When PyTorch is available, CppExtension automatically handles torch libraries
 ext_modules = [
-    Pybind11Extension(
-        "diffmpm_bindings",
-        sources,
+    CppExtension(
+        name="diffmpm_bindings",
+        sources=sources,
         include_dirs=include_dirs,
         language="c++",
         define_macros=define_macros,
@@ -143,12 +172,12 @@ ext_modules = [
 
 setup(
     name="diffmpm",
-    version="1.8.0",
+    version="1.7.0",
     author="Changyong Song",
     description="Python bindings for DiffMPM (release-optimized)",
     long_description=(project_root / "README.md").read_text(encoding="utf-8") if (project_root / "README.md").exists() else "",
     ext_modules=ext_modules,
-    cmdclass={"build_ext": build_ext},
+    cmdclass={"build_ext": BuildExtension},
     zip_safe=False,
     python_requires=">=3.8",
     install_requires=["numpy", "pybind11", "pyyaml"],

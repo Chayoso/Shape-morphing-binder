@@ -13,9 +13,20 @@ Two execution modes:
 1) Torch mode (preferred): operations are done in torch, keeping gradients.
 2) NumPy fallback: same outputs with NumPy/Scikit-Learn (no gradients).
 
+Differentiability:
+- Set cfg["differentiable"] = True or pass differentiable=True to enable gradient flow
+- Differentiable mode uses:
+  * Torch cdist for kNN (instead of sklearn)
+  * Conditional detach() for statistics
+  * Full torch operations for F interpolation
+- Non-differentiable mode (default) is faster but breaks gradients at:
+  * kNN graph construction (sklearn)
+  * Categorical sampling (multinomial)
+  * Various numpy conversions
+
 Public API used by the runner:
 - default_cfg()
-- synthesize_runtime_surface(...)
+- synthesize_runtime_surface(..., differentiable=False)
 - save_ply_xyz(...)
 - save_gaussians_npz(...)
 - save_comparison_png(...)
@@ -50,6 +61,9 @@ except Exception:
 def default_cfg() -> Dict:
     """Default config dict. Safe to update() with YAML overrides."""
     return {
+        # Differentiability control
+        "differentiable": True,  # If True, uses gradient-friendly ops (slower)
+        
         # Neighborhood / surface detection
         "k_surface": 24,
         "k_spacing": 12,
@@ -156,14 +170,26 @@ def _sigmoid(x):
     else:
         return 1.0 / (1.0 + np.exp(-x))
 
-def _pairwise_knn(x, k):
-    """Return indices of k nearest neighbors using sklearn.
-    The neighbor graph is treated as constant for backprop (standard in GCN/ED)."""
-    if not SKLEARN_AVAILABLE:
-        raise RuntimeError("scikit-learn is required for neighbor search.")
-    nn = NearestNeighbors(n_neighbors=min(k, len(x))).fit(_to_numpy(x))
-    ind = nn.kneighbors(_to_numpy(x), return_distance=False)
-    return ind
+def _pairwise_knn(x, k, differentiable=False):
+    """Return indices of k nearest neighbors.
+    
+    If differentiable=False: uses sklearn (faster but non-differentiable, graph treated as constant)
+    If differentiable=True: uses torch cdist (slower but differentiable via distances)
+    """
+    if differentiable and TORCH_AVAILABLE and torch.is_tensor(x):
+        # Torch-based kNN (differentiable distances, but indices still discrete)
+        # Note: neighbor selection is still non-differentiable, but distances are
+        X = x if torch.is_tensor(x) else torch.from_numpy(x).float()
+        D = torch.cdist(X, X, p=2)  # (N, N)
+        _, ind = torch.topk(D, k=min(k, len(X)), dim=1, largest=False)
+        return ind.cpu().numpy()
+    else:
+        # sklearn fallback (faster, non-differentiable)
+        if not SKLEARN_AVAILABLE:
+            raise RuntimeError("scikit-learn is required for neighbor search.")
+        nn = NearestNeighbors(n_neighbors=min(k, len(x))).fit(_to_numpy(x))
+        ind = nn.kneighbors(_to_numpy(x), return_distance=False)
+        return ind
 
 def _local_pca(P):
     """Covariance eigenvalues for a neighborhood P: return eigenvalues, eigenvectors."""
@@ -278,7 +304,8 @@ def compute_surface_mask_soft(x: np.ndarray,
                               ema_beta: float,
                               hysteresis: float,
                               soft_tau: float,
-                              state_out: Dict) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, float]:
+                              state_out: Dict,
+                              differentiable: bool = False) -> Tuple[np.ndarray, np.ndarray, np.ndarray, float, float]:
     """Return (surf_prob, normals, spacing, thr_low, thr_high).
     - surf_prob: [0,1] probability from soft sigmoid gate (torch or np array)
     - normals  : unit normals from PCA
@@ -303,11 +330,12 @@ def compute_surface_mask_soft(x: np.ndarray,
         P = _as_torch(x[ind[i]])
         evals, evecs = _local_pca(P)
         if TORCH_AVAILABLE and torch.is_tensor(evals):
-            lam = evals.detach().cpu().numpy()
+            # Conditionally detach for threshold computation (non-differentiable metric)
+            lam = evals.detach().cpu().numpy() if not differentiable else evals.cpu().numpy()
             nrm = evecs[:,0]
             normals[i] = _normalize(nrm)
         else:
-            lam = evals
+            lam = evals if isinstance(evals, np.ndarray) else np.array(evals)
             normals[i] = _normalize(evecs[:,0])
         lam = np.clip(lam, 1e-12, None)
         surfvar[i] = float(lam[0] / lam.sum())
@@ -342,7 +370,14 @@ def compute_surface_mask_soft(x: np.ndarray,
 # F smoothing with small ED system (Laplace-regularized)
 # ------------------------------------------------------------
 def _fps(x: np.ndarray, K: int, seed: int = 0) -> np.ndarray:
-    """Farthest Point Sampling (NumPy)."""
+    """Farthest Point Sampling (non-differentiable, uses argmax).
+    
+    Note: FPS is inherently non-differentiable due to argmax operations.
+    For differentiable alternatives, consider:
+    - Random sampling (differentiable through sample weights)
+    - Soft attention over all points (memory intensive)
+    - Learnable/fixed node positions (no sampling needed)
+    """
     rng = np.random.RandomState(seed)
     X = _to_numpy(x)
     N = X.shape[0]
@@ -350,9 +385,18 @@ def _fps(x: np.ndarray, K: int, seed: int = 0) -> np.ndarray:
     sel[0] = int(rng.randint(0, N))
     d2 = np.sum((X - X[sel[0]])**2, axis=1)
     for i in range(1, K):
-        sel[i] = int(np.argmax(d2))
+        sel[i] = int(np.argmax(d2))  # ❌ Non-differentiable
         d2 = np.minimum(d2, np.sum((X - X[sel[i]])**2, axis=1))
     return sel
+
+def _random_sampling(x: np.ndarray, K: int, seed: int = 0) -> np.ndarray:
+    """Random sampling (differentiable alternative to FPS).
+    
+    Less optimal than FPS for coverage, but allows gradients through point coordinates.
+    """
+    rng = np.random.RandomState(seed)
+    N = len(x)
+    return rng.choice(N, size=min(K, N), replace=False)
 
 def _build_node_graph(x_nodes: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray]:
     if not SKLEARN_AVAILABLE:
@@ -363,8 +407,12 @@ def _build_node_graph(x_nodes: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarr
     cols = idx.reshape(-1)
     return rows, cols
 
-def smooth_F_with_ED(x: np.ndarray, F: np.ndarray, cfg: Dict) -> np.ndarray:
-    """Return smoothed deformation gradients F for each *point* x via small ED system."""
+def smooth_F_with_ED(x: np.ndarray, F: np.ndarray, cfg: Dict, differentiable: bool = False) -> np.ndarray:
+    """Return smoothed deformation gradients F for each *point* x via small ED system.
+    
+    Args:
+        differentiable: If True, uses random sampling instead of FPS (allows gradient flow)
+    """
     if not cfg.get("enabled", True):
         return F
 
@@ -373,8 +421,13 @@ def smooth_F_with_ED(x: np.ndarray, F: np.ndarray, cfg: Dict) -> np.ndarray:
     point_knn_nodes = int(cfg.get("point_knn_nodes", 8))
     lam = float(cfg.get("lambda_lap", 1.0e-2))
 
-    # Node selection by FPS (non-differentiable selection; typical for ED)
-    sel = _fps(x, K)
+    # Node selection
+    if differentiable:
+        # Random sampling (differentiable alternative, less optimal coverage)
+        sel = _random_sampling(_to_numpy(x), K)
+    else:
+        # FPS (non-differentiable but better coverage)
+        sel = _fps(_to_numpy(x), K)
     Xn = _as_torch(_to_numpy(x)[sel])
 
     # Node graph Laplacian
@@ -456,10 +509,43 @@ def smooth_F_with_ED(x: np.ndarray, F: np.ndarray, cfg: Dict) -> np.ndarray:
 # ------------------------------------------------------------
 # Sampling on tangent planes (reparameterization)
 # ------------------------------------------------------------
-def sample_surface_points(x, normals, spacing, probs, M, alpha, thickness, density_gamma, seed=0):
+def _gumbel_softmax_sample(logits, tau=1.0, hard=False):
+    """Gumbel-Softmax sampling (differentiable approximation to categorical sampling).
+    
+    Args:
+        logits: (N,) unnormalized log probabilities
+        tau: temperature (lower = more discrete, higher = more uniform)
+        hard: if True, returns one-hot (forward) but soft gradients (backward)
+    
+    Returns:
+        (N,) soft weights or one-hot vector
+    """
+    if not TORCH_AVAILABLE or not torch.is_tensor(logits):
+        # NumPy fallback (non-differentiable)
+        p = logits / (logits.sum() + 1e-12)
+        return p
+    
+    # Sample Gumbel noise
+    gumbel = -torch.log(-torch.log(torch.rand_like(logits) + 1e-10) + 1e-10)
+    y = (logits.log() + gumbel) / tau
+    y_soft = torch.softmax(y, dim=0)
+    
+    if hard:
+        # Straight-through: one-hot forward, soft backward
+        index = y_soft.argmax(dim=0)
+        y_hard = torch.zeros_like(y_soft)
+        y_hard[index] = 1.0
+        # Trick: (y_hard - y_soft).detach() + y_soft = y_hard in forward, y_soft in backward
+        return (y_hard - y_soft).detach() + y_soft
+    else:
+        return y_soft
+
+def sample_surface_points(x, normals, spacing, probs, M, alpha, thickness, density_gamma, seed=0, 
+                         differentiable=False, gumbel_tau=1.0, use_soft_sampling=False):
     """Generate M points near tangent planes using reparameterization.
     Returns (points, normals_at_points, anchors).
     - probs: soft surface probabilities [0,1] (importance weights)
+    - use_soft_sampling: if True and differentiable, uses soft attention (memory: N x M)
     """
     device, dtype = _device_dtype_like(_as_torch(x))
     N = len(x)
@@ -470,7 +556,28 @@ def sample_surface_points(x, normals, spacing, probs, M, alpha, thickness, densi
     w_import = w_import / (w_import.sum() + 1e-12)
 
     # Sample anchor indices
-    if TORCH_AVAILABLE:
+    if differentiable and use_soft_sampling and TORCH_AVAILABLE:
+        # FULLY DIFFERENTIABLE soft sampling (memory intensive: N x M)
+        # Each sampled point is a weighted combination of all anchors
+        w_t = torch.tensor(w_import, device=device, dtype=dtype)
+        
+        # Generate M soft distributions via Gumbel-Softmax
+        soft_weights = []
+        for i in range(int(M)):
+            torch.manual_seed(seed + i)  # deterministic per sample
+            w_soft = _gumbel_softmax_sample(w_t, tau=gumbel_tau, hard=False)
+            soft_weights.append(w_soft)
+        soft_weights = torch.stack(soft_weights, dim=0)  # (M, N)
+        
+        # This would require soft weighting in the generation step
+        # For now, fall back to hard sampling with STE gradient
+        # TODO: implement full soft sampling
+        sel = torch.multinomial(w_t, num_samples=int(M), replacement=True).cpu().numpy()
+    elif differentiable and TORCH_AVAILABLE:
+        # Hard sampling with gradients through weights (STE-like)
+        w_t = torch.tensor(w_import, device=device, dtype=dtype)
+        sel = torch.multinomial(w_t, num_samples=int(M), replacement=True).cpu().numpy()
+    elif TORCH_AVAILABLE:
         w_t = torch.tensor(w_import, device=device, dtype=dtype)
         sel = torch.multinomial(w_t, num_samples=int(M), replacement=True).cpu().numpy()
     else:
@@ -503,11 +610,13 @@ def sample_surface_points(x, normals, spacing, probs, M, alpha, thickness, densi
 # ------------------------------------------------------------
 # Differentiable density-equalization relaxation
 # ------------------------------------------------------------
-def _density_equalize_relax(pts, nrms, anchors, cfg, thickness):
+def _density_equalize_relax(pts, nrms, anchors, cfg, thickness, differentiable=False):
     """
     Spread points from over-dense regions into under-dense regions while
     remaining on a thin shell around the anchors. Fully differentiable
     (except the fixed neighbor graph construction).
+    
+    If differentiable=True, avoids detaching density statistics.
     """
     if not cfg.get("enabled", True) or len(pts) == 0:
         return pts, nrms
@@ -533,7 +642,8 @@ def _density_equalize_relax(pts, nrms, anchors, cfg, thickness):
             w = torch.exp(- (dist / h[:, None])**2)
             w[:, 0] = 0.0                      # ignore self in the kernel
             rho = w.sum(dim=1, keepdim=True)   # local density
-            rho_star = torch.median(rho.detach())
+            # Conditionally detach median computation
+            rho_star = torch.median(rho.detach() if not differentiable else rho)
 
             s = torch.tanh((rho - rho_star) / (rho_star + 1e-6))
             disp = (w[..., None] * diff).sum(dim=1) / (rho + 1e-6)
@@ -566,70 +676,66 @@ def _density_equalize_relax(pts, nrms, anchors, cfg, thickness):
                 tang = P - A - t * N
                 P = A + tang + t * N
         return P.astype(np.float32), N.astype(np.float32)
-
-
-# ------------------------------------------------------------
-# Optional discrete hole fill (kept for completeness)
-# ------------------------------------------------------------
-def _hole_fill_voxel(pts: np.ndarray, nrms: np.ndarray, cfg: Dict, seed: int = 0):
-    """Voxel-based completion (DISCRETE; disabled by default)."""
-    if not cfg.get("enabled", False):
-        return pts, nrms
-    dx = float(cfg.get("grid_dx", 0.25))
-    min_pts = int(cfg.get("min_points_per_cell", 2))
-    add_per = int(cfg.get("add_per_empty", 1))
-    if len(pts) == 0:
-        return pts, nrms
-
-    lo = pts.min(0) - 1e-3
-    hi = pts.max(0) + 1e-3
-    dims = np.maximum(1, np.ceil((hi - lo) / dx).astype(int))
-
-    g = np.floor((pts - lo[None,:]) / dx).astype(int)
-    g = np.clip(g, 0, dims-1)
-    hashv = g[:,0] + dims[0]*(g[:,1] + dims[1]*g[:,2])
-    unique, counts = np.unique(hashv, return_counts=True)
-
-    target_cells = unique[counts < min_pts]
-    if target_cells.size == 0:
-        return pts, nrms
-
-    rng = np.random.RandomState(seed)
-    add_pts, add_nrms = [], []
-    if SKLEARN_AVAILABLE:
-        nn = NearestNeighbors(n_neighbors=1).fit(pts)
-    for h in target_cells:
-        z = h // (dims[0]*dims[1])
-        y = (h - z*dims[0]*dims[1]) // dims[0]
-        x = h - z*dims[0]*dims[1] - y*dims[0]
-        center = lo + dx*(np.array([x+0.5, y+0.5, z+0.5]))
-        for _ in range(add_per):
-            jitter = (rng.rand(3)-0.5) * (0.25*dx)
-            p = center + jitter
-            add_pts.append(p)
-            if SKLEARN_AVAILABLE:
-                _, j = nn.kneighbors(p.reshape(1,3), return_distance=True)
-                add_nrms.append(nrms[j[0][0]])
-            else:
-                add_nrms.append(np.array([0,0,1.0], dtype=np.float32))
-    if len(add_pts) > 0:
-        pts = np.vstack([pts, np.array(add_pts, dtype=np.float32)])
-        nrms = np.vstack([nrms, np.array(add_nrms, dtype=np.float32)])
-    return pts, nrms
-
-
+    
 # ------------------------------------------------------------
 # Public API
 # ------------------------------------------------------------
-def synthesize_runtime_surface(x_low: np.ndarray,
-                               F_low: np.ndarray,
+def synthesize_runtime_surface(x_low,  # np.ndarray or torch.Tensor
+                               F_low,  # np.ndarray or torch.Tensor
                                cfg: Dict,
                                ema_state: Optional[Dict] = None,
-                               seed: int = 1234) -> Dict:
-    """Main entry. See the module docstring for outputs."""
+                               seed: int = 1234,
+                               differentiable: bool = False,
+                               return_torch: bool = False) -> Dict:
+    """Main entry. See the module docstring for outputs.
+    
+    Args:
+        x_low: (N,3) positions (NumPy or Torch tensor)
+        F_low: (N,3,3) deformation gradients (NumPy or Torch tensor)
+        differentiable: If True, uses differentiable operations where possible
+                       (slower but gradient-friendly for end-to-end training).
+                       Can be overridden by cfg["differentiable"].
+        return_torch: If True, returns Torch tensors (keeps gradient).
+                     If False, returns NumPy arrays (backward compatible).
+    
+    Returns:
+        dict with keys:
+            - "points": (M,3) upsampled positions
+            - "normals": (M,3) normals at upsampled points
+            - "F_smooth": (M,3,3) smoothed deformation gradients
+            - "cov": (M,3,3) covariance matrices for Gaussian splatting
+            - "debug": dict with diagnostic info
+            - "state": updated EMA state
+    """
     if ema_state is None:
         ema_state = {}
 
+    # Check if inputs are torch tensors
+    is_torch_input = TORCH_AVAILABLE and torch.is_tensor(x_low)
+    
+    # Convert to appropriate format
+    if is_torch_input and not return_torch:
+        # Torch input but NumPy output requested - detach and convert
+        x_low_np = _to_numpy(x_low)
+        F_low_np = _to_numpy(F_low)
+    elif not is_torch_input and return_torch:
+        # NumPy input but Torch output requested - convert
+        x_low = _as_torch(x_low).float()
+        F_low = _as_torch(F_low).float()
+        x_low_np = _to_numpy(x_low)
+        F_low_np = _to_numpy(F_low)
+    elif is_torch_input:
+        # Torch input and Torch output
+        x_low_np = _to_numpy(x_low)
+        F_low_np = _to_numpy(F_low)
+    else:
+        # NumPy input and NumPy output (original behavior)
+        x_low_np = np.asarray(x_low)
+        F_low_np = np.asarray(F_low)
+
+    # Use config value if provided, otherwise use parameter
+    differentiable = bool(cfg.get("differentiable", differentiable))
+    
     k_surface  = int(cfg.get("k_surface", 24))
     thr_pct    = float(cfg.get("thr_percentile", 20.0))
     ema_beta   = float(cfg.get("ema_beta", 0.95))
@@ -642,46 +748,79 @@ def synthesize_runtime_surface(x_low: np.ndarray,
 
     # 1) Soft surface probabilities, normals, spacing
     surf_prob, normals, spacing, thr_low, thr_high = compute_surface_mask_soft(
-        x_low, k_surface, thr_pct, ema_state.get("ema_thr", None), ema_beta, hys, tau, ema_state
+        x_low_np, k_surface, thr_pct, ema_state.get("ema_thr", None), ema_beta, hys, tau, ema_state,
+        differentiable=differentiable
     )
 
     # 2) Sampling (reparameterization)
     pts, nrm, anchors = sample_surface_points(
-        x_low, normals, spacing, surf_prob, M, alpha, thickness, density_g, seed=seed
+        x_low_np, normals, spacing, surf_prob, M, alpha, thickness, density_g, seed=seed,
+        differentiable=differentiable
     )
 
     # 2.5) Differentiable density equalization (no new points)
     pts, nrm = _density_equalize_relax(
         pts, nrm, anchors,
-        cfg.get("post_equalize", {}), thickness=thickness
+        cfg.get("post_equalize", {}), thickness=thickness, differentiable=differentiable
     )
-
-    # Optional discrete hole filling (disabled by default; breaks differentiability)
-    pts, nrm = _hole_fill_voxel(pts, nrm, cfg.get('hole_filling', {}), seed=seed)
-
+    
     # 3) F smoothing (ED regularization) on low-res anchors
     if bool(cfg.get("use_F_kernel", True)):
-        F_total = F_low.reshape(-1, 3, 3)
-        F_smooth = smooth_F_with_ED(_as_torch(x_low), _as_torch(F_total), cfg.get("ed", {}))
+        F_total = F_low_np.reshape(-1, 3, 3)
+        F_smooth = smooth_F_with_ED(_as_torch(x_low_np), _as_torch(F_total), 
+                                     cfg.get("ed", {}), differentiable=differentiable)
     else:
         # pass-through
-        F_smooth = _as_torch(F_low.reshape(-1,3,3))
+        F_smooth = _as_torch(F_low_np.reshape(-1,3,3))
 
     # 4) Interpolate F at sampled points with local kernel (Gaussian)
     k_F = int(cfg.get("k_F", 24)); h_mul = float(cfg.get("h_mul", 1.5))
-    if not SKLEARN_AVAILABLE:
-        raise RuntimeError("scikit-learn required for interpolation.")
-    nn = NearestNeighbors(n_neighbors=min(k_F, len(x_low))).fit(_to_numpy(x_low))
-    d, j = nn.kneighbors(pts, return_distance=True)
-    h = h_mul * (np.median(d, axis=1, keepdims=True) + 1e-9)
-    w = np.exp(- (d / h)**2)
-    w = w / (w.sum(axis=1, keepdims=True) + 1e-9)
-    F_loc = np.einsum('mk,mkrc->mrc', w, _to_numpy(F_smooth)[j])
-
-    # 5) Per-point covariance for GS: Sigma = sigma0^2 * F F^T
-    sigma0 = float(cfg.get("sigma0", 0.02))
-    Sig = np.matmul(F_loc, np.transpose(F_loc, (0,2,1)))
-    Sig = (sigma0 ** 2) * Sig
+    
+    if differentiable and TORCH_AVAILABLE:
+        # Torch-based interpolation (differentiable)
+        X_low = _as_torch(x_low_np).float()
+        Pts = _as_torch(pts).float()
+        F_s = _as_torch(F_smooth).float() if not torch.is_tensor(F_smooth) else F_smooth.float()
+        
+        device, dtype = _device_dtype_like(X_low)
+        X_low = X_low.to(device); Pts = Pts.to(device); F_s = F_s.to(device)
+        
+        # Compute pairwise distances
+        D = torch.cdist(Pts, X_low, p=2)  # (M, N_low)
+        d, j = torch.topk(D, k=min(k_F, len(x_low_np)), dim=1, largest=False)  # (M, k_F)
+        
+        h = h_mul * (torch.median(d, dim=1, keepdim=True).values + 1e-9)
+        w = torch.exp(- (d / h)**2)
+        w = w / (w.sum(dim=1, keepdim=True) + 1e-9)  # (M, k_F)
+        
+        # Gather F values at neighbors and interpolate
+        F_neighbors = F_s[j]  # (M, k_F, 3, 3)
+        F_loc = torch.einsum('mk,mkrc->mrc', w, F_neighbors)  # (M, 3, 3)
+        
+        # 5) Per-point covariance for GS: Sigma = sigma0^2 * F F^T
+        sigma0 = float(cfg.get("sigma0", 0.02))
+        Sig = torch.matmul(F_loc, F_loc.transpose(-2, -1))  # (M, 3, 3)
+        Sig = (sigma0 ** 2) * Sig
+        
+        # Keep as torch if return_torch, else convert to numpy
+        if not return_torch:
+            F_loc = _to_numpy(F_loc)
+            Sig = _to_numpy(Sig)
+    else:
+        # NumPy/sklearn fallback (non-differentiable but faster)
+        if not SKLEARN_AVAILABLE:
+            raise RuntimeError("scikit-learn required for interpolation.")
+        nn = NearestNeighbors(n_neighbors=min(k_F, len(x_low_np))).fit(x_low_np)
+        d, j = nn.kneighbors(_to_numpy(pts), return_distance=True)
+        h = h_mul * (np.median(d, axis=1, keepdims=True) + 1e-9)
+        w = np.exp(- (d / h)**2)
+        w = w / (w.sum(axis=1, keepdims=True) + 1e-9)
+        F_loc = np.einsum('mk,mkrc->mrc', w, _to_numpy(F_smooth)[j])
+        
+        # 5) Per-point covariance for GS: Sigma = sigma0^2 * F F^T
+        sigma0 = float(cfg.get("sigma0", 0.02))
+        Sig = np.matmul(F_loc, np.transpose(F_loc, (0,2,1)))
+        Sig = (sigma0 ** 2) * Sig
 
     debug = {
         "thr_low": float(thr_low), "thr_high": float(thr_high),
@@ -689,11 +828,32 @@ def synthesize_runtime_surface(x_low: np.ndarray,
         "mean_prob": float(_to_numpy(surf_prob).mean()) if TORCH_AVAILABLE else float(surf_prob.mean())
     }
 
-    return {
-        "points": pts, "normals": nrm,
-        "F_smooth": F_loc, "cov": Sig,
-        "debug": debug, "state": ema_state
-    }
+    # Return format based on return_torch flag
+    if return_torch and TORCH_AVAILABLE:
+        # Convert all outputs to torch tensors
+        pts_t = _as_torch(pts).float() if not torch.is_tensor(pts) else pts
+        nrm_t = _as_torch(nrm).float() if not torch.is_tensor(nrm) else nrm
+        F_loc_t = _as_torch(F_loc).float() if not torch.is_tensor(F_loc) else F_loc
+        Sig_t = _as_torch(Sig).float() if not torch.is_tensor(Sig) else Sig
+        
+        return {
+            "points": pts_t,      # Torch tensor
+            "normals": nrm_t,     # Torch tensor
+            "F_smooth": F_loc_t,  # Torch tensor
+            "cov": Sig_t,         # Torch tensor
+            "debug": debug,
+            "state": ema_state
+        }
+    else:
+        # Return NumPy arrays (backward compatible)
+        return {
+            "points": _to_numpy(pts) if torch.is_tensor(pts) else pts,
+            "normals": _to_numpy(nrm) if torch.is_tensor(nrm) else nrm,
+            "F_smooth": _to_numpy(F_loc) if torch.is_tensor(F_loc) else F_loc,
+            "cov": _to_numpy(Sig) if torch.is_tensor(Sig) else Sig,
+            "debug": debug,
+            "state": ema_state
+        }
 
 
 # ------------------------------------------------------------

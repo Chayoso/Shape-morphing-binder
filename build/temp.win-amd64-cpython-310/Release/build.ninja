@@ -1,0 +1,39 @@
+ninja_required_version = 1.3
+cxx = cl
+
+cflags = /nologo /O2 /W3 /GL /DNDEBUG /MD -D_USE_MATH_DEFINES -DNDEBUG -DEIGEN_NO_DEBUG -DDIFFMPM_WITH_TORCH -IC:\dev\shape-morphing_v1.7.0\include -IC:\dev\shape-morphing_v1.7.0\include\Eigen -IC:\dev\shape-morphing_v1.7.0\include\glm -IC:\dev\shape-morphing_v1.7.0\include\igl -IC:\dev\shape-morphing_v1.7.0\include\cereal -IC:\dev\shape-morphing_v1.7.0\include\json -IC:\dev\shape-morphing_v1.7.0\include\happly -IC:\dev\shape-morphing_v1.7.0\include\stb -IC:\dev\shape-morphing_v1.7.0\include\qrsvd -IC:\dev\shape-morphing_v1.7.0\include\autodiff -IC:\dev\shape-morphing_v1.7.0\include\args -IC:\dev\shape-morphing_v1.7.0\include\sse2neon -IC:\dev\shape-morphing_v1.7.0\include\unsupported -IC:\dev\shape-morphing_v1.7.0\DiffMPMLib3D -IC:\Users\ok429\anaconda3\envs\diffmpm_v1.7.0\lib\site-packages\torch\include -IC:\Users\ok429\anaconda3\envs\diffmpm_v1.7.0\lib\site-packages\torch\include\torch\csrc\api\include -IC:\Users\ok429\anaconda3\envs\diffmpm_v1.7.0\include -IC:\Users\ok429\anaconda3\envs\diffmpm_v1.7.0\Include "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\include" "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Tools\MSVC\14.38.33130\ATLMFC\include" "-IC:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\VS\include" "-IC:\Program Files (x86)\Windows Kits\10\include\10.0.22621.0\ucrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.22621.0\\um" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.22621.0\\shared" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.22621.0\\winrt" "-IC:\Program Files (x86)\Windows Kits\10\\include\10.0.22621.0\\cppwinrt" "-IC:\Program Files (x86)\Windows Kits\NETFXSDK\4.8\include\um" /MD /wd4819 /wd4251 /wd4244 /wd4267 /wd4275 /wd4018 /wd4190 /wd4624 /wd4067 /wd4068 /EHsc
+post_cflags = /std:c++17 /O2 /MP /openmp /D_OPENMP /utf-8 /EHsc /DNOMINMAX /permissive- /fp:precise /arch:AVX2 /GL -DTORCH_API_INCLUDE_EXTENSION_H -DTORCH_EXTENSION_NAME=diffmpm_bindings
+cuda_dlink_post_cflags = 
+sycl_dlink_post_cflags = 
+ldflags = 
+
+rule compile
+  command = cl /showIncludes $cflags -c $in /Fo$out $post_cflags
+  deps = msvc
+
+
+
+
+
+
+
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\BackPropagation.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\BackPropagation.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\CompGraph.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\CompGraph.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\Elasticity.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\Elasticity.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\ForwardSimulation.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\ForwardSimulation.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\GeometryLoading.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\GeometryLoading.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\Grid.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\Grid.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\GridNode.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\GridNode.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\MaterialPoint.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\MaterialPoint.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\PointCloud.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\PointCloud.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\SphereUnionSurfacing.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\SphereUnionSurfacing.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\dev\shape-morphing_v1.7.0\DiffMPMLib3D\Tensor3x3x3x3.obj: compile C$:\dev\shape-morphing_v1.7.0\DiffMPMLib3D\Tensor3x3x3x3.cpp
+build C$:\dev\shape-morphing_v1.7.0\build\temp.win-amd64-cpython-310\Release\bind/bind.obj: compile C$:\dev\shape-morphing_v1.7.0\bind\bind.cpp
+
+
+
+
+
+
+
+

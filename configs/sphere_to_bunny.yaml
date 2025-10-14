@@ -55,14 +55,13 @@ sampling:
     thickness: 0.12               # Virtual thickness of the reconstructed surface.
     density_gamma: 2.5            # Gamma correction factor applied to density values for distribution adjustment.
     sigma0: 0.1                   # Initial Gaussian standard deviation for methods like Kernel Density Estimation (KDE).
+    differentiable: true          # Enable/disable differentiable operations.
     ed:
       enabled: true               # Enable/disable the Embedded Deformation graph.
       num_nodes: 180              # Number of nodes in the deformation graph.
       node_knn: 8                 # Number of neighboring nodes to connect for each graph node (k-NN).
       point_knn_nodes: 8          # Number of nearest graph nodes each point connects to.
-      lambda_lap: 1.0e-2          # Weight for Laplacian regularization (for graph smoothness).
-    hole_filling:
-      enabled: false              # Enable/disable the surface hole-filling feature.
+      lambda_lap: 1.0e-2          # Weight for Laplacian regularization (for graph smoothness)..
     post_equalize:
       enabled: true               # Enable post-upsampling point distribution equalization.
       iters: 3                    # Number of iterations for the equalization process.

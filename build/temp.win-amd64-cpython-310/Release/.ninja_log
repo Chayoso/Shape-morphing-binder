@@ -1,0 +1,13 @@
+# ninja log v7
+75	1951	7821817895108911	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/Tensor3x3x3x3.obj	25e772c58f11d087
+52	2123	7821817894879032	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/GridNode.obj	14cb657e16463204
+44	2238	7821817894808916	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/Grid.obj	bd816e93eba8fca8
+58	2513	7821817894938970	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/MaterialPoint.obj	5bc658ee892f9f7
+70	2808	7821817895058918	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/SphereUnionSurfacing.obj	b5566938397532c4
+21	2854	7821817894577965	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/CompGraph.obj	4c32adc35360dfd1
+62	3668	7821817894978917	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/PointCloud.obj	ecd631a628c24d29
+31	3672	7821817894679031	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/ForwardSimulation.obj	58a90ce08fcde84e
+30	2885	7821818035257993	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/BackPropagation.obj	13406ce0add7eab0
+34	4520	7821818035307747	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/Elasticity.obj	12cddec38e1b5155
+40	6427	7821818035357162	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/dev/shape-morphing_v1.7.0/DiffMPMLib3D/GeometryLoading.obj	552bfa699c9d11d5
+28	12078	7821818209892586	C:/dev/shape-morphing_v1.7.0/build/temp.win-amd64-cpython-310/Release/bind/bind.obj	ec8d2bfb8b23cc31

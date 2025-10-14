@@ -48,7 +48,7 @@ cd shape-morphing_1.6.0
 using conda:
 ```bash
 conda env create -f environment/environments.yml
-conda activate diffmpm_v1.8.0
+conda activate diffmpm
 ```
 
 using pip:

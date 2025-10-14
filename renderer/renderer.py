@@ -309,47 +309,81 @@ class GSRenderer3DGS:
         )
         self.rasterizer = GaussianRasterizer(self.settings)
 
-    @torch.no_grad()
     def render(self,
                xyz: np.ndarray,
                cov: np.ndarray,
                rgb: Optional[np.ndarray] = None,
                opacity: Optional[np.ndarray] = None,
-               prefer_cov_precomp: bool = True) -> Dict[str, np.ndarray]:
+               prefer_cov_precomp: bool = True,
+               return_torch: bool = False) -> Dict[str, np.ndarray]:
         """Render one frame given means + 3D covariances.
         Args:
-            xyz     : (N,3) world-space means
-            cov     : (N,3,3) or (N,6) world-space covariances
+            xyz     : (N,3) world-space means (NumPy or Torch)
+            cov     : (N,3,3) or (N,6) world-space covariances (NumPy or Torch)
             rgb     : (N,3) in [0,1], default neutral gray
             opacity : (N,1), default ones
+            return_torch : if True, returns Torch tensors (keeps gradient)
         Returns:
             dict with keys:
               - 'image' : (H,W,3) float32 in [0,1]
               - 'depth' : (H,W) float32 or None
               - 'alpha' : (H,W) float32 in [0,1] or None
+        
+        NOTE: For differentiable rendering, pass return_torch=True and
+              ensure xyz/cov are Torch tensors with requires_grad=True.
         """
         import torch
         device = self.device
+        
+        # Check if inputs are already torch tensors
+        is_torch_input = torch.is_tensor(xyz)
 
-        # 1) Project to screen on CPU for stable tiling
-        means2D_np, valid = _project_to_screen(xyz, self._proj_T_np, self.width, self.height)
-        means3D = _to_torch(xyz.astype(np.float32), device=device)
+        # 1) Handle means3D
+        if is_torch_input:
+            means3D = xyz.to(device) if xyz.device != torch.device(device) else xyz
+            # Project to screen (keep on same device if possible, fallback to CPU)
+            xyz_np = xyz.detach().cpu().numpy() if not return_torch else xyz.detach().cpu().numpy()
+        else:
+            xyz_np = np.asarray(xyz)
+            means3D = _to_torch(xyz_np.astype(np.float32), device=device)
+        
+        means2D_np, valid = _project_to_screen(xyz_np, self._proj_T_np, self.width, self.height)
         means2D = _to_torch(means2D_np, device=device)
 
         # 2) Colors/opacity
         if rgb is None or opacity is None:
-            colors, opac = _default_colors_opacity(xyz)
+            colors, opac = _default_colors_opacity(xyz_np if not is_torch_input else xyz.detach().cpu().numpy())
             if rgb is None: rgb = colors
             if opacity is None: opacity = opac
-        colors_t = _to_torch(rgb.astype(np.float32), device=device)
-        opac_t   = _to_torch(opacity.astype(np.float32), device=device)
+        
+        if torch.is_tensor(rgb):
+            colors_t = rgb.to(device) if rgb.device != torch.device(device) else rgb
+        else:
+            colors_t = _to_torch(np.asarray(rgb).astype(np.float32), device=device)
+        
+        if torch.is_tensor(opacity):
+            opac_t = opacity.to(device) if opacity.device != torch.device(device) else opacity
+        else:
+            opac_t = _to_torch(np.asarray(opacity).astype(np.float32), device=device)
 
-        # 3) Try cov3D_precomp fast-path (if the rasterizer supports it)
+        # 3) Handle covariance
+        if torch.is_tensor(cov):
+            cov_np = cov.detach().cpu().numpy()
+            cov_is_torch = True
+        else:
+            cov_np = np.asarray(cov)
+            cov_is_torch = False
+        
+        # 4) Try cov3D_precomp fast-path (if the rasterizer supports it)
         out = None
         if prefer_cov_precomp:
             try:
-                cov6 = _as_cov6(cov)
-                cov_t = _to_torch(cov6, device=device)
+                cov6 = _as_cov6(cov_np)
+                if cov_is_torch and return_torch:
+                    # Keep gradient flow
+                    cov_t = cov if cov.shape[-1] == 6 else torch.from_numpy(cov6).to(device)
+                else:
+                    cov_t = _to_torch(cov6, device=device)
                 out = self.rasterizer(
                     means3D=means3D, means2D=means2D,
                     opacities=opac_t, colors_precomp=colors_t,
@@ -362,18 +396,18 @@ class GSRenderer3DGS:
                 _debug_print(f"[3DGS] cov3D_precomp path error: {e}")
                 out = None
 
-        # 4) Fallback: decompose Σ -> scales, rotations (quaternion xyzw)
+        # 5) Fallback: decompose Σ -> scales, rotations (quaternion xyzw)
         if out is None:
-            if cov.ndim == 2 and cov.shape[1] == 6:
+            if cov_np.ndim == 2 and cov_np.shape[1] == 6:
                 # Reconstruct 3x3 for decomposition
-                xx,xy,xz,yy,yz,zz = [cov[:,i] for i in range(6)]
-                C = np.zeros((len(cov),3,3), dtype=np.float32)
+                xx,xy,xz,yy,yz,zz = [cov_np[:,i] for i in range(6)]
+                C = np.zeros((len(cov_np),3,3), dtype=np.float32)
                 C[:,0,0]=xx; C[:,0,1]=xy; C[:,0,2]=xz
                 C[:,1,0]=xy; C[:,1,1]=yy; C[:,1,2]=yz
                 C[:,2,0]=xz; C[:,2,1]=yz; C[:,2,2]=zz
                 cov3 = C
             else:
-                cov3 = cov.astype(np.float32)
+                cov3 = cov_np.astype(np.float32)
             scales, rots_xyzw = _scales_rots_from_cov(cov3.astype(np.float32))
             scales_t = _to_torch(scales, device=device)
             rots_t   = _to_torch(rots_xyzw, device=device)  # xyzw convention
@@ -383,6 +417,33 @@ class GSRenderer3DGS:
                 scales=scales_t, rotations=rots_t
             )
 
-        # 5) Parse outputs into (rgb, depth, alpha)
-        rgb_np, depth_np, alpha_np = _parse_rasterizer_outputs(out, self.height, self.width)
-        return {"image": rgb_np, "depth": depth_np, "alpha": alpha_np}
+        # 6) Return torch tensors or numpy arrays
+        if return_torch:
+            # Keep as torch tensors for gradient flow
+            if isinstance(out, (list, tuple)):
+                color_t = out[0] if len(out) > 0 else None
+                depth_t = out[1] if len(out) > 1 else None
+                alpha_t = out[2] if len(out) > 2 else None
+            else:
+                color_t = out
+                depth_t = None
+                alpha_t = None
+            
+            # Basic shape check
+            if color_t is not None and color_t.ndim == 3:
+                if color_t.shape[0] in (3, 4):  # CHW
+                    image_t = color_t.permute(1, 2, 0)[:, :, :3]
+                else:  # HWC
+                    image_t = color_t[:, :, :3]
+            else:
+                image_t = color_t
+            
+            return {
+                "image": image_t,  # Torch tensor
+                "depth": depth_t,  # Torch tensor or None
+                "alpha": alpha_t,  # Torch tensor or None
+            }
+        else:
+            # Parse outputs into numpy (backward compatible)
+            rgb_np, depth_np, alpha_np = _parse_rasterizer_outputs(out, self.height, self.width)
+            return {"image": rgb_np, "depth": depth_np, "alpha": alpha_np}

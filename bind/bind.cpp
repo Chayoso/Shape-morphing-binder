@@ -15,6 +15,14 @@
 #include "ForwardSimulation.h"
 #include "CompGraph.h"
 
+// PyTorch C++ API (optional, for torch tensor support)
+#ifdef DIFFMPM_WITH_TORCH
+#include <torch/extension.h>
+#define TORCH_AVAILABLE true
+#else
+#define TORCH_AVAILABLE false
+#endif
+
 namespace py = pybind11;
 using namespace DiffMPMLib3D;
 
@@ -75,6 +83,52 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("get_positions", &PointCloud::GetPointPositions, "Return particle positions as (N, 3) NumPy array")
         .def("get_masses", &PointCloud::GetPointMasses, "Return particle masses as (N,) NumPy array")
         .def("get_def_grads", &PointCloud::GetPointDefGrads, "Return particle deformation tensors as (N, 3, 3) NumPy array")
+#ifdef DIFFMPM_WITH_TORCH
+        // Torch tensor versions (requires PyTorch C++ API)
+        .def("get_positions_torch", [](const PointCloud& pc, bool requires_grad) {
+            const size_t N = pc.points.size();
+            auto options = torch::TensorOptions()
+                .dtype(torch::kFloat32)
+                .device(torch::kCPU)
+                .requires_grad(requires_grad);
+            
+            auto tensor = torch::empty({(int64_t)N, 3}, options);
+            auto accessor = tensor.accessor<float, 2>();
+            
+            for (size_t i = 0; i < N; ++i) {
+                accessor[i][0] = pc.points[i].x[0];
+                accessor[i][1] = pc.points[i].x[1];
+                accessor[i][2] = pc.points[i].x[2];
+            }
+            
+            return tensor;
+        }, py::arg("requires_grad") = false,
+           "Return particle positions as PyTorch tensor (N, 3) with optional gradient support")
+        
+        .def("get_def_grads_total_torch", [](const PointCloud& pc, bool requires_grad) {
+            const size_t N = pc.points.size();
+            auto options = torch::TensorOptions()
+                .dtype(torch::kFloat32)
+                .device(torch::kCPU)
+                .requires_grad(requires_grad);
+            
+            auto tensor = torch::empty({(int64_t)N, 3, 3}, options);
+            auto accessor = tensor.accessor<float, 3>();
+            
+            for (size_t i = 0; i < N; ++i) {
+                const auto& F  = pc.points[i].F;
+                const auto& dF = pc.points[i].dFc;
+                for (int r = 0; r < 3; ++r) {
+                    for (int c = 0; c < 3; ++c) {
+                        accessor[i][r][c] = F(r, c) + dF(r, c);
+                    }
+                }
+            }
+            
+            return tensor;
+        }, py::arg("requires_grad") = false,
+           "Return total deformation F_total = F + dFc as PyTorch tensor (N, 3, 3)")
+#endif
         .def("get_def_grads_morph", [](const PointCloud& pc) {
             // Return dFc as (N,3,3) NumPy array
             const size_t N = pc.points.size();

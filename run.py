@@ -1,3 +1,4 @@
+
 # run.py
 # Unified runner that integrates DiffMPM + runtime surface + 3DGS renderer.
 # - Safe image writer (imageio -> PIL fallback)

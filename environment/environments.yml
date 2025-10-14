@@ -1,4 +1,4 @@
-name: diffmpm_v1.8.0
+name: diffmpm_v1.7.0
 channels:
   - conda-forge
   - defaults
@@ -26,7 +26,8 @@ dependencies:
   - PyMCubes==0.1.4
 
   - pip:
-    - imageio
+    - imageio-freeimage
+    - openexr
 
     # PyTorch for CUDA 12.8
     # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 (PyTorch for CUDA 12.8)
