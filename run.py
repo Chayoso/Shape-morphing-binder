@@ -30,59 +30,42 @@ def _save_depth16(path, depth_meters):
         from PIL import Image as _Image
         _Image.fromarray(dmm).save(str(path))
 
-# Add this next to _save_depth16 in run.py
-def _save_depth_preview8(path, depth_meters, mode="percentile", p=(1.0, 99.0), near=None, far=None):
-    """
-    Save a view-friendly 8-bit depth preview by normalizing the float depth map.
-    Modes:
-      - "percentile": map [p_lo, p_hi] percentiles to [0,255]
-      - "linear"    : map [near, far] (meters) to [0,255]
-      - "inverse"   : map 1/z into [0,255] using [near, far]
-    """
-    import numpy as _np
-    from imageio.v2 import imwrite as _iow
-    d = _np.nan_to_num(_np.asarray(depth_meters, dtype=_np.float32), nan=0.0, posinf=0.0, neginf=0.0)
-    mask = d > 0
-
-    if mode == "percentile":
-        if _np.any(mask):
-            lo, hi = _np.percentile(d[mask], p[0]), _np.percentile(d[mask], p[1])
-        else:
-            lo, hi = 0.0, 1.0
-    elif mode == "inverse":
-        if near is None: near = max(1e-3, d[mask].min() if _np.any(mask) else 0.01)
-        if far  is None: far  = (d[mask].max() if _np.any(mask) else 10.0)
-        z = d.copy(); z[~mask] = 0.0
-        inv = _np.where(mask, 1.0/_np.clip(z, near, far), 0.0)
-        lo, hi = inv[mask].min(), inv[mask].max()
-        d = inv
-    else:  # "linear"
-        if near is None: near = (d[mask].min() if _np.any(mask) else 0.0)
-        if far  is None:  far = (d[mask].max() if _np.any(mask) else 1.0)
-        lo, hi = near, far
-
-    s = ( (d - lo) / (max(hi - lo, 1e-6)) )
-    s = _np.clip(s, 0.0, 1.0)
-    _iow(str(path), (s * 255.0).astype(_np.uint8))
-
 
 # --- DiffMPM bindings --------------------------------------------------------
 try:
+    # Import torch first to load PyTorch DLLs (required for torch-enabled bindings)
+    try:
+        import torch
+    except ImportError:
+        pass
+    
     import diffmpm_bindings
     BINDINGS_AVAILABLE = True
 except Exception:
     diffmpm_bindings = None
     BINDINGS_AVAILABLE = False
 
-# --- Runtime surface (upsampler) --------------------------------------------
-from sampling.runtime_surface import (
-    default_cfg,
-    synthesize_runtime_surface,
-    save_ply_xyz,
-    save_gaussians_npz,
-    save_comparison_png,
-    save_axis_hist_png,
-)
+# --- Runtime surface upsampling ---------------------------------------------
+try:
+    from sampling.runtime_surface import (
+        default_cfg,
+        synthesize_runtime_surface,
+        save_ply_xyz,
+        save_gaussians_npz,
+        save_comparison_png,
+        save_axis_hist_png,
+    )
+    print("[run.py] ✅ Using improved upsampling")
+except ImportError:
+    from sampling.runtime_surface import (
+        default_cfg,
+        synthesize_runtime_surface,
+        save_ply_xyz,
+        save_gaussians_npz,
+        save_comparison_png,
+        save_axis_hist_png,
+    )
+    print("[run.py] ⚠️ Fallback to original upsampling")
 
 # --- 3DGS integration --------------------------------------------------------
 try:
@@ -177,18 +160,19 @@ def main():
     # Extract target positions (PNG compare)
     tgt = _np(diffmpm_bindings.get_positions_from_pc(target_pc))
 
-    # Runtime-surface config
+    # Runtime surface upsampling configuration
     rs = default_cfg()
     rs_user = cfg.get("sampling", {}).get("runtime_surface", {}) or {}
     rs.update(rs_user)
+    
     rs.setdefault("png", {"enabled": True, "dpi": 160, "ptsize": 0.5})
     if args.png:
         rs["png"]["enabled"] = True
         rs["png"]["dpi"] = args.png_dpi
         rs["png"]["ptsize"] = args.png_ptsize
     
-    # Debug: Print sigma0 value
-    print(f"[Runtime Surface] sigma0={rs.get('sigma0', 0.02):.4f} M={rs.get('M', 180000)}")
+    # Display configuration
+    print(f"[Upsampling] M={rs.get('M', 180000):,} points | sigma0={rs.get('sigma0', 0.02):.4f} | thickness={rs.get('thickness', 0.08):.3f}")
 
     # 3DGS render config (YAML)
     render_cfg = cfg.get("render", {}) or {}
@@ -235,15 +219,31 @@ def main():
         # Extract current low-res positions and deformation grads
         last = cg.get_num_layers() - 1
         pc   = cg.get_point_cloud(last)
-        x    = _np(pc.get_positions())
-        F    = _np(pc.get_def_grads_total())
+        
+        # Use PyTorch tensors with gradient support (if available)
+        try:
+            x = pc.get_positions_torch(requires_grad=True)
+            F = pc.get_def_grads_total_torch(requires_grad=True)
+            print(f"[DiffMPM→Surface] Using PyTorch tensors (gradient-enabled)")
+        except AttributeError:
+            # Fallback to NumPy if PyTorch binding not available
+            x = _np(pc.get_positions())
+            F = _np(pc.get_def_grads_total())
+            print(f"[DiffMPM→Surface] Using NumPy arrays (no gradients)")
 
-        # Generate runtime surface
-        result = synthesize_runtime_surface(x, F, rs, ema_state=ema_state, seed=1234+ep)
+        # Generate runtime surface with differentiable mode
+        result = synthesize_runtime_surface(x, F, rs, ema_state=ema_state, seed=1234+ep, 
+                                           differentiable=True, return_torch=True)
         mu, cov, ema_state = result["points"], result["cov"], result["state"]
         
         # Debug: Check covariance after synthesis
-        cov_diag_ep = np.array([cov[i].diagonal() for i in range(len(cov))])
+        # Convert cov to numpy for diagnostics
+        cov_np = cov
+        if isinstance(cov, torch.Tensor):
+            cov_np = cov.detach().cpu().numpy()
+        elif isinstance(cov, list) and len(cov) > 0 and isinstance(cov[0], torch.Tensor):
+            cov_np = [c.detach().cpu().numpy() for c in cov]
+        cov_diag_ep = np.array([cov_np[i].diagonal() for i in range(len(cov_np))])
         sigma0_val = float(rs.get('sigma0', 0.02))
         print(f"[Surface] N={len(mu)} cov_diag_mean=[{cov_diag_ep.mean(axis=0)[0]:.6f}, "
               f"{cov_diag_ep.mean(axis=0)[1]:.6f}, {cov_diag_ep.mean(axis=0)[2]:.6f}] "
@@ -258,14 +258,22 @@ def main():
             cmp_path = ep_dir / f"ep{ep:03d}_comparison.png"
             png_dpi = rs.get("png", {}).get("dpi", 160)
             png_ptsize = rs.get("png", {}).get("ptsize", 0.5)
-            save_comparison_png(cmp_path, current_before=x, current_after=mu, radial_after=mu, target_before=tgt,
+            # Convert to numpy for PNG saving only
+            x_np = x.detach().cpu().numpy() if isinstance(x, torch.Tensor) else x
+            mu_np = mu.detach().cpu().numpy() if isinstance(mu, torch.Tensor) else mu
+            save_comparison_png(cmp_path, current_before=x_np, current_after=mu_np, radial_after=mu_np, target_before=tgt,
                                 dpi=png_dpi, ptsize=png_ptsize)
             hist_path = ep_dir / f"ep{ep:03d}_axis_hist.png"
-            save_axis_hist_png(hist_path, mu, dpi=png_dpi)
+            save_axis_hist_png(hist_path, mu_np, dpi=png_dpi)
 
         # (3) summary.json (+ J statistics Report)
         debug = result["debug"]
-        J = np.linalg.det(F)  # F is total def-grad from bindings
+        # Compute J determinant (handle torch tensors)
+        if isinstance(F, torch.Tensor):
+            J = torch.linalg.det(F).detach().cpu().numpy()
+        else:
+            J = np.linalg.det(F)
+        
         Jmin_cfg = float(cfg.get("sampling", {}).get("Jmin_diag", 0.60))
         debug.update({
             "J_min": float(J.min()),
@@ -279,12 +287,22 @@ def main():
 
         # (4) gaussians.npz (with YAML-defined color)
         npz_path = ep_dir / f"ep{ep:03d}_gaussians.npz"
-        rgb_mu = np.tile(np.array(particle_color, dtype=np.float32), (len(mu), 1))
-        save_gaussians_npz(npz_path, mu, cov, rgb=rgb_mu)
+        # Convert to numpy for saving (already converted above as mu_np, cov_np)
+        if 'mu_np' not in locals():
+            mu_np = mu.detach().cpu().numpy() if isinstance(mu, torch.Tensor) else mu
+        if 'cov_np' not in locals() or cov_np is cov:
+            if isinstance(cov, torch.Tensor):
+                cov_np = cov.detach().cpu().numpy()
+            elif isinstance(cov, list) and len(cov) > 0 and isinstance(cov[0], torch.Tensor):
+                cov_np = [c.detach().cpu().numpy() for c in cov]
+            else:
+                cov_np = cov
+        rgb_mu = np.tile(np.array(particle_color, dtype=np.float32), (len(mu_np), 1))
+        save_gaussians_npz(npz_path, mu_np, cov_np, rgb=rgb_mu)
 
         # (5) surface.ply
-        ply_path = ep_dir / f"ep{ep:03d}_surface_{len(mu)}.ply"
-        save_ply_xyz(ply_path, mu)
+        ply_path = ep_dir / f"ep{ep:03d}_surface_{len(mu_np)}.ply"
+        save_ply_xyz(ply_path, mu_np)
 
         # (6) 3DGS render per-timestep
         if HAVE_3DGS and num_frames > 0:
@@ -295,13 +313,31 @@ def main():
 
             for t in indices:
                 pc_t = cg.get_point_cloud(t)
-                x_t  = _np(pc_t.get_positions())
-                F_t  = _np(pc_t.get_def_grads_total())
+                
+                # Use PyTorch tensors for gradient flow
+                try:
+                    x_t = pc_t.get_positions_torch(requires_grad=True)
+                    F_t = pc_t.get_def_grads_total_torch(requires_grad=True)
+                except AttributeError:
+                    # Fallback to numpy if torch binding not available
+                    x_t = _np(pc_t.get_positions())
+                    F_t = _np(pc_t.get_def_grads_total())
 
-                result_t = synthesize_runtime_surface(x_t, F_t, rs, ema_state=ema_state, seed=1000*ep + t)
+                result_t = synthesize_runtime_surface(x_t, F_t, rs, ema_state=ema_state, seed=1000*ep + t, 
+                                                     differentiable=True, return_torch=True)
                 mu_t, cov_t = result_t["points"], result_t["cov"]
                 # Optional normals for shading
                 nrm_t = result_t.get("normals", None)
+                
+                # Convert to numpy for rendering (renderer expects numpy arrays)
+                if isinstance(mu_t, torch.Tensor):
+                    mu_t = mu_t.detach().cpu().numpy()
+                if isinstance(cov_t, torch.Tensor):
+                    cov_t = cov_t.detach().cpu().numpy()
+                elif isinstance(cov_t, list) and len(cov_t) > 0 and isinstance(cov_t[0], torch.Tensor):
+                    cov_t = [c.detach().cpu().numpy() for c in cov_t]
+                if nrm_t is not None and isinstance(nrm_t, torch.Tensor):
+                    nrm_t = nrm_t.detach().cpu().numpy()
 
                 # --- Shading setup (from YAML 'render.lighting') ---
                 light_cfg = render_cfg.get("lighting", {}) if isinstance(render_cfg, dict) else {}
@@ -324,10 +360,13 @@ def main():
                     cov_mean_diag = cov_diag.mean(axis=0)
                     print(f"  [t={t}] N={len(mu_t)} cov_diag_mean=[{cov_mean_diag[0]:.6f}, {cov_mean_diag[1]:.6f}, {cov_mean_diag[2]:.6f}]")
                     
-                    out = renderer.render(mu_t, cov_t, rgb=rgb_t, prefer_cov_precomp=True)
+                    # Render with normal map enabled
+                    out = renderer.render(mu_t, cov_t, rgb=rgb_t, normals=nrm_t,
+                                         prefer_cov_precomp=True, render_normal_map=True)
                     img = out["image"].astype(np.float32)
                     depth = out.get("depth", None)
                     alpha = out.get("alpha", None)
+                    normal_map = out.get("normal_map", None)
 
                     # Background handling (paths are relative to YAML file)
                     bg_cfg = render_cfg.get("background", {}) if isinstance(render_cfg, dict) else {}
@@ -363,15 +402,13 @@ def main():
                     _save_png(frame_path, (np.clip(comp,0,1)*255).astype(np.uint8))
                     if depth is not None:
                         _save_depth16(rdir / f"frame_{t:04d}_depth.png", depth.astype(np.float32))  # 16-bit, millimeters
-                        # NEW: human-friendly preview (auto normalized 8-bit)
-                        _save_depth_preview8(rdir / f"frame_{t:04d}_depth_preview.png",
-                                             depth.astype(np.float32), mode=render_cfg.get("depth_preview", {}).get("mode", "percentile"),
-                                             p=tuple(render_cfg.get("depth_preview", {}).get("percentiles", [1.0, 99.0])),
-                                             near=render_cfg.get("depth_preview", {}).get("near", None),
-                                             far=render_cfg.get("depth_preview", {}).get("far", None))
                     if alpha is not None:
                         a8 = (np.clip(alpha,0,1)*255).astype(np.uint8)
                         _save_png(rdir / f"frame_{t:04d}_alpha.png", a8)
+                    if normal_map is not None:
+                        # Normal map is already in [0,1] RGB format
+                        nrm8 = (np.clip(normal_map,0,1)*255).astype(np.uint8)
+                        _save_png(rdir / f"frame_{t:04d}_normal.png", nrm8)
                 except Exception as e:
                     print(f"[WARN] 3DGS render failed at t={t}: {e}")
                     

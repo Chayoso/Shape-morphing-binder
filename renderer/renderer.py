@@ -314,20 +314,25 @@ class GSRenderer3DGS:
                cov: np.ndarray,
                rgb: Optional[np.ndarray] = None,
                opacity: Optional[np.ndarray] = None,
+               normals: Optional[np.ndarray] = None,
                prefer_cov_precomp: bool = True,
-               return_torch: bool = False) -> Dict[str, np.ndarray]:
+               return_torch: bool = False,
+               render_normal_map: bool = False) -> Dict[str, np.ndarray]:
         """Render one frame given means + 3D covariances.
         Args:
             xyz     : (N,3) world-space means (NumPy or Torch)
             cov     : (N,3,3) or (N,6) world-space covariances (NumPy or Torch)
             rgb     : (N,3) in [0,1], default neutral gray
             opacity : (N,1), default ones
+            normals : (N,3) surface normals (optional, for normal map rendering)
             return_torch : if True, returns Torch tensors (keeps gradient)
+            render_normal_map : if True, also render a normal map pass
         Returns:
             dict with keys:
               - 'image' : (H,W,3) float32 in [0,1]
               - 'depth' : (H,W) float32 or None
               - 'alpha' : (H,W) float32 in [0,1] or None
+              - 'normal_map' : (H,W,3) float32 or None (if render_normal_map=True)
         
         NOTE: For differentiable rendering, pass return_torch=True and
               ensure xyz/cov are Torch tensors with requires_grad=True.
@@ -397,6 +402,8 @@ class GSRenderer3DGS:
                 out = None
 
         # 5) Fallback: decompose Σ -> scales, rotations (quaternion xyzw)
+        scales_t = None
+        rots_t = None
         if out is None:
             if cov_np.ndim == 2 and cov_np.shape[1] == 6:
                 # Reconstruct 3x3 for decomposition
@@ -417,7 +424,48 @@ class GSRenderer3DGS:
                 scales=scales_t, rotations=rots_t
             )
 
-        # 6) Return torch tensors or numpy arrays
+        # 6) Render normal map if requested
+        normal_map_out = None
+        if render_normal_map and normals is not None:
+            # Convert normals from [-1,1] to [0,1] for RGB rendering
+            if torch.is_tensor(normals):
+                normals_rgb_t = (normals + 1.0) * 0.5
+                normals_rgb_t = torch.clamp(normals_rgb_t, 0.0, 1.0).to(device)
+            else:
+                normals_np = np.asarray(normals).astype(np.float32)
+                normals_rgb_np = np.clip((normals_np + 1.0) * 0.5, 0.0, 1.0)
+                normals_rgb_t = _to_torch(normals_rgb_np, device=device)
+            
+            # Always use scales/rotations for normal map rendering (more compatible)
+            try:
+                # Need to prepare scales/rotations if not already done
+                if scales_t is None or rots_t is None:
+                    if cov_np.ndim == 2 and cov_np.shape[1] == 6:
+                        xx,xy,xz,yy,yz,zz = [cov_np[:,i] for i in range(6)]
+                        C = np.zeros((len(cov_np),3,3), dtype=np.float32)
+                        C[:,0,0]=xx; C[:,0,1]=xy; C[:,0,2]=xz
+                        C[:,1,0]=xy; C[:,1,1]=yy; C[:,1,2]=yz
+                        C[:,2,0]=xz; C[:,2,1]=yz; C[:,2,2]=zz
+                        cov3 = C
+                    else:
+                        cov3 = cov_np.astype(np.float32)
+                    scales, rots_xyzw = _scales_rots_from_cov(cov3.astype(np.float32))
+                    scales_t = _to_torch(scales, device=device)
+                    rots_t = _to_torch(rots_xyzw, device=device)
+                
+                # Render with scales/rotations (more compatible than cov3D_precomp)
+                normal_map_out = self.rasterizer(
+                    means3D=means3D, means2D=means2D,
+                    opacities=opac_t, colors_precomp=normals_rgb_t,
+                    scales=scales_t, rotations=rots_t
+                )
+            except Exception as e:
+                _debug_print(f"[3DGS] Normal map rendering failed: {e}")
+                import traceback
+                traceback.print_exc()
+                normal_map_out = None
+
+        # 7) Return torch tensors or numpy arrays
         if return_torch:
             # Keep as torch tensors for gradient flow
             if isinstance(out, (list, tuple)):
@@ -438,12 +486,37 @@ class GSRenderer3DGS:
             else:
                 image_t = color_t
             
+            # Parse normal map
+            normal_map_t = None
+            if normal_map_out is not None:
+                if isinstance(normal_map_out, (list, tuple)):
+                    nrm_t = normal_map_out[0] if len(normal_map_out) > 0 else None
+                else:
+                    nrm_t = normal_map_out
+                if nrm_t is not None and nrm_t.ndim == 3:
+                    if nrm_t.shape[0] in (3, 4):  # CHW
+                        normal_map_t = nrm_t.permute(1, 2, 0)[:, :, :3]
+                    else:  # HWC
+                        normal_map_t = nrm_t[:, :, :3]
+            
             return {
                 "image": image_t,  # Torch tensor
                 "depth": depth_t,  # Torch tensor or None
                 "alpha": alpha_t,  # Torch tensor or None
+                "normal_map": normal_map_t,  # Torch tensor or None
             }
         else:
             # Parse outputs into numpy (backward compatible)
             rgb_np, depth_np, alpha_np = _parse_rasterizer_outputs(out, self.height, self.width)
-            return {"image": rgb_np, "depth": depth_np, "alpha": alpha_np}
+            
+            # Parse normal map
+            normal_map_np = None
+            if normal_map_out is not None:
+                normal_map_np, _, _ = _parse_rasterizer_outputs(normal_map_out, self.height, self.width)
+            
+            return {
+                "image": rgb_np,
+                "depth": depth_np,
+                "alpha": alpha_np,
+                "normal_map": normal_map_np,
+            }
