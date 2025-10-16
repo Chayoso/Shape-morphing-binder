@@ -28,10 +28,10 @@ dependencies:
   - pip:
     - imageio-freeimage
     - openexr
-
+    
     # PyTorch for CUDA 12.8
     # pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 (PyTorch for CUDA 12.8)
-
+    # conda install -c pytorch -c nvidia faiss-gpu=1.7.4 mkl=2021 blas=1.0=mkl
     # Local submodules (editable mode)
     # - pip install -e gaussian-splatting/submodules/diff-gaussian-rasterization (diff-gauss)
     # - pip install -e gaussian-splatting/submodules/fused-ssim (fused-ssim)

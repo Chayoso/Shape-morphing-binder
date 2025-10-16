@@ -5,6 +5,11 @@
 # - cov3D_precomp fast path + fallback
 # - Proper means2D computation inside renderer to avoid "white screen"
 # - YAML render.num_frames controls how many timesteps are rendered.
+
+# Fix OpenMP duplicate library error
+import os
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 import argparse, json
 from pathlib import Path
 import numpy as np
@@ -47,6 +52,7 @@ except Exception:
 
 # --- Runtime surface upsampling ---------------------------------------------
 try:
+    # Try fully differentiable version first
     from sampling.runtime_surface import (
         default_cfg,
         synthesize_runtime_surface,
@@ -55,8 +61,10 @@ try:
         save_comparison_png,
         save_axis_hist_png,
     )
-    print("[run.py] ✅ Using improved upsampling")
+    print("[run.py] 🚀 Using FULLY DIFFERENTIABLE UPSAMPLING")
+    DIFFERENTIABLE_MODE = True
 except ImportError:
+    # Fallback to original
     from sampling.runtime_surface import (
         default_cfg,
         synthesize_runtime_surface,
@@ -65,8 +73,9 @@ except ImportError:
         save_comparison_png,
         save_axis_hist_png,
     )
-    print("[run.py] ⚠️ Fallback to original upsampling")
-
+    print("[run.py] ⚠️ Fallback to original upsampling (partial differentiability)")
+    DIFFERENTIABLE_MODE = False
+    
 # --- 3DGS integration --------------------------------------------------------
 try:
     from renderer.camera_utils import make_matrices_from_yaml
@@ -217,23 +226,29 @@ def main():
         print("# ====================== OPTIMIZATION ENDED ========================== #")
 
         # Extract current low-res positions and deformation grads
+        # Extract current low-res positions and deformation grads
         last = cg.get_num_layers() - 1
         pc   = cg.get_point_cloud(last)
-        
-        # Use PyTorch tensors with gradient support (if available)
+
+        # Use PyTorch tensors (NO gradient tracking for forward-only)
         try:
-            x = pc.get_positions_torch(requires_grad=True)
-            F = pc.get_def_grads_total_torch(requires_grad=True)
-            print(f"[DiffMPM→Surface] Using PyTorch tensors (gradient-enabled)")
+            x = pc.get_positions_torch(requires_grad=False)  # ⬅️ False for forward-only
+            F = pc.get_def_grads_total_torch(requires_grad=False)  # ⬅️ False
+            print(f"[DiffMPM→Surface] Using PyTorch tensors (forward-only mode)")
         except AttributeError:
-            # Fallback to NumPy if PyTorch binding not available
             x = _np(pc.get_positions())
             F = _np(pc.get_def_grads_total())
-            print(f"[DiffMPM→Surface] Using NumPy arrays (no gradients)")
+            print(f"[DiffMPM→Surface] Using NumPy arrays")
 
-        # Generate runtime surface with differentiable mode
-        result = synthesize_runtime_surface(x, F, rs, ema_state=ema_state, seed=1234+ep, 
-                                           differentiable=True, return_torch=True)
+        # Generate runtime surface (forward-only, no backward pass)
+        with torch.no_grad():  # ⬅️ explicitly disable gradient tracking
+            result = synthesize_runtime_surface(
+                x, F, rs, 
+                ema_state=ema_state, 
+                seed=1234+ep, 
+                differentiable=True,  # ⬅️ True 
+                return_torch=True     # ⬅️ True 
+            )
         mu, cov, ema_state = result["points"], result["cov"], result["state"]
         
         # Debug: Check covariance after synthesis
@@ -314,17 +329,21 @@ def main():
             for t in indices:
                 pc_t = cg.get_point_cloud(t)
                 
-                # Use PyTorch tensors for gradient flow
                 try:
-                    x_t = pc_t.get_positions_torch(requires_grad=True)
-                    F_t = pc_t.get_def_grads_total_torch(requires_grad=True)
+                    x_t = pc_t.get_positions_torch(requires_grad=False)  # ⬅️ False
+                    F_t = pc_t.get_def_grads_total_torch(requires_grad=False)  # ⬅️ False
                 except AttributeError:
-                    # Fallback to numpy if torch binding not available
                     x_t = _np(pc_t.get_positions())
                     F_t = _np(pc_t.get_def_grads_total())
 
-                result_t = synthesize_runtime_surface(x_t, F_t, rs, ema_state=ema_state, seed=1000*ep + t, 
-                                                     differentiable=True, return_torch=True)
+                with torch.no_grad():  # ⬅️ explicitly disable gradient tracking
+                    result_t = synthesize_runtime_surface(
+                        x_t, F_t, rs, 
+                        ema_state=ema_state, 
+                        seed=1000*ep + t, 
+                        differentiable=True,
+                        return_torch=True
+                    )
                 mu_t, cov_t = result_t["points"], result_t["cov"]
                 # Optional normals for shading
                 nrm_t = result_t.get("normals", None)

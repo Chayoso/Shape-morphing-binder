@@ -105,7 +105,6 @@ def compute_shading(xyz: np.ndarray,
         diffuse: float
         specular: float
         shininess: float
-        # NEW:
         orient: 'view' | 'light'  (flip normals to face view or light)  [default: 'view']
         two_sided: bool            (use |N·L| for diffuse)               [default: True]
         min_ambient: float         (floor on ambient to avoid black)     [default: 0.05]
