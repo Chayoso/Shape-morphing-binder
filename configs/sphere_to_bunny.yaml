@@ -1,0 +1,263 @@
+# ================================================================================
+# [CVPR 2026] PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
+# ================================================================================
+
+# Input/Output file path
+input_mesh_path: "assets/isosphere.obj"
+target_mesh_path: "assets/bunny.obj"
+output_dir: "output/"
+
+# ===================================================================
+# DiffMPM for Shape Morphing setting
+# ===================================================================
+simulation:
+  # Grid setting
+  grid_dx: 1                             # Grid cell size
+  points_per_cell_cuberoot: 2            # Number of points per cell (cubic root)
+  grid_min_point: [-16.0, -16.0, -16.0]  # Grid minimum coordinate
+  grid_max_point: [16.0, 16.0, 16.0]     # Grid maximum coordinate
+  
+  # Material properties (Lame parameters)
+  lam: 38888.89                          # λ (Volume elastic modulus)
+  mu:  58333.3                           # μ (Shear elastic modulus)
+  density: 75.0                          # Density
+  
+  # Simulation parameters
+  dt: 0.00833333333                      # Time step (1/120)
+  drag: 0.5                              # Drag coefficient
+  external_force: [0.0, 0.0, 0.0]        # External force (gravity, etc.)
+  smoothing_factor: 0.955                # Smoothing factor
+
+# control_stride: control frame interval
+# num_timesteps: number of time steps per episode
+# control_timesteps: time steps to optimize
+# optimize count: number of times to optimize
+#|  control_stride | num_timesteps | control_timesteps | optimize count |
+#|-----------------|---------------|-------------------|---------------|
+#|        1        |      10       |[0,1,2,3,4,5,6,7,8]|      9        |
+#|        2        |      10       |    [0,2,4,6,8]    |      5        |
+#|        3        |      10       |      [0,3,6]      |      3        |
+#|        5        |      10       |      [0,5]        |      2        |
+#|        10       |      10       |      [0]          |      1        |
+
+# ===================================================================
+# Optimization setting
+# ===================================================================
+optimization:
+  num_animations: 2                 # Number of animation episodes
+  num_timesteps: 10                 # Number of time steps per episode
+  control_stride: 1                 # Control frame interval
+  max_gd_iters: 1                   # Maximum number of gradient descent iterations
+  max_ls_iters: 10                  # Maximum number of line search iterations
+  initial_alpha: 0.01               # Initial step size
+  gd_tol: 0.0001                    # Gradient tolerance
+  num_timesteps: 10                 # Number of time steps per episode
+  control_stride: 1                 # Control frame interval
+  max_gd_iters: 1                   # Maximum number of gradient descent iterations
+  max_ls_iters: 10                  # Maximum number of line search iterations
+  initial_alpha: 0.01               # Initial step size
+  gd_tol: 0.0001                    # Gradient tolerance
+  
+  # HYBRID E2E LOSS CONFIGURATION
+  loss:
+    enabled: true                   # Enable E2E training
+    # Photometric losses
+    w_alpha: 0.5
+    w_depth: 0.2
+
+    #  Silhouette Edge Alignment
+    w_edge: 0.1
+
+    # Covariance Spectral Alignment
+    w_cov_align: 0.3
+    
+    # Regularization
+    w_cov_reg: 0.01
+    cov_reg_mode: 'eigenvalue'
+    target_cov_scale: 0.02
+    w_normal_smooth: 0.0
+    
+    # Schedule
+    schedule: 'constant'
+
+# Output setting
+output:
+  export_ply: false                 # Export PLY file
+  output_format: "ply"              # Output format
+
+# ===================================================================
+# UPSAMPLING SETTINGS (RUNTIME SURFACE) - HYBRID E2E MODE
+# ===================================================================
+sampling:
+  runtime_surface:
+    # ===================================================================
+    # HYBRID E2E CORE SETTINGS
+    # ===================================================================
+    use_hybrid_e2e: true          # Enable Hybrid mode
+    base_gaussian_scale: 0.02     # Base Gaussian scale (σ₀)
+    use_adaptive_scale: true      # Density-adaptive scaling
+    use_normal_anisotropy: false  # Keep false for stability
+    anisotropy_factor: 1.5        # Only if anisotropy enabled
+    
+    # ===================================================================
+    # HYBRID FAISS SETTINGS
+    # ===================================================================
+    use_hybrid_faiss: true        # Fast FAISS + differentiable weights
+    use_faiss_ivf: true           # IVF index for 10-100x speedup
+    ivf_nlist: 100                # Number of IVF clusters
+    ivf_nprobe: 10                # Number of clusters to search
+    
+    # Soft-radius mode (smoother gradients)
+    use_soft_radius: false        # false=speed, true=quality
+    soft_radius_candidates: 128   # Candidate pool (if enabled)
+    
+    # ===================================================================
+    # DIFFERENTIABILITY SETTINGS
+    # ===================================================================
+    differentiable: true          # Enable differentiable operations
+    sampling_tau: 0.2             # Gumbel-Softmax temperature
+    knn_tau: 0.15                 # Soft kNN temperature (default)
+    surface_power: 4.0            # Surface concentration (default)
+    
+    # ===================================================================
+    # SURFACE DETECTION
+    # ===================================================================
+    use_surface_detection: true   # Enable surface detection
+    k_surface: 36                 # kNN for surface detection (default)
+    thr_percentile: 8.0           # Top 92% as surface (default)
+    soft_tau: 0.08                # Surface transition sharpness (default)
+    hysteresis: 0.03              # Temporal stability (default)
+    ema_beta: 0.95                # EMA weight (default)
+    
+    # ===================================================================
+    # SAMPLING CONFIGURATION
+    # ===================================================================
+    M: 50000                      # Number of upsampled points
+    surf_jitter_alpha: 0.6        # Surface jitter (default)
+    thickness: 0.0                # Surface thickness (default)
+    density_gamma: 2.5            # Density distribution (default)
+    
+    # ===================================================================
+    # GAUSSIAN RENDERING (F-based in Original mode, ignored in Hybrid)
+    # ===================================================================
+    sigma0: 0.08                  # Gaussian base scale (Original mode)
+    use_F_kernel: true            # Use F kernel for interpolation
+    k_F: 32                       # kNN for F interpolation
+    h_mul: 1.5                    # Bandwidth multiplier
+
+    # ===================================================================
+    # NORMAL SMOOTHING
+    # ===================================================================
+    smooth_normals: true           # Enable normal smoothing
+    normal_smooth_iters: 2         # Number of iterations
+    normal_smooth_k: 16            # Number of neighbors
+    normal_smooth_lambda: 0.8      # Smoothing strength (0=none, 1=full)
+    
+    # ===================================================================
+    # EMBEDDED DEFORMATION GRAPH (F smoothing)
+    # ===================================================================
+    ed:
+      enabled: true
+      num_nodes: 180
+      node_knn: 8
+      point_knn_nodes: 8
+      lambda_lap: 1.0e-2
+    
+    # ===================================================================
+    # POST-PROCESSING
+    # ===================================================================
+    post_equalize:
+      enabled: true               # Enable density equalization
+      iters: 8                    # Number of iterations
+      k: 32                       # kNN neighbors
+      step: 0.45                  # Step size
+      annealing: 0.9              # Step annealing factor
+      radius_mul: 1.2             # Radius multiplier
+      
+      # MLS Projection
+      use_mls_projection: true    # Project to MLS surface
+      mls_iters: 2                # MLS projection iterations
+      mls_step: 1.0               # MLS step size
+      knn_tau: 0.15               # kNN temperature for MLS
+    
+    # ===================================================================
+    # OPTIONAL SMOOTHER (disabled by default)
+    # ===================================================================
+    smoother:
+      enabled: false              # Enable tangent Laplacian smoothing
+      iters: 3
+      k: 24
+      step: 0.12
+      lambda_normal: 0.15
+      mls_every: 2
+    
+    # ===================================================================
+    # PERFORMANCE & DEBUGGING
+    # ===================================================================
+    use_amp: false                # Mixed precision (false for stability)
+    
+    # PNG output for debugging
+    png:
+      enabled: true
+      dpi: 160
+      ptsize: 0.5
+
+# ===================================================================
+# RENDER SETTINGS (3DGS Runtime Renderer)
+# ===================================================================
+camera:
+  width: 1280  
+  height: 720
+  fx: 475.0                       # Focal length in pixels X 
+  fy: 475.0                       # Focal length in pixels Y 
+  cx: 640.0                       # Principal point X 
+  cy: 360.0                       # Principal point Y
+  znear: 0.01
+  zfar: 100.0
+  lookat:
+    eye: [20.0, -25.0, 15.0]      # Camera position
+    target: [0.0, 0.0, 0.0]       # Look at origin
+    up: [0.0, 0.0, 1.0]           # Up vector (Z-up)
+
+render:
+  num_frames: 1                   # Number of frames to render
+  schedule: uniform               # Frame scheduling
+  bg: [1.0, 1.0, 1.0]             # Background color (white)
+  particle_color: [0.27, 0.51, 0.71]  # Particle color (blue)
+  
+  lighting:
+    model: phong                  # Shading model
+    type: directional             # Light type
+    direction: [0.3, -0.5, 0.8]   # Light direction
+    two_sided: true               # Two-sided lighting
+    ambient: 0.18                 # Ambient intensity
+    diffuse: 0.85                 # Diffuse intensity
+    specular: 0.10                # Specular intensity
+    shininess: 32                 # Specular shininess
+
+# ===================================================================
+# ADVANCED OPTIONS (for fine-tuning)
+# ===================================================================
+# Uncomment and modify if needed:
+
+# # Advanced covariance regularization
+# advanced_cov_reg:
+#   lambda_vol: 0.01              # Volume regularization
+#   lambda_aniso: 0.005           # Anisotropy penalty
+#   target_vol: 1.0e-4            # Target Gaussian volume
+#   max_aniso_ratio: 10.0         # Max anisotropy ratio
+
+# # Loss weight schedule (if not 'constant')
+# loss_schedule:
+#   initial:
+#     w_physics_pos: 1.0
+#     w_physics_F: 0.1
+#     w_alpha: 0.3
+#   mid:  # at 30% progress
+#     w_physics_pos: 0.8
+#     w_physics_F: 0.05
+#     w_alpha: 0.5
+#   late:  # at 70% progress
+#     w_physics_pos: 0.6
+#     w_physics_F: 0.02
+#     w_alpha: 0.7
