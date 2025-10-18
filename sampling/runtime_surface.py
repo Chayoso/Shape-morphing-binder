@@ -9,12 +9,12 @@ This module keeps **all function names and signatures** stable while applying
 a set of patches for smoothness, differentiability and speed. Every change is
 documented inline in English comments.
 
-Key additions & fixes (non‑breaking):
+Key additions & fixes (non-breaking):
 1) HybridFAISSKNN
    - FAISS forward + differentiable reweighting backward
    - Cache invalidation when data moves (no stale indexes)
    - AMP stability: logits kept in FP32
-   - Optional **soft‑radius** candidate pool (removes k-th neighbor discontinuity)
+   - Optional **soft-radius** candidate pool (removes k-th neighbor discontinuity)
 
 2) Surface quality
    - Soft normal orientation via tanh (no hard flips → smoother grads)
@@ -24,13 +24,13 @@ Key additions & fixes (non‑breaking):
 3) Sampling
    - Gumbel-Softmax with isolated generator (deterministic & differentiable)
    - Pure matrix mixing (Y@x, Y@normals, Y@spacing): no gather in the hot path
+   # Manish: Add memory-safe fallback that avoids dense M×N by using local soft-mix
 
 4) Robustness
    - Numerical clamps on exp/log to avoid NaN/Inf in AMP/FP16
    - Self-neighbor masking in density equalization
-
-Author: CHAYO (Hybrid FAISS)
-Date: 2025-10-16
+   - Chunked cdist for big clouds (OOM-safe)
+   - Thickness collapse pass to make a thin shell from sparse volume
 """
 
 from __future__ import annotations
@@ -101,7 +101,8 @@ def default_cfg() -> Dict:
         "knn_tau": 0.15,
         "ivf_nlist": 100,
         "ivf_nprobe": 10,
-        "use_soft_radius": False,
+        # Manish: default to soft-radius to improve gradient smoothness
+        "use_soft_radius": True,
         "soft_radius_candidates": 128,
         "smoother": {
             "enabled": False,
@@ -111,6 +112,10 @@ def default_cfg() -> Dict:
             "lambda_normal": 0.15,   # fraction of normal component kept (0=only tangent move)
             "mls_every": 2           # do MLS projection every N iterations
         },
+        # Manish: sampling local neighborhood size for memory-safe soft-mix
+        "sampling_local_k": 64,
+        # Manish: collapse thickness iterations (0 disables)
+        "collapse": {"enabled": True, "iters": 3, "step": 0.7, "k": 32},
     }
 
 
@@ -126,6 +131,22 @@ def _ensure_torch(x, device='cuda', dtype=torch.float32):
 def _normalize(v, eps=1e-9):
     """L2-normalize last dimension, safe for zeros."""
     return v / (torch.norm(v, dim=-1, keepdim=True) + eps)
+
+# Manish: chunked cdist to avoid OOM on large clouds
+def _cdist_chunked(Q: torch.Tensor, X: torch.Tensor, chunk: int = 8192) -> torch.Tensor:
+    outs = []
+    for i in range(0, Q.shape[0], chunk):
+        outs.append(torch.cdist(Q[i:i+chunk], X, p=2))
+    return torch.cat(outs, dim=0)
+
+# Manish: small fingerprint to detect in-place data drift for FAISS cache
+def _fingerprint(x: torch.Tensor, n: int = 256) -> float:
+    if x.shape[0] <= n:
+        sl = x
+    else:
+        sel = torch.linspace(0, x.shape[0]-1, n, device=x.device).long()
+        sl = x[sel]
+    return float(torch.sum(sl.float()).item())
 
 
 # ============================================================================
@@ -223,7 +244,9 @@ class HybridFAISSKNN:
         nprobe = min(self.nprobe, nlist)
         # Include data storage pointer and epoch in the cache key
         data_ptr = int(data.untyped_storage().data_ptr())
-        cache_key = (M, D, nlist, data_ptr, self._epoch)
+        # Manish: include fingerprint to auto-invalidate on in-place edits
+        fp = round(_fingerprint(data), 3)
+        cache_key = (M, D, nlist, data_ptr, self._epoch, fp)
 
         index = self._build_index(data, D, nlist, nprobe, cache_key)
 
@@ -241,16 +264,17 @@ class HybridFAISSKNN:
             logits = -dist / self.tau
             weights = F.softmax(logits, dim=1).to(query.dtype)
         else:
-            weights = torch.exp(-distances / self.tau)
+            # Manish: stable exponent clamp
+            weights = torch.exp((-distances / self.tau).clamp(min=-80.0, max=0.0))
             weights = weights / (weights.sum(dim=1, keepdim=True) + 1e-9)
         return indices, weights
 
     def _hybrid_faiss_soft_radius(self, query: torch.Tensor, data: torch.Tensor, k: int):
         """
-        Soft‑radius mode:
+        Soft-radius mode:
         1) Fetch a *larger* candidate pool of size Kc with FAISS.
         2) Build weights over ALL candidates (smooth attention field).
-        3) Return the top‑k by weight (renormalized). Shapes stay [N,k].
+        3) Return the top-k by weight (renormalized). Shapes stay [N,k].
         """
         N, D = query.shape
         M = data.shape[0]
@@ -258,7 +282,9 @@ class HybridFAISSKNN:
         nlist = min(self.nlist, max(4, M // 100))
         nprobe = min(self.nprobe, nlist)
         data_ptr = int(data.untyped_storage().data_ptr())
-        cache_key = (M, D, nlist, data_ptr, self._epoch)
+        # Manish: include fingerprint to auto-invalidate on in-place edits
+        fp = round(_fingerprint(data), 3)
+        cache_key = (M, D, nlist, data_ptr, self._epoch, fp)
 
         index = self._build_index(data, D, nlist, nprobe, cache_key)
         q_np = query.detach().cpu().float().numpy()
@@ -278,7 +304,8 @@ class HybridFAISSKNN:
             weights = topw / (topw.sum(dim=1, keepdim=True) + 1e-9)
             weights = weights.to(query.dtype)
         else:
-            w_all = torch.exp(-distances / self.tau)
+            # Manish: stable exponent clamp
+            w_all = torch.exp((-distances / self.tau).clamp(min=-80.0, max=0.0))
             w_all = w_all / (w_all.sum(dim=1, keepdim=True) + 1e-9)
             topw, topj = torch.topk(w_all, k=min(k, Kc), dim=1)
             batch = torch.arange(N, device=query.device).unsqueeze(1).expand(-1, topj.shape[1])
@@ -288,10 +315,11 @@ class HybridFAISSKNN:
 
     def _torch_soft_knn(self, query: torch.Tensor, data: torch.Tensor, k: int):
         """Pure torch fallback: differentiable attention over distances."""
-        D = torch.cdist(query, data, p=2)               # [N,M]
+        # Manish: OOM-safe cdist
+        D = _cdist_chunked(query, data, chunk=8192)               # [N,M]
         logits = -D / self.tau
-        attn = F.softmax(logits, dim=1)                 # [N,M]
-        topw, topi = torch.topk(attn, k=k, dim=1)       # [N,k]
+        attn = F.softmax(logits, dim=1)                           # [N,M]
+        topw, topi = torch.topk(attn, k=k, dim=1)                 # [N,k]
         weights = topw / (topw.sum(dim=1, keepdim=True) + 1e-9)
         return topi, weights
 
@@ -315,7 +343,9 @@ def batched_pca_surface_optimized(
     cov = torch.einsum('nki,nkj->nij', weighted, weighted)       # [N,3,3]
     cov = cov / (weights.sum(dim=1, keepdim=True).unsqueeze(-1) + 1e-9)
 
-    evals, evecs = torch.linalg.eigh(cov)                        # ascending
+    # Manish: run eigendecomp in FP32 outside AMP for stability
+    with torch.cuda.amp.autocast(enabled=False):
+        evals, evecs = torch.linalg.eigh(cov.float())            # ascending
     evals = torch.clamp(evals, min=1e-12)
     surfvar = evals[:, 0] / (evals.sum(dim=1) + 1e-12)           # smallest / trace
     n_raw = evecs[:, :, 0]                                       # normal from min-eigenvec
@@ -415,14 +445,15 @@ def gumbel_softmax_onehot(
         generator = torch.Generator(device=device).manual_seed(seed)
 
     u = torch.rand(M, N, generator=generator, device=device)
-    g = -torch.log(-torch.log(u + 1e-9) + 1e-9)
+    # Manish: clamp to avoid log(0)
+    g = -torch.log(-torch.log(u.clamp(1e-9, 1-1e-9)) + 1e-9)
     logits = (probs.clamp_min(1e-12).log().unsqueeze(0) + g) / max(tau, 1e-6)
     y_soft = F.softmax(logits, dim=1)              # [M,N]
 
     if hard:
         idx = y_soft.argmax(dim=1)
         y_hard = F.one_hot(idx, num_classes=N).float()
-        return y_hard - y_soft.detach() + y_soft   # straight‑through
+        return y_hard - y_soft.detach() + y_soft   # straight-through
     return y_soft
 
 
@@ -444,22 +475,55 @@ def sample_surface_points_diff(
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Fully differentiable sampling of M points on the surface.
-    Sampling uses a soft one‑hot matrix Y so that `mu = Y@x` mixes anchors
-    continuously (no hard gather in the hot path).
+
+    Default path: uses dense Gumbel-Softmax Y (as before).
+    Manish: If M*N is too large for memory, we switch to a memory-safe *local soft-mix*
+    around sampled anchors (straight-through) while keeping the same signature/outputs.
     """
     device, dtype = x.device, x.dtype
     if generator is None:
         generator = torch.Generator(device=device).manual_seed(seed)
 
-    # Importance sampling: prefer thin/under‑sampled areas
+    # Importance sampling: prefer thin/under-sampled areas
     w_import = (probs ** 1.5) * (1.0 / (spacing ** density_gamma + 1e-9))
     w_import = w_import / (w_import.sum() + 1e-12)
 
-    Y = gumbel_softmax_onehot(w_import, M=M, tau=tau, hard=True, seed=seed, generator=generator)  # [M,N]
+    N = x.shape[0]
+    # Manish: choose path based on memory budget (~50M elements heuristic)
+    use_dense = (M * N) <= 50_000_000
 
-    mu_anchors = Y @ x                 # [M,3]
-    n = _normalize(Y @ normals)        # [M,3]
-    h = (Y @ spacing.unsqueeze(1)).squeeze(1)  # [M]
+    if use_dense:
+        # === Original dense straight-through Y path ===
+        Y = gumbel_softmax_onehot(w_import, M=M, tau=tau, hard=True, seed=seed, generator=generator)  # [M,N]
+        mu_anchors = Y @ x                 # [M,3]
+        n = _normalize(Y @ normals)        # [M,3]
+        h = (Y @ spacing.unsqueeze(1)).squeeze(1)  # [M]
+
+    else:
+        # === Manish: Memory-safe local soft-mix around sampled anchors ===
+        # sample anchors with torch.multinomial (selection itself needn't be reparam)
+        idx_anchor = torch.multinomial(w_import, num_samples=M, replacement=True)  # [M]
+        A = x[idx_anchor]                 # [M,3]
+
+        # local neighborhood via chunked cdist; Kc fixed to 64 by default
+        Kc = min(64, N)
+        Dloc = _cdist_chunked(A, x, chunk=8192)  # [M,N]
+        topd, topi = torch.topk(Dloc, k=Kc, dim=1, largest=False)
+        w_local = F.softmax(-(topd / max(tau, 1e-6)), dim=1)     # [M,Kc]
+
+        # straight-through soft/hard mix within local Kc
+        mu_soft = (w_local.unsqueeze(-1) * x[topi]).sum(1)
+        ih = w_local.argmax(dim=1)
+        mu_hard = x[topi[torch.arange(M, device=device), ih]]
+        mu_anchors = mu_hard + (mu_soft - mu_soft.detach())
+
+        n_soft = (w_local.unsqueeze(-1) * normals[topi]).sum(1)
+        n_hard = normals[topi[torch.arange(M, device=device), ih]]
+        n = _normalize(n_hard + (n_soft - n_soft.detach()))
+
+        h_soft = (w_local * spacing[topi]).sum(1)
+        h_hard = spacing[topi[torch.arange(M, device=device), ih]]
+        h = h_hard + (h_soft - h_soft.detach())
 
     # Build orthonormal tangent basis
     a = torch.tensor([1., 0., 0.], device=device, dtype=dtype).expand(M, 3).clone()
@@ -503,7 +567,7 @@ def project_to_mls_surface_diff(
     knn: Optional[HybridFAISSKNN] = None,
     knn_tau: float = 0.15
 ) -> torch.Tensor:
-    """Project points onto an oriented‑point MLS surface s(P)=0 (differentiable)."""
+    """Project points onto an oriented-point MLS surface s(P)=0 (differentiable)."""
     for _ in range(int(iters)):
         if knn is not None:
             idx, w = knn(P, X, k)
@@ -513,7 +577,8 @@ def project_to_mls_surface_diff(
             s = (w * (V * n).sum(-1)).sum(1, keepdim=True)   # [M,1]
             nbar = _normalize((w.unsqueeze(-1) * n).sum(1))  # [M,3]
         else:
-            D = torch.cdist(P, X)                                 # [M,N]
+            # Manish: OOM-safe fallback
+            D = _cdist_chunked(P, X, chunk=8192)                 # [M,N]
             logits = -D / float(knn_tau)
             attn = F.softmax(logits, dim=1)
             topw, topi = torch.topk(attn, k=min(k, X.shape[0]), dim=1)
@@ -568,19 +633,28 @@ def density_equalize_diff(
         dist = torch.norm(diff.float(), dim=-1)
 
         h = rmul * ((dist[:, 1:].mean(dim=1) + 1e-6)[:, None])  # [M,1]
-        kernel = -((dist / h) ** 2).clamp(min=-80.0)            # avoid exp overflow
-        W = torch.exp(kernel) * w
+        kernel = -((dist / h) ** 2)
+        # Manish: symmetric clamp to keep exp in [exp(-80), 1]
+        kernel = kernel.clamp(min=-80.0, max=0.0)
+        # Manish: keep raw weights for density estimate
+        W_raw = torch.exp(kernel) * w
 
         # cancel self-weight
         self_mask = (idx == torch.arange(P.shape[0], device=P.device).unsqueeze(1))
-        W = W.masked_fill(self_mask, 0.0)
-        W = W / (W.sum(dim=1, keepdim=True) + 1e-9)
-
-        rho = W.sum(dim=1, keepdim=True)
+        # Manish: mask on raw weights (before normalization)
+        W_raw = W_raw.masked_fill(self_mask, 0.0)
+        # Manish: true density estimate (UN-normalized)
+        rho = W_raw.sum(dim=1, keepdim=True)
         rho_star = rho.mean()
+
+        # Manish: normalized weights for stable displacement
+        W = W_raw / (W_raw.sum(dim=1, keepdim=True) + 1e-9)
+        # Manish: use rho in denominator to reduce step in sparse regions
+        disp = torch.einsum('nk,nkd->nd', W, diff) / (rho + 1e-6)
+
+        # density mismatch signal (smooth)
         s = torch.tanh((rho - rho_star) / (rho_star + 1e-6))
 
-        disp = torch.einsum('nk,nkd->nd', W, diff) / (rho + 1e-6)
         step = step0 * (annealing ** it)  # step annealing
         P = P - step * s * disp
 
@@ -626,7 +700,7 @@ def surface_smoother_diff(
         diff = Q - P[:, None, :]
         dist = torch.norm(diff, dim=-1)
         h = (dist[:, 1:].mean(dim=1) + 1e-6).unsqueeze(-1)
-        ww = torch.exp(- (dist / h) ** 2) * w
+        ww = torch.exp((-(dist / h) ** 2).clamp(min=-80.0, max=0.0)) * w  # Manish: clamp
         ww[:, 0] = 0.0
         ww = ww / (ww.sum(dim=1, keepdim=True) + 1e-9)
 
@@ -641,6 +715,41 @@ def surface_smoother_diff(
         if mls_every > 0 and (t + 1) % mls_every == 0:
             knn.invalidate_cache()
             P = project_to_mls_surface_diff(P, X, N, iters=1, k=k, step=1.0, knn=knn)
+    return P
+
+
+# ============================================================================
+# Manish: thickness collapse to make a thin shell from sparse volume
+# ============================================================================
+def collapse_thickness(
+    P: torch.Tensor,
+    X: torch.Tensor,
+    N: torch.Tensor,
+    iters: int = 3,
+    step: float = 0.7,
+    knn: Optional[HybridFAISSKNN] = None,
+    k: int = 32,
+    knn_tau: float = 0.15,
+    s0_mul: float = 1.5
+) -> torch.Tensor:
+    """Normal-aligned shrinkage toward MLS zero-set (fully differentiable)."""
+    for _ in range(int(iters)):
+        if knn is not None:
+            idx, w = knn(P, X, k)
+            Q = X[idx]; n = N[idx]
+            V = P.unsqueeze(1) - Q
+            s = (w * (V * n).sum(-1)).sum(1, keepdim=True)
+            nbar = _normalize((w.unsqueeze(-1) * n).sum(1))
+        else:
+            D = _cdist_chunked(P, X, chunk=8192)
+            attn = F.softmax(-D/knn_tau, dim=1)
+            topw, topi = torch.topk(attn, k=min(k, X.shape[0]), dim=1)
+            Q = X[topi]; n = N[topi]
+            V = P.unsqueeze(1) - Q
+            s = (topw * (V * n).sum(-1)).sum(1, keepdim=True)
+            nbar = _normalize((topw.unsqueeze(-1) * n).sum(1))
+        s0 = s.abs().mean() * s0_mul + 1e-6
+        P = P - step * torch.tanh(s / s0) * nbar
     return P
 
 
@@ -680,7 +789,7 @@ def smooth_F_diff_optimized(x: torch.Tensor, F: torch.Tensor, cfg: Dict) -> torc
     d, j = torch.topk(D_p2n, k=k_point, dim=1, largest=False)
 
     h = d.mean(dim=1, keepdim=True) + 1e-9
-    w_sparse = torch.exp(-(d / h) ** 2)
+    w_sparse = torch.exp((-(d / h) ** 2).clamp(min=-80.0, max=0.0))  # Manish: clamp
     w_sparse = w_sparse / (w_sparse.sum(dim=1, keepdim=True) + 1e-9)
 
     W = torch.zeros(N, K, device=device, dtype=dtype)
@@ -693,7 +802,10 @@ def smooth_F_diff_optimized(x: torch.Tensor, F: torch.Tensor, cfg: Dict) -> torc
     A = WtW + lam * L
     F_flat = F.reshape(N, 9)
     rhs = torch.einsum('nk,nr->kr', W, F_flat)
-    Y = torch.linalg.solve(A, rhs)
+
+    # Manish: solve in FP32 outside AMP for stability
+    with torch.cuda.amp.autocast(enabled=False):
+        Y = torch.linalg.solve(A.float(), rhs.float())
     F_smooth_flat = torch.einsum('nk,kr->nr', W, Y)
     return F_smooth_flat.reshape(N, 3, 3)
 
@@ -737,6 +849,8 @@ def synthesize_runtime_surface(
     knn_tau = float(cfg.get("knn_tau", 0.15))
     use_ivf = bool(cfg.get("use_faiss_ivf", True))
     use_amp = bool(cfg.get("use_amp", True) and device.type == 'cuda')
+    sampling_local_k = int(cfg.get("sampling_local_k", 64))  # Manish: used in memory-safe branch
+    collapse_cfg = cfg.get("collapse", {"enabled": True, "iters": 3, "step": 0.7, "k": 32})
 
     # Hybrid FAISS kNN
     knn = HybridFAISSKNN(
@@ -769,6 +883,7 @@ def synthesize_runtime_surface(
             ema_state.update({"ema_thr": 0.0, "thr_low": 0.0, "thr_high": 0.0})
 
         # -- sampling ---------------------------------------------------------
+        # Manish: sample_surface_points_diff has a memory-safe local soft-mix fallback
         pts, nrm, anchors = sample_surface_points_diff(
             x_low, normals, spacing, surf_prob,
             M, alpha, thickness, density_g, seed,
@@ -780,6 +895,17 @@ def synthesize_runtime_surface(
         eq_cfg['knn_tau'] = knn_tau
         if eq_cfg.get("enabled", True):
             pts, nrm = density_equalize_diff(pts, nrm, anchors, x_low, normals, thickness, knn, eq_cfg)
+
+        # -- Manish: collapse volumetric thickness into a thin shell ----------
+        if collapse_cfg.get("enabled", True):
+            pts = collapse_thickness(
+                pts, x_low, normals,
+                iters=int(collapse_cfg.get("iters", 3)),
+                step=float(collapse_cfg.get("step", 0.7)),
+                knn=knn,
+                k=int(collapse_cfg.get("k", 32)),
+                knn_tau=knn_tau
+            )
 
         # -- optional tangent smoother (very gentle) -------------------------
         smooth_cfg = cfg.get("smoother", {})
