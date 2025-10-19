@@ -227,8 +227,8 @@ except Exception:
 # ============================================================================
 try:
     from sampling import (
-        default_cfg,                   
-        synthesize_runtime_surface,
+        upsample,               
+        default_cfg,
         save_ply_xyz,
         save_gaussians_npz,
         save_comparison_png,
@@ -236,8 +236,9 @@ try:
     )
     DIFFERENTIABLE_MODE = True
 except ImportError as e:
-    print(f"⚠️ RuntimeSurface not available: {e}")
+    print(f"⚠️ Sampling module not available: {e}")
     DIFFERENTIABLE_MODE = False
+
 
 from renderer import (
     GSRenderer3DGS,
@@ -444,10 +445,10 @@ def upsample_target(
     rs: Dict
 ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
     """Upsample target point cloud to create dense surface."""
-    result_tgt = synthesize_runtime_surface(
-        x_tgt, F_tgt, rs,
+    result_tgt = upsample(
+        x_tgt, F_tgt,
+        cfg=rs,               
         seed=9999,
-        differentiable=False,
         return_torch=False
     )
     
@@ -460,7 +461,8 @@ def upsample_target(
 
 def compute_target_covariance_star(
     mu_tgt: np.ndarray, 
-    nrm_tgt: Optional[np.ndarray]
+    nrm_tgt: Optional[np.ndarray],
+    knn  # 🔥 NEW: KNN 인자 추가
 ) -> Optional[torch.Tensor]:
     """Compute curvature-based target covariance Σ★."""
     if estimate_curvature is None or create_target_covariance is None or nrm_tgt is None:
@@ -471,8 +473,8 @@ def compute_target_covariance_star(
         mu_tgt_torch = torch.from_numpy(mu_tgt).cuda()
         nrm_tgt_torch = torch.from_numpy(nrm_tgt).cuda()
         
-        # Estimate curvatures
-        curvatures = estimate_curvature(mu_tgt_torch, nrm_tgt_torch, k=16)
+        # 🔥 Estimate curvatures WITH KNN
+        curvatures = estimate_curvature(mu_tgt_torch, nrm_tgt_torch, knn, k=16)  # Pass knn!
         
         # Create target covariance
         cov_target_star = create_target_covariance(
@@ -601,7 +603,8 @@ def create_target_render(
     render_cfg: Dict,
     particle_color: list,
     save_dir: Path,
-    view_T: np.ndarray
+    view_T: np.ndarray, 
+    knn 
 ) -> Dict:
     """Create target render for supervision."""
     print("  Extracting target point cloud...")
@@ -611,7 +614,7 @@ def create_target_render(
     mu_tgt, cov_tgt, nrm_tgt = upsample_target(x_tgt, F_tgt, rs)
     print(f"  Target upsampled: {len(mu_tgt)} points")
     
-    cov_target_star = compute_target_covariance_star(mu_tgt, nrm_tgt)
+    cov_target_star = compute_target_covariance_star(mu_tgt, nrm_tgt, knn)  # Pass knn!
     
     print("  Rendering target...")
     out_tgt = render_target(renderer, mu_tgt, cov_tgt, nrm_tgt, campos, render_cfg, particle_color)
@@ -621,6 +624,28 @@ def create_target_render(
     
     # Save target renders
     save_target_renders(save_dir, image_np, alpha_np, depth_np, normal_map_np, renderer)
+    
+    # Save additional visualizations and data
+    print("  Saving target comparison PNG...")
+    save_comparison_png(
+        save_dir / "target_comparison.png",
+        current_before=x_tgt,
+        current_after=mu_tgt,
+        radial_after=mu_tgt,
+        target_before=x_tgt,
+        dpi=rs.get("png", {}).get("dpi", 160),
+        ptsize=rs.get("png", {}).get("ptsize", 0.5)
+    )
+    
+    print("  Saving target axis histogram PNG...")
+    save_axis_hist_png(
+        save_dir / "target_axis_hist.png",
+        mu_tgt,
+        dpi=rs.get("png", {}).get("dpi", 160)
+    )
+    
+    print("  Saving target PLY file...")
+    save_ply_xyz(save_dir / "target.ply", mu_tgt)
     
     target_dict = {
         'image': torch.from_numpy(image_np).cuda(),
@@ -721,17 +746,17 @@ def upsample_current_state(
         print("      ⚠️  PyTorch bindings unavailable")
         return None, None, ema_state
     
-    result = synthesize_runtime_surface(
-        x, F, rs_full,
-        ema_state=ema_state,
+    result = upsample(  # ✅ 변경
+        x, F,
+        cfg=rs_full,      # ✅ cfg로 전달
+        state=ema_state,  # ✅ state로 전달 (ema_state → state)
         seed=seed,
-        differentiable=True,
         return_torch=True
     )
     
     mu = result["points"]
     cov = result["cov"]
-    ema_state = result["state"]
+    ema_state = result["state"]  # ✅ state 업데이트
     
     return mu, cov, ema_state
 
@@ -793,11 +818,11 @@ def compute_render_loss_pass(
         return None, None, None
     
     # Upsample
-    result = synthesize_runtime_surface(
-        x, F, rs_full,
-        ema_state=ema_state,
+    result = upsample(
+        x, F,
+        cfg=rs_full,      # ✅ cfg로 전달
+        state=ema_state,  # ✅ state로 전달 (ema_state → state)
         seed=seed,
-        differentiable=True,
         return_torch=True
     )
     
@@ -917,11 +942,11 @@ def visualize_episode(
         F = _np(pc.get_def_grads_total())
     
     # Upsample
-    result = synthesize_runtime_surface(
-        x, F, rs_full,
-        ema_state=ema_state,
+    result = upsample(
+        x, F,
+        cfg=rs_full,      # ✅ cfg로 전달
+        state=ema_state,  # ✅ state로 전달 (ema_state → state)
         seed=seed,
-        differentiable=False,
         return_torch=False
     )
     
@@ -1286,7 +1311,7 @@ def main():
     # Runtime surface config
     print("[Config] Setting up runtime surface...")
     rs = default_cfg()
-    rs_user = cfg.get("sampling", {}).get("runtime_surface", {}) or {}
+    rs_user = cfg.get("sampling", {}) or {}
     rs.update(rs_user)
     rs.setdefault("png", {"enabled": True, "dpi": 160, "ptsize": 0.5})
     
@@ -1304,16 +1329,31 @@ def main():
     cam_cfg = cfg.get("camera", {}) or {}
     renderer, view_params = setup_renderer(cam_cfg, render_cfg)
     HAVE_3DGS = renderer is not None
-    
+        
     # E2E setup
     enable_e2e = args.e2e or cfg.get("optimization", {}).get("loss", {}).get("enabled", False)
     loss_manager = None
     target_render = None
+    knn = None
     
     if enable_e2e and E2ELossManager is not None and HAVE_3DGS:
         print("\n" + "="*70)
         print("🚀 E2E INTERLEAVED + SILHOUETTE + CURVATURE MODE")
         print("="*70)
+        
+         # 🔥 Create KNN instance FIRST
+        try:
+            from sampling.analysis.knn import HybridFAISSKNN
+            knn = HybridFAISSKNN(
+                use_faiss=True,
+                use_ivf=True,
+                tau=0.15,
+                fallback_chunk_size=5000
+            )
+            print("[Init] KNN initialized (FAISS-accelerated)")
+        except Exception as e:
+            print(f"[WARN] KNN initialization failed: {e}")
+            knn = None
         
         loss_config = cfg.get("optimization", {}).get("loss", {})
         loss_manager = E2ELossManager(loss_config)
@@ -1322,7 +1362,7 @@ def main():
         print("\n[E2E] Creating target render (with Σ★)...")
         target_render = create_target_render(
             target_pc, renderer, rs, view_params['campos'],
-            render_cfg, particle_color, out_dir / "target", view_params['view_T']
+            render_cfg, particle_color, out_dir / "target", view_params['view_T'], knn
         )
         print("="*70 + "\n")
     else:

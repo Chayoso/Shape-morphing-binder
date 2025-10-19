@@ -1,0 +1,1027 @@
+# ================================================================================
+# PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
+# ================================================================================
+#
+# Main configuration file for end-to-end differentiable shape morphing
+# with MPM simulation, upsampling, and 3D Gaussian Splatting rendering.
+#
+# Version: 3.1.0 (Fully Documented)
+# Author: CHAYO
+# Date: 2025-01-XX
+#
+# QUICK START:
+#   1. Set input_mesh_path and target_mesh_path
+#   2. Adjust simulation parameters for your mesh scale
+#   3. Choose upsampling preset (bunny/sphere/fast/quality) or tune manually
+#   4. Set camera position to view your scene
+#   5. Run: python main.py --config config.yaml
+#
+# ================================================================================
+
+# ================================================================================
+# INPUT/OUTPUT CONFIGURATION
+# ================================================================================
+
+input_mesh_path: "assets/isosphere.obj"
+# Path to initial mesh (starting shape)
+# Supported formats: .obj, .ply, .stl
+# Recommended: Start with simple shapes (sphere, cube) for debugging
+
+target_mesh_path: "assets/bunny.obj"
+# Path to target mesh (goal shape to morph into)
+# Should have similar topology and scale to input mesh
+# Tip: Normalize both meshes to similar bounds for better results
+
+output_dir: "output/"
+# Directory for all outputs (PLY, renders, debug files)
+# Created automatically if doesn't exist
+# Organized by timestamp: output/run_20250120_143022/
+
+
+# ================================================================================
+# DIFFMPM SIMULATION CONFIGURATION
+# ================================================================================
+# Material Point Method for physics-based shape morphing
+# ================================================================================
+
+simulation:
+  # --------------------------------------------------------------------------
+  # Grid Configuration
+  # --------------------------------------------------------------------------
+  # Defines spatial discretization for MPM simulation
+  
+  grid_dx: 1
+  # Grid cell size (spatial resolution)
+  # TUNING:
+  #   - Smaller (0.5): finer resolution, more accurate, slower
+  #   - Larger (2.0): coarser, faster, less accurate
+  # Typical: 0.5-2.0
+  # Rule of thumb: grid_dx ≈ (mesh_size / 32)
+  
+  points_per_cell_cuberoot: 3
+  # Particles per cell = points_per_cell_cuberoot³
+  # Example: 3³ = 27 particles per cell
+  # TUNING:
+  #   - 2 (8 particles): fast, low quality
+  #   - 3 (27 particles): balanced (default)
+  #   - 4 (64 particles): high quality, slow
+  # Affects: computation time O(n³), memory O(n³)
+  
+  grid_min_point: [-16.0, -16.0, -16.0]
+  grid_max_point: [16.0, 16.0, 16.0]
+  # Simulation domain boundaries
+  # CRITICAL: Must contain both input and target meshes!
+  # TUNING:
+  #   - Check mesh bounds: print(mesh.vertices.min(), mesh.vertices.max())
+  #   - Add 20% margin: if mesh ∈ [-10, 10], use [-12, 12]
+  #   - Larger domain = more memory but safer
+  
+  # --------------------------------------------------------------------------
+  # Material Properties (Hyperelasticity)
+  # --------------------------------------------------------------------------
+  # Lamé parameters define material stiffness
+  
+  lam: 38888.89
+  # λ (Lambda): Bulk modulus - resists volume change
+  # Physical meaning: High λ → nearly incompressible (like water, rubber)
+  # TUNING:
+  #   - Soft materials: 1000-10000
+  #   - Medium stiffness: 10000-50000 (default)
+  #   - Hard materials: 50000-100000
+  # Affects: how much material resists compression/expansion
+  
+  mu: 58333.3
+  # μ (Mu): Shear modulus - resists shape change
+  # Physical meaning: High μ → resists deformation (like metal)
+  # TUNING:
+  #   - Soft (jelly): 1000-20000
+  #   - Medium (rubber): 20000-60000 (default)
+  #   - Hard (plastic): 60000-100000
+  # Affects: how much material resists shearing
+  # Rule of thumb: μ ≈ 1.5λ for balanced materials
+  
+  density: 75.0
+  # Material density (kg/m³)
+  # TUNING:
+  #   - Light (foam): 10-50
+  #   - Medium: 50-100 (default)
+  #   - Heavy (metal): 100-500
+  # Affects: inertia, momentum in simulation
+  
+  # --------------------------------------------------------------------------
+  # Temporal & Damping Parameters
+  # --------------------------------------------------------------------------
+  
+  dt: 0.00833333333
+  # Time step (seconds per frame)
+  # Default: 1/120 ≈ 0.0083 (120 FPS physics)
+  # TUNING:
+  #   - Larger dt (1/60): faster, may be unstable
+  #   - Smaller dt (1/240): more stable, slower
+  # CRITICAL: If simulation explodes, reduce dt by half!
+  # Stability condition: dt < grid_dx / max_velocity
+  
+  drag: 0.5
+  # Velocity damping coefficient (0-1)
+  # Physical meaning: Air resistance / energy dissipation
+  # TUNING:
+  #   - Low drag (0.1): minimal damping, oscillatory
+  #   - Medium drag (0.5): balanced (default)
+  #   - High drag (0.9): heavy damping, sluggish
+  # Affects: how quickly motion settles
+  # Tip: Increase if simulation is too bouncy
+  
+  external_force: [0.0, 0.0, 0.0]
+  # External force vector (e.g., gravity)
+  # Units: force per unit mass (m/s²)
+  # Examples:
+  #   - No gravity: [0, 0, 0] (default for morphing)
+  #   - Earth gravity: [0, -9.81, 0] (Y-down)
+  #   - Custom force: [fx, fy, fz]
+  # Tip: Usually keep [0,0,0] for pure shape morphing
+  
+  smoothing_factor: 0.955
+  # Temporal smoothing for state evolution (0-1)
+  # TUNING:
+  #   - Low (0.8): fast convergence, may oscillate
+  #   - High (0.98): slow convergence, very smooth
+  # Default 0.955: good balance
+  # Affects: how much previous state influences current
+
+
+# ================================================================================
+# OPTIMIZATION CONFIGURATION
+# ================================================================================
+# Gradient-based optimization for shape morphing objective
+# ================================================================================
+
+optimization:
+  # --------------------------------------------------------------------------
+  # Animation Structure
+  # --------------------------------------------------------------------------
+  
+  num_animations: 2
+  # Number of animation episodes (coarse-to-fine stages)
+  # TUNING:
+  #   - 1: single-stage (fast, may get stuck)
+  #   - 2-3: multi-stage (balanced, default)
+  #   - 4-5: many refinements (slow, highest quality)
+  # Each episode refines previous result
+  
+  num_timesteps: 10
+  # Time steps per animation episode
+  # TUNING:
+  #   - Short (5-10): fast morph, may be abrupt
+  #   - Medium (10-20): balanced (default)
+  #   - Long (30-50): smooth morph, slower optimization
+  # Total frames = num_animations × num_timesteps
+  
+  control_stride: 1
+  # Interval for control frames (keyframe spacing)
+  # control_stride=1: every frame is optimized
+  # control_stride=2: every 2nd frame optimized (interpolate rest)
+  # TUNING: Usually keep at 1 for full control
+  
+  # --------------------------------------------------------------------------
+  # Gradient Descent Parameters
+  # --------------------------------------------------------------------------
+  
+  max_gd_iters: 1
+  # Maximum gradient descent iterations per timestep
+  # TUNING:
+  #   - 1: single GD step (fast, may need more timesteps)
+  #   - 5-10: multiple refinements per step (slower, better)
+  # Tip: For difficult morphs, increase this instead of timesteps
+  
+  max_ls_iters: 10
+  # Maximum line search iterations
+  # Finds optimal step size along gradient direction
+  # TUNING:
+  #   - 5: fast, may overshoot
+  #   - 10: balanced (default)
+  #   - 20: thorough search, slower
+  # Rarely needs tuning
+  
+  initial_alpha: 0.01
+  # Initial learning rate / step size
+  # TUNING:
+  #   - Too small (0.001): slow convergence
+  #   - Too large (0.1): unstable, may diverge
+  #   - Default 0.01: good starting point
+  # Automatically adjusted by line search
+  
+  gd_tol: 0.0001
+  # Gradient tolerance for convergence
+  # Stops if ||gradient|| < gd_tol
+  # TUNING: Smaller = tighter convergence, more iters
+  
+  # --------------------------------------------------------------------------
+  # HYBRID END-TO-END LOSS FUNCTION
+  # --------------------------------------------------------------------------
+  # Combines photometric, geometric, and regularization terms
+  
+  loss:
+    enabled: true
+    # Enable differentiable rendering loss
+    # If false: only physics simulation (no rendering feedback)
+    
+    # ========================================================================
+    # PHOTOMETRIC LOSSES (Image-based)
+    # ========================================================================
+    
+    w_alpha: 0.5
+    # Alpha (opacity) loss weight
+    # Penalizes: difference in rendered opacity
+    # TUNING:
+    #   - High (0.8): strong opacity matching
+    #   - Medium (0.5): balanced (default)
+    #   - Low (0.2): less emphasis on opacity
+    # Increase if: rendered image too transparent/opaque
+    
+    w_depth: 0.2
+    # Depth map loss weight
+    # Penalizes: difference in rendered depth
+    # TUNING:
+    #   - High (0.5): strong depth matching
+    #   - Medium (0.2): balanced (default)
+    #   - Low (0.05): minimal depth constraint
+    # Increase if: 3D structure is wrong
+    
+    # ========================================================================
+    # GEOMETRIC LOSSES (Shape-based)
+    # ========================================================================
+    
+    w_edge: 0.1
+    # Silhouette edge alignment weight
+    # Penalizes: misalignment of object boundaries
+    # TUNING:
+    #   - High (0.3): sharp silhouettes
+    #   - Medium (0.1): balanced (default)
+    #   - Low (0.01): soft boundaries
+    # Increase if: object outline is fuzzy
+    
+    # ========================================================================
+    # COVARIANCE ALIGNMENT (Our method!)
+    # ========================================================================
+    
+    w_cov_align: 0.3
+    # Spectral covariance alignment weight
+    # Aligns Gaussian ellipsoids with target surface geometry
+    # TUNING:
+    #   - High (0.5): strong geometric alignment
+    #   - Medium (0.3): balanced (default)
+    #   - Low (0.1): weak constraint
+    # THIS IS KEY FOR SURFACE QUALITY!
+    # Increase if: Gaussians don't align with surface
+    
+    # ========================================================================
+    # REGULARIZATION LOSSES (Prevent degeneracy)
+    # ========================================================================
+    
+    w_cov_reg: 0.01
+    # Covariance regularization weight
+    # Prevents degenerate (zero-volume) Gaussians
+    # TUNING:
+    #   - High (0.05): strong regularization, may over-smooth
+    #   - Medium (0.01): balanced (default)
+    #   - Low (0.001): weak, allows more variation
+    # Increase if: seeing "needle" artifacts or NaN
+    
+    cov_reg_mode: 'eigenvalue'
+    # Regularization type:
+    #   - 'eigenvalue': penalize small eigenvalues (recommended)
+    #   - 'frobenius': penalize small Frobenius norm
+    #   - 'determinant': penalize small determinant (volume)
+    # Default 'eigenvalue': most stable
+    
+    target_cov_scale: 0.02
+    # Target minimum eigenvalue for regularization
+    # Gaussians smaller than this are penalized
+    # TUNING:
+    #   - Larger (0.05): prevents very small Gaussians
+    #   - Smaller (0.01): allows finer details
+    # Match to your mesh scale!
+    
+    w_normal_smooth: 0.0
+    # Normal smoothness regularization (optional)
+    # Penalizes: rapid changes in surface normals
+    # TUNING:
+    #   - 0.0: disabled (default, let pipeline handle it)
+    #   - 0.01-0.05: gentle smoothing
+    #   - 0.1+: strong smoothing, may lose features
+    # Usually keep at 0.0 (pipeline's normal_smooth is better)
+    
+    # ========================================================================
+    # LOSS SCHEDULING (Optional)
+    # ========================================================================
+    
+    schedule: 'constant'
+    # How to change loss weights over time:
+    #   - 'constant': fixed weights (default)
+    #   - 'warmup': gradually increase w_cov_align
+    #   - 'annealing': gradually decrease regularization
+    # Advanced feature, usually keep 'constant'
+
+
+# ================================================================================
+# OUTPUT CONFIGURATION
+# ================================================================================
+
+output:
+  export_ply: false
+  # Export intermediate PLY files
+  # true: saves every frame (large disk space!)
+  # false: only save final result (recommended)
+  
+  output_format: "ply"
+  # Output file format: "ply", "obj", or "pts"
+  # PLY recommended for Gaussian attributes
+
+
+# ================================================================================
+# 🔥 UPSAMPLING PIPELINE CONFIGURATION (v3.1)
+# ================================================================================
+# Converts sparse MPM particles to dense Gaussian splats
+# This is our core contribution!
+# ================================================================================
+
+sampling:
+  # ==========================================================================
+  # DEBUG SETTINGS
+  # ==========================================================================
+  
+  debug:
+    verbose: true
+    # Print detailed pipeline progress
+    # true: see each stage's statistics (recommended for tuning)
+    # false: silent execution (faster for production)
+    
+    export_volume_filter: true
+    # Export PNG visualization after volume filtering
+    # Shows: surface points (green) vs volume points (red)
+    # Useful for: debugging thin features, tuning thresholds
+    
+    export_dir: "debug/"
+    # Directory for debug visualizations
+    
+    png_dpi: 160
+    # PNG resolution (96=screen, 160=high, 300=print)
+    
+    png_ptsize: 0.5
+    # Point size in scatter plots (0.2-1.0)
+  
+  # ==========================================================================
+  # STAGE 1: SURFACE DETECTION
+  # ==========================================================================
+  # PCA-based planarity analysis to identify surface regions
+  
+  surface_detection:
+    enabled: true
+    # Disable only for uniform sampling (not recommended)
+    
+    k: 48
+    # Neighbors for local PCA
+    # TUNING:
+    #   - Noisy data: 64 (more stable)
+    #   - Clean data: 32-48 (sharper features)
+    #   - Default: 48 (balanced)
+    # Lower = sharper but noise-sensitive
+    # Higher = smoother but may miss fine features
+    
+    soft_tau: 0.30
+    # Sigmoid temperature for surface probability
+    # TUNING:
+    #   - Sharp selection: 0.1-0.2
+    #   - Balanced: 0.3-0.5 (default 0.30)
+    #   - Smooth gradients: 0.6-0.8
+    # Lower = more binary (surface vs not)
+    # Higher = gradual transition (better for learning)
+    
+    surface_power: 3.0
+    # Exponent for probability concentration
+    # TUNING:
+    #   - Uniform-like: 1.0-2.0
+    #   - Focused: 3.0-4.0 (default)
+    #   - Very concentrated: 5.0-8.0
+    # Controls how much to focus on high-quality surfaces
+    # ⚠️ WARNING: Too high (>6) may create holes!
+  
+  # ==========================================================================
+  # STAGE 2: VOLUME FILTERING
+  # ==========================================================================
+  # Separates surface from interior volume - CRITICAL for thin structures!
+  
+  volume_filter:
+    enabled: true
+    # ⚠️ CRITICAL: Always true for thin features (ears, fingers, wings)
+    # Disable only for: thick convex objects, debugging
+    
+    k: 20
+    # Neighbors for normal consensus
+    # TUNING FOR YOUR MESH TYPE:
+    #   - Thin structures (bunny ears): 16-20 ✓ (default)
+    #   - Medium thickness: 24-28
+    #   - Thick objects (sphere): 32-48
+    # Lower k = more local = better for thin features
+    # Higher k = more global = better for smooth surfaces
+    
+    consistency_threshold: 0.2
+    # Minimum normal alignment (cosine similarity)
+    # TUNING BY FEATURE TYPE:
+    #   - Very thin features: 0.15-0.25 ✓ (default 0.2)
+    #   - Moderate features: 0.30-0.50
+    #   - Smooth surfaces: 0.60-0.80
+    # Physical meaning:
+    #   0.2 ≈ 78° max angle variation (very lenient)
+    #   0.5 ≈ 60° (moderate)
+    #   0.7 ≈ 45° (strict)
+    # ⚠️ CRITICAL: Too high (>0.5) will REMOVE thin features!
+    
+    temperature: 15.0
+    # Sigmoid sharpness for soft gating
+    # TUNING:
+    #   - Soft boundary: 15-20 (default, better gradients)
+    #   - Sharp boundary: 8-12
+    #   - Very sharp: 5-8 (almost binary)
+    # Higher = smoother gradients = better for learning
+    
+    positive_only: true
+    # Only count aligned normals (ignore opposite-facing)
+    # ⚠️ ALWAYS TRUE for thin structures!
+    # false: may incorrectly classify thin surfaces as volume
+    
+    use_distance_weight: false
+    # Weight neighbors by distance (experimental)
+    # Usually false: simpler is better
+    # true: may help with highly varying density
+    
+    distance_bandwidth: 0.08
+    # Only used if use_distance_weight=true
+    # Gaussian bandwidth for distance weighting
+  
+  # ==========================================================================
+  # STAGE 3: IMPORTANCE SAMPLING
+  # ==========================================================================
+  # Gumbel-Softmax sampling with adaptive tangent jittering
+  
+  sampling:
+    M: 100000
+    # Target number of output points
+    # TUNING BY USE CASE:
+    #   - Real-time (30 FPS): 30k-50k
+    #   - Interactive (10 FPS): 50k-80k
+    #   - Preview quality: 80k-100k ✓ (default)
+    #   - High quality: 100k-200k
+    #   - Offline rendering: 200k-500k
+    # Memory: ~4GB for M=100k, N=10k during sampling
+    # Rendering: ~0.1ms per 1k Gaussians on RTX 3090
+    
+    tau: 0.2
+    # Gumbel-Softmax temperature
+    # TUNING:
+    #   - Focused sampling: 0.1-0.15
+    #   - Balanced: 0.2-0.3 (default)
+    #   - Diverse sampling: 0.4-0.5
+    # Lower = concentrate on high-prob anchors
+    # Higher = more uniform distribution
+    
+    alpha: 0.20
+    # Tangent jitter scale (relative to spacing)
+    # TUNING BY MESH RESOLUTION:
+    #   - Dense input (N>20k): 0.15-0.25 ✓ (default 0.20)
+    #   - Medium input (N=5-20k): 0.30-0.40
+    #   - Sparse input (N<5k): 0.40-0.50
+    # Physical: alpha=0.2 means 20% of local spacing
+    # Lower = tighter clustering (preserve detail)
+    # Higher = wider spread (fill gaps)
+    
+    thickness: 0.0
+    # Normal-direction jitter (for volumetric effects)
+    # TUNING:
+    #   - Pure surface: 0.0 ✓ (default, recommended)
+    #   - Thin shell: 0.05-0.10
+    #   - Volumetric cloud: 0.15-0.30
+    # Almost always keep at 0.0 for shape morphing
+    
+    density_gamma: 2.5
+    # Anti-clustering exponent
+    # TUNING:
+    #   - Clustered input: 2.5-3.5 (default)
+    #   - Uniform input: 1.5-2.5
+    #   - Extreme clustering: 3.5-4.5
+    # Prevents oversampling dense regions
+  
+  # ==========================================================================
+  # STAGE 4: TAUBIN SMOOTHING
+  # ==========================================================================
+  # Shrinkage-free Laplacian smoothing (λ-μ scheme)
+  
+  taubin:
+    enabled: true
+    # ⚠️ CRITICAL: Almost always true!
+    # Removes jitter noise, dramatically improves quality
+    # Disable only for: debugging, comparing to baseline
+    
+    iters: 5
+    # Number of λ-μ passes
+    # TUNING BY NOISE LEVEL:
+    #   - Clean input: 2-3
+    #   - Normal jitter: 3-5 ✓ (default 5)
+    #   - Heavy noise: 5-7
+    # Each iteration: smooth pass + inflate pass
+    # More iters = smoother but may lose sharp features
+    
+    k: 32
+    # Neighbors for Laplacian
+    # TUNING:
+    #   - Preserve sharp edges: 16-24
+    #   - Balanced: 24-32 ✓ (default)
+    #   - Aggressive smoothing: 32-48
+    # Lower k = localized smoothing
+    # Higher k = broader smoothing
+    
+    lambda_smooth: 0.7
+    # Smoothing weight (0-1, must be positive!)
+    # TUNING:
+    #   - Gentle: 0.3-0.5
+    #   - Moderate: 0.5-0.7 ✓ (default)
+    #   - Aggressive: 0.7-0.9
+    # Higher = more smoothing per iteration
+    # Tip: With more iters, use lower lambda
+    
+    lambda_inflate: -0.63
+    # Inflation weight (MUST be negative!)
+    # TUNING WITH lambda_smooth:
+    #   - Rule of thumb: μ ≈ -(λ + 0.1)
+    #   - lambda=0.7 → mu=-0.63 ✓
+    #   - lambda=0.5 → mu=-0.53
+    #   - lambda=0.3 → mu=-0.34
+    # ⚠️ CRITICAL: Wrong sign causes shrinkage/explosion!
+    # Test: If surface shrinks, μ is too positive
+    #       If surface expands, μ is too negative
+    
+    tangent_only: true
+    # Constrain smoothing to tangent space
+    # ⚠️ ALWAYS true: preserves surface orientation
+    # false: may distort normals (not recommended)
+  
+  # ==========================================================================
+  # STAGE 5: NORMAL SMOOTHING
+  # ==========================================================================
+  # Spatial Laplacian with adaptive bandwidth
+  
+  normal_smooth:
+    enabled: true
+    # Improves shading quality significantly
+    # Disable only for: debugging, comparing to baseline
+    
+    iters: 3
+    # Smoothing iterations
+    # TUNING:
+    #   - Minimal: 1-2
+    #   - Balanced: 2-3 ✓ (default 3)
+    #   - Heavy: 3-5
+    # More iters = smoother normals = better shading
+    
+    k: 24
+    # Spatial neighbors
+    # TUNING:
+    #   - Preserve normal variation: 12-16
+    #   - Balanced: 16-24 ✓ (default)
+    #   - Very smooth: 24-32
+    # Lower k = keep sharp normal changes
+    # Higher k = very uniform normals
+    
+    lambda_smooth: 0.85
+    # EMA blend factor
+    # TUNING:
+    #   - Gentle: 0.5-0.7
+    #   - Moderate: 0.7-0.85 ✓ (default)
+    #   - Aggressive: 0.85-0.95
+    # Higher = stronger smoothing effect
+  
+  # ==========================================================================
+  # STAGE 6: COVARIANCE CONSTRUCTION
+  # ==========================================================================
+  # Builds anisotropic Gaussians from deformation field
+  
+  covariance:
+    sigma0: 0.08
+    # Base Gaussian scale (standard deviation)
+    # TUNING BY MESH SCALE:
+    #   - If mesh ∈ [-1, 1]: 0.05-0.10 ✓ (default 0.08)
+    #   - If mesh ∈ [-10, 10]: 0.5-1.0
+    #   - If mesh ∈ [-100, 100]: 5.0-10.0
+    # Rule: sigma0 ≈ (mesh_size / 15)
+    # Physical: 3σ coverage, so 3×0.08 = 0.24 = 24% of object
+    
+    k_F: 32
+    # Neighbors for F-field interpolation
+    # TUNING:
+    #   - Sharp deformations: 24-32 ✓ (default)
+    #   - Smooth deformations: 32-48
+    # Lower = preserve F variations
+    # Higher = smooth F field
+    
+    use_F_smoothing: true
+    # Graph Laplacian smoothing of F-field
+    # ⚠️ Almost always true (major quality improvement)
+    # false: only for debugging, comparing to baseline
+    
+    use_polar_decomposition: false
+    # Use polar decomposition: F = R·S
+    # RECOMMENDATION: false for now (see discussion below)
+    # true: theoretically better, but slower
+    # false: simpler Σ = σ²FF^T works well ✓
+    
+    use_adaptive_scale: false
+    # Adapt sigma based on local spacing
+    # Usually false: global sigma0 works well
+    # true: may help with highly varying density
+    
+    F_smooth:
+      num_nodes: 180
+      # Graph nodes for Laplacian
+      # TUNING: nodes ≈ N/50 to N/30
+      # More nodes = finer smoothing, slower
+      
+      node_knn: 8
+      # Graph connectivity
+      # Usually 6-10, default 8 is good
+      
+      point_knn: 8
+      # Point-to-node interpolation neighbors
+      # Usually matches node_knn
+      
+      lambda_lap: 0.01
+      # Laplacian regularization strength
+      # TUNING:
+      #   - Noisy F: 0.05-0.10
+      #   - Normal: 0.01-0.02 ✓ (default)
+      #   - Clean F: 0.001-0.01
+  
+  # ==========================================================================
+  # KNN SETTINGS
+  # ==========================================================================
+  
+  knn:
+    use_faiss: true
+    # Use FAISS for 10-100× speedup
+    # false: pure PyTorch (only for debugging)
+    
+    use_ivf: true
+    # IVF approximate search
+    # false: exact search (slower, for N<5k only)
+    
+    tau: 0.15
+    # Softmax temperature for attention weights
+    # Usually 0.10-0.20, default 0.15 is good
+    
+    nlist: 100
+    # IVF cells (auto-adjusted internally)
+    
+    nprobe: 10
+    # Cells to search (accuracy vs speed)
+    # 5=fast/95%, 10=balanced/98%, 20=slow/99.5%
+    
+    fallback_chunk_size: 5000
+    # Chunk size for PyTorch fallback (memory control)
+  
+  # ==========================================================================
+  # PERFORMANCE
+  # ==========================================================================
+  
+  performance:
+    use_amp: false
+    # Mixed precision (currently disabled for stability)
+    # true: faster but may have numerical issues
+    
+    cache_knn: true
+    # Cache FAISS indices
+    # true: faster repeated calls
+    
+    clear_cache: true
+    # Clear cache after pipeline
+    # true: free memory (recommended)
+
+
+# ================================================================================
+# RENDERING CONFIGURATION (3D Gaussian Splatting)
+# ================================================================================
+
+camera:
+  # Camera intrinsics
+  width: 1280
+  height: 720
+  
+  fx: 475.0          # Focal length X (pixels)
+  fy: 475.0          # Focal length Y (pixels)
+  cx: 640.0          # Principal point X (width/2)
+  cy: 360.0          # Principal point Y (height/2)
+  
+  znear: 0.01        # Near clipping plane
+  zfar: 100.0        # Far clipping plane
+  
+  # Camera pose (extrinsics)
+  lookat:
+    eye: [20.0, -25.0, 15.0]     # Camera position
+    # TUNING: Adjust to view your mesh
+    # Tip: distance ≈ 2-3× mesh_size for good view
+    
+    target: [0.0, 0.0, 0.0]      # Look-at point (usually origin)
+    up: [0.0, 0.0, 1.0]          # Up vector (Z-up convention)
+
+render:
+  num_frames: 1
+  # Number of frames to render
+  # 1: single frame (for debugging)
+  # >1: video sequence
+  
+  schedule: uniform
+  # Frame timing: 'uniform' or 'custom'
+  
+  bg: [1.0, 1.0, 1.0]
+  # Background color RGB (white)
+  # [0,0,0] = black, [1,1,1] = white
+  
+  particle_color: [0.27, 0.51, 0.71]
+  # Base color for Gaussians (blue)
+  
+  lighting:
+    model: phong
+    # Shading model: 'phong', 'blinn', or 'flat'
+    
+    type: directional
+    # Light type: 'directional' or 'point'
+    
+    direction: [0.3, -0.5, 0.8]
+    # Light direction (for directional light)
+    # Normalized automatically
+    
+    two_sided: true
+    # Two-sided lighting (recommended for thin surfaces)
+    
+    ambient: 0.18
+    # Ambient light intensity (0-1)
+    # Prevents fully black shadows
+    
+    diffuse: 0.85
+    # Diffuse reflection intensity (0-1)
+    # Main lighting contribution
+    
+    specular: 0.10
+    # Specular highlight intensity (0-1)
+    # Shiny highlights
+    
+    shininess: 32
+    # Specular shininess exponent
+    # Higher = sharper highlights
+
+
+# ================================================================================
+# 🎯 PRESET CONFIGURATIONS
+# ================================================================================
+# Uncomment ONE preset section below to use predefined settings
+# Comment out to use manual settings above
+#
+# HOW TO USE:
+#   1. Comment out current "sampling:" section
+#   2. Uncomment ONE preset below
+#   3. Adjust specific parameters if needed
+# ================================================================================
+
+# ------------------------------------------------------------------------------
+# 🐰 BUNNY PRESET: Optimized for thin features
+# ------------------------------------------------------------------------------
+# Use for: bunny ears, armadillo, hand models, any thin structures
+# Changes: More lenient volume filter, gentler smoothing
+#
+# sampling:
+#   # Inherit debug settings from above
+#   
+#   surface_detection:
+#     k: 48
+#     soft_tau: 0.30
+#     surface_power: 3.0
+#   
+#   volume_filter:
+#     enabled: true
+#     k: 20                            # ✓ Very local for thin features
+#     consistency_threshold: 0.25      # ✓ Very lenient (was 0.2, slightly stricter)
+#     temperature: 12.0                # ✓ Smoother
+#   
+#   sampling:
+#     M: 80000                         # ✓ More samples for better coverage
+#     tau: 0.2
+#     alpha: 0.20
+#     thickness: 0.0
+#   
+#   taubin:
+#     enabled: true
+#     iters: 5
+#     k: 24
+#     lambda_smooth: 0.5               # ✓ Gentler (was 0.7)
+#     lambda_inflate: -0.48            # ✓ Adjusted for lambda=0.5
+#     tangent_only: true
+#   
+#   normal_smooth:
+#     enabled: true
+#     iters: 3
+#     k: 24
+#     lambda_smooth: 0.7               # ✓ Gentler (was 0.85)
+#   
+#   covariance:
+#     sigma0: 0.08
+#     k_F: 32
+#     use_F_smoothing: true
+
+# ------------------------------------------------------------------------------
+# 🌐 SPHERE PRESET: Optimized for smooth surfaces
+# ------------------------------------------------------------------------------
+# Use for: sphere, torus, ellipsoid, smooth CAD models
+# Changes: Stricter volume filter, stronger smoothing
+#
+# sampling:
+#   surface_detection:
+#     k: 48
+#     soft_tau: 0.50                   # ✓ Smoother gradients
+#     surface_power: 2.0               # ✓ Less concentrated
+#   
+#   volume_filter:
+#     enabled: true
+#     k: 32                            # ✓ Larger neighborhood
+#     consistency_threshold: 0.50      # ✓ Stricter (was 0.2)
+#     temperature: 15.0
+#   
+#   sampling:
+#     M: 50000                         # ✓ Fewer samples (smooth surface)
+#     tau: 0.2
+#     alpha: 0.30                      # ✓ Wider spread
+#     thickness: 0.0
+#   
+#   taubin:
+#     enabled: true
+#     iters: 5
+#     k: 32
+#     lambda_smooth: 0.7               # ✓ Stronger
+#     lambda_inflate: -0.65            # ✓ Adjusted
+#     tangent_only: true
+#   
+#   normal_smooth:
+#     enabled: true
+#     iters: 3                         # ✓ More iterations
+#     k: 24
+#     lambda_smooth: 0.90              # ✓ Very smooth
+#   
+#   covariance:
+#     sigma0: 0.08
+#     k_F: 32
+#     use_F_smoothing: true
+
+# ------------------------------------------------------------------------------
+# ⚡ FAST PRESET: Real-time performance
+# ------------------------------------------------------------------------------
+# Use for: previews, debugging, real-time applications
+# Changes: Fewer samples, disable expensive stages
+# Speed: 3-5× faster, quality: 70% of default
+#
+# sampling:
+#   debug:
+#     verbose: false                   # ✓ Silent for speed
+#     export_volume_filter: false      # ✓ No exports
+#   
+#   surface_detection:
+#     enabled: true
+#     k: 32                            # ✓ Smaller k
+#   
+#   volume_filter:
+#     enabled: false                   # ✓ DISABLED (major speedup)
+#   
+#   sampling:
+#     M: 30000                         # ✓ Much fewer samples
+#     tau: 0.2
+#     alpha: 0.25
+#   
+#   taubin:
+#     enabled: false                   # ✓ DISABLED
+#   
+#   normal_smooth:
+#     enabled: false                   # ✓ DISABLED
+#   
+#   covariance:
+#     use_F_smoothing: false           # ✓ DISABLED
+#   
+#   performance:
+#     use_amp: true                    # ✓ Mixed precision
+
+# ------------------------------------------------------------------------------
+# 💎 QUALITY PRESET: Offline high-quality rendering
+# ------------------------------------------------------------------------------
+# Use for: final renders, paper figures, demonstrations
+# Changes: More samples, larger neighborhoods, more iterations
+# Speed: 1.5-2× slower, quality: 120% of default
+#
+# sampling:
+#   surface_detection:
+#     enabled: true
+#     k: 64                            # ✓ Larger k
+#     soft_tau: 0.60                   # ✓ Smoother
+#   
+#   volume_filter:
+#     enabled: true
+#     k: 32                            # ✓ Larger
+#     consistency_threshold: 0.35      # ✓ Balanced
+#     temperature: 15.0
+#   
+#   sampling:
+#     M: 100000                        # ✓ Max samples (or more!)
+#     tau: 0.2
+#     alpha: 0.20
+#   
+#   taubin:
+#     enabled: true
+#     iters: 5                         # ✓ More iterations
+#     k: 32                            # ✓ Larger k
+#     lambda_smooth: 0.7
+#     lambda_inflate: -0.63
+#   
+#   normal_smooth:
+#     enabled: true
+#     iters: 3                         # ✓ More iterations
+#     k: 24                            # ✓ Larger k
+#     lambda_smooth: 0.85
+#   
+#   covariance:
+#     sigma0: 0.08
+#     k_F: 48                          # ✓ More neighbors
+#     use_F_smoothing: true
+
+
+# ================================================================================
+# 📊 PARAMETER TUNING FLOWCHART
+# ================================================================================
+#
+# START HERE: What's your problem?
+#
+# 1️⃣ THIN FEATURES DISAPPEARING (bunny ears, fingers)
+#    → volume_filter.k: decrease to 16-20
+#    → volume_filter.consistency_threshold: decrease to 0.15-0.25
+#    → volume_filter.temperature: decrease to 10-12 (sharper)
+#    → taubin.lambda_smooth: decrease to 0.4-0.5 (gentler)
+#    → Consider: bunny_cfg preset
+#
+# 2️⃣ SURFACE TOO NOISY (jagged, bumpy)
+#    → taubin.iters: increase to 5-7
+#    → taubin.k: increase to 32-40
+#    → normal_smooth.lambda_smooth: increase to 0.85-0.95
+#    → surface_detection.k: increase to 56-64
+#
+# 3️⃣ SURFACE TOO SMOOTH (lost detail)
+#    → taubin.lambda_smooth: decrease to 0.4-0.5
+#    → taubin.iters: decrease to 2-3
+#    → normal_smooth.lambda_smooth: decrease to 0.6-0.7
+#    → surface_detection.k: decrease to 32-40
+#
+# 4️⃣ HOLES OR GAPS IN SURFACE
+#    → sampling.M: increase (more samples)
+#    → sampling.alpha: increase to 0.30-0.40 (wider jitter)
+#    → surface_detection.surface_power: decrease to 2.0-3.0
+#    → Check: volume_filter may be too strict
+#
+# 5️⃣ INTERIOR POINTS VISIBLE (volume artifacts)
+#    → volume_filter.enabled: ensure true!
+#    → volume_filter.consistency_threshold: increase to 0.4-0.6
+#    → volume_filter.k: increase to 28-32
+#    → volume_filter.positive_only: ensure true!
+#
+# 6️⃣ TOO SLOW (need faster preview)
+#    → sampling.M: decrease to 30k-50k
+#    → Use fast_cfg preset
+#    → volume_filter.enabled: false (if acceptable)
+#    → taubin.enabled: false (if acceptable)
+#
+# 7️⃣ SIMULATION UNSTABLE (explodes, NaN)
+#    → simulation.dt: decrease by half (0.0083 → 0.0042)
+#    → simulation.drag: increase to 0.7-0.9
+#    → Check: grid bounds contain mesh
+#    → Check: lambda_inflate is NEGATIVE
+#
+# 8️⃣ SHAPE DOESN'T MORPH (stuck at initial)
+#    → optimization.loss.w_cov_align: increase to 0.5-0.7
+#    → optimization.loss.w_alpha: increase to 0.7-0.9
+#    → optimization.num_timesteps: increase to 15-20
+#    → Check: target mesh is reasonable
+#
+# 9️⃣ RENDERING LOOKS WRONG
+#    → Check camera.lookat (is mesh visible?)
+#    → covariance.sigma0: adjust to mesh scale
+#    → render.lighting.ambient: increase if too dark
+#    → Check: mesh scale (normalize to [-1,1] recommended)
+#
+# 🔟 OUT OF MEMORY (OOM)
+#    → sampling.M: decrease (primary memory consumer)
+#    → knn.use_ivf: ensure true (uses less memory)
+#    → sampling.sampling.M: try 50k or 30k
+#    → Clear GPU cache between runs
+#
+# ================================================================================

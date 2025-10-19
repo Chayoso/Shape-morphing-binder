@@ -1,11 +1,11 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# 🎯 DiffMPM v2.0.0 - Conda Environment Configuration
+# 🎯 DiffMPM v2.1.0 - Conda Environment Configuration
 # ═══════════════════════════════════════════════════════════════════════════
 # A sophisticated differentiable Material Point Method implementation
 # with Gaussian Splatting integration for high-fidelity physics simulation
 # ═══════════════════════════════════════════════════════════════════════════
 
-name: diffmpm_v2.0.0
+name: diffmpm_v2.1.0
 
 channels:
   - conda-forge

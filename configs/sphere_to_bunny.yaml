@@ -13,7 +13,7 @@ output_dir: "output/"
 simulation:
   # Grid setting
   grid_dx: 1                             # Grid cell size
-  points_per_cell_cuberoot: 2            # Number of points per cell (cubic root)
+  points_per_cell_cuberoot: 3            # Number of points per cell (cubic root)
   grid_min_point: [-16.0, -16.0, -16.0]  # Grid minimum coordinate
   grid_max_point: [16.0, 16.0, 16.0]     # Grid maximum coordinate
   
@@ -28,29 +28,11 @@ simulation:
   external_force: [0.0, 0.0, 0.0]        # External force (gravity, etc.)
   smoothing_factor: 0.955                # Smoothing factor
 
-# control_stride: control frame interval
-# num_timesteps: number of time steps per episode
-# control_timesteps: time steps to optimize
-# optimize count: number of times to optimize
-#|  control_stride | num_timesteps | control_timesteps | optimize count |
-#|-----------------|---------------|-------------------|---------------|
-#|        1        |      10       |[0,1,2,3,4,5,6,7,8]|      9        |
-#|        2        |      10       |    [0,2,4,6,8]    |      5        |
-#|        3        |      10       |      [0,3,6]      |      3        |
-#|        5        |      10       |      [0,5]        |      2        |
-#|        10       |      10       |      [0]          |      1        |
-
 # ===================================================================
 # Optimization setting
 # ===================================================================
 optimization:
   num_animations: 2                 # Number of animation episodes
-  num_timesteps: 10                 # Number of time steps per episode
-  control_stride: 1                 # Control frame interval
-  max_gd_iters: 1                   # Maximum number of gradient descent iterations
-  max_ls_iters: 10                  # Maximum number of line search iterations
-  initial_alpha: 0.01               # Initial step size
-  gd_tol: 0.0001                    # Gradient tolerance
   num_timesteps: 10                 # Number of time steps per episode
   control_stride: 1                 # Control frame interval
   max_gd_iters: 1                   # Maximum number of gradient descent iterations
@@ -64,10 +46,10 @@ optimization:
     # Photometric losses
     w_alpha: 0.5
     w_depth: 0.2
-
+    
     #  Silhouette Edge Alignment
     w_edge: 0.1
-
+    
     # Covariance Spectral Alignment
     w_cov_align: 0.3
     
@@ -86,131 +68,113 @@ output:
   output_format: "ply"              # Output format
 
 # ===================================================================
-# UPSAMPLING SETTINGS (RUNTIME SURFACE) - HYBRID E2E MODE
+# 🔥 UPSAMPLING PIPELINE v3.0 (REFACTORED)
 # ===================================================================
 sampling:
-  runtime_surface:
-    # ===================================================================
-    # HYBRID E2E CORE SETTINGS
-    # ===================================================================
-    use_hybrid_e2e: true          # Enable Hybrid mode
-    base_gaussian_scale: 0.02     # Base Gaussian scale (σ₀)
-    use_adaptive_scale: true      # Density-adaptive scaling
-    use_normal_anisotropy: false  # Keep false for stability
-    anisotropy_factor: 1.5        # Only if anisotropy enabled
-    
-    # ===================================================================
-    # HYBRID FAISS SETTINGS
-    # ===================================================================
-    use_hybrid_faiss: true        # Fast FAISS + differentiable weights
-    use_faiss_ivf: true           # IVF index for 10-100x speedup
-    ivf_nlist: 100                # Number of IVF clusters
-    ivf_nprobe: 10                # Number of clusters to search
-    
-    # Soft-radius mode (smoother gradients)
-    use_soft_radius: false        # false=speed, true=quality
-    soft_radius_candidates: 128   # Candidate pool (if enabled)
-    
-    # ===================================================================
-    # DIFFERENTIABILITY SETTINGS
-    # ===================================================================
-    differentiable: true          # Enable differentiable operations
-    sampling_tau: 0.2             # Gumbel-Softmax temperature
-    knn_tau: 0.15                 # Soft kNN temperature (default)
-    surface_power: 4.0            # Surface concentration (default)
-    
-    # ===================================================================
-    # SURFACE DETECTION
-    # ===================================================================
-    use_surface_detection: true   # Enable surface detection
-    k_surface: 36                 # kNN for surface detection (default)
-    thr_percentile: 8.0           # Top 92% as surface (default)
-    soft_tau: 0.08                # Surface transition sharpness (default)
-    hysteresis: 0.03              # Temporal stability (default)
-    ema_beta: 0.95                # EMA weight (default)
-    
-    # ===================================================================
-    # SAMPLING CONFIGURATION
-    # ===================================================================
-    M: 50000                      # Number of upsampled points
-    surf_jitter_alpha: 0.6        # Surface jitter (default)
-    thickness: 0.0                # Surface thickness (default)
-    density_gamma: 2.5            # Density distribution (default)
-    
-    # ===================================================================
-    # GAUSSIAN RENDERING (F-based in Original mode, ignored in Hybrid)
-    # ===================================================================
-    sigma0: 0.08                  # Gaussian base scale (Original mode)
-    use_F_kernel: true            # Use F kernel for interpolation
-    k_F: 32                       # kNN for F interpolation
-    h_mul: 1.5                    # Bandwidth multiplier
-
-    # ===================================================================
-    # NORMAL SMOOTHING
-    # ===================================================================
-    smooth_normals: true           # Enable normal smoothing
-    normal_smooth_iters: 2         # Number of iterations
-    normal_smooth_k: 16            # Number of neighbors
-    normal_smooth_lambda: 0.8      # Smoothing strength (0=none, 1=full)
-    
-    # ===================================================================
-    # EMBEDDED DEFORMATION GRAPH (F smoothing)
-    # ===================================================================
-    ed:
-      enabled: true
-      num_nodes: 180
-      node_knn: 8
-      point_knn_nodes: 8
-      lambda_lap: 1.0e-2
-    
-    # ===================================================================
-    # POST-PROCESSING
-    # ===================================================================
-    post_equalize:
-      enabled: true               # Enable density equalization
-      iters: 8                    # Number of iterations
-      k: 32                       # kNN neighbors
-      step: 0.45                  # Step size
-      annealing: 0.9              # Step annealing factor
-      radius_mul: 1.2             # Radius multiplier
-      
-      # MLS Projection
-      use_mls_projection: true    # Project to MLS surface
-      mls_iters: 2                # MLS projection iterations
-      mls_step: 1.0               # MLS step size
-      knn_tau: 0.15               # kNN temperature for MLS
-    
-    # ===================================================================
-    # OPTIONAL SMOOTHER (disabled by default)
-    # ===================================================================
-    smoother:
-      enabled: false              # Enable tangent Laplacian smoothing
-      iters: 3
-      k: 24
-      step: 0.12
-      lambda_normal: 0.15
-      mls_every: 2
-    
-    # ===================================================================
-    # PERFORMANCE & DEBUGGING
-    # ===================================================================
-    use_amp: false                # Mixed precision (false for stability)
-    
-    # PNG output for debugging
-    png:
-      enabled: true
-      dpi: 160
-      ptsize: 0.5
+  # ===================================================================
+  # DEBUG MODE
+  # ===================================================================
+  debug:
+    verbose: true                   # Print detailed logs
+    export_volume_filter: true      # Export PNG after volume filter
+    export_dir: "debug/"            # Debug output directory
+    png_dpi: 160                    # PNG resolution
+    png_ptsize: 0.5                 # Point size in PNG
+  
+  # ===================================================================
+  # STEP 1: SURFACE DETECTION (PCA-based)
+  # ===================================================================
+  surface_detection:
+    enabled: true
+    k: 48                           # KNN neighbors for PCA
+    soft_tau: 0.30                  # Sigmoid sharpness
+    surface_power: 3.0              # Probability concentration
+  
+  # ===================================================================
+  # STEP 2: VOLUME FILTERING (Soft)
+  # ===================================================================
+  volume_filter:
+    enabled: true
+    k: 20                           # KNN neighbors for normal consistency
+    consistency_threshold: 0.2      # cos(45°) ≈ 0.7
+    temperature: 15.0               # Sigmoid sharpness (5=soft, 10=mid, 20=sharp)
+    positive_only: True            
+    use_distance_weight: False     
+    distance_bandwidth: 0.08       
+  
+  # ===================================================================
+  # STEP 3: IMPORTANCE SAMPLING (Gumbel-Softmax)
+  # ===================================================================
+  sampling:
+    M: 100000                       # Target number of samples
+    tau: 0.2                        # Gumbel-Softmax temperature
+    alpha: 0.20                     # Tangent jitter scale
+    thickness: 0.0                  # Normal jitter scale
+    density_gamma: 2.5              # Density importance
+  
+  # ===================================================================
+  # STEP 4: TAUBIN SMOOTHING (Differentiable)
+  # ===================================================================
+  taubin:
+    enabled: true
+    iters: 5                        # Number of iterations
+    k: 32                           # KNN neighbors
+    lambda_smooth: 0.7              # Smoothing strength
+    lambda_inflate: -0.63           # Inflation strength (negative!)
+    tangent_only: true              # Only smooth tangent component
+  
+  # ===================================================================
+  # STEP 5: NORMAL SMOOTHING (Laplacian)
+  # ===================================================================
+  normal_smooth:
+    enabled: true
+    iters: 3                        # Number of iterations
+    k: 24                           # KNN neighbors
+    lambda_smooth: 0.85             # Smoothing strength
+  
+  # ===================================================================
+  # STEP 6: COVARIANCE CONSTRUCTION (F-field)
+  # ===================================================================
+  covariance:
+    sigma0: 0.08                    # Base Gaussian scale
+    k_F: 32                         # KNN for F interpolation
+    use_F_smoothing: true           # Smooth F field
+    use_polar_decomposition: false  # Use polar decomposition
+    use_adaptive_scale: false       # Use adaptive scale
+    F_smooth:
+      num_nodes: 180                # Graph nodes
+      node_knn: 8                   # Node neighbors
+      point_knn: 8                  # Point-to-node neighbors
+      lambda_lap: 0.01              # Laplacian regularization
+  
+  # ===================================================================
+  # KNN SETTINGS
+  # ===================================================================
+  knn:
+    use_faiss: true                 # Use FAISS for speed
+    use_ivf: true                   # Use IVF index (10-100x faster)
+    tau: 0.15                       # Soft KNN temperature
+    nlist: 100                      # Number of IVF clusters
+    nprobe: 10                      # Number of clusters to search
+    fallback_chunk_size: 5000       # Chunk size for torch fallback
+  
+  # ===================================================================
+  # PERFORMANCE
+  # ===================================================================
+  performance:
+    use_amp: false                  # Mixed precision (false for stability)
+    cache_knn: true                 # Cache KNN results
+    clear_cache: true               # Clear cache after each call
 
 # ===================================================================
 # RENDER SETTINGS (3DGS Runtime Renderer)
 # ===================================================================
 camera:
-  width: 1280  
+  width: 1280
   height: 720
-  fx: 475.0                       # Focal length in pixels X 
-  fy: 475.0                       # Focal length in pixels Y 
-  cx: 640.0                       # Principal point X 
+  fx: 475.0                       # Focal length in pixels X
+  fy: 475.0                       # Focal length in pixels Y
+  cx: 640.0                       # Principal point X
   cy: 360.0                       # Principal point Y
   znear: 0.01
   zfar: 100.0
@@ -236,28 +200,55 @@ render:
     shininess: 32                 # Specular shininess
 
 # ===================================================================
-# ADVANCED OPTIONS (for fine-tuning)
+# 🎯 PRESET CONFIGURATIONS (Uncomment to use)
 # ===================================================================
-# Uncomment and modify if needed:
 
-# # Advanced covariance regularization
-# advanced_cov_reg:
-#   lambda_vol: 0.01              # Volume regularization
-#   lambda_aniso: 0.005           # Anisotropy penalty
-#   target_vol: 1.0e-4            # Target Gaussian volume
-#   max_aniso_ratio: 10.0         # Max anisotropy ratio
+# # 🐰 Bunny preset (thin features like ears)
+# sampling:
+#   sampling:
+#     M: 80000
+#   taubin:
+#     lambda_smooth: 0.5
+#     lambda_inflate: -0.48
+#   normal_smooth:
+#     lambda_smooth: 0.7
 
-# # Loss weight schedule (if not 'constant')
-# loss_schedule:
-#   initial:
-#     w_physics_pos: 1.0
-#     w_physics_F: 0.1
-#     w_alpha: 0.3
-#   mid:  # at 30% progress
-#     w_physics_pos: 0.8
-#     w_physics_F: 0.05
-#     w_alpha: 0.5
-#   late:  # at 70% progress
-#     w_physics_pos: 0.6
-#     w_physics_F: 0.02
-#     w_alpha: 0.7
+# # 🌐 Sphere preset (smooth surfaces)
+# sampling:
+#   sampling:
+#     M: 50000
+#   taubin:
+#     lambda_smooth: 0.7
+#     lambda_inflate: -0.65
+#   normal_smooth:
+#     iters: 3
+
+# # ⚡ Fast preset (real-time)
+# sampling:
+#   sampling:
+#     M: 30000
+#   volume_filter:
+#     enabled: false
+#   taubin:
+#     enabled: false
+#   normal_smooth:
+#     enabled: false
+#   covariance:
+#     use_F_smoothing: false
+#   performance:
+#     use_amp: true
+
+# # 💎 Quality preset (offline rendering)
+# sampling:
+#   sampling:
+#     M: 100000
+#   surface_detection:
+#     k: 64
+#   volume_filter:
+#     k: 64
+#   taubin:
+#     iters: 5
+#     k: 32
+#   normal_smooth:
+#     iters: 3
+#     k: 24

@@ -1,19 +1,24 @@
 """
-Geometric operations and interpolation.
+Geometric operations.
 
 Includes:
-- Moving Least Squares (MLS) surface projection
-- Oriented-point implicit surface reconstruction
+- Covariance construction (F-field interpolation)
+- F-field smoothing (graph Laplacian)
 """
 
-from .mls import (
-    compute_mls_signed_distance,
-    compute_mls_normal,
-    project_to_mls_surface_diff,
+from .covariance import (
+    build_covariance,
+    smooth_F_field,
+    select_graph_nodes,
+    build_graph_laplacian,
+    build_interpolation_weights,
 )
 
+
 __all__ = [
-    "compute_mls_signed_distance",
-    "compute_mls_normal",
-    "project_to_mls_surface_diff",
+    "build_covariance",
+    "smooth_F_field",
+    "select_graph_nodes",
+    "build_graph_laplacian",
+    "build_interpolation_weights",
 ]
