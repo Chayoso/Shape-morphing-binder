@@ -112,13 +112,13 @@ The pipeline consists of three main stages:
 │ ─────────────────────────────────────────────────────────────────────── │
 │  Input:  x_init (N, 3), target_shape                                    │
 │  Output: x_t (N, 3), F_t (N, 3, 3) for each timestep t                  │
-│                                                                          │
-│  Forward Dynamics:                                                       │
+│                                                                         │
+│  Forward Dynamics:                                                      │
 │    • P2G: Particle → Grid (mass, momentum transfer)                     │
 │    • Grid Update: explicit time integration with Neo-Hookean forces     │
 │    • G2P: Grid → Particle (velocity, deformation gradient update)       │
-│                                                                          │
-│  Backward Gradients:                                                     │
+│                                                                         │
+│  Backward Gradients:                                                    │
 │    • Reverse-mode autodiff through entire simulation                    │
 │    • Gradient accumulation: ∂L_physics + ∂L_render                      │
 │    • Adam optimization over control timesteps                           │
@@ -128,125 +128,125 @@ The pipeline consists of three main stages:
 ┌─────────────────────────────────────────────────────────────────────────┐
 │          STAGE 2: DIFFERENTIABLE UPSAMPLING PIPELINE (v2.1)             │
 │ ─────────────────────────────────────────────────────────────────────── │
-│  Transforms: Sparse particles (N ≈ 10k) → Dense Gaussians (M ≈ 100k)   │
-│                                                                          │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ Step 1: Surface Detection (PCA-based)                            │  │
-│  │ ───────────────────────────────────────────────────────────────  │  │
-│  │ • For each particle: find k=48 neighbors                         │  │
-│  │ • Weighted PCA: compute C = Σ wᵢ(xᵢ-c)(xᵢ-c)ᵀ                   │  │
-│  │ • Eigendecomposition: λ₀ ≤ λ₁ ≤ λ₂                               │  │
-│  │ • Surface quality: surfvar = λ₀/(λ₀+λ₁+λ₂)                       │  │
-│  │ • Importance: prob = ema(1 - surfvar)^power                      │  │
-│  │ • Extract: normals (n), spacing (h), surface_prob                │  │
-│  │                                                                   │  │
-│  │ Output: {normals (N,3), surf_prob (N,), spacing (N,)}            │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                ↓                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ Step 2: Volume Filtering (Soft Geometric Consistency)            │  │
-│  │ ───────────────────────────────────────────────────────────────  │  │
-│  │ • For each particle: find k=20 spatial neighbors                 │  │
-│  │ • Compute consensus: c = (1/k)·Σⱼ |nᵢ·nⱼ|  (only nᵢ·nⱼ > 0)     │  │
-│  │ • Soft gating: w = sigmoid(α·(c - θ))                            │  │
-│  │   - θ=0.2: very lenient (preserves thin features!)               │  │
-│  │   - α=15.0: smooth transition                                    │  │
-│  │ • Update: filtered_prob = surf_prob · w                          │  │
-│  │                                                                   │  │
-│  │ Purpose: Separates surface from interior volume                  │  │
-│  │ Critical for: thin structures (ears, fingers, wings)             │  │
-│  │                                                                   │  │
-│  │ Output: {filtered_prob (N,), volume_weight (N,)}                 │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                ↓                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ Step 3: Importance Sampling (Gumbel-Softmax + Tangent Jitter)    │  │
-│  │ ───────────────────────────────────────────────────────────────  │  │
-│  │ • Sample M indices: Y ~ GumbelSoftmax(filtered_prob, τ=0.2)      │  │
-│  │   - Straight-through estimator: hard forward, soft backward      │  │
-│  │   - Batched for memory efficiency (M×N matrix!)                  │  │
-│  │ • Interpolate: anchors = Y @ x_low  (M, 3)                       │  │
-│  │              normals = Y @ normals  (M, 3)                       │  │
-│  │              spacing = Y @ spacing  (M,)                         │  │
-│  │ • Build tangent frame: {t₁, t₂, n} via Gram-Schmidt              │  │
-│  │ • Jitter in tangent space:                                       │  │
-│  │   - Tangent offset: α·h·(U·t₁ + V·t₂)  with rotation            │  │
-│  │   - Normal offset: thickness·Z·n  (usually 0)                   │  │
-│  │   - Micro jitter: 0.2·α·h·ε  (high-frequency detail)            │  │
-│  │ • Final: points = anchors + tangent + normal + micro             │  │
-│  │                                                                   │  │
-│  │ Adaptive: α_adapt = α · noise · (h/h_mean)                       │  │
-│  │ Dense regions → small jitter, Sparse → large jitter              │  │
-│  │                                                                   │  │
-│  │ Output: {points (M,3), normals_up (M,3), anchors (M,3)}          │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                ↓                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ Step 4: Taubin Smoothing (Shrinkage-Free λ-μ Scheme)             │  │
-│  │ ───────────────────────────────────────────────────────────────  │  │
-│  │ For each iteration (default: 5 iterations):                      │  │
-│  │   1. Build Laplacian: L = D - W                                  │  │
-│  │      - W: adjacency from k=32 nearest neighbors                  │  │
-│  │      - Soft weights: w = softmax(-distances/τ)                   │  │
-│  │   2. Smooth pass: p' = p + λ·L·p  (λ=0.7, positive)              │  │
-│  │   3. Inflate pass: p'' = p' + μ·L·p'  (μ=-0.63, negative!)      │  │
-│  │   4. Tangent constraint: p_final = p'' - (p''·n)n                │  │
-│  │                                                                   │  │
-│  │ Effect: Removes jitter noise while preserving volume             │  │
-│  │ Key: μ ≈ -(λ + 0.1) balances shrinkage/expansion                 │  │
-│  │                                                                   │  │
-│  │ Output: {smoothed_points (M,3)}                                  │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                ↓                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ Step 5: Normal Smoothing (Spatial Laplacian + EMA)               │  │
-│  │ ───────────────────────────────────────────────────────────────  │  │
-│  │ For each iteration (default: 3 iterations):                      │  │
-│  │   1. Find k=24 spatial neighbors                                 │  │
-│  │   2. Estimate bandwidth: h = soft_median(distances)              │  │
-│  │      - Soft median: differentiable via smooth ranking            │  │
-│  │   3. Spatial weights: w = exp(-d²/h²) · knn_weights              │  │
-│  │   4. Weighted average: n_smooth = normalize(Σ wᵢ·nᵢ)             │  │
-│  │   5. EMA blend: n ← λ·n_smooth + (1-λ)·n  (λ=0.85)               │  │
-│  │                                                                   │  │
-│  │ Adaptive bandwidth: denser regions → smaller h (local)           │  │
-│  │                    sparser regions → larger h (global)           │  │
-│  │                                                                   │  │
-│  │ Output: {smoothed_normals (M,3)}                                 │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                ↓                                         │
-│  ┌──────────────────────────────────────────────────────────────────┐  │
-│  │ Step 6: Covariance Construction (F-field Interpolation)          │  │
-│  │ ───────────────────────────────────────────────────────────────  │  │
-│  │ A. F-field Smoothing (Graph Laplacian):                          │  │
-│  │    • Select K=180 graph nodes via Gumbel sampling                │  │
-│  │    • Build graph Laplacian: L_graph                              │  │
-│  │    • Solve: (WᵀW + λ·L)Y = WᵀF  for smooth F_smooth              │  │
-│  │                                                                   │  │
-│  │ B. F-field Interpolation:                                        │  │
-│  │    • For each upsampled point: find k_F=32 neighbors             │  │
-│  │    • Interpolate: F_interp = Σ wⱼ·F_j  (weighted average)        │  │
-│  │                                                                   │  │
-│  │ C. Covariance from F:                                            │  │
-│  │    Option 1 (Simple): Σ = σ₀²·F·Fᵀ  ✓ default                    │  │
-│  │    Option 2 (Polar): Σ = R·S·Σ₀·S·Rᵀ where F = R·S               │  │
-│  │      - R: rotation (from SVD)                                    │  │
-│  │      - S: stretch (symmetric)                                    │  │
-│  │      - Handles reflections (det(F) < 0)                          │  │
-│  │      - More stable, but slower                                   │  │
-│  │                                                                   │  │
-│  │ Adaptive scale (optional):                                       │  │
-│  │    σ_adaptive = σ₀ · clamp(spacing/mean_spacing, 0.3, 2.0)       │  │
-│  │                                                                   │  │
-│  │ Output: {cov (M,3,3), F_interp (M,3,3)}                          │  │
-│  └──────────────────────────────────────────────────────────────────┘  │
-│                                                                          │
+│  Transforms: Sparse particles (N ≈ 10k) → Dense Gaussians (M ≈ 100k)    │
+│                                                                         │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Step 1: Surface Detection (PCA-based)                            │   │
+│  │ ───────────────────────────────────────────────────────────────  │   │
+│  │ • For each particle: find k=48 neighbors                         │   │
+│  │ • Weighted PCA: compute C = Σ wᵢ(xᵢ-c)(xᵢ-c)ᵀ                    │   │
+│  │ • Eigendecomposition: λ₀ ≤ λ₁ ≤ λ₂                               │   │
+│  │ • Surface quality: surfvar = λ₀/(λ₀+λ₁+λ₂)                       │   │
+│  │ • Importance: prob = ema(1 - surfvar)^power                      │   │
+│  │ • Extract: normals (n), spacing (h), surface_prob                │   │
+│  │                                                                  │   │
+│  │ Output: {normals (N,3), surf_prob (N,), spacing (N,)}            │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Step 2: Volume Filtering (Soft Geometric Consistency)            │   │
+│  │ ───────────────────────────────────────────────────────────────  │   │
+│  │ • For each particle: find k=20 spatial neighbors                 │   │
+│  │ • Compute consensus: c = (1/k)·Σⱼ |nᵢ·nⱼ|  (only nᵢ·nⱼ > 0)      │   │
+│  │ • Soft gating: w = sigmoid(α·(c - θ))                            │   │
+│  │   - θ=0.2: very lenient (preserves thin features!)               │   │
+│  │   - α=15.0: smooth transition                                    │   │
+│  │ • Update: filtered_prob = surf_prob · w                          │   │
+│  │                                                                  │   │
+│  │ Purpose: Separates surface from interior volume                  │   │
+│  │ Critical for: thin structures (ears, fingers, wings)             │   │
+│  │                                                                  │   │
+│  │ Output: {filtered_prob (N,), volume_weight (N,)}                 │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Step 3: Importance Sampling (Gumbel-Softmax + Tangent Jitter)    │   │
+│  │ ───────────────────────────────────────────────────────────────  │   │
+│  │ • Sample M indices: Y ~ GumbelSoftmax(filtered_prob, τ=0.2)      │   │
+│  │   - Straight-through estimator: hard forward, soft backward      │   │
+│  │   - Batched for memory efficiency (M×N matrix!)                  │   │
+│  │ • Interpolate: anchors = Y @ x_low  (M, 3)                       │   │
+│  │              normals = Y @ normals  (M, 3)                       │   │
+│  │              spacing = Y @ spacing  (M,)                         │   │
+│  │ • Build tangent frame: {t₁, t₂, n} via Gram-Schmidt              │   │
+│  │ • Jitter in tangent space:                                       │   │
+│  │   - Tangent offset: α·h·(U·t₁ + V·t₂)  with rotation             │   │
+│  │   - Normal offset: thickness·Z·n  (usually 0)                    │   │
+│  │   - Micro jitter: 0.2·α·h·ε  (high-frequency detail)             │   │
+│  │ • Final: points = anchors + tangent + normal + micro             │   │
+│  │                                                                  │   │
+│  │ Adaptive: α_adapt = α · noise · (h/h_mean)                       │   │
+│  │ Dense regions → small jitter, Sparse → large jitter              │   │
+│  │                                                                  │   │
+│  │ Output: {points (M,3), normals_up (M,3), anchors (M,3)}          │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Step 4: Taubin Smoothing (Shrinkage-Free λ-μ Scheme)             │   │
+│  │ ───────────────────────────────────────────────────────────────  │   │
+│  │ For each iteration (default: 5 iterations):                      │   │
+│  │   1. Build Laplacian: L = D - W                                  │   │
+│  │      - W: adjacency from k=32 nearest neighbors                  │   │
+│  │      - Soft weights: w = softmax(-distances/τ)                   │   │
+│  │   2. Smooth pass: p' = p + λ·L·p  (λ=0.7, positive)              │   │
+│  │   3. Inflate pass: p'' = p' + μ·L·p'  (μ=-0.63, negative!)       │   │
+│  │   4. Tangent constraint: p_final = p'' - (p''·n)n                │   │
+│  │                                                                  │   │
+│  │ Effect: Removes jitter noise while preserving volume             │   │
+│  │ Key: μ ≈ -(λ + 0.1) balances shrinkage/expansion                 │   │
+│  │                                                                  │   │
+│  │ Output: {smoothed_points (M,3)}                                  │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                ↓                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Step 5: Normal Smoothing (Spatial Laplacian + EMA)               │   │
+│  │ ───────────────────────────────────────────────────────────────  │   │
+│  │ For each iteration (default: 3 iterations):                      │   │
+│  │   1. Find k=24 spatial neighbors                                 │   │
+│  │   2. Estimate bandwidth: h = soft_median(distances)              │   │
+│  │      - Soft median: differentiable via smooth ranking            │   │
+│  │   3. Spatial weights: w = exp(-d²/h²) · knn_weights              │   │
+│  │   4. Weighted average: n_smooth = normalize(Σ wᵢ·nᵢ)             │   │
+│  │   5. EMA blend: n ← λ·n_smooth + (1-λ)·n  (λ=0.85)               │   │
+│  │                                                                  │   │
+│  │ Adaptive bandwidth: denser regions → smaller h (local)           │   │
+│  │                    sparser regions → larger h (global)           │   │
+│  │                                                                  │   │
+│  │ Output: {smoothed_normals (M,3)}                                 │   │
+│  └──────────────────────────────────────────────────────────────────┘   │ 
+│                                ↓                                        │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ Step 6: Covariance Construction (F-field Interpolation)          │   │
+│  │ ───────────────────────────────────────────────────────────────  │   │
+│  │ A. F-field Smoothing (Graph Laplacian):                          │   │
+│  │    • Select K=180 graph nodes via Gumbel sampling                │   │
+│  │    • Build graph Laplacian: L_graph                              │   │
+│  │    • Solve: (WᵀW + λ·L)Y = WᵀF  for smooth F_smooth              │   │
+│  │                                                                  │   │
+│  │ B. F-field Interpolation:                                        │   │
+│  │    • For each upsampled point: find k_F=32 neighbors             │   │
+│  │    • Interpolate: F_interp = Σ wⱼ·F_j  (weighted average)        │   │
+│  │                                                                  │   │
+│  │ C. Covariance from F:                                            │   │
+│  │    Option 1 (Simple): Σ = σ₀²·F·Fᵀ  (default)                    │   │
+│  │    Option 2 (Polar): Σ = R·S·Σ₀·S·Rᵀ where F = R·S               │   │
+│  │      - R: rotation (from SVD)                                    │   │
+│  │      - S: stretch (symmetric)                                    │   │
+│  │      - Handles reflections (det(F) < 0)                          │   │ 
+│  │      - More stable, but slower                                   │   │
+│  │                                                                  │   │
+│  │ Adaptive scale (optional):                                       │   │
+│  │    σ_adaptive = σ₀ · clamp(spacing/mean_spacing, 0.3, 2.0)       │   │
+│  │                                                                  │   │
+│  │ Output: {cov (M,3,3), F_interp (M,3,3)}                          │   │
+│  └──────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
 │  FINAL OUTPUT: Dense Gaussian Point Cloud                               │
 │    • Positions: μ (M, 3) - smoothed, surface-aligned                    │
 │    • Covariances: Σ (M, 3, 3) - anisotropic, deformation-aware          │
 │    • Normals: n (M, 3) - smooth, consistent                             │
-│                                                                          │
-│  All operations differentiable! Gradients flow: L → Σ → F → x           │
+│                                                                         │
+│  All operations are differentiable! Gradients flow: L → Σ → F → x       │
 └───────────────────────────────┬─────────────────────────────────────────┘
                                 │
                                 ▼
@@ -255,7 +255,7 @@ The pipeline consists of three main stages:
 │ ─────────────────────────────────────────────────────────────────────── │
 │  Input:  (μ, Σ, RGB) - M Gaussian splats                                │
 │  Output: {image, alpha, depth, normal_map}                              │
-│                                                                          │
+│                                                                         │
 │  Differentiable rasterization via PyTorch + CUDA kernels                │
 │  Gradients flow: L_render → ∂L/∂Σ → ∂L/∂F → ∂L/∂x                       │
 └───────────────────────────────┬─────────────────────────────────────────┘
@@ -264,13 +264,13 @@ The pipeline consists of three main stages:
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                    RENDERING LOSS MANAGER                               │
 │ ─────────────────────────────────────────────────────────────────────── │
-│  L_render = w_α·L_α + w_edge·L_edge + w_cov·L_cov_align + w_reg·L_reg  │
-│                                                                          │
+│  L_render = w_α·L_α + w_edge·L_edge + w_cov·L_cov_align + w_reg·L_reg   │
+│                                                                         │
 │  • L_α: Silhouette supervision (alpha channel matching)                 │
 │  • L_edge: Edge alignment (2D projected Σ vs silhouette tangents)       │
 │  • L_cov_align: Spectral matching (eigenvalues of Σ vs curvature)       │
 │  • L_reg: Regularization (prevent degenerate Gaussians)                 │
-│                                                                          │
+│                                                                         │
 │  Gradients injected back to MPM: L_total = L_physics + λ·L_render       │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -344,7 +344,7 @@ pip install -e . --no-build-isolation
 
 # 6. Verify installation
 python -c "import diffmpm_bindings; print('✅ DiffMPM OK')"
-python -c "from sampling.pipeline import upsample; print('✅ Upsampling v3.1 OK')"
+python -c "from sampling.pipeline import upsample; print('✅ Upsampling v2.1 OK')"
 ```
 
 **Note**: See [Installation](#-installation) section for detailed steps and troubleshooting.
