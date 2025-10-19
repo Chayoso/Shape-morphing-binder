@@ -72,7 +72,7 @@ Traditional shape morphing methods either:
 - **Gradient Injection**: Render losses backpropagate to physics parameters
 - **Multi-pass Optimization**: Iterative refinement within each episode
 
-### 🎨 Advanced Upsampling Pipeline (v3.1)
+### 🎨 Advanced Upsampling Pipeline (v2.1)
 - **6-Stage Differentiable Pipeline**: Surface detection → Volume filtering → Importance sampling → Taubin smoothing → Normal smoothing → Covariance construction
 - **PCA-based Surface Detection**: Planarity analysis with Z-score normalization
 - **Soft Volume Filtering**: Separates surface from interior (critical for thin features!)
