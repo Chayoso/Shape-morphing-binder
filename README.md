@@ -27,7 +27,7 @@
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
 - [Configuration Guide](#-configuration-guide)
-- [Upsampling Pipeline (v3.1)](#-upsampling-pipeline-v31)
+- [Upsampling Pipeline (v2.1)](#-upsampling-pipeline-v31)
 - [Training Pipeline](#-training-pipeline)
 - [Parameter Tuning Guide](#-parameter-tuning-guide)
 - [Technical Details](#-technical-details)
@@ -41,7 +41,7 @@
 **PhysMorph-GS** is a novel framework that combines **physics-based simulation** with **3D Gaussian Splatting** for realistic and controllable shape morphing. Our method integrates:
 
 1. **Differentiable Material Point Method (MPM)** - Physics simulation with gradient backpropagation
-2. **6-Stage Differentiable Upsampling (v3.1)** - Sparse-to-dense surface synthesis with geometric awareness
+2. **6-Stage Differentiable Upsampling (v2.1)** - Sparse-to-dense surface synthesis with geometric awareness
 3. **3D Gaussian Splatting Rendering** - High-quality, differentiable rendering
 4. **Spectral Covariance Alignment** - Geometry-guided anisotropic Gaussians
 5. **End-to-End Training** - Joint optimization of physics and rendering
@@ -126,7 +126,7 @@ The pipeline consists of three main stages:
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│          STAGE 2: DIFFERENTIABLE UPSAMPLING PIPELINE (v3.1)             │
+│          STAGE 2: DIFFERENTIABLE UPSAMPLING PIPELINE (v2.1)             │
 │ ─────────────────────────────────────────────────────────────────────── │
 │  Transforms: Sparse particles (N ≈ 10k) → Dense Gaussians (M ≈ 100k)   │
 │                                                                          │
@@ -275,7 +275,7 @@ The pipeline consists of three main stages:
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Key Innovations in v3.1 Upsampling
+### Key Innovations in v2.1 Upsampling
 
 **1. Hybrid FAISS KNN (10-100× speedup)**
 ```python
@@ -524,7 +524,7 @@ covariance:
 
 ---
 
-## 🔥 Upsampling Pipeline (v3.1)
+## 🔥 Upsampling Pipeline (v2.1)
 
 ### Overview
 
