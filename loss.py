@@ -1207,4 +1207,4 @@ def covariance_regularization_advanced(
     aniso_penalty = torch.clamp(ratio - max_aniso_ratio, min=0.0)
     loss_aniso = lambda_aniso * aniso_penalty.mean()
     
-    return loss_vol + loss_aniso
+    return loss_vol + loss_aniso # differentiable

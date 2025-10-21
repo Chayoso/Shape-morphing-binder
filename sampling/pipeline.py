@@ -588,19 +588,80 @@ def upsample(
         print("\n" + "="*80)
         print("STAGE 3/6: Importance Sampling (Gumbel-Softmax + Tangent Jitter)")
         print("="*80)
-    
+
     samp_cfg = cfg.get("sampling", {})
-    M = int(samp_cfg.get("M", 50000))
-    
+    M  = int(samp_cfg.get("M", 50000))
+    tau = float(samp_cfg.get("tau", 0.2))
+    alpha = float(samp_cfg.get("alpha", 0.35))
+    thickness = float(samp_cfg.get("thickness", 0.0))
+
+    # Memory-safe sampler knobs
+    gs_batch = int(samp_cfg.get("gs_batch", 2048))
+    ensure_cover = bool(samp_cfg.get("ensure_anchor_coverage", True))
+    micro_jitter_scale = float(samp_cfg.get("micro_jitter_scale", 0.2))
+
+    # Inside-suppression / count-preserving knobs (sampler will ignore if unsupported)
+    tangent_micro_only    = bool(samp_cfg.get("tangent_micro_only", True))
+    plane_snap            = bool(samp_cfg.get("plane_snap", True))
+    min_anchor_prob       = float(samp_cfg.get("min_anchor_prob", 1e-4))
+    thickness_one_sided   = bool(samp_cfg.get("thickness_one_sided", True))
+    keep_count            = bool(samp_cfg.get("keep_count", True))
+    topup_max_tries       = int(samp_cfg.get("topup_max_tries", 3))
+
+    N = len(x_low)  # number of anchors before upsampling
+
+    # Rough peak per batch for logits/softmax (float32), excluding other tensors
+    est_mb_per_batch = (gs_batch * max(N, 1) * 4) / (1024**2)
+
+    if verbose:
+        print(f"- Anchors (N): {N:,}")
+        print(f"- Target samples (M): {M:,}  (upsampling {M/max(N,1):.1f}×)")
+        print(f"- Gumbel tau: {tau:.3f} | Jitter alpha: {alpha:.3f} | Thickness: {thickness:.3f}")
+        print(f"- Streaming gs_batch: {gs_batch}  (≈ {est_mb_per_batch:.1f} MB logits/batch)")
+        print(f"- Ensure anchor coverage: {ensure_cover} | min_anchor_prob: {min_anchor_prob:.1e}")
+        print(f"- Micro jitter scale: {micro_jitter_scale:.3f} | tangent_micro_only: {tangent_micro_only}")
+        print(f"- Plane snap: {plane_snap} | thickness_one_sided: {thickness_one_sided}")
+        print(f"- keep_count: {keep_count} (topup_max_tries={topup_max_tries})")
+
+        # Heads-up messages mirroring sampler behavior
+        if ensure_cover and M < N:
+            print("  [note] ensure_anchor_coverage=True but M < N; "
+                "sampler will fall back to top-M anchors by probability within valid anchors.")
+        if ensure_cover and M >= N:
+            print("  [note] coverage: each valid anchor (prob ≥ min_anchor_prob) appears at least once; "
+                "remaining slots are filled stochastically.")
+        if micro_jitter_scale > 0.25 and not tangent_micro_only:
+            print("  [warn] High micro_jitter_scale with isotropic micro may increase interior leakage; "
+                "consider tangent_micro_only=True or lower micro_jitter_scale.")
+        if thickness > 0.0 and not thickness_one_sided:
+            print("  [warn] Symmetric thickness can create interior points; "
+                "set thickness_one_sided=True to bias outward.")
+
+    # Call sampler (memory-safe ST version keeps the same signature)
     points, normals_up, anchors = sample_points(
         x_low, normals, spacing, filtered_prob, samp_cfg, generator
     )
-    
+
+    # Proactive cleanup (helps control transient peaks between stages)
+    del filtered_prob, spacing
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    # Invariants & quick sanity prints
     if verbose:
-        print(f"✓ Sampled {len(points):,} points from {len(x_low):,} anchors "
-              f"({len(points)/len(x_low):.1f}× upsampling)")
-        print(f"  Jitter alpha: {samp_cfg.get('alpha', 0.35):.3f}")
-        print(f"  Gumbel tau:   {samp_cfg.get('tau', 0.2):.3f}")
+        up_factor = len(points)/max(N,1)
+        print(f"✓ Sampled {len(points):,} points from {N:,} anchors ({up_factor:.1f}×)")
+        print(f"  Jitter alpha: {alpha:.3f} | Gumbel tau: {tau:.3f}")
+        print(f"  gs_batch:     {gs_batch} (≈ {est_mb_per_batch:.1f} MB logits/batch)")
+        print(f"  coverage:     {'on' if ensure_cover else 'off'}; "
+            f"micro_scale={micro_jitter_scale:.3f}; plane_snap={plane_snap}")
+
+        # Count-preservation invariant
+        if len(points) != M:
+            print(f"  [warn] sampler returned {len(points)} points but M={M}; "
+                "enable keep_count=True to top-up or check sampler configuration.")
+
+
     
     # ========================================================================
     # STAGE 4: Taubin Smoothing (Shrinkage-Free Laplacian)
@@ -669,17 +730,6 @@ def upsample(
         print(f"  k_F (neighbors): {k_F}")
     
     # ========================================================================
-    # Cleanup
-    # ========================================================================
-    perf_cfg = cfg.get("performance", {})
-    if perf_cfg.get("clear_cache", True):
-        knn.clear_cache()
-        
-        if verbose:
-            print("\n" + "="*80)
-            print("Cleanup: FAISS cache cleared")
-    
-    # ========================================================================
     # Prepare Output
     # ========================================================================
     debug_info = {
@@ -690,8 +740,8 @@ def upsample(
         "volume_filtering": vol_cfg.get("enabled", True),
         "taubin_smoothing": taubin_cfg.get("enabled", True),
         "normal_smoothing": norm_cfg.get("enabled", True),
-        "mean_surf_prob": float(surf_prob.mean()),
-        "mean_volume_weight": float(volume_weight.mean()),
+        "mean_surf_prob": float(surf_prob.mean().detach().item()),
+        "mean_volume_weight": float(volume_weight.mean().detach().item()),
         "device": str(device),
         "seed": seed,
     }
@@ -703,7 +753,20 @@ def upsample(
         print(f"  Output: {debug_info['M_output']:,} points")
         print(f"  Factor: {debug_info['upsampling_factor']:.1f}×")
         print("="*80 + "\n")
+        
+    # ========================================================================
+    # Cleanup
+    # ========================================================================
+    del normals, surf_prob, volume_weight
+    perf_cfg = cfg.get("performance", {})
+    if perf_cfg.get("clear_cache", True):
+        knn.clear_cache()
+        
+        if verbose:
+            print("\n" + "="*80)
+            print("Cleanup: FAISS cache cleared")
     
+  
     # Convert to numpy if requested
     if return_torch:
         return {
@@ -725,7 +788,6 @@ def upsample(
             "debug": debug_info,
             "state": state,
         }
-
 
 __all__ = [
     "upsample",

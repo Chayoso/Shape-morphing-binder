@@ -3,7 +3,7 @@ Configuration management for upsampling pipeline.
 
 Author: CHAYO
 Date: 2025-10-19
-Version: 2.1.0 
+Version: 2.2.0
 """
 
 from typing import Dict
@@ -32,63 +32,75 @@ DEFAULT_CONFIG = {
     "surface_detection": {
         "enabled": True,
         "k": 48,                        # KNN neighbors for PCA
-        "soft_tau": 0.5,                # 🔥 Z-score sigmoid temperature (0.08 → 0.5)
+        "soft_tau": 0.5,                # Z-score sigmoid temperature
         "surface_power": 4.0,           # Probability concentration
+        # internal EMA / hysteresis keys are kept in detect_surface()
     },
-    
+
     # ========================================================================
     # STEP 2: VOLUME FILTERING (Soft)
     # ========================================================================
     "volume_filter": {
         "enabled": True,
-        "k": 24,                        # 🔥 48 → 24 (more local for thin structures)
-        "consistency_threshold": 0.3,   # 🔥 0.7 → 0.3 (more lenient)
-        "temperature": 15.0,            # 🔥 10 → 15 (smoother transition)
-        "positive_only": True,          # 🔥 NEW: Ignore opposite-facing normals
-        "use_distance_weight": False,   # 🔥 NEW: Distance-based weighting (optional)
-        "distance_bandwidth": 0.08,     # 🔥 NEW: Distance decay rate
+        "k": 24,
+        "consistency_threshold": 0.3,
+        "temperature": 15.0,
+        "positive_only": True,          # Ignore opposite-facing normals
+        "use_distance_weight": False,   # Optional: exp(-d/h) weighting
+        "distance_bandwidth": 0.08,
     },
-    
+
     # ========================================================================
-    # STEP 3: IMPORTANCE SAMPLING
+    # STEP 3: IMPORTANCE SAMPLING (Memory-safe streaming ST)
     # ========================================================================
     "sampling": {
-        "M": 70000,                     # Target number of samples
+        "M": 70000,                     # Target number of samples (rendered points)
         "tau": 0.2,                     # Gumbel-Softmax temperature
-        "alpha": 0.35,                  # Tangent jitter scale
-        "thickness": 0.0,               # Normal jitter scale
-        "density_gamma": 2.5,           # Density importance
+        "alpha": 0.35,                  # Tangent jitter base scale
+        "thickness": 0.0,               # Normal jitter (shell thickness)
+
+        # NEW (for memory-safe sampler; no dense Y):
+        "gs_batch": 2048,               # Streaming softmax batch size (controls peak VRAM)
+        "ensure_anchor_coverage": True, # If M >= N, include each anchor at least once
+        "micro_jitter_scale": 0.2,      # HF jitter multiplier (0.0~0.5 typical)
+        "min_anchor_prob": 1e-4,        # Minimum anchor probability
+        "tangent_micro_only": True,    # Tangent micro only
+        "plane_snap": True,             # Plane snap
+        # For importance shaping (unchanged semantics):
+        "density_gamma": 2.5,           # Density importance (used upstream)
     },
-    
+
     # ========================================================================
     # STEP 4: TAUBIN SMOOTHING
     # ========================================================================
     "taubin": {
         "enabled": True,
-        "iters": 3,                     # Number of iterations
-        "k": 24,                        # KNN neighbors
-        "lambda_smooth": 0.6,           # Smoothing strength
-        "lambda_inflate": -0.53,        # Inflation strength (negative!)
-        "tangent_only": True,           # Only smooth tangent component
+        "iters": 3,
+        "k": 24,
+        "lambda_smooth": 0.6,
+        "lambda_inflate": -0.53,        # Negative!
+        "tangent_only": True,
     },
-    
+
     # ========================================================================
     # STEP 5: NORMAL SMOOTHING
     # ========================================================================
     "normal_smooth": {
         "enabled": True,
-        "iters": 2,                     # Number of iterations
-        "k": 16,                        # KNN neighbors
-        "lambda_smooth": 0.8,           # Smoothing strength
+        "iters": 2,
+        "k": 16,
+        "lambda_smooth": 0.8,
     },
-    
+
     # ========================================================================
     # STEP 6: COVARIANCE CONSTRUCTION
     # ========================================================================
     "covariance": {
-        "sigma0": 0.08,                 # Base Gaussian scale
-        "k_F": 32,                      # KNN for F interpolation
-        "use_F_smoothing": True,        # Smooth F field
+        "sigma0": 0.08,
+        "k_F": 32,
+        "use_F_smoothing": True,
+        "use_polar_decomposition": True,  # default ON (recommended)
+        "use_adaptive_scale": False,      # optional: σ adapt by local spacing
         "F_smooth": {
             "num_nodes": 180,
             "node_knn": 8,
@@ -96,7 +108,7 @@ DEFAULT_CONFIG = {
             "lambda_lap": 1e-2,
         },
     },
-    
+
     # ========================================================================
     # KNN SETTINGS
     # ========================================================================
@@ -107,18 +119,18 @@ DEFAULT_CONFIG = {
         "nlist": 100,
         "nprobe": 10,
     },
-    
+
     # ========================================================================
     # DEBUG & EXPORT
     # ========================================================================
     "debug": {
-        "verbose": True,           
-        "export_volume_filter": True,   # Export PNG after volume filter
+        "verbose": True,
+        "export_volume_filter": True,
         "export_dir": "debug/",
         "png_dpi": 160,
         "png_ptsize": 0.5,
     },
-    
+
     # ========================================================================
     # PERFORMANCE
     # ========================================================================
@@ -129,13 +141,12 @@ DEFAULT_CONFIG = {
     },
 }
 
-
 # ============================================================================
 # Preset Configurations
 # ============================================================================
 
 def default_cfg() -> Dict:
-    """Default configuration."""
+    """Default configuration (deep copy)."""
     import copy
     return copy.deepcopy(DEFAULT_CONFIG)
 
@@ -143,16 +154,18 @@ def default_cfg() -> Dict:
 def bunny_cfg() -> Dict:
     """
     Optimized for meshes with thin features (bunny ears, fingers).
-    
+
     Changes:
     - More samples (70K → 80K)
-    - Even more lenient volume filter
-    - Gentler smoothing to preserve details
+    - More lenient volume filter
+    - Gentler smoothing
+    - Slightly smaller streaming batch for safer VRAM on 24GB GPUs
     """
     cfg = default_cfg()
     cfg["sampling"]["M"] = 80000
-    cfg["volume_filter"]["k"] = 20             
-    cfg["volume_filter"]["consistency_threshold"] = 0.25  
+    cfg["sampling"]["gs_batch"] = 1536
+    cfg["volume_filter"]["k"] = 20
+    cfg["volume_filter"]["consistency_threshold"] = 0.25
     cfg["volume_filter"]["temperature"] = 12.0
     cfg["taubin"]["lambda_smooth"] = 0.5
     cfg["taubin"]["lambda_inflate"] = -0.48
@@ -163,16 +176,18 @@ def bunny_cfg() -> Dict:
 def sphere_cfg() -> Dict:
     """
     Optimized for smooth surfaces (sphere, torus).
-    
+
     Changes:
     - Fewer samples (70K → 50K)
     - Stronger smoothing
-    - More strict volume filter (no thin structures)
+    - More strict volume filter
+    - Larger streaming batch (memory friendly here)
     """
     cfg = default_cfg()
     cfg["sampling"]["M"] = 50000
-    cfg["volume_filter"]["k"] = 32              # Larger neighborhood
-    cfg["volume_filter"]["consistency_threshold"] = 0.5  # More strict
+    cfg["sampling"]["gs_batch"] = 4096
+    cfg["volume_filter"]["k"] = 32
+    cfg["volume_filter"]["consistency_threshold"] = 0.5
     cfg["taubin"]["lambda_smooth"] = 0.7
     cfg["taubin"]["lambda_inflate"] = -0.65
     cfg["normal_smooth"]["iters"] = 3
@@ -182,90 +197,106 @@ def sphere_cfg() -> Dict:
 def fast_cfg() -> Dict:
     """
     Fast configuration for real-time (sacrifice quality).
-    
+
     Changes:
     - Fewer samples (70K → 30K)
-    - Disable expensive steps
+    - Disable expensive post-process
+    - Enable AMP
+    - Smaller batch to reduce spikes on mid GPUs
     """
     cfg = default_cfg()
     cfg["sampling"]["M"] = 30000
+    cfg["sampling"]["gs_batch"] = 1024
     cfg["volume_filter"]["enabled"] = False
     cfg["taubin"]["enabled"] = False
     cfg["normal_smooth"]["enabled"] = False
     cfg["covariance"]["use_F_smoothing"] = False
     cfg["performance"]["use_amp"] = True
-    cfg["debug"]["verbose"] = False             # Disable debug in fast mode
+    cfg["debug"]["verbose"] = False
     return cfg
 
 
 def quality_cfg() -> Dict:
     """
     High-quality configuration for offline rendering.
-    
+
     Changes:
     - More samples (70K → 100K)
     - Higher k for better estimates
     - More iterations
+    - Moderate streaming batch to keep peak VRAM stable
     """
     cfg = default_cfg()
     cfg["sampling"]["M"] = 100000
+    cfg["sampling"]["gs_batch"] = 2048
     cfg["surface_detection"]["k"] = 64
-    cfg["surface_detection"]["soft_tau"] = 0.6  # 🔥 Slightly higher for quality
-    cfg["volume_filter"]["k"] = 32              # Higher k for quality
-    cfg["volume_filter"]["consistency_threshold"] = 0.35  # Balanced
+    cfg["surface_detection"]["soft_tau"] = 0.6
+    cfg["volume_filter"]["k"] = 32
+    cfg["volume_filter"]["consistency_threshold"] = 0.35
     cfg["taubin"]["iters"] = 5
     cfg["taubin"]["k"] = 32
     cfg["normal_smooth"]["iters"] = 3
     cfg["normal_smooth"]["k"] = 24
     return cfg
 
-
 # ============================================================================
 # Config Validation
 # ============================================================================
 
+def _in_range(name: str, val: float, lo: float, hi: float):
+    if not (lo <= val <= hi):
+        raise ValueError(f"{name} must be in [{lo}, {hi}], got {val}")
+
 def validate_cfg(cfg: Dict) -> None:
     """
     Validate configuration.
-    
+
     Raises:
         ValueError: If configuration is invalid
     """
-    # Check M
-    M = cfg.get("sampling", {}).get("M", 0)
+    # Sampling
+    M = int(cfg.get("sampling", {}).get("M", 0))
     if M <= 0:
         raise ValueError(f"sampling.M must be positive, got {M}")
-    
-    # Check k values
-    k_surface = cfg.get("surface_detection", {}).get("k", 0)
+
+    tau = float(cfg.get("sampling", {}).get("tau", 0.2))
+    _in_range("sampling.tau", tau, 1e-4, 5.0)
+
+    alpha = float(cfg.get("sampling", {}).get("alpha", 0.35))
+    _in_range("sampling.alpha", alpha, 0.0, 5.0)
+
+    thickness = float(cfg.get("sampling", {}).get("thickness", 0.0))
+    if thickness < 0.0:
+        raise ValueError(f"sampling.thickness must be >= 0, got {thickness}")
+
+    gs_batch = int(cfg.get("sampling", {}).get("gs_batch", 2048))
+    if gs_batch <= 0:
+        raise ValueError(f"sampling.gs_batch must be positive, got {gs_batch}")
+
+    # Surface detection
+    k_surface = int(cfg.get("surface_detection", {}).get("k", 0))
     if k_surface <= 0:
         raise ValueError(f"surface_detection.k must be positive, got {k_surface}")
-    
-    # Check soft_tau (z-score temperature)
-    soft_tau = cfg.get("surface_detection", {}).get("soft_tau", 0)
-    if soft_tau <= 0:
-        raise ValueError(f"surface_detection.soft_tau must be positive, got {soft_tau}")
-    
-    # Check Taubin lambda
-    lambda_smooth = cfg.get("taubin", {}).get("lambda_smooth", 0)
-    lambda_inflate = cfg.get("taubin", {}).get("lambda_inflate", 0)
-    
-    if lambda_smooth < 0 or lambda_smooth > 1:
-        raise ValueError(f"taubin.lambda_smooth must be in [0, 1], got {lambda_smooth}")
-    
-    if lambda_inflate >= 0:
-        import warnings
-        warnings.warn(
-            f"taubin.lambda_inflate should be negative for inflation, got {lambda_inflate}"
-        )
-    
-    # Check volume filter threshold
-    consistency_threshold = cfg.get("volume_filter", {}).get("consistency_threshold", 0)
-    if consistency_threshold < 0 or consistency_threshold > 1:
-        raise ValueError(
-            f"volume_filter.consistency_threshold must be in [0, 1], got {consistency_threshold}"
-        )
 
+    soft_tau = float(cfg.get("surface_detection", {}).get("soft_tau", 0.5))
+    _in_range("surface_detection.soft_tau", soft_tau, 1e-4, 10.0)
+
+    # Taubin
+    lambda_smooth = float(cfg.get("taubin", {}).get("lambda_smooth", 0.6))
+    _in_range("taubin.lambda_smooth", lambda_smooth, 0.0, 1.0)
+
+    lambda_inflate = float(cfg.get("taubin", {}).get("lambda_inflate", -0.53))
+    if lambda_inflate >= 0.0:
+        import warnings
+        warnings.warn("taubin.lambda_inflate should be negative for inflation.")
+
+    # Volume filter
+    consistency_threshold = float(cfg.get("volume_filter", {}).get("consistency_threshold", 0.3))
+    _in_range("volume_filter.consistency_threshold", consistency_threshold, 0.0, 1.0)
+
+    # Covariance
+    sigma0 = float(cfg.get("covariance", {}).get("sigma0", 0.08))
+    _in_range("covariance.sigma0", sigma0, 1e-4, 10.0)
 
 # ============================================================================
 # Export
@@ -281,7 +312,7 @@ __all__ = [
     "CLAMP_GUMBEL",
     "CLAMP_RANDN",
     "CLAMP_SPACING",
-    
+
     # Config
     "DEFAULT_CONFIG",
     "default_cfg",

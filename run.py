@@ -805,6 +805,7 @@ def compute_render_loss_pass(
 ) -> Tuple[Optional[Dict], Optional[torch.Tensor], Optional[torch.Tensor]]: 
     """Compute render loss for current pass."""
     
+    import gc
     torch.cuda.empty_cache()
     
     # Get final state
@@ -817,14 +818,20 @@ def compute_render_loss_pass(
         print("   ⚠️ PyTorch bindings unavailable")
         return None, None, None
     
-    # Upsample
-    result = upsample(
-        x, F,
-        cfg=rs_full,      # ✅ cfg로 전달
-        state=ema_state,  # ✅ state로 전달 (ema_state → state)
-        seed=seed,
-        return_torch=True
-    )
+    if not x.is_leaf: x.retain_grad()
+    if not F.is_leaf: F.retain_grad()
+    
+    # -----------------------------
+    # Stage: Upsample (grad ON)
+    # -----------------------------
+    with torch.set_grad_enabled(True):  # Activate gradients explicitly
+        result = upsample(
+            x, F,
+            cfg=rs_full,
+            state=ema_state,
+            seed=seed,
+            return_torch=True
+        )
     
     mu = result["points"]
     cov = result["cov"]
@@ -835,6 +842,9 @@ def compute_render_loss_pass(
     
     print(f"├─ Upsampled: {len(mu)} points")
     
+    mu.retain_grad()
+    cov.retain_grad()
+    
     # Prepare rendering
     nrm_np = result.get("normals")
     if nrm_np is not None and torch.is_tensor(nrm_np):
@@ -842,24 +852,34 @@ def compute_render_loss_pass(
     elif nrm_np is None:
         nrm_np = np.zeros_like(mu.detach().cpu().numpy())
     
-    rgb_np = compute_shading(
-        mu.detach().cpu().numpy(), nrm_np,
-        camera_pos=campos,
-        light_cfg=render_cfg.get("lighting", {}),
-        albedo_color=particle_color,
-        model="phong"
-    )
-    
-    rgb = torch.from_numpy(rgb_np).to(mu.device)
-    
-    # Render
+    # -----------------------------
+    # Prepare shading (no grad)
+    # -----------------------------
+    with torch.no_grad():
+        nrm_np = result.get("normals")
+        if nrm_np is not None and torch.is_tensor(nrm_np):
+            nrm_np = nrm_np.detach().cpu().numpy()
+        elif nrm_np is None:
+            nrm_np = np.zeros_like(mu.detach().cpu().numpy())
+
+        rgb_np = compute_shading(
+            mu.detach().cpu().numpy(), nrm_np,
+            camera_pos=campos,
+            light_cfg=render_cfg.get("lighting", {}),
+            albedo_color=particle_color,
+            model="phong"
+        )
+        rgb = torch.from_numpy(rgb_np).to(mu.device)
+        
+    # -----------------------------
+    # Render & Loss (grad ON)
+    # -----------------------------
     pred_render = renderer.render(
         mu, cov, rgb=rgb,
         prefer_cov_precomp=True,
         return_torch=True
     )
     
-    # Compute loss
     render_losses = loss_manager.compute_render_loss(
         pred_render, target_render,
         cov=cov, mu=mu,
@@ -877,9 +897,27 @@ def compute_render_loss_pass(
             if torch.is_tensor(val):
                 print(f"│  ├─ {key}: {val.item():.6f}")
     
+    # -----------------------------
     # Backward
+    # -----------------------------
     loss_render.backward()
     
+    if mu.grad is not None:
+        print(f"│  ├─ ||∂L/∂mu||  = {mu.grad.norm().item():.6e}")
+    else:
+        print(f"│  ├─ ∂L/∂mu = None")
+
+    if cov.grad is not None:
+        print(f"│  └─ ||∂L/∂cov|| = {cov.grad.norm().item():.6e}")
+    else:
+        print(f"│  └─ ∂L/∂cov = None")
+        
+    del pred_render, render_losses, loss_render, rgb
+    del result, mu, cov, nrm_np
+    
+    torch.cuda.synchronize()
+    gc.collect()
+    torch.cuda.empty_cache()
     return ema_state, F, x
 
 
@@ -1191,6 +1229,9 @@ def run_e2e_episode(
             print(f"Pass {pass_idx+1}/{num_passes}")
             print(f"{'─'*70}")
             
+            # Memory cleanup before pass
+            torch.cuda.empty_cache()
+            
             # Phase 1: Inject previous render gradients
             if accumulated_render_grads is not None:
                 dLdF = accumulated_render_grads['dLdF']
@@ -1218,10 +1259,17 @@ def run_e2e_episode(
                 pass_idx=pass_idx  
             )
             
-            # Phase 3: Compute new render gradients
+            # Phase 3: Compute new render gradients with explicit scope
             seed = 9999 + ep*1000 + pass_idx
             
             print(f"[Render] Computing loss for Pass {pass_idx+1}...")
+            
+            # Separate scope for render loss computation
+            result = None
+            ema_state_new = None
+            F_grad = None
+            x_grad = None
+            
             result = compute_render_loss_pass(
                 cg, num_timesteps, rs_full, ema_state, renderer,
                 loss_manager, target_render, view_params, campos,
@@ -1229,19 +1277,43 @@ def run_e2e_episode(
             )
             
             if result[0] is not None:
-                ema_state, F, x = result
+                ema_state_new, F, x = result
                 
-                # Extract gradients
-                accumulated_render_grads = extract_render_gradients(F, x)
+                # Extract gradients immediately and delete tensors
+                if F.grad is not None:
+                    F_grad = F.grad.detach().cpu().numpy().astype(np.float32)
+                    x_grad = x.grad.detach().cpu().numpy().astype(np.float32) if x.grad is not None else None
                 
-                if accumulated_render_grads:
+                # Delete GPU tensors immediately
+                del F, x
+                
+                # Update accumulated gradients
+                if F_grad is not None:
+                    accumulated_render_grads = {
+                        'dLdF': F_grad,
+                        'dLdx': x_grad if x_grad is not None else np.zeros_like(F_grad[:, :, 0])
+                    }
                     print(f"├─ ✅ Render grads saved for Pass {pass_idx+2}")
                     print(f"├─ dLdF shape: {accumulated_render_grads['dLdF'].shape}")
                     print(f"└─ dLdx shape: {accumulated_render_grads['dLdx'].shape}\n")
                 else:
+                    accumulated_render_grads = None
                     print(f"└─ ⚠️ Gradient extraction failed (F.grad is None)\n")
             else:
                 print(f"└─ ⚠️ compute_render_loss_pass returned None\n")
+            
+            # Cleanup after render loss computation
+            del result
+            torch.cuda.empty_cache()
+            
+            # Update ema_state
+            if ema_state_new is not None:
+                ema_state = ema_state_new
+            
+            # Additional cleanup between passes (except last pass)
+            if pass_idx < num_passes - 1:
+                print(f"[Cleanup] Clearing GPU memory between passes...")
+                torch.cuda.empty_cache()
             
             # Phase 4: Visualization (last pass only)
             if pass_idx == num_passes - 1:
@@ -1253,14 +1325,18 @@ def run_e2e_episode(
                     png_enabled, tgt, loss_physics, seed
                 )
         
-        # Cleanup
+        # Episode cleanup
         print(f"\n{'='*70}")
         print(f"Episode {ep+1} COMPLETE")
         print(f"{'='*70}\n")
         
+        print(f"[Cleanup] Final memory cleanup...")
         accumulated_render_grads = None
+        
         if cg.has_render_gradients():
             cg.clear_render_gradients()
+        
+        torch.cuda.empty_cache()
         
         return ema_state
 

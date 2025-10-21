@@ -1,5 +1,16 @@
 """
-Common utilities and configuration.
+Common utilities and configuration (v3.1)
+
+This namespace re-exports:
+- Configuration factory/presets/validator
+- Numerical constants used across the pipeline
+- The DEFAULT_CONFIG dictionary (now includes memory-safe sampling keys):
+    sampling.gs_batch
+    sampling.ensure_anchor_coverage
+    sampling.micro_jitter_scale
+- Lightweight utilities (torch checks, normalization, PD validation)
+
+No behavioral changes here; this module is a convenience barrel import.
 """
 
 # ============================================================================
@@ -13,7 +24,7 @@ from .config import (
     fast_cfg,
     quality_cfg,
     validate_cfg,
-    
+
     # Numerical constants
     EPS_NORMALIZE,
     EPS_SAFE,
@@ -23,8 +34,8 @@ from .config import (
     CLAMP_GUMBEL,
     CLAMP_RANDN,
     CLAMP_SPACING,
-    
-    # Config dictionary
+
+    # Config dictionary (includes memory-safe sampling keys)
     DEFAULT_CONFIG,
 )
 
@@ -38,7 +49,6 @@ from .utils import (
     validate_positive_definite,
 )
 
-
 __all__ = [
     # Configuration
     "default_cfg",
@@ -47,7 +57,7 @@ __all__ = [
     "fast_cfg",
     "quality_cfg",
     "validate_cfg",
-    
+
     # Constants
     "EPS_NORMALIZE",
     "EPS_SAFE",
@@ -57,10 +67,10 @@ __all__ = [
     "CLAMP_GUMBEL",
     "CLAMP_RANDN",
     "CLAMP_SPACING",
-    
+
     # Config dictionary
     "DEFAULT_CONFIG",
-    
+
     # Utilities
     "ensure_torch",
     "as_numpy",

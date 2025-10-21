@@ -120,6 +120,7 @@ class HybridFAISSKNN:
         self.fallback_chunk_size = int(fallback_chunk_size)
         self._index_cache = {}
         self._epoch = 0
+        self._gpu_resources = None
     
     def clear_cache(self):
         """
@@ -135,6 +136,9 @@ class HybridFAISSKNN:
             >>> knn(query2, data2, k=32)  # Builds new index for data2
         """
         self._index_cache.clear()
+        
+        if self._gpu_resources is not None:
+            self._gpu_resources = None
     
     def invalidate_cache(self):
         """
@@ -333,7 +337,9 @@ class HybridFAISSKNN:
             - Requires GPU memory for: centroids + point indices + partial distance tables
             - Typical: ~4-8 bytes per point + O(nlist*D) for centroids
         """
-        res = faiss.StandardGpuResources()
+        if self._gpu_resources is None:
+            self._gpu_resources = faiss.StandardGpuResources()
+            
         cpu_quantizer = faiss.IndexFlatL2(D)
         cpu_index = faiss.IndexIVFFlat(cpu_quantizer, D, nlist, faiss.METRIC_L2)
         
@@ -343,7 +349,7 @@ class HybridFAISSKNN:
             cpu_index.train(data_np[train_sel])
         
         cpu_index.add(data_np)
-        index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
+        index = faiss.index_cpu_to_gpu(self._gpu_resources, 0, cpu_index)
         index.nprobe = min(nprobe, nlist)
         return index
     
@@ -405,8 +411,9 @@ class HybridFAISSKNN:
                    - Ready immediately after .add()
         """
         if is_cuda:
-            res = faiss.StandardGpuResources()
-            index = faiss.GpuIndexFlatL2(res, D)
+            if self._gpu_resources is None:
+                self._gpu_resources = faiss.StandardGpuResources()
+            index = faiss.GpuIndexFlatL2(self._gpu_resources, D)
         else:
             index = faiss.IndexFlatL2(D)
         index.add(data_np)

@@ -265,7 +265,6 @@ def polar_decomposition(F: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     
     return R, S
 
-
 def build_covariance_polar(
     F_interp: torch.Tensor,
     sigma0: float,
@@ -321,61 +320,47 @@ def build_covariance(
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Build covariance matrices via F-field interpolation.
-    
-    Args:
-        points: (M, 3) upsampled points
-        x_low: (N, 3) anchor positions
-        F_low: (N, 3, 3) deformation gradients
-        knn: KNN function
-        cfg: Configuration dict
-    
-    Returns:
-        cov: (M, 3, 3) covariance matrices
-        F_interp: (M, 3, 3) interpolated F-field
-        idx: (M, k) neighbor indices
     """
     sigma0 = float(cfg.get("sigma0", 0.08))
     k_F = int(cfg.get("k_F", 32))
     use_F_smoothing = bool(cfg.get("use_F_smoothing", True))
     use_adaptive_scale = bool(cfg.get("use_adaptive_scale", False))
-    use_polar = bool(cfg.get("use_polar_decomposition", True))  # ✅ Default ON
-    
-    # Smooth F-field
-    if use_F_smoothing:
-        F_smooth_cfg = cfg.get("F_smooth", {})
-        F_smooth = smooth_F_field(x_low, F_low, F_smooth_cfg)
-    else:
-        F_smooth = F_low
-    
-    # Interpolate F to upsampled points
-    idx, w = knn(points, x_low, k_F)
-    F_neighbors = F_smooth[idx]  # (M, k, 3, 3)
-    F_interp = torch.einsum('mk,mkrc->mrc', w, F_neighbors)  # (M, 3, 3)
-    
-    # Compute local spacing for adaptive scale
+    use_polar = bool(cfg.get("use_polar_decomposition", True))  # default ON
+
+    # 1) (optional) smoothing
+    F_smooth = smooth_F_field(x_low, F_low, cfg.get("F_smooth", {})) if use_F_smoothing else F_low
+
+    # 2) interpolate F to upsampled points
+    idx, w = knn(points, x_low, k_F)               # idx: (M,k) over x_low
+    F_neighbors = F_smooth[idx]                     # (M,k,3,3)
+    F_interp = torch.einsum('mk,mkrc->mrc', w, F_neighbors)  # (M,3,3)
+
+    # 3) local spacing for adaptive scale (FIX: use x_low[idx], not points[idx])
     local_spacing = None
     if use_adaptive_scale:
-        neighbor_points = points[idx]  # (M, k, 3)
-        dists = torch.norm(neighbor_points - points.unsqueeze(1), dim=-1)  # (M, k)
-        local_spacing = dists[:, 1].clamp(min=1e-6)  # Nearest neighbor distance
-    
-    # Build covariance
+        neighbor_anchors = x_low[idx]             
+        dists = torch.norm(neighbor_anchors - points.unsqueeze(1), dim=-1)  # (M,k)
+        # Use second nearest to avoid zero distance to self (if present)
+        if dists.shape[1] >= 2:
+            # sort or topk for k small; second smallest is a robust spacing
+            d2 = torch.topk(dists, k=2, largest=False).values[:, 1]
+            local_spacing = d2.clamp(min=1e-6)
+        else:
+            local_spacing = dists[:, 0].clamp(min=1e-6)
+
+    # 4) covariance
     if use_polar:
-        # ✅ Polar decomposition method (RECOMMENDED)
-        cov = build_covariance_polar(
-            F_interp, sigma0, use_adaptive_scale, local_spacing
-        )
+        cov = build_covariance_polar(F_interp, sigma0, use_adaptive_scale, local_spacing)
     else:
-        # Original method: Σ = σ² F F^T
         if use_adaptive_scale and local_spacing is not None:
-            sigma_adaptive = sigma0 * torch.clamp(
-                local_spacing / local_spacing.mean(), 0.3, 2.0
-            )
-            sigma_adaptive = sigma_adaptive.unsqueeze(-1).unsqueeze(-1)  # (M, 1, 1)
-            cov = (sigma_adaptive ** 2) * torch.matmul(F_interp, F_interp.transpose(-2, -1))
+            sigma_adapt = sigma0 * torch.clamp(local_spacing / local_spacing.mean(), 0.3, 2.0)
+            cov = (sigma_adapt.unsqueeze(-1).unsqueeze(-1) ** 2) * torch.matmul(F_interp, F_interp.transpose(-2, -1))
         else:
             cov = (sigma0 ** 2) * torch.matmul(F_interp, F_interp.transpose(-2, -1))
-    
+
+    # 5) numeric symmetry guard (helps tiny asymmetries from float ops)
+    cov = 0.5 * (cov + cov.transpose(-2, -1))     
+
     return cov, F_interp, idx
 
 

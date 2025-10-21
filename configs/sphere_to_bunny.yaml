@@ -32,7 +32,7 @@ simulation:
 # Optimization setting
 # ===================================================================
 optimization:
-  num_animations: 2                 # Number of animation episodes
+  num_animations: 50                 # Number of animation episodes
   num_timesteps: 10                 # Number of time steps per episode
   control_stride: 1                 # Control frame interval
   max_gd_iters: 1                   # Maximum number of gradient descent iterations
@@ -68,7 +68,7 @@ output:
   output_format: "ply"              # Output format
 
 # ===================================================================
-# 🔥 UPSAMPLING PIPELINE v3.0 (REFACTORED)
+# 🔥 UPSAMPLING PIPELINE v2.2 
 # ===================================================================
 sampling:
   # ===================================================================
@@ -106,18 +106,24 @@ sampling:
   # STEP 3: IMPORTANCE SAMPLING (Gumbel-Softmax)
   # ===================================================================
   sampling:
-    M: 100000                       # Target number of samples
-    tau: 0.2                        # Gumbel-Softmax temperature
-    alpha: 0.20                     # Tangent jitter scale
-    thickness: 0.0                  # Normal jitter scale
-    density_gamma: 2.5              # Density importance
+    M: 100000                        # Target number of samples
+    tau: 0.2                         # Gumbel-Softmax temperature
+    alpha: 0.45                      # Tangent jitter scale
+    density_gamma: 2.5               # Density importance
+    gs_batch: 2048                   # Batch size for Gumbel-Softmax
+    ensure_anchor_coverage: false    # Ensure anchor coverage
+    micro_jitter_scale: 0.12         # Micro jitter scale
+    min_anchor_prob: 1e-4            # Minimum anchor probability
+    tangent_micro_only: true         # Tangent micro only
+    plane_snap: true                 # Plane snap
+
   
   # ===================================================================
   # STEP 4: TAUBIN SMOOTHING (Differentiable)
   # ===================================================================
   taubin:
     enabled: true
-    iters: 5                        # Number of iterations
+    iters: 1                        # Number of iterations
     k: 32                           # KNN neighbors
     lambda_smooth: 0.7              # Smoothing strength
     lambda_inflate: -0.63           # Inflation strength (negative!)
@@ -170,12 +176,12 @@ sampling:
 # RENDER SETTINGS (3DGS Runtime Renderer)
 # ===================================================================
 camera:
-  width: 1280
-  height: 720
-  fx: 475.0                       # Focal length in pixels X
-  fy: 475.0                       # Focal length in pixels Y
-  cx: 640.0                       # Principal point X
-  cy: 360.0                       # Principal point Y
+  width: 3840
+  height: 2160
+  fx: 1425.0                       # Focal length in pixels X
+  fy: 1425.0                       # Focal length in pixels Y
+  cx: 1920.0                       # Principal point X
+  cy: 1080.0                       # Principal point Y
   znear: 0.01
   zfar: 100.0
   lookat:
