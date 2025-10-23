@@ -59,15 +59,34 @@ DEFAULT_CONFIG = {
         "alpha": 0.35,                  # Tangent jitter base scale
         "thickness": 0.0,               # Normal jitter (shell thickness)
 
-        # NEW (for memory-safe sampler; no dense Y):
+        # Memory-safe sampler settings
         "gs_batch": 2048,               # Streaming softmax batch size (controls peak VRAM)
         "ensure_anchor_coverage": True, # If M >= N, include each anchor at least once
         "micro_jitter_scale": 0.2,      # HF jitter multiplier (0.0~0.5 typical)
-        "min_anchor_prob": 1e-4,        # Minimum anchor probability
-        "tangent_micro_only": True,    # Tangent micro only
+        "tangent_micro_only": True,     # Tangent micro only
         "plane_snap": True,             # Plane snap
-        # For importance shaping (unchanged semantics):
-        "density_gamma": 2.5,           # Density importance (used upstream)
+        
+        # Hole-fix patches (NEW)
+        "prob_floor": 1e-8,             # Minimum probability floor (no dead anchors)
+        "uniform_mix": 0.02,            # 2% uniform mass (all anchors reachable)
+        "plane_snap_beta": 0.5,         # Keep 50% of normal delta (0=hard, 1=no snap)
+        "topk_pool": 8,                 # Top-k candidates per sample (prevents collapse)
+        "thickness_gamma": 0.15,        # Adaptive thickness = 15% of local spacing
+        
+        # Surface-constrained sampling
+        "surface_support_q": 0.80,      # 상위 20%만 표면
+        "prob_floor_mode": "density",   # 밀도 기반 floor
+        "uniform_mix_surface_only": True,
+        "coverage_only_surface": True,
+        "mask_topk_with_surface": True,
+        
+        # Density-based floor settings
+        "density_floor_tau": 1.0,
+        "density_floor_gamma": 2.0,
+        
+        # One-sided thickness with inside barrier
+        "thickness_one_sided": True,    # 바깥쪽만 두께
+        "inside_barrier_lambda": 1.0,   # 내부 점 보정
     },
 
     # ========================================================================
@@ -126,6 +145,7 @@ DEFAULT_CONFIG = {
     "debug": {
         "verbose": True,
         "export_volume_filter": True,
+        "export_anchors": False,        # Export anchor sampling visualization
         "export_dir": "debug/",
         "png_dpi": 160,
         "png_ptsize": 0.5,
@@ -159,10 +179,12 @@ def bunny_cfg() -> Dict:
     - More samples (70K → 80K)
     - More lenient volume filter
     - Gentler smoothing
+    - Warmer tau for better spread
     - Slightly smaller streaming batch for safer VRAM on 24GB GPUs
     """
     cfg = default_cfg()
     cfg["sampling"]["M"] = 80000
+    cfg["sampling"]["tau"] = 0.3
     cfg["sampling"]["gs_batch"] = 1536
     cfg["volume_filter"]["k"] = 20
     cfg["volume_filter"]["consistency_threshold"] = 0.25
@@ -224,11 +246,13 @@ def quality_cfg() -> Dict:
     - More samples (70K → 100K)
     - Higher k for better estimates
     - More iterations
+    - Larger top-k pool for better coverage
     - Moderate streaming batch to keep peak VRAM stable
     """
     cfg = default_cfg()
     cfg["sampling"]["M"] = 100000
     cfg["sampling"]["gs_batch"] = 2048
+    cfg["sampling"]["topk_pool"] = 12
     cfg["surface_detection"]["k"] = 64
     cfg["surface_detection"]["soft_tau"] = 0.6
     cfg["volume_filter"]["k"] = 32
@@ -272,6 +296,25 @@ def validate_cfg(cfg: Dict) -> None:
     gs_batch = int(cfg.get("sampling", {}).get("gs_batch", 2048))
     if gs_batch <= 0:
         raise ValueError(f"sampling.gs_batch must be positive, got {gs_batch}")
+
+    # Hole-fix patches
+    prob_floor = float(cfg.get("sampling", {}).get("prob_floor", 1e-8))
+    if prob_floor < 0.0:
+        raise ValueError(f"sampling.prob_floor must be >= 0, got {prob_floor}")
+
+    uniform_mix = float(cfg.get("sampling", {}).get("uniform_mix", 0.02))
+    _in_range("sampling.uniform_mix", uniform_mix, 0.0, 1.0)
+
+    plane_snap_beta = float(cfg.get("sampling", {}).get("plane_snap_beta", 0.5))
+    _in_range("sampling.plane_snap_beta", plane_snap_beta, 0.0, 1.0)
+
+    topk_pool = int(cfg.get("sampling", {}).get("topk_pool", 8))
+    if topk_pool < 0:
+        raise ValueError(f"sampling.topk_pool must be >= 0, got {topk_pool}")
+
+    thickness_gamma = float(cfg.get("sampling", {}).get("thickness_gamma", 0.15))
+    if thickness_gamma < 0.0:
+        raise ValueError(f"sampling.thickness_gamma must be >= 0, got {thickness_gamma}")
 
     # Surface detection
     k_surface = int(cfg.get("surface_detection", {}).get("k", 0))

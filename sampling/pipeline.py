@@ -191,7 +191,7 @@ Importance Sampling:
 Taubin Smoothing:
     iters: 3               # Number of λ-μ passes
     lambda_smooth: 0.33    # Smoothing weight (positive)
-    mu_inflate: -0.34      # Inflation weight (negative)
+    lambda_inflate: -0.53  # Inflation weight (negative)
     k: 24                  # Neighbors for Laplacian
 
 Normal Smoothing:
@@ -249,7 +249,7 @@ from .core.sampler import sample_points
 from .core.taubin_smooth import taubin_smooth
 from .core.normal_smooth import smooth_normals
 from .geometry.covariance import build_covariance
-from .io.export import save_comparison_png
+from .io.export import save_comparison_png, save_anchor_visualization
 
 
 def upsample(
@@ -419,7 +419,7 @@ def upsample(
                 'enabled': True,
                 'iters': 3,
                 'lambda_smooth': 0.33,
-                'mu_inflate': -0.34,
+                'lambda_inflate': -0.53,
             },
             'normal_smooth': {
                 'enabled': True,
@@ -590,76 +590,112 @@ def upsample(
         print("="*80)
 
     samp_cfg = cfg.get("sampling", {})
-    M  = int(samp_cfg.get("M", 50000))
+    N = len(x_low)  # number of anchors before upsampling
+    
+    # Extract key parameters for logging (all are actually used in sampler)
+    M = int(samp_cfg.get("M", 50000))
     tau = float(samp_cfg.get("tau", 0.2))
     alpha = float(samp_cfg.get("alpha", 0.35))
     thickness = float(samp_cfg.get("thickness", 0.0))
-
-    # Memory-safe sampler knobs
     gs_batch = int(samp_cfg.get("gs_batch", 2048))
     ensure_cover = bool(samp_cfg.get("ensure_anchor_coverage", True))
     micro_jitter_scale = float(samp_cfg.get("micro_jitter_scale", 0.2))
+    tangent_micro_only = bool(samp_cfg.get("tangent_micro_only", True))
+    
+    # Hole-fix patches
+    prob_floor = float(samp_cfg.get("prob_floor", 1e-8))
+    uniform_mix = float(samp_cfg.get("uniform_mix", 0.02))
+    plane_snap = bool(samp_cfg.get("plane_snap", True))
+    plane_snap_beta = float(samp_cfg.get("plane_snap_beta", 0.5))
+    topk_pool = int(samp_cfg.get("topk_pool", 8))
+    thickness_gamma = float(samp_cfg.get("thickness_gamma", 0.15))
+    
+    # Surface-constrained sampling
+    surface_support_q = float(samp_cfg.get("surface_support_q", 0.80))
+    prob_floor_mode = str(samp_cfg.get("prob_floor_mode", "density"))
+    uniform_mix_surface_only = bool(samp_cfg.get("uniform_mix_surface_only", True))
+    coverage_only_surface = bool(samp_cfg.get("coverage_only_surface", True))
+    mask_topk_with_surface = bool(samp_cfg.get("mask_topk_with_surface", True))
+    
+    # Density-based floor
+    density_floor_tau = float(samp_cfg.get("density_floor_tau", 1.0))
+    density_floor_gamma = float(samp_cfg.get("density_floor_gamma", 2.0))
+    
+    # One-sided thickness
+    thickness_one_sided = bool(samp_cfg.get("thickness_one_sided", True))
+    inside_barrier_lambda = float(samp_cfg.get("inside_barrier_lambda", 1.0))
 
-    # Inside-suppression / count-preserving knobs (sampler will ignore if unsupported)
-    tangent_micro_only    = bool(samp_cfg.get("tangent_micro_only", True))
-    plane_snap            = bool(samp_cfg.get("plane_snap", True))
-    min_anchor_prob       = float(samp_cfg.get("min_anchor_prob", 1e-4))
-    thickness_one_sided   = bool(samp_cfg.get("thickness_one_sided", True))
-    keep_count            = bool(samp_cfg.get("keep_count", True))
-    topup_max_tries       = int(samp_cfg.get("topup_max_tries", 3))
-
-    N = len(x_low)  # number of anchors before upsampling
-
-    # Rough peak per batch for logits/softmax (float32), excluding other tensors
+    # Rough peak per batch for logits/softmax (float32)
     est_mb_per_batch = (gs_batch * max(N, 1) * 4) / (1024**2)
 
     if verbose:
         print(f"- Anchors (N): {N:,}")
         print(f"- Target samples (M): {M:,}  (upsampling {M/max(N,1):.1f}×)")
-        print(f"- Gumbel tau: {tau:.3f} | Jitter alpha: {alpha:.3f} | Thickness: {thickness:.3f}")
-        print(f"- Streaming gs_batch: {gs_batch}  (≈ {est_mb_per_batch:.1f} MB logits/batch)")
-        print(f"- Ensure anchor coverage: {ensure_cover} | min_anchor_prob: {min_anchor_prob:.1e}")
-        print(f"- Micro jitter scale: {micro_jitter_scale:.3f} | tangent_micro_only: {tangent_micro_only}")
-        print(f"- Plane snap: {plane_snap} | thickness_one_sided: {thickness_one_sided}")
-        print(f"- keep_count: {keep_count} (topup_max_tries={topup_max_tries})")
-
-        # Heads-up messages mirroring sampler behavior
-        if ensure_cover and M < N:
-            print("  [note] ensure_anchor_coverage=True but M < N; "
-                "sampler will fall back to top-M anchors by probability within valid anchors.")
-        if ensure_cover and M >= N:
-            print("  [note] coverage: each valid anchor (prob ≥ min_anchor_prob) appears at least once; "
-                "remaining slots are filled stochastically.")
+        print(f"\n  [Core Sampling]")
+        print(f"  • Gumbel tau: {tau:.3f} | alpha: {alpha:.3f} | thickness: {thickness:.3f}")
+        print(f"  • gs_batch: {gs_batch} (≈ {est_mb_per_batch:.1f} MB/batch)")
+        print(f"  • micro_jitter: {micro_jitter_scale:.3f} (tangent_only={tangent_micro_only})")
+        print(f"\n  [Hole-Fix Patches]")
+        print(f"  • prob_floor: {prob_floor:.1e} | uniform_mix: {uniform_mix:.3f}")
+        print(f"  • plane_snap: {plane_snap} (beta={plane_snap_beta:.2f})")
+        print(f"  • topk_pool: {topk_pool} | thickness_gamma: {thickness_gamma:.3f}")
+        print(f"\n  [Surface-Constrained]")
+        print(f"  • surface_support_q: {surface_support_q:.2f} (top {(1-surface_support_q)*100:.0f}%)")
+        print(f"  • prob_floor_mode: '{prob_floor_mode}'")
+        print(f"  • uniform_mix_surface_only: {uniform_mix_surface_only}")
+        print(f"  • coverage_only_surface: {coverage_only_surface}")
+        print(f"  • mask_topk_with_surface: {mask_topk_with_surface}")
+        print(f"\n  [Density-Based Floor]")
+        print(f"  • density_floor_tau: {density_floor_tau:.2f}")
+        print(f"  • density_floor_gamma: {density_floor_gamma:.2f}")
+        print(f"\n  [One-Sided Thickness]")
+        print(f"  • thickness_one_sided: {thickness_one_sided}")
+        print(f"  • inside_barrier_lambda: {inside_barrier_lambda:.2f}")
+        print(f"\n  [Coverage]")
+        print(f"  • ensure_anchor_coverage: {ensure_cover}")
+        
+        # Warnings
         if micro_jitter_scale > 0.25 and not tangent_micro_only:
-            print("  [warn] High micro_jitter_scale with isotropic micro may increase interior leakage; "
-                "consider tangent_micro_only=True or lower micro_jitter_scale.")
+            print(f"\n  [WARN] High micro_jitter_scale with isotropic micro may increase interior leakage")
         if thickness > 0.0 and not thickness_one_sided:
-            print("  [warn] Symmetric thickness can create interior points; "
-                "set thickness_one_sided=True to bias outward.")
+            print(f"\n  [WARN] Symmetric thickness can create interior points")
 
     # Call sampler (memory-safe ST version keeps the same signature)
     points, normals_up, anchors = sample_points(
         x_low, normals, spacing, filtered_prob, samp_cfg, generator
     )
 
+    # 🎨 Export anchor visualization (debug mode)
+    debug_cfg = cfg.get("debug", {})
+    if debug_cfg.get("export_anchors", False):
+        export_dir = Path(debug_cfg.get("export_dir", "debug/"))
+        export_dir.mkdir(parents=True, exist_ok=True)
+        anchor_path = export_dir / "anchor_sampling.png"
+        try:
+            save_anchor_visualization(
+                anchor_path,
+                x_low=x_low,
+                anchors=anchors,
+                surf_prob=surf_prob,
+                volume_weight=volume_weight,
+                dpi=debug_cfg.get("png_dpi", 160),
+                ptsize=debug_cfg.get("png_ptsize", 0.5)
+            )
+        except Exception as e:
+            if verbose:
+                print(f"  [WARN] Failed to save anchor visualization: {e}")
+
     # Proactive cleanup (helps control transient peaks between stages)
     del filtered_prob, spacing
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
-    # Invariants & quick sanity prints
+    # Result summary
     if verbose:
-        up_factor = len(points)/max(N,1)
-        print(f"✓ Sampled {len(points):,} points from {N:,} anchors ({up_factor:.1f}×)")
-        print(f"  Jitter alpha: {alpha:.3f} | Gumbel tau: {tau:.3f}")
-        print(f"  gs_batch:     {gs_batch} (≈ {est_mb_per_batch:.1f} MB logits/batch)")
-        print(f"  coverage:     {'on' if ensure_cover else 'off'}; "
-            f"micro_scale={micro_jitter_scale:.3f}; plane_snap={plane_snap}")
-
-        # Count-preservation invariant
+        up_factor = len(points) / max(N, 1)
+        print(f"\n✓ Sampled {len(points):,} points from {N:,} anchors ({up_factor:.1f}×)")
         if len(points) != M:
-            print(f"  [warn] sampler returned {len(points)} points but M={M}; "
-                "enable keep_count=True to top-up or check sampler configuration.")
+            print(f"  [INFO] Expected {M:,} but got {len(points):,} points")
 
 
     
@@ -678,7 +714,7 @@ def upsample(
         if verbose:
             n_iters = taubin_cfg.get('iters', 3)
             lam = taubin_cfg.get('lambda_smooth', 0.33)
-            mu = taubin_cfg.get('mu_inflate', -0.34)
+            mu = taubin_cfg.get('lambda_inflate', -0.53)
             print(f"✓ Applied {n_iters} iterations of Taubin smoothing")
             print(f"  λ (smooth): {lam:+.3f}")
             print(f"  μ (inflate): {mu:+.3f}")

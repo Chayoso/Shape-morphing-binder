@@ -144,3 +144,107 @@ def save_gaussians_npz(path: Path, xyz: np.ndarray, cov: np.ndarray, rgb=None, o
         rgb=rgb.astype(np.float32),
         opacity=opacity.astype(np.float32)
     )
+
+
+def save_anchor_visualization(
+    path,
+    x_low,
+    anchors,
+    surf_prob=None,
+    volume_weight=None,
+    dpi=160,
+    ptsize=1.0
+):
+    """
+    Anchor visualization: Original points vs sampled anchors
+    
+    Args:
+        path: Save path
+        x_low: (N, 3) Original anchor points
+        anchors: (M, 3) Sampled anchors
+        surf_prob: (N,) Surface probability (optional, for coloring)
+        volume_weight: (N,) Volume weight (optional, for coloring)
+        dpi: Image resolution
+        ptsize: Point size
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    
+    X = as_numpy(x_low)
+    A = as_numpy(anchors)
+    
+    plt = setup_matplotlib()
+    
+    if X is None or X.size == 0:
+        fig = plt.figure(figsize=(3,3))
+        fig.text(0.5, 0.5, "No points", ha="center")
+        fig.savefig(path, dpi=dpi, bbox_inches="tight")
+        plt.close(fig)
+        return
+    
+    # 2x2 layout
+    fig = plt.figure(figsize=(16, 14))
+    
+    # 1) Original anchors (colored by surface probability)
+    ax1 = fig.add_subplot(221, projection="3d")
+    if surf_prob is not None:
+        prob = as_numpy(surf_prob)
+        sc1 = ax1.scatter(X[:,0], X[:,1], X[:,2], c=prob, s=ptsize*2, 
+                         alpha=0.6, cmap="coolwarm", vmin=0, vmax=prob.max())
+        fig.colorbar(sc1, ax=ax1, shrink=0.6, label="Surface Probability")
+        ax1.set_title(f"Original Anchors (N={len(X):,})\nColored by Surface Prob")
+    else:
+        ax1.scatter(X[:,0], X[:,1], X[:,2], s=ptsize*2, alpha=0.6, c='blue')
+        ax1.set_title(f"Original Anchors (N={len(X):,})")
+    
+    # 2) Original anchors (colored by volume weight)
+    ax2 = fig.add_subplot(222, projection="3d")
+    if volume_weight is not None:
+        vw = as_numpy(volume_weight)
+        sc2 = ax2.scatter(X[:,0], X[:,1], X[:,2], c=vw, s=ptsize*2,
+                         alpha=0.6, cmap="viridis", vmin=0, vmax=1)
+        fig.colorbar(sc2, ax=ax2, shrink=0.6, label="Volume Weight")
+        ax2.set_title(f"Original Anchors (N={len(X):,})\nColored by Volume Weight")
+        
+        # Display surface point count
+        surface_mask = vw > 0.5
+        n_surface = surface_mask.sum()
+        ax2.text2D(0.05, 0.95, f"Surface: {n_surface}/{len(X)} ({100*n_surface/len(X):.1f}%)",
+                  transform=ax2.transAxes, fontsize=10, verticalalignment='top',
+                  bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    else:
+        ax2.scatter(X[:,0], X[:,1], X[:,2], s=ptsize*2, alpha=0.6, c='blue')
+        ax2.set_title(f"Original Anchors (N={len(X):,})")
+    
+    # 3) Sampled anchors
+    ax3 = fig.add_subplot(223, projection="3d")
+    if A is not None and A.size > 0:
+        ax3.scatter(A[:,0], A[:,1], A[:,2], s=ptsize, alpha=0.5, c='red')
+        ax3.set_title(f"Sampled Anchors (M={len(A):,})\nUpsampling Factor: {len(A)/len(X):.1f}×")
+    else:
+        ax3.text2D(0.5, 0.5, "No sampled anchors", ha="center")
+        ax3.set_title("Sampled Anchors")
+    
+    # 4) Overlay comparison
+    ax4 = fig.add_subplot(224, projection="3d")
+    ax4.scatter(X[:,0], X[:,1], X[:,2], s=ptsize*2, alpha=0.3, c='blue', label='Original')
+    if A is not None and A.size > 0:
+        ax4.scatter(A[:,0], A[:,1], A[:,2], s=ptsize*0.5, alpha=0.3, c='red', label='Sampled')
+    ax4.set_title("Overlay Comparison")
+    ax4.legend(loc='upper right')
+    
+    # Unified bounds
+    points_list = [X]
+    if A is not None and A.size > 0:
+        points_list.append(A)
+    bounds = compute_plot_bounds(points_list)
+    if bounds is not None:
+        mid, rng = bounds
+        for ax in (ax1, ax2, ax3, ax4):
+            set_axis_limits(ax, mid, rng)
+    
+    fig.suptitle("Anchor Sampling Visualization", fontsize=16, y=0.98)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    print(f"✓ Anchor visualization saved: {path}")

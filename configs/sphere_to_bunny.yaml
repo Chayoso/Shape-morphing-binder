@@ -1,260 +1,251 @@
 # ================================================================================
 # [CVPR 2026] PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
 # ================================================================================
+# Configuration File - Clean Version (2025-10-23)
+# Applied patches: Hole-free rendering with surface-constrained sampling
+# ================================================================================
 
-# Input/Output file path
+# ===================================================================
+# I/O CONFIGURATION
+# ===================================================================
 input_mesh_path: "assets/isosphere.obj"
 target_mesh_path: "assets/bunny.obj"
 output_dir: "output/"
 
-# ===================================================================
-# DiffMPM for Shape Morphing setting
-# ===================================================================
-simulation:
-  # Grid setting
-  grid_dx: 1                             # Grid cell size
-  points_per_cell_cuberoot: 3            # Number of points per cell (cubic root)
-  grid_min_point: [-16.0, -16.0, -16.0]  # Grid minimum coordinate
-  grid_max_point: [16.0, 16.0, 16.0]     # Grid maximum coordinate
-  
-  # Material properties (Lame parameters)
-  lam: 38888.89                          # λ (Volume elastic modulus)
-  mu:  58333.3                           # μ (Shear elastic modulus)
-  density: 75.0                          # Density
-  
-  # Simulation parameters
-  dt: 0.00833333333                      # Time step (1/120)
-  drag: 0.5                              # Drag coefficient
-  external_force: [0.0, 0.0, 0.0]        # External force (gravity, etc.)
-  smoothing_factor: 0.955                # Smoothing factor
-
-# ===================================================================
-# Optimization setting
-# ===================================================================
-optimization:
-  num_animations: 50                 # Number of animation episodes
-  num_timesteps: 10                 # Number of time steps per episode
-  control_stride: 1                 # Control frame interval
-  max_gd_iters: 1                   # Maximum number of gradient descent iterations
-  max_ls_iters: 10                  # Maximum number of line search iterations
-  initial_alpha: 0.01               # Initial step size
-  gd_tol: 0.0001                    # Gradient tolerance
-  
-  # HYBRID E2E LOSS CONFIGURATION
-  loss:
-    enabled: true                   # Enable E2E training
-    # Photometric losses
-    w_alpha: 0.5
-    w_depth: 0.2
-    
-    #  Silhouette Edge Alignment
-    w_edge: 0.1
-    
-    # Covariance Spectral Alignment
-    w_cov_align: 0.3
-    
-    # Regularization
-    w_cov_reg: 0.01
-    cov_reg_mode: 'eigenvalue'
-    target_cov_scale: 0.02
-    w_normal_smooth: 0.0
-    
-    # Schedule
-    schedule: 'constant'
-
-# Output setting
 output:
   export_ply: false                 # Export PLY file
   output_format: "ply"              # Output format
 
 # ===================================================================
-# 🔥 UPSAMPLING PIPELINE v2.2 
+# PHYSICS SIMULATION (DiffMPM)
+# ===================================================================
+simulation:
+  # Grid configuration
+  grid_dx: 1                             # Grid cell size
+  points_per_cell_cuberoot: 3            # Points per cell (cubic root)
+  grid_min_point: [-16.0, -16.0, -16.0]  # Grid minimum coordinate
+  grid_max_point: [16.0, 16.0, 16.0]     # Grid maximum coordinate
+  
+  # Material properties (Lame parameters)
+  lam: 38888.89                          # λ (Volume elastic modulus)
+  mu: 58333.3                            # μ (Shear elastic modulus)
+  density: 75.0                          # Material density
+  
+  # Simulation parameters
+  dt: 0.00833333333                      # Time step (1/120 sec)
+  drag: 0.5                              # Drag coefficient
+  external_force: [0.0, 0.0, 0.0]        # External force (gravity)
+  smoothing_factor: 0.955                # Velocity smoothing
+
+# ===================================================================
+# OPTIMIZATION
+# ===================================================================
+optimization:
+  # Animation configuration
+  num_animations: 50                 # Number of animation episodes
+  num_timesteps: 10                  # Time steps per episode
+  control_stride: 1                  # Control frame interval
+  
+  # Gradient descent settings
+  max_gd_iters: 1                    # Max gradient descent iterations
+  max_ls_iters: 10                   # Max line search iterations
+  initial_alpha: 0.01                # Initial step size
+  gd_tol: 0.0001                     # Gradient tolerance
+  
+  # End-to-end loss configuration
+  loss:
+    enabled: true                    # Enable E2E training
+    
+    # Photometric losses
+    w_alpha: 0.5                     # Weight for alpha loss
+    w_depth: 0.2                     # Weight for depth loss
+    
+    # Silhouette alignment
+    w_edge: 0.1                      # Weight for edge alignment
+    
+    # Covariance alignment
+    w_cov_align: 0.3                 # Weight for covariance alignment
+    
+    # Regularization
+    w_cov_reg: 0.01                  # Weight for covariance regularization
+    cov_reg_mode: 'eigenvalue'       # Regularization mode
+    target_cov_scale: 0.02           # Target covariance scale
+    w_normal_smooth: 0.0             # Weight for normal smoothing
+    
+    # Loss scheduling
+    schedule: 'constant'             # Loss weight schedule
+
+# ===================================================================
+# UPSAMPLING PIPELINE v2.2 (PATCHED FOR HOLE-FREE RENDERING)
 # ===================================================================
 sampling:
+  
   # ===================================================================
-  # DEBUG MODE
+  # DEBUG SETTINGS
   # ===================================================================
   debug:
-    verbose: true                   # Print detailed logs
-    export_volume_filter: true      # Export PNG after volume filter
-    export_dir: "debug/"            # Debug output directory
-    png_dpi: 160                    # PNG resolution
-    png_ptsize: 0.5                 # Point size in PNG
+    verbose: true                    # Print detailed logs
+    export_volume_filter: true       # Export PNG after volume filter
+    export_anchors: true             # Export anchor sampling visualization
+    export_dir: "debug/"             # Debug output directory
+    png_dpi: 160                     # PNG resolution
+    png_ptsize: 0.5                  # Point size in PNG
   
   # ===================================================================
   # STEP 1: SURFACE DETECTION (PCA-based)
   # ===================================================================
   surface_detection:
     enabled: true
-    k: 48                           # KNN neighbors for PCA
-    soft_tau: 0.30                  # Sigmoid sharpness
-    surface_power: 3.0              # Probability concentration
+    k: 48                            # KNN neighbors for PCA
+    soft_tau: 0.30                   # Sigmoid sharpness
+    surface_power: 3.0               # Probability concentration power
   
   # ===================================================================
-  # STEP 2: VOLUME FILTERING (Soft)
+  # STEP 2: VOLUME FILTERING (Normal Consistency)
   # ===================================================================
   volume_filter:
     enabled: true
-    k: 20                           # KNN neighbors for normal consistency
-    consistency_threshold: 0.2      # cos(45°) ≈ 0.7
-    temperature: 15.0               # Sigmoid sharpness (5=soft, 10=mid, 20=sharp)
-    positive_only: True            
-    use_distance_weight: False     
-    distance_bandwidth: 0.08       
+    k: 20                            # KNN neighbors for normal consistency
+    consistency_threshold: 0.2       # Minimum dot product threshold
+    temperature: 15.0                # Sigmoid temperature (5=soft, 20=sharp)
+    positive_only: true              # Only consider positive normals
+    use_distance_weight: false       # Distance-based weighting
+    distance_bandwidth: 0.08         # Distance kernel bandwidth
   
   # ===================================================================
-  # STEP 3: IMPORTANCE SAMPLING (Gumbel-Softmax)
+  # STEP 3: IMPORTANCE SAMPLING (Gumbel-Softmax) 🔥 PATCHED
   # ===================================================================
   sampling:
+    # Core sampling parameters
     M: 100000                        # Target number of samples
-    tau: 0.2                         # Gumbel-Softmax temperature
+    tau: 0.3                         # Gumbel-Softmax temperature
     alpha: 0.45                      # Tangent jitter scale
-    density_gamma: 2.5               # Density importance
-    gs_batch: 2048                   # Batch size for Gumbel-Softmax
-    ensure_anchor_coverage: false    # Ensure anchor coverage
-    micro_jitter_scale: 0.12         # Micro jitter scale
-    min_anchor_prob: 1e-4            # Minimum anchor probability
-    tangent_micro_only: true         # Tangent micro only
-    plane_snap: true                 # Plane snap
-
+    gs_batch: 2048                   # Batch size for streaming
+    ensure_anchor_coverage: true     # Ensure all anchors sampled
+    micro_jitter_scale: 0.12         # Micro-scale jitter
+    tangent_micro_only: true         # Tangent-only micro jitter
+    
+    # 🔥 Hole-fix patches
+    prob_floor: 1.0e-8               # Minimum probability floor
+    uniform_mix: 0.02                # 2% uniform mass for coverage
+    plane_snap: true                 # Enable plane snapping
+    plane_snap_beta: 0.5             # Keep 50% of normal delta (0=hard, 1=no snap)
+    topk_pool: 8                     # Top-k candidates per sample (↑12 if holes remain)
+    thickness_gamma: 0.15            # Adaptive thickness = 15% of local spacing
+    
+    # 🔥 Surface-constrained sampling
+    surface_support_q: 0.80          # Top 25% of anchors as surface
+    prob_floor_mode: "density"       # Density-based floor mode
+    uniform_mix_surface_only: true   # Uniform mix only to surface anchors
+    coverage_only_surface: true      # Coverage seed only from surface
+    mask_topk_with_surface: true     # Mask top-k pool with surface
+    
+    # 🔥 Density-based floor
+    density_floor_tau: 1.0           # Sigmoid temperature for density floor
+    density_floor_gamma: 2.0         # Power for density floor scaling
+    
+    # 🔥 One-sided thickness with inside barrier
+    thickness_one_sided: true        # One-sided thickness (outward only)
+    inside_barrier_lambda: 1.0       # Inside barrier strength
   
   # ===================================================================
   # STEP 4: TAUBIN SMOOTHING (Differentiable)
   # ===================================================================
   taubin:
     enabled: true
-    iters: 1                        # Number of iterations
-    k: 32                           # KNN neighbors
-    lambda_smooth: 0.7              # Smoothing strength
-    lambda_inflate: -0.63           # Inflation strength (negative!)
-    tangent_only: true              # Only smooth tangent component
+    iters: 1                         # Number of smoothing iterations
+    k: 32                            # KNN neighbors
+    lambda_smooth: 0.7               # Smoothing strength
+    lambda_inflate: -0.63            # Inflation strength (negative!)
+    tangent_only: true               # Only smooth tangent component
   
   # ===================================================================
   # STEP 5: NORMAL SMOOTHING (Laplacian)
   # ===================================================================
   normal_smooth:
     enabled: true
-    iters: 3                        # Number of iterations
-    k: 24                           # KNN neighbors
-    lambda_smooth: 0.85             # Smoothing strength
+    iters: 3                         # Number of smoothing iterations
+    k: 24                            # KNN neighbors
+    lambda_smooth: 0.85              # Smoothing strength
   
   # ===================================================================
   # STEP 6: COVARIANCE CONSTRUCTION (F-field)
   # ===================================================================
   covariance:
-    sigma0: 0.08                    # Base Gaussian scale
-    k_F: 32                         # KNN for F interpolation
-    use_F_smoothing: true           # Smooth F field
-    use_polar_decomposition: false  # Use polar decomposition
-    use_adaptive_scale: false       # Use adaptive scale
+    sigma0: 0.08                     # Base Gaussian scale
+    k_F: 32                          # KNN for F interpolation
+    use_F_smoothing: true            # Enable F-field smoothing
+    use_polar_decomposition: false   # Use polar decomposition
+    use_adaptive_scale: false        # Use adaptive scaling
+    
+    # F-field smoothing configuration
     F_smooth:
-      num_nodes: 180                # Graph nodes
-      node_knn: 8                   # Node neighbors
-      point_knn: 8                  # Point-to-node neighbors
-      lambda_lap: 0.01              # Laplacian regularization
+      num_nodes: 180                 # Number of graph nodes
+      node_knn: 8                    # Node-to-node neighbors
+      point_knn: 8                   # Point-to-node neighbors
+      lambda_lap: 0.01               # Laplacian regularization strength
   
   # ===================================================================
-  # KNN SETTINGS
+  # KNN SETTINGS (Performance Optimization)
   # ===================================================================
   knn:
-    use_faiss: true                 # Use FAISS for speed
-    use_ivf: true                   # Use IVF index (10-100x faster)
-    tau: 0.15                       # Soft KNN temperature
-    nlist: 100                      # Number of IVF clusters
-    nprobe: 10                      # Number of clusters to search
-    fallback_chunk_size: 5000       # Chunk size for torch fallback
+    use_faiss: true                  # Use FAISS for acceleration
+    use_ivf: true                    # Use IVF index (10-100x faster)
+    tau: 0.15                        # Soft KNN temperature
+    nlist: 100                       # Number of IVF clusters
+    nprobe: 10                       # Clusters to search
+    fallback_chunk_size: 5000        # Chunk size for torch fallback
   
   # ===================================================================
-  # PERFORMANCE
+  # PERFORMANCE SETTINGS
   # ===================================================================
   performance:
-    use_amp: false                  # Mixed precision (false for stability)
-    cache_knn: true                 # Cache KNN results
-    clear_cache: true               # Clear cache after each call
+    use_amp: false                   # Mixed precision (false for stability)
+    cache_knn: true                  # Cache KNN results
+    clear_cache: true                # Clear cache after each call
 
 # ===================================================================
-# RENDER SETTINGS (3DGS Runtime Renderer)
+# RENDERING CONFIGURATION (3D Gaussian Splatting)
 # ===================================================================
 camera:
-  width: 3840
-  height: 2160
-  fx: 1425.0                       # Focal length in pixels X
-  fy: 1425.0                       # Focal length in pixels Y
-  cx: 1920.0                       # Principal point X
-  cy: 1080.0                       # Principal point Y
-  znear: 0.01
-  zfar: 100.0
+  # Image resolution
+  width: 3840                        # 4K width
+  height: 2160                       # 4K height
+  
+  # Intrinsic parameters
+  fx: 1425.0                         # Focal length X (pixels)
+  fy: 1425.0                         # Focal length Y (pixels)
+  cx: 1920.0                         # Principal point X
+  cy: 1080.0                         # Principal point Y
+  
+  # Depth clipping
+  znear: 0.01                        # Near clipping plane
+  zfar: 100.0                        # Far clipping plane
+  
+  # Camera pose
   lookat:
-    eye: [20.0, -25.0, 15.0]      # Camera position
-    target: [0.0, 0.0, 0.0]       # Look at origin
-    up: [0.0, 0.0, 1.0]           # Up vector (Z-up)
+    eye: [20.0, -25.0, 15.0]         # Camera position
+    target: [0.0, 0.0, 0.0]          # Look-at target (origin)
+    up: [0.0, 0.0, 1.0]              # Up vector (Z-up coordinate)
 
 render:
-  num_frames: 1                   # Number of frames to render
-  schedule: uniform               # Frame scheduling
-  bg: [1.0, 1.0, 1.0]             # Background color (white)
-  particle_color: [0.27, 0.51, 0.71]  # Particle color (blue)
+  # Frame configuration
+  num_frames: 1                      # Number of frames to render
+  schedule: uniform                  # Frame scheduling method
   
+  # Colors
+  bg: [1.0, 1.0, 1.0]                # Background color (white)
+  particle_color: [0.27, 0.51, 0.71] # Particle color (blue)
+  
+  # Lighting model
   lighting:
-    model: phong                  # Shading model
-    type: directional             # Light type
-    direction: [0.3, -0.5, 0.8]   # Light direction
-    two_sided: true               # Two-sided lighting
-    ambient: 0.18                 # Ambient intensity
-    diffuse: 0.85                 # Diffuse intensity
-    specular: 0.10                # Specular intensity
-    shininess: 32                 # Specular shininess
-
-# ===================================================================
-# 🎯 PRESET CONFIGURATIONS (Uncomment to use)
-# ===================================================================
-
-# # 🐰 Bunny preset (thin features like ears)
-# sampling:
-#   sampling:
-#     M: 80000
-#   taubin:
-#     lambda_smooth: 0.5
-#     lambda_inflate: -0.48
-#   normal_smooth:
-#     lambda_smooth: 0.7
-
-# # 🌐 Sphere preset (smooth surfaces)
-# sampling:
-#   sampling:
-#     M: 50000
-#   taubin:
-#     lambda_smooth: 0.7
-#     lambda_inflate: -0.65
-#   normal_smooth:
-#     iters: 3
-
-# # ⚡ Fast preset (real-time)
-# sampling:
-#   sampling:
-#     M: 30000
-#   volume_filter:
-#     enabled: false
-#   taubin:
-#     enabled: false
-#   normal_smooth:
-#     enabled: false
-#   covariance:
-#     use_F_smoothing: false
-#   performance:
-#     use_amp: true
-
-# # 💎 Quality preset (offline rendering)
-# sampling:
-#   sampling:
-#     M: 100000
-#   surface_detection:
-#     k: 64
-#   volume_filter:
-#     k: 64
-#   taubin:
-#     iters: 5
-#     k: 32
-#   normal_smooth:
-#     iters: 3
-#     k: 24
+    model: phong                     # Shading model (phong/flat/none)
+    type: directional                # Light type
+    direction: [0.3, -0.5, 0.8]      # Light direction (normalized)
+    two_sided: true                  # Two-sided lighting
+    
+    # Light intensities
+    ambient: 0.18                    # Ambient intensity
+    diffuse: 0.85                    # Diffuse intensity
+    specular: 0.10                   # Specular intensity
+    shininess: 32                    # Specular shininess exponent
