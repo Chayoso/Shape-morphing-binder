@@ -15,7 +15,7 @@ target_mesh_path: "assets/bebe.obj"         # target mesh (Bebe)
 output_dir: "output/bebe"                        # output directory
 
 output:
-  export_ply: false                          # export PLY file
+  export_ply: true                          # export PLY file
   output_format: "ply"                       # output format (ply/obj)
 
 # ════════════════════════════════════════════════════════════════════════════════
