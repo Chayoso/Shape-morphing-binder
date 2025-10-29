@@ -151,7 +151,7 @@ def save_anchor_visualization(
     x_low,
     anchors,
     surf_prob=None,
-    volume_weight=None,
+    anchor_density=None,
     dpi=160,
     ptsize=1.0
 ):
@@ -163,7 +163,7 @@ def save_anchor_visualization(
         x_low: (N, 3) Original anchor points
         anchors: (M, 3) Sampled anchors
         surf_prob: (N,) Surface probability (optional, for coloring)
-        volume_weight: (N,) Volume weight (optional, for coloring)
+        anchor_density: (N,) Anchor density ρ (optional, for coloring)
         dpi: Image resolution
         ptsize: Point size
     """
@@ -197,19 +197,19 @@ def save_anchor_visualization(
         ax1.scatter(X[:,0], X[:,1], X[:,2], s=ptsize*2, alpha=0.6, c='blue')
         ax1.set_title(f"Original Anchors (N={len(X):,})")
     
-    # 2) Original anchors (colored by volume weight)
+    # 2) Original anchors (colored by anchor density)
     ax2 = fig.add_subplot(222, projection="3d")
-    if volume_weight is not None:
-        vw = as_numpy(volume_weight)
-        sc2 = ax2.scatter(X[:,0], X[:,1], X[:,2], c=vw, s=ptsize*2,
-                         alpha=0.6, cmap="viridis", vmin=0, vmax=1)
-        fig.colorbar(sc2, ax=ax2, shrink=0.6, label="Volume Weight")
-        ax2.set_title(f"Original Anchors (N={len(X):,})\nColored by Volume Weight")
+    if anchor_density is not None:
+        rho = as_numpy(anchor_density)
+        rho_min, rho_max = rho.min(), rho.max()
+        sc2 = ax2.scatter(X[:,0], X[:,1], X[:,2], c=rho, s=ptsize*2,
+                         alpha=0.6, cmap="viridis", vmin=rho_min, vmax=rho_max)
+        fig.colorbar(sc2, ax=ax2, shrink=0.6, label="Anchor Density (ρ)")
+        ax2.set_title(f"Original Anchors (N={len(X):,})\nColored by Anchor Density")
         
-        # Display surface point count
-        surface_mask = vw > 0.5
-        n_surface = surface_mask.sum()
-        ax2.text2D(0.05, 0.95, f"Surface: {n_surface}/{len(X)} ({100*n_surface/len(X):.1f}%)",
+        # Display density statistics
+        rho_mean = rho.mean()
+        ax2.text2D(0.05, 0.95, f"Density ρ: mean={rho_mean:.3f}, [{rho_min:.3f}, {rho_max:.3f}]",
                   transform=ax2.transAxes, fontsize=10, verticalalignment='top',
                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
     else:
@@ -248,3 +248,379 @@ def save_anchor_visualization(
     fig.savefig(path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
     print(f"✓ Anchor visualization saved: {path}")
+
+
+def save_stage_progression(
+    base_dir,
+    episode,
+    stage_data,
+    dpi=160,
+    ptsize=0.5  # Default point size for visualization
+):
+    """
+    Save visualization of upsampling progression across all stages.
+    
+    Creates a base_dir/episode_XXX/ folder containing:
+    - STAGE1.png: Anchor points with surface probability
+    - STAGE2.png: Anchor-density map (anchors only, no upsampled points)
+    - STAGE3.png: After importance sampling (upsampled)
+    - STAGE4.png: After Taubin smoothing
+    - STAGE5.png: After normal smoothing
+    - STAGE6.png: Final output with covariances
+    - progression.png: All stages in one image
+    
+    Args:
+        base_dir: Base output directory (e.g., "debug")
+        episode: Episode number (0-indexed)
+        stage_data: Dictionary containing stage outputs:
+            {
+                'stage1': {'points': (N,3), 'surf_prob': (N,), 'normals': (N,3)},
+                'stage2': {'points': (N,3), 'rho_anchor': (N,)},
+                'stage3': {'points': (M,3), 'anchors': (M,3)},
+                'stage4': {'points': (M,3)},
+                'stage5': {'points': (M,3), 'normals': (M,3)},
+                'stage6': {'points': (M,3), 'cov': (M,3,3)},
+            }
+        dpi: Image resolution
+        ptsize: Point size
+    """
+    base_dir = Path(base_dir)
+    # Use "target" folder for episode -1, otherwise epXXX
+    if episode == -1:
+        ep_dir = base_dir
+    else:
+        ep_dir = base_dir / f"ep{episode:03d}"
+    ep_dir.mkdir(parents=True, exist_ok=True)
+    
+    plt = setup_matplotlib()
+    
+    # Extract stage data
+    stages = []
+    stage_names = []
+    
+    if 'stage1' in stage_data:
+        stages.append(stage_data['stage1'])
+        stage_names.append("STAGE 1: Surface Detection")
+    if 'stage2' in stage_data:
+        stages.append(stage_data['stage2'])
+        stage_names.append("STAGE 2: Anchor-Density Map")
+    if 'stage3' in stage_data:
+        stages.append(stage_data['stage3'])
+        stage_names.append("STAGE 3: Importance Sampling")
+    if 'stage4' in stage_data:
+        stages.append(stage_data['stage4'])
+        stage_names.append("STAGE 4: Taubin Smoothing")
+    if 'stage5' in stage_data:
+        stages.append(stage_data['stage5'])
+        stage_names.append("STAGE 5: Normal Smoothing")
+    if 'stage6' in stage_data:
+        stages.append(stage_data['stage6'])
+        stage_names.append("STAGE 6: Covariance Construction")
+    
+    n_stages = len(stages)
+    if n_stages == 0:
+        print("⚠️ No stage data provided")
+        return
+    
+    # Compute unified bounds for all stages
+    all_points = []
+    for stage in stages:
+        pts = as_numpy(stage.get('points'))
+        if pts is not None and pts.size > 0:
+            all_points.append(pts)
+    
+    if len(all_points) == 0:
+        print("⚠️ No valid points in any stage")
+        return
+    
+    bounds = compute_plot_bounds(all_points)
+    if bounds is None:
+        print("⚠️ Could not compute plot bounds")
+        return
+    
+    mid, rng = bounds
+    
+    # 🔥 SPECIAL HANDLING: STAGE1 with volume + surface side-by-side
+    stage1_saved = False
+    if 'stage1' in stage_data:
+        stage1 = stage_data['stage1']
+        pts = as_numpy(stage1.get('points'))
+        prob = as_numpy(stage1.get('surf_prob'))
+        
+        if pts is not None and prob is not None and pts.size > 0:
+            import numpy as np
+            
+            # Get surface mask (precomputed from pipeline)
+            surface_mask = as_numpy(stage1.get('surface_mask'))
+            
+            if surface_mask is not None:
+                pts_surface = pts[surface_mask]
+                prob_surface = prob[surface_mask]
+            else:
+                # Fallback: compute mask using same logic as pipeline (mean-based)
+                mean_prob = np.mean(prob)
+                surface_mask = (prob >= mean_prob)
+                    
+                pts_surface = pts[surface_mask]
+                prob_surface = prob[surface_mask]
+            
+            # Create single visualization (left panel only)
+            fig = plt.figure(figsize=(10, 8))
+            
+            # All anchors with surface probability
+            ax = fig.add_subplot(111, projection="3d")
+            prob_min, prob_max = prob.min(), prob.max()
+            sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=prob, s=ptsize*2,
+                           alpha=0.5, cmap="coolwarm", vmin=prob_min, vmax=prob_max)
+            fig.colorbar(sc, ax=ax, shrink=0.6, label="Surface Probability")
+            ax.set_title(f"STAGE 1: Surface Detection\nN = {len(pts):,} anchors\nProb: [{prob_min:.4f}, {prob_max:.4f}]")
+            set_axis_limits(ax, mid, rng)
+            
+            # Save as STAGE1.png
+            stage1_path = ep_dir / "STAGE1.png"
+            fig.tight_layout()
+            fig.savefig(stage1_path, dpi=dpi, bbox_inches="tight")
+            plt.close(fig)
+            print(f"  ✓ Saved: {stage1_path}")
+            stage1_saved = True
+    
+    # Create individual stage visualizations (skip stage1 if already saved)
+    for i, (stage, name) in enumerate(zip(stages, stage_names), start=1):
+        if i == 1 and stage1_saved:
+            continue  # Skip stage1, already saved
+            
+        fig = plt.figure(figsize=(8, 7))
+        ax = fig.add_subplot(111, projection="3d")
+        
+        pts = as_numpy(stage.get('points'))
+        if pts is None or pts.size == 0:
+            ax.text2D(0.5, 0.5, "No points", transform=ax.transAxes, ha="center")
+        else:
+            # Color by different properties per stage
+            if False:  # i == 1 block removed
+                pass
+            elif i == 2:
+                # Stage 2: Anchor Density ONLY (anchors only, no upsampled points)
+                rho = as_numpy(stage.get('rho_anchor'))
+                if rho is not None and rho.size > 0:
+                    rho_min, rho_max = rho.min(), rho.max()
+                    rho_mean = rho.mean()
+                    print(f"    [STAGE2] Anchor Density range: [{rho_min:.6f}, {rho_max:.6f}], mean: {rho_mean:.6f}")
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=rho, s=ptsize*2,
+                                   alpha=0.4, cmap="viridis", vmin=rho_min, vmax=rho_max)
+                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Anchor Density (ρ)")
+                    ax.set_title(f"{name}\nN = {len(pts):,} anchor points\n"
+                                f"Density ρ: [{rho_min:.4f}, {rho_max:.4f}] (mean: {rho_mean:.4f})")
+                else:
+                    # Fallback if rho_anchor is None
+                    ax.scatter(pts[:,0], pts[:,1], pts[:,2], s=ptsize*2, alpha=0.4, c='royalblue')
+                    ax.set_title(f"{name}\nN = {len(pts):,} anchor points")
+            elif i == 3:
+                # Stage 3: Upsampled points + Anchor selection heat map
+                anchor_positions = as_numpy(stage.get('anchor_positions'))
+                anchor_count = as_numpy(stage.get('anchor_selection_count'))
+                
+                if anchor_positions is not None and anchor_count is not None:
+                    # Create side-by-side visualization
+                    plt.close(fig)  # Close single subplot
+                    fig = plt.figure(figsize=(18, 7))
+                    
+                    # Left: Upsampled points
+                    ax_left = fig.add_subplot(121, projection="3d")
+                    c = pts.mean(0)
+                    r = np.linalg.norm(pts - c[None,:], axis=1)
+                    sc_left = ax_left.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize,
+                                             alpha=0.4, cmap="plasma")
+                    fig.colorbar(sc_left, ax=ax_left, shrink=0.6, label="Distance from Center")
+                    ax_left.set_title(f"Upsampled Points\nN = {len(pts):,}")
+                    set_axis_limits(ax_left, mid, rng)
+                    
+                    # Right: Anchor selection heat map
+                    ax_right = fig.add_subplot(122, projection="3d")
+                    count_min, count_max = anchor_count.min(), anchor_count.max()
+                    count_mean = anchor_count.mean()
+                    sc_right = ax_right.scatter(anchor_positions[:,0], anchor_positions[:,1], anchor_positions[:,2], 
+                                               c=anchor_count, s=ptsize*3, alpha=0.8,
+                                               cmap="hot", vmin=count_min, vmax=count_max)
+                    fig.colorbar(sc_right, ax=ax_right, shrink=0.6, label="Selection Count")
+                    ax_right.set_title(f"Anchor Selection Heat Map\nN = {len(anchor_positions):,} anchors\n"
+                                      f"Count: [{count_min}, {count_max}] (avg: {count_mean:.1f})")
+                    set_axis_limits(ax_right, mid, rng)
+                    
+                    ax = None  # No single ax for this stage
+                else:
+                    # Fallback: just show upsampled points
+                    c = pts.mean(0)
+                    r = np.linalg.norm(pts - c[None,:], axis=1)
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize,
+                                   alpha=0.6, cmap="plasma")
+                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Distance from Center")
+                    ax.set_title(f"{name}\nN = {len(pts):,} points")
+            elif i == 4:
+                # Stage 4: Z-coordinate (smooth contour-like visualization)
+                z_vals = pts[:, 2]  # Z coordinate
+                z_min, z_max = z_vals.min(), z_vals.max()
+                print(f"    [STAGE4] Z coordinate range: [{z_min:.4f}, {z_max:.4f}]")
+                sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=z_vals, s=ptsize,
+                               alpha=0.4, cmap="viridis", vmin=z_min, vmax=z_max)
+                fig.colorbar(sc, ax=ax, shrink=0.6, label="Z Coordinate (Height)")
+                ax.set_title(f"{name}\nN = {len(pts):,} points\nZ: [{z_min:.3f}, {z_max:.3f}]")
+            elif i == 5 and 'normals' in stage:
+                # Stage 5: Normal smoothing - visualize normal Z-component
+                nrm = as_numpy(stage['normals'])
+                if nrm is not None and nrm.size > 0:
+                    nrm_z = nrm[:, 2]  # Z component of normals
+                    nrm_z_min, nrm_z_max = nrm_z.min(), nrm_z.max()
+                    print(f"    [STAGE5] Normal Z range: [{nrm_z_min:.4f}, {nrm_z_max:.4f}]")
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=nrm_z, s=ptsize,
+                                   alpha=0.4, cmap="RdBu_r", vmin=nrm_z_min, vmax=nrm_z_max)
+                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Normal Z-component")
+                    ax.set_title(f"{name}\nN = {len(pts):,} points\nNormal Z: [{nrm_z_min:.3f}, {nrm_z_max:.3f}]")
+                else:
+                    # Fallback
+                    c = pts.mean(0)
+                    r = np.linalg.norm(pts - c[None,:], axis=1)
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize,
+                                   alpha=0.4, cmap="viridis")
+                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Distance")
+                    ax.set_title(f"{name}\nN = {len(pts):,} points")
+            elif i == 6 and 'cov' in stage:
+                # Stage 6: Covariance - visualize covariance scale (trace or determinant)
+                cov = as_numpy(stage['cov'])
+                if cov is not None and cov.size > 0:
+                    # Compute trace (sum of eigenvalues) as a measure of covariance size
+                    trace = np.trace(cov, axis1=1, axis2=2)
+                    trace_min, trace_max = trace.min(), trace.max()
+                    print(f"    [STAGE6] Covariance trace range: [{trace_min:.6f}, {trace_max:.6f}]")
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=trace, s=ptsize,
+                                   alpha=0.4, cmap="viridis", vmin=trace_min, vmax=trace_max)
+                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Covariance Trace")
+                    ax.set_title(f"{name}\nN = {len(pts):,} points\nTrace: [{trace_min:.4e}, {trace_max:.4e}]")
+                else:
+                    # Fallback
+                    c = pts.mean(0)
+                    r = np.linalg.norm(pts - c[None,:], axis=1)
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize,
+                                   alpha=0.4, cmap="viridis")
+                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Distance")
+                    ax.set_title(f"{name}\nN = {len(pts):,} points")
+            else:
+                # Fallback: Color by radial distance
+                c = pts.mean(0)
+                r = np.linalg.norm(pts - c[None,:], axis=1)
+                sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize,
+                               alpha=0.6, cmap="viridis")
+                fig.colorbar(sc, ax=ax, shrink=0.6, label="Distance from Center")
+                ax.set_title(f"{name}\nN = {len(pts):,} points")
+            
+            # Set axis limits (skip if ax is None, e.g., stage3 side-by-side)
+            if ax is not None:
+                set_axis_limits(ax, mid, rng)
+        
+        # Save individual stage (skip STAGE1, already saved as 1a and 1b)
+        stage_path = ep_dir / f"STAGE{i}.png"
+        fig.tight_layout()
+        fig.savefig(stage_path, dpi=dpi, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  ✓ Saved {stage_path.name}")
+    
+    # Create combined progression visualization
+    if n_stages >= 3:
+        # Use 1x6 layout for horizontal progression
+        ncols = n_stages  # All stages in one row
+        nrows = 1
+        fig = plt.figure(figsize=(5*ncols, 6))
+        
+        for i, (stage, name) in enumerate(zip(stages, stage_names), start=1):
+            ax = fig.add_subplot(nrows, ncols, i, projection="3d")
+            
+            pts = as_numpy(stage.get('points'))
+            if pts is None or pts.size == 0:
+                ax.text2D(0.5, 0.5, "No points", transform=ax.transAxes, ha="center")
+            else:
+                # Color based on stage type - same as individual visualizations
+                if i == 1:
+                    # Stage 1: Show surface anchors (filtered) - solid color
+                    prob = as_numpy(stage['surf_prob'])
+                    surface_mask = as_numpy(stage.get('surface_mask'))
+                    if prob is not None and surface_mask is not None:
+                        pts_surf = pts[surface_mask]
+                        sc = ax.scatter(pts_surf[:,0], pts_surf[:,1], pts_surf[:,2], 
+                                       c='steelblue', s=ptsize*1.2,
+                                       alpha=0.7)  # Solid color
+                        # No title for progression
+                elif i == 2 and 'rho_anchor' in stage:
+                    # Stage 2: Anchor density
+                    rho = as_numpy(stage['rho_anchor'])
+                    if rho is not None and rho.size > 0:
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=rho, s=ptsize*0.8,
+                                       alpha=0.4, cmap="viridis", vmin=rho.min(), vmax=rho.max())
+                    else:
+                        # Fallback
+                        c = pts.mean(0)
+                        r = np.linalg.norm(pts - c[None,:], axis=1)
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize*0.8,
+                                       alpha=0.4, cmap="viridis")
+                elif i == 3:
+                    # Stage 3: Distance from center (sampling result)
+                    c = pts.mean(0)
+                    r = np.linalg.norm(pts - c[None,:], axis=1)
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize*0.8,
+                                   alpha=0.4, cmap="plasma")
+                elif i == 4:
+                    # Stage 4: Z-coordinate (smooth contour visualization)
+                    z_vals = pts[:, 2]
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=z_vals, s=ptsize*0.8,
+                                   alpha=0.4, cmap="viridis", vmin=z_vals.min(), vmax=z_vals.max())
+                elif i == 5 and 'normals' in stage:
+                    # Stage 5: Normal Z-component
+                    nrm = as_numpy(stage['normals'])
+                    if nrm is not None and nrm.size > 0:
+                        nrm_z = nrm[:, 2]
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=nrm_z, s=ptsize*0.8,
+                                       alpha=0.4, cmap="RdBu_r", vmin=nrm_z.min(), vmax=nrm_z.max())
+                    else:
+                        c = pts.mean(0)
+                        r = np.linalg.norm(pts - c[None,:], axis=1)
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize*0.8,
+                                       alpha=0.4, cmap="viridis")
+                elif i == 6 and 'cov' in stage:
+                    # Stage 6: Covariance trace
+                    cov = as_numpy(stage['cov'])
+                    if cov is not None and cov.size > 0:
+                        trace = np.trace(cov, axis1=1, axis2=2)
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=trace, s=ptsize*0.8,
+                                       alpha=0.4, cmap="viridis", vmin=trace.min(), vmax=trace.max())
+                    else:
+                        c = pts.mean(0)
+                        r = np.linalg.norm(pts - c[None,:], axis=1)
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize*0.8,
+                                       alpha=0.4, cmap="viridis")
+                else:
+                    # Fallback: radial distance
+                    c = pts.mean(0)
+                    r = np.linalg.norm(pts - c[None,:], axis=1)
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize*0.8,
+                                   alpha=0.4, cmap="viridis")
+                
+                # No title
+                set_axis_limits(ax, mid, rng)
+        
+        # Filename based on episode type
+        if episode == -1:
+            prog_filename = "target_progression.png"
+        else:
+            prog_filename = f"ep{episode:03d}_progression.png"
+        
+        # No suptitle - clean visualization
+        fig.tight_layout(h_pad=1.0, w_pad=1.0)
+        
+        prog_path = ep_dir / prog_filename
+        fig.savefig(prog_path, dpi=dpi, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  ✓ Saved {prog_path.name}")
+    
+    print(f"✓ All stage visualizations saved to {ep_dir}/")
+    print(f"  - Individual stages: STAGE1.png ~ STAGE{n_stages}.png")
+    if n_stages >= 3:
+        print(f"  - Combined view: {prog_filename}")

@@ -31,7 +31,7 @@ def soft_top_k(
         tau: Temperature for softmax (lower = sharper selection)
         largest: If True, select largest values; else smallest
     
-    Returns:
+    Returns:x
         indices: (N, k) hard-selected indices (for compatibility)
         weights: (N, k) soft attention weights
     """
@@ -234,34 +234,36 @@ def polar_decomposition(F: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Polar decomposition: F = R S
     
+    Strategy: Always keep S positive definite (all eigenvalues > 0)
+    R can be rotation + reflection (det(R) = ±1)
+    
+    For covariance Σ = S·Σ₀·S (rotation R removed!):
+    - We only use the stretch component S, not rotation R
+    - This captures pure deformation (compression/extension) without orientation artifacts
+    - Σ is positive definite as long as S is positive definite ✓
+    
     Args:
         F: (N, 3, 3) deformation gradient
     
     Returns:
-        R: (N, 3, 3) rotation matrices
-        S: (N, 3, 3) symmetric stretch matrices
+        R: (N, 3, 3) orthogonal matrices (rotation or rotation+reflection)
+        S: (N, 3, 3) symmetric positive definite stretch matrices
     """
     # SVD: F = U Σ V^T
-    U, sigma, Vt = torch.linalg.svd(F)  # sigma: (N, 3)
+    U, sigma, Vt = torch.linalg.svd(F)  # sigma: (N, 3) - always positive
     
-    # Rotation: R = U V^T
+    # Rotation (or rotation+reflection): R = U V^T
     R = torch.bmm(U, Vt)
+    # det(R) can be ±1, but that's OK for covariance computation
     
-    # Handle reflection (det(R) < 0)
-    det_R = torch.det(R)
-    reflection_mask = det_R < 0
-    
-    if reflection_mask.any():
-        # Flip last column of U for reflected cases
-        U_fixed = U.clone()
-        U_fixed[reflection_mask, :, -1] *= -1
-        R[reflection_mask] = torch.bmm(U_fixed[reflection_mask], Vt[reflection_mask])
-        sigma[reflection_mask, -1] *= -1  # Flip corresponding singular value
-    
-    # Stretch: S = V Σ V^T
+    # Stretch: S = V Σ V^T (always positive definite since sigma > 0)
     V = Vt.transpose(-2, -1)
-    sigma_diag = torch.diag_embed(sigma)
+    sigma_diag = torch.diag_embed(sigma)  # Diagonal with positive values
     S = torch.bmm(torch.bmm(V, sigma_diag), Vt)
+    
+    # S is guaranteed positive definite:
+    # - Eigenvalues of S are exactly sigma (all positive from SVD)
+    # - S is symmetric by construction
     
     return R, S
 
@@ -272,7 +274,7 @@ def build_covariance_polar(
     local_spacing: Optional[torch.Tensor] = None
 ) -> torch.Tensor:
     """
-    Build covariance using polar decomposition: Σ = R S Σ₀ S R^T
+    Build covariance using polar decomposition: Σ = S·Σ₀·S (rotation removed!)
     
     Args:
         F_interp: (M, 3, 3) interpolated deformation gradients
@@ -299,10 +301,11 @@ def build_covariance_polar(
     else:
         Sigma0 = (sigma0 ** 2) * torch.eye(3, device=device).unsqueeze(0).expand(M, 3, 3)
     
-    # Covariance: Σ = R S Σ₀ S R^T
+    # 🔥 Covariance: Σ = S·Σ₀·S (ROTATION REMOVED!)
+    # Remove rotation R to avoid unwanted orientation artifacts
+    # Only use stretch S to capture physical deformation (compression/extension)
     S_Sigma0 = torch.bmm(S, Sigma0)
-    S_Sigma0_S = torch.bmm(S_Sigma0, S)
-    cov = torch.bmm(torch.bmm(R, S_Sigma0_S), R.transpose(-2, -1))
+    cov = torch.bmm(S_Sigma0, S)  # No R! Pure stretch
     
     return cov
 
@@ -316,10 +319,34 @@ def build_covariance(
     x_low: torch.Tensor,
     F_low: torch.Tensor,
     knn,
-    cfg: Dict
+    cfg: Dict,
+    learnable_cov_module=None  # 🔥 NEW: Optional learnable covariance module
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
-    Build covariance matrices via F-field interpolation.
+    Build covariance matrices via F-field interpolation + optional learnable refinement.
+
+    cfg knobs (all optional):
+      cfg["sigma0"]: float (default 0.08)
+      cfg["k_F"]: int (default 32)
+      cfg["use_F_smoothing"]: bool
+      cfg["use_adaptive_scale"]: bool
+      cfg["use_polar_decomposition"]: bool
+
+      # 🔥 NEW: Learnable covariance
+      cfg["learnable"] = {
+         "enabled": bool,               # Enable learnable covariance
+         "alpha": float (0.0-1.0),      # Mixing weight (0=pure learnable, 1=pure physics)
+      }
+
+      # Density prior (anchor → per-point interpolation):
+      cfg["density"] = {
+         "rho_anchor": (N,) torch on x_low device, normalized ~[0.25,4.0]
+         "use_scale_prior": True/False,
+         "scale_kappa": 0.15,            # sensitivity (0.10~0.20)
+         "scale_max_up": 0.12,           # max +% enlarge of sigma (0.10~0.15)
+         "scale_smooth_alpha": 8.0,      # smoothness (6~10)
+         "allow_shrink": False,          # if True, also allows ≤1 scaling (two-sided)
+      }
     """
     sigma0 = float(cfg.get("sigma0", 0.08))
     k_F = int(cfg.get("k_F", 32))
@@ -332,34 +359,362 @@ def build_covariance(
 
     # 2) interpolate F to upsampled points
     idx, w = knn(points, x_low, k_F)               # idx: (M,k) over x_low
-    F_neighbors = F_smooth[idx]                     # (M,k,3,3)
+    F_neighbors = F_smooth[idx]                    # (M,k,3,3)
     F_interp = torch.einsum('mk,mkrc->mrc', w, F_neighbors)  # (M,3,3)
+    
+    # 🔥 DEBUG: Check F values
+    with torch.no_grad():
+        if torch.isnan(F_interp).any() or torch.isinf(F_interp).any():
+            print(f"[ERROR] Invalid F_interp!")
+            print(f"  NaN: {torch.isnan(F_interp).sum().item()}")
+            print(f"  Inf: {torch.isinf(F_interp).sum().item()}")
+        
+        F_det = torch.det(F_interp)
+        print(f"[F-field Debug]")
+        print(f"  F_interp range: [{F_interp.min():.6f}, {F_interp.max():.6f}]")
+        print(f"  det(F) range: [{F_det.min():.6f}, {F_det.max():.6f}]")
+        if (F_det < 0).any():
+            print(f"  ⚠ WARNING: {(F_det < 0).sum().item()} negative determinants (reflection!)")
 
-    # 3) local spacing for adaptive scale (FIX: use x_low[idx], not points[idx])
+    # 3) local spacing for adaptive scale (avoid self-zero)
     local_spacing = None
     if use_adaptive_scale:
-        neighbor_anchors = x_low[idx]             
+        neighbor_anchors = x_low[idx]
         dists = torch.norm(neighbor_anchors - points.unsqueeze(1), dim=-1)  # (M,k)
-        # Use second nearest to avoid zero distance to self (if present)
         if dists.shape[1] >= 2:
-            # sort or topk for k small; second smallest is a robust spacing
             d2 = torch.topk(dists, k=2, largest=False).values[:, 1]
             local_spacing = d2.clamp(min=1e-6)
         else:
             local_spacing = dists[:, 0].clamp(min=1e-6)
 
-    # 4) covariance
+    # ---- (D) NEW: anchor-density → per-point density (interpolate with same weights w)
+    rho_cfg = cfg.get("density", {})
+    rho_anchor = rho_cfg.get("rho_anchor", None)   # (N,) on x_low
+    rho_pts = None
+    if isinstance(rho_anchor, torch.Tensor) and rho_anchor.shape[0] == x_low.shape[0]:
+        rho_anchor = rho_anchor.to(device=points.device, dtype=points.dtype)
+        rho_pts = (w * rho_anchor[idx]).sum(dim=1)                        # (M,)
+        rho_pts = (rho_pts / (rho_pts.mean() + EPS_SAFE)).clamp(0.25, 4.0)
+
+    # 4) covariance (polar or direct) + smooth density prior
     if use_polar:
-        cov = build_covariance_polar(F_interp, sigma0, use_adaptive_scale, local_spacing)
-    else:
+        # 🔥 CRITICAL: Check if we should use curvature-based initialization
+        # For target mesh (F≈Identity), use curvature instead of F-field!
+        curvature_cfg = cfg.get("curvature_cov", {})
+        use_curvature = bool(curvature_cfg.get("enabled", False))
+        curvature_data = cfg.get("curvature_data", None)  # From pipeline
+        
+        # 🔥 Check if this is Episode 0 (initial frame) - use curvature-based covariance
+        # More reliable than F≈I check which can have numerical issues
+        episode = cfg.get("episode", -1)  # -1 means target/initial
+        is_initial_frame = (episode == 0) or (episode == -1)  # Episode 0 or target mesh
+        
+        # Base sigma at each point
         if use_adaptive_scale and local_spacing is not None:
-            sigma_adapt = sigma0 * torch.clamp(local_spacing / local_spacing.mean(), 0.3, 2.0)
-            cov = (sigma_adapt.unsqueeze(-1).unsqueeze(-1) ** 2) * torch.matmul(F_interp, F_interp.transpose(-2, -1))
+            sigma_adaptive = sigma0 * torch.clamp(local_spacing / (local_spacing.mean() + EPS_SAFE), 0.3, 2.0)
+        else:
+            sigma_adaptive = torch.full((points.shape[0],), sigma0, device=points.device, dtype=points.dtype)
+
+        # (E1) Smooth density-scale prior (no dead-zone)
+        if rho_pts is not None and bool(rho_cfg.get("use_scale_prior", False)):
+            kappa = float(rho_cfg.get("scale_kappa", 0.15))
+            max_up = float(rho_cfg.get("scale_max_up", 0.12))
+            alpha = float(rho_cfg.get("scale_smooth_alpha", 8.0))
+            allow_shrink = bool(rho_cfg.get("allow_shrink", False))
+            inv = (rho_pts + 1e-3).pow(-kappa)  # sparse(ρ↓) → inv↑
+            s_factor = _smooth_scaleFactor(inv, allow_shrink=allow_shrink, max_up=max_up, alpha=alpha)
+            
+            # Debug: Check correlation
+            with torch.no_grad():
+                print(f"    [Density-Scale Debug]")
+                print(f"      rho_pts: min={rho_pts.min():.3f}, mean={rho_pts.mean():.3f}, max={rho_pts.max():.3f}")
+                print(f"      inv: min={inv.min():.3f}, mean={inv.mean():.3f}, max={inv.max():.3f}")
+                print(f"      s_factor: min={s_factor.min():.3f}, mean={s_factor.mean():.3f}, max={s_factor.max():.3f}")
+                
+                # Check correlation: rho↑ should → s_factor↓
+                if len(rho_pts) > 10:
+                    corr_matrix = torch.corrcoef(torch.stack([rho_pts, s_factor]))
+                    corr = corr_matrix[0, 1].item()
+                    print(f"      corr(rho_pts, s_factor): {corr:.3f}")
+                    if corr < -0.3:
+                        print(f"      ✓ CORRECT: High density → small scale")
+                    elif corr > 0.3:
+                        print(f"      ✗ WRONG: High density → LARGE scale (BUG!)")
+                    else:
+                        print(f"      ⚠ WEAK correlation")
+            
+            sigma_adaptive = sigma_adaptive * s_factor
+
+        # 🔥 CRITICAL: Use curvature-based covariance for initial frame (Episode 0)
+        if use_curvature and is_initial_frame and curvature_data is not None:
+            print(f"[Curvature-Based Covariance] ✓ ACTIVE (Episode {episode}: Initial Frame)")
+            
+            # Build anisotropic covariance from curvature
+            Sigma_curv, Lambda_curv, Q_curv = build_target_covariance(
+                curvature_data, sigma0  # Use base sigma0
+            )
+            
+            # Apply density-based scaling to curvature eigenvalues
+            if rho_pts is not None and bool(rho_cfg.get("use_scale_prior", False)):
+                # Scale all eigenvalues uniformly by s_factor
+                s_factor_3d = s_factor.unsqueeze(-1)  # (M, 1)
+                Lambda_curv_scaled = Lambda_curv * s_factor_3d  # (M, 3)
+                
+                # Rebuild covariance with scaled eigenvalues
+                Lambda_diag = torch.diag_embed(Lambda_curv_scaled ** 2)
+                cov = torch.bmm(torch.bmm(Q_curv, Lambda_diag), Q_curv.transpose(-2, -1))
+                
+                print(f"  Lambda (scaled): [{Lambda_curv_scaled.min():.4f}, {Lambda_curv_scaled.max():.4f}]")
+            else:
+                cov = Sigma_curv
+                print(f"  Lambda (base): [{Lambda_curv.min():.4f}, {Lambda_curv.max():.4f}]")
+            
+            print(f"  Anisotropy (max/min): {(Lambda_curv.max() / (Lambda_curv.min() + 1e-8)):.2f}")
+            
+            # Small stabilization
+            eps_physics = 1e-6
+            eye_reg = torch.eye(3, device=cov.device, dtype=cov.dtype).unsqueeze(0)
+            cov = cov + eps_physics * eye_reg
+            
+        else:
+            # Normal F-field based covariance
+            # Build Σ = S·Σ₀·S (ROTATION REMOVED!)
+            Sigma0 = (sigma_adaptive.view(-1,1,1) ** 2) * torch.eye(3, device=points.device).unsqueeze(0)
+            R, S = polar_decomposition(F_interp)  # Still get R for debug, but don't use it
+            
+            # 🔥 DEBUG: Check polar decomposition results
+            with torch.no_grad():
+                print(f"[Polar Decomposition Debug (F-based)]")
+                print(f"  ⚠ NOTE: R is NOT used in covariance (rotation removed!)")
+                print(f"  R range (all elements): [{R.min():.6f}, {R.max():.6f}]")
+                print(f"  S range (all elements): [{S.min():.6f}, {S.max():.6f}]")
+                
+                # Check R orthogonality (for verification only, R is not used)
+                R_RT = torch.bmm(R, R.transpose(-2, -1))
+                eye_err = (R_RT - torch.eye(3, device=R.device).unsqueeze(0)).abs().max()
+                print(f"  R orthogonality error: {eye_err:.6e} (R not used)")
+                
+                # Check S properties (should be symmetric positive definite)
+                S_diag = torch.diagonal(S, dim1=-2, dim2=-1)
+                print(f"  S diagonal range: [{S_diag.min():.6f}, {S_diag.max():.6f}]")
+                
+                # Check S eigenvalues (most important!)
+                try:
+                    S_eigvals = torch.linalg.eigvalsh(S)  # (M, 3), sorted ascending
+                    print(f"  S eigenvalues: [{S_eigvals.min():.6f}, {S_eigvals.max():.6f}]")
+                    if (S_eigvals < 0).any():
+                        print(f"  ❌ ERROR: {(S_eigvals < 0).sum().item()} negative S eigenvalues!")
+                    elif (S_eigvals < 1e-6).any():
+                        print(f"  ⚠ WARNING: {(S_eigvals < 1e-6).sum().item()} near-zero S eigenvalues!")
+                    else:
+                        print(f"  ✓ S is positive definite (all eigenvalues > 0)")
+                except Exception as e:
+                    print(f"  ⚠ Could not compute S eigenvalues: {e}")
+            
+            # 🔥 CRITICAL: Condition number limiting (Kerbl et al., Zwicker et al.)
+            # Prevent needle-like splats that cause blocky artifacts
+            
+            # Get eigenvalues of S (stretch components)
+            S_eigvals = torch.linalg.eigvalsh(S)  # (M, 3), sorted ascending
+            
+            # Estimate voxel_size from point spacing if not provided
+            voxel_size = cfg.get("voxel_size", 0.5)  # Default from grid_dx
+            
+            # Clamp eigenvalues to reasonable range (Kerbl et al., 2023)
+            s_min = max(0.4 * voxel_size, 0.01)     # Lower bound: 0.4 * voxel_size
+            s_max = min(6.0 * voxel_size, 1.0)      # Upper bound: 6 * voxel_size
+            S_eigvals_clamped = S_eigvals.clamp(s_min, s_max)
+            
+            # Condition number limiting: κ = λ_max / λ_min ≤ κ_max
+            kappa_max = cfg.get("kappa_max", 40.0)  # Typical: 30-50
+            kappa = S_eigvals_clamped[:, 2] / (S_eigvals_clamped[:, 0] + 1e-8)
+            
+            # If κ > κ_max, increase smallest eigenvalue
+            needs_fix = kappa > kappa_max
+            if needs_fix.any():
+                target_min = S_eigvals_clamped[:, 2] / kappa_max
+                S_eigvals_clamped[:, 0] = torch.where(
+                    needs_fix,
+                    torch.maximum(S_eigvals_clamped[:, 0], target_min),
+                    S_eigvals_clamped[:, 0]
+                )
+            
+            # Reconstruct S with clamped eigenvalues
+            # S = V diag(λ) V^T where V are eigenvectors of original S
+            U_s, _, Vt_s = torch.linalg.svd(S)
+            S_fixed = U_s @ torch.diag_embed(S_eigvals_clamped) @ Vt_s
+            
+            # Build covariance with fixed S (ROTATION REMOVED!)
+            S_Sigma0 = torch.bmm(S_fixed, Sigma0)
+            cov = torch.bmm(S_Sigma0, S_fixed)  # No R! Pure stretch
+            
+            # Small numerical stabilization
+            eps_physics = 1e-6
+            eye_reg = torch.eye(3, device=cov.device, dtype=cov.dtype).unsqueeze(0)
+            cov = cov + eps_physics * eye_reg
+        
+        # 🔥 DEBUG: Check final covariance before learnable
+        with torch.no_grad():
+            print(f"[Physics Covariance Debug]")
+            print(f"  cov range (all elements): [{cov.min():.6f}, {cov.max():.6f}]")
+            cov_diag = torch.diagonal(cov, dim1=-2, dim2=-1)
+            print(f"  cov diagonal range: [{cov_diag.min():.6f}, {cov_diag.max():.6f}]")
+            
+            cov_det = torch.det(cov)
+            print(f"  det(cov) range: [{cov_det.min():.6e}, {cov_det.max():.6e}]")
+            
+            # Check eigenvalues (definitive test for positive definiteness!)
+            try:
+                cov_eigvals = torch.linalg.eigvalsh(cov)  # (M, 3), sorted ascending
+                print(f"  cov eigenvalues: [{cov_eigvals.min():.6e}, {cov_eigvals.max():.6e}]")
+                if (cov_eigvals < 0).any():
+                    print(f"  ❌ ERROR: {(cov_eigvals < 0).sum().item()} negative eigenvalues!")
+                    print(f"    → Covariance is NOT positive definite!")
+                elif (cov_eigvals < 1e-8).any():
+                    print(f"  ⚠ WARNING: {(cov_eigvals < 1e-8).sum().item()} near-zero eigenvalues!")
+                else:
+                    print(f"  ✓ Covariance is positive definite (all eigenvalues > 0)")
+            except Exception as e:
+                print(f"  ⚠ Could not compute eigenvalues: {e}")
+
+    else:
+        # Direct FF^T path
+        if use_adaptive_scale and local_spacing is not None:
+            sigma_adapt = sigma0 * torch.clamp(local_spacing / (local_spacing.mean() + EPS_SAFE), 0.3, 2.0)
+            cov = (sigma_adapt.view(-1,1,1) ** 2) * torch.matmul(F_interp, F_interp.transpose(-2, -1))
         else:
             cov = (sigma0 ** 2) * torch.matmul(F_interp, F_interp.transpose(-2, -1))
+        
+        # 🔥 CRITICAL: Add strong regularization for numerical stability (especially 300k+ batches)
+        batch_size = cov.shape[0]
+        if batch_size > 200000:
+            eps_physics = 2e-4  # Very strong for 200k+
+        elif batch_size > 100000:
+            eps_physics = 1e-4  # Strong for 100k-200k
+        else:
+            eps_physics = 2e-5  # Normal for <100k
+        
+        eye_reg = torch.eye(3, device=cov.device, dtype=cov.dtype).unsqueeze(0)
+        cov = cov + eps_physics * eye_reg
+
+        # (E1-direct) Smooth density-scale prior on Σ
+        if rho_pts is not None and bool(rho_cfg.get("use_scale_prior", False)):
+            kappa = float(rho_cfg.get("scale_kappa", 0.15))
+            max_up = float(rho_cfg.get("scale_max_up", 0.12))
+            alpha = float(rho_cfg.get("scale_smooth_alpha", 8.0))
+            allow_shrink = bool(rho_cfg.get("allow_shrink", False))
+            inv = (rho_pts + 1e-3).pow(-kappa)
+            s_factor = _smooth_scaleFactor(inv, allow_shrink=allow_shrink, max_up=max_up, alpha=alpha)
+            
+            # Debug: Check correlation (same as polar path)
+            with torch.no_grad():
+                print(f"    [Density-Scale Debug - Direct Path]")
+                print(f"      rho_pts: min={rho_pts.min():.3f}, mean={rho_pts.mean():.3f}, max={rho_pts.max():.3f}")
+                print(f"      inv: min={inv.min():.3f}, mean={inv.mean():.3f}, max={inv.max():.3f}")
+                print(f"      s_factor: min={s_factor.min():.3f}, mean={s_factor.mean():.3f}, max={s_factor.max():.3f}")
+                
+                # Check correlation: rho↑ should → s_factor↓
+                if len(rho_pts) > 10:
+                    corr_matrix = torch.corrcoef(torch.stack([rho_pts, s_factor]))
+                    corr = corr_matrix[0, 1].item()
+                    print(f"      corr(rho_pts, s_factor): {corr:.3f}")
+                    if corr < -0.3:
+                        print(f"      ✓ CORRECT: High density → small scale")
+                    elif corr > 0.3:
+                        print(f"      ✗ WRONG: High density → LARGE scale (BUG!)")
+                    else:
+                        print(f"      ⚠ WEAK correlation")
+            
+            cov = (s_factor.view(-1,1,1) ** 2) * cov
 
     # 5) numeric symmetry guard (helps tiny asymmetries from float ops)
-    cov = 0.5 * (cov + cov.transpose(-2, -1))     
+    cov = 0.5 * (cov + cov.transpose(-2, -1))
+    
+    # 🔥 5.5) CRITICAL: Enforce diagonal dominance to guarantee positive definite
+    # Problem: FF^T/Polar can have off-diagonal elements that are too large
+    # Solution: Rebuild matrix with clamped off-diagonals (non-inplace for autograd)
+    
+    # Extract diagonal
+    diag = torch.diagonal(cov, dim1=-2, dim2=-1)  # (M, 3)
+    d0, d1, d2 = diag[:, 0], diag[:, 1], diag[:, 2]  # (M,)
+    
+    # Compute safe bounds for off-diagonals
+    # For 3×3 matrix to be strictly positive definite with det >> 0:
+    # We use 0.5 factor (very conservative) to ensure det(Σ) is well above zero
+    # This prevents near-singular matrices in large batches (300k+)
+    factor = 0.5  # Conservative for numerical stability
+    bound_01 = factor * torch.sqrt(torch.clamp(d0 * d1, min=1e-10))  # (M,)
+    bound_02 = factor * torch.sqrt(torch.clamp(d0 * d2, min=1e-10))
+    bound_12 = factor * torch.sqrt(torch.clamp(d1 * d2, min=1e-10))
+    
+    # Extract and clamp off-diagonals
+    c01 = torch.clamp(cov[:, 0, 1], -bound_01, bound_01)  # (M,)
+    c02 = torch.clamp(cov[:, 0, 2], -bound_02, bound_02)
+    c12 = torch.clamp(cov[:, 1, 2], -bound_12, bound_12)
+    
+    # Rebuild covariance matrix (non-inplace, autograd-safe)
+    cov_new = torch.zeros_like(cov)
+    cov_new[:, 0, 0] = d0
+    cov_new[:, 1, 1] = d1
+    cov_new[:, 2, 2] = d2
+    cov_new[:, 0, 1] = c01
+    cov_new[:, 1, 0] = c01  # Symmetry
+    cov_new[:, 0, 2] = c02
+    cov_new[:, 2, 0] = c02
+    cov_new[:, 1, 2] = c12
+    cov_new[:, 2, 1] = c12
+    
+    cov = cov_new  # Replace with clean matrix
+    
+    # 🔥 5.6) Add adaptive regularization for extra safety
+    # CRITICAL: Large batches (300k+) need strong regularization to prevent
+    # determinant → 0 due to numerical precision limits (float32)
+    # Strategy: eps proportional to diagonal magnitude (adaptive)
+    
+    batch_size = cov.shape[0]
+    diag_mean = torch.diagonal(cov, dim1=-2, dim2=-1).mean()  # Average diagonal
+    
+    if batch_size > 200000:
+        eps_ratio = 0.15  # 15% of diagonal for 200k+ (very strong)
+    elif batch_size > 100000:
+        eps_ratio = 0.10  # 10% for 100k-200k (strong)
+    else:
+        eps_ratio = 0.05  # 5% for <100k (normal)
+    
+    eps_extra = eps_ratio * diag_mean  # Adaptive to scale
+    eps_extra = torch.clamp(eps_extra, min=1e-4, max=2e-3)  # Safety bounds
+    
+    eye_extra = torch.eye(3, device=cov.device, dtype=cov.dtype).unsqueeze(0)
+    cov = cov + eps_extra * eye_extra
+    
+    # Diagnostic check (no-grad for printing only)
+    with torch.no_grad():
+        diag_cov = torch.diagonal(cov, dim1=-2, dim2=-1)
+        diag_min = diag_cov.min()
+        
+        # Check for REAL issues: negative diagonal (not just negative elements!)
+        # Note: Off-diagonal elements CAN be negative in positive definite matrices
+        if diag_min < 0:
+            cov_min = cov.min()
+            cov_max = cov.max()
+            print(f"[ERROR] Physics cov has NEGATIVE DIAGONAL!")
+            print(f"  Diagonal range: [{diag_min:.6e}, {diag_cov.max():.6e}]")
+            print(f"  Matrix range: [{cov_min:.6e}, {cov_max:.6e}]")
+            print(f"  This indicates numerical instability in F-field!")
+        # Off-diagonal can be negative - this is NORMAL for covariance matrices!
+
+    # 🔥 6) Learnable covariance refinement (hybrid mode)
+    learnable_cfg = cfg.get("learnable", {})
+    use_learnable = bool(learnable_cfg.get("enabled", False))
+    
+    if use_learnable and learnable_cov_module is not None:
+        alpha = float(learnable_cfg.get("alpha", 0.3))
+        
+        # Apply hybrid mixing: α·Σ_physics + (1-α)·Σ_learnable
+        cov = learnable_cov_module(cov_physics=cov, alpha=alpha)
+        
+        # Symmetry guard after learnable refinement
+        cov = 0.5 * (cov + cov.transpose(-2, -1))
 
     return cov, F_interp, idx
 
@@ -399,12 +754,36 @@ def curvature_to_eigenvalues(
     Returns:
         eigenvalues: (N, 3) target eigenvalues [λ₁, λ₂, λ₃]
     """
+    # 🔥 DEBUG: Print curvature BEFORE scaling
+    with torch.no_grad():
+        print(f"  [Curvature INPUT to eigenvalues]")
+        print(f"    kappa1: mean={kappa1.mean():.6f}, range=[{kappa1.min():.6f}, {kappa1.max():.6f}]")
+        print(f"    kappa2: mean={kappa2.mean():.6f}, range=[{kappa2.min():.6f}, {kappa2.max():.6f}]")
+        print(f"    sigma0: {sigma0:.6f}")
+    
     # Geometric scaling law
     lambda1 = sigma0 / torch.sqrt(1 + kappa1**2 + eps)
     lambda2 = sigma0 / torch.sqrt(1 + kappa2**2 + eps)
-    lambda3 = torch.full_like(lambda1, sigma0)  # Along normal (unchanged)
+    lambda3 = torch.full_like(lambda1, sigma0 * 0.12)  # 🔥 Along normal (thin: 12% of sigma0)
+    
+    # 🔥 DEBUG: Print lambda values (NO CLAMPING - trust curvature!)
+    with torch.no_grad():
+        print(f"  [Lambda (curvature-based, no clamp)]")
+        print(f"    lambda1: mean={lambda1.mean():.6f}, range=[{lambda1.min():.6f}, {lambda1.max():.6f}]")
+        print(f"    lambda2: mean={lambda2.mean():.6f}, range=[{lambda2.min():.6f}, {lambda2.max():.6f}]")
+    
+    # 🔥 NO CLAMPING: Let curvature naturally determine Gaussian sizes
+    # Curvature-based scaling already provides physically meaningful bounds
     
     eigenvalues = torch.stack([lambda1, lambda2, lambda3], dim=-1)  # (N, 3)
+    
+    # 🔥 DEBUG: Print actual lambda values AFTER curvature application
+    with torch.no_grad():
+        print(f"  [Lambda After Curvature]")
+        print(f"    lambda1 (curvature-based): mean={lambda1.mean():.6f}, range=[{lambda1.min():.6f}, {lambda1.max():.6f}]")
+        print(f"    lambda2 (curvature-based): mean={lambda2.mean():.6f}, range=[{lambda2.min():.6f}, {lambda2.max():.6f}]")
+        print(f"    lambda3 (normal/thin): mean={lambda3.mean():.6f}, range=[{lambda3.min():.6f}, {lambda3.max():.6f}]")
+        print(f"    Anisotropy (max/min): {(lambda1.max() / (lambda3.min() + 1e-8)):.2f}")
     
     return eigenvalues
 
@@ -610,6 +989,31 @@ def spectral_alignment_loss(
     loss_total = loss_eigenvalue + lambda_rot * loss_eigenvector
     
     return loss_total, loss_eigenvalue, loss_eigenvector
+
+
+def _smooth_scaleFactor(inv: torch.Tensor,
+                        allow_shrink: bool,
+                        max_up: float = 0.15,
+                        alpha: float = 8.0) -> torch.Tensor:
+    """
+    Smooth, everywhere differentiable scale factor in a bounded range.
+
+    inv = (rho + eps)^(-kappa)   # sparse(ρ↓) → inv↑
+
+    - allow_shrink=False (only-enlarge):
+        s ∈ (1, 1+max_up),  s = 1 + max_up * sigmoid( alpha * (inv - 1) )
+    - allow_shrink=True (two-sided):
+        s ∈ (1-max_up, 1+max_up),  s = 1 + max_up * tanh( alpha * (inv - 1) )
+
+    alpha controls the "sharpness" (α↑ → clamp-like).
+    """
+    if allow_shrink:
+        # symmetric: smoothly approaches both bounds
+        s = 1.0 + max_up * torch.tanh(alpha * (inv - 1.0))
+    else:
+        # lower-bound 1.0 is enforced smoothly via sigmoid
+        s = 1.0 + max_up * torch.sigmoid(alpha * (inv - 1.0))
+    return s
 
 
 __all__ = [

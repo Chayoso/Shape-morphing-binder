@@ -305,6 +305,7 @@ class GSRenderer3DGS:
         scale_modifier: float = 1.0,
         prefiltered: bool = False,
         debug: bool = False,
+        antialiasing: bool = False,
         device: str = "cuda"
     ):
         """
@@ -321,6 +322,7 @@ class GSRenderer3DGS:
             scale_modifier: Global scale multiplier
             prefiltered: Use prefiltered splatting
             debug: Enable debug mode
+            antialiasing: Enable anti-aliasing using EWA filter
             device: Compute device
         """
         self.device = device
@@ -329,20 +331,33 @@ class GSRenderer3DGS:
         self._proj_matrix_np = projmatrix.astype(np.float32).copy()
         
         # Create rasterization settings
-        self.settings = GaussianRasterizationSettings(
-            image_height=self.height,
-            image_width=self.width,
-            tanfovx=float(tanfovx),
-            tanfovy=float(tanfovy),
-            bg=to_torch_tensor(np.array(bg, dtype=np.float32), device=device),
-            scale_modifier=float(scale_modifier),
-            viewmatrix=to_torch_tensor(viewmatrix, device=device),
-            projmatrix=to_torch_tensor(projmatrix, device=device),
-            sh_degree=int(sh_degree),
-            campos=to_torch_tensor(campos, device=device),
-            prefiltered=bool(prefiltered),
-            debug=bool(debug)
-        )
+        # Try to create with antialiasing if supported
+        settings_kwargs = {
+            'image_height': self.height,
+            'image_width': self.width,
+            'tanfovx': float(tanfovx),
+            'tanfovy': float(tanfovy),
+            'bg': to_torch_tensor(np.array(bg, dtype=np.float32), device=device),
+            'scale_modifier': float(scale_modifier),
+            'viewmatrix': to_torch_tensor(viewmatrix, device=device),
+            'projmatrix': to_torch_tensor(projmatrix, device=device),
+            'sh_degree': int(sh_degree),
+            'campos': to_torch_tensor(campos, device=device),
+            'prefiltered': bool(prefiltered),
+            'debug': bool(debug),
+        }
+        
+        # Check if antialiasing is supported (Mip-Splatting extension)
+        try:
+            # Try creating with antialiasing
+            import inspect
+            sig = inspect.signature(GaussianRasterizationSettings)
+            if 'antialiasing' in sig.parameters:
+                settings_kwargs['antialiasing'] = bool(antialiasing)
+        except Exception:
+            pass  # Ignore if inspection fails
+        
+        self.settings = GaussianRasterizationSettings(**settings_kwargs)
         
         # Create rasterizer
         self.rasterizer = GaussianRasterizer(self.settings)

@@ -27,27 +27,42 @@ CLAMP_SPACING = (0.3, 2.5)
 
 DEFAULT_CONFIG = {
     # ========================================================================
-    # STEP 1: SURFACE DETECTION (PCA-based, Z-score method)
+    # STEP 1: SURFACE DETECTION (Combined Metric + Adaptive Threshold)
     # ========================================================================
     "surface_detection": {
         "enabled": True,
         "k": 48,                        # KNN neighbors for PCA
-        "soft_tau": 0.5,                # Z-score sigmoid temperature
-        "surface_power": 4.0,           # Probability concentration
-        # internal EMA / hysteresis keys are kept in detect_surface()
+        "planarity_percentile": 10.0,   # Top N% guide (adaptive, may select fewer)
+        
+        # Combined metric (planarity + spacing)
+        "use_spacing_score": True,      # Use spacing for surface/interior separation
+        "spacing_weight": 0.5,          # Balance: 0=planarity only, 1=spacing only
+        
+        # Adaptive threshold (percentile + absolute bound)
+        "surface_n_sigma": 0.25,         # Absolute bound: μ - k*σ (quality threshold)
+        "threshold_soft_min_beta": 20.0, # Softness of min(percentile, absolute)
+        "ema_beta": 0.7,                # EMA smoothing for threshold (0.7=faster adaptation)
+        "threshold_tau": 0.01,          # Soft threshold sharpness (STE)
+        
+        # Score computation
+        "soft_tau": 0.5,                # Sigmoid sharpness (score distribution)
+        "surface_power": 4.0,           # Power concentration (amplify differences)
+        
+        # Uniformization (flatten probability within surface)
+        "uniformize_enabled": True,     # Enable probability uniformization
+        "uniformize_target_ratio": 1.10, # Target max/min ratio (1.10 = 10% variation)
+        "uniformize_alpha_max": 50.0,   # Soft-max power for uniformization
+        "uniformize_beta": 40.0,        # Soft-clamp beta
     },
 
     # ========================================================================
-    # STEP 2: VOLUME FILTERING (Soft)
+    # STEP 2: ANCHOR-DENSITY MAP (Differentiable)
     # ========================================================================
-    "volume_filter": {
+    "anchor_density": {
         "enabled": True,
-        "k": 24,
-        "consistency_threshold": 0.3,
-        "temperature": 15.0,
-        "positive_only": True,          # Ignore opposite-facing normals
-        "use_distance_weight": False,   # Optional: exp(-d/h) weighting
-        "distance_bandwidth": 0.08,
+        "stage2_k": 16,                 # KNN neighbors for density estimation
+        "anchor_density_beta": 0.7,     # Bias strength (sparse preference)
+        "spacing_bias_gamma": 0.6,      # Fallback bias exponent
     },
 
     # ========================================================================
@@ -74,8 +89,8 @@ DEFAULT_CONFIG = {
         "thickness_gamma": 0.15,        # Adaptive thickness = 15% of local spacing
         
         # Surface-constrained sampling
-        "surface_support_q": 0.80,      # 상위 20%만 표면
-        "prob_floor_mode": "density",   # 밀도 기반 floor
+        # Note: surface_support_q removed - now using percentile_lower for surface selection
+        "prob_floor_mode": "density",   # Density-based floor
         "uniform_mix_surface_only": True,
         "coverage_only_surface": True,
         "mask_topk_with_surface": True,
@@ -85,8 +100,8 @@ DEFAULT_CONFIG = {
         "density_floor_gamma": 2.0,
         
         # One-sided thickness with inside barrier
-        "thickness_one_sided": True,    # 바깥쪽만 두께
-        "inside_barrier_lambda": 1.0,   # 내부 점 보정
+        "thickness_one_sided": True,    # Thickness on outside only
+        "inside_barrier_lambda": 1.0,   # Inside point correction
     },
 
     # ========================================================================
@@ -144,7 +159,7 @@ DEFAULT_CONFIG = {
     # ========================================================================
     "debug": {
         "verbose": True,
-        "export_volume_filter": True,
+        "export_anchor_density": True,
         "export_anchors": False,        # Export anchor sampling visualization
         "export_dir": "debug/",
         "png_dpi": 160,
@@ -186,9 +201,8 @@ def bunny_cfg() -> Dict:
     cfg["sampling"]["M"] = 80000
     cfg["sampling"]["tau"] = 0.3
     cfg["sampling"]["gs_batch"] = 1536
-    cfg["volume_filter"]["k"] = 20
-    cfg["volume_filter"]["consistency_threshold"] = 0.25
-    cfg["volume_filter"]["temperature"] = 12.0
+    cfg["anchor_density"]["stage2_k"] = 20
+    cfg["anchor_density"]["anchor_density_beta"] = 0.6
     cfg["taubin"]["lambda_smooth"] = 0.5
     cfg["taubin"]["lambda_inflate"] = -0.48
     cfg["normal_smooth"]["lambda_smooth"] = 0.7
@@ -208,8 +222,8 @@ def sphere_cfg() -> Dict:
     cfg = default_cfg()
     cfg["sampling"]["M"] = 50000
     cfg["sampling"]["gs_batch"] = 4096
-    cfg["volume_filter"]["k"] = 32
-    cfg["volume_filter"]["consistency_threshold"] = 0.5
+    cfg["anchor_density"]["stage2_k"] = 32
+    cfg["anchor_density"]["anchor_density_beta"] = 0.8
     cfg["taubin"]["lambda_smooth"] = 0.7
     cfg["taubin"]["lambda_inflate"] = -0.65
     cfg["normal_smooth"]["iters"] = 3
@@ -229,7 +243,7 @@ def fast_cfg() -> Dict:
     cfg = default_cfg()
     cfg["sampling"]["M"] = 30000
     cfg["sampling"]["gs_batch"] = 1024
-    cfg["volume_filter"]["enabled"] = False
+    cfg["anchor_density"]["enabled"] = False
     cfg["taubin"]["enabled"] = False
     cfg["normal_smooth"]["enabled"] = False
     cfg["covariance"]["use_F_smoothing"] = False
@@ -255,8 +269,8 @@ def quality_cfg() -> Dict:
     cfg["sampling"]["topk_pool"] = 12
     cfg["surface_detection"]["k"] = 64
     cfg["surface_detection"]["soft_tau"] = 0.6
-    cfg["volume_filter"]["k"] = 32
-    cfg["volume_filter"]["consistency_threshold"] = 0.35
+    cfg["anchor_density"]["stage2_k"] = 32
+    cfg["anchor_density"]["anchor_density_beta"] = 0.75
     cfg["taubin"]["iters"] = 5
     cfg["taubin"]["k"] = 32
     cfg["normal_smooth"]["iters"] = 3
@@ -333,9 +347,10 @@ def validate_cfg(cfg: Dict) -> None:
         import warnings
         warnings.warn("taubin.lambda_inflate should be negative for inflation.")
 
-    # Volume filter
-    consistency_threshold = float(cfg.get("volume_filter", {}).get("consistency_threshold", 0.3))
-    _in_range("volume_filter.consistency_threshold", consistency_threshold, 0.0, 1.0)
+    # Anchor-density map
+    # Note: cfg["anchor_density"] is the rho tensor (not a dict), beta is at top level
+    anchor_density_beta = float(cfg.get("anchor_density_beta", 0.7))
+    _in_range("anchor_density_beta", anchor_density_beta, 0.0, 2.0)
 
     # Covariance
     sigma0 = float(cfg.get("covariance", {}).get("sigma0", 0.08))

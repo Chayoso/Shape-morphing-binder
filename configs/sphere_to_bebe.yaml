@@ -2,7 +2,7 @@
 # [CVPR 2026] PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
 # ════════════════════════════════════════════════════════════════════════════════
 # 
-# Configuration File - Sphere to Bunny Morphing
+# Configuration File - Sphere to Bebe Morphing
 #
 #
 # ════════════════════════════════════════════════════════════════════════════════
@@ -11,8 +11,8 @@
 # I/O CONFIGURATION
 # ════════════════════════════════════════════════════════════════════════════════
 input_mesh_path: "assets/isosphere.obj"      # start mesh (sphere)
-target_mesh_path: "assets/bunny.obj"         # target mesh (bunny)
-output_dir: "output/"                        # output directory
+target_mesh_path: "assets/bebe.obj"         # target mesh (Bebe)
+output_dir: "output/bebe"                        # output directory
 
 output:
   export_ply: false                          # export PLY file
@@ -387,11 +387,13 @@ upsample:
     # ┌────────────────────────────────────────────────────────────────────────┐
     # │ Base Gaussian Size                                                     │
     # └────────────────────────────────────────────────────────────────────────┘
-    sigma0: 0.12                             # Base scale σ₀
+    sigma0: 0.20                             # Base scale σ₀
                                              # Gaussian base size (isotropic basis)
                                              # Larger → larger Gaussian, smoother, blur
                                              # Smaller → smaller Gaussian, sharper
                                              # Recommended: 0.08-0.12
+                                             # 🔥 0.08 too small! 0.16 for perfect coverage
+                                             # k=128 smoothing + large Gaussian = smooth surface
     
     # ┌────────────────────────────────────────────────────────────────────────┐
     # │ Condition Number & Eigenvalue Limits (Kerbl et al., 2023)             │
@@ -452,7 +454,7 @@ upsample:
       scale_kappa: 0.20                      # sensitivity
                                              # inv = ρ^(-κ)
                                              # ρ difference 1.5× → inv difference 1.25× 
-                                             
+                                             # 🔥 0.25 → 0.60: strength to reflect density diff in σ
       
       scale_max_up: 0.25                     # Maximum scale increase (30%)
                                              # σ_max = σ₀ × (1 + 0.30) = 0.16 × 1.30 = 0.208
@@ -566,7 +568,7 @@ camera:
   #   └─────────────────────────────────┘
   #
   lookat:
-    eye: [20.0, -30.0, 10.0]                 # Camera position (front-right, above)
+    eye: [30.0, -25.0, 12.0]                 # Camera position (front-right, above)
                                              # X=15 (right), Y=-18 (FRONT!), Z=20 (above)
     target: [0.0, 0.0, 2.0]                  # Look-at point (slightly above origin)
     up: [0.0, 0.0, 1.0]                      # Up vector (Z-up)

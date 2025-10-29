@@ -3,7 +3,7 @@ Core sampling operations.
 
 Includes:
 - Surface detection (PCA-based)
-- Volume filtering (soft)
+- Anchor-density map (differentiable)
 - Importance sampling (Gumbel-Softmax)
 - Taubin smoothing (differentiable)
 - Normal smoothing (Laplacian)
@@ -12,13 +12,12 @@ Includes:
 from .surface_detect import (
     detect_surface,
     soft_quantile,
-    compute_surface_threshold,
-    compute_surface_probability,
 )
 
-from .volume_filter import (
-    apply_volume_filter,
-    compute_normal_consistency,
+from .density_map import (
+    build_anchor_density,
+    prepare_sampling_cfg,
+    run_stage2_anchor_density,
 )
 
 from .sampler import (
@@ -44,12 +43,11 @@ __all__ = [
     # Surface detection
     "detect_surface",
     "soft_quantile",
-    "compute_surface_threshold",
-    "compute_surface_probability",
     
-    # Volume filtering
-    "apply_volume_filter",
-    "compute_normal_consistency",
+    # Anchor-density map
+    "build_anchor_density",
+    "prepare_sampling_cfg",
+    "run_stage2_anchor_density",
     
     # Sampling
     "sample_points",

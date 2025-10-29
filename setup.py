@@ -172,7 +172,7 @@ ext_modules = [
 
 setup(
     name="diffmpm",
-    version="2.1.0",
+    version="2.3.0",
     author="Changyong Song",
     description="Python bindings for PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing",
     long_description=(project_root / "README.md").read_text(encoding="utf-8") if (project_root / "README.md").exists() else "",

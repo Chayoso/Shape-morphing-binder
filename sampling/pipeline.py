@@ -31,13 +31,13 @@ Output: M dense points with anisotropic covariances {pⱼ, Σⱼ}  (M >> N)
                            │
                            ▼
          ┌─────────────────────────────────────────────────────┐
-         │  STAGE 2: Volume Filtering (Soft Selection)         │
+         │  STAGE 2: Anchor-Density Map (Differentiable)       │
          │  ────────────────────────────────────────           │
-         │  • Compute orientation consensus (normal alignment) │
-         │  • Apply sigmoid gating: w = σ(consensus - θ)       │
-         │  • Update: filtered_prob = surf_prob · w            │
+         │  • Build soft k-NN kernel density: ρᵢ               │
+         │  • Normalize to stable range [0.25, 4.0]            │
+         │  • Prepare sampler cfg with density bias            │
          │                                                     │
-         │  Output: {filtered_prob, volume_weight}             │
+         │  Output: {rho_anchor, cfg_out, state}               │
          └─────────────────┬───────────────────────────────────┘
                            │
                            ▼
@@ -136,11 +136,11 @@ Stage 1: Surface Detection
     surfvar = λ₀ / (λ₀ + λ₁ + λ₂)              [Planarity metric]
     surf_prob = ema(1 - surfvar)               [Importance weight]
 
-Stage 2: Volume Filtering
-──────────────────────────
-    consensus = (1/k)·Σⱼ |nᵢ · nⱼ|             [Normal alignment]
-    w = sigmoid(α·(consensus - θ))             [Soft gate]
-    filtered_prob = surf_prob · w              [Gated probability]
+Stage 2: Anchor-Density Map
+────────────────────────────
+    ρᵢ = Σⱼ exp(-(dᵢⱼ/hᵢ)²) · αⱼ              [Soft kernel density]
+    ρ' = ρ / mean(ρ)                           [Normalize]
+    ρ_anchor = clamp(ρ', 0.25, 4.0)            [Stable range]
 
 Stage 3: Importance Sampling
 ─────────────────────────────
@@ -177,10 +177,10 @@ Surface Detection:
     k: 48                  # Neighbors for PCA
     ema_alpha: 0.3         # EMA decay for temporal stability
 
-Volume Filtering:
-    k: 16                  # Neighbors for consensus
-    alpha: 10.0            # Sigmoid sharpness
-    theta: 0.85            # Consensus threshold
+Anchor-Density Map:
+    stage2_k: 16           # Neighbors for density
+    anchor_density_beta: 0.7   # Bias strength (sparse preference)
+    spacing_bias_gamma: 0.6    # Fallback bias exponent
 
 Importance Sampling:
     M: 50000               # Upsampling factor (5-10× of N)
@@ -215,7 +215,7 @@ COMPLEXITY ANALYSIS
 Stage               Time Complexity        Memory          Bottleneck
 ───────────────────────────────────────────────────────────────────────────────
 Surface Detection   O(N·k·3)              O(N·k)          PCA (lightweight)
-Volume Filtering    O(N·k)                O(N)            Consensus (fast)
+Anchor-Density Map  O(N·k)                O(N·k)          KNN + kernel (fast)
 Importance Sampling O(M·N)                O(M·N)          Gumbel-Softmax ⚠️
 Taubin Smoothing    O(M·k·iters)          O(M·k)          Laplacian (medium)
 Normal Smoothing    O(M·k²·iters)         O(M·k²)         Soft median ⚠️
@@ -242,14 +242,14 @@ from pathlib import Path
 
 from .utils.config import default_cfg, validate_cfg
 from .utils.utils import ensure_torch, as_numpy
+from .utils.validation import check_config_and_warn
 from .analysis.knn import HybridFAISSKNN, FAISS_AVAILABLE
 from .core.surface_detect import detect_surface
-from .core.volume_filter import apply_volume_filter
+from .core.density_map import run_stage2_anchor_density
 from .core.sampler import sample_points
 from .core.taubin_smooth import taubin_smooth
 from .core.normal_smooth import smooth_normals
 from .geometry.covariance import build_covariance
-from .io.export import save_comparison_png, save_anchor_visualization
 
 
 def upsample(
@@ -258,7 +258,9 @@ def upsample(
     cfg: Optional[Dict] = None,
     state: Optional[Dict] = None,
     seed: int = 1234,
-    return_torch: bool = True
+    return_torch: bool = True,
+    export_stages: bool = False,
+    learnable_cov_module=None  # 🔥 NEW: Optional learnable covariance module
 ) -> Dict:
     """
     Main differentiable point cloud upsampling pipeline.
@@ -268,7 +270,7 @@ def upsample(
     
     Pipeline stages:
         1. Surface Detection: PCA-based planarity analysis
-        2. Volume Filtering: Soft geometric consistency check
+        2. Anchor-Density Map: Differentiable density estimation
         3. Importance Sampling: Gumbel-Softmax with tangent jitter
         4. Taubin Smoothing: Shrinkage-free Laplacian smoothing
         5. Normal Smoothing: Spatial Laplacian with adaptive bandwidth
@@ -404,11 +406,11 @@ def upsample(
                 'k': 48,                # PCA neighbors
                 'ema_alpha': 0.3,       # Temporal smoothing
             },
-            'volume_filter': {
+            'anchor_density': {
                 'enabled': True,
-                'k': 16,
-                'alpha': 10.0,          # Sigmoid sharpness
-                'theta': 0.85,          # Consensus threshold
+                'stage2_k': 16,         # KNN neighbors for density
+                'anchor_density_beta': 0.7,  # Bias strength
+                'spacing_bias_gamma': 0.6,   # Fallback bias
             },
             'sampling': {
                 'M': 50000,             # Output points
@@ -493,6 +495,11 @@ def upsample(
     
     validate_cfg(cfg)
     
+    # Optional: Check and warn about configuration issues
+    verbose = cfg.get("debug", {}).get("verbose", False)
+    if verbose:
+        check_config_and_warn(cfg, verbose=False)  # Only show errors, not all warnings
+    
     if state is None:
         state = {}
     
@@ -521,19 +528,35 @@ def upsample(
     # Verbose mode
     verbose = cfg.get("debug", {}).get("verbose", False)
     
+    # Initialize stage data collection
+    stage_outputs = {} if export_stages else None
+    
     # ========================================================================
     # STAGE 1: Surface Detection (PCA-based Planarity)
     # ========================================================================
+    # Get config
+    surf_cfg = cfg.get("surface_detection", {})
+    use_anisotropic_jitter = cfg.get("sampling", {}).get("use_anisotropic_jitter", False)
+    
+    # 🔥 IMPORTANT: Always compute surface detection!
+    # x and F change every Pass, so cached surface would be invalid.
+    # Caching only makes sense if x/F are identical across multiple upsample() calls.
+    
     if verbose:
         print("\n" + "="*80)
         print("STAGE 1/6: Surface Detection (PCA-based Planarity)")
         print("="*80)
     
-    surf_cfg = cfg.get("surface_detection", {})
     if surf_cfg.get("enabled", True):
-        surf_prob, normals, spacing, state = detect_surface(
-            x_low, knn, surf_cfg, state
+        result = detect_surface(
+            x_low, knn, surf_cfg, state, return_curvature_dirs=use_anisotropic_jitter
         )
+    
+        if use_anisotropic_jitter:
+            surf_prob, normals, spacing, state, principal_dir1, principal_dir2, principal_curv = result
+        else:
+            surf_prob, normals, spacing, state = result
+            principal_dir1 = principal_dir2 = principal_curv = None
     else:
         # Uniform probability fallback
         N = x_low.shape[0]
@@ -544,42 +567,150 @@ def upsample(
         k = surf_cfg.get("k", 48)
         idx, w = knn(x_low, x_low, k)
         normals, _, spacing = batched_pca_surface_optimized(x_low, idx, w)
-    
-    if verbose:
-        print(f"✓ Computed surface probabilities for {len(x_low)} points")
-        print(f"  Mean prob: {surf_prob.mean():.6f}")
-        print(f"  Max prob:  {surf_prob.max():.6f}")
-        print(f"  Min prob:  {surf_prob.min():.6f}")
+        principal_dir1 = principal_dir2 = principal_curv = None
     
     # ========================================================================
-    # STAGE 2: Volume Filtering (Soft Geometric Consistency)
+    # Filter to Effective Surface Anchors (Integrate into Stage 1)
+    # ========================================================================
+    # 🔥 Filter to surface anchors (always execute, cache contains unfiltered data)
+    prob_threshold = 1e-12  # Keep only anchors with non-zero probability
+    gate_eval = (surf_prob > prob_threshold)
+    
+    n_total = x_low.shape[0]
+    n_surface = int(gate_eval.sum().item())
+    
+    # Filter to surface anchors only
+    x_low = x_low[gate_eval]
+    normals = normals[gate_eval]
+    spacing = spacing[gate_eval]
+    F_low = F_low[gate_eval]
+    
+    # Renormalize probability over surface anchors
+    surf_prob = surf_prob[gate_eval]
+    surf_prob = surf_prob / (surf_prob.sum() + 1e-8)
+    
+    # Filter principal curvature data if needed (use_anisotropic_jitter already defined above)
+    if use_anisotropic_jitter and principal_curv is not None:
+        principal_dir1 = principal_dir1[gate_eval]
+        principal_dir2 = principal_dir2[gate_eval]
+        principal_curv = principal_curv[gate_eval]
+    
+    N = x_low.shape[0]  # Update N
+    
+    if verbose:
+        print(f"✓ Surface detection: {n_total:,} → {n_surface:,} anchors ({100*n_surface/n_total:.1f}%)")
+        print(f"  Mean prob: {surf_prob.mean():.6f}")
+        
+        if use_anisotropic_jitter and principal_curv is not None:
+            print(f"  [Anisotropic Jitter] ✓ ENABLED")
+            print(f"    - Principal curvatures: k1=[{principal_curv[:,0].min():.3f}, {principal_curv[:,0].max():.3f}], "
+                  f"k2=[{principal_curv[:,1].min():.3f}, {principal_curv[:,1].max():.3f}]")
+        else:
+            print(f"  [Anisotropic Jitter] ⊘ DISABLED (isotropic jitter)")
+    
+    # Export Stage 1 data
+    if export_stages:
+        surface_mask = torch.ones_like(surf_prob, dtype=torch.bool)  # All are surface now
+        
+        stage_out = {
+            'points': x_low.detach().clone() if return_torch else as_numpy(x_low),
+            'surf_prob': surf_prob.detach().clone() if return_torch else as_numpy(surf_prob),
+            'normals': normals.detach().clone() if return_torch else as_numpy(normals),
+            'spacing': spacing.detach().clone() if return_torch else as_numpy(spacing),
+            'surface_mask': surface_mask.detach().clone() if return_torch else as_numpy(surface_mask),
+        }
+        
+        if use_anisotropic_jitter and principal_curv is not None:
+            stage_out['principal_dir1'] = principal_dir1.detach().clone() if return_torch else as_numpy(principal_dir1)
+            stage_out['principal_dir2'] = principal_dir2.detach().clone() if return_torch else as_numpy(principal_dir2)
+            stage_out['principal_curv'] = principal_curv.detach().clone() if return_torch else as_numpy(principal_curv)
+        
+        stage_outputs['stage1'] = stage_out
+    
+    # ========================================================================
+    # STAGE 2: Anchor-Density Map (Differentiable Density Estimation)
     # ========================================================================
     if verbose:
         print("\n" + "="*80)
-        print("STAGE 2/6: Volume Filtering (Soft Geometric Consistency)")
+        print("STAGE 2/6: Anchor-Density Map (Differentiable Density Estimation)")
         print("="*80)
     
-    vol_cfg = cfg.get("volume_filter", {})
-    if vol_cfg.get("enabled", True):
-        filtered_prob, volume_weight = apply_volume_filter(
-            surf_prob, normals, x_low, knn, vol_cfg
+    # Get anchor_density config section (handle potential tensor collision)
+    density_cfg_raw = cfg.get("anchor_density", {})
+    if isinstance(density_cfg_raw, dict):
+        density_cfg = density_cfg_raw
+    else:
+        # If anchor_density was overwritten by tensor, look in original cfg
+        density_cfg = {}
+    
+    if density_cfg.get("enabled", True):
+        # 🔥 NEW: Pass surf_prob to compute surface-weighted density
+        rho_anchor, cfg_out, state = run_stage2_anchor_density(
+            x_low, spacing, knn, density_cfg, state, surf_prob=surf_prob
         )
         
-        if verbose:
-            mask = volume_weight > 0.5
-            n_surface = mask.sum().item()
-            n_total = len(x_low)
-            print(f"✓ Identified {n_surface}/{n_total} surface points "
-                  f"({100*n_surface/n_total:.1f}%)")
-            print(f"  Volume weight: min={volume_weight.min():.3f}, "
-                  f"max={volume_weight.max():.3f}, "
-                  f"mean={volume_weight.mean():.3f}")
-    else:
-        filtered_prob = surf_prob
-        volume_weight = torch.ones_like(surf_prob)
+        # Merge density config into cfg for Stage 3
+        cfg.update(cfg_out)
         
         if verbose:
-            print("⊘ Volume filtering disabled (using raw surface probabilities)")
+            print(f"✓ Built anchor-density map for {len(x_low)} points")
+            
+            # 🔥 NEW: Surface weighting info
+            if state.get('surf_weighted', False):
+                print(f"  [Surface-Weighted Density] ✓ ENABLED")
+                print(f"    - surf_prob: [{state.get('surf_prob_min', 0.0):.3f}, {state.get('surf_prob_max', 0.0):.3f}] "
+                      f"(mean: {state.get('surf_prob_mean', 0.0):.3f})")
+                print(f"    - Neighbors weighted by surface probability")
+            else:
+                print(f"  [Surface-Weighted Density] ⊘ DISABLED (all anchors used)")
+            
+            print(f"  Density stats:")
+            print(f"    - mean: {state.get('rho_anchor_mean', 0.0):.3f}")
+            print(f"    - min:  {state.get('rho_anchor_min', 0.0):.3f}")
+            print(f"    - max:  {state.get('rho_anchor_max', 0.0):.3f}")
+            
+            # Correlation validation
+            corr = state.get('spacing_density_corr', None)
+            validation = state.get('density_validation', 'N/A')
+            surf_weighted = state.get('surf_weighted', False)
+            if corr is not None:
+                print(f"  Correlation check:")
+                print(f"    - corr(spacing, 1/ρ): {corr:.3f} [{validation}]")
+                if "PASS" in validation:
+                    if surf_weighted:
+                        print(f"    ✓ Surface regions have high density (expected for surface-weighted)")
+                    else:
+                        print(f"    ✓ Sparse regions have low density (expected)")
+                elif "WEAK" in validation:
+                    print(f"    ⚠ Weak correlation (check k or bandwidth)")
+                elif "FAIL" in validation:
+                    if surf_weighted:
+                        print(f"    ✗ Unexpected positive correlation for surface-weighted density")
+                    else:
+                        print(f"    ✗ Unexpected negative correlation")
+            
+            beta = cfg.get("anchor_density_beta", 0.7)
+            gamma = cfg.get("spacing_bias_gamma", 0.6)
+            print(f"  Sampler bias: β={beta:.2f}, γ={gamma:.2f}")
+    else:
+        rho_anchor = None
+        if verbose:
+            print("⊘ Anchor-density map disabled (uniform sampling)")
+    
+    # Export Stage 2 data
+    # 🔥 FIXED: x_low is already filtered to surface anchors in Stage 1.5
+    # No need to apply mask again - just export all (they're all surface anchors)
+    if export_stages:
+        x_surface = x_low.detach().clone() if return_torch else as_numpy(x_low)
+        rho_surface = rho_anchor.detach().clone() if (rho_anchor is not None and return_torch) else (as_numpy(rho_anchor) if rho_anchor is not None else None)
+        
+        if verbose:
+            print(f"  [Export] Exporting {len(x_low):,} surface anchors (pre-filtered in Stage 1.5)")
+        
+        stage_outputs['stage2'] = {
+            'points': x_surface,
+            'rho_anchor': rho_surface,
+        }
     
     # ========================================================================
     # STAGE 3: Importance Sampling (Gumbel-Softmax + Tangent Jitter)
@@ -589,7 +720,29 @@ def upsample(
         print("STAGE 3/6: Importance Sampling (Gumbel-Softmax + Tangent Jitter)")
         print("="*80)
 
-    samp_cfg = cfg.get("sampling", {})
+    # Get sampling config (handle nested structure: sampling.sampling)
+    samp_cfg_outer = cfg.get("sampling", {})
+    samp_cfg = samp_cfg_outer.get("sampling", samp_cfg_outer)  # Try nested first, fallback to outer
+    
+    # Merge anchor-density settings into samp_cfg (from STAGE 2)
+    # 🔥 FIXED: Check if use_anchor_density is set in samp_cfg (user preference)
+    user_wants_density = samp_cfg.get("use_anchor_density", cfg.get("use_anchor_density", False))
+    
+    if user_wants_density and cfg.get("use_anchor_density", False):
+        samp_cfg["use_anchor_density"] = True
+        samp_cfg["anchor_density_values"] = cfg.get("anchor_density_values")
+        samp_cfg["anchor_density_beta"] = cfg.get("anchor_density_beta")
+        samp_cfg["spacing_bias_gamma"] = cfg.get("spacing_bias_gamma")
+    else:
+        samp_cfg["use_anchor_density"] = False
+    
+    # 🔥 NEW: Pass principal curvature directions for anisotropic jitter
+    if use_anisotropic_jitter and principal_dir1 is not None:
+        samp_cfg["use_anisotropic_jitter"] = True
+        samp_cfg["principal_dir1"] = principal_dir1
+        samp_cfg["principal_dir2"] = principal_dir2
+        samp_cfg["principal_curv"] = principal_curv
+    
     N = len(x_low)  # number of anchors before upsampling
     
     # Extract key parameters for logging (all are actually used in sampler)
@@ -611,7 +764,6 @@ def upsample(
     thickness_gamma = float(samp_cfg.get("thickness_gamma", 0.15))
     
     # Surface-constrained sampling
-    surface_support_q = float(samp_cfg.get("surface_support_q", 0.80))
     prob_floor_mode = str(samp_cfg.get("prob_floor_mode", "density"))
     uniform_mix_surface_only = bool(samp_cfg.get("uniform_mix_surface_only", True))
     coverage_only_surface = bool(samp_cfg.get("coverage_only_surface", True))
@@ -629,8 +781,22 @@ def upsample(
     est_mb_per_batch = (gs_batch * max(N, 1) * 4) / (1024**2)
 
     if verbose:
-        print(f"- Anchors (N): {N:,}")
+        print(f"- Total anchors (N): {N:,}")
+        print(f"  └─ (All N anchors are already filtered surface anchors)")
         print(f"- Target samples (M): {M:,}  (upsampling {M/max(N,1):.1f}×)")
+        
+        # Check if density bias is active
+        use_density = samp_cfg.get("use_anchor_density", False)
+        has_rho = samp_cfg.get("anchor_density_values") is not None
+        if use_density:
+            if has_rho:
+                print(f"\n  [Anchor-Density Bias] ✓ ACTIVE")
+                print(f"  • rho_anchor shape: {samp_cfg['anchor_density_values'].shape}")
+                print(f"  • beta (sparse bias): {samp_cfg.get('anchor_density_beta', 0.7):.2f}")
+            else:
+                print(f"\n  [Anchor-Density Bias] ⚠ FALLBACK to spacing")
+                print(f"  • gamma (spacing bias): {samp_cfg.get('spacing_bias_gamma', 0.6):.2f}")
+        
         print(f"\n  [Core Sampling]")
         print(f"  • Gumbel tau: {tau:.3f} | alpha: {alpha:.3f} | thickness: {thickness:.3f}")
         print(f"  • gs_batch: {gs_batch} (≈ {est_mb_per_batch:.1f} MB/batch)")
@@ -640,7 +806,6 @@ def upsample(
         print(f"  • plane_snap: {plane_snap} (beta={plane_snap_beta:.2f})")
         print(f"  • topk_pool: {topk_pool} | thickness_gamma: {thickness_gamma:.3f}")
         print(f"\n  [Surface-Constrained]")
-        print(f"  • surface_support_q: {surface_support_q:.2f} (top {(1-surface_support_q)*100:.0f}%)")
         print(f"  • prob_floor_mode: '{prob_floor_mode}'")
         print(f"  • uniform_mix_surface_only: {uniform_mix_surface_only}")
         print(f"  • coverage_only_surface: {coverage_only_surface}")
@@ -660,33 +825,13 @@ def upsample(
         if thickness > 0.0 and not thickness_one_sided:
             print(f"\n  [WARN] Symmetric thickness can create interior points")
 
-    # Call sampler (memory-safe ST version keeps the same signature)
-    points, normals_up, anchors = sample_points(
-        x_low, normals, spacing, filtered_prob, samp_cfg, generator
+    # Call sampler
+    points, normals_up, anchors, anchor_selection_count = sample_points(
+        x_low, normals, spacing, surf_prob, samp_cfg, generator
     )
 
-    # 🎨 Export anchor visualization (debug mode)
-    debug_cfg = cfg.get("debug", {})
-    if debug_cfg.get("export_anchors", False):
-        export_dir = Path(debug_cfg.get("export_dir", "debug/"))
-        export_dir.mkdir(parents=True, exist_ok=True)
-        anchor_path = export_dir / "anchor_sampling.png"
-        try:
-            save_anchor_visualization(
-                anchor_path,
-                x_low=x_low,
-                anchors=anchors,
-                surf_prob=surf_prob,
-                volume_weight=volume_weight,
-                dpi=debug_cfg.get("png_dpi", 160),
-                ptsize=debug_cfg.get("png_ptsize", 0.5)
-            )
-        except Exception as e:
-            if verbose:
-                print(f"  [WARN] Failed to save anchor visualization: {e}")
-
     # Proactive cleanup (helps control transient peaks between stages)
-    del filtered_prob, spacing
+    del surf_prob, spacing
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 
@@ -696,6 +841,23 @@ def upsample(
         print(f"\n✓ Sampled {len(points):,} points from {N:,} anchors ({up_factor:.1f}×)")
         if len(points) != M:
             print(f"  [INFO] Expected {M:,} but got {len(points):,} points")
+        
+        # Heat map stats
+        total_selections = anchor_selection_count.sum().item()
+        max_selections = anchor_selection_count.max().item()
+        min_selections = anchor_selection_count.min().item()
+        avg_selections = total_selections / N
+        print(f"  [Heat Map] Selections per anchor: min={min_selections}, max={max_selections}, avg={avg_selections:.1f}")
+    
+    # Export Stage 3 data
+    if export_stages:
+        stage_outputs['stage3'] = {
+            'points': points.detach().clone() if return_torch else as_numpy(points),
+            'anchors': anchors.detach().clone() if return_torch else as_numpy(anchors),
+            'normals': normals_up.detach().clone() if return_torch else as_numpy(normals_up),
+            'anchor_positions': x_low.detach().clone() if return_torch else as_numpy(x_low),
+            'anchor_selection_count': anchor_selection_count.detach().clone() if return_torch else as_numpy(anchor_selection_count),
+        }
 
 
     
@@ -722,6 +884,13 @@ def upsample(
         if verbose:
             print("⊘ Taubin smoothing disabled")
     
+    # Export Stage 4 data
+    if export_stages:
+        stage_outputs['stage4'] = {
+            'points': points.detach().clone() if return_torch else as_numpy(points),
+            'normals': normals_up.detach().clone() if return_torch else as_numpy(normals_up),
+        }
+    
     # ========================================================================
     # STAGE 5: Normal Smoothing (Spatial Laplacian)
     # ========================================================================
@@ -745,6 +914,13 @@ def upsample(
         if verbose:
             print("⊘ Normal smoothing disabled")
     
+    # Export Stage 5 data
+    if export_stages:
+        stage_outputs['stage5'] = {
+            'points': points.detach().clone() if return_torch else as_numpy(points),
+            'normals': normals_up.detach().clone() if return_torch else as_numpy(normals_up),
+        }
+    
     # ========================================================================
     # STAGE 6: Covariance Construction (F-field Interpolation)
     # ========================================================================
@@ -754,7 +930,56 @@ def upsample(
         print("="*80)
     
     cov_cfg = cfg.get("covariance", {})
-    cov, F_interp, _ = build_covariance(points, x_low, F_low, knn, cov_cfg)
+    
+    # Pass rho_anchor to covariance for density-based scale adjustment
+    if rho_anchor is not None:
+        density_cfg_for_cov = cov_cfg.get("density", {})
+        density_cfg_for_cov["rho_anchor"] = rho_anchor  # This is fine - nested dict
+        cov_cfg["density"] = density_cfg_for_cov
+        
+        if verbose:
+            if density_cfg_for_cov.get("use_scale_prior", False):
+                print(f"  ✓ Density-based scale adjustment ENABLED:")
+                print(f"    - rho_anchor passed: {rho_anchor.shape}")
+                print(f"    - scale_kappa: {density_cfg_for_cov.get('scale_kappa', 0.15):.3f}")
+                print(f"    - max_scale_up: {density_cfg_for_cov.get('scale_max_up', 0.12):.3f}")
+            else:
+                print(f"  ⊘ Density-based scale adjustment disabled (rho available but not used)")
+    else:
+        if verbose:
+            print(f"  ⊘ No rho_anchor available (density-based scale skipped)")
+    
+    # 🔥 Prepare curvature data for target mesh (F≈Identity)
+    # For target mesh, use curvature-based anisotropic covariance instead of isotropic
+    curvature_cov_cfg = cov_cfg.get("curvature_cov", {})
+    if curvature_cov_cfg.get("enabled", False):
+        if verbose:
+            print(f"  [Curvature-Based Cov] Computing curvature on upsampled points...")
+        
+        # Compute curvature on upsampled points directly
+        from .analysis.pca import batched_pca_surface_optimized
+        k_curv = int(curvature_cov_cfg.get("k_neighbors", 16))
+        idx_curv, w_curv = knn(points, points, k_curv)
+        
+        normals_curv, _, _, _, dir1, dir2, curv_vals = batched_pca_surface_optimized(
+            points, idx_curv, w_curv, return_principal_dirs=True
+        )
+        
+        # Package curvature data
+        curvature_data = {
+            'kappa1': curv_vals[:, 0],           # (M,) max curvature
+            'kappa2': curv_vals[:, 1],           # (M,) min curvature
+            'principal_dirs': torch.stack([dir1, dir2], dim=-1),  # (M, 3, 2)
+            'normals': normals_curv,             # (M, 3)
+        }
+        
+        cov_cfg["curvature_data"] = curvature_data
+        
+        if verbose:
+            print(f"    ✓ Curvature computed: k1=[{curv_vals[:,0].min():.3f}, {curv_vals[:,0].max():.3f}], "
+                  f"k2=[{curv_vals[:,1].min():.3f}, {curv_vals[:,1].max():.3f}]")
+    
+    cov, F_interp, _ = build_covariance(points, x_low, F_low, knn, cov_cfg, learnable_cov_module)
     
     if verbose:
         use_polar = cov_cfg.get("use_polar_decomposition", True)
@@ -765,6 +990,14 @@ def upsample(
         print(f"  σ₀ (base scale): {sigma0:.4f}")
         print(f"  k_F (neighbors): {k_F}")
     
+    # Export Stage 6 data
+    if export_stages:
+        stage_outputs['stage6'] = {
+            'points': points.detach().clone() if return_torch else as_numpy(points),
+            'normals': normals_up.detach().clone() if return_torch else as_numpy(normals_up),
+            'cov': cov.detach().clone() if return_torch else as_numpy(cov),
+        }
+    
     # ========================================================================
     # Prepare Output
     # ========================================================================
@@ -773,11 +1006,10 @@ def upsample(
         "M_output": len(points),
         "upsampling_factor": len(points) / len(x_low),
         "surface_detection": surf_cfg.get("enabled", True),
-        "volume_filtering": vol_cfg.get("enabled", True),
+        "anchor_density": density_cfg.get("enabled", True),
         "taubin_smoothing": taubin_cfg.get("enabled", True),
         "normal_smoothing": norm_cfg.get("enabled", True),
-        "mean_surf_prob": float(surf_prob.mean().detach().item()),
-        "mean_volume_weight": float(volume_weight.mean().detach().item()),
+        "rho_anchor_mean": state.get("rho_anchor_mean", 0.0),
         "device": str(device),
         "seed": seed,
     }
@@ -793,7 +1025,7 @@ def upsample(
     # ========================================================================
     # Cleanup
     # ========================================================================
-    del normals, surf_prob, volume_weight
+    del normals
     perf_cfg = cfg.get("performance", {})
     if perf_cfg.get("clear_cache", True):
         knn.clear_cache()
@@ -804,26 +1036,21 @@ def upsample(
     
   
     # Convert to numpy if requested
-    if return_torch:
-        return {
-            "points": points,
-            "normals": normals_up,
-            "cov": cov,
-            "F_interp": F_interp,
-            "anchors": anchors,
-            "debug": debug_info,
-            "state": state,
-        }
-    else:
-        return {
-            "points": as_numpy(points),
-            "normals": as_numpy(normals_up),
-            "cov": as_numpy(cov),
-            "F_interp": as_numpy(F_interp),
-            "anchors": as_numpy(anchors),
-            "debug": debug_info,
-            "state": state,
-        }
+    result = {
+        "points": points if return_torch else as_numpy(points),
+        "normals": normals_up if return_torch else as_numpy(normals_up),
+        "cov": cov if return_torch else as_numpy(cov),
+        "F_interp": F_interp if return_torch else as_numpy(F_interp),
+        "anchors": anchors if return_torch else as_numpy(anchors),
+        "debug": debug_info,
+        "state": state,
+    }
+    
+    # Add stage outputs if requested
+    if export_stages:
+        result["stage_outputs"] = stage_outputs
+    
+    return result
 
 __all__ = [
     "upsample",

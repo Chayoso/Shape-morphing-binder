@@ -188,7 +188,8 @@ class HybridFAISSKNN:
         # tie-break jitter (no-grad)
         if self.tie_break_eps > 0.0:
             with torch.no_grad():
-                dist2 = dist2 + self.tie_break_eps * torch.randn_like(dist2)
+                noise = (self.tie_break_eps * torch.randn_like(dist2)).detach()  # constant noise
+                dist2 = dist2 + noise  # keep graph on dist2
 
         # robust row-wise normalization (median/MAD)
         with torch.no_grad():
@@ -285,7 +286,8 @@ class HybridFAISSKNN:
 
             if self.tie_break_eps > 0.0:
                 with torch.no_grad():
-                    dist2 = dist2 + self.tie_break_eps * torch.randn_like(dist2)
+                    noise = (self.tie_break_eps * torch.randn_like(dist2)).detach()  # constant noise
+                    dist2 = dist2 + noise  # keep graph on dist2
 
             # robust normalize (optional but helpful in ultra-sparse)
             with torch.no_grad():

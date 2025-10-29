@@ -144,25 +144,24 @@ The pipeline consists of three main stages:
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                                ↓                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
-│  │ Step 2: Volume Filtering (Soft Geometric Consistency)            │   │
+│  │ Step 2: Anchor-Density Map (Differentiable Density Estimation)   │   │
 │  │ ───────────────────────────────────────────────────────────────  │   │
-│  │ • For each particle: find k=20 spatial neighbors                 │   │
-│  │ • Compute consensus: c = (1/k)·Σⱼ |nᵢ·nⱼ|  (only nᵢ·nⱼ > 0)      │   │
-│  │ • Soft gating: w = sigmoid(α·(c - θ))                            │   │
-│  │   - θ=0.2: very lenient (preserves thin features!)               │   │
-│  │   - α=15.0: smooth transition                                    │   │
-│  │ • Update: filtered_prob = surf_prob · w                          │   │
+│  │ • For each anchor: find k=16 nearest neighbors                   │   │
+│  │ • Compute soft kernel density: ρᵢ = Σⱼ exp(-(dᵢⱼ/hᵢ)²) · αⱼ      │   │
+│  │   - hᵢ = mean(neighbor distances)                                │   │
+│  │   - αⱼ = knn softmax weights                                     │   │
+│  │ • Normalize: ρ' = ρ / mean(ρ), clamp to [0.25, 4.0]             │   │
 │  │                                                                  │   │
-│  │ Purpose: Separates surface from interior volume                  │   │
-│  │ Critical for: thin structures (ears, fingers, wings)             │   │
+│  │ Purpose: Estimate local density for sampling bias                   │   │
+│  │ Critical for: sparse/dense region balance, smooth sampling          │   │
 │  │                                                                  │   │
-│  │ Output: {filtered_prob (N,), volume_weight (N,)}                 │   │
+│  │ Output: {rho_anchor (N,), cfg_out, state}                        │   │
 │  └──────────────────────────────────────────────────────────────────┘   │
 │                                ↓                                        │
 │  ┌──────────────────────────────────────────────────────────────────┐   │
 │  │ Step 3: Importance Sampling (Gumbel-Softmax + Tangent Jitter)    │   │
 │  │ ───────────────────────────────────────────────────────────────  │   │
-│  │ • Sample M indices: Y ~ GumbelSoftmax(filtered_prob, τ=0.2)      │   │
+│  │ • Sample M indices: Y ~ GumbelSoftmax(surf_prob, τ=0.2)          │   │
 │  │   - Straight-through estimator: hard forward, soft backward      │   │
 │  │   - Batched for memory efficiency (M×N matrix!)                  │   │
 │  │ • Interpolate: anchors = Y @ x_low  (M, 3)                       │   │
@@ -395,9 +394,9 @@ sampling:
   surface_detection:
     k: 48
     soft_tau: 0.30
-  volume_filter:
-    k: 20                          # Very local!
-    consistency_threshold: 0.25    # Very lenient
+  anchor_density:
+    stage2_k: 20                   # Very local!
+    anchor_density_beta: 0.6       # Less sparse bias
   sampling:
     M: 80000                       # More samples
   taubin:
@@ -408,9 +407,9 @@ sampling:
 ```yaml
 sampling:
   # Use sphere preset
-  volume_filter:
-    k: 32                          # Larger neighborhood
-    consistency_threshold: 0.50    # Stricter
+  anchor_density:
+    stage2_k: 32                   # Larger neighborhood
+    anchor_density_beta: 0.8       # More sparse bias
   sampling:
     M: 50000                       # Fewer samples
   taubin:
@@ -423,7 +422,7 @@ sampling:
   # Use fast preset
   sampling:
     M: 30000                       # Much fewer
-  volume_filter:
+  anchor_density:
     enabled: false                 # Skip
   taubin:
     enabled: false                 # Skip
@@ -460,20 +459,19 @@ surface_detection:
 - Need sharp features? Decrease `soft_tau` to 0.2
 - Want uniform coverage? Decrease `surface_power` to 2.0
 
-#### Volume Filtering
+#### Anchor-Density Map
 
 ```yaml
-volume_filter:
-  k: 20                       # Spatial neighbors (16-32)
-  consistency_threshold: 0.2  # Alignment (0.2-0.7)
-  temperature: 15.0           # Smoothness (5-20)
-  positive_only: true         # Always true for thin features!
+anchor_density:
+  stage2_k: 16                # KNN neighbors for density (16-32)
+  anchor_density_beta: 0.7    # Sparse bias strength (0.5-1.0)
+  spacing_bias_gamma: 0.6     # Fallback bias exponent (0.5-0.8)
 ```
 
-**Critical for thin structures!**
-- Bunny ears: `k=20, threshold=0.2` (very lenient)
-- Smooth objects: `k=32, threshold=0.5` (stricter)
-- Noisy data: increase `k` and `temperature`
+**Critical for sampling bias!**
+- Preserve features: `stage2_k=16-20, beta=0.5-0.6` (less bias)
+- Sparse regions: `stage2_k=24-32, beta=0.8-0.9` (more bias)
+- Uniform sampling: `beta=0.0` (no density bias)
 
 #### Importance Sampling
 
@@ -759,9 +757,9 @@ See [Configuration Guide](#-configuration-guide) for weight tuning.
 
 **1. Thin features disappearing (ears, fingers)**
 ```yaml
-volume_filter:
-  k: 20                # Decrease to 16-20 (more local)
-  consistency_threshold: 0.15   # Very lenient
+anchor_density:
+  stage2_k: 20         # Decrease to 16-20 (more local)
+  anchor_density_beta: 0.5   # Less sparse bias (preserve features)
 taubin:
   lambda_smooth: 0.5   # Gentler smoothing
 ```
@@ -786,10 +784,10 @@ surface_detection:
 
 **4. Interior points visible**
 ```yaml
-volume_filter:
+anchor_density:
   enabled: true        # Ensure enabled!
-  consistency_threshold: 0.5   # Stricter
-  k: 32                # Larger neighborhood
+  anchor_density_beta: 0.9     # Stronger sparse bias
+  stage2_k: 32         # Larger neighborhood
 ```
 
 **5. Too slow**
@@ -798,7 +796,7 @@ sampling:
   M: 30000             # Fewer samples
 knn:
   use_ivf: true        # Fast approximate KNN
-volume_filter:
+anchor_density:
   enabled: false       # Skip (if acceptable)
 ```
 
@@ -982,10 +980,10 @@ taubin:
 
 **Fix**:
 ```yaml
-volume_filter:
-  k: 16                      # Very local
-  consistency_threshold: 0.15  # Very lenient
-  temperature: 12.0          # Smoother
+anchor_density:
+  stage2_k: 16               # Very local
+  anchor_density_beta: 0.5   # Less sparse bias
+  spacing_bias_gamma: 0.5    # Gentler fallback
 ```
 
 ### Surface Shrinks/Expands

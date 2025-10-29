@@ -21,6 +21,7 @@ DEFAULT_WEIGHTS = {
     'w_normal_smooth': 0.0,
     'w_edge': 0.1,
     'w_cov_align': 0.05,
+    'w_coverage': 0.0,  # 🔥 NEW: Coverage loss (hole penalty)
 }
 
 SCHEDULE_PARAMS = {
@@ -34,8 +35,8 @@ EPS_NORMALIZE = 1e-9
 CLAMP_MIN_DEPTH = 0.01
 CLAMP_GRAD_NORM = (-3.0, 3.0)
 CLAMP_CURVATURE = (0.0, 10.0)
-CLAMP_SCALE = (0.001, 0.1)
-CLAMP_NORMAL_SCALE = (0.001, 0.05)
+# 🔥 Scale clamping removed - trust curvature-based calculation!
+# CLAMP_SCALE and CLAMP_NORMAL_SCALE no longer used
 
 
 # ============================================================================
@@ -264,6 +265,7 @@ class E2ELossManager:
         total += self._compute_edge_loss(pred, target, mu, cov, view_params, losses)
         total += self._compute_cov_align_loss(cov, cov_target, target, losses)
         total += self._compute_cov_reg_loss(cov, losses)
+        total += self._compute_coverage_loss(pred, target, losses)  # 🔥 NEW: Hole penalty
         
         losses['loss_render_total'] = total
         return losses
@@ -313,6 +315,49 @@ class E2ELossManager:
         loss_alpha = F.l1_loss(pred_alpha, target_alpha)
         losses['loss_alpha'] = loss_alpha
         return self.weights['w_alpha'] * loss_alpha
+    
+    def _compute_coverage_loss(
+        self,
+        pred: Dict[str, torch.Tensor],
+        target: Dict[str, torch.Tensor],
+        losses: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
+        """
+        Compute coverage loss to prevent holes (DIFFERENTIABLE).
+        
+        Penalizes low alpha values in regions where target has high alpha.
+        This prevents sparse particles from creating holes in the rendered surface.
+        
+        Args:
+            pred: Prediction dictionary with 'alpha' key
+            target: Target dictionary with 'alpha' key
+            losses: Dictionary to store loss component
+        
+        Returns:
+            Weighted coverage loss
+        """
+        if self.weights.get('w_coverage', 0.0) <= 0 or 'alpha' not in pred or 'alpha' not in target:
+            losses['loss_coverage'] = torch.tensor(0.0)
+            return torch.tensor(0.0)
+        
+        pred_alpha, target_alpha = _align_tensor_shapes(pred['alpha'], target['alpha'])
+        
+        # 🔥 Strategy: Penalize regions where target is opaque but prediction is transparent
+        # This forces particles to fill holes even if physics makes them sparse
+        
+        # Mask: Where target expects opacity (alpha > 0.5)
+        target_mask = (target_alpha > 0.5).float()
+        
+        # Hole penalty: In target regions, pred_alpha should be high
+        hole_penalty = target_mask * (1.0 - pred_alpha)  # High when target=1 but pred=0
+        
+        # Additional: Penalize variance (uniform coverage is better)
+        alpha_var = pred_alpha.var()
+        
+        loss_coverage = hole_penalty.mean() + 0.1 * alpha_var
+        
+        losses['loss_coverage'] = loss_coverage
+        return self.weights.get('w_coverage', 0.0) * loss_coverage
     
     def _compute_depth_loss(
         self,
@@ -1054,21 +1099,28 @@ def create_target_covariance(
     mu: torch.Tensor,
     normals: torch.Tensor,
     curvatures: torch.Tensor,
-    base_scale: float = 0.02,
-    aniso_factor: float = 2.0
+    base_scale: float = 0.025,  # 🔥 Increased: 0.02 -> 0.025
+    aniso_factor: float = 1.5,  # 🔥 Decreased: 2.0 -> 1.5
+    scale_mode: str = 'adaptive'  # 🔥 NEW: 'adaptive', 'inverse', 'sqrt_inverse'
 ) -> torch.Tensor:
     """
     Create intentional anisotropic target Σ★ from surface geometry (DIFFERENTIABLE).
     
+    🔥 FIXED: Prevent particles from becoming too small when curvature is low
+    
     Constructs target covariance matrices aligned with surface principal directions,
-    with scales inversely proportional to curvature.
+    with scales that adapt to curvature.
     
     Args:
         mu: (N, 3) surface points
         normals: (N, 3) surface normals
         curvatures: (N, 2) principal curvatures [κ1, κ2]
-        base_scale: Base Gaussian scale
-        aniso_factor: Anisotropy amplification factor
+        base_scale: Base Gaussian scale (default: 0.025)
+        aniso_factor: Anisotropy amplification factor (default: 1.5)
+        scale_mode: Scaling strategy:
+            - 'adaptive': s = base_scale * (1 + α * (1 - min(1, β*k)))
+            - 'inverse': s = base_scale / (1 + α * k)  # Original formula
+            - 'sqrt_inverse': s = base_scale / sqrt(1 + α * k)
     
     Returns:
         cov_target: (N, 3, 3) target covariances
@@ -1086,18 +1138,33 @@ def create_target_covariance(
     t1, t2 = build_tangent_basis(normals)  # [N, 3], [N, 3]
     R = torch.stack([t1, t2, normals], dim=-1)  # [N, 3, 3]
     
-    # Anisotropic scaling based on curvature (differentiable)
+    # 🔥 Anisotropic scaling based on curvature - IMPROVED
     k1, k2 = curvatures[:, 0], curvatures[:, 1]  # [N], [N]
     
-    # Scale inversely with curvature: high curvature → narrow Gaussian
-    s1 = base_scale / (1.0 + aniso_factor * torch.abs(k1))  # [N]
-    s2 = base_scale / (1.0 + aniso_factor * torch.abs(k2))  # [N]
-    s3 = torch.full_like(s1, base_scale * 0.3)  # [N]
+    # Print curvature statistics
+    print(f"    [Curvature] k1: mean={k1.mean().item():.4f}, std={k1.std().item():.4f}, "
+          f"range=[{k1.min().item():.4f}, {k1.max().item():.4f}]")
+    print(f"    [Curvature] k2: mean={k2.mean().item():.4f}, std={k2.std().item():.4f}, "
+          f"range=[{k2.min().item():.4f}, {k2.max().item():.4f}]")
     
-    # Clamp to reasonable range (differentiable)
-    s1 = torch.clamp(s1, *CLAMP_SCALE)
-    s2 = torch.clamp(s2, *CLAMP_SCALE)
-    s3 = torch.clamp(s3, *CLAMP_NORMAL_SCALE)
+    # 🔥 Use SAME formula as pipeline for consistency!
+    # Formula: λ = σ₀ / √(1 + κ²)
+    # This is geometrically correct and prevents blur
+    eps = 1e-6
+    s1 = base_scale / torch.sqrt(1.0 + k1**2 + eps)  # [N]
+    s2 = base_scale / torch.sqrt(1.0 + k2**2 + eps)  # [N]
+    
+    # Normal direction scale (constant for stability)
+    # 🔥 THIN surface: s3 = 12% of base_scale for flat Gaussian splats
+    s3 = torch.full_like(s1, base_scale * 0.12)
+    
+    # 🔥 NO CLAMPING: Trust curvature-based calculation!
+    # s1, s2 are already physically meaningful from curvature
+    # s3 is fixed thin scale for surface representation
+    
+    print(f"    [Scale] s1: mean={s1.mean().item():.6f}, range=[{s1.min().item():.6f}, {s1.max().item():.6f}]")
+    print(f"    [Scale] s2: mean={s2.mean().item():.6f}, range=[{s2.min().item():.6f}, {s2.max().item():.6f}]")
+    print(f"    [Scale] s3: mean={s3.mean().item():.6f}, range=[{s3.min().item():.6f}, {s3.max().item():.6f}]")
     
     # Create diagonal scale matrix (differentiable)
     S = torch.diag_embed(torch.stack([s1**2, s2**2, s3**2], dim=-1))  # [N, 3, 3]
@@ -1131,6 +1198,10 @@ def covariance_spectral_loss(
     
     # Ensure device alignment
     cov_target = _safe_device_transfer(cov_target, device)
+    
+    # 🔥 CRITICAL: Detach target to prevent gradient flow
+    # Target covariance (from curvature) should guide, not be optimized
+    cov_target = cov_target.detach()
     
     # Validate inputs
     if not _validate_tensor(cov_target, "cov_target") or not _validate_tensor(cov_pred, "cov_pred"):

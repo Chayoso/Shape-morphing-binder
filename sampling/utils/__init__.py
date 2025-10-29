@@ -49,6 +49,22 @@ from .utils import (
     validate_positive_definite,
 )
 
+from .quantile import (
+    safe_quantile,
+    robust_quantile_range,
+)
+
+from .validation import (
+    validate_sampling_config,
+    check_config_and_warn,
+    get_config_summary,
+    safe_get_nested,
+)
+
+from .config_adapter import (
+    adapt_config,
+)
+
 __all__ = [
     # Configuration
     "default_cfg",
@@ -76,4 +92,17 @@ __all__ = [
     "as_numpy",
     "normalize",
     "validate_positive_definite",
+    
+    # Quantile functions
+    "safe_quantile",
+    "robust_quantile_range",
+    
+    # Validation
+    "validate_sampling_config",
+    "check_config_and_warn",
+    "get_config_summary",
+    "safe_get_nested",
+    
+    # Config adapter
+    "adapt_config",
 ]

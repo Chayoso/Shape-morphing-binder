@@ -1,11 +1,11 @@
 from pathlib import Path
 import shutil, re
 
-ROOT = Path(r"C:/dev/res2")       # ← 수정
-DEST = Path(r"C:/dev/res2/collected")  # ← 수정
+ROOT = Path(r"C:/dev/res2")       # ← Modify this
+DEST = Path(r"C:/dev/res2/collected")  # ← Modify this
 DEST.mkdir(parents=True, exist_ok=True)
 
-pat = re.compile(r"^ep_?\d{3}_render($|\.)", re.IGNORECASE)  # ep000_render, ep_000_render 모두 허용
+pat = re.compile(r"^ep_?\d{3}_render($|\.)", re.IGNORECASE)  # Match both ep000_render and ep_000_render
 
 def unique_path(p: Path) -> Path:
     if not p.exists():
@@ -24,7 +24,7 @@ for src in matches:
     parent = src.parent.name
     base = src.name
 
-    # ★ 중복 방지: base가 이미 'parent_'로 시작하면 prefix 생략
+    # ★ Duplicate prevention: skip prefix if base already starts with 'parent_'
     if base.lower().startswith((parent + "_").lower()):
         dst_name = base
     else:

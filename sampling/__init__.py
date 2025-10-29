@@ -3,7 +3,7 @@ Point Cloud Upsampling Pipeline (Refactored v3.1)
 
 Main Pipeline:
 1. Surface Detection (PCA-based planarity)
-2. Volume Filtering (soft, differentiable)
+2. Anchor-Density Map (differentiable density estimation)
 3. Importance Sampling (Gumbel-Softmax + tangent jitter; **memory-safe streaming ST**)
 4. Taubin Smoothing (differentiable, shrinkage-free)
 5. Normal Smoothing (Laplacian)
@@ -30,6 +30,7 @@ from .utils.config import (
     fast_cfg,
     quality_cfg,
     validate_cfg,
+    DEFAULT_CONFIG,  # Added
 
     # Constants (re-export)
     EPS_NORMALIZE,
@@ -52,6 +53,18 @@ from .utils.utils import (
     validate_positive_definite,
 )
 
+from .utils.quantile import (
+    safe_quantile,
+    robust_quantile_range,
+)
+
+from .utils.validation import (
+    validate_sampling_config,
+    check_config_and_warn,
+    get_config_summary,
+    safe_get_nested,
+)
+
 # ============================================================================
 # KNN
 # ============================================================================
@@ -68,6 +81,7 @@ from .io.export import (
     save_axis_hist_png,
     save_ply_xyz,
     save_gaussians_npz,
+    save_stage_progression,
 )
 
 # Optional: tiny helpers (non-breaking, only if you want them public)
@@ -112,6 +126,7 @@ __all__ = [
     "save_axis_hist_png", 
     "save_ply_xyz", 
     "save_gaussians_npz",
+    "save_stage_progression",
 
     # Version
     "__version__", "__author__",
