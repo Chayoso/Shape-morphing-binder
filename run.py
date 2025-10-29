@@ -229,7 +229,7 @@ def main():
             print("✅ [E2E] E2E mode ENABLED")
         else:
             print("⚠️ [E2E] Target rendering failed, E2E disabled")
-        enable_e2e = False
+            enable_e2e = False
     else:
         if not HAVE_3DGS:
             print("[WARN] E2E mode requested but renderer not available")
@@ -270,6 +270,7 @@ def main():
             ep_dir = out_dir / f"ep{ep+1:03d}"
             ep_dir.mkdir(parents=True, exist_ok=True)
             
+            print(f"\n[DEBUG] Starting E2E episode {ep+1} with {num_passes} passes")
             ema_state, episode_losses = run_e2e_episode(
                 ep, cg, opt, num_timesteps, control_stride, num_passes,
                 rs_ep, ema_state, renderer, loss_manager, target_render,
@@ -278,6 +279,7 @@ def main():
                 cov_module=None,
                 cov_optimizer=None
             )
+            print(f"[DEBUG] E2E episode {ep+1} completed")
             
             # Print episode summary
             print(f"\n[Summary] Episode {ep+1} losses:")
@@ -287,6 +289,7 @@ def main():
         else:
             # Physics-only mode
             print(f"\n[Episode {ep+1}] Running standard physics optimization...")
+            print(f"[DEBUG] Physics-only mode (enable_e2e={enable_e2e}, loss_manager={loss_manager is not None}, target_render={target_render is not None})")
             opt.current_episodes = ep
             cg.run_optimization(opt)
     
