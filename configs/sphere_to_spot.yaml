@@ -13,7 +13,7 @@ target_mesh_path: "assets/spot.obj"
 output_dir: "output/"
 
 output:
-  export_ply: false
+  export_ply: true
   output_format: "ply"
 
 # ================================================================================

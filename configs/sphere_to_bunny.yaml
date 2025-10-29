@@ -12,10 +12,10 @@
 # ════════════════════════════════════════════════════════════════════════════════
 input_mesh_path: "assets/isosphere.obj"      # start mesh (sphere)
 target_mesh_path: "assets/bunny.obj"         # target mesh (bunny)
-output_dir: "output/"                        # output directory
+output_dir: "output/bunny"                        # output directory
 
 output:
-  export_ply: false                          # export PLY file
+  export_ply: true                          # export PLY file
   output_format: "ply"                       # output format (ply/obj)
 
 # ════════════════════════════════════════════════════════════════════════════════
