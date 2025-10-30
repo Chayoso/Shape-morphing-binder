@@ -207,6 +207,34 @@ namespace DiffMPMLib3D {
             // ✅ This will propagate BOTH physics AND render gradients backward
             // because we already injected render grads to the last layer above
             Back_Timestep(layers[i + 1], layers[i], drag, dt, smoothing_factor);
+            
+            // 🔥 NEW: Apply physics_weight to balance physics/render signals
+            if (physics_weight_ != 1.0f) {
+                auto& pc = *layers[i].point_cloud;
+                auto& grid = *layers[i].grid;
+                
+                // Scale point cloud gradients
+                #pragma omp parallel for
+                for (int p = 0; p < (int)pc.points.size(); ++p) {
+                    auto& mp = pc.points[p];
+                    mp.dLdF *= physics_weight_;
+                    mp.dLdx *= physics_weight_;
+                    mp.dLdv *= physics_weight_;
+                    mp.dLdC *= physics_weight_;
+                }
+                
+                // Scale grid gradients
+                #pragma omp parallel for
+                for (int idx = 0; idx < grid.dim_x * grid.dim_y * grid.dim_z; ++idx) {
+                    int ii = idx / (grid.dim_y * grid.dim_z);
+                    int jj = (idx / grid.dim_z) % grid.dim_y;
+                    int kk = idx % grid.dim_z;
+                    auto& node = grid.GetNode(ii, jj, kk);
+                    node.dLdv *= physics_weight_;
+                    node.dLdm *= physics_weight_;
+                    node.dLdp *= physics_weight_;
+                }
+            }
         }
     }
 
@@ -471,5 +499,69 @@ namespace DiffMPMLib3D {
             return nullptr;
         }
         return layers[timestep_idx].point_cloud;
+    }
+    
+    // ============================================================================
+    // 🔥 NEW: Gradient Norm Monitoring
+    // ============================================================================
+    
+    std::pair<double, double> CompGraph::GetLastLayerPhysGradNorm() const {
+        if (layers.empty() || !layers.back().point_cloud) {
+            return {0.0, 0.0};
+        }
+        
+        const auto& pc = *layers.back().point_cloud;
+        double gF2 = 0.0, gx2 = 0.0;
+        
+        #pragma omp parallel for reduction(+:gF2,gx2)
+        for (int i = 0; i < (int)pc.points.size(); ++i) {
+            const auto& p = pc.points[i];
+            
+            // dLdF Frobenius norm
+            for (int r = 0; r < 3; ++r) {
+                for (int c = 0; c < 3; ++c) {
+                    double v = p.dLdF(r, c);
+                    gF2 += v * v;
+                }
+            }
+            
+            // dLdx L2 norm
+            for (int k = 0; k < 3; ++k) {
+                double v = p.dLdx(k);
+                gx2 += v * v;
+            }
+        }
+        
+        return {std::sqrt(gF2), std::sqrt(gx2)};
+    }
+    
+    std::pair<double, double> CompGraph::GetLayerPhysGradNorm(int layer_idx) const {
+        if (layer_idx < 0 || layer_idx >= (int)layers.size() || !layers[layer_idx].point_cloud) {
+            return {0.0, 0.0};
+        }
+        
+        const auto& pc = *layers[layer_idx].point_cloud;
+        double gF2 = 0.0, gx2 = 0.0;
+        
+        #pragma omp parallel for reduction(+:gF2,gx2)
+        for (int i = 0; i < (int)pc.points.size(); ++i) {
+            const auto& p = pc.points[i];
+            
+            // dLdF Frobenius norm
+            for (int r = 0; r < 3; ++r) {
+                for (int c = 0; c < 3; ++c) {
+                    double v = p.dLdF(r, c);
+                    gF2 += v * v;
+                }
+            }
+            
+            // dLdx L2 norm  
+            for (int k = 0; k < 3; ++k) {
+                double v = p.dLdx(k);
+                gx2 += v * v;
+            }
+        }
+        
+        return {std::sqrt(gF2), std::sqrt(gx2)};
     }
 }

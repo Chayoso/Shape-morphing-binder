@@ -486,6 +486,30 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     ...     print("Will optimize with L_phys only")
             )pbdoc")
         
+        // 🔥 NEW: Runtime scaling control
+        .def("set_render_gain", &CompGraph::SetRenderGain,
+            "Set render gradient gain multiplier for balancing physics/render signals",
+            py::arg("gain"))
+        .def("set_physics_weight", &CompGraph::SetPhysicsWeight,
+            "Set physics gradient weight multiplier",
+            py::arg("weight"))
+        
+        // 🔥 NEW: Gradient norm monitoring
+        .def("get_last_layer_phys_grad_norm", &CompGraph::GetLastLayerPhysGradNorm,
+            R"pbdoc(
+                Get physics gradient norms at the last layer.
+                
+                Returns:
+                    tuple: (||dLdF||, ||dLdx||) Frobenius and L2 norms
+                
+                Example:
+                    >>> gF_norm, gx_norm = cg.get_last_layer_phys_grad_norm()
+                    >>> print(f"Physics grads: ||dF||={gF_norm:.3e}, ||dx||={gx_norm:.3e}")
+            )pbdoc")
+        .def("get_layer_phys_grad_norm", &CompGraph::GetLayerPhysGradNorm,
+            "Get physics gradient norms at specific layer",
+            py::arg("layer_idx"))
+        
         .def("get_render_gradient_info",
             [](const CompGraph& self) -> py::dict {
                 py::dict info;

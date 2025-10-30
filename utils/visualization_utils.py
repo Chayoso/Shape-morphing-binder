@@ -4,6 +4,7 @@ Visualization Utilities - Episode Visualization & Comparison
 Handles visualization, comparison images, and stage exports.
 """
 
+import torch
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')

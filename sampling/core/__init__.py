@@ -11,7 +11,6 @@ Includes:
 
 from .surface_detect import (
     detect_surface,
-    soft_quantile,
 )
 
 from .density_map import (
@@ -22,10 +21,12 @@ from .density_map import (
 
 from .sampler import (
     sample_points,
-    gumbel_softmax_sample,
-    build_tangent_frame,
-    generate_tangent_jitter,
-    compute_adaptive_jitter_scale,
+    sample_points_fast,
+    precompute_knn_indices,
+    precompute_tangent_bases,
+    build_pi_base,
+    build_pi_complete,
+    soft_nms_pi,
 )
 
 from .taubin_smooth import (
@@ -42,7 +43,6 @@ from .normal_smooth import (
 __all__ = [
     # Surface detection
     "detect_surface",
-    "soft_quantile",
     
     # Anchor-density map
     "build_anchor_density",
@@ -51,10 +51,12 @@ __all__ = [
     
     # Sampling
     "sample_points",
-    "gumbel_softmax_sample",
-    "build_tangent_frame",
-    "generate_tangent_jitter",
-    "compute_adaptive_jitter_scale",
+    "sample_points_fast",
+    "precompute_knn_indices",
+    "precompute_tangent_bases",
+    "build_pi_base",
+    "build_pi_complete",
+    "soft_nms_pi",
     
     # Taubin smoothing
     "taubin_smooth",

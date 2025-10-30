@@ -193,6 +193,13 @@ def main():
     adapted_cfg = adapt_config({'upsample': rs_user})
     rs.update(adapted_cfg)
     
+    # Show curvature_sigma config if present
+    if 'covariance' in rs and 'curvature_sigma' in rs['covariance']:
+        cs = rs['covariance']['curvature_sigma']
+        print(f"[Config] ✓ Target covariance (curvature-based):")
+        print(f"          σ_n0={cs.get('sigma_n0', 0.020):.4f}, σ_t0={cs.get('sigma_t0', 0.030):.4f}")
+        print(f"          a={cs.get('a', 3.0):.2f}, b={cs.get('b', 0.5):.2f}, u={cs.get('u', 0.4):.2f}")
+    
     # ════════════════════════════════════════════════════════════════════════════
     # Setup Rendering
     # ════════════════════════════════════════════════════════════════════════════

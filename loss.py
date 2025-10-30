@@ -206,11 +206,34 @@ class E2ELossManager:
     
     def _update_linear_schedule(self, progress: float):
         """
-        Apply linear schedule to weights.
+        Apply linear schedule to weights with progressive refinement strategy.
+        
+        Schedule (recommended):
+        - Early (0-10%):  High cov_align (0.10), low edge/coverage (spectrum alignment)
+        - Mid (10-60%):   Balanced cov_align (0.05), rising edge (0.10)
+        - Late (60-100%): Low cov_align (0.02), high edge (0.12) (detail refinement)
         
         Args:
-            progress: Training progress in [0, 1]
+            progress: Training progress [0, 1]
         """
+        # 🔥 Progressive refinement strategy
+        if progress < 0.1:
+            # Early: Spectrum alignment
+            cov_align_mult = 2.0
+            edge_mult = 0.5
+            coverage_mult = 0.5
+        elif progress < 0.6:
+            # Mid: Balanced
+            cov_align_mult = 1.0
+            edge_mult = 1.0
+            coverage_mult = 1.0
+        else:
+            # Late: Detail refinement
+            cov_align_mult = 0.4
+            edge_mult = 1.2
+            coverage_mult = 0.5
+        
+        # Apply multipliers to base weights
         params = SCHEDULE_PARAMS['linear']
         alpha_min, alpha_max = params['alpha_range']
         edge_min, edge_max = params['edge_range']
@@ -492,14 +515,18 @@ class E2ELossManager:
         if cov_target is None and 'cov_target' in target:
             cov_target = target['cov_target']
         
-        if cov_target is not None:
-            loss_cov_align = covariance_spectral_loss(cov, cov_target)
-            losses['loss_cov_align'] = loss_cov_align
-            return self.weights['w_cov_align'] * loss_cov_align
-        else:
-            device = cov.device
+        # 🔥 Guard: Check if cov_target is available
+        if cov_target is None:
+            print("[WARN] cov_target missing → spectral loss skipped")
+            print("  → Make sure target covariance Σ★ is computed in pipeline.py STAGE 6")
+            device = cov.device if cov is not None else torch.device('cuda')
             losses['loss_cov_align'] = torch.tensor(0.0, device=device)
             return torch.tensor(0.0, device=device)
+        
+        # Compute spectral alignment loss
+        loss_cov_align = covariance_spectral_loss(cov, cov_target)
+        losses['loss_cov_align'] = loss_cov_align
+        return self.weights['w_cov_align'] * loss_cov_align
     
     def _compute_cov_reg_loss(
         self,
@@ -652,7 +679,6 @@ def compute_projection_jacobian(
     
     return J
 
-
 def _compute_sobel_gradients(
     alpha_target: torch.Tensor,
     device: torch.device
@@ -757,7 +783,6 @@ def _project_points_to_screen(
     
     return screen_x, screen_y
 
-
 def _sample_tangents_at_points(
     tangent_x: torch.Tensor,
     tangent_y: torch.Tensor,
@@ -799,7 +824,6 @@ def _sample_tangents_at_points(
     
     t_hat = torch.stack([t_x_sampled, t_y_sampled], dim=-1)
     return t_hat, grad_sampled
-
 
 def edge_align_loss(
     mu: torch.Tensor,
@@ -876,304 +900,6 @@ def edge_align_loss(
     }
     
     return loss, info
-
-
-# ============================================================================
-# Curvature-based Target Covariance
-# ============================================================================
-def _compute_knn_curvature_estimates(
-    mu: torch.Tensor,
-    normals: torch.Tensor,
-    indices: torch.Tensor
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Compute curvature estimates from k-nearest neighbors (DIFFERENTIABLE).
-    
-    Args:
-        mu: (N, 3) surface points
-        normals: (N, 3) surface normals
-        indices: (N, k) k-nearest neighbor indices
-    
-    Returns:
-        Tuple of (normal_diff_norm, spatial_dist)
-            - normal_diff_norm: (N, k) normal variation magnitudes
-            - spatial_dist: (N, k) spatial distances to neighbors
-    """
-    N, k = indices.shape
-    
-    # Gather neighbors using advanced indexing (differentiable)
-    # indices: [N, k] -> expand to [N, k, 3] for gathering
-    indices_expanded = indices.unsqueeze(-1).expand(-1, -1, 3)  # [N, k, 3]
-    
-    neighbor_points = torch.gather(
-        mu.unsqueeze(1).expand(-1, k, -1),  # [N, k, 3]
-        dim=0,
-        index=indices_expanded
-    )  # [N, k, 3]
-    
-    neighbor_normals = torch.gather(
-        normals.unsqueeze(1).expand(-1, k, -1),  # [N, k, 3]
-        dim=0,
-        index=indices_expanded
-    )  # [N, k, 3]
-    
-    # Compute normal variation (differentiable)
-    center_normals = normals.unsqueeze(1)  # [N, 1, 3]
-    normal_diff = neighbor_normals - center_normals  # [N, k, 3]
-    normal_diff_norm = torch.norm(normal_diff, dim=-1)  # [N, k]
-    
-    # Compute spatial extent (differentiable)
-    center_points = mu.unsqueeze(1)  # [N, 1, 3]
-    spatial_diff = neighbor_points - center_points  # [N, k, 3]
-    spatial_dist = torch.norm(spatial_diff, dim=-1)  # [N, k]
-    
-    return normal_diff_norm, spatial_dist
-
-
-def _weighted_curvature_average(
-    curvature_estimates: torch.Tensor,
-    spatial_dist: torch.Tensor,
-    eps: float = 1e-6
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Compute weighted average curvature with standard deviation (DIFFERENTIABLE).
-    
-    Args:
-        curvature_estimates: (N, k) curvature estimates
-        spatial_dist: (N, k) spatial distances
-        eps: Small epsilon for numerical stability
-    
-    Returns:
-        Tuple of (mean_curvature, curvature_std)
-            - mean_curvature: (N,) weighted mean
-            - curvature_std: (N,) standard deviation
-    """
-    # Compute weights (closer neighbors = more important) (differentiable)
-    weights = torch.exp(-spatial_dist / (spatial_dist.mean(dim=1, keepdim=True) + eps))
-    weights = weights / (weights.sum(dim=1, keepdim=True) + eps)
-    
-    # Weighted mean curvature (differentiable)
-    mean_curvature = (weights * curvature_estimates).sum(dim=1)  # [N]
-    
-    # Standard deviation for anisotropy (differentiable)
-    curvature_std = torch.std(curvature_estimates, dim=1)  # [N]
-    
-    return mean_curvature, curvature_std
-
-
-def estimate_curvature(
-    mu: torch.Tensor,
-    normals: torch.Tensor,
-    knn: Callable[[torch.Tensor, torch.Tensor, int], Tuple[torch.Tensor, torch.Tensor]],
-    k: int = 16
-) -> torch.Tensor:
-    """
-    Estimate principal curvatures using normal variation analysis with KNN (DIFFERENTIABLE).
-    
-    Args:
-        mu: (N, 3) surface points
-        normals: (N, 3) surface normals
-        knn: KNN function with signature knn(query, data, k) -> (indices, distances)
-             Returns indices: (N, k) long tensor, distances: (N, k) float tensor
-             Must be a differentiable KNN implementation or gradients will stop here
-        k: Number of neighbors for curvature estimation
-    
-    Returns:
-        curvatures: (N, 2) principal curvatures [κ1, κ2]
-    
-    Note:
-        KNN itself may not be differentiable, but all subsequent operations are.
-        If end-to-end training through KNN is required, use a differentiable KNN.
-    """
-    if knn is None:
-        raise ValueError("KNN function is required for estimate_curvature! "
-                        "This prevents OOM from torch.cdist(mu, mu).")
-    
-    N = mu.shape[0]
-    device = mu.device
-    k_actual = min(k, N)
-    
-    # Use KNN (may not be differentiable, but prevents OOM)
-    indices, distances = knn(mu, mu, k_actual)  # [N, k], [N, k]
-    
-    # Validate KNN output shape
-    if indices.shape != (N, k_actual):
-        raise ValueError(f"KNN returned indices of shape {indices.shape}, expected {(N, k_actual)}")
-    
-    # Compute curvature estimates (differentiable from here)
-    normal_diff_norm, spatial_dist = _compute_knn_curvature_estimates(mu, normals, indices)
-    
-    # Estimate curvature as ratio κ ≈ ||Δn|| / ||Δx|| (differentiable)
-    eps = 1e-6
-    curvature_estimates = normal_diff_norm / (spatial_dist + eps)  # [N, k]
-    
-    # Remove self (first neighbor is usually self with distance ~0)
-    if k_actual > 1:
-        curvature_estimates = curvature_estimates[:, 1:]  # [N, k-1]
-        spatial_dist = spatial_dist[:, 1:]  # [N, k-1]
-    
-    # Weighted average (differentiable)
-    mean_curvature, curvature_std = _weighted_curvature_average(curvature_estimates, spatial_dist, eps)
-    
-    # Create principal curvatures with slight anisotropy (differentiable)
-    k1 = mean_curvature + 0.5 * curvature_std
-    k2 = mean_curvature - 0.5 * curvature_std
-    
-    # Clamp to reasonable range (differentiable)
-    k1 = torch.clamp(k1, *CLAMP_CURVATURE)
-    k2 = torch.clamp(k2, *CLAMP_CURVATURE)
-    
-    curvatures = torch.stack([k1, k2], dim=1)  # [N, 2]
-    
-    # Replace invalid values (breaks gradients but prevents NaN propagation)
-    if not _validate_tensor(curvatures, "curvatures"):
-        invalid_mask = torch.isnan(curvatures) | torch.isinf(curvatures)
-        curvatures = torch.where(invalid_mask, torch.tensor(0.1, device=device), curvatures)
-    
-    return curvatures
-
-
-def build_tangent_basis(normals: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Build orthonormal tangent basis from normals (DIFFERENTIABLE).
-    
-    Returns two orthonormal tangent vectors perpendicular to the normals
-    using Gram-Schmidt orthogonalization.
-    
-    Args:
-        normals: (N, 3) surface normals
-    
-    Returns:
-        Tuple of (t1, t2) each of shape (N, 3)
-            - t1: First tangent vector
-            - t2: Second tangent vector (t2 = n × t1)
-    """
-    N = normals.shape[0]
-    device = normals.device
-    eps = EPS_SAFE
-    
-    # Normalize input normals (differentiable)
-    normals = _safe_normalize(normals, dim=-1, eps=eps)
-    
-    # Initial vector (avoid parallel to normal)
-    a = torch.tensor([1., 0., 0.], device=device).expand(N, 3).clone()
-    parallel = torch.abs(torch.einsum('nd,nd->n', normals, a)) > 0.9
-    a[parallel] = torch.tensor([0., 1., 0.], device=device)
-    
-    # Gram-Schmidt orthogonalization (differentiable)
-    t1 = a - torch.einsum('nd,nd->n', a, normals).unsqueeze(-1) * normals
-    t1_norm = torch.norm(t1, dim=-1, keepdim=True)
-    
-    # Handle degenerate cases
-    degenerate = (t1_norm.squeeze(-1) < eps)
-    if degenerate.any():
-        a_alt = torch.tensor([0., 0., 1.], device=device).expand(N, 3).clone()
-        t1_alt = a_alt - torch.einsum('nd,nd->n', a_alt, normals).unsqueeze(-1) * normals
-        t1 = torch.where(degenerate.unsqueeze(-1), t1_alt, t1)
-        t1_norm = torch.norm(t1, dim=-1, keepdim=True)
-    
-    t1 = t1 / (t1_norm + eps)
-    
-    # t2 = n × t1 (differentiable)
-    t2 = torch.cross(normals, t1, dim=1)
-    t2 = _safe_normalize(t2, dim=-1, eps=eps)
-    
-    # Final validation (replace NaN/Inf with default vectors)
-    if not _validate_tensor(t1, "tangent_t1"):
-        t1 = torch.where(
-            (torch.isnan(t1) | torch.isinf(t1)).any(dim=-1, keepdim=True),
-            torch.tensor([1., 0., 0.], device=device).expand_as(t1),
-            t1
-        )
-    if not _validate_tensor(t2, "tangent_t2"):
-        t2 = torch.where(
-            (torch.isnan(t2) | torch.isinf(t2)).any(dim=-1, keepdim=True),
-            torch.tensor([0., 1., 0.], device=device).expand_as(t2),
-            t2
-        )
-    
-    return t1, t2
-
-
-def create_target_covariance(
-    mu: torch.Tensor,
-    normals: torch.Tensor,
-    curvatures: torch.Tensor,
-    base_scale: float = 0.025,  # 🔥 Increased: 0.02 -> 0.025
-    aniso_factor: float = 1.5,  # 🔥 Decreased: 2.0 -> 1.5
-    scale_mode: str = 'adaptive'  # 🔥 NEW: 'adaptive', 'inverse', 'sqrt_inverse'
-) -> torch.Tensor:
-    """
-    Create intentional anisotropic target Σ★ from surface geometry (DIFFERENTIABLE).
-    
-    🔥 FIXED: Prevent particles from becoming too small when curvature is low
-    
-    Constructs target covariance matrices aligned with surface principal directions,
-    with scales that adapt to curvature.
-    
-    Args:
-        mu: (N, 3) surface points
-        normals: (N, 3) surface normals
-        curvatures: (N, 2) principal curvatures [κ1, κ2]
-        base_scale: Base Gaussian scale (default: 0.025)
-        aniso_factor: Anisotropy amplification factor (default: 1.5)
-        scale_mode: Scaling strategy:
-            - 'adaptive': s = base_scale * (1 + α * (1 - min(1, β*k)))
-            - 'inverse': s = base_scale / (1 + α * k)  # Original formula
-            - 'sqrt_inverse': s = base_scale / sqrt(1 + α * k)
-    
-    Returns:
-        cov_target: (N, 3, 3) target covariances
-    """
-    N = mu.shape[0]
-    device = mu.device
-    
-    # Validate inputs
-    if not _validate_tensor(curvatures, "curvatures"):
-        print(f"[WARN] Using default isotropic covariance")
-        cov_default = (base_scale ** 2) * torch.eye(3, device=device).unsqueeze(0).expand(N, 3, 3)
-        return cov_default
-    
-    # Build local frame: [t1, t2, n] (differentiable)
-    t1, t2 = build_tangent_basis(normals)  # [N, 3], [N, 3]
-    R = torch.stack([t1, t2, normals], dim=-1)  # [N, 3, 3]
-    
-    # 🔥 Anisotropic scaling based on curvature - IMPROVED
-    k1, k2 = curvatures[:, 0], curvatures[:, 1]  # [N], [N]
-    
-    # Print curvature statistics
-    print(f"    [Curvature] k1: mean={k1.mean().item():.4f}, std={k1.std().item():.4f}, "
-          f"range=[{k1.min().item():.4f}, {k1.max().item():.4f}]")
-    print(f"    [Curvature] k2: mean={k2.mean().item():.4f}, std={k2.std().item():.4f}, "
-          f"range=[{k2.min().item():.4f}, {k2.max().item():.4f}]")
-    
-    # 🔥 Use SAME formula as pipeline for consistency!
-    # Formula: λ = σ₀ / √(1 + κ²)
-    # This is geometrically correct and prevents blur
-    eps = 1e-6
-    s1 = base_scale / torch.sqrt(1.0 + k1**2 + eps)  # [N]
-    s2 = base_scale / torch.sqrt(1.0 + k2**2 + eps)  # [N]
-    
-    # Normal direction scale (constant for stability)
-    # 🔥 THIN surface: s3 = 12% of base_scale for flat Gaussian splats
-    s3 = torch.full_like(s1, base_scale * 0.12)
-    
-    # 🔥 NO CLAMPING: Trust curvature-based calculation!
-    # s1, s2 are already physically meaningful from curvature
-    # s3 is fixed thin scale for surface representation
-    
-    print(f"    [Scale] s1: mean={s1.mean().item():.6f}, range=[{s1.min().item():.6f}, {s1.max().item():.6f}]")
-    print(f"    [Scale] s2: mean={s2.mean().item():.6f}, range=[{s2.min().item():.6f}, {s2.max().item():.6f}]")
-    print(f"    [Scale] s3: mean={s3.mean().item():.6f}, range=[{s3.min().item():.6f}, {s3.max().item():.6f}]")
-    
-    # Create diagonal scale matrix (differentiable)
-    S = torch.diag_embed(torch.stack([s1**2, s2**2, s3**2], dim=-1))  # [N, 3, 3]
-    
-    # Σ★ = R @ S @ R^T (differentiable)
-    cov_target = torch.bmm(torch.bmm(R, S), R.transpose(1, 2))
-    
-    return cov_target
-
 
 def covariance_spectral_loss(
     cov_pred: torch.Tensor,

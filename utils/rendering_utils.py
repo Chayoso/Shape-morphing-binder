@@ -88,6 +88,7 @@ def upsample_target(
     Upsample target point cloud to create dense surface.
     
     🔥 Note: Sets episode=-1 for target mesh (initial frame)
+    🔥 NEW: Applies curvature-based covariance (planarity + anisotropy)
     
     Args:
         x_tgt: Target positions (N_target, 3)
@@ -109,63 +110,20 @@ def upsample_target(
         export_stages=export_stages
     )
     
+    # NOTE: Curvature-based covariance is now computed directly in STAGE 6 of pipeline
+    # when episode <= 0 (target mesh). No post-processing patch needed!
+    # See sampling/pipeline.py STAGE 6 for implementation.
+    
     mu_tgt = result_tgt["points"]
-    cov_tgt = result_tgt["cov"]
+    cov_tgt = result_tgt.get("cov_target", result_tgt["cov"])  # Try cov_target first, fallback to cov
     nrm_tgt = result_tgt.get("normals")
     
     return mu_tgt, cov_tgt, nrm_tgt, result_tgt
 
 
-def compute_target_covariance_star(
-    mu_tgt: np.ndarray, 
-    nrm_tgt: Optional[np.ndarray],
-    knn,
-    base_scale: float = 0.025,
-    aniso_factor: float = 1.5,
-    scale_mode: str = 'adaptive',
-    k_neighbors: int = 16
-) -> Optional[torch.Tensor]:
-    """
-    Compute curvature-based target covariance for supervision.
-    
-    Args:
-        mu_tgt: Target positions (N, 3)
-        nrm_tgt: Target normals (N, 3)
-        knn: KNN instance
-        base_scale: Base Gaussian scale
-        aniso_factor: Anisotropy factor
-        scale_mode: 'adaptive', 'inverse', or 'sqrt_inverse'
-        k_neighbors: KNN neighbors for curvature estimation
-    
-    Returns:
-        cov_target_star: (N, 3, 3) curvature-based covariances or None if failed
-    """
-    if nrm_tgt is None:
-        return None
-    
-    try:
-        from loss import estimate_curvature, create_target_covariance
-        
-        # Convert to torch
-        mu_t = torch.from_numpy(mu_tgt).float().cuda()
-        nrm_t = torch.from_numpy(nrm_tgt).float().cuda()
-        
-        # Compute curvature
-        curvatures = estimate_curvature(mu_t, nrm_t, knn, k=k_neighbors)
-        
-        # Create target covariance
-        cov_star = create_target_covariance(
-            mu_t, nrm_t, curvatures,
-            base_scale=base_scale,
-            aniso_factor=aniso_factor,
-            scale_mode=scale_mode
-        )
-        
-        return cov_star
-        
-    except Exception as e:
-        print(f"[WARN] Target covariance computation failed: {e}")
-        return None
+# NOTE: Function removed - target covariance is now computed in STAGE 6
+# See sampling/pipeline.py STAGE 6 for implementation
+# def compute_target_covariance_star(...): REMOVED
 
 
 def render_target(
@@ -311,41 +269,14 @@ def create_target_render(
     mu_tgt, cov_tgt, nrm_tgt, result_tgt = upsample_target(x_tgt, F_tgt, rs, export_stages=True)
     
     print(f"[Target] Upsampled: {len(mu_tgt):,} points")
+
+    print("[Target] Using curvature-based covariance from STAGE 6...")
     
-    # Compute curvature-based target covariance
-    print("[Target] Computing curvature-based target covariance...")
-    
-    # Get KNN config
-    knn_cfg = rs.get("knn", {})
-    knn_tau = float(knn_cfg.get("tau", 0.15))
-    
-    knn = HybridFAISSKNN(
-        use_faiss=FAISS_AVAILABLE,
-        use_ivf=False,
-        tau=knn_tau
-    )
-    
-    # Get covariance config
-    covariance_cfg = rs.get("covariance", {})
-    sigma0 = float(covariance_cfg.get("sigma0", 0.08))
-    curvature_cov_cfg = covariance_cfg.get("curvature_cov", {})
-    
-    # Get all parameters from config
-    base_scale = curvature_cov_cfg.get("base_scale", sigma0)
-    aniso_factor = float(curvature_cov_cfg.get("aniso_factor", 1.5))
-    scale_mode = str(curvature_cov_cfg.get("scale_mode", "adaptive"))
-    k_neighbors = int(curvature_cov_cfg.get("k_neighbors", 16))
-    
-    print(f"  [Config] base_scale={base_scale:.4f}, aniso_factor={aniso_factor:.2f}, "
-          f"mode={scale_mode}, k={k_neighbors}, knn_tau={knn_tau:.2f}")
-    
-    cov_target_star = compute_target_covariance_star(
-        mu_tgt, nrm_tgt, knn,
-        base_scale=base_scale,
-        aniso_factor=aniso_factor,
-        scale_mode=scale_mode,
-        k_neighbors=k_neighbors
-    )
+    # Convert cov_tgt to torch for loss computation
+    if isinstance(cov_tgt, np.ndarray):
+        cov_target_star = torch.from_numpy(cov_tgt).float().cuda()
+    else:
+        cov_target_star = cov_tgt  # Already torch tensor
     
     # Render
     print("[Target] Rendering...")
@@ -459,7 +390,8 @@ def upsample_current_state(
     )
     
     mu = result["points"]
-    cov = result["cov"]
+    # Use cov_pred for predicted mesh (episode > 0), fallback to cov for backward compat
+    cov = result.get("cov_pred", result["cov"])
     
     return mu, cov, result
 
@@ -629,7 +561,6 @@ def extract_render_gradients(F: torch.Tensor, x: torch.Tensor) -> Optional[Dict]
 __all__ = [
     'setup_renderer',
     'upsample_target',
-    'compute_target_covariance_star',
     'render_target',
     'normalize_render_outputs',
     'create_target_render',

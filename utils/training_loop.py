@@ -125,6 +125,19 @@ def run_e2e_episode(
         print(f"Pass {pass_idx+1}/{num_passes}")
         print(f"{'─'*70}")
         
+        # 🔥 NEW: Physics weight scheduling (progressive annealing)
+        total_animations = rs_full.get('optimization', {}).get('num_animations', 50)
+        progress = (ep + pass_idx / num_passes) / max(1, total_animations)
+        
+        # Schedule: [0.0, 0.1, 0.6, 1.0] → [0.4, 0.7, 1.0, 1.2]
+        phys_w = float(np.interp(progress, [0.0, 0.1, 0.6, 1.0], [0.4, 0.7, 1.0, 1.2]))
+        
+        try:
+            cg.set_physics_weight(phys_w)
+            print(f"[Physics Weight] progress={progress:.2%}, weight={phys_w:.2f}")
+        except Exception as e:
+            print(f"[Physics Weight] Failed: {e}")
+        
         torch.cuda.empty_cache()
         
         # ────────────────────────────────────────────────────────────────────────
@@ -185,6 +198,40 @@ def run_e2e_episode(
             # Extract gradients
             render_grads = extract_render_gradients(F, x)
             if render_grads is not None:
+                # 🔥 NEW: Render gain matching with EMA for stability
+                gF_render = np.linalg.norm(render_grads['dLdF'])
+                gx_render = np.linalg.norm(render_grads['dLdx'])
+                g_render = max(np.sqrt(gF_render**2 + gx_render**2), 1e-12)
+                
+                # Get physics gradient norm from C++
+                try:
+                    gF_phys, gx_phys = cg.get_last_layer_phys_grad_norm()
+                    g_phys = max(np.sqrt(gF_phys**2 + gx_phys**2), 1e-12)
+                    
+                    # Compute adaptive gain
+                    ratio = 0.8  # Render = 80% of physics
+                    eta = 0.7    # Matching strength
+                    target_norm = ratio * g_phys
+                    new_gain = (target_norm / g_render) ** eta
+                    new_gain = float(np.clip(new_gain, 0.1, 10.0))
+                    
+                    # EMA smoothing to prevent oscillation
+                    if 'render_gain_ema' not in ema_state:
+                        ema_state['render_gain_ema'] = new_gain
+                    
+                    beta_ema = 0.8  # High momentum
+                    gain = beta_ema * ema_state['render_gain_ema'] + (1.0 - beta_ema) * new_gain
+                    ema_state['render_gain_ema'] = gain
+                    
+                    # Apply gain
+                    render_grads['dLdF'] *= gain
+                    render_grads['dLdx'] *= gain
+                    
+                    print(f"├─ [Gain] g_render={g_render:.3e}, g_phys={g_phys:.3e}, new={new_gain:.2f}, ema={gain:.2f}")
+                except Exception as e:
+                    print(f"├─ [Gain] Skipped: {e}")
+                    gain = 1.0
+                
                 accumulated_render_grads = render_grads
                 print(f"├─ ✅ Render grads saved for Pass {pass_idx+2}")
             

@@ -344,44 +344,87 @@ def save_stage_progression(
     stage1_saved = False
     if 'stage1' in stage_data:
         stage1 = stage_data['stage1']
-        pts = as_numpy(stage1.get('points'))
-        prob = as_numpy(stage1.get('surf_prob'))
+        pts_final = as_numpy(stage1.get('points'))
+        planarity = as_numpy(stage1.get('planarity'))
+        anisotropy = as_numpy(stage1.get('anisotropy'))
+        z_s = as_numpy(stage1.get('z_s'))
+        rho_gate = as_numpy(stage1.get('rho_gate'))
+        p_surf_raw = as_numpy(stage1.get('p_surf_raw'))
+        spacing = as_numpy(stage1.get('spacing'))
         
-        if pts is not None and prob is not None and pts.size > 0:
+        # Get STAGE2 data for w_density and π
+        stage2 = stage_data.get('stage2', {})
+        w_density = as_numpy(stage2.get('w_den'))
+        pi = as_numpy(stage2.get('pi'))
+        
+        if pts_final is not None and pts_final.size > 0:
             import numpy as np
             
-            # Get surface mask (precomputed from pipeline)
-            surface_mask = as_numpy(stage1.get('surface_mask'))
+            # STAGE1: 2x2 Z-Score → Boost Visualization
+            # planarity, anisotropy, z_s, rho_gate(top 10%), p_surf_raw
+            fig = plt.figure(figsize=(24, 14))
             
-            if surface_mask is not None:
-                pts_surface = pts[surface_mask]
-                prob_surface = prob[surface_mask]
-            else:
-                # Fallback: compute mask using same logic as pipeline (mean-based)
-                mean_prob = np.mean(prob)
-                surface_mask = (prob >= mean_prob)
-                    
-                pts_surface = pts[surface_mask]
-                prob_surface = prob[surface_mask]
+            # Panel 1: Planarity (s)
+            ax1 = fig.add_subplot(221, projection="3d")
+            if planarity is not None and planarity.size > 0:
+                plan_min, plan_max = planarity.min(), planarity.max()
+                plan_mean = planarity.mean()
+                sc1 = ax1.scatter(pts_final[:,0], pts_final[:,1], pts_final[:,2], c=planarity, s=ptsize*2,
+                                 alpha=0.6, cmap="viridis", vmin=plan_min, vmax=plan_max)
+                fig.colorbar(sc1, ax=ax1, shrink=0.6, label="s")
+                ax1.set_title(f"[1] Planarity s=(λ₁+λ₂)/Σλ\nmean={plan_mean:.3f}, range=[{plan_min:.3f}, {plan_max:.3f}]", fontsize=10)
+            set_axis_limits(ax1, mid, rng)
             
-            # Create single visualization (left panel only)
-            fig = plt.figure(figsize=(10, 8))
+            # Panel 2: Anisotropy (ρ)
+            ax2 = fig.add_subplot(222, projection="3d")
+            if anisotropy is not None and anisotropy.size > 0:
+                aniso_min, aniso_max = anisotropy.min(), anisotropy.max()
+                aniso_mean = anisotropy.mean()
+                aniso_p90 = np.percentile(anisotropy, 90)
+                sc2 = ax2.scatter(pts_final[:,0], pts_final[:,1], pts_final[:,2], c=anisotropy, s=ptsize*2,
+                                 alpha=0.6, cmap="plasma", vmin=aniso_min, vmax=aniso_max)
+                fig.colorbar(sc2, ax=ax2, shrink=0.6, label="ρ")
+                ax2.set_title(f"[2] Anisotropy ρ=(λ₂-λ₁)/λ₂\nmean={aniso_mean:.3f}, P90={aniso_p90:.3f}", fontsize=10)
+            set_axis_limits(ax2, mid, rng)
             
-            # All anchors with surface probability
-            ax = fig.add_subplot(111, projection="3d")
-            prob_min, prob_max = prob.min(), prob.max()
-            sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=prob, s=ptsize*2,
-                           alpha=0.5, cmap="coolwarm", vmin=prob_min, vmax=prob_max)
-            fig.colorbar(sc, ax=ax, shrink=0.6, label="Surface Probability")
-            ax.set_title(f"STAGE 1: Surface Detection\nN = {len(pts):,} anchors\nProb: [{prob_min:.4f}, {prob_max:.4f}]")
-            set_axis_limits(ax, mid, rng)
+            # Panel 3: z_s (Z-Score of Planarity)
+            ax3 = fig.add_subplot(223, projection="3d")
+            if z_s is not None and z_s.size > 0:
+                z_min, z_max = z_s.min(), z_s.max()
+                z_mean = z_s.mean()
+                z_above_tau = (z_s > 0).mean()  # Assuming tau calibrated around 0
+                sc3 = ax3.scatter(pts_final[:,0], pts_final[:,1], pts_final[:,2], c=z_s, s=ptsize*2,
+                                 alpha=0.6, cmap="RdBu_r", vmin=z_min, vmax=z_max)
+                fig.colorbar(sc3, ax=ax3, shrink=0.6, label="z_s")
+                ax3.set_title(f"[3] z_s = (s - μ_s)/σ_s\nmean={z_mean:.3f}, >0={z_above_tau:.1%}", fontsize=10)
+            set_axis_limits(ax3, mid, rng)
             
-            # Save as STAGE1.png
+            # Panel 4: p_surf_raw (Final Surface Probability)
+            ax4 = fig.add_subplot(224, projection="3d")
+            if p_surf_raw is not None and p_surf_raw.size > 0:
+                psurf_min, psurf_max = p_surf_raw.min(), p_surf_raw.max()
+                psurf_mean = p_surf_raw.mean()
+                psurf_above_50 = (p_surf_raw > 0.5).mean()
+                sc4 = ax4.scatter(pts_final[:,0], pts_final[:,1], pts_final[:,2], c=p_surf_raw, s=ptsize*2,
+                                 alpha=0.6, cmap="coolwarm", vmin=psurf_min, vmax=psurf_max)
+                fig.colorbar(sc4, ax=ax4, shrink=0.6, label="p_surf_raw")
+                ax4.set_title(f"[4] p_surf_raw (Final)\nsigmoid((z_s-τ)/γ) + w_curv·ρ̂\nmean={psurf_mean:.3f}, >0.5={psurf_above_50:.1%}", fontsize=10)
+            set_axis_limits(ax4, mid, rng)
+            
+            # Save
             stage1_path = ep_dir / "STAGE1.png"
             fig.tight_layout()
             fig.savefig(stage1_path, dpi=dpi, bbox_inches="tight")
             plt.close(fig)
-            print(f"  ✓ Saved: {stage1_path}")
+            print(f"  ✓ Saved STAGE1 (2x2 PCA → Z-Score → p_surf_raw): {stage1_path}")
+            if planarity is not None:
+                print(f"    [1] Planarity (s):    mean={plan_mean:.4f}, range=[{plan_min:.3f}, {plan_max:.3f}]")
+            if anisotropy is not None:
+                print(f"    [2] Anisotropy (ρ):   mean={aniso_mean:.4f}, P90={aniso_p90:.3f}")
+            if z_s is not None:
+                print(f"    [3] z_s:              mean={z_mean:.3f}, >0={z_above_tau:.1%}")
+            if p_surf_raw is not None:
+                print(f"    [4] p_surf_raw:       mean={psurf_mean:.3f}, >0.5={psurf_above_50:.1%}")
             stage1_saved = True
     
     # Create individual stage visualizations (skip stage1 if already saved)
@@ -400,19 +443,40 @@ def save_stage_progression(
             if False:  # i == 1 block removed
                 pass
             elif i == 2:
-                # Stage 2: Anchor Density ONLY (anchors only, no upsampled points)
-                rho = as_numpy(stage.get('rho_anchor'))
-                if rho is not None and rho.size > 0:
-                    rho_min, rho_max = rho.min(), rho.max()
-                    rho_mean = rho.mean()
-                    print(f"    [STAGE2] Anchor Density range: [{rho_min:.6f}, {rho_max:.6f}], mean: {rho_mean:.6f}")
-                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=rho, s=ptsize*2,
-                                   alpha=0.4, cmap="viridis", vmin=rho_min, vmax=rho_max)
-                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Anchor Density (ρ)")
-                    ax.set_title(f"{name}\nN = {len(pts):,} anchor points\n"
-                                f"Density ρ: [{rho_min:.4f}, {rho_max:.4f}] (mean: {rho_mean:.4f})")
+                # Stage 2: Multi-Scale Density Weight (w_den)
+                w_den = as_numpy(stage.get('w_den'))
+                pi_stage2 = as_numpy(stage.get('pi'))
+                
+                if w_den is not None and w_den.size > 0:
+                    wden_min, wden_max = w_den.min(), w_den.max()
+                    wden_mean = w_den.mean()
+                    print(f"    [STAGE2] w_density range: [{wden_min:.4f}, {wden_max:.4f}], mean: {wden_mean:.4f}")
+                    
+                    # Create 1x2 visualization: w_density + π
+                    plt.close(fig)
+                    fig = plt.figure(figsize=(18, 7))
+                    
+                    # Left: w_density
+                    ax_left = fig.add_subplot(121, projection="3d")
+                    sc_left = ax_left.scatter(pts[:,0], pts[:,1], pts[:,2], c=w_den, s=ptsize*2,
+                                   alpha=0.4, cmap="viridis", vmin=wden_min, vmax=wden_max)
+                    fig.colorbar(sc_left, ax=ax_left, shrink=0.6, label="w_density")
+                    ax_left.set_title(f"w_density (Multi-Scale)\nharmonic_mean(ρ₈, ρ₃₂) → sigmoid\nmean={wden_mean:.3f}, range=[{wden_min:.2f}, {wden_max:.2f}]")
+                    set_axis_limits(ax_left, mid, rng)
+                    
+                    # Right: π (sampling distribution)
+                    if pi_stage2 is not None and pi_stage2.size > 0:
+                        ax_right = fig.add_subplot(122, projection="3d")
+                        pi_log = np.log10(pi_stage2 + 1e-10)
+                        sc_right = ax_right.scatter(pts[:,0], pts[:,1], pts[:,2], c=pi_log, s=ptsize*2,
+                                       alpha=0.4, cmap="hot", vmin=pi_log.min(), vmax=pi_log.max())
+                        fig.colorbar(sc_right, ax=ax_right, shrink=0.6, label="log₁₀(π)")
+                        ax_right.set_title(f"π (Sampling Dist)\np_surf^2.2 × w_den^0.7\nmean={pi_stage2.mean():.3e}")
+                        set_axis_limits(ax_right, mid, rng)
+                    
+                    ax = ax_left  # For compatibility
                 else:
-                    # Fallback if rho_anchor is None
+                    # Fallback if w_den is None
                     ax.scatter(pts[:,0], pts[:,1], pts[:,2], s=ptsize*2, alpha=0.4, c='royalblue')
                     ax.set_title(f"{name}\nN = {len(pts):,} anchor points")
             elif i == 3:
@@ -540,21 +604,21 @@ def save_stage_progression(
             else:
                 # Color based on stage type - same as individual visualizations
                 if i == 1:
-                    # Stage 1: Show surface anchors (filtered) - solid color
-                    prob = as_numpy(stage['surf_prob'])
-                    surface_mask = as_numpy(stage.get('surface_mask'))
-                    if prob is not None and surface_mask is not None:
-                        pts_surf = pts[surface_mask]
-                        sc = ax.scatter(pts_surf[:,0], pts_surf[:,1], pts_surf[:,2], 
-                                       c='steelblue', s=ptsize*1.2,
-                                       alpha=0.7)  # Solid color
-                        # No title for progression
-                elif i == 2 and 'rho_anchor' in stage:
-                    # Stage 2: Anchor density
-                    rho = as_numpy(stage['rho_anchor'])
-                    if rho is not None and rho.size > 0:
-                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=rho, s=ptsize*0.8,
-                                       alpha=0.4, cmap="viridis", vmin=rho.min(), vmax=rho.max())
+                    # Stage 1: Show all anchors with p_surf_raw color
+                    p_surf_raw_prog = as_numpy(stage.get('p_surf_raw'))
+                    if p_surf_raw_prog is not None and p_surf_raw_prog.size > 0:
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], 
+                                       c=p_surf_raw_prog, s=ptsize*1.2,
+                                       alpha=0.7, cmap="coolwarm", vmin=0, vmax=1)
+                    else:
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], 
+                                       c='steelblue', s=ptsize*1.2, alpha=0.7)
+                elif i == 2:
+                    # Stage 2: Density weight (w_den)
+                    w_den = as_numpy(stage.get('w_den'))
+                    if w_den is not None and w_den.size > 0:
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=w_den, s=ptsize*0.8,
+                                       alpha=0.4, cmap="viridis", vmin=w_den.min(), vmax=w_den.max())
                     else:
                         # Fallback
                         c = pts.mean(0)

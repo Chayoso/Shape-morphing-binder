@@ -50,7 +50,7 @@ def run_one(job: Job, args, gpu_id: Optional[str], run_root: Path) -> Dict[str, 
     log_file = log_dir / "run.log"
     meta_file = log_dir / "meta.json"
 
-    # 완료 판정: 센티넬이 미리 존재하면 스킵(Resume 모드)
+    # Completion check: skip if sentinel already exists (Resume mode)
     if args.resume and job.sentinel and job.sentinel.exists():
         with open(log_file, "a", encoding="utf-8") as f:
             print(f"[RESUME] Sentinel exists. Skip: {job.sentinel}", file=f)
@@ -83,15 +83,15 @@ def run_one(job: Job, args, gpu_id: Optional[str], run_root: Path) -> Dict[str, 
         "skipped": False,
     }
 
-    # 센티넬이 지정되었으면 결과 확인
+    # Check result if sentinel is specified
     if rc == 0 and job.sentinel:
         if not job.sentinel.exists():
-            # 성공했는데 산출물이 없다면 경고
+            # Warning if successful but output is missing
             result["rc"] = 10  # custom code
             with open(log_file, "a", encoding="utf-8") as f:
                 print(f"[WARN] RC=0 but sentinel missing: {job.sentinel}", file=f)
 
-    # 메타 기록
+    # Record metadata
     with open(meta_file, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2, default=str)
 
@@ -111,7 +111,7 @@ def schedule(jobs: List[Job], args):
     print(f"[INFO] GPUs = {gpu_list}  (concurrency={concurrency})")
     print(f"[INFO] log_root = {run_root}")
 
-    # 간단한 워커 풀
+    # Simple worker pool
     q: Queue[Job] = Queue()
     for j in jobs:
         q.put(j)
@@ -147,7 +147,7 @@ def schedule(jobs: List[Job], args):
     for t in threads:
         t.join()
 
-    # 요약
+    # Summary
     n_ok = sum(1 for r in results if r["rc"] == 0 or r.get("skipped"))
     n_fail = sum(1 for r in results if r["rc"] != 0 and not r.get("skipped"))
     print(f"\n[SUMMARY] ok={n_ok}, fail={n_fail}, total={len(results)}")

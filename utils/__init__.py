@@ -16,7 +16,6 @@ from .physics_utils import (
 from .rendering_utils import (
     setup_renderer,
     upsample_target,
-    compute_target_covariance_star,
     render_target,
     normalize_render_outputs,
     create_target_render,
@@ -55,7 +54,6 @@ __all__ = [
     # Rendering
     'setup_renderer',
     'upsample_target',
-    'compute_target_covariance_star',
     'render_target',
     'normalize_render_outputs',
     'create_target_render',

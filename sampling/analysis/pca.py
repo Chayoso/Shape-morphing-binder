@@ -411,17 +411,21 @@ def batched_pca_surface_optimized(
 
     Returns
     -------
-    If return_principal_dirs=False (default, backward compatible):
+    If return_principal_dirs=False (default):
         normals:     (N, 3)          oriented, unit
         surfvar:     (N,)            stabilized surface-variance (lower is more planar)
         spacing:     (N,)            density-aware spacing
         curvature:   (N,)            local curvature estimate (higher = more curved)
+        anisotropy:  (N,)            🔥 NEW: ρ = (λ₂-λ₁)/(λ₂+ε), sharpness [0,1]
+        planarity:   (N,)            🔥 NEW: s = (λ₁+λ₂)/(λ₀+λ₁+λ₂+ε), surface quality [0,1]
     
     If return_principal_dirs=True (for anisotropic jitter):
         normals:     (N, 3)          oriented, unit
         surfvar:     (N,)            stabilized surface-variance
         spacing:     (N,)            density-aware spacing
         curvature:   (N,)            local curvature estimate
+        anisotropy:  (N,)            🔥 NEW: ρ = (λ₂-λ₁)/(λ₂+ε), sharpness [0,1]
+        planarity:   (N,)            🔥 NEW: s = (λ₁+λ₂)/(λ₀+λ₁+λ₂+ε), surface quality [0,1]
         principal_dir1: (N, 3)       first principal direction (max curvature)
         principal_dir2: (N, 3)       second principal direction (min curvature)
         principal_curv: (N, 2)       [k1, k2] principal curvatures (normalized)
@@ -475,9 +479,23 @@ def batched_pca_surface_optimized(
     curvature = evals[:, 1] / trace  # (N,) - middle eigenvalue ratio
     # Higher curvature = more bent surface (edges, corners)
     # Lower curvature = flatter surface
+    
+    # 🔥 NEW: PCA-based geometric features (DIFFERENTIABLE!)
+    # These are density-independent normalized ratios
+    lam0, lam1, lam2 = evals[:, 0], evals[:, 1], evals[:, 2]  # (N,) each
+    
+    # Anisotropy: ρ = (λ₁ - λ₂)/(λ₁ + ε)
+    # Measures sharpness along the normal direction vs tangent plane
+    # High ρ → sharp edge/feature, Low ρ → uniform/flat
+    anisotropy = (lam2 - lam1) / (lam2 + EPS_SAFE)  # (N,) in [0,1]
+    
+    # Planarity: s = (λ₂+λ₃)/(λ₁+λ₂+λ₃+ε)
+    # Density-independent surface quality metric
+    # High s → more planar (surface-like), Low s → more scattered (volumetric)
+    planarity = (lam1 + lam2) / (trace + EPS_SAFE)  # (N,) in [0,1]
 
     if not return_principal_dirs:
-        return normals, surfvar, spacing, curvature
+        return normals, surfvar, spacing, curvature, anisotropy, planarity
     
     # 🔥 NEW: Principal directions and anisotropic curvatures
     # For anisotropic jitter: use tangent plane eigenvectors
@@ -492,7 +510,10 @@ def batched_pca_surface_optimized(
     k2 = evals[:, 2] / trace  # (N,) - min curvature (0~0.5)
     principal_curv = torch.stack([k1, k2], dim=1)  # (N, 2)
     
-    return normals, surfvar, spacing, curvature, principal_dir1, principal_dir2, principal_curv
+    # 🔥 Anisotropy and planarity (already computed above, reuse)
+    # anisotropy, planarity are already defined in the main path
+    
+    return normals, surfvar, spacing, curvature, anisotropy, planarity, principal_dir1, principal_dir2, principal_curv
 
 # Public API
 __all__ = [

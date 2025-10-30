@@ -1,0 +1,307 @@
+# ════════════════════════════════════════════════════════════════════════════════
+# [CVPR 2026] PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
+# ════════════════════════════════════════════════════════════════════════════════
+# Configuration File - Sphere to Bob Morphing
+# ════════════════════════════════════════════════════════════════════════════════
+
+# ════════════════════════════════════════════════════════════════════════════════
+# I/O CONFIGURATION
+# ════════════════════════════════════════════════════════════════════════════════
+input_mesh_path: "assets/isosphere.obj"      # start mesh (sphere)
+target_mesh_path: "assets/Bob.obj"         # target mesh (Bob)
+output_dir: "output/sphere/bob/"                   # output directory
+
+output:
+  export_ply: true                           # export PLY file
+  output_format: "ply"                       # output format (ply/obj)
+
+# ════════════════════════════════════════════════════════════════════════════════
+# PHYSICS SIMULATION (Material Point Method)
+# ════════════════════════════════════════════════════════════════════════════════
+simulation:
+  grid_dx: 0.75
+  points_per_cell_cuberoot: 3
+  grid_min_point: [-16.0, -16.0, -16.0]
+  grid_max_point: [16.0, 16.0, 16.0]
+
+  # Neo-Hookean (Lamé)
+  lam: 38888.89
+  mu: 58333.3
+  density: 75.0
+
+  # Integrator
+  dt: 0.00833333333
+  drag: 0.5
+  external_force: [0.0, 0.0, 0.0]
+  smoothing_factor: 0.955
+
+# ════════════════════════════════════════════════════════════════════════════════
+# OPTIMIZATION SETTINGS
+# ════════════════════════════════════════════════════════════════════════════════
+optimization:
+  num_animations: 50
+  num_timesteps: 10
+  control_stride: 1
+
+  max_gd_iters: 1
+  max_ls_iters: 10
+  initial_alpha: 0.005
+  gd_tol: 0.0001
+
+  loss:
+    enabled: true
+
+    # Photometric/Geometric
+    w_alpha: 1500           # silhouette
+    w_depth: 0.1            # depth (low, anti-drift)
+    w_photo: 0.0            # not used
+    w_edge: 500             # edge alignment
+
+    # Covariance
+    w_cov_align: 5000       # spectral alignment to target Σ★ (episode ≤ 0)
+    w_cov_reg: 0.01         # regularization
+    cov_reg_mode: 'eigenvalue'
+
+    # Target covariance (curvature-based, target pass only)
+    curvature_sigma:
+      sigma_n0: 0.032
+      sigma_t0: 0.030
+      a: 3.0
+      b: 0.6
+      u: 0.5
+
+    schedule: 'constant'
+
+# ════════════════════════════════════════════════════════════════════════════════
+# UPSAMPLING PIPELINE
+# ════════════════════════════════════════════════════════════════════════════════
+upsample:
+  k_neighbors: 64
+
+  surface_detection:
+    enabled: true
+    k: 64
+    k_min: 20
+    beta_adapt: 0.5
+
+    anti_banding:
+      enabled: false
+      jitter_k: 0.1
+      jitter_r: 0.1
+
+    tau: null
+    p_target: 0.82
+    gamma: 1.0
+
+    w_curv: 0.5
+
+    # sampling distribution exponent
+    alpha: 2.2
+    beta: 0.7
+
+    surface_ratio: 0.85
+    enforce_surface_ratio: true
+
+    anti_grid:
+      enabled: true
+      alpha_grid: 0.5
+      beta_grid: 0.5
+      gamma_conf: 1.2
+
+  anchor_density:
+    enabled: true
+    use_multiscale_density: true
+    stage2_k_small: 8
+    stage2_k_large: 32
+    stage2_k: 128
+    use_adaptive_beta: true
+    anchor_density_beta: 0.30
+    spacing_bias_gamma: 0.6
+
+  sampling:
+    use_anisotropic_jitter: true
+    M: 500000
+
+    # balance
+    keep_ratio: 0.70
+    beta_soft: 1.15
+    eps_mix: 0.002
+    gate_k: 120.0
+    center_tau: 4.5
+    tau_local: 1.15
+    u_local: 0.68
+    w_cap: 0.13
+    bias_target: 2.5
+    local_S: 20
+    voxel_scale: 0.58
+
+    gamma_flat: 0.70
+    cap_mult: 18.0
+    use_dynamic_cap: true
+    surf_mass_target: 0.88
+
+    surface_snap:
+      enabled: false
+
+    blue_noise:
+      enabled: true
+      c_rt: 0.6
+      s_scale: 0.2
+      rho_scale: 0.1
+      target_keep: 0.85
+      k_local: 32
+
+    tau: 0.5
+    alpha: 0.30
+
+    use_anchor_density: true
+    prob_floor: 1.0e-4
+    uniform_mix: 0.15
+
+    plane_snap_beta: 0.95
+    topk_pool: 8
+    bias_floor: 0.3
+    coverage_fraction_max: 0.15
+
+  taubin:
+    enabled: true
+    iters: 5
+    k: 128
+    lambda_smooth: 0.70
+    lambda_inflate: -0.63
+    tangent_only: true
+
+  normal_smooth:
+    enabled: true
+    iters: 12
+    k: 128
+    lambda_smooth: 0.95
+
+  covariance:
+    sigma0: 0.12
+    voxel_size: 0.75
+    kappa_max: 40.0
+    k_F: 32
+
+    use_F_smoothing: true
+    use_polar_decomposition: true
+    use_adaptive_scale: true
+
+    learnable:
+      enabled: true
+      alpha: 0.4
+      lr: 0.002
+      freeze_after_ep: -1
+
+    density:
+      use_scale_prior: true
+      scale_kappa: 0.20
+      scale_max_up: 0.25
+      scale_smooth_alpha: 8.0
+      allow_shrink: false
+
+    F_smooth:
+      num_nodes: 180
+      node_knn: 12
+      point_knn: 12
+      lambda_lap: 0.05
+
+  knn:
+    use_faiss: true
+    use_ivf: true
+    tau: 0.20
+    nlist: 100
+    nprobe: 10
+    fallback_chunk_size: 5000
+
+  performance:
+    use_amp: false
+    cache_knn: true
+    clear_cache: true
+
+  debug:
+    verbose: true
+    export_anchor_density: true
+    export_anchors: true
+    export_dir: "debug/"
+    png_dpi: 160
+    png_ptsize: 0.5
+
+# ════════════════════════════════════════════════════════════════════════════════
+# RENDERING CONFIGURATION
+# ════════════════════════════════════════════════════════════════════════════════
+camera:
+  width: 3840
+  height: 2160
+  fx: 1650.0
+  fy: 1650.0
+  cx: 1920.0
+  cy: 1080.0
+  znear: 0.01
+  zfar: 100.0
+  lookat:
+    eye: [15.0, -22.0, 10.0]
+    target: [0.0, 0.0, 2.0]
+    up: [0.0, 0.0, 1.0]
+
+render:
+  num_frames: 1
+  schedule: uniform
+  bg: [1.0, 1.0, 1.0]
+  particle_color: [0.27, 0.51, 0.71]
+  lighting:
+    model: phong
+    type: directional
+    direction: [0.3, -0.5, 0.8]
+    two_sided: true
+    ambient: 0.18
+    diffuse: 0.85
+    specular: 0.10
+    shininess: 32
+
+# ════════════════════════════════════════════════════════════════════════════════
+# EPISODE SCHEDULING (Episode-specific parameter override)
+# ════════════════════════════════════════════════════════════════════════════════
+episode_schedule:
+  1-5:
+    upsample:
+      sampling:
+        M: 500000
+        alpha: 0.25
+      taubin:
+        iters: 15
+      normal_smooth:
+        iters: 8
+    covariance:
+      sigma0: 0.12
+      density:
+        scale_kappa: 0.35
+        scale_max_up: 0.50
+
+  6-15:
+    upsample:
+      sampling:
+        M: 500000
+        alpha: 0.18
+      taubin:
+        iters: 10
+      normal_smooth:
+        iters: 6
+    covariance:
+      sigma0: 0.10
+      density:
+        scale_kappa: 0.35
+        scale_max_up: 0.50
+
+  16+:
+    upsample:
+      sampling:
+        alpha: 0.12
+      taubin:
+        iters: 8
+      normal_smooth:
+        iters: 5
+    covariance:
+      sigma0: 0.10
+      density:
+        scale_kappa: 0.30

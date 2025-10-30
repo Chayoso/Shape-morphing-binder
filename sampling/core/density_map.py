@@ -26,8 +26,8 @@ except Exception:
 
 
 # Constants for density computation
-DEFAULT_CLAMP_MIN = 0.25  # 🔥 Wider range: 0.5 → 0.25 (allow more sparse regions)
-DEFAULT_CLAMP_MAX = 4.0   # 🔥 Wider range: 3.0 → 4.0 (allow denser regions)
+DEFAULT_CLAMP_MIN = 0.25  # Allow more sparse regions
+DEFAULT_CLAMP_MAX = 4.0   # Allow denser regions
                           # Result: 16x range vs 6x (better contrast)
 DEFAULT_BASE_BETA = 0.3
 DEFAULT_SURF_WEIGHT_STRENGTH = 0.3
@@ -163,7 +163,7 @@ def _normalize_density(
     Args:
         rho: (N,) Raw density values
         clamp_range: (min, max) Clamping range after normalization.
-                     Default [0.5, 3.0] gives 6x range for uniformity.
+                     Default [0.25, 4.0] matches global constants.
                      
     Returns:
         rho_normalized: (N,) Normalized and clamped density values
@@ -175,7 +175,7 @@ def _normalize_density(
         
     Example:
         >>> rho = torch.tensor([1.0, 2.0, 5.0, 10.0])
-        >>> rho_norm = _normalize_density(rho, clamp_range=(0.5, 3.0))
+        >>> rho_norm = _normalize_density(rho, clamp_range=(0.25, 4.0))
         >>> # Values normalized by mean and clamped to [0.5, 3.0]
     """
     rho_normalized = rho / (rho.mean() + EPS_SAFE)
@@ -206,7 +206,7 @@ def build_anchor_density(
         use_soft_radius: Unused, kept for API compatibility
         
     Returns:
-        rho: (N,) Normalized density values in range [0.5, 3.0]
+        rho: (N,) Normalized density values in range [0.25, 4.0]
         
     Notes:
         - Fully differentiable for gradient-based optimization
@@ -240,79 +240,45 @@ def build_multiscale_density(
     k_small: int = 8,
     k_large: int = 32,
     surf_prob: Optional[torch.Tensor] = None,
-    blend_alpha_small: float = 0.3,
-    blend_alpha_large: float = 0.7,
-    scale_weight: float = 0.3
+    state: Optional[Dict] = None
 ) -> torch.Tensor:
     """
-    Build multi-scale anchor density with reduced surface weighting.
+    Multi-scale density estimation using harmonic mean.
     
-    Computes density at two scales (local and global) and blends them to
-    capture both fine detail and global structure. Uses reduced surface
-    weighting at each scale to promote uniform coverage.
+    Computes local density at two scales (k_small, k_large) and combines
+    them using harmonic mean for robust density estimation.
     
     Args:
         x: (N, 3) Anchor point positions
         knn: KNN search callable
-        k_small: Number of neighbors for local scale. Default 8.
-        k_large: Number of neighbors for global scale. Default 32.
-        surf_prob: Optional (N,) surface probability for weighting
-        blend_alpha_small: Unused, kept for API compatibility
-        blend_alpha_large: Unused, kept for API compatibility
-        scale_weight: Weight for blending scales. 
-                      0.0 = fully global, 1.0 = fully local. Default 0.3.
-                      
+        k_small: Neighbors for local scale (default: 8)
+        k_large: Neighbors for global scale (default: 32)
+        surf_prob: Not used (kept for compatibility)
+        state: Optional state dict for EMA
+        
     Returns:
-        rho: (N,) Multi-scale normalized density values
-        
-    Notes:
-        - Fully differentiable
-        - Local scale (k_small): 20% surface weighting, captures detail
-        - Global scale (k_large): 10% surface weighting, ensures uniformity
-        - Final blend: scale_weight * local + (1-scale_weight) * global
-        - All densities normalized to [0.5, 3.0] individually and after blend
-        
-    Scale Weighting Strategy:
-        - scale_weight=0.3 → 30% local detail, 70% global uniformity
-        - Prevents holes while capturing geometric features
-        - Lower surface weighting at global scale reduces concentration
-        
-    Example:
-        >>> anchors = torch.randn(1000, 3)
-        >>> surf_prob = torch.sigmoid(torch.randn(1000))  # Mock surface prob
-        >>> density = build_multiscale_density(
-        ...     anchors, knn_search, 
-        ...     k_small=8, k_large=32, 
-        ...     surf_prob=surf_prob,
-        ...     scale_weight=0.3
-        ... )
+        w_density: (N,) Normalized density [0.25, 4.0]
     """
-    # Compute local scale density
+    eps = 1e-8
+    
+    # Compute kernel density at two scales
     idx_s, w_s, d_s = _compute_knn_distances(x, knn, k_small)
-    rho_small = _soft_kernel_density(
-        d_s, w_s, 
-        surf_prob=surf_prob, 
-        idx=idx_s, 
-        surf_weight_strength=0.2  # 20% for local detail
-    )
-    
-    # Compute global scale density
     idx_l, w_l, d_l = _compute_knn_distances(x, knn, k_large)
-    rho_large = _soft_kernel_density(
-        d_l, w_l, 
-        surf_prob=surf_prob, 
-        idx=idx_l, 
-        surf_weight_strength=0.1  # 10% for global uniformity
-    )
     
-    # 🔥 FIX: Blend RAW densities (no pre-normalization)
-    # This preserves actual density variance before final normalization
-    rho = scale_weight * rho_small + (1 - scale_weight) * rho_large
+    h_s = d_s[:, 1:].mean(dim=1, keepdim=True) + eps
+    h_l = d_l[:, 1:].mean(dim=1, keepdim=True) + eps
     
-    # 🔥 Normalize + clamp ONCE at the end (wider range for better contrast)
-    rho = _normalize_density(rho, clamp_range=(0.25, 4.0))  # Wider: 16x range vs 6x
+    dens_s = torch.exp(-(d_s[:, 1:] / h_s) ** 2).mean(dim=1)
+    dens_l = torch.exp(-(d_l[:, 1:] / h_l) ** 2).mean(dim=1)
     
-    return rho
+    # Harmonic mean
+    density = 2.0 / ((1.0 / (dens_s + eps)) + (1.0 / (dens_l + eps)))
+    
+    # Normalize to [0.25, 4.0] range
+    w_density = density / (density.mean() + eps)
+    w_density = torch.clamp(w_density, min=0.25, max=4.0)
+    
+    return w_density
 
 
 def compute_adaptive_beta(
@@ -536,9 +502,7 @@ def run_stage2_anchor_density(
             k_small=k_small, 
             k_large=k_large, 
             surf_prob=surf_prob,
-            blend_alpha_small=0.3,
-            blend_alpha_large=0.7,
-            scale_weight=0.3
+            state=state,
         )
     else:
         rho_anchor = build_anchor_density(
@@ -639,8 +603,12 @@ def _compute_density_statistics(
     # Spacing-density correlation validation
     try:
         rho_inv = 1.0 / (rho_anchor + 1e-9)
-        corr_matrix = torch.corrcoef(torch.stack([spacing, rho_inv]))
-        correlation = float(corr_matrix[0, 1].item())
+        # Manual correlation implementation for torch.corrcoef compatibility
+        def _corr(a: torch.Tensor, b: torch.Tensor) -> float:
+            a_n = (a - a.mean()) / (a.std() + 1e-8)
+            b_n = (b - b.mean()) / (b.std() + 1e-8)
+            return float((a_n * b_n).mean().item())
+        correlation = _corr(spacing, rho_inv)
         state["spacing_density_corr"] = correlation
         
         # Validate correlation sign based on surface weighting

@@ -75,7 +75,17 @@ namespace DiffMPMLib3D {
         bool has_render_grads_ = false;
         size_t render_grad_num_points_ = 0;
         
+        // Runtime scaling for balanced physics/render gradients
+        void SetRenderGain(float g) { render_gain_ = g; }
+        void SetPhysicsWeight(float w) { physics_weight_ = w; }
+        
+        // Gradient norm getters for monitoring
+        std::pair<double, double> GetLastLayerPhysGradNorm() const;
+        std::pair<double, double> GetLayerPhysGradNorm(int layer_idx) const;
+        
     private:
+        float render_gain_ = 1.0f;      // Scales injected render grads
+        float physics_weight_ = 1.0f;   // Scales physics grads before backprop
         // Simulation parameters cached for use in member functions.
         Vec3 f_ext = Vec3::Zero();
         float dt = 1.0f / 120.0f;

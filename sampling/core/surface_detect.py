@@ -1,118 +1,44 @@
 """
-Surface Detection - Combined Metric (Planarity + Spacing) with Adaptive Threshold
+🔥 Surface Detection - Normalized Ratio-based Algorithm (ADAPTIVE ENHANCED!)
 
-Core idea:
-1. PCA → planarity (lower = more planar) + spacing (higher = more open)
-2. Combined metric = (1-w)*planarity + w*(1-spacing)  [lower = more surface]
-3. Adaptive threshold = soft_min(percentile_thr, absolute_thr)
-   - percentile_thr: Top N% guide
-   - absolute_thr: μ - k*σ (quality bound)
-   - If surface weak → select fewer than N% ✓
-4. Score = sigmoid(-z_score / tau) ^ power
-5. Uniformize probability within selected points
-6. Done!
+Algorithm:
+1. Adaptive kNN-PCA: k = round(k0 * (1 - β·ŝ) + k_min), r = mean_nn_dist × (1.6~2.2)
+   → Eigenvalue decomposition: λ₀ ≤ λ₁ ≤ λ₂, normal n = e₀ (smallest eigenvalue)
+2. Ratio metrics (density-independent, 🔥 FIX 3: unified notation):
+   - planarity: s = (λ₁+λ₂)/(λ₀+λ₁+λ₂+ε)  [HIGH = flat surface]
+   - anisotropy: ρ = (λ₂-λ₁)/(λ₂+ε)       [HIGH = sharp edge/ridge]
+3. Surface probability (calibrated):
+   p_surf_raw = sigmoid((z_s - τ)/γ) + w_curv·ρ̂
+   where z_s = (s - μ_s)/σ_s, τ ← quantile(z_s, q=1-p_target), p_target=0.80, γ=1.0
+4. Curvature boost (percentile-gated):
+   ρ̂ ← relu(ρ - P90(ρ)) / (P99 - P90), w_curv=0.4~0.6
+5. Density weighting:
+   w_density = spacing / mean(spacing)
+6. Sampling distribution (🔥 FIX 1: separated from surface probability):
+   π = normalize(p_surf_raw^α · w_density^β)  [sum=1, for Gumbel sampling]
+7. Surface/interior ratio enforcement:
+   Surface:Interior = 0.85:0.15 (via p_surf_raw thresholding on π)
 
-Key improvements:
-- Interior points (low spacing) excluded even if planar
-- Adaptive selection: can select fewer than target percentile if justified
-- All operations fully differentiable
+Returns:
+   - p_surf_raw: surface probability [0,1] → Stage 2 (surface-weighted density)
+   - π (pi): sampling distribution (sum=1) → Stage 3 (Gumbel sampling)
+
+All operations are fully differentiable.
+Includes anti-banding: random k/r jitter (±10%), soft-TV smoothness.
+
+Author: CHAYO (2025-10)
 """
 
 import torch
 import torch.nn.functional as F
 from typing import Tuple, Optional, Dict
+import numpy as np
 from ..analysis.pca import batched_pca_surface_optimized
-from ..utils.config import EPS_PCA
-from ..utils.quantile import safe_quantile, robust_quantile_range
-
-
-def soft_quantile(x: torch.Tensor, q: float, tau: float = 0.01) -> torch.Tensor:
-    """
-    Differentiable quantile approximation using softmax weighting.
-    
-    Args:
-        x: (N,) values
-        q: Quantile (0.0-1.0), e.g., 0.1 = 10th percentile
-        tau: Temperature for softmax (smaller = sharper)
-        
-    Returns:
-        Scalar tensor approximating q-th quantile
-    """
-    N = x.shape[0]
-    device = x.device
-    q = max(0.0, min(1.0, q))
-    
-    # Sort values (differentiable)
-    x_sorted, _ = torch.sort(x)
-    
-    # Target index
-    target_idx = q * (N - 1)
-    positions = torch.arange(N, device=device, dtype=x.dtype)
-    
-    # Soft weights around target position
-    distances = torch.abs(positions - target_idx)
-    weights = F.softmax(-distances / tau, dim=0)
-    
-    # Weighted sum (fully differentiable)
-    return (weights * x_sorted).sum()
-
-
-def _soft_clamp_min(x: torch.Tensor, a: torch.Tensor, beta: float = 40.0) -> torch.Tensor:
-    """Smooth approximation of max(x, a) using softplus."""
-    return a + F.softplus(beta * (x - a)) / beta
-
-
-def _uniformize_within_mask(
-    p: torch.Tensor,
-    mask: torch.Tensor,
-    target_ratio: float = 1.10,
-    alpha_max: float = 50.0,
-    beta_clamp: float = 40.0,
-    eps: float = 1e-8
-) -> torch.Tensor:
-    """
-    Uniformize probability distribution within masked region.
-    
-    Goal: Make max/min ratio ≤ target_ratio within mask support.
-    Method: Soft power transform + soft clamping (fully differentiable).
-    
-    Args:
-        p: (N,) probability distribution
-        mask: (N,) soft mask [0,1]
-        target_ratio: Target max/min ratio (e.g., 1.10 = 10% variation)
-        alpha_max: Softmax power for max estimation
-        beta_clamp: Soft clamp beta
-        
-    Returns:
-        p_flat: (N,) uniformized probability
-    """
-    m = mask.clamp(0, 1)
-    if m.sum().item() < eps:
-        return p
-    
-    # Masked distribution
-    mass_in = (p * m).sum() + eps
-    q = (p * m) / mass_in
-    
-    # Soft max estimation
-    w = torch.softmax(alpha_max * q, dim=0) * m
-    w = w / (w.sum() + eps)
-    q_max_soft = (w * q).sum()
-    
-    # Target minimum
-    q_min_target = q_max_soft / max(float(target_ratio), 1.0 + 1e-6)
-    
-    # Soft clamp
-    q_flat = _soft_clamp_min(q, q_min_target, beta=beta_clamp)
-    
-    # Reproject
-    p_in = q_flat * mass_in
-    p_out = p * (1.0 - m)  # Preserve outside (for soft masks)
-    
-    p_new = p_in + p_out
-    p_new = p_new / (p_new.sum() + eps)
-    
-    return p_new
+from ..analysis.anti_grid import (
+    compute_gridness,
+    debias_planarity_anisotropy,
+    compute_confidence_from_gridness
+)
 
 
 def detect_surface(
@@ -121,261 +47,288 @@ def detect_surface(
     cfg: Dict,
     state: Optional[Dict] = None,
     return_curvature_dirs: bool = False,
-    return_score: bool = False
+    return_score: bool = False,
+    verbose: bool = False
 ) -> Tuple:
     """
-    Detect surface points and compute sampling probability.
+    🔥 REVISED: Normalized ratio-based surface detection (DIFFERENTIABLE).
     
-    Pipeline:
-        1. PCA analysis → planarity + spacing
-        2. Combined metric: (1-w)*planarity + w*(1-spacing)
-        3. Adaptive threshold: soft_min(percentile, absolute)
-           - Can select fewer than target % if surface quality is low
-        4. Score computation (sigmoid + power)
-        5. Threshold-based selection (STE for gradients)
-        6. Uniformization (flatten probability within surface)
-    
-    All operations are differentiable. Combined metric prevents interior selection.
+    Algorithm (🔥 FIX 3: unified eigenvalue notation λ₀ ≤ λ₁ ≤ λ₂):
+        1. kNN-PCA (k=24~48) → eigenvalues λ₀≤λ₁≤λ₂, normal n=e₀
+        2. Ratio metrics:
+           - planarity: s = (λ₁+λ₂)/(λ₀+λ₁+λ₂+ε)      [density-independent, HIGH=flat]
+           - anisotropy: ρ = (λ₂-λ₁)/(λ₂+ε)            [sharpness, HIGH=edge/ridge]
+        3. Surface probability:
+           p_surf_raw = sigmoid((z_s - τ)/γ) + w_curv·ρ̂
+           where z_s = (s - μ_s)/σ_s
+        4. Curvature boost:
+           p_surf_raw ← clamp(p_surf_raw + w_curv·ρ̂, 0, 1)
+        5. Density weighting:
+           w_density = spacing / mean(spacing)
+        6. Sampling distribution (🔥 FIX 1: separated):
+           π = normalize(p_surf_raw^α · w_density^β)  [sum=1]
     
     Args:
         x: (N, 3) point positions
         knn: KNN function
         cfg: Configuration dict with keys:
             - k: int, PCA neighbors (default: 48)
-            - planarity_percentile: float, top N% guide (default: 10.0)
-            - spacing_weight: float, 0-1, balance planarity/spacing (default: 0.5)
-            - surface_n_sigma: float, absolute threshold = μ-k*σ (default: 1.0)
-            - soft_tau: float, score sharpness (default: 0.5)
-            - surface_power: float, concentration (default: 4.0)
-            - ema_beta: float, threshold smoothing (default: 0.95)
-            - threshold_tau: float, mask sharpness (default: 0.01)
-            - uniformize_target_ratio: float, max/min ratio (default: 1.10)
-        state: Optional state dict
+            - tau: float, sigmoid threshold τ (default: auto)
+            - gamma: float, sigmoid steepness γ (default: 1.0)
+            - w_curv: float, curvature boost weight (default: 0.5)
+            - alpha: float, surface prob power (default: 2.5)
+            - beta: float, density weight power (default: 0.7)
+        state: Optional state dict for EMA tracking
         return_curvature_dirs: If True, return curvature directions
-        return_score: If True, return unnormalized score
+        return_score: Ignored (kept for API compatibility)
+        verbose: Print diagnostics
     
     Returns:
-        Tuple of (surf_prob, normals, spacing, state, [curvature_dirs], [score])
+        Tuple of (p_surf_raw, pi, normals, spacing, state, planarity, anisotropy, [curvature_dirs])
+        - p_surf_raw: (N,) surface probability [0,1] → for Stage 2 (surface-weighted density)
+        - pi: (N,) sampling distribution (sum=1) → for Stage 3 (Gumbel sampling)
     """
     if state is None:
         state = {}
     
-    # Parameters
-    k = int(cfg.get("k", 48))
-    percentile = float(cfg.get("planarity_percentile", 10.0))
-    soft_tau = float(cfg.get("soft_tau", 0.5))
-    surface_power = float(cfg.get("surface_power", 4.0))
-    ema_beta = float(cfg.get("ema_beta", 0.95))
-    threshold_tau = float(cfg.get("threshold_tau", 0.01))
+    # ════════════════════════════════════════════════════════════════════════
+    # Parameters (ADAPTIVE ENHANCED version)
+    # ════════════════════════════════════════════════════════════════════════
+    k0 = int(cfg.get("k", 48))                     # Base PCA neighbors
+    k_min = int(cfg.get("k_min", 20))              # Minimum k (adaptive)
+    beta_adapt = float(cfg.get("beta_adapt", 0.7))  # Planarity adaptation strength
+    tau_raw = cfg.get("tau", None)
+    tau = float(tau_raw) if tau_raw is not None else None  # Auto-calibrated if None
+    gamma = float(cfg.get("gamma", 0.8))            # Sigmoid steepness (default 0.8)
+    p_target = float(cfg.get("p_target", 0.85))    # Target surface ratio (0.85)
+    w_curv = float(cfg.get("w_curv", 0.5))          # Curvature boost (0.4~0.6)
+    alpha = float(cfg.get("alpha", 2.5))            # Surface prob power
+    beta = float(cfg.get("beta", 0.7))              # Density weight power
     
-    # ========================================================================
-    # Step 1: PCA Analysis
-    # ========================================================================
-    idx, w = knn(x, x, k)
+    # Anti-banding jitter (k, r randomization)
+    jitter_enabled = cfg.get("anti_banding", {}).get("enabled", True)
+    jitter_k = float(cfg.get("anti_banding", {}).get("jitter_k", 0.1))  # ±10%
+    jitter_r = float(cfg.get("anti_banding", {}).get("jitter_r", 0.1))  # ±10%
+    
+    # Surface/interior ratio enforcement
+    surface_ratio = float(cfg.get("surface_ratio", 0.85))  # 0.85:0.15
+    enforce_ratio = cfg.get("enforce_surface_ratio", True)
+    
+    N = x.shape[0]
+    device = x.device
+    eps = 1e-8
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 0: Quick initial PCA for adaptive k calculation
+    # ════════════════════════════════════════════════════════════════════════
+    # Quick initial kNN for adaptive k (use small k for speed)
+    k_init = min(k_min + 8, k0)
+    if jitter_enabled:
+        k_jitter = torch.rand(1, device=device).item() * (2 * jitter_k) - jitter_k  # [-jitter_k, +jitter_k]
+        k_init = int(max(k_min, k_init * (1 + k_jitter)))
+    
+    idx_init, w_init = knn(x, x, k_init)
+    pca_result_init = batched_pca_surface_optimized(
+        x, idx_init, w_init, return_principal_dirs=False
+    )
+    _, _, spacing_init, _, _, planarity_init = pca_result_init[:6]
+    
+    # Adaptive k: k = round(k0 * (1 - β·ŝ) + k_min)
+    # High planarity (flat) → lower k, Low planarity (curved) → higher k
+    s_hat = planarity_init.mean()  # Global planarity estimate
+    k_adaptive = int(round(k0 * (1.0 - beta_adapt * s_hat.item()) + k_min))
+    k_adaptive = max(k_min, min(k_adaptive, int(N * 0.5)))  # Safety bounds
+    
+    if jitter_enabled:
+        k_jitter_final = torch.rand(1, device=device).item() * (2 * jitter_k) - jitter_k
+        k_adaptive = int(max(k_min, k_adaptive * (1 + k_jitter_final)))
+    
+    # Adaptive radius: r = mean_nn_dist × (1.6 ~ 2.2)
+    mean_nn_dist = spacing_init.mean().item()
+    r_base = mean_nn_dist * 1.9  # Default 1.9 (middle of 1.6~2.2)
+    if jitter_enabled:
+        r_jitter = torch.rand(1, device=device).item() * (2 * jitter_r) - jitter_r
+        r_adaptive = r_base * (1 + r_jitter)
+    else:
+        r_adaptive = r_base
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 1: kNN-PCA with Adaptive k → Normalized Ratio Metrics
+    # ════════════════════════════════════════════════════════════════════════
+    idx, w = knn(x, x, k_adaptive)
     pca_result = batched_pca_surface_optimized(
         x, idx, w, return_principal_dirs=return_curvature_dirs
     )
     
     if return_curvature_dirs:
-        normals, planarity, spacing, curvature, principal_dir1, principal_dir2, principal_curv = pca_result
+        # 9 values
+        normals, surfvar, spacing, curvature, anisotropy, planarity, principal_dir1, principal_dir2, principal_curv = pca_result
     else:
-        normals, planarity, spacing, curvature = pca_result
+        # 6 values
+        normals, surfvar, spacing, curvature, anisotropy, planarity = pca_result
     
-    # ========================================================================
-    # Step 2: Combined Surface Metric (planarity + spacing)
-    # ========================================================================
-    # Normalize using percentile-based robust scaling (avoid collapse)
-    plan_p05, plan_p95 = robust_quantile_range(planarity, lower=0.05, upper=0.95)
-    plan_norm = ((planarity - plan_p05) / (plan_p95 - plan_p05 + 1e-8)).clamp(0.0, 1.0)
+    # Store mean_nn_dist for later use
+    mean_nn_dist = spacing.mean()
     
-    spacing_p05, spacing_p95 = robust_quantile_range(spacing, lower=0.05, upper=0.95)
-    spacing_norm = ((spacing - spacing_p05) / (spacing_p95 - spacing_p05 + 1e-8)).clamp(0.0, 1.0)
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 1.5: Anti-Grid De-biasing (OPTIONAL)
+    # ════════════════════════════════════════════════════════════════════════
+    anti_grid_enabled = cfg.get("anti_grid", {}).get("enabled", False)
     
-    # Combined surface metric (lower = more surface-like)
-    # - Low planarity (flat) → surface
-    # - High spacing (open side) → surface
-    use_spacing = bool(cfg.get("use_spacing_score", True))
-    spacing_weight = float(cfg.get("spacing_weight", 0.5))  # 0.0-1.0
-    
-    if use_spacing:
-        # Combined: weighted sum (lower = better surface)
-        surface_metric = (1.0 - spacing_weight) * plan_norm + spacing_weight * (1.0 - spacing_norm)
-    else:
-        # Planarity only
-        surface_metric = plan_norm
-    
-    # ========================================================================
-    # Step 3: Adaptive Threshold (percentile + absolute bound)
-    # ========================================================================
-    # Percentile threshold: select top N%
-    q = percentile / 100.0  # e.g., 20% → q=0.2 (20th percentile)
-    percentile_thr = soft_quantile(surface_metric, q, tau=0.01)
-    
-    # Absolute threshold: only select if surface-like enough
-    # Surface metric range: [0, 1], where 0 = perfect surface, 1 = perfect interior
-    # Use adaptive bound: mean - k*std (points significantly below average)
-    metric_mean = surface_metric.mean()
-    metric_std = surface_metric.std()
-    n_sigma = float(cfg.get("surface_n_sigma", 1.0))  # How many std below mean
-    absolute_thr = metric_mean - n_sigma * metric_std
-    
-    # Soft minimum: use stricter threshold (lower value)
-    # If absolute_thr < percentile_thr: use absolute (fewer selections, surface weak)
-    # If absolute_thr > percentile_thr: use percentile (more selections, surface strong)
-    beta_soft_min = float(cfg.get("threshold_soft_min_beta", 20.0))
-    # soft_min(a, b) = a - softplus(beta * (a - b)) / beta
-    raw_thr = percentile_thr - F.softplus(beta_soft_min * (percentile_thr - absolute_thr)) / beta_soft_min
-    
-    # EMA smoothing over time
-    ema_prev = state.get("ema_thr")
-    if ema_prev is None:
-        ema_thr = raw_thr
-    else:
-        ema_thr = ema_beta * ema_prev + (1.0 - ema_beta) * raw_thr
-    
-    # ========================================================================
-    # Step 4: Score Computation (Z-score on combined metric)
-    # ========================================================================
-    # Z-score standardization for score calculation (reuse mean/std from Step 3)
-    z_metric = (surface_metric - metric_mean) / (metric_std + 1e-8)
-    
-    # Score: lower metric → higher score
-    base_score = torch.sigmoid(-z_metric / soft_tau)
-    
-    # Concentration (amplify differences)
-    if surface_power != 1.0:
-        score = torch.pow(base_score, surface_power)
-    else:
-        score = base_score
-    
-    # ========================================================================
-    # Step 5: Threshold-based Selection (hard mask with soft gradient)
-    # ========================================================================
-    # Hard mask (forward pass) - uses combined metric
-    mask_hard = (surface_metric < ema_thr).float()
-    
-    # Soft mask (backward pass) - differentiable
-    mask_soft = torch.sigmoid(-(surface_metric - ema_thr) / threshold_tau)
-    
-    # Straight-Through Estimator: forward hard, backward soft
-    mask = mask_hard + mask_soft - mask_soft.detach()
-    # Forward: exactly 0 or 1 (hard selection)
-    # Backward: smooth gradients (differentiable)
-    
-    # ========================================================================
-    # Step 5: Probability Distribution
-    # ========================================================================
-    # Score-weighted probability (only within mask)
-    p_raw = score * mask  # Hard mask: only selected get non-zero
-    p_raw = p_raw / (p_raw.sum() + 1e-8)
-    
-    # 🔥 Uniformization (flatten distribution within selected points)
-    use_uniformize = bool(cfg.get("uniformize_enabled", True))
-    if use_uniformize:
-        # Use hard mask for uniformization (clear inside/outside boundary)
-        # But p_raw already has mask applied (from score * mask), so just flatten it
-        p_flat = _uniformize_within_mask(
-            p_raw,
-            mask=mask_hard,  # Hard mask for clear inside/outside
-            target_ratio=float(cfg.get("uniformize_target_ratio", 1.05)),
-            alpha_max=float(cfg.get("uniformize_alpha_max", 50.0)),
-            beta_clamp=float(cfg.get("uniformize_beta", 40.0)),
-            eps=1e-8
+    if anti_grid_enabled:
+        # Compute gridness from neighbor directions
+        neighbor_vec = x[idx] - x.unsqueeze(1)  # (N, k, 3)
+        gridness = compute_gridness(neighbor_vec, num_bins=48)
+        
+        # De-bias parameters
+        alpha_grid = float(cfg.get("anti_grid", {}).get("alpha_grid", 0.5))
+        beta_grid = float(cfg.get("anti_grid", {}).get("beta_grid", 0.5))
+        gamma_conf = float(cfg.get("anti_grid", {}).get("gamma_conf", 1.2))
+        
+        # De-bias planarity and anisotropy
+        planarity_debias, anisotropy_debias = debias_planarity_anisotropy(
+            planarity, anisotropy, gridness, alpha_grid, beta_grid
         )
-        # Apply mask gradient (STE) to enable backward pass
-        surf_prob = mask * p_flat / (mask * p_flat).sum().clamp(min=1e-8)
+        
+        # Compute confidence gating
+        conf = compute_confidence_from_gridness(gridness, gamma_conf, min_conf=0.2)
+        
+        # Use de-biased values
+        planarity = planarity_debias
+        anisotropy = anisotropy_debias
     else:
-        surf_prob = p_raw
+        gridness = None
+        conf = torch.ones(N, device=device)  # No gating
     
-    # 🔥 DEBUG: Check how many have non-zero probability
-    with torch.no_grad():
-        n_nonzero = (surf_prob > 0).sum().item()
-        if cfg.get("debug", {}).get("verbose", True):
-            print(f"  [DEBUG] Non-zero probabilities: {n_nonzero} / {len(surf_prob)}")
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 2: Surface Probability from Planarity (Z-score + Auto-Calibrated Sigmoid)
+    # ════════════════════════════════════════════════════════════════════════
+    # Z-score normalization: z_s = (s - μ_s)/σ_s
+    s = planarity  # Alias for clarity (now de-biased if anti_grid enabled)
+    s_mean = s.mean()
+    s_std = torch.clamp(s.std(), min=1e-6)  # Stability floor (1e-6 as in snippet)
+    z_s = (s - s_mean) / s_std
     
-    # ========================================================================
-    # Statistics & Logging
-    # ========================================================================
-    with torch.no_grad():
-        # Hard threshold for counting (statistics only)
-        surface_mask = (surface_metric < ema_thr)
-        n_surface = int(surface_mask.sum().item())
-        surface_frac = n_surface / x.shape[0]
+    # 🔥 FIX 1: Auto-calibrate τ with EMA hysteresis (prevent frame jitter)
+    if tau is None:
+        p_target_val = p_target  # e.g., 0.80
+        tau_now = torch.quantile(z_s.detach(), 1.0 - p_target_val).item()
         
-        thr_value = float(ema_thr.item()) if ema_thr.numel() == 1 else float(ema_thr.mean().item())
+        # EMA hysteresis: tau_ema = 0.9 * tau_ema + 0.1 * tau_now
+        tau_ema_key = "tau_ema_surface"
+        if tau_ema_key in state:
+            tau_ema = 0.9 * state[tau_ema_key] + 0.1 * tau_now
+        else:
+            tau_ema = tau_now  # First frame: use current value
         
-        if n_surface > 0:
-            probs_selected = surf_prob[surface_mask]
-            prob_min = float(probs_selected.min().item())
-            prob_max = float(probs_selected.max().item())
-            prob_ratio = prob_max / (prob_min + 1e-9)
-            
-            # Additional stats
-            metric_selected = surface_metric[surface_mask]
-            metric_selected_mean = float(metric_selected.mean().item())
-            metric_selected_std = float(metric_selected.std().item())
-        else:
-            prob_min = prob_max = prob_ratio = 0.0
-            metric_selected_mean = metric_selected_std = 0.0
+        state[tau_ema_key] = tau_ema
+        tau = tau_ema
+    else:
+        # Fixed tau (no EMA)
+        tau = float(tau)
     
-    if cfg.get("debug", {}).get("verbose", True):
-        print(f"\n  === Surface Detection (Combined Metric: Planarity + Spacing) ===")
-        print(f"  Input: {x.shape[0]} points")
-        print(f"  Target: ~Top {percentile:.1f}% (adaptive, may select fewer)")
-        print(f"  ")
-        print(f"  Surface Metric (lower = more surface-like):")
-        print(f"    Range: [{float(surface_metric.min().detach()):.4f}, {float(surface_metric.max().detach()):.4f}]")
-        print(f"    Mean ± Std: {float(metric_mean.detach()):.4f} ± {float(metric_std.detach()):.4f}")
-        print(f"  ")
-        print(f"  Threshold Selection:")
-        print(f"    Percentile ({percentile:.0f}%): {float(percentile_thr.detach()):.6f}")
-        print(f"    Absolute (μ-{n_sigma:.1f}σ): {float(absolute_thr.detach()):.6f}")
-        print(f"    Final (EMA): {thr_value:.6f}")
-        print(f"    → Selected: {n_surface} points ({100*surface_frac:.1f}%)")
-        if n_surface > 0:
-            print(f"    → Metric: {metric_selected_mean:.4f} ± {metric_selected_std:.4f}")
-        print(f"  ")
-        print(f"  Surface probability:")
-        print(f"    Mean: {surf_prob.mean():.6f}")
-        print(f"    Std: {surf_prob.std():.6f}")
-        print(f"    Range: [{prob_min:.4e}, {prob_max:.4e}]")
-        print(f"    Ratio (max/min): {prob_ratio:.2f}x")
-        print(f"  ")
-        print(f"  Parameters:")
-        print(f"    soft_tau: {soft_tau:.3f} (score sharpness)")
-        print(f"    surface_power: {surface_power:.1f} (concentration)")
-        print(f"    threshold_tau: {threshold_tau:.3f} (mask sharpness)")
-        if use_spacing:
-            print(f"    spacing_weight: {spacing_weight:.2f} (planarity vs spacing)")
-            print(f"    → Combined metric = {1-spacing_weight:.2f}*planarity + {spacing_weight:.2f}*(1-spacing)")
-        else:
-            print(f"    spacing: disabled (planarity only)")
-        if use_uniformize:
-            print(f"    uniformize: enabled (target ratio: {cfg.get('uniformize_target_ratio', 1.05):.2f})")
-        else:
-            print(f"    uniformize: disabled")
-        print(f"  ")
-        print(f"  ✓ Fully differentiable (combined metric prevents interior selection)")
-        print(f"  ================================================================\n")
+    # Surface probability: p_surf = sigmoid((z_s - τ)/γ)
+    # HIGH planarity → HIGH z_s → HIGH p_surf
+    p_surf_pre_boost = torch.sigmoid((z_s - tau) / gamma)
     
-    # Update state (detach to prevent gradient accumulation across passes)
-    state["ema_thr"] = ema_thr.detach()
-    state["n_surface_anchors"] = int(n_surface)
-    state["surface_fraction"] = float(surface_frac)
+    # 🔥 Store z_s for visualization
+    z_s_stored = z_s.clone()
     
-    # Build returns
-    base_returns = (surf_prob, normals, spacing, state)
+    # 🔥 DEBUG: Check calibration BEFORE boost
+    if verbose:
+        p_above_50_pre = (p_surf_pre_boost > 0.5).float().mean().item()
+        print(f"  [DEBUG] p_surf (pre-boost): mean={p_surf_pre_boost.mean():.3f}, >0.5={p_above_50_pre:.1%}")
+        print(f"          tau={tau:.3f}, gamma={gamma:.2f}, z_s range=[{z_s.min():.2f}, {z_s.max():.2f}]")
+        
+        # Check if sigmoid is saturated
+        sigmoid_input = (z_s - tau) / gamma
+        saturated_low = (sigmoid_input < -3).float().mean().item()
+        saturated_high = (sigmoid_input > 3).float().mean().item()
+        print(f"          Sigmoid saturation: low={saturated_low:.1%}, high={saturated_high:.1%}")
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # Step 3: Curvature Boost (Percentile-Gated, Edge/Feature Enhancement)
+    # ════════════════════════════════════════════════════════════════════════
+    # 🔥 UPDATED: Use quantile (more accurate than sorted indexing)
+    # ρ̂ ← relu(ρ - P90(ρ)) / (P99 - P90)
+    rho = anisotropy  # Alias
+    p90 = torch.quantile(rho.detach(), 0.90)
+    p99 = torch.quantile(rho.detach(), 0.99)
+    
+    # Gated normalization: only boost top percentile
+    rho_gate = torch.clamp((rho - p90) / (p99 - p90 + eps), 0.0, 1.0)
+    
+    # Store rho_gate for visualization (top 10% only >0)
+    rho_gate_stored = rho_gate.clone()
+    
+    # Boost: p_surf ← clamp(p_surf_pre_boost + w_curv·ρ̂, 0, 1)
+    # w_curv=0.4~0.6 recommended (default 0.5)
+    p_surf = torch.clamp(p_surf_pre_boost + w_curv * rho_gate, 0.0, 1.0)
+    
+    # 🔥 Apply confidence gating (suppress grid regions)
+    if anti_grid_enabled:
+        p_surf = p_surf * conf  # Suppress low-confidence (high gridness) regions
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # Output: p_surf_raw only (π will be computed in pipeline after STAGE-2)
+    # ════════════════════════════════════════════════════════════════════════
+    # p_surf_raw ∈ [0,1] → Stage-2 (density weighting), Σ/opacity scale
+    p_surf_raw = torch.clamp(p_surf, 0.0, 1.0)
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # Logging & State Updates
+    # ════════════════════════════════════════════════════════════════════════
+    # Get verbose flag (from parameter or config)
+    if verbose is False:
+        verbose = cfg.get("debug", {}).get("verbose", False)
+    
+    if verbose:
+        p_surf_mean = p_surf_raw.mean().item()
+        p_surf_above_50 = (p_surf_raw > 0.5).float().mean().item()
+        
+        print(f"\n  ═══ Surface Detection (p_surf_raw only) ═══")
+        print(f"  Input: N = {N:,} points")
+        print(f"  Adaptive k-NN:")
+        print(f"    k = {k_adaptive} (base={k0}, min={k_min})")
+        print(f"    ŝ (planarity mean) = {s_hat:.4f}")
+        print(f"  ")
+        print(f"  PCA Metrics:")
+        print(f"    Planarity s:  [{planarity.min():.4f}, {planarity.max():.4f}], mean={s_mean:.4f}±{s_std:.4f}")
+        p90_log = torch.quantile(anisotropy.detach(), 0.90).item()
+        p99_log = torch.quantile(anisotropy.detach(), 0.99).item()
+        print(f"    Anisotropy ρ: [{anisotropy.min():.4f}, {anisotropy.max():.4f}], P90={p90_log:.4f}, P99={p99_log:.4f}")
+        print(f"  ")
+        print(f"  Surface Probability (p_surf_raw):")
+        print(f"    Formula: clamp(sigmoid((z_s - τ)/{gamma:.2f}) + {w_curv:.2f}·ρ̂, 0, 1)")
+        print(f"    mean: {p_surf_mean:.4f}, >0.5: {p_surf_above_50:.2%}")
+        print(f"    → Will be used in: Stage-2 (π computation), Σ/opacity scaling")
+        print(f"  ")
+        print(f"  ✓ Fully differentiable (no hard thresholds)")
+        print(f"  ════════════════════════════════════════════════\n")
+    
+    # Update state
+    state["last_p_surf_raw"] = p_surf_raw.detach()
+    
+    if anti_grid_enabled:
+        state["gridness"] = gridness.detach()
+        state["confidence"] = conf.detach()
+    
+    # ════════════════════════════════════════════════════════════════════════
+    # Return Results (p_surf_raw + intermediate values for visualization)
+    # ════════════════════════════════════════════════════════════════════════
+    # Returns:
+    #   - p_surf_raw: (N,) surface probability [0,1] → Stage-2, opacity
+    #   - normals, spacing, state, planarity, anisotropy
+    #   - z_s: (N,) z-score of planarity
+    #   - rho_gate: (N,) curvature boost mask [0,1] (top 10% only >0)
+    base_returns = (p_surf_raw, normals, spacing, state, planarity, anisotropy, z_s_stored, rho_gate_stored)
     
     if return_curvature_dirs:
         base_returns = base_returns + (principal_dir1, principal_dir2, principal_curv)
-    
-    if return_score:
-        base_returns = base_returns + (score,)
     
     return base_returns
 
 
 __all__ = [
     "detect_surface",
-    "soft_quantile",
 ]
