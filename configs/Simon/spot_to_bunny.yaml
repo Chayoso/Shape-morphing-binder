@@ -64,8 +64,8 @@ optimization:
 
     # Target covariance (curvature-based, target pass only)
     curvature_sigma:
-      sigma_n0: 0.032
-      sigma_t0: 0.030
+      sigma_n0: 0.1
+      sigma_t0: 0.1
       a: 3.0
       b: 0.6
       u: 0.5

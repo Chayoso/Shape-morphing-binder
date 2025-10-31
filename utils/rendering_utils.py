@@ -100,7 +100,9 @@ def upsample_target(
         Tuple of (mu_tgt, cov_tgt, nrm_tgt, result_tgt)
     """
     # 🔥 Set episode=-1 for target mesh (initial frame)
-    rs["episode"] = -1
+    if "covariance" not in rs:
+        rs["covariance"] = {}
+    rs["covariance"]["episode"] = -1
     
     result_tgt = upsample(
         x_tgt, F_tgt,

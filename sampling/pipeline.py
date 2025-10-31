@@ -876,15 +876,15 @@ def upsample(
     # CRITICAL: Different covariance construction for target vs predicted
     # Episode convention:
     #   -1: Initial target render (before training starts)
-    #    0: First episode, still uses target mesh for initialization
-    #   >0: Training episodes with predicted/deformed meshes
+    #    0: First training episode (ep000 folder)
+    #   ≥1: Subsequent training episodes (ep001, ep002, ...)
     #
     # Covariance strategy:
-    #   episode ≤ 0 → Target: curvature-based (geometry/curvature_covariance.py)
-    #   episode > 0 → Predicted: deformation-based (geometry/deformation_covariance.py)
+    #   episode < 0 (=-1) → Target: curvature-based (geometry/curvature_covariance.py)
+    #   episode ≥ 0       → Predicted: deformation-based (geometry/deformation_covariance.py)
     
     episode = cov_cfg.get("episode", -1)
-    is_target_mesh = (episode <= 0)  # True for episode -1 and 0
+    is_target_mesh = (episode < 0)  # True only for episode -1 (target)
     
     if is_target_mesh:
         # Target mesh: Use curvature-based covariance

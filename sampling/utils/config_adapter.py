@@ -198,6 +198,10 @@ def _map_covariance(adapted: Dict, upsample: Dict) -> None:
     # Curvature-based covariance
     if 'curvature_cov' in cov:
         adapted_cov['curvature_cov'] = cov['curvature_cov']
+    
+    # Curvature sigma parameters
+    if 'curvature_sigma' in cov:
+        adapted_cov['curvature_sigma'] = cov['curvature_sigma']
 
 
 def _map_performance(adapted: Dict, upsample: Dict) -> None:

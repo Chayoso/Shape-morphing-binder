@@ -89,7 +89,7 @@ def apply_episode_schedule(cfg: Dict, episode: int) -> Dict:
     
     Args:
         cfg: Base configuration
-        episode: Episode number (0-indexed)
+        episode: Episode number (0-indexed, will be converted to 1-indexed for matching)
     
     Returns:
         Modified configuration with episode overrides
@@ -98,7 +98,7 @@ def apply_episode_schedule(cfg: Dict, episode: int) -> Dict:
     if not schedule:
         return cfg
     
-    # Find matching schedule entry
+    # Find matching schedule entry (0-indexed)
     matched_key = None
     for key in schedule.keys():
         key_str = str(key)
@@ -126,7 +126,7 @@ def apply_episode_schedule(cfg: Dict, episode: int) -> Dict:
     if matched_key is not None:
         cfg_out = _safe_deepcopy(cfg)
         overrides = schedule[matched_key]
-        print(f"\n[Episode Schedule] Applying overrides for episode {episode} (key: {matched_key})")
+        print(f"\n[Episode Schedule] Applying overrides for ep{episode:03d} (key: {matched_key})")
         _deep_update(cfg_out, overrides)
         return cfg_out
     
@@ -285,7 +285,20 @@ def main():
         rs_ep.update(adapted_cfg_ep)
         
         # 🔥 Pass episode number to covariance construction
-        rs_ep["episode"] = ep
+        if "covariance" not in rs_ep:
+            rs_ep["covariance"] = {}
+        rs_ep["covariance"]["episode"] = ep
+        
+        # Debug: Show covariance config for this episode
+        if "covariance" in rs_ep:
+            cov_ep = rs_ep["covariance"]
+            print(f"\n[Episode {ep}] Covariance config:")
+            print(f"  sigma0: {cov_ep.get('sigma0', 'NOT SET')}")
+            if "curvature_sigma" in cov_ep:
+                cs_ep = cov_ep["curvature_sigma"]
+                print(f"  curvature_sigma (target): σ_n0={cs_ep.get('sigma_n0'):.3f}, σ_t0={cs_ep.get('sigma_t0'):.3f}")
+            else:
+                print(f"  curvature_sigma: NOT SET (will use default)")
         
         # Run episode
         if enable_e2e and loss_manager is not None and target_render is not None:
@@ -296,10 +309,10 @@ def main():
             campos = view_params.get('campos')
             
             # Create episode-specific output directory
-            ep_dir = out_dir / f"ep{ep+1:03d}"
+            ep_dir = out_dir / f"ep{ep:03d}"
             ep_dir.mkdir(parents=True, exist_ok=True)
             
-            print(f"\n[DEBUG] Starting E2E episode {ep+1} with {num_passes} passes")
+            print(f"\n[DEBUG] Starting E2E episode {ep} with {num_passes} passes")
             ema_state, episode_losses = run_e2e_episode(
                 ep, cg, opt, num_timesteps, control_stride, num_passes,
                 rs_ep, ema_state, renderer, loss_manager, target_render,
@@ -308,16 +321,16 @@ def main():
                 cov_module=None,
                 cov_optimizer=None
             )
-            print(f"[DEBUG] E2E episode {ep+1} completed")
+            print(f"[DEBUG] E2E episode {ep} completed")
             
             # Print episode summary
-            print(f"\n[Summary] Episode {ep+1} losses:")
+            print(f"\n[Summary] Episode {ep} losses:")
             for key, val in episode_losses.items():
                 if isinstance(val, (int, float)):
                     print(f"  {key}: {val:.6f}")
         else:
             # Physics-only mode
-            print(f"\n[Episode {ep+1}] Running standard physics optimization...")
+            print(f"\n[Episode {ep}] Running standard physics optimization...")
             print(f"[DEBUG] Physics-only mode (enable_e2e={enable_e2e}, loss_manager={loss_manager is not None}, target_render={target_render is not None})")
             opt.current_episodes = ep
             cg.run_optimization(opt)

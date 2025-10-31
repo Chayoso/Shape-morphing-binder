@@ -181,8 +181,8 @@ upsample:
 
     # Target covariance (curvature-based, episode ≤ 0 only)
     curvature_sigma:
-      sigma_n0: 0.1       # Base normal scale
-      sigma_t0: 0.1       # Base tangent scale
+      sigma_n0: 0.02        # Base normal scale (thin in normal direction)
+      sigma_t0: 0.04        # Base tangent scale (wider in tangent)
       a: 3.0                # Normal curvature sensitivity
       b: 0.6                # Tangent curvature sensitivity
       u: 0.5                # Tangent anisotropy factor
@@ -263,7 +263,7 @@ render:
 # EPISODE SCHEDULING (Episode-specific parameter override)
 # ════════════════════════════════════════════════════════════════════════════════
 episode_schedule:
-  1-5:
+  0-4:
     upsample:
       sampling:
         M: 500000
@@ -272,13 +272,13 @@ episode_schedule:
         iters: 15
       normal_smooth:
         iters: 8
-    covariance:
-      sigma0: 0.10
-      density:
-        scale_kappa: 0.35
-        scale_max_up: 0.50
+      covariance:
+        sigma0: 0.10
+        density:
+          scale_kappa: 0.35
+          scale_max_up: 0.50
 
-  6-15:
+  5-14:
     upsample:
       sampling:
         M: 500000
@@ -287,13 +287,13 @@ episode_schedule:
         iters: 10
       normal_smooth:
         iters: 6
-    covariance:
-      sigma0: 0.08
-      density:
-        scale_kappa: 0.35
-        scale_max_up: 0.50
+      covariance:
+        sigma0: 0.08
+        density:
+          scale_kappa: 0.35
+          scale_max_up: 0.50
 
-  16+:
+  15+:
     upsample:
       sampling:
         alpha: 0.12
@@ -301,7 +301,7 @@ episode_schedule:
         iters: 8
       normal_smooth:
         iters: 5
-    covariance:
-      sigma0: 0.08
-      density:
-        scale_kappa: 0.30
+      covariance:
+        sigma0: 0.08
+        density:
+          scale_kappa: 0.30

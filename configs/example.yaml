@@ -112,7 +112,7 @@ upsample:
 
   sampling:
     use_anisotropic_jitter: true
-    M: 50000
+    M: 150000
 
     # balance
     keep_ratio: 0.70
@@ -170,7 +170,7 @@ upsample:
     lambda_smooth: 0.95
 
   covariance:
-    sigma0: 0.10
+    sigma0: 0.50
     voxel_size: 0.75
     kappa_max: 40.0
     k_F: 32
@@ -181,8 +181,8 @@ upsample:
 
     # Target covariance (curvature-based, episode ≤ 0 only)
     curvature_sigma:
-      sigma_n0: 0.1       # Base normal scale
-      sigma_t0: 0.1       # Base tangent scale
+      sigma_n0: 0.03        # Base normal scale (thin in normal direction)
+      sigma_t0: 0.06        # Base tangent scale (wider in tangent)
       a: 3.0                # Normal curvature sensitivity
       b: 0.6                # Tangent curvature sensitivity
       u: 0.5                # Tangent anisotropy factor
@@ -258,50 +258,3 @@ render:
     diffuse: 0.85
     specular: 0.10
     shininess: 32
-
-# ════════════════════════════════════════════════════════════════════════════════
-# EPISODE SCHEDULING (Episode-specific parameter override)
-# ════════════════════════════════════════════════════════════════════════════════
-episode_schedule:
-  1-5:
-    upsample:
-      sampling:
-        M: 50000
-        alpha: 0.25
-      taubin:
-        iters: 15
-      normal_smooth:
-        iters: 8
-    covariance:
-      sigma0: 0.10
-      density:
-        scale_kappa: 0.35
-        scale_max_up: 0.50
-
-  6-15:
-    upsample:
-      sampling:
-        M: 50000
-        alpha: 0.18
-      taubin:
-        iters: 10
-      normal_smooth:
-        iters: 6
-    covariance:
-      sigma0: 0.08
-      density:
-        scale_kappa: 0.35
-        scale_max_up: 0.50
-
-  16+:
-    upsample:
-      sampling:
-        alpha: 0.12
-      taubin:
-        iters: 8
-      normal_smooth:
-        iters: 5
-    covariance:
-      sigma0: 0.08
-      density:
-        scale_kappa: 0.30
