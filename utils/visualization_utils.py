@@ -196,6 +196,12 @@ def visualize_episode(
     mu_np = mu.detach().cpu().numpy() if hasattr(mu, 'detach') else np.asarray(mu)
     cov_np = cov.detach().cpu().numpy() if hasattr(cov, 'detach') else np.asarray(cov)
     
+    # Save stage progression if available
+    if "stage_outputs" in result:
+        from sampling.io.export import save_stage_progression
+        # Pass episode=-1 since ep_dir is already the episode directory
+        save_stage_progression(ep_dir, -1, result["stage_outputs"])
+    
     # Save data files
     save_episode_data(ep, ep_dir, mu_np, cov_np, particle_color)
     

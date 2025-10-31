@@ -914,7 +914,7 @@ def upsample(
             # Convert to numpy for curvature_covariance function
             def to_numpy(x):
                 if isinstance(x, torch.Tensor):
-                    return x.cpu().numpy()
+                    return x.detach().cpu().numpy()
                 return x
             
             planarity_pts_np = to_numpy(planarity_pts)
