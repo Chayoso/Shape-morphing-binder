@@ -1,18 +1,18 @@
 # Order
 jobs:
-  - config: configs/sphere_to_bob.yaml
+  - config: configs/Chayo/sphere_to_bob.yaml
     sentinel: output/bob/ep049/ep049_render.png 
     extra_args: ["--e2e", "--png"] 
 
-  - config: configs/sphere_to_spot.yaml
+  - config: configs/Chayo/sphere_to_spot.yaml
     sentinel: output/spot/ep049/ep049_render.png  
     extra_args: ["--e2e", "--png"]  
 
-  - config: configs/sphere_to_bunny.yaml
+  - config: configs/Chayo/sphere_to_bunny.yaml
     sentinel: output/bunny/ep049/ep049_render.png  
     extra_args: ["--e2e", "--png"]  
 
-  - config: configs/sphere_to_bebe.yaml
+  - config: configs/Chayo/sphere_to_bebe.yaml
     sentinel: output/bebe/ep049/ep049_render.png 
     extra_args: ["--e2e", "--png"] 
 

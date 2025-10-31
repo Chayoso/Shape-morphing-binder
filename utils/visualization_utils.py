@@ -174,7 +174,8 @@ def visualize_episode(
     from utils.rendering_utils import upsample_current_state, prepare_rendering_inputs
     from utils.io_utils import save_episode_data, save_episode_summary
     
-    ep_dir = out_dir / f"ep{ep:03d}"
+    # out_dir is already the episode directory (created by run.py)
+    ep_dir = out_dir
     ep_dir.mkdir(parents=True, exist_ok=True)
     
     print(f"[Visualize] Episode {ep+1}")
@@ -182,9 +183,9 @@ def visualize_episode(
     # Get final state
     pc = cg.get_point_cloud(num_timesteps - 1)
     
-    # Upsample
+    # Upsample (export stages for visualization)
     mu, cov, result = upsample_current_state(
-        pc, rs_full, ema_state, seed, cov_module
+        pc, rs_full, ema_state, seed, cov_module, export_stages=True
     )
     
     if mu is None:

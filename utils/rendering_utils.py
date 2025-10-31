@@ -355,7 +355,8 @@ def upsample_current_state(
     rs_full: Dict,
     ema_state: Dict,
     seed: int,
-    cov_module=None
+    cov_module=None,
+    export_stages: bool = False
 ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Dict]:
     """
     Upsample current simulation state for differentiable rendering.
@@ -366,6 +367,7 @@ def upsample_current_state(
         ema_state: EMA state (updated in-place)
         seed: Random seed
         cov_module: Optional learnable covariance module
+        export_stages: Whether to export stage visualizations (default: False)
     
     Returns:
         Tuple of (mu, cov, result)
@@ -386,7 +388,8 @@ def upsample_current_state(
         state=ema_state,
         seed=seed,
         return_torch=True,
-        learnable_cov_module=cov_module
+        learnable_cov_module=cov_module,
+        export_stages=export_stages
     )
     
     mu = result["points"]

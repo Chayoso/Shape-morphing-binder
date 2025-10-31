@@ -59,6 +59,30 @@ def load_config(config_path: str) -> tuple:
     return cfg, config_path.parent
 
 
+def _safe_deepcopy(obj):
+    """
+    Deep copy that safely handles torch tensors by skipping them.
+    """
+    import copy
+    import torch
+    
+    if isinstance(obj, torch.Tensor):
+        # Skip tensors (they shouldn't be in config anyway)
+        return obj
+    elif isinstance(obj, dict):
+        return {k: _safe_deepcopy(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_safe_deepcopy(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(_safe_deepcopy(item) for item in obj)
+    else:
+        try:
+            return copy.deepcopy(obj)
+        except:
+            # If deepcopy fails, return as-is
+            return obj
+
+
 def apply_episode_schedule(cfg: Dict, episode: int) -> Dict:
     """
     Apply episode-specific overrides from episode_schedule section.
@@ -70,8 +94,6 @@ def apply_episode_schedule(cfg: Dict, episode: int) -> Dict:
     Returns:
         Modified configuration with episode overrides
     """
-    import copy
-    
     schedule = cfg.get('episode_schedule', {})
     if not schedule:
         return cfg
@@ -102,7 +124,7 @@ def apply_episode_schedule(cfg: Dict, episode: int) -> Dict:
                 continue
     
     if matched_key is not None:
-        cfg_out = copy.deepcopy(cfg)
+        cfg_out = _safe_deepcopy(cfg)
         overrides = schedule[matched_key]
         print(f"\n[Episode Schedule] Applying overrides for episode {episode} (key: {matched_key})")
         _deep_update(cfg_out, overrides)

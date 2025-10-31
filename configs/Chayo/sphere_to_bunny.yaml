@@ -170,7 +170,7 @@ upsample:
     lambda_smooth: 0.95
 
   covariance:
-    sigma0: 0.12
+    sigma0: 0.10
     voxel_size: 0.75
     kappa_max: 40.0
     k_F: 32
@@ -181,8 +181,8 @@ upsample:
 
     # Target covariance (curvature-based, episode ≤ 0 only)
     curvature_sigma:
-      sigma_n0: 0.032       # Base normal scale
-      sigma_t0: 0.030       # Base tangent scale
+      sigma_n0: 0.1       # Base normal scale
+      sigma_t0: 0.1       # Base tangent scale
       a: 3.0                # Normal curvature sensitivity
       b: 0.6                # Tangent curvature sensitivity
       u: 0.5                # Tangent anisotropy factor
@@ -273,7 +273,7 @@ episode_schedule:
       normal_smooth:
         iters: 8
     covariance:
-      sigma0: 0.12
+      sigma0: 0.10
       density:
         scale_kappa: 0.35
         scale_max_up: 0.50
@@ -288,7 +288,7 @@ episode_schedule:
       normal_smooth:
         iters: 6
     covariance:
-      sigma0: 0.10
+      sigma0: 0.08
       density:
         scale_kappa: 0.35
         scale_max_up: 0.50
@@ -302,6 +302,6 @@ episode_schedule:
       normal_smooth:
         iters: 5
     covariance:
-      sigma0: 0.10
+      sigma0: 0.08
       density:
         scale_kappa: 0.30

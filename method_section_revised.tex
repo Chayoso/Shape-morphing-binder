@@ -1,0 +1,225 @@
+\section{Method}
+\label{sec:method}
+
+% ============================================================================
+\subsection{Overview}
+\label{sec:overview}
+% ============================================================================
+
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=\textwidth]{figs/pipeline.png}
+    \caption{The full PhysMorph-GS bidirectional pipeline. (1) A differentiable MPM simulator generates sparse particle states 
+    $(\mathbf{x}, \mathbf{F})$ and $\nabla L_{\text{phys}}$. (2) Our surface-aware upsampling bridge dynamically constructs covariances based on training stage: 
+    a curvature-based target $\Sigma_\star$ (episode $\leq 0$) or a deformation-aware $\Sigma_{\text{render}}$ (episode $> 0$). (3) The 3DGS renderer uses these covariances for rendering, while $L_{\text{cov}}$ supervises alignment during the initial target pass. The resulting $\nabla L_{\text{render}}$ and $\nabla L_{\text{phys}}$ are unified via the adjoint method to update physics controls, closing the loop.}
+    \label{fig:overview}
+\end{figure*}
+
+    As introduced, our goal is to optimize a physics-based morphing process using rendering feedback. Our pipeline (Fig.~\ref{fig:overview}) couples a differentiable MPM simulator (\S\ref{sec:mpm}) with a 3DGS renderer via a \emph{surface-aware upsampling bridge} (\S\ref{sec:upsampling}) and a novel \emph{adaptive covariance construction} strategy (\S\ref{sec:covariance}). This bridge differentially maps sparse particle states $(\mathbf{x}, \mathbf{F})$ to dense Gaussian primitives $(\boldsymbol{\mu}, \Sigma)$, allowing rendering gradients ($\nabla L_{\text{render}}$) to flow back via the adjoint method and update physics controls. To preserve physical laws, upsampled points are \emph{render-only virtual samples}; mass conservation is maintained only at the original anchor particles.
+
+% ============================================================================
+\subsection{Differentiable MPM with Render Feedback}
+\label{sec:mpm}
+% ============================================================================
+
+    We employ the Material Point Method~\cite{stomakhin2013material,jiang2016material}, a hybrid Eulerian--Lagrangian scheme handling large deformations and topology changes. Each timestep performs particle-to-grid (P2G) transfer, grid velocity update, and grid-to-particle (G2P) transfer.
+
+\paragraph{Forward Dynamics.}
+    P2G uses cubic B-spline weights with APIC affine momentum correction~\cite{jiang2016material}. Grid velocities are updated via explicit integration with fixed corotated elasticity, computing stress from deformation gradient $\mathbf{F}$ via polar decomposition $\mathbf{F}=\mathbf{R}\mathbf{S}$~\cite{stomakhin2013material}. G2P updates particle positions and accumulates local deformation history in $\mathbf{F}$. The corresponding first Piola-Kirchhoff stress is derived by the co-rotated model \cite{2012-FixedCoratedElasticty}
+    \begin{equation}
+    \label{eq:fc_stress}
+    \mathbf{P}(\mathbf{F})=2\mu\,(\mathbf{F}-\mathbf{R})+\lambda\,(J-1)\,J\,\mathbf{F}^{-\top},
+    \end{equation}
+    where $J{=}\max(\det(\mathbf{F}), \epsilon)$ with $\epsilon{=}10^{-6}$ to prevent instabilities from volume collapse, and $\mathbf{R}$ is the rotation from polar decomposition. Rest volumes $V_p^0$ are computed from initial density via $V_p^0 = m_p/\rho_p$, where $\rho_p$ is estimated by splatting particle masses to the grid and interpolating back.
+    
+    The entire P2G--Grid--G2P sequence is differentiable, enabling gradient flow from rendering losses back through the simulation via the adjoint method.
+        
+\paragraph{Control Deformation Gradients.}
+    Rather than learning external forces or velocities, we optimize the simulation by treating \emph{deformation gradients as direct control variables}. At control timesteps $t \in \{0, s, 2s, \ldots\}$ (stride $s$), we apply additive corrections:
+    \begin{equation}
+    \label{eq:control_F}
+    \mathbf{F}_{\text{phys}}^i(t) = \mathbf{F}^i(t) + \mathbf{F}_c^{i,t},
+    \end{equation}
+    where $\mathbf{F}_c^{i,t}$ are optimized per-particle $3{\times}3$ matrices via Adam~\cite{kingma2017adammethodstochasticoptimization} and Lion~\cite{chen2023symbolicdiscoveryoptimizationalgorithms} optimizers. The corrected $\mathbf{F}_{\text{phys}}$ is used for:
+    (i)~stress computation (Eq.~\ref{eq:fc_stress}), 
+    (ii)~deformation evolution in G2P, and 
+    (iii)~covariance construction after upsampling. 
+    Between control timesteps, $\mathbf{F}_c$ is reset to zero; $\mathbf{F}$ evolves purely from physics, preserving causality. This direct control enables fast convergence with fewer parameters than force-based approaches.
+    
+\paragraph{Physics Loss.}
+    We adopt a correspondence-free log-grid mass loss~\cite{11088224} that compares current and target mass distributions. The log-space formulation provides scale invariance and sensitivity to small discrepancies:
+    \begin{equation}
+    \begin{gathered}
+    L_{\text{phys}} = \sum_{ijk} \frac{1}{2}\left[\ln(s \cdot m_c^{ijk}+1+\epsilon) - \ln(m_t^{ijk}+1+\epsilon)\right]^2, \\
+    \text{where}\quad s = \frac{\sum m_t}{\sum m_c}.
+    \end{gathered}
+    \end{equation}
+    
+\paragraph{Render-conditioned control update.}
+    Direct modification of particle states $(\mathbf{x}, \mathbf{F})$ would violate mass conservation and causal ordering. Instead, we accumulate rendering gradients in \emph{control space} via the MPM adjoint:
+    \begin{equation}
+    \label{eq:control_injection}
+    \frac{\partial L_{\text{total}}}{\partial \mathbf{F}_c^{i,t}}
+    = \frac{\partial L_{\text{phys}}}{\partial \mathbf{F}_c^{i,t}}
+    + \sum_{k>t} \mathcal{T}_k\!\left(\frac{\partial L_{\text{render}}}{\partial \mathbf{x}^i(k)}, 
+    \frac{\partial L_{\text{render}}}{\partial \mathbf{F}^i(k)}\right),
+    \end{equation}
+    where $\mathcal{T}_k$ backpropagates through the MPM dynamics. This indirect control enables pixel-level errors to guide physics while preserving momentum and mass accounting at anchor particles.
+    
+\begin{figure*}[t]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figs/upsampling_pipeline.png}
+    \caption{6-stage differentiable upsampling pipeline progressively transforms sparse MPM particles into dense surface Gaussians. Color encodes: 
+    (Stage 1) surface detection confidence, (Stage 2) anchor density, 
+    (Stage 3) importance weights, (Stage 4-5) smoothings, 
+    (Stage 6) adaptive covariance construction (curvature-based for target, deformation-based for predicted).}
+    \label{fig:upsampling}
+\end{figure*}
+
+% ============================================================================
+\subsection{Differentiable Upsampling Bridge}
+\label{sec:upsampling}
+% ============================================================================
+
+    Sparse MPM particles ($N{\sim}70$k) cannot directly model fine surface details required for high-quality rendering. We bridge this gap through a 6-stage differentiable upsampling pipeline (Fig.~\ref{fig:upsampling}) that produces dense Gaussian primitives ($M{\sim}500$k).
+    
+    \textbf{(1) Surface detection.} 
+    We perform weighted PCA on $k$-nearest neighborhoods to identify surface points via planarity analysis. Points with low planarity variance $\sigma_{\text{surf}} = \lambda_{\min}/(\lambda_0{+}\lambda_1{+}\lambda_2)$ receive high surface probability, which guides subsequent sampling. Additionally, we compute anisotropy $\rho = (\lambda_1 - \lambda_2)/(\lambda_0 + \epsilon)$ to capture local curvature characteristics.
+    
+    \textbf{(2) Density-based weighting.} 
+    We compute a differentiable density map $\rho_i$ via soft kernel aggregation over $k$-nearest neighbors, enabling importance sampling to focus on underrepresented regions. The density weight is normalized and clamped to a stable range $[0.25, 4.0]$ to prevent extreme sampling bias.
+    
+    \textbf{(3) Importance sampling.} 
+    We sample $M$ points from $N$ anchors using Gumbel--Softmax with temperature $\tau$, whose probabilities $\pi$ combine surface confidence (from Stage 1) and density bias (from Stage 2):
+    \begin{equation}
+    \pi \propto p_{\text{surf}}^\alpha \cdot w_{\text{density}}^\beta,
+    \end{equation}
+    where $\alpha=2.2$ and $\beta=0.7$ balance surface quality and spatial coverage. Straight-through estimation preserves differentiability. Sampled points are jittered in the local tangent space to avoid aliasing artifacts.
+    
+    \textbf{(4)-(5) Dual smoothing.} 
+    We apply shrinkage-free Taubin smoothing~\cite{taubin1995signal} to point positions with alternating Laplacian weights $(\lambda, \mu)$, constraining motion to the tangent space. Normals are smoothed separately using a spatial Laplacian with adaptive bandwidth, blended via EMA for temporal stability.
+    
+    \textbf{(6) Adaptive covariance construction.}
+    The final stage constructs Gaussian covariances $\Sigma$ adaptively based on the training episode (see~\S\ref{sec:covariance}). For the target mesh (episode $\leq 0$), we compute curvature-based covariances $\Sigma_\star$ from planarity and anisotropy. For predicted meshes (episode $> 0$), we smooth the F-field via a differentiable graph Laplacian and construct deformation-aware covariances $\Sigma_{\text{render}}$ from the smoothed $\tilde{F}=RS$.
+    
+All stages are differentiable, enabling end-to-end gradient flow from rendering losses to both upsampling parameters and physics controls. See supplementary for detailed formulations, ablations, and complexity analysis.
+
+% ============================================================================
+\subsection{Adaptive Covariance Construction for Shape Morphing}
+\label{sec:covariance}
+% ============================================================================
+
+    The crux of our method is constructing covariances $\Sigma$ that reflect geometry and remain render-optimal under large deformations. Unlike static 3DGS, our $\Sigma$ must adapt as the shape morphs. We achieve this through an \emph{episode-aware branching strategy} that dynamically selects between two complementary covariance formulations.
+
+% ----------------------------------------------------------------------------
+\subsubsection{Episode-Aware Covariance Branching}
+% ----------------------------------------------------------------------------
+
+    Training proceeds in episodes, each starting from the source shape and morphing toward the target. We use episode index to determine the covariance construction strategy:
+    
+    \paragraph{Target Pass (Episode $\leq 0$).}
+    Before physics optimization begins, we render the target mesh to establish a geometric reference. During this pass, we construct \emph{curvature-based target covariances} $\Sigma_\star$ that encode surface geometry via planarity and anisotropy (Stage 1 outputs):
+    \begin{equation}
+    \label{eq:sigma_target}
+    \Sigma_\star = \mathbf{R}_{\text{tan}} \cdot \text{diag}(\sigma_{\text{t1}}^2, \sigma_{\text{t2}}^2, \sigma_{\text{n}}^2) \cdot \mathbf{R}_{\text{tan}}^\top,
+    \end{equation}
+    where $\mathbf{R}_{\text{tan}}=[\mathbf{t}_1, \mathbf{t}_2, \mathbf{n}]$ is the local tangent frame. The scales adapt to curvature:
+    \begin{equation}
+    \label{eq:curvature_scales}
+    \begin{aligned}
+    \sigma_{\text{n}} &= \sigma_{\text{n0}} / (1 + a \cdot \hat{\kappa}), \\
+    \sigma_{\text{t1}} &= \sigma_{\text{t0}} \cdot (1 + b \cdot \hat{\kappa}), \\
+    \sigma_{\text{t2}} &= \sigma_{\text{t1}} \cdot (1 + u \cdot \hat{\rho}),
+    \end{aligned}
+    \end{equation}
+    where $\hat{\kappa} = \max(0, (s - \mu_s)/\sigma_s)$ is a normalized planarity proxy and $\hat{\rho} = \text{clamp}((\rho - P_{90}(\rho))/(P_{99}(\rho) - P_{90}(\rho)), 0, 1)$ captures anisotropic curvature. High planarity (flat regions) yields large, isotropic Gaussians; low planarity (sharp features) produces thin, tightly-constrained ones.
+    
+    \paragraph{Training Passes (Episode $> 0$).}
+    Once physics optimization begins, the shape deforms and accumulated deformation gradients $\mathbf{F}$ provide rich geometric information. We switch to \emph{deformation-based rendering covariances} $\Sigma_{\text{render}}$. First, we smooth the F-field via a differentiable graph Laplacian:
+    \begin{equation}
+    \label{eq:F_smooth}
+    \tilde{\mathbf{F}} = (\mathbf{W}^\top \mathbf{W} + \lambda \mathbf{L})^{-1} \mathbf{W}^\top \mathbf{F},
+    \end{equation}
+    where $\mathbf{L}$ is the graph Laplacian and $\mathbf{W}$ are KNN weights. This smoothing suppresses high-frequency noise that would produce degenerate Gaussians, while gradients flow back via implicit differentiation $\partial \tilde{\mathbf{F}}/\partial \mathbf{F}$. Crucially, this smoothing applies \emph{only within the rendering bridge}; the physics simulation continues to use raw $\mathbf{F}$ to preserve conservation laws.
+    
+    We then perform polar decomposition $\tilde{\mathbf{F}}=\mathbf{R}\mathbf{S}$ and construct:
+    \begin{equation}
+    \label{eq:sigma_render}
+    \Sigma_{\text{render}} = \sigma^2 \mathbf{R} \mathbf{S}^2 \mathbf{R}^\top,
+    \end{equation}
+    where $\sigma$ adapts to local point spacing and $\mathbf{S}$ encodes deformation magnitude and anisotropy. This formulation naturally inherits stretching and compression from the physics simulation while maintaining numerical stability through controlled eigenvalue clamping ($\kappa_{\max}=40$).
+
+% ----------------------------------------------------------------------------
+\subsubsection{Spectral Alignment for Geometric Consistency}
+% ----------------------------------------------------------------------------
+
+    To transfer geometric knowledge from $\Sigma_\star$ to subsequent training episodes, we introduce a covariance alignment loss during the target pass. This loss encourages the initial $\Sigma_{\text{render}}$ (computed from identity $\mathbf{F}$) to match $\Sigma_\star$'s spectral characteristics:
+    \begin{equation}
+    \label{eq:logspec}
+    L_{\text{cov}} = \frac{1}{3N}\sum_{i=1}^N \big\|\,\hat{\ell}_{\text{render},i} - \hat{\ell}_{\star,i}\,\big\|_1,
+    \end{equation}
+    where $\hat{\ell} = \log(\boldsymbol{\lambda})/(\|\log(\boldsymbol{\lambda})\|_1 + \epsilon)$ are scale-normalized log-eigenvalues. This log-space formulation provides scale invariance and prevents small eigenvalues from dominating the loss.
+    
+    \textbf{Crucially}, $L_{\text{cov}}$ is \emph{only active during episode $\leq 0$} (target pass). Once training begins (episode $> 0$), we disable this loss and allow $\Sigma_{\text{render}}$ to evolve freely according to the deformation field. This staged approach prevents the loss from fighting physics during large deformations while ensuring the initial covariances are geometrically faithful.
+
+% ----------------------------------------------------------------------------
+\subsubsection{Multi-Modal Rendering Losses}
+% ----------------------------------------------------------------------------
+
+    We jointly optimize four objectives across all episodes:
+    \begin{equation}
+    \label{eq:render_total}
+    L_{\text{render}} = w_\alpha L_\alpha + w_{\text{edge}} L_{\text{edge}}
+    + \mathbb{1}_{[\text{ep}\leq 0]} \cdot w_{\text{cov}} L_{\text{cov}} + w_{\text{reg}} L_{\text{reg}},
+    \end{equation}
+    where $\mathbb{1}_{[\text{ep}\leq 0]}$ is an indicator function that activates $L_{\text{cov}}$ only during the target pass.
+    
+\noindent\textbf{Silhouette Loss.}
+    $L_\alpha = \| \alpha_{\text{pred}} - \alpha_{\text{target}} \|_1$ measures 
+    $L_1$ error between predicted and target alpha masks, ensuring overall shape accuracy.
+
+\noindent\textbf{Edge Alignment Loss.}
+    To sharpen silhouettes, we encourage Gaussians to orient along boundaries by differentiably projecting 3D covariance to screen space, extracting the dominant orientation, and measuring alignment with Sobel-filtered silhouette tangents. The loss is weighted by local gradient magnitude to focus on strong edges.
+        
+\noindent\textbf{Regularization.}
+    A mild isotropic prior 
+    $L_{\text{reg}} = \| \text{eig}(\Sigma) - \sigma_{\text{target}}^2 \mathbf{1} \|_2^2$ 
+    prevents overfitting to noisy geometry estimates while preserving deformation-induced anisotropy.
+
+% ============================================================================
+\subsection{Multi-Pass Interleaved Optimization}
+\label{sec:optimization}
+% ============================================================================
+
+    Simultaneously optimizing $L_{\text{phys}} + w_r L_{\text{render}}$ can cause instability. Smooth physics gradients $\frac{\partial L_{\text{phys}}}{\partial \mathbf{F}_c}$ often conflict with high-frequency, localized rendering corrections $\frac{\partial L_{\text{render}}}{\partial \mathbf{F}_c}$, leading to oscillation.
+    
+    We address this with a \emph{multi-pass interleaved} strategy ($P{\approx}3$ passes) that decouples these objectives. Instead of using noisy instantaneous corrections, we use the rendering gradient from the \emph{entire previous pass} as a \textbf{stable, global guide}.
+    
+    \paragraph{Pass 1: Physics Warmup.}
+    We first optimize using $L_{\text{phys}}$ alone to establish a plausible \textbf{base trajectory}. We then compute and cache the resulting rendering gradients $\mathbf{g}_{\text{render}}^{(1)} = (\mathbf{g}_x^{(1)}, \mathbf{g}_F^{(1)})$ for this entire trajectory.
+    
+    \paragraph{Passes 2..P: Stable Gradient Injection.}
+    For subsequent passes $p \in [2, P]$, we re-initialize the simulation. The total gradient blends the \emph{current} physics gradient $\frac{\partial L_{\text{phys}}^{(p)}}{\partial \mathbf{F}_c}$ with the \emph{cached} rendering gradient $\mathbf{g}_{\text{render}}^{(p-1)}$ from the previous pass:
+    $$
+    \frac{\partial L_{\text{total}}}{\partial \mathbf{F}_c}
+    = \frac{\partial L_{\text{phys}}^{(p)}}{\partial \mathbf{F}_c}
+    + w_{\text{inject}} \cdot \mathcal{T}(\mathbf{g}_{\text{render}}^{(p-1)})
+    $$
+    This use of a "stale" gradient is \textbf{intentional and crucial for stability}. It prevents the optimization from chasing high-frequency per-frame noise, using $\mathbf{g}_{\text{render}}^{(p-1)}$ as a consistent "guiding vector" for the entire new trajectory of pass $p$. 
+    
+    After pass $p$ completes, we re-render its new trajectory to cache $\mathbf{g}_{\text{render}}^{(p)}$ for the next pass. The final state initializes the next episode.
+
+% ============================================================================
+\subsection{Implementation Details}
+\label{sec:implementation}
+% ============================================================================
+
+\paragraph{Hybrid FAISS KNN.}
+    We use FAISS with IVF indexing~\cite{johnson2017billionscalesimilaritysearchgpus, douze2025faisslibrary} for approximate KNN ($k=64$ for surface detection, $k=32$ for F-field smoothing), achieving substantial speedups while preserving differentiability via straight-through estimation: forward pass uses hard indices; backward pass uses soft weights over selected candidates.
+    
+\paragraph{Streaming Gumbel--Softmax Sampling.}
+    To avoid materializing the full $M{\times}N$ assignment matrix, we sample in batches of size $B=32{,}768$ using voxel-based diversity constraints. For each batch, we retain only top-$K$ candidates per sample point, reducing memory from $O(MN)$ to $O(MK)$ where $K{\ll}N$. Local softmax with temperature $\tau_{\text{local}}=1.15$ and uniform mixing ($u=0.68$) ensures exploration while respecting importance weights.
+
+\paragraph{Gradient Balancing.}
+    To prevent rendering gradients from overwhelming physics, we implement (i)~\textbf{render gain matching} via exponential moving average (EMA) with $\beta=0.8$, dynamically scaling $\nabla L_{\text{render}}$ to match $\|\nabla L_{\text{phys}}\|$, and (ii)~\textbf{physics weight scheduling} that anneals the weight of $L_{\text{phys}}$ from $0.7$ (early episodes) to $1.2$ (late episodes), allowing rendering supervision to dominate initially before physics constraints tighten.
+

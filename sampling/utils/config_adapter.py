@@ -7,6 +7,28 @@ New YAML: upsample.points.jitter → Internal: sampling.alpha
 
 from typing import Dict, Any
 import copy
+import torch
+
+
+def _safe_deepcopy(obj):
+    """
+    Deep copy that safely handles torch tensors by skipping them.
+    """
+    if isinstance(obj, torch.Tensor):
+        # Skip tensors (they shouldn't be in config anyway)
+        return obj
+    elif isinstance(obj, dict):
+        return {k: _safe_deepcopy(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_safe_deepcopy(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(_safe_deepcopy(item) for item in obj)
+    else:
+        try:
+            return copy.deepcopy(obj)
+        except:
+            # If deepcopy fails, return as-is
+            return obj
 
 
 def adapt_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
@@ -35,7 +57,7 @@ def adapt_config(cfg: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Adapted configuration for pipeline
     """
-    adapted = copy.deepcopy(cfg)
+    adapted = _safe_deepcopy(cfg)
     
     # Check if using new structure
     if 'upsample' in cfg:

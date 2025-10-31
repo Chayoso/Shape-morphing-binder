@@ -1,15 +1,15 @@
 # ════════════════════════════════════════════════════════════════════════════════
 # [CVPR 2026] PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
 # ════════════════════════════════════════════════════════════════════════════════
-# Configuration File - Sphere to spot Morphing
+# Configuration File - Isosphere to spot Morphing
 # ════════════════════════════════════════════════════════════════════════════════
 
 # ════════════════════════════════════════════════════════════════════════════════
 # I/O CONFIGURATION
 # ════════════════════════════════════════════════════════════════════════════════
-input_mesh_path: "assets/isosphere.obj"      # start mesh (sphere)
-target_mesh_path: "assets/spot.obj"         # target mesh (spot)
-output_dir: "output/sphere/spot/"                   # output directory
+input_mesh_path: "assets/isosphere.obj"           # start mesh (spot)
+target_mesh_path: "assets/spot.obj"               # target mesh (spot)
+output_dir: "output/sphere/spot/"                 # output directory
 
 output:
   export_ply: true                           # export PLY file
@@ -64,8 +64,8 @@ optimization:
 
     # Target covariance (curvature-based, target pass only)
     curvature_sigma:
-      sigma_n0: 0.032
-      sigma_t0: 0.030
+      sigma_n0: 0.1
+      sigma_t0: 0.1
       a: 3.0
       b: 0.6
       u: 0.5
@@ -178,7 +178,7 @@ upsample:
     lambda_smooth: 0.95
 
   covariance:
-    sigma0: 0.12
+    sigma0: 0.10
     voxel_size: 0.75
     kappa_max: 40.0
     k_F: 32
@@ -273,7 +273,7 @@ episode_schedule:
       normal_smooth:
         iters: 8
     covariance:
-      sigma0: 0.12
+      sigma0: 0.10
       density:
         scale_kappa: 0.35
         scale_max_up: 0.50
