@@ -60,7 +60,7 @@ dependencies:
 #
 # 1️⃣  Install PyTorch with CUDA 12.8 support:
 #     pip install torch==2.8.0 torchvision torchaudio \
-#        
+#            --index-url https://download.pytorch.org/whl/cu128    
 #
 # 2️⃣  Install FAISS for GPU-accelerated similarity search:
 #     conda install -c pytorch -c nvidia \

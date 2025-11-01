@@ -897,6 +897,11 @@ def upsample(
             planarity_stage1 = stage1_data['planarity']  # (N_anchors,)
             anisotropy_stage1 = stage1_data['anisotropy']  # (N_anchors,)
             
+            # 🔥 NEW: Get principal curvature and directions from STAGE 1
+            principal_curv_stage1 = stage1_data.get('principal_curv', None)  # (N_anchors, 2)
+            principal_dir1_stage1 = stage1_data.get('principal_dir1', None)  # (N_anchors, 3)
+            principal_dir2_stage1 = stage1_data.get('principal_dir2', None)  # (N_anchors, 3)
+            
             # Map to upsampled points via nearest anchor
             # Use stage1 points (anchors) for mapping
             stage1_points = stage1_data['points']
@@ -908,8 +913,39 @@ def upsample(
             idx_map, _ = knn(points, stage1_points, 1)
             
             # Map planarity and anisotropy to upsampled points
-            planarity_pts = planarity_stage1[idx_map.squeeze()]
-            anisotropy_pts = anisotropy_stage1[idx_map.squeeze()]
+            # Ensure tensors for consistent indexing
+            if not isinstance(planarity_stage1, torch.Tensor):
+                planarity_stage1 = torch.from_numpy(planarity_stage1).to(device)
+            if not isinstance(anisotropy_stage1, torch.Tensor):
+                anisotropy_stage1 = torch.from_numpy(anisotropy_stage1).to(device)
+            
+            idx_flat = idx_map.reshape(-1)  # (M,)
+            planarity_pts = planarity_stage1[idx_flat]
+            anisotropy_pts = anisotropy_stage1[idx_flat]
+            
+            # 🔥 NEW: Map principal curvature and directions to upsampled points
+            principal_curv_pts = None
+            principal_dir1_pts = None
+            principal_dir2_pts = None
+            
+            # Flatten idx_map for consistent indexing
+            idx_flat = idx_map.reshape(-1)  # (M,) - safer than squeeze()
+            
+            if principal_curv_stage1 is not None:
+                # Ensure tensor for indexing (numpy array + tensor index = error)
+                if not isinstance(principal_curv_stage1, torch.Tensor):
+                    principal_curv_stage1 = torch.from_numpy(principal_curv_stage1).to(device)
+                principal_curv_pts = principal_curv_stage1[idx_flat]  # (M, 2)
+            
+            if principal_dir1_stage1 is not None and principal_dir2_stage1 is not None:
+                # Ensure tensors for indexing
+                if not isinstance(principal_dir1_stage1, torch.Tensor):
+                    principal_dir1_stage1 = torch.from_numpy(principal_dir1_stage1).to(device)
+                if not isinstance(principal_dir2_stage1, torch.Tensor):
+                    principal_dir2_stage1 = torch.from_numpy(principal_dir2_stage1).to(device)
+                
+                principal_dir1_pts = principal_dir1_stage1[idx_flat]  # (M, 3)
+                principal_dir2_pts = principal_dir2_stage1[idx_flat]  # (M, 3)
             
             # Convert to numpy for curvature_covariance function
             def to_numpy(x):
@@ -922,8 +958,17 @@ def upsample(
             points_np = to_numpy(points)
             normals_np = to_numpy(normals_up)
             
+            # 🔥 NEW: Convert principal curvature and directions to numpy
+            principal_curv_pts_np = to_numpy(principal_curv_pts) if principal_curv_pts is not None else None
+            principal_dirs_pts_tuple = None
+            if principal_dir1_pts is not None and principal_dir2_pts is not None:
+                principal_dirs_pts_tuple = (to_numpy(principal_dir1_pts), to_numpy(principal_dir2_pts))
+            
             if verbose:
-                print(f"    ✓ Reused STAGE 1 curvature data (planarity, anisotropy)")
+                if principal_curv_pts_np is not None:
+                    print(f"    ✓ Reused STAGE 1 curvature data (planarity, anisotropy, principal_curv, principal_dirs)")
+                else:
+                    print(f"    ✓ Reused STAGE 1 curvature data (planarity, anisotropy)")
             
             # Get sigma params from config
             # Note: run.py copies curvature_sigma from optimization.loss to upsample.covariance
@@ -941,12 +986,15 @@ def upsample(
                 print(f"      a={sigma_params.get('a', 3.0):.2f}, b={sigma_params.get('b', 0.5):.2f}, u={sigma_params.get('u', 0.4):.2f}")
             
             # Create curvature-based target covariance Σ★ (returns numpy)
+            # 🔥 NEW: Pass principal curvature and directions from STAGE 1
             cov_np = create_curvature_based_covariance_star(
                 points_np,
                 normals_np,
                 planarity_pts_np,
                 anisotropy_pts_np,
-                sigma_params
+                sigma_params,
+                principal_curv=principal_curv_pts_np,  # 🔥 NEW
+                principal_dirs=principal_dirs_pts_tuple  # 🔥 NEW
             )
             cov_target = torch.from_numpy(cov_np).to(device)
             F_interp = torch.eye(3, device=device).unsqueeze(0).expand(len(points), 3, 3)  # Identity for target

@@ -1,43 +1,31 @@
-# ════════════════════════════════════════════════════════════════════════════════
-# [CVPR 2026] PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
-# ════════════════════════════════════════════════════════════════════════════════
-# Configuration File - Sphere to Bunny Morphing
-# ════════════════════════════════════════════════════════════════════════════════
+# PhysMorph-GS: Sphere to Bunny Morphing Configuration
 
-# ════════════════════════════════════════════════════════════════════════════════
-# I/O CONFIGURATION
-# ════════════════════════════════════════════════════════════════════════════════
-input_mesh_path: "assets/isosphere.obj"      # start mesh (sphere)
-target_mesh_path: "assets/bunny.obj"         # target mesh (Bunny)
-output_dir: "output/sphere/bunny/"           # output directory
+# I/O Configuration
+input_mesh_path: "assets/isosphere.obj"
+target_mesh_path: "assets/bunny.obj"
+output_dir: "output/sphere/bunny/"
 
 output:
-  export_ply: true                           # export PLY file
-  output_format: "ply"                       # output format (ply/obj)
+  export_ply: true
+  output_format: "ply"
 
-# ════════════════════════════════════════════════════════════════════════════════
-# PHYSICS SIMULATION (Material Point Method)
-# ════════════════════════════════════════════════════════════════════════════════
+# Physics Simulation (MPM)
 simulation:
   grid_dx: 0.75
   points_per_cell_cuberoot: 3
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
 
-  # Neo-Hookean (Lamé)
   lam: 38888.89
   mu: 58333.3
   density: 75.0
 
-  # Integrator
   dt: 0.00833333333
   drag: 0.5
   external_force: [0.0, 0.0, 0.0]
   smoothing_factor: 0.955
 
-# ════════════════════════════════════════════════════════════════════════════════
-# OPTIMIZATION SETTINGS
-# ════════════════════════════════════════════════════════════════════════════════
+# Optimization Settings
 optimization:
   num_animations: 50
   num_timesteps: 10
@@ -50,23 +38,16 @@ optimization:
 
   loss:
     enabled: true
-
-    # Photometric/Geometric
-    w_alpha: 1500           # silhouette
-    w_depth: 0.1            # depth (low, anti-drift)
-    w_photo: 0.0            # not used
-    w_edge: 500             # edge alignment
-
-    # Covariance loss weights
-    w_cov_align: 5000       # spectral alignment to target Σ★ (episode ≤ 0)
-    w_cov_reg: 0.01         # regularization
+    w_alpha: 1500
+    w_depth: 0.1
+    w_photo: 0.0
+    w_edge: 500
+    w_cov_align: 5000
+    w_cov_reg: 0.01
     cov_reg_mode: 'eigenvalue'
-
     schedule: 'constant'
 
-# ════════════════════════════════════════════════════════════════════════════════
-# UPSAMPLING PIPELINE
-# ════════════════════════════════════════════════════════════════════════════════
+# Upsampling Pipeline
 upsample:
   k_neighbors: 64
 
@@ -84,10 +65,7 @@ upsample:
     tau: null
     p_target: 0.82
     gamma: 1.0
-
     w_curv: 0.5
-
-    # sampling distribution exponent
     alpha: 2.2
     beta: 0.7
 
@@ -114,7 +92,6 @@ upsample:
     use_anisotropic_jitter: true
     M: 500000
 
-    # balance
     keep_ratio: 0.70
     beta_soft: 1.15
     eps_mix: 0.002
@@ -126,6 +103,7 @@ upsample:
     bias_target: 2.5
     local_S: 20
     voxel_scale: 0.58
+    local_batch: 65536
 
     gamma_flat: 0.70
     cap_mult: 18.0
@@ -165,9 +143,9 @@ upsample:
 
   normal_smooth:
     enabled: true
-    iters: 12
-    k: 128
-    lambda_smooth: 0.95
+    iters: 2
+    k: 16
+    lambda_smooth: 0.8
 
   covariance:
     sigma0: 0.10
@@ -181,11 +159,15 @@ upsample:
 
     # Target covariance (curvature-based, episode ≤ 0 only)
     curvature_sigma:
-      sigma_n0: 0.02        # Base normal scale (thin in normal direction)
-      sigma_t0: 0.04        # Base tangent scale (wider in tangent)
+      sigma_n0: 0.025        # Base normal scale (thin in normal direction)
+      sigma_t0: 0.05        # Base tangent scale (wider in tangent)
       a: 3.0                # Normal curvature sensitivity
       b: 0.6                # Tangent curvature sensitivity
       u: 0.5                # Tangent anisotropy factor
+      
+      # Tangent frame generation (jitter reduction)
+      frame: 'pca'
+      pca_k: 16
 
     learnable:
       enabled: true
@@ -258,50 +240,3 @@ render:
     diffuse: 0.85
     specular: 0.10
     shininess: 32
-
-# ════════════════════════════════════════════════════════════════════════════════
-# EPISODE SCHEDULING (Episode-specific parameter override)
-# ════════════════════════════════════════════════════════════════════════════════
-episode_schedule:
-  0-4:
-    upsample:
-      sampling:
-        M: 500000
-        alpha: 0.25
-      taubin:
-        iters: 15
-      normal_smooth:
-        iters: 8
-      covariance:
-        sigma0: 0.10
-        density:
-          scale_kappa: 0.35
-          scale_max_up: 0.50
-
-  5-14:
-    upsample:
-      sampling:
-        M: 500000
-        alpha: 0.18
-      taubin:
-        iters: 10
-      normal_smooth:
-        iters: 6
-      covariance:
-        sigma0: 0.08
-        density:
-          scale_kappa: 0.35
-          scale_max_up: 0.50
-
-  15+:
-    upsample:
-      sampling:
-        alpha: 0.12
-      taubin:
-        iters: 8
-      normal_smooth:
-        iters: 5
-      covariance:
-        sigma0: 0.08
-        density:
-          scale_kappa: 0.30

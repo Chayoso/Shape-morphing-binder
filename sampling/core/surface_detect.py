@@ -137,7 +137,10 @@ def detect_surface(
     # High planarity (flat) → lower k, Low planarity (curved) → higher k
     s_hat = planarity_init.mean()  # Global planarity estimate
     k_adaptive = int(round(k0 * (1.0 - beta_adapt * s_hat.item()) + k_min))
-    k_adaptive = max(k_min, min(k_adaptive, int(N * 0.5)))  # Safety bounds
+    
+    # 🔥 FIX: 더 안전한 상한 (k0*2와 N*0.5 중 작은 값)
+    k_upper = min(k0 * 2, int(N * 0.5))
+    k_adaptive = max(k_min, min(k_adaptive, k_upper))
     
     if jitter_enabled:
         k_jitter_final = torch.rand(1, device=device).item() * (2 * jitter_k) - jitter_k

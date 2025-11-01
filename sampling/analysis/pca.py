@@ -498,16 +498,21 @@ def batched_pca_surface_optimized(
         return normals, surfvar, spacing, curvature, anisotropy, planarity
     
     # 🔥 NEW: Principal directions and anisotropic curvatures
-    # For anisotropic jitter: use tangent plane eigenvectors
-    # λ1 (smaller tangent eigenvalue) → max curvature direction (tighter)
-    # λ2 (larger tangent eigenvalue) → min curvature direction (wider)
+    # Eigenvalues: λ₀ ≤ λ₁ ≤ λ₂ (ascending order from eigh)
+    # - λ₀ ≈ 0 (normal direction, 가장 작음)
+    # - λ₁, λ₂ > 0 (tangent plane, λ₁ < λ₂)
+    #
+    # Principal curvature interpretation:
+    # - λ₁ (smaller tangent eigenvalue) → 더 구부러진 방향 (tighter)
+    # - λ₂ (larger tangent eigenvalue) → 덜 구부러진 방향 (wider)
     
-    principal_dir1 = normalize(evecs[:, :, 1])  # (N, 3) - max curvature direction
-    principal_dir2 = normalize(evecs[:, :, 2])  # (N, 3) - min curvature direction
+    principal_dir1 = normalize(evecs[:, :, 1])  # (N, 3) - e₁ direction (λ₁, smaller → more curved)
+    principal_dir2 = normalize(evecs[:, :, 2])  # (N, 3) - e₂ direction (λ₂, larger → less curved)
     
     # Principal curvatures (normalized by trace for scale invariance)
-    k1 = evals[:, 1] / trace  # (N,) - max curvature (0~0.5)
-    k2 = evals[:, 2] / trace  # (N,) - min curvature (0~0.5)
+    # k1 < k2 이지만, k1 방향이 더 구부러진 방향 (eigenvalue가 작음)
+    k1 = evals[:, 1] / trace  # (N,) - λ₁/trace (0~0.5, smaller value)
+    k2 = evals[:, 2] / trace  # (N,) - λ₂/trace (0~0.5, larger value)
     principal_curv = torch.stack([k1, k2], dim=1)  # (N, 2)
     
     # 🔥 Anisotropy and planarity (already computed above, reuse)

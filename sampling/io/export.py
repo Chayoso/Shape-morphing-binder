@@ -554,12 +554,28 @@ def save_stage_progression(
                 if cov is not None and cov.size > 0:
                     # Compute trace (sum of eigenvalues) as a measure of covariance size
                     trace = np.trace(cov, axis1=1, axis2=2)
+                    
+                    # Smooth visualization: Percentile clipping for outliers (5th~95th)
+                    trace_p5, trace_p95 = np.percentile(trace, [5, 95])
+                    trace_clipped = np.clip(trace, trace_p5, trace_p95)
+                    
+                    # Adaptive alpha based on covariance magnitude
+                    # Lower trace → higher alpha (more certain → more visible)
+                    trace_norm = (trace_clipped - trace_p5) / (trace_p95 - trace_p5 + 1e-12)  # [0,1]
+                    alpha_min, alpha_max = 0.15, 0.65  # Range increased from 0.2 to 0.15~0.65
+                    alpha_values = alpha_max - trace_norm * (alpha_max - alpha_min)  # Inverted: low trace → high alpha
+                    
                     trace_min, trace_max = trace.min(), trace.max()
                     print(f"    [STAGE6] Covariance trace range: [{trace_min:.6f}, {trace_max:.6f}]")
-                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=trace, s=ptsize,
-                                   alpha=0.4, cmap="viridis", vmin=trace_min, vmax=trace_max)
-                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Covariance Trace")
-                    ax.set_title(f"{name}\nN = {len(pts):,} points\nTrace: [{trace_min:.4e}, {trace_max:.4e}]")
+                    print(f"    [STAGE6] Percentile clipping: [{trace_p5:.6f}, {trace_p95:.6f}] (5th~95th)")
+                    print(f"    [STAGE6] Adaptive alpha range: [{alpha_min:.2f}, {alpha_max:.2f}]")
+                    
+                    # New colormap: "viridis" (purple→blue→green→yellow, standard & clean)
+                    # Alternatives: "magma" (black→purple→yellow), "plasma" (purple→orange→yellow)
+                    sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=trace_clipped, s=ptsize*0.6,
+                                   alpha=alpha_values, cmap="viridis", vmin=trace_p5, vmax=trace_p95)
+                    fig.colorbar(sc, ax=ax, shrink=0.6, label="Cov Trace (adaptive α)")
+                    ax.set_title(f"{name}\nN = {len(pts):,} points\nTrace: [{trace_min:.4e}, {trace_max:.4e}]\nα: [{alpha_min:.2f}~{alpha_max:.2f}] (adaptive)", fontsize=9)
                 else:
                     # Fallback
                     c = pts.mean(0)
@@ -649,12 +665,21 @@ def save_stage_progression(
                         sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=r, s=ptsize*0.8,
                                        alpha=0.4, cmap="viridis")
                 elif i == 6 and 'cov' in stage:
-                    # Stage 6: Covariance trace
+                    # Stage 6: Covariance trace (smooth visualization with adaptive alpha)
                     cov = as_numpy(stage['cov'])
                     if cov is not None and cov.size > 0:
                         trace = np.trace(cov, axis1=1, axis2=2)
-                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=trace, s=ptsize*0.8,
-                                       alpha=0.4, cmap="viridis", vmin=trace.min(), vmax=trace.max())
+                        # Percentile clipping for smooth visualization
+                        trace_p5, trace_p95 = np.percentile(trace, [5, 95])
+                        trace_clipped = np.clip(trace, trace_p5, trace_p95)
+                        
+                        # Adaptive alpha based on trace magnitude (inverted: low trace → high alpha)
+                        trace_norm = (trace_clipped - trace_p5) / (trace_p95 - trace_p5 + 1e-12)
+                        alpha_min, alpha_max = 0.15, 0.65
+                        alpha_values = alpha_max - trace_norm * (alpha_max - alpha_min)
+                        
+                        sc = ax.scatter(pts[:,0], pts[:,1], pts[:,2], c=trace_clipped, s=ptsize*0.5,
+                                       alpha=alpha_values, cmap="viridis", vmin=trace_p5, vmax=trace_p95)
                     else:
                         c = pts.mean(0)
                         r = np.linalg.norm(pts - c[None,:], axis=1)
