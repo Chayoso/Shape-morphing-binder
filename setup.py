@@ -180,5 +180,9 @@ setup(
     cmdclass={"build_ext": BuildExtension},
     zip_safe=False,
     python_requires=">=3.8",
-    install_requires=["numpy", "pybind11", "pyyaml"],
+    install_requires=[
+        "numpy==1.26.4",
+        "pybind11>=2.10.0",
+        "pyyaml>=6.0"
+    ],
 )

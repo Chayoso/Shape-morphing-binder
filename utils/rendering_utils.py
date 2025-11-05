@@ -397,8 +397,15 @@ def upsample_current_state(
     """
     try:
         # 🔥 OPTIMIZED: Use zero-copy views then clone for gradients
-        x = pc.get_positions_torch_view().clone().requires_grad_(True)
-        F = pc.get_def_grads_total_torch_view().clone().requires_grad_(True)
+        # x = pc.get_positions_torch_view().clone().requires_grad_(True)
+        # F = pc.get_def_grads_total_torch_view().clone().requires_grad_(True)
+        # Fallback to old method
+        try:
+            x = pc.get_positions_torch(requires_grad=True)
+            F = pc.get_def_grads_total_torch(requires_grad=True)
+        except AttributeError:
+            print("      ⚠️  PyTorch bindings unavailable")
+            return None, None, ema_state
     except AttributeError:
         # Fallback to old method
         try:
@@ -492,8 +499,15 @@ def compute_render_loss_pass(
 
     try:
         # 🔥 OPTIMIZED: Use zero-copy views then clone for gradients
-        x = pc.get_positions_torch_view().clone().requires_grad_(True)
-        F = pc.get_def_grads_total_torch_view().clone().requires_grad_(True)
+        # x = pc.get_positions_torch_view().clone().requires_grad_(True)
+        # F = pc.get_def_grads_total_torch_view().clone().requires_grad_(True)
+        # Fallback to old method if zero-copy not available
+        try:
+            x = pc.get_positions_torch(requires_grad=True)
+            F = pc.get_def_grads_total_torch(requires_grad=True)
+        except AttributeError:
+            print("   ⚠️ PyTorch bindings unavailable")
+            return None, None, None, None
     except AttributeError:
         # Fallback to old method if zero-copy not available
         try:

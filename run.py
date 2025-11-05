@@ -342,6 +342,10 @@ def main():
             )
             print(f"[DEBUG] E2E episode {ep} completed")
             
+            # ✅ Carry over state to next episode (CRITICAL!)
+            print(f"[CarryOver] Promoting final state to next episode...")
+            cg.promote_last_as_initial(carry_grid=True)
+            
             # Print episode summary
             print(f"\n[Summary] Episode {ep} losses:")
             for key, val in episode_losses.items():
@@ -353,6 +357,10 @@ def main():
             print(f"[DEBUG] Physics-only mode (enable_e2e={enable_e2e}, loss_manager={loss_manager is not None}, target_render={target_render is not None})")
             opt.current_episodes = ep
             cg.run_optimization(opt)
+            
+            # ✅ Carry over state to next episode
+            print(f"[CarryOver] Promoting final state to next episode...")
+            cg.promote_last_as_initial(carry_grid=True)
     
     # ════════════════════════════════════════════════════════════════════════════
     # Finalization

@@ -187,6 +187,7 @@ def run_physics_optimization(
     mode_str = "E2E (with render grads)" if has_render_grads else "Physics-only"
     
     print(f"\n[Physics] ⚡ Fast C++ mode - {mode_str}")
+    print(f"[Physics] Injected render grads: {has_render_grads}")
     cg.run_optimization(opt)
     
     try:

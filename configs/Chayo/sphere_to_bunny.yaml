@@ -13,7 +13,7 @@ output_dir: "output/sphere/bunny/"
 # ════════════════════════════════════════════════════════════════════════════════
 simulation:
   grid_dx: 1
-  points_per_cell_cuberoot: 6
+  points_per_cell_cuberoot: 2
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
   lam: 38888.89
@@ -52,7 +52,7 @@ optimization:
   control_stride: 1
   max_gd_iters: 1
   max_ls_iters: 10
-  initial_alpha: 0.01
+  initial_alpha: 0.0001  # ⚡ REDUCED: 100x smaller to allow render gradients to guide!
   gd_tol: 0.0001
   
   # E2E Loss
@@ -74,7 +74,7 @@ optimization:
       warmup: 0.10             # ep 0-5
       rampup: 0.25             # ep 5-15
       full: 0.35               # ep 15+
-    gain_max: 40000            # 극단적 불균형 대응
+    gain_max: 1000             # ⚡ REDUCED: Prevent render loss degradation!
     ema_beta_initial: 0.5      # 초기 빠른 반응
     ema_beta_stable: 0.8       # 후기 안정
     power_initial: 0.85        # 초기 공격적

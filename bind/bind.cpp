@@ -96,7 +96,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("get_positions_view", [](PointCloud& pc) -> py::array_t<float> {
             const size_t N = pc.points.size();
             if (N == 0) {
-                return py::array_t<float>({0, 3});
+                return py::array_t<float>(std::vector<py::ssize_t>{0, 3});
             }
 
             // Get pointer to first position
@@ -128,7 +128,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("get_velocities_view", [](PointCloud& pc) -> py::array_t<float> {
             const size_t N = pc.points.size();
             if (N == 0) {
-                return py::array_t<float>({0, 3});
+                return py::array_t<float>(std::vector<py::ssize_t>{0, 3});
             }
 
             float* data_ptr = &(pc.points[0].v[0]);

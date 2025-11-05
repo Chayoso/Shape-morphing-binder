@@ -8,6 +8,7 @@ import torch
 import numpy as np
 from pathlib import Path
 from typing import Dict, Tuple, Any, Optional
+import time
 
 from utils.physics_utils import run_physics_optimization, extract_point_cloud_state
 from utils.rendering_utils import compute_render_loss_pass, extract_render_gradients
@@ -138,7 +139,8 @@ def run_e2e_episode(
         # 🔥 Physics weight scheduling (progressive annealing)
         total_animations = rs_full.get('optimization', {}).get('num_animations', 50)
         progress = (ep + pass_idx / num_passes) / max(1, total_animations)
-        phys_w = float(np.interp(progress, [0.0, 0.3, 0.7, 1.0], [1.5, 1.2, 1.0, 0.8]))
+        # ⚡ REDUCED: 1.5→1.0 start to balance physics/render from beginning
+        phys_w = float(np.interp(progress, [0.0, 0.3, 0.7, 1.0], [1.0, 0.9, 0.85, 0.8]))
         
         try:
             cg.set_physics_weight(phys_w)
@@ -180,13 +182,26 @@ def run_e2e_episode(
         # ────────────────────────────────────────────────────────────────────────
         # Phase 2: Physics Optimization
         # ────────────────────────────────────────────────────────────────────────
+        t0_physics = time.time()
+        
+        # 🔍 Check physics optimization parameters
+        print(f"\n🔍 [Physics Params]")
+        print(f"├─ Learning rate (alpha): {opt.initial_alpha}")
+        print(f"├─ Max GD iters: {opt.max_gd_iters}")
+        print(f"├─ Max LS iters: {opt.max_ls_iters}")
+        print(f"└─ Timesteps: {num_timesteps}")
+        
         loss_physics = run_physics_optimization(
             cg, opt, num_timesteps, control_stride, ep, pass_idx
         )
         
+        t_physics = time.time() - t0_physics
+        print(f"⏱️  [Physics Optimization] {t_physics:.2f}s")
+        
         # ────────────────────────────────────────────────────────────────────────
         # Phase 3: Compute Render Loss
         # ────────────────────────────────────────────────────────────────────────
+        t0_render = time.time()
         seed = 9999 + ep*1000 + pass_idx
         
         print(f"\n[Render] Computing loss for Pass {pass_idx+1}...")
@@ -210,6 +225,23 @@ def run_e2e_episode(
             if cov_optimizer is not None and cov_module is not None:
                 cov_optimizer.step()
                 cov_optimizer.zero_grad()
+            
+            # 🔥 Track render loss change
+            if 'loss_render_total' in loss_components:
+                current_render_loss = loss_components['loss_render_total']
+                if hasattr(current_render_loss, 'item'):
+                    current_render_loss = current_render_loss.item()
+                
+                if pass_idx > 0 and final_loss_components is not None:
+                    prev_render_loss = final_loss_components.get('loss_render_total', 0)
+                    if hasattr(prev_render_loss, 'item'):
+                        prev_render_loss = prev_render_loss.item()
+                    
+                    render_change = current_render_loss - prev_render_loss
+                    print(f"\n🔍 [Render Loss Tracking]")
+                    print(f"├─ Previous: {prev_render_loss:.6f}")
+                    print(f"├─ Current:  {current_render_loss:.6f}")
+                    print(f"└─ Change:   {render_change:+.6f} {'⚠️ INCREASING!' if render_change > 0 else '✅ Decreasing'}")
             
             # Extract gradients (E2E mode only)
             render_grads = extract_render_gradients(F, x)
@@ -291,8 +323,16 @@ def run_e2e_episode(
                         ema_beta=ema_beta_adaptive,  # 초기: 0.5 (빠른 반응), 후기: 0.8 (안정)
                         power=power_adaptive,        # 초기: 0.85 (공격적), 후기: 0.75 (보수적)
                         min_gain=0.1,
-                        max_gain=50000.0  # 🔥 극단적 불균형 대응
+                        max_gain=1000.0  # ⚡ REDUCED: 50000→1000 (prevent render degradation!)
                     )
+                    
+                    # 🔍 Gradient scaling diagnostics
+                    print(f"\n🔍 [Gradient Scaling]")
+                    print(f"├─ ||g_render||: {g_render:.6e}")
+                    print(f"├─ ||g_phys||:   {g_phys:.6e}")
+                    print(f"├─ Target ratio: {target_ratio:.3f}")
+                    print(f"├─ Actual ratio: {g_render/max(g_phys, 1e-12):.6e}")
+                    print(f"└─ Applied gain: {gain:.6e} {'⚠️ TOO HIGH!' if gain > 100 else '✅'}")
                     
                     # 6. PCGrad projection (if conflict detected)
                     pcgrad_enabled = rs_full.get('optimization', {}).get('use_pcgrad', True)
