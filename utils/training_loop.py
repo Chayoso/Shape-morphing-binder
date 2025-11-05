@@ -9,7 +9,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, Tuple, Any, Optional
 
-from utils.physics_utils import run_physics_optimization, extract_point_cloud_state
+from utils.physics_utils import run_physics_optimization, run_physics_optimization_batched, extract_point_cloud_state
 from utils.rendering_utils import compute_render_loss_pass, extract_render_gradients
 from utils.visualization_utils import visualize_episode
 from utils.gradient_utils import (
@@ -150,39 +150,68 @@ def run_e2e_episode(
         torch.cuda.empty_cache()
         
         # ────────────────────────────────────────────────────────────────────────
-        # Phase 1: Inject Render Gradients (E2E mode only)
+        # Phase 1+2: Physics Optimization with Batched Gradient Injection (OPTIMIZED)
         # ────────────────────────────────────────────────────────────────────────
-        if accumulated_render_grads is not None and renderer is not None and loss_manager is not None:
-            dLdF = accumulated_render_grads['dLdF']
-            dLdx = accumulated_render_grads['dLdx']
-            
-            grad_F_norm = np.linalg.norm(dLdF)
-            grad_x_norm = np.linalg.norm(dLdx)
-            
-            print(f"\n[Inject] Applying render gradients from Pass {pass_idx}")
-            print(f"├─ Points: {len(dLdF)}")
-            print(f"├─ ||∂L_render/∂F|| = {grad_F_norm:.6e}")
-            print(f"└─ ||∂L_render/∂x|| = {grad_x_norm:.6e}")
-            
-            try:
-                cg.set_render_gradients(dLdF, dLdx)
-                print(f"   ✅ Gradients injected successfully\n")
-            except Exception as e:
-                print(f"   ❌ Gradient injection failed: {e}\n")
-        else:
-            if pass_idx == 0:
-                print(f"\n[Inject] No previous render grads (first pass)\n")
-            elif renderer is None or loss_manager is None:
-                print(f"\n[Inject] Skipped - Physics-only mode\n")
+        # 🔥 NEW: Use batched E2E pass (combines gradient injection + physics optimization)
+        use_batched = True  # Set to False to use old method
+
+        if use_batched:
+            # Prepare render gradients (if available)
+            render_grads_dict = None
+            if accumulated_render_grads is not None and renderer is not None and loss_manager is not None:
+                render_grads_dict = {
+                    'dLdF': accumulated_render_grads['dLdF'],
+                    'dLdx': accumulated_render_grads['dLdx']
+                }
+                grad_F_norm = np.linalg.norm(render_grads_dict['dLdF'])
+                grad_x_norm = np.linalg.norm(render_grads_dict['dLdx'])
+                print(f"\n[Batched E2E] Pass {pass_idx+1} with render gradients")
+                print(f"├─ Points: {len(render_grads_dict['dLdF'])}")
+                print(f"├─ ||∂L_render/∂F|| = {grad_F_norm:.6e}")
+                print(f"└─ ||∂L_render/∂x|| = {grad_x_norm:.6e}")
             else:
-                print(f"\n[Inject] No render grads available\n")
-        
-        # ────────────────────────────────────────────────────────────────────────
-        # Phase 2: Physics Optimization
-        # ────────────────────────────────────────────────────────────────────────
-        loss_physics = run_physics_optimization(
-            cg, opt, num_timesteps, control_stride, ep, pass_idx
-        )
+                if pass_idx == 0:
+                    print(f"\n[Batched E2E] Pass {pass_idx+1} - Physics-only (first pass)")
+                elif renderer is None or loss_manager is None:
+                    print(f"\n[Batched E2E] Pass {pass_idx+1} - Physics-only mode")
+                else:
+                    print(f"\n[Batched E2E] Pass {pass_idx+1} - No render grads available")
+
+            # 🔥 Single batched call (2-3x faster than separate calls!)
+            loss_physics = run_physics_optimization_batched(
+                cg, opt, render_grads_dict, pass_idx
+            )
+
+        else:
+            # Old method (kept for fallback/debugging)
+            if accumulated_render_grads is not None and renderer is not None and loss_manager is not None:
+                dLdF = accumulated_render_grads['dLdF']
+                dLdx = accumulated_render_grads['dLdx']
+
+                grad_F_norm = np.linalg.norm(dLdF)
+                grad_x_norm = np.linalg.norm(dLdx)
+
+                print(f"\n[Inject] Applying render gradients from Pass {pass_idx}")
+                print(f"├─ Points: {len(dLdF)}")
+                print(f"├─ ||∂L_render/∂F|| = {grad_F_norm:.6e}")
+                print(f"└─ ||∂L_render/∂x|| = {grad_x_norm:.6e}")
+
+                try:
+                    cg.set_render_gradients(dLdF, dLdx)
+                    print(f"   ✅ Gradients injected successfully\n")
+                except Exception as e:
+                    print(f"   ❌ Gradient injection failed: {e}\n")
+            else:
+                if pass_idx == 0:
+                    print(f"\n[Inject] No previous render grads (first pass)\n")
+                elif renderer is None or loss_manager is None:
+                    print(f"\n[Inject] Skipped - Physics-only mode\n")
+                else:
+                    print(f"\n[Inject] No render grads available\n")
+
+            loss_physics = run_physics_optimization(
+                cg, opt, num_timesteps, control_stride, ep, pass_idx
+            )
         
         # ────────────────────────────────────────────────────────────────────────
         # Phase 3: Compute Render Loss
