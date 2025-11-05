@@ -10,7 +10,13 @@
 namespace { std::atomic<int> g_trust_scaled_count{0}; }
 #endif
 
-namespace { constexpr float kBulkViscosity = 0.25f; constexpr float kJmin = 0.60f; }
+namespace DiffMPMLib3D_Internal {
+    float g_BulkViscosity = 0.0f;
+    constexpr float kJmin = 0.90f;  // J-trust는 별도 스케줄 (SingleParticle_op_2에서 처리)
+}
+
+using namespace DiffMPMLib3D_Internal;
+
 namespace DiffMPMLib3D::SingleThreadMPM {
 
     void SingleParticle_op_1(MaterialPoint& mp)
@@ -57,14 +63,11 @@ namespace DiffMPMLib3D::SingleThreadMPM {
                 #pragma omp atomic
                 node.m += wgp * mp.m;
 
-                // Internal force: add volumetric viscosity tau_bulk = zeta * tr(C) * I
                 const float C0 = 3.f / (dx * dx);
-                const float trC = mp.C.trace();
-                const float tau_bulk = kBulkViscosity * trC; // Kirchhoff stress contribution
+                
                 Vec3 delta_p = wgp * (
                     mp.m * mp.v * (1.f - dt * drag)
-                    + ( -C0 * dt * mp.vol * ( mp.P * (mp.F + mp.dFc).transpose()
-                                            + tau_bulk * Mat3::Identity() )
+                    + ( -C0 * dt * mp.vol * mp.P * (mp.F + mp.dFc).transpose()
                         + mp.m * mp.C
                       ) * dgp
                 );
@@ -158,6 +161,10 @@ namespace DiffMPMLib3D::SingleThreadMPM {
 
     void ForwardTimeStep(PointCloud& next_point_cloud, PointCloud& curr_point_cloud, Grid& grid, float smoothing_factor, float dt, float drag, Vec3 f_ext, int current_episode)
     {
+        // 🔥 F-smoothing 스케줄 (에피소드 기반)
+        float smoothing_scheduled = (current_episode < 10 ? 0.88f :
+                                     (current_episode < 30 ? 0.90f : 0.92f));
+        
         P_op_1(curr_point_cloud, current_episode);
         G_Reset(grid);
         P2G(curr_point_cloud, grid, dt, drag);
@@ -171,7 +178,7 @@ namespace DiffMPMLib3D::SingleThreadMPM {
 
         G_op(grid, dt, f_ext);
         G2P(next_point_cloud, curr_point_cloud, grid);
-        P_op_2(next_point_cloud, curr_point_cloud, smoothing_factor, dt);
+        P_op_2(next_point_cloud, curr_point_cloud, smoothing_scheduled, dt);
 
 #ifdef DIAGNOSTICS
         // Flush trust-region count for this step

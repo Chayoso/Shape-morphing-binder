@@ -3,7 +3,7 @@ Point cloud analysis and feature detection.
 
 Includes:
 - K-nearest neighbors search (Hybrid FAISS)
-- PCA and normal estimation
+- Level Set φ for differentiable surface representation
 """
 
 # ============================================================================
@@ -15,14 +15,11 @@ from .knn import (
 )
 
 # ============================================================================
-# PCA
+# Level Set (Differentiable Surface Representation)
 # ============================================================================
-from .pca import (
-    compute_weighted_centroid,
-    compute_weighted_covariance,
-    extract_normal_from_pca,
-    compute_local_spacing,
-    batched_pca_surface_optimized,
+from .levelset import (
+    LevelSetGrid,
+    extract_surface_anchors,
 )
 
 
@@ -31,10 +28,7 @@ __all__ = [
     "HybridFAISSKNN",
     "FAISS_AVAILABLE",
     
-    # PCA
-    "compute_weighted_centroid",
-    "compute_weighted_covariance",
-    "extract_normal_from_pca",
-    "compute_local_spacing",
-    "batched_pca_surface_optimized",
+    # Level Set
+    "LevelSetGrid",
+    "extract_surface_anchors",
 ]

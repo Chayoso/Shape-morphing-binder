@@ -27,6 +27,11 @@ CLAMP_SPACING = (0.3, 2.5)
 
 DEFAULT_CONFIG = {
     # ========================================================================
+    # PIPELINE MODE
+    # ========================================================================
+    "use_simple_pipeline": True,  # True = Direct F→Cov (no upsampling), False = Full SDF pipeline
+    
+    # ========================================================================
     # STEP 1: SURFACE DETECTION (Combined Metric + Adaptive Threshold)
     # ========================================================================
     "surface_detection": {
@@ -288,45 +293,65 @@ def _in_range(name: str, val: float, lo: float, hi: float):
 def validate_cfg(cfg: Dict) -> None:
     """
     Validate configuration.
+    
+    Supports both old-style (cfg["sampling"]) and new-style (cfg["upsample"]["sampling"]).
 
     Raises:
         ValueError: If configuration is invalid
     """
+    # Check if simple pipeline mode (skip upsampling validation)
+    if "upsample" in cfg:
+        use_simple = cfg.get("upsample", {}).get("use_simple_pipeline", False)
+    else:
+        use_simple = cfg.get("use_simple_pipeline", False)
+    
+    # Skip sampling validation for simple pipeline
+    if use_simple:
+        return
+    
+    # Support both old-style and new-style config structures
+    if "upsample" in cfg:
+        # New-style: cfg["upsample"]["sampling"]
+        sampling_cfg = cfg.get("upsample", {}).get("sampling", {})
+    else:
+        # Old-style: cfg["sampling"]
+        sampling_cfg = cfg.get("sampling", {})
+    
     # Sampling
-    M = int(cfg.get("sampling", {}).get("M", 0))
+    M = int(sampling_cfg.get("M", 0))
     if M <= 0:
         raise ValueError(f"sampling.M must be positive, got {M}")
 
-    tau = float(cfg.get("sampling", {}).get("tau", 0.2))
+    tau = float(sampling_cfg.get("tau", 0.2))
     _in_range("sampling.tau", tau, 1e-4, 5.0)
 
-    alpha = float(cfg.get("sampling", {}).get("alpha", 0.35))
+    alpha = float(sampling_cfg.get("alpha", 0.35))
     _in_range("sampling.alpha", alpha, 0.0, 5.0)
 
-    thickness = float(cfg.get("sampling", {}).get("thickness", 0.0))
+    thickness = float(sampling_cfg.get("thickness", 0.0))
     if thickness < 0.0:
         raise ValueError(f"sampling.thickness must be >= 0, got {thickness}")
 
-    gs_batch = int(cfg.get("sampling", {}).get("gs_batch", 2048))
+    gs_batch = int(sampling_cfg.get("gs_batch", 2048))
     if gs_batch <= 0:
         raise ValueError(f"sampling.gs_batch must be positive, got {gs_batch}")
 
     # Hole-fix patches
-    prob_floor = float(cfg.get("sampling", {}).get("prob_floor", 1e-8))
+    prob_floor = float(sampling_cfg.get("prob_floor", 1e-8))
     if prob_floor < 0.0:
         raise ValueError(f"sampling.prob_floor must be >= 0, got {prob_floor}")
 
-    uniform_mix = float(cfg.get("sampling", {}).get("uniform_mix", 0.02))
+    uniform_mix = float(sampling_cfg.get("uniform_mix", 0.02))
     _in_range("sampling.uniform_mix", uniform_mix, 0.0, 1.0)
 
-    plane_snap_beta = float(cfg.get("sampling", {}).get("plane_snap_beta", 0.5))
+    plane_snap_beta = float(sampling_cfg.get("plane_snap_beta", 0.5))
     _in_range("sampling.plane_snap_beta", plane_snap_beta, 0.0, 1.0)
 
-    topk_pool = int(cfg.get("sampling", {}).get("topk_pool", 8))
+    topk_pool = int(sampling_cfg.get("topk_pool", 8))
     if topk_pool < 0:
         raise ValueError(f"sampling.topk_pool must be >= 0, got {topk_pool}")
 
-    thickness_gamma = float(cfg.get("sampling", {}).get("thickness_gamma", 0.15))
+    thickness_gamma = float(sampling_cfg.get("thickness_gamma", 0.15))
     if thickness_gamma < 0.0:
         raise ValueError(f"sampling.thickness_gamma must be >= 0, got {thickness_gamma}")
 

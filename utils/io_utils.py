@@ -56,6 +56,157 @@ def save_depth_png(path: Path, depth: np.ndarray, bits: int = 16) -> None:
 
 
 # ============================================================================
+# SDF Visualization
+# ============================================================================
+
+def visualize_sdf_result(
+    target_dir: Path,
+    sdf_grid: np.ndarray,
+    bbox_min: np.ndarray,
+    bbox_max: np.ndarray,
+    points: Optional[np.ndarray] = None
+) -> None:
+    """
+    Visualize SDF grid and surface anchors with matplotlib.
+    
+    Creates:
+    - sdf_slices.png: XY, XZ, YZ slices through center
+    - sdf_surface.png: 3D visualization of surface anchors
+    
+    Args:
+        target_dir: Output directory
+        sdf_grid: (R, R, R) SDF values
+        bbox_min: (3,) bounding box min
+        bbox_max: (3,) bounding box max
+        points: (N, 3) surface anchor points (optional)
+    """
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+    except ImportError:
+        print("[WARN] matplotlib not available, skipping SDF visualization")
+        return
+    
+    R = sdf_grid.shape[0]
+    
+    # Create figure with 2x2 layout
+    fig = plt.figure(figsize=(16, 14))
+    
+    # ========== Panel 1: XY slice (Z = middle) ==========
+    ax1 = fig.add_subplot(2, 2, 1)
+    z_mid = R // 2
+    xy_slice = sdf_grid[:, :, z_mid].T
+    
+    im1 = ax1.imshow(xy_slice, cmap='RdBu', origin='lower', vmin=-0.2, vmax=0.2)
+    ax1.contour(xy_slice, levels=[0], colors='yellow', linewidths=2)
+    ax1.set_title(f'SDF XY Slice (Z={z_mid}/{R})', fontsize=14, fontweight='bold')
+    ax1.set_xlabel('X')
+    ax1.set_ylabel('Y')
+    plt.colorbar(im1, ax=ax1, label='SDF value')
+    
+    # ========== Panel 2: XZ slice (Y = middle) ==========
+    ax2 = fig.add_subplot(2, 2, 2)
+    y_mid = R // 2
+    xz_slice = sdf_grid[:, y_mid, :].T
+    
+    im2 = ax2.imshow(xz_slice, cmap='RdBu', origin='lower', vmin=-0.2, vmax=0.2)
+    ax2.contour(xz_slice, levels=[0], colors='yellow', linewidths=2)
+    ax2.set_title(f'SDF XZ Slice (Y={y_mid}/{R})', fontsize=14, fontweight='bold')
+    ax2.set_xlabel('X')
+    ax2.set_ylabel('Z')
+    plt.colorbar(im2, ax=ax2, label='SDF value')
+    
+    # ========== Panel 3: YZ slice (X = middle) ==========
+    ax3 = fig.add_subplot(2, 2, 3)
+    x_mid = R // 2
+    yz_slice = sdf_grid[x_mid, :, :].T
+    
+    im3 = ax3.imshow(yz_slice, cmap='RdBu', origin='lower', vmin=-0.2, vmax=0.2)
+    ax3.contour(yz_slice, levels=[0], colors='yellow', linewidths=2)
+    ax3.set_title(f'SDF YZ Slice (X={x_mid}/{R})', fontsize=14, fontweight='bold')
+    ax3.set_xlabel('Y')
+    ax3.set_ylabel('Z')
+    plt.colorbar(im3, ax=ax3, label='SDF value')
+    
+    # ========== Panel 4: Statistics ==========
+    ax4 = fig.add_subplot(2, 2, 4)
+    ax4.axis('off')
+    
+    sdf_min, sdf_max = sdf_grid.min(), sdf_grid.max()
+    sdf_mean = sdf_grid.mean()
+    surface_voxels = (np.abs(sdf_grid) < 0.05).sum()
+    total_voxels = R ** 3
+    
+    stats_text = f"""
+SDF Grid Statistics
+{'='*40}
+
+Grid Size: {R}³ = {total_voxels:,} voxels
+Bounding Box: [{bbox_min[0]:.2f}, {bbox_max[0]:.2f}] × 
+              [{bbox_min[1]:.2f}, {bbox_max[1]:.2f}] × 
+              [{bbox_min[2]:.2f}, {bbox_max[2]:.2f}]
+
+SDF Range: [{sdf_min:.4f}, {sdf_max:.4f}]
+SDF Mean:  {sdf_mean:.4f}
+
+Surface Voxels (|SDF| < 0.05): {surface_voxels:,}
+Surface Ratio: {surface_voxels/total_voxels:.2%}
+"""
+    
+    if points is not None:
+        stats_text += f"\nSurface Anchors: {len(points):,} points"
+    
+    ax4.text(0.1, 0.5, stats_text, fontsize=12, family='monospace',
+             verticalalignment='center')
+    
+    plt.tight_layout()
+    plt.savefig(target_dir / "sdf_slices.png", dpi=150, bbox_inches='tight')
+    plt.close(fig)
+    
+    # ========== 3D Visualization of Surface Anchors ==========
+    if points is not None and len(points) > 0:
+        fig = plt.figure(figsize=(12, 10))
+        ax = fig.add_subplot(111, projection='3d')
+        
+        # Sample points if too many
+        if len(points) > 10000:
+            idx = np.random.choice(len(points), 10000, replace=False)
+            pts = points[idx]
+        else:
+            pts = points
+        
+        ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2], 
+                  c=pts[:, 2], cmap='viridis', s=1, alpha=0.6)
+        
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        ax.set_title(f'Surface Anchors (N={len(points):,})', 
+                    fontsize=14, fontweight='bold')
+        
+        # Equal aspect ratio
+        max_range = np.array([
+            pts[:, 0].max() - pts[:, 0].min(),
+            pts[:, 1].max() - pts[:, 1].min(),
+            pts[:, 2].max() - pts[:, 2].min()
+        ]).max() / 2.0
+        
+        mid_x = (pts[:, 0].max() + pts[:, 0].min()) * 0.5
+        mid_y = (pts[:, 1].max() + pts[:, 1].min()) * 0.5
+        mid_z = (pts[:, 2].max() + pts[:, 2].min()) * 0.5
+        
+        ax.set_xlim(mid_x - max_range, mid_x + max_range)
+        ax.set_ylim(mid_y - max_range, mid_y + max_range)
+        ax.set_zlim(mid_z - max_range, mid_z + max_range)
+        
+        plt.tight_layout()
+        plt.savefig(target_dir / "sdf_surface.png", dpi=150, bbox_inches='tight')
+        plt.close(fig)
+
+
+# ============================================================================
 # Target Rendering Export
 # ============================================================================
 
@@ -106,6 +257,29 @@ def save_target_renders(
     if stage_outputs:
         from sampling.io.export import save_stage_progression
         save_stage_progression(target_dir, episode=-1, stage_data=stage_outputs)
+    
+    # Visualize SDF grid if available
+    if "sdf_grid" in result_tgt:
+        sdf_grid = result_tgt["sdf_grid"]
+        bbox_min = result_tgt["bbox_min"]
+        bbox_max = result_tgt["bbox_max"]
+        
+        # Convert to numpy if needed
+        if hasattr(sdf_grid, 'cpu'):
+            sdf_grid = sdf_grid.detach().cpu().numpy()
+        if hasattr(bbox_min, 'cpu'):
+            bbox_min = bbox_min.detach().cpu().numpy()
+        if hasattr(bbox_max, 'cpu'):
+            bbox_max = bbox_max.detach().cpu().numpy()
+        
+        # Get points for visualization
+        points = result_tgt.get("points")
+        if points is not None and hasattr(points, 'cpu'):
+            points = points.detach().cpu().numpy()
+        
+        # Visualize SDF with matplotlib
+        visualize_sdf_result(target_dir, sdf_grid, bbox_min, bbox_max, points)
+        print(f"  ✅ SDF visualization saved")
 
 
 # ============================================================================

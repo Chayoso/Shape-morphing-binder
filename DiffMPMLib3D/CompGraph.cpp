@@ -199,6 +199,15 @@ namespace DiffMPMLib3D {
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // STEP 1: Standard backward propagation (physics)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        // 🔍 DEBUG: Print physics_weight_ value at the start of backward pass
+        static bool first_time = true;
+        if (first_time) {
+            std::cout << "[DEBUG] physics_weight_ = " << physics_weight_ << std::endl;
+            std::cout << "[DEBUG] has_render_grads_ = " << (has_render_grads_ ? "true" : "false") << std::endl;
+            first_time = false;
+        }
+        
         for (int i = (int)layers.size() - 2; i >= (int)control_layer; i--)
         {
             layers[i].grid->ResetGradients();
@@ -209,7 +218,8 @@ namespace DiffMPMLib3D {
             Back_Timestep(layers[i + 1], layers[i], drag, dt, smoothing_factor);
             
             // 🔥 NEW: Apply physics_weight to balance physics/render signals
-            if (physics_weight_ != 1.0f) {
+            // ⚠️  Only apply if render gradients are present (E2E mode)
+            if (physics_weight_ != 1.0f && has_render_grads_) {
                 auto& pc = *layers[i].point_cloud;
                 auto& grid = *layers[i].grid;
                 
@@ -421,7 +431,7 @@ namespace DiffMPMLib3D {
         
         // Adam parameters
         const float beta1 = 0.9f, beta2 = 0.999f, epsilon = 1e-3f;
-        static int adam_timestep = 0;  // or make it a member variable
+        int adam_timestep = 0;  // Reset per episode (removed static)
         
         float alpha = initial_alpha;
         

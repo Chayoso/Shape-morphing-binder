@@ -1,229 +1,140 @@
-# PhysMorph-GS: Sphere to Bunny Morphing Configuration
+# PhysMorph-GS: Clean Config (v2.3.2)
+# All unused parameters removed
 
-# I/O Configuration
+# ════════════════════════════════════════════════════════════════════════════════
+# I/O
+# ════════════════════════════════════════════════════════════════════════════════
 input_mesh_path: "assets/isosphere.obj"
 target_mesh_path: "assets/bunny.obj"
 output_dir: "output/sphere/bunny/"
 
-output:
-  export_ply: true
-  output_format: "ply"
-
+# ════════════════════════════════════════════════════════════════════════════════
 # Physics Simulation (MPM)
+# ════════════════════════════════════════════════════════════════════════════════
 simulation:
-  grid_dx: 0.75
-  points_per_cell_cuberoot: 3
+  grid_dx: 1
+  points_per_cell_cuberoot: 6
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
-
   lam: 38888.89
   mu: 58333.3
   density: 75.0
-
   dt: 0.00833333333
   drag: 0.5
   external_force: [0.0, 0.0, 0.0]
   smoothing_factor: 0.955
+  # 🔥 MPM 얇은 구조 안정화 스케줄
+  mpm_schedule:
+    # 백워드 bulk viscosity (압축 전용, 초반 off → 점진 증가)
+    bulk_viscosity:
+      - [0, 10, 0.0]               # ep 0-10: off (얇은 구조 자유 학습)
+      - [10, 30, 0.1]              # ep 10-30: 약한 억제
+      - [30, 999, 0.25]            # ep 30+: 표준 (과도한 압축 억제)
+    
+    # 백워드 smoothing_factor (EMA 강도, 초반 완화 → 점진 강화)
+    smoothing_factor:
+      - [0, 10, 0.88]              # ep 0-10: 약한 EMA (새 gradient 잘 전달)
+      - [10, 30, 0.92]             # ep 10-30: 중간
+      - [30, 999, 0.95]            # ep 30+: 강한 EMA (안정화)
+    
+    # J-trust region (det(F) 하한, 초반 완화 → 점진 강화)
+    j_min:
+      - [0, 10, 0.12]              # ep 0-10: 완화 (부피 변화 허용)
+      - [10, 30, 0.18]             # ep 10-30: 중간
+      - [30, 999, 0.25]            # ep 30+: 엄격 (과도한 압축 방지)
 
-# Optimization Settings
+# ════════════════════════════════════════════════════════════════════════════════
+# Optimization
+# ════════════════════════════════════════════════════════════════════════════════
 optimization:
   num_animations: 50
   num_timesteps: 10
   control_stride: 1
-
   max_gd_iters: 1
   max_ls_iters: 10
-  initial_alpha: 0.005
+  initial_alpha: 0.01
   gd_tol: 0.0001
-
+  
+  # E2E Loss
   loss:
     enabled: true
-    w_alpha: 1500
-    w_depth: 0.1
-    w_photo: 0.0
-    w_edge: 500
-    w_cov_align: 5000
+    w_alpha: 0.5
+    w_depth: 0.2
+    w_photo: 0.1
+    w_edge: 0.1
+    w_cov_align: 0.3
     w_cov_reg: 0.01
+    w_det_barrier: 0.1         # det(F) barrier (압축 방지)
     cov_reg_mode: 'eigenvalue'
     schedule: 'constant'
-
-# Upsampling Pipeline
-upsample:
-  k_neighbors: 64
-
-  surface_detection:
-    enabled: true
-    k: 64
-    k_min: 20
-    beta_adapt: 0.5
-
-    anti_banding:
-      enabled: false
-      jitter_k: 0.1
-      jitter_r: 0.1
-
-    tau: null
-    p_target: 0.82
-    gamma: 1.0
-    w_curv: 0.5
-    alpha: 2.2
-    beta: 0.7
-
-    surface_ratio: 0.85
-    enforce_surface_ratio: true
-
-    anti_grid:
-      enabled: true
-      alpha_grid: 0.5
-      beta_grid: 0.5
-      gamma_conf: 1.2
-
-  anchor_density:
-    enabled: true
-    use_multiscale_density: true
-    stage2_k_small: 8
-    stage2_k_large: 32
-    stage2_k: 128
-    use_adaptive_beta: true
-    anchor_density_beta: 0.30
-    spacing_bias_gamma: 0.6
-
-  sampling:
-    use_anisotropic_jitter: true
-    M: 500000
-
-    keep_ratio: 0.70
-    beta_soft: 1.15
-    eps_mix: 0.002
-    gate_k: 120.0
-    center_tau: 4.5
-    tau_local: 1.15
-    u_local: 0.68
-    w_cap: 0.13
-    bias_target: 2.5
-    local_S: 20
-    voxel_scale: 0.58
-    local_batch: 65536
-
-    gamma_flat: 0.70
-    cap_mult: 18.0
-    use_dynamic_cap: true
-    surf_mass_target: 0.88
-
-    surface_snap:
-      enabled: false
-
-    blue_noise:
-      enabled: true
-      c_rt: 0.6
-      s_scale: 0.2
-      rho_scale: 0.1
-      target_keep: 0.85
-      k_local: 32
-
-    tau: 0.5
-    alpha: 0.30
-
-    use_anchor_density: true
-    prob_floor: 1.0e-4
-    uniform_mix: 0.15
-
-    plane_snap_beta: 0.95
-    topk_pool: 8
-    bias_floor: 0.3
-    coverage_fraction_max: 0.15
-
-  taubin:
-    enabled: true
-    iters: 5
-    k: 128
-    lambda_smooth: 0.70
-    lambda_inflate: -0.63
-    tangent_only: true
-
-  normal_smooth:
-    enabled: true
-    iters: 2
-    k: 16
-    lambda_smooth: 0.8
-
-  covariance:
-    sigma0: 0.10
-    voxel_size: 0.75
-    kappa_max: 40.0
-    k_F: 32
-
-    use_F_smoothing: true
-    use_polar_decomposition: true
-    use_adaptive_scale: true
-
-    # Target covariance (curvature-based, episode ≤ 0 only)
-    curvature_sigma:
-      sigma_n0: 0.025        # Base normal scale (thin in normal direction)
-      sigma_t0: 0.05        # Base tangent scale (wider in tangent)
-      a: 3.0                # Normal curvature sensitivity
-      b: 0.6                # Tangent curvature sensitivity
-      u: 0.5                # Tangent anisotropy factor
-      
-      # Tangent frame generation (jitter reduction)
-      frame: 'pca'
-      pca_k: 16
-
-    learnable:
-      enabled: true
-      alpha: 0.4
-      lr: 0.002
-      freeze_after_ep: -1
-
-    density:
-      use_scale_prior: true
-      scale_kappa: 0.20
-      scale_max_up: 0.25
-      scale_smooth_alpha: 8.0
-      allow_shrink: false
-
-    F_smooth:
-      num_nodes: 180
-      node_knn: 12
-      point_knn: 12
-      lambda_lap: 0.05
-
-  knn:
-    use_faiss: true
-    use_ivf: true
-    tau: 0.20
-    nlist: 100
-    nprobe: 10
-    fallback_chunk_size: 5000
-
-  performance:
-    use_amp: false
-    cache_knn: true
-    clear_cache: true
-
-  debug:
-    verbose: true
-    export_anchor_density: true
-    export_anchors: true
-    export_dir: "debug/"
-    png_dpi: 160
-    png_ptsize: 0.5
+  
+  # Gradient scaling (render vs physics balance)
+  gradient_scaling:
+    target_ratio_schedule:
+      warmup: 0.10             # ep 0-5
+      rampup: 0.25             # ep 5-15
+      full: 0.35               # ep 15+
+    gain_max: 40000            # 극단적 불균형 대응
+    ema_beta_initial: 0.5      # 초기 빠른 반응
+    ema_beta_stable: 0.8       # 후기 안정
+    power_initial: 0.85        # 초기 공격적
+    power_stable: 0.75         # 후기 보수적
+  
+  # PCGrad conflict resolution
+  use_pcgrad: true
+  pcgrad_threshold: -0.1
 
 # ════════════════════════════════════════════════════════════════════════════════
-# RENDERING CONFIGURATION
+# Upsampling Pipeline (Simple Mode)
+# ════════════════════════════════════════════════════════════════════════════════
+upsample:
+  # 🔥 Simple pipeline mode
+  use_simple_pipeline: true  # Direct F → Covariance (no upsampling)
+  
+  # Covariance settings
+  covariance:
+    # 🔥 Target mesh covariance mode
+    use_curvature_for_target: true  # true = curvature-based | false = isotropic
+    
+    # Target mesh (isotropic mode)
+    sigma_isotropic: 0.038          # σ² * I when use_curvature_for_target=false
+    
+    # Target mesh (curvature mode)
+    curvature_sigma:
+      # 🔥 MODIFIED: Reduce base scales to amplify curvature effect
+      sigma_n0: 0.02              # Normal direction scale (was 0.008)
+      sigma_t0: 0.03              # Tangent direction scale (was 0.015)
+      
+      # 🔥 MODIFIED: Increase multipliers for stronger curvature modulation
+      a: 12.0                       # Mean curvature multiplier (was 2.0) - AMPLIFY!
+      b: 5.0                       # Aniso curvature multiplier (was 0.5) - AMPLIFY!
+      
+      a_n: 3                     # Normal decay coeff (was 0.5)
+      u: 3                       # Normal decay exponent (keep)
+      k_floor_normal: 0.002         # Normal floor
+      k_floor_tangent: 0.005        # Tangent floor
+    
+    # Morph (F-based deformation)
+    sigma0: 0.10                   # Base scale for morph
+    k_F: 32                        # KNN for F interpolation
+    sv_min: 0.30                   # Min singular value clamp
+    sv_max: null                   # Max singular value (null=unlimited)
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Rendering
 # ════════════════════════════════════════════════════════════════════════════════
 camera:
   width: 3840
   height: 2160
-  fx: 1650.0
-  fy: 1650.0
+  fx: 1425.0
+  fy: 1425.0
   cx: 1920.0
   cy: 1080.0
   znear: 0.01
   zfar: 100.0
   lookat:
-    eye: [15.0, -22.0, 10.0]
-    target: [0.0, 0.0, 2.0]
+    eye: [20.0, -25.0, 12.5]
+    target: [0.0, 0.0, 0.0]
     up: [0.0, 0.0, 1.0]
 
 render:
@@ -240,3 +151,4 @@ render:
     diffuse: 0.85
     specular: 0.10
     shininess: 32
+

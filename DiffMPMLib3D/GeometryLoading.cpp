@@ -6,6 +6,7 @@
 #include <Eigen/Core>
 #include <cmath>
 #include <iostream>
+#include <random>
 
 std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::GeometryLoading::GeneratePointCloudFromWatertightTriangleMesh(
     const Eigen::MatrixXf& V,
@@ -16,7 +17,7 @@ std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::GeometryLoading::GeneratePointClou
 {
     using namespace Eigen;
 
-    // 1. Generate uniform grid sample points
+    // 1. Generate uniform grid sample points with perturbation
     int dims[3];
     for (int i = 0; i < 3; i++) {
         dims[i] = static_cast<int>(std::ceil((max_point[i] - min_point[i]) / sampling_dx)) + 1; // +1 to include max_point
@@ -24,15 +25,28 @@ std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::GeometryLoading::GeneratePointClou
 
     std::vector<Vec3> sample_points;
     sample_points.reserve(dims[0] * dims[1] * dims[2]);
+    
+    // ✅ Random number generator for perturbation
+    std::random_device rd;
+    std::mt19937 gen(42);  // Fixed seed for reproducibility
+    const float perturbation_scale = 0.25f;  // 1/4 of grid spacing
+    std::uniform_real_distribution<float> dis(-perturbation_scale * sampling_dx, 
+                                               perturbation_scale * sampling_dx);
+    
 //#pragma omp parallel for collapse(3)
     for (int i = 0; i < dims[0]; i++) {
         for (int j = 0; j < dims[1]; j++) {
             for (int k = 0; k < dims[2]; k++) {
-                Vec3 point = min_point + sampling_dx * Vec3(float(i), float(j), float(k));
+                // ✅ Add random perturbation to break regularity
+                Vec3 perturbation(dis(gen), dis(gen), dis(gen));
+                Vec3 point = min_point + sampling_dx * Vec3(float(i), float(j), float(k)) + perturbation;
                 sample_points.emplace_back(point);
             }
         }
     }
+    
+    std::cout << "Applied perturbation: ±" << (perturbation_scale * sampling_dx) 
+              << " (±" << (perturbation_scale * 100) << "% of dx)" << std::endl;
 
     // Convert sample_points to Eigen matrix
     MatrixXf P(sample_points.size(), 3);

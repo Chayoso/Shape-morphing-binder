@@ -149,7 +149,8 @@ def visualize_episode(
     tgt: np.ndarray,
     loss_physics: float,
     seed: int,
-    cov_module=None
+    cov_module=None,
+    external_levelset=None
 ) -> None:
     """
     Visualize and save episode results.
@@ -185,7 +186,9 @@ def visualize_episode(
     
     # Upsample (export stages for visualization)
     mu, cov, result = upsample_current_state(
-        pc, rs_full, ema_state, seed, cov_module, export_stages=True
+        pc, rs_full, ema_state, seed, cov_module, export_stages=True,
+        external_levelset=None,
+        current_episode=ep
     )
     
     if mu is None:

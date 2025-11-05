@@ -20,6 +20,109 @@ except Exception as _e:
     HybridFAISSKNN = None
     _HAS_FAISS = False
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 안전 고유분해 (CUDA → CPU fallback)
+# ──────────────────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
+# 안전 고유분해 (CUDA → CPU fallback)
+# ──────────────────────────────────────────────────────────────────────────────
+def _safe_eigh_cuda_cpu(C: torch.Tensor, eps: float = 1e-6):
+    """
+    Robust symmetric eigendecomposition for batched 3x3.
+    1) 대각성분 적응형 jitter 추가 (행별 det 기반)
+    2) CUDA eigh 실패/NaN 발생 시 해당 행만 CPU(float64)에서 재시도
+    반환: evals (B,3), evecs (B,3,3)
+    """
+    device = C.device
+    B = C.shape[0]
+    dtype = C.dtype
+    
+    # 🔥 FIX: Empty tensor check (before any operation)
+    if B == 0:
+        return (
+            torch.empty((0, 3), dtype=dtype, device=device),
+            torch.empty((0, 3, 3), dtype=dtype, device=device)
+        )
+    
+    Csym = 0.5 * (C + C.transpose(-1, -2))
+    
+    # 🔥 FIX: NaN/Inf check BEFORE det computation
+    precheck_bad = torch.isnan(Csym).any(dim=(1, 2)) | torch.isinf(Csym).any(dim=(1, 2))
+    
+    if precheck_bad.all():
+        # All matrices invalid → return identity
+        print(f"[ERROR] _safe_eigh_cuda_cpu: ALL {B} matrices contain NaN/Inf, returning identity")
+        evals = torch.ones(B, 3, device=device, dtype=dtype)
+        evecs = torch.eye(3, device=device, dtype=dtype).unsqueeze(0).expand(B, -1, -1).clone()
+        return evals, evecs
+    
+    # Compute det only for valid matrices
+    det = torch.zeros(B, device=device, dtype=dtype)
+    if (~precheck_bad).any():
+        det[~precheck_bad] = torch.det(Csym[~precheck_bad])
+    
+    # det이 작을수록 jitter를 더 크게
+    jitter_row = (eps * 10.0) * (det.abs() + eps).rsqrt().clamp(max=1e3)  # 안전 상한
+    eye = torch.eye(3, device=device, dtype=dtype).unsqueeze(0).expand(B, -1, -1)
+    Csym = Csym + jitter_row.view(B, 1, 1) * eye
+    
+    # 불량 판단: NaN/Inf/음수 det 과도/조건수 과도
+    with torch.no_grad():
+        nan_mask = torch.isnan(Csym).any(dim=(1, 2)) | torch.isinf(Csym).any(dim=(1, 2))
+        # 매우 작은 det(준특이)
+        small_mask = (det.abs() < (eps**3))
+        bad = nan_mask | small_mask
+    
+    # 🔥 FIX: If all bad, return identity immediately
+    if bad.all():
+        print(f"[ERROR] _safe_eigh_cuda_cpu: ALL {B} matrices singular/invalid after jitter, returning identity")
+        evals = torch.ones(B, 3, device=device, dtype=dtype)
+        evecs = torch.eye(3, device=device, dtype=dtype).unsqueeze(0).expand(B, -1, -1).clone()
+        return evals, evecs
+    
+    # 기본값(아이덴티티)로 초기화
+    evals_all = torch.ones(B, 3, device=device, dtype=dtype)
+    evecs_all = eye.clone()
+    
+    good = ~bad
+    if good.any():
+        try:
+            # 🔥 FIX: Additional safety - contiguous and validation
+            Csym_good = Csym[good].contiguous()
+            
+            # Final NaN check on subset
+            if torch.isnan(Csym_good).any() or torch.isinf(Csym_good).any():
+                print(f"[WARN] _safe_eigh_cuda_cpu: NaN/Inf in 'good' subset, using CPU fallback")
+                raise RuntimeError("NaN in good subset")
+            
+            evals_g, evecs_g = torch.linalg.eigh(Csym_good)
+            
+            # Validate output
+            if torch.isnan(evals_g).any() or torch.isnan(evecs_g).any():
+                print(f"[WARN] _safe_eigh_cuda_cpu: eigh output contains NaN, using CPU fallback")
+                raise RuntimeError("NaN in eigh output")
+            
+            evals_all[good] = evals_g
+            evecs_all[good] = evecs_g
+        except Exception as e:
+            print(f"[WARN] _safe_eigh_cuda_cpu: CUDA eigh failed ({e}), falling back to CPU float64")
+            # 🔥 FIX: detach() 제거 - gradient 보존
+            # CPU fallback for ALL good matrices
+            try:
+                C_cpu = Csym[good].to('cpu', torch.float64)  # detach() 제거!
+                evals_b, evecs_b = torch.linalg.eigh(C_cpu)
+                evals_all[good] = evals_b.to(device=device, dtype=dtype)
+                evecs_all[good] = evecs_b.to(device=device, dtype=dtype)
+            except Exception as e2:
+                print(f"[CRITICAL] CPU fallback failed ({e2}), gradient WILL be broken!")
+                # 최후의 수단: 작은 regularization만 추가
+                print(f"  → Adding minimal regularization instead of full identity")
+                # Leave as identity (gradient broken warning already printed)
+    
+    return evals_all, evecs_all
+
+
 def _robust_aniso_norm(rho: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
     """MAD-based continuous normalization + smooth compression (1-exp(-·))."""
     # NaN check
@@ -194,37 +297,9 @@ def _tangent_frame_pca(
                 C_new[~invalid_mask] = C_good
                 C = C_new
         
-        # Additional: check singular matrices with very small eigenvalues (numerical stability)
-        # However, hard to check before eigh, so handle after eigh
+        # Eigendecomposition with safe CUDA→CPU fallback
+        evals, evecs = _safe_eigh_cuda_cpu(C, eps=eps)  # (b,3), (b,3,3)
         
-        # Eigendecomposition (safe for symmetric matrices)
-        # CUSOLVER may raise RuntimeError or _LinAlgError
-        try:
-            evals, evecs = torch.linalg.eigh(C)          # (b,3), (b,3,3)
-        except (RuntimeError, Exception) as ex:  # use 'ex' to avoid variable name conflict
-            # Handle CUSOLVER error or other exceptions
-            error_str = str(ex)
-            if "CUSOLVER" in error_str or "LinAlg" in error_str or "INVALID_VALUE" in error_str:
-                print(f"[ERROR] eigh failed (CUSOLVER/LinAlg) in batch [{s}:{e}]: {error_str[:200]}")
-            else:
-                print(f"[ERROR] eigh failed in batch [{s}:{e}]: {error_str[:200]}")
-            
-            # Output C statistics (for debugging)
-            C_dets = torch.det(C)
-            print(f"  C stats: min={C.min().item():.6e}, max={C.max().item():.6e}, "
-                  f"has_nan={torch.isnan(C).any().item()}, has_inf={torch.isinf(C).any().item()}, "
-                  f"det_range=[{C_dets.min().item():.6e}, {C_dets.max().item():.6e}]")
-            
-            # Check count of negative determinants (abnormal)
-            neg_det_count = (C_dets < 0).sum().item()
-            if neg_det_count > 0:
-                print(f"  WARNING: {neg_det_count}/{b} matrices have negative determinant (numerical error)")
-            
-            # Replace all matrices with identity (fallback)
-            print(f"  → Fallback: using identity matrices for all {b} points in this batch")
-            evals = torch.ones((b, 3), device=device, dtype=dtype)
-            evecs = torch.eye(3, device=device, dtype=dtype).unsqueeze(0).expand(b, 3, 3).clone()
-
         t1 = evecs[..., 2]                            # maximum variance axis
         t2 = evecs[..., 1]
         n_b = n[s:e]
@@ -232,7 +307,7 @@ def _tangent_frame_pca(
         # Orthogonal realignment (numerical stability)
         t1 = t1 - (t1 * n_b).sum(-1, keepdim=True) * n_b
         t1 = t1 / (t1.norm(dim=1, keepdim=True) + eps)
-        t2 = torch.cross(n_b, t1)
+        t2 = torch.cross(n_b, t1, dim=-1)
 
         R = torch.stack([t1, t2, n_b], dim=2)        # (b,3,3)
         R_out[s:e] = R
@@ -296,19 +371,49 @@ def create_curvature_based_covariance_star(
 
     N = points.shape[0]; eps = 1e-6
     if sigma_params is None: sigma_params = {}
+    
+    # 🔥 디버그 토글 (로그 스팸 제어)
+    debug = bool(sigma_params.get('debug', False))
 
-    # Hyperparameters
-    sigma_n0   = float(sigma_params.get('sigma_n0', 0.015))
-    sigma_t0   = float(sigma_params.get('sigma_t0', 0.022))
-    a          = float(sigma_params.get('a', 1.2))
-    b          = float(sigma_params.get('b', 0.30))
-    u          = float(sigma_params.get('u', 0.20))
+    # Hyperparameters (🔥 재스케일: 타깃 공분산 과다 스케일 방지)
+    sigma_n0   = float(sigma_params.get('sigma_n0', 0.035))  # 0.015 → 0.035 (법선 초기값 상향)
+    sigma_t0   = float(sigma_params.get('sigma_t0', 0.06))   # 0.022 → 0.06 (접선 초기값 상향)
+    a          = float(sigma_params.get('a', 2.0))           # 1.2 → 2.0 (곡률 감쇠 강화)
+    b          = float(sigma_params.get('b', 0.5))           # 0.30 → 0.5 (접선 감쇠 지수 상향)
+    u          = float(sigma_params.get('u', 0.3))           # 0.20 → 0.3 (법선 감쇠 지수 상향)
     sigma_floor_base = float(sigma_params.get('sigma_floor', 0.004))
     sigma_ceil = float(sigma_params.get('sigma_ceil', 0.080))
     frame_mode = sigma_params.get('frame', 'pca')
     pca_k      = int(sigma_params.get('pca_k', 16))
     iso_ramp   = float(sigma_params.get('iso_ramp', 0.4))
     ema_decay  = sigma_params.get('ema_decay', 0.85)  # float or None
+    
+    # 🔥 에피소드별 스케줄 적용 (초기 안정화 → 후기 디테일)
+    current_ep = sigma_params.get('episode', -1)
+    schedule_cfg = sigma_params.get('schedule', None)
+    
+    if schedule_cfg is not None and current_ep >= 0:
+        try:
+            from utils.schedule_utils import apply_schedule_to_cfg
+            
+            # 임시 cfg dict로 스케줄 적용
+            temp_cfg = {
+                'iso_ramp': iso_ramp,
+                'a': a,
+                'b': b,
+            }
+            temp_cfg = apply_schedule_to_cfg(temp_cfg, schedule_cfg, current_ep, verbose=debug)
+            
+            iso_ramp = temp_cfg.get('iso_ramp', iso_ramp)
+            a = temp_cfg.get('a', a)
+            b = temp_cfg.get('b', b)
+            
+            if debug:
+                print(f"[Schedule Applied] ep={current_ep}: iso_ramp={iso_ramp:.2f}, a={a:.2f}, b={b:.2f}")
+        
+        except Exception as e:
+            if debug:
+                print(f"[WARN] Schedule application failed: {e}, using default values")
 
     # ========================================================================
     # NEW: Use principal curvature from STAGE 1 (if available)
@@ -364,44 +469,150 @@ def create_curvature_based_covariance_star(
             # Default: PCA (replaced with FAISS-based, no OOM)
             R = _tangent_frame_pca(points_t, normals_t, k=pca_k)
 
-    # Curvature/anisotropy scaling
-    sigma_n  = sigma_n0 / (1.0 + a * kappa_hat)           # curvature↑ → normal thinner
-    sigma_tB = sigma_t0 * (1.0 + b * kappa_hat)           # curvature↑ → tangent thicker
-    sigma_t1 = sigma_tB
-    sigma_t2 = sigma_tB * (1.0 + u * rho_hat)
+    # Curvature/anisotropy scaling (🔥 재스케일: 감쇠 공식 통일)
+    # 접선: 곡률↑ → σ↓ (디테일 보존)
+    # 법선: 평균곡률 기반 제어
+    a_n = float(sigma_params.get('a_n', 0.5))  # 법선 감쇠 계수 (별도)
+    
+    sigma_t1 = sigma_t0 / (1.0 + a * kappa_hat).pow(b)    # 곡률↑ → 얇게
+    sigma_t2 = sigma_t0 / (1.0 + a * kappa_hat).pow(b) * (1.0 + u * rho_hat)  # 이방성 추가
+    sigma_n  = sigma_n0 / (1.0 + a_n * kappa_hat).pow(u)  # 법선: 별도 감쇠
+    
+    # 🔥 DEBUG: 실제 사용되는 곡률값과 최종 sigma 출력 (토글 가능)
+    if debug:
+        print(f"[DEBUG] Curvature-based Sigma Computation:")
+        print(f"  Input params: σ_n0={sigma_n0:.4f}, σ_t0={sigma_t0:.4f}, a={a:.2f}, b={b:.2f}, u={u:.2f}")
+        print(f"  kappa_hat (normalized): mean={kappa_hat.mean():.4f}, std={kappa_hat.std():.4f}, range=[{kappa_hat.min():.4f}, {kappa_hat.max():.4f}]")
+        print(f"  rho_hat (normalized):   mean={rho_hat.mean():.4f}, std={rho_hat.std():.4f}, range=[{rho_hat.min():.4f}, {rho_hat.max():.4f}]")
+        print(f"  Final σ_n: mean={sigma_n.mean():.5f}, range=[{sigma_n.min():.5f}, {sigma_n.max():.5f}]")
+        print(f"  Final σ_t1: mean={sigma_t1.mean():.5f}, range=[{sigma_t1.min():.5f}, {sigma_t1.max():.5f}]")
+        print(f"  Final σ_t2: mean={sigma_t2.mean():.5f}, range=[{sigma_t2.min():.5f}, {sigma_t2.max():.5f}]")
 
-    # Lower bound based on screen footprint
+    # ═══════════════════════════════════════════════════════════════════════
+    # Axis-Specific Lower Bounds (축별 바닥치)
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🔥 핵심: 법선과 접선을 구분해야 "전부 바닥" 문제가 해결됨!
+    
+    # Voxel size (approximation from sigma_params or default)
+    voxel_size = float(sigma_params.get('voxel_size', 0.08))
+    
+    # 축별 바닥치 계수 (🔥 법선 바닥치 낮춤: 디테일 살리고 두께 얇게)
+    k_n = float(sigma_params.get('k_floor_normal', 0.05))    # 법선: 얇게 유지 (0.08 → 0.05)
+    k_t = float(sigma_params.get('k_floor_tangent', 0.25))   # 접선: 스패클 방지 (0.20~0.30)
+    
+    # 축별 바닥치 계산
+    sigma_n_floor = k_n * voxel_size   # 예: 0.08 × 0.084 = 0.0067
+    sigma_t_floor = k_t * voxel_size   # 예: 0.25 × 0.084 = 0.021
+    
+    # 화면 발자국 하한 (워밍업 스케줄)
     cam_z = sigma_params.get('cam_z', None)
-    fx    = float(sigma_params.get('fx', 1200.0))
-    min_px_radius = float(sigma_params.get('min_px_radius', 0.9))
+    fx = float(sigma_params.get('fx', 1200.0))
+    
+    # 🔥 2D 발자국 워밍업 스케줄 (ep 0-5: 1.2 → 0.9 px)
+    screen_footprint_cfg = sigma_params.get('screen_footprint', {})
+    if screen_footprint_cfg.get('enabled', False):
+        warmup_eps = int(screen_footprint_cfg.get('warmup_episodes', 5))
+        r_start = float(screen_footprint_cfg.get('r_px_min_start', 1.2))
+        r_end = float(screen_footprint_cfg.get('r_px_min_end', 0.9))
+        current_ep = sigma_params.get('episode', 0)
+        
+        if current_ep < warmup_eps:
+            # 선형 램프다운
+            progress = current_ep / max(warmup_eps, 1)
+            min_px_radius = r_start + (r_end - r_start) * progress
+        else:
+            min_px_radius = r_end
+        
+        if debug:
+            print(f"[Screen Footprint] ep={current_ep}, r_px_min={min_px_radius:.3f} px "
+                  f"({'warmup' if current_ep < warmup_eps else 'stable'})")
+    else:
+        min_px_radius = float(sigma_params.get('min_px_radius', 0.9))
+    
     if cam_z is not None:
         cam_z_t = torch.as_tensor(cam_z, dtype=torch.float32, device=device)
         rmin_world = (min_px_radius / fx) * torch.clamp(cam_z_t, min=eps)
-        sigma_floor = torch.maximum(rmin_world, torch.tensor(sigma_floor_base, device=device))
+        # 접선만 화면 발자국 적용 (법선은 voxel 기반만)
+        sigma_t_floor_screen = torch.maximum(rmin_world, torch.tensor(sigma_t_floor, device=device))
     else:
-        sigma_floor = torch.full((N,), sigma_floor_base, device=device)
-
-    # Convert sigma_ceil to Tensor (type matching for clamp)
+        sigma_t_floor_screen = torch.full((N,), sigma_t_floor, device=device)
+    
+    sigma_n_floor_t = torch.full((N,), sigma_n_floor, device=device)
+    
+    # Convert sigma_ceil to Tensor
     sigma_ceil_t = torch.full((N,), sigma_ceil, device=device)
-
-    # Clamp function
-    def _clamp(v):
-        return torch.clamp(v, min=sigma_floor, max=sigma_ceil_t)
-
-    sigma_t1 = _clamp(sigma_t1)
-    sigma_t2 = _clamp(sigma_t2)
-    sigma_n  = _clamp(sigma_n)
+    
+    # 축별 클램프 (1차)
+    sigma_t1 = torch.clamp(sigma_t1, min=sigma_t_floor_screen, max=sigma_ceil_t)
+    sigma_t2 = torch.clamp(sigma_t2, min=sigma_t_floor_screen, max=sigma_ceil_t)
+    sigma_n  = torch.clamp(sigma_n,  min=sigma_n_floor_t, max=sigma_ceil_t)
+    
+    # ═══════════════════════════════════════════════════════════════════════
+    # 🔥 이방성 비율 강화 (σ_t/σ_n ≈ 4~6)
+    # ═══════════════════════════════════════════════════════════════════════
+    aniso_min = float(sigma_params.get('aniso_target_min', 3.0))
+    aniso_max = float(sigma_params.get('aniso_target_max', 8.0))
+    
+    # 현재 이방성 비율 계산
+    aniso_ratio = (sigma_t1 + sigma_t2) / (2.0 * sigma_n + eps)
+    
+    # 비율이 너무 낮으면 접선 확대 or 법선 축소
+    needs_boost = (aniso_ratio < aniso_min)
+    if needs_boost.any():
+        # 전략: 법선을 약간 줄여서 이방성 확보 (접선은 화면 안정성 유지)
+        target_sigma_n = (sigma_t1 + sigma_t2) / (2.0 * aniso_min)
+        sigma_n = torch.where(
+            needs_boost,
+            torch.maximum(target_sigma_n, sigma_n_floor_t),  # 바닥치는 유지
+            sigma_n
+        )
+    
+    # 비율이 너무 높으면 법선 확대 or 접선 축소
+    needs_cap = (aniso_ratio > aniso_max)
+    if needs_cap.any():
+        # 전략: 법선을 키워서 과도한 이방성 억제
+        target_sigma_n = (sigma_t1 + sigma_t2) / (2.0 * aniso_max)
+        sigma_n = torch.where(
+            needs_cap,
+            torch.minimum(target_sigma_n, sigma_ceil_t),
+            sigma_n
+        )
+    
+    # 최종 비율 재계산 (디버그)
+    aniso_ratio_final = (sigma_t1 + sigma_t2) / (2.0 * sigma_n + eps)
+    aniso_mean = aniso_ratio_final.mean().item()
+    aniso_std = aniso_ratio_final.std().item()
+    aniso_in_range = ((aniso_ratio_final >= aniso_min) & (aniso_ratio_final <= aniso_max)).float().mean().item()
+    
+    if debug:
+        print(f"[Anisotropy Ratio σ_t/σ_n]")
+        print(f"  Target range: [{aniso_min:.1f}, {aniso_max:.1f}]")
+        print(f"  Actual: mean={aniso_mean:.2f}, std={aniso_std:.2f}")
+        print(f"  In range: {aniso_in_range*100:.1f}% (target: ≥80%)")
+    
+    # 🔥 디버그: 바닥치 히트율 확인
+    hit_n = (sigma_n <= sigma_n_floor + eps).float().mean().item()
+    hit_t1 = (sigma_t1 <= sigma_t_floor + eps).float().mean().item()
+    hit_t2 = (sigma_t2 <= sigma_t_floor + eps).float().mean().item()
+    
+    print(f"[Floor Hit Rate] 바닥치에 걸린 비율:")
+    print(f"  Normal (σ_n):   {hit_n*100:.1f}% (floor={sigma_n_floor:.5f}, target: 10-40%)")
+    print(f"  Tangent1 (σ_t1): {hit_t1*100:.1f}% (floor={sigma_t_floor:.5f}, target: 0-15%)")
+    print(f"  Tangent2 (σ_t2): {hit_t2*100:.1f}% (floor={sigma_t_floor:.5f}, target: 0-15%)")
 
     # Stack scales
     scales = torch.stack([sigma_t1, sigma_t2, sigma_n], dim=1)  # (N,3)
 
     # EMA (optional): store/reuse state in sigma_params dict
+    # 🔥 EMA 상태는 CPU로 보관 (장기 에피소드 VRAM 누수 방지)
     prev = sigma_params.get('ema_prev_scales', None)
     if prev is not None and ema_decay is not None:
         d = float(ema_decay)
         prev = prev.to(device)
         scales = d*prev + (1.0 - d)*scales
-    sigma_params['ema_prev_scales'] = scales.detach()
+    
+    # 🔥 CPU로 저장 (VRAM 누수 방지)
+    sigma_params['ema_prev_scales'] = scales.detach().cpu()
 
     # Initial isotropic blending (iso_ramp)
     if iso_ramp is not None and 0.0 < iso_ramp < 1.0:

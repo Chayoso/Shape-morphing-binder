@@ -6,6 +6,7 @@ Handles renderer setup, target rendering, and loss computation.
 
 import numpy as np
 import torch
+import torch.nn.functional as F_nn  # 🔥 F와 충돌 방지
 from typing import Dict, Optional, Tuple, Any
 from pathlib import Path
 
@@ -82,7 +83,8 @@ def upsample_target(
     x_tgt: np.ndarray, 
     F_tgt: np.ndarray, 
     rs: Dict,
-    export_stages: bool = True
+    export_stages: bool = True,
+    output_dir: Optional[Path] = None  # 🔥 NEW: output directory for stage exports
 ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray], Optional[Dict]]:
     """
     Upsample target point cloud to create dense surface.
@@ -95,6 +97,7 @@ def upsample_target(
         F_tgt: Target deformation gradients (N_target, 3, 3)
         rs: Upsampling configuration
         export_stages: Export intermediate stages
+        output_dir: Output directory (for stage exports)
     
     Returns:
         Tuple of (mu_tgt, cov_tgt, nrm_tgt, result_tgt)
@@ -104,12 +107,19 @@ def upsample_target(
         rs["covariance"] = {}
     rs["covariance"]["episode"] = -1
     
+    # 🔥 Set output_dir for stage exports
+    if output_dir is not None and "debug" not in rs:
+        rs["debug"] = {}
+    if output_dir is not None:
+        rs["debug"]["output_dir"] = str(output_dir)
+    
     result_tgt = upsample(
         x_tgt, F_tgt,
         cfg=rs,               
         seed=9999,
         return_torch=False,
-        export_stages=export_stages
+        export_stages=export_stages,
+        current_episode=-1  # 🔥 NEW: Mark as target
     )
     
     # NOTE: Curvature-based covariance is now computed directly in STAGE 6 of pipeline
@@ -268,7 +278,11 @@ def create_target_render(
     
     # Upsample
     print("[Target] Upsampling to dense surface...")
-    mu_tgt, cov_tgt, nrm_tgt, result_tgt = upsample_target(x_tgt, F_tgt, rs, export_stages=True)
+    mu_tgt, cov_tgt, nrm_tgt, result_tgt = upsample_target(
+        x_tgt, F_tgt, rs, 
+        export_stages=True,
+        output_dir=out_dir  # 🔥 NEW: Pass output directory
+    )
     
     print(f"[Target] Upsampled: {len(mu_tgt):,} points")
 
@@ -358,7 +372,9 @@ def upsample_current_state(
     ema_state: Dict,
     seed: int,
     cov_module=None,
-    export_stages: bool = False
+    export_stages: bool = False,
+    external_levelset=None,
+    current_episode: int = 0  # 🔥 NEW: Current episode number
 ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Dict]:
     """
     Upsample current simulation state for differentiable rendering.
@@ -370,6 +386,8 @@ def upsample_current_state(
         seed: Random seed
         cov_module: Optional learnable covariance module
         export_stages: Whether to export stage visualizations (default: False)
+        external_levelset: Pre-computed level set
+        current_episode: Current episode number (enables morphing mode if >= 0)
     
     Returns:
         Tuple of (mu, cov, result)
@@ -384,14 +402,25 @@ def upsample_current_state(
         print("      ⚠️  PyTorch bindings unavailable")
         return None, None, ema_state
     
+    # 🔥 Configure morphing mode
+    rs_full_copy = dict(rs_full)
+    if 'upsample' not in rs_full_copy:
+        rs_full_copy['upsample'] = {}
+    if 'covariance' not in rs_full_copy['upsample']:
+        rs_full_copy['upsample']['covariance'] = {}
+    
+    rs_full_copy['upsample']['covariance']['episode'] = current_episode
+    
     result = upsample(
         x, F,
-        cfg=rs_full,
+        cfg=rs_full_copy,
         state=ema_state,
         seed=seed,
         return_torch=True,
         learnable_cov_module=cov_module,
-        export_stages=export_stages
+        export_stages=export_stages,
+        external_levelset=external_levelset,
+        current_episode=current_episode  # 🔥 Episode별 시각화
     )
     
     mu = result["points"]
@@ -414,7 +443,9 @@ def compute_render_loss_pass(
     render_cfg: Dict,
     particle_color: list,
     seed: int,
-    cov_module=None
+    cov_module=None,
+    external_levelset=None,
+    current_episode: int = 0  # 🔥 NEW: Current episode number for morphing mode
 ) -> Tuple[Optional[Dict], Optional[torch.Tensor], Optional[torch.Tensor], Optional[Dict]]:
     """
     Compute rendering loss and backpropagate gradients.
@@ -441,6 +472,8 @@ def compute_render_loss_pass(
         particle_color: RGB color
         seed: Random seed
         cov_module: Optional learnable covariance
+        external_levelset: Pre-computed level set
+        current_episode: Current episode number (enables morphing mode if >= 0)
     
     Returns:
         Tuple of (ema_state, F, x, loss_components)
@@ -461,28 +494,119 @@ def compute_render_loss_pass(
     if not x.is_leaf: x.retain_grad()
     if not F.is_leaf: F.retain_grad()
     
+    # 🔥 Gradient NaN Shield (워밍업 에피소드용)
+    if current_episode <= 3:  # 초기 3 에피소드만
+        from utils.covariance_utils import create_nan_clip_hook
+        x.register_hook(create_nan_clip_hook("x_mpm", clip_value=5.0))
+        F.register_hook(create_nan_clip_hook("F_mpm", clip_value=5.0))
+        if current_episode == 0:
+            print(f"   🛡️  Gradient NaN shield active (ep {current_episode}, clip=5.0)")
+    
+    # 🔥 Configure morphing mode
+    rs_full_copy = dict(rs_full)
+    if 'upsample' not in rs_full_copy:
+        rs_full_copy['upsample'] = {}
+    if 'covariance' not in rs_full_copy['upsample']:
+        rs_full_copy['upsample']['covariance'] = {}
+    
+    # Set episode for morphing mode (episode >= 0 enables gradient flow)
+    rs_full_copy['upsample']['covariance']['episode'] = current_episode
+    
+    print(f"├─ Morphing mode: episode={current_episode} ({'enabled' if current_episode >= 0 else 'disabled'})")
+    
     # Upsample
     with torch.set_grad_enabled(True):
         result = upsample(
             x, F,
-            cfg=rs_full,
+            cfg=rs_full_copy,
             state=ema_state,
             seed=seed,
             return_torch=True,
-            learnable_cov_module=cov_module
+            learnable_cov_module=cov_module,
+            external_levelset=external_levelset,
+            current_episode=current_episode  # 🔥 Episode별 시각화
         )
     
     mu = result["points"]
     cov = result["cov"]
     ema_state = result["state"]
     
+    # 🔥 Store levelset for next pass/episode advection
+    if "levelset" in result and result["levelset"] is not None:
+        ema_state["levelset"] = result["levelset"]
+        print(f"   ✓ Level set stored in ema_state (res={result['levelset'].res}³)")
+    
     if mu is None:
         return None, None, None, None
     
     print(f"├─ Upsampled: {len(mu)} points")
     
-    mu.retain_grad()
-    cov.retain_grad()
+    # ═══════════════════════════════════════════════════════════════
+    # Covariance SPD Enforcement + Voxel Floor (Covariance SPD Enforcement + Floor)
+    # ═══════════════════════════════════════════════════════════════
+    from utils.covariance_utils import (
+        diagnose_covariance_health,
+        ensure_spd_with_voxel_floor,
+        covariance_regularization_loss
+    )
+    
+    # Diagnose (verbose=False for performance, print only if problem occurs)
+    cov_diag_before = diagnose_covariance_health(cov, verbose=False)
+    
+    # 🔥 Voxel size calculation (from levelset)
+    if "levelset" in ema_state and ema_state["levelset"] is not None:
+        levelset = ema_state["levelset"]
+        bbox_min = levelset.bbox_min
+        bbox_max = levelset.bbox_max
+        resolution = levelset.res
+        
+        # Voxel size = scene size / resolution
+        scene_size = (bbox_max - bbox_min).max().item()  # maximum dimension
+        voxel_size = scene_size / resolution
+        
+        print(f"│  📐 Voxel size: {voxel_size:.6f} (scene: {scene_size:.2f}, res: {resolution})")
+    else:
+        # Fallback: approximate default value
+        voxel_size = 0.07  # approximate default value
+        print(f"│  ⚠️  Levelset not found, voxel_size={voxel_size:.6f} (default)")
+    
+    # 🔥 Always apply floor (ensure renderable size)
+    k_floor = rs_full_copy.get('upsample', {}).get('covariance', {}).get('floor_k', 0.6)
+    lambda_min = (k_floor * voxel_size) ** 2
+    
+    print(f"│  🔧 Covariance Correction (PSD + Floor, EVD-free):")
+    print(f"│     λ_min = (k={k_floor:.1f} × voxel)² = {lambda_min:.6f}")
+    
+    # 🔥 NaN check (before)
+    if torch.isnan(cov).any() or torch.isinf(cov).any():
+        print(f"│  ❌ NaN/Inf detected in cov BEFORE fix!")
+        print(f"│     NaN: {torch.isnan(cov).sum().item()}, Inf: {torch.isinf(cov).sum().item()}")
+    
+    cov = ensure_spd_with_voxel_floor(
+        cov,
+        voxel_size=voxel_size,
+        k=k_floor
+    )
+    
+    # 🔥 NaN check (after)
+    if torch.isnan(cov).any() or torch.isinf(cov).any():
+        print(f"│  ❌ NaN/Inf detected in cov AFTER fix!")
+        print(f"│     NaN: {torch.isnan(cov).sum().item()}, Inf: {torch.isinf(cov).sum().item()}")
+        print(f"│     → EVD Backward Problem Possible!")
+    
+    # Re-diagnose
+    cov_diag_after = diagnose_covariance_health(cov, verbose=False)
+    
+    print(f"│  ✓ Before: eig ∈ [{cov_diag_before['eig_min']:.2e}, {cov_diag_before['eig_max']:.2e}]")
+    print(f"│  ✓ After:  eig ∈ [{cov_diag_after['eig_min']:.2e}, {cov_diag_after['eig_max']:.2e}]")
+    print(f"│  ✓ det ∈ [{cov_diag_after['det_min']:.2e}, {cov_diag_after['det_max']:.2e}]")
+    
+    # 🔥 Verify gradient flow
+    if not mu.requires_grad:
+        print(f"   ⚠️ WARNING: mu.requires_grad=False (expected True for episode={current_episode})")
+        print(f"   → Gradient flow may be broken!")
+    else:
+        print(f"   ✓ Gradient flow enabled: mu.requires_grad=True")
     
     # Prepare rendering
     with torch.no_grad():
@@ -501,6 +625,73 @@ def compute_render_loss_pass(
         )
         rgb = torch.from_numpy(rgb_np).to(mu.device)
     
+    # ========================================================================
+    # 🔥 Filtering: φ-mask (월드) + Σ₂D 반경 클램프 (픽셀)
+    # ========================================================================
+    from sampling.core.levelset_ops import world_to_grid, phi5
+    
+    # 1) φ-mask: 표면 바깥 샘플 제거 (월드 공간)
+    if "levelset" in ema_state and ema_state["levelset"] is not None:
+        levelset = ema_state["levelset"]
+        sdf5 = phi5(levelset.phi)
+        g5 = world_to_grid(mu, levelset.bbox_min, levelset.bbox_max).view(1, -1, 1, 1, 3)
+        phi_vals = F_nn.grid_sample(sdf5, g5, mode='bilinear', padding_mode='border', 
+                                    align_corners=True).view(-1)
+        
+        dx = ((levelset.bbox_max - levelset.bbox_min) / (levelset.phi.shape[0] - 1)).max().item()
+        tau_phi = 0.12 * dx  # 🔥 0.12·Δx (초반 outlier 과감 제거)
+        
+        mask_phi = phi_vals.abs() < tau_phi
+        
+        num_before = mu.shape[0]
+        mu = mu[mask_phi]
+        cov = cov[mask_phi]
+        rgb = rgb[mask_phi]
+        
+        if hasattr(result, 'get') and result.get('normals') is not None:
+            result['normals'] = result['normals'][mask_phi]
+        
+        num_after = mu.shape[0]
+        print(f"│  🔥 φ-mask: {num_before:,} → {num_after:,} (-{num_before-num_after:,}, tau={tau_phi:.4f})")
+        
+        # 🔥 필터링 후 retain_grad 재호출 (non-leaf → leaf 전환)
+        if mu.requires_grad:
+            mu.retain_grad()
+            cov.retain_grad()
+    else:
+        mask_phi = None  # φ-mask 미사용
+    
+    # 2) Σ₂D 반경 클램프: 거대 블러 블롭 제거 (픽셀 공간)
+    # 🔥 TODO: Camera transformation 제대로 구현 필요
+    # 현재는 비활성화 (간단한 campos 변환은 부정확)
+    enable_sigma2d_filter = False  # 🔒 일단 OFF
+    
+    if enable_sigma2d_filter:
+        from utils.covariance_utils import project_sigma3d_to_2d_safe
+        
+        # TODO: 실제 view matrix로 world → camera 변환 필요
+        # mu_cam = (view_matrix @ mu.T).T
+        mu_cam = mu - torch.from_numpy(campos).to(mu.device, mu.dtype)
+        
+        # TODO: 실제 focal length 가져오기
+        fx, fy = 400.0, 400.0
+        r_px_min = 1.0
+        
+        S2 = project_sigma3d_to_2d_safe(cov, mu_cam, fx=fx, fy=fy, r_px_min=r_px_min)
+        e = torch.linalg.eigvalsh(S2)
+        r_px_max = 8.0
+        
+        mask_size = (e[..., 1] < (r_px_max ** 2))
+        
+        num_before2 = mu.shape[0]
+        mu = mu[mask_size]
+        cov = cov[mask_size]
+        rgb = rgb[mask_size]
+        
+        num_after2 = mu.shape[0]
+        if num_before2 != num_after2:
+            print(f"│  🔥 Σ₂D-clamp: {num_before2:,} → {num_after2:,} (-{num_before2-num_after2:,}, r_max={r_px_max:.1f}px)")
+    
     # Render
     pred_render = renderer.render(
         mu, cov, rgb=rgb,
@@ -508,41 +699,150 @@ def compute_render_loss_pass(
         return_torch=True
     )
     
-    # Compute loss
+    # 🔥 cov_target 필터링 (원본은 보존, 복사본 전달)
+    cov_target_filtered = None
+    if 'cov_target' in target_render and target_render['cov_target'] is not None:
+        cov_target_orig = target_render['cov_target']
+        if isinstance(cov_target_orig, torch.Tensor):
+            if mask_phi is not None:
+                # φ-mask로 필터링된 복사본 생성 (원본 보존!)
+                cov_target_filtered = cov_target_orig[mask_phi]
+            else:
+                # 필터링 안 했으면 그대로
+                cov_target_filtered = cov_target_orig
+    
+    # Compute loss (🔥 F 전달: det(F) 바리어 손실 계산)
     render_losses = loss_manager.compute_render_loss(
         pred_render, target_render,
         cov=cov, mu=mu,
         view_params=view_params,
-        cov_target=target_render.get('cov_target')
+        cov_target=cov_target_filtered,  # 🔥 필터링된 복사본 전달
+        F=F  # 🔥 NEW: det(F) 바리어 손실용
     )
     
     loss_render = render_losses['loss_render_total']
     
-    # Print losses
+    # Print losses (🔥 det(F) 바리어 추가)
     print(f"├─ Render loss: {loss_render.item():.6f}")
-    for key in ['loss_alpha', 'loss_edge', 'loss_cov_align']:
+    for key in ['loss_alpha', 'loss_edge', 'loss_cov_align', 'loss_det_barrier']:
         if key in render_losses:
             val = render_losses[key]
             if torch.is_tensor(val):
                 print(f"│  ├─ {key}: {val.item():.6f}")
     
+    # 🔥 det(F) 통계 (바리어 효과 확인)
+    if F is not None and torch.is_tensor(F):
+        with torch.no_grad():
+            det_F = torch.det(F)
+            det_min = det_F.min().item()
+            det_median = det_F.median().item()
+            det_max = det_F.max().item()
+            det_mean = det_F.mean().item()
+            det_below_05 = (det_F < 0.5).float().mean().item()
+            det_below_08 = (det_F < 0.8).float().mean().item()
+            
+            print(f"│  ├─ [det(F) Stats]")
+            print(f"│  │  ├─ range: [{det_min:.3f}, {det_max:.3f}], median: {det_median:.3f}, mean: {det_mean:.3f}")
+            print(f"│  │  ├─ below 0.5: {det_below_05*100:.1f}% (strong compression)")
+            print(f"│  │  └─ below 0.8: {det_below_08*100:.1f}% (moderate compression)")
+    
     # Store loss components
     loss_components = {k: v.detach().clone() if torch.is_tensor(v) else v
                       for k, v in render_losses.items()}
     
+    # 🔥 NaN check (before backward)
+    if torch.isnan(loss_render).any() or torch.isinf(loss_render).any():
+        print(f"├─ ❌ NaN/Inf in loss_render BEFORE backward: {loss_render.item()}")
+        return None, None, None, None
+    
     # Backward
+    print(f"├─ Backward pass starting...")
     loss_render.backward()
+    
+    # 🔥 NaN check (after backward)
+    nan_sources = []
+    if F.grad is not None and (torch.isnan(F.grad).any() or torch.isinf(F.grad).any()):
+        nan_sources.append("F.grad")
+        print(f"│  ❌ NaN/Inf in F.grad: NaN={torch.isnan(F.grad).sum().item()}, Inf={torch.isinf(F.grad).sum().item()}")
+    
+    if x.grad is not None and (torch.isnan(x.grad).any() or torch.isinf(x.grad).any()):
+        nan_sources.append("x.grad")
+        print(f"│  ❌ NaN/Inf in x.grad: NaN={torch.isnan(x.grad).sum().item()}, Inf={torch.isinf(x.grad).sum().item()}")
+    
+    # 🔥 mu, cov는 필터링 후 non-leaf일 수 있어서 .grad 체크 스킵
+    # (중요한 건 x.grad, F.grad이므로 문제없음)
+    
+    if nan_sources:
+        print(f"└─ ❌ Backward produced NaN in: {', '.join(nan_sources)}")
+        print(f"   → Possible: EVD Backward, normalize(0), z-division")
+        return None, None, None, None
+    else:
+        print(f"└─ ✅ Backward completed, no NaN detected")
     
     return ema_state, F, x, loss_components
 
 
-def extract_render_gradients(F: torch.Tensor, x: torch.Tensor) -> Optional[Dict]:
+def _visibility_mask(
+    mu: Optional[torch.Tensor],
+    view_params: Optional[Dict],
+    alpha_tgt: Optional[torch.Tensor],
+    edge_info: Optional[Dict] = None,
+    enabled: bool = False
+) -> Optional[torch.Tensor]:
+    """
+    🔥 가시성·경계 마스킹 (선택적).
+    
+    비가시/저경계 픽셀의 렌더 그라디언트를 희석/마스킹하여
+    잡음성 그라디언트 주입을 억제합니다.
+    
+    전략:
+    - 스크린 안/앞쪽(z>0) 체크
+    - (선택) 경계 강도 기반 가중
+    
+    Args:
+        mu: (N, 3) 3D positions
+        view_params: Camera parameters
+        alpha_tgt: Target alpha map
+        edge_info: Edge alignment info (선택)
+        enabled: 마스킹 활성화 여부 (기본: False)
+    
+    Returns:
+        (N,) 가중치 또는 None (비활성화 시)
+    """
+    if not enabled or mu is None:
+        return None
+    
+    N = mu.shape[0]
+    device = mu.device
+    
+    # 간단 스텁: 모두 1 반환 (향후 확장 가능)
+    # TODO: 실루엣/경계 강도 기반 가중 구현
+    # - edge_info['edge_grad_norm_mean'] 등 활용
+    # - alpha_tgt의 그라디언트 맵 활용
+    
+    return None  # 현재는 비활성화 (향후 점진적 적용 권장)
+
+
+def extract_render_gradients(
+    F: torch.Tensor, 
+    x: torch.Tensor,
+    mu: Optional[torch.Tensor] = None,
+    view_params: Optional[Dict] = None,
+    target_render: Optional[Dict] = None,
+    visibility_masking: bool = False
+) -> Optional[Dict]:
     """
     Extract render gradients for injection to physics.
+    
+    🔥 개선: 가시성·경계 마스킹 지원 (선택적)
     
     Args:
         F: Deformation gradients with .grad
         x: Positions with .grad
+        mu: (N, 3) 3D positions (마스킹용, 선택)
+        view_params: Camera parameters (마스킹용, 선택)
+        target_render: Target render dict (마스킹용, 선택)
+        visibility_masking: 마스킹 활성화 여부 (기본: False)
     
     Returns:
         Dict with {dLdF, dLdx} or None if extraction failed
@@ -556,6 +856,19 @@ def extract_render_gradients(F: torch.Tensor, x: torch.Tensor) -> Optional[Dict]
     
     if dLdx is None:
         dLdx = np.zeros_like(dLdF[:, :, 0])
+    
+    # 🔥 가시성·경계 마스킹 (선택적)
+    if visibility_masking and mu is not None:
+        alpha_tgt = target_render.get('alpha') if target_render is not None else None
+        mask = _visibility_mask(mu, view_params, alpha_tgt, enabled=True)
+        
+        if mask is not None:
+            mask_np = mask.detach().cpu().numpy().astype(np.float32)
+            # dLdF: (N,3,3), dLdx: (N,3), mask: (N,)
+            dLdF *= mask_np[:, None, None]
+            dLdx *= mask_np[:, None]
+            
+            print(f"   🔎 Visibility masking applied (mean weight: {mask_np.mean():.3f})")
     
     return {
         'dLdF': dLdF,

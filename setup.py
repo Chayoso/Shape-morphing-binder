@@ -36,15 +36,15 @@ diffmpm_lib_dir = project_root / "DiffMPMLib3D"
 is_win = sys.platform == "win32"
 
 # --- Configuration ---
-# Use an environment variable to switch between performance and deterministic builds
-deterministic = os.environ.get("DIFFMPM_DETERMINISTIC", "0") == "1"
 
 extra_compile_args = []
 extra_link_args = []
 define_macros = [("_USE_MATH_DEFINES", None), ("NDEBUG", None), ("EIGEN_NO_DEBUG", None)]
 
 # Diagnostics toggle: export DIFFMPM_DIAGNOSTICS=1 to enable
-diagnostics = os.environ.get("DIFFMPM_DIAGNOSTICS", "0") == "1"
+diagnostics = False # os.environ.get("DIFFMPM_DIAGNOSTICS", "0") == "1"
+diagnostics = False
+deterministic = False  # ✅ Default to performance mode (LTO enabled)
 if diagnostics:
     define_macros.append(("DIAGNOSTICS", None))
     # Prefer reproducible build (disable LTO) when diagnostics are on
@@ -78,7 +78,7 @@ if os.environ.get("DIFFMPM_DOUBLE", "0") == "1":
 if is_win:
     extra_compile_args = [
         "/std:c++17",
-        "/O2",
+        "/Ox",
         "/MP",
         "/openmp",
         "/D_OPENMP",
@@ -86,14 +86,14 @@ if is_win:
         "/EHsc",
         "/DNOMINMAX",
         "/permissive-",
-        "/fp:precise",  # Use precise floating-point model, disable fast-math
+        "/fp:fast",  # Use precise floating-point model, disable fast-math
         "/arch:AVX2",   # Specify AVX2 instruction set
     ]
     
     if not deterministic:
         # Enable Link-Time Optimization (LTO) only in performance mode
         extra_compile_args += ["/GL"]
-        extra_link_args += ["/LTCG"]
+        extra_link_args += ["/openmp", "/LTCG"]
     else:
         # For deterministic builds, add flags that reduce sources of variance
         define_macros += [("EIGEN_DONT_PARALLELIZE", None)]
@@ -172,7 +172,7 @@ ext_modules = [
 
 setup(
     name="diffmpm",
-    version="2.3.0",
+    version="3.0.0",
     author="Changyong Song",
     description="Python bindings for PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing",
     long_description=(project_root / "README.md").read_text(encoding="utf-8") if (project_root / "README.md").exists() else "",

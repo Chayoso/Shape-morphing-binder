@@ -148,16 +148,117 @@ def select_graph_nodes(x: torch.Tensor, K: int, seed: int = 42) -> Tuple[torch.T
     return Xn, sel
 
 
-def build_graph_laplacian(Xn, node_knn, K, device, dtype):
+def build_edge_aware_weights(
+    Xn: torch.Tensor,
+    normals: Optional[torch.Tensor] = None,
+    curvature: Optional[torch.Tensor] = None,
+    j_nodes: torch.Tensor = None,
+    distances: torch.Tensor = None,
+    gating_cfg: Optional[Dict] = None
+) -> torch.Tensor:
+    """
+    🔥 엣지-어웨어 가중치 계산 (곡률·노멀각·거리 기반).
+    
+    핵심: 엣지/곡률 경계에서 smoothing 약화 → 디테일 보존
+    
+    Args:
+        Xn: (K, 3) 노드 위치
+        normals: (K, 3) 노멀 벡터 (선택)
+        curvature: (K,) 곡률 값 (선택)
+        j_nodes: (K, k) 이웃 인덱스
+        distances: (K, k) 이웃 거리
+        gating_cfg: 게이팅 설정
+    
+    Returns:
+        weights: (K, k) 엣지-어웨어 가중치
+    """
+    if gating_cfg is None or not gating_cfg.get('use_curvature', False):
+        # 기본: 거리 기반만
+        sigma_x = distances.mean() + EPS_SAFE
+        w_dist = torch.exp(-(distances ** 2) / (sigma_x ** 2))
+        return w_dist
+    
+    K, k = j_nodes.shape
+    device, dtype = Xn.device, Xn.dtype
+    
+    # 1) 거리 가중
+    sigma_x = distances.mean() + EPS_SAFE
+    w_dist = torch.exp(-(distances ** 2) / (sigma_x ** 2))
+    
+    # 2) 노멀각 가중 (선택)
+    w_angle = torch.ones_like(w_dist)
+    if normals is not None:
+        # normals: (K, 3), j_nodes: (K, k)
+        n_i = normals.unsqueeze(1).expand(-1, k, -1)  # (K, k, 3)
+        n_j = normals[j_nodes]  # (K, k, 3)
+        
+        cos_angle = (n_i * n_j).sum(dim=-1).clamp(-1.0, 1.0)  # (K, k)
+        theta_rad = torch.acos(cos_angle)  # [0, π]
+        theta_deg = theta_rad * 180.0 / 3.14159265
+        
+        # 각도 임계치 (기본: 22.5도)
+        normal_angle_thresh = float(gating_cfg.get('normal_angle_deg', 22.5))
+        sigma_theta = torch.deg2rad(torch.tensor(normal_angle_thresh, device=device))
+        w_angle = torch.exp(-(theta_rad ** 2) / (sigma_theta ** 2))
+    
+    # 3) 곡률 차이 가중 (선택)
+    w_curv = torch.ones_like(w_dist)
+    if curvature is not None:
+        kappa_i = curvature.unsqueeze(1).expand(-1, k)  # (K, k)
+        kappa_j = curvature[j_nodes]  # (K, k)
+        d_kappa = (kappa_i - kappa_j).abs()
+        
+        # 곡률 임계치 (무단위, 기본: 0.10)
+        kappa_thresh = float(gating_cfg.get('kappa_thresh', 0.10))
+        w_curv = torch.exp(-(d_kappa ** 2) / (kappa_thresh ** 2))
+    
+    # 4) 결합 가중치
+    min_weight = float(gating_cfg.get('min_weight', 0.10))
+    softness = float(gating_cfg.get('weight_softness', 0.5))
+    
+    w_combined = w_dist * w_angle * w_curv
+    w_combined = w_combined.pow(softness)  # 부드럽게
+    w_combined = min_weight + (1.0 - min_weight) * w_combined  # 최소 가중 보존
+    
+    return w_combined
+
+
+def build_graph_laplacian(
+    Xn, node_knn, K, device, dtype,
+    normals: Optional[torch.Tensor] = None,
+    curvature: Optional[torch.Tensor] = None,
+    gating_cfg: Optional[Dict] = None
+):
+    """
+    🔥 엣지-어웨어 그래프 라플라시안 (개선됨).
+    
+    Args:
+        Xn: (K, 3) 노드 위치
+        node_knn: 이웃 수
+        K: 노드 총 개수
+        device, dtype: 텐서 속성
+        normals: (K, 3) 노멀 벡터 (선택)
+        curvature: (K,) 곡률 값 (선택)
+        gating_cfg: 엣지-어웨어 게이팅 설정
+    
+    Returns:
+        L: (K, K) 라플라시안 행렬
+    """
     D_nodes = torch.cdist(Xn, Xn, p=2)
     k_node = min(node_knn, K - 1)
     
     j_nodes, attn_k = soft_top_k(D_nodes, k=k_node + 1, tau=0.05, largest=False)
     
+    # 🔥 엣지-어웨어 가중치 계산
+    d_selected = torch.gather(D_nodes, 1, j_nodes)  # (K, k+1)
+    weights = build_edge_aware_weights(
+        Xn, normals, curvature, j_nodes, d_selected, gating_cfg
+    )
+    
     # Build sparse W
     W = torch.zeros(K, K, device=device, dtype=dtype)
     row_idx = torch.arange(K, device=device).unsqueeze(1).expand(-1, k_node + 1)
-    W[row_idx, j_nodes] = attn_k
+    W[row_idx, j_nodes] = weights
     
     # Remove diagonal
     W.fill_diagonal_(0)
@@ -191,14 +292,26 @@ def build_interpolation_weights(x, Xn, point_knn, N, K, device, dtype):
     return W
 
 
-def smooth_F_field(x_low: torch.Tensor, F_low: torch.Tensor, cfg: Dict) -> torch.Tensor:
+def smooth_F_field(
+    x_low: torch.Tensor, 
+    F_low: torch.Tensor, 
+    cfg: Dict,
+    normals: Optional[torch.Tensor] = None,
+    curvature: Optional[torch.Tensor] = None
+) -> torch.Tensor:
     """
-    Smooth F-field using differentiable graph Laplacian.
+    🔥 엣지-어웨어 F-field smoothing (개선됨).
+    
+    개선사항:
+    - 곡률/노멀각 기반 게이팅 → 엣지 보존
+    - 에피소드별 lambda_lap 스케줄 지원
     
     Args:
         x_low: (N, 3) anchor positions
         F_low: (N, 3, 3) deformation gradients
         cfg: Configuration dict
+        normals: (N, 3) 노멀 벡터 (선택, 엣지 검출용)
+        curvature: (N,) 곡률 값 (선택, 엣지 검출용)
     
     Returns:
         F_smooth: (N, 3, 3) smoothed F-field
@@ -208,6 +321,7 @@ def smooth_F_field(x_low: torch.Tensor, F_low: torch.Tensor, cfg: Dict) -> torch
     point_knn = int(cfg.get("point_knn", 8))
     lam = float(cfg.get("lambda_lap", 1e-2))
     seed = int(cfg.get("seed", 42))
+    gating_cfg = cfg.get("gating", None)  # 🔥 NEW: 엣지 게이팅 설정
     
     device, dtype = F_low.device, F_low.dtype
     N = x_low.shape[0]
@@ -215,8 +329,17 @@ def smooth_F_field(x_low: torch.Tensor, F_low: torch.Tensor, cfg: Dict) -> torch
     # Select graph nodes (differentiable)
     Xn, sel = select_graph_nodes(x_low, K, seed=seed)
     
-    # Build Laplacian (differentiable)
-    L = build_graph_laplacian(Xn, node_knn, K, device, dtype)
+    # 🔥 선택된 노드의 노멀/곡률 (있으면)
+    Xn_normals = normals[sel] if normals is not None else None
+    Xn_curvature = curvature[sel] if curvature is not None else None
+    
+    # Build Laplacian (엣지-어웨어, differentiable)
+    L = build_graph_laplacian(
+        Xn, node_knn, K, device, dtype,
+        normals=Xn_normals,
+        curvature=Xn_curvature,
+        gating_cfg=gating_cfg
+    )
     
     # Build interpolation weights (differentiable)
     W = build_interpolation_weights(x_low, Xn, point_knn, N, K, device, dtype)
@@ -236,6 +359,22 @@ def smooth_F_field(x_low: torch.Tensor, F_low: torch.Tensor, cfg: Dict) -> torch
     F_smooth_flat = torch.einsum('nk,kr->nr', W, Y)
     
     return F_smooth_flat.reshape(N, 3, 3)
+
+
+# ============================================================================
+# Soft Clamping Utilities (Gradient-Friendly)
+# ============================================================================
+
+def soft_clamp_min(x: torch.Tensor, lo: float, beta: float = 4.0) -> torch.Tensor:
+    """Soft minimum clamp: x' = lo + softplus(x - lo)"""
+    return lo + F.softplus(x - lo, beta=beta)
+
+def soft_clamp_minmax(x: torch.Tensor, lo: float, hi: Optional[float] = None, beta: float = 4.0) -> torch.Tensor:
+    """Soft min-max clamp (gradient-friendly)."""
+    y = soft_clamp_min(x, lo, beta)
+    if hi is not None:
+        y = hi - F.softplus(hi - y, beta=beta)
+    return y
 
 
 # ============================================================================
@@ -264,6 +403,9 @@ def polar_decomposition(F: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     # SVD: F = U Σ V^T
     U, sigma, Vt = torch.linalg.svd(F)  # sigma: (N, 3) - always positive
     
+    # 🔥 NaN/Inf 안전장치: sigma 클램핑 (수치 안정성)
+    sigma = torch.clamp(sigma, min=0.01, max=3.0)  # 물리적으로 합리적인 범위
+    
     # Rotation (or rotation+reflection): R = U V^T
     R = torch.bmm(U, Vt)
     # det(R) can be ±1, but that's OK for covariance computation
@@ -273,11 +415,131 @@ def polar_decomposition(F: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     sigma_diag = torch.diag_embed(sigma)  # Diagonal with positive values
     S = torch.bmm(torch.bmm(V, sigma_diag), Vt)
     
-    # S is guaranteed positive definite:
-    # - Eigenvalues of S are exactly sigma (all positive from SVD)
-    # - S is symmetric by construction
+    # 🔥 대칭화 + 안전장치 (수치 오차 제거)
+    S = 0.5 * (S + S.transpose(-2, -1))  # 완벽한 대칭 보장
+    
+    # 🔥 추가 안전장치: 대각 최소값 보장
+    diag_S = torch.diagonal(S, dim1=-2, dim2=-1)  # (N, 3)
+    min_diag = 0.01  # 최소 대각 원소
+    need_fix = (diag_S < min_diag).any(dim=-1)  # (N,)
+    if need_fix.any():
+        eye = torch.eye(3, device=S.device, dtype=S.dtype).unsqueeze(0)
+        fix_amount = torch.clamp(min_diag - diag_S.min(dim=-1).values, min=0.0)  # (N,)
+        S = S + fix_amount.view(-1, 1, 1) * eye
     
     return R, S
+
+
+def polar_with_sv_soft_clamp(
+    F_in: torch.Tensor,
+    s_min: float = 0.30,
+    s_max: Optional[float] = None,
+    eps: float = 1e-6
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    🔥 Polar decomposition + SV soft-clamp (특이값만, 원소별 클램프 금지).
+    
+    Args:
+        F_in: (..., 3, 3) deformation gradient
+        s_min: 최소 특이값 (soft)
+        s_max: 최대 특이값 (soft, None=무제한)
+        eps: 수치 안정성
+    
+    Returns:
+        R: (..., 3, 3) proper rotation (det(R) > 0, SO(3))
+        H: (..., 3, 3) SPD stretch (soft-clamped)
+        S_cl: (..., 3) clamped singular values
+    """
+    # SVD: F = U Σ V^T
+    U, S, Vh = torch.linalg.svd(F_in, full_matrices=False)  # S: (..., 3)
+    
+    # Proper rotation 보장 (det(R) > 0)
+    R = U @ Vh
+    detR = torch.det(R)
+    neg = detR < 0
+    if neg.any():
+        # 마지막 축 뒤집어 SO(3)로 보정
+        Vh = Vh.clone()
+        Vh[neg, -1, :] *= -1
+        R = U @ Vh
+    
+    # 🔥 SV soft-clamp (경직 대신 완만)
+    S_cl = soft_clamp_minmax(S, s_min, s_max)
+    
+    # SPD stretch H = V Σ V^T
+    H = Vh.transpose(-2, -1) @ torch.diag_embed(S_cl) @ Vh
+    
+    # 수치적 SPD 보장 (대칭화 + 작은 regularization)
+    H = 0.5 * (H + H.transpose(-2, -1))
+    eye = torch.eye(3, device=H.device, dtype=H.dtype).unsqueeze(0)
+    H = H + eps * eye
+    
+    return R, H, S_cl
+
+
+# ============================================================================
+# Log-Euclidean Smoothing (SPD-only)
+# ============================================================================
+
+def spd_log(H: torch.Tensor) -> torch.Tensor:
+    """Log of SPD matrix: log(H) in Lie algebra."""
+    evals, evecs = torch.linalg.eigh(H)  # SPD → real eigenvalues
+    evals = evals.clamp_min(1e-9)
+    L = evecs @ torch.diag_embed(torch.log(evals)) @ evecs.transpose(-2, -1)
+    return L
+
+def spd_exp(L: torch.Tensor) -> torch.Tensor:
+    """Exp of symmetric matrix: exp(L) back to SPD."""
+    evals, evecs = torch.linalg.eigh(L)
+    H = evecs @ torch.diag_embed(torch.exp(evals)) @ evecs.transpose(-2, -1)
+    return 0.5 * (H + H.transpose(-2, -1))  # 수치 대칭화
+
+def laplacian_smooth_tensor(
+    T: torch.Tensor,
+    idx: torch.Tensor,
+    w: torch.Tensor,
+    lam: float = 0.04,
+    iters: int = 1
+) -> torch.Tensor:
+    """Laplacian smoothing on tensor field."""
+    X = T
+    for _ in range(iters):
+        neigh = X[idx]  # (M, k, ...)
+        avg = (w.unsqueeze(-1).unsqueeze(-1) * neigh).sum(dim=1)
+        X = (1.0 - lam) * X + lam * avg
+    return X
+
+def smooth_H_only(
+    H: torch.Tensor,
+    points: torch.Tensor,
+    knn,
+    lam: float = 0.04,
+    iters: int = 1,
+    k: int = 6
+) -> torch.Tensor:
+    """
+    🔥 SPD-only smoothing in log-Euclidean space.
+    
+    Args:
+        H: (M, 3, 3) SPD stretch matrices
+        points: (M, 3) positions
+        knn: KNN function
+        lam: Laplacian strength
+        iters: Smoothing iterations
+        k: Number of neighbors
+    
+    Returns:
+        Hs: (M, 3, 3) smoothed SPD
+    """
+    L = spd_log(H)  # (M, 3, 3) - log space
+    
+    k_actual = min(k, points.shape[0] - 1)
+    idx, w = knn(points, points, k_actual)  # (M, k), (M, k)
+    
+    Ls = laplacian_smooth_tensor(L, idx, w, lam, iters)  # 로그 영역 스무딩
+    Hs = spd_exp(Ls)  # 복귀 → SPD
+    
+    return Hs
 
 
 # ============================================================================
@@ -290,10 +552,14 @@ def build_deformation_covariance(
     F_low: torch.Tensor,
     knn,
     cfg: Dict,
-    learnable_cov_module=None
+    learnable_cov_module=None,
+    x_low_normals: Optional[torch.Tensor] = None,  # 🔥 NEW: 엣지 검출용
+    x_low_curvature: Optional[torch.Tensor] = None  # 🔥 NEW: 엣지 검출용
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Build covariance matrices via F-field interpolation + optional learnable refinement.
+    
+    🔥 개선: 엣지-어웨어 F-smoothing 지원
     
     This function is for PREDICTED/SIMULATED meshes only (Episode > 0).
     For TARGET mesh, use utils.curvature_covariance instead.
@@ -314,6 +580,8 @@ def build_deformation_covariance(
             - learnable: dict (learnable covariance config)
             - density: dict (density-based scaling config)
         learnable_cov_module: Optional LearnableCovariance module
+        x_low_normals: (N, 3) 노멀 벡터 (엣지-어웨어 smoothing용, 선택)
+        x_low_curvature: (N,) 곡률 값 (엣지-어웨어 smoothing용, 선택)
     
     Returns:
         cov: (M, 3, 3) covariance matrices
@@ -326,27 +594,51 @@ def build_deformation_covariance(
     use_adaptive_scale = bool(cfg.get("use_adaptive_scale", False))
     use_polar = bool(cfg.get("use_polar_decomposition", True))
 
-    # 1) Optional F-field smoothing
-    F_smooth = smooth_F_field(x_low, F_low, cfg.get("F_smooth", {})) if use_F_smoothing else F_low
+    # 🔥 F-field 분포 체크 (Root cause 디버깅)
+    with torch.no_grad():
+        F_det = torch.det(F_low)
+        print(f"\n[F-field Stats - Input]")
+        print(f"  F_low range: [{F_low.min():.3f}, {F_low.max():.3f}]")
+        print(f"  det(F_low): [{F_det.min():.3f}, {F_det.max():.3f}]")
+        print(f"  Negative det: {(F_det < 0).sum().item()} / {len(F_det)}")
+        if (F_det < 0).any():
+            print(f"  ⚠️  WARNING: Negative determinants (reflections/inversions)!")
+    
+    # 1) Optional F-field smoothing (🔥 엣지-어웨어)
+    if use_F_smoothing:
+        F_smooth = smooth_F_field(
+            x_low, F_low, cfg.get("F_smooth", {}),
+            normals=x_low_normals,  # 🔥 NEW
+            curvature=x_low_curvature  # 🔥 NEW
+        )
+        
+        # 🔥 Smoothing 전후 비교
+        with torch.no_grad():
+            print(f"[F-field Stats - After Smoothing]")
+            print(f"  F_smooth range: [{F_smooth.min():.3f}, {F_smooth.max():.3f}]")
+            F_det_smooth = torch.det(F_smooth)
+            print(f"  det(F_smooth): [{F_det_smooth.min():.3f}, {F_det_smooth.max():.3f}]")
+    else:
+        F_smooth = F_low
 
     # 2) Interpolate F to upsampled points
     idx, w = knn(points, x_low, k_F)
     F_neighbors = F_smooth[idx]  # (M, k_F, 3, 3)
     F_interp = torch.einsum('mk,mkrc->mrc', w, F_neighbors)  # (M, 3, 3)
     
-    # DEBUG: Check F values
+    # 🔥 SV Soft-Clamp (원소별 경직 클램프 금지!)
+    s_min = float(cfg.get("sv_min", 0.30))
+    s_max = cfg.get("sv_max", None)  # None = 무제한
+    
+    # DEBUG: F_interp 전
     with torch.no_grad():
-        if torch.isnan(F_interp).any() or torch.isinf(F_interp).any():
-            print(f"[ERROR] Invalid F_interp!")
-            print(f"  NaN: {torch.isnan(F_interp).sum().item()}")
-            print(f"  Inf: {torch.isinf(F_interp).sum().item()}")
-        
-        F_det = torch.det(F_interp)
-        print(f"[F-field Debug]")
+        F_det_before = torch.det(F_interp)
+        print(f"[F-field Debug - Before SV Clamp]")
         print(f"  F_interp range: [{F_interp.min():.6f}, {F_interp.max():.6f}]")
-        print(f"  det(F) range: [{F_det.min():.6f}, {F_det.max():.6f}]")
-        if (F_det < 0).any():
-            print(f"  ⚠ WARNING: {(F_det < 0).sum().item()} negative determinants (reflection!)")
+        print(f"  det(F) range: [{F_det_before.min():.6f}, {F_det_before.max():.6f}]")
+        neg_det_count = (F_det_before < 0).sum().item()
+        if neg_det_count > 0:
+            print(f"  ⚠️  {neg_det_count} negative determinants (will be corrected)")
 
     # 3) Local spacing for adaptive scale
     local_spacing = None
@@ -392,45 +684,59 @@ def build_deformation_covariance(
             
             sigma_adaptive = sigma_adaptive * s_factor
 
-        # Polar decomposition
-        R, S = polar_decomposition(F_interp)
+        # 🔥 Polar decomposition + SV soft-clamp (경직 클램프 제거!)
+        R, H, S_cl = polar_with_sv_soft_clamp(F_interp, s_min=s_min, s_max=s_max)
         
         with torch.no_grad():
-            print(f"[Polar Decomposition Debug]")
-            print(f"  S range: [{S.min():.6f}, {S.max():.6f}]")
-
-        # Get eigenvalues of S
-        S_eigvals = torch.linalg.eigvalsh(S)  # (M, 3), sorted ascending
+            print(f"[Polar + SV Soft-Clamp Debug]")
+            print(f"  SV clamped: [{S_cl.min():.6f}, {S_cl.max():.6f}]")
+            print(f"  H (stretch) range: [{H.min():.6f}, {H.max():.6f}]")
+            
+            # 포화율 체크
+            sat_min = (S_cl <= s_min + 1e-4).float().mean().item()
+            sat_max = (S_cl >= (s_max - 1e-4) if s_max else 0.0).float().mean().item() if s_max else 0.0
+            print(f"  SV saturation: min={sat_min*100:.1f}%, max={sat_max*100:.1f}%")
+            if sat_min > 0.20:
+                print(f"  ⚠️  WARNING: >20% SVs at minimum (over-clamped, loss of anisotropy)")
         
-        # Clamp eigenvalues
-        voxel_size = cfg.get("voxel_size", 0.5)
-        s_min = max(0.4 * voxel_size, 0.01)
-        s_max = min(6.0 * voxel_size, 1.0)
-        S_eigvals_clamped = S_eigvals.clamp(s_min, s_max)
+        # 🔥 (Optional) SPD-only smoothing (mode="spd_only")
+        smooth_mode = cfg.get("F_smooth", {}).get("mode", "full")
+        if smooth_mode == "spd_only":
+            # R은 보존, H만 log-Euclidean smoothing
+            H_smooth_cfg = cfg.get("F_smooth", {})
+            lam_H = float(H_smooth_cfg.get("lambda_H", 0.02))
+            H = smooth_H_only(H, points, knn, lam=lam_H, iters=1, k=6)
+            
+            with torch.no_grad():
+                print(f"  [SPD-only Smoothing] H smoothed with λ={lam_H:.3f}")
         
-        # Condition number limiting
-        kappa_max = cfg.get("kappa_max", 40.0)
-        kappa = S_eigvals_clamped[:, 2] / (S_eigvals_clamped[:, 0] + 1e-8)
-        needs_fix = kappa > kappa_max
-        if needs_fix.any():
-            target_min = S_eigvals_clamped[:, 2] / kappa_max
-            S_eigvals_clamped[:, 0] = torch.where(
-                needs_fix,
-                torch.maximum(S_eigvals_clamped[:, 0], target_min),
-                S_eigvals_clamped[:, 0]
-            )
-        
-        # Reconstruct S with clamped eigenvalues
-        U_s, _, Vt_s = torch.linalg.svd(S)
-        S_fixed = U_s @ torch.diag_embed(S_eigvals_clamped) @ Vt_s
+        S_fixed = H  # H가 이미 SPD + smoothed
         
         # Build covariance: Σ = S·Σ₀·S (rotation removed!)
         Sigma0 = (sigma_adaptive.view(-1, 1, 1) ** 2) * torch.eye(3, device=points.device).unsqueeze(0)
         S_Sigma0 = torch.bmm(S_fixed, Sigma0)
         cov = torch.bmm(S_Sigma0, S_fixed)
         
+        # 🔥 Root Cause 디버깅 + SV 동적범위 분석
+        with torch.no_grad():
+            print(f"[Deformation Covariance Debug]")
+            print(f"  sigma_adaptive: [{sigma_adaptive.min():.6f}, {sigma_adaptive.max():.6f}]")
+            print(f"  S_fixed range: [{S_fixed.min():.6f}, {S_fixed.max():.6f}]")
+            
+            # SV 동적범위
+            sv_p05 = torch.quantile(S_cl, 0.05, dim=0)
+            sv_p50 = torch.quantile(S_cl, 0.50, dim=0)
+            sv_p95 = torch.quantile(S_cl, 0.95, dim=0)
+            print(f"  SV quantiles [p05, p50, p95]:")
+            for i in range(3):
+                print(f"    σ_{i}: [{sv_p05[i]:.4f}, {sv_p50[i]:.4f}, {sv_p95[i]:.4f}]")
+            
+            print(f"  cov range: [{cov.min():.6f}, {cov.max():.6f}]")
+            cov_det = torch.det(cov)
+            print(f"  det(cov) range: [{cov_det.min():.6e}, {cov_det.max():.6e}]")
+        
         # Stabilization
-        eps_physics = 1e-6
+        eps_physics = 1e-5  # 🔥 증가: 1e-6 → 1e-5
         eye_reg = torch.eye(3, device=cov.device, dtype=cov.dtype).unsqueeze(0)
         cov = cov + eps_physics * eye_reg
         
@@ -509,13 +815,6 @@ def build_deformation_covariance(
     
     eye_extra = torch.eye(3, device=cov.device, dtype=cov.dtype).unsqueeze(0)
     cov = cov + eps_extra * eye_extra
-    
-    # DEBUG
-    with torch.no_grad():
-        print(f"[Deformation Covariance Debug]")
-        print(f"  cov range: [{cov.min():.6f}, {cov.max():.6f}]")
-        cov_det = torch.det(cov)
-        print(f"  det(cov) range: [{cov_det.min():.6e}, {cov_det.max():.6e}]")
 
     # 9) Learnable refinement (optional)
     learnable_cfg = cfg.get("learnable", {})

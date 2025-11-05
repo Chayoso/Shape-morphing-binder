@@ -22,6 +22,7 @@ DEFAULT_WEIGHTS = {
     'w_edge': 0.1,
     'w_cov_align': 0.05,
     'w_coverage': 0.0,  # 🔥 NEW: Coverage loss (hole penalty)
+    'w_det_barrier': 0.1,  # 🔥 NEW: det(F) barrier loss (compression/sinking prevention)
 }
 
 SCHEDULE_PARAMS = {
@@ -262,7 +263,8 @@ class E2ELossManager:
         cov: Optional[torch.Tensor] = None,
         mu: Optional[torch.Tensor] = None,
         view_params: Optional[Dict] = None,
-        cov_target: Optional[torch.Tensor] = None
+        cov_target: Optional[torch.Tensor] = None,
+        F: Optional[torch.Tensor] = None  # 🔥 NEW: Deformation gradient for det(F) barrier
     ) -> Dict[str, torch.Tensor]:
         """
         Compute comprehensive render loss (DIFFERENTIABLE).
@@ -274,6 +276,7 @@ class E2ELossManager:
             mu: (N, 3) 3D positions for edge alignment
             view_params: Dictionary with keys {'view_T', 'W', 'H', 'tanfovx', 'tanfovy'}
             cov_target: (N, 3, 3) target covariances from curvature
+            F: (N, 3, 3) deformation gradients for det(F) barrier
         
         Returns:
             Dictionary of loss components including 'loss_render_total'
@@ -289,6 +292,8 @@ class E2ELossManager:
         total += self._compute_cov_align_loss(cov, cov_target, target, losses)
         total += self._compute_cov_reg_loss(cov, losses)
         total += self._compute_coverage_loss(pred, target, losses)  # 🔥 NEW: Hole penalty
+        total += self._compute_cov_spd_regularization(cov, losses)  # 🔥 NEW: SPD regularization
+        total += self._compute_det_barrier_loss(F, losses)  # 🔥 NEW: det(F) barrier loss
         
         losses['loss_render_total'] = total
         return losses
@@ -550,6 +555,71 @@ class E2ELossManager:
         loss_cov_reg = self._covariance_regularization(cov)
         losses['loss_cov_reg'] = loss_cov_reg
         return self.weights['w_cov_reg'] * loss_cov_reg
+    
+    def _compute_cov_spd_regularization(
+        self,
+        cov: Optional[torch.Tensor],
+        losses: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
+        """
+        Compute SPD regularization to prevent covariance collapse (DIFFERENTIABLE).
+        
+        이 정규화는 극단적 스케일을 방지하고 수치 안정성을 개선합니다.
+        
+        Args:
+            cov: (N, 3, 3) covariances
+            losses: Dictionary to store loss component
+        
+        Returns:
+            Weighted SPD regularization loss
+        """
+        # SPD 정규화 가중치 (config에서 가져오거나 기본값)
+        w_spd = self.config.get('w_cov_spd', 1e-3)
+        
+        if w_spd <= 0 or cov is None:
+            losses['loss_cov_spd'] = torch.tensor(0.0)
+            return torch.tensor(0.0)
+        
+        from utils.covariance_utils import covariance_regularization_loss
+        
+        # 로그 스케일 정규화: 극단적 스케일 방지
+        loss_spd = covariance_regularization_loss(
+            cov,
+            lambda_scale=1.0,  # 내부 람다 (외부 w_spd로 조정)
+            target_trace=None   # 목표 대각합 없음 (극단값만 페널티)
+        )
+        
+        losses['loss_cov_spd'] = loss_spd
+        return w_spd * loss_spd
+    
+    def _compute_det_barrier_loss(
+        self,
+        F: Optional[torch.Tensor],
+        losses: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
+        """
+        Compute det(F) barrier loss to prevent compression/sinking (DIFFERENTIABLE).
+        
+        과압축 및 침몰 방지를 위한 바리어 손실.
+        det(F) < 0.5에 강한 페널티를 주어 물리 에너지 감소만으로 버티지 못하게 함.
+        
+        Args:
+            F: (N, 3, 3) deformation gradients
+            losses: Dictionary to store loss component
+        
+        Returns:
+            Weighted det(F) barrier loss
+        """
+        w_det = self.weights.get('w_det_barrier', 0.0)
+        
+        if w_det <= 0 or F is None:
+            losses['loss_det_barrier'] = torch.tensor(0.0)
+            return torch.tensor(0.0)
+        
+        loss_det = deformation_gradient_barrier_loss(F, w_det=1.0)  # w_det는 외부에서 적용
+        losses['loss_det_barrier'] = loss_det
+        
+        return w_det * loss_det
     
     def _covariance_regularization(self, cov: torch.Tensor) -> torch.Tensor:
         """
@@ -934,6 +1004,14 @@ def covariance_spectral_loss(
         print(f"[WARN] Skipping spectral loss due to invalid inputs")
         return torch.tensor(0.0, device=device)
     
+    # Check size compatibility
+    if cov_pred.shape[0] != cov_target.shape[0]:
+        print(f"[WARN] Size mismatch in covariance_spectral_loss: pred={cov_pred.shape[0]}, target={cov_target.shape[0]}")
+        print(f"  → Matching to smaller size for loss computation")
+        min_size = min(cov_pred.shape[0], cov_target.shape[0])
+        cov_pred = cov_pred[:min_size]
+        cov_target = cov_target[:min_size]
+    
     # Add regularization for numerical stability
     eps = 1e-6
     eye = torch.eye(3, device=device).unsqueeze(0)
@@ -972,6 +1050,47 @@ def covariance_spectral_loss(
 # ============================================================================
 # Advanced Regularization
 # ============================================================================
+def deformation_gradient_barrier_loss(
+    F: torch.Tensor,
+    w_det: float = 0.1
+) -> torch.Tensor:
+    """
+    det(F) 바리어 손실: 과압축 및 침몰 방지 (DIFFERENTIABLE).
+    
+    손실: w_d * [-log(det F) + (det F - 1)²]
+    
+    목적:
+    - det(F) < 1: 압축 → log 바리어로 강한 페널티
+    - det(F) ≈ 1: 체적 보존 목표
+    - det(F) > 1: 팽창 → 제곱 페널티
+    
+    Args:
+        F: (N, 3, 3) 변형 그래디언트
+        w_det: 바리어 가중치 (기본: 0.1)
+    
+    Returns:
+        loss: 스칼라 바리어 손실
+    """
+    if F is None or w_det <= 0:
+        return torch.tensor(0.0)
+    
+    device = F.device
+    
+    # det(F) 계산
+    det_F = torch.det(F)  # (N,)
+    
+    # 안전 클램프: log(0) 방지
+    det_F_safe = torch.clamp(det_F, min=EPS_SAFE)
+    
+    # 바리어 손실: -log(det F) + (det F - 1)²
+    log_barrier = -torch.log(det_F_safe)  # det F < 1에 강한 페널티
+    vol_penalty = (det_F - 1.0) ** 2       # 체적 보존 목표
+    
+    loss_barrier = w_det * (log_barrier + vol_penalty).mean()
+    
+    return loss_barrier
+
+
 def covariance_regularization_advanced(
     cov: torch.Tensor,
     lambda_vol: float = 0.01,

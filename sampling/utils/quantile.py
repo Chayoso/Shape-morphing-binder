@@ -173,3 +173,15 @@ def robust_quantile_range(
         # Multi-dimensional
         return vals[0], vals[1]
 
+
+# ============================================================================
+# ⚡ Fast Approximate Quantile (Compatibility Alias)
+# ============================================================================
+def approx_quantile(x: torch.Tensor, q: float, n_bins: int = 16384) -> torch.Tensor:
+    """
+    ⚡ 빠른 근사 quantile (safe_quantile 재사용).
+    
+    대용량 텐서에서 정확한 정렬 대신 기존 구현 활용.
+    n_bins는 API 호환성용 (현재 미사용).
+    """
+    return safe_quantile(x, q)

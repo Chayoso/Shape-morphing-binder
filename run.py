@@ -161,7 +161,6 @@ def main():
     # ════════════════════════════════════════════════════════════════════════════
     parser = argparse.ArgumentParser(description='PhysMorph-GS Shape Morphing')
     parser.add_argument('-c', '--config', required=True, help='Path to config YAML')
-    parser.add_argument('--e2e', action='store_true', help='Enable E2E training')
     parser.add_argument('--png', action='store_true', help='Export PNG images')
     parser.add_argument('--png_dpi', type=int, default=160, help='PNG DPI')
     parser.add_argument('--png_ptsize', type=float, default=0.5, help='Point size')
@@ -180,6 +179,22 @@ def main():
     
     out_dir = Path(cfg.get("output_dir", "output/"))
     out_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 🔥 CRITICAL: Pass output_dir to upsampling config for stage exports
+    if "upsample" not in cfg:
+        cfg["upsample"] = {}
+    if "debug" not in cfg["upsample"]:
+        cfg["upsample"]["debug"] = {}
+    cfg["upsample"]["debug"]["output_dir"] = str(out_dir)
+    cfg["upsample"]["output_dir"] = str(out_dir)  # Top-level도 설정
+    
+    # 🔥 NEW: Pass physics grid parameters to upsampling (SDF bbox 일치)
+    sim_cfg = cfg.get("simulation", {})
+    cfg["upsample"]["physics_grid"] = {
+        "grid_min": sim_cfg.get("grid_min_point", [-16.0, -16.0, -16.0]),
+        "grid_max": sim_cfg.get("grid_max_point", [16.0, 16.0, 16.0]),
+        "grid_dx": sim_cfg.get("grid_dx", 1.0)
+    }
     
     # ════════════════════════════════════════════════════════════════════════════
     # Initialize Physics
@@ -234,9 +249,9 @@ def main():
     HAVE_3DGS = renderer is not None
         
     # ════════════════════════════════════════════════════════════════════════════
-    # Setup E2E Training
+    # Setup E2E Training (controlled by config only)
     # ════════════════════════════════════════════════════════════════════════════
-    enable_e2e = args.e2e or cfg.get("optimization", {}).get("loss", {}).get("enabled", False)
+    enable_e2e = cfg.get("optimization", {}).get("loss", {}).get("enabled", False)
     
     loss_manager = None
     target_render = None
@@ -300,6 +315,9 @@ def main():
             else:
                 print(f"  curvature_sigma: NOT SET (will use default)")
         
+        # Fresh level set for each episode (no advection)
+        external_levelset = None
+        
         # Run episode
         if enable_e2e and loss_manager is not None and target_render is not None:
             # E2E mode with rendering loss
@@ -319,7 +337,8 @@ def main():
                 view_params, campos, render_cfg, particle_color,
                 ep_dir, args.png, tgt,
                 cov_module=None,
-                cov_optimizer=None
+                cov_optimizer=None,
+                external_levelset=external_levelset  # 🔥 Pass level set
             )
             print(f"[DEBUG] E2E episode {ep} completed")
             

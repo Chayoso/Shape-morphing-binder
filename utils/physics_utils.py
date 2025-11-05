@@ -181,54 +181,21 @@ def run_physics_optimization(
     Returns:
         loss_physics: Final physics loss value
     """
-    control_timesteps = list(range(0, num_timesteps - 1, control_stride))
+    # ⚡ ALWAYS use fast C++ mode (10-100x faster!)
+    # Render gradients are automatically injected inside C++ if available
+    has_render_grads = cg.has_render_gradients()
+    mode_str = "E2E (with render grads)" if has_render_grads else "Physics-only"
     
-    print(f"\n[Physics] Pass {pass_idx+1} - Optimizing {len(control_timesteps)} timesteps (stride={control_stride})")
+    print(f"\n[Physics] ⚡ Fast C++ mode - {mode_str}")
+    cg.run_optimization(opt)
     
-    loss_physics = 0.0
+    try:
+        loss_physics = cg.end_layer_mass_loss()
+        print(f"└─ [Physics] Pass {pass_idx+1} completed - Final loss: {loss_physics:.2f}\n")
+    except:
+        loss_physics = 0.0
+        print(f"└─ [Physics] Pass {pass_idx+1} completed\n")
     
-    for i, t in enumerate(control_timesteps):
-        print(f"├─ Timestep {t}/{num_timesteps-1} ({i+1}/{len(control_timesteps)})")
-        
-        # Forward pass
-        cg.compute_forward_pass(t, ep)
-        
-        # Physics loss
-        try:
-            loss_physics = cg.end_layer_mass_loss()
-            print(f"│  ├─ Physics loss: {loss_physics:.2f}")
-        except Exception as e:
-            print(f"│  ├─ [ERROR] Physics loss failed: {e}")
-            loss_physics = 0.0
-        
-        # Check if render gradients available
-        has_render_grads = cg.has_render_gradients()
-        if has_render_grads:
-            print(f"│  ├─ [Render Grads] Injecting to layer {num_timesteps-1}")
-        
-        # Backward pass
-        cg.compute_backward_pass(t)
-        
-        # Adam update
-        initial_loss = loss_physics
-        cg.optimize_single_timestep(
-            t, 
-            max_gd_iters=opt.max_gd_iters, 
-            current_episode=ep,
-            initial_alpha=opt.initial_alpha,
-            max_line_search_iters=opt.max_ls_iters
-        )
-        
-        # Get final loss
-        try:
-            final_loss = cg.end_layer_mass_loss()
-            reduction = initial_loss - final_loss
-            print(f"│  ├─ Optimization: Δloss = {reduction:.2f}")
-            print(f"│  └─ Final loss: {final_loss:.2f} {'✅' if has_render_grads else '(physics only)'}")
-        except:
-            print(f"│  └─ Optimization completed")
-    
-    print(f"└─ [Physics] Pass {pass_idx+1} completed\n")
     return loss_physics
 
 
@@ -258,6 +225,65 @@ def extract_target_point_cloud(target_pc: Any) -> Tuple[np.ndarray, np.ndarray]:
     return x_tgt, F_tgt
 
 
+def extract_point_cloud_state(pc: Any, requires_grad: bool = False, velocity_grad: bool = False) -> Tuple:
+    """
+    Extract full state from point cloud: positions, velocities, deformation gradients.
+    
+    Args:
+        pc: Point cloud from MPM
+        requires_grad: Whether to track gradients for positions and F
+        velocity_grad: (Ignored) Velocities are always detached for advection
+    
+    Returns:
+        Tuple of (x, v, F) - all as torch tensors
+    
+    Note:
+        velocity_grad parameter is ignored because get_velocities_torch()
+        in C++ binding only accepts 'to_cuda' parameter.
+        Velocities are always detached (used only for advection).
+    """
+    import torch
+    
+    try:
+        # Positions and deformation gradients with optional gradient
+        x = pc.get_positions_torch(requires_grad=requires_grad)
+        F = pc.get_def_grads_total_torch(requires_grad=requires_grad)
+        
+        # 🔥 Velocities: ALWAYS detached (C++ binding limitation)
+        # get_velocities_torch() signature: (to_cuda: bool = True) -> Tensor
+        # Does NOT support requires_grad parameter!
+        v = pc.get_velocities_torch(to_cuda=True).detach()
+        
+    except AttributeError as e:
+        # Fallback to numpy (if PyTorch bindings not available)
+        print(f"   ⚠️ PyTorch bindings unavailable: {e}")
+        
+        x_np = pc.get_positions()
+        F_np = pc.get_def_grads_total()
+        
+        # Try to get velocities
+        try:
+            v_np = pc.get_velocities()
+        except:
+            print("   ⚠️ Velocities not available, using zeros")
+            v_np = np.zeros_like(x_np)
+        
+        # Convert to torch
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        x = torch.from_numpy(x_np).float().to(device)
+        v = torch.from_numpy(v_np).float().to(device)
+        F = torch.from_numpy(F_np).float().to(device)
+        
+        if requires_grad:
+            x = x.requires_grad_(True)
+            F = F.requires_grad_(True)
+        
+        # Velocity always detached
+        v = v.detach()
+    
+    return x, v, F
+
+
 __all__ = [
     'initialize_point_clouds',
     'initialize_grids',
@@ -265,5 +291,6 @@ __all__ = [
     'build_opt_input',
     'run_physics_optimization',
     'extract_target_point_cloud',
+    'extract_point_cloud_state',
 ]
 
