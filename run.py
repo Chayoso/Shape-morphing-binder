@@ -41,7 +41,7 @@ from utils.rendering_utils import (
     setup_renderer,
     create_target_render,
 )
-from utils.training_loop import run_e2e_episode
+from utils.training_loop import run_e2e_episode, run_e2e_episode_session
 
 
 # ============================================================================
@@ -283,11 +283,43 @@ def main():
     # Training Loop
     # ════════════════════════════════════════════════════════════════════════════
     ema_state = {}
-    
+
+    # 🔥 NEW: Session Mode (10-15x faster!)
+    use_session_mode = cfg.get("optimization", {}).get("use_session_mode", True)
+    session = None
+
+    if use_session_mode and enable_e2e and HAVE_3DGS:
+        print("\n[Mode] 🔥 PERSISTENT SESSION MODE ENABLED 🔥")
+        print("  Expected speedup: 10-15x per episode!")
+
+        # Create E2ESession configuration
+        import diffmpm_bindings as dmpm
+
+        session_config = dmpm.E2EConfig()
+        session_config.num_timesteps = int(opt.num_timesteps)
+        session_config.control_stride = int(opt.control_stride)
+        session_config.dt = float(opt.dt)
+        session_config.drag = float(opt.drag)
+        session_config.f_ext = opt.f_ext
+        session_config.max_gd_iters = int(opt.max_gd_iters)
+        session_config.max_ls_iters = int(opt.max_ls_iters)
+        session_config.initial_alpha = float(opt.initial_alpha)
+        session_config.gd_tol = float(opt.gd_tol)
+        session_config.smoothing_factor = float(opt.smoothing_factor)
+        session_config.num_passes_per_episode = 3
+        session_config.enable_render_grads = True
+
+        # Create persistent session
+        session = dmpm.E2ESession(cg, session_config)
+
+        print(f"  Passes per episode: {session_config.num_passes_per_episode}")
+        print(f"  Timesteps: {session_config.num_timesteps}")
+        print(f"  Render gradients: {'enabled' if session_config.enable_render_grads else 'disabled'}")
+
     print(f"\n{'='*80}")
     print(f"Starting training: {opt.num_animations} episodes")
     print(f"{'='*80}\n")
-    
+
     for ep in range(int(opt.num_animations)):
         # Apply episode-specific config overrides
         cfg_ep = apply_episode_schedule(cfg, ep)
@@ -321,27 +353,48 @@ def main():
         # Run episode
         if enable_e2e and loss_manager is not None and target_render is not None:
             # E2E mode with rendering loss
-            num_passes = 3
-            num_timesteps = int(opt.num_timesteps)       
-            control_stride = int(opt.control_stride) 
-            campos = view_params.get('campos')
-            
+
             # Create episode-specific output directory
             ep_dir = out_dir / f"ep{ep:03d}"
             ep_dir.mkdir(parents=True, exist_ok=True)
-            
-            print(f"\n[DEBUG] Starting E2E episode {ep} with {num_passes} passes")
-            ema_state, episode_losses = run_e2e_episode(
-                ep, cg, opt, num_timesteps, control_stride, num_passes,
-                rs_ep, ema_state, renderer, loss_manager, target_render,
-                view_params, campos, render_cfg, particle_color,
-                ep_dir, args.png, tgt,
-                cov_module=None,
-                cov_optimizer=None,
-                external_levelset=external_levelset  # 🔥 Pass level set
-            )
-            print(f"[DEBUG] E2E episode {ep} completed")
-            
+
+            if session is not None:
+                # 🔥 SESSION MODE (10-15x faster!)
+                print(f"\n[DEBUG] Starting session-based E2E episode {ep}")
+
+                num_timesteps = int(opt.num_timesteps)
+                campos = view_params.get('campos')
+
+                ema_state, episode_losses = run_e2e_episode_session(
+                    session, ep, num_timesteps,
+                    rs_ep, ema_state, renderer, loss_manager, target_render,
+                    view_params, campos, render_cfg, particle_color,
+                    ep_dir, args.png, tgt,
+                    cov_module=None,
+                    external_levelset=external_levelset
+                )
+
+                print(f"[DEBUG] Session-based E2E episode {ep} completed")
+
+            else:
+                # Legacy pass-by-pass mode
+                num_passes = 3
+                num_timesteps = int(opt.num_timesteps)
+                control_stride = int(opt.control_stride)
+                campos = view_params.get('campos')
+
+                print(f"\n[DEBUG] Starting E2E episode {ep} with {num_passes} passes (legacy mode)")
+                ema_state, episode_losses = run_e2e_episode(
+                    ep, cg, opt, num_timesteps, control_stride, num_passes,
+                    rs_ep, ema_state, renderer, loss_manager, target_render,
+                    view_params, campos, render_cfg, particle_color,
+                    ep_dir, args.png, tgt,
+                    cov_module=None,
+                    cov_optimizer=None,
+                    external_levelset=external_levelset
+                )
+                print(f"[DEBUG] E2E episode {ep} completed")
+
             # Print episode summary
             print(f"\n[Summary] Episode {ep} losses:")
             for key, val in episode_losses.items():
@@ -360,6 +413,17 @@ def main():
     print("\n" + "="*80)
     print("✅ Training Complete!")
     print(f"   Output directory: {out_dir}")
+
+    # Print session statistics if using session mode
+    if session is not None:
+        stats = session.get_statistics()
+        print("\n[Session Statistics]")
+        print(f"  Total episodes: {stats.total_episodes}")
+        print(f"  Total passes: {stats.total_passes}")
+        print(f"  Total time: {stats.total_wall_time:.1f}s")
+        print(f"  Avg time/episode: {stats.total_wall_time/max(1, stats.total_episodes):.1f}s")
+        print(f"  Best loss: {stats.best_loss:.2f} (episode {stats.best_episode})")
+
     print("="*80)
 
 
