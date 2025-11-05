@@ -396,11 +396,17 @@ def upsample_current_state(
           result: Full upsampling result dict
     """
     try:
-        x = pc.get_positions_torch(requires_grad=True)
-        F = pc.get_def_grads_total_torch(requires_grad=True)
+        # 🔥 OPTIMIZED: Use zero-copy views then clone for gradients
+        x = pc.get_positions_torch_view().clone().requires_grad_(True)
+        F = pc.get_def_grads_total_torch_view().clone().requires_grad_(True)
     except AttributeError:
-        print("      ⚠️  PyTorch bindings unavailable")
-        return None, None, ema_state
+        # Fallback to old method
+        try:
+            x = pc.get_positions_torch(requires_grad=True)
+            F = pc.get_def_grads_total_torch(requires_grad=True)
+        except AttributeError:
+            print("      ⚠️  PyTorch bindings unavailable")
+            return None, None, ema_state
     
     # 🔥 Configure morphing mode
     rs_full_copy = dict(rs_full)
@@ -483,14 +489,20 @@ def compute_render_loss_pass(
     
     # Get final state
     pc = cg.get_point_cloud(num_timesteps - 1)
-    
+
     try:
-        x = pc.get_positions_torch(requires_grad=True)
-        F = pc.get_def_grads_total_torch(requires_grad=True)
+        # 🔥 OPTIMIZED: Use zero-copy views then clone for gradients
+        x = pc.get_positions_torch_view().clone().requires_grad_(True)
+        F = pc.get_def_grads_total_torch_view().clone().requires_grad_(True)
     except AttributeError:
-        print("   ⚠️ PyTorch bindings unavailable")
-        return None, None, None, None
-    
+        # Fallback to old method if zero-copy not available
+        try:
+            x = pc.get_positions_torch(requires_grad=True)
+            F = pc.get_def_grads_total_torch(requires_grad=True)
+        except AttributeError:
+            print("   ⚠️ PyTorch bindings unavailable")
+            return None, None, None, None
+
     if not x.is_leaf: x.retain_grad()
     if not F.is_leaf: F.retain_grad()
     
