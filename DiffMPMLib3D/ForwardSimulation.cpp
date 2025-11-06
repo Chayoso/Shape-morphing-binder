@@ -5,17 +5,6 @@
 #include <cmath>
 #include <algorithm>
 
-#ifdef DIAGNOSTICS
-#include <atomic>
-namespace { std::atomic<int> g_trust_scaled_count{0}; }
-#endif
-
-namespace DiffMPMLib3D_Internal {
-    float g_BulkViscosity = 0.0f;
-    constexpr float kJmin = 0.90f;  // J-trust는 별도 스케줄 (SingleParticle_op_2에서 처리)
-}
-
-using namespace DiffMPMLib3D_Internal;
 
 namespace DiffMPMLib3D::SingleThreadMPM {
 
@@ -137,23 +126,7 @@ namespace DiffMPMLib3D::SingleThreadMPM {
 
     void SingleParticle_op_2(MaterialPoint& next_timestep_mp, const MaterialPoint& curr_timestep_mp, float smoothing_factor, float dt)
     {
-         // --- J-trust region: limit over-compression in one step ---
-        Mat3 Ft = (curr_timestep_mp.F + curr_timestep_mp.dFc);
-        float J0 = std::max(Ft.determinant(), 1e-6f);
-        float trC = next_timestep_mp.C.trace();
-        if (trC < 0.f) {
-            // Linear model: det(I + s*dt*C) ≈ 1 + s*dt*tr(C).
-            float denom = dt * trC; // < 0 in compression
-            float s = (kJmin / J0 - 1.f) / std::min(-1e-6f, denom);
-            if (s < 1.f) {
-                s = std::clamp(s, 0.f, 1.f);
-                next_timestep_mp.C *= s;
-#ifdef DIAGNOSTICS
-                g_trust_scaled_count.fetch_add(1, std::memory_order_relaxed);
-#endif
-            }
-        }
-        next_timestep_mp.F = (Mat3::Identity() + dt * next_timestep_mp.C) * Ft;
+        next_timestep_mp.F = (Mat3::Identity() + dt * next_timestep_mp.C) * (curr_timestep_mp.F + curr_timestep_mp.dFc);
         smooth_deformation_gradient(next_timestep_mp, curr_timestep_mp, smoothing_factor);
         next_timestep_mp.x = curr_timestep_mp.x + dt * next_timestep_mp.v;
         next_timestep_mp.dFc.setZero();
@@ -179,16 +152,6 @@ namespace DiffMPMLib3D::SingleThreadMPM {
         G_op(grid, dt, f_ext);
         G2P(next_point_cloud, curr_point_cloud, grid);
         P_op_2(next_point_cloud, curr_point_cloud, smoothing_scheduled, dt);
-
-#ifdef DIAGNOSTICS
-        // Flush trust-region count for this step
-        int scaled = g_trust_scaled_count.exchange(0);
-        if (scaled > 0) {
-            std::ofstream ofs("diag_trust.csv", std::ios::app);
-            static bool header=false; if (!header){ ofs<<"episode,scaled_count\n"; header=true; }
-            ofs << current_episode << "," << scaled << "\n";
-        }
-#endif
     }
     
     // High-level functions that orchestrate the substeps

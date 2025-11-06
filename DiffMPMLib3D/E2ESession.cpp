@@ -51,14 +51,26 @@ bool E2ESession::RunSinglePass(
     int pass_idx,
     RenderGradientCallback render_callback
 ) {
-    // If not first pass and callback provided, get render gradients
+    // 🔥 CRITICAL FIX: Temporal gradient mismatch
+    // OLD: Used pass_idx-1, causing render grads from F_{n-1} + physics grads from F_n
+    // NEW: Run forward pass first, then get render grads at CURRENT state
+
+    // If not first pass, establish current state before getting render gradients
+    if (pass_idx > 0) {
+        // Run forward pass to establish state F_n (current pass)
+        cg_->ComputeForwardPass(0, episode_num);
+        std::cout << "  [Pass " << pass_idx + 1 << "] Forward pass complete (establishing current state)" << std::endl;
+    }
+
+    // NOW get render gradients at CURRENT state (if callback provided)
     if (pass_idx > 0 && render_callback && config_.enable_render_grads) {
         size_t N = 0;
 
-        // Call Python to compute render gradients from previous pass
+        // 🔥 FIXED: Get render gradients from CURRENT pass state (not previous)
+        // This ensures: ∇L = ∇L_physics(F_n) + ∇L_render(F_n) ← CONSISTENT!
         bool got_grads = render_callback(
             episode_num,
-            pass_idx - 1,  // Gradients computed from previous pass result
+            pass_idx,  // ← CHANGED: Use current pass, not pass_idx-1
             render_grad_F_buffer_,
             render_grad_x_buffer_,
             N
@@ -72,13 +84,12 @@ bool E2ESession::RunSinglePass(
             );
 
             std::cout << "  [Pass " << pass_idx + 1 << "] Injected render gradients for "
-                      << N << " particles" << std::endl;
+                      << N << " particles (computed at CURRENT state)" << std::endl;
         }
     }
 
-    // Run physics optimization with current gradients
-    // The OptimizeDefGradControlSequence method will automatically use
-    // injected render gradients if available
+    // Run physics optimization with consistent gradients
+    // Both physics and render gradients now computed at same state F_n
     cg_->OptimizeDefGradControlSequence(
         config_.num_timesteps,
         config_.dt,
@@ -114,9 +125,9 @@ EpisodeResult E2ESession::RunEpisode(
     EpisodeResult result;
     result.episode_num = episode_num;
 
-    std::cout << "\n[E2ESession] ═══════════════════════════════════════" << std::endl;
+    std::cout << "\n[E2ESession] ===========================================" << std::endl;
     std::cout << "[E2ESession] Episode " << episode_num << " START" << std::endl;
-    std::cout << "[E2ESession] ═══════════════════════════════════════" << std::endl;
+    std::cout << "[E2ESession] ===========================================" << std::endl;
 
     try {
         // Initialize episode (setup comp graph, run initial forward pass)
@@ -163,7 +174,7 @@ EpisodeResult E2ESession::RunEpisode(
     std::cout << "  Passes executed: " << result.num_passes_executed << std::endl;
     std::cout << "  Wall time: " << result.wall_time_seconds << "s" << std::endl;
     std::cout << "  Success: " << (result.success ? "YES" : "NO") << std::endl;
-    std::cout << "[E2ESession] ═══════════════════════════════════════\n" << std::endl;
+    std::cout << "[E2ESession] ===========================================\n" << std::endl;
 
     return result;
 }

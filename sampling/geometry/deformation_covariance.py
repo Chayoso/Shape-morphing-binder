@@ -543,6 +543,93 @@ def smooth_H_only(
 
 
 # ============================================================================
+# Multi-Scale F-field Interpolation
+# ============================================================================
+
+def interpolate_F_multiscale(
+    points: torch.Tensor,
+    x_low: torch.Tensor,
+    F_low: torch.Tensor,
+    knn,
+    k_coarse: int = 64,
+    k_fine: int = 16,
+    blend_mode: str = 'adaptive'
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Multi-scale F-field interpolation for large deformations.
+
+    Strategy:
+    - Coarse scale (k=64): Captures global shape transformation (sphere → bunny outline)
+    - Fine scale (k=16): Captures local details (bunny ears, nose, tail)
+    - Adaptive blending based on deformation magnitude
+
+    This improves quality for large deformations without adding particles.
+
+    Args:
+        points: (M, 3) query positions
+        x_low: (N, 3) anchor positions
+        F_low: (N, 3, 3) deformation gradients at anchors
+        knn: KNN function
+        k_coarse: Neighbors for global deformation (default 64)
+        k_fine: Neighbors for local details (default 16)
+        blend_mode: 'adaptive' (based on det(F)) or 'fixed' (50/50)
+
+    Returns:
+        F_interp: (M, 3, 3) blended F-field
+        blend_weights: (M,) blend weights (0=fine, 1=coarse) for visualization
+    """
+    M = points.shape[0]
+    device = points.device
+
+    # 1) Coarse-scale interpolation (global)
+    k_c = min(k_coarse, x_low.shape[0])
+    idx_c, w_c = knn(points, x_low, k_c)
+    F_neighbors_c = F_low[idx_c]  # (M, k_c, 3, 3)
+    F_coarse = torch.einsum('mk,mkrc->mrc', w_c, F_neighbors_c)  # (M, 3, 3)
+
+    # 2) Fine-scale interpolation (local)
+    k_f = min(k_fine, x_low.shape[0])
+    idx_f, w_f = knn(points, x_low, k_f)
+    F_neighbors_f = F_low[idx_f]  # (M, k_f, 3, 3)
+    F_fine = torch.einsum('mk,mkrc->mrc', w_f, F_neighbors_f)  # (M, 3, 3)
+
+    # 3) Adaptive blending
+    if blend_mode == 'adaptive':
+        # Measure deformation magnitude via det(F)
+        # det(F) ≈ 1 → small deformation → use fine
+        # det(F) far from 1 → large deformation → use coarse
+
+        det_coarse = torch.det(F_coarse).abs()  # (M,)
+        det_fine = torch.det(F_fine).abs()  # (M,)
+
+        # Deviation from identity (1.0)
+        dev_coarse = (det_coarse - 1.0).abs()
+        dev_fine = (det_fine - 1.0).abs()
+
+        # Blend weight: higher deviation → use coarse (more global context)
+        # Sigmoid to smooth transition
+        tau = 0.2  # Temperature for smooth blending
+        logits = (dev_coarse - dev_fine) / (tau + EPS_SAFE)
+        alpha = torch.sigmoid(logits)  # (M,) in [0, 1]
+
+        # Clamp to reasonable range (don't fully trust one scale)
+        alpha = torch.clamp(alpha, 0.2, 0.8)
+
+    elif blend_mode == 'fixed':
+        # Fixed 50/50 blend
+        alpha = torch.full((M,), 0.5, device=device, dtype=points.dtype)
+
+    else:
+        raise ValueError(f"Unknown blend_mode: {blend_mode}")
+
+    # 4) Blend F-fields
+    alpha_expanded = alpha.view(-1, 1, 1)  # (M, 1, 1)
+    F_interp = alpha_expanded * F_coarse + (1.0 - alpha_expanded) * F_fine
+
+    return F_interp, alpha
+
+
+# ============================================================================
 # Deformation-based Covariance Construction
 # ============================================================================
 
@@ -590,9 +677,12 @@ def build_deformation_covariance(
     """
     sigma0 = float(cfg.get("sigma0", 0.08))
     k_F = int(cfg.get("k_F", 32))
-    use_F_smoothing = bool(cfg.get("use_F_smoothing", True))
+    use_F_smoothing = bool(cfg.get("use_F_smoothing", False))  # 🔥 FIX: Changed default from True to False
     use_adaptive_scale = bool(cfg.get("use_adaptive_scale", False))
     use_polar = bool(cfg.get("use_polar_decomposition", True))
+
+    # 🔥 DEBUG: Print what we received
+    print(f"[DEBUG] use_F_smoothing = {use_F_smoothing} (from cfg: {cfg.get('use_F_smoothing', 'KEY_MISSING')})")
 
     # 🔥 F-field 분포 체크 (Root cause 디버깅)
     with torch.no_grad():
@@ -622,9 +712,35 @@ def build_deformation_covariance(
         F_smooth = F_low
 
     # 2) Interpolate F to upsampled points
-    idx, w = knn(points, x_low, k_F)
-    F_neighbors = F_smooth[idx]  # (M, k_F, 3, 3)
-    F_interp = torch.einsum('mk,mkrc->mrc', w, F_neighbors)  # (M, 3, 3)
+    use_multiscale = bool(cfg.get("use_multiscale_F", False))
+
+    if use_multiscale:
+        # Multi-scale interpolation (coarse + fine)
+        k_coarse = int(cfg.get("k_F_coarse", 64))
+        k_fine = int(cfg.get("k_F_fine", 16))
+        blend_mode = cfg.get("multiscale_blend_mode", "adaptive")
+
+        F_interp, blend_weights = interpolate_F_multiscale(
+            points, x_low, F_smooth, knn,
+            k_coarse=k_coarse,
+            k_fine=k_fine,
+            blend_mode=blend_mode
+        )
+
+        with torch.no_grad():
+            print(f"\n[Multi-scale F-interpolation]")
+            print(f"  Coarse scale: k={k_coarse} (global)")
+            print(f"  Fine scale: k={k_fine} (local)")
+            print(f"  Blend mode: {blend_mode}")
+            print(f"  Blend weights (α): mean={blend_weights.mean():.3f}, range=[{blend_weights.min():.3f}, {blend_weights.max():.3f}]")
+
+        # Create dummy idx for compatibility
+        idx, _ = knn(points, x_low, k_F)
+    else:
+        # Single-scale interpolation (original)
+        idx, w = knn(points, x_low, k_F)
+        F_neighbors = F_smooth[idx]  # (M, k_F, 3, 3)
+        F_interp = torch.einsum('mk,mkrc->mrc', w, F_neighbors)  # (M, 3, 3)
     
     # 🔥 SV Soft-Clamp (원소별 경직 클램프 금지!)
     s_min = float(cfg.get("sv_min", 0.30))
@@ -853,6 +969,7 @@ def _smooth_scaleFactor(inv: torch.Tensor,
 
 __all__ = [
     "build_deformation_covariance",
+    "interpolate_F_multiscale",
     "smooth_F_field",
     "polar_decomposition",
     "select_graph_nodes",

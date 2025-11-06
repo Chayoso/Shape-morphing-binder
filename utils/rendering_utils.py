@@ -28,15 +28,17 @@ DEFAULT_PARTICLE_COLOR = [0.27, 0.51, 0.71]
 
 def setup_renderer(
     cam_cfg: Dict,
-    render_cfg: Dict
+    render_cfg: Dict,
+    training_mode: bool = False  # 🚀 NEW: Enable resolution downscaling during training
 ) -> Tuple[Optional[Any], Dict]:
     """
     Initialize 3D Gaussian Splatting renderer with camera configuration.
-    
+
     Args:
         cam_cfg: Camera configuration (resolution, focal length, pose)
         render_cfg: Rendering configuration (bg color, scale_modifier)
-    
+        training_mode: If True, applies resolution downscaling for faster training
+
     Returns:
         Tuple of (renderer, view_params)
           renderer: GSRenderer3DGS instance or None if failed
@@ -44,22 +46,31 @@ def setup_renderer(
     """
     try:
         W, H, tanfovx, tanfovy, view_T, proj_T, campos = make_matrices_from_yaml(cam_cfg)
-        
+
+        # 🚀 OPTIMIZATION: Reduce resolution during training (4K→1080p = 4x speedup)
+        if training_mode:
+            training_scale = render_cfg.get("training_resolution_scale", 0.5)
+            if training_scale < 1.0:
+                W_train = int(W * training_scale)
+                H_train = int(H * training_scale)
+                print(f"[Renderer] Training mode: {W}x{H} → {W_train}x{H_train} ({training_scale:.2f}x scale)")
+                W, H = W_train, H_train
+
         bg = render_cfg.get("bg", DEFAULT_BG_COLOR)
         antialiasing = render_cfg.get("antialiasing", False)
         scale_modifier = render_cfg.get("scale_modifier", 1.0)
-        
+
         renderer = GSRenderer3DGS(
             W, H, tanfovx, tanfovy, view_T, proj_T, campos,
-            bg=tuple(bg), 
-            sh_degree=0, 
-            scale_modifier=scale_modifier, 
-            prefiltered=False, 
+            bg=tuple(bg),
+            sh_degree=0,
+            scale_modifier=scale_modifier,
+            prefiltered=False,
             debug=False,
             antialiasing=antialiasing,
             device="cuda"
         )
-        
+
         view_params = {
             'view_T': view_T,
             'W': W, 'H': H,
@@ -67,9 +78,9 @@ def setup_renderer(
             'tanfovy': tanfovy,
             'campos': campos,
         }
-        
+
         return renderer, view_params
-        
+
     except Exception as e:
         print(f"[WARN] 3DGS renderer failed to initialize: {e}")
         return None, {}

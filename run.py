@@ -19,6 +19,17 @@ Version: 3.0 (Modularized - 2361 lines → 250 lines!)
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
+import sys
+import io
+
+# Fix Windows console encoding issues
+if sys.platform == 'win32':
+    try:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    except:
+        pass
+
 import argparse
 import torch
 from pathlib import Path
@@ -244,14 +255,15 @@ def main():
     cam_cfg = cfg.get("camera", {}) or {}
     render_cfg = cfg.get("render", {}) or {}
     particle_color = render_cfg.get("particle_color", [0.27, 0.51, 0.71])
-    
-    renderer, view_params = setup_renderer(cam_cfg, render_cfg)
-    HAVE_3DGS = renderer is not None
-        
+
     # ════════════════════════════════════════════════════════════════════════════
     # Setup E2E Training (controlled by config only)
     # ════════════════════════════════════════════════════════════════════════════
     enable_e2e = cfg.get("optimization", {}).get("loss", {}).get("enabled", False)
+
+    # 🚀 Use training mode (lower resolution) if E2E is enabled
+    renderer, view_params = setup_renderer(cam_cfg, render_cfg, training_mode=enable_e2e)
+    HAVE_3DGS = renderer is not None
     
     loss_manager = None
     target_render = None
@@ -353,36 +365,21 @@ def main():
         # Run episode
         if enable_e2e and loss_manager is not None and target_render is not None:
             # E2E mode with rendering loss
+            
+            # Define num_passes early for all code paths
+            num_passes = 3
+            num_timesteps = int(opt.num_timesteps)
+            control_stride = int(opt.control_stride)
+            campos = view_params.get('campos')
 
             # Create episode-specific output directory
             ep_dir = out_dir / f"ep{ep:03d}"
             ep_dir.mkdir(parents=True, exist_ok=True)
 
-            
-            print(f"\n[DEBUG] Starting E2E episode {ep} with {num_passes} passes")
-            ema_state, episode_losses = run_e2e_episode(
-                ep, cg, opt, num_timesteps, control_stride, num_passes,
-                rs_ep, ema_state, renderer, loss_manager, target_render,
-                view_params, campos, render_cfg, particle_color,
-                ep_dir, args.png, tgt,
-                cov_module=None,
-                cov_optimizer=None,
-                external_levelset=external_levelset  # 🔥 Pass level set
-            )
-            print(f"[DEBUG] E2E episode {ep} completed")
-            
-            # ✅ Carry over state to next episode (CRITICAL!)
-            print(f"[CarryOver] Promoting final state to next episode...")
-            cg.promote_last_as_initial(carry_grid=True)
-            
-
             if session is not None:
                 # 🔥 SESSION MODE (10-15x faster!)
                 print(f"\n[DEBUG] Starting session-based E2E episode {ep}")
-
-                num_timesteps = int(opt.num_timesteps)
-                campos = view_params.get('campos')
-
+                
                 ema_state, episode_losses = run_e2e_episode_session(
                     session, ep, num_timesteps,
                     rs_ep, ema_state, renderer, loss_manager, target_render,
@@ -391,16 +388,10 @@ def main():
                     cov_module=None,
                     external_levelset=external_levelset
                 )
-
+                
                 print(f"[DEBUG] Session-based E2E episode {ep} completed")
-
             else:
                 # Legacy pass-by-pass mode
-                num_passes = 3
-                num_timesteps = int(opt.num_timesteps)
-                control_stride = int(opt.control_stride)
-                campos = view_params.get('campos')
-
                 print(f"\n[DEBUG] Starting E2E episode {ep} with {num_passes} passes (legacy mode)")
                 ema_state, episode_losses = run_e2e_episode(
                     ep, cg, opt, num_timesteps, control_stride, num_passes,
@@ -412,6 +403,10 @@ def main():
                     external_levelset=external_levelset
                 )
                 print(f"[DEBUG] E2E episode {ep} completed")
+            
+            # ✅ Carry over state to next episode (CRITICAL!)
+            print(f"[CarryOver] Promoting final state to next episode...")
+            cg.promote_last_as_initial(carry_grid=True)
 
             # Print episode summary
             print(f"\n[Summary] Episode {ep} losses:")

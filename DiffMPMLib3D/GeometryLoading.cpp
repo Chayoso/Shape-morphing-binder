@@ -13,11 +13,12 @@ std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::GeometryLoading::GeneratePointClou
     const Eigen::MatrixXi& F,
     Vec3 min_point,
     Vec3 max_point,
-    float sampling_dx)
+    float sampling_dx,
+    bool apply_jitter)
 {
     using namespace Eigen;
 
-    // 1. Generate uniform grid sample points with perturbation
+    // 1. Generate uniform grid sample points with optional perturbation
     int dims[3];
     for (int i = 0; i < 3; i++) {
         dims[i] = static_cast<int>(std::ceil((max_point[i] - min_point[i]) / sampling_dx)) + 1; // +1 to include max_point
@@ -26,10 +27,10 @@ std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::GeometryLoading::GeneratePointClou
     std::vector<Vec3> sample_points;
     sample_points.reserve(dims[0] * dims[1] * dims[2]);
     
-    // ✅ Random number generator for perturbation
+    // ✅ Random number generator for perturbation (only if apply_jitter is true)
     std::random_device rd;
     std::mt19937 gen(42);  // Fixed seed for reproducibility
-    const float perturbation_scale = 0.25f;  // 1/4 of grid spacing
+    const float perturbation_scale = 0.1f;  // 10% of grid spacing
     std::uniform_real_distribution<float> dis(-perturbation_scale * sampling_dx, 
                                                perturbation_scale * sampling_dx);
     
@@ -37,16 +38,20 @@ std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::GeometryLoading::GeneratePointClou
     for (int i = 0; i < dims[0]; i++) {
         for (int j = 0; j < dims[1]; j++) {
             for (int k = 0; k < dims[2]; k++) {
-                // ✅ Add random perturbation to break regularity
-                Vec3 perturbation(dis(gen), dis(gen), dis(gen));
+                // ✅ Add random perturbation only if apply_jitter is true
+                Vec3 perturbation = apply_jitter ? Vec3(dis(gen), dis(gen), dis(gen)) : Vec3(0.0f, 0.0f, 0.0f);
                 Vec3 point = min_point + sampling_dx * Vec3(float(i), float(j), float(k)) + perturbation;
                 sample_points.emplace_back(point);
             }
         }
     }
     
-    std::cout << "Applied perturbation: ±" << (perturbation_scale * sampling_dx) 
-              << " (±" << (perturbation_scale * 100) << "% of dx)" << std::endl;
+    if (apply_jitter) {
+        std::cout << "Applied perturbation: ±" << (perturbation_scale * sampling_dx) 
+                  << " (±" << (perturbation_scale * 100) << "% of dx)" << std::endl;
+    } else {
+        std::cout << "No perturbation applied (apply_jitter=false)" << std::endl;
+    }
 
     // Convert sample_points to Eigen matrix
     MatrixXf P(sample_points.size(), 3);
@@ -102,7 +107,8 @@ bool DiffMPMLib3D::GeometryLoading::LoadMPMPointCloudFromObj(
     float point_dx,
     float density,
     float lam,
-    float mu
+    float mu,
+    bool apply_jitter
 )
 {
     std::cout << "reading " << obj_path << "..." << std::endl;
@@ -127,7 +133,7 @@ bool DiffMPMLib3D::GeometryLoading::LoadMPMPointCloudFromObj(
 
     std::cout << "generating point cloud..." << std::endl;
 
-    std::vector<Vec3> points = GeometryLoading::GeneratePointCloudFromWatertightTriangleMesh(V, F, min_point, max_point, point_dx);
+    std::vector<Vec3> points = GeometryLoading::GeneratePointCloudFromWatertightTriangleMesh(V, F, min_point, max_point, point_dx, apply_jitter);
 
 
     std::cout << obj_path << "'s max y point is: " << max_point[1] << std::endl;

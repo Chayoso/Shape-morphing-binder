@@ -70,28 +70,34 @@ upsample:
   covariance:
     # 🔥 Target mesh covariance mode
     use_curvature_for_target: true  # true = curvature-based | false = isotropic
-    
+
     # Target mesh (isotropic mode)
     sigma_isotropic: 0.038          # σ² * I when use_curvature_for_target=false
-    
+
     # Target mesh (curvature mode)
     curvature_sigma:
       # 🔥 MODIFIED: Reduce base scales to amplify curvature effect
       sigma_n0: 0.02              # Normal direction scale (was 0.008)
       sigma_t0: 0.03              # Tangent direction scale (was 0.015)
-      
+
       # 🔥 MODIFIED: Increase multipliers for stronger curvature modulation
       a: 12.0                       # Mean curvature multiplier (was 2.0) - AMPLIFY!
       b: 5.0                       # Aniso curvature multiplier (was 0.5) - AMPLIFY!
-      
+
       a_n: 3                     # Normal decay coeff (was 0.5)
       u: 3                       # Normal decay exponent (keep)
       k_floor_normal: 0.002         # Normal floor
       k_floor_tangent: 0.005        # Tangent floor
-    
+
     # Morph (F-based deformation)
     sigma0: 0.25                   # 🔥 INCREASED: 0.10→0.25 for better coverage (2.5x larger Gaussians to fill gaps!)
-    k_F: 32                        # KNN for F interpolation
+    k_F: 32                        # KNN for F interpolation (single-scale mode)
+
+    # 🔥 NEW: Multi-scale F-field interpolation (for large deformations)
+    use_multiscale_F: true         # Enable multi-scale interpolation (coarse + fine)
+    k_F_coarse: 64                 # Coarse scale KNN (global deformation, sphere → bunny outline)
+    k_F_fine: 16                   # Fine scale KNN (local details, bunny ears/nose/tail)
+    multiscale_blend_mode: 'adaptive'  # 'adaptive' = det(F)-based blending | 'fixed' = 50/50
 
     # 🔥 ADJUSTED: Allow more deformation range for better surface detail
     # With more particles (27 vs 8), we can afford slightly more compression

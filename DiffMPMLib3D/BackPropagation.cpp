@@ -3,13 +3,6 @@
 #include "Elasticity.h"
 #include "Interpolation.h"
 
-// 🔥 Forward와 동일한 전역 변수 사용 (extern)
-namespace DiffMPMLib3D_Internal {
-    extern float g_BulkViscosity;
-}
-
-using namespace DiffMPMLib3D_Internal;
-
 namespace DiffMPMLib3D {
 
     void Back_Timestep(CompGraphLayer& layer_nplus1, CompGraphLayer& layer_n, float drag, float dt, float smoothing_factor)
@@ -113,36 +106,15 @@ namespace DiffMPMLib3D {
                 );
 
                 Mat3 G = -C0 * dt * mp_prev.vol * mp_prev.P * F_total_transpose + mp_prev.m * mp_prev.C;
-                
-                // 🔥 Bulk viscosity (압축 전용, Forward와 일치)
-                const float trC = mp_prev.C.trace();
-                const float trC_neg = std::min(trC, 0.0f);
-                const float tau_bulk_raw = g_BulkViscosity * trC_neg;
-                const float tau_cap = 5.0f * g_BulkViscosity;
-                const float tau_eff = std::max(std::min(tau_bulk_raw, 0.0f), -tau_cap);
-                
-                Mat3 G_bulk = -C0 * dt * mp_prev.vol * tau_eff * Mat3::Identity();
-                Mat3 G_total = G + G_bulk;
 
                 // Accumulate gradients for particle properties
                 mp_prev.dLdP -= wgp * C0 * dt * mp_prev.vol * node.dLdp * (F_total_transpose * dgp).transpose();
                 mp_prev.dLdF -= wgp * C0 * dt * mp_prev.vol * dgp * (mp_prev.P.transpose() * node.dLdp).transpose();
                 mp_prev.dLdC += wgp * mp_prev.m * node.dLdp * dgp.transpose();
-                
-                // 🔥 d/dC of tau_eff (압축 전용)
-                // tau_eff = clamp(g_BulkViscosity * min(tr(C), 0), -tau_cap, 0)
-                // d(tau_eff)/d(tr(C)) = g_BulkViscosity if tr(C)<0 and not saturated, else 0
-                if (trC < 0.0f && tau_bulk_raw > -tau_cap) {
-                    const float factor = -C0 * dt * mp_prev.vol * g_BulkViscosity;
-                    Mat3 outer = wgp * (node.dLdp * dgp.transpose());
-                    mp_prev.dLdC(0,0) += factor * outer(0,0);
-                    mp_prev.dLdC(1,1) += factor * outer(1,1);
-                    mp_prev.dLdC(2,2) += factor * outer(2,2);
-                }
 
                 // Decompose complex dLdx update into meaningful parts.
                 Vec3 dLdx_from_mass     = mp_prev.m * node.dLdm * wgpGrad;
-                Mat3 momentum_term      = wgpGrad * (mp_prev.m * mp_prev.v + G_total * dgp).transpose() - wgp * G_total.transpose();
+                Mat3 momentum_term      = wgpGrad * (mp_prev.m * mp_prev.v + G * dgp).transpose() - wgp * G.transpose();
                 Vec3 dLdx_from_momentum = momentum_term * node.dLdp;
                 Vec3 dLdx_from_v_next   = wgpGrad * node.v.transpose() * mp_prev.dLdv_next;
                 

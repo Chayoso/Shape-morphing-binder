@@ -979,14 +979,15 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
             )pbdoc");
 
     // --- 4. Utilities ---
-    m.def("load_point_cloud_from_obj", [](const std::string& obj_path, const OptInput& opt) {
+    m.def("load_point_cloud_from_obj", [](const std::string& obj_path, const OptInput& opt, bool apply_jitter) {
         std::shared_ptr<PointCloud> pc;
         float point_dx = opt.grid_dx / (float)opt.points_per_cell_cuberoot;
         bool success = GeometryLoading::LoadMPMPointCloudFromObj(
-            obj_path, pc, point_dx, opt.p_density, opt.lam, opt.mu);
+            obj_path, pc, point_dx, opt.p_density, opt.lam, opt.mu, apply_jitter);
         if (!success) throw std::runtime_error("Failed to load PointCloud from: " + obj_path);
         return pc;
-    }, "Load PointCloud from OBJ file");
+    }, py::arg("obj_path"), py::arg("opt"), py::arg("apply_jitter") = true, 
+    "Load PointCloud from OBJ file (apply_jitter: whether to add random perturbation to points)");
 
     m.def("calculate_lame_parameters", [](float young_mod, float poisson) {
         float lam, mu;

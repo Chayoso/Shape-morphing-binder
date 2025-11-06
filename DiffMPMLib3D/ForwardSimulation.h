@@ -3,9 +3,6 @@
 #include "PointCloud.h"
 #include "Grid.h"
 
-// 🔥 Bulk viscosity 스케줄링 함수
-void SetBulkViscosity(float zeta);
-
 namespace DiffMPMLib3D {
     namespace SingleThreadMPM {
         // Particle operations (stress computation)

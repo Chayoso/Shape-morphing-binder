@@ -143,60 +143,6 @@ namespace DiffMPMLib3D {
     void CompGraph::ComputeBackwardPass(size_t control_layer)
     {
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // ✨ STEP 0: Inject render gradients to LAST layer (if available)
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if (has_render_grads_ && !layers.empty()) {
-            const size_t last_idx = layers.size() - 1;
-            std::shared_ptr<PointCloud> pc_last = layers[last_idx].point_cloud;
-            
-            if (!pc_last) {
-                std::cerr << "[WARN] Last layer point cloud is null, skipping render gradient injection" << std::endl;
-            } else {
-                const size_t N = pc_last->points.size();
-                
-                if (render_grad_num_points_ != N) {
-                    std::cerr << "[WARN] Render gradient size mismatch: stored " 
-                              << render_grad_num_points_ << " but layer has " << N 
-                              << " points. Skipping injection." << std::endl;
-                } else {
-                    std::cout << "[C++] Injecting render gradients to layer " << last_idx 
-                              << " (" << N << " points)" << std::endl;
-                    
-                    #pragma omp parallel for
-                    for (int i = 0; i < (int)N; ++i) {
-                        MaterialPoint& pt = pc_last->points[i];
-                        
-                        // ✅ Build Mat3 from stored render gradient (dLdF)
-                        Mat3 dF_render;
-                        dF_render(0,0) = stored_render_grad_F_[i*9 + 0];
-                        dF_render(0,1) = stored_render_grad_F_[i*9 + 1];
-                        dF_render(0,2) = stored_render_grad_F_[i*9 + 2];
-                        dF_render(1,0) = stored_render_grad_F_[i*9 + 3];
-                        dF_render(1,1) = stored_render_grad_F_[i*9 + 4];
-                        dF_render(1,2) = stored_render_grad_F_[i*9 + 5];
-                        dF_render(2,0) = stored_render_grad_F_[i*9 + 6];
-                        dF_render(2,1) = stored_render_grad_F_[i*9 + 7];
-                        dF_render(2,2) = stored_render_grad_F_[i*9 + 8];
-                        
-                        // ✅ Build Vec3 from stored render gradient (dLdx)
-                        Vec3 dx_render;
-                        dx_render(0) = stored_render_grad_x_[i*3 + 0];
-                        dx_render(1) = stored_render_grad_x_[i*3 + 1];
-                        dx_render(2) = stored_render_grad_x_[i*3 + 2];
-                        
-                        // ✅ Accumulate to existing gradients
-                        // (physics loss gradient already computed by EndLayerMassLoss)
-                        pt.dLdF += dF_render;
-                        pt.dLdx += dx_render;
-                    }
-                    
-                    std::cout << "[C++] Render gradients injected (L_tot = L_phys + L_render)" 
-                              << std::endl;
-                }
-            }
-        }
-        
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // STEP 1: Standard backward propagation (physics)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         
@@ -222,7 +168,7 @@ namespace DiffMPMLib3D {
             if (physics_weight_ != 1.0f && has_render_grads_) {
                 auto& pc = *layers[i].point_cloud;
                 auto& grid = *layers[i].grid;
-                
+
                 // Scale point cloud gradients
                 #pragma omp parallel for
                 for (int p = 0; p < (int)pc.points.size(); ++p) {
@@ -232,7 +178,7 @@ namespace DiffMPMLib3D {
                     mp.dLdv *= physics_weight_;
                     mp.dLdC *= physics_weight_;
                 }
-                
+
                 // Scale grid gradients
                 #pragma omp parallel for
                 for (int idx = 0; idx < grid.dim_x * grid.dim_y * grid.dim_z; ++idx) {
@@ -243,6 +189,64 @@ namespace DiffMPMLib3D {
                     node.dLdv *= physics_weight_;
                     node.dLdm *= physics_weight_;
                     node.dLdp *= physics_weight_;
+                }
+            }
+        }
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // ✨ STEP 2: Inject render gradients to CONTROL LAYER (if available)
+        // 🔥 FIX: Inject AFTER backward pass completes, ONCE per control timestep
+        // This ensures render gradients are added to the PROPAGATED physics gradients
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        if (has_render_grads_ && !render_grads_injected_this_control_timestep_ && control_layer < layers.size()) {
+            std::shared_ptr<PointCloud> pc_control = layers[control_layer].point_cloud;
+
+            if (!pc_control) {
+                std::cerr << "[WARN] Control layer point cloud is null, skipping render gradient injection" << std::endl;
+            } else {
+                const size_t N = pc_control->points.size();
+
+                if (render_grad_num_points_ != N) {
+                    std::cerr << "[WARN] Render gradient size mismatch: stored "
+                              << render_grad_num_points_ << " but control layer has " << N
+                              << " points. Skipping injection." << std::endl;
+                } else {
+                    std::cout << "[C++] Injecting render gradients to control layer " << control_layer
+                              << " (" << N << " points)" << std::endl;
+
+                    #pragma omp parallel for
+                    for (int i = 0; i < (int)N; ++i) {
+                        MaterialPoint& pt = pc_control->points[i];
+
+                        // ✅ Build Mat3 from stored render gradient (dLdF)
+                        // 🔥 FIX: Python already normalizes gradients - no gain multiplication needed!
+                        Mat3 dF_render;
+                        dF_render(0,0) = stored_render_grad_F_[i*9 + 0];
+                        dF_render(0,1) = stored_render_grad_F_[i*9 + 1];
+                        dF_render(0,2) = stored_render_grad_F_[i*9 + 2];
+                        dF_render(1,0) = stored_render_grad_F_[i*9 + 3];
+                        dF_render(1,1) = stored_render_grad_F_[i*9 + 4];
+                        dF_render(1,2) = stored_render_grad_F_[i*9 + 5];
+                        dF_render(2,0) = stored_render_grad_F_[i*9 + 6];
+                        dF_render(2,1) = stored_render_grad_F_[i*9 + 7];
+                        dF_render(2,2) = stored_render_grad_F_[i*9 + 8];
+
+                        // ✅ Build Vec3 from stored render gradient (dLdx)
+                        Vec3 dx_render;
+                        dx_render(0) = stored_render_grad_x_[i*3 + 0];
+                        dx_render(1) = stored_render_grad_x_[i*3 + 1];
+                        dx_render(2) = stored_render_grad_x_[i*3 + 2];
+
+                        // ✅ ADD to existing physics gradients (already propagated backward)
+                        pt.dLdF += dF_render;
+                        pt.dLdx += dx_render;
+                    }
+
+                    // Mark as injected to prevent double counting
+                    render_grads_injected_this_control_timestep_ = true;
+
+                    std::cout << "[C++] Render gradients injected (L_tot = L_phys_propagated + L_render)"
+                              << std::endl;
                 }
             }
         }
@@ -288,7 +292,32 @@ namespace DiffMPMLib3D {
             for (int control_timestep = 0; control_timestep < num_steps - 1; control_timestep += control_stride)
             {
                 std::cout << "Optimizing for control timestep: " << control_timestep << " (Pass " << temporalIter + 1 << ")" << std::endl;
-                float alpha = initial_alpha;
+
+                // 🔥 FIX #1: Reset render gradient injection flag at start of each control timestep
+                render_grads_injected_this_control_timestep_ = false;
+
+                // 🔥 ADAPTIVE INITIAL_ALPHA: Reduce alpha when gradients are too large
+                // Compute current gradient norm
+                ComputeBackwardPass(control_timestep);
+                float current_grad_norm = layers.front().point_cloud->Compute_dLdF_Norm();
+
+                // Target gradient norm for stable optimization (empirically determined)
+                const float target_grad_norm = 2500.0f;
+                const float min_alpha_scale = 0.1f;  // Don't reduce alpha below 10% of base
+
+                // Compute adaptive alpha: reduce when gradients are larger than target
+                float alpha_scale = std::min(1.0f, target_grad_norm / std::max(current_grad_norm, 1e-6f));
+                alpha_scale = std::max(alpha_scale, min_alpha_scale);  // Clamp to minimum
+
+                float alpha = initial_alpha * alpha_scale;
+
+                // Print adaptive alpha info
+                if (alpha_scale < 1.0f) {
+                    std::cout << "  [Adaptive Alpha] grad_norm=" << current_grad_norm
+                              << ", scale=" << alpha_scale
+                              << ", alpha=" << alpha << " (reduced from " << initial_alpha << ")" << std::endl;
+                }
+
                 float initial_norm_local = 0.f;
 
                 for (int gd_iter = 0; gd_iter < max_gd_iters; ++gd_iter)
@@ -309,18 +338,14 @@ namespace DiffMPMLib3D {
                                                    return JJ[std::min(i, JJ.size()-1)]; };
                             const float j_min = JJ.front();
                             const float j_mean = std::accumulate(J.begin(), J.end(), 0.f) / float(J.size());
-                            const float kJminDiag = 0.60f; // keep in sync with ForwardSimulation
-                            const int   cnt_lt = (int)std::count_if(J.begin(), J.end(),
-                                                [&](float v){ return v < kJminDiag; });
-                            const float frac_lt = float(cnt_lt) / std::max<size_t>(1, J.size());
                             std::ofstream ofs("diag_opt.csv", std::ios::app);
                             std::call_once(header_once, [&](){
-                                ofs << "pass,step,gd_iter,phase,loss,j_min,j_mean,j_p01,j_p50,j_p99,frac_j_lt,alpha_try,ls_iters,accepted\n";
+                                ofs << "pass,step,gd_iter,phase,loss,j_min,j_mean,j_p01,j_p50,j_p99,alpha_try,ls_iters,accepted\n";
                             });
                             ofs << temporalIter << "," << control_timestep << "," << gd_iter
                                 << ",pre_ls," << gd_loss << ","
                                 << j_min << "," << j_mean << "," << P(0.01f) << "," << P(0.50f) << "," << P(0.99f)
-                                << "," << frac_lt << "," << initial_alpha << "," << 0 << ",-1\n";
+                                << "," << initial_alpha << "," << 0 << ",-1\n";
                         }
                     }
 #endif

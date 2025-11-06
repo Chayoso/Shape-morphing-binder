@@ -74,6 +74,7 @@ namespace DiffMPMLib3D {
         std::vector<float> stored_render_grad_x_;  // Flattened (N*3,)
         bool has_render_grads_ = false;
         size_t render_grad_num_points_ = 0;
+        bool render_grads_injected_this_control_timestep_ = false;  // Prevents double counting
         
         // Runtime scaling for balanced physics/render gradients
         void SetRenderGain(float g) { render_gain_ = g; }

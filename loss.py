@@ -294,8 +294,14 @@ class E2ELossManager:
         total += self._compute_coverage_loss(pred, target, losses)  # 🔥 NEW: Hole penalty
         total += self._compute_cov_spd_regularization(cov, losses)  # 🔥 NEW: SPD regularization
         total += self._compute_det_barrier_loss(F, losses)  # 🔥 NEW: det(F) barrier loss
-        
+
+        # 🔥 Apply global render loss weight to balance with physics loss
+        render_loss_weight = self.config.get('render_loss_weight', 1.0)
+        if render_loss_weight != 1.0:
+            total = total * render_loss_weight
+
         losses['loss_render_total'] = total
+        losses['render_loss_weight_applied'] = render_loss_weight  # For logging
         return losses
     
     def _get_device(self, pred: Dict, cov: Optional[torch.Tensor], mu: Optional[torch.Tensor]) -> torch.device:
@@ -1004,13 +1010,12 @@ def covariance_spectral_loss(
         print(f"[WARN] Skipping spectral loss due to invalid inputs")
         return torch.tensor(0.0, device=device)
     
-    # Check size compatibility
-    if cov_pred.shape[0] != cov_target.shape[0]:
-        print(f"[WARN] Size mismatch in covariance_spectral_loss: pred={cov_pred.shape[0]}, target={cov_target.shape[0]}")
-        print(f"  → Matching to smaller size for loss computation")
-        min_size = min(cov_pred.shape[0], cov_target.shape[0])
-        cov_pred = cov_pred[:min_size]
-        cov_target = cov_target[:min_size]
+    # ✅ Handle size mismatch with global statistics instead of truncation
+    use_global_statistics = (cov_pred.shape[0] != cov_target.shape[0])
+    
+    if use_global_statistics:
+        print(f"[INFO] Size mismatch → using global eigenvalue distribution")
+        print(f"  pred={cov_pred.shape[0]}, target={cov_target.shape[0]}")
     
     # Add regularization for numerical stability
     eps = 1e-6
@@ -1021,18 +1026,33 @@ def covariance_spectral_loss(
     if mode == 'eigenvalue':
         try:
             # Compute eigenvalues (differentiable)
-            eig_pred = torch.linalg.eigvalsh(cov_pred_reg)  # [N, 3]
-            eig_target = torch.linalg.eigvalsh(cov_target_reg)  # [N, 3]
+            eig_pred = torch.linalg.eigvalsh(cov_pred_reg)  # [N_pred, 3]
+            eig_target = torch.linalg.eigvalsh(cov_target_reg)  # [N_target, 3]
             
             if not _validate_tensor(eig_pred, "eig_pred") or not _validate_tensor(eig_target, "eig_target"):
                 print(f"[WARN] Invalid eigenvalues, using Frobenius fallback")
-                return F.mse_loss(cov_pred, cov_target)
+                return F.mse_loss(cov_pred[:min(cov_pred.shape[0], cov_target.shape[0])], 
+                                 cov_target[:min(cov_pred.shape[0], cov_target.shape[0])])
             
-            # Normalize for scale invariance (differentiable)
-            eig_pred_norm = eig_pred / (eig_pred.sum(dim=-1, keepdim=True) + EPS_NORMALIZE)
-            eig_target_norm = eig_target / (eig_target.sum(dim=-1, keepdim=True) + EPS_NORMALIZE)
-            
-            loss = F.l1_loss(eig_pred_norm, eig_target_norm)
+            if use_global_statistics:
+                # ✅ Compare global eigenvalue distributions (size-invariant!)
+                # Compute statistics: mean, std of each eigenvalue channel
+                eig_pred_mean = eig_pred.mean(dim=0)    # [3]
+                eig_target_mean = eig_target.mean(dim=0)  # [3]
+                eig_pred_std = eig_pred.std(dim=0)      # [3]
+                eig_target_std = eig_target.std(dim=0)  # [3]
+                
+                # Loss: Match mean and std of eigenvalue distributions
+                loss_mean = F.l1_loss(eig_pred_mean, eig_target_mean)
+                loss_std = F.l1_loss(eig_pred_std, eig_target_std)
+                loss = loss_mean + 0.5 * loss_std
+            else:
+                # Original: Point-wise comparison (when sizes match)
+                # Normalize for scale invariance (differentiable)
+                eig_pred_norm = eig_pred / (eig_pred.sum(dim=-1, keepdim=True) + EPS_NORMALIZE)
+                eig_target_norm = eig_target / (eig_target.sum(dim=-1, keepdim=True) + EPS_NORMALIZE)
+                
+                loss = F.l1_loss(eig_pred_norm, eig_target_norm)
         except Exception as e:
             print(f"[WARN] Eigenvalue computation failed: {e}, using Frobenius fallback")
             loss = F.mse_loss(cov_pred, cov_target)
