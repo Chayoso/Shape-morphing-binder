@@ -127,6 +127,7 @@ if diagnostics:
 sources = [
     "bind/bind.cpp",
     str(diffmpm_lib_dir / "CompGraph.cpp"),
+    str(diffmpm_lib_dir / "E2ESession.cpp"),  # ✅ Add session mode!
     str(diffmpm_lib_dir / "ForwardSimulation.cpp"),
     str(diffmpm_lib_dir / "BackPropagation.cpp"),
     str(diffmpm_lib_dir / "Elasticity.cpp"),

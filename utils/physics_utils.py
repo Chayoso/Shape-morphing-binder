@@ -24,8 +24,9 @@ def initialize_point_clouds(opt: Any) -> Tuple[Any, Any]:
     """
     import diffmpm_bindings
     
-    input_pc = diffmpm_bindings.load_point_cloud_from_obj(opt.mpm_input_mesh_path, opt)
-    target_pc = diffmpm_bindings.load_point_cloud_from_obj(opt.mpm_target_mesh_path, opt)
+    # Apply jitter to both input and target for consistent particle distribution
+    input_pc = diffmpm_bindings.load_point_cloud_from_obj(opt.mpm_input_mesh_path, opt, apply_jitter=True)
+    target_pc = diffmpm_bindings.load_point_cloud_from_obj(opt.mpm_target_mesh_path, opt, apply_jitter=True)
     
     return input_pc, target_pc
 
