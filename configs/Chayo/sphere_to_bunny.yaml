@@ -28,7 +28,7 @@ simulation:
 # Optimization
 # ════════════════════════════════════════════════════════════════════════════════
 optimization:
-  num_animations: 25  # 🔥 Extended training with learning rate decay
+  num_animations: 1  # 🔥 Extended training with learning rate decay
   num_timesteps: 10
   control_stride: 1
   max_gd_iters: 1
@@ -98,6 +98,11 @@ upsample:
     k_F_coarse: 64                 # Coarse scale KNN (global deformation, sphere → bunny outline)
     k_F_fine: 16                   # Fine scale KNN (local details, bunny ears/nose/tail)
     multiscale_blend_mode: 'adaptive'  # 'adaptive' = det(F)-based blending | 'fixed' = 50/50
+
+    # 🔥 NEW: Subdivision-based upsampling (for gap filling)
+    enable_subdivision: true        # Enable upsampling (37k → 60k particles)
+    subdivision_target: 60000      # Target particle count after upsampling
+    subdivision_jitter: 0.15       # Jitter scale for child particles (relative to local spacing)
 
     # 🔥 ADJUSTED: Allow more deformation range for better surface detail
     # With more particles (27 vs 8), we can afford slightly more compression

@@ -78,7 +78,7 @@ def run_e2e_episode_session(
         Tuple of (updated_ema_state, final_losses)
     """
     print(f"\n{'='*70}")
-    print(f"🔥 Session Mode: Episode {ep+1} START")
+    print(f"🔥 Session Mode: Episode {ep} START")
     print(f"{'='*70}")
 
     # Track render loss components
@@ -127,11 +127,11 @@ def run_e2e_episode_session(
             t0 = time.time()
             result = upsample(
                 x, F,
-                cfg=rs_full.get('upsample', {}),
+                cfg=rs_full,
                 state=ema_state,
                 seed=seed,
                 return_torch=True,
-                export_stages=False,
+                export_stages=True,  # 🔥 DEBUG: Enable subdivision debug output
                 learnable_cov_module=cov_module,
                 current_episode=episode_num,
                 external_levelset=external_levelset,
@@ -319,55 +319,98 @@ def run_e2e_episode_session(
     # 🔥 RUN EPISODE (SINGLE C++ CALL!)
     result = session.run_episode(ep, compute_render_grads_callback)
 
-    print(f"\n[Episode {ep+1}] Session Results:")
+    print(f"\n[Episode {ep}] Session Results:")
     print(f"  Loss (physics): {result.loss_physics:.2f}")
     print(f"  Passes executed: {result.num_passes_executed}/{session.get_statistics().total_passes}")
     print(f"  Wall time: {result.wall_time_seconds:.1f}s")
     print(f"  Success: {'✅' if result.success else '❌'}")
 
+    # 🔥 DEBUG: Check visualization conditions
+    print(f"\n[DEBUG] Visualization check:")
+    print(f"  png_enabled = {png_enabled}")
+    print(f"  result.success = {result.success}")
+    print(f"  out_dir = {out_dir}")
+    print(f"  Episode number (ep) = {ep}")
+
     # Visualization (last pass)
     if png_enabled and result.success:
         print(f"\n[Visualization] Saving results...")
+        print(f"  Output directory: {out_dir}")
         try:
             # Get final point cloud for visualization
+            print(f"  [1/7] Getting final point cloud from session...")
             pc_final = session.get_final_point_cloud()
             if pc_final is None:
                 print(f"  ⚠️  No final point cloud available")
             else:
+                print(f"  [2/7] Point cloud retrieved successfully")
                 # Session mode: Do simplified visualization without cg
                 from utils.physics_utils import extract_point_cloud_state
-                
+
                 # Extract state
+                print(f"  [3/7] Extracting state (x, v, F)...")
                 x, v, F = extract_point_cloud_state(pc_final, requires_grad=False)
-                
+                print(f"    Extracted {len(x)} particles")
+
                 # Upsample for visualization
                 seed = 9999 + ep*1000 + (result.num_passes_executed - 1)
                 from sampling import upsample
-                
+
+                print(f"  [4/7] Upsampling for visualization (seed={seed})...")
                 result_viz = upsample(
                     x, F,
-                    cfg=rs_full.get('upsample', {}),
+                    cfg=rs_full,
                     state=ema_state,
                     seed=seed,
                     return_torch=True,
-                    export_stages=False,
+                    export_stages=True,  # 🔥 DEBUG: Enable subdivision debug output
                     learnable_cov_module=cov_module,
                     current_episode=ep,
                     external_levelset=external_levelset,
                     use_simple_pipeline=rs_full.get('upsample', {}).get('use_simple_pipeline', True)
                 )
-                
+
                 mu_viz = result_viz.get('points')
                 cov_viz = result_viz.get('cov')
-                
+                print(f"    Upsampled to {len(mu_viz)} points")
+
+                # Save stage progression if available
+                if "stage_outputs" in result_viz:
+                    from sampling.io.export import save_stage_progression
+                    print(f"    Saving stage progression...")
+                    save_stage_progression(out_dir, -1, result_viz["stage_outputs"])
+
                 # Render and save
                 from utils.rendering_utils import prepare_rendering_inputs
+                print(f"  [5/7] Preparing rendering inputs...")
                 rgb = prepare_rendering_inputs(mu_viz, result_viz, campos, render_cfg, particle_color)
-                out_render = renderer.render(mu_viz, cov_viz, rgb=rgb)
-                
+                normals_viz = result_viz.get('normals')
+
+                # 🔥 Orient normals toward camera (for correct normal map visualization)
+                if normals_viz is not None:
+                    import numpy as np
+                    # Convert to numpy if torch
+                    if hasattr(normals_viz, 'cpu'):
+                        normals_viz = normals_viz.detach().cpu().numpy()
+                    if hasattr(mu_viz, 'cpu'):
+                        mu_viz_np = mu_viz.detach().cpu().numpy()
+                    else:
+                        mu_viz_np = mu_viz
+
+                    # Orient normals toward camera
+                    view_dir = campos - mu_viz_np  # (N, 3) vector from particle to camera
+                    view_dir_norm = view_dir / (np.linalg.norm(view_dir, axis=1, keepdims=True) + 1e-8)
+                    dot_product = np.sum(normals_viz * view_dir_norm, axis=1)  # (N,)
+                    flip_mask = dot_product < 0
+                    normals_viz = normals_viz.copy()
+                    normals_viz[flip_mask] = -normals_viz[flip_mask]
+
+                print(f"  [6/7] Rendering...")
+                out_render = renderer.render(mu_viz, cov_viz, rgb=rgb, normals=normals_viz, render_normal_map=True)
+
                 # Save images
                 from utils.io_utils import save_image_png, save_depth_png
-                
+
                 # Convert to numpy if needed
                 def to_np(x):
                     if x is None:
@@ -375,28 +418,49 @@ def run_e2e_episode_session(
                     if torch.is_tensor(x):
                         return x.detach().cpu().numpy()
                     return x
-                
+
                 img_np = to_np(out_render.get('image'))
                 alpha_np = to_np(out_render.get('alpha'))
                 depth_np = to_np(out_render.get('depth'))
-                
+                normal_np = to_np(out_render.get('normal_map'))
+
                 # Save renders
+                print(f"  [7/7] Saving PNG files...")
+                saved_files = []
                 if img_np is not None:
-                    save_image_png(out_dir / f"ep{ep:03d}_render.png", img_np)
+                    fpath = out_dir / "render.png"
+                    save_image_png(fpath, img_np)
+                    saved_files.append(str(fpath))
                 if alpha_np is not None:
-                    save_image_png(out_dir / f"ep{ep:03d}_alpha.png", alpha_np)
+                    fpath = out_dir / "alpha.png"
+                    save_image_png(fpath, alpha_np)
+                    saved_files.append(str(fpath))
                 if depth_np is not None:
-                    save_depth_png(out_dir / f"ep{ep:03d}_depth.png", depth_np)
-                
-                print(f"  ✅ Visualization saved")
+                    fpath = out_dir / "depth.png"
+                    save_depth_png(fpath, depth_np)
+                    saved_files.append(str(fpath))
+                if normal_np is not None:
+                    fpath = out_dir / "normal.png"
+                    save_image_png(fpath, normal_np)
+                    saved_files.append(str(fpath))
+
+                print(f"  ✅ Visualization saved ({len(saved_files)} files)")
+                for f in saved_files:
+                    print(f"      - {f}")
                 
         except Exception as e:
             print(f"  ⚠️  Visualization failed: {e}")
             import traceback
             traceback.print_exc()
+    else:
+        print(f"\n[DEBUG] Visualization SKIPPED:")
+        if not png_enabled:
+            print(f"  Reason: png_enabled={png_enabled}")
+        if not result.success:
+            print(f"  Reason: result.success={result.success}")
 
     print(f"\n{'='*70}")
-    print(f"🔥 Session Mode: Episode {ep+1} COMPLETE")
+    print(f"🔥 Session Mode: Episode {ep} COMPLETE")
     print(f"{'='*70}\n")
 
     # Prepare final losses
@@ -484,7 +548,7 @@ def run_e2e_episode(
     # Episode Initialization
     # ════════════════════════════════════════════════════════════════════════════
     print(f"\n{'='*70}")
-    print(f"Episode {ep+1} START")
+    print(f"Episode {ep} START")
     print(f"{'='*70}")
     
     # Reset EMA threshold at episode boundary
@@ -815,7 +879,7 @@ def run_e2e_episode(
     # Episode Finalization
     # ════════════════════════════════════════════════════════════════════════════
     print(f"\n{'='*70}")
-    print(f"Episode {ep+1} COMPLETE")
+    print(f"Episode {ep} COMPLETE")
     print(f"{'='*70}\n")
     
     print(f"[Cleanup] Final memory cleanup...")

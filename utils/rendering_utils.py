@@ -179,7 +179,18 @@ def render_target(
     """
     if nrm_tgt is None:
         nrm_tgt = np.zeros_like(mu_tgt)
-    
+
+    # 🔥 Orient normals toward camera (for correct normal map visualization)
+    # All visible surfaces should appear pink/magenta in the normal map
+    view_dir = campos - mu_tgt  # (N, 3) vector from particle to camera
+    view_dir_norm = view_dir / (np.linalg.norm(view_dir, axis=1, keepdims=True) + 1e-8)
+
+    # Flip normals that point away from camera
+    dot_product = np.sum(nrm_tgt * view_dir_norm, axis=1)  # (N,)
+    flip_mask = dot_product < 0
+    nrm_tgt = nrm_tgt.copy()  # Don't modify original
+    nrm_tgt[flip_mask] = -nrm_tgt[flip_mask]
+
     # Choose covariance
     if use_curvature_cov and cov_target_star is not None:
         print("  [Render] Using CURVATURE-based covariance Σ★")
@@ -284,29 +295,29 @@ def create_target_render(
     from sampling.analysis.knn import HybridFAISSKNN, FAISS_AVAILABLE
     
     # Extract target
-    print("[Target] Extracting point cloud...")
+    print("[Target] Extracting point cloud...", flush=True)
     x_tgt, F_tgt = extract_target_point_cloud(target_pc)
-    
+
     # Upsample
-    print("[Target] Upsampling to dense surface...")
+    print("[Target] Upsampling to dense surface...", flush=True)
     mu_tgt, cov_tgt, nrm_tgt, result_tgt = upsample_target(
-        x_tgt, F_tgt, rs, 
+        x_tgt, F_tgt, rs,
         export_stages=True,
         output_dir=out_dir  # 🔥 NEW: Pass output directory
     )
-    
-    print(f"[Target] Upsampled: {len(mu_tgt):,} points")
 
-    print("[Target] Using curvature-based covariance from STAGE 6...")
-    
+    print(f"[Target] Upsampled: {len(mu_tgt):,} points", flush=True)
+
+    print("[Target] Using curvature-based covariance from STAGE 6...", flush=True)
+
     # Convert cov_tgt to torch for loss computation
     if isinstance(cov_tgt, np.ndarray):
         cov_target_star = torch.from_numpy(cov_tgt).float().cuda()
     else:
         cov_target_star = cov_tgt  # Already torch tensor
-    
+
     # Render
-    print("[Target] Rendering...")
+    print("[Target] Rendering...", flush=True)
     out_tgt = render_target(
         renderer, mu_tgt, cov_tgt, nrm_tgt, campos,
         render_cfg, particle_color,

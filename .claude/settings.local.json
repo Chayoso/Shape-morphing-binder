@@ -6,7 +6,11 @@
       "Bash(cmd.exe /c \"C:\\dev\\shape-morphing_v2.3.2\\rebuild.bat\")",
       "Bash(taskkill:*)",
       "Bash(dir \"C:\\dev\\shape-morphing_v2.3.2\\output\\sphere\\bunny\\target\")",
-      "Bash(cmd.exe /c \"taskkill /IM python.exe /F\")"
+      "Bash(cmd.exe /c \"taskkill /IM python.exe /F\")",
+      "Bash(dir \"C:\\dev\\shape-morphing_v2.3.2\\output\\sphere\\bunny\")",
+      "Bash(dir \"C:\\dev\\shape-morphing_v2.3.2\\output\\sphere\\bunny\\ep000\")",
+      "Bash(dir:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []

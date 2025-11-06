@@ -181,9 +181,9 @@ def main():
     # ════════════════════════════════════════════════════════════════════════════
     # Load Configuration
     # ════════════════════════════════════════════════════════════════════════════
-    print("="*80)
-    print("PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing")
-    print("="*80)
+    print("="*80, flush=True)
+    print("PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing", flush=True)
+    print("="*80, flush=True)
     
     cfg, cfg_dir = load_config(args.config)
     validate_config(cfg)
@@ -210,29 +210,29 @@ def main():
     # ════════════════════════════════════════════════════════════════════════════
     # Initialize Physics
     # ════════════════════════════════════════════════════════════════════════════
-    print("\n[Init] Building optimization input...")
+    print("\n[Init] Building optimization input...", flush=True)
     opt = build_opt_input(cfg)
-    
-    print(f"[Init] Loading meshes...")
-    print(f"  Input:  {cfg['input_mesh_path']}")
-    print(f"  Target: {cfg['target_mesh_path']}")
+
+    print(f"[Init] Loading meshes...", flush=True)
+    print(f"  Input:  {cfg['input_mesh_path']}", flush=True)
+    print(f"  Target: {cfg['target_mesh_path']}", flush=True)
     
     input_pc, target_pc = initialize_point_clouds(opt)
     input_grid, target_grid = initialize_grids(opt)
     
-    print("[Init] Calculating point cloud volumes...")
+    print("[Init] Calculating point cloud volumes...", flush=True)
     import diffmpm_bindings
     diffmpm_bindings.calculate_point_cloud_volumes(input_pc, input_grid)
     diffmpm_bindings.calculate_point_cloud_volumes(target_pc, target_grid)
-    
-    print("[Init] Creating computation graph...")
+
+    print("[Init] Creating computation graph...", flush=True)
     cg = initialize_comp_graph(input_pc, input_grid, target_grid)
     tgt = extract_target_point_cloud(target_pc)[0]
-    
+
     # ════════════════════════════════════════════════════════════════════════════
     # Setup Upsampling
     # ════════════════════════════════════════════════════════════════════════════
-    print("[Config] Setting up upsampling pipeline...")
+    print("[Config] Setting up upsampling pipeline...", flush=True)
     
     rs = default_cfg()
     rs_user = cfg.get("upsample", {}) or {}
@@ -251,7 +251,7 @@ def main():
     # ════════════════════════════════════════════════════════════════════════════
     # Setup Rendering
     # ════════════════════════════════════════════════════════════════════════════
-    print("[Init] Setting up renderer...")
+    print("[Init] Setting up renderer...", flush=True)
     cam_cfg = cfg.get("camera", {}) or {}
     render_cfg = cfg.get("render", {}) or {}
     particle_color = render_cfg.get("particle_color", [0.27, 0.51, 0.71])
@@ -269,22 +269,22 @@ def main():
     target_render = None
     
     if enable_e2e and HAVE_3DGS:
-        print("[E2E] Setting up rendering loss...")
-        
+        print("[E2E] Setting up rendering loss...", flush=True)
+
         loss_cfg = cfg.get("optimization", {}).get("loss", {})
         loss_manager = E2ELossManager(loss_cfg)
-        
-        print("[E2E] Creating target rendering...")
+
+        print("[E2E] Creating target rendering...", flush=True)
         campos = view_params.get('campos')
         target_render = create_target_render(
             target_pc, renderer, rs, campos,
             render_cfg, particle_color, out_dir
         )
-        
+
         if target_render is not None:
-            print("✅ [E2E] E2E mode ENABLED")
+            print("✅ [E2E] E2E mode ENABLED", flush=True)
         else:
-            print("⚠️ [E2E] Target rendering failed, E2E disabled")
+            print("⚠️ [E2E] Target rendering failed, E2E disabled", flush=True)
             enable_e2e = False
     else:
         if not HAVE_3DGS:
@@ -301,8 +301,8 @@ def main():
     session = None
 
     if use_session_mode and enable_e2e and HAVE_3DGS:
-        print("\n[Mode] 🔥 PERSISTENT SESSION MODE ENABLED 🔥")
-        print("  Expected speedup: 10-15x per episode!")
+        print("\n[Mode] 🔥 PERSISTENT SESSION MODE ENABLED 🔥", flush=True)
+        print("  Expected speedup: 10-15x per episode!", flush=True)
 
         # Create E2ESession configuration
         import diffmpm_bindings as dmpm
@@ -328,9 +328,9 @@ def main():
         print(f"  Timesteps: {session_config.num_timesteps}")
         print(f"  Render gradients: {'enabled' if session_config.enable_render_grads else 'disabled'}")
 
-    print(f"\n{'='*80}")
-    print(f"Starting training: {opt.num_animations} episodes")
-    print(f"{'='*80}\n")
+    print(f"\n{'='*80}", flush=True)
+    print(f"Starting training: {opt.num_animations} episodes", flush=True)
+    print(f"{'='*80}\n", flush=True)
 
     for ep in range(int(opt.num_animations)):
         # Apply episode-specific config overrides

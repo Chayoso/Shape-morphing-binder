@@ -284,6 +284,7 @@ def save_stage_progression(
         dpi: Image resolution
         ptsize: Point size
     """
+    import numpy as np  # ✅ Explicit import to avoid scoping issues
     base_dir = Path(base_dir)
     # Use "target" folder for episode -1, otherwise epXXX
     if episode == -1:

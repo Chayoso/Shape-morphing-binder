@@ -30,31 +30,32 @@ from .geometry.learnable_covariance import LearnableCovariance
 def compute_normals_pca(points: torch.Tensor, knn, k: int = 32, prefer_outward: bool = True) -> torch.Tensor:
     """
     PCA로 local surface normal 계산 + orientation consistency.
-    
+
     Args:
         points: (N, 3) point positions
         knn: KNN 함수
         k: 이웃 개수
         prefer_outward: True면 바깥쪽 향하도록 (centroid 기준)
-    
+
     Returns:
         normals: (N, 3) unit normals (바깥쪽 향함)
     """
     k = min(k, points.shape[0])
-    
+
     # KNN search
     idx, _ = knn(points, points, k)
     neighbors = points[idx]  # (N, k, 3)
-    
+
     # Center
     centroid = neighbors.mean(dim=1, keepdim=True)  # (N, 1, 3)
     centered = neighbors - centroid  # (N, k, 3)
-    
+
     # Covariance matrix
     C = torch.einsum('nki,nkj->nij', centered, centered) / k  # (N, 3, 3)
-    
-    # Eigendecomposition
-    eigenvalues, eigenvectors = torch.linalg.eigh(C)  # eigenvalues are sorted ascending
+
+    # FIX: Use safe eigendecomposition to handle NaN/Inf values
+    from sampling.geometry.curvature_covariance import _safe_eigh_cuda_cpu
+    eigenvalues, eigenvectors = _safe_eigh_cuda_cpu(C, eps=1e-6)  # eigenvalues are sorted ascending
     
     # Normal = eigenvector with smallest eigenvalue (most planar direction)
     normals = eigenvectors[:, :, 0]  # (N, 3)
@@ -66,18 +67,17 @@ def compute_normals_pca(points: torch.Tensor, knn, k: int = 32, prefer_outward: 
     if prefer_outward:
         global_centroid = points.mean(dim=0)  # (3,)
         to_point = points - global_centroid  # (N, 3) vector from center to point
-        
+
         # If normal points inward (towards centroid), flip it
         dot = (normals * to_point).sum(dim=-1)  # (N,)
         flip = dot < 0
         normals[flip] = -normals[flip]
-        
-        # 🔥 Ensure all normals point upward (positive Z component)
-        # This forces even bottom surfaces to point "outward/upward"
-        pointing_down = normals[:, 2] < 0
-        if pointing_down.any():
-            normals[pointing_down] = -normals[pointing_down]
-    
+
+        # ✅ REMOVED: Z-direction forcing (was causing green regions in normal map)
+        # The centroid-based orientation above is sufficient and correct.
+        # Previously: All normals were forced to point upward (Z > 0), which
+        # incorrectly flipped bottom surface normals and created inconsistencies.
+
     return normals
 
 
@@ -386,13 +386,268 @@ def upsample(
     perf_cfg = upsample_cfg.get("performance", {})
     
     # ========================================================================
-    # Direct F → Covariance (Simple pipeline only)
+    # Choose pipeline path
     # ========================================================================
-    return _upsample_simple_direct(
-        x_low, F_low, cfg, state, return_torch,
-        learnable_cov_module, knn, device, verbose,
-        current_episode
+    verbose = export_stages  # Use export_stages as verbose flag
+    upsample_cfg = cfg.get("upsample", {})
+    enable_subdivision = upsample_cfg.get("covariance", {}).get("enable_subdivision", False)
+
+    if verbose:
+        print(f"[DEBUG] enable_subdivision = {enable_subdivision} (from cfg: {upsample_cfg.get('covariance', {}).get('enable_subdivision', 'KEY_MISSING')})")
+
+    if enable_subdivision:
+        # Subdivision-based upsampling (37k → 60k)
+        return _upsample_with_subdivision(
+            x_low, F_low, cfg, state, return_torch,
+            learnable_cov_module, knn, device, verbose,
+            current_episode
+        )
+    else:
+        # Direct (no upsampling)
+        return _upsample_simple_direct(
+            x_low, F_low, cfg, state, return_torch,
+            learnable_cov_module, knn, device, verbose,
+            current_episode
+        )
+
+
+def _upsample_with_subdivision(
+    x_low: torch.Tensor,
+    F_low: torch.Tensor,
+    cfg: Dict,
+    state: Optional[Dict],
+    return_torch: bool,
+    learnable_cov_module,
+    knn,
+    device,
+    verbose: bool,
+    current_episode: int = -1
+) -> Dict:
+    """
+    🔥 Simple subdivision-based upsampling for gap filling.
+
+    Strategy:
+    1. Identify high-deformation regions (from det(F))
+    2. Allocate subdivision budget to these regions
+    3. Create child particles near parents
+    4. Interpolate F-field to children
+    5. Build covariances on upsampled set
+
+    Benefits:
+    - Focused upsampling where needed (high deformation)
+    - Fully differentiable
+    - Simple and efficient
+    - Stays under 70K particle limit
+    """
+    upsample_cfg = cfg.get("upsample", {})
+    cov_cfg = upsample_cfg.get("covariance", {})
+
+    target_count = int(cov_cfg.get("subdivision_target", 60000))
+    jitter_scale = float(cov_cfg.get("subdivision_jitter", 0.15))
+
+    N = x_low.shape[0]
+
+    if verbose:
+        print(f"\n{'='*70}")
+        print(f"[SUBDIVISION UPSAMPLING PIPELINE]")
+        print(f"{'='*70}")
+        print(f"Input points: {N:,}")
+        print(f"Target points: {target_count:,}")
+        print(f"Upsampling ratio: {target_count/N:.2f}x")
+
+    # ========================================================================
+    # 1. Compute deformation magnitude
+    # ========================================================================
+    det_F = torch.det(F_low).abs()  # (N,)
+    dev = (det_F - 1.0).abs()  # Deviation from identity
+
+    # 🔥 FIX: Check if deformation is negligible (e.g., target mesh with F=I)
+    # If deformation is too small, use uniform subdivision instead
+    # Use per-particle average to be robust to varying particle counts
+    total_dev = dev.sum().item()
+    mean_dev = total_dev / N  # Average deformation per particle
+    use_uniform = mean_dev < 0.02  # Threshold: 2% average deformation per particle
+
+    if use_uniform:
+        # Uniform subdivision: distribute children evenly
+        prob = torch.ones(N, device=device) / N  # Equal probability
+        if verbose:
+            print(f"[Subdivision] Using UNIFORM mode (mean deformation = {mean_dev:.6f} < 0.02)")
+    else:
+        # Deformation-based subdivision (original behavior)
+        prob = dev / (dev.sum() + 1e-6)  # (N,)
+        if verbose:
+            print(f"[Subdivision] Using DEFORMATION mode (mean deformation = {mean_dev:.6f})")
+
+    # ========================================================================
+    # 2. Allocate children to each parent
+    # ========================================================================
+    num_new = target_count - N
+    num_children_per_parent = prob * num_new  # (N,) float
+
+    if use_uniform:
+        # Simple uniform allocation with slight randomness
+        with torch.no_grad():
+            base_children = num_new // N
+            remainder = num_new % N
+            num_children = torch.full((N,), base_children, dtype=torch.long, device=device)
+            # Distribute remainder randomly
+            if remainder > 0:
+                generator = torch.Generator(device=device).manual_seed(42)
+                perm = torch.randperm(N, device=device, generator=generator)
+                num_children[perm[:remainder]] += 1
+    else:
+        # 🔥 IMPROVED: Proportional allocation with max cap to prevent clustering
+        with torch.no_grad():
+            # Direct proportional allocation (no Gumbel-Softmax winner-takes-all)
+            num_children_float = num_children_per_parent  # (N,) float
+
+            # 🔥 Cap max children per parent to prevent extreme clustering
+            # Even in high-deformation regions, limit to reasonable amount
+            max_children_per_parent = max(20, num_new // (N // 10))  # At least 20, or 10% of parents share the load
+
+            # Apply cap iteratively
+            num_iterations = 0
+            while num_iterations < 10:  # Prevent infinite loop
+                over_cap = num_children_float > max_children_per_parent
+                if not over_cap.any():
+                    break
+
+                # Redistribute excess to under-cap particles
+                excess = (num_children_float - max_children_per_parent).clamp(min=0)
+                total_excess = excess.sum()
+
+                if total_excess < 0.1:  # Negligible excess
+                    break
+
+                # Cap the over-allocated particles
+                num_children_float[over_cap] = max_children_per_parent
+
+                # Redistribute to particles below cap proportionally
+                under_cap = ~over_cap
+                if under_cap.sum() == 0:
+                    break
+
+                redistrib_prob = prob[under_cap] / (prob[under_cap].sum() + 1e-8)
+                num_children_float[under_cap] += redistrib_prob * total_excess
+                num_iterations += 1
+
+            # Stochastic rounding to preserve expectation
+            num_children = torch.floor(num_children_float).long()
+            frac = num_children_float - num_children.float()
+
+            generator = torch.Generator(device=device).manual_seed(42)
+            rand = torch.rand(N, device=device, generator=generator)
+            num_children += (frac > rand).long()
+
+            # Ensure we hit target exactly
+            diff = num_new - num_children.sum().item()
+            if diff != 0:
+                # Add/remove from particles with highest fractional part (fair rounding)
+                if diff > 0:
+                    _, top_idx = torch.topk(frac, k=min(abs(diff), N))
+                    num_children[top_idx[:diff]] += 1
+                else:
+                    # Remove from particles with lowest fractional part
+                    _, bottom_idx = torch.topk(frac, k=min(abs(diff), N), largest=False)
+                    num_children[bottom_idx[:-diff-1:-1]] -= 1
+                    num_children = num_children.clamp(min=0)
+
+    if verbose:
+        print(f"\n[1/4] Subdivision allocation:")
+        print(f"  Mean children/parent: {num_children.float().mean():.2f}")
+        print(f"  Max children/parent: {num_children.max().item()}")
+        print(f"  Parents with children: {(num_children > 0).sum().item()}/{N}")
+
+    # ========================================================================
+    # 3. Generate child particles
+    # ========================================================================
+    children_x = []
+    children_parent_idx = []
+
+    for i in range(N):
+        n_child = num_children[i].item()
+        if n_child > 0:
+            # Local spacing estimate
+            idx_nn, _ = knn(x_low[i:i+1], x_low, k=8)
+            neighbors = x_low[idx_nn[0]]
+            local_spacing = torch.norm(neighbors - x_low[i], dim=-1).mean()
+
+            # Create children with random jitter
+            jitter = torch.randn(n_child, 3, device=device) * jitter_scale * local_spacing
+            child_pos = x_low[i].unsqueeze(0) + jitter
+
+            children_x.append(child_pos)
+            children_parent_idx.extend([i] * n_child)
+
+    if len(children_x) > 0:
+        children_x = torch.cat(children_x, dim=0)  # (M, 3)
+        x_upsampled = torch.cat([x_low, children_x], dim=0)  # (N+M, 3)
+        M = children_x.shape[0]
+    else:
+        x_upsampled = x_low
+        M = 0
+
+    if verbose:
+        print(f"\n[2/4] Generated {M:,} child particles")
+        print(f"  Total particles: {x_upsampled.shape[0]:,}")
+
+    # ========================================================================
+    # 4. Compute normals
+    # ========================================================================
+    k_pca = min(32, x_upsampled.shape[0] - 1)
+    normals = compute_normals_pca(x_upsampled, knn, k=k_pca, prefer_outward=True)
+
+    if verbose:
+        print(f"\n[3/4] Computed normals via PCA (k={k_pca})")
+
+    # ========================================================================
+    # 5. Build covariances
+    # ========================================================================
+    cov, F_interp, idx = build_deformation_covariance(
+        points=x_upsampled,
+        x_low=x_low,
+        F_low=F_low,
+        knn=knn,
+        cfg=cov_cfg,
+        learnable_cov_module=learnable_cov_module
     )
+
+    if verbose:
+        print(f"\n[4/4] Built covariances")
+        print(f"  Covariance shape: {cov.shape}")
+        print(f"{'='*70}\n")
+
+    # ========================================================================
+    # 6. Return results
+    # ========================================================================
+    result = {
+        "points": x_upsampled if return_torch else x_upsampled.detach().cpu().numpy(),
+        "normals": normals if return_torch else normals.detach().cpu().numpy(),
+        "F_interp": F_interp if return_torch else F_interp.detach().cpu().numpy(),
+        "cov": cov if return_torch else cov.detach().cpu().numpy(),
+        "anchors": x_upsampled if return_torch else x_upsampled.detach().cpu().numpy(),
+        "debug": {
+            "num_original": N,
+            "num_children": M,
+            "num_total": x_upsampled.shape[0]
+        },
+        "state": state,
+    }
+    
+    # ✅ Add stage_outputs for visualization
+    # This ensures PNG files are generated for each episode
+    stage_outputs = {
+        'stage6': {
+            'points': x_upsampled if return_torch else x_upsampled.detach().cpu().numpy(),
+            'normals': normals if return_torch else normals.detach().cpu().numpy(),
+            'cov': cov if return_torch else cov.detach().cpu().numpy()
+        }
+    }
+    result["stage_outputs"] = stage_outputs
+    
+    return result
+
 
 def _upsample_simple_direct(
     x_low: torch.Tensor,
