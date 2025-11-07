@@ -146,6 +146,11 @@ def build_opt_input(cfg: Dict) -> Any:
     opt.initial_alpha = float(opt_cfg.get("initial_alpha", 0.01))
     opt.gd_tol = float(opt_cfg.get("gd_tol", 0.0001))
     opt.current_episodes = 0
+
+    # Adaptive alpha parameters (with backward-compatible defaults)
+    opt.adaptive_alpha_enabled = bool(opt_cfg.get("adaptive_alpha_enabled", True))
+    opt.adaptive_alpha_target_norm = float(opt_cfg.get("adaptive_alpha_target_norm", 2500.0))
+    opt.adaptive_alpha_min_scale = float(opt_cfg.get("adaptive_alpha_min_scale", 0.1))
     
     return opt
 
@@ -160,7 +165,8 @@ def run_physics_optimization(
     num_timesteps: int,
     control_stride: int,
     ep: int,
-    pass_idx: int = 0
+    pass_idx: int = 0,
+    skip_setup: bool = False  # 🔥 Skip SetUpCompGraph for pass 2+
 ) -> float:
     """
     Run physics optimization over control timesteps using Adam.
@@ -189,7 +195,7 @@ def run_physics_optimization(
 
     print(f"\n[Physics] ⚡ Fast C++ mode - {mode_str}")
     print(f"[Physics] Injected render grads: {has_render_grads}")
-    cg.run_optimization(opt)
+    cg.run_optimization(opt, skip_setup=skip_setup)
 
     try:
         loss_physics = cg.end_layer_mass_loss()
@@ -205,7 +211,8 @@ def run_physics_optimization_batched(
     cg: Any,
     opt: Any,
     render_grads: Optional[Dict[str, np.ndarray]],
-    pass_idx: int = 0
+    pass_idx: int = 0,
+    skip_setup: bool = False  # 🔥 Skip SetUpCompGraph for pass 2+
 ) -> float:
     """
     🔥 OPTIMIZED: Run physics optimization with batched C++ call.

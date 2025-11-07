@@ -549,8 +549,12 @@ def _upsample_with_subdivision(
                     num_children[top_idx[:diff]] += 1
                 else:
                     # Remove from particles with lowest fractional part
-                    _, bottom_idx = torch.topk(frac, k=min(abs(diff), N), largest=False)
-                    num_children[bottom_idx[:-diff-1:-1]] -= 1
+                    # 🔥 FIX: Use positive indexing to avoid slice step error
+                    k = min(abs(diff), N)
+                    _, bottom_idx = torch.topk(frac, k=k, largest=False)
+                    # Take the last abs(diff) elements (those with lowest frac)
+                    indices_to_decrement = bottom_idx[max(0, k-abs(diff)):]
+                    num_children[indices_to_decrement] -= 1
                     num_children = num_children.clamp(min=0)
 
     if verbose:

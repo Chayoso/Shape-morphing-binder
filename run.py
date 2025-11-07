@@ -32,6 +32,7 @@ if sys.platform == 'win32':
 
 import argparse
 import torch
+import time
 from pathlib import Path
 from typing import Dict
 
@@ -190,7 +191,14 @@ def main():
     
     out_dir = Path(cfg.get("output_dir", "output/"))
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+
+    # 🔥 NEW: Create loss log file
+    loss_log = out_dir / "training_losses.txt"
+    with open(loss_log, 'w') as f:
+        f.write(f"# Training Losses Log\n")
+        f.write(f"# Config: {args.config}\n")
+        f.write(f"# Start time: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
     # 🔥 CRITICAL: Pass output_dir to upsampling config for stage exports
     if "upsample" not in cfg:
         cfg["upsample"] = {}
@@ -318,7 +326,11 @@ def main():
         session_config.initial_alpha = float(opt.initial_alpha)
         session_config.gd_tol = float(opt.gd_tol)
         session_config.smoothing_factor = float(opt.smoothing_factor)
-        session_config.num_passes_per_episode = 3
+        session_config.adaptive_alpha_enabled = bool(opt.adaptive_alpha_enabled)
+        session_config.adaptive_alpha_target_norm = float(opt.adaptive_alpha_target_norm)
+        session_config.adaptive_alpha_min_scale = float(opt.adaptive_alpha_min_scale)
+        # 🔥 NEW: Configurable num_passes (default 3 for backward compatibility)
+        session_config.num_passes_per_episode = cfg.get("optimization", {}).get("num_passes", 3)
         session_config.enable_render_grads = True
 
         # Create persistent session
@@ -365,9 +377,10 @@ def main():
         # Run episode
         if enable_e2e and loss_manager is not None and target_render is not None:
             # E2E mode with rendering loss
-            
+
             # Define num_passes early for all code paths
-            num_passes = 3
+            # 🔥 NEW: Configurable num_passes (default 3 for backward compatibility)
+            num_passes = cfg.get("optimization", {}).get("num_passes", 3)
             num_timesteps = int(opt.num_timesteps)
             control_stride = int(opt.control_stride)
             campos = view_params.get('campos')
@@ -378,8 +391,9 @@ def main():
 
             if session is not None:
                 # 🔥 SESSION MODE (10-15x faster!)
-                print(f"\n[DEBUG] Starting session-based E2E episode {ep}")
-                
+                print(f"\n⚠️  [SESSION MODE] Episode {ep} - PCGrad NOT available in session mode!")
+                print(f"    To use PCGrad, add 'use_session_mode: false' to your config")
+
                 ema_state, episode_losses = run_e2e_episode_session(
                     session, ep, num_timesteps,
                     rs_ep, ema_state, renderer, loss_manager, target_render,
@@ -392,7 +406,7 @@ def main():
                 print(f"[DEBUG] Session-based E2E episode {ep} completed")
             else:
                 # Legacy pass-by-pass mode
-                print(f"\n[DEBUG] Starting E2E episode {ep} with {num_passes} passes (legacy mode)")
+                print(f"\n✅ [LEGACY MODE] Episode {ep} with {num_passes} passes - PCGrad available!")
                 ema_state, episode_losses = run_e2e_episode(
                     ep, cg, opt, num_timesteps, control_stride, num_passes,
                     rs_ep, ema_state, renderer, loss_manager, target_render,
@@ -413,6 +427,15 @@ def main():
             for key, val in episode_losses.items():
                 if isinstance(val, (int, float)):
                     print(f"  {key}: {val:.6f}")
+
+            # 🔥 NEW: Save losses to file
+            with open(loss_log, 'a') as f:
+                f.write(f"Episode {ep:03d}:\n")
+                for key, val in episode_losses.items():
+                    if isinstance(val, (int, float)):
+                        f.write(f"  {key}: {val:.6f}\n")
+                f.write("\n")
+                f.flush()
         else:
             # Physics-only mode
             print(f"\n[Episode {ep}] Running standard physics optimization...")

@@ -898,7 +898,13 @@ def extract_render_gradients(
     if F.grad is None:
         print(f"└─ ⚠️ F.grad is None, cannot extract gradients")
         return None
-    
+
+    # 🔍 DEBUG: Check F.grad magnitude
+    F_grad_norm = torch.linalg.norm(F.grad).item()
+    print(f"[DEBUG] F.grad magnitude at extraction: {F_grad_norm:.12e}")
+    print(f"[DEBUG] F.grad range: [{F.grad.min().item():.6e}, {F.grad.max().item():.6e}]")
+    print(f"[DEBUG] F.requires_grad: {F.requires_grad}")
+
     dLdF = F.grad.detach().cpu().numpy().astype(np.float32)
     dLdx = x.grad.detach().cpu().numpy().astype(np.float32) if x.grad is not None else None
     

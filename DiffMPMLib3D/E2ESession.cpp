@@ -101,7 +101,10 @@ bool E2ESession::RunSinglePass(
         config_.initial_alpha,
         config_.gd_tol,
         config_.smoothing_factor,
-        episode_num
+        episode_num,
+        config_.adaptive_alpha_enabled,
+        config_.adaptive_alpha_target_norm,
+        config_.adaptive_alpha_min_scale
     );
 
     return true;

@@ -241,11 +241,20 @@ def run_e2e_episode_session(
             print(f"  ├─ Checking gradients...")
             print(f"  │  F.grad is None: {F.grad is None}")
             print(f"  │  x.grad is None: {x.grad is None}")
-            
+
             if F.grad is None or x.grad is None:
                 print("  └─ ⚠️  No gradients computed")
                 print(f"     Possible cause: Computational graph disconnected during upsampling")
                 return None
+
+            # 🔍 DEBUG: Check F.grad magnitude immediately after backward
+            import torch
+            F_grad_norm = torch.linalg.norm(F.grad).item()
+            x_grad_norm = torch.linalg.norm(x.grad).item()
+            print(f"  ├─ [DEBUG BACKWARD] F.grad norm: {F_grad_norm:.12e}")
+            print(f"  ├─ [DEBUG BACKWARD] x.grad norm: {x_grad_norm:.12e}")
+            print(f"  ├─ [DEBUG BACKWARD] F.grad range: [{F.grad.min().item():.6e}, {F.grad.max().item():.6e}]")
+            print(f"  └─ [DEBUG BACKWARD] loss_cov_align contrib: {loss_components.get('loss_cov_align', 0.0) * loss_weights.get('w_cov_align', 0.0):.6e}")
 
             # ✅ Import numpy inside callback
             import numpy as np
@@ -263,34 +272,22 @@ def run_e2e_episode_session(
             grad_x_norm_raw = np.linalg.norm(dLdx_render)
             print(f"  ├─ Raw render gradients: ||∂L/∂F||={grad_F_norm_raw:.3e}, ||∂L/∂x||={grad_x_norm_raw:.3e}", flush=True)
 
-            # 🔥 GRADIENT NORMALIZATION: Scale render gradients to physics-like magnitude
-            # Typical physics gradient magnitude is ~0.01-0.1 (based on initial_alpha=1.0)
-            # Render gradients can be 1000x-100000x larger, causing line search failures
+            # 🔥 FIXED: Scale render gradients to unit norm
+            # render_loss_weight will be applied during combination with physics gradients
+            # This prevents hardcoded magnitude assumptions
 
-            # Get target magnitude from config or use conservative default
-            magnitude_strategy = rs_full.get('optimization', {}).get('magnitude_strategy', 'physics')
-
-            # Conservative target: match typical physics gradient magnitude
-            target_magnitude_F = 0.05  # Conservative physics-like magnitude
-            target_magnitude_x = 0.05
-
-            # Scale render gradients down to target magnitude
             eps = 1e-12
-            scale_F = target_magnitude_F / (grad_F_norm_raw + eps)
-            scale_x = target_magnitude_x / (grad_x_norm_raw + eps)
 
-            # Only scale down (never up) to be conservative
-            scale_F = min(scale_F, 1.0)
-            scale_x = min(scale_x, 1.0)
+            # Normalize to unit vectors (scale-invariant)
+            dLdF_normalized = dLdF_render / (grad_F_norm_raw + eps)
+            dLdx_normalized = dLdx_render / (grad_x_norm_raw + eps)
 
-            dLdF_normalized = dLdF_render * scale_F
-            dLdx_normalized = dLdx_render * scale_x
+            # Store raw norms for later scaling
+            grad_F_norm_final = 1.0  # Unit norm
+            grad_x_norm_final = 1.0
 
-            grad_F_norm_final = np.linalg.norm(dLdF_normalized)
-            grad_x_norm_final = np.linalg.norm(dLdx_normalized)
-
-            print(f"  ├─ Normalization: scale_F={scale_F:.3e}, scale_x={scale_x:.3e}", flush=True)
-            print(f"  └─ Final render gradients: ||∂L/∂F||={grad_F_norm_final:.3e}, ||∂L/∂x||={grad_x_norm_final:.3e}", flush=True)
+            print(f"  ├─ Normalized to unit vectors (render_loss_weight will be applied during combination)", flush=True)
+            print(f"  └─ Unit norm gradients: ||∂L/∂F||={grad_F_norm_final:.3e}, ||∂L/∂x||={grad_x_norm_final:.3e}", flush=True)
 
             t_grad_extract = time.time() - t0
             t_total = time.time() - t_start
@@ -633,20 +630,12 @@ def run_e2e_episode(
             print(f"├─ Max GD iters: {opt.max_gd_iters}")
             print(f"├─ Max LS iters: {opt.max_ls_iters}")
             print(f"└─ Timesteps: {num_timesteps}")
-            
-            loss_physics = run_physics_optimization(
-                cg, opt, num_timesteps, control_stride, ep, pass_idx
-            )
-            if pass_idx == 0:
-                print(f"\n[Batched E2E] Pass {pass_idx+1} - Physics-only (first pass)")
-            elif renderer is None or loss_manager is None:
-                print(f"\n[Batched E2E] Pass {pass_idx+1} - Physics-only mode")
-            else:
-                print(f"\n[Batched E2E] Pass {pass_idx+1} - No render grads available")
 
             # 🔥 Single batched call (2-3x faster than separate calls!)
+            # Skip SetUpCompGraph for pass 2+ to preserve simulation state
+            skip_setup = (pass_idx > 0)
             loss_physics = run_physics_optimization_batched(
-                cg, opt, render_grads_dict, pass_idx
+                cg, opt, render_grads_dict, pass_idx, skip_setup=skip_setup
             )
 
         else:
@@ -686,11 +675,14 @@ def run_e2e_episode(
         # ────────────────────────────────────────────────────────────────────────
         # Phase 3: Compute Render Loss
         # ────────────────────────────────────────────────────────────────────────
+        # Pass 1: Compute render loss (no render grads were injected during physics)
+        # Pass 2/3: Compute render loss (render grads from previous pass were injected)
+
         t0_render = time.time()
         seed = 9999 + ep*1000 + pass_idx
-        
+
         print(f"\n[Render] Computing loss for Pass {pass_idx+1}...")
-        
+
         result = compute_render_loss_pass(
             cg, num_timesteps, rs_full, ema_state, renderer,
             loss_manager, target_render, view_params, campos,
@@ -746,15 +738,17 @@ def run_e2e_episode(
                     continue
 
                 try:
-                    # Get physics gradients
-                    try:
-                        dLdF_phys, dLdx_phys = cg.get_last_layer_phys_gradients()
-                        has_phys_grads = True
-                    except Exception as e:
-                        print(f"├─ ⚠️  Cannot retrieve physics gradients: {e}")
-                        print(f"├─ Using render gradients only")
+                    # 🔥 NEW: Get physics gradients from C++ backend
+                    dLdF_phys_np, dLdx_phys_np = cg.get_last_layer_phys_gradients()
+
+                    if dLdF_phys_np is None or dLdx_phys_np is None:
+                        print(f"\n⚠️  [PCGrad] Physics gradients not available")
                         accumulated_render_grads = render_grads
                         continue
+
+                    # Keep as numpy arrays (gradient functions expect numpy)
+                    dLdF_phys = dLdF_phys_np
+                    dLdx_phys = dLdx_phys_np
 
                     # 2. Compute gradient statistics (before combination)
                     render_stats = compute_gradient_statistics(dLdF_render, dLdx_render)
@@ -773,47 +767,156 @@ def run_e2e_episode(
                         '~ neutral'
                     )
 
-                    # 3. Adaptive weight scheduling
-                    # Early episodes: Physics-dominant (w_phys=0.9, w_render=0.1)
-                    # Mid episodes: Balanced (w_phys=0.7, w_render=0.3)
-                    # Late episodes: Render-focused (w_phys=0.6, w_render=0.4)
+                    # 3. 🔥 FIXED: Use render_loss_weight from config
+                    # This is the proper place to apply render_loss_weight!
+
+                    # DEBUG: Check what's in the config
+                    print(f"\n[DEBUG CONFIG READ]")
+                    print(f"  rs_full keys: {list(rs_full.keys())}")
+
+                    # Check if there's a nested 'upsample' key
+                    if 'upsample' in rs_full:
+                        print(f"  'upsample' key exists, contents: {rs_full['upsample']}")
+
+                    # Try reading from multiple locations
+                    render_loss_weight = rs_full.get('render_loss_weight', None)
+                    if render_loss_weight is None and 'upsample' in rs_full:
+                        render_loss_weight = rs_full['upsample'].get('render_loss_weight', None)
+                    if render_loss_weight is None:
+                        render_loss_weight = 1.0  # Default
+
+                    # 🔥 CRITICAL: Convert to float (YAML may parse 1e5 as string!)
+                    render_loss_weight = float(render_loss_weight)
+
+                    print(f"  render_loss_weight READ: {render_loss_weight}")
+
+                    # Adaptive weight scheduling based on episode progress
                     total_animations = rs_full.get('optimization', {}).get('num_animations', 50)
                     progress = ep / max(1, total_animations)
 
+                    # 🔥 ALWAYS calculate similarity (no warmup skip!)
                     if ep < 5:
-                        # Warmup: Physics-only (skip render grads)
-                        print(f"\n├─ [Warmup] Episode {ep} < 5: Physics-only (skipping render grads)")
-                        accumulated_render_grads = None
-                        continue
+                        # Early episodes: Lower render weight but STILL calculate similarity
+                        w_render_base = 0.05  # Low but non-zero
+                        print(f"\n├─ [Early Training] Episode {ep} < 5: Low render weight ({w_render_base}), similarity calculation active")
                     elif ep < 15:
                         # Ramp-up: Gradually increase render weight
-                        w_render = 0.1 + 0.2 * ((ep - 5) / 10)  # 0.1 → 0.3
+                        w_render_base = 0.1 + 0.2 * ((ep - 5) / 10)  # 0.1 → 0.3
                     elif ep < 30:
                         # Mid-training: Balanced
-                        w_render = 0.3
+                        w_render_base = 0.3
                     else:
                         # Late: Increase render for refinement
-                        w_render = 0.4
+                        w_render_base = 0.4
 
-                    w_physics = 1.0 - w_render
+                    # 🔥 Apply render_loss_weight from config DIRECTLY (no scaling!)
+                    # User controls exact weight via config
+                    w_render = w_render_base * render_loss_weight  # Direct multiplication!
+                    w_physics = 1.0
 
-                    # 4. 🔥 Normalize and combine gradients
-                    # This solves the convergence issue by:
-                    #   - Normalizing both to unit vectors (removes scale mismatch)
-                    #   - Combining with explicit weights (controllable balance)
-                    #   - Re-scaling to physics magnitude (conservative, prevents overshoot)
+                    # 🔥 CLAMP REMOVED: Allow unlimited render weight!
+                    # Only enforce minimum to prevent zero weight
+                    w_render = max(w_render, 0.05)
 
-                    magnitude_strategy = rs_full.get('optimization', {}).get('magnitude_strategy', 'physics')
+                    print(f"\n├─ [Weight Calculation]")
+                    print(f"│  ├─ render_loss_weight (config): {render_loss_weight}")
+                    print(f"│  ├─ w_render_base (schedule): {w_render_base:.3f}")
+                    print(f"│  ├─ w_render (final): {w_render:.3f}")
+                    print(f"│  └─ w_physics: {w_physics:.3f}")
 
+                    # ══════════════════════════════════════════════════════════
+                    # 4. PCGrad: Gradient Conflict Resolution
+                    # ══════════════════════════════════════════════════════════
+                    # PCGrad (Gradient Surgery) projects out conflicting gradient
+                    # components to prevent render and physics from fighting.
+                    # Config: optimization.use_pcgrad (default: true)
+                    # ══════════════════════════════════════════════════════════
+
+                    # Read PCGrad configuration
+                    optimization_cfg = rs_full.get('optimization', {})
+                    use_pcgrad = optimization_cfg.get('use_pcgrad', True)  # Default: enabled
+                    pcgrad_threshold = optimization_cfg.get('pcgrad_threshold', -0.1)  # Conflict threshold
+
+                    # Determine if conflict exists
+                    has_conflict = (cosine < pcgrad_threshold)
+                    should_apply_pcgrad = use_pcgrad and has_conflict
+
+                    # Status logging
+                    print(f"\n├─ [PCGrad Status]")
+                    print(f"│  ├─ Config: use_pcgrad = {use_pcgrad}")
+                    print(f"│  ├─ Threshold: {pcgrad_threshold:.2f}")
+                    print(f"│  │")
+                    print(f"│  ├─ 🎯 GRADIENT SIMILARITY:")
+                    print(f"│  │   ├─ Cosine: {cosine:+.4f} {conflict_status}")
+                    print(f"│  │   ├─ Interpretation:")
+                    if cosine < -0.3:
+                        print(f"│  │   │  └─ ⚠️  Strong conflict (gradients oppose)")
+                    elif cosine < -0.1:
+                        print(f"│  │   │  └─ ⚠️  Mild conflict (gradients diverge)")
+                    elif cosine < 0.3:
+                        print(f"│  │   │  └─ ~ Neutral (gradients independent)")
+                    else:
+                        print(f"│  │   │  └─ ✅ Aligned (gradients cooperate)")
+                    print(f"│  │   └─ Range: -1.0 (opposite) → 0.0 (orthogonal) → +1.0 (aligned)")
+                    print(f"│  │")
+                    print(f"│  └─ Action: {'✅ APPLYING PCGrad' if should_apply_pcgrad else '⏭️  Skipping (no conflict)' if use_pcgrad else '❌ DISABLED'}")
+
+                    # Apply PCGrad if needed
+                    if should_apply_pcgrad:
+                        print(f"\n🔥 [PCGrad] Conflict detected! Projecting render gradients...")
+                        print(f"    ├─ Cosine: {cosine:.3f} (threshold: {pcgrad_threshold:.2f})")
+                        print(f"    └─ Removing conflicting components from render gradient")
+
+                        # Project render gradients to remove conflict
+                        dLdF_render_proj, dLdx_render_proj, pcgrad_info = pcgrad_projection(
+                            dLdF_render=dLdF_render,
+                            dLdx_render=dLdx_render,
+                            dLdF_physics=dLdF_phys,
+                            dLdx_physics=dLdx_phys,
+                            conflict_threshold=pcgrad_threshold
+                        )
+
+                        # Use projected gradients
+                        dLdF_render_final = dLdF_render_proj
+                        dLdx_render_final = dLdx_render_proj
+                        pcgrad_applied = True
+
+                        print(f"    ✅ PCGrad projection complete")
+                        print(f"       ├─ Projection scale: {pcgrad_info.get('pcgrad_projection_scale', 0.0):.3f}")
+                        print(f"       └─ Render gradient adjusted to avoid conflict")
+                    else:
+                        # Use original gradients (no projection needed)
+                        dLdF_render_final = dLdF_render
+                        dLdx_render_final = dLdx_render
+                        pcgrad_applied = False
+                        pcgrad_info = {}
+
+                        if not use_pcgrad:
+                            print(f"    ⚠️  PCGrad disabled in config")
+
+                    # Combine gradients (with or without PCGrad)
+                    # 🔥 FIXED: Read magnitude_strategy from rs_full directly (upsample section)
+                    magnitude_strategy = rs_full.get('magnitude_strategy', None)
+                    if magnitude_strategy is None and 'upsample' in rs_full:
+                        magnitude_strategy = rs_full['upsample'].get('magnitude_strategy', 'physics')
+                    if magnitude_strategy is None:
+                        magnitude_strategy = 'physics'  # Default
                     dLdF_combined, dLdx_combined, norm_info = normalize_and_combine_gradients(
                         dLdF_physics=dLdF_phys,
                         dLdx_physics=dLdx_phys,
-                        dLdF_render=dLdF_render,
-                        dLdx_render=dLdx_render,
+                        dLdF_render=dLdF_render_final,
+                        dLdx_render=dLdx_render_final,
                         w_physics=w_physics,
                         w_render=w_render,
                         magnitude_strategy=magnitude_strategy
                     )
+
+                    # Record PCGrad usage in metadata
+                    norm_info['pcgrad_enabled'] = use_pcgrad
+                    norm_info['pcgrad_applied'] = pcgrad_applied
+                    norm_info['pcgrad_cosine'] = cosine
+                    if pcgrad_applied:
+                        norm_info.update(pcgrad_info)
 
                     # Update render_grads with combined gradients
                     render_grads['dLdF'] = dLdF_combined
@@ -822,16 +925,25 @@ def run_e2e_episode(
                     # ══════════════════════════════════════════════════════════
                     # Diagnostic Logging
                     # ══════════════════════════════════════════════════════════
-                    print(f"\n🔥 [Normalized Gradient Combination] Pass {pass_idx+1}")
+                    print(f"\n🔥 [Gradient Combination Summary] Pass {pass_idx+1}")
                     print(f"├─ BEFORE normalization:")
                     print(f"│  ├─ ||g_render|| = {g_render:.6e}")
                     print(f"│  ├─ ||g_phys||   = {g_phys:.6e}")
                     print(f"│  ├─ Ratio (render/phys) = {norm_info['ratio_before']:.6e} {'⚠️ HUGE MISMATCH!' if norm_info['ratio_before'] > 100 else ''}")
-                    print(f"│  └─ Conflict: cos(θ) = {cosine:+.4f} {conflict_status}")
+                    print(f"│  └─ 🎯 Cosine Similarity: {cosine:+.4f} {conflict_status}")
+                    print(f"│")
+                    print(f"├─ PCGrad:")
+                    print(f"│  ├─ Enabled: {norm_info['pcgrad_enabled']}")
+                    print(f"│  ├─ Applied: {'✅ YES' if norm_info['pcgrad_applied'] else '❌ NO'}")
+                    print(f"│  ├─ Cosine: {norm_info['pcgrad_cosine']:+.4f}")
+                    if norm_info['pcgrad_applied']:
+                        print(f"│  └─ Projection scale: {norm_info.get('pcgrad_projection_scale', 0.0):.3f}")
+                    else:
+                        print(f"│  └─ Reason: {'Disabled in config' if not norm_info['pcgrad_enabled'] else 'No conflict detected'}")
                     print(f"│")
                     print(f"├─ WEIGHTS:")
-                    print(f"│  ├─ w_physics = {w_physics:.2f} ({w_physics*100:.0f}%)")
-                    print(f"│  ├─ w_render  = {w_render:.2f} ({w_render*100:.0f}%)")
+                    print(f"│  ├─ w_physics = {w_physics:.2f}")
+                    print(f"│  ├─ w_render  = {w_render:.2f}")
                     print(f"│  └─ Strategy  = {magnitude_strategy}")
                     print(f"│")
                     print(f"├─ AFTER combination:")

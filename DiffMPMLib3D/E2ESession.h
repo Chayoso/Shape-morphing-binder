@@ -23,6 +23,11 @@ struct E2EConfig {
     float gd_tol = 1e-6f;
     float smoothing_factor = 0.1f;
 
+    // Adaptive alpha parameters
+    bool adaptive_alpha_enabled = true;
+    float adaptive_alpha_target_norm = 2500.0f;
+    float adaptive_alpha_min_scale = 0.1f;
+
     // E2E training parameters
     int num_passes_per_episode = 3;
     bool enable_render_grads = true;

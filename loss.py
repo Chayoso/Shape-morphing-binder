@@ -295,13 +295,11 @@ class E2ELossManager:
         total += self._compute_cov_spd_regularization(cov, losses)  # 🔥 NEW: SPD regularization
         total += self._compute_det_barrier_loss(F, losses)  # 🔥 NEW: det(F) barrier loss
 
-        # 🔥 Apply global render loss weight to balance with physics loss
-        render_loss_weight = self.config.get('render_loss_weight', 1.0)
-        if render_loss_weight != 1.0:
-            total = total * render_loss_weight
-
+        # 🔥 FIXED: Do NOT apply render_loss_weight here!
+        # It should be applied during gradient combination in training_loop.py
+        # Applying it here causes double-weighting since gradients are extracted after backward()
         losses['loss_render_total'] = total
-        losses['render_loss_weight_applied'] = render_loss_weight  # For logging
+        losses['render_loss_weight_configured'] = self.config.get('render_loss_weight', 1.0)  # For logging
         return losses
     
     def _get_device(self, pred: Dict, cov: Optional[torch.Tensor], mu: Optional[torch.Tensor]) -> torch.device:

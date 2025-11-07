@@ -35,8 +35,14 @@ namespace DiffMPMLib3D {
             int max_line_search_iters,
             float initial_alpha,
             float gd_tol,
-            float smoothing_factor, 
-            int current_episodes
+            float smoothing_factor,
+            int current_episodes,
+            // ADAPTIVE ALPHA PARAMS
+            bool adaptive_alpha_enabled = true,
+            float adaptive_alpha_target_norm = 2500.0f,
+            float adaptive_alpha_min_scale = 0.1f,
+            // MULTI-PASS SUPPORT
+            bool skip_setup = false  // Set true to skip SetUpCompGraph (for pass 2+)
         );
 
         // Sets up the computational graph by creating copies of the initial state for each layer.
@@ -83,6 +89,9 @@ namespace DiffMPMLib3D {
         // Gradient norm getters for monitoring
         std::pair<double, double> GetLastLayerPhysGradNorm() const;
         std::pair<double, double> GetLayerPhysGradNorm(int layer_idx) const;
+
+        // 🔥 NEW: Get actual physics gradients for PCGrad
+        std::pair<std::vector<Mat3>, std::vector<Vec3>> GetLastLayerPhysGradients() const;
         
     private:
         float render_gain_ = 1.0f;      // Scales injected render grads

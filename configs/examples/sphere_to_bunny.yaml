@@ -1,0 +1,196 @@
+# PhysMorph-GS: COMPRESSION-FRIENDLY Config for Bob → Sphere
+# Strategy: Reduce rendering loss resistance to allow physics compression
+
+# ════════════════════════════════════════════════════════════════════════════════
+# I/O
+# ════════════════════════════════════════════════════════════════════════════════
+input_mesh_path: "assets/isosphere.obj"
+target_mesh_path: "assets/bunny.obj"
+output_dir: "output/sphere/bunny"
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Physics Simulation (MPM)
+# ════════════════════════════════════════════════════════════════════════════════
+simulation:
+  grid_dx: 1
+  points_per_cell_cuberoot: 3
+  grid_min_point: [-16.0, -16.0, -16.0]
+  grid_max_point: [16.0, 16.0, 16.0]
+  lam: 38888.89
+  mu: 58333.3
+  density: 75.0
+  dt: 0.00833333333
+  drag: 0.5
+  external_force: [0.0, 0.0, 0.0]
+  smoothing_factor: 0.955
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Optimization - 🔥 COMPRESSION-FOCUSED
+# ════════════════════════════════════════════════════════════════════════════════
+optimization:
+  num_animations: 50
+  num_timesteps: 10
+  control_stride: 1
+  max_gd_iters: 1
+  max_ls_iters: 10
+  initial_alpha: 0.01
+  gd_tol: 0.0001
+
+  # E2E Loss - 🔥 MINIMAL render loss to allow compression
+  loss:
+    enabled: true
+    render_loss_weight: 50.0  # 🔥 REDUCED: 200→50 (4x weaker to let physics compress!)
+
+    # 🔥 KEY: Minimize depth loss - it's the main compression blocker!
+    w_alpha: 0.3      # Reduced opacity influence
+    w_depth: 0.1      # 🔥 REDUCED: 1.0→0.1 (10x weaker! Let particles move inward!)
+    w_photo: 0.0      # Ignore appearance during compression
+    w_edge: 0.5       # Moderate edge (sphere is smooth)
+    w_cov_align: 0.2
+    w_cov_reg: 0.01
+    w_det_barrier: 0.1
+    cov_reg_mode: 'eigenvalue'
+    schedule: 'constant'
+
+  magnitude_strategy: 'physics'
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Upsampling - 🔥 RELAXED SV CLAMPING for aggressive compression
+# ════════════════════════════════════════════════════════════════════════════════
+upsample:
+  use_simple_pipeline: true
+
+  covariance:
+    use_curvature_for_target: true
+    sigma_isotropic: 0.038
+
+    curvature_sigma:
+      sigma_n0: 0.02
+      sigma_t0: 0.03
+      a: 12.0
+      b: 5.0
+      a_n: 3
+      u: 3
+      k_floor_normal: 0.002
+      k_floor_tangent: 0.005
+
+    sigma0: 0.25
+    k_F: 32
+
+    use_multiscale_F: true
+    k_F_coarse: 64
+    k_F_fine: 16
+    multiscale_blend_mode: 'adaptive'
+
+    enable_subdivision: true
+    subdivision_target: 60000
+    subdivision_jitter: 0.15
+
+    # 🔥 CRITICAL: Relax sv_min to allow MORE compression per episode
+    sv_min: 0.60      # 🔥 RELAXED: 0.80→0.60 (40% compression vs 20%)
+    sv_max: 1.30      # Allow some expansion too
+
+    use_F_smoothing: false
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Rendering
+# ════════════════════════════════════════════════════════════════════════════════
+camera:
+  width: 3840
+  height: 2160
+  fx: 1425.0
+  fy: 1425.0
+  cx: 1920.0
+  cy: 1080.0
+  znear: 0.01
+  zfar: 100.0
+  lookat:
+    eye: [20.0, -25.0, 12.5]
+    target: [0.0, 0.0, 0.0]
+    up: [0.0, 0.0, 1.0]
+
+render:
+  num_frames: 1
+  schedule: uniform
+  bg: [1.0, 1.0, 1.0]
+  training_resolution_scale: 0.5
+  particle_color: [0.27, 0.51, 0.71]
+  lighting:
+    model: phong
+    type: directional
+    direction: [0.3, -0.5, 0.8]
+    two_sided: true
+    ambient: 0.18
+    diffuse: 0.85
+    specular: 0.10
+    shininess: 32
+
+# ════════════════════════════════════════════════════════════════════════════════
+# Episode Schedule - 🔥 COMPRESSION STRATEGY: Physics first, rendering later
+# ════════════════════════════════════════════════════════════════════════════════
+episode_schedule:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 1 (ep 0-15): AGGRESSIVE COMPRESSION - Physics dominates!
+  # ═══════════════════════════════════════════════════════════════════════
+  0-15:
+    optimization:
+      loss:
+        render_loss_weight: 20.0  # 🔥 VERY LOW: Let physics compress freely!
+        w_depth: 0.0              # 🔥 DISABLED: Don't resist compression!
+        w_alpha: 0.2
+        w_photo: 0.0
+        w_edge: 0.3
+
+    upsample:
+      covariance:
+        sv_min: 0.50    # 🔥 VERY RELAXED: Allow 50% compression per episode!
+        sv_max: 1.40
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 2 (ep 16-30): MODERATE REFINEMENT - Start adding rendering
+  # ═══════════════════════════════════════════════════════════════════════
+  16-30:
+    optimization:
+      loss:
+        render_loss_weight: 50.0  # Gradually increase
+        w_depth: 0.1              # Still weak depth
+        w_alpha: 0.3
+        w_photo: 0.0
+        w_edge: 0.5
+
+    upsample:
+      covariance:
+        sv_min: 0.60
+        sv_max: 1.30
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Phase 3 (ep 31+): POLISH - Add appearance, preserve compressed shape
+  # ═══════════════════════════════════════════════════════════════════════
+  31+:
+    optimization:
+      loss:
+        render_loss_weight: 100.0  # Final rendering weight
+        w_depth: 0.2               # Light depth (don't undo compression!)
+        w_alpha: 0.4
+        w_photo: 0.1               # Now add appearance
+        w_edge: 0.8
+
+    upsample:
+      covariance:
+        sv_min: 0.70    # Slightly less aggressive
+        sv_max: 1.20
+
+  # ═══════════════════════════════════════════════════════════════════════
+  # Learning Rate Decay (same as before)
+  # ═══════════════════════════════════════════════════════════════════════
+  8-15:
+    optimization:
+      initial_alpha: 0.005
+
+  16-23:
+    optimization:
+      initial_alpha: 0.0025
+
+  24+:
+    optimization:
+      initial_alpha: 0.00125

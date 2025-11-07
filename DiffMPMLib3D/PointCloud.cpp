@@ -513,3 +513,32 @@ std::vector<float> DiffMPMLib3D::PointCloud::GetPointElasticEnergies() const
 
 	return ret;
 }
+
+// 🔥 NEW: Gradient getter methods for PCGrad
+std::vector<DiffMPMLib3D::Mat3> DiffMPMLib3D::PointCloud::GetPointDefGradGradients() const
+{
+	std::vector<Mat3> ret;
+	ret.resize(points.size());
+
+#pragma omp parallel for
+	for (int p = 0; p < points.size(); p++)
+	{
+		ret[p] = points[p].dLdF;
+	}
+
+	return ret;
+}
+
+std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::PointCloud::GetPointPositionGradients() const
+{
+	std::vector<Vec3> ret;
+	ret.resize(points.size());
+
+#pragma omp parallel for
+	for (int p = 0; p < points.size(); p++)
+	{
+		ret[p] = points[p].dLdx;
+	}
+
+	return ret;
+}

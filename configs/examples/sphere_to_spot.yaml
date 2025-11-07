@@ -5,8 +5,8 @@
 # I/O
 # ════════════════════════════════════════════════════════════════════════════════
 input_mesh_path: "assets/isosphere.obj"
-target_mesh_path: "assets/bunny.obj"
-output_dir: "output/sphere/bunny/"
+target_mesh_path: "assets/spot.obj"
+output_dir: "output/sphere/spot/"
 
 # ════════════════════════════════════════════════════════════════════════════════
 # Physics Simulation (MPM)
@@ -28,36 +28,39 @@ simulation:
 # Optimization
 # ════════════════════════════════════════════════════════════════════════════════
 optimization:
-  num_animations: 1  # 🔥 Extended training with learning rate decay
+  num_animations: 40  # 🔥 INCREASED: 25→40 for better convergence (physics loss 350→100)
   num_timesteps: 10
   control_stride: 1
-  max_gd_iters: 1
-  max_ls_iters: 10
-  initial_alpha: 0.01  # 🔥 CONSERVATIVE: Small step size to prevent cumulative deformation instability
-  gd_tol: 0.0001
+  max_gd_iters: 10    # 🔥 INCREASED: 10→15 for tighter convergence
+  max_ls_iters: 15     # 🔥 INCREASED: 10→15 for better line search
+  initial_alpha: 0.005  # 🔥 CONSERVATIVE: Small step size to prevent cumulative deformation instability
+  gd_tol: 0.00005      # 🔥 TIGHTER: 0.0001→0.00005 (2x tighter tolerance)
+  use_session_mode: false
+  
 
   # E2E Loss
   loss:
     enabled: true  # 🔥 ENABLED: Testing render loss with gradient fix
     # 🔥 Global render loss weight (balances render vs physics loss magnitude)
-    # Physics loss ~4000-5000, Render loss ~1700 × 200 = 340,000 (68x physics)
-    # REDUCED: 1000 → 200 to give physics more influence and prevent render loss dominating
-    render_loss_weight: 200.0  # Reduced for balanced physics-render optimization
+    # INCREASED: 200 → 500 → 1000 → 5000 to make render DOMINATE physics!
+    # Higher weight = render quality affects physics optimization more strongly
+    render_loss_weight: 1e4  # AGGRESSIVE: Render must dominate!
 
     # Individual component weights (relative importance within render loss)
-    w_alpha: 0.5
-    w_depth: 1.0               # 🔥 INCREASED: 0.2 → 1.0 (5x) to make depth loss more influential
-    w_photo: 0.1
-    w_edge: 0.1
-    w_cov_align: 0.3
+    # 🔥 AGGRESSIVE BOOST: Make render components DOMINATE physics guidance!
+    w_alpha: 2.0               # INCREASED: 0.5 → 1.0 → 2.0 (opacity critical!)
+    w_depth: 5.0               # INCREASED: 1.0 → 2.0 → 5.0 (depth = shape accuracy!)
+    w_photo: 1.0               # INCREASED: 0.1 → 0.5 → 1.0 (appearance matters!)
+    w_edge: 3.0                # INCREASED: 0.1 → 1.0 → 3.0 (CRITICAL for boundaries!)
+    w_cov_align: 10.0          # INCREASED: 5.0 → 8.0 → 10.0 (maximum F-gradient signal!)
     w_cov_reg: 0.01
     w_det_barrier: 0.1         # det(F) barrier 
     cov_reg_mode: 'eigenvalue'
     schedule: 'constant'
 
   # 🔥 NEW: Normalized gradient combination (prevents magnitude mismatch)
-  # Magnitude strategy: 'physics' (conservative), 'weighted' (balanced), 'max' (aggressive)
-  magnitude_strategy: 'physics'
+  # Magnitude strategy: 'physics' (conservative), 'weighted' (balanced), 'max' (aggressive), 'normalize' (RMS - truly balanced!)
+  magnitude_strategy: 'normalize'  # BEST: RMS normalization - treats both losses equally!
 
 # ════════════════════════════════════════════════════════════════════════════════
 # Upsampling Pipeline (Simple Mode)
@@ -65,7 +68,18 @@ optimization:
 upsample:
   # 🔥 Simple pipeline mode
   use_simple_pipeline: true  # Direct F → Covariance (no upsampling)
-  
+
+  # 🔥 E2E Render Loss Weight (read by rs_full in training_loop.py)
+  render_loss_weight: 1e5  # AGGRESSIVE: Render must dominate!
+  w_alpha: 2.0
+  w_depth: 5.0
+  w_photo: 1.0
+  w_edge: 3.0
+  w_cov_align: 10.0
+  w_cov_reg: 0.01
+  w_det_barrier: 0.1
+  magnitude_strategy: 'normalize'  # RMS normalization
+
   # Covariance settings
   covariance:
     # 🔥 Target mesh covariance mode
@@ -90,7 +104,7 @@ upsample:
       k_floor_tangent: 0.005        # Tangent floor
 
     # Morph (F-based deformation)
-    sigma0: 0.25                   # 🔥 INCREASED: 0.10→0.25 for better coverage (2.5x larger Gaussians to fill gaps!)
+    sigma0: 0.25                   # 🔥 BALANCED: Resolution fixed, can use smaller Gaussians for sharpness
     k_F: 32                        # KNN for F interpolation (single-scale mode)
 
     # 🔥 NEW: Multi-scale F-field interpolation (for large deformations)
@@ -100,9 +114,9 @@ upsample:
     multiscale_blend_mode: 'adaptive'  # 'adaptive' = det(F)-based blending | 'fixed' = 50/50
 
     # 🔥 NEW: Subdivision-based upsampling (for gap filling)
-    enable_subdivision: true        # Enable upsampling (37k → 60k particles)
-    subdivision_target: 60000      # Target particle count after upsampling
-    subdivision_jitter: 0.15       # Jitter scale for child particles (relative to local spacing)
+    enable_subdivision: true        # Enable upsampling (37k → 100k particles)
+    subdivision_target: 60000     # Target particle count after upsampling (good balance for 4K)
+    subdivision_jitter: 0.08       # Jitter scale for child particles (slight randomness for natural look)
 
     # 🔥 ADJUSTED: Allow more deformation range for better surface detail
     # With more particles (27 vs 8), we can afford slightly more compression
@@ -110,7 +124,7 @@ upsample:
     sv_max: 1.20                   # INCREASED flexibility: 1.15→1.20 (20% expansion per episode)
 
     # 🔥 F-field smoothing control (preserves sharp features like bunny ears)
-    use_F_smoothing: false         # DISABLED: Avoid gradient mismatch during E2E training
+    use_F_smoothing: true          # ENABLED: Smooth F-field to reduce bumpy surface
     F_smooth:
       lambda_lap: 0.005            # Regularization strength (default: 0.01)
                                    # REDUCED 50% to preserve sharp deformations
@@ -140,7 +154,7 @@ render:
   schedule: uniform
   bg: [1.0, 1.0, 1.0]
   # 🚀 OPTIMIZATION: Reduce resolution during training (0.5 = 4K→1080p, 4x speedup)
-  training_resolution_scale: 0.5  # Set to 1.0 to disable, 0.5 for 2x downscale, 0.25 for 4x downscale
+  training_resolution_scale: 1.0  # FULL 4K resolution (3840x2160) - no blur!
   particle_color: [0.27, 0.51, 0.71]
   lighting:
     model: phong
@@ -153,24 +167,29 @@ render:
     shininess: 32
 
 # ════════════════════════════════════════════════════════════════════════════════
-# Episode Schedule (Gradual Learning Rate Decay for 25 Episodes)
+# Episode Schedule (Gradual Learning Rate Decay for 40 Episodes)
 # ════════════════════════════════════════════════════════════════════════════════
 episode_schedule:
-  # Episodes 0-7: Base learning rate (0.01)
+  # Episodes 0-7: Base learning rate (0.005)
   # Fast initial convergence phase
 
   # Episodes 8-15: First decay - reduce by 50%
   8-15:
     optimization:
-      initial_alpha: 0.005  # 50% of base (0.01 → 0.005)
+      initial_alpha: 0.0025  # 50% of base (0.005 → 0.0025)
 
   # Episodes 16-23: Second decay - reduce by 75%
   16-23:
     optimization:
-      initial_alpha: 0.0025  # 25% of base (0.01 → 0.0025)
+      initial_alpha: 0.00125  # 25% of base (0.005 → 0.00125)
 
-  # Episodes 24+: Final decay - reduce by 87.5% for fine-tuning
-  24+:
+  # Episodes 24-31: Third decay - fine tuning
+  24-31:
     optimization:
-      initial_alpha: 0.00125  # 12.5% of base (0.01 → 0.00125)
+      initial_alpha: 0.000625  # 12.5% of base (0.005 → 0.000625)
+
+  # Episodes 32+: Final decay - ultra-fine tuning to reach physics loss ~100
+  32+:
+    optimization:
+      initial_alpha: 0.0003  # Very small steps for final convergence
 

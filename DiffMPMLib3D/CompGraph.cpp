@@ -153,7 +153,64 @@ namespace DiffMPMLib3D {
             std::cout << "[DEBUG] has_render_grads_ = " << (has_render_grads_ ? "true" : "false") << std::endl;
             first_time = false;
         }
-        
+
+        // ════════════════════════════════════════════════════════════════════════
+        // 🔥 GRADIENT INJECTION FIX: Add render gradients to final layer
+        // ════════════════════════════════════════════════════════════════════════
+        if (has_render_grads_ && render_grad_num_points_ > 0) {
+            std::cout << "[Backward] 🔥 Injecting render gradients into final layer..." << std::endl;
+
+            // Get final layer
+            size_t final_layer = layers.size() - 1;
+            auto& final_pc = layers[final_layer].point_cloud;
+
+            // Verify sizes match
+            size_t num_points = std::min(final_pc->points.size(), render_grad_num_points_);
+
+            if (final_pc->points.size() != render_grad_num_points_) {
+                std::cerr << "⚠️  WARNING: Point count mismatch! "
+                          << "Expected: " << render_grad_num_points_
+                          << ", Got: " << final_pc->points.size() << std::endl;
+            }
+
+            // Inject render gradients into physics gradients
+            #pragma omp parallel for
+            for (size_t i = 0; i < num_points; ++i) {
+                auto& pt = final_pc->points[i];
+
+                // Add F gradients (deformation gradient: 3x3 matrix = 9 components)
+                for (int r = 0; r < 3; r++) {
+                    for (int c = 0; c < 3; c++) {
+                        int idx = i * 9 + r * 3 + c;
+                        pt.dLdF(r, c) += render_gain_ * stored_render_grad_F_[idx];
+                    }
+                }
+
+                // Add x gradients (position: 3D vector = 3 components)
+                for (int d = 0; d < 3; d++) {
+                    int idx = i * 3 + d;
+                    pt.dLdx[d] += render_gain_ * stored_render_grad_x_[idx];
+                }
+            }
+
+            // Diagnostic output
+            double total_dLdF_norm = 0.0;
+            double total_dLdx_norm = 0.0;
+
+            #pragma omp parallel for reduction(+:total_dLdF_norm, total_dLdx_norm)
+            for (size_t i = 0; i < num_points; ++i) {
+                total_dLdF_norm += final_pc->points[i].dLdF.norm();
+                total_dLdx_norm += final_pc->points[i].dLdx.norm();
+            }
+
+            std::cout << "[Backward] ✅ Render gradients injected successfully!" << std::endl;
+            std::cout << "  ├─ Particles: " << num_points << std::endl;
+            std::cout << "  ├─ Render gain: " << render_gain_ << std::endl;
+            std::cout << "  ├─ ||∂L/∂F|| total: " << total_dLdF_norm << std::endl;
+            std::cout << "  └─ ||∂L/∂x|| total: " << total_dLdx_norm << std::endl;
+        }
+        // ════════════════════════════════════════════════════════════════════════
+
         for (int i = (int)layers.size() - 2; i >= (int)control_layer; i--)
         {
             layers[i].grid->ResetGradients();
@@ -255,7 +312,9 @@ namespace DiffMPMLib3D {
     void CompGraph::OptimizeDefGradControlSequence(
         int num_steps, float _dt, float _drag, Vec3 _f_ext,
         int control_stride, int max_gd_iters, int max_line_search_iters,
-        float initial_alpha, float gd_tol, float _smoothing_factor, int current_episodes)
+        float initial_alpha, float gd_tol, float _smoothing_factor, int current_episodes,
+        bool adaptive_alpha_enabled, float adaptive_alpha_target_norm, float adaptive_alpha_min_scale,
+        bool skip_setup)
     {
         dt = _dt;
         drag = _drag;
@@ -263,8 +322,20 @@ namespace DiffMPMLib3D {
         f_ext = _f_ext;
 
         std::cout << "Optimizing with num_steps=" << num_steps << ", dt=" << dt << ", drag=" << drag << std::endl;
+        std::cout << "[DEBUG] control_stride=" << control_stride
+                  << ", max_gd_iters=" << max_gd_iters
+                  << ", max_ls_iters=" << max_line_search_iters << std::endl;
+        std::cout << "[DEBUG] initial_alpha=" << initial_alpha
+                  << ", adaptive_enabled=" << (adaptive_alpha_enabled ? "true" : "false") << std::endl;
 
-        SetUpCompGraph(num_steps);
+        // 🔥 MULTI-PASS FIX: Only setup on first pass
+        if (!skip_setup) {
+            std::cout << "[Setup] Initializing computation graph..." << std::endl;
+            SetUpCompGraph(num_steps);
+        } else {
+            std::cout << "[Setup] Skipping SetUpCompGraph (using existing state from previous pass)" << std::endl;
+        }
+
         ComputeForwardPass(0, current_episodes);
 
         auto eval_loss = [&]() -> float { return EndLayerMassLoss(); };
@@ -282,10 +353,10 @@ namespace DiffMPMLib3D {
         std::vector<Mat3> dFc_bak(num_points), m_bak(num_points), v_bak(num_points), vmax_bak(num_points);
 
         // =======================================================================
-        // [RESTORED] The outer "multipass" loop that iterates over the entire optimization process.
-        // This is important for improving the global quality of the optimization.
+        // Single-pass optimization (multipass handled in Python E2E loop)
+        // Python controls Pass 1/2/3, C++ does one optimization pass per call
         // =======================================================================
-        int totalTemporalIterations = 3;
+        int totalTemporalIterations = 1;
         std::cout << "Number of Iteration Passes: " << totalTemporalIterations << std::endl;
         for (int temporalIter = 0; temporalIter < totalTemporalIterations; ++temporalIter)
         {
@@ -297,25 +368,30 @@ namespace DiffMPMLib3D {
                 render_grads_injected_this_control_timestep_ = false;
 
                 // 🔥 ADAPTIVE INITIAL_ALPHA: Reduce alpha when gradients are too large
-                // Compute current gradient norm
-                ComputeBackwardPass(control_timestep);
-                float current_grad_norm = layers.front().point_cloud->Compute_dLdF_Norm();
+                float alpha = initial_alpha;
 
-                // Target gradient norm for stable optimization (empirically determined)
-                const float target_grad_norm = 2500.0f;
-                const float min_alpha_scale = 0.1f;  // Don't reduce alpha below 10% of base
+                if (adaptive_alpha_enabled) {
+                    // Compute current gradient norm
+                    ComputeBackwardPass(control_timestep);
+                    float current_grad_norm = layers.front().point_cloud->Compute_dLdF_Norm();
 
-                // Compute adaptive alpha: reduce when gradients are larger than target
-                float alpha_scale = std::min(1.0f, target_grad_norm / std::max(current_grad_norm, 1e-6f));
-                alpha_scale = std::max(alpha_scale, min_alpha_scale);  // Clamp to minimum
+                    // Compute adaptive alpha: reduce when gradients are larger than target
+                    float alpha_scale = std::min(1.0f, adaptive_alpha_target_norm / std::max(current_grad_norm, 1e-6f));
+                    alpha_scale = std::max(alpha_scale, adaptive_alpha_min_scale);  // Clamp to minimum
 
-                float alpha = initial_alpha * alpha_scale;
+                    alpha = initial_alpha * alpha_scale;
 
-                // Print adaptive alpha info
-                if (alpha_scale < 1.0f) {
-                    std::cout << "  [Adaptive Alpha] grad_norm=" << current_grad_norm
-                              << ", scale=" << alpha_scale
-                              << ", alpha=" << alpha << " (reduced from " << initial_alpha << ")" << std::endl;
+                    // Print adaptive alpha info
+                    if (alpha_scale < 1.0f) {
+                        std::cout << "  [Adaptive Alpha] grad_norm=" << current_grad_norm
+                                  << ", target=" << adaptive_alpha_target_norm
+                                  << ", scale=" << alpha_scale
+                                  << ", alpha=" << alpha << " (reduced from " << initial_alpha << ")" << std::endl;
+                    }
+                } else {
+                    // Fixed alpha mode: still need backward pass for gradient
+                    ComputeBackwardPass(control_timestep);
+                    std::cout << "  [Fixed Alpha] alpha=" << alpha << " (adaptive disabled)" << std::endl;
                 }
 
                 float initial_norm_local = 0.f;
@@ -574,14 +650,14 @@ namespace DiffMPMLib3D {
         if (layer_idx < 0 || layer_idx >= (int)layers.size() || !layers[layer_idx].point_cloud) {
             return {0.0, 0.0};
         }
-        
+
         const auto& pc = *layers[layer_idx].point_cloud;
         double gF2 = 0.0, gx2 = 0.0;
-        
+
         #pragma omp parallel for reduction(+:gF2,gx2)
         for (int i = 0; i < (int)pc.points.size(); ++i) {
             const auto& p = pc.points[i];
-            
+
             // dLdF Frobenius norm
             for (int r = 0; r < 3; ++r) {
                 for (int c = 0; c < 3; ++c) {
@@ -589,14 +665,24 @@ namespace DiffMPMLib3D {
                     gF2 += v * v;
                 }
             }
-            
-            // dLdx L2 norm  
+
+            // dLdx L2 norm
             for (int k = 0; k < 3; ++k) {
                 double v = p.dLdx(k);
                 gx2 += v * v;
             }
         }
-        
+
         return {std::sqrt(gF2), std::sqrt(gx2)};
+    }
+
+    // 🔥 NEW: Get actual physics gradients for PCGrad
+    std::pair<std::vector<Mat3>, std::vector<Vec3>> CompGraph::GetLastLayerPhysGradients() const {
+        if (layers.empty() || !layers.back().point_cloud) {
+            return {{}, {}};
+        }
+
+        const auto& pc = *layers.back().point_cloud;
+        return {pc.GetPointDefGradGradients(), pc.GetPointPositionGradients()};
     }
 }

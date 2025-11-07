@@ -55,6 +55,11 @@ struct OptInput {
     float gd_tol;
     float smoothing_factor;
     int current_episodes;
+
+    // Adaptive alpha parameters
+    bool adaptive_alpha_enabled = true;
+    float adaptive_alpha_target_norm = 2500.0f;
+    float adaptive_alpha_min_scale = 0.1f;
 };
 
 PYBIND11_MODULE(diffmpm_bindings, m) {
@@ -83,7 +88,10 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def_readwrite("initial_alpha", &OptInput::initial_alpha)
         .def_readwrite("gd_tol", &OptInput::gd_tol)
         .def_readwrite("smoothing_factor", &OptInput::smoothing_factor)
-        .def_readwrite("current_episodes", &OptInput::current_episodes);
+        .def_readwrite("current_episodes", &OptInput::current_episodes)
+        .def_readwrite("adaptive_alpha_enabled", &OptInput::adaptive_alpha_enabled)
+        .def_readwrite("adaptive_alpha_target_norm", &OptInput::adaptive_alpha_target_norm)
+        .def_readwrite("adaptive_alpha_min_scale", &OptInput::adaptive_alpha_min_scale);
 
     // --- 2. Core data structures ---
     py::class_<PointCloud, std::shared_ptr<PointCloud>>(m, "PointCloud")
@@ -444,7 +452,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
     // --- 3. Main engine (CompGraph) ---
     py::class_<CompGraph, std::shared_ptr<CompGraph>>(m, "CompGraph")
         .def(py::init<std::shared_ptr<PointCloud>, std::shared_ptr<Grid>, std::shared_ptr<const Grid>>())
-        .def("run_optimization", [](CompGraph& self, const OptInput& opt) {
+        .def("run_optimization", [](CompGraph& self, const OptInput& opt, bool skip_setup = false) {
             // ✅ Release GIL during expensive computation (10-100x speedup!)
             // This allows OpenMP to utilize all CPU cores without Python blocking
             py::gil_scoped_release release;
@@ -452,7 +460,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 opt.num_timesteps, opt.dt, opt.drag, opt.f_ext,
                 opt.control_stride, opt.max_gd_iters, opt.max_ls_iters,
                 opt.initial_alpha, opt.gd_tol, opt.smoothing_factor,
-                opt.current_episodes
+                opt.current_episodes,
+                opt.adaptive_alpha_enabled, opt.adaptive_alpha_target_norm, opt.adaptive_alpha_min_scale,
+                skip_setup  // 🔥 MULTI-PASS FIX
             );
         }, R"pbdoc(
             Run full physics optimization (⚡ GIL-free, OpenMP-accelerated).
@@ -463,7 +473,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
             - OpenMP can fully utilize all cores
             
             Use this for best performance when you don't need per-timestep control.
-        )pbdoc", py::arg("opt"))
+        )pbdoc", py::arg("opt"), py::arg("skip_setup") = false)
         .def("get_num_layers", [](const CompGraph& self) {
             return self.layers.size();
         }, "Get total number of simulated frames")
@@ -860,7 +870,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                         opt.num_timesteps, opt.dt, opt.drag, opt.f_ext,
                         opt.control_stride, opt.max_gd_iters, opt.max_ls_iters,
                         opt.initial_alpha, opt.gd_tol, opt.smoothing_factor,
-                        opt.current_episodes
+                        opt.current_episodes,
+                        opt.adaptive_alpha_enabled, opt.adaptive_alpha_target_norm, opt.adaptive_alpha_min_scale,
+                        false  // skip_setup = false (always setup in batched mode)
                     );
 
                     // Compute final loss
@@ -925,10 +937,10 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("get_last_layer_phys_grad_norm", &CompGraph::GetLastLayerPhysGradNorm,
             R"pbdoc(
                 Get physics gradient norms at the last layer.
-                
+
                 Returns:
                     tuple: (||dLdF||, ||dLdx||) Frobenius and L2 norms
-                
+
                 Example:
                     >>> gF_norm, gx_norm = cg.get_last_layer_phys_grad_norm()
                     >>> print(f"Physics grads: ||dF||={gF_norm:.3e}, ||dx||={gx_norm:.3e}")
@@ -936,6 +948,54 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("get_layer_phys_grad_norm", &CompGraph::GetLayerPhysGradNorm,
             "Get physics gradient norms at specific layer",
             py::arg("layer_idx"))
+
+        // 🔥 NEW: Get actual physics gradients for PCGrad
+        .def("get_last_layer_phys_gradients", [](const CompGraph& self) -> py::tuple {
+            auto [dLdF_vec, dLdx_vec] = self.GetLastLayerPhysGradients();
+
+            if (dLdF_vec.empty()) {
+                return py::make_tuple(py::none(), py::none());
+            }
+
+            size_t N = dLdF_vec.size();
+
+            // Convert dLdF (N, 3, 3) to numpy array
+            std::vector<ssize_t> dLdF_shape = {static_cast<ssize_t>(N), 3, 3};
+            py::array_t<float> dLdF_np(dLdF_shape);
+            auto dLdF_ptr = dLdF_np.mutable_unchecked<3>();
+            for (size_t i = 0; i < N; ++i) {
+                for (int r = 0; r < 3; ++r) {
+                    for (int c = 0; c < 3; ++c) {
+                        dLdF_ptr(i, r, c) = dLdF_vec[i](r, c);
+                    }
+                }
+            }
+
+            // Convert dLdx (N, 3) to numpy array
+            std::vector<ssize_t> dLdx_shape = {static_cast<ssize_t>(N), 3};
+            py::array_t<float> dLdx_np(dLdx_shape);
+            auto dLdx_ptr = dLdx_np.mutable_unchecked<2>();
+            for (size_t i = 0; i < N; ++i) {
+                for (int k = 0; k < 3; ++k) {
+                    dLdx_ptr(i, k) = dLdx_vec[i](k);
+                }
+            }
+
+            return py::make_tuple(dLdF_np, dLdx_np);
+        },
+        R"pbdoc(
+            Get actual physics gradients at the last layer for PCGrad.
+
+            Returns:
+                tuple: (dLdF, dLdx) where:
+                    - dLdF: numpy array (N, 3, 3) - gradients w.r.t. deformation gradient
+                    - dLdx: numpy array (N, 3) - gradients w.r.t. position
+
+            Example:
+                >>> dLdF_phys, dLdx_phys = cg.get_last_layer_phys_gradients()
+                >>> print(f"dLdF shape: {dLdF_phys.shape}")  # (N, 3, 3)
+                >>> print(f"dLdx shape: {dLdx_phys.shape}")  # (N, 3)
+        )pbdoc")
         
         .def("get_render_gradient_info",
             [](const CompGraph& self) -> py::dict {
@@ -1030,6 +1090,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def_readwrite("initial_alpha", &E2EConfig::initial_alpha)
         .def_readwrite("gd_tol", &E2EConfig::gd_tol)
         .def_readwrite("smoothing_factor", &E2EConfig::smoothing_factor)
+        .def_readwrite("adaptive_alpha_enabled", &E2EConfig::adaptive_alpha_enabled)
+        .def_readwrite("adaptive_alpha_target_norm", &E2EConfig::adaptive_alpha_target_norm)
+        .def_readwrite("adaptive_alpha_min_scale", &E2EConfig::adaptive_alpha_min_scale)
         .def_readwrite("num_passes_per_episode", &E2EConfig::num_passes_per_episode)
         .def_readwrite("enable_render_grads", &E2EConfig::enable_render_grads)
         .def_readwrite("preallocate_buffer_size", &E2EConfig::preallocate_buffer_size)

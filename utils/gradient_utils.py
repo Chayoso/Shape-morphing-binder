@@ -407,6 +407,10 @@ def normalize_and_combine_gradients(
     g_x_render = np.linalg.norm(dLdx_render)
     g_render_total = np.sqrt(g_F_render**2 + g_x_render**2)
 
+    # 🔍 DEBUG: Show component magnitudes
+    print(f"[DEBUG COMBINE] ||∂L_phys/∂F||={g_F_phys:.6e}, ||∂L_phys/∂x||={g_x_phys:.6e}")
+    print(f"[DEBUG COMBINE] ||∂L_render/∂F||={g_F_render:.6e}, ||∂L_render/∂x||={g_x_render:.6e}")
+
     # Check for zero gradients
     if g_phys_total < eps:
         print("[WARN] Physics gradients are near-zero, returning render gradients only")
@@ -450,7 +454,13 @@ def normalize_and_combine_gradients(
     # ═══════════════════════════════════════════════════════════════
     if magnitude_strategy == 'physics':
         # Conservative: Use physics magnitude (prevents render from dominating)
-        target_F = g_F_phys
+        # 🔥 FIX: If physics has no F gradients, use render F magnitude instead
+        if g_F_phys > eps:
+            target_F = g_F_phys
+            print(f"[DEBUG] Using physics F magnitude: {target_F:.6e}")
+        else:
+            target_F = g_F_render
+            print(f"[DEBUG] Physics has no F grads, using render F magnitude: {target_F:.6e}")
         target_x = g_x_phys
     elif magnitude_strategy == 'weighted':
         # Balanced: Weighted average of magnitudes
@@ -460,11 +470,20 @@ def normalize_and_combine_gradients(
         # Aggressive: Use maximum magnitude
         target_F = max(g_F_phys, g_F_render)
         target_x = max(g_x_phys, g_x_render)
+    elif magnitude_strategy == 'normalize' or magnitude_strategy == 'rms':
+        # Normalized: RMS of both magnitudes (treats both equally)
+        # This is the most balanced approach - neither physics nor render dominates by magnitude alone
+        target_F = np.sqrt((g_F_phys**2 + g_F_render**2) / 2.0) if (g_F_phys > eps or g_F_render > eps) else eps
+        target_x = np.sqrt((g_x_phys**2 + g_x_render**2) / 2.0) if (g_x_phys > eps or g_x_render > eps) else eps
+        print(f"[DEBUG] Using RMS normalization: F={target_F:.6e}, x={target_x:.6e}")
     else:
         raise ValueError(f"Unknown magnitude_strategy: {magnitude_strategy}")
 
     dLdF_combined = target_F * dLdF_combined_unit
     dLdx_combined = target_x * dLdx_combined_unit
+
+    # 🔍 DEBUG: Show combined result
+    print(f"[DEBUG COMBINE] After rescaling: ||∂L_combined/∂F||={np.linalg.norm(dLdF_combined):.6e}")
 
     # ═══════════════════════════════════════════════════════════════
     # Step 4: Compute diagnostics

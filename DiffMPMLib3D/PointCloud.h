@@ -54,6 +54,10 @@ namespace DiffMPMLib3D {
 		std::vector<float> GetPointDeterminants() const;
 		std::vector<float> GetPointElasticEnergies() const;
 
+		// 🔥 NEW: Gradient getters for PCGrad
+		std::vector<Mat3> GetPointDefGradGradients() const;  // dLdF
+		std::vector<Vec3> GetPointPositionGradients() const; // dLdx
+
 		std::vector<MaterialPoint> points;
 
 		template<class Archive>

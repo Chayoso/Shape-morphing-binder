@@ -1,0 +1,31 @@
+--- run.py.original
++++ run.py.modified
+@@ -192,6 +192,10 @@
+     out_dir = Path(cfg.get("output_dir", "output/"))
+     out_dir.mkdir(parents=True, exist_ok=True)
+
++    # 🔥 NEW: Create loss log file
++    loss_log = out_dir / "training_losses.txt"
++    loss_log.write_text("# Episode Losses Log\n")
++
+     # 🔥 CRITICAL: Pass output_dir to upsampling config for stage exports
+     if "upsample" not in cfg:
+         cfg["upsample"] = {}
+@@ -411,8 +415,17 @@
+             # Print episode summary
+             print(f"\n[Summary] Episode {ep} losses:")
+             for key, val in episode_losses.items():
+                 if isinstance(val, (int, float)):
+                     print(f"  {key}: {val:.6f}")
++
++            # 🔥 NEW: Save losses to file
++            with open(loss_log, 'a') as f:
++                f.write(f"\nEpisode {ep:03d}:\n")
++                for key, val in episode_losses.items():
++                    if isinstance(val, (int, float)):
++                        f.write(f"  {key}: {val:.6f}\n")
++                f.flush()
++
+         else:
+             # Physics-only mode
+             print(f"\n[Episode {ep}] Running standard physics optimization...")
