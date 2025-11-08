@@ -1,13 +1,13 @@
-# Experiment 03: Alpha=0.01, Render Weight=1e4
-# 2× higher learning rate for faster convergence
+# Experiment 12: Balanced Components (All Equal)
+# Equal weight to all components
 
 input_mesh_path: "assets/isosphere.obj"
-target_mesh_path: "assets/bob.obj"
-output_dir: "output/sphere/bob/"
+target_mesh_path: "assets/spot.obj"
+output_dir: "output/spot/"
 
 simulation:
   grid_dx: 1
-  points_per_cell_cuberoot: 3
+  points_per_cell_cuberoot: 5  # 4³ = 64 particles/cell → ~30K anchors (was 3³ = 27)
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
   lam: 38888.89
@@ -24,7 +24,7 @@ optimization:
   control_stride: 10
   max_gd_iters: 10
   max_ls_iters: 15
-  initial_alpha: 0.01  # 2× higher for faster convergence
+  initial_alpha: 0.01
   gd_tol: 0.00005
   use_session_mode: false
 
@@ -59,23 +59,23 @@ upsample:
     use_curvature_for_target: true
     sigma_isotropic: 0.038
     curvature_sigma:
-      sigma_n0: 0.02
-      sigma_t0: 0.03
-      a: 12.0
-      b: 5.0
-      a_n: 3
-      u: 3
+      sigma_n0: 0.1  # Larger for maximum overlap
+      sigma_t0: 0.12  # Larger for maximum overlap
+      a: 6.0          # Weaker curvature adaptation for uniformity
+      b: 5.0          # Gentler falloff for smoother transition
+      a_n: 1.5        # Very gentle normal direction adaptation
+      u: 1.5          # Very gentle overall for more uniform sizes
       k_floor_normal: 0.002
       k_floor_tangent: 0.005
-    sigma0: 0.25
+    sigma0: 0.12
     k_F: 32
     use_multiscale_F: true
     k_F_coarse: 64
     k_F_fine: 16
     multiscale_blend_mode: 'adaptive'
-    enable_subdivision: true
-    subdivision_target: 60000
-    subdivision_jitter: 0.08
+    enable_subdivision: true  # Subdivision mode (clustering around parents
+    subdivision_target: 200000
+    subdivision_jitter: 0.1
     sv_min: 0.80
     sv_max: 1.20
     use_F_smoothing: true
