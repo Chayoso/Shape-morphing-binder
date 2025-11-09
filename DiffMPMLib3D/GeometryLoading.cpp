@@ -27,7 +27,7 @@ std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::GeometryLoading::GeneratePointClou
     std::vector<Vec3> sample_points;
     sample_points.reserve(dims[0] * dims[1] * dims[2]);
     
-    // ✅ Random number generator for perturbation (only if apply_jitter is true)
+    // [OK] Random number generator for perturbation (only if apply_jitter is true)
     std::random_device rd;
     std::mt19937 gen(42);  // Fixed seed for reproducibility
     const float perturbation_scale = 0.1f;  // 10% of grid spacing
@@ -38,7 +38,7 @@ std::vector<DiffMPMLib3D::Vec3> DiffMPMLib3D::GeometryLoading::GeneratePointClou
     for (int i = 0; i < dims[0]; i++) {
         for (int j = 0; j < dims[1]; j++) {
             for (int k = 0; k < dims[2]; k++) {
-                // ✅ Add random perturbation only if apply_jitter is true
+                // [OK] Add random perturbation only if apply_jitter is true
                 Vec3 perturbation = apply_jitter ? Vec3(dis(gen), dis(gen), dis(gen)) : Vec3(0.0f, 0.0f, 0.0f);
                 Vec3 point = min_point + sampling_dx * Vec3(float(i), float(j), float(k)) + perturbation;
                 sample_points.emplace_back(point);

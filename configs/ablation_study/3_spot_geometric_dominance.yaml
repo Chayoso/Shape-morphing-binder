@@ -1,13 +1,15 @@
-# Experiment 10: Depth-Heavy (w_depth=15.0)
-# Emphasize depth accuracy
+# Experiment 3: Geometric Dominance
+# Contribution: (w_depth * 1.75) ≈ 0.35 (Auxiliary)
+#               (w_edge * 0.037) ≈ 2.0 (Dominant)
+#               (w_cov_align * 0.006) ≈ 2.0 (Dominant)
 
 input_mesh_path: "assets/isosphere.obj"
 target_mesh_path: "assets/spot.obj"
-output_dir: "output/spot_exp/10_depth_heavy/"
+output_dir: "output/ablation/spot/3_geometric_dominance/"
 
 simulation:
   grid_dx: 1
-  points_per_cell_cuberoot: 3
+  points_per_cell_cuberoot: 5
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
   lam: 38888.89
@@ -19,23 +21,23 @@ simulation:
   smoothing_factor: 0.955
 
 optimization:
-  num_animations: 60
+  num_animations: 20
   num_timesteps: 10
-  control_stride: 10
-  max_gd_iters: 10
+  control_stride: 1
+  max_gd_iters: 1
   max_ls_iters: 15
-  initial_alpha: 0.005
-  gd_tol: 0.00005
+  initial_alpha: 0.01
+  gd_tol: 0.0
   use_session_mode: false
+  adaptive_alpha_enabled: true
 
   loss:
     enabled: true
-    render_loss_weight: 1e4
-    w_alpha: 2.0
-    w_depth: 15.0
-    w_photo: 1.0
-    w_edge: 3.0
-    w_cov_align: 10.0
+    w_alpha: 0.0
+    w_depth: 0.2
+    w_photo: 0.0
+    w_edge: 54.0
+    w_cov_align: 330.0
     w_cov_reg: 0.01
     w_det_barrier: 0.1
     cov_reg_mode: 'eigenvalue'
@@ -46,39 +48,31 @@ optimization:
 upsample:
   use_simple_pipeline: true
   render_loss_weight: 1e4
-  w_alpha: 2.0
-  w_depth: 15.0
-  w_photo: 1.0
-  w_edge: 3.0
-  w_cov_align: 10.0
-  w_cov_reg: 0.01
-  w_det_barrier: 0.1
-  magnitude_strategy: 'normalize'
 
   covariance:
     use_curvature_for_target: true
     sigma_isotropic: 0.038
     curvature_sigma:
-      sigma_n0: 0.02
-      sigma_t0: 0.03
-      a: 12.0
+      sigma_n0: 0.1
+      sigma_t0: 0.12
+      a: 6.0
       b: 5.0
-      a_n: 3
-      u: 3
+      a_n: 1.5
+      u: 1.5
       k_floor_normal: 0.002
       k_floor_tangent: 0.005
-    sigma0: 0.25
+    sigma0: 0.12
     k_F: 32
     use_multiscale_F: true
     k_F_coarse: 64
     k_F_fine: 16
     multiscale_blend_mode: 'adaptive'
-    enable_subdivision: true
-    subdivision_target: 60000
-    subdivision_jitter: 0.08
+    enable_subdivision: false
+    subdivision_target: 250000
+    subdivision_jitter: 0.1
     sv_min: 0.80
     sv_max: 1.20
-    use_F_smoothing: true
+    use_F_smoothing: false
     F_smooth:
       lambda_lap: 0.005
       num_nodes: 180

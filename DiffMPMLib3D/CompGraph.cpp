@@ -39,7 +39,7 @@ namespace DiffMPMLib3D {
         }
     }
 
-    float CompGraph::EndLayerMassLoss()
+   float CompGraph::EndLayerMassLoss()
     {
         float out_of_target_penalty = 5.f;
         float eps = 1e-4f;
@@ -58,18 +58,6 @@ namespace DiffMPMLib3D {
         int dim_y = target_grid->dim_y;
         int dim_z = target_grid->dim_z;
 
-        // --- Scale-invariant mass matching: compute global scale s = sum(t) / sum(c) ---
-        float sum_c = 0.f, sum_t = 0.f;
-        for (int idx = 0; idx < dim_x * dim_y * dim_z; idx++) {
-            int i = idx / (dim_y * dim_z);
-            int j = (idx / dim_z) % dim_y;
-            int k = idx % dim_z;
-            sum_c += grid.GetNode(i, j, k).m;
-            sum_t += target_grid->GetNode(i, j, k).m;
-        }
-        const float eps_s = 1e-6f;
-        const float s = (sum_t + eps_s) / (sum_c + eps_s); // global mass scale
-
     #pragma omp parallel for reduction(+:loss)
         for (int idx = 0; idx < dim_x * dim_y * dim_z; idx++) {
             int i = idx / (dim_y * dim_z);
@@ -79,17 +67,15 @@ namespace DiffMPMLib3D {
             float c_m = grid.GetNode(i, j, k).m;
             float t_m = target_grid->GetNode(i, j, k).m;
 
-            // Scale-invariant log-loss: compare s*c_m to t_m
-            float c_ms = s * c_m;
-            float log_diff = std::log(c_ms + 1.f + eps) - std::log(t_m + 1.f + eps);
+            float log_diff = std::log(c_m + 1.f + eps) - std::log(t_m + 1.f + eps);
             loss += 0.5f * log_diff * log_diff;
-            // Chain rule: d/dc_m [log(s*c_m+1)] = s / (s*c_m+1)
-            grid.GetNode(i, j, k).dLdm = (s / (c_ms + 1.f + eps)) * log_diff;
+            // Chain rule: d/dc_m [log(c_m+1)] = 1 / (c_m+1)
+            grid.GetNode(i, j, k).dLdm = log_diff / (c_m + 1.f + eps);
 
-            if (c_ms < min_mass) {
-                float diff = min_mass - c_ms;
+            if (c_m < min_mass) {
+                float diff = min_mass - c_m;
                 loss += penalty_weight * diff * diff;
-                grid.GetNode(i, j, k).dLdm += -2.f * penalty_weight * diff * s;
+                grid.GetNode(i, j, k).dLdm += -2.f * penalty_weight * diff;
             }
         }
 
@@ -146,7 +132,7 @@ namespace DiffMPMLib3D {
         // STEP 1: Standard backward propagation (physics)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         
-        // 🔍 DEBUG: Print physics_weight_ value at the start of backward pass
+        // [DEBUG] DEBUG: Print physics_weight_ value at the start of backward pass
         static bool first_time = true;
         if (first_time) {
             std::cout << "[DEBUG] physics_weight_ = " << physics_weight_ << std::endl;
@@ -155,10 +141,11 @@ namespace DiffMPMLib3D {
         }
 
         // ════════════════════════════════════════════════════════════════════════
-        // 🔥 GRADIENT INJECTION FIX: Add render gradients to final layer
+        // [FIX] GRADIENT INJECTION FIX: Add render gradients to final layer
+        // [CRITICAL] Only inject ONCE per pass using flag check!
         // ════════════════════════════════════════════════════════════════════════
-        if (has_render_grads_ && render_grad_num_points_ > 0) {
-            std::cout << "[Backward] 🔥 Injecting render gradients into final layer..." << std::endl;
+        if (has_render_grads_ && render_grad_num_points_ > 0 && !render_grads_injected_this_control_timestep_) {
+            std::cout << "[Backward] [FIX] Injecting render gradients into final layer (ONCE per pass)..." << std::endl;
 
             // Get final layer
             size_t final_layer = layers.size() - 1;
@@ -168,7 +155,7 @@ namespace DiffMPMLib3D {
             size_t num_points = std::min(final_pc->points.size(), render_grad_num_points_);
 
             if (final_pc->points.size() != render_grad_num_points_) {
-                std::cerr << "⚠️  WARNING: Point count mismatch! "
+                std::cerr << "[WARN]  WARNING: Point count mismatch! "
                           << "Expected: " << render_grad_num_points_
                           << ", Got: " << final_pc->points.size() << std::endl;
             }
@@ -203,11 +190,14 @@ namespace DiffMPMLib3D {
                 total_dLdx_norm += final_pc->points[i].dLdx.norm();
             }
 
-            std::cout << "[Backward] ✅ Render gradients injected successfully!" << std::endl;
+            std::cout << "[Backward] [OK] Render gradients injected successfully!" << std::endl;
             std::cout << "  ├─ Particles: " << num_points << std::endl;
             std::cout << "  ├─ Render gain: " << render_gain_ << std::endl;
             std::cout << "  ├─ ||∂L/∂F|| total: " << total_dLdF_norm << std::endl;
             std::cout << "  └─ ||∂L/∂x|| total: " << total_dLdx_norm << std::endl;
+
+            // Mark as injected to prevent re-injection
+            render_grads_injected_this_control_timestep_ = true;
         }
         // ════════════════════════════════════════════════════════════════════════
 
@@ -216,12 +206,12 @@ namespace DiffMPMLib3D {
             layers[i].grid->ResetGradients();
             layers[i].point_cloud->ResetGradients();
             
-            // ✅ This will propagate BOTH physics AND render gradients backward
+            // [OK] This will propagate BOTH physics AND render gradients backward
             // because we already injected render grads to the last layer above
             Back_Timestep(layers[i + 1], layers[i], drag, dt, smoothing_factor);
             
-            // 🔥 NEW: Apply physics_weight to balance physics/render signals
-            // ⚠️  Only apply if render gradients are present (E2E mode)
+            // [FIX] NEW: Apply physics_weight to balance physics/render signals
+            // [WARN]  Only apply if render gradients are present (E2E mode)
             if (physics_weight_ != 1.0f && has_render_grads_) {
                 auto& pc = *layers[i].point_cloud;
                 auto& grid = *layers[i].grid;
@@ -251,11 +241,12 @@ namespace DiffMPMLib3D {
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // ✨ STEP 2: Inject render gradients to CONTROL LAYER (if available)
-        // 🔥 FIX: Inject AFTER backward pass completes, ONCE per control timestep
-        // This ensures render gradients are added to the PROPAGATED physics gradients
+        // [DISABLED] STEP 2: Control layer injection is INCORRECT
+        // Render gradients are from FINAL state - they should ONLY be injected to final layer (line 147)
+        // Backward propagation will naturally distribute them to control layers
+        // This block is now disabled by the flag check
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if (has_render_grads_ && !render_grads_injected_this_control_timestep_ && control_layer < layers.size()) {
+        if (false && has_render_grads_ && !render_grads_injected_this_control_timestep_ && control_layer < layers.size()) {
             std::shared_ptr<PointCloud> pc_control = layers[control_layer].point_cloud;
 
             if (!pc_control) {
@@ -275,8 +266,8 @@ namespace DiffMPMLib3D {
                     for (int i = 0; i < (int)N; ++i) {
                         MaterialPoint& pt = pc_control->points[i];
 
-                        // ✅ Build Mat3 from stored render gradient (dLdF)
-                        // 🔥 FIX: Python already normalizes gradients - no gain multiplication needed!
+                        // [OK] Build Mat3 from stored render gradient (dLdF)
+                        // [FIX] FIX: Python already normalizes gradients - no gain multiplication needed!
                         Mat3 dF_render;
                         dF_render(0,0) = stored_render_grad_F_[i*9 + 0];
                         dF_render(0,1) = stored_render_grad_F_[i*9 + 1];
@@ -288,13 +279,13 @@ namespace DiffMPMLib3D {
                         dF_render(2,1) = stored_render_grad_F_[i*9 + 7];
                         dF_render(2,2) = stored_render_grad_F_[i*9 + 8];
 
-                        // ✅ Build Vec3 from stored render gradient (dLdx)
+                        // [OK] Build Vec3 from stored render gradient (dLdx)
                         Vec3 dx_render;
                         dx_render(0) = stored_render_grad_x_[i*3 + 0];
                         dx_render(1) = stored_render_grad_x_[i*3 + 1];
                         dx_render(2) = stored_render_grad_x_[i*3 + 2];
 
-                        // ✅ ADD to existing physics gradients (already propagated backward)
+                        // [OK] ADD to existing physics gradients (already propagated backward)
                         pt.dLdF += dF_render;
                         pt.dLdx += dx_render;
                     }
@@ -321,20 +312,59 @@ namespace DiffMPMLib3D {
         smoothing_factor = _smoothing_factor;
         f_ext = _f_ext;
 
-        std::cout << "Optimizing with num_steps=" << num_steps << ", dt=" << dt << ", drag=" << drag << std::endl;
-        std::cout << "[DEBUG] control_stride=" << control_stride
-                  << ", max_gd_iters=" << max_gd_iters
-                  << ", max_ls_iters=" << max_line_search_iters << std::endl;
-        std::cout << "[DEBUG] initial_alpha=" << initial_alpha
-                  << ", adaptive_enabled=" << (adaptive_alpha_enabled ? "true" : "false") << std::endl;
+        // ═══════════════════════════════════════════════════════════════════════
+        // [CONFIG] OPTIMIZATION CONFIGURATION SUMMARY
+        // ═══════════════════════════════════════════════════════════════════════
+        std::cout << "\n" << std::string(75, '=') << std::endl;
+        std::cout << "[CONFIG] PHYSICS OPTIMIZATION CONFIGURATION" << std::endl;
+        std::cout << std::string(75, '=') << std::endl;
 
-        // 🔥 MULTI-PASS FIX: Only setup on first pass
+        // Simulation Parameters
+        std::cout << "[INFO] Simulation Parameters:" << std::endl;
+        std::cout << "  ├─ Timesteps:        " << num_steps << std::endl;
+        std::cout << "  ├─ dt:               " << dt << std::endl;
+        std::cout << "  ├─ Drag:             " << drag << std::endl;
+        std::cout << "  ├─ Smoothing factor: " << smoothing_factor << std::endl;
+        std::cout << "  └─ External force:   [" << f_ext[0] << ", " << f_ext[1] << ", " << f_ext[2] << "]" << std::endl;
+
+        // Optimization Parameters
+        std::cout << "\n[OPT]  Optimization Parameters:" << std::endl;
+        std::cout << "  ├─ Control stride:   " << control_stride << std::endl;
+        std::cout << "  ├─ Max GD iters:     " << max_gd_iters << std::endl;
+        std::cout << "  ├─ Max LS iters:     " << max_line_search_iters << std::endl;
+        std::cout << "  ├─ Initial alpha:    " << initial_alpha << std::endl;
+        std::cout << "  ├─ GD tolerance:     " << gd_tol << std::endl;
+        std::cout << "  └─ Adaptive alpha:   " << (adaptive_alpha_enabled ? "ENABLED" : "DISABLED") << std::endl;
+
+        if (adaptive_alpha_enabled) {
+            std::cout << "      ├─ Target norm:  " << adaptive_alpha_target_norm << std::endl;
+            std::cout << "      └─ Min scale:    " << adaptive_alpha_min_scale << std::endl;
+        }
+
+        // Adam Optimizer Parameters (hardcoded)
+        const float beta1 = 0.9f, beta2 = 0.999f, epsilon = 1e-3f;
+        std::cout << "\n[ADAM] Adam Optimizer:" << std::endl;
+        std::cout << "  ├─ beta1:            " << beta1 << std::endl;
+        std::cout << "  ├─ beta2:            " << beta2 << std::endl;
+        std::cout << "  └─ epsilon:          " << epsilon << std::endl;
+
+        std::cout << std::string(75, '=') << "\n" << std::endl;
+
+        // [FIX] MULTI-PASS FIX: Only setup on first pass
         if (!skip_setup) {
             std::cout << "[Setup] Initializing computation graph..." << std::endl;
             SetUpCompGraph(num_steps);
+            // Reset Adam optimizer state for fresh optimization
+            adam_timestep_ = 0;
+            std::cout << "[Adam] Reset adam_timestep to 0 (fresh optimization)" << std::endl;
         } else {
             std::cout << "[Setup] Skipping SetUpCompGraph (using existing state from previous pass)" << std::endl;
+            std::cout << "[Adam] Continuing from adam_timestep = " << adam_timestep_ << " (preserving momentum)" << std::endl;
         }
+
+        // [FIX] CRITICAL FIX: Reset render gradient injection flag ONCE per pass
+        // Must be BEFORE any ComputeBackwardPass calls to prevent double injection
+        render_grads_injected_this_control_timestep_ = false;
 
         ComputeForwardPass(0, current_episodes);
 
@@ -346,9 +376,6 @@ namespace DiffMPMLib3D {
         float initial_norm_global = layers.front().point_cloud->Compute_dLdF_Norm();
         std::cout << "Initial global gradient norm = " << initial_norm_global << std::endl;
 
-        const float beta1 = 0.9f, beta2 = 0.999f, epsilon = 1e-3f;
-        int adam_timestep = 0;
-
         size_t num_points = layers.front().point_cloud->points.size();
         std::vector<Mat3> dFc_bak(num_points), m_bak(num_points), v_bak(num_points), vmax_bak(num_points);
 
@@ -357,17 +384,21 @@ namespace DiffMPMLib3D {
         // Python controls Pass 1/2/3, C++ does one optimization pass per call
         // =======================================================================
         int totalTemporalIterations = 1;
-        std::cout << "Number of Iteration Passes: " << totalTemporalIterations << std::endl;
+        std::cout << "Starting optimization (Episode " << current_episodes << ")" << std::endl;
+        std::cout << std::string(75, '-') << std::endl;
+
         for (int temporalIter = 0; temporalIter < totalTemporalIterations; ++temporalIter)
         {
+            int num_control_steps = (num_steps - 1 + control_stride - 1) / control_stride;
             for (int control_timestep = 0; control_timestep < num_steps - 1; control_timestep += control_stride)
             {
-                std::cout << "Optimizing for control timestep: " << control_timestep << " (Pass " << temporalIter + 1 << ")" << std::endl;
+                int step_number = control_timestep / control_stride + 1;
+                std::cout << "\n[STEP] Control Step " << step_number << "/" << num_control_steps
+                          << " (Timestep " << control_timestep << ")" << std::endl;
 
-                // 🔥 FIX #1: Reset render gradient injection flag at start of each control timestep
-                render_grads_injected_this_control_timestep_ = false;
+                // [REMOVED] DON'T reset flag here - it causes render grads to inject 10x!
 
-                // 🔥 ADAPTIVE INITIAL_ALPHA: Reduce alpha when gradients are too large
+                // [FIX] ADAPTIVE INITIAL_ALPHA: Reduce alpha when gradients are too large
                 float alpha = initial_alpha;
 
                 if (adaptive_alpha_enabled) {
@@ -398,6 +429,12 @@ namespace DiffMPMLib3D {
 
                 for (int gd_iter = 0; gd_iter < max_gd_iters; ++gd_iter)
                 {
+                    // [DEBUG] Track Adam timestep for momentum debugging
+                    if (gd_iter == 0) {
+                        std::cout << "  [Adam] Current adam_timestep = " << adam_timestep_
+                                  << " (next update will use timestep " << (adam_timestep_ + 1) << ")" << std::endl;
+                    }
+
                     ComputeForwardPass(control_timestep, current_episodes);
                     float gd_loss = eval_loss();
 
@@ -458,12 +495,14 @@ namespace DiffMPMLib3D {
 
                     for (int ls_iter = 0; ls_iter < max_line_search_iters; ++ls_iter)
                     {
-                        pc.Descend_Adam(alpha_try, gradient_norm, beta1, beta2, epsilon, adam_timestep + 1);
+                        pc.Descend_Adam(alpha_try, gradient_norm, beta1, beta2, epsilon, adam_timestep_ + 1);
                         ComputeForwardPass(control_timestep, current_episodes);
                         float new_loss = eval_loss();
 
                         if (std::isfinite(new_loss) && new_loss < gd_loss) {
-                            adam_timestep++;
+                            adam_timestep_++;
+                            std::cout << "    [Adam] Step accepted! adam_timestep incremented: "
+                                      << (adam_timestep_ - 1) << " → " << adam_timestep_ << std::endl;
                             alpha = std::min(alpha_try * 1.1f, initial_alpha);
                             step_accepted = true;
 #ifdef DIAGNOSTICS
@@ -502,8 +541,15 @@ namespace DiffMPMLib3D {
             } // End control timestep loop
         } // --- End temporalIter (multipass) loop ---
         
-        std::cout << "Final loss = " << eval_loss() << std::endl;
-        std::cout << "Optimization finished." << std::endl;
+        float final_loss = eval_loss();
+        std::cout << "\n" << std::string(75, '=') << std::endl;
+        std::cout << "[OK] Optimization Complete " << std::endl;
+        std::cout << std::string(75, '=') << std::endl;
+        std::cout << "  Initial loss: " << initial_loss << std::endl;
+        std::cout << "  Final loss:   " << final_loss << std::endl;
+        std::cout << "  Reduction:    " << (initial_loss - final_loss) << " ("
+                  << (100.0f * (initial_loss - final_loss) / std::max(initial_loss, 1e-6f)) << "%)" << std::endl;
+        std::cout << std::string(75, '=') << "\n" << std::endl;
     }
     void CompGraph::OptimizeSingleTimestep(
         int timestep_idx,
@@ -518,8 +564,11 @@ namespace DiffMPMLib3D {
             return;
         }
         
-        std::cout << "Optimizing single timestep: " << timestep_idx 
-                  << " (alpha=" << initial_alpha << ")" << std::endl;
+        std::cout << "\n[Single Timestep Optimization]" << std::endl;
+        std::cout << "  ├─ Timestep:      " << timestep_idx << std::endl;
+        std::cout << "  ├─ Initial alpha: " << initial_alpha << std::endl;
+        std::cout << "  ├─ Max GD iters:  " << max_gd_iters << std::endl;
+        std::cout << "  └─ Max LS iters:  " << max_line_search_iters << std::endl;
         
         auto& pc = *layers[timestep_idx].point_cloud;
         size_t num_points = pc.points.size();
@@ -532,7 +581,7 @@ namespace DiffMPMLib3D {
         
         // Adam parameters
         const float beta1 = 0.9f, beta2 = 0.999f, epsilon = 1e-3f;
-        int adam_timestep = 0;  // Reset per episode (removed static)
+        // NOTE: Using member variable adam_timestep_ (persistent across calls)
         
         float alpha = initial_alpha;
         
@@ -569,7 +618,7 @@ namespace DiffMPMLib3D {
             for (int ls_iter = 0; ls_iter < max_line_search_iters; ++ls_iter)
             {
                 // Try Adam update
-                pc.Descend_Adam(alpha_try, gradient_norm, beta1, beta2, epsilon, adam_timestep + 1);
+                pc.Descend_Adam(alpha_try, gradient_norm, beta1, beta2, epsilon, adam_timestep_ + 1);
                 
                 // Forward pass to evaluate new loss
                 ComputeForwardPass(timestep_idx, current_episode);
@@ -577,7 +626,7 @@ namespace DiffMPMLib3D {
                 
                 if (std::isfinite(new_loss) && new_loss < gd_loss) {
                     // Accept step
-                    adam_timestep++;
+                    adam_timestep_++;
                     alpha = std::min(alpha_try * 1.1f, initial_alpha);
                     step_accepted = true;
                     std::cout << "  Step accepted at ls_iter=" << ls_iter 
@@ -613,7 +662,7 @@ namespace DiffMPMLib3D {
     }
     
     // ============================================================================
-    // 🔥 NEW: Gradient Norm Monitoring
+    // [FIX] NEW: Gradient Norm Monitoring
     // ============================================================================
     
     std::pair<double, double> CompGraph::GetLastLayerPhysGradNorm() const {
@@ -676,7 +725,7 @@ namespace DiffMPMLib3D {
         return {std::sqrt(gF2), std::sqrt(gx2)};
     }
 
-    // 🔥 NEW: Get actual physics gradients for PCGrad
+    // [FIX] NEW: Get actual physics gradients for PCGrad
     std::pair<std::vector<Mat3>, std::vector<Vec3>> CompGraph::GetLastLayerPhysGradients() const {
         if (layers.empty() || !layers.back().point_cloud) {
             return {{}, {}};

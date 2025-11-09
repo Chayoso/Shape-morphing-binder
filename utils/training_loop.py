@@ -980,11 +980,16 @@ def run_e2e_episode(
         if pass_idx == num_passes - 1:
             print(f"\n[Visualization] Saving final results...")
             seed = 9999 + ep*1000 + pass_idx
+
+            # Prepare render losses for saving
+            render_losses = final_loss_components if final_loss_components is not None else None
+
             visualize_episode(
                 ep, out_dir, cg, num_timesteps, rs_full, ema_state,
                 renderer, campos, render_cfg, particle_color,
                 png_enabled, tgt, loss_physics, seed, cov_module,
-                external_levelset=external_levelset
+                external_levelset=external_levelset,
+                render_losses=render_losses
             )
     
     # ════════════════════════════════════════════════════════════════════════════

@@ -62,7 +62,7 @@ float DiffMPMLib3D::PointCloud::Compute_dLdF_Norm_Stochastic(const std::vector<i
 	return norm;
 }
 
-void DiffMPMLib3D::PointCloud::Descend_Adam_Stochastic(float alpha, float gradient_norm, float beta1, 
+void DiffMPMLib3D::PointCloud::Descend_Adam_Stochastic(float alpha, float gradient_norm, float beta1,
 	float beta2, float epsilon, int timestep, const std::vector<int>& minibatch_indices)
 {
 #pragma omp parallel for
@@ -230,8 +230,8 @@ void DiffMPMLib3D::PointCloud::Descend_dLdF(float alpha, float gradient_norm)
 {
 	float momentum_factor = 0.9f;
 
-	float min_clip_value = 1e-3f; 
-	float max_clip_value = 1.0f;  
+	float min_clip_value = 1e-3f;
+	float max_clip_value = 1.0f;
 
 #pragma omp parallel for
 	for (int i = 0; i < points.size(); ++i)
@@ -514,7 +514,7 @@ std::vector<float> DiffMPMLib3D::PointCloud::GetPointElasticEnergies() const
 	return ret;
 }
 
-// 🔥 NEW: Gradient getter methods for PCGrad
+// [FIX] NEW: Gradient getter methods for PCGrad
 std::vector<DiffMPMLib3D::Mat3> DiffMPMLib3D::PointCloud::GetPointDefGradGradients() const
 {
 	std::vector<Mat3> ret;

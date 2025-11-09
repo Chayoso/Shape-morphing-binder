@@ -677,37 +677,64 @@ def compute_render_loss_pass(
     # 🔥 Filtering: φ-mask (월드) + Σ₂D 반경 클램프 (픽셀)
     # ========================================================================
     from sampling.core.levelset_ops import world_to_grid, phi5
-    
+
+    # 🔥 CRITICAL: Create surface mask BEFORE filtering
+    # This will be used to prevent gradient dilution in geometric losses
+    surface_mask = None
+
     # 1) φ-mask: 표면 바깥 샘플 제거 (월드 공간)
     if "levelset" in ema_state and ema_state["levelset"] is not None:
         levelset = ema_state["levelset"]
         sdf5 = phi5(levelset.phi)
         g5 = world_to_grid(mu, levelset.bbox_min, levelset.bbox_max).view(1, -1, 1, 1, 3)
-        phi_vals = F_nn.grid_sample(sdf5, g5, mode='bilinear', padding_mode='border', 
+        phi_vals = F_nn.grid_sample(sdf5, g5, mode='bilinear', padding_mode='border',
                                     align_corners=True).view(-1)
-        
+
         dx = ((levelset.bbox_max - levelset.bbox_min) / (levelset.phi.shape[0] - 1)).max().item()
         tau_phi = 0.12 * dx  # 🔥 0.12·Δx (초반 outlier 과감 제거)
-        
+
         mask_phi = phi_vals.abs() < tau_phi
-        
+
         num_before = mu.shape[0]
+
+        # 🔥 CRITICAL FIX: Use stricter threshold for TRUE surface particles
+        # tau_phi (0.12*dx) removes outliers but keeps near-surface volume particles
+        # For edge loss, we need ONLY particles very close to the actual surface
+
+        # Extract SDF values of filtered particles
+        phi_vals_filtered = phi_vals[mask_phi]
+
+        # Apply stricter threshold for surface identification
+        # Using 0.015*dx (much stricter than 0.12*dx) to identify true surface
+        tau_surface = 0.015 * dx
+        surface_mask_strict = phi_vals_filtered.abs() < tau_surface
+
+        num_surface = surface_mask_strict.sum().item()
+        num_filtered = mask_phi.sum().item()
+        surface_ratio = num_surface / num_filtered if num_filtered > 0 else 0.0
+
+        # Apply phi-mask filter
         mu = mu[mask_phi]
         cov = cov[mask_phi]
         rgb = rgb[mask_phi]
-        
+
         if hasattr(result, 'get') and result.get('normals') is not None:
             result['normals'] = result['normals'][mask_phi]
-        
+
         num_after = mu.shape[0]
-        print(f"│  🔥 φ-mask: {num_before:,} → {num_after:,} (-{num_before-num_after:,}, tau={tau_phi:.4f})")
-        
+        print(f"│  🔥 φ-mask: {num_before:,} → {num_after:,} (-{num_before-num_after:,}, tau_phi={tau_phi:.4f})")
+        print(f"│  🔥 Surface mask (strict): {num_surface:,} / {num_after:,} = {surface_ratio*100:.1f}% (tau_surface={tau_surface:.4f})")
+
+        # Use the strict surface mask
+        surface_mask = surface_mask_strict
+
         # 🔥 필터링 후 retain_grad 재호출 (non-leaf → leaf 전환)
         if mu.requires_grad:
             mu.retain_grad()
             cov.retain_grad()
     else:
         mask_phi = None  # φ-mask 미사용
+        surface_mask = None  # No surface mask available
     
     # 2) Σ₂D 반경 클램프: 거대 블러 블롭 제거 (픽셀 공간)
     # 🔥 TODO: Camera transformation 제대로 구현 필요
@@ -758,14 +785,192 @@ def compute_render_loss_pass(
             else:
                 # 필터링 안 했으면 그대로
                 cov_target_filtered = cov_target_orig
-    
+
+    # 🔥 CRITICAL FIX: Create surface mask when levelset is unavailable
+    # Strategy: Use edge-proximity detection OR ratio-based fallback
+    if surface_mask is None:
+        num_total = mu.shape[0]
+
+        # 🔥 NEW: Try edge-proximity based surface detection
+        use_edge_proximity = render_cfg.get('surface_mask_use_edge_proximity', True)
+
+        if use_edge_proximity and 'alpha' in target_render:
+            try:
+                # Project particles to screen space
+                from renderer import make_matrices_from_yaml
+                import torch.nn.functional as F_grid
+
+                # Get alpha and compute edge map
+                alpha_target = target_render['alpha']
+                if isinstance(alpha_target, np.ndarray):
+                    alpha_target = torch.from_numpy(alpha_target).to(mu.device, dtype=torch.float32)
+                elif isinstance(alpha_target, torch.Tensor):
+                    alpha_target = alpha_target.to(mu.device, dtype=torch.float32)
+
+                # Ensure 2D
+                if alpha_target.ndim == 3:
+                    if alpha_target.shape[0] == 1:
+                        alpha_target = alpha_target[0]
+                    elif alpha_target.shape[-1] == 1:
+                        alpha_target = alpha_target.squeeze(-1)
+
+                # Compute Sobel gradients (ensure on correct device)
+                alpha_expanded = alpha_target.unsqueeze(0).unsqueeze(0)  # [1, 1, H, W] - already float32 and on device
+
+                sobel_x = torch.tensor(
+                    [[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]],
+                    dtype=torch.float32,
+                    device=mu.device
+                ).view(1, 1, 3, 3)
+
+                sobel_y = torch.tensor(
+                    [[-1, -2, -1], [0, 0, 0], [1, 2, 1]],
+                    dtype=torch.float32,
+                    device=mu.device
+                ).view(1, 1, 3, 3)
+
+                grad_x = F_grid.conv2d(alpha_expanded, sobel_x, padding=1).squeeze()
+                grad_y = F_grid.conv2d(alpha_expanded, sobel_y, padding=1).squeeze()
+                grad_norm = torch.sqrt(grad_x**2 + grad_y**2 + 1e-8)  # [H, W]
+
+                # Project mu to screen space
+                W, H = alpha_target.shape[1], alpha_target.shape[0]
+                tanfovx, tanfovy = view_params['tanfovx'], view_params['tanfovy']
+                view_T = view_params['view_T']
+
+                if isinstance(view_T, np.ndarray):
+                    view_T = torch.from_numpy(view_T).to(mu.device)
+
+                mu_hom = torch.cat([mu, torch.ones(num_total, 1, device=mu.device)], dim=1)
+                mu_cam = (view_T @ mu_hom.T).T
+
+                z = torch.clamp(mu_cam[:, 2], min=0.01)
+                ndc_x = mu_cam[:, 0] / z
+                ndc_y = mu_cam[:, 1] / z
+
+                screen_x = (ndc_x / tanfovx * 0.5 + 0.5) * W
+                screen_y = (-ndc_y / tanfovy * 0.5 + 0.5) * H
+
+                # Sample edge strength at particle locations
+                grid_x = 2.0 * screen_x / W - 1.0
+                grid_y = 2.0 * screen_y / H - 1.0
+                grid = torch.stack([grid_x, grid_y], dim=-1).unsqueeze(0).unsqueeze(0)  # [1, 1, N, 2]
+
+                grad_norm_exp = grad_norm.unsqueeze(0).unsqueeze(0)  # [1, 1, H, W]
+                grad_sampled = F_grid.grid_sample(grad_norm_exp, grid, align_corners=False).view(-1)  # [N]
+
+                # Mark particles near edges as surface
+                # Use adaptive threshold based on percentile
+                grad_median = grad_sampled.median().item()
+                grad_mean = grad_sampled.mean().item()
+
+                # Configurable percentile (default 90th = top 10%)
+                # Higher percentile = fewer surface particles (more strict)
+                percentile = render_cfg.get('edge_proximity_percentile', 0.9)
+                grad_percentile = torch.quantile(grad_sampled, percentile).item()
+                default_threshold = grad_percentile
+
+                edge_threshold = render_cfg.get('edge_proximity_threshold', default_threshold)
+                surface_mask = grad_sampled > edge_threshold
+
+                num_surface = surface_mask.sum().item()
+                actual_ratio = num_surface / num_total if num_total > 0 else 0.0
+
+                # Compute statistics
+                grad_std = grad_sampled.std().item()
+                grad_max = grad_sampled.max().item()
+                threshold_is_default = abs(edge_threshold - default_threshold) < 1e-9
+
+                print("="*60)
+                print(f"🔥 SURFACE MASK (EDGE-PROXIMITY):")
+                print(f"   Total particles:     {num_total:,}")
+                print(f"   Surface particles:   {num_surface:,} ({actual_ratio*100:.1f}%)")
+                print(f"   Volume particles:    {num_total - num_surface:,} ({(1-actual_ratio)*100:.1f}%)")
+                print(f"   grad_sampled stats:  mean={grad_mean:.2e}, median={grad_median:.2e}, std={grad_std:.2e}, max={grad_max:.2e}")
+                if threshold_is_default:
+                    percentile_pct = int(percentile * 100)
+                    top_pct = 100 - percentile_pct
+                    print(f"   Edge threshold:      {edge_threshold:.4e} (adaptive: {percentile_pct}th percentile)")
+                    print(f"                        Captures top {top_pct}% of particles by edge proximity")
+                else:
+                    print(f"   Edge threshold:      {edge_threshold:.4e} (configured)")
+                print(f"   Strategy:            Particles projecting near edges (grad > {edge_threshold:.2e})")
+                print("="*60)
+
+            except Exception as e:
+                import traceback
+                print(f"[WARN] Edge-proximity surface detection failed: {e}")
+                print(f"[WARN] Traceback:\n{traceback.format_exc()}")
+                print(f"[WARN] Falling back to ratio-based surface mask")
+                use_edge_proximity = False
+                surface_mask = None  # Ensure we trigger fallback
+        else:
+            use_edge_proximity = False
+
+        # Fallback: Ratio-based surface mask
+        if not use_edge_proximity or surface_mask is None or surface_mask.sum().item() == 0:
+            target_surface_ratio = render_cfg.get('surface_mask_ratio', 0.15)
+            surface_mask_mode = render_cfg.get('surface_mask_mode', 'last')
+            num_surface = int(num_total * target_surface_ratio)
+
+            surface_mask = torch.zeros(num_total, dtype=torch.bool, device=mu.device)
+
+            if surface_mask_mode == 'last':
+                surface_mask[-num_surface:] = True
+            else:
+                surface_mask[:num_surface] = True
+
+            actual_ratio = num_surface / num_total
+            print("="*60)
+            print(f"🔥 SURFACE MASK (RATIO-BASED FALLBACK):")
+            print(f"   Total particles:    {num_total:,}")
+            print(f"   Surface particles:  {num_surface:,} ({actual_ratio*100:.1f}%)")
+            print(f"   Volume particles:   {num_total - num_surface:,} ({(1-actual_ratio)*100:.1f}%)")
+            print(f"   Config ratio:       {target_surface_ratio} (from render.surface_mask_ratio)")
+            print(f"   Mode:               '{surface_mask_mode}' (from render.surface_mask_mode)")
+
+            if surface_mask_mode == 'last':
+                print(f"   Strategy:           LAST {actual_ratio*100:.1f}% marked as surface")
+                print(f"                       (indices [{num_total - num_surface:,}, {num_total:,}))")
+            else:
+                print(f"   Strategy:           FIRST {actual_ratio*100:.1f}% marked as surface")
+                print(f"                       (indices [0, {num_surface:,}))")
+
+            if cov_target_filtered is not None and isinstance(cov_target_filtered, torch.Tensor):
+                num_cov_target = cov_target_filtered.shape[0]
+                if num_cov_target != num_surface:
+                    print(f"   ⚠️  Note: cov_target has {num_cov_target:,} particles")
+                    print(f"            (different from surface mask, using ratio anyway)")
+            print("="*60)
+
+    # 🔥 CRITICAL: Filter cov_target to match surface mask
+    # Reasoning:
+    # - Target was upsampled to 150k particles from surface
+    # - cov_target (Σ★) computed from curvature for all 150k
+    # - BUT: surface_mask identifies which are TRUE surface (e.g., 15k)
+    # - So: cov_target should only exist for those 15k surface particles
+    # - Volume/interior particles shouldn't have target covariances
+    if cov_target_filtered is not None and surface_mask is not None:
+        if isinstance(cov_target_filtered, torch.Tensor):
+            num_cov_before = cov_target_filtered.shape[0]
+            num_surface = surface_mask.sum().item()
+
+            # Filter to surface particles only
+            if surface_mask.shape[0] == cov_target_filtered.shape[0]:
+                cov_target_filtered = cov_target_filtered[surface_mask]
+                print(f"│  🔥 cov_target filtered: {num_cov_before:,} → {cov_target_filtered.shape[0]:,} (surface only)")
+            else:
+                print(f"│  ⚠️  Size mismatch: cov_target={num_cov_before:,}, surface_mask={surface_mask.shape[0]:,}")
+                print(f"│     Using global statistics for spectral loss instead of point-wise")
+
     # Compute loss (🔥 F 전달: det(F) 바리어 손실 계산)
     render_losses = loss_manager.compute_render_loss(
         pred_render, target_render,
         cov=cov, mu=mu,
         view_params=view_params,
         cov_target=cov_target_filtered,  # 🔥 필터링된 복사본 전달
-        F=F  # 🔥 NEW: det(F) 바리어 손실용
+        F=F,  # 🔥 NEW: det(F) 바리어 손실용
+        surface_mask=surface_mask  # 🔥 CRITICAL: Pass surface mask to prevent gradient dilution
     )
     
     loss_render = render_losses['loss_render_total']

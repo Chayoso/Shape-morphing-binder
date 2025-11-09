@@ -355,26 +355,28 @@ def save_episode_summary(
     ep_dir: Path,
     F: Any,
     mu_np: np.ndarray,
-    loss_physics: float
+    loss_physics: float,
+    render_losses=None
 ) -> None:
     """
     Save episode summary JSON.
-    
+
     Args:
         ep: Episode number
         ep_dir: Episode directory
         F: Deformation gradients
         mu_np: Final positions
         loss_physics: Physics loss
+        render_losses: Optional dict of render loss components
     """
     # Compute Jacobian determinant
     if hasattr(F, 'detach'):
         F_np = F.detach().cpu().numpy()
     else:
         F_np = np.asarray(F)
-    
+
     J = np.linalg.det(F_np)
-    
+
     summary = {
         "episode": ep + 1,
         "J_min": float(J.min()),
@@ -382,7 +384,26 @@ def save_episode_summary(
         "loss_physics_final": float(loss_physics),
         "num_surface_points": len(mu_np),
     }
-    
+
+    # Add render losses if available
+    if render_losses is not None:
+        summary["render_losses"] = {}
+        for k, v in render_losses.items():
+            try:
+                # Handle torch tensors
+                if hasattr(v, 'item'):
+                    summary["render_losses"][k] = float(v.item())
+                elif hasattr(v, 'detach'):
+                    summary["render_losses"][k] = float(v.detach().cpu().numpy())
+                elif isinstance(v, (int, float, np.number)):
+                    summary["render_losses"][k] = float(v)
+                else:
+                    # Skip non-numeric values
+                    continue
+            except Exception as e:
+                print(f"  ⚠️ Failed to convert {k}={v}: {e}")
+                continue
+
     with (ep_dir / f"ep{ep:03d}_summary.json").open("w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2)
 

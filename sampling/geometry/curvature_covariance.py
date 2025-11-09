@@ -595,7 +595,7 @@ def create_curvature_based_covariance_star(
     hit_t1 = (sigma_t1 <= sigma_t_floor + eps).float().mean().item()
     hit_t2 = (sigma_t2 <= sigma_t_floor + eps).float().mean().item()
     
-    print(f"[Floor Hit Rate] 바닥치에 걸린 비율:")
+    print(f"[Floor Hit Rate]: ")
     print(f"  Normal (σ_n):   {hit_n*100:.1f}% (floor={sigma_n_floor:.5f}, target: 10-40%)")
     print(f"  Tangent1 (σ_t1): {hit_t1*100:.1f}% (floor={sigma_t_floor:.5f}, target: 0-15%)")
     print(f"  Tangent2 (σ_t2): {hit_t2*100:.1f}% (floor={sigma_t_floor:.5f}, target: 0-15%)")

@@ -2,12 +2,12 @@
 # Equal weight to all components
 
 input_mesh_path: "assets/isosphere.obj"
-target_mesh_path: "assets/spot.obj"
-output_dir: "output/spot/"
+target_mesh_path: "assets/bunny.obj"
+output_dir: "output/bunny/"
 
 simulation:
   grid_dx: 1
-  points_per_cell_cuberoot: 5  # 4³ = 64 particles/cell → ~30K anchors (was 3³ = 27)
+  points_per_cell_cuberoot: 4  # 4³ = 64 particles/cell → ~30K anchors (was 3³ = 27)
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
   lam: 38888.89
@@ -19,41 +19,39 @@ simulation:
   smoothing_factor: 0.955
 
 optimization:
-  num_animations: 60
+  num_animations: 20
   num_timesteps: 10
-  control_stride: 10
-  max_gd_iters: 10
+  control_stride: 1
+  max_gd_iters: 1
   max_ls_iters: 15
   initial_alpha: 0.01
-  gd_tol: 0.00005
+  gd_tol: 0.0
   use_session_mode: false
+  adaptive_alpha_enabled: true  # 🔥 Disable adaptive learning rate scaling
 
   loss:
     enabled: true
-    render_loss_weight: 1e4
-    w_alpha: 2.0
-    w_depth: 5.0
-    w_photo: 1.0
-    w_edge: 3.0
-    w_cov_align: 10.0
-    w_cov_reg: 0.01
-    w_det_barrier: 0.1
+    # Loss component weights (used by E2ELossManager)
+    w_alpha: 2.0           # Silhouette/opacity alignment
+    w_depth: 5.0           # Depth map alignment
+    w_photo: 1.0           # Photometric consistency
+    w_edge: 3.0            # Edge alignment
+    w_cov_align: 10.0      # Covariance spectral alignment
+    w_cov_reg: 0.01        # Covariance regularization
+    w_det_barrier: 0.1     # det(F) barrier (compression prevention)
     cov_reg_mode: 'eigenvalue'
     schedule: 'constant'
+
+    # 🔥 Edge loss configuration
+    edge_loss_mode: 'detach_position'  # detach_position | gradient_boost | default
+    gradient_boost_factor: 1000.0      # Boost factor for gradient_boost mode
+    debug_edge_gradients: true         # Print edge alignment diagnostics
 
   magnitude_strategy: 'normalize'
 
 upsample:
-  use_simple_pipeline: true
-  render_loss_weight: 1e4
-  w_alpha: 2.0
-  w_depth: 5.0
-  w_photo: 1.0
-  w_edge: 3.0
-  w_cov_align: 10.0
-  w_cov_reg: 0.01
-  w_det_barrier: 0.1
-  magnitude_strategy: 'normalize'
+  use_simple_pipeline: true # fix that!
+  render_loss_weight: 1e2  # Global scaling for render gradients during combination
 
   covariance:
     use_curvature_for_target: true
@@ -73,12 +71,12 @@ upsample:
     k_F_coarse: 64
     k_F_fine: 16
     multiscale_blend_mode: 'adaptive'
-    enable_subdivision: true  # Subdivision mode (clustering around parents
-    subdivision_target: 200000
+    enable_subdivision: false  # Subdivision mode (clustering around parents
+    subdivision_target: 100000
     subdivision_jitter: 0.1
     sv_min: 0.80
     sv_max: 1.20
-    use_F_smoothing: true
+    use_F_smoothing: false
     F_smooth:
       lambda_lap: 0.005
       num_nodes: 180
@@ -105,6 +103,8 @@ render:
   bg: [1.0, 1.0, 1.0]
   training_resolution_scale: 1.0
   particle_color: [0.27, 0.51, 0.71]
+  surface_mask_ratio: 0.20  # 🔥 Surface particle ratio: 20% of particles marked as surface
+  surface_mask_mode: 'last'  # 🔥 'first' or 'last' - which particles to mark as surface
   lighting:
     model: phong
     type: directional

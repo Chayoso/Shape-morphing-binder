@@ -51,7 +51,7 @@ bool E2ESession::RunSinglePass(
     int pass_idx,
     RenderGradientCallback render_callback
 ) {
-    // 🔥 CRITICAL FIX: Temporal gradient mismatch
+    // [FIX] CRITICAL FIX: Temporal gradient mismatch
     // OLD: Used pass_idx-1, causing render grads from F_{n-1} + physics grads from F_n
     // NEW: Run forward pass first, then get render grads at CURRENT state
 
@@ -66,11 +66,11 @@ bool E2ESession::RunSinglePass(
     if (pass_idx > 0 && render_callback && config_.enable_render_grads) {
         size_t N = 0;
 
-        // 🔥 FIXED: Get render gradients from CURRENT pass state (not previous)
-        // This ensures: ∇L = ∇L_physics(F_n) + ∇L_render(F_n) ← CONSISTENT!
+        // [FIX] FIXED: Get render gradients from CURRENT pass state (not previous)
+        // This ensures: dL = dL_physics(F_n) + dL_render(F_n) <- CONSISTENT!
         bool got_grads = render_callback(
             episode_num,
-            pass_idx,  // ← CHANGED: Use current pass, not pass_idx-1
+            pass_idx,  // <- CHANGED: Use current pass, not pass_idx-1
             render_grad_F_buffer_,
             render_grad_x_buffer_,
             N
@@ -90,6 +90,12 @@ bool E2ESession::RunSinglePass(
 
     // Run physics optimization with consistent gradients
     // Both physics and render gradients now computed at same state F_n
+
+    // [FIX] ADAM MOMENTUM FIX: Skip setup for pass 2+ to preserve Adam state
+    // Pass 1: skip_setup=false → Reset adam_timestep=0 (fresh optimization)
+    // Pass 2+: skip_setup=true → Preserve momentum buffers (accumulated optimization)
+    bool skip_setup = (pass_idx > 0);
+
     cg_->OptimizeDefGradControlSequence(
         config_.num_timesteps,
         config_.dt,
@@ -104,7 +110,8 @@ bool E2ESession::RunSinglePass(
         episode_num,
         config_.adaptive_alpha_enabled,
         config_.adaptive_alpha_target_norm,
-        config_.adaptive_alpha_min_scale
+        config_.adaptive_alpha_min_scale,
+        skip_setup  // [FIX] Preserve Adam momentum across passes!
     );
 
     return true;

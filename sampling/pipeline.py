@@ -823,11 +823,11 @@ def _upsample_with_sdf_grid(
 
     # Apply jitter if requested
     if apply_jitter:
-        jitter_scale = 0.1  # 10% of grid spacing
+        jitter_scale = float(cov_cfg.get("sdf_jitter_scale", 0.1))  # Configurable (default 10% of grid spacing)
         jitter = (torch.rand_like(grid_points) - 0.5) * 2 * jitter_scale * grid_dx
         grid_points = grid_points + jitter
         if verbose:
-            print(f"  Applied jitter: ±{jitter_scale * grid_dx:.4f}")
+            print(f"  Applied jitter: ±{jitter_scale * grid_dx:.4f} ({jitter_scale*100:.0f}% of grid_dx)")
 
     # ========================================================================
     # 3. Compute distance to existing particles (approximate SDF)

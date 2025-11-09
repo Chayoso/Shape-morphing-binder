@@ -150,11 +150,12 @@ def visualize_episode(
     loss_physics: float,
     seed: int,
     cov_module=None,
-    external_levelset=None
+    external_levelset=None,
+    render_losses=None
 ) -> None:
     """
     Visualize and save episode results.
-    
+
     Args:
         ep: Episode number
         out_dir: Output directory
@@ -171,6 +172,7 @@ def visualize_episode(
         loss_physics: Physics loss
         seed: Random seed
         cov_module: Optional learnable covariance module
+        render_losses: Optional dict of render loss components
     """
     from utils.rendering_utils import upsample_current_state, prepare_rendering_inputs
     from utils.io_utils import save_episode_data, save_episode_summary
@@ -212,7 +214,7 @@ def visualize_episode(
     try:
         x_torch = pc.get_positions_torch(requires_grad=False)
         F_torch = pc.get_def_grads_total_torch(requires_grad=False)
-        save_episode_summary(ep, ep_dir, F_torch, mu_np, loss_physics)
+        save_episode_summary(ep, ep_dir, F_torch, mu_np, loss_physics, render_losses)
     except:
         pass
     
@@ -242,10 +244,13 @@ def visualize_episode(
                     import imageio.v2 as iio
                     img_tgt = iio.imread(target_dir / "target_image.png") / 255.0
                     alpha_tgt = iio.imread(target_dir / "target_alpha.png")[..., 0] / 255.0
-                    
+
                     save_episode_comparisons(ep_dir, ep, img_pred, img_tgt, alpha_pred, alpha_tgt)
-                except:
-                    pass
+
+                    # Create matplotlib visualization comparison
+                    save_matplotlib_comparison(ep_dir, ep, img_pred, img_tgt, alpha_pred, alpha_tgt, depth_pred, render_losses)
+                except Exception as e:
+                    print(f"  ⚠️ Comparison visualization failed: {e}")
             
             # Create histogram
             create_axis_histogram(mu_np, ep_dir, ep)
@@ -253,10 +258,94 @@ def visualize_episode(
     print(f"  ✅ Saved to {ep_dir}/")
 
 
+def save_matplotlib_comparison(
+    ep_dir: Path,
+    ep: int,
+    img_pred: np.ndarray,
+    img_tgt: np.ndarray,
+    alpha_pred: np.ndarray,
+    alpha_tgt: np.ndarray,
+    depth_pred: Optional[np.ndarray],
+    render_losses: Optional[Dict] = None
+) -> None:
+    """
+    Create and save matplotlib comparison visualization.
+
+    Args:
+        ep_dir: Episode directory
+        ep: Episode number
+        img_pred: Predicted RGB image
+        img_tgt: Target RGB image
+        alpha_pred: Predicted alpha channel
+        alpha_tgt: Target alpha channel
+        depth_pred: Predicted depth map (optional)
+        render_losses: Render loss components (optional)
+    """
+    # Create figure with 2x3 grid
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig.suptitle(f'Episode {ep+1} - Rendering Comparison', fontsize=16, fontweight='bold')
+
+    # Row 1: RGB comparisons
+    axes[0, 0].imshow(img_pred)
+    axes[0, 0].set_title('Predicted RGB', fontsize=12)
+    axes[0, 0].axis('off')
+
+    axes[0, 1].imshow(img_tgt)
+    axes[0, 1].set_title('Target RGB', fontsize=12)
+    axes[0, 1].axis('off')
+
+    # RGB difference
+    rgb_diff = np.abs(img_pred - img_tgt)
+    im_diff = axes[0, 2].imshow(rgb_diff, cmap='hot', vmin=0, vmax=1)
+    axes[0, 2].set_title(f'RGB Difference (MAE: {rgb_diff.mean():.4f})', fontsize=12)
+    axes[0, 2].axis('off')
+    plt.colorbar(im_diff, ax=axes[0, 2], fraction=0.046)
+
+    # Row 2: Alpha comparisons
+    axes[1, 0].imshow(alpha_pred, cmap='gray', vmin=0, vmax=1)
+    axes[1, 0].set_title('Predicted Alpha', fontsize=12)
+    axes[1, 0].axis('off')
+
+    axes[1, 1].imshow(alpha_tgt, cmap='gray', vmin=0, vmax=1)
+    axes[1, 1].set_title('Target Alpha', fontsize=12)
+    axes[1, 1].axis('off')
+
+    # Alpha difference or depth
+    if depth_pred is not None:
+        im_depth = axes[1, 2].imshow(depth_pred, cmap='viridis')
+        axes[1, 2].set_title('Predicted Depth', fontsize=12)
+        axes[1, 2].axis('off')
+        plt.colorbar(im_depth, ax=axes[1, 2], fraction=0.046)
+    else:
+        alpha_diff = np.abs(alpha_pred - alpha_tgt)
+        im_alpha_diff = axes[1, 2].imshow(alpha_diff, cmap='hot', vmin=0, vmax=1)
+        axes[1, 2].set_title(f'Alpha Difference (MAE: {alpha_diff.mean():.4f})', fontsize=12)
+        axes[1, 2].axis('off')
+        plt.colorbar(im_alpha_diff, ax=axes[1, 2], fraction=0.046)
+
+    # Add render loss text if available
+    if render_losses is not None:
+        loss_text = "Render Losses:\n"
+        for key, val in render_losses.items():
+            if isinstance(val, (int, float)):
+                loss_text += f"  {key}: {val:.4f}\n"
+
+        fig.text(0.02, 0.02, loss_text, fontsize=10, verticalalignment='bottom',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+    plt.tight_layout()
+    save_path = ep_dir / f"ep{ep:03d}_comparison.png"
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    print(f"  ✅ Saved matplotlib comparison to: {save_path.name}")
+
+
 __all__ = [
     'save_episode_images',
     'save_episode_comparisons',
     'create_axis_histogram',
     'visualize_episode',
+    'save_matplotlib_comparison',
 ]
 

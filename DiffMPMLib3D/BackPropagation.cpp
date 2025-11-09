@@ -45,7 +45,7 @@ namespace DiffMPMLib3D {
 
                 Vec3 dLdv_update = mp_prev.dLdv_next * wgp + 3.f / (dx * dx) * wgp * mp_prev.dLdC_next * dgp;
 
-                // ✅ Use atomic operations instead of critical section (10-100x faster!)
+                // [OK] Use atomic operations instead of critical section (10-100x faster!)
                 // Each component can be updated independently with atomic add
                 #pragma omp atomic
                 node.dLdv[0] += dLdv_update[0];
@@ -127,7 +127,7 @@ namespace DiffMPMLib3D {
             }
 
             // Back prop P_op_1: Final gradient accumulation for dLdF and dLdx within the particle loop.
-            mp_prev.dLdF += (Mat3::Identity() + dt * pc.points[p].C).transpose() * pc.points[p].dLdF;
+            // mp_prev.dLdF += (Mat3::Identity() + dt * pc.points[p].C).transpose() * pc.points[p].dLdF;
             mp_prev.dLdF += d2_FCE_psi_dF2_mult_by_dF(mp_prev.F + mp_prev.dFc, mp_prev.lam, mp_prev.mu, mp_prev.dLdP);
             mp_prev.dLdx += pc.points[p].dLdx;
         }

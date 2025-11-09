@@ -48,7 +48,7 @@ def initialize_grids(opt: Any) -> Tuple[Any, Any]:
     # Calculate grid dimensions
     dx = opt.grid_dx
     grid_size = [
-        int((opt.grid_max_point[i] - opt.grid_min_point[i]) / dx) + 1
+        int((opt.grid_max_point[i] - opt.grid_min_point[i]) / dx)
         for i in range(3)
     ]
     
@@ -265,7 +265,7 @@ def run_physics_optimization_batched(
 
     # 🔥 Single batched C++ call (GIL-free!)
     try:
-        result = cg.run_e2e_pass_batched(opt, dLdF, dLdx, has_render_grads)
+        result = cg.run_e2e_pass_batched(opt, dLdF, dLdx, has_render_grads, skip_setup)
         loss_physics = result['loss_physics']
         print(f"└─ [Physics] Pass {pass_idx+1} completed - Final loss: {loss_physics:.2f}\n")
     except Exception as e:

@@ -43,6 +43,22 @@ CLAMP_CURVATURE = (0.0, 10.0)
 # ============================================================================
 # Helper Functions
 # ============================================================================
+def _zero_tensor(device: torch.device, dtype: torch.dtype = torch.float32) -> torch.Tensor:
+    """
+    Create a gradient-safe zero tensor with explicit device and dtype.
+
+    Args:
+        device: Target device
+        dtype: Target dtype (default: float32)
+
+    Returns:
+        Zero scalar tensor (no gradients)
+    """
+    z = torch.zeros((), device=device, dtype=dtype)
+    z.requires_grad_(False)  # Explicit: no gradient tracking needed
+    return z
+
+
 def _safe_normalize(tensor: torch.Tensor, dim: int = -1, eps: float = EPS_NORMALIZE) -> torch.Tensor:
     """
     Safely normalize a tensor along the given dimension.
@@ -151,10 +167,26 @@ class E2ELossManager:
     def __init__(self, config: Dict):
         """
         Initialize loss manager with configuration.
-        
+
         Args:
             config: Configuration dictionary containing loss weights and parameters
         """
+
+        # [🔥 DEBUG]
+        print("="*50)
+        print("[DEBUG] E2ELossManager received these weights from YAML config:")
+        print(f"  w_alpha:       {config.get('w_alpha', 'DEFAULT')}")
+        print(f"  w_depth:       {config.get('w_depth', 'DEFAULT')}")
+        print(f"  w_edge:        {config.get('w_edge', 'DEFAULT')}")
+        print(f"  w_photo:       {config.get('w_photo', 'DEFAULT')}")
+        print(f"  w_cov_align:   {config.get('w_cov_align', 'DEFAULT')}")
+        print(f"  w_cov_reg:     {config.get('w_cov_reg', 'DEFAULT')}")
+        print(f"  w_cov_spd:     {config.get('w_cov_spd', 'DEFAULT')}")
+        print(f"  w_coverage:    {config.get('w_coverage', 'DEFAULT')}")
+        print(f"  w_det_barrier: {config.get('w_det_barrier', 'DEFAULT')}")
+        print(f"  w_normal_smooth: {config.get('w_normal_smooth', 'DEFAULT')}")
+        print("="*50)
+
         self.config = config
         self.weights = self._initialize_weights(config)
         self.schedule = config.get('schedule', 'constant')
@@ -233,14 +265,21 @@ class E2ELossManager:
             cov_align_mult = 0.4
             edge_mult = 1.2
             coverage_mult = 0.5
-        
-        # Apply multipliers to base weights
+
+        # 🔥 FIX: Actually apply multipliers to base weights
         params = SCHEDULE_PARAMS['linear']
         alpha_min, alpha_max = params['alpha_range']
         edge_min, edge_max = params['edge_range']
-        
+
         self.weights['w_alpha'] = alpha_min + (alpha_max - alpha_min) * progress
-        self.weights['w_edge'] = edge_min + (edge_max - edge_min) * progress
+        self.weights['w_edge'] = (edge_min + (edge_max - edge_min) * progress) * edge_mult
+
+        # Apply multipliers to other weights
+        base_cov_align = self.config.get('w_cov_align', DEFAULT_WEIGHTS['w_cov_align'])
+        base_coverage = self.config.get('w_coverage', DEFAULT_WEIGHTS['w_coverage'])
+
+        self.weights['w_cov_align'] = base_cov_align * cov_align_mult
+        self.weights['w_coverage'] = base_coverage * coverage_mult
     
     def _update_cosine_schedule(self, progress: float):
         """
@@ -264,11 +303,12 @@ class E2ELossManager:
         mu: Optional[torch.Tensor] = None,
         view_params: Optional[Dict] = None,
         cov_target: Optional[torch.Tensor] = None,
-        F: Optional[torch.Tensor] = None  # 🔥 NEW: Deformation gradient for det(F) barrier
+        F: Optional[torch.Tensor] = None,  # 🔥 NEW: Deformation gradient for det(F) barrier
+        surface_mask: Optional[torch.Tensor] = None  # 🔥 NEW: (N,) boolean mask for surface particles
     ) -> Dict[str, torch.Tensor]:
         """
         Compute comprehensive render loss (DIFFERENTIABLE).
-        
+
         Args:
             pred: Dictionary with keys {'image', 'alpha', 'depth'} - predicted renders
             target: Dictionary with keys {'image', 'alpha', 'depth', 'cov_target'} - ground truth
@@ -277,23 +317,44 @@ class E2ELossManager:
             view_params: Dictionary with keys {'view_T', 'W', 'H', 'tanfovx', 'tanfovy'}
             cov_target: (N, 3, 3) target covariances from curvature
             F: (N, 3, 3) deformation gradients for det(F) barrier
-        
+            surface_mask: (N,) boolean tensor indicating surface particles (optional)
+
         Returns:
             Dictionary of loss components including 'loss_render_total'
         """
         losses = {}
-        total = torch.tensor(0.0, device=self._get_device(pred, cov, mu))
-        
+        device = self._get_device(pred, cov, mu)
+        total = _zero_tensor(device)
+
+        # 🔥 CRITICAL FIX: Handle surface mask for geometric losses
+        # If no mask provided, warn and use all particles (old behavior)
+        if surface_mask is None and mu is not None:
+            print("[WARN] No surface_mask provided! Geometric losses (edge, cov_align) will be diluted by volume particles.")
+            print("  → Recommend: Pass surface_mask to compute_render_loss()")
+            surface_mask = torch.ones(mu.shape[0], dtype=torch.bool, device=device)
+
+        # Log surface statistics
+        if surface_mask is not None:
+            num_surface = surface_mask.sum().item()
+            num_total = surface_mask.shape[0]
+            losses['num_surface_particles'] = num_surface
+            losses['num_total_particles'] = num_total
+            losses['surface_ratio'] = num_surface / num_total if num_total > 0 else 0.0
+
         # Compute individual loss components (all differentiable)
         total += self._compute_alpha_loss(pred, target, losses)
         total += self._compute_depth_loss(pred, target, losses)
         total += self._compute_photo_loss(pred, target, losses)
-        total += self._compute_edge_loss(pred, target, mu, cov, view_params, losses)
-        total += self._compute_cov_align_loss(cov, cov_target, target, losses)
+
+        # 🔥 SURFACE-ONLY LOSSES: Pass surface mask to filter contributions
+        total += self._compute_edge_loss(pred, target, mu, cov, view_params, losses, surface_mask)
+        total += self._compute_cov_align_loss(cov, cov_target, target, losses, surface_mask)
+
+        # VOLUME LOSSES: Apply to ALL particles (no mask)
         total += self._compute_cov_reg_loss(cov, losses)
-        total += self._compute_coverage_loss(pred, target, losses)  # 🔥 NEW: Hole penalty
-        total += self._compute_cov_spd_regularization(cov, losses)  # 🔥 NEW: SPD regularization
-        total += self._compute_det_barrier_loss(F, losses)  # 🔥 NEW: det(F) barrier loss
+        total += self._compute_coverage_loss(pred, target, losses)
+        total += self._compute_cov_spd_regularization(cov, losses)
+        total += self._compute_det_barrier_loss(F, losses)
 
         # 🔥 FIXED: Do NOT apply render_loss_weight here!
         # It should be applied during gradient combination in training_loop.py
@@ -323,30 +384,40 @@ class E2ELossManager:
         return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     def _compute_alpha_loss(
-        self, 
-        pred: Dict[str, torch.Tensor], 
+        self,
+        pred: Dict[str, torch.Tensor],
         target: Dict[str, torch.Tensor],
         losses: Dict[str, torch.Tensor]
     ) -> torch.Tensor:
         """
         Compute alpha channel loss (DIFFERENTIABLE).
-        
+
         Args:
             pred: Prediction dictionary
             target: Target dictionary
             losses: Dictionary to store loss component
-        
+
         Returns:
             Weighted alpha loss
         """
         if self.weights['w_alpha'] <= 0 or 'alpha' not in pred or 'alpha' not in target:
-            losses['loss_alpha'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
+            device = pred.get('alpha', next(iter(pred.values()))).device if pred else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_alpha'] = zero
+            return zero
         
         pred_alpha, target_alpha = _align_tensor_shapes(pred['alpha'], target['alpha'])
-        loss_alpha = F.l1_loss(pred_alpha, target_alpha)
-        losses['loss_alpha'] = loss_alpha
-        return self.weights['w_alpha'] * loss_alpha
+
+        # 🔥 FIX: Use sum/area normalization instead of mean
+        # This makes gradients resolution-invariant
+        area = pred_alpha.numel()
+        loss_alpha_unweighted = F.l1_loss(pred_alpha, target_alpha, reduction='sum') / area
+
+        # Store weighted loss (consistent with logging)
+        loss_alpha_weighted = self.weights['w_alpha'] * loss_alpha_unweighted
+        losses['loss_alpha'] = loss_alpha_weighted
+        losses['loss_alpha_unweighted'] = loss_alpha_unweighted
+        return loss_alpha_weighted
     
     def _compute_coverage_loss(
         self,
@@ -369,27 +440,36 @@ class E2ELossManager:
             Weighted coverage loss
         """
         if self.weights.get('w_coverage', 0.0) <= 0 or 'alpha' not in pred or 'alpha' not in target:
-            losses['loss_coverage'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
+            device = pred.get('alpha', next(iter(pred.values()))).device if pred else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_coverage'] = zero
+            return zero
         
         pred_alpha, target_alpha = _align_tensor_shapes(pred['alpha'], target['alpha'])
-        
-        # 🔥 Strategy: Penalize regions where target is opaque but prediction is transparent
-        # This forces particles to fill holes even if physics makes them sparse
-        
+
+        # 🔥 FIX: Focus on hole penalty only, remove variance penalty
+        # Global variance penalty pushes alpha toward mid-values → blur!
+
         # Mask: Where target expects opacity (alpha > 0.5)
         target_mask = (target_alpha > 0.5).float()
-        
+
         # Hole penalty: In target regions, pred_alpha should be high
         hole_penalty = target_mask * (1.0 - pred_alpha)  # High when target=1 but pred=0
-        
-        # Additional: Penalize variance (uniform coverage is better)
-        alpha_var = pred_alpha.var()
-        
-        loss_coverage = hole_penalty.mean() + 0.1 * alpha_var
-        
-        losses['loss_coverage'] = loss_coverage
-        return self.weights.get('w_coverage', 0.0) * loss_coverage
+
+        # Optional: Small leak penalty (pred opaque where target transparent)
+        background_mask = (target_alpha < 0.1).float()
+        leak_penalty = background_mask * pred_alpha
+
+        # 🔥 FIX: Use sum/area normalization for resolution invariance
+        area = pred_alpha.numel()
+        loss_coverage_unweighted = (hole_penalty.sum() + 0.5 * leak_penalty.sum()) / area
+
+        # Store weighted loss (consistent with logging)
+        w_coverage = self.weights.get('w_coverage', 0.0)
+        loss_coverage_weighted = w_coverage * loss_coverage_unweighted
+        losses['loss_coverage'] = loss_coverage_weighted
+        losses['loss_coverage_unweighted'] = loss_coverage_unweighted
+        return loss_coverage_weighted
     
     def _compute_depth_loss(
         self,
@@ -409,22 +489,32 @@ class E2ELossManager:
             Weighted depth loss
         """
         if self.weights['w_depth'] <= 0 or 'depth' not in pred or target.get('depth') is None:
-            losses['loss_depth'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
+            device = pred.get('depth', next(iter(pred.values()))).device if pred else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_depth'] = zero
+            return zero
         
         pred_depth = pred['depth']
         target_depth = target['depth']
         device = pred_depth.device
         
         valid_mask = (target_depth > 0) & (pred_depth > 0)
-        
+
         if valid_mask.sum() > 0:
-            loss_depth = F.l1_loss(pred_depth[valid_mask], target_depth[valid_mask])
-            losses['loss_depth'] = loss_depth
-            return self.weights['w_depth'] * loss_depth
+            # 🔥 FIX: Use sum/valid_count for mask-invariant scaling
+            # Loss magnitude should not depend on number of valid pixels
+            valid_count = valid_mask.float().sum().clamp_min(1.0)
+            loss_depth_unweighted = (pred_depth[valid_mask] - target_depth[valid_mask]).abs().sum() / valid_count
+
+            # Store weighted loss (consistent with logging)
+            loss_depth_weighted = self.weights['w_depth'] * loss_depth_unweighted
+            losses['loss_depth'] = loss_depth_weighted
+            losses['loss_depth_unweighted'] = loss_depth_unweighted
+            return loss_depth_weighted
         else:
-            losses['loss_depth'] = torch.tensor(0.0, device=device)
-            return torch.tensor(0.0, device=device)
+            zero = _zero_tensor(device)
+            losses['loss_depth'] = zero
+            return zero
     
     def _compute_photo_loss(
         self,
@@ -444,12 +534,20 @@ class E2ELossManager:
             Weighted photometric loss
         """
         if self.weights['w_photo'] <= 0 or 'image' not in pred or 'image' not in target:
-            losses['loss_photo'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
+            device = pred.get('image', next(iter(pred.values()))).device if pred else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_photo'] = zero
+            return zero
         
-        loss_photo = F.l1_loss(pred['image'], target['image'])
-        losses['loss_photo'] = loss_photo
-        return self.weights['w_photo'] * loss_photo
+        # 🔥 FIX: Use sum/area normalization instead of mean
+        area = pred['image'].numel()
+        loss_photo_unweighted = F.l1_loss(pred['image'], target['image'], reduction='sum') / area
+
+        # Store weighted loss (consistent with logging)
+        loss_photo_weighted = self.weights['w_photo'] * loss_photo_unweighted
+        losses['loss_photo'] = loss_photo_weighted
+        losses['loss_photo_unweighted'] = loss_photo_unweighted
+        return loss_photo_weighted
     
     def _compute_edge_loss(
         self,
@@ -458,11 +556,12 @@ class E2ELossManager:
         mu: Optional[torch.Tensor],
         cov: Optional[torch.Tensor],
         view_params: Optional[Dict],
-        losses: Dict[str, torch.Tensor]
+        losses: Dict[str, torch.Tensor],
+        surface_mask: Optional[torch.Tensor] = None  # 🔥 NEW: Surface mask
     ) -> torch.Tensor:
         """
         Compute silhouette edge alignment loss (DIFFERENTIABLE).
-        
+
         Args:
             pred: Prediction dictionary
             target: Target dictionary
@@ -470,72 +569,99 @@ class E2ELossManager:
             cov: (N, 3, 3) covariances
             view_params: View parameters dictionary
             losses: Dictionary to store loss component
-        
+            surface_mask: (N,) boolean mask for surface particles
+
         Returns:
             Weighted edge alignment loss
         """
         if self.weights['w_edge'] <= 0 or mu is None or cov is None or view_params is None:
-            losses['loss_edge'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
-        
+            device = mu.device if mu is not None else (cov.device if cov is not None else torch.device('cuda'))
+            zero = _zero_tensor(device)
+            losses['loss_edge'] = zero
+            return zero
+
         try:
             alpha_target = target.get('alpha', pred.get('alpha'))
-            loss_edge, edge_info = edge_align_loss(
+
+            # Get edge loss configuration
+            edge_loss_mode = self.config.get('edge_loss_mode', 'detach_position')
+            gradient_boost_factor = self.config.get('gradient_boost_factor', 1000.0)
+            debug_edge_gradients = self.config.get('debug_edge_gradients', False)
+
+            loss_edge_unweighted, edge_info = edge_align_loss(
                 mu, cov, alpha_target,
                 view_params['view_T'],
                 view_params['W'],
                 view_params['H'],
                 view_params['tanfovx'],
-                view_params['tanfovy']
+                view_params['tanfovy'],
+                edge_loss_mode=edge_loss_mode,
+                gradient_boost_factor=gradient_boost_factor,
+                debug_gradients=debug_edge_gradients,
+                surface_mask=surface_mask  # 🔥 PASS MASK
             )
-            losses['loss_edge'] = loss_edge
+
+            # Store weighted loss (consistent with logging)
+            loss_edge_weighted = self.weights['w_edge'] * loss_edge_unweighted
+            losses['loss_edge'] = loss_edge_weighted
+            losses['loss_edge_unweighted'] = loss_edge_unweighted
             losses.update(edge_info)
-            return self.weights['w_edge'] * loss_edge
+            return loss_edge_weighted
         except Exception as e:
             print(f"[WARN] Edge alignment failed: {e}")
             device = mu.device
-            losses['loss_edge'] = torch.tensor(0.0, device=device)
-            return torch.tensor(0.0, device=device)
+            zero = _zero_tensor(device)
+            losses['loss_edge'] = zero
+            return zero
     
     def _compute_cov_align_loss(
         self,
         cov: Optional[torch.Tensor],
         cov_target: Optional[torch.Tensor],
         target: Dict[str, torch.Tensor],
-        losses: Dict[str, torch.Tensor]
+        losses: Dict[str, torch.Tensor],
+        surface_mask: Optional[torch.Tensor] = None  # 🔥 NEW: Surface mask
     ) -> torch.Tensor:
         """
         Compute covariance spectral alignment loss (DIFFERENTIABLE).
-        
+
         Args:
             cov: (N, 3, 3) predicted covariances
             cov_target: (N, 3, 3) target covariances
             target: Target dictionary (fallback for cov_target)
             losses: Dictionary to store loss component
-        
+            surface_mask: (N,) boolean mask for surface particles
+
         Returns:
             Weighted covariance alignment loss
         """
         if self.weights['w_cov_align'] <= 0 or cov is None:
-            losses['loss_cov_align'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
-        
+            device = cov.device if cov is not None else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_cov_align'] = zero
+            return zero
+
         # Get cov_target from argument or target dict
         if cov_target is None and 'cov_target' in target:
             cov_target = target['cov_target']
-        
+
         # 🔥 Guard: Check if cov_target is available
         if cov_target is None:
             print("[WARN] cov_target missing → spectral loss skipped")
             print("  → Make sure target covariance Σ★ is computed in pipeline.py STAGE 6")
             device = cov.device if cov is not None else torch.device('cuda')
-            losses['loss_cov_align'] = torch.tensor(0.0, device=device)
-            return torch.tensor(0.0, device=device)
-        
+            zero = _zero_tensor(device)
+            losses['loss_cov_align'] = zero
+            return zero
+
         # Compute spectral alignment loss
-        loss_cov_align = covariance_spectral_loss(cov, cov_target)
-        losses['loss_cov_align'] = loss_cov_align
-        return self.weights['w_cov_align'] * loss_cov_align
+        loss_cov_align_unweighted = covariance_spectral_loss(cov, cov_target, surface_mask=surface_mask)
+
+        # Store weighted loss (consistent with logging)
+        loss_cov_align_weighted = self.weights['w_cov_align'] * loss_cov_align_unweighted
+        losses['loss_cov_align'] = loss_cov_align_weighted
+        losses['loss_cov_align_unweighted'] = loss_cov_align_unweighted
+        return loss_cov_align_weighted
     
     def _compute_cov_reg_loss(
         self,
@@ -553,12 +679,18 @@ class E2ELossManager:
             Weighted covariance regularization loss
         """
         if self.weights['w_cov_reg'] <= 0 or cov is None:
-            losses['loss_cov_reg'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
+            device = cov.device if cov is not None else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_cov_reg'] = zero
+            return zero
         
-        loss_cov_reg = self._covariance_regularization(cov)
-        losses['loss_cov_reg'] = loss_cov_reg
-        return self.weights['w_cov_reg'] * loss_cov_reg
+        loss_cov_reg_unweighted = self._covariance_regularization(cov)
+
+        # Store weighted loss (consistent with logging)
+        loss_cov_reg_weighted = self.weights['w_cov_reg'] * loss_cov_reg_unweighted
+        losses['loss_cov_reg'] = loss_cov_reg_weighted
+        losses['loss_cov_reg_unweighted'] = loss_cov_reg_unweighted
+        return loss_cov_reg_weighted
     
     def _compute_cov_spd_regularization(
         self,
@@ -568,8 +700,6 @@ class E2ELossManager:
         """
         Compute SPD regularization to prevent covariance collapse (DIFFERENTIABLE).
         
-        이 정규화는 극단적 스케일을 방지하고 수치 안정성을 개선합니다.
-        
         Args:
             cov: (N, 3, 3) covariances
             losses: Dictionary to store loss component
@@ -578,23 +708,29 @@ class E2ELossManager:
             Weighted SPD regularization loss
         """
         # SPD 정규화 가중치 (config에서 가져오거나 기본값)
-        w_spd = self.config.get('w_cov_spd', 1e-3)
+        w_spd = self.config.get('w_cov_spd', 1e-6)
         
         if w_spd <= 0 or cov is None:
-            losses['loss_cov_spd'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
+            device = cov.device if cov is not None else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_cov_spd'] = zero
+            return zero
         
         from utils.covariance_utils import covariance_regularization_loss
-        
+
         # 로그 스케일 정규화: 극단적 스케일 방지
-        loss_spd = covariance_regularization_loss(
+        loss_spd_unweighted = covariance_regularization_loss(
             cov,
             lambda_scale=1.0,  # 내부 람다 (외부 w_spd로 조정)
             target_trace=None   # 목표 대각합 없음 (극단값만 페널티)
         )
-        
-        losses['loss_cov_spd'] = loss_spd
-        return w_spd * loss_spd
+
+        # 🔥 FIX: Store weighted loss (consistent with other losses)
+        loss_spd_weighted = w_spd * loss_spd_unweighted
+        losses['loss_cov_spd'] = loss_spd_weighted
+        losses['loss_cov_spd_unweighted'] = loss_spd_unweighted  # For debugging
+
+        return loss_spd_weighted
     
     def _compute_det_barrier_loss(
         self,
@@ -617,13 +753,19 @@ class E2ELossManager:
         w_det = self.weights.get('w_det_barrier', 0.0)
         
         if w_det <= 0 or F is None:
-            losses['loss_det_barrier'] = torch.tensor(0.0)
-            return torch.tensor(0.0)
+            device = F.device if F is not None else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_det_barrier'] = zero
+            return zero
         
-        loss_det = deformation_gradient_barrier_loss(F, w_det=1.0)  # w_det는 외부에서 적용
-        losses['loss_det_barrier'] = loss_det
-        
-        return w_det * loss_det
+        loss_det_unweighted = deformation_gradient_barrier_loss(F, w_det=1.0)
+
+        # 🔥 FIX: Store weighted loss (consistent with other losses)
+        loss_det_weighted = w_det * loss_det_unweighted
+        losses['loss_det_barrier'] = loss_det_weighted
+        losses['loss_det_barrier_unweighted'] = loss_det_unweighted  # For debugging
+
+        return loss_det_weighted
     
     def _covariance_regularization(self, cov: torch.Tensor) -> torch.Tensor:
         """
@@ -647,7 +789,7 @@ class E2ELossManager:
             return self._eigenvalue_regularization(cov, target_scale)
         else:
             print(f"[WARN] Unknown cov_reg_mode '{mode}', returning zero loss")
-            return torch.tensor(0.0, device=device)
+            return _zero_tensor(device)
     
     def _frobenius_regularization(
         self, 
@@ -891,10 +1033,11 @@ def _sample_tangents_at_points(
     tangent_y_exp = tangent_y.unsqueeze(0).unsqueeze(0)
     grad_norm_exp = grad_norm.unsqueeze(0).unsqueeze(0)
     
-    # Grid sample is differentiable
-    t_x_sampled = F.grid_sample(tangent_x_exp, grid, align_corners=False).squeeze()
-    t_y_sampled = F.grid_sample(tangent_y_exp, grid, align_corners=False).squeeze()
-    grad_sampled = F.grid_sample(grad_norm_exp, grid, align_corners=False).squeeze()
+    # 🔥 FIX: Use explicit view() instead of squeeze() for shape safety
+    # grid_sample output: [1, 1, 1, N] -> view(-1) ensures [N]
+    t_x_sampled = F.grid_sample(tangent_x_exp, grid, align_corners=False).view(-1)
+    t_y_sampled = F.grid_sample(tangent_y_exp, grid, align_corners=False).view(-1)
+    grad_sampled = F.grid_sample(grad_norm_exp, grid, align_corners=False).view(-1)
     
     t_hat = torch.stack([t_x_sampled, t_y_sampled], dim=-1)
     return t_hat, grad_sampled
@@ -907,14 +1050,18 @@ def edge_align_loss(
     W: int,
     H: int,
     tanfovx: float,
-    tanfovy: float
+    tanfovy: float,
+    edge_loss_mode: str = 'detach_position',  # 'detach_position', 'gradient_boost', 'original'
+    gradient_boost_factor: float = 1000.0,
+    debug_gradients: bool = False,
+    surface_mask: Optional[torch.Tensor] = None  # 🔥 NEW: (N,) boolean mask for surface particles
 ) -> Tuple[torch.Tensor, Dict]:
     """
     Compute silhouette edge alignment loss (DIFFERENTIABLE).
-    
+
     Aligns 2D projected covariance principal axes with silhouette edges
     detected from the alpha channel. All operations support autograd.
-    
+
     Args:
         mu: (N, 3) 3D positions
         cov: (N, 3, 3) 3D covariances
@@ -924,7 +1071,13 @@ def edge_align_loss(
         H: Image height
         tanfovx: Tangent of half horizontal FOV
         tanfovy: Tangent of half vertical FOV
-    
+        edge_loss_mode: Strategy to handle gradient paths
+            - 'detach_position': Block dL/dx by detaching mu (RECOMMENDED)
+            - 'gradient_boost': Boost dL/dF path by scaling cov gradient
+            - 'original': Original implementation (has spurious dL/dx)
+        gradient_boost_factor: Boost factor for 'gradient_boost' mode (default: 1000)
+        debug_gradients: Print gradient magnitude diagnostics
+
     Returns:
         Tuple of (loss, info_dict)
             - loss: Scalar edge alignment loss
@@ -932,82 +1085,198 @@ def edge_align_loss(
     """
     device = mu.device
     N = mu.shape[0]
-    
+
+    # [🔥 OPTION 2] Detach position to block spurious dL/dx path
+    if edge_loss_mode == 'detach_position':
+        mu_for_jacobian = mu.detach()
+        if debug_gradients:
+            print("[DEBUG EDGE] Using 'detach_position' mode - blocking dL/dx through Jacobian")
+    else:
+        mu_for_jacobian = mu
+
     # 1. Compute projection Jacobian (differentiable)
-    J = compute_projection_jacobian(mu, view_T, tanfovx, tanfovy, W, H)
-    
+    J = compute_projection_jacobian(mu_for_jacobian, view_T, tanfovx, tanfovy, W, H)
+
     # 2. Project covariance to screen space (differentiable)
     cov_2d = torch.bmm(torch.bmm(J, cov), J.transpose(1, 2))  # [N, 2, 2]
-    
+
+    # [🔥 OPTION 1] Gradient boost: Re-balance dL/dF vs dL/dx
+    if edge_loss_mode == 'gradient_boost':
+        # Separate the gradient paths
+        cov_2d_detached_from_J = torch.bmm(torch.bmm(J.detach(), cov), J.detach().transpose(1, 2))
+
+        # Re-assemble with boosted cov gradient
+        cov_2d = cov_2d - cov_2d_detached_from_J + (cov_2d_detached_from_J * gradient_boost_factor)
+
+        if debug_gradients:
+            print(f"[DEBUG EDGE] Using 'gradient_boost' mode - boost factor = {gradient_boost_factor}")
+
+    # 🔥 FIX: Symmetrize cov_2d before eigendecomposition (numerical stability)
+    cov_2d = 0.5 * (cov_2d + cov_2d.transpose(1, 2))
+
+    # Add small regularization for SPD guarantee
+    eps_spd = 1e-6
+    eye_2d = torch.eye(2, device=device).unsqueeze(0).expand(N, -1, -1)
+    cov_2d = cov_2d + eps_spd * eye_2d
+
     # 3. Extract principal axis via eigen-decomposition (differentiable)
     try:
         eigenvalues, eigenvectors = torch.linalg.eigh(cov_2d)
         v_max = eigenvectors[:, :, -1]  # [N, 2] - principal axis
     except Exception as e:
         print(f"[WARN] Eigendecomposition failed: {e}")
-        return torch.tensor(0.0, device=device), {}
-    
+        return _zero_tensor(device), {}
+
     # 4. Compute silhouette tangents from alpha gradients (differentiable)
     grad_x, grad_y, grad_norm = _compute_sobel_gradients(alpha_target, device)
     tangent_x, tangent_y = _compute_silhouette_tangents(grad_x, grad_y, grad_norm)
-    
+
+    # [🔥 OPTION 3] Diagnostics: Check edge strength
+    if debug_gradients:
+        print(f"[DEBUG EDGE] Alpha edge statistics:")
+        print(f"  grad_norm mean: {grad_norm.mean().item():.6e}")
+        print(f"  grad_norm max: {grad_norm.max().item():.6e}")
+        print(f"  grad_norm min: {grad_norm.min().item():.6e}")
+        print(f"  Percentage of pixels with strong edges (>0.1): {(grad_norm > 0.1).float().mean().item()*100:.2f}%")
+
     # 5. Project points to screen and sample tangents (differentiable)
     screen_x, screen_y = _project_points_to_screen(mu, view_T, tanfovx, tanfovy, W, H, device)
     t_hat, grad_sampled = _sample_tangents_at_points(
         tangent_x, tangent_y, grad_norm, screen_x, screen_y, W, H
     )
-    
+    # Detach tangent sampling to prevent another spurious dL/dx path
+    t_hat = t_hat.detach()
+    grad_sampled = grad_sampled.detach()
+
     # 6. Compute alignment score (differentiable)
     alignment = torch.abs((v_max * t_hat).sum(dim=-1))
-    
+
     # 7. Compute edge weighting (differentiable)
     edge_weight = grad_sampled / (grad_sampled.mean() + EPS_SAFE)
     edge_weight = torch.clamp(edge_weight, 0.0, 10.0)
-    
-    # 8. Compute loss (differentiable)
-    loss = (edge_weight * (1.0 - alignment)).mean()
-    
-    info = {
-        'edge_alignment_mean': alignment.mean().item(),
-        'edge_weight_mean': edge_weight.mean().item(),
-        'edge_grad_norm_mean': grad_sampled.mean().item(),
-    }
-    
+
+    # 🔥 CRITICAL FIX: Apply surface mask using WEIGHTED AVERAGING (not indexing!)
+    # This prevents gradient dilution by volume particles while preserving gradient flow
+    if surface_mask is not None:
+        # Ensure surface_mask is on same device as other tensors
+        surface_mask = _safe_device_transfer(surface_mask, device)
+        # Convert boolean mask to float weights: 1.0 for surface, 0.0 for volume
+        particle_weights = surface_mask.float()  # [N]
+
+        # Normalize weights so they sum to 1.0 (prevents loss scaling issues)
+        weight_sum = particle_weights.sum().clamp_min(1.0)
+        particle_weights_norm = particle_weights / weight_sum
+
+        # Weighted loss: Only surface particles contribute
+        # CRITICAL: Use particle_weights (not particle_weights_norm) to scale loss properly
+        loss_per_particle = edge_weight * (1.0 - alignment)  # [N]
+        loss = (particle_weights * loss_per_particle).sum() / particle_weights.sum().clamp_min(1.0)
+
+        # Diagnostics: Compute on surface particles only
+        surface_indices = surface_mask.nonzero(as_tuple=True)[0]
+        if len(surface_indices) > 0:
+            alignment_surface = alignment[surface_indices]
+            edge_weight_surface = edge_weight[surface_indices]
+            grad_sampled_surface = grad_sampled[surface_indices]
+            v_max_surface = v_max[surface_indices]
+
+            info = {
+                'edge_alignment_mean': alignment_surface.mean().item(),
+                'edge_alignment_mean_all': alignment.mean().item(),  # For comparison
+                'edge_weight_mean': edge_weight_surface.mean().item(),
+                'edge_grad_norm_mean': grad_sampled_surface.mean().item(),
+                'edge_alignment_max': alignment_surface.max().item(),
+                'edge_alignment_min': alignment_surface.min().item(),
+                'v_max_norm_mean': torch.norm(v_max_surface, dim=-1).mean().item(),
+                'num_surface_for_edge': len(surface_indices),
+            }
+        else:
+            # No surface particles - fallback
+            info = {
+                'edge_alignment_mean': 0.0,
+                'edge_alignment_mean_all': alignment.mean().item(),
+                'edge_weight_mean': 0.0,
+                'edge_grad_norm_mean': 0.0,
+                'edge_alignment_max': 0.0,
+                'edge_alignment_min': 0.0,
+                'v_max_norm_mean': 0.0,
+                'num_surface_for_edge': 0,
+            }
+    else:
+        # No mask provided - use all particles (old behavior)
+        loss = (edge_weight * (1.0 - alignment)).mean()
+
+        info = {
+            'edge_alignment_mean': alignment.mean().item(),
+            'edge_alignment_mean_all': alignment.mean().item(),
+            'edge_weight_mean': edge_weight.mean().item(),
+            'edge_grad_norm_mean': grad_sampled.mean().item(),
+            'edge_alignment_max': alignment.max().item(),
+            'edge_alignment_min': alignment.min().item(),
+            'v_max_norm_mean': torch.norm(v_max, dim=-1).mean().item(),
+            'num_surface_for_edge': N,
+        }
+
+    if debug_gradients:
+        print(f"[DEBUG EDGE] Alignment statistics (surface only):")
+        print(f"  alignment mean (surface): {info['edge_alignment_mean']:.6f}")
+        print(f"  alignment mean (all): {info['edge_alignment_mean_all']:.6f}")
+        print(f"  alignment max: {info['edge_alignment_max']:.6f}")
+        print(f"  alignment min: {info['edge_alignment_min']:.6f}")
+        print(f"  num surface particles: {info['num_surface_for_edge']}")
+
     return loss, info
 
 def covariance_spectral_loss(
     cov_pred: torch.Tensor,
     cov_target: torch.Tensor,
-    mode: str = 'eigenvalue'
+    mode: str = 'eigenvalue',
+    surface_mask: Optional[torch.Tensor] = None  # 🔥 NEW: (N,) boolean mask for surface particles
 ) -> torch.Tensor:
     """
     Align predicted and target covariance spectra (DIFFERENTIABLE).
-    
+
     Compares eigenvalue spectra or Frobenius norm between predicted
     and target covariance matrices.
-    
+
     Args:
         cov_pred: (N, 3, 3) predicted covariances
         cov_target: (N, 3, 3) target covariances
         mode: 'eigenvalue' or 'frobenius'
-    
+        surface_mask: (N,) boolean mask for surface particles (optional)
+
     Returns:
         loss: Scalar loss
     """
     device = cov_pred.device
-    
+
     # Ensure device alignment
     cov_target = _safe_device_transfer(cov_target, device)
-    
+
     # 🔥 CRITICAL: Detach target to prevent gradient flow
     # Target covariance (from curvature) should guide, not be optimized
     cov_target = cov_target.detach()
-    
+
     # Validate inputs
     if not _validate_tensor(cov_target, "cov_target") or not _validate_tensor(cov_pred, "cov_pred"):
         print(f"[WARN] Skipping spectral loss due to invalid inputs")
-        return torch.tensor(0.0, device=device)
-    
+        return _zero_tensor(device)
+
+    # 🔥 CRITICAL FIX: Apply surface mask using WEIGHTED AVERAGING
+    # If mask provided, only compute loss on surface particles
+    if surface_mask is not None:
+        # Convert boolean to float weights AND ensure same device
+        surface_mask = _safe_device_transfer(surface_mask, device)
+        particle_weights = surface_mask.float()  # [N]
+        num_surface = particle_weights.sum().item()
+
+        if num_surface < 1:
+            print(f"[WARN] No surface particles in mask! Returning zero loss.")
+            return _zero_tensor(device)
+    else:
+        particle_weights = None
+        num_surface = cov_pred.shape[0]
+
     # ✅ Handle size mismatch with global statistics instead of truncation
     use_global_statistics = (cov_pred.shape[0] != cov_target.shape[0])
     
@@ -1034,12 +1303,27 @@ def covariance_spectral_loss(
             
             if use_global_statistics:
                 # ✅ Compare global eigenvalue distributions (size-invariant!)
-                # Compute statistics: mean, std of each eigenvalue channel
-                eig_pred_mean = eig_pred.mean(dim=0)    # [3]
-                eig_target_mean = eig_target.mean(dim=0)  # [3]
-                eig_pred_std = eig_pred.std(dim=0)      # [3]
-                eig_target_std = eig_target.std(dim=0)  # [3]
-                
+                # 🔥 CRITICAL FIX: Apply surface mask to PRED statistics only
+                # (Target already filtered to surface particles during rendering)
+                if particle_weights is not None:
+                    # Weighted statistics for PRED (surface particles only)
+                    weight_sum = particle_weights.sum().clamp_min(1.0)
+                    weights_expanded = particle_weights.unsqueeze(1)  # [N_pred, 1]
+
+                    eig_pred_mean = (weights_expanded * eig_pred).sum(dim=0) / weight_sum  # [3]
+                    eig_pred_centered = eig_pred - eig_pred_mean.unsqueeze(0)
+                    eig_pred_std = torch.sqrt((weights_expanded * eig_pred_centered ** 2).sum(dim=0) / weight_sum)
+
+                    # Target: Use ALL particles (already filtered to surface by phi-mask)
+                    eig_target_mean = eig_target.mean(dim=0)  # [3]
+                    eig_target_std = eig_target.std(dim=0)    # [3]
+                else:
+                    # Compute statistics: mean, std of each eigenvalue channel
+                    eig_pred_mean = eig_pred.mean(dim=0)    # [3]
+                    eig_target_mean = eig_target.mean(dim=0)  # [3]
+                    eig_pred_std = eig_pred.std(dim=0)      # [3]
+                    eig_target_std = eig_target.std(dim=0)  # [3]
+
                 # Loss: Match mean and std of eigenvalue distributions
                 loss_mean = F.l1_loss(eig_pred_mean, eig_target_mean)
                 loss_std = F.l1_loss(eig_pred_std, eig_target_std)
@@ -1049,18 +1333,47 @@ def covariance_spectral_loss(
                 # Normalize for scale invariance (differentiable)
                 eig_pred_norm = eig_pred / (eig_pred.sum(dim=-1, keepdim=True) + EPS_NORMALIZE)
                 eig_target_norm = eig_target / (eig_target.sum(dim=-1, keepdim=True) + EPS_NORMALIZE)
-                
-                loss = F.l1_loss(eig_pred_norm, eig_target_norm)
+
+                # 🔥 CRITICAL FIX: Apply surface mask to point-wise loss
+                if particle_weights is not None:
+                    # Weighted loss: Only surface particles contribute
+                    loss_per_particle = torch.abs(eig_pred_norm - eig_target_norm).sum(dim=-1)  # [N]
+                    loss = (particle_weights * loss_per_particle).sum() / particle_weights.sum().clamp_min(1.0)
+                else:
+                    loss = F.l1_loss(eig_pred_norm, eig_target_norm)
         except Exception as e:
             print(f"[WARN] Eigenvalue computation failed: {e}, using Frobenius fallback")
-            loss = F.mse_loss(cov_pred, cov_target)
-    
+            # 🔥 FIX: Handle size mismatch in fallback
+            if cov_pred.shape[0] != cov_target.shape[0]:
+                # Use global statistics fallback for size mismatch
+                min_size = min(cov_pred.shape[0], cov_target.shape[0])
+                print(f"[WARN] Size mismatch in Frobenius fallback, using first {min_size} samples")
+                loss = F.mse_loss(cov_pred[:min_size], cov_target[:min_size])
+            else:
+                # Apply surface mask if available
+                if particle_weights is not None:
+                    diff_squared = ((cov_pred - cov_target) ** 2).sum(dim=(1, 2))  # [N]
+                    loss = (particle_weights * diff_squared).sum() / particle_weights.sum().clamp_min(1.0)
+                else:
+                    loss = F.mse_loss(cov_pred, cov_target)
+
     elif mode == 'frobenius':
-        loss = F.mse_loss(cov_pred, cov_target)
+        # 🔥 FIX: Handle size mismatch and surface mask
+        if cov_pred.shape[0] != cov_target.shape[0]:
+            min_size = min(cov_pred.shape[0], cov_target.shape[0])
+            print(f"[WARN] Size mismatch in Frobenius mode, using first {min_size} samples")
+            loss = F.mse_loss(cov_pred[:min_size], cov_target[:min_size])
+        else:
+            # Apply surface mask if available
+            if particle_weights is not None:
+                diff_squared = ((cov_pred - cov_target) ** 2).sum(dim=(1, 2))  # [N]
+                loss = (particle_weights * diff_squared).sum() / particle_weights.sum().clamp_min(1.0)
+            else:
+                loss = F.mse_loss(cov_pred, cov_target)
     
     else:
         print(f"[WARN] Unknown mode '{mode}', returning zero loss")
-        loss = torch.tensor(0.0, device=device)
+        loss = _zero_tensor(device)
     
     return loss
 
@@ -1090,55 +1403,31 @@ def deformation_gradient_barrier_loss(
         loss: 스칼라 바리어 손실
     """
     if F is None or w_det <= 0:
-        return torch.tensor(0.0)
+        device = F.device if F is not None else torch.device('cuda')
+        return _zero_tensor(device)
     
     device = F.device
     
     # det(F) 계산
     det_F = torch.det(F)  # (N,)
-    
-    # 안전 클램프: log(0) 방지
+
+    # 🔥 FIX: Piecewise barrier (different treatment for compression vs expansion)
+    # Compression (det < 1): -log(det) barrier + quadratic
+    # Expansion (det > 1): only quadratic penalty
+
+    compression_mask = (det_F < 1.0)
+
+    # Compression loss: -log(det) + (det - 1)²
     det_F_safe = torch.clamp(det_F, min=EPS_SAFE)
-    
-    # 바리어 손실: -log(det F) + (det F - 1)²
-    log_barrier = -torch.log(det_F_safe)  # det F < 1에 강한 페널티
-    vol_penalty = (det_F - 1.0) ** 2       # 체적 보존 목표
-    
+    log_barrier = torch.where(
+        compression_mask,
+        -torch.log(det_F_safe),  # Strong penalty for compression
+        torch.zeros_like(det_F)   # No log barrier for expansion
+    )
+
+    # Volume preservation: (det - 1)² for both compression and expansion
+    vol_penalty = (det_F - 1.0) ** 2
+
     loss_barrier = w_det * (log_barrier + vol_penalty).mean()
     
-    return loss_barrier
-
-
-def covariance_regularization_advanced(
-    cov: torch.Tensor,
-    lambda_vol: float = 0.01,
-    lambda_aniso: float = 0.005,
-    target_vol: float = 1.0e-4,
-    max_aniso_ratio: float = 10.0
-) -> torch.Tensor:
-    """
-    Advanced covariance regularization (DIFFERENTIABLE).
-    
-    Regularizes volume (det(Σ)) and anisotropy (λ_max / λ_min).
-    
-    Args:
-        cov: (N, 3, 3) covariance matrices
-        lambda_vol: Volume regularization weight
-        lambda_aniso: Anisotropy regularization weight
-        target_vol: Target volume (determinant)
-        max_aniso_ratio: Maximum allowed anisotropy ratio
-    
-    Returns:
-        loss: Scalar regularization loss
-    """
-    # Volume regularization: det(Σ) ≈ target_vol (differentiable)
-    det = torch.det(cov)
-    loss_vol = lambda_vol * F.mse_loss(det, torch.full_like(det, target_vol))
-    
-    # Anisotropy cap: λ_max / λ_min < max_aniso_ratio (differentiable)
-    eigvals = torch.linalg.eigvalsh(cov)  # [N, 3] ascending
-    ratio = eigvals[:, -1] / (eigvals[:, 0] + EPS_SAFE)
-    aniso_penalty = torch.clamp(ratio - max_aniso_ratio, min=0.0)
-    loss_aniso = lambda_aniso * aniso_penalty.mean()
-    
-    return loss_vol + loss_aniso # differentiable
+    return loss_barrier # differentiable

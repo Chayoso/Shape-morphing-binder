@@ -90,12 +90,13 @@ namespace DiffMPMLib3D {
         std::pair<double, double> GetLastLayerPhysGradNorm() const;
         std::pair<double, double> GetLayerPhysGradNorm(int layer_idx) const;
 
-        // 🔥 NEW: Get actual physics gradients for PCGrad
+        // [FIX] NEW: Get actual physics gradients for PCGrad
         std::pair<std::vector<Mat3>, std::vector<Vec3>> GetLastLayerPhysGradients() const;
         
     private:
         float render_gain_ = 1.0f;      // Scales injected render grads
         float physics_weight_ = 1.0f;   // Scales physics grads before backprop
+        int adam_timestep_ = 0;         // Adam optimizer timestep (persistent across calls)
         // Simulation parameters cached for use in member functions.
         Vec3 f_ext = Vec3::Zero();
         float dt = 1.0f / 120.0f;

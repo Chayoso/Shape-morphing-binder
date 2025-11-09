@@ -192,12 +192,22 @@ def main():
     out_dir = Path(cfg.get("output_dir", "output/"))
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # 🔥 NEW: Create loss log file
+    # 🔥 NEW: Create loss log files (both TXT and JSON)
     loss_log = out_dir / "training_losses.txt"
+    loss_log_json = out_dir / "training_losses.json"
+
     with open(loss_log, 'w') as f:
         f.write(f"# Training Losses Log\n")
         f.write(f"# Config: {args.config}\n")
         f.write(f"# Start time: {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+
+    # Initialize JSON log
+    import json
+    loss_history = {
+        "config": args.config,
+        "start_time": time.strftime('%Y-%m-%d %H:%M:%S'),
+        "episodes": []
+    }
 
     # 🔥 CRITICAL: Pass output_dir to upsampling config for stage exports
     if "upsample" not in cfg:
@@ -235,6 +245,15 @@ def main():
 
     print("[Init] Creating computation graph...", flush=True)
     cg = initialize_comp_graph(input_pc, input_grid, target_grid)
+
+    # 🔥 DEBUG: Check EndLayerMassLoss right after initialization
+    # This isolates whether discrepancy is from init/normalization or rendering/session
+    loss0 = cg.end_layer_mass_loss()
+    print(f"[DEBUG] ⚠️  EndLayerMassLoss just after init: {loss0:.6f}")
+    print(f"[DEBUG]     Compare this with pure C++ run using same initialization")
+    print(f"[DEBUG]     If different → problem is init/normalization/references")
+    print(f"[DEBUG]     If same → problem is rendering/session/gradients\n")
+
     tgt = extract_target_point_cloud(target_pc)[0]
 
     # ════════════════════════════════════════════════════════════════════════════
@@ -428,13 +447,44 @@ def main():
                 if isinstance(val, (int, float)):
                     print(f"  {key}: {val:.6f}")
 
-            # 🔥 NEW: Save losses to file
+            # 🔥 NEW: Save losses to both TXT and JSON
+            # Text format (human-readable)
             with open(loss_log, 'a') as f:
                 f.write(f"Episode {ep:03d}:\n")
                 for key, val in episode_losses.items():
                     if isinstance(val, (int, float)):
                         f.write(f"  {key}: {val:.6f}\n")
                 f.write("\n")
+                f.flush()
+
+            # JSON format (for plotting)
+            episode_data = {"episode": ep}
+            for key, val in episode_losses.items():
+                if isinstance(val, (int, float)):
+                    episode_data[key] = float(val)
+
+            # Merge summary data from ep###_summary.json if it exists
+            summary_path = ep_dir / f"ep{ep:03d}_summary.json"
+            if summary_path.exists():
+                try:
+                    with open(summary_path, 'r') as sf:
+                        summary_data = json.load(sf)
+                        # Add summary fields to episode data
+                        episode_data["J_min"] = summary_data.get("J_min")
+                        episode_data["J_mean"] = summary_data.get("J_mean")
+                        episode_data["num_surface_points"] = summary_data.get("num_surface_points")
+                        # Merge render losses at top level
+                        if "render_losses" in summary_data:
+                            for k, v in summary_data["render_losses"].items():
+                                episode_data[k] = v
+                except Exception as e:
+                    print(f"  ⚠️ Failed to merge summary data: {e}")
+
+            loss_history["episodes"].append(episode_data)
+
+            # Save JSON after each episode
+            with open(loss_log_json, 'w') as f:
+                json.dump(loss_history, f, indent=2)
                 f.flush()
         else:
             # Physics-only mode
@@ -463,6 +513,17 @@ def main():
         print(f"  Total time: {stats.total_wall_time:.1f}s")
         print(f"  Avg time/episode: {stats.total_wall_time/max(1, stats.total_episodes):.1f}s")
         print(f"  Best loss: {stats.best_loss:.2f} (episode {stats.best_episode})")
+
+    # 🔥 NEW: Plot losses if E2E mode was used
+    if enable_e2e and loss_log_json.exists():
+        print("\n[Plotting] Generating loss curves...")
+        try:
+            from utils.plotting_utils import plot_training_losses
+            plot_training_losses(loss_log_json, out_dir / "loss_curves.png")
+            print(f"✅ Loss curves saved to: {out_dir / 'loss_curves.png'}")
+        except Exception as e:
+            print(f"⚠️  Failed to generate loss plots: {e}")
+            print(f"   You can manually plot using: python plot_losses.py {loss_log_json}")
 
     print("="*80)
 

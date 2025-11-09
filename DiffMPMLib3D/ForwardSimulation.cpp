@@ -129,12 +129,11 @@ namespace DiffMPMLib3D::SingleThreadMPM {
         next_timestep_mp.F = (Mat3::Identity() + dt * next_timestep_mp.C) * (curr_timestep_mp.F + curr_timestep_mp.dFc);
         smooth_deformation_gradient(next_timestep_mp, curr_timestep_mp, smoothing_factor);
         next_timestep_mp.x = curr_timestep_mp.x + dt * next_timestep_mp.v;
-        next_timestep_mp.dFc.setZero();
     }
 
     void ForwardTimeStep(PointCloud& next_point_cloud, PointCloud& curr_point_cloud, Grid& grid, float smoothing_factor, float dt, float drag, Vec3 f_ext, int current_episode)
     {
-        // 🔥 F-smoothing 스케줄 (에피소드 기반)
+        // [FIX] F-smoothing schedule (episode-based)
         float smoothing_scheduled = (current_episode < 10 ? 0.88f :
                                      (current_episode < 30 ? 0.90f : 0.92f));
         
@@ -228,8 +227,8 @@ namespace DiffMPMLib3D::SingleThreadMPM {
             }
             // Unit-correct volume estimation:
             // mass_from_grid = Σ_i w_ip * m_i   [mass]
-            // local density  ρ_p ≈ mass_from_grid / dx^3
-            // rest volume    V_p0 = m_p / ρ_p = m_p * dx^3 / mass_from_grid
+            // local density  rho_p ~= mass_from_grid / dx^3
+            // rest volume    V_p0 = m_p / rho_p = m_p * dx^3 / mass_from_grid
             float cell_volume = dx * dx * dx;
             float rho_p = mass_from_grid / std::max(cell_volume, 1e-12f);
             if (rho_p > std::numeric_limits<float>::epsilon()) {

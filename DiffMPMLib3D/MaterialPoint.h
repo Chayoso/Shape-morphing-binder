@@ -39,6 +39,7 @@ namespace DiffMPMLib3D {
 
 		Vec3 dLdv_next = Vec3::Zero();
 		Mat3 dLdC_next = Mat3::Zero();
+		
 
 		Mat3 momentum = Mat3::Zero();
 		Mat3 vector = Mat3::Zero();

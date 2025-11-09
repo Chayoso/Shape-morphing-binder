@@ -99,9 +99,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("get_masses", &PointCloud::GetPointMasses, "Return particle masses as (N,) NumPy array")
         .def("get_def_grads", &PointCloud::GetPointDefGrads, "Return particle deformation tensors as (N, 3, 3) NumPy array")
 
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔥 ZERO-COPY VIEWS (NumPy buffer protocol)
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
+        // [FIX] ZERO-COPY VIEWS (NumPy buffer protocol)
+        // ===================================================================
         .def("get_positions_view", [](PointCloud& pc) -> py::array_t<float> {
             const size_t N = pc.points.size();
             if (N == 0) {
@@ -126,7 +126,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         R"pbdoc(
             Return zero-copy view of particle positions as (N, 3) NumPy array.
 
-            ⚠️  WARNING: This returns a VIEW, not a copy!
+            [WARN]  WARNING: This returns a VIEW, not a copy!
             - Modifying the array will modify C++ memory
             - The array is only valid while the PointCloud exists
             - If you need a copy, use .copy() in Python
@@ -154,18 +154,18 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         R"pbdoc(
             Return zero-copy view of particle velocities as (N, 3) NumPy array.
 
-            ⚠️  WARNING: This is a VIEW (see get_positions_view for details)
+            [WARN]  WARNING: This is a VIEW (see get_positions_view for details)
         )pbdoc")
         
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
         // NumPy version (OpenMP optimized)
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
         .def("get_velocities", [](const PointCloud& pc) {
             const size_t N = pc.points.size();
             py::array_t<float> arr({(py::ssize_t)N, (py::ssize_t)3});
             auto buf = arr.mutable_unchecked<2>();
             
-            // ✅ Parallel copy with OpenMP
+            // [OK] Parallel copy with OpenMP
             #pragma omp parallel for
             for (int i = 0; i < (int)N; ++i) {  // Note: signed int for OpenMP
                 buf(i, 0) = pc.points[i].v[0];
@@ -176,9 +176,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
             return arr;
         }, "Return particle velocities as (N, 3) NumPy array")
         
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
         // NumPy version with validation (debugging)
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
         .def("get_velocities_validated", [](const PointCloud& pc, bool verbose) {
             const size_t N = pc.points.size();
             py::array_t<float> arr({(py::ssize_t)N, (py::ssize_t)3});
@@ -215,7 +215,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 vz_sum += vz;
                 
                 float v_mag = std::sqrt(vx*vx + vy*vy + vz*vz);
-                // ✅ Use conditional instead of std::max for OpenMP compatibility
+                // [OK] Use conditional instead of std::max for OpenMP compatibility
                 if (v_mag > v_mag_max) {
                     v_mag_max = v_mag;
                 }
@@ -231,11 +231,11 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 std::cout << "  Max magnitude: " << v_mag_max << std::endl;
                 
                 if (nan_count > 0) {
-                    std::cout << "  ⚠️  NaN values: " << nan_count 
+                    std::cout << "  [WARN]  NaN values: " << nan_count 
                               << " (" << 100.0*nan_count/N << "%)" << std::endl;
                 }
                 if (inf_count > 0) {
-                    std::cout << "  ⚠️  Inf values: " << inf_count 
+                    std::cout << "  [WARN]  Inf values: " << inf_count 
                               << " (" << 100.0*inf_count/N << "%)" << std::endl;
                 }
             }
@@ -253,9 +253,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 numpy.ndarray: (N, 3) velocities with NaN/Inf replaced by zeros
         )pbdoc")
 #ifdef DIFFMPM_WITH_TORCH
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔥 ZERO-COPY TORCH VIEWS (torch::from_blob)
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
+        // [FIX] ZERO-COPY TORCH VIEWS (torch::from_blob)
+        // ===================================================================
         .def("get_positions_torch_view", [](PointCloud& pc) {
             const size_t N = pc.points.size();
             if (N == 0) {
@@ -281,7 +281,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         R"pbdoc(
             Return zero-copy view of particle positions as PyTorch tensor (N, 3).
 
-            ⚠️  CRITICAL: This returns a VIEW without gradient tracking!
+            [WARN]  CRITICAL: This returns a VIEW without gradient tracking!
             - Use .clone().requires_grad_(True) in Python if you need gradients
             - The tensor is only valid while the PointCloud exists
 
@@ -290,7 +290,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 >>> x = x_view.clone().requires_grad_(True)  # Enable gradients
                 >>> loss = (x ** 2).sum()
                 >>> loss.backward()
-                >>> print(x.grad)  # ✓ Works!
+                >>> print(x.grad)  # [OK] Works!
 
             Performance: ~100x faster than get_positions_torch() for large N
         )pbdoc")
@@ -374,9 +374,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         }, py::arg("requires_grad") = false,
            "Return total deformation F_total = F + dFc as PyTorch tensor (N, 3, 3)")
         
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
         // PyTorch version (OpenMP optimized)
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
         .def("get_velocities_torch", [](const PointCloud& pc, bool to_cuda) {
             const size_t N = pc.points.size();
             
@@ -384,12 +384,12 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
             auto options = torch::TensorOptions()
                 .dtype(torch::kFloat32)
                 .device(torch::kCPU)
-                .requires_grad(false);  // ✅ Always false (no computational graph)
+                .requires_grad(false);  // [OK] Always false (no computational graph)
             
             auto tensor = torch::empty({(int64_t)N, 3}, options);
             auto accessor = tensor.accessor<float, 2>();
             
-            // ✅ Parallel copy with OpenMP
+            // [OK] Parallel copy with OpenMP
             #pragma omp parallel for
             for (int i = 0; i < (int)N; ++i) {
                 accessor[i][0] = pc.points[i].v[0];
@@ -397,14 +397,14 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 accessor[i][2] = pc.points[i].v[2];
             }
             
-            // ✅ Optional GPU transfer
+            // [OK] Optional GPU transfer
             if (to_cuda && torch::cuda::is_available()) {
                 return tensor.to(torch::kCUDA);
             }
             
             return tensor;
         }, 
-        py::arg("to_cuda") = true,  // ✅ Default: transfer to GPU
+        py::arg("to_cuda") = true,  // [OK] Default: transfer to GPU
         R"pbdoc(
             Return particle velocities as PyTorch tensor (N, 3).
             
@@ -453,7 +453,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
     py::class_<CompGraph, std::shared_ptr<CompGraph>>(m, "CompGraph")
         .def(py::init<std::shared_ptr<PointCloud>, std::shared_ptr<Grid>, std::shared_ptr<const Grid>>())
         .def("run_optimization", [](CompGraph& self, const OptInput& opt, bool skip_setup = false) {
-            // ✅ Release GIL during expensive computation (10-100x speedup!)
+            // [OK] Release GIL during expensive computation (10-100x speedup!)
             // This allows OpenMP to utilize all CPU cores without Python blocking
             py::gil_scoped_release release;
             self.OptimizeDefGradControlSequence(
@@ -462,13 +462,13 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 opt.initial_alpha, opt.gd_tol, opt.smoothing_factor,
                 opt.current_episodes,
                 opt.adaptive_alpha_enabled, opt.adaptive_alpha_target_norm, opt.adaptive_alpha_min_scale,
-                skip_setup  // 🔥 MULTI-PASS FIX
+                skip_setup  // [FIX] MULTI-PASS FIX
             );
         }, R"pbdoc(
-            Run full physics optimization (⚡ GIL-free, OpenMP-accelerated).
+            Run full physics optimization ([FAST] GIL-free, OpenMP-accelerated).
             
             This is FASTER than calling individual timestep functions because:
-            - Single Python→C++ transition (vs 100+ transitions)
+            - Single Python->C++ transition (vs 100+ transitions)
             - No GIL overhead during computation
             - OpenMP can fully utilize all cores
             
@@ -483,14 +483,14 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
             return self.layers[layer_idx].point_cloud;
         }, "Get PointCloud object for specific frame")
         
-        // ✅ E2E Function 1: Physics loss (with const_cast workaround)
+        // [OK] E2E Function 1: Physics loss (with const_cast workaround)
         .def("end_layer_mass_loss", [](CompGraph& self) -> float {
-            // ✅ Release GIL during loss computation
+            // [OK] Release GIL during loss computation
             py::gil_scoped_release release;
             return self.EndLayerMassLoss();
         }, "Compute physics loss at the last layer")
         
-        // ✅ E2E Function 2: Accumulate render gradients (OPTIMIZED with memcpy)
+        // [OK] E2E Function 2: Accumulate render gradients (OPTIMIZED with memcpy)
         .def("accumulate_render_grads",
             [](CompGraph& self,
                py::array_t<float> dLdF_render,
@@ -545,15 +545,15 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 const float* gF = static_cast<const float*>(bF.ptr);
                 const float* gX = static_cast<const float*>(bX.ptr);
 
-                // ✅ Release GIL during computation
+                // [OK] Release GIL during computation
                 py::gil_scoped_release release;
 
-                // 🔥 OPTIMIZED: Accumulate gradients with vectorized operations
+                // [FIX] OPTIMIZED: Accumulate gradients with vectorized operations
                 #pragma omp parallel for
                 for (int i = 0; i < (int)N; ++i) {
                     MaterialPoint& pt = pc.points[i];
 
-                    // 🔥 Fast bulk accumulation for dLdF (9 floats)
+                    // [FIX] Fast bulk accumulation for dLdF (9 floats)
                     // Assuming Mat3 is row-major and contiguous
                     const float* src_F = &gF[i * 9];
                     float* dst_F = pt.dLdF.data();  // Eigen::Matrix provides .data()
@@ -563,7 +563,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                         dst_F[j] += src_F[j];
                     }
 
-                    // 🔥 Fast bulk accumulation for dLdx (3 floats)
+                    // [FIX] Fast bulk accumulation for dLdx (3 floats)
                     const float* src_x = &gX[i * 3];
                     float* dst_x = pt.dLdx.data();
 
@@ -578,8 +578,8 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 Accumulate render loss gradients to the last layer (OPTIMIZED).
 
                 Args:
-                    dLdF_render: (N,3,3) numpy array of ∂L_render/∂F
-                    dLdx_render: (N,3) numpy array of ∂L_render/∂x
+                    dLdF_render: (N,3,3) numpy array of dL_render/dF
+                    dLdx_render: (N,3) numpy array of dL_render/dx
 
                 Performance: ~2-3x faster than previous version (vectorized + GIL release)
             )pbdoc")
@@ -600,7 +600,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("optimize_single_timestep", 
             [](CompGraph& self, int timestep_idx, int max_gd_iters, int current_episode, 
                float initial_alpha, int max_line_search_iters) {
-                // ✅ Release GIL during optimization
+                // [OK] Release GIL during optimization
                 py::gil_scoped_release release;
                 self.OptimizeSingleTimestep(timestep_idx, max_gd_iters, current_episode, 
                                            initial_alpha, max_line_search_iters);
@@ -656,7 +656,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         
         .def("compute_forward_pass", 
             [](CompGraph& self, size_t start_layer, int current_episode) {
-                // ✅ Release GIL during forward pass
+                // [OK] Release GIL during forward pass
                 py::gil_scoped_release release;
                 self.ComputeForwardPass(start_layer, current_episode);
             },
@@ -666,7 +666,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         
         .def("compute_backward_pass",
             [](CompGraph& self, size_t control_layer) {
-                // ✅ Release GIL during backward pass
+                // [OK] Release GIL during backward pass
                 py::gil_scoped_release release;
                 self.ComputeBackwardPass(control_layer);
             },
@@ -711,7 +711,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     );
                 }
                 
-                // ✅ Release GIL during memory operations
+                // [OK] Release GIL during memory operations
                 py::gil_scoped_release release;
 
                 // Store render gradients in CompGraph
@@ -721,7 +721,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 const float* gF = static_cast<const float*>(bF.ptr);
                 const float* gX = static_cast<const float*>(bX.ptr);
 
-                // 🔥 Fast bulk copy (already optimal with memcpy!)
+                // [FIX] Fast bulk copy (already optimal with memcpy!)
                 std::memcpy(self.stored_render_grad_F_.data(), gF, N * 9 * sizeof(float));
                 std::memcpy(self.stored_render_grad_x_.data(), gX, N * 3 * sizeof(float));
                 
@@ -754,8 +754,8 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 optimization of L_tot = L_phys + L_render.
                 
                 Args:
-                    dLdF_render: (N,3,3) numpy array of ∂L_render/∂F
-                    dLdx_render: (N,3) numpy array of ∂L_render/∂x
+                    dLdF_render: (N,3,3) numpy array of dL_render/dF
+                    dLdx_render: (N,3) numpy array of dL_render/dx
                 
                 Example:
                     >>> # After computing render loss
@@ -766,7 +766,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     >>> 
                     >>> # Next physics optimization will use L_tot
                     >>> cg.compute_forward_pass(0, episode)
-                    >>> cg.compute_backward_pass(0)  # ← L_phys + L_render
+                    >>> cg.compute_backward_pass(0)  # <- L_phys + L_render
                     >>> cg.optimize_single_timestep(0)
             )pbdoc")
         
@@ -806,7 +806,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     ...     print("Will optimize with L_phys only")
             )pbdoc")
         
-        // 🔥 NEW: Runtime scaling control
+        // [FIX] NEW: Runtime scaling control
         .def("set_render_gain", &CompGraph::SetRenderGain,
             "Set render gradient gain multiplier for balancing physics/render signals",
             py::arg("gain"))
@@ -814,19 +814,20 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
             "Set physics gradient weight multiplier",
             py::arg("weight"))
 
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔥 BATCHED E2E PASS (Maximum Performance)
-        // ═══════════════════════════════════════════════════════════════════
+        // ===================================================================
+        // [FIX] BATCHED E2E PASS (Maximum Performance)
+        // ===================================================================
         .def("run_e2e_pass_batched",
             [](CompGraph& self,
                const OptInput& opt,
                py::array_t<float> dLdF_render,
                py::array_t<float> dLdx_render,
-               bool has_render_grads) -> py::dict {
+               bool has_render_grads,
+               bool skip_setup) -> py::dict {
 
-                // ═══════════════════════════════════════════════════════════
+                // ===========================================================
                 // Phase 1: Inject render gradients (if available)
-                // ═══════════════════════════════════════════════════════════
+                // ===========================================================
                 if (has_render_grads) {
                     py::buffer_info bF = dLdF_render.request();
                     py::buffer_info bX = dLdx_render.request();
@@ -858,9 +859,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     self.render_grad_num_points_ = N;
                 }
 
-                // ═══════════════════════════════════════════════════════════
+                // ===========================================================
                 // Phase 2: Run physics optimization (GIL-free!)
-                // ═══════════════════════════════════════════════════════════
+                // ===========================================================
                 float loss_physics = 0.0f;
 
                 {
@@ -872,7 +873,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                         opt.initial_alpha, opt.gd_tol, opt.smoothing_factor,
                         opt.current_episodes,
                         opt.adaptive_alpha_enabled, opt.adaptive_alpha_target_norm, opt.adaptive_alpha_min_scale,
-                        false  // skip_setup = false (always setup in batched mode)
+                        skip_setup  // [FIX] Use skip_setup parameter to preserve Adam momentum!
                     );
 
                     // Compute final loss
@@ -883,9 +884,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     }
                 }
 
-                // ═══════════════════════════════════════════════════════════
+                // ===========================================================
                 // Phase 3: Return results
-                // ═══════════════════════════════════════════════════════════
+                // ===========================================================
                 py::dict result;
                 result["loss_physics"] = loss_physics;
                 result["has_render_grads"] = has_render_grads;
@@ -896,6 +897,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
             py::arg("dLdF_render") = py::array_t<float>(),
             py::arg("dLdx_render") = py::array_t<float>(),
             py::arg("has_render_grads") = false,
+            py::arg("skip_setup") = false,
             R"pbdoc(
                 Run complete E2E pass in a single C++ call (MAXIMUM PERFORMANCE).
 
@@ -918,7 +920,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                       - 'has_render_grads': Whether render grads were used
 
                 Performance: ~2-3x faster than separate calls due to:
-                  - Single Python→C++ transition
+                  - Single Python->C++ transition
                   - No GIL overhead during computation
                   - Better CPU cache locality
 
@@ -933,7 +935,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     >>> loss = result['loss_physics']
             )pbdoc")
         
-        // 🔥 NEW: Gradient norm monitoring
+        // [FIX] NEW: Gradient norm monitoring
         .def("get_last_layer_phys_grad_norm", &CompGraph::GetLastLayerPhysGradNorm,
             R"pbdoc(
                 Get physics gradient norms at the last layer.
@@ -949,7 +951,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
             "Get physics gradient norms at specific layer",
             py::arg("layer_idx"))
 
-        // 🔥 NEW: Get actual physics gradients for PCGrad
+        // [FIX] NEW: Get actual physics gradients for PCGrad
         .def("get_last_layer_phys_gradients", [](const CompGraph& self) -> py::tuple {
             auto [dLdF_vec, dLdx_vec] = self.GetLastLayerPhysGradients();
 
@@ -1030,8 +1032,8 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     dict: Dictionary with keys:
                         - 'has_gradients': bool
                         - 'num_points': int
-                        - 'grad_F_norm': float (L2 norm of ∂L/∂F)
-                        - 'grad_x_norm': float (L2 norm of ∂L/∂x)
+                        - 'grad_F_norm': float (L2 norm of dL/dF)
+                        - 'grad_x_norm': float (L2 norm of dL/dx)
                 
                 Example:
                     >>> info = cg.get_render_gradient_info()
@@ -1057,14 +1059,14 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
 
     m.def("p2g", [](std::shared_ptr<PointCloud> pc, std::shared_ptr<Grid> grid) {
         if (!pc || !grid) throw std::runtime_error("PointCloud or Grid is null.");
-        // ✅ Release GIL during P2G computation
+        // [OK] Release GIL during P2G computation
         py::gil_scoped_release release;
         SingleThreadMPM::P2G(*pc, *grid, 0.0f, 0.0f);
     }, "Rasterize PointCloud mass to Grid (P2G)");
 
     m.def("calculate_point_cloud_volumes", [](std::shared_ptr<PointCloud> pc, std::shared_ptr<Grid> grid) {
         if (!pc || !grid) throw std::runtime_error("PointCloud or Grid is null.");
-        // ✅ Release GIL during volume calculation
+        // [OK] Release GIL during volume calculation
         py::gil_scoped_release release;
         SingleThreadMPM::CalculatePointCloudVolumes(*pc, *grid);
     }, "Calculate PointCloud volumes");
@@ -1074,9 +1076,9 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         return pc->GetPointPositions();
     }, "Get positions array from PointCloud");
 
-    // ═══════════════════════════════════════════════════════════════════
-    // 🔥 E2E SESSION (Persistent state across episodes) - MAXIMUM PERFORMANCE
-    // ═══════════════════════════════════════════════════════════════════
+    // ===================================================================
+    // [FIX] E2E SESSION (Persistent state across episodes) - MAXIMUM PERFORMANCE
+    // ===================================================================
 
     py::class_<E2EConfig>(m, "E2EConfig")
         .def(py::init<>())
@@ -1213,7 +1215,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     EpisodeResult with loss, timing, and success information
 
                 Performance: ~10-15x faster than pass-by-pass approach!
-                  - Single Python→C++ transition per episode (vs 50-100)
+                  - Single Python->C++ transition per episode (vs 50-100)
                   - All physics runs with GIL released
                   - Persistent buffer reuse across episodes
                   - Zero-copy tensor views for rendering

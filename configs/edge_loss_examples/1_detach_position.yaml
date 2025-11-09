@@ -1,9 +1,13 @@
-# Experiment 12: Balanced Components (All Equal)
-# Equal weight to all components
+# Edge Loss Mode 1: Detach Position (RECOMMENDED)
+#
+# This mode blocks the spurious dL/dx gradient path by detaching
+# particle positions when computing the projection Jacobian.
+#
+# Use this as your default configuration.
 
 input_mesh_path: "assets/isosphere.obj"
-target_mesh_path: "assets/spot.obj"
-output_dir: "output/spot_exp/12_balanced/"
+target_mesh_path: "assets/bunny.obj"
+output_dir: "output/edge_modes/bunny/1_detach_position/"
 
 simulation:
   grid_dx: 1
@@ -19,66 +23,63 @@ simulation:
   smoothing_factor: 0.955
 
 optimization:
-  num_animations: 60
+  num_animations: 25
   num_timesteps: 10
-  control_stride: 10
-  max_gd_iters: 10
+  control_stride: 1
+  max_gd_iters: 1
   max_ls_iters: 15
-  initial_alpha: 0.005
-  gd_tol: 0.00005
+  initial_alpha: 0.01
+  gd_tol: 0.0
   use_session_mode: false
+  adaptive_alpha_enabled: true
 
   loss:
     enabled: true
-    render_loss_weight: 1e4
-    w_alpha: 5.0
-    w_depth: 5.0
-    w_photo: 5.0
-    w_edge: 5.0
-    w_cov_align: 5.0
+    w_alpha: 0.0
+    w_depth: 0.3
+    w_photo: 0.0
+    w_edge: 0.5              # Edge loss weight
+    w_cov_align: 2.0
     w_cov_reg: 0.01
     w_det_barrier: 0.1
     cov_reg_mode: 'eigenvalue'
     schedule: 'constant'
+
+    # 🔥 Edge loss configuration (Mode 1: Detach Position)
+    edge_loss_mode: 'detach_position'     # RECOMMENDED: Blocks spurious dL/dx
+    gradient_boost_factor: 1000.0         # Not used in detach_position mode
+    debug_edge_gradients: false           # Set to true for diagnostics
 
   magnitude_strategy: 'normalize'
 
 upsample:
   use_simple_pipeline: true
   render_loss_weight: 1e4
-  w_alpha: 5.0
-  w_depth: 5.0
-  w_photo: 5.0
-  w_edge: 5.0
-  w_cov_align: 5.0
-  w_cov_reg: 0.01
-  w_det_barrier: 0.1
-  magnitude_strategy: 'normalize'
 
   covariance:
     use_curvature_for_target: true
     sigma_isotropic: 0.038
     curvature_sigma:
-      sigma_n0: 0.02
-      sigma_t0: 0.03
-      a: 12.0
+      sigma_n0: 0.1
+      sigma_t0: 0.12
+      a: 6.0
       b: 5.0
-      a_n: 3
-      u: 3
+      a_n: 1.5
+      u: 1.5
       k_floor_normal: 0.002
       k_floor_tangent: 0.005
-    sigma0: 0.25
+    sigma0: 0.12
     k_F: 32
     use_multiscale_F: true
     k_F_coarse: 64
     k_F_fine: 16
     multiscale_blend_mode: 'adaptive'
     enable_subdivision: true
-    subdivision_target: 60000
-    subdivision_jitter: 0.08
+    subdivision_target: 100000
+    subdivision_jitter: 0.15
     sv_min: 0.80
     sv_max: 1.20
-    use_F_smoothing: true
+    use_F_smoothing: false
     F_smooth:
       lambda_lap: 0.005
       num_nodes: 180
@@ -105,6 +106,8 @@ render:
   bg: [1.0, 1.0, 1.0]
   training_resolution_scale: 1.0
   particle_color: [0.27, 0.51, 0.71]
+  edge_proximity_percentile: 0.9  # 🔥 Surface particle ratio: 20% of particles marked as surface
+  surface_mask_mode: 'first'  # 🔥 'first' or 'last' - which particles to mark as surface
   lighting:
     model: phong
     type: directional
