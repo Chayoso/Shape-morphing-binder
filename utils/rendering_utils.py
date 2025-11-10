@@ -963,6 +963,11 @@ def compute_render_loss_pass(
                 print(f"│  ⚠️  Size mismatch: cov_target={num_cov_before:,}, surface_mask={surface_mask.shape[0]:,}")
                 print(f"│     Using global statistics for spectral loss instead of point-wise")
 
+    # 🔥 NEW: Create opacity tensor for shrinkage regularization
+    # Start with all particles fully opaque (α=1.0)
+    # Shrinkage loss will gradually reduce interior particle opacity
+    opacity = torch.ones(mu.shape[0], dtype=torch.float32, device=mu.device, requires_grad=True)
+
     # Compute loss (🔥 F 전달: det(F) 바리어 손실 계산)
     render_losses = loss_manager.compute_render_loss(
         pred_render, target_render,
@@ -970,7 +975,8 @@ def compute_render_loss_pass(
         view_params=view_params,
         cov_target=cov_target_filtered,  # 🔥 필터링된 복사본 전달
         F=F,  # 🔥 NEW: det(F) 바리어 손실용
-        surface_mask=surface_mask  # 🔥 CRITICAL: Pass surface mask to prevent gradient dilution
+        surface_mask=surface_mask,  # 🔥 CRITICAL: Pass surface mask to prevent gradient dilution
+        opacity=opacity  # 🔥 NEW: Per-Gaussian opacity for shrinkage regularization
     )
     
     loss_render = render_losses['loss_render_total']

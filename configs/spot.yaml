@@ -1,0 +1,116 @@
+# Experiment 12: Balanced Components (All Equal)
+# Equal weight to all components
+
+input_mesh_path: "assets/isosphere.obj"
+target_mesh_path: "assets/spot.obj"
+output_dir: "output/spot/"
+
+simulation:
+  grid_dx: 1
+  points_per_cell_cuberoot: 5  # 4³ = 64 particles/cell → ~30K anchors (was 3³ = 27)
+  grid_min_point: [-16.0, -16.0, -16.0]
+  grid_max_point: [16.0, 16.0, 16.0]
+  lam: 38888.89
+  mu: 58333.3
+  density: 75.0
+  dt: 0.00833333333
+  drag: 0.5
+  external_force: [0.0, 0.0, 0.0]
+  smoothing_factor: 0.955
+
+optimization:
+  num_animations: 30
+  num_timesteps: 10
+  control_stride: 1
+  max_gd_iters: 1
+  max_ls_iters: 15
+  initial_alpha: 0.01
+  gd_tol: 0.0
+  use_session_mode: false
+  adaptive_alpha_enabled: true  # 🔥 Disable adaptive learning rate scaling
+
+  loss:
+    enabled: true
+    # Loss component weights (used by E2ELossManager)
+    w_alpha: 2.0           # Silhouette/opacity alignment
+    w_depth: 5.0           # Depth map alignment
+    w_photo: 1.0           # Photometric consistency
+    w_edge: 3.0            # Edge alignment
+    w_cov_align: 10.0      # Covariance spectral alignment
+    w_cov_reg: 0.01        # Covariance regularization
+    w_det_barrier: 0.1     # det(F) barrier (compression prevention)
+    cov_reg_mode: 'eigenvalue'
+    schedule: 'constant'
+
+    # 🔥 Edge loss configuration
+    edge_loss_mode: 'detach_position'  # detach_position | gradient_boost | default
+    gradient_boost_factor: 1000.0      # Boost factor for gradient_boost mode
+    debug_edge_gradients: true         # Print edge alignment diagnostics
+
+  magnitude_strategy: 'normalize'
+
+upsample:
+  use_simple_pipeline: true # fix that!
+  render_loss_weight: 1e2  # Global scaling for render gradients during combination
+
+  covariance:
+    use_curvature_for_target: true
+    sigma_isotropic: 0.038
+    curvature_sigma:
+      sigma_n0: 0.1  # Larger for maximum overlap
+      sigma_t0: 0.12  # Larger for maximum overlap
+      a: 6.0          # Weaker curvature adaptation for uniformity
+      b: 5.0          # Gentler falloff for smoother transition
+      a_n: 1.5        # Very gentle normal direction adaptation
+      u: 1.5          # Very gentle overall for more uniform sizes
+      k_floor_normal: 0.002
+      k_floor_tangent: 0.005
+    sigma0: 0.14
+    k_F: 32
+    use_multiscale_F: true
+    k_F_coarse: 64
+    k_F_fine: 16
+    multiscale_blend_mode: 'adaptive'
+    enable_subdivision: false  # Subdivision mode (clustering around parents
+    subdivision_target: 300000
+    subdivision_jitter: 0.1
+    sv_min: 0.80
+    sv_max: 1.20
+    use_F_smoothing: false
+    F_smooth:
+      lambda_lap: 0.005
+      num_nodes: 180
+      node_knn: 8
+      point_knn: 8
+
+camera:
+  width: 3840
+  height: 2160
+  fx: 1425.0
+  fy: 1425.0
+  cx: 1920.0
+  cy: 1080.0
+  znear: 0.01
+  zfar: 100.0
+  lookat:
+    eye: [20.0, -25.0, 12.5]
+    target: [0.0, 0.0, 0.0]
+    up: [0.0, 0.0, 1.0]
+
+render:
+  num_frames: 1
+  schedule: uniform
+  bg: [1.0, 1.0, 1.0]
+  training_resolution_scale: 1.0
+  particle_color: [0.27, 0.51, 0.71]
+  surface_mask_ratio: 0.20  # 🔥 Surface particle ratio: 20% of particles marked as surface
+  surface_mask_mode: 'last'  # 🔥 'first' or 'last' - which particles to mark as surface
+  lighting:
+    model: phong
+    type: directional
+    direction: [0.3, -0.5, 0.8]
+    two_sided: true
+    ambient: 0.18
+    diffuse: 0.85
+    specular: 0.10
+    shininess: 32

@@ -192,7 +192,12 @@ def run_e2e_episode_session(
             cov_target = target_render.get('cov_target')
             if cov_target is not None:
                 print(f"  ├─ Using cov_target for spectral alignment loss")
-            
+
+            # 🔥 NEW: Create opacity tensor for shrinkage regularization
+            # Start with all particles fully opaque (α=1.0)
+            # Shrinkage loss will gradually reduce interior particle opacity
+            opacity = torch.ones(mu.shape[0], dtype=torch.float32, device=mu.device, requires_grad=True)
+
             # Compute loss
             t0 = time.time()
             loss_components = loss_manager.compute_render_loss(
@@ -202,7 +207,8 @@ def run_e2e_episode_session(
                 mu=mu,
                 view_params=view_params,
                 cov_target=cov_target,  # ✅ Pass target covariance from target_render
-                F=F_interp
+                F=F_interp,
+                opacity=opacity  # 🔥 NEW: Per-Gaussian opacity for shrinkage regularization
             )
             t_loss = time.time() - t0
 
@@ -216,7 +222,8 @@ def run_e2e_episode_session(
             print(f"  │  ├─ Edge:      {loss_components.get('loss_edge', torch.tensor(0.0)).item():.6f}", flush=True)
             print(f"  │  ├─ Cov align: {loss_components.get('loss_cov_align', torch.tensor(0.0)).item():.6f}", flush=True)
             print(f"  │  ├─ Cov reg:   {loss_components.get('loss_cov_reg', torch.tensor(0.0)).item():.6f}", flush=True)
-            print(f"  │  └─ Det barrier: {loss_components.get('loss_det_barrier', torch.tensor(0.0)).item():.6f}", flush=True)
+            print(f"  │  ├─ Det barrier: {loss_components.get('loss_det_barrier', torch.tensor(0.0)).item():.6f}", flush=True)
+            print(f"  │  └─ Opacity shrink: {loss_components.get('loss_opacity_shrink', torch.tensor(0.0)).item():.6f} (interior: {loss_components.get('opacity_shrink_num_interior', 0)})", flush=True)
 
             # Store for final reporting
             last_render_loss_components = {k: v.item() if torch.is_tensor(v) else v

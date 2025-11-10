@@ -304,7 +304,8 @@ class E2ELossManager:
         view_params: Optional[Dict] = None,
         cov_target: Optional[torch.Tensor] = None,
         F: Optional[torch.Tensor] = None,  # 🔥 NEW: Deformation gradient for det(F) barrier
-        surface_mask: Optional[torch.Tensor] = None  # 🔥 NEW: (N,) boolean mask for surface particles
+        surface_mask: Optional[torch.Tensor] = None,  # 🔥 NEW: (N,) boolean mask for surface particles
+        opacity: Optional[torch.Tensor] = None  # 🔥 NEW: (N,) per-Gaussian opacity for shrinkage regularization
     ) -> Dict[str, torch.Tensor]:
         """
         Compute comprehensive render loss (DIFFERENTIABLE).
@@ -318,6 +319,7 @@ class E2ELossManager:
             cov_target: (N, 3, 3) target covariances from curvature
             F: (N, 3, 3) deformation gradients for det(F) barrier
             surface_mask: (N,) boolean tensor indicating surface particles (optional)
+            opacity: (N,) per-Gaussian opacity values for shrinkage regularization (optional)
 
         Returns:
             Dictionary of loss components including 'loss_render_total'
@@ -355,6 +357,9 @@ class E2ELossManager:
         total += self._compute_coverage_loss(pred, target, losses)
         total += self._compute_cov_spd_regularization(cov, losses)
         total += self._compute_det_barrier_loss(F, losses)
+
+        # 🔥 NEW: Opacity shrinkage (interior particles only)
+        total += self._compute_opacity_shrinkage_loss(opacity, surface_mask, losses)
 
         # 🔥 FIXED: Do NOT apply render_loss_weight here!
         # It should be applied during gradient combination in training_loop.py
@@ -766,7 +771,69 @@ class E2ELossManager:
         losses['loss_det_barrier_unweighted'] = loss_det_unweighted  # For debugging
 
         return loss_det_weighted
-    
+
+    def _compute_opacity_shrinkage_loss(
+        self,
+        opacity: Optional[torch.Tensor],
+        surface_mask: Optional[torch.Tensor],
+        losses: Dict[str, torch.Tensor]
+    ) -> torch.Tensor:
+        """
+        Compute opacity shrinkage regularization for interior particles (DIFFERENTIABLE).
+
+        Penalize opacity of NON-surface particles to encourage them to fade away.
+        This allows natural pruning of interior particles without affecting surface rendering.
+
+        Args:
+            opacity: (N,) opacity values from renderer
+            surface_mask: (N,) boolean mask indicating surface particles
+            losses: Dictionary to store loss component
+
+        Returns:
+            Weighted opacity shrinkage loss
+        """
+        w_shrink = self.weights.get('w_opacity_shrink', 0.0)
+
+        if w_shrink <= 0 or opacity is None:
+            device = opacity.device if opacity is not None else torch.device('cuda')
+            zero = _zero_tensor(device)
+            losses['loss_opacity_shrink'] = zero
+            losses['loss_opacity_shrink_unweighted'] = 0.0
+            return zero
+
+        device = opacity.device
+
+        # Only penalize NON-surface particles (interior particles)
+        if surface_mask is not None:
+            interior_mask = ~surface_mask
+            num_interior = interior_mask.sum().item()
+
+            if num_interior > 0:
+                # Sum opacity of interior particles only
+                loss_unweighted = opacity[interior_mask].sum()
+
+                # Store statistics
+                losses['opacity_shrink_num_interior'] = num_interior
+                losses['opacity_shrink_mean_interior_opacity'] = opacity[interior_mask].mean().item()
+            else:
+                # No interior particles to penalize
+                loss_unweighted = _zero_tensor(device)
+                losses['opacity_shrink_num_interior'] = 0
+                losses['opacity_shrink_mean_interior_opacity'] = 0.0
+        else:
+            # Fallback: penalize ALL particles (not recommended - will fight with render loss)
+            loss_unweighted = opacity.sum()
+            losses['opacity_shrink_num_interior'] = opacity.shape[0]
+            losses['opacity_shrink_mean_interior_opacity'] = opacity.mean().item()
+            print("[WARN] No surface_mask provided for opacity shrinkage! Penalizing ALL particles.")
+
+        # Apply weight
+        loss_weighted = w_shrink * loss_unweighted
+        losses['loss_opacity_shrink'] = loss_weighted
+        losses['loss_opacity_shrink_unweighted'] = loss_unweighted.item() if isinstance(loss_unweighted, torch.Tensor) else loss_unweighted
+
+        return loss_weighted
+
     def _covariance_regularization(self, cov: torch.Tensor) -> torch.Tensor:
         """
         Regularize covariance matrices (DIFFERENTIABLE).

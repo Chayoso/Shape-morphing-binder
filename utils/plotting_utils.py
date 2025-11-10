@@ -11,14 +11,13 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
-def plot_training_losses(json_path: Path, output_path: Path, figsize=(14, 10)):
+def plot_training_losses(json_path: Path, output_path: Path, figsize=(18, 10)):
     """
-    Plot physics and render losses from training JSON log.
+    Plot physics and render losses from training JSON log in 2×3 layout.
 
     Creates a comprehensive visualization with:
-    - Physics loss (EndLayerMassLoss) over episodes
-    - Render loss components over episodes
-    - Combined loss view
+    Row 1: Physics Loss | Volume (J) | Render Total
+    Row 2: Alpha Loss | Depth Loss | Edge/Cov Align
 
     Args:
         json_path: Path to training_losses.json
@@ -45,11 +44,8 @@ def plot_training_losses(json_path: Path, output_path: Path, figsize=(14, 10)):
     loss_render_total = [ep.get('loss_render_total', None) for ep in episodes_data]
     loss_alpha = [ep.get('loss_alpha', None) for ep in episodes_data]
     loss_depth = [ep.get('loss_depth', None) for ep in episodes_data]
-    loss_photo = [ep.get('loss_photo', None) for ep in episodes_data]
     loss_edge = [ep.get('loss_edge', None) for ep in episodes_data]
     loss_cov_align = [ep.get('loss_cov_align', None) for ep in episodes_data]
-    loss_coverage = [ep.get('loss_coverage', None) for ep in episodes_data]
-    loss_det_barrier = [ep.get('loss_det_barrier', None) for ep in episodes_data]
 
     # Filter out None values
     def filter_none(lst):
@@ -58,92 +54,42 @@ def plot_training_losses(json_path: Path, output_path: Path, figsize=(14, 10)):
     # Extract additional data
     J_min = [ep.get('J_min', None) for ep in episodes_data]
     J_mean = [ep.get('J_mean', None) for ep in episodes_data]
-    num_points = [ep.get('num_surface_points', None) for ep in episodes_data]
 
-    # Create figure with subplots
-    fig, axes = plt.subplots(2, 2, figsize=figsize)
-    fig.suptitle(f'Training Losses - {data["config"]}', fontsize=14, fontweight='bold')
+    # Create figure with 2×3 subplots
+    fig, axes = plt.subplots(2, 3, figsize=figsize)
+    fig.suptitle(f'Training Losses - {data["config"]}', fontsize=16, fontweight='bold', y=0.995)
 
     # ============================================================================
-    # Plot 1: Physics Loss
+    # Row 1, Col 1: Physics Loss
     # ============================================================================
     ax = axes[0, 0]
     physics_filtered = filter_none(loss_physics)
     if any(~np.isnan(physics_filtered)):
-        ax.plot(episodes, physics_filtered, 'o-', linewidth=2, markersize=4, label='Physics Loss', color='#2E86AB')
-        ax.set_xlabel('Episode', fontsize=11)
-        ax.set_ylabel('Loss (EndLayerMassLoss)', fontsize=11)
-        ax.set_title('Physics Loss (Grid Mass Matching)', fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=10)
+        ax.plot(episodes, physics_filtered, 'o-', linewidth=2.5, markersize=5,
+                label='Physics Loss', color='#2E86AB')
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Loss Value', fontsize=12)
+        ax.set_title('Physics Loss', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
 
-        # Add statistics
+        # Add statistics box
         valid_physics = [x for x in physics_filtered if not np.isnan(x)]
         if valid_physics:
-            ax.text(0.02, 0.98, f'Initial: {valid_physics[0]:.2f}\nFinal: {valid_physics[-1]:.2f}\nReduction: {(valid_physics[0]-valid_physics[-1]):.2f}',
-                   transform=ax.transAxes, fontsize=9, verticalalignment='top',
-                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+            reduction_pct = ((valid_physics[0] - valid_physics[-1]) / valid_physics[0] * 100)
+            ax.text(0.98, 0.97,
+                   f'Start: {valid_physics[0]:.1f}\nEnd: {valid_physics[-1]:.1f}\n↓ {reduction_pct:.1f}%',
+                   transform=ax.transAxes, fontsize=10, verticalalignment='top',
+                   horizontalalignment='right',
+                   bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.7, edgecolor='#2E86AB', linewidth=2))
     else:
-        ax.text(0.5, 0.5, 'No physics loss data', ha='center', va='center', transform=ax.transAxes, fontsize=12)
-        ax.set_title('Physics Loss (No Data)', fontsize=12)
+        ax.text(0.5, 0.5, 'No Data', ha='center', va='center',
+                transform=ax.transAxes, fontsize=14, color='gray')
+        ax.set_title('Physics Loss (No Data)', fontsize=13)
 
     # ============================================================================
-    # Plot 2: Render Loss (Total)
+    # Row 1, Col 2: Volume (Jacobian)
     # ============================================================================
     ax = axes[0, 1]
-    render_filtered = filter_none(loss_render_total)
-    if any(~np.isnan(render_filtered)):
-        ax.plot(episodes, render_filtered, 'o-', linewidth=2, markersize=4, label='Total Render Loss', color='#A23B72')
-        ax.set_xlabel('Episode', fontsize=11)
-        ax.set_ylabel('Loss (Weighted Sum)', fontsize=11)
-        ax.set_title('Render Loss (Total)', fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=10)
-
-        # Add statistics
-        valid_render = [x for x in render_filtered if not np.isnan(x)]
-        if valid_render:
-            ax.text(0.02, 0.98, f'Initial: {valid_render[0]:.2f}\nFinal: {valid_render[-1]:.2f}\nReduction: {(valid_render[0]-valid_render[-1]):.2f}',
-                   transform=ax.transAxes, fontsize=9, verticalalignment='top',
-                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
-    else:
-        ax.text(0.5, 0.5, 'No render loss data', ha='center', va='center', transform=ax.transAxes, fontsize=12)
-        ax.set_title('Render Loss (No Data)', fontsize=12)
-
-    # ============================================================================
-    # Plot 3: Render Loss Components
-    # ============================================================================
-    ax = axes[1, 0]
-
-    components = {
-        'Alpha': (filter_none(loss_alpha), '#E63946'),
-        'Depth': (filter_none(loss_depth), '#F77F00'),
-        'Photo': (filter_none(loss_photo), '#06A77D'),
-        'Edge': (filter_none(loss_edge), '#118AB2'),
-        'Cov Align': (filter_none(loss_cov_align), '#073B4C'),
-    }
-
-    has_data = False
-    for name, (values, color) in components.items():
-        if any(~np.isnan(values)):
-            ax.plot(episodes, values, 'o-', linewidth=1.5, markersize=3, label=name, color=color, alpha=0.8)
-            has_data = True
-
-    if has_data:
-        ax.set_xlabel('Episode', fontsize=11)
-        ax.set_ylabel('Loss Value', fontsize=11)
-        ax.set_title('Render Loss Components', fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=9, loc='best')
-    else:
-        ax.text(0.5, 0.5, 'No component data', ha='center', va='center', transform=ax.transAxes, fontsize=12)
-        ax.set_title('Render Components (No Data)', fontsize=12)
-
-    # ============================================================================
-    # Plot 4: Jacobian Statistics (Compression/Expansion)
-    # ============================================================================
-    ax = axes[1, 1]
-
     J_min_filtered = filter_none(J_min)
     J_mean_filtered = filter_none(J_mean)
 
@@ -151,31 +97,142 @@ def plot_training_losses(json_path: Path, output_path: Path, figsize=(14, 10)):
 
     if has_jacobian:
         if any(~np.isnan(J_min_filtered)):
-            ax.plot(episodes, J_min_filtered, 'o-', linewidth=1.5, markersize=4,
-                   label='J_min (worst compression)', color='#E63946', alpha=0.8)
+            ax.plot(episodes, J_min_filtered, 'o-', linewidth=2.5, markersize=5,
+                   label='J_min (max compression)', color='#E63946')
         if any(~np.isnan(J_mean_filtered)):
-            ax.plot(episodes, J_mean_filtered, 'o-', linewidth=1.5, markersize=4,
-                   label='J_mean (avg volume)', color='#2E86AB', alpha=0.8)
+            ax.plot(episodes, J_mean_filtered, 's-', linewidth=2.5, markersize=5,
+                   label='J_mean (avg volume)', color='#06A77D')
 
-        # Add reference line at J=1.0 (no volume change)
-        ax.axhline(y=1.0, color='gray', linestyle='--', linewidth=1, alpha=0.5, label='J=1 (neutral)')
+        # Reference line at J=1.0
+        ax.axhline(y=1.0, color='gray', linestyle='--', linewidth=2, alpha=0.6, label='J=1 (no change)')
 
-        ax.set_xlabel('Episode', fontsize=11)
-        ax.set_ylabel('det(F) - Jacobian', fontsize=11)
-        ax.set_title('Volume Preservation (det F)', fontsize=12, fontweight='bold')
-        ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=9, loc='best')
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_ylabel('det(F)', fontsize=12)
+        ax.set_title('Volume Preservation', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.legend(fontsize=9, loc='best', framealpha=0.9)
 
-        # Add interpretation text
-        ax.text(0.02, 0.98, 'J < 1: Compression\nJ > 1: Expansion\nJ = 1: Volume preserved',
-               transform=ax.transAxes, fontsize=8, verticalalignment='top',
-               bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.5))
+        # Set y-axis limits to focus on relevant range
+        all_j = J_min_filtered + J_mean_filtered
+        valid_j = [x for x in all_j if not np.isnan(x)]
+        if valid_j:
+            j_range = max(valid_j) - min(valid_j)
+            ax.set_ylim([min(valid_j) - 0.1*j_range, max(valid_j) + 0.1*j_range])
     else:
-        ax.text(0.5, 0.5, 'No Jacobian data', ha='center', va='center', transform=ax.transAxes, fontsize=12)
-        ax.set_title('Jacobian (No Data)', fontsize=12)
+        ax.text(0.5, 0.5, 'No Data', ha='center', va='center',
+                transform=ax.transAxes, fontsize=14, color='gray')
+        ax.set_title('Volume (No Data)', fontsize=13)
+
+    # ============================================================================
+    # Row 1, Col 3: Render Loss (Total)
+    # ============================================================================
+    ax = axes[0, 2]
+    render_filtered = filter_none(loss_render_total)
+    if any(~np.isnan(render_filtered)):
+        ax.plot(episodes, render_filtered, 'o-', linewidth=2.5, markersize=5,
+                label='Total Render', color='#A23B72')
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Loss Value', fontsize=12)
+        ax.set_title('Render Loss (Total)', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
+
+        # Add statistics box
+        valid_render = [x for x in render_filtered if not np.isnan(x)]
+        if valid_render:
+            reduction_pct = ((valid_render[0] - valid_render[-1]) / valid_render[0] * 100)
+            ax.text(0.98, 0.97,
+                   f'Start: {valid_render[0]:.2f}\nEnd: {valid_render[-1]:.2f}\n↓ {reduction_pct:.1f}%',
+                   transform=ax.transAxes, fontsize=10, verticalalignment='top',
+                   horizontalalignment='right',
+                   bbox=dict(boxstyle='round', facecolor='plum', alpha=0.7, edgecolor='#A23B72', linewidth=2))
+    else:
+        ax.text(0.5, 0.5, 'No Data', ha='center', va='center',
+                transform=ax.transAxes, fontsize=14, color='gray')
+        ax.set_title('Render Loss (No Data)', fontsize=13)
+
+    # ============================================================================
+    # Row 2, Col 1: Alpha Loss
+    # ============================================================================
+    ax = axes[1, 0]
+    alpha_filtered = filter_none(loss_alpha)
+    if any(~np.isnan(alpha_filtered)):
+        ax.plot(episodes, alpha_filtered, 'o-', linewidth=2.5, markersize=5,
+                label='Alpha (Silhouette)', color='#E63946')
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Loss Value', fontsize=12)
+        ax.set_title('Alpha Loss', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
+
+        # Add statistics
+        valid_alpha = [x for x in alpha_filtered if not np.isnan(x)]
+        if valid_alpha:
+            reduction_pct = ((valid_alpha[0] - valid_alpha[-1]) / valid_alpha[0] * 100)
+            ax.text(0.98, 0.97,
+                   f'Start: {valid_alpha[0]:.3f}\nEnd: {valid_alpha[-1]:.3f}\n↓ {reduction_pct:.1f}%',
+                   transform=ax.transAxes, fontsize=10, verticalalignment='top',
+                   horizontalalignment='right',
+                   bbox=dict(boxstyle='round', facecolor='mistyrose', alpha=0.7, edgecolor='#E63946', linewidth=2))
+    else:
+        ax.text(0.5, 0.5, 'No Data', ha='center', va='center',
+                transform=ax.transAxes, fontsize=14, color='gray')
+        ax.set_title('Alpha Loss (No Data)', fontsize=13)
+
+    # ============================================================================
+    # Row 2, Col 2: Depth Loss
+    # ============================================================================
+    ax = axes[1, 1]
+    depth_filtered = filter_none(loss_depth)
+    if any(~np.isnan(depth_filtered)):
+        ax.plot(episodes, depth_filtered, 'o-', linewidth=2.5, markersize=5,
+                label='Depth (3D Structure)', color='#F77F00')
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Loss Value', fontsize=12)
+        ax.set_title('Depth Loss', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
+
+        # Add statistics
+        valid_depth = [x for x in depth_filtered if not np.isnan(x)]
+        if valid_depth:
+            reduction_pct = ((valid_depth[0] - valid_depth[-1]) / valid_depth[0] * 100)
+            ax.text(0.98, 0.97,
+                   f'Start: {valid_depth[0]:.2f}\nEnd: {valid_depth[-1]:.2f}\n↓ {reduction_pct:.1f}%',
+                   transform=ax.transAxes, fontsize=10, verticalalignment='top',
+                   horizontalalignment='right',
+                   bbox=dict(boxstyle='round', facecolor='moccasin', alpha=0.7, edgecolor='#F77F00', linewidth=2))
+    else:
+        ax.text(0.5, 0.5, 'No Data', ha='center', va='center',
+                transform=ax.transAxes, fontsize=14, color='gray')
+        ax.set_title('Depth Loss (No Data)', fontsize=13)
+
+    # ============================================================================
+    # Row 2, Col 3: Edge / Cov Align
+    # ============================================================================
+    ax = axes[1, 2]
+    edge_filtered = filter_none(loss_edge)
+    cov_filtered = filter_none(loss_cov_align)
+
+    has_edge_cov = any(~np.isnan(edge_filtered)) or any(~np.isnan(cov_filtered))
+
+    if has_edge_cov:
+        if any(~np.isnan(edge_filtered)):
+            ax.plot(episodes, edge_filtered, 'o-', linewidth=2.5, markersize=5,
+                   label='Edge (Sharpness)', color='#118AB2', alpha=0.85)
+        if any(~np.isnan(cov_filtered)):
+            ax.plot(episodes, cov_filtered, 's-', linewidth=2.5, markersize=5,
+                   label='Cov Align (Curvature)', color='#073B4C', alpha=0.85)
+
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Loss Value', fontsize=12)
+        ax.set_title('Edge / Covariance Align', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.legend(fontsize=10, loc='best', framealpha=0.9)
+    else:
+        ax.text(0.5, 0.5, 'No Edge/Cov Data\n(Losses disabled)', ha='center', va='center',
+                transform=ax.transAxes, fontsize=12, color='gray')
+        ax.set_title('Edge / Cov Align (No Data)', fontsize=13)
 
     # Adjust layout and save
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0, 1, 0.99])
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.close()
 

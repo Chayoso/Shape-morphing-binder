@@ -1,0 +1,111 @@
+# ============================================================================
+# ABLATION STUDY 3: Alpha Loss Only
+# ============================================================================
+# Physics + Alpha/silhouette alignment loss
+# - Tests global shape boundary matching via alpha channel (opacity)
+# - Expected: Good silhouette match, poor interior detail
+# ============================================================================
+
+# Mesh Configuration
+input_mesh: assets/isosphere.obj
+target_mesh: assets/bunny.obj
+
+# Training Configuration
+training:
+  num_episodes: 50
+  save_frequency: 10
+  use_e2e: true              # Enable E2E renderer
+  use_session_mode: true     # Use batched C++ session mode
+
+# Physics Parameters
+physics:
+  timesteps: 10              # Simulation steps per episode
+  dt: 0.00833333            # Time step (120 fps)
+  drag: 0.5                 # Air drag coefficient
+  smoothing_factor: 0.955   # APIC smoothing
+  external_force: [0.0, 0.0, 0.0]
+
+# Optimization Parameters
+optimization:
+  control_stride: 1
+  max_gd_iterations: 1
+  max_ls_iterations: 15
+  initial_alpha: 0.01
+  gd_tolerance: 0
+  adaptive_alpha: true
+  adaptive_alpha_target_norm: 2500.0
+  adaptive_alpha_min_scale: 0.1
+
+# ADAM Optimizer
+adam:
+  beta1: 0.9
+  beta2: 0.999
+  epsilon: 0.001
+
+# Loss Configuration - ALPHA ONLY
+loss:
+  # Individual loss weights (only alpha enabled)
+  weights:
+    edge: 0.0               # Edge loss (disabled)
+    alpha: 1.0              # ← ONLY alpha/silhouette loss (enabled)
+    depth: 0.0              # Depth map loss (disabled)
+    photo: 0.0              # Photometric loss (disabled)
+    cov_align: 0.0          # Covariance alignment (disabled)
+    cov_reg: 0.01           # Covariance regularization (always on)
+    det_barrier: 0.1        # Determinant barrier (always on)
+
+  # Global render loss weight
+  render_loss_weight: 1e4   # Standard render weight
+
+  # Gradient combination strategy
+  gradient_combination_strategy: "physics"
+  use_pcgrad: true
+  pcgrad_threshold: -0.1
+
+# Upsampling and Covariance Configuration
+upsample:
+  use_simple_pipeline: true
+
+  covariance:
+    # Target mesh covariance
+    use_curvature_for_target: true
+    sigma_isotropic: 0.038
+
+    # Curvature-based sigma parameters
+    curvature_sigma:
+      sigma_n0: 0.1          # Normal direction base sigma
+      sigma_t0: 0.12         # Tangent direction base sigma
+      a: 6.0                 # Curvature scaling factor
+      b: 5.0                 # Curvature offset
+      a_n: 1.5               # Normal anisotropy factor
+      u: 1.5                 # Tangent anisotropy factor
+      k_floor_normal: 0.002  # Minimum normal curvature
+      k_floor_tangent: 0.005 # Minimum tangent curvature
+
+    # Source mesh covariance
+    sigma0: 0.12
+    k_F: 32                  # F-field interpolation neighbors
+
+    # Multi-scale F-field interpolation
+    use_multiscale_F: true
+    k_F_coarse: 64           # Coarse-scale neighbors
+    k_F_fine: 16             # Fine-scale neighbors
+    multiscale_blend_mode: "adaptive"
+
+    # Subdivision parameters
+    enable_subdivision: true
+    subdivision_target: 250000
+    subdivision_jitter: 0.4
+    sdf_jitter_scale: 0.3
+
+    # Singular value bounds
+    sv_min: 0.8
+    sv_max: 1.2
+
+    # F-field smoothing
+    use_F_smoothing: false
+
+# Debug and Output
+debug:
+  output_dir: output/ablation/03_alpha_only
+  save_png: true
