@@ -154,6 +154,58 @@ def _deep_update(base_dict: Dict, update_dict: Dict) -> None:
             base_dict[key] = value
 
 
+def build_runtime_config(cfg: Dict, out_dir: Path) -> tuple[Dict, Dict]:
+    """
+    Normalize top-level config structure and produce the upsample runtime config.
+
+    Returns:
+        (cfg_runtime, rs) where cfg_runtime is a deep copy of the user config with
+        required sections ensured, and rs is the prepared upsample config.
+    """
+    cfg_runtime = _safe_deepcopy(cfg)
+
+    sim_cfg = cfg_runtime.setdefault("simulation", {})
+    opt_cfg = cfg_runtime.setdefault("optimization", {})
+    render_cfg = cfg_runtime.setdefault("render", {})
+
+    # Fill basic defaults (minimal)
+    sim_cfg.setdefault("grid_dx", 1.0)
+    sim_cfg.setdefault("grid_min_point", [-16.0, -16.0, -16.0])
+    sim_cfg.setdefault("grid_max_point", [16.0, 16.0, 16.0])
+
+    render_cfg.setdefault("surface_mask_ratio", 0.2)
+    render_cfg.setdefault("surface_mask_mode", "last")
+
+    rs_default = default_cfg()
+    user_upsample = _safe_deepcopy(cfg_runtime.get("upsample", {}) or {})
+
+    legacy_mag = opt_cfg.get("magnitude_strategy")
+    if legacy_mag is not None and 'magnitude_strategy' not in user_upsample:
+        user_upsample['magnitude_strategy'] = legacy_mag
+
+    render_loss_weight = user_upsample.get("render_loss_weight")
+    if isinstance(render_loss_weight, str):
+        try:
+            user_upsample["render_loss_weight"] = float(render_loss_weight)
+        except ValueError:
+            pass
+
+    adapted = adapt_config({'upsample': user_upsample})
+    rs_default.update(adapted)
+
+    rs_default.setdefault("debug", {})
+    rs_default["debug"]["output_dir"] = str(out_dir)
+    rs_default["output_dir"] = str(out_dir)
+
+    rs_default["physics_grid"] = {
+        "grid_min": sim_cfg.get("grid_min_point", [-16.0, -16.0, -16.0]),
+        "grid_max": sim_cfg.get("grid_max_point", [16.0, 16.0, 16.0]),
+        "grid_dx": sim_cfg.get("grid_dx", 1.0),
+    }
+
+    return cfg_runtime, rs_default
+
+
 def validate_config(cfg: Dict) -> None:
     """Basic config validation."""
     required = ['input_mesh_path', 'target_mesh_path']
@@ -209,31 +261,17 @@ def main():
         "episodes": []
     }
 
-    # 🔥 CRITICAL: Pass output_dir to upsampling config for stage exports
-    if "upsample" not in cfg:
-        cfg["upsample"] = {}
-    if "debug" not in cfg["upsample"]:
-        cfg["upsample"]["debug"] = {}
-    cfg["upsample"]["debug"]["output_dir"] = str(out_dir)
-    cfg["upsample"]["output_dir"] = str(out_dir)  # Top-level도 설정
-    
-    # 🔥 NEW: Pass physics grid parameters to upsampling (SDF bbox 일치)
-    sim_cfg = cfg.get("simulation", {})
-    cfg["upsample"]["physics_grid"] = {
-        "grid_min": sim_cfg.get("grid_min_point", [-16.0, -16.0, -16.0]),
-        "grid_max": sim_cfg.get("grid_max_point", [16.0, 16.0, 16.0]),
-        "grid_dx": sim_cfg.get("grid_dx", 1.0)
-    }
+    cfg_runtime, rs = build_runtime_config(cfg, out_dir)
     
     # ════════════════════════════════════════════════════════════════════════════
     # Initialize Physics
     # ════════════════════════════════════════════════════════════════════════════
     print("\n[Init] Building optimization input...", flush=True)
-    opt = build_opt_input(cfg)
+    opt = build_opt_input(cfg_runtime)
 
     print(f"[Init] Loading meshes...", flush=True)
-    print(f"  Input:  {cfg['input_mesh_path']}", flush=True)
-    print(f"  Target: {cfg['target_mesh_path']}", flush=True)
+    print(f"  Input:  {cfg_runtime['input_mesh_path']}", flush=True)
+    print(f"  Target: {cfg_runtime['target_mesh_path']}", flush=True)
     
     input_pc, target_pc = initialize_point_clouds(opt)
     input_grid, target_grid = initialize_grids(opt)
@@ -261,14 +299,6 @@ def main():
     # ════════════════════════════════════════════════════════════════════════════
     print("[Config] Setting up upsampling pipeline...", flush=True)
     
-    rs = default_cfg()
-    rs_user = cfg.get("upsample", {}) or {}
-    
-    # Adapt new config structure to internal format
-    adapted_cfg = adapt_config({'upsample': rs_user})
-    rs.update(adapted_cfg)
-    
-    # Show curvature_sigma config if present
     if 'covariance' in rs and 'curvature_sigma' in rs['covariance']:
         cs = rs['covariance']['curvature_sigma']
         print(f"[Config] ✓ Target covariance (curvature-based):")
@@ -279,14 +309,14 @@ def main():
     # Setup Rendering
     # ════════════════════════════════════════════════════════════════════════════
     print("[Init] Setting up renderer...", flush=True)
-    cam_cfg = cfg.get("camera", {}) or {}
-    render_cfg = cfg.get("render", {}) or {}
+    cam_cfg = cfg_runtime.get("camera", {}) or {}
+    render_cfg = cfg_runtime.get("render", {}) or {}
     particle_color = render_cfg.get("particle_color", [0.27, 0.51, 0.71])
 
     # ════════════════════════════════════════════════════════════════════════════
     # Setup E2E Training (controlled by config only)
     # ════════════════════════════════════════════════════════════════════════════
-    enable_e2e = cfg.get("optimization", {}).get("loss", {}).get("enabled", False)
+    enable_e2e = cfg_runtime.get("optimization", {}).get("loss", {}).get("enabled", False)
 
     # 🚀 Use training mode (lower resolution) if E2E is enabled
     renderer, view_params = setup_renderer(cam_cfg, render_cfg, training_mode=enable_e2e)

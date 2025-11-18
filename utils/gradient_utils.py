@@ -437,11 +437,17 @@ def normalize_and_combine_gradients(
     # ═══════════════════════════════════════════════════════════════
     # Step 1: Normalize to unit vectors
     # ═══════════════════════════════════════════════════════════════
-    dLdF_phys_unit = dLdF_physics / (g_F_phys + eps)
-    dLdx_phys_unit = dLdx_physics / (g_x_phys + eps)
+    phys_den_F = g_F_phys if g_F_phys > eps else max(g_F_render, eps)
+    phys_den_x = g_x_phys if g_x_phys > eps else max(g_x_render, eps)
 
-    dLdF_render_unit = dLdF_render / (g_F_render + eps)
-    dLdx_render_unit = dLdx_render / (g_x_render + eps)
+    dLdF_phys_unit = dLdF_physics / phys_den_F
+    dLdx_phys_unit = dLdx_physics / phys_den_x
+
+    render_den_F = max(g_F_render, eps)
+    render_den_x = max(g_x_render, eps)
+
+    dLdF_render_unit = dLdF_render / render_den_F
+    dLdx_render_unit = dLdx_render / render_den_x
 
     # ═══════════════════════════════════════════════════════════════
     # Step 2: Weighted combination of unit vectors
@@ -461,7 +467,7 @@ def normalize_and_combine_gradients(
         else:
             target_F = g_F_render
             print(f"[DEBUG] Physics has no F grads, using render F magnitude: {target_F:.6e}")
-        target_x = g_x_phys
+        target_x = g_x_phys if g_x_phys > eps else max(g_x_render, eps)
     elif magnitude_strategy == 'weighted':
         # Balanced: Weighted average of magnitudes
         target_F = w_physics * g_F_phys + w_render * g_F_render
@@ -504,7 +510,7 @@ def normalize_and_combine_gradients(
         'w_physics': w_physics,
         'w_render': w_render,
         'magnitude_strategy': magnitude_strategy,
-        'magnitude_scale': float(target_F / (g_F_phys + eps)),
+        'magnitude_scale': float(target_F / max(phys_den_F, eps)),
     }
 
     return dLdF_combined, dLdx_combined, info
@@ -519,4 +525,3 @@ __all__ = [
     'diagnose_gradient_health',
     'normalize_and_combine_gradients',
 ]
-

@@ -35,7 +35,7 @@ from .io_utils import (
     save_episode_data,
 )
 
-from .visualization_utils import (
+from visualization.utils import (
     save_episode_images,
     save_episode_comparisons,
     create_axis_histogram,
@@ -77,4 +77,3 @@ __all__ = [
     'create_axis_histogram',
     'visualize_episode',
 ]
-

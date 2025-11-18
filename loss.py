@@ -305,7 +305,8 @@ class E2ELossManager:
         cov_target: Optional[torch.Tensor] = None,
         F: Optional[torch.Tensor] = None,  # 🔥 NEW: Deformation gradient for det(F) barrier
         surface_mask: Optional[torch.Tensor] = None,  # 🔥 NEW: (N,) boolean mask for surface particles
-        opacity: Optional[torch.Tensor] = None  # 🔥 NEW: (N,) per-Gaussian opacity for shrinkage regularization
+        opacity: Optional[torch.Tensor] = None,  # 🔥 NEW: (N,) per-Gaussian opacity for shrinkage regularization
+        visibility_ratio: Optional[float] = None  # 🔥 NEW: Scale image losses when only subset visible
     ) -> Dict[str, torch.Tensor]:
         """
         Compute comprehensive render loss (DIFFERENTIABLE).
@@ -344,9 +345,11 @@ class E2ELossManager:
             losses['surface_ratio'] = num_surface / num_total if num_total > 0 else 0.0
 
         # Compute individual loss components (all differentiable)
-        total += self._compute_alpha_loss(pred, target, losses)
-        total += self._compute_depth_loss(pred, target, losses)
-        total += self._compute_photo_loss(pred, target, losses)
+        vis_scale = max(float(visibility_ratio) if visibility_ratio is not None else 1.0, 1e-3)
+
+        total += self._compute_alpha_loss(pred, target, losses, vis_scale)
+        total += self._compute_depth_loss(pred, target, losses, vis_scale)
+        total += self._compute_photo_loss(pred, target, losses, vis_scale)
 
         # 🔥 SURFACE-ONLY LOSSES: Pass surface mask to filter contributions
         total += self._compute_edge_loss(pred, target, mu, cov, view_params, losses, surface_mask)
@@ -354,7 +357,7 @@ class E2ELossManager:
 
         # VOLUME LOSSES: Apply to ALL particles (no mask)
         total += self._compute_cov_reg_loss(cov, losses)
-        total += self._compute_coverage_loss(pred, target, losses)
+        total += self._compute_coverage_loss(pred, target, losses, vis_scale)
         total += self._compute_cov_spd_regularization(cov, losses)
         total += self._compute_det_barrier_loss(F, losses)
 
@@ -392,7 +395,8 @@ class E2ELossManager:
         self,
         pred: Dict[str, torch.Tensor],
         target: Dict[str, torch.Tensor],
-        losses: Dict[str, torch.Tensor]
+        losses: Dict[str, torch.Tensor],
+        vis_scale: float = 1.0
     ) -> torch.Tensor:
         """
         Compute alpha channel loss (DIFFERENTIABLE).
@@ -419,7 +423,7 @@ class E2ELossManager:
         loss_alpha_unweighted = F.l1_loss(pred_alpha, target_alpha, reduction='sum') / area
 
         # Store weighted loss (consistent with logging)
-        loss_alpha_weighted = self.weights['w_alpha'] * loss_alpha_unweighted
+        loss_alpha_weighted = self.weights['w_alpha'] * loss_alpha_unweighted * vis_scale
         losses['loss_alpha'] = loss_alpha_weighted
         losses['loss_alpha_unweighted'] = loss_alpha_unweighted
         return loss_alpha_weighted
@@ -428,7 +432,8 @@ class E2ELossManager:
         self,
         pred: Dict[str, torch.Tensor],
         target: Dict[str, torch.Tensor],
-        losses: Dict[str, torch.Tensor]
+        losses: Dict[str, torch.Tensor],
+        vis_scale: float = 1.0
     ) -> torch.Tensor:
         """
         Compute coverage loss to prevent holes (DIFFERENTIABLE).
@@ -471,7 +476,7 @@ class E2ELossManager:
 
         # Store weighted loss (consistent with logging)
         w_coverage = self.weights.get('w_coverage', 0.0)
-        loss_coverage_weighted = w_coverage * loss_coverage_unweighted
+        loss_coverage_weighted = w_coverage * loss_coverage_unweighted * vis_scale
         losses['loss_coverage'] = loss_coverage_weighted
         losses['loss_coverage_unweighted'] = loss_coverage_unweighted
         return loss_coverage_weighted
@@ -480,7 +485,8 @@ class E2ELossManager:
         self,
         pred: Dict[str, torch.Tensor],
         target: Dict[str, torch.Tensor],
-        losses: Dict[str, torch.Tensor]
+        losses: Dict[str, torch.Tensor],
+        vis_scale: float = 1.0
     ) -> torch.Tensor:
         """
         Compute depth loss with validity masking (DIFFERENTIABLE).
@@ -512,7 +518,7 @@ class E2ELossManager:
             loss_depth_unweighted = (pred_depth[valid_mask] - target_depth[valid_mask]).abs().sum() / valid_count
 
             # Store weighted loss (consistent with logging)
-            loss_depth_weighted = self.weights['w_depth'] * loss_depth_unweighted
+            loss_depth_weighted = self.weights['w_depth'] * loss_depth_unweighted * vis_scale
             losses['loss_depth'] = loss_depth_weighted
             losses['loss_depth_unweighted'] = loss_depth_unweighted
             return loss_depth_weighted
@@ -525,7 +531,8 @@ class E2ELossManager:
         self,
         pred: Dict[str, torch.Tensor],
         target: Dict[str, torch.Tensor],
-        losses: Dict[str, torch.Tensor]
+        losses: Dict[str, torch.Tensor],
+        vis_scale: float = 1.0
     ) -> torch.Tensor:
         """
         Compute photometric loss (DIFFERENTIABLE).
@@ -549,7 +556,7 @@ class E2ELossManager:
         loss_photo_unweighted = F.l1_loss(pred['image'], target['image'], reduction='sum') / area
 
         # Store weighted loss (consistent with logging)
-        loss_photo_weighted = self.weights['w_photo'] * loss_photo_unweighted
+        loss_photo_weighted = self.weights['w_photo'] * loss_photo_unweighted * vis_scale
         losses['loss_photo'] = loss_photo_weighted
         losses['loss_photo_unweighted'] = loss_photo_unweighted
         return loss_photo_weighted
@@ -1329,20 +1336,29 @@ def covariance_spectral_loss(
         print(f"[WARN] Skipping spectral loss due to invalid inputs")
         return _zero_tensor(device)
 
-    # 🔥 CRITICAL FIX: Apply surface mask using WEIGHTED AVERAGING
-    # If mask provided, only compute loss on surface particles
+    # 🔥 Prefer strict masking (subset) when possible
+    particle_weights = None
+    num_surface = cov_pred.shape[0]
     if surface_mask is not None:
-        # Convert boolean to float weights AND ensure same device
-        surface_mask = _safe_device_transfer(surface_mask, device)
-        particle_weights = surface_mask.float()  # [N]
-        num_surface = particle_weights.sum().item()
-
-        if num_surface < 1:
+        mask_tensor = _safe_device_transfer(surface_mask, device).bool()
+        if mask_tensor.shape[0] != cov_pred.shape[0]:
+            print(f"[WARN] surface_mask length mismatch in spectral loss (mask={mask_tensor.shape[0]}, cov={cov_pred.shape[0]})")
+        elif not mask_tensor.any():
             print(f"[WARN] No surface particles in mask! Returning zero loss.")
             return _zero_tensor(device)
-    else:
-        particle_weights = None
-        num_surface = cov_pred.shape[0]
+        else:
+            num_surface = mask_tensor.sum().item()
+            if cov_target.shape[0] == num_surface:
+                cov_pred = cov_pred[mask_tensor]
+            else:
+                # Fallback to weighted averaging if sizes differ
+                particle_weights = mask_tensor.float()
+
+    if particle_weights is not None:
+        num_surface = particle_weights.sum().item()
+        if num_surface < 1:
+            print(f"[WARN] Surface weights sum to zero! Returning zero loss.")
+            return _zero_tensor(device)
 
     # ✅ Handle size mismatch with global statistics instead of truncation
     use_global_statistics = (cov_pred.shape[0] != cov_target.shape[0])

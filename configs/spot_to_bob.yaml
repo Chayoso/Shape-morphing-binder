@@ -1,10 +1,10 @@
-input_mesh_path: "assets/isosphere.obj"
-target_mesh_path: "assets/bunny.obj"
-output_dir: "output/bunny/"
+input_mesh_path: "assets/bob.obj"
+target_mesh_path: "assets/spot.obj"
+output_dir: "output/spot_to_bob/"
 
 simulation:
   grid_dx: 1.0
-  points_per_cell_cuberoot: 3
+  points_per_cell_cuberoot: 8
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
   lam: 38888.89
@@ -16,7 +16,7 @@ simulation:
   smoothing_factor: 0.955
 
 optimization:
-  num_animations: 20
+  num_animations: 80
   num_timesteps: 10
   control_stride: 1
   max_gd_iters: 1
@@ -31,37 +31,68 @@ optimization:
     cov_reg_mode: eigenvalue
     schedule: constant
     edge_loss_mode: detach_position
-    gradient_boost_factor: 1000.0
+    gradient_boost_factor: 800.0
     debug_edge_gradients: true
-    w_alpha: 2.0
-    w_depth: 5.0
-    w_photo: 1.0
+    w_alpha: 1.5
+    w_depth: 4.0
+    w_photo: 0.8
     w_edge: 3.0
-    w_cov_align: 10.0
-    w_cov_reg: 0.01
-    w_det_barrier: 0.1
+    w_cov_align: 6.0
+    w_cov_reg: 0.02
+    w_det_barrier: 0.15
 
 upsample:
   use_simple_pipeline: true
-  render_loss_weight: 100.0
+  render_loss_weight: 80.0
   magnitude_strategy: normalize
 
+  sampling:
+    M: 120000
+    micro_jitter_scale: 0.18
+    tangent_micro_only: true
+    ensure_anchor_coverage: true
+    uniform_mix: 0.02
+
+  taubin:
+    enabled: true
+    iters: 4
+    k: 32
+    lambda_smooth: 0.62
+    lambda_inflate: -0.5
+    tangent_only: true
+
+  normal_smooth:
+    enabled: true
+    iters: 3
+    k: 24
+    lambda_smooth: 0.85
+
   covariance:
-    sigma_isotropic: 0.038
-    sigma0: 0.06
+    use_curvature_for_target: true
+    sigma_isotropic: 0.036
+    curvature_sigma:
+      sigma_n0: 0.064
+      sigma_t0: 0.08
+      a: 4.0
+      b: 3.0
+      a_n: 1.2
+      u: 1.2
+      k_floor_normal: 0.002
+      k_floor_tangent: 0.004
+    sigma0: 0.055
     k_F: 32
     use_multiscale_F: true
-    k_F_coarse: 128
-    k_F_fine: 8
+    k_F_coarse: 96
+    k_F_fine: 16
     multiscale_blend_mode: adaptive
     enable_subdivision: true
-    subdivision_target: 150000
-    subdivision_jitter: 0.1
-    sv_min: 0.30
-    sv_max: 3.00
-    use_F_smoothing: false
+    subdivision_target: 1500000
+    subdivision_jitter: 0.08
+    sv_min: 0.35
+    sv_max: 2.5
+    use_F_smoothing: true
     F_smooth:
-      lambda_lap: 0.005
+      lambda_lap: 0.01
       num_nodes: 180
       node_knn: 8
       point_knn: 8
@@ -84,26 +115,26 @@ render:
   bg: [1.0, 1.0, 1.0]
   training_resolution_scale: 1.0
   particle_color: [0.27, 0.51, 0.71]
-  surface_mask_ratio: 0.20
+  surface_mask_ratio: 0.25
   surface_mask_mode: last
   surface_masking:
     method: edge
-    edge_percentile: 0.85
-    edge_min_ratio: 0.2
-    edge_min_points: 3000
-    depth_threshold: 0.025
-    depth_min_ratio: 0.05
+    edge_percentile: 0.72
+    edge_min_ratio: 0.3
+    edge_min_points: 4500
+    depth_threshold: 0.06
+    depth_min_ratio: 0.08
   gradient_focus:
     visible_only: true
-    min_ratio: 0.15
-    min_points: 5000
-    warn_ratio_min: 0.05
-    warn_ratio_max: 0.6
+    min_ratio: 0.25
+    min_points: 7000
+    warn_ratio_min: 0.04
+    warn_ratio_max: 0.65
     loss_masking: edge
-    debug_png: "output/bunny/gradient/gradient_focus_ep{ep:03d}.png"
+    debug_png: "output/spot_to_bob/gradient/gradient_focus_ep{ep:03d}.png"
   surface_debug:
     enabled: true
-    output_png: "output/bunny/surface_debug.png"
+    output_png: "output/spot_to_bob/surface_debug.png"
   lighting:
     model: phong
     type: directional

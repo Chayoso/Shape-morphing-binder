@@ -12,7 +12,6 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from typing import Dict, Optional
-from pathlib import Path
 
 from .utils.config import default_cfg, validate_cfg
 from .utils.utils import ensure_torch, as_numpy
@@ -79,6 +78,60 @@ def compute_normals_pca(points: torch.Tensor, knn, k: int = 32, prefer_outward: 
         # incorrectly flipped bottom surface normals and created inconsistencies.
 
     return normals
+
+
+def _build_curvature_covariance(
+    points: torch.Tensor,
+    knn,
+    cov_cfg: Dict,
+    device: torch.device,
+    verbose: bool
+) -> Optional[torch.Tensor]:
+    """
+    Compute curvature-based covariance (Σ★) for target meshes.
+    """
+    if points.shape[0] < 8:
+        return None
+
+    from sampling.analysis.pca import batched_pca_surface_optimized
+
+    k_curv = min(32, points.shape[0] - 1)
+    idx_nn, w_nn = knn(points, points, k_curv)
+
+    normals_pca, surfvar, spacing_pca, curvature, anisotropy_t, planarity_t, \
+    principal_dir1, principal_dir2, principal_curv = batched_pca_surface_optimized(
+        x=points,
+        indices=idx_nn,
+        weights=w_nn,
+        return_principal_dirs=True
+    )
+
+    sigma_params = dict(cov_cfg.get("curvature_sigma", {}))
+
+    pts_np = points.detach().cpu().numpy()
+    nrm_np = normals_pca.detach().cpu().numpy()
+    plan_np = planarity_t.detach().cpu().numpy()
+    aniso_np = anisotropy_t.detach().cpu().numpy()
+    curv_np = principal_curv.detach().cpu().numpy()
+    dir1_np = principal_dir1.detach().cpu().numpy()
+    dir2_np = principal_dir2.detach().cpu().numpy()
+
+    cov_np = create_curvature_based_covariance_star(
+        points=pts_np,
+        normals=nrm_np,
+        planarity=plan_np,
+        anisotropy=aniso_np,
+        sigma_params=sigma_params,
+        principal_curv=curv_np,
+        principal_dirs=(dir1_np, dir2_np)
+    )
+
+    cov_torch = torch.from_numpy(cov_np).to(device)
+
+    if verbose:
+        print(f"  ✓ Curvature covariance computed (σ_n0={sigma_params.get('sigma_n0', 0.03):.3f})")
+
+    return cov_torch
 
 
 # ============================================================================
@@ -393,19 +446,11 @@ def upsample(
     cov_cfg = upsample_cfg.get("covariance", {})
 
     enable_subdivision = cov_cfg.get("enable_subdivision", False)
-    enable_sdf_grid = cov_cfg.get("enable_sdf_grid", False)
 
     if verbose:
-        print(f"[DEBUG] enable_subdivision = {enable_subdivision}, enable_sdf_grid = {enable_sdf_grid}")
+        print(f"[DEBUG] enable_subdivision = {enable_subdivision}")
 
-    if enable_sdf_grid:
-        # SDF grid upsampling (uniform distribution like C++)
-        return _upsample_with_sdf_grid(
-            x_low, F_low, cfg, state, return_torch,
-            learnable_cov_module, knn, device, verbose,
-            current_episode
-        )
-    elif enable_subdivision:
+    if enable_subdivision:
         # Subdivision-based upsampling (clustering around parents)
         return _upsample_with_subdivision(
             x_low, F_low, cfg, state, return_torch,
@@ -618,71 +663,26 @@ def _upsample_with_subdivision(
         print(f"\n[3/4] Computed normals via PCA (k={k_pca})")
 
     # ========================================================================
-    # 5. Build covariances
+    # 5. Build covariances (curvature disabled for target)
     # ========================================================================
-    is_target = (current_episode < 0)  # Only negative episodes are true "target"
-    use_curvature_cov = cov_cfg.get("use_curvature_for_target", False)
+    is_target = (current_episode < 0)
+    sigma_iso = float(cov_cfg.get("sigma_isotropic", 0.01))
+    cov_target = None
 
-    if verbose:
-        print(f"[DEBUG curvature check] current_episode={current_episode}, is_target={is_target}, use_curvature_cov={use_curvature_cov}")
-
-    if is_target and use_curvature_cov:
-        # For target mesh with curvature-based covariance
+    if is_target:
+        # Target mesh: use simple isotropic covariance to avoid curvature logic
         if verbose:
-            print(f"\n[4/4] Building curvature-based covariances for target...")
-
-        # Compute geometric properties for upsampled points using PCA
-        from sampling.analysis.pca import batched_pca_surface_optimized
-        from sampling.geometry.curvature_covariance import create_curvature_based_covariance_star
-
-        k_curv = min(16, x_upsampled.shape[0] - 1)
-        idx_nn, w_nn = knn(x_upsampled, x_upsampled, k_curv)
-
-        # Batched PCA analysis
-        normals_pca, surfvar, spacing_pca, curvature, anisotropy_t, planarity_t, \
-        principal_dir1, principal_dir2, principal_curv = batched_pca_surface_optimized(
-            x=x_upsampled,
-            indices=idx_nn,
-            weights=w_nn,
-            return_principal_dirs=True
+            print(f"\n[4/4] Target mesh detected → using isotropic covariance (σ={sigma_iso:.4f})")
+        cov = torch.eye(3, device=device, dtype=x_upsampled.dtype).unsqueeze(0).expand(
+            x_upsampled.shape[0], 3, 3
+        ) * (sigma_iso ** 2)
+        F_interp = torch.eye(3, device=device, dtype=x_upsampled.dtype).unsqueeze(0).expand(
+            x_upsampled.shape[0], 3, 3
         )
-
-        # Orient normals outward (use already computed normals from line 603)
-        # normals is already computed, so we can use it directly
-
-        # Convert to numpy
-        pts_np = x_upsampled.detach().cpu().numpy()
-        nrm_np = normals.detach().cpu().numpy()
-        plan_np = planarity_t.detach().cpu().numpy()
-        aniso_np = anisotropy_t.detach().cpu().numpy()
-        curv_np = principal_curv.detach().cpu().numpy()
-        dir1_np = principal_dir1.detach().cpu().numpy()
-        dir2_np = principal_dir2.detach().cpu().numpy()
-        dirs_raw = (dir1_np, dir2_np)
-
-        # Get sigma parameters
-        sigma_params = dict(cov_cfg.get("curvature_sigma", {}))
-
-        # Create curvature-based covariance
-        cov_np = create_curvature_based_covariance_star(
-            points=pts_np,
-            normals=nrm_np,
-            planarity=plan_np,
-            anisotropy=aniso_np,
-            sigma_params=sigma_params,
-            principal_curv=curv_np,
-            principal_dirs=dirs_raw
+        cov_target = _build_curvature_covariance(
+            x_upsampled, knn, cov_cfg, device, verbose
         )
-
-        cov = torch.from_numpy(cov_np).to(device)
-        F_interp = torch.eye(3, device=device, dtype=x_upsampled.dtype).unsqueeze(0).expand(x_upsampled.shape[0], 3, 3)
-        idx = None
-
-        if verbose:
-            print(f"  ✅ Using curvature-based covariance (σ_n0={sigma_params.get('sigma_n0', 0.035):.3f}, σ_t0={sigma_params.get('sigma_t0', 0.06):.3f})")
-            print(f"  Covariance shape: {cov.shape}")
     else:
-        # Use deformation-based covariance (original behavior)
         cov, F_interp, idx = build_deformation_covariance(
             points=x_upsampled,
             x_low=x_low,
@@ -726,221 +726,9 @@ def _upsample_with_subdivision(
         }
     }
     result["stage_outputs"] = stage_outputs
+    if cov_target is not None:
+        result["cov_target"] = cov_target if return_torch else cov_target.detach().cpu().numpy()
     
-    return result
-
-
-def _upsample_with_sdf_grid(
-    x_low: torch.Tensor,
-    F_low: torch.Tensor,
-    cfg: Dict,
-    state: Optional[Dict],
-    return_torch: bool,
-    learnable_cov_module,
-    knn,
-    device,
-    verbose: bool,
-    current_episode: int = -1
-) -> Dict:
-    """
-    🌟 SDF-based grid upsampling for uniform particle distribution.
-
-    Uses the same approach as C++ mesh loading:
-    1. Create uniform 3D grid in bounding box
-    2. Compute distance to existing particles
-    3. Keep only grid points near surface
-    4. Interpolate F-field to new points
-
-    Args:
-        x_low: Low-res points (N, 3)
-        F_low: Deformation gradients (N, 3, 3)
-        cfg: Configuration dict
-        state: State dict for temporal coherence
-        return_torch: Return torch tensors if True, numpy arrays if False
-        learnable_cov_module: Optional learnable covariance module
-        knn: k-NN module
-        device: torch device
-        verbose: Print progress if True
-        current_episode: Current episode number (-1 for target)
-
-    Returns:
-        Dict with upsampled points, normals, F_interp, cov, anchors
-    """
-    from sampling.geometry.deformation_covariance import build_deformation_covariance
-
-    upsample_cfg = cfg.get("upsample", {})
-    cov_cfg = upsample_cfg.get("covariance", {})
-
-    grid_dx = float(cov_cfg.get("sdf_grid_dx", 0.15))
-    surface_threshold = float(cov_cfg.get("sdf_surface_threshold", 0.3))
-    apply_jitter = bool(cov_cfg.get("sdf_apply_jitter", True))
-
-    N = x_low.shape[0]
-
-    if verbose:
-        print(f"\n{'='*70}")
-        print(f"[SDF GRID UPSAMPLING PIPELINE]")
-        print(f"{'='*70}")
-        print(f"Input points: {N:,}")
-        print(f"Grid spacing (dx): {grid_dx:.3f}")
-        print(f"Surface threshold: {surface_threshold:.3f}")
-        print(f"Apply jitter: {apply_jitter}")
-
-    # ========================================================================
-    # 1. Compute bounding box
-    # ========================================================================
-    min_point = x_low.min(dim=0)[0]
-    max_point = x_low.max(dim=0)[0]
-
-    # Expand bounding box slightly
-    margin = grid_dx * 2
-    min_point = min_point - margin
-    max_point = max_point + margin
-
-    if verbose:
-        print(f"\nBounding box:")
-        print(f"  Min: {min_point.cpu().numpy()}")
-        print(f"  Max: {max_point.cpu().numpy()}")
-
-    # ========================================================================
-    # 2. Create uniform 3D grid
-    # ========================================================================
-    dims = ((max_point - min_point) / grid_dx).ceil().int() + 1
-    total_grid_points = dims.prod().item()
-
-    if verbose:
-        print(f"\n[1/4] Creating uniform grid...")
-        print(f"  Grid dimensions: {dims[0].item()} x {dims[1].item()} x {dims[2].item()}")
-        print(f"  Total grid points: {total_grid_points:,}")
-
-    # Generate grid points
-    x_coords = torch.arange(dims[0].item(), device=device, dtype=x_low.dtype) * grid_dx + min_point[0]
-    y_coords = torch.arange(dims[1].item(), device=device, dtype=x_low.dtype) * grid_dx + min_point[1]
-    z_coords = torch.arange(dims[2].item(), device=device, dtype=x_low.dtype) * grid_dx + min_point[2]
-
-    grid_x, grid_y, grid_z = torch.meshgrid(x_coords, y_coords, z_coords, indexing='ij')
-    grid_points = torch.stack([grid_x.flatten(), grid_y.flatten(), grid_z.flatten()], dim=1)
-
-    # Apply jitter if requested
-    if apply_jitter:
-        jitter_scale = float(cov_cfg.get("sdf_jitter_scale", 0.1))  # Configurable (default 10% of grid spacing)
-        jitter = (torch.rand_like(grid_points) - 0.5) * 2 * jitter_scale * grid_dx
-        grid_points = grid_points + jitter
-        if verbose:
-            print(f"  Applied jitter: ±{jitter_scale * grid_dx:.4f} ({jitter_scale*100:.0f}% of grid_dx)")
-
-    # ========================================================================
-    # 3. Compute distance to existing particles (approximate SDF)
-    # ========================================================================
-    if verbose:
-        print(f"\n[2/4] Computing distances to particles...")
-
-    # Use k-NN to find nearest particles (approximate SDF)
-    k_sdf = min(8, N)
-    idx_nearest, dist_nearest = knn(grid_points, x_low, k_sdf)
-
-    # Approximate signed distance as distance to nearest particle
-    sdf = dist_nearest[:, 0]  # Distance to nearest neighbor
-
-    # ========================================================================
-    # 4. Keep only grid points near surface
-    # ========================================================================
-    mask = sdf <= surface_threshold
-    x_upsampled = grid_points[mask]
-
-    if verbose:
-        kept_count = mask.sum().item()
-        print(f"  Kept {kept_count:,} / {total_grid_points:,} points ({100*kept_count/total_grid_points:.1f}%)")
-        print(f"  Upsampling ratio: {kept_count/N:.2f}x")
-
-    # ========================================================================
-    # 5. Compute normals via PCA
-    # ========================================================================
-    k_pca = min(32, x_upsampled.shape[0] - 1)
-    normals = compute_normals_pca(x_upsampled, knn, k_pca)
-
-    if verbose:
-        print(f"\n[3/4] Computed normals via PCA (k={k_pca})")
-
-    # ========================================================================
-    # 6. Multi-scale F-field interpolation
-    # ========================================================================
-    if verbose:
-        print(f"\n[4/4] Multi-scale F-field interpolation...")
-
-    use_multiscale = cov_cfg.get("use_multiscale_F", True)
-
-    if use_multiscale:
-        k_coarse = int(cov_cfg.get("k_F_coarse", 64))
-        k_fine = int(cov_cfg.get("k_F_fine", 16))
-        blend_mode = cov_cfg.get("multiscale_blend_mode", "adaptive")
-
-        # Coarse scale (global)
-        idx_c, w_c = knn(x_upsampled, x_low, k_coarse)
-        F_coarse = (F_low[idx_c] * w_c.unsqueeze(-1).unsqueeze(-1)).sum(dim=1)
-
-        # Fine scale (local)
-        idx_f, w_f = knn(x_upsampled, x_low, k_fine)
-        F_fine = (F_low[idx_f] * w_f.unsqueeze(-1).unsqueeze(-1)).sum(dim=1)
-
-        # Adaptive blending
-        alpha = 0.5
-        F_interp = alpha * F_coarse + (1 - alpha) * F_fine
-
-        if verbose:
-            print(f"  Multi-scale: k_coarse={k_coarse}, k_fine={k_fine}, blend={blend_mode}")
-    else:
-        k_F = int(cov_cfg.get("k_F", 32))
-        idx, w = knn(x_upsampled, x_low, k_F)
-        F_interp = (F_low[idx] * w.unsqueeze(-1).unsqueeze(-1)).sum(dim=1)
-
-    # ========================================================================
-    # 7. Build deformation-based covariance
-    # ========================================================================
-    if verbose:
-        print(f"\n[5/5] Building deformation-based covariances...")
-
-    cov, F_interp_final, idx = build_deformation_covariance(
-        points=x_upsampled,
-        x_low=x_low,
-        F_low=F_low,
-        knn=knn,
-        cfg=cov_cfg,
-        learnable_cov_module=learnable_cov_module
-    )
-
-    if verbose:
-        print(f"  ✅ Covariance shape: {cov.shape}")
-        print(f"{'='*70}\n")
-
-    # ========================================================================
-    # 8. Return results
-    # ========================================================================
-    result = {
-        "points": x_upsampled if return_torch else x_upsampled.detach().cpu().numpy(),
-        "normals": normals if return_torch else normals.detach().cpu().numpy(),
-        "F_interp": F_interp_final if return_torch else F_interp_final.detach().cpu().numpy(),
-        "cov": cov if return_torch else cov.detach().cpu().numpy(),
-        "anchors": x_upsampled if return_torch else x_upsampled.detach().cpu().numpy(),
-        "debug": {
-            "num_original": N,
-            "num_generated": x_upsampled.shape[0] - N,
-            "num_total": x_upsampled.shape[0],
-            "grid_dx": grid_dx,
-            "surface_threshold": surface_threshold
-        },
-        "state": state,
-    }
-
-    stage_outputs = {
-        'stage6': {
-            'points': x_upsampled if return_torch else x_upsampled.detach().cpu().numpy(),
-            'normals': normals if return_torch else normals.detach().cpu().numpy(),
-            'cov': cov if return_torch else cov.detach().cpu().numpy()
-        }
-    }
-    result["stage_outputs"] = stage_outputs
-
     return result
 
 
@@ -1019,69 +807,28 @@ def _upsample_simple_direct(
     upsample_cfg = cfg.get("upsample", {})
     cov_cfg = upsample_cfg.get("covariance", {})
     
-    # ✅ CHANGED: Always use F-based covariance for gradient flow!
-    # Even episode 0 should use F to enable gradient backprop
-    is_target = (current_episode < 0)  # Only negative episodes are true "target"
-    
+    is_target = (current_episode < 0)
+    cov_target = None
+
     if verbose:
         print(f"  current_episode: {current_episode}")
         print(f"  is_target: {is_target}")
-        print(f"  Covariance mode: {'Curvature/Isotropic (Target)' if is_target else 'F-based (Morphing)'}")
+        print(f"  Covariance mode: {'Isotropic (Target)' if is_target else 'F-based (Morphing)'}")
     
     if is_target:
-        # ---- TARGET: 곡률 기반 또는 Identity ----
-        use_curvature_cov = cov_cfg.get("use_curvature_for_target", False)
-        
-        if use_curvature_cov:
-            # 곡률 기반 공분산
-            if verbose:
-                print(f"  Mode: Target mesh → Curvature-based covariance")
-            
-            # Convert to numpy
-            pts_np = x_low.detach().cpu().numpy()
-            nrm_np = normals.detach().cpu().numpy()
-            plan_np = planarity.detach().cpu().numpy()
-            aniso_np = anisotropy.detach().cpu().numpy()
-            curv_np = principal_curv.detach().cpu().numpy()
-            dir1_np = principal_dir1.detach().cpu().numpy()
-            dir2_np = principal_dir2.detach().cpu().numpy()
-            dirs_raw = (dir1_np, dir2_np)
-            
-            # Sigma parameters
-            sigma_params = dict(cov_cfg.get("curvature_sigma", {}))
-            
-            if verbose:
-                print(f"  Planarity: mean={plan_np.mean():.4f}")
-                print(f"  Anisotropy: mean={aniso_np.mean():.4f}")
-                print(f"  Principal curvature: mean={curv_np.mean():.6f}")
-            
-            # Create curvature-based covariance
-            cov_np = create_curvature_based_covariance_star(
-                points=pts_np,
-                normals=nrm_np,
-                planarity=plan_np,
-                anisotropy=aniso_np,
-                sigma_params=sigma_params,
-                principal_curv=curv_np,
-                principal_dirs=dirs_raw
-            )
-            
-            cov = torch.from_numpy(cov_np).to(device)
-        else:
-            # Identity 기반 등방성 공분산
-            if verbose:
-                print(f"  Mode: Target mesh → Isotropic covariance")
-            
-            # Simple isotropic covariance: σ²·I
-            sigma_iso = float(cov_cfg.get("sigma_isotropic", 0.01))
-            cov = torch.eye(3, device=device, dtype=x_low.dtype).unsqueeze(0).expand(x_low.shape[0], 3, 3) * (sigma_iso ** 2)
-            
-            if verbose:
-                print(f"  Isotropic sigma: {sigma_iso:.6f}")
-                print(f"  Covariance: {sigma_iso**2:.6e} * I")
-        
-        F_interp = torch.eye(3, device=device, dtype=x_low.dtype).unsqueeze(0).expand(x_low.shape[0], 3, 3)
-    
+        sigma_iso = float(cov_cfg.get("sigma_isotropic", 0.01))
+        if verbose:
+            print(f"  Mode: Target mesh → Isotropic covariance (σ={sigma_iso:.6f})")
+
+        cov = torch.eye(3, device=device, dtype=x_low.dtype).unsqueeze(0).expand(
+            x_low.shape[0], 3, 3
+        ) * (sigma_iso ** 2)
+        F_interp = torch.eye(3, device=device, dtype=x_low.dtype).unsqueeze(0).expand(
+            x_low.shape[0], 3, 3
+        )
+        cov_target = _build_curvature_covariance(
+            x_low, knn, cov_cfg, device, verbose
+        )
     else:
         # ---- MORPH: F-field 기반 Σ ----
         if verbose:
@@ -1162,11 +909,8 @@ def _upsample_simple_direct(
         }
     }
     
-    # ✅ Add cov_target for spectral alignment loss (if target mode)
-    if is_target and use_curvature_cov:
-        result["cov_target"] = cov if return_torch else as_numpy(cov)
-        if verbose:
-            print(f"  ✅ cov_target added for spectral loss")
+    if cov_target is not None:
+        result["cov_target"] = cov_target if return_torch else as_numpy(cov_target)
     
     return result
 

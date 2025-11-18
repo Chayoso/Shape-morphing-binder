@@ -1,9 +1,13 @@
+# Ablation Study 3: Depth Loss Only
+# Physics + Depth loss only
+# Tests 3D structure matching via depth maps
+
 input_mesh_path: "assets/isosphere.obj"
 target_mesh_path: "assets/bunny.obj"
-output_dir: "output/bunny/"
+output_dir: "output/ablation/03_depth_only/"
 
 simulation:
-  grid_dx: 1.0
+  grid_dx: 1
   points_per_cell_cuberoot: 3
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
@@ -28,36 +32,49 @@ optimization:
 
   loss:
     enabled: true
-    cov_reg_mode: eigenvalue
-    schedule: constant
-    edge_loss_mode: detach_position
+    # 🔥 ABLATION: Only depth loss enabled
+    w_alpha: 0.0           # DISABLED
+    w_depth: 5.0           # ENABLED - Depth structure matching
+    w_photo: 0.0           # DISABLED
+    w_edge: 0.0            # DISABLED
+    w_cov_align: 0.0       # DISABLED
+    w_cov_reg: 0.01        # Keep for regularization
+    w_det_barrier: 0.1     # Keep for physics stability
+    cov_reg_mode: 'eigenvalue'
+    schedule: 'constant'
+
+    edge_loss_mode: 'detach_position'
     gradient_boost_factor: 1000.0
-    debug_edge_gradients: true
-    w_alpha: 2.0
-    w_depth: 5.0
-    w_photo: 1.0
-    w_edge: 3.0
-    w_cov_align: 10.0
-    w_cov_reg: 0.01
-    w_det_barrier: 0.1
+    debug_edge_gradients: false
+
+  magnitude_strategy: 'normalize'
 
 upsample:
   use_simple_pipeline: true
-  render_loss_weight: 100.0
-  magnitude_strategy: normalize
+  render_loss_weight: 1e2  # Render loss enabled for depth
 
   covariance:
+    use_curvature_for_target: true
     sigma_isotropic: 0.038
-    sigma0: 0.06
+    curvature_sigma:
+      sigma_n0: 0.064
+      sigma_t0: 0.08
+      a: 6.0
+      b: 5.0
+      a_n: 3.5
+      u: 2.5
+      k_floor_normal: 0.002
+      k_floor_tangent: 0.005
+    sigma0: 0.08
     k_F: 32
     use_multiscale_F: true
-    k_F_coarse: 128
-    k_F_fine: 8
-    multiscale_blend_mode: adaptive
+    k_F_coarse: 64
+    k_F_fine: 16
+    multiscale_blend_mode: 'adaptive'
     enable_subdivision: true
-    subdivision_target: 150000
-    subdivision_jitter: 0.1
-    sv_min: 0.30
+    subdivision_target: 100000
+    subdivision_jitter: 0.05
+    sv_min: 0.80
     sv_max: 3.00
     use_F_smoothing: false
     F_smooth:
@@ -81,29 +98,13 @@ camera:
     up: [0.0, 0.0, 1.0]
 
 render:
+  num_frames: 1
+  schedule: uniform
   bg: [1.0, 1.0, 1.0]
   training_resolution_scale: 1.0
   particle_color: [0.27, 0.51, 0.71]
   surface_mask_ratio: 0.20
-  surface_mask_mode: last
-  surface_masking:
-    method: edge
-    edge_percentile: 0.85
-    edge_min_ratio: 0.2
-    edge_min_points: 3000
-    depth_threshold: 0.025
-    depth_min_ratio: 0.05
-  gradient_focus:
-    visible_only: true
-    min_ratio: 0.15
-    min_points: 5000
-    warn_ratio_min: 0.05
-    warn_ratio_max: 0.6
-    loss_masking: edge
-    debug_png: "output/bunny/gradient/gradient_focus_ep{ep:03d}.png"
-  surface_debug:
-    enabled: true
-    output_png: "output/bunny/surface_debug.png"
+  surface_mask_mode: 'last'
   lighting:
     model: phong
     type: directional

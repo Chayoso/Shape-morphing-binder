@@ -12,7 +12,7 @@ import time
 
 from utils.physics_utils import run_physics_optimization, run_physics_optimization_batched, extract_point_cloud_state
 from utils.rendering_utils import compute_render_loss_pass, extract_render_gradients, upsample_current_state
-from utils.visualization_utils import visualize_episode
+from visualization.utils import visualize_episode
 from utils.gradient_utils import (
     compute_gradient_statistics,
     compute_gradient_cosine_similarity,
@@ -217,7 +217,15 @@ def run_e2e_episode_session(
 
             # Print detailed loss components
             print(f"  │  ├─ Alpha:     {loss_components.get('loss_alpha', torch.tensor(0.0)).item():.6f}", flush=True)
-            print(f"  │  ├─ Depth:     {loss_components.get('loss_depth', torch.tensor(0.0)).item():.6f}", flush=True)
+
+            # Depth with MAE (depth difference metric)
+            depth_loss = loss_components.get('loss_depth', torch.tensor(0.0)).item()
+            depth_mae = loss_components.get('loss_depth_unweighted', torch.tensor(0.0)).item()
+            if depth_mae > 0:
+                print(f"  │  ├─ Depth:     {depth_loss:.6f} (MAE: {depth_mae:.4f})", flush=True)
+            else:
+                print(f"  │  ├─ Depth:     {depth_loss:.6f}", flush=True)
+
             print(f"  │  ├─ Photo:     {loss_components.get('loss_photo', torch.tensor(0.0)).item():.6f}", flush=True)
             print(f"  │  ├─ Edge:      {loss_components.get('loss_edge', torch.tensor(0.0)).item():.6f}", flush=True)
             print(f"  │  ├─ Cov align: {loss_components.get('loss_cov_align', torch.tensor(0.0)).item():.6f}", flush=True)
@@ -228,6 +236,10 @@ def run_e2e_episode_session(
             # Store for final reporting
             last_render_loss_components = {k: v.item() if torch.is_tensor(v) else v
                                           for k, v in loss_components.items()}
+
+            if not torch.isfinite(loss_total):
+                print("  └─ ❌ Render loss produced NaN/Inf (session mode)")
+                return None
 
             # Backward
             print(f"  ├─ Running backward()...")
@@ -252,6 +264,10 @@ def run_e2e_episode_session(
             if F.grad is None or x.grad is None:
                 print("  └─ ⚠️  No gradients computed")
                 print(f"     Possible cause: Computational graph disconnected during upsampling")
+                return None
+
+            if (not torch.isfinite(F.grad).all()) or (not torch.isfinite(x.grad).all()):
+                print("  └─ ❌ Render gradients contain NaN/Inf (session mode)")
                 return None
 
             # 🔍 DEBUG: Check F.grad magnitude immediately after backward
@@ -279,23 +295,6 @@ def run_e2e_episode_session(
             grad_x_norm_raw = np.linalg.norm(dLdx_render)
             print(f"  ├─ Raw render gradients: ||∂L/∂F||={grad_F_norm_raw:.3e}, ||∂L/∂x||={grad_x_norm_raw:.3e}", flush=True)
 
-            # 🔥 FIXED: Scale render gradients to unit norm
-            # render_loss_weight will be applied during combination with physics gradients
-            # This prevents hardcoded magnitude assumptions
-
-            eps = 1e-12
-
-            # Normalize to unit vectors (scale-invariant)
-            dLdF_normalized = dLdF_render / (grad_F_norm_raw + eps)
-            dLdx_normalized = dLdx_render / (grad_x_norm_raw + eps)
-
-            # Store raw norms for later scaling
-            grad_F_norm_final = 1.0  # Unit norm
-            grad_x_norm_final = 1.0
-
-            print(f"  ├─ Normalized to unit vectors (render_loss_weight will be applied during combination)", flush=True)
-            print(f"  └─ Unit norm gradients: ||∂L/∂F||={grad_F_norm_final:.3e}, ||∂L/∂x||={grad_x_norm_final:.3e}", flush=True)
-
             t_grad_extract = time.time() - t0
             t_total = time.time() - t_start
 
@@ -311,8 +310,8 @@ def run_e2e_episode_session(
             print(f"    Grad extract:  {t_grad_extract*1000:6.2f}ms ({t_grad_extract/t_total*100:4.1f}%)", flush=True)
             print(f"    TOTAL:         {t_total*1000:6.2f}ms\n", flush=True)
 
-            # Return normalized gradients as tuple
-            return (dLdF_normalized, dLdx_normalized)
+            # Return raw gradients as tuple
+            return (dLdF_render, dLdx_render)
 
         except Exception as e:
             print(f"  ❌ Render callback error: {e}")
@@ -690,15 +689,20 @@ def run_e2e_episode(
 
         print(f"\n[Render] Computing loss for Pass {pass_idx+1}...")
 
-        result = compute_render_loss_pass(
-            cg, num_timesteps, rs_full, ema_state, renderer,
-            loss_manager, target_render, view_params, campos,
-            render_cfg, particle_color, seed, cov_module,
-            external_levelset=None,
-            current_episode=ep
-        )
+        try:
+            result = compute_render_loss_pass(
+                cg, num_timesteps, rs_full, ema_state, renderer,
+                loss_manager, target_render, view_params, campos,
+                render_cfg, particle_color, seed, cov_module,
+                external_levelset=None,
+                current_episode=ep
+            )
+        except FloatingPointError as err:
+            print(f"└─ ❌ Render loss computation failed: {err}")
+            print(f"   ↳ Skipping remaining passes for this episode.")
+            break
         
-        if result[0] is not None:
+        if result and result[0] is not None:
             ema_state_new, F, x, loss_components = result
             
             # Store loss components from last pass
@@ -821,9 +825,10 @@ def run_e2e_episode(
                     w_render = w_render_base * render_loss_weight  # Direct multiplication!
                     w_physics = 1.0
 
-                    # 🔥 CLAMP REMOVED: Allow unlimited render weight!
-                    # Only enforce minimum to prevent zero weight
-                    w_render = max(w_render, 0.05)
+                    if w_render <= 0:
+                        print(f"\n├─ [Render Weight] Disabled (w_render={w_render:.3f}), skipping gradient injection")
+                        accumulated_render_grads = None
+                        continue
 
                     print(f"\n├─ [Weight Calculation]")
                     print(f"│  ├─ render_loss_weight (config): {render_loss_weight}")
@@ -975,7 +980,7 @@ def run_e2e_episode(
             
             del F, x
             ema_state = ema_state_new
-        else:
+        elif result is not None:
             print(f"└─ ⚠️ compute_render_loss_pass returned None\n")
         
         del result
