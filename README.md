@@ -1,4 +1,4 @@
-# [CVPR 2026] PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
+# PhysMorph-GS: Physics-guided Gaussian Splatting for Shape Morphing
 
 <div align="center">
 
