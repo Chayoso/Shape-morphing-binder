@@ -189,120 +189,6 @@ def pcgrad_projection(
     return gF_proj, gx_proj, info
 
 
-def ema_gradient_scaling(
-    g_render_norm: float,
-    g_physics_norm: float,
-    target_ratio: float,
-    ema_state: Dict,
-    ema_beta: float = 0.8,
-    power: float = 0.7,
-    min_gain: float = 0.1,
-    max_gain: float = 50000.0
-) -> Tuple[float, Dict[str, float]]:
-    """
-    🔥 EMA-based adaptive gradient scaling with dynamic upper bound.
-    
-    개선사항:
-    - 동적 상한: 물리 신호가 약한 구간의 gain 폭주 방지
-    - after_gain_ratio 상태 저장: 다음 스텝 활용 가능
-    
-    Target: ||g_render|| / ||g_physics|| ≈ target_ratio (e.g., 0.2-0.5)
-    
-    Args:
-        g_render_norm: Current render gradient norm
-        g_physics_norm: Current physics gradient norm
-        target_ratio: Desired ratio (e.g., 0.3 for render to be 30% of physics)
-        ema_state: EMA state dictionary (will be updated in-place)
-        ema_beta: EMA smoothing factor (0.8 = smooth, 0.0 = no smoothing)
-        power: Power for scaling (< 1.0 for conservative adjustment)
-        min_gain: Minimum gain clamp
-        max_gain: Maximum gain clamp
-    
-    Returns:
-        Tuple of (gain, info_dict)
-    """
-    eps = 1e-12
-    g_phys = max(g_physics_norm, eps)
-    g_ren = max(g_render_norm, eps)
-    
-    # Compute target norm
-    target_norm = target_ratio * g_phys
-    
-    # Compute raw gain
-    raw = (target_norm / g_ren) ** power
-    
-    # 🔒 동적 상한: 물리 신호가 약한 구간의 폭주 방지
-    # 렌더 대비 물리가 10배 이상 크면 상한을 그에 맞춰 낮춤
-    dyn_cap = max(10.0, 10.0 * (g_phys / g_ren))
-    raw = float(np.clip(raw, min_gain, min(max_gain, dyn_cap)))
-    
-    # Apply EMA smoothing
-    if 'render_gain_ema' not in ema_state:
-        ema_state['render_gain_ema'] = raw
-        gain = raw
-    else:
-        gain = ema_beta * ema_state['render_gain_ema'] + (1.0 - ema_beta) * raw
-        ema_state['render_gain_ema'] = gain
-    
-    # 🔎 after_gain_ratio 상태 기록 (다음 스텝/로그에서 활용)
-    after_ratio = (g_ren * gain) / g_phys
-    ema_state['after_gain_ratio'] = float(after_ratio)
-    
-    info = {
-        'gain_raw': raw,
-        'gain_smoothed': gain,
-        'target_ratio': target_ratio,
-        'actual_ratio': g_ren / g_phys,
-        'target_norm': target_norm,
-        'after_gain_ratio': after_ratio,  # 🔥 NEW: 게인 적용 후 비율
-        'dyn_cap_used': dyn_cap,          # 🔥 NEW: 동적 상한값
-    }
-    
-    return gain, info
-
-
-def adaptive_target_ratio_schedule(
-    episode: int,
-    total_episodes: int,
-    warmup_episodes: int = 5,
-    rampup_episodes: int = 15,
-    warmup_ratio: float = 0.10,   # 🔥 0.05 → 0.10 (초기부터 렌더 신호 강화)
-    rampup_ratio: float = 0.35,   # 🔥 0.30 → 0.35 (중기 목표 상향)
-    full_ratio: float = 0.40       # 🔥 0.50 → 0.40 (안정적 균형점)
-) -> float:
-    """
-    Compute adaptive target ratio based on training progress.
-    
-    🔥 공분산 효과 극대화 패치: 목표 비율 전반적 상향
-    
-    Schedule (updated):
-        - Episodes 0-5:   warmup_ratio (0.10) - 초기부터 렌더 신호 작동
-        - Episodes 5-15:  ramp from 0.10 to 0.35 - 점진적 강화
-        - Episodes 15+:   full_ratio (0.35-0.40) - 물리와 거의 대등ㅋ
-    
-    Args:
-        episode: Current episode number
-        total_episodes: Total number of episodes
-        warmup_episodes: Episodes for warmup phase
-        rampup_episodes: Episodes to complete ramp-up
-        warmup_ratio: Ratio during warmup (0.10 권장)
-        rampup_ratio: Ratio at end of ramp-up (0.35 권장)
-        full_ratio: Final ratio (0.35-0.40 권장)
-    
-    Returns:
-        Target ratio for current episode
-    """
-    if episode < warmup_episodes:
-        # Warmup: 초기부터 적정 렌더 신호
-        return warmup_ratio
-    elif episode < rampup_episodes:
-        # Ramp-up: linear interpolation
-        progress = (episode - warmup_episodes) / (rampup_episodes - warmup_episodes)
-        return warmup_ratio + (rampup_ratio - warmup_ratio) * progress
-    else:
-        # Full training: 물리와 거의 대등한 균형
-        return full_ratio
-
 
 def diagnose_gradient_health(
     dLdF: np.ndarray,
@@ -348,7 +234,7 @@ def diagnose_gradient_health(
     diagnostics['is_healthy'] = is_healthy
     
     if not is_healthy:
-        print(f"\n⚠️  [WARN] Gradient health issue detected ({grad_type}):")
+        print(f"\n[WARN] Gradient health issue ({grad_type}):")
         if diagnostics['has_nan_F'] or diagnostics['has_nan_x']:
             print(f"  - NaN detected: F={diagnostics['has_nan_F']}, x={diagnostics['has_nan_x']}")
         if diagnostics['has_inf_F'] or diagnostics['has_inf_x']:
@@ -366,32 +252,28 @@ def normalize_and_combine_gradients(
     dLdx_render: np.ndarray,
     w_physics: float = 0.7,
     w_render: float = 0.3,
-    magnitude_strategy: str = 'physics'
+    magnitude_strategy: str = 'physics',
+    render_F_ratio: float = 0.0,
+    w_render_F: float = -1.0
 ) -> Tuple[np.ndarray, np.ndarray, Dict[str, float]]:
     """
-    🔥 Normalize and combine physics and render gradients to prevent magnitude mismatch.
+    Normalize and combine physics and render gradients.
 
-    This solves the convergence issue by:
-    1. Normalizing both gradients to unit vectors (removes scale differences)
-    2. Combining with explicit weights (controllable balance)
-    3. Re-scaling to appropriate magnitude (prevents tiny/huge gradients)
-
-    Strategy:
-    - Normalize: g_unit = g / ||g||
-    - Combine: g_combined = w_phys * g_phys_unit + w_render * g_render_unit
-    - Scale: g_final = target_magnitude * g_combined
+    When render_F_ratio > 0 and physics F gradients are zero,
+    F channel is handled separately: render drives F directly,
+    scaled relative to physics x magnitude.
 
     Args:
         dLdF_physics: (N, 3, 3) physics gradients for deformation gradient
         dLdx_physics: (N, 3) physics gradients for positions
         dLdF_render: (N, 3, 3) render gradients for deformation gradient
         dLdx_render: (N, 3) render gradients for positions
-        w_physics: Weight for physics gradients (default: 0.7 = 70%)
-        w_render: Weight for render gradients (default: 0.3 = 30%)
-        magnitude_strategy: How to set final magnitude
-            - 'physics': Use physics gradient magnitude (conservative)
-            - 'weighted': Use weighted average of both magnitudes
-            - 'max': Use maximum of both magnitudes
+        w_physics: Weight for physics gradients
+        w_render: Weight for render gradients (used for x channel)
+        magnitude_strategy: How to set final magnitude for x channel
+        render_F_ratio: F gradient magnitude = ratio * ||dL_phys/dx||.
+            When > 0 and physics F grads are zero, bypasses normalization for F.
+        w_render_F: Separate render weight for F channel. If < 0, uses w_render.
 
     Returns:
         Tuple of (dLdF_combined, dLdx_combined, info_dict)
@@ -407,13 +289,8 @@ def normalize_and_combine_gradients(
     g_x_render = np.linalg.norm(dLdx_render)
     g_render_total = np.sqrt(g_F_render**2 + g_x_render**2)
 
-    # 🔍 DEBUG: Show component magnitudes
-    print(f"[DEBUG COMBINE] ||∂L_phys/∂F||={g_F_phys:.6e}, ||∂L_phys/∂x||={g_x_phys:.6e}")
-    print(f"[DEBUG COMBINE] ||∂L_render/∂F||={g_F_render:.6e}, ||∂L_render/∂x||={g_x_render:.6e}")
-
     # Check for zero gradients
     if g_phys_total < eps:
-        print("[WARN] Physics gradients are near-zero, returning render gradients only")
         return dLdF_render * w_render, dLdx_render * w_render, {
             'g_physics_norm': 0.0,
             'g_render_norm': float(g_render_total),
@@ -424,7 +301,6 @@ def normalize_and_combine_gradients(
         }
 
     if g_render_total < eps:
-        print("[WARN] Render gradients are near-zero, returning physics gradients only")
         return dLdF_physics, dLdx_physics, {
             'g_physics_norm': float(g_phys_total),
             'g_render_norm': 0.0,
@@ -435,65 +311,70 @@ def normalize_and_combine_gradients(
         }
 
     # ═══════════════════════════════════════════════════════════════
-    # Step 1: Normalize to unit vectors
+    # F CHANNEL: Direct render-driven when physics F is zero
     # ═══════════════════════════════════════════════════════════════
-    phys_den_F = g_F_phys if g_F_phys > eps else max(g_F_render, eps)
+    use_direct_F = (render_F_ratio > 0) and (g_F_phys < eps) and (g_F_render > eps)
+
+    if use_direct_F:
+        # Physics produces zero F gradient → render drives F directly
+        # Scale: ||dLdF_combined|| = render_F_ratio * ||dLdx_phys||
+        target_F_mag = render_F_ratio * g_x_phys
+        dLdF_render_unit = dLdF_render / g_F_render
+        dLdF_combined = target_F_mag * dLdF_render_unit
+
+        # F-DIRECT: render drives F (physics dL/dF=0)
+    else:
+        # Original logic for F when physics contributes
+        dLdF_combined = None  # Will be set below
+
+    # ═══════════════════════════════════════════════════════════════
+    # X CHANNEL: Standard normalization (physics + render combined)
+    # ═══════════════════════════════════════════════════════════════
+    # Normalize x to unit vectors
     phys_den_x = g_x_phys if g_x_phys > eps else max(g_x_render, eps)
-
-    dLdF_phys_unit = dLdF_physics / phys_den_F
-    dLdx_phys_unit = dLdx_physics / phys_den_x
-
-    render_den_F = max(g_F_render, eps)
     render_den_x = max(g_x_render, eps)
-
-    dLdF_render_unit = dLdF_render / render_den_F
+    dLdx_phys_unit = dLdx_physics / phys_den_x
     dLdx_render_unit = dLdx_render / render_den_x
 
-    # ═══════════════════════════════════════════════════════════════
-    # Step 2: Weighted combination of unit vectors
-    # ═══════════════════════════════════════════════════════════════
-    dLdF_combined_unit = w_physics * dLdF_phys_unit + w_render * dLdF_render_unit
     dLdx_combined_unit = w_physics * dLdx_phys_unit + w_render * dLdx_render_unit
 
-    # ═══════════════════════════════════════════════════════════════
-    # Step 3: Re-scale to appropriate magnitude
-    # ═══════════════════════════════════════════════════════════════
+    # x magnitude strategy
     if magnitude_strategy == 'physics':
-        # Conservative: Use physics magnitude (prevents render from dominating)
-        # 🔥 FIX: If physics has no F gradients, use render F magnitude instead
-        if g_F_phys > eps:
-            target_F = g_F_phys
-            print(f"[DEBUG] Using physics F magnitude: {target_F:.6e}")
-        else:
-            target_F = g_F_render
-            print(f"[DEBUG] Physics has no F grads, using render F magnitude: {target_F:.6e}")
         target_x = g_x_phys if g_x_phys > eps else max(g_x_render, eps)
     elif magnitude_strategy == 'weighted':
-        # Balanced: Weighted average of magnitudes
-        target_F = w_physics * g_F_phys + w_render * g_F_render
         target_x = w_physics * g_x_phys + w_render * g_x_render
     elif magnitude_strategy == 'max':
-        # Aggressive: Use maximum magnitude
-        target_F = max(g_F_phys, g_F_render)
         target_x = max(g_x_phys, g_x_render)
-    elif magnitude_strategy == 'normalize' or magnitude_strategy == 'rms':
-        # Normalized: RMS of both magnitudes (treats both equally)
-        # This is the most balanced approach - neither physics nor render dominates by magnitude alone
-        target_F = np.sqrt((g_F_phys**2 + g_F_render**2) / 2.0) if (g_F_phys > eps or g_F_render > eps) else eps
+    elif magnitude_strategy in ('normalize', 'rms'):
         target_x = np.sqrt((g_x_phys**2 + g_x_render**2) / 2.0) if (g_x_phys > eps or g_x_render > eps) else eps
-        print(f"[DEBUG] Using RMS normalization: F={target_F:.6e}, x={target_x:.6e}")
     else:
         raise ValueError(f"Unknown magnitude_strategy: {magnitude_strategy}")
 
-    dLdF_combined = target_F * dLdF_combined_unit
     dLdx_combined = target_x * dLdx_combined_unit
 
-    # 🔍 DEBUG: Show combined result
-    print(f"[DEBUG COMBINE] After rescaling: ||∂L_combined/∂F||={np.linalg.norm(dLdF_combined):.6e}")
+    # If F wasn't handled by direct mode, use original combined logic
+    if dLdF_combined is None:
+        phys_den_F = g_F_phys if g_F_phys > eps else max(g_F_render, eps)
+        render_den_F = max(g_F_render, eps)
+        w_F = w_render_F if w_render_F >= 0 else w_render
+        dLdF_phys_unit = dLdF_physics / phys_den_F
+        dLdF_render_unit_norm = dLdF_render / render_den_F
+        dLdF_combined_unit = w_physics * dLdF_phys_unit + w_F * dLdF_render_unit_norm
 
-    # ═══════════════════════════════════════════════════════════════
-    # Step 4: Compute diagnostics
-    # ═══════════════════════════════════════════════════════════════
+        if magnitude_strategy == 'physics':
+            target_F = g_F_phys if g_F_phys > eps else g_F_render
+        elif magnitude_strategy == 'weighted':
+            target_F = w_physics * g_F_phys + w_F * g_F_render
+        elif magnitude_strategy == 'max':
+            target_F = max(g_F_phys, g_F_render)
+        elif magnitude_strategy in ('normalize', 'rms'):
+            target_F = np.sqrt((g_F_phys**2 + g_F_render**2) / 2.0) if (g_F_phys > eps or g_F_render > eps) else eps
+        else:
+            target_F = g_F_phys if g_F_phys > eps else g_F_render
+
+        dLdF_combined = target_F * dLdF_combined_unit
+
+    # Diagnostics
     g_F_combined = np.linalg.norm(dLdF_combined)
     g_x_combined = np.linalg.norm(dLdx_combined)
     g_combined_total = np.sqrt(g_F_combined**2 + g_x_combined**2)
@@ -510,7 +391,9 @@ def normalize_and_combine_gradients(
         'w_physics': w_physics,
         'w_render': w_render,
         'magnitude_strategy': magnitude_strategy,
-        'magnitude_scale': float(target_F / max(phys_den_F, eps)),
+        'magnitude_scale': float(g_F_combined / max(g_F_render, eps)),
+        'direct_F_mode': use_direct_F,
+        'render_F_ratio': render_F_ratio,
     }
 
     return dLdF_combined, dLdx_combined, info
@@ -520,8 +403,6 @@ __all__ = [
     'compute_gradient_statistics',
     'compute_gradient_cosine_similarity',
     'pcgrad_projection',
-    'ema_gradient_scaling',
-    'adaptive_target_ratio_schedule',
     'diagnose_gradient_health',
     'normalize_and_combine_gradients',
 ]

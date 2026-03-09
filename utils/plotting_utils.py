@@ -11,13 +11,14 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 
-def plot_training_losses(json_path: Path, output_path: Path, figsize=(18, 10)):
+def plot_training_losses(json_path: Path, output_path: Path, figsize=(18, 14)):
     """
-    Plot physics and render losses from training JSON log in 2×3 layout.
+    Plot physics and render losses from training JSON log.
 
-    Creates a comprehensive visualization with:
+    Layout (3×3 if dFc data present, else 2×3):
     Row 1: Physics Loss | Volume (J) | Render Total
     Row 2: Alpha Loss | Depth Loss | Edge/Cov Align
+    Row 3: dFc J before/after | dFc Step Norm | Surface vs Interior Grads
 
     Args:
         json_path: Path to training_losses.json
@@ -55,8 +56,10 @@ def plot_training_losses(json_path: Path, output_path: Path, figsize=(18, 10)):
     J_min = [ep.get('J_min', None) for ep in episodes_data]
     J_mean = [ep.get('J_mean', None) for ep in episodes_data]
 
-    # Create figure with 2×3 subplots
-    fig, axes = plt.subplots(2, 3, figsize=figsize)
+    # Check if dFc tracking data exists
+    has_dfc = any(ep.get('J_min_before_dfc') is not None for ep in episodes_data)
+    nrows = 3 if has_dfc else 2
+    fig, axes = plt.subplots(nrows, 3, figsize=figsize)
     fig.suptitle(f'Training Losses - {data["config"]}', fontsize=16, fontweight='bold', y=0.995)
 
     # ============================================================================
@@ -230,6 +233,61 @@ def plot_training_losses(json_path: Path, output_path: Path, figsize=(18, 10)):
         ax.text(0.5, 0.5, 'No Edge/Cov Data\n(Losses disabled)', ha='center', va='center',
                 transform=ax.transAxes, fontsize=12, color='gray')
         ax.set_title('Edge / Cov Align (No Data)', fontsize=13)
+
+    # ============================================================================
+    # Row 3: dFc Correction Tracking (only if data present)
+    # ============================================================================
+    if has_dfc:
+        # Row 3, Col 1: J before/after dFc correction
+        ax = axes[2, 0]
+        j_before = filter_none([ep.get('J_min_before_dfc') for ep in episodes_data])
+        j_after = filter_none([ep.get('J_min_after_dfc') for ep in episodes_data])
+        if any(~np.isnan(j_before)):
+            ax.plot(episodes, j_before, 'o-', linewidth=2, markersize=4,
+                    label='J_min before dFc', color='#E63946')
+        if any(~np.isnan(j_after)):
+            ax.plot(episodes, j_after, 's-', linewidth=2, markersize=4,
+                    label='J_min after dFc', color='#06A77D')
+        ax.axhline(y=0.3, color='gray', linestyle=':', linewidth=1.5, alpha=0.6, label='J guard threshold')
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_ylabel('det(F)', fontsize=12)
+        ax.set_title('dFc: J_min Before/After', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.legend(fontsize=9, loc='best', framealpha=0.9)
+
+        # Row 3, Col 2: dFc step norm
+        ax = axes[2, 1]
+        step_norm = filter_none([ep.get('dfc_step_norm') for ep in episodes_data])
+        j_guard = filter_none([ep.get('dfc_J_guard_count', 0) for ep in episodes_data])
+        if any(~np.isnan(step_norm)):
+            ax.plot(episodes, step_norm, 'o-', linewidth=2, markersize=4,
+                    label='||dFc step||', color='#2E86AB')
+            ax.set_ylabel('Step Norm', fontsize=12, color='#2E86AB')
+
+            # Secondary axis for J guard count
+            ax2 = ax.twinx()
+            if any(~np.isnan(j_guard)):
+                ax2.bar(episodes, j_guard, alpha=0.3, color='#E63946', label='J guard clipped')
+                ax2.set_ylabel('Guard Count', fontsize=10, color='#E63946')
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_title('dFc: Step Norm & Guard', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
+
+        # Row 3, Col 3: Surface vs Interior gradient norms
+        ax = axes[2, 2]
+        g_surface = filter_none([ep.get('dfc_grad_norm_surface') for ep in episodes_data])
+        g_interior = filter_none([ep.get('dfc_grad_norm_interior') for ep in episodes_data])
+        if any(~np.isnan(g_surface)):
+            ax.plot(episodes, g_surface, 'o-', linewidth=2, markersize=4,
+                    label='Surface grad norm', color='#118AB2')
+        if any(~np.isnan(g_interior)):
+            ax.plot(episodes, g_interior, 's-', linewidth=2, markersize=4,
+                    label='Interior grad norm', color='#073B4C', alpha=0.7)
+        ax.set_xlabel('Episode', fontsize=12, fontweight='bold')
+        ax.set_ylabel('Grad Norm', fontsize=12)
+        ax.set_title('dFc: Surface vs Interior Grads', fontsize=13, fontweight='bold', pad=10)
+        ax.grid(True, alpha=0.3, linestyle='--')
+        ax.legend(fontsize=9, loc='best', framealpha=0.9)
 
     # Adjust layout and save
     plt.tight_layout(rect=[0, 0, 1, 0.99])

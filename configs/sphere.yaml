@@ -27,7 +27,9 @@ optimization:
   initial_alpha: 0.01
   gd_tol: 0.0
   use_session_mode: false
-  adaptive_alpha_enabled: true  # 🔥 Disable adaptive learning rate scaling
+  adaptive_alpha_enabled: true
+  num_passes: 2
+  render_F_ratio: 200.0   # dFc correction: step = ratio * 1e-3
 
   loss:
     enabled: true

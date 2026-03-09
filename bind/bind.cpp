@@ -444,7 +444,18 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                         buf(i, r, c) = F(r, c) + dF(r, c);
             }
             return arr;
-        }, "Return total deformation F_total = F + dFc as (N, 3, 3) array");
+        }, "Return total deformation F_total = F + dFc as (N, 3, 3) array")
+        .def("set_def_grads_morph", [](PointCloud& pc, py::array_t<float> arr) {
+            auto buf = arr.unchecked<3>();
+            const size_t N = pc.points.size();
+            if ((size_t)buf.shape(0) != N)
+                throw std::runtime_error("set_def_grads_morph: array size mismatch");
+            for (size_t i = 0; i < N; ++i) {
+                for (int r = 0; r < 3; ++r)
+                    for (int c = 0; c < 3; ++c)
+                        pc.points[i].dFc(r, c) = buf(i, r, c);
+            }
+        }, "Set morph control deformation dFc from (N, 3, 3) array");
 
     py::class_<Grid, std::shared_ptr<Grid>>(m, "Grid")
         .def(py::init<int, int, int, float, DiffMPMLib3D::Vec3>(), "Grid constructor");

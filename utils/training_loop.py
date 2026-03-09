@@ -10,15 +10,13 @@ from pathlib import Path
 from typing import Dict, Tuple, Any, Optional
 import time
 
-from utils.physics_utils import run_physics_optimization, run_physics_optimization_batched, extract_point_cloud_state
-from utils.rendering_utils import compute_render_loss_pass, extract_render_gradients, upsample_current_state
+from utils.physics_utils import run_physics_optimization_batched, extract_point_cloud_state
+from utils.rendering_utils import compute_render_loss_pass, extract_render_gradients
 from visualization.utils import visualize_episode
 from utils.gradient_utils import (
     compute_gradient_statistics,
     compute_gradient_cosine_similarity,
     pcgrad_projection,
-    ema_gradient_scaling,
-    adaptive_target_ratio_schedule,
     diagnose_gradient_health,
     normalize_and_combine_gradients
 )
@@ -547,147 +545,52 @@ def run_e2e_episode(
     
     ════════════════════════════════════════════════════════════════════════════
     """
-    # ════════════════════════════════════════════════════════════════════════════
     # Episode Initialization
-    # ════════════════════════════════════════════════════════════════════════════
-    print(f"\n{'='*70}")
-    print(f"Episode {ep} START")
-    print(f"{'='*70}")
-    
-    # Reset EMA threshold at episode boundary
+    print(f"\n=== Episode {ep} ({num_passes} passes) ===")
+
     if ep > 0 and "ema_thr" in ema_state:
-        print(f"\n[Episode Boundary] Resetting EMA threshold")
         ema_state["ema_thr"] = None
-    
-    # Setup computation graph
-    print(f"\n[Setup] Creating {num_timesteps} timestep layers...")
+
     cg.set_up_comp_graph(num_timesteps)
-    
-    print(f"[Setup] Running initial forward simulation...")
     cg.compute_forward_pass(0, ep)
-    
+
     try:
         loss_initial = cg.end_layer_mass_loss()
-        print(f"[Setup] Initial physics loss: {loss_initial:.2f}")
-    except Exception as e:
-        print(f"[Setup] Loss computation failed: {e}")
+        print(f"[Init] physics_loss={loss_initial:.2f}")
+    except Exception:
         loss_initial = 0.0
-    
-    print(f"\n{'='*70}")
-    print(f"E2E Training - {num_passes} Passes")
-    print(f"{'='*70}")
     
     accumulated_render_grads = None
     final_loss_components = None
     
-    # ════════════════════════════════════════════════════════════════════════════
     # Multi-Pass Refinement Loop
-    # ════════════════════════════════════════════════════════════════════════════
     for pass_idx in range(num_passes):
-        print(f"\n{'─'*70}")
-        print(f"Pass {pass_idx+1}/{num_passes}")
-        print(f"{'─'*70}")
-        
-        # 🔥 Physics weight: DISABLED (we now use normalized gradient combination in Python)
-        # Old approach scaled physics gradients in C++ (backwards logic).
-        # New approach: normalize and combine gradients in Python before injection.
-        phys_w = 1.0  # Keep physics at full scale; balance is handled in Python
+        print(f"\n--- Pass {pass_idx+1}/{num_passes} ---")
 
-        try:
-            cg.set_physics_weight(phys_w)
-            print(f"[Physics Weight] Fixed at {phys_w:.2f} (balance handled by gradient normalization)")
-        except Exception as e:
-            print(f"[Physics Weight] Failed: {e}")
-        
+        cg.set_physics_weight(1.0)
         torch.cuda.empty_cache()
-        
-        # ────────────────────────────────────────────────────────────────────────
-        # Phase 1+2: Physics Optimization with Batched Gradient Injection (OPTIMIZED)
-        # ────────────────────────────────────────────────────────────────────────
-        # 🔥 NEW: Use batched E2E pass (combines gradient injection + physics optimization)
-        use_batched = True  # Set to False to use old method
 
-        if use_batched:
-            # Prepare render gradients (if available)
-            render_grads_dict = None
-            if accumulated_render_grads is not None and renderer is not None and loss_manager is not None:
-                render_grads_dict = {
-                    'dLdF': accumulated_render_grads['dLdF'],
-                    'dLdx': accumulated_render_grads['dLdx']
-                }
-                grad_F_norm = np.linalg.norm(render_grads_dict['dLdF'])
-                grad_x_norm = np.linalg.norm(render_grads_dict['dLdx'])
-                print(f"\n[Batched E2E] Pass {pass_idx+1} with render gradients")
-                print(f"├─ Points: {len(render_grads_dict['dLdF'])}")
-                print(f"├─ ||∂L_render/∂F|| = {grad_F_norm:.6e}")
-                print(f"└─ ||∂L_render/∂x|| = {grad_x_norm:.6e}")
-            else:
+        # Phase 1+2: Physics Optimization with Batched Gradient Injection
+        render_grads_dict = None
+        if accumulated_render_grads is not None and renderer is not None and loss_manager is not None:
+            render_grads_dict = {
+                'dLdF': accumulated_render_grads['dLdF'],
+                'dLdx': accumulated_render_grads['dLdx']
+            }
+            print(f"[Inject] ||dLdF||={np.linalg.norm(render_grads_dict['dLdF']):.2e}, "
+                  f"||dLdx||={np.linalg.norm(render_grads_dict['dLdx']):.2e}")
 
-                    print(f"\n[Inject] No render grads available\n")
-            
-            # ────────────────────────────────────────────────────────────────────────
-            # Phase 2: Physics Optimization
-            # ────────────────────────────────────────────────────────────────────────
-            t0_physics = time.time()
-            
-            # 🔍 Check physics optimization parameters
-            print(f"\n🔍 [Physics Params]")
-            print(f"├─ Learning rate (alpha): {opt.initial_alpha}")
-            print(f"├─ Max GD iters: {opt.max_gd_iters}")
-            print(f"├─ Max LS iters: {opt.max_ls_iters}")
-            print(f"└─ Timesteps: {num_timesteps}")
-
-            # 🔥 Single batched call (2-3x faster than separate calls!)
-            # Skip SetUpCompGraph for pass 2+ to preserve simulation state
-            skip_setup = (pass_idx > 0)
-            loss_physics = run_physics_optimization_batched(
-                cg, opt, render_grads_dict, pass_idx, skip_setup=skip_setup
-            )
-
-        else:
-            # Old method (kept for fallback/debugging)
-            if accumulated_render_grads is not None and renderer is not None and loss_manager is not None:
-                dLdF = accumulated_render_grads['dLdF']
-                dLdx = accumulated_render_grads['dLdx']
-
-                grad_F_norm = np.linalg.norm(dLdF)
-                grad_x_norm = np.linalg.norm(dLdx)
-
-                print(f"\n[Inject] Applying render gradients from Pass {pass_idx}")
-                print(f"├─ Points: {len(dLdF)}")
-                print(f"├─ ||∂L_render/∂F|| = {grad_F_norm:.6e}")
-                print(f"└─ ||∂L_render/∂x|| = {grad_x_norm:.6e}")
-
-                try:
-                    cg.set_render_gradients(dLdF, dLdx)
-                    print(f"   ✅ Gradients injected successfully\n")
-                except Exception as e:
-                    print(f"   ❌ Gradient injection failed: {e}\n")
-            else:
-                if pass_idx == 0:
-                    print(f"\n[Inject] No previous render grads (first pass)\n")
-                elif renderer is None or loss_manager is None:
-                    print(f"\n[Inject] Skipped - Physics-only mode\n")
-                else:
-                    print(f"\n[Inject] No render grads available\n")
-
-            loss_physics = run_physics_optimization(
-                cg, opt, num_timesteps, control_stride, ep, pass_idx
-            )
-        
+        t0_physics = time.time()
+        skip_setup = (pass_idx > 0)
+        loss_physics = run_physics_optimization_batched(
+            cg, opt, render_grads_dict, pass_idx, skip_setup=skip_setup
+        )
         t_physics = time.time() - t0_physics
-        print(f"⏱️  [Physics Optimization] {t_physics:.2f}s")
+        print(f"[Physics] loss={loss_physics:.4f}, time={t_physics:.2f}s")
         
-        # ────────────────────────────────────────────────────────────────────────
         # Phase 3: Compute Render Loss
-        # ────────────────────────────────────────────────────────────────────────
-        # Pass 1: Compute render loss (no render grads were injected during physics)
-        # Pass 2/3: Compute render loss (render grads from previous pass were injected)
-
         t0_render = time.time()
         seed = 9999 + ep*1000 + pass_idx
-
-        print(f"\n[Render] Computing loss for Pass {pass_idx+1}...")
 
         try:
             result = compute_render_loss_pass(
@@ -698,8 +601,7 @@ def run_e2e_episode(
                 current_episode=ep
             )
         except FloatingPointError as err:
-            print(f"└─ ❌ Render loss computation failed: {err}")
-            print(f"   ↳ Skipping remaining passes for this episode.")
+            print(f"[Render] Failed: {err}, skipping remaining passes")
             break
         
         if result and result[0] is not None:
@@ -714,22 +616,13 @@ def run_e2e_episode(
                 cov_optimizer.step()
                 cov_optimizer.zero_grad()
             
-            # 🔥 Track render loss change
-            if 'loss_render_total' in loss_components:
-                current_render_loss = loss_components['loss_render_total']
-                if hasattr(current_render_loss, 'item'):
-                    current_render_loss = current_render_loss.item()
-                
-                if pass_idx > 0 and final_loss_components is not None:
-                    prev_render_loss = final_loss_components.get('loss_render_total', 0)
-                    if hasattr(prev_render_loss, 'item'):
-                        prev_render_loss = prev_render_loss.item()
-                    
-                    render_change = current_render_loss - prev_render_loss
-                    print(f"\n🔍 [Render Loss Tracking]")
-                    print(f"├─ Previous: {prev_render_loss:.6f}")
-                    print(f"├─ Current:  {current_render_loss:.6f}")
-                    print(f"└─ Change:   {render_change:+.6f} {'⚠️ INCREASING!' if render_change > 0 else '✅ Decreasing'}")
+            # Track render loss change
+            if 'loss_render_total' in loss_components and pass_idx > 0 and final_loss_components is not None:
+                cur = loss_components['loss_render_total']
+                prev = final_loss_components.get('loss_render_total', 0)
+                if hasattr(cur, 'item'): cur = cur.item()
+                if hasattr(prev, 'item'): prev = prev.item()
+                print(f"[Render] loss={cur:.6f} (delta={cur-prev:+.6f})")
             
             # Extract gradients (E2E mode only)
             render_grads = extract_render_gradients(F, x)
@@ -778,259 +671,217 @@ def run_e2e_episode(
                         '~ neutral'
                     )
 
-                    # 3. 🔥 FIXED: Use render_loss_weight from config
-                    # This is the proper place to apply render_loss_weight!
-
-                    # DEBUG: Check what's in the config
-                    print(f"\n[DEBUG CONFIG READ]")
-                    print(f"  rs_full keys: {list(rs_full.keys())}")
-
-                    # Check if there's a nested 'upsample' key
-                    if 'upsample' in rs_full:
-                        print(f"  'upsample' key exists, contents: {rs_full['upsample']}")
-
-                    # Try reading from multiple locations
+                    # Read render_loss_weight from config
                     render_loss_weight = rs_full.get('render_loss_weight', None)
                     if render_loss_weight is None and 'upsample' in rs_full:
                         render_loss_weight = rs_full['upsample'].get('render_loss_weight', None)
                     if render_loss_weight is None:
-                        render_loss_weight = 1.0  # Default
-
-                    # 🔥 CRITICAL: Convert to float (YAML may parse 1e5 as string!)
+                        render_loss_weight = 1.0
                     render_loss_weight = float(render_loss_weight)
 
-                    print(f"  render_loss_weight READ: {render_loss_weight}")
-
-                    # Adaptive weight scheduling based on episode progress
-                    total_animations = rs_full.get('optimization', {}).get('num_animations', 50)
-                    progress = ep / max(1, total_animations)
-
-                    # 🔥 ALWAYS calculate similarity (no warmup skip!)
+                    # Weight schedule based on episode
                     if ep < 5:
-                        # Early episodes: Lower render weight but STILL calculate similarity
-                        w_render_base = 0.05  # Low but non-zero
-                        print(f"\n├─ [Early Training] Episode {ep} < 5: Low render weight ({w_render_base}), similarity calculation active")
+                        w_render_base = 0.05
                     elif ep < 15:
-                        # Ramp-up: Gradually increase render weight
-                        w_render_base = 0.1 + 0.2 * ((ep - 5) / 10)  # 0.1 → 0.3
+                        w_render_base = 0.1 + 0.2 * ((ep - 5) / 10)
                     elif ep < 30:
-                        # Mid-training: Balanced
                         w_render_base = 0.3
                     else:
-                        # Late: Increase render for refinement
                         w_render_base = 0.4
 
-                    # 🔥 Apply render_loss_weight from config DIRECTLY (no scaling!)
-                    # User controls exact weight via config
-                    w_render = w_render_base * render_loss_weight  # Direct multiplication!
+                    w_render = w_render_base * render_loss_weight
                     w_physics = 1.0
 
                     if w_render <= 0:
-                        print(f"\n├─ [Render Weight] Disabled (w_render={w_render:.3f}), skipping gradient injection")
                         accumulated_render_grads = None
                         continue
 
-                    print(f"\n├─ [Weight Calculation]")
-                    print(f"│  ├─ render_loss_weight (config): {render_loss_weight}")
-                    print(f"│  ├─ w_render_base (schedule): {w_render_base:.3f}")
-                    print(f"│  ├─ w_render (final): {w_render:.3f}")
-                    print(f"│  └─ w_physics: {w_physics:.3f}")
-
-                    # ══════════════════════════════════════════════════════════
-                    # 4. PCGrad: Gradient Conflict Resolution
-                    # ══════════════════════════════════════════════════════════
-                    # PCGrad (Gradient Surgery) projects out conflicting gradient
-                    # components to prevent render and physics from fighting.
-                    # Config: optimization.use_pcgrad (default: true)
-                    # ══════════════════════════════════════════════════════════
-
-                    # Read PCGrad configuration
+                    # PCGrad: conflict resolution
                     optimization_cfg = rs_full.get('optimization', {})
-                    use_pcgrad = optimization_cfg.get('use_pcgrad', True)  # Default: enabled
-                    pcgrad_threshold = optimization_cfg.get('pcgrad_threshold', -0.1)  # Conflict threshold
+                    use_pcgrad = optimization_cfg.get('use_pcgrad', True)
+                    pcgrad_threshold = optimization_cfg.get('pcgrad_threshold', -0.1)
+                    should_apply_pcgrad = use_pcgrad and (cosine < pcgrad_threshold)
 
-                    # Determine if conflict exists
-                    has_conflict = (cosine < pcgrad_threshold)
-                    should_apply_pcgrad = use_pcgrad and has_conflict
-
-                    # Status logging
-                    print(f"\n├─ [PCGrad Status]")
-                    print(f"│  ├─ Config: use_pcgrad = {use_pcgrad}")
-                    print(f"│  ├─ Threshold: {pcgrad_threshold:.2f}")
-                    print(f"│  │")
-                    print(f"│  ├─ 🎯 GRADIENT SIMILARITY:")
-                    print(f"│  │   ├─ Cosine: {cosine:+.4f} {conflict_status}")
-                    print(f"│  │   ├─ Interpretation:")
-                    if cosine < -0.3:
-                        print(f"│  │   │  └─ ⚠️  Strong conflict (gradients oppose)")
-                    elif cosine < -0.1:
-                        print(f"│  │   │  └─ ⚠️  Mild conflict (gradients diverge)")
-                    elif cosine < 0.3:
-                        print(f"│  │   │  └─ ~ Neutral (gradients independent)")
-                    else:
-                        print(f"│  │   │  └─ ✅ Aligned (gradients cooperate)")
-                    print(f"│  │   └─ Range: -1.0 (opposite) → 0.0 (orthogonal) → +1.0 (aligned)")
-                    print(f"│  │")
-                    print(f"│  └─ Action: {'✅ APPLYING PCGrad' if should_apply_pcgrad else '⏭️  Skipping (no conflict)' if use_pcgrad else '❌ DISABLED'}")
-
-                    # Apply PCGrad if needed
                     if should_apply_pcgrad:
-                        print(f"\n🔥 [PCGrad] Conflict detected! Projecting render gradients...")
-                        print(f"    ├─ Cosine: {cosine:.3f} (threshold: {pcgrad_threshold:.2f})")
-                        print(f"    └─ Removing conflicting components from render gradient")
-
-                        # Project render gradients to remove conflict
-                        dLdF_render_proj, dLdx_render_proj, pcgrad_info = pcgrad_projection(
-                            dLdF_render=dLdF_render,
-                            dLdx_render=dLdx_render,
-                            dLdF_physics=dLdF_phys,
-                            dLdx_physics=dLdx_phys,
+                        dLdF_render_final, dLdx_render_final, pcgrad_info = pcgrad_projection(
+                            dLdF_render=dLdF_render, dLdx_render=dLdx_render,
+                            dLdF_physics=dLdF_phys, dLdx_physics=dLdx_phys,
                             conflict_threshold=pcgrad_threshold
                         )
-
-                        # Use projected gradients
-                        dLdF_render_final = dLdF_render_proj
-                        dLdx_render_final = dLdx_render_proj
-                        pcgrad_applied = True
-
-                        print(f"    ✅ PCGrad projection complete")
-                        print(f"       ├─ Projection scale: {pcgrad_info.get('pcgrad_projection_scale', 0.0):.3f}")
-                        print(f"       └─ Render gradient adjusted to avoid conflict")
+                        print(f"[PCGrad] Applied (cos={cosine:+.3f}, scale={pcgrad_info.get('pcgrad_projection_scale', 0):.3f})")
                     else:
-                        # Use original gradients (no projection needed)
                         dLdF_render_final = dLdF_render
                         dLdx_render_final = dLdx_render
-                        pcgrad_applied = False
                         pcgrad_info = {}
 
-                        if not use_pcgrad:
-                            print(f"    ⚠️  PCGrad disabled in config")
-
-                    # Combine gradients (with or without PCGrad)
-                    # 🔥 FIXED: Read magnitude_strategy from rs_full directly (upsample section)
+                    # Combine gradients
                     magnitude_strategy = rs_full.get('magnitude_strategy', None)
                     if magnitude_strategy is None and 'upsample' in rs_full:
                         magnitude_strategy = rs_full['upsample'].get('magnitude_strategy', 'physics')
                     if magnitude_strategy is None:
-                        magnitude_strategy = 'physics'  # Default
+                        magnitude_strategy = 'physics'
+                    render_F_ratio = float(optimization_cfg.get('render_F_ratio', 0.0))
+
                     dLdF_combined, dLdx_combined, norm_info = normalize_and_combine_gradients(
-                        dLdF_physics=dLdF_phys,
-                        dLdx_physics=dLdx_phys,
-                        dLdF_render=dLdF_render_final,
-                        dLdx_render=dLdx_render_final,
-                        w_physics=w_physics,
-                        w_render=w_render,
-                        magnitude_strategy=magnitude_strategy
+                        dLdF_physics=dLdF_phys, dLdx_physics=dLdx_phys,
+                        dLdF_render=dLdF_render_final, dLdx_render=dLdx_render_final,
+                        w_physics=w_physics, w_render=w_render,
+                        magnitude_strategy=magnitude_strategy,
+                        render_F_ratio=render_F_ratio,
                     )
 
-                    # Record PCGrad usage in metadata
-                    norm_info['pcgrad_enabled'] = use_pcgrad
-                    norm_info['pcgrad_applied'] = pcgrad_applied
-                    norm_info['pcgrad_cosine'] = cosine
-                    if pcgrad_applied:
-                        norm_info.update(pcgrad_info)
-
-                    # Update render_grads with combined gradients
                     render_grads['dLdF'] = dLdF_combined
                     render_grads['dLdx'] = dLdx_combined
 
-                    # ══════════════════════════════════════════════════════════
-                    # Diagnostic Logging
-                    # ══════════════════════════════════════════════════════════
-                    print(f"\n🔥 [Gradient Combination Summary] Pass {pass_idx+1}")
-                    print(f"├─ BEFORE normalization:")
-                    print(f"│  ├─ ||g_render|| = {g_render:.6e}")
-                    print(f"│  ├─ ||g_phys||   = {g_phys:.6e}")
-                    print(f"│  ├─ Ratio (render/phys) = {norm_info['ratio_before']:.6e} {'⚠️ HUGE MISMATCH!' if norm_info['ratio_before'] > 100 else ''}")
-                    print(f"│  └─ 🎯 Cosine Similarity: {cosine:+.4f} {conflict_status}")
-                    print(f"│")
-                    print(f"├─ PCGrad:")
-                    print(f"│  ├─ Enabled: {norm_info['pcgrad_enabled']}")
-                    print(f"│  ├─ Applied: {'✅ YES' if norm_info['pcgrad_applied'] else '❌ NO'}")
-                    print(f"│  ├─ Cosine: {norm_info['pcgrad_cosine']:+.4f}")
-                    if norm_info['pcgrad_applied']:
-                        print(f"│  └─ Projection scale: {norm_info.get('pcgrad_projection_scale', 0.0):.3f}")
-                    else:
-                        print(f"│  └─ Reason: {'Disabled in config' if not norm_info['pcgrad_enabled'] else 'No conflict detected'}")
-                    print(f"│")
-                    print(f"├─ WEIGHTS:")
-                    print(f"│  ├─ w_physics = {w_physics:.2f}")
-                    print(f"│  ├─ w_render  = {w_render:.2f}")
-                    print(f"│  └─ Strategy  = {magnitude_strategy}")
-                    print(f"│")
-                    print(f"├─ AFTER combination:")
-                    print(f"│  ├─ ||g_combined|| = {norm_info['g_combined_norm']:.6e}")
-                    print(f"│  ├─ Ratio (combined/phys) = {norm_info['ratio_after']:.4f} ✅")
-                    print(f"│  └─ Magnitude scale = {norm_info['magnitude_scale']:.4f}x")
-                    print(f"│")
-                    print(f"└─ ✅ Gradients normalized and combined successfully!")
+                    print(f"[Grads] cos={cosine:+.3f}, w_r={w_render:.3f}, "
+                          f"||combined||={norm_info['g_combined_norm']:.2e}, "
+                          f"ratio={norm_info['ratio_after']:.3f}")
 
                 except Exception as e:
-                    print(f"├─ [Gradient Combination] Error: {e}")
+                    print(f"[Gradient Combination] Error: {e}")
                     import traceback
                     traceback.print_exc()
-                    print(f"├─ [Fallback] Using render gradients only")
-                    # Keep render_grads as-is (fallback)
-                
+
                 accumulated_render_grads = render_grads
-                print(f"└─ ✅ Render grads processed and saved for Pass {pass_idx+2}\n")
-            else:
-                if renderer is None or loss_manager is None:
-                    print(f"├─ ⚠️  Physics-only mode - no render grads")
-            
+
             del F, x
             ema_state = ema_state_new
-        elif result is not None:
-            print(f"└─ ⚠️ compute_render_loss_pass returned None\n")
-        
+
         del result
         torch.cuda.empty_cache()
-        
-        # ────────────────────────────────────────────────────────────────────────
+
         # Phase 4: Visualization (last pass only)
-        # ────────────────────────────────────────────────────────────────────────
         if pass_idx == num_passes - 1:
-            print(f"\n[Visualization] Saving final results...")
-            seed = 9999 + ep*1000 + pass_idx
-
-            # Prepare render losses for saving
-            render_losses = final_loss_components if final_loss_components is not None else None
-
             visualize_episode(
                 ep, out_dir, cg, num_timesteps, rs_full, ema_state,
                 renderer, campos, render_cfg, particle_color,
-                png_enabled, tgt, loss_physics, seed, cov_module,
-                external_levelset=external_levelset,
-                render_losses=render_losses
+                png_enabled, tgt, loss_physics, 9999 + ep*1000 + pass_idx,
+                cov_module, external_levelset=external_levelset,
+                render_losses=final_loss_components
             )
     
     # ════════════════════════════════════════════════════════════════════════════
-    # Episode Finalization
+    # Post-Physics dFc Correction (표면 가중 + J 안전장치 + 추적)
     # ════════════════════════════════════════════════════════════════════════════
-    print(f"\n{'='*70}")
-    print(f"Episode {ep} COMPLETE")
-    print(f"{'='*70}\n")
-    
-    print(f"[Cleanup] Final memory cleanup...")
+    optimization_cfg = rs_full.get('optimization', {})
+    render_F_ratio = float(optimization_cfg.get('render_F_ratio', 0.0))
+    dfc_metrics = {}
+
+    if render_F_ratio > 0 and accumulated_render_grads is not None:
+        try:
+            dLdF_render = accumulated_render_grads['dLdF']
+            dLdF_norm = np.linalg.norm(dLdF_render)
+
+            if dLdF_norm > 1e-12:
+                num_layers = cg.get_num_layers()
+                pc_last = cg.get_point_cloud(num_layers - 1)
+                dFc_old = np.array(pc_last.get_def_grads_morph())   # (N, 3, 3)
+                F_physics = np.array(pc_last.get_def_grads())       # (N, 3, 3)
+                N = dFc_old.shape[0]
+
+                # Reshape render F gradient to (N, 3, 3)
+                if dLdF_render.ndim == 2 and dLdF_render.shape[1] == 9:
+                    grad = dLdF_render.reshape(N, 3, 3)
+                elif dLdF_render.ndim == 3:
+                    grad = dLdF_render.copy()
+                else:
+                    raise ValueError(f"Unexpected dLdF shape: {dLdF_render.shape}")
+
+                # Per-particle normalization
+                per_particle_norm = np.linalg.norm(grad.reshape(N, 9), axis=1, keepdims=True)
+                per_particle_norm = np.maximum(per_particle_norm, 1e-12)
+                grad_unit = (grad.reshape(N, 9) / per_particle_norm).reshape(N, 3, 3)
+
+                # ── (A) Surface weighting: det(F) 기반 ──
+                F_total_old = F_physics + dFc_old
+                J_old = np.linalg.det(F_total_old)
+                J_deviation = np.abs(J_old - 1.0)
+
+                dfc_surface_tau = float(optimization_cfg.get('dfc_surface_tau', 0.1))
+                surface_weight = np.exp(-0.5 * (J_deviation / dfc_surface_tau) ** 2)
+
+                dfc_interior_cutoff = float(optimization_cfg.get('dfc_interior_cutoff', 0.0))
+                if dfc_interior_cutoff > 0:
+                    surface_weight[J_deviation > dfc_interior_cutoff] = 0.0
+
+                # Weighted step
+                step_size = render_F_ratio * 1e-3
+                weighted_step = step_size * surface_weight[:, None, None]
+                dFc_new = dFc_old - weighted_step * grad_unit
+
+                # ── (B) J_min safeguard ──
+                J_min_threshold = float(optimization_cfg.get('dfc_J_min_threshold', 0.3))
+                J_proposed = np.linalg.det(F_physics + dFc_new)
+                violating = J_proposed < J_min_threshold
+                num_violating = int(violating.sum())
+
+                if num_violating > 0:
+                    for _ in range(3):
+                        dFc_new[violating] = 0.5 * (dFc_old[violating] + dFc_new[violating])
+                        J_proposed = np.linalg.det(F_physics + dFc_new)
+                        violating = J_proposed < J_min_threshold
+                        if violating.sum() == 0:
+                            break
+                    still_bad = J_proposed < J_min_threshold
+                    if still_bad.sum() > 0:
+                        dFc_new[still_bad] = dFc_old[still_bad]
+
+                # Apply to all layers
+                for layer_idx in range(num_layers):
+                    cg.get_point_cloud(layer_idx).set_def_grads_morph(
+                        dFc_new.astype(np.float32))
+
+                # ── (C) Tracking metrics ──
+                J_after = np.linalg.det(F_physics + dFc_new)
+                dFc_diff = np.linalg.norm(dFc_new - dFc_old)
+                dFc_rel = dFc_diff / max(np.linalg.norm(dFc_old), 1e-12) * 100
+                ppn_flat = per_particle_norm.flatten()
+                F_total_norms = np.linalg.norm((F_physics + dFc_new).reshape(N, 9), axis=1)
+                sw_surface = surface_weight > 0.5
+
+                dfc_metrics = {
+                    'dfc_step_norm': float(dFc_diff),
+                    'dfc_rel_change_pct': float(dFc_rel),
+                    'dfc_step_size': float(step_size),
+                    'J_min_before_dfc': float(J_old.min()),
+                    'J_min_after_dfc': float(J_after.min()),
+                    'J_mean_before_dfc': float(J_old.mean()),
+                    'J_mean_after_dfc': float(J_after.mean()),
+                    'dfc_surface_ratio': float(surface_weight.mean()),
+                    'dfc_grad_norm_surface': float(
+                        ppn_flat[sw_surface].mean() if sw_surface.sum() > 0 else 0.0),
+                    'dfc_grad_norm_interior': float(
+                        ppn_flat[~sw_surface].mean() if (~sw_surface).sum() > 0 else 0.0),
+                    'F_norm_mean': float(F_total_norms.mean()),
+                    'F_norm_std': float(F_total_norms.std()),
+                    'dfc_J_guard_count': num_violating,
+                }
+
+                print(f"\n[dFc] ratio={render_F_ratio}, step={step_size:.4f}, "
+                      f"||change||={dFc_diff:.4e} ({dFc_rel:.2f}%)")
+                print(f"  surface_weight: mean={surface_weight.mean():.3f}, "
+                      f"active={int(sw_surface.sum())}/{N}")
+                print(f"  J: {J_old.min():.3f} -> {J_after.min():.3f} "
+                      f"(guard: {num_violating} clipped)")
+
+        except Exception as e:
+            print(f"\n[dFc Correction] Error: {e}")
+            import traceback
+            traceback.print_exc()
+
+    # Episode Finalization
+    print(f"=== Episode {ep} COMPLETE ===\n")
     accumulated_render_grads = None
-    
     if cg.has_render_gradients():
         cg.clear_render_gradients()
-    
     torch.cuda.empty_cache()
-    
-    # Prepare final losses
-    final_losses = {
-        'loss_physics': loss_physics if 'loss_physics' in locals() else 0.0
-    }
-    
+
+    final_losses = {'loss_physics': loss_physics if 'loss_physics' in locals() else 0.0}
     if final_loss_components is not None:
         final_losses.update(final_loss_components)
-    
+    if dfc_metrics:
+        final_losses.update(dfc_metrics)
     return ema_state, final_losses
 
 
-__all__ = [
-    'run_e2e_episode',
-    'run_e2e_episode_session',  # 🔥 NEW: Session mode (10-15x faster!)
-]
+__all__ = ['run_e2e_episode', 'run_e2e_episode_session']
