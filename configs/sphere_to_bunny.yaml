@@ -1,4 +1,4 @@
-# Physics-only baseline: Sphere → Bunny (20 episodes)
+# Physics-only baseline: Sphere → Bunny (40 episodes, PPC=5)
 
 input_mesh_path:  "assets/isosphere.obj"
 target_mesh_path: "assets/bunny.obj"
@@ -8,7 +8,7 @@ simulation:
   grid_dx: 1.0
   grid_min_point: [-16.0, -16.0, -16.0]
   grid_max_point: [16.0, 16.0, 16.0]
-  points_per_cell_cuberoot: 4
+  points_per_cell_cuberoot: 5
   lam: 38888.89
   mu:  58333.3
   density: 75.0
@@ -18,7 +18,7 @@ simulation:
   smoothing_factor: 0.955
 
 optimization:
-  num_animations: 20
+  num_animations: 40
   num_timesteps: 10
   control_stride: 1
   max_gd_iters: 1
