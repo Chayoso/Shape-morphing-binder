@@ -100,6 +100,61 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("get_def_grads", &PointCloud::GetPointDefGrads, "Return particle deformation tensors as (N, 3, 3) NumPy array")
 
         // ===================================================================
+        // [BILEVEL] SETTERS for X0 optimization
+        // ===================================================================
+        .def("set_positions", [](PointCloud& pc, py::array_t<float, py::array::c_style | py::array::forcecast> arr) {
+            auto buf = arr.unchecked<2>();
+            const int N = (int)pc.points.size();
+            if (buf.shape(0) != N || buf.shape(1) != 3)
+                throw std::runtime_error("set_positions: expected shape (N, 3)");
+            for (int i = 0; i < N; ++i)
+                for (int j = 0; j < 3; ++j)
+                    pc.points[i].x(j) = buf(i, j);
+        }, "Set particle positions from (N, 3) float32 array")
+
+        .def("set_def_grads", [](PointCloud& pc, py::array_t<float, py::array::c_style | py::array::forcecast> arr) {
+            auto buf = arr.unchecked<3>();
+            const int N = (int)pc.points.size();
+            if (buf.shape(0) != N || buf.shape(1) != 3 || buf.shape(2) != 3)
+                throw std::runtime_error("set_def_grads: expected shape (N, 3, 3)");
+            for (int i = 0; i < N; ++i)
+                for (int r = 0; r < 3; ++r)
+                    for (int c = 0; c < 3; ++c)
+                        pc.points[i].F(r, c) = buf(i, r, c);
+        }, "Set deformation gradients from (N, 3, 3) float32 array")
+
+        .def("set_dFc", [](PointCloud& pc, py::array_t<float, py::array::c_style | py::array::forcecast> arr) {
+            auto buf = arr.unchecked<3>();
+            const int N = (int)pc.points.size();
+            if (buf.shape(0) != N || buf.shape(1) != 3 || buf.shape(2) != 3)
+                throw std::runtime_error("set_dFc: expected shape (N, 3, 3)");
+            #pragma omp parallel for
+            for (int i = 0; i < N; ++i)
+                for (int r = 0; r < 3; ++r)
+                    for (int c = 0; c < 3; ++c)
+                        pc.points[i].dFc(r, c) = buf(i, r, c);
+        }, "Set dFc correction from (N, 3, 3) float32 array")
+
+        .def("get_dFc", [](const PointCloud& pc) {
+            const int N = (int)pc.points.size();
+            auto arr = py::array_t<float>({N, 3, 3});
+            auto buf = arr.mutable_unchecked<3>();
+            #pragma omp parallel for
+            for (int i = 0; i < N; ++i)
+                for (int r = 0; r < 3; ++r)
+                    for (int c = 0; c < 3; ++c)
+                        buf(i, r, c) = pc.points[i].dFc(r, c);
+            return arr;
+        }, "Get dFc correction as (N, 3, 3) float32 array")
+
+        .def("reset_kinematics", [](PointCloud& pc) {
+            for (auto& mp : pc.points) {
+                mp.v.setZero();
+                mp.C.setZero();
+            }
+        }, "Zero velocities and affine momenta for all particles")
+
+        // ===================================================================
         // [FIX] ZERO-COPY VIEWS (NumPy buffer protocol)
         // ===================================================================
         .def("get_positions_view", [](PointCloud& pc) -> py::array_t<float> {
@@ -420,42 +475,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 - For advection only, not for backpropagation
         )pbdoc")
 #endif
-        .def("get_def_grads_morph", [](const PointCloud& pc) {
-            const size_t N = pc.points.size();
-            py::array_t<float> arr({(py::ssize_t)N, (py::ssize_t)3, (py::ssize_t)3});
-            auto buf = arr.mutable_unchecked<3>();
-            for (size_t i = 0; i < N; ++i) {
-                const auto& A = pc.points[i].dFc;
-                for (int r = 0; r < 3; ++r)
-                    for (int c = 0; c < 3; ++c)
-                        buf(i, r, c) = A(r, c);
-            }
-            return arr;
-        }, "Return morph control deformation dFc as (N, 3, 3) array")
-        .def("get_def_grads_total", [](const PointCloud& pc) {
-            const size_t N = pc.points.size();
-            py::array_t<float> arr({(py::ssize_t)N, (py::ssize_t)3, (py::ssize_t)3});
-            auto buf = arr.mutable_unchecked<3>();
-            for (size_t i = 0; i < N; ++i) {
-                const auto& F  = pc.points[i].F;
-                const auto& dF = pc.points[i].dFc;
-                for (int r = 0; r < 3; ++r)
-                    for (int c = 0; c < 3; ++c)
-                        buf(i, r, c) = F(r, c) + dF(r, c);
-            }
-            return arr;
-        }, "Return total deformation F_total = F + dFc as (N, 3, 3) array")
-        .def("set_def_grads_morph", [](PointCloud& pc, py::array_t<float> arr) {
-            auto buf = arr.unchecked<3>();
-            const size_t N = pc.points.size();
-            if ((size_t)buf.shape(0) != N)
-                throw std::runtime_error("set_def_grads_morph: array size mismatch");
-            for (size_t i = 0; i < N; ++i) {
-                for (int r = 0; r < 3; ++r)
-                    for (int c = 0; c < 3; ++c)
-                        pc.points[i].dFc(r, c) = buf(i, r, c);
-            }
-        }, "Set morph control deformation dFc from (N, 3, 3) array");
+;
 
     py::class_<Grid, std::shared_ptr<Grid>>(m, "Grid")
         .def(py::init<int, int, int, float, DiffMPMLib3D::Vec3>(), "Grid constructor");

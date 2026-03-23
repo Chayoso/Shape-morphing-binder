@@ -134,17 +134,6 @@ def _build_curvature_covariance(
     return cov_torch
 
 
-# ============================================================================
-# ⚡ NaN/Inf Health Check
-# ============================================================================
-def _check_finite(tag: str, *tensors):
-    """⚡ Fast NaN/Inf health check at stage boundaries."""
-    for t in tensors:
-        if not torch.isfinite(t).all():
-            raise FloatingPointError(f"[{tag}] non-finite detected")
-
-
-
 
 def upsample(
     x_low: torch.Tensor,

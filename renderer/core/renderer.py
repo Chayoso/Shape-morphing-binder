@@ -18,6 +18,7 @@ from ..utils.covariance import (
     unpack_covariance_6d_to_3x3,
     pack_covariance_torch,
     decompose_covariance_to_scale_rotation,
+    decompose_covariance_torch,
 )
 from ..utils.projection_2d import project_points_to_screen
 from ..utils.debug import debug_print, is_debug_enabled, get_tensor_stats, debug_tensor_info
@@ -487,9 +488,9 @@ class GSRenderer3DGS:
         # Fallback to scale+rotation
         if output is None:
             output = self._render_scale_rotation(
-                means3D, means2D, colors, opacities, cov
+                means3D, means2D, colors, opacities, cov, return_torch
             )
-        
+
         return output
     
     def _try_render_cov_precomp(
@@ -536,24 +537,50 @@ class GSRenderer3DGS:
         means2D: torch.Tensor,
         colors: torch.Tensor,
         opacities: torch.Tensor,
-        cov: Union[np.ndarray, torch.Tensor, List[torch.Tensor]]
+        cov: Union[np.ndarray, torch.Tensor, List[torch.Tensor]],
+        return_torch: bool = False
     ) -> Any:
-        """Render using scale+rotation fallback."""
-        # Convert to numpy
-        cov_np = to_numpy_array(cov) if not isinstance(cov, list) else np.stack([to_numpy_array(c) for c in cov], axis=0)
-        
-        # Unpack if needed
-        if cov_np.ndim == 2 and cov_np.shape[1] == 6:
-            cov_np = unpack_covariance_6d_to_3x3(cov_np)
-        
-        # Decompose
-        scales, quaternions = decompose_covariance_to_scale_rotation(cov_np)
-        
-        scales_t = to_torch_tensor(scales, device=self.device)
-        rots_t = to_torch_tensor(quaternions, device=self.device)
-        
-        debug_print("[Renderer] Using scales+rotations fallback")
-        
+        """Render using scale+rotation decomposition.
+
+        When return_torch=True and cov is a torch.Tensor, uses a fully
+        differentiable PyTorch decomposition so gradients flow from the
+        rendered image back through scales/rotations to the input covariance.
+        """
+        cov_is_torch = torch.is_tensor(cov)
+
+        if return_torch and cov_is_torch:
+            # Differentiable path: cov → (scales, quaternions) in PyTorch
+            cov_dev = cov.to(self.device)
+            if cov_dev.ndim == 2 and cov_dev.shape[1] == 6:
+                # Unpack 6D → 3x3 (differentiable indexing)
+                cov3x3 = torch.zeros(cov_dev.shape[0], 3, 3,
+                                     device=cov_dev.device, dtype=cov_dev.dtype)
+                cov3x3[:, 0, 0] = cov_dev[:, 0]
+                cov3x3[:, 0, 1] = cov_dev[:, 1]
+                cov3x3[:, 0, 2] = cov_dev[:, 2]
+                cov3x3[:, 1, 0] = cov_dev[:, 1]
+                cov3x3[:, 1, 1] = cov_dev[:, 3]
+                cov3x3[:, 1, 2] = cov_dev[:, 4]
+                cov3x3[:, 2, 0] = cov_dev[:, 2]
+                cov3x3[:, 2, 1] = cov_dev[:, 4]
+                cov3x3[:, 2, 2] = cov_dev[:, 5]
+                cov_dev = cov3x3
+
+            scales_t, rots_t = decompose_covariance_torch(cov_dev)
+            debug_print("[Renderer] Using scales+rotations (differentiable torch)")
+        else:
+            # Non-differentiable numpy path (original)
+            cov_np = to_numpy_array(cov) if not isinstance(cov, list) else np.stack(
+                [to_numpy_array(c) for c in cov], axis=0)
+
+            if cov_np.ndim == 2 and cov_np.shape[1] == 6:
+                cov_np = unpack_covariance_6d_to_3x3(cov_np)
+
+            scales, quaternions = decompose_covariance_to_scale_rotation(cov_np)
+            scales_t = to_torch_tensor(scales, device=self.device)
+            rots_t = to_torch_tensor(quaternions, device=self.device)
+            debug_print("[Renderer] Using scales+rotations fallback (numpy)")
+
         return self.rasterizer(
             means3D=means3D,
             means2D=means2D,

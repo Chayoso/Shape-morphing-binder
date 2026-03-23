@@ -128,18 +128,6 @@ namespace DiffMPMLib3D {
 
     void CompGraph::ComputeBackwardPass(size_t control_layer)
     {
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // STEP 1: Standard backward propagation (physics)
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        
-        // [DEBUG] DEBUG: Print physics_weight_ value at the start of backward pass
-        static bool first_time = true;
-        if (first_time) {
-            std::cout << "[DEBUG] physics_weight_ = " << physics_weight_ << std::endl;
-            std::cout << "[DEBUG] has_render_grads_ = " << (has_render_grads_ ? "true" : "false") << std::endl;
-            first_time = false;
-        }
-
         // ════════════════════════════════════════════════════════════════════════
         // [FIX] GRADIENT INJECTION FIX: Add render gradients to final layer
         // [CRITICAL] Only inject ONCE per pass using flag check!
@@ -240,64 +228,6 @@ namespace DiffMPMLib3D {
             }
         }
 
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // [DISABLED] STEP 2: Control layer injection is INCORRECT
-        // Render gradients are from FINAL state - they should ONLY be injected to final layer (line 147)
-        // Backward propagation will naturally distribute them to control layers
-        // This block is now disabled by the flag check
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        if (false && has_render_grads_ && !render_grads_injected_this_control_timestep_ && control_layer < layers.size()) {
-            std::shared_ptr<PointCloud> pc_control = layers[control_layer].point_cloud;
-
-            if (!pc_control) {
-                std::cerr << "[WARN] Control layer point cloud is null, skipping render gradient injection" << std::endl;
-            } else {
-                const size_t N = pc_control->points.size();
-
-                if (render_grad_num_points_ != N) {
-                    std::cerr << "[WARN] Render gradient size mismatch: stored "
-                              << render_grad_num_points_ << " but control layer has " << N
-                              << " points. Skipping injection." << std::endl;
-                } else {
-                    std::cout << "[C++] Injecting render gradients to control layer " << control_layer
-                              << " (" << N << " points)" << std::endl;
-
-                    #pragma omp parallel for
-                    for (int i = 0; i < (int)N; ++i) {
-                        MaterialPoint& pt = pc_control->points[i];
-
-                        // [OK] Build Mat3 from stored render gradient (dLdF)
-                        // [FIX] FIX: Python already normalizes gradients - no gain multiplication needed!
-                        Mat3 dF_render;
-                        dF_render(0,0) = stored_render_grad_F_[i*9 + 0];
-                        dF_render(0,1) = stored_render_grad_F_[i*9 + 1];
-                        dF_render(0,2) = stored_render_grad_F_[i*9 + 2];
-                        dF_render(1,0) = stored_render_grad_F_[i*9 + 3];
-                        dF_render(1,1) = stored_render_grad_F_[i*9 + 4];
-                        dF_render(1,2) = stored_render_grad_F_[i*9 + 5];
-                        dF_render(2,0) = stored_render_grad_F_[i*9 + 6];
-                        dF_render(2,1) = stored_render_grad_F_[i*9 + 7];
-                        dF_render(2,2) = stored_render_grad_F_[i*9 + 8];
-
-                        // [OK] Build Vec3 from stored render gradient (dLdx)
-                        Vec3 dx_render;
-                        dx_render(0) = stored_render_grad_x_[i*3 + 0];
-                        dx_render(1) = stored_render_grad_x_[i*3 + 1];
-                        dx_render(2) = stored_render_grad_x_[i*3 + 2];
-
-                        // [OK] ADD to existing physics gradients (already propagated backward)
-                        pt.dLdF += dF_render;
-                        pt.dLdx += dx_render;
-                    }
-
-                    // Mark as injected to prevent double counting
-                    render_grads_injected_this_control_timestep_ = true;
-
-                    std::cout << "[C++] Render gradients injected (L_tot = L_phys_propagated + L_render)"
-                              << std::endl;
-                }
-            }
-        }
     }
 
     void CompGraph::OptimizeDefGradControlSequence(

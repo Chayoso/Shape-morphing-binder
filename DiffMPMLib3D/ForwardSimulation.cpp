@@ -133,10 +133,6 @@ namespace DiffMPMLib3D::SingleThreadMPM {
 
     void ForwardTimeStep(PointCloud& next_point_cloud, PointCloud& curr_point_cloud, Grid& grid, float smoothing_factor, float dt, float drag, Vec3 f_ext, int current_episode)
     {
-        // [FIX] F-smoothing schedule (episode-based)
-        float smoothing_scheduled = (current_episode < 10 ? 0.88f :
-                                     (current_episode < 30 ? 0.90f : 0.92f));
-        
         P_op_1(curr_point_cloud, current_episode);
         G_Reset(grid);
         P2G(curr_point_cloud, grid, dt, drag);
@@ -150,7 +146,7 @@ namespace DiffMPMLib3D::SingleThreadMPM {
 
         G_op(grid, dt, f_ext);
         G2P(next_point_cloud, curr_point_cloud, grid);
-        P_op_2(next_point_cloud, curr_point_cloud, smoothing_scheduled, dt);
+        P_op_2(next_point_cloud, curr_point_cloud, smoothing_factor, dt);
     }
     
     // High-level functions that orchestrate the substeps

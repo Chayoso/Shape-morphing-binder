@@ -15,14 +15,9 @@ from .physics_utils import (
 
 from .rendering_utils import (
     setup_renderer,
-    upsample_target,
-    render_target,
-    normalize_render_outputs,
-    create_target_render,
     prepare_rendering_inputs,
     upsample_current_state,
-    compute_render_loss_pass,
-    extract_render_gradients,
+    generate_target_render,
 )
 
 from .io_utils import (
@@ -53,14 +48,9 @@ __all__ = [
     
     # Rendering
     'setup_renderer',
-    'upsample_target',
-    'render_target',
-    'normalize_render_outputs',
-    'create_target_render',
     'prepare_rendering_inputs',
     'upsample_current_state',
-    'compute_render_loss_pass',
-    'extract_render_gradients',
+    'generate_target_render',
     
     # I/O
     'save_image_png',

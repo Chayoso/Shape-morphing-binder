@@ -194,3 +194,123 @@ def decompose_covariance_to_scale_rotation(
         quaternions[i] = rotation_matrix_to_quaternion(R.astype(np.float32))
     
     return scales, quaternions
+
+
+# ============================================================================
+# Differentiable (PyTorch) covariance decomposition
+# ============================================================================
+
+def _rotation_matrix_to_quaternion_torch(R):
+    """
+    Batched rotation matrix → quaternion (XYZW), fully differentiable.
+
+    Uses all four Shepperd branches, selects per-matrix via the
+    numerically dominant diagonal, with straight-through gather.
+
+    Args:
+        R: (N, 3, 3)
+    Returns:
+        q: (N, 4) as [x, y, z, w], unit norm
+    """
+    import torch
+
+    N = R.shape[0]
+
+    tr = R[:, 0, 0] + R[:, 1, 1] + R[:, 2, 2]
+
+    # branch 0: w dominant
+    s0 = torch.sqrt(torch.clamp(tr + 1.0, min=1e-8)) * 2.0
+    q0 = torch.stack([
+        (R[:, 2, 1] - R[:, 1, 2]) / s0,
+        (R[:, 0, 2] - R[:, 2, 0]) / s0,
+        (R[:, 1, 0] - R[:, 0, 1]) / s0,
+        0.25 * s0,
+    ], dim=-1)
+
+    # branch 1: x dominant
+    s1 = torch.sqrt(torch.clamp(1.0 + R[:, 0, 0] - R[:, 1, 1] - R[:, 2, 2], min=1e-8)) * 2.0
+    q1 = torch.stack([
+        0.25 * s1,
+        (R[:, 0, 1] + R[:, 1, 0]) / s1,
+        (R[:, 0, 2] + R[:, 2, 0]) / s1,
+        (R[:, 2, 1] - R[:, 1, 2]) / s1,
+    ], dim=-1)
+
+    # branch 2: y dominant
+    s2 = torch.sqrt(torch.clamp(1.0 + R[:, 1, 1] - R[:, 0, 0] - R[:, 2, 2], min=1e-8)) * 2.0
+    q2 = torch.stack([
+        (R[:, 0, 1] + R[:, 1, 0]) / s2,
+        0.25 * s2,
+        (R[:, 1, 2] + R[:, 2, 1]) / s2,
+        (R[:, 0, 2] - R[:, 2, 0]) / s2,
+    ], dim=-1)
+
+    # branch 3: z dominant
+    s3 = torch.sqrt(torch.clamp(1.0 + R[:, 2, 2] - R[:, 0, 0] - R[:, 1, 1], min=1e-8)) * 2.0
+    q3 = torch.stack([
+        (R[:, 0, 2] + R[:, 2, 0]) / s3,
+        (R[:, 1, 2] + R[:, 2, 1]) / s3,
+        0.25 * s3,
+        (R[:, 1, 0] - R[:, 0, 1]) / s3,
+    ], dim=-1)
+
+    # Select best branch per matrix
+    diag = torch.stack([tr, R[:, 0, 0], R[:, 1, 1], R[:, 2, 2]], dim=-1)
+    best = diag.argmax(dim=-1)
+
+    all_q = torch.stack([q0, q1, q2, q3], dim=1)  # (N, 4, 4)
+    idx = best.unsqueeze(-1).unsqueeze(-1).expand(-1, 1, 4)
+    q = all_q.gather(1, idx).squeeze(1)  # (N, 4)
+
+    q = q / (q.norm(dim=-1, keepdim=True) + 1e-12)
+    return q
+
+
+def decompose_covariance_torch(cov, eps=1e-8, chunk_size=16384):
+    """
+    Differentiable covariance → (scales, quaternions).
+
+    Σ = V diag(λ) Vᵀ  →  scales = sqrt(λ),  quaternion from V
+
+    Processes in chunks to avoid cusolver batch-size limits.
+
+    Args:
+        cov: (N, 3, 3) torch.Tensor (SPD covariance matrices)
+        eps: Eigenvalue floor
+        chunk_size: Max matrices per cusolver call
+
+    Returns:
+        scales:      (N, 3) torch.Tensor (descending order)
+        quaternions: (N, 4) torch.Tensor [x, y, z, w]
+    """
+    import torch
+
+    N = cov.shape[0]
+    cov_sym = 0.5 * (cov + cov.transpose(-2, -1))
+
+    # Chunked eigendecomposition to stay within cusolver limits
+    all_eigenvalues = []
+    all_eigenvectors = []
+    for i in range(0, N, chunk_size):
+        chunk = cov_sym[i:i + chunk_size]
+        evals, evecs = torch.linalg.eigh(chunk)
+        all_eigenvalues.append(evals)
+        all_eigenvectors.append(evecs)
+
+    eigenvalues = torch.cat(all_eigenvalues, dim=0)    # (N, 3) ascending
+    eigenvectors = torch.cat(all_eigenvectors, dim=0)  # (N, 3, 3)
+
+    eigenvalues = eigenvalues.clamp(min=eps)
+
+    scales = torch.sqrt(eigenvalues).flip(-1)  # descending
+    V = eigenvectors.flip(-1)  # columns = descending eigenvecs
+
+    # Ensure proper rotation (det > 0)
+    det = torch.det(V)
+    needs_flip = det < 0
+    if needs_flip.any():
+        V = V.clone()
+        V[needs_flip, :, -1] *= -1
+
+    quaternions = _rotation_matrix_to_quaternion_torch(V)
+    return scales, quaternions
