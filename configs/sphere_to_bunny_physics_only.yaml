@@ -1,9 +1,8 @@
-# PhysMorph-GS: Hard-Coupled Physics-to-Render Pipeline
+# PhysMorph-GS: Physics-Only Baseline (no render gradient injection)
 # sphere -> bunny, 40 episodes
-# Default run config (fixed_norm mode, alpha=0.5)
 input_mesh_path:  "assets/isosphere.obj"
 target_mesh_path: "assets/bunny.obj"
-output_dir:       "output/sphere_to_bunny"
+output_dir:       "output/sphere_to_bunny_physics_only"
 
 simulation:
   grid_dx: 1.0
@@ -28,18 +27,12 @@ optimization:
   gd_tol: 0.0001
 
 hard_coupling:
-  mode: fixed_norm            # 'fixed_norm' or 'option_a'
+  mode: fixed_norm
   sigma0: auto
   sigma0_scale: 0.5
   opacity: 0.95
-  render_start_ep: 5          # physics-only warmup for first N episodes
-  # fixed_norm params
-  alpha_fixed: 0.5
-  # option_a params (unused when mode=fixed_norm)
-  eta: 0.1
-  lambda_attr: 1.0
-  tau: 0.5
-  smooth_k: 8
+  render_start_ep: 999    # never inject render grads
+  alpha_fixed: 0.0
   loss_weights:
     w_bce: 1.0
     w_iou: 1.0

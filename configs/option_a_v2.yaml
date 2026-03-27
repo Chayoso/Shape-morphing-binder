@@ -1,9 +1,9 @@
-# PhysMorph-GS: Hard-Coupled Physics-to-Render Pipeline
-# sphere -> bunny, 40 episodes
-# Default run config (fixed_norm mode, alpha=0.5)
+# Option A v2: Surface-Aware Target-State Proximal Attractor
+# Exp A finding: nonzero-gradient particles (9.8%) have coherence=0.28 raw, 0.64 after clip+knn32
+# Only active (visually contributing) particles receive attractor guidance
 input_mesh_path:  "assets/isosphere.obj"
 target_mesh_path: "assets/bunny.obj"
-output_dir:       "output/sphere_to_bunny"
+output_dir:       "output/option_a_v2"
 
 simulation:
   grid_dx: 1.0
@@ -19,7 +19,7 @@ simulation:
   smoothing_factor: 0.955
 
 optimization:
-  num_animations: 40
+  num_animations: 15
   num_timesteps: 10
   control_stride: 1
   max_gd_iters: 1
@@ -28,18 +28,16 @@ optimization:
   gd_tol: 0.0001
 
 hard_coupling:
-  mode: fixed_norm            # 'fixed_norm' or 'option_a'
+  mode: option_a_v2
   sigma0: auto
   sigma0_scale: 0.5
   opacity: 0.95
-  render_start_ep: 5          # physics-only warmup for first N episodes
-  # fixed_norm params
-  alpha_fixed: 0.5
-  # option_a params (unused when mode=fixed_norm)
-  eta: 0.1
-  lambda_attr: 1.0
-  tau: 0.5
-  smooth_k: 8
+  render_start_ep: 5
+  # option_a_v2 params (surface-aware attractor)
+  eta: 0.1           # step size toward target
+  lambda_attr: 1.0   # attractor strength
+  smooth_k: 32       # KNN smoothing on active subset (Exp A: k32 best)
+  clip_pct: 95.0     # per-particle outlier clipping percentile
   loss_weights:
     w_bce: 1.0
     w_iou: 1.0

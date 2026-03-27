@@ -293,6 +293,8 @@ def decompose_covariance_torch(cov, eps=1e-8, chunk_size=16384):
     all_eigenvectors = []
     for i in range(0, N, chunk_size):
         chunk = cov_sym[i:i + chunk_size]
+        # Add small regularization to prevent ill-conditioned matrices
+        chunk = chunk + eps * torch.eye(3, device=chunk.device, dtype=chunk.dtype).unsqueeze(0)
         evals, evecs = torch.linalg.eigh(chunk)
         all_eigenvalues.append(evals)
         all_eigenvectors.append(evecs)

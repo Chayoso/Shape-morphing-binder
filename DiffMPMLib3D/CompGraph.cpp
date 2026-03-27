@@ -304,6 +304,7 @@ namespace DiffMPMLib3D {
 
         ComputeBackwardPass(0);
         float initial_norm_global = layers.front().point_cloud->Compute_dLdF_Norm();
+        last_control_grad_norm_ = initial_norm_global;  // Expose to Python
         std::cout << "Initial global gradient norm = " << initial_norm_global << std::endl;
 
         size_t num_points = layers.front().point_cloud->points.size();
@@ -326,7 +327,11 @@ namespace DiffMPMLib3D {
                 std::cout << "\n[STEP] Control Step " << step_number << "/" << num_control_steps
                           << " (Timestep " << control_timestep << ")" << std::endl;
 
-                // [REMOVED] DON'T reset flag here - it causes render grads to inject 10x!
+                // [FIX] Reset flag per control_timestep so render grads inject at each
+                // control step's backward pass. This is mathematically correct:
+                // dL_render/ddFc[k] = backprop(dL/dF_T, timestep k→T) requires
+                // render grads to be present in EVERY control_timestep's backward.
+                render_grads_injected_this_control_timestep_ = false;
 
                 // [FIX] ADAPTIVE INITIAL_ALPHA: Reduce alpha when gradients are too large
                 float alpha = initial_alpha;
@@ -398,6 +403,9 @@ namespace DiffMPMLib3D {
                         break;
                     }
 
+                    // [FIX] Reset per gd_iter so render grads are included in the
+                    // backward pass that actually drives the Adam step.
+                    render_grads_injected_this_control_timestep_ = false;
                     ComputeBackwardPass(control_timestep);
 
                     auto& pc = *layers[control_timestep].point_cloud;

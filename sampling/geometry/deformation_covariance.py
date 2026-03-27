@@ -640,8 +640,10 @@ def build_deformation_covariance(
     knn,
     cfg: Dict,
     learnable_cov_module=None,
-    x_low_normals: Optional[torch.Tensor] = None,  # 🔥 NEW: 엣지 검출용
-    x_low_curvature: Optional[torch.Tensor] = None  # 🔥 NEW: 엣지 검출용
+    x_low_normals: Optional[torch.Tensor] = None,
+    x_low_curvature: Optional[torch.Tensor] = None,
+    per_particle_sigma: Optional[torch.Tensor] = None,
+    sigma_aniso: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Build covariance matrices via F-field interpolation + optional learnable refinement.
@@ -681,18 +683,16 @@ def build_deformation_covariance(
     use_adaptive_scale = bool(cfg.get("use_adaptive_scale", False))
     use_polar = bool(cfg.get("use_polar_decomposition", True))
 
-    # 🔥 DEBUG: Print what we received
-    print(f"[DEBUG] use_F_smoothing = {use_F_smoothing} (from cfg: {cfg.get('use_F_smoothing', 'KEY_MISSING')})")
+    verbose = bool(cfg.get("verbose", False))
 
-    # 🔥 F-field 분포 체크 (Root cause 디버깅)
-    with torch.no_grad():
-        F_det = torch.det(F_low)
-        print(f"\n[F-field Stats - Input]")
-        print(f"  F_low range: [{F_low.min():.3f}, {F_low.max():.3f}]")
-        print(f"  det(F_low): [{F_det.min():.3f}, {F_det.max():.3f}]")
-        print(f"  Negative det: {(F_det < 0).sum().item()} / {len(F_det)}")
-        if (F_det < 0).any():
-            print(f"  ⚠️  WARNING: Negative determinants (reflections/inversions)!")
+    if verbose:
+        print(f"[DEBUG] use_F_smoothing = {use_F_smoothing} (from cfg: {cfg.get('use_F_smoothing', 'KEY_MISSING')})")
+        with torch.no_grad():
+            F_det = torch.det(F_low)
+            print(f"\n[F-field Stats - Input]")
+            print(f"  F_low range: [{F_low.min():.3f}, {F_low.max():.3f}]")
+            print(f"  det(F_low): [{F_det.min():.3f}, {F_det.max():.3f}]")
+            print(f"  Negative det: {(F_det < 0).sum().item()} / {len(F_det)}")
     
     # 1) Optional F-field smoothing (🔥 엣지-어웨어)
     if use_F_smoothing:
@@ -702,12 +702,12 @@ def build_deformation_covariance(
             curvature=x_low_curvature  # 🔥 NEW
         )
         
-        # 🔥 Smoothing 전후 비교
-        with torch.no_grad():
-            print(f"[F-field Stats - After Smoothing]")
-            print(f"  F_smooth range: [{F_smooth.min():.3f}, {F_smooth.max():.3f}]")
-            F_det_smooth = torch.det(F_smooth)
-            print(f"  det(F_smooth): [{F_det_smooth.min():.3f}, {F_det_smooth.max():.3f}]")
+        if verbose:
+            with torch.no_grad():
+                print(f"[F-field Stats - After Smoothing]")
+                print(f"  F_smooth range: [{F_smooth.min():.3f}, {F_smooth.max():.3f}]")
+                F_det_smooth = torch.det(F_smooth)
+                print(f"  det(F_smooth): [{F_det_smooth.min():.3f}, {F_det_smooth.max():.3f}]")
     else:
         F_smooth = F_low
 
@@ -727,15 +727,16 @@ def build_deformation_covariance(
             blend_mode=blend_mode
         )
 
-        with torch.no_grad():
-            print(f"\n[Multi-scale F-interpolation]")
-            print(f"  Coarse scale: k={k_coarse} (global)")
-            print(f"  Fine scale: k={k_fine} (local)")
-            print(f"  Blend mode: {blend_mode}")
-            print(f"  Blend weights (α): mean={blend_weights.mean():.3f}, range=[{blend_weights.min():.3f}, {blend_weights.max():.3f}]")
+        if verbose:
+            with torch.no_grad():
+                print(f"\n[Multi-scale F-interpolation]")
+                print(f"  Coarse scale: k={k_coarse} (global)")
+                print(f"  Fine scale: k={k_fine} (local)")
+                print(f"  Blend mode: {blend_mode}")
+                print(f"  Blend weights: mean={blend_weights.mean():.3f}, range=[{blend_weights.min():.3f}, {blend_weights.max():.3f}]")
 
-        # Create dummy idx for compatibility
-        idx, _ = knn(points, x_low, k_F)
+        # Create idx + w for compatibility (needed for aniso interpolation too)
+        idx, w = knn(points, x_low, k_F)
     else:
         # Single-scale interpolation (original)
         idx, w = knn(points, x_low, k_F)
@@ -746,15 +747,12 @@ def build_deformation_covariance(
     s_min = float(cfg.get("sv_min", 0.30))
     s_max = cfg.get("sv_max", None)  # None = 무제한
     
-    # DEBUG: F_interp 전
-    with torch.no_grad():
-        F_det_before = torch.det(F_interp)
-        print(f"[F-field Debug - Before SV Clamp]")
-        print(f"  F_interp range: [{F_interp.min():.6f}, {F_interp.max():.6f}]")
-        print(f"  det(F) range: [{F_det_before.min():.6f}, {F_det_before.max():.6f}]")
-        neg_det_count = (F_det_before < 0).sum().item()
-        if neg_det_count > 0:
-            print(f"  ⚠️  {neg_det_count} negative determinants (will be corrected)")
+    if verbose:
+        with torch.no_grad():
+            F_det_before = torch.det(F_interp)
+            print(f"[F-field Debug - Before SV Clamp]")
+            print(f"  F_interp range: [{F_interp.min():.6f}, {F_interp.max():.6f}]")
+            print(f"  det(F) range: [{F_det_before.min():.6f}, {F_det_before.max():.6f}]")
 
     # 3) Local spacing for adaptive scale
     local_spacing = None
@@ -779,7 +777,15 @@ def build_deformation_covariance(
     # 5) Build covariance
     if use_polar:
         # Base sigma at each point
-        if use_adaptive_scale and local_spacing is not None:
+        if per_particle_sigma is not None:
+            # Learnable per-particle sigma (passed from training loop)
+            # Interpolate from anchor (N,) to upsampled points (M,) if needed
+            if per_particle_sigma.shape[0] == x_low.shape[0] and points.shape[0] != x_low.shape[0]:
+                # KNN interpolation from anchors to upsampled points
+                sigma_adaptive = (w * per_particle_sigma[idx]).sum(dim=1)
+            else:
+                sigma_adaptive = per_particle_sigma.to(device=points.device, dtype=points.dtype)
+        elif use_adaptive_scale and local_spacing is not None:
             sigma_adaptive = sigma0 * torch.clamp(local_spacing / (local_spacing.mean() + EPS_SAFE), 0.3, 2.0)
         else:
             sigma_adaptive = torch.full((points.shape[0],), sigma0, device=points.device, dtype=points.dtype)
@@ -793,27 +799,22 @@ def build_deformation_covariance(
             inv = (rho_pts + 1e-3).pow(-kappa)
             s_factor = _smooth_scaleFactor(inv, allow_shrink=allow_shrink, max_up=max_up, alpha=alpha)
             
-            with torch.no_grad():
-                print(f"    [Density-Scale Debug]")
-                print(f"      rho_pts: min={rho_pts.min():.3f}, mean={rho_pts.mean():.3f}, max={rho_pts.max():.3f}")
-                print(f"      s_factor: min={s_factor.min():.3f}, mean={s_factor.mean():.3f}, max={s_factor.max():.3f}")
+            if verbose:
+                with torch.no_grad():
+                    print(f"    [Density-Scale Debug]")
+                    print(f"      rho_pts: min={rho_pts.min():.3f}, mean={rho_pts.mean():.3f}, max={rho_pts.max():.3f}")
+                    print(f"      s_factor: min={s_factor.min():.3f}, mean={s_factor.mean():.3f}, max={s_factor.max():.3f}")
             
             sigma_adaptive = sigma_adaptive * s_factor
 
         # 🔥 Polar decomposition + SV soft-clamp (경직 클램프 제거!)
         R, H, S_cl = polar_with_sv_soft_clamp(F_interp, s_min=s_min, s_max=s_max)
         
-        with torch.no_grad():
-            print(f"[Polar + SV Soft-Clamp Debug]")
-            print(f"  SV clamped: [{S_cl.min():.6f}, {S_cl.max():.6f}]")
-            print(f"  H (stretch) range: [{H.min():.6f}, {H.max():.6f}]")
-            
-            # 포화율 체크
-            sat_min = (S_cl <= s_min + 1e-4).float().mean().item()
-            sat_max = (S_cl >= (s_max - 1e-4) if s_max else 0.0).float().mean().item() if s_max else 0.0
-            print(f"  SV saturation: min={sat_min*100:.1f}%, max={sat_max*100:.1f}%")
-            if sat_min > 0.20:
-                print(f"  ⚠️  WARNING: >20% SVs at minimum (over-clamped, loss of anisotropy)")
+        if verbose:
+            with torch.no_grad():
+                print(f"[Polar + SV Soft-Clamp Debug]")
+                print(f"  SV clamped: [{S_cl.min():.6f}, {S_cl.max():.6f}]")
+                print(f"  H (stretch) range: [{H.min():.6f}, {H.max():.6f}]")
         
         # 🔥 (Optional) SPD-only smoothing (mode="spd_only")
         smooth_mode = cfg.get("F_smooth", {}).get("mode", "full")
@@ -823,33 +824,60 @@ def build_deformation_covariance(
             lam_H = float(H_smooth_cfg.get("lambda_H", 0.02))
             H = smooth_H_only(H, points, knn, lam=lam_H, iters=1, k=6)
             
-            with torch.no_grad():
-                print(f"  [SPD-only Smoothing] H smoothed with λ={lam_H:.3f}")
+            if verbose:
+                with torch.no_grad():
+                    print(f"  [SPD-only Smoothing] H smoothed with lambda={lam_H:.3f}")
         
         S_fixed = H  # H가 이미 SPD + smoothed
-        
-        # Build covariance: Σ = S·Σ₀·S (rotation removed!)
-        Sigma0 = (sigma_adaptive.view(-1, 1, 1) ** 2) * torch.eye(3, device=points.device).unsqueeze(0)
+
+        # Build covariance: Σ = S·Σ₀·S
+        if sigma_aniso is not None and x_low_normals is not None:
+            # Anisotropic Σ₀: use local frame (tangent, tangent, normal)
+            # sigma_aniso: (N, 2) log-scale factors [tangent, normal]
+            # actual σ_t = σ_pp * exp(aniso[:,0]), σ_n = σ_pp * exp(aniso[:,1])
+            aniso_t = sigma_aniso[:, 0] if sigma_aniso.shape[0] == points.shape[0] else \
+                      (w * sigma_aniso[idx, 0]).sum(dim=1)
+            aniso_n = sigma_aniso[:, 1] if sigma_aniso.shape[0] == points.shape[0] else \
+                      (w * sigma_aniso[idx, 1]).sum(dim=1)
+
+            sigma_t = sigma_adaptive * torch.exp(aniso_t)  # tangent scale
+            sigma_n = sigma_adaptive * torch.exp(aniso_n)  # normal scale
+
+            # Build local frame from normals
+            normals_use = x_low_normals if x_low_normals.shape[0] == points.shape[0] else \
+                          F.normalize((w.unsqueeze(-1) * x_low_normals[idx]).sum(dim=1), dim=-1, eps=1e-6)
+            n = F.normalize(normals_use, dim=-1, eps=1e-6)  # (N, 3)
+
+            # Construct tangent frame: pick arbitrary perpendicular, then cross
+            up = torch.zeros_like(n)
+            # Use [0,0,1] unless normal is nearly parallel to it
+            nearly_z = (n[:, 2].abs() > 0.9)
+            up[~nearly_z, 2] = 1.0
+            up[nearly_z, 0] = 1.0
+            t1 = F.normalize(torch.cross(up, n, dim=-1), dim=-1, eps=1e-6)
+            t2 = F.normalize(torch.cross(n, t1, dim=-1), dim=-1, eps=1e-6)
+
+            # Σ₀ = σ_t² (t1⊗t1 + t2⊗t2) + σ_n² (n⊗n)
+            # = R_frame · diag(σ_t², σ_t², σ_n²) · R_frame^T
+            st2 = (sigma_t ** 2).view(-1, 1, 1)
+            sn2 = (sigma_n ** 2).view(-1, 1, 1)
+            Sigma0 = st2 * (torch.einsum('ni,nj->nij', t1, t1) + torch.einsum('ni,nj->nij', t2, t2)) \
+                   + sn2 * torch.einsum('ni,nj->nij', n, n)
+        else:
+            # Isotropic fallback: Σ₀ = σ² · I
+            Sigma0 = (sigma_adaptive.view(-1, 1, 1) ** 2) * torch.eye(3, device=points.device).unsqueeze(0)
+
         S_Sigma0 = torch.bmm(S_fixed, Sigma0)
         cov = torch.bmm(S_Sigma0, S_fixed)
-        
-        # 🔥 Root Cause 디버깅 + SV 동적범위 분석
-        with torch.no_grad():
-            print(f"[Deformation Covariance Debug]")
-            print(f"  sigma_adaptive: [{sigma_adaptive.min():.6f}, {sigma_adaptive.max():.6f}]")
-            print(f"  S_fixed range: [{S_fixed.min():.6f}, {S_fixed.max():.6f}]")
-            
-            # SV 동적범위
-            sv_p05 = torch.quantile(S_cl, 0.05, dim=0)
-            sv_p50 = torch.quantile(S_cl, 0.50, dim=0)
-            sv_p95 = torch.quantile(S_cl, 0.95, dim=0)
-            print(f"  SV quantiles [p05, p50, p95]:")
-            for i in range(3):
-                print(f"    σ_{i}: [{sv_p05[i]:.4f}, {sv_p50[i]:.4f}, {sv_p95[i]:.4f}]")
-            
-            print(f"  cov range: [{cov.min():.6f}, {cov.max():.6f}]")
-            cov_det = torch.det(cov)
-            print(f"  det(cov) range: [{cov_det.min():.6e}, {cov_det.max():.6e}]")
+
+        if verbose:
+            with torch.no_grad():
+                print(f"[Deformation Covariance Debug]")
+                print(f"  sigma_adaptive: [{sigma_adaptive.min():.6f}, {sigma_adaptive.max():.6f}]")
+                if sigma_aniso is not None:
+                    print(f"  anisotropic: σ_t=[{sigma_t.min():.6f}, {sigma_t.max():.6f}], "
+                          f"σ_n=[{sigma_n.min():.6f}, {sigma_n.max():.6f}]")
+                print(f"  cov range: [{cov.min():.6f}, {cov.max():.6f}]")
         
         # Stabilization
         eps_physics = 1e-5  # 🔥 증가: 1e-6 → 1e-5

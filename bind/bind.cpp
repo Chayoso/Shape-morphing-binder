@@ -981,6 +981,12 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
         .def("get_layer_phys_grad_norm", &CompGraph::GetLayerPhysGradNorm,
             "Get physics gradient norms at specific layer",
             py::arg("layer_idx"))
+        .def("get_control_layer_grad_norm", &CompGraph::GetControlLayerGradNorm,
+            R"pbdoc(
+                Get the initial physics gradient norm at the control layer (layer 0).
+                Updated at the start of each episode's optimization.
+                Use for gradient-based lambda balancing: lambda = alpha * phys_norm / render_norm
+            )pbdoc")
 
         // [FIX] NEW: Get actual physics gradients for PCGrad
         .def("get_last_layer_phys_gradients", [](const CompGraph& self) -> py::tuple {
