@@ -1,27 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)",
-      "Bash(/c/Users/ok429/anaconda3/envs/diffmpm_v2.1.0/python.exe:*)",
-      "Bash(cmd.exe /c \"C:\\dev\\shape-morphing_v2.3.2\\rebuild.bat\")",
-      "Bash(taskkill:*)",
-      "Bash(dir \"C:\\dev\\shape-morphing_v2.3.2\\output\\sphere\\bunny\\target\")",
-      "Bash(cmd.exe /c \"taskkill /IM python.exe /F\")",
-      "Bash(dir \"C:\\dev\\shape-morphing_v2.3.2\\output\\sphere\\bunny\")",
-      "Bash(dir \"C:\\dev\\shape-morphing_v2.3.2\\output\\sphere\\bunny\\ep000\")",
-      "Bash(dir:*)",
-      "Bash(findstr:*)",
-      "Bash(timeout 5 python:*)",
-      "Bash(chmod:*)",
-      "Bash(tee:*)",
-      "Bash(cat:*)",
-      "Bash(source ~/anaconda3/etc/profile.d/conda.sh)",
-      "Bash(conda activate:*)",
-      "Bash(pip install:*)",
-      "Bash(find:*)",
-      "Bash(git -C /home/chayo/Desktop/Shape-morphing-binder status)",
-      "Bash(git add:*)",
-      "Bash(python3:*)"
+      "Bash(*)"
     ],
     "deny": [],
     "ask": []

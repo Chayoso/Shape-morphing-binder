@@ -123,6 +123,19 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                         pc.points[i].F(r, c) = buf(i, r, c);
         }, "Set deformation gradients from (N, 3, 3) float32 array")
 
+        .def("set_material", [](PointCloud& pc, py::array_t<float> lam_arr, py::array_t<float> mu_arr) {
+            auto lam = lam_arr.unchecked<1>();
+            auto mu = mu_arr.unchecked<1>();
+            const int N = (int)pc.points.size();
+            if (lam.shape(0) != N || mu.shape(0) != N)
+                throw std::runtime_error("set_material: expected (N,) arrays");
+            #pragma omp parallel for
+            for (int i = 0; i < N; ++i) {
+                pc.points[i].lam = lam(i);
+                pc.points[i].mu = mu(i);
+            }
+        }, "Set per-particle lam, mu from (N,) float32 arrays")
+
         .def("set_dFc", [](PointCloud& pc, py::array_t<float, py::array::c_style | py::array::forcecast> arr) {
             auto buf = arr.unchecked<3>();
             const int N = (int)pc.points.size();
@@ -134,6 +147,7 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                     for (int c = 0; c < 3; ++c)
                         pc.points[i].dFc(r, c) = buf(i, r, c);
         }, "Set dFc correction from (N, 3, 3) float32 array")
+
 
         .def("get_dFc", [](const PointCloud& pc) {
             const int N = (int)pc.points.size();
@@ -615,6 +629,12 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
                 Performance: ~2-3x faster than previous version (vectorized + GIL release)
             )pbdoc")
         
+        // Update target grid (for render-guided target shifting)
+        .def("set_target_grid", [](CompGraph& self, std::shared_ptr<const Grid> new_target) {
+            self.SetTargetGrid(new_target);
+        }, py::arg("target_grid"),
+        "Replace target grid with a new one (for render-guided target shifting)")
+
         // Carry-over function
         .def("promote_last_as_initial",
             [](CompGraph& self, bool carry_grid) {

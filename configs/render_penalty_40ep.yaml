@@ -1,7 +1,7 @@
-# Test: Hard-Coupled Pipeline (5 episodes) - enough to see first injection at ep3
+# Render-penalized physics + Fp, 40ep, 8-view
 input_mesh_path:  "assets/isosphere.obj"
 target_mesh_path: "assets/bunny.obj"
-output_dir:       "output/test_hard_coupled"
+output_dir:       "output/render_penalty_40ep"
 
 simulation:
   grid_dx: 1.0
@@ -17,7 +17,7 @@ simulation:
   smoothing_factor: 0.955
 
 optimization:
-  num_animations: 3
+  num_animations: 40
   num_timesteps: 10
   control_stride: 1
   max_gd_iters: 1
@@ -25,26 +25,44 @@ optimization:
   initial_alpha: 0.01
   gd_tol: 0.0001
 
-hard_coupling:
+plasticity:
+  eta: 0.0               # Fp disabled — pure render penalty + physics
+  adaptive_eta_max: 5.0
+  eta_v: 0.5
+  max_v: 5.0
+  max_anisotropy: 1.5
+  smooth_k: 64
+  clip_pct: 95.0
+  diffusion_iters: 3
+  damping: 0.0
+  cohesion_k: 32
+  cohesion_strength: 0.2
+  lambda_render: 1.0
+
+multi_view:
+  enabled: true
+
+loss_weights:
+  w_bce: 1.0
+  w_iou: 1.0
+  masked_threshold: 0.01
+
+render:
   sigma0: auto
   sigma0_scale: 0.5
   opacity: 0.95
-  render_start_ep: 0
-  alpha_balance: 0.1
-  loss_weights:
-    w_bce: 1.0
-    w_iou: 0.5
-    w_dt: 0.1
-    masked_threshold: 0.01
-  regularization:
-    w_vol: 1.0
-    w_def: 0.1
-    w_temp: 0.01
-  grad_clip_norm: 0.0
-  w_ctrl: 0.0
-  schedule:
-    warmup_eps: 0
-    lambda_alpha_max: 0.1
+  bg: [1.0, 1.0, 1.0]
+  training_resolution_scale: 0.5
+  particle_color: [0.27, 0.51, 0.71]
+  lighting:
+    model: phong
+    type: directional
+    direction: [0.3, -0.5, 0.8]
+    two_sided: true
+    ambient:   0.18
+    diffuse:   0.85
+    specular:  0.10
+    shininess: 32
 
 upsample:
   covariance:
@@ -63,17 +81,3 @@ camera:
     eye:    [20.0, -25.0, 12.5]
     target: [0.0, 0.0, 0.0]
     up:     [0.0, 0.0, 1.0]
-
-render:
-  bg: [1.0, 1.0, 1.0]
-  training_resolution_scale: 0.5
-  particle_color: [0.27, 0.51, 0.71]
-  lighting:
-    model: phong
-    type: directional
-    direction: [0.3, -0.5, 0.8]
-    two_sided: true
-    ambient:   0.18
-    diffuse:   0.85
-    specular:  0.10
-    shininess: 32

@@ -1,8 +1,7 @@
-# Exp 1: Fixed-norm injection, alpha=1.0
-# Tests whether render supervision stays alive independently of physics grad
+# 32³ grid, ppc=4, full resolution (1.0), gnorm + strain softening
 input_mesh_path:  "assets/isosphere.obj"
 target_mesh_path: "assets/bunny.obj"
-output_dir:       "output/exp1_a10"
+output_dir:       "output/render_penalty_gnorm_hires_40ep"
 
 simulation:
   grid_dx: 1.0
@@ -18,7 +17,7 @@ simulation:
   smoothing_factor: 0.955
 
 optimization:
-  num_animations: 15
+  num_animations: 40
   num_timesteps: 10
   control_stride: 1
   max_gd_iters: 1
@@ -26,22 +25,45 @@ optimization:
   initial_alpha: 0.01
   gd_tol: 0.0001
 
-hard_coupling:
-  mode: fixed_norm
+plasticity:
+  eta: 0.0
+  adaptive_eta_max: 5.0
+  eta_v: 0.5
+  max_v: 5.0
+  max_anisotropy: 1.5
+  smooth_k: 64
+  clip_pct: 95.0
+  diffusion_iters: 3
+  damping: 0.0
+  cohesion_k: 32
+  cohesion_strength: 0.2
+  lambda_render: 0.5
+  softening_rate: 5.0
+
+multi_view:
+  enabled: true
+
+loss_weights:
+  w_bce: 1.0
+  w_iou: 1.0
+  masked_threshold: 0.01
+
+render:
   sigma0: auto
   sigma0_scale: 0.5
   opacity: 0.95
-  render_start_ep: 5
-  alpha_fixed: 1.0
-  loss_weights:
-    w_bce: 1.0
-    w_iou: 1.0
-    w_dt: 0.0
-    masked_threshold: 0.01
-  regularization:
-    w_vol: 1.0
-    w_def: 0.1
-    w_temp: 0.01
+  bg: [1.0, 1.0, 1.0]
+  training_resolution_scale: 1.0
+  particle_color: [0.27, 0.51, 0.71]
+  lighting:
+    model: phong
+    type: directional
+    direction: [0.3, -0.5, 0.8]
+    two_sided: true
+    ambient:   0.18
+    diffuse:   0.85
+    specular:  0.10
+    shininess: 32
 
 upsample:
   covariance:
@@ -60,17 +82,3 @@ camera:
     eye:    [20.0, -25.0, 12.5]
     target: [0.0, 0.0, 0.0]
     up:     [0.0, 0.0, 1.0]
-
-render:
-  bg: [1.0, 1.0, 1.0]
-  training_resolution_scale: 0.5
-  particle_color: [0.27, 0.51, 0.71]
-  lighting:
-    model: phong
-    type: directional
-    direction: [0.3, -0.5, 0.8]
-    two_sided: true
-    ambient:   0.18
-    diffuse:   0.85
-    specular:  0.10
-    shininess: 32

@@ -53,7 +53,7 @@ namespace DiffMPMLib3D::SingleThreadMPM {
                 node.m += wgp * mp.m;
 
                 const float C0 = 3.f / (dx * dx);
-                
+
                 Vec3 delta_p = wgp * (
                     mp.m * mp.v * (1.f - dt * drag)
                     + ( -C0 * dt * mp.vol * mp.P * (mp.F + mp.dFc).transpose()

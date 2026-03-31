@@ -644,7 +644,8 @@ class GSRenderer3DGS:
         if isinstance(output, (list, tuple)):
             color_t = output[0] if len(output) > 0 else None
             depth_t = output[1] if len(output) > 1 else None
-            alpha_t = output[2] if len(output) > 2 else None
+            # Alpha is output[3] (output[2] is accumulated features, not alpha)
+            alpha_t = output[3] if len(output) > 3 else (output[2] if len(output) > 2 else None)
         else:
             color_t = output
             depth_t = None

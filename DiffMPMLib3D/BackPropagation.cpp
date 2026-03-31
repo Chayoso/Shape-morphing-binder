@@ -75,7 +75,7 @@ namespace DiffMPMLib3D {
 
         // Back prop P2G: Propagate gradients from grid states back to particle states (F, v, x, C, P).
         // This reverses the Particle-to-Grid (P2G) transfer.
-    #pragma omp parallel for 
+    #pragma omp parallel for
         for (int p = 0; p < num_points; p++) {
             const MaterialPoint& mp = pc.points[p];
             MaterialPoint& mp_prev = pc_prev.points[p];
@@ -85,15 +85,13 @@ namespace DiffMPMLib3D {
 
             auto nodes = grid.QueryPoint_CubicBSpline(xp);
 
-            // This inner loop is serial, which is correct. The outer loop parallelizes over particles.
             for (size_t i = 0; i < nodes.size(); i++) {
                 GridNode& node = nodes[i];
                 const Vec3& xg = node.x;
                 Vec3 dgp = xg - xp;
 
-                // Use constants and precompute b-spline values for clarity.
                 const float C0 = 3.f / (dx * dx);
-                
+
                 Vec3 dgp_div_dx = dgp / dx;
                 Vec3 bspline_vals(CubicBSpline(dgp_div_dx[0]), CubicBSpline(dgp_div_dx[1]), CubicBSpline(dgp_div_dx[2]));
                 Vec3 bspline_slopes(CubicBSplineSlope(dgp_div_dx[0]), CubicBSplineSlope(dgp_div_dx[1]), CubicBSplineSlope(dgp_div_dx[2]));
@@ -107,17 +105,15 @@ namespace DiffMPMLib3D {
 
                 Mat3 G = -C0 * dt * mp_prev.vol * mp_prev.P * F_total_transpose + mp_prev.m * mp_prev.C;
 
-                // Accumulate gradients for particle properties
                 mp_prev.dLdP -= wgp * C0 * dt * mp_prev.vol * node.dLdp * (F_total_transpose * dgp).transpose();
                 mp_prev.dLdF -= wgp * C0 * dt * mp_prev.vol * dgp * (mp_prev.P.transpose() * node.dLdp).transpose();
                 mp_prev.dLdC += wgp * mp_prev.m * node.dLdp * dgp.transpose();
 
-                // Decompose complex dLdx update into meaningful parts.
                 Vec3 dLdx_from_mass     = mp_prev.m * node.dLdm * wgpGrad;
                 Mat3 momentum_term      = wgpGrad * (mp_prev.m * mp_prev.v + G * dgp).transpose() - wgp * G.transpose();
                 Vec3 dLdx_from_momentum = momentum_term * node.dLdp;
                 Vec3 dLdx_from_v_next   = wgpGrad * node.v.transpose() * mp_prev.dLdv_next;
-                
+
                 Vec3 temp = InnerProduct(mp_prev.dLdC_next, node.v * dgp.transpose()) * wgpGrad - wgp * mp_prev.dLdC_next.transpose() * node.v;
                 Vec3 dLdx_from_C_next   = C0 * temp;
 
@@ -126,8 +122,6 @@ namespace DiffMPMLib3D {
                 mp_prev.dLdv += wgp * mp_prev.m * (1.f - dt * drag) * node.dLdp;
             }
 
-            // Back prop P_op_1: Final gradient accumulation for dLdF and dLdx within the particle loop.
-            // mp_prev.dLdF += (Mat3::Identity() + dt * pc.points[p].C).transpose() * pc.points[p].dLdF;
             mp_prev.dLdF += d2_FCE_psi_dF2_mult_by_dF(mp_prev.F + mp_prev.dFc, mp_prev.lam, mp_prev.mu, mp_prev.dLdP);
             mp_prev.dLdx += pc.points[p].dLdx;
         }

@@ -74,8 +74,9 @@ namespace DiffMPMLib3D {
 
         // Stores all simulation states for each timestep.
         std::vector<CompGraphLayer> layers;
-        // A read-only grid representing the target mass distribution.
+        // Target mass distribution grid (can be updated for render-guided target shifting)
         std::shared_ptr<const Grid> target_grid;
+        void SetTargetGrid(std::shared_ptr<const Grid> new_target) { target_grid = new_target; }
         std::vector<float> stored_render_grad_F_;  // Flattened (N*9,)
         std::vector<float> stored_render_grad_x_;  // Flattened (N*3,)
         bool has_render_grads_ = false;

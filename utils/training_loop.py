@@ -1,588 +1,335 @@
 """
-Training Loop - Hard-Coupled Physics-to-Render Pipeline
+Training Loop — Render-Penalized Physics + Isochoric Plasticity
 
-Pipeline per episode:
-  1. Physics (C++ MPM): optimization (with render grads from prev ep)
-  2. Extract positions + F_elastic
-  3. Deterministic bridge: h(x_T, F_T) -> Gaussian params (no learnable render params)
-  4. Alpha loss (BCE + IoU) -> backward -> dL/dF, dL/dx
-  5. Injection strategy (fixed_norm or option_a) -> scale & store grads for next ep
-  6. Metrics + visualization
-
-Injection modes (hard_coupling.mode):
-  'fixed_norm' : g_inject = alpha_fixed * normalize(g_render)   [Exp 1]
-  'option_a'   : x_target = x_T - eta*clip(normalize(dLdx))     [Phase 2]
-                 dLdx_attr = 2*lambda_attr*(x_T - x_target), dLdF=0
+L_total = EndLayerMassLoss + λ · DiffusedRenderGradient
+Fp affects rendering only (Gaussian covariance).
+7 cameras (3 low + 3 mid + 1 top).
 """
 
 import numpy as np
 import torch
 import torch.nn.functional as F_nn
+from typing import Dict, List, Tuple, Any, Optional
 from pathlib import Path
-from typing import Dict, Tuple, Any, Optional
 
-from utils.io_utils import save_image_png, save_depth_png
-from utils.alpha_losses import combined_alpha_loss, compute_dt_map, compute_regularization
+from utils.io_utils import save_image_png
+from utils.alpha_losses import combined_alpha_loss
 
 
-# ── PCA normals for RGB shading ──────────────────────────────────────────
+# ── Rendering ────────────────────────────────────────────────────────────
 
-def _compute_pca_normals(x: np.ndarray, k: int = 16) -> np.ndarray:
-    """Estimate surface normals via local PCA (k nearest neighbors)."""
+def _pca_normals(x, k=16):
     from scipy.spatial import cKDTree
     N = x.shape[0]
-    tree = cKDTree(x)
-    _, idx = tree.query(x, k=min(k, N))
-
+    _, idx = cKDTree(x).query(x, k=min(k, N))
     normals = np.zeros_like(x)
     for i in range(N):
-        neighbors = x[idx[i]]
-        centered = neighbors - neighbors.mean(axis=0)
-        cov = centered.T @ centered
-        eigvals, eigvecs = np.linalg.eigh(cov)
-        normals[i] = eigvecs[:, 0]
-
-    centroid = x.mean(axis=0)
-    outward = x - centroid
-    flip = (normals * outward).sum(axis=1) < 0
-    normals[flip] *= -1
-
+        c = x[idx[i]] - x[idx[i]].mean(0)
+        normals[i] = np.linalg.eigh(c.T @ c)[1][:, 0]
+    normals[((x - x.mean(0)) * normals).sum(1) < 0] *= -1
     return normals.astype(np.float32)
 
 
-def _smooth_positions(x_target: np.ndarray, x_ref: np.ndarray, k: int = 8) -> np.ndarray:
-    """KNN neighbor averaging to smooth the displacement field (x_target - x_ref).
-
-    Averages displacements rather than absolute positions to avoid introducing
-    a position-repulsion term from x_ref[i] - mean(x_ref[neighbors]).
-    """
-    from scipy.spatial import cKDTree
-    delta = x_target - x_ref  # (N, 3) displacements
-    tree = cKDTree(x_ref)
-    _, idx = tree.query(x_ref, k=min(k + 1, len(x_ref)))
-    delta_smoothed = delta[idx].mean(axis=1)  # (N, 3) averaged displacements
-    return (x_ref + delta_smoothed).astype(np.float32)
-
-
-# ── Deterministic bridge: h(x_T, F_T) -> render ──────────────────────────
-
-def render_hard_coupled(
-    x: np.ndarray,
-    F_e: np.ndarray,
-    sigma0_fixed: float,
-    opacity_fixed: float,
-    renderer: Any,
-    campos: np.ndarray,
-    render_cfg: Dict,
-    particle_color: list,
-    training: bool = True,
-) -> Tuple[Optional[torch.Tensor], Optional[Dict], Optional[torch.Tensor], Optional[torch.Tensor]]:
-    """
-    Deterministic physics-to-render bridge: g_t = h(x_t, F_t).
-
-    Covariance: Sigma = F * Sigma0 * F^T  (paper hard coupling).
-    No learnable parameters.
-    """
+def render(x, F_e, sigma0, opacity, renderer, campos, rcfg, color, training=True, Fp=None):
+    """Render particles. F_render = F_e · Fp if Fp provided."""
     from renderer import compute_shading
+    N, dev = x.shape[0], torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    N = x.shape[0]
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    x_t = torch.from_numpy(x).float().to(device)
-    F_t = torch.from_numpy(F_e).float().to(device)
-
+    x_t = torch.from_numpy(x).float().to(dev)
+    F_r = np.matmul(F_e, Fp).astype(np.float32) if Fp is not None else F_e
+    F_t = torch.from_numpy(F_r).float().to(dev)
     if training:
-        x_t = x_t.requires_grad_(True)
-        F_t = F_t.requires_grad_(True)
+        x_t.requires_grad_(True); F_t.requires_grad_(True)
 
     ctx = torch.enable_grad() if training else torch.no_grad()
     with ctx:
-        Sigma0 = (sigma0_fixed ** 2) * torch.eye(3, device=device, dtype=torch.float32)
-        F_Sigma0 = torch.matmul(F_t, Sigma0.unsqueeze(0).expand(N, -1, -1))
-        cov = torch.bmm(F_Sigma0, F_t.transpose(1, 2))
-        cov = cov + 1e-6 * torch.eye(3, device=device).unsqueeze(0)
+        S0 = (sigma0**2) * torch.eye(3, device=dev)
+        cov = torch.bmm(torch.matmul(F_t, S0[None].expand(N,-1,-1)), F_t.transpose(1,2))
+        cov += 1e-6 * torch.eye(3, device=dev)[None]
+        rgb = torch.from_numpy(compute_shading(
+            x, _pca_normals(x), camera_pos=campos,
+            light_cfg=rcfg.get('lighting',{}), albedo_color=color, model='phong'
+        )).float().to(dev)
+        pred = renderer.render(x_t, cov, rgb=rgb,
+                               opacity=torch.full((N,1), opacity, device=dev),
+                               prefer_cov_precomp=True, return_torch=training)
 
-        opacity = torch.full((N, 1), opacity_fixed, device=device, dtype=torch.float32)
-
-        normals = _compute_pca_normals(x)
-        rgb_np = compute_shading(
-            x, normals,
-            camera_pos=campos,
-            light_cfg=render_cfg.get("lighting", {}),
-            albedo_color=particle_color,
-            model="phong"
-        )
-        rgb = torch.from_numpy(rgb_np).float().to(device)
-
-        pred = renderer.render(
-            x_t, cov, rgb=rgb, opacity=opacity,
-            prefer_cov_precomp=True, return_torch=training,
-        )
-
-    pred_alpha = pred.get('alpha')
-    if pred_alpha is not None:
-        if isinstance(pred_alpha, np.ndarray):
-            pred_alpha = torch.from_numpy(pred_alpha).to(device)
-        if pred_alpha.dim() == 3:
-            pred_alpha = pred_alpha[0]
-
-    return pred_alpha, pred, x_t, F_t
+    alpha = pred.get('alpha')
+    if alpha is not None:
+        if isinstance(alpha, np.ndarray):
+            alpha = torch.from_numpy(alpha).float().to(dev)
+        if alpha.dim() == 3:
+            alpha = alpha[0]
+    return alpha, pred, x_t, F_t
 
 
-# ── Extract raw render gradients ─────────────────────────────────────────
+# ── Gradient extraction ──────────────────────────────────────────────────
 
-def extract_render_gradients(
-    x: np.ndarray,
-    F_e: np.ndarray,
-    sigma0_fixed: float,
-    opacity_fixed: float,
-    target_alpha: torch.Tensor,
-    renderer: Any,
-    campos: np.ndarray,
-    render_cfg: Dict,
-    particle_color: list,
-    loss_cfg: Dict,
-    reg_cfg: Optional[Dict] = None,
-    dt_map: Optional[torch.Tensor] = None,
-    x_prev: Optional[np.ndarray] = None,
-    x_prev2: Optional[np.ndarray] = None,
-) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Dict]:
-    """
-    Render with hard coupling, compute alpha loss + regularization, backward.
+def _alpha_loss(pred, target, cfg):
+    tgt = target.to(pred.device)
+    if tgt.shape != pred.shape:
+        tgt = F_nn.interpolate(tgt[None,None], size=pred.shape, mode='bilinear', align_corners=False)[0,0]
+    return combined_alpha_loss(pred, tgt,
+        w_bce=float(cfg.get('w_bce',1)), w_iou=float(cfg.get('w_iou',1)),
+        mask_threshold=float(cfg.get('masked_threshold',0)))
 
-    Returns:
-        dLdF: (N, 3, 3) numpy or None
-        dLdx: (N, 3) numpy or None
-        metrics: dict with loss values and gradient stats
-    """
-    reg_cfg = reg_cfg or {}
 
-    pred_alpha, _, x_t, F_t = render_hard_coupled(
-        x, F_e, sigma0_fixed, opacity_fixed,
-        renderer, campos, render_cfg, particle_color,
-        training=True,
-    )
+def compute_view_gradient(x, F_e, sigma0, opacity, target, renderer, campos, rcfg, color, lcfg, Fp=None, target_rgb=None):
+    """Single view → dL/dx from alpha + RGB loss. Each call is graph-independent."""
+    pred_alpha, pred_dict, x_t, _ = render(x, F_e, sigma0, opacity, renderer, campos, rcfg, color, True, Fp)
+    if pred_alpha is None: return None, {}, None
+    pred_np = pred_alpha.detach().cpu().numpy().copy()
 
-    if pred_alpha is None:
-        return None, None, {'loss_total': 0.0}
+    # Alpha loss
+    loss_alpha, m = _alpha_loss(pred_alpha, target, lcfg)
 
-    tgt = target_alpha.to(pred_alpha.device)
-    if tgt.shape != pred_alpha.shape:
-        tgt = F_nn.interpolate(
-            tgt.unsqueeze(0).unsqueeze(0),
-            size=pred_alpha.shape, mode='bilinear', align_corners=False
-        )[0, 0]
+    # RGB loss (if target_rgb provided)
+    loss_rgb = torch.tensor(0.0, device=pred_alpha.device)
+    w_rgb = float(lcfg.get('w_rgb', 0.0))
+    if w_rgb > 0 and target_rgb is not None and pred_dict.get('image') is not None:
+        pred_img = pred_dict['image']  # (H, W, 3) torch tensor
+        if isinstance(pred_img, np.ndarray):
+            pred_img = torch.from_numpy(pred_img).float().to(pred_alpha.device)
+        tgt_img = target_rgb.to(pred_alpha.device)
+        if tgt_img.shape != pred_img.shape:
+            # Resize target to match pred
+            if tgt_img.dim() == 3 and pred_img.dim() == 3:
+                tgt_img = F_nn.interpolate(
+                    tgt_img.permute(2,0,1).unsqueeze(0),
+                    size=pred_img.shape[:2], mode='bilinear', align_corners=False
+                )[0].permute(1,2,0)
+        loss_rgb = w_rgb * ((pred_img - tgt_img) ** 2).mean()
+        m['loss_rgb'] = float(loss_rgb.item())
 
-    if dt_map is not None:
-        dt_map_dev = dt_map.to(pred_alpha.device)
-        if dt_map_dev.shape != pred_alpha.shape:
-            dt_map_dev = F_nn.interpolate(
-                dt_map_dev.unsqueeze(0).unsqueeze(0),
-                size=pred_alpha.shape, mode='bilinear', align_corners=False
-            )[0, 0]
-    else:
-        dt_map_dev = None
-
-    alpha_loss, metrics = combined_alpha_loss(
-        pred_alpha, tgt, dt_map=dt_map_dev,
-        w_bce=float(loss_cfg.get('w_bce', 1.0)),
-        w_iou=float(loss_cfg.get('w_iou', 1.0)),
-        w_dt=float(loss_cfg.get('w_dt', 0.0)),
-        mask_threshold=float(loss_cfg.get('masked_threshold', 0.0)),
-    )
-
-    x_prev_t = torch.from_numpy(x_prev).float().to(F_t.device) if x_prev is not None else None
-    x_prev2_t = torch.from_numpy(x_prev2).float().to(F_t.device) if x_prev2 is not None else None
-
-    reg_loss, reg_metrics = compute_regularization(
-        F_t, x_t=x_t, x_prev=x_prev_t, x_prev2=x_prev2_t,
-        w_vol=float(reg_cfg.get('w_vol', 1.0)),
-        w_def=float(reg_cfg.get('w_def', 0.1)),
-        w_temp=float(reg_cfg.get('w_temp', 0.01)),
-    )
-    metrics.update(reg_metrics)
-
-    loss = alpha_loss + reg_loss
-    metrics['loss_alpha'] = metrics.pop('loss_total')
-    metrics['loss_total'] = float(loss.item())
-
+    loss = loss_alpha + loss_rgb
     loss.backward()
-
-    dLdF = None
-    dLdx = None
-
-    if F_t.grad is not None:
-        dLdF = F_t.grad.detach().cpu().numpy().astype(np.float32)
-        metrics['dLdF_norm'] = float(np.linalg.norm(dLdF))
-        metrics['dLdF_nonzero'] = int((np.abs(dLdF.reshape(-1)) > 1e-10).sum())
-    else:
-        metrics['dLdF_norm'] = 0.0
-        metrics['dLdF_nonzero'] = 0
-
-    if x_t.grad is not None:
-        dLdx = x_t.grad.detach().cpu().numpy().astype(np.float32)
-        metrics['dLdx_norm'] = float(np.linalg.norm(dLdx))
-        metrics['dLdx_nonzero'] = int((np.abs(dLdx.reshape(-1)) > 1e-10).sum())
-    else:
-        metrics['dLdx_norm'] = 0.0
-        metrics['dLdx_nonzero'] = 0
-
-    return dLdF, dLdx, metrics
+    dLdx = x_t.grad.detach().cpu().numpy().astype(np.float32) if x_t.grad is not None else None
+    m['dLdx_norm'] = float(np.linalg.norm(dLdx)) if dLdx is not None else 0.0
+    return dLdx, m, pred_np
 
 
-# ── Injection strategies ──────────────────────────────────────────────────
+def compute_multiview_gradients(x, F_e, sigma0, opacity, targets, renderers, campos_list, rcfg, color, lcfg, Fp=None, target_rgbs=None):
+    """8 views → summed dL/dx from alpha + RGB loss."""
+    N = x.shape[0]
+    dLdx_sum = np.zeros((N, 3), dtype=np.float32)
+    bce_list, alpha_list, first_m = [], [], {}
 
-def compute_inject_fixed_norm(
-    dLdF_render: np.ndarray,
-    dLdx_render: np.ndarray,
-    alpha_fixed: float,
-) -> Tuple[np.ndarray, np.ndarray]:
+    for v, (rend, tgt, cam) in enumerate(zip(renderers, targets, campos_list)):
+        tgt_rgb = target_rgbs[v] if target_rgbs and v < len(target_rgbs) else None
+        dv, m, pa = compute_view_gradient(x, F_e, sigma0, opacity, tgt, rend, cam, rcfg, color, lcfg, Fp, target_rgb=tgt_rgb)
+        if dv is not None: dLdx_sum += dv
+        bce_list.append(float(m.get('loss_bce', 0)))
+        alpha_list.append(pa)
+        if v == 0: first_m = m
+
+    n = len(renderers)
+    rgb_sum = sum(float(first_m.get('loss_rgb', 0)) for _ in range(1))  # first view only for now
+    metrics = {
+        'loss_bce': first_m.get('loss_bce', 0),
+        'loss_bce_mv': sum(bce_list) / n,
+        'loss_rgb': first_m.get('loss_rgb', 0),
+        'n_views': n,
+        'dLdx_norm': float(np.linalg.norm(dLdx_sum)),
+    }
+    rgb_str = f", rgb={metrics['loss_rgb']:.4f}" if metrics['loss_rgb'] > 0 else ""
+    print(f"  [MV] {n} views, mean_bce={metrics['loss_bce_mv']:.1f}{rgb_str}")
+    return dLdx_sum, metrics, bce_list, alpha_list
+
+
+# ── Diffusion + Plasticity ───────────────────────────────────────────────
+
+def diffuse_and_compute_plasticity(x, dLdx, cfg):
     """
-    Exp 1: Fixed-norm injection, independent of physics gradient magnitude.
-
-    g_inject = alpha_fixed * normalize(g_render)
-
-    Keeps render supervision alive even when physics gradients are small.
+    Volume diffusion → direction field d + dFp (adaptive).
+    Returns: (dFp, d_weighted, diffused_dLdx, metrics)
     """
-    eps = 1e-8
-    F_norm = np.linalg.norm(dLdF_render)
-    x_norm = np.linalg.norm(dLdx_render)
-    dLdF_scaled = alpha_fixed * dLdF_render / (F_norm + eps)
-    dLdx_scaled = alpha_fixed * dLdx_render / (x_norm + eps)
-    return dLdF_scaled, dLdx_scaled
+    from scipy.spatial import cKDTree
+    N, eps = x.shape[0], 1e-8
+
+    eta = float(cfg.get('eta', 0.01))
+    smooth_k = int(cfg.get('smooth_k', 128))
+    clip_pct = float(cfg.get('clip_pct', 95))
+    diff_iters = int(cfg.get('diffusion_iters', 5))
+    ada_max = float(cfg.get('adaptive_eta_max', 5.0))
+
+    g = dLdx.copy()
+    norms = np.linalg.norm(g, axis=1)
+    n_act = int((norms > 1e-10).sum())
+    if n_act < 10:
+        z3, z33 = np.zeros((N,3), np.float32), np.zeros((N,3,3), np.float32)
+        return z33, z3, z3, {'active': n_act, 'diffused_ratio': 0, 'dFp_norm': 0}
+
+    # Clip outliers
+    thresh = np.percentile(norms[norms > 1e-10], clip_pct)
+    if thresh > eps: g *= np.minimum(1.0, thresh / (norms + eps))[:, None]
+
+    # KNN + volume diffusion
+    _, idx = cKDTree(x).query(x, k=min(smooth_k + 1, N))
+    for _ in range(diff_iters):
+        g = g[idx].mean(axis=1).astype(np.float32)
+
+    # Direction field
+    d_n = np.linalg.norm(g, axis=1, keepdims=True)
+    d = (g / np.maximum(d_n, eps)).astype(np.float32)
+    d[d_n.squeeze() <= eps] = 0
+    med = float(np.median(d_n[d_n.squeeze() > eps]))
+
+    # Magnitude-weighted (for impulse)
+    d_w = (d * np.clip(d_n / (med + eps), 0, 3)).astype(np.float32) if med > eps else d.copy()
+
+    n_diff = int((np.linalg.norm(d, axis=1) > 0.5).sum())
+
+    # Symmetric Jacobian → dFp (adaptive eta)
+    dx = x[idx] - x[:, None, :]
+    dd = d[idx] - d[:, None, :]
+    dxs = np.maximum(np.sum(dx**2, axis=2, keepdims=True), eps)
+    J = (dd[:,:,:,None] * dx[:,:,None,:] / dxs[:,:,:,None]).mean(1)
+    J = 0.5 * (J + J.transpose(0,2,1))
+
+    eta_p = eta * np.clip(d_n.squeeze() / (med + eps), 0, ada_max) if med > eps else np.full(N, eta)
+    dFp = (eta_p[:, None, None] * J).astype(np.float32)
+
+    # Diffused gradient (for render penalty injection)
+    diffused = g.copy()  # already diffused
+
+    metrics = {
+        'active': n_act, 'diffused_ratio': n_diff / N,
+        'dFp_norm': float(np.linalg.norm(dFp)),
+        'dFp_max': float(np.abs(dFp).max()),
+    }
+    print(f"    [Diff] active={n_act:,}, diffused={n_diff:,}/{N:,} ({100*n_diff/N:.0f}%)")
+    return dFp, d_w, diffused, metrics
 
 
-def compute_attractor_grads(
-    x_T: np.ndarray,
-    dLdx_render: np.ndarray,
-    eta: float,
-    lambda_attr: float,
-    tau: float,
-    smooth_k: int = 0,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Option A: Target-state proximal attractor.
+# ── Cohesion ─────────────────────────────────────────────────────────────
 
-    1. Compute x_target = x_T - eta * clip(normalize(dLdx), tau)
-    2. Optionally smooth x_target via KNN (on displacements, not absolute positions)
-    3. Return attractor gradient: dLdx_attr = 2*lambda*(x_T - x_target)
-       dLdF = 0 (no F-space injection)
-
-    Separates 'where to go' (render) from 'how to get there' (physics).
-    """
-    eps = 1e-8
-    x_norm = np.linalg.norm(dLdx_render)
-    g_hat = dLdx_render / (x_norm + eps)
-    g_hat_clipped = np.clip(g_hat, -tau, tau)
-    x_target = x_T - eta * g_hat_clipped
-
-    if smooth_k > 0:
-        x_target = _smooth_positions(x_target, x_T, k=smooth_k)
-
-    N = x_T.shape[0]
-    dLdx_attr = (2.0 * lambda_attr * (x_T - x_target)).astype(np.float32)
-    dLdF_zero = np.zeros((N, 3, 3), dtype=np.float32)
-
-    return dLdF_zero, dLdx_attr
+def compute_cohesion(x, k=32, strength=0.1):
+    from scipy.spatial import cKDTree
+    N = x.shape[0]
+    dd, idx = cKDTree(x).query(x, k=min(k+1, N))
+    gm = float(dd[:,1].mean())
+    density = dd[:,1:8].mean(1) / (gm + 1e-8)
+    iso = density * density[idx[:,1:8]].mean(1)
+    disp = x[idx[:,1:]].mean(1) - x
+    pull = np.clip(iso - 2.0, 0, None) * strength
+    imp = (disp / (np.linalg.norm(disp, axis=1, keepdims=True) + 1e-8) * pull[:,None]).astype(np.float32)
+    n_aff = int((pull > 0).sum())
+    if n_aff: print(f"    [Cohesion] {n_aff:,}/{N:,}")
+    return imp, {'floating': n_aff}
 
 
-def compute_attractor_grads_v2(
-    x_T: np.ndarray,
-    dLdx_render: np.ndarray,
-    eta: float,
-    lambda_attr: float,
-    smooth_k: int = 32,
-    clip_pct: float = 95.0,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Option A v2: Surface-aware target-state proximal attractor.
+# ── Fp projection ────────────────────────────────────────────────────────
 
-    Key insight from Exp A: only ~10% of particles have nonzero render gradient
-    (visually contributing particles). These have coherence=0.28 raw, 0.64 after
-    clip+knn32 — far above the noisy threshold. The other 90% have zero gradient
-    and dilute the signal.
-
-    Algorithm:
-    1. Identify active particles: ||dLdx_i|| > 0
-    2. On active subset: clip p95 outliers, then KNN-smooth displacements
-    3. Globally normalize the smoothed field
-    4. x_target = x_T - eta * g_smooth  (active particles only)
-    5. dLdx_attr = 2*lambda*(x_T - x_target)  (zero for inactive particles)
-       dLdF = 0
-    """
-    from scipy.spatial import cKDTree as _KDTree
-    eps = 1e-8
-    N = x_T.shape[0]
-
-    # Step 1: identify visually contributing particles
-    per_norms = np.linalg.norm(dLdx_render, axis=1)
-    mask = per_norms > 1e-10
-    n_active = int(mask.sum())
-
-    if n_active < 10:
-        return np.zeros((N, 3, 3), dtype=np.float32), np.zeros((N, 3), dtype=np.float32)
-
-    g_active = dLdx_render[mask].copy()  # (n_active, 3)
-    x_active = x_T[mask]                 # (n_active, 3)
-
-    # Step 2: clip per-particle outliers
-    norms_a = np.linalg.norm(g_active, axis=1)
-    thresh = np.percentile(norms_a, clip_pct)
-    if thresh > eps:
-        scale = np.minimum(1.0, thresh / (norms_a + eps))
-        g_active = g_active * scale[:, None]
-
-    # Step 3: KNN-smooth displacement field on active subset
-    if smooth_k > 0 and n_active > smooth_k + 1:
-        tree = _KDTree(x_active)
-        _, idx = tree.query(x_active, k=min(smooth_k + 1, n_active))
-        g_active = g_active[idx].mean(axis=1).astype(np.float32)
-
-    # Step 4: global normalize
-    g_norm = np.linalg.norm(g_active)
-    g_hat = g_active / (g_norm + eps)
-
-    # Step 5: construct x_target and attractor
-    x_target_active = x_active - eta * g_hat
-    dLdx_attr_active = (2.0 * lambda_attr * (x_active - x_target_active)).astype(np.float32)
-
-    # Assemble: inactive particles get zero
-    dLdx_attr = np.zeros((N, 3), dtype=np.float32)
-    dLdx_attr[mask] = dLdx_attr_active
-
-    print(f"    [v2] active={n_active:,}/{N:,} ({100*n_active/N:.1f}%), "
-          f"inject_x_active={float(np.linalg.norm(dLdx_attr_active)):.4f}")
-
-    return np.zeros((N, 3, 3), dtype=np.float32), dLdx_attr
+def isochoric_project(Fp, max_aniso=1.5):
+    U, S, Vt = np.linalg.svd(Fp)
+    if max_aniso > 0:
+        S = np.maximum(S, S.max(axis=1, keepdims=True) / max_aniso)
+    S /= S.prod(axis=1, keepdims=True) ** (1/3)
+    return np.einsum('nij,nj,njk->nik', U, S, Vt).astype(np.float32)
 
 
-# ── Episode runner ────────────────────────────────────────────────────────
+# ── Episode ──────────────────────────────────────────────────────────────
 
 def run_episode(
-    ep: int,
-    cg: Any,
-    opt: Any,
-    sigma0_fixed: float,
-    opacity_fixed: float,
-    rs_full: Dict,
-    renderer: Any,
-    campos: np.ndarray,
-    render_cfg: Dict,
-    particle_color: list,
-    out_dir: Path,
-    png_enabled: bool,
-    target_alpha: Optional[torch.Tensor] = None,
-    cam_cfg: Optional[Dict] = None,
-    stored_render_grads: Optional[Dict] = None,
-    hard_coupling_cfg: Optional[Dict] = None,
-    dt_map: Optional[torch.Tensor] = None,
-    x_prev: Optional[np.ndarray] = None,
-    x_prev2: Optional[np.ndarray] = None,
-) -> Tuple[Dict, Optional[Dict]]:
+    ep, cg, opt, sigma0, opacity,
+    renderers, campos_list, targets, rcfg, color,
+    out_dir, png, Fp, cfg, lcfg,
+    render_penalty=None, target_rgbs=None,
+):
     """
-    Run one episode: physics (with render feedback) + render grad extraction.
+    One episode:
+      1. Physics (+ render penalty if available)
+      2. Multi-view render → diffused gradient
+      3. Plasticity (dFp) + direction (impulse) + diffused (next penalty)
 
-    Returns:
-        losses: dict with all metrics
-        new_render_grads: dict {'dLdF': ..., 'dLdx': ...} for next ep, or None
+    Returns: losses, dFp, direction, cohesion_imp, dLdx_norms, bce_list, alpha_list, diffused_grad
     """
-    num_timesteps = int(opt.num_timesteps)
-    hard_coupling_cfg = hard_coupling_cfg or {}
-
-    loss_cfg = hard_coupling_cfg.get('loss_weights', {})
-    reg_cfg = hard_coupling_cfg.get('regularization', {})
-    render_start_ep = int(hard_coupling_cfg.get('render_start_ep', 5))
-    mode = hard_coupling_cfg.get('mode', 'fixed_norm')
-
-    # ── 0. Save initial state ─────────────────────────────────────────────
+    num_ts = int(opt.num_timesteps)
     pc0 = cg.get_point_cloud(0)
     x0 = np.array(pc0.get_positions(), dtype=np.float32).copy()
+    N = x0.shape[0]
 
-    # ── 1. Physics pass ───────────────────────────────────────────────────
-    inject = (stored_render_grads is not None and ep >= render_start_ep)
-
-    if inject:
-        dLdF_in = stored_render_grads['dLdF']
-        dLdx_in = stored_render_grads['dLdx']
-        result_e2e = cg.run_e2e_pass_batched(opt, dLdF_in, dLdx_in, has_render_grads=True)
-        loss_physics = result_e2e['loss_physics']
-        print(f"  [Inject] mode={mode}, active")
-    else:
-        cg.run_optimization(opt)
-        loss_physics = cg.end_layer_mass_loss()
-
-    # ── 2. Extract final physics state ────────────────────────────────────
-    pc = cg.get_point_cloud(num_timesteps - 1)
-    x = np.ascontiguousarray(np.array(pc.get_positions(), dtype=np.float32))
-    try:
-        F_e = pc.get_def_grads_total_torch(requires_grad=False).detach().cpu().numpy()
-    except Exception:
-        F_e = np.array(pc.get_def_grads(), dtype=np.float32)
-    F_e = np.ascontiguousarray(F_e.astype(np.float32))
-    N = x.shape[0]
-
-    det_Fe = np.linalg.det(F_e)
-    dx_norms = np.linalg.norm(x - x0, axis=1)
-    Fe_I = F_e - np.eye(3, dtype=np.float32)[None]
-    dFe_norms = np.linalg.norm(Fe_I.reshape(N, -1), axis=1)
-
-    print(f"\n[Ep {ep:03d}] physics_loss={loss_physics:.2f}, N={N:,}")
-    print(f"  J(F_e): [{det_Fe.min():.3f}, {det_Fe.max():.3f}]")
-    print(f"  dx: mean={dx_norms.mean():.4f}, max={dx_norms.max():.4f}")
-    print(f"  ||F_e-I||: mean={dFe_norms.mean():.4f}, max={dFe_norms.max():.4f}")
-
-    # ── 3. Compute render grads + injection for NEXT episode ──────────────
-    new_render_grads = None
-    render_metrics = {}
-    render_active = (ep >= render_start_ep)
-
-    if renderer is not None and target_alpha is not None:
-        dLdF_render, dLdx_render, render_metrics = extract_render_gradients(
-            x, F_e, sigma0_fixed, opacity_fixed,
-            target_alpha, renderer, campos, render_cfg, particle_color,
-            loss_cfg, reg_cfg=reg_cfg, dt_map=dt_map,
-            x_prev=x_prev, x_prev2=x_prev2,
+    # ── Strain softening ──────────────────────────────────────────────────
+    softening_rate = float(cfg.get('softening_rate', 0.0))
+    if softening_rate > 0:
+        F_cur = np.array(pc0.get_def_grads(), dtype=np.float32)
+        strain = np.linalg.norm((F_cur - np.eye(3, dtype=np.float32)[None]).reshape(N, -1), axis=1)
+        softening = 1.0 / (1.0 + softening_rate * strain)
+        lam_base = float(cfg.get('lam_base', 38888.89))
+        mu_base = float(cfg.get('mu_base', 58333.3))
+        pc0.set_material(
+            (lam_base * softening).astype(np.float32),
+            (mu_base * softening).astype(np.float32),
         )
 
-        if render_active and dLdF_render is not None and dLdx_render is not None:
-            dLdF_norm = render_metrics.get('dLdF_norm', 0.0)
-            dLdx_norm = render_metrics.get('dLdx_norm', 0.0)
+    # ── Physics ───────────────────────────────────────────────────────────
+    if render_penalty is not None:
+        res = cg.run_e2e_pass_batched(opt, render_penalty['dLdF'], render_penalty['dLdx'], has_render_grads=True)
+        loss_phys = res['loss_physics']
+    else:
+        cg.run_optimization(opt)
+        loss_phys = cg.end_layer_mass_loss()
 
-            # Injection strategy dispatch
-            if mode == 'fixed_norm':
-                alpha_fixed = float(hard_coupling_cfg.get('alpha_fixed', 0.5))
-                dLdF_scaled, dLdx_scaled = compute_inject_fixed_norm(
-                    dLdF_render, dLdx_render, alpha_fixed
-                )
-                render_metrics['inject_mode'] = 'fixed_norm'
-                render_metrics['alpha_fixed'] = alpha_fixed
+    pc = cg.get_point_cloud(num_ts - 1)
+    x = np.ascontiguousarray(np.array(pc.get_positions(), dtype=np.float32))
+    try: F_e = pc.get_def_grads_total_torch(requires_grad=False).detach().cpu().numpy()
+    except: F_e = np.array(pc.get_def_grads(), dtype=np.float32)
+    F_e = np.ascontiguousarray(F_e.astype(np.float32))
 
-            elif mode == 'option_a':
-                eta = float(hard_coupling_cfg.get('eta', 0.1))
-                lambda_attr = float(hard_coupling_cfg.get('lambda_attr', 1.0))
-                tau = float(hard_coupling_cfg.get('tau', 0.5))
-                smooth_k = int(hard_coupling_cfg.get('smooth_k', 0))
-                dLdF_scaled, dLdx_scaled = compute_attractor_grads(
-                    x, dLdx_render, eta, lambda_attr, tau, smooth_k
-                )
-                render_metrics['inject_mode'] = 'option_a'
-                render_metrics['eta'] = eta
-                render_metrics['lambda_attr'] = lambda_attr
+    det = np.linalg.det(F_e)
+    dx_m = float(np.linalg.norm(x - x0, axis=1).mean())
 
-            elif mode == 'option_a_v2':
-                eta = float(hard_coupling_cfg.get('eta', 0.1))
-                lambda_attr = float(hard_coupling_cfg.get('lambda_attr', 1.0))
-                smooth_k = int(hard_coupling_cfg.get('smooth_k', 32))
-                clip_pct = float(hard_coupling_cfg.get('clip_pct', 95.0))
-                dLdF_scaled, dLdx_scaled = compute_attractor_grads_v2(
-                    x, dLdx_render, eta, lambda_attr, smooth_k, clip_pct
-                )
-                render_metrics['inject_mode'] = 'option_a_v2'
-                render_metrics['eta'] = eta
-                render_metrics['lambda_attr'] = lambda_attr
-                render_metrics['smooth_k'] = smooth_k
+    # dFc tracking (from control layer 0, where Adam optimizes)
+    pc0 = cg.get_point_cloud(0)
+    dFc = np.array(pc0.get_dFc(), dtype=np.float32)
+    dFc_norms = np.linalg.norm(dFc.reshape(N, -1), axis=1)
+    dFc_mean = float(dFc_norms.mean())
+    dFc_max = float(dFc_norms.max())
 
-            else:
-                raise ValueError(f"Unknown injection mode: '{mode}'. Use 'fixed_norm', 'option_a', or 'option_a_v2'.")
+    pen_str = " +penalty" if render_penalty is not None else ""
+    print(f"\n[Ep {ep:03d}] phys={loss_phys:.1f}{pen_str}, J=[{det.min():.3f},{det.max():.3f}], dx={dx_m:.4f}, ||dFc||={dFc_mean:.6f}")
 
-            inject_F_norm = float(np.linalg.norm(dLdF_scaled))
-            inject_x_norm = float(np.linalg.norm(dLdx_scaled))
-            render_metrics['inject_F_norm'] = inject_F_norm
-            render_metrics['inject_x_norm'] = inject_x_norm
+    # ── Multi-view render ─────────────────────────────────────────────────
+    dFp = direction = cohesion_imp = diffused = None
+    rm, bce_list, alpha_list = {}, [], []
 
-            # Cosine similarity: render vs physics gradient (diagnostic)
-            try:
-                _, dLdx_phys_raw = cg.get_last_layer_phys_gradients()
-                dLdx_phys_np = np.array(dLdx_phys_raw, dtype=np.float32).reshape(-1)
-                render_flat = dLdx_render.reshape(-1)
-                p_norm = np.linalg.norm(dLdx_phys_np)
-                r_norm = np.linalg.norm(render_flat)
-                if p_norm > 1e-10 and r_norm > 1e-10:
-                    cos_sim = float(np.dot(dLdx_phys_np, render_flat) / (p_norm * r_norm))
-                    render_metrics['cos_phys_render_x'] = cos_sim
-                    print(f"  cos(phys, render)_x = {cos_sim:.4f}")
-            except Exception:
-                pass
+    if len(renderers) > 0 and len(targets) > 0:
+        dLdx, rm, bce_list, alpha_list = compute_multiview_gradients(
+            x, F_e, sigma0, opacity, targets, renderers, campos_list, rcfg, color, lcfg, Fp,
+            target_rgbs=target_rgbs)
 
-            print(f"  [Render grad] mode={mode}, ||dLdF||={dLdF_norm:.1f}, "
-                  f"||dLdx||={dLdx_norm:.2f}, inject_F={inject_F_norm:.3f}, "
-                  f"inject_x={inject_x_norm:.3f}")
+        if dLdx is not None:
+            dFp, direction, diffused, pm = diffuse_and_compute_plasticity(x, dLdx, cfg)
+            rm.update(pm)
 
-            new_render_grads = {
-                'dLdF': np.ascontiguousarray(dLdF_scaled),
-                'dLdx': np.ascontiguousarray(dLdx_scaled),
-            }
+        cs = float(cfg.get('cohesion_strength', 0))
+        if cs > 0:
+            cohesion_imp, cm = compute_cohesion(x, int(cfg.get('cohesion_k', 32)), cs)
+            rm.update(cm)
 
-        elif not render_active:
-            print(f"  [Warmup] ep{ep} < render_start_ep={render_start_ep}, "
-                  f"render_loss={render_metrics.get('loss_total', 0):.4f} (monitor only)")
-
-    # ── 4. Final render + metrics ─────────────────────────────────────────
+    # ── Alpha metric (primary view) ───────────────────────────────────────
     alpha_mse = 0.0
-    if renderer is not None:
+    if len(renderers) > 0 and len(targets) > 0:
         with torch.no_grad():
-            pred_alpha, pred, _, _ = render_hard_coupled(
-                x, F_e, sigma0_fixed, opacity_fixed,
-                renderer, campos, render_cfg, particle_color,
-                training=False,
-            )
+            pa, pred, _, _ = render(x, F_e, sigma0, opacity, renderers[0], campos_list[0], rcfg, color, False, Fp)
+        if pa is not None:
+            tgt = targets[0].to(pa.device)
+            if tgt.shape != pa.shape:
+                tgt = F_nn.interpolate(tgt[None,None], size=pa.shape, mode='bilinear', align_corners=False)[0,0]
+            err = (pa - tgt)**2
+            mt = float(lcfg.get('masked_threshold', 0))
+            alpha_mse = float(err[(tgt>mt)|(pa>mt)].mean()) if mt > 0 else float(err.mean())
+        if png and pred and pred.get('image') is not None:
+            d = out_dir / f'ep{ep:03d}'; d.mkdir(parents=True, exist_ok=True)
+            save_image_png(d / 'render.png', pred['image'])
 
-        if pred_alpha is not None and target_alpha is not None:
-            tgt = target_alpha.to(pred_alpha.device)
-            if tgt.shape != pred_alpha.shape:
-                tgt = F_nn.interpolate(tgt.unsqueeze(0).unsqueeze(0),
-                                       size=pred_alpha.shape, mode='bilinear',
-                                       align_corners=False)[0, 0]
-            err = (pred_alpha - tgt) ** 2
+    print(f"  alpha_mse={alpha_mse:.6f}")
 
-            mask_thresh = float(loss_cfg.get('masked_threshold', 0.0))
-            if mask_thresh > 0:
-                mask = (tgt > mask_thresh) | (pred_alpha > mask_thresh)
-                alpha_mse = float(err[mask].mean().item()) if mask.any() else float(err.mean().item())
-                fg_pix = int(mask.sum())
-                print(f"  [Masked metric] fg={fg_pix:,}/{err.numel():,} "
-                      f"({100*fg_pix/err.numel():.1f}%), alpha_mse={alpha_mse:.6f}")
-            else:
-                alpha_mse = float(err.mean().item())
+    losses = {'ep': ep, 'loss_physics': float(loss_phys), 'alpha_mse': alpha_mse,
+              'dx_mean': dx_m, 'dFc_mean': dFc_mean, 'dFc_max': dFc_max}
+    for k in ['loss_bce', 'loss_bce_mv', 'loss_rgb', 'n_views', 'dLdx_norm',
+              'active', 'diffused_ratio', 'dFp_norm', 'floating']:
+        if k in rm: losses[k] = rm[k]
 
-        if png_enabled and pred is not None:
-            ep_dir = out_dir / f"ep{ep:03d}"
-            ep_dir.mkdir(parents=True, exist_ok=True)
-            if pred.get('image') is not None:
-                save_image_png(ep_dir / 'render.png', pred['image'])
-            if pred.get('alpha') is not None:
-                save_image_png(ep_dir / 'alpha.png', pred['alpha'])
-            if pred.get('depth') is not None:
-                save_depth_png(ep_dir / 'depth.png', pred['depth'])
-            if target_alpha is not None and pred.get('alpha') is not None:
-                pred_a_np = pred['alpha'] if isinstance(pred['alpha'], np.ndarray) else pred['alpha'].cpu().numpy()
-                if pred_a_np.ndim == 3:
-                    pred_a_np = pred_a_np[0]
-                tgt_np = target_alpha.cpu().numpy()
-                if tgt_np.shape != pred_a_np.shape:
-                    from PIL import Image
-                    tgt_pil = Image.fromarray((tgt_np * 255).astype(np.uint8))
-                    tgt_pil = tgt_pil.resize((pred_a_np.shape[1], pred_a_np.shape[0]), Image.BILINEAR)
-                    tgt_np = np.array(tgt_pil).astype(np.float32) / 255.0
-                err_np = np.abs(pred_a_np - tgt_np)
-                heatmap = np.stack([err_np, np.zeros_like(err_np), np.zeros_like(err_np)], axis=-1)
-                save_image_png(ep_dir / 'alpha_error.png', heatmap)
-            print(f"  Saved -> {ep_dir}/")
-
-    print(f"  alpha_mse={alpha_mse:.6f}, render_active={render_active}")
-
-    losses = {
-        'loss_physics': float(loss_physics),
-        'alpha_mse': alpha_mse,
-        'render_active': render_active,
-        'sigma0_fixed': sigma0_fixed,
-        'opacity_fixed': opacity_fixed,
-        'dx_mean': float(dx_norms.mean()),
-        'dx_max': float(dx_norms.max()),
-        'dFe_mean': float(dFe_norms.mean()),
-        'dFe_max': float(dFe_norms.max()),
-        'det_min': float(det_Fe.min()),
-        'det_max': float(det_Fe.max()),
-        **render_metrics,
-    }
-    return losses, new_render_grads
+    dLdx_norms = np.linalg.norm(dLdx, axis=1) if dLdx is not None else None
+    return losses, dFp, direction, cohesion_imp, dLdx_norms, bce_list, alpha_list, diffused
