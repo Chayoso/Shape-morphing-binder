@@ -408,38 +408,6 @@ def save_episode_summary(
         json.dump(summary, f, indent=2)
 
 
-def save_episode_data(
-    ep: int,
-    ep_dir: Path,
-    mu_np: np.ndarray,
-    cov_np: np.ndarray,
-    particle_color: list
-) -> None:
-    """
-    Save episode data files (NPZ, PLY).
-    
-    Args:
-        ep: Episode number
-        ep_dir: Episode directory
-        mu_np: Positions
-        cov_np: Covariances
-        particle_color: RGB color
-    """
-    rgb_mu = np.tile(np.array(particle_color, dtype=np.float32), (len(mu_np), 1))
-    
-    # Save Gaussians
-    save_gaussians_npz(
-        ep_dir / f"ep{ep:03d}_gaussians.npz",
-        mu_np, cov_np, rgb_mu
-    )
-    
-    # Save point cloud
-    save_point_cloud_ply(
-        ep_dir / f"ep{ep:03d}_surface_{len(mu_np)}.ply",
-        mu_np, rgb_mu
-    )
-
-
 __all__ = [
     'save_image_png',
     'save_depth_png',
@@ -447,6 +415,5 @@ __all__ = [
     'save_gaussians_npz',
     'save_point_cloud_ply',
     'save_episode_summary',
-    'save_episode_data',
 ]
 

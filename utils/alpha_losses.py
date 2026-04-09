@@ -10,6 +10,7 @@ Implements losses from paper Section 5.1:
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from scipy.ndimage import distance_transform_edt
 
 
@@ -82,6 +83,61 @@ def distance_transform_loss(pred: torch.Tensor, dt_map: torch.Tensor,
     return weighted.mean()
 
 
+def _sobel_edge_magnitude(alpha: torch.Tensor) -> torch.Tensor:
+    """Differentiable Sobel edge magnitude for a single alpha image."""
+    x = alpha[None, None]
+    kx = alpha.new_tensor([
+        [1.0, 0.0, -1.0],
+        [2.0, 0.0, -2.0],
+        [1.0, 0.0, -1.0],
+    ]).view(1, 1, 3, 3) / 8.0
+    ky = alpha.new_tensor([
+        [1.0, 2.0, 1.0],
+        [0.0, 0.0, 0.0],
+        [-1.0, -2.0, -1.0],
+    ]).view(1, 1, 3, 3) / 8.0
+    gx = F.conv2d(x, kx, padding=1)
+    gy = F.conv2d(x, ky, padding=1)
+    return torch.sqrt(gx.square() + gy.square() + 1e-12)[0, 0]
+
+
+def edge_alignment_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    mask: torch.Tensor = None,
+    band_width: int = 5,
+    edge_threshold: float = 0.02,
+) -> torch.Tensor:
+    """
+    Align predicted and target silhouette contours.
+
+    The loss is evaluated on a dilated union of target and predicted edge bands
+    so that both missed thin structures and spurious protrusions are penalized.
+    """
+    pred_edge = _sobel_edge_magnitude(pred)
+    target_edge = _sobel_edge_magnitude(target.detach())
+    diff = (pred_edge - target_edge).abs()
+
+    if band_width > 1:
+        pad = band_width // 2
+        target_band = F.max_pool2d(
+            (target_edge[None, None] > edge_threshold).float(),
+            kernel_size=band_width, stride=1, padding=pad
+        )[0, 0] > 0
+        pred_band = F.max_pool2d(
+            (pred_edge.detach()[None, None] > edge_threshold).float(),
+            kernel_size=band_width, stride=1, padding=pad
+        )[0, 0] > 0
+        band = target_band | pred_band
+    else:
+        band = (target_edge > edge_threshold) | (pred_edge.detach() > edge_threshold)
+
+    if mask is not None:
+        band = band | mask
+
+    return diff[band].mean() if band.any() else diff.mean()
+
+
 def combined_alpha_loss(
     pred: torch.Tensor,
     target: torch.Tensor,
@@ -89,8 +145,11 @@ def combined_alpha_loss(
     w_bce: float = 1.0,
     w_iou: float = 0.5,
     w_dt: float = 0.1,
+    w_edge: float = 0.0,
     mask_threshold: float = 0.0,
     auto_pos_weight: bool = True,
+    edge_band_width: int = 5,
+    edge_threshold: float = 0.02,
 ) -> tuple:
     """
     Combined alpha silhouette loss (paper Section 5.1).
@@ -119,7 +178,7 @@ def combined_alpha_loss(
         if n_fg > 0:
             pos_weight = n_bg / n_fg  # e.g. 24 for 4% fg
 
-    loss = torch.tensor(0.0, device=pred.device, requires_grad=True)
+    loss = pred.new_zeros(())
     metrics = {'pos_weight': pos_weight}
 
     if w_bce > 0:
@@ -137,89 +196,18 @@ def combined_alpha_loss(
         loss = loss + w_dt * l_dt
         metrics['loss_dt'] = float(l_dt.item())
 
+    if w_edge > 0:
+        l_edge = edge_alignment_loss(
+            pred, target, mask,
+            band_width=max(int(edge_band_width), 1),
+            edge_threshold=float(edge_threshold),
+        )
+        loss = loss + w_edge * l_edge
+        metrics['loss_edge'] = float(l_edge.item())
+
     metrics['loss_total'] = float(loss.item())
     if mask is not None:
         metrics['fg_pixels'] = int(mask.sum().item())
         metrics['total_pixels'] = mask.numel()
 
-    return loss, metrics
-
-
-# ── Anti-collapse regularizers (paper Section 5.2) ───────────────────────
-
-def volume_preservation_loss(F_t: torch.Tensor) -> torch.Tensor:
-    """
-    L_vol = mean((det(F) - 1)^2)
-
-    Penalizes volume changes: det(F) should stay near 1.
-    """
-    det_F = torch.det(F_t)  # (N,)
-    return torch.mean((det_F - 1.0) ** 2)
-
-
-def deformation_penalty_loss(F_t: torch.Tensor, eps: float = 1e-6) -> torch.Tensor:
-    """
-    L_F = mean(||log(sigma(F))||^2)
-
-    Penalizes extreme stretching/compression via singular values of F.
-    """
-    # SVD: F = U @ diag(sigma) @ V^T
-    _, sigma, _ = torch.linalg.svd(F_t)  # sigma: (N, 3)
-    log_sigma = torch.log(sigma.clamp(min=eps))
-    return torch.mean(log_sigma ** 2)
-
-
-def temporal_smoothness_loss(
-    x_curr: torch.Tensor,
-    x_prev: torch.Tensor,
-    x_prev2: torch.Tensor = None,
-) -> torch.Tensor:
-    """
-    L_temp = mean(||x_{t} - 2*x_{t-1} + x_{t-2}||^2)
-
-    Penalizes sudden acceleration. Falls back to velocity penalty
-    if only two timesteps available: mean(||x_t - x_{t-1}||^2).
-    """
-    if x_prev2 is not None:
-        accel = x_curr - 2.0 * x_prev + x_prev2
-        return torch.mean(accel ** 2)
-    else:
-        vel = x_curr - x_prev
-        return torch.mean(vel ** 2)
-
-
-def compute_regularization(
-    F_t: torch.Tensor,
-    x_t: torch.Tensor = None,
-    x_prev: torch.Tensor = None,
-    x_prev2: torch.Tensor = None,
-    w_vol: float = 1.0,
-    w_def: float = 0.1,
-    w_temp: float = 0.01,
-) -> tuple:
-    """
-    Combined anti-collapse regularization.
-
-    Returns:
-        (total_reg_loss, metrics_dict)
-    """
-    loss = torch.tensor(0.0, device=F_t.device)
-    metrics = {}
-
-    if w_vol > 0:
-        l_vol = volume_preservation_loss(F_t)
-        loss = loss + w_vol * l_vol
-        metrics['reg_vol'] = float(l_vol.item())
-
-    if w_def > 0:
-        l_def = deformation_penalty_loss(F_t)
-        loss = loss + w_def * l_def
-        metrics['reg_def'] = float(l_def.item())
-
-    if w_temp > 0 and x_t is not None and x_prev is not None:
-        l_temp = temporal_smoothness_loss(x_t, x_prev, x_prev2)
-        loss = loss + w_temp * l_temp
-        metrics['reg_temp'] = float(l_temp.item())
-
-    metrics['reg_total'] = float(loss.item())
     return loss, metrics

@@ -1,0 +1,306 @@
+# Overnight bunny sweep
+# Purpose:
+# - compare clean baseline vs field correction
+# - test whether extra camera coverage fixes asymmetric ear recovery
+# - test whether DT helps boundary alignment
+# - test whether tighter/smoother/denser fields stabilize the ears
+#
+# Suggested run:
+#   python run.py -c configs/bunny_overnight.yaml --skip-existing
+#
+# Notes:
+# - Keep `--png` off for overnight throughput unless you explicitly need per-episode renders.
+# - Defaults use 24 episodes so the sweep fits in one night more easily.
+
+output_base: "output/overnight_bunny"
+
+defaults:
+  input_mesh_path: "assets/isosphere.obj"
+  simulation:
+    grid_dx: 1.0
+    grid_min_point: [-16.0, -16.0, -16.0]
+    grid_max_point: [16.0, 16.0, 16.0]
+    points_per_cell_cuberoot: 5
+    lam: 38888.89
+    mu: 58333.3
+    density: 75.0
+    dt: 0.00833333333
+    drag: 0.5
+    external_force: [0.0, 0.0, 0.0]
+    smoothing_factor: 0.955
+  optimization:
+    num_animations: 24
+    num_timesteps: 10
+    control_stride: 1
+    max_gd_iters: 1
+    max_ls_iters: 10
+    initial_alpha: 0.01
+    final_alpha: 0.001
+    gd_tol: 0.0001
+  plasticity:
+    eta: 0.0
+    adaptive_eta_max: 5.0
+    eta_v: 0.0
+    max_v: 5.0
+    max_anisotropy: 1.5
+    smooth_k: 64
+    clip_pct: 95.0
+    diffusion_iters: 3
+    damping: 0.0
+    cohesion_k: 32
+    cohesion_strength: 0.0
+    cohesion_sparse_threshold: 1.5
+    lambda_render: 0.0
+  correction:
+    enabled: false
+  multi_view:
+    enabled: true
+    preset: ring
+    num_cameras: 8
+  loss_weights:
+    w_bce: 1.0
+    w_iou: 1.0
+    w_dt: 0.0
+    masked_threshold: 0.01
+  render:
+    sigma0: auto
+    sigma0_scale: 0.5
+    opacity: 0.95
+    bg: [1.0, 1.0, 1.0]
+    training_resolution_scale: 0.5
+    particle_color: [0.27, 0.51, 0.71]
+    lighting:
+      model: phong
+      type: directional
+      direction: [0.3, -0.5, 0.8]
+      two_sided: true
+      ambient: 0.18
+      diffuse: 0.85
+      specular: 0.10
+      shininess: 32
+  upsample:
+    covariance:
+      sigma0: 0.08
+  camera:
+    width: 1920
+    height: 1080
+    fx: 712.5
+    fy: 712.5
+    cx: 960.0
+    cy: 540.0
+    znear: 0.01
+    zfar: 100.0
+    lookat:
+      eye: [20.0, -25.0, 12.5]
+      target: [0.0, 0.0, 0.0]
+      up: [0.0, 0.0, 1.0]
+
+experiments:
+  # Baselines
+  - name: bunny_po_clean
+    target_mesh_path: "assets/bunny.obj"
+
+  - name: bunny_decoupled_clean
+    target_mesh_path: "assets/bunny.obj"
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 3
+      every_n_eps: 5
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  - name: bunny_decoupled_stronger
+    target_mesh_path: "assets/bunny.obj"
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  # Camera coverage sweeps
+  - name: bunny_cam_ring8_top1_strong
+    target_mesh_path: "assets/bunny.obj"
+    multi_view:
+      enabled: true
+      preset: ring_top
+      num_cameras: 8
+      top_elev: 85.0
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  - name: bunny_cam_dual4x2_strong
+    target_mesh_path: "assets/bunny.obj"
+    multi_view:
+      enabled: true
+      preset: dual_ring
+      num_cameras: 8
+      num_low: 4
+      num_high: 4
+      high_elev_offset: 32.0
+      high_azim_offset: 45.0
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  - name: bunny_cam_dual4x2_top1_strong
+    target_mesh_path: "assets/bunny.obj"
+    multi_view:
+      enabled: true
+      preset: dual_ring_top
+      num_cameras: 8
+      num_low: 4
+      num_high: 4
+      high_elev_offset: 32.0
+      high_azim_offset: 45.0
+      top_elev: 85.0
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  # Observation loss sweeps
+  - name: bunny_loss_dt010_strong
+    target_mesh_path: "assets/bunny.obj"
+    loss_weights:
+      w_dt: 0.10
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  - name: bunny_loss_dt025_strong
+    target_mesh_path: "assets/bunny.obj"
+    loss_weights:
+      w_dt: 0.25
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  - name: bunny_combo_dual4x2_top1_dt010
+    target_mesh_path: "assets/bunny.obj"
+    multi_view:
+      enabled: true
+      preset: dual_ring_top
+      num_cameras: 8
+      num_low: 4
+      num_high: 4
+      high_elev_offset: 32.0
+      high_azim_offset: 45.0
+      top_elev: 85.0
+    loss_weights:
+      w_dt: 0.10
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  # Regularization / field parameter sweeps
+  - name: bunny_corr_tight_disp075
+    target_mesh_path: "assets/bunny.obj"
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 0.75
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  - name: bunny_corr_smooth020
+    target_mesh_path: "assets/bunny.obj"
+    correction:
+      enabled: true
+      grid_res: 8
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.2
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true
+
+  - name: bunny_corr_grid10
+    target_mesh_path: "assets/bunny.obj"
+    correction:
+      enabled: true
+      grid_res: 10
+      lr: 0.01
+      num_iters: 6
+      every_n_eps: 2
+      w_smooth: 0.1
+      max_disp: 1.0
+      mass_gate_tau: 0.1
+      reset_kinematics_on_accept: true
+      absorb_fp_on_accept: true
+      skip_dfp_update_on_accept: true

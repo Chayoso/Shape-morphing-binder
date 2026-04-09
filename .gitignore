@@ -28,6 +28,8 @@ ENV/
 # IDE
 .vscode/
 .idea/
+.codex
+.codex/
 *.swp
 *.swo
 *~
@@ -62,5 +64,3 @@ gaussian-splatting/submodules/*/build/
 # Temporary files
 *.log
 *.tmp
-
-
