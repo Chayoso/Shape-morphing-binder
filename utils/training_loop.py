@@ -11,10 +11,47 @@ import torch.nn.functional as F
 from pathlib import Path
 
 from utils.io_utils import save_image_png
-from utils.alpha_losses import combined_alpha_loss
+from utils.alpha_losses import combined_alpha_loss, depth_curvature_loss, adaptive_grad_scale
 
 
 # ── Rendering ────────────────────────────────────────────────────────────
+
+def _curriculum_mix(ep: int | None, duration: int) -> float:
+    """1.0 at ep0, 0.0 after the curriculum duration."""
+    if ep is None or duration <= 0:
+        return 0.0
+    return float(np.clip(1.0 - (float(ep) / max(float(duration), 1.0)), 0.0, 1.0))
+
+
+def _lerp(start: float, end: float, mix: float) -> float:
+    return float(end + (start - end) * mix)
+
+
+def _odd_kernel_size(value: float) -> int:
+    k = max(int(round(value)), 1)
+    if k % 2 == 0:
+        k += 1 if value >= k else -1
+    return max(k, 1)
+
+
+def _box_blur2d(img: torch.Tensor, kernel_size: int) -> torch.Tensor:
+    k = max(int(kernel_size), 1)
+    if k <= 1:
+        return img
+    if k % 2 == 0:
+        k += 1
+    pad = k // 2
+    return F.avg_pool2d(img[None, None], kernel_size=k, stride=1, padding=pad)[0, 0]
+
+
+def _resample_scalar_map(img: torch.Tensor, scale: float) -> torch.Tensor:
+    scale = float(scale)
+    if scale >= 0.999:
+        return img
+    h, w = img.shape[-2:]
+    size = (max(1, int(round(h * scale))), max(1, int(round(w * scale))))
+    return F.interpolate(img[None, None], size=size, mode='bilinear', align_corners=False)[0, 0]
+
 
 def _pca_normals(x, k=16):
     from scipy.spatial import cKDTree
@@ -56,6 +93,21 @@ def _prepare_shared_render_inputs(x, F_e, sigma0, opacity, Fp=None, require_grad
     }
 
 
+def _apply_particle_mask(x, F_e, Fp=None, particle_mask=None):
+    """Restrict rendering to a fixed particle subset while preserving full-state indexing."""
+    if particle_mask is None:
+        return x, F_e, Fp, None
+
+    mask = np.asarray(particle_mask, dtype=bool).reshape(-1)
+    idx = np.flatnonzero(mask)
+    if idx.size == 0:
+        return x[:0], F_e[:0], None if Fp is None else Fp[:0], idx
+    x_sub = np.ascontiguousarray(x[idx])
+    F_sub = np.ascontiguousarray(F_e[idx])
+    Fp_sub = None if Fp is None else np.ascontiguousarray(Fp[idx])
+    return x_sub, F_sub, Fp_sub, idx
+
+
 def _constant_rgb(num_points, color, device):
     color_t = torch.tensor(color, dtype=torch.float32, device=device)
     return color_t.unsqueeze(0).expand(num_points, -1).contiguous()
@@ -76,11 +128,26 @@ def _render_prepared(renderer, x_t, cov, rgb, opacity, return_torch=True):
     return alpha, pred
 
 
-def _compute_view_losses(pred_alpha, pred_dict, target, lcfg, target_rgb=None, target_dt=None):
+def _compute_view_losses(
+    pred_alpha,
+    pred_dict,
+    target,
+    lcfg,
+    target_rgb=None,
+    target_dt=None,
+    target_depth=None,
+    target_curvature=None,
+    target_concavity=None,
+    ep: int | None = None,
+):
     """Compute per-view observation loss and metrics."""
-    loss_alpha, metrics = _alpha_loss(pred_alpha, target, lcfg, dt_map=target_dt)
+    loss_alpha, metrics = _alpha_loss(
+        pred_alpha, target, lcfg, ep=ep, dt_map=target_dt, target_concavity=target_concavity
+    )
 
     loss_rgb = torch.tensor(0.0, device=pred_alpha.device)
+    loss_depth = torch.tensor(0.0, device=pred_alpha.device)
+    loss_curv = torch.tensor(0.0, device=pred_alpha.device)
     w_rgb = float(lcfg.get('w_rgb', 0.0))
     if w_rgb > 0 and target_rgb is not None and pred_dict.get('image') is not None:
         pred_img = pred_dict['image']
@@ -95,7 +162,114 @@ def _compute_view_losses(pred_alpha, pred_dict, target, lcfg, target_rgb=None, t
         loss_rgb = w_rgb * ((pred_img - tgt_img) ** 2).mean()
         metrics['loss_rgb'] = float(loss_rgb.item())
 
-    loss_total = loss_alpha + loss_rgb
+    pred_depth = None
+    tgt_depth = None
+    tgt_curv = None
+    if target_depth is not None and pred_dict.get('depth') is not None:
+        pred_depth = pred_dict['depth']
+        if isinstance(pred_depth, np.ndarray):
+            pred_depth = torch.from_numpy(pred_depth).float().to(pred_alpha.device)
+        tgt_depth = target_depth.to(pred_alpha.device)
+        if tgt_depth.shape != pred_depth.shape:
+            tgt_depth = F.interpolate(
+                tgt_depth[None, None], size=pred_depth.shape, mode='bilinear', align_corners=False
+            )[0, 0]
+        if target_curvature is not None:
+            tgt_curv = target_curvature.to(pred_alpha.device)
+            if tgt_curv.shape != pred_depth.shape:
+                tgt_curv = F.interpolate(
+                    tgt_curv[None, None], size=pred_depth.shape, mode='bilinear', align_corners=False
+                )[0, 0]
+
+    l_depth_raw = None
+    w_depth = float(lcfg.get('w_depth', 0.0))
+    if w_depth > 0 and pred_depth is not None:
+        valid = (tgt_depth > 1e-6) & (pred_alpha > float(lcfg.get('masked_threshold', 0.01)))
+        if valid.any():
+            depth_mix = _curriculum_mix(ep, int(lcfg.get('early_depth_eps', 0)))
+            depth_scale = _lerp(float(lcfg.get('early_depth_scale', 1.0)), 1.0, depth_mix)
+            depth_mode = str(lcfg.get('early_depth_mode', 'abs')) if depth_mix > 0 else 'abs'
+            depth_delta = pred_depth[valid] - tgt_depth[valid]
+            if depth_mode == 'behind_only':
+                depth_raw = F.relu(depth_delta).mean()
+            elif depth_mode == 'front_only':
+                depth_raw = F.relu(-depth_delta).mean()
+            else:
+                depth_raw = depth_delta.abs().mean()
+            l_depth_raw = pred_alpha.new_tensor(depth_scale) * depth_raw
+            metrics['loss_depth_raw'] = float(l_depth_raw.item())
+            metrics['curriculum_depth_scale'] = float(depth_scale)
+            metrics['curriculum_depth_mix'] = float(depth_mix)
+        else:
+            metrics['loss_depth'] = 0.0
+            metrics['loss_depth_raw'] = 0.0
+            metrics['curriculum_depth_scale'] = 1.0
+            metrics['curriculum_depth_mix'] = 0.0
+
+    w_curv = float(lcfg.get('w_curv', 0.0))
+    l_curv_raw = None
+    if w_curv > 0 and pred_depth is not None:
+        l_curv_raw, curv_metrics = depth_curvature_loss(
+            pred_depth, tgt_depth, target.to(pred_alpha.device),
+            pred_alpha=pred_alpha, target_curvature=tgt_curv,
+            mask_threshold=float(lcfg.get('masked_threshold', 0.01)),
+            band_width=int(lcfg.get('curv_band_width', 7)),
+            smooth_ks=int(lcfg.get('curv_smooth_ks', 5)),
+            high_quantile=float(lcfg.get('curv_high_quantile', 0.75)),
+            edge_threshold=float(lcfg.get('edge_threshold', 0.02)),
+        )
+        metrics.update(curv_metrics)
+        metrics['loss_curv_raw'] = float(l_curv_raw.item())
+
+    adaptive_grad_match = bool(lcfg.get('adaptive_grad_match', False))
+    grad_match_scale_min = float(lcfg.get('grad_match_scale_min', 0.0))
+    grad_match_scale_max = float(lcfg.get('grad_match_scale_max', 100.0))
+
+    if adaptive_grad_match and pred_alpha.requires_grad and torch.is_grad_enabled():
+        anchor_loss = loss_alpha + loss_rgb
+        depth_ratio = float(lcfg.get('grad_ratio_depth', w_depth))
+        if l_depth_raw is not None and depth_ratio > 0:
+            depth_ratio *= float(metrics.get('curriculum_depth_scale', 1.0))
+            scale, meta = adaptive_grad_scale(
+                anchor_loss, l_depth_raw, [pred_alpha, pred_depth],
+                target_ratio=depth_ratio,
+                scale_min=grad_match_scale_min,
+                scale_max=grad_match_scale_max,
+            )
+            loss_depth = pred_alpha.new_tensor(scale) * l_depth_raw
+            metrics['loss_depth'] = float(loss_depth.item())
+            metrics['grad_scale_depth'] = float(scale)
+            metrics['grad_norm_depth'] = float(meta['aux_grad_norm'])
+            metrics['grad_anchor_screen'] = float(meta['anchor_grad_norm'])
+            metrics['grad_ratio_depth_eff'] = float(depth_ratio)
+        elif l_depth_raw is not None:
+            loss_depth = w_depth * l_depth_raw
+            metrics['loss_depth'] = float(loss_depth.item())
+
+        if l_curv_raw is not None and float(lcfg.get('grad_ratio_curv', w_curv)) > 0:
+            scale, meta = adaptive_grad_scale(
+                anchor_loss, l_curv_raw, [pred_alpha, pred_depth],
+                target_ratio=float(lcfg.get('grad_ratio_curv', w_curv)),
+                scale_min=grad_match_scale_min,
+                scale_max=grad_match_scale_max,
+            )
+            loss_curv = pred_alpha.new_tensor(scale) * l_curv_raw
+            metrics['loss_curv'] = float(loss_curv.item())
+            metrics['grad_scale_curv'] = float(scale)
+            metrics['grad_norm_curv'] = float(meta['aux_grad_norm'])
+            metrics['grad_anchor_screen'] = float(meta['anchor_grad_norm'])
+        elif l_curv_raw is not None:
+            loss_curv = w_curv * l_curv_raw
+            metrics['loss_curv'] = float(loss_curv.item())
+    else:
+        if l_depth_raw is not None:
+            loss_depth = w_depth * l_depth_raw
+            metrics['loss_depth'] = float(loss_depth.item())
+        if l_curv_raw is not None:
+            loss_curv = w_curv * l_curv_raw
+            metrics['loss_curv'] = float(loss_curv.item())
+
+    loss_total = loss_alpha + loss_rgb + loss_depth + loss_curv
     metrics['loss_total'] = float(loss_total.item())
     return loss_total, metrics
 
@@ -190,10 +364,13 @@ def _aggregate_multiview_values(loss_values, view_weights, cfg):
     }
 
 
-def render(x, F_e, sigma0, opacity, renderer, campos, rcfg, color, training=True, Fp=None):
+def render(x, F_e, sigma0, opacity, renderer, campos, rcfg, color, training=True, Fp=None, particle_mask=None):
     """Render particles. F_render = F_e · Fp if Fp provided."""
     from renderer import compute_shading
+    x, F_e, Fp, _ = _apply_particle_mask(x, F_e, Fp=Fp, particle_mask=particle_mask)
     N, dev = x.shape[0], torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if N == 0:
+        return None, {}, None, None
 
     x_t = torch.from_numpy(x).float().to(dev)
     F_r = np.matmul(F_e, Fp).astype(np.float32) if Fp is not None else F_e
@@ -225,7 +402,7 @@ def render(x, F_e, sigma0, opacity, renderer, campos, rcfg, color, training=True
 
 # ── Gradient extraction ──────────────────────────────────────────────────
 
-def _alpha_loss(pred, target, cfg, dt_map=None):
+def _alpha_loss(pred, target, cfg, ep=None, dt_map=None, target_concavity=None):
     tgt = target.to(pred.device)
     if tgt.shape != pred.shape:
         tgt = F.interpolate(tgt[None,None], size=pred.shape, mode='bilinear', align_corners=False)[0,0]
@@ -236,61 +413,90 @@ def _alpha_loss(pred, target, cfg, dt_map=None):
             dt_resized = F.interpolate(
                 dt_resized[None, None], size=pred.shape, mode='bilinear', align_corners=False
             )[0, 0]
-    return combined_alpha_loss(pred, tgt,
+    bce_weight_map = None
+    concave_bce_downweight = float(cfg.get('concave_bce_downweight', 0.0))
+    if concave_bce_downweight > 0 and target_concavity is not None:
+        tgt_conc = target_concavity.to(pred.device)
+        if tgt_conc.shape != pred.shape:
+            tgt_conc = F.interpolate(
+                tgt_conc[None, None], size=pred.shape, mode='bilinear', align_corners=False
+            )[0, 0]
+        neg = (-tgt_conc).clamp_min(0.0)
+        neg_valid = neg[neg > 0]
+        if neg_valid.numel() > 0:
+            q = float(cfg.get('concave_bce_quantile', cfg.get('concave_quantile', 0.70)))
+            thresh = torch.quantile(neg_valid, q)
+            concave_mask = neg >= thresh
+            bce_weight_map = torch.ones_like(pred)
+            bce_weight_map = bce_weight_map - concave_bce_downweight * concave_mask.float()
+    alpha_mix = _curriculum_mix(ep, int(cfg.get('early_alpha_eps', 0)))
+    alpha_scale = _lerp(float(cfg.get('early_alpha_scale', 1.0)), 1.0, alpha_mix)
+    alpha_blur_ks = _odd_kernel_size(_lerp(float(cfg.get('early_alpha_blur_ks', 1)), 1.0, alpha_mix))
+    bce_neg_weight = _lerp(float(cfg.get('early_bce_neg_weight', 1.0)), 1.0, alpha_mix)
+
+    pred_l = pred
+    tgt_l = tgt
+    dt_l = dt_resized
+    bce_weight_l = bce_weight_map
+
+    if alpha_blur_ks > 1:
+        pred_l = _box_blur2d(pred_l, alpha_blur_ks)
+        tgt_l = _box_blur2d(tgt_l, alpha_blur_ks)
+        if dt_l is not None:
+            dt_l = _box_blur2d(dt_l, alpha_blur_ks)
+        if bce_weight_l is not None:
+            bce_weight_l = _box_blur2d(bce_weight_l, alpha_blur_ks)
+
+    if alpha_scale < 0.999:
+        pred_l = _resample_scalar_map(pred_l, alpha_scale)
+        tgt_l = _resample_scalar_map(tgt_l, alpha_scale)
+        if dt_l is not None:
+            dt_l = _resample_scalar_map(dt_l, alpha_scale)
+        if bce_weight_l is not None:
+            bce_weight_l = _resample_scalar_map(bce_weight_l, alpha_scale)
+
+    loss, metrics = combined_alpha_loss(pred_l, tgt_l,
         w_bce=float(cfg.get('w_bce',1)), w_iou=float(cfg.get('w_iou',1)),
         w_dt=float(cfg.get('w_dt', 0.0)), w_edge=float(cfg.get('w_edge', 0.0)),
-        dt_map=dt_resized,
+        w_ms=float(cfg.get('w_ms', 0.0)),
+        dt_map=dt_l,
+        bce_weight_map=bce_weight_l,
+        bce_neg_weight=bce_neg_weight,
         mask_threshold=float(cfg.get('masked_threshold',0)),
         edge_band_width=int(cfg.get('edge_band_width', 5)),
-        edge_threshold=float(cfg.get('edge_threshold', 0.02)))
-
-
-def compute_view_gradient(
-    x, F_e, sigma0, opacity, target, renderer, campos, rcfg, color, lcfg,
-    Fp=None, target_rgb=None, target_dt=None
-):
-    """Single view → dL/dx from alpha + RGB loss. Each call is graph-independent."""
-    pred_alpha, pred_dict, x_t, _ = render(x, F_e, sigma0, opacity, renderer, campos, rcfg, color, True, Fp)
-    if pred_alpha is None: return None, {}, None
-    pred_np = pred_alpha.detach().cpu().numpy().copy()
-
-    # Alpha loss
-    loss_alpha, m = _alpha_loss(pred_alpha, target, lcfg, dt_map=target_dt)
-
-    # RGB loss (if target_rgb provided)
-    loss_rgb = torch.tensor(0.0, device=pred_alpha.device)
-    w_rgb = float(lcfg.get('w_rgb', 0.0))
-    if w_rgb > 0 and target_rgb is not None and pred_dict.get('image') is not None:
-        pred_img = pred_dict['image']  # (H, W, 3) torch tensor
-        if isinstance(pred_img, np.ndarray):
-            pred_img = torch.from_numpy(pred_img).float().to(pred_alpha.device)
-        tgt_img = target_rgb.to(pred_alpha.device)
-        if tgt_img.shape != pred_img.shape:
-            # Resize target to match pred
-            if tgt_img.dim() == 3 and pred_img.dim() == 3:
-                tgt_img = F.interpolate(
-                    tgt_img.permute(2,0,1).unsqueeze(0),
-                    size=pred_img.shape[:2], mode='bilinear', align_corners=False
-                )[0].permute(1,2,0)
-        loss_rgb = w_rgb * ((pred_img - tgt_img) ** 2).mean()
-        m['loss_rgb'] = float(loss_rgb.item())
-
-    loss = loss_alpha + loss_rgb
-    loss.backward()
-    dLdx = x_t.grad.detach().cpu().numpy().astype(np.float32) if x_t.grad is not None else None
-    m['dLdx_norm'] = float(np.linalg.norm(dLdx)) if dLdx is not None else 0.0
-    m['loss_total'] = float(loss.item())
-    return dLdx, m, pred_np
-
+        edge_threshold=float(cfg.get('edge_threshold', 0.02)),
+        ms_levels=int(cfg.get('ms_levels', 3)),
+        ms_fine_weight=float(cfg.get('ms_fine_weight', 1.0)),
+        ms_coarse_weight=float(cfg.get('ms_coarse_weight', 0.5)),
+        adaptive_grad_match=bool(cfg.get('adaptive_grad_match', False)),
+        grad_match_scale_min=float(cfg.get('grad_match_scale_min', 0.0)),
+        grad_match_scale_max=float(cfg.get('grad_match_scale_max', 100.0)),
+        grad_ratio_iou=cfg.get('grad_ratio_iou', None),
+        grad_ratio_dt=cfg.get('grad_ratio_dt', None),
+        grad_ratio_edge=cfg.get('grad_ratio_edge', None),
+        grad_ratio_ms=cfg.get('grad_ratio_ms', None))
+    metrics['curriculum_alpha_mix'] = float(alpha_mix)
+    metrics['curriculum_alpha_scale'] = float(alpha_scale)
+    metrics['curriculum_alpha_blur_ks'] = int(alpha_blur_ks)
+    metrics['curriculum_bce_neg_weight'] = float(bce_neg_weight)
+    return loss, metrics
 
 def compute_multiview_gradients(
     x, F_e, sigma0, opacity, targets, renderers, campos_list, rcfg, color, lcfg,
-    Fp=None, target_rgbs=None, target_dt_maps=None, return_alpha_list=False, view_weights=None
+    Fp=None, target_rgbs=None, target_dt_maps=None, target_depths=None,
+    target_curvatures=None, target_concavities=None,
+    return_alpha_list=False, view_weights=None, particle_mask=None, ep: int | None = None
 ):
     """8 views → summed dL/dx from alpha + RGB loss."""
     from renderer import compute_shading
 
-    shared = _prepare_shared_render_inputs(x, F_e, sigma0, opacity, Fp=Fp, require_grad=True)
+    x_render, F_render, Fp_render, render_idx = _apply_particle_mask(
+        x, F_e, Fp=Fp, particle_mask=particle_mask
+    )
+    if x_render.shape[0] == 0:
+        return None, {}, [], ([] if return_alpha_list else None)
+
+    shared = _prepare_shared_render_inputs(x_render, F_render, sigma0, opacity, Fp=Fp_render, require_grad=True)
     x_t = shared['x_t']
     cov = shared['cov']
     opacity_t = shared['opacity']
@@ -299,12 +505,12 @@ def compute_multiview_gradients(
         t is not None for t in target_rgbs[:len(renderers)]
     )
 
-    normals = _pca_normals(x) if need_rgb else None
+    normals = _pca_normals(x_render) if need_rgb else None
     base_rgb = _constant_rgb(shared['num_points'], color, shared['device']) if not need_rgb else None
 
     bce_list = []
     alpha_list = [] if return_alpha_list else None
-    total_list, iou_list, dt_list, edge_list, rgb_list = [], [], [], [], []
+    total_list, iou_list, dt_list, depth_list, edge_list, ms_list, curv_list, rgb_list = [], [], [], [], [], [], [], []
     loss_tensors = []
     first_m = {}
     valid_views = 0
@@ -312,10 +518,13 @@ def compute_multiview_gradients(
     for v, (rend, tgt, cam) in enumerate(zip(renderers, targets, campos_list)):
         tgt_rgb = target_rgbs[v] if target_rgbs and v < len(target_rgbs) else None
         tgt_dt = target_dt_maps[v] if target_dt_maps and v < len(target_dt_maps) else None
+        tgt_depth = target_depths[v] if target_depths and v < len(target_depths) else None
+        tgt_curv = target_curvatures[v] if target_curvatures and v < len(target_curvatures) else None
+        tgt_conc = target_concavities[v] if target_concavities and v < len(target_concavities) else None
 
         if need_rgb:
             rgb = torch.from_numpy(compute_shading(
-                x, normals, camera_pos=cam,
+                x_render, normals, camera_pos=cam,
                 light_cfg=rcfg.get('lighting', {}), albedo_color=color, model='phong'
             )).float().to(shared['device'])
         else:
@@ -328,13 +537,18 @@ def compute_multiview_gradients(
             continue
 
         loss_total, m = _compute_view_losses(
-            pred_alpha, pred_dict, tgt, lcfg, target_rgb=tgt_rgb, target_dt=tgt_dt
+            pred_alpha, pred_dict, tgt, lcfg,
+            target_rgb=tgt_rgb, target_dt=tgt_dt, target_depth=tgt_depth,
+            target_curvature=tgt_curv, target_concavity=tgt_conc, ep=ep,
         )
 
         bce_list.append(float(m.get('loss_bce', 0)))
         iou_list.append(float(m.get('loss_iou', 0)))
         dt_list.append(float(m.get('loss_dt', 0)))
+        depth_list.append(float(m.get('loss_depth', 0)))
         edge_list.append(float(m.get('loss_edge', 0)))
+        ms_list.append(float(m.get('loss_ms', 0)))
+        curv_list.append(float(m.get('loss_curv', 0)))
         rgb_list.append(float(m.get('loss_rgb', 0)))
         total_list.append(float(m.get('loss_total', 0)))
         loss_tensors.append(loss_total)
@@ -353,20 +567,65 @@ def compute_multiview_gradients(
     if x_t.grad is None:
         return None, {}, bce_list, ([] if return_alpha_list else None)
 
-    dLdx_sum = x_t.grad.detach().cpu().numpy().astype(np.float32)
+    dLdx_subset = x_t.grad.detach().cpu().numpy().astype(np.float32)
+    if render_idx is not None:
+        dLdx_sum = np.zeros((x.shape[0], 3), dtype=np.float32)
+        dLdx_sum[render_idx] = dLdx_subset
+        render_count = int(len(render_idx))
+        render_frac = float(render_count / max(len(x), 1))
+    else:
+        dLdx_sum = dLdx_subset
+        render_count = int(len(x))
+        render_frac = 1.0
     metrics = {
         'loss_bce': first_m.get('loss_bce', 0),
+        'bce_weight_mean': first_m.get('bce_weight_mean', 1.0),
+        'bce_weight_min': first_m.get('bce_weight_min', 1.0),
+        'bce_weight_max': first_m.get('bce_weight_max', 1.0),
+        'bce_weight_norm': first_m.get('bce_weight_norm', 1.0),
         'loss_iou': first_m.get('loss_iou', 0),
         'loss_dt': first_m.get('loss_dt', 0),
+        'loss_depth': first_m.get('loss_depth', 0),
+        'loss_depth_raw': first_m.get('loss_depth_raw', 0),
+        'loss_ms': first_m.get('loss_ms', 0),
+        'loss_ms_raw': first_m.get('loss_ms_raw', 0),
+        'loss_curv': first_m.get('loss_curv', 0),
+        'loss_curv_raw': first_m.get('loss_curv_raw', 0),
         'loss_bce_mv': sum(bce_list) / valid_views,
         'loss_iou_mv': sum(iou_list) / valid_views,
         'loss_dt_mv': sum(dt_list) / valid_views,
+        'loss_depth_mv': sum(depth_list) / valid_views,
         'loss_edge_mv': sum(edge_list) / valid_views,
+        'loss_ms_mv': sum(ms_list) / valid_views,
+        'loss_curv_mv': sum(curv_list) / valid_views,
         'loss_rgb': first_m.get('loss_rgb', 0),
         'loss_rgb_mv': sum(rgb_list) / valid_views,
         'loss_total': first_m.get('loss_total', 0),
         'n_views': valid_views,
         'dLdx_norm': float(np.linalg.norm(dLdx_sum)),
+        'render_particle_count': render_count,
+        'render_particle_frac': render_frac,
+        'grad_anchor_alpha': first_m.get('grad_anchor_alpha', 0),
+        'grad_anchor_screen': first_m.get('grad_anchor_screen', 0),
+        'grad_norm_iou': first_m.get('grad_norm_iou', 0),
+        'grad_norm_dt': first_m.get('grad_norm_dt', 0),
+        'grad_norm_edge': first_m.get('grad_norm_edge', 0),
+        'grad_norm_ms': first_m.get('grad_norm_ms', 0),
+        'grad_norm_depth': first_m.get('grad_norm_depth', 0),
+        'grad_norm_curv': first_m.get('grad_norm_curv', 0),
+        'grad_scale_iou': first_m.get('grad_scale_iou', 0),
+        'grad_scale_dt': first_m.get('grad_scale_dt', 0),
+        'grad_scale_edge': first_m.get('grad_scale_edge', 0),
+        'grad_scale_ms': first_m.get('grad_scale_ms', 0),
+        'grad_scale_depth': first_m.get('grad_scale_depth', 0),
+        'grad_scale_curv': first_m.get('grad_scale_curv', 0),
+        'curriculum_alpha_mix': first_m.get('curriculum_alpha_mix', 0.0),
+        'curriculum_alpha_scale': first_m.get('curriculum_alpha_scale', 1.0),
+        'curriculum_alpha_blur_ks': first_m.get('curriculum_alpha_blur_ks', 1),
+        'curriculum_bce_neg_weight': first_m.get('curriculum_bce_neg_weight', 1.0),
+        'curriculum_depth_scale': first_m.get('curriculum_depth_scale', 1.0),
+        'curriculum_depth_mix': first_m.get('curriculum_depth_mix', 0.0),
+        'grad_ratio_depth_eff': first_m.get('grad_ratio_depth_eff', 0.0),
     }
     metrics.update(agg)
     extra = []
@@ -376,10 +635,22 @@ def compute_multiview_gradients(
         extra.append(f"iou={metrics['loss_iou_mv']:.4f}")
     if metrics['loss_dt_mv'] != 0:
         extra.append(f"dt={metrics['loss_dt_mv']:.4f}")
+    if metrics['loss_depth_mv'] > 0:
+        extra.append(f"depth={metrics['loss_depth_mv']:.4f}")
     if metrics['loss_edge_mv'] > 0:
         extra.append(f"edge={metrics['loss_edge_mv']:.4f}")
+    if metrics['loss_ms_mv'] > 0:
+        extra.append(f"ms={metrics['loss_ms_mv']:.4f}")
+    if metrics['loss_curv_mv'] > 0:
+        extra.append(f"curv={metrics['loss_curv_mv']:.4f}")
     if metrics['loss_rgb_mv'] > 0:
         extra.append(f"rgb={metrics['loss_rgb_mv']:.4f}")
+    if metrics.get('grad_scale_ms', 0) > 0:
+        extra.append(f"gms={metrics['grad_scale_ms']:.3f}")
+    if metrics.get('grad_scale_depth', 0) > 0:
+        extra.append(f"gdepth={metrics['grad_scale_depth']:.3f}")
+    if metrics.get('grad_scale_curv', 0) > 0:
+        extra.append(f"gcurv={metrics['grad_scale_curv']:.3f}")
     extra_str = ", " + ", ".join(extra) if extra else ""
     print(f"  [MV] {valid_views} views, total={metrics['loss_total_mv']:.4f}, bce={metrics['loss_bce_mv']:.4f}{extra_str}")
     return dLdx_sum, metrics, bce_list, alpha_list
@@ -387,12 +658,20 @@ def compute_multiview_gradients(
 
 def compute_multiview_metrics(
     x, F_e, sigma0, opacity, targets, renderers, campos_list, rcfg, color, lcfg,
-    Fp=None, target_rgbs=None, target_dt_maps=None, return_alpha_list=False, view_weights=None
+    Fp=None, target_rgbs=None, target_dt_maps=None, target_depths=None,
+    target_curvatures=None, target_concavities=None,
+    return_alpha_list=False, view_weights=None, particle_mask=None, ep: int | None = None
 ):
     """Multi-view observation metrics without backward pass."""
     from renderer import compute_shading
 
-    shared = _prepare_shared_render_inputs(x, F_e, sigma0, opacity, Fp=Fp, require_grad=False)
+    x_render, F_render, Fp_render, render_idx = _apply_particle_mask(
+        x, F_e, Fp=Fp, particle_mask=particle_mask
+    )
+    if x_render.shape[0] == 0:
+        return {}, [], ([] if return_alpha_list else None)
+
+    shared = _prepare_shared_render_inputs(x_render, F_render, sigma0, opacity, Fp=Fp_render, require_grad=False)
     x_t = shared['x_t']
     cov = shared['cov']
     opacity_t = shared['opacity']
@@ -401,12 +680,12 @@ def compute_multiview_metrics(
         t is not None for t in target_rgbs[:len(renderers)]
     )
 
-    normals = _pca_normals(x) if need_rgb else None
+    normals = _pca_normals(x_render) if need_rgb else None
     base_rgb = _constant_rgb(shared['num_points'], color, shared['device']) if not need_rgb else None
 
     bce_list = []
     alpha_list = [] if return_alpha_list else None
-    total_list, iou_list, dt_list, edge_list, rgb_list = [], [], [], [], []
+    total_list, iou_list, dt_list, depth_list, edge_list, ms_list, curv_list, rgb_list = [], [], [], [], [], [], [], []
     first_m = {}
     valid_views = 0
 
@@ -414,10 +693,13 @@ def compute_multiview_metrics(
         for v, (rend, tgt, cam) in enumerate(zip(renderers, targets, campos_list)):
             tgt_rgb = target_rgbs[v] if target_rgbs and v < len(target_rgbs) else None
             tgt_dt = target_dt_maps[v] if target_dt_maps and v < len(target_dt_maps) else None
+            tgt_depth = target_depths[v] if target_depths and v < len(target_depths) else None
+            tgt_curv = target_curvatures[v] if target_curvatures and v < len(target_curvatures) else None
+            tgt_conc = target_concavities[v] if target_concavities and v < len(target_concavities) else None
 
             if need_rgb:
                 rgb = torch.from_numpy(compute_shading(
-                    x, normals, camera_pos=cam,
+                    x_render, normals, camera_pos=cam,
                     light_cfg=rcfg.get('lighting', {}), albedo_color=color, model='phong'
                 )).float().to(shared['device'])
             else:
@@ -430,12 +712,17 @@ def compute_multiview_metrics(
                 continue
 
             _, m = _compute_view_losses(
-                pred_alpha, pred_dict, tgt, lcfg, target_rgb=tgt_rgb, target_dt=tgt_dt
+                pred_alpha, pred_dict, tgt, lcfg,
+                target_rgb=tgt_rgb, target_dt=tgt_dt, target_depth=tgt_depth,
+                target_curvature=tgt_curv, target_concavity=tgt_conc, ep=ep,
             )
             bce_list.append(float(m.get('loss_bce', 0)))
             iou_list.append(float(m.get('loss_iou', 0)))
             dt_list.append(float(m.get('loss_dt', 0)))
+            depth_list.append(float(m.get('loss_depth', 0)))
             edge_list.append(float(m.get('loss_edge', 0)))
+            ms_list.append(float(m.get('loss_ms', 0)))
+            curv_list.append(float(m.get('loss_curv', 0)))
             rgb_list.append(float(m.get('loss_rgb', 0)))
             total_list.append(float(m.get('loss_total', 0)))
             if return_alpha_list:
@@ -449,16 +736,28 @@ def compute_multiview_metrics(
 
     metrics = {
         'loss_bce': first_m.get('loss_bce', 0),
+        'bce_weight_mean': first_m.get('bce_weight_mean', 1.0),
+        'bce_weight_min': first_m.get('bce_weight_min', 1.0),
+        'bce_weight_max': first_m.get('bce_weight_max', 1.0),
+        'bce_weight_norm': first_m.get('bce_weight_norm', 1.0),
         'loss_iou': first_m.get('loss_iou', 0),
         'loss_dt': first_m.get('loss_dt', 0),
+        'loss_depth': first_m.get('loss_depth', 0),
+        'loss_ms': first_m.get('loss_ms', 0),
+        'loss_curv': first_m.get('loss_curv', 0),
         'loss_bce_mv': sum(bce_list) / valid_views,
         'loss_iou_mv': sum(iou_list) / valid_views,
         'loss_dt_mv': sum(dt_list) / valid_views,
+        'loss_depth_mv': sum(depth_list) / valid_views,
         'loss_edge_mv': sum(edge_list) / valid_views,
+        'loss_ms_mv': sum(ms_list) / valid_views,
+        'loss_curv_mv': sum(curv_list) / valid_views,
         'loss_rgb': first_m.get('loss_rgb', 0),
         'loss_rgb_mv': sum(rgb_list) / valid_views,
         'loss_total': first_m.get('loss_total', 0),
         'n_views': valid_views,
+        'render_particle_count': int(len(render_idx)) if render_idx is not None else int(len(x)),
+        'render_particle_frac': float(len(render_idx) / max(len(x), 1)) if render_idx is not None else 1.0,
     }
     metrics.update(_aggregate_multiview_values(total_list, view_weights, lcfg))
     return metrics, bce_list, alpha_list
@@ -602,7 +901,8 @@ def run_episode(
     ep, cg, opt, sigma0, opacity,
     renderers, campos_list, targets, rcfg, color,
     out_dir, png, Fp, cfg, lcfg,
-    render_penalty=None, target_rgbs=None, target_dt_maps=None, view_weights=None,
+    render_penalty=None, target_rgbs=None, target_dt_maps=None, target_depths=None, target_curvatures=None, target_concavities=None, view_weights=None,
+    particle_mask=None,
     view_labels=None,
 ):
     """
@@ -611,7 +911,8 @@ def run_episode(
       2. Multi-view render → diffused gradient
       3. Plasticity (dFp) + direction (impulse) + diffused (next penalty)
 
-    Returns: losses, dFp, direction, cohesion_imp, dLdx_norms, bce_list, alpha_list, diffused_grad
+    Returns: losses, dFp, direction, cohesion_imp, dLdx_norms, bce_list,
+             alpha_list, diffused_grad, phys_grad, x_end
     """
     num_ts = int(opt.num_timesteps)
     pc0 = cg.get_point_cloud(0)
@@ -659,8 +960,8 @@ def run_episode(
     if len(renderers) > 0 and len(targets) > 0:
         dLdx, rm, bce_list, alpha_list = compute_multiview_gradients(
             x, F_e, sigma0, opacity, targets, renderers, campos_list, rcfg, color, lcfg, Fp,
-            target_rgbs=target_rgbs, target_dt_maps=target_dt_maps, return_alpha_list=png,
-            view_weights=view_weights)
+            target_rgbs=target_rgbs, target_dt_maps=target_dt_maps, target_depths=target_depths, target_curvatures=target_curvatures, target_concavities=target_concavities,
+            return_alpha_list=png, view_weights=view_weights, particle_mask=particle_mask, ep=ep)
 
         if dLdx is not None:
             dFp, direction, diffused, pm = diffuse_and_compute_plasticity(x, dLdx, cfg)
@@ -680,7 +981,10 @@ def run_episode(
     alpha_mse = 0.0
     if len(renderers) > 0 and len(targets) > 0:
         with torch.no_grad():
-            pa, pred, _, _ = render(x, F_e, sigma0, opacity, renderers[0], campos_list[0], rcfg, color, False, Fp)
+            pa, pred, _, _ = render(
+                x, F_e, sigma0, opacity, renderers[0], campos_list[0], rcfg, color,
+                False, Fp, particle_mask=particle_mask
+            )
         if pa is not None:
             tgt = targets[0].to(pa.device)
             if tgt.shape != pa.shape:
@@ -698,12 +1002,19 @@ def run_episode(
     print(f"  alpha_mse={alpha_mse:.6f}")
 
     losses = {'ep': ep, 'loss_physics': float(loss_phys), 'alpha_mse': alpha_mse,
-              'dx_mean': dx_m, 'dFc_mean': dFc_mean, 'dFc_max': dFc_max}
-    for k in ['loss_bce', 'loss_iou', 'loss_dt', 'loss_total',
-              'loss_bce_mv', 'loss_iou_mv', 'loss_dt_mv', 'loss_edge_mv', 'loss_rgb', 'loss_rgb_mv',
+              'dx_mean': dx_m, 'dFc_mean': dFc_mean, 'dFc_max': dFc_max,
+              'J_min': float(det.min()), 'J_max': float(det.max())}
+    for k in ['loss_bce', 'bce_weight_mean', 'bce_weight_min', 'bce_weight_max', 'bce_weight_norm',
+              'loss_iou', 'loss_dt', 'loss_depth', 'loss_depth_raw', 'loss_ms', 'loss_curv', 'loss_curv_raw', 'loss_total',
+              'loss_bce_mv', 'loss_iou_mv', 'loss_dt_mv', 'loss_depth_mv', 'loss_edge_mv', 'loss_ms_mv', 'loss_curv_mv', 'loss_rgb', 'loss_rgb_mv',
               'loss_total_mv', 'loss_total_obj_mv', 'loss_weighted_mv',
               'loss_hardmax_mv', 'loss_topk_mv', 'mv_topk_k',
-              'n_views', 'dLdx_norm',
+              'grad_anchor_alpha', 'grad_anchor_screen',
+              'grad_norm_iou', 'grad_norm_dt', 'grad_norm_edge', 'grad_norm_ms', 'grad_norm_depth', 'grad_norm_curv',
+              'grad_scale_iou', 'grad_scale_dt', 'grad_scale_edge', 'grad_scale_ms', 'grad_scale_depth', 'grad_scale_curv',
+              'bce_neg_weight', 'curriculum_alpha_mix', 'curriculum_alpha_scale', 'curriculum_alpha_blur_ks',
+              'curriculum_bce_neg_weight', 'curriculum_depth_scale', 'curriculum_depth_mix', 'grad_ratio_depth_eff',
+              'n_views', 'dLdx_norm', 'render_particle_count', 'render_particle_frac',
               'active', 'diffused_ratio', 'dFp_norm',
               'cohesion_affected_count', 'cohesion_affected_ratio',
               'cohesion_score_mean', 'cohesion_pull_mean']:
@@ -734,4 +1045,4 @@ def run_episode(
             save_image_png(d / 'alpha_worst_error.png', np.abs(worst_alpha - worst_target))
 
     dLdx_norms = np.linalg.norm(dLdx, axis=1) if dLdx is not None else None
-    return losses, dFp, direction, cohesion_imp, dLdx_norms, bce_list, alpha_list, diffused, phys_grad
+    return losses, dFp, direction, cohesion_imp, dLdx_norms, bce_list, alpha_list, diffused, phys_grad, x

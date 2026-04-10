@@ -4,6 +4,8 @@ Rendering Utilities - 3D Gaussian Splatting & Target Rendering
 Handles renderer setup, target rendering, and loss computation.
 """
 
+import hashlib
+import json
 import numpy as np
 import torch
 import torch.nn.functional as F_nn
@@ -14,12 +16,87 @@ from renderer import GSRenderer3DGS, make_matrices_from_yaml, compute_shading
 from sampling import upsample
 
 
+_MESH_CURVATURE_CACHE: dict[tuple[str, float, float, bool], tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+
+
 # ============================================================================
 # Constants
 # ============================================================================
 
 DEFAULT_BG_COLOR = [1.0, 1.0, 1.0]
 DEFAULT_PARTICLE_COLOR = [0.27, 0.51, 0.71]
+
+
+def _target_obs_cache_dir() -> Path:
+    root = Path(__file__).resolve().parents[1]
+    cache_dir = root / ".cache" / "target_observations"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
+
+
+def _target_obs_cache_key(mesh_path: str, cam_cfg: Dict, render_cfg: Dict) -> str:
+    mesh_p = Path(mesh_path).resolve()
+    stat = mesh_p.stat()
+    payload = {
+        "mesh_path": str(mesh_p),
+        "mesh_mtime_ns": int(stat.st_mtime_ns),
+        "camera": {
+            "width": cam_cfg.get("width"),
+            "height": cam_cfg.get("height"),
+            "fx": cam_cfg.get("fx"),
+            "fy": cam_cfg.get("fy"),
+            "cx": cam_cfg.get("cx"),
+            "cy": cam_cfg.get("cy"),
+            "znear": cam_cfg.get("znear"),
+            "zfar": cam_cfg.get("zfar"),
+            "lookat": cam_cfg.get("lookat", {}),
+        },
+        "render": {
+            "training_resolution_scale": render_cfg.get("training_resolution_scale", 0.5),
+            "mesh_curvature_radius_edges": render_cfg.get("mesh_curvature_radius_edges", 4.0),
+            "mesh_curvature_quantile": render_cfg.get("mesh_curvature_quantile", 0.95),
+            "mesh_curvature_blur_sigma": render_cfg.get("mesh_curvature_blur_sigma", 1.0),
+            "mesh_curvature_signed": render_cfg.get("mesh_curvature_signed", False),
+        },
+    }
+    blob = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha1(blob).hexdigest()[:20]
+
+
+def _load_target_obs_cache(mesh_path: str, cam_cfg: Dict, render_cfg: Dict) -> Optional[Dict[str, torch.Tensor]]:
+    cache_key = _target_obs_cache_key(mesh_path, cam_cfg, render_cfg)
+    cache_path = _target_obs_cache_dir() / f"{Path(mesh_path).stem}_{cache_key}.npz"
+    if not cache_path.exists():
+        return None
+    try:
+        data = np.load(cache_path)
+        obs = {
+            "alpha": torch.from_numpy(data["alpha"].astype(np.float32)),
+            "depth": torch.from_numpy(data["depth"].astype(np.float32)),
+            "curvature": torch.from_numpy(data["curvature"].astype(np.float32)),
+            "concavity": torch.from_numpy(data["concavity"].astype(np.float32)),
+        }
+        print(f"[Target] cache hit: {cache_path.name}")
+        return obs
+    except Exception as e:
+        print(f"[Target] cache load failed: {e}")
+        return None
+
+
+def _save_target_obs_cache(mesh_path: str, cam_cfg: Dict, render_cfg: Dict, obs: Dict[str, torch.Tensor]) -> None:
+    cache_key = _target_obs_cache_key(mesh_path, cam_cfg, render_cfg)
+    cache_path = _target_obs_cache_dir() / f"{Path(mesh_path).stem}_{cache_key}.npz"
+    try:
+        np.savez_compressed(
+            cache_path,
+            alpha=np.asarray(obs["alpha"], dtype=np.float32),
+            depth=np.asarray(obs["depth"], dtype=np.float32),
+            curvature=np.asarray(obs["curvature"], dtype=np.float32),
+            concavity=np.asarray(obs["concavity"], dtype=np.float32),
+        )
+        print(f"[Target] cache saved: {cache_path.name}")
+    except Exception as e:
+        print(f"[Target] cache save failed: {e}")
 
 
 # ============================================================================
@@ -203,35 +280,62 @@ def generate_target_render(
     target_mesh_path: Optional[str] = None,
     cam_cfg: Optional[Dict] = None,
 ) -> Optional[torch.Tensor]:
-    """
-    Generate target silhouette (alpha) by mesh rasterization.
+    obs = generate_target_observation(
+        target_positions=target_positions,
+        rs_full=rs_full,
+        renderer=renderer,
+        campos=campos,
+        render_cfg=render_cfg,
+        particle_color=particle_color,
+        training_resolution_scale=training_resolution_scale,
+        target_mesh_path=target_mesh_path,
+        cam_cfg=cam_cfg,
+    )
+    return None if obs is None else obs.get('alpha')
 
-    Uses pyrender to render the target mesh directly, producing a clean
-    binary silhouette. Falls back to depth-based alpha if mesh is available.
+
+def generate_target_observation(
+    target_positions: np.ndarray,
+    rs_full: Dict,
+    renderer: Any,
+    campos: np.ndarray,
+    render_cfg: Dict,
+    particle_color: list,
+    training_resolution_scale: float = 0.5,
+    target_mesh_path: Optional[str] = None,
+    cam_cfg: Optional[Dict] = None,
+) -> Optional[Dict[str, torch.Tensor]]:
+    """
+    Generate target observation from mesh rasterization or Gaussian fallback.
+
+    Returns a dictionary containing at least:
+      - alpha: (H, W)
+      - depth: (H, W) or None
 
     Args:
-        target_positions: (N, 3) bunny particle positions (used as fallback)
-        rs_full: Upsampling config (unused with mesh rasterization)
-        renderer: GSRenderer3DGS instance (used for resolution info)
-        campos: Camera position
-        render_cfg: Render config dict
-        particle_color: Base albedo color
-        training_resolution_scale: Resolution scale
-        target_mesh_path: Path to target .obj mesh
-        cam_cfg: Camera config dict for building projection
+        Same as generate_target_render.
 
     Returns:
-        alpha: (H, W) float32 target alpha tensor, or None if failed
+        observation dict or None if failed
     """
     N = target_positions.shape[0]
     print(f"[Target] Generating target alpha from mesh rasterization ({N:,} particles)...")
 
     # Try mesh rasterization first
     if target_mesh_path is not None and cam_cfg is not None:
-        alpha = _render_mesh_silhouette(target_mesh_path, cam_cfg, render_cfg)
-        if alpha is not None:
-            print(f"  alpha shape={alpha.shape}, range=[{alpha.min():.3f}, {alpha.max():.3f}]")
-            return alpha
+        obs = _render_mesh_observation(target_mesh_path, cam_cfg, render_cfg)
+        if obs is not None and obs.get('alpha') is not None:
+            alpha = obs['alpha']
+            depth = obs.get('depth')
+            if obs.get('curvature') is None and depth is not None:
+                from utils.alpha_losses import depth_curvature_map
+                valid = depth > 1e-6
+                obs['curvature'] = depth_curvature_map(depth, valid_mask=valid, smooth_ks=5).detach().cpu()
+            depth_range = ""
+            if depth is not None:
+                depth_range = f", depth=[{float(depth[depth>0].min()) if (depth>0).any() else 0.0:.3f}, {float(depth.max()):.3f}]"
+            print(f"  alpha shape={alpha.shape}, range=[{alpha.min():.3f}, {alpha.max():.3f}]{depth_range}")
+            return obs
         print("[Target] Mesh rasterization failed, falling back to Gaussian render")
 
     # Fallback: Gaussian render with large sigma
@@ -262,6 +366,7 @@ def generate_target_render(
         pred = renderer.render(mu, cov, rgb=rgb, prefer_cov_precomp=True, return_torch=True)
 
     alpha = pred.get('alpha')
+    depth = pred.get('depth')
     if alpha is None:
         print("[Target] renderer returned no alpha")
         return None
@@ -270,16 +375,29 @@ def generate_target_render(
         alpha = alpha[0]
 
     alpha = alpha.detach().cpu()
+    if depth is not None and torch.is_tensor(depth):
+        depth = depth.detach().cpu()
+    elif depth is not None:
+        depth = torch.from_numpy(np.asarray(depth, dtype=np.float32))
+    curvature = None
+    concavity = None
+    if depth is not None:
+        from utils.alpha_losses import depth_curvature_map
+        curvature = depth_curvature_map(depth, valid_mask=(depth > 1e-6), smooth_ks=5).detach().cpu()
     print(f"  alpha shape={alpha.shape}, range=[{alpha.min():.3f}, {alpha.max():.3f}]")
-    return alpha
+    return {'alpha': alpha, 'depth': depth, 'curvature': curvature, 'concavity': concavity}
 
 
-def _render_mesh_silhouette(
+def _render_mesh_observation(
     mesh_path: str,
     cam_cfg: Dict,
     render_cfg: Dict,
-) -> Optional[torch.Tensor]:
-    """Render mesh silhouette using pyrender (offscreen)."""
+) -> Optional[Dict[str, torch.Tensor]]:
+    """Render mesh alpha/depth using pyrender (offscreen)."""
+    cached = _load_target_obs_cache(mesh_path, cam_cfg, render_cfg)
+    if cached is not None:
+        return cached
+
     try:
         import trimesh
         import pyrender
@@ -287,6 +405,7 @@ def _render_mesh_silhouette(
         os.environ['PYOPENGL_PLATFORM'] = 'egl'  # headless rendering
 
         mesh = trimesh.load(mesh_path, force='mesh')
+        mesh.metadata['file_name'] = str(mesh_path)
         pr_mesh = pyrender.Mesh.from_trimesh(mesh)
 
         scene = pyrender.Scene(bg_color=[0, 0, 0, 0])
@@ -348,7 +467,26 @@ def _render_mesh_silhouette(
 
         # depth > 0 means something was rendered → alpha = 1
         alpha = (depth > 0).astype(np.float32)
-        return torch.from_numpy(alpha)
+        curvature, concavity = _project_mesh_curvature_maps(
+            mesh=mesh,
+            depth=depth.astype(np.float32),
+            alpha=alpha,
+            cam_pose=cam_pose,
+            fx=fx_r,
+            fy=fy_r,
+            cx=cx_r,
+            cy=cy_r,
+            render_cfg=render_cfg,
+        )
+        obs = {
+            'alpha': torch.from_numpy(alpha),
+            'depth': torch.from_numpy(depth.astype(np.float32)),
+            'curvature': None if curvature is None else torch.from_numpy(curvature),
+            'concavity': None if concavity is None else torch.from_numpy(concavity),
+        }
+        if obs['curvature'] is not None and obs['concavity'] is not None:
+            _save_target_obs_cache(mesh_path, cam_cfg, render_cfg, obs)
+        return obs
 
     except Exception as e:
         print(f"[Target] pyrender mesh rasterization failed: {e}")
@@ -361,5 +499,105 @@ __all__ = [
     'setup_renderer',
     'prepare_rendering_inputs',
     'upsample_current_state',
+    'generate_target_observation',
     'generate_target_render',
 ]
+
+
+def _get_mesh_curvature_values(mesh, render_cfg: Dict, mesh_key: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    import trimesh
+
+    radius_edges = float(render_cfg.get('mesh_curvature_radius_edges', 4.0))
+    q = float(render_cfg.get('mesh_curvature_quantile', 0.95))
+    signed = bool(render_cfg.get('mesh_curvature_signed', False))
+    edge_med = float(np.median(mesh.edges_unique_length))
+    radius = max(edge_med * radius_edges, 1e-6)
+    cache_key = (str(mesh_key), radius, q, signed)
+    if cache_key in _MESH_CURVATURE_CACHE:
+        vals, abs_norm_vals, signed_norm_vals = _MESH_CURVATURE_CACHE[cache_key]
+        return vals, abs_norm_vals, signed_norm_vals
+
+    curv = trimesh.curvature.discrete_mean_curvature_measure(mesh, mesh.vertices, radius=radius).astype(np.float32)
+    abs_vals = np.abs(curv)
+    scale = float(np.quantile(abs_vals, q)) if abs_vals.size > 8 else float(abs_vals.max())
+    scale = max(scale, 1e-8)
+    curv_abs = np.clip(np.abs(curv) / scale, 0.0, 1.0).astype(np.float32)
+    curv_signed = np.clip(curv / scale, -1.0, 1.0).astype(np.float32)
+
+    _MESH_CURVATURE_CACHE[cache_key] = (curv, curv_abs, curv_signed)
+    return curv, curv_abs, curv_signed
+
+
+def _project_mesh_curvature_maps(
+    mesh,
+    depth: np.ndarray,
+    alpha: np.ndarray,
+    cam_pose: np.ndarray,
+    fx: float,
+    fy: float,
+    cx: float,
+    cy: float,
+    render_cfg: Dict,
+) -> tuple[Optional[np.ndarray], Optional[np.ndarray]]:
+    from scipy.ndimage import gaussian_filter
+
+    _, curv_abs, curv_signed = _get_mesh_curvature_values(mesh, render_cfg, mesh_key=str(mesh.metadata.get('file_name', 'mesh')))
+    verts = mesh.vertices.astype(np.float32)
+    verts_h = np.concatenate([verts, np.ones((verts.shape[0], 1), dtype=np.float32)], axis=1)
+    world_to_cam = np.linalg.inv(cam_pose).astype(np.float32)
+    cam = (world_to_cam @ verts_h.T).T[:, :3]
+
+    z = -cam[:, 2]
+    valid = z > 1e-6
+    if not np.any(valid):
+        return None
+
+    x = cam[valid, 0]
+    y = cam[valid, 1]
+    z = z[valid]
+    vals_abs = curv_abs[valid]
+    vals_signed = curv_signed[valid]
+
+    u = fx * (x / z) + cx
+    v = cy - fy * (y / z)
+
+    H, W = depth.shape
+    ui = np.rint(u).astype(np.int32)
+    vi = np.rint(v).astype(np.int32)
+    in_img = (ui >= 0) & (ui < W) & (vi >= 0) & (vi < H)
+    if not np.any(in_img):
+        return None
+
+    ui = ui[in_img]
+    vi = vi[in_img]
+    z = z[in_img]
+    vals_abs = vals_abs[in_img]
+    vals_signed = vals_signed[in_img]
+
+    def _splat(values: np.ndarray, signed_map: bool) -> np.ndarray:
+        curv_map = np.zeros((H, W), dtype=np.float32)
+        hit = np.zeros((H, W), dtype=np.float32)
+        zbuf = np.full((H, W), np.inf, dtype=np.float32)
+        order = np.argsort(z)[::-1]
+        for idx in order:
+            px = ui[idx]
+            py = vi[idx]
+            zz = z[idx]
+            if zz <= zbuf[py, px]:
+                zbuf[py, px] = zz
+                curv_map[py, px] = values[idx]
+                hit[py, px] = 1.0
+
+        mask = (alpha > 0.5).astype(np.float32)
+        sigma = float(render_cfg.get('mesh_curvature_blur_sigma', 1.0))
+        filled = gaussian_filter(curv_map * mask, sigma=sigma)
+        denom = gaussian_filter(hit * mask, sigma=sigma)
+        out = np.where(denom > 1e-6, filled / denom, 0.0).astype(np.float32)
+        out *= mask
+        if signed_map:
+            out = np.clip(out, -1.0, 1.0)
+        else:
+            out = np.clip(out, 0.0, 1.0)
+        return out
+
+    return _splat(vals_abs, signed_map=False), _splat(vals_signed, signed_map=True)

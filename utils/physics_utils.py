@@ -12,7 +12,7 @@ from typing import Any, Tuple, Dict, Optional
 # Physics Initialization
 # ============================================================================
 
-def initialize_point_clouds(opt: Any) -> Tuple[Any, Any]:
+def initialize_point_clouds(opt: Any, cfg: Optional[Dict] = None) -> Tuple[Any, Any]:
     """
     Initialize input and target point clouds from meshes.
     
@@ -24,9 +24,30 @@ def initialize_point_clouds(opt: Any) -> Tuple[Any, Any]:
     """
     import diffmpm_bindings
     
-    # Apply jitter to both input and target for consistent particle distribution
-    input_pc = diffmpm_bindings.load_point_cloud_from_obj(opt.mpm_input_mesh_path, opt, apply_jitter=True)
-    target_pc = diffmpm_bindings.load_point_cloud_from_obj(opt.mpm_target_mesh_path, opt, apply_jitter=True)
+    sim_cfg = (cfg or {}).get("simulation", {})
+    shell_cfg = sim_cfg.get("shell_sampling", {}) or {}
+    shell_enabled = bool(shell_cfg.get("enabled", False))
+    apply_jitter = bool(shell_cfg.get("apply_jitter", True))
+
+    if shell_enabled:
+        surface_ppc = int(shell_cfg.get("surface_points_per_cell_cuberoot", shell_cfg.get("surface_ppc", max(int(opt.points_per_cell_cuberoot), 6))))
+        interior_ppc = int(shell_cfg.get("interior_points_per_cell_cuberoot", shell_cfg.get("interior_ppc", max(2, int(opt.points_per_cell_cuberoot) - 1))))
+        shell_thickness_cells = float(shell_cfg.get("shell_thickness_cells", 1.5))
+        print(
+            f"[Init] Shell-biased sampling enabled: "
+            f"surface_ppc={surface_ppc}, interior_ppc={interior_ppc}, "
+            f"shell_thickness_cells={shell_thickness_cells}"
+        )
+        input_pc = diffmpm_bindings.load_shell_biased_point_cloud_from_obj(
+            opt.mpm_input_mesh_path, opt, surface_ppc, interior_ppc, shell_thickness_cells, apply_jitter
+        )
+        target_pc = diffmpm_bindings.load_shell_biased_point_cloud_from_obj(
+            opt.mpm_target_mesh_path, opt, surface_ppc, interior_ppc, shell_thickness_cells, apply_jitter
+        )
+    else:
+        # Apply jitter to both input and target for consistent particle distribution
+        input_pc = diffmpm_bindings.load_point_cloud_from_obj(opt.mpm_input_mesh_path, opt, apply_jitter=True)
+        target_pc = diffmpm_bindings.load_point_cloud_from_obj(opt.mpm_target_mesh_path, opt, apply_jitter=True)
     
     return input_pc, target_pc
 
@@ -161,4 +182,3 @@ __all__ = [
     'initialize_comp_graph',
     'build_opt_input',
 ]
-

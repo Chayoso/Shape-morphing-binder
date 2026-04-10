@@ -64,3 +64,6 @@ gaussian-splatting/submodules/*/build/
 # Temporary files
 *.log
 *.tmp
+
+# Local caches
+.cache/

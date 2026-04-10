@@ -1108,6 +1108,32 @@ PYBIND11_MODULE(diffmpm_bindings, m) {
     }, py::arg("obj_path"), py::arg("opt"), py::arg("apply_jitter") = true, 
     "Load PointCloud from OBJ file (apply_jitter: whether to add random perturbation to points)");
 
+    m.def("load_shell_biased_point_cloud_from_obj",
+        [](const std::string& obj_path,
+           const OptInput& opt,
+           int surface_points_per_cell_cuberoot,
+           int interior_points_per_cell_cuberoot,
+           float shell_thickness_cells,
+           bool apply_jitter) {
+            std::shared_ptr<PointCloud> pc;
+            float surface_point_dx = opt.grid_dx / (float)surface_points_per_cell_cuberoot;
+            float interior_point_dx = opt.grid_dx / (float)interior_points_per_cell_cuberoot;
+            float shell_thickness = shell_thickness_cells * opt.grid_dx;
+            bool success = GeometryLoading::LoadShellBiasedMPMPointCloudFromObj(
+                obj_path, pc, surface_point_dx, interior_point_dx, shell_thickness,
+                opt.p_density, opt.lam, opt.mu, apply_jitter
+            );
+            if (!success) throw std::runtime_error("Failed to load shell-biased PointCloud from: " + obj_path);
+            return pc;
+        },
+        py::arg("obj_path"),
+        py::arg("opt"),
+        py::arg("surface_points_per_cell_cuberoot"),
+        py::arg("interior_points_per_cell_cuberoot"),
+        py::arg("shell_thickness_cells"),
+        py::arg("apply_jitter") = true,
+        "Load shell-biased PointCloud from OBJ file with dense shell and coarse interior sampling");
+
     m.def("calculate_lame_parameters", [](float young_mod, float poisson) {
         float lam, mu;
         CalculateLameParameters(young_mod, poisson, lam, mu);
