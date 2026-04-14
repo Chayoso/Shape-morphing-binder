@@ -21,7 +21,7 @@ defaults:
       apply_jitter: true
 
   optimization:
-    num_animations: 30
+    num_animations: 60
     num_timesteps: 20
     control_point_freq: 1
     max_gd_iters: 1
