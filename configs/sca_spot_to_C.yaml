@@ -9,7 +9,7 @@ defaults:
     grid_dx: 0.5
     gravity: [0.0, 0.0, 0.0]
     dt: 0.004166666667
-    smoothing: 0.955
+    smoothing: 0.975
     boundary: none
     points_per_cell_cuberoot: 5
     shell_sampling:
@@ -24,8 +24,8 @@ defaults:
     num_timesteps: 20
     control_point_freq: 1
     max_gd_iters: 1
-    initial_alpha: 0.01
-    final_alpha: 0.01
+    initial_alpha: 0.005
+    final_alpha: 0.005
 
   render:
     sigma0: auto
