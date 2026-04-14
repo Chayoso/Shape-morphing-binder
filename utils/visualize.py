@@ -11,55 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 from pathlib import Path
 from scipy.ndimage import gaussian_filter
-from skimage.measure import marching_cubes
 
-
-def particles_to_density(x, values=None, resolution=64, padding=2.0, sigma=1.5):
-    mins = x.min(axis=0) - padding
-    maxs = x.max(axis=0) + padding
-    spacing = (maxs - mins).max() / resolution
-    idx = np.clip(((x - mins) / spacing).astype(int), 0, resolution - 1)
-
-    density = np.zeros((resolution,)*3, dtype=np.float32)
-    vfield = np.zeros_like(density) if values is not None and values.ndim == 1 else None
-    vfield_rgb = np.zeros((resolution,)*3 + (3,), dtype=np.float32) if values is not None and values.ndim == 2 else None
-    count = np.zeros_like(density)
-
-    for i in range(len(x)):
-        ix, iy, iz = idx[i]
-        density[ix, iy, iz] += 1.0
-        count[ix, iy, iz] += 1.0
-        if vfield is not None: vfield[ix, iy, iz] += values[i]
-        if vfield_rgb is not None: vfield_rgb[ix, iy, iz] += values[i]
-
-    mask = count > 0
-    if vfield is not None: vfield[mask] /= count[mask]
-    if vfield_rgb is not None: vfield_rgb[mask] /= count[mask, None]
-
-    density = gaussian_filter(density, sigma=sigma)
-    if vfield is not None: vfield = gaussian_filter(vfield, sigma=sigma)
-    if vfield_rgb is not None:
-        for c in range(3): vfield_rgb[:,:,:,c] = gaussian_filter(vfield_rgb[:,:,:,c], sigma=sigma)
-
-    return density, vfield if vfield is not None else vfield_rgb, mins, spacing
-
-
-def extract_surface(x, resolution=64, sigma=1.5):
-    density, _, origin, spacing = particles_to_density(x, resolution=resolution, sigma=sigma)
-    level = density.max() * 0.02
-    try:
-        verts, faces, _, _ = marching_cubes(density, level=level)
-    except: return None, None, origin, spacing
-    return verts * spacing + origin, faces, origin, spacing
-
-
-def interpolate_on_surface(verts, x, values, origin, spacing, resolution=64, sigma=1.5):
-    _, vfield, _, _ = particles_to_density(x, values, resolution=resolution, sigma=sigma)
-    if vfield is None: return None
-    vi = np.clip(((verts - origin) / spacing).astype(int), 0, resolution - 1)
-    if vfield.ndim == 3: return vfield[vi[:,0], vi[:,1], vi[:,2]]
-    elif vfield.ndim == 4: return vfield[vi[:,0], vi[:,1], vi[:,2], :]
-    return None
 
 
 def _heatmap(verts, faces, values, ax, title, cmap='hot', vmin=None, vmax=None):

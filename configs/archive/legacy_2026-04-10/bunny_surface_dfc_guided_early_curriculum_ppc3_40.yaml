@@ -1,12 +1,8 @@
-output_base: "output/bunny_resume20_render_20"
+output_base: "output/bunny_surface_dfc_guided_early_curriculum_ppc3_40"
 
 defaults:
   input_mesh_path: "assets/isosphere.obj"
   target_mesh_path: "assets/bunny.obj"
-
-  resume:
-    enabled: true
-    checkpoint_path: "output/bunny_physics_only_ppc3_40/physics_only_ppc3_40/checkpoints/ckpt_ep020.npz"
 
   simulation:
     grid_dx: 1.0
@@ -24,7 +20,7 @@ defaults:
       enabled: false
 
   optimization:
-    num_animations: 20
+    num_animations: 40
     num_timesteps: 10
     control_stride: 1
     max_gd_iters: 1
@@ -60,9 +56,6 @@ defaults:
     render_surface_threshold_mult: 2.25
     render_min_surface_frac: 0.18
     render_max_surface_frac: 0.30
-
-  correction:
-    enabled: false
 
   control_guidance:
     enabled: true
@@ -101,14 +94,18 @@ defaults:
     w_iou: 1.0
     w_dt: 0.0
     w_depth: 1.0
-    w_ms: 0.0
-    w_curv: 0.0
-
     grad_ratio_iou: 0.25
     grad_ratio_depth: 0.05
 
-    concave_bce_quantile: 0.70
-    concave_bce_downweight: 0.4
+    early_alpha_eps: 15
+    early_alpha_scale: 0.50
+    early_alpha_blur_ks: 9
+    early_bce_neg_weight: 0.25
+
+    early_depth_eps: 15
+    early_depth_scale: 0.35
+    early_depth_mode: "behind_only"
+
     masked_threshold: 0.01
     mv_hardmax_w: 1.0
     mv_topk_w: 0.5
@@ -121,9 +118,6 @@ defaults:
     training_resolution_scale: 0.5
     opacity: 0.95
     particle_color: [0.27, 0.51, 0.71]
-    mesh_curvature_radius_edges: 4.0
-    mesh_curvature_quantile: 0.95
-    mesh_curvature_blur_sigma: 1.0
     lighting:
       model: phong
       type: directional
@@ -153,8 +147,8 @@ defaults:
       up: [0.0, 0.0, 1.0]
 
   debug:
-    gradient_heatmap_eps: [0, 1, 5, 10, 19]
+    gradient_heatmap_eps: [0, 5, 10, 15, 20, 39]
 
 experiments:
-  - name: "resume20_render_20"
+  - name: "early_curriculum_ppc3_40"
     target_mesh_path: "assets/bunny.obj"

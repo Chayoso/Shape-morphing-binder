@@ -465,7 +465,7 @@ def polar_with_sv_soft_clamp(
     
     # 🔥 SV soft-clamp (경직 대신 완만)
     S_cl = soft_clamp_minmax(S, s_min, s_max)
-    
+
     # SPD stretch H = V Σ V^T
     H = Vh.transpose(-2, -1) @ torch.diag_embed(S_cl) @ Vh
     

@@ -1,10 +1,10 @@
 """
-run.py — Decoupled Render-Guided Physics Morphing
+run.py — Surface-Aware Render-Guided Physics Morphing
 
-3-Stage Pipeline:
-  A. Physics Rollout — MPM/EndLayerMassLoss (C++ Adam, physics-only)
-  B. Observation-Guided Correction — coarse deformation field optimized by render loss
-  C. Immediate Mass-Loss Gate — reject correction if the target-grid mass loss jumps too much
+Current pipeline:
+  A. Physics rollout with optional render-guided control-space penalty
+  B. Multi-view observation on a fixed surface shell / optional proxy shell
+  C. Plastic update (Fp) + logging / checkpointing
 
 Usage:
   Single:  python run.py -c configs/experiment.yaml [--png]
@@ -12,7 +12,7 @@ Usage:
 """
 
 import os; os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
-import argparse, json, numpy as np, yaml
+import argparse, copy, json, traceback, numpy as np, yaml, torch
 from pathlib import Path
 from scipy.spatial import cKDTree
 
@@ -22,10 +22,10 @@ from utils.physics_utils import build_opt_input, initialize_point_clouds, initia
 from utils.rendering_utils import setup_renderer, generate_target_observation
 from utils.training_loop import run_episode, isochoric_project
 from utils.visualize import create_episode_visualization, create_per_view_visualization
-from utils.deformation_field import CoarseDeformationField
-from utils.alpha_losses import compute_dt_map
-from utils.surface_utils import build_fixed_surface_mask
-from utils.control_guidance import build_control_guidance_penalty
+from utils.surface_utils import build_fixed_surface_mask, build_frozen_surface_graph, load_triangle_mesh
+from utils.control_guidance import build_control_guidance_penalty, premerge_surface_obs_gradient
+from utils.chamfer_plasticity import compute_chamfer_plasticity
+from utils.covariance_opt import CovarianceOptimizer
 
 
 def compute_sigma0(pos, scale=0.5):
@@ -114,80 +114,6 @@ def setup_cameras(base_cam, multi_cfg=None):
     return cams, np.array(eyes), labels, np.array(weights, dtype=np.float32)
 
 
-# ─── Stage B: Observation-Guided Correction ──────────────────────────────
-
-def _make_field_opt_cfg(src, fallback, prefix=''):
-    def pick(name, default):
-        return src.get(f'{prefix}{name}', src.get(name, fallback.get(name, default)))
-
-    return {
-        'lr': float(pick('lr', 0.01)),
-        'num_iters': int(pick('num_iters', 3)),
-        'w_smooth': float(pick('w_smooth', 0.1)),
-        'w_l2': float(pick('w_l2', 0.01)),
-        'max_disp': float(pick('max_disp', 1.0)),
-        'symmetry_strength': float(pick('symmetry_strength', 0.0)),
-        'symmetry_start_iter': int(pick('symmetry_start_iter', 0)),
-        'grad_symmetry_strength': float(pick('grad_symmetry_strength', 0.0)),
-        'grad_symmetry_start_iter': int(pick('grad_symmetry_start_iter', 0)),
-        'ear_grad_boost': float(pick('ear_grad_boost', 0.0)),
-        'ear_grad_start_iter': int(pick('ear_grad_start_iter', 0)),
-        'ear_focus_height_frac': float(pick('ear_focus_height_frac', 0.58)),
-        'ear_focus_side_frac': float(pick('ear_focus_side_frac', 0.18)),
-        'ear_focus_side_max_frac': float(pick('ear_focus_side_max_frac', 0.50)),
-        'ear_focus_height_axis': int(pick('ear_focus_height_axis', 2)),
-        'ear_focus_lateral_axis': int(pick('ear_focus_lateral_axis', 0)),
-    }
-
-
-def _build_mirror_partner_indices(x, axis, center=None, active_mask=None):
-    """Nearest-neighbor mirror correspondences for particle-space gradient symmetrization."""
-    N = x.shape[0]
-    partner_idx = np.arange(N, dtype=np.int64)
-    if N == 0:
-        return partner_idx, {'mirror_partner_mean_dist': 0.0, 'mirror_partner_max_dist': 0.0}
-
-    axis = int(axis)
-    center = float(center) if center is not None else float(0.5 * (x[:, axis].min() + x[:, axis].max()))
-    if active_mask is None:
-        active_mask = np.ones((N,), dtype=bool)
-    else:
-        active_mask = np.asarray(active_mask, dtype=bool).reshape(-1)
-
-    active_ids = np.flatnonzero(active_mask)
-    if active_ids.size == 0:
-        return partner_idx, {'mirror_partner_mean_dist': 0.0, 'mirror_partner_max_dist': 0.0}
-
-    active_pts = x[active_ids]
-    mirrored_pts = active_pts.copy()
-    mirrored_pts[:, axis] = 2.0 * center - mirrored_pts[:, axis]
-
-    dist, nn = cKDTree(active_pts).query(mirrored_pts, k=1)
-    partner_idx[active_ids] = active_ids[np.asarray(nn, dtype=np.int64)]
-
-    return partner_idx, {
-        'mirror_partner_mean_dist': float(np.asarray(dist, dtype=np.float32).mean()),
-        'mirror_partner_max_dist': float(np.asarray(dist, dtype=np.float32).max()),
-    }
-
-
-def _apply_mirror_gradient_symmetry(grad_x, partner_idx, axis, strength):
-    """
-    Hard-project or softly blend particle-space gradients into a mirror-symmetric subspace.
-
-    For a mirror across `axis`:
-      g_axis(-x) = -g_axis(x)
-      g_other(-x) =  g_other(x)
-    """
-    if strength <= 0:
-        return grad_x
-
-    axis = int(axis)
-    mirrored = grad_x[partner_idx].copy()
-    mirrored[:, axis] *= -1.0
-    projected = 0.5 * (grad_x + mirrored)
-    return ((1.0 - strength) * grad_x + strength * projected).astype(np.float32)
-
 
 def _build_ear_focus_mask(
     x,
@@ -200,7 +126,7 @@ def _build_ear_focus_mask(
     center=None,
 ):
     """
-    Build a bilateral upper-side mask that biases correction toward two-ear splitting.
+    Build a bilateral upper-side mask that biases guidance toward two-ear splitting.
 
     The intent is to amplify gradients only on particles that already lie in the
     plausible ear support region: upper part of the bunny and away from the centerline.
@@ -236,597 +162,10 @@ def _build_ear_focus_mask(
         'ear_focus_frac': float(mask.mean()),
     }
 
-
-def _prepare_render_force_penalty(x, grad_x, force_cfg):
-    """
-    Convert a renderer-derived particle gradient into a physics-side penalty signal.
-
-    This keeps the physics rollout as the main optimizer, but lets the renderer act
-    like a weak, spatially-shaped external force on the next episode.
-    """
-    if grad_x is None or x is None or not bool(force_cfg.get('enabled', False)):
-        return None, {
-            'render_force_applied': 0,
-            'render_force_norm': 0.0,
-            'render_force_focus_frac': 0.0,
-            'render_force_focus_count': 0,
-        }
-
-    g = np.asarray(grad_x, dtype=np.float32).copy()
-    N = g.shape[0]
-
-    # Normalize first so the injected signal behaves like a force direction field
-    # rather than an unbounded episode-dependent gradient magnitude.
-    if bool(force_cfg.get('normalize', True)):
-        norms = np.linalg.norm(g, axis=1)
-        valid = norms > 1e-8
-        if valid.any():
-            scale = float(np.median(norms[valid]))
-            scale = max(scale, 1e-8)
-            g /= scale
-
-    # Optional bunny-specific bilateral upper-ear emphasis.
-    ear_boost = float(force_cfg.get('ear_boost', 0.0))
-    focus_meta = {'ear_focus_count': 0, 'ear_focus_frac': 0.0}
-    if ear_boost > 0.0:
-        focus_mask, focus_meta = _build_ear_focus_mask(
-            x,
-            active_mask=None,
-            lateral_axis=int(force_cfg.get('ear_focus_lateral_axis', 0)),
-            height_axis=int(force_cfg.get('ear_focus_height_axis', 2)),
-            height_frac=float(force_cfg.get('ear_focus_height_frac', 0.58)),
-            side_frac=float(force_cfg.get('ear_focus_side_frac', 0.18)),
-            side_max_frac=float(force_cfg.get('ear_focus_side_max_frac', 0.50)),
-            center=force_cfg.get('ear_focus_center', None),
-        )
-        if focus_meta['ear_focus_count'] > 0:
-            g[focus_mask] *= (1.0 + ear_boost)
-
-    # Per-particle clipping keeps the injected signal weak and force-like.
-    clip_norm = float(force_cfg.get('clip_norm', 0.2))
-    if clip_norm > 0:
-        norms = np.linalg.norm(g, axis=1, keepdims=True)
-        g *= np.minimum(1.0, clip_norm / np.maximum(norms, 1e-8))
-
-    return {
-        'dLdF': np.zeros((N, 3, 3), dtype=np.float32),
-        'dLdx': g.astype(np.float32),
-    }, {
-        'render_force_applied': 1,
-        'render_force_norm': float(np.linalg.norm(g)),
-        'render_force_focus_frac': float(focus_meta['ear_focus_frac']),
-        'render_force_focus_count': int(focus_meta['ear_focus_count']),
-    }
-
-
-def _optimize_field(
-    stage_name,
-    base_x,
-    field,
-    F_e,
-    sigma_corr,
-    opacity,
-    renderers,
-    campos_list,
-    targets,
-    rcfg,
-    color,
-    lcfg,
-    Fp,
-    opt_cfg,
-    target_dt_maps=None,
-    target_depths=None,
-    target_curvatures=None,
-    target_concavities=None,
-    view_weights=None,
-    particle_mask=None,
-):
-    from utils.training_loop import compute_multiview_gradients, compute_multiview_metrics
-
-    lr = float(opt_cfg.get('lr', 0.01))
-    num_iters = int(opt_cfg.get('num_iters', 3))
-    w_smooth = float(opt_cfg.get('w_smooth', 0.1))
-    w_l2 = float(opt_cfg.get('w_l2', 0.01))
-    max_disp = float(opt_cfg.get('max_disp', 1.0))
-    symmetry_strength = float(opt_cfg.get('symmetry_strength', 0.0))
-    symmetry_start_iter = int(opt_cfg.get('symmetry_start_iter', 0))
-    symmetry_axis = opt_cfg.get('symmetry_axis', None)
-    grad_symmetry_strength = float(opt_cfg.get('grad_symmetry_strength', 0.0))
-    grad_symmetry_start_iter = int(opt_cfg.get('grad_symmetry_start_iter', 0))
-    grad_symmetry_axis = opt_cfg.get('grad_symmetry_axis', symmetry_axis)
-    grad_symmetry_center = opt_cfg.get('grad_symmetry_center', None)
-    ear_grad_boost = float(opt_cfg.get('ear_grad_boost', 0.0))
-    ear_grad_start_iter = int(opt_cfg.get('ear_grad_start_iter', 0))
-
-    best_obj = float('inf')
-    best_u = field.u.copy()
-    last_grad = None
-    grad_sym_meta = {'mirror_partner_mean_dist': 0.0, 'mirror_partner_max_dist': 0.0}
-    grad_partner_idx = None
-    if grad_symmetry_axis is not None and grad_symmetry_strength > 0:
-        grad_partner_idx, grad_sym_meta = _build_mirror_partner_indices(
-            base_x,
-            axis=int(grad_symmetry_axis),
-            center=grad_symmetry_center,
-            active_mask=getattr(field, 'active_mask', None),
-        )
-
-    ear_focus_meta = {'ear_focus_count': 0, 'ear_focus_frac': 0.0}
-    ear_focus_mask = None
-    if ear_grad_boost > 0:
-        ear_focus_mask, ear_focus_meta = _build_ear_focus_mask(
-            base_x,
-            active_mask=getattr(field, 'active_mask', None),
-            lateral_axis=int(opt_cfg.get('ear_focus_lateral_axis', 0)),
-            height_axis=int(opt_cfg.get('ear_focus_height_axis', 2)),
-            height_frac=float(opt_cfg.get('ear_focus_height_frac', 0.58)),
-            side_frac=float(opt_cfg.get('ear_focus_side_frac', 0.18)),
-            side_max_frac=float(opt_cfg.get('ear_focus_side_max_frac', 0.50)),
-            center=grad_symmetry_center,
-        )
-
-    for it in range(num_iters):
-        x_def = field.forward(base_x)
-        dLdx, rm, _, _ = compute_multiview_gradients(
-            x_def, F_e, sigma_corr, opacity, targets, renderers, campos_list,
-            rcfg, color, lcfg, Fp, target_dt_maps=target_dt_maps,
-            target_depths=target_depths, target_curvatures=target_curvatures, target_concavities=target_concavities, return_alpha_list=False,
-            view_weights=view_weights, particle_mask=particle_mask,
-        )
-        if dLdx is None:
-            break
-        if grad_partner_idx is not None and it >= grad_symmetry_start_iter:
-            dLdx = _apply_mirror_gradient_symmetry(
-                dLdx, grad_partner_idx, axis=int(grad_symmetry_axis),
-                strength=grad_symmetry_strength,
-            )
-        if ear_focus_mask is not None and ear_focus_meta['ear_focus_count'] > 0 and it >= ear_grad_start_iter:
-            dLdx = dLdx.copy()
-            dLdx[ear_focus_mask] *= (1.0 + ear_grad_boost)
-
-        obs_val = float(rm.get('loss_total_obj_mv', rm.get('loss_total_mv', float('inf'))))
-        smooth_val = field.field_smoothness_loss()
-        l2_val = float((field.u ** 2).sum())
-        corr_obj = obs_val + w_smooth * smooth_val + w_l2 * l2_val
-
-        if corr_obj < best_obj:
-            best_obj = corr_obj
-            best_u = field.u.copy()
-
-        grad_u = field.backward(dLdx)
-        last_grad = dLdx
-        grad_u += w_smooth * field.field_smoothness_grad()
-        grad_u += w_l2 * 2.0 * field.u
-
-        field.update(grad_u, lr=lr)
-        if symmetry_axis is not None and symmetry_strength > 0 and it >= symmetry_start_iter:
-            field.project_mirror_symmetry(axis=int(symmetry_axis), strength=symmetry_strength)
-        field.clip_displacements(max_disp)
-
-        if it == 0 or it == num_iters - 1:
-            print(
-                f"    [{stage_name}] it={it}: total={obs_val:.6f}, "
-                f"smooth={smooth_val:.6f}, l2={l2_val:.6f}, "
-                f"active={field.active_fraction():.2f}, max_disp={field.max_displacement():.4f}"
-            )
-
-    x_final = field.forward(base_x)
-    rm_final, _, _ = compute_multiview_metrics(
-        x_final, F_e, sigma_corr, opacity, targets, renderers, campos_list,
-        rcfg, color, lcfg, Fp, target_dt_maps=target_dt_maps,
-        target_depths=target_depths, target_curvatures=target_curvatures, target_concavities=target_concavities, return_alpha_list=False,
-        view_weights=view_weights, particle_mask=particle_mask,
-    )
-    final_obs = float(rm_final.get('loss_total_obj_mv', rm_final.get('loss_total_mv', float('inf'))))
-    final_smooth = field.field_smoothness_loss()
-    final_l2 = float((field.u ** 2).sum())
-    final_obj = final_obs + w_smooth * final_smooth + w_l2 * final_l2
-    if final_obj < best_obj:
-        best_obj = final_obj
-        best_u = field.u.copy()
-
-    field.u = best_u
-    x_best = field.forward(base_x)
-    rm_best, _, _ = compute_multiview_metrics(
-        x_best, F_e, sigma_corr, opacity, targets, renderers, campos_list,
-        rcfg, color, lcfg, Fp, target_dt_maps=target_dt_maps,
-        target_depths=target_depths, target_curvatures=target_curvatures, target_concavities=target_concavities, return_alpha_list=False,
-        view_weights=view_weights, particle_mask=particle_mask,
-    )
-
-    return x_best, rm_best, {
-        'objective': float(best_obj),
-        'max_disp': float(field.max_displacement()),
-        'iters': int(num_iters),
-        'active_frac': float(field.active_fraction()),
-        'grad_symmetry_strength': float(grad_symmetry_strength),
-        'grad_symmetry_axis': int(grad_symmetry_axis) if grad_symmetry_axis is not None else -1,
-        'mirror_partner_mean_dist': float(grad_sym_meta['mirror_partner_mean_dist']),
-        'mirror_partner_max_dist': float(grad_sym_meta['mirror_partner_max_dist']),
-        'ear_grad_boost': float(ear_grad_boost),
-        'ear_focus_count': int(ear_focus_meta['ear_focus_count']),
-        'ear_focus_frac': float(ear_focus_meta['ear_focus_frac']),
-    }, last_grad
-
-
-def _resolve_local_symmetry_axis(local_cfg, bbox_center, seed_pts):
-    axis_cfg = str(local_cfg.get('symmetry_axis', 'auto')).lower()
-    axis_map = {'x': 0, 'y': 1, 'z': 2}
-    if axis_cfg in axis_map:
-        return axis_map[axis_cfg]
-
-    candidate_axes = []
-    axes_cfg = str(local_cfg.get('symmetry_candidate_axes', 'xy')).lower()
-    for ch in axes_cfg:
-        if ch in axis_map and axis_map[ch] not in candidate_axes:
-            candidate_axes.append(axis_map[ch])
-    if not candidate_axes:
-        candidate_axes = [0, 1]
-
-    offsets = np.abs(seed_pts.mean(axis=0) - bbox_center)
-    return int(max(candidate_axes, key=lambda ax: float(offsets[ax])))
-
-
-def _compute_local_refine_start_ep(local_cfg, num_eps):
-    if 'start_ep' in local_cfg:
-        return max(0, int(local_cfg.get('start_ep', 0)))
-    start_frac = float(local_cfg.get('start_frac', 0.0))
-    if num_eps is None:
-        return 0
-    return max(0, int(round(start_frac * float(num_eps))))
-
-
-def _select_local_refine_region(x, grad_x, local_cfg):
-    if grad_x is None or x.shape[0] == 0:
-        return None
-
-    scores = np.linalg.norm(grad_x, axis=1)
-    if not np.isfinite(scores).any() or float(scores.max()) <= 1e-10:
-        return None
-
-    bbox_min = x.min(axis=0)
-    bbox_max = x.max(axis=0)
-    span = np.maximum(bbox_max - bbox_min, 1e-6)
-    z_norm = (x[:, 2] - bbox_min[2]) / span[2]
-
-    z_min_frac = float(local_cfg.get('z_min_frac', 0.55))
-    score_pct = float(local_cfg.get('score_percentile', 88.0))
-    bbox_padding = float(local_cfg.get('bbox_padding', 1.25))
-    active_margin = float(local_cfg.get('active_margin', 0.75))
-    max_extent_frac = float(local_cfg.get('max_extent_frac', 0.4))
-    min_extent_frac = float(local_cfg.get('min_extent_frac', 0.0))
-    min_seed = int(local_cfg.get('min_seed_particles', max(64, x.shape[0] // 300)))
-    min_active = int(local_cfg.get('min_active_particles', max(128, x.shape[0] // 80)))
-
-    eligible = z_norm >= z_min_frac
-    eligible_scores = scores[eligible] if eligible.any() else scores
-    thresh = np.percentile(eligible_scores, score_pct)
-    seed_mask = eligible & (scores >= thresh)
-
-    if int(seed_mask.sum()) < min_seed:
-        relaxed = z_norm >= max(z_min_frac - 0.15, 0.0)
-        relaxed_scores = scores[relaxed] if relaxed.any() else scores
-        thresh = np.percentile(relaxed_scores, min(score_pct, 80.0))
-        seed_mask = relaxed & (scores >= thresh)
-
-    if int(seed_mask.sum()) < min_seed:
-        topk = min(max(min_seed, 1), x.shape[0])
-        seed_mask = np.zeros((x.shape[0],), dtype=bool)
-        seed_mask[np.argsort(scores)[-topk:]] = True
-
-    if not seed_mask.any():
-        return None
-
-    seed_pts = x[seed_mask]
-    roi_min = seed_pts.min(axis=0) - bbox_padding
-    roi_max = seed_pts.max(axis=0) + bbox_padding
-
-    center = 0.5 * (roi_min + roi_max)
-    max_half = 0.5 * span * max_extent_frac
-    min_half = 0.5 * span * min_extent_frac
-    half = np.maximum(0.5 * (roi_max - roi_min), min_half)
-    half = np.minimum(half, np.maximum(max_half, 1e-3))
-    roi_min = np.maximum(center - half, bbox_min - bbox_padding)
-    roi_max = np.minimum(center + half, bbox_max + bbox_padding)
-
-    support_boxes = [(roi_min.copy(), roi_max.copy())]
-    bilateral = bool(local_cfg.get('bilateral', False))
-    symmetry_axis = -1
-    symmetry_center = 0.0
-    if bilateral:
-        symmetry_axis = _resolve_local_symmetry_axis(local_cfg, 0.5 * (bbox_min + bbox_max), seed_pts)
-        symmetry_center = float(local_cfg.get('symmetry_center', 0.5 * (bbox_min[symmetry_axis] + bbox_max[symmetry_axis])))
-        mirror_min = roi_min.copy()
-        mirror_max = roi_max.copy()
-        mirror_min[symmetry_axis] = 2.0 * symmetry_center - roi_max[symmetry_axis]
-        mirror_max[symmetry_axis] = 2.0 * symmetry_center - roi_min[symmetry_axis]
-        mirror_min = np.maximum(mirror_min, bbox_min - bbox_padding)
-        mirror_max = np.minimum(mirror_max, bbox_max + bbox_padding)
-        support_boxes.append((mirror_min, mirror_max))
-        roi_min = np.minimum(roi_min, mirror_min)
-        roi_max = np.maximum(roi_max, mirror_max)
-
-    active_mask = np.zeros((x.shape[0],), dtype=bool)
-    for box_min, box_max in support_boxes:
-        active_mask |= np.all((x >= (box_min - active_margin)) & (x <= (box_max + active_margin)), axis=1)
-    if int(active_mask.sum()) < min_active:
-        expand = active_margin + 0.5 * bbox_padding
-        active_mask = np.zeros((x.shape[0],), dtype=bool)
-        for box_min, box_max in support_boxes:
-            active_mask |= np.all((x >= (box_min - expand)) & (x <= (box_max + expand)), axis=1)
-
-    if int(active_mask.sum()) == 0:
-        return None
-
-    seed_balance = 0.0
-    active_balance = 0.0
-    seed_left = seed_right = active_left = active_right = 0
-    if bilateral and symmetry_axis >= 0:
-        seed_coord = seed_pts[:, symmetry_axis] - symmetry_center
-        active_coord = x[active_mask, symmetry_axis] - symmetry_center
-        seed_left = int((seed_coord < 0).sum())
-        seed_right = int((seed_coord > 0).sum())
-        active_left = int((active_coord < 0).sum())
-        active_right = int((active_coord > 0).sum())
-        seed_balance = abs(seed_left - seed_right) / max(seed_left + seed_right, 1)
-        active_balance = abs(active_left - active_right) / max(active_left + active_right, 1)
-
-    return {
-        'seed_mask': seed_mask,
-        'active_mask': active_mask,
-        'bbox_min': roi_min.astype(np.float32),
-        'bbox_max': roi_max.astype(np.float32),
-        'seed_count': int(seed_mask.sum()),
-        'active_count': int(active_mask.sum()),
-        'active_frac': float(active_mask.mean()),
-        'bbox_diag': float(np.linalg.norm(roi_max - roi_min)),
-        'score_mean': float(scores[seed_mask].mean()),
-        'z_min_frac': z_min_frac,
-        'bilateral': int(bilateral),
-        'symmetry_axis': symmetry_axis,
-        'symmetry_center': float(symmetry_center),
-        'seed_left_count': seed_left,
-        'seed_right_count': seed_right,
-        'active_left_count': active_left,
-        'active_right_count': active_right,
-        'seed_balance': float(seed_balance),
-        'active_balance': float(active_balance),
-    }
-
-def render_correction(
-    x_phys, F_e, sigma0, opacity,
-    renderers, campos_list, targets, rcfg, color, lcfg, Fp,
-    correction_cfg,
-    target_dt_maps=None,
-    target_depths=None,
-    target_curvatures=None,
-    target_concavities=None,
-    view_weights=None,
-    particle_mask=None,
-    ep=None,
-    num_eps=None,
-):
-    """
-    Stage B: Optimize a coarse deformation field via manual gradient projection.
-
-    1. Deform particles: x' = x + W @ u  (trilinear interp)
-    2. Render x' → get dL/dx' from multi-view alpha loss
-    3. Project to field: dL/du = W^T @ dL/dx'
-    4. Add regularization gradient
-    5. Update field: u -= lr * dL/du
-    6. Clip displacements (trust-region)
-
-    Returns:
-        x_corrected: (N, 3) numpy
-        correction_metrics: dict
-    """
-    N = x_phys.shape[0]
-    grid_res = int(correction_cfg.get('grid_res', 8))
-    sigma0_factor = float(correction_cfg.get('sigma0_factor', 1.0))
-    sigma_corr = sigma0 * sigma0_factor
-
-    if len(renderers) == 0 or len(targets) == 0:
-        return x_phys, {}
-
-    # Global coarse field
-    global_opt_cfg = _make_field_opt_cfg(correction_cfg, correction_cfg)
-    field = CoarseDeformationField(grid_res=grid_res)
-    field.set_bbox(x_phys, padding=2.0)
-    field.precompute_weights(x_phys)
-
-    x_global, rm_global, global_meta, global_grad = _optimize_field(
-        'CorrGlobal', x_phys, field, F_e, sigma_corr, opacity,
-        renderers, campos_list, targets, rcfg, color, lcfg, Fp,
-        global_opt_cfg, target_dt_maps=target_dt_maps, target_depths=target_depths, target_curvatures=target_curvatures,
-        target_concavities=target_concavities,
-        view_weights=view_weights, particle_mask=particle_mask,
-    )
-
-    x_corrected = x_global
-    rm_best = rm_global
-    best_obj = global_meta['objective']
-    local_meta = {
-        'corr_local_enabled': 0,
-        'corr_local_applied': 0,
-        'corr_local_ready': 0,
-        'corr_local_delayed': 0,
-        'corr_local_start_ep': 0,
-        'corr_local_seed_count': 0,
-        'corr_local_active_count': 0,
-        'corr_local_active_frac': 0.0,
-        'corr_local_bbox_diag': 0.0,
-        'corr_local_gain': 0.0,
-        'corr_local_bilateral': 0,
-        'corr_local_grad_symmetry_strength': 0.0,
-        'corr_local_grad_symmetry_axis': -1,
-        'corr_local_mirror_partner_mean_dist': 0.0,
-        'corr_local_mirror_partner_max_dist': 0.0,
-        'corr_local_ear_grad_boost': 0.0,
-        'corr_local_ear_focus_count': 0,
-        'corr_local_ear_focus_frac': 0.0,
-    }
-
-    local_cfg = correction_cfg.get('local_refine', {}) or {}
-    if bool(local_cfg.get('enabled', False)):
-        local_meta['corr_local_enabled'] = 1
-        start_ep = _compute_local_refine_start_ep(local_cfg, num_eps)
-        local_meta['corr_local_start_ep'] = int(start_ep)
-        local_ready = ep is None or ep >= start_ep
-        local_meta['corr_local_ready'] = int(local_ready)
-        local_meta['corr_local_delayed'] = int(not local_ready)
-        region = _select_local_refine_region(x_global, global_grad, local_cfg) if local_ready else None
-        if region is not None and region['active_count'] > 0:
-            local_field = CoarseDeformationField(grid_res=int(local_cfg.get('grid_res', grid_res + 4)))
-            local_field.bbox_min = region['bbox_min'].copy()
-            local_field.bbox_max = region['bbox_max'].copy()
-            local_field.precompute_weights(x_global, active_mask=region['active_mask'])
-
-            local_opt_cfg = _make_field_opt_cfg(local_cfg, correction_cfg)
-            if region['symmetry_axis'] >= 0 and float(local_cfg.get('symmetry_strength', 0.0)) > 0:
-                local_opt_cfg['symmetry_axis'] = int(region['symmetry_axis'])
-            if region['symmetry_axis'] >= 0 and float(local_cfg.get('grad_symmetry_strength', 0.0)) > 0:
-                local_opt_cfg['grad_symmetry_axis'] = int(region['symmetry_axis'])
-                local_opt_cfg['grad_symmetry_center'] = float(region['symmetry_center'])
-            x_local, rm_local, local_stage_meta, _ = _optimize_field(
-                'CorrLocal', x_global, local_field, F_e, sigma_corr, opacity,
-                renderers, campos_list, targets, rcfg, color, lcfg, Fp,
-                local_opt_cfg, target_dt_maps=target_dt_maps, target_depths=target_depths, target_curvatures=target_curvatures,
-                target_concavities=target_concavities,
-                view_weights=view_weights, particle_mask=particle_mask,
-            )
-
-            x_corrected = x_local
-            rm_best = rm_local
-            best_obj = float(local_stage_meta['objective'])
-            local_meta.update({
-                'corr_local_applied': 1,
-                'corr_local_seed_count': region['seed_count'],
-                'corr_local_active_count': region['active_count'],
-                'corr_local_active_frac': region['active_frac'],
-                'corr_local_bbox_diag': region['bbox_diag'],
-                'corr_local_score_mean': region['score_mean'],
-                'corr_local_z_min_frac': region['z_min_frac'],
-                'corr_local_bilateral': region['bilateral'],
-                'corr_local_symmetry_axis': int(region['symmetry_axis']),
-                'corr_local_symmetry_center': float(region['symmetry_center']),
-                'corr_local_symmetry_strength': float(local_opt_cfg.get('symmetry_strength', 0.0)),
-                'corr_local_seed_left_count': int(region['seed_left_count']),
-                'corr_local_seed_right_count': int(region['seed_right_count']),
-                'corr_local_active_left_count': int(region['active_left_count']),
-                'corr_local_active_right_count': int(region['active_right_count']),
-                'corr_local_seed_balance': float(region['seed_balance']),
-                'corr_local_active_balance': float(region['active_balance']),
-                'corr_local_grid_res': int(local_field.grid_res),
-                'corr_local_max_disp': float(local_stage_meta['max_disp']),
-                'corr_local_objective': float(local_stage_meta['objective']),
-                'corr_local_gain': float(rm_global.get('loss_total_mv', 0.0) - rm_local.get('loss_total_mv', 0.0)),
-                'corr_local_grad_symmetry_strength': float(local_stage_meta.get('grad_symmetry_strength', 0.0)),
-                'corr_local_grad_symmetry_axis': int(local_stage_meta.get('grad_symmetry_axis', -1)),
-                'corr_local_mirror_partner_mean_dist': float(local_stage_meta.get('mirror_partner_mean_dist', 0.0)),
-                'corr_local_mirror_partner_max_dist': float(local_stage_meta.get('mirror_partner_max_dist', 0.0)),
-                'corr_local_ear_grad_boost': float(local_stage_meta.get('ear_grad_boost', 0.0)),
-                'corr_local_ear_focus_count': int(local_stage_meta.get('ear_focus_count', 0)),
-                'corr_local_ear_focus_frac': float(local_stage_meta.get('ear_focus_frac', 0.0)),
-            })
-            print(
-                f"    [CorrLocal] seeds={region['seed_count']}, active={region['active_count']}/{N} "
-                f"({100.0 * region['active_frac']:.1f}%), bbox_diag={region['bbox_diag']:.3f}, "
-                f"gain={local_meta['corr_local_gain']:+.4f}, bilateral={region['bilateral']}, "
-                f"grad_sym={local_meta['corr_local_grad_symmetry_strength']:.2f}, "
-                f"ear_boost={local_meta['corr_local_ear_grad_boost']:.2f}"
-            )
-        elif not local_ready:
-            print(f"    [CorrLocal] delayed until ep>={start_ep}")
-        else:
-            print("    [CorrLocal] skipped (no stable high-error upper-region ROI found)")
-
-    metrics = {
-        'corr_loss_total_mv': float(rm_best.get('loss_total_mv', float('inf'))),
-        'corr_loss_obj_mv': float(rm_best.get('loss_total_obj_mv', rm_best.get('loss_total_mv', float('inf')))),
-        'corr_loss_weighted_mv': float(rm_best.get('loss_weighted_mv', rm_best.get('loss_total_mv', float('inf')))),
-        'corr_loss_hardmax_mv': float(rm_best.get('loss_hardmax_mv', 0.0)),
-        'corr_loss_topk_mv': float(rm_best.get('loss_topk_mv', 0.0)),
-        'corr_loss_bce_mv': float(rm_best.get('loss_bce_mv', float('inf'))),
-        'corr_loss_iou_mv': float(rm_best.get('loss_iou_mv', 0.0)),
-        'corr_loss_dt_mv': float(rm_best.get('loss_dt_mv', 0.0)),
-        'corr_loss_depth_mv': float(rm_best.get('loss_depth_mv', 0.0)),
-        'corr_loss_edge_mv': float(rm_best.get('loss_edge_mv', 0.0)),
-        'corr_objective': best_obj,
-        'corr_max_disp': float(global_meta['max_disp']),
-        'corr_iters': int(global_meta['iters']),
-        'corr_global_active_frac': float(global_meta['active_frac']),
-        'corr_global_grid_res': int(grid_res),
-        'corr_sigma0': float(sigma_corr),
-    }
-    metrics.update(local_meta)
-
-    return x_corrected, metrics
-
-
-# ─── Stage C: Immediate Mass-Loss Gate ───────────────────────────────────
-
-def immediate_mass_loss_gate(cg, x_phys, x_corrected, pc, tau=0.1):
-    """
-    Accept correction only if the immediate end-layer mass loss does not
-    degrade too much after overwriting the current positions.
-
-    This is an immediate geometric consistency check, not a rollout-aware
-    physics validation.
-
-    Args:
-        cg: computation graph
-        x_phys: (N, 3) positions after physics
-        x_corrected: (N, 3) corrected positions
-        pc: point cloud object
-        tau: max allowed mass-loss increase (fraction)
-
-    Returns:
-        x_accepted: (N, 3) — either corrected or original
-        accepted: bool
-        mass_delta: float
-        mass_before: float
-        mass_after: float
-    """
-    mass_before = float(cg.end_layer_mass_loss())
-
-    pos_view = pc.get_positions_view()
-    original = pos_view.copy()
-    pos_view[:] = x_corrected
-    mass_after = float(cg.end_layer_mass_loss())
-    pos_view[:] = original
-
-    delta = (mass_after - mass_before) / (abs(mass_before) + 1e-8)
-
-    if delta <= tau:
-        return x_corrected, True, float(delta), mass_before, mass_after
-    return x_phys, False, float(delta), mass_before, mass_after
-
-
-def apply_accepted_correction(pc, x_accepted, correction_cfg, F_accept=None):
-    """
-    Commit an accepted correction to the promoted state.
-
-    By default we zero kinematics and absorb the current render-time total
-    deformation into the point cloud to avoid carrying a stale external Fp.
-    """
-    pc.set_positions(np.ascontiguousarray(x_accepted.astype(np.float32)))
-
-    if correction_cfg.get('reset_kinematics_on_accept', True):
-        pc.reset_kinematics()
-    else:
-        vel_damp = float(correction_cfg.get('velocity_damping', 0.5))
-        if vel_damp > 0:
-            v = pc.get_velocities_view()
-            v[:] *= (1.0 - vel_damp)
-
-    if F_accept is not None and correction_cfg.get('absorb_fp_on_accept', True):
-        pc.set_def_grads(np.ascontiguousarray(F_accept.astype(np.float32)))
-
-
 # ─── Main Loop ───────────────────────────────────────────────────────────
 
 def run_single(cfg, png=False):
-    """Run a single experiment with 3-stage decoupled pipeline."""
+    """Run a single experiment with the current render-guided physics pipeline."""
     out = Path(cfg.get('output_dir', 'output/run')); out.mkdir(parents=True, exist_ok=True)
 
     # ── Physics init ──────────────────────────────────────────────────────
@@ -890,29 +229,28 @@ def run_single(cfg, png=False):
     pcfg = cfg.get('plasticity', {})
     lcfg = cfg.get('loss_weights', {})
     cam_cfg = cfg.get('camera', {})
-    correction_cfg = cfg.get('correction', {})
-    render_force_cfg = cfg.get('render_force', {}) or {}
     surface_cfg = cfg.get('surface_aware', {}) or {}
     control_guidance_cfg = cfg.get('control_guidance', {}) or {}
+    freeze_fp = bool(pcfg.get('freeze_Fp', pcfg.get('freeze_fp', False)))
 
     eta_v = float(pcfg.get('eta_v', 0.5))
     max_v = float(pcfg.get('max_v', 5.0))
     max_aniso = float(pcfg.get('max_anisotropy', 1.5))
     damping = float(pcfg.get('damping', 0.0))
-    use_correction = bool(correction_cfg.get('enabled', False))
-    mass_gate_tau = float(correction_cfg.get('mass_gate_tau', correction_cfg.get('acceptance_tau', 0.1)))
-    debug_cfg = cfg.get('debug', {}) or {}
-    debug_gradient_eps = {int(e) for e in debug_cfg.get('gradient_heatmap_eps', [])}
-    render_force_enabled = bool(render_force_cfg.get('enabled', False))
-    render_force_start_ep = int(render_force_cfg.get('start_ep', 1))
+    debug_gradient_eps = set()
     control_guidance_enabled = bool(control_guidance_cfg.get('enabled', False))
     control_guidance_start_ep = int(control_guidance_cfg.get('start_ep', 1))
+    same_step_merge_enabled = bool(control_guidance_cfg.get('same_step_merge', False))
 
     print(f"[Init] N={N:,}, loss={cg.end_layer_mass_loss():.1f}")
-    print(f"[Config] eta_v={eta_v}, correction={'ON' if use_correction else 'OFF'}")
+    print(
+        f"[Config] eta_v={eta_v}, control_guidance={'ON' if control_guidance_enabled else 'OFF'}, "
+        f"Fp={'I' if freeze_fp else 'adaptive'}"
+    )
 
     surface_mask = None
     render_surface_mask = None
+    surface_proxy = None
     surface_meta = {
         'surface_particle_count': int(N),
         'surface_particle_frac': 1.0,
@@ -977,6 +315,46 @@ def run_single(cfg, png=False):
     else:
         render_surface_mask = surface_mask
 
+    surface_proxy_cfg = cfg.get('surface_proxy', {}) or {}
+    if bool(surface_proxy_cfg.get('enabled', False)) and render_surface_mask is not None:
+        mesh_vertices = None
+        mesh_faces = None
+        graph_mode_req = str(surface_proxy_cfg.get('graph_mode', 'mesh_geodesic')).lower()
+        if graph_mode_req != 'euclidean_knn':
+            mesh_path = cfg.get('input_mesh_path')
+            if mesh_path:
+                mesh_path = Path(mesh_path)
+                try:
+                    mesh_vertices, mesh_faces = load_triangle_mesh(str(mesh_path))
+                except Exception as exc:
+                    print(f"[SurfaceProxy] mesh graph fallback -> euclidean kNN ({exc})")
+        surface_graph = build_frozen_surface_graph(
+            x0,
+            particle_mask=render_surface_mask,
+            k=int(surface_proxy_cfg.get('graph_k', 16)),
+            sigma_scale=float(surface_proxy_cfg.get('graph_sigma_scale', 1.0)),
+            num_patches=int(surface_proxy_cfg.get('num_patches', control_guidance_cfg.get('num_patches', 96))),
+            mesh_vertices=mesh_vertices,
+            mesh_faces=mesh_faces,
+            max_hops=int(surface_proxy_cfg.get('graph_max_hops', 4)),
+            hop_weight=float(surface_proxy_cfg.get('hop_weight', 0.75)),
+            separation_enabled=bool(surface_proxy_cfg.get('separation_enabled', False)),
+            separation_partner_k=int(surface_proxy_cfg.get('separation_partner_k', 4)),
+            separation_patch_min_hops=int(surface_proxy_cfg.get('separation_patch_min_hops', 6)),
+        )
+        surface_proxy = {
+            'enabled': surface_graph is not None,
+            'graph': surface_graph,
+            'cfg': surface_proxy_cfg,
+        }
+        if surface_graph is not None:
+            surface_meta['proxy_graph_count'] = int(surface_graph['source_positions'].shape[0])
+            surface_meta['proxy_graph_mode'] = str(surface_graph.get('graph_mode', 'unknown'))
+            print(
+                f"[SurfaceProxy] enabled, nodes={surface_graph['source_positions'].shape[0]:,}, "
+                f"k={surface_graph['neighbors'].shape[1]}, mode={surface_graph.get('graph_mode', 'unknown')}"
+            )
+
     # ── Cameras + targets ─────────────────────────────────────────────────
     rs = default_cfg()
     rs.update(adapt_config({'upsample': cfg.get('upsample', {})}))
@@ -989,7 +367,7 @@ def run_single(cfg, png=False):
 
     multi_cfg = cfg.get('multi_view', {})
     multi = multi_cfg.get('enabled', False)
-    renderers, campos_list, targets, target_dt_maps, target_depths, target_curvatures, target_concavities, cam_eyes, cam_labels = [], [], [], [], [], [], [], np.array([]), []
+    renderers, campos_list, targets, target_depths, cam_eyes, cam_labels = [], [], [], [], np.array([]), []
     view_weights = []
 
     if multi:
@@ -1006,10 +384,7 @@ def run_single(cfg, png=False):
                 if obs is not None and obs.get('alpha') is not None:
                     t = obs['alpha']
                     renderers.append(r); campos_list.append(p['campos']); targets.append(t)
-                    target_dt_maps.append(compute_dt_map(t))
                     target_depths.append(obs.get('depth'))
-                    target_curvatures.append(obs.get('curvature'))
-                    target_concavities.append(obs.get('concavity'))
                     view_weights.append(float(view_w))
                     active_eyes.append(eye)
                     active_labels.append(label)
@@ -1027,10 +402,7 @@ def run_single(cfg, png=False):
             if obs is not None and obs.get('alpha') is not None:
                 t = obs['alpha']
                 renderers.append(r); campos_list.append(p['campos']); targets.append(t)
-                target_dt_maps.append(compute_dt_map(t))
                 target_depths.append(obs.get('depth'))
-                target_curvatures.append(obs.get('curvature'))
-                target_concavities.append(obs.get('concavity'))
                 cam_eyes = np.array([p['campos']]); cam_labels = ['Primary']
                 view_weights = [1.0]
 
@@ -1042,22 +414,10 @@ def run_single(cfg, png=False):
             td_np = td.cpu().numpy() if hasattr(td, 'cpu') else np.asarray(td, dtype=np.float32)
             if (td_np > 0).any():
                 save_depth_png(out / 'target_depth.png', td_np, bits=16)
-        if target_curvatures and target_curvatures[0] is not None:
-            tc = target_curvatures[0]
-            tc_np = tc.cpu().numpy() if hasattr(tc, 'cpu') else np.asarray(tc, dtype=np.float32)
-            if np.isfinite(tc_np).any():
-                from utils.io_utils import save_image_png
-                denom = max(float(tc_np.max()), 1e-8)
-                save_image_png(out / 'target_curvature.png', np.clip(tc_np / denom, 0.0, 1.0))
-        if target_concavities and target_concavities[0] is not None:
-            ts = target_concavities[0]
-            ts_np = ts.cpu().numpy() if hasattr(ts, 'cpu') else np.asarray(ts, dtype=np.float32)
-            if np.isfinite(ts_np).any():
-                from utils.io_utils import save_image_png
-                save_image_png(out / 'target_concavity.png', np.clip(0.5 + 0.5 * ts_np, 0.0, 1.0))
-
     # ── Train ─────────────────────────────────────────────────────────────
     Fp = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1)) if resume_Fp is None else resume_Fp.copy()
+    if freeze_fp:
+        Fp[:] = np.eye(3, dtype=np.float32)[None]
     num_eps = int(opt.num_animations)
     episode_offset = int(resume_cfg.get('episode_offset', 0))
     total_sched_eps = int(resume_cfg.get('total_episodes', episode_offset + num_eps))
@@ -1068,14 +428,28 @@ def run_single(cfg, png=False):
 
     if episode_offset > 0:
         print(
-            f"\nTraining: {num_eps} episodes (global ep {episode_offset}..{episode_offset + num_eps - 1}), "
-            f"correction={'ON' if use_correction else 'OFF'}\n"
+            f"\nTraining: {num_eps} episodes (global ep {episode_offset}..{episode_offset + num_eps - 1})\n"
         )
     else:
-        print(f"\nTraining: {num_eps} episodes, correction={'ON' if use_correction else 'OFF'}\n")
+        print(f"\nTraining: {num_eps} episodes\n")
 
     prev_surface_obs_x = None
     prev_surface_obs_grad = None
+    prev_phys_grad = None
+    prev_dLdF_render = None  # render gradient on F (for covariance guidance)
+
+    # ── Covariance optimizer ─────────────────────────────────────────────
+    cov_cfg = cfg.get('covariance_opt', {})
+    cov_opt_enabled = bool(cov_cfg.get('enabled', False))
+    cov_optimizer = None
+    if cov_opt_enabled:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        cov_optimizer = CovarianceOptimizer(N, sigma0, opacity, device, cov_cfg)
+        cov_optimizer.init_from_positions(x0)
+        if targets:
+            cov_optimizer.set_targets(targets)
+        print(f"[CovOpt] Enabled: {cov_cfg.get('cov_iters_per_ep', 5)} iters/ep, "
+              f"lr={cov_cfg.get('cov_lr', 0.003)}, rotation={cov_cfg.get('cov_optimize_rotation', True)}")
 
     for ep_local in range(num_eps):
         ep = ep_local + episode_offset
@@ -1085,9 +459,34 @@ def run_single(cfg, png=False):
         if ep % 10 == 0:
             print(f"  [LR] alpha={opt.initial_alpha:.6f}")
 
+        # ── Chamfer-based surface mask update (union) ─────────────────
+        chamfer_mask_threshold = float(surface_cfg.get('chamfer_mask_threshold', 0.0))
+        if chamfer_mask_threshold > 0 and render_surface_mask is not None:
+            x_current_mask = np.array(cg.get_point_cloud(0).get_positions(), dtype=np.float32)
+            tgt_tree = cKDTree(tpos)
+            cd_dist, _ = tgt_tree.query(x_current_mask, k=1)
+            chamfer_new_mask = cd_dist < chamfer_mask_threshold
+            render_surface_mask = render_surface_mask | chamfer_new_mask  # union: never shrink
+            losses_mask = {
+                'chamfer_mask_count': int(render_surface_mask.sum()),
+                'chamfer_mask_frac': float(render_surface_mask.mean()),
+                'chamfer_mask_new': int((chamfer_new_mask & ~render_surface_mask).sum()) if ep > 0 else 0,
+            }
+
         capture_debug_viz = ep in debug_gradient_eps
         capture_images = png or capture_debug_viz
         render_penalty = None
+
+        # F-only render injection: dL/dF from previous episode, dL/dx = 0
+        render_F_gain = float(cfg.get('render_F_gain', 0.0))
+        if render_F_gain > 0 and prev_dLdF_render is not None:
+            dLdF_scaled = (render_F_gain * prev_dLdF_render).astype(np.float32)
+            dLdx_zero = np.zeros((N, 3), dtype=np.float32)
+            render_penalty = {'dLdF': dLdF_scaled, 'dLdx': dLdx_zero}
+            losses_F_inject = {
+                'render_F_inject_applied': 1,
+                'render_F_inject_norm': float(np.linalg.norm(dLdF_scaled)),
+            }
         control_guidance_meta = {
             'control_guidance_applied': 0,
             'control_guidance_render_gain': 0.0,
@@ -1102,14 +501,21 @@ def run_single(cfg, png=False):
             'control_guidance_focus_frac': 0.0,
             'control_guidance_partner_k': int(control_guidance_cfg.get('smooth_k', 64)),
             'control_guidance_diffusion_iters': int(control_guidance_cfg.get('diffusion_iters', 2)),
+            'control_guidance_patch_balanced': 0,
+            'control_guidance_patch_count': 0,
+            'control_guidance_patch_scale_mean': 1.0,
+            'control_guidance_patch_scale_min': 1.0,
+            'control_guidance_patch_scale_max': 1.0,
+            'control_guidance_patch_conflict_count': 0,
         }
-        render_force_meta = {
-            'render_force_applied': 0,
-            'render_force_gain': 0.0,
-            'render_force_physics_weight': 1.0,
-            'render_force_norm': 0.0,
-            'render_force_focus_frac': 0.0,
-            'render_force_focus_count': 0,
+        same_step_merge_meta = {
+            'same_step_merge_applied': 0,
+            'same_step_merge_support_count': 0,
+            'same_step_merge_patch_count': 0,
+            'same_step_merge_scale_mean': 1.0,
+            'same_step_merge_scale_min': 1.0,
+            'same_step_merge_scale_max': 1.0,
+            'same_step_merge_conflict_count': 0,
         }
         try:
             cg.set_render_gain(1.0)
@@ -1140,6 +546,8 @@ def run_single(cfg, png=False):
                 focus_mask=focus_mask,
                 core_mask=surface_mask,
                 support_mask=render_surface_mask,
+                surface_graph=None if surface_proxy is None else surface_proxy.get('graph', None),
+                phys_grad_x=None if same_step_merge_enabled else prev_phys_grad,
             )
             control_guidance_meta.update(cg_meta)
             if render_penalty is not None:
@@ -1158,37 +566,42 @@ def run_single(cfg, png=False):
                     cg.set_physics_weight(physics_weight)
                 except Exception:
                     pass
-        elif render_force_enabled and ep >= render_force_start_ep and prev_surface_obs_grad is not None:
-            render_penalty, rf_meta = _prepare_render_force_penalty(
-                prev_surface_obs_x, prev_surface_obs_grad, render_force_cfg
-            )
-            render_force_meta.update(rf_meta)
-            if render_penalty is not None:
-                render_gain = float(render_force_cfg.get('render_gain', 0.1))
-                physics_weight = float(render_force_cfg.get('physics_weight', 1.0))
-                render_force_meta['render_force_gain'] = render_gain
-                render_force_meta['render_force_physics_weight'] = physics_weight
-                try:
-                    cg.set_render_gain(render_gain)
-                    cg.set_physics_weight(physics_weight)
-                except Exception:
-                    pass
 
         # ── Stage A: Physics Rollout ──────────────────────────────────────
-        losses, dFp, direction, cohesion, dLdx_norms, bce_list, alpha_list, diffused, phys_grad, x_episode = run_episode(
+        losses, dFp, direction, cohesion, dLdx_norms, bce_list, alpha_list, diffused, phys_grad, x_episode, dLdF_render = run_episode(
             ep, cg, opt, sigma0, opacity,
             renderers, campos_list, targets, rcfg, color,
             out, capture_images, Fp, pcfg, lcfg,
             render_penalty=render_penalty,
-            target_dt_maps=target_dt_maps, target_depths=target_depths, target_curvatures=target_curvatures,
-            target_concavities=target_concavities,
+            target_depths=target_depths,
             view_weights=view_weights, particle_mask=render_surface_mask, view_labels=cam_labels,
+            surface_proxy=surface_proxy,
         )
         losses.update(control_guidance_meta)
-        losses.update(render_force_meta)
+        if render_F_gain > 0:
+            losses.update(locals().get('losses_F_inject', {'render_F_inject_applied': 0, 'render_F_inject_norm': 0.0}))
         losses.update(surface_meta)
+        if chamfer_mask_threshold > 0:
+            losses.update(locals().get('losses_mask', {}))
         prev_surface_obs_x = None if x_episode is None else np.asarray(x_episode, dtype=np.float32).copy()
-        prev_surface_obs_grad = None if diffused is None else np.asarray(diffused, dtype=np.float32).copy()
+        merged_surface_obs_grad = None if diffused is None else np.asarray(diffused, dtype=np.float32).copy()
+        if same_step_merge_enabled and merged_surface_obs_grad is not None and phys_grad is not None:
+            merged_surface_obs_grad, same_step_merge_meta = premerge_surface_obs_gradient(
+                merged_surface_obs_grad,
+                phys_grad,
+                control_guidance_cfg,
+                support_mask=render_surface_mask,
+                surface_graph=None if surface_proxy is None else surface_proxy.get('graph', None),
+            )
+        # EMA on render gradient to reduce oscillation
+        ema_beta = float(control_guidance_cfg.get('ema_beta', 0.0))
+        if ema_beta > 0 and prev_surface_obs_grad is not None and merged_surface_obs_grad is not None:
+            prev_surface_obs_grad = ema_beta * prev_surface_obs_grad + (1.0 - ema_beta) * merged_surface_obs_grad
+        else:
+            prev_surface_obs_grad = merged_surface_obs_grad
+        prev_phys_grad = None if phys_grad is None else np.asarray(phys_grad, dtype=np.float32).copy()
+        prev_dLdF_render = dLdF_render  # store for next episode F-only injection
+        losses.update(same_step_merge_meta)
 
         # Save dFc before promote
         dFc_raw = np.array(cg.get_point_cloud(0).get_dFc(), dtype=np.float32)
@@ -1209,70 +622,52 @@ def run_single(cfg, png=False):
             v[:] = np.clip(v + imp, -max_v, max_v)
             losses['impulse_mean'] = float(np.linalg.norm(imp, axis=1).mean())
 
-        # ── Stage B: Observation-Guided Correction ────────────────────────
-        every_n = int(correction_cfg.get('every_n_eps', 1))
-        accepted_correction = False
-        skip_dfp_update = False
-        if use_correction and len(renderers) > 0 and ep % every_n == 0:
-            x_phys = np.array(pc.get_positions(), dtype=np.float32)
-            try:
-                F_e = pc.get_def_grads_total_torch(requires_grad=False).detach().cpu().numpy().astype(np.float32)
-            except Exception:
-                F_e = np.array(pc.get_def_grads(), dtype=np.float32)
-            F_accept = np.matmul(F_e, Fp).astype(np.float32)
-
-            x_corrected, corr_metrics = render_correction(
-                x_phys, F_e, sigma0, opacity,
-                renderers, campos_list, targets, rcfg, color, lcfg, Fp,
-                correction_cfg, target_dt_maps=target_dt_maps, target_depths=target_depths, target_curvatures=target_curvatures,
-                target_concavities=target_concavities,
-                view_weights=view_weights, particle_mask=surface_mask,
-                ep=ep, num_eps=num_eps,
-            )
-            losses.update(corr_metrics)
-
-            # ── Stage C: Immediate Mass-Loss Gate ────────────────────────
-            x_accepted, accepted, mass_delta, mass_before, mass_after = immediate_mass_loss_gate(
-                cg, x_phys, x_corrected, pc, tau=mass_gate_tau
-            )
-
-            if accepted:
-                apply_accepted_correction(pc, x_accepted, correction_cfg, F_accept=F_accept)
-                accepted_correction = True
-                skip_dfp_update = bool(correction_cfg.get('skip_dfp_update_on_accept', True))
-                if correction_cfg.get('absorb_fp_on_accept', True):
-                    Fp = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
-                    losses['correction_fp_absorbed'] = 1
-                else:
-                    losses['correction_fp_absorbed'] = 0
-                losses['correction_accepted'] = 1
-            else:
-                losses['correction_fp_absorbed'] = 0
-                losses['correction_accepted'] = 0
-            losses['correction_phys_delta'] = mass_delta
-            losses['correction_mass_gate_delta'] = mass_delta
-            losses['correction_mass_before'] = mass_before
-            losses['correction_mass_after'] = mass_after
-            print(f"  [MassGate] {'ACCEPT' if accepted else 'REJECT'} (Δmass={mass_delta:+.4f})")
-
         # ── Fp update ─────────────────────────────────────────────────────
-        if dFp is not None and not skip_dfp_update:
+        if (dFp is not None) and (not freeze_fp):
             Fp = np.matmul(np.eye(3)[None] + dFp, Fp).astype(np.float32)
             if damping > 0:
                 Fp = ((1 - damping) * Fp + damping * np.eye(3)[None]).astype(np.float32)
             Fp = isochoric_project(Fp, max_aniso)
             losses['dFp_applied'] = 1
-
-            norms = np.linalg.norm((Fp - np.eye(3)[None]).reshape(N, -1), axis=1)
-            losses['Fp_dev'] = float(norms.mean())
-            if (ep + 1) % 10 == 0 or ep == num_eps - 1:
-                np.save(out / f'Fp_ep{ep:03d}.npy', Fp)
         else:
             losses['dFp_applied'] = 0
-            if accepted_correction:
-                losses['Fp_dev'] = float(
-                    np.linalg.norm((Fp - np.eye(3)[None]).reshape(N, -1), axis=1).mean()
-                )
+            if freeze_fp:
+                losses['Fp_dev'] = 0.0
+                losses['Fp_frozen'] = 1
+
+        # ── Chamfer plasticity ────────────────────────────────────────────
+        chamfer_eta = float(pcfg.get('chamfer_eta', 0.0))
+        chamfer_start_ep = int(pcfg.get('chamfer_start_ep', 0))
+        if chamfer_eta > 0 and not freeze_fp and ep >= chamfer_start_ep:
+            x_current = np.array(pc.get_positions(), dtype=np.float32)
+            dFp_chamfer, chamfer_meta = compute_chamfer_plasticity(
+                x_current, tpos, Fp,
+                eta=chamfer_eta,
+                adaptive_eta_max=float(pcfg.get('adaptive_eta_max', 5.0)),
+                smooth_k=int(pcfg.get('smooth_k', 64)),
+                diffusion_iters=int(pcfg.get('diffusion_iters', 3)),
+                clip_pct=float(pcfg.get('clip_pct', 95.0)),
+                damping=0.0,
+            )
+            Fp = np.matmul(np.eye(3)[None] + dFp_chamfer, Fp).astype(np.float32)
+            if damping > 0:
+                Fp = ((1 - damping) * Fp + damping * np.eye(3)[None]).astype(np.float32)
+            Fp = isochoric_project(Fp, max_aniso)
+            losses.update(chamfer_meta)
+
+        norms = np.linalg.norm((Fp - np.eye(3)[None]).reshape(N, -1), axis=1)
+        losses['Fp_dev'] = float(norms.mean())
+        if (ep + 1) % 10 == 0 or ep == num_eps - 1:
+            np.save(out / f'Fp_ep{ep:03d}.npy', Fp)
+
+        # ── Covariance optimization (position frozen) ─────────────────────
+        if cov_opt_enabled and cov_optimizer is not None and renderers:
+            x_current_cov = np.array(pc.get_positions(), dtype=np.float32)
+            cov_meta = cov_optimizer.step(
+                x_current_cov, renderers, targets, campos_list, color, rcfg,
+                particle_mask=render_surface_mask,
+            )
+            losses.update(cov_meta)
 
         # ── Save ──────────────────────────────────────────────────────────
         if bce_list: losses['per_view_bce'] = bce_list
@@ -1281,15 +676,28 @@ def run_single(cfg, png=False):
             json.dump(history, f, indent=2)
 
         # ── Checkpoint ────────────────────────────────────────────────────
-        if ep % 5 == 0 or ep == num_eps - 1:
+        is_last_ep = (ep == episode_offset + num_eps - 1)
+        if True:  # save every episode for post-processing flexibility
             ckpt_dir = out / 'checkpoints'
             ckpt_dir.mkdir(parents=True, exist_ok=True)
-            np.savez_compressed(ckpt_dir / f'ckpt_ep{ep:03d}.npz',
-                positions=np.array(pc.get_positions(), dtype=np.float32),
+            x_ckpt = np.array(pc.get_positions(), dtype=np.float32)
+            try:
+                F_e_ckpt = pc.get_def_grads_total_torch(requires_grad=False).detach().cpu().numpy().astype(np.float32)
+            except:
+                F_e_ckpt = np.array(pc.get_def_grads(), dtype=np.float32)
+            ckpt_data = dict(
+                positions=x_ckpt,
                 velocities=np.array(pc.get_velocities_view(), dtype=np.float32),
                 dFc=np.array(pc.get_dFc(), dtype=np.float32),
                 Fp=Fp.copy(),
+                F_elastic=np.ascontiguousarray(F_e_ckpt),
             )
+            if cov_opt_enabled and cov_optimizer is not None:
+                cov_params = cov_optimizer.get_render_params()
+                ckpt_data['cov_scale'] = cov_params['scale']
+                ckpt_data['cov_opacity'] = cov_params['opacity']
+                ckpt_data['cov_rotation'] = cov_params['rotation']
+            np.savez_compressed(ckpt_dir / f'ckpt_ep{ep:03d}.npz', **ckpt_data)
             print(f"  [Checkpoint] ep{ep:03d}")
 
         # ── Viz ───────────────────────────────────────────────────────────
@@ -1315,7 +723,7 @@ def run_single(cfg, png=False):
                     create_per_view_visualization(ep, alpha_list, tgt_nps, bce_list, cam_labels, out)
                 print(f"  [Viz] ep{ep:03d}")
             except Exception as e:
-                import traceback; print(f"  [Viz] {e}"); traceback.print_exc()
+                print(f"  [Viz] {e}"); traceback.print_exc()
 
     np.save(out / 'Fp_final.npy', Fp)
     print(f"\nDone. {out}")
@@ -1333,7 +741,7 @@ def main():
     cfg = yaml.safe_load(open(args.config))
 
     if 'experiments' in cfg:
-        import copy
+        # copy already imported at top
         defaults = cfg.get('defaults', {})
         experiments = cfg['experiments']
         base_out = cfg.get('output_base', 'output')
@@ -1346,16 +754,14 @@ def main():
             ecfg['output_dir'] = f"{base_out}/{exp['name']}"
 
             # Per-experiment overrides
-            if 'lambda_render' in exp:
-                ecfg.setdefault('plasticity', {})['lambda_render'] = exp['lambda_render']
             if 'num_cameras' in exp:
                 ecfg.setdefault('multi_view', {})['num_cameras'] = exp['num_cameras']
             if 'num_animations' in exp:
                 ecfg.setdefault('optimization', {})['num_animations'] = exp['num_animations']
             for section in [
-                'plasticity', 'multi_view', 'optimization', 'correction',
+                'plasticity', 'multi_view', 'optimization',
                 'loss_weights', 'render', 'camera', 'simulation', 'upsample',
-                'surface_aware', 'control_guidance', 'render_force', 'debug', 'resume'
+                'surface_aware', 'surface_proxy', 'control_guidance', 'debug', 'resume'
             ]:
                 if section in exp:
                     base_section = ecfg.get(section, {})
@@ -1364,6 +770,11 @@ def main():
                     else:
                         ecfg[section] = copy.deepcopy(exp[section])
 
+            # Flat top-level key overrides (render_F_gain, render_x_gain, etc.)
+            for flat_key in ['render_F_gain', 'render_x_gain', 'covariance_opt']:
+                if flat_key in exp:
+                    ecfg[flat_key] = exp[flat_key]
+
             if args.skip_existing and (Path(ecfg['output_dir']) / 'losses.json').exists():
                 print(f"[{i+1}/{len(experiments)}] SKIP {exp['name']}")
                 continue
@@ -1371,7 +782,6 @@ def main():
             print(f"\n{'='*60}")
             print(f"[{i+1}/{len(experiments)}] {exp['name']}")
             print(f"  target: {ecfg.get('target_mesh_path')}")
-            print(f"  correction: {'ON' if exp.get('correction', {}).get('enabled') else 'OFF'}")
             if 'multi_view' in ecfg:
                 print(f"  cameras: {ecfg['multi_view'].get('preset', 'ring')} / {ecfg['multi_view'].get('num_cameras', 'n/a')}")
             print(f"{'='*60}\n")

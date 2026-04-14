@@ -1,13 +1,8 @@
-output_base: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_resume25"
+output_base: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25"
 
 defaults:
   input_mesh_path: "assets/isosphere.obj"
   target_mesh_path: "assets/bunny.obj"
-
-  resume:
-    enabled: true
-    episode_offset: 25
-    total_episodes: 50
 
   simulation:
     grid_dx: 1.0
@@ -62,9 +57,6 @@ defaults:
     render_min_surface_frac: 0.18
     render_max_surface_frac: 0.30
 
-  correction:
-    enabled: false
-
   control_guidance:
     enabled: true
     start_ep: 0
@@ -102,9 +94,6 @@ defaults:
     w_iou: 1.0
     w_dt: 0.0
     w_depth: 1.0
-    w_ms: 0.0
-    w_curv: 0.0
-
     grad_ratio_iou: 0.25
     grad_ratio_depth: 0.05
 
@@ -117,8 +106,6 @@ defaults:
     early_depth_scale: 0.35
     early_depth_mode: "behind_only"
 
-    concave_bce_quantile: 0.70
-    concave_bce_downweight: 0.4
     masked_threshold: 0.01
     mv_hardmax_w: 1.0
     mv_topk_w: 0.5
@@ -131,9 +118,6 @@ defaults:
     training_resolution_scale: 0.5
     opacity: 0.95
     particle_color: [0.27, 0.51, 0.71]
-    mesh_curvature_radius_edges: 4.0
-    mesh_curvature_quantile: 0.95
-    mesh_curvature_blur_sigma: 1.0
     lighting:
       model: phong
       type: directional
@@ -167,65 +151,45 @@ defaults:
 
 experiments:
   - name: "g005_w08"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g005_w08/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 8}
   - name: "g005_w12"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g005_w12/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 12}
   - name: "g005_w16"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g005_w16/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 16}
   - name: "g005_w20"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g005_w20/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 20}
   - name: "g005_w24"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g005_w24/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 24}
 
   - name: "g010_w08"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g010_w08/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 8}
   - name: "g010_w12"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g010_w12/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 12}
   - name: "g010_w16"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g010_w16/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 16}
   - name: "g010_w20"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g010_w20/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 20}
   - name: "g010_w24"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g010_w24/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 24}
 
   - name: "g020_w08"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g020_w08/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 8}
   - name: "g020_w12"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g020_w12/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 12}
   - name: "g020_w16"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g020_w16/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 16}
   - name: "g020_w20"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g020_w20/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 20}
   - name: "g020_w24"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g020_w24/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 24}
 
   - name: "g050_w08"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g050_w08/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 8}
   - name: "g050_w12"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g050_w12/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 12}
   - name: "g050_w16"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g050_w16/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 16}
   - name: "g050_w20"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g050_w20/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 20}
   - name: "g050_w24"
-    resume:
-      checkpoint_path: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25/g050_w24/checkpoints/ckpt_ep024.npz"
+    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 24}

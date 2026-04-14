@@ -1,14 +1,13 @@
-output_base: "output/bunny_physics_only_ppc3_40"
+output_base: "output/sphere_to_spot_bob_bunny_proxy_meshmerge_release_fix_ppc6_40"
 
 defaults:
   input_mesh_path: "assets/isosphere.obj"
-  target_mesh_path: "assets/bunny.obj"
 
   simulation:
     grid_dx: 1.0
     grid_min_point: [-16.0, -16.0, -16.0]
     grid_max_point: [16.0, 16.0, 16.0]
-    points_per_cell_cuberoot: 3
+    points_per_cell_cuberoot: 6
     lam: 38888.89
     mu: 58333.3
     density: 75.0
@@ -57,11 +56,56 @@ defaults:
     render_min_surface_frac: 0.18
     render_max_surface_frac: 0.30
 
-  correction:
-    enabled: false
+  surface_proxy:
+    enabled: true
+    graph_mode: "mesh_geodesic"
+    graph_k: 16
+    graph_sigma_scale: 1.0
+    graph_max_hops: 4
+    hop_weight: 0.75
+    num_patches: 96
+    schedule_eps: 20
+    strength_start: 0.85
+    strength_end: 0.10
+    diffusion_iters_start: 6
+    diffusion_iters_end: 2
+    release_start_ep: 24
+    release_duration_eps: 12
+    release_strength_end: 0.0
+    release_diffusion_iters_end: 0
+    bilateral: true
+    bilateral_sigma_scale: 1.5
+    normal_sigma: 0.35
 
   control_guidance:
-    enabled: false
+    enabled: true
+    start_ep: 0
+    same_step_merge: true
+    render_gain: 1.0
+    render_gain_start: 0.005
+    render_gain_warmup_eps: 24
+    physics_weight: 1.0
+    normalize: true
+    smooth_k: 32
+    diffusion_iters: 1
+    dLdx_weight: 1.0
+    dLdF_weight: 0.10
+    clip_dLdx_norm: 0.30
+    clip_dLdF_norm: 0.12
+    symmetrize_tensor: true
+    ear_focus_boost: 1.0
+    ear_focus_height_frac: 0.56
+    ear_focus_side_frac: 0.14
+    ear_focus_side_max_frac: 0.52
+    shell_lift_weight: 0.0
+    shell_lift_k: 24
+    shell_lift_diffusion_iters: 1
+    patch_balance: true
+    num_patches: 96
+    patch_scale_min: 0.25
+    patch_scale_max: 4.0
+    patch_min_active: 4
+    pcgrad: true
 
   multi_view:
     enabled: true
@@ -72,19 +116,19 @@ defaults:
     adaptive_grad_match: true
     grad_match_scale_min: 0.0
     grad_match_scale_max: 1000.0
-
     w_bce: 1.0
     w_iou: 1.0
     w_dt: 0.0
     w_depth: 1.0
-    w_ms: 0.0
-    w_curv: 0.0
-
     grad_ratio_iou: 0.25
     grad_ratio_depth: 0.05
-
-    concave_bce_quantile: 0.70
-    concave_bce_downweight: 0.0
+    early_alpha_eps: 15
+    early_alpha_scale: 0.50
+    early_alpha_blur_ks: 9
+    early_bce_neg_weight: 0.25
+    early_depth_eps: 15
+    early_depth_scale: 0.35
+    early_depth_mode: "behind_only"
     masked_threshold: 0.01
     mv_hardmax_w: 1.0
     mv_topk_w: 0.5
@@ -97,9 +141,6 @@ defaults:
     training_resolution_scale: 0.5
     opacity: 0.95
     particle_color: [0.27, 0.51, 0.71]
-    mesh_curvature_radius_edges: 4.0
-    mesh_curvature_quantile: 0.95
-    mesh_curvature_blur_sigma: 1.0
     lighting:
       model: phong
       type: directional
@@ -129,8 +170,14 @@ defaults:
       up: [0.0, 0.0, 1.0]
 
   debug:
-    gradient_heatmap_eps: [0, 39]
+    gradient_heatmap_eps: [0, 10, 20, 39]
 
 experiments:
-  - name: "physics_only_ppc3_40"
+  - name: "spot_proxy_meshmerge_release_fix_ppc6_40"
+    target_mesh_path: "assets/spot.obj"
+
+  - name: "bob_proxy_meshmerge_release_fix_ppc6_40"
+    target_mesh_path: "assets/bob.obj"
+
+  - name: "bunny_proxy_meshmerge_release_fix_ppc6_40"
     target_mesh_path: "assets/bunny.obj"

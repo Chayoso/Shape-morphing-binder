@@ -1,4 +1,4 @@
-output_base: "output/bunny_surface_dfc_guided_ear_sweep_ppc4_25"
+output_base: "output/bunny_surface_dfc_guided_proxy_curriculum_ppc3_smoke"
 
 defaults:
   input_mesh_path: "assets/isosphere.obj"
@@ -8,7 +8,7 @@ defaults:
     grid_dx: 1.0
     grid_min_point: [-16.0, -16.0, -16.0]
     grid_max_point: [16.0, 16.0, 16.0]
-    points_per_cell_cuberoot: 4
+    points_per_cell_cuberoot: 3
     lam: 38888.89
     mu: 58333.3
     density: 75.0
@@ -20,7 +20,7 @@ defaults:
       enabled: false
 
   optimization:
-    num_animations: 25
+    num_animations: 3
     num_timesteps: 10
     control_stride: 1
     max_gd_iters: 1
@@ -57,15 +57,26 @@ defaults:
     render_min_surface_frac: 0.18
     render_max_surface_frac: 0.30
 
-  correction:
-    enabled: false
+  surface_proxy:
+    enabled: true
+    graph_k: 16
+    graph_sigma_scale: 1.0
+    num_patches: 96
+    schedule_eps: 20
+    strength_start: 0.85
+    strength_end: 0.10
+    diffusion_iters_start: 6
+    diffusion_iters_end: 2
+    bilateral: true
+    bilateral_sigma_scale: 1.5
+    normal_sigma: 0.35
 
   control_guidance:
     enabled: true
     start_ep: 0
     render_gain: 1.0
-    render_gain_start: 0.01
-    render_gain_warmup_eps: 16
+    render_gain_start: 0.005
+    render_gain_warmup_eps: 24
     physics_weight: 1.0
     normalize: true
     smooth_k: 32
@@ -82,6 +93,12 @@ defaults:
     shell_lift_weight: 0.0
     shell_lift_k: 24
     shell_lift_diffusion_iters: 1
+    patch_balance: true
+    num_patches: 96
+    patch_scale_min: 0.25
+    patch_scale_max: 4.0
+    patch_min_active: 4
+    pcgrad: true
 
   multi_view:
     enabled: true
@@ -92,28 +109,19 @@ defaults:
     adaptive_grad_match: true
     grad_match_scale_min: 0.0
     grad_match_scale_max: 1000.0
-
     w_bce: 1.0
     w_iou: 1.0
     w_dt: 0.0
     w_depth: 1.0
-    w_ms: 0.0
-    w_curv: 0.0
-
     grad_ratio_iou: 0.25
     grad_ratio_depth: 0.05
-
     early_alpha_eps: 15
     early_alpha_scale: 0.50
     early_alpha_blur_ks: 9
     early_bce_neg_weight: 0.25
-
     early_depth_eps: 15
     early_depth_scale: 0.35
     early_depth_mode: "behind_only"
-
-    concave_bce_quantile: 0.70
-    concave_bce_downweight: 0.4
     masked_threshold: 0.01
     mv_hardmax_w: 1.0
     mv_topk_w: 0.5
@@ -126,9 +134,6 @@ defaults:
     training_resolution_scale: 0.5
     opacity: 0.95
     particle_color: [0.27, 0.51, 0.71]
-    mesh_curvature_radius_edges: 4.0
-    mesh_curvature_quantile: 0.95
-    mesh_curvature_blur_sigma: 1.0
     lighting:
       model: phong
       type: directional
@@ -161,46 +166,5 @@ defaults:
     gradient_heatmap_eps: []
 
 experiments:
-  - name: "g005_w08"
-    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 8}
-  - name: "g005_w12"
-    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 12}
-  - name: "g005_w16"
-    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 16}
-  - name: "g005_w20"
-    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 20}
-  - name: "g005_w24"
-    control_guidance: {render_gain_start: 0.005, render_gain_warmup_eps: 24}
-
-  - name: "g010_w08"
-    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 8}
-  - name: "g010_w12"
-    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 12}
-  - name: "g010_w16"
-    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 16}
-  - name: "g010_w20"
-    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 20}
-  - name: "g010_w24"
-    control_guidance: {render_gain_start: 0.010, render_gain_warmup_eps: 24}
-
-  - name: "g020_w08"
-    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 8}
-  - name: "g020_w12"
-    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 12}
-  - name: "g020_w16"
-    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 16}
-  - name: "g020_w20"
-    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 20}
-  - name: "g020_w24"
-    control_guidance: {render_gain_start: 0.020, render_gain_warmup_eps: 24}
-
-  - name: "g050_w08"
-    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 8}
-  - name: "g050_w12"
-    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 12}
-  - name: "g050_w16"
-    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 16}
-  - name: "g050_w20"
-    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 20}
-  - name: "g050_w24"
-    control_guidance: {render_gain_start: 0.050, render_gain_warmup_eps: 24}
+  - name: "proxy_curriculum_ppc3_smoke"
+    target_mesh_path: "assets/bunny.obj"
