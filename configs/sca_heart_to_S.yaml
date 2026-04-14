@@ -1,7 +1,7 @@
 output_base: "output/sca_teaser"
 
 defaults:
-  input_mesh_path: "assets/isosphere.obj"
+  input_mesh_path: "assets/heart.obj"
 
   simulation:
     grid_min_point: [-16.0, -16.0, -16.0]
@@ -110,5 +110,5 @@ defaults:
       up: [0.0, 0.0, 1.0]
 
 experiments:
-  - name: "sphere_to_S"
+  - name: "heart_to_S"
     target_mesh_path: "assets/S.obj"
