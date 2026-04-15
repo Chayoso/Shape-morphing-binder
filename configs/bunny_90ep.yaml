@@ -9,7 +9,7 @@ defaults:
     grid_dx: 0.5
     gravity: [0.0, 0.0, 0.0]
     dt: 0.004166666667
-    smoothing: 0.955
+    smoothing: 0.975
     boundary: none
     points_per_cell_cuberoot: 5
     shell_sampling:
