@@ -9,7 +9,7 @@ defaults:
     grid_dx: 0.5
     gravity: [0.0, 0.0, 0.0]
     dt: 0.004166666667
-    smoothing: 0.955
+    smoothing: 0.975
     boundary: none
     points_per_cell_cuberoot: 5
     shell_sampling:
@@ -40,7 +40,7 @@ defaults:
     chamfer_eta: 0.20
     chamfer_start_ep: 20
     adaptive_eta_max: 5.0
-    damping: 0.05
+    damping: 0.50
     plasticity_J_min: 0.5
     plasticity_J_max: 1.5
     smooth_k: 64
