@@ -40,7 +40,7 @@ defaults:
     chamfer_eta: 0.15
     chamfer_start_ep: 20
     adaptive_eta_max: 5.0
-    damping: 0.05
+    damping: 0.50
     plasticity_J_min: 0.5
     plasticity_J_max: 1.5
     smooth_k: 64
