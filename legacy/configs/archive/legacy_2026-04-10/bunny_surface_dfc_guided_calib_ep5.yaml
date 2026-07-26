@@ -1,0 +1,172 @@
+output_base: "output/bunny_surface_dfc_guided_calib_ep5"
+
+defaults:
+  input_mesh_path: "assets/isosphere.obj"
+  target_mesh_path: "assets/bunny.obj"
+
+  simulation:
+    grid_dx: 1.0
+    grid_min_point: [-16.0, -16.0, -16.0]
+    grid_max_point: [16.0, 16.0, 16.0]
+    points_per_cell_cuberoot: 5
+    lam: 38888.89
+    mu: 58333.3
+    density: 75.0
+    dt: 0.00833333333
+    drag: 0.5
+    external_force: [0.0, 0.0, 0.0]
+    smoothing_factor: 0.955
+    shell_sampling:
+      enabled: true
+      surface_points_per_cell_cuberoot: 6
+      interior_points_per_cell_cuberoot: 4
+      shell_thickness_cells: 1.5
+      apply_jitter: true
+
+  optimization:
+    num_animations: 6
+    num_timesteps: 10
+    control_stride: 1
+    max_gd_iters: 1
+    max_ls_iters: 10
+    initial_alpha: 0.01
+    final_alpha: 0.004
+    gd_tol: 0.0001
+
+  plasticity:
+    eta: 0.0
+    adaptive_eta_max: 5.0
+    eta_v: 0.0
+    max_v: 5.0
+    max_anisotropy: 1.5
+    smooth_k: 64
+    clip_pct: 95.0
+    diffusion_iters: 3
+    damping: 0.0
+    cohesion_k: 32
+    cohesion_strength: 0.0
+    cohesion_sparse_threshold: 1.5
+    lambda_render: 0.0
+
+  surface_aware:
+    enabled: true
+    recon_resolution: 64
+    recon_padding: 2.0
+    recon_sigma: 1.5
+    recon_level_ratio: 0.02
+    surface_threshold_mult: 1.75
+    min_surface_frac: 0.10
+    max_surface_frac: 0.35
+    render_surface_threshold_mult: 2.25
+    render_min_surface_frac: 0.18
+    render_max_surface_frac: 0.30
+
+  correction:
+    enabled: false
+
+  control_guidance:
+    enabled: true
+    start_ep: 1
+    render_gain: 1.0
+    physics_weight: 1.0
+    normalize: true
+    smooth_k: 32
+    diffusion_iters: 1
+    dLdx_weight: 1.0
+    dLdF_weight: 0.20
+    clip_dLdx_norm: 0.30
+    clip_dLdF_norm: 0.12
+    symmetrize_tensor: true
+    ear_focus_boost: 1.0
+    ear_focus_height_frac: 0.56
+    ear_focus_side_frac: 0.14
+    ear_focus_side_max_frac: 0.52
+    shell_lift_weight: 0.0
+    shell_lift_k: 24
+    shell_lift_diffusion_iters: 1
+
+  multi_view:
+    enabled: true
+    preset: ring
+    num_cameras: 8
+
+  loss_weights:
+    w_bce: 1.0
+    w_iou: 1.0
+    w_dt: 0.0
+    w_depth: 0.25
+    w_ms: 0.0
+    ms_levels: 3
+    ms_fine_weight: 1.0
+    ms_coarse_weight: 0.5
+    w_curv: 0.0
+    curv_band_width: 7
+    curv_smooth_ks: 5
+    curv_high_quantile: 0.75
+    masked_threshold: 0.01
+    mv_hardmax_w: 1.0
+    mv_topk_w: 0.5
+    mv_topk_k: 2
+
+  render:
+    sigma0: auto
+    sigma0_scale: 0.7
+    opacity: 0.95
+    bg: [1.0, 1.0, 1.0]
+    training_resolution_scale: 0.5
+    particle_color: [0.27, 0.51, 0.71]
+    lighting:
+      model: phong
+      type: directional
+      direction: [0.3, -0.5, 0.8]
+      two_sided: true
+      ambient: 0.18
+      diffuse: 0.85
+      specular: 0.10
+      shininess: 32
+
+  upsample:
+    covariance:
+      sigma0: 0.08
+
+  camera:
+    width: 1920
+    height: 1080
+    fx: 712.5
+    fy: 712.5
+    cx: 960.0
+    cy: 540.0
+    znear: 0.01
+    zfar: 100.0
+    lookat:
+      eye: [20.0, -25.0, 12.5]
+      target: [0.0, 0.0, 0.0]
+      up: [0.0, 0.0, 1.0]
+
+  debug:
+    gradient_heatmap_eps: [0, 5]
+
+experiments:
+  - name: "baseline_ep5"
+    target_mesh_path: "assets/bunny.obj"
+
+  - name: "curv5_ep5"
+    target_mesh_path: "assets/bunny.obj"
+    loss_weights:
+      w_curv: 5.0
+
+  - name: "curv20_ep5"
+    target_mesh_path: "assets/bunny.obj"
+    loss_weights:
+      w_curv: 20.0
+
+  - name: "curv50_ep5"
+    target_mesh_path: "assets/bunny.obj"
+    loss_weights:
+      w_curv: 50.0
+
+  - name: "ms025_curv20_ep5"
+    target_mesh_path: "assets/bunny.obj"
+    loss_weights:
+      w_ms: 0.25
+      w_curv: 20.0

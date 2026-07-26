@@ -1,0 +1,331 @@
+<title>PhysMorph 코어 — C++ ↔ Warp 대조표</title>
+<style>
+  :root {
+    color-scheme: light;
+    --paper: #FBFAF7; --ink: #22262A; --muted: #6E7268; --line: #E3E0D6; --card: #F3F1E9;
+    --accent: #1E6E63; --accent-soft: #E2EEEB;
+    --amber: #B07A18; --amber-soft: #F4EAD5;
+    --red: #A5473B; --red-soft: #F6E4E1;
+    --cpp: #7A5CA0; --cpp-soft: #ECE6F2;
+    --sans: "Pretendard Variable", Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", "Segoe UI Symbol", "Cambria Math", sans-serif;
+    --mono: "Cascadia Code", Consolas, "Cambria Math", "Segoe UI Symbol", "Courier New", monospace;
+    --math: "Cambria Math", "STIX Two Math", "Times New Roman", serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark;
+      --paper: #15181A; --ink: #E7E5DF; --muted: #9AA09A; --line: #2E3336; --card: #1C2023;
+      --accent: #4FB3A4; --accent-soft: #1C2E2B; --amber: #D9A544; --amber-soft: #2E2718;
+      --red: #D07A6E; --red-soft: #2E1D1A; --cpp: #A98CC9; --cpp-soft: #272130; }
+  }
+  :root[data-theme="dark"] { color-scheme: dark;
+    --paper: #15181A; --ink: #E7E5DF; --muted: #9AA09A; --line: #2E3336; --card: #1C2023;
+    --accent: #4FB3A4; --accent-soft: #1C2E2B; --amber: #D9A544; --amber-soft: #2E2718;
+    --red: #D07A6E; --red-soft: #2E1D1A; --cpp: #A98CC9; --cpp-soft: #272130; }
+  :root[data-theme="light"] { color-scheme: light;
+    --paper: #FBFAF7; --ink: #22262A; --muted: #6E7268; --line: #E3E0D6; --card: #F3F1E9;
+    --accent: #1E6E63; --accent-soft: #E2EEEB; --amber: #B07A18; --amber-soft: #F4EAD5;
+    --red: #A5473B; --red-soft: #F6E4E1; --cpp: #7A5CA0; --cpp-soft: #ECE6F2; }
+  html { background: var(--paper); }
+  body { background: var(--paper); color: var(--ink); font-family: var(--sans);
+         font-size: 15.5px; line-height: 1.7; margin: 0; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 50px 24px 90px; }
+  .eyebrow { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 700; margin: 0 0 10px; }
+  h1 { font-size: 32px; font-weight: 800; letter-spacing: -.02em; line-height: 1.2; margin: 0 0 8px; text-wrap: balance; }
+  h2 { font-size: 20px; font-weight: 800; letter-spacing: -.015em; margin: 0 0 2px; }
+  h3 { font-size: 15.5px; font-weight: 700; margin: 22px 0 6px; }
+  p { margin: 10px 0; max-width: 50em; }
+  .subtitle { font-size: 16.5px; color: var(--muted); margin: 0; max-width: 46em; }
+  .meta { font-size: 12.5px; color: var(--muted); font-family: var(--mono); margin-top: 14px; }
+  code { font-family: var(--mono); font-size: .87em; background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .mono { font-family: var(--mono); }
+  .im { font-family: var(--math); white-space: nowrap; } .im i { font-style: italic; }
+
+  .sec { margin-top: 44px; border-top: 2px solid var(--accent); padding-top: 14px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .sec-head .n { font-family: var(--mono); font-size: 11.5px; font-weight: 700; color: var(--accent); letter-spacing: .08em; }
+  .what { font-size: 13.5px; color: var(--muted); margin: 6px 0 0; }
+
+  /* side-by-side rows */
+  .pair { border: 1px solid var(--line); border-radius: 8px; margin-top: 14px; overflow: hidden; }
+  .pair-head { display: flex; align-items: baseline; gap: 10px; padding: 9px 16px; background: var(--card); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .pair-head .t { font-weight: 800; font-size: 14.5px; }
+  .pair-head .v { margin-left: auto; font-size: 11px; font-weight: 800; letter-spacing: .04em; border-radius: 999px; padding: 2px 10px; }
+  .v.same { background: var(--accent-soft); color: var(--accent); }
+  .v.ext { background: var(--amber-soft); color: var(--amber); }
+  .v.diff { background: var(--red-soft); color: var(--red); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; }
+  .cols > div { padding: 11px 16px; }
+  .cols > div + div { border-left: 1px dashed var(--line); }
+  .cols .lbl { display: block; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; margin-bottom: 5px; }
+  .cols .cpp .lbl { color: var(--cpp); }
+  .cols .warp .lbl { color: var(--accent); }
+  pre { font-family: var(--mono); font-size: 11.7px; line-height: 1.55; margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .src { font-family: var(--mono); font-size: 10.8px; color: var(--muted); display: block; margin-top: 6px; }
+  .note-row { padding: 9px 16px; font-size: 13px; background: var(--amber-soft); border-top: 1px solid var(--line); }
+  .note-row b { color: var(--amber); }
+  .note-row.d { background: var(--red-soft); } .note-row.d b { color: var(--red); }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } .cols > div + div { border-left: none; border-top: 1px dashed var(--line); } }
+
+  .tbl-scroll { overflow-x: auto; margin-top: 14px; border: 1px solid var(--line); border-radius: 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.2px; min-width: 620px; }
+  th { text-align: left; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+       font-weight: 700; padding: 9px 12px; background: var(--card); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.num, .tabnum { font-family: var(--mono); font-size: 12.3px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .good { color: var(--accent); font-weight: 700; } .bad { color: var(--red); font-weight: 700; } .mid { color: var(--amber); font-weight: 700; }
+  tr.best td { background: var(--accent-soft); }
+
+  .finding { border-left: 3px solid var(--accent); background: var(--accent-soft); padding: 12px 18px; margin: 16px 0; font-size: 14px; }
+  .note { border-left: 3px solid var(--amber); background: var(--amber-soft); padding: 12px 18px; margin: 16px 0; font-size: 14px; }
+  .note b:first-child { color: var(--amber); }
+  .foot { margin-top: 54px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+
+  @media print {
+    :root { color-scheme: light; --paper:#fff; --ink:#111; --muted:#555; --line:#ccc; --card:#f4f4f4;
+            --accent:#12564D; --accent-soft:#EAF3F1; --amber:#7A5310; --amber-soft:#F6EEDD;
+            --red:#7A2E24; --red-soft:#F7E7E4; --cpp:#4A3568; --cpp-soft:#EDE8F3; }
+    .wrap { padding: 0; } .tbl-scroll { overflow: visible; } table { min-width: 0; }
+    .sec, .pair, tr { break-inside: avoid; page-break-inside: avoid; }
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">PhysMorph · 코어 대조 · 2026-07-27</p>
+    <h1>C++ 원본과 Warp 재작성이 정확히 어떻게 대응하는가</h1>
+    <p class="subtitle"><code>legacy/DiffMPMLib3D</code>(C++)와 <code>physmorph/mpm</code>(Warp)을 커널 단위로 맞춰본 대조표. 전방 시뮬레이션은 <b>수식 수준에서 거의 1:1</b>이고, Warp 쪽에 <b>네 가지 확장</b>과 <b>한 가지 구현 차이</b>가 있으며, 반대로 <b>C++ 옵티마이저에만 있는 장치 네 가지</b>가 Warp에 없다.</p>
+    <p class="meta">근거: 양쪽 소스를 직접 읽고 대조 · 실행 확인은 hyde06</p>
+  </header>
+
+  <!-- ══════════ 1. 커널 대조 ══════════ -->
+  <div class="sec">
+    <div class="sec-head"><span class="n">§1</span><h2>전방 시뮬레이션 — 커널 단위 대조</h2></div>
+    <p class="what">C++는 입자 하나를 처리하는 함수 + OpenMP 루프, Warp는 <code>@wp.kernel</code> + <code>wp.tid()</code>. 스텐실·가중치·계수가 전부 같다.</p>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">보간 — cubic B-spline</span><span class="v same">동일</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++</span><pre>inline float CubicBSpline(float x) {
+  x = abs(x);
+  if (x &lt; 1) return 0.5*x*x*x - x*x + 2/3;
+  if (x &lt; 2) return (2-x)^3 / 6;
+  return 0;
+}</pre><span class="src">Interpolation.h</span></div>
+        <div class="warp"><span class="lbl">Warp</span><pre>@wp.func
+def bspline_w(x: float) -&gt; float:
+    ax = wp.abs(x)
+    if ax &lt; 1.0: return 0.5*ax*ax*ax - ax*ax + 2.0/3.0
+    if ax &lt; 2.0: t = 2.0-ax; return t*t*t/6.0
+    return 0.0</pre><span class="src">mpm/constitutive.py:13-21 · 3축 곱 = <code>weight()</code> :36-42</span></div>
+      </div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">Lamé 파라미터</span><span class="v same">동일</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++ <code>CalculateLameParameters</code></span><pre>lam = E*nu / ((1+nu)*(1-2*nu));
+mu  = E / (2 + 2*nu);</pre><span class="src">Elasticity.cpp</span></div>
+        <div class="warp"><span class="lbl">Warp <code>lame()</code></span><pre>lam = young*poisson / ((1+poisson)*(1-2*poisson))
+mu  = young / (2.0*(1.0+poisson))</pre><span class="src">mpm/constitutive.py:46-50</span></div>
+      </div>
+      <div class="note-row"><b>확인:</b> <span class="im"><i>E</i>/(2+2<i>ν</i>) ≡ <i>E</i>/(2(1+<i>ν</i>))</span> — 표기만 다르고 같은 식.</div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">1st Piola–Kirchhoff 응력 (fixed corotated)</span><span class="v diff">구현 차이</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++ <code>PK_FixedCorotatedElasticity</code></span><pre>JIXIE::polarDecomposition(F, R, S);
+J = max(F.determinant(), 1e-6);
+return 2*mu*(F-R) + lam*(J-1)*J*F.inverse().transpose();</pre><span class="src">Elasticity.cpp</span></div>
+        <div class="warp"><span class="lbl">Warp <code>pk1_fixed_corotated</code></span><pre>R = corotated_R(F)      # signed SVD: R = U V^T, 반사면 열 뒤집기
+J = wp.determinant(F); Jc = wp.max(J, 1.0e-6)
+return 2*mu*(F-R) + lam*(Jc-1)*Jc*transpose(inverse(F))</pre><span class="src">mpm/constitutive.py:53-79</span></div>
+      </div>
+      <div class="note-row d"><b>차이:</b> 회전 <span class="im"><i>R</i></span>을 C++는 <b>극분해</b>로, Warp는 <b>부호 있는 SVD</b>(<span class="im"><i>R</i>=<i>UV</i><sup>T</sup></span>, det&lt;0이면 열 반전)로 구한다. <span class="im">det <i>F</i> &gt; 0</span>이면 <b>두 값은 같다</b>(극분해의 R이 곧 <span class="im"><i>UV</i><sup>T</sup></span>). 뒤집힌 <span class="im"><i>F</i></span>에서만 갈리며, Warp 쪽이 항상 <b>진짜 회전</b>(det=+1)을 보장하는 더 견고한 변형이다. <span class="im"><i>J</i></span> 바닥 <span class="im">10<sup>−6</sup></span>은 양쪽 동일.</div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">응력 계산 (P_op_1)</span><span class="v ext">Warp 확장</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++ <code>SingleParticle_op_1</code></span><pre>mp.P = PK_FixedCorotatedElasticity(
+          mp.F + mp.dFc, mp.lam, mp.mu);</pre><span class="src">ForwardSimulation.cpp:11-14</span></div>
+        <div class="warp"><span class="lbl">Warp <code>k_stress</code></span><pre>Fe = (F[p] + dFc[p]) @ wp.inverse(Fp[p])
+P[p] = pk1_fixed_corotated(Fe, lam[p], mu[p])</pre><span class="src">mpm/kernels.py:35-41</span></div>
+      </div>
+      <div class="note-row"><b>확장:</b> Warp는 <b>소성 rest-state</b> <span class="im"><i>F</i><sup>plastic</sup></span>를 도입해 <span class="im"><i>F</i><sub>e</sub> = (<i>F</i>+<i>dF</i><sub>c</sub>)(<i>F</i><sup>plastic</sup>)<sup>−1</sup></span>. C++엔 <span class="im"><i>F</i><sup>plastic</sup></span> 개념이 없다. <span class="im"><i>F</i><sup>plastic</sup> = 𝟙</span>이면 완전히 동일하고, 기본값이 항등이라 소성을 안 켜면 차이 없음.</div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">P2G — 입자→그리드</span><span class="v same">동일</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++ <code>SingleParticle_to_grid</code></span><pre>bot_left = floor((x - grid.min)/dx) - 1;
+for (idx = 0; idx &lt; 64; idx++) {          // 4x4x4
+  dgp = node.x - mp.x;
+  wgp = CubicBSpline(dgp[0]/dx)*...*...;
+  node.m += wgp * mp.m;                   // atomic
+  C0 = 3/(dx*dx);
+  dp = wgp * ( mp.m*mp.v*(1 - dt*drag)
+       + (-C0*dt*mp.vol*mp.P*(mp.F+mp.dFc).T
+          + mp.m*mp.C) * dgp );
+  node.p += dp;                           // atomic
+}</pre><span class="src">ForwardSimulation.cpp:21-72</span></div>
+        <div class="warp"><span class="lbl">Warp <code>k_p2g</code></span><pre>b = base_node(xp, gmin, inv_dx)   # floor(...)-1
+Feff = F[p] + dFc[p]
+C0 = 3.0*inv_dx*inv_dx
+G  = -C0*dt*vol[p]*(P[p] @ transpose(Feff)) + m[p]*C[p]
+mv = m[p]*v[p]*(1.0 - dt*drag)
+for oi,oj,ok in 0..3:                     # 4x4x4
+    w = weight(xg - xp, inv_dx)
+    wp.atomic_add(grid_m, g, w*m[p])
+    wp.atomic_add(grid_v, g, w*(mv + G @ dgp))</pre><span class="src">mpm/kernels.py:65-94</span></div>
+      </div>
+      <div class="note-row"><b>일치 항목:</b> base 인덱스의 <code>−1</code> 오프셋, 4³=64 스텐실, <span class="im"><i>C</i><sub>0</sub> = 3/Δ<i>x</i>²</span>, drag 항 <span class="im">(1−Δ<i>t·γ</i>)</span>, APIC affine <span class="im"><i>mC</i></span>, 응력 항의 <span class="im">−<i>C</i><sub>0</sub>Δ<i>t V</i><sup>0</sup><i>P F</i><sub>eff</sub><sup>T</sup></span>, atomic 누적 — <b>전부 동일</b>. Warp는 상수를 루프 밖으로 뺐을 뿐.</div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">그리드 업데이트</span><span class="v ext">Warp 확장</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++ <code>SingleNode_op</code></span><pre>if (node.m &gt; 1e-12f) {
+  node.v = node.p / node.m + dt * f_ext;
+}</pre><span class="src">ForwardSimulation.cpp:74-79</span></div>
+        <div class="warp"><span class="lbl">Warp <code>k_grid_op</code></span><pre>if mg &gt; 1.0e-12:
+    vg = grid_mom[g]/mg + dt*f_ext
+    # + 분리형 바닥 + Coulomb 마찰 (C++엔 없음)
+    if node_y &lt; floor_y and vg[1] &lt; 0:
+        vt = tangential(vg) * max(0, 1 - friction*vn/tl)
+        vg = vec3(vt[0], 0.0, vt[2])
+grid_vel[g] = vg</pre><span class="src">mpm/kernels.py:101-121</span></div>
+      </div>
+      <div class="note-row"><b>확장:</b> 질량 임계 <span class="im">10<sup>−12</sup></span>와 <span class="im"><i>v</i>=<i>p</i>/<i>m</i>+Δ<i>t f</i><sub>ext</sub></span>는 동일. Warp는 <b>바닥 접촉 + 마찰</b>을 추가했다(낙하/바운스 실험용). 또한 운동량과 속도를 <b>별도 배열</b>로 둔다 — 미분 가능 배열을 제자리 read-write 하면 Warp의 adjoint가 깨지기 때문.</div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">G2P — 그리드→입자</span><span class="v ext">Warp 확장</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++ <code>Grid_to_SingleParticle</code></span><pre>next.v.setZero(); next.C.setZero();
+for (idx = 0; idx &lt; 64; idx++) {
+  dgp = node.x - curr.x;
+  wgp = CubicBSpline(...)*...;
+  next.v += wgp * node.v;
+  next.C += 3/(dx*dx) * wgp * node.v * dgp.transpose();
+}</pre><span class="src">ForwardSimulation.cpp:81-115</span></div>
+        <div class="warp"><span class="lbl">Warp <code>k_g2p</code></span><pre>vnew = 0; Cnew = 0
+for oi,oj,ok in 0..3:
+    vnew += w*vg
+    Cnew += C0 * w * wp.outer(vg, dgp)
+# ↓ C++엔 없는 것들
+if v_max &gt; 0: vnew = clamp_len(vnew, v_max)
+fac = exp(-dt*eta) or max(0, 1-dt*eta)      # 점성
+Cnew = W + fac*D  (eta_sym=1) or fac*Cnew   # 객관/레거시
+F_new[p] = (I + dt*Cnew) @ (F[p] + dFc[p])</pre><span class="src">mpm/kernels.py:125-169</span></div>
+      </div>
+      <div class="note-row"><b>확장 3가지:</b> ① <b>점성 <span class="im"><i>η</i></span></b> — affine 장 <span class="im"><i>C</i></span>를 감쇠(<code>eta_sym=1</code>은 <span class="im"><i>D</i>=sym(<i>C</i>)</span>만 감쇠해 강체 회전을 보존하는 <b>객관적</b> 버전, <code>eta_mode=1</code>은 지수형 <span class="im">exp(−Δ<i>tη</i>)</span>). ② <b><code>v_max</code> 속도 클램프</b>. ③ NaN/발산 가드 <code>valid_pos</code>. C++엔 셋 다 없다.</div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">F 적분 · 스무딩 · 이류 (P_op_2)</span><span class="v same">동일 (분할됨)</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++ <code>SingleParticle_op_2</code> + <code>smooth_deformation_gradient</code></span><pre>next.F = (I + dt*next.C) * (curr.F + curr.dFc);
+next.F = next.F*(1-s) + curr.F*s;       // smoothing
+next.x = curr.x + dt*next.v;</pre><span class="src">ForwardSimulation.cpp:117-132</span></div>
+        <div class="warp"><span class="lbl">Warp <code>k_g2p</code>(F_new) + <code>k_update</code></span><pre># k_g2p:169
+F_new[p] = (I + dt*Cnew) @ (F[p] + dFc[p])
+# k_update:181-182
+F_out[p] = (1-s)*F_new[p] + s*F_in[p]
+x_out[p] = x_in[p] + dt*v[p]</pre><span class="src">mpm/kernels.py:169, 175-182</span></div>
+      </div>
+      <div class="note-row"><b>동일:</b> 식도 순서도 같고 Warp가 두 커널로 나눴을 뿐. <b>스무딩 계수 <span class="im"><i>s</i></span>가 곧 그 "숨은 필터"</b> — 기본 0.955는 매 스텝 <span class="im"><i>F</i></span> 갱신의 95.5%를 버린다. 준정적 모핑에는 이게 맞고, 동역학 실험에는 <span class="im"><i>s</i>=0</span>이어야 한다.</div>
+    </div>
+
+    <div class="pair">
+      <div class="pair-head"><span class="t">체적 계산 (1회)</span><span class="v same">동일</span></div>
+      <div class="cols">
+        <div class="cpp"><span class="lbl">C++ <code>CalculatePointCloudVolumes</code></span><pre>P2G(pc, grid, 0, 0);                    // dt=0, drag=0
+mass_from_grid = Σ wgp * node.m;
+cell_volume = dx*dx*dx;
+rho_p = mass_from_grid / cell_volume;
+mp.vol = mp.m / rho_p;</pre><span class="src">ForwardSimulation.cpp:199+</span></div>
+        <div class="warp"><span class="lbl">Warp <code>k_volume</code></span><pre>mass = Σ w * grid_m[gid]
+cell = dx*dx*dx
+rho  = mass / cell
+vol[p] = m[p] / rho   (rho &gt; 1e-12)</pre><span class="src">mpm/kernels.py:200-227</span></div>
+      </div>
+    </div>
+
+    <h3>상위 구조</h3>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>C++</th><th>Warp</th><th>관계</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">ForwardTimeStep()<span class="src">P_op_1 → G_Reset → P2G → G_op → G2P → P_op_2</span><td class="mono">mpm/step.py: mpm_step()<td>동일 순서의 커널 6회 launch</tr>
+        <tr><td class="mono">CompGraphLayer (레이어별 PointCloud+Grid)<td class="mono">mpm/traj.py: Trajectory<td>스텝별 상태 배열 보관 — 같은 역할</tr>
+        <tr><td class="mono">BackPropagation.cpp (수동 adjoint)<td class="mono">wp.Tape() (자동미분)<td><b>여기가 재작성의 핵심</b>: 손으로 짠 역전파를 테이프로 대체</tr>
+        <tr><td class="mono">CompGraph::OptimizeDefGradControlSequence<td class="mono">morph.py: morph_mass()<td>둘 다 <span class="im"><i>dF</i><sub>c</sub></span>를 최적화 (§3 참조)</tr>
+        <tr><td class="mono">EndLayerMassLoss()<td class="mono">losses/volumetric.py: d_vol()<td>최종 상태의 질량분포 매칭 — <b>같은 목적함수</b></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <!-- ══════════ 2. 요약 ══════════ -->
+  <div class="sec">
+    <div class="sec-head"><span class="n">§2</span><h2>차이 요약</h2></div>
+    <div class="finding"><b>전방 시뮬레이션은 사실상 1:1이다.</b> 보간·스텐실·<span class="im"><i>C</i><sub>0</sub></span>·drag·APIC·응력·F 적분·스무딩·체적 계산이 전부 같은 식이다. <code>kernels.py</code> 첫 줄의 <i>"Oracle: DiffMPMLib3D/ForwardSimulation.cpp"</i>는 정확한 서술이다.</div>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>구분</th><th>내용</th><th>기본값에서</th></tr></thead>
+      <tbody>
+        <tr><td class="mid">Warp 확장 ①<td>소성 rest-state <span class="im"><i>F</i><sub>e</sub>=(<i>F</i>+<i>dF</i><sub>c</sub>)(<i>F</i><sup>pl</sup>)<sup>−1</sup></span><td><span class="im"><i>F</i><sup>pl</sup>=𝟙</span> → 차이 없음</tr>
+        <tr><td class="mid">Warp 확장 ②<td>점성 <span class="im"><i>η</i></span> (객관 <code>eta_sym</code> / 지수 <code>eta_mode</code>)<td><span class="im"><i>η</i>=0</span> → 차이 없음</tr>
+        <tr><td class="mid">Warp 확장 ③<td><code>v_max</code> G2P 속도 클램프<td>0 = off → 차이 없음</tr>
+        <tr><td class="mid">Warp 확장 ④<td>바닥 접촉 + Coulomb 마찰, NaN 가드<td>floor 미설정 → 차이 없음</tr>
+        <tr><td class="bad">구현 차이<td>회전 <span class="im"><i>R</i></span>: 극분해(C++) vs 부호 SVD(Warp)<td><span class="im">det <i>F</i>&gt;0</span>이면 동일</tr>
+      </tbody>
+    </table></div>
+    <p>즉 <b>확장 넷은 전부 기본값에서 비활성</b>이라, 같은 설정을 주면 두 구현은 같은 물리를 돌린다. 이것이 C++를 <b>독립 검증용 오라클</b>로 쓸 수 있는 근거다.</p>
+  </div>
+
+  <!-- ══════════ 3. 반대 방향 ══════════ -->
+  <div class="sec">
+    <div class="sec-head"><span class="n">§3</span><h2>반대로 — C++ 옵티마이저에만 있고 Warp에 없는 것</h2></div>
+    <p class="what">전방은 Warp가 더 풍부하지만, <b>최적화 레이어는 C++가 더 갖췄다</b>. 아래 넷은 연구가 아니라 <b>포팅</b> 대상이다.</p>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>C++에 있는 것</th><th>무엇을 하는가</th><th>Warp 현재</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">max_ls_iters<span class="src">optimize_single_timestep(…, max_line_search_iters=10)</span><td><b>line search</b> — 손실을 악화시키거나 롤아웃을 터뜨리는 스텝을 <b>거부</b><td class="bad">없음 (고정 lr Adam + 클리핑)</tr>
+        <tr><td class="mono">adaptive_alpha_*<span class="src">enabled / target_norm / min_scale</span><td>gradient 노름을 목표치로 맞춰 스텝 크기 자동 조정<td class="bad">없음</tr>
+        <tr><td class="mono">get_control_layer_grad_norm()<td>독스트링: <span class="im"><i>λ</i> = <i>α</i>·phys_norm / render_norm</span> — <b>물리 vs 렌더 gradient 자동 균형</b><td class="mid">RMS 정규화 + 고정 gain (근접하나 비적응)</tr>
+        <tr><td class="mono">accumulate_render_grads()<span class="src">clear_render_gradients()</span><td>렌더 gradient를 C++ 역전파에 <b>주입하는 훅</b><td class="good">불필요 (단일 autograd 그래프)</tr>
+      </tbody>
+    </table></div>
+    <div class="note"><b>왜 중요한가.</b> Warp 쪽에서 풀리지 않던 발산(“<span class="im">|<i>dF</i><sub>c</sub>|</span>는 클램프 안인데 롤아웃이 터진다, 감쇠 노브는 tipping 시점만 옮긴다”)은 <b>스텝 수용 조건이 없어서</b>일 가능성이 크다. line search는 정확히 그걸 막는 장치이고, C++엔 이미 있다.</div>
+  </div>
+
+  <!-- ══════════ 4. Step 0 ══════════ -->
+  <div class="sec">
+    <div class="sec-head"><span class="n">§4</span><h2>Step 0 실측 — 기존 <code>morph_mass</code>는 실제로 뭘 내는가</h2></div>
+    <p class="what">같은 코드 경로에서 <span class="im"><i>λ</i></span>만 바꾼다: <code>L = D_vol + λ·D_img + cohesion</code>. <span class="im"><i>λ</i>=0</span>이 곧 Xu et al. 목적함수, <span class="im"><i>λ</i>&gt;0</span>이 렌더 가이드. isosphere→bunny, 20,000 입자, K=30 프레임, arm당 <b>6초</b>.</p>
+    <div class="tbl-scroll"><table>
+      <thead><tr><th>render_lambda</th><th>chamfer ↓</th><th>실루엣 IoU ↑</th><th>D_vol ↓</th><th>D_img ↓</th><th>λ·D_img</th><th>min det F</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlab">0 <span class="src">= Xu et al. 목적함수</span><td class="num">0.1884<td class="num">0.8573<td class="num">2.23<td class="num">0.02834<td class="num">0<td class="num">0.599</tr>
+        <tr><td class="rowlab">1<td class="num">0.1862<td class="num">0.8617<td class="num">1.00<td class="num">0.02771<td class="num">0.028<td class="num">0.602</tr>
+        <tr><td class="rowlab">10<td class="num">0.1841<td class="num">0.8674<td class="num">2.11<td class="num">0.02382<td class="num">0.238<td class="num">0.600</tr>
+        <tr class="best"><td class="rowlab">100<td class="num good">0.1631<td class="num good">0.9037<td class="num">2.09<td class="num">0.01081<td class="num">1.081<td class="num">0.598</tr>
+        <tr class="best"><td class="rowlab">1000<td class="num good">0.1509<td class="num good">0.9243<td class="num mid">3.28<td class="num">0.00398<td class="num">3.983<td class="num">0.565</tr>
+      </tbody>
+    </table></div>
+    <div class="finding"><b>렌더 가이드는 작동한다 — 기본 <span class="im"><i>λ</i></span>가 두세 자릿수 작았을 뿐이다.</b>
+    <span class="im"><i>λ</i></span>를 0→1000으로 올리면 chamfer <b>0.188→0.151</b>, 실루엣 IoU <b>0.857→0.924</b>로 <b>둘 다 단조 개선</b>된다.
+    그리고 <span class="im"><i>λ</i></span>=100까지는 <b>D_vol이 나빠지지 않는다</b>(2.23→2.09) — 3-D 충실도를 팔아 실루엣을 사는 게 아니라 양쪽이 같이 좋아진다.
+    det F도 0.56~0.60으로 건강하다(반전 없음).</div>
+    <div class="note"><b>스케일이 원인이라는 증거.</b> 최종 상태에서 <span class="im"><i>D</i><sub>vol</sub> ≈ 2.1</span>, <span class="im"><i>D</i><sub>img</sub> ≈ 0.024</span> — <b>약 90배 차이</b>다. 그래서 <span class="im"><i>λ</i></span>=0.5에서는 렌더 항의 기여가 0.014로 사실상 0이었다. <span class="im"><i>λ</i></span>≈100에서 <span class="im"><i>λ·D</i><sub>img</sub> ≈ 1.08</span>이 되어 <span class="im"><i>D</i><sub>vol</sub></span>과 같은 자릿수가 되고, 바로 거기서 효과가 나타난다.<br><br>
+    <b>이건 §3의 <span class="im"><i>λ</i> = <i>α</i>·phys_norm/render_norm</span>이 정확히 자동화하려던 것이다.</b> 수동 λ 튜닝 대신 노름 비로 균형을 맞추면 이 스케일 문제가 구조적으로 사라진다.</div>
+    <div class="note"><b>측정상 주의 하나.</b> <code>morph_mass</code>의 기본 <code>promote_F=False</code>는 매 프레임 <span class="im"><i>F</i></span>를 항등으로 리셋하므로 반환된 det F가 무조건 1이 되어 <b>무의미</b>하다. 위 표는 <code>promote_F=True</code>로 측정했고, 이 설정에서 D_vol 자체도 11.7 → 2.2로 크게 좋아진다(F를 프레임 간에 유지하는 편이 낫다).</div>
+  </div>
+
+  <div class="foot">
+    <p>소스: <span class="mono">legacy/DiffMPMLib3D/{Interpolation.h, Elasticity.cpp, ForwardSimulation.cpp, CompGraph.h}</span> ·
+    <span class="mono">physmorph/mpm/{constitutive,kernels,step,traj}.py</span> · <span class="mono">physmorph/{morph.py, losses/volumetric.py, losses/silhouette.py}</span>.
+    실측: <span class="mono">scripts/morph_measure.py</span> → <span class="mono">output/step0_sweep.json</span> (hyde06).
+    수식 계약은 <span class="mono">docs/method.md</span>(엔진 독스트링이 <span class="mono">docs/SPEC.md</span>로 참조하는 그 파일).</p>
+  </div>
+</div>

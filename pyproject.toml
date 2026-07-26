@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "physmorph"
+version = "2.0.0"
+description = "Differentiable elastoplastic MPM morphing (Warp + torch + 3DGS)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "warp-lang>=1.9",
+  "torch>=2.5",
+  "numpy",
+  "scipy",
+  "trimesh",
+  "scikit-image",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "matplotlib", "pillow"]
+
+[tool.setuptools.packages.find]
+include = ["physmorph*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,133 @@
+# Test Config: Optimized Smooth Rendering
+# Fixes: Blurriness, Patches, Gaps
+# Changes: Reduced jitter, stronger F-smoothing, more particles, balanced sigma
+
+input_mesh_path: "assets/isosphere.obj"
+target_mesh_path: "assets/spot.obj"
+output_dir: "output/spot_exp/test_smooth_render/"
+
+simulation:
+  grid_dx: 1
+  points_per_cell_cuberoot: 3
+  grid_min_point: [-16.0, -16.0, -16.0]
+  grid_max_point: [16.0, 16.0, 16.0]
+  lam: 38888.89
+  mu: 58333.3
+  density: 75.0
+  dt: 0.00833333333
+  drag: 0.5
+  external_force: [0.0, 0.0, 0.0]
+  smoothing_factor: 0.955
+
+optimization:
+  num_animations: 60
+  num_timesteps: 10
+  control_stride: 10
+  max_gd_iters: 10
+  max_ls_iters: 15
+  initial_alpha: 0.005
+  gd_tol: 0.00005
+  use_session_mode: false
+
+  loss:
+    enabled: true
+    render_loss_weight: 1e4
+    w_alpha: 2.0
+    w_depth: 5.0
+    w_photo: 1.0
+    w_edge: 3.0
+    w_cov_align: 10.0
+    w_cov_reg: 0.01
+    w_det_barrier: 0.1
+    cov_reg_mode: 'eigenvalue'
+    schedule: 'constant'
+
+  magnitude_strategy: 'normalize'
+
+upsample:
+  use_simple_pipeline: true
+
+  # E2E Render Loss Weight
+  render_loss_weight: 1e4
+  w_alpha: 2.0
+  w_depth: 5.0
+  w_photo: 1.0
+  w_edge: 3.0
+  w_cov_align: 10.0
+  w_cov_reg: 0.01
+  w_det_barrier: 0.1
+  magnitude_strategy: 'normalize'
+
+  covariance:
+    use_curvature_for_target: true
+
+    # OPTIMIZED: Balanced base size (not too small or large)
+    sigma_isotropic: 0.028          # Reduced from 0.038 (less blur)
+
+    curvature_sigma:
+      # OPTIMIZED: Sharper but smooth
+      sigma_n0: 0.012               # Reduced from 0.02 (crisper normals)
+      sigma_t0: 0.018               # Reduced from 0.03 (crisper tangents)
+      a: 16.0                       # Increased from 12.0 (stronger curvature response)
+      b: 6.0                        # Increased from 5.0
+      a_n: 4                        # Increased from 3 (more adaptation)
+      u: 4                          # Increased from 3
+      k_floor_normal: 0.0015        # Reduced from 0.002
+      k_floor_tangent: 0.003        # Reduced from 0.005
+
+    # CRITICAL: Balanced sigma for smooth + sharp
+    sigma0: 0.15                    # Reduced from 0.25 (less blur, still smooth)
+    k_F: 32
+
+    # OPTIMIZED: Better multiscale interpolation
+    use_multiscale_F: true
+    k_F_coarse: 96                  # Increased from 64 (smoother global field)
+    k_F_fine: 12                    # Reduced from 16 (finer local detail)
+    multiscale_blend_mode: 'adaptive'
+
+    # CRITICAL: More particles + less jitter = smooth, seamless surface
+    enable_subdivision: true
+    subdivision_target: 150000      # Increased from 60000 (2.5× more particles)
+    subdivision_jitter: 0.03        # REDUCED from 0.08 (eliminates patches!)
+
+    # Tighter deformation bounds
+    sv_min: 0.85                    # From 0.80
+    sv_max: 1.15                    # From 1.20
+
+    # CRITICAL: MUCH stronger F-field smoothing (eliminates seams/patches)
+    use_F_smoothing: true
+    F_smooth:
+      lambda_lap: 0.02              # INCREASED 4× from 0.005 (smooth surface!)
+      num_nodes: 300                # Increased from 180 (more smoothing)
+      node_knn: 12                  # Increased from 8 (better interpolation)
+      point_knn: 12                 # Increased from 8
+
+camera:
+  width: 3840
+  height: 2160
+  fx: 1425.0
+  fy: 1425.0
+  cx: 1920.0
+  cy: 1080.0
+  znear: 0.01
+  zfar: 100.0
+  lookat:
+    eye: [20.0, -25.0, 12.5]
+    target: [0.0, 0.0, 0.0]
+    up: [0.0, 0.0, 1.0]
+
+render:
+  num_frames: 1
+  schedule: uniform
+  bg: [1.0, 1.0, 1.0]
+  training_resolution_scale: 1.0
+  particle_color: [0.27, 0.51, 0.71]
+  lighting:
+    model: phong
+    type: directional
+    direction: [0.3, -0.5, 0.8]
+    two_sided: true
+    ambient: 0.18
+    diffuse: 0.85
+    specular: 0.10
+    shininess: 32

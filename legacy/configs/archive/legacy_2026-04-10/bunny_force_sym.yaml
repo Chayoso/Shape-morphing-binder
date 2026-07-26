@@ -1,0 +1,142 @@
+# Bunny hero rescue with hard mirror-symmetric local refinement.
+#
+# Purpose:
+# - force bilateral ear formation even if one side gets stronger gradients
+# - treat this as a hero-case rescue branch, not the default main method
+#
+# Run:
+#   /home/chayo/anaconda3/envs/diffmpm_v2.3.0/bin/python run.py -c configs/bunny_force_sym.yaml --skip-existing
+
+output_base: "output/bunny_force_sym"
+
+defaults:
+  input_mesh_path: "assets/isosphere.obj"
+  simulation:
+    grid_dx: 1.0
+    grid_min_point: [-16.0, -16.0, -16.0]
+    grid_max_point: [16.0, 16.0, 16.0]
+    points_per_cell_cuberoot: 5
+    lam: 38888.89
+    mu: 58333.3
+    density: 75.0
+    dt: 0.00833333333
+    drag: 0.5
+    external_force: [0.0, 0.0, 0.0]
+    smoothing_factor: 0.955
+  optimization:
+    num_animations: 24
+    num_timesteps: 10
+    control_stride: 1
+    max_gd_iters: 1
+    max_ls_iters: 10
+    initial_alpha: 0.01
+    final_alpha: 0.001
+    gd_tol: 0.0001
+  plasticity:
+    eta: 0.0
+    adaptive_eta_max: 5.0
+    eta_v: 0.0
+    max_v: 5.0
+    max_anisotropy: 1.5
+    smooth_k: 64
+    clip_pct: 95.0
+    diffusion_iters: 3
+    damping: 0.0
+    cohesion_k: 32
+    cohesion_strength: 0.0
+    cohesion_sparse_threshold: 1.5
+    lambda_render: 0.0
+  correction:
+    enabled: true
+    grid_res: 8
+    lr: 0.01
+    num_iters: 6
+    every_n_eps: 2
+    w_smooth: 0.1
+    w_l2: 0.01
+    max_disp: 1.0
+    mass_gate_tau: 0.1
+    sigma0_factor: 1.0
+    reset_kinematics_on_accept: true
+    absorb_fp_on_accept: true
+    skip_dfp_update_on_accept: true
+    local_refine:
+      enabled: true
+      bilateral: true
+      symmetry_axis: x
+      symmetry_strength: 1.0
+      symmetry_start_iter: 0
+      start_ep: 8
+      grid_res: 14
+      num_iters: 5
+      lr: 0.008
+      w_smooth: 0.02
+      w_l2: 0.001
+      max_disp: 0.35
+      z_min_frac: 0.50
+      score_percentile: 80
+      bbox_padding: 1.6
+      active_margin: 1.0
+      max_extent_frac: 0.55
+      min_extent_frac: 0.34
+  multi_view:
+    enabled: true
+    preset: ring
+    num_cameras: 8
+  loss_weights:
+    w_bce: 1.0
+    w_iou: 1.0
+    w_dt: 0.0
+    w_edge: 0.0
+    mv_hardmax_w: 1.0
+    mv_topk_w: 0.0
+    mv_topk_k: 0
+    masked_threshold: 0.01
+  render:
+    sigma0: auto
+    sigma0_scale: 0.5
+    opacity: 0.95
+    bg: [1.0, 1.0, 1.0]
+    training_resolution_scale: 0.5
+    particle_color: [0.27, 0.51, 0.71]
+    lighting:
+      model: phong
+      type: directional
+      direction: [0.3, -0.5, 0.8]
+      two_sided: true
+      ambient: 0.18
+      diffuse: 0.85
+      specular: 0.10
+      shininess: 32
+  upsample:
+    covariance:
+      sigma0: 0.08
+  camera:
+    width: 1920
+    height: 1080
+    fx: 712.5
+    fy: 712.5
+    cx: 960.0
+    cy: 540.0
+    znear: 0.01
+    zfar: 100.0
+    lookat:
+      eye: [20.0, -25.0, 12.5]
+      target: [0.0, 0.0, 0.0]
+      up: [0.0, 0.0, 1.0]
+
+experiments:
+  - name: bunny_force_sym_hard
+    target_mesh_path: "assets/bunny.obj"
+
+  - name: bunny_force_sym_soft
+    target_mesh_path: "assets/bunny.obj"
+    correction:
+      local_refine:
+        symmetry_strength: 0.6
+
+  - name: bunny_force_sym_early
+    target_mesh_path: "assets/bunny.obj"
+    correction:
+      local_refine:
+        start_ep: 4
