@@ -4,12 +4,16 @@ Guide for AI coding agents (Claude Code, Codex, …) working in this repo.
 
 ## ⚠️ Read first
 
-**Nothing here is under version control.** The enclosing git repo is `C:/dev` — that is *vcpkg*,
-not this project. `git ls-files physmorph docs legacy` returns zero. **Every delete is permanent.**
-Archive before removing anything you did not create.
+**This project is now its own git repo** (`git init`, 2026-07-27, branch `main`) — it is no longer
+the untracked tree that used to sit inside the vcpkg clone at `C:/dev`. There is **no remote yet**;
+`gh` is not installed and this shell cannot run GitHub's login flow, so pushing is a manual step the
+user takes. Commit freely; deletes are recoverable from history *for tracked files only*.
 
-Prior work (all MatCast scripts/docs, the earlier heroes, every result) was deliberately wiped on
-2026-07-27 for a clean restart. It survives only in
+Still permanent, because they are deliberately untracked: `output/`, `gaussian-splatting/` (an
+unmodified graphdeco-inria clone, 134 MB), `legacy/build/`. Archive those before removing.
+
+Prior work (all MatCast scripts/docs, the earlier heroes, every result) was wiped on 2026-07-27 for
+a clean restart — *before* the repo existed, so none of it is in history. It survives only in
 **`C:/dev/physmorph_archive_20260727.zip`** (81 files, 1.0 MB) and in published artifacts on
 claude.ai. Server results were wiped the same day (1.9 GB → 59 MB).
 
