@@ -67,7 +67,7 @@ class Hub:
             return self.state
 
 
-def make_handler(hub: Hub, page: bytes):
+def make_handler(hub: Hub, page_path: Path):
     class H(BaseHTTPRequestHandler):
         def log_message(self, *a):                    # quiet
             pass
@@ -82,7 +82,8 @@ def make_handler(hub: Hub, page: bytes):
 
         def do_GET(self):
             if self.path in ("/", "/index.html"):
-                self._send(page, "text/html; charset=utf-8")
+                # re-read per request: view tuning iterates without server restarts
+                self._send(page_path.read_bytes(), "text/html; charset=utf-8")
             elif self.path == "/meta":
                 self._send(hub.meta, "application/json")
             elif self.path == "/target":
@@ -128,9 +129,9 @@ def main():
     F0 = np.tile(np.eye(3, dtype=np.float32), (len(src), 1, 1))
     hub.publish(pack_state(0, {"animation": -1, "run": 0}, src, cov_from_F(F0, sigma0)))
 
-    page = (Path(__file__).resolve().parent.parent
-            / "physmorph" / "viewer" / "live.html").read_bytes()
-    httpd = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(hub, page))
+    page_path = (Path(__file__).resolve().parent.parent
+                 / "physmorph" / "viewer" / "live.html")
+    httpd = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(hub, page_path))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     print(f"[live] serving http://localhost:{args.port}  (tunnel this port)", flush=True)
 

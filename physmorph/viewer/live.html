@@ -18,6 +18,10 @@
   <b id="st">connecting…</b>
   <span id="tele" class="dim"></span>
   <button id="pause">pause</button>
+  <span class="dim">az <input id="az" type="range" min="-3.14" max="3.14" step="0.02" value="0.60" style="width:90px"></span>
+  <span class="dim">el <input id="el" type="range" min="-1.3" max="1.3" step="0.02" value="-0.35" style="width:90px"></span>
+  <span class="dim">zoom <input id="zoom" type="range" min="0.3" max="2.5" step="0.05" value="0.75" style="width:80px"></span>
+  <span class="dim">splat <input id="ssz" type="range" min="0.4" max="3.0" step="0.1" value="1.3" style="width:80px"></span>
 </div>
 <canvas id="cv"></canvas>
 <canvas id="spark" width="260" height="72"></canvas>
@@ -30,16 +34,20 @@ document.getElementById('pause').onclick = e => {
   paused = !paused; e.target.textContent = paused ? 'resume' : 'pause';
 };
 
-// fixed views (match scripts/quicklook.py): [azimuth, elevation]
-const VIEWS = [[0.6, 0.18], [2.2, 0.18]];
-function basis([az, el]) {
+// two views: slider az/el, second view offset +1.6 rad in azimuth (no orbit, just dials)
+const $ = id => document.getElementById(id);
+function basis(az, el) {
   const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
   const right = [ca, 0, -sa], up = [-sa * se, ce, -ca * se];
   const fwd = [right[1] * up[2] - right[2] * up[1], right[2] * up[0] - right[0] * up[2],
                right[0] * up[1] - right[1] * up[0]];
   return {right, up, fwd};
 }
-const BASES = VIEWS.map(basis);
+function views() {
+  const az = +$('az').value, el = +$('el').value;
+  return {list: [[az, el], [az + 1.6, el]], zoom: +$('zoom').value, ssz: +$('ssz').value};
+}
+for (const id of ['az', 'el', 'zoom', 'ssz']) $(id).addEventListener('input', () => draw());
 
 function parse(buf) {
   const dv = new DataView(buf);
@@ -52,6 +60,7 @@ function parse(buf) {
 }
 
 // project splat i into view b: center px, 2x2 cov -> ellipse (a,bax,theta), depth
+let SSZ = 1.3;
 function proj(x, c6, i, b, scl, cx, cy) {
   const X = x[3*i], Y = x[3*i+1], Z = x[3*i+2];
   const px = X*b.right[0] + Y*b.right[1] + Z*b.right[2];
@@ -74,8 +83,8 @@ function proj(x, c6, i, b, scl, cx, cy) {
   const disc = Math.sqrt(Math.max(tr*tr/4 - det, 0));
   const l1 = Math.max(tr/2 + disc, 1e-12), l2 = Math.max(tr/2 - disc, 1e-12);
   const theta = 0.5 * Math.atan2(2*a12, a11 - a22);
-  return {cx: cx + px*scl, cy: cy - py*scl, a: 2*Math.sqrt(l1)*scl,
-          b: 2*Math.sqrt(l2)*scl, theta: -theta, d};
+  return {cx: cx + px*scl, cy: cy - py*scl, a: SSZ*Math.sqrt(l1)*scl,
+          b: SSZ*Math.sqrt(l2)*scl, theta: -theta, d};
 }
 
 function drawCloud(st, b, scl, cx, cy, fill, alpha, sort) {
@@ -97,12 +106,15 @@ function draw() {
   cv.style.marginTop = '40px';
   ctx.fillStyle = '#101014'; ctx.fillRect(0, 0, W, H);
   const e = meta.extent, half = W / 2;
-  BASES.forEach((b, vi) => {
-    const cx = half * vi + half / 2, cy = H / 2, scl = Math.min(half, H) / (2.2 * e);
-    if (target) drawCloud(target, b, scl, cx, cy, '#3a4b5f', 0.10, false); // ghost
-    drawCloud(state, b, scl, cx, cy, '#6f9fd8', 0.42, true);
+  const v = views(); SSZ = v.ssz;
+  v.list.forEach(([az, el], vi) => {
+    const b = basis(az, el);
+    const cx = half * vi + half / 2, cy = H / 2;
+    const scl = v.zoom * Math.min(half, H) / (2.2 * e);
+    if (target) drawCloud(target, b, scl, cx, cy, '#56708c', 0.14, false); // ghost
+    drawCloud(state, b, scl, cx, cy, '#6f9fd8', 0.38, true);
     ctx.fillStyle = '#666'; ctx.font = '12px system-ui';
-    ctx.fillText('az=' + VIEWS[vi][0], half * vi + 10, H - 10);
+    ctx.fillText('az=' + az.toFixed(2) + ' el=' + el.toFixed(2), half * vi + 10, H - 10);
   });
   const h = state.hdr;
   document.getElementById('st').textContent =
