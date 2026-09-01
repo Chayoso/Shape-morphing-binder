@@ -45,6 +45,17 @@ class PipelineConfig:
     w_hole: float = 2.0             # deficit inside target (holes/missing extremities)
     w_spray: float = 1.0            # excess outside target (ejecta pulled back by the objective)
 
+    # ---- v3: optimisation accelerators (docs/method.md §6) ----
+    warm_start: bool = False        # init window's dFc from the previous window's solution
+    render_gs_iters: int = 0        # >0: Sobolev/grid-GS smoothing of the render pull before
+    render_gs_kappa: float = 4.0    #     the adjoint pullback (screened diffusion strength)
+
+    # ---- v3: VBD-MPM quasi-static arm (docs/method.md §7; used by runner_vbd) ----
+    vbd_sweeps: int = 60            # max colored sweeps per commit
+    vbd_tol: float = 5e-3           # stop when |grad E| < tol * |grad E_0|
+    vbd_step: float = 0.9           # damped block step
+    vbd_ls: int = 4                 # per-color backtracking halvings
+
     # ---- material channel (§3.2 ch.2) ----
     opt_material: bool = False      # optimise per-particle log-Lame multipliers s
     mat_lr_scale: float = 0.25      # material step = alpha * this (slower than dFc)

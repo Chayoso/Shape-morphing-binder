@@ -66,7 +66,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     x = src.copy()
     st = {"F": None, "v": None, "C": None}
     Fp = _id(N)
-    s = None
+    s, dfc_prev = None, None
     frames, F_frames, hist = [x.copy()], [_id(N)], []
     guards = {"clamped": 0, "nan_x": 0, "nan_state": 0, "F_reset": 0, "F_flip": 0,
               "F_invert_steps": 0}
@@ -89,7 +89,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         x_start = x.copy()
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
-            s_init=s, log=lambda *_: None)
+            s_init=s, dfc_init=dfc_prev, log=lambda *_: None)
+        if cfg.warm_start:
+            dfc_prev = stats.get("dfc")
         if not whist:
             if stats.get("grad_converged"):
                 frozen = True                       # zero gradient at the start: at the optimum

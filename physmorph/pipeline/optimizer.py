@@ -33,6 +33,7 @@ from ..mpm.function import RolloutSpec, warp_mpm_full
 from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig
+from .grid_smooth import smooth_particle_field
 from .render_loss import LambdaBalancer, d_render
 
 
@@ -60,7 +61,7 @@ def _finite(tensors) -> bool:
 
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
-                    s_init=None, log=print):
+                    s_init=None, dfc_init=None, log=print):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats)."""
     dev = cfg.device
@@ -70,7 +71,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     spec = RolloutSpec(x0=x0, m=1.0, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev)
 
-    dFc = torch.zeros(T, N, 3, 3, device=dev, requires_grad=True)
+    if dfc_init is not None:                       # v3 warm start (previous window's solution)
+        dFc = torch.tensor(np.ascontiguousarray(dfc_init, np.float32),
+                           device=dev, requires_grad=True)
+    else:
+        dFc = torch.zeros(T, N, 3, 3, device=dev, requires_grad=True)
     leaves = [dFc]
     s = None
     if cfg.opt_material:
@@ -142,10 +147,22 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # iteration's per-term norms), so every accepted step decreases one objective. ----
         state, lv, lk, lr = terms(dFc)
         Lp = phys_total(lv, lk, dFc, state[0])
-        if balancer.active and it == 0:
+        smooth = balancer.active and cfg.render_gs_iters > 0
+        if balancer.active and (smooth or it == 0):
             gp = torch.autograd.grad(Lp, leaves, retain_graph=True)
-            gr = torch.autograd.grad(lr, leaves)
-            lam_r = balancer.update(_norm(gp), _norm(gr))
+            if smooth:
+                # v3 grid-GS preconditioning: smooth the IMAGE-SPACE pull on the grid,
+                # then pull the smoothed direction back through the SAME MPM adjoint
+                # (seeded backward) — physics-exact, docs/method.md §6.
+                gx = torch.autograd.grad(lr, state[0], retain_graph=True)[0]
+                gxs = smooth_particle_field(state[0].detach(), gx, tgt.lgmin, tgt.ldx,
+                                            tgt.ldims, cfg.render_gs_iters,
+                                            cfg.render_gs_kappa)
+                gr = torch.autograd.grad(state[0], leaves, grad_outputs=gxs)
+            else:
+                gr = torch.autograd.grad(lr, leaves)
+            if it == 0:
+                lam_r = balancer.update(_norm(gp), _norm(gr))
             g = [a + lam_r * b for a, b in zip(gp, gr)]
         elif balancer.active:
             g = list(torch.autograd.grad(Lp + lam_r * lr, leaves))
@@ -239,5 +256,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         end = {"F": tr.F[T].numpy().copy(), "v": tr.v[T].numpy().copy(),
                "C": tr.C[T].numpy().copy()}
     s_out = s.detach().cpu().numpy() if s is not None else None
-    stats = {"accepted": accepted, "rejected": rejected, "grad_converged": grad_converged}
+    stats = {"accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
+             "dfc": dc.cpu().numpy() if cfg.warm_start else None}
     return frames, F_seq, end, s_out, hist, stats

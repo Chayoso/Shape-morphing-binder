@@ -36,6 +36,7 @@ from physmorph.mpm import MPMParams  # noqa: E402
 from physmorph.mpm.constitutive import lame  # noqa: E402
 from physmorph.mpm.function import RolloutSpec, warp_mpm, warp_mpm_full  # noqa: E402
 from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
+from physmorph.pipeline.runner_vbd import run_vbd_pipeline  # noqa: E402
 from physmorph.sampling import load_normalized as load  # noqa: E402
 
 
@@ -96,18 +97,29 @@ def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, render_views=args.render_views,
-                         render_res=args.render_res, loss_res=args.loss_res)
+                         render_res=args.render_res, loss_res=args.loss_res,
+                         vbd_sweeps=args.vbd_sweeps, vbd_tol=args.vbd_tol)
     if arm == "phys":
         cfg.lambda_auto = 0.0
-        cfg.opt_material = False
     elif arm == "render":
         cfg.lambda_auto = args.lambda_auto
-        cfg.opt_material = False
     elif arm == "render_mat":
         cfg.lambda_auto = args.lambda_auto
         cfg.opt_material = True
+    elif arm == "render_ws":                       # v3: warm-started dFc
+        cfg.lambda_auto = args.lambda_auto
+        cfg.warm_start = True
+    elif arm == "render_gs":                       # v3: + Sobolev/grid-GS render direction
+        cfg.lambda_auto = args.lambda_auto
+        cfg.warm_start = True
+        cfg.render_gs_iters = args.render_gs_iters
+    elif arm == "vbd":                             # v3: quasi-static VBD-MPM, render on
+        cfg.lambda_auto = args.lambda_auto
+    elif arm == "vbd_phys":                        # v3: quasi-static, physics/mass only
+        cfg.lambda_auto = 0.0
     else:
-        raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat)")
+        raise SystemExit(f"unknown arm {arm!r} "
+                         "(phys|render|render_mat|render_ws|render_gs|vbd|vbd_phys)")
     return cfg
 
 
@@ -148,6 +160,9 @@ def main():
     ap.add_argument("--render_views", type=int, default=6)
     ap.add_argument("--render_res", type=int, default=64)
     ap.add_argument("--loss_res", type=int, default=32)
+    ap.add_argument("--render_gs_iters", type=int, default=20)
+    ap.add_argument("--vbd_sweeps", type=int, default=60)
+    ap.add_argument("--vbd_tol", type=float, default=5e-3)
     ap.add_argument("--arms", default="phys,render")
     ap.add_argument("--save_F_stride", type=int, default=0,
                     help="save every k-th F frame (0 = T, i.e. commit boundaries)")
@@ -170,9 +185,10 @@ def main():
 
     for arm in [a.strip() for a in args.arms.split(",") if a.strip()]:
         cfg = arm_config(arm, args)
+        runner = run_vbd_pipeline if arm.startswith("vbd") else run_pipeline
         print(f"\n[v2run] ===== ARM {arm} =====", flush=True)
         t0 = time.time()
-        res = run_pipeline(src, tgt, prm, cfg)
+        res = runner(src, tgt, prm, cfg)
         dt = time.time() - t0
         met = metrics.summarize(res["frames"], tgt, F_frames=res["F_frames"],
                                 n_held=res["n_held"])
@@ -196,21 +212,24 @@ def main():
               f"hole={met['hole_frac']*100:.2f}%  jitter_rel={met['jitter_rel']:.5f}  "
               f"detFmin={met.get('detF_min', 1.0):.4f}  ({dt/60:.1f} min)", flush=True)
 
-    # ---- cross-arm gates: G4 second half + G5 supremacy (render vs phys) ----
-    if "phys" in out["arms"] and "render" in out["arms"]:
-        mp = out["arms"]["phys"]["metrics"]
-        mr = out["arms"]["render"]["metrics"]
-        g4_vs = mr["hole_frac"] <= mp["hole_frac"] + 1e-9
-        g5 = {"sil_iou_up": mr["sil_iou"] > mp["sil_iou"],
-              "chamfer_ok": mr["chamfer"] <= mp["chamfer"] * 1.02,
-              "holes_down": g4_vs}
-        out["G4_vs_phys"] = bool(g4_vs)
-        out["G5"] = {**{k: bool(v) for k, v in g5.items()}, "pass": bool(all(g5.values()))}
-        print(f"\n[G4b] render holes <= phys: {mp['hole_frac']*100:.2f}% -> "
-              f"{mr['hole_frac']*100:.2f}%  {'PASS' if g4_vs else 'FAIL'}", flush=True)
-        print(f"[G5] render vs phys: silIoU {mp['sil_iou']:.4f}->{mr['sil_iou']:.4f} "
-              f"chamfer {mp['chamfer']:.4f}->{mr['chamfer']:.4f}  -> "
-              f"{'PASS' if out['G5']['pass'] else 'FAIL'}", flush=True)
+    # ---- cross-arm gates: every render-driven arm vs its physics-only baseline ----
+    base = "phys" if "phys" in out["arms"] else ("vbd_phys" if "vbd_phys" in out["arms"] else None)
+    if base:
+        mp = out["arms"][base]["metrics"]
+        out["G5"] = {}
+        for arm, rec in out["arms"].items():
+            if arm == base:
+                continue
+            mr = rec["metrics"]
+            g5 = {"sil_iou_up": mr["sil_iou"] > mp["sil_iou"],
+                  "chamfer_ok": mr["chamfer"] <= mp["chamfer"] * 1.02,
+                  "holes_down": mr["hole_frac"] <= mp["hole_frac"] + 1e-9}
+            out["G5"][arm] = {**{k: bool(v) for k, v in g5.items()},
+                              "pass": bool(all(g5.values()))}
+            print(f"[G5:{arm} vs {base}] silIoU {mp['sil_iou']:.4f}->{mr['sil_iou']:.4f}  "
+                  f"chamfer {mp['chamfer']:.4f}->{mr['chamfer']:.4f}  "
+                  f"hole {mp['hole_frac']*100:.2f}%->{mr['hole_frac']*100:.2f}%  -> "
+                  f"{'PASS' if out['G5'][arm]['pass'] else 'FAIL'}", flush=True)
 
     Path(f"{args.out}.json").write_text(json.dumps(out))
     print(f"\nsaved {args.out}.json", flush=True)

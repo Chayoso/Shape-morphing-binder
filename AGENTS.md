@@ -28,12 +28,12 @@ volumetric mass matching only (Xu et al.).
 ## Layout — only two code trees remain
 
 ### `physmorph/` — the Warp rewrite (this is the working codebase)
-- **`pipeline/` — the v2 BLESSED PATH (see `docs/pipeline_v2.md`, the v2 source of truth).**
-  `config.py` (PipelineConfig), `render_loss.py` (multi-elevation asymmetric D_render +
-  EMA λ balancer), `optimizer.py` (`optimize_window`: multi-leaf line-searched Adam over a
-  dFc sequence + optional material field), `runner.py` (`run_pipeline`: commits, full-state
-  promotion, plastic assimilation, plateau freeze, guard counters). Physics-only baseline =
-  same path with `lambda_auto=0`.
+- **`pipeline/` — the blessed paths (docs: `overview.md` / `method.md` / `experiments.md`,
+  rewritten 2026-09-01).** `config.py`, `render_loss.py` (multi-elevation asymmetric
+  D_render + EMA λ balancer), `grid_smooth.py` (Sobolev/grid-GS render direction, §6),
+  `optimizer.py` (multi-leaf line-searched Adam over a dFc sequence + material field,
+  warm-startable), `runner.py` (dynamic family), `runner_vbd.py` (quasi-static VBD-MPM
+  family, solver in `vbd/`). Physics-only baseline = same path, `lambda_auto=0`.
 - `metrics.py` — gate metrics (chamfer, sil_iou, hole_frac, jitter); raw sim state only,
   no operator shared with any loss.
 - `mpm/` — MLS-MPM engine ported from the C++ oracle. `kernels.py` (cubic B-spline 4³, APIC,
@@ -52,7 +52,7 @@ volumetric mass matching only (Xu et al.).
   Parity gates live on as G1a/G1b (pipeline_run + tests); the C++ oracle is `legacy/`.
 - `docs/method.md` is the **equation contract** these files cite as `docs/SPEC.md` (renamed; the
   docstring paths were never updated). Equation numbers in `mpm/*.py` refer to it.
-  `docs/pipeline_v2.md` is the v2 architecture + acceptance-gate contract.
+  `docs/experiments.md` carries the gate contract + result log.
 
 ### `legacy/` — the C++ original (Xu et al. DiffMPMLib3D) + Python bindings
 - `DiffMPMLib3D/` — `CompGraph.{h,cpp}` (`OptimizeDefGradControlSequence`, `EndLayerMassLoss`),
