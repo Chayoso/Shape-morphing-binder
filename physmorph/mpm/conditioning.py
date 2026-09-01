@@ -1,11 +1,11 @@
 """F conditioning: SVD singular-value clamp with reflection REPAIR.
 
-This is the fixed version documented at trajectory_opt.py:234 — numpy's SVD may return an
-improper (U, Vᵀ) pair (det(U)det(Vᵀ) = −1); clamping the positive singular values then keeps
-the reflection, so an inverted F stays inverted. Flipping the last column of U when the pair
-is improper (exactly what corotated_R does in constitutive.py) makes the output a genuine
-orientation-preserving deformation. Non-finite rows are reset to identity first (numpy's SVD
-raises on NaN input).
+The v1 morph loops rebuilt U diag(clip(S)) Vᵀ directly — but numpy's SVD may return an
+improper (U, Vᵀ) pair (det(U)det(Vᵀ) = −1), and clamping the positive singular values keeps
+the reflection, so an inverted F stayed inverted (det −27 → det −8). Flipping the last
+column of U when the pair is improper (exactly what corotated_R does in constitutive.py)
+makes the output a genuine orientation-preserving deformation. Non-finite rows are reset to
+identity first (numpy's SVD raises on NaN input).
 """
 from __future__ import annotations
 

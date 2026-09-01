@@ -1,8 +1,8 @@
 """run_pipeline — outer commit loop of the v2 blessed path (docs/pipeline_v2.md §3.5, §3.7).
 
 Per commit: optimise one window, promote the FULL state (x, F, v, C — partial promotion was
-the v1 energy-re-injection bug), assimilate the realised displacement into the plastic rest
-state Fp (objective polar/stretch assimilation — render→Fp channel), track convergence on the
+the v1 energy-re-injection bug), assimilate an eta-fraction of the elastic stretch into the
+plastic rest state Fp (exact polar relaxation — render→Fp channel), track convergence on the
 RAW loss components (λ-free; a drifting λ must not decide the freeze) and freeze on plateau.
 
 Guards are containment + telemetry: a fired guard means the run is INVALID (gate G2 requires

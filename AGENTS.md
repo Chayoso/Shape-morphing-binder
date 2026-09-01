@@ -34,20 +34,22 @@ volumetric mass matching only (Xu et al.).
   dFc sequence + optional material field), `runner.py` (`run_pipeline`: commits, full-state
   promotion, plastic assimilation, plateau freeze, guard counters). Physics-only baseline =
   same path with `lambda_auto=0`.
-- `metrics.py` — gate metrics (chamfer, sil_iou, hole_frac, jitter); raw sim state only.
+- `metrics.py` — gate metrics (chamfer, sil_iou, hole_frac, jitter); raw sim state only,
+  no operator shared with any loss.
 - `mpm/` — MLS-MPM engine ported from the C++ oracle. `kernels.py` (cubic B-spline 4³, APIC,
   `eta_sym` objective viscosity, `eta_mode` exponential damping, `v_max` clamp), `state.py`
   (`MPMParams`), `traj.py` (per-step arrays on `wp.Tape`), `function.py` (torch autograd bridge:
   `dFc` + optional per-particle `λ,μ` leaves → rollout → `x_T, F_T, v_T`), `step.py`,
-  `conditioning.py` (`condition_F`: SVD clamp with reflection repair).
+  `conditioning.py` (`condition_F`: reflection repair, counted; no silent SV projection).
 - `losses/` — `volumetric.py` **`d_vol`: mass matching, the Xu et al. objective**;
-  `silhouette.py` `d_img` multi-view soft silhouette (now with elevation);
-  `render_guidance.py` displacement-space + colour/gram terms (experimental loops only).
-- `trajectory_opt.py` — C++ CompGraph parity port, kept verbatim as the oracle-comparison arm.
-- `experimental/` — quarantined v1 loops (`morph.py`, `morph_physical.py`, `style_transfer.py`);
-  ablation material only, never cited for v2 claims.
-- `plasticity/` (Sinkhorn / sliced-OT / assignment), `render/` (3DGS raster, covariance),
-  `surface/`, `sampling/`, `viewer/`.
+  `silhouette.py` CIC splat primitives (azimuth + elevation).
+- `plasticity/` — `assimilate_elastic` only (exact elastic-stretch commit assimilation).
+- `render/` (3DGS raster, covariance — G6 heroes), `sampling/`, `viewer/`.
+- `tests/` — 39 CPU/warp-CPU tests incl. an end-to-end pipeline smoke; run `python -m pytest`.
+- **Deleted 2026-09-01** (git history ≤ `2607972`): v1 loops (`morph.py`,
+  `morph_physical.py`, `style_transfer.py`), `losses/render_guidance.py`, v1 plasticity
+  (Sinkhorn/sliced-OT/auction/`update_fp`), `surface/`, `trajectory_opt.py` + old scripts.
+  Parity gates live on as G1a/G1b (pipeline_run + tests); the C++ oracle is `legacy/`.
 - `docs/method.md` is the **equation contract** these files cite as `docs/SPEC.md` (renamed; the
   docstring paths were never updated). Equation numbers in `mpm/*.py` refer to it.
   `docs/pipeline_v2.md` is the v2 architecture + acceptance-gate contract.

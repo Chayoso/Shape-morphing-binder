@@ -1,6 +1,7 @@
 """optimize_window — one window of multi-leaf trajectory optimisation (docs/pipeline_v2.md §3).
 
-Evolves trajectory_opt.optimize_sequence (the C++ CompGraph parity port) with:
+Evolves the C++ CompGraph parity port (v1 `trajectory_opt.py`, removed 2026-09-01, in git
+history; the C++ oracle itself lives in legacy/DiffMPMLib3D) with:
   * leaves = [dFc sequence] + optional [s material field]  (render→material channel),
   * terminal kinetic loss mean|v_T|^2                      (arrive at rest),
   * asymmetric multi-elevation D_render                    (holes/spray see gradient),

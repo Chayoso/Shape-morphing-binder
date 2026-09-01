@@ -131,7 +131,7 @@ History of this design (both alternatives measured and rejected):
 1. v1 `update_fp(J_sym, isochoric)` — fabricates strain from rigid rotation
    (sym(R−I) ≠ 0: energy 0 → 0.272 for a 90° commit) and is an exact no-op for dilation,
    the one mode `D_vol` drives (adversarial round 1).
-2. Displacement-field polar assimilation (`assimilate_fp`) — objective in itself, but in
+2. Displacement-field polar assimilation (`assimilate_fp`, removed) — objective in itself, but in
    THIS engine `dFc` is injected straight into F (`F ← (I+dt·C)(F+dFc)`), so F carries
    deformation the realised motion never had; migrating Fp toward the motion-stretch
    mismatches F and every commit boundary becomes a stress spike. Measured locally
@@ -185,25 +185,32 @@ the objective or the discretisation, not into a post-hoc projection of the state
 
 ```
 physmorph/
-  pipeline/                  ← the blessed path (NEW)
+  pipeline/                  ← the blessed path
     config.py                PipelineConfig (all knobs; one dataclass)
     render_loss.py           views (azim×elev), asymmetric D_render, LambdaBalancer
     optimizer.py             optimize_window(): multi-leaf line-searched Adam over horizon T
     runner.py                run_pipeline(): commits, promotion, Fp assimilation, freeze, guards
-  metrics.py                 chamfer, sil_iou, hole_frac, jitter, detF_min — raw state only (NEW)
-  mpm/                       engine unchanged; function.py extended (material leaves, v_T out)
-    conditioning.py          condition_F: SVD clamp + reflection repair (NEW; the fixed version)
-  trajectory_opt.py          C++-parity reference implementation (kept verbatim for the oracle A/B)
-  experimental/              quarantined v1 loops: morph.py, morph_physical.py, style_transfer.py
-  losses/, plasticity/, render/, sampling/, surface/, viewer/   (unchanged)
+  metrics.py                 chamfer, sil_iou, hole_frac, jitter, detF_min — raw state only
+  mpm/                       engine; function.py extended (material leaves, v_T out),
+    conditioning.py          condition_F: reflection repair, counted, no silent SV projection
+  losses/                    volumetric (D_vol), silhouette (CIC splat primitives)
+  plasticity/                assimilate_elastic only (§3.5)
+  render/, sampling/, viewer/   3DGS raster + covariance (G6 heroes), mesh sampling, PLY export
 scripts/
-  pipeline_run.py            A/B/A′ arms: phys | render | render_mat, gates printed (NEW)
-  morph_measure.py           updated import (experimental.morph); kept for old-number repro
-  traj_opt_run.py            unchanged (parity gates vs C++)
+  pipeline_run.py            A/B/A′ arms: phys | render | render_mat, gates printed
+  quicklook.py, make_gif.py  G6 diagnostic renders (raw particle state)
+tests/                       39 CPU/warp-CPU tests: assimilation exactness, conditioning,
+                             metric validity, D_render math, autograd bridge, pipeline smoke
 ```
 
-`experimental/` is not deleted because the ablation figures ("displacement-space feedback
-scatters texture", "fixed λ is inert") come from those loops; they are not part of any claim.
+**Deleted 2026-09-01** (all recoverable from git history ≤ `2607972`): the v1 loops
+(`experimental/morph*.py`, `style_transfer.py`), their displacement/colour render guidance
+(`losses/render_guidance.py`), the v1 plasticity primitives (Sinkhorn/sliced-OT/auction
+`update_fp`, displacement-polar `assimilate_fp`), `surface/weight.py`, the C++ parity port
+`trajectory_opt.py` (+ its scripts). The parity gates live on as G1a/G1b in
+`scripts/pipeline_run.py` and `tests/test_bridge_cpu.py`; the C++ oracle itself is
+`legacy/DiffMPMLib3D`. Ablation claims about v1 behaviour cite the result log + history,
+not living code.
 
 ## 5. Acceptance gates (what "done" means)
 
