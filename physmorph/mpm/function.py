@@ -1,7 +1,19 @@
 """torch.autograd.Function bridging Warp MPM rollout into the torch graph.
 
-dFc (torch leaf) -> WarpMPM -> (x_T, F_T) torch tensors with autograd.
-See docs/SPEC.md §4.2.
+Leaves -> WarpMPM -> terminal state, with autograd. See docs/SPEC.md §4.2 and
+docs/pipeline_v2.md §3.
+
+Two entry points:
+  warp_mpm(dFc, spec)                 -> (x_T, F_T)          # v1-compatible
+  warp_mpm_full(dFc, spec, lam, mu)   -> (x_T, F_T, v_T)     # v2: material leaves + velocity
+
+dFc is (N,3,3) — one control shared by every step — or (T,N,3,3), a control SEQUENCE with an
+independent field per step (the C++ CompGraph formulation). The sequence case is the reason
+autodiff beats the C++ here: ONE backward pass yields dL/ddFc[t] for every t at once, where the
+C++ does a forward+backward per layer.
+
+lam/mu are optional per-particle (N,) torch tensors; when they require grad the same tape
+backward also yields dL/dλ_i, dL/dμ_i — the render feedback's *material* channel (§3.2 ch.2).
 """
 from __future__ import annotations
 
@@ -19,7 +31,7 @@ from .traj import Trajectory
 class RolloutSpec:
     x0: np.ndarray
     m: object
-    lam: object
+    lam: object            # scalar/np default; ignored when a lam tensor leaf is passed
     mu: object
     prm: MPMParams
     T: int
@@ -30,14 +42,15 @@ class RolloutSpec:
     device: str = "cuda"
 
 
+def _leaf_f32(t: torch.Tensor):
+    """(N,) float leaf -> warp array sharing memory, grads mapped back."""
+    return wp.from_torch(t.contiguous(), dtype=wp.float32, requires_grad=t.requires_grad)
+
+
 class _WarpMPM(torch.autograd.Function):
-    """dFc_t is either (N,3,3) — one control shared by every step — or (T,N,3,3), a control
-    SEQUENCE with an independent field per step, which is the formulation the C++ CompGraph
-    optimises. The sequence case is the reason autodiff beats the C++ here: ONE backward pass
-    yields dL/ddFc[t] for every t at once, where the C++ does a forward+backward per layer."""
 
     @staticmethod
-    def forward(ctx, dFc_t: torch.Tensor, spec: RolloutSpec):
+    def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, spec: RolloutSpec):
         N, T = spec.x0.shape[0], spec.T
         seq = dFc_t.dim() == 4
         if seq:
@@ -50,31 +63,44 @@ class _WarpMPM(torch.autograd.Function):
         else:
             dFc_wp = wp.from_torch(dFc_t.contiguous().view(N, 3, 3), dtype=wp.mat33,
                                    requires_grad=dFc_t.requires_grad)
-        traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
+        lam_wp = _leaf_f32(lam_t) if lam_t is not None else spec.lam
+        mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
+        traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
                           device=spec.device, requires_grad=True)
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
         ctx.traj, ctx.dFc_wp, ctx.seq = traj, dFc_wp, seq
-        return wp.to_torch(xT).clone(), wp.to_torch(FT).reshape(N, 9).clone()
+        ctx.lam_wp = lam_wp if (lam_t is not None and lam_t.requires_grad) else None
+        ctx.mu_wp = mu_wp if (mu_t is not None and mu_t.requires_grad) else None
+        return (wp.to_torch(xT).clone(), wp.to_torch(FT).reshape(N, 9).clone(),
+                wp.to_torch(traj.v[T]).clone())
 
     @staticmethod
-    def backward(ctx, gx: torch.Tensor, gF: torch.Tensor):
+    def backward(ctx, gx: torch.Tensor, gF: torch.Tensor, gv: torch.Tensor):
         traj = ctx.traj
         N, T = traj.N, traj.T
-        gx_wp = wp.from_torch(gx.contiguous(), dtype=wp.vec3)
-        gF_wp = wp.from_torch(gF.contiguous().view(N, 3, 3), dtype=wp.mat33)
-        ctx.tape.backward(grads={traj.x[T]: gx_wp, traj.F[T]: gF_wp})
+        grads = {traj.x[T]: wp.from_torch(gx.contiguous(), dtype=wp.vec3),
+                 traj.F[T]: wp.from_torch(gF.contiguous().view(N, 3, 3), dtype=wp.mat33),
+                 traj.v[T]: wp.from_torch(gv.contiguous(), dtype=wp.vec3)}
+        ctx.tape.backward(grads=grads)
         if ctx.seq:
             g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3).clone() for d in ctx.dFc_wp])
         else:
             g = wp.to_torch(ctx.dFc_wp.grad).reshape(N, 3, 3).clone()
+        g_lam = wp.to_torch(ctx.lam_wp.grad).clone() if ctx.lam_wp is not None else None
+        g_mu = wp.to_torch(ctx.mu_wp.grad).clone() if ctx.mu_wp is not None else None
         ctx.tape.zero()
-        return g, None
+        return g, g_lam, g_mu, None
+
+
+def warp_mpm_full(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None):
+    """Differentiable rollout with material leaves. Returns (x_T [N,3], F_T [N,9], v_T [N,3])."""
+    return _WarpMPM.apply(dFc_t, lam_t, mu_t, spec)
 
 
 def warp_mpm(dFc_t: torch.Tensor, spec: RolloutSpec):
-    """Differentiable rollout. dFc_t is (N,3,3) [shared control] or (T,N,3,3) [control sequence].
-    Returns (x_T [N,3], F_T [N,9]) torch tensors."""
-    return _WarpMPM.apply(dFc_t, spec)
+    """v1-compatible entry: constant material from spec. Returns (x_T, F_T)."""
+    xT, FT, _ = _WarpMPM.apply(dFc_t, None, None, spec)
+    return xT, FT

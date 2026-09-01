@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from .mpm import MPMParams, compute_volumes, make_state, mpm_step
-from .mpm import kernels as _kern
-from .mpm.constitutive import lame
-from .plasticity import (balanced_assignment, displacement_jacobian, sinkhorn_displacement,
-                         sliced_ot_displacement, update_fp)
+from ..mpm import MPMParams, compute_volumes, make_state, mpm_step
+from ..mpm import kernels as _kern
+from ..mpm.constitutive import lame
+from ..plasticity import (balanced_assignment, displacement_jacobian, sinkhorn_displacement,
+                          sliced_ot_displacement, update_fp)
 
 
 def _id(N):
@@ -84,7 +84,7 @@ def morph_elastoplastic(source_x, target_x, prm: MPMParams, K=60, T=20,
     # render supervision: target multi-view silhouettes (makes the renderer load-bearing)
     tgt_views = thetas_r = extent_r = None
     if render_gain > 0:
-        from .losses.render_guidance import build_target_views, render_guidance
+        from ..losses.render_guidance import build_target_views, render_guidance
         extent_r = float(np.abs(target_x).max()) * 1.25
         tgt_views, thetas_r = build_target_views(target_x, render_views, render_res, extent_r, device=device)
 

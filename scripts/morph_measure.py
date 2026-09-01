@@ -35,7 +35,7 @@ from scipy.spatial import cKDTree  # noqa: E402
 
 from physmorph.losses.silhouette import (d_img, ring_thetas, soft_silhouette,  # noqa: E402
                                          target_silhouettes)
-from physmorph.morph import morph_mass  # noqa: E402
+from physmorph.experimental.morph import morph_mass  # noqa: E402  (v1, quarantined)
 from physmorph.mpm import MPMParams  # noqa: E402
 from physmorph.sampling import load_mesh, sample_volume  # noqa: E402
 

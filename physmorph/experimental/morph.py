@@ -14,12 +14,12 @@ import numpy as np
 import torch
 from scipy.spatial import cKDTree
 
-from .losses.silhouette import d_img, ring_thetas, target_silhouettes
-from .losses.volumetric import d_vol, target_mass_grid
-from .mpm.constitutive import lame
-from .mpm.function import RolloutSpec, warp_mpm
-from .mpm.state import MPMParams
-from .plasticity import displacement_jacobian, sinkhorn_displacement, update_fp
+from ..losses.silhouette import d_img, ring_thetas, target_silhouettes
+from ..losses.volumetric import d_vol, target_mass_grid
+from ..mpm.constitutive import lame
+from ..mpm.function import RolloutSpec, warp_mpm
+from ..mpm.state import MPMParams
+from ..plasticity import displacement_jacobian, sinkhorn_displacement, update_fp
 
 
 def _id(N):

@@ -53,10 +53,13 @@ def sinkhorn_displacement(x, y, eps_frac=0.05, iters=60, n_anchor=2048,
     return d_sub[nn].mean(1).astype(np.float32)
 
 
-def displacement_jacobian(x, d, k=16, diffusion_iters=2, ridge=1e-4) -> np.ndarray:
-    """Smoothed symmetric least-squares Jacobian of the displacement field -> dFp.
+def displacement_jacobian(x, d, k=16, diffusion_iters=2, ridge=1e-4, symmetrize=True) -> np.ndarray:
+    """Smoothed least-squares Jacobian of the displacement field -> dFp.
 
     J = (sum dd dx^T)(sum dx dx^T)^-1 recovers an affine field exactly. eq (18).
+    symmetrize=True (v1 default) drops the rotation part — fine for the designed OT fields the
+    v1 callers feed in, but NOT objective for realised motion (sym(R-I) != 0 for a rigid
+    rotation); commit-time assimilation must use symmetrize=False (see plasticity/assimilation).
     """
     x = np.ascontiguousarray(x, np.float32)
     d = np.ascontiguousarray(d, np.float32)
@@ -69,7 +72,9 @@ def displacement_jacobian(x, d, k=16, diffusion_iters=2, ridge=1e-4) -> np.ndarr
     M = np.einsum("nki,nkj->nij", dx, dx) / idx.shape[1] + ridge * np.eye(3, dtype=np.float32)
     B = np.einsum("nki,nkj->nij", dd, dx) / idx.shape[1]
     J = np.einsum("nij,njk->nik", B, np.linalg.inv(M))
-    return (0.5 * (J + np.transpose(J, (0, 2, 1)))).astype(np.float32)
+    if symmetrize:
+        J = 0.5 * (J + np.transpose(J, (0, 2, 1)))
+    return J.astype(np.float32)
 
 
 def update_fp(Fp, dFp, eta=0.2, smin=0.5, smax=2.0, isochoric=True) -> np.ndarray:

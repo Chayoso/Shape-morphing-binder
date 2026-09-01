@@ -14,17 +14,20 @@ def ring_thetas(V: int) -> np.ndarray:
     return np.linspace(0, 2 * np.pi, V, endpoint=False).astype(np.float32)
 
 
-def _project(x: torch.Tensor, theta: float) -> torch.Tensor:
-    """Orthographic projection onto camera at azimuth theta (up = +y)."""
+def _project(x: torch.Tensor, theta: float, phi: float = 0.0) -> torch.Tensor:
+    """Orthographic projection onto camera at azimuth theta, elevation phi (up ~ +y).
+
+    View direction d = (cosφ sinθ, sinφ, cosφ cosθ); right = (cosθ, 0, −sinθ);
+    up = d × right = (−sinφ sinθ, cosφ, −sinφ cosθ). phi=0 reproduces the v1 ring."""
     right = x.new_tensor([np.cos(theta), 0.0, -np.sin(theta)])
-    up = x.new_tensor([0.0, 1.0, 0.0])
+    up = x.new_tensor([-np.sin(phi) * np.sin(theta), np.cos(phi), -np.sin(phi) * np.cos(theta)])
     return torch.stack([x @ right, x @ up], dim=1)
 
 
 def soft_silhouette(x: torch.Tensor, theta: float, res: int, extent: float,
-                    k: float = 1.5) -> torch.Tensor:
+                    k: float = 1.5, phi: float = 0.0) -> torch.Tensor:
     """Differentiable alpha image (res,res) via 2D CIC coverage splat."""
-    p = _project(x, theta)
+    p = _project(x, theta, phi)
     rel = (p + extent) / (2 * extent) * res
     base = torch.floor(rel).long()
     frac = rel - base.float()

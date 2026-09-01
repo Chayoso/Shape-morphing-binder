@@ -47,11 +47,20 @@ class Trajectory:
         # shared, non-differentiated
         m_a = np.broadcast_to(m, (N,)).astype(np.float32)
         self.m = A(m_a, wp.float32)
-        # material: optionally a DIFFERENTIABLE leaf (MatCast: dL/d(lam,mu) from rendered motion)
-        self.lam = A(np.full(N, float(lam), np.float32) if np.isscalar(lam) else lam, wp.float32, mat_grad)
-        self.mu = A(np.full(N, float(mu), np.float32) if np.isscalar(mu) else mu, wp.float32, mat_grad)
-        self.eta = A(np.zeros(N, np.float32) if eta is None else
-                     (np.full(N, float(eta), np.float32) if np.isscalar(eta) else eta), wp.float32, mat_grad)
+
+        # material: scalar / numpy -> constant array; a wp.array passes through UNCHANGED so the
+        # torch bridge can hand in from_torch leaves (dL/d(lam,mu) flows back through the tape).
+        def M(val, default):
+            if isinstance(val, wp.array):
+                return val
+            if val is None:
+                val = default
+            a = np.full(N, float(val), np.float32) if np.isscalar(val) else val
+            return A(a, wp.float32, mat_grad)
+
+        self.lam = M(lam, 0.0)
+        self.mu = M(mu, 0.0)
+        self.eta = M(eta, 0.0)
         self.Fp = A(_id(N) if Fp is None else Fp, wp.mat33)
         self.vol = A(np.zeros(N, np.float32), wp.float32)
         # per-step trajectory

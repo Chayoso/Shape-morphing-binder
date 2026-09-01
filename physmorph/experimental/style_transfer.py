@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from .losses.render_guidance import build_target_color_grams, build_target_views, color_gram_grad, render_guidance
-from .mpm import MPMParams, compute_volumes, make_state, mpm_step
-from .mpm.constitutive import lame
+from ..losses.render_guidance import build_target_color_grams, build_target_views, color_gram_grad, render_guidance
+from ..mpm import MPMParams, compute_volumes, make_state, mpm_step
+from ..mpm.constitutive import lame
 from .morph_physical import _repel, _smooth_field, _taubin
-from .plasticity import balanced_assignment, displacement_jacobian, sliced_ot_displacement, update_fp
+from ..plasticity import balanced_assignment, displacement_jacobian, sliced_ot_displacement, update_fp
 
 
 def _id(n):

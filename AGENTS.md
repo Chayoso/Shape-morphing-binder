@@ -28,22 +28,29 @@ volumetric mass matching only (Xu et al.).
 ## Layout — only two code trees remain
 
 ### `physmorph/` — the Warp rewrite (this is the working codebase)
+- **`pipeline/` — the v2 BLESSED PATH (see `docs/pipeline_v2.md`, the v2 source of truth).**
+  `config.py` (PipelineConfig), `render_loss.py` (multi-elevation asymmetric D_render +
+  EMA λ balancer), `optimizer.py` (`optimize_window`: multi-leaf line-searched Adam over a
+  dFc sequence + optional material field), `runner.py` (`run_pipeline`: commits, full-state
+  promotion, plastic assimilation, plateau freeze, guard counters). Physics-only baseline =
+  same path with `lambda_auto=0`.
+- `metrics.py` — gate metrics (chamfer, sil_iou, hole_frac, jitter); raw sim state only.
 - `mpm/` — MLS-MPM engine ported from the C++ oracle. `kernels.py` (cubic B-spline 4³, APIC,
   `eta_sym` objective viscosity, `eta_mode` exponential damping, `v_max` clamp), `state.py`
   (`MPMParams`), `traj.py` (per-step arrays on `wp.Tape`), `function.py` (torch autograd bridge:
-  `dFc` leaf → rollout → `x_T, F_T`), `step.py`.
+  `dFc` + optional per-particle `λ,μ` leaves → rollout → `x_T, F_T, v_T`), `step.py`,
+  `conditioning.py` (`condition_F`: SVD clamp with reflection repair).
 - `losses/` — `volumetric.py` **`d_vol`: mass matching, the Xu et al. objective**;
-  `silhouette.py` `d_img` multi-view soft silhouette; `render_guidance.py` per-particle
-  displacement from silhouette **and colour/gram** terms.
-- `morph.py` — **`morph_mass()`: single-graph per-frame Adam on `dFc`, `L = D_vol + λ·D_img`.**
-  This is "Xu et al. + render loss" and is the natural starting point.
-- `morph_physical.py` — plasticity-driven rest-state migration; blends transport and render
-  *displacements* (`render_gain`).
-- `style_transfer.py` — displacement-space loop with colour-gram style terms.
+  `silhouette.py` `d_img` multi-view soft silhouette (now with elevation);
+  `render_guidance.py` displacement-space + colour/gram terms (experimental loops only).
+- `trajectory_opt.py` — C++ CompGraph parity port, kept verbatim as the oracle-comparison arm.
+- `experimental/` — quarantined v1 loops (`morph.py`, `morph_physical.py`, `style_transfer.py`);
+  ablation material only, never cited for v2 claims.
 - `plasticity/` (Sinkhorn / sliced-OT / assignment), `render/` (3DGS raster, covariance),
   `surface/`, `sampling/`, `viewer/`.
 - `docs/method.md` is the **equation contract** these files cite as `docs/SPEC.md` (renamed; the
   docstring paths were never updated). Equation numbers in `mpm/*.py` refer to it.
+  `docs/pipeline_v2.md` is the v2 architecture + acceptance-gate contract.
 
 ### `legacy/` — the C++ original (Xu et al. DiffMPMLib3D) + Python bindings
 - `DiffMPMLib3D/` — `CompGraph.{h,cpp}` (`OptimizeDefGradControlSequence`, `EndLayerMassLoss`),
