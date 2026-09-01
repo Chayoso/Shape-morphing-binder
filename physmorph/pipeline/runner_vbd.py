@@ -31,7 +31,7 @@ def _id(N):
 
 
 def run_vbd_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
-                     on_commit=None):
+                     on_commit=None, on_sweep=None):
     dev = cfg.device
     src = np.ascontiguousarray(source_x, np.float32)
     N = src.shape[0]
@@ -93,8 +93,25 @@ def run_vbd_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, lo
             E = E_el + lv + cfg.w_box * lb
             return E if lr is None else E + lam_r * lr
 
+        sweep_cb = None
+        if on_sweep is not None:                       # live viewer: publish DURING the solve
+            ny, nz = prm.ny, prm.nz
+            lin = qs.active
+            npos = (torch.stack([lin // (ny * nz), (lin // nz) % ny, lin % nz], 1).float()
+                    * prm.dx + torch.as_tensor(prm.grid_min, device=dev))
+            npos_np = npos.cpu().numpy().astype(np.float32)
+
+            def sweep_cb(u_s, g_s, gn_s, si, _a=a, _F=F, _qs=qs, _np=npos_np):
+                with torch.no_grad():
+                    disp_s, Ap_s = _qs.kinematics(u_s)
+                    x_s = (_qs.x0 + disp_s).cpu().numpy().astype(np.float32)
+                    F_s = (Ap_s.cpu().numpy().astype(np.float32) @ _F)
+                    nq = np.stack([u_s.norm(dim=1).cpu().numpy(),
+                                   g_s.norm(dim=1).cpu().numpy()], 1).astype(np.float32)
+                on_sweep(_a, si, gn_s, x_s, F_s, _np, nq)
+
         u, info = qs.solve(energy, sweeps=cfg.vbd_sweeps, tol=cfg.vbd_tol,
-                           step=cfg.vbd_step, ls=cfg.vbd_ls)
+                           step=cfg.vbd_step, ls=cfg.vbd_ls, on_sweep=sweep_cb)
 
         with torch.no_grad():
             disp, Ap = qs.kinematics(u)

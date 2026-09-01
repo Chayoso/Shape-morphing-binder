@@ -125,7 +125,7 @@ class QuasiStaticGrid:
         Fe = Ap @ Fe0
         return self.Vp * psi_snh(Fe, self.lam_l, self.mu_l).sum(), Fe
 
-    def solve(self, energy_fn, sweeps=60, tol=5e-3, step=0.9, ls=4):
+    def solve(self, energy_fn, sweeps=60, tol=5e-3, step=0.9, ls=4, on_sweep=None):
         """Colored damped block descent on E(u). energy_fn(u) -> scalar.
 
         The diagonal preconditioner captures the ELASTIC curvature; the data terms'
@@ -141,8 +141,10 @@ class QuasiStaticGrid:
         with torch.no_grad():
             E_prev = float(energy_fn(u))
         trace, gn = [E_prev], float("inf")
+        gns, tmeans = [], []
         a = step
         for s_i in range(sweeps):
+            ts = []
             for m in masks:
                 g = torch.autograd.grad(energy_fn(u), u)[0]
                 d = (g / self.diag) * m
@@ -174,14 +176,21 @@ class QuasiStaticGrid:
                 if best is not None and best[0] <= E_prev:
                     E_prev = best[0]
                     u = (u - best[1] * d).detach().requires_grad_(True)
+                    ts.append(best[1])
                     a = min(max(0.5 * a + 0.5 * best[1], 1e-3 * step), step * 1e7)
                 else:
                     a *= 0.5                           # probe outside the quadratic regime
-            gn = float(torch.autograd.grad(energy_fn(u), u)[0].norm())
+            g_end = torch.autograd.grad(energy_fn(u), u)[0]
+            gn = float(g_end.norm())
             if g0 is None:
                 g0 = max(gn, 1e-30)
             trace.append(E_prev)
+            gns.append(gn)
+            tmeans.append(float(np.mean(ts)) if ts else 0.0)
+            if on_sweep is not None:                   # live viewer: stream the SOLVE itself
+                on_sweep(u.detach(), g_end.detach(), gn, s_i)
             if gn <= tol * g0:
                 break
         return u.detach(), {"sweeps": s_i + 1, "gnorm": gn, "gnorm0": g0, "step_end": a,
-                            "converged": bool(gn <= tol * g0), "energy": trace}
+                            "converged": bool(gn <= tol * g0), "energy": trace,
+                            "gnorms": gns, "step_means": tmeans}

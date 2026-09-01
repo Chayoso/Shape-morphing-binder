@@ -36,10 +36,18 @@ from physmorph.sampling import load_normalized  # noqa: E402
 _TRI = ([0, 0, 0, 1, 1, 2], [0, 1, 2, 1, 2, 2])      # upper-triangle index of a 3x3
 
 
-def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray) -> bytes:
-    """<u32 header_len><json header><f32 x[N*3]><f32 cov6[N*6]> (little-endian)."""
+def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray,
+               nodes: np.ndarray | None = None, nodeq: np.ndarray | None = None) -> bytes:
+    """<u32 hlen><json hdr><f32 x[N*3]><f32 cov6[N*6]>[<f32 nodes[A*3]><f32 nodeq[A*2]>].
+
+    nodes/nodeq (optional) = active grid node positions + per-node (|u|, |gradE|) —
+    the grid-quantity layer of the viewer. phase: 'commit' or 'sweep' (the optimisation
+    process itself is streamed sweep-by-sweep)."""
+    a = 0 if nodes is None else int(len(nodes))
     hdr = json.dumps({
-        "seq": seq, "n": int(len(x)), "commit": rec.get("animation", -1) + 1,
+        "seq": seq, "n": int(len(x)), "a": a,
+        "phase": rec.get("phase", "commit"), "sweep": rec.get("sweep"),
+        "commit": rec.get("animation", -1) + 1,
         "E": rec.get("loss"), "E_el": rec.get("E_el"),
         "d_vol": rec.get("d_vol"), "d_render": rec.get("d_render"),
         "lam": rec.get("lambda"), "sweeps": rec.get("sweeps"),
@@ -48,9 +56,13 @@ def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray) -> bytes:
     }).encode("utf-8")
     hdr += b" " * (-len(hdr) % 4)      # 4-align: JS Float32Array(buf, off) needs off % 4 == 0
     cov6 = cov[:, _TRI[0], _TRI[1]]
-    return (struct.pack("<I", len(hdr)) + hdr
-            + np.ascontiguousarray(x, "<f4").tobytes()
-            + np.ascontiguousarray(cov6, "<f4").tobytes())
+    out = (struct.pack("<I", len(hdr)) + hdr
+           + np.ascontiguousarray(x, "<f4").tobytes()
+           + np.ascontiguousarray(cov6, "<f4").tobytes())
+    if a:
+        out += np.ascontiguousarray(nodes, "<f4").tobytes()
+        out += np.ascontiguousarray(nodeq, "<f4").tobytes()
+    return out
 
 
 class Hub:
@@ -142,11 +154,17 @@ def main():
         def cb(a, x, F, rec, _run=run_i):
             nonlocal seq
             seq += 1
-            r = dict(rec); r["run"] = _run
+            r = dict(rec); r["run"] = _run; r["phase"] = "commit"
             hub.publish(pack_state(seq, r, x, cov_from_F(F, sigma0)))
+
+        def cb_sweep(a, si, gn, x_s, F_s, npos, nq, _run=run_i):
+            nonlocal seq
+            seq += 1
+            r = {"animation": a, "phase": "sweep", "sweep": si, "gnorm": gn, "run": _run}
+            hub.publish(pack_state(seq, r, x_s, cov_from_F(F_s, sigma0), npos, nq))
         t0 = time.time()
         res = run_vbd_pipeline(src, tgt, prm, cfg, log=lambda *a: print(*a, flush=True),
-                               on_commit=cb)
+                               on_commit=cb, on_sweep=cb_sweep)
         print(f"[live] run {run_i} finished in {time.time()-t0:.1f}s "
               f"(converged={res['converged']}); {'restarting' if args.loop else 'holding'}",
               flush=True)
