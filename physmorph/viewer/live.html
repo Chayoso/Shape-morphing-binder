@@ -32,31 +32,50 @@ const sp = document.getElementById('spark'), spx = sp.getContext('2d');
 const $ = id => document.getElementById(id);
 let meta = null, target = null, state = null, lastSeq = -1, paused = false;
 let dvolHist = [];
-let AZ = 0.6, EL = -0.35, ZOOM = 0.8;
+let ZOOM = 0.8;
 
 $('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'resume' : 'pause'; };
 for (const id of ['ssz', 'gho']) $(id).addEventListener('input', () => draw());
 
-// ---- direct manipulation: drag rotates, wheel zooms ----
+// ---- ARCBALL rotation: accumulate a rotation matrix — no Euler angles, no pole
+// clamp, full 360 in every direction (the az/el scheme could not pass the poles) ----
+function rod(v, k, th) {                        // Rodrigues: rotate v around unit k
+  const c = Math.cos(th), s = Math.sin(th);
+  const kv = k[0]*v[0]+k[1]*v[1]+k[2]*v[2];
+  const cx = [k[1]*v[2]-k[2]*v[1], k[2]*v[0]-k[0]*v[2], k[0]*v[1]-k[1]*v[0]];
+  return [v[0]*c + cx[0]*s + k[0]*kv*(1-c),
+          v[1]*c + cx[1]*s + k[1]*kv*(1-c),
+          v[2]*c + cx[2]*s + k[2]*kv*(1-c)];
+}
+const norm3 = v => { const n = Math.hypot(...v) || 1; return [v[0]/n, v[1]/n, v[2]/n]; };
+const cross3 = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+let CAM = (() => {                               // start ~ (az .6, el -.35)
+  const az = 0.6, el = -0.35, ca = Math.cos(az), sa = Math.sin(az),
+        ce = Math.cos(el), se = Math.sin(el);
+  const right = [ca, 0, -sa], up = [-sa*se, ce, -ca*se];
+  return {right, up, fwd: cross3(right, up)};
+})();
+function basis() { return CAM; }
+function rotateCam(dx, dy) {
+  const ax = CAM.up, ay = CAM.right;             // rotate about CURRENT screen axes
+  for (const key of ['right', 'up', 'fwd']) {
+    let v = rod(CAM[key], ax, -dx);
+    CAM[key] = rod(v, ay, -dy);
+  }
+  CAM.right = norm3(CAM.right);                  // re-orthonormalise (drift control)
+  CAM.fwd = norm3(cross3(CAM.right, CAM.up));
+  CAM.up = norm3(cross3(CAM.fwd, CAM.right));
+}
 let drag = null;
 cv.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; cv.style.cursor = 'grabbing'; cv.setPointerCapture(e.pointerId); });
 cv.addEventListener('pointermove', e => {
   if (!drag) return;
-  AZ += (e.clientX - drag[0]) * 0.006;
-  EL = Math.max(-1.45, Math.min(1.45, EL + (e.clientY - drag[1]) * 0.006));
+  rotateCam((e.clientX - drag[0]) * 0.006, (e.clientY - drag[1]) * 0.006);
   drag = [e.clientX, e.clientY];
   draw();
 });
 cv.addEventListener('pointerup', e => { drag = null; cv.style.cursor = 'grab'; });
 cv.addEventListener('wheel', e => { e.preventDefault(); ZOOM *= Math.exp(-e.deltaY * 0.001); ZOOM = Math.max(0.2, Math.min(4, ZOOM)); draw(); }, {passive: false});
-
-function basis(az, el) {
-  const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
-  const right = [ca, 0, -sa], up = [-sa * se, ce, -ca * se];
-  const fwd = [right[1] * up[2] - right[2] * up[1], right[2] * up[0] - right[0] * up[2],
-               right[0] * up[1] - right[1] * up[0]];
-  return {right, up, fwd};
-}
 
 // ---- Gaussian sprite (radial exp falloff), tinted per cloud ----
 function makeSprite(r, g, b) {
@@ -127,13 +146,13 @@ function draw() {
   const W = cv.width = innerWidth, H = cv.height = innerHeight - 40;
   cv.style.marginTop = '40px';
   ctx.fillStyle = '#101014'; ctx.fillRect(0, 0, W, H);
-  const b = basis(AZ, EL);
+  const b = basis();
   const cx = W / 2, cy = H / 2, scl = ZOOM * Math.min(W, H) / (2.2 * meta.extent);
   const k = +$('ssz').value, ga = +$('gho').value;
   if (target && ga > 0) drawCloud(target, b, scl, cx, cy, SPR_TGT, ga, k);
   drawCloud(state, b, scl, cx, cy, SPR_BODY, 0.85, k);
   ctx.fillStyle = '#666'; ctx.font = '12px system-ui';
-  ctx.fillText(`az=${AZ.toFixed(2)} el=${EL.toFixed(2)} zoom=${ZOOM.toFixed(2)}`, 10, H - 10);
+  ctx.fillText(`zoom=${ZOOM.toFixed(2)}`, 10, H - 10);
   const h = state.hdr;
   $('st').textContent = `run ${h.run ?? 0} · commit ${h.commit}/${meta.animations}`;
   $('tele').textContent =

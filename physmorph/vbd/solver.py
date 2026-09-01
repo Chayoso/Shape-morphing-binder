@@ -143,29 +143,40 @@ class QuasiStaticGrid:
         trace, gn = [E_prev], float("inf")
         a = step
         for s_i in range(sweeps):
-            clean = True
             for m in masks:
                 g = torch.autograd.grad(energy_fn(u), u)[0]
                 d = (g / self.diag) * m
-                # per-node trust radius: one runaway node must not poison the whole
-                # color's candidate (acceptance is per color, not per node)
+                # per-node trust radius: one runaway node must not poison the color
                 dn = d.norm(dim=1, keepdim=True)
                 d = d * (self.node_cap / dn.clamp_min(1e-30)).clamp(max=1.0)
-                at = a
-                for _ in range(ls + 1):
-                    with torch.no_grad():
-                        u_try = (u - at * d).detach()
-                        E_new = float(energy_fn(u_try))
-                    if np.isfinite(E_new) and E_new <= E_prev:
-                        u = u_try.requires_grad_(True)
-                        E_prev = E_new
-                        break
-                    at *= 0.5
-                    clean = False
+                gd = float((g * d).sum())              # directional derivative along -d
+                if gd <= 1e-30:
+                    continue
+                # EXACT quadratic line search (rounds 2-3 lesson: the diag preconditioner
+                # knows only the elastic curvature; grow-on-clean-sweep self-locked the
+                # step at the DATA curvature's stability bound and the solve crawled at
+                # ~3e-3/commit regardless of coloring). Two evaluations fit
+                # E(t) ~ E0 - t*gd + c t^2 and jump to the vertex t* = gd/2c.
+                with torch.no_grad():
+                    E1 = float(energy_fn((u - a * d).detach()))
+                cands = []
+                if np.isfinite(E1):
+                    cands.append((E1, a))
+                c = (E1 - E_prev + a * gd) / (a * a)
+                if np.isfinite(c) and c > 1e-30:
+                    t = min(gd / (2 * c), 20 * a)
+                    if abs(t - a) > 0.05 * a:
+                        with torch.no_grad():
+                            Et = float(energy_fn((u - t * d).detach()))
+                        if np.isfinite(Et):
+                            cands.append((Et, t))
+                best = min(cands) if cands else None
+                if best is not None and best[0] <= E_prev:
+                    E_prev = best[0]
+                    u = (u - best[1] * d).detach().requires_grad_(True)
+                    a = min(max(0.5 * a + 0.5 * best[1], 1e-3 * step), step * 1e7)
                 else:
-                    clean = False                      # no acceptable step for this color
-            if clean:
-                a = min(a * 1.5, step * 1e7)
+                    a *= 0.5                           # probe outside the quadratic regime
             gn = float(torch.autograd.grad(energy_fn(u), u)[0].norm())
             if g0 is None:
                 g0 = max(gn, 1e-30)
