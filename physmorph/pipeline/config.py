@@ -27,6 +27,10 @@ class PipelineConfig:
     beta2: float = 0.999
     eps: float = 1e-8
     dfc_clip: float = 0.0           # optional per-particle |dFc| cap (0 = off; C++ has none)
+    pace: float = 0.0               # TRAJECTORY pacing: each window may reduce its starting
+                                    # loss by at most this fraction (0 = off). Stops the
+                                    # "morph done in 2 commits" snap — the deliverable is the
+                                    # trajectory, not just the endpoint.
 
     # ---- loss terms (docs/pipeline_v2.md §3.3) ----
     loss_res: int = 32              # D_vol grid resolution
@@ -46,6 +50,12 @@ class PipelineConfig:
     sil_k: float = 1.5              # alpha saturation 1-exp(-k w)
     w_hole: float = 2.0             # deficit inside target (holes/missing extremities)
     w_spray: float = 1.0            # excess outside target (ejecta pulled back by the objective)
+    w_pbr: float = 0.0              # PBR-lite: headlight-Lambertian shaded-image L2 inside the
+    pbr_ambient: float = 0.25       #   balanced render scalar (curvature-sensitive feedback)
+    grad_project: bool = False      # PCGrad one-sided: project the render grad off the physics
+                                    #   grad when they conflict (cos<0 — measured late-run -0.74)
+    c2f_at: float = 0.0             # >0: coarse-to-fine — rebuild render targets at this
+    render_res_hi: int = 96         #   fraction of the run at render_res_hi
 
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution

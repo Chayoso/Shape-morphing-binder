@@ -110,8 +110,25 @@ def arm_config(arm: str, args) -> PipelineConfig:
     elif arm == "render_gs":                       # Sobolev/grid-GS render direction
         cfg.lambda_auto = args.lambda_auto
         cfg.render_gs_iters = args.render_gs_iters
+    elif arm == "render_pbr":                      # + PBR-lite shading channel
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+    elif arm == "render_pc":                       # + PCGrad conflict projection
+        cfg.lambda_auto = args.lambda_auto
+        cfg.grad_project = True
+    elif arm == "render_c2f":                      # + coarse-to-fine render targets
+        cfg.lambda_auto = args.lambda_auto
+        cfg.c2f_at = 0.5
+    elif arm == "render_full":                     # PBR + PCGrad + c2f + paced trajectory
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.grad_project = True
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
     else:
-        raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat|render_ws|render_gs)")
+        raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat|render_ws|"
+                         "render_gs|render_pbr|render_pc|render_c2f|render_full)")
     return cfg
 
 
@@ -153,6 +170,9 @@ def main():
     ap.add_argument("--render_res", type=int, default=64)
     ap.add_argument("--loss_res", type=int, default=32)
     ap.add_argument("--render_gs_iters", type=int, default=20)
+    ap.add_argument("--w_pbr", type=float, default=1.0)
+    ap.add_argument("--pace", type=float, default=0.12)
+    ap.add_argument("--dfc_clip", type=float, default=0.02)
     ap.add_argument("--arms", default="phys,render")
     ap.add_argument("--save_F_stride", type=int, default=0,
                     help="save every k-th F frame (0 = T, i.e. commit boundaries)")
@@ -181,6 +201,11 @@ def main():
         dt = time.time() - t0
         met = metrics.summarize(res["frames"], tgt, F_frames=res["F_frames"],
                                 n_held=res["n_held"])
+        # trajectory evenness: CV of per-commit displacement (snap-to-target -> high CV)
+        mv = [h["move"] for h in res["history"] if "move" in h]
+        met["move_cv"] = float(np.std(mv) / max(np.mean(mv), 1e-9)) if len(mv) > 2 else 0.0
+        met["move_first_frac"] = (float(sum(mv[:3]) / max(sum(mv), 1e-9))
+                                  if len(mv) > 3 else 1.0)
         gates = eval_gates(arm, res, met, prm, args.T)
         stride = args.save_F_stride if args.save_F_stride > 0 else args.T
         nF = len(res["F_frames"])
@@ -199,7 +224,8 @@ def main():
                             "n_held": res["n_held"], "seconds": dt, "history": res["history"]}
         print(f"[v2run] ARM {arm}: chamfer={met['chamfer']:.4f}  silIoU={met['sil_iou']:.4f}  "
               f"hole={met['hole_frac']*100:.2f}%  jitter_rel={met['jitter_rel']:.5f}  "
-              f"detFmin={met.get('detF_min', 1.0):.4f}  ({dt/60:.1f} min)", flush=True)
+              f"detFmin={met.get('detF_min', 1.0):.4f}  move_cv={met['move_cv']:.2f}  "
+              f"first3={met['move_first_frac']*100:.0f}%  ({dt/60:.1f} min)", flush=True)
 
     # ---- cross-arm gates: every render-driven arm vs its physics-only baseline ----
     base = "phys" if "phys" in out["arms"] else None

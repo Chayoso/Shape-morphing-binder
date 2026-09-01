@@ -23,7 +23,7 @@ from ..mpm.state import MPMParams
 from ..plasticity import assimilate_elastic
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
-from .render_loss import LambdaBalancer, make_views, target_silhouettes
+from .render_loss import LambdaBalancer, make_views, shade_targets, target_silhouettes
 
 
 def _id(N):
@@ -43,10 +43,14 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     grid = target_mass_grid(tgt_t, m, lgmin, ldx, ldims)
     views = make_views(cfg.render_views, cfg.render_elevs)
     extent = float(np.abs(target_x).max()) * 1.25
-    sils = (target_silhouettes(tgt_t, views, cfg.render_res, extent, cfg.sil_k)
-            if cfg.lambda_auto > 0 else None)
+    sils = shade = None
+    if cfg.lambda_auto > 0:
+        sils = target_silhouettes(tgt_t, views, cfg.render_res, extent, cfg.sil_k)
+        if cfg.w_pbr > 0:
+            shade = shade_targets(tgt_t, views, cfg.render_res, extent,
+                                  lgmin, ldx, ldims, cfg.sil_k)
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
-                      views=views, sils=sils, extent=extent)
+                      views=views, sils=sils, extent=extent, shade=shade)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
@@ -89,6 +93,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 n_held += 1
                 continue
             break
+        # coarse-to-fine: sharpen the render targets late in the run (thin features)
+        if (cfg.c2f_at > 0 and cfg.lambda_auto > 0
+                and a == int(cfg.c2f_at * cfg.animations)):
+            cfg.render_res = cfg.render_res_hi
+            tgt = build_target(target_x, prm, cfg)
+            best_rend = None                        # D_render rescaled: reset its plateau track
+            log(f"[v2] c2f at anim {a + 1}: render targets rebuilt at {cfg.render_res}px")
         x_start = x.copy()
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],

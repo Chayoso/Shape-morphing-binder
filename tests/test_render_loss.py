@@ -5,7 +5,8 @@ import pytest
 import torch
 
 from physmorph.losses.silhouette import _project, d_img, ring_thetas, target_silhouettes
-from physmorph.pipeline.render_loss import (LambdaBalancer, d_render, make_views,
+from physmorph.pipeline.render_loss import (LambdaBalancer, d_pbr, d_render, field_normals,
+                                            make_views, shade_targets,
                                             target_silhouettes as v2_targets)
 
 RES, EXTENT = 32, 1.5
@@ -82,6 +83,52 @@ def test_projection_phi_zero_matches_v1():
     x = torch.tensor(np.random.default_rng(2).uniform(-1, 1, (100, 3)).astype(np.float32))
     for th in (0.0, 1.1, 4.0):
         assert torch.allclose(_project(x, th), _project(x, th, 0.0))
+
+
+GMIN = torch.tensor([-2.0, -2.0, -2.0])
+PDX, PDIMS = 0.25, (16, 16, 16)
+
+
+def _ball(n=4000, seed=3, squash=1.0):
+    rng = np.random.default_rng(seed)
+    v = rng.normal(0, 1, (n, 3))
+    v /= np.linalg.norm(v, axis=1, keepdims=True)
+    r = rng.uniform(0, 1, (n, 1)) ** (1 / 3)
+    x = (v * r * 1.2).astype(np.float32)
+    x[:, 1] *= squash
+    return torch.tensor(x)
+
+
+def test_field_normals_point_outward_on_a_ball():
+    x = _ball()
+    n = field_normals(x, GMIN, PDX, PDIMS)
+    shell = x.norm(dim=1) > 0.9
+    cos = torch.nn.functional.cosine_similarity(n[shell], x[shell] / x[shell].norm(dim=1, keepdim=True))
+    assert float(cos.mean()) > 0.8                  # outward normals on the shell
+
+
+def test_d_pbr_zero_on_identical_and_sees_curvature():
+    x = _ball()
+    views = make_views(3, (0.0, 0.5))
+    tgts = shade_targets(x, views, 32, 1.5, GMIN, PDX, PDIMS)
+    l_same = d_pbr(x, tgts, views, 32, 1.5, GMIN, PDX, PDIMS)
+    assert float(l_same) < 1e-8                     # identical cloud -> zero
+    l_squash = d_pbr(_ball(squash=0.6), tgts, views, 32, 1.5, GMIN, PDX, PDIMS)
+    assert float(l_squash) > 50 * max(float(l_same), 1e-12)   # curvature change visible
+
+
+def test_d_pbr_gradient_flows():
+    x = _ball(1500)
+    views = make_views(2, (0.0,))
+    tgts = shade_targets(_ball(1500, squash=0.7), views, 24, 1.5, GMIN, PDX, PDIMS)
+    xg = x.clone().requires_grad_(True)
+    (g,) = torch.autograd.grad(d_pbr(xg, tgts, views, 24, 1.5, GMIN, PDX, PDIMS), xg)
+    assert torch.isfinite(g).all() and float(g.abs().sum()) > 0
+
+
+def test_balancer_cap():
+    b = LambdaBalancer(0.5, ema=1.0, cap=100.0)
+    assert b.update(1e6, 1e-3) == 100.0             # runaway ratio capped
 
 
 def test_balancer_ema_and_activity():

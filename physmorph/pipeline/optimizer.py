@@ -34,7 +34,7 @@ from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig
 from .grid_smooth import smooth_particle_field
-from .render_loss import LambdaBalancer, d_render
+from .render_loss import LambdaBalancer, d_pbr, d_render
 
 
 @dataclass
@@ -48,6 +48,7 @@ class TargetPack:
     views: list                 # [(theta, phi)]
     sils: list | None           # target alpha images (None when render channel off)
     extent: float
+    shade: list | None = None   # target shaded images (PBR-lite channel, w_pbr>0)
 
 
 def _norm(gs) -> float:
@@ -102,8 +103,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     def losses_of(xT, vT):
         lv = d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
         lk = vT.pow(2).sum(1).mean()
-        lr = (d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
-                       cfg.sil_k, cfg.w_hole, cfg.w_spray) if balancer.active else None)
+        lr = None
+        if balancer.active:
+            lr = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
+                          cfg.sil_k, cfg.w_hole, cfg.w_spray)
+            if cfg.w_pbr > 0 and tgt.shade is not None:     # curvature channel (PBR-lite)
+                lr = lr + cfg.w_pbr * d_pbr(xT, tgt.shade, tgt.views, cfg.render_res,
+                                            tgt.extent, tgt.lgmin, tgt.ldx, tgt.ldims,
+                                            cfg.sil_k)
         return lv, lk, lr
 
     def terms(dfc):
@@ -145,7 +152,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L if lr is None else L + lam_r * float(lr)
 
     hist, accepted, rejected = [], 0, 0
-    alpha, g0_norm = cfg.alpha, None
+    alpha, g0_norm, L_start = cfg.alpha, None, None
     lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
     grad_converged = False
 
@@ -170,7 +177,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         state, lv, lk, lr = terms(dFc)
         Lp = phys_total(lv, lk, dFc, state[0])
         smooth = balancer.active and cfg.render_gs_iters > 0
-        if balancer.active and (smooth or it == 0):
+        if balancer.active and (smooth or cfg.grad_project or it == 0):
             gp = torch.autograd.grad(Lp, leaves, retain_graph=True)
             if smooth:
                 # v3 grid-GS preconditioning: smooth the IMAGE-SPACE pull on the grid,
@@ -185,6 +192,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 gr = torch.autograd.grad(lr, leaves)
             if it == 0:
                 lam_r = balancer.update(_norm(gp), _norm(gr))
+            if cfg.grad_project:
+                # PCGrad (one-sided): when the render grad opposes the physics grad
+                # (cos<0 — measured -0.74 late-run), remove the conflicting component.
+                # Physics stays primary; the projected sum remains a descent direction
+                # and the line search still guards the composite.
+                dot = sum((a * b).sum() for a, b in zip(gp, gr))
+                if float(dot) < 0:
+                    gp2 = sum(a.pow(2).sum() for a in gp).clamp_min(1e-30)
+                    gr = [b - (dot / gp2) * a for a, b in zip(gp, gr)]
             g = [a + lam_r * b for a, b in zip(gp, gr)]
         elif balancer.active:
             g = list(torch.autograd.grad(Lp + lam_r * lr, leaves))
@@ -194,6 +210,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if not np.isfinite(cur):
             log(f"[win] iter {it}: non-finite loss, aborting window")
             break
+        if L_start is None:
+            L_start = cur
         gn = _norm(g)
         if g0_norm is None:
             g0_norm = max(gn, 1e-12)
@@ -269,6 +287,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      "grad_norm": gn, "alpha": a_try,
                      "dfc_absmax": float(dFc.detach().abs().max()),
                      "s_absmax": float(s.detach().abs().max()) if s is not None else None})
+        # trajectory pacing: this window has done its share of the morph — stop here so
+        # the progression spreads across commits (the trajectory IS the deliverable)
+        if cfg.pace > 0 and new <= (1.0 - cfg.pace) * L_start:
+            break
 
     # ---- final rollout: every intermediate state + FULL end state ----
     with torch.no_grad():
