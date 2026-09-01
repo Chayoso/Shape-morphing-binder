@@ -74,6 +74,36 @@ def test_material_arm_returns_bounded_s(prm, clouds):
     assert np.isfinite(res["s"]).all()
 
 
+def test_pcgrad_projection_math():
+    from physmorph.pipeline.optimizer import _pcgrad
+    import torch
+    gp = [torch.tensor([1.0, 0.0, 0.0])]
+    gr_conf = [torch.tensor([-2.0, 1.0, 0.0])]      # cos < 0 vs gp
+    out, conflicted = _pcgrad(gp, gr_conf)
+    assert conflicted
+    assert abs(float((out[0] * gp[0]).sum())) < 1e-6    # conflicting component removed
+    assert torch.allclose(out[0], torch.tensor([0.0, 1.0, 0.0]), atol=1e-6)
+    out2, c2 = _pcgrad(gp, [torch.tensor([0.5, 3.0, 0.0])])   # cos > 0: untouched
+    assert not c2 and torch.allclose(out2[0], torch.tensor([0.5, 3.0, 0.0]))
+
+
+def test_pace_is_an_upper_bound_per_window(prm, clouds):
+    """The window may not cut more than `pace` of its starting loss (adversarial finding:
+    the old break-after-accept form allowed a single step to snap the morph)."""
+    from physmorph.pipeline.optimizer import optimize_window
+    from physmorph.pipeline.render_loss import LambdaBalancer
+    from physmorph.pipeline.runner import build_target
+    src, tgt_x = clouds
+    cfg = _cfg(pace=0.15, iters=6)
+    pack = build_target(tgt_x, prm, cfg)
+    bal = LambdaBalancer(0.0)
+    fr, F_seq, end, s, whist, stats = optimize_window(
+        src, prm, cfg, pack, bal, log=lambda *_: None)
+    assert whist and stats["L_start"] is not None
+    floor = (1 - cfg.pace) * stats["L_start"]
+    assert whist[-1]["loss"] >= floor * 0.999       # never below the pace floor
+
+
 def test_frames_are_promoted_states(prm, clouds):
     """The archived last frame of each window must BE the promoted state (adversarial
     finding: raw rollout was archived while the clamped state was simulated)."""

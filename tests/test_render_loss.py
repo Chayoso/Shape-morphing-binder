@@ -99,12 +99,27 @@ def _ball(n=4000, seed=3, squash=1.0):
     return torch.tensor(x)
 
 
-def test_field_normals_point_outward_on_a_ball():
+def test_field_normals_outward_and_surface_weighted():
     x = _ball()
-    n = field_normals(x, GMIN, PDX, PDIMS)
-    shell = x.norm(dim=1) > 0.9
-    cos = torch.nn.functional.cosine_similarity(n[shell], x[shell] / x[shell].norm(dim=1, keepdim=True))
+    n, sw = field_normals(x, GMIN, PDX, PDIMS)
+    r = x.norm(dim=1)
+    shell, deep = r > 1.05, r < 0.5                 # true outer band vs interior
+    cos = torch.nn.functional.cosine_similarity(n[shell], x[shell] / r[shell, None])
     assert float(cos.mean()) > 0.8                  # outward normals on the shell
+    # the surface weight must discriminate shell from interior (the adversarial round
+    # showed the NORMALISED field alone does not, on solid clouds)
+    assert float(sw[shell].mean()) > 1.5 * float(sw[deep].mean())
+
+
+def test_shading_is_headlit_not_backlit():
+    """Adversarial BLOCKER regression: the camera-facing hemisphere must be brighter
+    than the away-facing one (previous sign lit the scene from behind, l·d = -1)."""
+    from physmorph.pipeline.render_loss import shaded_view
+    x = _ball(6000)
+    n, sw = field_normals(x, GMIN, PDX, PDIMS)
+    img, alpha = shaded_view(x, 0.0, 0.0, 48, 1.5, n, sw)   # camera on +z
+    m = alpha > 0.5
+    assert float(img[m].mean()) > 0.45              # lit well above pure ambient (0.25)
 
 
 def test_d_pbr_zero_on_identical_and_sees_curvature():
@@ -113,8 +128,9 @@ def test_d_pbr_zero_on_identical_and_sees_curvature():
     tgts = shade_targets(x, views, 32, 1.5, GMIN, PDX, PDIMS)
     l_same = d_pbr(x, tgts, views, 32, 1.5, GMIN, PDX, PDIMS)
     assert float(l_same) < 1e-8                     # identical cloud -> zero
+    # ABSOLUTE threshold (the previous relative one collapsed to 5e-11, vacuous)
     l_squash = d_pbr(_ball(squash=0.6), tgts, views, 32, 1.5, GMIN, PDX, PDIMS)
-    assert float(l_squash) > 50 * max(float(l_same), 1e-12)   # curvature change visible
+    assert float(l_squash) > 1e-4
 
 
 def test_d_pbr_gradient_flows():

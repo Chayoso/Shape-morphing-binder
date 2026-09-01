@@ -95,11 +95,29 @@ the trajectory (no 2-commit snap).
 | render-vs-phys gradient conflict (cos→−0.74) | **PCGrad one-sided** projection of the render grad | [PCGrad](https://arxiv.org/abs/2001.06782), [CAGrad](https://arxiv.org/pdf/2110.14048) | fewer rejections late-run, sil_iou ≥ render | projection strips the very correction that beats phys |
 | thin-feature resolution | **coarse-to-fine** render targets (64→96px at half-run) | classic multiresolution | sharper extremities, no early-run cost | D_render rescale confuses freeze (mitigated: track reset) |
 | λ runaway at render saturation (measured 1.77e5) | **λ cap** 5e3 | — (own finding) | late-run λ bounded, no volume oscillation | oscillation persists ⇒ needs proximal/AA instead |
-| trajectory snap (D_vol mostly spent in 3 commits) | **pacing**: window loss cut ≤ 12%/window + dFc clip; move_cv + first3 metrics | (deliverable-driven) | move spread across commits, endpoint quality intact | paced arm loses fidelity or trips freeze early |
+| trajectory snap (D_vol mostly spent in 3 commits) | **pacing**: per-window loss cut is a TRUE upper bound — overshooting line-search candidates are rejected and halved (the break-after-accept form was refuted: one step could still snap); move_cv + first3 metrics, `render_pace` isolates it | (deliverable-driven) | move spread across commits, endpoint quality intact | paced arm loses fidelity or trips freeze early |
 | particle/volume oscillation at optimum | λ cap + λ-free freeze (existing); **guarded Anderson on CONTROLS** in backlog if needed | [AA for physics (TOG18)](https://arxiv.org/abs/1805.05715) + guarded variants | cap alone suffices | else implement guarded AA (line search = the guard) |
 | Gaussian-native render loss | backlog: diff_gauss alpha/depth in the loss (server build exists) | GIC, 3DGS-LM | — | — |
 | PLAN-B if tranche falsifiers fire | render gradient as a **generalized external force** (per-step body force through grid momentum; force cap tied to material strength, paired with physical damping; window-frozen f keeps the dFc adjoint clean) — or as feedback **internal stress** (dFc ← γ·J_render, "active material"). Design space: {force vs stress} × {adjoint-optimised vs per-step feedback}; the main line is stress×adjoint, VBD was force×equilibrium; plan-B fills force×feedback. Honesty line vs v1: forces pass through the momentum equation (legitimate physics); v1's sin was velocity SERVO + geometric surgery | [Treuille 03 (force keyframe control)](https://grail.cs.washington.edu/projects/control/) vs [McNamara 04 (adjoint)](https://dl.acm.org/doi/10.1145/1015706.1015744) — the exact dichotomy; eigenstrain/growth-tensor lineage for the stress form | dense-in-time feedback gives natural pacing + no chaotic-horizon adjoint | tearing at high gain (v1 regime) — the force cap is the guard |
 | adaptive/high-res grid | backlog after c2f verdict | SPGrid/adaptive MPM lineage | — | — |
+
+**Adversarial round 2 (v4 tranche, Opus, 13 findings — all accepted before the batch):**
+headlight vector was exactly inverted (l·d=−1, backlit); render_full bundled 5 features
+(render_pace arm added; dfc_clip remains only in render_full — noted); move_cv scored the
+2-commit snap as perfect (now inf-sentinel); pace was a lower bound (now enforced in
+acceptance); PCGrad de-weighted render 33% via raw-norm λ (now λ from projected grad);
+"surface-dominant" refuted on solid clouds (normals now carry a surface WEIGHT used in the
+splat); depth-blindness measured at 1.2× noise floor (soft front-bias visibility added —
+approximate, claim softened); pbr_ambient wired; d_render/d_pbr telemetry split; cfg
+snapshot before run; c2f resets stale + logs its switch. Tests 45 (headlight regression,
+surface-weight discrimination, PCGrad math, pace floor).
+
+**v4 arm adoption rules (pre-committed):** each arm adopts only if all gates clean AND
+chamfer within 2% of `render` AND its OWN axis improves: `render_pbr` — ear/paw region
+visibly sharper in G6 (silhouette metrics may tie); `render_pc` — late-run rejected steps
+strictly fewer at equal sil_iou; `render_c2f` — sil_iou up; `render_pace` — first3 ≤ 35%
+and move_cv ≤ 0.8 with chamfer within 5% of `render`; `render_full` — must beat `render`
+on ≥2 axes with none regressed.
 
 ## 6. Decision rule (pre-committed)
 

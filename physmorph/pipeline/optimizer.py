@@ -60,6 +60,19 @@ def _finite(tensors) -> bool:
     return all(bool(torch.isfinite(t).all()) for t in tensors)
 
 
+def _pcgrad(gp, gr):
+    """One-sided PCGrad: strip from gr its component conflicting with gp (joint over
+    leaves). Returns (gr', conflicted). Descent for the PHYSICS term is preserved; the
+    composite is additionally guarded by the line search — the projection alone does NOT
+    guarantee composite descent for arbitrary λ (adversarial finding: only for
+    |cos| < 0.894 or a λ band)."""
+    dot = sum((a * b).sum() for a, b in zip(gp, gr))
+    if float(dot) >= 0:
+        return gr, False
+    gp2 = sum(a.pow(2).sum() for a in gp).clamp_min(1e-30)
+    return [b - (dot / gp2) * a for a, b in zip(gp, gr)], True
+
+
 def _state_ok(state) -> bool:
     """Finite AND orientation-preserving. det(F_T) <= 0 is invisible to every loss term
     (the data terms see positions only), so without this check the line search happily
@@ -103,22 +116,23 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     def losses_of(xT, vT):
         lv = d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
         lk = vT.pow(2).sum(1).mean()
-        lr = None
+        lr = lpbr = None
         if balancer.active:
-            lr = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
-                          cfg.sil_k, cfg.w_hole, cfg.w_spray)
-            if cfg.w_pbr > 0 and tgt.shade is not None:     # curvature channel (PBR-lite)
-                lr = lr + cfg.w_pbr * d_pbr(xT, tgt.shade, tgt.views, cfg.render_res,
-                                            tgt.extent, tgt.lgmin, tgt.ldx, tgt.ldims,
-                                            cfg.sil_k)
-        return lv, lk, lr
+            lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
+                            cfg.sil_k, cfg.w_hole, cfg.w_spray)
+            lr = lsil
+            if cfg.w_pbr > 0 and tgt.shade is not None:     # shading channel (PBR-lite)
+                lpbr = d_pbr(xT, tgt.shade, tgt.views, cfg.render_res, tgt.extent,
+                             tgt.lgmin, tgt.ldx, tgt.ldims, cfg.sil_k, cfg.pbr_ambient)
+                lr = lsil + cfg.w_pbr * lpbr
+        return lv, lk, lr, lpbr
 
     def terms(dfc):
         """Differentiable path: torch Function + wp.Tape (gradient phase only)."""
         lam_t, mu_t = material()
         xT, FT, vT = warp_mpm_full(dfc, spec, lam_t, mu_t)
-        lv, lk, lr = losses_of(xT, vT)
-        return (xT, FT, vT), lv, lk, lr
+        lv, lk, lr, lpbr = losses_of(xT, vT)
+        return (xT, FT, vT), lv, lk, lr, lpbr
 
     def eval_terms(dfc):
         """No-grad path for line-search candidates: plain rollout, NO tape, NO adjoint
@@ -136,8 +150,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             xT = wp.to_torch(tr.x[T])
             FT = wp.to_torch(tr.F[T]).reshape(N, 9)
             vT = wp.to_torch(tr.v[T])
-            lv, lk, lr = losses_of(xT, vT)
-        return (xT, FT, vT), lv, lk, lr
+            lv, lk, lr, lpbr = losses_of(xT, vT)
+        return (xT, FT, vT), lv, lk, lr, lpbr
 
     def phys_total(lv, lk, dfc, xT):
         L = lv + cfg.w_kin * lk + cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
@@ -160,12 +174,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # finite, orientation-preserving state and (b) actually beats the zero start. dFc is an
     # absolute control — verbatim reuse double-applies it (measured cascade to inversion).
     if dfc_init is not None and cfg.warm_decay > 0:
-        st0, lv0, lk0, lr0 = eval_terms(dFc)
+        st0, lv0, lk0, lr0, _ = eval_terms(dFc)
         E0 = scalars(lv0, lk0, lr0, lam_r, dFc, st0[0])
         with torch.no_grad():
             dFc.copy_(torch.tensor(np.ascontiguousarray(dfc_init, np.float32),
                                    device=dev) * cfg.warm_decay)
-        stw, lvw, lkw, lrw = eval_terms(dFc)
+        stw, lvw, lkw, lrw, _ = eval_terms(dFc)
         Ew = scalars(lvw, lkw, lrw, lam_r, dFc, stw[0])
         if not (_state_ok(stw) and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
@@ -174,7 +188,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     for it in range(cfg.iters):
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
-        state, lv, lk, lr = terms(dFc)
+        state, lv, lk, lr, lpbr = terms(dFc)
         Lp = phys_total(lv, lk, dFc, state[0])
         smooth = balancer.active and cfg.render_gs_iters > 0
         if balancer.active and (smooth or cfg.grad_project or it == 0):
@@ -190,17 +204,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 gr = torch.autograd.grad(state[0], leaves, grad_outputs=gxs)
             else:
                 gr = torch.autograd.grad(lr, leaves)
-            if it == 0:
-                lam_r = balancer.update(_norm(gp), _norm(gr))
             if cfg.grad_project:
-                # PCGrad (one-sided): when the render grad opposes the physics grad
-                # (cos<0 — measured -0.74 late-run), remove the conflicting component.
-                # Physics stays primary; the projected sum remains a descent direction
-                # and the line search still guards the composite.
-                dot = sum((a * b).sum() for a, b in zip(gp, gr))
-                if float(dot) < 0:
-                    gp2 = sum(a.pow(2).sum() for a in gp).clamp_min(1e-30)
-                    gr = [b - (dot / gp2) * a for a, b in zip(gp, gr)]
+                gr, _conf = _pcgrad(gp, gr)
+            if it == 0:
+                # λ from the PROJECTED render grad — estimating it from the raw one and
+                # then projecting silently de-weighted the channel by ~33% at cos=-0.74
+                # (adversarial finding), breaking the balancer contract.
+                lam_r = balancer.update(_norm(gp), _norm(gr))
             g = [a + lam_r * b for a, b in zip(gp, gr)]
         elif balancer.active:
             g = list(torch.autograd.grad(Lp + lam_r * lr, leaves))
@@ -231,7 +241,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         bak_v = [v_.clone() for v_ in vel]
         step_ok = False
         new = cur
-        lv_n = lk_n = lr_n = None
+        lv_n = lk_n = lr_n = lpbr_n = None
+        # trajectory pacing floor: a candidate may not take the window's loss below
+        # (1-pace)·L_start — an OVERSHOOTING step is rejected and halved like any other
+        # bad step, making pace a true UPPER bound on per-window progress (the previous
+        # break-after-accept form only enforced "at least pace, then stop" — adversarial
+        # finding: one big accepted step could still snap the morph).
+        floor = (1.0 - cfg.pace) * L_start if cfg.pace > 0 else -np.inf
         for _ls in range(cfg.max_ls_iters):
             with torch.no_grad():
                 t_ = adam_t + 1
@@ -246,13 +262,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
                 if s is not None:
                     s.clamp_(-cfg.mat_clamp, cfg.mat_clamp)
-            state_n, lv_n, lk_n, lr_n = eval_terms(dFc)
+            state_n, lv_n, lk_n, lr_n, lpbr_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, dFc, state_n[0])
             # acceptance requires a FINITE, ORIENTATION-PRESERVING state: NaN particles
             # vanish from the splats and det(F)<=0 is invisible to the data terms — both
             # can fake a lower loss (adversarial finding + v3 warm-start cascade).
-            if np.isfinite(new) and new < cur and _state_ok(state_n):
+            if np.isfinite(new) and floor <= new < cur and _state_ok(state_n):
                 adam_t = t_
                 alpha = min(a_try * 1.1, cfg.alpha)          # C++ grows alpha on acceptance
                 step_ok = True
@@ -280,16 +296,20 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
                      "d_render": float(lr_n) if lr_n is not None else None,
                      "lambda": lam_r if balancer.active else None, "grad_norm": gn})
-        # history from the ACCEPTED evaluation (v1 burned a full rollout re-logging here)
-        hist.append({"iter": it, "loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
-                     "d_render": float(lr_n) if lr_n is not None else None,
+        # history from the ACCEPTED evaluation. NOTE "d_render" is the pure silhouette
+        # scalar; the shading channel is logged separately (they were conflated before).
+        hist.append({"iter": it, "loss": new,
+                     "d_vol": float(lv_n), "kin": float(lk_n),
+                     "d_render": (float(lr_n) - cfg.w_pbr * float(lpbr_n)
+                                  if lpbr_n is not None else
+                                  (float(lr_n) if lr_n is not None else None)),
+                     "d_pbr": float(lpbr_n) if lpbr_n is not None else None,
                      "lambda": lam_r if balancer.active else None,
                      "grad_norm": gn, "alpha": a_try,
                      "dfc_absmax": float(dFc.detach().abs().max()),
                      "s_absmax": float(s.detach().abs().max()) if s is not None else None})
-        # trajectory pacing: this window has done its share of the morph — stop here so
-        # the progression spreads across commits (the trajectory IS the deliverable)
-        if cfg.pace > 0 and new <= (1.0 - cfg.pace) * L_start:
+        # pacing: budget reached (within one halving) — this window's share is done
+        if cfg.pace > 0 and new <= floor * 1.0001 + 1e-12:
             break
 
     # ---- final rollout: every intermediate state + FULL end state ----
@@ -308,5 +328,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                "C": tr.C[T].numpy().copy()}
     s_out = s.detach().cpu().numpy() if s is not None else None
     stats = {"accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
+             "L_start": L_start,
              "dfc": dc.cpu().numpy() if cfg.warm_start else None}
     return frames, F_seq, end, s_out, hist, stats

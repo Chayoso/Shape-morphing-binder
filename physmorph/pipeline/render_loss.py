@@ -47,11 +47,13 @@ def d_render(x: torch.Tensor, target_alphas, views, res: int, extent: float,
 
 
 def field_normals(x: torch.Tensor, grid_min, dx: float, dims):
-    """Per-particle outward surface normals from the density field: n = -∇ρ/|∇ρ|.
+    """Per-particle outward normals + surface weight from the density field.
 
-    Differentiable end-to-end (CIC rasterise -> central differences -> trilinear gather),
-    the SDFDiff recipe applied to the mass field. Interior particles get |∇ρ|≈0 and thus
-    near-zero shading gradients — the channel is surface-dominant by construction."""
+    Returns (n_hat, sw): n = -∇ρ/|∇ρ| (SDFDiff recipe, differentiable end-to-end) and
+    sw = |∇ρ|/max|∇ρ| ∈ [0,1]. Adversarial finding (v4 round 1): normalising the gradient
+    REMOVES the surface/interior discriminator on solid clouds (shell 39% of particles
+    carried only 53% of the gradient) — so the magnitude is returned and used to WEIGHT
+    each particle's shading contribution instead of being silently discarded."""
     nx, ny, nz = dims
     rho = rasterize_mass(x, torch.ones(len(x), device=x.device), grid_min, dx, dims)
     r = rho.reshape(nx, ny, nz)
@@ -77,25 +79,38 @@ def field_normals(x: torch.Tensor, grid_min, dx: float, dims):
                 kk = (base[:, 2] + oz).clamp(0, nz - 1)
                 w = (wx * wy * wz).unsqueeze(1)
                 n_p = n_p + w * flat[(ii * ny + jj) * nz + kk]
-    return n_p / n_p.norm(dim=1, keepdim=True).clamp_min(1e-6)
+    mag = n_p.norm(dim=1, keepdim=True)
+    sw = (mag / mag.max().clamp_min(1e-12)).squeeze(1)
+    return n_p / mag.clamp_min(1e-6), sw
 
 
 def shaded_view(x: torch.Tensor, theta: float, phi: float, res: int, extent: float,
-                n_p: torch.Tensor, k: float = 1.5, ambient: float = 0.25):
-    """Headlight-Lambertian shaded image (res,res): per-particle brightness
-    b = ambient + (1-ambient)·max(n·l, 0) with l = the view direction, splatted with CIC
-    weights and normalised by coverage (a weighted-average image, density-decoupled)."""
+                n_p: torch.Tensor, sw: torch.Tensor, k: float = 1.5,
+                ambient: float = 0.25, beta: float = 3.0):
+    """Headlight-Lambertian, alpha-masked shaded image (res,res).
+
+    b = ambient + (1-ambient)·max(n·l, 0), l = +view direction (TOWARD the camera —
+    adversarial round measured the previous sign as exactly backlit, l·d = −1).
+    Per-particle splat weight = CIC · surface weight sw · soft front-bias exp(β(z̃−1))
+    (an approximate visibility term; without it a depth-mirrored cloud shaded identically).
+    The weighted-average shade is then alpha-masked, so the loss compares shading only
+    where coverage exists; the coverage signal itself lives in d_render."""
     right = x.new_tensor([np.cos(theta), 0.0, -np.sin(theta)])
     up = x.new_tensor([-np.sin(phi) * np.sin(theta), np.cos(phi),
                        -np.sin(phi) * np.cos(theta)])
-    l_dir = -torch.linalg.cross(right, up)          # toward the camera (headlight)
+    l_dir = torch.linalg.cross(right, up)           # right × up = +d, toward the camera
     b = ambient + (1 - ambient) * (n_p @ l_dir).clamp(min=0)
+    z = x @ l_dir                                   # depth toward camera (bigger = nearer)
+    zr = (z - z.min()) / (z.max() - z.min()).clamp_min(1e-6)
+    vis = torch.exp(beta * (zr - 1.0))              # soft front-bias in (e^-beta, 1]
+    pw = (sw + 0.05) * vis                          # surface-weighted, visibility-biased
     p = _project(x, theta, phi)
     rel = (p + extent) / (2 * extent) * res
     base = torch.floor(rel).long()
     frac = rel - base.to(x.dtype)
     num = x.new_zeros(res * res)
     den = x.new_zeros(res * res)
+    cov = x.new_zeros(res * res)
     for ox in (0, 1):
         wx = frac[:, 0] if ox else 1 - frac[:, 0]
         for oy in (0, 1):
@@ -104,29 +119,31 @@ def shaded_view(x: torch.Tensor, theta: float, phi: float, res: int, extent: flo
             valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
             idx = (ii * res + jj).clamp(0, res * res - 1)
             w = torch.where(valid, wx * wy, torch.zeros_like(wx))
-            num = num.index_add(0, idx, w * b)
-            den = den.index_add(0, idx, w)
-    alpha = 1.0 - torch.exp(-k * den)
+            num = num.index_add(0, idx, w * pw * b)
+            den = den.index_add(0, idx, w * pw)
+            cov = cov.index_add(0, idx, w)
+    alpha = 1.0 - torch.exp(-k * cov)
     shade = num / den.clamp_min(1e-6)
     return (shade * alpha).reshape(res, res), alpha.reshape(res, res)
 
 
 def shade_targets(target_x: torch.Tensor, views, res: int, extent: float,
-                  grid_min, dx: float, dims, k=1.5):
+                  grid_min, dx: float, dims, k=1.5, ambient=0.25):
     with torch.no_grad():
-        n_t = field_normals(target_x, grid_min, dx, dims)
-        return [shaded_view(target_x, th, phi, res, extent, n_t, k)[0].detach()
-                for th, phi in views]
+        n_t, sw_t = field_normals(target_x, grid_min, dx, dims)
+        return [shaded_view(target_x, th, phi, res, extent, n_t, sw_t, k, ambient)[0]
+                .detach() for th, phi in views]
 
 
 def d_pbr(x: torch.Tensor, shade_tgts, views, res: int, extent: float,
-          grid_min, dx: float, dims, k: float = 1.5) -> torch.Tensor:
-    """Mean multi-view shaded-image L2 — curvature-sensitive feedback the silhouette
-    cannot see (flat vs domed regions shade differently at equal coverage)."""
-    n_p = field_normals(x, grid_min, dx, dims)
+          grid_min, dx: float, dims, k: float = 1.5, ambient: float = 0.25) -> torch.Tensor:
+    """Mean multi-view shaded-image L2 — orientation/curvature feedback beyond coverage
+    (~70% of its gradient direction is orthogonal to the pure-silhouette term, measured).
+    Visibility is only the soft front-bias approximation from shaded_view."""
+    n_p, sw = field_normals(x, grid_min, dx, dims)
     loss = x.new_zeros(())
     for s_t, (th, phi) in zip(shade_tgts, views):
-        s, _ = shaded_view(x, th, phi, res, extent, n_p, k)
+        s, _ = shaded_view(x, th, phi, res, extent, n_p, sw, k, ambient)
         loss = loss + (s - s_t).pow(2).mean()
     return loss / len(views)
 

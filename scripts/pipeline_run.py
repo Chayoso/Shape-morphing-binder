@@ -119,6 +119,9 @@ def arm_config(arm: str, args) -> PipelineConfig:
     elif arm == "render_c2f":                      # + coarse-to-fine render targets
         cfg.lambda_auto = args.lambda_auto
         cfg.c2f_at = 0.5
+    elif arm == "render_pace":                     # + paced trajectory ONLY (attribution)
+        cfg.lambda_auto = args.lambda_auto
+        cfg.pace = args.pace
     elif arm == "render_full":                     # PBR + PCGrad + c2f + paced trajectory
         cfg.lambda_auto = args.lambda_auto
         cfg.w_pbr = args.w_pbr
@@ -127,8 +130,8 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.pace = args.pace
         cfg.dfc_clip = args.dfc_clip
     else:
-        raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat|render_ws|"
-                         "render_gs|render_pbr|render_pc|render_c2f|render_full)")
+        raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat|render_ws|render_gs"
+                         "|render_pbr|render_pc|render_c2f|render_pace|render_full)")
     return cfg
 
 
@@ -198,6 +201,9 @@ def main():
 
     for arm in [a.strip() for a in args.arms.split(",") if a.strip()]:
         cfg = arm_config(arm, args)
+        # snapshot BEFORE the run: c2f mutates cfg.render_res mid-run (the archived
+        # config must record what the run STARTED with; the c2f switch is in history)
+        cfg_dump = {k: v for k, v in dataclasses.asdict(cfg).items() if k != "history"}
         print(f"\n[v2run] ===== ARM {arm} =====", flush=True)
         t0 = time.time()
         res = run_pipeline(src, tgt, prm, cfg)
@@ -206,14 +212,14 @@ def main():
                                 n_held=res["n_held"])
         # trajectory evenness: CV of per-commit displacement (snap-to-target -> high CV)
         mv = [h["move"] for h in res["history"] if "move" in h]
-        met["move_cv"] = float(np.std(mv) / max(np.mean(mv), 1e-9)) if len(mv) > 2 else 0.0
-        met["move_first_frac"] = (float(sum(mv[:3]) / max(sum(mv), 1e-9))
-                                  if len(mv) > 3 else 1.0)
+        # <3 commits IS the snap pathology — score it worst, not best (adversarial finding)
+        met["move_cv"] = (float(np.std(mv) / max(np.mean(mv), 1e-9))
+                          if len(mv) > 2 else float("inf"))
+        met["move_first_frac"] = (float(sum(mv[:3]) / max(sum(mv), 1e-9)) if mv else 1.0)
         gates = eval_gates(arm, res, met, prm, args.T)
         stride = args.save_F_stride if args.save_F_stride > 0 else args.T
         nF = len(res["F_frames"])
         idx = sorted(set(range(0, nF, stride)) | {nF - 1})
-        cfg_dump = {k: v for k, v in dataclasses.asdict(cfg).items() if k != "history"}
         np.savez_compressed(
             f"{args.out}_{arm}.npz", src=src, tgt=tgt,
             frames=np.stack(res["frames"]),

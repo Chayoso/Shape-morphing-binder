@@ -20,8 +20,11 @@ exact elastic-stretch plastic assimilation (`plasticity/assimilation.py`), guard
 metrics (`metrics.py`) and gates (`docs/experiments.md`).
 
 **Arms** (`scripts/pipeline_run.py --arms …`): `phys` (mass-only baseline, same code path),
-`render` (v2), `render_ws` (+ warm-started dFc), `render_gs` (+ Sobolev/grid-GS render
-direction), `render_mat` (+ material field), `vbd` / `vbd_phys` (quasi-static).
+`render` (headline), `render_mat` (+ material field), `render_ws` (+ safeguarded warm
+start), `render_gs` (+ Sobolev render direction), `render_pbr` (+ Lambertian shading
+channel), `render_pc` (+ PCGrad conflict projection), `render_c2f` (+ coarse-to-fine
+targets), `render_pace` (+ paced trajectory), `render_full` (pbr+pc+c2f+pace+clip).
+The quasi-static VBD family is retired to `deprecated/`.
 
 **Docs**: [method.md](method.md) — equations + formulations (the file code cites as
 `docs/SPEC.md`); [experiments.md](experiments.md) — gates, metrics, result log;

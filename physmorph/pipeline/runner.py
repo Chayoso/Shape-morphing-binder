@@ -48,7 +48,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
         sils = target_silhouettes(tgt_t, views, cfg.render_res, extent, cfg.sil_k)
         if cfg.w_pbr > 0:
             shade = shade_targets(tgt_t, views, cfg.render_res, extent,
-                                  lgmin, ldx, ldims, cfg.sil_k)
+                                  lgmin, ldx, ldims, cfg.sil_k, cfg.pbr_ambient)
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade)
 
@@ -98,8 +98,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 and a == int(cfg.c2f_at * cfg.animations)):
             cfg.render_res = cfg.render_res_hi
             tgt = build_target(target_x, prm, cfg)
-            best_rend = None                        # D_render rescaled: reset its plateau track
+            best_rend, stale = None, 0              # rescaled track must not inherit a
+            hist.append({"animation": a, "c2f_render_res": cfg.render_res})   # near-full
             log(f"[v2] c2f at anim {a + 1}: render targets rebuilt at {cfg.render_res}px")
+            # plateau counter (adversarial finding: freeze could fire one commit later)
         x_start = x.copy()
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
@@ -148,7 +150,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
 
         w = whist[-1]
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
-               "grad_norm": w.get("grad_norm"),
+               "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"),
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
                "accepted": stats["accepted"], "rejected": stats["rejected"],
