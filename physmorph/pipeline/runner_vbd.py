@@ -30,7 +30,8 @@ def _id(N):
     return np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
 
 
-def run_vbd_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print):
+def run_vbd_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
+                     on_commit=None):
     dev = cfg.device
     src = np.ascontiguousarray(source_x, np.float32)
     N = src.shape[0]
@@ -125,6 +126,8 @@ def run_vbd_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, lo
                "clamped": n_out, "nan_x": n_nan, "F_reset": n_bad, "F_flip": n_flip,
                "F_invert_steps": n_inv}
         hist.append(rec)
+        if on_commit is not None:                    # live viewer hook (scripts/live_viewer.py)
+            on_commit(a, x, F, rec)
 
         phys_track = rec["d_vol"] + rec["E_el"]
         rend_track = rec["d_render"]

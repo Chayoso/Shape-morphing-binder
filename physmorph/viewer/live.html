@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<!-- PhysMorph LIVE viewer: polls /state from live_viewer.py while the VBD-MPM sim runs.
+     Fixed dual orthographic views (no orbit); splats drawn as PROJECTED COVARIANCE
+     ellipses (the 3DGS quantity Sigma = sigma0^2 F F^T), target as a faint ghost. -->
+<html><head><meta charset="utf-8"><title>PhysMorph live</title>
+<style>
+  body{margin:0;background:#101014;color:#cfd3da;font-family:system-ui,sans-serif;overflow:hidden}
+  #bar{position:fixed;left:0;right:0;top:0;padding:8px 14px;background:#000a;z-index:5;
+       display:flex;gap:18px;align-items:baseline;font-size:13px}
+  #bar b{color:#7fc97f;font-size:15px}
+  #bar .dim{color:#8a8f98}
+  canvas{display:block}
+  #spark{position:fixed;right:14px;bottom:12px;background:#0008;border-radius:6px}
+  #pause{background:#2a6;border:0;color:#fff;padding:3px 10px;border-radius:5px;cursor:pointer}
+</style></head>
+<body>
+<div id="bar">
+  <b id="st">connecting…</b>
+  <span id="tele" class="dim"></span>
+  <button id="pause">pause</button>
+</div>
+<canvas id="cv"></canvas>
+<canvas id="spark" width="260" height="72"></canvas>
+<script>
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const sp = document.getElementById('spark'), spx = sp.getContext('2d');
+let meta = null, target = null, state = null, lastSeq = -1, paused = false;
+let dvolHist = [];
+document.getElementById('pause').onclick = e => {
+  paused = !paused; e.target.textContent = paused ? 'resume' : 'pause';
+};
+
+// fixed views (match scripts/quicklook.py): [azimuth, elevation]
+const VIEWS = [[0.6, 0.18], [2.2, 0.18]];
+function basis([az, el]) {
+  const ca = Math.cos(az), sa = Math.sin(az), ce = Math.cos(el), se = Math.sin(el);
+  const right = [ca, 0, -sa], up = [-sa * se, ce, -ca * se];
+  const fwd = [right[1] * up[2] - right[2] * up[1], right[2] * up[0] - right[0] * up[2],
+               right[0] * up[1] - right[1] * up[0]];
+  return {right, up, fwd};
+}
+const BASES = VIEWS.map(basis);
+
+function parse(buf) {
+  const dv = new DataView(buf);
+  const hl = dv.getUint32(0, true);
+  const hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hl)));
+  const n = hdr.n;
+  const x = new Float32Array(buf, 4 + hl, n * 3);
+  const c6 = new Float32Array(buf, 4 + hl + n * 12, n * 6);
+  return {hdr, x, c6, n};
+}
+
+// project splat i into view b: center px, 2x2 cov -> ellipse (a,bax,theta), depth
+function proj(x, c6, i, b, scl, cx, cy) {
+  const X = x[3*i], Y = x[3*i+1], Z = x[3*i+2];
+  const px = X*b.right[0] + Y*b.right[1] + Z*b.right[2];
+  const py = X*b.up[0]    + Y*b.up[1]    + Z*b.up[2];
+  const d  = X*b.fwd[0]   + Y*b.fwd[1]   + Z*b.fwd[2];
+  // S2D = J S J^T, J = [right; up], S from upper-tri c6 [xx,xy,xz,yy,yz,zz]
+  const s = c6.subarray(6*i, 6*i+6);
+  const S = [[s[0],s[1],s[2]],[s[1],s[3],s[4]],[s[2],s[4],s[5]]];
+  const r = b.right, u = b.up;
+  const Sr = [S[0][0]*r[0]+S[0][1]*r[1]+S[0][2]*r[2],
+              S[1][0]*r[0]+S[1][1]*r[1]+S[1][2]*r[2],
+              S[2][0]*r[0]+S[2][1]*r[1]+S[2][2]*r[2]];
+  const Su = [S[0][0]*u[0]+S[0][1]*u[1]+S[0][2]*u[2],
+              S[1][0]*u[0]+S[1][1]*u[1]+S[1][2]*u[2],
+              S[2][0]*u[0]+S[2][1]*u[1]+S[2][2]*u[2]];
+  const a11 = r[0]*Sr[0]+r[1]*Sr[1]+r[2]*Sr[2];
+  const a12 = u[0]*Sr[0]+u[1]*Sr[1]+u[2]*Sr[2];
+  const a22 = u[0]*Su[0]+u[1]*Su[1]+u[2]*Su[2];
+  const tr = a11 + a22, det = a11*a22 - a12*a12;
+  const disc = Math.sqrt(Math.max(tr*tr/4 - det, 0));
+  const l1 = Math.max(tr/2 + disc, 1e-12), l2 = Math.max(tr/2 - disc, 1e-12);
+  const theta = 0.5 * Math.atan2(2*a12, a11 - a22);
+  return {cx: cx + px*scl, cy: cy - py*scl, a: 2*Math.sqrt(l1)*scl,
+          b: 2*Math.sqrt(l2)*scl, theta: -theta, d};
+}
+
+function drawCloud(st, b, scl, cx, cy, fill, alpha, sort) {
+  const idx = [...Array(st.n).keys()];
+  const ell = idx.map(i => proj(st.x, st.c6, i, b, scl, cx, cy));
+  if (sort) ell.sort((p, q) => p.d - q.d);
+  ctx.globalAlpha = alpha; ctx.fillStyle = fill;
+  for (const e of ell) {
+    ctx.beginPath();
+    ctx.ellipse(e.cx, e.cy, e.a, e.b, e.theta, 0, 6.2832);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  if (!meta || !state) return;
+  const W = cv.width = innerWidth, H = cv.height = innerHeight - 40;
+  cv.style.marginTop = '40px';
+  ctx.fillStyle = '#101014'; ctx.fillRect(0, 0, W, H);
+  const e = meta.extent, half = W / 2;
+  BASES.forEach((b, vi) => {
+    const cx = half * vi + half / 2, cy = H / 2, scl = Math.min(half, H) / (2.2 * e);
+    if (target) drawCloud(target, b, scl, cx, cy, '#3a4b5f', 0.10, false); // ghost
+    drawCloud(state, b, scl, cx, cy, '#6f9fd8', 0.42, true);
+    ctx.fillStyle = '#666'; ctx.font = '12px system-ui';
+    ctx.fillText('az=' + VIEWS[vi][0], half * vi + 10, H - 10);
+  });
+  const h = state.hdr;
+  document.getElementById('st').textContent =
+      `run ${h.run ?? 0} · commit ${h.commit}/${meta.animations}`;
+  document.getElementById('tele').textContent =
+      `E=${fmt(h.E)}  D_vol=${fmt(h.d_vol)}  D_render=${fmt(h.d_render, 5)}  ` +
+      `λ=${fmt(h.lam, 0)}  sweeps=${h.sweeps ?? '–'}  Jmin=${fmt(h.Jmin, 3)}  ` +
+      `N=${meta.n}  σ₀=${meta.sigma0.toFixed(3)}`;
+  spark();
+}
+const fmt = (v, d = 2) => (v == null ? '–' : (+v).toFixed(d));
+
+function spark() {
+  spx.fillStyle = '#0008'; spx.fillRect(0, 0, 260, 72);
+  if (dvolHist.length < 2) return;
+  const m = Math.max(...dvolHist), lo = Math.min(...dvolHist);
+  spx.strokeStyle = '#7fc97f'; spx.beginPath();
+  dvolHist.forEach((v, i) => {
+    const px = 8 + i / (dvolHist.length - 1) * 244;
+    const py = 62 - (v - lo) / Math.max(m - lo, 1e-9) * 50;
+    i ? spx.lineTo(px, py) : spx.moveTo(px, py);
+  });
+  spx.stroke();
+  spx.fillStyle = '#8a8f98'; spx.font = '10px system-ui';
+  spx.fillText('D_vol ' + fmt(dvolHist[dvolHist.length - 1]), 10, 12);
+}
+
+async function boot() {
+  meta = await (await fetch('/meta')).json();
+  target = parse(await (await fetch('/target')).arrayBuffer());
+  poll();
+}
+async function poll() {
+  try {
+    if (!paused) {
+      const buf = await (await fetch('/state')).arrayBuffer();
+      if (buf.byteLength > 8) {
+        const st = parse(buf);
+        if (st.hdr.seq !== lastSeq) {
+          lastSeq = st.hdr.seq;
+          if (st.hdr.run !== (state?.hdr.run)) dvolHist = [];
+          state = st;
+          if (st.hdr.d_vol != null) { dvolHist.push(st.hdr.d_vol); if (dvolHist.length > 120) dvolHist.shift(); }
+          draw();
+        }
+      }
+      document.getElementById('st').style.color = '#7fc97f';
+    }
+  } catch (err) {
+    document.getElementById('st').textContent = 'disconnected — retrying';
+    document.getElementById('st').style.color = '#d87f7f';
+  }
+  setTimeout(poll, 150);
+}
+addEventListener('resize', draw);
+boot();
+</script>
+</body></html>
