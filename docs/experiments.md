@@ -87,4 +87,32 @@ Full post-mortem + fixes: `rationale.md` §4. Notable v2-era latent defect found
 failure: line-search acceptance never checked det(F)>0 (inversions are invisible to the
 data terms) — now part of `_state_ok` for every dynamic arm.
 
-### (pending) v3 round 2 — fixed arms rerun
+### 2026-09-01 — v3 round 2/3 + coherence verdict; VBD arm retired to deprecated/
+
+Round 2 (fixes): `render_ws` healed (0.1404/0.9592, all gates PASS — but ties plain
+`render`, so warm start stays optional); `render_gs` no longer dies but REGRESSES
+(0.2379, detFmin 0.0011 → R1/R3 falsified, not adopted); `vbd` moves but crawls.
+Round 3 (8-color decoupling): no change — the limiter was never the coloring.
+Deep diagnosis (`vbd_diagnose`): per-term exit gradients 67/51/26 nearly cancelling =
+the EQUILIBRIUM is the limiter (solver fine); η=1.0/E=300 unlocks speed (D_vol 225→61
+in 19 commits) at the cost of material memory.
+
+**Coherence table (the "is it Chamfer-like?" question, measured):**
+
+| arm | nbr_overlap(16) | disp_rough | move | chamfer / sil_iou | time |
+|---|---|---|---|---|---|
+| dynamic render | 0.387 (p10 0.19) | 0.070 | 0.614 | **0.137 / 0.954** | **0.5 min** |
+| vbd η=0.5 E=2e3 | 0.962 | 0.044 | 0.106 | 0.44 / 0.77 | 8.8 min |
+| vbd η=1.0 E=300 | **0.798** | **0.041** | 0.429 | 0.316 / 0.859 | 8.2 min |
+
+Reading: NO arm is Chamfer-like (a NN flow would show rough ≫0.3, overlap <0.1). At
+comparable displacement the quasi-static arm preserves ~2× more neighbourhoods than the
+dynamic arm (whose plastic shear physically mixes 60% of 16-NN sets) — but loses on every
+fidelity metric and on wall-clock, and its render coupling is a load, not a physics
+modification. Decision (pre-committed rule): **dynamic family = the deliverable; VBD
+retired to deprecated/** with this analysis as its legacy. The dynamic arm's improvement
+axes exposed here: neighbour mixing + inversion margin (detFmin 0.46–0.51; one transient
+mid-window inversion observed under atomic nondeterminism) → assimilation-rate/stiffness
+sweep pending.
+
+### (pending) main-line reinforcement — render_mat full scale; assim/stiffness margin sweep
