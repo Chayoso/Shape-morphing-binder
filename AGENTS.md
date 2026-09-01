@@ -83,8 +83,12 @@ These are the leading candidates for the unresolved problems, and they are ports
 
 ## Hard rules
 
-1. **No GPU work on this machine.** Local = writing code + `python -m py_compile`. All sims/renders
-   run on hyde06 via the jump host: `ssh -J chayo@hyde01.dabh.io chayo@hyde06.dabh.io`,
+1. **Local GPU = smoke scale only.** (Corrected 2026-09-01: this machine HAS an RTX 4090
+   Laptop GPU, 16 GB, visible to torch cu128 and warp — the old "no GPU work locally" rule
+   was wrong.) Local is for: `python -m py_compile`, the `tests/` suite (CPU + warp-CPU +
+   small CUDA), and smoke-scale pipeline runs (N≲5000) for tuning iteration. Full-scale
+   runs (N=20000+) and hero renders still go to hyde06 via the jump host:
+   `ssh -J chayo@hyde01.dabh.io chayo@hyde06.dabh.io`,
    repo copy `~/physmorph_v2`, python
    `/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python` (3.10.20).
    Long jobs: `setsid nohup env CUDA_VISIBLE_DEVICES=<n> $PY script.py … > log 2>&1 < /dev/null &`.
