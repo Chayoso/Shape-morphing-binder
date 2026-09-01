@@ -117,6 +117,8 @@ def main():
     ap.add_argument("--animations", type=int, default=40)
     ap.add_argument("--sweeps", type=int, default=15)
     ap.add_argument("--lambda_auto", type=float, default=0.5)
+    ap.add_argument("--assim", type=float, default=0.5)
+    ap.add_argument("--vbd_young", type=float, default=2e3)
     ap.add_argument("--loop", action="store_true", default=True)
     ap.add_argument("--no-loop", dest="loop", action="store_false")
     ap.add_argument("--port", type=int, default=8765)
@@ -129,6 +131,7 @@ def main():
     prm = MPMParams()
     cfg = PipelineConfig(animations=args.animations, vbd_sweeps=args.sweeps,
                          lambda_auto=args.lambda_auto, device=args.device,
+                         assim=args.assim, vbd_young=args.vbd_young,
                          hold_after_converge=False)
     sigma0 = sigma0_from_nn(src, 0.7)
     extent = float(np.abs(tgt).max()) * 1.25

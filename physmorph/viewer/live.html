@@ -26,6 +26,8 @@
   <button id="charts" style="background:#456;border:0;color:#fff;padding:3px 10px;border-radius:5px;cursor:pointer">charts</button>
   <label class="dim"><input type="checkbox" id="cbsweep" checked> sweeps</label>
   <label class="dim"><input type="checkbox" id="cbgrid"> grid</label>
+  <label class="dim"><input type="checkbox" id="cbslice"> slice</label>
+  <span class="dim">y <input id="ysl" type="range" min="-1" max="1" step="0.02" value="0" style="width:80px"></span>
   <label class="dim"><input type="checkbox" id="cbsplat" checked> splats</label>
   <select id="field" style="background:#222;color:#cfd3da;border:1px solid #444">
     <option value="0">node |u|</option><option value="1">node |∇E|</option>
@@ -38,7 +40,7 @@
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const sp = document.getElementById('spark'), spx = sp.getContext('2d');
 const $ = id => document.getElementById(id);
-let meta = null, target = null, state = null, lastGrid = null, lastSeq = -1, paused = false;
+let meta = null, target = null, state = null, lastGrid = null, lastCommitHdr = null, lastSeq = -1, paused = false;
 let ZOOM = 0.8;
 
 // ---- telemetry history: every physical quantity in the state header, per run ----
@@ -70,7 +72,7 @@ let showCharts = true;
 $('charts').onclick = () => { showCharts = !showCharts; document.getElementById('sparkwrap').style.display = showCharts ? 'block' : 'none'; spark(); };
 $('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'resume' : 'pause'; };
 for (const id of ['ssz', 'gho']) $(id).addEventListener('input', () => draw());
-for (const id of ['cbgrid', 'cbsplat', 'field']) $(id).addEventListener('input', () => draw());
+for (const id of ['cbgrid', 'cbsplat', 'field', 'cbslice', 'ysl']) $(id).addEventListener('input', () => draw());
 
 // ---- ARCBALL rotation: accumulate a rotation matrix — no Euler angles, no pole
 // clamp, full 360 in every direction (the az/el scheme could not pass the poles) ----
@@ -151,16 +153,30 @@ function ramp(t) {
 
 function drawNodes(st, b, scl, cx, cy, fi) {
   const q = st.nodeq;
-  let mx = 1e-12;
+  const slice = $('cbslice').checked, y0 = +$('ysl').value * meta.extent;
+  let mx = 1e-12, dmin = 1e9, dmax = -1e9;
+  const pts = [];
   for (let i = 0; i < st.a; i++) mx = Math.max(mx, q[2*i + fi]);
   for (let i = 0; i < st.a; i++) {
     const X = st.nodes[3*i], Y = st.nodes[3*i+1], Z = st.nodes[3*i+2];
-    const px = cx + (X*b.right[0]+Y*b.right[1]+Z*b.right[2]) * scl;
-    const py = cy - (X*b.up[0]+Y*b.up[1]+Z*b.up[2]) * scl;
-    ctx.fillStyle = ramp(q[2*i + fi] / mx);
-    ctx.fillRect(px - 2, py - 2, 4, 4);
+    if (slice && Math.abs(Y - y0) > 0.30) continue;       // one lattice layer (dx 0.5)
+    const t = q[2*i + fi] / mx;
+    if (!slice && t < 0.03) continue;                     // declutter: near-idle nodes
+    const d = X*b.fwd[0]+Y*b.fwd[1]+Z*b.fwd[2];
+    dmin = Math.min(dmin, d); dmax = Math.max(dmax, d);
+    pts.push([cx + (X*b.right[0]+Y*b.right[1]+Z*b.right[2])*scl,
+              cy - (X*b.up[0]+Y*b.up[1]+Z*b.up[2])*scl, t, d]);
   }
-  return mx;
+  pts.sort((p, q2) => p[3] - q2[3]);
+  for (const [px, py, t, d] of pts) {
+    const depth = 0.45 + 0.55 * (d - dmin) / Math.max(dmax - dmin, 1e-9);
+    ctx.globalAlpha = depth;
+    ctx.fillStyle = ramp(t);
+    const s = slice ? 7 : 5;
+    ctx.fillRect(px - s/2, py - s/2, s, s);
+    ctx.strokeStyle = '#0009'; ctx.strokeRect(px - s/2 + 0.5, py - s/2 + 0.5, s - 1, s - 1);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawHisto(st, fi) {
@@ -240,12 +256,12 @@ function draw() {
   drawHisto(state.a ? state : lastGrid, fi);
   ctx.fillStyle = '#666'; ctx.font = '12px system-ui';
   ctx.fillText(`zoom=${ZOOM.toFixed(2)}`, 10, H - 10);
-  const h = state.hdr;
+  const h = state.hdr, hc = lastCommitHdr || h;   // sweep states carry no loss fields —
   $('st').textContent = `run ${h.run ?? 0} · commit ${h.commit}/${meta.animations}` +
       (h.phase === 'sweep' ? ` · sweep ${h.sweep}` : '');
-  $('tele').textContent =
-      `E=${fmt(h.E)}  D_vol=${fmt(h.d_vol)}  D_render=${fmt(h.d_render, 5)}  ` +
-      `λ=${fmt(h.lam, 0)}  sweeps=${h.sweeps ?? '–'}  Jmin=${fmt(h.Jmin, 3)}  N=${meta.n}`;
+  $('tele').textContent =                          // keep the last commit's numbers up
+      `E=${fmt(hc.E)}  D_vol=${fmt(hc.d_vol)}  D_render=${fmt(hc.d_render, 5)}  ` +
+      `λ=${fmt(hc.lam, 0)}  ‖∇E‖=${fmt(h.gnorm ?? hc.gnorm)}  Jmin=${fmt(hc.Jmin, 3)}  N=${meta.n}`;
   spark();
 }
 const fmt = (v, d = 2) => (v == null ? '–' : (+v).toFixed(d));
@@ -302,7 +318,7 @@ async function poll() {
             if (st.hdr.run !== (state?.hdr.run)) resetHist();
             if (st.a) lastGrid = st;
             state = st;
-            if (!isSweep && st.hdr.d_vol != null) pushHist(st.hdr);
+            if (!isSweep && st.hdr.d_vol != null) { pushHist(st.hdr); lastCommitHdr = st.hdr; }
             draw();
           }
         }
