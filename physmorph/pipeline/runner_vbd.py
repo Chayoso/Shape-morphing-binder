@@ -119,7 +119,7 @@ def run_vbd_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, lo
         rec = {"animation": a, "loss": float(energy(u).detach()), "E_el": float(E_el),
                "d_vol": float(lv), "d_render": float(lr) if lr is not None else None,
                "lambda": lam_r if balancer.active else None, "kin": 0.0, "v_mean": 0.0,
-               "sweeps": info["sweeps"], "gnorm": info["gnorm"],
+               "sweeps": info["sweeps"], "gnorm": info["gnorm"], "gnorm0": info["gnorm0"],
                "solve_converged": info["converged"],
                "move": float(np.linalg.norm(x - x_start, axis=1).mean()),
                "Jmin": float(np.linalg.det(F).min()),

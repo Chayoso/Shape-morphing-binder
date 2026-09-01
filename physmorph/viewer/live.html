@@ -22,18 +22,45 @@
   <button id="pause">pause</button>
   <span class="dim">splat <input id="ssz" type="range" min="0.4" max="3.0" step="0.1" value="1.5" style="width:80px"></span>
   <span class="dim">ghost <input id="gho" type="range" min="0" max="0.6" step="0.02" value="0.22" style="width:70px"></span>
+  <button id="charts" style="background:#456;border:0;color:#fff;padding:3px 10px;border-radius:5px;cursor:pointer">charts</button>
 </div>
 <canvas id="cv"></canvas>
-<canvas id="spark" width="260" height="72"></canvas>
+<canvas id="spark" width="300" height="560"></canvas>
 <div id="hint">drag: rotate · wheel: zoom</div>
 <script>
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const sp = document.getElementById('spark'), spx = sp.getContext('2d');
 const $ = id => document.getElementById(id);
 let meta = null, target = null, state = null, lastSeq = -1, paused = false;
-let dvolHist = [];
 let ZOOM = 0.8;
 
+// ---- telemetry history: every physical quantity in the state header, per run ----
+const SERIES = [                     // [key, label, decimals, log10?]
+  ['E',        'E (total energy)', 2, false],
+  ['E_el',     'E_elastic',        3, false],
+  ['d_vol',    'D_vol',            2, false],
+  ['d_render', 'D_render',         5, false],
+  ['lam',      'λ (render weight)',0, false],
+  ['gnorm',    '‖∇E‖ at exit',     2, true],
+  ['gratio',   '‖∇E‖/‖∇E₀‖ (conv)',3, true],
+  ['move',     'move / commit',    4, false],
+  ['Jmin',     'det F min',        3, false],
+  ['sweeps',   'solver sweeps',    0, false],
+];
+let hist = {};
+const resetHist = () => { hist = {}; for (const [k] of SERIES) hist[k] = []; };
+resetHist();
+function pushHist(h) {
+  const vals = {...h, gratio: (h.gnorm != null && h.gnorm0) ? h.gnorm / h.gnorm0 : null};
+  for (const [k] of SERIES) {
+    if (vals[k] != null && isFinite(vals[k])) {
+      hist[k].push(vals[k]);
+      if (hist[k].length > 240) hist[k].shift();
+    }
+  }
+}
+let showCharts = true;
+$('charts').onclick = () => { showCharts = !showCharts; sp.style.display = showCharts ? 'block' : 'none'; spark(); };
 $('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'resume' : 'pause'; };
 for (const id of ['ssz', 'gho']) $(id).addEventListener('input', () => draw());
 
@@ -163,18 +190,30 @@ function draw() {
 const fmt = (v, d = 2) => (v == null ? '–' : (+v).toFixed(d));
 
 function spark() {
-  spx.fillStyle = '#0008'; spx.fillRect(0, 0, 260, 72);
-  if (dvolHist.length < 2) return;
-  const m = Math.max(...dvolHist), lo = Math.min(...dvolHist);
-  spx.strokeStyle = '#7fc97f'; spx.beginPath();
-  dvolHist.forEach((v, i) => {
-    const px = 8 + i / (dvolHist.length - 1) * 244;
-    const py = 62 - (v - lo) / Math.max(m - lo, 1e-9) * 50;
-    i ? spx.lineTo(px, py) : spx.moveTo(px, py);
+  if (!showCharts) return;
+  const W = 300, RH = 54, PAD = 6;
+  sp.height = SERIES.length * (RH + 2) + 6;
+  spx.fillStyle = '#000a'; spx.fillRect(0, 0, W, sp.height);
+  SERIES.forEach(([k, label, dec, useLog], row) => {
+    const y0 = 4 + row * (RH + 2);
+    const data0 = hist[k];
+    spx.strokeStyle = '#23262c'; spx.strokeRect(4.5, y0 + 0.5, W - 9, RH);
+    spx.fillStyle = '#8a8f98'; spx.font = '10px system-ui';
+    const last = data0.length ? data0[data0.length - 1] : null;
+    spx.fillText(label + (last != null ? '  ' + (+last).toFixed(dec) : '  –'), 10, y0 + 12);
+    if (data0.length < 2) return;
+    const data = useLog ? data0.map(v => Math.log10(Math.max(v, 1e-12))) : data0;
+    const m = Math.max(...data), lo = Math.min(...data);
+    spx.strokeStyle = ['#7fc97f', '#c9b17f', '#7fb2c9', '#c97fb0', '#a3c97f',
+                       '#c97f7f', '#e0a95f', '#9f8fd8', '#7fc9c2', '#b0b0b0'][row % 10];
+    spx.beginPath();
+    data.forEach((v, i) => {
+      const px = PAD + 4 + i / (data.length - 1) * (W - 2 * PAD - 8);
+      const py = y0 + RH - 6 - (v - lo) / Math.max(m - lo, 1e-9) * (RH - 22);
+      i ? spx.lineTo(px, py) : spx.moveTo(px, py);
+    });
+    spx.stroke();
   });
-  spx.stroke();
-  spx.fillStyle = '#8a8f98'; spx.font = '10px system-ui';
-  spx.fillText('D_vol ' + fmt(dvolHist[dvolHist.length - 1]), 10, 12);
 }
 
 async function boot() {
@@ -197,9 +236,9 @@ async function poll() {
         const st = parse(buf);
         if (st.hdr.seq !== lastSeq) {
           lastSeq = st.hdr.seq;
-          if (st.hdr.run !== (state?.hdr.run)) dvolHist = [];
+          if (st.hdr.run !== (state?.hdr.run)) resetHist();
           state = st;
-          if (st.hdr.d_vol != null) { dvolHist.push(st.hdr.d_vol); if (dvolHist.length > 120) dvolHist.shift(); }
+          if (st.hdr.d_vol != null) pushHist(st.hdr);
           draw();
         }
       }

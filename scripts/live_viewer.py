@@ -40,9 +40,11 @@ def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray) -> bytes:
     """<u32 header_len><json header><f32 x[N*3]><f32 cov6[N*6]> (little-endian)."""
     hdr = json.dumps({
         "seq": seq, "n": int(len(x)), "commit": rec.get("animation", -1) + 1,
-        "E": rec.get("loss"), "d_vol": rec.get("d_vol"), "d_render": rec.get("d_render"),
+        "E": rec.get("loss"), "E_el": rec.get("E_el"),
+        "d_vol": rec.get("d_vol"), "d_render": rec.get("d_render"),
         "lam": rec.get("lambda"), "sweeps": rec.get("sweeps"),
-        "gnorm": rec.get("gnorm"), "Jmin": rec.get("Jmin"), "run": rec.get("run", 0),
+        "gnorm": rec.get("gnorm"), "gnorm0": rec.get("gnorm0"),
+        "move": rec.get("move"), "Jmin": rec.get("Jmin"), "run": rec.get("run", 0),
     }).encode("utf-8")
     hdr += b" " * (-len(hdr) % 4)      # 4-align: JS Float32Array(buf, off) needs off % 4 == 0
     cov6 = cov[:, _TRI[0], _TRI[1]]
