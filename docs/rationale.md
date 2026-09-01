@@ -83,7 +83,24 @@ same day: safeguarded decayed warm start (compare-to-cold + orientation check),
 det(F)>0 added to line-search ACCEPTANCE (defect existed in v2 too — any arm could have
 committed an inversion the loss cannot see), render_gs decoupled from warm start.
 
-## 5. Decision rule (pre-committed)
+## 5. v4 main-line reinforcement (pre-registered 2026-09-01, before the batch ran)
+
+Target: PhysMorph-GS **improved** — current code is the PhysMorph baseline. Every quantity
+and gradient must stay logically consistent; the win must show in metrics AND visuals AND
+the trajectory (no 2-commit snap).
+
+| axis | mechanism | papers | prediction | falsifier |
+|---|---|---|---|---|
+| curvature-blind silhouettes (round ear tips) | **PBR-lite**: normals from mass-field gradient (n=−∇ρ/&#124;∇ρ&#124;), headlight-Lambertian shaded-image L2 in the balanced render scalar | [SDFDiff](https://openaccess.thecvf.com/content_CVPR_2020/papers/Jiang_SDFDiff_Differentiable_Rendering_of_Signed_Distance_Fields_for_3D_Shape_CVPR_2020_paper.pdf), [nvdiffrast](https://arxiv.org/abs/2011.03277), SoftRas | ear/paw sharpness up at equal budget | shading noise destabilises λ or detF margin |
+| render-vs-phys gradient conflict (cos→−0.74) | **PCGrad one-sided** projection of the render grad | [PCGrad](https://arxiv.org/abs/2001.06782), [CAGrad](https://arxiv.org/pdf/2110.14048) | fewer rejections late-run, sil_iou ≥ render | projection strips the very correction that beats phys |
+| thin-feature resolution | **coarse-to-fine** render targets (64→96px at half-run) | classic multiresolution | sharper extremities, no early-run cost | D_render rescale confuses freeze (mitigated: track reset) |
+| λ runaway at render saturation (measured 1.77e5) | **λ cap** 5e3 | — (own finding) | late-run λ bounded, no volume oscillation | oscillation persists ⇒ needs proximal/AA instead |
+| trajectory snap (D_vol mostly spent in 3 commits) | **pacing**: window loss cut ≤ 12%/window + dFc clip; move_cv + first3 metrics | (deliverable-driven) | move spread across commits, endpoint quality intact | paced arm loses fidelity or trips freeze early |
+| particle/volume oscillation at optimum | λ cap + λ-free freeze (existing); **guarded Anderson on CONTROLS** in backlog if needed | [AA for physics (TOG18)](https://arxiv.org/abs/1805.05715) + guarded variants | cap alone suffices | else implement guarded AA (line search = the guard) |
+| Gaussian-native render loss | backlog: diff_gauss alpha/depth in the loss (server build exists) | GIC, 3DGS-LM | — | — |
+| adaptive/high-res grid | backlog after c2f verdict | SPGrid/adaptive MPM lineage | — | — |
+
+## 6. Decision rule (pre-committed)
 
 - `render_ws`/`render_gs` **adopt** if: G2–G4 clean AND (sil_iou ≥ `render` − 0.002 with
   fewer rejections, or sil_iou > `render`). Ear-region visual regression vetoes (R1).
