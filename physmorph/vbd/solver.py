@@ -90,10 +90,15 @@ class QuasiStaticGrid:
         self.A = len(self.active)
         self.node_cap = float(node_cap) * dx         # per-node trust radius
 
-        # 2-color parity of active nodes + diagonal stiffness preconditioner
+        # 8-color (per-axis parity) blocks: two nodes couple iff some particle's 2^3 CIC
+        # stencil touches both, i.e. iff they differ by <=1 cell per axis — same-parity
+        # nodes therefore NEVER couple, and each color's block update is a true decoupled
+        # Gauss-Seidel step. (Round-2 lesson: (i+j+k)%2 parity does NOT decouple this
+        # stencil — intra-color conflicts forced constant backtracking and the step never
+        # grew; sweeps hit the cap every commit with move ~ 3e-3.)
         lin = self.active
         i = lin // (ny * nz); j = (lin // nz) % ny; k = lin % nz
-        self.color = ((i + j + k) % 2 == 0)
+        self.color_id = (i % 2) * 4 + (j % 2) * 2 + (k % 2)
         lam_l, mu_l = (young * poisson / ((1 + poisson) * (1 - 2 * poisson)),
                        young / (2 * (1 + poisson)))
         self.lam_l, self.mu_l = float(lam_l), float(mu_l)
@@ -130,7 +135,8 @@ class QuasiStaticGrid:
         the per-color energy check keeps descent monotone.
         Returns (u*, info) with the energy trace and the gradient-gate verdict."""
         u = torch.zeros(self.A, 3, device=self.dev, requires_grad=True)
-        masks = [self.color.unsqueeze(1), (~self.color).unsqueeze(1)]
+        masks = [(self.color_id == c).unsqueeze(1) for c in range(8)]
+        masks = [m for m in masks if bool(m.any())]
         g0 = None
         with torch.no_grad():
             E_prev = float(energy_fn(u))
