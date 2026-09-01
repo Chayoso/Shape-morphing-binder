@@ -142,12 +142,15 @@ def eval_gates(tag, res, met, prm, T, rel_tol=0.003, hole_tol=0.02):
         "G2_guards": all(v == 0 for v in g.values()),
         "G3_rest": met["jitter_rel"] < rel_tol and drift_rel < rel_tol,
         "G4_holes_abs": met["hole_frac"] <= hole_tol,       # spec: absolute 2% (AND <= phys arm,
-    }                                                       # evaluated cross-arm below)
+                                                            # evaluated cross-arm below)
+        "G4_ejection": met["outside_max"] == 0.0 and met["stray_max"] < 2e-3,
+    }
     print(f"[{tag}] gates: " + "  ".join(f"{k}={'PASS' if v else 'FAIL'}"
                                          for k, v in gates.items()) +
           f"   (guards={g}, jitter_rel={met['jitter_rel']:.5f}, drift_rel={drift_rel:.5f}, "
           f"hole={met['hole_frac']*100:.2f}% tgt={met['hole_frac_tgt']*100:.2f}%, "
-          f"outside={met['outside_frac']*100:.3f}%)", flush=True)
+          f"outside_max={met['outside_max']*100:.3f}%, stray_max={met['stray_max']*100:.3f}%)",
+          flush=True)
     gates["drift_rel"] = drift_rel
     return gates
 

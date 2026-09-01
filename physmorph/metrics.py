@@ -90,6 +90,25 @@ def outside_frac(x, extent) -> float:
     return float((np.abs(x) > extent).any(1).mean())
 
 
+def stray_frac(x, k: int = 8, factor: float = 3.0) -> float:
+    """Fraction of ISOLATED particles (kNN distance > factor x median) — the near-field
+    ejecta the extent box cannot see (v1's outlier definition, now a metric not a fix)."""
+    x = np.ascontiguousarray(x, np.float32)
+    d = cKDTree(x).query(x, k=k + 1, workers=-1)[0][:, -1]
+    return float((d > factor * np.median(d)).mean())
+
+
+def ejection_trajectory(frames, extent, samples: int = 10) -> dict:
+    """Mass-ejection check over the WHOLE trajectory, not just the endpoint: max
+    outside_frac and max stray_frac over ~`samples` evenly-spaced frames (a particle that
+    flies off mid-run and gets pulled back would be invisible to final-frame metrics)."""
+    idx = sorted(set(np.linspace(0, len(frames) - 1, samples).astype(int)))
+    outs = [outside_frac(frames[i], extent) for i in idx]
+    strays = [stray_frac(np.ascontiguousarray(frames[i], np.float32)) for i in idx]
+    return {"outside_max": float(max(outs)), "stray_max": float(max(strays)),
+            "stray_final": strays[-1]}
+
+
 def jitter(frames, tail=10, n_held=0) -> dict:
     """Tail rest-stability over SIMULATED frames only (held/duplicated tail excluded):
     mean per-particle displacement per frame, absolute and relative to the final bbox
@@ -117,6 +136,7 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10) -> dict:
            "bbox_diag": float(np.linalg.norm(xf.max(0) - xf.min(0))),
            "frames": len(frames), "n_held": int(n_held)}
     out.update(jitter(frames, tail, n_held))
+    out.update(ejection_trajectory(frames, e))
     if F_frames is not None and len(F_frames):
         out["detF_min"] = min(float(np.linalg.det(F).min()) for F in F_frames)
     return out
