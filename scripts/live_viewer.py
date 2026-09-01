@@ -44,6 +44,7 @@ def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray) -> bytes:
         "lam": rec.get("lambda"), "sweeps": rec.get("sweeps"),
         "gnorm": rec.get("gnorm"), "Jmin": rec.get("Jmin"), "run": rec.get("run", 0),
     }).encode("utf-8")
+    hdr += b" " * (-len(hdr) % 4)      # 4-align: JS Float32Array(buf, off) needs off % 4 == 0
     cov6 = cov[:, _TRI[0], _TRI[1]]
     return (struct.pack("<I", len(hdr)) + hdr
             + np.ascontiguousarray(x, "<f4").tobytes()

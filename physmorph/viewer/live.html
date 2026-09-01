@@ -131,8 +131,15 @@ function spark() {
 }
 
 async function boot() {
-  meta = await (await fetch('/meta')).json();
-  target = parse(await (await fetch('/target')).arrayBuffer());
+  try {
+    meta = await (await fetch('/meta')).json();
+    target = parse(await (await fetch('/target')).arrayBuffer());
+  } catch (err) {
+    document.getElementById('st').textContent = 'boot error: ' + err;
+    document.getElementById('st').style.color = '#d87f7f';
+    setTimeout(boot, 1500);
+    return;
+  }
   poll();
 }
 async function poll() {
