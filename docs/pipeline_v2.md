@@ -296,3 +296,23 @@ Tuning findings (each verified by ablation): `w_kin=0.5` too weak (momentum snow
 kin 66→509, dead by commit 3); `w_kin=5, iters=8` stable. Displacement-based assimilation
 destabilises (see §3.5 history); elastic-stretch version stable. First-run failure with
 `iters=4` was budget, not formulation.
+
+### 2026-09-01 — FULL SCALE on hyde06 (RTX 6000 Ada, GPU 0) — all gates PASS
+
+Discretisation: `dx=0.5, dt=1/240, grid 64³, smoothing=0.955, loss_res=32`; scale:
+`N=20000` (isosphere→bunny), `T=20`, `iters=8`, `animations=30`, `w_kin=5, w_box=10,
+assim=0.5(elastic), λ_auto=0.5, 6 azim × 3 elev @ 64px`. Runtime ≈ 0.5 min/arm.
+Artifacts: `output/v2_full*.{json,npz,png,gif}` on hyde06.
+
+| arm | chamfer | sil_iou | hole | jitter_rel | drift_rel | guards | commits |
+|---|---|---|---|---|---|---|---|
+| phys | 0.1786 | 0.8885 | 0.05% | 0.00003 | 0.0004 | all 0 | 30/30 |
+| render | **0.1439** | **0.9536** | **0.00%** | 0.00003 | 0.0004 | all 0 | 30/30 |
+
+G1a, G1b (FD rel_err 0.000), G2, G3, G4(abs + vs-phys), G5 **all PASS**. λ_R anneals
+1130→61. kin 8.97→0.002 monotone; |v|max 28.7→0.12. G6 strip (2 az, frames
+0/120/240/360/480/600): closed solid, hole 0.0% every sampled frame, no floaters, no
+ghosting; **ears and front paw form** (rounder than target at the tips — see
+`docs/gradient_analysis.md` §7 for candidates). v1 forensics + per-channel gradient
+measurements: `docs/gradient_analysis.md` (v1 fixed-λ render contribution measured at
+0.04–0.3%; v2 pins it at 50% by norm balancing; render pull is 8–16× surface-concentrated).
