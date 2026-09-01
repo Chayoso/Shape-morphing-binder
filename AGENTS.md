@@ -85,11 +85,12 @@ These are the leading candidates for the unresolved problems, and they are ports
 
 ## Hard rules
 
-1. **Local GPU = smoke scale only.** (Corrected 2026-09-01: this machine HAS an RTX 4090
-   Laptop GPU, 16 GB, visible to torch cu128 and warp — the old "no GPU work locally" rule
-   was wrong.) Local is for: `python -m py_compile`, the `tests/` suite (CPU + warp-CPU +
-   small CUDA), and smoke-scale pipeline runs (N≲5000) for tuning iteration. Full-scale
-   runs (N=20000+) and hero renders still go to hyde06 via the jump host:
+1. **ALL simulation runs go to hyde06 — no pipeline runs on this machine** (user directive
+   2026-09-01, reaffirmed after a brief local-run experiment). The machine does have an
+   RTX 4090 Laptop GPU (16 GB, torch cu128 + warp both see it) — do not rediscover this —
+   but it is only for what the user explicitly approves. Local work = writing code,
+   `python -m py_compile`, and the `tests/` suite (which is CPU/warp-CPU only).
+   Server access via the jump host:
    `ssh -J chayo@hyde01.dabh.io chayo@hyde06.dabh.io`,
    repo copy `~/physmorph_v2`, python
    `/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python` (3.10.20).
