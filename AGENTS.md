@@ -4,10 +4,12 @@ Guide for AI coding agents (Claude Code, Codex, …) working in this repo.
 
 ## ⚠️ Read first
 
-**This project is now its own git repo** (`git init`, 2026-07-27, branch `main`) — it is no longer
-the untracked tree that used to sit inside the vcpkg clone at `C:/dev`. There is **no remote yet**;
-`gh` is not installed and this shell cannot run GitHub's login flow, so pushing is a manual step the
-user takes. Commit freely; deletes are recoverable from history *for tracked files only*.
+**This project is now its own git repo** (`git init`, 2026-07-27, branch `main`). Remote
+(added 2026-09-01): `origin = https://github.com/Chayoso/Shape-morphing-binder.git` — the
+original PhysMorph-GS repo with its OWN unrelated `main` and paper-era branches. **Never
+push to origin/main from here** (histories are unrelated); push work branches only
+(`v3-grid-gs` = live work, `v3-vbd-experiments` = snapshot). HTTPS credentials are cached;
+`gh` is not installed. Commit freely; deletes are recoverable *for tracked files only*.
 
 Still permanent, because they are deliberately untracked: `output/`, `gaussian-splatting/` (an
 unmodified graphdeco-inria clone, 134 MB), `legacy/build/`. Archive those before removing.
