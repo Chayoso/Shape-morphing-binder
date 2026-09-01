@@ -51,9 +51,8 @@ class PipelineConfig:
     mat_clamp: float = 1.0          # |s| <= mat_clamp  (e^{±1} = 0.37..2.7x)
     w_mat: float = 1e-2             # ridge toward base material
 
-    # ---- plastic assimilation channel (§3.5; objective polar/stretch version) ----
-    assim: float = 0.5              # eta_assim; 0 disables Fp migration at commits
-    assim_k: int = 12               # kNN for the displacement Jacobian (auto-capped to N-2)
+    # ---- plastic assimilation channel (§3.5; exact elastic-stretch version) ----
+    assim: float = 0.5              # eta: F_e -> R_e S_e^{1-eta} per commit; 0 disables
     assim_smin: float = 0.2         # cumulative Fp band; wide, because a saturated Fp stops
     assim_smax: float = 5.0         # tracking the motion and re-arms spring-back
 

@@ -6,7 +6,7 @@ strain from rigid rotation and ignored dilation entirely.
 import numpy as np
 import pytest
 
-from physmorph.plasticity import assimilate_fp
+from physmorph.plasticity import assimilate_elastic, assimilate_fp
 from physmorph.plasticity.sinkhorn import displacement_jacobian
 
 
@@ -82,6 +82,40 @@ def test_eta_zero_is_identity(cloud):
     Fp0 = _id(len(cloud))
     Fp = assimilate_fp(Fp0, cloud, 0.3 * cloud, eta=0.0, k=12)
     assert np.array_equal(Fp, Fp0)
+
+
+def test_elastic_assim_is_exact_stretch_power():
+    """F_e_new = R_e S_e^{1-eta} EXACTLY (the property the runner relies on)."""
+    rng = np.random.default_rng(5)
+    R = _rot_y(0.7)
+    S = np.diag([1.6, 1.0, 0.7]).astype(np.float32)
+    F = np.tile((R @ S).astype(np.float32), (8, 1, 1))
+    Fp = assimilate_elastic(F, _id(8), eta=0.4)
+    Fe_new = np.einsum("nij,njk->nik", F, np.linalg.inv(Fp))
+    sv = np.sort(np.linalg.svd(Fe_new, compute_uv=False), axis=1)
+    expect = np.sort(np.diag(S) ** (1 - 0.4))
+    assert np.allclose(sv, expect, atol=1e-4)
+
+
+def test_elastic_assim_ignores_rotation():
+    F = np.tile(_rot_y(1.2), (6, 1, 1))
+    Fp = assimilate_elastic(F, _id(6), eta=0.7)
+    assert np.abs(Fp - np.eye(3)).max() < 1e-5
+
+
+def test_elastic_assim_reduces_elastic_energy():
+    """Fixed-corotated psi must not increase at a commit (the anti-spring-back claim)."""
+    def psi(Fe, lam=1.0, mu=1.0):
+        S = np.linalg.svd(Fe, compute_uv=False)
+        J = np.linalg.det(Fe)
+        return (mu * ((S - 1) ** 2).sum(1) + 0.5 * lam * (J - 1) ** 2)
+    rng = np.random.default_rng(6)
+    F = (rng.normal(0, 0.25, (50, 3, 3)) + np.eye(3)).astype(np.float32)
+    ok = np.linalg.det(F) > 1e-3
+    F = F[ok]
+    Fp = assimilate_elastic(F, _id(len(F)), eta=0.5)
+    Fe_new = np.einsum("nij,njk->nik", F, np.linalg.inv(Fp))
+    assert (psi(Fe_new) <= psi(F) + 1e-5).all()
 
 
 def test_unsymmetrised_jacobian_recovers_affine_field(cloud):

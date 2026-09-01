@@ -111,28 +111,33 @@ deliverable needs (GS covariance rides F on the surface; interior is D_vol's job
 
 After a window is accepted and its full state `(x_T, F_T, v_T, C_T)` promoted
 (`trajectory_opt.optimize_morph` semantics — partial promotion was the v1 energy-re-injection
-bug), the *realised* displacement `d = x_T − x_0` is assimilated into the rest state
-**objectively** (`plasticity/assimilation.py`):
+bug), an η-fraction of the **elastic stretch itself** is assimilated into the rest state
+(`plasticity/assimilation.py::assimilate_elastic`):
 
 ```
-A  = I + ∇d                     # local incremental map, UNsymmetrised LSQ Jacobian
-A  = R·S                        # proper polar; S = VΣVᵀ (right stretch)
-Fp ← clamp_sv( S^η · Fp )       # stretch power only; band clamp applied LAST
+F_e = F·Fp⁻¹ = R_e·S_e          # per-particle polar decomposition
+Fp ← clamp_sv( S_e^η · Fp )     # ⇒ F_e_new = R_e·S_e^{1−η}   EXACTLY
 ```
 
-Why not v1's `update_fp(J_sym, isochoric)`: the adversarial round proved (numerically) that
-(a) the symmetrised Jacobian fabricates plastic strain from a stress-free rigid rotation
-(sym(R−I) ≠ 0 → a 90° commit rotation *created* elastic energy 0 → 0.272), and (b) the
-isochoric projection makes the channel an exact no-op for dilation — the one mode `D_vol`
-drives. The polar/stretch form fixes both: a rigid rotation gives `S = I` (Fp untouched, F_e
-stays a rotation, zero energy); a dilation is assimilated in full. Inverted local maps
-(`det A ≤ 0`) are skipped — they must surface in the F guards, not be absorbed.
+`S_e` is symmetric, so it commutes with its own powers and the relation is exact: each
+commit relaxes exactly η of the elastic stretch, leaves the rotation untouched (a rigid
+motion is a strict no-op), and the fixed-corotated energy decreases monotonically
+(tested). Because `F_T` is shaped by the render-optimised `dFc`, the render signal reaches
+`Fp` through this channel. η < 1 keeps a fraction of the stress as elastic "glue". The
+cumulative band is wide (`[0.2, 5.0]`): a saturated Fp stops tracking and re-arms
+spring-back.
 
-Effect: `F_e = F·Fp⁻¹ → ≈ R`, elastic energy stored by the achieved deformation is released
-plastically instead of springing back next window. Because `d` is the **optimised** motion, the
-render signal reaches `Fp` through this channel. η_assim < 1 keeps a fraction of the stress as
-elastic "glue". The cumulative band is wide (`[0.2, 5.0]`): a saturated Fp stops tracking the
-motion and silently re-arms spring-back.
+History of this design (both alternatives measured and rejected):
+1. v1 `update_fp(J_sym, isochoric)` — fabricates strain from rigid rotation
+   (sym(R−I) ≠ 0: energy 0 → 0.272 for a 90° commit) and is an exact no-op for dilation,
+   the one mode `D_vol` drives (adversarial round 1).
+2. Displacement-field polar assimilation (`assimilate_fp`) — objective in itself, but in
+   THIS engine `dFc` is injected straight into F (`F ← (I+dt·C)(F+dFc)`), so F carries
+   deformation the realised motion never had; migrating Fp toward the motion-stretch
+   mismatches F and every commit boundary becomes a stress spike. Measured locally
+   (N=5000, T=10, dx=0.5, dt=1/240): kin 66→509 across two commits, |v|max 290,
+   line-search stall at commit 3; the exact elastic version at identical settings runs
+   12/12 commits with kin 1.93→0.036 monotone.
 
 ### 3.6 λ_R balancing
 
@@ -261,4 +266,26 @@ $PY scripts/make_gif.py --npz output/v2_ab_render.npz --stride 3 --out output/v2
 
 ## 9. Result log
 
-*(append server results here; state the discretisation with every number — AGENTS rule 4)*
+*(state the discretisation with every number — AGENTS rule 4)*
+
+### 2026-09-01 — local smoke A/B (RTX 4090 Laptop; discovered the machine HAS a usable GPU)
+
+Discretisation: `dx=0.5, dt=1/240, grid 64³, smoothing=0.955, loss_res=32`; scale:
+`N=5000` (isosphere→bunny), `T=10`, `iters=8`, `animations=12`, `w_kin=5, w_box=10,
+assim=0.5(elastic), λ_auto=0.5, 4 azim × 3 elev views @ 48px`. Runtime ≈ 0.2–0.3 min/arm.
+
+| arm | chamfer | sil_iou | hole | jitter_rel | drift_rel | guards | commits |
+|---|---|---|---|---|---|---|---|
+| phys | 0.2801 | 0.8476 | 1.56% | 0.00014 | 0.0008 | all 0 | 12/12 |
+| render | **0.2522** | **0.9167** | **1.00%** | 0.00014 | 0.0008 | all 0 | 12/12 |
+
+G1a/G1b/G2/G3/G4(abs+vs-phys)/G5 **all PASS**. λ_R self-anneals 553→91 as D_render
+converges. Both arms end at rest (kin 1.93→0.036 monotone across commits).
+Visual (quicklook, 2 az): solid closed body, no floaters, no crossfade ghost; render arm
+visibly tighter to the bunny torso outline with less edge fringe than phys. **Not yet
+reached at this budget: thin extremities (ears/paw)** — the full-scale question.
+
+Tuning findings (each verified by ablation): `w_kin=0.5` too weak (momentum snowball:
+kin 66→509, dead by commit 3); `w_kin=5, iters=8` stable. Displacement-based assimilation
+destabilises (see §3.5 history); elastic-stretch version stable. First-run failure with
+`iters=4` was budget, not formulation.

@@ -20,7 +20,7 @@ import torch
 from ..losses.volumetric import target_mass_grid
 from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
-from ..plasticity import assimilate_fp
+from ..plasticity import assimilate_elastic
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
 from .render_loss import LambdaBalancer, make_views, target_silhouettes
@@ -119,10 +119,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         guards["F_reset"] += n_bad; guards["F_flip"] += n_flip
         guards["F_invert_steps"] += n_inv
 
-        # ---- objective plastic assimilation of the realised displacement (§3.5) ----
+        # ---- plastic assimilation of the ELASTIC stretch (§3.5): F_e -> R_e S_e^{1-eta},
+        # exact and per-particle — displacement-field estimation mismatched the
+        # dFc-inflated F and spiked stress at every commit boundary (measured) ----
         if cfg.assim > 0:
-            Fp = assimilate_fp(Fp, x_start, x - x_start, eta=cfg.assim, k=cfg.assim_k,
-                               smin=cfg.assim_smin, smax=cfg.assim_smax)
+            Fp = assimilate_elastic(Fc, Fp, eta=cfg.assim,
+                                    smin=cfg.assim_smin, smax=cfg.assim_smax)
 
         # archive the PROMOTED states (identical to raw when no guard fired)
         frames.extend(f.copy() for f in fr[1:-1]); frames.append(x.copy())

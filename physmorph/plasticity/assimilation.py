@@ -22,6 +22,37 @@ import numpy as np
 from .sinkhorn import displacement_jacobian
 
 
+def assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0) -> np.ndarray:
+    """Fp <- S_e^eta Fp with R_e S_e = polar(F_e), F_e = F Fp^-1. Per particle, EXACT.
+
+    Because S_e is symmetric it commutes with its own powers, so
+        F_e_new = F (S_e^eta Fp)^-1 = R_e S_e^{1-eta}
+    exactly: an eta-fraction of the ELASTIC stretch is relaxed each commit, the rotation is
+    untouched, and the fixed-corotated energy decreases monotonically. No displacement-field
+    estimation is involved — the displacement-based variant (assimilate_fp below) proved
+    unstable in this engine because dFc is injected straight into F (F <- (I+dtC)(F+dFc)),
+    so F carries deformation the realised motion never had; migrating Fp toward the
+    motion-stretch then MISMATCHES F and every commit boundary becomes a stress spike
+    (measured locally: window 3 line-search stall, |v|max 60-290; exact version: 8/8
+    commits, monotone D_vol). Rows with det(F_e) <= 0 are skipped (the F guards own them).
+    """
+    F = np.ascontiguousarray(F, np.float32).reshape(-1, 3, 3)
+    Fp = np.ascontiguousarray(Fp, np.float32).reshape(-1, 3, 3)
+    if eta <= 0:
+        return Fp
+    Fe = np.einsum("nij,njk->nik", F, np.linalg.inv(Fp))
+    ok = np.linalg.det(Fe) > 1e-6
+    _, S, Vt = np.linalg.svd(Fe)
+    V = np.transpose(Vt, (0, 2, 1))
+    Se = np.clip(S, 1e-3, None) ** eta
+    Sa = np.einsum("nij,nj,nkj->nik", V, Se, V)      # V diag(S^eta) V^T = S_e^eta
+    Sa[~ok] = np.eye(3, dtype=np.float32)
+    Fp_new = np.einsum("nij,njk->nik", Sa, Fp)
+    U2, S2, Vt2 = np.linalg.svd(Fp_new)              # cumulative band clamp LAST
+    S2 = np.clip(S2, smin, smax)
+    return np.einsum("nij,nj,njk->nik", U2, S2, Vt2).astype(np.float32)
+
+
 def assimilate_fp(Fp, x, d, eta=0.5, k=12, diffusion_iters=0, smin=0.2, smax=5.0) -> np.ndarray:
     """Fp <- S_A^eta Fp with A = I + grad(d), S_A the right polar stretch of A.
 
