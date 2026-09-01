@@ -38,6 +38,8 @@ class PipelineConfig:
     # ---- render channel (§3.4, §3.6) ----
     lambda_auto: float = 0.0        # 0 = physics-only arm; >0 = norm-balanced render weight
     lambda_ema: float = 0.3         # EMA rate for the balanced lambda (anti-oscillation)
+    lambda_cap: float = 5e3         # hard cap: the raw ratio diverges once D_render
+                                    # saturates (live-observed 1.77e5); converged render fades
     render_views: int = 6           # azimuths per elevation ring
     render_elevs: tuple = (0.0, 0.5, -0.5)   # elevation angles (v1 was equator-only)
     render_res: int = 64

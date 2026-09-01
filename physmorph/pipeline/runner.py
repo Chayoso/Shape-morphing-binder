@@ -60,7 +60,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     assert target_x.shape[0] == N, ("D_vol compares unit-mass clouds: source and target need "
                                     f"the same particle count (got {N} vs {target_x.shape[0]})")
     tgt = build_target(target_x, prm, cfg)
-    balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema)
+    balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
 
     dmin = np.asarray(prm.grid_min, np.float32)
     dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
@@ -137,6 +137,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
 
         w = whist[-1]
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
+               "grad_norm": w.get("grad_norm"),
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
                "accepted": stats["accepted"], "rejected": stats["rejected"],

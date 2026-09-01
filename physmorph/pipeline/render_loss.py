@@ -52,9 +52,10 @@ class LambdaBalancer:
     plus an EMA because the raw ratio is itself a noisy per-iteration quantity and feeding it
     straight back is one of the v1 oscillation sources. α_λ=0 disables the render channel."""
 
-    def __init__(self, alpha_lam: float, ema: float = 0.3):
+    def __init__(self, alpha_lam: float, ema: float = 0.3, cap: float | None = None):
         self.alpha_lam = float(alpha_lam)
         self.ema = float(ema)
+        self.cap = cap
         self.lam = None
 
     @property
@@ -63,5 +64,10 @@ class LambdaBalancer:
 
     def update(self, phys_norm: float, render_norm: float) -> float:
         target = self.alpha_lam * phys_norm / max(render_norm, 1e-12)
+        # CAP: once D_render saturates its gradient vanishes and the raw ratio diverges —
+        # observed live at full scale: λ 1.1e3 → 1.77e5 with a mid-window inversion in tow.
+        # A converged render term should FADE, not take over the objective.
+        if self.cap is not None:
+            target = min(target, self.cap)
         self.lam = target if self.lam is None else (1 - self.ema) * self.lam + self.ema * target
         return self.lam

@@ -99,14 +99,24 @@ class Hub:
         self.state = b""
         self.meta = b"{}"
         self.target = b""
+        self.history = []                # per-commit headers (chart backfill on page load)
+        self.restart = threading.Event()
 
-    def publish(self, blob):
+    def publish(self, blob, hdr=None):
         with self.lock:
             self.state = blob
+            if hdr is not None:
+                self.history.append(hdr)
+                if len(self.history) > 500:
+                    self.history.pop(0)
 
     def snap(self):
         with self.lock:
             return self.state
+
+    def hist_json(self):
+        with self.lock:
+            return json.dumps(self.history).encode()
 
 
 def make_handler(hub: Hub, page_path: Path):
@@ -131,6 +141,15 @@ def make_handler(hub: Hub, page_path: Path):
                 self._send(hub.target, "application/octet-stream")
             elif self.path == "/state":
                 self._send(hub.snap(), "application/octet-stream")
+            elif self.path == "/history":
+                self._send(hub.hist_json(), "application/json")
+            else:
+                self.send_error(404)
+
+        def do_POST(self):
+            if self.path == "/restart":
+                hub.restart.set()
+                self._send(b'{"ok":true}', "application/json")
             else:
                 self.send_error(404)
     return H
@@ -199,19 +218,26 @@ def main():
             commit_no["a"] = a
             nodes, nodeq = grid_fields(x, v, gmin, ldx, cfg.loss_res)
             r = dict(rec); r["run"] = _run; r["phase"] = "commit"
-            hub.publish(pack_state(seq, r, x, cov_from_F(F, sigma0), nodes, nodeq))
+            hdr = {"run": _run, "commit": a + 1, "E": rec.get("loss"),
+                   "d_vol": rec.get("d_vol"), "d_render": rec.get("d_render"),
+                   "lam": rec.get("lambda"), "kin": rec.get("kin"),
+                   "move": rec.get("move"), "Jmin": rec.get("Jmin_traj", rec.get("Jmin"))}
+            hub.publish(pack_state(seq, r, x, cov_from_F(F, sigma0), nodes, nodeq), hdr)
 
         t0 = time.time()
         res = run_pipeline(src, tgt, prm, cfg, log=lambda *a: print(*a, flush=True),
                            on_commit=cb_commit, on_iter=cb_iter)
         print(f"[live] run {run_i} finished in {time.time()-t0:.1f}s "
-              f"(converged={res['converged']}); {'restarting' if args.loop else 'holding final state'}",
+              f"(converged={res['converged']}); "
+              f"{'looping' if args.loop else 'holding — POST /restart or the viewer button'}",
               flush=True)
         if not args.loop:
-            while True:
-                time.sleep(3600)
+            hub.restart.wait()                        # viewer restart button
+            hub.restart.clear()
+        with hub.lock:
+            hub.history = []
         run_i += 1
-        time.sleep(2.0)
+        time.sleep(1.0)
 
 
 if __name__ == "__main__":
