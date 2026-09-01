@@ -142,4 +142,30 @@ axes exposed here: neighbour mixing + inversion margin (detFmin 0.46–0.51; one
 mid-window inversion observed under atomic nondeterminism) → assimilation-rate/stiffness
 sweep pending.
 
-### (pending) main-line reinforcement — render_mat full scale; assim/stiffness margin sweep
+### 2026-09-01 — v4 tranche-1 batch (8 arms, full scale, same discretisation)
+
+| arm | chamfer | sil_iou | detF_min | first3 | move_cv | stray_max | gates |
+|---|---|---|---|---|---|---|---|
+| phys | 0.1784 | 0.8913 | 0.59 | 56% | 1.66 | 0.29% | ejection ✗ |
+| render | 0.1384 | 0.9624 | 0.41 | 52% | 1.56 | 0.46% | ejection ✗ |
+| render_mat | 0.1419 | 0.9569 | 0.44 | 54% | 1.63 | 0.42% | ejection ✗ |
+| render_pbr | 0.1838 | 0.9256 | −0.22 | 90% | 0.55 | 0.26% | **G2 ✗ (died early)** |
+| render_pc | 0.1472 | 0.9478 | 0.51 | 57% | 1.73 | 0.45% | ejection ✗ |
+| render_c2f | 0.1434 | 0.9541 | 0.50 | 58% | 1.75 | 0.44% | ejection ✗ |
+| render_pace | 0.2227 | 0.8335 | 0.74 | **15%** | **0.43** | **0.13%** | G3 drift ✗, G5 ✗ |
+| **render_full** | 0.1655 | 0.9364 | **0.75** | **20%** | 0.58 | **0.20%** | **ALL PASS** |
+
+Verdicts (pre-registered rules, rationale §5): `render_pbr` falsifier FIRED (standalone
+shading destabilises — inversion, early stop; inside the paced bundle it survives) — not
+adopted standalone, needs separate sil/pbr balancing (structural, queued). `render_pc`
+clean but strictly worse than `render` — the projection discards useful conflict
+information (the user's prior); superseded by the local-global arm pending review.
+`render_c2f` ≈ tie at this budget. `render_pace` trajectory metrics exactly as designed
+(first3 52→15%) but endpoint short at 30 commits — pacing pays commits for smoothness by
+construction; rerun at 60. **`render_full` is the only arm passing every gate** including
+the NEW whole-trajectory ejection check, with the best inversion margin (detF 0.75) and an
+even trajectory; fidelity gap vs `render` (0.166 vs 0.138) is the 30-commit budget under
+pacing. **Headline discovery: every unpaced arm produces 0.26–0.46% transient mid-run
+strays that endpoint metrics never saw** — pacing reduces them structurally (gentler
+transport, lower |v|max). Flagship candidate: render_full @ 60 commits, pc→lg swap
+pending the local-global review.
