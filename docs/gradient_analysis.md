@@ -118,7 +118,41 @@ escape is unrecoverable by pixels alone.
 | memory/perf | tape built even for no-grad evals; extra logging rollout per iter | no-tape eval path for line search; history reuses accepted evaluation |
 | GPU workflow | ad hoc | gates G1–G5 machine-checked per run; G6 scripted (quicklook/gif) |
 
-## 7. Open items the analysis surfaces
+## 7. Grid-level Gauss-Seidel direction — differentiability pre-check (2026-09-01)
+
+Idea under evaluation (user): make the render update a VBD-style block descent, but at the
+**grid** level (MPM's natural solve variable — implicit-MPM/HOT lineage): per-node 3×3
+solves, colored sweeps, render force rasterised onto nodes via the same B-spline weights as
+P2G (`∂D_render/∂v_g = Δt·Σ_p w_gp·∂D_render/∂x_p`). Before building anything, the
+blocking question was whether a quasi-static GS solve stays differentiable — i.e. whether
+the material/system-ID channel would survive the reformulation.
+
+`scripts/probe_gs_differentiability.py` (toy: 5³ grid × 3 dof, 300 particles, CIC
+interpolation, asymmetric silhouette energy, 2-color damped block-GS, float64 CPU) checks
+dL/dθ of an outer objective through the solve, against central finite differences:
+
+| sweeps | ‖∇E‖ at exit | unrolled backprop | IFT adjoint |
+|---|---|---|---|
+| 10 | 1.2e-01 | 16.9% err | 53.7% err |
+| 40 | 3.0e-02 | 10.3% err | 6.8% err |
+| 160 | 3.6e-05 | **0.1% err** | **0.04% err** |
+
+Conclusions:
+1. **Differentiable: yes, both ways.** At convergence both the unrolled tape and the
+   implicit-function-theorem adjoint (`H·λ = ∂L/∂u*`, the DiffPD recipe) recover the true
+   gradient to <0.1%.
+2. **Convergence tolerance is a correctness gate**, not a performance knob: partially
+   converged solves bias BOTH gradients (IFT worse when far from the fixed point, unrolled
+   worse near it). Any real implementation needs a `‖∇E‖ ≤ tol` gate before gradients are
+   trusted (G1b-style FD check per run).
+3. **IFT is a memory win over the current architecture**: O(1) state (one adjoint solve
+   reusing the same GS machinery) vs the current O(T) trajectory tape — and the quasi-static
+   fixed point has no chaotic-horizon pathology, so the material channel's gradient
+   conditioning should *improve*.
+4. Proposal (A) (grid-GS as a search-direction generator inside the existing dFc loop)
+   needs none of this — search directions live outside the graph.
+
+## 8. Open items the analysis surfaces
 
 1. **cos → −0.74 late**: render and mass objectives increasingly trade off; the composite
    optimum depends on α_λ. A small α_λ sweep (0.25/0.5/1.0) at full scale would show
