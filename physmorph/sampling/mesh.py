@@ -32,6 +32,14 @@ def sample_volume(mesh: trimesh.Trimesh, n: int, seed: int = 0,
     return (centers[idx] + jitter).astype(np.float32)
 
 
+def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0) -> np.ndarray:
+    """Sample n particles from a mesh, centred at the origin and scaled so the bbox
+    diagonal is `size` — the normalisation every runner script used to duplicate."""
+    x = sample_volume(load_mesh(path), n, seed=seed).astype(np.float32)
+    x -= x.mean(0)
+    return (x * (size / (np.linalg.norm(x.max(0) - x.min(0)) + 1e-9))).astype(np.float32)
+
+
 def _fill_centers(mesh: trimesh.Trimesh, pitch: float) -> np.ndarray:
     try:
         return mesh.voxelized(pitch=pitch).fill().points.astype(np.float32)

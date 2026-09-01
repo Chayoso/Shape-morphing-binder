@@ -72,6 +72,7 @@ class _WarpMPM(torch.autograd.Function):
         with ctx.tape:
             xT, FT = traj.rollout()
         ctx.traj, ctx.dFc_wp, ctx.seq = traj, dFc_wp, seq
+        ctx.dFc_req = dFc_t.requires_grad          # material-only optimisation is legal:
         ctx.lam_wp = lam_wp if (lam_t is not None and lam_t.requires_grad) else None
         ctx.mu_wp = mu_wp if (mu_t is not None and mu_t.requires_grad) else None
         return (wp.to_torch(xT).clone(), wp.to_torch(FT).reshape(N, 9).clone(),
@@ -85,7 +86,11 @@ class _WarpMPM(torch.autograd.Function):
                  traj.F[T]: wp.from_torch(gF.contiguous().view(N, 3, 3), dtype=wp.mat33),
                  traj.v[T]: wp.from_torch(gv.contiguous(), dtype=wp.vec3)}
         ctx.tape.backward(grads=grads)
-        if ctx.seq:
+        # each leaf's grad is read ONLY if that input required grad (a warp array made
+        # from a no-grad tensor has grad=None -> to_torch(None) crashes; caught by G1b)
+        if not ctx.dFc_req:
+            g = None
+        elif ctx.seq:
             g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3).clone() for d in ctx.dFc_wp])
         else:
             g = wp.to_torch(ctx.dFc_wp.grad).reshape(N, 3, 3).clone()

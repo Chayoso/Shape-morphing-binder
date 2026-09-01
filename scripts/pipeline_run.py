@@ -36,13 +36,7 @@ from physmorph.mpm import MPMParams  # noqa: E402
 from physmorph.mpm.constitutive import lame  # noqa: E402
 from physmorph.mpm.function import RolloutSpec, warp_mpm, warp_mpm_full  # noqa: E402
 from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
-from physmorph.sampling import load_mesh, sample_volume  # noqa: E402
-
-
-def load(path, n, seed=1):
-    x = sample_volume(load_mesh(path), n, seed=seed).astype(np.float32)
-    x -= x.mean(0)
-    return (x * (8.0 / (np.linalg.norm(x.max(0) - x.min(0)) + 1e-9))).astype(np.float32)
+from physmorph.sampling import load_normalized as load  # noqa: E402
 
 
 def gate1_plumbing(src, prm, T=6, device="cuda"):

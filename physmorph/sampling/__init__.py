@@ -1,4 +1,4 @@
 """Mesh loading + volume particle sampling."""
-from .mesh import load_mesh, sample_volume
+from .mesh import load_mesh, load_normalized, sample_volume
 
-__all__ = ["load_mesh", "sample_volume"]
+__all__ = ["load_mesh", "load_normalized", "sample_volume"]

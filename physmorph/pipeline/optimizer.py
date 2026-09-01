@@ -86,13 +86,37 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             return None, None
         return lam0 * torch.exp(s[0]), mu0 * torch.exp(s[1])
 
-    def terms(dfc):
-        lam_t, mu_t = material()
-        xT, FT, vT = warp_mpm_full(dfc, spec, lam_t, mu_t)
+    def losses_of(xT, vT):
         lv = d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
         lk = vT.pow(2).sum(1).mean()
         lr = (d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
                        cfg.sil_k, cfg.w_hole, cfg.w_spray) if balancer.active else None)
+        return lv, lk, lr
+
+    def terms(dfc):
+        """Differentiable path: torch Function + wp.Tape (gradient phase only)."""
+        lam_t, mu_t = material()
+        xT, FT, vT = warp_mpm_full(dfc, spec, lam_t, mu_t)
+        lv, lk, lr = losses_of(xT, vT)
+        return (xT, FT, vT), lv, lk, lr
+
+    def eval_terms(dfc):
+        """No-grad path for line-search candidates: plain rollout, NO tape, NO adjoint
+        buffers — the graph path allocates ~2x memory and tape bookkeeping that a
+        candidate evaluation (up to max_ls_iters per iteration) never uses."""
+        with torch.no_grad():
+            lam_t, mu_t = material()
+            lam_e = lam_t.detach().cpu().numpy() if lam_t is not None else lam0
+            mu_e = mu_t.detach().cpu().numpy() if mu_t is not None else mu0
+            dc = dfc.detach().contiguous()
+            seq = [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33) for t in range(T)]
+            tr = Trajectory(x0, 1.0, lam_e, mu_e, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
+                            dFc=seq, device=dev, requires_grad=False)
+            tr.rollout()
+            xT = wp.to_torch(tr.x[T])
+            FT = wp.to_torch(tr.F[T]).reshape(N, 9)
+            vT = wp.to_torch(tr.v[T])
+            lv, lk, lr = losses_of(xT, vT)
         return (xT, FT, vT), lv, lk, lr
 
     def phys_total(lv, lk, dfc, xT):
@@ -104,7 +128,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L
 
     def scalars(lv, lk, lr, lam_r, dfc, xT):
-        L = float(phys_total(lv, lk, dfc, xT))
+        L = float(phys_total(lv, lk, dfc, xT).detach())
         return L if lr is None else L + lam_r * float(lr)
 
     hist, accepted, rejected = [], 0, 0
@@ -164,7 +188,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
                 if s is not None:
                     s.clamp_(-cfg.mat_clamp, cfg.mat_clamp)
-                state_n, lv_n, lk_n, lr_n = terms(dFc)
+            state_n, lv_n, lk_n, lr_n = eval_terms(dFc)
+            with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, dFc, state_n[0])
             # acceptance requires a FINITE STATE: NaN particles vanish from the splats
             # (valid_pos), so a poisoned rollout can show a finite, LOWER loss.
@@ -195,8 +220,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      "d_render": float(lr_n) if lr_n is not None else None,
                      "lambda": lam_r if balancer.active else None,
                      "grad_norm": gn, "alpha": a_try,
-                     "dfc_absmax": float(dFc.abs().max()),
-                     "s_absmax": float(s.abs().max()) if s is not None else None})
+                     "dfc_absmax": float(dFc.detach().abs().max()),
+                     "s_absmax": float(s.detach().abs().max()) if s is not None else None})
 
     # ---- final rollout: every intermediate state + FULL end state ----
     with torch.no_grad():
