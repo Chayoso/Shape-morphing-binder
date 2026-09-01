@@ -49,9 +49,12 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
                       views=views, sils=sils, extent=extent)
 
 
-def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print):
+def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
+                 on_commit=None, on_iter=None):
     """Morph source -> target. Returns a result dict (frames, F_frames, history, guards, s,
-    n_held, converged). frames/F_frames archive the PROMOTED per-step states."""
+    n_held, converged). frames/F_frames archive the PROMOTED per-step states.
+    on_commit(a, x, F, v, rec) fires after each promoted commit; on_iter(it, xT, FT, tele)
+    streams each accepted optimisation iteration (live viewer hooks)."""
     src = np.ascontiguousarray(source_x, np.float32)
     N = src.shape[0]
     assert target_x.shape[0] == N, ("D_vol compares unit-mass clouds: source and target need "
@@ -89,7 +92,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         x_start = x.copy()
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
-            s_init=s, dfc_init=dfc_prev, log=lambda *_: None)
+            s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None)
         if cfg.warm_start:
             dfc_prev = stats.get("dfc")
         if not whist:
@@ -145,6 +148,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "clamped": n_out, "nan_x": n_nan, "nan_state": n_ns,
                "F_reset": n_bad, "F_flip": n_flip, "F_invert_steps": n_inv}
         hist.append(rec)
+        if on_commit is not None:
+            on_commit(a, x, Fc, v_p, rec)
 
         # ---- plateau freeze on RAW components (λ-free; stops post-convergence sloshing) ----
         phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"]

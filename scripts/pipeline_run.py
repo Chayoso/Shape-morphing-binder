@@ -36,7 +36,6 @@ from physmorph.mpm import MPMParams  # noqa: E402
 from physmorph.mpm.constitutive import lame  # noqa: E402
 from physmorph.mpm.function import RolloutSpec, warp_mpm, warp_mpm_full  # noqa: E402
 from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
-from physmorph.pipeline.runner_vbd import run_vbd_pipeline  # noqa: E402
 from physmorph.sampling import load_normalized as load  # noqa: E402
 
 
@@ -97,9 +96,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, render_views=args.render_views,
-                         render_res=args.render_res, loss_res=args.loss_res,
-                         vbd_sweeps=args.vbd_sweeps, vbd_tol=args.vbd_tol,
-                         vbd_young=args.vbd_young)
+                         render_res=args.render_res, loss_res=args.loss_res)
     if arm == "phys":
         cfg.lambda_auto = 0.0
     elif arm == "render":
@@ -107,19 +104,14 @@ def arm_config(arm: str, args) -> PipelineConfig:
     elif arm == "render_mat":
         cfg.lambda_auto = args.lambda_auto
         cfg.opt_material = True
-    elif arm == "render_ws":                       # v3: warm-started dFc
+    elif arm == "render_ws":                       # warm-started dFc (safeguarded)
         cfg.lambda_auto = args.lambda_auto
         cfg.warm_start = True
-    elif arm == "render_gs":                       # v3: Sobolev/grid-GS render direction
-        cfg.lambda_auto = args.lambda_auto         # (NO warm start: round 1 confounded the
-        cfg.render_gs_iters = args.render_gs_iters #  two — this arm tests smoothing alone)
-    elif arm == "vbd":                             # v3: quasi-static VBD-MPM, render on
+    elif arm == "render_gs":                       # Sobolev/grid-GS render direction
         cfg.lambda_auto = args.lambda_auto
-    elif arm == "vbd_phys":                        # v3: quasi-static, physics/mass only
-        cfg.lambda_auto = 0.0
+        cfg.render_gs_iters = args.render_gs_iters
     else:
-        raise SystemExit(f"unknown arm {arm!r} "
-                         "(phys|render|render_mat|render_ws|render_gs|vbd|vbd_phys)")
+        raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat|render_ws|render_gs)")
     return cfg
 
 
@@ -161,9 +153,6 @@ def main():
     ap.add_argument("--render_res", type=int, default=64)
     ap.add_argument("--loss_res", type=int, default=32)
     ap.add_argument("--render_gs_iters", type=int, default=20)
-    ap.add_argument("--vbd_sweeps", type=int, default=60)
-    ap.add_argument("--vbd_tol", type=float, default=5e-3)
-    ap.add_argument("--vbd_young", type=float, default=2e3)
     ap.add_argument("--arms", default="phys,render")
     ap.add_argument("--save_F_stride", type=int, default=0,
                     help="save every k-th F frame (0 = T, i.e. commit boundaries)")
@@ -186,10 +175,9 @@ def main():
 
     for arm in [a.strip() for a in args.arms.split(",") if a.strip()]:
         cfg = arm_config(arm, args)
-        runner = run_vbd_pipeline if arm.startswith("vbd") else run_pipeline
         print(f"\n[v2run] ===== ARM {arm} =====", flush=True)
         t0 = time.time()
-        res = runner(src, tgt, prm, cfg)
+        res = run_pipeline(src, tgt, prm, cfg)
         dt = time.time() - t0
         met = metrics.summarize(res["frames"], tgt, F_frames=res["F_frames"],
                                 n_held=res["n_held"])
@@ -214,7 +202,7 @@ def main():
               f"detFmin={met.get('detF_min', 1.0):.4f}  ({dt/60:.1f} min)", flush=True)
 
     # ---- cross-arm gates: every render-driven arm vs its physics-only baseline ----
-    base = "phys" if "phys" in out["arms"] else ("vbd_phys" if "vbd_phys" in out["arms"] else None)
+    base = "phys" if "phys" in out["arms"] else None
     if base:
         mp = out["arms"][base]["metrics"]
         out["G5"] = {}

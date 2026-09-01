@@ -72,7 +72,7 @@ def _state_ok(state) -> bool:
 
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
-                    s_init=None, dfc_init=None, log=print):
+                    s_init=None, dfc_init=None, on_iter=None, log=print):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats)."""
     dev = cfg.device
@@ -256,6 +256,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 break
             continue
 
+        if on_iter is not None:                      # live viewer: stream the window's
+            on_iter(it, state_n[0].detach().cpu().numpy().astype(np.float32),  # optimisation
+                    state_n[1].detach().reshape(N, 3, 3).cpu().numpy().astype(np.float32),
+                    {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
+                     "d_render": float(lr_n) if lr_n is not None else None,
+                     "lambda": lam_r if balancer.active else None, "grad_norm": gn})
         # history from the ACCEPTED evaluation (v1 burned a full rollout re-logging here)
         hist.append({"iter": it, "loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
                      "d_render": float(lr_n) if lr_n is not None else None,

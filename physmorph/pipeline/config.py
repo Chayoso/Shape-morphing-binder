@@ -53,15 +53,7 @@ class PipelineConfig:
     render_gs_iters: int = 0        # >0: Sobolev/grid-GS smoothing of the render pull before
     render_gs_kappa: float = 4.0    #     the adjoint pullback (screened diffusion strength)
 
-    # ---- v3: VBD-MPM quasi-static arm (docs/method.md §7; used by runner_vbd) ----
-    vbd_sweeps: int = 60            # max colored sweeps per commit
-    vbd_tol: float = 5e-3           # stop when |grad E| < tol * |grad E_0|
-    vbd_step: float = 0.9           # damped block step
-    vbd_ls: int = 4                 # per-color backtracking halvings
-    vbd_young: float = 2e3          # quasi-static stiffness: elasticity here is a coherence
-                                    # regulariser, not the motion's material — at the dynamic
-                                    # family's 1.4e5 the equilibrium offset per commit is
-                                    # ~1e-3 units (measured freeze) and the morph cannot progress
+    # (VBD quasi-static arm retired 2026-09-01 -> deprecated/; its vbd_* fields removed)
 
     # ---- material channel (§3.2 ch.2) ----
     opt_material: bool = False      # optimise per-particle log-Lame multipliers s

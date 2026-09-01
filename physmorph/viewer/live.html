@@ -24,13 +24,13 @@
   <span class="dim">splat <input id="ssz" type="range" min="0.4" max="3.0" step="0.1" value="1.5" style="width:80px"></span>
   <span class="dim">ghost <input id="gho" type="range" min="0" max="0.6" step="0.02" value="0.22" style="width:70px"></span>
   <button id="charts" style="background:#456;border:0;color:#fff;padding:3px 10px;border-radius:5px;cursor:pointer">charts</button>
-  <label class="dim"><input type="checkbox" id="cbsweep" checked> sweeps</label>
+  <label class="dim"><input type="checkbox" id="cbsweep" checked> iters</label>
   <label class="dim"><input type="checkbox" id="cbgrid"> grid</label>
   <label class="dim"><input type="checkbox" id="cbslice"> slice</label>
   <span class="dim">y <input id="ysl" type="range" min="-1" max="1" step="0.02" value="0" style="width:80px"></span>
   <label class="dim"><input type="checkbox" id="cbsplat" checked> splats</label>
   <select id="field" style="background:#222;color:#cfd3da;border:1px solid #444">
-    <option value="0">node |u|</option><option value="1">node |∇E|</option>
+    <option value="0">grid |v|</option><option value="1">grid mass</option>
   </select>
 </div>
 <canvas id="cv"></canvas>
@@ -44,26 +44,27 @@ let meta = null, target = null, state = null, lastGrid = null, lastCommitHdr = n
 let ZOOM = 0.8;
 
 // ---- telemetry history: every physical quantity in the state header, per run ----
+// MAIN-LINE (dynamic elasto + render adjoint) quantities, one chart each
 const SERIES = [                     // [key, label, decimals, log10?]
-  ['E',        'E (total energy)', 2, false],
-  ['E_el',     'E_elastic',        3, false],
-  ['d_vol',    'D_vol',            2, false],
-  ['d_render', 'D_render',         5, false],
-  ['lam',      'λ (render weight)',0, false],
-  ['gnorm',    '‖∇E‖ at exit',     2, true],
-  ['gratio',   '‖∇E‖/‖∇E₀‖ (conv)',3, true],
-  ['move',     'move / commit',    4, false],
-  ['Jmin',     'det F min',        3, false],
-  ['sweeps',   'solver sweeps',    0, false],
+  ['E',        'L (total window loss)', 2, false],
+  ['d_vol',    'D_vol',                 2, false],
+  ['d_render', 'D_render',              5, false],
+  ['lam',      'λ (render weight)',     0, false],
+  ['kin',      'kin  mean|v_T|²',       4, true],
+  ['v_absmax', '|v|max (promoted)',     3, false],
+  ['move',     'move / commit',         4, false],
+  ['gnorm',    '‖∇L‖ (window)',         2, true],
+  ['dfc',      '|dFc|max',              4, false],
+  ['Jmin',     'det F min (whole traj)',3, false],
+  ['rej',      'rejected steps',        0, false],
 ];
 let hist = {};
 const resetHist = () => { hist = {}; for (const [k] of SERIES) hist[k] = []; };
 resetHist();
 function pushHist(h) {
-  const vals = {...h, gratio: (h.gnorm != null && h.gnorm0) ? h.gnorm / h.gnorm0 : null};
   for (const [k] of SERIES) {
-    if (vals[k] != null && isFinite(vals[k])) {
-      hist[k].push(vals[k]);
+    if (h[k] != null && isFinite(h[k])) {
+      hist[k].push(h[k]);
       if (hist[k].length > 240) hist[k].shift();
     }
   }
@@ -184,7 +185,7 @@ function drawHisto(st, fi) {
   hx.fillStyle = '#0008'; hx.fillRect(0, 0, 320, 110);
   if (!st || !st.a) {
     hx.fillStyle = '#8a8f98'; hx.font = '10px system-ui';
-    hx.fillText('node distribution — waiting for sweep data (enable sweeps)', 10, 14);
+    hx.fillText('grid distribution — arrives with each commit', 10, 14);
     return;
   }
   const q = st.nodeq, B = 26, hist = new Array(B).fill(0);
@@ -198,8 +199,8 @@ function drawHisto(st, fi) {
     hx.fillRect(8 + j * 11.6, 100 - h, 10, h);
   }
   hx.fillStyle = '#8a8f98'; hx.font = '10px system-ui';
-  hx.fillText(($('field').selectedIndex ? 'node |∇E|' : 'node |u|') +
-              `  max=${mx.toExponential(2)}  A=${st.a}`, 10, 12);
+  hx.fillText(($('field').selectedIndex ? 'grid mass' : 'grid |v| (rest check)') +
+              `  max=${mx.toExponential(2)}  cells=${st.a}`, 10, 12);
 }
 
 function project(st, b, scl, cx, cy, k) {
@@ -256,12 +257,14 @@ function draw() {
   drawHisto(state.a ? state : lastGrid, fi);
   ctx.fillStyle = '#666'; ctx.font = '12px system-ui';
   ctx.fillText(`zoom=${ZOOM.toFixed(2)}`, 10, H - 10);
-  const h = state.hdr, hc = lastCommitHdr || h;   // sweep states carry no loss fields —
+  const h = state.hdr, hc = lastCommitHdr || h;
+  const live = h.phase !== 'commit' ? h : hc;      // iter states carry window telemetry
   $('st').textContent = `run ${h.run ?? 0} · commit ${h.commit}/${meta.animations}` +
-      (h.phase === 'sweep' ? ` · sweep ${h.sweep}` : '');
-  $('tele').textContent =                          // keep the last commit's numbers up
-      `E=${fmt(hc.E)}  D_vol=${fmt(hc.d_vol)}  D_render=${fmt(hc.d_render, 5)}  ` +
-      `λ=${fmt(hc.lam, 0)}  ‖∇E‖=${fmt(h.gnorm ?? hc.gnorm)}  Jmin=${fmt(hc.Jmin, 3)}  N=${meta.n}`;
+      (h.phase !== 'commit' ? ` · iter ${h.sweep}` : '');
+  $('tele').textContent =
+      `L=${fmt(live.E)}  D_vol=${fmt(live.d_vol)}  D_render=${fmt(live.d_render, 5)}  ` +
+      `λ=${fmt(live.lam, 0)}  kin=${fmt(live.kin, 4)}  ‖∇L‖=${fmt(live.gnorm)}  ` +
+      `Jmin=${fmt(hc.Jmin, 3)}  N=${meta.n}`;
   spark();
 }
 const fmt = (v, d = 2) => (v == null ? '–' : (+v).toFixed(d));
@@ -312,8 +315,8 @@ async function poll() {
       if (buf.byteLength > 8) {
         const st = parse(buf);
         if (st.hdr.seq !== lastSeq) {
-          const isSweep = st.hdr.phase === 'sweep';
-          if (!(isSweep && !$('cbsweep').checked)) {   // sweeps toggleable (process view)
+          const isSweep = st.hdr.phase === 'sweep' || st.hdr.phase === 'iter';
+          if (!(isSweep && !$('cbsweep').checked)) {   // iteration stream toggleable
             lastSeq = st.hdr.seq;
             if (st.hdr.run !== (state?.hdr.run)) resetHist();
             if (st.a) lastGrid = st;
