@@ -59,6 +59,17 @@ def _finite(tensors) -> bool:
     return all(bool(torch.isfinite(t).all()) for t in tensors)
 
 
+def _state_ok(state) -> bool:
+    """Finite AND orientation-preserving. det(F_T) <= 0 is invisible to every loss term
+    (the data terms see positions only), so without this check the line search happily
+    accepts an inverting control — measured: warm-started windows committed 9 inversions
+    with 8/8 'accepted' steps."""
+    if not _finite(state):
+        return False
+    FT = state[1]
+    return bool((torch.linalg.det(FT.view(-1, 3, 3)) > 0).all())
+
+
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
                     s_init=None, dfc_init=None, log=print):
@@ -71,11 +82,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     spec = RolloutSpec(x0=x0, m=1.0, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev)
 
-    if dfc_init is not None:                       # v3 warm start (previous window's solution)
-        dFc = torch.tensor(np.ascontiguousarray(dfc_init, np.float32),
-                           device=dev, requires_grad=True)
-    else:
-        dFc = torch.zeros(T, N, 3, 3, device=dev, requires_grad=True)
+    dFc = torch.zeros(T, N, 3, 3, device=dev, requires_grad=True)
     leaves = [dFc]
     s = None
     if cfg.opt_material:
@@ -141,6 +148,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     alpha, g0_norm = cfg.alpha, None
     lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
     grad_converged = False
+
+    # v3 SAFEGUARDED warm start: decayed previous solution, kept only if it (a) yields a
+    # finite, orientation-preserving state and (b) actually beats the zero start. dFc is an
+    # absolute control — verbatim reuse double-applies it (measured cascade to inversion).
+    if dfc_init is not None and cfg.warm_decay > 0:
+        st0, lv0, lk0, lr0 = eval_terms(dFc)
+        E0 = scalars(lv0, lk0, lr0, lam_r, dFc, st0[0])
+        with torch.no_grad():
+            dFc.copy_(torch.tensor(np.ascontiguousarray(dfc_init, np.float32),
+                                   device=dev) * cfg.warm_decay)
+        stw, lvw, lkw, lrw = eval_terms(dFc)
+        Ew = scalars(lvw, lkw, lrw, lam_r, dFc, stw[0])
+        if not (_state_ok(stw) and np.isfinite(Ew) and Ew < E0):
+            with torch.no_grad():
+                dFc.zero_()                          # stale controls: fall back to cold start
 
     for it in range(cfg.iters):
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
@@ -209,9 +231,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             state_n, lv_n, lk_n, lr_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, dFc, state_n[0])
-            # acceptance requires a FINITE STATE: NaN particles vanish from the splats
-            # (valid_pos), so a poisoned rollout can show a finite, LOWER loss.
-            if np.isfinite(new) and new < cur and _finite(state_n):
+            # acceptance requires a FINITE, ORIENTATION-PRESERVING state: NaN particles
+            # vanish from the splats and det(F)<=0 is invisible to the data terms — both
+            # can fake a lower loss (adversarial finding + v3 warm-start cascade).
+            if np.isfinite(new) and new < cur and _state_ok(state_n):
                 adam_t = t_
                 alpha = min(a_try * 1.1, cfg.alpha)          # C++ grows alpha on acceptance
                 step_ok = True

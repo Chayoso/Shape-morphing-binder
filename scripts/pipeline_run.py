@@ -98,7 +98,8 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
-                         vbd_sweeps=args.vbd_sweeps, vbd_tol=args.vbd_tol)
+                         vbd_sweeps=args.vbd_sweeps, vbd_tol=args.vbd_tol,
+                         vbd_young=args.vbd_young)
     if arm == "phys":
         cfg.lambda_auto = 0.0
     elif arm == "render":
@@ -109,10 +110,9 @@ def arm_config(arm: str, args) -> PipelineConfig:
     elif arm == "render_ws":                       # v3: warm-started dFc
         cfg.lambda_auto = args.lambda_auto
         cfg.warm_start = True
-    elif arm == "render_gs":                       # v3: + Sobolev/grid-GS render direction
-        cfg.lambda_auto = args.lambda_auto
-        cfg.warm_start = True
-        cfg.render_gs_iters = args.render_gs_iters
+    elif arm == "render_gs":                       # v3: Sobolev/grid-GS render direction
+        cfg.lambda_auto = args.lambda_auto         # (NO warm start: round 1 confounded the
+        cfg.render_gs_iters = args.render_gs_iters #  two — this arm tests smoothing alone)
     elif arm == "vbd":                             # v3: quasi-static VBD-MPM, render on
         cfg.lambda_auto = args.lambda_auto
     elif arm == "vbd_phys":                        # v3: quasi-static, physics/mass only
@@ -163,6 +163,7 @@ def main():
     ap.add_argument("--render_gs_iters", type=int, default=20)
     ap.add_argument("--vbd_sweeps", type=int, default=60)
     ap.add_argument("--vbd_tol", type=float, default=5e-3)
+    ap.add_argument("--vbd_young", type=float, default=2e3)
     ap.add_argument("--arms", default="phys,render")
     ap.add_argument("--save_F_stride", type=int, default=0,
                     help="save every k-th F frame (0 = T, i.e. commit boundaries)")

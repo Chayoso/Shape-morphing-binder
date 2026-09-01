@@ -39,7 +39,8 @@ def psi_snh(Fe, lam, mu):
 class QuasiStaticGrid:
     """One commit's frozen-stencil grid problem. Rebuild (rebind) each commit."""
 
-    def __init__(self, x, grid_min, dx: float, dims, young, poisson, device="cuda"):
+    def __init__(self, x, grid_min, dx: float, dims, young, poisson, device="cuda",
+                 w_min=1e-2, node_cap=0.5):
         nx, ny, nz = dims
         self.dims, self.dx, self.dev = dims, float(dx), device
         x = torch.as_tensor(np.ascontiguousarray(x, np.float32), device=device)
@@ -71,15 +72,23 @@ class QuasiStaticGrid:
         self.w = torch.stack(ws, 1)                  # (N,8)
         self.gw = torch.stack(gws, 1)                # (N,8,3)
 
-        # active nodes + compact index map (solve only where particles live)
-        flat = self.idx.reshape(-1)
-        act = torch.zeros(nx * ny * nz, dtype=torch.bool, device=device)
-        act[flat] = True
+        # active nodes: require ACCUMULATED interpolation weight >= w_min — a node touched
+        # only by near-zero corner weights has a near-zero diagonal, and one such node's
+        # d = g/diag poisons its whole color's candidate (the classic MPM small-node-mass
+        # pathology, Steffen et al. 2008; measured here: total solver freeze). Excluded
+        # nodes keep u = 0; their kinematic contribution is O(w_min).
+        wsum = torch.zeros(nx * ny * nz, device=device)
+        wsum.index_add_(0, self.idx.reshape(-1), self.w.reshape(-1))
+        act = wsum >= w_min
+        act[self.idx.reshape(-1)[self.w.reshape(-1) >= 0.5]] = True   # keep dominant nodes
         self.active = act.nonzero().squeeze(1)       # (A,)
         remap = torch.full((nx * ny * nz,), -1, dtype=torch.long, device=device)
         remap[self.active] = torch.arange(len(self.active), device=device)
-        self.cidx = remap[self.idx]                  # (N,8) compact
+        cidx = remap[self.idx]                       # (N,8); -1 = pinned (u=0)
+        self.pinned = cidx < 0
+        self.cidx = cidx.clamp_min(0)
         self.A = len(self.active)
+        self.node_cap = float(node_cap) * dx         # per-node trust radius
 
         # 2-color parity of active nodes + diagonal stiffness preconditioner
         lin = self.active
@@ -91,14 +100,16 @@ class QuasiStaticGrid:
         Vp = (dx ** 3) / max(1.0, N / max(1.0, float(act.sum())))   # ~uniform ppc estimate
         self.Vp = float(Vp)
         diag = torch.zeros(self.A, device=device)
-        diag.index_add_(0, self.cidx.reshape(-1),
-                        (self.Vp * (2 * self.mu_l + self.lam_l)
-                         * self.gw.pow(2).sum(-1)).reshape(-1))
-        self.diag = diag.clamp_min(1e-8).unsqueeze(1)               # (A,1)
+        contrib = (self.Vp * (2 * self.mu_l + self.lam_l) * self.gw.pow(2).sum(-1))
+        contrib = torch.where(self.pinned, torch.zeros_like(contrib), contrib)
+        diag.index_add_(0, self.cidx.reshape(-1), contrib.reshape(-1))
+        # RELATIVE floor: an absolute epsilon floor let fringe nodes take 1e8-scale steps
+        self.diag = diag.clamp_min(1e-3 * diag.median()).unsqueeze(1)   # (A,1)
 
     def kinematics(self, u):
         """u (A,3) -> particle displacement (N,3) and incremental map A_p = I + grad u (N,3,3)."""
         un = u[self.cidx]                                            # (N,8,3)
+        un = torch.where(self.pinned.unsqueeze(-1), torch.zeros_like(un), un)
         disp = (un * self.w.unsqueeze(-1)).sum(1)
         gradu = torch.einsum("nkd,nkg->ndg", un, self.gw)            # du_d/dx_g
         Ap = torch.eye(3, device=u.device).expand(len(disp), 3, 3) + gradu
@@ -130,6 +141,10 @@ class QuasiStaticGrid:
             for m in masks:
                 g = torch.autograd.grad(energy_fn(u), u)[0]
                 d = (g / self.diag) * m
+                # per-node trust radius: one runaway node must not poison the whole
+                # color's candidate (acceptance is per color, not per node)
+                dn = d.norm(dim=1, keepdim=True)
+                d = d * (self.node_cap / dn.clamp_min(1e-30)).clamp(max=1.0)
                 at = a
                 for _ in range(ls + 1):
                     with torch.no_grad():

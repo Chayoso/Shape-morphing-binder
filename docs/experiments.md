@@ -73,4 +73,18 @@ Colored block-GS solve differentiated three ways vs FD: at ‖∇E‖=3.6e-5 —
 IFT adjoint 0.04% error; at 10 sweeps — 17%/54%. Conclusion: both routes valid at
 convergence; solve tolerance is a correctness gate. `scripts/probe_gs_differentiability.py`.
 
-### (pending) v3 arms A/B — render_ws / render_gs / vbd vs baselines at full scale
+### 2026-09-01 — v3 round 1, full scale hyde06 (same discretisation as above)
+
+| arm | chamfer | sil_iou | hole | G2 | note |
+|---|---|---|---|---|---|
+| phys | 0.1785 | 0.8869 | 0.03% | PASS | baseline reproduced |
+| render | **0.1371** | **0.9605** | 0.00% | PASS | v2 headline holds |
+| render_ws | 0.3610 | 0.7758 | 0.24% | **FAIL** (9 inv) | R4: absolute-control double-application |
+| render_gs | 0.3628 | 0.7363 | 0.07% | **FAIL** (6 inv) | confounded (warm_start coupled) |
+| vbd / vbd_phys | 0.5220 | 0.7112 | 0.00% | PASS* | *frozen at undeformed: R12 fringe-node poisoning + R13 stiffness scale |
+
+Full post-mortem + fixes: `rationale.md` §4. Notable v2-era latent defect found by the
+failure: line-search acceptance never checked det(F)>0 (inversions are invisible to the
+data terms) — now part of `_state_ok` for every dynamic arm.
+
+### (pending) v3 round 2 — fixed arms rerun

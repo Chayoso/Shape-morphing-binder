@@ -47,6 +47,9 @@ class PipelineConfig:
 
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution
+    warm_decay: float = 0.5         # dFc is an ABSOLUTE control added into F: verbatim reuse
+                                    # double-applies it (measured: Jmin 0.71->0.37->1e-4).
+                                    # Decayed init + the window-start safeguard make it safe.
     render_gs_iters: int = 0        # >0: Sobolev/grid-GS smoothing of the render pull before
     render_gs_kappa: float = 4.0    #     the adjoint pullback (screened diffusion strength)
 
@@ -55,6 +58,10 @@ class PipelineConfig:
     vbd_tol: float = 5e-3           # stop when |grad E| < tol * |grad E_0|
     vbd_step: float = 0.9           # damped block step
     vbd_ls: int = 4                 # per-color backtracking halvings
+    vbd_young: float = 2e3          # quasi-static stiffness: elasticity here is a coherence
+                                    # regulariser, not the motion's material — at the dynamic
+                                    # family's 1.4e5 the equilibrium offset per commit is
+                                    # ~1e-3 units (measured freeze) and the morph cannot progress
 
     # ---- material channel (§3.2 ch.2) ----
     opt_material: bool = False      # optimise per-particle log-Lame multipliers s

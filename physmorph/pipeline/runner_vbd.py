@@ -64,7 +64,7 @@ def run_vbd_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, lo
             break
         x_start = x.copy()
         qs = QuasiStaticGrid(x_start, prm.grid_min, prm.dx,
-                             (prm.nx, prm.ny, prm.nz), cfg.young, cfg.poisson, dev)
+                             (prm.nx, prm.ny, prm.nz), cfg.vbd_young, cfg.poisson, dev)
         Fe0 = torch.as_tensor(
             np.einsum("nij,njk->nik", F, np.linalg.inv(Fp)).astype(np.float32), device=dev)
 

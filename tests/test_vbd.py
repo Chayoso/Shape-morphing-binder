@@ -30,8 +30,10 @@ def test_psi_snh_zero_at_identity_positive_for_stretch():
 
 def test_kinematics_translation_and_affine(prm):
     x = _cloud()
+    # w_min=0: no pinned fringe nodes -> CIC kinematics must be EXACT for linear fields
+    # (the default w_min trades an O(w_min) fringe error for solver robustness, R12)
     qs = QuasiStaticGrid(x, prm.grid_min, prm.dx, (prm.nx, prm.ny, prm.nz),
-                         1.4e5, 0.2, device=DEV)
+                         1.4e5, 0.2, device=DEV, w_min=0.0)
     # uniform translation: disp = c, grad u = 0
     u = torch.tensor([0.3, -0.2, 0.1]).expand(qs.A, 3).clone()
     disp, Ap = qs.kinematics(u)

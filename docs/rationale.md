@@ -66,7 +66,24 @@ D_vol plateaus early at worse chamfer than `phys`.
 | R10 | per-commit λ at u=0 overweights render right after assimilation (elastic grad ≈ 0 there) | λ spikes in `vbd` history | EMA already damps; floor the phys norm |
 | R11 | cross-family comparison unfair (budgets differ) | — | report wall-clock per arm alongside metrics |
 
-## 4. Decision rule (pre-committed)
+## 4. Round-1 outcome (2026-09-01, full scale, hyde06 — predictions vs observed)
+
+| item | predicted | observed | verdict |
+|---|---|---|---|
+| baselines | reproduce | phys 0.1785/0.887, render 0.1371/0.9605, all gates PASS | ✓ |
+| warm start | R4: stale controls fight assimilated state | **R4 confirmed, worse than predicted**: dFc is an ABSOLUTE control → verbatim reuse double-applies (Jmin 0.71→0.37→1e-4, loss →177279, 9 inversions ACCEPTED because det(F) was invisible to acceptance) | falsified as implemented |
+| grid-GS | fewer rejections / better sil_iou | **untestable** — arm config coupled warm_start=True (design error), identical death signature | confounded, rerun |
+| VBD | competitive chamfer, clean gates | **total freeze**: gnorm bit-identical every commit, move=0. Fringe nodes with Σw≈0 → diag=floor → runaway d → every color candidate rejected (small-node-mass pathology, Steffen 08); plus at young=1.4e5 the equilibrium offset is ~1e-3/commit — could not have progressed anyway | falsified as implemented, 2 root causes fixed |
+
+New risks recorded: **R12** small-weight fringe nodes poison per-color acceptance
+(fix: weight-thresholded active set + relative diag floor + per-node trust radius);
+**R13** quasi-static stiffness scale — elasticity must be a coherence regulariser
+(`vbd_young≈2e3`), not the dynamic material, or equilibria cannot move. Fixes applied the
+same day: safeguarded decayed warm start (compare-to-cold + orientation check),
+det(F)>0 added to line-search ACCEPTANCE (defect existed in v2 too — any arm could have
+committed an inversion the loss cannot see), render_gs decoupled from warm start.
+
+## 5. Decision rule (pre-committed)
 
 - `render_ws`/`render_gs` **adopt** if: G2–G4 clean AND (sil_iou ≥ `render` − 0.002 with
   fewer rejections, or sil_iou > `render`). Ear-region visual regression vetoes (R1).
