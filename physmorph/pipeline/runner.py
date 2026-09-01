@@ -24,6 +24,7 @@ from ..plasticity import assimilate_elastic
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
 from .render_loss import LambdaBalancer, make_views, shade_targets, target_silhouettes
+from .surface_local import surface_local_pass
 
 
 def _id(N):
@@ -137,6 +138,25 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         guards["F_reset"] += n_bad; guards["F_flip"] += n_flip
         guards["F_invert_steps"] += n_inv
 
+        # ---- LOCAL phase (local-global): band-limited surface GS pass on the render
+        # residual, interior pinned to the global solution just promoted. Runs BEFORE
+        # assimilation so one ratchet covers global+local; its F/det changes hit the
+        # same guards below via the promoted state. ----
+        lg_tele = None
+        if cfg.lg_sweeps > 0 and balancer.active and balancer.lam:
+            out = surface_local_pass(x, Fc, Fp, tgt, cfg, balancer.lam, prm)
+            if out is not None:
+                x_lg, F_lg, lg_tele = out
+                n_lg_nan = int((~np.isfinite(x_lg).all(1)).sum())
+                Fc2, n_b2, n_f2, _ = condition_F(F_lg, clamp=False)
+                n_inv2 = int((np.linalg.det(Fc2) <= 0).sum())
+                guards["nan_x"] += n_lg_nan
+                guards["F_reset"] += n_b2; guards["F_flip"] += n_f2
+                guards["F_invert_steps"] += n_inv2
+                x = np.clip(np.nan_to_num(x_lg), lo, hi).astype(np.float32)
+                Fc = Fc2
+                st["F"] = Fc
+
         # ---- plastic assimilation of the ELASTIC stretch (§3.5): F_e -> R_e S_e^{1-eta},
         # exact and per-particle — displacement-field estimation mismatched the
         # dFc-inflated F and spiked stress at every commit boundary (measured) ----
@@ -161,6 +181,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "Jmin_traj": float(dets.min()),
                "clamped": n_out, "nan_x": n_nan, "nan_state": n_ns,
                "F_reset": n_bad, "F_flip": n_flip, "F_invert_steps": n_inv}
+        if lg_tele is not None:
+            rec.update(lg_tele)
         hist.append(rec)
         if on_commit is not None:
             on_commit(a, x, Fc, v_p, rec)

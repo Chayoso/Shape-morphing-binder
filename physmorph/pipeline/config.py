@@ -56,6 +56,10 @@ class PipelineConfig:
                                     #   grad when they conflict (cos<0 — measured late-run -0.74)
     c2f_at: float = 0.0             # >0: coarse-to-fine — rebuild render targets at this
     render_res_hi: int = 96         #   fraction of the run at render_res_hi
+    lg_sweeps: int = 0              # LOCAL-GLOBAL: >0 runs a surface-band GS pass per
+    lg_young: float = 2e3           #   commit (global MPM owns bulk transport; the band,
+                                    #   interior-pinned, owns the rim render residual —
+                                    #   the alternative to PCGrad under strong conflict)
 
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution
