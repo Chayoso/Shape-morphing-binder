@@ -74,18 +74,31 @@ def _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, grow, grow_band) -> np.nd
     if grow is not None:                             # growth governor: cumulative det
         det = np.prod(S2, axis=1)                    # band, NOT det=1 (growth is the
         lo_d, hi_d = 1.0 / grow_band, grow_band      # one channel allowed to command
-        corr = np.clip(det, lo_d, hi_d) / np.maximum(det, 1e-12)   # rest volume)
-        S2 = S2 * corr[:, None] ** (1.0 / 3.0)
+        S2 = _project_logsv(np.log(S2), np.log(smin), np.log(smax),
+                            np.log(np.clip(det, lo_d, hi_d)))
     elif isochoric:
-        # Codex stack-review f16: a single det renormalisation VIOLATES the band
-        # (probe: 792/1000 rows left [0.2,5], reaching [0.136,8.01]). Project onto
-        # {sum log s = 0} INTERSECT the log-band by alternating projections (both
-        # sets convex in log space; 4 rounds converge well under float32 noise).
-        l = np.log(S2)
-        lo, hi = np.log(smin), np.log(smax)
-        for _ in range(4):
-            l = l - l.mean(axis=1, keepdims=True)    # det = 1 plane
-            l = np.clip(l, lo, hi)                   # band box
-        l = l - l.mean(axis=1, keepdims=True)        # end on the invariant
-        S2 = np.exp(l)
+        # EXACT projection onto {sum log s = target} INTERSECT the log-band.
+        # History: a single det renorm violated the band (f16 probe: 792/1000 rows
+        # out); 4 alternating projections then ENDED on the det plane, so the box
+        # could still be exited (REFUTE 2026-09-02: [0.2,5,0.2] -> smax*1.002).
+        # The KKT solution is clip(l - nu, lo, hi) with nu from scalar bisection.
+        S2 = _project_logsv(np.log(S2), np.log(smin), np.log(smax),
+                            np.zeros(len(S2), np.float32))
     return np.einsum("nij,nj,njk->nik", U2, S2, Vt2).astype(np.float32)
+
+
+def _project_logsv(l0, lo, hi, target) -> np.ndarray:
+    """Exact Euclidean projection of log-singular-values onto
+    {sum(l) = target} INTERSECT {lo <= l_i <= hi} (KKT: l = clip(l0 - nu, lo, hi),
+    nu found by bisection on the monotone sum). target is clipped to the feasible
+    range [3 lo, 3 hi] so the intersection is never empty. Returns exp(l)."""
+    target = np.clip(target, 3 * lo + 1e-6, 3 * hi - 1e-6)
+    nu_lo = (l0.min(axis=1) - hi) - 1e-3             # sum == 3*hi >= target
+    nu_hi = (l0.max(axis=1) - lo) + 1e-3             # sum == 3*lo <= target
+    for _ in range(50):
+        nu = 0.5 * (nu_lo + nu_hi)
+        s = np.clip(l0 - nu[:, None], lo, hi).sum(axis=1)
+        high = s > target                            # sum decreases as nu grows
+        nu_lo = np.where(high, nu, nu_lo)
+        nu_hi = np.where(high, nu_hi, nu)
+    return np.exp(np.clip(l0 - (0.5 * (nu_lo + nu_hi))[:, None], lo, hi))
