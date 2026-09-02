@@ -174,6 +174,18 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_dt = args.w_dt
         cfg.w_jvol = args.w_jvol
         cfg.assim_iso = True
+    elif arm == "render_full_dt_iso_nn":           # flagship + grid-free near-band W1
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.grad_project = True
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
+        cfg.w_dt = args.w_dt
+        cfg.w_jvol = args.w_jvol
+        cfg.w_nn = args.w_nn
+        cfg.assim_iso = True
     elif arm == "render_full_fill_iso":            # + hole-side W1 (deficit fill)
         cfg.lambda_auto = args.lambda_auto
         cfg.w_pbr = args.w_pbr
@@ -259,6 +271,7 @@ def main():
     ap.add_argument("--w_dt", type=float, default=0.2)   # SUM form: per-particle pull
                                                          # = w_dt (Opus parity estimate)
     ap.add_argument("--w_fill", type=float, default=0.2)
+    ap.add_argument("--w_nn", type=float, default=0.2)
     ap.add_argument("--w_jvol", type=float, default=50.0)  # h12 ladder: detFmin
                                         # 0.0005->0.497, |J-1|>0.3 13.7->0.0%,
                                         # chamfer/silIoU best-ever (docs 2026-09-02)

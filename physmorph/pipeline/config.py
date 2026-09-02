@@ -100,6 +100,14 @@ class PipelineConfig:
                                     #   tail. NOT lambda-scaled: lambda->cap x constant
                                     #   gradient = mass-ejection mode (arXiv:2409.15746).
 
+    w_nn: float = 0.0               # GRID-FREE near-band W1: constant pull toward the
+    nn_berth_k: float = 1.5         #   assigned nearest target particle, active only in
+    nn_far_k: float = 4.5           #   the berth..far band (x target-NN spacing). Owns
+                                    #   the 0.05-0.10 wu fork-halo that lives inside the
+                                    #   fine-DT grid's dilation dead band (forensic
+                                    #   2026-09-02: 90% gate-closed AND zero force
+                                    #   there). Frozen assignment per window; rim inside
+                                    #   the berth feels nothing.
     w_jvol: float = 0.0             # volume prior on terminal F: mean (J-1)·log J —
                                     #   the sKL/log-unbiased registration regularizer
                                     #   (Yanovsky/Leow CAM 07-49): zero iff J=1,

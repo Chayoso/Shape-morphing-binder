@@ -202,6 +202,37 @@ def deficit_field(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
                 deficit_mass)
 
 
+def nn_band_assign(x0: torch.Tensor, tgt_pts: torch.Tensor, spacing: float,
+                   berth_k: float = 1.5, far_k: float = 4.5):
+    """Frozen per-window assignment for the GRID-FREE near-band cleanup (fork-halo
+    forensic 2026-09-02): the visible floaters live 0.05-0.10 wu off support — INSIDE
+    the fine-DT grid's CIC-dilation dead band, where the W1 pull is zero regardless of
+    any gate. This term uses the target's own geometry (nearest target particle), so
+    there is no dilation and no dead band by construction. Eligibility is the NEAR
+    band only (berth_k..far_k target-NN spacings): inside the berth is legitimate rim
+    (zero force there via the relu in d_nn_band); beyond far_k stays the DT-W1's
+    kNN-gated job (the near band is dose-response-safe: bounded travel, elastic
+    opposition). Returns (assigned_idx, eligible_mask), both frozen/detached."""
+    from scipy.spatial import cKDTree
+    with torch.no_grad():
+        xn = x0.detach().cpu().numpy()
+        tn = tgt_pts.detach().cpu().numpy()
+        dist, idx = cKDTree(tn).query(xn, workers=-1)
+        elig = (dist > berth_k * spacing) & (dist < far_k * spacing)
+        import numpy as np
+        return (torch.as_tensor(np.ascontiguousarray(idx), device=x0.device),
+                torch.as_tensor(elig.astype(np.float32), device=x0.device))
+
+
+def d_nn_band(x: torch.Tensor, m: torch.Tensor, tgt_pts: torch.Tensor,
+              assigned: torch.Tensor, elig: torch.Tensor, berth: float) -> torch.Tensor:
+    """SUM_p m_p·elig_p·relu(|x_p - tgt[assigned_p]| - berth): constant per-particle
+    pull toward the assigned target point beyond the berth, zero inside (rim safe)."""
+    dvec = x - tgt_pts[assigned]
+    d = dvec.norm(dim=1)
+    return (m * elig * torch.clamp(d - berth, min=0.0)).sum()
+
+
 def coverage_shortfall(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
                        grid_min: torch.Tensor, dx: float, dims,
                        sigma: float = 2.0) -> float:

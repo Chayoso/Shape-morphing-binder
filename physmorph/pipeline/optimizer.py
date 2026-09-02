@@ -27,8 +27,8 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import (d_vol, d_w1, deficit_field, isolation_gate,
-                                 w1_budget)
+from ..losses.volumetric import (d_nn_band, d_vol, d_w1, deficit_field,
+                                 isolation_gate, nn_band_assign, w1_budget)
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
 from ..mpm.state import MPMParams
@@ -55,6 +55,8 @@ class TargetPack:
     dtdx: float = 0.0                   # coarse cells left a dead radius covering the
     dtdims: tuple = ()                  # entire production fringe band)
     tmass3: torch.Tensor | None = None  # fine target mass raster (hole-side W1, w_fill>0)
+    pts: torch.Tensor | None = None     # raw target particles (grid-free near-band, w_nn>0)
+    nn_spacing: float = 0.0             # target median NN spacing (the honest metric's unit)
 
 
 def _norm(gs) -> float:
@@ -142,6 +144,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                      cfg.dt_budget)
         else:                             # "knn" — the honest-metric winner (§7.6)
             m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi)
+
+    # grid-free near-band cleanup, frozen per window (fork-halo forensic §7.10)
+    nn_idx = nn_elig = None
+    if cfg.w_nn > 0 and tgt.pts is not None:
+        nn_idx, nn_elig = nn_band_assign(x0_t, tgt.pts, tgt.nn_spacing,
+                                         cfg.nn_berth_k, cfg.nn_far_k)
 
     # HOLE-side W1 (deficit fill v2), frozen per window: support-ANDed mask (F1),
     # budget on DEFICIT MASS not in-range particles (F2), SMOOTH locality ramp (F12 —
@@ -245,6 +253,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if ddt is not None and m_fill is not None:
             Lf = cfg.w_fill * d_w1(xT, m_fill, ddt, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
             L = Lf if L is None else L + Lf
+        if nn_idx is not None:
+            Ln = cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
+                                      cfg.nn_berth_k * tgt.nn_spacing)
+            L = Ln if L is None else L + Ln
         return L
 
     def phys_total(lv, lk, dfc, xT, fT=None):
@@ -259,6 +271,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L if lr is None else L + lam_r * float(lr)
 
     hist, accepted, rejected = [], 0, 0
+    g_cos = g_share = None
     alpha, g0_norm, L_start = cfg.alpha, None, None
     lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
     grad_converged = False
@@ -310,6 +323,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # then projecting silently de-weighted the channel by ~33% at cos=-0.74
                 # (adversarial finding), breaking the balancer contract.
                 lam_r = balancer.update(_norm(gp), _norm(gr))
+                # render-influence telemetry (standing request): how much does the
+                # render channel actually steer the update this window?
+                np_, nr_ = _norm(gp), _norm(gr)
+                dot_ = float(sum((a * b).sum() for a, b in zip(gp, gr)))
+                g_cos = dot_ / max(np_ * nr_, 1e-30)
+                g_share = lam_r * nr_ / max(np_ + lam_r * nr_, 1e-30)
             g = [a + lam_r * b for a, b in zip(gp, gr)]
             if gdt is not None:      # W1 joins the composite AFTER lambda/PCGrad (find. 9)
                 g = [gi + di for gi, di in zip(g, gdt)]
@@ -444,6 +463,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                "C": tr.C[T].numpy().copy()}
     s_out = s.detach().cpu().numpy() if s is not None else None
     stats = {"accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
-             "L_start": L_start,
+             "L_start": L_start, "g_cos": g_cos, "g_share": g_share,
              "dfc": dc.cpu().numpy() if cfg.warm_start else None}
     return frames, F_seq, end, s_out, hist, stats

@@ -165,3 +165,22 @@ def test_state_ok_rejects_trajectory_inversion():
     assert _state_ok((xT, FT, vT, 0.5))
     assert not _state_ok((xT, FT, vT, -0.01))       # mid-trajectory inversion
     assert _state_ok((xT, FT, vT))                  # legacy 3-tuple still works
+
+
+def test_nn_band_pull_and_berth():
+    """Grid-free near-band W1 (§7.10): zero inside the berth (rim safe), constant pull
+    toward the ASSIGNED target particle in the band, ineligible beyond far_k."""
+    from physmorph.losses.volumetric import nn_band_assign, d_nn_band
+    rng = np.random.default_rng(3)
+    t = torch.tensor(rng.uniform(-0.5, 0.5, (2000, 3)).astype(np.float32))
+    spacing = 0.03
+    x0 = torch.tensor([[0.55, 0.0, 0.0],     # ~0.05 off the face: in band
+                       [0.51, 0.0, 0.0],     # inside berth: rim
+                       [0.9, 0.0, 0.0]])     # beyond far band
+    idx, elig = nn_band_assign(x0, t, spacing, berth_k=1.5, far_k=4.5)
+    assert float(elig[1]) == 0.0 and float(elig[2]) == 0.0 and float(elig[0]) == 1.0
+    x = x0.clone().requires_grad_(True)
+    d_nn_band(x, torch.ones(3), t, idx, elig, 1.5 * spacing).backward()
+    g = x.grad
+    assert float(g[1].norm()) == 0.0 and float(g[2].norm()) == 0.0
+    assert -g[0][0] < 0                      # descent pulls the band particle toward -x

@@ -67,9 +67,16 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
                                  clamp=cfg.dt_clamp_frac * extent)
         if cfg.w_fill > 0:
             tmass3 = dt_mass
+    pts, nn_sp = None, 0.0
+    if cfg.w_nn > 0:
+        from scipy.spatial import cKDTree
+        nn_sp = float(np.median(cKDTree(target_x).query(target_x, k=2,
+                                                        workers=-1)[0][:, 1]))
+        pts = tgt_t
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade,
-                      dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3)
+                      dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3,
+                      pts=pts, nn_spacing=nn_sp)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
@@ -243,7 +250,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
-               "d_fill": d_fill,
+               "d_fill": d_fill, "g_cos": stats.get("g_cos"), "g_share": stats.get("g_share"),
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
                "accepted": stats["accepted"], "rejected": stats["rejected"],
