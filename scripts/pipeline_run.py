@@ -125,6 +125,25 @@ def arm_config(arm: str, args) -> PipelineConfig:
     elif arm == "render_lg":                       # + LOCAL-GLOBAL surface band pass
         cfg.lambda_auto = args.lambda_auto
         cfg.lg_sweeps = args.lg_sweeps
+    elif arm == "render_creg":                     # + control-field smoothness (fringe fix)
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_creg = args.w_creg
+    elif arm == "render_full_lg":                  # flagship + local surface consolidation
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.grad_project = True
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.lg_sweeps = args.lg_sweeps
+    elif arm == "render_full_creg":                # flagship + control smoothness
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.grad_project = True
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
     elif arm == "render_full":                     # PBR + PCGrad + c2f + paced trajectory
         cfg.lambda_auto = args.lambda_auto
         cfg.w_pbr = args.w_pbr
@@ -182,6 +201,7 @@ def main():
     ap.add_argument("--w_pbr", type=float, default=1.0)
     ap.add_argument("--pace", type=float, default=0.12)
     ap.add_argument("--lg_sweeps", type=int, default=8)
+    ap.add_argument("--w_creg", type=float, default=100.0)
     ap.add_argument("--dfc_clip", type=float, default=0.02)
     ap.add_argument("--arms", default="phys,render")
     ap.add_argument("--save_F_stride", type=int, default=0,

@@ -60,6 +60,10 @@ class PipelineConfig:
     lg_young: float = 2e3           #   commit (global MPM owns bulk transport; the band,
                                     #   interior-pinned, owns the rim render residual —
                                     #   the alternative to PCGrad under strong conflict)
+    w_creg: float = 0.0             # spatial regularisation of the CONTROL field: kNN-
+    creg_k: int = 8                 #   Laplacian penalty on dFc so no single boundary
+                                    #   particle can be actuated alone (the thin-feature
+                                    #   fringe's creation mechanism — forensics 2026-09-01)
 
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution

@@ -108,6 +108,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     lr_scale = [1.0] + ([cfg.mat_lr_scale] if s is not None else [])
     adam_t = 0
 
+    # control-field spatial regularisation: frozen kNN topology at window start; the
+    # penalty lives purely in control space (no rollout needed for its gradient)
+    knn_t = None
+    if cfg.w_creg > 0:
+        from scipy.spatial import cKDTree
+        knn = cKDTree(x0).query(x0, k=cfg.creg_k + 1)[1][:, 1:]
+        knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
+
     def material():
         if s is None:
             return None, None
@@ -157,6 +165,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         L = lv + cfg.w_kin * lk + cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
         if cfg.w_box > 0:      # far-field leash: differentiable everywhere, zero inside box
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
+        if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
+            L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
         if s is not None:
             L = L + cfg.w_mat * s.pow(2).mean()
         return L
