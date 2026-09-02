@@ -338,6 +338,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L if lr is None else L + lam_r * float(lr.detach())
 
     hist, accepted, rejected = [], 0, 0
+    pace_bound = False               # window exited via the pace floor (on schedule)
     g_cos = g_raw_cos = g_share = g_phys_norm = g_rend_norm = None
     render_work = render_work_x = render_work_F = None
     phys_work = phys_work_x = phys_work_F = phys_work_v = None
@@ -589,6 +590,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      "s_absmax": float(s.detach().abs().max()) if s is not None else None})
         # pacing: budget reached (within one halving) — this window's share is done
         if cfg.pace > 0 and new <= floor * 1.0001 + 1e-12:
+            pace_bound = True
             break
 
     # ---- final rollout: every intermediate state + FULL end state ----
@@ -630,7 +632,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     s_out = s.detach().cpu().numpy() if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
-    stats = {"mom_out": mom_out if cfg.mom_carry > 0 else None,
+    stats = {"pace_bound": pace_bound,
+             "mom_out": mom_out if cfg.mom_carry > 0 else None,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
               "g_share": g_share,

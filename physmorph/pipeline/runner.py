@@ -414,6 +414,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             improved = improved or d_dt < best_dt - cfg.tol * abs(best_dt)
         if d_fill is not None and best_fill is not None:  # fill track (stack-review F9)
             improved = improved or d_fill < best_fill - cfg.tol * abs(best_fill)
+        if stats.get("pace_bound"):
+            # The window exited via the PACE FLOOR: it did exactly the scheduled
+            # work, by construction. Plateau accounting must not run against a
+            # glidepath (b0 forensic: the validated flagship froze at anim 70/300
+            # while descending perfectly on schedule, rev-cos +1.000 - the tol
+            # thresholds were calibrated for unpaced 5-12%/commit descent).
+            improved = True
 
         outer_reject = False
         outer_gain = None
