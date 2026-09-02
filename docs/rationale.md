@@ -275,3 +275,31 @@ conflate interior porosity with ejecta and cannot credit out-of-support cleanup;
 fine-DT out-of-support fraction is the honest endpoint metric for this tranche and
 should join metrics.py (queued). Verdict rule unchanged, now measured on out-of-support
 frac + ear visual.
+
+### §7.5 Iteration log (2026-09-01 night): isochoric verdict + gate v3 = transport budget
+
+**Per-particle instrumentation (hero7_base gap particles, the user-requested table):**
+render gradient EXACTLY 0.0 (hull+saturation), d_vol ~0.007, ungated W1 pull ~0.8 —
+20-200x the opposing forces. The gate was the sole blocker; gap particles are
+squeeze-ejecta (J 0.52-0.84). Porosity fragments the body itself (main component
+1893/40000 at 1.5x median-NN linking) — naive component gating unusable pre-volume-fix.
+
+**Isochoric plasticity (assim_iso) ADOPTED:** |J-1|>0.3 collapses 40.9%->11.9% at 120
+commits, chamfer best-ever on all three benches (0.0865 bunny / 0.0902 armadillo /
+0.0869 spot), honest floater metric out_dt_frac 0.905% (iso) / 0.477% (iso+W1) vs
+~2% in the ratchet era. Implementation subtlety caught by its own invariant test: the
+cumulative SV band clamp re-introduces det drift, so det-renormalisation must come
+AFTER the clamp. Open cost: silIoU dips ~0.01 on iso-only arms (elastic volume
+resistance vs rim conformity — but iso+W1 posts the best-ever 0.9601, W1's rim
+cleanup compensates); tail |dJ| drift is higher (elastic breathing vs the ratchet's
+false calm) — watch G3.
+
+**Gate v3 = transport budget (kNN gate retired, third design):** the kNN ramp both
+missed clumps (DROD: LOF-class scores at chance on clustered outliers; larger k
+reaches feature mass and closes further, measured 43%->13%) AND caused trajectory
+inversions at 120c (hero7/hero8_dtiso G2 FAIL). Budget form s=min(1, 0.01N/n_out):
+no per-particle classification to get wrong, total pull mass hard-capped per window
+(the partial/unbalanced-OT mass bound, Séjourné et al. 2023), self-annealing.
+Deficit-DT (Fattal-form, target-mass-normalised, one-signed, saturating) pre-registered
+NEXT for ear underfill; 3DGS-MCMC loss-neutral relocation stays the documented escape
+hatch if forces cannot reach zero floaters.

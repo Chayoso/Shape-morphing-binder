@@ -100,17 +100,20 @@ def test_subcell_fringe_regime_has_gradient():
         assert float(x.grad.norm()) > 0.1, f"dead zone at {off} world units"
 
 
-def test_isolation_gate_complementarity():
-    """§7.3/§7.4: the kNN-scale gate must silence BULK mass (dense at particle-spacing
-    scale, wherever it sits — the dose-response protection) while a lone stray keeps
-    the full pull. In-support false positives cost nothing (DT=0 there)."""
-    from physmorph.losses.volumetric import isolation_gate
+def test_w1_budget_self_annealing():
+    """§7.5: one scalar caps total pull mass. Early bulk-outside windows scale down
+    (dose-response protection); late floater windows run at full per-particle pull."""
+    from physmorph.losses.volumetric import w1_budget
     rng = np.random.default_rng(9)
-    body = torch.tensor(rng.uniform(-0.5, 0.5, (2000, 3)).astype(np.float32))
-    clump = torch.tensor(rng.uniform(1.4, 1.6, (300, 3)).astype(np.float32))  # dense, off-target
-    lone = torch.tensor([[2.5, 0.0, 0.0]])
-    x = torch.cat([body, clump, lone])
-    gate = isolation_gate(x)
-    assert float(gate[2000:2300].mean()) < 0.1      # dense outside clump: silenced
-    assert float(gate[-1]) > 0.9                    # lone stray: full pull
-    assert float(gate[:2000].mean()) < 0.1          # bulk body: silenced
+    t = torch.tensor(rng.uniform(-0.5, 0.5, (2000, 3)).astype(np.float32))
+    grid = target_mass_grid(t, torch.ones(len(t)), GMIN, DX, DIMS)
+    dt3 = target_dt_grid(grid, DX, DIMS, clamp=6.0)
+    # early: a third of the body far outside support
+    outside = torch.tensor(rng.uniform(1.5, 2.5, (1000, 3)).astype(np.float32))
+    x_early = torch.cat([t, outside])
+    s_early = w1_budget(x_early, dt3, GMIN, DX, DIMS, budget_frac=0.01)
+    assert s_early < 0.05                        # ~30/1000: heavily scaled down
+    # late: a handful of floaters
+    x_late = torch.cat([t, outside[:12]])
+    s_late = w1_budget(x_late, dt3, GMIN, DX, DIMS, budget_frac=0.01)
+    assert s_late == 1.0                         # full pull on the residue

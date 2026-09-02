@@ -27,7 +27,7 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import d_vol, d_w1, isolation_gate
+from ..losses.volumetric import d_vol, d_w1, w1_budget
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
 from ..mpm.state import MPMParams
@@ -120,14 +120,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         knn = cKDTree(x0).query(x0, k=cfg.creg_k + 1)[1][:, 1:]
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
 
-    # W1 complementarity gate, frozen at window start: the constant pull goes only to
-    # particles the density losses are blind to (kNN-sparse fringe), never to bulk
-    # outside mass — ungated sum was a dose-response catastrophe; the loss-grid-density
-    # gate silenced 100% of the out-of-support mass (autopsies, rationale §7.3/§7.4)
+    # W1 transport budget, frozen at window start: one scalar caps the total pull mass
+    # (per-particle gates were falsified twice — grid density AND kNN isolation; the
+    # budget form has no per-particle classification to get wrong, rationale §7.5)
     m_dt = None
     if tgt.dt3 is not None:
-        m_dt = tgt.m * isolation_gate(torch.as_tensor(x0, device=dev),
-                                      cfg.dt_iso_lo, cfg.dt_iso_hi)
+        s_bud = w1_budget(torch.as_tensor(x0, device=dev), tgt.dt3, tgt.dtgmin,
+                          tgt.dtdx, tgt.dtdims, cfg.dt_budget)
+        m_dt = tgt.m * s_bud
 
     def material():
         if s is None:

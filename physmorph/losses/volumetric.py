@@ -115,30 +115,25 @@ def gather_cic(field: torch.Tensor, x: torch.Tensor,
     return val
 
 
-def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
-                   k: int = 8) -> torch.Tensor:
-    """Per-particle COMPLEMENTARITY gate for the W1 term, at kNN SCALE, detached.
+def w1_budget(x: torch.Tensor, dt_grid: torch.Tensor, grid_min: torch.Tensor,
+              dx: float, dims, budget_frac: float) -> float:
+    """Scalar transport-budget factor for the W1 term: min(1, budget·N / n_out).
 
-    The W1 term exists for the mass the density losses cannot see (sparse fringe);
-    dense outside mass is d_vol/d_render's job, and giving it the constant W1 pull
-    double-drives bulk transport — measured as a dose-response catastrophe (stray
-    0.8/4.0/7.8% at w_dt 0.05/0.2/1.0, inversions, first3 100%). The first gate
-    (loss-grid CIC density) was falsified by autopsy: fringe between thin features
-    shares coarse cells with the features, so the gate read median 0.0000 on 100% of
-    the out-of-support mass — silenced exactly where needed. kNN scale separates them
-    (measured on hero5: out-of-support kNN ratio median 1.69 vs bulk 0.99), and a
-    false positive inside support costs nothing (DT=0 there). gate = ramp of
-    d_kNN/median(d_kNN) from lo to hi; frozen per window (detached). Anchor: Floaters
-    No More — recondition the gradient by a region property, not the objective; the
-    ratio is the same isolation definition as the stray metric itself."""
-    from scipy.spatial import cKDTree
+    Third and final gate design. Per-particle gates were falsified twice — grid-CIC
+    density (silenced 100% of the out-of-support mass: fringe shares coarse cells with
+    thin features) and fixed-k kNN isolation (blind to 3-10-particle clumps, LOF-class
+    scores are at chance on clustered outliers per DROD; larger k reaches the nearby
+    feature mass and closes further, measured 43%->13%). The budget form has NO
+    per-particle classification to get wrong: every out-of-support particle keeps the
+    full pull direction, and one scalar caps the TOTAL pull mass at budget_frac·N
+    full-pull equivalents. Early windows (a third of the body outside support) scale
+    down ~30x — the dose-response catastrophe cannot form; late windows (a few hundred
+    floaters) run at 1.0. Partial/unbalanced-OT reading: a hard bound on transported
+    mass per window (Séjourné et al. 2023), self-annealing, N-invariant."""
     with torch.no_grad():
-        xn = x.detach().cpu().numpy()
-        dk = cKDTree(xn).query(xn, k=k + 1, workers=-1)[0][:, -1]
-        import numpy as np
-        ratio = dk / max(float(np.median(dk)), 1e-12)
-        gate = np.clip((ratio - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
-        return torch.as_tensor(gate, dtype=x.dtype, device=x.device)
+        val = gather_cic(dt_grid, x, grid_min, dx, dims)
+        n_out = int((val > 1e-9).sum())
+        return min(1.0, budget_frac * len(x) / max(n_out, 1))
 
 
 def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
