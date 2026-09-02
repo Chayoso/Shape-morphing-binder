@@ -163,6 +163,17 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_dt = args.w_dt
         cfg.w_jvol = args.w_jvol
         cfg.assim_iso = True
+    elif arm == "render_full_dt_iso_nopc":         # flagship MINUS PCGrad (attribution:
+        cfg.lambda_auto = args.lambda_auto         #   standalone pc was falsified in v4;
+        cfg.w_pbr = args.w_pbr                     #   in-bundle contribution never isolated,
+        cfg.grad_project = False                   #   and the stack has changed since)
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
+        cfg.w_dt = args.w_dt
+        cfg.w_jvol = args.w_jvol
+        cfg.assim_iso = True
     elif arm == "render_full_fill_iso":            # + hole-side W1 (deficit fill)
         cfg.lambda_auto = args.lambda_auto
         cfg.w_pbr = args.w_pbr
