@@ -453,7 +453,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 x = x_start
                 st = rollback["st"]
                 Fp, s = rollback["Fp"], rollback["s"]
-                dfc_prev, mom_prev, balancer.lam = rollback["dfc"], rollback["mom"], rollback["lam"]
+                balancer.lam = rollback["lam"]
+                # A rejected candidate's LINEAGE is not retried: restoring the
+                # warm-start control + moments re-runs the window deterministically
+                # and rejection becomes an absorbing state (s4: a62-a69 produced
+                # the identical bad candidate to 2 decimals, 8 rejects, frozen).
+                # Cold restart gives the next window a genuinely different path.
+                dfc_prev, mom_prev = None, None
                 del frames[rollback["frames"]:]
                 del F_frames[rollback["F_frames"]:]
                 guards = rollback["guards"]
