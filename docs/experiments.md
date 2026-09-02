@@ -142,6 +142,24 @@ axes exposed here: neighbour mixing + inversion margin (detFmin 0.46–0.51; one
 mid-window inversion observed under atomic nondeterminism) → assimilation-rate/stiffness
 sweep pending.
 
+### 2026-09-01 — stray forensics + the loss-grid resolution verdict
+
+Forensics on the v4 npz (kNN strays located per frame): the "ejection" is **interior
+porosity, not flight** — strays sit at radius 1.2–1.3 vs body r95 2.6–2.8 (0% beyond),
+identities persist 0.6→0.88, created during the fast-transport commits (~f80) and then
+RATCHETED PERMANENT by plastic assimilation; invisible to every loss term (D_vol cell 1.0
+holds ~160 particles; the silhouette cannot see the interior). Pacing prevents creation
+(render_full: none until f400).
+
+loss_res 64 A/B (cell 0.5 = dx): **v1's "coarse grid for stability" fear is REAL** —
+unpaced phys EXPLODES (detF −939, dead at commit ~2) and unpaced render snaps (first3
+100%, strays 1.96%): the fine grid sees the pockets but also amplifies the violence that
+tears them. **Paced render_full + loss_res 64 is a synergy: chamfer 0.1098 (best ever,
+−21% vs prior best), silIoU 0.9515, holes 0.00%, detF 0.55, first3 22%, G2/G3 PASS**
+(stray 0.265% marginally over the 0.2% gate — thin-feature sparsity vs real porosity to be
+adjudicated). Flagship config = render_full @ loss_res 64; D_vol coarse-to-fine remains
+the fallback if any unpaced arm must run fine grids.
+
 ### 2026-09-01 — v4 tranche-1 batch (8 arms, full scale, same discretisation)
 
 | arm | chamfer | sil_iou | detF_min | first3 | move_cv | stray_max | gates |
