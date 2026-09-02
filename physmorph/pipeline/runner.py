@@ -212,8 +212,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if tgt.dt3 is not None:      # W1 term on the ARCHIVED state — the freeze track
             with torch.no_grad():    # must see it (Codex finding 6: commits that only
                 xt = torch.as_tensor(x, device=cfg.device)   # retrieve fringe looked stale)
-                m_dt = tgt.m * isolation_gate(xt, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims,
-                                              cfg.dt_rho_iso)
+                m_dt = tgt.m * isolation_gate(xt, cfg.dt_iso_lo, cfg.dt_iso_hi)
                 d_dt = float(d_w1(xt, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims))
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,

@@ -101,17 +101,16 @@ def test_subcell_fringe_regime_has_gradient():
 
 
 def test_isolation_gate_complementarity():
-    """§7.3: the gate must silence the W1 pull on BULK outside mass (density losses own
-    it — ungated, the constant force was a measured dose-response catastrophe) while a
-    lone stray keeps essentially the full pull."""
+    """§7.3/§7.4: the kNN-scale gate must silence BULK mass (dense at particle-spacing
+    scale, wherever it sits — the dose-response protection) while a lone stray keeps
+    the full pull. In-support false positives cost nothing (DT=0 there)."""
     from physmorph.losses.volumetric import isolation_gate
     rng = np.random.default_rng(9)
     body = torch.tensor(rng.uniform(-0.5, 0.5, (2000, 3)).astype(np.float32))
     clump = torch.tensor(rng.uniform(1.4, 1.6, (300, 3)).astype(np.float32))  # dense, off-target
     lone = torch.tensor([[2.5, 0.0, 0.0]])
     x = torch.cat([body, clump, lone])
-    m = torch.ones(len(x))
-    gate = isolation_gate(x, m, GMIN, DX, DIMS, rho_iso=4.0)
-    assert float(gate[2000:2300].mean()) < 0.05     # dense outside clump: silenced
-    assert float(gate[-1]) > 0.5                    # lone stray: full pull
-    assert float(gate[:2000].mean()) < 0.05         # bulk body: silenced
+    gate = isolation_gate(x)
+    assert float(gate[2000:2300].mean()) < 0.1      # dense outside clump: silenced
+    assert float(gate[-1]) > 0.9                    # lone stray: full pull
+    assert float(gate[:2000].mean()) < 0.1          # bulk body: silenced

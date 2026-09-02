@@ -121,12 +121,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
 
     # W1 complementarity gate, frozen at window start: the constant pull goes only to
-    # particles the density losses are blind to (sparse fringe), never to bulk outside
-    # mass — the ungated sum was a measured dose-response catastrophe (rationale §7.3)
+    # particles the density losses are blind to (kNN-sparse fringe), never to bulk
+    # outside mass — ungated sum was a dose-response catastrophe; the loss-grid-density
+    # gate silenced 100% of the out-of-support mass (autopsies, rationale §7.3/§7.4)
     m_dt = None
     if tgt.dt3 is not None:
-        m_dt = tgt.m * isolation_gate(torch.as_tensor(x0, device=dev), tgt.m,
-                                      tgt.lgmin, tgt.ldx, tgt.ldims, cfg.dt_rho_iso)
+        m_dt = tgt.m * isolation_gate(torch.as_tensor(x0, device=dev),
+                                      cfg.dt_iso_lo, cfg.dt_iso_hi)
 
     def material():
         if s is None:

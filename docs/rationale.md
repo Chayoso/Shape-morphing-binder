@@ -256,3 +256,22 @@ objective; complementarity with d_vol is the same move in density space. rho_iso
 (particles/cell at the porosity-forensics isolation scale). Falsifier unchanged
 (stray < 0.2% at hero, chamfer within 2%, no ear erosion); if the GATED term still
 fails it, the mechanism is wrong and plan-B is next.
+
+### §7.4 Gate autopsy → kNN-scale gate (v8)
+
+Gated v7 batch: stability fully restored (no inversions, first3 12%) but endpoint
+unchanged — hero5 out-of-support (fine-DT>2cells, the honest target-based metric)
+2.14% vs hero1 2.18%, ear region 0.400% both. Yet d_dt fell 97% — resolved by autopsy:
+the DESCENT WAS THE GATE DYING, not the fringe moving. The loss-grid CIC density gate
+read median (and p90) 0.0000 on 100% of the out-of-support particles: fringe between
+thin features shares coarse cells with the features, so it never looks isolated at
+grid scale. Silenced exactly where needed. Measured separation at kNN scale:
+out-of-support ratio median 1.69 (p10 1.12) vs bulk 0.99; ratio>1.5 catches 64% with
+8.3% bulk false positives — which cost NOTHING because in-support particles sit at
+DT=0. Gate v2 = ramp(d_kNN/median, 1.2→1.8), frozen per window; early dense outside
+bulk still silenced (dose-response protection intact). ALSO recorded: stray_frac/
+stray_max are SELF-REFERENTIAL (body-kNN isolation, no target reference) — they
+conflate interior porosity with ejecta and cannot credit out-of-support cleanup; the
+fine-DT out-of-support fraction is the honest endpoint metric for this tranche and
+should join metrics.py (queued). Verdict rule unchanged, now measured on out-of-support
+frac + ear visual.

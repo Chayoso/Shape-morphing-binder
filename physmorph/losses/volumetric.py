@@ -115,23 +115,30 @@ def gather_cic(field: torch.Tensor, x: torch.Tensor,
     return val
 
 
-def isolation_gate(x: torch.Tensor, m: torch.Tensor, grid_min: torch.Tensor,
-                   dx: float, dims, rho_iso: float) -> torch.Tensor:
-    """Per-particle COMPLEMENTARITY gate for the W1 term: exp(-rho/rho_iso), detached.
+def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
+                   k: int = 8) -> torch.Tensor:
+    """Per-particle COMPLEMENTARITY gate for the W1 term, at kNN SCALE, detached.
 
     The W1 term exists for the mass the density losses cannot see (sparse fringe);
     dense outside mass is d_vol/d_render's job, and giving it the constant W1 pull
-    double-drives bulk transport — the calibration ladder measured the failure as a
-    dose-response catastrophe (w_dt 0.05/0.2/1.0 -> stray 0.77/4.0/7.8%, inversions,
-    first3 100%). Gate style anchored on Floaters-No-More: recondition the gradient by
-    a region property rather than changing the objective. rho is the particle's own
-    CIC-gathered mass on the LOSS grid (bulk ~40+/cell -> gate ~0; lone fringe
-    ~1-3/cell -> gate 0.5-0.8). Frozen per window (detached — no repulsion artifacts
-    through the gate)."""
+    double-drives bulk transport — measured as a dose-response catastrophe (stray
+    0.8/4.0/7.8% at w_dt 0.05/0.2/1.0, inversions, first3 100%). The first gate
+    (loss-grid CIC density) was falsified by autopsy: fringe between thin features
+    shares coarse cells with the features, so the gate read median 0.0000 on 100% of
+    the out-of-support mass — silenced exactly where needed. kNN scale separates them
+    (measured on hero5: out-of-support kNN ratio median 1.69 vs bulk 0.99), and a
+    false positive inside support costs nothing (DT=0 there). gate = ramp of
+    d_kNN/median(d_kNN) from lo to hi; frozen per window (detached). Anchor: Floaters
+    No More — recondition the gradient by a region property, not the objective; the
+    ratio is the same isolation definition as the stray metric itself."""
+    from scipy.spatial import cKDTree
     with torch.no_grad():
-        rho = gather_cic(rasterize_mass(x, m, grid_min, dx, dims), x,
-                         grid_min, dx, dims)
-        return torch.exp(-rho / rho_iso)
+        xn = x.detach().cpu().numpy()
+        dk = cKDTree(xn).query(xn, k=k + 1, workers=-1)[0][:, -1]
+        import numpy as np
+        ratio = dk / max(float(np.median(dk)), 1e-12)
+        gate = np.clip((ratio - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+        return torch.as_tensor(gate, dtype=x.dtype, device=x.device)
 
 
 def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,

@@ -65,12 +65,16 @@ class PipelineConfig:
                                     #   particle can be actuated alone (the thin-feature
                                     #   fringe's creation mechanism — forensics 2026-09-01)
     w_dt: float = 0.0               # one-sided-W1 cleanup: SUM_p m_p x gate_p x 3D DT.
-    dt_rho_iso: float = 4.0         #   COMPLEMENTARITY gate exp(-rho/rho_iso) (loss-grid
-    dt_res: int = 160               #   CIC density, frozen per window): the pull goes
-                                    #   only to mass the density losses cannot see —
-                                    #   ungated, the constant force double-drove bulk
-                                    #   transport (measured dose-response catastrophe:
-                                    #   stray 0.8/4.0/7.8% at w_dt 0.05/0.2/1.0, §7.3).
+    dt_iso_lo: float = 1.2          #   COMPLEMENTARITY gate = ramp of the particle's
+    dt_iso_hi: float = 1.8          #   kNN-distance ratio (frozen per window): pull
+    dt_res: int = 160               #   goes only to mass the density losses cannot see.
+                                    #   Ungated = dose-response catastrophe (§7.3);
+                                    #   loss-grid-density gate = silenced 100% of the
+                                    #   out-of-support mass (autopsy §7.4 — coarse cells
+                                    #   shared with thin features). kNN band from the
+                                    #   hero5 measurement: out-of-support ratio median
+                                    #   1.69 vs bulk 0.99; in-support false positives
+                                    #   cost nothing (DT=0 there).
                                     #   SUM form: per-stray pull
     dt_clamp_frac: float = 2.0      #   = w_dt exactly, N-invariant (Opus finding 1: the
                                     #   mean form was a measured 300-3000x no-op). Own
