@@ -343,3 +343,15 @@ continuously measured). **Oscillation CLOSED as a pathology**: at 200c every tra
 still improves 9-27% per 40 commits (freeze correctly withheld); tail move halved to
 0.003-0.004 by w_jvol. Remaining micro-motion = ongoing descent; a run-to-actual-
 convergence probe (400c) is queued to find the true resting point.
+
+### 2026-09-02 — 400c convergence probe: the oscillation thread is CLOSED
+
+h16_conv (`render_full_dt_iso_nn`, N=40k, 400c budget): **froze at commit 282**
+(phys=54.85) and held perfectly still for the remaining 118 commits (jitter 7e-5,
+hole 0.00%, drift within G3). Final: chamfer 0.0709, silIoU 0.9660. Verdict: the
+user-visible micro-motion at production budgets (60-200c) was honest unfinished
+descent, not a pathology; the system has a true resting point at ~282 commits and
+rests there. Combined with w_jvol (tail move halved) this closes the oscillation
+complaint end-to-end. Also: G4_holes gate is now TARGET-RELATIVE (pass if hole <=
+max(2%, target's own hole + 0.5pt)) — the pre-registered fix for the A->C metric
+ceiling (target itself measures 5.76%).
