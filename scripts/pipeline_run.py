@@ -174,7 +174,8 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_dt = args.w_dt
         cfg.w_jvol = args.w_jvol
         cfg.assim_iso = True
-    elif arm == "render_full_dt_iso_nn":           # flagship + grid-free near-band W1
+    elif arm == "render_full_dt_iso_nn":           # FLAGSHIP since h15 (fork-halo -70%,
+                                                   # chamfer -5.7%, late g_cos conflict gone)
         cfg.lambda_auto = args.lambda_auto
         cfg.w_pbr = args.w_pbr
         cfg.grad_project = True

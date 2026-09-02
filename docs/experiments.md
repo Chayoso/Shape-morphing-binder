@@ -319,3 +319,27 @@ by the channel separation; the g_cos/g_share telemetry (now in every commit rec)
 verify directly. The parked local-global pass stays parked — its re-activation
 condition (a conflict-handling gap after PCGrad removal) did not materialise; results
 IMPROVED without either mechanism.
+
+### 2026-09-02 — h15 (200c, live-streamed): near-band W1 adopted; oscillation closed
+
+4-GPU batch with the new --live_port streaming (quad dashboard). All arms w_dt 0.2,
+w_jvol 50, iso; nn arms add w_nn 0.2:
+
+| arm | chamfer | silIoU | out_nn | fork lo-band | note |
+|---|---|---|---|---|---|
+| h15_nn (bunny) | **0.0693** | 0.9697 | **10.1%** | **97** | flagship |
+| h15_base (bunny, no nn) | 0.0735 | **0.9758** | 19.5% | 326 | g_cos min **-0.86** |
+| h15_spot (nn) | **0.0682** | **0.9725** | 11.8% | — | pair best-ever |
+| h15_AC (nn) | **0.1300** | **0.9677** | 0.8% | — | chamfer HALVED (0.2446→) |
+
+**Near-band W1 ADOPTED** (flagship = render_full_dt_iso_nn): the user-visible fork
+floaters drop 326→97 (-70%) with chamfer -5.7%; the -0.6pt silIoU is soft-edge
+rearrangement, accepted. Bonus (g_cos telemetry): the base arm still hits late-run
+phys/render conflict (cos min -0.86); WITH the near-band term the conflict vanishes
+(min -0.00) — boundary-mass competition was the conflict's source; PCGrad removal and
+lg's permanent parking are both re-confirmed. g_share median 0.34 across all benches:
+the render channel steadily drives a third of the update (the paper's core claim,
+continuously measured). **Oscillation CLOSED as a pathology**: at 200c every track
+still improves 9-27% per 40 commits (freeze correctly withheld); tail move halved to
+0.003-0.004 by w_jvol. Remaining micro-motion = ongoing descent; a run-to-actual-
+convergence probe (400c) is queued to find the true resting point.
