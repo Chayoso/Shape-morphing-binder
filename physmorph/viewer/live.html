@@ -47,6 +47,9 @@ let ZOOM = 0.8;
 // ---- telemetry history: every physical quantity in the state header, per run ----
 // MAIN-LINE essentials only (one chart each)
 const SERIES = [                     // [key, label, decimals, log10?]
+  ['E',        'L total (objective)',   2, true],
+  ['phys',     'L_phys = L − λ·D_render', 2, true],
+  ['lamr',     'λ·D_render (render term)', 2, true],
   ['d_vol',    'D_vol',                 2, false],
   ['d_render', 'D_render',              5, false],
   ['lam',      'λ (render weight)',     0, false],
@@ -57,7 +60,10 @@ const SERIES = [                     // [key, label, decimals, log10?]
 let hist = {};
 const resetHist = () => { hist = {}; for (const [k] of SERIES) hist[k] = []; };
 resetHist();
-function pushHist(h) {
+function pushHist(h0) {
+  const h = {...h0};                 // derived loss terms: the objective decomposition
+  if (h.lam != null && h.d_render != null) h.lamr = h.lam * h.d_render;
+  if (h.E != null && h.lamr != null) h.phys = h.E - h.lamr;   // D_vol+kin+ctrl+box side
   for (const [k] of SERIES) {
     if (h[k] != null && isFinite(h[k])) {
       hist[k].push(h[k]);
