@@ -1,9 +1,11 @@
 # Problem dossier 2 — Near-optimum oscillation (optima 근처의 흔들림)
 
-Status: **SOLVED (2026-09-02)** — all four drivers closed; validated on h17
-(4/4 pairs freeze in budget: commits 61-259, held tails at jitter 6-8e-5 = G3 x40
-margin) and the replay artifact carries the converged run whose tail is a true rest.
-Production budget >=300 commits.
+Status: **REOPENED (2026-09-02, viewer standard)** — four drivers closed and
+validated on h17 (4/4 pairs freeze in budget: commits 61-259, held tails at
+jitter 6-8e-5 = G3 x40 margin), but the user's viewer showed residual late-run
+wobble at the ears; forensics identified driver #5 (per-window Adam-restart
+zigzag, section 5.1). Fix `anneal_stale` implemented; verdict pending on
+g2_anneal. Production budget >=300 commits.
 
 ## 1. Phenomenon
 
