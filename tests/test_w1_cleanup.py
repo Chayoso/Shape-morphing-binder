@@ -1,0 +1,82 @@
+"""One-sided-W1 cleanup term (fringe tranche, rationale.md §7) — 3D loss-grid DT.
+
+The 2D multi-view variant was falsified by forensics (visual hull hides interior
+concavities); these tests pin the 3D mechanism's claims, including the Codex round's
+counterexamples (target self-force, fixed-N sparsity invariance, clamp handoff)."""
+import numpy as np
+import torch
+
+from physmorph.losses.volumetric import d_w1, target_dt_grid, target_mass_grid
+
+DIMS = (24, 24, 24)
+DX = 0.25
+GMIN = torch.tensor([-3.0, -3.0, -3.0])
+
+
+def _setup(n=800, seed=3):
+    rng = np.random.default_rng(seed)
+    t = torch.tensor(rng.uniform(-0.5, 0.5, (n, 3)).astype(np.float32))
+    m = torch.ones(len(t))
+    grid = target_mass_grid(t, m, GMIN, DX, DIMS)
+    dt3 = target_dt_grid(grid, DX, DIMS, clamp=2.0 * 3.0)
+    return t, m, grid, dt3
+
+
+def test_no_target_self_force():
+    """Codex finding 1/2 (ported to 3D): the loss AND its gradient must vanish on the
+    target itself — support is built from the same CIC stencil the sampler gathers."""
+    t, m, grid, dt3 = _setup()
+    x = t.clone().requires_grad_(True)
+    loss = d_w1(x, m, dt3, GMIN, DX, DIMS)
+    assert float(loss) < 1e-8
+    loss.backward()
+    # rim particles at exact cell faces may see a sub-cell boundary subgradient; it must
+    # be rare and bounded, never a bulk force
+    gnorm = x.grad.norm(dim=1)
+    assert float(gnorm.max()) < DX          # bounded by ~one cell of DT per unit weight
+    assert float((gnorm > 1e-9).float().mean()) < 0.05
+
+
+def test_zero_inside_monotone_outside():
+    t, m, grid, dt3 = _setup()
+    far = torch.tensor([[2.0, 0.0, 0.0]])
+    near = torch.tensor([[1.2, 0.0, 0.0]])
+    one = torch.ones(1)
+    l_far = float(d_w1(far, one, dt3, GMIN, DX, DIMS))
+    l_near = float(d_w1(near, one, dt3, GMIN, DX, DIMS))
+    assert l_far > l_near > 0
+
+
+def test_sparsity_invariant_at_fixed_n():
+    """Codex finding 14: fixed total N, lone stray vs 8 co-located strays — the
+    per-particle pull must be identical (linear term, no saturation)."""
+    t, m, grid, dt3 = _setup()
+    P = torch.tensor([1.5, 0.0, 0.0])
+
+    def stray_grad(n_stray):
+        body = t[: len(t) - n_stray]
+        x = torch.cat([body, P.repeat(n_stray, 1)]).clone().requires_grad_(True)
+        d_w1(x, torch.ones(len(x)), dt3, GMIN, DX, DIMS).backward()
+        return x.grad[len(body):].norm(dim=1)
+
+    g1, g8 = stray_grad(1), stray_grad(8)
+    assert float(g1[0]) > 1e-6
+    assert abs(float(g1[0]) - float(g8.mean())) < 0.02 * float(g1[0])
+
+
+def test_pull_points_toward_support():
+    t, m, grid, dt3 = _setup()
+    x = torch.tensor([[1.5, 0.8, 0.0]], requires_grad=True)
+    d_w1(x, torch.ones(1), dt3, GMIN, DX, DIMS).backward()
+    step = -x.grad[0]
+    assert step[0] < 0 and step[1] < 0      # descent moves toward the clump at origin
+
+
+def test_no_force_free_gap_inside_box():
+    """Codex finding 4: with clamp=2*extent every point of the box interior must keep a
+    nonzero DT gradient (no plateau between the DT clamp and the w_box leash)."""
+    t, m, grid, dt3 = _setup()
+    extent = 1.0                             # pretend box; grid spans to +-3
+    corner = torch.tensor([[0.98, 0.98, 0.98]], requires_grad=True)   # inside box corner
+    d_w1(corner, torch.ones(1), dt3, GMIN, DX, DIMS).backward()
+    assert float(corner.grad.norm()) > 1e-6

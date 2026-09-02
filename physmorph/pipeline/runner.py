@@ -17,14 +17,14 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..losses.volumetric import d_vol, target_mass_grid
+from ..losses.volumetric import d_vol, d_w1, target_dt_grid, target_mass_grid
 from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
 from ..plasticity import assimilate_elastic
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
 from .render_loss import (LambdaBalancer, d_render, make_views, shade_targets,
-                          target_dts, target_silhouettes)
+                          target_silhouettes)
 from .surface_local import surface_local_pass
 
 
@@ -45,16 +45,16 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     grid = target_mass_grid(tgt_t, m, lgmin, ldx, ldims)
     views = make_views(cfg.render_views, cfg.render_elevs)
     extent = float(np.abs(target_x).max()) * 1.25
-    sils = shade = dts = None
+    sils = shade = dt3 = None
     if cfg.lambda_auto > 0:
         sils = target_silhouettes(tgt_t, views, cfg.render_res, extent, cfg.sil_k)
         if cfg.w_pbr > 0:
             shade = shade_targets(tgt_t, views, cfg.render_res, extent,
                                   lgmin, ldx, ldims, cfg.sil_k, cfg.pbr_ambient)
-        if cfg.w_dt > 0:
-            dts = target_dts(sils, extent, cfg.dt_clamp_frac, cfg.dt_mask_thresh)
+    if cfg.w_dt > 0:      # 3D W1 cleanup — independent of the render channel
+        dt3 = target_dt_grid(grid, ldx, ldims, clamp=cfg.dt_clamp_frac * extent)
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
-                      views=views, sils=sils, extent=extent, shade=shade, dts=dts)
+                      views=views, sils=sils, extent=extent, shade=shade, dt3=dt3)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
@@ -67,6 +67,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     N = src.shape[0]
     assert target_x.shape[0] == N, ("D_vol compares unit-mass clouds: source and target need "
                                     f"the same particle count (got {N} vs {target_x.shape[0]})")
+    if cfg.lg_sweeps > 0 and cfg.w_dt > 0:
+        # Codex finding 7: the local pass's exact-quadratic energy excludes the W1 term,
+        # so it can undo an accepted W1 step and assimilation then ratchets the regression
+        raise ValueError("lg_sweeps>0 with w_dt>0 is unsupported (local energy has no W1 "
+                         "term; adding a non-quadratic term breaks its exact line search)")
     tgt = build_target(target_x, prm, cfg)
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
     # the local-global pass calibrates λ in ITS OWN variable space (u, joules) — sharing
@@ -191,8 +196,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     w["d_render"] = float(d_render(xt, tgt.sils, tgt.views,
                                                    cfg.render_res, tgt.extent, cfg.sil_k,
                                                    cfg.w_hole, cfg.w_spray))
+        d_dt = None
+        if tgt.dt3 is not None:      # W1 term on the ARCHIVED state — the freeze track
+            with torch.no_grad():    # must see it (Codex finding 6: commits that only
+                xt = torch.as_tensor(x, device=cfg.device)   # retrieve fringe looked stale)
+                d_dt = float(d_w1(xt, tgt.m, tgt.dt3, tgt.lgmin, tgt.ldx, tgt.ldims))
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
-               "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"),
+               "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
                "accepted": stats["accepted"], "rejected": stats["rejected"],
@@ -210,7 +220,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             on_commit(a, x, Fc, v_p, rec)
 
         # ---- plateau freeze on RAW components (λ-free; stops post-convergence sloshing) ----
-        phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"]
+        phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"] + \
+            (cfg.w_dt * d_dt if d_dt is not None else 0.0)
         rend_track = rec["d_render"]
         improved = best_phys is None or phys_track < best_phys - cfg.tol * abs(best_phys)
         if rend_track is not None and best_rend is not None:

@@ -38,6 +38,55 @@ def target_mass_grid(target_x: torch.Tensor, m: torch.Tensor,
         return rasterize_mass(target_x, m, grid_min, dx, dims).detach()
 
 
+def target_dt_grid(target_grid: torch.Tensor, dx: float, dims,
+                   clamp: float | None = None) -> torch.Tensor:
+    """Unsigned Euclidean distance transform (world units) OUTSIDE target-occupied
+    cells, flat zero inside, optionally clamped (far field stays the box leash's job).
+
+    Support = ANY target CIC mass (dilation <= 1 cell), so thin features always count
+    as support — the ear-erosion falsifier guard. 3D on purpose: the 2D multi-view
+    variant was falsified by direct forensics (hero3: 1.8% of ear-region strays visible
+    to per-view DTs at ANY mask threshold — the concavity between thin features lies
+    INSIDE the visual hull; the 3D loss-grid DT sees 100% of them)."""
+    from scipy.ndimage import distance_transform_edt
+    import numpy as np
+    nx, ny, nz = dims
+    occ = (target_grid > 1e-6).reshape(nx, ny, nz).cpu().numpy()
+    dt = distance_transform_edt(~occ) * dx
+    if clamp is not None:
+        dt = np.minimum(dt, clamp)
+    return torch.as_tensor(dt, dtype=target_grid.dtype,
+                           device=target_grid.device).reshape(-1)
+
+
+def d_w1(x: torch.Tensor, m: torch.Tensor, dt_grid: torch.Tensor,
+         grid_min: torch.Tensor, dx: float, dims) -> torch.Tensor:
+    """Pointwise-W1 cleanup term: mean_p m_p * DT(x_p), trilinear-sampled.
+
+    The complement d_vol cannot supply: d_vol's per-particle gradient fades with
+    sparsity (log-ratio: ~linear in the stray's own cell mass), so a lone fringe
+    particle is asymptotically invisible; here the per-particle gradient is grad-DT —
+    unit-bounded (Lipschitz-1, clamped), pointing at target support, INDEPENDENT of
+    local density. Lineage: DRWR flat-inside/linear-outside asymmetry, PhysMorph-GS v1
+    L_DT, 3DGS-MCMC L1-opacity, Sinkhorn/W1 isolated-point gradients (rationale §7)."""
+    nx, ny, nz = dims
+    rel = (x - grid_min) / dx
+    base = torch.floor(rel).long()
+    frac = rel - base.float()
+    val = x.new_zeros(len(x))
+    for ox in (0, 1):
+        wx = frac[:, 0] if ox else 1.0 - frac[:, 0]
+        for oy in (0, 1):
+            wy = frac[:, 1] if oy else 1.0 - frac[:, 1]
+            for oz in (0, 1):
+                wz = frac[:, 2] if oz else 1.0 - frac[:, 2]
+                ii = (base[:, 0] + ox).clamp(0, nx - 1)
+                jj = (base[:, 1] + oy).clamp(0, ny - 1)
+                kk = (base[:, 2] + oz).clamp(0, nz - 1)
+                val = val + wx * wy * wz * dt_grid[(ii * ny + jj) * nz + kk]
+    return (m * val).mean()
+
+
 def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
           grid_min: torch.Tensor, dx: float, dims,
           min_mass: float = 0.0, penalty: float = 0.0) -> torch.Tensor:

@@ -173,3 +173,41 @@ neighbour-less particle — non-local coupling is required. Our adjoint already 
 the DT pull enters through the MPM tape, so P2G/G2P spreads a lone particle's correction
 through grid nodes. w_creg is hereby demoted to a bulk-regularity term (its isolation win
 stands); it is NOT the fringe mechanism, and no extra propagation machinery is added.
+
+### §7.1 2D→3D pivot (forensics, 2026-09-01) + Codex round answers
+
+**2D multi-view DT falsified before adoption:** on hero3's final state, only **1.8%** of
+ear-region strays had DT>0 in ANY of the 18 views, at every mask threshold (0.05/0.2/0.5)
+— the concavity between thin features lies INSIDE the visual hull, so no silhouette-based
+term can see it. The 3D loss-grid DT sees **100%** (meanDT 1.5–2 cells). DRWR/v1 used 2D
+because their supervision was silhouettes-only; we have a volumetric target — ported to
+3D (`losses/volumetric.py: target_dt_grid, d_w1`), same W1 theory, no hull blindness.
+hero3 (2D term): stray 0.367% = hero1 exactly, confirming inertness end-to-end.
+
+**Codex (gpt-5.6-sol xhigh) round — 15 findings, all answered:**
+1,2 (target self-force via sub-threshold alpha / boundary subgradient): moot in 2D form;
+in 3D, support = the SAME CIC stencil the sampler gathers, so loss AND grad vanish on the
+target by construction — pinned by `test_no_target_self_force` (rim subgradient bounded
+< 1 cell, <5% of particles). 3 (Lipschitz bound is √2·w_dt not w_dt): correct; in 3D the
+bound is √3·w_dt — documented, not load-bearing. 4 (force-free gap between DT clamp and
+box leash): correct and ported — dt_clamp_frac 0.25→2.0, no interior plateau
+(`test_no_force_free_gap_inside_box`); beyond the box the quadratic leash dominates the
+linear tail (intentional overlap, not double-counting). 5 (pace floor counts a DT
+plateau constant): with clamp 2.0 the plateau lives outside the box (negligible mass);
+early-window DT is genuinely reducible — accepted as residual, documented. 6 (freeze
+blind to DT): correct — d_dt now computed on every ARCHIVED state, logged, and included
+in phys_track. 7 (lg pass can undo DT progress, assimilation ratchets it): correct —
+lg_sweeps>0 with w_dt>0 now raises (the exact-quadratic local solve cannot host a
+non-quadratic term); lg is parked anyway. 8 (post-local composite stale): subsumed by 7's
+guard. 9 (DT inflates λ numerator + PCGrad reference): correct — gradient assembly split
+into phys_core / dt_term; λ and PCGrad use phys_core only, W1 joins after projection.
+10 (c2f stale balancer EMA): DT is now built from the loss grid — render-res switches
+no longer touch it; the balancer-EMA-across-c2f staleness predates this tranche, logged
+as a known issue. 11 (outside-viewport clamp kills outward gradient): moot — no
+projection in 3D; the DT grid spans the MPM domain. 12 (w_dt silently off when λ=0):
+fixed — dt3 builds independently of the render channel
+(`test_w1_independent_of_render_channel`). 13 (masses unused; "W1" naming): masses now
+applied; the term is the one-sided W1 transport bound (no target-capacity constraint —
+capacity is D_vol's job; documented). 14 (weak tests): ported suite `test_w1_cleanup.py`
+= self-force, fixed-N invariance, direction, gap, monotonicity + causal d_dt/λ-free/lg
+guards in the smoke tests. 15 (C3 pixel convention): survived — moot in 3D regardless.

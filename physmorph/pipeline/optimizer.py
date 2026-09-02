@@ -27,14 +27,14 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import d_vol
+from ..losses.volumetric import d_vol, d_w1
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
 from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig
 from .grid_smooth import smooth_particle_field
-from .render_loss import LambdaBalancer, d_pbr, d_render, d_spray_dt
+from .render_loss import LambdaBalancer, d_pbr, d_render
 
 
 @dataclass
@@ -49,7 +49,7 @@ class TargetPack:
     sils: list | None           # target alpha images (None when render channel off)
     extent: float
     shade: list | None = None   # target shaded images (PBR-lite channel, w_pbr>0)
-    dts: list | None = None     # per-view outside-DT maps (pointwise-W1 spray, w_dt>0)
+    dt3: torch.Tensor | None = None   # 3D outside-DT of the loss grid (W1 cleanup, w_dt>0)
 
 
 def _norm(gs) -> float:
@@ -162,19 +162,31 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             lv, lk, lr, lpbr = losses_of(xT, vT)
         return (xT, FT, vT), lv, lk, lr, lpbr
 
-    def phys_total(lv, lk, dfc, xT):
+    def phys_core(lv, lk, dfc, xT):
+        """Physics objective WITHOUT the W1 term — the lambda balancer's numerator and
+        PCGrad's reference direction (Codex finding 9: folding the W1 term into gp let
+        w_dt inflate the balanced silhouette weight and project render components off a
+        direction that was never 'the physics')."""
         L = lv + cfg.w_kin * lk + cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
         if cfg.w_box > 0:      # far-field leash: differentiable everywhere, zero inside box
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
             L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
-        if tgt.dts is not None:  # pointwise-W1 spray (fixed weight, NOT lambda-scaled:
-            # lambda->cap x constant gradient = documented mass-ejection mode)
-            L = L + cfg.w_dt * d_spray_dt(xT, tgt.dts, tgt.views,
-                                          cfg.render_res, tgt.extent)
         if s is not None:
             L = L + cfg.w_mat * s.pow(2).mean()
         return L
+
+    def dt_term(xT):
+        """W1 cleanup, fixed weight — NOT lambda-scaled (lambda->cap x constant gradient
+        = documented mass-ejection mode) and NOT part of phys_core (finding 9)."""
+        if tgt.dt3 is None:
+            return None
+        return cfg.w_dt * d_w1(xT, tgt.m, tgt.dt3, tgt.lgmin, tgt.ldx, tgt.ldims)
+
+    def phys_total(lv, lk, dfc, xT):
+        L = phys_core(lv, lk, dfc, xT)
+        ldt = dt_term(xT)
+        return L if ldt is None else L + ldt
 
     def scalars(lv, lk, lr, lam_r, dfc, xT):
         L = float(phys_total(lv, lk, dfc, xT).detach())
@@ -204,10 +216,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
         state, lv, lk, lr, lpbr = terms(dFc)
-        Lp = phys_total(lv, lk, dFc, state[0])
+        Lp_core = phys_core(lv, lk, dFc, state[0])
+        Ldt = dt_term(state[0])
         smooth = balancer.active and cfg.render_gs_iters > 0
         if balancer.active and (smooth or cfg.grad_project or it == 0):
-            gp = torch.autograd.grad(Lp, leaves, retain_graph=True)
+            gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
+            gdt = (torch.autograd.grad(Ldt, leaves, retain_graph=True)
+                   if Ldt is not None else None)
             if smooth:
                 # v3 grid-GS preconditioning: smooth the IMAGE-SPACE pull on the grid,
                 # then pull the smoothed direction back through the SAME MPM adjoint
@@ -227,10 +242,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # (adversarial finding), breaking the balancer contract.
                 lam_r = balancer.update(_norm(gp), _norm(gr))
             g = [a + lam_r * b for a, b in zip(gp, gr)]
+            if gdt is not None:      # W1 joins the composite AFTER lambda/PCGrad (find. 9)
+                g = [gi + di for gi, di in zip(g, gdt)]
         elif balancer.active:
-            g = list(torch.autograd.grad(Lp + lam_r * lr, leaves))
+            total = Lp_core + lam_r * lr if Ldt is None else Lp_core + Ldt + lam_r * lr
+            g = list(torch.autograd.grad(total, leaves))
         else:
-            g = list(torch.autograd.grad(Lp, leaves))
+            total = Lp_core if Ldt is None else Lp_core + Ldt
+            g = list(torch.autograd.grad(total, leaves))
         cur = scalars(lv, lk, lr, lam_r, dFc, state[0])
         if not np.isfinite(cur):
             log(f"[win] iter {it}: non-finite loss, aborting window")

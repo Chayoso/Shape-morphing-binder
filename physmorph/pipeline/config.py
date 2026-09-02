@@ -64,14 +64,19 @@ class PipelineConfig:
     creg_k: int = 8                 #   Laplacian penalty on dFc so no single boundary
                                     #   particle can be actuated alone (the thin-feature
                                     #   fringe's creation mechanism — forensics 2026-09-01)
-    w_dt: float = 0.0               # pointwise-W1 spray: mass x DT(outside target sil).
-    dt_clamp_frac: float = 0.25     #   Unsaturated on purpose — the alpha-saturated
-    dt_mask_thresh: float = 0.05    #   w_spray is blind to sparse fringe (rationale §7).
-                                    #   Clamp = leash handoff; low thresh = thin features
-                                    #   count as support (no ear erosion). NOT inside the
-                                    #   lambda-balanced channel: a constant-gradient term
-                                    #   amplified by lambda->cap would be the documented
-                                    #   mass-ejection failure mode (arXiv:2409.15746).
+    w_dt: float = 0.0               # one-sided-W1 cleanup: mass x 3D DT(outside target
+    dt_clamp_frac: float = 2.0      #   occupancy on the LOSS grid). 3D, not per-view:
+                                    #   the 2D multi-view DT was falsified by forensics
+                                    #   (visual hull hides interior concavities — 1.8% of
+                                    #   ear strays visible; 3D sees 100%). Unsaturated on
+                                    #   purpose — d_vol's log-ratio gradient still fades
+                                    #   with sparsity. Clamp 2*extent: nowhere inside the
+                                    #   w_box cube is force-free (Codex finding 4 — a
+                                    #   0.25 clamp left a DT-plateau/leash-zero gap);
+                                    #   beyond the box the quadratic leash dominates the
+                                    #   linear W1 tail. NOT lambda-scaled: lambda->cap x
+                                    #   constant gradient = the documented mass-ejection
+                                    #   mode (arXiv:2409.15746).
 
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution
