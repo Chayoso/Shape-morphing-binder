@@ -125,6 +125,26 @@ def jitter(frames, tail=10, n_held=0) -> dict:
             "jitter_max_abs": float(np.max(ds))}
 
 
+def out_dt_frac(x, tgt, res: int = 160, cells: float = 2.0) -> float:
+    """Fraction of particles farther than `cells` fine-DT cells from TARGET support —
+    the target-referenced endpoint stray metric. stray_frac is SELF-referential
+    (body-kNN isolation, no target term): it conflates interior porosity with fringe
+    and cannot credit out-of-support cleanup (fringe-tranche finding — hero6 cut the
+    ear-region out-of-support 78% while stray_frac read a tie)."""
+    import torch
+    from .losses.volumetric import target_dt_grid, target_mass_grid
+    t = torch.tensor(np.ascontiguousarray(tgt, np.float32))
+    extent = float(np.abs(tgt).max()) * 1.25
+    dx = 3.0 * extent / res
+    gmin = torch.tensor([-1.5 * extent] * 3)
+    dt3 = target_dt_grid(target_mass_grid(t, torch.ones(len(t)), gmin, dx, (res,) * 3),
+                         dx, (res,) * 3, clamp=2 * extent).reshape(res, res, res)
+    idx = ((torch.tensor(np.ascontiguousarray(x, np.float32)) - gmin) / dx
+           ).long().clamp(0, res - 1)
+    v = dt3[idx[:, 0], idx[:, 1], idx[:, 2]].numpy()
+    return float((v > cells * dx).mean())
+
+
 def summarize(frames, tgt, F_frames=None, n_held=0, tail=10) -> dict:
     """All gate metrics for one arm. frames: list of (N,3); tgt: (M,3)."""
     tgt = np.ascontiguousarray(tgt, np.float32)
@@ -133,6 +153,7 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10) -> dict:
     out = {"chamfer": chamfer(xf, tgt), "sil_iou": sil_iou(xf, tgt, extent=e),
            "hole_frac": hole_frac(xf, e), "hole_frac_tgt": hole_frac(tgt, e),
            "outside_frac": outside_frac(xf, e), "extent": e,
+           "out_dt_frac": out_dt_frac(xf, tgt),
            "bbox_diag": float(np.linalg.norm(xf.max(0) - xf.min(0))),
            "frames": len(frames), "n_held": int(n_held)}
     out.update(jitter(frames, tail, n_held))

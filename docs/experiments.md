@@ -219,3 +219,28 @@ residual should be under-resolved by the global step.
   term outside target support — hole side stays saturated (presence detection),
   spray side becomes linear so per-unit-mass pull is sparsity-independent.
   Literature check in progress before implementation (standing rule).
+
+### 2026-09-01 — fringe tranche VERDICT: gated W1 cleanup ADOPTED (v8)
+
+Mechanism that survived three falsification rounds (2D DT: visual-hull-blind, measured
+1.8% gradient visibility; ungated 3D sum: dose-response catastrophe; grid-density gate:
+silenced 100% of its own targets): **SUM_p m_p·gate_p·DT₃D(x_p)** on a fine
+target-fitted grid (dt_res 160), gate = kNN-isolation ramp (1.2→1.8 × median), fixed
+weight w_dt=0.2 outside the λ channel. Verdict on the HONEST metric (out_dt_frac:
+target-referenced, now in metrics.py — stray_frac is self-referential and read a tie
+throughout):
+
+| bench (render_full → render_full_dt v8) | chamfer | sil_iou | out>2cell | ear out>2cell |
+|---|---|---|---|---|
+| sphere→bunny hero (N=40k, 60c, lr64) | 0.0943 → **0.0917** | 0.9483 → **0.9591** | 2.18 → **1.71%** | 0.400 → **0.087%** (−78%) |
+| sphere→armadillo | 0.0930 → **0.0921** | 0.9081 → **0.9196** | — | — |
+| spot→bunny | 0.0953 → **0.0911** | 0.9546 → **0.9597** | — | — |
+| A→C letters | 0.2654 → **0.2561** | 0.9455 → **0.9515** | — | hole 5.12→5.51% (watch) |
+
+Deep strays (>4 cells) 0.258→0.105% (−59%). Visual (ear_v8.png): between-ears scatter
+21 → 4 particles — the tranche's target defect is visually gone. Every bench improved
+chamfer AND sil_iou; trajectory pacing intact (first3 12%). Remaining known residues:
+one compact interior porosity clump (different mechanism — real-3DGS-loss tranche),
+A→C hole coverage (W1 is spray-side by design; holes need the w_hole channel), and the
+G4_ejection gate still keyed to self-referential stray_max (metric replacement
+pre-registered, not silently swapped).
