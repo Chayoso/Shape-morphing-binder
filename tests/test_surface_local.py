@@ -33,9 +33,14 @@ def test_band_is_a_shell_and_interior_is_pinned(prm):
                       2e3, 0.2, DEV)
     assert sl.A > 0
     # the band must NOT cover the body: a substantial fraction of particles is fully
-    # pinned (all 8 corners), and those particles cannot move under ANY u
+    # pinned (all 8 corners), and those particles cannot move under ANY u.
+    # (Honest calibration, adversarial finding: the corner-node dilation of a one-CELL
+    # shell reaches much of a small body's volume — measured ~21% fully pinned here,
+    # ~50% expected at production scale. Both bounds are asserted so a band that
+    # swallowed the whole body OR a fake all-pinned band would fail.)
     fully_pinned = sl.pinned.all(1)
-    assert float(fully_pinned.float().mean()) > 0.2
+    frac = float(fully_pinned.float().mean())
+    assert 0.10 < frac < 0.90, frac
     # fully-pinned particles sit deeper than the band particles on average
     r = torch.as_tensor(x, device=DEV).norm(dim=1)
     assert float(r[fully_pinned].mean()) < float(r[~fully_pinned].mean())
@@ -54,11 +59,21 @@ def test_surface_pass_reduces_render_residual(prm):
     pack = build_target(tgt_x, prm, cfg)
     N = len(x)
     F = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
-    out = surface_local_pass(x, F, F.copy(), pack, cfg, lam_r=200.0, prm=prm)
+    from physmorph.pipeline.render_loss import LambdaBalancer, d_render as _dr
+    lg_bal = LambdaBalancer(0.5)
+    out = surface_local_pass(x, F, F.copy(), pack, cfg, lg_bal, prm)
     assert out is not None
     x2, F2, tele = out
-    assert tele["lg_E1"] <= tele["lg_E0"]            # monotone energy
+    assert tele["lg_lam"] > 0 and tele["lg_gnorm"] is not None
     assert tele["lg_move"] > 1e-4                    # it actually moved the shell
+    # REAL descent check (the E1<=E0 assertion was a tautology — adversarial finding):
+    # the render residual itself must be lower on the corrected state
+    import torch as _t
+    r0 = float(_dr(_t.as_tensor(x), pack.sils, pack.views, cfg.render_res, pack.extent,
+                   cfg.sil_k, cfg.w_hole, cfg.w_spray))
+    r1 = float(_dr(_t.as_tensor(x2), pack.sils, pack.views, cfg.render_res, pack.extent,
+                   cfg.sil_k, cfg.w_hole, cfg.w_spray))
+    assert r1 < r0
     # global anchor intact: fully-pinned particles are bit-still
     sl = SurfaceLocal(x, prm.grid_min, prm.dx, (prm.nx, prm.ny, prm.nz), 2e3, 0.2, DEV)
     anchor = sl.pinned.all(1).cpu().numpy()

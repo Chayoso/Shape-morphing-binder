@@ -39,30 +39,33 @@ CUDA_VISIBLE_DEVICES=<free> $PY scripts/grad_analysis.py --out output/grad_analy
 
 ## Why this implementation outruns the C++ oracle (DiffMPMLib3D)
 
-Observed scale: full 30-commit render arm at N=20000, T=20, 8 iters/window ≈ **0.5 min**
-on one RTX 6000 Ada — the CPU C++ pipeline ran comparable problems in hours. Four factors,
-in (estimated) order of magnitude:
+*(corrected after adversarial review — the first version of this section wrongly called
+the C++ serial: it is OpenMP-parallel throughout, 62 `#pragma omp parallel for`, and
+`bind.cpp` releases the GIL so OpenMP can use all cores.)*
 
-1. **One tape, all layers (algorithmic, ~O(T) vs O(T²)).** The C++ CompGraph optimises the
-   control **layer by layer**: each of the T layers runs its own descent with its own
-   forward+backward pass. Our `wp.Tape` records ONE T-step rollout and a single backward
-   yields ∂L/∂dFc[t] for **every** t simultaneously (`mpm/function.py`), so a window costs
-   O(iters·T) step-kernels instead of O(iters·T²)-ish.
-2. **GPU parallelism.** Every kernel (P2G/G2P/stress) is embarrassingly parallel over
-   20000 particles / 262k nodes; Eigen-on-CPU serialises what a single SM eats at once.
-   The losses (CIC splats, silhouettes, shading) are torch GPU ops in the same memory.
-3. **No binding-boundary crossings in the hot loop.** The legacy python driver marshalled
-   numpy arrays through pybind per call; here the loop is warp kernel launches + torch ops
-   on device-resident arrays — host↔device traffic is a handful of scalars per iteration
-   (loss values, norms). (For the C++ run *entirely inside* CompGraph the pybind cost is
-   small — this factor mainly killed the python-extension workflows.)
-4. **Compiled, cached kernels + SoA layout.** Warp JIT-compiles the MPM step once
-   (kernel cache; ~10 ms warm start) with struct-of-arrays access patterns; no virtual
-   dispatch, no allocator churn per step.
+Timed artifact on OUR side: `output/local_ab2.json` (n=5000, T=10, 12 commits ≈ 0.25
+min/arm on an RTX 4090 Laptop) and the hyde06 logs for full scale (N=20000/T=20/30
+commits ≈ 0.5 min/arm, RTX 6000 Ada, `output/v4_ab.log`). **No committed like-for-like
+C++ timing exists** (legacy logs are empty and legacy configs ran 90 animations) — the
+"hours" folklore is remembered, not sourced; treat cross-implementation speedups as
+unquantified until someone re-runs the C++.
 
-The line-search architecture also helps indirectly: candidate evaluations run the
-no-tape rollout (`eval_terms`), so the expensive adjoint memory/bookkeeping is paid only
-once per accepted gradient, not per probe.
+Factors, honestly ranked:
+
+1. **GPU parallelism (dominant).** Every kernel (P2G/G2P/stress) is data-parallel over
+   20000 particles / 262k nodes on an SM array vs OpenMP threads on CPU cores; the losses
+   (CIC splats, silhouettes, shading) are torch GPU ops in the same device memory.
+2. **Adjoint schedule.** The C++ backward does produce all-layer gradients per pass; the
+   difference is the OPTIMISATION schedule: CompGraph descends Gauss-Seidel over layers
+   (each `ComputeForwardPass(c)` re-runs the suffix c→T−1, an O(T²) shape), where our
+   single-tape window is Jacobi over layers, O(T) per iteration. At the repo's own C++
+   configs (`max_gd_iters: 1`) this is only ~1.2×/2.4× in step-kernels — a real but
+   secondary factor, and a different algorithm rather than a pure speedup.
+3. **No binding-boundary crossings in the hot loop** — mainly relevant to the legacy
+   python-extension workflows that marshalled numpy per call; the pure-C++ path largely
+   avoided it.
+4. **JIT-cached SoA kernels** (warm start ~10 ms per the hyde06 logs) and the no-tape
+   `eval_terms` path, which keeps adjoint memory/bookkeeping off the line-search probes.
 
 ## Result log (discretisation with every number — AGENTS rule 4)
 

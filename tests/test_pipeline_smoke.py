@@ -104,6 +104,24 @@ def test_pace_is_an_upper_bound_per_window(prm, clouds):
     assert whist[-1]["loss"] >= floor * 0.999       # never below the pace floor
 
 
+def test_render_lg_end_to_end(prm, clouds):
+    """The local-global runner path itself (adversarial finding: it had zero e2e
+    coverage — findings about guard counting and telemetry lived in unexecuted code)."""
+    src, tgt_x = clouds
+    cfg = _cfg(lambda_auto=0.5, lg_sweeps=3)
+    res = run_pipeline(src, tgt_x, prm, cfg, log=lambda *_: None)
+    recs = [h for h in res["history"] if "d_vol" in h]
+    assert recs
+    lg_recs = [r for r in recs if "lg_move" in r]
+    assert lg_recs, "local pass never ran"
+    for r in lg_recs:
+        assert r["lg_lam"] > 0 and r["lg_nodes"] > 0
+        assert np.isfinite(r["lg_gnorm"])
+    assert np.isfinite(res["frames"][-1]).all()
+    assert set(res["guards"]) == {"clamped", "nan_x", "nan_state", "F_reset", "F_flip",
+                                  "F_invert_steps"}
+
+
 def test_frames_are_promoted_states(prm, clouds):
     """The archived last frame of each window must BE the promoted state (adversarial
     finding: raw rollout was archived while the clamped state was simulated)."""

@@ -122,15 +122,20 @@ class SurfaceLocal:
         Ap = torch.eye(3, device=u.device).expand(len(disp), 3, 3) + gradu
         return disp, Ap
 
-    def solve(self, energy_fn, sweeps=10, step=0.9):
-        """8-color exact-line-search block descent (the retired VBD solver's recipe)."""
+    def solve(self, energy_fn, sweeps=10, step=0.9, tol=5e-2):
+        """8-color exact-line-search block descent (the retired VBD solver's recipe),
+        WITH its convergence gate restored: per-sweep |grad E|, early stop at tol*g0,
+        and gnorm/converged in the info dict (a falsifier needs to distinguish
+        'band converged' from 'band ran out of sweeps' — adversarial finding)."""
         u = torch.zeros(self.A, 3, device=self.dev, requires_grad=True)
         masks = [(self.color_id == c).unsqueeze(1) for c in range(8)]
         masks = [m for m in masks if bool(m.any())]
         with torch.no_grad():
             E_prev = float(energy_fn(u))
         a, E0 = step, E_prev
-        for _ in range(sweeps):
+        g0 = gn = None
+        s_done = 0
+        for _s in range(sweeps):
             for m in masks:
                 g = torch.autograd.grad(energy_fn(u), u)[0]
                 d = (g / self.diag) * m
@@ -157,13 +162,35 @@ class SurfaceLocal:
                     a = min(max(0.5 * a + 0.5 * best[1], 1e-3 * step), step * 1e7)
                 else:
                     a *= 0.5
-        return u.detach(), {"E0": E0, "E1": E_prev}
+            gn = float(torch.autograd.grad(energy_fn(u), u)[0].norm())
+            if g0 is None:
+                g0 = max(gn, 1e-30)
+            s_done = _s + 1
+            if gn <= tol * g0:
+                break
+        return u.detach(), {"E0": E0, "E1": E_prev, "gnorm": gn, "gnorm0": g0,
+                            "sweeps": s_done,
+                            "converged": bool(gn is not None and g0 and gn <= tol * g0)}
 
 
-def surface_local_pass(x, F, Fp, tgt, cfg, lam_r, prm):
-    """Run one band-limited surface correction. Returns (x', F', tele) or None if the
-    band is empty / lambda inactive. Elastic uses F_e0 = F Fp^-1 frozen at entry."""
-    if lam_r <= 0 or cfg.lg_sweeps <= 0:
+def surface_local_pass(x, F, Fp, tgt, cfg, lg_balancer, prm):
+    """Run one band-limited surface correction. Returns (x', F', tele) or None.
+
+    λ is calibrated LOCALLY (adversarial blocker: the global balancer's λ lives in dFc
+    control space and swings this pass between no-op and takeover over a 25x range):
+    lg_balancer is a SEPARATE LambdaBalancer, updated here from |∂E_el/∂u| vs
+    |∂D_render/∂u| at u=0 — the retired VBD arm's own recipe — with its own EMA across
+    commits. The energy carries the far-field leash (the render views have no gradient
+    for a particle they push out of frame; without the leash + the clamp COUNT in the
+    runner, ejection would be silent). D_vol stays out BY DESIGN: the global window owns
+    volume; this pass is the rim specialist (recorded in rationale §5).
+
+    Known, documented approximations: CIC 2^3 / stable-NH here vs cubic-B-spline 4^3 /
+    fixed-corotated in the MPM engine — this is a REGULARISED CORRECTOR, not the MPM
+    operator; upgrade path exists if grid-scale artifacts appear. On small bodies the
+    corner-node dilation of a one-cell CELL shell reaches much of the volume (at
+    production scale ≈ half); the pinned set is still a genuine interior anchor."""
+    if cfg.lg_sweeps <= 0 or not lg_balancer.active:
         return None
     dev = cfg.device
     sl = SurfaceLocal(x, prm.grid_min, prm.dx, (prm.nx, prm.ny, prm.nz),
@@ -173,13 +200,29 @@ def surface_local_pass(x, F, Fp, tgt, cfg, lam_r, prm):
     Fe0 = torch.as_tensor(
         np.einsum("nij,njk->nik", F, np.linalg.inv(Fp)).astype(np.float32), device=dev)
 
-    def energy(u):
+    def parts(u):
         disp, Ap = sl.kinematics(u)
         xn = sl.x0 + disp
         E_el = sl.Vp * _psi_snh(Ap @ Fe0, sl.lam_l, sl.mu_l)[sl.band_p].sum()
+        lb = torch.clamp(xn.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         lr = d_render(xn, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
                       cfg.sil_k, cfg.w_hole, cfg.w_spray)
-        return E_el + lam_r * lr
+        return E_el, lb, lr
+
+    # local λ in THIS energy's own variable space. NOT a force ratio at u=0: the pass
+    # runs right after assimilation, where the entry state is (near) stress-free and the
+    # rest elastic gradient is exactly zero — a force-ratio λ collapses to 0 (measured).
+    # Balance the render pull against the elastic STIFFNESS the pass will actually meet:
+    # per-node diag curvature × trust radius, norm-matched over the active set.
+    u0 = torch.zeros(sl.A, 3, device=dev, requires_grad=True)
+    _, _, lr0 = parts(u0)
+    gr = torch.autograd.grad(lr0, u0)[0]
+    phys_scale = float(sl.diag.median()) * sl.node_cap * (sl.A ** 0.5)
+    lam_loc = lg_balancer.update(phys_scale, float(gr.norm()))
+
+    def energy(u):
+        E_el, lb, lr = parts(u)
+        return E_el + cfg.w_box * lb + lam_loc * lr
 
     u, info = sl.solve(energy, sweeps=cfg.lg_sweeps)
     with torch.no_grad():
@@ -187,5 +230,7 @@ def surface_local_pass(x, F, Fp, tgt, cfg, lam_r, prm):
         x_new = (sl.x0 + disp).cpu().numpy().astype(np.float32)
         F_new = Ap.cpu().numpy().astype(np.float32) @ F
     tele = {"lg_E0": info["E0"], "lg_E1": info["E1"], "lg_nodes": int(sl.A),
+            "lg_lam": lam_loc, "lg_gnorm": info["gnorm"], "lg_sweeps": info["sweeps"],
+            "lg_converged": info["converged"],
             "lg_move": float(np.linalg.norm(x_new - x, axis=1).mean())}
     return x_new, F_new, tele

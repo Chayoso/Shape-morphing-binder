@@ -17,13 +17,14 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..losses.volumetric import target_mass_grid
+from ..losses.volumetric import d_vol, target_mass_grid
 from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
 from ..plasticity import assimilate_elastic
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
-from .render_loss import LambdaBalancer, make_views, shade_targets, target_silhouettes
+from .render_loss import (LambdaBalancer, d_render, make_views, shade_targets,
+                          target_silhouettes)
 from .surface_local import surface_local_pass
 
 
@@ -66,6 +67,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                     f"the same particle count (got {N} vs {target_x.shape[0]})")
     tgt = build_target(target_x, prm, cfg)
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
+    # the local-global pass calibrates λ in ITS OWN variable space (u, joules) — sharing
+    # the global balancer both mis-scales the pass and poisons the global EMA
+    lg_balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
 
     dmin = np.asarray(prm.grid_min, np.float32)
     dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
@@ -140,22 +144,25 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
 
         # ---- LOCAL phase (local-global): band-limited surface GS pass on the render
         # residual, interior pinned to the global solution just promoted. Runs BEFORE
-        # assimilation so one ratchet covers global+local; its F/det changes hit the
-        # same guards below via the promoted state. ----
+        # assimilation so one ratchet covers global+local. λ is calibrated by its OWN
+        # balancer in the local energy's variable space (adversarial blocker). ----
         lg_tele = None
-        if cfg.lg_sweeps > 0 and balancer.active and balancer.lam:
-            out = surface_local_pass(x, Fc, Fp, tgt, cfg, balancer.lam, prm)
+        if cfg.lg_sweeps > 0 and balancer.active:
+            out = surface_local_pass(x, Fc, Fp, tgt, cfg, lg_balancer, prm)
             if out is not None:
                 x_lg, F_lg, lg_tele = out
                 n_lg_nan = int((~np.isfinite(x_lg).all(1)).sum())
+                n_lg_out = int(((x_lg < lo) | (x_lg > hi)).any(1).sum())   # COUNT the clip
+                n_inv2 = int((np.linalg.det(np.nan_to_num(F_lg)) <= 0).sum())  # pre-repair
                 Fc2, n_b2, n_f2, _ = condition_F(F_lg, clamp=False)
-                n_inv2 = int((np.linalg.det(Fc2) <= 0).sum())
-                guards["nan_x"] += n_lg_nan
+                guards["nan_x"] += n_lg_nan; guards["clamped"] += n_lg_out
                 guards["F_reset"] += n_b2; guards["F_flip"] += n_f2
                 guards["F_invert_steps"] += n_inv2
                 x = np.clip(np.nan_to_num(x_lg), lo, hi).astype(np.float32)
                 Fc = Fc2
                 st["F"] = Fc
+                n_out += n_lg_out; n_nan += n_lg_nan
+                n_bad += n_b2; n_flip += n_f2; n_inv += n_inv2
 
         # ---- plastic assimilation of the ELASTIC stretch (§3.5): F_e -> R_e S_e^{1-eta},
         # exact and per-particle — displacement-field estimation mismatched the
@@ -169,6 +176,19 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         F_frames.extend(F_seq[1:-1]); F_frames.append(Fc.copy())
 
         w = whist[-1]
+        # after a local pass the archived state differs from the window's last iterate —
+        # the freeze and the logged trace must describe the ARCHIVED state (adversarial
+        # finding), so recompute the data terms on the final x
+        if lg_tele is not None:
+            with torch.no_grad():
+                xt = torch.as_tensor(x, device=cfg.device)
+                w = dict(w)
+                w["d_vol"] = float(d_vol(xt, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
+                                         tgt.ldims))
+                if tgt.sils is not None:
+                    w["d_render"] = float(d_render(xt, tgt.sils, tgt.views,
+                                                   cfg.render_res, tgt.extent, cfg.sil_k,
+                                                   cfg.w_hole, cfg.w_spray))
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"),
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
