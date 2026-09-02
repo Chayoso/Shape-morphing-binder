@@ -305,3 +305,17 @@ trajectory-det guard could only REJECT (the F5 literature's exact prediction —
 Smith18/ThinShellLab lineage); with the spring defused, the strengthened guard stack
 stops costing quality (j0's regression vs hero10 was that cost, now moot).
 **Flagship = render_full_dt_iso @ w_jvol=50 (h12_j50). --w_jvol CLI default set to 50.**
+
+### 2026-09-02 — PCGrad removed from the flagship (h13 ablation)
+
+`render_full_dt_iso` ± grad_project, everything else identical (w_dt 0.2, w_jvol 50,
+iso, 120c): bunny 0.0778/0.9696 → 0.0777/**0.9706** (tie+), armadillo 0.0873/0.9239 →
+**0.0863/0.9315** with detFmin 0.108→0.403. Pre-registered rule (removal >= tie ->
+remove) fires. History: standalone render_pc was falsified in v4 (the user's original
+skepticism); the in-bundle contribution was never isolated until now — it measures
+<= 0 under the current stack (W1 outside lambda, sKL volume prior). Reading: the
+late-run phys/render conflict PCGrad existed for (cos -0.74, v4-era) appears resolved
+by the channel separation; the g_cos/g_share telemetry (now in every commit rec) will
+verify directly. The parked local-global pass stays parked — its re-activation
+condition (a conflict-handling gap after PCGrad removal) did not materialise; results
+IMPROVED without either mechanism.

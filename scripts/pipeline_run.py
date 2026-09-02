@@ -152,10 +152,10 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.pace = args.pace
         cfg.dfc_clip = args.dfc_clip
         cfg.assim_iso = True
-    elif arm == "render_full_dt_iso":              # flagship + W1 + isochoric
-        cfg.lambda_auto = args.lambda_auto
-        cfg.w_pbr = args.w_pbr
-        cfg.grad_project = True
+    elif arm == "render_full_dt_iso":              # FLAGSHIP: W1 + isochoric + jvol.
+        cfg.lambda_auto = args.lambda_auto         # grad_project OFF since h13 ablation
+        cfg.w_pbr = args.w_pbr                     # (in-bundle PCGrad contribution <= 0:
+        cfg.grad_project = False                   # bunny tie, armadillo -1.1%/+0.8pt)
         cfg.c2f_at = 0.5
         cfg.pace = args.pace
         cfg.dfc_clip = args.dfc_clip
