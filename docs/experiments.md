@@ -355,3 +355,18 @@ rests there. Combined with w_jvol (tail move halved) this closes the oscillation
 complaint end-to-end. Also: G4_holes gate is now TARGET-RELATIVE (pass if hole <=
 max(2%, target's own hole + 0.5pt)) — the pre-registered fix for the A->C metric
 ceiling (target itself measures 5.76%).
+
+### 2026-09-02 — h17/h18: oscillation criteria met; fill v3 works, verdict at convergence
+
+**h17 (4 pairs, 300c): ALL freeze in budget** — bunny 259, spot 235, armadillo 133,
+teapot 61 — with held tails at jitter 6-8e-5 (G3 x40 margin). Oscillation dossier's
+quantitative criteria are met; replay artifact updated with the converged run (the
+tail is a true rest). New pair records: spot 0.0672/0.9702.
+
+**h18 (full stack + fill v3, 300c): chamfer 0.0662 / silIoU 0.9732 — both all-time
+records** (fill v3 helps globally, not just the ears). Ear cov<0.3: 26.5→18.7%
+(target <15%), cov<0.1 halved to 6.0%, fork lo-band 97→64. fill_lam self-anneals
+0.062→0.009 exactly as designed (demand-driven weight: dominance impossible).
+Falsifier threshold NOT yet met — but the run did NOT converge in 300c (d_fill still
+descending at 0.206); the pre-registered threshold presumes the resting state, so
+the verdict moves to h19 (same config, 400c). No parameter was changed.
