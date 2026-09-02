@@ -111,3 +111,21 @@ out-of-support 0–2 particles, deep strays 0.013%. OPEN: ear interior coverage
 mass INTO thin features) — fill v3 verification batch is the closing move; if its
 falsifier fires, the growth-tensor channel (render-commanded det(G), morphoelastic)
 is pre-registered next.
+
+## 7. Code changes made for this problem (file → change → intent)
+
+| where | what changed | why (intent) |
+|---|---|---|
+| `losses/volumetric.py: target_dt_grid` | fine TARGET-FITTED EDT grid (dt_res=160, 1.5×extent cube), support = the sampler's own CIC stencil | give the spray term a force field with no dead radius over the fringe band (the loss grid's ~1-unit cells had one), and make target self-force vanish by construction |
+| `losses/volumetric.py: d_w1` | SUM form `Σ m·gate·DT`, trilinear sample | per-particle pull = w_dt exactly — N-invariant, sparsity-invariant; the mean form was a measured 300–3000× no-op |
+| `losses/volumetric.py: isolation_gate` | kNN-ratio ramp (1.2→1.8×median), frozen per window | full pull on true singletons all run long while dense rim mass is untouched — selectivity in WHO gets pulled (the winning gate) |
+| `losses/volumetric.py: w1_budget` | scalar transport budget (KEPT, falsified) | A/B honesty: the budget conflated early-safety with mid-run power; retained so the falsification is reproducible |
+| `losses/volumetric.py: deficit_field` | one-signed blurred-ratio deficit mask **AND unblurred target occupancy**, returns deficit mass | fill must never fire outside true support (v1's mask was 95–100% outside = an outward fringe factory) |
+| `losses/volumetric.py: nn_band_assign / d_nn_band` | frozen nearest-target-particle assignment; pull only in the berth..far band (1.5–4.5× target NN spacing) | the fork halo lives INSIDE the DT grid's dilation dead band — this term uses the target's raw geometry, so no grid, no dilation, no dead band; the berth keeps legitimate rim mass untouched |
+| `losses/volumetric.py: coverage_shortfall` | mask-free continuous shortfall statistic | fill progress must be comparable across windows (per-window binary EDT energies are not — their masks change) |
+| `pipeline/optimizer.py` | `phys_core`/`dt_term` split; cleanup terms OUTSIDE the λ channel; fill v3 weight from a dedicated norm balancer at it==0 | cleanup gradients must not inflate the λ numerator or PCGrad's reference (Codex f9); λ→cap × constant gradient is the documented mass-ejection mode; the balancer bounds fill ≤ α×physics gradient so late-run dominance (v2's failure) cannot form |
+| `pipeline/runner.py` | fine-grid/pts/spacing in build_target; archived-state `d_dt`/`d_fill` telemetry; per-term freeze tracks; lg×W1 incompatibility guard | the freeze must SEE cleanup progress (commits that only retrieved fringe looked stale); the quadratic local pass would undo accepted W1 steps and assimilation would ratchet the regression |
+| `metrics.py: tgt_nn_metrics` | target-NN distance in units of the target's own median spacing, fraction + tail | the honest floater metric: `stray_frac` is self-referential and `out_dt_frac` has a ~3.5-cell dead radius — cleanup was being metric-flattered ("ear count 1" hid the 0.07–0.15 wu halo) |
+| `pipeline/config.py` | every knob above, each with its measured justification in the comment | knobs must carry their evidence — a falsified mechanism stays labeled falsified |
+| `tests/test_w1_cleanup.py` | self-force, fixed-N sparsity invariance, berth/band eligibility, no-gap, mask-leak regression | pin exactly the claims the adversarial rounds attacked |
+

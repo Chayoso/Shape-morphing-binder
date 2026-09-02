@@ -98,3 +98,19 @@ Production runs now use ≥300c. Remaining validation for THIS dossier: the h17
 converged 4-pair batch — confirm every pair freezes in budget and the held tails
 pass G3; then a replay-tail visual check. If any pair fails to freeze, the residual
 driver gets its own forensic before any new mechanism.
+
+## 6. Code changes made for this problem (file → change → intent)
+
+| where | what changed | why (intent) |
+|---|---|---|
+| `pipeline/render_loss.py: LambdaBalancer` | hard `cap` (5e3) + EMA; λ estimated ONCE per window from gradient norms | driver #1: the raw ratio diverges when D_render saturates (live-observed 1.77e5) and a per-iteration λ makes monotone acceptance meaningless — a converged render term must FADE, not take over |
+| `plasticity/assimilation.py: isochoric branch` | plastic increment det-normalised (S_e^η/det^{1/3}); det renorm via alternating log-space projections onto {Σlog s=0} ∩ band | driver #2: the unnormalised update was a volumetric RATCHET (\|J−1\|>0.3: 0→41%, detF→0 by 120c) — real plastic flow is isochoric; a single renorm violated the SV band (probe: 792/1000 rows out), hence the joint projection |
+| `pipeline/optimizer.py: w_jvol term in phys_core` | sKL volume prior `(J−1)·log J` on terminal F, through the adjoint (fT wired into phys_total/scalars) | driver #3: isochoric plasticity left ALL volume strain as a permanent elastic spring (restoring −3889 at J=0.9) that kept the body breathing and armed inversions — the prior makes the OPTIMIZER stop commanding volume heterogeneity (prevention in the energy, not rejection in the guard); ladder: detFmin 0.0005→0.497, \|J−1\|>0.3 → 0.0%, tail move halved |
+| `pipeline/optimizer.py: eval_terms jt` | whole-trajectory min-det over stored F AND the effective F+dFc, stacked (one sync), margin 1e-4 | single-step inversions slipped through the terminal-only check (the stored F is SMOOTHED and can hide a constitutive inversion); zero-margin float32 det has a measured 0.04% false-accept |
+| `pipeline/optimizer.py: commit-rollout validation` | the final rollout that produces committed frames passes the same jt check or the window is discarded | CUDA atomics make replay non-bit-identical — the guard was checking one trajectory and committing another |
+| `pipeline/optimizer.py: warm-start baseline` | invalid cold baseline scores as ∞ | an inverted zero-control rollout's artificially low position-only loss was blocking every valid warm start |
+| `pipeline/runner.py: null-commit` | line-search exhaustion → held commit + stale++, under patience (was: terminate the whole run) | a truncation bug masqueraded as convergence (hero7_base stopped at anim 106); exhaustion is not convergence — patience decides |
+| `pipeline/runner.py: freeze tracks` | per-term λ-free tracks (phys / render / W1-ungated / fill) | a drifting λ must not decide the freeze; the GATED d_dt statistic fell when the gate died rather than when particles moved — the track must be a fixed geometric functional |
+| `pipeline/config.py: w_jvol, assim_iso, lambda_cap` | knobs with their measured evidence in comments | same contract as the floater knobs: mechanisms carry their falsifiers |
+| production budgets | flagship runs ≥300 commits | driver #4: the residual "wobble" was honest unfinished descent — the system truly rests at ~commit 259–282 (bunny) and every pair freezes in budget (h17: 61–259) |
+
