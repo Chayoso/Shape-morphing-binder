@@ -27,7 +27,8 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import d_vol, d_w1, deficit_field, w1_budget
+from ..losses.volumetric import (d_vol, d_w1, deficit_field, isolation_gate,
+                                 w1_budget)
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
 from ..mpm.state import MPMParams
@@ -82,11 +83,18 @@ def _state_ok(state) -> bool:
     """Finite AND orientation-preserving. det(F_T) <= 0 is invisible to every loss term
     (the data terms see positions only), so without this check the line search happily
     accepts an inverting control — measured: warm-started windows committed 9 inversions
-    with 8/8 'accepted' steps."""
-    if not _finite(state):
+    with 8/8 'accepted' steps. state[3] (when present) is the WHOLE-TRAJECTORY min det
+    from the candidate rollout: terminal-only checking let single-step inversions slip
+    into committed trajectories (hero7/hero9: F_invert_steps=1 under the W1 pull —
+    a pulled particle compresses through zero for one step and recovers by T)."""
+    if not _finite(state[:3]):
         return False
     FT = state[1]
-    return bool((torch.linalg.det(FT.view(-1, 3, 3)) > 0).all())
+    if not bool((torch.linalg.det(FT.view(-1, 3, 3)) > 0).all()):
+        return False
+    if len(state) > 3 and state[3] is not None:
+        return state[3] > 0.0
+    return True
 
 
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
@@ -127,9 +135,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     m_dt = None
     x0_t = torch.as_tensor(x0, device=dev)
     if tgt.dt3 is not None:
-        s_bud = w1_budget(x0_t, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
-                          cfg.dt_budget)
-        m_dt = tgt.m * s_bud
+        if cfg.dt_gate == "budget":       # kept for A/B; measured no-op at 0.01 (§7.6)
+            m_dt = tgt.m * w1_budget(x0_t, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
+                                     cfg.dt_budget)
+        else:                             # "knn" — the honest-metric winner (§7.6)
+            m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi)
 
     # HOLE-side W1 (deficit fill), frozen per window: locality-ranged (UOT transport
     # range) + the same budget cap; the mask rebuild makes the pull saturate at coverage
@@ -189,7 +199,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             FT = wp.to_torch(tr.F[T]).reshape(N, 9)
             vT = wp.to_torch(tr.v[T])
             lv, lk, lr, lpbr = losses_of(xT, vT)
-        return (xT, FT, vT), lv, lk, lr, lpbr
+            # whole-trajectory orientation check for _state_ok (single-step inversions
+            # were invisible to the terminal-only check and slipped into commits)
+            jt = min(float(torch.linalg.det(
+                wp.to_torch(tr.F[t]).reshape(N, 3, 3)).min()) for t in range(1, T + 1))
+        return (xT, FT, vT, jt), lv, lk, lr, lpbr
 
     def phys_core(lv, lk, dfc, xT):
         """Physics objective WITHOUT the W1 term — the lambda balancer's numerator and

@@ -115,6 +115,27 @@ def gather_cic(field: torch.Tensor, x: torch.Tensor,
     return val
 
 
+def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
+                   k: int = 8) -> torch.Tensor:
+    """Per-particle kNN-isolation gate for the W1 term, detached — RESTORED after the
+    budget experiment: on the honest metric the kNN-gated arm is the clear winner
+    (hero8_dtiso out_dt 0.477% / ear 1 / silIoU 0.9601 vs budget 0.905% / 8 / 0.9444
+    = a measured no-op). Lesson: selectivity in WHO gets pulled beats scheduling of
+    how much — the kNN gate runs full pull on true singletons ALL run long and never
+    touches dense rim mass. Its known blind spot (3-10-particle clumps, DROD) and its
+    inversion side effect are handled elsewhere (trajectory-det acceptance guard;
+    deficit fill absorbs near-feature clumps). gate = ramp of d_kNN/median from lo to
+    hi, frozen per window."""
+    from scipy.spatial import cKDTree
+    with torch.no_grad():
+        xn = x.detach().cpu().numpy()
+        dk = cKDTree(xn).query(xn, k=k + 1, workers=-1)[0][:, -1]
+        import numpy as np
+        ratio = dk / max(float(np.median(dk)), 1e-12)
+        gate = np.clip((ratio - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
+        return torch.as_tensor(gate, dtype=x.dtype, device=x.device)
+
+
 def w1_budget(x: torch.Tensor, dt_grid: torch.Tensor, grid_min: torch.Tensor,
               dx: float, dims, budget_frac: float) -> float:
     """Scalar transport-budget factor for the W1 term: min(1, budget·N / n_out).

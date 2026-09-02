@@ -64,16 +64,15 @@ class PipelineConfig:
     creg_k: int = 8                 #   Laplacian penalty on dFc so no single boundary
                                     #   particle can be actuated alone (the thin-feature
                                     #   fringe's creation mechanism — forensics 2026-09-01)
-    w_dt: float = 0.0               # one-sided-W1 cleanup: SUM_p m_p x s_bud x 3D DT.
-    dt_budget: float = 0.01         #   TRANSPORT BUDGET s_bud = min(1, budget*N/n_out),
-    dt_res: int = 160               #   one scalar per window: total pull mass capped at
-                                    #   budget*N full-pull equivalents. Per-particle
-                                    #   gates falsified twice (grid density silenced its
-                                    #   own targets §7.4; fixed-k kNN blind to clumps +
-                                    #   caused inversions §7.5). Early bulk-outside
-                                    #   windows scale ~30x down (no dose-response
-                                    #   catastrophe §7.3); late floater windows run at
-                                    #   full per-particle pull w_dt.
+    w_dt: float = 0.0               # one-sided-W1 cleanup: SUM_p m_p x gate_p x 3D DT.
+    dt_gate: str = "knn"            #   Gate A/B settled on the honest metric (§7.6):
+    dt_iso_lo: float = 1.2          #   kNN selectivity (full pull on singletons all run
+    dt_iso_hi: float = 1.8          #   long, dense rim untouched) beat the budget
+    dt_budget: float = 0.01         #   scalar (mid-run partial rub on every out
+    dt_res: int = 160               #   particle: no cleanup + rim damage). The kNN
+                                    #   gate's inversion side effect is owned by the
+                                    #   trajectory-det acceptance guard; its clump
+                                    #   blind spot by the fill term.
                                     #   SUM form: per-stray pull
     w_fill: float = 0.0             # HOLE-side W1 (Fattal gathering form): pull nearby
     fill_thresh: float = 0.3        #   mass toward under-covered target cells (blurred

@@ -135,3 +135,27 @@ def test_deficit_field_marks_underfill_and_saturates():
     assert -x.grad[0][0] > 0                     # descent moves toward +x (the deficit)
     # full coverage -> no deficit
     assert deficit_field(t, torch.ones(len(t)), tm, GMIN, DX, DIMS) is None
+
+
+def test_knn_gate_selectivity():
+    """§7.6: the restored kNN gate silences dense mass (bulk AND dense off-target
+    clumps) while a lone stray keeps the full pull."""
+    from physmorph.losses.volumetric import isolation_gate
+    rng = np.random.default_rng(9)
+    body = torch.tensor(rng.uniform(-0.5, 0.5, (2000, 3)).astype(np.float32))
+    clump = torch.tensor(rng.uniform(1.4, 1.6, (300, 3)).astype(np.float32))
+    lone = torch.tensor([[2.5, 0.0, 0.0]])
+    gate = isolation_gate(torch.cat([body, clump, lone]))
+    assert float(gate[2000:2300].mean()) < 0.1 and float(gate[:2000].mean()) < 0.1
+    assert float(gate[-1]) > 0.9
+
+
+def test_state_ok_rejects_trajectory_inversion():
+    """Guard v2: a candidate whose rollout inverted at ANY step is rejected even when
+    the terminal state recovered (hero7/hero9: F_invert_steps=1 slipped through)."""
+    from physmorph.pipeline.optimizer import _state_ok
+    xT = torch.zeros(4, 3); FT = torch.eye(3).repeat(4, 1).reshape(4, 9)
+    vT = torch.zeros(4, 3)
+    assert _state_ok((xT, FT, vT, 0.5))
+    assert not _state_ok((xT, FT, vT, -0.01))       # mid-trajectory inversion
+    assert _state_ok((xT, FT, vT))                  # legacy 3-tuple still works

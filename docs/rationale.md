@@ -303,3 +303,19 @@ no per-particle classification to get wrong, total pull mass hard-capped per win
 Deficit-DT (Fattal-form, target-mass-normalised, one-signed, saturating) pre-registered
 NEXT for ear underfill; 3DGS-MCMC loss-neutral relocation stays the documented escape
 hatch if forces cannot reach zero floaters.
+
+### §7.6 Gate A/B settled + trajectory-det guard (2026-09-02)
+
+Budget gate FALSIFIED on the honest metric: hero9(budget) out_dt 0.905% = iso-only
+exactly (measured no-op) with silIoU 0.9444; hero8_dtiso(kNN) 0.477% / ear count 1 /
+silIoU 0.9601. Mechanism: the budget conflates early-safety with mid-run power —
+at n_out 1000-2000 it rubs EVERY out particle at s=0.2-0.4 (rim damage, no finishes),
+while the kNN gate runs full pull on true singletons all run long and never touches
+dense rim mass. Lesson recorded: selectivity in WHO beats scheduling of HOW MUCH.
+kNN gate restored as default (dt_gate="knn"; budget kept for A/B). Its two side
+effects are now owned elsewhere: (1) single-step trajectory inversions (hero7/hero9
+F_invert_steps=1) — the line search's _state_ok now receives the WHOLE-TRAJECTORY min
+det from the candidate rollout and rejects any-step inversion (the terminal-only check
+was the hole, same guard class as the original _state_ok); (2) clump blind spot —
+the hole-side fill term absorbs near-feature clumps into the features they hug.
+Next batch: hero10 = kNN + iso + traj-guard, hero10f = + fill.
