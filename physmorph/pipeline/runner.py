@@ -423,8 +423,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             score = float(sum(v / outer_scales[k] for k, v in components.items()))
             if outer_prev is not None:
                 outer_gain = (outer_prev - score) / max(abs(outer_prev), 1e-8)
-                near_stationary = (not improved
-                                   and rec["move"] <= cfg.outer_gate_move_frac * tgt.extent)
+                # Latch evidence must be a SUSTAINED plateau (stale>=2: third
+                # consecutive non-improving commit). "small move" was retired as
+                # a criterion twice over: with a large w_kin it is reachable at
+                # 10% of the descent (s1), and under glidepath pacing every
+                # window's move is small BY DESIGN, so one noisy no-improvement
+                # commit armed the latch at anim ~59/300 (s3_paced).
+                near_stationary = (not improved) and stale >= 2
                 outer_gate_latched = outer_gate_latched or near_stationary
                 outer_reject = outer_gate_latched and outer_gain < cfg.outer_merit_tol
                 # catastrophe brake, latched or not: pace bounds the INTENDED

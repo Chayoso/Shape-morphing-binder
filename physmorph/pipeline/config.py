@@ -247,7 +247,7 @@ class PipelineConfig:
     persistent_rest_volume: bool = True  # compute Vp0 once at the sampled source state
     outer_merit: bool = False       # fixed-scale trust gate for production runs
     outer_merit_tol: float = 1e-4   # relative sufficient decrease required for a commit
-    outer_gate_move_frac: float = 6e-3 # latch after a small move and sufficient target progress
+    outer_gate_move_frac: float = 6e-3 # RETIRED as latch evidence (s1: reachable at 10% of descent; s3: pacing makes every move small) — kept for provenance
     outer_gate_merit_max: float = 0.55 # normalized fixed merit required before latching
     outer_reversal_cos: float = -0.2  # block low-gain cross-window reversals
     outer_reversal_gain: float = 5e-3 # reversal is allowed above this relative merit gain
