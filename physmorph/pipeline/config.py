@@ -64,19 +64,19 @@ class PipelineConfig:
     creg_k: int = 8                 #   Laplacian penalty on dFc so no single boundary
                                     #   particle can be actuated alone (the thin-feature
                                     #   fringe's creation mechanism — forensics 2026-09-01)
-    w_dt: float = 0.0               # one-sided-W1 cleanup: mass x 3D DT(outside target
-    dt_clamp_frac: float = 2.0      #   occupancy on the LOSS grid). 3D, not per-view:
-                                    #   the 2D multi-view DT was falsified by forensics
-                                    #   (visual hull hides interior concavities — 1.8% of
-                                    #   ear strays visible; 3D sees 100%). Unsaturated on
-                                    #   purpose — d_vol's log-ratio gradient still fades
-                                    #   with sparsity. Clamp 2*extent: nowhere inside the
-                                    #   w_box cube is force-free (Codex finding 4 — a
-                                    #   0.25 clamp left a DT-plateau/leash-zero gap);
-                                    #   beyond the box the quadratic leash dominates the
-                                    #   linear W1 tail. NOT lambda-scaled: lambda->cap x
-                                    #   constant gradient = the documented mass-ejection
-                                    #   mode (arXiv:2409.15746).
+    w_dt: float = 0.0               # one-sided-W1 cleanup: SUM_p m_p x 3D DT(outside
+    dt_res: int = 160               #   target occupancy). SUM form: per-particle pull
+    dt_clamp_frac: float = 2.0      #   = w_dt exactly, N-invariant (Opus finding 1: the
+                                    #   mean form was a measured 300-3000x no-op). Own
+                                    #   FINE target-fitted grid at dt_res (finding 2:
+                                    #   loss-grid cells left a ~1-unit dead radius over
+                                    #   the whole fringe band). 3D, not per-view (visual
+                                    #   hull hides interior concavities — forensics).
+                                    #   Clamp 2*extent: no force-free interior gap
+                                    #   (Codex f4); beyond the box the quadratic leash
+                                    #   dominates the linear tail. NOT lambda-scaled:
+                                    #   lambda->cap x constant gradient = documented
+                                    #   mass-ejection mode (arXiv:2409.15746).
 
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution

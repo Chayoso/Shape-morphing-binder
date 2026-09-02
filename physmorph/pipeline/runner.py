@@ -51,10 +51,19 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
         if cfg.w_pbr > 0:
             shade = shade_targets(tgt_t, views, cfg.render_res, extent,
                                   lgmin, ldx, ldims, cfg.sil_k, cfg.pbr_ambient)
-    if cfg.w_dt > 0:      # 3D W1 cleanup — independent of the render channel
-        dt3 = target_dt_grid(grid, ldx, ldims, clamp=cfg.dt_clamp_frac * extent)
+    dtgmin, dtdx, dtdims = None, 0.0, ()
+    if cfg.w_dt > 0:      # 3D W1 cleanup — independent of the render channel, on its
+        # OWN fine target-fitted grid (Opus finding 2: the loss grid's ~1-unit cells
+        # made a dead radius covering the whole fringe band). Cube spans 1.5x extent:
+        # everything the box leash allows stays on a live DT slope; EDT is build-time.
+        dtdims = (cfg.dt_res,) * 3
+        dtdx = 3.0 * extent / cfg.dt_res
+        dtgmin = torch.tensor([-1.5 * extent] * 3, device=dev)
+        dt_mass = target_mass_grid(tgt_t, m, dtgmin, dtdx, dtdims)
+        dt3 = target_dt_grid(dt_mass, dtdx, dtdims, clamp=cfg.dt_clamp_frac * extent)
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
-                      views=views, sils=sils, extent=extent, shade=shade, dt3=dt3)
+                      views=views, sils=sils, extent=extent, shade=shade,
+                      dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
@@ -89,8 +98,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     frames, F_frames, hist = [x.copy()], [_id(N)], []
     guards = {"clamped": 0, "nan_x": 0, "nan_state": 0, "F_reset": 0, "F_flip": 0,
               "F_invert_steps": 0}
-    # freeze tracks the RAW components (λ-free): the physics track and the render track
-    best_phys, best_rend, stale, frozen, n_held = None, None, 0, False, 0
+    # freeze tracks the RAW components (λ-free): physics, render, and W1 tracks. The W1
+    # track is SEPARATE (Opus finding 4: folded into phys_track it sat at the tolerance
+    # noise floor, so fringe-only progress could still stale out)
+    best_phys, best_rend, best_dt, stale, frozen, n_held = None, None, None, 0, False, 0
 
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render={'on(a=%g)' % cfg.lambda_auto if cfg.lambda_auto > 0 else 'OFF'} "
@@ -200,7 +211,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if tgt.dt3 is not None:      # W1 term on the ARCHIVED state — the freeze track
             with torch.no_grad():    # must see it (Codex finding 6: commits that only
                 xt = torch.as_tensor(x, device=cfg.device)   # retrieve fringe looked stale)
-                d_dt = float(d_w1(xt, tgt.m, tgt.dt3, tgt.lgmin, tgt.ldx, tgt.ldims))
+                d_dt = float(d_w1(xt, tgt.m, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims))
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
@@ -220,15 +231,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             on_commit(a, x, Fc, v_p, rec)
 
         # ---- plateau freeze on RAW components (λ-free; stops post-convergence sloshing) ----
-        phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"] + \
-            (cfg.w_dt * d_dt if d_dt is not None else 0.0)
+        phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"]
         rend_track = rec["d_render"]
         improved = best_phys is None or phys_track < best_phys - cfg.tol * abs(best_phys)
         if rend_track is not None and best_rend is not None:
             improved = improved or rend_track < best_rend - cfg.tol * abs(best_rend)
+        if d_dt is not None and best_dt is not None:     # own track + tolerance (Opus f4)
+            improved = improved or d_dt < best_dt - cfg.tol * abs(best_dt)
         best_phys = phys_track if best_phys is None else min(best_phys, phys_track)
         if rend_track is not None:
             best_rend = rend_track if best_rend is None else min(best_rend, rend_track)
+        if d_dt is not None:
+            best_dt = d_dt if best_dt is None else min(best_dt, d_dt)
         stale = 0 if improved else stale + 1
         if stale >= cfg.patience:
             frozen = True

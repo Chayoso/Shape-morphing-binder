@@ -48,7 +48,7 @@ def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray,
         "phase": rec.get("phase", "commit"), "sweep": rec.get("sweep"),
         "commit": rec.get("animation", -1) + 1,
         "E": rec.get("loss"), "d_vol": rec.get("d_vol"), "d_render": rec.get("d_render"),
-        "lam": rec.get("lambda"), "kin": rec.get("kin"),
+        "d_dt": rec.get("d_dt"), "lam": rec.get("lambda"), "kin": rec.get("kin"),
         "v_absmax": rec.get("v_absmax"), "move": rec.get("move"),
         "gnorm": rec.get("grad_norm"), "dfc": rec.get("dfc_absmax"),
         "acc": rec.get("accepted"), "rej": rec.get("rejected"),
@@ -220,7 +220,7 @@ def main():
             r = dict(rec); r["run"] = _run; r["phase"] = "commit"
             hdr = {"run": _run, "commit": a + 1, "E": rec.get("loss"),
                    "d_vol": rec.get("d_vol"), "d_render": rec.get("d_render"),
-                   "lam": rec.get("lambda"), "kin": rec.get("kin"),
+                   "d_dt": rec.get("d_dt"), "lam": rec.get("lambda"), "kin": rec.get("kin"),
                    "move": rec.get("move"), "Jmin": rec.get("Jmin_traj", rec.get("Jmin"))}
             hub.publish(pack_state(seq, r, x, cov_from_F(F, sigma0), nodes, nodeq), hdr)
 

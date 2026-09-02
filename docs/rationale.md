@@ -211,3 +211,28 @@ applied; the term is the one-sided W1 transport bound (no target-capacity constr
 capacity is D_vol's job; documented). 14 (weak tests): ported suite `test_w1_cleanup.py`
 = self-force, fixed-N invariance, direction, gap, monotonicity + causal d_dt/λ-free/lg
 guards in the smoke tests. 15 (C3 pixel convention): survived — moot in 3D regardless.
+
+### §7.2 Opus round (REFUTE, 15 findings) — the two that mattered, all answered
+
+Opus caught what Codex and the forensics both missed — the term was structurally right
+and NUMERICALLY OFF: (1) the mean normalisation gave each particle authority w_dt/N,
+measured 300-3270x below lambda*D_render / d_vol at the shipped weight — every "the DT
+term didn't move the hero" verdict (hero3/hero4) was an artefact of an accidental no-op,
+not of the mechanism; and (2) on the coarse loss grid (ldx~1 world unit) CIC dilation +
+the flat trilinear cell created a ~1-unit DEAD RADIUS: 72-90% of the production fringe
+band (0.1-0.6 units off-surface) felt zero gradient — my forensic had conflated DT
+*value* visibility with *gradient* visibility. Fixes: d_w1 is now a SUM (per-particle
+pull = w_dt exactly, N-invariant, smoke-to-production transferable; 3DGS-MCMC's
+L1-opacity is also a sum) with default w_dt 0.2 (Opus gradient-parity estimate
+3000-5000 in mean form / 20000 particles); the DT lives on its OWN fine target-fitted
+grid (dt_res=160, cell ~0.019*extent, spanning 1.5x extent so the whole leash interior
+is on a live slope), decoupled from loss_res. Sub-cell fringe-regime gradient is now a
+test. Remaining Opus items: separate best_dt freeze track (f4 refinement — folded-in
+form sat at the tolerance noise floor); d_dt streamed to the live viewer with its own
+series (f8); empty-support assert (f11); scalars() no longer builds a second graph
+(f14, and the +1 adjoint replay per iter from the phys_core split is documented cost);
+border-clamp direction distortion (f13) accepted — beyond the DT cube the leash owns
+the far field; sil_k/mask coupling (f15) moot in 3D (no alpha threshold). C2 (ear
+erosion) survived both reviews: support = the sampler's own CIC stencil, self-force
+zero by construction (tested). hero4/p3_* (2026-09-01 evening batch) are struck from
+the record as no-op-weighted + dead-zoned; v7 reruns supersede them.

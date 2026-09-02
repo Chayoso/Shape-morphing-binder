@@ -49,7 +49,10 @@ class TargetPack:
     sils: list | None           # target alpha images (None when render channel off)
     extent: float
     shade: list | None = None   # target shaded images (PBR-lite channel, w_pbr>0)
-    dt3: torch.Tensor | None = None   # 3D outside-DT of the loss grid (W1 cleanup, w_dt>0)
+    dt3: torch.Tensor | None = None   # fine target-fitted 3D outside-DT (W1 cleanup)
+    dtgmin: torch.Tensor | None = None  # its own grid: NOT the loss grid (Opus finding 2:
+    dtdx: float = 0.0                   # coarse cells left a dead radius covering the
+    dtdims: tuple = ()                  # entire production fringe band)
 
 
 def _norm(gs) -> float:
@@ -181,7 +184,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         = documented mass-ejection mode) and NOT part of phys_core (finding 9)."""
         if tgt.dt3 is None:
             return None
-        return cfg.w_dt * d_w1(xT, tgt.m, tgt.dt3, tgt.lgmin, tgt.ldx, tgt.ldims)
+        return cfg.w_dt * d_w1(xT, tgt.m, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
 
     def phys_total(lv, lk, dfc, xT):
         L = phys_core(lv, lk, dfc, xT)
@@ -189,7 +192,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L if ldt is None else L + ldt
 
     def scalars(lv, lk, lr, lam_r, dfc, xT):
-        L = float(phys_total(lv, lk, dfc, xT).detach())
+        with torch.no_grad():    # scalar only — never build a second autograd graph
+            L = float(phys_total(lv, lk, dfc.detach(), xT.detach()))
         return L if lr is None else L + lam_r * float(lr)
 
     hist, accepted, rejected = [], 0, 0

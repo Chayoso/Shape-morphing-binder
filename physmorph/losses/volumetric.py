@@ -43,15 +43,19 @@ def target_dt_grid(target_grid: torch.Tensor, dx: float, dims,
     """Unsigned Euclidean distance transform (world units) OUTSIDE target-occupied
     cells, flat zero inside, optionally clamped (far field stays the box leash's job).
 
-    Support = ANY target CIC mass (dilation <= 1 cell), so thin features always count
-    as support — the ear-erosion falsifier guard. 3D on purpose: the 2D multi-view
-    variant was falsified by direct forensics (hero3: 1.8% of ear-region strays visible
-    to per-view DTs at ANY mask threshold — the concavity between thin features lies
-    INSIDE the visual hull; the 3D loss-grid DT sees 100% of them)."""
+    Support = ANY target CIC mass on THIS grid, so thin features always count as
+    support — the ear-erosion falsifier guard. The grid must be FINE and target-fitted
+    (Opus finding 2: on the coarse loss grid, CIC dilation + the flat trilinear cell
+    left a ~1-world-unit dead radius where 72-90% of the production fringe felt zero
+    gradient — DT *value* visibility had been conflated with *gradient* visibility);
+    the runner builds it at cfg.dt_res on a target-fitted cube so dilation + flat band
+    shrink to ~2 fine cells. 3D on purpose: the 2D multi-view variant was falsified by
+    forensics (visual hull hides interior concavities)."""
     from scipy.ndimage import distance_transform_edt
     import numpy as np
     nx, ny, nz = dims
     occ = (target_grid > 1e-6).reshape(nx, ny, nz).cpu().numpy()
+    assert occ.any(), "empty support: EDT would measure distance to the array border"
     dt = distance_transform_edt(~occ) * dx
     if clamp is not None:
         dt = np.minimum(dt, clamp)
@@ -61,14 +65,17 @@ def target_dt_grid(target_grid: torch.Tensor, dx: float, dims,
 
 def d_w1(x: torch.Tensor, m: torch.Tensor, dt_grid: torch.Tensor,
          grid_min: torch.Tensor, dx: float, dims) -> torch.Tensor:
-    """Pointwise-W1 cleanup term: mean_p m_p * DT(x_p), trilinear-sampled.
+    """One-sided-W1 cleanup term: SUM_p m_p * DT(x_p), trilinear-sampled.
 
-    The complement d_vol cannot supply: d_vol's per-particle gradient fades with
-    sparsity (log-ratio: ~linear in the stray's own cell mass), so a lone fringe
-    particle is asymptotically invisible; here the per-particle gradient is grad-DT —
-    unit-bounded (Lipschitz-1, clamped), pointing at target support, INDEPENDENT of
-    local density. Lineage: DRWR flat-inside/linear-outside asymmetry, PhysMorph-GS v1
-    L_DT, 3DGS-MCMC L1-opacity, Sinkhorn/W1 isolated-point gradients (rationale §7)."""
+    SUM, not mean (Opus finding 1: the mean form gave each particle authority w_dt/N —
+    measured 300-3270x below the other terms at the shipped weight, an accidental
+    no-op, and non-transferable between particle counts). In sum form the per-particle
+    pull is exactly w_dt * grad-DT: N-invariant, bounded by ~sqrt(3)*w_dt (trilinear
+    EDT interpolant), pointing at target support, INDEPENDENT of local density — the
+    complement d_vol cannot supply (its log-ratio gradient fades with the stray's own
+    cell mass). Lineage: DRWR flat-inside/linear-outside asymmetry, PhysMorph-GS v1
+    L_DT, 3DGS-MCMC L1-opacity (also a sum over primitives), Sinkhorn/W1
+    isolated-point gradients (rationale §7)."""
     nx, ny, nz = dims
     rel = (x - grid_min) / dx
     base = torch.floor(rel).long()
@@ -84,7 +91,7 @@ def d_w1(x: torch.Tensor, m: torch.Tensor, dt_grid: torch.Tensor,
                 jj = (base[:, 1] + oy).clamp(0, ny - 1)
                 kk = (base[:, 2] + oz).clamp(0, nz - 1)
                 val = val + wx * wy * wz * dt_grid[(ii * ny + jj) * nz + kk]
-    return (m * val).mean()
+    return (m * val).sum()
 
 
 def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,

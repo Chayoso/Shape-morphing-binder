@@ -140,7 +140,7 @@ def test_render_dt_end_to_end(prm, clouds):
     """Pointwise-W1 spray wiring: DT maps built in build_target, term active in
     phys_total, run finishes with finite state (fringe tranche, rationale.md §7)."""
     src, tgt_x = clouds
-    cfg = _cfg(lambda_auto=0.5, w_dt=10.0, w_creg=50.0)
+    cfg = _cfg(lambda_auto=0.5, w_dt=0.5, w_creg=50.0)
     res = run_pipeline(src, tgt_x, prm, cfg, log=lambda *_: None)
     _check_result(res, cfg, len(src))
     recs = [h for h in res["history"] if "d_vol" in h]
@@ -148,12 +148,13 @@ def test_render_dt_end_to_end(prm, clouds):
     # causal wiring (Codex finding 14): the W1 scalar is computed on every archived
     # state and feeds the freeze track
     assert all(r["d_dt"] is not None and np.isfinite(r["d_dt"]) for r in recs)
+    assert recs[-1]["d_dt"] <= recs[0]["d_dt"] * 1.5   # the term acts, never explodes
 
 
 def test_w1_independent_of_render_channel(prm, clouds):
     """Codex finding 12: w_dt>0 with lambda_auto=0 must still build and apply the term."""
     src, tgt_x = clouds
-    res = run_pipeline(src, tgt_x, prm, _cfg(w_dt=10.0), log=lambda *_: None)
+    res = run_pipeline(src, tgt_x, prm, _cfg(w_dt=0.5), log=lambda *_: None)
     recs = [h for h in res["history"] if "d_vol" in h]
     assert recs and all(r["d_dt"] is not None for r in recs)
     assert all(r["d_render"] is None for r in recs)
@@ -164,5 +165,5 @@ def test_lg_with_w1_is_rejected(prm, clouds):
     import pytest as _pytest
     src, tgt_x = clouds
     with _pytest.raises(ValueError):
-        run_pipeline(src, tgt_x, prm, _cfg(lambda_auto=0.5, lg_sweeps=2, w_dt=10.0),
+        run_pipeline(src, tgt_x, prm, _cfg(lambda_auto=0.5, lg_sweeps=2, w_dt=0.5),
                      log=lambda *_: None)

@@ -33,8 +33,8 @@ def test_no_target_self_force():
     # rim particles at exact cell faces may see a sub-cell boundary subgradient; it must
     # be rare and bounded, never a bulk force
     gnorm = x.grad.norm(dim=1)
-    assert float(gnorm.max()) < DX          # bounded by ~one cell of DT per unit weight
-    assert float((gnorm > 1e-9).float().mean()) < 0.05
+    assert float(gnorm.max()) < 2.0         # sum form: rim subgradient O(1), never a bulk force
+    assert float((gnorm > 1e-6).float().mean()) < 0.05
 
 
 def test_zero_inside_monotone_outside():
@@ -80,3 +80,21 @@ def test_no_force_free_gap_inside_box():
     corner = torch.tensor([[0.98, 0.98, 0.98]], requires_grad=True)   # inside box corner
     d_w1(corner, torch.ones(1), dt3, GMIN, DX, DIMS).backward()
     assert float(corner.grad.norm()) > 1e-6
+
+
+def test_subcell_fringe_regime_has_gradient():
+    """Opus finding 2: the production fringe lives 0.03-0.17*extent off the surface —
+    on the fine target-fitted grid (cell ~0.019*extent) that band must be on a live
+    DT slope, not in a CIC-dilation/trilinear dead zone."""
+    rng = np.random.default_rng(5)
+    extent = 3.0
+    t = torch.tensor(rng.uniform(-1.5, 1.5, (4000, 3)).astype(np.float32))
+    res = 160
+    dx = 3.0 * extent / res
+    gmin = torch.tensor([-1.5 * extent] * 3)
+    grid = target_mass_grid(t, torch.ones(len(t)), gmin, dx, (res,) * 3)
+    dt3 = target_dt_grid(grid, dx, (res,) * 3, clamp=2.0 * extent)
+    for off in (0.2, 0.5):                    # world units off the +x face at 1.5
+        x = torch.tensor([[1.5 + off, 0.0, 0.0]], requires_grad=True)
+        d_w1(x, torch.ones(1), dt3, gmin, dx, (res,) * 3).backward()
+        assert float(x.grad.norm()) > 0.1, f"dead zone at {off} world units"
