@@ -93,8 +93,8 @@ def _state_ok(state) -> bool:
     if not bool((torch.linalg.det(FT.view(-1, 3, 3)) > 0).all()):
         return False
     if len(state) > 3 and state[3] is not None:
-        return state[3] > 0.0
-    return True
+        return state[3] > 1e-6      # margin (stack-review f4): raw >0 admitted
+    return True                     # dets like 1e-12 with exploding F^-T
 
 
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
@@ -135,6 +135,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     m_dt = None
     x0_t = torch.as_tensor(x0, device=dev)
     if tgt.dt3 is not None:
+        if cfg.dt_gate not in ("knn", "budget"):    # f18: a typo must not silently
+            raise ValueError(f"unknown dt_gate {cfg.dt_gate!r}")   # select the default
         if cfg.dt_gate == "budget":       # kept for A/B; measured no-op at 0.01 (§7.6)
             m_dt = tgt.m * w1_budget(x0_t, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
                                      cfg.dt_budget)
@@ -199,10 +201,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             FT = wp.to_torch(tr.F[T]).reshape(N, 9)
             vT = wp.to_torch(tr.v[T])
             lv, lk, lr, lpbr = losses_of(xT, vT)
-            # whole-trajectory orientation check for _state_ok (single-step inversions
-            # were invisible to the terminal-only check and slipped into commits)
-            jt = min(float(torch.linalg.det(
-                wp.to_torch(tr.F[t]).reshape(N, 3, 3)).min()) for t in range(1, T + 1))
+            # whole-trajectory orientation check for _state_ok. Stack-review fixes:
+            # f1 — the stored F is SMOOTHED, so a constitutive inversion in the
+            # EFFECTIVE deformation (F+dFc, whose det sign equals det(F_e) since
+            # det(Fp)>0) could hide; both are checked. f17 — one stacked reduction,
+            # one device sync. NaN propagates through .min() -> rejected by _state_ok.
+            F_post = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3)
+                                  for t in range(1, T + 1)])
+            F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3)
+                                 for t in range(T)])
+            j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
+            jt = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
         return (xT, FT, vT, jt), lv, lk, lr, lpbr
 
     def phys_core(lv, lk, dfc, xT):
@@ -251,7 +260,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # absolute control — verbatim reuse double-applies it (measured cascade to inversion).
     if dfc_init is not None and cfg.warm_decay > 0:
         st0, lv0, lk0, lr0, _ = eval_terms(dFc)
-        E0 = scalars(lv0, lk0, lr0, lam_r, dFc, st0[0])
+        # stack-review f5: an INVALID cold baseline must not be the comparator — its
+        # position-only loss can be artificially low and block every valid warm start
+        E0 = scalars(lv0, lk0, lr0, lam_r, dFc, st0[0]) if _state_ok(st0) else np.inf
         with torch.no_grad():
             dFc.copy_(torch.tensor(np.ascontiguousarray(dfc_init, np.float32),
                                    device=dev) * cfg.warm_decay)
@@ -405,6 +416,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         tr = Trajectory(x0, 1.0, lam_np, mu_np, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
                         dFc=seq, device=dev, requires_grad=False)
         tr.rollout()
+        # stack-review f2: this rollout — not the accepted candidate — is what gets
+        # COMMITTED, and CUDA atomics make replay non-bit-identical: validate it with
+        # the same trajectory checks; a failed replay hands the runner an empty window
+        # (null commit) instead of an unchecked trajectory.
+        F_post = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3)
+                              for t in range(1, T + 1)])
+        F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
+        j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
+        jt_final = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
+        if not (np.isfinite(jt_final) and jt_final > 1e-6) and accepted > 0:
+            log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
+                "discarding window (replay/accepted-candidate mismatch)")
+            hist, accepted = [], 0
         frames = [tr.x[t].numpy().copy() for t in range(T + 1)]
         F_seq = [tr.F[t].numpy().copy() for t in range(T + 1)]
         end = {"F": tr.F[T].numpy().copy(), "v": tr.v[T].numpy().copy(),

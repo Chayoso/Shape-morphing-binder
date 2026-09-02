@@ -122,10 +122,12 @@ def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
     (hero8_dtiso out_dt 0.477% / ear 1 / silIoU 0.9601 vs budget 0.905% / 8 / 0.9444
     = a measured no-op). Lesson: selectivity in WHO gets pulled beats scheduling of
     how much — the kNN gate runs full pull on true singletons ALL run long and never
-    touches dense rim mass. Its known blind spot (3-10-particle clumps, DROD) and its
-    inversion side effect are handled elsewhere (trajectory-det acceptance guard;
-    deficit fill absorbs near-feature clumps). gate = ramp of d_kNN/median from lo to
-    hi, frozen per window."""
+    touches dense rim mass. Its inversion side effect is owned by the trajectory-det
+    acceptance guard. KNOWN UNRESOLVED (stack-review f7): compact 3-10-particle clumps
+    sit below the lo ramp and get zero pull — fill v1 did NOT absorb them (measured
+    ineffective, ear coverage 23.1->23.5%) and the flagship runs without fill; treat
+    clumps as an open defect with no owner. gate = ramp of d_kNN/median from lo to hi,
+    frozen per window."""
     from scipy.spatial import cKDTree
     with torch.no_grad():
         xn = x.detach().cpu().numpy()
@@ -140,7 +142,10 @@ def w1_budget(x: torch.Tensor, dt_grid: torch.Tensor, grid_min: torch.Tensor,
               dx: float, dims, budget_frac: float) -> float:
     """Scalar transport-budget factor for the W1 term: min(1, budget·N / n_out).
 
-    Third and final gate design. Per-particle gates were falsified twice — grid-CIC
+    FALSIFIED as the flagship gate (§7.6: measured no-op at budget 0.01 — mid-run
+    partial pull on every out particle cleaned nothing and damaged the rim; kNN
+    selectivity won on the honest metric). Kept only for A/B. Original design notes:
+    per-particle gates were falsified twice before it — grid-CIC
     density (silenced 100% of the out-of-support mass: fringe shares coarse cells with
     thin features) and fixed-k kNN isolation (blind to 3-10-particle clumps, LOF-class
     scores are at chance on clustered outliers per DROD; larger k reaches the nearby

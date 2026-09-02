@@ -319,3 +319,31 @@ det from the candidate rollout and rejects any-step inversion (the terminal-only
 was the hole, same guard class as the original _state_ok); (2) clump blind spot —
 the hole-side fill term absorbs near-feature clumps into the features they hug.
 Next batch: hero10 = kNN + iso + traj-guard, hero10f = + fill.
+
+### §7.7 Stack adversarial round (Codex sol-5.6 xhigh, 19 findings; 2026-09-02)
+
+All six pre-registered claims REFUTED — the sharpest round yet. Fixed immediately:
+f1 (CRITICAL — the trajectory guard checked stored SMOOTHED F while stress uses the
+effective F+dFc; now both stacked-det checked per step, one device sync = also f17);
+f2 (CRITICAL — committed frames come from a fresh unchecked rollout under CUDA
+atomics; the commit rollout now passes the same trajectory check or the window is
+discarded as a null commit); f4 (det margin 1e-6 + NaN-propagating stacked min);
+f5 (invalid cold baseline no longer blocks valid warm starts — E0=inf when infeasible);
+f6 (line-search exhaustion no longer hard-stops the run bypassing patience — it null-
+commits and lets patience decide; hero7_base's anim-106 truncation was this bug);
+f11 (lg guard extended to w_fill); f13 (freeze d_dt now UNGATED — the gated track
+reproduced the "gate died, particle did not move" pathology in the convergence
+signal); f16 (isochoric renormalisation violated the SV band, probe 792/1000 rows out;
+now alternating log-space projections onto {sum log s=0} INTERSECT band); f18 (dt_gate
+typo no longer silently selects the default; falsified-mechanism docstrings corrected —
+budget gate and fill v1 are recorded as falsified, clumps as UNOWNED).
+
+Open (pre-registered for the next iteration): f3 — dFc bakes volume into promoted F
+outside the Fp invariant (the remaining detF~0.02 path; candidate fix: centered log-J
+heterogeneity objective or isochoric control projection); f8 — out_dt_frac has a
+2-cell dilated dead band and reuses the loss operator: "ear count 1" excludes only
+deep particles, NOT the 0.07-0.15 wu halo (fix: continuous target-NN distance bands,
+rename the current metric diagnostic-only); f7 — clump blind spot UNOWNED; f9/f10/f12/
+f14/f15 — fill v2 must be capacity-aware continuous demand (Schmitt mask, unblurred
+thin-feature residual, donor-surplus accounting) with its own d_fill track; f19 — the
+test gaps mirroring all of the above. Opus round in flight; its findings merge here.

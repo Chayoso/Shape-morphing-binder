@@ -45,8 +45,16 @@ def assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0,
     Fp_new = np.einsum("nij,njk->nik", Sa, Fp)
     U2, S2, Vt2 = np.linalg.svd(Fp_new)              # cumulative band clamp LAST
     S2 = np.clip(S2, smin, smax)
-    if isochoric:      # the band clamp itself re-introduces det drift — renormalise so
-        # det(Fp)=1 stays an INVARIANT (values may exit the band by the cbrt factor;
-        # the band is a safety rail, the volume invariant is the physics)
-        S2 = S2 / np.prod(S2, axis=1, keepdims=True) ** (1.0 / 3.0)
+    if isochoric:
+        # Codex stack-review f16: a single det renormalisation VIOLATES the band
+        # (probe: 792/1000 rows left [0.2,5], reaching [0.136,8.01]). Project onto
+        # {sum log s = 0} INTERSECT the log-band by alternating projections (both
+        # sets convex in log space; 4 rounds converge well under float32 noise).
+        l = np.log(S2)
+        lo, hi = np.log(smin), np.log(smax)
+        for _ in range(4):
+            l = l - l.mean(axis=1, keepdims=True)    # det = 1 plane
+            l = np.clip(l, lo, hi)                   # band box
+        l = l - l.mean(axis=1, keepdims=True)        # end on the invariant
+        S2 = np.exp(l)
     return np.einsum("nij,nj,njk->nik", U2, S2, Vt2).astype(np.float32)

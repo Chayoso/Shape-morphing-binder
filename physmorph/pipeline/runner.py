@@ -17,8 +17,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..losses.volumetric import (d_vol, d_w1, isolation_gate, target_dt_grid,
-                                 target_mass_grid, w1_budget)
+from ..losses.volumetric import d_vol, d_w1, target_dt_grid, target_mass_grid
 from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
 from ..plasticity import assimilate_elastic
@@ -82,11 +81,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     N = src.shape[0]
     assert target_x.shape[0] == N, ("D_vol compares unit-mass clouds: source and target need "
                                     f"the same particle count (got {N} vs {target_x.shape[0]})")
-    if cfg.lg_sweeps > 0 and cfg.w_dt > 0:
-        # Codex finding 7: the local pass's exact-quadratic energy excludes the W1 term,
-        # so it can undo an accepted W1 step and assimilation then ratchets the regression
-        raise ValueError("lg_sweeps>0 with w_dt>0 is unsupported (local energy has no W1 "
-                         "term; adding a non-quadratic term breaks its exact line search)")
+    if cfg.lg_sweeps > 0 and (cfg.w_dt > 0 or cfg.w_fill > 0):
+        # Codex finding 7 (+stack-review f11): the local pass's exact-quadratic energy
+        # excludes BOTH one-signed W1 terms, so it can undo an accepted W1/fill step and
+        # assimilation then ratchets the regression
+        raise ValueError("lg_sweeps>0 with w_dt>0 or w_fill>0 is unsupported (local "
+                         "energy has no W1/fill term; a non-quadratic term breaks its "
+                         "exact line search)")
     tgt = build_target(target_x, prm, cfg)
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
     # the local-global pass calibrates λ in ITS OWN variable space (u, joules) — sharing
@@ -143,8 +144,17 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 hist.append({"animation": a, "grad_converged": 1})
                 log(f"[v2] anim {a + 1}: gradient converged at window start; holding still")
                 continue
-            log(f"[v2] anim {a + 1}: no accepted step, stopping")
-            break
+            # line-search exhaustion is NOT convergence (Codex stack-review f6: a hard
+            # stop here bypassed patience — hero7_base truncated at anim 106). Null
+            # commit: hold the state, let the patience counter decide the freeze.
+            log(f"[v2] anim {a + 1}: no accepted step — null commit (stale {stale + 1})")
+            frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
+            hist.append({"animation": a, "null_commit": 1})
+            stale += 1
+            if stale >= cfg.patience:
+                frozen = True
+                log(f"[v2] frozen after {cfg.patience} stale/null commits")
+            continue
 
         # ---- FULL state promotion + guard counters (must stay zero, gate G2) ----
         x_new = np.ascontiguousarray(fr[-1], np.float32)
@@ -216,14 +226,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                                    cfg.w_hole, cfg.w_spray))
         d_dt = None
         if tgt.dt3 is not None:      # W1 term on the ARCHIVED state — the freeze track
-            with torch.no_grad():    # must see it (Codex finding 6: commits that only
-                xt = torch.as_tensor(x, device=cfg.device)   # retrieve fringe looked stale)
-                if cfg.dt_gate == "budget":
-                    m_g = tgt.m * w1_budget(xt, tgt.dt3, tgt.dtgmin, tgt.dtdx,
-                                            tgt.dtdims, cfg.dt_budget)
-                else:
-                    m_g = tgt.m * isolation_gate(xt, cfg.dt_iso_lo, cfg.dt_iso_hi)
-                d_dt = float(d_w1(xt, m_g, tgt.dt3,
+            with torch.no_grad():    # must see it (Codex finding 6). UNGATED on purpose
+                # (stack-review f13: a per-window gate makes the track fall when the
+                # GATE dies rather than when particles move — the §7.4 pathology in
+                # the convergence signal): a gate-independent geometric statistic.
+                xt = torch.as_tensor(x, device=cfg.device)
+                d_dt = float(d_w1(xt, tgt.m, tgt.dt3,
                                   tgt.dtgmin, tgt.dtdx, tgt.dtdims))
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
