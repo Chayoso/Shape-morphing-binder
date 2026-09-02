@@ -78,7 +78,18 @@ class PipelineConfig:
                                     #   stray pull = w_dt exactly, N-invariant (Opus
                                     #   finding 1: mean form was a 300-3000x no-op).
                                     #   dt_budget also caps the FILL budget (F15).
-    w_fill: float = 0.0             # HOLE-side W1 v3: ALPHA of the fill norm-
+    fill_cap_frac: float = 0.02     # fill v4: pair cap (<= this fraction of N matched)
+    w_fill: float = 0.0             # fill v4: FIXED pull weight on TARGET-HARD
+                                    #   assigned pairs (deficit cell -> nearest donor
+                                    #   particles, capacity ~ cell shortfall). v3's
+                                    #   norm-balanced weight died with the physics
+                                    #   gradient (0.062->0.009) before thin features
+                                    #   filled; growth v1 proved particle-side demand
+                                    #   is a universal surface signal (99% of high
+                                    #   demand outside the ears). Anchoring on the
+                                    #   deficit CELLS is the partial-OT target-hard
+                                    #   form. (history below: the v3 note)
+                                    # HOLE-side W1 v3: ALPHA of the fill norm-
                                     #   balancer (fill_lam = w_fill*||g_phys||/
                                     #   ||g_fill||, EMA, cap) — v2's constant
                                     #   weight dominated late 30:1 (measured);

@@ -155,20 +155,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # HOLE-side W1 (deficit fill v2), frozen per window: support-ANDed mask (F1),
     # budget on DEFICIT MASS not in-range particles (F2), SMOOTH locality ramp (F12 —
     # the hard 0/1 indicator was single-particle actuation, what w_creg exists to stop)
-    ddt = m_fill = None
+    fill_pairs = None
     if cfg.w_fill > 0 and tgt.tmass3 is not None:
-        df = deficit_field(x0_t, tgt.m, tgt.tmass3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
-                           cfg.fill_thresh, cfg.fill_sigma, clamp=2.0 * tgt.extent)
-        if df is not None:
-            ddt, deficit_mass = df
-            with torch.no_grad():
-                from ..losses.volumetric import gather_cic
-                d0 = gather_cic(ddt, x0_t, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
-                r = cfg.fill_range_frac * tgt.extent
-                loc = (1.0 - d0 / max(r, 1e-9)).clamp(0.0, 1.0)   # smooth ramp to 0 at r
-            m_fill = tgt.m * loc      # v3: NO budget scalar — the fill norm-balancer
-            # (fill_lam = alpha*||g_phys||/||g_fill||, EMA, cap) makes dominance
-            # structurally impossible (v2 failure: constant pull 30:1 over data late)
+        from ..losses.volumetric import deficit_assign
+        fill_pairs = deficit_assign(x0_t, tgt.m, tgt.tmass3, tgt.dtgmin, tgt.dtdx,
+                                    tgt.dtdims, cfg.fill_thresh, cfg.fill_sigma,
+                                    cap_frac=cfg.fill_cap_frac,
+                                    range_wu=cfg.fill_range_frac * tgt.extent)
 
     def material():
         if s is None:
@@ -259,11 +252,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = Ln if L is None else L + Ln
         return L
 
-    fill_on = ddt is not None and m_fill is not None and fill_bal is not None
-    fill_lam = (fill_bal.lam or 0.0) if fill_on else 0.0
+    fill_on = fill_pairs is not None
+    fill_lam = cfg.w_fill if fill_on else 0.0     # v4: FIXED weight — dominance is
+    # bounded by the capacity-limited MATCHING (<= fill_cap_frac*N pairs), not by a
+    # scalar that dies with the physics gradient (the v3 failure)
 
     def fill_raw(xT):
-        return d_w1(xT, m_fill, ddt, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+        from ..losses.volumetric import d_fill_pairs
+        return d_fill_pairs(xT, fill_pairs[0], fill_pairs[1], 0.5 * tgt.dtdx)
 
     def phys_total(lv, lk, dfc, xT, fT=None):
         L = phys_core(lv, lk, dfc, xT, fT)
@@ -312,13 +308,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         Lfill = fill_raw(state[0]) if fill_on else None
         smooth = balancer.active and cfg.render_gs_iters > 0
         gp = None
-        if fill_on and it == 0:
-            # fill v3: weight from gradient parity, estimated ONCE per window exactly
-            # like lambda_render — the fill can never exceed alpha_fill x the physics
-            # gradient, so the v2 late-run dominance cannot form
-            gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
-            gf = torch.autograd.grad(Lfill, leaves, retain_graph=True)
-            fill_lam = fill_bal.update(_norm(gp), _norm(gf))
         Ldt = dt_term(state[0])
         if Lfill is not None:
             Ldt = (fill_lam * Lfill) if Ldt is None else (Ldt + fill_lam * Lfill)

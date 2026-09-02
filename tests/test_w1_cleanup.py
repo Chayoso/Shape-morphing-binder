@@ -184,3 +184,27 @@ def test_nn_band_pull_and_berth():
     g_ = x.grad
     assert float(g_[1].norm()) == 0.0 and float(g_[2].norm()) == 0.0
     assert -g_[0][0] < 0                         # descent pulls toward -x (the face)
+
+
+def test_fill_v4_assignment_targets_deficit_cells():
+    """Fill v4 (§7.13): pairs anchor on under-covered TRUE-support cells; matched
+    donors are pulled toward the cell center; pair count respects the cap."""
+    from physmorph.losses.volumetric import deficit_assign, d_fill_pairs
+    rng = np.random.default_rng(7)
+    t = torch.tensor(rng.uniform(-0.5, 0.5, (3000, 3)).astype(np.float32))
+    body = t[t[:, 0] < 0.1].clone()              # right part of the target uncovered
+    tm = target_mass_grid(t, torch.ones(len(t)), GMIN, DX, DIMS)
+    pr = deficit_assign(body, torch.ones(len(body)), tm, GMIN, DX, DIMS,
+                        cap_frac=0.05)
+    assert pr is not None
+    pidx, centers = pr
+    assert len(pidx) <= int(0.05 * len(body)) + 1          # capacity cap
+    assert float(centers[:, 0].min()) > 0.0                # anchors in the uncovered half
+    x = body.clone().requires_grad_(True)
+    d_fill_pairs(x, pidx, centers, 0.5 * DX).backward()
+    g = x.grad[pidx]
+    to_center = centers - body[pidx]
+    cos = ((-g) * to_center).sum(1) / (g.norm(dim=1) * to_center.norm(dim=1) + 1e-9)
+    assert float(cos.mean()) > 0.9                         # descent pulls INTO the cells
+    # full coverage -> no pairs
+    assert deficit_assign(t, torch.ones(len(t)), tm, GMIN, DX, DIMS) is None

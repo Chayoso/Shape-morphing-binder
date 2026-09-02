@@ -252,6 +252,73 @@ def growth_demand(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
         return gather_cic(field, x, grid_min, dx, dims).clamp(0.0, 1.0).cpu().numpy()
 
 
+def deficit_assign(x0: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
+                   grid_min: torch.Tensor, dx: float, dims, thresh: float = 0.6,
+                   sigma: float = 2.0, cap_frac: float = 0.02,
+                   range_wu: float = 1e9):
+    """Fill v4 — TARGET-HARD assignment (the partial-OT reading: demand marginal
+    hard, source soft; the symmetric relaxation discards instead of filling, Bai et
+    al. warning). Growth v1's autopsy: demand gathered AT particles is a universal
+    surface signal (99% of high demand landed outside the ears) because THE DEFICIT
+    IS WHERE PARTICLES ARE NOT. So anchor on the deficit CELLS: each under-covered
+    true-support cell requests donors — its nearest body particles, capacity scaled
+    with its shortfall mass — and only the MATCHED pairs feel any pull. The pair
+    count is capacity-bounded (<= cap_frac*N), so dominance is bounded by the
+    matching itself, not by a weight scalar that then dies with the physics gradient
+    (the fill-v3 failure). Frozen per window. Returns (particle_idx, centers) or
+    None."""
+    from scipy.ndimage import gaussian_filter
+    from scipy.spatial import cKDTree
+    import numpy as np
+    nx, ny, nz = dims
+    with torch.no_grad():
+        b = rasterize_mass(x0, m, grid_min, dx, dims).reshape(nx, ny, nz).cpu().numpy()
+        t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
+        bb = gaussian_filter(b, sigma)
+        tb = gaussian_filter(t, sigma)
+        deficit = (t > 1e-6) & (tb > 1e-4) & (bb < thresh * tb)
+        if not deficit.any():
+            return None
+        ii, jj, kk = np.nonzero(deficit)
+        gm = grid_min.cpu().numpy()
+        centers = np.stack([ii, jj, kk], 1).astype(np.float32) * dx + gm + 0.5 * dx
+        short = np.maximum(thresh * tb - bb, 0.0)[deficit]
+        order = np.argsort(-short)               # worst-covered cells claim donors first
+        centers, short = centers[order], short[order]
+        n_cap = max(1, int(cap_frac * len(x0)))
+        xn = x0.detach().cpu().numpy()
+        tree = cKDTree(xn)
+        used = np.zeros(len(xn), bool)
+        pi, cc = [], []
+        kq = 8
+        dists_all, idxs_all = tree.query(centers, k=kq, workers=-1)
+        for row in range(len(centers)):
+            k_need = int(np.clip(np.ceil(short[row]), 1, 4))
+            took = 0
+            for dd, idx in zip(dists_all[row], idxs_all[row]):
+                if used[idx] or dd > range_wu:
+                    continue
+                used[idx] = True
+                pi.append(int(idx)); cc.append(centers[row])
+                took += 1
+                if took >= k_need:
+                    break
+            if len(pi) >= n_cap:
+                break
+        if not pi:
+            return None
+        return (torch.as_tensor(np.asarray(pi), device=x0.device),
+                torch.as_tensor(np.asarray(cc, np.float32), device=x0.device))
+
+
+def d_fill_pairs(x: torch.Tensor, pidx: torch.Tensor, centers: torch.Tensor,
+                 berth: float) -> torch.Tensor:
+    """SUM over matched pairs of relu(|x_p - cell_center| - berth): constant pull of
+    each matched donor into its assigned deficit cell; zero once inside the berth."""
+    d = (x[pidx] - centers).norm(dim=1)
+    return torch.clamp(d - berth, min=0.0).sum()
+
+
 def coverage_shortfall(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
                        grid_min: torch.Tensor, dx: float, dims,
                        sigma: float = 2.0) -> float:
