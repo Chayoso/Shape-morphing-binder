@@ -187,15 +187,16 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_jvol = args.w_jvol
         cfg.w_nn = args.w_nn
         cfg.assim_iso = True
-    elif arm == "render_full_fill_iso":            # + hole-side W1 (deficit fill)
+    elif arm == "render_full_fill_iso":            # full stack + norm-balanced fill v3
         cfg.lambda_auto = args.lambda_auto
         cfg.w_pbr = args.w_pbr
-        cfg.grad_project = True
+        cfg.grad_project = False
         cfg.c2f_at = 0.5
         cfg.pace = args.pace
         cfg.dfc_clip = args.dfc_clip
         cfg.w_creg = args.w_creg
         cfg.w_dt = args.w_dt
+        cfg.w_nn = args.w_nn
         cfg.w_fill = args.w_fill
         cfg.w_jvol = args.w_jvol
         cfg.assim_iso = True
