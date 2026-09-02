@@ -242,6 +242,9 @@ class PipelineConfig:
                                     # direction each commit, ears just make it
                                     # visible); a plateau-scheduled step is the
                                     # optimizer-side cure, not state damping.
+    work_telemetry: bool = True     # record render/phys linearized work even headless
+                                    # (REFUTE M18: the P-render metric was None in
+                                    # every run without --live_port)
     patience: int = 5               # commits without tol improvement before freeze
     tol: float = 0.003              # relative improvement threshold on the tracked loss
     persistent_rest_volume: bool = True  # compute Vp0 once at the sampled source state

@@ -209,6 +209,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             best_rend, stale = None, 0              # rescaled track must not inherit a
             outer_scales = outer_prev = prev_disp = None
             outer_gate_latched = False              # render track rescaled: re-earn the latch
+            if tgt.gauss is not None and cfg.gauss_children > 1:
+                # REFUTE B5: the rebuild constructs a fresh GaussViews whose
+                # source_offsets is None; the next child-render loss would raise.
+                tgt.gauss.configure_source(src, surface_w > 0.5)
             hist.append({"animation": a, "c2f_render_res": cfg.render_res})   # near-full
             log(f"[v2] c2f at anim {a + 1}: render targets rebuilt at {cfg.render_res}px")
             # plateau counter (adversarial finding: freeze could fire one commit later)

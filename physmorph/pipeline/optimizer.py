@@ -384,7 +384,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             Ldt = (fill_lam * Lfill) if Ldt is None else (Ldt + fill_lam * Lfill)
         gx_phys_diag = gF_phys_diag = gv_phys_diag = None
         gx_rend_diag = gF_rend_diag = None
-        if on_iter is not None:
+        if on_iter is not None or cfg.work_telemetry:
             # Endpoint position-space gradients are the interpretable vector fields
             # shown by the viewer.  They are diagnostics only; the control update still
             # uses the full MPM adjoint through x, F and v.
@@ -542,7 +542,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 break
             continue
 
-        if on_iter is not None:                      # live viewer: stream the window's
+        if gx_phys_diag is not None:                 # work telemetry (REFUTE M18: the
+            # P-render headline metric must exist in HEADLESS runs, not only when
+            # the live viewer is attached)
             dx_diag = state_n[0] - state[0].detach()
             dF_diag = state_n[1] - state[1].detach()
             dv_diag = state_n[2] - state[2].detach()
@@ -555,6 +557,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             else:
                 render_work = render_work_x = render_work_F = None
             step_norm = float((dFc.detach() - bak[0]).norm())
+        if on_iter is not None:                      # live viewer: stream the window's
             on_iter(it, state_n[0].detach().cpu().numpy().astype(np.float32),  # optimisation
                      state_n[1].detach().reshape(N, 3, 3).cpu().numpy().astype(np.float32),
                      {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
