@@ -458,3 +458,20 @@ inflated (p99 2.35), fought w_jvol, and EJECTED fringe (the very population the
 stack had cleaned). Growth stays in the tree as falsified-v1 (w_grow=0 default);
 demand-specificity forensic decides between a v2 (interior-thresholded demand) and
 the pre-registered next candidate (target-hard partial-OT).
+
+### §7.14 Fill v4 FALSIFIED (h21) — the fifth ear-fill falsification closes the class
+
+h21 (target-hard assignment, converged): ear cov<0.3 = 56.6%, fork lo 1131, chamfer
+0.0848 / silIoU 0.9452 (both regress); J healthy (0.1%). Mechanism: in the EARLY
+bulk-deficit phase the worst-covered cells (ear tips, far extremities) claim the
+nearest donors and rip surface particles toward distant cells — a matched-pair
+version of the v2 catastrophe. Five consecutive falsifications (fill v1/v2/v3,
+growth v1, fill v4) now share one root: ANY auxiliary channel that forces mass into
+under-covered regions either destroys early transport, dies late, or manufactures
+the very fringe the stack cleans. VERDICT: the class is closed. The open question
+moves from mechanism to THRESHOLD: is cov<0.3=19.9% (h19, the record run: hole
+0.00%, silIoU 0.9766) a VISIBLE defect at all, or metric-driven over-spec? Decided
+by direct ear-closeup visuals on h19; if invisible, the <15% falsifier is retired as
+over-spec and the flagship stands at the h19 configuration; if visible, the
+relocation-class escape hatch (documented, physics-honesty flagged) is the last
+resort.
