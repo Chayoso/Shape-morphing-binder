@@ -171,16 +171,16 @@ def test_nn_band_pull_and_berth():
     """Grid-free near-band W1 (§7.10): zero inside the berth (rim safe), constant pull
     toward the ASSIGNED target particle in the band, ineligible beyond far_k."""
     from physmorph.losses.volumetric import nn_band_assign, d_nn_band
-    rng = np.random.default_rng(3)
-    t = torch.tensor(rng.uniform(-0.5, 0.5, (2000, 3)).astype(np.float32))
-    spacing = 0.03
-    x0 = torch.tensor([[0.55, 0.0, 0.0],     # ~0.05 off the face: in band
-                       [0.51, 0.0, 0.0],     # inside berth: rim
-                       [0.9, 0.0, 0.0]])     # beyond far band
+    g = torch.linspace(-0.5, 0.5, 11)
+    t = torch.stack(torch.meshgrid(g, g, g, indexing="ij"), -1).reshape(-1, 3)
+    spacing = 0.1                                # exact grid spacing
+    x0 = torch.tensor([[0.75, 0.0, 0.0],         # 0.25 off the face: in band
+                       [0.60, 0.0, 0.0],         # 0.10 < berth 0.15: rim
+                       [1.20, 0.0, 0.0]])        # 0.70 > far 0.45: DT-W1's job
     idx, elig = nn_band_assign(x0, t, spacing, berth_k=1.5, far_k=4.5)
-    assert float(elig[1]) == 0.0 and float(elig[2]) == 0.0 and float(elig[0]) == 1.0
+    assert float(elig[0]) == 1.0 and float(elig[1]) == 0.0 and float(elig[2]) == 0.0
     x = x0.clone().requires_grad_(True)
     d_nn_band(x, torch.ones(3), t, idx, elig, 1.5 * spacing).backward()
-    g = x.grad
-    assert float(g[1].norm()) == 0.0 and float(g[2].norm()) == 0.0
-    assert -g[0][0] < 0                      # descent pulls the band particle toward -x
+    g_ = x.grad
+    assert float(g_[1].norm()) == 0.0 and float(g_[2].norm()) == 0.0
+    assert -g_[0][0] < 0                         # descent pulls toward -x (the face)
