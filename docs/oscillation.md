@@ -120,10 +120,21 @@ moments with the full initial step α. Near the optimum this is valley zigzag �
 window k overshoots along the current gradient, window k+1 comes back — and the
 line search cannot reject it because the loss decreases every window. This is an
 OPTIMIZER artifact, not physics, so the cure stays on the optimizer side (state
-damping remains banned, §4): `anneal_stale` — on every no-improvement commit the
-next window's initial α is multiplied by 0.7 (recovers ×1.15 on improvement,
-floor 0.05). Verdict pending: g2_anneal (300c) rev-cos vs the h17 baseline
-measured by the same script.
+damping remains banned, §4).
+
+**Fix 5a — `anneal_stale` (plateau-scheduled step). Verdict: PARTIAL.**
+g2_anneal (40k/300c) vs h17 baseline, same script, last-40-pre-freeze window:
+rev-cos median −0.523 → −0.345, osc% 64.6 → 56.0, held-tail jitter 6-8e-5 →
+4e-5 (halved), convergence 259 → 226, chamfer 0.0701 (record-class). Direction
+confirmed, but annealing only engages AFTER improvement stalls — the zigzag
+during descent (improving AND reversing) is untouched.
+
+**Fix 5b — `mom_carry` (cross-window Adam moment persistence). Pending: g5_mom.**
+The remaining zigzag comes from each window's zero-moment Adam restart. The
+control is conceptually ONE parameter (warm start already carries its value
+across windows), so its optimizer state persists too: first moment decayed by
+mom_carry (0.9), second moment and step count verbatim, reset together with a
+rejected warm start, donated only by committed windows.
 
 ## 6. Code changes made for this problem (file → change → intent)
 
@@ -141,3 +152,4 @@ measured by the same script.
 | production budgets | flagship runs ≥300 commits | driver #4: the residual "wobble" was honest unfinished descent — the system truly rests at ~commit 259–282 (bunny) and every pair freezes in budget (h17: 61–259) |
 
 | `pipeline/config.py: anneal_stale` + `optimizer.py: alpha_scale` + `runner.py: anneal` | plateau-scheduled step: each no-improvement commit multiplies the next window's initial α by `anneal_stale` (0.7), ×1.15 recovery on improvement, floor 0.05; acceptance-growth cap also respects the annealed ceiling | driver #5: per-window Adam restarts (zero moments, full α) zigzag across the valley near the optimum — 37.5% of particles reverse direction every commit, invisible to the line search because loss still falls; a plateau-decayed step is standard LR scheduling on the optimizer, not damping of the state |
+| `pipeline/config.py: mom_carry` + `optimizer.py: mom_init/mom_out` + `runner.py: mom_prev` | Adam first/second moments + step count carried across windows (first moment decayed ×0.9; reset with a rejected warm start; only committed windows donate) | driver #5b: annealing (5a) cannot touch the zigzag that happens WHILE improving — that one is the zero-moment restart erasing curvature memory at every window boundary; persisting optimizer state matches the control's own persistence (warm start) |

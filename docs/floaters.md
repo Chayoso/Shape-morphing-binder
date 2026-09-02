@@ -128,8 +128,17 @@ renders). g1 pilot (pure replacement, N=20k/120c): converged early at anim 49,
 chamfer 0.0991, fork-halo 622 — the image L1 saturates once the silhouette
 roughly matches, so it cannot carry fine geometry alone; but detFmin 0.62 and
 out_nn 15.03% show it is healthiest exactly where the viewer looks. CAVEAT: the
-first reference (g1_ref) ran at N=40k/300c — an unequal comparison; the g3 pair
-(g3_mix hybrid vs g3_ref flagship, both N=20k/120c) is the clean verdict.
+first reference (g1_ref) ran at N=40k/300c — an unequal comparison.
+
+Matched 3-way (all N=20k/120c, 2026-09-02): **flagship wins decisively** —
+g3_ref out_nn 9.77% / far-floaters 520 / chamfer 0.0892 vs g1_pilot (pure gauss)
+15.03% / 881 / 0.0991 vs g3_mix (hybrid) 19.11% / 1318 / 0.1082. The earlier
+"gauss is healthier where the viewer looks" reading was an artifact of the
+unequal g1 comparison. One confound remained in the hybrid arm: it inherited
+the gauss arm's c2f-off; g4_mix (hybrid + c2f on) is the single-variable
+completion — if it also loses, the gauss channel at res-96 isotropic-L1 is
+falsified as a floater mechanism and goes back to the bench (gauss v2:
+covariance-from-F, D-SSIM, higher res) rather than into the flagship.
 `gauss_mix`: silhouette + equal-magnitude-calibrated gauss L1 (scale fixed once
 per window at first evaluation — a pre-registered rule, not a tuned weight).
 
