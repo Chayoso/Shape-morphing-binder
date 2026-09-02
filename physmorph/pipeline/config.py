@@ -64,8 +64,14 @@ class PipelineConfig:
     creg_k: int = 8                 #   Laplacian penalty on dFc so no single boundary
                                     #   particle can be actuated alone (the thin-feature
                                     #   fringe's creation mechanism — forensics 2026-09-01)
-    w_dt: float = 0.0               # one-sided-W1 cleanup: SUM_p m_p x 3D DT(outside
-    dt_res: int = 160               #   target occupancy). SUM form: per-particle pull
+    w_dt: float = 0.0               # one-sided-W1 cleanup: SUM_p m_p x gate_p x 3D DT.
+    dt_rho_iso: float = 4.0         #   COMPLEMENTARITY gate exp(-rho/rho_iso) (loss-grid
+    dt_res: int = 160               #   CIC density, frozen per window): the pull goes
+                                    #   only to mass the density losses cannot see —
+                                    #   ungated, the constant force double-drove bulk
+                                    #   transport (measured dose-response catastrophe:
+                                    #   stray 0.8/4.0/7.8% at w_dt 0.05/0.2/1.0, §7.3).
+                                    #   SUM form: per-stray pull
     dt_clamp_frac: float = 2.0      #   = w_dt exactly, N-invariant (Opus finding 1: the
                                     #   mean form was a measured 300-3000x no-op). Own
                                     #   FINE target-fitted grid at dt_res (finding 2:

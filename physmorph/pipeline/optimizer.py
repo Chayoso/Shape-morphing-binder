@@ -27,7 +27,7 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import d_vol, d_w1
+from ..losses.volumetric import d_vol, d_w1, isolation_gate
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
 from ..mpm.state import MPMParams
@@ -120,6 +120,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         knn = cKDTree(x0).query(x0, k=cfg.creg_k + 1)[1][:, 1:]
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
 
+    # W1 complementarity gate, frozen at window start: the constant pull goes only to
+    # particles the density losses are blind to (sparse fringe), never to bulk outside
+    # mass — the ungated sum was a measured dose-response catastrophe (rationale §7.3)
+    m_dt = None
+    if tgt.dt3 is not None:
+        m_dt = tgt.m * isolation_gate(torch.as_tensor(x0, device=dev), tgt.m,
+                                      tgt.lgmin, tgt.ldx, tgt.ldims, cfg.dt_rho_iso)
+
     def material():
         if s is None:
             return None, None
@@ -184,7 +192,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         = documented mass-ejection mode) and NOT part of phys_core (finding 9)."""
         if tgt.dt3 is None:
             return None
-        return cfg.w_dt * d_w1(xT, tgt.m, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+        return cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
 
     def phys_total(lv, lk, dfc, xT):
         L = phys_core(lv, lk, dfc, xT)

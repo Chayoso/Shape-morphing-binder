@@ -236,3 +236,23 @@ the far field; sil_k/mask coupling (f15) moot in 3D (no alpha threshold). C2 (ea
 erosion) survived both reviews: support = the sampler's own CIC stencil, self-force
 zero by construction (tested). hero4/p3_* (2026-09-01 evening batch) are struck from
 the record as no-op-weighted + dead-zoned; v7 reruns supersede them.
+
+### §7.3 Dose-response falsification of the UNGATED sum → complementarity gate
+
+Calibration ladder (N=20k, bare render_dt): w_dt 0.05 / 0.2 / 1.0 →
+stray 0.77 / 4.03 / 7.82%, G3 drift FAIL at all three, 4 trajectory inversions at 0.2,
+first3 45/69/100%. Monotone dose-response = the mechanism itself, not the dose: at
+window 1 roughly a third of the source lies outside target support, and a constant
+per-particle force on that COHERENT mass double-drives bulk transport — snap,
+compression inversions, and (per the porosity forensics) violent transport CREATES the
+very fringe the term exists to remove. Notably w_dt=0.05 delivered chamfer 0.1012
+(28% under the render baseline) — the pull does carry shape information — but through
+the wrong channel. Fix is structural, not a weight: a per-particle COMPLEMENTARITY
+GATE exp(-rho/rho_iso) (loss-grid CIC density, frozen per window, detached), so the
+constant pull reaches ONLY mass the density losses are blind to — bulk outside mass
+(rho~40+/cell) is silenced, lone fringe (1-3/cell) keeps ~full pull. Anchor: Floaters
+No More (EGSR 23) reconditions gradients by a region property instead of changing the
+objective; complementarity with d_vol is the same move in density space. rho_iso=4
+(particles/cell at the porosity-forensics isolation scale). Falsifier unchanged
+(stray < 0.2% at hero, chamfer within 2%, no ear erosion); if the GATED term still
+fails it, the mechanism is wrong and plan-B is next.

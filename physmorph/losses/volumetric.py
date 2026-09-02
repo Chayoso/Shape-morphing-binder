@@ -94,6 +94,46 @@ def d_w1(x: torch.Tensor, m: torch.Tensor, dt_grid: torch.Tensor,
     return (m * val).sum()
 
 
+def gather_cic(field: torch.Tensor, x: torch.Tensor,
+               grid_min: torch.Tensor, dx: float, dims) -> torch.Tensor:
+    """Trilinear gather of a flat cell field at particle positions (per-particle)."""
+    nx, ny, nz = dims
+    rel = (x - grid_min) / dx
+    base = torch.floor(rel).long()
+    frac = rel - base.float()
+    val = x.new_zeros(len(x))
+    for ox in (0, 1):
+        wx = frac[:, 0] if ox else 1.0 - frac[:, 0]
+        for oy in (0, 1):
+            wy = frac[:, 1] if oy else 1.0 - frac[:, 1]
+            for oz in (0, 1):
+                wz = frac[:, 2] if oz else 1.0 - frac[:, 2]
+                ii = (base[:, 0] + ox).clamp(0, nx - 1)
+                jj = (base[:, 1] + oy).clamp(0, ny - 1)
+                kk = (base[:, 2] + oz).clamp(0, nz - 1)
+                val = val + wx * wy * wz * field[(ii * ny + jj) * nz + kk]
+    return val
+
+
+def isolation_gate(x: torch.Tensor, m: torch.Tensor, grid_min: torch.Tensor,
+                   dx: float, dims, rho_iso: float) -> torch.Tensor:
+    """Per-particle COMPLEMENTARITY gate for the W1 term: exp(-rho/rho_iso), detached.
+
+    The W1 term exists for the mass the density losses cannot see (sparse fringe);
+    dense outside mass is d_vol/d_render's job, and giving it the constant W1 pull
+    double-drives bulk transport — the calibration ladder measured the failure as a
+    dose-response catastrophe (w_dt 0.05/0.2/1.0 -> stray 0.77/4.0/7.8%, inversions,
+    first3 100%). Gate style anchored on Floaters-No-More: recondition the gradient by
+    a region property rather than changing the objective. rho is the particle's own
+    CIC-gathered mass on the LOSS grid (bulk ~40+/cell -> gate ~0; lone fringe
+    ~1-3/cell -> gate 0.5-0.8). Frozen per window (detached — no repulsion artifacts
+    through the gate)."""
+    with torch.no_grad():
+        rho = gather_cic(rasterize_mass(x, m, grid_min, dx, dims), x,
+                         grid_min, dx, dims)
+        return torch.exp(-rho / rho_iso)
+
+
 def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
           grid_min: torch.Tensor, dx: float, dims,
           min_mass: float = 0.0, penalty: float = 0.0) -> torch.Tensor:
