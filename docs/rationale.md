@@ -447,3 +447,14 @@ lives OUTSIDE the optimizer's gradient balance entirely. Falsifier: ear cov<0.3 
 at w_grow<=0.05 with chamfer/silIoU within 2% and G2/G3 clean; if it fires, the
 remaining candidate is target-hard partial-OT matching (source-soft only — Bai et al.
 warning) before any relocation-class escape hatch.
+
+### §7.13 Growth v1 FALSIFIED (h20) — demand field was a universal surface signal
+
+h20 (w_grow=0.02): ear cov<0.3 19.9→39.3%, fork lo-band 78→1244, chamfer 0.1054,
+J p99 2.35, |J-1|>0.3 back to 27.7%. Textbook adverse mechanism: the demand
+relu(tb−bb)/tb is nonzero along the ENTIRE surface (boundary-cell blur mismatch),
+not just in thin-feature interiors — the whole shell received a grow command,
+inflated (p99 2.35), fought w_jvol, and EJECTED fringe (the very population the
+stack had cleaned). Growth stays in the tree as falsified-v1 (w_grow=0 default);
+demand-specificity forensic decides between a v2 (interior-thresholded demand) and
+the pre-registered next candidate (target-hard partial-OT).
