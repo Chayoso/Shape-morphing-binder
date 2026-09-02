@@ -287,7 +287,14 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.patience = max(cfg.patience, 8)
         cfg.w_kin = max(args.w_kin, 20.0)
         cfg.w_tctrl = args.w_tctrl if args.w_tctrl > 0 else 10.0
-        cfg.w_cov = args.w_cov if args.w_cov > 0 else 25.0
+        # w_cov RETIRED as an arm default (s1 forensic 2026-09-02): the band
+        # penalty on total F fights the transient stretch the morph transport
+        # REQUIRES (sval>2 to move mass into the ears); at a17-19 its gradient
+        # overwhelmed the data terms (gp 6.4->18), collapsed dFc 0.020->0.003
+        # and regressed every track 20-60%. At convergence assimilation absorbs
+        # F into Fp (svals->1), so the penalty only ever binds mid-run, where it
+        # does damage. Knob + diagnostics stay for explicit A/Bs.
+        cfg.w_cov = args.w_cov
         # High-resolution production uses many small surface splats.  Do not inflate
         # them to hide sparse sampling holes: the 20k calibration owns this value.
         cfg.gauss_sigma_scale = args.gauss_sigma_scale

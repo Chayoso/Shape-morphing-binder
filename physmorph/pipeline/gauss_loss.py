@@ -117,12 +117,22 @@ class GaussViews:
     def __init__(self, views, extent: float, sigma0: float, res: int, dev,
                  child_count: int = 1, child_sigma_scale: float = 0.55,
                  child_offset_scale: float = 0.35, child_k: int = 16):
-        self.res = res
         self.dev = dev
         radius = extent * 2.6
         fov = 0.7
-        self.cams = [_camera(th, phi, radius, res, fov, dev) for th, phi in views]
         self.sigma0 = float(sigma0)          # isotropic: scales+identity-quaternion
+        # Nyquist floor on the LOSS resolution: the smallest supervised splat
+        # (child sigma when children are on) must project to >= 1.5 px, or the
+        # rasterizer's gradients are sub-pixel noise (s1 forensic: render_work
+        # 1e-6..1e-3 vs phys_work 0.03..33 with 0.6 px children at res 96).
+        # The loss render res is independent of the viewer display, so raising
+        # it costs memory/time only, never visual blebs.
+        sig_min = self.sigma0 * (float(child_sigma_scale) if int(child_count) > 1 else 1.0)
+        px_wu_at = lambda r: 2.0 * radius * math.tan(fov / 2) / r   # center-depth px size
+        need = int(math.ceil(1.5 * px_wu_at(1) / max(sig_min, 1e-9) / 16.0)) * 16
+        self.res = int(min(max(res, need), 384))
+        res = self.res
+        self.cams = [_camera(th, phi, radius, res, fov, dev) for th, phi in views]
         self.child_count = int(child_count)
         if self.child_count < 1 or self.child_count > 4:
             raise ValueError("child_count must be in [1,4]")

@@ -423,6 +423,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                    and rec["move"] <= cfg.outer_gate_move_frac * tgt.extent)
                 outer_gate_latched = outer_gate_latched or near_stationary
                 outer_reject = outer_gate_latched and outer_gain < cfg.outer_merit_tol
+                # catastrophe brake, latched or not: pace bounds the INTENDED
+                # per-window change, so a fixed-merit regression beyond one pace
+                # budget is a runaway (s1: a18 committed at gain=-0.45 and the
+                # freeze then held the damaged state), never a legitimate trade.
+                if outer_gain < -max(cfg.pace, 0.05):
+                    outer_reject = True
                 if (outer_gate_latched and reversal_cos is not None
                         and reversal_cos < cfg.outer_reversal_cos
                         and outer_gain < cfg.outer_reversal_gain):
