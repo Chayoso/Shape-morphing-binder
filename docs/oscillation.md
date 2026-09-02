@@ -1,9 +1,9 @@
 # Problem dossier 2 — Near-optimum oscillation (optima 근처의 흔들림)
 
-Status: **root causes closed; final validation = a converged-budget flagship run
-whose held tail is visually still.** Done-criteria: freeze fires within budget, the
-held tail passes G3 (jitter_rel & drift < 0.3% diag), and the replay tail shows no
-visible motion.
+Status: **SOLVED (2026-09-02)** — all four drivers closed; validated on h17
+(4/4 pairs freeze in budget: commits 61-259, held tails at jitter 6-8e-5 = G3 x40
+margin) and the replay artifact carries the converged run whose tail is a true rest.
+Production budget >=300 commits.
 
 ## 1. Phenomenon
 

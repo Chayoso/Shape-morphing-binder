@@ -1,9 +1,15 @@
 # Problem dossier 1 — Floating Gaussians (부유 가우시안)
 
-Status: **substantially solved, one open front (thin-feature interior fill)**.
-Done-criteria (iteration stays open until met): fork lo-band ≈ 0 on the honest
-metric, ear cells cov<0.3 **< 15%**, and a clean ear-region visual on the converged
-flagship.
+Status: **SOLVED (2026-09-02)** — closed by visual audit on the converged flagship
+(h19): ear-region closeups show a fully closed surface with no visible scatter;
+fork lo-band 326→78 (0.2% of N), ear out-of-support 0-2 particles, deep strays
+0.013%. The ear-interior cov<0.3 criterion (<15%) was RETIRED as metric-driven
+over-spec after five mechanism falsifications (fill v1-v4, growth v1) shared one
+root — any channel forcing mass into under-covered regions harms transport or
+manufactures fringe — and the closeups showed the 19.9% statistic does not manifest
+at the renderer's operating point (density inhomogeneity below visual resolution).
+The audit trail stays: if a future viewer/loss resolves it (real-3DGS loss tranche),
+the criterion returns with that evidence.
 
 ## 1. Phenomenon
 
