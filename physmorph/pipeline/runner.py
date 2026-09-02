@@ -138,6 +138,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         raise ValueError("lg_sweeps>0 with w_dt>0 or w_fill>0 is unsupported (local "
                          "energy has no W1/fill term; a non-quadratic term breaks its "
                          "exact line search)")
+    if cfg.pace_budget > 0:          # budget-derived glidepath (see config.pace_budget)
+        cfg.pace = 1.0 - cfg.pace_budget ** (1.0 / max(cfg.animations, 1))
+        log(f"[v2] pace_budget={cfg.pace_budget:g} over {cfg.animations} anims -> "
+            f"per-window cap {cfg.pace:.4f}")
     tgt = build_target(target_x, prm, cfg)
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
     # the local-global pass calibrates λ in ITS OWN variable space (u, joules) — sharing

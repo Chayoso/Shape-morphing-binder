@@ -204,6 +204,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_nn = args.w_nn
         cfg.mom_carry = args.mom_carry
         cfg.anneal_stale = args.anneal
+        cfg.pace_budget = args.pace_budget
         cfg.assim_iso = True
     elif arm == "render_full_fill_iso":            # full stack + norm-balanced fill v3
         cfg.lambda_auto = args.lambda_auto
@@ -267,6 +268,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.gauss_mix = args.gauss_mix
         cfg.mom_carry = args.mom_carry
         cfg.anneal_stale = args.anneal
+        cfg.pace_budget = args.pace_budget
         cfg.assim_iso = True
         cfg.use_gauss_loss = True
         cfg.gauss_res = args.gauss_res
@@ -305,6 +307,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                                  if args.surface_grad_frac > 0 else 0.50)
         cfg.render_surface_only = True
         cfg.control_h1_iters = args.control_h1_iters
+        cfg.pace_budget = (args.pace_budget if args.pace_budget > 0 else 0.01)
         cfg.outer_merit = True
         cfg.assim_iso = True
         cfg.use_gauss_loss = True
@@ -384,6 +387,7 @@ def main():
     ap.add_argument("--control_h1_iters", type=int, default=0)
     ap.add_argument("--outer_merit", action="store_true")
     ap.add_argument("--patience", type=int, default=5)
+    ap.add_argument("--pace_budget", type=float, default=0.0)
     ap.add_argument("--legacy_recompute_volumes", action="store_true")
     ap.add_argument("--legacy_gauss_centers_only", action="store_true")
     ap.add_argument("--anneal", type=float, default=0.0)  # plateau step decay

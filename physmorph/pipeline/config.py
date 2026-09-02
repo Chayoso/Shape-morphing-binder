@@ -29,6 +29,15 @@ class PipelineConfig:
     armijo_c1: float = 1e-4        # sufficient decrease along the preconditioned step
     ls_noise_rel: float = 1e-7     # reject improvements smaller than rollout/atomic noise
     dfc_clip: float = 0.0           # optional per-particle |dFc| cap (0 = off; C++ has none)
+    pace_budget: float = 0.0        # >0: derive the per-window pace cap FROM THE
+                                    # ANIMATION BUDGET as 1 - pace_budget^(1/animations)
+                                    # (an exponential glidepath whose residual at the
+                                    # last anim is pace_budget). A fixed 12%/window cap
+                                    # finishes the descent geometrically in ~20 commits
+                                    # and leaves the remaining budget to hold/oscillate
+                                    # (user directive 2026-09-02: the morph must
+                                    # progress across ALL frames, no snap); overrides
+                                    # `pace` when set.
     pace: float = 0.0               # TRAJECTORY pacing: each window may reduce its starting
                                     # loss by at most this fraction (0 = off). Stops the
                                     # "morph done in 2 commits" snap — the deliverable is the
