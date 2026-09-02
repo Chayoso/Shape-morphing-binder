@@ -100,6 +100,18 @@ class PipelineConfig:
                                     #   tail. NOT lambda-scaled: lambda->cap x constant
                                     #   gradient = mass-ejection mode (arXiv:2409.15746).
 
+    w_jvol: float = 0.0             # volume prior on terminal F: mean (J-1)·log J —
+                                    #   the sKL/log-unbiased registration regularizer
+                                    #   (Yanovsky/Leow CAM 07-49): zero iff J=1,
+                                    #   symmetric in log measure, and a SOFT inversion
+                                    #   barrier as J->0+ (F5 literature verdict: the
+                                    #   permanent volumetric spring of isochoric
+                                    #   assimilation arms inversions; bare eta_vol is
+                                    #   the ratchet on a slower clock). Weight kept an
+                                    #   order below the render gradient (adjoint
+                                    #   conditioning). Tampubolon-style log-volume
+                                    #   ledger pre-registered as the follow-up.
+
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution
     warm_decay: float = 0.5         # dFc is an ABSOLUTE control added into F: verbatim reuse

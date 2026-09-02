@@ -216,7 +216,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             jt = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
         return (xT, FT, vT, jt), lv, lk, lr, lpbr
 
-    def phys_core(lv, lk, dfc, xT):
+    def phys_core(lv, lk, dfc, xT, fT=None):
         """Physics objective WITHOUT the W1 term — the lambda balancer's numerator and
         PCGrad's reference direction (Codex finding 9: folding the W1 term into gp let
         w_dt inflate the balanced silhouette weight and project render components off a
@@ -226,6 +226,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
             L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
+        if cfg.w_jvol > 0 and fT is not None:
+            # sKL volume prior (J-1)·log J (F5 verdict): counters the permanent
+            # volumetric spring + control-injected drift; soft barrier as J->0+
+            J = torch.linalg.det(fT.view(-1, 3, 3))
+            L = L + cfg.w_jvol * ((J - 1.0) * torch.log(J.clamp_min(1e-6))).mean()
         if s is not None:
             L = L + cfg.w_mat * s.pow(2).mean()
         return L
@@ -242,14 +247,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = Lf if L is None else L + Lf
         return L
 
-    def phys_total(lv, lk, dfc, xT):
-        L = phys_core(lv, lk, dfc, xT)
+    def phys_total(lv, lk, dfc, xT, fT=None):
+        L = phys_core(lv, lk, dfc, xT, fT)
         ldt = dt_term(xT)
         return L if ldt is None else L + ldt
 
-    def scalars(lv, lk, lr, lam_r, dfc, xT):
+    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None):
         with torch.no_grad():    # scalar only — never build a second autograd graph
-            L = float(phys_total(lv, lk, dfc.detach(), xT.detach()))
+            L = float(phys_total(lv, lk, dfc.detach(), xT.detach(),
+                                 fT.detach() if fT is not None else None))
         return L if lr is None else L + lam_r * float(lr)
 
     hist, accepted, rejected = [], 0, 0
@@ -264,12 +270,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         st0, lv0, lk0, lr0, _ = eval_terms(dFc)
         # stack-review f5: an INVALID cold baseline must not be the comparator — its
         # position-only loss can be artificially low and block every valid warm start
-        E0 = scalars(lv0, lk0, lr0, lam_r, dFc, st0[0]) if _state_ok(st0) else np.inf
+        E0 = (scalars(lv0, lk0, lr0, lam_r, dFc, st0[0], st0[1])
+              if _state_ok(st0) else np.inf)
         with torch.no_grad():
             dFc.copy_(torch.tensor(np.ascontiguousarray(dfc_init, np.float32),
                                    device=dev) * cfg.warm_decay)
         stw, lvw, lkw, lrw, _ = eval_terms(dFc)
-        Ew = scalars(lvw, lkw, lrw, lam_r, dFc, stw[0])
+        Ew = scalars(lvw, lkw, lrw, lam_r, dFc, stw[0], stw[1])
         if not (_state_ok(stw) and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
                 dFc.zero_()                          # stale controls: fall back to cold start
@@ -278,7 +285,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
         state, lv, lk, lr, lpbr = terms(dFc)
-        Lp_core = phys_core(lv, lk, dFc, state[0])
+        Lp_core = phys_core(lv, lk, dFc, state[0], state[1])
         Ldt = dt_term(state[0])
         smooth = balancer.active and cfg.render_gs_iters > 0
         if balancer.active and (smooth or cfg.grad_project or it == 0):
@@ -312,7 +319,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         else:
             total = Lp_core if Ldt is None else Lp_core + Ldt
             g = list(torch.autograd.grad(total, leaves))
-        cur = scalars(lv, lk, lr, lam_r, dFc, state[0])
+        cur = scalars(lv, lk, lr, lam_r, dFc, state[0], state[1])
         if not np.isfinite(cur):
             log(f"[win] iter {it}: non-finite loss, aborting window")
             break
@@ -360,7 +367,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     s.clamp_(-cfg.mat_clamp, cfg.mat_clamp)
             state_n, lv_n, lk_n, lr_n, lpbr_n = eval_terms(dFc)
             with torch.no_grad():
-                new = scalars(lv_n, lk_n, lr_n, lam_r, dFc, state_n[0])
+                new = scalars(lv_n, lk_n, lr_n, lam_r, dFc, state_n[0], state_n[1])
             # acceptance requires a FINITE, ORIENTATION-PRESERVING state: NaN particles
             # vanish from the splats and det(F)<=0 is invisible to the data terms — both
             # can fake a lower loss (adversarial finding + v3 warm-start cascade).

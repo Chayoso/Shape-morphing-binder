@@ -379,3 +379,31 @@ rounds) / band was violated (fixed); C2 guard UPHELD with the two holes (fixed);
 blur attack REFUTED (99.3% of one-cell ear cells marked) but fill v1 dead for four
 other reasons (fixed as above); C4 numbers match, clump blind spot now documented
 UNOWNED; C5/C6 refutations accepted and fixed.
+
+### §7.9 F5 design — literature verdict + w_jvol (2026-09-02)
+
+Papers read (per the standing rule): Klar16 Drucker-Prager (Case-III trace-preserving
+flow = the canonical isochoric split — validates assim_iso; Case II's cone-tip volume
+swallowing = the ratchet, known artifact-prone); Tampubolon17 §4.3.4 (the per-particle
+LOG-VOLUME LEDGER v_cp: bookkeep plastically-swallowed log det and re-offer it —
+the published fix for "plasticity ate my volume", transfers to our control-injected
+volume hole; PRE-REGISTERED as the follow-up mechanism); Stomakhin13 snow (plastic
+volume allowed ONLY with exp-hardening governor — bare eta_vol without hardening =
+our measured ratchet on a longer fuse; their E=1.4e5/nu=0.2 is literally our
+material); Smith18 SNH + Chen24 + ThinShellLab24 (differentiable pipelines prefer
+FINITE restoring energies through inversion over divergent barriers or rejection —
+our fixed corotated lambda/2(J-1)^2 is already SNH-shaped, and inversion-aware
+line-search filters "may stall completely" when many elements invert); Stomakhin12
+(inversion handling belongs in the ENERGY, consistent gradients — the constitutive
+analog of our accept/reject guard critique); IPC20 (det-safe step-LENGTH filter
+instead of candidate rejection — queued as the guard upgrade); Yanovsky/Leow CAM07-49
+(sKL (J-1)log J: zero iff J=1, log-symmetric, soft barrier as J->0+ — the adopted
+objective form; Var(log J) is its mean-free cousin but blind to uniform collapse).
+Viscoelasticity background: bulk relaxation is ~absent in dense solids (deviatoric-
+only relaxation is the standard) — eta_vol REJECTED.
+
+Adopted now: **w_jvol · mean (J-1)·log J on terminal F** through the adjoint (mean
+form, sized against the other mean-form priors w_box/w_kin; ladder 10/50 in hero12).
+Queued in literature order: Tampubolon ledger (reversible volume bookkeeping for
+assimilation AND dFc injection), IPC-style det-safe step-length filter replacing
+accept/reject in the line search.
