@@ -20,8 +20,19 @@ import numpy as np
 import torch
 
 
+def _gs():
+    """Dual-API import: the hyde06 fork (diff_gauss, wants norm3Ds_precomp) or the
+    INRIA original (diff_gaussian_rasterization) — whichever this machine has."""
+    try:
+        import diff_gauss as m
+        return m, True
+    except ImportError:
+        import diff_gaussian_rasterization as m
+        return m, False
+
+
 def _camera(az: float, el: float, radius: float, res: int, fov: float, dev):
-    from diff_gauss import GaussianRasterizationSettings
+    GaussianRasterizationSettings = _gs()[0].GaussianRasterizationSettings
     campos = radius * np.array([math.sin(az) * math.cos(el), math.sin(el),
                                 math.cos(az) * math.cos(el)], np.float32)
     fwd = -campos / np.linalg.norm(campos)
@@ -58,14 +69,18 @@ class GaussViews:
         self.targets = None                       # filled by bake_targets
 
     def _render(self, x: torch.Tensor, cam):
-        from diff_gauss import GaussianRasterizer
+        mod, has_norm = _gs()
         n = len(x)
-        rast = GaussianRasterizer(raster_settings=cam)
-        out = rast(means3D=x, means2D=torch.zeros_like(x),
-                   opacities=torch.full((n, 1), 0.9, device=self.dev),
-                   colors_precomp=torch.full((n, 3), 0.35, device=self.dev),
-                   cov3Ds_precomp=self.cov6_1.expand(n, 6).contiguous(),
-                   norm3Ds_precomp=torch.zeros(n, 3, device=self.dev))
+        rast = mod.GaussianRasterizer(raster_settings=cam)
+        kw = dict(means3D=x, means2D=torch.zeros_like(x),
+                  opacities=torch.full((n, 1), 0.9, device=self.dev),
+                  colors_precomp=torch.full((n, 3), 0.35, device=self.dev))
+        if has_norm:
+            out = rast(**kw, cov3Ds_precomp=self.cov6_1.expand(n, 6).contiguous(),
+                       norm3Ds_precomp=torch.zeros(n, 3, device=self.dev))
+        else:
+            out = rast(**kw, cov3D_precomp=self.cov6_1.expand(n, 6).contiguous(),
+                       shs=None, scales=None, rotations=None)
         return out[0] if isinstance(out, tuple) else out
 
     def bake_targets(self, tgt_x: torch.Tensor):
