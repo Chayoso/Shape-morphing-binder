@@ -141,6 +141,7 @@ def tgt_nn_metrics(x, tgt, k_med: float = 2.0) -> dict:
     out = d > k_med * nn_t
     return {"tgt_nn_spacing": nn_t,
             "out_nn_frac": float(out.mean()),
+            "out_nn_far_frac": float((d > 4.5 * nn_t).mean()),
             "out_nn_mean": float(d[out].mean()) if out.any() else 0.0,
             "out_nn_p95": float(np.percentile(d, 95)),
             "out_nn_max": float(d.max())}
@@ -167,7 +168,8 @@ def out_dt_frac(x, tgt, res: int = 160, cells: float = 2.0) -> float:
     return float((v > cells * dx).mean())
 
 
-def summarize(frames, tgt, F_frames=None, n_held=0, tail=10) -> dict:
+def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
+              render_mask=None) -> dict:
     """All gate metrics for one arm. frames: list of (N,3); tgt: (M,3)."""
     tgt = np.ascontiguousarray(tgt, np.float32)
     xf = np.ascontiguousarray(frames[-1], np.float32)
@@ -181,6 +183,16 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10) -> dict:
            "frames": len(frames), "n_held": int(n_held)}
     out.update(jitter(frames, tail, n_held))
     out.update(ejection_trajectory(frames, e))
+    if render_mask is not None:
+        rm = np.asarray(render_mask, bool)
+        if rm.shape != (len(xf),) or not rm.any():
+            raise ValueError("render_mask must select at least one final-state particle")
+        vis = tgt_nn_metrics(xf[rm], tgt)
+        out.update({"render_out_nn_frac": vis["out_nn_frac"],
+                    "render_out_nn_far_frac": vis["out_nn_far_frac"],
+                    "render_out_nn_p95": vis["out_nn_p95"],
+                    "render_out_nn_max": vis["out_nn_max"],
+                    "render_particle_frac": float(rm.mean())})
     if F_frames is not None and len(F_frames):
         out["detF_min"] = min(float(np.linalg.det(F).min()) for F in F_frames)
     return out

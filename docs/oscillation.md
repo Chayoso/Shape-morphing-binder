@@ -1,155 +1,80 @@
-# Problem dossier 2 — Near-optimum oscillation (optima 근처의 흔들림)
+# Near-optimum oscillation dossier
 
-Status: **REOPENED (2026-09-02, viewer standard)** — four drivers closed and
-validated on h17 (4/4 pairs freeze in budget: commits 61-259, held tails at
-jitter 6-8e-5 = G3 x40 margin), but the user's viewer showed residual late-run
-wobble at the ears; forensics identified driver #5 (per-window Adam-restart
-zigzag, section 5.1). Fix `anneal_stale` implemented; verdict pending on
-g2_anneal. Production budget >=300 commits.
+Status: **20k dynamic stability gate passed (2026-09-02); high-resolution render
+representation is still under QA**.
 
-## 1. Phenomenon
+## Symptom and acceptance criteria
 
-As the morph approaches the target, the body keeps visibly moving — micro-creep and
-"breathing" — instead of coming to rest. Reported repeatedly from the live viewer
-("여전히 optima로 갈수록 진동이 보여").
+The failure is a repeated reversal of surface motion near an optimum, not merely continued
+descent. A result is accepted only when all of the following are true at its stated
+discretisation:
 
-## 2. What it turned out to be (measured decomposition)
+- no NaN, clamp, reflection repair, or intermediate `det(F)<=0` guard fires;
+- tail `jitter_rel < 3e-3` and one-window terminal-velocity drift `< 3e-3`;
+- low-gain commit directions do not alternate (`reversal_cos < -0.2` is rejected);
+- the fixed-scale outer merit reaches a plateau and the state is then held/null, rather
+  than declaring an unfinished run converged.
 
-The wobble was FOUR separate mechanisms, uncovered in sequence. None of them was
-"noise":
+## Root causes fixed in the current branch
 
-| # | mechanism | forensic evidence | fix | status |
-|---|---|---|---|---|
-| 1 | **λ runaway** — the render weight diverged once D_render saturated, injecting huge late-run steps | λ 1.1e3→1.77e5 live; mid-window inversion in tow | λ cap (5e3) + per-window λ freeze + EMA | closed (pre-session era) |
-| 2 | **volumetric plastic ratchet** — assimilation baked volume each commit; internal rearrangement never stopped because volume kept drifting | \|J−1\|>0.3: 0→34–41% monotone across the run; 32% of particles still changing volume at the tail | isochoric assimilation (det Fp ≡ 1, log-space band∩det projection) | closed |
-| 3 | **permanent volumetric spring** — the isochoric fix's cost: ALL volume strain stayed elastic forever, so the body breathed against data terms and armed single-step inversions | restoring dψ/dJ = −3889 at J=0.9; elastic tail \|dJ\| drift ↑ after iso | **sKL volume prior** w_jvol·(J−1)·log J through the adjoint (prevention-in-energy, not rejection) | closed — \|J−1\|>0.3 → 0.0%, J∈[0.92,1.09], tail move halved (0.009→0.003–0.004) |
-| 4 | **unfinished descent misread as oscillation** — at production budgets the optimizer was still genuinely improving every track | at 200c: d_vol still −9…−27% per 40 commits; freeze correctly withheld; **400c probe: true convergence at commit 282, then 118 commits held at jitter 7e-5** | run the flagship past its resting point (≥300c); freeze machinery already correct | closed |
+1. Rest particle volumes were being reconstructed from the current state. `Vp0` is now
+   computed once from the sampled source and reused by every rollout.
+2. For `Fe=(F+dFc)Fp^-1`, the total first Piola stress must include the chain rule
+   `Ptotal=Pe Fp^-T`; P2G then uses `Ptotal(F+dFc)^T = Pe Fe^T`. The previous expression
+   was wrong after plastic assimilation and could inject non-symmetric stress.
+3. Near stationarity, fresh Adam moments made each window behave like a sign step.
+   Moments now carry across committed windows; stale/null windows anneal the step.
+4. Inner steps use an Armijo-style backtracking test. Across windows, a fixed-scale merit
+   and reversal gate roll back low-gain reversals, including plastic and optimizer state.
+   The gate latches after both sufficient normalized target progress and a small-motion
+   commit; it cannot switch itself off again when a rejected large-motion candidate
+   appears.
+5. Temporal first-difference control cost, terminal kinetic cost, and a covariance/volume
+   band keep the accepted control trajectory smooth without damping or editing state after
+   the MPM rollout.
 
-Also ACQUITTED by forensics: per-window gate flicker (0.7%/5 commits — not the
-oscillation source), and the three-track freeze (it withheld freezing because
-improvement was real, not because tracks were noisy — after the gated-track fix).
+These are optimizer and constitutive fixes. They do not apply a positional servo and do
+not post-filter `x`, `F`, `v`, or `C`.
 
-Supporting structural fixes along the way: full-state promotion + λ-free freeze
-tracks (pre-session), the trajectory-min-det acceptance guard with the effective
-deformation F+dFc (single-step inversions had slipped through the terminal-only
-check), null-commit on line-search exhaustion (a truncation bug had masqueraded as
-convergence), and per-term freeze tracks with the UNGATED d_dt statistic (a dying
-gate had masqueraded as progress).
+## Evidence so far
 
-## 3. Related papers (organized by remedy family)
+All simulation numbers below use `dt=1/240`, `dx=0.5`, MPM deformation smoothing `0.955`,
+and zero velocity clamp.
 
-**Energy-side prevention vs step rejection (mechanism 3)**
-- Smith, de Goes, Kim — Stable Neo-Hookean (ToG 2018): finite, restoring energies
-  through inversion, chosen by differentiable pipelines precisely for gradient
-  availability; our fixed corotated λ/2(J−1)² is already SNH-shaped.
-- Chen et al. (SGP 2024): inversion-aware line-search filters "may stall
-  completely" — the warning that kept us from a divergent barrier.
-- Stomakhin et al. — Energetically Consistent Invertible Elasticity (SCA 2012):
-  inversion handling belongs in the energy (consistent gradients), not a bolt-on
-  projection — the constitutive analog of guard-vs-prior.
-- IPC (Li et al., ToG 2020): det-safe step-LENGTH filtering as the principled guard
-  upgrade (queued, not yet needed since w_jvol removed the trigger).
+- 5k, `T=10`, 80-commit surface-Gaussian ablations: `jitter_rel=1.7e-5..2.3e-5`,
+  drift `2.0e-4..2.6e-4`, no guard event.
+- 20k, `T=10`, 60-commit high-resolution sigma ablations: `jitter_rel=3.2e-5..3.4e-5`,
+  drift `2.7e-4..2.8e-4`. In the last 20 commits, minimum reversal cosine was `0.84`
+  (`sigma scale=0.85`) and `0.91` (`1.0`); neither run had a reversing commit.
 
-**Volume/plasticity treatment (mechanism 2/3)**
-- Klar et al. — Drucker-Prager sand (ToG 2016): Case-III trace-preserving flow = the
-  canonical isochoric split (validates assim_iso).
-- Stomakhin et al. — MPM snow (ToG 2013): plastic volume change is admissible ONLY
-  with exp-hardening (their E=1.4e5/ν=0.2 is literally our material); bare η_vol is
-  the ratchet on a longer fuse — why we rejected slow volumetric relaxation.
-- Tampubolon et al. (ToG 2017): the per-particle log-volume ledger — the published
-  "plasticity ate my volume" fix; queued for control-injected volume drift.
-- Yanovsky/Leow et al. (UCLA CAM 07-49; TMI 2007): the sKL/log-unbiased Jacobian
-  regularizer (J−1)·log J — zero iff J=1, log-symmetric, soft barrier as J→0⁺ — the
-  form we adopted as w_jvol.
-- Viscoelasticity standard practice (COMSOL theory; Roylance): bulk response is
-  taken elastic, relaxation is deviatoric-only — the physics that killed η_vol.
+The unrestricted 20k, `T=20` ablation was stopped after roughly 120 outer commits per arm:
+render-on accepted 58 negative-merit candidates and physics-only accepted 54. Their fixed
+merits repeatedly left the best basin (`0.369..1.162` and `0.112..1.257` respectively),
+showing that the long wave was not caused by rendering alone.
 
-**Optimizer-side stability (mechanisms 1/4)**
-- McNamara et al. (2004) adjoint control lineage: per-window fixed objective — a
-  drifting per-iteration λ makes "monotone acceptance" meaningless (our per-window
-  λ freeze + EMA + cap).
-- Anderson acceleration for physics (TOG 2018): the guarded-extrapolation family —
-  evaluated and NOT adopted (see §4); kept in the backlog with the line search as
-  the guard if a residual settling problem ever re-emerges.
+With the progress-conditioned, persistent latch, the matched render-on run froze after 32
+outer attempts. The latch activated at animation 10; thereafter no sub-threshold or
+negative-gain candidate was promoted, the minimum accepted reversal cosine was `+0.335`,
+and the last eight candidates were rolled back to the same state. At `N=20,000`, `T=20`,
+`dt=1/240`, `dx=0.5`, smoothing `0.955`, the raw trajectory has
+`jitter_rel=6.46e-5`, no guard event, Chamfer `0.11082`, and silhouette IoU `0.94572`.
+The matched physics-only arm also froze (29 attempts) and had zero bad promotion after its
+latch. This closes the optimizer-side oscillation gate; Gaussian footprint QA is tracked
+separately in `floaters.md`.
 
-## 4. v1's remedy vs ours — global damping vs cause removal
+## VBD / Projective Dynamics decision
 
-**v1 (PhysMorph-GS C++/paper)** treated late-run unrest with GLOBAL, symptom-side
-smoothing — the "extrapolation-like" controls the user recalls: temporal F smoothing
-(s = 0.955 EMA on the deformation gradient), damping-toward-identity on F_p, and
-kNN displacement-field smoothing (k=64, 3 iterations). These act like a low-pass
-filter on the whole state: they suppress the VISIBLE oscillation everywhere, at the
-cost of also suppressing legitimate fine motion, blurring thin-feature detail, and
-leaving the underlying driver (volume drift + λ drift) in place — the unrest
-returns whenever the filter weakens.
+The retired `surface_local_pass` changes `x/F` outside the rollout while leaving velocity
+and APIC state inconsistent; it is not an admissible production fix. Vertex Block Descent
+or Projective Dynamics would be valid only as either:
 
-**v2's position**: no global damping term was added at all. Each driver was isolated
-by forensics and removed at its source — λ capped and frozen per window, plastic
-volume made isochoric, the residual elastic spring neutralised by the sKL volume
-prior *through the adjoint* (the optimizer stops COMMANDING volume heterogeneity,
-rather than having its commands filtered afterwards), and the remaining motion
-proven to be honest unfinished descent by running past the true resting point
-(commit 282). The one v1 idea we kept is temporal smoothing INSIDE the simulator's
-F update (s=0.955, inherited) — and the stack-review showed even that can hide
-effective-deformation inversions, which is why the trajectory guard checks F+dFc.
+- a complete implicit integrator whose inertia, velocity update, constraints, and adjoint
+  all replace the present explicit MPM step; or
+- an SPD preconditioner on the **control gradient**, followed by the unchanged MPM rollout
+  and line search.
 
-## 5. Current state & open work
-
-At 400c the flagship freezes at commit 282 and holds still (jitter 7e-5, hole 0.00%).
-Production runs now use ≥300c. Remaining validation for THIS dossier: the h17
-converged 4-pair batch — confirm every pair freezes in budget and the held tails
-pass G3; then a replay-tail visual check. If any pair fails to freeze, the residual
-driver gets its own forensic before any new mechanism.
-
-### 5.1 Driver #5: per-window Adam-restart zigzag (user-reopened 2026-09-02)
-
-The user's viewer showed residual late-run wobble at the ears even in converged
-runs. Forensic on h17_bunny's last 40 pre-freeze commits (219–258), per-particle
-displacement reversal (mean cos of consecutive commit displacement unit vectors):
-
-- ALL particles: rev-cos median −0.150, 37.5% oscillating (cos < −0.2)
-- ear: −0.211 / 54.0%; body: −0.134 / 34.5% — but **ear ∩ untouched-by-cleanup:
-  −0.212 / 53.7%** → the cleanup terms (kNN gate, nn assignment rebuilds) are
-  ACQUITTED as the driver (gate flip 0.51%/5c, nn-elig flip 6.43%/5c).
-- strong oscillators (rev < −0.3, n=6038) sit at median d_tgt = 1.2× target
-  spacing — ON the surface. The ear is not special; it is thin, so the global
-  pattern is visible there.
-
-Mechanism: every window optimizes a NEW dFc leaf, so Adam restarts from zero
-moments with the full initial step α. Near the optimum this is valley zigzag —
-window k overshoots along the current gradient, window k+1 comes back — and the
-line search cannot reject it because the loss decreases every window. This is an
-OPTIMIZER artifact, not physics, so the cure stays on the optimizer side (state
-damping remains banned, §4).
-
-**Fix 5a — `anneal_stale` (plateau-scheduled step). Verdict: PARTIAL.**
-g2_anneal (40k/300c) vs h17 baseline, same script, last-40-pre-freeze window:
-rev-cos median −0.523 → −0.345, osc% 64.6 → 56.0, held-tail jitter 6-8e-5 →
-4e-5 (halved), convergence 259 → 226, chamfer 0.0701 (record-class). Direction
-confirmed, but annealing only engages AFTER improvement stalls — the zigzag
-during descent (improving AND reversing) is untouched.
-
-**Fix 5b — `mom_carry` (cross-window Adam moment persistence). Pending: g5_mom.**
-The remaining zigzag comes from each window's zero-moment Adam restart. The
-control is conceptually ONE parameter (warm start already carries its value
-across windows), so its optimizer state persists too: first moment decayed by
-mom_carry (0.9), second moment and step count verbatim, reset together with a
-rejected warm start, donated only by committed windows.
-
-## 6. Code changes made for this problem (file → change → intent)
-
-| where | what changed | why (intent) |
-|---|---|---|
-| `pipeline/render_loss.py: LambdaBalancer` | hard `cap` (5e3) + EMA; λ estimated ONCE per window from gradient norms | driver #1: the raw ratio diverges when D_render saturates (live-observed 1.77e5) and a per-iteration λ makes monotone acceptance meaningless — a converged render term must FADE, not take over |
-| `plasticity/assimilation.py: isochoric branch` | plastic increment det-normalised (S_e^η/det^{1/3}); det renorm via alternating log-space projections onto {Σlog s=0} ∩ band | driver #2: the unnormalised update was a volumetric RATCHET (\|J−1\|>0.3: 0→41%, detF→0 by 120c) — real plastic flow is isochoric; a single renorm violated the SV band (probe: 792/1000 rows out), hence the joint projection |
-| `pipeline/optimizer.py: w_jvol term in phys_core` | sKL volume prior `(J−1)·log J` on terminal F, through the adjoint (fT wired into phys_total/scalars) | driver #3: isochoric plasticity left ALL volume strain as a permanent elastic spring (restoring −3889 at J=0.9) that kept the body breathing and armed inversions — the prior makes the OPTIMIZER stop commanding volume heterogeneity (prevention in the energy, not rejection in the guard); ladder: detFmin 0.0005→0.497, \|J−1\|>0.3 → 0.0%, tail move halved |
-| `pipeline/optimizer.py: eval_terms jt` | whole-trajectory min-det over stored F AND the effective F+dFc, stacked (one sync), margin 1e-4 | single-step inversions slipped through the terminal-only check (the stored F is SMOOTHED and can hide a constitutive inversion); zero-margin float32 det has a measured 0.04% false-accept |
-| `pipeline/optimizer.py: commit-rollout validation` | the final rollout that produces committed frames passes the same jt check or the window is discarded | CUDA atomics make replay non-bit-identical — the guard was checking one trajectory and committing another |
-| `pipeline/optimizer.py: warm-start baseline` | invalid cold baseline scores as ∞ | an inverted zero-control rollout's artificially low position-only loss was blocking every valid warm start |
-| `pipeline/runner.py: null-commit` | line-search exhaustion → held commit + stale++, under patience (was: terminate the whole run) | a truncation bug masqueraded as convergence (hero7_base stopped at anim 106); exhaustion is not convergence — patience decides |
-| `pipeline/runner.py: freeze tracks` | per-term λ-free tracks (phys / render / W1-ungated / fill) | a drifting λ must not decide the freeze; the GATED d_dt statistic fell when the gate died rather than when particles moved — the track must be a fixed geometric functional |
-| `pipeline/config.py: w_jvol, assim_iso, lambda_cap` | knobs with their measured evidence in comments | same contract as the floater knobs: mechanisms carry their falsifiers |
-| production budgets | flagship runs ≥300 commits | driver #4: the residual "wobble" was honest unfinished descent — the system truly rests at ~commit 259–282 (bunny) and every pair freezes in budget (h17: 61–259) |
-
-| `pipeline/config.py: anneal_stale` + `optimizer.py: alpha_scale` + `runner.py: anneal` | plateau-scheduled step: each no-improvement commit multiplies the next window's initial α by `anneal_stale` (0.7), ×1.15 recovery on improvement, floor 0.05; acceptance-growth cap also respects the annealed ceiling | driver #5: per-window Adam restarts (zero moments, full α) zigzag across the valley near the optimum — 37.5% of particles reverse direction every commit, invisible to the line search because loss still falls; a plateau-decayed step is standard LR scheduling on the optimizer, not damping of the state |
-| `pipeline/config.py: mom_carry` + `optimizer.py: mom_init/mom_out` + `runner.py: mom_prev` | Adam first/second moments + step count carried across windows (first moment decayed ×0.9; reset with a rejected warm start; only committed windows donate) | driver #5b: annealing (5a) cannot touch the zigzag that happens WHILE improving — that one is the zero-moment restart erasing curvature memory at every window boundary; persisting optimizer state matches the control's own persistence (warm start) |
+The tested kNN/H1 control preconditioner reduced movement but worsened Chamfer, silhouette,
+holes, and deformation quality, so production leaves it off. Surface render residuals are
+instead masked at the terminal covector, pulled through the full MPM adjoint, and applied to
+`dFc`; interior continuum response therefore comes from physics rather than a Gauss-Seidel
+position correction.

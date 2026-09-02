@@ -9,6 +9,7 @@ import torch
 from physmorph.mpm.constitutive import lame
 from physmorph.mpm.function import RolloutSpec, warp_mpm, warp_mpm_full
 from physmorph.mpm.state import MPMParams
+from physmorph.mpm.traj import Trajectory, compute_rest_volumes
 
 DEV = "cpu"
 
@@ -73,3 +74,47 @@ def test_v_t_output_and_adjoint(prm, src):
     L = vT.pow(2).sum()
     (g,) = torch.autograd.grad(L, dfc)
     assert torch.isfinite(g).all() and float(g.abs().sum()) > 0
+
+
+def test_source_rest_volume_is_reused_without_recomputation(prm, src, monkeypatch):
+    """Vp0 supplied by the source must bypass per-trajectory density fitting."""
+    vol0 = compute_rest_volumes(src, 1.0, prm, DEV)
+    assert vol0.shape == (len(src),)
+    assert np.isfinite(vol0).all() and (vol0 > 0.0).all()
+    fallback = Trajectory(src, 1.0, 1.0e5, 5.0e4, prm, 1,
+                          device=DEV, requires_grad=False)
+    assert np.allclose(fallback.vol.numpy(), vol0, rtol=1e-6, atol=1e-7)
+
+    def forbidden_recompute(_self):
+        raise AssertionError("a supplied source-rest Vp0 must not be recomputed")
+
+    monkeypatch.setattr(Trajectory, "_compute_volumes", forbidden_recompute)
+    # A different x0 models a later outer window.  Its trajectory must retain the
+    # source volumes verbatim rather than fitting volumes to the deformed density.
+    x_later = np.ascontiguousarray(src * np.array([1.2, 0.8, 1.0], np.float32))
+    tr = Trajectory(x_later, 1.0, 1.0e5, 5.0e4, prm, 1,
+                    device=DEV, requires_grad=False, vol0=vol0)
+    assert np.array_equal(tr.vol.numpy(), vol0)
+
+
+def test_rollout_spec_forwards_source_rest_volume(prm, src, monkeypatch):
+    """The differentiable torch bridge must also bypass trajectory recomputation."""
+    vol0 = compute_rest_volumes(src, 1.0, prm, DEV)
+
+    def forbidden_recompute(_self):
+        raise AssertionError("RolloutSpec.vol0 was not forwarded to Trajectory")
+
+    monkeypatch.setattr(Trajectory, "_compute_volumes", forbidden_recompute)
+    spec = RolloutSpec(x0=src, m=1.0, lam=1.0e5, mu=5.0e4, prm=prm, T=2,
+                       vol0=vol0, device=DEV)
+    dfc = (torch.randn(2, len(src), 3, 3) * 1e-3).requires_grad_(True)
+    xT, _, vT = warp_mpm_full(dfc, spec)
+    (g,) = torch.autograd.grad(xT.pow(2).mean() + vT.pow(2).mean(), dfc)
+    assert torch.isfinite(g).all()
+
+
+def test_trajectory_rejects_invalid_source_rest_volume(prm, src):
+    with pytest.raises(ValueError, match="vol0 must have shape"):
+        Trajectory(src, 1.0, 1.0e5, 5.0e4, prm, 1,
+                   device=DEV, requires_grad=False,
+                   vol0=np.ones(len(src) - 1, np.float32))

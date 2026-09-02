@@ -21,6 +21,8 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import json
+import hashlib
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -96,7 +98,21 @@ def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, render_views=args.render_views,
-                         render_res=args.render_res, loss_res=args.loss_res)
+                         render_res=args.render_res, loss_res=args.loss_res,
+                         eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
+                         surface_grad_frac=args.surface_grad_frac,
+                         render_surface_only=args.render_surface_only,
+                         control_h1_iters=args.control_h1_iters,
+                         nn_tail_frac=args.nn_tail_frac,
+                         outer_merit=args.outer_merit,
+                         persistent_rest_volume=not args.legacy_recompute_volumes,
+                          gauss_covariance=not args.legacy_gauss_centers_only,
+                          gauss_sigma_scale=args.gauss_sigma_scale,
+                          gauss_children=(1 if args.gauss_children is None
+                                          else args.gauss_children),
+                          gauss_child_sigma_scale=args.gauss_child_sigma_scale,
+                          gauss_child_offset_scale=args.gauss_child_offset_scale,
+                          patience=args.patience)
     if arm == "phys":
         cfg.lambda_auto = 0.0
     elif arm == "render":
@@ -254,6 +270,38 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.assim_iso = True
         cfg.use_gauss_loss = True
         cfg.gauss_res = args.gauss_res
+    elif arm == "render_stable_gauss":             # production: exact render + trust gates
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = 0.0
+        cfg.grad_project = False
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
+        cfg.w_dt = args.w_dt
+        cfg.w_nn = args.w_nn
+        cfg.w_jvol = args.w_jvol
+        cfg.gauss_mix = args.gauss_mix if args.gauss_mix > 0 else 0.25
+        cfg.mom_carry = args.mom_carry if args.mom_carry > 0 else 0.8
+        cfg.anneal_stale = args.anneal if args.anneal > 0 else 0.5
+        cfg.patience = max(cfg.patience, 8)
+        cfg.w_kin = max(args.w_kin, 20.0)
+        cfg.w_tctrl = args.w_tctrl if args.w_tctrl > 0 else 10.0
+        cfg.w_cov = args.w_cov if args.w_cov > 0 else 25.0
+        # High-resolution production uses many small surface splats.  Do not inflate
+        # them to hide sparse sampling holes: the 20k calibration owns this value.
+        cfg.gauss_sigma_scale = args.gauss_sigma_scale
+        cfg.gauss_children = (4 if args.gauss_children is None
+                              else args.gauss_children)
+        cfg.nn_tail_frac = args.nn_tail_frac
+        cfg.surface_grad_frac = (args.surface_grad_frac
+                                 if args.surface_grad_frac > 0 else 0.50)
+        cfg.render_surface_only = True
+        cfg.control_h1_iters = args.control_h1_iters
+        cfg.outer_merit = True
+        cfg.assim_iso = True
+        cfg.use_gauss_loss = True
+        cfg.gauss_res = args.gauss_res
     else:
         raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat|render_ws|render_gs"
                          "|render_pbr|render_pc|render_c2f|render_pace|render_lg|render_full)")
@@ -276,6 +324,8 @@ def eval_gates(tag, res, met, prm, T, rel_tol=0.003, hole_tol=0.02):
                                                 met.get("hole_frac_tgt", 0.0) + 0.005),
         "G4_ejection": met["outside_max"] == 0.0 and met["stray_max"] < 2e-3,
     }
+    if "render_out_nn_far_frac" in met:
+        gates["G4_render_surface"] = met["render_out_nn_far_frac"] < 2e-3
     print(f"[{tag}] gates: " + "  ".join(f"{k}={'PASS' if v else 'FAIL'}"
                                          for k, v in gates.items()) +
           f"   (guards={g}, jitter_rel={met['jitter_rel']:.5f}, drift_rel={drift_rel:.5f}, "
@@ -295,9 +345,11 @@ def main():
     ap.add_argument("--iters", type=int, default=8)
     ap.add_argument("--animations", type=int, default=30)
     ap.add_argument("--alpha", type=float, default=0.02)
+    ap.add_argument("--eps", type=float, default=1e-3)
     ap.add_argument("--lambda_auto", type=float, default=0.5)
     ap.add_argument("--w_kin", type=float, default=0.5)
     ap.add_argument("--w_ctrl", type=float, default=1e-3)
+    ap.add_argument("--w_tctrl", type=float, default=0.0)
     ap.add_argument("--w_box", type=float, default=10.0)
     ap.add_argument("--assim", type=float, default=0.5)
     ap.add_argument("--render_views", type=int, default=6)
@@ -314,10 +366,24 @@ def main():
     ap.add_argument("--w_grow", type=float, default=0.02)
     ap.add_argument("--grow_band", type=float, default=1.5)
     ap.add_argument("--gauss_res", type=int, default=96)
+    ap.add_argument("--gauss_sigma_scale", type=float, default=1.0)
+    ap.add_argument("--gauss_children", type=int, default=None,
+                    help="render children/parent (default: 4 for render_stable_gauss, else 1)")
+    ap.add_argument("--gauss_child_sigma_scale", type=float, default=0.55)
+    ap.add_argument("--gauss_child_offset_scale", type=float, default=0.35)
+    ap.add_argument("--w_cov", type=float, default=0.0)
+    ap.add_argument("--surface_grad_frac", type=float, default=0.0)
+    ap.add_argument("--render_surface_only", action="store_true")
+    ap.add_argument("--control_h1_iters", type=int, default=0)
+    ap.add_argument("--outer_merit", action="store_true")
+    ap.add_argument("--patience", type=int, default=5)
+    ap.add_argument("--legacy_recompute_volumes", action="store_true")
+    ap.add_argument("--legacy_gauss_centers_only", action="store_true")
     ap.add_argument("--anneal", type=float, default=0.0)  # plateau step decay
     ap.add_argument("--gauss_mix", type=float, default=0.0)  # hybrid sil+gauss render
     ap.add_argument("--mom_carry", type=float, default=0.0)  # cross-window Adam moments
     ap.add_argument("--w_nn", type=float, default=0.2)
+    ap.add_argument("--nn_tail_frac", type=float, default=0.0)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard
     ap.add_argument("--w_jvol", type=float, default=50.0)  # h12 ladder: detFmin
@@ -345,7 +411,21 @@ def main():
         from physmorph.viewer.server import LiveServer
         live = LiveServer(args.live_port)
 
-    out = {"provenance": {**vars(args), "mpm": dataclasses.asdict(prm)},   # AGENTS rule 4:
+    tracked = [Path("physmorph/pipeline/config.py"),
+               Path("physmorph/pipeline/optimizer.py"),
+               Path("physmorph/pipeline/runner.py"),
+               Path("physmorph/pipeline/gauss_loss.py"),
+               Path("physmorph/losses/volumetric.py"),
+               Path("physmorph/mpm/kernels.py"),
+               Path("physmorph/mpm/traj.py")]
+    code_hash = hashlib.sha256(b"".join(p.read_bytes() for p in tracked)).hexdigest()[:16]
+    try:
+        git_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True,
+                                          stderr=subprocess.DEVNULL).strip()
+    except (OSError, subprocess.CalledProcessError):
+        git_sha = None
+    out = {"provenance": {**vars(args), "mpm": dataclasses.asdict(prm),
+                           "git_sha": git_sha, "code_hash": code_hash},   # AGENTS rule 4:
            "G1a": gate1_plumbing(src, prm),                                # discretisation
            "G1b": gate1_channels(src, prm), "arms": {}}                    # travels with numbers
 
@@ -359,11 +439,11 @@ def main():
         cbs = (None, None)
         if live is not None:
             from physmorph.render.covariance import sigma0_from_nn
-            cbs = live.begin_run(arm, src, tgt, prm, cfg, sigma0_from_nn(src, 0.7))
+            cbs = live.begin_run(arm, src, tgt, prm, cfg, sigma0_from_nn(tgt, 0.9))
         res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1])
         dt = time.time() - t0
         met = metrics.summarize(res["frames"], tgt, F_frames=res["F_frames"],
-                                n_held=res["n_held"])
+                                n_held=res["n_held"], render_mask=res.get("render_mask"))
         # trajectory evenness: CV of per-commit displacement (snap-to-target -> high CV)
         mv = [h["move"] for h in res["history"] if "move" in h]
         # <3 commits IS the snap pathology — score it worst, not best (adversarial finding)
@@ -374,12 +454,38 @@ def main():
         stride = args.save_F_stride if args.save_F_stride > 0 else args.T
         nF = len(res["F_frames"])
         idx = sorted(set(range(0, nF, stride)) | {nF - 1})
+        archive_extra = {}
+        if cfg.use_gauss_loss and cfg.lambda_auto > 0:
+            from physmorph.pipeline.runner import _surface_weights
+            from physmorph.render.children import tangent_child_offsets
+            from physmorph.render.covariance import sigma0_from_nn
+            src_mask = (res["render_mask"] if res.get("render_mask") is not None
+                        else np.ones(len(src), bool))
+            tgt_mask = ((_surface_weights(tgt, cfg.surface_grad_k,
+                                          cfg.surface_grad_frac,
+                                          cfg.surface_grad_floor) > 0.5)
+                        if cfg.render_surface_only else np.ones(len(tgt), bool))
+            sigma0 = sigma0_from_nn(tgt[tgt_mask], cfg.gauss_sigma_scale)
+            archive_extra = {
+                "target_render_mask": tgt_mask, "sigma0": np.float32(sigma0),
+                "source_child_offsets": tangent_child_offsets(
+                    src, src_mask, sigma0, cfg.gauss_children,
+                    cfg.gauss_child_offset_scale, cfg.gauss_child_k),
+                "target_child_offsets": tangent_child_offsets(
+                    tgt, tgt_mask, sigma0, cfg.gauss_children,
+                    cfg.gauss_child_offset_scale, cfg.gauss_child_k),
+                "gauss_child_sigma_scale": np.float32(
+                    cfg.gauss_child_sigma_scale if cfg.gauss_children > 1 else 1.0),
+            }
         np.savez_compressed(
             f"{args.out}_{arm}.npz", src=src, tgt=tgt,
             frames=np.stack(res["frames"]),
             F_samples=np.stack([res["F_frames"][i] for i in idx]),
             F_sample_idx=np.array(idx),
-            s=res["s"] if res["s"] is not None else np.zeros(0, np.float32))
+            render_mask=(res["render_mask"] if res.get("render_mask") is not None
+                          else np.ones(len(src), bool)),
+            s=res["s"] if res["s"] is not None else np.zeros(0, np.float32),
+            **archive_extra)
         out["arms"][arm] = {"config": cfg_dump, "metrics": met,
                             "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v)
                                       for k, v in gates.items()},

@@ -19,12 +19,10 @@ Local machine:
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
-import struct
 import sys
-import threading
 import time
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import numpy as np
@@ -32,128 +30,12 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from physmorph.mpm import MPMParams  # noqa: E402
+from physmorph import metrics  # noqa: E402
 from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
-from physmorph.render.covariance import cov_from_F, sigma0_from_nn  # noqa: E402
+from physmorph.render.covariance import sigma0_from_nn  # noqa: E402
+from physmorph.render.children import tangent_child_offsets  # noqa: E402
 from physmorph.sampling import load_normalized  # noqa: E402
-from physmorph.viewer.server import Hub, grid_fields, make_handler, pack_state  # noqa: E402,F401
-
-_TRI = ([0, 0, 0, 1, 1, 2], [0, 1, 2, 1, 2, 2])      # upper-triangle index of a 3x3
-
-
-def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray,
-               nodes: np.ndarray | None = None, nodeq: np.ndarray | None = None) -> bytes:
-    """<u32 hlen><json hdr><f32 x[N*3]><f32 cov6[N*6]>[<f32 nodes[A*3]><f32 nodeq[A*2]>]."""
-    a = 0 if nodes is None else int(len(nodes))
-    hdr = json.dumps({
-        "seq": seq, "n": int(len(x)), "a": a,
-        "phase": rec.get("phase", "commit"), "sweep": rec.get("sweep"),
-        "commit": rec.get("animation", -1) + 1,
-        "E": rec.get("loss"), "d_vol": rec.get("d_vol"), "d_render": rec.get("d_render"),
-        "d_dt": rec.get("d_dt"), "lam": rec.get("lambda"), "kin": rec.get("kin"),
-        "v_absmax": rec.get("v_absmax"), "move": rec.get("move"),
-        "gnorm": rec.get("grad_norm"), "dfc": rec.get("dfc_absmax"),
-        "acc": rec.get("accepted"), "rej": rec.get("rejected"),
-        "Jmin": rec.get("Jmin_traj", rec.get("Jmin")), "run": rec.get("run", 0),
-    }).encode("utf-8")
-    hdr += b" " * (-len(hdr) % 4)      # 4-align: JS Float32Array offsets must be %4==0
-    cov6 = cov[:, _TRI[0], _TRI[1]]
-    out = (struct.pack("<I", len(hdr)) + hdr
-           + np.ascontiguousarray(x, "<f4").tobytes()
-           + np.ascontiguousarray(cov6, "<f4").tobytes())
-    if a:
-        out += np.ascontiguousarray(nodes, "<f4").tobytes()
-        out += np.ascontiguousarray(nodeq, "<f4").tobytes()
-    return out
-
-
-def grid_fields(x, v, gmin, ldx, res):
-    """Loss-grid distributions: node positions + (mass, mass-weighted |v|) via CIC."""
-    rel = (x - gmin) / ldx
-    base = np.floor(rel).astype(np.int64)
-    frac = rel - base
-    m = np.zeros(res ** 3, np.float64)
-    mv = np.zeros(res ** 3, np.float64)
-    sp = np.linalg.norm(v, axis=1)
-    for ox in (0, 1):
-        wx = frac[:, 0] if ox else 1 - frac[:, 0]
-        for oy in (0, 1):
-            wy = frac[:, 1] if oy else 1 - frac[:, 1]
-            for oz in (0, 1):
-                wz = frac[:, 2] if oz else 1 - frac[:, 2]
-                w = wx * wy * wz
-                ii = np.clip(base[:, 0] + ox, 0, res - 1)
-                jj = np.clip(base[:, 1] + oy, 0, res - 1)
-                kk = np.clip(base[:, 2] + oz, 0, res - 1)
-                idx = (ii * res + jj) * res + kk
-                np.add.at(m, idx, w)
-                np.add.at(mv, idx, w * sp)
-    act = np.nonzero(m > 0.5)[0]                      # occupied cells only
-    i, j, k = act // (res * res), (act // res) % res, act % res
-    nodes = np.stack([i, j, k], 1).astype(np.float32) * ldx + gmin
-    nodeq = np.stack([(mv[act] / m[act]), m[act]], 1).astype(np.float32)   # (|v|, mass)
-    return nodes, nodeq
-
-
-class Hub:
-    def __init__(self):
-        self.lock = threading.Lock()
-        self.state = b""
-        self.meta = b"{}"
-        self.target = b""
-        self.history = []                # per-commit headers (chart backfill on page load)
-        self.restart = threading.Event()
-
-    def publish(self, blob, hdr=None):
-        with self.lock:
-            self.state = blob
-            if hdr is not None:
-                self.history.append(hdr)
-                if len(self.history) > 500:
-                    self.history.pop(0)
-
-    def snap(self):
-        with self.lock:
-            return self.state
-
-    def hist_json(self):
-        with self.lock:
-            return json.dumps(self.history).encode()
-
-
-def make_handler(hub: Hub, page_path: Path):
-    class H(BaseHTTPRequestHandler):
-        def log_message(self, *a):
-            pass
-
-        def _send(self, body, ctype):
-            self.send_response(200)
-            self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(len(body)))
-            self.send_header("Cache-Control", "no-store")
-            self.end_headers()
-            self.wfile.write(body)
-
-        def do_GET(self):
-            if self.path in ("/", "/index.html"):
-                self._send(page_path.read_bytes(), "text/html; charset=utf-8")
-            elif self.path == "/meta":
-                self._send(hub.meta, "application/json")
-            elif self.path == "/target":
-                self._send(hub.target, "application/octet-stream")
-            elif self.path == "/state":
-                self._send(hub.snap(), "application/octet-stream")
-            elif self.path == "/history":
-                self._send(hub.hist_json(), "application/json")
-            else:
-                self.send_error(404)
-
-        def do_POST(self):
-            if self.path == "/restart":
-                hub.restart.set()
-                self._send(b'{"ok":true}', "application/json")
-            else:
-                self.send_error(404)
-    return H
+from physmorph.viewer.server import LiveServer  # noqa: E402
 
 
 def main():
@@ -163,13 +45,27 @@ def main():
     ap.add_argument("--n", type=int, default=20000)
     ap.add_argument("--T", type=int, default=20)
     ap.add_argument("--iters", type=int, default=8)
-    ap.add_argument("--animations", type=int, default=30)
+    ap.add_argument("--animations", type=int, default=300)
     ap.add_argument("--lambda_auto", type=float, default=0.5)
-    ap.add_argument("--w_kin", type=float, default=5.0)
+    ap.add_argument("--w_kin", type=float, default=20.0)
+    ap.add_argument("--render_views", type=int, default=6)
+    ap.add_argument("--render_res", type=int, default=64)
+    ap.add_argument("--loss_res", type=int, default=32)
+    ap.add_argument("--gauss_res", type=int, default=128)
+    ap.add_argument("--gauss_sigma_scale", type=float, default=1.0)
+    ap.add_argument("--gauss_children", type=int, default=4)
+    ap.add_argument("--gauss_child_sigma_scale", type=float, default=0.55)
+    ap.add_argument("--gauss_child_offset_scale", type=float, default=0.35)
+    ap.add_argument("--surface_frac", type=float, default=0.50)
+    ap.add_argument("--outer_gate_move_frac", type=float, default=0.006,
+                    help="latch the fixed-merit outer gate below this move/extent ratio")
+    ap.add_argument("--outer_gate_merit_max", type=float, default=0.55,
+                    help="also require normalized fixed merit below this value before latching")
     ap.add_argument("--loop", action="store_true")     # default: ONE run, then hold
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--out", default="output/live_stable")
     args = ap.parse_args()
 
     src = load_normalized(args.src, args.n, args.seed)
@@ -177,66 +73,100 @@ def main():
     prm = MPMParams()
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations,
                          lambda_auto=args.lambda_auto, w_kin=args.w_kin,
-                         device=args.device, hold_after_converge=False)
-    sigma0 = sigma0_from_nn(src, 0.7)
-    extent = float(np.abs(tgt).max()) * 1.25
-    gmin = np.asarray(prm.grid_min, np.float32)
-    dmax = gmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
-    ldx = float((dmax - gmin).max() / cfg.loss_res)
-
-    hub = Hub()
-    hub.meta = json.dumps({"n": args.n, "extent": extent, "sigma0": sigma0,
-                           "src": args.src, "tgt": args.tgt, "T": args.T,
-                           "iters": args.iters, "animations": args.animations,
-                           "pipeline": "dynamic (elasto + render adjoint)"}).encode()
-    N = len(tgt)
-    eye = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
-    hub.target = pack_state(0, {"animation": -1}, tgt, cov_from_F(eye, sigma0))
-    hub.publish(pack_state(0, {"animation": -1, "run": 0}, src, cov_from_F(eye, sigma0)))
-
-    page_path = (Path(__file__).resolve().parent.parent
-                 / "physmorph" / "viewer" / "live.html")
-    httpd = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(hub, page_path))
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
-    print(f"[live] serving http://localhost:{args.port}  (tunnel this port)", flush=True)
-
-    seq, run_i = 0, 0
+                         device=args.device, hold_after_converge=False,
+                         render_views=args.render_views, render_res=args.render_res,
+                         loss_res=args.loss_res, use_gauss_loss=True,
+                          gauss_mix=0.25, gauss_res=args.gauss_res,
+                          gauss_sigma_scale=args.gauss_sigma_scale,
+                          gauss_children=args.gauss_children,
+                          gauss_child_sigma_scale=args.gauss_child_sigma_scale,
+                          gauss_child_offset_scale=args.gauss_child_offset_scale,
+                         w_dt=0.2, w_nn=0.3, nn_tail_frac=0.0,
+                         w_jvol=50.0, w_creg=100.0,
+                         dfc_clip=0.02, pace=0.12, assim_iso=True,
+                         mom_carry=0.8, anneal_stale=0.5,
+                          outer_merit=True, w_tctrl=10.0, w_cov=25.0,
+                          outer_gate_move_frac=args.outer_gate_move_frac,
+                          outer_gate_merit_max=args.outer_gate_merit_max,
+                          surface_grad_frac=args.surface_frac, render_surface_only=True,
+                         control_h1_iters=0, patience=8)
+    from physmorph.pipeline.runner import _surface_weights
+    tgt_mask = _surface_weights(tgt, cfg.surface_grad_k, cfg.surface_grad_frac,
+                                cfg.surface_grad_floor) > 0.5
+    sigma0 = sigma0_from_nn(tgt[tgt_mask], cfg.gauss_sigma_scale)
+    src_mask = (_surface_weights(src, cfg.surface_grad_k, cfg.surface_grad_frac,
+                                 cfg.surface_grad_floor) > 0.5)
+    src_child_offsets = tangent_child_offsets(
+        src, src_mask, sigma0, cfg.gauss_children, cfg.gauss_child_offset_scale,
+        cfg.gauss_child_k)
+    tgt_child_offsets = tangent_child_offsets(
+        tgt, tgt_mask, sigma0, cfg.gauss_children, cfg.gauss_child_offset_scale,
+        cfg.gauss_child_k)
+    live = LiveServer(args.port)
+    run_i = 0
     while True:
-        commit_no = {"a": -1}
+        cb_commit, cb_iter = live.begin_run("render_stable_gauss", src, tgt, prm, cfg, sigma0)
+        archive_x = [src.copy()]
+        archive_F = [np.tile(np.eye(3, dtype=np.float32), (len(src), 1, 1))]
+        archive_animation = [-1]
 
-        def cb_iter(it, xT, FT, tele, _run=run_i):
-            nonlocal seq
-            seq += 1
-            r = {"animation": commit_no["a"] + 1, "phase": "iter", "sweep": it,
-                 "run": _run, **{k: tele.get(k) for k in
-                                 ("loss", "d_vol", "d_render", "lambda", "kin")},
-                 "grad_norm": tele.get("grad_norm")}
-            hub.publish(pack_state(seq, r, xT, cov_from_F(FT, sigma0)))
-
-        def cb_commit(a, x, F, v, rec, _run=run_i):
-            nonlocal seq
-            seq += 1
-            commit_no["a"] = a
-            nodes, nodeq = grid_fields(x, v, gmin, ldx, cfg.loss_res)
-            r = dict(rec); r["run"] = _run; r["phase"] = "commit"
-            hdr = {"run": _run, "commit": a + 1, "E": rec.get("loss"),
-                   "d_vol": rec.get("d_vol"), "d_render": rec.get("d_render"),
-                   "d_dt": rec.get("d_dt"), "lam": rec.get("lambda"), "kin": rec.get("kin"),
-                   "move": rec.get("move"), "Jmin": rec.get("Jmin_traj", rec.get("Jmin"))}
-            hub.publish(pack_state(seq, r, x, cov_from_F(F, sigma0), nodes, nodeq), hdr)
+        def on_commit(a, x, F, v, rec):
+            cb_commit(a, x, F, v, rec)
+            # The deliverable animation is commit-time, not every internal MPM
+            # substep.  This preserves every state change while avoiding multi-GB
+            # archives at a 300-commit production budget; null states are identical.
+            archive_x.append(np.asarray(x, np.float32).copy())
+            archive_F.append(np.asarray(F, np.float32).copy())
+            archive_animation.append(int(a))
 
         t0 = time.time()
         res = run_pipeline(src, tgt, prm, cfg, log=lambda *a: print(*a, flush=True),
-                           on_commit=cb_commit, on_iter=cb_iter)
+                           on_commit=on_commit, on_iter=cb_iter)
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(str(out_path) + ".npz", src=src, tgt=tgt,
+                            frames=np.stack(archive_x), F_samples=np.stack(archive_F),
+                            F_sample_idx=np.arange(len(archive_x), dtype=np.int64),
+                            animation=np.asarray(archive_animation, dtype=np.int64),
+                            render_mask=(res["render_mask"]
+                                         if res.get("render_mask") is not None
+                                         else np.ones(len(src), bool)),
+                            target_render_mask=tgt_mask,
+                            sigma0=np.float32(sigma0),
+                            source_child_offsets=src_child_offsets,
+                            target_child_offsets=tgt_child_offsets,
+                            gauss_child_sigma_scale=np.float32(
+                                cfg.gauss_child_sigma_scale
+                                if cfg.gauss_children > 1 else 1.0))
+        met = metrics.summarize(res["frames"], tgt, F_frames=res["F_frames"],
+                                n_held=res["n_held"], render_mask=res.get("render_mask"))
+        from physmorph.render.support import MaterialSupport
+        support_alpha = MaterialSupport.from_rest(src, 8).opacity(res["frames"][-1])
+        visible = np.asarray(res["render_mask"], bool)
+        render_diag = {
+            "parent_sigma0": float(sigma0),
+            "primitive_sigma0": float(sigma0 * (cfg.gauss_child_sigma_scale
+                                                  if cfg.gauss_children > 1 else 1.0)),
+            "three_sigma_radius": float(3.0 * sigma0 * (cfg.gauss_child_sigma_scale
+                                                         if cfg.gauss_children > 1 else 1.0)),
+            "children_per_parent": int(cfg.gauss_children),
+            "surface_count": int(visible.sum()),
+            "support_faded_count": int((visible & (support_alpha < 0.5)).sum()),
+            "support_faded_frac": float((support_alpha[visible] < 0.5).mean())}
+        (out_path.with_suffix(".json")).write_text(json.dumps({
+            "discretization": {"N": len(src), "T": cfg.T, "dt": prm.dt,
+                               "dx": prm.dx, "smoothing": prm.smoothing},
+            "config": dataclasses.asdict(cfg), "metrics": met,
+            "render_diagnostics": render_diag, "guards": res["guards"],
+            "history": res["history"]}, indent=2))
+        print(f"[live] saved {out_path}.npz/.json", flush=True)
         print(f"[live] run {run_i} finished in {time.time()-t0:.1f}s "
               f"(converged={res['converged']}); "
               f"{'looping' if args.loop else 'holding — POST /restart or the viewer button'}",
               flush=True)
         if not args.loop:
-            hub.restart.wait()                        # viewer restart button
-            hub.restart.clear()
-        with hub.lock:
-            hub.history = []
+            live.hub.restart.wait()
+            live.hub.restart.clear()
         run_i += 1
         time.sleep(1.0)
 

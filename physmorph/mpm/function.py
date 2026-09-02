@@ -40,6 +40,7 @@ class RolloutSpec:
     F0: np.ndarray | None = None
     C0: np.ndarray | None = None
     device: str = "cuda"
+    vol0: np.ndarray | None = None  # one-time source-rest Vp; reused across all windows
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -67,7 +68,7 @@ class _WarpMPM(torch.autograd.Function):
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
-                          device=spec.device, requires_grad=True)
+                          device=spec.device, requires_grad=True, vol0=spec.vol0)
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()

@@ -1,7 +1,8 @@
 """MLS-MPM forward kernels (Warp). Equations refer to docs/SPEC.md §3.3.
 
 Oracle: DiffMPMLib3D/ForwardSimulation.cpp. Cubic B-spline 4^3 stencil,
-C0 = 3/dx^2, APIC affine. Stress uses F_e = (F+dFc) Fp^{-1} (D1).
+C0 = 3/dx^2, APIC affine. Stress uses F_e = (F+dFc) Fp^{-1} (D1);
+the P scratch stores dPsi/d(F+dFc), not the elastic PK1 dPsi/dF_e.
 """
 from __future__ import annotations
 
@@ -37,8 +38,12 @@ def k_stress(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
              Fp: wp.array(dtype=wp.mat33), lam: wp.array(dtype=float),
              mu: wp.array(dtype=float), P: wp.array(dtype=wp.mat33)):
     p = wp.tid()
-    Fe = (F[p] + dFc[p]) @ wp.inverse(Fp[p])
-    P[p] = pk1_fixed_corotated(Fe, lam[p], mu[p])
+    Fpi = wp.inverse(Fp[p])
+    Fe = (F[p] + dFc[p]) @ Fpi
+    Pe = pk1_fixed_corotated(Fe, lam[p], mu[p])
+    # Chain rule for Psi((F+dFc) Fp^-1): Ptotal = Pe Fp^-T.  The P2G
+    # product below is then Ptotal(F+dFc)^T = Pe Fe^T (symmetric tau).
+    P[p] = Pe @ wp.transpose(Fpi)
 
 
 # ── guidance velocity injection (distributed over substeps) ─────────────────
@@ -76,7 +81,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
         return
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
-    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # eq (5) affine
+    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # total-PK1 form
     mv = m[p] * v[p] * (1.0 - dt * drag)
     b = base_node(xp, gmin, inv_dx)
     for oi in range(4):

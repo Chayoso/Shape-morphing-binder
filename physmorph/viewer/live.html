@@ -1,373 +1,202 @@
-<!DOCTYPE html>
-<!-- PhysMorph LIVE viewer: polls /state while the VBD-MPM sim runs on the server.
-     Interactive single view: DRAG to rotate, WHEEL to zoom. Splats composited as
-     anisotropic GAUSSIAN sprites (projected covariance, back-to-front alpha) -
-     an orthographic Gaussian-splat render. Source = blue, target ghost = orange. -->
-<html><head><meta charset="utf-8"><title>PhysMorph live</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PhysMorph diagnostics</title>
 <style>
-  body{margin:0;background:#101014;color:#cfd3da;font-family:system-ui,sans-serif;overflow:hidden}
-  #bar{position:fixed;left:0;right:0;top:0;padding:8px 14px;background:#000a;z-index:5;
-       display:flex;gap:18px;align-items:baseline;font-size:13px}
-  #bar b{color:#7fc97f;font-size:15px}
-  #bar .dim{color:#8a8f98}
-  canvas{display:block;cursor:grab}
-  #sparkwrap{position:fixed;right:14px;top:48px;bottom:12px;overflow-y:auto;border-radius:6px}
-  #spark{background:#0008;border-radius:6px;display:block}
-  #pause{background:#2a6;border:0;color:#fff;padding:3px 10px;border-radius:5px;cursor:pointer}
-  #hint{position:fixed;left:14px;bottom:12px;font-size:12px;color:#6b7078}
-</style></head>
+:root{color-scheme:dark;--bg:#0d0f14;--panel:#11151de8;--line:#293140;--text:#d8dde7;--dim:#8d96a6}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:12px system-ui,sans-serif;overflow:hidden}
+#bar{position:fixed;z-index:5;top:0;left:0;right:0;min-height:43px;padding:7px 10px;background:#07090deF;
+ display:flex;gap:12px;align-items:center;overflow-x:auto;white-space:nowrap;border-bottom:1px solid #202633}
+#status{font-size:14px;font-weight:700;color:#73d29c} .dim{color:var(--dim)}
+button,select,input{accent-color:#5ec79a} button,select{background:#1b2230;color:var(--text);border:1px solid #39445a;border-radius:4px;padding:3px 7px}
+button{cursor:pointer} label{cursor:pointer} input[type=range]{width:70px;vertical-align:middle}
+#view{position:fixed;left:0;right:0;top:43px;bottom:0;cursor:grab}
+#panel{position:fixed;z-index:4;right:10px;top:53px;bottom:10px;width:350px;background:var(--panel);
+ border:1px solid #2a3342;border-radius:7px;display:flex;flex-direction:column;box-shadow:0 6px 28px #0008}
+#panelHead{padding:8px;border-bottom:1px solid var(--line)} #chartToggles{display:flex;flex-wrap:wrap;gap:5px 9px;max-height:108px;overflow:auto}
+#chartToggles label{color:#aeb6c4} #chartScroll{overflow:auto;flex:1} #charts{display:block}
+#legend{position:fixed;z-index:3;left:12px;bottom:10px;background:#090c12d9;border:1px solid #293140;border-radius:6px;padding:7px 9px;line-height:1.65}
+.sw{display:inline-block;width:13px;height:3px;margin-right:5px;vertical-align:middle}.cyan{background:#40d8ff}.mag{background:#ff5bd6}
+  .orange{background:#e0956b}.red{background:#ff4848}.green{background:#66e48f} #tele{color:#aeb6c4}
+@media(max-width:900px){#panel{width:300px;opacity:.93}}
+</style>
+</head>
 <body>
 <div id="bar">
-  <b id="st">connecting…</b>
-  <span id="tele" class="dim"></span>
-  <button id="pause">pause</button>
-  <button id="restart" style="background:#a63;border:0;color:#fff;padding:3px 10px;border-radius:5px;cursor:pointer">restart run</button>
-  <span class="dim">splat <input id="ssz" type="range" min="0.4" max="3.0" step="0.1" value="1.5" style="width:80px"></span>
-  <span class="dim">ghost <input id="gho" type="range" min="0" max="0.6" step="0.02" value="0.22" style="width:70px"></span>
-  <button id="charts" style="background:#456;border:0;color:#fff;padding:3px 10px;border-radius:5px;cursor:pointer">charts</button>
-  <label class="dim"><input type="checkbox" id="cbsweep" checked> iters</label>
-  <label class="dim"><input type="checkbox" id="cbgrid"> grid</label>
-  <label class="dim"><input type="checkbox" id="cbslice"> slice</label>
-  <span class="dim">y <input id="ysl" type="range" min="-1" max="1" step="0.02" value="0" style="width:80px"></span>
-  <label class="dim"><input type="checkbox" id="cbsplat" checked> splats</label>
-  <label class="dim"><input type="checkbox" id="cbfloat"> floaters</label>
-  <select id="field" style="background:#222;color:#cfd3da;border:1px solid #444">
-    <option value="0">grid |v|</option><option value="1">grid mass</option>
-  </select>
+  <span id="status">connecting</span><span id="tele"></span>
+  <button id="pause">pause</button><button id="restart">restart</button><button id="panelBtn">graphs</button>
+  <label><input id="iterations" type="checkbox" checked> iterations</label>
+  <label><input id="splats" type="checkbox" checked> objective splats</label>
+  <label><input id="surfaceOnly" type="checkbox" checked> surface Gaussians</label>
+  <label><input id="maskOn" type="checkbox"> render mask</label>
+  <label><input id="targetOn" type="checkbox" checked> target</label>
+  <label><input id="floaters" type="checkbox"> target-distance tail</label>
+  <label><input id="particles" type="checkbox"> particle field</label>
+  <select id="particleField"></select>
+  <label><input id="gridOn" type="checkbox"> diagnostic grid</label><select id="gridField"></select>
+  <label><input id="physGrad" type="checkbox"> physics grad</label>
+  <label><input id="renderGrad" type="checkbox"> render grad</label>
+  <span class="dim">splat <input id="splatScale" type="range" min=".2" max="3" step=".1" value="1.0"></span>
+  <span class="dim">vectors <input id="vectorScale" type="range" min=".2" max="4" step=".1" value="1.2"></span>
 </div>
-<canvas id="cv"></canvas>
-<div id="sparkwrap"><canvas id="histo" width="320" height="110" style="background:#0008;border-radius:6px;display:block;margin-bottom:4px"></canvas><canvas id="spark" width="320" height="1000"></canvas></div>
-<div id="hint">drag: rotate · right-drag: pan · wheel: zoom</div>
+<canvas id="view"></canvas>
+<section id="panel">
+  <div id="panelHead"><b>Optimization traces</b><div id="chartToggles"></div></div>
+  <div id="chartScroll"><canvas id="charts" width="350"></canvas></div>
+</section>
+<div id="legend">
+  <div><span class="sw cyan"></span>physics endpoint -dL/dx</div>
+  <div><span class="sw mag"></span>masked render endpoint -dL/dx</div>
+  <div><span class="sw orange"></span>target Gaussian ghost</div>
+  <div><span class="sw red"></span>target-distance residual (&gt; 2 sample spacings)</div>
+  <div><span class="sw green"></span>active render-mask particle</div>
+  <div class="dim">drag rotate / right-drag pan / wheel zoom</div>
+</div>
 <script>
-const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-const sp = document.getElementById('spark'), spx = sp.getContext('2d');
-const $ = id => document.getElementById(id);
-let meta = null, target = null, state = null, lastGrid = null, lastCommitHdr = null, lastSeq = -1, paused = false;
-let ZOOM = 0.8, PANX = 0, PANY = 0;
-
-// ---- telemetry history: every physical quantity in the state header, per run ----
-// MAIN-LINE essentials only (one chart each)
-const SERIES = [                     // [key, label, decimals, log10?]
-  ['E',        'L total (objective)',   2, true],
-  ['phys',     'L_phys+W1 = L − λ·D_render', 2, true],
-  ['lamr',     'λ·D_render (render term)', 2, true],
-  ['d_dt',     'D_W1 (fringe cleanup)',  4, true],
-  ['d_vol',    'D_vol',                 2, false],
-  ['d_render', 'D_render',              5, false],
-  ['lam',      'λ (render weight)',     0, false],
-  ['kin',      'kin  mean|v_T|²',       4, true],
-  ['move',     'move / commit',         4, false],
-  ['Jmin',     'det F min (whole traj)',3, false],
+const $=id=>document.getElementById(id), cv=$('view'),ctx=cv.getContext('2d'),chart=$('charts'),cx2=chart.getContext('2d');
+let meta=null,target=null,state=null,lastCommit=null,lastGrid=null,lastSeq=-1,paused=false,showPanel=true;
+let historyRows=[],lastHistoryFetch=0;
+let zoom=.82,panX=0,panY=0;
+const SERIES=[
+ ['E','total objective',true,true],['d_vol','D_vol',false,true],['d_render','D_render',false,true],
+ ['lam','render lambda',false,false],['kin','terminal kinetic',true,true],['move','commit movement',false,true],
+ ['v_mean','mean speed',false,false],['g_phys_norm','physics grad norm',true,true],
+ ['g_rend_norm','render grad norm',true,true],['g_raw_cos','raw grad cosine',false,false],
+ ['g_cos','post-PCGrad cosine',false,false],['g_share','nominal render share',false,false],
+ ['render_work','render endpoint work x+F',false,false],['render_work_x','render work x',false,false],
+ ['render_work_F','render work F',false,false],['phys_work','physics endpoint work x+F+v',false,false],
+ ['phys_work_x','physics work x',false,false],['phys_work_F','physics work F',false,false],
+ ['phys_work_v','physics work v',false,false],
+ ['step_norm','control step norm',true,false],['predicted_decrease','line-search prediction',true,false],
+ ['outer_merit','outer merit',false,true],['outer_gain','outer gain',false,false],
+ ['outer_gate_latched','outer gate latched',false,false],
+ ['reversal_cos','commit reversal cosine',false,false],['Jmin','trajectory min det(F)',false,true],
+ ['gauss_condition_p95','Gaussian condition p95',false,true],
+ ['gauss_radius_over_spacing_p95','Gaussian radius / spacing p95',false,false],
+ ['floater_frac','target-distance tail',false,true],['support_faded','unsupported splats',false,true],
+ ['acc','accepted inner steps',false,false],['rej','rejected inner steps',false,false]
 ];
-let hist = {};
-const resetHist = () => { hist = {}; for (const [k] of SERIES) hist[k] = []; };
-resetHist();
-function pushHist(h0) {
-  const h = {...h0};                 // derived loss terms: the objective decomposition
-  if (h.lam != null && h.d_render != null) h.lamr = h.lam * h.d_render;
-  if (h.E != null && h.lamr != null) h.phys = h.E - h.lamr;   // D_vol+kin+ctrl+box+W1 side
-  for (const [k] of SERIES) {
-    if (h[k] != null && isFinite(h[k])) {
-      hist[k].push(h[k]);
-      if (hist[k].length > 240) hist[k].shift();
-    }
-  }
+const defaults=new Set(['E','d_vol','d_render','kin','move','g_phys_norm','g_rend_norm','g_raw_cos',
+ 'render_work','outer_merit','outer_gate_latched','reversal_cos','Jmin','gauss_condition_p95','floater_frac',
+ 'support_faded']);
+let history={}; for(const [k] of SERIES)history[k]=[];
+function resetHistory(){for(const k in history)history[k]=[]}
+function isIter(h){return h?.phase==='iter'||h?.phase==='sweep'}
+function rebuildHistory(){resetHistory();for(const h of historyRows)if($('iterations').checked||!isIter(h))pushHistory(h);drawCharts()}
+function chartControls(){
+ const box=$('chartToggles');box.innerHTML='';
+ for(const [k,label] of SERIES){const l=document.createElement('label'),c=document.createElement('input');
+  c.type='checkbox';c.dataset.key=k;c.checked=defaults.has(k);c.oninput=drawCharts;l.append(c,document.createTextNode(' '+label));box.append(l)}
 }
-let showCharts = true;
-$('charts').onclick = () => { showCharts = !showCharts; document.getElementById('sparkwrap').style.display = showCharts ? 'block' : 'none'; spark(); };
-$('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'resume' : 'pause'; };
-$('restart').onclick = () => fetch('/restart', {method: 'POST'});
-for (const id of ['ssz', 'gho']) $(id).addEventListener('input', () => draw());
-for (const id of ['cbgrid', 'cbsplat', 'field', 'cbslice', 'ysl', 'cbfloat']) $(id).addEventListener('input', () => draw());
-
-// ---- ARCBALL rotation: accumulate a rotation matrix — no Euler angles, no pole
-// clamp, full 360 in every direction (the az/el scheme could not pass the poles) ----
-function rod(v, k, th) {                        // Rodrigues: rotate v around unit k
-  const c = Math.cos(th), s = Math.sin(th);
-  const kv = k[0]*v[0]+k[1]*v[1]+k[2]*v[2];
-  const cx = [k[1]*v[2]-k[2]*v[1], k[2]*v[0]-k[0]*v[2], k[0]*v[1]-k[1]*v[0]];
-  return [v[0]*c + cx[0]*s + k[0]*kv*(1-c),
-          v[1]*c + cx[1]*s + k[1]*kv*(1-c),
-          v[2]*c + cx[2]*s + k[2]*kv*(1-c)];
+function pushHistory(h){for(const [k] of SERIES){let v=h[k];if(k==='E')v=h.E;if(v!=null&&Number.isFinite(+v)){
+ history[k].push(+v);if(history[k].length>500)history[k].shift()}}}
+function parse(buf){
+ if(buf.byteLength<4)throw new Error('truncated state header');
+ const d=new DataView(buf),hl=d.getUint32(0,true);
+ if(hl<2||4+hl>buf.byteLength||hl%4)throw new Error('invalid padded header length');
+ const h=JSON.parse(new TextDecoder().decode(new Uint8Array(buf,4,hl)).trim());
+ if(h.protocol!==2&&h.protocol!==3)throw new Error(`unsupported state protocol ${h.protocol}`);
+ let off=4+hl,n=+h.n,rn=+(h.r||0),a=+(h.a||0),q=+(h.q||0),pq=+(h.pq||0);
+ if(!Number.isInteger(n)||n<0||!Number.isInteger(rn)||rn<0||!Number.isInteger(a)||a<0||!Number.isInteger(q)||q<0||!Number.isInteger(pq)||pq<0)throw new Error('invalid array dimensions');
+ const rp=h.render_primitives===true;if((h.protocol===3)!==rp)throw new Error('render primitive protocol flag mismatch');
+ const expected=n*3+n*6+(rp?rn*(3+6+1):0)+a*3+a*q+(h.dt_pp?n:0)+(pq?n*pq:0)+(h.grad_phys?n*3:0)+(h.grad_render?n*3:0)+(h.render_weight?n:0);
+ if(expected!==h.payload_floats||off+expected*4!==buf.byteLength)throw new Error('state payload/header length mismatch');
+ const s={hdr:h,n,a,q,pq,x:new Float32Array(buf,off,n*3)};off+=n*12;
+ s.c6=new Float32Array(buf,off,n*6);off+=n*24;
+ if(rp){s.rn=rn;s.rx=new Float32Array(buf,off,rn*3);off+=rn*12;s.rc6=new Float32Array(buf,off,rn*6);off+=rn*24;s.rop=new Float32Array(buf,off,rn);off+=rn*4}
+ if(a){s.nodes=new Float32Array(buf,off,a*3);off+=a*12;s.nodeq=new Float32Array(buf,off,a*q);off+=a*q*4}
+ if(h.dt_pp){s.dtp=new Float32Array(buf,off,n);off+=n*4}
+ if(pq){s.particleq=new Float32Array(buf,off,n*pq);off+=n*pq*4}
+ if(h.grad_phys){s.gp=new Float32Array(buf,off,n*3);off+=n*12}
+ if(h.grad_render){s.gr=new Float32Array(buf,off,n*3);off+=n*12}
+ if(h.render_weight){s.rw=new Float32Array(buf,off,n);off+=n*4}
+ if(off!==buf.byteLength)throw new Error('trailing state payload bytes');
+ return s;
 }
-const norm3 = v => { const n = Math.hypot(...v) || 1; return [v[0]/n, v[1]/n, v[2]/n]; };
-const cross3 = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
-let CAM = (() => {                               // start ~ (az .6, el -.35)
-  const az = 0.6, el = -0.35, ca = Math.cos(az), sa = Math.sin(az),
-        ce = Math.cos(el), se = Math.sin(el);
-  const right = [ca, 0, -sa], up = [-sa*se, ce, -ca*se];
-  return {right, up, fwd: cross3(right, up)};
-})();
-function basis() { return CAM; }
-function rotateCam(dx, dy) {
-  const ax = CAM.up, ay = CAM.right;             // rotate about CURRENT screen axes
-  for (const key of ['right', 'up', 'fwd']) {
-    let v = rod(CAM[key], ax, -dx);
-    CAM[key] = rod(v, ay, -dy);
-  }
-  CAM.right = norm3(CAM.right);                  // re-orthonormalise (drift control)
-  CAM.fwd = norm3(cross3(CAM.right, CAM.up));
-  CAM.up = norm3(cross3(CAM.fwd, CAM.right));
+function rod(v,k,t){const c=Math.cos(t),s=Math.sin(t),d=k[0]*v[0]+k[1]*v[1]+k[2]*v[2],
+ z=[k[1]*v[2]-k[2]*v[1],k[2]*v[0]-k[0]*v[2],k[0]*v[1]-k[1]*v[0]];
+ return[v[0]*c+z[0]*s+k[0]*d*(1-c),v[1]*c+z[1]*s+k[1]*d*(1-c),v[2]*c+z[2]*s+k[2]*d*(1-c)]}
+const norm=v=>{const n=Math.hypot(...v)||1;return v.map(x=>x/n)},cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+let cam=(()=>{const a=.6,e=-.35,r=[Math.cos(a),0,-Math.sin(a)],u=[-Math.sin(a)*Math.sin(e),Math.cos(e),-Math.cos(a)*Math.sin(e)];return{r,u,f:cross(r,u)}})();
+function rotate(dx,dy){for(const k of['r','u','f'])cam[k]=rod(rod(cam[k],cam.u,-dx),cam.r,-dy);cam.r=norm(cam.r);cam.f=norm(cross(cam.r,cam.u));cam.u=norm(cross(cam.f,cam.r))}
+let drag=null,mode='rot';cv.oncontextmenu=e=>e.preventDefault();cv.onpointerdown=e=>{drag=[e.clientX,e.clientY];mode=e.button===2?'pan':'rot';cv.setPointerCapture(e.pointerId)};
+cv.onpointermove=e=>{if(!drag)return;if(mode==='pan'){panX+=e.clientX-drag[0];panY+=e.clientY-drag[1]}else rotate((e.clientX-drag[0])*.006,(e.clientY-drag[1])*.006);drag=[e.clientX,e.clientY];draw()};
+cv.onpointerup=()=>drag=null;cv.onwheel=e=>{e.preventDefault();zoom=Math.max(.18,Math.min(5,zoom*Math.exp(-e.deltaY*.001)));draw()};
+function sprite(rgb){const c=document.createElement('canvas');c.width=c.height=64;const z=c.getContext('2d'),g=z.createRadialGradient(32,32,0,32,32,32);
+ for(let t=0;t<=1.001;t+=.1)g.addColorStop(t,`rgba(${rgb},${Math.exp(-4.5*t*t)})`);z.fillStyle=g;z.fillRect(0,0,64,64);return c}
+const body=sprite('105,158,222'),tgtSprite=sprite('224,149,107');
+function renderState(st){return st?.rn!=null?{n:st.rn,x:st.rx,c6:st.rc6,rw:st.rop}:st}
+function project(st,scale,ox,oy,k){
+ const out=[],r=cam.r,u=cam.u,f=cam.f;
+ for(let i=0;i<st.n;i++){const X=st.x[3*i],Y=st.x[3*i+1],Z=st.x[3*i+2],s=st.c6.subarray(6*i,6*i+6),
+   finite=Number.isFinite(X)&&Number.isFinite(Y)&&Number.isFinite(Z)&&[...s].every(Number.isFinite);
+   if(!finite)continue;
+   const
+   S=[[s[0],s[1],s[2]],[s[1],s[3],s[4]],[s[2],s[4],s[5]]],
+  Sr=[S[0][0]*r[0]+S[0][1]*r[1]+S[0][2]*r[2],S[1][0]*r[0]+S[1][1]*r[1]+S[1][2]*r[2],S[2][0]*r[0]+S[2][1]*r[1]+S[2][2]*r[2]],
+  Su=[S[0][0]*u[0]+S[0][1]*u[1]+S[0][2]*u[2],S[1][0]*u[0]+S[1][1]*u[1]+S[1][2]*u[2],S[2][0]*u[0]+S[2][1]*u[1]+S[2][2]*u[2]],
+  a=r[0]*Sr[0]+r[1]*Sr[1]+r[2]*Sr[2],b=r[0]*Su[0]+r[1]*Su[1]+r[2]*Su[2],d=u[0]*Su[0]+u[1]*Su[1]+u[2]*Su[2],
+  tr=a+d,disc=Math.sqrt(Math.max(tr*tr/4-(a*d-b*b),0)),l1=Math.max(tr/2+disc,1e-12),l2=Math.max(tr/2-disc,1e-12);
+  out.push({x:ox+(X*r[0]+Y*r[1]+Z*r[2])*scale,y:oy-(X*u[0]+Y*u[1]+Z*u[2])*scale,
+   a:k*Math.sqrt(l1)*scale,b:k*Math.sqrt(l2)*scale,t:-.5*Math.atan2(2*b,a-d),z:X*f[0]+Y*f[1]+Z*f[2],i})}return out}
+let dpr=1;
+function cloud(st,scale,ox,oy,spr,alpha,k){const e=project(st,scale,ox,oy,k).sort((a,b)=>b.z-a.z);
+ for(const p of e){const raw=st.rw?st.rw[p.i]:1;if(!Number.isFinite(raw))continue;const w=Math.max(0,Math.min(1,raw));if($('surfaceOnly').checked&&w<.5)continue;ctx.globalAlpha=alpha*w;const c=Math.cos(p.t),s=Math.sin(p.t);ctx.setTransform(dpr*p.a/32*c,dpr*p.a/32*s,-dpr*p.b/32*s,dpr*p.b/32*c,dpr*p.x,dpr*p.y);ctx.drawImage(spr,-32,-32)}
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=1}
+function ramp(t){t=Math.max(0,Math.min(1,t));return `hsl(${230-230*t} 90% ${45+12*t}%)`}
+function quantile(a,q=.95){const b=[...a].filter(Number.isFinite).sort((x,y)=>x-y);if(!b.length)return 1;return b[Math.min(b.length-1,Math.floor(q*b.length))]||1}
+function grid(st,scale,ox,oy){if(!st?.a||!st.nodeq)return;const fi=+$('gridField').value;if(fi<0||fi>=st.q)return;const vals=[];for(let i=0;i<st.a;i++)vals.push(st.nodeq[i*st.q+fi]);
+ const mx=quantile(vals),pts=[];for(let i=0;i<st.a;i++){const X=st.nodes[3*i],Y=st.nodes[3*i+1],Z=st.nodes[3*i+2],v=st.nodeq[i*st.q+fi]/mx;
+  if(!Number.isFinite(X)||!Number.isFinite(Y)||!Number.isFinite(Z)||!Number.isFinite(v)||v<.02)continue;pts.push([ox+(X*cam.r[0]+Y*cam.r[1]+Z*cam.r[2])*scale,oy-(X*cam.u[0]+Y*cam.u[1]+Z*cam.u[2])*scale,v,X*cam.f[0]+Y*cam.f[1]+Z*cam.f[2]])}
+ pts.sort((a,b)=>a[3]-b[3]);for(const p of pts){ctx.fillStyle=ramp(p[2]);ctx.globalAlpha=.85;ctx.fillRect(p[0]-3,p[1]-3,6,6)}ctx.globalAlpha=1}
+function particleOverlay(st,scale,ox,oy){if(!st?.particleq)return;const fi=+$('particleField').value,vals=[];for(let i=0;i<st.n;i++)vals.push(st.particleq[i*st.pq+fi]);
+ const mx=quantile(vals),r=cam.r,u=cam.u;ctx.globalAlpha=.9;for(let i=0;i<st.n;i+=Math.max(1,Math.floor(st.n/5000))){const X=st.x[3*i],Y=st.x[3*i+1],Z=st.x[3*i+2];
+  const value=st.particleq[i*st.pq+fi];if(!Number.isFinite(X)||!Number.isFinite(Y)||!Number.isFinite(Z)||!Number.isFinite(value))continue;
+  ctx.fillStyle=ramp(value/mx);ctx.beginPath();ctx.arc(ox+(X*r[0]+Y*r[1]+Z*r[2])*scale,oy-(X*u[0]+Y*u[1]+Z*u[2])*scale,2,0,6.29);ctx.fill()}ctx.globalAlpha=1}
+function arrow(x0,y0,x1,y1,color){ctx.strokeStyle=color;ctx.fillStyle=color;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();
+ const a=Math.atan2(y1-y0,x1-x0);ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x1-5*Math.cos(a-.55),y1-5*Math.sin(a-.55));ctx.lineTo(x1-5*Math.cos(a+.55),y1-5*Math.sin(a+.55));ctx.fill()}
+function vectors(st,g,scale,ox,oy,color){if(!st||!g)return;const mags=[];for(let i=0;i<st.n;i++)mags.push(Math.hypot(g[3*i],g[3*i+1],g[3*i+2]));const gm=quantile(mags),skip=Math.max(1,Math.ceil(st.n/700)),len=22*(+$('vectorScale').value),r=cam.r,u=cam.u;
+ for(let i=0;i<st.n;i+=skip){const m=mags[i],X=st.x[3*i],Y=st.x[3*i+1],Z=st.x[3*i+2];if(!Number.isFinite(m)||!Number.isFinite(X)||!Number.isFinite(Y)||!Number.isFinite(Z)||m<gm*.03)continue;const vx=-g[3*i]/Math.max(m,1e-15),vy=-g[3*i+1]/Math.max(m,1e-15),vz=-g[3*i+2]/Math.max(m,1e-15),
+  x0=ox+(X*r[0]+Y*r[1]+Z*r[2])*scale,y0=oy-(X*u[0]+Y*u[1]+Z*u[2])*scale,s=len*Math.min(1,m/gm);
+  arrow(x0,y0,x0+(vx*r[0]+vy*r[1]+vz*r[2])*s,y0-(vx*u[0]+vy*u[1]+vz*u[2])*s,color)}}
+function maskOverlay(st,scale,ox,oy,color){if(!st?.rw)return;const r=cam.r,u=cam.u,skip=Math.max(1,Math.ceil(st.n/2500));ctx.strokeStyle=color;ctx.globalAlpha=.85;
+ for(let i=0;i<st.n;i+=skip){if(st.rw[i]<.5)continue;const X=st.x[3*i],Y=st.x[3*i+1],Z=st.x[3*i+2];if(!Number.isFinite(X)||!Number.isFinite(Y)||!Number.isFinite(Z))continue;
+  ctx.beginPath();ctx.arc(ox+(X*r[0]+Y*r[1]+Z*r[2])*scale,oy-(X*u[0]+Y*u[1]+Z*u[2])*scale,2.5,0,6.29);ctx.stroke()}ctx.globalAlpha=1}
+function draw(){
+ if(!meta||!state)return;const shown=(!$('iterations').checked&&isIter(state.hdr)&&lastCommit)?lastCommit:state,W=innerWidth,H=innerHeight-43;dpr=Math.min(window.devicePixelRatio||1,2);
+ const bw=Math.max(1,Math.round(W*dpr)),bh=Math.max(1,Math.round(H*dpr));if(cv.width!==bw||cv.height!==bh){cv.width=bw;cv.height=bh;cv.style.width=W+'px';cv.style.height=H+'px'}
+ ctx.setTransform(dpr,0,0,dpr,0,0);const scale=zoom*Math.min(W,H)/(2.2*Math.max(meta.extent,1e-9)),ox=W/2+panX,oy=H/2+panY,k=+$('splatScale').value;
+ ctx.fillStyle='#0d0f14';ctx.fillRect(0,0,W,H);if(target&&$('targetOn').checked)cloud(renderState(target),scale,ox,oy,tgtSprite,.22,k);
+ if($('splats').checked)cloud(renderState(shown),scale,ox,oy,body,.84,k);if($('gridOn').checked)grid(shown.a?shown:lastGrid,scale,ox,oy);
+ if($('particles').checked)particleOverlay(shown,scale,ox,oy);if($('maskOn').checked){if(target&&$('targetOn').checked)maskOverlay(target,scale,ox,oy,'#b9f6c9');maskOverlay(shown,scale,ox,oy,'#66e48f')}
+ if($('floaters').checked&&shown.dtp){ctx.fillStyle='#ff4848';const r=cam.r,u=cam.u,th=2*meta.nn_sp;for(let i=0;i<shown.n;i++)if(Number.isFinite(shown.dtp[i])&&shown.dtp[i]>th&&(!$('surfaceOnly').checked||!shown.rw||shown.rw[i]>=.5)){const X=shown.x[3*i],Y=shown.x[3*i+1],Z=shown.x[3*i+2];if(!Number.isFinite(X)||!Number.isFinite(Y)||!Number.isFinite(Z))continue;ctx.beginPath();ctx.arc(ox+(X*r[0]+Y*r[1]+Z*r[2])*scale,oy-(X*u[0]+Y*u[1]+Z*u[2])*scale,3,0,6.29);ctx.fill()}}
+ const gs=(shown.gp||shown.gr)?shown:null;if($('physGrad').checked)vectors(gs,gs?.gp,scale,ox,oy,'#40d8ff');if($('renderGrad').checked)vectors(gs,gs?.gr,scale,ox,oy,'#ff5bd6');
+ const h=shown.hdr,bad=Object.values(h.nonfinite||{}).reduce((a,b)=>a+b,0),rep=meta.gauss_children>1?` | ${shown.rn||0} actual splats (${meta.gauss_children}/parent)`:'' ,grad=h.gradient_snapshot?` | grad:${h.gradient_snapshot}`:'';$('status').textContent=`${meta.arm||meta.pipeline} | commit ${h.commit}/${meta.animations}${isIter(h)?' | iter '+h.sweep:''}${rep}${grad}${bad?' | NONFINITE '+bad:''}`;$('status').style.color=bad?'#ff7373':'#73d29c';
+ $('tele').textContent=`L ${fmt(h.E)}  Dvol ${fmt(h.d_vol)}  Dr ${fmt(h.d_render,5)}  |gp| ${fmt(h.g_phys_norm)}  |gr| ${fmt(h.g_rend_norm)}  Jmin ${fmt(h.Jmin,3)}`;drawCharts()
 }
-let drag = null, dragMode = 'rot';
-cv.addEventListener('contextmenu', e => e.preventDefault());   // right-drag = pan
-cv.addEventListener('pointerdown', e => {
-  drag = [e.clientX, e.clientY];
-  dragMode = (e.button === 2) ? 'pan' : 'rot';                 // Blender-style
-  cv.style.cursor = dragMode === 'pan' ? 'move' : 'grabbing';
-  cv.setPointerCapture(e.pointerId);
-});
-cv.addEventListener('pointermove', e => {
-  if (!drag) return;
-  if (dragMode === 'pan') { PANX += e.clientX - drag[0]; PANY += e.clientY - drag[1]; }
-  else rotateCam((e.clientX - drag[0]) * 0.006, (e.clientY - drag[1]) * 0.006);
-  drag = [e.clientX, e.clientY];
-  draw();
-});
-cv.addEventListener('pointerup', e => { drag = null; cv.style.cursor = 'grab'; });
-cv.addEventListener('wheel', e => { e.preventDefault(); ZOOM *= Math.exp(-e.deltaY * 0.001); ZOOM = Math.max(0.2, Math.min(4, ZOOM)); draw(); }, {passive: false});
-
-// ---- Gaussian sprite (radial exp falloff), tinted per cloud ----
-function makeSprite(r, g, b) {
-  const S = 64, c = document.createElement('canvas'); c.width = c.height = S;
-  const x = c.getContext('2d');
-  const grad = x.createRadialGradient(S/2, S/2, 0, S/2, S/2, S/2);
-  for (let t = 0; t <= 1.0001; t += 0.1) {
-    const a = Math.exp(-4.5 * t * t);          // ~3 sigma at the sprite edge
-    grad.addColorStop(t, `rgba(${r},${g},${b},${a})`);
-  }
-  x.fillStyle = grad; x.fillRect(0, 0, S, S);
-  return c;
+const fmt=(v,d=2)=>v==null||!Number.isFinite(+v)?'--':Number(v).toFixed(d);
+function drawCharts(){
+ if(!showPanel)return;const enabled=[...document.querySelectorAll('#chartToggles input:checked')].map(x=>x.dataset.key),rowH=92,W=350;
+ chart.height=Math.max(10,enabled.length*rowH);cx2.fillStyle='#0b0e14';cx2.fillRect(0,0,W,chart.height);
+ enabled.forEach((k,row)=>{const def=SERIES.find(x=>x[0]===k),data0=history[k],log=def[2],data=log?data0.map(v=>Math.sign(v||1)*Math.log10(Math.max(Math.abs(v),1e-12))):data0,
+  top=row*rowH,m=Math.max(...data,1e-12),lo=Math.min(...data,0),last=data0.at(-1);
+  cx2.strokeStyle='#293140';cx2.strokeRect(5,top+5,W-10,rowH-10);cx2.fillStyle='#aeb6c4';cx2.font='11px system-ui';cx2.fillText(def[1]+(last==null?'':`  ${last.toPrecision(5)}`),10,top+18);
+  if(data.length<2)return;cx2.strokeStyle=`hsl(${(row*47)%360} 72% 65%)`;cx2.beginPath();data.forEach((v,i)=>{const x=10+i/(data.length-1)*(W-20),y=top+rowH-10-(v-lo)/Math.max(m-lo,1e-12)*(rowH-34);i?cx2.lineTo(x,y):cx2.moveTo(x,y)});cx2.stroke()})
 }
-const SPR_BODY = makeSprite(111, 159, 216);     // source: blue
-const SPR_TGT  = makeSprite(224, 149, 107);     // target: warm orange
-
-function parse(buf) {
-  const dv = new DataView(buf);
-  const hl = dv.getUint32(0, true);
-  const hdr = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hl)));
-  const n = hdr.n, a = hdr.a || 0;
-  const st = {hdr, x: new Float32Array(buf, 4 + hl, n * 3),
-              c6: new Float32Array(buf, 4 + hl + n * 12, n * 6), n, a};
-  let off = 4 + hl + n * 36;
-  if (a) {
-    st.nodes = new Float32Array(buf, off, a * 3);
-    st.nodeq = new Float32Array(buf, off + a * 12, a * 2);
-    off += a * 20;
-  }
-  if (hdr.dt_pp) {                                 // per-particle target distance
-    st.dtp = new Float32Array(buf, off, n);
-  }
-  return st;
-}
-
-// color ramp (blue -> green -> yellow -> red) for node quantities
-function ramp(t) {
-  t = Math.max(0, Math.min(1, t));
-  const r = Math.min(1, Math.max(0, 2.1 * t - 0.3)), g = Math.min(1, 2 - 2.6 * Math.abs(t - 0.55)),
-        b = Math.min(1, Math.max(0, 1.2 - 2.4 * t));
-  return `rgba(${(r*255)|0},${(g*255)|0},${(b*255)|0},0.9)`;
-}
-
-function drawNodes(st, b, scl, cx, cy, fi) {
-  const q = st.nodeq;
-  const slice = $('cbslice').checked, y0 = +$('ysl').value * meta.extent;
-  let mx = 1e-12, dmin = 1e9, dmax = -1e9;
-  const pts = [];
-  for (let i = 0; i < st.a; i++) mx = Math.max(mx, q[2*i + fi]);
-  for (let i = 0; i < st.a; i++) {
-    const X = st.nodes[3*i], Y = st.nodes[3*i+1], Z = st.nodes[3*i+2];
-    if (slice && Math.abs(Y - y0) > 0.30) continue;       // one lattice layer (dx 0.5)
-    const t = q[2*i + fi] / mx;
-    if (!slice && t < 0.03) continue;                     // declutter: near-idle nodes
-    const d = X*b.fwd[0]+Y*b.fwd[1]+Z*b.fwd[2];
-    dmin = Math.min(dmin, d); dmax = Math.max(dmax, d);
-    pts.push([cx + (X*b.right[0]+Y*b.right[1]+Z*b.right[2])*scl,
-              cy - (X*b.up[0]+Y*b.up[1]+Z*b.up[2])*scl, t, d]);
-  }
-  pts.sort((p, q2) => p[3] - q2[3]);
-  for (const [px, py, t, d] of pts) {
-    const depth = 0.45 + 0.55 * (d - dmin) / Math.max(dmax - dmin, 1e-9);
-    ctx.globalAlpha = depth;
-    ctx.fillStyle = ramp(t);
-    const s = slice ? 7 : 5;
-    ctx.fillRect(px - s/2, py - s/2, s, s);
-    ctx.strokeStyle = '#0009'; ctx.strokeRect(px - s/2 + 0.5, py - s/2 + 0.5, s - 1, s - 1);
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawHisto(st, fi) {
-  const hx = document.getElementById('histo').getContext('2d');
-  hx.fillStyle = '#0008'; hx.fillRect(0, 0, 320, 110);
-  if (!st || !st.a) {
-    hx.fillStyle = '#8a8f98'; hx.font = '10px system-ui';
-    hx.fillText('grid distribution — arrives with each commit', 10, 14);
-    return;
-  }
-  const q = st.nodeq, B = 26, hist = new Array(B).fill(0);
-  let mx = 1e-12;
-  for (let i = 0; i < st.a; i++) mx = Math.max(mx, q[2*i + fi]);
-  for (let i = 0; i < st.a; i++) hist[Math.min(B-1, (q[2*i+fi]/mx*B)|0)]++;
-  const hm = Math.max(...hist);
-  for (let j = 0; j < B; j++) {
-    const h = hist[j] / hm * 80;
-    hx.fillStyle = ramp((j + 0.5) / B);
-    hx.fillRect(8 + j * 11.6, 100 - h, 10, h);
-  }
-  hx.fillStyle = '#8a8f98'; hx.font = '10px system-ui';
-  hx.fillText(($('field').selectedIndex ? 'grid mass' : 'grid |v| (rest check)') +
-              `  max=${mx.toExponential(2)}  cells=${st.a}`, 10, 12);
-}
-
-function project(st, b, scl, cx, cy, k) {
-  const out = new Array(st.n);
-  const r = b.right, u = b.up, f = b.fwd, x = st.x, c6 = st.c6;
-  for (let i = 0; i < st.n; i++) {
-    const X = x[3*i], Y = x[3*i+1], Z = x[3*i+2];
-    const s = c6.subarray(6*i, 6*i+6);
-    const S = [[s[0],s[1],s[2]],[s[1],s[3],s[4]],[s[2],s[4],s[5]]];
-    const Sr = [S[0][0]*r[0]+S[0][1]*r[1]+S[0][2]*r[2],
-                S[1][0]*r[0]+S[1][1]*r[1]+S[1][2]*r[2],
-                S[2][0]*r[0]+S[2][1]*r[1]+S[2][2]*r[2]];
-    const Su = [S[0][0]*u[0]+S[0][1]*u[1]+S[0][2]*u[2],
-                S[1][0]*u[0]+S[1][1]*u[1]+S[1][2]*u[2],
-                S[2][0]*u[0]+S[2][1]*u[1]+S[2][2]*u[2]];
-    const a11 = r[0]*Sr[0]+r[1]*Sr[1]+r[2]*Sr[2];
-    const a12 = u[0]*Sr[0]+u[1]*Sr[1]+u[2]*Sr[2];
-    const a22 = u[0]*Su[0]+u[1]*Su[1]+u[2]*Su[2];
-    const tr = a11 + a22, det = a11*a22 - a12*a12;
-    const disc = Math.sqrt(Math.max(tr*tr/4 - det, 0));
-    const l1 = Math.max(tr/2 + disc, 1e-12), l2 = Math.max(tr/2 - disc, 1e-12);
-    out[i] = {cx: cx + (X*r[0]+Y*r[1]+Z*r[2])*scl, cy: cy - (X*u[0]+Y*u[1]+Z*u[2])*scl,
-              a: k*Math.sqrt(l1)*scl, b2: k*Math.sqrt(l2)*scl,
-              th: -0.5*Math.atan2(2*a12, a11-a22), d: X*f[0]+Y*f[1]+Z*f[2]};
-  }
-  return out;
-}
-
-function drawCloud(st, b, scl, cx, cy, sprite, alpha, k) {
-  const ell = project(st, b, scl, cx, cy, k);
-  ell.sort((p, q) => q.d - p.d);                 // back-to-front alpha compositing
-  ctx.globalAlpha = alpha;
-  for (const e of ell) {
-    const c = Math.cos(e.th), s = Math.sin(e.th);
-    const sa = e.a / 32, sb = e.b2 / 32;
-    ctx.setTransform(sa*c, sa*s, -sb*s, sb*c, e.cx, e.cy);
-    ctx.drawImage(sprite, -32, -32);
-  }
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalAlpha = 1;
-}
-
-function draw() {
-  if (!meta || !state) return;
-  const W = cv.width = innerWidth, H = cv.height = innerHeight - 40;
-  cv.style.marginTop = '40px';
-  ctx.fillStyle = '#101014'; ctx.fillRect(0, 0, W, H);
-  const b = basis();
-  const cx = W / 2 + PANX, cy = H / 2 + PANY, scl = ZOOM * Math.min(W, H) / (2.2 * meta.extent);
-  const k = +$('ssz').value, ga = +$('gho').value, fi = +$('field').value;
-  if (target && ga > 0) drawCloud(target, b, scl, cx, cy, SPR_TGT, ga, k);
-  if ($('cbsplat').checked) drawCloud(state, b, scl, cx, cy, SPR_BODY, 0.85, k);
-  if ($('cbgrid').checked && state.a) drawNodes(state, b, scl, cx, cy, fi);
-  if ($('cbfloat').checked && state.dtp && meta.nn_sp) {
-    const thr = 2.0 * meta.nn_sp, r = b.right, u = b.up;
-    ctx.fillStyle = '#ff4040'; ctx.globalAlpha = 0.95;
-    for (let i = 0; i < state.n; i++) {
-      if (state.dtp[i] <= thr) continue;
-      const X = state.x[3*i], Y = state.x[3*i+1], Z = state.x[3*i+2];
-      const px = cx + (X*r[0]+Y*r[1]+Z*r[2])*scl, py = cy - (X*u[0]+Y*u[1]+Z*u[2])*scl;
-      ctx.beginPath(); ctx.arc(px, py, 3.2, 0, 6.283); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-  drawHisto(state.a ? state : lastGrid, fi);
-  ctx.fillStyle = '#666'; ctx.font = '12px system-ui';
-  ctx.fillText(`zoom=${ZOOM.toFixed(2)}`, 10, H - 10);
-  const h = state.hdr, hc = lastCommitHdr || h;
-  const live = h.phase !== 'commit' ? h : hc;      // iter states carry window telemetry
-  $('st').textContent = `run ${h.run ?? 0} · commit ${h.commit}/${meta.animations}` +
-      (h.phase !== 'commit' ? ` · iter ${h.sweep}` : '');
-  $('tele').textContent =
-      `L=${fmt(live.E)}  D_vol=${fmt(live.d_vol)}  D_render=${fmt(live.d_render, 5)}  ` +
-      `λ=${fmt(live.lam, 0)}  kin=${fmt(live.kin, 4)}  ‖∇L‖=${fmt(live.gnorm)}  ` +
-      `Jmin=${fmt(hc.Jmin, 3)}  N=${meta.n}`;
-  spark();
-}
-const fmt = (v, d = 2) => (v == null ? '–' : (+v).toFixed(d));
-
-function spark() {
-  if (!showCharts) return;
-  const W = 320, RH = 92, PAD = 6;
-  sp.height = SERIES.length * (RH + 2) + 6;
-  spx.fillStyle = '#000a'; spx.fillRect(0, 0, W, sp.height);
-  SERIES.forEach(([k, label, dec, useLog], row) => {
-    const y0 = 4 + row * (RH + 2);
-    const data0 = hist[k];
-    spx.strokeStyle = '#23262c'; spx.strokeRect(4.5, y0 + 0.5, W - 9, RH);
-    spx.fillStyle = '#8a8f98'; spx.font = '10px system-ui';
-    const last = data0.length ? data0[data0.length - 1] : null;
-    spx.fillText(label + (last != null ? '  ' + (+last).toFixed(dec) : '  –'), 10, y0 + 12);
-    if (data0.length < 2) return;
-    const data = useLog ? data0.map(v => Math.log10(Math.max(v, 1e-12))) : data0;
-    const m = Math.max(...data), lo = Math.min(...data);
-    spx.strokeStyle = ['#7fc97f', '#c9b17f', '#7fb2c9', '#c97fb0', '#a3c97f',
-                       '#c97f7f', '#e0a95f', '#9f8fd8', '#7fc9c2', '#b0b0b0'][row % 10];
-    spx.beginPath();
-    data.forEach((v, i) => {
-      const px = PAD + 4 + i / (data.length - 1) * (W - 2 * PAD - 8);
-      const py = y0 + RH - 8 - (v - lo) / Math.max(m - lo, 1e-9) * (RH - 26);
-      i ? spx.lineTo(px, py) : spx.moveTo(px, py);
-    });
-    spx.stroke();
-  });
-}
-
-async function boot() {
-  try {
-    meta = await (await fetch('/meta')).json();
-    target = parse(await (await fetch('/target')).arrayBuffer());
-    const hh = await (await fetch('/history')).json();   // chart backfill after reload
-    resetHist();
-    for (const h of hh) pushHist(h);
-    if (hh.length) lastCommitHdr = hh[hh.length - 1];
-    spark();
-  } catch (err) {
-    $('st').textContent = 'boot error: ' + err;
-    $('st').style.color = '#d87f7f';
-    setTimeout(boot, 1500);
-    return;
-  }
-  poll();
-}
-async function poll() {
-  try {
-    if (!paused) {
-      const buf = await (await fetch('/state')).arrayBuffer();
-      if (buf.byteLength > 8) {
-        const st = parse(buf);
-        if (st.hdr.seq !== lastSeq) {
-          const isSweep = st.hdr.phase === 'sweep' || st.hdr.phase === 'iter';
-          if (!(isSweep && !$('cbsweep').checked)) {   // iteration stream toggleable
-            lastSeq = st.hdr.seq;
-            if (st.hdr.run !== (state?.hdr.run)) resetHist();
-            if (st.a) lastGrid = st;
-            state = st;
-            if (!isSweep && st.hdr.d_vol != null) { pushHist(st.hdr); lastCommitHdr = st.hdr; }
-            draw();
-          }
-        }
-      }
-      $('st').style.color = '#7fc97f';
-    }
-  } catch (err) {
-    $('st').textContent = 'disconnected — retrying';
-    $('st').style.color = '#d87f7f';
-  }
-  setTimeout(poll, 150);
-}
-addEventListener('resize', draw);
-boot();
+for(const id of['splats','surfaceOnly','maskOn','targetOn','floaters','particles','particleField','gridOn','gridField','physGrad','renderGrad','splatScale','vectorScale'])$(id).oninput=draw;
+$('iterations').oninput=()=>{rebuildHistory();draw()};
+$('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'resume':'pause'};$('restart').onclick=()=>fetch('/restart',{method:'POST'});
+$('panelBtn').onclick=()=>{showPanel=!showPanel;$('panel').style.display=showPanel?'flex':'none';draw()};
+async function loadRun(){meta=await(await fetch('/meta')).json();target=parse(await(await fetch('/target')).arrayBuffer());
+ $('surfaceOnly').checked=!!meta.surface_only;$('gridField').innerHTML='';$('particleField').innerHTML='';
+ for(const [i,n] of (meta.grid_fields||[]).entries())$('gridField').add(new Option(n,i));for(const [i,n] of (meta.particle_fields||[]).entries())$('particleField').add(new Option(n,i));
+ historyRows=await(await fetch('/history')).json();rebuildHistory();lastCommit=lastGrid=null;lastSeq=-1}
+async function syncHistory(){const now=performance.now();if(now-lastHistoryFetch<400)return;lastHistoryFetch=now;const rows=await(await fetch('/history')).json();if(Array.isArray(rows)){historyRows=rows;rebuildHistory()}}
+async function boot(){try{await loadRun();poll()}catch(e){$('status').textContent='boot error: '+e;setTimeout(boot,1200)}}
+async function poll(){try{if(!paused){const b=await(await fetch('/state')).arrayBuffer();if(b.byteLength>8){const s=parse(b);if(s.hdr.run!==meta.run)await loadRun();if(s.hdr.seq!==lastSeq){lastSeq=s.hdr.seq;state=s;if(!isIter(s.hdr))lastCommit=s;if(s.a)lastGrid=s;await syncHistory();draw()}}}}catch(e){$('status').textContent='disconnected; retrying: '+e;$('status').style.color='#ff7373'}setTimeout(poll,150)}
+chartControls();addEventListener('resize',draw);boot();
 </script>
-</body></html>
+</body>
+</html>

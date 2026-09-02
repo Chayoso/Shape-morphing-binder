@@ -57,11 +57,17 @@ def test_phys_arm_runs(prm, clouds):
 def test_render_arm_runs_and_lambda_is_live(prm, clouds):
     src, tgt = clouds
     cfg = _cfg(lambda_auto=0.5)
-    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    seen = []
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None,
+                       on_iter=lambda _i, _x, _F, tele: seen.append(tele))
     _check_result(res, cfg, len(src))
     recs = [h for h in res["history"] if "d_vol" in h]
     assert all(r["d_render"] is not None for r in recs)
     assert all(r["lambda"] > 0 for r in recs)
+    assert seen and seen[-1]["_grad_phys"].shape == (len(src), 3)
+    assert seen[-1]["_grad_render"].shape == (len(src), 3)
+    assert np.isfinite(seen[-1]["_grad_render"]).all()
+    assert np.abs(seen[-1]["_grad_render"]).sum() > 0
 
 
 def test_material_arm_returns_bounded_s(prm, clouds):
@@ -85,6 +91,44 @@ def test_pcgrad_projection_math():
     assert torch.allclose(out[0], torch.tensor([0.0, 1.0, 0.0]), atol=1e-6)
     out2, c2 = _pcgrad(gp, [torch.tensor([0.5, 3.0, 0.0])])   # cos > 0: untouched
     assert not c2 and torch.allclose(out2[0], torch.tensor([0.5, 3.0, 0.0]))
+
+
+def test_control_h1_spreads_surface_signal_without_rescaling():
+    import torch
+    from physmorph.pipeline.optimizer import _control_h1
+    # Chain topology: an impulse at particle 0 must reach neighbours, while the
+    # preconditioner preserves the joint gradient norm used by lambda balancing.
+    knn = torch.tensor([[1], [0], [1], [2]])
+    g = torch.zeros(1, 4, 3, 3)
+    g[0, 0, 0, 0] = 1.0
+    out = _control_h1(g, knn, iters=3, kappa=2.0)
+    assert out[0, 1:].abs().sum() > 0
+    assert torch.allclose(out.norm(), g.norm(), rtol=1e-5, atol=1e-6)
+
+
+def test_surface_weights_are_bounded_and_nonuniform(clouds):
+    from physmorph.pipeline.runner import _surface_weights
+    w = _surface_weights(clouds[0], k=8, fraction=0.35, floor=0.05)
+    assert w.shape == (len(clouds[0]),)
+    assert np.isfinite(w).all() and w.min() >= 0.05 and w.max() <= 1.0
+    assert float(w.std()) > 0.05
+
+
+def test_surface_only_render_covector_is_zero_on_frozen_interior(prm, clouds):
+    """The render channel can observe a material skin without dropping MPM mass."""
+    from physmorph.pipeline.runner import _surface_weights
+    src, tgt = clouds
+    cfg = _cfg(lambda_auto=0.5, surface_grad_frac=0.35,
+               render_surface_only=True, iters=1, animations=1)
+    seen = []
+    run_pipeline(src, tgt, prm, cfg, log=lambda *_: None,
+                 on_iter=lambda _i, _x, _F, tele: seen.append(tele))
+    mask = _surface_weights(src, cfg.surface_grad_k, cfg.surface_grad_frac,
+                            cfg.surface_grad_floor) > 0.5
+    assert seen and mask.any() and (~mask).any()
+    gr = seen[-1]["_grad_render"]
+    assert np.abs(gr[mask]).sum() > 0.0
+    assert np.abs(gr[~mask]).sum() == 0.0
 
 
 def test_pace_is_an_upper_bound_per_window(prm, clouds):

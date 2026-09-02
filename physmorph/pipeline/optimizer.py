@@ -58,6 +58,7 @@ class TargetPack:
     pts: torch.Tensor | None = None     # raw target particles (grid-free near-band, w_nn>0)
     nn_spacing: float = 0.0             # target median NN spacing (the honest metric's unit)
     gauss: object | None = None         # GaussViews bundle (use_gauss_loss)
+    gauss_scale: float | None = None    # one calibration per target build, not per window
 
 
 def _norm(gs) -> float:
@@ -82,6 +83,30 @@ def _pcgrad(gp, gr):
     return [b - (dot / gp2) * a for a, b in zip(gp, gr)], True
 
 
+def _control_h1(g: torch.Tensor, knn: torch.Tensor, iters: int,
+                kappa: float) -> torch.Tensor:
+    """Screened neighbour solve on a (T,N,3,3) control gradient.
+
+    This is a search-direction preconditioner only.  It propagates a surface render
+    covector into coherent dFc controls; candidate x/F/v still come exclusively from
+    the original MPM forward rollout and line search.
+    """
+    if iters <= 0:
+        return g
+    rhs = g
+    u = g
+    for _ in range(iters):
+        u = (rhs + float(kappa) * u[:, knn].mean(2)) / (1.0 + float(kappa))
+    return u * (rhs.norm() / u.norm().clamp_min(1e-30))
+
+
+def _linearized_work(grads, deltas) -> tuple[float, list[float]]:
+    """Return total and per-state ``-grad dot delta`` endpoint work for telemetry."""
+    parts = [(-float((g.detach() * d.detach()).sum()) if g is not None else 0.0)
+             for g, d in zip(grads, deltas)]
+    return sum(parts), parts
+
+
 def _state_ok(state) -> bool:
     """Finite AND orientation-preserving. det(F_T) <= 0 is invisible to every loss term
     (the data terms see positions only), so without this check the line search happily
@@ -104,7 +129,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
-                    mom_init=None):
+                    mom_init=None, vol0=None, surface_w=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats)."""
     dev = cfg.device
@@ -112,7 +137,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     N, T = x0.shape[0], cfg.T
     lam0, mu0 = lame(cfg.young, cfg.poisson)
     spec = RolloutSpec(x0=x0, m=1.0, lam=lam0, mu=mu0, prm=prm, T=T,
-                       F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev)
+                       F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0)
 
     dFc = torch.zeros(T, N, 3, 3, device=dev, requires_grad=True)
     leaves = [dFc]
@@ -137,10 +162,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # control-field spatial regularisation: frozen kNN topology at window start; the
     # penalty lives purely in control space (no rollout needed for its gradient)
     knn_t = None
-    if cfg.w_creg > 0:
+    if cfg.w_creg > 0 or cfg.control_h1_iters > 0:
         from scipy.spatial import cKDTree
         knn = cKDTree(x0).query(x0, k=cfg.creg_k + 1)[1][:, 1:]
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
+    surface_w_t = (torch.as_tensor(surface_w, device=dev).view(N, 1)
+                   if surface_w is not None else None)
 
     # W1 transport budget, frozen at window start: one scalar caps the total pull mass
     # (per-particle gates were falsified twice — grid density AND kNN isolation; the
@@ -160,7 +187,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     nn_idx = nn_elig = None
     if cfg.w_nn > 0 and tgt.pts is not None:
         nn_idx, nn_elig = nn_band_assign(x0_t, tgt.pts, tgt.nn_spacing,
-                                         cfg.nn_berth_k, cfg.nn_far_k)
+                                         cfg.nn_berth_k, cfg.nn_far_k,
+                                         cfg.nn_tail_frac)
 
     # HOLE-side W1 (deficit fill v2), frozen per window: support-ANDed mask (F1),
     # budget on DEFICIT MASS not in-range particles (F2), SMOOTH locality ramp (F12 —
@@ -178,20 +206,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             return None, None
         return lam0 * torch.exp(s[0]), mu0 * torch.exp(s[1])
 
-    gauss_scale = [None]             # per-window one-shot equal-magnitude calibration
-
-    def losses_of(xT, vT):
+    def losses_of(xT, FT, vT):
         lv = d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
         lk = vT.pow(2).sum(1).mean()
         lr = lpbr = None
         if balancer.active and tgt.gauss is not None:
-            lg_ = tgt.gauss.loss(xT)              # REAL 3DGS loss (viewer = objective)
+            gauss_mask = ((surface_w_t[:, 0] > 0.5)
+                          if cfg.render_surface_only and surface_w_t is not None else None)
+            lg_ = tgt.gauss.loss(xT, FT if cfg.gauss_covariance else None,
+                                 mask=gauss_mask)
             if cfg.gauss_mix > 0:                 # hybrid: silhouette keeps fine geometry
                 lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
                                 cfg.sil_k, cfg.w_hole, cfg.w_spray)
-                if gauss_scale[0] is None:
-                    gauss_scale[0] = float(lsil.detach() / lg_.detach().clamp_min(1e-12))
-                lr = lsil + cfg.gauss_mix * gauss_scale[0] * lg_
+                if tgt.gauss_scale is None:
+                    tgt.gauss_scale = float(lsil.detach() / lg_.detach().clamp_min(1e-12))
+                lr = lsil + cfg.gauss_mix * tgt.gauss_scale * lg_
             else:
                 lr = lg_                          # pure replacement (falsified for geometry, g1)
         elif balancer.active:
@@ -208,7 +237,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         """Differentiable path: torch Function + wp.Tape (gradient phase only)."""
         lam_t, mu_t = material()
         xT, FT, vT = warp_mpm_full(dfc, spec, lam_t, mu_t)
-        lv, lk, lr, lpbr = losses_of(xT, vT)
+        lv, lk, lr, lpbr = losses_of(xT, FT, vT)
         return (xT, FT, vT), lv, lk, lr, lpbr
 
     def eval_terms(dfc):
@@ -222,12 +251,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             dc = dfc.detach().contiguous()
             seq = [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33) for t in range(T)]
             tr = Trajectory(x0, 1.0, lam_e, mu_e, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
-                            dFc=seq, device=dev, requires_grad=False)
+                            dFc=seq, device=dev, requires_grad=False, vol0=vol0)
             tr.rollout()
             xT = wp.to_torch(tr.x[T])
             FT = wp.to_torch(tr.F[T]).reshape(N, 9)
             vT = wp.to_torch(tr.v[T])
-            lv, lk, lr, lpbr = losses_of(xT, vT)
+            lv, lk, lr, lpbr = losses_of(xT, FT, vT)
             # whole-trajectory orientation check for _state_ok. Stack-review fixes:
             # f1 — the stored F is SMOOTHED, so a constitutive inversion in the
             # EFFECTIVE deformation (F+dFc, whose det sign equals det(F_e) since
@@ -247,6 +276,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         w_dt inflate the balanced silhouette weight and project render components off a
         direction that was never 'the physics')."""
         L = lv + cfg.w_kin * lk + cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
+        if cfg.w_tctrl > 0 and T > 1:
+            L = L + cfg.w_tctrl * (dfc[1:] - dfc[:-1]).pow(2).mean()
         if cfg.w_box > 0:      # far-field leash: differentiable everywhere, zero inside box
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
@@ -256,6 +287,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # volumetric spring + control-injected drift; soft barrier as J->0+
             J = torch.linalg.det(fT.view(-1, 3, 3))
             L = L + cfg.w_jvol * ((J - 1.0) * torch.log(J.clamp_min(1e-6))).mean()
+        if cfg.w_cov > 0 and fT is not None:
+            # The viewer renders Sigma=sigma0^2 F F^T.  Penalise only excessive
+            # anisotropy/scale; rotations remain free and normal elastic motion inside
+            # the band is untouched.
+            sv = torch.linalg.svdvals(fT.view(-1, 3, 3)).clamp_min(1e-6)
+            lo = torch.relu(torch.log(cfg.cov_smin / sv))
+            hi = torch.relu(torch.log(sv / cfg.cov_smax))
+            L = L + cfg.w_cov * (lo.square() + hi.square()).mean()
         if s is not None:
             L = L + cfg.w_mat * s.pow(2).mean()
         return L
@@ -296,10 +335,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         with torch.no_grad():    # scalar only — never build a second autograd graph
             L = float(phys_total(lv, lk, dfc.detach(), xT.detach(),
                                  fT.detach() if fT is not None else None))
-        return L if lr is None else L + lam_r * float(lr)
+        return L if lr is None else L + lam_r * float(lr.detach())
 
     hist, accepted, rejected = [], 0, 0
-    g_cos = g_share = g_phys_norm = g_rend_norm = None
+    g_cos = g_raw_cos = g_share = g_phys_norm = g_rend_norm = None
+    render_work = render_work_x = render_work_F = None
+    phys_work = phys_work_x = phys_work_F = phys_work_v = None
+    step_norm = predicted_decrease = None
     alpha, g0_norm, L_start = cfg.alpha * alpha_scale, None, None
     lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
     grad_converged = False
@@ -334,11 +376,28 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         Lp_core = phys_core(lv, lk, dFc, state[0], state[1])
         Lfill = fill_raw(state[0]) if fill_on else None
         smooth = balancer.active and cfg.render_gs_iters > 0
+        special_render = smooth or surface_w_t is not None or cfg.control_h1_iters > 0
         gp = None
         Ldt = dt_term(state[0])
         if Lfill is not None:
             Ldt = (fill_lam * Lfill) if Ldt is None else (Ldt + fill_lam * Lfill)
-        if balancer.active and (smooth or cfg.grad_project or it == 0):
+        gx_phys_diag = gF_phys_diag = gv_phys_diag = None
+        gx_rend_diag = gF_rend_diag = None
+        if on_iter is not None:
+            # Endpoint position-space gradients are the interpretable vector fields
+            # shown by the viewer.  They are diagnostics only; the control update still
+            # uses the full MPM adjoint through x, F and v.
+            Lp_diag = Lp_core if Ldt is None else Lp_core + Ldt
+            gx_phys_diag, gF_phys_diag, gv_phys_diag = torch.autograd.grad(
+                Lp_diag, state, retain_graph=True, allow_unused=True)
+            if lr is not None:
+                gx_rend_diag, gF_rend_diag = torch.autograd.grad(
+                    lr, (state[0], state[1]), retain_graph=True, allow_unused=True)
+                if surface_w_t is not None:
+                    gx_rend_diag = gx_rend_diag * surface_w_t
+                    if gF_rend_diag is not None:
+                        gF_rend_diag = gF_rend_diag * surface_w_t.repeat(1, 9)
+        if balancer.active and (special_render or cfg.grad_project or it == 0):
             if gp is None:
                 gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
             gdt = (torch.autograd.grad(Ldt, leaves, retain_graph=True)
@@ -348,12 +407,29 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # then pull the smoothed direction back through the SAME MPM adjoint
                 # (seeded backward) — physics-exact, docs/method.md §6.
                 gx = torch.autograd.grad(lr, state[0], retain_graph=True)[0]
+                if surface_w_t is not None:
+                    gx = gx * surface_w_t
                 gxs = smooth_particle_field(state[0].detach(), gx, tgt.lgmin, tgt.ldx,
-                                            tgt.ldims, cfg.render_gs_iters,
-                                            cfg.render_gs_kappa)
+                                             tgt.ldims, cfg.render_gs_iters,
+                                             cfg.render_gs_kappa)
                 gr = torch.autograd.grad(state[0], leaves, grad_outputs=gxs)
+            elif surface_w_t is not None:
+                gx, gF = torch.autograd.grad(lr, (state[0], state[1]), retain_graph=True,
+                                             allow_unused=True)
+                if gF is None:
+                    gF = torch.zeros_like(state[1])
+                gr = torch.autograd.grad((state[0], state[1]), leaves,
+                                         grad_outputs=(gx * surface_w_t,
+                                                       gF * surface_w_t.repeat(1, 9)))
             else:
                 gr = torch.autograd.grad(lr, leaves)
+            if cfg.control_h1_iters > 0:
+                gr = list(gr)
+                gr[0] = _control_h1(gr[0], knn_t, cfg.control_h1_iters,
+                                    cfg.control_h1_kappa)
+            gr_raw = [r.detach().clone() for r in gr]
+            np_raw, nr_raw = _norm(gp), _norm(gr_raw)
+            dot_raw = float(sum((a * b).sum() for a, b in zip(gp, gr_raw)))
             if cfg.grad_project:
                 gr, _conf = _pcgrad(gp, gr)
             if it == 0:
@@ -366,6 +442,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 np_, nr_ = _norm(gp), _norm(gr)
                 dot_ = float(sum((a * b).sum() for a, b in zip(gp, gr)))
                 g_cos = dot_ / max(np_ * nr_, 1e-30)
+                g_raw_cos = dot_raw / max(np_raw * nr_raw, 1e-30)
                 g_share = lam_r * nr_ / max(np_ + lam_r * nr_, 1e-30)
                 g_phys_norm, g_rend_norm = np_, nr_
             g = [a + lam_r * b for a, b in zip(gp, gr)]
@@ -426,10 +503,23 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             state_n, lv_n, lk_n, lr_n, lpbr_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, dFc, state_n[0], state_n[1])
+                predicted_decrease = -float(sum((gi.detach() * (p - b)).sum()
+                                                for gi, p, b in zip(g, leaves, bak)))
+                # The Armijo slope is only meaningful when the model predicts descent.
+                # A carried/stale Adam moment can point against the fresh gradient
+                # (predicted_decrease <= 0) while the step still lowers the true
+                # objective; auto-rejecting there exhausts the line search on the
+                # first windows after every plateau commit (observed: null commits
+                # at anim 12/18 in final_hires20k_child4). Fall back to the
+                # noise-floor sufficient decrease instead.
+                noise_floor = cfg.ls_noise_rel * max(abs(cur), 1.0)
+                required = (max(cfg.armijo_c1 * predicted_decrease, noise_floor)
+                            if predicted_decrease > 0.0 else noise_floor)
             # acceptance requires a FINITE, ORIENTATION-PRESERVING state: NaN particles
             # vanish from the splats and det(F)<=0 is invisible to the data terms — both
             # can fake a lower loss (adversarial finding + v3 warm-start cascade).
-            if np.isfinite(new) and floor <= new < cur and _state_ok(state_n):
+            if (np.isfinite(new) and floor <= new <= cur - required
+                    and _state_ok(state_n)):
                 adam_t = t_
                 alpha = min(a_try * 1.1, cfg.alpha * alpha_scale)  # C++ grows alpha on acceptance
                 step_ok = True
@@ -452,11 +542,33 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             continue
 
         if on_iter is not None:                      # live viewer: stream the window's
+            dx_diag = state_n[0] - state[0].detach()
+            dF_diag = state_n[1] - state[1].detach()
+            dv_diag = state_n[2] - state[2].detach()
+            phys_work, (phys_work_x, phys_work_F, phys_work_v) = _linearized_work(
+                (gx_phys_diag, gF_phys_diag, gv_phys_diag),
+                (dx_diag, dF_diag, dv_diag))
+            if gx_rend_diag is not None:
+                render_work, (render_work_x, render_work_F) = _linearized_work(
+                    (gx_rend_diag, gF_rend_diag), (dx_diag, dF_diag))
+            else:
+                render_work = render_work_x = render_work_F = None
+            step_norm = float((dFc.detach() - bak[0]).norm())
             on_iter(it, state_n[0].detach().cpu().numpy().astype(np.float32),  # optimisation
-                    state_n[1].detach().reshape(N, 3, 3).cpu().numpy().astype(np.float32),
-                    {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
-                     "d_render": float(lr_n) if lr_n is not None else None,
-                     "lambda": lam_r if balancer.active else None, "grad_norm": gn})
+                     state_n[1].detach().reshape(N, 3, 3).cpu().numpy().astype(np.float32),
+                     {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
+                      "d_render": float(lr_n) if lr_n is not None else None,
+                      "lambda": lam_r if balancer.active else None, "grad_norm": gn,
+                      "g_raw_cos": g_raw_cos, "g_cos": g_cos, "g_share": g_share,
+                      "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
+                       "render_work": render_work, "render_work_x": render_work_x,
+                       "render_work_F": render_work_F, "phys_work": phys_work,
+                       "phys_work_x": phys_work_x, "phys_work_F": phys_work_F,
+                       "phys_work_v": phys_work_v,
+                      "step_norm": step_norm, "predicted_decrease": predicted_decrease,
+                      "_grad_phys": gx_phys_diag.detach().cpu().numpy().astype(np.float32),
+                      "_grad_render": (gx_rend_diag.detach().cpu().numpy().astype(np.float32)
+                                       if gx_rend_diag is not None else None)})
         # history from the ACCEPTED evaluation. NOTE "d_render" is the pure silhouette
         # scalar; the shading channel is logged separately (they were conflated before).
         hist.append({"iter": it, "loss": new,
@@ -465,8 +577,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                   if lpbr_n is not None else
                                   (float(lr_n) if lr_n is not None else None)),
                      "d_pbr": float(lpbr_n) if lpbr_n is not None else None,
-                     "lambda": lam_r if balancer.active else None,
-                     "grad_norm": gn, "alpha": a_try,
+                      "lambda": lam_r if balancer.active else None,
+                      "grad_norm": gn, "alpha": a_try,
+                      "predicted_decrease": predicted_decrease,
+                       "render_work": render_work, "render_work_x": render_work_x,
+                       "render_work_F": render_work_F, "phys_work": phys_work,
+                       "phys_work_x": phys_work_x, "phys_work_F": phys_work_F,
+                       "phys_work_v": phys_work_v,
+                      "step_norm": step_norm,
                      "dfc_absmax": float(dFc.detach().abs().max()),
                      "s_absmax": float(s.detach().abs().max()) if s is not None else None})
         # pacing: budget reached (within one halving) — this window's share is done
@@ -481,7 +599,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         dc = dFc.detach().contiguous()
         seq = [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33) for t in range(T)]
         tr = Trajectory(x0, 1.0, lam_np, mu_np, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
-                        dFc=seq, device=dev, requires_grad=False)
+                        dFc=seq, device=dev, requires_grad=False, vol0=vol0)
         tr.rollout()
         # stack-review f2: this rollout — not the accepted candidate — is what gets
         # COMMITTED, and CUDA atomics make replay non-bit-identical: validate it with
@@ -492,7 +610,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
         j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
         jt_final = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
-        if not (np.isfinite(jt_final) and jt_final > 1e-4) and accepted > 0:
+        x_final = wp.to_torch(tr.x[T])
+        F_final = wp.to_torch(tr.F[T]).reshape(N, 9)
+        v_final = wp.to_torch(tr.v[T])
+        lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final)
+        E_final = scalars(lv_f, lk_f, lr_f, lam_r, dFc, x_final, F_final)
+        E_accept = hist[-1]["loss"] if hist else None
+        replay_tol = cfg.ls_noise_rel * max(abs(E_accept or 0.0), 1.0)
+        replay_bad = E_accept is not None and E_final > E_accept + replay_tol
+        if ((not np.isfinite(jt_final) or jt_final <= 1e-4 or replay_bad)
+                and accepted > 0):
             log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
                 "discarding window (replay/accepted-candidate mismatch)")
             hist, accepted = [], 0
@@ -504,9 +631,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
     stats = {"mom_out": mom_out if cfg.mom_carry > 0 else None,
-             "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
-             "L_start": L_start, "g_cos": g_cos, "g_share": g_share,
-             "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
+              "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
+              "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
+              "g_share": g_share,
+              "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
+              "render_work": render_work, "render_work_x": render_work_x,
+              "render_work_F": render_work_F, "phys_work": phys_work,
+              "phys_work_x": phys_work_x, "phys_work_F": phys_work_F,
+              "phys_work_v": phys_work_v,
+              "step_norm": step_norm, "predicted_decrease": predicted_decrease,
              "fill_lam": fill_lam if fill_on else None,
              "dfc": dc.cpu().numpy() if cfg.warm_start else None}
     return frames, F_seq, end, s_out, hist, stats

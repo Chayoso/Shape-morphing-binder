@@ -129,6 +129,7 @@ def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
     clumps as an open defect with no owner. gate = ramp of d_kNN/median from lo to hi,
     frozen per window."""
     from scipy.spatial import cKDTree
+    import numpy as np
     with torch.no_grad():
         xn = x.detach().cpu().numpy()
         dk = cKDTree(xn).query(xn, k=k + 1, workers=-1)[0][:, -1]
@@ -203,7 +204,8 @@ def deficit_field(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
 
 
 def nn_band_assign(x0: torch.Tensor, tgt_pts: torch.Tensor, spacing: float,
-                   berth_k: float = 1.5, far_k: float = 4.5):
+                   berth_k: float = 1.5, far_k: float = 4.5,
+                   tail_frac: float = 0.0):
     """Frozen per-window assignment for the GRID-FREE near-band cleanup (fork-halo
     forensic 2026-09-02): the visible floaters live 0.05-0.10 wu off support — INSIDE
     the fine-DT grid's CIC-dilation dead band, where the W1 pull is zero regardless of
@@ -211,15 +213,26 @@ def nn_band_assign(x0: torch.Tensor, tgt_pts: torch.Tensor, spacing: float,
     there is no dilation and no dead band by construction. Eligibility is the NEAR
     band only (berth_k..far_k target-NN spacings): inside the berth is legitimate rim
     (zero force there via the relu in d_nn_band); beyond far_k stays the DT-W1's
-    kNN-gated job (the near band is dose-response-safe: bounded travel, elastic
-    opposition). Returns (assigned_idx, eligible_mask), both frozen/detached."""
+    kNN-gated job by default.  ``tail_frac>0`` additionally selects only the
+    farthest bounded fraction beyond far_k; this catches coherent floater clusters
+    without turning the term into an all-particle Chamfer servo.  Returns
+    (assigned_idx, eligible_mask), both frozen/detached."""
     from scipy.spatial import cKDTree
+    import numpy as np
     with torch.no_grad():
         xn = x0.detach().cpu().numpy()
         tn = tgt_pts.detach().cpu().numpy()
         dist, idx = cKDTree(tn).query(xn, workers=-1)
         elig = (dist > berth_k * spacing) & (dist < far_k * spacing)
-        import numpy as np
+        tail_frac = float(np.clip(tail_frac, 0.0, 1.0))
+        budget = min(len(dist), int(np.ceil(tail_frac * len(dist))))
+        far = np.flatnonzero(dist >= far_k * spacing)
+        if budget > 0 and len(far):
+            if len(far) > budget:
+                chosen = far[np.argpartition(dist[far], -budget)[-budget:]]
+            else:
+                chosen = far
+            elig[chosen] = True
         return (torch.as_tensor(np.ascontiguousarray(idx), device=x0.device),
                 torch.as_tensor(elig.astype(np.float32), device=x0.device))
 

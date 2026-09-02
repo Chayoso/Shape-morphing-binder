@@ -10,17 +10,40 @@ import numpy as np
 import warp as wp
 
 from . import kernels as K
-from .state import MPMParams
+from .state import MPMParams, make_state
 
 
 def _id(N):
     return np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
 
 
+def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda") -> np.ndarray:
+    """Compute the reference particle volumes once, at the sampled source state.
+
+    ``V_p0`` is material data, not rollout state: callers should keep this returned
+    array and pass it to every subsequent :class:`Trajectory`.  The compatibility
+    fallback in ``Trajectory(vol0=None)`` still computes from that trajectory's
+    ``x0``, but the pipeline must not use the fallback after the source is deformed.
+    """
+    x0 = np.ascontiguousarray(x0, np.float32)
+    if x0.ndim != 2 or x0.shape[1] != 3:
+        raise ValueError(f"x0 must have shape (N,3), got {x0.shape}")
+    # Reuse the canonical one-time estimator rather than duplicating its P2G
+    # discretisation here.  Zero Lamé parameters are sufficient: dt=0 makes the
+    # volume pass mass-only.
+    from .step import compute_volumes
+    state = make_state(x0, m, 0.0, 0.0, prm, device=device, requires_grad=False)
+    compute_volumes(state, prm)
+    vol0 = np.ascontiguousarray(state.vol.numpy(), np.float32)
+    if not np.isfinite(vol0).all() or (vol0 < 0.0).any():
+        raise RuntimeError("rest-volume estimation produced invalid Vp0")
+    return vol0
+
+
 class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
-                 device="cuda", requires_grad=True, mat_grad=False):
+                 device="cuda", requires_grad=True, mat_grad=False, vol0=None):
         x0 = np.ascontiguousarray(x0, np.float32)
         N = x0.shape[0]
         self.N, self.T, self.prm, self.device = N, T, prm, device
@@ -62,7 +85,15 @@ class Trajectory:
         self.mu = M(mu, 0.0)
         self.eta = M(eta, 0.0)
         self.Fp = A(_id(N) if Fp is None else Fp, wp.mat33)
-        self.vol = A(np.zeros(N, np.float32), wp.float32)
+        if vol0 is None:
+            vol_a = np.zeros(N, np.float32)
+        else:
+            vol_a = np.ascontiguousarray(vol0, np.float32)
+            if vol_a.shape != (N,):
+                raise ValueError(f"vol0 must have shape ({N},), got {vol_a.shape}")
+            if not np.isfinite(vol_a).all() or (vol_a < 0.0).any():
+                raise ValueError("vol0 must be finite and non-negative")
+        self.vol = A(vol_a, wp.float32)
         # per-step trajectory
         F0a = _id(N) if F0 is None else F0
         v0a = np.zeros((N, 3), np.float32) if v0 is None else v0
@@ -80,7 +111,10 @@ class Trajectory:
         self.gm = [A(np.zeros(prm.ngrid, np.float32), wp.float32, rg) for t in range(T)]
         self.gmom = [A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg) for t in range(T)]
         self.gvel = [A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg) for t in range(T)]
-        self._compute_volumes()
+        if vol0 is None:
+            # Backward-compatible single-rollout fallback.  Production callers
+            # must compute Vp0 at source initialisation and reuse it explicitly.
+            self._compute_volumes()
 
     def _compute_volumes(self):
         prm, dev, N = self.prm, self.device, self.N

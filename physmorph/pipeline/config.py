@@ -25,7 +25,9 @@ class PipelineConfig:
     gd_tol: float = 1e-3            # stop window when ||g|| < gd_tol * ||g_0||
     beta1: float = 0.9
     beta2: float = 0.999
-    eps: float = 1e-8
+    eps: float = 1e-3              # C++ oracle scale; avoids sign-like steps near stationarity
+    armijo_c1: float = 1e-4        # sufficient decrease along the preconditioned step
+    ls_noise_rel: float = 1e-7     # reject improvements smaller than rollout/atomic noise
     dfc_clip: float = 0.0           # optional per-particle |dFc| cap (0 = off; C++ has none)
     pace: float = 0.0               # TRAJECTORY pacing: each window may reduce its starting
                                     # loss by at most this fraction (0 = off). Stops the
@@ -36,6 +38,7 @@ class PipelineConfig:
     loss_res: int = 32              # D_vol grid resolution
     w_kin: float = 0.5              # terminal kinetic mean|v_T|^2 (arrive at rest)
     w_ctrl: float = 1e-3            # running control cost sum_t|dFc|^2/(T N) (anti-slam)
+    w_tctrl: float = 0.0            # temporal dFc first-difference cost (anti bang-bang)
     w_box: float = 10.0             # far-field leash relu(|x|-extent)^2: the render views and
                                     # the D_vol grid have NO gradient for far ejecta; this does
 
@@ -119,6 +122,9 @@ class PipelineConfig:
     w_nn: float = 0.0               # GRID-FREE near-band W1: constant pull toward the
     nn_berth_k: float = 1.5         #   assigned nearest target particle, active only in
     nn_far_k: float = 4.5           #   the berth..far band (x target-NN spacing). Owns
+    nn_tail_frac: float = 0.0       #   optional bounded far-cluster cleanup: among points
+                                    #   beyond nn_far_k, pull only the worst fraction per
+                                    #   frozen window (avoids a full Chamfer servo).
                                     #   the 0.05-0.10 wu fork-halo that lives inside the
                                     #   fine-DT grid's dilation dead band (forensic
                                     #   2026-09-02: 90% gate-closed AND zero force
@@ -149,6 +155,7 @@ class PipelineConfig:
                                     #   ledger pre-registered as the follow-up.
 
     use_gauss_loss: bool = False    # REAL 3DGS render loss (diff_gauss) replaces the
+    gauss_covariance: bool = True   # supervise viewer-visible Sigma=sigma0^2 F F^T
     gauss_mix: float = 0.0          # >0: HYBRID render channel — silhouette + this
                                     # times the gauss L1, equal-magnitude calibrated
                                     # once per window at the first evaluation. g1
@@ -159,6 +166,14 @@ class PipelineConfig:
                                     # viewer sees residue (out_nn better, detFmin
                                     # 0.62 vs 0.43) — so mix, don't replace.
     gauss_res: int = 96             #   CIC soft-silhouette in the lambda channel: the
+    gauss_sigma_scale: float = 1.0  # target-surface NN multiplier; keep splats at sample scale
+    gauss_children: int = 1         # 1=legacy parent splat; 2..4 massless tangent children
+    gauss_child_sigma_scale: float = 0.55  # detail objective; display coverage is a separate knob
+    gauss_child_offset_scale: float = 0.35 # tangent offset / calibrated parent sigma
+    gauss_child_k: int = 16         # active-surface neighbours for frozen tangent PCA
+    w_cov: float = 0.0              # penalise Gaussian-visible F singular values outside
+    cov_smin: float = 0.5           #   this band; det(F)>0 alone does not bound anisotropy
+    cov_smax: float = 2.0
                                     #   viewer's own forward model as the objective —
                                     #   sub-cell arrangement and viewer-visible
                                     #   floaters finally generate gradients (the CIC/
@@ -172,6 +187,13 @@ class PipelineConfig:
                                     # Decayed init + the window-start safeguard make it safe.
     render_gs_iters: int = 0        # >0: Sobolev/grid-GS smoothing of the render pull before
     render_gs_kappa: float = 4.0    #     the adjoint pullback (screened diffusion strength)
+    surface_grad_frac: float = 0.0  # >0: persistent soft surface mask on render covectors
+    surface_grad_floor: float = 0.05 # interior still receives a small, nonzero render signal
+    surface_grad_k: int = 24        # source-material kNN surface estimator
+    render_surface_only: bool = False  # render only a frozen material-skin subset;
+                                       # simulation particles/mass are unchanged
+    control_h1_iters: int = 0       # screened kNN solve on adjoint dFc render gradient
+    control_h1_kappa: float = 2.0   # surface signal propagation without editing physical state
 
     # (VBD quasi-static arm retired 2026-09-01 -> deprecated/; its vbd_* fields removed)
 
@@ -213,6 +235,13 @@ class PipelineConfig:
                                     # optimizer-side cure, not state damping.
     patience: int = 5               # commits without tol improvement before freeze
     tol: float = 0.003              # relative improvement threshold on the tracked loss
+    persistent_rest_volume: bool = True  # compute Vp0 once at the sampled source state
+    outer_merit: bool = False       # fixed-scale trust gate for production runs
+    outer_merit_tol: float = 1e-4   # relative sufficient decrease required for a commit
+    outer_gate_move_frac: float = 6e-3 # latch after a small move and sufficient target progress
+    outer_gate_merit_max: float = 0.55 # normalized fixed merit required before latching
+    outer_reversal_cos: float = -0.2  # block low-gain cross-window reversals
+    outer_reversal_gain: float = 5e-3 # reversal is allowed above this relative merit gain
 
     # ---- material base / misc ----
     young: float = 1.4e5

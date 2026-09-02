@@ -21,6 +21,7 @@ from ..losses.volumetric import (coverage_shortfall, d_vol, d_w1, target_dt_grid
                                  target_mass_grid)
 from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
+from ..mpm.traj import compute_rest_volumes
 from ..plasticity import assimilate_elastic
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
@@ -31,6 +32,29 @@ from .surface_local import surface_local_pass
 
 def _id(N):
     return np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
+
+
+def _surface_weights(x: np.ndarray, k: int, fraction: float, floor: float) -> np.ndarray:
+    """Persistent soft surface score from one-sided local neighbour directions.
+
+    A volume-interior particle sees approximately cancelling unit directions; a boundary
+    particle does not.  The score is computed once in source/material coordinates so the
+    active set cannot flicker between optimisation windows.
+    """
+    from scipy.spatial import cKDTree
+    n = len(x)
+    kk = min(n, max(2, 3 * int(k) + 1))  # tolerate duplicate voxel samples
+    _, idx = cKDTree(x).query(x, k=kk, workers=-1)
+    d = x[idx[:, 1:]] - x[:, None, :]
+    dn = np.linalg.norm(d, axis=2, keepdims=True)
+    valid = dn[..., 0] > 1e-8
+    unit = d / np.maximum(dn, 1e-8)
+    score = np.linalg.norm((unit * valid[..., None]).sum(1) /
+                           np.maximum(valid.sum(1, keepdims=True), 1), axis=1)
+    threshold = float(np.quantile(score, 1.0 - float(fraction)))
+    width = max(float(np.std(score)) * 0.15, 1e-4)
+    soft = 1.0 / (1.0 + np.exp(np.clip(-(score - threshold) / width, -40.0, 40.0)))
+    return np.ascontiguousarray(floor + (1.0 - floor) * soft, np.float32)
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
@@ -71,9 +95,20 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     if cfg.use_gauss_loss and cfg.lambda_auto > 0:
         from ..render.covariance import sigma0_from_nn
         from .gauss_loss import GaussViews
-        gauss = GaussViews(views, extent, sigma0_from_nn(target_x, 0.9),
-                           cfg.gauss_res, dev)
-        gauss.bake_targets(tgt_t)
+        target_mask = None
+        gaussian_points = target_x
+        if cfg.render_surface_only:
+            tw = _surface_weights(target_x, cfg.surface_grad_k,
+                                  cfg.surface_grad_frac, cfg.surface_grad_floor)
+            target_mask = torch.as_tensor(tw > 0.5, device=dev)
+            gaussian_points = target_x[tw > 0.5]
+        gauss = GaussViews(views, extent,
+                           sigma0_from_nn(gaussian_points, cfg.gauss_sigma_scale),
+                           cfg.gauss_res, dev, child_count=cfg.gauss_children,
+                           child_sigma_scale=cfg.gauss_child_sigma_scale,
+                           child_offset_scale=cfg.gauss_child_offset_scale,
+                           child_k=cfg.gauss_child_k)
+        gauss.bake_targets(tgt_t, mask=target_mask)
     pts, nn_sp = None, 0.0
     if cfg.w_nn > 0:
         from scipy.spatial import cKDTree
@@ -117,6 +152,19 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     lo, hi = dmin + 2 * prm.dx, dmax - 2 * prm.dx
 
     x = src.copy()
+    vol0 = (compute_rest_volumes(src, 1.0, prm, cfg.device)
+            if cfg.persistent_rest_volume else None)
+    surface_w = (_surface_weights(src, cfg.surface_grad_k, cfg.surface_grad_frac,
+                                  cfg.surface_grad_floor)
+                 if cfg.surface_grad_frac > 0 else None)
+    if cfg.render_surface_only:
+        if surface_w is None:
+            raise ValueError("render_surface_only requires surface_grad_frac > 0")
+        surface_w = np.ascontiguousarray(surface_w > 0.5, np.float32)
+    if tgt.gauss is not None and cfg.gauss_children > 1:
+        if not cfg.render_surface_only:
+            raise ValueError("gauss_children>1 requires render_surface_only material parents")
+        tgt.gauss.configure_source(src, surface_w > 0.5)
     st = {"F": None, "v": None, "C": None}
     Fp = _id(N)
     s, dfc_prev = None, None
@@ -130,6 +178,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     stale, frozen, n_held = 0, False, 0
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
     mom_prev = None                  # cross-window Adam moments (mom_carry)
+    outer_scales = outer_prev = prev_disp = None
+    # Once the trajectory first reaches the small-motion regime, keep the outer
+    # trust gate active.  Without this latch, one accepted large-motion candidate
+    # disables the gate again and the optimizer can re-enter a long limit cycle.
+    outer_gate_latched = False
 
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render={'on(a=%g)' % cfg.lambda_auto if cfg.lambda_auto > 0 else 'OFF'} "
@@ -150,14 +203,23 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             cfg.render_res = cfg.render_res_hi
             tgt = build_target(target_x, prm, cfg)
             best_rend, stale = None, 0              # rescaled track must not inherit a
+            outer_scales = outer_prev = prev_disp = None
+            outer_gate_latched = False              # render track rescaled: re-earn the latch
             hist.append({"animation": a, "c2f_render_res": cfg.render_res})   # near-full
             log(f"[v2] c2f at anim {a + 1}: render targets rebuilt at {cfg.render_res}px")
             # plateau counter (adversarial finding: freeze could fire one commit later)
         x_start = x.copy()
+        rollback = {
+            "st": {k: (None if q is None else q.copy()) for k, q in st.items()},
+            "Fp": Fp.copy(), "s": None if s is None else s.copy(),
+            "dfc": dfc_prev, "mom": mom_prev, "lam": balancer.lam,
+            "frames": len(frames), "F_frames": len(F_frames), "guards": dict(guards),
+        }
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
-            fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev)
+            fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev, vol0=vol0,
+            surface_w=surface_w)
         if cfg.warm_start:
             dfc_prev = stats.get("dfc")
         if not whist:
@@ -173,6 +235,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
             hist.append({"animation": a, "null_commit": 1})
             stale += 1
+            mom_prev = None
+            if cfg.anneal_stale > 0:
+                # Retrying the identical state/moments at the identical alpha reproduces
+                # the same line-search exhaustion forever.  Null commits must participate
+                # in the same plateau schedule as rejected outer candidates.
+                anneal = max(0.05, anneal * cfg.anneal_stale)
             if stale >= cfg.patience:
                 frozen = True
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
@@ -277,8 +345,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
-               "d_fill": d_fill, "g_cos": stats.get("g_cos"), "g_share": stats.get("g_share"),
+               "d_fill": d_fill, "g_cos": stats.get("g_cos"),
+               "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
+               "render_work": stats.get("render_work"),
+               "render_work_x": stats.get("render_work_x"),
+               "render_work_F": stats.get("render_work_F"),
+               "phys_work": stats.get("phys_work"),
+               "phys_work_x": stats.get("phys_work_x"),
+               "phys_work_F": stats.get("phys_work_F"),
+               "phys_work_v": stats.get("phys_work_v"),
+               "step_norm": stats.get("step_norm"),
+               "predicted_decrease": stats.get("predicted_decrease"),
                "fill_lam": stats.get("fill_lam"),
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
@@ -290,14 +368,40 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "Jmin_traj": float(dets.min()),
                "clamped": n_out, "nan_x": n_nan, "nan_state": n_ns,
                "F_reset": n_bad, "F_flip": n_flip, "F_invert_steps": n_inv}
+        if tgt.gauss is not None:
+            from .gauss_loss import gaussian_shape_diagnostics
+            rec.update(gaussian_shape_diagnostics(
+                torch.as_tensor(Fc, device=cfg.device), tgt.gauss.primitive_sigma,
+                reference_spacing=tgt.nn_spacing if tgt.nn_spacing > 0 else None))
         if lg_tele is not None:
             rec.update(lg_tele)
-        hist.append(rec)
-        if on_commit is not None:
-            on_commit(a, x, Fc, v_p, rec)
 
-        # ---- plateau freeze on RAW components (λ-free; stops post-convergence sloshing) ----
+        # Fixed-scale outer trust gate.  The inner objective contains an adaptive
+        # render lambda, so it cannot safely decide whether a whole physical state
+        # should be committed across windows.  Normalize each raw channel once per
+        # target resolution and require monotone progress in that fixed merit.
         phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"]
+        components = {"phys": phys_track}
+        if rec["d_render"] is not None:
+            components["render"] = rec["d_render"]
+        if d_dt is not None:
+            components["dt"] = d_dt
+        if d_fill is not None:
+            components["fill"] = d_fill
+        disp = (x - x_start).reshape(-1)
+        reversal_cos = None
+        if prev_disp is not None:
+            reversal_cos = float(np.dot(disp, prev_disp) /
+                                 max(np.linalg.norm(disp) * np.linalg.norm(prev_disp), 1e-12))
+        rec["reversal_cos"] = reversal_cos
+
+        # λ-free plateau tracks, evaluated BEFORE the outer gate: "no track improved"
+        # is this pipeline's validated definition of near-stationarity (driver #4 —
+        # at small move the residual motion is honest descent UNTIL these tracks
+        # stall). The previous latch trigger (normalized merit <= outer_gate_merit_max
+        # at small move) fired at anim ~20 of 300 — pace + a large w_kin make moves
+        # small long before the descent is done — and then rejected every window to
+        # a fake "converged" at anim 27 (final_hires20k_child4_latched forensic).
         rend_track = rec["d_render"]
         improved = best_phys is None or phys_track < best_phys - cfg.tol * abs(best_phys)
         if rend_track is not None and best_rend is not None:
@@ -306,6 +410,63 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             improved = improved or d_dt < best_dt - cfg.tol * abs(best_dt)
         if d_fill is not None and best_fill is not None:  # fill track (stack-review F9)
             improved = improved or d_fill < best_fill - cfg.tol * abs(best_fill)
+
+        outer_reject = False
+        outer_gain = None
+        if cfg.outer_merit:
+            if outer_scales is None:
+                outer_scales = {k: max(abs(v), 1e-8) for k, v in components.items()}
+            score = float(sum(v / outer_scales[k] for k, v in components.items()))
+            if outer_prev is not None:
+                outer_gain = (outer_prev - score) / max(abs(outer_prev), 1e-8)
+                near_stationary = (not improved
+                                   and rec["move"] <= cfg.outer_gate_move_frac * tgt.extent)
+                outer_gate_latched = outer_gate_latched or near_stationary
+                outer_reject = outer_gate_latched and outer_gain < cfg.outer_merit_tol
+                if (outer_gate_latched and reversal_cos is not None
+                        and reversal_cos < cfg.outer_reversal_cos
+                        and outer_gain < cfg.outer_reversal_gain):
+                    outer_reject = True
+            rec.update({"outer_merit": score, "outer_gain": outer_gain,
+                        "reversal_cos": reversal_cos,
+                        "outer_gate_latched": int(outer_gate_latched),
+                        "outer_accepted": 0 if outer_reject else 1})
+            if outer_reject:
+                # Undo every mutation made after the window start, including plastic
+                # assimilation and optimizer/balancer state.  Rejected trial frames
+                # never enter the deliverable trajectory.
+                x = x_start
+                st = rollback["st"]
+                Fp, s = rollback["Fp"], rollback["s"]
+                dfc_prev, mom_prev, balancer.lam = rollback["dfc"], rollback["mom"], rollback["lam"]
+                del frames[rollback["frames"]:]
+                del F_frames[rollback["F_frames"]:]
+                guards = rollback["guards"]
+                rec.update({"null_commit": 1, "outer_rejected": 1})
+                hist.append(rec)
+                stale += 1
+                if cfg.anneal_stale > 0:
+                    anneal = max(0.05, anneal * cfg.anneal_stale)
+                if on_commit is not None:
+                    F_hold = _id(N) if st["F"] is None else st["F"]
+                    v_hold = np.zeros_like(x) if st["v"] is None else st["v"]
+                    on_commit(a, x, F_hold, v_hold, rec)
+                log(f"[v2] anim {a + 1}: outer merit rejected candidate "
+                    f"(gain={outer_gain:.3g}, reversal={reversal_cos})")
+                if stale >= cfg.patience:
+                    frozen = True
+                continue
+            outer_prev = score
+            prev_disp = disp.copy()
+        else:
+            prev_disp = disp.copy()
+        hist.append(rec)
+        if on_commit is not None:
+            on_commit(a, x, Fc, v_p, rec)
+
+        # ---- plateau freeze on RAW components (λ-free; stops post-convergence sloshing).
+        # `improved` was computed above, against the pre-commit bests; the bests only
+        # absorb ACCEPTED commits (a gate-rejected candidate must not raise the bar). ----
         best_phys = phys_track if best_phys is None else min(best_phys, phys_track)
         if rend_track is not None:
             best_rend = rend_track if best_rend is None else min(best_rend, rend_track)
@@ -331,4 +492,5 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                  f"Fflip={n_flip} Finv={n_inv}" if any_guard else ""))
 
     return {"frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,
-            "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen}
+            "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen,
+            "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None)}

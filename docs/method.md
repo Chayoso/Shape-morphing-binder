@@ -71,6 +71,29 @@ L = D_vol + λ_R·D_render + w_kin·mean|v_T|² + w_ctrl·Σ|dFc|²/(TN)
   the loss grid has exactly zero data gradient — escape must remain visible to the
   objective.
 
+### §5.1 Surface-Gaussian render channel
+
+The production render representation is distinct from the volumetric MPM discretisation.
+A frozen material-coordinate surface score selects the source Gaussians once; the target
+has its own independently selected surface set.  The actual Gaussian loss uses the same
+rest radius as the viewer and
+
+```
+Sigma_p = sigma0^2 F_p F_p^T.
+```
+
+Thus rendering supplies both `dL/dx_T` and `dL/dF_T`.  The surface mask is applied once to
+that terminal covector, then the complete MPM adjoint maps it to every `dFc[t]`.  It does
+not mask physics particles, MPM grid transfers, or the control gradient after the
+pullback.  Production uses about 50% of the 20k material points as render primitives,
+`sigma0 = 1.0 * median target-surface NN = 0.04032`, and a hybrid silhouette/Gaussian
+render objective.
+
+Viewer/export opacity has one additional target-free validity check based on frozen
+source-material neighbours.  It can suppress a Gaussian that no longer has continuum
+support, but is deliberately outside the differentiable objective; simulation state and
+all raw metrics remain unchanged.
+
 ## §6 Sobolev / grid-GS render direction (v3; code: pipeline/grid_smooth.py)
 
 The raw ∂D_render/∂x_T is a Jacobi-style signal (all particles react to the same pixels at
@@ -81,6 +104,11 @@ smoothed field seeds `∂x_T`-backward, so the pullback to dFc still goes throug
 MPM adjoint — this is a **search-direction transform, not a physics change**; nothing here
 needs to be differentiable. Lineage: Sobolev preconditioning (Repulsive Curves) and
 Preconditioned Deformation Grids (PG 2025). Arm: `render_gs` (+ warm-started dFc).
+
+This is an experimental arm, not the production configuration.  The current grid smoother
+drops the covariance (`F`) component of the exact Gaussian covector, and the kNN/H1 control
+variant worsened all tested shape/deformation criteria.  Both are therefore disabled for
+the final run.
 
 ## §7 VBD-MPM quasi-static arm (v3; code: vbd/solver.py, pipeline/runner_vbd.py)
 
@@ -105,6 +133,12 @@ balanced per commit from gradient norms on u. Differentiability (for a future ma
 system-ID channel): validated in `scripts/probe_gs_differentiability.py` — unrolled and
 IFT-adjoint gradients both exact (<0.1%) at convergence, biased when unconverged ⇒ solve
 tolerance is a *correctness* gate.
+
+This family remains a research comparison.  A surface-only VBD/GS post-correction is not
+composable with the dynamic production path because changing `x/F` without the matching
+inertial solve and `v/C` update breaks the state contract.  A future integration must be a
+complete implicit MPM integrator, or use an SPD VBD/PD solve only as a control-space
+preconditioner followed by the unchanged rollout and line search.
 
 ## §8 Plastic assimilation (both families; code: plasticity/assimilation.py)
 

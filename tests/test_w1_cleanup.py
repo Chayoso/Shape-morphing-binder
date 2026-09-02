@@ -186,6 +186,21 @@ def test_nn_band_pull_and_berth():
     assert -g_[0][0] < 0                         # descent pulls toward -x (the face)
 
 
+def test_nn_band_far_tail_is_capacity_bounded_and_targets_worst_points():
+    """Clustered far floaters are visible to a bounded tail, never all activated."""
+    from physmorph.losses.volumetric import nn_band_assign
+    g = torch.linspace(-0.5, 0.5, 11)
+    t = torch.stack(torch.meshgrid(g, g, g, indexing="ij"), -1).reshape(-1, 3)
+    x0 = torch.tensor([[0.55, 0.0, 0.0],          # inside berth
+                       [0.75, 0.0, 0.0],          # ordinary near-band point
+                       [1.10, 0.0, 0.0],          # far, but not worst
+                       [1.30, 0.0, 0.0],          # second-worst far
+                       [1.50, 0.0, 0.0]])         # worst far
+    _, elig = nn_band_assign(x0, t, 0.1, berth_k=1.5, far_k=4.5,
+                             tail_frac=0.2)        # ceil(.2 * 5) = one far point
+    assert elig.tolist() == [0.0, 1.0, 0.0, 0.0, 1.0]
+
+
 def test_fill_v4_assignment_targets_deficit_cells():
     """Fill v4 (§7.13): pairs anchor on under-covered TRUE-support cells; matched
     donors are pulled toward the cell center; pair count respects the cap."""
