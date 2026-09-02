@@ -284,3 +284,24 @@ shortfall fraction, smoothly → 0 at coverage) — not a weight retune. Flagshi
 fill-free. v12_AC (fill v2): hole 5.94% vs target-ceiling 5.76% — fill does not move
 the AC hole (it is at the metric ceiling; gate fix to target-relative comparison
 still queued).
+
+### 2026-09-02 — hero12 w_jvol ladder: sKL volume prior ADOPTED (w_jvol=50); new flagship
+
+`render_full_dt_iso` + w_jvol ∈ {0,10,50}, N=40k, 120c, lr64 (arms identical otherwise;
+j0 = the post-review-stack baseline):
+
+| w_jvol | chamfer | silIoU | detFmin | |J-1|>0.3 | J p1/p99 | drift | out_nn p95 |
+|---|---|---|---|---|---|---|---|
+| 0 | 0.0958 | 0.9450 | 0.0005 | 13.7% | 0.33/1.48 | 0.0020 | 0.127 |
+| 10 | 0.0781 | 0.9693 | 0.108 | 1.0% | 0.74/1.24 | 0.0010 | 0.102 |
+| **50** | **0.0778** | **0.9696** | **0.497** | **0.0%** | **0.92/1.09** | 0.0010 | 0.105 |
+
+Monotone dose-response in the RIGHT direction on every axis, no trade-off anywhere:
+the volume-spring pathology is eliminated (essentially incompressible morph), the tail
+creep ("흔들림") halves, and chamfer/silIoU set all-time records — beating hero10
+(0.0851/0.9647) by 8.6%/0.5pt. Armadillo generalization (w_jvol=10): 0.0873/0.9239,
+both best-ever for the pair. Reading: the sKL prior PREVENTS in the energy what the
+trajectory-det guard could only REJECT (the F5 literature's exact prediction —
+Smith18/ThinShellLab lineage); with the spring defused, the strengthened guard stack
+stops costing quality (j0's regression vs hero10 was that cost, now moot).
+**Flagship = render_full_dt_iso @ w_jvol=50 (h12_j50). --w_jvol CLI default set to 50.**

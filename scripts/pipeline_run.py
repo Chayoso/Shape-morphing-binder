@@ -248,7 +248,9 @@ def main():
     ap.add_argument("--w_dt", type=float, default=0.2)   # SUM form: per-particle pull
                                                          # = w_dt (Opus parity estimate)
     ap.add_argument("--w_fill", type=float, default=0.2)
-    ap.add_argument("--w_jvol", type=float, default=0.0)
+    ap.add_argument("--w_jvol", type=float, default=50.0)  # h12 ladder: detFmin
+                                        # 0.0005->0.497, |J-1|>0.3 13.7->0.0%,
+                                        # chamfer/silIoU best-ever (docs 2026-09-02)
     ap.add_argument("--dfc_clip", type=float, default=0.02)
     ap.add_argument("--arms", default="phys,render")
     ap.add_argument("--save_F_stride", type=int, default=0,
