@@ -245,6 +245,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_dt = args.w_dt
         cfg.w_nn = args.w_nn
         cfg.w_jvol = args.w_jvol
+        cfg.gauss_mix = args.gauss_mix
         cfg.anneal_stale = args.anneal
         cfg.assim_iso = True
         cfg.use_gauss_loss = True
@@ -310,6 +311,7 @@ def main():
     ap.add_argument("--grow_band", type=float, default=1.5)
     ap.add_argument("--gauss_res", type=int, default=96)
     ap.add_argument("--anneal", type=float, default=0.0)  # plateau step decay
+    ap.add_argument("--gauss_mix", type=float, default=0.0)  # hybrid sil+gauss render
     ap.add_argument("--w_nn", type=float, default=0.2)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard

@@ -149,6 +149,15 @@ class PipelineConfig:
                                     #   ledger pre-registered as the follow-up.
 
     use_gauss_loss: bool = False    # REAL 3DGS render loss (diff_gauss) replaces the
+    gauss_mix: float = 0.0          # >0: HYBRID render channel — silhouette + this
+                                    # times the gauss L1, equal-magnitude calibrated
+                                    # once per window at the first evaluation. g1
+                                    # (2026-09-02) falsified pure replacement:
+                                    # image-L1 saturates once the silhouette
+                                    # roughly matches (chamfer +29%, fork 622 vs
+                                    # 520) yet puts gradients exactly where the
+                                    # viewer sees residue (out_nn better, detFmin
+                                    # 0.62 vs 0.43) — so mix, don't replace.
     gauss_res: int = 96             #   CIC soft-silhouette in the lambda channel: the
                                     #   viewer's own forward model as the objective —
                                     #   sub-cell arrangement and viewer-visible

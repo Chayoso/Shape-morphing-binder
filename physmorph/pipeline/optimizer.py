@@ -169,12 +169,22 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             return None, None
         return lam0 * torch.exp(s[0]), mu0 * torch.exp(s[1])
 
+    gauss_scale = [None]             # per-window one-shot equal-magnitude calibration
+
     def losses_of(xT, vT):
         lv = d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
         lk = vT.pow(2).sum(1).mean()
         lr = lpbr = None
         if balancer.active and tgt.gauss is not None:
-            lr = tgt.gauss.loss(xT)               # REAL 3DGS loss (viewer = objective)
+            lg_ = tgt.gauss.loss(xT)              # REAL 3DGS loss (viewer = objective)
+            if cfg.gauss_mix > 0:                 # hybrid: silhouette keeps fine geometry
+                lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
+                                cfg.sil_k, cfg.w_hole, cfg.w_spray)
+                if gauss_scale[0] is None:
+                    gauss_scale[0] = float(lsil.detach() / lg_.detach().clamp_min(1e-12))
+                lr = lsil + cfg.gauss_mix * gauss_scale[0] * lg_
+            else:
+                lr = lg_                          # pure replacement (falsified for geometry, g1)
         elif balancer.active:
             lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
                             cfg.sil_k, cfg.w_hole, cfg.w_spray)
