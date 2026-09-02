@@ -244,3 +244,23 @@ one compact interior porosity clump (different mechanism — real-3DGS-loss tran
 A→C hole coverage (W1 is spray-side by design; holes need the w_hole channel), and the
 G4_ejection gate still keyed to self-referential stray_max (metric replacement
 pre-registered, not silently swapped).
+
+### 2026-09-02 — v11 verdict: hero10 flagship (iso + kNN-W1 + traj-guard); photoreal V1
+
+**hero10 `render_full_dt_iso` (N=40k, 120c, lr64): chamfer 0.0851, silIoU 0.9647 (both
+all-time best), G2/G3/G4holes PASS, EAR out-of-support 1 particle / 40000** (hero1: 21),
+deep strays (>4 fine cells) 0.013%. The trajectory-det acceptance guard eliminated the
+kNN-W1 inversion AND improved quality (rejecting inverting candidates steers to better
+minima). Pairs: armadillo 0.0885/0.9129, A→C 0.2446/0.9530 — A→C's hole 5.85% vs the
+TARGET's own 5.76% at this metric = at ceiling; G4_holes' absolute 2% is unattainable
+for this pair (gate fix pre-registered: compare vs hole_frac_tgt). Fill term v1 did NOT
+improve ear coverage (23.1→23.5%): its budget counts porosity deficits everywhere, the
+same disease that neutered budget-W1 — redo pre-registered (surface-deficit-only mask).
+G4_ejection still keyed to self-referential stray_max (replacement pre-registered).
+
+**Photoreal 3DGS V1** (`scripts/render_photoreal.py`, diff_gauss): F→cov3Ds_precomp,
+kNN-PCA normals (density-field normals were sampling-noise mottled; PCA + field-sign
+orientation), interior particles blended to ambient albedo by surface weight (random
+interior normals showed as dark dapples), camera-relative 3-light studio rig, COLMAP
+y-down convention. output/photoreal_hero10.png. Art direction (face-on framing; the
+morph's swept-back ears) queued.
