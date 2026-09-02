@@ -34,7 +34,7 @@ from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig
 from .grid_smooth import smooth_particle_field
-from .render_loss import LambdaBalancer, d_pbr, d_render
+from .render_loss import LambdaBalancer, d_pbr, d_render, d_spray_dt
 
 
 @dataclass
@@ -49,6 +49,7 @@ class TargetPack:
     sils: list | None           # target alpha images (None when render channel off)
     extent: float
     shade: list | None = None   # target shaded images (PBR-lite channel, w_pbr>0)
+    dts: list | None = None     # per-view outside-DT maps (pointwise-W1 spray, w_dt>0)
 
 
 def _norm(gs) -> float:
@@ -167,6 +168,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
             L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
+        if tgt.dts is not None:  # pointwise-W1 spray (fixed weight, NOT lambda-scaled:
+            # lambda->cap x constant gradient = documented mass-ejection mode)
+            L = L + cfg.w_dt * d_spray_dt(xT, tgt.dts, tgt.views,
+                                          cfg.render_res, tgt.extent)
         if s is not None:
             L = L + cfg.w_mat * s.pow(2).mean()
         return L

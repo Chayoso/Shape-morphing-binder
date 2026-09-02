@@ -64,6 +64,14 @@ class PipelineConfig:
     creg_k: int = 8                 #   Laplacian penalty on dFc so no single boundary
                                     #   particle can be actuated alone (the thin-feature
                                     #   fringe's creation mechanism — forensics 2026-09-01)
+    w_dt: float = 0.0               # pointwise-W1 spray: mass x DT(outside target sil).
+    dt_clamp_frac: float = 0.25     #   Unsaturated on purpose — the alpha-saturated
+    dt_mask_thresh: float = 0.05    #   w_spray is blind to sparse fringe (rationale §7).
+                                    #   Clamp = leash handoff; low thresh = thin features
+                                    #   count as support (no ear erosion). NOT inside the
+                                    #   lambda-balanced channel: a constant-gradient term
+                                    #   amplified by lambda->cap would be the documented
+                                    #   mass-ejection failure mode (arXiv:2409.15746).
 
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution

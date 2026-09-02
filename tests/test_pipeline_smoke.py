@@ -134,3 +134,14 @@ def test_frames_are_promoted_states(prm, clouds):
     for k in range(n_windows):
         b = (k + 1) * cfg.T
         assert np.isfinite(res["frames"][b]).all()
+
+
+def test_render_dt_end_to_end(prm, clouds):
+    """Pointwise-W1 spray wiring: DT maps built in build_target, term active in
+    phys_total, run finishes with finite state (fringe tranche, rationale.md §7)."""
+    src, tgt_x = clouds
+    cfg = _cfg(lambda_auto=0.5, w_dt=10.0, w_creg=50.0)
+    res = run_pipeline(src, tgt_x, prm, cfg, log=lambda *_: None)
+    _check_result(res, cfg, len(src))
+    recs = [h for h in res["history"] if "d_vol" in h]
+    assert recs and all(r["d_render"] is not None for r in recs)

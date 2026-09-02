@@ -46,6 +46,56 @@ def d_render(x: torch.Tensor, target_alphas, views, res: int, extent: float,
     return loss / len(views)
 
 
+def target_dts(target_alphas, extent: float, clamp_frac: float = 0.25,
+               mask_thresh: float = 0.05):
+    """Per-view unsigned distance transform OUTSIDE the target silhouette (world units).
+
+    The DRWR asymmetry made explicit (fringe tranche, rationale.md §7): inside target
+    support the field is exactly 0 (holes are the saturated w_hole term's job); outside
+    it grows linearly with distance to the support boundary. mask_thresh is LOW on
+    purpose — any real target coverage counts as support, so thin features (ear tips)
+    are never pulled inward (the pre-registered ear-erosion falsifier). Clamped at
+    clamp_frac*extent so the far field stays the box leash's job (no double count)."""
+    from scipy.ndimage import distance_transform_edt
+    dts = []
+    for a_t in target_alphas:
+        res = a_t.shape[-1]
+        outside = (a_t <= mask_thresh).cpu().numpy()
+        px = 2.0 * extent / res
+        dt = distance_transform_edt(outside) * px
+        dt = np.minimum(dt, clamp_frac * extent)
+        dts.append(torch.as_tensor(dt, dtype=a_t.dtype, device=a_t.device).reshape(-1))
+    return dts
+
+
+def d_spray_dt(x: torch.Tensor, dts, views, res: int, extent: float) -> torch.Tensor:
+    """Pointwise-W1 spray term: mean over views/particles of mass x DT(projection).
+
+    THE term the saturated silhouette cannot supply: alpha ~ k*w for sparse mass, so
+    relu(a-a_t)^2 fades quadratically with sparsity, while this term's per-particle
+    gradient is ∇DT — unit-bounded (Lipschitz-1 DT, clamped) and INDEPENDENT of how
+    sparse the local splat is. A lone fringe particle feels the same per-unit-mass pull
+    toward target support as a clump. Lineage: DRWR l_1 (linear-in-distance outside),
+    PhysMorph-GS v1 L_DT, 3DGS-MCMC L1-opacity (constant gradient where the photometric
+    gradient has saturated away), Sinkhorn/W1 gradient on isolated points."""
+    loss = x.new_zeros(())
+    for dt, (th, phi) in zip(dts, views):
+        p = _project(x, th, phi)
+        rel = (p + extent) / (2 * extent) * res     # same pixel convention as the splat
+        base = torch.floor(rel).long()
+        frac = rel - base.to(x.dtype)
+        val = x.new_zeros(len(x))
+        for ox in (0, 1):
+            wx = frac[:, 0] if ox else 1 - frac[:, 0]
+            for oy in (0, 1):
+                wy = frac[:, 1] if oy else 1 - frac[:, 1]
+                ii = (base[:, 0] + ox).clamp(0, res - 1)
+                jj = (base[:, 1] + oy).clamp(0, res - 1)
+                val = val + wx * wy * dt[ii * res + jj]
+        loss = loss + val.mean()
+    return loss / len(views)
+
+
 def field_normals(x: torch.Tensor, grid_min, dx: float, dims):
     """Per-particle outward normals + surface weight from the density field.
 

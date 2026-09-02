@@ -148,4 +148,28 @@ the between-ears region visibly clean in G6. Falsifier: if linear spray drags le
 thin-feature mass (ear tips) inward — visible as ear erosion / silIoU drop — the fix is
 wrong and plan-B's force-form cleanup is next, NOT a weight retune.
 
-*(citations to be filled from the propagation/floater literature pass — in flight)*
+**Literature verdict (4+ papers read, 2026-09-01) — design refined to DT-weighted W1:**
+the adopted form is mass x **distance-transform** outside target support (not flat-linear):
+[DRWR (ICML 20)](http://proceedings.mlr.press/v119/han20b/han20b.pdf) states our exact
+failure ("points far outside the silhouette receive zero gradients") and fixes it with a
+per-point unsigned-DT loss, flat inside / linear outside — our asymmetry, exactly;
+[3DGS-as-MCMC (NeurIPS 24)](https://arxiv.org/abs/2404.09591) kills residual floaters with
+an L1 opacity term because a CONSTANT gradient works where the photometric gradient has
+saturated away (their lambda=0.01 — start small); [Mip-NeRF 360](https://arxiv.org/abs/2111.12077)'s
+distortion loss gives an isolated lobe a gradient set by DISTANCE, not magnitude;
+[Sinkhorn divergences (AISTATS 19)](https://arxiv.org/abs/1810.08278) prove density-blurred
+losses screen extreme support points while OT-type costs give them full displacement
+gradients — mass x DT IS a pointwise W1 cost. Notably, PhysMorph-GS **v1 already had
+L_DT = alpha_p * DT(p)** (linear in alpha, signed-DT); the v2 rewrite lost the
+sparsity-invariance when it replaced it with the saturated asymmetric silhouette. This
+tranche restores the v1 mechanism in its theoretically clean form (unsigned, clamped,
+outside-only, fixed weight OUTSIDE the lambda channel — lambda->cap x constant gradient
+would be [arXiv:2409.15746](https://arxiv.org/html/2409.15746v1)'s documented mass-ejection
+mode, hence the cap-independence and the dt_clamp handoff to w_box).
+
+**Propagation verdict:** [Chamfer structural-failure (arXiv:2603.09925)](https://arxiv.org/html/2603.09925)
+Corollary 1 proves LOCAL regularizers (kNN/Laplacian/repulsion) cannot rescue a
+neighbour-less particle — non-local coupling is required. Our adjoint already provides it:
+the DT pull enters through the MPM tape, so P2G/G2P spreads a lone particle's correction
+through grid nodes. w_creg is hereby demoted to a bulk-regularity term (its isolation win
+stands); it is NOT the fringe mechanism, and no extra propagation machinery is added.

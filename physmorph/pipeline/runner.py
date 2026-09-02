@@ -24,7 +24,7 @@ from ..plasticity import assimilate_elastic
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
 from .render_loss import (LambdaBalancer, d_render, make_views, shade_targets,
-                          target_silhouettes)
+                          target_dts, target_silhouettes)
 from .surface_local import surface_local_pass
 
 
@@ -45,14 +45,16 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     grid = target_mass_grid(tgt_t, m, lgmin, ldx, ldims)
     views = make_views(cfg.render_views, cfg.render_elevs)
     extent = float(np.abs(target_x).max()) * 1.25
-    sils = shade = None
+    sils = shade = dts = None
     if cfg.lambda_auto > 0:
         sils = target_silhouettes(tgt_t, views, cfg.render_res, extent, cfg.sil_k)
         if cfg.w_pbr > 0:
             shade = shade_targets(tgt_t, views, cfg.render_res, extent,
                                   lgmin, ldx, ldims, cfg.sil_k, cfg.pbr_ambient)
+        if cfg.w_dt > 0:
+            dts = target_dts(sils, extent, cfg.dt_clamp_frac, cfg.dt_mask_thresh)
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
-                      views=views, sils=sils, extent=extent, shade=shade)
+                      views=views, sils=sils, extent=extent, shade=shade, dts=dts)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
