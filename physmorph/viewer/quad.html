@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<!-- PhysMorph 4-GPU dashboard: embeds one live viewer per port (default 8765-8768).
+     Tunnel all ports:  ssh -N -L 8765:localhost:8765 -L 8766:localhost:8766 \
+       -L 8767:localhost:8767 -L 8768:localhost:8768 -J chayo@hyde01.dabh.io chayo@hyde06.dabh.io
+     Open http://localhost:8765/quad  (override panes: /quad?ports=8765,8766,8767,8768) -->
+<html><head><meta charset="utf-8"><title>PhysMorph Quad</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0b0e;color:#cfd3da;font-family:system-ui,sans-serif}
+  #grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
+        gap:4px;height:100vh;box-sizing:border-box;padding:4px}
+  .pane{position:relative;background:#101014;border:1px solid #23262c;border-radius:6px;overflow:hidden}
+  .pane iframe{width:100%;height:100%;border:0}
+  .tag{position:absolute;left:8px;top:6px;z-index:9;font:600 12px/1 system-ui;
+       color:#7fc97f;background:#000c;padding:3px 8px;border-radius:4px;pointer-events:none}
+  .dead{display:flex;align-items:center;justify-content:center;color:#6b7078;font-size:13px}
+</style></head>
+<body>
+<div id="grid"></div>
+<script>
+const q = new URLSearchParams(location.search);
+const ports = (q.get('ports') || '8765,8766,8767,8768').split(',').map(s => s.trim());
+const grid = document.getElementById('grid');
+ports.slice(0, 4).forEach(p => {
+  const pane = document.createElement('div');
+  pane.className = 'pane';
+  const tag = document.createElement('div');
+  tag.className = 'tag';
+  tag.textContent = ':' + p;
+  const ifr = document.createElement('iframe');
+  ifr.src = 'http://localhost:' + p + '/';
+  pane.appendChild(ifr); pane.appendChild(tag);
+  grid.appendChild(pane);
+  // pane label follows the run's arm name
+  const poll = async () => {
+    try {
+      const m = await (await fetch('http://localhost:' + p + '/meta')).json();
+      tag.textContent = ':' + p + ' · ' + (m.arm || m.pipeline || '');
+    } catch (e) { tag.textContent = ':' + p + ' · offline'; }
+    setTimeout(poll, 5000);
+  };
+  poll();
+});
+</script>
+</body></html>

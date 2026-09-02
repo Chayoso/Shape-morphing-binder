@@ -251,6 +251,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_fill": d_fill, "g_cos": stats.get("g_cos"), "g_share": stats.get("g_share"),
+               "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
                "accepted": stats["accepted"], "rejected": stats["rejected"],

@@ -271,7 +271,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L if lr is None else L + lam_r * float(lr)
 
     hist, accepted, rejected = [], 0, 0
-    g_cos = g_share = None
+    g_cos = g_share = g_phys_norm = g_rend_norm = None
     alpha, g0_norm, L_start = cfg.alpha, None, None
     lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
     grad_converged = False
@@ -329,6 +329,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 dot_ = float(sum((a * b).sum() for a, b in zip(gp, gr)))
                 g_cos = dot_ / max(np_ * nr_, 1e-30)
                 g_share = lam_r * nr_ / max(np_ + lam_r * nr_, 1e-30)
+                g_phys_norm, g_rend_norm = np_, nr_
             g = [a + lam_r * b for a, b in zip(gp, gr)]
             if gdt is not None:      # W1 joins the composite AFTER lambda/PCGrad (find. 9)
                 g = [gi + di for gi, di in zip(g, gdt)]
@@ -464,5 +465,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     s_out = s.detach().cpu().numpy() if s is not None else None
     stats = {"accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
              "L_start": L_start, "g_cos": g_cos, "g_share": g_share,
+             "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
              "dfc": dc.cpu().numpy() if cfg.warm_start else None}
     return frames, F_seq, end, s_out, hist, stats

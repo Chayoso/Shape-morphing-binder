@@ -272,6 +272,8 @@ def main():
                                                          # = w_dt (Opus parity estimate)
     ap.add_argument("--w_fill", type=float, default=0.2)
     ap.add_argument("--w_nn", type=float, default=0.2)
+    ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
+                                        # for live.html / the /quad dashboard
     ap.add_argument("--w_jvol", type=float, default=50.0)  # h12 ladder: detFmin
                                         # 0.0005->0.497, |J-1|>0.3 13.7->0.0%,
                                         # chamfer/silIoU best-ever (docs 2026-09-02)
@@ -292,6 +294,11 @@ def main():
           flush=True)
     print(f"[v2run] baseline chamfer (undeformed) = {metrics.chamfer(src, tgt):.4f}", flush=True)
 
+    live = None
+    if args.live_port:
+        from physmorph.viewer.server import LiveServer
+        live = LiveServer(args.live_port)
+
     out = {"provenance": {**vars(args), "mpm": dataclasses.asdict(prm)},   # AGENTS rule 4:
            "G1a": gate1_plumbing(src, prm),                                # discretisation
            "G1b": gate1_channels(src, prm), "arms": {}}                    # travels with numbers
@@ -303,7 +310,11 @@ def main():
         cfg_dump = {k: v for k, v in dataclasses.asdict(cfg).items() if k != "history"}
         print(f"\n[v2run] ===== ARM {arm} =====", flush=True)
         t0 = time.time()
-        res = run_pipeline(src, tgt, prm, cfg)
+        cbs = (None, None)
+        if live is not None:
+            from physmorph.render.covariance import sigma0_from_nn
+            cbs = live.begin_run(arm, src, tgt, prm, cfg, sigma0_from_nn(src, 0.7))
+        res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1])
         dt = time.time() - t0
         met = metrics.summarize(res["frames"], tgt, F_frames=res["F_frames"],
                                 n_held=res["n_held"])

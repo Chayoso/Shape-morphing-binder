@@ -51,6 +51,10 @@ const SERIES = [                     // [key, label, decimals, log10?]
   ['phys',     'L_phys+W1 = L − λ·D_render', 2, true],
   ['lamr',     'λ·D_render (render term)', 2, true],
   ['d_dt',     'D_W1 (fringe cleanup)',  4, true],
+  ['g_phys_norm', '‖∇phys‖',             1, true],
+  ['g_rend_norm', '‖∇render‖ (raw)',     1, true],
+  ['g_share',  'render share of update', 3, false],
+  ['g_cos',    'cos(∇phys, ∇render)',    3, false],
   ['d_vol',    'D_vol',                 2, false],
   ['d_render', 'D_render',              5, false],
   ['lam',      'λ (render weight)',     0, false],
@@ -268,6 +272,7 @@ function draw() {
   $('tele').textContent =
       `L=${fmt(live.E)}  D_vol=${fmt(live.d_vol)}  D_render=${fmt(live.d_render, 5)}  ` +
       `λ=${fmt(live.lam, 0)}  kin=${fmt(live.kin, 4)}  ‖∇L‖=${fmt(live.gnorm)}  ` +
+      `cos=${fmt(hc.g_cos, 2)}  rshare=${fmt(hc.g_share, 2)}  ` +
       `Jmin=${fmt(hc.Jmin, 3)}  N=${meta.n}`;
   spark();
 }
