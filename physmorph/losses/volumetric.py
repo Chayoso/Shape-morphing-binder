@@ -233,6 +233,25 @@ def d_nn_band(x: torch.Tensor, m: torch.Tensor, tgt_pts: torch.Tensor,
     return (m * elig * torch.clamp(d - berth, min=0.0)).sum()
 
 
+def growth_demand(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
+                  grid_min: torch.Tensor, dx: float, dims,
+                  sigma: float = 2.0) -> "np.ndarray":
+    """Per-particle coverage demand in [0,1] for the GROWTH channel: blurred relative
+    shortfall relu(tb-bb)/tb on TRUE support, trilinearly gathered at the particle.
+    Zero wherever coverage is met — growth stops by construction (demand-driven)."""
+    from scipy.ndimage import gaussian_filter
+    import numpy as np
+    nx, ny, nz = dims
+    with torch.no_grad():
+        b = rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz).cpu().numpy()
+        t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
+        bb = gaussian_filter(b, sigma)
+        tb = gaussian_filter(t, sigma)
+        dem = np.where(t > 1e-6, np.maximum(tb - bb, 0.0) / np.maximum(tb, 1e-9), 0.0)
+        field = torch.as_tensor(dem, dtype=x.dtype, device=x.device).reshape(-1)
+        return gather_cic(field, x, grid_min, dx, dims).clamp(0.0, 1.0).cpu().numpy()
+
+
 def coverage_shortfall(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
                        grid_min: torch.Tensor, dx: float, dims,
                        sigma: float = 2.0) -> float:

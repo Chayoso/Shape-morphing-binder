@@ -428,3 +428,22 @@ else the growth-tensor channel (render->volume, the user's proposal formalised a
 morphoelastic det(G) commands) is next. Remaining queue after fill v3: real
 diff_gauss LOSS tranche, photoreal art direction, hard-pair expansion (teapot back
 into the suite, letters at target-relative gates).
+
+### §7.12 Fill-v3 falsifier FIRED at convergence → GROWTH channel activated (2026-09-02)
+
+h19 (400c, converged at 364): ear cov<0.3 = 19.9% vs the pre-registered <15% — the
+falsifier fires even though fill v3 set global records (chamfer 0.0652 / silIoU
+0.9766) and its balancer behaved exactly as designed (fill_lam 0.062→0.009,
+self-annealing). Root cause of the miss is structural to ANY loss-side pull: the
+norm-balanced weight dies with the physics gradient before thin-feature interiors
+finish filling. Fill v3 stays ADOPTED as a global term; per the pre-registration the
+ear-interior owner moves to the **GROWTH channel** (the user's render→volume proposal
+formalised as morphoelastic F = F_e·G): a commit-time plastic command
+grow_p = 1 + w_grow·demand_p, demand = blurred coverage shortfall on TRUE support
+gathered at the particle. Distinctions from the falsified ratchet, recorded:
+demand-driven (zero when covered — stops by construction), per-commit cap, cumulative
+det(Fp) governor [1/grow_band, grow_band] (Stomakhin-snow hardening lesson), and it
+lives OUTSIDE the optimizer's gradient balance entirely. Falsifier: ear cov<0.3 <15%
+at w_grow<=0.05 with chamfer/silIoU within 2% and G2/G3 clean; if it fires, the
+remaining candidate is target-hard partial-OT matching (source-soft only — Bai et al.
+warning) before any relocation-class escape hatch.

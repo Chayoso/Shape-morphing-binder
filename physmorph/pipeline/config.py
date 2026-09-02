@@ -113,6 +113,18 @@ class PipelineConfig:
                                     #   2026-09-02: 90% gate-closed AND zero force
                                     #   there). Frozen assignment per window; rim inside
                                     #   the berth feels nothing.
+    w_grow: float = 0.0             # GROWTH channel (morphoelastic F=Fe·G): commit-
+    grow_band: float = 1.5          #   time rest-volume command grow=1+w_grow*demand,
+                                    #   demand = blurred coverage shortfall on TRUE
+                                    #   support gathered at the particle (zero when
+                                    #   covered -> stops by construction). NOT the
+                                    #   falsified ratchet (uncontrolled absorption):
+                                    #   demand-driven + per-commit cap + cumulative
+                                    #   det(Fp) governor [1/band, band] (Stomakhin-snow
+                                    #   lesson). Lives OUTSIDE the optimizer's gradient
+                                    #   balance - the fill-v3 verdict: loss-side pulls
+                                    #   die with the physics gradient before finishing
+                                    #   thin features (fill_lam 0.062->0.009 measured).
     w_jvol: float = 0.0             # volume prior on terminal F: mean (J-1)·log J —
                                     #   the sKL/log-unbiased registration regularizer
                                     #   (Yanovsky/Leow CAM 07-49): zero iff J=1,

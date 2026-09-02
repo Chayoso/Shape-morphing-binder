@@ -104,3 +104,22 @@ def test_isochoric_assimilation_preserves_fp_volume():
         F = np.einsum("nij,njk->nik", A, Fp2)
         Fp2 = assimilate_elastic(F, Fp2, eta=0.5, isochoric=False)
     assert np.abs(np.linalg.det(Fp2) - 1.0).max() > 0.3
+
+
+def test_growth_channel_demand_driven_and_governed():
+    """Growth (morphoelastic det command): demand grows rest volume per commit, zero
+    demand leaves det untouched, and the cumulative governor caps at grow_band."""
+    import numpy as np
+    from physmorph.plasticity.assimilation import assimilate_growth
+    n = 8
+    Fp = np.tile(np.eye(3, dtype=np.float32), (n, 1, 1))
+    F = np.tile(np.eye(3, dtype=np.float32), (n, 1, 1))
+    grow = np.ones(n, np.float32)
+    grow[:4] = 1.05                                # 5% commanded growth on half
+    for _ in range(20):
+        Fp = assimilate_growth(F, Fp, eta=0.5, isochoric=True,
+                               grow=grow, grow_band=1.5)
+        F = Fp.copy()                              # keep F_e = I (pure rest tracking)
+    det = np.linalg.det(Fp)
+    assert np.all(det[4:] < 1.02) and np.all(det[4:] > 0.98)   # no demand: no growth
+    assert np.all(det[:4] > 1.3) and np.all(det[:4] < 1.55)    # grown, governor-capped

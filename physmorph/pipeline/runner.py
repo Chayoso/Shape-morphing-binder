@@ -53,7 +53,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
             shade = shade_targets(tgt_t, views, cfg.render_res, extent,
                                   lgmin, ldx, ldims, cfg.sil_k, cfg.pbr_ambient)
     dtgmin, dtdx, dtdims, tmass3 = None, 0.0, (), None
-    if cfg.w_dt > 0 or cfg.w_fill > 0:
+    if cfg.w_dt > 0 or cfg.w_fill > 0 or cfg.w_grow > 0:
         # fine target-fitted grid shared by both one-signed W1 terms — independent of
         # the render channel (Opus finding 2: the loss grid's ~1-unit cells made a dead
         # radius covering the whole fringe band). Cube spans 1.5x extent: everything the
@@ -65,7 +65,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
         if cfg.w_dt > 0:
             dt3 = target_dt_grid(dt_mass, dtdx, dtdims,
                                  clamp=cfg.dt_clamp_frac * extent)
-        if cfg.w_fill > 0:
+        if cfg.w_fill > 0 or cfg.w_grow > 0:
             tmass3 = dt_mass
     pts, nn_sp = None, 0.0
     if cfg.w_nn > 0:
@@ -215,9 +215,21 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # exact and per-particle — displacement-field estimation mismatched the
         # dFc-inflated F and spiked stress at every commit boundary (measured) ----
         if cfg.assim > 0:
-            Fp = assimilate_elastic(Fc, Fp, eta=cfg.assim,
-                                    smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                    isochoric=cfg.assim_iso)
+            if cfg.w_grow > 0 and tgt.tmass3 is not None:
+                from ..losses.volumetric import growth_demand
+                from ..plasticity.assimilation import assimilate_growth
+                dem = growth_demand(torch.as_tensor(x, device=cfg.device), tgt.m,
+                                    tgt.tmass3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
+                                    cfg.fill_sigma)
+                Fp = assimilate_growth(Fc, Fp, eta=cfg.assim,
+                                       smin=cfg.assim_smin, smax=cfg.assim_smax,
+                                       isochoric=cfg.assim_iso,
+                                       grow=1.0 + cfg.w_grow * dem,
+                                       grow_band=cfg.grow_band)
+            else:
+                Fp = assimilate_elastic(Fc, Fp, eta=cfg.assim,
+                                        smin=cfg.assim_smin, smax=cfg.assim_smax,
+                                        isochoric=cfg.assim_iso)
 
         # archive the PROMOTED states (identical to raw when no guard fired)
         frames.extend(f.copy() for f in fr[1:-1]); frames.append(x.copy())

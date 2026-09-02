@@ -34,6 +34,29 @@ def assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0,
     if eta <= 0:
         return Fp
     Fe = np.einsum("nij,njk->nik", F, np.linalg.inv(Fp))
+    return _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, None, 1.0)
+
+
+def assimilate_growth(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=True,
+                      grow=None, grow_band=1.5) -> np.ndarray:
+    """assimilate_elastic + a COMMANDED per-particle volumetric growth g (morphoelastic
+    F = F_e·G): Fp gains an isotropic factor grow^(1/3) per commit, so the rest volume
+    expands exactly where the demand field says coverage is missing and elastic
+    pressure fills the space. This is NOT the falsified ratchet: the ratchet absorbed
+    whatever volume the control produced (uncontrolled, monotone); growth is
+    DEMAND-DRIVEN (zero where covered — it stops by construction), CAPPED per commit
+    by the caller, and GOVERNED cumulatively (det(Fp) clamped to [1/grow_band,
+    grow_band] — the Stomakhin-snow lesson: plastic volume change is admissible only
+    with a governor). The uncommanded remainder stays isochoric. It lives at commit
+    time, outside the optimizer's gradient balance — the fill-v3 verdict showed any
+    loss-side pull dies with the physics gradient before finishing thin features."""
+    F = np.ascontiguousarray(F, np.float32).reshape(-1, 3, 3)
+    Fp = np.ascontiguousarray(Fp, np.float32).reshape(-1, 3, 3)
+    Fe = np.einsum("nij,njk->nik", F, np.linalg.inv(Fp))
+    return _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, grow, grow_band)
+
+
+def _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, grow, grow_band) -> np.ndarray:
     ok = np.linalg.det(Fe) > 1e-6
     _, S, Vt = np.linalg.svd(Fe)
     V = np.transpose(Vt, (0, 2, 1))
@@ -42,10 +65,18 @@ def assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0,
         Se = Se / np.prod(Se, axis=1, keepdims=True) ** (1.0 / 3.0)
     Sa = np.einsum("nij,nj,nkj->nik", V, Se, V)      # V diag(S^eta) V^T = S_e^eta
     Sa[~ok] = np.eye(3, dtype=np.float32)
+    if grow is not None:                             # commanded volumetric growth:
+        g = np.clip(np.asarray(grow, np.float32), 0.5, 2.0) ** (1.0 / 3.0)
+        Sa = Sa * g[:, None, None]                   # isotropic factor on the increment
     Fp_new = np.einsum("nij,njk->nik", Sa, Fp)
     U2, S2, Vt2 = np.linalg.svd(Fp_new)              # cumulative band clamp LAST
     S2 = np.clip(S2, smin, smax)
-    if isochoric:
+    if grow is not None:                             # growth governor: cumulative det
+        det = np.prod(S2, axis=1)                    # band, NOT det=1 (growth is the
+        lo_d, hi_d = 1.0 / grow_band, grow_band      # one channel allowed to command
+        corr = np.clip(det, lo_d, hi_d) / np.maximum(det, 1e-12)   # rest volume)
+        S2 = S2 * corr[:, None] ** (1.0 / 3.0)
+    elif isochoric:
         # Codex stack-review f16: a single det renormalisation VIOLATES the band
         # (probe: 792/1000 rows left [0.2,5], reaching [0.136,8.01]). Project onto
         # {sum log s = 0} INTERSECT the log-band by alternating projections (both

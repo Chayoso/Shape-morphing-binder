@@ -219,6 +219,20 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.c2f_at = 0.5
         cfg.pace = args.pace
         cfg.dfc_clip = args.dfc_clip
+    elif arm == "render_full_grow":                # full stack + GROWTH channel
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.grad_project = False
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
+        cfg.w_dt = args.w_dt
+        cfg.w_nn = args.w_nn
+        cfg.w_fill = args.w_fill
+        cfg.w_jvol = args.w_jvol
+        cfg.w_grow = args.w_grow
+        cfg.assim_iso = True
     else:
         raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat|render_ws|render_gs"
                          "|render_pbr|render_pc|render_c2f|render_pace|render_lg|render_full)")
@@ -276,6 +290,8 @@ def main():
     ap.add_argument("--w_dt", type=float, default=0.2)   # SUM form: per-particle pull
                                                          # = w_dt (Opus parity estimate)
     ap.add_argument("--w_fill", type=float, default=0.1)  # fill v3 ALPHA (norm-balanced)
+    ap.add_argument("--w_grow", type=float, default=0.02)
+    ap.add_argument("--grow_band", type=float, default=1.5)
     ap.add_argument("--w_nn", type=float, default=0.2)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard
