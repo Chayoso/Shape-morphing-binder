@@ -118,6 +118,21 @@ mass INTO thin features) — fill v3 verification batch is the closing move; if 
 falsifier fires, the growth-tensor channel (render-commanded det(G), morphoelastic)
 is pre-registered next.
 
+### 6.1 Real-3DGS render channel (g1/g3, 2026-09-02)
+
+Root-cause answer to "grid 문제인가?": the CIC-grid losses are structurally blind
+to sub-cell arrangement — the viewer sees residue the losses cannot. The fix is
+to make the viewer's forward model the objective: `gauss_loss.py` renders the
+particles with the user's own diff_gauss fork (multi-view L1 vs baked target
+renders). g1 pilot (pure replacement, N=20k/120c): converged early at anim 49,
+chamfer 0.0991, fork-halo 622 — the image L1 saturates once the silhouette
+roughly matches, so it cannot carry fine geometry alone; but detFmin 0.62 and
+out_nn 15.03% show it is healthiest exactly where the viewer looks. CAVEAT: the
+first reference (g1_ref) ran at N=40k/300c — an unequal comparison; the g3 pair
+(g3_mix hybrid vs g3_ref flagship, both N=20k/120c) is the clean verdict.
+`gauss_mix`: silhouette + equal-magnitude-calibrated gauss L1 (scale fixed once
+per window at first evaluation — a pre-registered rule, not a tuned weight).
+
 ## 7. Code changes made for this problem (file → change → intent)
 
 | where | what changed | why (intent) |
@@ -134,4 +149,4 @@ is pre-registered next.
 | `metrics.py: tgt_nn_metrics` | target-NN distance in units of the target's own median spacing, fraction + tail | the honest floater metric: `stray_frac` is self-referential and `out_dt_frac` has a ~3.5-cell dead radius — cleanup was being metric-flattered ("ear count 1" hid the 0.07–0.15 wu halo) |
 | `pipeline/config.py` | every knob above, each with its measured justification in the comment | knobs must carry their evidence — a falsified mechanism stays labeled falsified |
 | `tests/test_w1_cleanup.py` | self-force, fixed-N sparsity invariance, berth/band eligibility, no-gap, mask-leak regression | pin exactly the claims the adversarial rounds attacked |
-
+| `pipeline/gauss_loss.py` + `config.py: use_gauss_loss/gauss_res/gauss_mix` + `optimizer.py: losses_of` | REAL diff_gauss render loss in the λ channel; `gauss_mix>0` = hybrid silhouette + per-window equal-magnitude-scaled gauss L1 | the viewer is the truth standard, so the viewer's forward model must generate gradients — pure replacement was falsified for fine geometry (early saturation), the hybrid keeps the silhouette for geometry and adds gradients where the user sees floaters |

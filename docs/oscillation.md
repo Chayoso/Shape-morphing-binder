@@ -99,6 +99,30 @@ converged 4-pair batch — confirm every pair freezes in budget and the held tai
 pass G3; then a replay-tail visual check. If any pair fails to freeze, the residual
 driver gets its own forensic before any new mechanism.
 
+### 5.1 Driver #5: per-window Adam-restart zigzag (user-reopened 2026-09-02)
+
+The user's viewer showed residual late-run wobble at the ears even in converged
+runs. Forensic on h17_bunny's last 40 pre-freeze commits (219–258), per-particle
+displacement reversal (mean cos of consecutive commit displacement unit vectors):
+
+- ALL particles: rev-cos median −0.150, 37.5% oscillating (cos < −0.2)
+- ear: −0.211 / 54.0%; body: −0.134 / 34.5% — but **ear ∩ untouched-by-cleanup:
+  −0.212 / 53.7%** → the cleanup terms (kNN gate, nn assignment rebuilds) are
+  ACQUITTED as the driver (gate flip 0.51%/5c, nn-elig flip 6.43%/5c).
+- strong oscillators (rev < −0.3, n=6038) sit at median d_tgt = 1.2× target
+  spacing — ON the surface. The ear is not special; it is thin, so the global
+  pattern is visible there.
+
+Mechanism: every window optimizes a NEW dFc leaf, so Adam restarts from zero
+moments with the full initial step α. Near the optimum this is valley zigzag —
+window k overshoots along the current gradient, window k+1 comes back — and the
+line search cannot reject it because the loss decreases every window. This is an
+OPTIMIZER artifact, not physics, so the cure stays on the optimizer side (state
+damping remains banned, §4): `anneal_stale` — on every no-improvement commit the
+next window's initial α is multiplied by 0.7 (recovers ×1.15 on improvement,
+floor 0.05). Verdict pending: g2_anneal (300c) rev-cos vs the h17 baseline
+measured by the same script.
+
 ## 6. Code changes made for this problem (file → change → intent)
 
 | where | what changed | why (intent) |
@@ -114,3 +138,4 @@ driver gets its own forensic before any new mechanism.
 | `pipeline/config.py: w_jvol, assim_iso, lambda_cap` | knobs with their measured evidence in comments | same contract as the floater knobs: mechanisms carry their falsifiers |
 | production budgets | flagship runs ≥300 commits | driver #4: the residual "wobble" was honest unfinished descent — the system truly rests at ~commit 259–282 (bunny) and every pair freezes in budget (h17: 61–259) |
 
+| `pipeline/config.py: anneal_stale` + `optimizer.py: alpha_scale` + `runner.py: anneal` | plateau-scheduled step: each no-improvement commit multiplies the next window's initial α by `anneal_stale` (0.7), ×1.15 recovery on improvement, floor 0.05; acceptance-growth cap also respects the annealed ceiling | driver #5: per-window Adam restarts (zero moments, full α) zigzag across the valley near the optimum — 37.5% of particles reverse direction every commit, invisible to the line search because loss still falls; a plateau-decayed step is standard LR scheduling on the optimizer, not damping of the state |
