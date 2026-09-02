@@ -407,3 +407,24 @@ form, sized against the other mean-form priors w_box/w_kin; ladder 10/50 in hero
 Queued in literature order: Tampubolon ledger (reversible volume bookkeeping for
 assimilation AND dFc injection), IPC-style det-safe step-length filter replacing
 accept/reject in the line search.
+
+### §7.11 Iteration close-out (2026-09-02): convergence, gate fix, fill v3 pre-registration
+
+**Oscillation CLOSED end-to-end**: 400c probe froze at commit 282 and held still for
+118 commits (jitter 7e-5) — production-budget micro-motion was honest unfinished
+descent; a true resting point exists and the system rests there. **G4_holes now
+target-relative** (pre-registered fix; the A→C target itself measures 5.76%).
+
+**Fill v3 pre-registered** (target re-validated: ear cells cov<0.3 = 26.5% on the
+converged flagship — the nn term drags halo to the surface but does not push mass
+INTO thin features; median cov 0.76→0.65): replace the v2 budget scalar with the
+PROVEN norm-balancer machinery — fill_lambda = alpha_fill * ||g_phys|| / ||g_fill||,
+EMA-smoothed, capped, estimated once per window like lambda_render. Dominance becomes
+structurally impossible (the v2 failure mode: constant 0.2 pull vs data gradients
+0.007 = 30:1 late-run); the pull self-anneals as the deficit shrinks because
+||g_fill|| is demand-driven while the ratio is bounded. Falsifier: ear cov<0.3 must
+drop below 15% at alpha_fill<=0.1 with chamfer/silIoU within 2% and NO early freeze;
+else the growth-tensor channel (render->volume, the user's proposal formalised as
+morphoelastic det(G) commands) is next. Remaining queue after fill v3: real
+diff_gauss LOSS tranche, photoreal art direction, hard-pair expansion (teapot back
+into the suite, letters at target-relative gates).
