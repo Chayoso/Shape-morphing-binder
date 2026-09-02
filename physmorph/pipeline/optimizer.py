@@ -103,7 +103,7 @@ def _state_ok(state) -> bool:
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
-                    fill_bal: LambdaBalancer | None = None):
+                    fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats)."""
     dev = cfg.device
@@ -281,7 +281,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
 
     hist, accepted, rejected = [], 0, 0
     g_cos = g_share = g_phys_norm = g_rend_norm = None
-    alpha, g0_norm, L_start = cfg.alpha, None, None
+    alpha, g0_norm, L_start = cfg.alpha * alpha_scale, None, None
     lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
     grad_converged = False
 
@@ -407,7 +407,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # can fake a lower loss (adversarial finding + v3 warm-start cascade).
             if np.isfinite(new) and floor <= new < cur and _state_ok(state_n):
                 adam_t = t_
-                alpha = min(a_try * 1.1, cfg.alpha)          # C++ grows alpha on acceptance
+                alpha = min(a_try * 1.1, cfg.alpha * alpha_scale)  # C++ grows alpha on acceptance
                 step_ok = True
                 accepted += 1
                 break

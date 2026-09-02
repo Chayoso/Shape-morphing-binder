@@ -186,6 +186,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_dt = args.w_dt
         cfg.w_jvol = args.w_jvol
         cfg.w_nn = args.w_nn
+        cfg.anneal_stale = args.anneal
         cfg.assim_iso = True
     elif arm == "render_full_fill_iso":            # full stack + norm-balanced fill v3
         cfg.lambda_auto = args.lambda_auto
@@ -244,6 +245,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_dt = args.w_dt
         cfg.w_nn = args.w_nn
         cfg.w_jvol = args.w_jvol
+        cfg.anneal_stale = args.anneal
         cfg.assim_iso = True
         cfg.use_gauss_loss = True
         cfg.gauss_res = args.gauss_res
@@ -307,6 +309,7 @@ def main():
     ap.add_argument("--w_grow", type=float, default=0.02)
     ap.add_argument("--grow_band", type=float, default=1.5)
     ap.add_argument("--gauss_res", type=int, default=96)
+    ap.add_argument("--anneal", type=float, default=0.0)  # plateau step decay
     ap.add_argument("--w_nn", type=float, default=0.2)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard

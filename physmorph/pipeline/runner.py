@@ -128,6 +128,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # noise floor, so fringe-only progress could still stale out)
     best_phys, best_rend, best_dt, best_fill = None, None, None, None
     stale, frozen, n_held = 0, False, 0
+    anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
 
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render={'on(a=%g)' % cfg.lambda_auto if cfg.lambda_auto > 0 else 'OFF'} "
@@ -155,7 +156,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
-            fill_bal=fill_balancer)
+            fill_bal=fill_balancer, alpha_scale=anneal)
         if cfg.warm_start:
             dfc_prev = stats.get("dfc")
         if not whist:
@@ -310,6 +311,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if d_fill is not None:
             best_fill = d_fill if best_fill is None else min(best_fill, d_fill)
         stale = 0 if improved else stale + 1
+        if cfg.anneal_stale > 0:     # optimizer-side zigzag damping (docs/oscillation.md)
+            anneal = (min(1.0, anneal * 1.15) if improved
+                      else max(0.05, anneal * cfg.anneal_stale))
         if stale >= cfg.patience:
             frozen = True
             log(f"[v2] converged at anim {a + 1} (phys={phys_track:.4f}); holding still")

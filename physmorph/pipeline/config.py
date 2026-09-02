@@ -183,6 +183,15 @@ class PipelineConfig:
                                     # and squeeze-ejecta floaters (forensics 2026-09-01)
 
     # ---- convergence freeze ----
+    anneal_stale: float = 0.0       # >0: multiply the NEXT window's initial alpha by
+                                    # this on every no-improvement commit (slow 1.15x
+                                    # recovery on improvement, floor 0.05). The late-
+                                    # run zigzag forensic (2026-09-02): per-window
+                                    # Adam restarts overshoot-return across windows
+                                    # near the optimum (37.5% of particles reverse
+                                    # direction each commit, ears just make it
+                                    # visible); a plateau-scheduled step is the
+                                    # optimizer-side cure, not state damping.
     patience: int = 5               # commits without tol improvement before freeze
     tol: float = 0.003              # relative improvement threshold on the tracked loss
 
