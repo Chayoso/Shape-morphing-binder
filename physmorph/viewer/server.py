@@ -23,8 +23,10 @@ _HDR_KEYS = ("loss", "d_vol", "d_render", "d_dt", "d_fill", "lambda", "kin",
 
 
 def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray,
-               nodes: np.ndarray | None = None, nodeq: np.ndarray | None = None) -> bytes:
+               nodes: np.ndarray | None = None, nodeq: np.ndarray | None = None,
+               dt_pp: np.ndarray | None = None) -> bytes:
     hdr = {"seq": seq, "n": int(len(x)), "a": 0 if nodes is None else int(len(nodes)),
+           "dt_pp": dt_pp is not None,
            "phase": rec.get("phase", "commit"), "sweep": rec.get("sweep"),
            "commit": rec.get("animation", -1) + 1, "run": rec.get("run", 0),
            "E": rec.get("loss"), "lam": rec.get("lambda"),
@@ -43,6 +45,8 @@ def pack_state(seq: int, rec: dict, x: np.ndarray, cov: np.ndarray,
     if nodes is not None and len(nodes):
         out += np.ascontiguousarray(nodes, "<f4").tobytes()
         out += np.ascontiguousarray(nodeq, "<f4").tobytes()
+    if dt_pp is not None:
+        out += np.ascontiguousarray(dt_pp, "<f4").tobytes()
     return out
 
 
@@ -169,10 +173,13 @@ class LiveServer:
         eye = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
         with self.hub.lock:
             self.hub.history = []
+        from scipy.spatial import cKDTree
+        tgt_tree = cKDTree(tgt)
+        nn_sp = float(np.median(tgt_tree.query(tgt, k=2, workers=-1)[0][:, 1]))
         self.hub.meta = json.dumps({
             "n": int(len(src)), "extent": extent, "sigma0": sigma0, "arm": name,
             "T": cfg.T, "iters": cfg.iters, "animations": cfg.animations,
-            "pipeline": name}).encode()
+            "nn_sp": nn_sp, "pipeline": name}).encode()
         self.hub.target = pack_state(0, {"animation": -1}, tgt, cov_from_F(eye, sigma0))
         self.hub.publish(pack_state(0, {"animation": -1, "run": run_i}, src,
                                     cov_from_F(eye, sigma0)))
@@ -185,6 +192,7 @@ class LiveServer:
         def on_commit(a, x, F, v, rec):
             self.seq += 1
             nodes, nodeq = grid_fields(x, v, gmin, ldx, cfg.loss_res)
+            dt_pp = tgt_tree.query(x, workers=-1)[0].astype(np.float32)
             r = dict(rec)
             r["run"] = run_i
             r["phase"] = "commit"
@@ -195,6 +203,6 @@ class LiveServer:
                 hdr[k] = rec.get(k)
             hdr["lam"] = rec.get("lambda")
             self.hub.publish(pack_state(self.seq, r, x, cov_from_F(F, sigma0),
-                                        nodes, nodeq), hdr)
+                                        nodes, nodeq, dt_pp), hdr)
 
         return on_commit, on_iter

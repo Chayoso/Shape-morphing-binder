@@ -30,19 +30,20 @@
   <label class="dim"><input type="checkbox" id="cbslice"> slice</label>
   <span class="dim">y <input id="ysl" type="range" min="-1" max="1" step="0.02" value="0" style="width:80px"></span>
   <label class="dim"><input type="checkbox" id="cbsplat" checked> splats</label>
+  <label class="dim"><input type="checkbox" id="cbfloat"> floaters</label>
   <select id="field" style="background:#222;color:#cfd3da;border:1px solid #444">
     <option value="0">grid |v|</option><option value="1">grid mass</option>
   </select>
 </div>
 <canvas id="cv"></canvas>
 <div id="sparkwrap"><canvas id="histo" width="320" height="110" style="background:#0008;border-radius:6px;display:block;margin-bottom:4px"></canvas><canvas id="spark" width="320" height="1000"></canvas></div>
-<div id="hint">drag: rotate · wheel: zoom</div>
+<div id="hint">drag: rotate · right-drag: pan · wheel: zoom</div>
 <script>
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
 const sp = document.getElementById('spark'), spx = sp.getContext('2d');
 const $ = id => document.getElementById(id);
 let meta = null, target = null, state = null, lastGrid = null, lastCommitHdr = null, lastSeq = -1, paused = false;
-let ZOOM = 0.8;
+let ZOOM = 0.8, PANX = 0, PANY = 0;
 
 // ---- telemetry history: every physical quantity in the state header, per run ----
 // MAIN-LINE essentials only (one chart each)
@@ -51,10 +52,6 @@ const SERIES = [                     // [key, label, decimals, log10?]
   ['phys',     'L_phys+W1 = L − λ·D_render', 2, true],
   ['lamr',     'λ·D_render (render term)', 2, true],
   ['d_dt',     'D_W1 (fringe cleanup)',  4, true],
-  ['g_phys_norm', '‖∇phys‖',             1, true],
-  ['g_rend_norm', '‖∇render‖ (raw)',     1, true],
-  ['g_share',  'render share of update', 3, false],
-  ['g_cos',    'cos(∇phys, ∇render)',    3, false],
   ['d_vol',    'D_vol',                 2, false],
   ['d_render', 'D_render',              5, false],
   ['lam',      'λ (render weight)',     0, false],
@@ -81,7 +78,7 @@ $('charts').onclick = () => { showCharts = !showCharts; document.getElementById(
 $('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'resume' : 'pause'; };
 $('restart').onclick = () => fetch('/restart', {method: 'POST'});
 for (const id of ['ssz', 'gho']) $(id).addEventListener('input', () => draw());
-for (const id of ['cbgrid', 'cbsplat', 'field', 'cbslice', 'ysl']) $(id).addEventListener('input', () => draw());
+for (const id of ['cbgrid', 'cbsplat', 'field', 'cbslice', 'ysl', 'cbfloat']) $(id).addEventListener('input', () => draw());
 
 // ---- ARCBALL rotation: accumulate a rotation matrix — no Euler angles, no pole
 // clamp, full 360 in every direction (the az/el scheme could not pass the poles) ----
@@ -112,11 +109,18 @@ function rotateCam(dx, dy) {
   CAM.fwd = norm3(cross3(CAM.right, CAM.up));
   CAM.up = norm3(cross3(CAM.fwd, CAM.right));
 }
-let drag = null;
-cv.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; cv.style.cursor = 'grabbing'; cv.setPointerCapture(e.pointerId); });
+let drag = null, dragMode = 'rot';
+cv.addEventListener('contextmenu', e => e.preventDefault());   // right-drag = pan
+cv.addEventListener('pointerdown', e => {
+  drag = [e.clientX, e.clientY];
+  dragMode = (e.button === 2) ? 'pan' : 'rot';                 // Blender-style
+  cv.style.cursor = dragMode === 'pan' ? 'move' : 'grabbing';
+  cv.setPointerCapture(e.pointerId);
+});
 cv.addEventListener('pointermove', e => {
   if (!drag) return;
-  rotateCam((e.clientX - drag[0]) * 0.006, (e.clientY - drag[1]) * 0.006);
+  if (dragMode === 'pan') { PANX += e.clientX - drag[0]; PANY += e.clientY - drag[1]; }
+  else rotateCam((e.clientX - drag[0]) * 0.006, (e.clientY - drag[1]) * 0.006);
   drag = [e.clientX, e.clientY];
   draw();
 });
@@ -145,9 +149,14 @@ function parse(buf) {
   const n = hdr.n, a = hdr.a || 0;
   const st = {hdr, x: new Float32Array(buf, 4 + hl, n * 3),
               c6: new Float32Array(buf, 4 + hl + n * 12, n * 6), n, a};
+  let off = 4 + hl + n * 36;
   if (a) {
-    st.nodes = new Float32Array(buf, 4 + hl + n * 36, a * 3);
-    st.nodeq = new Float32Array(buf, 4 + hl + n * 36 + a * 12, a * 2);
+    st.nodes = new Float32Array(buf, off, a * 3);
+    st.nodeq = new Float32Array(buf, off + a * 12, a * 2);
+    off += a * 20;
+  }
+  if (hdr.dt_pp) {                                 // per-particle target distance
+    st.dtp = new Float32Array(buf, off, n);
   }
   return st;
 }
@@ -257,11 +266,22 @@ function draw() {
   cv.style.marginTop = '40px';
   ctx.fillStyle = '#101014'; ctx.fillRect(0, 0, W, H);
   const b = basis();
-  const cx = W / 2, cy = H / 2, scl = ZOOM * Math.min(W, H) / (2.2 * meta.extent);
+  const cx = W / 2 + PANX, cy = H / 2 + PANY, scl = ZOOM * Math.min(W, H) / (2.2 * meta.extent);
   const k = +$('ssz').value, ga = +$('gho').value, fi = +$('field').value;
   if (target && ga > 0) drawCloud(target, b, scl, cx, cy, SPR_TGT, ga, k);
   if ($('cbsplat').checked) drawCloud(state, b, scl, cx, cy, SPR_BODY, 0.85, k);
   if ($('cbgrid').checked && state.a) drawNodes(state, b, scl, cx, cy, fi);
+  if ($('cbfloat').checked && state.dtp && meta.nn_sp) {
+    const thr = 2.0 * meta.nn_sp, r = b.right, u = b.up;
+    ctx.fillStyle = '#ff4040'; ctx.globalAlpha = 0.95;
+    for (let i = 0; i < state.n; i++) {
+      if (state.dtp[i] <= thr) continue;
+      const X = state.x[3*i], Y = state.x[3*i+1], Z = state.x[3*i+2];
+      const px = cx + (X*r[0]+Y*r[1]+Z*r[2])*scl, py = cy - (X*u[0]+Y*u[1]+Z*u[2])*scl;
+      ctx.beginPath(); ctx.arc(px, py, 3.2, 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
   drawHisto(state.a ? state : lastGrid, fi);
   ctx.fillStyle = '#666'; ctx.font = '12px system-ui';
   ctx.fillText(`zoom=${ZOOM.toFixed(2)}`, 10, H - 10);
@@ -272,7 +292,6 @@ function draw() {
   $('tele').textContent =
       `L=${fmt(live.E)}  D_vol=${fmt(live.d_vol)}  D_render=${fmt(live.d_render, 5)}  ` +
       `λ=${fmt(live.lam, 0)}  kin=${fmt(live.kin, 4)}  ‖∇L‖=${fmt(live.gnorm)}  ` +
-      `cos=${fmt(hc.g_cos, 2)}  rshare=${fmt(hc.g_share, 2)}  ` +
       `Jmin=${fmt(hc.Jmin, 3)}  N=${meta.n}`;
   spark();
 }
