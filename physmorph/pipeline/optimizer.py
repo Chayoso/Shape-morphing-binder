@@ -103,7 +103,8 @@ def _state_ok(state) -> bool:
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
-                    fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0):
+                    fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
+                    mom_init=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats)."""
     dev = cfg.device
@@ -124,6 +125,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     vel = [torch.zeros_like(p) for p in leaves]
     lr_scale = [1.0] + ([cfg.mat_lr_scale] if s is not None else [])
     adam_t = 0
+    if cfg.mom_carry > 0 and mom_init is not None:
+        m_in, v_in, t_in = mom_init
+        if len(m_in) == len(mom) and all(a.shape == b.shape for a, b in zip(m_in, mom)):
+            for m_, mi in zip(mom, m_in):
+                m_.copy_(mi * cfg.mom_carry)   # first moment: directional, decayed
+            for v_, vi in zip(vel, v_in):
+                v_.copy_(vi)                   # second moment: curvature scale, verbatim
+            adam_t = int(t_in)
 
     # control-field spatial regularisation: frozen kNN topology at window start; the
     # penalty lives purely in control space (no rollout needed for its gradient)
@@ -312,6 +321,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if not (_state_ok(stw) and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
                 dFc.zero_()                          # stale controls: fall back to cold start
+            for m_ in mom:                           # stale moments go with them
+                m_.zero_()
+            for v_ in vel:
+                v_.zero_()
+            adam_t = 0
 
     for it in range(cfg.iters):
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
@@ -487,7 +501,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         end = {"F": tr.F[T].numpy().copy(), "v": tr.v[T].numpy().copy(),
                "C": tr.C[T].numpy().copy()}
     s_out = s.detach().cpu().numpy() if s is not None else None
-    stats = {"accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
+    if cfg.mom_carry > 0:
+        mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
+    stats = {"mom_out": mom_out if cfg.mom_carry > 0 else None,
+             "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
              "L_start": L_start, "g_cos": g_cos, "g_share": g_share,
              "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
              "fill_lam": fill_lam if fill_on else None,

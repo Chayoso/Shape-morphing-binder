@@ -129,6 +129,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     best_phys, best_rend, best_dt, best_fill = None, None, None, None
     stale, frozen, n_held = 0, False, 0
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
+    mom_prev = None                  # cross-window Adam moments (mom_carry)
 
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render={'on(a=%g)' % cfg.lambda_auto if cfg.lambda_auto > 0 else 'OFF'} "
@@ -156,7 +157,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
-            fill_bal=fill_balancer, alpha_scale=anneal)
+            fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev)
         if cfg.warm_start:
             dfc_prev = stats.get("dfc")
         if not whist:
@@ -177,6 +178,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
             continue
 
+        if cfg.mom_carry > 0:            # only a committed window donates its moments
+            mom_prev = stats.get("mom_out")
         # ---- FULL state promotion + guard counters (must stay zero, gate G2) ----
         x_new = np.ascontiguousarray(fr[-1], np.float32)
         n_out = int(((x_new < lo) | (x_new > hi)).any(1).sum())

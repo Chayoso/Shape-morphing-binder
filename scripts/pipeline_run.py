@@ -186,6 +186,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_dt = args.w_dt
         cfg.w_jvol = args.w_jvol
         cfg.w_nn = args.w_nn
+        cfg.mom_carry = args.mom_carry
         cfg.anneal_stale = args.anneal
         cfg.assim_iso = True
     elif arm == "render_full_fill_iso":            # full stack + norm-balanced fill v3
@@ -238,7 +239,9 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.lambda_auto = args.lambda_auto         # replacing the CIC soft-silhouette
         cfg.w_pbr = 0.0
         cfg.grad_project = False
-        cfg.c2f_at = 0.0                           # gauss targets are res-fixed for now
+        if args.gauss_mix <= 0:                    # pure replacement: res-fixed targets
+            cfg.c2f_at = 0.0                       # hybrid keeps c2f on the silhouette
+                                                   # (g3 confound: mix was tested c2f-off)
         cfg.pace = args.pace
         cfg.dfc_clip = args.dfc_clip
         cfg.w_creg = args.w_creg
@@ -246,6 +249,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_nn = args.w_nn
         cfg.w_jvol = args.w_jvol
         cfg.gauss_mix = args.gauss_mix
+        cfg.mom_carry = args.mom_carry
         cfg.anneal_stale = args.anneal
         cfg.assim_iso = True
         cfg.use_gauss_loss = True
@@ -312,6 +316,7 @@ def main():
     ap.add_argument("--gauss_res", type=int, default=96)
     ap.add_argument("--anneal", type=float, default=0.0)  # plateau step decay
     ap.add_argument("--gauss_mix", type=float, default=0.0)  # hybrid sil+gauss render
+    ap.add_argument("--mom_carry", type=float, default=0.0)  # cross-window Adam moments
     ap.add_argument("--w_nn", type=float, default=0.2)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard

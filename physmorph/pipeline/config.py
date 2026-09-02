@@ -192,6 +192,16 @@ class PipelineConfig:
                                     # and squeeze-ejecta floaters (forensics 2026-09-01)
 
     # ---- convergence freeze ----
+    mom_carry: float = 0.0          # >0: carry Adam moments across windows (first
+                                    # moment decayed by this factor, second moment
+                                    # and step count verbatim; reset with a rejected
+                                    # warm start). g2_anneal (2026-09-02): annealing
+                                    # cut late-run reversal -0.523 -> -0.345 but only
+                                    # acts after improvement stops; the zigzag during
+                                    # descent comes from each window's zero-moment
+                                    # Adam restart - the control is ONE parameter
+                                    # conceptually, so its optimizer state should
+                                    # persist like its value (warm start) does.
     anneal_stale: float = 0.0       # >0: multiply the NEXT window's initial alpha by
                                     # this on every no-improvement commit (slow 1.15x
                                     # recovery on improvement, floor 0.05). The late-
