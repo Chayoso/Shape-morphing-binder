@@ -108,6 +108,11 @@ class PipelineConfig:
     assim: float = 0.5              # eta: F_e -> R_e S_e^{1-eta} per commit; 0 disables
     assim_smin: float = 0.2         # cumulative Fp band; wide, because a saturated Fp stops
     assim_smax: float = 5.0         # tracking the motion and re-arms spring-back
+    assim_iso: bool = False         # isochoric plasticity: assimilate only the deviatoric
+                                    # stretch (det Fp = 1) so lambda resists ALL volume
+                                    # change forever — the unnormalised ratchet measured
+                                    # |J-1|>0.3 on 34% of particles, detF->0 at 120c,
+                                    # and squeeze-ejecta floaters (forensics 2026-09-01)
 
     # ---- convergence freeze ----
     patience: int = 5               # commits without tol improvement before freeze

@@ -188,7 +188,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # dFc-inflated F and spiked stress at every commit boundary (measured) ----
         if cfg.assim > 0:
             Fp = assimilate_elastic(Fc, Fp, eta=cfg.assim,
-                                    smin=cfg.assim_smin, smax=cfg.assim_smax)
+                                    smin=cfg.assim_smin, smax=cfg.assim_smax,
+                                    isochoric=cfg.assim_iso)
 
         # archive the PROMOTED states (identical to raw when no guard fired)
         frames.extend(f.copy() for f in fr[1:-1]); frames.append(x.copy())

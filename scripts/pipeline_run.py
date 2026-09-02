@@ -144,6 +144,24 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.pace = args.pace
         cfg.dfc_clip = args.dfc_clip
         cfg.w_creg = args.w_creg
+    elif arm == "render_full_iso":                 # flagship + isochoric plasticity
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.grad_project = True
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.assim_iso = True
+    elif arm == "render_full_dt_iso":              # flagship + W1 + isochoric
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.grad_project = True
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
+        cfg.w_dt = args.w_dt
+        cfg.assim_iso = True
     elif arm == "render_dt":                       # + pointwise-W1 spray (fringe residue)
         cfg.lambda_auto = args.lambda_auto
         cfg.w_dt = args.w_dt

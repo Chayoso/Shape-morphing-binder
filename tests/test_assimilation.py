@@ -75,3 +75,32 @@ def test_eta_zero_is_identity():
     Fp0 = _id(5)
     F = np.tile(np.diag([1.4, 1.0, 0.8]).astype(np.float32), (5, 1, 1))
     assert np.array_equal(assimilate_elastic(F, Fp0, eta=0.0), Fp0)
+
+
+def test_isochoric_assimilation_preserves_fp_volume():
+    """assim_iso: the plastic increment is det-free, so det(Fp) stays 1 no matter how
+    compressed F_e is — the volume ratchet (|J-1|>0.3 on 34% by 120 commits) cannot
+    form. The band clamp may still alter det slightly; assert near-1 over many rounds."""
+    import numpy as np
+    from physmorph.plasticity import assimilate_elastic
+    rng = np.random.default_rng(4)
+    n = 200
+    Fp = np.tile(np.eye(3, dtype=np.float32), (n, 1, 1))
+    for _ in range(12):                          # 12 commits of heavy squeezing
+        A = np.tile(np.eye(3, dtype=np.float32), (n, 1, 1))
+        A += 0.2 * rng.normal(size=(n, 3, 3)).astype(np.float32)
+        A[:, 0, 0] *= 0.7                        # persistent compression channel
+        F = np.einsum("nij,njk->nik", A, Fp)
+        Fp = assimilate_elastic(F, Fp, eta=0.5, isochoric=True)
+    dets = np.linalg.det(Fp)
+    assert np.abs(dets - 1.0).max() < 0.05
+    # sanity: the unnormalised form DOES ratchet volume under the same forcing
+    Fp2 = np.tile(np.eye(3, dtype=np.float32), (n, 1, 1))
+    rng = np.random.default_rng(4)
+    for _ in range(12):
+        A = np.tile(np.eye(3, dtype=np.float32), (n, 1, 1))
+        A += 0.2 * rng.normal(size=(n, 3, 3)).astype(np.float32)
+        A[:, 0, 0] *= 0.7
+        F = np.einsum("nij,njk->nik", A, Fp2)
+        Fp2 = assimilate_elastic(F, Fp2, eta=0.5, isochoric=False)
+    assert np.abs(np.linalg.det(Fp2) - 1.0).max() > 0.3
