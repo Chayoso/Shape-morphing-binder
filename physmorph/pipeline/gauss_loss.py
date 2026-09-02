@@ -64,23 +64,22 @@ class GaussViews:
         radius = extent * 2.6
         fov = 0.7
         self.cams = [_camera(th, phi, radius, res, fov, dev) for th, phi in views]
-        s2 = sigma0 * sigma0
-        self.cov6_1 = torch.tensor([s2, 0, 0, s2, 0, s2], device=dev)
+        self.sigma0 = float(sigma0)          # isotropic: scales+identity-quaternion
+        # parametrization (works across forks; the local fork rejects scales=None
+        # even on the cov3Ds path)
         self.targets = None                       # filled by bake_targets
 
     def _render(self, x: torch.Tensor, cam):
         mod, has_norm = _gs()
         n = len(x)
         rast = mod.GaussianRasterizer(raster_settings=cam)
+        scales = torch.full((n, 3), self.sigma0, device=self.dev)
+        rots = torch.zeros(n, 4, device=self.dev); rots[:, 0] = 1.0
         kw = dict(means3D=x, means2D=torch.zeros_like(x),
                   opacities=torch.full((n, 1), 0.9, device=self.dev),
-                  colors_precomp=torch.full((n, 3), 0.35, device=self.dev))
-        if has_norm:
-            out = rast(**kw, cov3Ds_precomp=self.cov6_1.expand(n, 6).contiguous(),
-                       norm3Ds_precomp=torch.zeros(n, 3, device=self.dev))
-        else:
-            out = rast(**kw, cov3D_precomp=self.cov6_1.expand(n, 6).contiguous(),
-                       shs=None, scales=None, rotations=None)
+                  colors_precomp=torch.full((n, 3), 0.35, device=self.dev),
+                  scales=scales, rotations=rots)
+        out = rast(**kw)
         return out[0] if isinstance(out, tuple) else out
 
     def bake_targets(self, tgt_x: torch.Tensor):
