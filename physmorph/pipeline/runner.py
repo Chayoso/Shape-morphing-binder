@@ -17,7 +17,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..losses.volumetric import d_vol, d_w1, target_dt_grid, target_mass_grid
+from ..losses.volumetric import (coverage_shortfall, d_vol, d_w1, target_dt_grid,
+                                 target_mass_grid)
 from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
 from ..plasticity import assimilate_elastic
@@ -108,7 +109,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # freeze tracks the RAW components (λ-free): physics, render, and W1 tracks. The W1
     # track is SEPARATE (Opus finding 4: folded into phys_track it sat at the tolerance
     # noise floor, so fringe-only progress could still stale out)
-    best_phys, best_rend, best_dt, stale, frozen, n_held = None, None, None, 0, False, 0
+    best_phys, best_rend, best_dt, best_fill = None, None, None, None
+    stale, frozen, n_held = 0, False, 0
 
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render={'on(a=%g)' % cfg.lambda_auto if cfg.lambda_auto > 0 else 'OFF'} "
@@ -233,8 +235,15 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 xt = torch.as_tensor(x, device=cfg.device)
                 d_dt = float(d_w1(xt, tgt.m, tgt.dt3,
                                   tgt.dtgmin, tgt.dtdx, tgt.dtdims))
+        d_fill = None
+        if cfg.w_fill > 0 and tgt.tmass3 is not None:   # fill telemetry (f9/F9: the
+            with torch.no_grad():                        # term was fully unobservable)
+                xt = torch.as_tensor(x, device=cfg.device)
+                d_fill = coverage_shortfall(xt, tgt.m, tgt.tmass3, tgt.dtgmin,
+                                            tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
+               "d_fill": d_fill,
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
                "accepted": stats["accepted"], "rejected": stats["rejected"],
@@ -259,11 +268,15 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             improved = improved or rend_track < best_rend - cfg.tol * abs(best_rend)
         if d_dt is not None and best_dt is not None:     # own track + tolerance (Opus f4)
             improved = improved or d_dt < best_dt - cfg.tol * abs(best_dt)
+        if d_fill is not None and best_fill is not None:  # fill track (stack-review F9)
+            improved = improved or d_fill < best_fill - cfg.tol * abs(best_fill)
         best_phys = phys_track if best_phys is None else min(best_phys, phys_track)
         if rend_track is not None:
             best_rend = rend_track if best_rend is None else min(best_rend, rend_track)
         if d_dt is not None:
             best_dt = d_dt if best_dt is None else min(best_dt, d_dt)
+        if d_fill is not None:
+            best_fill = d_fill if best_fill is None else min(best_fill, d_fill)
         stale = 0 if improved else stale + 1
         if stale >= cfg.patience:
             frozen = True

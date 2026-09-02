@@ -72,27 +72,33 @@ class PipelineConfig:
     dt_res: int = 160               #   particle: no cleanup + rim damage). The kNN
                                     #   gate's inversion side effect is owned by the
                                     #   trajectory-det acceptance guard; its clump
-                                    #   blind spot by the fill term.
-                                    #   SUM form: per-stray pull
-    w_fill: float = 0.0             # HOLE-side W1 (Fattal gathering form): pull nearby
-    fill_thresh: float = 0.3        #   mass toward under-covered target cells (blurred
-    fill_sigma: float = 2.0         #   ratio < fill_thresh). Locality = fill_range_frac
-    fill_range_frac: float = 0.1    #   * extent (UOT transport range: must exceed the
-                                    #   body-to-ear-tip distance or the deficit is
-                                    #   mathematically destroyed mass); same transport
-                                    #   budget as w_dt; mask rebuilt per window so the
-                                    #   pull SATURATES to zero once covered.
-    dt_clamp_frac: float = 2.0      #   = w_dt exactly, N-invariant (Opus finding 1: the
-                                    #   mean form was a measured 300-3000x no-op). Own
-                                    #   FINE target-fitted grid at dt_res (finding 2:
-                                    #   loss-grid cells left a ~1-unit dead radius over
-                                    #   the whole fringe band). 3D, not per-view (visual
-                                    #   hull hides interior concavities — forensics).
-                                    #   Clamp 2*extent: no force-free interior gap
-                                    #   (Codex f4); beyond the box the quadratic leash
-                                    #   dominates the linear tail. NOT lambda-scaled:
-                                    #   lambda->cap x constant gradient = documented
-                                    #   mass-ejection mode (arXiv:2409.15746).
+                                    #   blind spot is UNOWNED (stack-review f7/F10 —
+                                    #   fill v1 was measured ineffective and the
+                                    #   flagship runs without fill). SUM form: per-
+                                    #   stray pull = w_dt exactly, N-invariant (Opus
+                                    #   finding 1: mean form was a 300-3000x no-op).
+                                    #   dt_budget also caps the FILL budget (F15).
+    w_fill: float = 0.0             # HOLE-side W1 v2 (Fattal gathering form): pull
+    fill_thresh: float = 0.6        #   nearby mass toward under-covered TRUE-support
+    fill_sigma: float = 2.0         #   cells. Support-AND (Opus F1: v1's blurred-only
+    fill_range_frac: float = 0.2    #   mask was 95-100% OUTSIDE support = an outward
+                                    #   fringe factory). Budget on deficit MASS (F2:
+                                    #   in-range particle count attenuated the useful
+                                    #   mode 22-78x). Range 0.2*extent (F3: ear-tip-
+                                    #   to-body is 0.171*extent; v1's 0.1 stranded 29%
+                                    #   of the ear). thresh 0.6 (F13: 0.3's fixed point
+                                    #   was a 30%-filled feature). Smooth locality ramp
+                                    #   (F12). Residual: no hysteresis (bang-bang
+                                    #   bounded by the budget; Schmitt mask queued).
+    dt_clamp_frac: float = 2.0      # W1 DT clamp: own FINE target-fitted grid at
+                                    #   dt_res (Opus finding 2: loss-grid cells left a
+                                    #   ~1-unit dead radius over the fringe band). 3D,
+                                    #   not per-view (visual hull hides interior
+                                    #   concavities — forensics). Clamp 2*extent: no
+                                    #   force-free interior gap (Codex f4); beyond the
+                                    #   box the quadratic leash dominates the linear
+                                    #   tail. NOT lambda-scaled: lambda->cap x constant
+                                    #   gradient = mass-ejection mode (arXiv:2409.15746).
 
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution

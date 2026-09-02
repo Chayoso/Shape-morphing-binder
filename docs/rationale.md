@@ -347,3 +347,35 @@ rename the current metric diagnostic-only); f7 — clump blind spot UNOWNED; f9/
 f14/f15 — fill v2 must be capacity-aware continuous demand (Schmitt mask, unblurred
 thin-feature residual, donor-surplus accounting) with its own d_fill track; f19 — the
 test gaps mirroring all of the above. Opus round in flight; its findings merge here.
+
+### §7.8 Opus stack round (15 findings, numeric probes) — merged with §7.7
+
+Overlaps with the Codex round were already fixed (F4=f6 null-commit, F6=f13 ungated
+track, F8b=f2 commit-rollout check, F11=f16 log-space projection, F14=f17 stacking).
+NEW and fixed now: **F1 (CRITICAL) — fill v1's mask was 95-100% OUTSIDE target support**
+(the ratio test fired on Gaussian tails; measured: shape-matched body with NO hole
+produced 1140 all-outside deficit cells with 99.7% outward pull = a fringe FACTORY,
++0.465 radial step per unit w_fill) → support-AND with unblurred occupancy (verified
+1140→0, ear cells 99.3% kept) + a mask-leak regression test. **F2 (CRITICAL) — the
+fill budget was inverted** (full weight on the harmful shell, 22-78x attenuation on
+ear donors) → budget on DEFICIT MASS. F3 (range 0.1*extent stranded 29% of the ear;
+measured tip-to-body 0.171*extent) → 0.2. F13 (0.3 threshold's fixed point = a
+30%-filled ear) → 0.6; hysteresis still absent (residual, Schmitt mask queued).
+F12 (hard 0/1 locality = single-particle actuation) → smooth ramp. F9 (fill fully
+unobservable) → coverage_shortfall statistic (mask-free, cross-window comparable) as
+rec.d_fill + its own freeze track. **F7 — metric verdict upheld and worsened: the
+honest endpoint metric is now tgt_nn_metrics** (distance to nearest target particle
+in units of the target's median NN spacing, frac>2x + tail mean/p95/max: reads
+0.26/0.47/0.76% at 0.07/0.10/0.15 wu where out_dt_frac reads ~0; out_dt_frac demoted
+to diagnostic; ejection_trajectory now samples 120 frames — 10 samples missed an
+injected 500-particle ejection). Det margins raised to 1e-4 (0.04% float32
+false-accept at zero margin, measured). **F5 (OPEN, pre-registered): isochoric
+volume-as-permanent-spring is the proximate cause of the inversions the guard
+rejects** — λ(J) restoring force -1944/-3889/-7778 at J=0.95/0.90/0.80; candidate
+fixes: small eta_vol (slow volumetric relaxation) vs a J-band acceptance guard vs the
+centered log-J objective (= Codex f3's control-volume path). One design, next
+iteration, with an A/B. Claim verdicts: C1 det invariant UPHELD (5.0e-7 flat over 120
+rounds) / band was violated (fixed); C2 guard UPHELD with the two holes (fixed); C3
+blur attack REFUTED (99.3% of one-cell ear cells marked) but fill v1 dead for four
+other reasons (fixed as above); C4 numbers match, clump blind spot now documented
+UNOWNED; C5/C6 refutations accepted and fixed.

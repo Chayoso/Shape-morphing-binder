@@ -93,7 +93,7 @@ def _state_ok(state) -> bool:
     if not bool((torch.linalg.det(FT.view(-1, 3, 3)) > 0).all()):
         return False
     if len(state) > 3 and state[3] is not None:
-        return state[3] > 1e-6      # margin (stack-review f4): raw >0 admitted
+        return state[3] > 1e-4      # margin above the float32 det noise floor
     return True                     # dets like 1e-12 with exploding F^-T
 
 
@@ -143,19 +143,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         else:                             # "knn" — the honest-metric winner (§7.6)
             m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi)
 
-    # HOLE-side W1 (deficit fill), frozen per window: locality-ranged (UOT transport
-    # range) + the same budget cap; the mask rebuild makes the pull saturate at coverage
+    # HOLE-side W1 (deficit fill v2), frozen per window: support-ANDed mask (F1),
+    # budget on DEFICIT MASS not in-range particles (F2), SMOOTH locality ramp (F12 —
+    # the hard 0/1 indicator was single-particle actuation, what w_creg exists to stop)
     ddt = m_fill = None
     if cfg.w_fill > 0 and tgt.tmass3 is not None:
-        ddt = deficit_field(x0_t, tgt.m, tgt.tmass3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
-                            cfg.fill_thresh, cfg.fill_sigma, clamp=2.0 * tgt.extent)
-        if ddt is not None:
+        df = deficit_field(x0_t, tgt.m, tgt.tmass3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
+                           cfg.fill_thresh, cfg.fill_sigma, clamp=2.0 * tgt.extent)
+        if df is not None:
+            ddt, deficit_mass = df
             with torch.no_grad():
                 from ..losses.volumetric import gather_cic
                 d0 = gather_cic(ddt, x0_t, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
-                loc = (d0 < cfg.fill_range_frac * tgt.extent).to(x0_t.dtype)
-                n_act = int((loc > 0).sum())
-                s_fb = min(1.0, cfg.dt_budget * N / max(n_act, 1))
+                r = cfg.fill_range_frac * tgt.extent
+                loc = (1.0 - d0 / max(r, 1e-9)).clamp(0.0, 1.0)   # smooth ramp to 0 at r
+                s_fb = min(1.0, cfg.dt_budget * N / max(deficit_mass, 1.0))
             m_fill = tgt.m * loc * s_fb
 
     def material():
@@ -425,7 +427,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
         j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
         jt_final = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
-        if not (np.isfinite(jt_final) and jt_final > 1e-6) and accepted > 0:
+        if not (np.isfinite(jt_final) and jt_final > 1e-4) and accepted > 0:
             log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
                 "discarding window (replay/accepted-candidate mismatch)")
             hist, accepted = [], 0

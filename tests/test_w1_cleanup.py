@@ -127,8 +127,14 @@ def test_deficit_field_marks_underfill_and_saturates():
     t = torch.tensor(rng.uniform(-0.5, 0.5, (3000, 3)).astype(np.float32))
     body_half = t[t[:, 0] < 0.1]                 # body covers only the left part
     tm = target_mass_grid(t, torch.ones(len(t)), GMIN, DX, DIMS)
-    ddt = deficit_field(body_half, torch.ones(len(body_half)), tm, GMIN, DX, DIMS)
-    assert ddt is not None
+    df = deficit_field(body_half, torch.ones(len(body_half)), tm, GMIN, DX, DIMS)
+    assert df is not None
+    ddt, dmass = df
+    assert dmass > 0
+    # Opus F1 regression: EVERY deficit cell must lie in TRUE target support
+    occ = (tm.reshape(DIMS) > 1e-6).numpy()
+    dt_grid = ddt.reshape(DIMS).numpy()
+    assert not ((dt_grid == 0) & ~occ).any(), "deficit mask leaked outside support"
     # a particle left of the deficit is pulled +x toward it
     x = torch.tensor([[-0.2, 0.0, 0.0]], requires_grad=True)
     d_w1(x, torch.ones(1), ddt, GMIN, DX, DIMS).backward()

@@ -98,10 +98,11 @@ def stray_frac(x, k: int = 8, factor: float = 3.0) -> float:
     return float((d > factor * np.median(d)).mean())
 
 
-def ejection_trajectory(frames, extent, samples: int = 10) -> dict:
+def ejection_trajectory(frames, extent, samples: int = 120) -> dict:
     """Mass-ejection check over the WHOLE trajectory, not just the endpoint: max
-    outside_frac and max stray_frac over ~`samples` evenly-spaced frames (a particle that
-    flies off mid-run and gets pulled back would be invisible to final-frame metrics)."""
+    outside_frac and max stray_frac over `samples` evenly-spaced frames (Opus F7:
+    at 10 samples a 500-particle ejection injected between samples was invisible —
+    the default now covers every commit boundary of a 120-commit run)."""
     idx = sorted(set(np.linspace(0, len(frames) - 1, samples).astype(int)))
     outs = [outside_frac(frames[i], extent) for i in idx]
     strays = [stray_frac(np.ascontiguousarray(frames[i], np.float32)) for i in idx]
@@ -125,12 +126,33 @@ def jitter(frames, tail=10, n_held=0) -> dict:
             "jitter_max_abs": float(np.max(ds))}
 
 
+def tgt_nn_metrics(x, tgt, k_med: float = 2.0) -> dict:
+    """Grid-free target-distance metrics (Opus stack-review F7): distance to the
+    nearest TARGET particle in units of the target's own median NN spacing. The
+    grid-based out_dt_frac has a ~3.5-fine-cell dead radius (cells threshold + CIC
+    support dilation + nearest-cell lookup) — a 1%-of-body halo at 0.03-0.10 wu read
+    0.000% there while this reads 0.26-0.47%. Report the fraction AND the tail so
+    nothing hides under a threshold."""
+    x = np.ascontiguousarray(x, np.float32)
+    tgt = np.ascontiguousarray(tgt, np.float32)
+    tree = cKDTree(tgt)
+    nn_t = float(np.median(tree.query(tgt, k=2, workers=-1)[0][:, 1]))
+    d = tree.query(x, workers=-1)[0]
+    out = d > k_med * nn_t
+    return {"tgt_nn_spacing": nn_t,
+            "out_nn_frac": float(out.mean()),
+            "out_nn_mean": float(d[out].mean()) if out.any() else 0.0,
+            "out_nn_p95": float(np.percentile(d, 95)),
+            "out_nn_max": float(d.max())}
+
+
 def out_dt_frac(x, tgt, res: int = 160, cells: float = 2.0) -> float:
-    """Fraction of particles farther than `cells` fine-DT cells from TARGET support —
-    the target-referenced endpoint stray metric. stray_frac is SELF-referential
-    (body-kNN isolation, no target term): it conflates interior porosity with fringe
-    and cannot credit out-of-support cleanup (fringe-tranche finding — hero6 cut the
-    ear-region out-of-support 78% while stray_frac read a tie)."""
+    """DIAGNOSTIC ONLY (kept for continuity with the fringe-tranche logs): fraction of
+    particles farther than `cells` fine-DT cells from dilated target support. Opus
+    stack-review F7: dead radius ~3.5 fine cells (threshold + CIC dilation + floored
+    lookup) — blind to the 0.07-0.15 wu halo; it also reuses the loss's CIC/EDT
+    operators, breaking metric independence. The honest endpoint metric is
+    tgt_nn_metrics. stray_frac is SELF-referential (body-kNN, no target term)."""
     import torch
     from .losses.volumetric import target_dt_grid, target_mass_grid
     t = torch.tensor(np.ascontiguousarray(tgt, np.float32))
@@ -154,6 +176,7 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10) -> dict:
            "hole_frac": hole_frac(xf, e), "hole_frac_tgt": hole_frac(tgt, e),
            "outside_frac": outside_frac(xf, e), "extent": e,
            "out_dt_frac": out_dt_frac(xf, tgt),
+           **tgt_nn_metrics(xf, tgt),
            "bbox_diag": float(np.linalg.norm(xf.max(0) - xf.min(0))),
            "frames": len(frames), "n_held": int(n_held)}
     out.update(jitter(frames, tail, n_held))

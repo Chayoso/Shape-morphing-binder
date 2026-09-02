@@ -163,18 +163,21 @@ def w1_budget(x: torch.Tensor, dt_grid: torch.Tensor, grid_min: torch.Tensor,
 
 
 def deficit_field(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
-                  grid_min: torch.Tensor, dx: float, dims, thresh: float = 0.3,
+                  grid_min: torch.Tensor, dx: float, dims, thresh: float = 0.6,
                   sigma: float = 2.0, clamp: float | None = None):
-    """Per-window HOLE-side W1 field: EDT (world units) to under-covered target cells.
+    """Per-window HOLE-side W1 field: EDT (world units) to under-covered target cells,
+    restricted to TRUE target support. Returns (dt_flat, deficit_mass) or None.
 
     Fattal's gathering-term construction (Target-Driven Smoke, TOG 04) on grids:
-    blur body and target mass (sigma cells), mark cells where blurred target exists
-    but blurred body < thresh x target — a one-signed relative-ratio residual (the
-    AbsGS lesson: signed/saturated cell residuals cancel exactly at thin features,
-    which is why d_vol plateaus with 20% of ear cells under-covered). The EDT of that
-    mask is the attraction potential; cells that reach coverage leave the mask on the
-    next window rebuild, so the pull saturates to zero when filled (fill-drain
-    oscillation guard). Frozen per window, detached. Returns None when no deficit."""
+    blur body and target mass (sigma cells), mark cells where blurred body < thresh x
+    blurred target — a one-signed relative-ratio residual (the AbsGS lesson) — AND the
+    unblurred target actually occupies the cell (v2: without the support-AND the mask
+    was 95-100% Gaussian tail OUTSIDE the target = an outward fringe factory, Opus
+    stack-review F1). thresh 0.6 (was 0.3: the fixed point was a 30%-filled feature,
+    F13; hysteresis still absent — documented residual, bang-bang bounded by the
+    budget). deficit_mass = summed shortfall, the budget's denominator (F2: budgeting
+    on the in-range PARTICLE count attenuated the useful mode 22-78x while the harmful
+    mode ran at full weight). Frozen per window, detached."""
     from scipy.ndimage import distance_transform_edt, gaussian_filter
     import numpy as np
     nx, ny, nz = dims
@@ -183,13 +186,40 @@ def deficit_field(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
         t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
         bb = gaussian_filter(b, sigma)
         tb = gaussian_filter(t, sigma)
-        deficit = (tb > 1e-4) & (bb < thresh * tb)
+        # v2 (Opus stack-review F1, CRITICAL): the ratio test on the blurred field
+        # alone put 95-100% of the mask OUTSIDE target support (Gaussian tails), so
+        # v1 was an outward surface-dilation force — a fringe FACTORY. AND with the
+        # unblurred target occupancy: measured 1140->0 spurious cells with 99.3% of
+        # one-cell ear target cells still marked.
+        deficit = (t > 1e-6) & (tb > 1e-4) & (bb < thresh * tb)
         if not deficit.any():
             return None
         dt = distance_transform_edt(~deficit) * dx
         if clamp is not None:
             dt = np.minimum(dt, clamp)
-        return torch.as_tensor(dt, dtype=x.dtype, device=x.device).reshape(-1)
+        deficit_mass = float(np.maximum(thresh * tb - bb, 0.0)[deficit].sum())
+        return (torch.as_tensor(dt, dtype=x.dtype, device=x.device).reshape(-1),
+                deficit_mass)
+
+
+def coverage_shortfall(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
+                       grid_min: torch.Tensor, dx: float, dims,
+                       sigma: float = 2.0) -> float:
+    """Stable fill-progress statistic (stack-review f12/F9): normalized continuous
+    target shortfall sum(relu(t_blur - b_blur))/sum(t_blur) over TRUE support — no
+    mask, no threshold, no gate, so it is comparable across windows (per-window binary
+    EDT energies are not: their masks change)."""
+    from scipy.ndimage import gaussian_filter
+    import numpy as np
+    nx, ny, nz = dims
+    with torch.no_grad():
+        b = rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz).cpu().numpy()
+        t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
+        bb = gaussian_filter(b, sigma)
+        tb = gaussian_filter(t, sigma)
+        sup = t > 1e-6
+        denom = float(tb[sup].sum())
+        return float(np.maximum(tb - bb, 0.0)[sup].sum()) / max(denom, 1e-9)
 
 
 def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
