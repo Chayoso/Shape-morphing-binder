@@ -52,3 +52,8 @@ chayo@hyde06.dabh.io`, repo `~/physmorph_v2`, python
 `/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python`); local machine = code + `pytest`
 only (AGENTS.md rule 1). Adversarial verification (Codex gpt-5.6-sol xhigh + Claude Opus,
 REFUTE mode) before anything ships; every reported number carries its discretisation.
+
+
+Problem dossiers (2026-09-02): `docs/floaters.md` (floating gaussians —
+four populations, mechanism history, papers, v1-vs-v2), `docs/oscillation.md`
+(near-optimum unrest — four drivers closed, v1 global damping vs v2 cause removal).

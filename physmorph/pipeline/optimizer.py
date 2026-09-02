@@ -101,7 +101,8 @@ def _state_ok(state) -> bool:
 
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
-                    s_init=None, dfc_init=None, on_iter=None, log=print):
+                    s_init=None, dfc_init=None, on_iter=None, log=print,
+                    fill_bal: LambdaBalancer | None = None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats)."""
     dev = cfg.device
@@ -165,8 +166,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 d0 = gather_cic(ddt, x0_t, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
                 r = cfg.fill_range_frac * tgt.extent
                 loc = (1.0 - d0 / max(r, 1e-9)).clamp(0.0, 1.0)   # smooth ramp to 0 at r
-                s_fb = min(1.0, cfg.dt_budget * N / max(deficit_mass, 1.0))
-            m_fill = tgt.m * loc * s_fb
+            m_fill = tgt.m * loc      # v3: NO budget scalar — the fill norm-balancer
+            # (fill_lam = alpha*||g_phys||/||g_fill||, EMA, cap) makes dominance
+            # structurally impossible (v2 failure: constant pull 30:1 over data late)
 
     def material():
         if s is None:
@@ -244,25 +246,33 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L
 
     def dt_term(xT):
-        """Both one-signed W1 terms (spray-side cleanup + hole-side fill), fixed weight —
-        NOT lambda-scaled (lambda->cap x constant gradient = documented mass-ejection
-        mode) and NOT part of phys_core (finding 9)."""
+        """Fixed-weight one-signed cleanup terms (spray DT-W1 + near-band) — NOT
+        lambda-scaled (lambda->cap x constant gradient = documented mass-ejection
+        mode) and NOT part of phys_core (finding 9). The fill term is separate:
+        it carries its own norm-balanced weight (fill v3)."""
         L = None
         if tgt.dt3 is not None:
             L = cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
-        if ddt is not None and m_fill is not None:
-            Lf = cfg.w_fill * d_w1(xT, m_fill, ddt, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
-            L = Lf if L is None else L + Lf
         if nn_idx is not None:
             Ln = cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
                                       cfg.nn_berth_k * tgt.nn_spacing)
             L = Ln if L is None else L + Ln
         return L
 
+    fill_on = ddt is not None and m_fill is not None and fill_bal is not None
+    fill_lam = (fill_bal.lam or 0.0) if fill_on else 0.0
+
+    def fill_raw(xT):
+        return d_w1(xT, m_fill, ddt, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+
     def phys_total(lv, lk, dfc, xT, fT=None):
         L = phys_core(lv, lk, dfc, xT, fT)
         ldt = dt_term(xT)
-        return L if ldt is None else L + ldt
+        if ldt is not None:
+            L = L + ldt
+        if fill_on:
+            L = L + fill_lam * fill_raw(xT)
+        return L
 
     def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None):
         with torch.no_grad():    # scalar only — never build a second autograd graph
@@ -299,10 +309,22 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # iteration's per-term norms), so every accepted step decreases one objective. ----
         state, lv, lk, lr, lpbr = terms(dFc)
         Lp_core = phys_core(lv, lk, dFc, state[0], state[1])
-        Ldt = dt_term(state[0])
+        Lfill = fill_raw(state[0]) if fill_on else None
         smooth = balancer.active and cfg.render_gs_iters > 0
-        if balancer.active and (smooth or cfg.grad_project or it == 0):
+        gp = None
+        if fill_on and it == 0:
+            # fill v3: weight from gradient parity, estimated ONCE per window exactly
+            # like lambda_render — the fill can never exceed alpha_fill x the physics
+            # gradient, so the v2 late-run dominance cannot form
             gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
+            gf = torch.autograd.grad(Lfill, leaves, retain_graph=True)
+            fill_lam = fill_bal.update(_norm(gp), _norm(gf))
+        Ldt = dt_term(state[0])
+        if Lfill is not None:
+            Ldt = (fill_lam * Lfill) if Ldt is None else (Ldt + fill_lam * Lfill)
+        if balancer.active and (smooth or cfg.grad_project or it == 0):
+            if gp is None:
+                gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
             gdt = (torch.autograd.grad(Ldt, leaves, retain_graph=True)
                    if Ldt is not None else None)
             if smooth:
@@ -466,5 +488,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     stats = {"accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
              "L_start": L_start, "g_cos": g_cos, "g_share": g_share,
              "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
+             "fill_lam": fill_lam if fill_on else None,
              "dfc": dc.cpu().numpy() if cfg.warm_start else None}
     return frames, F_seq, end, s_out, hist, stats

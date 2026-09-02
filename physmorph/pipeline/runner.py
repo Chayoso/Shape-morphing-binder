@@ -101,6 +101,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # the local-global pass calibrates λ in ITS OWN variable space (u, joules) — sharing
     # the global balancer both mis-scales the pass and poisons the global EMA
     lg_balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
+    # fill v3: its own norm balancer (alpha = w_fill) — dominance structurally bounded
+    fill_balancer = (LambdaBalancer(cfg.w_fill, cfg.lambda_ema, cap=100.0)
+                     if cfg.w_fill > 0 else None)
 
     dmin = np.asarray(prm.grid_min, np.float32)
     dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
@@ -144,7 +147,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         x_start = x.copy()
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
-            s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None)
+            s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
+            fill_bal=fill_balancer)
         if cfg.warm_start:
             dfc_prev = stats.get("dfc")
         if not whist:
@@ -252,6 +256,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_fill": d_fill, "g_cos": stats.get("g_cos"), "g_share": stats.get("g_share"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
+               "fill_lam": stats.get("fill_lam"),
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
                "accepted": stats["accepted"], "rejected": stats["rejected"],

@@ -274,7 +274,7 @@ def main():
     ap.add_argument("--w_creg", type=float, default=100.0)
     ap.add_argument("--w_dt", type=float, default=0.2)   # SUM form: per-particle pull
                                                          # = w_dt (Opus parity estimate)
-    ap.add_argument("--w_fill", type=float, default=0.2)
+    ap.add_argument("--w_fill", type=float, default=0.1)  # fill v3 ALPHA (norm-balanced)
     ap.add_argument("--w_nn", type=float, default=0.2)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard

@@ -78,7 +78,12 @@ class PipelineConfig:
                                     #   stray pull = w_dt exactly, N-invariant (Opus
                                     #   finding 1: mean form was a 300-3000x no-op).
                                     #   dt_budget also caps the FILL budget (F15).
-    w_fill: float = 0.0             # HOLE-side W1 v2 (Fattal gathering form): pull
+    w_fill: float = 0.0             # HOLE-side W1 v3: ALPHA of the fill norm-
+                                    #   balancer (fill_lam = w_fill*||g_phys||/
+                                    #   ||g_fill||, EMA, cap) — v2's constant
+                                    #   weight dominated late 30:1 (measured);
+                                    #   balanced form bounds fill <= w_fill x
+                                    #   the physics gradient by construction.
     fill_thresh: float = 0.6        #   nearby mass toward under-covered TRUE-support
     fill_sigma: float = 2.0         #   cells. Support-AND (Opus F1: v1's blurred-only
     fill_range_frac: float = 0.2    #   mask was 95-100% OUTSIDE support = an outward
