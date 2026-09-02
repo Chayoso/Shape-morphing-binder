@@ -190,3 +190,32 @@ pacing. **Headline discovery: every unpaced arm produces 0.26–0.46% transient 
 strays that endpoint metrics never saw** — pacing reduces them structurally (gentler
 transport, lower |v|max). Flagship candidate: render_full @ 60 commits, pc→lg swap
 pending the local-global review.
+
+### 2026-09-01 — hero1 + lg isolation + w_creg (fringe tranche, hyde06)
+
+**hero1** `render_full` N=40k, 60 commits, loss_res 64: chamfer **0.0943**, silIoU 0.948,
+first3 12% (paced trajectory), jitter 6e-5, stray_max 0.367% — the residual is the
+thin-feature fringe between the ears/paws, the flagship's dominant visual defect.
+
+**lg isolation** (`render` vs `render_lg`, N=20k, lr32): chamfer 0.1405 vs 0.1421,
+silIoU tie, stray 0.435 vs 0.450 — a tie at 3.3x wall-clock, with λ_loc pinned at the
+cap (5000) the whole run. Verdict: on this benchmark the global window already exhausts
+the silhouette signal; the band has nothing left to descend, and the fringe is invisible
+to it for the same reason it is invisible to the global term (α-saturation, below).
+**lg parked** — not adopted into the flagship; re-evaluate on hard pairs where the rim
+residual should be under-resolved by the global step.
+
+**w_creg** (kNN-Laplacian penalty on dFc, frozen window-start topology, w=100 k=8):
+- isolation (`render` vs `render_creg`, lr32): stray 0.495→**0.390% (−21%)** with
+  chamfer 0.1403→0.1381, silIoU 0.958→0.960, jitter 1.8e-4→1.1e-4, detFmin 0.40→0.46,
+  and G3_rest recovered (drift 0.0041→0.0024). Every metric co-improves — the
+  lone-particle-actuation mechanism is real. **Adopted** (it is nearly free).
+- hero2 (`render_full_creg`, N=40k/60c/lr64): stray 0.370% vs hero1 0.367%, chamfer
+  0.0940 vs 0.0943 — **tie**. At flagship scale the fringe is NOT created by lone
+  actuation; it *survives* because the spray side of D_render saturates:
+  α = 1−exp(−k·w) ≈ k·w for sparse mass, so relu(α−α_t)² gives a gradient that
+  vanishes quadratically with sparsity. A lone stray is asymptotically invisible.
+  Next mechanism (pre-registered in rationale.md): unsaturated (mass-linear) spray
+  term outside target support — hole side stays saturated (presence detection),
+  spray side becomes linear so per-unit-mass pull is sparsity-independent.
+  Literature check in progress before implementation (standing rule).

@@ -126,3 +126,26 @@ on ≥2 axes with none regressed.
 - `vbd` **promote to co-headline** if: Gc convergence every commit, G2 clean, chamfer
   within 10% of `render` at ≤ wall-clock parity, visuals hole/flicker-free. Otherwise it
   remains a solver-research arm and the dynamic family stays the deliverable.
+
+## 7. Fringe tranche pre-registration (2026-09-01, after hero1/hero2)
+
+**Finding chain:** hero-scale stray_max is flat under both lg (propagation) and w_creg
+(creation-side smoothing) — 0.367/0.370/0.367%. Root cause isolated to the LOSS, not the
+control: α = 1−exp(−k·w) saturates ~k·w for sparse mass, so the spray penalty
+relu(α−α_t)² fades quadratically with sparsity. A lone stray between the ears is
+asymptotically invisible to every render view AND to D_vol (sub-cell mass at loss_res 64).
+
+**Mechanism (structural, not a weight change): asymmetric saturation.** Hole side keeps
+the saturated α (presence detection — a hole is a hole regardless of how much mass is
+missing). Spray side adds an UNSATURATED, mass-linear penalty supported strictly outside
+the target silhouette: constant per-unit-mass gradient independent of sparsity, so one
+particle feels the same pull as a clump. w_creg (adopted) then propagates that pull to
+its frozen-topology neighbours instead of letting one particle be yanked alone.
+
+**Adoption rule:** hero3 (`render_full_creg` + linear spray) adopts iff stray_max < 0.2%
+(the original G4 gate) with chamfer within 2% of hero2 (0.0940), no gate regression, and
+the between-ears region visibly clean in G6. Falsifier: if linear spray drags legitimate
+thin-feature mass (ear tips) inward — visible as ear erosion / silIoU drop — the fix is
+wrong and plan-B's force-form cleanup is next, NOT a weight retune.
+
+*(citations to be filled from the propagation/floater literature pass — in flight)*
