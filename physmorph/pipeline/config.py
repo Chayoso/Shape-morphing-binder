@@ -75,6 +75,14 @@ class PipelineConfig:
                                     #   catastrophe §7.3); late floater windows run at
                                     #   full per-particle pull w_dt.
                                     #   SUM form: per-stray pull
+    w_fill: float = 0.0             # HOLE-side W1 (Fattal gathering form): pull nearby
+    fill_thresh: float = 0.3        #   mass toward under-covered target cells (blurred
+    fill_sigma: float = 2.0         #   ratio < fill_thresh). Locality = fill_range_frac
+    fill_range_frac: float = 0.1    #   * extent (UOT transport range: must exceed the
+                                    #   body-to-ear-tip distance or the deficit is
+                                    #   mathematically destroyed mass); same transport
+                                    #   budget as w_dt; mask rebuilt per window so the
+                                    #   pull SATURATES to zero once covered.
     dt_clamp_frac: float = 2.0      #   = w_dt exactly, N-invariant (Opus finding 1: the
                                     #   mean form was a measured 300-3000x no-op). Own
                                     #   FINE target-fitted grid at dt_res (finding 2:

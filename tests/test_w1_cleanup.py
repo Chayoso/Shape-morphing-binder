@@ -117,3 +117,21 @@ def test_w1_budget_self_annealing():
     x_late = torch.cat([t, outside[:12]])
     s_late = w1_budget(x_late, dt3, GMIN, DX, DIMS, budget_frac=0.01)
     assert s_late == 1.0                         # full pull on the residue
+
+
+def test_deficit_field_marks_underfill_and_saturates():
+    """Hole-side W1 (§7.5): the deficit field must be nonzero near an under-covered
+    target region, pull toward it, and vanish (None) once the body covers the target."""
+    from physmorph.losses.volumetric import deficit_field
+    rng = np.random.default_rng(11)
+    t = torch.tensor(rng.uniform(-0.5, 0.5, (3000, 3)).astype(np.float32))
+    body_half = t[t[:, 0] < 0.1]                 # body covers only the left part
+    tm = target_mass_grid(t, torch.ones(len(t)), GMIN, DX, DIMS)
+    ddt = deficit_field(body_half, torch.ones(len(body_half)), tm, GMIN, DX, DIMS)
+    assert ddt is not None
+    # a particle left of the deficit is pulled +x toward it
+    x = torch.tensor([[-0.2, 0.0, 0.0]], requires_grad=True)
+    d_w1(x, torch.ones(1), ddt, GMIN, DX, DIMS).backward()
+    assert -x.grad[0][0] > 0                     # descent moves toward +x (the deficit)
+    # full coverage -> no deficit
+    assert deficit_field(t, torch.ones(len(t)), tm, GMIN, DX, DIMS) is None

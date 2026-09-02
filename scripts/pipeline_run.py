@@ -162,6 +162,17 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_creg = args.w_creg
         cfg.w_dt = args.w_dt
         cfg.assim_iso = True
+    elif arm == "render_full_fill_iso":            # + hole-side W1 (deficit fill)
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.grad_project = True
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
+        cfg.w_dt = args.w_dt
+        cfg.w_fill = args.w_fill
+        cfg.assim_iso = True
     elif arm == "render_dt":                       # + pointwise-W1 spray (fringe residue)
         cfg.lambda_auto = args.lambda_auto
         cfg.w_dt = args.w_dt
@@ -234,6 +245,7 @@ def main():
     ap.add_argument("--w_creg", type=float, default=100.0)
     ap.add_argument("--w_dt", type=float, default=0.2)   # SUM form: per-particle pull
                                                          # = w_dt (Opus parity estimate)
+    ap.add_argument("--w_fill", type=float, default=0.2)
     ap.add_argument("--dfc_clip", type=float, default=0.02)
     ap.add_argument("--arms", default="phys,render")
     ap.add_argument("--save_F_stride", type=int, default=0,

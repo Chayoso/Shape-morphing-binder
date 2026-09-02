@@ -136,6 +136,36 @@ def w1_budget(x: torch.Tensor, dt_grid: torch.Tensor, grid_min: torch.Tensor,
         return min(1.0, budget_frac * len(x) / max(n_out, 1))
 
 
+def deficit_field(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
+                  grid_min: torch.Tensor, dx: float, dims, thresh: float = 0.3,
+                  sigma: float = 2.0, clamp: float | None = None):
+    """Per-window HOLE-side W1 field: EDT (world units) to under-covered target cells.
+
+    Fattal's gathering-term construction (Target-Driven Smoke, TOG 04) on grids:
+    blur body and target mass (sigma cells), mark cells where blurred target exists
+    but blurred body < thresh x target — a one-signed relative-ratio residual (the
+    AbsGS lesson: signed/saturated cell residuals cancel exactly at thin features,
+    which is why d_vol plateaus with 20% of ear cells under-covered). The EDT of that
+    mask is the attraction potential; cells that reach coverage leave the mask on the
+    next window rebuild, so the pull saturates to zero when filled (fill-drain
+    oscillation guard). Frozen per window, detached. Returns None when no deficit."""
+    from scipy.ndimage import distance_transform_edt, gaussian_filter
+    import numpy as np
+    nx, ny, nz = dims
+    with torch.no_grad():
+        b = rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz).cpu().numpy()
+        t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
+        bb = gaussian_filter(b, sigma)
+        tb = gaussian_filter(t, sigma)
+        deficit = (tb > 1e-4) & (bb < thresh * tb)
+        if not deficit.any():
+            return None
+        dt = distance_transform_edt(~deficit) * dx
+        if clamp is not None:
+            dt = np.minimum(dt, clamp)
+        return torch.as_tensor(dt, dtype=x.dtype, device=x.device).reshape(-1)
+
+
 def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
           grid_min: torch.Tensor, dx: float, dims,
           min_mass: float = 0.0, penalty: float = 0.0) -> torch.Tensor:

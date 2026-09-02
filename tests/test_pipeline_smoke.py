@@ -167,3 +167,11 @@ def test_lg_with_w1_is_rejected(prm, clouds):
     with _pytest.raises(ValueError):
         run_pipeline(src, tgt_x, prm, _cfg(lambda_auto=0.5, lg_sweeps=2, w_dt=0.5),
                      log=lambda *_: None)
+
+
+def test_fill_arm_end_to_end(prm, clouds):
+    """Hole-side W1 wiring: deficit field built per window, run finishes finite."""
+    src, tgt_x = clouds
+    cfg = _cfg(lambda_auto=0.5, w_dt=0.5, w_fill=0.5, assim_iso=True)
+    res = run_pipeline(src, tgt_x, prm, cfg, log=lambda *_: None)
+    _check_result(res, cfg, len(src))

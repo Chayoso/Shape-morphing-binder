@@ -27,7 +27,7 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import d_vol, d_w1, w1_budget
+from ..losses.volumetric import d_vol, d_w1, deficit_field, w1_budget
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
 from ..mpm.state import MPMParams
@@ -53,6 +53,7 @@ class TargetPack:
     dtgmin: torch.Tensor | None = None  # its own grid: NOT the loss grid (Opus finding 2:
     dtdx: float = 0.0                   # coarse cells left a dead radius covering the
     dtdims: tuple = ()                  # entire production fringe band)
+    tmass3: torch.Tensor | None = None  # fine target mass raster (hole-side W1, w_fill>0)
 
 
 def _norm(gs) -> float:
@@ -124,10 +125,26 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # (per-particle gates were falsified twice — grid density AND kNN isolation; the
     # budget form has no per-particle classification to get wrong, rationale §7.5)
     m_dt = None
+    x0_t = torch.as_tensor(x0, device=dev)
     if tgt.dt3 is not None:
-        s_bud = w1_budget(torch.as_tensor(x0, device=dev), tgt.dt3, tgt.dtgmin,
-                          tgt.dtdx, tgt.dtdims, cfg.dt_budget)
+        s_bud = w1_budget(x0_t, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
+                          cfg.dt_budget)
         m_dt = tgt.m * s_bud
+
+    # HOLE-side W1 (deficit fill), frozen per window: locality-ranged (UOT transport
+    # range) + the same budget cap; the mask rebuild makes the pull saturate at coverage
+    ddt = m_fill = None
+    if cfg.w_fill > 0 and tgt.tmass3 is not None:
+        ddt = deficit_field(x0_t, tgt.m, tgt.tmass3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
+                            cfg.fill_thresh, cfg.fill_sigma, clamp=2.0 * tgt.extent)
+        if ddt is not None:
+            with torch.no_grad():
+                from ..losses.volumetric import gather_cic
+                d0 = gather_cic(ddt, x0_t, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+                loc = (d0 < cfg.fill_range_frac * tgt.extent).to(x0_t.dtype)
+                n_act = int((loc > 0).sum())
+                s_fb = min(1.0, cfg.dt_budget * N / max(n_act, 1))
+            m_fill = tgt.m * loc * s_fb
 
     def material():
         if s is None:
@@ -189,11 +206,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L
 
     def dt_term(xT):
-        """W1 cleanup, fixed weight — NOT lambda-scaled (lambda->cap x constant gradient
-        = documented mass-ejection mode) and NOT part of phys_core (finding 9)."""
-        if tgt.dt3 is None:
-            return None
-        return cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+        """Both one-signed W1 terms (spray-side cleanup + hole-side fill), fixed weight —
+        NOT lambda-scaled (lambda->cap x constant gradient = documented mass-ejection
+        mode) and NOT part of phys_core (finding 9)."""
+        L = None
+        if tgt.dt3 is not None:
+            L = cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+        if ddt is not None and m_fill is not None:
+            Lf = cfg.w_fill * d_w1(xT, m_fill, ddt, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+            L = Lf if L is None else L + Lf
+        return L
 
     def phys_total(lv, lk, dfc, xT):
         L = phys_core(lv, lk, dfc, xT)

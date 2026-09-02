@@ -52,19 +52,24 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
         if cfg.w_pbr > 0:
             shade = shade_targets(tgt_t, views, cfg.render_res, extent,
                                   lgmin, ldx, ldims, cfg.sil_k, cfg.pbr_ambient)
-    dtgmin, dtdx, dtdims = None, 0.0, ()
-    if cfg.w_dt > 0:      # 3D W1 cleanup — independent of the render channel, on its
-        # OWN fine target-fitted grid (Opus finding 2: the loss grid's ~1-unit cells
-        # made a dead radius covering the whole fringe band). Cube spans 1.5x extent:
-        # everything the box leash allows stays on a live DT slope; EDT is build-time.
+    dtgmin, dtdx, dtdims, tmass3 = None, 0.0, (), None
+    if cfg.w_dt > 0 or cfg.w_fill > 0:
+        # fine target-fitted grid shared by both one-signed W1 terms — independent of
+        # the render channel (Opus finding 2: the loss grid's ~1-unit cells made a dead
+        # radius covering the whole fringe band). Cube spans 1.5x extent: everything the
+        # box leash allows stays on a live DT slope; the EDT is build-time.
         dtdims = (cfg.dt_res,) * 3
         dtdx = 3.0 * extent / cfg.dt_res
         dtgmin = torch.tensor([-1.5 * extent] * 3, device=dev)
         dt_mass = target_mass_grid(tgt_t, m, dtgmin, dtdx, dtdims)
-        dt3 = target_dt_grid(dt_mass, dtdx, dtdims, clamp=cfg.dt_clamp_frac * extent)
+        if cfg.w_dt > 0:
+            dt3 = target_dt_grid(dt_mass, dtdx, dtdims,
+                                 clamp=cfg.dt_clamp_frac * extent)
+        if cfg.w_fill > 0:
+            tmass3 = dt_mass
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade,
-                      dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims)
+                      dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
