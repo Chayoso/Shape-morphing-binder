@@ -264,3 +264,23 @@ orientation), interior particles blended to ambient albedo by surface weight (ra
 interior normals showed as dark dapples), camera-relative 3-light studio rig, COLMAP
 y-down convention. output/photoreal_hero10.png. Art direction (face-on framing; the
 morph's swept-back ears) queued.
+
+### 2026-09-02 — v12: fill v2 verdict (mechanism works, dominance fails); disk incident
+
+hyde06 root hit 100% (output/ = 77G of trajectory npz) mid-batch — hero11/v12_arma/
+v12_AC completed their sims (gate lines logged) but lost npz/json saves; superseded
+npz purged (64G freed); h12_j0 re-runs the fixed flagship as the reference.
+
+**hero11f `render_full_fill_iso` (fill v2, w_fill=0.2, 120c budget): d_fill (coverage
+shortfall) 0.694 → 0.195 (−72%) — the support-ANDed deficit mechanism genuinely
+fills.** But: chamfer 0.1102 (flagship era 0.0845 — catastrophic), converged at 51
+commits, G3 drift FAIL (0.0038), early move 0.022→0.079 (unpaced-scale transport).
+Root cause: LATE-STAGE DOMINANCE — once deficit mass < budget·N the scalar hits 1 and
+the constant 0.2 pull outweighs the data gradients ~30:1 (the hole-side twin of the
+§7.3 dose-response lesson). Fattal's construction says the pull must be a POTENTIAL
+that vanishes at coverage; our mask-exit is bang-bang (hysteresis was the documented
+residual). Fill v3 pre-registered: continuous demand weighting (pull ∝ local
+shortfall fraction, smoothly → 0 at coverage) — not a weight retune. Flagship remains
+fill-free. v12_AC (fill v2): hole 5.94% vs target-ceiling 5.76% — fill does not move
+the AC hole (it is at the metric ceiling; gate fix to target-relative comparison
+still queued).
