@@ -67,6 +67,13 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
                                  clamp=cfg.dt_clamp_frac * extent)
         if cfg.w_fill > 0 or cfg.w_grow > 0:
             tmass3 = dt_mass
+    gauss = None
+    if cfg.use_gauss_loss and cfg.lambda_auto > 0:
+        from ..render.covariance import sigma0_from_nn
+        from .gauss_loss import GaussViews
+        gauss = GaussViews(views, extent, sigma0_from_nn(target_x, 0.9),
+                           cfg.gauss_res, dev)
+        gauss.bake_targets(tgt_t)
     pts, nn_sp = None, 0.0
     if cfg.w_nn > 0:
         from scipy.spatial import cKDTree
@@ -76,7 +83,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3,
-                      pts=pts, nn_spacing=nn_sp)
+                      pts=pts, nn_spacing=nn_sp, gauss=gauss)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,

@@ -57,6 +57,7 @@ class TargetPack:
     tmass3: torch.Tensor | None = None  # fine target mass raster (hole-side W1, w_fill>0)
     pts: torch.Tensor | None = None     # raw target particles (grid-free near-band, w_nn>0)
     nn_spacing: float = 0.0             # target median NN spacing (the honest metric's unit)
+    gauss: object | None = None         # GaussViews bundle (use_gauss_loss)
 
 
 def _norm(gs) -> float:
@@ -172,7 +173,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         lv = d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
         lk = vT.pow(2).sum(1).mean()
         lr = lpbr = None
-        if balancer.active:
+        if balancer.active and tgt.gauss is not None:
+            lr = tgt.gauss.loss(xT)               # REAL 3DGS loss (viewer = objective)
+        elif balancer.active:
             lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
                             cfg.sil_k, cfg.w_hole, cfg.w_spray)
             lr = lsil

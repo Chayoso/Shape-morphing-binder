@@ -148,6 +148,14 @@ class PipelineConfig:
                                     #   conditioning). Tampubolon-style log-volume
                                     #   ledger pre-registered as the follow-up.
 
+    use_gauss_loss: bool = False    # REAL 3DGS render loss (diff_gauss) replaces the
+    gauss_res: int = 96             #   CIC soft-silhouette in the lambda channel: the
+                                    #   viewer's own forward model as the objective —
+                                    #   sub-cell arrangement and viewer-visible
+                                    #   floaters finally generate gradients (the CIC/
+                                    #   saturation blindness that spawned the whole
+                                    #   fringe tranche). Positions-only gradients v1.
+
     # ---- v3: optimisation accelerators (docs/method.md §6) ----
     warm_start: bool = False        # init window's dFc from the previous window's solution
     warm_decay: float = 0.5         # dFc is an ABSOLUTE control added into F: verbatim reuse

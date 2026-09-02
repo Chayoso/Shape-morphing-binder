@@ -233,6 +233,20 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_jvol = args.w_jvol
         cfg.w_grow = args.w_grow
         cfg.assim_iso = True
+    elif arm == "render_full_gauss":               # flagship with the REAL 3DGS loss
+        cfg.lambda_auto = args.lambda_auto         # replacing the CIC soft-silhouette
+        cfg.w_pbr = 0.0
+        cfg.grad_project = False
+        cfg.c2f_at = 0.0                           # gauss targets are res-fixed for now
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
+        cfg.w_dt = args.w_dt
+        cfg.w_nn = args.w_nn
+        cfg.w_jvol = args.w_jvol
+        cfg.assim_iso = True
+        cfg.use_gauss_loss = True
+        cfg.gauss_res = args.gauss_res
     else:
         raise SystemExit(f"unknown arm {arm!r} (phys|render|render_mat|render_ws|render_gs"
                          "|render_pbr|render_pc|render_c2f|render_pace|render_lg|render_full)")
@@ -292,6 +306,7 @@ def main():
     ap.add_argument("--w_fill", type=float, default=0.1)  # fill v3 ALPHA (norm-balanced)
     ap.add_argument("--w_grow", type=float, default=0.02)
     ap.add_argument("--grow_band", type=float, default=1.5)
+    ap.add_argument("--gauss_res", type=int, default=96)
     ap.add_argument("--w_nn", type=float, default=0.2)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard
