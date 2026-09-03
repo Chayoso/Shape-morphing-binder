@@ -272,6 +272,30 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.assim_iso = True
         cfg.use_gauss_loss = True
         cfg.gauss_res = args.gauss_res
+    elif arm == "render_flag_dress":               # Tier D ladder: FLAGSHIP global solver
+        cfg.lambda_auto = args.lambda_auto         # (byte-identical window) + gauss built
+        cfg.w_pbr = args.w_pbr                     # for dressing/telemetry only
+        cfg.grad_project = False
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = args.w_creg
+        cfg.w_dt = args.w_dt
+        cfg.w_nn = args.w_nn
+        cfg.w_jvol = args.w_jvol
+        cfg.assim_iso = True
+        cfg.mom_carry = args.mom_carry
+        cfg.anneal_stale = args.anneal
+        cfg.pace_budget = args.pace_budget
+        cfg.use_gauss_loss = True
+        cfg.gauss_in_objective = False
+        cfg.gauss_res = args.gauss_res
+        cfg.gauss_children = 4 if args.gauss_children is None else args.gauss_children
+        cfg.render_surface_only = True             # gauss parents = frozen surface subset
+        cfg.surface_grad_frac = (args.surface_grad_frac
+                                 if args.surface_grad_frac > 0 else 0.50)
+        cfg.surface_mask_objective = False         # ...but the window covector is unmasked
+        cfg.local_dress_iters = args.dress_iters
     elif arm == "render_stable_gauss":             # production: exact render + trust gates
         cfg.lambda_auto = args.lambda_auto
         cfg.w_pbr = 0.0

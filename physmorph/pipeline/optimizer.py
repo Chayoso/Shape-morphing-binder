@@ -167,7 +167,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         knn = cKDTree(x0).query(x0, k=cfg.creg_k + 1)[1][:, 1:]
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
     surface_w_t = (torch.as_tensor(surface_w, device=dev).view(N, 1)
-                   if surface_w is not None else None)
+                   if surface_w is not None and cfg.surface_mask_objective else None)
+    gauss_mask_t = (torch.as_tensor(np.asarray(surface_w) > 0.5, device=dev)
+                    if surface_w is not None and cfg.render_surface_only else None)
 
     # W1 transport budget, frozen at window start: one scalar caps the total pull mass
     # (per-particle gates were falsified twice — grid density AND kNN isolation; the
@@ -218,9 +220,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         lk = vT.pow(2).sum(1).mean()
         lr = lpbr = None
         sil_gauss["sil"] = sil_gauss["gauss"] = None
-        if balancer.active and tgt.gauss is not None:
-            gauss_mask = ((surface_w_t[:, 0] > 0.5)
-                          if cfg.render_surface_only and surface_w_t is not None else None)
+        if balancer.active and tgt.gauss is not None and not cfg.gauss_in_objective:
+            # gauss for dressing/telemetry only: log d_gauss no-grad, then fall
+            # through to the plain silhouette channel below
+            with torch.no_grad():
+                sil_gauss["gauss"] = float(tgt.gauss.loss(
+                    xT.detach(), FT.detach() if cfg.gauss_covariance else None,
+                    mask=gauss_mask_t))
+        if balancer.active and tgt.gauss is not None and cfg.gauss_in_objective:
+            gauss_mask = gauss_mask_t
             lg_ = tgt.gauss.loss(xT, FT if cfg.gauss_covariance else None,
                                  mask=gauss_mask)
             sil_gauss["gauss"] = float(lg_.detach())

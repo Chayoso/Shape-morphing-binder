@@ -242,6 +242,16 @@ class PipelineConfig:
                                     # direction each commit, ears just make it
                                     # visible); a plateau-scheduled step is the
                                     # optimizer-side cure, not state damping.
+    gauss_in_objective: bool = True # False: the gauss loss is built (dressing + d_gauss
+                                    # telemetry) but the WINDOW render channel stays the
+                                    # silhouette - the global solver is then byte-identical
+                                    # to the flagship (t1 forensic: with gauss in the
+                                    # objective and gates on d_sil, every candidate from
+                                    # ~anim 20 regressed the fixed merit by 11.6% and was
+                                    # brake-rejected for the rest of the budget).
+    surface_mask_objective: bool = True  # False: surface_w is used for gauss parents /
+                                    # dressing only, NOT to mask the window's render
+                                    # covector (keeps the flagship window untouched).
     local_dress_iters: int = 0      # Tier D (design v2 §4): >0 = post-gate dressing
                                     # solve iterations on accepted commits. 0 = off.
                                     # The stage-0b benchmark SELECTS this from
