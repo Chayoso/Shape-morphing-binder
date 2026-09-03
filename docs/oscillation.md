@@ -129,3 +129,19 @@ staggers by 45 s.
   physics per accepted step. The oscillation is therefore an optimizer/geometry
   property of the flat valley, not a render-transfer artifact — consistent with
   drivers #5/#6 and their optimizer-side remedies.
+
+### Addendum 3 — r1 late-run cascade signature (40k, unpaced, anneal 0.7 + mom_carry 0.9 + E4)
+
+Clean descent to d_vol 82.8 at a90 (λ≈850, kin 0.05, move 0.004), then:
+a92 a ZERO-control window (dfc_absmax 0.000, 2 accepted iterations — warm start rejected,
+cold fallback, early line-search exit) → a94 kin 0.17 → a96 d_vol 124, λ 1312 → a100
+kin 0.62, move 0.058 → a102 d_vol 373, λ 2768 → a112 d_vol 489, λ 3254, kin 0.78, move
+0.067; frozen at a112 (20 commits of all-track regression before patience fired).
+Reading: an uncontrolled free rollout releases stored elastic energy, the body's
+velocity grows 20×, the render term worsens so λ climbs toward the cap, and the tiny
+controls (dfc ≤ 0.012) cannot arrest the motion — a physical runaway ignited by two
+near-zero-control windows. The deliverable was rescued only by best-commit
+truncation (a91: chamfer 0.0725, silIoU 0.966, out_nn 12.1%). Open questions under
+test: r2 (mom_carry 0) isolates the optimizer-moment carry; the outer brake (>5%
+shape-merit regression) would have rejected a96 onward; why patience took 20
+commits (which track kept "improving"?) is the next forensic.
