@@ -35,7 +35,8 @@ def main():
     args = ap.parse_args()
 
     prm = MPMParams()
-    src, tgt_x = load("assets/isosphere.obj", "assets/bunny.obj", args.n)
+    src = load("assets/isosphere.obj", args.n, 1)
+    tgt_x = load("assets/bunny.obj", args.n, 2)
     cfg = PipelineConfig(T=20, iters=8, animations=8, loss_res=64)
     cfg.lambda_auto, cfg.w_kin = 0.5, 5.0
     cfg.w_dt, cfg.w_nn, cfg.w_jvol = 0.2, 0.2, 50.0
