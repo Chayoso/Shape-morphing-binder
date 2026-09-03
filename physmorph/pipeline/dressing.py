@@ -92,6 +92,12 @@ def solve_dressing(ds: DressState, x: np.ndarray, F: np.ndarray,
     xt = torch.as_tensor(np.ascontiguousarray(x, np.float32), device=dev)
     Ft = torch.as_tensor(np.ascontiguousarray(F, np.float32),
                          device=dev).reshape(-1, 3, 3)
+    with torch.no_grad():
+        # Start FROM the feasible set under THIS commit's F: the baseline's world
+        # reach can exceed the cap where sval(F) is large, and an infeasible
+        # current point makes every candidate (which IS mapped) look worse by the
+        # rescale jump alone - the bench's used=0 pathology.
+        ds.coeff.copy_(dressing_feasible_map(ds.coeff, ds.t1, ds.t2, Ft, ds.cap))
     coeff = ds.coeff.detach().clone().requires_grad_(True)
 
     def energy(c):
@@ -101,7 +107,7 @@ def solve_dressing(ds: DressState, x: np.ndarray, F: np.ndarray,
                              offsets_override=off)
 
     with torch.no_grad():
-        L0 = float(energy(coeff))
+        L0 = float(energy(coeff.detach()))
     L_pre = L0
     mom = torch.zeros_like(coeff)
     vel = torch.zeros_like(coeff)
