@@ -78,3 +78,4 @@ holes, and deformation quality, so production leaves it off. Surface render resi
 instead masked at the terminal covector, pulled through the full MPM adjoint, and applied to
 `dFc`; interior continuum response therefore comes from physics rather than a Gauss-Seidel
 position correction.
+| `pipeline/runner.py: outer gate v2` | reject-type split (brake vs latched low-gain), self-healing latch, cold restart after any reject | driver #6: the flat-valley limit cycle must be clipped by the brake without the brake's rejections killing the run through patience; mid-run spurious latches must not be permanent |
