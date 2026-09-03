@@ -270,6 +270,10 @@ class PipelineConfig:
     patience: int = 5               # commits without tol improvement before freeze
     tol: float = 0.003              # relative improvement threshold on the tracked loss
     persistent_rest_volume: bool = True  # compute Vp0 once at the sampled source state
+    best_truncate: bool = True      # deliver the trajectory up to its best shape-merit
+                                    # commit (continuous, no snap); the flat-valley
+                                    # wandering tail is dropped from frames, kept in
+                                    # history (b4: best d_vol 62 at a435, final 158)
     outer_merit: bool = False       # fixed-scale trust gate for production runs
     outer_merit_tol: float = 1e-4   # relative sufficient decrease required for a commit
     outer_gate_move_frac: float = 6e-3 # RETIRED as latch evidence (s1: reachable at 10% of descent; s3: pacing makes every move small) — kept for provenance

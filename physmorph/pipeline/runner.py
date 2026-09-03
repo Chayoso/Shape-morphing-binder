@@ -402,7 +402,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # should be committed across windows.  Normalize each raw channel once per
         # target resolution and require monotone progress in that fixed merit.
         phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"]
-        components = {"phys": phys_track}
+        # Fixed merit = SHAPE terms only. b7 forensic (gate v2, 450 paced anims):
+        # with d_vol + w_kin*kin in the merit, any motion from a settled state
+        # raised kin enough for a >5% merit regression, so the brake rejected
+        # 333/450 candidates and pinned the run in place - pacing demands motion,
+        # a kinetic merit punishes it. Terminal velocity is a transient, not a
+        # shape quality; the brake still catches real regressions (d_vol 62->215).
+        components = {"phys": rec["d_vol"]}
         rend_gate = (rec["d_sil"] if rec.get("d_sil") is not None
                      else rec["d_render"])
         if rend_gate is not None:
@@ -525,6 +531,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             prev_disp = disp.copy()
         else:
             prev_disp = disp.copy()
+        rec["frame_end"] = len(frames)          # archive index after this commit
         if dress is not None:
             # Tier D post-gate solve (design §4.3): runs only on ACCEPTED commits,
             # on the promoted terminal state; feeds no gate (B1 split) — its
@@ -564,9 +571,39 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 (f"  GUARD clamp={n_out} nanx={n_nan} nanst={n_ns} Freset={n_bad} "
                  f"Fflip={n_flip} Finv={n_inv}" if any_guard else ""))
 
+    # Deliverable = the trajectory up to its BEST shape-merit commit. The paced runs
+    # reach their best state mid-run (b4: d_vol 62 at a435 of 450) and then wander
+    # the flat valley; the archive up to the best commit is continuous (no snap), and
+    # the wandering tail is not shown. The full history stays in `history`.
+    trunc = None
+    if cfg.best_truncate:
+        acc = [r for r in hist if r.get("frame_end") and not r.get("null_commit")
+               and r.get("d_vol") is not None]
+        if len(acc) >= 2:
+            def merit(r):
+                m = r["d_vol"]
+                rs = r.get("d_sil") if r.get("d_sil") is not None else r.get("d_render")
+                if rs is not None and acc[0].get("d_sil") or acc[0].get("d_render"):
+                    r0 = acc[0].get("d_sil") if acc[0].get("d_sil") is not None else acc[0]["d_render"]
+                    m = m / max(abs(acc[0]["d_vol"]), 1e-8) + rs / max(abs(r0), 1e-8)
+                    if r.get("d_dt") is not None and acc[0].get("d_dt"):
+                        m += r["d_dt"] / max(abs(acc[0]["d_dt"]), 1e-8)
+                return m
+            best = min(acc, key=merit)
+            if best is not acc[-1] and merit(acc[-1]) > merit(best) * (1 + cfg.tol):
+                cut = int(best["frame_end"])
+                trunc = {"best_animation": int(best["animation"]) + 1,
+                         "frames_kept": cut, "frames_dropped": len(frames) - cut}
+                del frames[cut:]
+                del F_frames[cut:]
+                if dress is not None:
+                    dress.truncate(cut)
+                log(f"[v2] deliverable truncated at best commit anim {trunc['best_animation']}"
+                    f" (kept {cut} frames, dropped {trunc['frames_dropped']})")
     if dress is not None:                        # close the archive over any tail
         dress.cover_frames(len(frames))
-    return {"dressing": dress.export() if dress is not None else None,
+    return {"truncation": trunc,
+            "dressing": dress.export() if dress is not None else None,
             "frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen,
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None)}

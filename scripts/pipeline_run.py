@@ -202,6 +202,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_dt = args.w_dt
         cfg.w_jvol = args.w_jvol
         cfg.w_nn = args.w_nn
+        cfg.nn_far_k = args.nn_far_k
         cfg.mom_carry = args.mom_carry
         cfg.anneal_stale = args.anneal
         cfg.pace_budget = args.pace_budget
@@ -216,6 +217,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_creg = args.w_creg
         cfg.w_dt = args.w_dt
         cfg.w_nn = args.w_nn
+        cfg.nn_far_k = args.nn_far_k
         cfg.w_fill = args.w_fill
         cfg.w_jvol = args.w_jvol
         cfg.assim_iso = True
@@ -248,6 +250,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_creg = args.w_creg
         cfg.w_dt = args.w_dt
         cfg.w_nn = args.w_nn
+        cfg.nn_far_k = args.nn_far_k
         cfg.w_fill = args.w_fill
         cfg.w_jvol = args.w_jvol
         cfg.w_grow = args.w_grow
@@ -264,6 +267,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_creg = args.w_creg
         cfg.w_dt = args.w_dt
         cfg.w_nn = args.w_nn
+        cfg.nn_far_k = args.nn_far_k
         cfg.w_jvol = args.w_jvol
         cfg.gauss_mix = args.gauss_mix
         cfg.mom_carry = args.mom_carry
@@ -282,6 +286,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_creg = args.w_creg
         cfg.w_dt = args.w_dt
         cfg.w_nn = args.w_nn
+        cfg.nn_far_k = args.nn_far_k
         cfg.w_jvol = args.w_jvol
         cfg.assim_iso = True
         cfg.mom_carry = args.mom_carry
@@ -306,6 +311,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_creg = args.w_creg
         cfg.w_dt = args.w_dt
         cfg.w_nn = args.w_nn
+        cfg.nn_far_k = args.nn_far_k
         cfg.w_jvol = args.w_jvol
         cfg.gauss_mix = args.gauss_mix if args.gauss_mix > 0 else 0.25
         cfg.mom_carry = args.mom_carry if args.mom_carry > 0 else 0.8
@@ -420,6 +426,7 @@ def main():
     ap.add_argument("--gauss_mix", type=float, default=0.0)  # hybrid sil+gauss render
     ap.add_argument("--mom_carry", type=float, default=0.0)  # cross-window Adam moments
     ap.add_argument("--w_nn", type=float, default=0.2)
+    ap.add_argument("--nn_far_k", type=float, default=4.5)  # E4: far cap of the near-band
     ap.add_argument("--nn_tail_frac", type=float, default=0.0)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard
