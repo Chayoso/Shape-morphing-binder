@@ -101,10 +101,29 @@ def _control_h1(g: torch.Tensor, knn: torch.Tensor, iters: int,
 
 
 def _linearized_work(grads, deltas) -> tuple[float, list[float]]:
-    """Return total and per-state ``-grad dot delta`` endpoint work for telemetry."""
+    """Return total and per-state ``-grad dot delta`` endpoint work for telemetry.
+    NOTE (transfer-function probe 2026-09-02): raw work is dominated by LOSS SCALE
+    (||g_phys||/||g_render|| ~ 6500 in x-space), so a work SHARE says nothing about
+    steering; use _steer_cos for that."""
     parts = [(-float((g.detach() * d.detach()).sum()) if g is not None else 0.0)
              for g, d in zip(grads, deltas)]
     return sum(parts), parts
+
+
+def _steer_cos(grads, deltas) -> float | None:
+    """Scale-free steering metric: cosine between the accepted state step and the
+    channel's descent direction (-grad), joint over the given state slots."""
+    num = den_g = den_d = 0.0
+    for g, d in zip(grads, deltas):
+        if g is None:
+            continue
+        g, d = g.detach(), d.detach()
+        num += -float((g * d).sum())
+        den_g += float((g * g).sum())
+        den_d += float((d * d).sum())
+    if den_g <= 0 or den_d <= 0:
+        return None
+    return num / (den_g ** 0.5 * den_d ** 0.5)
 
 
 def _state_ok(state) -> bool:
@@ -367,6 +386,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     render_work = render_work_x = render_work_F = None
     phys_work = phys_work_x = phys_work_F = phys_work_v = None
     step_norm = predicted_decrease = None
+    render_cos = phys_cos = None
     alpha, g0_norm, L_start = cfg.alpha * alpha_scale, None, None
     lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
     grad_converged = False
@@ -575,11 +595,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             phys_work, (phys_work_x, phys_work_F, phys_work_v) = _linearized_work(
                 (gx_phys_diag, gF_phys_diag, gv_phys_diag),
                 (dx_diag, dF_diag, dv_diag))
+            phys_cos = _steer_cos((gx_phys_diag, gF_phys_diag, gv_phys_diag),
+                                  (dx_diag, dF_diag, dv_diag))
             if gx_rend_diag is not None:
                 render_work, (render_work_x, render_work_F) = _linearized_work(
                     (gx_rend_diag, gF_rend_diag), (dx_diag, dF_diag))
+                render_cos = _steer_cos((gx_rend_diag, gF_rend_diag), (dx_diag, dF_diag))
             else:
                 render_work = render_work_x = render_work_F = None
+                render_cos = None
             step_norm = float((dFc.detach() - bak[0]).norm())
         if on_iter is not None:                      # live viewer: stream the window's
             on_iter(it, state_n[0].detach().cpu().numpy().astype(np.float32),  # optimisation
@@ -594,6 +618,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        "phys_work_x": phys_work_x, "phys_work_F": phys_work_F,
                        "phys_work_v": phys_work_v,
                       "step_norm": step_norm, "predicted_decrease": predicted_decrease,
+              "render_cos": render_cos, "phys_cos": phys_cos,
                       "_grad_phys": gx_phys_diag.detach().cpu().numpy().astype(np.float32),
                       "_grad_render": (gx_rend_diag.detach().cpu().numpy().astype(np.float32)
                                        if gx_rend_diag is not None else None)})
@@ -614,6 +639,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        "phys_work_x": phys_work_x, "phys_work_F": phys_work_F,
                        "phys_work_v": phys_work_v,
                       "step_norm": step_norm,
+                     "render_cos": render_cos, "phys_cos": phys_cos,
                      "dfc_absmax": float(dFc.detach().abs().max()),
                      "s_absmax": float(s.detach().abs().max()) if s is not None else None})
         # pacing: budget reached (within one halving) — this window's share is done
@@ -671,6 +697,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "phys_work_x": phys_work_x, "phys_work_F": phys_work_F,
               "phys_work_v": phys_work_v,
               "step_norm": step_norm, "predicted_decrease": predicted_decrease,
+              "render_cos": render_cos, "phys_cos": phys_cos,
              "fill_lam": fill_lam if fill_on else None,
              "dfc": dc.cpu().numpy() if cfg.warm_start else None}
     return frames, F_seq, end, s_out, hist, stats

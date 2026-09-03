@@ -61,3 +61,32 @@ because flatness is the objective's property, not the optimizer's.
 Every prior fix (caps, gates, priors, pacing) repaired the well-observed
 subspace and was necessary; none of them could touch the gap itself. The
 dossier forensics are the evidence ledger for this diagnosis.
+
+## REVISION (2026-09-02, transfer-function probe — docs/probes/transfer_function.md)
+
+§2 was MEASURED and is largely refuted as the driver:
+
+- The adjoint's fine-scale attenuation exists but is small: white per-particle
+  covectors reach dFc at 0.14 of a 2-dx-smooth covector (7x), 0.1 wu bands at 0.31,
+  but the ACTUAL silhouette covector (62–65% of its energy below 0.1 wu, 90% on ~1500
+  rim particles) transmits at gain 0.89 vs the physics covector's 1.03 — ratio 0.86.
+- The "render gradient is 1000x smaller" is LOSS SCALE (d_render ≈ 0.03 vs d_vol ≈
+  240 → ||g_p||/||g_r|| ≈ 6500 in x-space, 7600 in dFc space); the adjoint changes
+  that ratio by ≤1.65x. λ ≈ 5e3 (at lambda_cap) compensates it in the objective.
+- Consequently the render_work SHARE (~0.02%) that motivated "the render channel
+  barely steers" is scale-dominated and uninformative: even a step perfectly aligned
+  with the render descent direction would score ~1/6500. Steering is now measured
+  by scale-free cosines (`render_cos`, `phys_cos` in optimizer stats).
+- F-smoothing s is a TEMPORAL EMA on F, not a spatial filter: s=1.0 freezes F
+  (F-path gain exactly 0), s=0 disables it; 0.955 costs the x-path 4.8x and the
+  F-path 23–34x uniformly across scales. Not a spectral gap.
+- Alignment: cos(g_r, g_p) rises 0.17 (x) → 0.63 (dFc); 78% of the transmitted
+  render norm stays orthogonal to physics — the render channel's unique content
+  does reach the control.
+
+What stands from §1/§3: the OBSERVATION null space (silhouette/CIC blind to interior
+and sub-cell arrangement — floaters) and the flat-valley soft modes (oscillation) are
+unaffected by this revision. What changes: the "route around the low-pass" program
+(§"What the frame dictates", item 2) loses its premise; the remaining levers are the
+observation model (what the loss can see — gauss/Tier D, per-particle terms), the
+λ cap binding at the balance point, and the optimizer's handling of the soft modes.

@@ -376,6 +376,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "phys_work_F": stats.get("phys_work_F"),
                "phys_work_v": stats.get("phys_work_v"),
                "step_norm": stats.get("step_norm"),
+               "render_cos": stats.get("render_cos"), "phys_cos": stats.get("phys_cos"),
                "predicted_decrease": stats.get("predicted_decrease"),
                "fill_lam": stats.get("fill_lam"),
                "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
