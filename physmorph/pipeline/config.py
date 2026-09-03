@@ -138,7 +138,13 @@ class PipelineConfig:
 
     w_nn: float = 0.0               # GRID-FREE near-band W1: constant pull toward the
     nn_berth_k: float = 1.5         #   assigned nearest target particle, active only in
-    nn_far_k: float = 4.5           #   the berth..far band (x target-NN spacing). Owns
+    nn_far_k: float = 1000.0        #   the berth..far band (x target-NN spacing). Owns
+                                    #   EVERYTHING beyond the berth since E4 (2026-09-02):
+                                    #   the observability probe showed the unowned residual
+                                    #   floater class was clumps beyond the old 4.5x cap
+                                    #   (DT gate leaves clumps unowned); E4 at 300 paced
+                                    #   commits: chamfer tie, out_nn 22.3->20.5%, far
+                                    #   floaters 1743->1511, max_dt 26.4->23.6sp, guards 0.
     nn_tail_frac: float = 0.0       #   optional bounded far-cluster cleanup: among points
                                     #   beyond nn_far_k, pull only the worst fraction per
                                     #   frozen window (avoids a full Chamfer servo).

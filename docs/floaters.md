@@ -82,3 +82,8 @@ cos ≈ 1 by construction, which is why it alone ever killed a floater class. Th
 unowned residual class is therefore: floater CLUMPS (the DT term's kNN isolation gate
 leaves clumps unowned) beyond the nn-band far cap (4.5× spacing) — owned by nothing
 but a weakly-directed silhouette. E4 (nn_far_k → ∞) tests exactly this.
+
+E4 verdict (2026-09-02): nn_far_k 4.5 → ∞ (own every particle beyond the berth) at 300
+paced commits — chamfer tie (0.1067 vs 0.1078), out_nn 22.3 → 20.5%, far floaters
+1743 → 1511 (−13%), max_dt 26.4 → 23.6 sp, all guards zero. ADOPTED as the flagship
+default; single-seed, so the hero-scale replicate decides the size of the effect.

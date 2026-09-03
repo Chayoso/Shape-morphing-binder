@@ -426,7 +426,7 @@ def main():
     ap.add_argument("--gauss_mix", type=float, default=0.0)  # hybrid sil+gauss render
     ap.add_argument("--mom_carry", type=float, default=0.0)  # cross-window Adam moments
     ap.add_argument("--w_nn", type=float, default=0.2)
-    ap.add_argument("--nn_far_k", type=float, default=4.5)  # E4: far cap of the near-band
+    ap.add_argument("--nn_far_k", type=float, default=1000.0)  # E4 adopted: own all far particles
     ap.add_argument("--nn_tail_frac", type=float, default=0.0)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard
