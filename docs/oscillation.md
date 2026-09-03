@@ -78,4 +78,32 @@ holes, and deformation quality, so production leaves it off. Surface render resi
 instead masked at the terminal covector, pulled through the full MPM adjoint, and applied to
 `dFc`; interior continuum response therefore comes from physics rather than a Gauss-Seidel
 position correction.
-| `pipeline/runner.py: outer gate v2` | reject-type split (brake vs latched low-gain), self-healing latch, cold restart after any reject | driver #6: the flat-valley limit cycle must be clipped by the brake without the brake's rejections killing the run through patience; mid-run spurious latches must not be permanent |
+
+## Addendum — late session 2026-09-02 (supersedes point 4's "cannot switch itself off")
+
+**Driver #5 (per-window Adam restart zigzag)** — forensic on h17_bunny's last 40
+pre-freeze commits: 37.5% of ALL particles reversed direction every commit (ears 54%,
+but ear-and-untouched-by-cleanup identical → cleanup terms acquitted). Fixes:
+`anneal_stale` (partial: rev-cos −0.523→−0.345, jitter halved) and `mom_carry`
+(moments persist across windows like the warm-started control does).
+
+**Pacing** — `pace_budget` derives the per-window loss cap from the budget
+(1 − ρ^(1/A)); pace-bound windows are exempt from plateau accounting (the validated
+flagship had frozen at anim 70/300 while descending perfectly on schedule).
+
+**Driver #6 (flat-valley limit cycle under pacing)** — b4's λ trace: pace caps the
+LOSS cut, not the MOTION; in the flat late valley an overshoot window moves 0.04 wu
+(kin spike 0.86) while cutting 1%, the next commits pay it back (d_vol 62→215→62,
+λ in antiphase 1160↔2280) and the run ends at a random cycle phase (final 0.146
+despite a best-ever d_vol 62). Remedy = the gate's brake, which needed **gate v2**:
+BRAKE rejects (fixed-merit regression beyond one pace budget) discard the candidate,
+decay the step and cold-restart WITHOUT counting stale; only LATCHED low-gain rejects
+are plateau evidence; the latch now RELEASES on a real track improvement (point 4
+above is superseded — a permanent latch armed by a mid-run 3-commit stall killed b6 at
+a94/450). Latch evidence itself went merit-threshold → small-move → sustained
+stale-streak after three distinct early-freeze forensics (s1, s3, s4).
+
+Ops lesson: three simultaneous launches with unbounded BLAS/OpenMP threads (28 cores
+each on the 128-core node) stalled all three at zero commits for 85 min and stole CPU
+from another user's jobs — every launch now sets OMP/OPENBLAS/MKL_NUM_THREADS=8 and
+staggers by 45 s.
