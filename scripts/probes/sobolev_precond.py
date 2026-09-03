@@ -48,6 +48,7 @@ from physmorph.mpm import MPMParams  # noqa: E402
 from physmorph.mpm.conditioning import condition_F  # noqa: E402
 from physmorph.mpm.traj import compute_rest_volumes  # noqa: E402
 from physmorph.pipeline import PipelineConfig  # noqa: E402
+from physmorph.pipeline.grid_smooth import smooth_particle_field  # noqa: E402
 from physmorph.pipeline.optimizer import optimize_window  # noqa: E402
 from physmorph.pipeline.render_loss import LambdaBalancer, d_render  # noqa: E402
 from physmorph.pipeline.runner import _surface_weights, build_target  # noqa: E402
@@ -106,6 +107,28 @@ def eval_losses(x, tgt, cfg):
     return dv, dr
 
 
+def covector_stats(x, sw, tgt, cfg):
+    """Raw render covector at the window-start state (masked as the optimizer masks it)
+    and, when the condition preconditions, its cosine against the Sobolev-smoothed field:
+    cos ~ 1 = the preconditioner barely changes the direction, cos << 1 = it does."""
+    xt = torch.as_tensor(np.ascontiguousarray(x, np.float32),
+                         device=cfg.device).requires_grad_(True)
+    lr = d_render(xt, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
+                  cfg.sil_k, cfg.w_hole, cfg.w_spray)
+    gx = torch.autograd.grad(lr, xt)[0].detach()
+    gx = gx * torch.as_tensor(sw, device=cfg.device).view(-1, 1)
+    out = {"gx_norm": float(gx.norm()),
+           "gx_nonzero_frac": float((gx.norm(dim=1) > 0).float().mean()),
+           "precond_cos": None, "gxs_norm": None}
+    if cfg.render_gs_iters > 0:
+        with torch.no_grad():
+            gxs = smooth_particle_field(xt.detach(), gx, tgt.lgmin, tgt.ldx, tgt.ldims,
+                                        cfg.render_gs_iters, cfg.render_gs_kappa)
+        out["precond_cos"] = float((gx * gxs).sum() / (gx.norm() * gxs.norm()).clamp_min(1e-30))
+        out["gxs_norm"] = float(gxs.norm())
+    return out
+
+
 def gpu_mem_mib() -> float | None:
     """This process's device footprint (torch + warp) from nvidia-smi; None if unavailable."""
     try:
@@ -134,7 +157,7 @@ def _ratio(rw, pw):
     return rw / pw
 
 
-def run_condition(name, spec, src, tgt, sw, vol0, n_commits, log):
+def run_condition(name, spec, src, tgt, sw, vol0, n_commits, log, tag=""):
     cfg = make_cfg(spec["gs"], spec["kappa"])
     prm = MPMParams(smoothing=float(spec["s"]))
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
@@ -150,6 +173,7 @@ def run_condition(name, spec, src, tgt, sw, vol0, n_commits, log):
     t_cond = time.perf_counter()
     for c in range(n_commits):
         x_prev = x
+        cov = covector_stats(x, sw, tgt, cfg)
         t0 = time.perf_counter()
         fr, F_seq, end, _s, whist, stats = optimize_window(
             x, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
@@ -158,21 +182,46 @@ def run_condition(name, spec, src, tgt, sw, vol0, n_commits, log):
         dt = time.perf_counter() - t0
         rec = {"commit": c, "time_s": dt, "null_commit": not whist,
                "lambda": balancer.lam, "n_hist": len(whist)}
+        rec.update(cov)
         for k in STAT_KEYS:
             rec[k] = stats.get(k)
+        # window had an accepted step (telemetry exists) but the commit rollout's
+        # trajectory/replay check discarded it (optimizer.py "replay_bad"/jt_final)
+        rec["replay_discard"] = bool((not whist) and stats.get("render_work") is not None
+                                     and not stats.get("grad_converged"))
         rec["share_last"] = _share(rec["render_work"], rec["phys_work"])
         rec["ratio_last"] = _ratio(rec["render_work"], rec["phys_work"])
+        lam = rec["lambda"] or 0.0
+        rec["wshare_last"] = (_share(lam * rec["render_work"], rec["phys_work"])
+                              if rec["render_work"] is not None else None)
         rw = [h["render_work"] for h in whist if h.get("render_work") is not None]
         pw = [h["phys_work"] for h in whist if h.get("phys_work") is not None]
         rec["render_work_sum"] = float(sum(rw)) if rw else None
         rec["phys_work_sum"] = float(sum(pw)) if pw else None
         rec["share_sum"] = _share(rec["render_work_sum"], rec["phys_work_sum"])
         rec["ratio_sum"] = _ratio(rec["render_work_sum"], rec["phys_work_sum"])
+        rec["wshare_sum"] = (_share(lam * rec["render_work_sum"], rec["phys_work_sum"])
+                             if rw else None)
         rec["render_work_iters"] = rw
         rec["phys_work_iters"] = pw
         rec["loss_iters"] = [h["loss"] for h in whist]
+        rec["d_vol_iters"] = [h["d_vol"] for h in whist]
+        rec["d_render_iters"] = [h["d_render"] for h in whist]
+        rec["kin_iters"] = [h["kin"] for h in whist]
         rec["d_vol_last_iter"] = whist[-1]["d_vol"] if whist else None
         rec["d_render_last_iter"] = whist[-1]["d_render"] if whist else None
+        # realized vs linearized render decrease INSIDE the window: first accepted
+        # candidate -> last accepted candidate, against the summed first-order work
+        # (the telemetry's prediction). << 1 = the covector's linear model is not
+        # realized by the steps actually taken.
+        if len(whist) >= 2 and rw:
+            realized = whist[0]["d_render"] - whist[-1]["d_render"]
+            pred = float(sum(rw[1:])) if len(rw) > 1 else None
+            rec["d_render_realized"] = realized
+            rec["d_render_realization"] = (realized / pred if pred and abs(pred) > 1e-30
+                                           else None)
+        else:
+            rec["d_render_realized"] = rec["d_render_realization"] = None
         if whist:
             # ---- runner-style promotion (runner.py: clip -> condition_F -> assimilate) ----
             x_new = np.ascontiguousarray(fr[-1], np.float32)
@@ -204,18 +253,21 @@ def run_condition(name, spec, src, tgt, sw, vol0, n_commits, log):
         rec["d_vol"], rec["d_render"] = eval_losses(x, tgt, cfg)
         commits.append(rec)
         log(f"[{name}] commit {c}: {dt:.1f}s acc/rej={rec['accepted']}/{rec['rejected']}"
-            f"{' NULL' if rec['null_commit'] else ''} lam={rec['lambda']:.3g} "
+            f"{' NULL' if rec['null_commit'] else ''}"
+            f"{' (replay-discard)' if rec['replay_discard'] else ''} lam={rec['lambda']:.3g} "
             f"rw={_fmt(rec['render_work'])} pw={_fmt(rec['phys_work'])} "
-            f"share_last={_pct(rec['share_last'])} share_sum={_pct(rec['share_sum'])} "
-            f"g_cos={_fmt(rec['g_cos'], 3)} g_raw={_fmt(rec['g_raw_cos'], 3)} "
+            f"share_last={_pct(rec['share_last'])} wshare={_pct(rec['wshare_last'])} "
+            f"share_sum={_pct(rec['share_sum'])} realiz={_fmt(rec['d_render_realization'])} "
+            f"g_cos={_fmt(rec['g_cos'], 3)} pcos={_fmt(rec['precond_cos'])} "
+            f"|gx|={_fmt(rec['gx_norm'])} |gr|={_fmt(rec['g_rend_norm'])} "
             f"d_vol={rec['d_vol']:.3f} d_render={rec['d_render']:.5f} "
             f"Jmin={_fmt(rec['Jmin'], 3)} Jtraj={_fmt(rec['Jmin_traj'], 3)} "
             f"Finv={rec['F_invert_steps']} nan={rec['nan_x'] + rec['nan_state']}")
     total_t = time.perf_counter() - t_cond
     mem = gpu_mem_mib()
-    summ = summarize(name, spec, commits, dv0, dr0, total_t, mem)
-    return {"name": name, "spec": spec, "cfg": {"gs": spec["gs"], "kappa": spec["kappa"],
-                                                "smoothing": spec["s"]},
+    summ = summarize(name, spec, commits, dv0, dr0, total_t, mem, tag)
+    return {"name": name, "tag": tag, "spec": spec,
+            "cfg": {"gs": spec["gs"], "kappa": spec["kappa"], "smoothing": spec["s"]},
             "d_vol0": dv0, "d_render0": dr0, "commits": commits, "summary": summ,
             "total_time_s": total_t, "gpu_mem_mib": mem}
 
@@ -235,18 +287,30 @@ def _median(vals):
     return float(np.median(vals)) if vals else None
 
 
-def summarize(name, spec, commits, dv0, dr0, total_t, mem):
+def summarize(name, spec, commits, dv0, dr0, total_t, mem, tag=""):
     live = [c for c in commits if not c["null_commit"]]
     fin = commits[-1]
     j_traj = [c["Jmin_traj"] for c in live if c["Jmin_traj"] is not None]
     return {
-        "name": name, "gs": spec["gs"], "kappa": spec["kappa"], "smoothing": spec["s"],
+        "name": name, "tag": tag, "gs": spec["gs"], "kappa": spec["kappa"],
+        "smoothing": spec["s"],
         "n_commits": len(commits), "null_commits": len(commits) - len(live),
+        "replay_discards": int(sum(bool(c.get("replay_discard")) for c in commits)),
         "accepted": int(sum(c["accepted"] for c in commits)),
         "rejected": int(sum(c["rejected"] for c in commits)),
         "share_last_med": _median([c["share_last"] for c in live]),
+        "wshare_last_med": _median([c.get("wshare_last") for c in live]),
         "ratio_last_med": _median([c["ratio_last"] for c in live]),
         "share_sum_med": _median([c["share_sum"] for c in live]),
+        "wshare_sum_med": _median([c.get("wshare_sum") for c in live]),
+        "realization_med": _median([c.get("d_render_realization") for c in live]),
+        "precond_cos_med": _median([c.get("precond_cos") for c in commits]),
+        "gx_norm_med": _median([c.get("gx_norm") for c in commits]),
+        "pullback_ratio_med": _median([(c["g_rend_norm"] / c["gx_norm"])
+                                       if c.get("g_rend_norm") and c.get("gx_norm")
+                                       else None for c in commits]),
+        "d_vol_min": min(c["d_vol"] for c in commits),
+        "d_render_min": min(c["d_render"] for c in commits),
         "share_last_min": (min(c["share_last"] for c in live if c["share_last"] is not None)
                            if live else None),
         "share_last_max": (max(c["share_last"] for c in live if c["share_last"] is not None)
@@ -278,13 +342,37 @@ def summarize(name, spec, commits, dv0, dr0, total_t, mem):
     }
 
 
-def report(out_dir: Path) -> str:
-    """Markdown tables from every <cond>.json in out_dir (the doc's tables)."""
+def _load_rows(out_dir: Path):
     rows = []
     for f in sorted(out_dir.glob("*.json")):
-        rows.append(json.loads(f.read_text())["summary"])
+        d = json.loads(f.read_text())
+        s = d["summary"]
+        s.setdefault("tag", d.get("tag", ""))
+        # back-fill fields the first run's JSONs predate (computed from commits)
+        cs = d["commits"]
+        live = [c for c in cs if not c["null_commit"]]
+        s.setdefault("d_vol_min", min(c["d_vol"] for c in cs))
+        s.setdefault("d_render_min", min(c["d_render"] for c in cs))
+        s.setdefault("replay_discards", int(sum(
+            c["null_commit"] and c.get("render_work") is not None
+            and not c.get("grad_converged") for c in cs)))
+        if s.get("wshare_last_med") is None:
+            s["wshare_last_med"] = _median([
+                _share((c["lambda"] or 0.0) * c["render_work"], c["phys_work"])
+                if c.get("render_work") is not None else None for c in live])
+        for k in ("realization_med", "precond_cos_med", "gx_norm_med",
+                  "pullback_ratio_med", "wshare_sum_med"):
+            s.setdefault(k, None)
+        rows.append(s)
     order = list(CONDITIONS)
-    rows.sort(key=lambda r: order.index(r["name"]) if r["name"] in order else 999)
+    rows.sort(key=lambda r: (order.index(r["name"]) if r["name"] in order else 999,
+                             r.get("tag") or ""))
+    return rows
+
+
+def report(out_dir: Path) -> str:
+    """Markdown tables from every <cond>[__tag].json in out_dir (the doc's tables)."""
+    rows = _load_rows(out_dir)
 
     def p(v, nd=3):
         return "-" if v is None else f"{v:.{nd}g}"
@@ -292,28 +380,35 @@ def report(out_dir: Path) -> str:
     def pc(v):
         return "-" if v is None else f"{100 * v:.3g}%"
 
+    def nm(r):
+        return r["name"] + (f" [{r['tag']}]" if r.get("tag") else "")
+
     lines = ["| condition | gs/kappa | s | share_last med | rw/pw med | share_sum med | "
-             "g_cos med | g_raw_cos med | g_share med | d_render drop (rel) | "
-             "d_vol drop (rel) | acc/rej | null | Jmin_traj min | Finv | nonfinite |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "lam-weighted share med | g_cos med | g_share med | d_render drop (rel) | "
+             "d_vol drop (rel) | d_vol min | acc/rej | null (replay) | Jmin_traj min | "
+             "Finv | nonfinite |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         lines.append(
-            f"| {r['name']} | {r['gs']}/{r['kappa']:g} | {r['smoothing']:g} | "
+            f"| {nm(r)} | {r['gs']}/{r['kappa']:g} | {r['smoothing']:g} | "
             f"{pc(r['share_last_med'])} | {p(r['ratio_last_med'])} | "
-            f"{pc(r['share_sum_med'])} | {p(r['g_cos_med'])} | {p(r['g_raw_cos_med'])} | "
+            f"{pc(r['share_sum_med'])} | {pc(r['wshare_last_med'])} | {p(r['g_cos_med'])} | "
             f"{p(r['g_share_med'])} | {p(r['d_render_drop'], 4)} ({pc(r['d_render_drop_rel'])}) | "
-            f"{p(r['d_vol_drop'], 4)} ({pc(r['d_vol_drop_rel'])}) | "
-            f"{r['accepted']}/{r['rejected']} | {r['null_commits']} | "
+            f"{p(r['d_vol_drop'], 4)} ({pc(r['d_vol_drop_rel'])}) | {p(r['d_vol_min'], 4)} | "
+            f"{r['accepted']}/{r['rejected']} | {r['null_commits']} ({r['replay_discards']}) | "
             f"{p(r['Jmin_traj_min'])} | {r['F_invert_steps']} | {r['nonfinite_events']} |")
-    lines += ["", "| condition | rw med | pw med | rw_x med | rw_F med | |g_rend| med | "
+    lines += ["", "| condition | rw med | pw med | rw_x med | rw_F med | |gx| raw med | "
+              "|g_rend| pullback med | pullback/raw | precond cos | realization med | "
               "|g_phys| med | lambda end | d_vol end | d_render end | Jmin end | "
               "move/commit | s/commit | GPU MiB |",
-              "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+              "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
         lines.append(
-            f"| {r['name']} | {p(r['render_work_med'])} | {p(r['phys_work_med'])} | "
+            f"| {nm(r)} | {p(r['render_work_med'])} | {p(r['phys_work_med'])} | "
             f"{p(r['render_work_x_med'])} | {p(r['render_work_F_med'])} | "
-            f"{p(r['g_rend_norm_med'])} | {p(r['g_phys_norm_med'])} | {p(r['lambda_last'])} | "
+            f"{p(r['gx_norm_med'])} | {p(r['g_rend_norm_med'])} | {p(r['pullback_ratio_med'])} | "
+            f"{p(r['precond_cos_med'])} | {p(r['realization_med'])} | "
+            f"{p(r['g_phys_norm_med'])} | {p(r['lambda_last'])} | "
             f"{p(r['d_vol_final'], 4)} | {p(r['d_render_final'], 4)} | {p(r['Jmin_final'])} | "
             f"{p(r['move_mean'])} | {p(r['time_per_commit_s'])} | {p(r['gpu_mem_mib'], 4)} |")
     return "\n".join(lines)
@@ -330,6 +425,7 @@ def main():
     ap.add_argument("--report", action="store_true",
                     help="only print the markdown tables from existing JSONs")
     ap.add_argument("--force", action="store_true", help="re-run conditions with a JSON")
+    ap.add_argument("--tag", default="", help="replicate tag: results go to <cond>__<tag>.json")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -359,12 +455,13 @@ def main():
         f"loss_res={cfg0.loss_res} ldx={tgt.ldx:.3f} surface_frac={sw.mean():.3f} "
         f"target build {time.perf_counter() - t0:.1f}s; conditions={conds}")
     for name in conds:
-        f = out / f"{name}.json"
+        f = out / (f"{name}__{args.tag}.json" if args.tag else f"{name}.json")
         if f.exists() and not args.force:
             log(f"[probe] {name}: exists, skipping (use --force)")
             continue
         torch.cuda.empty_cache()
-        res = run_condition(name, CONDITIONS[name], src, tgt, sw, vol0, args.commits, log)
+        res = run_condition(name, CONDITIONS[name], src, tgt, sw, vol0, args.commits, log,
+                            tag=args.tag)
         f.write_text(json.dumps(res, indent=1))
         s = res["summary"]
         log(f"[probe] {name} DONE: share_last_med={_pct(s['share_last_med'])} "
