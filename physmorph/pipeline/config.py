@@ -28,6 +28,10 @@ class PipelineConfig:
     eps: float = 1e-3              # C++ oracle scale; avoids sign-like steps near stationarity
     armijo_c1: float = 1e-4        # sufficient decrease along the preconditioned step
     ls_noise_rel: float = 1e-7     # reject improvements smaller than rollout/atomic noise
+    replay_calibrate: bool = True  # measure the replay noise of the start control each
+                                   # window (two rollouts) and floor the commit-rollout
+                                   # tolerance at 10x it (probe: 1e-7 discarded ~10% of
+                                   # accepted windows)
     dfc_clip: float = 0.0           # optional per-particle |dFc| cap (0 = off; C++ has none)
     pace_budget: float = 0.0        # >0: derive the per-window pace cap FROM THE
                                     # ANIMATION BUDGET as 1 - pace_budget^(1/animations)

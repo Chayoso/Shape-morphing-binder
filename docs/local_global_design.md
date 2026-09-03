@@ -610,3 +610,22 @@ effective Lamé `= base·e^{b+s}`):
 ---
 
 *(end of v2)*
+
+## §14 Stage-1 result (2026-09-02) — Tier D fails K-D2
+
+Arm `render_flag_dress` (flagship window byte-identical; gauss built for dressing +
+telemetry only; surface parents, 4 children, res 384 Nyquist floor, cap 0.5·h_src,
+20 iters selected by stage 0b). t2_b0 vs t2_d1, N=20k, 120 paced commits:
+
+- explanatory power: dressed `d_gauss_post` second-half median 0.04273 vs undressed
+  0.04432 (−3.6%); last commit 0.02889 vs 0.03045 (−5.1%). **K-D2 (≥10%) fails.**
+  Every solve hit the 20-iteration ceiling (never energy-converged).
+- raw state: d1 chamfer 0.1307 vs b0 0.1548, out_nn 36.1% vs 48.9% — but the window
+  is byte-identical, so this spread is CUDA-nondeterminism path divergence (null
+  commits 8 vs 4), a warning about single-seed 120c A/Bs, not a dressing effect.
+- observability probe (docs/probes/observability.md): the surface-parent gauss loss
+  is blind to the interior half of the viewer-visible floaters by construction, so
+  dressing could never touch them.
+
+Disposition: Tier D is dropped as a floater/oscillation mechanism (pre-registered
+rule). The dressing code stays as an optional QA/export dressing (no gate reads it).

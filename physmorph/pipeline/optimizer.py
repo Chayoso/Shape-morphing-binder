@@ -414,6 +414,20 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 v_.zero_()
             adam_t = 0
 
+    # Replay-noise calibration (sobolev_precond probe, side finding: the fixed
+    # ls_noise_rel=1e-7 replay tolerance discarded ~10% of fully-accepted windows -
+    # CUDA atomics make two rollouts of the SAME control differ by more than that).
+    # Measure the discrepancy on this window's start control and use 10x it as the
+    # floor of the commit-rollout tolerance: a rule from a measurement, not a knob.
+    replay_rel = 0.0
+    if cfg.replay_calibrate:
+        stA, lvA, lkA, lrA, _ = eval_terms(dFc)
+        stB, lvB, lkB, lrB, _ = eval_terms(dFc)
+        EA = scalars(lvA, lkA, lrA, lam_r, dFc, stA[0], stA[1])
+        EB = scalars(lvB, lkB, lrB, lam_r, dFc, stB[0], stB[1])
+        if np.isfinite(EA) and np.isfinite(EB):
+            replay_rel = abs(EA - EB) / max(abs(EA), 1.0)
+
     for it in range(cfg.iters):
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
@@ -672,7 +686,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final)
         E_final = scalars(lv_f, lk_f, lr_f, lam_r, dFc, x_final, F_final)
         E_accept = hist[-1]["loss"] if hist else None
-        replay_tol = cfg.ls_noise_rel * max(abs(E_accept or 0.0), 1.0)
+        replay_tol = max(cfg.ls_noise_rel, 10.0 * replay_rel) * max(abs(E_accept or 0.0), 1.0)
         replay_bad = E_accept is not None and E_final > E_accept + replay_tol
         if ((not np.isfinite(jt_final) or jt_final <= 1e-4 or replay_bad)
                 and accepted > 0):
@@ -686,7 +700,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     s_out = s.detach().cpu().numpy() if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
-    stats = {"pace_bound": pace_bound,
+    stats = {"pace_bound": pace_bound, "replay_rel": replay_rel,
              "mom_out": mom_out if cfg.mom_carry > 0 else None,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
