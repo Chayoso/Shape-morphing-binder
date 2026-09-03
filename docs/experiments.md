@@ -370,3 +370,32 @@ records** (fill v3 helps globally, not just the ears). Ear cov<0.3: 26.5→18.7%
 Falsifier threshold NOT yet met — but the run did NOT converge in 300c (d_fill still
 descending at 0.206); the pre-registered threshold presumes the resting state, so
 the verdict moves to h19 (same config, 400c). No parameter was changed.
+
+## 2026-09-02 (late) — pacing, gate v1→v3, Tier D ladder, root-cause probes
+
+All N=20k, T=20, dx=0.5, dt=1/240, 64³, smoothing 0.955, loss_res 64, flagship stack
+(w_dt 0.2, w_nn 0.2, w_jvol 50, assim_iso) unless noted; results under
+/data/relcfd/chayo/physmorph_v2/output (b8/e4 on hyde01 ~/physmorph_v2/output).
+
+| run | arm / change | anims | chamfer | out_nn>2sp | far>3sp | note |
+|---|---|---|---|---|---|---|
+| g2_anneal | flagship + anneal 0.7 (40k) | 300 | **0.0701** | ~11% | — | conv 226; rev-cos −0.523→−0.345 vs h17 |
+| g3_ref / g3_mix / g1_pilot | flagship / +gauss_mix / pure gauss | 120 | 0.089 / 0.108 / 0.099 | 9.8 / 19.1 / 15.0% | 520 / 1318 / 881 | gauss in objective loses at matched N |
+| s1..s5 | render_stable_gauss bundle | 300 | 0.14–0.18 | 40–57% | — | froze at a27–a69: gate latch (3 forensics), w_cov (a17–19 regression), state-poison from ~a60 |
+| s2_main / s2_cov25 | stable, w_cov 0 vs 25 | 300 | 0.0950 / 0.1026 | 12.8 / 17.9% | 860 / 1363 | w_cov guilty → retired |
+| b0 / b1 | flagship+pace 0.01 / +gauss_mix | 300 | 0.234 / 0.190 | 68 / 59% | — | froze a70/a61: plateau tol vs glidepath → pace_bound exemption |
+| b2 / b3 | same, pace_bound fix | 300 | **0.1078** / 0.2415 | 22.3 / 66.5% | 1743 / 9983 | b2 = first full-timeline paced run; b3 gauss_mix blew up late |
+| b4 / b5 | 450@ρ0.01 / 300@ρ0.003 | 450 / 300 | 0.146 / 0.120 | 40.4 / 27.0% | 3972 / 2255 | best d_vol 69@a381 then limit cycle (λ antiphase) |
+| b6 / b7 | + outer gate v1 / v2 | 450 | 0.151 / 0.138 | 47.5 / 41.8% | 5737 / 4677 | v1 froze a94 (patience); v2 pinned by 333 brake rejects (kinetic merit) |
+| t1_b0 / t1_d1 | stable + dressing 0/20 | 120 | 0.216 / 0.175 | 67.6 / 56.7% | — | INVALID: 101/88 brake rejects (objective≠gate) |
+| t2_b0 / t2_d1 | render_flag_dress 0/20 | 120 | 0.155 / 0.131 | 48.9 / 36.1% | 5526 / 3251 | Tier D K-D2 FAIL (d_gauss −3.6..5.1%); raw spread = path divergence |
+| e2_assim08 / e2_assim10 | flagship+pace, η 0.8 / 1.0 | 300 | 0.134 / 0.1125 | 38.8 / 25.5% | 3464 / 2135 | spring-back 0.20 at all η — not a lever |
+| b8_gate_v3 | gate v3 (shape-only merit) + best-commit truncation | 450 | pending | | | hyde01 GPU1 |
+| e4_nnfar | nn_far_k 4.5 → 1000 (own far clumps) | 300 | pending | | | hyde01 GPU1 |
+
+Probes (docs/probes/): transfer_function (adjoint gain 0.89 vs 1.03 — §2 refuted),
+sobolev_precond (no-op; s≤0.8 falsified; render descends at parity), material_carrier
+(Tier M NO-GO: dFc reproduces material motion at 0.9% residual / 1/1700 cost),
+observability (97% of floaters see the silhouette; median cos to target 0.3; surface-parent
+gauss blind to the interior half). Ops: hyde06 key rejected from ~12:10; b8/e4 moved to
+hyde01 GPU1 (warp-lang 1.16 installed into miniconda3/envs/diffmpm_v2.3.0).
