@@ -206,26 +206,42 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             return None, None
         return lam0 * torch.exp(s[0]), mu0 * torch.exp(s[1])
 
+    sil_gauss = {"sil": None, "gauss": None}
+    # REFUTE B1 (Opus) / finding 9 (Codex): when the gauss term rides in the render
+    # scalar, every gate that reads d_render — freeze track, outer merit, latch —
+    # can be moved by an observation-side change (dressing) with zero state change.
+    # The channels are therefore logged separately and every gate consumes the pure
+    # silhouette d_sil only.
+
     def losses_of(xT, FT, vT):
         lv = d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
         lk = vT.pow(2).sum(1).mean()
         lr = lpbr = None
+        sil_gauss["sil"] = sil_gauss["gauss"] = None
         if balancer.active and tgt.gauss is not None:
             gauss_mask = ((surface_w_t[:, 0] > 0.5)
                           if cfg.render_surface_only and surface_w_t is not None else None)
             lg_ = tgt.gauss.loss(xT, FT if cfg.gauss_covariance else None,
                                  mask=gauss_mask)
+            sil_gauss["gauss"] = float(lg_.detach())
             if cfg.gauss_mix > 0:                 # hybrid: silhouette keeps fine geometry
                 lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
                                 cfg.sil_k, cfg.w_hole, cfg.w_spray)
+                sil_gauss["sil"] = float(lsil.detach())
                 if tgt.gauss_scale is None:
                     tgt.gauss_scale = float(lsil.detach() / lg_.detach().clamp_min(1e-12))
                 lr = lsil + cfg.gauss_mix * tgt.gauss_scale * lg_
             else:
                 lr = lg_                          # pure replacement (falsified for geometry, g1)
+                if tgt.sils is not None:          # gate telemetry still needs d_sil
+                    with torch.no_grad():
+                        sil_gauss["sil"] = float(d_render(
+                            xT.detach(), tgt.sils, tgt.views, cfg.render_res,
+                            tgt.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray))
         elif balancer.active:
             lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
                             cfg.sil_k, cfg.w_hole, cfg.w_spray)
+            sil_gauss["sil"] = float(lsil.detach())
             lr = lsil
             if cfg.w_pbr > 0 and tgt.shade is not None:     # shading channel (PBR-lite)
                 lpbr = d_pbr(xT, tgt.shade, tgt.views, cfg.render_res, tgt.extent,
@@ -577,6 +593,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # scalar; the shading channel is logged separately (they were conflated before).
         hist.append({"iter": it, "loss": new,
                      "d_vol": float(lv_n), "kin": float(lk_n),
+                     "d_sil": sil_gauss["sil"], "d_gauss": sil_gauss["gauss"],
                      "d_render": (float(lr_n) - cfg.w_pbr * float(lpbr_n)
                                   if lpbr_n is not None else
                                   (float(lr_n) if lr_n is not None else None)),

@@ -353,6 +353,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
+               "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"),
                "d_fill": d_fill, "g_cos": stats.get("g_cos"),
                "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
@@ -390,8 +391,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # target resolution and require monotone progress in that fixed merit.
         phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"]
         components = {"phys": phys_track}
-        if rec["d_render"] is not None:
-            components["render"] = rec["d_render"]
+        rend_gate = (rec["d_sil"] if rec.get("d_sil") is not None
+                     else rec["d_render"])
+        if rend_gate is not None:
+            components["render"] = rend_gate     # merit reads d_sil only (B1)
         if d_dt is not None:
             components["dt"] = d_dt
         if d_fill is not None:
@@ -410,7 +413,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # at small move) fired at anim ~20 of 300 — pace + a large w_kin make moves
         # small long before the descent is done — and then rejected every window to
         # a fake "converged" at anim 27 (final_hires20k_child4_latched forensic).
-        rend_track = rec["d_render"]
+        rend_track = (rec["d_sil"] if rec.get("d_sil") is not None
+                      else rec["d_render"])    # gates read the PURE silhouette (B1)
         improved = best_phys is None or phys_track < best_phys - cfg.tol * abs(best_phys)
         if rend_track is not None and best_rend is not None:
             improved = improved or rend_track < best_rend - cfg.tol * abs(best_rend)
