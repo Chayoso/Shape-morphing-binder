@@ -210,13 +210,17 @@ class GaussViews:
                             for c in self.cams]
 
     def loss(self, x: torch.Tensor, F: torch.Tensor | None = None,
-             mask: torch.Tensor | None = None) -> torch.Tensor:
+             mask: torch.Tensor | None = None,
+             offsets_override: torch.Tensor | None = None) -> torch.Tensor:
         """Mean multi-view L1 against the baked target renders (robust; L2 washes the
-        sparse-floater signal back out)."""
-        if self.child_count > 1 and self.source_offsets is None:
+        sparse-floater signal back out). offsets_override: live dressed material
+        offsets (N,C,3) replacing the frozen source baseline — positions only, the
+        sigma/covariance path is untouched (design v2 §4.1: no scale DOF)."""
+        off = offsets_override if offsets_override is not None else self.source_offsets
+        if self.child_count > 1 and off is None:
             raise RuntimeError("configure_source must be called before child-render loss")
         L = x.new_zeros(())
         for cam, timg in zip(self.cams, self.targets):
             L = L + (self._render(x.contiguous(), cam, F, mask,
-                                  self.source_offsets) - timg).abs().mean()
+                                  off) - timg).abs().mean()
         return L / len(self.cams)

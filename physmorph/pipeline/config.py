@@ -242,6 +242,14 @@ class PipelineConfig:
                                     # direction each commit, ears just make it
                                     # visible); a plateau-scheduled step is the
                                     # optimizer-side cure, not state damping.
+    local_dress_iters: int = 0      # Tier D (design v2 §4): >0 = post-gate dressing
+                                    # solve iterations on accepted commits. 0 = off.
+                                    # The stage-0b benchmark SELECTS this from
+                                    # {5,10,20} (largest whose p50 overhead <= 50%
+                                    # of the global commit p50) — never hand-tuned.
+    dress_cap_frac: float = 0.5     # world-space cap ||F.off|| <= this x h_src
+                                    # (frozen source-surface median NN spacing);
+                                    # A/B {0.5, 1.0} at stage 1b, pick-by-rule.
     work_telemetry: bool = True     # record render/phys linearized work even headless
                                     # (REFUTE M18: the P-render metric was None in
                                     # every run without --live_port)

@@ -106,3 +106,61 @@ def expand_children_numpy(x: np.ndarray, F: np.ndarray, offsets: np.ndarray,
     xc, Fc = expand_children_torch(xt, Ft, ot, mt)
     return (np.ascontiguousarray(xc.numpy(), np.float32),
             np.ascontiguousarray(Fc.numpy(), np.float32))
+
+
+def tangent_child_basis(rest_x: np.ndarray, mask: np.ndarray | None,
+                        k: int = 16) -> tuple[np.ndarray, np.ndarray]:
+    """The frozen per-parent tangent frame ``(t1, t2)`` (each (N,3)) used by
+    tangent_child_offsets — recomputed with the same active-parent PCA so the
+    dressing DOFs (docs/local_global_design.md §4.1) live in exactly the plane
+    the baseline pattern lives in. Inactive parents get zero rows."""
+    from scipy.spatial import cKDTree
+
+    rest = np.ascontiguousarray(rest_x, np.float32)
+    active = np.ones(len(rest), dtype=bool) if mask is None else np.asarray(mask, bool)
+    ids = np.flatnonzero(active)
+    t1 = np.zeros((len(rest), 3), np.float32)
+    t2 = np.zeros((len(rest), 3), np.float32)
+    if len(ids) < 3:
+        return t1, t2
+    points = rest[ids]
+    degree = min(max(int(k), 2), len(points) - 1)
+    _, nn = cKDTree(points).query(points, k=degree + 1, workers=-1)
+    local = points[nn[:, 1:]] - points[:, None, :]
+    cov = np.einsum("nki,nkj->nij", local, local) / float(degree)
+    _, basis = np.linalg.eigh(cov)
+    t1[ids] = basis[:, :, 2]
+    t2[ids] = basis[:, :, 1]
+    return t1, t2
+
+
+def offsets_to_coeffs(offsets: np.ndarray, t1: np.ndarray,
+                      t2: np.ndarray) -> np.ndarray:
+    """(N,C,3) tangent-plane offsets -> (N,C,2) coefficients in the frozen basis."""
+    a = np.einsum("ncj,nj->nc", offsets, t1)
+    b = np.einsum("ncj,nj->nc", offsets, t2)
+    return np.ascontiguousarray(np.stack([a, b], axis=2), np.float32)
+
+
+def coeffs_to_offsets_torch(coeff: torch.Tensor, t1: torch.Tensor,
+                            t2: torch.Tensor) -> torch.Tensor:
+    """(N,C,2) coefficients -> (N,C,3) material offsets, differentiable."""
+    return (coeff[..., 0:1] * t1[:, None, :] + coeff[..., 1:2] * t2[:, None, :])
+
+
+def dressing_feasible_map(coeff: torch.Tensor, t1: torch.Tensor, t2: torch.Tensor,
+                          F: torch.Tensor, cap: float) -> torch.Tensor:
+    """Exact joint feasibility (design §4.2): (1) project onto the per-parent
+    zero-centroid plane (subtract the child mean of the coefficients — the basis is
+    shared per parent, so this IS the centroid projection), then (2) uniformly
+    rescale each parent's child set by min(1, cap / max_c ||F_p off_pc||). Uniform
+    rescaling commutes with the zero-centroid constraint, so BOTH constraints hold
+    exactly on return — unlike clamp-then-center (Codex 15: [r,r,-r] violated the
+    cap). A feasible map, not the Euclidean projection; sufficient for a
+    box-constrained descent, deterministic, order-independent."""
+    c = coeff - coeff.mean(dim=1, keepdim=True)
+    off = coeffs_to_offsets_torch(c, t1, t2)
+    world = torch.einsum("nij,ncj->nci", F.reshape(-1, 3, 3), off)
+    m = world.norm(dim=2).amax(dim=1)                       # (N,) max child reach
+    s = torch.clamp(cap / m.clamp_min(1e-12), max=1.0)
+    return c * s[:, None, None]

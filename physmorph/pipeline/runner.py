@@ -169,6 +169,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if not cfg.render_surface_only:
             raise ValueError("gauss_children>1 requires render_surface_only material parents")
         tgt.gauss.configure_source(src, surface_w > 0.5)
+    dress = None
+    if cfg.local_dress_iters > 0:                # Tier D (design v2 §4): observation-only
+        if tgt.gauss is None or cfg.gauss_children <= 1:
+            raise ValueError("local_dress_iters>0 requires use_gauss_loss and gauss_children>1")
+        from .dressing import DressState
+        dress = DressState(tgt.gauss, src, surface_w > 0.5, cfg.dress_cap_frac,
+                           cfg.device)
     st = {"F": None, "v": None, "C": None}
     Fp = _id(N)
     s, dfc_prev = None, None
@@ -197,6 +204,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if frozen:
             if cfg.hold_after_converge:
                 frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
+            if dress is not None:
+                dress.cover_frames(len(frames))
                 hist.append({"animation": a, "held": 1})
                 n_held += 1
                 continue
@@ -241,6 +250,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # commit: hold the state, let the patience counter decide the freeze.
             log(f"[v2] anim {a + 1}: no accepted step — null commit (stale {stale + 1})")
             frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
+            if dress is not None:
+                dress.cover_frames(len(frames))
             hist.append({"animation": a, "null_commit": 1})
             stale += 1
             mom_prev = None
@@ -477,6 +488,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 dfc_prev, mom_prev = None, None
                 del frames[rollback["frames"]:]
                 del F_frames[rollback["F_frames"]:]
+                if dress is not None:
+                    dress.truncate(rollback["frames"])
                 guards = rollback["guards"]
                 rec.update({"null_commit": 1, "outer_rejected": 1})
                 hist.append(rec)
@@ -496,6 +509,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             prev_disp = disp.copy()
         else:
             prev_disp = disp.copy()
+        if dress is not None:
+            # Tier D post-gate solve (design §4.3): runs only on ACCEPTED commits,
+            # on the promoted terminal state; feeds no gate (B1 split) — its
+            # telemetry rides in rec for the record only.
+            from .dressing import solve_dressing
+            rec.update(solve_dressing(dress, x, Fc, cfg.local_dress_iters,
+                                      cfg.ls_noise_rel))
+            dress.commit_snapshot(len(frames))
         hist.append(rec)
         if on_commit is not None:
             on_commit(a, x, Fc, v_p, rec)
@@ -527,6 +548,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 (f"  GUARD clamp={n_out} nanx={n_nan} nanst={n_ns} Freset={n_bad} "
                  f"Fflip={n_flip} Finv={n_inv}" if any_guard else ""))
 
-    return {"frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,
+    if dress is not None:                        # close the archive over any tail
+        dress.cover_frames(len(frames))
+    return {"dressing": dress.export() if dress is not None else None,
+            "frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen,
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None)}

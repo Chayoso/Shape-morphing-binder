@@ -308,6 +308,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.render_surface_only = True
         cfg.control_h1_iters = args.control_h1_iters
         cfg.pace_budget = (args.pace_budget if args.pace_budget > 0 else 0.01)
+        cfg.local_dress_iters = args.dress_iters
         cfg.outer_merit = True
         cfg.assim_iso = True
         cfg.use_gauss_loss = True
@@ -388,6 +389,7 @@ def main():
     ap.add_argument("--outer_merit", action="store_true")
     ap.add_argument("--patience", type=int, default=5)
     ap.add_argument("--pace_budget", type=float, default=0.0)
+    ap.add_argument("--dress_iters", type=int, default=0)  # Tier D stage ladder
     ap.add_argument("--legacy_recompute_volumes", action="store_true")
     ap.add_argument("--legacy_gauss_centers_only", action="store_true")
     ap.add_argument("--anneal", type=float, default=0.0)  # plateau step decay
