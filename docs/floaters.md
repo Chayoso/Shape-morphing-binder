@@ -67,3 +67,18 @@ All runs: `dt=1/240`, `dx=0.5`, smoothing `0.955`.
 Final acceptance requires every saved production commit to be rendered and inspected for
 a closed solid, no crossfade ghost, continuous silhouette, no unsupported visible splat,
 and material-space colour that rides the deformation.
+
+## Addendum — observability probe and the corrected floater mechanism (2026-09-02)
+
+docs/probes/observability.md on converged flagship states: 97–98% of viewer-visible
+floaters carry a NONZERO silhouette gradient (they hold 24–46% of its energy), so
+"floater = loss null space" is false for the silhouette. Two things are true instead:
+(1) the surface-parent gauss loss is blind to the interior half of the floaters by
+construction (the viewer renders every particle); (2) on floaters the image-space
+gradient points toward the surface with median cos ≈ 0.3 only — a projected-coverage
+loss pushes a floater wherever the ray's alpha mismatch shrinks, not to its nearest
+target point. The per-particle assignment term (nn-band) is the one mechanism with
+cos ≈ 1 by construction, which is why it alone ever killed a floater class. The
+unowned residual class is therefore: floater CLUMPS (the DT term's kNN isolation gate
+leaves clumps unowned) beyond the nn-band far cap (4.5× spacing) — owned by nothing
+but a weakly-directed silhouette. E4 (nn_far_k → ∞) tests exactly this.

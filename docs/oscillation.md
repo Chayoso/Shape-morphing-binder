@@ -107,3 +107,25 @@ Ops lesson: three simultaneous launches with unbounded BLAS/OpenMP threads (28 c
 each on the 128-core node) stalled all three at zero commits for 85 min and stole CPU
 from another user's jobs — every launch now sets OMP/OPENBLAS/MKL_NUM_THREADS=8 and
 staggers by 45 s.
+
+### Addendum 2 — gate v2 → v3, assimilation ladder, probes (2026-09-02, late)
+
+- **b7 (gate v2, 450 paced)**: 333/450 BRAKE rejects, run pinned at a101–a244 (identical
+  state), final chamfer 0.138. Forensic: the fixed merit's phys component was
+  `d_vol + w_kin·kin`, so any motion from a settled state raised kin enough for a >5%
+  merit regression — pacing demands motion, a kinetic merit punishes it. **Gate v3**:
+  merit = shape terms only (d_vol, d_sil, d_dt); the brake still catches real shape
+  regressions (b4's 62→215).
+- **Best-commit truncation**: the deliverable trajectory now ends at its best
+  shape-merit commit when the run ends worse (continuous up to the cut, no snap; the
+  flat-valley tail stays in `history`). b4 would deliver a381's d_vol 69 instead of
+  a450's 158.
+- **E2 assimilation ladder (η 0.5 / 0.8 / 1.0, 300 paced)**: spring-back fraction 0.20
+  at every η; η=1.0 final d_vol 70.9 (vs 97.6) but chamfer 0.1125 / out_nn 25.5% (vs
+  0.1078 / 22.3%) — not a lever, not adopted.
+- **Probes (docs/probes/)**: the adjoint attenuates the real render covector by only
+  ~14%; Sobolev preconditioning is a no-op (balancer re-halves λ); F-smoothing s≤0.8
+  falsified (J collapses); the render term descends at the same relative rate as
+  physics per accepted step. The oscillation is therefore an optimizer/geometry
+  property of the flat valley, not a render-transfer artifact — consistent with
+  drivers #5/#6 and their optimizer-side remedies.
