@@ -138,7 +138,10 @@ def adj_norm(outs, dfc, seeds) -> tuple[float, torch.Tensor]:
 
 
 # ── A. warm state ────────────────────────────────────────────────────────────
-def warm_state(n: int, commits: int, log):
+def warm_state(n: int, commits: int, log, assim: bool = False):
+    """assim=False: promote x/F/v/C verbatim (scripts/dress_bench.py recipe, Fp = I).
+    assim=True: promote like runner.py (clip, condition_F, assimilate_elastic -> Fp), which
+    relaxes the stored elastic stretch each commit; the dFc=0 free rollout is then calm."""
     prm = MPMParams()
     src = load("assets/isosphere.obj", n, 1)
     tgt_x = load("assets/bunny.obj", n, 2)
@@ -163,6 +166,17 @@ def warm_state(n: int, commits: int, log):
         if whist:
             x = np.ascontiguousarray(fr[-1], np.float32)
             st = {"F": end["F"], "v": end["v"], "C": end["C"]}
+            if assim:
+                from physmorph.mpm.conditioning import condition_F
+                from physmorph.plasticity import assimilate_elastic
+                dmin = np.asarray(prm.grid_min, np.float32)
+                dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
+                x = np.clip(np.nan_to_num(x), dmin + 2 * prm.dx, dmax - 2 * prm.dx).astype(np.float32)
+                Fc, _nb, _nf, _ = condition_F(end["F"], clamp=False)
+                st = {"F": Fc, "v": np.nan_to_num(end["v"]).astype(np.float32),
+                      "C": np.nan_to_num(end["C"]).astype(np.float32)}
+                Fp = assimilate_elastic(Fc, Fp, eta=cfg.assim, smin=cfg.assim_smin,
+                                        smax=cfg.assim_smax, isochoric=cfg.assim_iso)
             acc += 1
             w = whist[-1]
             rec.append({"commit": acc, "secs": dt, "d_vol": w["d_vol"], "kin": w["kin"],
@@ -181,13 +195,22 @@ def warm_state(n: int, commits: int, log):
         raise RuntimeError(f"only {acc}/{commits} accepted commits")
     vmag = np.linalg.norm(st["v"], axis=1)
     detF = np.linalg.det(st["F"])
+    detFp = np.linalg.det(Fp)
+    Fe = st["F"] @ np.linalg.inv(Fp)                 # elastic part actually loading stress
+    sv = np.linalg.svd(Fe, compute_uv=False)
     log(f"[warm] state: |v| mean={vmag.mean():.4f} max={vmag.max():.4f} "
         f"detF min/med/max={detF.min():.3f}/{np.median(detF):.3f}/{detF.max():.3f} "
-        f"gpu={gpu_mem_mib():.0f}MiB")
+        f"detFp med={np.median(detFp):.3f} Fe sv min/med/max={sv.min():.3f}/"
+        f"{np.median(sv):.3f}/{sv.max():.3f} assim={assim} gpu={gpu_mem_mib():.0f}MiB")
     return prm, cfg, tgt, vol0, x, st, Fp, rec, {"v_mean": float(vmag.mean()),
                                                  "v_max": float(vmag.max()),
                                                  "detF_min": float(detF.min()),
-                                                 "detF_med": float(np.median(detF))}
+                                                 "detF_med": float(np.median(detF)),
+                                                 "detFp_med": float(np.median(detFp)),
+                                                 "Fe_sv_min": float(sv.min()),
+                                                 "Fe_sv_med": float(np.median(sv)),
+                                                 "Fe_sv_max": float(sv.max()),
+                                                 "assim": bool(assim)}
 
 
 # ── B/C/D. one (T, s) combo ──────────────────────────────────────────────────
@@ -374,6 +397,8 @@ def main():
     ap.add_argument("--knn", type=int, default=16)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", type=str, default="/tmp/pm31_tf_results.json")
+    ap.add_argument("--assim", type=int, default=0,
+                    help="1 = runner-style promotion (condition_F + assimilate_elastic)")
     args = ap.parse_args()
     Ts = [int(t) for t in args.T.split(",")]
     Ss = [float(t) for t in args.s.split(",")]
@@ -385,7 +410,8 @@ def main():
         lines.append(msg)
 
     t_start = time.perf_counter()
-    prm, cfg, tgt, vol0, x, st, Fp, warm_rec, warm_stats = warm_state(args.n, args.commits, log)
+    prm, cfg, tgt, vol0, x, st, Fp, warm_rec, warm_stats = warm_state(
+        args.n, args.commits, log, assim=bool(args.assim))
     lam0, mu0 = lame(cfg.young, cfg.poisson)
     N = x.shape[0]
 
