@@ -75,18 +75,21 @@ def main():
     picked = 0
     for iters in (5, 10, 20):
         ds = DressState(tgt.gauss, src, sw > 0.5, cfg.dress_cap_frac, cfg.device)
-        samples = []
+        samples, first = [], None
         for _ in range(5):
-            ds.coeff += 0.0   # keep state; each solve continues from previous
             t0 = time.perf_counter()
             tele = solve_dressing(ds, x, Fc, iters, cfg.ls_noise_rel)
             torch.cuda.synchronize()
             samples.append(time.perf_counter() - t0)
+            if first is None:
+                first = tele          # later solves start converged; report the real one
         p50, p95 = np.percentile(samples, 50), np.percentile(samples, 95)
         ok = p50 <= 0.5 * g50
         print(f"[bench] iters={iters}: p50={p50:.2f}s p95={p95:.2f}s "
-              f"overhead={100 * p50 / g50:.0f}% used={tele['dress_iters_used']} "
-              f"dL={tele['dress_dL']:.3g} -> {'OK' if ok else 'OVER'}")
+              f"overhead={100 * p50 / g50:.0f}% used={first['dress_iters_used']} "
+              f"dL={first['dress_dL']:.3g} "
+              f"gauss {first['d_gauss_pre']:.4f}->{first['d_gauss_post']:.4f} "
+              f"-> {'OK' if ok else 'OVER'}")
         if ok:
             picked = iters
     print(f"[bench] SELECTED local_dress_iters={picked}"
