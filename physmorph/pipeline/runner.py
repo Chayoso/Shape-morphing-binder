@@ -188,6 +188,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     best_phys, best_rend, best_dt, best_fill = None, None, None, None
     stale, frozen, n_held = 0, False, 0
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
+    prev_tracks = None               # last ACCEPTED commit's lambda-free tracks
     mom_prev = None                  # cross-window Adam moments (mom_carry)
     outer_scales = outer_prev = prev_disp = None
     # Once the trajectory first reaches the small-motion regime, keep the outer
@@ -446,7 +447,20 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # glidepath (b0 forensic: the validated flagship froze at anim 70/300
             # while descending perfectly on schedule, rev-cos +1.000 - the tol
             # thresholds were calibrated for unpaced 5-12%/commit descent).
-            improved = True
+            # ...unless the commit REGRESSED a lambda-free track versus the previous
+            # accepted commit: the inner L is measured from the window's free
+            # rollout, so a 12% cut is easy while the body runs away (r1: 20
+            # commits of all-track regression were marked 'improved' and the
+            # freeze fired only at a112 with d_vol 82 -> 489).
+            regressed = False
+            if prev_tracks is not None:
+                for k, v in (("phys", phys_track), ("rend", rend_track), ("dt", d_dt)):
+                    pv = prev_tracks.get(k)
+                    if v is not None and pv is not None and v > pv * (1 + cfg.tol):
+                        regressed = True
+            if not regressed:
+                improved = True
+        prev_tracks = {"phys": phys_track, "rend": rend_track, "dt": d_dt}
 
         outer_reject = False
         outer_gain = None

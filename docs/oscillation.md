@@ -145,3 +145,8 @@ truncation (a91: chamfer 0.0725, silIoU 0.966, out_nn 12.1%). Open questions und
 test: r2 (mom_carry 0) isolates the optimizer-moment carry; the outer brake (>5%
 shape-merit regression) would have rejected a96 onward; why patience took 20
 commits (which track kept "improving"?) is the next forensic.
+RESOLVED (same day): r1's provenance shows `pace 0.12` — the flagship arm always applies
+`--pace` (default 0.12), so r1 was not unpaced, and the pace-bound plateau exemption
+marked every runaway window "improved" (a 12% cut of the free-rollout loss is trivial
+while the body runs away). The exemption now requires that no λ-free track regressed
+versus the previous accepted commit. Truly unpaced runs need `--pace 0`.
