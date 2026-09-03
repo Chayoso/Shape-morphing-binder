@@ -399,3 +399,4 @@ sobolev_precond (no-op; s≤0.8 falsified; render descends at parity), material_
 observability (97% of floaters see the silhouette; median cos to target 0.3; surface-parent
 gauss blind to the interior half). Ops: hyde06 key rejected from ~12:10; b8/e4 moved to
 hyde01 GPU1 (warp-lang 1.16 installed into miniconda3/envs/diffmpm_v2.3.0).
+| r1_record / r2_nomom | 40k, anneal 0.7, E4, pace 0.12, mom_carry 0.9 / 0 | 300 | 0.0725 / **0.0730** | 12.1 / 12.4% | 1731 / 1733 | r1 cascaded 82→489 after a91 (rescued by truncation); r2 clean, conv 104 → mom_carry RETIRED |

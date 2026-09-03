@@ -150,3 +150,14 @@ RESOLVED (same day): r1's provenance shows `pace 0.12` — the flagship arm alwa
 marked every runaway window "improved" (a 12% cut of the free-rollout loss is trivial
 while the body runs away). The exemption now requires that no λ-free track regressed
 versus the previous accepted commit. Truly unpaced runs need `--pace 0`.
+
+### Addendum 4 — mom_carry RETIRED (r1 vs r2, 40k, 2026-09-03)
+
+Same configuration except mom_carry (0.9 vs 0): r1 reached d_vol 82 at a91 then
+cascaded to 489 by a112 (zero-control windows → elastic release → kin ×20 → λ ×4);
+r2 reached 86.6 at a99, converged cleanly at a104 with only two >5% regressions,
+delivered chamfer 0.0730 / silIoU 0.964 / out_nn 12.4% / jitter 8e-5. Carrying Adam
+moments across windows pushes the iterate past the optimum near convergence; its
+zigzag benefit was never validated in isolation (g5_mom was stopped). Retired from the
+recipe: anneal_stale stays, mom_carry = 0. The b-series late regressions all ran with
+mom_carry 0.9 and should be re-read in that light.
