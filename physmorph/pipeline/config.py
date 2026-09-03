@@ -42,6 +42,10 @@ class PipelineConfig:
                                     # (user directive 2026-09-02: the morph must
                                     # progress across ALL frames, no snap); overrides
                                     # `pace` when set.
+    pace_quasistatic: bool = True   # a paced window may exit early on its shape budget
+                                    # only if it did not increase the kinetic term
+                                    # (b8: momentum-carrying commits -> every next
+                                    # candidate regresses -> brake pins the run)
     pace: float = 0.0               # TRAJECTORY pacing: each window may reduce its starting
                                     # loss by at most this fraction (0 = off). Stops the
                                     # "morph done in 2 commits" snap — the deliverable is the

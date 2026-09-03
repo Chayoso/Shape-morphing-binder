@@ -382,6 +382,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
 
     hist, accepted, rejected = [], 0, 0
     pace_bound = False               # window exited via the pace floor (on schedule)
+    lk_start = None                  # kinetic term at window start (quasi-static rule)
     g_cos = g_raw_cos = g_share = g_phys_norm = g_rend_norm = None
     render_work = render_work_x = render_work_F = None
     phys_work = phys_work_x = phys_work_F = phys_work_v = None
@@ -432,6 +433,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
         state, lv, lk, lr, lpbr = terms(dFc)
+        if lk_start is None:
+            lk_start = float(lk.detach())
         Lp_core = phys_core(lv, lk, dFc, state[0], state[1])
         Lfill = fill_raw(state[0]) if fill_on else None
         smooth = balancer.active and cfg.render_gs_iters > 0
@@ -656,10 +659,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      "render_cos": render_cos, "phys_cos": phys_cos,
                      "dfc_absmax": float(dFc.detach().abs().max()),
                      "s_absmax": float(s.detach().abs().max()) if s is not None else None})
-        # pacing: budget reached (within one halving) — this window's share is done
+        # pacing: budget reached (within one halving) — this window's share is done.
+        # QUASI-STATIC commit rule (b8 forensic): a paced window that exits on its
+        # shape budget after 1-2 iterations commits a body still in flight; the
+        # next window's free rollout drifts on that momentum, every candidate then
+        # regresses the fixed merit and the brake pins the run (354/450 rejects).
+        # A window may stop early only if it did not INCREASE the kinetic term.
         if cfg.pace > 0 and new <= floor * 1.0001 + 1e-12:
-            pace_bound = True
-            break
+            if (cfg.pace_quasistatic and lk_start is not None and lk_n is not None
+                    and float(lk_n) > lk_start * (1.0 + 1e-3)):
+                pass                                   # keep iterating: damp first
+            else:
+                pace_bound = True
+                break
 
     # ---- final rollout: every intermediate state + FULL end state ----
     with torch.no_grad():
