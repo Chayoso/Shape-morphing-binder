@@ -457,12 +457,21 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # commit armed the latch at anim ~59/300 (s3_paced).
                 near_stationary = (not improved) and stale >= 2
                 outer_gate_latched = outer_gate_latched or near_stationary
+                if improved and not stats.get("pace_bound"):
+                    # A REAL track improvement is plateau evidence gone: a latch
+                    # armed by a mid-run 3-commit stall self-heals instead of
+                    # freezing the run (b6: latched at ~a90 of 450, 5 low-gain
+                    # rejects consumed patience while d_vol was still at 182).
+                    outer_gate_latched = False
                 outer_reject = outer_gate_latched and outer_gain < cfg.outer_merit_tol
                 # catastrophe brake, latched or not: pace bounds the INTENDED
                 # per-window change, so a fixed-merit regression beyond one pace
                 # budget is a runaway (s1: a18 committed at gain=-0.45 and the
-                # freeze then held the damaged state), never a legitimate trade.
-                if outer_gain < -max(cfg.pace, 0.05):
+                # freeze then held the damaged state; b4 forensic: flat-valley
+                # limit cycle, overshoot windows d_vol 62->215 with kin spikes),
+                # never a legitimate trade.
+                brake_reject = outer_gain < -max(cfg.pace, 0.05)
+                if brake_reject:
                     outer_reject = True
                 if (outer_gate_latched and reversal_cos is not None
                         and reversal_cos < cfg.outer_reversal_cos
@@ -491,9 +500,15 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if dress is not None:
                     dress.truncate(rollback["frames"])
                 guards = rollback["guards"]
-                rec.update({"null_commit": 1, "outer_rejected": 1})
+                rec.update({"null_commit": 1, "outer_rejected": 1,
+                            "brake_reject": int(brake_reject)})
                 hist.append(rec)
-                stale += 1
+                # Reject-type split (b4/b6 forensics): a BRAKE reject is one
+                # insane candidate, not a stalled run - discard it, shrink the
+                # step, keep descending; only LATCHED low-gain rejects are
+                # plateau evidence and feed the patience freeze.
+                if not brake_reject:
+                    stale += 1
                 if cfg.anneal_stale > 0:
                     anneal = max(0.05, anneal * cfg.anneal_stale)
                 if on_commit is not None:
