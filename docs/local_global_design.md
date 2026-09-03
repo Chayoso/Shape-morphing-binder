@@ -1,473 +1,612 @@
-# Local(render) + Global(physics) split solver — design (lg2)
+# Local(render) + Global(physics) split solver — design v2 (post-REFUTE)
 
-Status: **DESIGN — not implemented**. Date 2026-09-02, branch `v3-grid-gs`.
-Inputs: `docs/root_analysis.md` (the diagnosis), `docs/oscillation.md`, `docs/floaters.md`
-(forensic dossiers), `docs/method.md` (formulation contract),
-`docs/engineering_review_20260902.md` (architecture constraints), the retired
-`physmorph/pipeline/surface_local.py` and its `lg_sweeps` guard in `runner.py`.
+Status: **DESIGN v2 — answers both adversarial rounds; not implemented**. Date 2026-09-02,
+branch `v3-grid-gs`.
 
-**Mechanism in one paragraph.** The global solver is untouched: MPM windows, volumetric +
-hybrid render losses, full adjoint to `dFc`, line search, outer fixed-merit gate. A new
-LOCAL channel runs once per accepted commit and owns the frequencies the global channel
-measurably cannot reach (root_analysis: render-attributable work 1e-6..1e-3 vs physics
-0.03..33). It has two tiers, neither of which touches `x/v/C/F`. **Tier D (dressing)** is
-a pure observation change: bounded, tangent-plane, sub-Nyquist degrees of freedom on the
-existing massless render children, optimized directly against the Gaussian image loss —
-no MPM adjoint in the loop, so the high-frequency render signal is used at full strength
-where it lives. **Tier R (rest-state demand)** revives the retired surface-band solver but
-inverts its one fatal move: the band displacement `u` it computes is **never applied to
-the state**. Instead its strain content is absorbed as a *virtual* deformation
-`F_virt = exp(clamp(sym ∇u))·F` through the **existing** plastic-assimilation contract
-(isochoric, SV-band, per-particle exact), so the next global window's *real*
-elastodynamics — mass, momentum, grid transfer all untouched — physically transports the
-surface toward the render-preferred shape. High-frequency corrections thus route *around*
-the low-pass MPM adjoint (they never need to survive it as a gradient), while every
-realized motion still comes out of the unchanged forward physics and is arbitrated by the
-unchanged outer gate.
+## §0 Changelog
+
+- **v1 (2026-09-02, this file's git history)**: two-tier local channel — Tier D
+  (observation-layer dressing) + Tier R (rest-state demand through assimilation).
+  Adversarial verdicts: **REDESIGN** from both reviewers
+  (`docs/reviews/refute_lg_codex_20260902.md`, 16 findings, 10 BLOCKER;
+  `docs/reviews/refute_lg_opus_20260902.md`, B1–B5, M6–M19, m20–m26).
+- **v2 (this document)**:
+  - **Tier R is WITHDRAWN.** The two reports independently proved the same three
+    kills: the Fp demand lies in the exact reachable range of `dFc` and is cheap to
+    annul while `w_kin` prices its realization (Codex 8 / Opus B2); the non-coaxial
+    demand component is absorbed into a rotation that a corotational energy turns
+    into zero stress and zero motion (Codex 1 / Opus M6); and the band solver's
+    correctness gate cannot fire before sweep 2, so the common case is full cost,
+    zero donation (Opus M10). §5 records the withdrawal; **Appendix A** sketches the
+    strongest replacement carrier (per-particle material remodeling — a demand
+    outside span(dFc)) with its own mini-falsification plan. The appendix is
+    **deferred** and does not gate Tier D's ladder.
+  - **Tier D proceeds as a separately-gated arm** after mandatory repairs:
+    d_sil/d_gauss telemetry split with all gates and freeze tracks reading d_sil
+    only (Opus B1 / Codex 9); world-space offset cap (Opus M14 / Codex 15); the
+    per-child log-scale DOF is **dropped** (Opus M15); exact joint feasibility for
+    centroid + cap (Codex 15); per-frame dressing archive (Codex 16); c2f dressing
+    persistence (Codex 12); envelope claim demoted to an empirical bet
+    (Codex 11 / Opus M13); energy-based stop rule (Opus M11).
+  - Settled in production 2026-09-02 (cited, not redesigned): exact KKT projection
+    for the SV-band ∩ det constraint in assimilation (Codex 2 / Opus m20); c2f
+    `configure_source` re-call (Opus B5 / Codex 12-part); work telemetry hoisted out
+    of the `on_iter` guard (Opus M18).
+  - New **§13**: disposition line for every finding of both reports.
+  - Cost honesty: stage-0 GPU microbenchmark is now a hard gate before any GPU
+    ladder (Codex 14); stage matching is on **commits with `cfg.pace` held fixed**,
+    wall-clock reported (Opus M19).
+
+**Mechanism in one paragraph (v2).** The global solver is untouched: MPM windows,
+volumetric + hybrid render losses, full adjoint to `dFc`, line search, outer
+fixed-merit gate. One LOCAL channel remains — **Tier D dressing**, a pure observation
+change: the existing massless render children gain bounded tangent-plane position
+DOFs `(a,b)` (no scale, no opacity), capped in **world space** at half the target
+surface sample spacing, and optimized once per *accepted* commit directly against the
+Gaussian image loss with no MPM adjoint in the loop. During the next window the
+dressing is frozen, and — decisively, after REFUTE — the outer merit gate, the freeze
+plateau tracks, and every commit-acceptance input read the **pure silhouette scalar
+`d_sil` only**, so dressing can neither launder a commit nor block the freeze; it can
+only spend the high-frequency render signal where it lives (sub-Nyquist surface
+arrangement) and report its effect through separate `d_gauss` telemetry and visual QA.
+The rest-state demand channel of v1 is withdrawn: any force-like demand is inside the
+control's exact reachable range and gets cancelled, not realized. The one in-contract
+carrier the control cannot cancel — per-particle material remodeling, which changes
+the *response operator* rather than injecting a force — is sketched in Appendix A as
+a deferred, separately-reviewed candidate.
 
 ---
 
-## §1 Problem restated as requirements
+## §1 Problem restated (unchanged diagnosis, corrected guard reading)
 
 `docs/root_analysis.md` (all measured): the visually important modes — surface-local,
 fine-scale, thin features — are
 
-- **R1 unobservable**: CIC/silhouette are low-pass; floaters live in the loss null space
-  (nn-band forensic: making one null-space mode observable killed its floater class);
+- **R1 unobservable**: CIC/silhouette are low-pass; floaters live in the loss null
+  space (nn-band forensic: making one null-space mode observable killed its class);
 - **R2 uncontrollable**: the render covector's unique content is high-frequency; the
-  cubic-B-spline P2G/G2P adjoint plus F-smoothing 0.955 attenuate exactly that.
-  Render work share in accepted steps ~0.02%, unchanged after the sub-pixel splat fix.
-  Scale gap: grid dx=0.5 vs splat σ≈0.04 — 12×, crossed twice by the gradient;
-- **R3 flat**: near-optimum curvature in those modes is ~0; the iterate wanders the
-  valley (oscillators ON the surface at 1.2× spacing). Drivers #1–#5 removed the noise
-  sources; the flatness is the objective's property.
+  cubic-B-spline P2G/G2P adjoint plus F-smoothing 0.955 attenuate exactly that
+  (render work share ~0.02%, unchanged after the sub-pixel splat fix; dx=0.5 vs
+  splat σ≈0.04 — a 12× scale gap crossed twice by the gradient);
+- **R3 flat**: near-optimum curvature in those modes is ~0; the iterate wanders
+  the valley (oscillators ON the surface at 1.2× spacing — the dossier's direct
+  forensic, not an inference from `move`; cf. Opus m25).
 
-What a fix must therefore do (root_analysis "what the frame dictates"):
+Why the retired `surface_local.py` failed — **corrected after Opus M16**: its
+documented failure precondition was twofold, (i) *state overwrite* (writing `x/F`
+after the window, leaving `v`/`C`/interior inconsistent) AND (ii) *objective
+exclusion + assimilation ratcheting* (its energy excluded the one-signed W1/fill
+terms, so it could undo an accepted cleanup step and assimilation ratcheted the
+regression — the `lg_sweeps+(w_dt|w_fill)` `ValueError` guard in
+`runner.py:run_pipeline`). v1 wrongly claimed removing (i) dissolved the guard;
+Codex 7 showed (ii) alone reproduces an alternating accept/reject deadlock through
+any *state-persistent* carrier. **v2 retains the guard untouched.** Tier D triggers
+neither precondition: it edits no state and no rest state.
 
-1. observe at the visual scale (Gaussian forward model — partially done: gauss hybrid,
-   Nyquist res floor);
-2. **route fine corrections around the low-pass** — they must not ride `dFc` through the
-   dynamics;
-3. respect the state contract: no partial state edits after an explicit rollout
-   (engineering review: VBD-style partial updates leave `v`, APIC `C`, interior state
-   inconsistent); anything permanent outside the rollout goes through the
-   plasticity/assimilation contract or is a pure observation/parametrization change;
-4. no new tuned scalars without a pre-registered calibration rule.
-
-Why the retired `surface_local.py` failed, precisely (its own docstrings + the
-`lg_sweeps` guard + the h15 verdict):
-
-- **F1 state overwrite**: it wrote `x' , F'` after the window, leaving `v`/`C`/interior
-  inconsistent — the exact inadmissible move the review names;
-- **F2 objective mismatch**: its energy excluded the one-signed W1/fill terms, so it could
-  undo an accepted W1 step and assimilation then ratcheted the regression (the
-  `ValueError` guard in `runner.py:run_pipeline`);
-- **F3 blind objective**: its render term was the *same* CIC soft-silhouette the global
-  window already exhausts — "the band had nothing left to descend" (h15 lg isolation:
-  tie at 3.3× wall-clock, λ_loc pinned at cap). It shared the global loss's null space,
-  so it inherited the global loss's blindness.
-
-lg2 keeps F1 impossible by construction (nothing applies `u`), dissolves F2 (the demand
-competes *inside* the next global solve where all terms live, and the outer gate can
-reject the outcome), and fixes F3 (the local objective is the Gaussian image loss at the
-Nyquist-floored resolution — the channel whose unique content is precisely what the
-silhouette cannot see).
+A third v1-era failure is now first-class: (iii) *same-nullspace objective* — the
+retired pass descended the silhouette the global window had already exhausted
+(h15: tie at 3.3× wall-clock). Tier D's objective is the Gaussian image loss, whose
+unique content is exactly what the silhouette cannot see.
 
 ---
 
-## §2 Literature grounding (read/verified 2026-09-02)
+## §2 Literature grounding (read/verified 2026-09-02; unchanged from v1)
 
-| # | paper (venue, link) | what it contributes to THIS design |
+| # | paper (venue, link) | contribution to THIS design (v2 reading) |
 |---|---|---|
-| 1 | **Projective Dynamics: Fusing Constraint Projections for Fast Simulation** — Bouaziz, Martin, Liu, Kavan, Pauly, ACM TOG 33(4), SIGGRAPH 2014. https://users.cs.utah.edu/~ladislav/bouaziz14projective/bouaziz14projective.pdf | The canonical local/global alternation: cheap per-constraint nonlinear *projections* onto admissible manifolds, coupled to a global solve through auxiliary variables. lg2's local step is a projection of the render residual onto *admissible rest-state increments* (bounded stretch, isochoric); the coupling variable is `Fp`, and the "global solve" is the full MPM window. |
-| 2 | **DiffPD: Differentiable Projective Dynamics** — Du, Wu, Ma, Wah, Spielberg, Rus, Matusik, ACM TOG 41(2), 2021. https://arxiv.org/abs/2101.05917 | Differentiating an implicit local/global solve is only unbiased at *convergence* (and reuses the forward factorization). lg2 rule: the local band solve's convergence gate is a **correctness** gate — an unconverged solve donates no demand. Matches our own probe (`scripts/probe_gs_differentiability.py`: exact at ‖∇E‖ tol, 17–54% error at 10 blind sweeps). |
-| 3 | **Vertex Block Descent** — A. H. Chen, Liu, Yang, Yuksel, ACM TOG 43(4), SIGGRAPH 2024. https://graphics.cs.utah.edu/research/projects/vbd/ | What IS usable after our review rejected naive partial updates: the *solver machinery* — per-block energy-monotone Gauss-Seidel with coloring and diagonal preconditioning — applied to a **complete variational subproblem in its own DOFs**. The band solve for the *virtual* field `u` (Dirichlet-anchored interior) is such a problem; applying block updates to post-rollout dynamic state is not, and stays banned. |
-| 4 | **As-Rigid-As-Possible Surface Modeling** — Sorkine, Alexa, SGP 2007. https://dl.acm.org/doi/10.5555/1281991.1282006 | The grandfather split (closed-form local rotation fit / global Poisson solve) and its warning: the guarantees come from both phases descending ONE energy. lg2 deliberately gives that up (two objectives at two scales) and substitutes the outer fixed-scale merit gate + rollback as the arbiter — stated, not hidden (§11.1). |
-| 5 | **Sobolev Active Contours** — Sundaramoorthi, Yezzi, Mennucci, IJCV 73(3):345–366, 2007. https://link.springer.com/article/10.1007/s11263-006-0635-2 | L2 shape gradients are pathologically high-frequency; Sobolev metrics yield coherent, stable shape flows that favor coarse motions and dodge local minima. Grounds solving `u` in a screened/H1 metric on the band (and explains the raw render pull's jitter). Note our measured caveat: the H1 metric belongs on the *shape field u*, not on the control `dFc` — the kNN/H1 control preconditioner was tested and worsened everything (method.md §6). |
-| 6 | **Repulsive Curves** — Yu, Schumacher, Crane, ACM TOG 40(2), 2021. https://www.cs.cmu.edu/~kmcrane/Projects/RepulsiveCurves/ | Resolution-independent large steps for geometric energies via (fractional) Sobolev preconditioning. Lineage of our grid-GS smoother (method.md §6) and of the band solve's diagonal preconditioner + line search. |
-| 7 | **2D Gaussian Splatting for Geometrically Accurate Radiance Fields** — Huang, Yu, Chen, Geiger, Gao, SIGGRAPH 2024. https://surfsplatting.github.io/ | Collapse 3D Gaussians to oriented planar disks for surface-accurate splatting. Grounds Tier D's *tangent-plane-only* dressing DOFs (a surfel's freedom is exactly in-plane) and the upgrade path if isotropic children still bleb. |
-| 8 | **High-quality Surface Reconstruction using Gaussian Surfels** — Dai, Xu, Xie, Liu, Wang, Xu, SIGGRAPH 2024. https://dl.acm.org/doi/10.1145/3641519.3657441 | z-scale→0 flattening improves optimization *stability* and surface alignment — evidence that removing the normal DOF (as Tier D does) helps rather than hurts the fit. |
-| 9 | **SuGaR: Surface-Aligned Gaussian Splatting…** — Guédon, Lepetit, CVPR 2024. https://openaccess.thecvf.com/content/CVPR2024/html/Guedon_SuGaR_Surface-Aligned_Gaussian_Splatting_for_Efficient_3D_Mesh_Reconstruction_and_CVPR_2024_paper.html | Binding Gaussians to a surface (regularization/attachment) makes them editable and non-floating. Tier D binds every dressed primitive to a material parent with bounded offsets — an unsupported *dressed* splat is impossible by construction. |
-| 10 | **Mip-Splatting: Alias-free 3D Gaussian Splatting** — Yu, Chen, Huang, Sattler, Geiger, CVPR 2024 (best student paper). https://niujinshuchong.github.io/mip-splatting/ | Primitive size must be constrained by the sampling frequency (3D smoothing filter). Grounds the existing Nyquist res floor in `gauss_loss.py` and Tier D's amplitude/scale band: dressing capacity is deliberately limited to sub-Nyquist content so it *cannot* repaint macroscopic geometry. |
-| 11 | **PhysGaussian: Physics-Integrated 3D Gaussians for Generative Dynamics** — Xie et al., CVPR 2024. https://xpandora.github.io/PhysGaussian/ | Same kernels for simulation and rendering; splat kinematics driven by the MPM deformation gradient. Grounds `Σ = σ0² F Fᵀ`, child advection by `F`, and the general "what is seen is what is simulated" contract Tier D must not break. |
-| 12 | **Stress-dependent finite growth in soft elastic tissues** — Rodriguez, Hoger, McCulloch, J. Biomech. 27(4):455–467, 1994. https://pubmed.ncbi.nlm.nih.gov/8188726/ | The multiplicative decomposition of deformation into a *commanded rest-state change* plus elastic accommodation — the physical license for Tier R: editing the zero-stress reference (`Fp`) and letting real elasticity realize it is textbook morphoelasticity, not state hacking. Our `assimilate_growth` already cites this lineage; Tier R is its deviatoric sibling. |
-| 13 | **Variational multirate integrators** — Ober-Blöbaum et al., arXiv:2406.12991 (and Stability of AVIs, JCP 2008). https://arxiv.org/abs/2406.12991 | Different parts of one mechanical system may legitimately run on different clocks inside a variational framework — supports the per-commit local / per-window global cadence — with the standing caveat that resonance between the two clocks is a real failure mode (→ §11.5 telemetry). |
+| 1 | **Projective Dynamics** — Bouaziz, Martin, Liu, Kavan, Pauly, ACM TOG 33(4), SIGGRAPH 2014. https://users.cs.utah.edu/~ladislav/bouaziz14projective/bouaziz14projective.pdf | The local/global alternation template — and, post-REFUTE, the cautionary half: PD's guarantees exist because both phases descend ONE energy through a coupling variable the global solve cannot simply undo. v1's Tier R violated exactly that (the global solve *could* undo it, exactly and cheaply). |
+| 2 | **DiffPD: Differentiable Projective Dynamics** — Du, Wu, Ma, Wah, Spielberg, Rus, Matusik, ACM TOG 41(2), 2021. https://arxiv.org/abs/2101.05917 | Solve-convergence as a gradient-correctness gate. v2 keeps the lesson for Tier D's stop rule and notes Opus M10/M11's sharpening: a convergence *flag* is only meaningful if its reference point and noise class are specified. |
+| 3 | **Vertex Block Descent** — A. H. Chen, Liu, Yang, Yuksel, ACM TOG 43(4), SIGGRAPH 2024. https://graphics.cs.utah.edu/research/projects/vbd/ | Block-descent machinery for a complete variational subproblem in its own DOFs. Used by v1's band solve; retained here only as the solver of record if any band solve returns (with the M10 `g0`-at-`u=0` fix). Partial dynamic-state updates stay banned. |
+| 4 | **As-Rigid-As-Possible Surface Modeling** — Sorkine, Alexa, SGP 2007. https://dl.acm.org/doi/10.5555/1281991.1282006 | The split's grandfather and its warning (one shared energy). v2 heeds it the hard way: the only surviving local phase (Tier D) shares *no* state with the global solve at all. |
+| 5 | **Sobolev Active Contours** — Sundaramoorthi, Yezzi, Mennucci, IJCV 73(3):345–366, 2007. https://link.springer.com/article/10.1007/s11263-006-0635-2 | L2 shape gradients are pathologically high-frequency; smooth metrics give coherent flows. Context for R3 and for Appendix A's compliance shaping. |
+| 6 | **Repulsive Curves** — Yu, Schumacher, Crane, ACM TOG 40(2), 2021. https://www.cs.cmu.edu/~kmcrane/Projects/RepulsiveCurves/ | Resolution-independent preconditioned steps for geometric energies; lineage of the repo's grid-GS smoother (method.md §6). |
+| 7 | **2D Gaussian Splatting** — Huang, Yu, Chen, Geiger, Gao, SIGGRAPH 2024. https://surfsplatting.github.io/ | Oriented planar disks: the surfel's legitimate freedom is in-plane position/orientation — the basis for Tier D's tangent-only DOFs (and for dropping the scale DOF: 2DGS disks do not shrink to dodge coverage). |
+| 8 | **High-quality Surface Reconstruction using Gaussian Surfels** — Dai, Xu, Xie, Liu, Wang, Xu, SIGGRAPH 2024. https://dl.acm.org/doi/10.1145/3641519.3657441 | z-scale→0 improves optimization stability and alignment — evidence that *removing* DOFs (normal, and now scale) helps the fit rather than hurting it. |
+| 9 | **SuGaR** — Guédon, Lepetit, CVPR 2024. https://openaccess.thecvf.com/content/CVPR2024/html/Guedon_SuGaR_Surface-Aligned_Gaussian_Splatting_for_Efficient_3D_Mesh_Reconstruction_and_CVPR_2024_paper.html | Surface-bound Gaussians cannot float; Tier D's primitives stay bound to material parents with capped offsets — an unsupported dressed splat is impossible by construction. |
+| 10 | **Mip-Splatting** — Yu, Chen, Huang, Sattler, Geiger, CVPR 2024. https://niujinshuchong.github.io/mip-splatting/ | Primitive size constrained by sampling frequency. Grounds the Nyquist res floor in `gauss_loss.py` — which stays valid in v2 precisely because the dressed sigma equals the undressed sigma (scale DOF dropped, Opus M15). |
+| 11 | **PhysGaussian** — Xie et al., CVPR 2024. https://xpandora.github.io/PhysGaussian/ | F-driven splat kinematics; the "what is seen is what is simulated" contract — which is why dressing must ship per-frame to the viewer (Codex 16) and why its world-space footprint must be capped where `F` is large (Opus M14). |
+| 12 | **Stress-dependent finite growth in soft elastic tissues** — Rodriguez, Hoger, McCulloch, J. Biomech. 27(4):455–467, 1994. https://pubmed.ncbi.nlm.nih.gov/8188726/ | Multiplicative rest-state remodeling realized by elasticity. In v2 this grounds only the existing `w_grow` channel and Appendix A's *response-side* sibling; the v1 force-side use is withdrawn with Tier R. |
+| 13 | **Variational multirate integrators** — Ober-Blöbaum et al., arXiv:2406.12991. https://arxiv.org/abs/2406.12991 | Two-clock legitimacy plus the resonance caveat; retained for Appendix A's per-commit carrier cadence. |
 
 ---
 
-## §3 Design overview — division of labor by frequency
+## §3 Design overview (v2)
 
 ```
-wavelength:   body scale ──────── dx=0.5 ──────── NN spacing≈0.04 ──────── 0
-              │  GLOBAL (unchanged)  │   TIER R (demand)     │  TIER D (dressing)
-carrier:      │  dFc via MPM adjoint │  Fp via assimilation  │  render parametrization
-signal path:  │  loss → adjoint      │  local solve → rest   │  local solve → observation
-              │  → control → rollout │  state → NEXT rollout │  (no physics at all)
+wavelength:   body scale ───────────── dx=0.5 ──────── NN spacing≈0.04 ───────── 0
+              │        GLOBAL (unchanged)              │        TIER D (dressing)
+carrier:      │        dFc via MPM adjoint             │   render parametrization
+signal path:  │        loss → adjoint → control        │   local solve → observation
+              │        → rollout                       │   (no physics, no gates)
 ```
 
-- **Global (unchanged)**: coarse transport. `optimize_window` and its losses, adjoint,
-  λ-balancing, line search, outer merit gate, plateau freeze — byte-for-byte the current
-  blessed path. The surface restriction stays where the review put it: on the terminal
-  observation covector.
-- **Tier R** owns render corrections at wavelengths the grid can transport (≳dx) but the
-  adjoint attenuates. It converts them from a *gradient that must survive the adjoint*
-  into a *rest-state demand the forward physics realizes*. One crossing of the low-pass
-  (forward), not two.
-- **Tier D** owns wavelengths below what grid forces can shape at all (sub-dx surface
-  texture, pinholes, splat-scale arrangement — where the late-run oscillators live).
-  These are *unphysical for this discretization by definition* (no grid force can create
-  them), so the only honest place for them is the observation layer, with capacity
-  band-limited so it can never impersonate transport.
+- **Global (unchanged)**: `optimize_window` + `run_pipeline` byte-for-byte, except
+  the B1 telemetry split (§6.2), which makes existing gate inputs *cleaner*, not
+  different in kind. The surface restriction stays on the terminal observation
+  covector.
+- **Tier D** owns wavelengths below what grid forces can shape (sub-dx surface
+  texture, pinholes, splat-scale arrangement). These are unphysical for this
+  discretization by definition; the only honest place for them is the observation
+  layer, with capacity band-limited (in world space) so it cannot impersonate
+  transport, and with **zero coupling into any accept/freeze decision**.
+- **Tier R (withdrawn)** — see §5. The transport-and-curvature gap it aimed at
+  (R2, R3's physical side) is explicitly **not addressed by v2's main path**; the
+  candidate replacement carrier is Appendix A, deferred.
 
-Both tiers preserve the state contract trivially: **neither writes `x`, `v`, `C`, or
-`F`** — the two failure classes that killed `surface_local.py` and the displacement
-assimilation (commit-boundary kin 66→509) cannot occur.
+Symptom ownership after the withdrawal (honest map):
+
+| symptom | v2 owner | status |
+|---|---|---|
+| floaters (out_nn>2sp, far counts) | existing nn-band W1 + target-free support check; Tier D adds *observability telemetry* (`d_gauss`) and G6 fidelity, claims no count reduction | regression-guarded only (K-D1) |
+| dead render channel (work share) | **unowned in v2 main** — Appendix A candidate | deferred, stated |
+| late-run oscillation (rev-cos) | dossier closed by h16/h17 at the optimizer level; Tier D carries a residual *empirical bet* on sub-Nyquist wander (§8 P-osc, demoted per M13) | empirical bet with falsifier |
 
 ---
 
-## §4 Tier D — surface dressing (observation layer)
+## §4 Tier D — surface dressing (v2, repaired)
 
 ### 4.1 DOFs
 
-The render children already exist (`render/children.py`): per surface parent, up to 4
-massless splats at frozen tangent-PCA offsets, advected by the parent's `F`, sharing the
-parent covariance. Tier D makes the *coefficients* live:
+Per child `c` of surface parent `p` (children per `render/children.py`, count 1–4):
 
-- per child `c` of parent `p`: tangent coefficients `(a_pc, b_pc)` in the **frozen**
-  source-material basis `(t1_p, t2_p)` (the PCA basis `tangent_child_offsets` already
-  computes), plus one log-scale `s_pc`;
-- effective material offset: `off_pc = baseline_pc + a_pc·t1_p + b_pc·t2_p` — no normal
-  component (2DGS/Gaussian-Surfels: the surfel's freedom is in-plane; removing the
-  normal DOF is what makes it stable and non-repainting);
-- rendered as now: `center = x_p + F_p·off_pc`, `Σ_pc = (σ_child·e^{s_pc})² F_p F_pᵀ`.
+- tangent coefficients `(a_pc, b_pc)` in the **frozen** source-material PCA basis
+  `(t1_p, t2_p)`; effective material offset `off_pc = baseline_pc + a_pc·t1_p + b_pc·t2_p`;
+- rendered center `x_p + F_p·off_pc`; covariance exactly as today
+  (`Σ = σ_child² F_p F_pᵀ`).
 
-Hard caps (structural, §7): `|off_pc| ≤ 0.5·h_src` (`h_src` = frozen source-surface
-median NN spacing), `s_pc ∈ [log cov_smin, log cov_smax]` (the band `w_cov` already
-declares), zero-centroid per parent re-projected after every step (the children.py
-contract: parent COM exact). **No opacity DOF** — the floaters dossier's contract that
-"tearing cannot be rewarded by a disappearing render loss" stays absolute; opacity
-remains the target-free export-only support check.
+**Dropped from v1** (Opus M15 / Codex 15, accepted): the per-child log-scale `s_pc`.
+It was a partial opacity DOF ("tearing rewarded by a disappearing render loss" via
+coverage area), it invalidated the Nyquist floor computed at `__init__`, and it
+multiplied the parent `sv(F)` band into an unmonitored total scale. With it gone:
+the dressed sigma ≡ the undressed sigma, the existing Nyquist floor and
+`primitive_sigma`/`gauss_scale_*` diagnostics stay truthful, and no σ-band constants
+are imported (dissolves Opus m23). 2DGS/Surfels ground the choice: a surfel's
+freedom is in-plane.
 
-### 4.2 Solve
+**No opacity DOF** (floaters.md contract, unchanged).
 
-Per accepted commit, on the promoted terminal state with everything else frozen:
-minimize `L_gauss(x_T, F_T; dressing)` (the existing `GaussViews.loss`, all views,
-Nyquist-floored res) over the dressing coefficients by the line-searched Adam recipe of
-`optimizer.py` (fixed max iters, backtracking, monotone acceptance, convergence gate on
-‖g‖). Deterministic given the state (modulo CUDA rasterizer atomics — same caveat and
-the same noise-floor tolerance as the existing replay check).
+### 4.2 Caps and exact feasibility (Opus M14, Codex 15)
 
-During the *next* window the dressing is **frozen**, so the window's objective is fixed
-(the property the line search and the "single objective per window" λ rule require). By
-the envelope argument, evaluating the window's gauss term at the locally-optimal frozen
-dressing means the global gradient carries only what dressing *cannot* explain — the
-coarse residual. That is the routing statement made precise: sub-Nyquist content is
-explained locally and stops leaking into `dFc` as flat-valley gradient noise.
+- **World-space cap**: `‖F_p·off_pc‖ ≤ 0.5·h_src` (`h_src` = frozen source-surface
+  median NN spacing). v1's material-space cap acted in the wrong space: at the ears
+  `s_max(F) > 2` is *required*, so a material cap of `0.5·h_src` rendered to
+  `≥ h_src` exactly in the contested region. The cap now bounds what the image
+  actually sees, everywhere, by construction.
+- **Exact joint feasibility** (cap ∩ zero-centroid): after each optimizer step,
+  (1) subtract the per-parent child mean (projection onto the centroid plane), then
+  (2) uniformly rescale the parent's child offset set by
+  `min(1, 0.5·h_src / max_c‖F_p·off_pc‖)`. Uniform per-parent rescaling **commutes
+  with the zero-centroid constraint** (a scaled zero-mean set is zero-mean), so both
+  constraints hold *exactly* after step (2) — unlike v1's clamp-then-center, whose
+  violation Codex 15 exhibited (`[r,r,−r] → [2r/3,2r/3,−4r/3]`). This is a feasible
+  map, not the Euclidean projection; for a box-constrained descent that is
+  sufficient, deterministic, and order-independent.
 
-### 4.3 Invariants
+### 4.3 Solve (cadence: strictly post-gate)
 
-Touches nothing physical: `x/v/C/F/Fp`, particle count, mass, momentum all bit-identical.
-Children stay massless observation-only (children.py contract). Finiteness: line search
-rejects non-finite energies; coefficients live in compact boxes. All gate metrics are
-computed on raw particle state and never consume the renderer (`metrics.py` contract), so
-**dressing cannot move a single gate number** — it can only move the G6 visual QA and the
-gauss-residual telemetry. That is deliberate anti-gauge armor (§11.3).
+Runs once per commit, **after** the outer merit gate accepts (Opus B4 resolved for
+Tier D by ordering: dressing feeds no gate input, so nothing forces it before the
+gate; a rejected or null commit runs no dressing solve and mutates nothing). On the
+promoted terminal `(x, F)`, with everything else frozen: minimize
+`L_gauss(x, F; a, b)` (the existing `GaussViews.loss`, all views — no stochastic
+subsampling) by line-searched Adam with the feasibility map of §4.2 applied after
+each accepted step.
 
----
+**Stop rule** (Opus M11, accepted): fixed max iterations (from the stage-0
+benchmark, §7) with early exit on relative *energy* decrease
+`ΔL < ls_noise_rel·max(|L|,1)` on two consecutive iterations — the same noise
+tolerance class as the replay check, and no discrete branch on a
+rasterizer-noise-bearing gradient norm. Dressing is not permanent physics; a
+noise-marginal extra iteration is bounded by the caps.
 
-## §5 Tier R — rest-state demand through the existing assimilation contract
+### 4.4 What Tier D may and may not claim (Codex 11 / Opus M13, accepted)
 
-### 5.1 The virtual band solve
+The v1 "envelope theorem" framing is **removed**. Dressing is optimal only at the
+commit-time state where it was fitted; the next window's gradient is evaluated at a
+different terminal state (nonzero `v`/`C`, T=20 of evolution), so the frozen
+dressing carries a stale-fit bias — plausibly *retarding* (a pull toward the fitted
+state) rather than cleanly frequency-separating. The oscillation prediction P-osc is
+therefore a **pure empirical bet** with an unchanged falsifier (§8). No repair is
+attempted (per-candidate dressing profiling would destroy the fixed-objective window
+contract and the cost model).
 
-Revive the `SurfaceLocal` machinery (band = occupied cells with an empty 6-neighbor;
-DOFs = CIC corner nodes with weight ≥ w_min; interior pinned as Dirichlet anchors;
-8-color energy-monotone block descent with diagonal preconditioning, line search,
-convergence gate — the VBD-lesson solver, kept verbatim) with two changes:
+### 4.5 Per-frame dressing archive (Codex 16, accepted)
 
-1. **objective**: `E(u) = Σ_p V_p ψ_SNH((I+∇u)F_e) + w_box·leash + λ_loc·L_gauss(x+u, (I+∇u)F; dressing frozen)`
-   — the Gaussian image loss replaces the silhouette (fix for F3: this objective sees
-   sub-cell arrangement, lone splats linearly via L1, and thin-feature holes at the
-   Nyquist-floored resolution);
-2. **output**: `u` is returned as a *virtual* field. `x`, `F` are NOT updated. Ever.
+`dressing_frames` is archived one-to-one with `frames`: rollout intermediates carry
+the window's frozen (pre-window) dressing; the terminal frame carries the newly
+accepted dressing; held commits copy; outer-rejection truncation mirrors the
+existing `del frames[rollback["frames"]:]`. Dressing is passed through `on_commit`
+and the result dict, so the viewer/export renders each frame with the dressing that
+was actually in force — no pre-echo, no retroactive re-observation (the PhysGaussian
+"what is seen is what is simulated" contract, made temporal).
 
-λ_loc comes from the dedicated local `LambdaBalancer` in u-space (diag-curvature ×
-trust-radius vs ‖∂L_gauss/∂u‖ — the retired pass's own calibrated recipe, kept).
+### 4.6 c2f behavior (Codex 12, accepted; B5 cited)
 
-### 5.2 Demand extraction and absorption
+Dressing is **not** reset at c2f. The c2f rebuild changes `cfg.render_res`
+(silhouette targets); the Gaussian objective's resolution (`gauss_res` + Nyquist
+floor) does not change, so v1's reset would have manufactured a residual
+discontinuity and phantom improvement. Dressing state lives in the runner (not in
+`GaussViews`), so it survives the `TargetPack` rebuild; the `configure_source`
+re-call after the c2f `build_target` is **already fixed in production 2026-09-02**
+(Opus B5) and is simply consumed here.
 
-Per band particle (interior: demand = identity):
+### 4.7 Invariants
 
-```
-e_p     = clamp_norm( sym(∇u(x_p)), r_p )          # strain-only; rotation demand discarded
-A_p     = exp(e_p)                                  # SPD stretch, eigendecomposition
-F_virt  = A_p · F_p                                 # virtual total deformation
-Fp_new  = assimilate_elastic(F_virt, Fp, eta=cfg.assim, smin, smax, isochoric=cfg.assim_iso)
-```
-
-with `r_p = min( 1/3, τ )` and the throttle `τ` defined in §7. The **one existing
-assimilation call absorbs global + local in one ratchet** (`_assimilate` unchanged):
-with `F_e' = A_p F_e = R'S'`, the contract gives `Fp ← clamp_sv(S'^η Fp)`, hence the
-*actual* new elastic state is `F_e,new = F_e S'^{-η}` — when the demand asks for
-expansion, the material is left relatively compressed against its new rest state and
-**real elastic stress pushes the surface outward during the next window**, through
-untouched P2G/G2P mass and momentum transfer. When `u = 0`: `A = I`, `S' = S_e`,
-`F_e,new = R_e S_e^{1-η}` — **bit-exactly the current path**. The mechanism is
-morphoelastic remodeling (Rodriguez–Hoger–McCulloch), the pattern `assimilate_growth`
-already uses for the volumetric channel; Tier R is its deviatoric sibling driven by the
-render residual instead of the coverage-shortfall field.
-
-### 5.3 Invariants, step by step
-
-| step | finite | det F > 1e-4 | SV band on Fp | det Fp = 1 (iso) | x/v/C/F/mass/momentum |
-|---|---|---|---|---|---|
-| band solve (virtual u) | line search rejects non-finite E | state untouched | untouched | untouched | untouched |
-| `e_p` clamp, `A_p = exp(e_p)` | eig of sym 3×3, bounded box | `A_p` SPD, `det A_p ∈ [e^{-0.58}, e^{0.58}]` at r=1/3 — but irrelevant: `F` itself is untouched | — | — | untouched |
-| assimilation of `F_virt` | rows with `det F_e' ≤ 1e-6` skipped (contract) | `F` untouched ⇒ unchanged; next window's `_state_ok` still enforces whole-trajectory det | clamp LAST (contract) | alternating log-space projection (contract, f16 fix) | only `Fp` changes |
-| next window | standard guards | standard `_state_ok` + trajectory det | — | — | standard promotion |
-
-What is deliberately *not* preserved: the monotone elastic-energy-decrease property of
-plain assimilation. Tier R **injects** elastic energy — that is its fuel. It is bounded
-(‖e_p‖ ≤ r_p, band-limited support), logged (`lg2_demand_energy = Σ V_p[ψ(F_e,new) −
-ψ(R_e S_e^{1−η})]`), and gated (§10 kill K-R2: window-start kinetic kick ≤ 2× the
-matched baseline's median — the displacement-assimilation spike, kin 66→509, is the
-pre-registered failure signature to watch).
-
-Volume demand is structurally impossible: the isochoric projection keeps `det Fp = 1`
-exactly, so Tier R is deviatoric-only by inheritance; commanded volume remains the
-separately-governed `w_grow` channel's monopoly.
-
-### 5.4 Why this addresses R2 (the dead channel)
-
-The render covector no longer has to survive `(cubic B-spline adjoint)² × smoothing^T`
-to become motion. The local solve reads it at full strength in state space, converts it
-to a demand, and the demand becomes motion through *forward* physics — which is a
-low-pass on each step but integrates to arbitrary above-dx displacement over a window.
-The telemetry that proves/kills it: `lg2_realized_cos` = cos(u_demand, Δx of the next
-committed window on the band) and `lg2_realized_frac` = ‖projection‖/‖u‖ (§8 P-render).
+Touches nothing physical: `x/v/C/F/Fp`, particle count, mass, momentum bit-identical;
+children massless observation-only. Coefficients live in compact sets (§4.2), the
+solve is monotone in `L_gauss` by line search, and — after the §6.2 split — **no
+gate, track, latch, or merit component consumes any dressed quantity**. The remaining
+sanctioned couplings, stated openly: dressing changes the *window objective's* gauss
+component (that is its job — the optimization channel), hence λ_R's balance and the
+`g_*`/`render_work*` telemetry; all of these are logged, none of them gate.
 
 ---
 
-## §6 What the global solver keeps (and the envelope semantics)
+## §5 Tier R — WITHDRAWN (the reachability verdict)
 
-- `optimize_window`: unchanged losses, λ_R once-per-window, PCGrad-free flagship stack,
-  line search, `_state_ok`, replay validation. The gauss term evaluates with the frozen
-  dressing (one added argument through `TargetPack`).
-- `runner.py` outer loop: promotion, guards, outer fixed-scale merit gate, plateau
-  freeze on raw λ-free tracks, rollback + cold restart — all unchanged. The freeze/gate
-  components stay **dressing-free** (D_vol, silhouette d_render, dt, fill on raw
-  particles): the gate cannot be gamed by the observation layer (§11.3).
-- Differentiated vs frozen: `dFc`, `s` differentiated through the MPM tape (unchanged);
-  dressing differentiated only inside Tier D's local solve; `u` differentiated only
-  inside Tier R's local solve; `Fp` never differentiated (as now); nothing new enters
-  the wp.Tape.
+The v1 mechanism (virtual band displacement → `A = exp(clamp(sym∇u))` →
+`Fp ← assimilate(A·F)`) is withdrawn in full. The killing findings, in order of
+depth:
+
+1. **In-span cancellation (Codex 8 / Opus B2).** The control is an additive offset
+   on the same tensor the demand divides: `Fe = (F+dFc)·Fp⁻¹`
+   (`mpm/kernels.py:41-46`). For any demanded `Fp_new = Sa·Fp` the control
+   `dFc = F·(Fp⁻¹SaFp − I)` reproduces the pre-demand elastic state bit-for-bit at
+   every step — identical stress, identical trajectory. The annulling direction is
+   available at iteration 0, smooth (CIC-band-limited), and priced at
+   `w_ctrl·‖dFc‖²/(TN) ≈ 6e-7`, while the demand's *realization* is priced by
+   `w_kin` (its elastic kick is terminal velocity) and its benefit rides the
+   measured ~0.02% render share. The gradient therefore *favors cancellation*;
+   expected steady state: zero realized motion, monotone `Fp` mutation.
+2. **Rotation leak (Codex 1 / Opus M6).** `F_e,new = F_e S'^{-η}` with `S_e, S'`
+   non-commuting for any non-coaxial demand; the non-coaxial component is absorbed
+   into a polar rotation that a corotational energy converts to zero stress and
+   zero motion. "Rotation untouched / per-particle exact" was false (Codex's
+   2.17° counterexample).
+3. **Solve/emission mismatch (Codex 10) + gate pathologies (Opus M10, M11).** The
+   band solve descends in `(x+u, (I+∇u)F)` but emits only `exp(clamp(sym∇u))`
+   — translation demands emit `A=I`, shear is distorted, `ψ_SNH` accepts
+   reflections the covariance cannot see; and the convergence gate could not fire
+   before sweep 2 (`g0` set after the first sweep), so the common case was full
+   cost, zero donation.
+4. **Containment unimplementable as written (Codex 5, 6 / Opus B3, B4).** The fused
+   single assimilation call has no recoverable `Fp_plain`; pending demand survives
+   null/replay-failure/grad-converged/freeze/budget-end paths; "accepted commits
+   only" contradicts the pre-gate call site.
+5. **Ratchets real, falsifier vacuous (Codex 3, 4 / Opus M7, M8, M9).** Volume
+   ratchet at default `assim_iso=False`; areal ratchet under isochoric projection;
+   the global-median throttle licenses full demand exactly in the low-strain
+   (= uncontrollable) regions; `‖ΔFp‖` during held commits is identically zero by
+   control flow, so K-R4 passed vacuously.
+
+**The classification this leaves behind** (the useful residue): `dFc` is a complete
+per-particle, per-step stress-argument actuator, so *every force-like demand* —
+prestress, rest-shape, growth-shaped pushes — lies in its exact reachable range and
+can be annulled at ~zero cost. Carriers **outside** span(dFc) are exactly three:
+(i) the *response operator* (per-particle material — changes how ALL forces act;
+annulment would require solving `P_new(Fe')=P_old(Fe)` pointwise in time while `Fe'`
+simultaneously feeds the kinematic update (9) — overdetermined, no exact null
+direction); (ii) the *discretization/topology* (resampling, splitting — touches the
+mass distribution, outside this project's state contract); (iii) the *observation*
+(Tier D; produces no transport by construction). Hence the only in-contract,
+motion-relevant replacement carrier is (i) — sketched in Appendix A, deferred.
 
 ---
 
-## §7 Every constant, with its pre-registered rule (no free weights)
+## §6 Global solver: unchanged, plus the B1 split
 
-| constant | value | rule (evidence-bearing, pre-registered) |
+### 6.1 Unchanged
+
+`optimize_window` losses, λ_R once-per-window, adjoint, line search, `_state_ok`,
+replay validation; `run_pipeline` promotion, guards, outer gate, rollback + cold
+restart; the `lg_sweeps+(w_dt|w_fill)` guard **retained untouched** (Codex 7 /
+Opus M16 accepted — its precondition (ii) survives any state-persistent local
+carrier, and Tier D never trips it because it persists no state).
+
+### 6.2 The d_sil/d_gauss split (Opus B1 / Codex 9 — mandatory before any run)
+
+Today, with `use_gauss_loss` and `gauss_mix>0`, the scalar
+`lr = lsil + gauss_mix·gauss_scale·L_gauss` is logged as `d_render`
+(`optimizer.py:losses_of`, history at `optimizer.py:574-580`) and consumed by
+`components["render"]` (outer merit, `runner.py:391`), `rend_track` (freeze
+plateau, `runner.py:409`), `improved`, `best_rend`, `stale`, `anneal`, and the
+latch. Opus B1 quantified the laundering: at `gauss_mix=0.25`, a K-D2-sized
+dressing improvement is a free ≈2.5%/commit `d_render` drop — `improved=True`
+unconditionally, `stale=0` forever, the latch never arms, the merit gate saturates.
+
+Repair (one change, two files):
+
+- `optimizer.py:losses_of` returns `lsil` and `lg_` separately; the window history
+  and `stats` log **`d_sil`** (pure silhouette) and **`d_gauss`** (raw gauss L1)
+  alongside the objective scalar `d_render_obj`;
+- `runner.py`: `components["render"] = rec["d_sil"]`, `rend_track = rec["d_sil"]`,
+  `best_rend` tracks `d_sil`; `d_gauss` is telemetry only. The v1 plan to delete the
+  old post-pass metric recompute ships only together with this split (Opus m26):
+  with no state edits and d_sil-only tracks, the archived state *is* the window
+  state and the recompute is dead code by construction.
+
+λ_R balancing and the window objective still consume the hybrid — that is the
+sanctioned optimization channel; it is logged (`d_gauss`, `g_*`, `render_work*`)
+and gates nothing.
+
+### 6.3 Transaction hygiene (Codex 13)
+
+Tier D's transaction is trivial by cadence: dressing mutates only post-gate on
+accepted commits, so outer rejection of commit k+1 finds the post-k dressing
+already in force and correct — nothing to restore; `dressing_frames` truncation
+follows frame truncation (§4.5); the frozen/c2f/termination paths carry the last
+accepted dressing forward. Codex 13's remaining observations — empty/replay-invalid
+windows retain mutated `s`/`dfc`/λ; `mom_carry` without `dfc_init` skips the warm
+safeguard — are **pre-existing production issues independent of this design**;
+accepted and flagged for a standalone fix (they bite any arm, not just this one),
+with `lg_balancer` rollback now moot (no λ_loc exists in v2).
+
+---
+
+## §7 Constants and budgets (all rule-bearing; none tuned)
+
+| constant | value | rule |
 |---|---|---|
-| λ_loc | balanced | the local `LambdaBalancer` in u-space (diag-curvature × trust radius vs ‖∂L_gauss/∂u‖, own EMA) — the retired pass's calibrated recipe, reused unchanged. Never shared with the global balancer (documented poisoning). |
-| dressing amplitude cap | `0.5·h_src` | Nyquist: a tangent offset ≤ half the sample spacing can re-distribute coverage between neighboring parents but cannot represent (hence cannot repaint) any feature the particle sampling itself resolves (Mip-Splatting's sampling-bound argument in material space). A/B `{0.5, 1.0}` in the ladder; pick by raw-chamfer-tie + max gauss-residual drop. |
-| dressing scale band | `[cov_smin, cov_smax]` | the band the existing `w_cov` term already declares as viewer-legal anisotropy/scale. No new constant. |
-| ∇u strain cap `1/3` | fixed | provable, not tunable: ‖sym∇u‖ ≤ 1/3 ⇒ all eigenvalues of `e_p` in [−1/3,1/3] ⇒ `A_p` SPD with κ(A) ≤ e^{2/3}; and `A` never touches `F` anyway. Chosen as the largest cap that keeps the small-strain reading of `I+∇u ≈ exp(e)` honest to <6% error. |
-| demand throttle `τ` | `median_p‖log S_e,p‖` of the just-committed window (band particles) | *the local channel may not demand more strain than the physics is currently carrying*: self-calibrating (no constant), self-terminating (at convergence accepted strain → 0 ⇒ τ → 0 ⇒ demand → 0 — the ratchet cannot run after the freeze), and scale-free. Falsifier: the held-phase probe (§10 K-R4). |
-| band solve sweeps / tol | `lg_sweeps=10`, `tol=5e-2` | existing defaults of the retired solver; the convergence flag is a **correctness gate** (DiffPD): `lg_converged=False` ⇒ **no demand this commit** (dressing keeps its last monotone-accepted value — safe by construction). |
-| dressing iters | 20, all views | fixed budget; convergence gate may stop early; determinism requires the full view set (no stochastic view subsampling). |
-| when the pass runs | accepted commits only | null/rejected commits donate no demand and no dressing change — retrying an identical stale state must not accumulate anything (the s4 absorbing-state lesson). |
+| dressing amplitude cap | `‖F·off‖ ≤ 0.5·h_src` (world space) | Nyquist: sub-sample-spacing in the *image-facing* metric (Opus M14); A/B `{0.5, 1.0}` in the ladder with a pick-by-rule (raw-chamfer tie + max `d_gauss` drop). |
+| scale / opacity DOFs | none | dropped (Opus M15; floaters.md contract). |
+| dressing iteration budget | largest of `{5, 10, 20}` whose stage-0 benchmark p50 overhead ≤ 50% of the global commit p50 | pre-registered selection, measured not estimated (Codex 14). If even 5 exceeds the bound, the arm is void before any GPU ladder. |
+| stop rule | `ΔL < ls_noise_rel·max(|L|,1)` twice consecutively | existing noise-floor constant; energy-based (Opus M11). |
+| views | all `render_views × render_elevs` | determinism; no stochastic subsampling. |
+| cadence | post-gate, accepted commits only | resolves Opus B4 for Tier D; rejected/null commits mutate nothing. |
+| stage matching | **commits matched, `cfg.pace` held fixed**, wall-clock reported | Opus M19: wall-clock matching silently rewrites the glidepath; pace is part of the mechanism under test and must not move. |
 
 ---
 
-## §8 The three symptoms → three falsifiable predictions
+## §8 Predictions (v2 — narrowed and honest)
 
-All at matched seed/budget/discretisation vs the flagship baseline
-(`render_full_dt_iso_nn` + gauss hybrid, N=20k stage / 40k hero, T=20, dt=1/240, dx=0.5,
-smoothing 0.955), telemetry already in `runner.py` history records unless marked new.
+Baseline `b0` = the production gauss arm (`render_stable_gauss`:
+`use_gauss_loss`, `gauss_mix=0.25`, `gauss_children=4`, `outer_merit=True`) **with
+the §6.2 split applied to both arms** (the split changes gate inputs, so the
+baseline must carry it too — otherwise the A/B confounds the split with the
+dressing). Matched seed, commits, pace, discretisation
+(`dx=0.5, dt=1/240, 64³, smoothing 0.955, loss_res 64, T=20`).
 
-**P-float (unobservable modes).** The local gauss objective sees lone splats linearly
-(L1, no α-saturation) and thin-feature holes at Nyquist-floored res; hole-side residual
-at ears becomes outward demand where fill-v3's loss-side pull dies with the physics
-gradient. Predict: `out_nn_frac` (>2·sp) improves ≥20% and `out_nn_far_frac` (>4.5·sp)
-does not regress; bunny fork lo-band count ≤ 45 (h18 baseline 64, −30%); ear cov<0.3
-reaches the <15% target h18 missed (18.7%). **Kill**: `out_nn_frac` regression >5%, or
-far-count regression, at the stage-3 budget.
+**P-dress (explanatory power).** Dressing drops the *undressed-state* gauss
+residual it is allowed to explain: `d_gauss` (post-dressing, logged per commit)
+≥10% below the matched baseline's from mid-run on, at a raw-state chamfer tie
+(±2%). **Kill K-D2**: <10% at tie — no explanatory power, drop the arm.
 
-**P-osc (flat valley).** Once dressing explains sub-Nyquist residual, the gauss term's
-flat-valley gradient noise leaves the global problem (envelope, §4.2); the surviving
-render gradient is coarse and coherent. Predict: over the last 40 pre-freeze commits,
-`reversal_cos` min > −0.2 **without a single outer-gate rejection needed** (the gate
-stays armed but idle), and tail mean `move` ≤ 0.5× baseline (h15: 0.003–0.004 → ≤0.002);
-freeze commit index ≤ baseline's. **Kill**: rev-cos min below the matched baseline's, or
-freeze fails inside the baseline's freeze budget +10%.
+**P-osc (pure empirical bet — M13 accepted).** With sub-Nyquist residual explained
+at fit states, the render channel's flat-valley gradient churn shrinks. Predict:
+over the last 40 pre-freeze commits, min `reversal_cos` ≥ the matched baseline's,
+and tail mean `move` ≤ baseline's; freeze commit index ≤ baseline's +10%. **Kill**:
+any of the three inverted at stage-1 scale. (No mechanism claim survives M13; this
+is a bet, and it dies quietly if wrong.)
 
-**P-render (dead channel).** New telemetry: `lg2_demand_work = −⟨g_render,x, u⟩` at
-commit, `lg2_realized_cos/frac` = alignment of the next committed window's band Δx with
-u. Predict: median `lg2_realized_cos ≥ 0.3` after commit 20, and total
-render-attributable work share — `(render_work + realized demand work) / (phys_work +
-…)` — rises ≥10× from the measured ~0.02% floor (i.e., ≥0.2%, target O(5%)). **Kill**:
-median `lg2_realized_cos < 0.1` by commit 40 — physics is ignoring the demand and the
-channel is dead again; Tier R is falsified regardless of endpoint metrics.
+**P-QA (G6).** Dressed frames (rendered with the per-frame archive, §4.5) show
+strictly fewer pinholes/blebs than undressed frames of the same run at 512px QA,
+with zero temporal pops across commit boundaries (the archive contract makes this
+testable frame-by-frame). **Kill**: any retroactive-observation artifact (pre-echo,
+pop) — archive bug or design flaw, either way the arm blocks.
+
+**Guard predictions (regressions).** `out_nn_frac`, `out_nn_far_frac`, hole_frac,
+G2 counters: no regression beyond noise vs baseline. **Kill K-D1**: raw chamfer
+regression >2% or any guard ≠ 0.
+
+**Not predicted by v2 main** (explicitly): render work share (R2) and floater-count
+reductions. R2's carrier was withdrawn; see Appendix A for the deferred candidate
+and its own falsifiers.
 
 ---
 
-## §9 Integration plan (file:function, cadence, cost)
-
-### 9.1 Code changes
+## §9 Integration plan (v2)
 
 | where | change |
 |---|---|
-| `physmorph/render/children.py` | add `DressingState` (per-child `(a,b,s)` in the frozen `(t1,t2)` basis + caps + zero-centroid projection); `expand_children_torch` accepts optional live coefficients; numpy twin for export parity. |
-| `physmorph/pipeline/gauss_loss.py:GaussViews._render/loss` | accept a dressing override for `source_offsets` and a per-child log-scale (multiplies `render_sigma` per splat / scales `cov6` rows). Target baking unchanged (targets are truth; never dressed). |
-| `physmorph/pipeline/surface_local.py` → `local_correction_pass` rewrite | (a) Tier D dressing sub-solve (line-searched Adam, fixed budget, convergence gate); (b) Tier R band solve with `L_gauss` in the energy and the **virtual** contract: returns `(A_field, dressing_new, tele)`; **never** returns `x'/F'`. `SurfaceLocal.__init__/solve` kept verbatim (band, coloring, diag, node_cap, gate). |
-| `physmorph/pipeline/runner.py:run_pipeline` | replace the LOCAL-phase block (currently guarded by `cfg.lg_sweeps > 0`): no `x/Fc` overwrite, no post-pass metric recompute (state is unchanged, so the archived state *is* the window state again — the old adversarial patch dissolves). Compute `F_virt = A·Fc` and route it into the **existing** assimilation call site (`assimilate_elastic(F_virt, …)` / `assimilate_growth(F_virt, …)`); when the pass is off, `F_virt = Fc` bit-exactly. Rollback dict gains `Fp_predemand` and `dressing` (§11.2); the `lg_sweeps`+`w_dt/w_fill` `ValueError` guard is retired **with a comment stating why its precondition (state overwrite) no longer exists**. |
-| `physmorph/pipeline/optimizer.py:losses_of` | gauss loss reads the frozen dressing (one field through `TargetPack`). Nothing else changes; the adjoint path is untouched. |
-| `physmorph/pipeline/config.py` | `local_dress_iters` (0=off), `local_demand: bool`, reuse `lg_sweeps`, `lg_young`; every constant documented with its §7 rule. **No new weight scalars.** |
-| `scripts/pipeline_run.py` | arms `dress`, `demand`, `lg2` (§10). |
-| `physmorph/viewer/server.py`, `scripts/render_sequence.py` | consume dressing for display parity — what is seen is what was optimized (PhysGaussian contract). |
-| `tests/` | stage-0 unit tests (§10). |
+| `physmorph/pipeline/optimizer.py:losses_of` + history/stats | return/log `d_sil`, `d_gauss`, `d_render_obj` separately (§6.2). |
+| `physmorph/pipeline/runner.py:run_pipeline` | gate/track/merit inputs → `d_sil`; delete the dead post-pass recompute (paired, m26); `dressing_frames` archive + truncation + `on_commit`/result plumbing; dressing state owned here, post-gate update only. |
+| `physmorph/render/children.py` | `DressingState` (per-child `(a,b)` in the frozen basis; feasibility map of §4.2; numpy twin for export). |
+| `physmorph/pipeline/gauss_loss.py:GaussViews._render/loss` | accept a live offsets override (positions only — no scale path). |
+| new `physmorph/pipeline/dressing.py` | the post-gate solve (§4.3): line-searched Adam, energy stop rule, feasibility projection, telemetry (`dress_iters_used`, `dress_dL`, `d_gauss_post`). |
+| `physmorph/pipeline/config.py` | `local_dress_iters` (0=off; benchmark-selected), `dress_cap_frac=0.5`. No other knobs. |
+| `scripts/pipeline_run.py` | arm `d1`; benchmark subcommand for stage 0. |
+| `physmorph/viewer/server.py`, `scripts/render_sequence.py` | consume `dressing_frames` per frame. |
+| `tests/` | stage-0 suite (§10). |
 
-### 9.2 Cadence
+Cost (Codex 14's arithmetic, now owned): worst case at 20 iters with 1–10
+backtracks ≈ 720–3,960 view-forwards + 360 backwards per commit — the stage-0
+benchmark measures the real number at production res/children/N and *selects the
+iteration budget* (§7) rather than trusting any estimate. The v1 "3.3×" citation is
+struck: it measured a CIC-silhouette inner loop, not all-view 3DGS.
 
-| step | when | differentiated? |
+---
+
+## §10 Staged ladder (v2)
+
+| stage | arm | budget | metrics | kill criterion |
+|---|---|---|---|---|
+| 0a | CPU tests | pytest | feasibility map exactness (centroid ∩ world-cap after every step, incl. Codex 15's `[r,r,−r]` case); zero-DOF ⇒ bit-identical render; archive alignment incl. rollback truncation; determinism of the solve given fixed state | any failure blocks |
+| 0b | GPU microbenchmark | one commit-shaped run, production res/children/N | dressing-solve p50/p95 (accepted and rejected commit shapes) vs global commit p50 | overhead >50% at `iters=5` ⇒ **arm void** (Codex 14 gate) |
+| 1 | `d1` vs `b0` (both with §6.2 split) | N=20k, 120 commits, pace fixed | §8 P-dress, P-osc, P-QA, guards | K-D1 (chamfer >2% or guard ≠ 0), K-D2 (<10% `d_gauss` drop at tie), P-QA pop |
+| 1b | cap A/B `{0.5, 1.0}·h_src` | N=20k, 120c | raw-chamfer tie + `d_gauss` | pick-by-rule; runs only if stage 1 passes |
+| 2 | `d1_hero` | N=40k, 4 pairs, **commits matched, pace fixed**, wall-clock reported | full G2–G6 battery + §8 | G5 rule per pair; adoption only with all gates and no regression |
+
+Verdict discipline unchanged: pre-registered thresholds, no post-hoc metric swaps,
+every number with its discretisation, REFUTE round on the diff before hero runs.
+
+---
+
+## §11 Adversarial self-review (v2 residuals)
+
+**11.1 "The split changes the baseline too."** Yes — §6.2 alters gate inputs for
+every gauss arm, so it is applied to both A/B arms and, if adopted, to production
+regardless of Tier D's fate. It is a harness-integrity fix that B1 exposed, not a
+Tier D feature; its own effect gets measured by re-running `b0` pre/post split once.
+
+**11.2 "Dressing still shapes the window objective."** True and sanctioned: the
+hybrid gauss term is the optimization channel. The exposure is bounded: λ_R is
+capped, `d_gauss` is logged, and no gate consumes it. Residual risk — λ_R drift
+caused by dressing-induced `‖∇L_gauss‖` changes — is visible in the per-commit
+`lambda` telemetry and pre-registered as a stage-1 watch item, not a gate.
+
+**11.3 "Sub-Nyquist capacity, image-space." ** The world-space cap closes M14's ear
+hole (image amplitude ≥ h_src exactly where `sv(F)>2`). What remains unrepresentable
+by dressing — silhouette-scale error — stays visible to the global channel via
+`d_sil`, which is now also the only gate currency.
+
+**11.4 "Determinism."** The solve is deterministic given the state up to rasterizer
+atomic noise; the stop rule is energy-based with the replay-check tolerance class
+(M11); post-gate cadence means rejected lineages never see a dressing mutation.
+
+**11.5 "What does v2 actually buy?"** Narrow, honest scope: (a) the B1 harness fix;
+(b) a capacity-bounded observation layer that can only be adopted if it explains
+≥10% of the gauss residual at a raw-fidelity tie; (c) the P-osc bet; (d) the
+per-frame observation contract for deliverables. The R2 transport gap is *not*
+bought — it is deferred to Appendix A with the reachability classification as the
+design constraint any future carrier must satisfy.
+
+---
+
+## §12 Non-goals (v2)
+
+- No rest-state, growth-shaped, or prestress demand from any render-local channel
+  (withdrawn, §5); the `w_grow` channel remains the only commit-time rest-volume
+  actor, unchanged.
+- No implicit-MPM integrator replacement; no control-space H1/kNN preconditioner.
+- No opacity/scale/deletion DOFs in any differentiable objective.
+- No change to mass, momentum, P2G/G2P, the adjoint, `_state_ok`, guard semantics,
+  the metric battery, or the `lg_sweeps+(w_dt|w_fill)` guard.
+- No constant without a §7 rule.
+
+---
+
+## §13 REFUTE dispositions — every finding, both reports
+
+Legend: **A** = accept (with repair or withdrawal), **A/S** = accept, settled by a
+production fix (cited per coordinator; not redesigned here), **A/moot** = accepted
+and mooted by the Tier R withdrawal (recorded as a constraint on any future carrier).
+
+| finding | disposition | repair / evidence |
 |---|---|---|
-| global window (`optimize_window`) | per commit | dFc, s through the MPM tape (unchanged); dressing frozen |
-| outer promotion + guards | per commit | — |
-| Tier D dressing solve | per **accepted** commit, on the promoted terminal state | dressing only, direct render backward, no MPM |
-| Tier R band solve + demand | per **accepted** commit, after Tier D | u only, direct render backward, no MPM |
-| assimilation (one call, `F_virt`) | per accepted commit (existing site) | never |
-| outer merit gate | per commit, dressing-free components | — |
-| c2f rebuild | as now; dressing resets to baseline (§11.6) | — |
-
-### 9.3 Expected cost per commit
-
-Tier D: ≤ `20 iters × 18 views` fwd+bwd rasterizations at gauss res (128–384px,
-10–40k splats) — small next to a window (8 iters × up to 10 line-search rollouts of
-T=20 MPM steps + one tape backward). Tier R: the dominant add — the retired pass
-measured **3.3× wall-clock** with the same solver at similar budgets; expect 1.5–3× per
-commit at `lg_sweeps=10` early, **annealing toward ~1× late** because the convergence
-gate exits in 1–2 sweeps once the residual (and τ) shrink. The ladder's hero stage is
-wall-clock-matched (G5 discipline); if lg2 cannot pay for itself at matched wall-clock,
-that is a verdict, not a footnote.
-
----
-
-## §10 Staged A/B falsification ladder (experiments.md style)
-
-Baseline `b0` = flagship `render_full_dt_iso_nn` + gauss hybrid, same seed/budget per
-stage. Discretisation for every number: `dx=0.5, dt=1/240, 64³, smoothing 0.955,
-loss_res 64, T=20`.
-
-| stage | arm | config delta | budget | primary metrics | kill criterion (pre-registered) |
-|---|---|---|---|---|---|
-| 0 | CPU tests | — | pytest | `u=0 ⇒ F_virt≡F` bit-exact vs current path; assimilation invariants (det Fp=1 to 1e-6, SV band) under random capped `A`; `A` SPD + cap bound; dressing zero-centroid + caps; determinism of the pass given fixed state | any failure blocks stage 1 |
-| 1 | `d1` (Tier D only) | `local_dress_iters=20`, `local_demand=off` | N=20k, 120c | gauss L1 residual; raw chamfer/silIoU; G2; G6 | **K-D1**: raw chamfer regression >2% (dressing misleads the frozen-dressing window) or any guard ≠ 0. **K-D2**: gauss residual drop <10% at raw-chamfer tie — dressing has no explanatory power, drop Tier D. |
-| 2 | `r1` (Tier R only) | `lg_sweeps=10`, `local_dress_iters=0` | N=20k, 120c | `lg2_realized_cos/frac`, `lg2_demand_energy`, window-start kin kick, chamfer/silIoU, out_nn, `F_invert_steps` | **K-R1**: realized_cos median <0.1 by c40 (dead channel again). **K-R2**: window-start kin > 2× baseline median (the displacement-assimilation spike signature). **K-R3**: chamfer regression >2% or any guard ≠ 0. |
-| 3 | `lg2` (D+R) | both on | N=20k, 120c, + freeze-and-hold 40 extra commits | §8 P-float, P-osc, P-render; **held-phase ratchet probe**: per-held-commit ‖ΔFp‖ | each P's kill as written in §8. **K-R4 (ratchet)**: ‖ΔFp‖ per held commit not → 0 within 5 held commits — demand fails to self-terminate, Tier R is falsified. |
-| 4 | `lg2_hero` | stage-3 winner config | N=40k, 300c, 4 pairs (bunny/armadillo/spot/A→C), wall-clock-matched vs `b0` | full gate battery G2–G6 + §8 predictions at hero scale | G5 rule: any pair with sil_iou ↓ or chamfer > +2% vs `b0` at matched wall-clock ⇒ not adopted; partial adoption (D without R or vice versa) allowed only along the stage-1/2 single-tier evidence. |
-| 4b | `d1_cap` | amplitude cap A/B `{0.5, 1.0}·h_src` | N=20k, 120c | raw chamfer tie + gauss residual | pick-by-rule (§7); runs only if stage 3 passes. |
-
-Verdict discipline: pre-registered thresholds above; no post-hoc metric swaps; every
-number states its discretisation; adversarial REFUTE round (Codex + Opus) on the diff
-before any hero run.
-
----
-
-## §11 Adversarial self-review (REFUTE-style)
-
-**11.1 "Two objectives, no joint guarantee — you rebuilt the lg mismatch."**
-Partly true and owned. ARAP/PD get guarantees because both phases descend one energy;
-lg2's local objective (gauss L1 + SNH coherence) ≠ the window objective (D_vol + hybrid
-+ W1/nn + priors). The difference from the retired pass: the local output is a *demand*,
-not a *state edit* — the global solve re-arbitrates it against every term it knows
-(W1, fill, D_vol gradients all present in the next window), the line search can refuse
-to realize it, and the outer fixed-merit gate can reject the resulting commit. The
-mismatch can therefore cost budget (rejected commits), never correctness. Falsifier:
-stage-2 K-R3 plus the rejection-rate telemetry (a demand arm whose outer-reject rate
-doubles is fighting the data terms — that is the h15 "nothing to descend" answer
-arriving as evidence, and the arm dies by K-R1/K-R3).
-
-**11.2 "Ratchet through assimilation — a bad demand is baked before it is tested."**
-Correct as stated: the demand at commit k acts through window k+1, so the gate at k
-never saw its effect. Three answers. (a) The rollback dict gains `Fp_predemand`: an
-outer rejection at k+1 restores `Fp` to *before* commit k's demand — the untested
-mutation is stripped as part of the existing cold-restart rule, so a bad demand
-survives at most one window and cannot compound. (b) The throttle τ bounds any single
-demand by the physics' own current strain scale, and the isochoric projection + SV band
-bound the cumulative excursion (the measured volume-ratchet forensic is the reason the
-band exists). (c) The held-phase probe (K-R4) directly falsifies residual ratcheting at
-convergence. Residual risk: a *slow* ratchet inside the band during descent —
-`lg2_demand_energy` is logged per commit precisely so the REFUTE round can audit its
-integral against the elastic energy scale.
-
-**11.3 "Gauge freedom: dressing paints over real error; absorbing state at 'looks
-right, is wrong'."** Three structural armors. (a) Capacity: tangent-only, ≤0.5·h_src,
-scale in the `w_cov` band — dressing cannot represent (so cannot cancel) any mode the
-particle sampling resolves; silhouette-scale error stays visible to the global channel.
-(b) The freeze tracks and the outer gate consume dressing-free raw-state components
-only; `metrics.py` never consumes the renderer — every gate number is dressing-proof,
-so "converged because painted" is impossible. (c) No opacity DOF (floaters.md
-contract). Residual risk: G6 (human visual QA) is the one gate dressing *does* touch —
-by design; the QA checklist must add "toggle dressing off" to the viewer audit, next to
-the existing "uncheck surface Gaussians".
-
-**11.4 "Determinism of rejection loops."** The pass is a deterministic function of the
-promoted state (fixed budgets, frozen assignments, full view set) up to CUDA atomic
-noise — the same equivalence class as the existing replay check, and covered by the
-same `ls_noise_rel` tolerance. On outer rejection, `Fp` (pre-demand) and dressing are
-restored and the lineage cold-restarts — the s4 absorbing-state fix is inherited
-unchanged. Null commits donate nothing (§7), so the "identical stale retry" loop cannot
-accumulate demand.
-
-**11.5 "Two clocks resonate: demand overshoots, next window overcorrects."** The
-multirate literature's standing failure mode. Damping levers already in the loop: τ
-shrinks when windows stop accepting strain; `anneal_stale` shrinks the global step on
-non-improvement; the reversal gate latches. Dedicated telemetry: sign flips of
-⟨u_k, u_{k+1}⟩ (demand-direction reversal across commits). Pre-registered response if
-it fires: halve the demand cadence (every 2nd commit) — a structural change, not a
-weight change — and re-run stage 3.
-
-**11.6 "c2f rebuilds and window boundaries."** On the c2f rebuild the render targets
-change resolution: dressing (whose objective just changed) resets to the PCA baseline
-and re-earns, exactly like the outer latch re-earn at the same site; τ carries over
-(it is physics-side). `Fp` needs no special handling — it is physical state and
-legitimately survives rebuilds. Window boundaries: the demand's elastic kick enters at
-window start — bounded by τ, watched by K-R2; the `mom_carry`/warm-start machinery is
-unaffected because the control leaves see only a slightly different initial stress
-field, the same class of change as any assimilation step today.
-
-**11.7 "The frequency gap: modes between h_src (0.04) and dx (0.5)."** Honest gap:
-dressing amplitude caps at 0.02 wu; band `u` lives on dx-scale nodes. Wavelengths of a
-few particle spacings with amplitudes above the dressing cap are owned by *neither*
-tier — they must still ride the global channel. The bet, falsifiable by P-osc, is that
-the measured oscillators (1.2× spacing, sub-cap amplitudes) sit inside Tier D's band.
-If P-osc fails while P-float/P-render pass, this gap is the first suspect, and the
-pre-registered diagnostic is the 4b cap A/B — not an ad-hoc weight turn.
-
-**11.8 "Tier R does nothing for a lone floater."** Correct: an isolated particle's
-∇u ≈ 0 (pure translation demand), and strain-only extraction discards it — by design
-(a translation demand through `Fp` would be exactly the inadmissible positional servo).
-Lone-floater *transport* remains the near-band W1 term's job (adopted, fork 326→97→64);
-Tier R attacks the floater *sources* (thin-feature under-coverage → squeeze ejecta),
-Tier D + the support check own their visibility. P-float is written against the
-combined stack accordingly.
-
-**11.9 "You revived a falsified mechanism."** The h15 verdict ("lg parked") falsified
-the *silhouette-objective, state-overwriting* pass — same-nullspace objective, tie at
-3.3× cost. lg2 changes both falsified components (gauss objective; virtual demand) and
-its re-activation condition is different in kind: not "PCGrad left a conflict gap" but
-"the render channel's unique content measurably cannot reach dFc" (root_analysis,
-work-share telemetry). The parked arm's park order stands; lg2 is a new arm with its
-own ladder and its own kill criteria.
+| Codex 1 / Opus M6 (rotation leak, non-commuting polar) | **A/moot** | Withdrawal evidence (§5.2). Appendix A's carrier has no polar algebra to leak through. |
+| Codex 2 / Opus m20 (SV-band violated by alternating projection; growth governor undoes clamp) | **A/S** | Fixed in production 2026-09-02: exact KKT projection onto log-box ∩ det constraint. v2 additionally adopts the reviewer's residual ask: an `Fp_bad` guard counter (finite/det/SV audit) at the assimilation call site, G2 class. |
+| Codex 3 / Opus M7+M8 (volume ratchet at default `assim_iso`; areal ratchet; nonlocal τ; no self-termination) | **A/moot** | Withdrawal evidence (§5.5). Appendix A uses per-particle hysteresis increments with a cumulative band; no strain-derived throttle exists. |
+| Codex 4 / Opus M9 (K-R4 vacuous — held commits never run the pass) | **A/moot** | K-R4 deleted with Tier R. The replacement falsifier class — descent-phase p99 monotonicity + demand-sign autocorrelation — is adopted verbatim in Appendix A §A.5. |
+| Codex 5 / Opus B3 (fused assimilation ⇒ no recoverable `Fp_plain`; restoring pre-demand Fp creates an ungated third state) | **A/moot** | Withdrawal evidence. Hard requirement **A-T1** on any future carrier: two-variant transaction `{carrier_plain, carrier_demand, origin_commit}`, finalized only after the next window passes the outer gate. |
+| Codex 6 (pending demand survives null / replay-fail / grad-converged / freeze / budget-end) | **A/moot** | Same as above; A-T1 enumerates the restore paths verbatim (empty, invalid, converged, frozen, rejected, exception, c2f, budget-termination). |
+| Codex 7 / Opus M16 (retiring the W1/fill guard recreates the accept/reject deadlock; half the precondition survives) | **A** | Guard **retained untouched**; §1 corrected: precondition = objective exclusion + assimilation ratcheting, not merely state overwrite. Tier D trips neither. |
+| Codex 8 / Opus B2 (dFc exactly cancels the prestress; cancellation is the gradient-favored direction) | **A** | The central kill; generalized into the span(dFc) classification (§5, end). The four-way telemetry split (passive / cancellation / net realization via counterfactual rollout) is requirement **A-T2** for any motion-claiming carrier. |
+| Codex 9 / Opus B1 (Tier D launders merit/freeze through `d_render`) | **A** | Repaired (§6.2): `d_sil`/`d_gauss` split; all gate, track, latch, and merit inputs read `d_sil` only; `d_gauss` telemetry-only. Applied to baseline arms too (§11.1). |
+| Codex 10 (band-solve convergence says nothing about the emitted demand; reflections invisible to Σ) | **A/moot** | Withdrawal evidence (§5.3). If any band solve returns, it must optimize in the emitted variables directly — recorded as a constraint. |
+| Codex 11 / Opus M13 (envelope theorem at the wrong state / only at the first iterate) | **A** | Claim removed (§4.4); P-osc demoted to a pure empirical bet with an unchanged falsifier. No profiling repair attempted — cost model preserved. |
+| Codex 12 / Opus B5 (c2f: missing `configure_source` ⇒ RuntimeError; dressing reset manufactures discontinuity; cleared `outer_prev` ungates a pre-c2f demand) | **A/S + A** | `configure_source` re-call: fixed in production 2026-09-02 (cited). Dressing reset: withdrawn — dressing persists across c2f (§4.6; its objective's resolution never changed). Pre-c2f pending-demand hole: moot (no demand exists in v2). |
+| Codex 13 (nontransactional rollback/warm start; lg_balancer not rolled back; empty windows retain s/dfc/λ; mom_carry loads stale moments without safeguard) | **A** | Tier D's transaction is trivial by post-gate cadence (§6.3); `lg_balancer` moot (no λ_loc in v2). The pre-existing production residues (empty-window s/dfc/λ retention; mom_carry-without-dfc_init safeguard bypass) are accepted as real, independent bugs and flagged for a standalone fix — v2 does not build on them. |
+| Codex 14 (cost undercounted ~10×; 3.3× proxy invalid; τ-shrink does not cause early exit; wall-clock math) | **A** | 3.3× citation struck; Tier-D worst-case counts owned (§9); **stage-0 GPU microbenchmark is a hard gate** with a pre-registered iteration-budget selection rule (§7, §10 0b); τ claim gone with Tier R. |
+| Codex 15 / Opus M14+M15 (caps not jointly enforced; material-space cap acts in image space; log-scale is a partial opacity DOF breaking the Nyquist floor) | **A** | `s_pc` **dropped**; world-space cap `‖F·off‖ ≤ 0.5·h_src`; exact joint feasibility by centroid-projection-then-uniform-per-parent-rescale, which commutes with the centroid constraint (§4.2); Nyquist floor and `primitive_sigma` diagnostics stay truthful with dressed σ ≡ undressed σ. |
+| Codex 16 (no per-frame dressing ⇒ QA contract violated) | **A** | `dressing_frames` 1:1 archive with holds/truncation semantics; `on_commit` + result plumbing; viewer/export consume it (§4.5). P-QA gates on zero temporal pops. |
+| Opus B1 | **A** | = Codex 9 row. |
+| Opus B2 | **A** | = Codex 8 row. |
+| Opus B3 | **A/moot** | = Codex 5 row (A-T1). |
+| Opus B4 ("accepted commits only" vs fused pre-gate call — ordering unnamed) | **A** | For Tier D: resolved by explicit post-gate cadence (§4.3, §7) — dressing feeds no gate input, so it legitimately runs only on accepted commits with no second assimilation call. For Tier R: withdrawal evidence. |
+| Opus B5 | **A/S** | = Codex 12 row, production fix cited. |
+| Opus M6 | **A/moot** | = Codex 1 row. |
+| Opus M7 (volume demand possible at default; growth branch skips det-1) | **A/moot** | Withdrawal evidence; the `assimilate_growth` branch-precedence observation is recorded for the growth channel's own docs (behavioral by design for commanded growth, but worth the docstring). |
+| Opus M8 (areal ratchet; global-median τ licenses low-strain regions) | **A/moot** | = Codex 3 row. |
+| Opus M9 (K-R4 vacuous) | **A/moot** | = Codex 4 row; falsifier class inherited in §A.5. |
+| Opus M10 (convergence gate cannot fire before sweep 2; `g0` after first sweep) | **A/moot** | Withdrawal evidence; recorded repair (`g0` at `u=0`, already computed for λ_loc) binds any revived band solve. Tier D's stop rule is energy-based and unaffected. |
+| Opus M11 (binary gate on rasterizer-noise gradient ≠ replay-check class) | **A** | Tier D stop rule switched to relative energy decrease with the `ls_noise_rel` tolerance (§4.3); dressing is non-permanent, transactional. |
+| Opus M12 (λ_loc recipe pinned at cap ⇒ raw L2 shape gradient made permanent) | **A/moot** | No λ_loc exists in v2 (the dressing solve is unweighted `L_gauss` + box constraints). Recorded as a mandatory saturation-kill (`lam at cap >20% of commits ⇒ arm void`) for any future balancer-bearing carrier. |
+| Opus M13 | **A** | = Codex 11 row. |
+| Opus M14 (cap acts in image space; ears need `sv(F)>2`) | **A** | = Codex 15 row (world-space cap). |
+| Opus M15 (log-scale = partial opacity DOF; Nyquist floor invalidated; 384 cap silent) | **A** | = Codex 15 row (`s_pc` dropped — the stricter of the two offered repairs). |
+| Opus M16 | **A** | = Codex 7 row (guard retained). |
+| Opus M17 (`lg2_realized_cos` measures transport alignment, not realization) | **A/moot** | Withdrawn with Tier R; the counterfactual-rollout realization metric (same accepted `dFc`, carrier_plain vs carrier_demand, one extra forward rollout) is adopted as **A-T2** in Appendix A. |
+| Opus M18 (headless runs record `render_work=None`) | **A/S** | Fixed in production 2026-09-02 (work telemetry hoisted out of the `on_iter` guard); the ladder consumes the fixed fields. |
+| Opus M19 (wall-clock matching rewrites the pace glidepath) | **A** | Stages match on **commits with `cfg.pace` held fixed**, wall-clock reported (§7, §10). |
+| Opus m20 | **A/S** | = Codex 2 row. |
+| Opus m21 (τ measured pre-assimilation ⇒ 2× budget) | **A/moot** | τ withdrawn; Appendix A budgets are defined post-assimilation by construction (increment-based, not strain-derived). |
+| Opus m22 (`ok = det>1e-6` on `A·F_e` silently drops demand AND global assimilation) | **A** | Moot for demand; the reviewer's `n_assim_skipped` counter is adopted for the production assimilation site regardless (cheap telemetry; a skipped row is invisible today). |
+| Opus m23 (reusing `cov_smin/cov_smax` imports unvalidated constants) | **A** | Dissolved by dropping `s_pc`; no σ band is imported anywhere in v2. |
+| Opus m24 (K-R2's "window-start kinetic kick" has no recorded field) | **A/moot** | K-R2 withdrawn; Appendix A pre-registers `rec["kin_start"]` (mean&#124;v&#124;² after the window's first step) as a first-class field before any carrier revival. |
+| Opus m25 (§11.7 inferred amplitude from `move`, a step size) | **A** | §1 rewritten to cite the dossier's direct forensic (oscillators at 1.2× spacing) and the `move`-based inference is dropped. |
+| Opus m26 (recompute deletion must pair with B1 repair) | **A** | Paired explicitly (§6.2): the deletion ships only with the d_sil split, in the same change. |
 
 ---
 
-## §12 Non-goals
+## Appendix A — deferred carrier sketch: per-particle material remodeling ("Tier M")
 
-- No implicit-MPM integrator replacement (review option 1) — out of scope; lg2 is the
-  engineering-scale route.
-- No control-space H1/kNN preconditioner (measured regression; stays off).
-- No opacity/deletion DOFs anywhere in a differentiable objective.
-- No change to mass, momentum, P2G/G2P, the adjoint, `_state_ok`, guard semantics, or
-  the metric battery.
-- No new tuned scalar without its §7 rule; any constant that later needs "adjusting" is
-  a design bug to be re-derived, not turned.
+**Status: DEFERRED.** Not part of the v2 ladder; runs only after Tier D's stage-2
+verdict AND its own REFUTE round. Recorded here because §5's classification reduces
+the search space to exactly one in-contract, motion-relevant carrier, and the
+coordinator's settled ground rules ask for the strongest candidate.
+
+### A.1 Why material, and not the other two out-of-span carriers
+
+- *Target-side warping* is an observation change on the target: it can de-noise the
+  objective (largely redundant with Tier D) but produces no transport — it cannot
+  touch R2.
+- *Rest-topology/sampling* (splitting/merging particles) changes the mass
+  distribution — outside this project's state contract (mass/momentum untouched).
+- *Material* (per-particle Lamé) changes the **response operator**: it is already a
+  physical field with an existing optimized twin (`s`, `Lamé = base·e^s`,
+  `mat_clamp`, G1b-gated gradients), and no cheap exact annulling control exists —
+  to reproduce a trajectory under modified stiffness, `dFc` would have to solve
+  `P_new(Fe') = P_old(Fe)` pointwise in time while `Fe'` simultaneously drives the
+  kinematic update (9); overdetermined, no null direction (contrast §5.1).
+
+### A.2 Mechanism
+
+A commit-time channel writes the per-particle **base** log-multipliers
+`b = (b_λ, b_μ)` (the optimizer's leaf `s` continues to fine-tune around the base;
+effective Lamé `= base·e^{b+s}`):
+
+- **stiffen** (`b_μ += δ`) where the per-particle gauss residual has sat below its
+  noise floor for K consecutive commits — raising the curvature of the energy in
+  the converged surface modes: the flat valley (R3) gets walls from physics, not
+  from state damping;
+- **soften** (`b_μ, b_λ −= δ`) where the residual has sat in its top decile for K
+  consecutive commits (ears) — compliance amplification: the same attenuated render
+  gradient produces more motion where motion is demanded (R2 addressed as *plant
+  conditioning*, the Sobolev idea executed through a physical, guarded field);
+- hysteresis `K=3` (the Schmitt pattern already queued in config notes); increment
+  `δ = mat_clamp / animations` (glidepath: the band edge is reachable only by
+  unanimous demand across the whole run — the `pace_budget` derivation pattern, no
+  tuned scalar); cumulative `|b| ≤ mat_clamp` (the band the `s` channel already
+  validates for exactly this quantity).
+
+### A.3 Hard requirements inherited from the REFUTE rounds
+
+- **A-T1 (Codex 5, 6 / Opus B3)**: two-variant transaction
+  `{b_plain, b_demand, origin_commit}`; `b_demand` finalized only after the next
+  window passes the outer gate; `b_plain` restored on every empty, invalid,
+  converged, frozen, rejected, exception, c2f, and budget-termination path.
+- **A-T2 (Codex 8 / Opus M17)**: realization is measured counterfactually — re-roll
+  the accepted `dFc` once under `b_plain`; `realized = Δx_T(b_demand) − Δx_T(b_plain)`,
+  reported as passive/cancellation/net fractions. One extra forward rollout per
+  commit, priced into the stage budget.
+- **Falsifiers (Codex 4 / Opus M9 pattern)**: descent-phase — per-particle p99
+  `|b|` must not grow monotonically over any 20-commit window; demand-sign
+  autocorrelation must not stay positive >10 consecutive commits. Plus
+  `rec["kin_start"]` (Opus m24) recorded before any run.
+- **Saturation kill (Opus M12 pattern)**: any balancer or normalizer introduced
+  here that pins at a cap >20% of commits voids the arm.
+
+### A.4 What could kill it at the whiteboard (pre-registered doubts)
+
+- The optimizer leaf `s` can partially counteract `b` within its own clamp
+  (`|s| ≤ 1`): the net band is `e^{b+s}`, so the channel's authority is only the
+  part of `b` the window objective does not want undone — which is the point
+  (arbitration by physics), but also a cheap half-cancellation the counterfactual
+  telemetry must separate.
+- Stiffening converged regions raises the global energy scale and could slow
+  legitimate late corrections (a lock-in ratchet in disguise); the hysteresis
+  release path (residual returns ⇒ soften) must be shown live, not assumed.
+- Softened ears deform more under *all* forces, including the W1/nn cleanup pulls —
+  interaction pre-registered as a stage A/B, not assumed benign (the M16 lesson).
+
+### A.5 Mini-falsification plan
+
+| stage | arm | budget | metrics | kill |
+|---|---|---|---|---|
+| M-0 | CPU tests + bench | pytest + stage-0b pattern | A-T1 restore paths enumerated in a test; determinism; counterfactual-rollout cost | any failure blocks |
+| M-1 | `m1` (Tier M only) vs `b0` | N=20k, 120c, commits matched, pace fixed | A-T2 net realization; `kin_start`; p99 &#124;b&#124; trace; rev-cos tail; ear cov<0.3; chamfer/silIoU; guards | net realization median <10% of counterfactual delta by c40; chamfer >2%; any falsifier of §A.3; `kin_start` >2× baseline median |
+| M-2 | `m1+d1` | N=20k, 120c | interaction with dressing + W1/nn (the §A.4 doubts) | pre-registered per-doubt thresholds set at M-1 verdict time |
+
+---
+
+*(end of v2)*
