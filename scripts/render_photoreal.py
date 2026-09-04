@@ -31,11 +31,26 @@ ap.add_argument("--out", required=True)
 ap.add_argument("--res", type=int, default=1400)
 ap.add_argument("--azim", type=float, default=35.0)
 ap.add_argument("--elev", type=float, default=18.0)
+ap.add_argument("--frame", type=int, default=None,
+                help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
+                     "archive carries one, else the last frame")
 a = ap.parse_args()
 
 d = np.load(a.npz)
-x = d["frames"][-1].astype(np.float32)
-F = d["F_samples"][-1].astype(np.float32)
+n_frames = len(d["frames"])
+if a.frame is None:
+    fi = int(d["deliver_n"]) - 1 if "deliver_n" in d.files else n_frames - 1
+else:
+    fi = a.frame if a.frame >= 0 else n_frames + a.frame
+x = d["frames"][fi].astype(np.float32)
+# F is sampled sparsely (F_sample_idx): take the latest sample at or before the frame
+if "F_sample_idx" in d.files:
+    sidx = np.asarray(d["F_sample_idx"])
+    k = int(np.searchsorted(sidx, fi, side="right") - 1)
+    F = d["F_samples"][max(k, 0)].astype(np.float32)
+else:
+    F = d["F_samples"][-1].astype(np.float32)
+print(f"[photoreal] frame {fi} of {n_frames}")
 dev = "cuda"
 xt = torch.tensor(x, device=dev)
 sigma0 = sigma0_from_nn(x, 1.6)
