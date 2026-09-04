@@ -34,6 +34,13 @@ ap.add_argument("--elev", type=float, default=18.0)
 ap.add_argument("--sigma_k", type=float, default=1.6, help="display splat sigma in NN spacings")
 ap.add_argument("--adaptive_k", type=int, default=0, help=">0: per-particle sigma = sigma_k x mean distance to its k nearest neighbours (fills clustering gaps)")
 ap.add_argument("--surface_only", type=float, default=0.0, help=">0: render only the surface parents (fraction, kNN one-sidedness score) - required for SOLID bodies")
+ap.add_argument("--surfel", type=float, default=0.0,
+                help=">0: SURFEL display - each particle becomes a flat Gaussian in its PCA "
+                     "tangent plane, sigma_n = this x local spacing along the normal (0.15 "
+                     "is crisp), sigma_t = --sigma_t x local spacing tangentially. A solid "
+                     "body rendered with isotropic splats of ~1.6 spacings is a cloud; the "
+                     "surface layer rendered as oriented surfels (2DGS-style) is a surface.")
+ap.add_argument("--sigma_t", type=float, default=1.1, help="surfel tangential sigma in local spacings")
 ap.add_argument("--frame", type=int, default=None,
                 help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
                      "archive carries one, else the last frame")
@@ -92,6 +99,21 @@ _pn = _v[:, :, 0]
 n_p = torch.tensor(_pn.astype(_np.float32), device=dev)
 flip = (n_p * n_field).sum(1, keepdim=True) < 0
 n_p = torch.where(flip, -n_p, n_p)
+if a.surfel > 0:
+    # oriented surfels: covariance R diag(st^2, st^2, sn^2) R^T in the PCA frame
+    # (t1, t2 = the two larger-variance axes, n = the smallest); sizes from the LOCAL
+    # spacing so clustered regions do not over-cover and sparse ones do not gap
+    _loc_s = cKDTree(x).query(x, k=9, workers=-1)[0][:, 1:].mean(1).astype(_np.float32)
+    st_ = (a.sigma_t * _loc_s)[:, None]; sn_ = (a.surfel * _loc_s)[:, None]
+    t1 = _v[:, :, 2].astype(_np.float32); t2 = _v[:, :, 1].astype(_np.float32)
+    nn_ = _pn.astype(_np.float32)
+    _cov_s = (st_[:, :, None] ** 2 * (t1[:, :, None] * t1[:, None, :] + t2[:, :, None] * t2[:, None, :])
+              + sn_[:, :, None] ** 2 * (nn_[:, :, None] * nn_[:, None, :]))
+    cov = torch.tensor(_cov_s, device=dev)
+    cov6 = torch.stack([cov[:, 0, 0], cov[:, 0, 1], cov[:, 0, 2],
+                        cov[:, 1, 1], cov[:, 1, 2], cov[:, 2, 2]], 1).contiguous()
+    print(f"[photoreal] surfels: sigma_t {a.sigma_t} sigma_n {a.surfel} x local spacing "
+          f"(med {float(_np.median(_loc_s)):.4f})")
 def lit(albedo, n, cam_fwd, cam_right, cam_up):
     # camera-relative studio rig: subject is lit from the camera's upper-left at any azimuth
     key  = (-cam_fwd + 1.1 * cam_up - 1.4 * cam_right); key = key / key.norm()
