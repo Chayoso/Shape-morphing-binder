@@ -592,33 +592,32 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # the flat valley; the archive up to the best commit is continuous (no snap), and
     # the wandering tail is not shown. The full history stays in `history`.
     trunc = None
+    deliver_n = len(frames)
     if cfg.best_truncate:
         acc = [r for r in hist if r.get("frame_end") and not r.get("null_commit")
                and r.get("d_vol") is not None]
         if len(acc) >= 2:
+            # RESOLUTION-INVARIANT shape merit only: d_vol + d_dt (fixed grids).
+            # d_sil is excluded - the c2f rebuild changes render_res mid-run and
+            # r3's truncation picked a150 over the genuinely better a217 because
+            # the silhouette scalar jumped 53% across that boundary.
+            r0 = acc[0]
+
             def merit(r):
-                m = r["d_vol"]
-                rs = r.get("d_sil") if r.get("d_sil") is not None else r.get("d_render")
-                if rs is not None and acc[0].get("d_sil") or acc[0].get("d_render"):
-                    r0 = acc[0].get("d_sil") if acc[0].get("d_sil") is not None else acc[0]["d_render"]
-                    m = m / max(abs(acc[0]["d_vol"]), 1e-8) + rs / max(abs(r0), 1e-8)
-                    if r.get("d_dt") is not None and acc[0].get("d_dt"):
-                        m += r["d_dt"] / max(abs(acc[0]["d_dt"]), 1e-8)
+                m = r["d_vol"] / max(abs(r0["d_vol"]), 1e-8)
+                if r.get("d_dt") is not None and r0.get("d_dt"):
+                    m += r["d_dt"] / max(abs(r0["d_dt"]), 1e-8)
                 return m
             best = min(acc, key=merit)
             if best is not acc[-1] and merit(acc[-1]) > merit(best) * (1 + cfg.tol):
-                cut = int(best["frame_end"])
+                deliver_n = int(best["frame_end"])
                 trunc = {"best_animation": int(best["animation"]) + 1,
-                         "frames_kept": cut, "frames_dropped": len(frames) - cut}
-                del frames[cut:]
-                del F_frames[cut:]
-                if dress is not None:
-                    dress.truncate(cut)
-                log(f"[v2] deliverable truncated at best commit anim {trunc['best_animation']}"
-                    f" (kept {cut} frames, dropped {trunc['frames_dropped']})")
+                         "frames_kept": deliver_n, "frames_dropped": len(frames) - deliver_n}
+                log(f"[v2] deliverable ends at best commit anim {trunc['best_animation']}"
+                    f" (deliver {deliver_n} of {len(frames)} frames; all frames archived)")
     if dress is not None:                        # close the archive over any tail
         dress.cover_frames(len(frames))
-    return {"truncation": trunc,
+    return {"truncation": trunc, "deliver_n": deliver_n,   # frames are NEVER dropped
             "dressing": dress.export() if dress is not None else None,
             "frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen,

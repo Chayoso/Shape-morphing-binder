@@ -161,3 +161,14 @@ moments across windows pushes the iterate past the optimum near convergence; its
 zigzag benefit was never validated in isolation (g5_mom was stopped). Retired from the
 recipe: anneal_stale stays, mom_carry = 0. The b-series late regressions all ran with
 mom_carry 0.9 and should be re-read in that light.
+
+### Addendum 5 — pace 0.12 was the hidden brake (r3, 2026-09-03)
+
+Every flagship run so far carried the arm default `pace 0.12`; with `--pace 0` (r3, 20k,
+mom_carry 0, E4, gate v3) windows run their full 8 iterations, the run went 221 commits with
+only 2 brake rejects and reached d_vol 23.4 — 2.7× below the previous best (62) — with
+out_nn 8.6% and far floaters 417 at the (mis-)truncated a150. The 12% per-window cap
+stopped windows early, left the plateau tracks starved and froze runs at ~100–160 commits
+(r2/r4). New recipe: `--pace 0`, anneal 0.7, mom_carry 0, nn_far_k 1000, outer_merit
+(brake as a safety net), best-commit delivery with a resolution-invariant merit and no frame
+drops. The "no snap" requirement is met without pacing (first3 = 11–12%).

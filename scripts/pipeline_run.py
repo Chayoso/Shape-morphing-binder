@@ -486,7 +486,8 @@ def main():
             cbs = live.begin_run(arm, src, tgt, prm, cfg, sigma0_from_nn(tgt, 0.9))
         res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1])
         dt = time.time() - t0
-        met = metrics.summarize(res["frames"], tgt, F_frames=res["F_frames"],
+        dn = res.get("deliver_n") or len(res["frames"])   # metrics on the DELIVERED slice
+        met = metrics.summarize(res["frames"][:dn], tgt, F_frames=res["F_frames"][:dn],
                                 n_held=res["n_held"], render_mask=res.get("render_mask"))
         # trajectory evenness: CV of per-commit displacement (snap-to-target -> high CV)
         mv = [h["move"] for h in res["history"] if "move" in h]
@@ -523,7 +524,8 @@ def main():
             }
         np.savez_compressed(
             f"{args.out}_{arm}.npz", src=src, tgt=tgt,
-            frames=np.stack(res["frames"]),
+            frames=np.stack(res["frames"]), deliver_n=np.int64(dn),
+            truncation=json.dumps(res.get("truncation")),
             F_samples=np.stack([res["F_frames"][i] for i in idx]),
             F_sample_idx=np.array(idx),
             render_mask=(res["render_mask"] if res.get("render_mask") is not None
