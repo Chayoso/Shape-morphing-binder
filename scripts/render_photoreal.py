@@ -47,6 +47,13 @@ ap.add_argument("--children", type=int, default=0,
                      "small surfel (sigma_t x local spacing). Photoreal 3DGS needs many small Gaussians; "
                      "a 20k morph has ~11k surface parents at ~11 px pitch, which cannot be crisper than "
                      "its own spacing.")
+ap.add_argument("--mls", type=int, default=0,
+                help=">0: MLS point-set-surface smoothing of the surface layer before display (Alexa "
+                     "et al. 2001): each particle is projected onto the plane fitted to its k nearest "
+                     "neighbours (this k), twice. Removes the ~0.5-spacing depth noise of a two-"
+                     "particle-thick surface layer that shading otherwise exposes as patches. Display "
+                     "only - the archive is untouched.")
+ap.add_argument("--normal_k", type=int, default=25, help="kNN size for the PCA normal / tangent frame")
 ap.add_argument("--frame", type=int, default=None,
                 help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
                      "archive carries one, else the last frame")
@@ -72,6 +79,16 @@ if a.surface_only > 0:
     _sw = _surface_weights(x, 24, a.surface_only, 0.05) > 0.5
     x, F = x[_sw], F[_sw]
     print(f"[photoreal] surface-only: {int(_sw.sum())} of {len(_sw)} particles")
+if a.mls > 0:
+    from scipy.spatial import cKDTree as _KDm
+    for _it in range(2):
+        _ii = _KDm(x).query(x, k=a.mls + 1, workers=-1)[1]
+        _P = x[_ii]; _c = _P.mean(1)
+        _Q = _P - _c[:, None, :]
+        _C = np.einsum('nki,nkj->nij', _Q, _Q)
+        _n = np.linalg.eigh(_C)[1][:, :, 0]
+        x = (x - _n * ((x - _c) * _n).sum(1, keepdims=True)).astype(np.float32)
+    print(f"[photoreal] MLS projection: k={a.mls}, 2 iterations")
 dev = "cuda"
 xt = torch.tensor(x, device=dev)
 sigma0 = sigma0_from_nn(x, a.sigma_k)
@@ -97,7 +114,7 @@ n_field, sw = field_normals(xt, gmin, dxg, dims)
 from scipy.spatial import cKDTree
 import numpy as _np
 _xn = x
-_idx = cKDTree(_xn).query(_xn, k=25, workers=-1)[1]
+_idx = cKDTree(_xn).query(_xn, k=a.normal_k, workers=-1)[1]
 _nb = _xn[_idx] - _xn[_idx].mean(1, keepdims=True)
 _cov = _np.einsum('nki,nkj->nij', _nb, _nb)
 _w, _v = _np.linalg.eigh(_cov)
