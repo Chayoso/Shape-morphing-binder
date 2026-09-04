@@ -150,3 +150,11 @@ so a larger sigma can only smear them. Verdict: the ear defect is a particle-COU
 (transport) shortfall, not a display issue; adaptive sigma is a valid body-side aid only.
 Next falsifier: is the freeze premature during the slow ear-filling phase? (x7: patience
 20, tol 1e-3, 20k; measure the ear-region particle fraction vs the target's 10%.)
+
+## Real-volume era (2026-09-04) — metric floors
+
+With the sampler fixed (docs/root_analysis.md REVISION 2), the "uncovered target points"
+metric has a Poisson floor from two independent 20k samplings of the SAME solid:
+bunny 11.2% @1.5sp / 1.0% @2sp; armadillo 12.9% / 1.5%. The first real-volume run
+(v2 solid armadillo) reads 27.7% / 7.9% — about 2× the floor, with out_nn 1.6%, far 12,
+max_dt 4.1 sp, guards 0. Shell-era values (33–42% / 14–24%) are not comparable.
