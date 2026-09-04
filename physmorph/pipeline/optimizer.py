@@ -214,14 +214,20 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
 
     # grid-free near-band cleanup, frozen per window (fork-halo forensic §7.10)
     if cfg.w_jdens > 0 and tgt.jd_rho0 is not None and tgt.jd_scale is None:
-        xg = x0_t.detach().clone().requires_grad_(True)     # one-shot equal-norm vs D_vol
+        # one-shot equal-norm vs D_vol - DEFERRED to the first window where the prior
+        # has a gradient (v5: calibrating at the source, where J == 1 and the sKL
+        # gradient vanishes, produced an astronomical scale and froze the run at a9)
+        xg = x0_t.detach().clone().requires_grad_(True)
         gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
                                        tgt.ldims), xg)[0].norm()
         gj = torch.autograd.grad(d_jdens(xg, tgt.m, tgt.jd_rho0, tgt.jd_gmin, tgt.jd_dx,
                                          tgt.jd_dims), xg)[0].norm()
-        tgt.jd_scale = float(gv / gj.clamp_min(1e-30))
-        log(f"[win] jdens calibration: |g_vol|={float(gv):.3g} |g_jd|={float(gj):.3g} "
-            f"scale={tgt.jd_scale:.3g}")
+        if float(gj) > 1e-4 * float(gv):
+            tgt.jd_scale = float(min(gv / gj, 1e3))
+            log(f"[win] jdens calibration: |g_vol|={float(gv):.3g} |g_jd|={float(gj):.3g} "
+                f"scale={tgt.jd_scale:.3g}")
+        else:
+            log(f"[win] jdens calibration deferred (|g_jd|={float(gj):.3g} vs |g_vol|={float(gv):.3g})")
     kde_nbr = None
     if cfg.w_kde > 0 and tgt.pts is not None:
         kde_nbr = kde_assign(x0_t, tgt.pts, cfg.kde_k)
@@ -354,9 +360,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
             L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
-        if cfg.w_jdens > 0 and tgt.jd_rho0 is not None:
+        if cfg.w_jdens > 0 and tgt.jd_rho0 is not None and tgt.jd_scale is not None:
             # density-measured volume prior (REVISION 3): J from the particle mass
-            # field, not from the lagging stored F
+            # field, not from the lagging stored F (inactive until calibrated)
             L = L + cfg.w_jdens * tgt.jd_scale * d_jdens(xT, tgt.m, tgt.jd_rho0,
                                                          tgt.jd_gmin, tgt.jd_dx, tgt.jd_dims)
         if cfg.w_jvol > 0 and fT is not None:
