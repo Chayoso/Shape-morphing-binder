@@ -31,6 +31,7 @@ ap.add_argument("--out", required=True)
 ap.add_argument("--res", type=int, default=1400)
 ap.add_argument("--azim", type=float, default=35.0)
 ap.add_argument("--elev", type=float, default=18.0)
+ap.add_argument("--sigma_k", type=float, default=1.6, help="display splat sigma in NN spacings")
 ap.add_argument("--frame", type=int, default=None,
                 help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
                      "archive carries one, else the last frame")
@@ -53,7 +54,7 @@ else:
 print(f"[photoreal] frame {fi} of {n_frames}")
 dev = "cuda"
 xt = torch.tensor(x, device=dev)
-sigma0 = sigma0_from_nn(x, 1.6)
+sigma0 = sigma0_from_nn(x, a.sigma_k)
 cov = torch.tensor(cov_from_F(F, sigma0), device=dev)
 cov6 = torch.stack([cov[:, 0, 0], cov[:, 0, 1], cov[:, 0, 2],
                     cov[:, 1, 1], cov[:, 1, 2], cov[:, 2, 2]], 1).contiguous()
