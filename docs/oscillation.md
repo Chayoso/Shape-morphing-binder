@@ -188,3 +188,26 @@ zigzag), so any reversal-triggered brake chokes progress. Both retired. What sta
 stale-based anneal, gate v3 (brake on real regressions), best-commit delivery. Next:
 measure whether the residual zigzag is VISIBLE (per-particle per-commit displacement in
 target spacings over the delivered tail) before spending more mechanism on it.
+
+## Addendum 7 — visibility census on the solid hero (v3 40k): the tail zigzag is sub-spacing
+
+Per-particle displacement between consecutive ACCEPTED commits, in target-spacing units
+(sp = 0.061), over the delivered trajectory of v3_solid40:
+
+| window | move/commit med | p90 | p99 | frac > 0.5 sp | frac > 1 sp | rev-cos med | net drift over window |
+|---|---|---|---|---|---|---|---|
+| first 40 commits | 0.103 | 0.504 | 2.23 | 10.1% | 4.3% | +0.76 | 4.66 sp |
+| commits 60-100 | 0.063 | 0.129 | 0.26 | 0.0% | 0.0% | -0.27 | 0.75 sp |
+| last 40 commits | 0.039 | 0.094 | 0.19 | 0.0% | 0.0% | -0.41 | 0.35 sp |
+
+Per FRAME (what a viewer plays) over the last 400 delivered frames: median 0.0033 sp,
+p99 0.027 sp.
+
+Reading. The rev-cos -0.4 tail is a random walk on the valley floor whose amplitude is a
+twentieth of the particle spacing: no particle moves half a spacing in any late commit,
+and per frame the motion is ~1/300 of a spacing. It cannot be seen. The visible
+oscillation in the user's viewer was the shell-era artefact (REVISION 2: particles
+collapsing onto a hollow target and bouncing). On real solids the oscillation line is
+CLOSED by this measurement, with a pre-registered reopening rule: a mechanism is warranted
+only if >1% of particles move >0.5 sp per accepted commit in the delivered tail. v4/v6
+(reversal-based brakes) were spent on an invisible signal and both cost real descent.
