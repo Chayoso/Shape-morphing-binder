@@ -477,3 +477,21 @@ tolerance. d_h1 fell 205k → 264 (780×). v7a ran commit 7ed1337 (H⁻¹ inside
 self-energy correction, c2f recalibration live): the REFUTE-Opus F1 test (sub-cell clustering
 at equal d_vol vs v1 — `paired_census.py`) decides whether the uncorrected term already
 traded sub-cell quality; v8 (self-corrected) is the recipe candidate either way.
+
+**Paired census (REFUTE Opus F1/g, `paired_census.py`; chamfer here = mean NN both ways/2):**
+
+| state | d_vol | chamfer | out_nn | far | uncovered | ear | bands | cluster ratio | CIC centre excess |
+|---|---|---|---|---|---|---|---|---|---|
+| v1 best a135 | 29.95 | 0.0797 | 1.20% | 28 | 15.9 / 3.2 | 0.078 | 0.79/1.32/0.76 | 1.23 | +0.006 |
+| v7a @ d_vol≤29.95 (a13) | 29.12 | 0.0823 | 3.48% | 157 | 13.2 / 1.8 | 0.105 | 1.02/1.00/1.05 | 1.17 | +0.003 |
+| v7a best a103 | 4.69 | **0.0787** | 1.32% | **22** | **12.5 / 1.7** | **0.105** | **1.01/1.04/1.05** | **1.18** | +0.019 |
+
+Reading: the feared trade (cell-scale mass bought with sub-cell quality, the x3 signature)
+did not occur — the cluster ratio IMPROVED (1.23 → 1.18) and every geometric metric but
+out_nn (+0.12 pt, within the pre-registered +0.3) is better at best-vs-best. The equal-d_vol
+row is confounded by commit age (a13 is early-morph spray, 120 commits before the cleanup
+terms act); it still shows the mass distribution right from the start. The lattice attractor
+leaves a faint fingerprint (+1.9% CIC centre excess vs +0.6%); v8a (self-corrected) should
+remove it. Tail amplitude in v7a is larger than v3's (p2p p99 0.71 sp, ears 0.61) and
+marginally trips the reopening rule — held for the v8a census before reopening.
+**H⁻¹ ADOPTED provisionally (v8 = self-corrected, in-core) pending v8a; v7b (40k) running.**
