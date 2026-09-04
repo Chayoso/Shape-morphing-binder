@@ -432,3 +432,27 @@ hyde01 GPU1 (warp-lang 1.16 installed into miniconda3/envs/diffmpm_v2.3.0).
 | v3_solid40 | 40k solid bunny, adopted recipe | 300 | 0.1298* | **1.5%** | 100 | HERO BASELINE on a real volume: silIoU 0.968, hole 0.00%, jitter 1e-5, max_dt 5.1sp, uncovered 19.9%/5.1%, guards 0, brake 0, conv 164; body 7% over-dense; **ear-region fraction 0.069 vs 0.100 (−31%)** — thin-feature transport is the remaining geometric defect |
 | v6_solid20_annrev | 20k solid, anneal ×0.5 on commit reversal | 300 | 0.1619 | 1.6% | 29 | FALSIFIED: reversals are common mid-descent → α collapsed to the floor → froze at a71 (d_vol 43 vs v1 30); tail rev-cos −0.11 only by stopping early. Commit reversal is not a plateau signal (with v4). |
 | v5b_solid20_jdens | 20k solid, density-J prior, deferred equal-norm calibration | 300 | — | — | — | FALSIFIED (killed at a92): every candidate from a2 rejected (gain −1.13, reversal 0.93). At parity the prior's gradient ("restore the source density") cancels the data term; the shape-only merit rejects, the cold restart replays the identical candidate, brake rejects do not count stale → infinite loop (gate bug, fixed: replayed rejects count as stale). |
+
+### 2026-09-04 — the solid hero's residual is a vertical under-stretch; v7 pre-registration
+
+y-slab census of the delivered v3 (solid bunny 40k) state, current/target particle ratio:
+bottom y<-2: 0.68 · y -2..-1.5: 0.7 · y -1.5..-0.5: ~1.0 · **y -0.5..+0.5: 1.67 / 1.35 / 1.22** ·
+y +1..+2.5: 0.81 / 0.73 / 0.72 / 0.58. The sphere's equatorial band never stretched to the
+bunny's poles: 30% surplus in the middle, 20-40% deficits at BOTH the ears and the feet, all
+inside a silhouette that is already right (silIoU 0.968). D_vol sees it (127 cells with a
+>50% deficit, 94 with a >50% surplus at 0.5 wu cells, 54 ppc) but its CIC gradient is the
+difference of neighbouring cell residuals: zero inside a uniform surplus band, non-zero only
+at its edges — the band erodes like diffusion. The per-commit gain decays geometrically from
+a40 while anneal is still 1.0 and every commit is accepted, so neither the step schedule nor
+the gate is the cap: the LOCAL data term is. This is the "differential view" failure of
+Kugelstadt et al. 2021 (Implicit Density Projection): the solver never sees the accumulated
+density residual as a field; the documented cure is a Poisson solve with that residual as
+source. Ear width: 1.27 wu = 2.5 cells at dx 0.5 (5 at 0.25) — resolution is a second,
+separate suspect, held for later.
+
+**v7 (pre-registered): H⁻¹ mass balance, `--w_h1 1`** (parity with D_vol's gradient norm at
+the source; docs/method.md). Arms: v7a solid bunny 20k (baseline v1: d_vol 30, ear frac
+0.078, conv 139, out_nn 1.08%), v7b solid bunny 40k (baseline v3: 57.8, 0.069, 164, 1.49%).
+Success: band ratio (y −0.5..0.5) ≤ 1.15 and pole ratios ≥ 0.85; ear frac ≥ 0.09 (20k) /
+≥ 0.085 (40k); best d_vol below baseline; out_nn ≤ baseline + 0.3 pt; guards 0; no freeze
+before a100. Failure: out_nn up > 0.5 pt, or a brake-reject streak (gate now ends such runs).
