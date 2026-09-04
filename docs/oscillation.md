@@ -218,3 +218,10 @@ max 1.03 sp (one particle); ear region median 0.22 / p99 0.44 sp (`solid_census.
 coherent low-frequency wander would show here; it does not. The closure stands on the
 amplitude metric; the reopening rule now reads: >1% of particles with a drift-removed tail
 excursion >0.5 sp, or >0.5 sp per accepted commit.
+
+Units (REFUTE Opus F8): at the hero's render scale (~30 px per wu, sp = 0.061 wu ≈ 1.8 px)
+the amplitude figures read median 0.3 px, p99 0.8 px, the single worst particle 1.9 px; the
+ear stratum p99 is 0.8 px. Splats are ~1 sp wide, so the excursions are sub-splat; a
+coherent surface wander would appear as a stratum-level p99, which it does not. The pooled
+per-commit "0.0%" was a one-decimal display: the exact count of particle-commits above
+0.5 sp in the 40-commit tail is 0 of 1.6M.

@@ -503,23 +503,79 @@ def d_jdens(x: torch.Tensor, m: torch.Tensor, rho0: torch.Tensor, gmin: torch.Te
 # Same minimiser as D_vol (r == 0), so it is a data term in another norm, never a prior
 # fighting the data (the density prior's failure, v5/v5b).
 
-def d_h1(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
-         grid_min: torch.Tensor, dx: float, dims, pad: int = 2) -> torch.Tensor:
-    """1/2 |rho - rho_t|^2_{H^-1} on the loss grid via an FFT Poisson solve, zero-padded
-    x`pad` so the periodic Green's function approximates free space (the DC mode is
-    dropped: total mass is matched by construction)."""
-    nx, ny, nz = dims
-    r = (rasterize_mass(x, m, grid_min, dx, dims) - target_grid).reshape(nx, ny, nz)
-    P = (pad * nx, pad * ny, pad * nz)
-    rh = torch.fft.rfftn(r, s=P)
-    kx = torch.fft.fftfreq(P[0], device=x.device, dtype=x.dtype) * (2.0 * math.pi)
-    ky = torch.fft.fftfreq(P[1], device=x.device, dtype=x.dtype) * (2.0 * math.pi)
-    kz = torch.fft.rfftfreq(P[2], device=x.device, dtype=x.dtype) * (2.0 * math.pi)
+_H1_STENCIL_CACHE: dict = {}
+
+
+def _h1_kernels(P, device, dtype):
+    """Spectral 1/|k|^2 (DC dropped, half spectrum with Parseval weights) and the 8x8
+    matrix of the periodic Green's function G(c_a - c_b) between the corners of one
+    CIC stencil, G = ifftn(1/|k|^2) — cached per padded shape."""
+    key = (P, str(device), str(dtype))
+    hit = _H1_STENCIL_CACHE.get(key)
+    if hit is not None:
+        return hit
+    kx = torch.fft.fftfreq(P[0], device=device, dtype=dtype) * (2.0 * math.pi)
+    ky = torch.fft.fftfreq(P[1], device=device, dtype=dtype) * (2.0 * math.pi)
+    kz = torch.fft.rfftfreq(P[2], device=device, dtype=dtype) * (2.0 * math.pi)
     k2 = kx[:, None, None] ** 2 + ky[None, :, None] ** 2 + kz[None, None, :] ** 2
     inv = torch.where(k2 > 0, 1.0 / k2.clamp_min(1e-12), torch.zeros_like(k2))
     w = torch.full_like(kz, 2.0)              # rfft half-spectrum: Parseval weights
     w[0] = 1.0
     if P[2] % 2 == 0:
         w[-1] = 1.0
+    # real-space Green's function on the padded grid: L = 1/2 sum_{c,c'} r_c G(c-c') r_c'
+    kzf = torch.fft.fftfreq(P[2], device=device, dtype=dtype) * (2.0 * math.pi)
+    k2f = kx[:, None, None] ** 2 + ky[None, :, None] ** 2 + kzf[None, None, :] ** 2
+    invf = torch.where(k2f > 0, 1.0 / k2f.clamp_min(1e-12), torch.zeros_like(k2f))
+    G = torch.fft.ifftn(invf).real
+    corners = torch.tensor([(ox, oy, oz) for ox in (0, 1) for oy in (0, 1) for oz in (0, 1)],
+                           device=device)
+    d = corners[:, None, :] - corners[None, :, :]            # (8, 8, 3) in {-1, 0, 1}
+    G8 = G[d[..., 0] % P[0], d[..., 1] % P[1], d[..., 2] % P[2]].to(dtype)
+    _H1_STENCIL_CACHE[key] = (inv, w, G8)
+    return inv, w, G8
+
+
+def _cic_weights(x: torch.Tensor, grid_min: torch.Tensor, dx: float) -> torch.Tensor:
+    """(N, 8) trilinear weights in the corner order used by _h1_kernels."""
+    frac = (x - grid_min) / dx
+    frac = frac - torch.floor(frac)
+    ws = []
+    for ox in (0, 1):
+        wx = frac[:, 0] if ox else 1.0 - frac[:, 0]
+        for oy in (0, 1):
+            wy = frac[:, 1] if oy else 1.0 - frac[:, 1]
+            for oz in (0, 1):
+                wz = frac[:, 2] if oz else 1.0 - frac[:, 2]
+                ws.append(wx * wy * wz)
+    return torch.stack(ws, 1)
+
+
+def d_h1(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
+         grid_min: torch.Tensor, dx: float, dims, pad: int = 2,
+         self_correct: bool = True) -> torch.Tensor:
+    """1/2 |rho - rho_t|^2_{H^-1} on the loss grid via an FFT Poisson solve, zero-padded
+    x`pad` so the periodic Green's function approximates free space (the DC mode is
+    dropped: total mass is matched by construction).
+
+    self_correct (REFUTE Opus 2026-09-04 F1): the CIC self-energy of every particle,
+    1/2 m_i^2 sum_ab w_a w_b G(c_a - c_b), depends on its sub-cell position (minimum at
+    the cell centre) and is INDEPENDENT of the ambient density - a density-blind
+    lattice attractor, one per loss cell, ~44x D_vol's at mid-run, at the scale of the
+    sub-cell clustering defect (docs/floaters.md). D_vol's log form suppresses its own
+    self-term ~750x at flagship occupancy; the linear H^-1 residual does not. The P3M
+    remedy (Hockney & Eastwood): subtract the self-energy analytically, so only the
+    interaction of each particle with everything else remains - the self-FORCE is
+    exactly zero at every sub-cell position (tests/test_h1.py)."""
+    nx, ny, nz = dims
+    r = (rasterize_mass(x, m, grid_min, dx, dims) - target_grid).reshape(nx, ny, nz)
+    P = (pad * nx, pad * ny, pad * nz)
+    inv, w, G8 = _h1_kernels(P, x.device, x.dtype)
+    rh = torch.fft.rfftn(r, s=P)
     power = (rh.real ** 2 + rh.imag ** 2) * inv * w[None, None, :]
-    return 0.5 * power.sum() / float(P[0] * P[1] * P[2])
+    L = 0.5 * power.sum() / float(P[0] * P[1] * P[2])
+    if self_correct:
+        W = _cic_weights(x, grid_min, dx)                       # (N, 8)
+        E_self = 0.5 * (m * m) * ((W @ G8) * W).sum(1)
+        L = L - E_self.sum()
+    return L

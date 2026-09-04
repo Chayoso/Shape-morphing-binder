@@ -182,3 +182,16 @@ caveat). The scale is preserved across the c2f target rebuild (REFUTE 2026-09-04
 term is added OUTSIDE the physics core, like the W1 term, so the λ-balancer numerator and
 the PCGrad reference are unchanged by it (REFUTE F3, the W1 precedent); it is tracked per
 commit (`d_h1`) and counted in the plateau/merit/delivery tracks when active.
+
+Self-energy correction (REFUTE Opus 2026-09-04 F1). The CIC self-energy of a particle,
+½ m_i² Σ_ab w_a w_b G(c_a−c_b), depends only on its sub-cell position (minimum at the cell
+centre) and not on the ambient density: an uncorrected H⁻¹ term is a density-blind lattice
+attractor, one per loss cell (measured self-force constant from 1 to 54 particles per cell,
+44× D_vol's at mid-run) — precisely the sub-cell clustering scale of docs/floaters.md. D_vol's
+log form suppresses its own self-term ~750× at flagship occupancy; the linear residual does
+not. `d_h1` therefore subtracts the self-energy analytically (the P3M self-force correction,
+Hockney & Eastwood), using the 8×8 stencil Green's matrix from the same FFT kernel; the
+self-force is exactly zero at every sub-cell position (tests/test_h1.py). The term sits in
+the physics core (Opus F3 over Codex F3: control before attribution; attribution by the v7c
+arm and the paired-at-equal-d_vol census); its per-window ratio s·|g_h1|/|g_vol| is logged
+(`h1_ratio`) because the source-calibrated parity drifts along a morph (Opus F2).

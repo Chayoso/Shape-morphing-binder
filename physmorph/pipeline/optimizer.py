@@ -229,19 +229,25 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 f"scale={tgt.jd_scale:.3g}")
         else:
             log(f"[win] jdens calibration deferred (|g_jd|={float(gj):.3g} vs |g_vol|={float(gv):.3g})")
-    if cfg.w_h1 > 0 and tgt.h1_scale is None:
-        # one-shot equal-norm vs D_vol at the FIRST window. Legitimate here, unlike the
-        # density prior (v5/v5b): the H^-1 residual shares D_vol's minimiser and its
-        # gradient at the source is the Coulomb pull of the target's mass - non-zero
-        # and aligned with the data term, never against it.
+    h1_ratio = None
+    if cfg.w_h1 > 0:
+        # one-shot equal-norm vs D_vol at the FIRST window, in position space (the
+        # control-space norms after the MPM Jacobian differ - documented caveat).
+        # Legitimate here, unlike the density prior (v5/v5b): the H^-1 residual shares
+        # D_vol's minimiser and its gradient at the source is non-zero. Every window
+        # also records the CURRENT ratio s*|g_h1|/|g_vol| (REFUTE Opus F2: the local
+        # equal-norm scale drifted x5 over a synthetic morph, so parity holds only at
+        # the source - the drift is measured per window, not assumed away).
         xg = x0_t.detach().clone().requires_grad_(True)
         gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
                                        tgt.ldims), xg)[0].norm()
         gh = torch.autograd.grad(d_h1(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
                                       tgt.ldims), xg)[0].norm()
-        tgt.h1_scale = float(gv / gh.clamp_min(1e-30))
-        log(f"[win] h1 calibration: |g_vol|={float(gv):.3g} |g_h1|={float(gh):.3g} "
-            f"scale={tgt.h1_scale:.3g}")
+        if tgt.h1_scale is None:
+            tgt.h1_scale = float(min(gv / gh.clamp_min(1e-30), 1e3))   # v5 cap
+            log(f"[win] h1 calibration: |g_vol|={float(gv):.3g} |g_h1|={float(gh):.3g} "
+                f"scale={tgt.h1_scale:.3g}")
+        h1_ratio = float(tgt.h1_scale * gh / gv.clamp_min(1e-30))
     kde_nbr = None
     if cfg.w_kde > 0 and tgt.pts is not None:
         kde_nbr = kde_assign(x0_t, tgt.pts, cfg.kde_k)
@@ -374,6 +380,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
             L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
+        if cfg.w_h1 > 0 and tgt.h1_scale is not None:
+            # non-local mass balance (REVISION 3 amendment): H^-1 norm of the density
+            # residual, self-energy corrected. INSIDE phys_core: it is a data term on
+            # the same residual, so it belongs in the physics direction the lambda
+            # balancer scales the render channel against and PCGrad projects it off
+            # (REFUTE Opus 2026-09-04 F3: outside the core it was the one large
+            # unprojected, unbalanced gradient, cos(g_vol, g_h1) ~ 0 to -0.1 along a
+            # morph). The attribution concern (Codex F3: it also inflates lambda_render)
+            # is answered by the v7c isolation arm and the paired-at-equal-d_vol census,
+            # not by weakening the control.
+            L = L + cfg.w_h1 * tgt.h1_scale * d_h1(xT, tgt.m, tgt.grid, tgt.lgmin,
+                                                   tgt.ldx, tgt.ldims)
         if cfg.w_jdens > 0 and tgt.jd_rho0 is not None and tgt.jd_scale is not None:
             # density-measured volume prior (REVISION 3): J from the particle mass
             # field, not from the lagging stored F (inactive until calibrated)
@@ -412,16 +430,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             Lk = cfg.w_kde * tgt.kde_scale * d_kde(xT, tgt.pts, kde_nbr,
                                                    tgt.kde_h, tgt.kde_rho_ref)
             L = Lk if L is None else L + Lk
-        if cfg.w_h1 > 0 and tgt.h1_scale is not None:
-            # non-local mass balance (REVISION 3 amendment): H^-1 norm of the density
-            # residual - every deficit cell pulls every surplus particle. OUTSIDE
-            # phys_core like the W1 term (REFUTE 2026-09-04 F3 / finding 9 precedent):
-            # inside it the term inflated the lambda-balancer numerator and rotated
-            # the PCGrad reference (cos(g_vol, g_h1) ~ 0.14 at the source), so v7's
-            # descent could not be attributed to the mass-balance signal alone.
-            Lh = cfg.w_h1 * tgt.h1_scale * d_h1(xT, tgt.m, tgt.grid, tgt.lgmin,
-                                                tgt.ldx, tgt.ldims)
-            L = Lh if L is None else L + Lh
         return L
 
     fill_on = fill_pairs is not None
@@ -780,7 +788,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     s_out = s.detach().cpu().numpy() if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
-    stats = {"pace_bound": pace_bound, "replay_rel": replay_rel,
+    stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
              "mom_out": mom_out if cfg.mom_carry > 0 else None,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,

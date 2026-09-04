@@ -280,6 +280,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             hist.append({"animation": a, "null_commit": 1})
             stale += 1
             mom_prev = None
+            reject_streak, last_reject_score = 0, None   # lineage changed: no replay across
+                                                         # a null commit (REFUTE Opus F4)
             if cfg.anneal_stale > 0:
                 # Retrying the identical state/moments at the identical alpha reproduces
                 # the same line-search exhaustion forever.  Null commits must participate
@@ -408,7 +410,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
-               "d_jdens": d_jd_v, "d_h1": d_h1_v,
+               "d_jdens": d_jd_v, "d_h1": d_h1_v, "h1_ratio": stats.get("h1_ratio"),
                "d_fill": d_fill, "g_cos": stats.get("g_cos"),
                "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
