@@ -32,6 +32,7 @@ ap.add_argument("--res", type=int, default=1400)
 ap.add_argument("--azim", type=float, default=35.0)
 ap.add_argument("--elev", type=float, default=18.0)
 ap.add_argument("--sigma_k", type=float, default=1.6, help="display splat sigma in NN spacings")
+ap.add_argument("--adaptive_k", type=int, default=0, help=">0: per-particle sigma = sigma_k x mean distance to its k nearest neighbours (fills clustering gaps)")
 ap.add_argument("--frame", type=int, default=None,
                 help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
                      "archive carries one, else the last frame")
@@ -56,6 +57,13 @@ dev = "cuda"
 xt = torch.tensor(x, device=dev)
 sigma0 = sigma0_from_nn(x, a.sigma_k)
 cov = torch.tensor(cov_from_F(F, sigma0), device=dev)
+if a.adaptive_k > 0:
+    from scipy.spatial import cKDTree as _KD
+    _d, _ = _KD(x).query(x, k=a.adaptive_k + 1, workers=-1)
+    _loc = _d[:, 1:].mean(1).astype(np.float32)            # local spacing per particle
+    _scale = (a.sigma_k * _loc / sigma0).astype(np.float32)  # relative to the global sigma
+    cov = cov * torch.tensor(_scale ** 2, device=dev)[:, None, None]
+    print(f"[photoreal] adaptive sigma: k={a.adaptive_k} scale med {np.median(_scale):.2f} p90 {np.percentile(_scale,90):.2f}")
 cov6 = torch.stack([cov[:, 0, 0], cov[:, 0, 1], cov[:, 0, 2],
                     cov[:, 1, 1], cov[:, 1, 2], cov[:, 2, 2]], 1).contiguous()
 
