@@ -456,3 +456,24 @@ the source; docs/method.md). Arms: v7a solid bunny 20k (baseline v1: d_vol 30, e
 Success: band ratio (y −0.5..0.5) ≤ 1.15 and pole ratios ≥ 0.85; ear frac ≥ 0.09 (20k) /
 ≥ 0.085 (40k); best d_vol below baseline; out_nn ≤ baseline + 0.3 pt; guards 0; no freeze
 before a100. Failure: out_nn up > 0.5 pt, or a brake-reject streak (gate now ends such runs).
+
+### 2026-09-04 — v7a verdict (H⁻¹ mass balance, 20k solid bunny, in-core, uncorrected)
+
+| metric | v1 baseline | v7a | criterion | |
+|---|---|---|---|---|
+| best d_vol (commit) | 29.95 (a134) | **4.69 (a103)** | below baseline | ✓ |
+| band ratios bottom/mid/top | (v3 40k: 0.70/1.46/0.68) | **1.01 / 1.04 / 1.04** | mid ≤ 1.15, poles ≥ 0.85 | ✓ |
+| ear-region frac (target 0.100) | 0.078 | **0.105** | ≥ 0.09 | ✓ |
+| J_true ears / body | 1.32 / 0.94 | **0.91 / 1.07** | — | |
+| uncovered @1.5sp / @2sp (floor 11.2 / 1.0) | 16.1 / 3.3 | **12.5 / 1.7** | — | |
+| out_nn>2sp / far>3sp / max_dt | 1.08% / 28 / — | 1.31% / 20 / 4.1 sp | out_nn ≤ 1.38 | ✓ |
+| chamfer / silIoU / hole | 0.1591 / 0.9653 / 0.14% | 0.1571 / 0.9654 / 0.00% | — | |
+| anims / accepted / rejects / brake / guards | 139 / 135 / — / 0 / 0 | 107 / 101 / 4 / 0 / 0 | no freeze < a100 | ✓ |
+| tail rev-cos / osc% / move / frac>0.5sp | −0.44 / 61% / — / 0 | −0.53 / 74% / 0.094 sp / 0.22% | reopen rule >1% | holds |
+
+The vertical under-stretch is gone (band 1.46 → 1.04 at the same geometry class), the ears
+are filled to the target fraction, coverage is at the Poisson floor + 1.3 pt, floaters within
+tolerance. d_h1 fell 205k → 264 (780×). v7a ran commit 7ed1337 (H⁻¹ inside the core, no
+self-energy correction, c2f recalibration live): the REFUTE-Opus F1 test (sub-cell clustering
+at equal d_vol vs v1 — `paired_census.py`) decides whether the uncorrected term already
+traded sub-cell quality; v8 (self-corrected) is the recipe candidate either way.
