@@ -398,7 +398,7 @@ def main():
     ap.add_argument("--loss_res", type=int, default=32)
     ap.add_argument("--render_gs_iters", type=int, default=20)
     ap.add_argument("--w_pbr", type=float, default=1.0)
-    ap.add_argument("--pace", type=float, default=0.12)
+    ap.add_argument("--pace", type=float, default=0.0)   # r3/r5 (2026-09-03): 0.12 capped convergence depth
     ap.add_argument("--lg_sweeps", type=int, default=8)
     ap.add_argument("--w_creg", type=float, default=100.0)
     ap.add_argument("--w_dt", type=float, default=0.2)   # SUM form: per-particle pull
@@ -416,7 +416,8 @@ def main():
     ap.add_argument("--surface_grad_frac", type=float, default=0.0)
     ap.add_argument("--render_surface_only", action="store_true")
     ap.add_argument("--control_h1_iters", type=int, default=0)
-    ap.add_argument("--outer_merit", action="store_true")
+    ap.add_argument("--outer_merit", dest="outer_merit", action="store_true", default=True)
+    ap.add_argument("--no_outer_merit", dest="outer_merit", action="store_false")  # gate v3 brake is a safety net (r5: 0 rejects)
     ap.add_argument("--patience", type=int, default=5)
     ap.add_argument("--pace_budget", type=float, default=0.0)
     ap.add_argument("--dress_iters", type=int, default=0)  # Tier D stage ladder
