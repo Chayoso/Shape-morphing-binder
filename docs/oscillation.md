@@ -182,3 +182,9 @@ signature as the shell era (h17: −0.52 / 64%). The oscillation is an optimizer
 gate's low-gain reversal reject only ran once latched. v4 tests it unlatched
 (`outer_reversal_always`): a low-gain candidate that reverses the previous commit's
 displacement is rejected and the next window cold-restarts.
+v4 (unlatched reversal REJECT) froze at a56, v6 (α ×0.5 on reversal) froze at a71 with α
+at its floor: commit-to-commit reversal is frequent during honest descent (valley
+zigzag), so any reversal-triggered brake chokes progress. Both retired. What stands:
+stale-based anneal, gate v3 (brake on real regressions), best-commit delivery. Next:
+measure whether the residual zigzag is VISIBLE (per-particle per-commit displacement in
+target spacings over the delivered tail) before spending more mechanism on it.
