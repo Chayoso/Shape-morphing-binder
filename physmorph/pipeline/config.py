@@ -310,6 +310,12 @@ class PipelineConfig:
     outer_merit_tol: float = 1e-4   # relative sufficient decrease required for a commit
     outer_gate_move_frac: float = 6e-3 # RETIRED as latch evidence (s1: reachable at 10% of descent; s3: pacing makes every move small) — kept for provenance
     outer_gate_merit_max: float = 0.55 # normalized fixed merit required before latching
+    anneal_on_reversal: float = 0.0  # >0: multiply the next window's alpha by this
+                                    # when the accepted commit REVERSES the previous
+                                    # commit's displacement (reversal_cos < -0.2) -
+                                    # sign-change step control, no rejection, no
+                                    # patience impact (v4: unlatched reversal REJECT
+                                    # froze the run at a56 via patience)
     outer_reversal_always: bool = False  # apply the low-gain reversal reject WITHOUT
                                     # the plateau latch (v4 test, 2026-09-04: the solid-
                                     # target tail still zigzags, rev-cos -0.44 / 61%)

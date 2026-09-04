@@ -616,6 +616,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if cfg.anneal_stale > 0:     # optimizer-side zigzag damping (docs/oscillation.md)
             anneal = (min(1.0, anneal * 1.15) if improved
                       else max(0.05, anneal * cfg.anneal_stale))
+        if (cfg.anneal_on_reversal > 0 and reversal_cos is not None
+                and reversal_cos < cfg.outer_reversal_cos):
+            anneal = max(0.05, anneal * cfg.anneal_on_reversal)   # sign-change step control
         rec.update({"improved": int(bool(improved)), "stale": stale, "anneal": anneal,
                     "pace_bound": int(bool(stats.get("pace_bound")))})  # freeze forensics
         if stale >= cfg.patience:
