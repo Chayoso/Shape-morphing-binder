@@ -41,6 +41,12 @@ ap.add_argument("--surfel", type=float, default=0.0,
                      "body rendered with isotropic splats of ~1.6 spacings is a cloud; the "
                      "surface layer rendered as oriented surfels (2DGS-style) is a surface.")
 ap.add_argument("--sigma_t", type=float, default=1.1, help="surfel tangential sigma in local spacings")
+ap.add_argument("--children", type=int, default=0,
+                help=">0: display-side densification - each surfel parent is expanded into 1 + 6*rings "
+                     "hex-packed children in its tangent plane (ring pitch 0.6 x local spacing), each a "
+                     "small surfel (sigma_t x local spacing). Photoreal 3DGS needs many small Gaussians; "
+                     "a 20k morph has ~11k surface parents at ~11 px pitch, which cannot be crisper than "
+                     "its own spacing.")
 ap.add_argument("--frame", type=int, default=None,
                 help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
                      "archive carries one, else the last frame")
@@ -114,6 +120,24 @@ if a.surfel > 0:
                         cov[:, 1, 1], cov[:, 1, 2], cov[:, 2, 2]], 1).contiguous()
     print(f"[photoreal] surfels: sigma_t {a.sigma_t} sigma_n {a.surfel} x local spacing "
           f"(med {float(_np.median(_loc_s)):.4f})")
+    if a.children > 0:
+        # hex-packed tangent-plane children: rings of pitch 0.6*spacing around each parent
+        offs = [(0.0, 0.0)]
+        for ring in range(1, a.children + 1):
+            for j in range(6 * ring):
+                ang = 2 * math.pi * j / (6 * ring)
+                offs.append((0.6 * ring * math.cos(ang), 0.6 * ring * math.sin(ang)))
+        offs = _np.asarray(offs, _np.float32)                              # (C, 2)
+        C = len(offs)
+        disp = (offs[None, :, 0, None] * t1[:, None, :] + offs[None, :, 1, None] * t2[:, None, :]) \
+            * _loc_s[:, None, None]                                          # (N, C, 3)
+        x = (x[:, None, :] + disp).reshape(-1, 3).astype(_np.float32)
+        xt = torch.tensor(x, device=dev)
+        rep = lambda arr: _np.repeat(arr, C, axis=0)
+        cov6 = cov6.repeat_interleave(C, 0)
+        n_p = n_p.repeat_interleave(C, 0)
+        n_field = n_field.repeat_interleave(C, 0); sw = sw.repeat_interleave(C, 0)
+        print(f"[photoreal] children: {C} per parent -> {len(x)} surfels")
 def lit(albedo, n, cam_fwd, cam_right, cam_up):
     # camera-relative studio rig: subject is lit from the camera's upper-left at any azimuth
     key  = (-cam_fwd + 1.1 * cam_up - 1.4 * cam_right); key = key / key.norm()
