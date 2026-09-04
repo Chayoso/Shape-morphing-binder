@@ -120,7 +120,12 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
             from ..losses.volumetric import kde_self_density
             kde_h = cfg.kde_h_k * nn_sp
             kde_rho = kde_self_density(tgt_t, kde_h, cfg.kde_k)
-    return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
+    jd = {}
+    if cfg.w_jdens > 0:
+        jd_dims = (cfg.jdens_res,) * 3
+        jd_dx = float((dmax - dmin).max() / cfg.jdens_res)
+        jd = dict(jd_gmin=lgmin, jd_dx=jd_dx, jd_dims=jd_dims)
+    return TargetPack(**jd, grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3,
                       pts=pts, nn_spacing=nn_sp, gauss=gauss,
@@ -149,6 +154,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         log(f"[v2] pace_budget={cfg.pace_budget:g} over {cfg.animations} anims -> "
             f"per-window cap {cfg.pace:.4f}")
     tgt = build_target(target_x, prm, cfg)
+    if cfg.w_jdens > 0:                          # per-particle REST density at the source
+        from ..losses.volumetric import density_at
+        with torch.no_grad():
+            tgt.jd_rho0 = density_at(torch.tensor(src, device=cfg.device), tgt.m,
+                                     tgt.jd_gmin, tgt.jd_dx, tgt.jd_dims).detach()
     balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
     # the local-global pass calibrates λ in ITS OWN variable space (u, joules) — sharing
     # the global balancer both mis-scales the pass and poisons the global EMA
@@ -192,6 +202,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # track is SEPARATE (Opus finding 4: folded into phys_track it sat at the tolerance
     # noise floor, so fringe-only progress could still stale out)
     best_phys, best_rend, best_dt, best_fill, best_kde = None, None, None, None, None
+    best_jd = None
     stale, frozen, n_held = 0, False, 0
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
     prev_tracks = None               # last ACCEPTED commit's lambda-free tracks
@@ -363,6 +374,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 xt = torch.as_tensor(x, device=cfg.device)
                 d_dt = float(d_w1(xt, tgt.m, tgt.dt3,
                                   tgt.dtgmin, tgt.dtdx, tgt.dtdims))
+        d_jd_v = None
+        if cfg.w_jdens > 0 and tgt.jd_rho0 is not None:  # density-J prior track (archived)
+            with torch.no_grad():
+                from ..losses.volumetric import d_jdens as _dj
+                xt = torch.as_tensor(x, device=cfg.device)
+                d_jd_v = float(_dj(xt, tgt.m, tgt.jd_rho0, tgt.jd_gmin, tgt.jd_dx, tgt.jd_dims))
         d_kde_v = None
         if cfg.w_kde > 0 and tgt.pts is not None:       # particle-scale density track
             with torch.no_grad():                        # (fresh neighbours, ungated)
@@ -379,6 +396,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
+               "d_jdens": d_jd_v,
                "d_fill": d_fill, "g_cos": stats.get("g_cos"),
                "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
@@ -433,6 +451,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             components["fill"] = d_fill
         if d_kde_v is not None:
             components["kde"] = d_kde_v
+        if d_jd_v is not None:
+            components["jdens"] = d_jd_v
         disp = (x - x_start).reshape(-1)
         reversal_cos = None
         if prev_disp is not None:
@@ -458,6 +478,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             improved = improved or d_fill < best_fill - cfg.tol * abs(best_fill)
         if d_kde_v is not None and best_kde is not None:  # particle-scale density track
             improved = improved or d_kde_v < best_kde - cfg.tol * abs(best_kde)
+        if d_jd_v is not None and best_jd is not None:    # density-J prior track
+            improved = improved or d_jd_v < best_jd - cfg.tol * abs(best_jd)
         if stats.get("pace_bound"):
             # The window exited via the PACE FLOOR: it did exactly the scheduled
             # work, by construction. Plateau accounting must not run against a
@@ -588,6 +610,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             best_fill = d_fill if best_fill is None else min(best_fill, d_fill)
         if d_kde_v is not None:
             best_kde = d_kde_v if best_kde is None else min(best_kde, d_kde_v)
+        if d_jd_v is not None:
+            best_jd = d_jd_v if best_jd is None else min(best_jd, d_jd_v)
         stale = 0 if improved else stale + 1
         if cfg.anneal_stale > 0:     # optimizer-side zigzag damping (docs/oscillation.md)
             anneal = (min(1.0, anneal * 1.15) if improved

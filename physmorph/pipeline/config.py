@@ -141,6 +141,14 @@ class PipelineConfig:
                                     #   (1.5 -> 1.0, x2 2026-09-03: no dead band - 40k
                                     #   chamfer 0.0706, out_nn 11.0 -> 9.5%, far -9%,
                                     #   max_dt 19.4 -> 18.0 sp, guards 0)
+    w_jdens: float = 0.0            # DENSITY-measured volume prior (REVISION 3): sKL on
+                                    # J = rho0/rho from a CIC mass grid at jdens_res,
+                                    # calibrated once to the D_vol gradient norm
+                                    # (w_jdens=1 -> parity). The stored F lags the true
+                                    # deformation, so w_jvol (on det F) cannot see the
+                                    # 1.32x ear dilation / 0.94x body compression this
+                                    # term measures directly.
+    jdens_res: int = 128            #   its own raster (64^3 is biased vs the kNN J)
     w_kde: float = 0.0              # PARTICLE-SCALE density matching (SPH D_vol):
                                     # 0 = off; >0 multiplies a ONE-SHOT equal-norm
                                     # calibration against the D_vol gradient at the

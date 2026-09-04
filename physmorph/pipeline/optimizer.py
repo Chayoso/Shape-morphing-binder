@@ -27,7 +27,7 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import (d_kde, d_nn_band, d_vol, d_w1, deficit_field,
+from ..losses.volumetric import (d_jdens, d_kde, d_nn_band, d_vol, d_w1, deficit_field,
                                  isolation_gate, kde_assign, nn_band_assign, w1_budget)
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
@@ -59,6 +59,11 @@ class TargetPack:
     nn_spacing: float = 0.0             # target median NN spacing (the honest metric's unit)
     gauss: object | None = None         # GaussViews bundle (use_gauss_loss)
     gauss_scale: float | None = None    # one calibration per target build, not per window
+    jd_gmin: torch.Tensor | None = None  # density-J prior raster (w_jdens>0)
+    jd_dx: float = 0.0
+    jd_dims: tuple = ()
+    jd_rho0: torch.Tensor | None = None  # per-particle rest density (source, same estimator)
+    jd_scale: float | None = None        # one-shot equal-norm calibration vs D_vol
     kde_h: float = 0.0                  # particle-scale density term (w_kde>0)
     kde_rho_ref: float = 1.0
     kde_scale: float | None = None      # one-shot equal-norm calibration vs D_vol
@@ -208,6 +213,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi)
 
     # grid-free near-band cleanup, frozen per window (fork-halo forensic §7.10)
+    if cfg.w_jdens > 0 and tgt.jd_rho0 is not None and tgt.jd_scale is None:
+        xg = x0_t.detach().clone().requires_grad_(True)     # one-shot equal-norm vs D_vol
+        gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
+                                       tgt.ldims), xg)[0].norm()
+        gj = torch.autograd.grad(d_jdens(xg, tgt.m, tgt.jd_rho0, tgt.jd_gmin, tgt.jd_dx,
+                                         tgt.jd_dims), xg)[0].norm()
+        tgt.jd_scale = float(gv / gj.clamp_min(1e-30))
+        log(f"[win] jdens calibration: |g_vol|={float(gv):.3g} |g_jd|={float(gj):.3g} "
+            f"scale={tgt.jd_scale:.3g}")
     kde_nbr = None
     if cfg.w_kde > 0 and tgt.pts is not None:
         kde_nbr = kde_assign(x0_t, tgt.pts, cfg.kde_k)
@@ -340,6 +354,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
             L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
+        if cfg.w_jdens > 0 and tgt.jd_rho0 is not None:
+            # density-measured volume prior (REVISION 3): J from the particle mass
+            # field, not from the lagging stored F
+            L = L + cfg.w_jdens * tgt.jd_scale * d_jdens(xT, tgt.m, tgt.jd_rho0,
+                                                         tgt.jd_gmin, tgt.jd_dx, tgt.jd_dims)
         if cfg.w_jvol > 0 and fT is not None:
             # sKL volume prior (J-1)·log J (F5 verdict): counters the permanent
             # volumetric spring + control-injected drift; soft barrier as J->0+

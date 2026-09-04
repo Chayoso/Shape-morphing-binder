@@ -459,3 +459,28 @@ def d_kde(x: torch.Tensor, tgt_pts: torch.Tensor, nbr, h: float,
     trho_t = 1.0 + torch.exp(-(ttd / h) ** 2).sum(1)
     side_t = ((trho_p - trho_t) / rho_ref).pow(2).mean()
     return side_p + side_t
+
+
+# -- density-measured volume prior (J from the particle mass field) -------------
+# REVISION 3 (docs/root_analysis.md): the stored F lags the true deformation (F-smoothing
+# EMA), so det F ~ 1 while the ears are dilated 1.32x and the body compressed 0.94x. This
+# prior measures J from the PARTICLE DENSITY - rho0_i / rho(x_i) with rho gathered from a
+# CIC mass grid (128^3 reproduces the Lagrangian kNN J: ears 1.33 / body 0.99, corr 0.88;
+# 64^3 does not) - and applies the same sKL form (J-1) log J. Its gradient pushes mass from
+# over-dense into under-dense regions regardless of what F says; fully differentiable
+# through the rasterization (rasterize_mass) and the CIC gather.
+
+def density_at(x: torch.Tensor, m: torch.Tensor, gmin: torch.Tensor, dx: float,
+               dims) -> torch.Tensor:
+    """CIC mass density gathered at the particles (mass per cell volume)."""
+    grid = rasterize_mass(x, m, gmin, dx, dims)
+    return gather_cic(grid, x, gmin, dx, dims) / (dx ** 3)
+
+
+def d_jdens(x: torch.Tensor, m: torch.Tensor, rho0: torch.Tensor, gmin: torch.Tensor,
+            dx: float, dims) -> torch.Tensor:
+    """mean((J-1) log J) with J = rho0 / rho(x); rho0 is the per-particle REST density
+    measured once at the source with the same estimator (so J = 1 exactly there)."""
+    rho = density_at(x, m, gmin, dx, dims)
+    J = (rho0 / rho.clamp_min(1e-9)).clamp(1e-3, 1e3)
+    return ((J - 1.0) * torch.log(J)).mean()
