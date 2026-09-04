@@ -302,6 +302,9 @@ class PipelineConfig:
     outer_merit_tol: float = 1e-4   # relative sufficient decrease required for a commit
     outer_gate_move_frac: float = 6e-3 # RETIRED as latch evidence (s1: reachable at 10% of descent; s3: pacing makes every move small) — kept for provenance
     outer_gate_merit_max: float = 0.55 # normalized fixed merit required before latching
+    outer_reversal_always: bool = False  # apply the low-gain reversal reject WITHOUT
+                                    # the plateau latch (v4 test, 2026-09-04: the solid-
+                                    # target tail still zigzags, rev-cos -0.44 / 61%)
     outer_reversal_cos: float = -0.2  # block low-gain cross-window reversals
     outer_reversal_gain: float = 5e-3 # reversal is allowed above this relative merit gain
 

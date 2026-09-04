@@ -173,3 +173,8 @@ with the adopted recipe and NO new mechanism. On a real volumetric target the fl
 problem sits within ~1.5× of the sampling floor; the shell-era 8–12% was layer thickness.
 Status: the dossier's mechanism hunt is CLOSED pending the 40k replicate (v3) and the
 per-region (ear) census on solids.
+v1 census: ear-region particle fraction 0.078 vs target 0.100 (−22%; top-25% band −18%)
+with local density ratio 1.00 in the ears (they are not sparse — they are SHORT: mass is
+not transported to the tips) and 1.40 in the body (5% over-dense). The thin-feature
+transport shortfall is real on solids; the shell-era fill/growth falsifications were run on
+the wrong target and are void — re-evaluate on solids after v3 (40k).

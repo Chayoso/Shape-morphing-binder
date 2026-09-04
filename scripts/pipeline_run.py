@@ -112,7 +112,8 @@ def arm_config(arm: str, args) -> PipelineConfig:
                                           else args.gauss_children),
                           gauss_child_sigma_scale=args.gauss_child_sigma_scale,
                           gauss_child_offset_scale=args.gauss_child_offset_scale,
-                          patience=args.patience, tol=args.tol)
+                          patience=args.patience, tol=args.tol,
+                          outer_reversal_always=args.reversal_always)
     if arm == "phys":
         cfg.lambda_auto = 0.0
     elif arm == "render":
@@ -432,6 +433,7 @@ def main():
     ap.add_argument("--no_outer_merit", dest="outer_merit", action="store_false")  # gate v3 brake is a safety net (r5: 0 rejects)
     ap.add_argument("--patience", type=int, default=5)
     ap.add_argument("--tol", type=float, default=0.003)  # plateau-track relative improvement threshold
+    ap.add_argument("--reversal_always", action="store_true")  # v4: reversal reject without latch
     ap.add_argument("--pace_budget", type=float, default=0.0)
     ap.add_argument("--dress_iters", type=int, default=0)  # Tier D stage ladder
     ap.add_argument("--legacy_recompute_volumes", action="store_true")

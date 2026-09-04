@@ -511,7 +511,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 brake_reject = outer_gain < -max(cfg.pace, 0.05)
                 if brake_reject:
                     outer_reject = True
-                if (outer_gate_latched and reversal_cos is not None
+                if ((outer_gate_latched or cfg.outer_reversal_always)
+                        and reversal_cos is not None
                         and reversal_cos < cfg.outer_reversal_cos
                         and outer_gain < cfg.outer_reversal_gain):
                     outer_reject = True

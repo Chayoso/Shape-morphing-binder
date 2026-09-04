@@ -172,3 +172,13 @@ stopped windows early, left the plateau tracks starved and froze runs at ~100–
 (r2/r4). New recipe: `--pace 0`, anneal 0.7, mom_carry 0, nn_far_k 1000, outer_merit
 (brake as a safety net), best-commit delivery with a resolution-invariant merit and no frame
 drops. The "no snap" requirement is met without pacing (first3 = 11–12%).
+
+### Addendum 6 — the tail zigzag survives the sampler fix (v1 solid bunny, 2026-09-04)
+
+On the first real-volume run (v1: out_nn 1.1%, guards 0) the last 40 commits still show
+rev-cos −0.44 with 61% of particles reversing per commit at mean move 0.0068 — the same
+signature as the shell era (h17: −0.52 / 64%). The oscillation is an optimizer property
+(drivers #5/#6), independent of the target. mom_carry is retired; anneal is partial; the
+gate's low-gain reversal reject only ran once latched. v4 tests it unlatched
+(`outer_reversal_always`): a low-gain candidate that reverses the previous commit's
+displacement is rejected and the next window cold-restarts.
