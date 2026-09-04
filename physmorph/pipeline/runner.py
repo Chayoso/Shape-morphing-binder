@@ -17,7 +17,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..losses.volumetric import (coverage_shortfall, d_vol, d_w1, target_dt_grid,
+from ..losses.volumetric import (coverage_shortfall, d_h1, d_vol, d_w1, target_dt_grid,
                                  target_mass_grid)
 from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
@@ -203,6 +203,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # noise floor, so fringe-only progress could still stale out)
     best_phys, best_rend, best_dt, best_fill, best_kde = None, None, None, None, None
     best_jd = None
+    best_h1 = None
+    reject_streak = 0
     stale, frozen, n_held = 0, False, 0
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
     prev_tracks = None               # last ACCEPTED commit's lambda-free tracks
@@ -380,6 +382,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 from ..losses.volumetric import d_jdens as _dj
                 xt = torch.as_tensor(x, device=cfg.device)
                 d_jd_v = float(_dj(xt, tgt.m, tgt.jd_rho0, tgt.jd_gmin, tgt.jd_dx, tgt.jd_dims))
+        d_h1_v = None
+        if cfg.w_h1 > 0:                                  # non-local mass-balance track
+            with torch.no_grad():
+                xt = torch.as_tensor(x, device=cfg.device)
+                d_h1_v = float(d_h1(xt, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims))
         d_kde_v = None
         if cfg.w_kde > 0 and tgt.pts is not None:       # particle-scale density track
             with torch.no_grad():                        # (fresh neighbours, ungated)
@@ -396,7 +403,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
-               "d_jdens": d_jd_v,
+               "d_jdens": d_jd_v, "d_h1": d_h1_v,
                "d_fill": d_fill, "g_cos": stats.get("g_cos"),
                "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
@@ -453,6 +460,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             components["kde"] = d_kde_v
         if d_jd_v is not None:
             components["jdens"] = d_jd_v
+        if d_h1_v is not None:
+            components["h1"] = d_h1_v
         disp = (x - x_start).reshape(-1)
         reversal_cos = None
         if prev_disp is not None:
@@ -480,6 +489,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             improved = improved or d_kde_v < best_kde - cfg.tol * abs(best_kde)
         if d_jd_v is not None and best_jd is not None:    # density-J prior track
             improved = improved or d_jd_v < best_jd - cfg.tol * abs(best_jd)
+        if d_h1_v is not None and best_h1 is not None:    # mass-balance track
+            improved = improved or d_h1_v < best_h1 - cfg.tol * abs(best_h1)
         if stats.get("pace_bound"):
             # The window exited via the PACE FLOOR: it did exactly the scheduled
             # work, by construction. Plateau accounting must not run against a
@@ -568,7 +579,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # insane candidate, not a stalled run - discard it, shrink the
                 # step, keep descending; only LATCHED low-gain rejects are
                 # plateau evidence and feed the patience freeze.
-                if not brake_reject:
+                reject_streak += 1
+                if not brake_reject or reject_streak >= 2:
+                    # v5b forensic: a brake reject followed by a cold restart at the
+                    # anneal floor REPLAYS the identical candidate (gain -1.15 for 90
+                    # consecutive windows, rejected every time, no patience consumed:
+                    # the run could not end). One insane candidate is discarded for
+                    # free; a streak is a fixed point and must feed the freeze.
                     stale += 1
                 if cfg.anneal_stale > 0:
                     anneal = max(0.05, anneal * cfg.anneal_stale)
@@ -612,6 +629,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             best_kde = d_kde_v if best_kde is None else min(best_kde, d_kde_v)
         if d_jd_v is not None:
             best_jd = d_jd_v if best_jd is None else min(best_jd, d_jd_v)
+        if d_h1_v is not None:
+            best_h1 = d_h1_v if best_h1 is None else min(best_h1, d_h1_v)
+        reject_streak = 0
         stale = 0 if improved else stale + 1
         if cfg.anneal_stale > 0:     # optimizer-side zigzag damping (docs/oscillation.md)
             anneal = (min(1.0, anneal * 1.15) if improved
@@ -656,6 +676,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     m += r["d_dt"] / max(abs(r0["d_dt"]), 1e-8)
                 if r.get("d_kde") is not None and r0.get("d_kde"):
                     m += r["d_kde"] / max(abs(r0["d_kde"]), 1e-8)
+                if r.get("d_h1") is not None and r0.get("d_h1"):
+                    m += r["d_h1"] / max(abs(r0["d_h1"]), 1e-8)
                 return m
             best = min(acc, key=merit)
             if best is not acc[-1] and merit(acc[-1]) > merit(best) * (1 + cfg.tol):

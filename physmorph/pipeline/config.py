@@ -149,6 +149,16 @@ class PipelineConfig:
                                     # 1.32x ear dilation / 0.94x body compression this
                                     # term measures directly.
     jdens_res: int = 128            #   its own raster (64^3 is biased vs the kNN J)
+    w_h1: float = 0.0               # NON-LOCAL mass balance (REVISION 3 amendment):
+                                    # H^-1 norm of the density residual on the loss
+                                    # grid (FFT Poisson). Same minimiser as D_vol; its
+                                    # gradient is the Coulomb pull of every deficit
+                                    # cell on every surplus particle, so body mass is
+                                    # told to move into the ears. D_vol/d_dt/d_sil are
+                                    # all local: v3 40k converged to a wrong fixed
+                                    # point (ear frac 0.069 of 0.100, d_vol floor ~54
+                                    # vs 30 at 20k). 1 = equal gradient norm with
+                                    # D_vol at the source (calibrated once).
     w_kde: float = 0.0              # PARTICLE-SCALE density matching (SPH D_vol):
                                     # 0 = off; >0 multiplies a ONE-SHOT equal-norm
                                     # calibration against the D_vol gradient at the

@@ -27,7 +27,7 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import (d_jdens, d_kde, d_nn_band, d_vol, d_w1, deficit_field,
+from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_w1, deficit_field,
                                  isolation_gate, kde_assign, nn_band_assign, w1_budget)
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
@@ -64,6 +64,7 @@ class TargetPack:
     jd_dims: tuple = ()
     jd_rho0: torch.Tensor | None = None  # per-particle rest density (source, same estimator)
     jd_scale: float | None = None        # one-shot equal-norm calibration vs D_vol
+    h1_scale: float | None = None        # H^-1 mass-balance term: equal-norm vs D_vol
     kde_h: float = 0.0                  # particle-scale density term (w_kde>0)
     kde_rho_ref: float = 1.0
     kde_scale: float | None = None      # one-shot equal-norm calibration vs D_vol
@@ -228,6 +229,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 f"scale={tgt.jd_scale:.3g}")
         else:
             log(f"[win] jdens calibration deferred (|g_jd|={float(gj):.3g} vs |g_vol|={float(gv):.3g})")
+    if cfg.w_h1 > 0 and tgt.h1_scale is None:
+        # one-shot equal-norm vs D_vol at the FIRST window. Legitimate here, unlike the
+        # density prior (v5/v5b): the H^-1 residual shares D_vol's minimiser and its
+        # gradient at the source is the Coulomb pull of the target's mass - non-zero
+        # and aligned with the data term, never against it.
+        xg = x0_t.detach().clone().requires_grad_(True)
+        gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
+                                       tgt.ldims), xg)[0].norm()
+        gh = torch.autograd.grad(d_h1(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
+                                      tgt.ldims), xg)[0].norm()
+        tgt.h1_scale = float(gv / gh.clamp_min(1e-30))
+        log(f"[win] h1 calibration: |g_vol|={float(gv):.3g} |g_h1|={float(gh):.3g} "
+            f"scale={tgt.h1_scale:.3g}")
     kde_nbr = None
     if cfg.w_kde > 0 and tgt.pts is not None:
         kde_nbr = kde_assign(x0_t, tgt.pts, cfg.kde_k)
@@ -360,6 +374,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
             L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
+        if cfg.w_h1 > 0 and tgt.h1_scale is not None:
+            # non-local mass balance (REVISION 3 amendment): H^-1 norm of the density
+            # residual - every deficit cell pulls every surplus particle
+            L = L + cfg.w_h1 * tgt.h1_scale * d_h1(xT, tgt.m, tgt.grid, tgt.lgmin,
+                                                   tgt.ldx, tgt.ldims)
         if cfg.w_jdens > 0 and tgt.jd_rho0 is not None and tgt.jd_scale is not None:
             # density-measured volume prior (REVISION 3): J from the particle mass
             # field, not from the lagging stored F (inactive until calibrated)

@@ -5,6 +5,8 @@ positions, so gradients pull particles toward target-occupied cells.
 """
 from __future__ import annotations
 
+import math
+
 import torch
 
 
@@ -484,3 +486,40 @@ def d_jdens(x: torch.Tensor, m: torch.Tensor, rho0: torch.Tensor, gmin: torch.Te
     rho = density_at(x, m, gmin, dx, dims)
     J = (rho0 / rho.clamp_min(1e-9)).clamp(1e-3, 1e3)
     return ((J - 1.0) * torch.log(J)).mean()
+
+
+# -- NON-LOCAL mass balance: H^-1 norm of the density residual --------------------
+# REVISION 3 amendment (docs/root_analysis.md): every shape term is local - D_vol's
+# gradient reaches one cell beyond a mismatch, d_dt vanishes inside the target, the
+# silhouette sees outlines - so a 6%-over-compressed body particle feels nothing while
+# the ears sit 30% under-filled, and the solid hero converges to a WRONG fixed point
+# (v3 40k: geometric decay of the d_vol gain to a floor of ~54, ear fraction 0.069 of
+# 0.100). This term is the same residual r = rho - rho_t measured in the H^-1 norm:
+#   1/2 |r|^2_{H^-1} = 1/2 sum_k |r_k|^2 / |k|^2  = 1/2 int |grad phi|^2,  lap phi = r,
+# the linearisation of W2 around the target (Peyre; Benamou-Brenier) and the potential
+# of a pressure/density projection. Its gradient on particle i is m_i grad phi(x_i): a
+# Coulomb pull of every deficit cell on every surplus particle - body mass is told to
+# move into the ears - and a transient surplus at the neck is a flux, not a penalty.
+# Same minimiser as D_vol (r == 0), so it is a data term in another norm, never a prior
+# fighting the data (the density prior's failure, v5/v5b).
+
+def d_h1(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
+         grid_min: torch.Tensor, dx: float, dims, pad: int = 2) -> torch.Tensor:
+    """1/2 |rho - rho_t|^2_{H^-1} on the loss grid via an FFT Poisson solve, zero-padded
+    x`pad` so the periodic Green's function approximates free space (the DC mode is
+    dropped: total mass is matched by construction)."""
+    nx, ny, nz = dims
+    r = (rasterize_mass(x, m, grid_min, dx, dims) - target_grid).reshape(nx, ny, nz)
+    P = (pad * nx, pad * ny, pad * nz)
+    rh = torch.fft.rfftn(r, s=P)
+    kx = torch.fft.fftfreq(P[0], device=x.device, dtype=x.dtype) * (2.0 * math.pi)
+    ky = torch.fft.fftfreq(P[1], device=x.device, dtype=x.dtype) * (2.0 * math.pi)
+    kz = torch.fft.rfftfreq(P[2], device=x.device, dtype=x.dtype) * (2.0 * math.pi)
+    k2 = kx[:, None, None] ** 2 + ky[None, :, None] ** 2 + kz[None, None, :] ** 2
+    inv = torch.where(k2 > 0, 1.0 / k2.clamp_min(1e-12), torch.zeros_like(k2))
+    w = torch.full_like(kz, 2.0)              # rfft half-spectrum: Parseval weights
+    w[0] = 1.0
+    if P[2] % 2 == 0:
+        w[-1] = 1.0
+    power = (rh.real ** 2 + rh.imag ** 2) * inv * w[None, None, :]
+    return 0.5 * power.sum() / float(P[0] * P[1] * P[2])

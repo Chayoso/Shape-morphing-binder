@@ -129,3 +129,25 @@ an honest F the constitutive model feels the true strain and the current control
 regime cannot carry it. Remedy under test: a volume prior on the DENSITY-measured J
 (ρ0/ρ from the CIC mass grid, differentiable through the rasterization) so mass is pushed
 from the over-dense body into the under-dense ears regardless of what F says.
+
+## REVISION 3, amendment — the density prior is not the lever; the objective is LOCAL
+
+v5 (prior calibrated at the source, J≡1: zero gradient → froze at a9) and v5b (calibration
+deferred until the prior gradient is measurable: from a2 every candidate is rejected — the
+prior's descent direction is "undo the last step" because the source is the one state where
+J≡1, and at equal norm it cancels the data term; reversal 0.93). A penalty on local density
+cannot route mass from the body into the ears, whatever its weight.
+
+The measurement that reframes the ear deficit (v3 solid 40k): the d_vol gain per accepted
+commit decays geometrically (0.69 → 0.26 → 0.10 over commits 40-80 / 80-120 / 120-160), so
+the run does not converge slowly — it converges to a WRONG fixed point (extrapolated floor
+≈ 54 vs 30 at 20k; ear-region fraction 0.069 vs 0.100). Every term in the objective is local:
+D_vol is an L2 mismatch of rasterized mass (its gradient reaches one cell width beyond a
+mismatch), d_dt vanishes inside the target, d_sil sees silhouettes only, the density prior
+acts at the particle. A body particle that is 6% over-compressed sits in a region with no
+mismatch and feels nothing; the ear deficit's gradient acts only on the particles already in
+the ears (REVISION 3: "points to the tips, unrealized"). Transport from body to ears must
+be carried by material coupling through P2G/G2P — a few cells per commit — which is
+precisely the "dilution" the user named. The remedy is a NON-LOCAL mass-balance signal
+(Poisson/W1 deficit potential: ∇²φ = ρ − ρ_target, push along −∇φ; the standard
+projection/shifting route in the particle literature), not another local penalty.

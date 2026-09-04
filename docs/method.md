@@ -159,3 +159,20 @@ commit-boundary stress spikes, kin 66→509).
 counted; healthy F returns bit-exact. No silent singular-value projection anywhere in a
 blessed path. Guard counters (domain clamp, NaN x/v/C, F resets/flips, any-step
 inversions) are containment + telemetry: **a fired counter invalidates the run** (gate G2).
+
+
+## H⁻¹ mass balance (2026-09-04, REVISION 3 amendment)
+
+Every shape term above is local (D_vol reaches one cell beyond a mismatch, the DT term
+vanishes inside the target, the silhouette sees outlines), so a surplus region far from a
+deficit receives no signal: the solid hero converged to a wrong fixed point with the ears
+30% under-filled. The same residual r = ρ − ρ_t is therefore also measured in the H⁻¹ norm,
+
+    D_h1 = ½ ‖r‖²_{H⁻¹} = ½ Σ_k |r̂_k|² / |k|²  = ½ ∫ |∇φ|²,   ∇²φ = r,
+
+computed by an FFT Poisson solve on the (×2 zero-padded) loss grid; the DC mode is dropped
+(mass is matched by construction). ∂D_h1/∂x_i = m_i ∇φ(x_i) through the CIC kernel: the
+Coulomb pull of every deficit cell on every surplus particle. Same minimiser as D_vol.
+Weight: `w_h1` × a one-shot scale equalising its gradient norm with D_vol at the source
+(`w_h1 = 1` → parity); enters the physics core beside D_vol, is tracked per commit
+(`d_h1`), counted in the plateau/merit/delivery tracks when active.
