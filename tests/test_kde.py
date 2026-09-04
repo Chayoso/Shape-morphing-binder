@@ -36,6 +36,6 @@ def test_clump_is_spread():
     L0 = d_kde(x, tgt, nb[0], nb[1], h, rho)
     (g,) = torch.autograd.grad(L0, x)
     with torch.no_grad():
-        x2 = x - 0.1 * g / g.norm()
+        x2 = x - 2e-3 * g / g.norm()      # a small descent step (grid spacing 0.1)
     L1 = d_kde(x2, tgt, nb[0], nb[1], h, rho)
-    assert float(L1) < float(L0)
+    assert float(L1) < float(L0.detach())
