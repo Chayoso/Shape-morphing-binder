@@ -142,3 +142,11 @@ beyond the kernel; clumps dissolved OUTWARD. Revision (v2, x5): the true L2 kern
 density distance evaluated on BOTH point sets — the target-side residual at deficient
 target points attracts particles inward (tests: a particle 4 sp outside now receives an
 inward gradient).
+
+Adaptive display sigma (render_photoreal --adaptive_k 8, sigma_i ∝ local spacing,
+2026-09-03): the body's speckle disappears, but the ears turn into a blurred cloud —
+their local spacing is large because they hold 9–24% fewer particles than the target,
+so a larger sigma can only smear them. Verdict: the ear defect is a particle-COUNT
+(transport) shortfall, not a display issue; adaptive sigma is a valid body-side aid only.
+Next falsifier: is the freeze premature during the slow ear-filling phase? (x7: patience
+20, tol 1e-3, 20k; measure the ear-region particle fraction vs the target's 10%.)
