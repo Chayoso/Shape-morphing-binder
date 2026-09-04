@@ -33,6 +33,7 @@ ap.add_argument("--azim", type=float, default=35.0)
 ap.add_argument("--elev", type=float, default=18.0)
 ap.add_argument("--sigma_k", type=float, default=1.6, help="display splat sigma in NN spacings")
 ap.add_argument("--adaptive_k", type=int, default=0, help=">0: per-particle sigma = sigma_k x mean distance to its k nearest neighbours (fills clustering gaps)")
+ap.add_argument("--surface_only", type=float, default=0.0, help=">0: render only the surface parents (fraction, kNN one-sidedness score) - required for SOLID bodies")
 ap.add_argument("--frame", type=int, default=None,
                 help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
                      "archive carries one, else the last frame")
@@ -53,6 +54,11 @@ if "F_sample_idx" in d.files:
 else:
     F = d["F_samples"][-1].astype(np.float32)
 print(f"[photoreal] frame {fi} of {n_frames}")
+if a.surface_only > 0:
+    from physmorph.pipeline.runner import _surface_weights
+    _sw = _surface_weights(x, 24, a.surface_only, 0.05) > 0.5
+    x, F = x[_sw], F[_sw]
+    print(f"[photoreal] surface-only: {int(_sw.sum())} of {len(_sw)} particles")
 dev = "cuda"
 xt = torch.tensor(x, device=dev)
 sigma0 = sigma0_from_nn(x, a.sigma_k)
