@@ -90,3 +90,24 @@ unaffected by this revision. What changes: the "route around the low-pass" progr
 (§"What the frame dictates", item 2) loses its premise; the remaining levers are the
 observation model (what the loss can see — gauss/Tier D, per-particle terms), the
 λ cap binding at the balance point, and the optimizer's handling of the soft modes.
+
+## REVISION 2 (2026-09-03) — the target was a SHELL
+
+Found by the particle-relaxation design pass and verified: `assets/bunny.obj` is not
+watertight (Euler −3), `mesh.voxelized().fill()` adds zero interior voxels, so
+`sample_volume` returned SURFACE samples (0% of samples deeper than 3% of the bbox
+diagonal; the isosphere source is 67% interior). Every bunny run morphed a solid sphere
+into a hollow shell target. On the best 20k state (r3b): 98% of particles lie within 0.1
+of the shell, 0% deeper than 0.3, and the median NN spacing collapsed from 0.0756
+(source volume) to 0.0293 — the body is a thin layer. Consequences for this dossier:
+- "floaters" (out_nn 8–12%) were the layer's outer thickness, not stray particles;
+- the "clustering ratio 2–2.7" compared a layer against a 4× finer shell spacing;
+- the "under-filled ears" were a layer failing to thin enough; the KDE losses minimised
+  layer thickness (their outward expulsion mode) — all three variants were fighting
+  the sampler, not physics;
+- chamfer 0.070–0.071 is the shell-vs-shell floor, i.e. the runs had converged.
+The optimizer-side findings (mom_carry cascade, pace cap, gate v3, best-commit delivery,
+E4/berth ownership) stand on their own evidence. Armadillo is watertight but its fill is
+partial (11% interior). Fix: robust volumetric fill for non-watertight meshes + target
+volume matched to the source (isochoric particles cannot change total volume), then
+re-run the ladder on real solids.
