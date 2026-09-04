@@ -37,7 +37,8 @@ def test_h1_is_nonlocal_where_d_vol_is_blind():
     dims, dx, gmin = (32, 32, 32), 1.0, torch.zeros(3)
     A, B, g = _two_blobs()
     tgt = torch.cat([A, B]); m = torch.ones(401)
-    tg = rasterize_mass(tgt, torch.ones(400), gmin, dx, dims)
+    # equal TOTAL mass (production premise: matched volumes -> matched mass, DC == 0)
+    tg = rasterize_mass(tgt, torch.full((400,), 401.0 / 400.0), gmin, dx, dims)
     probe = torch.tensor([[16.5, 16.5, 16.5]])            # cell centre: symmetric footprint
     cur = torch.cat([A, A + 0.3 * torch.randn(200, 3, generator=g), probe]).requires_grad_(True)
     (gh,) = torch.autograd.grad(d_h1(cur, m, tg, gmin, dx, dims), cur)

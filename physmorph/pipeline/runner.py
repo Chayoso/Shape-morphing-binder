@@ -204,7 +204,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     best_phys, best_rend, best_dt, best_fill, best_kde = None, None, None, None, None
     best_jd = None
     best_h1 = None
-    reject_streak = 0
+    reject_streak, last_reject_score = 0, None
     stale, frozen, n_held = 0, False, 0
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
     prev_tracks = None               # last ACCEPTED commit's lambda-free tracks
@@ -234,7 +234,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if (cfg.c2f_at > 0 and cfg.lambda_auto > 0
                 and a == int(cfg.c2f_at * cfg.animations)):
             cfg.render_res = cfg.render_res_hi
+            keep = (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0)
             tgt = build_target(target_x, prm, cfg)
+            # one-shot calibrations survive the rebuild (REFUTE 2026-09-04 F1: a fresh
+            # TargetPack has h1_scale=None, so the next window silently RE-calibrated
+            # the H^-1 term at a mid-run state - a hidden weight schedule)
+            tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0 = keep
             best_rend, stale = None, 0              # rescaled track must not inherit a
             outer_scales = outer_prev = prev_disp = None
             outer_gate_latched = False              # render track rescaled: re-earn the latch
@@ -580,12 +585,23 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # step, keep descending; only LATCHED low-gain rejects are
                 # plateau evidence and feed the patience freeze.
                 reject_streak += 1
-                if not brake_reject or reject_streak >= 2:
-                    # v5b forensic: a brake reject followed by a cold restart at the
-                    # anneal floor REPLAYS the identical candidate (gain -1.15 for 90
-                    # consecutive windows, rejected every time, no patience consumed:
-                    # the run could not end). One insane candidate is discarded for
-                    # free; a streak is a fixed point and must feed the freeze.
+                # v5b forensic: a brake reject followed by a cold restart at the
+                # anneal floor REPLAYS the identical candidate (gain -1.15 for 90
+                # consecutive windows, rejected every time, no patience consumed:
+                # the run could not end). One insane candidate is discarded for
+                # free; a REPLAY - the same merit as the previous rejected
+                # candidate within the replay-noise tolerance - is a fixed point
+                # and must feed the freeze. (REFUTE 2026-09-04 F4: a bare streak
+                # count would also charge patience for DISTINCT over-threshold
+                # attempts mid-descent, the b4/b6 failure class.)
+                replay_tol = max(cfg.outer_merit_tol,
+                                 10.0 * float(stats.get("replay_rel", 0.0) or 0.0))
+                replay = (last_reject_score is not None and
+                          abs(score - last_reject_score)
+                          <= replay_tol * max(abs(last_reject_score), 1e-8))
+                last_reject_score = score
+                rec.update({"reject_streak": reject_streak, "replay": int(replay)})
+                if not brake_reject or replay:
                     stale += 1
                 if cfg.anneal_stale > 0:
                     anneal = max(0.05, anneal * cfg.anneal_stale)
@@ -631,7 +647,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             best_jd = d_jd_v if best_jd is None else min(best_jd, d_jd_v)
         if d_h1_v is not None:
             best_h1 = d_h1_v if best_h1 is None else min(best_h1, d_h1_v)
-        reject_streak = 0
+        reject_streak, last_reject_score = 0, None
         stale = 0 if improved else stale + 1
         if cfg.anneal_stale > 0:     # optimizer-side zigzag damping (docs/oscillation.md)
             anneal = (min(1.0, anneal * 1.15) if improved

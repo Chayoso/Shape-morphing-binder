@@ -211,3 +211,10 @@ collapsing onto a hollow target and bouncing). On real solids the oscillation li
 CLOSED by this measurement, with a pre-registered reopening rule: a mechanism is warranted
 only if >1% of particles move >0.5 sp per accepted commit in the delivered tail. v4/v6
 (reversal-based brakes) were spent on an invisible signal and both cost real descent.
+
+Amplitude, not increments (REFUTE 2026-09-04 F8): per-particle peak-to-peak excursion about
+the linear drift over the last 40 accepted commits of v3 40k — median 0.16 sp, p99 0.42 sp,
+max 1.03 sp (one particle); ear region median 0.22 / p99 0.44 sp (`solid_census.py`). A
+coherent low-frequency wander would show here; it does not. The closure stands on the
+amplitude metric; the reopening rule now reads: >1% of particles with a drift-removed tail
+excursion >0.5 sp, or >0.5 sp per accepted commit.

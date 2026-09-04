@@ -374,11 +374,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
             L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
-        if cfg.w_h1 > 0 and tgt.h1_scale is not None:
-            # non-local mass balance (REVISION 3 amendment): H^-1 norm of the density
-            # residual - every deficit cell pulls every surplus particle
-            L = L + cfg.w_h1 * tgt.h1_scale * d_h1(xT, tgt.m, tgt.grid, tgt.lgmin,
-                                                   tgt.ldx, tgt.ldims)
         if cfg.w_jdens > 0 and tgt.jd_rho0 is not None and tgt.jd_scale is not None:
             # density-measured volume prior (REVISION 3): J from the particle mass
             # field, not from the lagging stored F (inactive until calibrated)
@@ -417,6 +412,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             Lk = cfg.w_kde * tgt.kde_scale * d_kde(xT, tgt.pts, kde_nbr,
                                                    tgt.kde_h, tgt.kde_rho_ref)
             L = Lk if L is None else L + Lk
+        if cfg.w_h1 > 0 and tgt.h1_scale is not None:
+            # non-local mass balance (REVISION 3 amendment): H^-1 norm of the density
+            # residual - every deficit cell pulls every surplus particle. OUTSIDE
+            # phys_core like the W1 term (REFUTE 2026-09-04 F3 / finding 9 precedent):
+            # inside it the term inflated the lambda-balancer numerator and rotated
+            # the PCGrad reference (cos(g_vol, g_h1) ~ 0.14 at the source), so v7's
+            # descent could not be attributed to the mass-balance signal alone.
+            Lh = cfg.w_h1 * tgt.h1_scale * d_h1(xT, tgt.m, tgt.grid, tgt.lgmin,
+                                                tgt.ldx, tgt.ldims)
+            L = Lh if L is None else L + Lh
         return L
 
     fill_on = fill_pairs is not None

@@ -135,8 +135,11 @@ from the over-dense body into the under-dense ears regardless of what F says.
 v5 (prior calibrated at the source, J≡1: zero gradient → froze at a9) and v5b (calibration
 deferred until the prior gradient is measurable: from a2 every candidate is rejected — the
 prior's descent direction is "undo the last step" because the source is the one state where
-J≡1, and at equal norm it cancels the data term; reversal 0.93). A penalty on local density
-cannot route mass from the body into the ears, whatever its weight.
+J≡1, and at equal norm it cancels the data term; reversal 0.93). REFUTE F7 (2026-09-04) corrects the reading: reversal_cos is the cosine with the PREVIOUS
+displacement, so +0.93 means the candidate continued the last step and overshot — the
+deferred calibration fired at a near-zero prior gradient (scale hit its 1e3 cap) and the
+term then dominated. What is falsified is parity calibration at a state where the prior's
+gradient is ~0, not the prior class; it is parked, not disproved.
 
 The measurement that reframes the ear deficit (v3 solid 40k): the d_vol gain per accepted
 commit decays geometrically (0.69 → 0.26 → 0.10 over commits 40-80 / 80-120 / 120-160), so
@@ -157,6 +160,17 @@ component OUTWARD from the surplus band's centre along the long axis, divided by
 gradient magnitude, for the band's 13.4k particles (|y|<0.5): D_vol (L2) +0.05 (core +0.15;
 28% of band particles outward-dominant; the densest slab [−0.5,0) points INWARD, −0.12);
 H⁻¹ +0.46 (core +0.47; 53% outward-dominant), and +0.3…+0.87 in every interior slab from
-−2.5 to +2.0. The L2 term is blind inside the uniform surplus; the H⁻¹ term drives every
-band particle poleward. The gradient's mass share in the band: 0.20 (L2) vs 0.41 (H⁻¹).
+−2.5 to +2.0. The L2 term is WEAK inside the surplus (the log-mass adjoint is not exactly uniform, so
+not zero: +0.05/+0.15); the H⁻¹ term drives every band particle poleward (REFUTE F5:
+the probe shows H⁻¹ is far more poleward on this state, not that locality alone caused
+the floor — the v7 census is the test of that). The gradient's mass share in the band: 0.20 (L2) vs 0.41 (H⁻¹).
 Ear width is 1.27 wu = 2.5 cells at dx 0.5 — a separate resolution suspect, deferred.
+
+Lateral component (REFUTE F6, `band_push.py` v2): in the surplus band the H⁻¹ descent has a
+radial component transverse to the long axis of +0.50 (66% of band particles lateral-
+dominant) — the Coulomb self-field decompresses the band in every direction, not only
+poleward; the L2 term's lateral component is −0.20 (inward). On particles off the target
+support the outward-normal component is ~0 for both (+0.03 L2, +0.01 H⁻¹): neither term pushes
+mass through the silhouette in aggregate, but the sideways decompression must be stopped by
+d_sil/d_dt at the surface — the v7 census (out_nn, far, per-commit floater_frac) is the
+arbiter, pre-registered above.
