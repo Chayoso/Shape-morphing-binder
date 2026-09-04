@@ -127,3 +127,9 @@ first window (w_kde = 1 ⇒ parity) — a rule, not a tuned scalar. Logged as `d
 delivery-merit component. Falsifiers (x3 at 20k vs r3b): cluster ratio 2.0 → ≤ 1.3,
 unfilled@1.5sp 33% → < 20%, out_nn 8.1% → < 5%, at chamfer within 2% and guards 0;
 any guard, jitter > 3e-3 or a chamfer regression > 2% kills it.
+
+Visual confirmation (r5 photoreal at display sigma 1.0/1.25 sp, 2026-09-03): the body is
+SPECKLED with pinholes between clumps and the ears are sparse filaments — the clustering
+census made visible. Display sigma 1.6 hides the pinholes but blurs everything (the user's
+"작으면 gradient 죽고 키우면 bleb" dilemma is, on the display side, exactly this
+trade-off); the fix must be in the particle distribution (x3/x4), not the splat size.
