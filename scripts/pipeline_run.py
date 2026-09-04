@@ -457,8 +457,12 @@ def main():
     ap.add_argument("--out", default="output/v2_ab")
     args = ap.parse_args()
 
-    src = load(args.src, args.n, args.seed)
-    tgt = load(args.tgt, args.n, args.seed + 1)
+    src, v_src = load(args.src, args.n, args.seed, return_volume=True)
+    tgt, v_tgt = load(args.tgt, args.n, args.seed + 1, match_volume=v_src,
+                      return_volume=True)
+    print(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
+          f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})",
+          flush=True)
     prm = MPMParams()
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={args.T}  iters={args.iters}  "
