@@ -151,3 +151,12 @@ be carried by material coupling through P2G/G2P — a few cells per commit — w
 precisely the "dilution" the user named. The remedy is a NON-LOCAL mass-balance signal
 (Poisson/W1 deficit potential: ∇²φ = ρ − ρ_target, push along −∇φ; the standard
 projection/shifting route in the particle literature), not another local penalty.
+
+**Measured (band_push probe, v3 40k delivered state, loss grid 64³/0.5 wu).** Descent
+component OUTWARD from the surplus band's centre along the long axis, divided by the mean
+gradient magnitude, for the band's 13.4k particles (|y|<0.5): D_vol (L2) +0.05 (core +0.15;
+28% of band particles outward-dominant; the densest slab [−0.5,0) points INWARD, −0.12);
+H⁻¹ +0.46 (core +0.47; 53% outward-dominant), and +0.3…+0.87 in every interior slab from
+−2.5 to +2.0. The L2 term is blind inside the uniform surplus; the H⁻¹ term drives every
+band particle poleward. The gradient's mass share in the band: 0.20 (L2) vs 0.41 (H⁻¹).
+Ear width is 1.27 wu = 2.5 cells at dx 0.5 — a separate resolution suspect, deferred.
