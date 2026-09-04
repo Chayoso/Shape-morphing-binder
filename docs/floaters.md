@@ -105,3 +105,25 @@ both data terms (D_vol cell ≈ 3.4 sp at loss_res 64/20k; silhouette pixel ≈ 
 equilibrates against elastic tension off the surface. Next A/Bs (40k, where N supports
 finer grids): x1 loss_res 64→96 (cell ≈ 2.3 sp); x2 nn_berth_k 1.5→1.0 (no dead band).
 Kill: guards ≠ 0, jitter ↑, or chamfer regression > 2% at no floater gain.
+
+### Mechanism from the census: particle-scale density matching (x3, 2026-09-03)
+
+The J census killed the volume-prior hypothesis (J ≈ 1 everywhere, ears 0.999) and the
+local-density census named the defect: particle/target density ratio at particle
+positions is 2.0–2.7 in the body (sub-cell CLUSTERING) and 1.3 in the ears, with the ears
+holding 9–24% fewer particles than the target. Gaps between clumps read as fuzz, the
+fringe halo is their outer edge, and the frayed ears are under-filled. Neither the CIC
+D_vol (cell ≈ 3.4 sp) nor the silhouette (pixel ≈ 2.3 sp) can see this scale, and N
+cannot support finer grids (20k over a 128³ grid is 0.1 particle/cell).
+
+`d_kde` (physmorph/losses/volumetric.py): at every particle, the kernel density of the
+particles (frozen per-window kNN, self counted) versus the kernel density of the target
+points (frozen kNN), W = exp(−(r/h)²), h = 2 sp — the SPH form of D_vol. Its gradient
+runs from crowded to deficient regions and from outside the target inward, so it owns
+both the clumps and the fringe with the right direction (the silhouette's is cos 0.15).
+Weight: w_kde × a one-shot calibration equating its x-gradient norm with D_vol's at the
+first window (w_kde = 1 ⇒ parity) — a rule, not a tuned scalar. Logged as `d_kde`
+(archived state, fresh neighbours, ungated), a freeze track, a gate-merit and a
+delivery-merit component. Falsifiers (x3 at 20k vs r3b): cluster ratio 2.0 → ≤ 1.3,
+unfilled@1.5sp 33% → < 20%, out_nn 8.1% → < 5%, at chamfer within 2% and guards 0;
+any guard, jitter > 3e-3 or a chamfer regression > 2% kills it.
