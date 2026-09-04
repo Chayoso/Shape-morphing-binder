@@ -61,7 +61,7 @@ if a.adaptive_k > 0:
     from scipy.spatial import cKDTree as _KD
     _d, _ = _KD(x).query(x, k=a.adaptive_k + 1, workers=-1)
     _loc = _d[:, 1:].mean(1).astype(np.float32)            # local spacing per particle
-    _scale = (a.sigma_k * _loc / sigma0).astype(np.float32)  # relative to the global sigma
+    _scale = (_loc / np.median(_loc)).astype(np.float32)    # relative: the median particle keeps sigma0
     cov = cov * torch.tensor(_scale ** 2, device=dev)[:, None, None]
     print(f"[photoreal] adaptive sigma: k={a.adaptive_k} scale med {np.median(_scale):.2f} p90 {np.percentile(_scale,90):.2f}")
 cov6 = torch.stack([cov[:, 0, 0], cov[:, 0, 1], cov[:, 0, 2],
