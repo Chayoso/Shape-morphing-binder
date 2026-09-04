@@ -385,29 +385,50 @@ def kde_self_density(pts: torch.Tensor, h: float, k: int = 32) -> float:
 
 
 def kde_assign(x0: torch.Tensor, tgt_pts: torch.Tensor, k: int = 32):
-    """Frozen per-window neighbour lists: k nearest OTHER particles and k nearest
-    target points of every particle. Returns (nbr_p (N,k), nbr_t (N,k)) long."""
+    """Frozen per-window neighbour lists for the TWO-SIDED density match:
+      particle side: k nearest OTHER particles and k+1 nearest target points of every
+                     particle (k+1: the self-term is counted on the particle side);
+      target side:   k+1 nearest particles and k nearest OTHER target points of every
+                     target point (self-term counted on the target side).
+    x3 (one-sided, 2026-09-03) falsified the particle-only form: an exterior particle
+    sees rho_t ~ 0 and is only told to LOWER its own density - repulsion - so clumps
+    dissolved outward (cluster ratio 2.0 -> 1.25 but out_nn 8 -> 22%). The target-side
+    residual is what pulls particles INTO deficient regions.
+    Returns (nbr_p (N,k), nbr_t (N,k+1), tnbr_p (M,k+1), tnbr_t (M,k))."""
     from scipy.spatial import cKDTree
     import numpy as np
     with torch.no_grad():
         xn = x0.detach().cpu().numpy()
         tn = tgt_pts.detach().cpu().numpy()
-        _, ip = cKDTree(xn).query(xn, k=k + 1, workers=-1)
-        _, it = cKDTree(tn).query(xn, k=k + 1, workers=-1)   # k+1: the target's own
-        # self-term is counted on the particle side (rho_p = 1 + ...), so a particle
-        # on a target point sees the same k others plus 'itself'
-        return (torch.as_tensor(np.ascontiguousarray(ip[:, 1:]), device=x0.device),
-                torch.as_tensor(np.ascontiguousarray(it), device=x0.device))
+        xtree, ttree = cKDTree(xn), cKDTree(tn)
+        _, ip = xtree.query(xn, k=k + 1, workers=-1)
+        _, it = ttree.query(xn, k=k + 1, workers=-1)
+        _, tp = xtree.query(tn, k=k + 1, workers=-1)
+        _, tt = ttree.query(tn, k=k + 1, workers=-1)
+        dev = x0.device
+        return (torch.as_tensor(np.ascontiguousarray(ip[:, 1:]), device=dev),
+                torch.as_tensor(np.ascontiguousarray(it), device=dev),
+                torch.as_tensor(np.ascontiguousarray(tp), device=dev),
+                torch.as_tensor(np.ascontiguousarray(tt[:, 1:]), device=dev))
 
 
-def d_kde(x: torch.Tensor, tgt_pts: torch.Tensor, nbr_p: torch.Tensor,
-          nbr_t: torch.Tensor, h: float, rho_ref: float) -> torch.Tensor:
-    """mean(((rho_p - rho_t)/rho_ref)^2): rho_p = 1 + sum_j W(|x_i-x_j|) over the frozen
-    particle neighbours (self counted, so a particle sitting exactly on a target point
-    matches that target's own self-density) and rho_t = sum_k W over the frozen target
-    neighbours; W = exp(-(r/h)^2)."""
+def d_kde(x: torch.Tensor, tgt_pts: torch.Tensor, nbr, h: float,
+          rho_ref: float) -> torch.Tensor:
+    """Two-sided kernel-density match, W = exp(-(r/h)^2):
+      particle side  mean_i ((rho_p(x_i) - rho_t(x_i)) / rho_ref)^2   (clumps relax)
+      target side    mean_k ((rho_p(t_k) - rho_t(t_k)) / rho_ref)^2   (deficits attract)
+    with all neighbour lists frozen per window (nbr from kde_assign). Self-terms are
+    counted on the home side (rho_p at x_i includes x_i; rho_t at t_k includes t_k), so
+    particles sitting exactly on the target points give zero on both sides."""
+    nbr_p, nbr_t, tnbr_p, tnbr_t = nbr
     dp = (x[:, None, :] - x[nbr_p]).norm(dim=2)
     rho_p = 1.0 + torch.exp(-(dp / h) ** 2).sum(1)
     dt_ = (x[:, None, :] - tgt_pts[nbr_t]).norm(dim=2)
     rho_t = torch.exp(-(dt_ / h) ** 2).sum(1)
-    return ((rho_p - rho_t) / rho_ref).pow(2).mean()
+    side_p = ((rho_p - rho_t) / rho_ref).pow(2).mean()
+    tp = (tgt_pts[:, None, :] - x[tnbr_p]).norm(dim=2)
+    trho_p = torch.exp(-(tp / h) ** 2).sum(1)
+    ttd = (tgt_pts[:, None, :] - tgt_pts[tnbr_t]).norm(dim=2)
+    trho_t = 1.0 + torch.exp(-(ttd / h) ** 2).sum(1)
+    side_t = ((trho_p - trho_t) / rho_ref).pow(2).mean()
+    return side_p + side_t

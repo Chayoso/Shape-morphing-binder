@@ -215,7 +215,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             xg = x0_t.detach().clone().requires_grad_(True)
             gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
                                            tgt.ldims), xg)[0].norm()
-            gk = torch.autograd.grad(d_kde(xg, tgt.pts, kde_nbr[0], kde_nbr[1],
+            gk = torch.autograd.grad(d_kde(xg, tgt.pts, kde_nbr,
                                            tgt.kde_h, tgt.kde_rho_ref), xg)[0].norm()
             tgt.kde_scale = float(gv / gk.clamp_min(1e-30))
             log(f"[win] kde calibration: |g_vol|={float(gv):.3g} |g_kde|={float(gk):.3g} "
@@ -370,7 +370,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                       cfg.nn_berth_k * tgt.nn_spacing)
             L = Ln if L is None else L + Ln
         if kde_nbr is not None:
-            Lk = cfg.w_kde * tgt.kde_scale * d_kde(xT, tgt.pts, kde_nbr[0], kde_nbr[1],
+            Lk = cfg.w_kde * tgt.kde_scale * d_kde(xT, tgt.pts, kde_nbr,
                                                    tgt.kde_h, tgt.kde_rho_ref)
             L = Lk if L is None else L + Lk
         return L

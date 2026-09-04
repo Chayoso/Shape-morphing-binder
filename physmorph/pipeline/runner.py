@@ -369,7 +369,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 from ..losses.volumetric import d_kde as _dk, kde_assign as _ka
                 xt = torch.as_tensor(x, device=cfg.device)
                 nb = _ka(xt, tgt.pts, cfg.kde_k)
-                d_kde_v = float(_dk(xt, tgt.pts, nb[0], nb[1], tgt.kde_h, tgt.kde_rho_ref))
+                d_kde_v = float(_dk(xt, tgt.pts, nb, tgt.kde_h, tgt.kde_rho_ref))
         d_fill = None
         if cfg.w_fill > 0 and tgt.tmass3 is not None:   # fill telemetry (f9/F9: the
             with torch.no_grad():                        # term was fully unobservable)

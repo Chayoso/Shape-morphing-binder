@@ -133,3 +133,12 @@ SPECKLED with pinholes between clumps and the ears are sparse filaments — the 
 census made visible. Display sigma 1.6 hides the pinholes but blurs everything (the user's
 "작으면 gradient 죽고 키우면 bleb" dilemma is, on the display side, exactly this
 trade-off); the fix must be in the particle distribution (x3/x4), not the splat size.
+
+x3 verdict (one-sided KDE, 20k): cluster ratio 2.0 → 1.25 (the clumps DID relax) but
+out_nn 8.1 → 21.9%, far 419 → 1812, chamfer +16%, and the archived d_kde rose over the
+run. Mechanism: the particle-side residual at an exterior particle (rho_t ≈ 0) can only
+be lowered by reducing rho_p — repulsion — while the inward pull through rho_t vanishes
+beyond the kernel; clumps dissolved OUTWARD. Revision (v2, x5): the true L2 kernel-
+density distance evaluated on BOTH point sets — the target-side residual at deficient
+target points attracts particles inward (tests: a particle 4 sp outside now receives an
+inward gradient).
