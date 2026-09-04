@@ -111,3 +111,21 @@ E4/berth ownership) stand on their own evidence. Armadillo is watertight but its
 partial (11% interior). Fix: robust volumetric fill for non-watertight meshes + target
 volume matched to the source (isochoric particles cannot change total volume), then
 re-run the ladder on real solids.
+
+## REVISION 3 (2026-09-04) — the stored F does not track the real deformation
+
+On the first real-volume run (v1 solid bunny, converged): stored det F ≈ 1.00 everywhere,
+but the Lagrangian volume ratio measured from particle positions (kNN spacing now vs in
+the source, cubed) is **1.32 in the ears and 0.94 in the body**; 75% of particles have
+|J_stored − J_true| > 0.2. The ear slab holds 81% of the target mass; the D_vol gradient in
+the ears is LARGER than in the body and points toward the tips — the optimizer sees the
+deficit, the physics does not realize it. Cause: `k_update`'s F-smoothing (s = 0.955,
+inherited from v1) is a temporal EMA that integrates 4.5% of each increment, so the stored
+F lags the true deformation; the sKL volume prior, the isochoric assimilation and the
+corotated elastic response all act on that fictitious F. The ears were not filled by
+transport; they were stretched thin (true J 1.32) while the body compressed. The earlier
+"s ≤ 0.8 falsified (J collapses)" probe result is the same fact from the other side: with
+an honest F the constitutive model feels the true strain and the current control/stiffness
+regime cannot carry it. Remedy under test: a volume prior on the DENSITY-measured J
+(ρ0/ρ from the CIC mass grid, differentiable through the rasterization) so mass is pushed
+from the over-dense body into the under-dense ears regardless of what F says.
