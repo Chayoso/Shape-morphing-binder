@@ -412,6 +412,24 @@ def kde_assign(x0: torch.Tensor, tgt_pts: torch.Tensor, k: int = 32):
                 torch.as_tensor(np.ascontiguousarray(tt[:, 1:]), device=dev))
 
 
+def d_kde_parts(x: torch.Tensor, tgt_pts: torch.Tensor, nbr, h: float,
+                rho_ref: float):
+    """(particle-side, target-side) terms of d_kde, for tests/telemetry."""
+    nbr_p, nbr_t, tnbr_p, tnbr_t = nbr
+    dp = (x[:, None, :] - x[nbr_p]).norm(dim=2)
+    rho_p = 1.0 + torch.exp(-(dp / h) ** 2).sum(1)
+    dt_ = (x[:, None, :] - tgt_pts[nbr_t]).norm(dim=2)
+    rho_t = torch.exp(-(dt_ / h) ** 2).sum(1)
+    support = (rho_t / rho_ref).clamp(0.0, 1.0).pow(2).detach()
+    side_p = (support * ((rho_p - rho_t) / rho_ref).pow(2)).mean()
+    tp = (tgt_pts[:, None, :] - x[tnbr_p]).norm(dim=2)
+    trho_p = torch.exp(-(tp / h) ** 2).sum(1)
+    ttd = (tgt_pts[:, None, :] - tgt_pts[tnbr_t]).norm(dim=2)
+    trho_t = 1.0 + torch.exp(-(ttd / h) ** 2).sum(1)
+    side_t = ((trho_p - trho_t) / rho_ref).pow(2).mean()
+    return side_p, side_t
+
+
 def d_kde(x: torch.Tensor, tgt_pts: torch.Tensor, nbr, h: float,
           rho_ref: float) -> torch.Tensor:
     """Two-sided kernel-density match, W = exp(-(r/h)^2):
@@ -425,7 +443,16 @@ def d_kde(x: torch.Tensor, tgt_pts: torch.Tensor, nbr, h: float,
     rho_p = 1.0 + torch.exp(-(dp / h) ** 2).sum(1)
     dt_ = (x[:, None, :] - tgt_pts[nbr_t]).norm(dim=2)
     rho_t = torch.exp(-(dt_ / h) ** 2).sum(1)
-    side_p = ((rho_p - rho_t) / rho_ref).pow(2).mean()
+    # SUPPORT weight (x5 forensic): density matching is only meaningful where the
+    # target has support - an exterior particle (rho_t ~ 0) must not be told to
+    # lower its own density (that is pure repulsion, which scattered the fringe:
+    # x3 out_nn 8->22%, x5 8->16%). Outside the support the particle-side residual
+    # is switched off; the target-side deficit pull and the near-band own it.
+    # Squared: at the fringe (rho_t ~ 0.05 rho_ref) a linear weight still let the
+    # pair-separation force exceed the inward pull (test); the square makes the
+    # particle-side term vanish quadratically toward the support boundary.
+    support = (rho_t / rho_ref).clamp(0.0, 1.0).pow(2).detach()
+    side_p = (support * ((rho_p - rho_t) / rho_ref).pow(2)).mean()
     tp = (tgt_pts[:, None, :] - x[tnbr_p]).norm(dim=2)
     trho_p = torch.exp(-(tp / h) ** 2).sum(1)
     ttd = (tgt_pts[:, None, :] - tgt_pts[tnbr_t]).norm(dim=2)

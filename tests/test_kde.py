@@ -54,3 +54,22 @@ def test_clump_is_spread():
         x2 = x - 2e-3 * g / g.norm()
     L1 = d_kde(x2, tgt, nb, h, rho)
     assert float(L1) < float(L0.detach())
+
+
+def test_exterior_particle_has_no_particle_side_repulsion():
+    # v3 guarantee: OUTSIDE the target support the particle-side residual is switched
+    # off (squared support weight), so a close exterior pair gets no separating force
+    # from that term (the target-side term may still act; it is the deficit pull).
+    from physmorph.losses.volumetric import d_kde_parts
+    tgt = _grid()
+    h = 2 * 0.1
+    rho = kde_self_density(tgt, h, 32)
+    x = tgt.clone()
+    i, j = 5, 6
+    x[i] = torch.tensor([-0.6, 0.5, 0.5])                     # 6 sp outside
+    x[j] = torch.tensor([-0.6, 0.55, 0.5])                    # close exterior neighbour
+    x.requires_grad_(True)
+    nb = kde_assign(x.detach(), tgt, 32)
+    side_p, _ = d_kde_parts(x, tgt, nb, h, rho)
+    (g,) = torch.autograd.grad(side_p, x)
+    assert float(g[i].abs().max()) < 1e-9 and float(g[j].abs().max()) < 1e-9
