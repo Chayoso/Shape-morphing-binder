@@ -158,3 +158,11 @@ metric has a Poisson floor from two independent 20k samplings of the SAME solid:
 bunny 11.2% @1.5sp / 1.0% @2sp; armadillo 12.9% / 1.5%. The first real-volume run
 (v2 solid armadillo) reads 27.7% / 7.9% — about 2× the floor, with out_nn 1.6%, far 12,
 max_dt 4.1 sp, guards 0. Shell-era values (33–42% / 14–24%) are not comparable.
+
+Render note (2026-09-04): `scripts/render_photoreal.py` was tuned on shell-era layers
+(kNN-PCA normals, all particles). On a real solid, rendering all particles gives a
+"rock" look and `--surface_only` (one-sidedness score) selects a gappy subset with
+mismatched normals. The photoreal deliverable for solids needs a proper surface
+extraction (e.g. density-field iso-surface normals + depth-peeled surface parents, or
+the gauss children on a frozen surface set). This is display-side work, separate from
+the physics ladder; the raw-state gates decide the physics.
