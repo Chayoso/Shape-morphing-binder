@@ -441,7 +441,7 @@ def main():
     ap.add_argument("--w_nn", type=float, default=0.2)
     ap.add_argument("--nn_far_k", type=float, default=1000.0)  # E4 adopted: own all far particles
     ap.add_argument("--w_kde", type=float, default=0.0)  # particle-scale density matching (1 = equal-norm to D_vol)
-    ap.add_argument("--nn_berth_k", type=float, default=1.5)  # near-band berth (x target spacing)
+    ap.add_argument("--nn_berth_k", type=float, default=1.0)  # near-band berth (x2 adopted: no dead band)
     ap.add_argument("--nn_tail_frac", type=float, default=0.0)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard

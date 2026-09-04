@@ -137,7 +137,10 @@ class PipelineConfig:
                                     #   gradient = mass-ejection mode (arXiv:2409.15746).
 
     w_nn: float = 0.0               # GRID-FREE near-band W1: constant pull toward the
-    nn_berth_k: float = 1.5         #   assigned nearest target particle, active only in
+    nn_berth_k: float = 1.0         #   assigned nearest target particle, active only in
+                                    #   (1.5 -> 1.0, x2 2026-09-03: no dead band - 40k
+                                    #   chamfer 0.0706, out_nn 11.0 -> 9.5%, far -9%,
+                                    #   max_dt 19.4 -> 18.0 sp, guards 0)
     w_kde: float = 0.0              # PARTICLE-SCALE density matching (SPH D_vol):
                                     # 0 = off; >0 multiplies a ONE-SHOT equal-norm
                                     # calibration against the D_vol gradient at the
