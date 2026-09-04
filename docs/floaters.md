@@ -87,3 +87,21 @@ E4 verdict (2026-09-02): nn_far_k 4.5 → ∞ (own every particle beyond the ber
 paced commits — chamfer tie (0.1067 vs 0.1078), out_nn 22.3 → 20.5%, far floaters
 1743 → 1511 (−13%), max_dt 26.4 → 23.6 sp, all guards zero. ADOPTED as the flagship
 default; single-seed, so the hero-scale replicate decides the size of the effect.
+
+## Census on the best 20k state (r3b delivered a180, 2026-09-03)
+
+- floaters >2sp: 1615 (8.1%), far >3sp: 419; NOT clumped (3% in ≥5-particle clusters);
+  median distance to the nearest body particle 1.85 sp, p90 4.0 sp → a loose fringe halo
+  just outside the surface, not ejecta.
+- their assigned target points are EMPTY (median 0 particles within 1 sp) — the
+  "saturated target" hypothesis is false; the pull is there, the particle does not arrive.
+- the target itself is UNDER-COVERED: 65% of target points have no particle within 1 sp,
+  33% within 1.5 sp, 14% within 2 sp (grid-scale hole_frac 0.12% cannot see this).
+- silhouette gradient on these floaters: present (99%) but cos to target 0.15 — noise.
+
+Reading: the residual defect lives at 2–4 particle spacings, BELOW the resolution of
+both data terms (D_vol cell ≈ 3.4 sp at loss_res 64/20k; silhouette pixel ≈ 2.3 sp at
+96 px), so the only particle-scale force is the near-band's constant pull, which
+equilibrates against elastic tension off the surface. Next A/Bs (40k, where N supports
+finer grids): x1 loss_res 64→96 (cell ≈ 2.3 sp); x2 nn_berth_k 1.5→1.0 (no dead band).
+Kill: guards ≠ 0, jitter ↑, or chamfer regression > 2% at no floater gain.
