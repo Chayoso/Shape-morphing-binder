@@ -166,3 +166,10 @@ mismatched normals. The photoreal deliverable for solids needs a proper surface
 extraction (e.g. density-field iso-surface normals + depth-peeled surface parents, or
 the gauss children on a frozen surface set). This is display-side work, separate from
 the physics ladder; the raw-state gates decide the physics.
+
+**v1 solid bunny (20k, 2026-09-04):** out_nn 1.08%, far 28, max_dt 3.9 sp, uncovered
+16.1% / 3.3% vs Poisson floors 11.2% / 1.0%, silIoU 0.965, guards 0, converged at 139
+with the adopted recipe and NO new mechanism. On a real volumetric target the floater
+problem sits within ~1.5× of the sampling floor; the shell-era 8–12% was layer thickness.
+Status: the dossier's mechanism hunt is CLOSED pending the 40k replicate (v3) and the
+per-region (ear) census on solids.
