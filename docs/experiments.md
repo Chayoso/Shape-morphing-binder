@@ -413,3 +413,17 @@ hyde01 GPU1 (warp-lang 1.16 installed into miniconda3/envs/diffmpm_v2.3.0).
 | x5_kde2_20 | 20k, two-sided KDE (w_kde 1) | 300 | 0.0911 | 15.7% | 1241 | interior ✓ (cluster 1.25, unfilled 27%, best d_vol 17.9) but fringe still scattered (out_nn 8→16%, chamfer +4.5%) → v3 support-weighted particle side (x6) |
 | x2_berth1 | 40k, pace-0 recipe, nn_berth_k 1.5→1.0 | 300 | **0.0706** | **9.5%** | 1318 | ADOPTED: vs r5 tie+/−14%/−9%, max_dt 18.0, jitter 5e-5, guards 0, conv 191; clustering unchanged (42%) |
 | x6_kde3_20 | 20k, KDE v3 (support²-weighted particle side) | 300 | 0.0898 | 14.3% | 1043 | KDE FAMILY FALSIFIED for the fringe (3 variants: 21.9 / 15.7 / 14.3% vs 8.1%); interior de-clustering real (2.0→1.25-1.33) but the target-side term treats exterior particles near full faces as surplus. Clustering needs an in-simulator remedy. |
+
+> **SHELL-ERA WARNING (2026-09-03):** every bunny/armadillo result above this line was
+> produced against a SURFACE-SHELL target (sampler bug, see docs/root_analysis.md
+> REVISION 2): the converged bodies were thin layers, "out_nn" measured layer thickness,
+> and chamfer 0.070 was the shell-vs-shell floor. Optimizer-side conclusions (pace 0,
+> mom_carry retired, gate v3, best-commit delivery, E4/berth ownership) stand; every
+> geometric number must be re-established on real volumes (v-series below).
+
+## Real-volume era (sampler fixed: axis fill + interior check + target volume matched to source)
+
+| run | arm / change | anims | chamfer | out_nn>2sp | far>3sp | note |
+|---|---|---|---|---|---|---|
+| v1_solid20 | 20k bunny solid, adopted recipe | 300 | pending | | | source/target volume 50.82 wu³, bunny bbox diag 10.34 |
+| v2_solid_arma | 20k armadillo solid | 300 | pending | | | armadillo bbox diag 13.38 |
