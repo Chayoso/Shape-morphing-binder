@@ -362,3 +362,52 @@ def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
     if penalty > 0:
         loss = loss + penalty * torch.clamp(min_mass - cur, min=0.0).pow(2).sum()
     return loss
+
+
+# -- particle-scale density matching (KDE D_vol) ------------------------------
+# Census on the best states (2026-09-03, docs/floaters.md): particles CLUSTER at
+# sub-cell scale (particle/target local-density ratio 2.0-2.7 in the body), leaving
+# gaps between clumps and a 2-4 spacing fringe halo - below the resolution of both
+# the CIC D_vol (cell ~3.4 sp) and the silhouette (pixel ~2.3 sp), and the finer
+# grids N cannot support. This term compares a kernel density of the particles with
+# the kernel density of the TARGET points at every particle, with neighbour lists
+# frozen per window (like nn_band): its gradient points from crowded to deficient
+# regions and from outside the target toward it - the SPH form of D_vol.
+
+def kde_self_density(pts: torch.Tensor, h: float, k: int = 32) -> float:
+    """Mean kernel density of a point set at its own points (rho_ref)."""
+    from scipy.spatial import cKDTree
+    import numpy as np
+    with torch.no_grad():
+        pn = pts.detach().cpu().numpy()
+        d, _ = cKDTree(pn).query(pn, k=k + 1, workers=-1)
+        return float(np.mean(np.exp(-(d / h) ** 2).sum(1)))   # includes self (d=0)
+
+
+def kde_assign(x0: torch.Tensor, tgt_pts: torch.Tensor, k: int = 32):
+    """Frozen per-window neighbour lists: k nearest OTHER particles and k nearest
+    target points of every particle. Returns (nbr_p (N,k), nbr_t (N,k)) long."""
+    from scipy.spatial import cKDTree
+    import numpy as np
+    with torch.no_grad():
+        xn = x0.detach().cpu().numpy()
+        tn = tgt_pts.detach().cpu().numpy()
+        _, ip = cKDTree(xn).query(xn, k=k + 1, workers=-1)
+        _, it = cKDTree(tn).query(xn, k=k + 1, workers=-1)   # k+1: the target's own
+        # self-term is counted on the particle side (rho_p = 1 + ...), so a particle
+        # on a target point sees the same k others plus 'itself'
+        return (torch.as_tensor(np.ascontiguousarray(ip[:, 1:]), device=x0.device),
+                torch.as_tensor(np.ascontiguousarray(it), device=x0.device))
+
+
+def d_kde(x: torch.Tensor, tgt_pts: torch.Tensor, nbr_p: torch.Tensor,
+          nbr_t: torch.Tensor, h: float, rho_ref: float) -> torch.Tensor:
+    """mean(((rho_p - rho_t)/rho_ref)^2): rho_p = 1 + sum_j W(|x_i-x_j|) over the frozen
+    particle neighbours (self counted, so a particle sitting exactly on a target point
+    matches that target's own self-density) and rho_t = sum_k W over the frozen target
+    neighbours; W = exp(-(r/h)^2)."""
+    dp = (x[:, None, :] - x[nbr_p]).norm(dim=2)
+    rho_p = 1.0 + torch.exp(-(dp / h) ** 2).sum(1)
+    dt_ = (x[:, None, :] - tgt_pts[nbr_t]).norm(dim=2)
+    rho_t = torch.exp(-(dt_ / h) ** 2).sum(1)
+    return ((rho_p - rho_t) / rho_ref).pow(2).mean()

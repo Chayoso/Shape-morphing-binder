@@ -27,8 +27,8 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import (d_nn_band, d_vol, d_w1, deficit_field,
-                                 isolation_gate, nn_band_assign, w1_budget)
+from ..losses.volumetric import (d_kde, d_nn_band, d_vol, d_w1, deficit_field,
+                                 isolation_gate, kde_assign, nn_band_assign, w1_budget)
 from ..mpm.constitutive import lame
 from ..mpm.function import RolloutSpec, warp_mpm_full
 from ..mpm.state import MPMParams
@@ -59,6 +59,9 @@ class TargetPack:
     nn_spacing: float = 0.0             # target median NN spacing (the honest metric's unit)
     gauss: object | None = None         # GaussViews bundle (use_gauss_loss)
     gauss_scale: float | None = None    # one calibration per target build, not per window
+    kde_h: float = 0.0                  # particle-scale density term (w_kde>0)
+    kde_rho_ref: float = 1.0
+    kde_scale: float | None = None      # one-shot equal-norm calibration vs D_vol
 
 
 def _norm(gs) -> float:
@@ -205,6 +208,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi)
 
     # grid-free near-band cleanup, frozen per window (fork-halo forensic §7.10)
+    kde_nbr = None
+    if cfg.w_kde > 0 and tgt.pts is not None:
+        kde_nbr = kde_assign(x0_t, tgt.pts, cfg.kde_k)
+        if tgt.kde_scale is None:            # one-shot equal-norm calibration vs D_vol
+            xg = x0_t.detach().clone().requires_grad_(True)
+            gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
+                                           tgt.ldims), xg)[0].norm()
+            gk = torch.autograd.grad(d_kde(xg, tgt.pts, kde_nbr[0], kde_nbr[1],
+                                           tgt.kde_h, tgt.kde_rho_ref), xg)[0].norm()
+            tgt.kde_scale = float(gv / gk.clamp_min(1e-30))
+            log(f"[win] kde calibration: |g_vol|={float(gv):.3g} |g_kde|={float(gk):.3g} "
+                f"scale={tgt.kde_scale:.3g}")
     nn_idx = nn_elig = None
     if cfg.w_nn > 0 and tgt.pts is not None:
         nn_idx, nn_elig = nn_band_assign(x0_t, tgt.pts, tgt.nn_spacing,
@@ -354,6 +369,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             Ln = cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
                                       cfg.nn_berth_k * tgt.nn_spacing)
             L = Ln if L is None else L + Ln
+        if kde_nbr is not None:
+            Lk = cfg.w_kde * tgt.kde_scale * d_kde(xT, tgt.pts, kde_nbr[0], kde_nbr[1],
+                                                   tgt.kde_h, tgt.kde_rho_ref)
+            L = Lk if L is None else L + Lk
         return L
 
     fill_on = fill_pairs is not None

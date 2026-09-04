@@ -110,15 +110,21 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
                            child_k=cfg.gauss_child_k)
         gauss.bake_targets(tgt_t, mask=target_mask)
     pts, nn_sp = None, 0.0
-    if cfg.w_nn > 0:
+    kde_h, kde_rho = 0.0, 1.0
+    if cfg.w_nn > 0 or cfg.w_kde > 0:
         from scipy.spatial import cKDTree
         nn_sp = float(np.median(cKDTree(target_x).query(target_x, k=2,
                                                         workers=-1)[0][:, 1]))
         pts = tgt_t
+        if cfg.w_kde > 0:
+            from ..losses.volumetric import kde_self_density
+            kde_h = cfg.kde_h_k * nn_sp
+            kde_rho = kde_self_density(tgt_t, kde_h, cfg.kde_k)
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3,
-                      pts=pts, nn_spacing=nn_sp, gauss=gauss)
+                      pts=pts, nn_spacing=nn_sp, gauss=gauss,
+                      kde_h=kde_h, kde_rho_ref=kde_rho)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
@@ -185,7 +191,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # freeze tracks the RAW components (λ-free): physics, render, and W1 tracks. The W1
     # track is SEPARATE (Opus finding 4: folded into phys_track it sat at the tolerance
     # noise floor, so fringe-only progress could still stale out)
-    best_phys, best_rend, best_dt, best_fill = None, None, None, None
+    best_phys, best_rend, best_dt, best_fill, best_kde = None, None, None, None, None
     stale, frozen, n_held = 0, False, 0
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
     prev_tracks = None               # last ACCEPTED commit's lambda-free tracks
@@ -357,6 +363,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 xt = torch.as_tensor(x, device=cfg.device)
                 d_dt = float(d_w1(xt, tgt.m, tgt.dt3,
                                   tgt.dtgmin, tgt.dtdx, tgt.dtdims))
+        d_kde_v = None
+        if cfg.w_kde > 0 and tgt.pts is not None:       # particle-scale density track
+            with torch.no_grad():                        # (fresh neighbours, ungated)
+                from ..losses.volumetric import d_kde as _dk, kde_assign as _ka
+                xt = torch.as_tensor(x, device=cfg.device)
+                nb = _ka(xt, tgt.pts, cfg.kde_k)
+                d_kde_v = float(_dk(xt, tgt.pts, nb[0], nb[1], tgt.kde_h, tgt.kde_rho_ref))
         d_fill = None
         if cfg.w_fill > 0 and tgt.tmass3 is not None:   # fill telemetry (f9/F9: the
             with torch.no_grad():                        # term was fully unobservable)
@@ -365,7 +378,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
-               "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"),
+               "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
                "d_fill": d_fill, "g_cos": stats.get("g_cos"),
                "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
@@ -418,6 +431,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             components["dt"] = d_dt
         if d_fill is not None:
             components["fill"] = d_fill
+        if d_kde_v is not None:
+            components["kde"] = d_kde_v
         disp = (x - x_start).reshape(-1)
         reversal_cos = None
         if prev_disp is not None:
@@ -441,6 +456,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             improved = improved or d_dt < best_dt - cfg.tol * abs(best_dt)
         if d_fill is not None and best_fill is not None:  # fill track (stack-review F9)
             improved = improved or d_fill < best_fill - cfg.tol * abs(best_fill)
+        if d_kde_v is not None and best_kde is not None:  # particle-scale density track
+            improved = improved or d_kde_v < best_kde - cfg.tol * abs(best_kde)
         if stats.get("pace_bound"):
             # The window exited via the PACE FLOOR: it did exactly the scheduled
             # work, by construction. Plateau accounting must not run against a
@@ -568,6 +585,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             best_dt = d_dt if best_dt is None else min(best_dt, d_dt)
         if d_fill is not None:
             best_fill = d_fill if best_fill is None else min(best_fill, d_fill)
+        if d_kde_v is not None:
+            best_kde = d_kde_v if best_kde is None else min(best_kde, d_kde_v)
         stale = 0 if improved else stale + 1
         if cfg.anneal_stale > 0:     # optimizer-side zigzag damping (docs/oscillation.md)
             anneal = (min(1.0, anneal * 1.15) if improved
@@ -607,6 +626,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 m = r["d_vol"] / max(abs(r0["d_vol"]), 1e-8)
                 if r.get("d_dt") is not None and r0.get("d_dt"):
                     m += r["d_dt"] / max(abs(r0["d_dt"]), 1e-8)
+                if r.get("d_kde") is not None and r0.get("d_kde"):
+                    m += r["d_kde"] / max(abs(r0["d_kde"]), 1e-8)
                 return m
             best = min(acc, key=merit)
             if best is not acc[-1] and merit(acc[-1]) > merit(best) * (1 + cfg.tol):

@@ -138,6 +138,17 @@ class PipelineConfig:
 
     w_nn: float = 0.0               # GRID-FREE near-band W1: constant pull toward the
     nn_berth_k: float = 1.5         #   assigned nearest target particle, active only in
+    w_kde: float = 0.0              # PARTICLE-SCALE density matching (SPH D_vol):
+                                    # 0 = off; >0 multiplies a ONE-SHOT equal-norm
+                                    # calibration against the D_vol gradient at the
+                                    # first window (w_kde=1 -> same gradient magnitude
+                                    # as D_vol at calibration; a rule, not a tuned
+                                    # scalar). Census 2026-09-03: particles cluster
+                                    # 2-2.7x at sub-cell scale; the fringe halo and the
+                                    # frayed ears live below the CIC/silhouette
+                                    # resolution, where only this term has direction.
+    kde_h_k: float = 2.0            #   kernel width in target-NN spacings
+    kde_k: int = 32                 #   frozen neighbour count (particles and targets)
     nn_far_k: float = 1000.0        #   the berth..far band (x target-NN spacing). Owns
                                     #   EVERYTHING beyond the berth since E4 (2026-09-02):
                                     #   the observability probe showed the unowned residual
