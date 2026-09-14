@@ -217,3 +217,61 @@ To serve an existing run without repeating simulation:
 /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python scripts/geometric_pipeline.py \
   --replay /home/chayo/physmorph_v2/output/geometric_pipeline_20260914/smoke_v1 --port 8774
 ```
+
+## Does the image contribution actually change physical motion?
+
+An additional causal intervention freezes the initial state, source vol0 and
+the realized physical/image adjoints **from a single backward evaluation per
+loss**. It then toggles only the surface render contribution in the first RMS
+update. Both trials use zero initial control and moments. This avoids attributing
+differences between separately repeated optimizer backward passes to rendering.
+The current replay source hashes are checked against the reference run.
+
+Discretization: N=2048, one window with T=8, dt=1/120, dx=.5, 16^3 grid,
+Lamé lambda=800 and mu=400, mass=1/particle, smoothing=.955; 24^3 mass-loss grid
+with dx=1/3. The L2 image loss uses 4 cameras at 512px, sigma0=.07467026946,
+819 fixed surface particles and one splat/parent. The step size is .003, RMS
+epsilon=1e-5, and render objective weight is 1 or 0. Both full-step candidates
+pass their respective Armijo decisions and all raw-state validity checks.
+
+The switch changes surface dFc (maximum component difference .000252275), while
+the interior dFc difference and interior direct image gradient are **exactly
+zero**. Stress, velocity, position and cumulative geometric deformation all
+change, including internal particle motion:
+
+| Raw quantity | L2 of render-on minus render-off | Largest L2 difference in two fixed-control repeats per arm |
+|---|---:|---:|
+| Position x | 6.5529e-6 | 1.4934e-7 |
+| Velocity v | 1.4349e-4 | 2.2043e-8 |
+| F_geom | 2.0947e-5 | 3.3718e-7 |
+| Total PK1 P | 2.1210 | .0017472 |
+
+These norms aggregate time, particles and components, rather than describing a
+terminal particle alone. Maximum position component difference is 4.1723e-7 world
+units. Interior position-difference L2 is 3.7099e-6 despite identical interior
+controls: this is the shared MPM stress/velocity coupling. The two repeats report
+observed forward variation, not a statistical noise upper bound.
+
+This confirms an actual image-adjoint-to-physical-motion influence in this
+one-step fixture. It does **not** establish practically useful morph guidance,
+long-horizon improvement, or native raster derivative accuracy at visibility
+transitions. The effect on position here is small.
+
+The initial independently executed two-window on/off comparison was rejected as
+a strict causal comparison because recomputing source vol0 on CUDA produced
+non-bit-identical volumes. Its files remain preserved; those two runs are not
+the basis of the result above.
+
+Reproduce from the matching original smoke source snapshot on hyde06:
+
+```bash
+cd ~/physmorph_v2/output/geometric_pipeline_20260914
+env CUDA_VISIBLE_DEVICES=0 OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 \
+  /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python \
+  scripts/probes/compare_render_influence.py --reference smoke_v1 \
+  --out render_influence_intervention.json
+```
+
+Local result: `output/geometric_render_influence_intervention.json`. The probe
+records the source archive and executed script hashes; physical metrics do not
+consume rendered images.
