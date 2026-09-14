@@ -251,7 +251,8 @@ def run(args):
                             max_particle_control=.4, objective=args.objective,
                             minimum_physics_progress=args.minimum_physics_progress,
                             geometric_response_constraints=args.geometric_constraints,
-                            global_surface_checks=use_surface)
+                            global_surface_checks=use_surface,
+                            surface_response_constraints=args.surface_constraints)
     target_t = torch.tensor(target, device="cuda")
     mt, tmt = torch.tensor(mask, device="cuda"), torch.tensor(tmask, device="cuda")
     identity = torch.eye(3, device="cuda").repeat(len(source), 1, 1)
@@ -459,6 +460,7 @@ def main():
     ap.add_argument("--phases", type=int, default=1)
     ap.add_argument("--minimum_physics_progress", type=float, default=0.)
     ap.add_argument("--geometric_constraints", action="store_true")
+    ap.add_argument("--surface_constraints", action="store_true")
     ap.add_argument("--image_metric", choices=("pixel", "screened"), default="pixel")
     ap.add_argument("--screen_length", type=float, default=.08)
     ap.add_argument("--fd_strain", type=float, default=.001)

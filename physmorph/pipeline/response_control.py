@@ -33,6 +33,22 @@ class ResponseConfig:
     minimum_physics_progress: float = 0.0  # fraction of feasible local 3-D/core progress
     geometric_response_constraints: bool = False
     global_surface_checks: bool = False
+    surface_response_constraints: bool = False
+
+
+def surface_support_constraint(tr, minimum_ratio):
+    """Dimensionless <=1 rows for every time/marker, including the endpoint.
+
+    Separate time rows avoid central-FD cancellation in a nonsmooth time minimum.
+    """
+    if tr.surface_density is None:
+        raise ValueError("surface support response requires material markers")
+    rho = torch.stack([wp.to_torch(a) for a in tr.surface_density])
+    reference = rho[0] if tr.surface_density0 is None else torch.as_tensor(
+        tr.surface_density0, device=rho.device, dtype=rho.dtype)
+    if not bool(torch.isfinite(rho).all()) or not bool((reference > 0).all()):
+        raise ValueError("invalid surface support response")
+    return (1+minimum_ratio-rho/reference).flatten()
 
 
 class SurfaceStrainBasis:
@@ -261,10 +277,14 @@ def optimize_response_window(spec, basis, residuals, cfg=None, health_cfg=None, 
         raise ValueError("unsupported objective")
     if not 0 <= cfg.minimum_physics_progress < 1:
         raise ValueError("minimum physics progress must be in [0,1)")
+    if cfg.surface_response_constraints and (not cfg.geometric_response_constraints or spec.surface0 is None):
+        raise ValueError("surface response requires geometry constraints and material markers")
     z = torch.zeros(basis.count, device=spec.device)
     particle_modes = basis.modes[:, basis.mask].flatten(2).cpu().numpy().astype(np.float64)
     diagnostic_health = (replace(health_cfg, max_geom_condition=float("inf"))
                          if cfg.geometric_response_constraints else health_cfg)
+    if cfg.surface_response_constraints:
+        diagnostic_health = replace(diagnostic_health, min_surface_density_ratio=0.)
     loss_keys = ("mass", "physics", "image")
     radius, evaluations, history = cfg.radius, 0, []
     started = time.monotonic()
@@ -294,7 +314,10 @@ def optimize_response_window(spec, basis, residuals, cfg=None, health_cfg=None, 
                     geometry = torch.cat([geometry, torch.stack([wp.to_torch(a) for a in tr.surface_F])], 1)
                 sv = torch.linalg.svdvals(geometry)
                 condition = (sv[..., 0]/sv[..., -1].clamp_min(1e-12)).amax(0)
-                rr["condition"] = torch.log(condition)/np.log(health_cfg.max_geom_condition)
+                rr["geometry"] = torch.log(condition)/np.log(health_cfg.max_geom_condition)
+                if cfg.surface_response_constraints:
+                    rr["geometry"] = torch.cat([rr["geometry"],
+                        surface_support_constraint(tr, health_cfg.min_surface_density_ratio)])
         return rr, tr, health
     def values(rr):
         return {k: float(.5*rr[k].double().square().sum()) for k in loss_keys}
@@ -317,7 +340,7 @@ def optimize_response_window(spec, basis, residuals, cfg=None, health_cfg=None, 
             unit = torch.zeros_like(z)
             unit[index] = 1.
             epsilon = min(cfg.fd_strain, radius*.25)
-            # Probes may cross control and (when linearized) condition bounds.
+            # Probes may cross control and explicitly linearized health bounds.
             # They are never committed; finite/grid/orientation checks remain.
             # Accepted candidates always use the complete original health gate.
             for _ in range(5):
@@ -341,8 +364,8 @@ def optimize_response_window(spec, basis, residuals, cfg=None, health_cfg=None, 
         models = {k: quadratic_model(current[k], jacobians[k]) for k in loss_keys}
         state_inequality = None
         if cfg.geometric_response_constraints:
-            state_inequality = {"value": current["condition"].double().cpu().numpy(),
-                                "J": jacobians["condition"].T.double().cpu().numpy()}
+            state_inequality = {"value": current["geometry"].double().cpu().numpy(),
+                                "J": jacobians["geometry"].T.double().cpu().numpy()}
         # A held-out combination checks the response prediction at half the probe scale.
         direction = torch.arange(1, basis.count+1, device=z.device, dtype=z.dtype)
         direction /= direction.norm()
@@ -420,6 +443,8 @@ def optimize_response_window(spec, basis, residuals, cfg=None, health_cfg=None, 
                         radius = min(cfg.max_radius, radius*1.6)
                     break
             radius *= .5
+            record.setdefault("rejected_candidates", []).append({"attempt": attempt,
+                "radius": radius*2, "health": trial_health})
             record.update(reason="actual_rollout_rejected", candidate_health=trial_health)
             if radius < cfg.min_radius:
                 record["reason"] = "trust_region_exhausted"

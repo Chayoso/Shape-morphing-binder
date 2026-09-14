@@ -133,3 +133,21 @@ dx=.25 characterize the v8/v9 family. v8 failed its initial intersection gate
 and also had a measured dense-target COM offset of about .00818. v9 corrects
 the common target translation and diagnoses the intersection false positives.
 Neither input repair nor an optimizer smoke establishes the 20% quality claim.
+
+## Surface support in the response subproblem
+
+v9's third accepted updates approached the existing 10% mass-support bound:
+image minimum ratio .101412, physics .107000, with trust radii .0006 and .0024.
+These are development diagnostics at the discretization above, not final scores.
+The optional v10 response model adds a row for **each marker and each time**:
+
+`c[t,p] = 1 + minimum_ratio - rho[t,p]/rho_original[p] <= 1`.
+
+It uses the same actual support boundary as trajectory health. Separate time
+rows avoid the derivative cancellation caused by taking a nonsmooth time minimum
+before central finite differences. The QP can therefore propose another physical
+control direction while preserving modeled support. Finite probes may cross this
+bound; actual candidates and final replay must still satisfy the unchanged 10%
+threshold. No position correction, density clamp, or surface-only forward solve
+is added. The model is still local; actual nonlinear acceptance remains required.
+Rejected candidates now retain their health reasons and attempted radii.

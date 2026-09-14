@@ -29,3 +29,14 @@ No earlier v1-v5 failure is removed by these fixes. v6/v7 input problems and
 v8 initial-gate rejection remain in their preserved server directories. v9 is
 a new development comparison, with a different valid shared fixture. It cannot
 retroactively establish the earlier render-guidance claims or the sealed 20% goal.
+
+The subsequent surface-support response change was reviewed twice. The first
+review pointed out that differentiating a time minimum can cancel opposing time
+derivatives. The implementation now retains every time/marker as its own QP row.
+An integrated CPU test injects support ratio .05 into a real rollout: diagnostic
+probes build their model, but actual candidates are rejected and the prior
+control remains unchanged. The focused 25 response/transport tests passed.
+The reviewer found no additional required correction. The solver's existing
+constraint-generation budget (16 rounds, up to 8 new rows each) can still reject
+a problem before finding a feasible direction; this is a solver limit, not proof
+of physical uncontrollability or absence of an improving image direction.

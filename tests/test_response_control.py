@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import torch
+import warp as wp
 
 from physmorph.mpm.function import RolloutSpec
 from physmorph.mpm.state import MPMParams
@@ -126,6 +127,28 @@ def test_geometric_limit_deflects_control_into_a_feasible_direction():
     assert d[0] <= .0100001 and d[1] > .29
 
 
+def test_linearized_mass_support_preserves_a_tangential_image_control_direction():
+    image = quadratic_model(torch.tensor([-.8, -.4]), torch.eye(2))
+    constant = {"value": 1., "g": np.zeros(2), "H": np.zeros((2, 2))}
+    # rho/rho0=.101; first mode reduces support, second leaves it unchanged.
+    support = {"value": np.array([1+.1-.101]), "J": np.array([[2., 0.]])}
+    d, info = solve_constrained_response({"mass": constant, "physics": constant, "image": image},
+        np.zeros(2), .02, 1., state_inequality=support)
+    assert info["success"]
+    assert .101-2*d[0] >= .1-1e-8 and d[1] > .019
+
+
+def test_distinct_time_support_rows_do_not_cancel_opposing_derivatives():
+    image = quadratic_model(torch.tensor([-.8, -.4]), torch.eye(2))
+    constant = {"value": 1., "g": np.zeros(2), "H": np.zeros((2, 2))}
+    # At two times support=.1 +/- z0. Taking a time minimum before central FD
+    # would produce a zero derivative and incorrectly allow the first mode.
+    support = {"value": np.ones(2), "J": np.array([[1., 0.], [-1., 0.]])}
+    d, info = solve_constrained_response({"mass": constant, "physics": constant, "image": image},
+        np.zeros(2), .02, 1., state_inequality=support)
+    assert info["success"] and abs(d[0]) < 1e-7 and d[1] > .019
+
+
 @pytest.mark.parametrize("strain_unit", [1., 1e-4])
 def test_trust_coordinates_preserve_solution_with_small_physical_strain(strain_unit):
     # The same feasible problem expressed in two control units, with an active
@@ -193,3 +216,34 @@ def test_response_control_updates_real_mpm_and_preserves_interior_controls(bad_i
     assert torch.count_nonzero(result["control"][:, ~mask]) == 0
     displacement = result["trajectory"].x[-1].numpy()-source
     assert np.linalg.norm(displacement[~mask]) > 1e-6
+
+
+def test_low_support_probe_cannot_be_committed_by_the_relaxed_diagnostic_gate(monkeypatch):
+    from physmorph.pipeline import response_control as module
+    rng = np.random.default_rng(11)
+    x = rng.uniform(-.8, .8, (40, 3)).astype(np.float32)
+    mask = np.linalg.norm(x, axis=1) > .8
+    prm = MPMParams(dx=.75, dt=1/120, nx=16, ny=16, nz=16, grid_min=(-6.,)*3)
+    spec = RolloutSpec(x, 1., 800., 400., prm, 3, device="cpu", surface0=x[:4].copy(),
+                      vol0=compute_rest_volumes(x, 1., prm, "cpu"))
+    forward = module.forward_geometry
+    def low_support_candidate(c, spec):
+        state, tr = forward(c, spec)
+        if bool(c.abs().max() > 0):
+            rho = tr.surface_density[0].numpy()*.05
+            tr.surface_density[-1] = wp.array(rho, dtype=wp.float32, device="cpu")
+        return state, tr
+    monkeypatch.setattr(module, "forward_geometry", low_support_candidate)
+    target = torch.tensor(x)*torch.tensor([1.1, .9, 1.])
+    def residuals(state, control):
+        r = (state[0]-target).flatten()/len(x)**.5
+        return {"mass": r, "physics": r, "image": r}
+    result = optimize_response_window(spec, SurfaceStrainBasis(x, mask), residuals,
+        ResponseConfig(iterations=1, fd_strain=.01, radius=.02, geometric_response_constraints=True,
+                       surface_response_constraints=True))
+    record = result["history"][0]
+    assert record["fd"]  # Low-support probes supplied the model.
+    assert not record["accepted"]
+    assert record["candidate_health"]["reason"] == "surface_mass_support"
+    assert torch.count_nonzero(result["control"]) == 0
+    assert result["final"] == result["initial"]

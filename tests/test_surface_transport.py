@@ -9,6 +9,7 @@ from physmorph.mpm.function import RolloutSpec, warp_mpm_geometry
 from physmorph.mpm.state import MPMParams
 from physmorph.mpm.traj import compute_rest_volumes
 from physmorph.pipeline.geometric import forward_geometry, next_window_spec, verify_replay, trajectory_health, GeometricConfig
+from physmorph.pipeline.response_control import surface_support_constraint
 
 
 def fixture():
@@ -87,3 +88,18 @@ def test_surface_health_rejects_endpoint_and_reference_failures_without_inverse_
     assert not health["valid"] and health["reason"] == reason
     if fault == "endpoint_support":
         assert health["substep"] == spec.T
+
+
+def test_support_response_has_the_exact_health_boundary_and_persistent_reference():
+    spec, c = fixture()
+    _, tr = forward_geometry(c*0, spec)
+    reference = tr.surface_density[0].numpy().copy()
+    tr.surface_density0 = reference.copy()
+    endpoint = reference.copy()
+    endpoint[:3] *= [.05, .1, .2]
+    tr.surface_density[-1] = wp.array(endpoint, dtype=wp.float32, device="cpu")
+    row = surface_support_constraint(tr, .1).reshape(spec.T+1, -1)
+    assert row[-1, 0] > 1 and float(row[-1, 1]) == pytest.approx(1.) and row[-1, 2] < 1
+    # Restart-style first-frame density is not allowed to replace the original.
+    tr.surface_density[0] = wp.array(reference*.5, dtype=wp.float32, device="cpu")
+    assert torch.allclose(row[-1], surface_support_constraint(tr, .1).reshape_as(row)[-1])
