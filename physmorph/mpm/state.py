@@ -1,6 +1,6 @@
 """MPM state (SoA Warp arrays) + params. See docs/SPEC.md §2, §4.
 
-Notation: `F` = legacy constitutive/control state (not geometric deformation);
+Notation: `F` = total particle deformation gradient (integrated by G2P);
 `Fp` = plastic rest-state; `dFc` = control increment. Effective elastic
 deformation for stress (D1): F_e = (F + dFc) Fp^{-1}  — eq (3').
 """

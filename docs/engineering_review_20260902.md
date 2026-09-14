@@ -2,12 +2,6 @@
 
 Date: 2026-09-02. PhysMorph itself is intentionally excluded from the reading list.
 
-Historical review: the 2026-09-14 user decision additionally restricts the
-render-to-control derivative at interior dFc, not merely terminal visibility.
-The geometric/control audit and `material_surface_control.md` define the current
-experimental path. Statements below about the then-production architecture are
-retained as history and do not supersede that later contract.
-
 ## Executive finding
 
 The safe architecture is:
@@ -113,3 +107,4 @@ needs its own stability/quality ablation rather than a silent default change.
 - [2D Gaussian Splatting for Geometrically Accurate Radiance Fields](https://surfsplatting.github.io/)
   — oriented planar Gaussian disks; the strongest next step if isotropic rest Gaussians
   still look like blebs after the 20k/small-sigma change.
+
