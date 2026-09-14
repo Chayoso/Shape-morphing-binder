@@ -207,10 +207,12 @@ The verified server source snapshot is
 are in `~/physmorph_v2/output/geometric_pipeline_20260914/smoke_v1`. The original
 server production source remains at its restored pre-task state.
 
-The current 8774 monitor serves this saved trajectory through the corrected atomic
+At this audit milestone, the 8774 monitor served this saved trajectory through the corrected atomic
 snapshot protocol. A local HTTP check decoded a 1024x1024 PNG and verified bytewise
 pixel equality to the saved PNG for the frame number in that same snapshot.
 The local SSH tunnel PID is recorded in `output/geometric_tunnel_20260914.pid`.
+The subsequent surface-response experiment now occupies this same monitor;
+see `response_control.md` for its current result and constraints.
 To serve an existing run without repeating simulation:
 
 ```bash
