@@ -43,7 +43,8 @@ def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda") -> np.ndarray:
 class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
-                 device="cuda", requires_grad=True, mat_grad=False, vol0=None):
+                 device="cuda", requires_grad=True, mat_grad=False, vol0=None,
+                 track_geometry=False, F_geom0=None):
         x0 = np.ascontiguousarray(x0, np.float32)
         N = x0.shape[0]
         self.N, self.T, self.prm, self.device = N, T, prm, device
@@ -106,6 +107,23 @@ class Trajectory:
         self.C = [A(C0a if t == 0 else np.zeros((N, 3, 3), np.float32), wp.mat33, rg)
                   for t in range(T + 1)]
         self.F = [A(F0a if t == 0 else _id(N), wp.mat33, rg) for t in range(T + 1)]
+        # F remains the legacy constitutive/control state. F_geom always refers
+        # to the ORIGINAL source, including across rest/plastic assimilation.
+        if F_geom0 is not None and not track_geometry:
+            raise ValueError("F_geom0 requires track_geometry=True")
+        self.F_geom = None
+        if track_geometry:
+            if F_geom0 is None and any(a is not None for a in (F0, C0, v0, Fp)):
+                raise ValueError("restarted geometry rollout requires explicit F_geom0")
+            if F_geom0 is not None and vol0 is None:
+                raise ValueError("restarted geometry rollout requires original vol0")
+            initial_geom = _id(N) if F_geom0 is None else np.asarray(F_geom0, np.float32)
+            if initial_geom.shape != (N, 3, 3) or not np.isfinite(initial_geom).all():
+                raise ValueError("F_geom0 must be finite with shape (N,3,3)")
+            if (np.linalg.det(initial_geom) <= 0).any():
+                raise ValueError("F_geom0 must preserve orientation")
+            self.F_geom = [A(initial_geom if t == 0 else _id(N), wp.mat33, rg)
+                           for t in range(T + 1)]
         self.Fraw = [A(_id(N), wp.mat33, rg) for t in range(T + 1)]
         self.P = [A(np.zeros((N, 3, 3), np.float32), wp.mat33, rg) for t in range(T)]
         self.gm = [A(np.zeros(prm.ngrid, np.float32), wp.float32, rg) for t in range(T)]
@@ -149,6 +167,10 @@ class Trajectory:
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], self.x[t + 1], self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], self.F[t + 1], prm.dt, prm.smoothing], device=dev)
+        if self.F_geom is not None:
+            wp.launch(K.k_geom_transport, dim=N, inputs=[self.x[t], self.gvel[t],
+                      self.F_geom[t], self.F_geom[t + 1], gmin, prm.dx, inv_dx, prm.dt,
+                      prm.nx, prm.ny, prm.nz, prm.v_max], device=dev)
 
     def rollout(self):
         for t in range(self.T):

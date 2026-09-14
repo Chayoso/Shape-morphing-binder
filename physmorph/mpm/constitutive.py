@@ -42,6 +42,17 @@ def weight(dgp: wp.vec3, inv_dx: float) -> float:
     )
 
 
+@wp.func
+def weight_gradient_x(dgp: wp.vec3, inv_dx: float) -> wp.vec3:
+    """Particle-position derivative of w(x_grid - x_particle), including its sign."""
+    r = dgp * inv_dx
+    return -inv_dx * wp.vec3(
+        bspline_dw(r[0]) * bspline_w(r[1]) * bspline_w(r[2]),
+        bspline_w(r[0]) * bspline_dw(r[1]) * bspline_w(r[2]),
+        bspline_w(r[0]) * bspline_w(r[1]) * bspline_dw(r[2]),
+    )
+
+
 # ── Fixed-corotated elasticity — eq (1)(2)(3) ───────────────────────────────
 def lame(young: float, poisson: float) -> tuple[float, float]:
     """Lamé parameters — eq (1). (host-side; Elasticity.cpp:151)"""

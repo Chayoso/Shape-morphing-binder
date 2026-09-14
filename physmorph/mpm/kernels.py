@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warp as wp
 
-from .constitutive import weight, pk1_fixed_corotated
+from .constitutive import weight, weight_gradient_x, pk1_fixed_corotated
 
 
 @wp.func
@@ -187,6 +187,46 @@ def k_g2p(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
 # ── update (smoothing + advect) — eq (9), oracle op_2 + smooth ──────────────
 # Functional: read curr (x_in, F_in), write next (x_out, F_out). In-place use
 # passes the same array for in/out (element-wise, race-free).
+@wp.kernel
+def k_geom_transport(x: wp.array(dtype=wp.vec3), grid_v: wp.array(dtype=wp.vec3),
+                     F_geom: wp.array(dtype=wp.mat33), F_next: wp.array(dtype=wp.mat33),
+                     gmin: wp.vec3, dx: float, inv_dx: float, dt: float,
+                     nx: int, ny: int, nz: int, v_max: float):
+    """Transport original-reference geometry by the SAME map as x_next=x+dt*v.
+
+    APIC C is a moment fit (and may be viscosity-damped); it is not grad(v).
+    No control, constitutive F, smoothing or plastic state enters this kernel.
+    Grid contact is already part of grid_v. The particle speed cap needs its
+    own spatial Jacobian; the threshold remains a piecewise-smooth boundary.
+    """
+    p = wp.tid()
+    xp = x[p]
+    if not valid_pos(xp):
+        F_next[p] = F_geom[p]  # preserve reference; caller must reject the invalid rollout
+        return
+    u = wp.vec3(0.0)
+    G = wp.mat33(0.0)
+    b = base_node(xp, gmin, inv_dx)
+    for oi in range(4):
+        for oj in range(4):
+            for ok in range(4):
+                i = b[0] + oi
+                j = b[1] + oj
+                k = b[2] + ok
+                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                    dgp = gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp
+                    vg = grid_v[gid(i, j, k, ny, nz)]
+                    u = u + weight(dgp, inv_dx) * vg
+                    G = G + wp.outer(vg, weight_gradient_x(dgp, inv_dx))
+    I = wp.identity(n=3, dtype=float)
+    if v_max > 0.0:
+        speed = wp.length(u)
+        if speed > v_max:
+            direction = u / speed
+            G = (v_max / speed) * (I - wp.outer(direction, direction)) @ G
+    F_next[p] = (I + dt * G) @ F_geom[p]
+
+
 @wp.kernel
 def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              v: wp.array(dtype=wp.vec3), F_in: wp.array(dtype=wp.mat33),

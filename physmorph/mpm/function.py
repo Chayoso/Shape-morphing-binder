@@ -41,6 +41,7 @@ class RolloutSpec:
     C0: np.ndarray | None = None
     device: str = "cuda"
     vol0: np.ndarray | None = None  # one-time source-rest Vp; reused across all windows
+    F_geom0: np.ndarray | None = None  # cumulative original-reference geometry on restart
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -51,7 +52,7 @@ def _leaf_f32(t: torch.Tensor):
 class _WarpMPM(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, spec: RolloutSpec):
+    def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, spec: RolloutSpec, geometry=False):
         N, T = spec.x0.shape[0], spec.T
         seq = dFc_t.dim() == 4
         if seq:
@@ -68,7 +69,8 @@ class _WarpMPM(torch.autograd.Function):
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
-                          device=spec.device, requires_grad=True, vol0=spec.vol0)
+                          device=spec.device, requires_grad=True, vol0=spec.vol0,
+                          track_geometry=geometry, F_geom0=spec.F_geom0 if geometry else None)
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
@@ -76,16 +78,20 @@ class _WarpMPM(torch.autograd.Function):
         ctx.dFc_req = dFc_t.requires_grad          # material-only optimisation is legal:
         ctx.lam_wp = lam_wp if (lam_t is not None and lam_t.requires_grad) else None
         ctx.mu_wp = mu_wp if (mu_t is not None and mu_t.requires_grad) else None
-        return (wp.to_torch(xT).clone(), wp.to_torch(FT).reshape(N, 9).clone(),
-                wp.to_torch(traj.v[T]).clone())
+        ctx.geometry = geometry
+        state = (wp.to_torch(xT).clone(), wp.to_torch(FT).reshape(N, 9).clone(),
+                 wp.to_torch(traj.v[T]).clone())
+        return state + (wp.to_torch(traj.F_geom[T]).reshape(N, 9).clone(),) if geometry else state
 
     @staticmethod
-    def backward(ctx, gx: torch.Tensor, gF: torch.Tensor, gv: torch.Tensor):
+    def backward(ctx, gx: torch.Tensor, gF: torch.Tensor, gv: torch.Tensor, g_geom=None):
         traj = ctx.traj
         N, T = traj.N, traj.T
         grads = {traj.x[T]: wp.from_torch(gx.contiguous(), dtype=wp.vec3),
                  traj.F[T]: wp.from_torch(gF.contiguous().view(N, 3, 3), dtype=wp.mat33),
                  traj.v[T]: wp.from_torch(gv.contiguous(), dtype=wp.vec3)}
+        if ctx.geometry:
+            grads[traj.F_geom[T]] = wp.from_torch(g_geom.contiguous().view(N, 3, 3), dtype=wp.mat33)
         ctx.tape.backward(grads=grads)
         # each leaf's grad is read ONLY if that input required grad (a warp array made
         # from a no-grad tensor has grad=None -> to_torch(None) crashes; caught by G1b)
@@ -98,7 +104,8 @@ class _WarpMPM(torch.autograd.Function):
         g_lam = wp.to_torch(ctx.lam_wp.grad).clone() if ctx.lam_wp is not None else None
         g_mu = wp.to_torch(ctx.mu_wp.grad).clone() if ctx.mu_wp is not None else None
         ctx.tape.zero()
-        return g, g_lam, g_mu, None
+        result = (g, g_lam, g_mu, None)
+        return result + (None,) if len(ctx.needs_input_grad) == 5 else result
 
 
 def warp_mpm_full(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None):
@@ -110,3 +117,12 @@ def warp_mpm(dFc_t: torch.Tensor, spec: RolloutSpec):
     """v1-compatible entry: constant material from spec. Returns (x_T, F_T)."""
     xT, FT, _ = _WarpMPM.apply(dFc_t, None, None, spec)
     return xT, FT
+
+
+def warp_mpm_geometry(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None):
+    """Return (x, F_model, v, F_geom); image losses must consume x and F_geom.
+
+    Initial-state arrays in spec are constants. This differentiates one window,
+    not through earlier commits; pass the cumulative F_geom0 on every restart.
+    """
+    return _WarpMPM.apply(dFc_t, lam_t, mu_t, spec, True)

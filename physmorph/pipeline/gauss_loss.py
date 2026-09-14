@@ -130,7 +130,7 @@ class GaussViews:
         sig_min = self.sigma0 * (float(child_sigma_scale) if int(child_count) > 1 else 1.0)
         px_wu_at = lambda r: 2.0 * radius * math.tan(fov / 2) / r   # center-depth px size
         need = int(math.ceil(1.5 * px_wu_at(1) / max(sig_min, 1e-9) / 16.0)) * 16
-        self.res = int(min(max(res, need), 384))
+        self.res = int(max(res, min(need, 384)))  # respect explicit HQ requests above 384
         res = self.res
         self.cams = [_camera(th, phi, radius, res, fov, dev) for th, phi in views]
         self.child_count = int(child_count)
