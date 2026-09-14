@@ -44,7 +44,8 @@ class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
-                 track_geometry=False, F_geom0=None):
+                 track_geometry=False, F_geom0=None, surface0=None, surface_F0=None, surface_faces=None,
+                 surface_reference0=None, surface_density0=None):
         x0 = np.ascontiguousarray(x0, np.float32)
         N = x0.shape[0]
         self.N, self.T, self.prm, self.device = N, T, prm, device
@@ -125,6 +126,46 @@ class Trajectory:
             self.F_geom = [A(initial_geom if t == 0 else _id(N), wp.mat33, rg)
                            for t in range(T + 1)]
         self.Fraw = [A(_id(N), wp.mat33, rg) for t in range(T + 1)]
+        self.surface_x, self.surface_F, self.surface_density = None, None, None
+        self.surface_faces = surface_faces
+        self.surface_reference0, self.surface_density0 = surface_reference0, surface_density0
+        if surface_faces is not None and surface0 is None:
+            raise ValueError("surface faces require material surface markers")
+        if surface_F0 is not None and surface0 is None:
+            raise ValueError("surface_F0 requires material surface markers")
+        if surface0 is not None:
+            if not track_geometry or T < 1:
+                raise ValueError("surface markers require exact geometric transport and T>=1")
+            sx = np.asarray(surface0, np.float32)
+            if sx.ndim != 2 or sx.shape[1] != 3 or not len(sx) or not np.isfinite(sx).all():
+                raise ValueError("surface0 must be finite (S,3)")
+            if surface_F0 is None and F_geom0 is not None:
+                raise ValueError("restarted surface requires cumulative surface_F0")
+            ns = len(sx)
+            if surface_F0 is not None and (surface_reference0 is None or surface_density0 is None):
+                raise ValueError("restarted surface requires original position and density references")
+            self.surface_reference0 = sx.copy() if surface_reference0 is None else np.asarray(surface_reference0, np.float32)
+            if self.surface_reference0.shape != sx.shape or not np.isfinite(self.surface_reference0).all():
+                raise ValueError("invalid original surface position reference")
+            if surface_density0 is not None:
+                self.surface_density0 = np.asarray(surface_density0, np.float32)
+                if (self.surface_density0.shape != (ns,) or not np.isfinite(self.surface_density0).all()
+                        or (self.surface_density0 <= 0).any()):
+                    raise ValueError("invalid original surface density reference")
+            if surface_faces is not None:
+                faces = np.asarray(surface_faces)
+                if (faces.ndim != 2 or faces.shape[1] != 3 or not len(faces)
+                        or not np.issubdtype(faces.dtype, np.integer) or faces.min() < 0 or faces.max() >= ns):
+                    raise ValueError("surface_faces must index existing surface vertices")
+            sf = _id(ns) if surface_F0 is None else np.asarray(surface_F0, np.float32)
+            if sf.shape != (ns, 3, 3) or not np.isfinite(sf).all() or (np.linalg.det(sf) <= 0).any():
+                raise ValueError("surface_F0 must be finite and oriented (S,3,3)")
+            self.surface_x = [A(sx if t == 0 else np.zeros_like(sx), wp.vec3, rg) for t in range(T+1)]
+            self.surface_F = [A(sf if t == 0 else _id(ns), wp.mat33, rg) for t in range(T+1)]
+            self.surface_density = [A(np.zeros(ns, np.float32), wp.float32, rg) for t in range(T+1)]
+            self.surface_endpoint_scratch = A(np.zeros_like(sx), wp.vec3, rg)
+            self.final_gm = A(np.zeros(prm.ngrid, np.float32), wp.float32, rg)
+            self.final_gmomentum = A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg)
         self.P = [A(np.zeros((N, 3, 3), np.float32), wp.mat33, rg) for t in range(T)]
         self.gm = [A(np.zeros(prm.ngrid, np.float32), wp.float32, rg) for t in range(T)]
         self.gmom = [A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg) for t in range(T)]
@@ -171,8 +212,27 @@ class Trajectory:
             wp.launch(K.k_geom_transport, dim=N, inputs=[self.x[t], self.gvel[t],
                       self.F_geom[t], self.F_geom[t + 1], gmin, prm.dx, inv_dx, prm.dt,
                       prm.nx, prm.ny, prm.nz, prm.v_max], device=dev)
+        if self.surface_x is not None:
+            ns = len(self.surface_x[0])
+            wp.launch(K.k_surface_advect, dim=ns, inputs=[self.surface_x[t], self.surface_x[t+1],
+                      self.gvel[t], self.gm[t], self.surface_density[t], gmin, prm.dx, inv_dx,
+                      prm.dt, prm.nx, prm.ny, prm.nz, prm.v_max], device=dev)
+            wp.launch(K.k_geom_transport, dim=ns, inputs=[self.surface_x[t], self.gvel[t],
+                      self.surface_F[t], self.surface_F[t+1], gmin, prm.dx, inv_dx, prm.dt,
+                      prm.nx, prm.ny, prm.nz, prm.v_max], device=dev)
 
     def rollout(self):
         for t in range(self.T):
             self.step(t)
+        if self.surface_x is not None:
+            # Rebuild mass at the FINAL physical positions. Last-step pre-advection
+            # density does not establish support for the rendered endpoint.
+            p, dev = self.prm, self.device
+            gmin, inv_dx = wp.vec3(*p.grid_min), 1./p.dx
+            wp.launch(K.k_p2g, dim=self.N, inputs=[self.x[-1], self.v[-1], self.C[-1],
+                self.F[-1], self._dfc(self.T-1), self.P[-1], self.m, self.vol,
+                self.final_gm, self.final_gmomentum, gmin, p.dx, inv_dx, 0., 0., p.nx, p.ny, p.nz], device=dev)
+            wp.launch(K.k_surface_advect, dim=len(self.surface_x[-1]), inputs=[self.surface_x[-1],
+                self.surface_endpoint_scratch, self.gvel[-1], self.final_gm, self.surface_density[-1],
+                gmin, p.dx, inv_dx, 0., p.nx, p.ny, p.nz, p.v_max], device=dev)
         return self.x[self.T], self.F[self.T]

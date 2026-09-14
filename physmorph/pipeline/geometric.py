@@ -27,6 +27,9 @@ class GeometricConfig:
     armijo: float = 1e-4
     min_determinant: float = 1e-4
     max_geom_condition: float = 20.
+    min_surface_density_ratio: float = .1
+    min_surface_triangle_area_ratio: float = .01
+    max_surface_edge_ratio: float = 4.
 
 
 def restrict_render_control(gradient: torch.Tensor, surface: torch.Tensor):
@@ -43,11 +46,15 @@ def forward_geometry(control: torch.Tensor, spec: RolloutSpec):
     tr = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, spec.T,
                     F0=spec.F0, Fp=spec.Fp, v0=spec.v0, C0=spec.C0, dFc=d,
                     vol0=spec.vol0, device=spec.device, requires_grad=False,
-                    track_geometry=True, F_geom0=spec.F_geom0)
+                    track_geometry=True, F_geom0=spec.F_geom0,
+                    surface0=spec.surface0, surface_F0=spec.surface_F0, surface_faces=spec.surface_faces,
+                    surface_reference0=spec.surface_reference0, surface_density0=spec.surface_density0)
     tr.rollout()
     n = tr.N
     state = (wp.to_torch(tr.x[-1]), wp.to_torch(tr.F[-1]).reshape(n, 9),
              wp.to_torch(tr.v[-1]), wp.to_torch(tr.F_geom[-1]).reshape(n, 9))
+    if tr.surface_x is not None:
+        state += (wp.to_torch(tr.surface_x[-1]), wp.to_torch(tr.surface_F[-1]))
     return state, tr
 
 
@@ -56,6 +63,10 @@ def trajectory_health(tr: Trajectory, cfg: GeometricConfig) -> dict:
     low = torch.tensor(tr.prm.grid_min, device=wp.to_torch(tr.x[0]).device) + 2*tr.prm.dx
     high = low + (torch.tensor([tr.prm.nx, tr.prm.ny, tr.prm.nz], device=low.device)-5)*tr.prm.dx
     min_model, min_geom, max_condition = float("inf"), float("inf"), 0.
+    surface_rho0 = None
+    if tr.surface_x is not None:
+        surface_rho0 = (wp.to_torch(tr.surface_density[0]) if tr.surface_density0 is None else
+                        torch.as_tensor(tr.surface_density0, device=low.device))
     for t in range(tr.T + 1):
         arrays = [wp.to_torch(a[t]) for a in (tr.x, tr.v, tr.C, tr.F, tr.F_geom)]
         if not all(bool(torch.isfinite(a).all()) for a in arrays):
@@ -77,20 +88,81 @@ def trajectory_health(tr: Trajectory, cfg: GeometricConfig) -> dict:
             if (float(torch.linalg.det(effective).min()) <= cfg.min_determinant
                     or float(torch.linalg.det(fp).min()) <= cfg.min_determinant):
                 return {"valid": False, "reason": "constitutive_orientation", "substep": t}
-    return {"valid": True, "min_det_model": min_model, "min_det_geom": min_geom,
-            "max_geom_condition": max_condition}
+        if tr.surface_x is not None:
+            sx, sf = wp.to_torch(tr.surface_x[t]), wp.to_torch(tr.surface_F[t])
+            if not bool(torch.isfinite(sx).all() and torch.isfinite(sf).all()):
+                return {"valid": False, "reason": "surface_nonfinite", "substep": t}
+            if bool(((sx < low) | (sx > high)).any()):
+                return {"valid": False, "reason": "surface_grid_stencil", "substep": t}
+            if float(torch.linalg.det(sf).min()) <= cfg.min_determinant:
+                return {"valid": False, "reason": "surface_orientation", "substep": t}
+            ssv = torch.linalg.svdvals(sf)
+            if float((ssv[:, 0]/ssv[:, -1]).max()) > cfg.max_geom_condition:
+                return {"valid": False, "reason": "surface_condition", "substep": t}
+            rho = wp.to_torch(tr.surface_density[t])
+            if (not bool(torch.isfinite(rho).all()) or float(surface_rho0.min()) <= 1e-8
+                    or bool((rho < cfg.min_surface_density_ratio*surface_rho0).any())):
+                return {"valid": False, "reason": "surface_mass_support", "substep": t}
+    result = {"valid": True, "min_det_model": min_model, "min_det_geom": min_geom,
+              "max_geom_condition": max_condition}
+    if tr.surface_x is not None:
+        skin_sv = torch.linalg.svdvals(torch.stack([wp.to_torch(f) for f in tr.surface_F]))
+        result.update(min_surface_det=float(skin_sv.prod(-1).min()),
+                      max_surface_condition=float((skin_sv[..., 0]/skin_sv[..., -1]).max()),
+                      min_surface_density_ratio=float(torch.stack([wp.to_torch(d) for d in tr.surface_density]).div(
+                          surface_rho0).min()))
+    if tr.surface_faces is not None:
+        faces = torch.as_tensor(tr.surface_faces, dtype=torch.long, device=low.device)
+        tri = torch.stack([wp.to_torch(a) for a in tr.surface_x])[:, faces]
+        e1, e2 = tri[..., 1, :]-tri[..., 0, :], tri[..., 2, :]-tri[..., 0, :]
+        rest = torch.as_tensor(tr.surface_reference0, device=low.device)[faces]
+        r1, r2 = rest[:, 1]-rest[:, 0], rest[:, 2]-rest[:, 0]
+        rest_area = torch.linalg.cross(r1, r2).norm(dim=-1)
+        normals = torch.linalg.cross(e1, e2)
+        area = normals.norm(dim=-1)
+        if float(rest_area.min()) <= 1e-12:
+            return {"valid": False, "reason": "initial_surface_degenerate"}
+        area_ratio = float((area/rest_area).min())
+        edge = torch.stack([e1.norm(dim=-1), e2.norm(dim=-1), (e2-e1).norm(dim=-1)], -1)
+        rest_edge = torch.stack([r1.norm(dim=-1), r2.norm(dim=-1), (r2-r1).norm(dim=-1)], -1)
+        edge_ratio = float((edge/rest_edge.clamp_min(1e-12)).max())
+        # Compare current face orientation against local transported tangents.
+        sf = torch.stack([wp.to_torch(a) for a in tr.surface_F])[:, faces].mean(2)
+        # F is cumulative from the persistent original reference; no inverse of
+        # an averaged rotation is needed (that average can be singular).
+        n_expected = torch.linalg.cross(torch.einsum("tfij,fj->tfi", sf, r1),
+                                       torch.einsum("tfij,fj->tfi", sf, r2))
+        if not bool(torch.isfinite(n_expected).all()) or float(n_expected.norm(dim=-1).min()) <= 1e-12:
+            return {"valid": False, "reason": "surface_expected_normal_degenerate"}
+        cosine = (normals*n_expected).sum(-1)/(area*n_expected.norm(dim=-1)).clamp_min(1e-20)
+        if (area_ratio < cfg.min_surface_triangle_area_ratio or edge_ratio > cfg.max_surface_edge_ratio
+                or float(cosine.min()) <= 0.):
+            return {"valid": False, "reason": "surface_triangle_deformation",
+                    "min_area_ratio": area_ratio, "max_edge_ratio": edge_ratio, "min_normal_cosine": float(cosine.min())}
+        result.update(min_surface_triangle_area_ratio=area_ratio, max_surface_edge_ratio=edge_ratio,
+                      min_surface_normal_cosine=float(cosine.min()))
+    return result
 
 
 def next_window_spec(spec: RolloutSpec, tr: Trajectory) -> RolloutSpec:
     """Promote physical state and cumulative geometry together, without assimilation."""
     return replace(spec, x0=tr.x[-1].numpy().copy(), F0=tr.F[-1].numpy().copy(),
                    v0=tr.v[-1].numpy().copy(), C0=tr.C[-1].numpy().copy(),
-                   F_geom0=tr.F_geom[-1].numpy().copy())
+                   F_geom0=tr.F_geom[-1].numpy().copy(),
+                   surface0=None if tr.surface_x is None else tr.surface_x[-1].numpy().copy(),
+                   surface_F0=None if tr.surface_F is None else tr.surface_F[-1].numpy().copy(),
+                   surface_reference0=tr.surface_reference0,
+                   surface_density0=(None if tr.surface_x is None else tr.surface_density[0].numpy().copy())
+                       if tr.surface_density0 is None else tr.surface_density0.copy())
 
 
 def verify_replay(reference: Trajectory, replay: Trajectory):
     """Scalar equality cannot detect corrupted C or other unobserved restart state."""
-    for name in ("x", "v", "C", "F", "F_geom"):
+    for name in ("x", "v", "C", "F", "F_geom", "surface_x", "surface_F", "surface_density"):
+        if getattr(reference, name) is None and getattr(replay, name) is None:
+            continue
+        if getattr(reference, name) is None or getattr(replay, name) is None:
+            raise RuntimeError(f"final replay changed availability of {name}")
         for t, (a, b) in enumerate(zip(getattr(reference, name), getattr(replay, name))):
             aa, bb = wp.to_torch(a), wp.to_torch(b)
             if not torch.allclose(aa, bb, rtol=1e-5, atol=1e-5):

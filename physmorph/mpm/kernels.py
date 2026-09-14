@@ -228,6 +228,41 @@ def k_geom_transport(x: wp.array(dtype=wp.vec3), grid_v: wp.array(dtype=wp.vec3)
 
 
 @wp.kernel
+def k_surface_advect(x: wp.array(dtype=wp.vec3), x_next: wp.array(dtype=wp.vec3),
+                     grid_v: wp.array(dtype=wp.vec3), grid_m: wp.array(dtype=float),
+                     density: wp.array(dtype=float), gmin: wp.vec3, dx: float,
+                     inv_dx: float, dt: float, nx: int, ny: int, nz: int, v_max: float):
+    """Massless material markers transported by the exact particle velocity map.
+
+    Markers never scatter mass, momentum, stress, or controls. The adjoint of
+    their motion still reaches grid velocities and hence the physical stress.
+    """
+    p = wp.tid()
+    xp = x[p]
+    if not valid_pos(xp):
+        x_next[p] = xp
+        density[p] = 0.0
+        return
+    u = wp.vec3(0.0)
+    mass = float(0.0)
+    b = base_node(xp, gmin, inv_dx)
+    for oi in range(4):
+        for oj in range(4):
+            for ok in range(4):
+                i, j, k = b[0] + oi, b[1] + oj, b[2] + ok
+                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                    w = weight(gmin + wp.vec3(float(i), float(j), float(k)) * dx - xp, inv_dx)
+                    index = gid(i, j, k, ny, nz)
+                    u = u + w * grid_v[index]
+                    mass = mass + w * grid_m[index]
+    speed = wp.length(u)
+    if v_max > 0.0 and speed > v_max:
+        u = (v_max / speed) * u
+    x_next[p] = xp + dt * u
+    density[p] = mass * inv_dx * inv_dx * inv_dx
+
+
+@wp.kernel
 def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              v: wp.array(dtype=wp.vec3), F_in: wp.array(dtype=wp.mat33),
              F_new: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33),

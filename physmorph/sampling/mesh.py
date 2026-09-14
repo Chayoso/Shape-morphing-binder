@@ -5,6 +5,35 @@ import numpy as np
 import trimesh
 
 
+def seal_internal_voxel_voids(centers: np.ndarray, pitch: float):
+    """Fill only enclosed background components; retain exterior concavities.
+
+    Opt-in for solid material-surface fixtures. Legacy samplers remain unchanged
+    so their earlier mass/scale discretizations can still be reproduced.
+    """
+    from scipy import ndimage
+    points = np.asarray(centers, np.float64)
+    if points.ndim != 2 or points.shape[1] != 3 or not len(points) or pitch <= 0:
+        raise ValueError("nonempty voxel centers and positive pitch required")
+    origin = points.min(0)
+    indices = np.rint((points-origin)/pitch).astype(np.int64)+1
+    occupied = np.zeros(indices.max(0)+2, bool)
+    occupied[tuple(indices.T)] = True
+    solid = ndimage.binary_fill_holes(occupied)
+    _, components = ndimage.label(solid)
+    if components != 1:
+        raise ValueError("solid target must have one face-connected voxel component")
+    result = (np.argwhere(solid)-1)*pitch+origin
+    return np.asarray(result, np.float32), {"original_voxels": int(occupied.sum()),
+        "sealed_internal_voxels": int(solid.sum()-occupied.sum()), "solid_voxels": int(solid.sum())}
+
+
+def sample_voxel_centers(centers, pitch, n, seed):
+    rng = np.random.default_rng(seed)
+    ids = rng.integers(0, len(centers), n)
+    return np.asarray(centers[ids]+rng.uniform(-.5, .5, (n, 3))*pitch, np.float32)
+
+
 def load_mesh(path: str) -> trimesh.Trimesh:
     m = trimesh.load(path, process=False, force="mesh")
     if isinstance(m, trimesh.Scene):

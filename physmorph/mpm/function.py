@@ -42,6 +42,11 @@ class RolloutSpec:
     device: str = "cuda"
     vol0: np.ndarray | None = None  # one-time source-rest Vp; reused across all windows
     F_geom0: np.ndarray | None = None  # cumulative original-reference geometry on restart
+    surface0: np.ndarray | None = None  # passive, connected material surface vertices
+    surface_F0: np.ndarray | None = None
+    surface_faces: np.ndarray | None = None
+    surface_reference0: np.ndarray | None = None
+    surface_density0: np.ndarray | None = None
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -70,7 +75,9 @@ class _WarpMPM(torch.autograd.Function):
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
                           device=spec.device, requires_grad=True, vol0=spec.vol0,
-                          track_geometry=geometry, F_geom0=spec.F_geom0 if geometry else None)
+                          track_geometry=geometry, F_geom0=spec.F_geom0 if geometry else None,
+                          surface0=spec.surface0, surface_F0=spec.surface_F0, surface_faces=spec.surface_faces,
+                          surface_reference0=spec.surface_reference0, surface_density0=spec.surface_density0)
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
@@ -81,10 +88,15 @@ class _WarpMPM(torch.autograd.Function):
         ctx.geometry = geometry
         state = (wp.to_torch(xT).clone(), wp.to_torch(FT).reshape(N, 9).clone(),
                  wp.to_torch(traj.v[T]).clone())
-        return state + (wp.to_torch(traj.F_geom[T]).reshape(N, 9).clone(),) if geometry else state
+        if geometry:
+            state += (wp.to_torch(traj.F_geom[T]).reshape(N, 9).clone(),)
+        if traj.surface_x is not None:
+            state += (wp.to_torch(traj.surface_x[T]).clone(), wp.to_torch(traj.surface_F[T]).clone())
+        return state
 
     @staticmethod
-    def backward(ctx, gx: torch.Tensor, gF: torch.Tensor, gv: torch.Tensor, g_geom=None):
+    def backward(ctx, gx: torch.Tensor, gF: torch.Tensor, gv: torch.Tensor, g_geom=None,
+                 g_surface=None, g_surface_F=None):
         traj = ctx.traj
         N, T = traj.N, traj.T
         grads = {traj.x[T]: wp.from_torch(gx.contiguous(), dtype=wp.vec3),
@@ -92,6 +104,9 @@ class _WarpMPM(torch.autograd.Function):
                  traj.v[T]: wp.from_torch(gv.contiguous(), dtype=wp.vec3)}
         if ctx.geometry:
             grads[traj.F_geom[T]] = wp.from_torch(g_geom.contiguous().view(N, 3, 3), dtype=wp.mat33)
+        if traj.surface_x is not None:
+            grads[traj.surface_x[T]] = wp.from_torch(g_surface.contiguous(), dtype=wp.vec3)
+            grads[traj.surface_F[T]] = wp.from_torch(g_surface_F.contiguous(), dtype=wp.mat33)
         ctx.tape.backward(grads=grads)
         # each leaf's grad is read ONLY if that input required grad (a warp array made
         # from a no-grad tensor has grad=None -> to_torch(None) crashes; caught by G1b)
@@ -120,7 +135,7 @@ def warp_mpm(dFc_t: torch.Tensor, spec: RolloutSpec):
 
 
 def warp_mpm_geometry(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None):
-    """Return (x, F_model, v, F_geom); image losses must consume x and F_geom.
+    """Return (x, F_model, v, F_geom), optionally followed by (surface_x, surface_F).
 
     Initial-state arrays in spec are constants. This differentiates one window,
     not through earlier commits; pass the cumulative F_geom0 on every restart.
