@@ -775,3 +775,26 @@ reading of the tables above:
   changed the image without motion. The render forward model now saturates the stretch
   (`gauss_cov_sat`), and the `render_ctrl_gauss`/`_first` rows above still stand on their
   silhouette metrics only.
+
+
+### 2026-09-15 — batch j part 1: attribution of the window-locked cycle (code e234248)
+
+20k flagship baseline, dt=1/240, dx=0.5, loss_res 64, pace 0, seed 1; triage under the
+REFUTE-2 probe (lock band 6 %, tortuosity, both power conventions):
+
+| change | chamfer | silIoU | speed period | locked | power (excl. / all bins) | modulation | tortuosity | visible |
+|---|---|---|---|---|---|---|---|---|
+| T = 10 | 0.1599 | 0.9510 | **10.00** | yes | 0.36 / 0.06 | 1.78 | 1.28 | 3.4 % |
+| T = 20 (batch a) | 0.1599 | 0.9655 | 20.02 | yes | 0.95 / 0.89 | 4.12 | 2.80 | 9.6 % |
+| T = 40 | 0.1675 | 0.9578 | **40.16** | yes | 0.97 / 0.94 | 3.81 | 2.54 | 100 % |
+| `--assim 0` (no plastic reset) | 0.1588 | 0.9679 | 20.03 | yes | 0.93 / 0.80 | 4.59 | 2.87 | 46.8 % |
+
+The period FOLLOWS the window length (10.00 / 20.02 / 40.16 substeps) — a fixed physical
+time (the F-smoothing constant dt/(1−s) = 22.2 steps, the elastic period 132 steps and
+its harmonics) cannot do that, and removing plastic assimilation leaves the cycle intact
+(power 0.93, tortuosity 2.87). REFUTE-2 F1/F2 are therefore answered by measurement: the
+window-locked driver is the per-window control re-optimisation under the terminal-only
+objective, and the label `C_window` may be read as "control" for this pipeline.
+Side result: T = 10 windows nearly suppress the cycle by themselves (power 0.36,
+tortuosity 1.28, visible 3.4 %) at the same chamfer (0.1599) with silIoU −1.5 pt and
+half the wall-clock — a horizon-side candidate to combine with `w_kin_var`.

@@ -153,3 +153,8 @@ targets the reversal itself.
   **tortuosity** = path / net displacement per window (baseline 2.8, `w_kin_var 200` 1.09;
   threshold 1.5, gated on visibility). Driver A also fires on the per-particle RMS of J
   (threshold 0.05), not only the population mean.
+
+**Attribution measured (batch j, 2026-09-15):** the dominant speed period follows the
+window length exactly (T = 10 / 20 / 40 → 10.00 / 20.02 / 40.16 substeps) and survives
+`--assim 0`; fixed physical times (dt/(1−s) = 22.2, τ_e = 132 and its harmonics) are
+excluded. `C_window` = the per-window control re-optimisation for this pipeline.

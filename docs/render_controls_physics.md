@@ -327,9 +327,10 @@ Reading (REFUTE-2 corrected): the cycle is window-LOCKED (measured), and its pha
 speed maximal at the window boundary, minimal near mid-window (a reversal inside the
 window, continuous across the boundary — not "accelerate from rest, brake to rest").
 It is not caused by the cold start of each window's control (warm start leaves the
-power at 0.90). Which per-commit event drives it — the control re-optimisation, the
-plastic assimilation reset, the outer gate schedule — is attributed by batch j
-(T-variation and `--assim 0`), not by the rule. The variance term prices in-window
+power at 0.90). Batch j attributed it: the period follows T exactly (10.00 / 20.02 /
+40.16 substeps for T = 10 / 20 / 40) and `--assim 0` leaves it intact (power 0.93), so
+neither a fixed physical time nor the plastic reset drives it — the per-window control
+re-optimisation does (`docs/experiments.md`, batch j part 1). The variance term prices in-window
 velocity change (reversal AND acceleration — F17: net progress per window falls ~3×,
 the delivered shape is unchanged within single-seed noise, best d_vol +11–14 % at 20k
 and −4 % at 40k); at 50 it halves the window-locked power and cuts the visible fraction
