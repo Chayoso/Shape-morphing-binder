@@ -122,6 +122,8 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           w_kin_running=args.w_kin_running,
                           w_kin_var=args.w_kin_var,
                           w_coh=args.w_coh, coh_k=args.coh_k,
+                          w_bond=args.w_bond, bond_s0=args.bond_s0,
+                          vol_frontier=args.vol_frontier,
                           warm_start=args.warm_start,
                           grad_project_mode=args.grad_project_mode,
                           cagrad_c=args.cagrad_c,
@@ -532,6 +534,9 @@ def main():
     ap.add_argument("--w_kin_var", type=float, default=0.0)   # window velocity-variance term
     ap.add_argument("--w_coh", type=float, default=0.0)       # material-coherence prior (thin-feature vanguard)
     ap.add_argument("--coh_k", type=int, default=8)
+    ap.add_argument("--w_bond", type=float, default=0.0)      # one-sided bond-stretch bound
+    ap.add_argument("--bond_s0", type=float, default=0.3)
+    ap.add_argument("--vol_frontier", action="store_true")    # frontier-restricted D_vol
     ap.add_argument("--warm_start", action="store_true",       # decayed control warm start
                     help="init each window's control from the previous window's (decayed; "
                          "projected onto the basis) - continuity across windows for the "

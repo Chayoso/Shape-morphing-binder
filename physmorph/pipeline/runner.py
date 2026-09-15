@@ -227,7 +227,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                   cfg.surface_grad_floor)
                  if cfg.surface_grad_frac > 0 else None)
     coh_nbr = None
-    if cfg.w_coh > 0:                # frozen source-material neighbours (w_coh prior)
+    if cfg.w_coh > 0 or cfg.w_bond > 0:   # frozen source-material neighbours
         from scipy.spatial import cKDTree
         coh_nbr = cKDTree(src).query(src, k=int(cfg.coh_k) + 1, workers=-1)[1][:, 1:]
     if cfg.render_surface_only:
@@ -326,11 +326,22 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             "frames": len(frames), "F_frames": len(F_frames), "guards": dict(guards),
             "Fg_commits": len(Fg_commits),
         }
+        frontier = None
+        if cfg.vol_frontier:
+            # target cells within ONE loss cell of the current occupancy (3^3 dilation)
+            from ..losses.volumetric import rasterize_mass
+            with torch.no_grad():
+                occ = rasterize_mass(torch.as_tensor(x_start, device=cfg.device), tgt.m,
+                                     tgt.lgmin, tgt.ldx, tgt.ldims) > 1e-6
+                occ = occ.reshape(1, 1, *tgt.ldims).float()
+                frontier = torch.nn.functional.max_pool3d(occ, 3, stride=1, padding=1)
+                frontier = frontier.reshape(-1)
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
             fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev, vol0=vol0,
-            surface_w=surface_w, Fg0=st.get("Fg"), coh_nbr=coh_nbr)
+            surface_w=surface_w, Fg0=st.get("Fg"), coh_nbr=coh_nbr, coh_nbr_src=src,
+            frontier=frontier)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if cfg.warm_start:

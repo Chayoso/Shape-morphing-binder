@@ -278,6 +278,21 @@ class PipelineConfig:
                                     # targets locally sparse; not caused by the nn/W1 pulls,
                                     # scatter_probe ablation). State-side twin of w_creg.
     coh_k: int = 8
+    w_bond: float = 0.0             # ONE-SIDED BOND-STRETCH bound (Luiten et al. 2023
+                                    # rigidity/isometry weights on frozen source kNN,
+                                    # bond-based-PD stretch criterion): per window,
+                                    # mean_i sum_j w_ij relu(|x_T,j - x_T,i| - (1+bond_s0)
+                                    # |x_0,j - x_0,i|)^2 / sp^2, w_ij = exp(-|x_src,j -
+                                    # x_src,i|^2 / (2 (2 sp)^2)). Rest lengths are THIS
+                                    # window's start (a rate limit on separation, never a
+                                    # spring back), compression is free (ears may thin).
+    bond_s0: float = 0.3            #   allowed per-window stretch of a material bond
+    vol_frontier: bool = False      # evaluate D_vol only on target cells within one loss
+                                    # cell of the window's current occupancy: removes the
+                                    # far-field pull that rewards throwing a few particles
+                                    # into distant thin-feature cells (Xu 2025: "mass
+                                    # ejections lead to the quickest decrease"); the ear
+                                    # then fills by frontier growth from the head.
     w_kin_var: float = 0.0          # VELOCITY-VARIANCE term mean_p [mean_t |v_t|^2 -
                                     # |mean_t v_t|^2]: zero iff every particle moves at
                                     # constant velocity inside the window, positive for

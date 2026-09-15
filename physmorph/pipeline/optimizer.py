@@ -168,7 +168,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
-                    mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None):
+                    mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None,
+                    coh_nbr_src=None, frontier=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -212,13 +213,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # (the line-search noise floor's absolute "1.0" and the replay tolerance are
     # rescaled the same way below)
 
+    # frontier-restricted target (vol_frontier): target cells within one loss cell of
+    # the window's start occupancy; recomputed per window by the runner
+    grid_eff = tgt.grid if frontier is None else tgt.grid * frontier
+
     def dvol(xT):
         if cfg.loss_units == "density":
-            return d_vol_density(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims,
+            return d_vol_density(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims,
                                  tgt.m_ref, tgt.n_support)
         if cfg.loss_units != "legacy":
             raise ValueError(f"unknown loss_units {cfg.loss_units!r}")
-        return d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
+        return d_vol(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims)
     s = None
     if cfg.opt_material:
         s0 = np.zeros((2, N), np.float32) if s_init is None else np.asarray(s_init, np.float32)
@@ -249,9 +254,24 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # material-coherence prior (w_coh): frozen SOURCE kNN, the displacement reference is
     # this window's start x0 (so the prior sees the window's increment, not the morph)
     coh_t = None
-    if cfg.w_coh > 0 and coh_nbr is not None:
+    sp_ref = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.0
+    if sp_ref <= 0 and (cfg.w_coh > 0 or cfg.w_bond > 0):
+        # nn spacing is only built for the nn/kde terms; derive it from the source here
+        from scipy.spatial import cKDTree
+        sp_ref = float(np.median(cKDTree(x0).query(x0, k=2, workers=-1)[0][:, 1]))
+    coh_sp2 = max(sp_ref, 1e-6) ** 2
+    if (cfg.w_coh > 0 or cfg.w_bond > 0) and coh_nbr is not None:
         coh_t = torch.as_tensor(np.ascontiguousarray(coh_nbr), device=dev)
-        coh_sp2 = float(max(tgt.nn_spacing, 1e-6)) ** 2 if tgt.nn_spacing > 0 else 1.0
+    bond_t = None
+    if cfg.w_bond > 0 and coh_nbr is not None:
+        # frozen source neighbours; weights from SOURCE distances (Luiten et al.), rest
+        # lengths from THIS window's start positions (one-sided: only new separation)
+        src_np = np.ascontiguousarray(coh_nbr_src, np.float32) if coh_nbr_src is not None else x0
+        d_src = np.linalg.norm(src_np[coh_nbr] - src_np[:, None, :], axis=2)
+        w_b = np.exp(-d_src ** 2 / (2.0 * (2.0 * sp_ref) ** 2)).astype(np.float32)
+        x0_b = torch.as_tensor(x0, device=dev)
+        bond_t = (torch.as_tensor(w_b, device=dev),
+                  (x0_b[coh_t] - x0_b[:, None, :]).norm(dim=2).detach() * (1.0 + float(cfg.bond_s0)))
     gauss_mask_t = (torch.as_tensor(np.asarray(surface_w) > 0.5, device=dev)
                     if surface_w is not None and cfg.render_surface_only else None)
 
@@ -449,10 +469,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # velocity VARIANCE over the window: the measured limit cycle (speed V-shape,
             # period T) is a reversal inside the window; constant-velocity progress is free
             L = L + wu * cfg.w_kin_var * lk_var
-        if coh_t is not None:
+        if coh_t is not None and cfg.w_coh > 0:
             # material coherence: a particle may not leave its source neighbours' motion
             u = xT - x0_t
             L = L + wu * cfg.w_coh * (u - u[coh_t].mean(1)).pow(2).sum(1).mean() / coh_sp2
+        if bond_t is not None:
+            # one-sided bond stretch beyond (1+s0) x this window's start length
+            w_b, lmax = bond_t
+            d = (xT[coh_t] - xT[:, None, :]).norm(dim=2)
+            L = L + wu * cfg.w_bond * (w_b * torch.relu(d - lmax).pow(2)).sum(1).mean() / coh_sp2
         if cfg.w_tctrl > 0 and T > 1:
             L = L + wu * cfg.w_tctrl * (dfc[1:] - dfc[:-1]).pow(2).mean()
         if cfg.w_box > 0:      # far-field leash: differentiable everywhere, zero inside box

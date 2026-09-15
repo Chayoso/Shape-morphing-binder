@@ -302,3 +302,38 @@ def test_material_coherence_prior_is_zero_for_affine_motion_and_reaches_the_leaf
     cfg = _cfg(lambda_auto=0.5, w_coh=10.0)
     res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
     assert _recs(res) and np.isfinite(_recs(res)[-1]["loss"])
+
+
+def test_bond_stretch_bound_is_one_sided_and_frontier_mask_dilates(prm, clouds):
+    """w_bond: zero for rigid motion and for compression, positive only for stretch beyond
+    (1+s0) of the window-start length; vol_frontier: the target is restricted to cells
+    within one loss cell of the current occupancy."""
+    import torch
+    from scipy.spatial import cKDTree
+    rng = np.random.default_rng(12)
+    x0 = rng.uniform(-1, 1, (300, 3)).astype(np.float32)
+    nbr = cKDTree(x0).query(x0, k=9)[1][:, 1:]
+    nbr_t = torch.as_tensor(nbr); x0t = torch.as_tensor(x0)
+    sp = float(np.median(cKDTree(x0).query(x0, k=2)[0][:, 1]))
+    d_src = np.linalg.norm(x0[nbr] - x0[:, None, :], axis=2)
+    w_b = torch.as_tensor(np.exp(-d_src ** 2 / (2 * (2 * sp) ** 2)).astype(np.float32))
+    lmax = (x0t[nbr_t] - x0t[:, None, :]).norm(dim=2) * 1.3
+
+    def bond(xT):
+        d = (xT[nbr_t] - xT[:, None, :]).norm(dim=2)
+        return float((w_b * torch.relu(d - lmax).pow(2)).sum(1).mean() / sp ** 2)
+    R = torch.linalg.qr(torch.randn(3, 3))[0]
+    assert bond(x0t @ R.T + 0.4) == 0.0                       # rigid motion
+    assert bond(x0t * 0.6) == 0.0                              # compression is free
+    assert bond(x0t * 1.2) == 0.0                              # stretch within s0 (1.3)
+    assert bond(x0t * 2.0) > 0.0                               # beyond s0: penalised
+    xr = x0t.clone(); xr[0] += torch.tensor([1.0, 0, 0])       # one runaway particle
+    assert bond(xr) > 0.0
+    src, tgt = clouds
+    cfg = _cfg(lambda_auto=0.5, w_bond=10.0, vol_frontier=True)
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    assert _recs(res) and np.isfinite(_recs(res)[-1]["loss"])
+    # frontier mask: a 3^3 dilation of the occupancy on the loss grid
+    occ = torch.zeros(1, 1, 6, 6, 6); occ[0, 0, 2, 2, 2] = 1.0
+    m = torch.nn.functional.max_pool3d(occ, 3, stride=1, padding=1)
+    assert int(m.sum()) == 27 and float(m[0, 0, 2, 2, 2]) == 1.0 and float(m[0, 0, 0, 0, 0]) == 0.0
