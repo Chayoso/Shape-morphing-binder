@@ -102,3 +102,22 @@ def _project_logsv(l0, lo, hi, target) -> np.ndarray:
         nu_lo = np.where(high, nu, nu_lo)
         nu_hi = np.where(high, nu_hi, nu)
     return np.exp(np.clip(l0 - (0.5 * (nu_lo + nu_hi))[:, None], lo, hi))
+
+
+def relax_stretch(F, eta=0.5, isochoric=False, smin=0.2, smax=5.0) -> np.ndarray:
+    """Return R S^(1-eta) for F = R S (per-particle polar), i.e. the ELASTIC remainder
+    after an eta-fraction of the stretch is assimilated into an implicit rest state —
+    the same exact relaxation as assimilate_elastic with Fp = I. Used on the GEOMETRIC
+    render deformation F_g at every accepted commit (docs/render_controls_physics.md §3):
+    the total deformation of a sphere->bunny morph reaches singular values of 3-5 on the
+    ears, and Sigma = s0^2 F_g F_g^T rendered needle splats (measured 2026-09-15). Rotation
+    is untouched, rows with det <= 0 are returned unchanged (the F guards own them)."""
+    F = np.ascontiguousarray(F, np.float32).reshape(-1, 3, 3)
+    if eta <= 0:
+        return F
+    Fp_inc = _assimilate(F, np.tile(np.eye(3, dtype=np.float32), (len(F), 1, 1)), F,
+                         eta, smin, smax, isochoric, None, 1.0)
+    out = np.einsum("nij,njk->nik", F, np.linalg.inv(Fp_inc)).astype(np.float32)
+    bad = ~np.isfinite(out).all(axis=(1, 2)) | (np.linalg.det(F) <= 1e-6)
+    out[bad] = F[bad]
+    return out

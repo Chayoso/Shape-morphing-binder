@@ -198,3 +198,40 @@ def test_select_archive_F_prefers_geometric_when_present():
     d2 = {"F_samples": Fp, "F_sample_idx": np.array([0, 10, 20])}   # legacy archive
     F, kind = select_archive_F(d2, 25, prefer_geom=True)
     assert kind == "physics" and np.allclose(F, eye * 1.2)
+
+
+def test_geometric_F_stretch_is_relaxed_at_commits():
+    """relax_stretch: R S^(1-eta) exactly; rotation untouched; det<=0 rows passed through."""
+    from physmorph.plasticity.assimilation import relax_stretch
+    rng = np.random.default_rng(3)
+    N = 50
+    A = rng.normal(size=(N, 3, 3)).astype(np.float32)
+    U, S, Vt = np.linalg.svd(A)
+    S = np.clip(np.abs(S) * 2.0 + 0.5, 0.5, 5.0)                    # stretches up to 5
+    R = U @ Vt
+    R[np.linalg.det(R) < 0, :, 0] *= -1.0
+    F = np.einsum("nij,nj,nkj->nik", R @ np.transpose(Vt, (0, 2, 1)) @ Vt, S, Vt)  # R V S V^T
+    F = np.einsum("nij,njk->nik", R, np.einsum("nij,nj,nkj->nik", Vt.transpose(0, 2, 1), S, Vt))
+    out = relax_stretch(F, eta=0.5, isochoric=False, smin=0.01, smax=100.0)
+    sv_in = np.linalg.svd(F, compute_uv=False)
+    sv_out = np.linalg.svd(out, compute_uv=False)
+    assert np.allclose(sv_out, sv_in ** 0.5, rtol=2e-3, atol=2e-3)   # S^(1-eta)
+    # rotation preserved: polar(out).R == polar(F).R
+    def polar_R(M):
+        u, _, vt = np.linalg.svd(M)
+        return u @ vt
+    assert np.allclose(polar_R(out), polar_R(F), atol=2e-3)
+    bad = F.copy(); bad[0] = np.diag([1.0, 1.0, -1.0]).astype(np.float32)
+    out2 = relax_stretch(bad, eta=0.5)
+    assert np.allclose(out2[0], bad[0])
+    assert relax_stretch(F, eta=0.0) is not None and np.allclose(relax_stretch(F, eta=0.0), F)
+
+
+def test_runner_relaxes_archived_Fg(prm, clouds):
+    src, tgt = clouds
+    cfg = _cfg(lambda_auto=0.5, render_F_geom=True, assim=0.5, animations=3, patience=10)
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    assert res["Fg_commits"]
+    for _, Fg in res["Fg_commits"]:
+        sv = np.linalg.svd(Fg, compute_uv=False)
+        assert np.isfinite(sv).all() and sv.max() < 5.0

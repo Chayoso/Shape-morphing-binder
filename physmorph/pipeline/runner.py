@@ -23,6 +23,7 @@ from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
 from ..mpm.traj import compute_rest_volumes
 from ..plasticity import assimilate_elastic
+from ..plasticity.assimilation import relax_stretch
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
 from .render_loss import (LambdaBalancer, d_render, make_views, shade_targets,
@@ -420,6 +421,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                         smin=cfg.assim_smin, smax=cfg.assim_smax,
                                         isochoric=cfg.assim_iso)
 
+        # the GEOMETRIC render deformation gets the same commit-time stretch relaxation
+        # as the physics (§8): inside a window it still changes only through motion,
+        # but the covariance no longer accumulates the whole morph's stretch (needle
+        # splats on the ears at singular values 3-5, photoreal QA 2026-09-15)
+        if Fg_p is not None and cfg.assim > 0:
+            Fg_p = relax_stretch(Fg_p, eta=cfg.assim, isochoric=cfg.assim_iso)
+            st["Fg"] = Fg_p
         # archive the PROMOTED states (identical to raw when no guard fired)
         frames.extend(f.copy() for f in fr[1:-1]); frames.append(x.copy())
         F_frames.extend(F_seq[1:-1]); F_frames.append(Fc.copy())

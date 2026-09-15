@@ -683,3 +683,11 @@ Fourteen arms, all 20k / T=20 / dt=1/240 / dx=0.5 / loss_res 64 unless noted, on
    holes 0.02 %; density units at the legacy dx were falsified (silIoU 0.897).
 4. `dfc_clip 0` collapses both families (0.206 / 0.846 in 16 commits): the clip is part
    of the recipe, so basis-vs-flagship comparisons at equal clip are the fair ones.
+
+
+**Caveat added 2026-09-15 (after photoreal QA):** the 20k `render_ctrl_gauss` and
+`render_ctrl_first` arms rendered their Gaussian loss from the unrelaxed total `F_g`,
+which reaches singular values 3–5 on the ears late in the morph (needle splats). The
+runner now relaxes `F_g` at every accepted commit with the physics assimilation rule
+(`relax_stretch`); those two rows are not re-run here — their silhouette/chamfer numbers
+stand (the silhouette term does not use F), their d_gauss telemetry does not.

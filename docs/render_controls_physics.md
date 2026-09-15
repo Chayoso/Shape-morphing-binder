@@ -130,6 +130,18 @@ central differences (<5 %). Runner: `F_frames` keeps the physics F (metrics, ass
 `Fg_commits` archives `F_g` at every accepted commit; the live viewer receives `F_g`
 (`rec["F_kind"]="geom"`).
 
+**Measured 2026-09-15 (photoreal QA, `scripts/render_photoreal.py --F_geom`):** the TOTAL
+geometric deformation of a sphere→bunny morph reaches singular values of 3–5 on the
+ears/feet, and `Σ = σ₀² F_g F_gᵀ` rendered needle splats there (the PhysGaussian
+anisotropy failure GaussianFluent documents), while the physics F stays compact because
+plastic assimilation absorbs its stretch at every commit. Fix (same session): `F_g` gets
+the identical commit-time relaxation `F_g ← R_g S_g^{1−η}` (`plasticity.relax_stretch`,
+exact polar, rotation untouched, η = `assim`) — inside a window it still changes only
+through motion, so the premise holds, and the covariance no longer accumulates the whole
+morph. Caveat for the 20k ladder: `render_ctrl_gauss` / `render_ctrl_first` optimised
+against the UNRELAXED `F_g` (needle covariances late in the morph); their Gaussian-loss
+numbers should be re-read after the 40k replicate with the relaxed kinematics.
+
 ---
 
 ## §4 The control lives on a coarse basis (questions 1, 2, 4, 6, 7)
