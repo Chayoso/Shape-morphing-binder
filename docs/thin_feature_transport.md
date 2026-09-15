@@ -244,9 +244,13 @@ the archived raw state on the MPM grid (dx 0.5, 64³), `n₀` = median over the 
 | flagship `rcp_20k_a` | 1007 | (0.05, 0.3) | 0.31, 0.79, 0.00 | 0.99, 0.03 | 0.88 |
 | `render_ctrl` 12³ | 1007 | (0.05, 0.3) | 0.31, 0.79, 0.02 | 1.00, 0.02 | 0.90 |
 | flagship `rcp_20k_a` | 1007 | (0.1, 0.6) | 0.31, 0.42, 0.07 | 0.94, 0.20 | 0.55 |
+| 40k `--ppc 8` (dx 0.2148, 149³) | 203 | (0.1, 0.6) | 0.43, 0.64, 0.03 | 0.97, 0.15 | 0.80 |
+| 40k `--ppc 8` + density + recipe | 203 | (0.1, 0.6) | 0.39, 0.58, 0.04 | 0.97, 0.16 | 0.74 |
 
 **What this changes.** `n₀` = 1007 means ~37 particles per 0.5 wu cell at 20k; the vanguard
-sits in neighbourhoods of ~300 particles. The numerical-fracture reading in §1 (a particle
+sits in neighbourhoods of ~300 particles. At 40k `--ppc 8` (7.5 ppc, `n₀` 203) the vanguard
+still has 0.39–0.43 of the interior count (~85 particles in its 3³ cells): not grid-isolated
+at either discretisation. The numerical-fracture reading in §1 (a particle
 beyond an empty cell has no grid neighbours) is therefore wrong at this discretisation and
 is struck out above: the spray is a sub-cell density deficit of a connected stream, not a
 set of detached particles. Consequences, stated before batch p reports:
