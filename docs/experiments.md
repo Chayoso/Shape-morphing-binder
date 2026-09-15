@@ -798,3 +798,59 @@ objective, and the label `C_window` may be read as "control" for this pipeline.
 Side result: T = 10 windows nearly suppress the cycle by themselves (power 0.36,
 tortuosity 1.28, visible 3.4 %) at the same chamfer (0.1599) with silIoU −1.5 pt and
 half the wall-clock — a horizon-side candidate to combine with `w_kin_var`.
+
+
+### 2026-09-15 — batch j part 2: seed replicates, code-matched 40k pair, `--ppc 8` decoupled (code e234248)
+
+All rows `render_full_dt_iso_nn`, dt=1/240, pace 0, anneal 0.7, mom_carry 0, nn_far_k 1000,
+dfc_clip 0.02, 300-commit budget; commits = accepted records; triage under the REFUTE-2
+probe (power = excl.-low-bins / all-bins conventions; tortuosity = path/net per window).
+Recipe = `--warm_start --w_kin 5 --w_kin_var 50`. Every archive (43) was re-triaged with
+`--json` under the current probe (REFUTE-2 F19).
+
+**Seed replicates, 20k, dx 0.5, loss_res 64**
+
+| arm | seed | commits | chamfer | silIoU | hole | power | tortuosity | visible |
+|---|---|---|---|---|---|---|---|---|
+| baseline | 1 (batch a) | 108 | 0.1599 | 0.9655 | 0.04% | 0.95 / 0.89 | 2.80 | 9.6 % |
+| baseline | 2 | 128 | 0.1585 | 0.9664 | 0.08% | 0.95 / 0.87 | 2.57 | 11.8 % |
+| baseline | 3 | 112 | 0.1589 | 0.9660 | 0.14% | 0.95 / 0.89 | 3.30 | 5.8 % |
+| recipe | 1 (batch e) | 138 | 0.1584 | 0.9646 | 0.09% | 0.50 / 0.11 | — | 0.3 % |
+| recipe | 2 | 125 | 0.1585 | 0.9651 | 0.09% | 0.44 / 0.05 | 1.27 | 2.2 % |
+| recipe | 3 | 107 | 0.1583 | 0.9665 | 0.05% | 0.47 / 0.08 | 1.31 | 3.6 % |
+
+Baseline seed spread: chamfer 0.1585–0.1599 (std 0.0007 = 0.45 %), silIoU 0.9655–0.9664
+(0.09 pt). Recipe mean 0.1584 / 0.9654 vs baseline mean 0.1591 / 0.9660: a **tie within
+seed noise** (REFUTE-2 F8 answered by measurement). The oscillation effect is seed-
+invariant: power 0.95 → 0.44–0.50, tortuosity 2.6–3.3 → 1.27–1.31 on every seed.
+
+**40k, code-matched (all under e234248)**
+
+| arm | commits | chamfer | silIoU | hole | detFmin | G3 | G4_ej | power | tortuosity | visible |
+|---|---|---|---|---|---|---|---|---|---|---|
+| baseline dx 0.5, loss_res 64 | 165 | 0.1298 | 0.9644 | 0.00% | 0.466 | PASS | FAIL | 0.97 / 0.92 | 3.44 | 2.4 % |
+| recipe, dx 0.5 | 139 | 0.1297 | 0.9661 | 0.00% | — | PASS | — | 0.36 / 0.04 | 1.25 | 3.9 % |
+| `--ppc 8` (dx 0.215, 149³ MPM), LEGACY units, loss_res 64 | 75 | 0.1294 | **0.9757** | 0.00% | 0.770 | PASS | FAIL | 0.94 / 0.87 | 2.04 | 17.5 % |
+| `--ppc 8 --loss_units density` (loss grid 149³, reference-64 calibration: unit_ratio 1.29e4) + recipe | 127 | **0.1142** | 0.9735 | 0.52% | 0.755 | PASS | PASS | 0.83 / 0.51 | 1.90 | 3.3 % |
+
+Reading:
+- The recipe's shape numbers are a tie under matched code (0.1297 / 0.9661 vs 0.1298 /
+  0.9644); its window-locked component drops 0.97 → 0.36 (tortuosity 3.44 → 1.25).
+- **The `--ppc 8` decoupling (REFUTE-2 F13) separates two effects:** the finer MPM dx at
+  fixed loss grid moves silIoU (+1.1 pt, 0.9757, the best 40k silhouette so far) at tie
+  chamfer; the finer LOSS grid (149³, density units) moves chamfer (0.1142, −12 % vs the
+  matched baseline) at +0.9 pt silIoU with the finer-dx hole level (0.5 %, gate 2 %). With
+  the reference-64 calibration the ppc8/density arm's weights are 3.2× the batch-h/i
+  meaning, as predicted, and `w_kin_var 50` now reaches power 0.83/0.51, tortuosity 1.9
+  (still above 1.5 — the finer dx needs ~200 as batch i showed).
+- G4_ejection (self-referential stray metric) fails on the dx-0.5 40k arms and the ppc8
+  legacy arm, passes on the ppc8/density arm; it stays reported and unreplaced.
+
+**Verdict and recommendation (2026-09-15, end of ladder).** Adopt for the next flagship
+candidate, pending one more REFUTE pass on this section: `--ppc 8 --loss_units density
+--warm_start --w_kin 5 --w_kin_var 200` at 40k (the discretisation contract with the
+reference-grid calibration plus the window-cycle remedy at the weight batch i found
+necessary at this dx). What is established with replicates: the window-locked control
+cycle and its removal by `w_kin_var` (seed-invariant, T-tracking, assimilation-independent);
+what is established once: the −12 % chamfer of the fine loss grid and the +1.1 pt silIoU
+of the fine MPM grid. No CLI default has been changed in this session.

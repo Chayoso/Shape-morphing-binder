@@ -370,7 +370,8 @@ All arms N=20k/40k sphere→bunny (real-volume sampler), T=20, dt=1/240, dx=0.5 
 Acceptance is the existing gate set (G1–G6) plus the triage verdict; adversarial REFUTE
 (Codex gpt-5.6-sol xhigh + Opus) before adoption, per AGENTS.md rule 5.
 
-**Status 2026-09-15 (evening):** the §10 ladder RAN on hyde06 (14 arms at 20k + a 6-arm 40k replicate; results and
+**Status 2026-09-15 (night):** the §10 ladder RAN on hyde06 (14 arms at 20k, 8 at 40k, 11 in the
+REFUTE-2 follow-up batch j: attribution, seed replicates, code-matched pair, `--ppc 8` decoupled; results and
 verdicts in `docs/experiments.md`, 2026-09-15 sections): the contract arms tie the
 flagship on shape with a better inversion margin, basis resolution is a lever, the
 discretisation contract (`--ppc 8`) gave the best chamfer, and the oscillation is a
