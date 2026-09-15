@@ -37,3 +37,28 @@ def decompose_cov(cov: np.ndarray):
     q_xyzw = Rotation.from_matrix(V).as_quat()         # (N,4) XYZW
     q_wxyz = q_xyzw[:, [3, 0, 1, 2]].astype(np.float32)
     return scales, q_wxyz
+
+
+def select_archive_F(d, fi: int, prefer_geom: bool = False):
+    """Pick the deformation gradient to render at frame ``fi`` of a pipeline_run archive.
+
+    ``F_samples`` (physics F, sampled at ``F_sample_idx`` frame indices) is the default;
+    with ``prefer_geom`` and an archive that carries ``Fg_commits`` (geometric F_g at
+    accepted commits; ``Fg_commit_idx[k]`` = len(frames) after that commit, i.e. the
+    state's frame index + 1) the latest F_g at or before the frame is used instead —
+    the PhysGaussian kinematics the render_F_geom arms optimised against. Returns
+    (F (N,3,3) float32, kind) with kind in {"physics", "geom"}."""
+    import numpy as np
+    files = set(getattr(d, "files", d.keys()))
+    if prefer_geom and "Fg_commits" in files and "Fg_commit_idx" in files:
+        idx = np.asarray(d["Fg_commit_idx"]) - 1           # frame index of each state
+        Fg = d["Fg_commits"]
+        if len(idx) and Fg.ndim == 4 and Fg.shape[0] == len(idx):
+            k = int(np.searchsorted(idx, fi, side="right") - 1)
+            if k >= 0:
+                return np.ascontiguousarray(Fg[k], np.float32), "geom"
+    if "F_sample_idx" in files:
+        sidx = np.asarray(d["F_sample_idx"])
+        k = int(np.searchsorted(sidx, fi, side="right") - 1)
+        return np.ascontiguousarray(d["F_samples"][max(k, 0)], np.float32), "physics"
+    return np.ascontiguousarray(d["F_samples"][-1], np.float32), "physics"

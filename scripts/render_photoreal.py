@@ -5,7 +5,7 @@ Usage: python render_photoreal.py --npz output/heroX_<arm>.npz --out output/phot
 import argparse, math, sys
 import numpy as np, torch
 sys.path.insert(0, ".")
-from physmorph.render.covariance import cov_from_F, sigma0_from_nn
+from physmorph.render.covariance import cov_from_F, select_archive_F, sigma0_from_nn
 from physmorph.pipeline.render_loss import field_normals
 from diff_gauss import GaussianRasterizationSettings, GaussianRasterizer
 
@@ -54,6 +54,9 @@ ap.add_argument("--mls", type=int, default=0,
                      "particle-thick surface layer that shading otherwise exposes as patches. Display "
                      "only - the archive is untouched.")
 ap.add_argument("--normal_k", type=int, default=25, help="kNN size for the PCA normal / tangent frame")
+ap.add_argument("--F_geom", action="store_true",
+                help="render Sigma from the archived GEOMETRIC F_g (Fg_commits, the "
+                     "render_F_geom arms' kinematics) instead of the physics F")
 ap.add_argument("--frame", type=int, default=None,
                 help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
                      "archive carries one, else the last frame")
@@ -66,13 +69,10 @@ if a.frame is None:
 else:
     fi = a.frame if a.frame >= 0 else n_frames + a.frame
 x = d["frames"][fi].astype(np.float32)
-# F is sampled sparsely (F_sample_idx): take the latest sample at or before the frame
-if "F_sample_idx" in d.files:
-    sidx = np.asarray(d["F_sample_idx"])
-    k = int(np.searchsorted(sidx, fi, side="right") - 1)
-    F = d["F_samples"][max(k, 0)].astype(np.float32)
-else:
-    F = d["F_samples"][-1].astype(np.float32)
+# F is sampled sparsely (F_sample_idx): take the latest sample at or before the frame;
+# --F_geom prefers the archived geometric F_g at accepted commits (Fg_commits)
+F, F_kind = select_archive_F(d, fi, prefer_geom=a.F_geom)
+print(f"[photoreal] frame {fi}: covariance from the {F_kind} F", flush=True)
 print(f"[photoreal] frame {fi} of {n_frames}")
 if a.surface_only > 0:
     from physmorph.pipeline.runner import _surface_weights
