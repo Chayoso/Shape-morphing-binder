@@ -58,7 +58,12 @@ precedence: CLI > json > defaults (dt 1/240, dx 0.5, E 1.4e5, ν 0.2), source ta
   particle-commits move > 0.5 sp per accepted commit; else INVISIBLE (drivers are still
   reported, tagged sub-spacing — the Addendum 7 reopening rule).
 - Driver C (control/window) if `window_locked` AND (median stop-and-go > 0.5, or median
-  boundary jump ratio > 2 or < 0.5).
+  boundary jump ratio > 2 or < 0.5, **or median intra-window speed modulation
+  max_t s_t / min_t s_t > 2**). The modulation clause was added on 2026-09-15 after the
+  first hyde06 archives: every window showed speed 0.47 → 0.10 → 0.45 with a turning
+  point mid-window and continuity across the boundary (sag 0, jump 0.93, modulation 4.3,
+  95 % of the speed power at period T) — a control limit cycle that the sprint-then-brake
+  form cannot see.
 - Driver B (stiffness) if `stiffness_ringing` AND CFL > 0.3. CFL > 0.5 alone flags
   "CFL violation" even without ringing.
 - Driver A (volume) if detrended mean-J peak-to-peak > 0.02 AND |corr_J_speed| > 0.5.

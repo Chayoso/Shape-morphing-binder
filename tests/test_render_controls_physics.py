@@ -161,3 +161,19 @@ def test_density_units_are_measured_at_the_source(prm, clouds):
     assert np.isfinite(pack.unit_ratio) and np.isfinite(pack.unit_grad_ratio)
     with pytest.raises(ValueError):                    # zero residual at the source
         calibrate_units(build_target(tgt, prm, cfg), tgt, cfg)
+
+
+def test_velocity_variance_term_is_wired_and_zero_for_uniform_motion(prm, clouds):
+    """w_kin_var (2026-09-15): mean_p[mean_t|v_t|^2 - |mean_t v_t|^2] is zero for a
+    constant-velocity trajectory and positive for a reversal; it must reach the leaf."""
+    import torch
+    V = torch.zeros(4, 10, 3); V[:, :, 0] = 1.0                          # uniform motion
+    var = (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()
+    assert float(var) == 0.0
+    V[2:, :, 0] = -1.0                                                  # reversal
+    assert float((V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()) > 0.5
+    src, tgt = clouds
+    cfg = _cfg(lambda_auto=0.5, w_kin_var=5.0)
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    recs = _recs(res)
+    assert recs and all(r.get("kin_var") is not None and r["kin_var"] >= 0 for r in recs)

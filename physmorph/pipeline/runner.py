@@ -491,7 +491,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "render_cos": stats.get("render_cos"), "phys_cos": stats.get("phys_cos"),
                "predicted_decrease": stats.get("predicted_decrease"),
                "fill_lam": stats.get("fill_lam"),
-               "kin": w["kin"], "kin_run": w.get("kin_run"),
+               "kin": w["kin"], "kin_run": w.get("kin_run"), "kin_var": w.get("kin_var"),
                "d_render": w["d_render"], "lambda": w["lambda"],
                "lambda_capped": stats.get("lambda_capped"),
                "F_kind": "geom" if Fg_p is not None else "physics",

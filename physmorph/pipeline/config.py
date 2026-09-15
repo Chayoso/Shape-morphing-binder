@@ -268,6 +268,20 @@ class PipelineConfig:
     w_kin_running: float = 0.0      # RUNNING kinetic mean_t mean_p |v_t|^2 over the whole
                                     # window (stop-and-go driver C, oscillation_triage.md);
                                     # 0 keeps the terminal-only term.
+    w_kin_var: float = 0.0          # VELOCITY-VARIANCE term mean_p [mean_t |v_t|^2 -
+                                    # |mean_t v_t|^2]: zero iff every particle moves at
+                                    # constant velocity inside the window, positive for
+                                    # any reversal - targets the measured window-locked
+                                    # limit cycle (hyde06 2026-09-15: speed 0.47 -> 0.10
+                                    # -> 0.45 inside every window, 95 % of the speed
+                                    # power at period T) WITHOUT penalising net progress.
+    w_kin_var: float = 0.0          # VELOCITY-VARIANCE term mean_p [mean_t |v_t|^2 -
+                                    # |mean_t v_t|^2]: zero iff every particle moves at
+                                    # constant velocity inside the window, positive for
+                                    # any reversal - targets the measured window-locked
+                                    # limit cycle (hyde06 2026-09-15: speed 0.47 -> 0.10
+                                    # -> 0.45 inside every window, 95 % of the speed
+                                    # power at period T) WITHOUT penalising net progress.
     grad_project_mode: str = "render"  # which side PCGrad strips when cos<0 (grad_project):
                                     # "render" (legacy: physics descent preserved),
                                     # "phys" (render-first: physics component removed),

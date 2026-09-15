@@ -84,3 +84,28 @@ def test_cli_roundtrip_through_saved_archive(tmp_path):
     assert saved["provenance"]["source"]["dt"] == "json.mpm" and saved["provenance"]["T"] == T
     assert saved["provenance"]["dt"] == pytest.approx(prov["mpm"]["dt"])
     assert rep["decision"] == saved["decision"]
+
+
+def test_mid_window_turning_point_is_driver_c():
+    """hyde06 2026-09-15 signature: speed V-shaped inside every window (0.47 -> 0.10 ->
+    0.45), continuous across boundaries. sag ~ 0 and jump ~ 1 must not hide it."""
+    import numpy as np
+    from scripts.probes import oscillation_triage as OT
+    rng = np.random.default_rng(5)
+    N, T, W, dt = 200, 10, 30, 1.0 / 240
+    base = rng.uniform(-1, 1, (N, 3)).astype(np.float32)
+    frames = [base.copy()]
+    x = base.copy()
+    for w in range(W):
+        for t in range(T):
+            # velocity along +x decelerates through zero and re-accelerates the other
+            # way inside every window (speed V-shaped, min mid-window, max at both ends;
+            # the hyde06 signature: 0.47 -> 0.10 -> 0.45, continuous across the boundary)
+            v = 0.5 * np.cos(np.pi * t / (T - 1))
+            x = x + np.array([v * dt, 0, 0], np.float32) * (1.0 + 0.02 * rng.standard_normal())
+            frames.append(x.copy())
+    arrays = dict(frames=np.stack(frames), deliver_n=len(frames), src=base, tgt=base)
+    rep = OT.triage(arrays, history=None, T=T, dt=dt, dx=0.5, young=1.4e5, poisson=0.2)
+    assert rep["speed"]["window_locked"]
+    assert rep["speed"]["modulation_median"] > 2.0
+    assert rep["decision"]["driver_C"], rep["decision"]

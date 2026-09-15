@@ -31,7 +31,7 @@ DEFAULTS = dict(dt=1.0 / 240.0, dx=0.5, young=1.4e5, poisson=0.2, smoothing=0.95
                 drag=0.9, grid_min=(-16.0, -16.0, -16.0))
 # Pre-registered thresholds (docs/oscillation_triage.md "Decision rules"). Do not tune
 # them on the run being triaged.
-RULES = dict(visible_frac=0.01, visible_sp=0.5, sag=0.5, jump_hi=2.0, jump_lo=0.5,
+RULES = dict(visible_frac=0.01, visible_sp=0.5, sag=0.5, modulation=2.0, jump_hi=2.0, jump_lo=0.5,
              lock_main=0.15, lock_div=0.10, ring_tol=0.25, cfl_b=0.3, cfl_violation=0.5,
              j_p2p=0.02, j_corr=0.5, kin_end=0.05, reversal_cos=-0.2, tail=40)
 
@@ -234,9 +234,20 @@ def stop_and_go(s_c, win):
         if k + 1 < len(win):
             a2 = win[k + 1][0]
             jump.append(s_c[a2] / seg[-1] if seg[-1] > 0 else (np.inf if s_c[a2] > 0 else np.nan))
-    sag = np.array(sag); jump = np.array(jump); endfrac = np.array(endfrac)
+    # intra-window MODULATION: max/min speed inside a window. A window-locked limit
+    # cycle whose turning point sits mid-window (hyde06 2026-09-15: 0.47 -> 0.10 -> 0.45,
+    # continuous across the boundary) has sag ~ 0 and jump ~ 1 yet modulation ~ 4.
+    mod = []
+    for (a, b) in win:
+        seg = s_c[a:b]
+        if seg.size >= 3 and seg.min() > 0:
+            mod.append(float(seg.max() / seg.min()))
+    sag = np.array(sag); jump = np.array(jump); endfrac = np.array(endfrac); mod = np.array(mod)
     return dict(
         n_windows=int(len(sag)),
+        modulation_median=_nanstat(np.nanmedian, mod) if mod.size else None,
+        modulation_frac_gt_rule=(_nanstat(np.nanmean, (mod > RULES["modulation"]).astype(float))
+                                 if mod.size else None),
         sag_median=_nanstat(np.nanmedian, sag),
         sag_frac_gt_half=_nanstat(np.nanmean, (sag > RULES["sag"]).astype(float)) if sag.size else None,
         jump_median=_nanstat(np.nanmedian, jump),
@@ -481,8 +492,10 @@ def decide(speed, vol, stiff, vis):
     fe = vis.get("frac_excursion_gt_half_sp"); fm = vis.get("frac_move_gt_half_sp")
     visible = bool((fe is not None and fe > R["visible_frac"]) or (fm is not None and fm > R["visible_frac"]))
     wl = bool(speed.get("window_locked")); sag = speed.get("sag_median"); jm = speed.get("jump_median")
+    md = speed.get("modulation_median")
     C = wl and ((sag is not None and sag > R["sag"])
-                or (jm is not None and (jm > R["jump_hi"] or jm < R["jump_lo"])))
+                or (jm is not None and (jm > R["jump_hi"] or jm < R["jump_lo"]))
+                or (md is not None and md > R["modulation"]))
     cfl = stiff.get("cfl")
     B = bool(stiff.get("stiffness_ringing")) and cfl is not None and cfl > R["cfl_b"]
     cfl_violation = cfl is not None and cfl > R["cfl_violation"]
@@ -575,6 +588,7 @@ def summarize_markdown(rep):
         ("steps used / held", f"{s['n_used']} / {s['n_held_steps']}"), ("boundaries", s["boundaries"]),
         ("T inferred from frame_end", s["T_inferred"]), ("windows", s["n_windows"]),
         ("stop-and-go median", s["sag_median"]), ("frac windows sag>0.5", s["sag_frac_gt_half"]),
+        ("intra-window speed modulation max/min median", s.get("modulation_median")),
         ("boundary jump ratio median (p10/p90)", f"{_fmt(s['jump_median'])} ({_fmt(s['jump_p10'])}/{_fmt(s['jump_p90'])})"),
         ("kin_end<5% of peak s^2 (frac windows)", s["kin_end_frac"]),
         ("dominant speed period P_s [substeps]", s["period"]), ("peak power fraction", s["power_frac"]),

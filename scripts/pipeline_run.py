@@ -120,6 +120,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           control_tknots=args.control_tknots,
                           render_F_geom=args.render_F_geom,
                           w_kin_running=args.w_kin_running,
+                          w_kin_var=args.w_kin_var,
                           grad_project_mode=args.grad_project_mode,
                           cagrad_c=args.cagrad_c,
                           render_gs_cheb=args.render_gs_cheb,
@@ -521,6 +522,7 @@ def main():
     ap.add_argument("--control_tknots", type=int, default=0)   # time knots (0 = per step)
     ap.add_argument("--render_F_geom", action="store_true")
     ap.add_argument("--w_kin_running", type=float, default=0.0)
+    ap.add_argument("--w_kin_var", type=float, default=0.0)   # window velocity-variance term
     ap.add_argument("--grad_project_mode", default="render",
                     choices=["render", "phys", "cagrad", "blend"])
     ap.add_argument("--cagrad_c", type=float, default=0.5)
