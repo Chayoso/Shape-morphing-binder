@@ -121,6 +121,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           render_F_geom=args.render_F_geom,
                           w_kin_running=args.w_kin_running,
                           w_kin_var=args.w_kin_var,
+                          warm_start=args.warm_start,
                           grad_project_mode=args.grad_project_mode,
                           cagrad_c=args.cagrad_c,
                           render_gs_cheb=args.render_gs_cheb,
@@ -523,6 +524,10 @@ def main():
     ap.add_argument("--render_F_geom", action="store_true")
     ap.add_argument("--w_kin_running", type=float, default=0.0)
     ap.add_argument("--w_kin_var", type=float, default=0.0)   # window velocity-variance term
+    ap.add_argument("--warm_start", action="store_true",       # decayed control warm start
+                    help="init each window's control from the previous window's (decayed; "
+                         "projected onto the basis) - continuity across windows for the "
+                         "measured window-locked limit cycle")
     ap.add_argument("--grad_project_mode", default="render",
                     choices=["render", "phys", "cagrad", "blend"])
     ap.add_argument("--cagrad_c", type=float, default=0.5)
