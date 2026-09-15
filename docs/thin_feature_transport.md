@@ -116,7 +116,7 @@ mass delivered to thin targets; guards: chamfer within +2 %, hole ≤ 2 %, G2 = 
 | `w_bond` 100 + `vol_frontier` | peak < 0.35, end sparsity < 0.25 | — |
 | `--ppc 8` + `w_bond` 100 (40k) | end sparsity < 0.25 and strays < 0.1 % | — |
 | `render_ctrl` 24³ alone; 36³ (batch n) | 24³ alone reproduces the 24³+coh30 row (basis carries it); 36³ ≤ 24³ | 24³ alone back at the 12³ row (coh30 was the agent) |
-| 40k `--ppc 8` + `render_ctrl` 24³ ± recipe (batch o) | the two levers add: end sparsity < 0.25, delivered ≥ 0.185, chamfer ≤ 0.12 | delivered < 0.172 (the ppc-8 recipe row) |
+| 40k `--ppc 8` + `render_ctrl` 24³ ± recipe (batch o) | the two levers add: end sparsity < 0.25, delivered ≥ 0.185, chamfer ≤ 0.12 | delivered < 0.172 (the ppc-8 recipe row) — **prediction failed: the levers do not add (end 0.319, delivered 0.173, chamfer 0.1175; froze at commit 135); falsifier not fired (§5f)** |
 | support gate `(r_lo, r_hi)` = (0.05, 0.3), (0.1, 0.6); 24³ + (0.05, 0.3) (batch p) | if the affine fling is the ejection mechanism: peak < 0.50 on the per-particle control at no chamfer cost | peak ≥ 0.55 at both settings → the ejection is a translational push (control stress / loss pull on fringe particles), not an APIC artefact — **FIRED (0.569 / 0.569; §5e)** |
 | physics-only `--lambda_auto 0` (batch p) | if the image loss drives the vanguard: peak < 0.45 | peak ≥ 0.55 → the driver is D_vol itself — **FIRED (0.560; §5e)** |
 
@@ -314,3 +314,22 @@ move (a coarse basis: peak 0.50, end 0.24 at 36³) and WHAT the loss can see (`-
 peak 0.44–0.48, strays 0.01–0.2 %; density units: peak 0.36) are the ones that work. Mass
 ejection at the END state is a discretisation problem and is solved by the contract
 (`--ppc 8`: strays 0.07 % on the flagship candidate vs 1.3–2 % at dx 0.5).
+
+### 5f. Batch o1 — the two levers together at 40k (`--ppc 8`, density units, recipe, 24³ basis)
+
+| arm (40k, dx 0.2148, loss grid 149³ density units, `--warm_start --w_kin 5 --w_kin_var 200`) | commits delivered | chamfer | silIoU | hole | peak → end | delivered thin mass | strays > 2 sp |
+|---|---|---|---|---|---|---|---|
+| per-particle control (batch j, the flagship candidate) | 300 | 0.1142 | 0.9735 | 0.52 % | 0.444 → 0.329 | 0.172 | 0.07 % |
+| + `render_ctrl --control_grid 24` (o1) | **135 (froze)** | 0.1175 | 0.9712 | 0.45 % | 0.424 → 0.319 | 0.173 | 0.22 % |
+| 24³, legacy units, no recipe (o2, §5e) | 46 (froze) | 0.1337 | 0.9452 | 0.03 % | 0.436 → 0.245 | 0.183 | 0.36 % |
+
+The basis on the fine grid does NOT add to the discretisation contract: within noise on the
+spray (peak −0.02, end −0.01), chamfer +3 %, silIoU −0.2 pt, strays 3× (still 0.2 %), and
+both basis runs at `--ppc 8` stop early through the outer-merit guard ("rejected candidate,
+reversal −0.55" on consecutive windows → stale → freeze) that the per-particle recipe never
+trips. At dx 0.5 the basis is the lever (§5c); at dx 0.215 the fine grid already gives the
+control the granularity the basis was supplying, and the basis then only costs line-search
+acceptance. The 36³ pair (batch q) is reported when done; the recommendation does not wait
+for it: **the flagship candidate stays per-particle at `--ppc 8` in density units with the
+kinetic recipe** (peak 0.44, end 0.33, strays 0.07 %, chamfer 0.1142), and the 20k
+deliverables use the 24³–36³ basis.

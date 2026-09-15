@@ -903,6 +903,11 @@ thickens, a few strays stay at the feet — volume, or something else? Dossier:
 - **Closing verdict:** not volume; the ears are filled first by the nearest particles at
   ~2× spacing because the loss cannot see spacing below its cell and a per-particle control
   can move single particles. Levers: control basis (peak 0.50, end 0.24 at 36³) and the
-  discretisation contract (`--ppc 8`: peak 0.44–0.48, end strays 0.01–0.2 % = the mass
-  ejection fix; density units: peak 0.36). Batch o1 (40k `--ppc 8` + density + recipe +
-  24³) reported below when done.
+  discretisation contract (`--ppc 8`: peak 0.44–0.48, end strays 0.01–0.2 % = the mass ejection fix; density units: peak 0.36).
+- **Batch o1 (40k `--ppc 8` + density + recipe + 24³ basis):** froze at commit 135 (outer-merit
+  guard, reversal −0.55 on consecutive windows); chamfer 0.1175 / silIoU 0.9712 / strays
+  0.22 % vs 0.1142 / 0.9735 / 0.07 % for the per-particle recipe; spray peak 0.424 → 0.319
+  vs 0.444 → 0.329 (noise). The levers do not add at fine dx (dossier §5f). Flagship
+  candidate unchanged: per-particle `--ppc 8 --loss_units density --warm_start --w_kin 5
+  --w_kin_var 200`; the basis is the 20k lever. Batch q (20k density + 128³ loss grid; 40k
+  36³ pair) running.
