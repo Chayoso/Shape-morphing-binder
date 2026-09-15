@@ -226,6 +226,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     surface_w = (_surface_weights(src, cfg.surface_grad_k, cfg.surface_grad_frac,
                                   cfg.surface_grad_floor)
                  if cfg.surface_grad_frac > 0 else None)
+    coh_nbr = None
+    if cfg.w_coh > 0:                # frozen source-material neighbours (w_coh prior)
+        from scipy.spatial import cKDTree
+        coh_nbr = cKDTree(src).query(src, k=int(cfg.coh_k) + 1, workers=-1)[1][:, 1:]
     if cfg.render_surface_only:
         if surface_w is None:
             raise ValueError("render_surface_only requires surface_grad_frac > 0")
@@ -326,7 +330,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
             fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev, vol0=vol0,
-            surface_w=surface_w, Fg0=st.get("Fg"))
+            surface_w=surface_w, Fg0=st.get("Fg"), coh_nbr=coh_nbr)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if cfg.warm_start:

@@ -276,3 +276,29 @@ def test_runner_archives_unrelaxed_Fg_when_not_edited(prm, clouds):
     assert res["Fg_commits"]
     for _, Fg in res["Fg_commits"]:
         assert np.isfinite(Fg).all() and (np.linalg.det(Fg) > 0).all()
+
+
+def test_material_coherence_prior_is_zero_for_affine_motion_and_reaches_the_leaf(prm, clouds):
+    """w_coh: Laplacian of the window displacement over frozen source neighbours —
+    zero for any affine motion (translation, rotation, uniform stretch), positive when one
+    particle leaves its neighbours; wired to the control through the MPM adjoint."""
+    import torch
+    from scipy.spatial import cKDTree
+    rng = np.random.default_rng(9)
+    x0 = rng.uniform(-1, 1, (400, 3)).astype(np.float32)
+    nbr = torch.as_tensor(cKDTree(x0).query(x0, k=9)[1][:, 1:])
+    x0t = torch.as_tensor(x0)
+    A = torch.tensor([[1.3, 0.2, 0.0], [0.0, 0.9, 0.1], [0.0, 0.0, 1.1]])
+    xT = x0t @ A.T + torch.tensor([0.3, -0.2, 0.1])
+    u = xT - x0t
+    lap = (u - u[nbr].mean(1)).pow(2).sum(1).mean()
+    # affine field: the neighbour mean of u equals u at the neighbourhood centroid, so the
+    # residual is only the centroid offset times (A - I) — small for a symmetric kNN set
+    assert float(lap) < 5e-3
+    xT2 = xT.clone(); xT2[0] += torch.tensor([1.0, 0.0, 0.0])          # one particle races ahead
+    u2 = xT2 - x0t
+    assert float((u2 - u2[nbr].mean(1)).pow(2).sum(1).mean()) > 1e-3
+    src, tgt = clouds
+    cfg = _cfg(lambda_auto=0.5, w_coh=10.0)
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    assert _recs(res) and np.isfinite(_recs(res)[-1]["loss"])

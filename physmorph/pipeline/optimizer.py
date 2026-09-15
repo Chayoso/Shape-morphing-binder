@@ -168,7 +168,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
-                    mom_init=None, vol0=None, surface_w=None, Fg0=None):
+                    mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -246,6 +246,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
     surface_w_t = (torch.as_tensor(surface_w, device=dev).view(N, 1)
                    if surface_w is not None and cfg.surface_mask_objective else None)
+    # material-coherence prior (w_coh): frozen SOURCE kNN, the displacement reference is
+    # this window's start x0 (so the prior sees the window's increment, not the morph)
+    coh_t = None
+    if cfg.w_coh > 0 and coh_nbr is not None:
+        coh_t = torch.as_tensor(np.ascontiguousarray(coh_nbr), device=dev)
+        coh_sp2 = float(max(tgt.nn_spacing, 1e-6)) ** 2 if tgt.nn_spacing > 0 else 1.0
     gauss_mask_t = (torch.as_tensor(np.asarray(surface_w) > 0.5, device=dev)
                     if surface_w is not None and cfg.render_surface_only else None)
 
@@ -443,6 +449,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # velocity VARIANCE over the window: the measured limit cycle (speed V-shape,
             # period T) is a reversal inside the window; constant-velocity progress is free
             L = L + wu * cfg.w_kin_var * lk_var
+        if coh_t is not None:
+            # material coherence: a particle may not leave its source neighbours' motion
+            u = xT - x0_t
+            L = L + wu * cfg.w_coh * (u - u[coh_t].mean(1)).pow(2).sum(1).mean() / coh_sp2
         if cfg.w_tctrl > 0 and T > 1:
             L = L + wu * cfg.w_tctrl * (dfc[1:] - dfc[:-1]).pow(2).mean()
         if cfg.w_box > 0:      # far-field leash: differentiable everywhere, zero inside box

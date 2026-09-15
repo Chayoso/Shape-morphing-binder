@@ -268,13 +268,16 @@ class PipelineConfig:
     w_kin_running: float = 0.0      # RUNNING kinetic mean_t mean_p |v_t|^2 over the whole
                                     # window (stop-and-go driver C, oscillation_triage.md);
                                     # 0 keeps the terminal-only term.
-    w_kin_var: float = 0.0          # VELOCITY-VARIANCE term mean_p [mean_t |v_t|^2 -
-                                    # |mean_t v_t|^2]: zero iff every particle moves at
-                                    # constant velocity inside the window, positive for
-                                    # any reversal - targets the measured window-locked
-                                    # limit cycle (hyde06 2026-09-15: speed 0.47 -> 0.10
-                                    # -> 0.45 inside every window, 95 % of the speed
-                                    # power at period T) WITHOUT penalising net progress.
+    w_coh: float = 0.0              # MATERIAL-COHERENCE prior on the window displacement:
+                                    # mean_i |u_i - mean_{j in N_src(i)} u_j|^2 / sp^2 with
+                                    # u = x_T - x_0 and N_src the frozen source-material
+                                    # kNN (coh_k). Zero for locally affine motion (coherent
+                                    # stretch/rotation), positive for a particle leaving
+                                    # its neighbours — the thin-feature vanguard measured
+                                    # 2026-09-15 (55-60 % of particles arriving on thin
+                                    # targets locally sparse; not caused by the nn/W1 pulls,
+                                    # scatter_probe ablation). State-side twin of w_creg.
+    coh_k: int = 8
     w_kin_var: float = 0.0          # VELOCITY-VARIANCE term mean_p [mean_t |v_t|^2 -
                                     # |mean_t v_t|^2]: zero iff every particle moves at
                                     # constant velocity inside the window, positive for
