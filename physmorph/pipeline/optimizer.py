@@ -772,8 +772,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             log(f"[win] iter {it}: line search exhausted (cur={cur:.6g} last_new={new:.6g} "
                 f"required={required:.3g} pred={predicted_decrease:.3g} ||g||={gn:.3g} "
                 f"a_try={a_try:.3g} state_ok={_state_ok(state_n)}; last-attempt deltas "
-                f"d_vol={float(lv_n - lv):.3g} kin={float(lk_n - lk):.3g} "
-                f"render={(float(lr_n - lr) if lr is not None else 0.0):.3g} "
+                f"d_vol={float(lv_n - lv.detach()):.3g} kin={float(lk_n - lk.detach()):.3g} "
+                f"render={(float(lr_n - lr.detach()) if lr is not None else 0.0):.3g} "
                 f"lam={lam_r:.3g})")
             alpha *= 0.5
             if alpha < 1e-8:
