@@ -117,3 +117,17 @@ brakes) were spent on an invisible signal and both cost real descent.
 - `s_t` is a mean of |v|, so `kin` (mean|v|²) ≥ `s_end²`; the 5 % rule is approximate.
 - The spectrum needs ≥ 2 cycles in the record; periods longer than half the delivered
   trajectory are unresolved and reported as "n/a".
+
+
+## Measured on hyde06 (2026-09-15) — what the rules found and what they missed
+
+Six archives (20k, T=20, dt=1/240, dx=0.5): every arm VISIBLE with driver C after the
+modulation clause was added (intra-window speed max/min 2.7–4.1, power at period T
+0.81–0.95); the sprint-then-brake form alone had returned "no identifiable driver" (sag
+0, jump 0.93) because the turning point sits mid-window and the boundary is continuous.
+Remedy ladder (docs/render_controls_physics.md §9): warm start (control continuity) does
+not change the cycle (power 0.90) — the cause is the per-window terminal-only objective,
+not the cold start; the velocity-VARIANCE term `w_kin_var` is the mechanism-matched lever
+(50: power 0.95 → 0.58, visible 9.6 → 2.5 %, shape unchanged). Paragraph C above should
+be read with this: "running kinetic" attenuates, "variance of v over the window"
+targets the reversal itself.

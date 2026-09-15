@@ -269,10 +269,41 @@ sees during the simulation has three candidate drivers, and the triage probe
 stop-and-go (per-window terminal-rest objective + zero-restart controls). The mechanism
 fixes that exist for each: A — `w_jvol`, isochoric assimilation (adopted); B — the
 discretisation contract (§7) reports CFL and the elastic period against the window
-length; C — the new **running kinetic term** `w_kin_running · mean_t mean_p |v_t|²`
-(every step's velocity is now an output of the bridge) and time knots (`control_tknots`)
-that make the control continuous inside a window. The probe must run on a real archive
-before any of these is adopted for the oscillation complaint (server access, §10).
+length; C — the running kinetic term `w_kin_running · mean_t mean_p |v_t|²`, time
+knots (`control_tknots`), and — added after the first hyde06 archives — the
+**velocity-variance term** `w_kin_var · mean_p [mean_t |v_t|² − |mean_t v_t|²]`, which is
+zero for constant-velocity motion and positive for any reversal inside the window.
+
+**Measured 2026-09-15 (hyde06, 20k, T=20, dt=1/240, dx=0.5; `docs/experiments.md`):**
+the in-simulation vibration is a **window-locked control limit cycle**. Inside every
+window the mean speed goes 0.47 → 0.10 → 0.45 with the turning point mid-window and
+continuity across the boundary; 95 % of the speed power sits at period T; the elastic
+period is 132 steps, J peak-to-peak 0.008, CFL 0.24 — neither stiffness nor volume. The
+probe's original sprint-then-brake rule missed it (sag 0, jump 0.93); driver C now also
+fires on intra-window speed modulation > 2 (measured 2.7–4.1 on every arm). Remedies
+measured against the pre-registered falsifier (window-locked power < 0.5, visible
+fraction < 1 %, no chamfer regression > 2 %):
+
+| remedy (baseline arm) | s̄ | kin_var | power @T | visible | chamfer / silIoU |
+|---|---|---|---|---|---|
+| none (w_kin 0.5) | 0.308 | 0.128 | 0.95 | 9.6 % | 0.1599 / 0.9655 |
+| w_kin 5 | 0.206 | 0.042 | 0.81 | 5.9 % | 0.1593 / 0.9663 |
+| w_kin_running 10 | 0.247 | 0.064 | 0.85 | 7.3 % | 0.1586 / 0.9668 |
+| warm start + w_kin 5 (continuity across windows) | 0.222 | 0.048 | 0.90 | 10.5 % | 0.1588 / 0.9655 |
+| w_kin_var 10 | 0.248 | 0.057 | 0.84 | 10.5 % | 0.1589 / 0.9644 |
+| w_kin_var 50 | 0.134 | 0.0083 | 0.58 | 2.5 % | 0.1596 / 0.9655 |
+| w_kin 5 + w_kin_var 50 | 0.113 | 0.0053 | 0.50 | 2.1 % | 0.1591 / 0.9651 |
+
+Reading: the cycle is NOT caused by the cold start of each window's control (warm start
+leaves the power at 0.90) and is only attenuated by kinetic magnitude penalties; it is
+the optimizer's own per-window solution under a terminal-only objective — a push-and-
+return trajectory costs nothing there. The variance term prices exactly that reversal
+and leaves progress free: at 50 it halves the window-locked power and cuts the visible
+fraction 4× with chamfer/silIoU/holes unchanged and G3 passing with 2.5–5× margin. The
+falsifier is not yet met (power 0.50–0.58, visible 2.1–2.5 %); the dose-response
+continues at w_kin_var 200 (batch f). The coarse control basis makes the same cycle
+spatially coherent (excursion p99 1.0–1.3 sp vs 0.6–0.8), a second reason the
+per-particle flagship stays.
 
 ---
 

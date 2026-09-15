@@ -225,6 +225,11 @@ Every item is opt-in; with all flags off the §5 path is unchanged.
      applied to the (N, 3+9) field [dL/dx_T, dL/dF_T] before the adjoint pullback
 (20) composite direction: grad_project_mode in {render (one-sided PCGrad, legacy),
      phys (mirror), cagrad (Liu 2021), blend (physics-anchored magnitude)}
+(21) L += w_kin_var · mean_p [ mean_t |v_t|^2 − |mean_t v_t|^2 ]   (velocity variance over
+                                                        the window: zero for constant-
+                                                        velocity motion, positive for a
+                                                        reversal — the measured window-
+                                                        locked limit cycle; 2026-09-15)
 ```
 
 Contract statements (tested on warp-CPU, `tests/test_ext_bridge.py`,
