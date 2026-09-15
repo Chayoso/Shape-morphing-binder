@@ -1,7 +1,10 @@
 # Thin-feature transport — the "scatter then return" dossier (2026-09-15)
 
-Status: **measured, literature read, three remedies implemented and pre-registered; batch l
-(coherence prior) running, batch m (bond bound / frontier loss) staged.** Companion to
+Status: **closed 2026-09-15 evening (batches k–p, code 13b9db7): the spray is the
+mass-matching descent itself filling the ear cells with a stretched stream at sub-loss-cell
+spacing — not volume, not the render loss, not an APIC artefact, not fracture, not the cleanup
+pulls. Every window-end regulariser and the forward-model gate are falsified; the levers are
+the control basis and the discretisation contract (`--ppc 8`, density units). §5e.** Companion to
 `docs/floaters.md` (which owns the end-state floater census) and `docs/render_controls_physics.md`.
 
 ## 1. What the user saw and what it measures as
@@ -106,15 +109,16 @@ mass delivered to thin targets; guards: chamfer within +2 %, hole ≤ 2 %, G2 = 
 
 | arm | prediction | falsifier |
 |---|---|---|
-| `w_coh` 3 / 30 / 100 | peak < 0.45, end < 0.30 at 30 | peak ≥ 0.55 at every weight, or chamfer > +2 % |
+| `w_coh` 3 / 30 / 100 | peak < 0.45, end < 0.30 at 30 | peak ≥ 0.55 at every weight, or chamfer > +2 % — **FIRED (§5a)** |
 | `render_ctrl` 24³ + `w_coh` 30 | best combined (control- and state-side coherence) | worse than either alone |
-| `w_bond` 10 / 100, s₀ 0.3 | peak < 0.45 with LESS chamfer cost than `w_coh` (one-sided) | no reduction of the peak |
-| `vol_frontier` | peak < 0.40 (no far-field pull) but slower fill; end mass on thin targets ≥ baseline | end mass on thin targets < 0.15 (fill stalls) |
+| `w_bond` 10 / 100, s₀ 0.3 | peak < 0.45 with LESS chamfer cost than `w_coh` (one-sided) | no reduction of the peak — **FIRED (§5b)** |
+| `vol_frontier` | peak < 0.40 (no far-field pull) but slower fill; end mass on thin targets ≥ baseline | end mass on thin targets < 0.15 (fill stalls) — **prediction failed (peak 0.586), fill did not stall (§5b)** |
 | `w_bond` 100 + `vol_frontier` | peak < 0.35, end sparsity < 0.25 | — |
 | `--ppc 8` + `w_bond` 100 (40k) | end sparsity < 0.25 and strays < 0.1 % | — |
 | `render_ctrl` 24³ alone; 36³ (batch n) | 24³ alone reproduces the 24³+coh30 row (basis carries it); 36³ ≤ 24³ | 24³ alone back at the 12³ row (coh30 was the agent) |
 | 40k `--ppc 8` + `render_ctrl` 24³ ± recipe (batch o) | the two levers add: end sparsity < 0.25, delivered ≥ 0.185, chamfer ≤ 0.12 | delivered < 0.172 (the ppc-8 recipe row) |
-| support gate `(r_lo, r_hi)` = (0.05, 0.3), (0.1, 0.6); 24³ + (0.05, 0.3) (batch p) | if the affine fling is the ejection mechanism: peak < 0.50 on the per-particle control at no chamfer cost | peak ≥ 0.55 at both settings → the ejection is a translational push (control stress / loss pull on fringe particles), not an APIC artefact |
+| support gate `(r_lo, r_hi)` = (0.05, 0.3), (0.1, 0.6); 24³ + (0.05, 0.3) (batch p) | if the affine fling is the ejection mechanism: peak < 0.50 on the per-particle control at no chamfer cost | peak ≥ 0.55 at both settings → the ejection is a translational push (control stress / loss pull on fringe particles), not an APIC artefact — **FIRED (0.569 / 0.569; §5e)** |
+| physics-only `--lambda_auto 0` (batch p) | if the image loss drives the vanguard: peak < 0.45 | peak ≥ 0.55 → the driver is D_vol itself — **FIRED (0.560; §5e)** |
 
 Reading rule: a mechanism that lowers the peak but not the end sparsity delays the spray;
 one that lowers the end sparsity but delivers less mass trades fill for coherence — both
@@ -264,3 +268,49 @@ set of detached particles. Consequences, stated before batch p reports:
   cheapest mass — a stretched stream — and only the finer loss grid (density units, `--ppc
   8`, peaks 0.36–0.44) and the particle-scale pulls act below the cell. The physics-only arm
   (`--lambda_auto 0`) in batch p separates the image loss from D_vol in this.
+
+### 5e. Batch p — the two driver hypotheses (both falsified) and batch o2
+
+| arm (20k, dx 0.5 unless noted) | chamfer | silIoU | hole | thin-region SPARSE peak → end | delivered thin mass | strays > 2 sp |
+|---|---|---|---|---|---|---|
+| baseline `rcp_20k_a` | 0.1599 | 0.9655 | 0.04 % | 0.578 → 0.379 | 0.165 | 1.27 % |
+| support gate (0.05, 0.3) | 0.1593 | 0.9665 | 0.07 % | 0.569 → 0.396 | 0.165 | 1.05 % |
+| support gate (0.1, 0.6) | 0.1588 | 0.9680 | 0.01 % | 0.569 → 0.405 | 0.163 | 1.00 % |
+| **physics-only** (`--lambda_auto 0`, same code path, render OFF) | 0.1597 | 0.9561 | 0.06 % | 0.560 → 0.324 | 0.159 | 0.95 % |
+| 24³ + gate (0.05, 0.3) | 0.1612 | 0.9576 | 0.07 % | 0.498 → 0.263 | 0.187 | 1.40 % |
+| 24³ alone (batch n) | 0.1605 | 0.9542 | 0.08 % | 0.503 → 0.264 | 0.183 | 1.32 % |
+| 40k `--ppc 8` + 24³, legacy units (batch o2; **froze at commit 46**) | 0.1337 | 0.9452 | 0.03 % | 0.436 → 0.245 | 0.183 | 0.36 % |
+| 40k `--ppc 8` per-particle, legacy units (batch i) | 0.1164 | 0.9620 | 0.38 % | 0.481 → 0.295 | 0.188 | 0.23 % |
+
+- **(b) APIC fringe fling — FALSIFIED.** The (0.1, 0.6) gate halves the vanguard's affine
+  transfer in the gated run itself (`gate_probe.py` on its archive: vanguard mean ω 0.43,
+  7 % at ω = 0, body 0.94) and the peak is 0.569 against 0.578 (noise band ±0.01); the end
+  is slightly worse (0.405). The gate costs nothing on the metrics (chamfer 0.1588, silIoU
+  +0.25 pt, strays −0.3 pt) but does not touch the spray. It stays opt-in, default off.
+- **(a) the render loss — FALSIFIED as the driver.** With the image loss OFF on the same
+  code path the peak is 0.560. The spray is produced by the physics-side objective — D_vol
+  mass matching on a per-particle control. What the render loss does is fill the ears MORE
+  (0.165 vs 0.159 delivered, +0.9 pt silIoU) at the price of a higher END sparsity (0.379 vs
+  0.324): the silhouette pulls mass into the ear faster than D_vol alone, and that mass
+  arrives at ~2× spacing. That is the premise working at the wrong granularity, and the
+  granularity is the lever (§5c: basis; §5b/§5d: `--ppc 8`, density units).
+- **Batch o2** (40k `--ppc 8` + 24³ in LEGACY units): the line search exhausted and the
+  patience rule froze the run at commit 46 (the legacy cell-sum / fine-dx mismatch REFUTE-2
+  F4 documented; the per-particle legacy arm survives it, the basis does not). On its
+  delivered slice the peak 0.436 and end 0.245 are the lowest of any 40k arm so far, with
+  chamfer 0.1337 (+15 % vs per-particle) — an early stop, not a result. The density-unit
+  run (o1, `--loss_units density --warm_start --w_kin 5 --w_kin_var 200` + 24³) is the
+  real test and is reported in §5f.
+
+**Closing verdict on the user's question (volume, or something else?).** Something else,
+and it is now pinned: the ears are filled first by the nearest particles at ~2× spacing
+because the mass-matching loss cannot see spacing below its cell, and the per-particle
+control lets it move single particles to do so. The particles are not detached (§5d), the
+material is not over- or under-volumed (J p2p 0.008, `w_jvol` active), nothing is flung by
+the transfer (batch p), and the image loss only amplifies the fill. Remedies that act at
+window end on the state (`w_coh`, `w_bond`, `vol_frontier`) cannot undo a stream that the
+descent has already stretched inside the window; remedies that change WHAT the descent can
+move (a coarse basis: peak 0.50, end 0.24 at 36³) and WHAT the loss can see (`--ppc 8`:
+peak 0.44–0.48, strays 0.01–0.2 %; density units: peak 0.36) are the ones that work. Mass
+ejection at the END state is a discretisation problem and is solved by the contract
+(`--ppc 8`: strays 0.07 % on the flagship candidate vs 1.3–2 % at dx 0.5).

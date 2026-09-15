@@ -888,5 +888,21 @@ thickens, a few strays stay at the feet — volume, or something else? Dossier:
   mass are monotone in basis resolution and saturate: 6³ 0.37/0.138, 12³ 0.28/0.180, 24³
   0.25–0.26/0.183–0.191 (two replicates), 36³ 0.24/0.195 (chamfer 0.1601, silIoU 0.9582).
   The add-ons on the basis (coh30 0.226, frontier 0.231, bond100 0.246, kin_var50 0.232) are
-  within 2–3 noise bands of 24³ alone with no replicate — not adopted. Dossier §5c. Batch o
-  (40k `--ppc 8` + 24³ ± recipe) and batch p (support gate; physics-only arm) running.
+  within 2–3 noise bands of 24³ alone with no replicate — not adopted. Dossier §5c.
+- **Gate-coverage probe (dossier §5d):** the vanguard's 3³-cell count is 0.31 (20k, 37 ppc)
+  and 0.39–0.43 (40k `--ppc 8`) of the interior median — the sparse particles are NOT
+  grid-isolated; the "numerical fracture" reading in the dossier §1 is struck out. The
+  spray is a sub-loss-cell density deficit of a connected stream.
+- **Batch p — both driver hypotheses falsified (dossier §5e):** support gate (0.05, 0.3) /
+  (0.1, 0.6): peak 0.569/0.569 (baseline 0.578) with the vanguard's affine transfer halved
+  (ω 0.43) — not an APIC artefact; chamfer 0.1593/0.1588, silIoU +0.1/+0.25 pt, harmless,
+  stays opt-in. Physics-only (`--lambda_auto 0`, render OFF): peak 0.560 — the driver is the
+  D_vol mass-matching descent itself; the render loss fills the ears more (0.165 vs 0.159)
+  at a higher end sparsity (0.379 vs 0.324). Batch o2 (40k `--ppc 8` + 24³, legacy units)
+  froze at commit 46 (chamfer 0.1337; peak 0.436, end 0.245 on the delivered slice).
+- **Closing verdict:** not volume; the ears are filled first by the nearest particles at
+  ~2× spacing because the loss cannot see spacing below its cell and a per-particle control
+  can move single particles. Levers: control basis (peak 0.50, end 0.24 at 36³) and the
+  discretisation contract (`--ppc 8`: peak 0.44–0.48, end strays 0.01–0.2 % = the mass
+  ejection fix; density units: peak 0.36). Batch o1 (40k `--ppc 8` + density + recipe +
+  24³) reported below when done.
