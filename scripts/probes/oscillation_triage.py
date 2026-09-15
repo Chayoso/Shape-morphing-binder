@@ -32,7 +32,11 @@ DEFAULTS = dict(dt=1.0 / 240.0, dx=0.5, young=1.4e5, poisson=0.2, smoothing=0.95
 # Pre-registered thresholds (docs/oscillation_triage.md "Decision rules"). Do not tune
 # them on the run being triaged.
 RULES = dict(visible_frac=0.01, visible_sp=0.5, sag=0.5, modulation=2.0, jump_hi=2.0, jump_lo=0.5,
-             lock_main=0.15, lock_div=0.10, ring_tol=0.25, cfl_b=0.3, cfl_violation=0.5,
+             tortuosity=1.5, j_rms=0.05,
+             # lock band 6 % (REFUTE-2 F2: at 15 % the F-smoothing time dt/(1-s) = 22.2
+             # steps and the elastic harmonics tau_e/6, tau_e/7 fell inside the band; the
+             # measured periods are 20.00-20.03 with 0.19-step bins, so 6 % keeps them)
+             lock_main=0.06, lock_div=0.10, ring_tol=0.25, cfl_b=0.3, cfl_violation=0.5,
              j_p2p=0.02, j_corr=0.5, kin_end=0.05, reversal_cos=-0.2, tail=40)
 
 
@@ -222,7 +226,11 @@ def segment(s, zero, acc, T):
     return s_c, held, win, keep
 
 
-def stop_and_go(s_c, win):
+def stop_and_go(s_c, win, acc_ok=None, dt=None):
+    """acc_ok/dt: accepted records aligned with `win` (same filter as segment) — enables
+    the TORTUOSITY statistic path/net per window (REFUTE-2 CNR-1): path = sum_t s_t dt,
+    net = history.move (mean per-particle |x_end - x_start|); 1 = straight, >>1 = push
+    and return. Convention-free, unlike the spectral power fraction (F4)."""
     sag, jump, endfrac = [], [], []
     for k, (a, b) in enumerate(win):
         seg = s_c[a:b]
@@ -243,8 +251,16 @@ def stop_and_go(s_c, win):
         if seg.size >= 3 and seg.min() > 0:
             mod.append(float(seg.max() / seg.min()))
     sag = np.array(sag); jump = np.array(jump); endfrac = np.array(endfrac); mod = np.array(mod)
+    tort = []
+    if acc_ok is not None and dt and len(acc_ok) == len(win):
+        for r, (a, b) in zip(acc_ok, win):
+            net = r.get("move")
+            if net and net > 0 and b > a:
+                tort.append(float(s_c[a:b].sum() * dt / net))
+    tort = np.array(tort)
     return dict(
         n_windows=int(len(sag)),
+        tortuosity_median=_nanstat(np.nanmedian, tort) if tort.size else None,
         modulation_median=_nanstat(np.nanmedian, mod) if mod.size else None,
         modulation_frac_gt_rule=(_nanstat(np.nanmean, (mod > RULES["modulation"]).astype(float))
                                  if mod.size else None),
@@ -261,7 +277,7 @@ def dominant_period(x, top=3):
     """Linear detrend + Hann + rFFT. Period of the strongest local maximum (refined on an
     8x zero-padded spectrum), power fraction = peak +-1 raw bin / total above 2 cycles."""
     x = np.asarray(x, float); n = len(x)
-    empty = dict(period=None, power_frac=None, n=int(n), peaks=[])
+    empty = dict(period=None, power_frac=None, power_frac_all=None, n=int(n), peaks=[])
     if n < 8 or not np.isfinite(x).all():
         return empty
     t = np.arange(n)
@@ -274,6 +290,7 @@ def dominant_period(x, top=3):
     if not valid.any() or P[valid].sum() <= 0:
         return empty
     tot = P[valid].sum()
+    tot_all = float(P[fr > 0].sum()) or float(tot)   # REFUTE-2 F4: second convention
     loc = [k for k in range(1, len(P) - 1) if valid[k] and P[k] >= P[k - 1] and P[k] >= P[k + 1]]
     if not loc:
         loc = [int(np.argmax(np.where(valid, P, -1.0)))]
@@ -285,8 +302,10 @@ def dominant_period(x, top=3):
         sel = np.where((frz >= fr[k] - 1.0 / n) & (frz <= fr[k] + 1.0 / n) & (frz > 0))[0]
         kz = sel[np.argmax(Pz[sel])]
         peaks.append(dict(period=float(1.0 / frz[kz]),
-                          power_frac=float(P[max(k - 1, 0):k + 2].sum() / tot)))
-    return dict(period=peaks[0]["period"], power_frac=peaks[0]["power_frac"], n=int(n), peaks=peaks)
+                          power_frac=float(P[max(k - 1, 0):k + 2].sum() / tot),
+                          power_frac_all=float(P[max(k - 1, 0):k + 2].sum() / tot_all)))
+    return dict(period=peaks[0]["period"], power_frac=peaks[0]["power_frac"],
+                power_frac_all=peaks[0]["power_frac_all"], n=int(n), peaks=peaks)
 
 
 def window_lock(P, T, tol_main=RULES["lock_main"], tol_div=RULES["lock_div"]):
@@ -492,16 +511,22 @@ def decide(speed, vol, stiff, vis):
     fe = vis.get("frac_excursion_gt_half_sp"); fm = vis.get("frac_move_gt_half_sp")
     visible = bool((fe is not None and fe > R["visible_frac"]) or (fm is not None and fm > R["visible_frac"]))
     wl = bool(speed.get("window_locked")); sag = speed.get("sag_median"); jm = speed.get("jump_median")
-    md = speed.get("modulation_median")
+    md = speed.get("modulation_median"); tq = speed.get("tortuosity_median")
+    # WINDOW-locked driver (REFUTE-2 F1: the rule reads the speed series only, so the
+    # label says what is measured — locked to the optimisation window — not "control";
+    # the T-variation and --assim 0 discriminators attribute it, docs/oscillation_triage.md)
     C = wl and ((sag is not None and sag > R["sag"])
                 or (jm is not None and (jm > R["jump_hi"] or jm < R["jump_lo"]))
-                or (md is not None and md > R["modulation"]))
+                or (md is not None and md > R["modulation"])
+                # path/net is noise-dominated for sub-spacing motion: gate on visibility
+                or (tq is not None and visible and tq > R["tortuosity"]))
     cfl = stiff.get("cfl")
     B = bool(stiff.get("stiffness_ringing")) and cfl is not None and cfl > R["cfl_b"]
     cfl_violation = cfl is not None and cfl > R["cfl_violation"]
     p2p = vol.get("meanJ_p2p"); cj = vol.get("corr_J_speed")
-    A = (p2p is not None and p2p > R["j_p2p"]) and (cj is not None and abs(cj) > R["j_corr"])
-    drivers = [n for n, f in (("A_volume", A), ("B_stiffness", B), ("C_control", C)) if f]
+    A = ((p2p is not None and p2p > R["j_p2p"]) and (cj is not None and abs(cj) > R["j_corr"])) \
+        or (vol.get("rms_running_max") is not None and vol["rms_running_max"] > R["j_rms"])  # F18
+    drivers = [n for n, f in (("A_volume", A), ("B_stiffness", B), ("C_window", C)) if f]
     verdict = ("VISIBLE" if visible else "INVISIBLE (sub-spacing)") + ": " + \
               (", ".join(drivers) if drivers else "no identifiable driver") + \
               (" [CFL violation]" if cfl_violation else "")
@@ -526,6 +551,8 @@ def triage(arrays, history=None, prov=None, cfg=None, T=None, dt=None, dx=None,
 
     s, zero = speed_series(frames, dn, prm["dt"])
     s_c, held, win, keep = segment(s, zero, acc, Tn)
+    acc_ok = [r for r in acc if (int(r["frame_end"]) - 1 - Tn) >= 0
+              and int(r["frame_end"]) - 1 <= len(s)] if acc else None
     spec = dominant_period(s_c)
     wl = window_lock(spec["period"], Tn)
     speed = dict(n_steps=int(len(s)), n_held_steps=int(held.sum()), n_used=int(len(s_c)),
@@ -534,7 +561,8 @@ def triage(arrays, history=None, prov=None, cfg=None, T=None, dt=None, dx=None,
                  s_mean=float(s_c.mean()) if s_c.size else None,
                  s_median=float(np.median(s_c)) if s_c.size else None,
                  s_max=float(s_c.max()) if s_c.size else None,
-                 **stop_and_go(s_c, win), period=spec["period"], power_frac=spec["power_frac"],
+                 **stop_and_go(s_c, win, acc_ok, prm["dt"]), period=spec["period"],
+                 power_frac=spec["power_frac"], power_frac_all=spec.get("power_frac_all"),
                  peaks=spec["peaks"], window_locked=wl, series=s_c.tolist(), windows=win)
 
     src = arrays.get("src", frames[0])
@@ -589,6 +617,8 @@ def summarize_markdown(rep):
         ("T inferred from frame_end", s["T_inferred"]), ("windows", s["n_windows"]),
         ("stop-and-go median", s["sag_median"]), ("frac windows sag>0.5", s["sag_frac_gt_half"]),
         ("intra-window speed modulation max/min median", s.get("modulation_median")),
+        ("tortuosity path/net per window (median)", s.get("tortuosity_median")),
+        ("peak power fraction, all non-DC bins (F4 second convention)", s.get("power_frac_all")),
         ("boundary jump ratio median (p10/p90)", f"{_fmt(s['jump_median'])} ({_fmt(s['jump_p10'])}/{_fmt(s['jump_p90'])})"),
         ("kin_end<5% of peak s^2 (frac windows)", s["kin_end_frac"]),
         ("dominant speed period P_s [substeps]", s["period"]), ("peak power fraction", s["power_frac"]),
@@ -626,7 +656,7 @@ def summarize_markdown(rep):
         ("tail rev-cos median / frac reversing", f"{_fmt(z.get('rev_cos_median'))} / {_fmt(z.get('frac_reversing'))}")])
     L.append(f"## decision  @ {tag}\n")
     L.append(f"visible={d['visible']}  A_volume={d['driver_A']}  B_stiffness={d['driver_B']}  "
-             f"C_control={d['driver_C']}  cfl_violation={d['cfl_violation']}\n\n**{d['verdict']}**")
+             f"C_window={d['driver_C']}  cfl_violation={d['cfl_violation']}\n\n**{d['verdict']}**")
     return "\n".join(L)
 
 

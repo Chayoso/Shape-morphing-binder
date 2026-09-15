@@ -57,6 +57,8 @@ ap.add_argument("--normal_k", type=int, default=25, help="kNN size for the PCA n
 ap.add_argument("--F_geom", action="store_true",
                 help="render Sigma from the archived GEOMETRIC F_g (Fg_commits, the "
                      "render_F_geom arms' kinematics) instead of the physics F")
+ap.add_argument("--cov_sat", type=float, default=0.0,
+                help="stretch saturation of the F-based covariance (gauss_cov_sat of the run)")
 ap.add_argument("--frame", type=int, default=None,
                 help="frame index; default = the DELIVERED frame (deliver_n-1) if the "
                      "archive carries one, else the last frame")
@@ -92,7 +94,7 @@ if a.mls > 0:
 dev = "cuda"
 xt = torch.tensor(x, device=dev)
 sigma0 = sigma0_from_nn(x, a.sigma_k)
-cov = torch.tensor(cov_from_F(F, sigma0), device=dev)
+cov = torch.tensor(cov_from_F(F, sigma0, sat=a.cov_sat), device=dev)
 if a.adaptive_k > 0:
     from scipy.spatial import cKDTree as _KD
     _d, _ = _KD(x).query(x, k=a.adaptive_k + 1, workers=-1)

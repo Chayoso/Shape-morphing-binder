@@ -101,7 +101,14 @@ by ≤1.65×. **It is loss units**: `D_vol = ½ Σ_cells (log-mass residual)²` 
    without any weight conversion: the kinetic penalty out-weighed the rescaled D_vol
    50:1 and no line-search step was accepted. The measured ratios make the relative
    weighting equal to legacy AT THE SOURCE only; they drift along the morph like the
-   h1 calibration and are logged, not assumed constant. Density mode stays an A/B arm.
+   h1 calibration and are logged, not assumed constant. REFUTE-2
+   F6: the legacy side of the ratio is evaluated on a FIXED reference grid
+   (`unit_ref_res` = 64), because measured on the run's own grid the converted weights
+   inherited the cell-sum's resolution dependence (unit_ratio 5.3e3 / 1.2e4 / 2.1e4 at
+   loss_res 32 / 64 / 118 for 20k) — the `--ppc 8` arms of batches h/i ran every fixed
+   weight ≈0.31× its legacy-64 meaning. The "1.2–1.3×" figure quoted above for the two
+   ratios was the reviewer's at one configuration; over the configurations used it spans
+   1.05–2.8×. Density mode stays an A/B arm.
 
 ### §2.3 The image loss itself
 The audit's render+loss segment disagreed with finite differences by 7–34 % where the
@@ -134,13 +141,19 @@ central differences (<5 %). Runner: `F_frames` keeps the physics F (metrics, ass
 geometric deformation of a sphere→bunny morph reaches singular values of 3–5 on the
 ears/feet, and `Σ = σ₀² F_g F_gᵀ` rendered needle splats there (the PhysGaussian
 anisotropy failure GaussianFluent documents), while the physics F stays compact because
-plastic assimilation absorbs its stretch at every commit. Fix (same session): `F_g` gets
-the identical commit-time relaxation `F_g ← R_g S_g^{1−η}` (`plasticity.relax_stretch`,
-exact polar, rotation untouched, η = `assim`) — inside a window it still changes only
-through motion, so the premise holds, and the covariance no longer accumulates the whole
-morph. Caveat for the 20k ladder: `render_ctrl_gauss` / `render_ctrl_first` optimised
-against the UNRELAXED `F_g` (needle covariances late in the morph); their Gaussian-loss
-numbers should be re-read after the 40k replicate with the relaxed kinematics.
+plastic assimilation absorbs its stretch at every commit. The first fix (a commit-time
+relaxation of `F_g`) was WITHDRAWN after REFUTE-2 F11: it edits the image with no particle
+motion — the class of operation the premise forbids — and with η = 0.5 per commit the
+rendered anisotropy saturates at ≈1.5 %, i.e. the covariance channel becomes isotropic.
+The fix that stands is in the render FORWARD MODEL: `gauss_cov_sat = r` renders
+`Σ = σ₀² M (I + M/r²)⁻¹`, `M = F_g F_gᵀ` — every eigenvalue λ → λ/(1+λ/r²) (identity for
+small stretch, saturating at r²), eigenvectors unchanged, smooth, no SVD/eigh (their
+backward is singular at F ≈ I), the same map at every step inside and across windows.
+The viewer, the PLY export and `render_photoreal --cov_sat` use the same map, so what is
+displayed is what the objective rendered. `relax_stretch` remains an offline QA helper.
+Caveat for the 20k ladder: `render_ctrl_gauss` / `render_ctrl_first` optimised against
+the unsaturated `F_g` (needle covariances late in the morph); their Gaussian-loss numbers
+should be re-read after a re-run with `gauss_cov_sat`.
 
 ---
 
@@ -310,20 +323,30 @@ fraction < 1 %, no chamfer regression > 2 %):
 | warm start + w_kin 5 + w_kin_var 200 | 0.091 | 0.0010 | **0.04** | 1.9 % | 0.1596 / 0.9647 |
 | render_ctrl 24³ + w_kin_var 50 | 0.210 | 0.0286 | 0.81 | 23.7 % | 0.1597 / 0.9589 |
 
-Reading: the cycle is NOT caused by the cold start of each window's control (warm start
-leaves the power at 0.90) and is only attenuated by kinetic magnitude penalties; it is
-the optimizer's own per-window solution under a terminal-only objective — a push-and-
-return trajectory costs nothing there. The variance term prices exactly that reversal
-and leaves progress free: at 50 it halves the window-locked power and cuts the visible
-fraction 4× with chamfer/silIoU/holes unchanged and G3 passing with 2.5–5× margin. The
-window lock is gone at w_kin_var 200 (power 0.04–0.06) and the visible fraction reaches
-0.3 % with warm start + w_kin 5 + w_kin_var 50; the two criteria are met by different
-rows (the residual 1.6–1.9 % under kv200 is the flat-valley random walk of
-docs/oscillation.md Addendum 7, not window-locked). The coarse control basis makes the
+Reading (REFUTE-2 corrected): the cycle is window-LOCKED (measured), and its phase is
+speed maximal at the window boundary, minimal near mid-window (a reversal inside the
+window, continuous across the boundary — not "accelerate from rest, brake to rest").
+It is not caused by the cold start of each window's control (warm start leaves the
+power at 0.90). Which per-commit event drives it — the control re-optimisation, the
+plastic assimilation reset, the outer gate schedule — is attributed by batch j
+(T-variation and `--assim 0`), not by the rule. The variance term prices in-window
+velocity change (reversal AND acceleration — F17: net progress per window falls ~3×,
+the delivered shape is unchanged within single-seed noise, best d_vol +11–14 % at 20k
+and −4 % at 40k); at 50 it halves the window-locked power and cuts the visible fraction
+4× at 20k with chamfer/silIoU/holes unchanged and G3 passing with 2.5–5× margin. The
+window lock is gone at w_kin_var 200 (power 0.04–0.06; tortuosity 2.8 → 1.09) and the
+visible fraction reaches 0.3 % with warm start + w_kin 5 + w_kin_var 50 at 20k; at 40k
+NO arm meets visible < 1 % (baseline 1.6 %, recipe 2.6 %) because the residual there is
+the non-window-locked flat-valley walk of docs/oscillation.md Addendum 7 — the criterion
+that replicates across N is the window-locked component (power / tortuosity), and that is
+the one the recipe is judged on (REFUTE-2 F9). `power_frac` is convention-dependent by
+3–5× (F4), so the next round's statistic is tortuosity. The coarse control basis makes the
 same cycle spatially coherent (excursion p99 1.0–1.3 sp vs 0.6–0.8) and needs a larger
 w_kin_var (24³ + 50: power still 0.81), a second reason the per-particle flagship stays.
-Recommended recipe for the 40k replicate and the REFUTE round before any default changes:
-`--w_kin 5 --w_kin_var 50 --warm_start` (visibility first) or `--w_kin_var 200`.
+Recipe recommended for the REFUTE-2 follow-up (batch j) before any default changes:
+`--w_kin 5 --w_kin_var 50 --warm_start` — with the explicit statement that its shape
+numbers are a tie within single-seed noise (±0.6 % chamfer, ±0.55 pt silIoU over the
+40k family), not an improvement.
 
 ---
 

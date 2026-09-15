@@ -15,10 +15,18 @@ def sigma0_from_nn(x: np.ndarray, scale: float = 0.7) -> float:
     return float(scale * np.median(d[:, 1]))
 
 
-def cov_from_F(F: np.ndarray, sigma0: float) -> np.ndarray:
-    """Sigma = sigma0^2 F F^T (+ tiny jitter). F: (N,3,3) -> (N,3,3)."""
+def cov_from_F(F: np.ndarray, sigma0: float, sat: float = 0.0) -> np.ndarray:
+    """Sigma = sigma0^2 F F^T (+ tiny jitter). F: (N,3,3) -> (N,3,3).
+    sat > 0: stretch saturation M -> M (I + M/sat^2)^-1 (the same forward model as
+    pipeline.gauss_loss.saturate_stretch), so viewer/export/photoreal show what the
+    objective rendered."""
     s = sigma0 * sigma0
-    cov = s * np.einsum("nij,nkj->nik", F, F).astype(np.float32)
+    M = np.einsum("nij,nkj->nik", F, F).astype(np.float64)
+    if sat and sat > 0:
+        eye = np.eye(3)[None]
+        Ms = np.linalg.solve(eye + M / (float(sat) ** 2), M)
+        M = 0.5 * (Ms + np.transpose(Ms, (0, 2, 1)))
+    cov = (s * M).astype(np.float32)
     cov += 1e-8 * np.eye(3, dtype=np.float32)[None]
     return cov
 

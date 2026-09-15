@@ -156,11 +156,27 @@ def test_density_units_are_measured_at_the_source(prm, clouds):
     src, tgt = clouds
     cfg = _cfg(loss_units="density")
     pack = build_target(tgt, prm, cfg)
-    calibrate_units(pack, src, cfg)
+    calibrate_units(pack, src, tgt, cfg)
     assert pack.unit_ratio > 1.0 and pack.unit_grad_ratio > 1.0
     assert np.isfinite(pack.unit_ratio) and np.isfinite(pack.unit_grad_ratio)
     with pytest.raises(ValueError):                    # zero residual at the source
-        calibrate_units(build_target(tgt, prm, cfg), tgt, cfg)
+        calibrate_units(build_target(tgt, prm, cfg), tgt, tgt, cfg)
+    # REFUTE-2 F6: the legacy side refers to the FIXED reference grid, so the converted
+    # weight is the same across the run's own loss resolution (unit_ratio scales exactly
+    # like 1/D_vol_density of the run grid)
+    from physmorph.losses.volumetric import d_vol_density
+    import torch
+    packs = {}
+    for lr in (12, 24):
+        c = _cfg(loss_units="density", loss_res=lr, unit_ref_res=16)
+        pk = build_target(tgt, prm, c)
+        calibrate_units(pk, src, tgt, c)
+        Lden = float(d_vol_density(torch.as_tensor(src), pk.m, pk.grid, pk.lgmin, pk.ldx,
+                                   pk.ldims, pk.m_ref, pk.n_support))
+        packs[lr] = (pk.unit_ratio, Lden)
+    lhs = packs[24][0] / packs[12][0]
+    rhs = packs[12][1] / packs[24][1]
+    assert abs(lhs - rhs) / rhs < 1e-4, (lhs, rhs)
 
 
 def test_velocity_variance_term_is_wired_and_zero_for_uniform_motion(prm, clouds):
@@ -200,38 +216,63 @@ def test_select_archive_F_prefers_geometric_when_present():
     assert kind == "physics" and np.allclose(F, eye * 1.2)
 
 
-def test_geometric_F_stretch_is_relaxed_at_commits():
-    """relax_stretch: R S^(1-eta) exactly; rotation untouched; det<=0 rows passed through."""
+def test_relax_stretch_is_exact_polar_relaxation():
+    """REFUTE-2 F10: R S^(1-eta) exactly (no isochoric renormalisation), rotation kept,
+    det<=0 rows passed through. Offline helper only."""
     from physmorph.plasticity.assimilation import relax_stretch
     rng = np.random.default_rng(3)
-    N = 50
-    A = rng.normal(size=(N, 3, 3)).astype(np.float32)
+    A = rng.normal(size=(50, 3, 3)).astype(np.float32)
     U, S, Vt = np.linalg.svd(A)
-    S = np.clip(np.abs(S) * 2.0 + 0.5, 0.5, 5.0)                    # stretches up to 5
+    S = np.clip(np.abs(S) * 2.0 + 0.5, 0.5, 5.0)
     R = U @ Vt
     R[np.linalg.det(R) < 0, :, 0] *= -1.0
-    F = np.einsum("nij,nj,nkj->nik", R @ np.transpose(Vt, (0, 2, 1)) @ Vt, S, Vt)  # R V S V^T
     F = np.einsum("nij,njk->nik", R, np.einsum("nij,nj,nkj->nik", Vt.transpose(0, 2, 1), S, Vt))
-    out = relax_stretch(F, eta=0.5, isochoric=False, smin=0.01, smax=100.0)
-    sv_in = np.linalg.svd(F, compute_uv=False)
-    sv_out = np.linalg.svd(out, compute_uv=False)
-    assert np.allclose(sv_out, sv_in ** 0.5, rtol=2e-3, atol=2e-3)   # S^(1-eta)
-    # rotation preserved: polar(out).R == polar(F).R
+    out = relax_stretch(F, eta=0.5)
+    assert np.allclose(np.linalg.svd(out, compute_uv=False), np.linalg.svd(F, compute_uv=False) ** 0.5,
+                       rtol=2e-3, atol=2e-3)
     def polar_R(M):
         u, _, vt = np.linalg.svd(M)
         return u @ vt
     assert np.allclose(polar_R(out), polar_R(F), atol=2e-3)
     bad = F.copy(); bad[0] = np.diag([1.0, 1.0, -1.0]).astype(np.float32)
-    out2 = relax_stretch(bad, eta=0.5)
-    assert np.allclose(out2[0], bad[0])
-    assert relax_stretch(F, eta=0.0) is not None and np.allclose(relax_stretch(F, eta=0.0), F)
+    assert np.allclose(relax_stretch(bad, eta=0.5)[0], bad[0])
+    assert np.allclose(relax_stretch(F, eta=0.0), F)
 
 
-def test_runner_relaxes_archived_Fg(prm, clouds):
+def test_covariance_saturation_is_bounded_smooth_and_identity_for_small_stretch():
+    """REFUTE-2 F11: the render forward model saturates the stretch (no state edit)."""
+    import torch
+    from physmorph.pipeline.gauss_loss import gaussian_covariance, saturate_stretch
+    from physmorph.render.covariance import cov_from_F
+    rng = np.random.default_rng(5)
+    F = torch.tensor(rng.normal(size=(64, 3, 3)).astype(np.float32)) * 2.0
+    F[0] = torch.eye(3) * 1.01                                        # near identity
+    cov, _ = gaussian_covariance(F, 0.1, jitter=0.0, sat=2.0)
+    ev = torch.linalg.eigvalsh(cov)
+    assert float(ev.max()) <= 0.1 ** 2 * 2.0 ** 2 * (1 + 1e-5)        # bounded by s0^2 r^2
+    assert float(ev.min()) >= 0.0
+    unsat, _ = gaussian_covariance(F[:1], 0.1, jitter=0.0, sat=0.0)
+    sat1, _ = gaussian_covariance(F[:1], 0.1, jitter=0.0, sat=100.0)   # r >> stretch: identity
+    assert torch.allclose(unsat, sat1, rtol=1e-3, atol=1e-8)
+    # orientation preserved: eigenvectors of M and M_s coincide (they commute)
+    M = F[1:2] @ F[1:2].transpose(1, 2)
+    Ms = saturate_stretch(M, 1.5)
+    assert torch.allclose(M @ Ms, Ms @ M, atol=1e-4)
+    # differentiable, finite gradients even at F ~ I (no SVD in the graph)
+    Fg = F.clone().requires_grad_(True)
+    c, _ = gaussian_covariance(Fg, 0.1, jitter=0.0, sat=2.0)
+    (g,) = torch.autograd.grad(c.sum(), Fg)
+    assert torch.isfinite(g).all() and float(g.abs().max()) > 0
+    # numpy forward model matches torch
+    cn = cov_from_F(F.numpy(), 0.1, sat=2.0)
+    assert np.allclose(cn, cov.numpy(), atol=1e-6)
+
+
+def test_runner_archives_unrelaxed_Fg_when_not_edited(prm, clouds):
+    """F_g is never edited at commits: the archived Fg_commits are the tape's own F_g."""
     src, tgt = clouds
     cfg = _cfg(lambda_auto=0.5, render_F_geom=True, assim=0.5, animations=3, patience=10)
     res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
     assert res["Fg_commits"]
     for _, Fg in res["Fg_commits"]:
-        sv = np.linalg.svd(Fg, compute_uv=False)
-        assert np.isfinite(sv).all() and sv.max() < 5.0
+        assert np.isfinite(Fg).all() and (np.linalg.det(Fg) > 0).all()

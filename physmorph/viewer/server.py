@@ -314,6 +314,7 @@ class LiveServer:
                   sigma0: float):
         """Reset per-arm state; returns (on_commit, on_iter) for run_pipeline."""
         from ..render.covariance import cov_from_F
+        cov_sat = float(getattr(cfg, "gauss_cov_sat", 0.0) or 0.0)   # rendered saturation
         src = _array("src", src, (None, 3))
         tgt = _array("tgt", tgt, (None, 3))
         if not len(src) or not len(tgt):
@@ -396,7 +397,7 @@ class LiveServer:
             child_x, child_F = expand_children_numpy(x, F, offsets, mask)
             return {
                 "render_x": child_x,
-                "render_cov": cov_from_F(child_F, sigma0 * child_scale),
+                "render_cov": cov_from_F(child_F, sigma0 * child_scale, sat=cov_sat),
                 "render_opacity": np.repeat(np.asarray(parent_weight)[mask], child_count),
             }
 
@@ -431,11 +432,11 @@ class LiveServer:
         self.hub.target = pack_state(self.seq, {"animation": -1, "phase": "target",
                                                "run": run_i,
                                                "gradient_snapshot": "not_applicable_target"}, tgt,
-                                     cov_from_F(eye_tgt, sigma0),
+                                     cov_from_F(eye_tgt, sigma0, sat=cov_sat),
                                      render_weight=tgt_rw, **tgt_render)
         self.hub.publish(pack_state(self.seq, {"animation": -1, "run": run_i,
                                                "gradient_snapshot": "cleared_initial_state"}, src,
-                                    cov_from_F(eye_src, sigma0),
+                                    cov_from_F(eye_src, sigma0, sat=cov_sat),
                                     render_weight=initial_src_weight, **src_render))
 
         next_animation = 0
@@ -461,7 +462,7 @@ class LiveServer:
             dynamic_rw = source_render_weight(xT)
             r["support_faded"] = int(((src_rw > 0.5) & (dynamic_rw < 0.5)).sum())
             child_render = render_payload(xT, FT, src_offsets, src_mask, dynamic_rw)
-            self.hub.publish(pack_state(self.seq, r, xT, cov_from_F(FT, sigma0),
+            self.hub.publish(pack_state(self.seq, r, xT, cov_from_F(FT, sigma0, sat=cov_sat),
                                         grad_phys=gp, grad_render=gr,
                                         render_weight=dynamic_rw, **child_render),
                              _telemetry_header(self.seq, r))
@@ -527,7 +528,7 @@ class LiveServer:
                                   if visible.any() else None)
             next_animation = int(a) + 1
             child_render = render_payload(x, F, src_offsets, src_mask, dynamic_rw)
-            self.hub.publish(pack_state(self.seq, r, x, cov_from_F(F, sigma0),
+            self.hub.publish(pack_state(self.seq, r, x, cov_from_F(F, sigma0, sat=cov_sat),
                                         nodes, nodeq, dt_pp, particleq=pq,
                                         grad_phys=commit_gp, grad_render=commit_gr,
                                         render_weight=dynamic_rw, **child_render),

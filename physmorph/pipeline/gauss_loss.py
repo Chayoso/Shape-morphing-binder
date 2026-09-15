@@ -23,16 +23,32 @@ import torch
 from ..render.children import expand_children_torch, tangent_child_offsets
 
 
-def gaussian_covariance(F: torch.Tensor, sigma0: float, jitter: float = 1e-8
-                        ) -> tuple[torch.Tensor, torch.Tensor]:
+def saturate_stretch(M: torch.Tensor, sat: float) -> torch.Tensor:
+    """Stateless, smooth saturation of a symmetric PSD stretch tensor M = F F^T:
+    M_s = M (I + M/r^2)^-1, i.e. every eigenvalue lam -> lam / (1 + lam/r^2) (identity for
+    lam << r^2, -> r^2 for lam >> r^2); eigenvectors (the splat orientation) unchanged.
+    No SVD/eigh (their backward is singular at repeated eigenvalues, i.e. at F ~ I);
+    one batched 3x3 solve. Part of the render FORWARD MODEL, so the image is a fixed
+    function of the state at every step — unlike a commit-time edit of F_g (REFUTE-2 F11)."""
+    eye = torch.eye(3, dtype=M.dtype, device=M.device).unsqueeze(0)
+    Ms = torch.linalg.solve(eye + M / (float(sat) ** 2), M)
+    return 0.5 * (Ms + Ms.transpose(1, 2))
+
+
+def gaussian_covariance(F: torch.Tensor, sigma0: float, jitter: float = 1e-8,
+                        sat: float = 0.0) -> tuple[torch.Tensor, torch.Tensor]:
     """Return ``(Sigma, Sigma6)`` for the differentiable precomputed-covariance path.
 
     ``Sigma6`` follows graphdeco's upper-triangle order
     ``(xx, xy, xz, yy, yz, zz)``.  No decomposition or detach is used, so a
     rasterizer gradient with respect to its covariance input reaches ``F``.
+    ``sat`` > 0 applies :func:`saturate_stretch` (stretch saturation at ``sat``).
     """
     Fm = F.reshape(-1, 3, 3)
-    cov = (float(sigma0) ** 2) * (Fm @ Fm.transpose(1, 2))
+    M = Fm @ Fm.transpose(1, 2)
+    if sat and sat > 0:
+        M = saturate_stretch(M, sat)
+    cov = (float(sigma0) ** 2) * M
     if jitter > 0:
         cov = cov + float(jitter) * torch.eye(3, dtype=cov.dtype,
                                                device=cov.device).unsqueeze(0)
@@ -43,7 +59,7 @@ def gaussian_covariance(F: torch.Tensor, sigma0: float, jitter: float = 1e-8
 
 def gaussian_shape_diagnostics(F: torch.Tensor, sigma0: float,
                                reference_spacing: float | None = None,
-                               radius_sigma: float = 3.0) -> dict[str, float]:
+                               radius_sigma: float = 3.0, sat: float = 0.0) -> dict[str, float]:
     """Raw-state diagnostics for oversized or ill-conditioned Gaussian ellipsoids.
 
     The values use the singular values of F, hence do not consume the renderer.
@@ -51,6 +67,8 @@ def gaussian_shape_diagnostics(F: torch.Tensor, sigma0: float,
     """
     with torch.no_grad():
         sv = torch.linalg.svdvals(torch.as_tensor(F).reshape(-1, 3, 3)).abs()
+        if sat and sat > 0:                      # the RENDERED (saturated) scales
+            sv = sv / torch.sqrt(1.0 + sv * sv / float(sat) ** 2)
         scales = float(sigma0) * sv
         major = scales.max(dim=1).values
         minor = scales.min(dim=1).values
@@ -117,8 +135,9 @@ class GaussViews:
     def __init__(self, views, extent: float, sigma0: float, res: int, dev,
                  child_count: int = 1, child_sigma_scale: float = 0.55,
                  child_offset_scale: float = 0.35, child_k: int = 16,
-                 robust_eps: float = 0.0):
+                 robust_eps: float = 0.0, cov_sat: float = 0.0):
         self.dev = dev
+        self.cov_sat = float(cov_sat)        # stretch saturation of the rendered covariance
         # Charbonnier smoothing of the per-pixel residual: |r| has a sign crossing at
         # every pixel whose residual changes sign under a perturbation, which is where
         # the 12k finite-difference audit failed (gradient_flow_audit: 7-34% mismatch
@@ -191,7 +210,7 @@ class GaussViews:
             kw.update(scales=scales, rotations=rots)
         else:
             _, cov6 = gaussian_covariance(F.to(dtype=x.dtype, device=x.device),
-                                          render_sigma)
+                                          render_sigma, sat=getattr(self, "cov_sat", 0.0))
             if has_norm:
                 # hyde06 diff_gauss fork: plural cov3Ds and an explicit normal input.
                 # Precomputed colors do not consume normals, but the fork requires the

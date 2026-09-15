@@ -23,7 +23,6 @@ from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
 from ..mpm.traj import compute_rest_volumes
 from ..plasticity import assimilate_elastic
-from ..plasticity.assimilation import relax_stretch
 from .config import PipelineConfig
 from .optimizer import TargetPack, optimize_window
 from .render_loss import (LambdaBalancer, d_render, make_views, shade_targets,
@@ -109,7 +108,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
                            child_sigma_scale=cfg.gauss_child_sigma_scale,
                            child_offset_scale=cfg.gauss_child_offset_scale,
                            child_k=cfg.gauss_child_k,
-                           robust_eps=cfg.gauss_robust_eps)
+                           robust_eps=cfg.gauss_robust_eps,
+                           cov_sat=cfg.gauss_cov_sat)
         gauss.bake_targets(tgt_t, mask=target_mask)
     pts, nn_sp = None, 0.0
     kde_h, kde_rho = 0.0, 1.0
@@ -136,7 +136,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
                       m_ref=m_ref, n_support=n_support)
 
 
-def calibrate_units(tgt: TargetPack, source_x, cfg: PipelineConfig) -> None:
+def calibrate_units(tgt: TargetPack, source_x, target_x, cfg: PipelineConfig) -> None:
     """loss_units="density": MEASURE the two legacy/density ratios at the source state
     (REFUTE F1 2026-09-15: the analytic per-cell constant n*2m/(1+m) was 4-45x off the
     measured loss ratio and 5-44x off the gradient ratio, and the two ratios differ by
@@ -146,8 +146,20 @@ def calibrate_units(tgt: TargetPack, source_x, cfg: PipelineConfig) -> None:
     unit_grad_ratio converts the gradient-magnitude constants."""
     from ..losses.volumetric import d_vol_density
     xs = torch.as_tensor(np.ascontiguousarray(source_x, np.float32), device=cfg.device)
+    # REFUTE-2 F6: the LEGACY side of the ratio is evaluated on a FIXED reference loss
+    # grid (cfg.unit_ref_res, the grid every legacy weight was tuned on), not on the
+    # run's own grid — otherwise the converted weights inherit the cell-sum's resolution
+    # dependence (measured 3.2x weaker at --ppc 8 / 149^3 than at 64^3 for equal flags)
+    ref = int(getattr(cfg, "unit_ref_res", 0) or 0)
+    if ref > 0 and ref != int(tgt.ldims[0]):
+        dims_ref = (ref,) * 3
+        ldx_ref = float(tgt.ldx * tgt.ldims[0] / ref)
+        tgt_t = torch.as_tensor(np.ascontiguousarray(target_x, np.float32), device=cfg.device)
+        grid_ref = target_mass_grid(tgt_t, tgt.m, tgt.lgmin, ldx_ref, dims_ref)
+    else:
+        grid_ref, ldx_ref, dims_ref = tgt.grid, tgt.ldx, tgt.ldims
     xg = xs.clone().requires_grad_(True)
-    L_leg = d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
+    L_leg = d_vol(xg, tgt.m, grid_ref, tgt.lgmin, ldx_ref, dims_ref)
     g_leg = torch.autograd.grad(L_leg, xg)[0].norm()
     xg2 = xs.clone().requires_grad_(True)
     L_den = d_vol_density(xg2, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims,
@@ -183,10 +195,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             f"per-window cap {cfg.pace:.4f}")
     tgt = build_target(target_x, prm, cfg)
     if cfg.loss_units == "density":
-        calibrate_units(tgt, src, cfg)
-        log(f"[v2] density units: D_vol legacy/density = {tgt.unit_ratio:.4g} (weights), "
-            f"gradient ratio = {tgt.unit_grad_ratio:.4g} (eps/target_norm), "
-            f"n_support={tgt.n_support} m_ref={tgt.m_ref:.3g}")
+        calibrate_units(tgt, src, target_x, cfg)
+        log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = "
+            f"{tgt.unit_ratio:.4g} (weights), gradient ratio = {tgt.unit_grad_ratio:.4g} "
+            f"(eps/target_norm), n_support={tgt.n_support} m_ref={tgt.m_ref:.3g}")
     if cfg.w_jdens > 0:                          # per-particle REST density at the source
         from ..losses.volumetric import density_at
         with torch.no_grad():
@@ -421,13 +433,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                         smin=cfg.assim_smin, smax=cfg.assim_smax,
                                         isochoric=cfg.assim_iso)
 
-        # the GEOMETRIC render deformation gets the same commit-time stretch relaxation
-        # as the physics (§8): inside a window it still changes only through motion,
-        # but the covariance no longer accumulates the whole morph's stretch (needle
-        # splats on the ears at singular values 3-5, photoreal QA 2026-09-15)
-        if Fg_p is not None and cfg.assim > 0:
-            Fg_p = relax_stretch(Fg_p, eta=cfg.assim, isochoric=cfg.assim_iso)
-            st["Fg"] = Fg_p
+        # F_g is NOT edited at commits (REFUTE-2 F11: a commit-time relaxation changed
+        # the image with no particle motion and saturated the rendered anisotropy at
+        # ~1.5 %). The needle-splat problem is handled in the render FORWARD MODEL
+        # instead (cfg.gauss_cov_sat, gauss_loss.saturate_stretch), which is a fixed
+        # function of the state at every step.
         # archive the PROMOTED states (identical to raw when no guard fired)
         frames.extend(f.copy() for f in fr[1:-1]); frames.append(x.copy())
         F_frames.extend(F_seq[1:-1]); F_frames.append(Fc.copy())
@@ -500,6 +510,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "predicted_decrease": stats.get("predicted_decrease"),
                "fill_lam": stats.get("fill_lam"),
                "kin": w["kin"], "kin_run": w.get("kin_run"), "kin_var": w.get("kin_var"),
+               "alpha_last": w.get("alpha"),
                "d_render": w["d_render"], "lambda": w["lambda"],
                "lambda_capped": stats.get("lambda_capped"),
                "F_kind": "geom" if Fg_p is not None else "physics",
@@ -517,7 +528,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             rec.update(gaussian_shape_diagnostics(          # on the RENDERED F (F7)
                 torch.as_tensor(Fc if Fg_p is None else Fg_p, device=cfg.device),
                 tgt.gauss.primitive_sigma,
-                reference_spacing=tgt.nn_spacing if tgt.nn_spacing > 0 else None))
+                reference_spacing=tgt.nn_spacing if tgt.nn_spacing > 0 else None,
+                sat=cfg.gauss_cov_sat))
         if lg_tele is not None:
             rec.update(lg_tele)
 
@@ -792,5 +804,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             "dressing": dress.export() if dress is not None else None,
             "frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,
             "Fg_commits": Fg_commits,
+            "balancer": {"cap": balancer.cap, "cap_rel": getattr(balancer, "cap_rel", None),
+                         "alpha_lam": balancer.alpha_lam},
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen,
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None)}

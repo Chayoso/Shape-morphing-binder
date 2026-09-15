@@ -21,7 +21,7 @@ def test_stop_and_go_is_driver_c():
     assert s["n_windows"] == W and s["sag_median"] > 0.5 and s["jump_median"] > 2
     assert s["kin_end_frac"] > 0.9
     assert d["driver_C"] and not d["driver_A"] and not d["driver_B"] and not d["cfl_violation"]
-    assert d["visible"] and "C_control" in d["verdict"]
+    assert d["visible"] and "C_window" in d["verdict"]
     c = rep["control"]                      # alternating commits -> reversals in history
     assert c["reversal_frac_lt_thr"] > 0.9 and c["n_accepted"] == W
 

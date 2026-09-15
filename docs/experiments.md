@@ -606,7 +606,7 @@ power = spectral power fraction at period T, visible = fraction of particles.
 
 | arm | chamfer | silIoU | hole | G3 (drift) | s̄ (wu/s) | kin_T | kin_var | modulation | power | visible | verdict |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| baseline (w_kin 0.5, batch a) | 0.1599 | 0.9655 | 0.04% | FAIL 0.0035 | 0.308 | 0.33 | 0.128 | 4.1 | 0.95 | 9.6 % | C_control |
+| baseline (w_kin 0.5, batch a) | 0.1599 | 0.9655 | 0.04% | FAIL 0.0035 | 0.308 | 0.33 | — (build predates kin_var; kin_run 0.128) | 4.1 | 0.95 | 9.6 % | C_control |
 | baseline `--w_kin 5` | 0.1593 | 0.9663 | 0.04% | PASS 0.0018 | 0.206 | 0.12 | 0.042 | 2.9 | 0.81 | 5.9 % | C_control (amplitude ↓, cycle intact) |
 | baseline `--w_kin_running 10` | 0.1586 | 0.9668 | 0.11% | FAIL 0.0030 | 0.247 | 0.21 | 0.064 | 3.4 | 0.85 | 7.3 % | C_control |
 | baseline `--w_kin_var 10` | 0.1589 | 0.9644 | 0.10% | PASS 0.0024 | 0.248 | 0.18 | 0.057 | 3.2 | 0.84 | 10.5 % | C_control |
@@ -734,3 +734,44 @@ recipe needs `w_kin_var` 200 (visible 2.3 %, silIoU 0.9645) or 500 (invisible, s
 not transferable across dx without this re-tuning. Holes at ppc 8 sit at 0.4–0.5 % (baseline
 0.01 %; gate 2 %), a finer-dx effect to watch at the deliverable stage.** No CLI default
 has been changed.
+
+
+### REFUTE-2 corrections to the 2026-09-15 sections (evening)
+
+Review: `docs/reviews/refute_rcp2_opus_20260915.md` (19 findings). What changes in the
+reading of the tables above:
+
+- **Commit counts** in the batch a–c table are the number of records with a `d_vol`
+  (accepted + outer-rejected); accepted-only counts are 3–5 lower. `truncation` and
+  `deliver_n` are now written into the JSON as well.
+- **Single seed, no replicates.** Every arm above is seed 1, and no two rows share a
+  config. The 40k dx-0.5 family (base / ws_kv50 / kv200) spans chamfer 0.1296–0.1304
+  (0.6 %) and silIoU 0.9621–0.9676 (0.55 pt) with a non-monotone dependence on
+  `w_kin_var`, so the recipe's "−0.5 % / +0.5 pt" is a tie within noise, not an
+  improvement; at 20k chamfer correlates −0.70 with the number of accepted commits. Seed
+  replicates run in batch j.
+- **Code hashes.** The 40k baseline and the ppc8 arm ran under an earlier build than the
+  remedies (`code_hash` 55650941 vs ffae3933; the difference is the since-withdrawn F_g
+  relaxation, inert for these arms); the baseline is re-run under the current build in
+  batch j and every archive now carries the git sha (VERSION file in tarball deploys).
+- **Visible < 1 % at 40k** is met by no arm, including the baseline (1.6 %); the
+  window-locked component (power 0.87 → 0.29 / 0.07, tortuosity) is the replicating
+  effect. `power_frac` is convention-dependent by 3–5×; both conventions are now stored.
+- **`--ppc 8` arms (batches h, i)**: in density units the conversion was measured on the
+  run's own 149³ grid, so every fixed weight (`w_kin`, `w_kin_var`, `w_jvol`, `w_dt`,
+  `w_nn`, `w_box`, …) was ≈0.31× its legacy-64 meaning — the reason `w_kin_var` had to go
+  to 200–500 there, and one of four simultaneous changes (dx, loss grid 149³, units,
+  weights) behind the −10.6 % chamfer. Batch j decouples them (`--ppc 8` in legacy units
+  at loss_res 64; density units with the reference-grid calibration). Requested ppc 8
+  measures 7.0 on the source and 6.0 on the target (24–27 % of target cells below 4).
+  Holes at ppc 8 spanned 0.00–0.47 % across four arms differing only in kinetic weights:
+  noise at this scale.
+- **G4_ejection** (`stray_max < 2e-3`, self-referential) fails on every 40k arm
+  (stray_max 0.0026–0.0037) and passes on every 20k arm; it is omitted from the tables
+  because its replacement was pre-registered earlier, but it is not passing.
+- **G3 drift** was read from the last history record rather than the delivered slice;
+  fixed in `pipeline_run.eval_gates` (affects truncated arms by one commit).
+- The **F_g commit-time relaxation** of `502b543` is withdrawn (REFUTE-2 F11): it
+  changed the image without motion. The render forward model now saturates the stretch
+  (`gauss_cov_sat`), and the `render_ctrl_gauss`/`_first` rows above still stand on their
+  silhouette metrics only.

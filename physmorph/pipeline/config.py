@@ -289,6 +289,19 @@ class PipelineConfig:
     cagrad_c: float = 0.5
     render_gs_cheb: bool = False    # Chebyshev-accelerated grid sweeps (Wang 2015) for
                                     # render_gs_iters; both x AND F covectors are smoothed.
+    gauss_cov_sat: float = 0.0      # >0: STATELESS stretch saturation in the render forward
+                                    # model, Sigma = s0^2 M (I + M/r^2)^-1 with M = F F^T
+                                    # (eigenvalue lam -> lam/(1+lam/r^2): identity for small
+                                    # stretch, -> r^2 for large). Replaces the commit-time
+                                    # F_g relaxation, which changed the image without motion
+                                    # (REFUTE-2 F11) and saturated the covariance at ~1.5 %
+                                    # anisotropy. Smooth, no SVD, same map inside and across
+                                    # windows. 0 = off (legacy s0^2 F F^T).
+    unit_ref_res: int = 64          # loss_units="density": the legacy loss grid the weight
+                                    # conversion refers to (REFUTE-2 F6: measured on the
+                                    # run's own grid, the converted weights inherited the
+                                    # cell-sum's resolution dependence — 3.2x weaker at
+                                    # --ppc 8 / 149^3 than at 64^3 for the same flag)
     gauss_robust_eps: float = 0.0   # >0: Charbonnier sqrt(r^2+eps^2) instead of |r| in the
                                     # Gaussian image loss (audit: L1 sign crossings made
                                     # the finite-difference check fail at 12k)

@@ -431,7 +431,12 @@ def eval_gates(tag, res, met, prm, T, rel_tol=0.003, hole_tol=0.02):
     g = res["guards"]
     # G3 rest: tail jitter over SIMULATED frames AND the drift a further window would
     # produce from the promoted terminal velocity (held padding proves nothing).
-    v_mean = next((h["v_mean"] for h in reversed(res["history"]) if "v_mean" in h), 0.0)
+    # REFUTE-2 F16: the drift must describe the DELIVERED slice (a truncated tail's
+    # terminal velocity was being read before)
+    dn = res.get("deliver_n_used")
+    recs = [h for h in res["history"] if "v_mean" in h
+            and (dn is None or (h.get("frame_end") or 0) <= dn)]
+    v_mean = recs[-1]["v_mean"] if recs else 0.0
     drift_rel = v_mean * prm.dt * T / max(met["bbox_diag"], 1e-9)
     gates = {
         "G2_guards": all(v == 0 for v in g.values()),
@@ -570,6 +575,8 @@ def main():
         if args.loss_units == "density":
             args.loss_res = disc.loss_res
         print(report(disc, src), flush=True)
+        print(report(disc, tgt).splitlines()[-1].replace("[disc] measured", "[disc] TARGET measured"),
+              flush=True)
         print(f"[disc] loss_res {'follows dx: ' + str(disc.loss_res) if args.loss_units == 'density' else 'kept at ' + str(args.loss_res) + ' (legacy units are a cell sum)'}",
               flush=True)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
@@ -597,6 +604,9 @@ def main():
                                           stderr=subprocess.DEVNULL).strip()
     except (OSError, subprocess.CalledProcessError):
         git_sha = None
+    if git_sha is None:                       # tarball deploys carry the sha in VERSION
+        vf = Path(__file__).resolve().parent.parent / "VERSION"
+        git_sha = vf.read_text().strip() if vf.exists() else None
     out = {"provenance": {**vars(args), "mpm": dataclasses.asdict(prm),
                            "git_sha": git_sha, "code_hash": code_hash},   # AGENTS rule 4:
            "G1a": gate1_plumbing(src, prm),                                # discretisation
@@ -620,6 +630,7 @@ def main():
         res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1])
         dt = time.time() - t0
         dn = res.get("deliver_n") or len(res["frames"])   # metrics on the DELIVERED slice
+        res["deliver_n_used"] = dn
         met = metrics.summarize(res["frames"][:dn], tgt, F_frames=res["F_frames"][:dn],
                                 n_held=res["n_held"], render_mask=res.get("render_mask"))
         # trajectory evenness: CV of per-commit displacement (snap-to-target -> high CV)
@@ -676,6 +687,8 @@ def main():
                             "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v)
                                       for k, v in gates.items()},
                             "guards": res["guards"], "converged": res["converged"],
+                            "balancer": res.get("balancer"), "deliver_n": int(dn),
+                            "truncation": res.get("truncation"),
                             "n_held": res["n_held"], "seconds": dt, "history": res["history"]}
         print(f"[v2run] ARM {arm}: chamfer={met['chamfer']:.4f}  silIoU={met['sil_iou']:.4f}  "
               f"hole={met['hole_frac']*100:.2f}%  jitter_rel={met['jitter_rel']:.5f}  "

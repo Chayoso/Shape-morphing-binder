@@ -131,3 +131,25 @@ not the cold start; the velocity-VARIANCE term `w_kin_var` is the mechanism-matc
 (50: power 0.95 → 0.58, visible 9.6 → 2.5 %, shape unchanged). Paragraph C above should
 be read with this: "running kinetic" attenuates, "variance of v over the window"
 targets the reversal itself.
+
+
+## REFUTE-2 corrections (2026-09-15, evening)
+
+- **Label.** The window-locked driver is now `C_window`: the rule reads the speed series
+  only, so it can say the cycle is locked to the optimisation window, not what inside the
+  window causes it. Attribution comes from the discriminators (batch j): a window-locked
+  cycle follows T when T is changed (10 / 40); the F-smoothing time dt/(1−s) = 22.2 steps
+  and the elastic harmonics τ_e/m do not; `--assim 0` excludes the commit-time assimilation
+  reset. The lock band is now ±6 % of T (22.2, 21.9 and 18.8 fall outside; the measured
+  periods 20.00–20.03 stay inside).
+- **Phase.** The measured intra-window profile is the OPPOSITE of "accelerate from rest,
+  brake to rest": the speed is highest at the window boundary (step 19 → step 0
+  continuous), falls to its minimum near mid-window (step 9–11, 0.07–0.10 wu/s), and rises
+  again — a velocity reversal inside the window with continuity across the boundary.
+- **Statistics.** `power_frac` depends on its denominator convention by 3–5× (both are now
+  reported: `power_frac` excludes the two lowest bins, `power_frac_all` keeps every non-DC
+  bin); the `modulation` clause was added after the first archives (post hoc, kept with
+  that caveat). The pre-registered statistic for the next round is the convention-free
+  **tortuosity** = path / net displacement per window (baseline 2.8, `w_kin_var 200` 1.09;
+  threshold 1.5, gated on visibility). Driver A also fires on the per-particle RMS of J
+  (threshold 0.05), not only the population mean.
