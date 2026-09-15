@@ -11,6 +11,7 @@ import warp as wp
 
 from . import kernels as K
 from .state import MPMParams, make_state
+from .step import gate_omega, nominal_support
 
 
 def _id(N):
@@ -123,6 +124,18 @@ class Trajectory:
         self.gm = [A(np.zeros(prm.ngrid, np.float32), wp.float32, rg) for t in range(T)]
         self.gmom = [A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg) for t in range(T)]
         self.gvel = [A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg) for t in range(T)]
+        # SUPPORT-GATED APIC (kernels.k_support_gate; docs/thin_feature_transport.md §3):
+        # omega_t[p] scales the affine term m*C in P2G at step t. Piecewise constant in x,
+        # so it is computed OUTSIDE the tape per step and read by the adjoint as a constant.
+        # n0 (nominal 3^3 count) is fixed by the caller (prm.gate_n0) so every window uses
+        # the same gate; the fallback measures it on this trajectory's x0.
+        self.omega1 = A(np.ones(N, np.float32), wp.float32)
+        self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
+        if self.gate:
+            self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
+            self.ncount = A(np.zeros(N, np.float32), wp.float32)
+            self.omega = [A(np.ones(N, np.float32), wp.float32) for t in range(T)]
+            self.gate_n0 = float(prm.gate_n0) if prm.gate_n0 > 0 else nominal_support(x0, prm, device)
         if vol0 is None:
             # Backward-compatible single-rollout fallback.  Production callers
             # must compute Vp0 at source initialisation and reuse it explicitly.
@@ -138,9 +151,16 @@ class Trajectory:
         C0 = wp.zeros(N, dtype=wp.mat33, device=dev)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[0], self.dFc, self.Fp, self.lam, self.mu, P0], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[0], v0, C0, self.F[0], self.dFc, P0, self.m, self.vol,
-                  gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
+                  self.omega1, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_volume, dim=N, inputs=[self.x[0], self.m, gm, self.vol, gmin, prm.dx, inv_dx,
                   prm.nx, prm.ny, prm.nz], device=dev)
+
+    def _omega(self, t: int):
+        """Affine-transfer gate for step t (all ones unless the support gate is on)."""
+        if not self.gate:
+            return self.omega1
+        gate_omega(self.x[t], self.prm, self.gate_n0, self.omega[t], self.ncount, self.cnt)
+        return self.omega[t]
 
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""
@@ -152,7 +172,8 @@ class Trajectory:
         dfc = self._dfc(t)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
-                  self.m, self.vol, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx, prm.dt, prm.drag,
+                  self.m, self.vol, self._omega(t), self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
+                  prm.dt, prm.drag,
                   prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
                   prm.grid_min[1], prm.dx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction], device=dev)

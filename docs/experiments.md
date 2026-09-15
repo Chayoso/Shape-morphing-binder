@@ -854,3 +854,32 @@ necessary at this dx). What is established with replicates: the window-locked co
 cycle and its removal by `w_kin_var` (seed-invariant, T-tracking, assimilation-independent);
 what is established once: the −12 % chamfer of the fine loss grid and the +1.1 pt silIoU
 of the fine MPM grid. No CLI default has been changed in this session.
+
+### 2026-09-15 — batches k/l: thin-feature transport ("scatter then return"; code 519617f)
+
+Question raised by the user on the 40k GIFs: the ears fill with a spray that later
+thickens, a few strays stay at the feet — volume, or something else? Dossier:
+`docs/thin_feature_transport.md` (probe definition, literature, pre-registration §4, results
+§5). Same discretisation as batch j (20k, dx 0.5, loss grid 64³, T 20, 300 commits).
+
+- **Batch k (ablation of the cleanup pulls):** `w_nn 0`, `w_dt 0`, `w_creg 1000` leave the
+  thin-region sparse PEAK at 0.58–0.61 (baseline 0.58) → the spray is not produced by the
+  nn-band / W1 pulls or by control roughness; it is the core mass-matching descent acting on
+  individual surface particles (Xu et al. TVCG 2025's own diagnosis of their loss) followed
+  by numerical fracture (a particle beyond an empty grid cell has no neighbours to pull it
+  back, Yue 2015). Volume is not involved (J p2p 0.008, isochoric assimilation, `w_jvol`
+  active). The 20k/40k targets are the same mesh; the "joined ears" are the orthographic
+  overlap at az 0.6.
+- **Batch l (`w_coh` 3/30/100; 24³ basis + coh30):** `w_coh` falsified (peak 0.577–0.581,
+  end 0.36–0.37 vs 0.38, chamfer 0.1591–0.1603 vs 0.1599). The coarse control basis is the
+  lever: 24³ + coh30 delivered the full thin-target mass share (0.194/0.194), end sparsity
+  0.226 vs 0.379, chamfer 0.1604, silIoU 0.9573 (−0.8 pt). Deconfounding arm (24³ alone,
+  36³) = batch n.
+- **Batch m (`w_bond` 10/100, `vol_frontier`, both, 40k `--ppc 8` + bond):** all falsified
+  on the spray peak (0.580–0.586 vs 0.578); `w_bond 100` at 40k `--ppc 8` is harmful (chamfer
+  0.1296 vs 0.1164, delivered thin mass 0.148 vs 0.188). `vol_frontier` shows the far-field
+  D_vol is not the driver (peak 0.586 with the pull removed). Dossier §5b.
+- **Support-gated APIC implemented** (Yao–Zhao 2026; `--gate_lo/--gate_hi`, `MPMParams.gate_*`,
+  `kernels.k_cell_count/k_support_gate`, `tests/test_support_gate.py` incl. gated adjoint vs
+  FD): opt-in forward-model remedy, batch p. Batches n (24³ alone, 36³) and o (40k `--ppc 8` +
+  24³ ± recipe) running.

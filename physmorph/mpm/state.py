@@ -22,6 +22,11 @@ class MPMParams:
     eta_sym: int = 0                  # 1 = OBJECTIVE viscosity (damp sym(C) only; spin preserved)
     eta_mode: int = 0                 # 1 = EXPONENTIAL damping exp(-dt*eta) (dt-consistent, no clamp);
                                       # 0 = legacy linear max(0,1-dt*eta) — kept for old-table repro
+    gate_r_lo: float = 0.0            # SUPPORT-GATED APIC (Yao-Zhao 2026, 2603.03860): omega_p =
+    gate_r_hi: float = 0.0            #   smoothstep((n_p/n0 - r_lo)/(r_hi - r_lo)) scales the affine
+                                      #   term m*C in P2G (n_p = count in the 3^3 cells around p).
+                                      #   r_hi <= r_lo = off (plain APIC). docs/thin_feature_transport.md
+    gate_n0: float = 0.0              # nominal 3^3-cell count; 0 = median over the source at start
     f_ext: tuple = (0.0, 0.0, 0.0)
     grid_min: tuple = (-16.0, -16.0, -16.0)
     nx: int = 64

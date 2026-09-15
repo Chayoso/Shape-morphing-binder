@@ -550,6 +550,9 @@ def main():
     ap.add_argument("--ppc", type=float, default=0.0,
                     help=">0: derive dx/grid/loss_res/sigma from N and the source volume "
                          "for this particles-per-cell (docs/render_controls_physics.md §7)")
+    ap.add_argument("--gate_lo", type=float, default=0.0,   # support-gated APIC (Yao-Zhao 2026):
+                    help="omega = smoothstep((n/n0 - lo)/(hi - lo)) on the P2G affine term")
+    ap.add_argument("--gate_hi", type=float, default=0.0)   # hi <= lo = off (plain APIC)
     ap.add_argument("--w_jvol", type=float, default=50.0)  # h12 ladder: detFmin
                                         # 0.0005->0.497, |J-1|>0.3 13.7->0.0%,
                                         # chamfer/silIoU best-ever (docs 2026-09-02)
@@ -587,6 +590,10 @@ def main():
               flush=True)
         print(f"[disc] loss_res {'follows dx: ' + str(disc.loss_res) if args.loss_units == 'density' else 'kept at ' + str(args.loss_res) + ' (legacy units are a cell sum)'}",
               flush=True)
+    if args.gate_hi > args.gate_lo:        # forward model: support-gated APIC
+        prm = dataclasses.replace(prm, gate_r_lo=args.gate_lo, gate_r_hi=args.gate_hi)
+        print(f"[v2run] support-gated APIC on: r_lo={args.gate_lo} r_hi={args.gate_hi} "
+              f"(n0 = source median 3^3-cell count, set by the runner)", flush=True)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={args.T}  iters={args.iters}  "
           f"anims={args.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}",

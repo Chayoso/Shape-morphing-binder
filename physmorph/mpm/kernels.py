@@ -71,7 +71,7 @@ def k_zero_vec(a: wp.array(dtype=wp.vec3)):
 def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
           dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
-          m: wp.array(dtype=float), vol: wp.array(dtype=float),
+          m: wp.array(dtype=float), vol: wp.array(dtype=float), omega: wp.array(dtype=float),
           grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
           nx: int, ny: int, nz: int):
@@ -81,7 +81,8 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
         return
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
-    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + m[p] * C[p]   # total-PK1 form
+    # omega[p] = support gate on the APIC affine term (1 = plain APIC; k_support_gate)
+    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + omega[p] * m[p] * C[p]   # total-PK1 form
     mv = m[p] * v[p] * (1.0 - dt * drag)
     b = base_node(xp, gmin, inv_dx)
     for oi in range(4):
@@ -97,6 +98,54 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     g = gid(i, j, k, ny, nz)
                     wp.atomic_add(grid_m, g, w * m[p])
                     wp.atomic_add(grid_v, g, w * (mv + G @ dgp))
+
+
+# ── support gate (Yao-Zhao 2026, arXiv 2603.03860 §support-gated APIC) ──────
+# A particle whose 3^3-cell neighbourhood is depleted transfers PIC momentum only: the
+# affine term m*C*(x_g - x_p) of a fringe particle (steep velocity gradient at the front)
+# is what hands the empty-side nodes an outward velocity, and with no other particle on
+# those nodes nothing pulls it back (numerical fracture). omega is piecewise constant in
+# x, so the P2G adjoint reads it as a constant (launched with record_tape=False).
+@wp.kernel
+def k_cell_count(x: wp.array(dtype=wp.vec3), gmin: wp.vec3, inv_dx: float,
+                 nx: int, ny: int, nz: int, cnt: wp.array(dtype=int)):
+    p = wp.tid()
+    xp = x[p]
+    if not valid_pos(xp):
+        return
+    i = int(wp.floor((xp[0] - gmin[0]) * inv_dx))
+    j = int(wp.floor((xp[1] - gmin[1]) * inv_dx))
+    k = int(wp.floor((xp[2] - gmin[2]) * inv_dx))
+    if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+        wp.atomic_add(cnt, gid(i, j, k, ny, nz), 1)
+
+
+@wp.kernel
+def k_support_gate(x: wp.array(dtype=wp.vec3), cnt: wp.array(dtype=int), gmin: wp.vec3,
+                   inv_dx: float, nx: int, ny: int, nz: int, n0: float, r_lo: float,
+                   r_hi: float, omega: wp.array(dtype=float), ncount: wp.array(dtype=float)):
+    p = wp.tid()
+    xp = x[p]
+    omega[p] = 1.0
+    ncount[p] = 0.0
+    if not valid_pos(xp):
+        return
+    ci = int(wp.floor((xp[0] - gmin[0]) * inv_dx))
+    cj = int(wp.floor((xp[1] - gmin[1]) * inv_dx))
+    ck = int(wp.floor((xp[2] - gmin[2]) * inv_dx))
+    n = int(0)
+    for oi in range(3):
+        for oj in range(3):
+            for ok in range(3):
+                i = ci - 1 + oi
+                j = cj - 1 + oj
+                k = ck - 1 + ok
+                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                    n = n + cnt[gid(i, j, k, ny, nz)]
+    ncount[p] = float(n)
+    s = (float(n) / n0 - r_lo) / (r_hi - r_lo)
+    s = wp.clamp(s, 0.0, 1.0)
+    omega[p] = s * s * (3.0 - 2.0 * s)
 
 
 # ── grid op — eq (6), oracle SingleNode_op ──────────────────────────────────

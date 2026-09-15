@@ -14,6 +14,7 @@ next window all describe the same trajectory.
 """
 from __future__ import annotations
 
+import dataclasses
 import numpy as np
 import torch
 
@@ -221,6 +222,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     lo, hi = dmin + 2 * prm.dx, dmax - 2 * prm.dx
 
     x = src.copy()
+    if prm.gate_r_hi > prm.gate_r_lo and prm.gate_n0 <= 0:
+        # support-gated APIC: n0 is fixed ONCE from the source so every window gates alike
+        from ..mpm.step import nominal_support
+        prm = dataclasses.replace(prm, gate_n0=nominal_support(src, prm, cfg.device))
+        log(f"[v2] support gate: n0={prm.gate_n0:.1f} (median 3^3-cell count of the source), "
+            f"r_lo={prm.gate_r_lo} r_hi={prm.gate_r_hi}")
     vol0 = (compute_rest_volumes(src, 1.0, prm, cfg.device)
             if cfg.persistent_rest_volume else None)
     surface_w = (_surface_weights(src, cfg.surface_grad_k, cfg.surface_grad_frac,
