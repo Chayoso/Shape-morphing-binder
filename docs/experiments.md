@@ -595,3 +595,33 @@ instability. Remedies pre-registered and running as batch d: `w_kin_var` 10/50
 (velocity variance over the window), `w_kin 5`, `w_kin_running 10`; falsifier = the
 window-locked power fraction must drop below 0.5 and the visible fraction below 1 %
 without a chamfer regression > 2 %.
+
+
+### 2026-09-15 — batch d: oscillation remedies (same discretisation as batches a–c)
+
+Falsifier (pre-registered above): the window-locked speed power fraction must drop below
+0.5 and the visible fraction (tail excursion > 0.5 sp) below 1 % without a chamfer
+regression > 2 %. Triage columns: modulation = median intra-window max/min speed,
+power = spectral power fraction at period T, visible = fraction of particles.
+
+| arm | chamfer | silIoU | hole | G3 (drift) | s̄ (wu/s) | kin_T | kin_var | modulation | power | visible | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| baseline (w_kin 0.5, batch a) | 0.1599 | 0.9655 | 0.04% | FAIL 0.0035 | 0.308 | 0.33 | 0.128 | 4.1 | 0.95 | 9.6 % | C_control |
+| baseline `--w_kin 5` | 0.1593 | 0.9663 | 0.04% | PASS 0.0018 | 0.206 | 0.12 | 0.042 | 2.9 | 0.81 | 5.9 % | C_control (amplitude ↓, cycle intact) |
+| baseline `--w_kin_running 10` | 0.1586 | 0.9668 | 0.11% | FAIL 0.0030 | 0.247 | 0.21 | 0.064 | 3.4 | 0.85 | 7.3 % | C_control |
+| baseline `--w_kin_var 10` | 0.1589 | 0.9644 | 0.10% | PASS 0.0024 | 0.248 | 0.18 | 0.057 | 3.2 | 0.84 | 10.5 % | C_control |
+| baseline `--w_kin_var 50` | 0.1596 | 0.9655 | 0.03% | PASS 0.0012 | **0.134** | **0.033** | **0.0083** | **2.1** | **0.58** | **2.5 %** | C_control, at the threshold |
+| `render_ctrl --w_kin 5` | 0.1618 | 0.9574 | 0.10% | PASS 0.0024 | 0.241 | 0.13 | 0.038 | 2.5 | 0.87 | 23.7 % | C_control |
+| `render_ctrl --w_kin_var 10` | 0.1616 | 0.9562 | 0.08% | PASS 0.0027 | 0.260 | 0.15 | 0.043 | 2.5 | 0.85 | 44.9 % | C_control |
+
+Reading. The velocity-variance term is the mechanism-matched lever: at w_kin_var 50 the
+mean speed falls 2.3×, the terminal kinetic energy 10×, the window-locked power 0.95 →
+0.58 and the visible fraction 9.6 → 2.5 %, with chamfer/silIoU/holes UNCHANGED (0.1596 /
+0.9655 / 0.03 %) and G3 passing with 2.5× margin. The classic terminal weight (w_kin 5)
+and the running kinetic term (10) only shave the amplitude (power 0.81–0.85). The
+dose-response 10 → 50 is monotone; the falsifier is not yet met (power 0.58 > 0.5,
+visible 2.5 % > 1 %), so batch f continues the ladder at w_kin_var 200 and batch e tests
+the cause side (control continuity across windows, `--warm_start`). The basis arms
+oscillate MORE visibly (excursion p99 1.0–1.3 sp vs 0.6–0.8): a coarse control basis
+makes the cycle spatially coherent, so the same energy moves whole regions — a second
+reason the per-particle flagship stays.
