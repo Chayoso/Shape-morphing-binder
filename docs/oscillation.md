@@ -239,3 +239,10 @@ mechanism fixes already exist in the code — `w_jvol` + isochoric assimilation 
 discretisation contract's CFL/elastic-period report (B), the running kinetic term
 `w_kin_running` and time knots `control_tknots` (C) — and none is adopted for this
 complaint until the probe has run on a real hyde06 archive.
+
+**Verdict (2026-09-15, hyde06, 20k):** the triage found a window-locked CONTROL limit cycle
+on every arm (speed 0.47 → 0.10 → 0.45 inside each window, 95 % of the speed power at
+period T; stiffness and volume excluded); cause = the per-window terminal-only objective,
+not the cold start (warm start: unchanged). `w_kin_var 200` removes it (power 0.04–0.06,
+shape unchanged); `warm_start + w_kin 5 + w_kin_var 50` reaches visible 0.3 %. Details and
+the recommended recipe: docs/experiments.md (2026-09-15) and docs/render_controls_physics.md §9.

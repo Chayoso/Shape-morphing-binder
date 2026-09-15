@@ -639,6 +639,7 @@ All rows are the flagship baseline arm `render_full_dt_iso_nn` unless marked.
 | `--w_kin 5 --w_kin_var 50` | 127 | 0.1591 | 0.9651 | 0.00% | PASS 0.0007 | 0.113 | 0.019 | 0.0053 | 1.97 | 0.50 | 2.1 % | at the threshold |
 | `--warm_start --w_kin 5 --w_kin_var 50` | 141 | **0.1584** | 0.9646 | 0.09% | PASS 0.0007 | 0.107 | 0.015 | 0.0048 | 2.02 | 0.50 | **0.3 %** | **INVISIBLE (sub-spacing)** — visible criterion met |
 | `--w_kin_var 200` (w_kin 0.5) | 121 | 0.1592 | 0.9639 | 0.02% | PASS 0.0001 | 0.089 | 0.005 | 0.0008 | 1.27 | **0.06** | 1.6 % | window lock GONE (power 0.95 → 0.06); the residual 1.6 % is the known flat-valley random walk, not window-locked |
+| `--warm_start --w_kin 5 --w_kin_var 200` (batch g) | 116 | 0.1596 | 0.9647 | 0.05% | PASS 0.0003 | 0.091 | 0.005 | 0.0010 | 1.23 | **0.04** | 1.9 % | window lock gone; residual = flat-valley random walk |
 | `render_ctrl --control_grid 24 --w_kin_var 50` (batch f2) | 106 | 0.1597 | 0.9589 | 0.04% | PASS 0.0015 | 0.210 | 0.098 | 0.0286 | 2.3 | 0.81 | 23.7 % | C_control — on the coarse basis the same weight buys 3× less variance reduction (coherent motion is cheap per node): the basis arms need a higher w_kin_var; flagship stays per-particle |
 
 Reading against the pre-registered falsifier (power < 0.5, visible < 1 %, chamfer within
@@ -651,3 +652,34 @@ w_kin_var 50 (batch f2) are the last two rungs. The cause is settled: a per-wind
 terminal-only objective admits push-and-return trajectories for free, and pricing the
 in-window velocity variance is the term that targets exactly that, with no measurable
 shape cost at 20k.
+
+
+### 2026-09-15 — ladder verdict and recommended recipe (NOT yet adopted as a default)
+
+Fourteen arms, all 20k / T=20 / dt=1/240 / dx=0.5 / loss_res 64 unless noted, one seed,
+3–6 min each; every number carries its discretisation in the tables above.
+
+1. **The in-simulation vibration is a window-locked control limit cycle**, measured, not
+   inferred: speed V-shaped inside every window, 95 % of the power at period T, elastic
+   period and J variation uninvolved. Cold start is not the cause (warm start: power
+   0.90). The velocity-variance term is the matched lever: `w_kin_var 200` removes the
+   window lock outright (power 0.95 → 0.04–0.06, modulation 4.1 → 1.2, drift 3e-4 →
+   1e-4–3e-4) with chamfer −0.2…−0.4 % and silIoU −0.1…−0.2 pt; `warm_start + w_kin 5 +
+   w_kin_var 50` reaches visible 0.3 % (INVISIBLE by the dossier rule) at the family's
+   best chamfer 0.1584 while leaving half the window-locked power. The two pre-registered
+   criteria (power < 0.5 AND visible < 1 %) are met by different rows, not by one; the
+   residual visible 1.6–1.9 % under kv200 is the flat-valley random walk already
+   characterised in docs/oscillation.md (Addendum 7), not window-locked motion.
+   **Recommended recipe for the next replicate:** flagship + `--w_kin 5 --w_kin_var 50
+   --warm_start` (visibility first) or `--w_kin_var 200` (spectral cleanliness first);
+   adoption as a CLI default waits for the 40k replicate and a REFUTE round.
+2. **The render-controls-physics arms tie the flagship on shape** (chamfer +1.1…+1.7 %,
+   silIoU −0.9…−1.2 pt), with a far better inversion margin (detFmin 0.75 → 0.88–0.94)
+   and half the terminal kinetic energy; basis resolution is a lever (6 < 12 < 24, 24³
+   recovers the baseline chamfer); the coarse basis makes the limit cycle spatially
+   coherent, so those arms need a larger `w_kin_var`. Not adopted as flagship.
+3. **The discretisation contract moved the shape number**: `--ppc 8` (dx 0.271, 118³,
+   loss grid following dx in density units) gave the ladder's best chamfer 0.1552 with
+   holes 0.02 %; density units at the legacy dx were falsified (silIoU 0.897).
+4. `dfc_clip 0` collapses both families (0.206 / 0.846 in 16 commits): the clip is part
+   of the recipe, so basis-vs-flagship comparisons at equal clip are the fair ones.

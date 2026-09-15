@@ -293,6 +293,10 @@ fraction < 1 %, no chamfer regression > 2 %):
 | w_kin_var 10 | 0.248 | 0.057 | 0.84 | 10.5 % | 0.1589 / 0.9644 |
 | w_kin_var 50 | 0.134 | 0.0083 | 0.58 | 2.5 % | 0.1596 / 0.9655 |
 | w_kin 5 + w_kin_var 50 | 0.113 | 0.0053 | 0.50 | 2.1 % | 0.1591 / 0.9651 |
+| warm start + w_kin 5 + w_kin_var 50 | 0.107 | 0.0048 | 0.50 | **0.3 %** | **0.1584** / 0.9646 |
+| w_kin_var 200 | 0.089 | 0.0008 | **0.06** | 1.6 % | 0.1592 / 0.9639 |
+| warm start + w_kin 5 + w_kin_var 200 | 0.091 | 0.0010 | **0.04** | 1.9 % | 0.1596 / 0.9647 |
+| render_ctrl 24³ + w_kin_var 50 | 0.210 | 0.0286 | 0.81 | 23.7 % | 0.1597 / 0.9589 |
 
 Reading: the cycle is NOT caused by the cold start of each window's control (warm start
 leaves the power at 0.90) and is only attenuated by kinetic magnitude penalties; it is
@@ -300,10 +304,14 @@ the optimizer's own per-window solution under a terminal-only objective — a pu
 return trajectory costs nothing there. The variance term prices exactly that reversal
 and leaves progress free: at 50 it halves the window-locked power and cuts the visible
 fraction 4× with chamfer/silIoU/holes unchanged and G3 passing with 2.5–5× margin. The
-falsifier is not yet met (power 0.50–0.58, visible 2.1–2.5 %); the dose-response
-continues at w_kin_var 200 (batch f). The coarse control basis makes the same cycle
-spatially coherent (excursion p99 1.0–1.3 sp vs 0.6–0.8), a second reason the
-per-particle flagship stays.
+window lock is gone at w_kin_var 200 (power 0.04–0.06) and the visible fraction reaches
+0.3 % with warm start + w_kin 5 + w_kin_var 50; the two criteria are met by different
+rows (the residual 1.6–1.9 % under kv200 is the flat-valley random walk of
+docs/oscillation.md Addendum 7, not window-locked). The coarse control basis makes the
+same cycle spatially coherent (excursion p99 1.0–1.3 sp vs 0.6–0.8) and needs a larger
+w_kin_var (24³ + 50: power still 0.81), a second reason the per-particle flagship stays.
+Recommended recipe for the 40k replicate and the REFUTE round before any default changes:
+`--w_kin 5 --w_kin_var 50 --warm_start` (visibility first) or `--w_kin_var 200`.
 
 ---
 
@@ -326,7 +334,13 @@ All arms N=20k/40k sphere→bunny (real-volume sampler), T=20, dt=1/240, dx=0.5 
 Acceptance is the existing gate set (G1–G6) plus the triage verdict; adversarial REFUTE
 (Codex gpt-5.6-sol xhigh + Opus) before adoption, per AGENTS.md rule 5.
 
-**Status 2026-09-15:** everything above is implemented, REFUTE-reviewed (`docs/reviews/refute_rcp_opus_20260915.md`, 12 findings fixed/answered) and covered by 58 new CPU tests
+**Status 2026-09-15 (evening):** the §10 ladder RAN on hyde06 (14 arms, 20k; results and
+verdicts in `docs/experiments.md`, 2026-09-15 sections): the contract arms tie the
+flagship on shape with a better inversion margin, basis resolution is a lever, the
+discretisation contract (`--ppc 8`) gave the best chamfer, and the oscillation is a
+window-locked control limit cycle removed by `w_kin_var`. Everything above is implemented,
+REFUTE-reviewed (`docs/reviews/refute_rcp_opus_20260915.md`, 12 findings fixed/answered)
+and covered by 60 new CPU tests
 (`tests/test_ext_bridge.py`, `test_control_basis.py`, `test_chebyshev_smooth.py`,
 `test_grad_combine.py`, `test_discretisation.py`, `test_loss_units.py`,
 `test_render_controls_physics.py`, plus the viewer and triage suites). The ladder has NOT
