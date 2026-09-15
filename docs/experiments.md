@@ -625,3 +625,28 @@ the cause side (control continuity across windows, `--warm_start`). The basis ar
 oscillate MORE visibly (excursion p99 1.0–1.3 sp vs 0.6–0.8): a coarse control basis
 makes the cycle spatially coherent, so the same energy moves whole regions — a second
 reason the per-particle flagship stays.
+
+
+### 2026-09-15 — batches e/f: cause test (warm start) and the w_kin_var dose-response
+
+Same discretisation as batches a–d (20k, T=20, dt=1/240, dx=0.5, loss_res 64, pace 0).
+All rows are the flagship baseline arm `render_full_dt_iso_nn` unless marked.
+
+| change | commits | chamfer | silIoU | hole | G3 (drift) | s̄ | kin_T | kin_var | modulation | power @T | visible | triage |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `--warm_start --w_kin 5` | 125 | 0.1588 | 0.9655 | 0.01% | PASS 0.0020 | 0.222 | 0.140 | 0.048 | 2.9 | 0.90 | 10.5 % | C_control — continuity across windows does NOT remove the cycle |
+| `render_ctrl --warm_start --w_kin 5` | 126 | 0.1614 | 0.9556 | 0.01% | PASS 0.0027 | 0.210 | 0.109 | 0.033 | 2.7 | 0.87 | 11.1 % | C_control |
+| `--w_kin 5 --w_kin_var 50` | 127 | 0.1591 | 0.9651 | 0.00% | PASS 0.0007 | 0.113 | 0.019 | 0.0053 | 1.97 | 0.50 | 2.1 % | at the threshold |
+| `--warm_start --w_kin 5 --w_kin_var 50` | 141 | **0.1584** | 0.9646 | 0.09% | PASS 0.0007 | 0.107 | 0.015 | 0.0048 | 2.02 | 0.50 | **0.3 %** | **INVISIBLE (sub-spacing)** — visible criterion met |
+| `--w_kin_var 200` (w_kin 0.5) | 121 | 0.1592 | 0.9639 | 0.02% | PASS 0.0001 | 0.089 | 0.005 | 0.0008 | 1.27 | **0.06** | 1.6 % | window lock GONE (power 0.95 → 0.06); the residual 1.6 % is the known flat-valley random walk, not window-locked |
+
+Reading against the pre-registered falsifier (power < 0.5, visible < 1 %, chamfer within
++2 %): `w_kin_var 200` removes the window-locked component outright (power 0.06,
+modulation 1.27, drift 1e-4) at chamfer −0.4 % / silIoU −0.16 pt; `warm start + w_kin 5 +
+w_kin_var 50` drives the visible fraction to 0.3 % at the best chamfer of the family
+(0.1584). Neither single row meets both criteria at once; the combined point
+(`--warm_start --w_kin 5 --w_kin_var 200`, batch g) and the basis arm at 24³ with
+w_kin_var 50 (batch f2) are the last two rungs. The cause is settled: a per-window
+terminal-only objective admits push-and-return trajectories for free, and pricing the
+in-window velocity variance is the term that targets exactly that, with no measurable
+shape cost at 20k.
