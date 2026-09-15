@@ -711,6 +711,8 @@ batch h ran; it only affects `render_ctrl` archives (row 6) and no objective her
 | `--ppc 8 --loss_units density` (dx 0.271, 149³) | 73 | **0.1164** | 0.9620 | 0.38% | 0.729 | PASS 0.0017 | 0.350 | 0.0694 | 3.3 | 0.79 | 38.9 % | C_control |
 | `--ppc 8 --loss_units density --warm_start --w_kin 5 --w_kin_var 50` | 86 | 0.1169 | 0.9590 | **0.00%** | **0.756** | PASS 0.0010 | 0.277 | 0.0384 | 3.1 | 0.62 | 13.1 % | C_control — the same relative weight is too weak at the finer dx (2× the kinetic energy); needs a larger w_kin_var in density units |
 | `render_ctrl --control_grid 24 --w_kin_var 200` | 132 | 0.1301 | 0.9570 | 0.04% | 0.676 | PASS 0.0009 | 0.099 | 0.0023 | 1.8 | 0.46 | 5.2 % | no driver; ties the baseline chamfer, silIoU −0.6 pt |
+| `--ppc 8 --loss_units density --warm_start --w_kin 5 --w_kin_var 200` (batch i) | 128 | **0.1160** | 0.9645 | 0.47% | 0.733 | PASS 0.0013 | 0.212 | 0.0250 | 3.3 | 0.64 | 2.3 % | C_control (lock still present at the finer dx) |
+| `--ppc 8 --loss_units density --warm_start --w_kin 5 --w_kin_var 500` (batch i) | 119 | **0.1160** | 0.9538 | 0.42% | 0.742 | PASS 0.0005 | 0.148 | 0.0039 | 2.0 | **0.10** | **0.6 %** | INVISIBLE — lock removed at the finer dx; silIoU −1 pt is the cost |
 
 Verdicts (single seed; differences of ±0.5 % chamfer / ±0.5 pt silIoU are within what one
 seed can resolve — see the REFUTE note below):
@@ -725,6 +727,10 @@ seed can resolve — see the REFUTE note below):
 - The basis arm at 24³ with w_kin_var 200 ties the baseline chamfer at 40k (0.1301) with
   the lock removed; silIoU −0.6 pt remains the basis's cost.
 
-**Recommended (pending REFUTE): flagship + `--warm_start --w_kin 5 --w_kin_var 50`; and
-the discretisation contract `--ppc 8 --loss_units density` as the next flagship candidate
-once its w_kin_var is re-tuned in density units.** No CLI default has been changed.
+**Recommended (pending REFUTE): flagship + `--warm_start --w_kin 5 --w_kin_var 50` at dx 0.5;
+with the discretisation contract (`--ppc 8 --loss_units density`, chamfer −11 %) the same
+recipe needs `w_kin_var` 200 (visible 2.3 %, silIoU 0.9645) or 500 (invisible, silIoU
+0.9538) — the density-unit weight conversion holds at the source only, so the weight is
+not transferable across dx without this re-tuning. Holes at ppc 8 sit at 0.4–0.5 % (baseline
+0.01 %; gate 2 %), a finer-dx effect to watch at the deliverable stage.** No CLI default
+has been changed.
