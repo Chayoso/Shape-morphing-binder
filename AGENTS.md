@@ -45,7 +45,9 @@ volumetric mass matching only (Xu et al.).
 - `metrics.py` — gate metrics (chamfer, sil_iou, hole_frac, jitter); raw sim state only,
   no operator shared with any loss.
 - `mpm/` — MLS-MPM engine ported from the C++ oracle. `kernels.py` (cubic B-spline 4³, APIC,
-  `eta_sym` objective viscosity, `eta_mode` exponential damping, `v_max` clamp), `state.py`
+  `eta_sym` objective viscosity, `eta_mode` exponential damping, `v_max` clamp, opt-in
+  support-gated APIC `k_cell_count`/`k_support_gate` — `MPMParams.gate_r_lo/r_hi/n0`,
+  `pipeline_run --gate_lo/--gate_hi`, method.md eq (22)), `state.py`
   (`MPMParams`), `traj.py` (per-step arrays on `wp.Tape`), `function.py` (torch autograd bridge:
   `dFc` + optional per-particle `λ,μ` leaves → rollout → `x_T, F_T, v_T`), `step.py`,
   `conditioning.py` (`condition_F`: reflection repair, counted; no silent SV projection).
@@ -56,7 +58,10 @@ volumetric mass matching only (Xu et al.).
   `LiveServer(port)` AND the file-backed `filehub.FileHub` / `LiveServer.to_dir` sink read
   by the standalone `scripts/viewer_serve.py`; local `scripts/viewer_tunnel.py` keeps the
   ssh tunnel — `docs/viewer.md`). Probes: `scripts/probes/oscillation_triage.py`
-  (`docs/oscillation_triage.md`).
+  (`docs/oscillation_triage.md`), `scripts/probes/gate_probe.py` and the hyde06-side
+  `scatter_probe2.py` (`docs/thin_feature_transport.md` — the 2026-09-15 "scatter then
+  return" dossier: sub-cell density deficit of the ear stream, not volume, not fracture;
+  `w_coh`/`w_bond`/`vol_frontier` falsified; control basis + `--ppc 8` are the levers).
 - `tests/` — 39 CPU/warp-CPU tests incl. an end-to-end pipeline smoke; run `python -m pytest`.
 - **Deleted 2026-09-01** (git history ≤ `2607972`): v1 loops (`morph.py`,
   `morph_physical.py`, `style_transfer.py`), `losses/render_guidance.py`, v1 plasticity
