@@ -239,3 +239,28 @@ partition of unity to 1e-6 and zero gradient on unsupported nodes; (17)/(15) gra
 match central differences to <5 %; (19) reaches a 25–200× lower error to the converged
 solution than plain sweeps at 12–40 iterations (κ 4–50) and the same limit; the archive keeps the PHYSICS F in `F_frames` (metrics,
 assimilation) and F_g at accepted commits in `Fg_commits`.
+
+### 10.5 Support-gated APIC (forward model, opt-in; 2026-09-15; code: mpm/kernels.py `k_cell_count`, `k_support_gate`; mpm/step.py `gate_omega`, `nominal_support`)
+
+```
+(22) ω_p = S((n_p/n₀ − r_lo)/(r_hi − r_lo)),   S(s) = c²(3 − 2c), c = clamp(s, 0, 1)
+     P2G momentum (5) with  G_p = −C₀ Δt V_p P_p F_eff,pᵀ + ω_p m_p C_p
+```
+
+`n_p` = number of particles in the 3³ grid cells around p's cell at the current step; `n₀` =
+median of `n_p` over the source cloud, fixed ONCE per run (`MPMParams.gate_n0`, set by the
+runner) so every window gates alike; `r_hi ≤ r_lo` turns the gate off and (22) reduces to (5)
+exactly (ω ≡ 1). A particle in a depleted neighbourhood hands the grid PIC momentum only: the
+affine term `m C (x_g − x_p)` of a front particle (steep velocity gradient at a fringe) is what
+gives the empty-side nodes an outward velocity, and with no other particle on those nodes the
+grid cannot pull it back (numerical fracture, Yue 2015). Source: Yao & Zhao 2026 (arXiv
+2603.03860, "support-gated APIC"); ASFLIP (Fei 2021) for the fringe diagnosis.
+
+Adjoint: ω is piecewise constant in x (∂ω/∂x = 0 a.e.), so it is computed outside the tape
+per step and the P2G adjoint reads it as a constant; ∂(mom_g)/∂C_p = ω_p m_p (x_g − x_p) w_gp.
+Contract (`tests/test_support_gate.py`, warp CPU): gate-off and a saturated gate are
+bit-identical to plain APIC; an isolated particle carrying C keeps it under APIC (APIC
+reproduces an affine field exactly on a lone particle: `Σ w d dᵀ = dx²/3 I`) and loses it
+under the gate while its translation is unchanged (a lone particle cannot accelerate itself
+either way: `Σ w d = 0`); the gated adjoint matches central FD within 5 %. Only physical
+variables move — the gate changes how the material transfers momentum, not the state.

@@ -881,5 +881,12 @@ thickens, a few strays stay at the feet — volume, or something else? Dossier:
   D_vol is not the driver (peak 0.586 with the pull removed). Dossier §5b.
 - **Support-gated APIC implemented** (Yao–Zhao 2026; `--gate_lo/--gate_hi`, `MPMParams.gate_*`,
   `kernels.k_cell_count/k_support_gate`, `tests/test_support_gate.py` incl. gated adjoint vs
-  FD): opt-in forward-model remedy, batch p. Batches n (24³ alone, 36³) and o (40k `--ppc 8` +
-  24³ ± recipe) running.
+  FD): opt-in forward-model remedy, batch p.
+- **Batch n (24³ alone, 36³, 24³ + bond100, 24³ + frontier) + batch-c archives re-probed:**
+  the spray PEAK is set by the kind of control, not its resolution — 0.50 for every basis
+  from 6³ to 36³ (per-particle 0.58), unchanged by any add-on; END sparsity / delivered thin
+  mass are monotone in basis resolution and saturate: 6³ 0.37/0.138, 12³ 0.28/0.180, 24³
+  0.25–0.26/0.183–0.191 (two replicates), 36³ 0.24/0.195 (chamfer 0.1601, silIoU 0.9582).
+  The add-ons on the basis (coh30 0.226, frontier 0.231, bond100 0.246, kin_var50 0.232) are
+  within 2–3 noise bands of 24³ alone with no replicate — not adopted. Dossier §5c. Batch o
+  (40k `--ppc 8` + 24³ ± recipe) and batch p (support gate; physics-only arm) running.

@@ -182,3 +182,47 @@ the ear's mass (this is the premise working as designed, at the wrong granularit
 by probing the physics-only arm of the same ladder; (b) an APIC fringe artefact — the affine
 term of the front particles hands the empty-side nodes an outward velocity — testable with the
 support gate (batch p). Both are pre-registered in §4.
+
+### 5c. Batch n and the batch-c basis ladder — what the control basis does and does not set
+
+All `render_ctrl` arms, 20k, dx 0.5, one seed (batch c rows re-probed from their archives).
+
+| control basis / add-on | batch | chamfer | silIoU | thin-region SPARSE peak → end | delivered thin mass | strays > 2 sp |
+|---|---|---|---|---|---|---|
+| per-particle (flagship, for reference) | a | 0.1599 | 0.9655 | 0.578 → 0.379 | 0.165 | 1.27 % |
+| 6³ | c | 0.1704 | 0.9483 | 0.506 → 0.371 | 0.138 | 4.39 % |
+| 12³ | a | 0.1617 | 0.9533 | 0.508 → 0.281 | 0.180 | 1.97 % |
+| 24³ | c | 0.1597 | 0.9570 | 0.506 → 0.250 | 0.191 | 1.27 % |
+| 24³ (replicate) | n | 0.1605 | 0.9542 | 0.503 → 0.264 | 0.183 | 1.32 % |
+| 36³ | n | 0.1601 | 0.9582 | 0.501 → 0.240 | 0.195 | 1.03 % |
+| 24³ + `w_kin_var 50` | f | 0.1597 | 0.9589 | 0.502 → 0.232 | 0.194 | 1.12 % |
+| 24³ + `w_coh 30` | l | 0.1604 | 0.9573 | 0.503 → 0.226 | 0.194 | 1.23 % |
+| 24³ + `w_bond 100` | n | 0.1599 | 0.9570 | 0.503 → 0.246 | 0.189 | 1.17 % |
+| 24³ + `vol_frontier` | n | 0.1599 | 0.9571 | 0.504 → 0.231 | 0.197 | 1.20 % |
+| 12³ + `--ppc 8` + density units | c | 0.1660 | 0.8974 | 0.435 → 0.273 | 0.184 | 0.97 % |
+| 12³ + density units | c | 0.1552 | 0.9625 | 0.360 → 0.231 | 0.135 | 1.10 % |
+
+Reading (replicate band from the two 24³ rows: end ±0.01, delivered ±0.005, chamfer ±0.001):
+- **The peak is set by the KIND of control, not its resolution.** Every basis from 6³ to 36³
+  gives 0.50 (per-particle 0.58); the basis add-ons do not move it. The per-particle →
+  basis step removes the part of the spray that a single-particle actuation can produce;
+  what remains (half the arriving particles locally sparse at commit ~5) is produced by a
+  spatially smooth control — i.e. by the loss asking for the ear before the ear has a
+  connected stream to fill it with.
+- **The END sparsity and the delivered mass are set by basis resolution, monotone and
+  saturating:** 6³ 0.37 / 0.138 (cannot resolve the ear, silIoU −1.7 pt), 12³ 0.28 / 0.180,
+  24³ 0.25–0.26 / 0.183–0.191, 36³ 0.24 / 0.195. 36³ is the best basis arm on every column
+  and within noise of 24³ on chamfer.
+- **The objective add-ons on the basis are noise-level:** coh30 0.226, frontier 0.231,
+  bond100 0.246, kin_var50 0.232 against 0.250/0.264 for 24³ alone — at most −0.03 end
+  sparsity (2–3 noise bands, no replicate), delivered within ±0.006. None is adopted on this
+  evidence; `w_bond` is additionally harmful at fine dx (§5b).
+- **Density units lower the peak most (0.36) but under-fill (0.135):** the resolution-
+  invariant D_vol weighs the ear by its density deficit, not its cell count, so the ear is
+  cheaper to leave empty; the finer MPM grid (`--ppc 8`) at 20k is silhouette-poor (0.8974)
+  because 20k particles at ppc 8 give a 0.34 wu cell that the thin features do not fill.
+
+Verdict on the pre-registration rows: "24³ alone reproduces the 24³+coh30 row" — CONFIRMED
+(0.250/0.264 vs 0.226; coh30 is not the agent). "36³ ≤ 24³" — confirmed (0.240). What the
+basis cannot do is remove the commit-5 peak; that is the driver question batch p asks
+(render-loss granularity vs APIC fringe fling).
