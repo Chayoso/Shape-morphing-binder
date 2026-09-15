@@ -691,3 +691,40 @@ which reaches singular values 3–5 on the ears late in the morph (needle splats
 runner now relaxes `F_g` at every accepted commit with the physics assimilation rule
 (`relax_stretch`); those two rows are not re-run here — their silhouette/chamfer numbers
 stand (the silhouette term does not use F), their d_gauss telemetry does not.
+
+
+### 2026-09-15 — 40k replicate (batch h, hyde06 GPU 0/2)
+
+N=40000 sphere→bunny (real-volume sampler, source volume 50.82 wu³), T=20, dt=1/240,
+dx=0.5 / 64³ (rows 1–3, 6) or dx=0.2712 / 149³ with the loss grid following dx in density
+units (rows 4–5; measured unit ratios at the source: D_vol legacy/density 4.16e4, gradient
+3.88e4, n_support 8712, m_ref 4.59), loss_res 64 unless noted, pace 0, anneal 0.7,
+mom_carry 0, nn_far_k 1000, dfc_clip 0.02, 300-commit budget, one seed, 6–9 min per arm.
+Triage columns as in batch d. The F_g relaxation (`relax_stretch`) was deployed while
+batch h ran; it only affects `render_ctrl` archives (row 6) and no objective here.
+
+| arm | commits | chamfer | silIoU | hole | detFmin | G3 (drift) | s̄ | kin_var | modulation | power @T | visible | triage |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| baseline `render_full_dt_iso_nn` | 126 | 0.1302 | 0.9626 | 0.01% | 0.622 | PASS 0.0005 | 0.167 | 0.0243 | 3.7 | 0.87 | 1.6 % | C_control |
+| `--warm_start --w_kin 5 --w_kin_var 50` | 138 | **0.1296** | **0.9676** | 0.02% | 0.661 | PASS 0.0006 | 0.083 | 0.0020 | 1.7 | 0.29 | 2.6 % | no driver |
+| `--w_kin_var 200` | 143 | 0.1304 | 0.9621 | 0.01% | 0.622 | PASS 0.0001 | 0.067 | 0.0004 | 1.3 | **0.07** | 1.4 % | no driver |
+| `--ppc 8 --loss_units density` (dx 0.271, 149³) | 73 | **0.1164** | 0.9620 | 0.38% | 0.729 | PASS 0.0017 | 0.350 | 0.0694 | 3.3 | 0.79 | 38.9 % | C_control |
+| `--ppc 8 --loss_units density --warm_start --w_kin 5 --w_kin_var 50` | 86 | 0.1169 | 0.9590 | **0.00%** | **0.756** | PASS 0.0010 | 0.277 | 0.0384 | 3.1 | 0.62 | 13.1 % | C_control — the same relative weight is too weak at the finer dx (2× the kinetic energy); needs a larger w_kin_var in density units |
+| `render_ctrl --control_grid 24 --w_kin_var 200` | 132 | 0.1301 | 0.9570 | 0.04% | 0.676 | PASS 0.0009 | 0.099 | 0.0023 | 1.8 | 0.46 | 5.2 % | no driver; ties the baseline chamfer, silIoU −0.6 pt |
+
+Verdicts (single seed; differences of ±0.5 % chamfer / ±0.5 pt silIoU are within what one
+seed can resolve — see the REFUTE note below):
+- The 20k oscillation verdict REPLICATES at 40k: baseline power 0.87 / modulation 3.7;
+  `w_kin_var 200` removes the lock (0.07) and `warm_start + w_kin 5 + w_kin_var 50` reaches
+  0.29 with chamfer −0.5 % and silIoU +0.5 pt vs baseline. Both keep every gate.
+- `--ppc 8` (dx from N, loss grid following dx in density units) is the largest shape
+  effect in the whole ladder: chamfer 0.1302 → 0.1164 (−10.6 %) at equal silIoU, with
+  holes 0.38 % (0.00 % with the recipe). Its oscillation is 2× larger at the finer dx and
+  the recipe at "50" only halves the power; the density-unit weight conversion is at the
+  source only, so the next rung is `--ppc 8` with w_kin_var 200–500.
+- The basis arm at 24³ with w_kin_var 200 ties the baseline chamfer at 40k (0.1301) with
+  the lock removed; silIoU −0.6 pt remains the basis's cost.
+
+**Recommended (pending REFUTE): flagship + `--warm_start --w_kin 5 --w_kin_var 50`; and
+the discretisation contract `--ppc 8 --loss_units density` as the next flagship candidate
+once its w_kin_var is re-tuned in density units.** No CLI default has been changed.
