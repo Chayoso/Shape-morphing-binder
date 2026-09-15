@@ -31,9 +31,15 @@ away. Reading:
   mass-matching descent acting on individual surface particles, which is exactly Xu et al.'s
   own diagnosis of their loss ("mass ejections lead to the quickest decrease of the loss
   function", TVCG 2025 §limitations) — the log form only flattens that direction.
-- Once a particle has crossed an empty loss cell it has no grid neighbours: MLS-MPM cannot
+- ~~Once a particle has crossed an empty loss cell it has no grid neighbours: MLS-MPM cannot
   transmit tension across empty cells (numerical fracture, Yue et al. 2015 §2), so it coasts
-  until later mass or the cleanup pulls re-couple it. That is the "return".
+  until later mass or the cleanup pulls re-couple it.~~ **Corrected 2026-09-15 by the
+  gate-coverage probe (§5d): at dx 0.5 / 20k the source has ~37 particles per cell and the
+  vanguard's 3³-cell count is 0.31 of the interior median (~300 particles), so the sparse
+  particles are NOT grid-isolated; "sparse" (8-NN mean > 2 target spacings ≈ 0.26 wu) is a
+  SUB-CELL density deficit — the ear is filled first by a stream at ~1/8 of the target
+  density, which a 0.5 wu loss cell cannot distinguish from a filled cell.** The "return" is
+  the later arrival of the rest of the mass plus the particle-scale cleanup pulls.
 - The thin features end 15–25 % under-filled on dx 0.5; the two things that measurably help
   are the coarse control basis (coherent actuation: 0.180 delivered, end sparsity 0.28) and
   the finer MPM grid (`--ppc 8`: fracture threshold moves with dx). Kinetic remedies do not
@@ -226,3 +232,31 @@ Verdict on the pre-registration rows: "24³ alone reproduces the 24³+coh30 row"
 (0.250/0.264 vs 0.226; coh30 is not the agent). "36³ ≤ 24³" — confirmed (0.240). What the
 basis cannot do is remove the commit-5 peak; that is the driver question batch p asks
 (render-loss granularity vs APIC fringe fling).
+
+### 5d. Gate-coverage probe on the baseline archives (pre-registration for batch p)
+
+`gate_probe.py` (hyde06 `/tmp/`): the kernel's 3³-cell count `n_p` recomputed per frame from
+the archived raw state on the MPM grid (dx 0.5, 64³), `n₀` = median over the source, ω per
+(r_lo, r_hi); "vanguard" = particles on thin targets AND locally sparse (§1 definition).
+
+| archive | n₀ | (r_lo, r_hi) | vanguard at its peak: median n/n₀, mean ω, share ω = 0 | body: mean ω, share ω < 1 | on-thin mean ω |
+|---|---|---|---|---|---|
+| flagship `rcp_20k_a` | 1007 | (0.05, 0.3) | 0.31, 0.79, 0.00 | 0.99, 0.03 | 0.88 |
+| `render_ctrl` 12³ | 1007 | (0.05, 0.3) | 0.31, 0.79, 0.02 | 1.00, 0.02 | 0.90 |
+| flagship `rcp_20k_a` | 1007 | (0.1, 0.6) | 0.31, 0.42, 0.07 | 0.94, 0.20 | 0.55 |
+
+**What this changes.** `n₀` = 1007 means ~37 particles per 0.5 wu cell at 20k; the vanguard
+sits in neighbourhoods of ~300 particles. The numerical-fracture reading in §1 (a particle
+beyond an empty cell has no grid neighbours) is therefore wrong at this discretisation and
+is struck out above: the spray is a sub-cell density deficit of a connected stream, not a
+set of detached particles. Consequences, stated before batch p reports:
+- the (0.05, 0.3) gate leaves the vanguard at ω ≈ 0.8 and touches 3 % of the body — it is
+  predicted to change nothing (a null result there is NOT evidence against the mechanism);
+- the (0.1, 0.6) gate halves the affine transfer of the vanguard (ω 0.42) at the cost of
+  gating 20 % of the body (mean 0.94) — the informative arm; if the peak drops there, a
+  stronger, body-sparing gate (e.g. (0.2, 0.8) with n₀ measured on the ear) follows;
+- the loss-side reading is now the leading one: a 0.5 wu D_vol cell and a 64³ silhouette
+  cannot see a 0.26 wu spacing deficit, so the descent fills the ear's cells with the
+  cheapest mass — a stretched stream — and only the finer loss grid (density units, `--ppc
+  8`, peaks 0.36–0.44) and the particle-scale pulls act below the cell. The physics-only arm
+  (`--lambda_auto 0`) in batch p separates the image loss from D_vol in this.
