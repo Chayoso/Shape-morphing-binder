@@ -537,3 +537,61 @@ http://127.0.0.1:8765 (run selector, replay scrub, /quad, /compare).
 | render_ctrl --loss_units density | λ trace not O(1), or loss_res 32→64 changes d_vol by >1.6× |
 | render_ctrl --ppc 8 --loss_units density (and at 5k) | hole_frac not ≤ the fixed-dx run's at 5k |
 | triage probe | driver C must vanish under w_kin_running; B/A per the rules |
+
+
+### 2026-09-15 — render-controls-physics ladder, batches a–c (hyde06, GPU 0/2)
+
+Discretisation for every row unless noted: N=20000 sphere→bunny (real-volume sampler, source
+volume 50.82 wu³, target matched), T=20, dt=1/240, dx=0.5, 64³ MPM grid, smoothing 0.955,
+loss_res 64, pace 0, anneal 0.7, mom_carry 0, nn_far_k 1000, w_kin 0.5 (the CLI default),
+w_dt 0.2, w_nn 0.2, w_jvol 50, dfc_clip 0.02, 300-commit budget; every run froze on the
+plateau rule at the listed commit count (3–6 min each on an RTX 6000 Ada). Code: commits
+`ce39df1`…`3f1a0dd`. Metrics from raw state (metrics.py); gates as in the table header.
+
+| arm | commits | chamfer | silIoU | hole | detFmin | G2 | G3 (drift) | note |
+|---|---|---|---|---|---|---|---|---|
+| `render_full_dt_iso_nn` (flagship baseline) | 111 | **0.1599** | **0.9655** | 0.04% | 0.745 | 0 | FAIL 0.0035 | λ med 1150 (cap never binds), kin_T 0.33, best d_vol 30.2 |
+| `render_ctrl` (basis 12³×4, F_g render, kin_run 1, Chebyshev, w_creg 0) | 102 | 0.1617 | 0.9533 | 0.09% | 0.884 | 0 | FAIL 0.0031 | λ 430, kin_T 0.19, kin_run 0.079, best d_vol 33.9 |
+| `render_ctrl_gauss` (+ hybrid 3DGS L1, Charbonnier 0.02) | 90 | 0.1621 | 0.9566 | 0.03% | 0.907 | 0 | FAIL 0.0032 | |
+| `render_ctrl_first` (+ physics projected off render) | 73 | 0.1626 | 0.9569 | 0.04% | 0.910 | 0 | FAIL 0.0035 | best d_vol 41.8 — the render-first cone slows the mass descent |
+| `render_ctrl --loss_units density` | 116 | 0.1660 | 0.8974 | 0.20% | 0.879 | 0 | PASS 0.0027 | λ 0.02–0.09 (O(1) ✓) but silIoU −6.8 pt: the source-calibrated weight conversion drifts along the morph — FALSIFIED as configured |
+| `render_ctrl --ppc 8 --loss_units density` (dx 0.271, 118³, loss_res 118, CFL 0.305, measured ppc median 7.0) | 74 | **0.1552** | 0.9625 | 0.02% | **0.937** | 0 | FAIL 0.0036 | best chamfer of the ladder (−3 %); the discretisation contract, not the objective, moved the number |
+| `render_ctrl --control_grid 6` (144/216 nodes empty) | — | 0.1704 | 0.9483 | 0.12% | 0.978 | 0 | PASS | too coarse |
+| `render_ctrl --control_grid 24` | — | 0.1597 | 0.9570 | 0.07% | 0.818 | 0 | PASS | recovers the baseline chamfer; basis resolution IS a lever (6 < 12 < 24 monotone) |
+| `render_ctrl --control_tknots 20` (per-step in time) | — | 0.1616 | 0.9513 | 0.11% | 0.899 | 0 | PASS | time knots are not the lever |
+| baseline `--dfc_clip 0` | — | 0.2060 | 0.8461 | 0.21% | 0.693 | 0 | FAIL jitter 1.4e-3 | froze in 0.5 min; the clip is part of the recipe for BOTH families (REFUTE F11 answered: reported clipped AND unclipped) |
+| `render_ctrl --dfc_clip 0` | — | 0.2080 | 0.8455 | 0.38% | 0.664 | 0 | FAIL | same |
+
+Verdicts against the pre-registered falsifiers (`docs/render_controls_physics.md` §10):
+- `render_ctrl`: chamfer +1.1 % (inside the +2 % bound) but hole 0.09 % vs 0.04 % — the
+  hole clause fires on paper while both sit far below the 2 % gate and the target's own
+  0.01 %; silIoU −1.2 pt. Verdict: a TIE on shape with a markedly better inversion margin
+  (detFmin 0.75 → 0.88) and half the terminal kinetic energy. NOT adopted as flagship;
+  kept as an arm. Quicklook QA (frames 0/400/800/1200/1600/end, 2 views): all three
+  render arms closed solids, no ghost/floaters; render_ctrl's ear tips slightly blunter
+  than the baseline, `_gauss` restores them.
+- `render_ctrl_gauss`: the d_gauss criterion is unmeasurable against a baseline that has
+  no Gaussian term; on the shared metrics it ties `render_ctrl` (+0.3 pt silIoU).
+- `render_ctrl_first`: no guard, chamfer +1.7 % vs baseline, but the mass objective
+  converges worse (41.8 vs 30.2) — the render-first projection is not adopted.
+- density units: falsified as configured (silIoU −6.8 pt) even though λ is O(1) as
+  predicted; the weight conversion is exact only at the source.
+- `--ppc 8`: chamfer 0.1552 is the best number in the ladder and holes 0.02 %; G3 drift
+  0.0036 just over the 0.003 gate (as for every dx-0.5 render arm here). The
+  discretisation contract is the one change that improved the shape metric.
+- Grid sweep 6/12/24 is monotone in chamfer → the basis resolution is a lever (the
+  pre-registered "non-monotone ⇒ not the lever" did not fire); 24³ recovers the baseline.
+
+**Oscillation triage (all six a/b/density/ppc archives, `scripts/probes/oscillation_triage.py`):**
+VISIBLE (10–69 % of particles with tail excursion > 0.5 sp) with driver **C_control** on
+every arm — inside every 20-step window the mean speed goes 0.47 → 0.10 → 0.45 (turning
+point mid-window, continuous across the boundary), 95 % of the speed power at period T;
+elastic period 132 steps, J peak-to-peak 0.008, CFL 0.24 (0.37 at ppc 8) rule out
+stiffness and volume. The first probe version missed it (sag 0, jump 0.93); the rule now
+includes the intra-window modulation max/min (measured 2.7–4.1 vs threshold 2). This is
+the answer to the user's "진동" question: a control limit cycle sustained by the
+terminal-only objective with a weak terminal kinetic weight (w_kin 0.5), not a physics
+instability. Remedies pre-registered and running as batch d: `w_kin_var` 10/50
+(velocity variance over the window), `w_kin 5`, `w_kin_running 10`; falsifier = the
+window-locked power fraction must drop below 0.5 and the visible fraction below 1 %
+without a chamfer regression > 2 %.
