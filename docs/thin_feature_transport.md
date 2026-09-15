@@ -119,6 +119,7 @@ mass delivered to thin targets; guards: chamfer within +2 %, hole ≤ 2 %, G2 = 
 | 40k `--ppc 8` + `render_ctrl` 24³ ± recipe (batch o) | the two levers add: end sparsity < 0.25, delivered ≥ 0.185, chamfer ≤ 0.12 | delivered < 0.172 (the ppc-8 recipe row) — **prediction failed: the levers do not add (end 0.319, delivered 0.173, chamfer 0.1175; froze at commit 135); falsifier not fired (§5f)** |
 | support gate `(r_lo, r_hi)` = (0.05, 0.3), (0.1, 0.6); 24³ + (0.05, 0.3) (batch p) | if the affine fling is the ejection mechanism: peak < 0.50 on the per-particle control at no chamfer cost | peak ≥ 0.55 at both settings → the ejection is a translational push (control stress / loss pull on fringe particles), not an APIC artefact — **FIRED (0.569 / 0.569; §5e)** |
 | physics-only `--lambda_auto 0` (batch p) | if the image loss drives the vanguard: peak < 0.45 | peak ≥ 0.55 → the driver is D_vol itself — **FIRED (0.560; §5e)** |
+| 20k `--loss_units density --loss_res 128` (loss cell 0.25 wu < the 0.26 wu sparse threshold), per-particle control (batch q) | if "what the loss can see" is the lever: peak < 0.36 with fill ≥ baseline | peak ≥ 0.55 — **not fired; prediction met in direction, not magnitude (peak 0.493, fill 0.176 > 0.165; §5g)** |
 
 Reading rule: a mechanism that lowers the peak but not the end sparsity delays the spray;
 one that lowers the end sparsity but delivers less mass trades fill for coherence — both
@@ -333,3 +334,26 @@ acceptance. The 36³ pair (batch q) is reported when done; the recommendation do
 for it: **the flagship candidate stays per-particle at `--ppc 8` in density units with the
 kinetic recipe** (peak 0.44, end 0.33, strays 0.07 %, chamfer 0.1142), and the 20k
 deliverables use the 24³–36³ basis.
+
+### 5g. Batch q — making the loss see the spacing (20k, per-particle control, density units, 128³ loss grid)
+
+| arm (20k, dx 0.5) | loss cell | chamfer | silIoU | hole | peak → end | delivered thin mass | strays > 2 sp |
+|---|---|---|---|---|---|---|---|
+| baseline (legacy units, 64³) | 0.5 wu | 0.1599 | 0.9655 | 0.04 % | 0.578 → 0.379 | 0.165 | 1.27 % |
+| density units, 64³, 12³ basis (batch c) | 0.5 wu | 0.1552 | 0.9625 | 0.02 % | 0.360 → 0.231 | 0.135 | 1.10 % |
+| **density units, 128³, per-particle** (q) | 0.25 wu | 0.1553 | 0.9634 | 0.02 % | 0.493 → 0.300 | 0.176 | 1.32 % |
+
+A loss cell below the sparse threshold, with nothing else changed, moves the per-particle
+control from 0.578 → 0.493 at the peak and 0.379 → 0.300 at the end, delivers MORE thin mass
+than the baseline (0.176 vs 0.165) and takes chamfer −2.9 % (silIoU −0.2 pt, strays
+unchanged). This is the same peak the coarse basis reaches by the other route (0.50, §5c)
+and, unlike the density/64³ basis arm, it does not under-fill. The pre-registered magnitude
+(peak < 0.36) was not reached: the loss seeing the spacing halves the excess over the basis
+arms but does not remove the transient — the remaining ~0.5 is what a mass-matching descent
+produces when the ear must be filled from a distance in 20-step windows. The 40k 36³ pair
+(second q arm) is reported when done.
+
+**Recommendation update (2026-09-15 evening).** For the 20k deliverables: `--loss_units
+density --loss_res 128` (per-particle) or `render_ctrl --control_grid 36` (basis), the two
+levers measured to the same peak by different routes; their combination is the one untested
+20k arm worth running. For 40k: the flagship candidate as recorded in §5f.

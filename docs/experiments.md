@@ -909,5 +909,9 @@ thickens, a few strays stay at the feet — volume, or something else? Dossier:
   0.22 % vs 0.1142 / 0.9735 / 0.07 % for the per-particle recipe; spray peak 0.424 → 0.319
   vs 0.444 → 0.329 (noise). The levers do not add at fine dx (dossier §5f). Flagship
   candidate unchanged: per-particle `--ppc 8 --loss_units density --warm_start --w_kin 5
-  --w_kin_var 200`; the basis is the 20k lever. Batch q (20k density + 128³ loss grid; 40k
-  36³ pair) running.
+  --w_kin_var 200`; the basis is the 20k lever.
+- **Batch q1 (20k, density units, 128³ loss grid = 0.25 wu cell, per-particle):** peak
+  0.493 → end 0.300, delivered 0.176 (> baseline 0.165), chamfer 0.1553 (−2.9 %), silIoU
+  0.9634 — "what the loss can see" confirmed in direction (pre-registered < 0.36 not
+  reached). Dossier §5g. 40k 36³ pair running; 20k density/128 + 36³ basis is the one
+  untested combination.
