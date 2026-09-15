@@ -342,6 +342,8 @@ deliverables use the 24³–36³ basis.
 | baseline (legacy units, 64³) | 0.5 wu | 0.1599 | 0.9655 | 0.04 % | 0.578 → 0.379 | 0.165 | 1.27 % |
 | density units, 64³, 12³ basis (batch c) | 0.5 wu | 0.1552 | 0.9625 | 0.02 % | 0.360 → 0.231 | 0.135 | 1.10 % |
 | **density units, 128³, per-particle** (q) | 0.25 wu | 0.1553 | 0.9634 | 0.02 % | 0.493 → 0.300 | 0.176 | 1.32 % |
+| density units, 128³, **36³ basis** (q3) | 0.25 wu | 0.1558 | 0.9637 | 0.00 % | 0.487 → 0.311 | 0.177 | 1.31 % |
+| 36³ basis, legacy units, 64³ (batch n) | 0.5 wu | 0.1601 | 0.9582 | 0.06 % | 0.501 → 0.240 | 0.195 | 1.03 % |
 
 A loss cell below the sparse threshold, with nothing else changed, moves the per-particle
 control from 0.578 → 0.493 at the peak and 0.379 → 0.300 at the end, delivers MORE thin mass
@@ -355,5 +357,9 @@ produces when the ear must be filled from a distance in 20-step windows. The 40k
 
 **Recommendation update (2026-09-15 evening).** For the 20k deliverables: `--loss_units
 density --loss_res 128` (per-particle) or `render_ctrl --control_grid 36` (basis), the two
-levers measured to the same peak by different routes; their combination is the one untested
-20k arm worth running. For 40k: the flagship candidate as recorded in §5f.
+levers measured to the same peak by different routes. **Their combination (q3) does not add:**
+peak 0.487, end 0.311, delivered 0.177, chamfer 0.1558 — the density/128 numbers with the basis
+on top, and the basis's own end-sparsity gain (0.240 in legacy units) is lost. The two routes
+reach the same floor (~0.49 peak) because they remove the same thing — the single-particle
+actuation that the coarse loss cannot see — and nothing measured so far goes below it. For
+40k: the flagship candidate as recorded in §5f.

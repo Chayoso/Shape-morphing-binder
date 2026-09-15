@@ -913,5 +913,7 @@ thickens, a few strays stay at the feet — volume, or something else? Dossier:
 - **Batch q1 (20k, density units, 128³ loss grid = 0.25 wu cell, per-particle):** peak
   0.493 → end 0.300, delivered 0.176 (> baseline 0.165), chamfer 0.1553 (−2.9 %), silIoU
   0.9634 — "what the loss can see" confirmed in direction (pre-registered < 0.36 not
-  reached). Dossier §5g. 40k 36³ pair running; 20k density/128 + 36³ basis is the one
-  untested combination.
+  reached). Dossier §5g.
+- **Batch q3 (20k, density/128 + 36³ basis):** peak 0.487 → end 0.311, delivered 0.177,
+  chamfer 0.1558 — the combination does not add; both levers hit the same ~0.49 floor
+  (they remove the same single-particle actuation). 40k 36³ pair (q2) running.
