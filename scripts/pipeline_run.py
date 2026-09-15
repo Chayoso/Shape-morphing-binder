@@ -114,7 +114,17 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           gauss_child_offset_scale=args.gauss_child_offset_scale,
                           patience=args.patience, tol=args.tol,
                           outer_reversal_always=args.reversal_always,
-                          anneal_on_reversal=args.anneal_rev)
+                          anneal_on_reversal=args.anneal_rev,
+                          # render-controls-physics contract (docs/render_controls_physics.md)
+                          control_grid=args.control_grid,
+                          control_tknots=args.control_tknots,
+                          render_F_geom=args.render_F_geom,
+                          w_kin_running=args.w_kin_running,
+                          grad_project_mode=args.grad_project_mode,
+                          cagrad_c=args.cagrad_c,
+                          render_gs_cheb=args.render_gs_cheb,
+                          gauss_robust_eps=args.gauss_robust_eps,
+                          loss_units=args.loss_units)
     if arm == "phys":
         cfg.lambda_auto = 0.0
     elif arm == "render":
@@ -269,6 +279,46 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_jvol = args.w_jvol
         cfg.w_grow = args.w_grow
         cfg.assim_iso = True
+    elif arm in ("render_ctrl", "render_ctrl_gauss", "render_ctrl_first"):
+        # RENDER-CONTROLS-PHYSICS arms (docs/render_controls_physics.md §8, 2026-09-14):
+        # the flagship stack (W1 + near-band + jvol + isochoric assimilation) with the
+        # control on a coarse basis (default 12^3 nodes x 4 time knots), the render
+        # covariance on the geometric F, a running kinetic term and Chebyshev covector
+        # smoothing. `_gauss` adds the hybrid 3DGS image loss on the surface parents;
+        # `_first` is the render-first composite (physics component projected off the
+        # render direction when they conflict) — the pre-registered A/B ladder.
+        cfg.lambda_auto = args.lambda_auto
+        cfg.w_pbr = args.w_pbr
+        cfg.c2f_at = 0.5
+        cfg.pace = args.pace
+        cfg.dfc_clip = args.dfc_clip
+        cfg.w_creg = 0.0                           # the basis is smooth by construction
+        cfg.w_dt = args.w_dt
+        cfg.w_jvol = args.w_jvol
+        cfg.w_nn = args.w_nn
+        cfg.nn_far_k = args.nn_far_k
+        cfg.w_h1 = args.w_h1
+        cfg.nn_berth_k = args.nn_berth_k
+        cfg.anneal_stale = args.anneal
+        cfg.assim_iso = True
+        cfg.control_grid = args.control_grid if args.control_grid > 0 else 12
+        cfg.control_tknots = args.control_tknots if args.control_tknots > 0 else 4
+        cfg.render_F_geom = True
+        cfg.w_kin_running = args.w_kin_running if args.w_kin_running > 0 else 1.0
+        cfg.render_gs_iters = args.render_gs_iters
+        cfg.render_gs_cheb = True
+        cfg.grad_project = arm == "render_ctrl_first"
+        cfg.grad_project_mode = "phys" if arm == "render_ctrl_first" else args.grad_project_mode
+        if arm in ("render_ctrl_gauss", "render_ctrl_first"):
+            cfg.use_gauss_loss = True
+            cfg.gauss_res = args.gauss_res
+            cfg.gauss_mix = args.gauss_mix if args.gauss_mix > 0 else 0.25
+            cfg.gauss_robust_eps = args.gauss_robust_eps if args.gauss_robust_eps > 0 else 0.02
+            cfg.gauss_children = 4 if args.gauss_children is None else args.gauss_children
+            cfg.render_surface_only = True
+            cfg.surface_grad_frac = (args.surface_grad_frac
+                                     if args.surface_grad_frac > 0 else 0.50)
+            cfg.surface_mask_objective = False
     elif arm == "render_full_gauss":               # flagship with the REAL 3DGS loss
         cfg.lambda_auto = args.lambda_auto         # replacing the CIC soft-silhouette
         cfg.w_pbr = 0.0
@@ -464,6 +514,22 @@ def main():
     ap.add_argument("--nn_tail_frac", type=float, default=0.0)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run
                                         # for live.html / the /quad dashboard
+    ap.add_argument("--live_dir", default="",  # persistent file-backed viewer sink
+                    help="publish states to DIR/<out-name>_<arm> for scripts/viewer_serve.py")
+    # ---- render-controls-physics contract (docs/render_controls_physics.md) ----
+    ap.add_argument("--control_grid", type=int, default=0)     # nodes/axis (0 = per particle)
+    ap.add_argument("--control_tknots", type=int, default=0)   # time knots (0 = per step)
+    ap.add_argument("--render_F_geom", action="store_true")
+    ap.add_argument("--w_kin_running", type=float, default=0.0)
+    ap.add_argument("--grad_project_mode", default="render",
+                    choices=["render", "phys", "cagrad", "blend"])
+    ap.add_argument("--cagrad_c", type=float, default=0.5)
+    ap.add_argument("--render_gs_cheb", action="store_true")
+    ap.add_argument("--gauss_robust_eps", type=float, default=0.0)
+    ap.add_argument("--loss_units", default="legacy", choices=["legacy", "density"])
+    ap.add_argument("--ppc", type=float, default=0.0,
+                    help=">0: derive dx/grid/loss_res/sigma from N and the source volume "
+                         "for this particles-per-cell (docs/render_controls_physics.md §7)")
     ap.add_argument("--w_jvol", type=float, default=50.0)  # h12 ladder: detFmin
                                         # 0.0005->0.497, |J-1|>0.3 13.7->0.0%,
                                         # chamfer/silIoU best-ever (docs 2026-09-02)
@@ -482,6 +548,23 @@ def main():
           f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})",
           flush=True)
     prm = MPMParams()
+    if args.ppc > 0:                       # discretisation contract: dx follows N
+        from physmorph.mpm.discretisation import derive, report
+        mat = PipelineConfig()             # the material the arms actually use
+        disc = derive(args.n, v_src, float(np.linalg.norm(src.max(0) - src.min(0))),
+                      prm.dt, mat.young, mat.poisson, ppc=args.ppc,
+                      domain_half=-prm.grid_min[0])
+        prm = dataclasses.replace(prm, dx=disc.dx, nx=disc.grid_n, ny=disc.grid_n,
+                                  nz=disc.grid_n)
+        # REFUTE F4 (2026-09-15): the legacy D_vol is a CELL SUM, so letting loss_res
+        # follow dx (32 -> 109 at 20k/ppc 8) multiplied it ~500x against every fixed
+        # weight. The loss grid follows the MPM cell only in density units, which are
+        # resolution-invariant by construction; in legacy units loss_res is untouched.
+        if args.loss_units == "density":
+            args.loss_res = disc.loss_res
+        print(report(disc, src), flush=True)
+        print(f"[disc] loss_res {'follows dx: ' + str(disc.loss_res) if args.loss_units == 'density' else 'kept at ' + str(args.loss_res) + ' (legacy units are a cell sum)'}",
+              flush=True)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={args.T}  iters={args.iters}  "
           f"anims={args.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}",
@@ -492,6 +575,7 @@ def main():
     if args.live_port:
         from physmorph.viewer.server import LiveServer
         live = LiveServer(args.live_port)
+    live_dir = Path(args.live_dir) if args.live_dir else None
 
     tracked = [Path("physmorph/pipeline/config.py"),
                Path("physmorph/pipeline/optimizer.py"),
@@ -519,9 +603,13 @@ def main():
         print(f"\n[v2run] ===== ARM {arm} =====", flush=True)
         t0 = time.time()
         cbs = (None, None)
-        if live is not None:
+        sink = live
+        if live_dir is not None:           # file-backed sink (viewer_serve.py reads it)
+            from physmorph.viewer.server import LiveServer
+            sink = LiveServer.to_dir(live_dir / f"{Path(args.out).name}_{arm}")
+        if sink is not None:
             from physmorph.render.covariance import sigma0_from_nn
-            cbs = live.begin_run(arm, src, tgt, prm, cfg, sigma0_from_nn(tgt, 0.9))
+            cbs = sink.begin_run(arm, src, tgt, prm, cfg, sigma0_from_nn(tgt, 0.9))
         res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1])
         dt = time.time() - t0
         dn = res.get("deliver_n") or len(res["frames"])   # metrics on the DELIVERED slice
@@ -569,6 +657,13 @@ def main():
             render_mask=(res["render_mask"] if res.get("render_mask") is not None
                           else np.ones(len(src), bool)),
             s=res["s"] if res["s"] is not None else np.zeros(0, np.float32),
+            # F_g at accepted commits, DELIVERED slice only (REFUTE F10) — the same
+            # per-commit cadence as F_samples at the default stride
+            Fg_commit_idx=np.array([i for i, _ in res.get("Fg_commits", []) if i <= dn],
+                                   np.int64),
+            Fg_commits=(np.stack([f for i, f in res["Fg_commits"] if i <= dn])
+                        if any(i <= dn for i, _ in res.get("Fg_commits", []))
+                        else np.zeros((0, 0, 3, 3), np.float32)),
             **archive_extra)
         out["arms"][arm] = {"config": cfg_dump, "metrics": met,
                             "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v)

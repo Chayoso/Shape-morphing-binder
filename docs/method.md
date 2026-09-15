@@ -195,3 +195,42 @@ self-force is exactly zero at every sub-cell position (tests/test_h1.py). The te
 the physics core (Opus F3 over Codex F3: control before attribution; attribution by the v7c
 arm and the paired-at-equal-d_vol census); its per-window ratio s·|g_h1|/|g_vol| is logged
 (`h1_ratio`) because the source-calibrated parity drifts along a morph (Opus F2).
+
+
+## §10 Render-controls-physics contract (2026-09-14; code: pipeline/control_basis.py, mpm/kernels.py, pipeline/grad_combine.py)
+
+Full rationale, literature and the pre-registered ladder: `docs/render_controls_physics.md`.
+Every item is opt-in; with all flags off the §5 path is unchanged.
+
+```
+(15) F_g,{t+1} = (I + dt·C_{t+1}) F_g,t                (geometric F: velocity-gradient
+                                                        transport only — no dFc, no
+                                                        smoothing; render_F_geom renders
+                                                        Sigma = sigma0^2 F_g F_g^T from it)
+(16) dFc[t,p] = sum_k w_k(x0_p) · sum_j B_tj · C[j,k]    (control basis: trilinear nodes on a
+                                                        G^3 grid over the window start,
+                                                        piecewise-linear in time over K
+                                                        knots; grid=0 -> identity)
+(17) L += w_kin_running · mean_t mean_p |v_t|^2         (running kinetic; every v_t is an
+                                                        output of the extended bridge)
+(18) D_vol^density = 1/2 · (1/n_support) sum_cells [log(1+m/m_ref) - log(1+m_t/m_ref)]^2
+                                                       (loss_units="density"; same
+                                                        minimiser as (13); fixed weights
+                                                        divided by the MEASURED source
+                                                        ratio D13/D18, gradient constants
+                                                        by |grad D13|/|grad D18|; REFUTE
+                                                        2026-09-15 F1)
+(19) Chebyshev sweep (grid_smooth): u_{k+1} = w_{k+1}(g(S(u_k)-u_k) + u_k - u_{k-1}) + u_{k-1},
+     w_1 = 1, w_2 = 2/(2-r^2), w_{k+1} = 4/(4 - r^2 w_k), r = (kappa/(1+kappa))^2;
+     applied to the (N, 3+9) field [dL/dx_T, dL/dF_T] before the adjoint pullback
+(20) composite direction: grad_project_mode in {render (one-sided PCGrad, legacy),
+     phys (mirror), cagrad (Liu 2021), blend (physics-anchored magnitude)}
+```
+
+Contract statements (tested on warp-CPU, `tests/test_ext_bridge.py`,
+`test_control_basis.py`, `test_chebyshev_smooth.py`, `test_render_controls_physics.py`):
+(15) at dt=0 the stored F absorbs (1−s)·dFc while F_g stays exactly I; (16) is linear with
+partition of unity to 1e-6 and zero gradient on unsupported nodes; (17)/(15) gradients
+match central differences to <5 %; (19) reaches a 25–200× lower error to the converged
+solution than plain sweeps at 12–40 iterations (κ 4–50) and the same limit; the archive keeps the PHYSICS F in `F_frames` (metrics,
+assimilation) and F_g at accepted commits in `Fg_commits`.

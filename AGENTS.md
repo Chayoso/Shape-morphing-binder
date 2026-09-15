@@ -32,10 +32,16 @@ volumetric mass matching only (Xu et al.).
 ### `physmorph/` — the Warp rewrite (this is the working codebase)
 - **`pipeline/` — the blessed paths (docs: `overview.md` / `method.md` / `experiments.md`,
   rewritten 2026-09-01).** `config.py`, `render_loss.py` (multi-elevation asymmetric
-  D_render + EMA λ balancer), `grid_smooth.py` (Sobolev/grid-GS render direction, §6),
-  `optimizer.py` (multi-leaf line-searched Adam over a dFc sequence + material field,
-  warm-startable), `runner.py` (dynamic family), `runner_vbd.py` (quasi-static VBD-MPM
-  family, solver in `vbd/`). Physics-only baseline = same path, `lambda_auto=0`.
+  D_render + EMA λ balancer), `grid_smooth.py` (Sobolev/grid-GS render direction, §6;
+  Chebyshev-accelerated, multi-channel since 2026-09-14), `control_basis.py` (coarse
+  node × time-knot control basis), `grad_combine.py` (PCGrad both sides / CAGrad /
+  physics-anchored blend), `optimizer.py` (multi-leaf line-searched Adam over the control
+  leaf + material field, warm-startable), `runner.py` (dynamic family). Physics-only
+  baseline = same path, `lambda_auto=0`. **2026-09-14 contract** (`docs/render_controls_physics.md`,
+  all opt-in): `control_grid/control_tknots`, `render_F_geom` (geometric F_g from
+  `mpm/kernels.k_geom_update`, exposed by `mpm/function.warp_mpm_ext`), `w_kin_running`,
+  `grad_project_mode`, `render_gs_cheb`, `gauss_robust_eps`, `loss_units=density`,
+  `mpm/discretisation.py` + `pipeline_run --ppc`, arms `render_ctrl*`.
 - `metrics.py` — gate metrics (chamfer, sil_iou, hole_frac, jitter); raw sim state only,
   no operator shared with any loss.
 - `mpm/` — MLS-MPM engine ported from the C++ oracle. `kernels.py` (cubic B-spline 4³, APIC,
@@ -46,7 +52,11 @@ volumetric mass matching only (Xu et al.).
 - `losses/` — `volumetric.py` **`d_vol`: mass matching, the Xu et al. objective**;
   `silhouette.py` CIC splat primitives (azimuth + elevation).
 - `plasticity/` — `assimilate_elastic` only (exact elastic-stretch commit assimilation).
-- `render/` (3DGS raster, covariance — G6 heroes), `sampling/`, `viewer/`.
+- `render/` (3DGS raster, covariance — G6 heroes), `sampling/`, `viewer/` (in-process
+  `LiveServer(port)` AND the file-backed `filehub.FileHub` / `LiveServer.to_dir` sink read
+  by the standalone `scripts/viewer_serve.py`; local `scripts/viewer_tunnel.py` keeps the
+  ssh tunnel — `docs/viewer.md`). Probes: `scripts/probes/oscillation_triage.py`
+  (`docs/oscillation_triage.md`).
 - `tests/` — 39 CPU/warp-CPU tests incl. an end-to-end pipeline smoke; run `python -m pytest`.
 - **Deleted 2026-09-01** (git history ≤ `2607972`): v1 loops (`morph.py`,
   `morph_physical.py`, `style_transfer.py`), `losses/render_guidance.py`, v1 plasticity
@@ -100,7 +110,10 @@ These are the leading candidates for the unresolved problems, and they are ports
    Each ssh command needs its own `cd ~/physmorph_v2;` — chaining `cd && … &` backgrounds the whole
    list and later commands run in `$HOME` with unset vars.
    Check `nvidia-smi` first; never kill other users' jobs; do not touch `~/Shape-morphing-binder`
-   on hyde06. C++ bindings live at `~/xu_baseline/`.
+   on hyde06. C++ bindings live at `~/xu_baseline/`. **2026-09-14: the jump host hyde01
+   rejected the local ed25519 key all day** (JumpCloud re-syncs `authorized_keys`); when
+   `Permission denied (publickey,password)` appears at hyde01 itself, only the user can
+   re-register the key — do not burn the session retrying.
 2. **Rendered deliverables get per-frame visual QA before shipping** — extract every frame, inspect
    against the rubric (closed solid / no crossfade ghost / silhouette continuity / texture rides the
    surface), fix, re-run.

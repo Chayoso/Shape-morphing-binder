@@ -15,6 +15,10 @@ Run (hyde06, free GPU):
 Local machine:
   ssh -N -L 8765:localhost:8765 -J chayo@hyde01.dabh.io chayo@hyde06.dabh.io
   -> open http://localhost:8765
+Decoupled mode (viewer outlives the run, one port for every run, commit replay):
+  ... --live_dir /data/relcfd/chayo/physmorph_v2/output/live [--run_name NAME]   (no port)
+  + scripts/viewer_serve.py --root <that dir> on hyde06; scripts/viewer_tunnel.py --open
+  locally.  See docs/viewer.md.
 """
 from __future__ import annotations
 
@@ -62,7 +66,13 @@ def main():
     ap.add_argument("--outer_gate_merit_max", type=float, default=0.55,
                     help="also require normalized fixed merit below this value before latching")
     ap.add_argument("--loop", action="store_true")     # default: ONE run, then hold
-    ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--port", type=int, default=8765,
+                    help="in-process HTTP viewer port (legacy; unused with --live_dir)")
+    ap.add_argument("--live_dir", default=None,
+                    help="write viewer packets to DIR/<run_name>/ for scripts/viewer_serve.py "
+                         "instead of opening a port (docs/viewer.md)")
+    ap.add_argument("--run_name", default=None,
+                    help="run directory name under --live_dir (default: timestamp)")
     ap.add_argument("--device", default="cuda")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--out", default="output/live_stable")
@@ -102,7 +112,11 @@ def main():
     tgt_child_offsets = tangent_child_offsets(
         tgt, tgt_mask, sigma0, cfg.gauss_children, cfg.gauss_child_offset_scale,
         cfg.gauss_child_k)
-    live = LiveServer(args.port)
+    if args.live_dir:
+        run_name = args.run_name or time.strftime("%Y%m%d_%H%M%S") + "_render_stable_gauss"
+        live = LiveServer.to_dir(Path(args.live_dir) / run_name)
+    else:
+        live = LiveServer(args.port)
     run_i = 0
     while True:
         cb_commit, cb_iter = live.begin_run("render_stable_gauss", src, tgt, prm, cfg, sigma0)

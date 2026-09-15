@@ -116,8 +116,14 @@ class GaussViews:
 
     def __init__(self, views, extent: float, sigma0: float, res: int, dev,
                  child_count: int = 1, child_sigma_scale: float = 0.55,
-                 child_offset_scale: float = 0.35, child_k: int = 16):
+                 child_offset_scale: float = 0.35, child_k: int = 16,
+                 robust_eps: float = 0.0):
         self.dev = dev
+        # Charbonnier smoothing of the per-pixel residual: |r| has a sign crossing at
+        # every pixel whose residual changes sign under a perturbation, which is where
+        # the 12k finite-difference audit failed (gradient_flow_audit: 7-34% mismatch
+        # in the render+loss segment, <0.04% through MPM). eps=0 keeps the exact L1.
+        self.robust_eps = float(robust_eps)
         radius = extent * 2.6
         fov = 0.7
         self.sigma0 = float(sigma0)          # isotropic: scales+identity-quaternion
@@ -221,6 +227,9 @@ class GaussViews:
             raise RuntimeError("configure_source must be called before child-render loss")
         L = x.new_zeros(())
         for cam, timg in zip(self.cams, self.targets):
-            L = L + (self._render(x.contiguous(), cam, F, mask,
-                                  off) - timg).abs().mean()
+            r = self._render(x.contiguous(), cam, F, mask, off) - timg
+            if self.robust_eps > 0:
+                L = L + (torch.sqrt(r * r + self.robust_eps ** 2) - self.robust_eps).mean()
+            else:
+                L = L + r.abs().mean()
         return L / len(self.cams)

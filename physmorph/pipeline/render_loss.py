@@ -155,11 +155,19 @@ class LambdaBalancer:
     plus an EMA because the raw ratio is itself a noisy per-iteration quantity and feeding it
     straight back is one of the v1 oscillation sources. α_λ=0 disables the render channel."""
 
-    def __init__(self, alpha_lam: float, ema: float = 0.3, cap: float | None = None):
+    def __init__(self, alpha_lam: float, ema: float = 0.3, cap: float | None = None,
+                 cap_rel: float | None = None):
         self.alpha_lam = float(alpha_lam)
         self.ema = float(ema)
         self.cap = cap
+        # RELATIVE cap (density units): fixed at cap_rel x the FIRST raw target, so the
+        # divergence guard has the same meaning in any loss unit (the absolute 5e3 was a
+        # legacy-unit number that bound at measured raw ratios of 6.5e3-1.1e4)
+        self.cap_rel = cap_rel
         self.lam = None
+        self.capped = False          # telemetry: the last update hit the cap (a binding
+                                     # cap silently under-weights the render channel —
+                                     # measured raw ratios of 6.5e3-1.1e4 vs cap 5e3)
 
     @property
     def active(self) -> bool:
@@ -167,9 +175,12 @@ class LambdaBalancer:
 
     def update(self, phys_norm: float, render_norm: float) -> float:
         target = self.alpha_lam * phys_norm / max(render_norm, 1e-12)
+        if self.cap_rel is not None and self.cap is None and self.lam is None:
+            self.cap = float(self.cap_rel) * max(target, 1e-12)
         # CAP: once D_render saturates its gradient vanishes and the raw ratio diverges —
         # observed live at full scale: λ 1.1e3 → 1.77e5 with a mid-window inversion in tow.
         # A converged render term should FADE, not take over the objective.
+        self.capped = self.cap is not None and target > self.cap
         if self.cap is not None:
             target = min(target, self.cap)
         self.lam = target if self.lam is None else (1 - self.ema) * self.lam + self.ema * target

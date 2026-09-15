@@ -12,6 +12,7 @@
 #status{font-size:14px;font-weight:700;color:#73d29c} .dim{color:var(--dim)}
 button,select,input{accent-color:#5ec79a} button,select{background:#1b2230;color:var(--text);border:1px solid #39445a;border-radius:4px;padding:3px 7px}
 button{cursor:pointer} label{cursor:pointer} input[type=range]{width:70px;vertical-align:middle}
+#scrub{width:150px} #runSel{max-width:240px} #liveDot{color:#3d4a44;font-size:14px} #liveDot.on{color:#66e48f} #runBox,#scrubBox{display:none}
 #view{position:fixed;left:0;right:0;top:43px;bottom:0;cursor:grab}
 #panel{position:fixed;z-index:4;right:10px;top:53px;bottom:10px;width:350px;background:var(--panel);
  border:1px solid #2a3342;border-radius:7px;display:flex;flex-direction:column;box-shadow:0 6px 28px #0008}
@@ -25,7 +26,9 @@ button{cursor:pointer} label{cursor:pointer} input[type=range]{width:70px;vertic
 </head>
 <body>
 <div id="bar">
-  <span id="status">connecting</span><span id="tele"></span>
+  <span id="runBox"><select id="runSel" title="run (from /runs; green dot = live)"></select><span id="liveDot" title="live">&#9679;</span></span>
+  <span id="status">connecting</span><span id="tele"></span><span id="age" class="dim"></span>
+  <span id="scrubBox"><button id="liveBtn">live</button><button id="playBtn">play</button><input id="scrub" type="range" min="0" max="0" value="0" title="replay stored commits"><span id="scrubInfo" class="dim"></span></span>
   <button id="pause">pause</button><button id="restart">restart</button><button id="panelBtn">graphs</button>
   <label><input id="iterations" type="checkbox" checked> iterations</label>
   <label><input id="splats" type="checkbox" checked> objective splats</label>
@@ -58,6 +61,10 @@ button{cursor:pointer} label{cursor:pointer} input[type=range]{width:70px;vertic
 const $=id=>document.getElementById(id), cv=$('view'),ctx=cv.getContext('2d'),chart=$('charts'),cx2=chart.getContext('2d');
 let meta=null,target=null,state=null,lastCommit=null,lastGrid=null,lastSeq=-1,paused=false,showPanel=true;
 let historyRows=[],lastHistoryFetch=0;
+// Decoupled mode (scripts/viewer_serve.py): ?run=<name> -> /r/<name>/...; legacy in-process LiveServer (no /runs): root endpoints.
+const Q=new URLSearchParams(location.search);let runName=Q.get('run')||'',multi=false,runs=[],runsTimer=null;
+const base=()=>runName?'/r/'+encodeURIComponent(runName):'';
+let replay=false,replaySeq=null,commitSeqs=[],playTimer=null,scrubBusy=false,scrubWant=null,lastPacketAt=null;
 let zoom=.82,panX=0,panY=0;
 const SERIES=[
  ['E','total objective',true,true],['d_vol','D_vol',false,true],['d_render','D_render',false,true],
@@ -84,7 +91,7 @@ const defaults=new Set(['E','d_vol','d_render','kin','move','g_phys_norm','g_ren
 let history={}; for(const [k] of SERIES)history[k]=[];
 function resetHistory(){for(const k in history)history[k]=[]}
 function isIter(h){return h?.phase==='iter'||h?.phase==='sweep'}
-function rebuildHistory(){resetHistory();for(const h of historyRows)if($('iterations').checked||!isIter(h))pushHistory(h);drawCharts()}
+function rebuildHistory(){resetHistory();for(const h of historyRows)if((replaySeq==null||!(h.seq>replaySeq))&&($('iterations').checked||!isIter(h)))pushHistory(h);drawCharts()}
 function chartControls(){
  const box=$('chartToggles');box.innerHTML='';
  for(const [k,label] of SERIES){const l=document.createElement('label'),c=document.createElement('input');
@@ -187,15 +194,41 @@ function drawCharts(){
 }
 for(const id of['splats','surfaceOnly','maskOn','targetOn','floaters','particles','particleField','gridOn','gridField','physGrad','renderGrad','splatScale','vectorScale'])$(id).oninput=draw;
 $('iterations').oninput=()=>{rebuildHistory();draw()};
-$('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'resume':'pause'};$('restart').onclick=()=>fetch('/restart',{method:'POST'});
+$('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'resume':'pause'};$('restart').onclick=()=>fetch(base()+'/restart',{method:'POST'});
 $('panelBtn').onclick=()=>{showPanel=!showPanel;$('panel').style.display=showPanel?'flex':'none';draw()};
-async function loadRun(){meta=await(await fetch('/meta')).json();target=parse(await(await fetch('/target')).arrayBuffer());
+async function get(path){const r=await fetch(base()+path);if(!r.ok)throw new Error(`${path} ${r.status}`);return r}
+async function loadRun(){meta=await(await get('/meta')).json();target=parse(await(await get('/target')).arrayBuffer());
  $('surfaceOnly').checked=!!meta.surface_only;$('gridField').innerHTML='';$('particleField').innerHTML='';
  for(const [i,n] of (meta.grid_fields||[]).entries())$('gridField').add(new Option(n,i));for(const [i,n] of (meta.particle_fields||[]).entries())$('particleField').add(new Option(n,i));
- historyRows=await(await fetch('/history')).json();rebuildHistory();lastCommit=lastGrid=null;lastSeq=-1}
-async function syncHistory(){const now=performance.now();if(now-lastHistoryFetch<400)return;lastHistoryFetch=now;const rows=await(await fetch('/history')).json();if(Array.isArray(rows)){historyRows=rows;rebuildHistory()}}
-async function boot(){try{await loadRun();poll()}catch(e){$('status').textContent='boot error: '+e;setTimeout(boot,1200)}}
-async function poll(){try{if(!paused){const b=await(await fetch('/state')).arrayBuffer();if(b.byteLength>8){const s=parse(b);if(s.hdr.run!==meta.run)await loadRun();if(s.hdr.seq!==lastSeq){lastSeq=s.hdr.seq;state=s;if(!isIter(s.hdr))lastCommit=s;if(s.a)lastGrid=s;await syncHistory();draw()}}}}catch(e){$('status').textContent='disconnected; retrying: '+e;$('status').style.color='#ff7373'}setTimeout(poll,150)}
+ const rows=await(await get('/history')).json();historyRows=Array.isArray(rows)?rows:[];rebuildHistory();lastCommit=lastGrid=null;lastSeq=-1}
+async function syncHistory(){const now=performance.now();if(now-lastHistoryFetch<400)return;lastHistoryFetch=now;const r=await fetch(base()+'/history');if(!r.ok)return;const rows=await r.json();if(Array.isArray(rows)){historyRows=rows;rebuildHistory()}}
+async function boot(){try{const list=await fetchRuns();multi=list!=null;
+ if(multi){runs=list;$('runBox').style.display=$('scrubBox').style.display='inline';if(!runName||!list.some(r=>r.name===runName))runName=pickDefault(list);
+  if(!runName){$('status').textContent='no runs under --root yet; waiting';setTimeout(boot,5000);return}
+  fillRunSel(list);window.history.replaceState(null,'','?run='+encodeURIComponent(runName));if(!runsTimer)runsTimer=setInterval(refreshRuns,5000)}
+ await loadRun();await refreshCommits();poll()}catch(e){$('status').textContent='boot error: '+e;setTimeout(boot,1200)}}
+async function poll(){try{if(!paused&&!replay){const b=await(await get('/state')).arrayBuffer();if(b.byteLength>8){const s=parse(b);if(s.hdr.run!==meta.run)await loadRun();if(s.hdr.seq!==lastSeq){lastSeq=s.hdr.seq;lastPacketAt=Date.now();state=s;if(!isIter(s.hdr))lastCommit=s;if(s.a)lastGrid=s;await syncHistory();draw()}}}}catch(e){$('status').textContent='disconnected; retrying: '+e;$('status').style.color='#ff7373'}setTimeout(poll,150)}
+// ---- run selector / replay scrub / packet age (viewer_serve mode; hidden under the legacy in-process server) ----
+async function fetchRuns(){try{const r=await fetch('/runs');if(!r.ok)return null;const j=await r.json();return Array.isArray(j)?j:null}catch(e){return null}}
+function pickDefault(list){return (list.find(r=>r.live)||list[0])?.name||''}
+function fillRunSel(list){const sel=$('runSel');sel.innerHTML='';for(const r of list)sel.add(new Option(`${r.live?'\u25cf ':'\u25cb '}${r.name}${r.arm?' \u00b7 '+r.arm:''}${r.commits?' \u00b7 '+r.commits+' commits':''}`,r.name));
+ sel.value=runName;const me=list.find(r=>r.name===runName);$('liveDot').className=me?.live?'on':'';
+ if(me&&me.age!=null)lastPacketAt=Math.max(lastPacketAt||0,Date.now()-me.age*1000)}
+async function refreshRuns(){const list=await fetchRuns();if(!list)return;runs=list;fillRunSel(list);await refreshCommits()}
+async function refreshCommits(){if(!multi||!runName)return;try{const r=await fetch(base()+'/commits');if(!r.ok)return;const s=await r.json();if(!Array.isArray(s))return;commitSeqs=s;const sc=$('scrub');sc.max=Math.max(0,s.length-1);if(!replay)sc.value=sc.max;scrubInfo()}catch(e){}}
+function scrubInfo(){const i=+$('scrub').value,seq=commitSeqs[i];$('scrubInfo').textContent=commitSeqs.length?`${replay?'replay':'live'} ${i+1}/${commitSeqs.length}${seq!=null?' \u00b7 seq '+seq:''}`:'no commits'}
+async function showCommit(i){const seq=commitSeqs[i];if(seq==null)return;const s=parse(await(await get('/commit/'+seq)).arrayBuffer());
+ state=s;lastCommit=s;if(s.a)lastGrid=s;replaySeq=s.hdr.seq;rebuildHistory();draw()}
+function queueScrub(i){scrubWant=i;if(scrubBusy)return;(async()=>{scrubBusy=true;try{while(scrubWant!=null){const j=scrubWant;scrubWant=null;await showCommit(j)}}catch(e){$('status').textContent='replay error: '+e}scrubBusy=false})()}
+function stopPlay(){if(playTimer)clearInterval(playTimer);playTimer=null;$('playBtn').textContent='play'}
+$('scrub').oninput=()=>{replay=true;stopPlay();scrubInfo();queueScrub(+$('scrub').value)};
+$('liveBtn').onclick=()=>{stopPlay();replay=false;replaySeq=null;lastSeq=-1;rebuildHistory();refreshCommits()};
+$('playBtn').onclick=()=>{if(playTimer)return stopPlay();if(!commitSeqs.length)return;replay=true;let i=+$('scrub').value;if(i>=commitSeqs.length-1)i=-1;$('playBtn').textContent='stop';
+ playTimer=setInterval(()=>{i++;if(i>=commitSeqs.length)return stopPlay();$('scrub').value=i;scrubInfo();queueScrub(i)},1000/6)};
+$('runSel').onchange=async()=>{runName=$('runSel').value;window.history.replaceState(null,'','?run='+encodeURIComponent(runName));stopPlay();replay=false;replaySeq=null;lastPacketAt=null;commitSeqs=[];
+ try{await loadRun();fillRunSel(runs);await refreshCommits();draw()}catch(e){$('status').textContent='load error: '+e}};
+setInterval(()=>{const el=$('age');if(replay){el.textContent='replay';el.style.color='';return}if(lastPacketAt==null){el.textContent='';return}
+ const s=(Date.now()-lastPacketAt)/1000;el.textContent=`age ${s<100?s.toFixed(1):Math.round(s)}s`;el.style.color=s>30?'#ff7373':''},500);
 chartControls();addEventListener('resize',draw);boot();
 </script>
 </body>

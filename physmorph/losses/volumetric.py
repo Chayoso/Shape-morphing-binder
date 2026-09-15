@@ -366,6 +366,31 @@ def d_vol(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
     return loss
 
 
+def density_units(target_grid: torch.Tensor) -> tuple[float, int]:
+    """(m_ref, n_support) for the dimensionless D_vol: m_ref = mean target mass of an
+    occupied cell (so m/m_ref is a density ratio, invariant to loss_res for a smooth
+    body), n_support = number of target-occupied cells (the averaging set).
+    Computed ONCE per target build."""
+    occ = target_grid > 1e-6
+    n = int(occ.sum())
+    m_ref = float(target_grid[occ].mean()) if n else 1.0
+    return max(m_ref, 1e-12), max(n, 1)
+
+
+def d_vol_density(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
+                  grid_min: torch.Tensor, dx: float, dims, m_ref: float,
+                  n_support: int) -> torch.Tensor:
+    """Dimensionless mass matching (docs/render_controls_physics.md §2):
+        D = 1/2 · (1/n_support) · sum_cells [log(1 + m/m_ref) − log(1 + m_t/m_ref)]^2.
+    Same minimiser as eq (13) (residual zero cell by cell), same log form (self-term
+    suppression at high occupancy), but the value and its gradient no longer scale
+    with the number of grid cells or with the mass per cell, so it is commensurable
+    with a per-pixel image mean without a 1e3-1e4 lambda."""
+    cur = rasterize_mass(x, m, grid_min, dx, dims)
+    diff = torch.log1p(cur / m_ref) - torch.log1p(target_grid / m_ref)
+    return 0.5 * (diff * diff).sum() / float(n_support)
+
+
 # -- particle-scale density matching (KDE D_vol) ------------------------------
 # Census on the best states (2026-09-03, docs/floaters.md): particles CLUSTER at
 # sub-cell scale (particle/target local-density ratio 2.0-2.7 in the body), leaving

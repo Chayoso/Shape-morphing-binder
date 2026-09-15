@@ -197,6 +197,20 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
     x_out[p] = x_in[p] + dt * v[p]
 
 
+# ── geometric deformation gradient — the RENDER kinematics ───────────────────
+# Fg_{t+1} = (I + dt C_{t+1}) Fg_t: transported by the actual spatial velocity
+# derivative only. It receives NO control addition and NO temporal smoothing, so a
+# Gaussian covariance Sigma = sigma0^2 Fg Fg^T (PhysGaussian kinematics) can change
+# only when material moves (docs/render_controls_physics.md §3: the control's direct
+# F route was measured to change the image at zero motion). Fg is not used by the
+# constitutive law; the physics keeps the smoothed, controlled F.
+@wp.kernel
+def k_geom_update(C: wp.array(dtype=wp.mat33), Fg_in: wp.array(dtype=wp.mat33),
+                  Fg_out: wp.array(dtype=wp.mat33), dt: float):
+    p = wp.tid()
+    Fg_out[p] = (wp.identity(n=3, dtype=float) + dt * C[p]) @ Fg_in[p]
+
+
 # ── particle-level separating floor (SHARP contact for drop heroes) ─────────
 @wp.kernel
 def k_floor_clamp(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),

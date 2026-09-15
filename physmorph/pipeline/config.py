@@ -252,6 +252,38 @@ class PipelineConfig:
 
     # (VBD quasi-static arm retired 2026-09-01 -> deprecated/; its vbd_* fields removed)
 
+    # ---- render-controls-physics contract (docs/render_controls_physics.md, 2026-09-14) ----
+    control_grid: int = 0           # >0: dFc lives on a G^3 trilinear node grid over the
+                                    # window's start positions (control_basis.py) instead
+                                    # of per particle — the low-dimensional physical field
+                                    # of PhysDreamer/NeuMA, and the basis-realised
+                                    # Gauss-Seidel propagation (§4, §6). 0 = per particle.
+    control_tknots: int = 0         # >0: piecewise-linear in time over this many knots
+                                    # (1 = one control shared by every step, the C++
+                                    # control_stride=T form); 0 = one per step.
+    render_F_geom: bool = False     # render covariance rides the GEOMETRIC F_g (velocity-
+                                    # gradient transport only) instead of the controlled,
+                                    # smoothed F: the image can then change only through
+                                    # motion (audit Finding 1, §3).
+    w_kin_running: float = 0.0      # RUNNING kinetic mean_t mean_p |v_t|^2 over the whole
+                                    # window (stop-and-go driver C, oscillation_triage.md);
+                                    # 0 keeps the terminal-only term.
+    grad_project_mode: str = "render"  # which side PCGrad strips when cos<0 (grad_project):
+                                    # "render" (legacy: physics descent preserved),
+                                    # "phys" (render-first: physics component removed),
+                                    # "cagrad" (Liu et al. 2021 two-task CAGrad, c=cagrad_c).
+    cagrad_c: float = 0.5
+    render_gs_cheb: bool = False    # Chebyshev-accelerated grid sweeps (Wang 2015) for
+                                    # render_gs_iters; both x AND F covectors are smoothed.
+    gauss_robust_eps: float = 0.0   # >0: Charbonnier sqrt(r^2+eps^2) instead of |r| in the
+                                    # Gaussian image loss (audit: L1 sign crossings made
+                                    # the finite-difference check fail at 12k)
+    loss_units: str = "legacy"      # "legacy": D_vol = 1/2 sum_cells log-mass residual^2
+                                    # (Xu et al., grid-count units); "density": the same
+                                    # residual on m/m_ref averaged over target-support
+                                    # cells — dimensionless and loss_res-invariant (§2),
+                                    # so lambda_R is O(1) and lambda_cap never binds.
+
     # ---- material channel (§3.2 ch.2) ----
     opt_material: bool = False      # optimise per-particle log-Lame multipliers s
     mat_lr_scale: float = 0.25      # material step = alpha * this (slower than dFc)

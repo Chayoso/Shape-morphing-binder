@@ -495,3 +495,45 @@ leaves a faint fingerprint (+1.9% CIC centre excess vs +0.6%); v8a (self-correct
 remove it. Tail amplitude in v7a is larger than v3's (p2p p99 0.71 sp, ears 0.61) and
 marginally trips the reopening rule — held for the v8a census before reopening.
 **H⁻¹ ADOPTED provisionally (v8 = self-corrected, in-core) pending v8a; v7b (40k) running.**
+
+
+## 2026-09-14 — render-controls-physics ladder (PRE-REGISTERED, NOT RUN)
+
+Design and falsifiers: `docs/render_controls_physics.md` §10. Server access failed all day
+(`ssh -J chayo@hyde01.dabh.io` → `Permission denied (publickey,password)` at the jump host;
+the ed25519 key must be re-registered in JumpCloud). Nothing below has a number yet.
+Local verification: 128 → 186 CPU tests green (`python -m pytest tests/ -q`), after the REFUTE round `docs/reviews/refute_rcp_opus_20260915.md` (12 findings, all answered).
+
+Run commands (hyde06, after `cd ~/physmorph_v2` and a fresh deploy of this branch;
+thread caps + staggered launches per the ops rules):
+
+```bash
+PY=/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python
+OUT=/data/relcfd/chayo/physmorph_v2/output
+export OMP_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 MKL_NUM_THREADS=8
+# persistent viewer (once): serves every run under $OUT/live on port 8765
+setsid nohup $PY scripts/viewer_serve.py --root $OUT/live --port 8765 > $OUT/viewer_serve.log 2>&1 < /dev/null &
+# baseline vs the contract arms, 20k, pace-0 recipe, live-published
+CUDA_VISIBLE_DEVICES=<free> setsid nohup $PY scripts/pipeline_run.py \
+    --arms render_full_dt_iso_nn,render_ctrl,render_ctrl_gauss,render_ctrl_first \
+    --n 20000 --animations 300 --loss_res 64 --pace 0 --anneal 0.7 --mom_carry 0 \
+    --nn_far_k 1000 --live_dir $OUT/live --out $OUT/rcp_20k > $OUT/rcp_20k.log 2>&1 < /dev/null &
+# density units and the discretisation contract (separate GPUs, staggered 45 s)
+... --arms render_ctrl --loss_units density --out $OUT/rcp_20k_density
+... --arms render_ctrl --ppc 8 --loss_units density --out $OUT/rcp_20k_ppc8
+# oscillation triage on every archive
+$PY scripts/probes/oscillation_triage.py --npz $OUT/rcp_20k_render_ctrl.npz --json $OUT/rcp_20k.json \
+    --arm render_ctrl --out $OUT/rcp_20k_render_ctrl_triage.json --png $OUT/rcp_20k_render_ctrl_triage.png
+```
+
+Local: `python scripts/viewer_tunnel.py --open` keeps the tunnel and opens
+http://127.0.0.1:8765 (run selector, replay scrub, /quad, /compare).
+
+| arm | falsifier (pre-registered) |
+|---|---|
+| render_ctrl | chamfer > flagship +2 %, or hole_frac ↑, or any G2 guard |
+| render_ctrl_gauss | d_gauss not below render_ctrl's at equal d_vol |
+| render_ctrl_first | any G2 guard, or chamfer +2 % vs render_ctrl |
+| render_ctrl --loss_units density | λ trace not O(1), or loss_res 32→64 changes d_vol by >1.6× |
+| render_ctrl --ppc 8 --loss_units density (and at 5k) | hole_frac not ≤ the fixed-dx run's at 5k |
+| triage probe | driver C must vanish under w_kin_running; B/A per the rules |

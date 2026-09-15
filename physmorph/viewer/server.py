@@ -279,19 +279,36 @@ def make_handler(hub: Hub, page_dir: Path):
 
 
 class LiveServer:
-    """One HTTP viewer per process; call begin_run() per arm to get run callbacks."""
+    """One viewer per process; call begin_run() per arm to get run callbacks.
 
-    def __init__(self, port: int):
-        self.hub = Hub()
-        self.port = int(port)
-        page_dir = Path(__file__).resolve().parent
-        self.httpd = ThreadingHTTPServer(("127.0.0.1", self.port),
-                                         make_handler(self.hub, page_dir))
-        threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+    ``LiveServer(port)`` serves the in-memory Hub over HTTP (legacy, dies with the run).
+    ``LiveServer.to_dir(run_dir)`` opens no port: a FileHub persists every packet for the
+    standalone scripts/viewer_serve.py.  Both may be combined (``port`` + ``hub``).
+    begin_run only touches self.hub / self.seq / self.run_i, so either hub works.
+    """
+
+    def __init__(self, port: int | None = None, hub=None):
+        self.hub = Hub() if hub is None else hub
+        self.port = None if port is None else int(port)
+        self.httpd = None
         self.seq = 0
         self.run_i = -1
-        print(f"[live] serving http://localhost:{self.port}  "
-              f"(/quad for the 4-GPU dashboard)", flush=True)
+        if self.port is not None:
+            page_dir = Path(__file__).resolve().parent
+            self.httpd = ThreadingHTTPServer(("127.0.0.1", self.port),
+                                             make_handler(self.hub, page_dir))
+            threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+            print(f"[live] serving http://localhost:{self.port}  "
+                  f"(/quad for the 4-GPU dashboard)", flush=True)
+
+    @classmethod
+    def to_dir(cls, run_dir, **filehub_kw) -> "LiveServer":
+        """Port-less LiveServer whose hub writes ``run_dir`` (see filehub.py)."""
+        from .filehub import FileHub
+        live = cls(None, hub=FileHub(run_dir, **filehub_kw))
+        print(f"[live] writing packets to {Path(run_dir)}  "
+              f"(serve with scripts/viewer_serve.py --root <parent>)", flush=True)
+        return live
 
     def begin_run(self, name: str, src: np.ndarray, tgt: np.ndarray, prm, cfg,
                   sigma0: float):

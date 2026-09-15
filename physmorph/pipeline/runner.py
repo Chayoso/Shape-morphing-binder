@@ -17,8 +17,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..losses.volumetric import (coverage_shortfall, d_h1, d_vol, d_w1, target_dt_grid,
-                                 target_mass_grid)
+from ..losses.volumetric import (coverage_shortfall, d_h1, d_vol, d_w1, density_units,
+                                 target_dt_grid, target_mass_grid)
 from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
 from ..mpm.traj import compute_rest_volumes
@@ -107,7 +107,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
                            cfg.gauss_res, dev, child_count=cfg.gauss_children,
                            child_sigma_scale=cfg.gauss_child_sigma_scale,
                            child_offset_scale=cfg.gauss_child_offset_scale,
-                           child_k=cfg.gauss_child_k)
+                           child_k=cfg.gauss_child_k,
+                           robust_eps=cfg.gauss_robust_eps)
         gauss.bake_targets(tgt_t, mask=target_mask)
     pts, nn_sp = None, 0.0
     kde_h, kde_rho = 0.0, 1.0
@@ -125,11 +126,37 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
         jd_dims = (cfg.jdens_res,) * 3
         jd_dx = float((dmax - dmin).max() / cfg.jdens_res)
         jd = dict(jd_gmin=lgmin, jd_dx=jd_dx, jd_dims=jd_dims)
+    m_ref, n_support = density_units(grid)      # loss_units="density" constants
     return TargetPack(**jd, grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3,
                       pts=pts, nn_spacing=nn_sp, gauss=gauss,
-                      kde_h=kde_h, kde_rho_ref=kde_rho)
+                      kde_h=kde_h, kde_rho_ref=kde_rho,
+                      m_ref=m_ref, n_support=n_support)
+
+
+def calibrate_units(tgt: TargetPack, source_x, cfg: PipelineConfig) -> None:
+    """loss_units="density": MEASURE the two legacy/density ratios at the source state
+    (REFUTE F1 2026-09-15: the analytic per-cell constant n*2m/(1+m) was 4-45x off the
+    measured loss ratio and 5-44x off the gradient ratio, and the two ratios differ by
+    1.2-1.3x, so one scalar cannot serve both). unit_ratio converts every fixed weight so
+    the objective's relative weighting equals the legacy one AT THE SOURCE (it drifts
+    along the morph, like the h1 calibration — logged, not assumed away);
+    unit_grad_ratio converts the gradient-magnitude constants."""
+    from ..losses.volumetric import d_vol_density
+    xs = torch.as_tensor(np.ascontiguousarray(source_x, np.float32), device=cfg.device)
+    xg = xs.clone().requires_grad_(True)
+    L_leg = d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
+    g_leg = torch.autograd.grad(L_leg, xg)[0].norm()
+    xg2 = xs.clone().requires_grad_(True)
+    L_den = d_vol_density(xg2, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims,
+                          tgt.m_ref, tgt.n_support)
+    g_den = torch.autograd.grad(L_den, xg2)[0].norm()
+    if float(L_den) <= 0 or float(g_den) <= 0:
+        raise ValueError("density-unit calibration needs a source that differs from the "
+                         "target (zero residual at the source)")
+    tgt.unit_ratio = float(L_leg / L_den)
+    tgt.unit_grad_ratio = float(g_leg / g_den)
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
@@ -154,12 +181,21 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         log(f"[v2] pace_budget={cfg.pace_budget:g} over {cfg.animations} anims -> "
             f"per-window cap {cfg.pace:.4f}")
     tgt = build_target(target_x, prm, cfg)
+    if cfg.loss_units == "density":
+        calibrate_units(tgt, src, cfg)
+        log(f"[v2] density units: D_vol legacy/density = {tgt.unit_ratio:.4g} (weights), "
+            f"gradient ratio = {tgt.unit_grad_ratio:.4g} (eps/target_norm), "
+            f"n_support={tgt.n_support} m_ref={tgt.m_ref:.3g}")
     if cfg.w_jdens > 0:                          # per-particle REST density at the source
         from ..losses.volumetric import density_at
         with torch.no_grad():
             tgt.jd_rho0 = density_at(torch.tensor(src, device=cfg.device), tgt.m,
                                      tgt.jd_gmin, tgt.jd_dx, tgt.jd_dims).detach()
-    balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
+    if cfg.loss_units == "density":              # the absolute cap is a legacy-unit
+        balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, None,   # number:
+                                  cap_rel=20.0)  # relative guard (20x the first ratio)
+    else:
+        balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
     # the local-global pass calibrates λ in ITS OWN variable space (u, joules) — sharing
     # the global balancer both mis-scales the pass and poisons the global EMA
     lg_balancer = LambdaBalancer(cfg.lambda_auto, cfg.lambda_ema, cfg.lambda_cap)
@@ -192,10 +228,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         from .dressing import DressState
         dress = DressState(tgt.gauss, src, surface_w > 0.5, cfg.dress_cap_frac,
                            cfg.device)
-    st = {"F": None, "v": None, "C": None}
+    st = {"F": None, "v": None, "C": None, "Fg": None}
     Fp = _id(N)
     s, dfc_prev = None, None
     frames, F_frames, hist = [x.copy()], [_id(N)], []
+    # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
+    # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
+    # keeps the PHYSICS F for metrics and assimilation)
+    Fg_commits = []
     guards = {"clamped": 0, "nan_x": 0, "nan_state": 0, "F_reset": 0, "F_flip": 0,
               "F_invert_steps": 0}
     # freeze tracks the RAW components (λ-free): physics, render, and W1 tracks. The W1
@@ -219,6 +259,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         f"render={'on(a=%g)' % cfg.lambda_auto if cfg.lambda_auto > 0 else 'OFF'} "
         f"material={'on' if cfg.opt_material else 'off'} assim={cfg.assim} "
         f"w_kin={cfg.w_kin} w_box={cfg.w_box}")
+    if cfg.control_grid > 0 or cfg.control_tknots > 0 or cfg.render_F_geom \
+            or cfg.w_kin_running > 0 or cfg.loss_units != "legacy":
+        log(f"[v2] render-controls-physics contract: control_grid={cfg.control_grid} "
+            f"tknots={cfg.control_tknots} render_F_geom={cfg.render_F_geom} "
+            f"w_kin_running={cfg.w_kin_running} grad_mode="
+            f"{cfg.grad_project_mode if cfg.grad_project else 'off'} "
+            f"gs_cheb={cfg.render_gs_cheb} loss_units={cfg.loss_units}")
 
     for a in range(cfg.animations):
         if frozen:
@@ -234,12 +281,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if (cfg.c2f_at > 0 and cfg.lambda_auto > 0
                 and a == int(cfg.c2f_at * cfg.animations)):
             cfg.render_res = cfg.render_res_hi
-            keep = (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0)
+            keep = (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0, tgt.gauss_scale,
+                    tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio)
             tgt = build_target(target_x, prm, cfg)
-            # one-shot calibrations survive the rebuild (REFUTE 2026-09-04 F1: a fresh
-            # TargetPack has h1_scale=None, so the next window silently RE-calibrated
-            # the H^-1 term at a mid-run state - a hidden weight schedule)
-            tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0 = keep
+            # EVERY one-shot calibration survives the rebuild (REFUTE 2026-09-04 F1: a
+            # fresh TargetPack has h1_scale=None, so the next window silently RE-
+            # calibrated the H^-1 term at a mid-run state - a hidden weight schedule;
+            # REFUTE 2026-09-15 F5: gauss_scale and kde_scale had the same hole, so the
+            # hybrid render weight stepped at the c2f boundary of every gauss arm)
+            (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0, tgt.gauss_scale,
+             tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio) = keep
             best_rend, stale = None, 0              # rescaled track must not inherit a
             outer_scales = outer_prev = prev_disp = None
             outer_gate_latched = False              # render track rescaled: re-earn the latch
@@ -256,12 +307,15 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             "Fp": Fp.copy(), "s": None if s is None else s.copy(),
             "dfc": dfc_prev, "mom": mom_prev, "lam": balancer.lam,
             "frames": len(frames), "F_frames": len(F_frames), "guards": dict(guards),
+            "Fg_commits": len(Fg_commits),
         }
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
             fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev, vol0=vol0,
-            surface_w=surface_w)
+            surface_w=surface_w, Fg0=st.get("Fg"))
+        if a == 0 and stats.get("basis"):
+            log(f"[v2] control basis: {stats['basis']}")
         if cfg.warm_start:
             dfc_prev = stats.get("dfc")
         if not whist:
@@ -305,7 +359,17 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                    + (~np.isfinite(end["C"]).all(axis=(1, 2))).sum())
         v_p = np.nan_to_num(end["v"]).astype(np.float32)
         C_p = np.nan_to_num(end["C"]).astype(np.float32)
-        st = {"F": Fc, "v": v_p, "C": C_p}
+        # geometric F: a pure kinematic product of the (already guarded) C history; a
+        # non-finite row is reset to the physics F and counted with the state guard
+        Fg_p = None
+        if end.get("Fg") is not None:
+            Fg_p = np.ascontiguousarray(end["Fg"], np.float32)
+            bad_g = ~np.isfinite(Fg_p).all(axis=(1, 2))
+            if bad_g.any():
+                Fg_p = Fg_p.copy()
+                Fg_p[bad_g] = Fc[bad_g]
+                n_ns += int(bad_g.sum())
+        st = {"F": Fc, "v": v_p, "C": C_p, "Fg": Fg_p}
         # whole-window F health, not just the endpoint (an inversion mid-window that
         # recovers by T would otherwise be invisible)
         dets = np.stack([np.linalg.det(Fs) for Fs in F_seq[1:]])
@@ -359,6 +423,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # archive the PROMOTED states (identical to raw when no guard fired)
         frames.extend(f.copy() for f in fr[1:-1]); frames.append(x.copy())
         F_frames.extend(F_seq[1:-1]); F_frames.append(Fc.copy())
+        if Fg_p is not None:
+            Fg_commits.append((len(frames), Fg_p.copy()))
 
         w = whist[-1]
         # after a local pass the archived state differs from the window's last iterate —
@@ -425,7 +491,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "render_cos": stats.get("render_cos"), "phys_cos": stats.get("phys_cos"),
                "predicted_decrease": stats.get("predicted_decrease"),
                "fill_lam": stats.get("fill_lam"),
-               "kin": w["kin"], "d_render": w["d_render"], "lambda": w["lambda"],
+               "kin": w["kin"], "kin_run": w.get("kin_run"),
+               "d_render": w["d_render"], "lambda": w["lambda"],
+               "lambda_capped": stats.get("lambda_capped"),
+               "F_kind": "geom" if Fg_p is not None else "physics",
                "dfc_absmax": w["dfc_absmax"], "s_absmax": w["s_absmax"],
                "accepted": stats["accepted"], "rejected": stats["rejected"],
                "v_absmax": float(np.abs(v_p).max()),
@@ -437,8 +506,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "F_reset": n_bad, "F_flip": n_flip, "F_invert_steps": n_inv}
         if tgt.gauss is not None:
             from .gauss_loss import gaussian_shape_diagnostics
-            rec.update(gaussian_shape_diagnostics(
-                torch.as_tensor(Fc, device=cfg.device), tgt.gauss.primitive_sigma,
+            rec.update(gaussian_shape_diagnostics(          # on the RENDERED F (F7)
+                torch.as_tensor(Fc if Fg_p is None else Fg_p, device=cfg.device),
+                tgt.gauss.primitive_sigma,
                 reference_spacing=tgt.nn_spacing if tgt.nn_spacing > 0 else None))
         if lg_tele is not None:
             rec.update(lg_tele)
@@ -447,7 +517,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # render lambda, so it cannot safely decide whether a whole physical state
         # should be committed across windows.  Normalize each raw channel once per
         # target resolution and require monotone progress in that fixed merit.
-        phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"]
+        phys_track = rec["d_vol"] + cfg.w_kin * rec["kin"] / (
+            tgt.unit_ratio if cfg.loss_units == "density" else 1.0)
         # Fixed merit = SHAPE terms only. b7 forensic (gate v2, 450 paced anims):
         # with d_vol + w_kin*kin in the merit, any motion from a settled state
         # raised kin enough for a >5% merit regression, so the brake rejected
@@ -576,6 +647,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 dfc_prev, mom_prev = None, None
                 del frames[rollback["frames"]:]
                 del F_frames[rollback["F_frames"]:]
+                del Fg_commits[rollback["Fg_commits"]:]
                 if dress is not None:
                     dress.truncate(rollback["frames"])
                 guards = rollback["guards"]
@@ -631,7 +703,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             dress.commit_snapshot(len(frames))
         hist.append(rec)
         if on_commit is not None:
-            on_commit(a, x, Fc, v_p, rec)
+            # the viewer renders the GEOMETRIC F when it exists (Sigma = s0^2 Fg Fg^T,
+            # PhysGaussian kinematics); F_frames keeps the physics F for metrics
+            on_commit(a, x, Fc if Fg_p is None else Fg_p, v_p, rec)
 
         # ---- plateau freeze on RAW components (λ-free; stops post-convergence sloshing).
         # `improved` was computed above, against the pre-commit bests; the bests only
@@ -709,5 +783,6 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     return {"truncation": trunc, "deliver_n": deliver_n,   # frames are NEVER dropped
             "dressing": dress.export() if dress is not None else None,
             "frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,
+            "Fg_commits": Fg_commits,
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen,
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None)}

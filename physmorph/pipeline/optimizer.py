@@ -27,14 +27,17 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_w1, deficit_field,
-                                 isolation_gate, kde_assign, nn_band_assign, w1_budget)
+from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_density, d_w1,
+                                 deficit_field, isolation_gate, kde_assign, nn_band_assign,
+                                 w1_budget)
 from ..mpm.constitutive import lame
-from ..mpm.function import RolloutSpec, warp_mpm_full
+from ..mpm.function import RolloutSpec, warp_mpm_ext
 from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig
-from .grid_smooth import smooth_particle_field
+from .control_basis import ControlBasis
+from .grad_combine import combine as combine_grads, pcgrad as _pcgrad_impl
+from .grid_smooth import chebyshev_rho, smooth_particle_field
 from .render_loss import LambdaBalancer, d_pbr, d_render
 
 
@@ -68,6 +71,16 @@ class TargetPack:
     kde_h: float = 0.0                  # particle-scale density term (w_kde>0)
     kde_rho_ref: float = 1.0
     kde_scale: float | None = None      # one-shot equal-norm calibration vs D_vol
+    m_ref: float = 1.0                  # loss_units="density": mean target mass per
+    n_support: int = 1                  #   occupied cell, and the number of such cells
+    unit_ratio: float = 1.0             # loss_units="density": MEASURED at the source,
+                                        #   D_vol(legacy)/D_vol(density) — converts every
+                                        #   fixed weight (REFUTE F1: the analytic per-cell
+                                        #   constant was 4-45x off and one scalar cannot
+                                        #   serve both uses)
+    unit_grad_ratio: float = 1.0        #   |grad D_vol(legacy)|/|grad D_vol(density)| at
+                                        #   the source — converts the gradient-magnitude
+                                        #   constants (Adam eps, target_norm, noise floor)
 
 
 def _norm(gs) -> float:
@@ -85,11 +98,9 @@ def _pcgrad(gp, gr):
     composite is additionally guarded by the line search — the projection alone does NOT
     guarantee composite descent for arbitrary λ (adversarial finding: only for
     |cos| < 0.894 or a λ band)."""
-    dot = sum((a * b).sum() for a, b in zip(gp, gr))
-    if float(dot) >= 0:
-        return gr, False
-    gp2 = sum(a.pow(2).sum() for a in gp).clamp_min(1e-30)
-    return [b - (dot / gp2) * a for a, b in zip(gp, gr)], True
+    # Implementation: grad_combine.pcgrad (the other modes — "phys", "cagrad", "blend" —
+    # live there too, docs/render_controls_physics.md §5).
+    return _pcgrad_impl(gp, gr)
 
 
 def _control_h1(g: torch.Tensor, knn: torch.Tensor, iters: int,
@@ -157,18 +168,57 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
-                    mom_init=None, vol0=None, surface_w=None):
+                    mom_init=None, vol0=None, surface_w=None, Fg0=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
-    (frames, F_seq, end_state, s_out, hist, stats)."""
+    (frames, F_seq, end_state, s_out, hist, stats).
+
+    2026-09-14 (docs/render_controls_physics.md): the control LEAF may live on a coarse
+    basis (cfg.control_grid / control_tknots) — `expand` maps it to the per-particle,
+    per-step field the kernels consume; the render covariance may ride the geometric
+    F_g (cfg.render_F_geom); a running kinetic term (cfg.w_kin_running) reads every
+    step's velocity; grid smoothing may be Chebyshev-accelerated and covers the F
+    covector; the physics/render composite follows cfg.grad_project_mode."""
     dev = cfg.device
     x0 = np.ascontiguousarray(x0, np.float32)
     N, T = x0.shape[0], cfg.T
     lam0, mu0 = lame(cfg.young, cfg.poisson)
     spec = RolloutSpec(x0=x0, m=1.0, lam=lam0, mu=mu0, prm=prm, T=T,
-                       F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0)
+                       F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0)
 
-    dFc = torch.zeros(T, N, 3, 3, device=dev, requires_grad=True)
+    basis = ControlBasis(x0, T, cfg.control_grid, cfg.control_tknots, device=dev)
+    expand = basis.expand                       # leaf -> (T,N,3,3) control field
+    dFc = basis.zeros()                         # the LEAF (per-particle when grid=0)
     leaves = [dFc]
+    use_geom = bool(cfg.render_F_geom)
+    if cfg.control_h1_iters > 0 and not basis.per_particle:
+        # the kNN control preconditioner indexes PARTICLES; the leaf is nodes x knots
+        # (measured: IndexError at the first window). The basis already propagates a
+        # node update to every particle in its support, so the two are exclusive.
+        raise ValueError("control_h1_iters > 0 requires the per-particle control leaf "
+                         "(control_grid=0 and control_tknots in {0, T})")
+    # unit-aware optimizer constants: Adam's eps and the adaptive-alpha target norm are
+    # gradient-magnitude numbers tuned in legacy D_vol units (the C++ oracle scale);
+    # in density units the same Adam trajectory needs them divided by the unit ratio
+    unit_ratio = float(tgt.unit_ratio) if cfg.loss_units == "density" else 1.0
+    unit_grad_ratio = float(tgt.unit_grad_ratio) if cfg.loss_units == "density" else 1.0
+    eps_eff = cfg.eps / unit_grad_ratio
+    target_norm_eff = cfg.target_norm / unit_grad_ratio
+    # every FIXED weight that is added to D_vol is a legacy-unit number: in density mode
+    # it is converted by the same ratio, so the objective's relative weighting at the
+    # calibration cell is unchanged (the calibrated terms h1/jdens/kde follow dvol()
+    # automatically). Measured without this: the kinetic penalty out-weighed the
+    # rescaled D_vol 50:1 and no line-search step was accepted.
+    wu = 1.0 / unit_ratio
+    # (the line-search noise floor's absolute "1.0" and the replay tolerance are
+    # rescaled the same way below)
+
+    def dvol(xT):
+        if cfg.loss_units == "density":
+            return d_vol_density(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims,
+                                 tgt.m_ref, tgt.n_support)
+        if cfg.loss_units != "legacy":
+            raise ValueError(f"unknown loss_units {cfg.loss_units!r}")
+        return d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
     s = None
     if cfg.opt_material:
         s0 = np.zeros((2, N), np.float32) if s_init is None else np.asarray(s_init, np.float32)
@@ -190,7 +240,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # control-field spatial regularisation: frozen kNN topology at window start; the
     # penalty lives purely in control space (no rollout needed for its gradient)
     knn_t = None
-    if cfg.w_creg > 0 or cfg.control_h1_iters > 0:
+    if cfg.w_creg > 0 or cfg.control_h1_iters > 0:   # (creg penalty below is gated on w_creg)
         from scipy.spatial import cKDTree
         knn = cKDTree(x0).query(x0, k=cfg.creg_k + 1)[1][:, 1:]
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
@@ -219,8 +269,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # has a gradient (v5: calibrating at the source, where J == 1 and the sKL
         # gradient vanishes, produced an astronomical scale and froze the run at a9)
         xg = x0_t.detach().clone().requires_grad_(True)
-        gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
-                                       tgt.ldims), xg)[0].norm()
+        gv = torch.autograd.grad(dvol(xg), xg)[0].norm()
         gj = torch.autograd.grad(d_jdens(xg, tgt.m, tgt.jd_rho0, tgt.jd_gmin, tgt.jd_dx,
                                          tgt.jd_dims), xg)[0].norm()
         if float(gj) > 1e-4 * float(gv):
@@ -239,8 +288,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # equal-norm scale drifted x5 over a synthetic morph, so parity holds only at
         # the source - the drift is measured per window, not assumed away).
         xg = x0_t.detach().clone().requires_grad_(True)
-        gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
-                                       tgt.ldims), xg)[0].norm()
+        gv = torch.autograd.grad(dvol(xg), xg)[0].norm()
         gh = torch.autograd.grad(d_h1(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
                                       tgt.ldims), xg)[0].norm()
         if tgt.h1_scale is None:
@@ -253,8 +301,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         kde_nbr = kde_assign(x0_t, tgt.pts, cfg.kde_k)
         if tgt.kde_scale is None:            # one-shot equal-norm calibration vs D_vol
             xg = x0_t.detach().clone().requires_grad_(True)
-            gv = torch.autograd.grad(d_vol(xg, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx,
-                                           tgt.ldims), xg)[0].norm()
+            gv = torch.autograd.grad(dvol(xg), xg)[0].norm()
             gk = torch.autograd.grad(d_kde(xg, tgt.pts, kde_nbr,
                                            tgt.kde_h, tgt.kde_rho_ref), xg)[0].norm()
             tgt.kde_scale = float(gv / gk.clamp_min(1e-30))
@@ -289,21 +336,24 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # The channels are therefore logged separately and every gate consumes the pure
     # silhouette d_sil only.
 
-    def losses_of(xT, FT, vT):
-        lv = d_vol(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
+    def losses_of(xT, FT, vT, FgT=None):
+        """FgT: geometric deformation (render kinematics). With cfg.render_F_geom the
+        Gaussian covariance rides it instead of the controlled, smoothed FT."""
+        lv = dvol(xT)
         lk = vT.pow(2).sum(1).mean()
         lr = lpbr = None
+        FR = FgT if (use_geom and FgT is not None) else FT
         sil_gauss["sil"] = sil_gauss["gauss"] = None
         if balancer.active and tgt.gauss is not None and not cfg.gauss_in_objective:
             # gauss for dressing/telemetry only: log d_gauss no-grad, then fall
             # through to the plain silhouette channel below
             with torch.no_grad():
                 sil_gauss["gauss"] = float(tgt.gauss.loss(
-                    xT.detach(), FT.detach() if cfg.gauss_covariance else None,
+                    xT.detach(), FR.detach() if cfg.gauss_covariance else None,
                     mask=gauss_mask_t))
         if balancer.active and tgt.gauss is not None and cfg.gauss_in_objective:
             gauss_mask = gauss_mask_t
-            lg_ = tgt.gauss.loss(xT, FT if cfg.gauss_covariance else None,
+            lg_ = tgt.gauss.loss(xT, FR if cfg.gauss_covariance else None,
                                  mask=gauss_mask)
             sil_gauss["gauss"] = float(lg_.detach())
             if cfg.gauss_mix > 0:                 # hybrid: silhouette keeps fine geometry
@@ -331,14 +381,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 lr = lsil + cfg.w_pbr * lpbr
         return lv, lk, lr, lpbr
 
-    def terms(dfc):
-        """Differentiable path: torch Function + wp.Tape (gradient phase only)."""
+    def terms(leaf):
+        """Differentiable path: torch Function + wp.Tape (gradient phase only).
+        Returns (state=(xT,FT,vT), lv, lk, lr, lpbr, extra) with extra = {"dfc": the
+        expanded control field, "Fg": F_g^T, "V": all velocities, "lk_run": running
+        kinetic}."""
         lam_t, mu_t = material()
-        xT, FT, vT = warp_mpm_full(dfc, spec, lam_t, mu_t)
-        lv, lk, lr, lpbr = losses_of(xT, FT, vT)
-        return (xT, FT, vT), lv, lk, lr, lpbr
+        dfc = expand(leaf)
+        xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t)
+        lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
+        extra = {"dfc": dfc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean()}
+        return (xT, FT, vT), lv, lk, lr, lpbr, extra
 
-    def eval_terms(dfc):
+    def eval_terms(leaf):
         """No-grad path for line-search candidates: plain rollout, NO tape, NO adjoint
         buffers — the graph path allocates ~2x memory and tape bookkeeping that a
         candidate evaluation (up to max_ls_iters per iteration) never uses."""
@@ -346,15 +401,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             lam_t, mu_t = material()
             lam_e = lam_t.detach().cpu().numpy() if lam_t is not None else lam0
             mu_e = mu_t.detach().cpu().numpy() if mu_t is not None else mu0
-            dc = dfc.detach().contiguous()
+            dc = expand(leaf.detach()).detach().contiguous()
             seq = [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33) for t in range(T)]
             tr = Trajectory(x0, 1.0, lam_e, mu_e, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
-                            dFc=seq, device=dev, requires_grad=False, vol0=vol0)
+                            dFc=seq, device=dev, requires_grad=False, vol0=vol0,
+                            Fg0=Fg0, track_geom=use_geom)
             tr.rollout()
             xT = wp.to_torch(tr.x[T])
             FT = wp.to_torch(tr.F[T]).reshape(N, 9)
             vT = wp.to_torch(tr.v[T])
-            lv, lk, lr, lpbr = losses_of(xT, FT, vT)
+            FgT = wp.to_torch(tr.Fg[T]).reshape(N, 9) if use_geom else None
+            V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
+            lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
+            extra = {"dfc": dc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean()}
             # whole-trajectory orientation check for _state_ok. Stack-review fixes:
             # f1 — the stored F is SMOOTHED, so a constitutive inversion in the
             # EFFECTIVE deformation (F+dFc, whose det sign equals det(F_e) since
@@ -366,20 +425,26 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                  for t in range(T)])
             j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
             jt = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
-        return (xT, FT, vT, jt), lv, lk, lr, lpbr
+        return (xT, FT, vT, jt), lv, lk, lr, lpbr, extra
 
-    def phys_core(lv, lk, dfc, xT, fT=None):
+    def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None):
         """Physics objective WITHOUT the W1 term — the lambda balancer's numerator and
         PCGrad's reference direction (Codex finding 9: folding the W1 term into gp let
         w_dt inflate the balanced silhouette weight and project render components off a
         direction that was never 'the physics')."""
-        L = lv + cfg.w_kin * lk + cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
+        L = lv + wu * cfg.w_kin * lk + wu * cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
+        if cfg.w_kin_running > 0 and lk_run is not None:
+            # RUNNING kinetic (docs/oscillation_triage.md driver C): penalise motion at
+            # every step, not only the endpoint, so a window cannot sprint-then-brake
+            L = L + wu * cfg.w_kin_running * lk_run
         if cfg.w_tctrl > 0 and T > 1:
-            L = L + cfg.w_tctrl * (dfc[1:] - dfc[:-1]).pow(2).mean()
+            L = L + wu * cfg.w_tctrl * (dfc[1:] - dfc[:-1]).pow(2).mean()
         if cfg.w_box > 0:      # far-field leash: differentiable everywhere, zero inside box
-            L = L + cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
-        if knn_t is not None:  # control smoothness: a lone particle cannot be actuated
-            L = L + cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
+            L = L + wu * cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
+        if knn_t is not None and cfg.w_creg > 0:  # control smoothness: a lone particle
+            # cannot be actuated (REFUTE F9: the (T,N,k,9) gather was built and multiplied
+            # by zero when only control_h1 needed the neighbour list)
+            L = L + wu * cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
         if cfg.w_h1 > 0 and tgt.h1_scale is not None:
             # non-local mass balance (REVISION 3 amendment): H^-1 norm of the density
             # residual, self-energy corrected. INSIDE phys_core: it is a data term on
@@ -401,17 +466,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # sKL volume prior (J-1)·log J (F5 verdict): counters the permanent
             # volumetric spring + control-injected drift; soft barrier as J->0+
             J = torch.linalg.det(fT.view(-1, 3, 3))
-            L = L + cfg.w_jvol * ((J - 1.0) * torch.log(J.clamp_min(1e-6))).mean()
-        if cfg.w_cov > 0 and fT is not None:
+            L = L + wu * cfg.w_jvol * ((J - 1.0) * torch.log(J.clamp_min(1e-6))).mean()
+        fV = fR if fR is not None else fT            # the F the viewer renders (F_g
+        if cfg.w_cov > 0 and fV is not None:          # under render_F_geom; REFUTE F7)
             # The viewer renders Sigma=sigma0^2 F F^T.  Penalise only excessive
             # anisotropy/scale; rotations remain free and normal elastic motion inside
             # the band is untouched.
-            sv = torch.linalg.svdvals(fT.view(-1, 3, 3)).clamp_min(1e-6)
+            sv = torch.linalg.svdvals(fV.view(-1, 3, 3)).clamp_min(1e-6)
             lo = torch.relu(torch.log(cfg.cov_smin / sv))
             hi = torch.relu(torch.log(sv / cfg.cov_smax))
-            L = L + cfg.w_cov * (lo.square() + hi.square()).mean()
+            L = L + wu * cfg.w_cov * (lo.square() + hi.square()).mean()
         if s is not None:
-            L = L + cfg.w_mat * s.pow(2).mean()
+            L = L + wu * cfg.w_mat * s.pow(2).mean()
         return L
 
     def dt_term(xT):
@@ -421,9 +487,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         it carries its own norm-balanced weight (fill v3)."""
         L = None
         if tgt.dt3 is not None:
-            L = cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+            L = wu * cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
         if nn_idx is not None:
-            Ln = cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
+            Ln = wu * cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
                                       cfg.nn_berth_k * tgt.nn_spacing)
             L = Ln if L is None else L + Ln
         if kde_nbr is not None:
@@ -433,7 +499,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L
 
     fill_on = fill_pairs is not None
-    fill_lam = cfg.w_fill if fill_on else 0.0     # v4: FIXED weight — dominance is
+    fill_lam = wu * cfg.w_fill if fill_on else 0.0     # v4: FIXED weight — dominance is
     # bounded by the capacity-limited MATCHING (<= fill_cap_frac*N pairs), not by a
     # scalar that dies with the physics gradient (the v3 failure)
 
@@ -441,8 +507,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         from ..losses.volumetric import d_fill_pairs
         return d_fill_pairs(xT, fill_pairs[0], fill_pairs[1], 0.5 * tgt.dtdx)
 
-    def phys_total(lv, lk, dfc, xT, fT=None):
-        L = phys_core(lv, lk, dfc, xT, fT)
+    def phys_total(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None):
+        L = phys_core(lv, lk, dfc, xT, fT, lk_run, fR)
         ldt = dt_term(xT)
         if ldt is not None:
             L = L + ldt
@@ -450,16 +516,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + fill_lam * fill_raw(xT)
         return L
 
-    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None):
+    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None, lk_run=None, fR=None):
         with torch.no_grad():    # scalar only — never build a second autograd graph
             L = float(phys_total(lv, lk, dfc.detach(), xT.detach(),
-                                 fT.detach() if fT is not None else None))
+                                 fT.detach() if fT is not None else None,
+                                 lk_run.detach() if lk_run is not None else None,
+                                 fR.detach() if fR is not None else None))
         return L if lr is None else L + lam_r * float(lr.detach())
 
     hist, accepted, rejected = [], 0, 0
     pace_bound = False               # window exited via the pace floor (on schedule)
     lk_start = None                  # kinetic term at window start (quasi-static rule)
     g_cos = g_raw_cos = g_share = g_phys_norm = g_rend_norm = None
+    lam_capped = None                # REFUTE F12: read at the update, not at window end
     render_work = render_work_x = render_work_F = None
     phys_work = phys_work_x = phys_work_F = phys_work_v = None
     step_norm = predicted_decrease = None
@@ -472,16 +541,20 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # finite, orientation-preserving state and (b) actually beats the zero start. dFc is an
     # absolute control — verbatim reuse double-applies it (measured cascade to inversion).
     if dfc_init is not None and cfg.warm_decay > 0:
-        st0, lv0, lk0, lr0, _ = eval_terms(dFc)
+        st0, lv0, lk0, lr0, _, ex0 = eval_terms(dFc)
         # stack-review f5: an INVALID cold baseline must not be the comparator — its
         # position-only loss can be artificially low and block every valid warm start
-        E0 = (scalars(lv0, lk0, lr0, lam_r, dFc, st0[0], st0[1])
+        E0 = (scalars(lv0, lk0, lr0, lam_r, ex0["dfc"], st0[0], st0[1], ex0["lk_run"],
+                      ex0["Fg"])
               if _state_ok(st0) else np.inf)
         with torch.no_grad():
-            dFc.copy_(torch.tensor(np.ascontiguousarray(dfc_init, np.float32),
-                                   device=dev) * cfg.warm_decay)
-        stw, lvw, lkw, lrw, _ = eval_terms(dFc)
-        Ew = scalars(lvw, lkw, lrw, lam_r, dFc, stw[0], stw[1])
+            init = torch.tensor(np.ascontiguousarray(dfc_init, np.float32), device=dev)
+            # the previous window's EXPANDED field is restricted onto THIS window's basis
+            # (the node grid follows the window start positions)
+            dFc.copy_((init if basis.per_particle else basis.project(init)) * cfg.warm_decay)
+        stw, lvw, lkw, lrw, _, exw = eval_terms(dFc)
+        Ew = scalars(lvw, lkw, lrw, lam_r, exw["dfc"], stw[0], stw[1], exw["lk_run"],
+                     exw["Fg"])
         if not (_state_ok(stw) and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
                 dFc.zero_()                          # stale controls: fall back to cold start
@@ -498,20 +571,23 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # floor of the commit-rollout tolerance: a rule from a measurement, not a knob.
     replay_rel = 0.0
     if cfg.replay_calibrate:
-        stA, lvA, lkA, lrA, _ = eval_terms(dFc)
-        stB, lvB, lkB, lrB, _ = eval_terms(dFc)
-        EA = scalars(lvA, lkA, lrA, lam_r, dFc, stA[0], stA[1])
-        EB = scalars(lvB, lkB, lrB, lam_r, dFc, stB[0], stB[1])
+        stA, lvA, lkA, lrA, _, exA = eval_terms(dFc)
+        stB, lvB, lkB, lrB, _, exB = eval_terms(dFc)
+        EA = scalars(lvA, lkA, lrA, lam_r, exA["dfc"], stA[0], stA[1], exA["lk_run"], exA["Fg"])
+        EB = scalars(lvB, lkB, lrB, lam_r, exB["dfc"], stB[0], stB[1], exB["lk_run"], exB["Fg"])
         if np.isfinite(EA) and np.isfinite(EB):
             replay_rel = abs(EA - EB) / max(abs(EA), 1.0)
 
     for it in range(cfg.iters):
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
-        state, lv, lk, lr, lpbr = terms(dFc)
+        state, lv, lk, lr, lpbr, extra = terms(dFc)
+        dfc_x = extra["dfc"]                           # expanded control field (graph)
+        render_F = extra["Fg"] if use_geom else state[1]  # what the image differentiates
         if lk_start is None:
             lk_start = float(lk.detach())
-        Lp_core = phys_core(lv, lk, dFc, state[0], state[1])
+        Lp_core = phys_core(lv, lk, dfc_x, state[0], state[1], extra["lk_run"],
+                            extra["Fg"] if use_geom else None)
         Lfill = fill_raw(state[0]) if fill_on else None
         smooth = balancer.active and cfg.render_gs_iters > 0
         special_render = smooth or surface_w_t is not None or cfg.control_h1_iters > 0
@@ -530,7 +606,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 Lp_diag, state, retain_graph=True, allow_unused=True)
             if lr is not None:
                 gx_rend_diag, gF_rend_diag = torch.autograd.grad(
-                    lr, (state[0], state[1]), retain_graph=True, allow_unused=True)
+                    lr, (state[0], render_F), retain_graph=True, allow_unused=True)
                 if surface_w_t is not None:
                     gx_rend_diag = gx_rend_diag * surface_w_t
                     if gF_rend_diag is not None:
@@ -543,20 +619,32 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             if smooth:
                 # v3 grid-GS preconditioning: smooth the IMAGE-SPACE pull on the grid,
                 # then pull the smoothed direction back through the SAME MPM adjoint
-                # (seeded backward) — physics-exact, docs/method.md §6.
-                gx = torch.autograd.grad(lr, state[0], retain_graph=True)[0]
-                if surface_w_t is not None:
-                    gx = gx * surface_w_t
-                gxs = smooth_particle_field(state[0].detach(), gx, tgt.lgmin, tgt.ldx,
-                                             tgt.ldims, cfg.render_gs_iters,
-                                             cfg.render_gs_kappa)
-                gr = torch.autograd.grad(state[0], leaves, grad_outputs=gxs)
-            elif surface_w_t is not None:
-                gx, gF = torch.autograd.grad(lr, (state[0], state[1]), retain_graph=True,
+                # (seeded backward) — physics-exact, docs/method.md §6. BOTH covectors
+                # (x AND F: the audit found the F part was dropped here) are smoothed
+                # with the same operator; Chebyshev acceleration is optional (§6).
+                gx, gF = torch.autograd.grad(lr, (state[0], render_F), retain_graph=True,
                                              allow_unused=True)
                 if gF is None:
-                    gF = torch.zeros_like(state[1])
-                gr = torch.autograd.grad((state[0], state[1]), leaves,
+                    gF = torch.zeros_like(render_F)
+                if surface_w_t is not None:
+                    gx = gx * surface_w_t
+                    gF = gF * surface_w_t.repeat(1, 9)
+                rho = chebyshev_rho(cfg.render_gs_kappa) if cfg.render_gs_cheb else 0.0
+                both = smooth_particle_field(state[0].detach(), torch.cat([gx, gF], 1),
+                                             tgt.lgmin, tgt.ldx, tgt.ldims,
+                                             cfg.render_gs_iters, cfg.render_gs_kappa,
+                                             cheb_rho=rho, rescale=False)
+                gxs, gFs = both[:, :3], both[:, 3:]
+                gxs = gxs * (gx.norm() / gxs.norm().clamp_min(1e-30))   # per-channel
+                gFs = gFs * (gF.norm() / gFs.norm().clamp_min(1e-30))   # norm preserved
+                gr = torch.autograd.grad((state[0], render_F), leaves,
+                                         grad_outputs=(gxs, gFs))
+            elif surface_w_t is not None:
+                gx, gF = torch.autograd.grad(lr, (state[0], render_F), retain_graph=True,
+                                             allow_unused=True)
+                if gF is None:
+                    gF = torch.zeros_like(render_F)
+                gr = torch.autograd.grad((state[0], render_F), leaves,
                                          grad_outputs=(gx * surface_w_t,
                                                        gF * surface_w_t.repeat(1, 9)))
             else:
@@ -568,13 +656,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             gr_raw = [r.detach().clone() for r in gr]
             np_raw, nr_raw = _norm(gp), _norm(gr_raw)
             dot_raw = float(sum((a * b).sum() for a, b in zip(gp, gr_raw)))
-            if cfg.grad_project:
-                gr, _conf = _pcgrad(gp, gr)
+            mode = cfg.grad_project_mode if cfg.grad_project else "off"
+            if mode == "render":                      # legacy one-sided PCGrad: the
+                gr, _conf = _pcgrad(gp, gr)           # balancer sees the PROJECTED grad
             if it == 0:
                 # λ from the PROJECTED render grad — estimating it from the raw one and
                 # then projecting silently de-weighted the channel by ~33% at cos=-0.74
                 # (adversarial finding), breaking the balancer contract.
                 lam_r = balancer.update(_norm(gp), _norm(gr))
+                lam_capped = int(bool(getattr(balancer, "capped", False)))
                 # render-influence telemetry (standing request): how much does the
                 # render channel actually steer the update this window?
                 np_, nr_ = _norm(gp), _norm(gr)
@@ -583,7 +673,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 g_raw_cos = dot_raw / max(np_raw * nr_raw, 1e-30)
                 g_share = lam_r * nr_ / max(np_ + lam_r * nr_, 1e-30)
                 g_phys_norm, g_rend_norm = np_, nr_
-            g = [a + lam_r * b for a, b in zip(gp, gr)]
+            if mode in ("off", "render"):
+                g = [a + lam_r * b for a, b in zip(gp, gr)]
+            else:                    # "phys" / "cagrad" / "blend": grad_combine.combine
+                g, _info = combine_grads(mode, gp, gr, lam_r, cfg.cagrad_c,
+                                         blend_beta=balancer.alpha_lam)
             if gdt is not None:      # W1 joins the composite AFTER lambda/PCGrad (find. 9)
                 g = [gi + di for gi, di in zip(g, gdt)]
         elif balancer.active:
@@ -592,7 +686,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         else:
             total = Lp_core if Ldt is None else Lp_core + Ldt
             g = list(torch.autograd.grad(total, leaves))
-        cur = scalars(lv, lk, lr, lam_r, dFc, state[0], state[1])
+        cur = scalars(lv, lk, lr, lam_r, dfc_x, state[0], state[1], extra["lk_run"],
+                      extra["Fg"] if use_geom else None)
         if not np.isfinite(cur):
             log(f"[win] iter {it}: non-finite loss, aborting window")
             break
@@ -609,7 +704,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # ---- adaptive alpha (C++) ----
         a_try = alpha
         if cfg.adaptive_alpha:
-            a_try *= max(cfg.min_alpha_scale, min(1.0, cfg.target_norm / max(gn, 1e-6)))
+            a_try *= max(cfg.min_alpha_scale, min(1.0, target_norm_eff / max(gn, 1e-30)))
 
         # ---- backtracking line search over the Adam step ----
         bak = [p.detach().clone() for p in leaves]
@@ -632,15 +727,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     v_.mul_(cfg.beta2).addcmul_(gi, gi, value=1 - cfg.beta2)
                     mh = m_ / (1 - cfg.beta1 ** t_)
                     vh = v_ / (1 - cfg.beta2 ** t_)
-                    p -= (a_try * sc) * mh / (vh.sqrt() + cfg.eps)
+                    p -= (a_try * sc) * mh / (vh.sqrt() + eps_eff)
                 if cfg.dfc_clip > 0:
                     n = dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
                     dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
                 if s is not None:
                     s.clamp_(-cfg.mat_clamp, cfg.mat_clamp)
-            state_n, lv_n, lk_n, lr_n, lpbr_n = eval_terms(dFc)
+            state_n, lv_n, lk_n, lr_n, lpbr_n, extra_n = eval_terms(dFc)
             with torch.no_grad():
-                new = scalars(lv_n, lk_n, lr_n, lam_r, dFc, state_n[0], state_n[1])
+                new = scalars(lv_n, lk_n, lr_n, lam_r, extra_n["dfc"], state_n[0],
+                              state_n[1], extra_n["lk_run"], extra_n["Fg"])
                 predicted_decrease = -float(sum((gi.detach() * (p - b)).sum()
                                                 for gi, p, b in zip(g, leaves, bak)))
                 # The Armijo slope is only meaningful when the model predicts descent.
@@ -650,7 +746,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # first windows after every plateau commit (observed: null commits
                 # at anim 12/18 in final_hires20k_child4). Fall back to the
                 # noise-floor sufficient decrease instead.
-                noise_floor = cfg.ls_noise_rel * max(abs(cur), 1.0)
+                noise_floor = cfg.ls_noise_rel * max(abs(cur), 1.0 / unit_ratio)  # loss units
                 required = (max(cfg.armijo_c1 * predicted_decrease, noise_floor)
                             if predicted_decrease > 0.0 else noise_floor)
             # acceptance requires a FINITE, ORIENTATION-PRESERVING state: NaN particles
@@ -673,6 +769,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             a_try *= 0.5
         if not step_ok:
             rejected += 1
+            log(f"[win] iter {it}: line search exhausted (cur={cur:.6g} last_new={new:.6g} "
+                f"required={required:.3g} pred={predicted_decrease:.3g} ||g||={gn:.3g} "
+                f"a_try={a_try:.3g} state_ok={_state_ok(state_n)}; last-attempt deltas "
+                f"d_vol={float(lv_n - lv):.3g} kin={float(lk_n - lk):.3g} "
+                f"render={(float(lr_n - lr) if lr is not None else 0.0):.3g} "
+                f"lam={lam_r:.3g})")
             alpha *= 0.5
             if alpha < 1e-8:
                 log("[win] alpha underflow, stopping window")
@@ -699,9 +801,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 render_cos = None
             step_norm = float((dFc.detach() - bak[0]).norm())
         if on_iter is not None:                      # live viewer: stream the window's
-            on_iter(it, state_n[0].detach().cpu().numpy().astype(np.float32),  # optimisation
-                     state_n[1].detach().reshape(N, 3, 3).cpu().numpy().astype(np.float32),
+            F_view = extra_n["Fg"] if use_geom else state_n[1]     # REFUTE F8: same F
+            on_iter(it, state_n[0].detach().cpu().numpy().astype(np.float32),  # as on_commit
+                     F_view.detach().reshape(N, 3, 3).cpu().numpy().astype(np.float32),
                      {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
+                      "kin_run": float(extra_n["lk_run"]),
                       "d_render": float(lr_n) if lr_n is not None else None,
                       "lambda": lam_r if balancer.active else None, "grad_norm": gn,
                       "g_raw_cos": g_raw_cos, "g_cos": g_cos, "g_share": g_share,
@@ -719,6 +823,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # scalar; the shading channel is logged separately (they were conflated before).
         hist.append({"iter": it, "loss": new,
                      "d_vol": float(lv_n), "kin": float(lk_n),
+                     "kin_run": float(extra_n["lk_run"]),
                      "d_sil": sil_gauss["sil"], "d_gauss": sil_gauss["gauss"],
                      "d_render": (float(lr_n) - cfg.w_pbr * float(lpbr_n)
                                   if lpbr_n is not None else
@@ -733,7 +838,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        "phys_work_v": phys_work_v,
                       "step_norm": step_norm,
                      "render_cos": render_cos, "phys_cos": phys_cos,
-                     "dfc_absmax": float(dFc.detach().abs().max()),
+                     "dfc_absmax": float(extra_n["dfc"].abs().max()),
                      "s_absmax": float(s.detach().abs().max()) if s is not None else None})
         # pacing: budget reached (within one halving) — this window's share is done.
         # QUASI-STATIC commit rule (b8 forensic): a paced window that exits on its
@@ -754,10 +859,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         lam_t, mu_t = material()
         lam_np = lam_t.detach().cpu().numpy() if lam_t is not None else lam0
         mu_np = mu_t.detach().cpu().numpy() if mu_t is not None else mu0
-        dc = dFc.detach().contiguous()
+        dc = expand(dFc.detach()).detach().contiguous()
         seq = [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33) for t in range(T)]
         tr = Trajectory(x0, 1.0, lam_np, mu_np, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
-                        dFc=seq, device=dev, requires_grad=False, vol0=vol0)
+                        dFc=seq, device=dev, requires_grad=False, vol0=vol0,
+                        Fg0=Fg0, track_geom=use_geom)
         tr.rollout()
         # stack-review f2: this rollout — not the accepted candidate — is what gets
         # COMMITTED, and CUDA atomics make replay non-bit-identical: validate it with
@@ -771,10 +877,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         x_final = wp.to_torch(tr.x[T])
         F_final = wp.to_torch(tr.F[T]).reshape(N, 9)
         v_final = wp.to_torch(tr.v[T])
-        lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final)
-        E_final = scalars(lv_f, lk_f, lr_f, lam_r, dFc, x_final, F_final)
+        Fg_final = wp.to_torch(tr.Fg[T]).reshape(N, 9) if use_geom else None
+        V_final = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
+        lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final, Fg_final)
+        E_final = scalars(lv_f, lk_f, lr_f, lam_r, dc, x_final, F_final,
+                          V_final.pow(2).sum(2).mean(), Fg_final)
         E_accept = hist[-1]["loss"] if hist else None
-        replay_tol = max(cfg.ls_noise_rel, 10.0 * replay_rel) * max(abs(E_accept or 0.0), 1.0)
+        replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
+                      * max(abs(E_accept or 0.0), 1.0 / unit_ratio))
         replay_bad = E_accept is not None and E_final > E_accept + replay_tol
         if ((not np.isfinite(jt_final) or jt_final <= 1e-4 or replay_bad)
                 and accepted > 0):
@@ -784,7 +894,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         frames = [tr.x[t].numpy().copy() for t in range(T + 1)]
         F_seq = [tr.F[t].numpy().copy() for t in range(T + 1)]
         end = {"F": tr.F[T].numpy().copy(), "v": tr.v[T].numpy().copy(),
-               "C": tr.C[T].numpy().copy()}
+               "C": tr.C[T].numpy().copy(),
+               "Fg": tr.Fg[T].numpy().copy() if use_geom else None}
     s_out = s.detach().cpu().numpy() if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
@@ -801,5 +912,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "step_norm": step_norm, "predicted_decrease": predicted_decrease,
               "render_cos": render_cos, "phys_cos": phys_cos,
              "fill_lam": fill_lam if fill_on else None,
+             "basis": basis.describe(),
+             "lambda_capped": lam_capped,
              "dfc": dc.cpu().numpy() if cfg.warm_start else None}
     return frames, F_seq, end, s_out, hist, stats

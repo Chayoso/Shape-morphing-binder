@@ -34,15 +34,19 @@ The quasi-static VBD family is retired to `deprecated/`.
 
 ```
 physmorph/
-  mpm/        MLS-MPM engine (warp kernels, tape trajectory, torch bridge, F repair)
-  pipeline/   config / render_loss / grid_smooth / optimizer / runner / runner_vbd
+  mpm/        MLS-MPM engine (warp kernels, tape trajectory, torch bridge, F repair,
+              geometric F_g, discretisation contract)
+  pipeline/   config / render_loss / grid_smooth (Chebyshev) / control_basis /
+              grad_combine / optimizer / runner
   vbd/        quasi-static grid block-descent solver (torch)
   plasticity/ assimilate_elastic (exact stretch relaxation)
   losses/     d_vol (eq 13), soft silhouette primitives (eq 14)
   metrics.py  loss-independent gate metrics
-  render/ sampling/ viewer/   3DGS raster + covariance, mesh sampling, PLY export
-scripts/      pipeline_run (arms+gates), grad_analysis, probe_gs_differentiability,
-              quicklook, make_gif
+  render/ sampling/ viewer/   3DGS raster + covariance, mesh sampling, PLY export,
+              file-backed live sink (filehub) + live/quad/compare pages
+scripts/      pipeline_run (arms+gates), viewer_serve / viewer_tunnel (persistent
+              monitor), probes/oscillation_triage, grad_analysis,
+              probe_gs_differentiability, quicklook, make_gif
 tests/        42 CPU/warp-CPU tests incl. end-to-end smokes of BOTH families
 legacy/       the C++ oracle (Xu et al. DiffMPMLib3D) — untouched reference
 ```
@@ -57,3 +61,15 @@ REFUTE mode) before anything ships; every reported number carries its discretisa
 Problem dossiers (2026-09-02): `docs/floaters.md` (floating gaussians —
 four populations, mechanism history, papers, v1-vs-v2), `docs/oscillation.md`
 (near-optimum unrest — four drivers closed, v1 global damping vs v2 cause removal).
+
+**2026-09-14 — the render-controls-physics contract** ([render_controls_physics.md](render_controls_physics.md)):
+the answer to the ten-question pass (gradient gap, holes, grid dependence, conflict,
+viewer, VBD/Chebyshev, PhysGaussian/PhysDreamer, C++ parity, oscillation, 2022–2026
+literature). New, all opt-in: control on a coarse node basis (`pipeline/control_basis.py`),
+render covariance on the geometric F_g (`mpm/kernels.k_geom_update`, `function.warp_mpm_ext`),
+running kinetic term, Chebyshev-accelerated grid propagation of BOTH render covectors,
+gradient-combination modes (`pipeline/grad_combine.py`), density loss units, the
+discretisation contract (`mpm/discretisation.py`, `--ppc`), arms `render_ctrl*`.
+Companions: [viewer.md](viewer.md) (persistent multi-run monitor + tunnel keeper),
+[oscillation_triage.md](oscillation_triage.md) (driver classification probe). The hyde06
+ladder (§10 there) has not run yet.

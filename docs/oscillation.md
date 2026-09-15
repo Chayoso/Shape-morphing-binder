@@ -225,3 +225,17 @@ ear stratum p99 is 0.8 px. Splats are ~1 sp wide, so the excursions are sub-spla
 coherent surface wander would appear as a stratum-level p99, which it does not. The pooled
 per-commit "0.0%" was a one-decimal display: the exact count of particle-commits above
 0.5 sp in the 40-commit tail is 0 of 1.6M.
+
+
+## Addendum 8 — in-simulation vibration: triage before mechanism (2026-09-14)
+
+The dossier above closed the OPTIMIZER-side tail zigzag (sub-spacing). The user's
+2026-09-14 report of "vibration during the simulation" is a different observation
+(within-window motion) and gets a measurement first: `scripts/probes/oscillation_triage.py`
+(`docs/oscillation_triage.md`) classifies a run archive into volume (J breathing),
+stiffness (elastic ringing at 2L/c, CFL) or control (window stop-and-go from the
+per-window terminal-rest objective) drivers with pre-registered rules. The candidate
+mechanism fixes already exist in the code — `w_jvol` + isochoric assimilation (A), the
+discretisation contract's CFL/elastic-period report (B), the running kinetic term
+`w_kin_running` and time knots `control_tknots` (C) — and none is adopted for this
+complaint until the probe has run on a real hyde06 archive.

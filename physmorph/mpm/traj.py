@@ -43,7 +43,8 @@ def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda") -> np.ndarray:
 class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
-                 device="cuda", requires_grad=True, mat_grad=False, vol0=None):
+                 device="cuda", requires_grad=True, mat_grad=False, vol0=None,
+                 Fg0=None, track_geom=False):
         x0 = np.ascontiguousarray(x0, np.float32)
         N = x0.shape[0]
         self.N, self.T, self.prm, self.device = N, T, prm, device
@@ -107,6 +108,17 @@ class Trajectory:
                   for t in range(T + 1)]
         self.F = [A(F0a if t == 0 else _id(N), wp.mat33, rg) for t in range(T + 1)]
         self.Fraw = [A(_id(N), wp.mat33, rg) for t in range(T + 1)]
+        # GEOMETRIC deformation gradient (render kinematics; kernels.k_geom_update):
+        # transported by the velocity gradient only, no control, no smoothing. Optional
+        # so the physics-only paths pay nothing for it.
+        self.track_geom = bool(track_geom)
+        if self.track_geom:
+            Fg0a = _id(N) if Fg0 is None else np.ascontiguousarray(Fg0, np.float32)
+            if Fg0a.shape != (N, 3, 3):
+                raise ValueError(f"Fg0 must have shape ({N},3,3), got {Fg0a.shape}")
+            self.Fg = [A(Fg0a if t == 0 else _id(N), wp.mat33, rg) for t in range(T + 1)]
+        else:
+            self.Fg = None
         self.P = [A(np.zeros((N, 3, 3), np.float32), wp.mat33, rg) for t in range(T)]
         self.gm = [A(np.zeros(prm.ngrid, np.float32), wp.float32, rg) for t in range(T)]
         self.gmom = [A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg) for t in range(T)]
@@ -149,6 +161,9 @@ class Trajectory:
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], self.x[t + 1], self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], self.F[t + 1], prm.dt, prm.smoothing], device=dev)
+        if self.track_geom:
+            wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],
+                      prm.dt], device=dev)
 
     def rollout(self):
         for t in range(self.T):
