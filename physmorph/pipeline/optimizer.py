@@ -940,7 +940,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        "phys_work_v": phys_work_v,
                       "step_norm": step_norm, "predicted_decrease": predicted_decrease,
               "render_cos": render_cos, "phys_cos": phys_cos,
-                      "_grad_phys": gx_phys_diag.detach().cpu().numpy().astype(np.float32),
+                      "_grad_phys": (gx_phys_diag.detach().cpu().numpy().astype(np.float32)
+                                     if gx_phys_diag is not None else None),   # first/last iter only
                       "_grad_render": (gx_rend_diag.detach().cpu().numpy().astype(np.float32)
                                        if gx_rend_diag is not None else None)})
         # history from the ACCEPTED evaluation. NOTE "d_render" is the pure silhouette
