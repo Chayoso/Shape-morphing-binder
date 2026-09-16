@@ -8,10 +8,11 @@ volumetrically blind; the displacement-field polar variant mismatched the dFc-in
 from __future__ import annotations
 
 import numpy as np
+import torch
 
 
 def assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0,
-                       isochoric=False) -> np.ndarray:
+                       isochoric=False, Fe=None) -> np.ndarray:
     """Fp <- S_e^eta Fp with R_e S_e = polar(F_e), F_e = F Fp^-1. Per particle, EXACT.
 
     Because S_e is symmetric it commutes with its own powers, so
@@ -33,7 +34,10 @@ def assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0,
     Fp = np.ascontiguousarray(Fp, np.float32).reshape(-1, 3, 3)
     if eta <= 0:
         return Fp
-    Fe = np.einsum("nij,njk->nik", F, np.linalg.inv(Fp))
+    if Fe is None:                                   # per-particle elastic deformation
+        Fe = np.einsum("nij,njk->nik", F, np.linalg.inv(Fp))
+    else:                                            # a consensus F_e (consensus_elastic)
+        Fe = np.ascontiguousarray(Fe, np.float32).reshape(-1, 3, 3)
     return _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, None, 1.0)
 
 
@@ -89,6 +93,70 @@ def _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, grow, grow_band) -> np.nd
         S2 = _project_logsv(np.log(S2), np.log(smin), np.log(smax),
                             np.zeros(len(S2), np.float32))
     return np.einsum("nij,nj,njk->nik", U2, S2, Vt2).astype(np.float32)
+
+
+def _bspline_1d(r):
+    """Cubic B-spline (the MPM transfer kernel) at |r| (in cells), torch."""
+    a = r.abs()
+    w = torch.where(a < 1.0, 0.5 * a ** 3 - a ** 2 + 2.0 / 3.0,
+                    torch.where(a < 2.0, (2.0 - a) ** 3 / 6.0, torch.zeros_like(a)))
+    return w
+
+
+def consensus_elastic(x, F, Fp, grid_min, dx, dims, m=None, device=None) -> np.ndarray:
+    """Neighbourhood-consensus elastic deformation F̄_e per particle: the mass-weighted
+    cubic-B-spline grid average of F_e = F Fp^-1 over the particle's 4^3 stencil with the
+    particle's OWN contribution removed at every node; nodes with no other mass do not
+    vote; a particle with no voting node gets its own F_e (nothing to compare with).
+    Same transfer as P2G/G2P (physmorph.mpm.kernels), so 'neighbourhood' is the
+    discretisation's own interaction range. Returns (N,3,3) float32."""
+    F = np.ascontiguousarray(F, np.float32).reshape(-1, 3, 3)
+    Fp = np.ascontiguousarray(Fp, np.float32).reshape(-1, 3, 3)
+    N = F.shape[0]
+    dev = device or ("cuda" if _torch_cuda() else "cpu")
+    xt = torch.as_tensor(np.ascontiguousarray(x, np.float32), device=dev)
+    Ft = torch.as_tensor(F, device=dev)
+    Fpt = torch.as_tensor(Fp, device=dev)
+    Fe = (Ft @ torch.linalg.inv(Fpt)).reshape(N, 9)
+    mt = (torch.ones(N, device=dev) if m is None
+          else torch.as_tensor(np.broadcast_to(np.asarray(m, np.float32), (N,)).copy(), device=dev))
+    gmin = torch.as_tensor(np.asarray(grid_min, np.float32), device=dev)
+    nx, ny, nz = (int(d) for d in dims)
+    inv_dx = 1.0 / float(dx)
+    rel = (xt - gmin) * inv_dx                        # position in cells
+    base = torch.floor(rel).long() - 1                # base_node (kernels.base_node)
+    ncell = nx * ny * nz
+    # accumulate S_i = Σ_p w m Fe and M_i = Σ_p w m over the 64 stencil nodes
+    S = torch.zeros(ncell, 9, device=dev)
+    M = torch.zeros(ncell, device=dev)
+    offs, wts, gids, valid = [], [], [], []
+    for oi in range(4):
+        for oj in range(4):
+            for ok in range(4):
+                node = base + torch.tensor([oi, oj, ok], device=dev)
+                d = node.float() - rel                # (x_g - x_p) / dx
+                w = _bspline_1d(d[:, 0]) * _bspline_1d(d[:, 1]) * _bspline_1d(d[:, 2])
+                ok_ = ((node >= 0) & (node < torch.tensor([nx, ny, nz], device=dev))).all(1)
+                g = (node[:, 0] * ny + node[:, 1]) * nz + node[:, 2]
+                g = torch.where(ok_, g, torch.zeros_like(g))
+                w = torch.where(ok_, w, torch.zeros_like(w))
+                S.index_add_(0, g, (w * mt)[:, None] * Fe)
+                M.index_add_(0, g, w * mt)
+                wts.append(w); gids.append(g)
+    # gather back, removing the particle's own contribution at each node
+    num = torch.zeros(N, 9, device=dev)
+    den = torch.zeros(N, device=dev)
+    for w, g in zip(wts, gids):
+        own = (w * mt)
+        M_other = M[g] - own                          # other mass at the node
+        S_other = S[g] - own[:, None] * Fe
+        vote = (M_other > 1e-9 * (mt + 1e-30)) & (w > 0)
+        contrib = torch.where(vote[:, None], S_other / M_other.clamp_min(1e-30)[:, None], torch.zeros_like(S_other))
+        num = num + w[:, None] * contrib
+        den = den + torch.where(vote, w, torch.zeros_like(w))
+    has = den > 1e-12
+    Fbar = torch.where(has[:, None], num / den.clamp_min(1e-30)[:, None], Fe)
+    return Fbar.reshape(N, 3, 3).float().cpu().numpy()
 
 
 def _torch_cuda() -> bool:

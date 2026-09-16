@@ -339,6 +339,9 @@ class PipelineConfig:
     assim: float = 0.5              # eta: F_e -> R_e S_e^{1-eta} per commit; 0 disables
     assim_smin: float = 0.2         # cumulative Fp band; wide, because a saturated Fp stops
     assim_smax: float = 5.0         # tracking the motion and re-arms spring-back
+    assim_consensus: bool = False   # plastic increment from the stencil-neighbourhood
+                                    # consensus F_e (self excluded): a particle cannot flow
+                                    # plastically away from its material (mass ejection fix)
     assim_iso: bool = False         # isochoric plasticity: assimilate only the deviatoric
                                     # stretch (det Fp = 1) so lambda resists ALL volume
                                     # change forever — the unnormalised ratchet measured

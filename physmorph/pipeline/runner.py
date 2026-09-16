@@ -523,9 +523,17 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                        grow=1.0 + cfg.w_grow * dem,
                                        grow_band=cfg.grow_band)
             else:
+                Fe_bar = None
+                if cfg.assim_consensus:
+                    # plasticity is a continuum property: the increment follows the STENCIL
+                    # NEIGHBOURHOOD's elastic stretch (self excluded); a particle stretching
+                    # away from material that is not stretching keeps that excess elastic
+                    from ..plasticity.assimilation import consensus_elastic
+                    Fe_bar = consensus_elastic(x, Fc, Fp, prm.grid_min, prm.dx,
+                                               (prm.nx, prm.ny, prm.nz), device=cfg.device)
                 Fp = assimilate_elastic(Fc, Fp, eta=cfg.assim,
                                         smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                        isochoric=cfg.assim_iso)
+                                        isochoric=cfg.assim_iso, Fe=Fe_bar)
 
         # F_g is NOT edited at commits (REFUTE-2 F11: a commit-time relaxation changed
         # the image with no particle motion and saturated the rendered anisotropy at

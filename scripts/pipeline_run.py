@@ -97,7 +97,8 @@ def gate1_channels(src, prm, young=1.4e5, poisson=0.2, device="cuda"):
 def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
-                         w_box=args.w_box, assim=args.assim, render_views=args.render_views,
+                         w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
+                         render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
@@ -482,6 +483,7 @@ def main():
     ap.add_argument("--w_tctrl", type=float, default=0.0)
     ap.add_argument("--w_box", type=float, default=10.0)
     ap.add_argument("--assim", type=float, default=0.5)
+    ap.add_argument("--assim_consensus", action="store_true")  # neighbourhood-consensus plasticity
     ap.add_argument("--render_views", type=int, default=6)
     ap.add_argument("--render_res", type=int, default=64)
     ap.add_argument("--loss_res", type=int, default=32)
