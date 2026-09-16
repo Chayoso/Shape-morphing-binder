@@ -490,6 +490,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         viol = int((rel > allowed).sum())
         cont_state["viol"] = viol
         cont_state["ratio"] = float((rel / cont_lim).max())
+        cont_state["excess"] = float((rel / allowed.clamp_min(1e-12)).max())   # worst rel/allowed
         if viol:
             cont_state["rejects"] += 1
         return viol == 0
@@ -689,10 +690,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             Ldt = (fill_lam * Lfill) if Ldt is None else (Ldt + fill_lam * Lfill)
         gx_phys_diag = gF_phys_diag = gv_phys_diag = None
         gx_rend_diag = gF_rend_diag = None
-        if on_iter is not None or cfg.work_telemetry:
+        if (on_iter is not None or cfg.work_telemetry) and (it == 0 or it == cfg.iters - 1):
             # Endpoint position-space gradients are the interpretable vector fields
             # shown by the viewer.  They are diagnostics only; the control update still
-            # uses the full MPM adjoint through x, F and v.
+            # uses the full MPM adjoint through x, F and v. Computed on the first and
+            # last iteration of the window (2026-09-16: two extra backward passes per
+            # iteration at 150k were pure telemetry cost).
             Lp_diag = Lp_core if Ldt is None else Lp_core + Ldt
             gx_phys_diag, gF_phys_diag, gv_phys_diag = torch.autograd.grad(
                 Lp_diag, state, retain_graph=True, allow_unused=True)
@@ -856,21 +859,27 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # acceptance requires a FINITE, ORIENTATION-PRESERVING state: NaN particles
             # vanish from the splats and det(F)<=0 is invisible to the data terms — both
             # can fake a lower loss (adversarial finding + v3 warm-start cascade).
-            if (np.isfinite(new) and floor <= new <= cur - required
-                    and _state_ok(state_n) and cont_check(extra_n)):
+            merit_ok = bool(np.isfinite(new) and floor <= new <= cur - required and _state_ok(state_n))
+            cont_ok = cont_check(extra_n) if merit_ok else True
+            if merit_ok and cont_ok:
                 adam_t = t_
                 alpha = min(a_try * 1.1, cfg.alpha * alpha_scale)  # C++ grows alpha on acceptance
                 step_ok = True
                 accepted += 1
                 break
-            with torch.no_grad():                            # reject: restore and halve
+            with torch.no_grad():                            # reject: restore and shrink
                 for p, b in zip(leaves, bak):
                     p.copy_(b)
                 for m_, b in zip(mom, bak_m):
                     m_.copy_(b)
                 for v_, b in zip(vel, bak_v):
                     v_.copy_(b)
-            a_try *= 0.5
+            if merit_ok and not cont_ok:
+                # only continuity failed: the control-induced relative velocity is ~linear
+                # in the step, so shrink by the measured excess (never less than halving)
+                a_try *= min(0.5, 0.8 / max(cont_state.get("excess", 2.0), 1.0 + 1e-6))
+            else:
+                a_try *= 0.5
         if not step_ok:
             rejected += 1
             log(f"[win] iter {it}: line search exhausted (cur={cur:.6g} last_new={new:.6g} "

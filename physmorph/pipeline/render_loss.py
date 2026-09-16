@@ -36,14 +36,14 @@ def target_silhouettes(target_x: torch.Tensor, views, res: int, extent: float, k
 
 def d_render(x: torch.Tensor, target_alphas, views, res: int, extent: float,
              k: float = 1.5, w_hole: float = 2.0, w_spray: float = 1.0) -> torch.Tensor:
-    """Mean over views of the asymmetric per-pixel silhouette penalty."""
-    loss = x.new_zeros(())
-    for a_t, (th, phi) in zip(target_alphas, views):
-        a = soft_silhouette(x, th, res, extent, k, phi)
-        deficit = torch.clamp(a_t - a, min=0.0)     # hole / missing coverage
-        excess = torch.clamp(a - a_t, min=0.0)      # spray / ejecta
-        loss = loss + (w_hole * deficit.pow(2) + w_spray * excess.pow(2)).mean()
-    return loss / len(views)
+    """Mean over views of the asymmetric per-pixel silhouette penalty (all views rasterised
+    in one pass — 2026-09-16 speed; per-view maths unchanged)."""
+    from ..losses.silhouette import soft_silhouette_multi
+    a = soft_silhouette_multi(x, views, res, extent, k)                # (V,res,res)
+    a_t = torch.stack(list(target_alphas), 0)
+    deficit = torch.clamp(a_t - a, min=0.0)         # hole / missing coverage
+    excess = torch.clamp(a - a_t, min=0.0)          # spray / ejecta
+    return (w_hole * deficit.pow(2) + w_spray * excess.pow(2)).mean(dim=(1, 2)).mean()
 
 
 def field_normals(x: torch.Tensor, grid_min, dx: float, dims):
@@ -127,6 +127,43 @@ def shaded_view(x: torch.Tensor, theta: float, phi: float, res: int, extent: flo
     return (shade * alpha).reshape(res, res), alpha.reshape(res, res)
 
 
+def shaded_views_multi(x: torch.Tensor, views, res: int, extent: float,
+                       n_p: torch.Tensor, sw: torch.Tensor, k: float = 1.5,
+                       ambient: float = 0.25, beta: float = 3.0):
+    """All views of shaded_view at once: (V,res,res) shade*alpha and alpha."""
+    from ..losses.silhouette import _view_basis
+    right, up = _view_basis(x, views)
+    V, N = right.shape[0], x.shape[0]
+    l_dir = torch.linalg.cross(right, up)                         # (V,3) toward the camera
+    b = ambient + (1 - ambient) * (n_p @ l_dir.T).clamp(min=0)   # (N,V)
+    z = x @ l_dir.T                                               # (N,V)
+    zr = (z - z.min(0).values) / (z.max(0).values - z.min(0).values).clamp_min(1e-6)
+    vis = torch.exp(beta * (zr - 1.0))
+    pw = (sw[:, None] + 0.05) * vis                               # (N,V)
+    p = torch.stack([x @ right.T, x @ up.T], -1)                  # (N,V,2)
+    rel = (p + extent) / (2 * extent) * res
+    base = torch.floor(rel).long()
+    frac = rel - base.to(x.dtype)
+    voff = (torch.arange(V, device=x.device) * (res * res)).view(1, V)
+    num = x.new_zeros(V * res * res)
+    den = x.new_zeros(V * res * res)
+    cov = x.new_zeros(V * res * res)
+    for ox in (0, 1):
+        wx = frac[..., 0] if ox else 1 - frac[..., 0]
+        for oy in (0, 1):
+            wy = frac[..., 1] if oy else 1 - frac[..., 1]
+            ii, jj = base[..., 0] + ox, base[..., 1] + oy
+            valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+            idx = (voff + ii * res + jj).clamp(0, V * res * res - 1).reshape(-1)
+            w = torch.where(valid, wx * wy, torch.zeros_like(wx))
+            num = num.index_add(0, idx, (w * pw * b).reshape(-1))
+            den = den.index_add(0, idx, (w * pw).reshape(-1))
+            cov = cov.index_add(0, idx, w.reshape(-1))
+    alpha = 1.0 - torch.exp(-k * cov)
+    shade = num / den.clamp_min(1e-6)
+    return (shade * alpha).reshape(V, res, res), alpha.reshape(V, res, res)
+
+
 def shade_targets(target_x: torch.Tensor, views, res: int, extent: float,
                   grid_min, dx: float, dims, k=1.5, ambient=0.25):
     with torch.no_grad():
@@ -141,11 +178,9 @@ def d_pbr(x: torch.Tensor, shade_tgts, views, res: int, extent: float,
     (~70% of its gradient direction is orthogonal to the pure-silhouette term, measured).
     Visibility is only the soft front-bias approximation from shaded_view."""
     n_p, sw = field_normals(x, grid_min, dx, dims)
-    loss = x.new_zeros(())
-    for s_t, (th, phi) in zip(shade_tgts, views):
-        s, _ = shaded_view(x, th, phi, res, extent, n_p, sw, k, ambient)
-        loss = loss + (s - s_t).pow(2).mean()
-    return loss / len(views)
+    s, _ = shaded_views_multi(x, views, res, extent, n_p, sw, k, ambient)   # (V,res,res)
+    s_t = torch.stack(list(shade_tgts), 0)
+    return (s - s_t).pow(2).mean(dim=(1, 2)).mean()
 
 
 class LambdaBalancer:

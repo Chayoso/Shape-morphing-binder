@@ -55,3 +55,34 @@ def d_img(x: torch.Tensor, target_alphas, thetas, res: int, extent: float, k=1.5
         a = soft_silhouette(x, float(th), res, extent, k)
         loss = loss + ((a - a_t) ** 2).mean()
     return loss / len(thetas)
+
+
+def _view_basis(x: torch.Tensor, views):
+    """(V,3) right and up vectors for a list of (theta, phi) views."""
+    th = x.new_tensor([float(t) for t, _ in views])
+    ph = x.new_tensor([float(p) for _, p in views])
+    right = torch.stack([torch.cos(th), torch.zeros_like(th), -torch.sin(th)], 1)
+    up = torch.stack([-torch.sin(ph) * torch.sin(th), torch.cos(ph), -torch.sin(ph) * torch.cos(th)], 1)
+    return right, up
+
+
+def soft_silhouette_multi(x: torch.Tensor, views, res: int, extent: float,
+                          k: float = 1.5) -> torch.Tensor:
+    """All views at once: (V,res,res) alpha images, one index_add per CIC corner."""
+    right, up = _view_basis(x, views)
+    V, N = right.shape[0], x.shape[0]
+    p = torch.stack([x @ right.T, x @ up.T], -1)                 # (N,V,2)
+    rel = (p + extent) / (2 * extent) * res
+    base = torch.floor(rel).long()
+    frac = rel - base.to(x.dtype)
+    voff = (torch.arange(V, device=x.device) * (res * res)).view(1, V)
+    img = x.new_zeros(V * res * res)
+    for ox in (0, 1):
+        wx = frac[..., 0] if ox else 1 - frac[..., 0]
+        for oy in (0, 1):
+            wy = frac[..., 1] if oy else 1 - frac[..., 1]
+            ii, jj = base[..., 0] + ox, base[..., 1] + oy
+            valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+            idx = (voff + ii * res + jj).clamp(0, V * res * res - 1)
+            img = img.index_add(0, idx.reshape(-1), torch.where(valid, wx * wy, torch.zeros_like(wx)).reshape(-1))
+    return (1.0 - torch.exp(-k * img)).reshape(V, res, res)
