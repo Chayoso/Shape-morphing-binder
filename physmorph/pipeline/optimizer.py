@@ -23,6 +23,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import os
+import time
+
 import numpy as np
 import torch
 import warp as wp
@@ -81,6 +84,28 @@ class TargetPack:
     unit_grad_ratio: float = 1.0        #   |grad D_vol(legacy)|/|grad D_vol(density)| at
                                         #   the source — converts the gradient-magnitude
                                         #   constants (Adam eps, target_norm, noise floor)
+
+
+# ---- per-window timing (PHYSMORPH_TIMING=1): device syncs at the section boundaries ----
+_TIMING = os.environ.get("PHYSMORPH_TIMING", "") == "1"
+_TM: dict = {}
+
+
+def _tick():
+    if not _TIMING:
+        return None
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    return time.perf_counter()
+
+
+def _tm_add(key, t0):
+    if t0 is None:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    _TM[key] = _TM.get(key, 0.0) + (time.perf_counter() - t0)
+    _TM["n_" + key] = _TM.get("n_" + key, 0) + 1
 
 
 def _norm(gs) -> float:
@@ -205,6 +230,25 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     dFc = basis.zeros()                         # the LEAF (per-particle when grid=0)
     leaves = [dFc]
     use_geom = bool(cfg.render_F_geom)
+    # PERSISTENT no-grad trajectory (2026-09-16 speed pass) for every line-search candidate,
+    # the warm-start comparison and the commit rollout: allocated once per window, rolled
+    # out as a CUDA graph (Trajectory.capture/run). The control is copied into dc_buf,
+    # which its dFc sequence views. It carries the SAME bonds as the RolloutSpec — before
+    # this pass the no-grad rollouts had none, so the line search evaluated plain physics
+    # while the adjoint described the re-coupled system.
+    dc_buf = torch.zeros(T, N, 3, 3, device=dev)
+    seq_eval = [wp.from_torch(dc_buf[t], dtype=wp.mat33) for t in range(T)]
+    tr_eval = Trajectory(x0, 1.0, lam0, mu0, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
+                         dFc=seq_eval, device=dev, requires_grad=False, vol0=vol0,
+                         Fg0=Fg0, track_geom=use_geom, persistent=True,
+                         bonds=((bond_nbr, bond_rest, bond_frag) if bond_nbr is not None else None))
+    tr_eval.capture()
+
+    def _set_material(lam_t, mu_t):
+        if lam_t is None:
+            return
+        tr_eval.lam.assign(np.ascontiguousarray(np.broadcast_to(lam_t.detach().cpu().numpy(), (N,)), np.float32))
+        tr_eval.mu.assign(np.ascontiguousarray(np.broadcast_to(mu_t.detach().cpu().numpy(), (N,)), np.float32))
     if cfg.control_h1_iters > 0 and not basis.per_particle:
         # the kNN control preconditioner indexes PARTICLES; the leaf is nodes x knots
         # (measured: IndexError at the first window). The basis already propagates a
@@ -440,19 +484,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         candidate evaluation (up to max_ls_iters per iteration) never uses."""
         with torch.no_grad():
             lam_t, mu_t = material()
-            lam_e = lam_t.detach().cpu().numpy() if lam_t is not None else lam0
-            mu_e = mu_t.detach().cpu().numpy() if mu_t is not None else mu0
+            _set_material(lam_t, mu_t)
             dc = expand(leaf.detach()).detach().contiguous()
-            seq = [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33) for t in range(T)]
-            tr = Trajectory(x0, 1.0, lam_e, mu_e, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
-                            dFc=seq, device=dev, requires_grad=False, vol0=vol0,
-                            Fg0=Fg0, track_geom=use_geom)
-            tr.rollout()
-            xT = wp.to_torch(tr.x[T])
-            FT = wp.to_torch(tr.F[T]).reshape(N, 9)
-            vT = wp.to_torch(tr.v[T])
-            FgT = wp.to_torch(tr.Fg[T]).reshape(N, 9) if use_geom else None
+            dc_buf.copy_(dc.view(T, N, 3, 3))
+            t0 = _tick()
+            tr = tr_eval
+            tr.run()
+            # the buffers are rewritten by the next candidate: the outputs are copies
+            xT = wp.to_torch(tr.x[T]).clone()
+            FT = wp.to_torch(tr.F[T]).reshape(N, 9).clone()
+            vT = wp.to_torch(tr.v[T]).clone()
+            FgT = wp.to_torch(tr.Fg[T]).reshape(N, 9).clone() if use_geom else None
             V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
+            _tm_add("eval", t0)
             lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
             extra = {"dfc": dc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                      "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
@@ -630,6 +674,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L if lr is None else L + lam_r * float(lr.detach())
 
     hist, accepted, rejected = [], 0, 0
+    _TM.clear()
+    _TM["t_win"] = time.perf_counter()
     pace_bound = False               # window exited via the pace floor (on schedule)
     lk_start = None                  # kinetic term at window start (quasi-static rule)
     g_cos = g_raw_cos = g_share = g_phys_norm = g_rend_norm = None
@@ -688,7 +734,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     for it in range(cfg.iters):
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
+        t0 = _tick()
         state, lv, lk, lr, lpbr, extra = terms(dFc)
+        _tm_add("terms", t0)
+        t0 = _tick()
         dfc_x = extra["dfc"]                           # expanded control field (graph)
         render_F = extra["Fg"] if use_geom else state[1]  # what the image differentiates
         if lk_start is None:
@@ -795,6 +844,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         else:
             total = Lp_core if Ldt is None else Lp_core + Ldt
             g = list(torch.autograd.grad(total, leaves))
+        _tm_add("grad", t0)
         cur = scalars(lv, lk, lr, lam_r, dfc_x, state[0], state[1], extra["lk_run"],
                       extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra))
         if not np.isfinite(cur):
@@ -988,14 +1038,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # ---- final rollout: every intermediate state + FULL end state ----
     with torch.no_grad():
         lam_t, mu_t = material()
-        lam_np = lam_t.detach().cpu().numpy() if lam_t is not None else lam0
-        mu_np = mu_t.detach().cpu().numpy() if mu_t is not None else mu0
+        _set_material(lam_t, mu_t)
         dc = expand(dFc.detach()).detach().contiguous()
-        seq = [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33) for t in range(T)]
-        tr = Trajectory(x0, 1.0, lam_np, mu_np, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
-                        dFc=seq, device=dev, requires_grad=False, vol0=vol0,
-                        Fg0=Fg0, track_geom=use_geom)
-        tr.rollout()
+        dc_buf.copy_(dc.view(T, N, 3, 3))
+        t0 = _tick()
+        tr = tr_eval                     # the same bonds and buffers as every candidate
+        tr.run()
         # stack-review f2: this rollout — not the accepted candidate — is what gets
         # COMMITTED, and CUDA atomics make replay non-bit-identical: validate it with
         # the same trajectory checks; a failed replay hands the runner an empty window
@@ -1028,6 +1076,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         end = {"F": tr.F[T].numpy().copy(), "v": tr.v[T].numpy().copy(),
                "C": tr.C[T].numpy().copy(),
                "Fg": tr.Fg[T].numpy().copy() if use_geom else None}
+        _tm_add("final", t0)
+    if _TIMING:
+        tot = time.perf_counter() - _TM.get("t_win", time.perf_counter())
+        log("[time] " + " ".join(f"{k} {_TM.get(k, 0.0):.2f}s/{_TM.get('n_' + k, 0)}x"
+                                 for k in ("eval", "terms", "grad", "final"))
+            + f" other {tot - sum(_TM.get(k, 0.0) for k in ('eval', 'terms', 'grad', 'final')):.2f}s"
+            + f" window {tot:.2f}s")
     s_out = s.detach().cpu().numpy() if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)

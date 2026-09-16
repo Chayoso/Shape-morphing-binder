@@ -57,6 +57,8 @@ def assimilate_growth(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=True,
 
 
 def _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, grow, grow_band) -> np.ndarray:
+    if _torch_cuda() and F.shape[0] >= 20000:
+        return _assimilate_torch(F, Fp, eta, smin, smax, isochoric, grow, grow_band)
     from ..mpm.conditioning import batched_det
     ok = batched_det(Fe) > 1e-6
     from ..mpm.conditioning import batched_svd, batched_det
@@ -87,6 +89,60 @@ def _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, grow, grow_band) -> np.nd
         S2 = _project_logsv(np.log(S2), np.log(smin), np.log(smax),
                             np.zeros(len(S2), np.float32))
     return np.einsum("nij,nj,njk->nik", U2, S2, Vt2).astype(np.float32)
+
+
+def _torch_cuda() -> bool:
+    try:
+        import torch
+        return bool(torch.cuda.is_available())
+    except Exception:
+        return False
+
+
+def _assimilate_torch(F, Fp, eta, smin, smax, isochoric, grow, grow_band) -> np.ndarray:
+    """_assimilate in torch on the GPU (150k: the numpy inv/einsum/bisection chain was
+    ~0.25 s per commit). Same operations in the same order, float32."""
+    import torch
+    dev = "cuda"
+    Ft = torch.as_tensor(np.ascontiguousarray(F, np.float32), device=dev)
+    Fpt = torch.as_tensor(np.ascontiguousarray(Fp, np.float32), device=dev)
+    Fe = Ft @ torch.linalg.inv(Fpt)
+    ok = torch.linalg.det(Fe) > 1e-6
+    _, S, Vh = torch.linalg.svd(Fe)
+    Se = S.clamp_min(1e-3) ** eta
+    if isochoric:                                    # det-free increment: J_p stays 1
+        Se = Se / Se.prod(1, keepdim=True) ** (1.0 / 3.0)
+    Sa = Vh.transpose(1, 2) @ torch.diag_embed(Se) @ Vh      # V diag(S^eta) V^T
+    Sa[~ok] = torch.eye(3, device=dev)
+    if grow is not None:
+        g = np.clip(np.asarray(grow, np.float32), 0.5, 2.0) ** (1.0 / 3.0)
+        Sa = Sa * torch.as_tensor(np.ascontiguousarray(g, np.float32), device=dev)[:, None, None]
+    Fp_new = Sa @ Fpt
+    U2, S2, Vh2 = torch.linalg.svd(Fp_new)           # cumulative band clamp LAST
+    S2 = S2.clamp(smin, smax)
+    if grow is not None:
+        det = S2.prod(1)
+        S2 = _project_logsv_torch(S2.log(), float(np.log(smin)), float(np.log(smax)),
+                                  det.clamp(1.0 / grow_band, grow_band).log())
+    elif isochoric:
+        S2 = _project_logsv_torch(S2.log(), float(np.log(smin)), float(np.log(smax)),
+                                  torch.zeros_like(S2[:, 0]))
+    return (U2 @ torch.diag_embed(S2) @ Vh2).float().cpu().numpy()
+
+
+def _project_logsv_torch(l0, lo, hi, target):
+    """_project_logsv in torch (same bisection)."""
+    import torch
+    target = target.clamp(3 * lo + 1e-6, 3 * hi - 1e-6)
+    nu_lo = (l0.min(1).values - hi) - 1e-3
+    nu_hi = (l0.max(1).values - lo) + 1e-3
+    for _ in range(50):
+        nu = 0.5 * (nu_lo + nu_hi)
+        s = (l0 - nu[:, None]).clamp(lo, hi).sum(1)
+        high = s > target
+        nu_lo = torch.where(high, nu, nu_lo)
+        nu_hi = torch.where(high, nu_hi, nu)
+    return (l0 - (0.5 * (nu_lo + nu_hi))[:, None]).clamp(lo, hi).exp()
 
 
 def _project_logsv(l0, lo, hi, target) -> np.ndarray:

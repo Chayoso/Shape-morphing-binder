@@ -616,7 +616,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "v_absmax": float(np.abs(v_p).max()),
                "v_mean": float(np.linalg.norm(v_p, axis=1).mean()),
                "move": float(np.linalg.norm(x - x_start, axis=1).mean()),
-               "Jmin": float(np.linalg.det(Fc).min()),
+               "Jmin": float(batched_det(Fc).min()),
                "Jmin_traj": float(dets.min()),
                "clamped": n_out, "nan_x": n_nan, "nan_state": n_ns,
                "F_reset": n_bad, "F_flip": n_flip, "F_invert_steps": n_inv}

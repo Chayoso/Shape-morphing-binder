@@ -193,5 +193,6 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
                     "render_out_nn_max": vis["out_nn_max"],
                     "render_particle_frac": float(rm.mean())})
     if F_frames is not None and len(F_frames):
-        out["detF_min"] = min(float(np.linalg.det(F).min()) for F in F_frames)
+        from .mpm.conditioning import batched_det
+        out["detF_min"] = min(float(batched_det(F).min()) for F in F_frames)
     return out

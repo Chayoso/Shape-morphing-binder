@@ -56,12 +56,20 @@ def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda") -> np.ndarray:
     return vol0
 
 
+_WARMED: set = set()          # devices whose kernels were launched once outside a capture
+
+
 class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
-                 Fg0=None, track_geom=False, bonds=None):
+                 Fg0=None, track_geom=False, bonds=None, persistent=False):
         x0 = np.ascontiguousarray(x0, np.float32)
+        # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
+        # accumulated grid arrays are re-zeroed per step and the rollout can be recorded as
+        # a CUDA graph (capture/run) — the same kernels with no Python launch overhead.
+        self.persistent = bool(persistent)
+        self.graph = None
         N = x0.shape[0]
         self.N, self.T, self.prm, self.device = N, T, prm, device
         rg = requires_grad
@@ -214,6 +222,9 @@ class Trajectory:
         inv_dx, gmin, fext = 1.0 / prm.dx, wp.vec3(*prm.grid_min), wp.vec3(*prm.f_ext)
         dfc = self._dfc(t)
         bnb, brest, bnc, bK = self._bond_args(t)
+        if self.persistent:                          # P2G accumulates: fresh grid per rollout
+            self.gm[t].zero_()
+            self.gmom[t].zero_()
         wp.launch(K.k_stress, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
                   self.m, self.vol, self._omega(t), bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
@@ -234,4 +245,30 @@ class Trajectory:
     def rollout(self):
         for t in range(self.T):
             self.step(t)
+        return self.x[self.T], self.F[self.T]
+
+    def capture(self) -> bool:
+        """Record the rollout as a CUDA graph (persistent trajectories on a CUDA device).
+        Every buffer the graph touches lives on this object, so a replay is exactly the
+        rollout of the CURRENT contents of x[0], v[0], C[0], F[0], Fg[0], the material and
+        the control sequence. Modules are warmed with one plain rollout first (module
+        loading is not allowed inside a capture)."""
+        if not self.persistent or not str(self.device).startswith("cuda"):
+            return False
+        key = str(self.device)
+        if key not in _WARMED:
+            self.rollout()
+            wp.synchronize_device(self.device)
+            _WARMED.add(key)
+        with wp.ScopedCapture(device=self.device) as cap:
+            self.rollout()
+        self.graph = cap.graph
+        return True
+
+    def run(self):
+        """Roll out: replay the captured graph when there is one, else launch the kernels."""
+        if self.graph is not None:
+            wp.capture_launch(self.graph)
+        else:
+            self.rollout()
         return self.x[self.T], self.F[self.T]
