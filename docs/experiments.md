@@ -956,3 +956,30 @@ deliverable arms; the thin-feature findings (dossier §5–§6: peak set by cont
 loss granularity, no over-mass, ear under-fill) do not rest on the streak voxels, but the
 "upper ear as a sparse band" reading in §6 partly did — the band was the streak plus the
 far ear, and is re-read after the rerun.
+
+### 2026-09-16 — batch r: the deliverable arms on the FIXED target (code 0ccc43a, hyde06 GPU 0/2)
+
+Same recipes and discretisation as batches a / n / j; only the target changed (orthographic
+fill, no streaks, +4.3 % filled volume → the source is matched to it). "before" = the
+streaky-target value from the 2026-09-15 log.
+
+| arm | before: chamfer / silIoU / hole | FIXED target | spray peak → end, before | FIXED | delivered thin mass, before | FIXED | strays > 2 sp, before | FIXED | commits before | FIXED |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 20k baseline `render_full_dt_iso_nn` | 0.1599 / 0.9655 / 0.04 % | 0.1568 / 0.9650 / 0.03 % | 0.578 → 0.379 | 0.608 → 0.361 | 0.165 / 0.194 | 0.157 / 0.191 | 1.27 % | 1.09 % | 108 | 87 |
+| 20k `render_ctrl --control_grid 36` | 0.1601 / 0.9582 / 0.06 % | 0.1566 / 0.9594 / 0.07 % | 0.501 → 0.240 | 0.521 → 0.228 | 0.195 / 0.194 | 0.191 / 0.191 | 1.03 % | 1.04 % | (n) | 85 |
+| 40k `--ppc 8` + density + recipe (flagship candidate) | 0.1142 / 0.9735 / 0.52 % | 0.1135 / 0.9541 / 0.00 % | 0.444 → 0.329 | 0.427 → 0.297 | 0.172 / 0.193 | 0.174 / 0.192 | 0.07 % | 0.06 % | 300 | 113 |
+
+Reading: chamfer −2 % on both 20k arms (the streak particles were target points nothing
+could match); silIoU, holes and strays unchanged within noise; the thin-feature picture is
+the same on the clean target — per-particle control 0.61 → 0.36 with 0.157 delivered, the
+36³ basis 0.52 → 0.23 with the full ear mass (0.191 / 0.191). The dossier's verdicts
+(§5–§6) do not change. G3_rest fails on the fixed-target baseline as it did before
+(drift; reported, not gated).
+
+Ear–head check on the fixed-target 40k run (`cover_diff.py`, `ear_views.py`): particles beyond 0.15 wu of the target 0.015 % at the end frame; ear target points uncovered at 0.15 wu 0.74 %; projected morph-only pixels 0.73 % of the target area, target-only 4.80 % (az 0.6). The dossier §6 reading (no over-mass, ear under-fill) stands on the clean target; the 'sparse band' above the lower ear at az 0.6 was the far ear plus the streak, and with the streak gone it is the far ear alone.
+
+Visual QA of the fixed-target 40k GIF (contact sheet, frames 0/110/330/774/1436/2209): both ears form as
+lobes, no line, but 6 particles (0.015 %) leave the body downward from commit ~100 and stay visible
+as dots under the bunny at the end — G4_ejection FAIL on this run (the streaky-target run had 0.07 %
+strays > 2 sp but none this far). Reported, not gated; the far-stray census belongs to
+`docs/floaters.md`.

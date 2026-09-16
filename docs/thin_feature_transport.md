@@ -398,3 +398,16 @@ Reading (`cover_diff_*.png`, `ear_views_*.png`):
   cell (0.215 wu at 40k `--ppc 8`) — a loss cell below the sheet thickness (density units,
   `--loss_res` above 149 at 40k) is the next pre-registered arm. A term that pushes mass OUT
   of the notch would act on mass that is not there.
+
+**Addendum 2026-09-16 (target fix).** The user then pointed at the thin line above the ear and asked
+whether the target discretisation itself was wrong. It was: trimesh's axis 'base' voxel fill
+drew 1-voxel streaks on the non-watertight bunny (485 streak voxels), sampled as scattered
+points at 20k and a dotted line at 40k (`docs/experiments.md` 2026-09-16, commit 0ccc43a:
+orthographic fill + streak strip + `tests/test_sampler_fill.py`). Every number in §1–§6 was
+measured against that target. Batch r re-ran the deliverable arms on the clean target: the
+thin-feature picture is unchanged (20k per-particle 0.61 → 0.36 with 0.157 delivered; 36³
+basis 0.52 → 0.23 with 0.191 / 0.191; 40k `--ppc 8` recipe 0.43 → 0.30 with 0.174 / 0.192,
+chamfer 0.1135, ear under-fill at 0.15 wu 0.74 % vs 1.20 %, no over-mass near the ear), and
+the "sparse band above the lower ear" in §6 was the far ear PLUS the streak — with the streak
+gone the far ear renders as a lobe, and the ear–head "connection" question is closed on the
+clean target as well (projected morph-only pixels 0.6–0.7 % of the target area, all fringe).
