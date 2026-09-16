@@ -27,8 +27,9 @@ targets), `render_pace` (+ paced trajectory), `render_full` (pbr+pc+c2f+pace+cli
 The quasi-static VBD family is retired to `deprecated/`.
 
 **Docs**: [method.md](method.md) — equations + formulations (the file code cites as
-`docs/SPEC.md`); [experiments.md](experiments.md) — gates, metrics, result log;
-[related_work.md](related_work.md) — the papers each design choice leans on.
+`docs/SPEC.md`); [pipeline.md](pipeline.md) — the production path stage by stage, flags,
+server layout under `/data`, ops scripts; [experiments.md](experiments.md) — gates, metrics,
+result log; [related_work.md](related_work.md) — the papers each design choice leans on.
 
 **Layout**
 

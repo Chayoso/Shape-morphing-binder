@@ -112,11 +112,16 @@ These are the leading candidates for the unresolved problems, and they are ports
    `python -m py_compile`, and the `tests/` suite (which is CPU/warp-CPU only).
    Server access via the jump host:
    `ssh -J chayo@hyde01.dabh.io chayo@hyde06.dabh.io`,
-   repo copy `~/physmorph_v2`, python
-   `/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python` (3.10.20).
+   **everything under `/data` (user rule 2026-09-16 — nothing is run from or written to `$HOME`)**:
+   repo copy `/data/relcfd/chayo/physmorph_v2/repo` (deployed by `scripts/ops/deploy.sh`),
+   outputs `/data/relcfd/chayo/physmorph_v2/output`, python
+   `/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python` (3.10.20). Server-side scripts
+   `source scripts/ops/hyde06_env.sh` (REPO / OUT / PY / thread caps / RECIPE); the pipeline,
+   its flags and the ops scripts are summarised in `docs/pipeline.md`.
    Long jobs: `setsid nohup env CUDA_VISIBLE_DEVICES=<n> $PY script.py … > log 2>&1 < /dev/null &`.
-   Each ssh command needs its own `cd ~/physmorph_v2;` — chaining `cd && … &` backgrounds the whole
-   list and later commands run in `$HOME` with unset vars.
+   Each ssh command needs its own `cd $REPO;` — chaining `cd && … &` backgrounds the whole
+   list and later commands run in `$HOME` with unset vars. Never put an unbracketed run name
+   in a `pgrep -f` pattern inside the same ssh command (it matches the ssh shell itself).
    Check `nvidia-smi` first; never kill other users' jobs; do not touch `~/Shape-morphing-binder`
    on hyde06. C++ bindings live at `~/xu_baseline/`. **2026-09-14: the jump host hyde01
    rejected the local ed25519 key all day** (JumpCloud re-syncs `authorized_keys`); when
