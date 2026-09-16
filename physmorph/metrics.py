@@ -44,14 +44,13 @@ def _splat_body(x, res, theta, phi, extent):
     ij = np.floor(rel).astype(np.int64)
     ok = (ij >= 0).all(1) & (ij < res).all(1)
     ij = ij[ok]
-    cov = np.zeros((res, res), np.float32)
-    flat = cov.reshape(-1)
+    flat = np.zeros(res * res, np.float64)
     for ox in (-1, 0, 1):
         for oy in (-1, 0, 1):
             i2 = np.clip(ij[:, 0] + ox, 0, res - 1)
             j2 = np.clip(ij[:, 1] + oy, 0, res - 1)
-            np.add.at(flat, i2 * res + j2, 1.0)
-    return cov > 0
+            flat += np.bincount(i2 * res + j2, minlength=res * res)   # == add.at, ~50x faster
+    return flat.reshape(res, res) > 0
 
 
 def sil_iou(x, tgt, extent=None, n_azim=8, elevs=(0.0, 0.5, -0.5), res=128) -> float:
