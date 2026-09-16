@@ -18,6 +18,21 @@ def _id(N):
     return np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
 
 
+_ID_CACHE: dict = {}
+
+
+def _id_dev(N: int, device: str):
+    """Cached device identity (N,3,3): per-step F arrays are cloned from it on the device
+    instead of being copied from a fresh numpy identity each time (2026-09-16 profile:
+    host->device array construction was 40 % of a window)."""
+    key = (N, str(device))
+    a = _ID_CACHE.get(key)
+    if a is None:
+        a = wp.array(_id(N), dtype=wp.mat33, device=device)
+        _ID_CACHE[key] = a
+    return a
+
+
 def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda") -> np.ndarray:
     """Compute the reference particle volumes once, at the sampled source state.
 
@@ -53,6 +68,12 @@ class Trajectory:
 
         def A(a, dt, g=False):
             return wp.array(np.ascontiguousarray(a), dtype=dt, device=device, requires_grad=g)
+
+        def Z(dt, g=False):                    # device-side zeros: no host copy
+            return wp.zeros(N, dtype=dt, device=device, requires_grad=g)
+
+        def ID(g=False):                       # device-side identity clone
+            return wp.clone(_id_dev(N, device), requires_grad=g)
 
         # CONTROL FIELD. Two modes, matching the two formulations:
         #   * a single array  -> ONE dFc shared by every step (the greedy/per-frame scheme)
@@ -99,16 +120,15 @@ class Trajectory:
         # per-step trajectory
         F0a = _id(N) if F0 is None else F0
         v0a = np.zeros((N, 3), np.float32) if v0 is None else v0
-        self.x = [A(x0 if t == 0 else np.zeros((N, 3), np.float32), wp.vec3, rg) for t in range(T + 1)]
-        self.v = [A(v0a if t == 0 else np.zeros((N, 3), np.float32), wp.vec3, rg) for t in range(T + 1)]
+        self.x = [A(x0, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
+        self.v = [A(v0a, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
         # C[0] must be settable: the APIC affine field is part of the state. Dropping it when a
         # trajectory is restarted from a promoted state silently discards momentum content and
         # leaves an elastically loaded body frozen -> stored energy is re-released every restart.
         C0a = np.zeros((N, 3, 3), np.float32) if C0 is None else C0
-        self.C = [A(C0a if t == 0 else np.zeros((N, 3, 3), np.float32), wp.mat33, rg)
-                  for t in range(T + 1)]
-        self.F = [A(F0a if t == 0 else _id(N), wp.mat33, rg) for t in range(T + 1)]
-        self.Fraw = [A(_id(N), wp.mat33, rg) for t in range(T + 1)]
+        self.C = [A(C0a, wp.mat33, rg) if t == 0 else Z(wp.mat33, rg) for t in range(T + 1)]
+        self.F = [A(F0a, wp.mat33, rg) if t == 0 else ID(rg) for t in range(T + 1)]
+        self.Fraw = [ID(rg) for t in range(T + 1)]
         # GEOMETRIC deformation gradient (render kinematics; kernels.k_geom_update):
         # transported by the velocity gradient only, no control, no smoothing. Optional
         # so the physics-only paths pay nothing for it.
@@ -117,13 +137,13 @@ class Trajectory:
             Fg0a = _id(N) if Fg0 is None else np.ascontiguousarray(Fg0, np.float32)
             if Fg0a.shape != (N, 3, 3):
                 raise ValueError(f"Fg0 must have shape ({N},3,3), got {Fg0a.shape}")
-            self.Fg = [A(Fg0a if t == 0 else _id(N), wp.mat33, rg) for t in range(T + 1)]
+            self.Fg = [A(Fg0a, wp.mat33, rg) if t == 0 else ID(rg) for t in range(T + 1)]
         else:
             self.Fg = None
-        self.P = [A(np.zeros((N, 3, 3), np.float32), wp.mat33, rg) for t in range(T)]
-        self.gm = [A(np.zeros(prm.ngrid, np.float32), wp.float32, rg) for t in range(T)]
-        self.gmom = [A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg) for t in range(T)]
-        self.gvel = [A(np.zeros((prm.ngrid, 3), np.float32), wp.vec3, rg) for t in range(T)]
+        self.P = [Z(wp.mat33, rg) for t in range(T)]
+        self.gm = [wp.zeros(prm.ngrid, dtype=wp.float32, device=device, requires_grad=rg) for t in range(T)]
+        self.gmom = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T)]
+        self.gvel = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T)]
         # SUPPORT-GATED APIC (kernels.k_support_gate; docs/thin_feature_transport.md §3):
         # omega_t[p] scales the affine term m*C in P2G at step t. Piecewise constant in x,
         # so it is computed OUTSIDE the tape per step and read by the adjoint as a constant.
