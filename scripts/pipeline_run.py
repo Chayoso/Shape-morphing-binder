@@ -536,7 +536,7 @@ def main():
     ap.add_argument("--w_kin_var", type=float, default=0.0)   # window velocity-variance term
     ap.add_argument("--w_coh", type=float, default=0.0)       # material-coherence prior (thin-feature vanguard)
     ap.add_argument("--eject_veto", action="store_true")       # reject windows that add isolated particles
-    ap.add_argument("--eject_iso_k", type=float, default=3.0)  #   isolation radius in target spacings
+    ap.add_argument("--eject_iso_k", type=float, default=6.0)  #   isolation radius in target spacings
     ap.add_argument("--w_esc", type=float, default=0.0)        # escape-velocity hinge (window-end v vs neighbours)
     ap.add_argument("--esc_k", type=float, default=3.0)
     ap.add_argument("--archive_stride", type=int, default=1)   # keep every k-th step in the archive

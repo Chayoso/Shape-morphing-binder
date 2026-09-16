@@ -31,7 +31,7 @@ ap.add_argument("--fps", type=int, default=20)
 ap.add_argument("--hold", type=int, default=16)
 ap.add_argument("--label", default="")
 ap.add_argument("--splat_k", type=float, default=1.35)
-ap.add_argument("--smooth", type=float, default=0.9)
+ap.add_argument("--smooth", type=float, default=0.7)
 ap.add_argument("--albedo", default="0.80,0.78,0.74")
 ap.add_argument("--rough", type=float, default=0.45)
 ap.add_argument("--max_frames", type=int, default=0)
@@ -123,7 +123,7 @@ def render(x, fwd, right, up, sp, outline):
     xs = cx[n_idx] + ox[k_idx].long(); ys = cy[n_idx] + oy[k_idx].long()
     ok = (xs >= 0) & (xs < RES) & (ys >= 0) & (ys < RES)
     xs, ys, n_idx, k_idx = xs[ok], ys[ok], n_idx[ok], k_idx[ok]
-    zc = z[n_idx] - torch.sqrt((rad * rad - odist2[None, :]).clamp(min=0))[n_idx, k_idx] / pix_per_wu * 0.5
+    zc = z[n_idx] - torch.sqrt((rad[n_idx] ** 2 - odist2[k_idx]).clamp(min=0)) / pix_per_wu * 0.5
     depth = torch.full((RES * RES,), float("inf"), device=dev)
     depth = depth.scatter_reduce(0, ys * RES + xs, zc, reduce="amin", include_self=True).view(RES, RES)
     cover = torch.isfinite(depth)

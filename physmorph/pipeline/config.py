@@ -397,7 +397,9 @@ class PipelineConfig:
                                     # window that increases the number of ISOLATED particles
                                     # (nearest neighbour > eject_iso_k target spacings);
                                     # shrinks the step like a brake reject. Needs outer_merit.
-    eject_iso_k: float = 3.0
+    eject_iso_k: float = 6.0        # 3.0 rejected EVERY early window (the sphere's surface
+                                    # dilutes legitimately to ~3 spacings; a detached particle
+                                    # sits at > 6): dragon/armadillo froze at anim 14, 2026-09-16
     w_esc: float = 0.0              # ESCAPE-VELOCITY hinge on the window-end velocity relative
                                     # to the frozen source neighbours (coh_k):
                                     # mean relu(|v_i - mean_j v_j| - esc_k*median|v|)^2 / thr^2
