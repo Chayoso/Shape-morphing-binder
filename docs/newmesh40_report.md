@@ -2,7 +2,7 @@
 
 Artifact (surface videos, PBR stills, loss curves): https://claude.ai/code/artifact/006c79b6-4b7e-4880-8810-d167b924ffe8
 
-| target | chamfer | silIoU | hole | commits | min | s/commit | loss × | sparse peak → end | thin mass / tgt | fragments (grid) | far > 0.5 wu | max far | G4 ejection |
+| target | chamfer | silIoU | hole | commits | min | s/commit | loss × | sparse peak → end | thin mass / tgt | fragments (grid) | off-target > 0.5 wu | max off-target | G4 ejection |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | beast | 0.1475 | 0.7375 | 2.05% | 123 | 4.4 | 2.1 | 0.091 | 1.000 → 0.572 | 0.109 / 0.201 | 76 | 497 (1.242 %) | 4.66 wu | FAIL |
 | bimba | 0.1113 | 0.9793 | 0.00% | 86 | 2.9 | 2.0 | 0.027 | 0.687 → 0.324 | 0.143 / 0.157 | 0 | 0 (0.000 %) | 0.15 wu | FAIL |

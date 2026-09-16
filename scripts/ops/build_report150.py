@@ -132,8 +132,8 @@ H = [f'<title>{TITLE}</title>',
      f'<p class="lede">{G.get("lede", "")}</p>']
 H.append('<h2>1. 판단</h2>'); H.append(G.get("assessment_html", ""))
 H.append(f'<h2>2. {len(rows)}개 예제 요약 (raw state 지표, 렌더러 미사용)</h2>')
-H.append(f'<p class="lede">{G.get("table_lede", "arm = render_full_dt_iso_nn (λ=0.5), 150k `--ppc 8`, `--bonds` (재료 재결합, 그리드 연결성 fragment mask), `--domain auto`, archive stride 8.")} "far"는 마지막 프레임에서 8번째 이웃까지의 거리가 0.5 wu를 넘는 입자 수(= 이탈 입자). 시간은 hyde06 벽시계(1 GPU, 다른 40k 런과 공유된 구간 포함).</p>')
-H.append('<div class="wrap"><table><thead><tr><th>target</th><th>chamfer</th><th>silIoU</th><th>hole</th><th>commits</th><th>min</th><th>s/commit</th><th>loss ×</th><th>sparse peak→end</th><th>thin mass / tgt</th><th>fragments (grid)</th><th>far &gt;0.5 wu (n, %)</th><th>max far</th><th>G4 ej.</th></tr></thead><tbody>')
+H.append(f'<p class="lede">{G.get("table_lede", "arm = render_full_dt_iso_nn (λ=0.5), 150k `--ppc 8`, `--bonds` (재료 재결합, 그리드 연결성 fragment mask), `--domain auto`, archive stride 8.")} "off-target"은 마지막 프레임에서 가장 가까운 타깃 점까지의 거리가 0.5 wu를 넘는 입자 수(타깃 밖에 남은 재료; stray_census.py), 이탈 입자 수는 "fragments (grid)". 시간은 hyde06 벽시계(1 GPU, 다른 40k 런과 공유된 구간 포함).</p>')
+H.append('<div class="wrap"><table><thead><tr><th>target</th><th>chamfer</th><th>silIoU</th><th>hole</th><th>commits</th><th>min</th><th>s/commit</th><th>loss ×</th><th>sparse peak→end</th><th>thin mass / tgt</th><th>fragments (grid)</th><th>off-target &gt;0.5 wu (n, %)</th><th>max off-target</th><th>G4 ej.</th></tr></thead><tbody>')
 for r in rows:
     a, s, l, c = r["arm"], r["sc"], r["lo"], r["ce"]
     ej = "FAIL" if "G4_ejection=FAIL" in r["gate"] else ("PASS" if r["gate"] else "–")
@@ -143,7 +143,7 @@ for r in rows:
              f'<td>{r["frag"] or "–"}</td><td>{c.get("n50","–")} ({c.get("p50","–")} %)</td><td>{c.get("mx","–")} wu</td>'
              f'<td class="{"bad" if ej=="FAIL" else "ok"}">{ej}</td></tr>')
 H.append('</tbody></table></div>')
-H.append('<p class="note">"fragments (grid)": 마지막 window에서 그리드 연결성(occupancy를 한 셀 팽창한 뒤의 연결 성분) 기준으로 몸체와 분리된 입자 수 — 150k에서 "far &gt; 0.5 wu"는 얇게 늘어난 재료(간격이 소스의 8배)도 세므로 이탈 입자 수로는 fragments가 정확하다.</p>')
+H.append('<p class="note">"fragments (grid)": 마지막 window에서 그리드 연결성(occupancy를 한 셀 팽창한 뒤의 연결 성분) 기준으로 몸체와 분리된 입자 수 = 이탈 입자. "off-target"은 타깃 점군에서 0.5 wu 이상 떨어진 입자(몸체에 붙어 있어도 타깃 밖이면 셈) — 커버리지 오차이지 이탈이 아니다.</p>')
 H.append('<h2>3. 예제별 결과 — 표면 비디오(object, not particles), 입자 GIF, PBR 스틸, 손실 곡선</h2>')
 H.append('<p class="lede">표면 비디오: GPU z-buffer 디스크 스플랫 → 깊이 평활 → 법선 → GGX 셰이딩, 두 방위각, 타깃 윤곽선 오버레이. 입자 GIF는 같은 프레임의 원시 입자.</p>')
 for r in rows:
@@ -153,7 +153,7 @@ for r in rows:
         f'<div><span>{k}</span><span>{v}</span></div>' for k, v in [
             ("chamfer / silIoU / hole", f'{a.get("chamfer","–")} / {a.get("silIoU","–")} / {a.get("hole","–")}'),
             ("wall (min) · s/commit", f'{a.get("min","–")} · {r["lo"].get("spc","–")}'),
-            ("fragments (grid) · far > 0.5 wu", f'{r["frag"] or "–"} · {c.get("n50","–")} ({c.get("p50","–")} %), max {c.get("mx","–")} wu'),
+            ("fragments (grid) · off-target > 0.5 wu", f'{r["frag"] or "–"} · {c.get("n50","–")} ({c.get("p50","–")} %), max {c.get("mx","–")} wu'),
             ("thin mass / tgt", f'{r["sc"].get("mass","–")} / {r["sc"].get("tgt","–")}')]) + '</div>')
     H.append('<div class="grid">' + fig(t, f"{t}_surface.gif", f"{t} — surface (two azimuths, target outline)") + fig(t, f"{t}_particles.gif", f"{t} — particles (same frames)") + '</div>')
     H.append('<div class="grid4">' + fig(t, f"{t}_target_pbr_az35.png", "target (az 35°)") + fig(t, f"{t}_render_pbr_az35.png", "delivered (az 35°)") + fig(t, f"{t}_target_pbr_az215.png", "target (az 215°)") + fig(t, f"{t}_render_pbr_az215.png", "delivered (az 215°)") + '</div>')
@@ -167,7 +167,7 @@ print("report built:", len(rows), "examples")
 strip = lambda h: re.sub(r"<[^>]+>", "", h or "")
 md = ["# 150k gallery report (2026-09-16) — sphere → 10 targets, 150k `--ppc 8`, render arm", "",
       f"Artifact (surface videos, PBR stills, loss curves): {G.get('artifact_url', '')}", "",
-      "| target | chamfer | silIoU | hole | commits | min | s/commit | loss × | sparse peak → end | thin mass / tgt | fragments (grid) | far > 0.5 wu | max far | G4 ejection |",
+      "| target | chamfer | silIoU | hole | commits | min | s/commit | loss × | sparse peak → end | thin mass / tgt | fragments (grid) | off-target > 0.5 wu | max off-target | G4 ejection |",
       "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
 for r in rows:
     a, s, l, c = r["arm"], r["sc"], r["lo"], r["ce"]

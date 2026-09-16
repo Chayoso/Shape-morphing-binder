@@ -1515,3 +1515,8 @@ bunny — 111 commits, 19.9 min, chamfer 0.0757, silIoU 0.974 (v2: 0.0765 / 0.92
 0 fragments, 142 particles re-attached.
 heart — 101 commits, 11.3 min, chamfer 0.0732, silIoU 0.983, 0 fragments, 0 re-attached
 (it never ejected), end census 0 far.
+armadillo — 131 commits, 14.3 min, chamfer 0.0801, silIoU 0.925 (v2: 0.0814 / 0.794), hole
+0.32 %, 0 fragments, 619 particles re-attached; census 483 (0.32 %) — NOTE the census "far"
+is the distance to the nearest TARGET point (off-target material), not isolation: on the
+same frame only 4 particles have an 8th neighbour beyond 0.5 wu, each within 0.29 wu of the
+body. The report columns are relabelled (off-target vs fragments).
