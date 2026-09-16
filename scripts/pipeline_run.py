@@ -535,6 +535,7 @@ def main():
     ap.add_argument("--w_kin_running", type=float, default=0.0)
     ap.add_argument("--w_kin_var", type=float, default=0.0)   # window velocity-variance term
     ap.add_argument("--w_coh", type=float, default=0.0)       # material-coherence prior (thin-feature vanguard)
+    ap.add_argument("--v_max", type=float, default=0.0)        # G2P speed cap [wu/s], 0 = off (MPMParams.v_max)
     ap.add_argument("--eject_veto", action="store_true")       # reject windows that add isolated particles
     ap.add_argument("--eject_iso_k", type=float, default=6.0)  #   isolation radius in target spacings
     ap.add_argument("--w_esc", type=float, default=0.0)        # escape-velocity hinge (window-end v vs neighbours)
@@ -597,6 +598,10 @@ def main():
               flush=True)
         print(f"[disc] loss_res {'follows dx: ' + str(disc.loss_res) if args.loss_units == 'density' else 'kept at ' + str(args.loss_res) + ' (legacy units are a cell sum)'}",
               flush=True)
+    if args.v_max > 0:                     # forward model: G2P speed cap (ejection ladder 2026-09-16)
+        prm = dataclasses.replace(prm, v_max=args.v_max)
+        print(f"[v2run] G2P speed cap v_max={args.v_max} wu/s (40k archives: body p95 0.25-0.28 wu/s, "
+              f"early max 2.6-2.8; ejected particles 5-6 wu/s)", flush=True)
     if args.gate_hi > args.gate_lo:        # forward model: support-gated APIC
         prm = dataclasses.replace(prm, gate_r_lo=args.gate_lo, gate_r_hi=args.gate_hi)
         print(f"[v2run] support-gated APIC on: r_lo={args.gate_lo} r_hi={args.gate_hi} "
