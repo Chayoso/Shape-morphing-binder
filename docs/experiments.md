@@ -1094,3 +1094,40 @@ Display: `scripts/render_pbr.py` (surface splatting + GGX) replaces the 3DGS pho
 for solids in the report; `scripts/probes/stray_census.py` is the ejection census. The
 `--live_dir` packets of all 20 runs are served by `viewer_serve.py` on hyde06
 (`/runs` lists them; `/compare` pairs render vs phys).
+
+### 2026-09-16 — mass-ejection ladder (algorithmic fix), 40k dragon / armadillo / bob
+
+User request: solve mass ejection completely, algorithmically (no state editing), then all 10
+targets at ≥ 150k particles with surface videos. Measured first (batch-h archives, dt 1/240,
+speeds from consecutive archived steps): the body's p95 speed is 0.25–0.28 wu/s over the run
+(max 2.6–2.8 in the first windows); the particles that end > 0.5 wu from the target run at
+5–6 wu/s and are above 2× the body p95 on 90 % of the frames; they leave in windows 2–3
+(archived frame ~45) and never return. Ejection is a small set of particles at 2–20× the
+body speed, launched during the fast initial descent.
+
+Mechanisms (all opt-in; commits e72728f, 4816d61, 03cbed4):
+- `eject_veto` (runner, outer-merit stage): a candidate window that INCREASES the number of
+  isolated particles (nearest neighbour > `eject_iso_k` target spacings) is rejected like a
+  brake reject (step shrink + cold restart; patience charged only on a replay). Hard
+  guarantee on accepted commits: the isolated count is monotone non-increasing.
+- `w_esc` (optimizer): hinge on the window-end velocity relative to the frozen source
+  neighbours, `mean relu(|v_i − mean_j v_j| − esc_k·median|v|)² / thr²`, through the MPM
+  adjoint (steers the descent away from launching single particles).
+- `--v_max` (forward model, existed in MPMParams, now on the CLI): G2P speed cap.
+
+Ladder (render arm, 40k `--ppc 8` density recipe, targets with the worst batch-h ejection:
+dragon 274, bob 580, armadillo 13 far particles):
+- k = 3 (veto + hinge): FAILED — every early window rejected ("EJECTION 3→71" from anim 2):
+  the sphere's surface dilutes to ~3 spacings legitimately during the initial descent; runs
+  froze at anim 14 (chamfer 0.75–0.81). Default raised to 6.
+- k = 6 (veto + hinge, no cap): FAILED — dragon rejects "0→1" from anim 2 and replays the same
+  candidate after the cold restart (frozen at anim 16, chamfer 0.57); armadillo 15 rejects by
+  commit 20. A single launched particle per window is enough to veto, and the line search
+  cannot find a non-launching step by shrinking alone: the launch happens inside the window,
+  the veto only sees it afterwards.
+- v_max 3 wu/s + veto k 6 + hinge (pre-registered): the cap bounds a particle's displacement
+  to 0.25 wu per window (3 × 20/240), below the 6-spacing isolation radius (0.65 wu at 40k),
+  so no window can create an isolated particle and the veto never has to fire; the loss then
+  pulls slow strays back. Expected: 0 far particles at the end on all three, chamfer within
+  ±3 % of batch h, silIoU within ±1 pt, no veto rejects. Falsifier: > 0 far particles at the
+  end, or chamfer worse by > 5 % (the cap slows the initial descent too much).
