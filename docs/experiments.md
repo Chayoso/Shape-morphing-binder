@@ -1014,6 +1014,33 @@ CUDA-graph capture of the T-step rollout + adjoint (launch overhead is small at 
 the gain is uncertain); (4) the ejection census at the end (`metrics.ejection_trajectory`)
 walks every frame — sample every 4th.
 
+- Pass 3 (commit c542572): persistent per-window no-grad `Trajectory` rolled out as a CUDA
+  graph (`Trajectory.capture/run`; the control is copied into a persistent buffer its dFc
+  sequence views; grid accumulators re-zeroed per step) replaces the per-candidate
+  construction (~200 allocations + ~250 Python launches at 150k); plastic assimilation in
+  torch on the GPU (same maths, float32; test vs numpy 2e-4); the remaining numpy dets
+  batched; `PHYSMORPH_TIMING=1` logs a per-window eval/terms/grad/final breakdown with
+  device syncs. Tests: persistent rollouts bit-identical to fresh ones on CPU, allclose on
+  CUDA (atomics). Result: see the `graph` profile below.
+- Pass 3 timing (clean, no cProfile, 150k `--domain auto`, 6 windows, commit 7fab3cf):
+  3.0–4.0 s/window = eval rollouts 14 ms × 37–40 + losses 10 ms × 37–40 + det check 4 ms ×
+  37–40 + tape forward 43 ms × 8 + gradient section 236 ms × 8 (three adjoint passes per
+  iteration with PCGrad, plus the render backward) + commit rollout 0.1 s + 0.4 s Python.
+  Two structural wastes found: (a) 3 of 8 iterations per window ended in an exhausted line
+  search (10 rollouts each = 30 of the 37 rollouts) and the next iteration re-tested
+  already-rejected step sizes from an unchanged point — the window now ends at the first
+  exhausted search (commit 37e6629; no change to any accepted step); (b) the tape rollout
+  rebuilt a Trajectory (~500 allocations with grads) and launched ~120 forward + ~120 adjoint
+  kernels from Python per pass — now `function.PersistentAdjoint` (commit 07c4ff2): one tape
+  trajectory per window, forward and zero+adjoint as CUDA graphs, seeds through persistent
+  buffers (bit-identical to the plain bridge on CPU).
+- Pass 4 timing (commit 9ff24a9, clean, 150k `--domain auto`): 2.3–2.9 s/window; 17–22
+  rollouts (28 ms each); gradient section 1.25–1.67 s = three adjoint passes per iteration
+  at 60–70 ms each (`adj_bench.py`: forward graph replay 19 ms, adjoint replay 75 ms, no-grad
+  graph rollout 24 ms vs 32 ms from Python). The adjoint kernels are now the floor: 300
+  windows ≈ 12–14 min at 150k. Below 10 min needs hand-written adjoints of P2G/G2P (the
+  automatic adjoint of the atomic scatter is ~4× the forward) — not done in this pass.
+
 ### 2026-09-16 — high-resolution gallery (batch h): 10 targets × {render, physics-only}
 
 User request: judge what remains (mass ejection, high-res + diverse examples, speed), then a
@@ -1177,3 +1204,127 @@ dragon 274, bob 580, armadillo 13 far particles):
   fragments (they are pulled back INTO the body). Thin features stay connected through
   occupied cells and are never touched. No thresholds. Pre-registration: 0 far particles at
   the end on dragon / bob / armadillo, chamfer and silIoU within noise of batch h.
+- Re-coupling v4 FALSIFIED on dragon: chamfer 0.1762, silIoU 0.784, 886 far; the mask flagged
+  732 particles from commit ~47 on — a whole dragon spine whose occupancy has one-cell gaps at
+  dx 0.215, so the raw-occupancy components split legitimate thin material and the projection
+  yanked it toward stale rest lengths.
+- **Re-coupling v5 — stencil connectivity** (commit c6f5bbf): the components are taken on the
+  occupancy DILATED by one cell (two particles couple through shared grid nodes when their
+  cells are within the B-spline support, so a one-cell gap is still one body). Debris more
+  than two cells away from the body is still a fragment. Test: a thin feature with a one-cell
+  occupancy gap is not flagged. Pre-registration unchanged (0 far, quality within noise).
+- **Implementation bug found 2026-09-16 12:50 (commit c542572)**: the no-grad rollouts —
+  every line-search candidate, the warm-start comparison and the COMMIT rollout — built
+  their Trajectory without the bonds; only the tape rollout carried them. So v2–v5 were
+  verdicts on a broken implementation: the loss was evaluated on plain physics, the
+  gradient described the re-coupled system, and the committed frames never contained the
+  projection (which is also why the quality dropped: gradient/loss mismatch). Fixed by
+  construction — one persistent no-grad Trajectory per window (speed pass) is built from
+  the same RolloutSpec as the tape rollout, bonds included. v5 relaunched with the fix.
+- **v5 with the fix, dragon** (commit c542572): chamfer 0.1225, silIoU 0.893 (better than the
+  plain run's 0.1325 / 0.86 — the projection now acts on the committed trajectory), but
+  G4_ejection still FAIL: 121 particles > 0.5 wu at the end (was 274), 82 flagged fragments.
+  `scripts/probes/fragment_trace.py` on the archive (every step archived): the end
+  fragments' mean distance to their 8 source neighbours grows SMOOTHLY from 1.0× rest at
+  frame 0 to 2× by frame 80, 10× by frame 420 and 17× at the end — a continuous drift of
+  ~2 % per window from the very first windows, not a launch; they are first flagged at a
+  median frame of 763 (ratio ≈ 10); after the flag the ratio stays at 1.000 / 1.004 (+1 /
+  +20 frames), i.e. the projection cancels only the one-window excess over the frozen rest
+  lengths, because the rest lengths were re-based every window while the particle was
+  still "coupled" — the slow separation was accepted window by window. 0 of 82 ever came
+  back. Conclusion: a rest length measured from the current configuration cannot separate
+  legitimate plastic flow (neighbour distances grow 2–5× in a sphere→dragon morph) from
+  ejection (17×); the grid-connectivity flag fires only after the material is already two
+  cells away. Both the detection and the return are the wrong primitives for this defect.
+  Armadillo v5: chamfer 0.1143, silIoU 0.939, 12 far (max 1.8 wu), 6 fragments at the end;
+  bob v5: chamfer 0.1425, silIoU 0.822, hole 2.3 %, 507 far (max 4.7 wu) — bob is the worst
+  ejector of the three under per-particle control.
+- **Control basis — the by-construction candidate** (census on the existing 40k bunny
+  archives, `stray_census.py`): per-particle control (`render_full_dt_iso_nn`, batch h
+  recipe) ends with 8 particles > 0.5 wu (max 3.8–4.3 wu, all out by mid-run); the SAME
+  recipe on the 24³ and 36³ control basis (`render_ctrl --control_grid 24/36`, batches o1/q)
+  ends with 0 particles > 0.25 wu (max 0.15–0.17 wu). Mechanism: a control field on a coarse
+  node grid cannot vary inside a B-spline stencil, so no particle can be pushed differently
+  from its material neighbours — the sub-cell differential push that drives the slow drift
+  does not exist. No threshold, no detector, no return force. Pre-registration for the
+  trio (`ejb_*`, 40k `--ppc 8`, recipe, 24³, `--domain auto`, no bonds): 0 particles
+  > 0.5 wu at the end on dragon / bob / armadillo (per-particle: 274 / ? / ?); chamfer within
+  5 % of the per-particle runs (bunny o1: 0.1175 vs 0.1142). Falsifier: any far particle.
+- **Basis FALSIFIED on the auto domain** (13:20): `ejb_armadilo` (render_ctrl, 24 nodes on
+  the 14 wu auto box = 0.58 wu = 2.7 dx, tknots 4): chamfer 0.1258, 98 far (max 5.7 wu),
+  froze at 77; `ejb_dragon`: chamfer 0.312, 2594 far (6.5 %); `ejc_armadilo` (flagship arm
+  + `--control_grid 24`, per-step knots): chamfer 0.147, silIoU 0.755, 579 far. All worse
+  than per-particle control (armadillo 12 far). The fixed-domain bunny runs had a 4–6 dx
+  node spacing; at 2.7 dx the basis does not remove the sub-cell push and its coarser
+  optimisation freezes early. Not pursued further: a spacing would be a tuned parameter.
+- **Where the ejecta come from** (dragon v5 archive): 81 % of the end-far particles start in
+  the outer 10 % of the source sphere's radius (17 % of all particles do); their source
+  cells hold 6 particles vs 8 — they are the source SURFACE layer. Mechanism (from the
+  P2G/G2P algebra): a particle's own control stress acts on its stencil nodes with force
+  f_i = −V P_c ∇w_i and comes back as Σ_i w_i f_i / m_i; for an interior particle the node
+  masses are uniform and Σ_i w_i ∇w_i ≈ 0 cancels the self-term, for a surface particle the
+  outward nodes carry only its own mass and the self-term does not cancel — a surface
+  particle can propel itself outward with its own control stress, and every commit's
+  plastic assimilation (η = 0.5) forgives half the elastic stretch that would pull it back.
+  That is the 2 %/window drift the fragment trace measured.
+  Generalises: armadillo v5 — 100 % of the 12 far particles start in the outer 10 % of the
+  source radius; bob v5 — 45 % of 125 (all particles: 17 %). And the separation is EARLY:
+  the end-far set's neighbour-distance ratio is 6 (armadillo) / 4.6 (bob) at 1/12 of the
+  run, 11–14 by 1/4, then flat to the end — they detach during the initial expansion of the
+  sphere toward the target's extent (v_absmax 2.5–5.5 wu/s in that phase) and never move
+  relative to their old neighbours again.
+- **Neighbourhood-consensus plastic assimilation** (commit after 9ff24a9, `--assim_consensus`):
+  plasticity is a continuum property — the plastic increment at a commit follows the
+  elastic stretch of the particle's STENCIL NEIGHBOURHOOD with its own contribution removed
+  (`plasticity.consensus_elastic`: the P2G/G2P cubic-B-spline transfer of F_e, self term
+  subtracted at every node, nodes carrying no other mass do not vote, a particle with no
+  voting node keeps its own F_e). A particle stretching with its neighbours is assimilated
+  exactly as before; a particle stretching AWAY from neighbours that are not stretching keeps
+  the excess as elastic strain, whose restoring stress grows every window until it pulls
+  the particle back — and the adjoint sees that cost, so lone-particle pushes stop paying.
+  No threshold, no detector, no return force: only WHICH strain is forgiven changes. Tests:
+  uniform stretch identical to per-particle; a lone 3× stretched particle keeps F_e ≈ 3
+  (per-particle would forgive half); an isolated particle uses its own strain.
+  Pre-registration (trio `ejd_*`, flagship arm, per-particle control, no bonds, auto
+  domain): 0 particles > 0.5 wu at the end on dragon / bob / armadillo (per-particle v5:
+  121 / 507 / 12); chamfer within 5 % of v5 (0.1225 / 0.1425 / 0.1143). Falsifier: any far
+  particle, or chamfer worse by > 5 %.
+- **Consensus assimilation FALSIFIED** (trio `ejd_*`, 13:22): dragon chamfer 0.253, silIoU
+  0.577, detFmin 0.26, 2475 far (6.2 %), stopped at 172; armadillo 0.145 / 0.631, 685 far;
+  bob froze at 15 commits with 7509 far (19 %). Retaining the excess as elastic strain does
+  not pull surface particles back — it makes neighbouring particles' plastic states
+  inconsistent (a surface particle has few voting nodes) and the accumulated elastic
+  mismatch tears the body apart in chunks. Worse than every earlier attempt.
+- **What the control actually does to the ejecta** (dragon v5 history): `dfc_absmax` is
+  0.02 in every window — the per-particle control sits at `dfc_clip` — and the measured
+  drift is ~2 % of the neighbour distance per window: the ejecta are surface particles the
+  rasterised gradient pushes outward at the clip, window after window, toward target regions
+  the body never fills (the physics-only twin ejects the same way). The self-propulsion
+  term is negligible at this magnitude (`selfprop_probe.py`: one particle at dFc = −0.3 I
+  moves 1e-4 wu in a window); it is the DIFFERENTIAL push between material neighbours that
+  the per-particle gradient produces at cell granularity.
+- **Sobolev (H1) descent direction** (commit after c059934, `--grad_h1`): the total control
+  gradient (after λ / PCGrad / W1) is replaced by the converged solution of
+  (I + κ (I − A)) u = g on the frozen material kNN graph (A = neighbour mean, κ = 2 as the
+  existing render-only `control_h1`, Jacobi to a 1e-4 relative change, norm preserved).
+  The descent direction cannot differ between material neighbours at sub-stencil scale, so
+  a lone surface particle cannot be pushed away from its neighbourhood — the whole
+  neighbourhood moves or nothing does. Standard Sobolev gradient descent (shape
+  optimisation), no threshold, no detector. Pre-registration (`eje_dragon`, flagship,
+  per-particle, no bonds): 0 far particles at the end (v5: 121), chamfer within 5 % of v5
+  (0.1225). Falsifier: any far particle, or chamfer > 0.129.
+
+### 2026-09-16 — 150k gallery v2 (batch `h150_*`, launched 13:50)
+
+Configuration: the v5 recipe with the no-grad bonds fix — `render_full_dt_iso_nn`, 150k
+`--ppc 8`, density units, warm start, `--w_kin 5 --w_kin_var 200`, 300 animations,
+`--loss_res 64 --pace 0 --anneal 0.7 --mom_carry 0 --nn_far_k 1000`, `--bonds` (material
+re-coupling with the dilated-occupancy fragment mask), `--domain auto`, `--archive_stride 8`,
+live packets for the viewer (`live/h150_<T>_render_full_dt_iso_nn`). One run per GPU:
+k1 = bunny armadilo dragon spot bob (GPU 0), k2 = teapot heart A C V (GPU 2). Code
+c059934+ (persistent no-grad + tape graphs, line-search break, batched dets, torch
+assimilation). Pre-registration: ≤ 14 min per target unshared (2.3–2.9 s/window × 300);
+chamfer ≤ the 40k batch-h values; ejection reported by the census, not gated away.
+Post-processing per target (`hr150_post.sh` via `hr150_watch.sh`): surface video (GPU
+z-buffer splats, two azimuths, target outline), particle GIF, PBR stills (delivered +
+target, az 35/215), scatter probe, stray census, loss curves → `report150/<T>/`.

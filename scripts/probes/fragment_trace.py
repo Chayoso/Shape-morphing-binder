@@ -55,6 +55,11 @@ def main():
     # per-particle: does the ratio ever DECREASE by >20% between consecutive windows (a return)?
     dec = (ratio[1:] < 0.8 * ratio[:-1]).any(0)
     print(f"end fragments that ever came back by >20% between frames: {int(dec.sum())} of {len(idx)}")
+    # after the first flag, does the projection act? ratio at first flag vs +1, +5, +20, +40 frames
+    for k in (1, 5, 20, 40):
+        r0 = np.array([ratio[f, j] for j, f in enumerate(first)])
+        rk = np.array([ratio[min(f + k, n_f - 1), j] for j, f in enumerate(first)])
+        print(f"ratio {k} frames after first flag / at flag: median {np.median(rk / r0):.3f}  min {np.min(rk / r0):.3f}")
     # how many of the end fragments are continuously flagged since first?
     cont = np.array([all(masks[i][p] for i in range(f, n_f)) for p, f in zip(idx, first)])
     print(f"continuously flagged since first: {int(cont.sum())} of {len(idx)}")
