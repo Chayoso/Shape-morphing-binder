@@ -10,7 +10,10 @@ import json
 import os
 import re
 
-ROOT = r"C:\dev\Shape-morphing-binder\output\report150"
+import sys
+ROOT = sys.argv[1] if len(sys.argv) > 1 else r"C:\dev\Shape-morphing-binder\output\report150"
+TITLE = sys.argv[2] if len(sys.argv) > 2 else "PhysMorph 150k 갤러리"
+MD_OUT = sys.argv[3] if len(sys.argv) > 3 else r"C:\dev\Shape-morphing-binder\docs\highres150_report.md"
 targets = [os.path.basename(p) for p in sorted(glob.glob(os.path.join(ROOT, "*"))) if os.path.isdir(p)]
 G = json.load(open(os.path.join(ROOT, "global.json"), encoding="utf-8")) if os.path.exists(os.path.join(ROOT, "global.json")) else {}
 
@@ -121,7 +124,7 @@ code{font-family:var(--mono);font-size:.92em}
 ul{max-width:84ch}
 """
 
-H = ['<title>PhysMorph 150k 갤러리</title>',
+H = [f'<title>{TITLE}</title>',
      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">',
      f'<style>{css}</style>', '<main>',
      '<div class="eyebrow">PhysMorph · sphere → 10 targets · 150k particles, --ppc 8, density units, kinetic recipe, auto domain, material re-coupling · hyde06 2026-09-16</div>',
@@ -172,5 +175,5 @@ for r in rows:
     md.append(f'| {r["t"]} | {a.get("chamfer","–")} | {a.get("silIoU","–")} | {a.get("hole","–")} | {l.get("commits","–")} | {a.get("min","–")} | {l.get("spc","–")} | {l.get("ratio","–")} | {s.get("peak","–")} → {s.get("end","–")} | {s.get("mass","–")} / {s.get("tgt","–")} | {r["frag"] or "–"} | {c.get("n50","–")} ({c.get("p50","–")} %) | {c.get("mx","–")} wu | {ej} |')
 for key, title in (("assessment_html", "Assessment"), ("ejection_html", "Mass ejection"), ("speed_html", "Speed"), ("summary_html", "Summary"), ("viewer_html", "Viewer")):
     md += ["", f"## {title}", "", strip(G.get(key, ""))]
-open(r"C:\dev\Shape-morphing-binder\docs\highres150_report.md", "w", encoding="utf-8").write("\n".join(md) + "\n")
+open(MD_OUT, "w", encoding="utf-8").write("\n".join(md) + "\n")
 print("markdown written")
