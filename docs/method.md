@@ -264,3 +264,30 @@ reproduces an affine field exactly on a lone particle: `Σ w d dᵀ = dx²/3 I`)
 under the gate while its translation is unchanged (a lone particle cannot accelerate itself
 either way: `Σ w d = 0`); the gated adjoint matches central FD within 5 %. Only physical
 variables move — the gate changes how the material transfers momentum, not the state.
+
+### 10.6 Discrete continuity (line-search feasibility; the mass-ejection mechanism, 2026-09-16; code: pipeline/optimizer.py `cont_check`)
+
+```
+(23)  for every particle i, with N(i) its frozen source-material neighbours (coh_k) and
+      sp_i = mean_{j∈N(i)} |x_j − x_i| at the window start:
+          | v_i(T) − mean_{j∈N(i)} v_j(T) | · (T·Δt)  ≤  sp_i
+      A line-search candidate (control α·d) is ACCEPTED only if (23) holds wherever it held
+      for the iteration's reference rollout (the state before the step); otherwise the step
+      is rejected and α halved, exactly like a non-finite or orientation-reversing state.
+```
+
+Meaning: no particle may outrun its own material neighbourhood by more than one local
+spacing per window — the discrete statement that the deformation increment is continuous at
+the particle scale. The scale is the discretisation (local spacing, window length T·Δt); there
+is no tuned constant. Measured on the 40k archives: ejected particles run at 5–6 wu/s
+relative to a body p95 of 0.25–0.28 wu/s, i.e. 4–5× above the limit sp/(T·Δt) = 0.108/0.083
+= 1.3 wu/s at 40k (0.83 wu/s at 150k); coherent motion including thin-feature stretching
+stays an order of magnitude below it. Because acceptance is decided inside the line search,
+no accepted commit can launch a particle, and a launch already present in the reference
+(from an earlier window) is not made worse — the loss then pulls it back. Only physical
+variables move; the rule constrains which control increments are admissible, not the state.
+
+Rejected parameter routes (docs/experiments.md 2026-09-16 ladder): a window-level isolation
+veto (freezes on legitimate stretching: k = 3 and k = 6 both replayed the same candidate to
+a freeze), an escape-velocity hinge (a weight), and a G2P speed cap `v_max` (a cap; froze
+the dragon at 2 min with 17 % far particles). They remain opt-in for the record.

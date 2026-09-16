@@ -1125,9 +1125,16 @@ dragon 274, bob 580, armadillo 13 far particles):
   commit 20. A single launched particle per window is enough to veto, and the line search
   cannot find a non-launching step by shrinking alone: the launch happens inside the window,
   the veto only sees it afterwards.
-- v_max 3 wu/s + veto k 6 + hinge (pre-registered): the cap bounds a particle's displacement
-  to 0.25 wu per window (3 × 20/240), below the 6-spacing isolation radius (0.65 wu at 40k),
-  so no window can create an isolated particle and the veto never has to fire; the loss then
-  pulls slow strays back. Expected: 0 far particles at the end on all three, chamfer within
-  ±3 % of batch h, silIoU within ±1 pt, no veto rejects. Falsifier: > 0 far particles at the
-  end, or chamfer worse by > 5 % (the cap slows the initial descent too much).
+- v_max 3 wu/s + veto k 6 + hinge: FAILED — dragon froze at 2.0 min with 17 % of particles
+  > 0.5 wu from the target and 15 veto rejects: the isolation veto fires on legitimate
+  stretching (neighbours moving away), the cold restart replays the same candidate, the
+  patience freeze follows. **User ruling at this point: no parameter-only fixes** (caps,
+  thresholds, weights) — the mechanism must remove the defect by construction.
+- **Discrete-continuity line-search feasibility** (`--continuity`, method.md eq. 23, commit
+  29d2704): a step is accepted only if no particle's window-end velocity relative to its
+  frozen material neighbours exceeds one local spacing per window, sp_i/(T·dt), or the
+  iteration's reference. Scale = discretisation; enforced by rejection + α halving inside the
+  line search, so no accepted commit can launch a particle. Pre-registered on dragon / bob /
+  armadillo (render arm, 40k): 0 far particles at the end, chamfer within ±3 % of batch h,
+  silIoU within ±1 pt, line-search exhaustion no more frequent than batch h. Falsifier: any
+  far particle at the end, or a freeze before commit 60.
