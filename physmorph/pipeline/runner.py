@@ -242,7 +242,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                   cfg.surface_grad_floor)
                  if cfg.surface_grad_frac > 0 else None)
     coh_nbr = None
-    if cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0:   # frozen source-material neighbours
+    if cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0 or cfg.continuity:   # frozen source-material neighbours
         from scipy.spatial import cKDTree
         coh_nbr = cKDTree(src).query(src, k=int(cfg.coh_k) + 1, workers=-1)[1][:, 1:]
     if cfg.render_surface_only:

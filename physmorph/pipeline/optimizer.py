@@ -260,7 +260,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         from scipy.spatial import cKDTree
         sp_ref = float(np.median(cKDTree(x0).query(x0, k=2, workers=-1)[0][:, 1]))
     coh_sp2 = max(sp_ref, 1e-6) ** 2
-    if (cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0) and coh_nbr is not None:
+    if (cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0 or cfg.continuity) and coh_nbr is not None:
         coh_t = torch.as_tensor(np.ascontiguousarray(coh_nbr), device=dev)
     bond_t = None
     if cfg.w_bond > 0 and coh_nbr is not None:
@@ -458,6 +458,36 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     def _vT(extra):
         v = extra.get("V") if isinstance(extra, dict) else None
         return v[-1] if v is not None else None
+
+    # DISCRETE CONTINUITY (cfg.continuity): per-particle limit sp_i / (T dt) on the window-end
+    # velocity relative to the frozen material neighbours; sp_i = mean distance to those
+    # neighbours at the window start. A launched particle exceeds it by 5-20x (40k archives:
+    # ejecta 5-6 wu/s vs a limit of 1.3 wu/s); coherent motion, including thin-feature
+    # stretching, stays far below it (body p95 0.28 wu/s).
+    cont_lim = None
+    if cfg.continuity and coh_t is not None:
+        x0_c = torch.as_tensor(np.ascontiguousarray(x0, np.float32), device=dev)
+        cont_lim = ((x0_c[coh_t] - x0_c[:, None, :]).norm(dim=2).mean(1)
+                    / float(max(cfg.T * prm.dt, 1e-9))).detach()
+    cont_state = {"ref": None, "viol": 0, "ratio": 0.0}
+
+    def cont_rel(vT):
+        return (vT - vT[coh_t].mean(1)).norm(dim=1).detach()
+
+    def cont_check(extra_cand):
+        """True if the candidate violates continuity nowhere it was not already violated."""
+        if cont_lim is None:
+            return True
+        vT = _vT(extra_cand)
+        if vT is None:
+            return True
+        rel = cont_rel(vT)
+        ref = cont_state["ref"] if cont_state["ref"] is not None else torch.zeros_like(rel)
+        allowed = torch.maximum(cont_lim, ref)
+        viol = int((rel > allowed).sum())
+        cont_state["viol"] = viol
+        cont_state["ratio"] = float((rel / cont_lim).max())
+        return viol == 0
 
     def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
         """Physics objective WITHOUT the W1 term — the lambda balancer's numerator and
@@ -750,6 +780,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             break
         if L_start is None:
             L_start = cur
+        if cont_lim is not None:                     # reference = this iteration's start state
+            vT_ref = _vT(extra)
+            cont_state["ref"] = cont_rel(vT_ref) if vT_ref is not None else None
         gn = _norm(g)
         if g0_norm is None:
             g0_norm = max(gn, 1e-12)
@@ -810,7 +843,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # vanish from the splats and det(F)<=0 is invisible to the data terms — both
             # can fake a lower loss (adversarial finding + v3 warm-start cascade).
             if (np.isfinite(new) and floor <= new <= cur - required
-                    and _state_ok(state_n)):
+                    and _state_ok(state_n) and cont_check(extra_n)):
                 adam_t = t_
                 alpha = min(a_try * 1.1, cfg.alpha * alpha_scale)  # C++ grows alpha on acceptance
                 step_ok = True
@@ -831,7 +864,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 f"a_try={a_try:.3g} state_ok={_state_ok(state_n)}; last-attempt deltas "
                 f"d_vol={float(lv_n - lv.detach()):.3g} kin={float(lk_n - lk.detach()):.3g} "
                 f"render={(float(lr_n - lr.detach()) if lr is not None else 0.0):.3g} "
-                f"lam={lam_r:.3g})")
+                f"lam={lam_r:.3g}"
+                f"{'; continuity violators=' + str(cont_state['viol']) + ' max rel/lim=' + format(cont_state['ratio'], '.2f') if cont_lim is not None else ''})")
             alpha *= 0.5
             if alpha < 1e-8:
                 log("[win] alpha underflow, stopping window")
@@ -972,5 +1006,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
              "fill_lam": fill_lam if fill_on else None,
              "basis": basis.describe(),
              "lambda_capped": lam_capped,
-             "dfc": dc.cpu().numpy() if cfg.warm_start else None}
+             "dfc": dc.cpu().numpy() if cfg.warm_start else None,
+             "cont_ratio": cont_state["ratio"] if cont_lim is not None else None}
     return frames, F_seq, end, s_out, hist, stats

@@ -43,3 +43,29 @@ def test_pipeline_smoke_with_veto_and_hinge(prm, clouds):
     for r in res["history"]:
         if "iso_count" in r and not r.get("outer_rejected"):
             assert r["iso_count"] <= r["iso_start"]
+
+
+def test_continuity_rule_scale_and_smoke(prm, clouds):
+    """The continuity limit is sp_i/(T dt) per particle (discretisation scale) and the pipeline
+    runs with the feasibility check on; a synthetic launched particle violates the rule."""
+    import torch
+    from tests.test_render_controls_physics import _cfg, _recs, run_pipeline
+    src, tgt = clouds
+    cfg = _cfg(lambda_auto=0.5, continuity=True)
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    recs = _recs(res)
+    assert recs and np.isfinite(recs[-1]["loss"])
+    # rule check on synthetic data: coherent motion passes, one launched particle fails
+    from scipy.spatial import cKDTree
+    x0 = torch.as_tensor(src)
+    nbr = torch.as_tensor(cKDTree(src).query(src, k=9)[1][:, 1:])
+    sp = (x0[nbr] - x0[:, None, :]).norm(dim=2).mean(1)
+    lim = sp / (cfg.T * prm.dt)
+    v = torch.tensor([0.2, 0.0, 0.1]).expand(len(src), 3).clone()
+    rel = (v - v[nbr].mean(1)).norm(dim=1)
+    assert bool((rel <= lim).all())
+    # a launch: relative speed of many spacings per window (the fixture's T=4 window is
+    # 1/60 s, so the limit is ~60 x sp; real ejecta at T=20 run at 5-20x the limit)
+    v[0] += torch.tensor([200.0, 0.0, 0.0])
+    rel = (v - v[nbr].mean(1)).norm(dim=1)
+    assert int((rel > lim).sum()) >= 1 and bool(rel[0] > lim[0])

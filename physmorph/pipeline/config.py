@@ -393,6 +393,12 @@ class PipelineConfig:
                                     # commit (continuous, no snap); the flat-valley
                                     # wandering tail is dropped from frames, kept in
                                     # history (b4: best d_vol 62 at a435, final 158)
+    continuity: bool = False        # DISCRETE-CONTINUITY line-search feasibility (2026-09-16,
+                                    # the mass-ejection mechanism): a step is accepted only if
+                                    # every particle's window-end velocity relative to its frozen
+                                    # material neighbours is <= one local spacing per window
+                                    # (sp_i / (T*dt)) or no worse than the reference rollout.
+                                    # Scale from the discretisation; no tuned constant.
     eject_veto: bool = False        # MASS-EJECTION VETO (2026-09-16): reject a candidate
                                     # window that increases the number of ISOLATED particles
                                     # (nearest neighbour > eject_iso_k target spacings);
