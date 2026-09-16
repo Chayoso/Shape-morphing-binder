@@ -292,28 +292,32 @@ veto (freezes on legitimate stretching: k = 3 and k = 6 both replayed the same c
 a freeze), an escape-velocity hinge (a weight), and a G2P speed cap `v_max` (a cap; froze
 the dragon at 2 min with 17 % far particles). They remain opt-in for the record.
 
-### 10.7 Material bonds for decoupled particles (forward model; the mass-ejection mechanism, 2026-09-16; code: mpm/kernels.py `k_bond_force`, mpm/traj.py `_fb`)
+### 10.7 Material re-coupling of decoupled particles (forward model; the mass-ejection mechanism, 2026-09-16; code: mpm/kernels.py `k_p2g` / `k_update`, mpm/traj.py `_bond_args`)
 
 ```
-(24)  for a particle p with NO other particle in its 3^3 grid cells (n_p = 1: it shares no
-      node with the body, so Σ_g w_gp (x_g − x_p) = 0 and the grid cannot act on it):
-          f_p = Σ_{j∈N(p)} k_pj (|x_j − x_p| − r_pj)_+ (x_j − x_p)/|x_j − x_p|,
-          k_pj = (6/K)(λ_p + 2μ_p) r_pj,      f_j −= f_pj (reaction),
-      r_pj = |x_j − x_p| at the window START (re-based every window: plastic), N(p) = the
-      K frozen source-material neighbours (coh_k). P2G momentum (5) receives + Δt f_p.
+(24)  decoupled(p) :⇔ no other particle in the 3^3 grid cells around p's cell
+      (then Σ_g w_gp (x_g − x_p) = 0: the grid cannot act on p)
+      N(p) = the K frozen source-material neighbours (coh_k), r_pj = |x_j − x_p| at the
+      window START (re-based every window: plastic)
+      P2G (5) for a decoupled p uses the MATERIAL velocity  v̄_p = (1/K) Σ_j v_j  in place of v_p
+      advection (9) for a decoupled p adds the bond projection
+          x_p ← x_p + Δt v_p + (1/K) Σ_j (|x_j − x_p| − r_pj)_+ (x_j − x_p)/|x_j − x_p|
 ```
 
-Why this and not a penalty or a cap: the measured ejecta (docs/experiments.md 2026-09-16)
-are not launched — their velocity relative to their material neighbours is 0.5–1.1 wu/s
-(below the continuity limit) while the absolute speed is 2–5 wu/s; they drift away over
-many windows after leaving every other particle's stencil, which is numerical fracture (Yue
-2015 §2): once alone, nothing in the continuum reaches them. Lagrangian bonds (Jiang 2017,
-Han 2019) are the literature's remedy; here they are restricted to the particles for which
-the grid coupling has physically failed (a binary condition of the discretisation, no
-threshold), and their stiffness is the lattice stiffness that reproduces the continuum's
-P-wave modulus (λ + 2μ) — a bond network of K springs of stiffness (6/K)(λ+2μ) r per unit
-cell has modulus λ + 2μ — so the pull-back is the material's own elasticity. Momentum is
-conserved (the reaction goes to the neighbour), the force is differentiable (Warp adjoint,
-`tests/test_material_bonds.py`: FD within 5 %), and with every particle coupled the rollout
-is bit-identical to (5) (fb ≡ 0). Only physical variables move; the control still acts
-only through stress. Stability: ω = sqrt(K k / m) Δt ≈ 1.3 (40k), 1.05 (150k) < 2.
+Why this and not a penalty, a cap or a spring: the measured ejecta (docs/experiments.md
+2026-09-16) are not launched — their velocity relative to their material neighbours is
+0.5–1.1 wu/s (below the continuity limit) while the absolute speed is 2–5 wu/s; they drift
+away over many windows after leaving every other particle's stencil, which is numerical
+fracture (Yue 2015 §2): once alone, nothing in the continuum reaches them. (24) restores
+the transfer the grid would have provided, through the material: the velocity a decoupled
+particle contributes is the one it would have received from shared nodes (material PIC),
+and its position is projected toward its bonds' rest lengths (position-based dynamics, the
+PB-MPM / Lagrangian-bond lineage of Jiang 2017, Han 2019, Lewin 2024). The decoupling test
+is binary and comes from the discretisation; the projection is complete (no stiffness, no
+weight, no threshold). Coupled particles are untouched (the rollout is bit-identical to
+(5)+(9)); both operations are gathers, so the Warp adjoint is exact
+(`tests/test_material_bonds.py`: FD within 5 %). Momentum bookkeeping: the decoupled
+particle's momentum change is not returned to the neighbours (one particle against the
+body; recorded, not hidden). An explicit bond SPRING with stiffness (6/K)(λ+2μ) r was
+implemented first and rejected: integrated explicitly with a multi-wu extension it is
+unstable (dragon: 9 % of particles far, frozen at anim 23).

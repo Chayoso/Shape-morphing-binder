@@ -1154,3 +1154,9 @@ dragon 274, bob 580, armadillo 13 far particles):
   when nothing is decoupled; adjoint checked. Pre-registered on dragon / bob / armadillo:
   0 far particles at the end, chamfer within ±3 % of batch h, silIoU within ±1 pt.
   Falsifier: any far particle at the end (a decoupled particle the bonds could not hold).
+- Explicit bond spring FAILED (unstable): dragon froze at anim 23 with 9 % of particles
+  > 0.5 wu from the target — a linear spring with a multi-wu extension integrated explicitly
+  explodes (ω Δt ≈ 1.3, extension 30× the rest length). Replaced by **material re-coupling**
+  (same flag `--bonds`, method.md eq. 24 rewritten): material-PIC velocity in P2G and a
+  position projection toward the rest lengths in the advection step, for decoupled particles
+  only. Bit-identical when coupled; adjoint checked; pre-registration as above.
