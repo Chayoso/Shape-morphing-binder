@@ -877,7 +877,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             if merit_ok and not cont_ok:
                 # only continuity failed: the control-induced relative velocity is ~linear
                 # in the step, so shrink by the measured excess (never less than halving)
-                a_try *= max(0.05, min(0.9, 0.8 / max(cont_state.get("excess", 2.0), 1.0 + 1e-6)))
+                # (measured at 150k: a gentler shrink raised the rejections 18 -> 71; at
+                # least halve, shrink more when the excess is large)
+                a_try *= max(0.05, min(0.5, 0.8 / max(cont_state.get("excess", 2.0), 1.0 + 1e-6)))
             else:
                 a_try *= 0.5
         if not step_ok:
