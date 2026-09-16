@@ -927,3 +927,32 @@ thickens, a few strays stay at the feet — volume, or something else? Dossier:
   az 1.4. The real residual is ear UNDER-fill (3–4 % of the projected ear area, 1.2 % of ear
   target points uncovered at 0.15 wu). Dossier §6; probes `scripts/probes/{web_probe,
   ear_views, cover_diff}.py`; gallery `40k_ppc8_loss_notch.gif` + `cover_diff` sheet.
+
+### 2026-09-16 — target streak forensic (user report: "the thin line above the ear should not exist")
+
+The user is right, and it is the TARGET, not the morph. `sampling/mesh._fill_centers` took
+trimesh's axis **'base'** fill first; on the non-watertight bunny (Euler −3) that fill draws
+1-voxel columns between unrelated surface voxels — 485 interior streak voxels in 5 clusters
+of 28–67 voxels along one index axis (`scripts/probes`-style forensic, local), plus 4,870
+base-only voxels of streaks and axis-aligned slabs. Sampled with replacement from the
+256,499 centres, the streaks carry ~0.2 % of the particles: at 20k they look like scattered
+points around the ear, at 40k (twice the points on the same columns) they read as a dotted
+LINE from the ear tip to the head — the "upper thin line". Both the 20k and 40k targets came
+from the same 110³ fill (the finer fallback never triggered), so the artefact was always
+there; only its visibility scaled with n.
+
+Fix (commit below): `'orthographic'` (a voxel counts as interior only if it is enclosed in all
+three axis projections) is tried first — it has zero line-like interior voxels and 267,451
+centres (+4.3 %: it also fills interior layers the base fill missed) — and any interior voxel
+with ≤ 2 of 6 filled neighbours is stripped and counted (`STREAK_REPORT`). `filled_volume`
+uses the same fill, so source/target volume matching stays consistent.
+`tests/test_sampler_fill.py`: the bunny fill has no streaks, the base fill has > 100 (the
+guard), the 20k/40k samples share one fill, and the filled volume equals the sampled one.
+
+Consequences: every bunny result in this log up to 2026-09-15 was measured against a target
+with ~0.2 % streak particles and a ~4 % smaller filled volume. Chamfer/silIoU shifts from the
+target change are expected at the few-percent level and are re-measured below on the two
+deliverable arms; the thin-feature findings (dossier §5–§6: peak set by control kind and
+loss granularity, no over-mass, ear under-fill) do not rest on the streak voxels, but the
+"upper ear as a sparse band" reading in §6 partly did — the band was the streak plus the
+far ear, and is re-read after the rerun.

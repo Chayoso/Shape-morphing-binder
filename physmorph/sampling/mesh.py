@@ -68,24 +68,47 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
     return (x, vol) if return_volume else x
 
 
+STREAK_REPORT = {"stripped": 0, "method": None}   # last fill's streak count (tests, logs)
+
+
+def _strip_streaks(M: np.ndarray, surf: np.ndarray) -> tuple[np.ndarray, int]:
+    """Remove interior voxels with <= 2 of 6 filled neighbours (1-voxel columns that an
+    axis fill draws between unrelated surface voxels of a non-watertight mesh)."""
+    from scipy import ndimage
+    k = np.zeros((3, 3, 3), int)
+    k[1, 1, 0] = k[1, 1, 2] = k[1, 0, 1] = k[1, 2, 1] = k[0, 1, 1] = k[2, 1, 1] = 1
+    nb = ndimage.convolve(M.astype(int), k, mode="constant")
+    streak = M & ~surf & (nb <= 2)
+    return M & ~streak, int(streak.sum())
+
+
 def _fill_centers(mesh: trimesh.Trimesh, pitch: float) -> np.ndarray:
     """Interior+surface voxel centres. Axis-based fills work on non-watertight
     meshes; a fill is accepted only if it added interior voxels (>= 30% of the
-    surface count), so a silent shell can never pass as a volume again."""
+    surface count), so a silent shell can never pass as a volume again.
+
+    2026-09-16 (user forensic on the 40k target): trimesh's 'base' fill leaves 1-voxel
+    STREAKS on the non-watertight bunny (485 interior voxels in columns of 28-67 voxels
+    along one index axis, 5 clusters); at 20k they sample as scattered points, at 40k as a
+    dotted line above the ear. 'orthographic' (a voxel is filled only if it is enclosed in
+    all three axis projections) has none, so it is tried first, and any line-like interior
+    voxel that survives is stripped and counted in STREAK_REPORT."""
     try:
         vg = mesh.voxelized(pitch=pitch)
         n_surf = int(vg.filled_count)
-        for method in ("base", "orthographic", "holes"):
+        surf = vg.matrix.copy()
+        for method in ("orthographic", "base", "holes"):
             try:
                 f = vg.copy().fill(method=method)
             except Exception:
                 continue
             if int(f.filled_count) - n_surf >= 0.3 * n_surf:
-                return f.points.astype(np.float32)
+                M, n_streak = _strip_streaks(f.matrix.copy(), surf)
+                STREAK_REPORT["stripped"], STREAK_REPORT["method"] = n_streak, method
+                if n_streak:
+                    print(f"[sampling] fill '{method}': stripped {n_streak} streak voxels", flush=True)
+                idx = np.argwhere(M)
+                return f.indices_to_points(idx).astype(np.float32)
         return np.zeros((0, 3), np.float32)
     except Exception:
         return np.zeros((0, 3), np.float32)
-    try:
-        return mesh.voxelized(pitch=pitch).fill().points.astype(np.float32)
-    except Exception:
-        return np.empty((0, 3), np.float32)

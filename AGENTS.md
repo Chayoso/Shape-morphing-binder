@@ -54,7 +54,10 @@ volumetric mass matching only (Xu et al.).
 - `losses/` — `volumetric.py` **`d_vol`: mass matching, the Xu et al. objective**;
   `silhouette.py` CIC splat primitives (azimuth + elevation).
 - `plasticity/` — `assimilate_elastic` only (exact elastic-stretch commit assimilation).
-- `render/` (3DGS raster, covariance — G6 heroes), `sampling/`, `viewer/` (in-process
+- `render/` (3DGS raster, covariance — G6 heroes), `sampling/` (voxel fill: 'orthographic'
+  first + streak strip since 2026-09-16 — the 'base' fill drew 1-voxel columns on the
+  non-watertight bunny, visible as a line above the ear at 40k; `tests/test_sampler_fill.py`),
+  `viewer/` (in-process
   `LiveServer(port)` AND the file-backed `filehub.FileHub` / `LiveServer.to_dir` sink read
   by the standalone `scripts/viewer_serve.py`; local `scripts/viewer_tunnel.py` keeps the
   ssh tunnel — `docs/viewer.md`). Probes: `scripts/probes/oscillation_triage.py`
