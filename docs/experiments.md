@@ -916,4 +916,7 @@ thickens, a few strays stay at the feet — volume, or something else? Dossier:
   reached). Dossier §5g.
 - **Batch q3 (20k, density/128 + 36³ basis):** peak 0.487 → end 0.311, delivered 0.177,
   chamfer 0.1558 — the combination does not add; both levers hit the same ~0.49 floor
-  (they remove the same single-particle actuation). 40k 36³ pair (q2) running.
+  (they remove the same single-particle actuation).
+- **Batch q2 (40k `--ppc 8` + density + recipe + 36³ basis):** froze at commit 119; chamfer
+  0.1151, silIoU 0.9738, hole 0.00 %, spray 0.433 → 0.344, delivered 0.173, strays 0.11 % —
+  within noise of the per-particle recipe (dossier §5f). Flagship candidate unchanged.

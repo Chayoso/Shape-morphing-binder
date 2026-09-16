@@ -322,6 +322,7 @@ ejection at the END state is a discretisation problem and is solved by the contr
 |---|---|---|---|---|---|---|---|
 | per-particle control (batch j, the flagship candidate) | 300 | 0.1142 | 0.9735 | 0.52 % | 0.444 → 0.329 | 0.172 | 0.07 % |
 | + `render_ctrl --control_grid 24` (o1) | **135 (froze)** | 0.1175 | 0.9712 | 0.45 % | 0.424 → 0.319 | 0.173 | 0.22 % |
+| + `render_ctrl --control_grid 36` (q2) | **119 (froze)** | 0.1151 | 0.9738 | 0.00 % | 0.433 → 0.344 | 0.173 | 0.11 % |
 | 24³, legacy units, no recipe (o2, §5e) | 46 (froze) | 0.1337 | 0.9452 | 0.03 % | 0.436 → 0.245 | 0.183 | 0.36 % |
 
 The basis on the fine grid does NOT add to the discretisation contract: within noise on the
@@ -330,10 +331,11 @@ both basis runs at `--ppc 8` stop early through the outer-merit guard ("rejected
 reversal −0.55" on consecutive windows → stale → freeze) that the per-particle recipe never
 trips. At dx 0.5 the basis is the lever (§5c); at dx 0.215 the fine grid already gives the
 control the granularity the basis was supplying, and the basis then only costs line-search
-acceptance. The 36³ pair (batch q) is reported when done; the recommendation does not wait
-for it: **the flagship candidate stays per-particle at `--ppc 8` in density units with the
-kinetic recipe** (peak 0.44, end 0.33, strays 0.07 %, chamfer 0.1142), and the 20k
-deliverables use the 24³–36³ basis.
+acceptance. The 36³ pair (q2) confirms it: froze at commit 119, chamfer 0.1151, silIoU
+0.9738 (+0.03 pt), spray 0.433 → 0.344, delivered 0.173 — every column within noise of the
+per-particle recipe, with 40 % fewer commits accepted. **The flagship candidate stays
+per-particle at `--ppc 8` in density units with the kinetic recipe** (peak 0.44, end 0.33,
+strays 0.07 %, chamfer 0.1142), and the 20k deliverables use the 24³–36³ basis.
 
 ### 5g. Batch q — making the loss see the spacing (20k, per-particle control, density units, 128³ loss grid)
 
