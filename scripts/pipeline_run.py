@@ -103,7 +103,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
                          render_surface_only=args.render_surface_only,
-                         control_h1_iters=args.control_h1_iters,
+                         control_h1_iters=args.control_h1_iters, grad_h1=args.grad_h1,
                          nn_tail_frac=args.nn_tail_frac,
                          outer_merit=args.outer_merit,
                          persistent_rest_volume=not args.legacy_recompute_volumes,
@@ -507,6 +507,7 @@ def main():
     ap.add_argument("--surface_grad_frac", type=float, default=0.0)
     ap.add_argument("--render_surface_only", action="store_true")
     ap.add_argument("--control_h1_iters", type=int, default=0)
+    ap.add_argument("--grad_h1", action="store_true")          # Sobolev descent direction (material kNN)
     ap.add_argument("--outer_merit", dest="outer_merit", action="store_true", default=True)
     ap.add_argument("--no_outer_merit", dest="outer_merit", action="store_false")  # gate v3 brake is a safety net (r5: 0 rejects)
     ap.add_argument("--patience", type=int, default=5)

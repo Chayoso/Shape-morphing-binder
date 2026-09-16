@@ -247,6 +247,12 @@ class PipelineConfig:
     surface_grad_k: int = 24        # source-material kNN surface estimator
     render_surface_only: bool = False  # render only a frozen material-skin subset;
                                        # simulation particles/mass are unchanged
+    grad_h1: bool = False           # Sobolev (H1) descent direction on the material kNN graph:
+                                    # the TOTAL control gradient is replaced by the solution of
+                                    # (I + kappa (I - A)) u = g, solved to convergence — the
+                                    # search direction cannot differ between material neighbours
+                                    # at sub-stencil scale (mass ejection: lone surface particles
+                                    # pushed at the clip every window)
     control_h1_iters: int = 0       # screened kNN solve on adjoint dFc render gradient
     control_h1_kappa: float = 2.0   # surface signal propagation without editing physical state
 

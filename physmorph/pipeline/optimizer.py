@@ -145,6 +145,25 @@ def _control_h1(g: torch.Tensor, knn: torch.Tensor, iters: int,
     return u * (rhs.norm() / u.norm().clamp_min(1e-30))
 
 
+def _sobolev_direction(g: torch.Tensor, knn: torch.Tensor, kappa: float,
+                       tol: float = 1e-4, max_iters: int = 200) -> torch.Tensor:
+    """(I + kappa (I - A)) u = g on the material kNN graph (A = neighbour mean), Jacobi
+    iterated to convergence (relative change < tol), then rescaled to |g|. Unlike
+    _control_h1 (a fixed number of sweeps on one channel) this is the H1 gradient of the
+    whole objective: the descent direction cannot vary between material neighbours at
+    sub-stencil scale, so a lone surface particle cannot be pushed away from its
+    neighbourhood by the per-particle rasterised gradient."""
+    u = g
+    k = float(kappa)
+    for _ in range(max_iters):
+        u_new = (g + k * u[:, knn].mean(2)) / (1.0 + k)
+        delta = float((u_new - u).norm() / u_new.norm().clamp_min(1e-30))
+        u = u_new
+        if delta < tol:
+            break
+    return u * (g.norm() / u.norm().clamp_min(1e-30))
+
+
 def _linearized_work(grads, deltas) -> tuple[float, list[float]]:
     """Return total and per-state ``-grad dot delta`` endpoint work for telemetry.
     NOTE (transfer-function probe 2026-09-02): raw work is dominated by LOSS SCALE
@@ -304,7 +323,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # control-field spatial regularisation: frozen kNN topology at window start; the
     # penalty lives purely in control space (no rollout needed for its gradient)
     knn_t = None
-    if cfg.w_creg > 0 or cfg.control_h1_iters > 0:   # (creg penalty below is gated on w_creg)
+    if cfg.w_creg > 0 or cfg.control_h1_iters > 0 or cfg.grad_h1:   # (creg penalty below is gated on w_creg)
         from scipy.spatial import cKDTree
         knn = cKDTree(x0).query(x0, k=cfg.creg_k + 1)[1][:, 1:]
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
@@ -862,6 +881,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         else:
             total = Lp_core if Ldt is None else Lp_core + Ldt
             g = list(torch.autograd.grad(total, leaves))
+        if cfg.grad_h1 and knn_t is not None and basis.per_particle:
+            # Sobolev descent direction: the total control gradient projected onto directions
+            # that are smooth on the material kNN graph (screened Poisson, solved to
+            # convergence; norm preserved). Every channel, after PCGrad/lambda.
+            g[0] = _sobolev_direction(g[0], knn_t, cfg.control_h1_kappa)
         _tm_add("grad", t0)
         cur = scalars(lv, lk, lr, lam_r, dfc_x, state[0], state[1], extra["lk_run"],
                       extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra))
