@@ -169,7 +169,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
                     mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None,
-                    coh_nbr_src=None, frontier=None):
+                    coh_nbr_src=None, frontier=None, bond_rest=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -183,13 +183,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     x0 = np.ascontiguousarray(x0, np.float32)
     N, T = x0.shape[0], cfg.T
     lam0, mu0 = lame(cfg.young, cfg.poisson)
-    bond_nbr = bond_rest = None
+    bond_nbr = None
     if cfg.bonds and coh_nbr is not None:
-        # material bonds: frozen source neighbours, rest length = this window's start
-        # configuration (plastic re-basing), stiffness from (λ+2μ) inside the kernel
+        # material re-coupling: frozen source neighbours; rest lengths are STATE carried by
+        # the runner (refreshed only for coupled particles at the window start)
         bond_nbr = np.ascontiguousarray(coh_nbr, np.int32)
-        x0n = np.asarray(x0, np.float32)
-        bond_rest = np.linalg.norm(x0n[bond_nbr] - x0n[:, None, :], axis=2).astype(np.float32)
+        if bond_rest is None:
+            x0n = np.asarray(x0, np.float32)
+            bond_rest = np.linalg.norm(x0n[bond_nbr] - x0n[:, None, :], axis=2).astype(np.float32)
+    else:
+        bond_rest = None
     spec = RolloutSpec(x0=x0, m=1.0, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
                        bond_nbr=bond_nbr, bond_rest=bond_rest)

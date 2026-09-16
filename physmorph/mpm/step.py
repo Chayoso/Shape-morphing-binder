@@ -104,7 +104,7 @@ def mpm_step(s: MPMState, prm: MPMParams):
     nb0 = _nobond(N, dev)
     wp.launch(K.k_update, dim=N,
               inputs=[s.x, s.x, s.v, s.F, s.F_new, s.F, prm.dt, prm.smoothing,
-                      nb0[0], nb0[1], nb0[2], 0], device=dev)
+                      nb0[0], nb0[1], nb0[2], 0, 0.0], device=dev)
     if prm.floor_y > -1.0e8:                                # sharp particle-level floor (drop heroes)
         wp.launch(K.k_floor_clamp, dim=N,
                   inputs=[s.x, s.v, prm.floor_y, prm.floor_friction], device=dev)

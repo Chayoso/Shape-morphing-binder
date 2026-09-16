@@ -231,7 +231,7 @@ class Trajectory:
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], self.x[t + 1], self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], self.F[t + 1], prm.dt, prm.smoothing,
-                  bnb, brest, bnc, bK], device=dev)
+                  bnb, brest, bnc, bK, 1.0 / float(self.T)], device=dev)
         if self.track_geom:
             wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],
                       prm.dt], device=dev)

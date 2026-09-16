@@ -259,7 +259,7 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              F_new: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33),
              dt: float, s: float,
              nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
-             ncount: wp.array(dtype=float), bond_K: int):
+             ncount: wp.array(dtype=float), bond_K: int, bond_frac: float):
     p = wp.tid()
     F_out[p] = (1.0 - s) * F_new[p] + s * F_in[p]   # blend new with OLD F
     xp = x_in[p] + dt * v[p]
@@ -275,7 +275,7 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
             r = rest[p * bond_K + a]
             if L > r and L > 1.0e-9:
                 acc = acc + (L - r) * d / L
-        xp = xp + acc / float(bond_K)
+        xp = xp + bond_frac * acc / float(bond_K)      # bond_frac = 1/T: re-join over one window
     x_out[p] = xp
 
 
