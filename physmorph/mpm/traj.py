@@ -159,16 +159,13 @@ class Trajectory:
         self.rest0 = wp.zeros(1, dtype=wp.float32, device=device)
         self.ncount0 = wp.zeros(N, dtype=wp.float32, device=device)
         if bonds is not None:
-            nbr, rest = bonds
+            nbr, rest, frag = bonds                  # frag: (N,) 1.0 = fragment particle
             nbr = np.ascontiguousarray(nbr, np.int32)
             self.bond_K = int(nbr.shape[1])
             self.bond_nbr = wp.array(nbr.reshape(-1), dtype=wp.int32, device=device)
             self.bond_rest = wp.array(np.ascontiguousarray(rest, np.float32).reshape(-1), dtype=wp.float32, device=device)
+            self.bond_frag = wp.array(np.ascontiguousarray(frag, np.float32), dtype=wp.float32, device=device)
             self.bonds = True
-            self.ncounts = [A(np.zeros(N, np.float32), wp.float32) for t in range(T)]
-            if not (prm.gate_r_hi > prm.gate_r_lo):
-                self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
-                self.omega_scratch = A(np.ones(N, np.float32), wp.float32)
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
             self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
@@ -202,13 +199,11 @@ class Trajectory:
         return self.omega[t]
 
     def _bond_args(self, t: int):
-        """(nbr, rest, ncount, K) for step t; K = 0 (placeholders) unless bonds are attached."""
+        """(nbr, rest, frag, K) for step t; K = 0 (placeholders) unless bonds are attached.
+        The fragment mask is fixed for the rollout (computed by the runner at the window start)."""
         if not self.bonds:
             return self.nbr0, self.rest0, self.ncount0, 0
-        prm = self.prm
-        om = self.omega[t] if self.gate else self.omega_scratch
-        gate_omega(self.x[t], prm, 1.0, om, self.ncounts[t], self.cnt)   # 3^3-cell counts at step t
-        return self.bond_nbr, self.bond_rest, self.ncounts[t], self.bond_K
+        return self.bond_nbr, self.bond_rest, self.bond_frag, self.bond_K
 
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""

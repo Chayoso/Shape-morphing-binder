@@ -72,7 +72,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
           dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
           m: wp.array(dtype=float), vol: wp.array(dtype=float), omega: wp.array(dtype=float),
-          nbr: wp.array(dtype=int), ncount: wp.array(dtype=float), bond_K: int,
+          nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
           grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
           nx: int, ny: int, nz: int):
@@ -85,10 +85,10 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
     # omega[p] = support gate on the APIC affine term (1 = plain APIC; k_support_gate)
     G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + omega[p] * m[p] * C[p]   # total-PK1 form
     vp = v[p]
-    if bond_K > 0 and ncount[p] < 1.5:
-        # DECOUPLED (no other particle in the 3^3 cells): the grid cannot transfer momentum
-        # to it; use the material transfer — the mean velocity of its frozen source
-        # neighbours (material PIC; k_update does the position projection)
+    if bond_K > 0 and frag[p] > 0.5:
+        # FRAGMENT (its occupied-cell component is not the body's): the grid cannot couple
+        # it to the body; use the material transfer — the mean velocity of its frozen
+        # source neighbours (material PIC; k_update does the position projection)
         vs = wp.vec3(0.0, 0.0, 0.0)
         for a in range(bond_K):
             vs = vs + v[nbr[p * bond_K + a]]
@@ -259,11 +259,11 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              F_new: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33),
              dt: float, s: float,
              nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
-             ncount: wp.array(dtype=float), bond_K: int, bond_frac: float):
+             frag: wp.array(dtype=float), bond_K: int, bond_frac: float):
     p = wp.tid()
     F_out[p] = (1.0 - s) * F_new[p] + s * F_in[p]   # blend new with OLD F
     xp = x_in[p] + dt * v[p]
-    if bond_K > 0 and ncount[p] < 1.5:
+    if bond_K > 0 and frag[p] > 0.5:
         # MATERIAL RE-COUPLING (decoupled particle): project toward the rest lengths of
         # its frozen source bonds (re-based at the window start) — position-based, one
         # full projection per step, tension only (compression is the grid's business)

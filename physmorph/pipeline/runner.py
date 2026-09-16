@@ -58,6 +58,28 @@ def _surface_weights(x: np.ndarray, k: int, fraction: float, floor: float) -> np
     return np.ascontiguousarray(floor + (1.0 - floor) * soft, np.float32)
 
 
+def fragment_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
+    """True where the particle's occupied grid cell belongs to a connected component
+    (26-connectivity) of occupied cells that is NOT the largest one: material that has
+    broken off the body (numerical fracture debris). Thin features stay connected to
+    the body through occupied cells and are never flagged."""
+    from scipy import ndimage
+    ijk = np.floor((x - np.asarray(prm.grid_min, np.float32)) / prm.dx).astype(np.int64)
+    dims = np.array([prm.nx, prm.ny, prm.nz])
+    ok = ((ijk >= 0) & (ijk < dims)).all(1)
+    occ = np.zeros(dims, bool)
+    occ[ijk[ok, 0], ijk[ok, 1], ijk[ok, 2]] = True
+    lab, n = ndimage.label(occ, structure=np.ones((3, 3, 3), int))
+    if n <= 1:
+        return np.zeros(len(x), bool)
+    sizes = np.bincount(lab.ravel())
+    sizes[0] = 0
+    body = int(sizes.argmax())
+    frag = np.ones(len(x), bool)
+    frag[ok] = lab[ijk[ok, 0], ijk[ok, 1], ijk[ok, 2]] != body
+    return frag
+
+
 def _coupled_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
     """True where the particle shares its 3^3 grid cells with at least one other particle
     (the same test the kernels use for material re-coupling)."""
@@ -260,6 +282,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                  if cfg.surface_grad_frac > 0 else None)
     coh_nbr = None
     bond_rest = None                     # material re-coupling: rest lengths carried across windows
+    bond_frag = None
     if cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0 or cfg.continuity or cfg.bonds:   # frozen source-material neighbours
         from scipy.spatial import cKDTree
         coh_nbr = cKDTree(src).query(src, k=int(cfg.coh_k) + 1, workers=-1)[1][:, 1:]
@@ -375,17 +398,20 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # projection pulls it back into the body (v2 re-based everything and accepted
             # the separation — the census showed no return)
             d_now = np.linalg.norm(x_start[coh_nbr] - x_start[:, None, :], axis=2).astype(np.float32)
+            frag_np = fragment_mask(x_start, prm)          # broken-off material this window
             if bond_rest is None:
                 bond_rest = d_now
             else:
-                cm = _coupled_mask(x_start, prm)
-                bond_rest = np.where(cm[:, None], d_now, bond_rest).astype(np.float32)
+                bond_rest = np.where(frag_np[:, None], bond_rest, d_now).astype(np.float32)
+            bond_frag = frag_np.astype(np.float32)
+            if a % 10 == 0 or frag_np.any():
+                log(f"[v2] anim {a + 1}: fragments {int(frag_np.sum())} particles")
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
             fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev, vol0=vol0,
             surface_w=surface_w, Fg0=st.get("Fg"), coh_nbr=coh_nbr, coh_nbr_src=src,
-            frontier=frontier, bond_rest=bond_rest)
+            frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):
