@@ -663,6 +663,11 @@ def main():
 
     for arm in [a.strip() for a in args.arms.split(",") if a.strip()]:
         cfg = arm_config(arm, args)
+        if getattr(args, "unit_ref_res", 0):
+            # --domain auto: the density-unit calibration keeps its 0.5 wu reference cell
+            # (bug 2026-09-16: the auto block set args.unit_ref_res but cfg kept 64 over the
+            # smaller box -> a 0.2 wu reference cell and weights ~3x off vs the fixed domain)
+            cfg.unit_ref_res = int(args.unit_ref_res)
         # snapshot BEFORE the run: c2f mutates cfg.render_res mid-run (the archived
         # config must record what the run STARTED with; the c2f switch is in history)
         cfg_dump = {k: v for k, v in dataclasses.asdict(cfg).items() if k != "history"}
