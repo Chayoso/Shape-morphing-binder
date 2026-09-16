@@ -1456,7 +1456,11 @@ Results (40k, corrected auto domain, v5 recipe): cow — 87 commits, 4.7 min, ch
 silIoU 0.956, hole 0 %, 2 fragments; ogre — 117 commits, 3.8 min, 0.1196 / 0.916 / 0.13 %,
 17 fragments; homer — 117 commits, 6.4 min, 0.1195 / 0.956 / 0 %, 7 fragments; beast — 136
 commits, 4.4 min, 0.1475 / 0.738 / hole 2.05 %, 76 fragments (thin limbs, the expected weak
-case).
+case); cheburashka — 137 commits, 4.3 min, 0.1147 / 0.942 / 0.01 %, 1 fragment; max-planck —
+101 commits, 5.7 min, 0.1113 / 0.978 / 0.16 %, 0 fragments; bimba — 81 commits, 2.9 min,
+0.1113 / 0.979 / 0 %, 0 fragments; nefertiti — 145 commits, 8.1 min, 0.1173 / 0.959 / 0.01 %,
+29 fragments; fandisk — 97 commits, 5.6 min, 0.1130 / 0.974 / 0 %, 1 fragment (the sharp-edged
+case held up). Report: https://claude.ai/code/artifact/006c79b6-4b7e-4880-8810-d167b924ffe8
 
 
 ### 2026-09-16 — particle re-attachment (`--reattach`), user directive "mass ejection must be gone"
@@ -1476,3 +1480,24 @@ Pre-registration (40k trio dragon / bob / armadillo, `--bonds --reattach`): 0 fr
 0 far particles at every commit; chamfer / silIoU within noise of the v5 reference
 (0.1199 / 0.901 dragon); re-attachments per window logged. Then the 150k gallery is re-run
 with the flag.
+
+- `ejr_armadilo` (17:06): end census **0 particles > 0.25 wu, max 0.13 wu** (v5: 12 far,
+  max 1.8 wu); chamfer 0.1147, silIoU 0.961 (v5: 0.1143 / 0.939); ~100 commits, 2.3 min to
+  the gate stop; 1–2 particles re-attached per window from anim 20 on. G4_ejection still
+  reads FAIL because `stray_max` is the maximum over ALL archived frames (the drift inside a
+  window before its commit merges it); the delivered state is clean.
+- `ejr_bob` (17:29): end census **0 particles > 0.25 wu, max 0.13 wu** (v5: 507 far); chamfer
+  0.1122, silIoU 0.980 (v5: 0.1425 / 0.822), hole 2.68 % (v5 2.3 %); 324 particles
+  re-attached over 21 commits, 7.3 min.
+
+
+### 2026-09-16 — 150k gallery v3 (`h150r_*`, launched 17:36): the v2 recipe + `--reattach`
+
+Same configuration as v2 (150k `--ppc 8`, density units, `--bonds`, corrected auto domain,
+archive stride 8, live packets) plus `--reattach`, run from the `/data` repo with
+`scripts/ops/run_batch.sh` (GPU 2: teapot heart A C V; GPU 0 after `ejr_dragon`: bunny
+armadilo dragon spot bob), post-processed by `post_run.sh` into `report150/<T>/`
+(overwriting v2's media; v2's numbers stay in the log above). Pre-registration: 0 fragments
+and 0 far particles at the end on every target; chamfer / silIoU within noise of v2 or
+better (bob improved at 40k); C is expected to stop early again (its runaway is not an
+ejection problem).
