@@ -15,15 +15,16 @@ def _reset_grid(s: MPMState, prm: MPMParams):
 _ONES = {}
 
 
-_ZEROS3 = {}
+_NOBOND = {}
 
 
-def _zeros_vec3(N: int, device: str):
-    """Shared zero bond-force array for the non-bonded launches."""
-    a = _ZEROS3.get((N, device))
+def _nobond(N: int, device: str):
+    """(nbr, rest, ncount) placeholders for launches without material re-coupling (K=0)."""
+    a = _NOBOND.get((N, device))
     if a is None:
-        a = wp.zeros(N, dtype=wp.vec3, device=device)
-        _ZEROS3[(N, device)] = a
+        a = (wp.zeros(1, dtype=wp.int32, device=device), wp.zeros(1, dtype=wp.float32, device=device),
+             wp.zeros(N, dtype=wp.float32, device=device))
+        _NOBOND[(N, device)] = a
     return a
 
 
@@ -88,7 +89,7 @@ def mpm_step(s: MPMState, prm: MPMParams):
     _reset_grid(s, prm)
     wp.launch(K.k_p2g, dim=N,
               inputs=[s.x, s.v, s.C, s.F, s.dFc, s.P, s.m, s.vol, support_gate(s, prm),
-                      _zeros_vec3(s.N, s.device), s.grid_m, s.grid_v,
+                      _nobond(s.N, s.device)[0], _nobond(s.N, s.device)[2], 0, s.grid_m, s.grid_v,
                       gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz],
               device=dev)
     wp.launch(K.k_grid_op, dim=prm.ngrid,
@@ -100,8 +101,10 @@ def mpm_step(s: MPMState, prm: MPMParams):
                       gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz, prm.v_max,
                       prm.eta_sym, prm.eta_mode],
               device=dev)
+    nb0 = _nobond(N, dev)
     wp.launch(K.k_update, dim=N,
-              inputs=[s.x, s.x, s.v, s.F, s.F_new, s.F, prm.dt, prm.smoothing], device=dev)
+              inputs=[s.x, s.x, s.v, s.F, s.F_new, s.F, prm.dt, prm.smoothing,
+                      nb0[0], nb0[1], nb0[2], 0], device=dev)
     if prm.floor_y > -1.0e8:                                # sharp particle-level floor (drop heroes)
         wp.launch(K.k_floor_clamp, dim=N,
                   inputs=[s.x, s.v, prm.floor_y, prm.floor_friction], device=dev)
@@ -122,7 +125,7 @@ def compute_volumes(s: MPMState, prm: MPMParams):
     wp.launch(K.k_stress, dim=s.N, inputs=[s.F, s.dFc, s.Fp, s.lam, s.mu, s.P], device=s.device)
     wp.launch(K.k_p2g, dim=s.N,
               inputs=[s.x, s.v, s.C, s.F, s.dFc, s.P, s.m, s.vol, _ones(s.N, s.device),
-                      _zeros_vec3(s.N, s.device), s.grid_m, s.grid_v,
+                      _nobond(s.N, s.device)[0], _nobond(s.N, s.device)[2], 0, s.grid_m, s.grid_v,
                       gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz],
               device=s.device)
     wp.launch(K.k_volume, dim=s.N,

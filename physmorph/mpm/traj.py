@@ -150,22 +150,24 @@ class Trajectory:
         # n0 (nominal 3^3 count) is fixed by the caller (prm.gate_n0) so every window uses
         # the same gate; the fallback measures it on this trajectory's x0.
         self.omega1 = A(np.ones(N, np.float32), wp.float32)
-        # MATERIAL BONDS for decoupled particles (kernels.k_bond_force): bonds = (nbr (N,K)
-        # int, rest (N,K) float) frozen for this rollout; the decoupling test uses the
-        # 3^3-cell count of the support-gate kernels (outside the tape, piecewise constant).
+        # MATERIAL RE-COUPLING of decoupled particles (kernels.k_p2g / k_update): bonds =
+        # (nbr (N,K) int, rest (N,K) float) frozen for this rollout; the decoupling test is
+        # the 3^3-cell count of the support-gate kernels (outside the tape, piecewise const).
         self.bonds = None
-        self.fb0 = Z(wp.vec3, False)
+        self.bond_K = 0
+        self.nbr0 = wp.zeros(1, dtype=wp.int32, device=device)
+        self.rest0 = wp.zeros(1, dtype=wp.float32, device=device)
+        self.ncount0 = wp.zeros(N, dtype=wp.float32, device=device)
         if bonds is not None:
             nbr, rest = bonds
             nbr = np.ascontiguousarray(nbr, np.int32)
             self.bond_K = int(nbr.shape[1])
             self.bond_nbr = wp.array(nbr.reshape(-1), dtype=wp.int32, device=device)
             self.bond_rest = wp.array(np.ascontiguousarray(rest, np.float32).reshape(-1), dtype=wp.float32, device=device)
-            self.fb = [Z(wp.vec3, rg) for t in range(T)]
             self.bonds = True
+            self.ncounts = [A(np.zeros(N, np.float32), wp.float32) for t in range(T)]
             if not (prm.gate_r_hi > prm.gate_r_lo):
                 self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
-                self.ncount = A(np.zeros(N, np.float32), wp.float32)
                 self.omega_scratch = A(np.ones(N, np.float32), wp.float32)
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
@@ -188,7 +190,7 @@ class Trajectory:
         C0 = wp.zeros(N, dtype=wp.mat33, device=dev)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[0], self.dFc, self.Fp, self.lam, self.mu, P0], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[0], v0, C0, self.F[0], self.dFc, P0, self.m, self.vol,
-                  self.omega1, self.fb0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
+                  self.omega1, self.nbr0, self.ncount0, 0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_volume, dim=N, inputs=[self.x[0], self.m, gm, self.vol, gmin, prm.dx, inv_dx,
                   prm.nx, prm.ny, prm.nz], device=dev)
 
@@ -199,17 +201,14 @@ class Trajectory:
         gate_omega(self.x[t], self.prm, self.gate_n0, self.omega[t], self.ncount, self.cnt)
         return self.omega[t]
 
-    def _fb(self, t: int):
-        """Bond force for step t (zeros unless bonds are attached)."""
+    def _bond_args(self, t: int):
+        """(nbr, rest, ncount, K) for step t; K = 0 (placeholders) unless bonds are attached."""
         if not self.bonds:
-            return self.fb0
-        prm, dev = self.prm, self.device
+            return self.nbr0, self.rest0, self.ncount0, 0
+        prm = self.prm
         om = self.omega[t] if self.gate else self.omega_scratch
-        gate_omega(self.x[t], prm, 1.0, om, self.ncount, self.cnt)      # ncount = 3^3 counts
-        self.fb[t].zero_()
-        wp.launch(K.k_bond_force, dim=self.N, inputs=[self.x[t], self.bond_nbr, self.bond_rest,
-                  self.ncount, self.lam, self.mu, self.bond_K, self.fb[t]], device=dev)
-        return self.fb[t]
+        gate_omega(self.x[t], prm, 1.0, om, self.ncounts[t], self.cnt)   # 3^3-cell counts at step t
+        return self.bond_nbr, self.bond_rest, self.ncounts[t], self.bond_K
 
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""
@@ -219,9 +218,10 @@ class Trajectory:
         prm, dev, N = self.prm, self.device, self.N
         inv_dx, gmin, fext = 1.0 / prm.dx, wp.vec3(*prm.grid_min), wp.vec3(*prm.f_ext)
         dfc = self._dfc(t)
+        bnb, brest, bnc, bK = self._bond_args(t)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
-                  self.m, self.vol, self._omega(t), self._fb(t), self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
+                  self.m, self.vol, self._omega(t), bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
                   prm.dt, prm.drag,
                   prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
@@ -230,7 +230,8 @@ class Trajectory:
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], self.x[t + 1], self.v[t + 1], self.F[t],
-                  self.Fraw[t + 1], self.F[t + 1], prm.dt, prm.smoothing], device=dev)
+                  self.Fraw[t + 1], self.F[t + 1], prm.dt, prm.smoothing,
+                  bnb, brest, bnc, bK], device=dev)
         if self.track_geom:
             wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],
                       prm.dt], device=dev)

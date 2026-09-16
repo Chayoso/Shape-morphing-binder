@@ -72,7 +72,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
           dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
           m: wp.array(dtype=float), vol: wp.array(dtype=float), omega: wp.array(dtype=float),
-          fb: wp.array(dtype=wp.vec3),
+          nbr: wp.array(dtype=int), ncount: wp.array(dtype=float), bond_K: int,
           grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
           nx: int, ny: int, nz: int):
@@ -84,7 +84,16 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
     C0 = 3.0 * inv_dx * inv_dx
     # omega[p] = support gate on the APIC affine term (1 = plain APIC; k_support_gate)
     G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + omega[p] * m[p] * C[p]   # total-PK1 form
-    mv = m[p] * v[p] * (1.0 - dt * drag) + dt * fb[p]        # fb = material-bond force (k_bond_force)
+    vp = v[p]
+    if bond_K > 0 and ncount[p] < 1.5:
+        # DECOUPLED (no other particle in the 3^3 cells): the grid cannot transfer momentum
+        # to it; use the material transfer — the mean velocity of its frozen source
+        # neighbours (material PIC; k_update does the position projection)
+        vs = wp.vec3(0.0, 0.0, 0.0)
+        for a in range(bond_K):
+            vs = vs + v[nbr[p * bond_K + a]]
+        vp = vs / float(bond_K)
+    mv = m[p] * vp * (1.0 - dt * drag)
     b = base_node(xp, gmin, inv_dx)
     for oi in range(4):
         for oj in range(4):
@@ -149,34 +158,11 @@ def k_support_gate(x: wp.array(dtype=wp.vec3), cnt: wp.array(dtype=int), gmin: w
     omega[p] = s * s * (3.0 - 2.0 * s)
 
 
-# ── material bonds for decoupled particles (numerical-fracture repair, 2026-09-16) ──
-# A particle with no other particle in its 3^3 grid cells shares no node with the body:
-# the grid cannot pull it back (Σ w (x_g - x_p) = 0). Its frozen source neighbours then
-# carry one-sided tension bonds with rest length r (re-based at the window start) and
-# stiffness k = (6/K)(λ+2μ) r — the lattice stiffness that reproduces the continuum's
-# P-wave modulus — so the pull-back is the material's own elasticity, not a penalty.
-# Momentum is conserved: the reaction −f goes to the neighbour. Coupled particles get no
-# force at all (fb stays zero), so the rollout is bit-identical to the plain one there.
-@wp.kernel
-def k_bond_force(x: wp.array(dtype=wp.vec3), nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
-                 ncount: wp.array(dtype=float), lam: wp.array(dtype=float), mu: wp.array(dtype=float),
-                 K: int, fb: wp.array(dtype=wp.vec3)):
-    p = wp.tid()
-    if ncount[p] > 1.5:                      # coupled: at least one other particle nearby
-        return
-    xp = x[p]
-    if not valid_pos(xp):
-        return
-    kf = 6.0 / float(K) * (lam[p] + 2.0 * mu[p])
-    for a in range(K):
-        j = nbr[p * K + a]
-        d = x[j] - xp
-        L = wp.length(d)
-        r = rest[p * K + a]
-        if L > r and L > 1.0e-9:
-            f = kf * r * (L - r) * d / L        # tension only, stiffness k_b = kf * r
-            wp.atomic_add(fb, p, f)
-            wp.atomic_add(fb, j, -f)
+# ── material re-coupling of decoupled particles (numerical-fracture repair) ────
+# Implemented inside k_p2g (material-PIC velocity) and k_update (bond projection); the
+# decoupling test is the 3^3-cell count of the support-gate kernels. An explicit bond
+# spring was tried first (2026-09-16) and rejected: a linear spring with a multi-wu
+# extension integrated explicitly is unstable at these stiffnesses.
 
 
 # ── grid op — eq (6), oracle SingleNode_op ──────────────────────────────────
@@ -271,10 +257,26 @@ def k_g2p(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
 def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              v: wp.array(dtype=wp.vec3), F_in: wp.array(dtype=wp.mat33),
              F_new: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33),
-             dt: float, s: float):
+             dt: float, s: float,
+             nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
+             ncount: wp.array(dtype=float), bond_K: int):
     p = wp.tid()
     F_out[p] = (1.0 - s) * F_new[p] + s * F_in[p]   # blend new with OLD F
-    x_out[p] = x_in[p] + dt * v[p]
+    xp = x_in[p] + dt * v[p]
+    if bond_K > 0 and ncount[p] < 1.5:
+        # MATERIAL RE-COUPLING (decoupled particle): project toward the rest lengths of
+        # its frozen source bonds (re-based at the window start) — position-based, one
+        # full projection per step, tension only (compression is the grid's business)
+        acc = wp.vec3(0.0, 0.0, 0.0)
+        for a in range(bond_K):
+            j = nbr[p * bond_K + a]
+            d = x_in[j] - x_in[p]
+            L = wp.length(d)
+            r = rest[p * bond_K + a]
+            if L > r and L > 1.0e-9:
+                acc = acc + (L - r) * d / L
+        xp = xp + acc / float(bond_K)
+    x_out[p] = xp
 
 
 # ── geometric deformation gradient — the RENDER kinematics ───────────────────
