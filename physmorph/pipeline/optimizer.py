@@ -678,6 +678,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L if lr is None else L + lam_r * float(lr.detach())
 
     hist, accepted, rejected = [], 0, 0
+    ls_exhausted = False
     _TM.clear()
     _TM["t_win"] = time.perf_counter()
     pace_bound = False               # window exited via the pace floor (on schedule)
@@ -963,7 +964,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             if alpha < 1e-8:
                 log("[win] alpha underflow, stopping window")
                 break
-            continue
+            # An exhausted line search leaves the point, the Adam state and therefore the
+            # next gradient UNCHANGED (everything a rejected trial touched is restored), so
+            # the following iteration would recompute the same gradient and re-test step
+            # sizes the search just rejected (alpha/2 ... alpha/2^10 after alpha ... alpha/2^9)
+            # — 10 rollouts and an adjoint per iteration for one new trial at alpha/2^10,
+            # which cannot clear the noise floor. The window ends here instead (measured
+            # at 150k: 3 exhausted iterations per window = 30 of 37 rollouts).
+            ls_exhausted = True
+            log(f"[win] line search exhausted at iter {it}: ending the window")
+            break
 
         if gx_phys_diag is not None:                 # work telemetry (REFUTE M18: the
             # P-render headline metric must exist in HEADLESS runs, not only when
@@ -1092,6 +1102,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
              "mom_out": mom_out if cfg.mom_carry > 0 else None,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
+              "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
               "g_share": g_share,
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
