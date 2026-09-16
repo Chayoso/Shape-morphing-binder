@@ -1425,3 +1425,15 @@ target, az 35/215), scatter probe, stray census, loss curves → `report150/<T>/
   bob — 112 commits, 10.9 min, chamfer 0.1621, silIoU 0.577, hole 0.78 %, 134 fragments,
   stray 1.91 % (40k v5: 0.1425 / 0.822) — with dragon the second target that loses at
   150k: both are the thin-feature/ring shapes where the 150k material clumps.
+  C re-run without the gate (`h150_C2`): the loss RISES every window (L 0.947 → 1.057,
+  D_vol 0.23 → 0.26, kin 1.8, |v|max 4.7 wu/s) while `GUARD clamp` grows 2136 → 4738 —
+  thousands of particles pinned at the auto box edge: the sphere's initial expansion
+  toward the C ring overshoots the leash box and the clamp turns it into a runaway. The
+  gate's brake in the first run was therefore correct. `h150_C3` re-runs C on the fixed
+  32 wu domain (no clamping) — a configuration difference, not a tuned constant.
+  `h150_C3` (fixed domain, gate on): the same brake rejects from anim 16 (gain −0.053,
+  reversal 0.986) — C at 150k regresses in the merit after ~15 windows on either domain:
+  the sphere→ring expansion overshoots and the gate correctly stops it. C at 150k is a
+  FAILURE (reported with the gated run's numbers: chamfer 0.571, silIoU 0.70, 20 commits).
+  V — 224 commits, 20.7 min, chamfer 0.0766, silIoU 0.792, hole 1.03 %, 260 fragments,
+  stray 1.58 %.
