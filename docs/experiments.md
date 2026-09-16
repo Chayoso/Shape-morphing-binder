@@ -1507,3 +1507,11 @@ armadilo dragon spot bob), post-processed by `post_run.sh` into `report150/<T>/`
 and 0 far particles at the end on every target; chamfer / silIoU within noise of v2 or
 better (bob improved at 40k); C is expected to stop early again (its runaway is not an
 ejection problem).
+
+Results (v3): teapot — 121 commits, 16.1 min, chamfer 0.0721, silIoU 0.980 (v2: 0.0716 /
+0.969), hole 0 %, 0 fragments, end census 0 far (max 0.09 wu), 32 particles re-attached over
+3 commits.
+bunny — 111 commits, 19.9 min, chamfer 0.0757, silIoU 0.974 (v2: 0.0765 / 0.920), hole 0 %,
+0 fragments, 142 particles re-attached.
+heart — 101 commits, 11.3 min, chamfer 0.0732, silIoU 0.983, 0 fragments, 0 re-attached
+(it never ejected), end census 0 far.

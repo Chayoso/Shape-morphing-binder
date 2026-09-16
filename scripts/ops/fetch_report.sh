@@ -3,8 +3,10 @@
 # Usage: bash scripts/ops/fetch_report.sh <prefix> <targets...>
 cd "$(dirname "$0")/../.."
 PFX=$1; shift
-case $PFX in h150) L=output/report150; R=report150 ;; *) L=output/report_$PFX; R=report_$PFX ;; esac
+case $PFX in h150) L=output/report150; R=report150 ;; h150r) L=output/report150; R=report_h150r ;; *) L=output/report_$PFX; R=report_$PFX ;; esac
+# (a v3 fetch replaces the v2 media of the same target in output/report150)
 mkdir -p $L
 for T in "$@"; do
+  rm -rf $L/$T
   scp -q -r -o ProxyJump=chayo@hyde01.dabh.io "chayo@hyde06.dabh.io:/data/relcfd/chayo/physmorph_v2/output/$R/$T" $L/ && echo "fetched $L/$T ($(ls $L/$T | wc -l) files)"
 done
