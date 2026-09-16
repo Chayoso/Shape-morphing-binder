@@ -783,9 +783,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         gF_rend_diag = gF_rend_diag * surface_w_t.repeat(1, 9)
         if balancer.active and (special_render or cfg.grad_project or it == 0):
             if gp is None:
+                t1 = _tick()
                 gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
+                _tm_add("g_phys", t1)
+            t1 = _tick()
             gdt = (torch.autograd.grad(Ldt, leaves, retain_graph=True)
                    if Ldt is not None else None)
+            _tm_add("g_dt", t1)
+            t1 = _tick()
             if smooth:
                 # v3 grid-GS preconditioning: smooth the IMAGE-SPACE pull on the grid,
                 # then pull the smoothed direction back through the SAME MPM adjoint
@@ -819,6 +824,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                                        gF * surface_w_t.repeat(1, 9)))
             else:
                 gr = torch.autograd.grad(lr, leaves)
+            _tm_add("g_rend", t1)
             if cfg.control_h1_iters > 0:
                 gr = list(gr)
                 gr[0] = _control_h1(gr[0], knn_t, cfg.control_h1_iters,
@@ -1100,9 +1106,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         _tm_add("final", t0)
     if _TIMING:
         tot = time.perf_counter() - _TM.get("t_win", time.perf_counter())
-        keys = ("eval_roll", "eval_loss", "eval_det", "terms", "grad", "final")
+        keys = ("eval_roll", "eval_loss", "eval_det", "terms", "grad", "g_phys", "g_dt", "g_rend", "final")
         print("[time] " + " ".join(f"{k} {_TM.get(k, 0.0):.2f}s/{_TM.get('n_' + k, 0)}x" for k in keys)
-              + f" other {tot - sum(_TM.get(k, 0.0) for k in keys):.2f}s window {tot:.2f}s", flush=True)
+              + f" other {tot - sum(_TM.get(k, 0.0) for k in keys[:6]):.2f}s window {tot:.2f}s", flush=True)
     s_out = s.detach().cpu().numpy() if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
