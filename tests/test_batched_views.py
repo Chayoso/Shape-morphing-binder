@@ -30,7 +30,7 @@ def test_batched_losses_are_differentiable_and_match_reference():
     t = torch.rand(2000, 3) * 2 - 1
     views = make_views(3, (0.0,))
     res, ext = 20, 1.3
-    sils = target_silhouettes(t, [v[0] for v in views], res, ext)
+    sils = target_silhouettes(t, views, res, ext)
     L = d_render(x, sils, views, res, ext)
     ref = sum(((torch.clamp(a_t - soft_silhouette(x, th, res, ext, 1.5, ph), min=0).pow(2) * 2.0
                 + torch.clamp(soft_silhouette(x, th, res, ext, 1.5, ph) - a_t, min=0).pow(2)).mean()
