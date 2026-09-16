@@ -177,12 +177,14 @@ def grid_fields(x, v, gmin, ldx, res, F=None):
                 jj = np.clip(base[:, 1] + oy, 0, res - 1)
                 kk = np.clip(base[:, 2] + oz, 0, res - 1)
                 idx = (ii * res + jj) * res + kk
-                np.add.at(m, idx, w)
-                np.add.at(mv, idx, w * sp)
-                np.add.at(mom, idx, w[:, None] * v)
-                np.add.at(ke, idx, w * 0.5 * sp * sp)
-                np.add.at(j_acc, idx, w * Jp)
-                np.add.at(s_acc, idx, w * strainp)
+                n_cells = res ** 3                      # bincount == add.at, 50x faster
+                m += np.bincount(idx, weights=w, minlength=n_cells)
+                mv += np.bincount(idx, weights=w * sp, minlength=n_cells)
+                for c in range(3):
+                    mom[:, c] += np.bincount(idx, weights=w * v[:, c], minlength=n_cells)
+                ke += np.bincount(idx, weights=w * 0.5 * sp * sp, minlength=n_cells)
+                j_acc += np.bincount(idx, weights=w * Jp, minlength=n_cells)
+                s_acc += np.bincount(idx, weights=w * strainp, minlength=n_cells)
     # Every positive-weight CIC node is real diagnostic data.  The old 0.5 cutoff
     # dropped all eight nodes of a particle centred in a cell (weight 0.125 each).
     act = np.nonzero(m > 1e-12)[0]

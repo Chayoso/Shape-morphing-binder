@@ -57,8 +57,10 @@ def assimilate_growth(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=True,
 
 
 def _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, grow, grow_band) -> np.ndarray:
-    ok = np.linalg.det(Fe) > 1e-6
-    _, S, Vt = np.linalg.svd(Fe)
+    from ..mpm.conditioning import batched_det
+    ok = batched_det(Fe) > 1e-6
+    from ..mpm.conditioning import batched_svd, batched_det
+    _, S, Vt = batched_svd(Fe)
     V = np.transpose(Vt, (0, 2, 1))
     Se = np.clip(S, 1e-3, None) ** eta
     if isochoric:                                    # det-free increment: J_p stays 1
@@ -69,7 +71,7 @@ def _assimilate(F, Fp, Fe, eta, smin, smax, isochoric, grow, grow_band) -> np.nd
         g = np.clip(np.asarray(grow, np.float32), 0.5, 2.0) ** (1.0 / 3.0)
         Sa = Sa * g[:, None, None]                   # isotropic factor on the increment
     Fp_new = np.einsum("nij,njk->nik", Sa, Fp)
-    U2, S2, Vt2 = np.linalg.svd(Fp_new)              # cumulative band clamp LAST
+    U2, S2, Vt2 = batched_svd(Fp_new)                # cumulative band clamp LAST
     S2 = np.clip(S2, smin, smax)
     if grow is not None:                             # growth governor: cumulative det
         det = np.prod(S2, axis=1)                    # band, NOT det=1 (growth is the

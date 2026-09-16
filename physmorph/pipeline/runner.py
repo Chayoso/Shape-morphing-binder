@@ -447,7 +447,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         st = {"F": Fc, "v": v_p, "C": C_p, "Fg": Fg_p}
         # whole-window F health, not just the endpoint (an inversion mid-window that
         # recovers by T would otherwise be invisible)
-        dets = np.stack([np.linalg.det(Fs) for Fs in F_seq[1:]])
+        from ..mpm.conditioning import batched_det
+        dets = batched_det(np.stack(F_seq[1:]))        # one batched det over the window
         n_inv = int((dets <= 0.0).any(0).sum())
         guards["clamped"] += n_out; guards["nan_x"] += n_nan; guards["nan_state"] += n_ns
         guards["F_reset"] += n_bad; guards["F_flip"] += n_flip
