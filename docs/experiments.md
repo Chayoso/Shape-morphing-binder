@@ -1050,3 +1050,47 @@ adjoint, 30–55 % of all particles; (iii) G4_ejection fails on some targets wit
 far particles — the count per target decides the next ejection ladder; (iv) s/commit drops by
 ~25 % on the runs started after 5a3b8ee. Results: `docs/highres_report.md` (written from
 `output/report/`, the artifact page is the deliverable).
+
+**Batch h results (2026-09-16 09:10 CDT, 20 runs, 07:20–09:08).** Full tables: `docs/highres_report.md`; page with
+GIFs / PBR stills / heatmaps: https://claude.ai/code/artifact/3a1a66fe-6100-4ccf-9e54-21c02a1d0c8a.
+
+| target | render: chamfer / silIoU / hole / commits / min | phys: chamfer / silIoU / hole / commits / min | thin mass r / p (tgt) | strays > 0.5 wu r / p |
+|---|---|---|---|---|
+| bunny | 0.1142 / 0.9570 / 0.02 % / 115 / 19.1 | 0.1145 / 0.9528 / 0.01 % / 129 / 7.6 | 0.172 / 0.163 (0.192) | 5 / 0 |
+| teapot | 0.1111 / 0.9743 / 0.00 % / 112 / 18.2 | 0.1111 / 0.9624 / 0.00 % / 108 / 6.6 | 0.222 / 0.218 (0.212) | 0 / 0 |
+| armadillo | 0.1159 / 0.9356 / 0.28 % / 79 / 8.6 | 0.1172 / 0.8992 / 0.36 % / 74 / 4.3 | 0.152 / 0.137 (0.205) | 13 / 15 |
+| heart | 0.1112 / 0.9819 / 0.00 % / 117 / 12.6 | 0.1111 / 0.9755 / 0.00 % / 118 / 7.5 | 0.197 / 0.196 (0.193) | 0 / 0 |
+| dragon | 0.1325 / 0.8078 / 1.00 % / 139 / 14.7 | 0.1296 / 0.7886 / 0.24 % / 90 / 5.5 | 0.134 / 0.120 (0.176) | 274 / 177 |
+| A | 0.1133 / 0.9768 / 0.00 % / 107 / 11.4 | 0.1133 / 0.9599 / 0.00 % / 143 / 8.8 | 0.157 / 0.150 (0.172) | 1 / 0 |
+| C (ring) | 0.5515 / 0.7656 / 0.02 % / 20 / 2.3 | 0.4918 / 0.6677 / 0.22 % / 16 / 1.2 | 0.085 / 0.083 (0.155) | 40 % / 26 % |
+| spot | 0.1136 / 0.9768 / 0.00 % / 74 / 7.8 | 0.1150 / 0.9574 / 0.00 % / 114 / 7.2 | 0.158 / 0.139 (0.177) | 0 / 0 |
+| V | 0.1248 / 0.8817 / 0.23 % | 0.1147 / 0.9322 / 0.01 % | 0.163 / 0.191 (0.185) | 123 / 42 |
+| bob (ring) | 0.1496 / 0.8011 / 2.06 % | 0.1220 / 0.8654 / 2.57 % | 0.195 / 0.195 (0.171) | 580 / 127 |
+
+Verdicts against the pre-registration:
+- (i) render vs physics-only: CONFIRMED on 6/10 (teapot, heart, spot, bunny, A, armadillo):
+  silIoU +0.4 to +3.6 pt, thin mass +0.001–0.019, chamfer within ±1 %. FALSIFIED on the
+  two targets that need a hole to open or a sharp re-entrant corner (bob ring, V): the render
+  arm is worse (bob 0.1496/0.80 vs 0.1220/0.87; V 0.1248/0.88 vs 0.1147/0.93) and ejects 3–5×
+  more particles. dragon: both arms silIoU 0.79–0.81. C (ring): both arms stall at commit 9 —
+  the outer-merit guard rejects every candidate window (gain −0.08, reversal 0.96) and the
+  hole never opens; a topology-change limit of the mass-matching descent, not of the render
+  channel.
+- (ii) gradient reach: CONFIRMED — |∂D_render/∂x| active on 6–9 % of particles (15–25 % of
+  the surface set, ≤ 2.5 % interior; surface/interior magnitude 30–80×); D_vol on 100 %
+  (surface/interior 1.0–2.2×); through the adjoint the image gradient reaches 50–90 % of all
+  particles and 47–90 % of the interior (heart 90 %, teapot 56 %, bunny 52 %, armadillo 50 %).
+- (iii) ejection: target-driven — 0 on the smooth targets in both arms, 13–15 on the
+  armadillo in both, 177–274 on the dragon in both, and the render channel adds single
+  digits on bunny/A but multiplies it 3–5× on bob/V. Ejected particles are already out at the
+  midpoint (100 %) — they do not return. Next ladder: `v_max` (needs a CLI flag), near-band
+  re-coupling weighted to the ejected set, a λ ramp in the first windows, and a `w_spray 0`
+  arm on bob/V to isolate the silhouette excess term.
+- (iv) speed: CONFIRMED — render runs started before 5a3b8ee 9.8–10.0 s/commit, after
+  6.3–6.7 s/commit (−34 %); physics-only 3.5–3.8 s/commit, so the render channel costs
+  ~2.8 s per commit at 40k / 18 views.
+
+Display: `scripts/render_pbr.py` (surface splatting + GGX) replaces the 3DGS photoreal path
+for solids in the report; `scripts/probes/stray_census.py` is the ejection census. The
+`--live_dir` packets of all 20 runs are served by `viewer_serve.py` on hyde06
+(`/runs` lists them; `/compare` pairs render vs phys).
