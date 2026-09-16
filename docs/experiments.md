@@ -1160,3 +1160,20 @@ dragon 274, bob 580, armadillo 13 far particles):
   (same flag `--bonds`, method.md eq. 24 rewritten): material-PIC velocity in P2G and a
   position projection toward the rest lengths in the advection step, for decoupled particles
   only. Bit-identical when coupled; adjoint checked; pre-registration as above.
+- Re-coupling v2 FALSIFIED: dragon 735 far (was 274), chamfer 0.1596. Census on the archive:
+  ~125 particles become decoupled at frame ~100 in both runs and never return, because the
+  rest lengths were re-based at every window start — the separation was accepted.
+- Re-coupling v3 (rest lengths carried as state, refreshed only for coupled particles;
+  projection at 1/T per step) FALSIFIED: dragon 772 far, chamfer 0.1666; armadillo 46 far,
+  silIoU 0.885, froze at commit 46. Diagnosis: the per-particle test "no other particle in
+  my 3³ cells" flags legitimate thin-feature TIPS (dragon spines, armadillo claws are
+  single-particle cells at 40k) and misses the actual ejecta, which leave in groups of 2–3
+  particles 0.4–0.5 wu apart — they share grid nodes with each other, not with the body.
+- **Re-coupling v4 — fragments** (commit 038d043): decoupled ⇔ the particle's occupied grid
+  cell lies in a connected component (26-connectivity) of occupied cells other than the
+  largest one (the body). `runner.fragment_mask` (scipy.ndimage.label, once per window, a
+  few ms) → `bond_frag`; the kernels apply the material-PIC velocity and the bond projection
+  to fragment particles only; rest lengths are refreshed for body particles and frozen for
+  fragments (they are pulled back INTO the body). Thin features stay connected through
+  occupied cells and are never touched. No thresholds. Pre-registration: 0 far particles at
+  the end on dragon / bob / armadillo, chamfer and silIoU within noise of batch h.
