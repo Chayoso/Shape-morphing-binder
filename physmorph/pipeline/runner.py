@@ -69,7 +69,12 @@ def fragment_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
     ok = ((ijk >= 0) & (ijk < dims)).all(1)
     occ = np.zeros(dims, bool)
     occ[ijk[ok, 0], ijk[ok, 1], ijk[ok, 2]] = True
-    lab, n = ndimage.label(occ, structure=np.ones((3, 3, 3), int))
+    # STENCIL connectivity: two particles couple through shared grid nodes when their cells
+    # are within the 4^3 B-spline support of each other, so components are taken on the
+    # occupancy dilated by one cell (a thin feature with a one-cell occupancy gap is still one
+    # body; v4 on the raw occupancy flagged a 732-particle dragon spine as a fragment)
+    occ_d = ndimage.binary_dilation(occ, structure=np.ones((3, 3, 3), bool))
+    lab, n = ndimage.label(occ_d, structure=np.ones((3, 3, 3), int))
     if n <= 1:
         return np.zeros(len(x), bool)
     sizes = np.bincount(lab.ravel())

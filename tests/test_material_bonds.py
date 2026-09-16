@@ -92,8 +92,18 @@ def test_fragment_mask_flags_only_broken_off_material():
     prm = _prm()
     body = _cloud(600)                                      # a blob in [-1,1]^3
     tip = body[:40].copy(); tip[:, 0] += 1.4                # a thin feature sticking out (contiguous cells)
-    debris = body[:5].copy(); debris[:, 0] += 4.0           # a small cluster far away
+    debris = body[:5].copy(); debris[:, 0] += 5.0           # a small cluster far away (> 2 cells past the tip)
     x = np.concatenate([body, tip, debris]).astype(np.float32)
     frag = fragment_mask(x, prm)
     assert not frag[:600].any() and not frag[600:640].any()   # body and its thin feature: connected
     assert frag[640:].all()                                    # the broken-off cluster
+
+
+def test_fragment_mask_tolerates_a_one_cell_gap_in_a_thin_feature():
+    from physmorph.pipeline.runner import fragment_mask
+    prm = _prm()                                            # dx 0.5
+    body = _cloud(600)
+    gap_tip = body[:40].copy(); gap_tip[:, 0] += 1.7        # starts ~0.7 wu past the body: a one-cell gap
+    x = np.concatenate([body, gap_tip]).astype(np.float32)
+    frag = fragment_mask(x, prm)
+    assert not frag.any()                                    # still one body under stencil connectivity
