@@ -537,6 +537,7 @@ def main():
     ap.add_argument("--w_kin_var", type=float, default=0.0)   # window velocity-variance term
     ap.add_argument("--w_coh", type=float, default=0.0)       # material-coherence prior (thin-feature vanguard)
     ap.add_argument("--continuity", action="store_true")      # discrete-continuity line-search feasibility (ejection fix)
+    ap.add_argument("--domain", default="fixed", choices=["fixed", "auto"])  # auto: grid = leash box + stencil margin
     ap.add_argument("--v_max", type=float, default=0.0)        # G2P speed cap [wu/s], 0 = off (MPMParams.v_max)
     ap.add_argument("--eject_veto", action="store_true")       # reject windows that add isolated particles
     ap.add_argument("--eject_iso_k", type=float, default=6.0)  #   isolation radius in target spacings
@@ -584,11 +585,26 @@ def main():
     if args.ppc > 0:                       # discretisation contract: dx follows N
         from physmorph.mpm.discretisation import derive, report
         mat = PipelineConfig()             # the material the arms actually use
+        domain_half = -prm.grid_min[0]
+        if args.domain == "auto":
+            # the leash box the objective already assumes (runner.build_target: extent =
+            # 1.25 x max|target|; w_box pulls particles back inside it) + the 4^3 stencil
+            # margin: nothing outside it receives grid forces by design
+            dx0 = float((v_src * args.ppc / args.n) ** (1.0 / 3.0))
+            leash = 1.25 * float(max(np.abs(src).max(), np.abs(tgt).max()))
+            domain_half = leash + 2.0 * dx0
         disc = derive(args.n, v_src, float(np.linalg.norm(src.max(0) - src.min(0))),
                       prm.dt, mat.young, mat.poisson, ppc=args.ppc,
-                      domain_half=-prm.grid_min[0])
+                      domain_half=domain_half)
         prm = dataclasses.replace(prm, dx=disc.dx, nx=disc.grid_n, ny=disc.grid_n,
-                                  nz=disc.grid_n)
+                                  nz=disc.grid_n, grid_min=(disc.grid_min,) * 3)
+        if args.domain == "auto":
+            # the density-unit calibration measures the legacy ratio on a 0.5 wu reference
+            # cell (the grid every legacy weight was tuned on); keep that cell size
+            args.unit_ref_res = int(round(2.0 * domain_half / 0.5))
+            print(f"[disc] domain auto: half-width {domain_half:.2f} wu (leash {leash:.2f} + 2 dx), "
+                  f"grid {disc.grid_n}^3 = {disc.grid_n**3/1e6:.2f} M cells (was {int(np.ceil(32.0/disc.dx))}^3), "
+                  f"unit_ref_res {args.unit_ref_res} (0.5 wu reference cell)", flush=True)
         # REFUTE F4 (2026-09-15): the legacy D_vol is a CELL SUM, so letting loss_res
         # follow dx (32 -> 109 at 20k/ppc 8) multiplied it ~500x against every fixed
         # weight. The loss grid follows the MPM cell only in density units, which are

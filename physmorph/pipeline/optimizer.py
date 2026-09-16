@@ -469,24 +469,29 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         x0_c = torch.as_tensor(np.ascontiguousarray(x0, np.float32), device=dev)
         cont_lim = ((x0_c[coh_t] - x0_c[:, None, :]).norm(dim=2).mean(1)
                     / float(max(cfg.T * prm.dt, 1e-9))).detach()
-    cont_state = {"ref": None, "viol": 0, "ratio": 0.0}
+    cont_state = {"ref": None, "viol": 0, "ratio": 0.0, "rejects": 0, "ref_ratio": 0.0}
 
-    def cont_rel(vT):
-        return (vT - vT[coh_t].mean(1)).norm(dim=1).detach()
+    def cont_rel(V):
+        """max over the window's steps of |v_i - mean_j v_j| (V: (T, N, 3))."""
+        with torch.no_grad():
+            rel = (V - V[:, coh_t].mean(2)).norm(dim=2)          # (T, N)
+            return rel.max(0).values
 
     def cont_check(extra_cand):
-        """True if the candidate violates continuity nowhere it was not already violated."""
+        """True if the candidate violates continuity nowhere the FREE rollout did not."""
         if cont_lim is None:
             return True
-        vT = _vT(extra_cand)
-        if vT is None:
+        V = extra_cand.get("V") if isinstance(extra_cand, dict) else None
+        if V is None:
             return True
-        rel = cont_rel(vT)
+        rel = cont_rel(V)
         ref = cont_state["ref"] if cont_state["ref"] is not None else torch.zeros_like(rel)
         allowed = torch.maximum(cont_lim, ref)
         viol = int((rel > allowed).sum())
         cont_state["viol"] = viol
         cont_state["ratio"] = float((rel / cont_lim).max())
+        if viol:
+            cont_state["rejects"] += 1
         return viol == 0
 
     def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
@@ -780,9 +785,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             break
         if L_start is None:
             L_start = cur
-        if cont_lim is not None:                     # reference = this iteration's start state
-            vT_ref = _vT(extra)
-            cont_state["ref"] = cont_rel(vT_ref) if vT_ref is not None else None
+            if cont_lim is not None:
+                # reference = the window's FREE rollout (zero control): what physics does
+                # without this window's actuation; computed once per window
+                with torch.no_grad():
+                    keep = dFc.detach().clone()
+                    dFc.zero_()
+                    _, _, _, _, _, ex_free = eval_terms(dFc)
+                    dFc.copy_(keep)
+                Vf = ex_free.get("V") if isinstance(ex_free, dict) else None
+                cont_state["ref"] = cont_rel(Vf) if Vf is not None else None
+                if cont_state["ref"] is not None:
+                    cont_state["ref_ratio"] = float((cont_state["ref"] / cont_lim).max())
         gn = _norm(g)
         if g0_norm is None:
             g0_norm = max(gn, 1e-12)
@@ -1007,5 +1021,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
              "basis": basis.describe(),
              "lambda_capped": lam_capped,
              "dfc": dc.cpu().numpy() if cfg.warm_start else None,
-             "cont_ratio": cont_state["ratio"] if cont_lim is not None else None}
+             "cont_ratio": cont_state["ratio"] if cont_lim is not None else None,
+             "cont_rejects": cont_state["rejects"] if cont_lim is not None else None,
+             "cont_ref_ratio": cont_state["ref_ratio"] if cont_lim is not None else None}
     return frames, F_seq, end, s_out, hist, stats

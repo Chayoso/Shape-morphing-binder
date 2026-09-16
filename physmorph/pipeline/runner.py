@@ -359,6 +359,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             frontier=frontier)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
+        if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):
+            log(f"[v2] anim {a + 1}: continuity rejects={stats['cont_rejects']} "
+                f"max rel/lim={stats['cont_ratio']:.2f} (free rollout {stats['cont_ref_ratio']:.2f})")
         if cfg.warm_start:
             dfc_prev = stats.get("dfc")
         if not whist:
@@ -529,6 +532,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "d_fill": d_fill, "g_cos": stats.get("g_cos"),
                "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
+               "cont_ratio": stats.get("cont_ratio"), "cont_rejects": stats.get("cont_rejects"),
+               "cont_ref_ratio": stats.get("cont_ref_ratio"),
                "render_work": stats.get("render_work"),
                "render_work_x": stats.get("render_work_x"),
                "render_work_F": stats.get("render_work_F"),
