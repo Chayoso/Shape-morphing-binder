@@ -122,7 +122,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           w_kin_running=args.w_kin_running,
                           w_kin_var=args.w_kin_var,
                           w_coh=args.w_coh, coh_k=args.coh_k,
-                          continuity=args.continuity,
+                          continuity=args.continuity, bonds=args.bonds,
                           eject_veto=args.eject_veto, eject_iso_k=args.eject_iso_k,
                           w_esc=args.w_esc, esc_k=args.esc_k, archive_stride=args.archive_stride,
                           w_bond=args.w_bond, bond_s0=args.bond_s0,
@@ -537,6 +537,7 @@ def main():
     ap.add_argument("--w_kin_var", type=float, default=0.0)   # window velocity-variance term
     ap.add_argument("--w_coh", type=float, default=0.0)       # material-coherence prior (thin-feature vanguard)
     ap.add_argument("--continuity", action="store_true")      # discrete-continuity line-search feasibility (ejection fix)
+    ap.add_argument("--bonds", action="store_true")           # material bonds for decoupled particles (numerical-fracture repair)
     ap.add_argument("--domain", default="fixed", choices=["fixed", "auto"])  # auto: grid = leash box + stencil margin
     ap.add_argument("--v_max", type=float, default=0.0)        # G2P speed cap [wu/s], 0 = off (MPMParams.v_max)
     ap.add_argument("--eject_veto", action="store_true")       # reject windows that add isolated particles

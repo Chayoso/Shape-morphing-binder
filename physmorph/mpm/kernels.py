@@ -72,6 +72,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
           dFc: wp.array(dtype=wp.mat33), P: wp.array(dtype=wp.mat33),
           m: wp.array(dtype=float), vol: wp.array(dtype=float), omega: wp.array(dtype=float),
+          fb: wp.array(dtype=wp.vec3),
           grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
           nx: int, ny: int, nz: int):
@@ -83,7 +84,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
     C0 = 3.0 * inv_dx * inv_dx
     # omega[p] = support gate on the APIC affine term (1 = plain APIC; k_support_gate)
     G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + omega[p] * m[p] * C[p]   # total-PK1 form
-    mv = m[p] * v[p] * (1.0 - dt * drag)
+    mv = m[p] * v[p] * (1.0 - dt * drag) + dt * fb[p]        # fb = material-bond force (k_bond_force)
     b = base_node(xp, gmin, inv_dx)
     for oi in range(4):
         for oj in range(4):
@@ -146,6 +147,36 @@ def k_support_gate(x: wp.array(dtype=wp.vec3), cnt: wp.array(dtype=int), gmin: w
     s = (float(n) / n0 - r_lo) / (r_hi - r_lo)
     s = wp.clamp(s, 0.0, 1.0)
     omega[p] = s * s * (3.0 - 2.0 * s)
+
+
+# ── material bonds for decoupled particles (numerical-fracture repair, 2026-09-16) ──
+# A particle with no other particle in its 3^3 grid cells shares no node with the body:
+# the grid cannot pull it back (Σ w (x_g - x_p) = 0). Its frozen source neighbours then
+# carry one-sided tension bonds with rest length r (re-based at the window start) and
+# stiffness k = (6/K)(λ+2μ) r — the lattice stiffness that reproduces the continuum's
+# P-wave modulus — so the pull-back is the material's own elasticity, not a penalty.
+# Momentum is conserved: the reaction −f goes to the neighbour. Coupled particles get no
+# force at all (fb stays zero), so the rollout is bit-identical to the plain one there.
+@wp.kernel
+def k_bond_force(x: wp.array(dtype=wp.vec3), nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
+                 ncount: wp.array(dtype=float), lam: wp.array(dtype=float), mu: wp.array(dtype=float),
+                 K: int, fb: wp.array(dtype=wp.vec3)):
+    p = wp.tid()
+    if ncount[p] > 1.5:                      # coupled: at least one other particle nearby
+        return
+    xp = x[p]
+    if not valid_pos(xp):
+        return
+    kf = 6.0 / float(K) * (lam[p] + 2.0 * mu[p])
+    for a in range(K):
+        j = nbr[p * K + a]
+        d = x[j] - xp
+        L = wp.length(d)
+        r = rest[p * K + a]
+        if L > r and L > 1.0e-9:
+            f = kf * r * (L - r) * d / L        # tension only, stiffness k_b = kf * r
+            wp.atomic_add(fb, p, f)
+            wp.atomic_add(fb, j, -f)
 
 
 # ── grid op — eq (6), oracle SingleNode_op ──────────────────────────────────

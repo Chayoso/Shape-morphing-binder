@@ -42,6 +42,8 @@ class RolloutSpec:
     device: str = "cuda"
     vol0: np.ndarray | None = None  # one-time source-rest Vp; reused across all windows
     Fg0: np.ndarray | None = None   # geometric (render) deformation at window start
+    bond_nbr: np.ndarray | None = None   # (N,K) frozen material neighbours (material bonds)
+    bond_rest: np.ndarray | None = None  # (N,K) rest lengths at the window start
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -141,7 +143,8 @@ class _WarpMPMExt(torch.autograd.Function):
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
                           device=spec.device, requires_grad=True, vol0=spec.vol0,
-                          Fg0=spec.Fg0, track_geom=True)
+                          Fg0=spec.Fg0, track_geom=True,
+                          bonds=((spec.bond_nbr, spec.bond_rest) if spec.bond_nbr is not None else None))
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()

@@ -183,8 +183,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     x0 = np.ascontiguousarray(x0, np.float32)
     N, T = x0.shape[0], cfg.T
     lam0, mu0 = lame(cfg.young, cfg.poisson)
+    bond_nbr = bond_rest = None
+    if cfg.bonds and coh_nbr is not None:
+        # material bonds: frozen source neighbours, rest length = this window's start
+        # configuration (plastic re-basing), stiffness from (λ+2μ) inside the kernel
+        bond_nbr = np.ascontiguousarray(coh_nbr, np.int32)
+        x0n = np.asarray(x0, np.float32)
+        bond_rest = np.linalg.norm(x0n[bond_nbr] - x0n[:, None, :], axis=2).astype(np.float32)
     spec = RolloutSpec(x0=x0, m=1.0, lam=lam0, mu=mu0, prm=prm, T=T,
-                       F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0)
+                       F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
+                       bond_nbr=bond_nbr, bond_rest=bond_rest)
 
     basis = ControlBasis(x0, T, cfg.control_grid, cfg.control_tknots, device=dev)
     expand = basis.expand                       # leaf -> (T,N,3,3) control field
@@ -260,7 +268,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         from scipy.spatial import cKDTree
         sp_ref = float(np.median(cKDTree(x0).query(x0, k=2, workers=-1)[0][:, 1]))
     coh_sp2 = max(sp_ref, 1e-6) ** 2
-    if (cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0 or cfg.continuity) and coh_nbr is not None:
+    if (cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0 or cfg.continuity or cfg.bonds) and coh_nbr is not None:
         coh_t = torch.as_tensor(np.ascontiguousarray(coh_nbr), device=dev)
     bond_t = None
     if cfg.w_bond > 0 and coh_nbr is not None:

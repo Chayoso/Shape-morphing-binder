@@ -60,7 +60,7 @@ class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
-                 Fg0=None, track_geom=False):
+                 Fg0=None, track_geom=False, bonds=None):
         x0 = np.ascontiguousarray(x0, np.float32)
         N = x0.shape[0]
         self.N, self.T, self.prm, self.device = N, T, prm, device
@@ -150,6 +150,23 @@ class Trajectory:
         # n0 (nominal 3^3 count) is fixed by the caller (prm.gate_n0) so every window uses
         # the same gate; the fallback measures it on this trajectory's x0.
         self.omega1 = A(np.ones(N, np.float32), wp.float32)
+        # MATERIAL BONDS for decoupled particles (kernels.k_bond_force): bonds = (nbr (N,K)
+        # int, rest (N,K) float) frozen for this rollout; the decoupling test uses the
+        # 3^3-cell count of the support-gate kernels (outside the tape, piecewise constant).
+        self.bonds = None
+        self.fb0 = Z(wp.vec3, False)
+        if bonds is not None:
+            nbr, rest = bonds
+            nbr = np.ascontiguousarray(nbr, np.int32)
+            self.bond_K = int(nbr.shape[1])
+            self.bond_nbr = wp.array(nbr.reshape(-1), dtype=wp.int32, device=device)
+            self.bond_rest = wp.array(np.ascontiguousarray(rest, np.float32).reshape(-1), dtype=wp.float32, device=device)
+            self.fb = [Z(wp.vec3, rg) for t in range(T)]
+            self.bonds = True
+            if not (prm.gate_r_hi > prm.gate_r_lo):
+                self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
+                self.ncount = A(np.zeros(N, np.float32), wp.float32)
+                self.omega_scratch = A(np.ones(N, np.float32), wp.float32)
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
             self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
@@ -171,7 +188,7 @@ class Trajectory:
         C0 = wp.zeros(N, dtype=wp.mat33, device=dev)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[0], self.dFc, self.Fp, self.lam, self.mu, P0], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[0], v0, C0, self.F[0], self.dFc, P0, self.m, self.vol,
-                  self.omega1, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
+                  self.omega1, self.fb0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_volume, dim=N, inputs=[self.x[0], self.m, gm, self.vol, gmin, prm.dx, inv_dx,
                   prm.nx, prm.ny, prm.nz], device=dev)
 
@@ -181,6 +198,18 @@ class Trajectory:
             return self.omega1
         gate_omega(self.x[t], self.prm, self.gate_n0, self.omega[t], self.ncount, self.cnt)
         return self.omega[t]
+
+    def _fb(self, t: int):
+        """Bond force for step t (zeros unless bonds are attached)."""
+        if not self.bonds:
+            return self.fb0
+        prm, dev = self.prm, self.device
+        om = self.omega[t] if self.gate else self.omega_scratch
+        gate_omega(self.x[t], prm, 1.0, om, self.ncount, self.cnt)      # ncount = 3^3 counts
+        self.fb[t].zero_()
+        wp.launch(K.k_bond_force, dim=self.N, inputs=[self.x[t], self.bond_nbr, self.bond_rest,
+                  self.ncount, self.lam, self.mu, self.bond_K, self.fb[t]], device=dev)
+        return self.fb[t]
 
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""
@@ -192,7 +221,7 @@ class Trajectory:
         dfc = self._dfc(t)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
-                  self.m, self.vol, self._omega(t), self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
+                  self.m, self.vol, self._omega(t), self._fb(t), self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
                   prm.dt, prm.drag,
                   prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,

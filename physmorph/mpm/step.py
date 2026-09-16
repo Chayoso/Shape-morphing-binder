@@ -15,6 +15,18 @@ def _reset_grid(s: MPMState, prm: MPMParams):
 _ONES = {}
 
 
+_ZEROS3 = {}
+
+
+def _zeros_vec3(N: int, device: str):
+    """Shared zero bond-force array for the non-bonded launches."""
+    a = _ZEROS3.get((N, device))
+    if a is None:
+        a = wp.zeros(N, dtype=wp.vec3, device=device)
+        _ZEROS3[(N, device)] = a
+    return a
+
+
 def _ones(N: int, device: str):
     """Shared omega = 1 array (plain APIC) for the non-gated launches."""
     a = _ONES.get((N, device))
@@ -76,7 +88,7 @@ def mpm_step(s: MPMState, prm: MPMParams):
     _reset_grid(s, prm)
     wp.launch(K.k_p2g, dim=N,
               inputs=[s.x, s.v, s.C, s.F, s.dFc, s.P, s.m, s.vol, support_gate(s, prm),
-                      s.grid_m, s.grid_v,
+                      _zeros_vec3(s.N, s.device), s.grid_m, s.grid_v,
                       gmin, prm.dx, inv_dx, prm.dt, prm.drag, prm.nx, prm.ny, prm.nz],
               device=dev)
     wp.launch(K.k_grid_op, dim=prm.ngrid,
@@ -110,7 +122,7 @@ def compute_volumes(s: MPMState, prm: MPMParams):
     wp.launch(K.k_stress, dim=s.N, inputs=[s.F, s.dFc, s.Fp, s.lam, s.mu, s.P], device=s.device)
     wp.launch(K.k_p2g, dim=s.N,
               inputs=[s.x, s.v, s.C, s.F, s.dFc, s.P, s.m, s.vol, _ones(s.N, s.device),
-                      s.grid_m, s.grid_v,
+                      _zeros_vec3(s.N, s.device), s.grid_m, s.grid_v,
                       gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz],
               device=s.device)
     wp.launch(K.k_volume, dim=s.N,

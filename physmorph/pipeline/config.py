@@ -393,6 +393,11 @@ class PipelineConfig:
                                     # commit (continuous, no snap); the flat-valley
                                     # wandering tail is dropped from frames, kept in
                                     # history (b4: best d_vol 62 at a435, final 158)
+    bonds: bool = False             # MATERIAL BONDS for decoupled particles (forward model,
+                                    # kernels.k_bond_force, method.md eq 24): one-sided tension
+                                    # bonds to the frozen source neighbours (coh_k), rest length
+                                    # re-based at the window start, stiffness (6/K)(λ+2μ) r, acting
+                                    # only on particles with no other particle in their 3^3 cells.
     continuity: bool = False        # DISCRETE-CONTINUITY line-search feasibility (2026-09-16,
                                     # the mass-ejection mechanism): a step is accepted only if
                                     # every particle's window-end velocity relative to its frozen
