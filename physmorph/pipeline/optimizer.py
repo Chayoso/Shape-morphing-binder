@@ -88,6 +88,8 @@ class TargetPack:
 
 # ---- per-window timing (PHYSMORPH_TIMING=1): device syncs at the section boundaries ----
 _TIMING = os.environ.get("PHYSMORPH_TIMING", "") == "1"
+_NO_ADJ_GRAPH = os.environ.get("PHYSMORPH_NO_ADJ_GRAPH", "") == "1"   # bisection switches
+_NO_LS_BREAK = os.environ.get("PHYSMORPH_NO_LS_BREAK", "") == "1"
 _TM: dict = {}
 
 
@@ -492,7 +494,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         kinetic}."""
         lam_t, mu_t = material()
         dfc = expand(leaf)
-        if lam_t is None and str(dev).startswith("cuda"):
+        if lam_t is None and str(dev).startswith("cuda") and not _NO_ADJ_GRAPH:
             # persistent tape trajectory (forward + adjoint as CUDA graphs), one per window
             if adj_box[0] is None:
                 adj_box[0] = PersistentAdjoint(spec)
@@ -1009,6 +1011,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # which cannot clear the noise floor. The window ends here instead (measured
             # at 150k: 3 exhausted iterations per window = 30 of 37 rollouts).
             ls_exhausted = True
+            if _NO_LS_BREAK:                 # bisection switch: the pre-37e6629 behaviour
+                continue
             log(f"[win] line search exhausted at iter {it}: ending the window")
             break
 
