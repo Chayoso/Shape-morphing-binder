@@ -149,9 +149,18 @@ class Trajectory:
         else:
             self.Fg = None
         self.P = [Z(wp.mat33, rg) for t in range(T)]
-        self.gm = [wp.zeros(prm.ngrid, dtype=wp.float32, device=device, requires_grad=rg) for t in range(T)]
-        self.gmom = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T)]
-        self.gvel = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T)]
+        # GRID ARRAYS: the adjoint needs every step's grid (k_grid_op / k_g2p read them in
+        # the backward pass), a forward-only rollout does not — step t+1 never reads step
+        # t's grid, so a no-grad trajectory shares ONE set and re-zeroes it per step
+        # (150k on a 233^3 grid: 7.4 GB -> 0.65 GB for the line-search trajectory).
+        self.share_grid = not rg
+        n_grid = 1 if self.share_grid else T
+        gm_l = [wp.zeros(prm.ngrid, dtype=wp.float32, device=device, requires_grad=rg) for t in range(n_grid)]
+        gmom_l = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(n_grid)]
+        gvel_l = [wp.zeros(prm.ngrid, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(n_grid)]
+        self.gm = [gm_l[t % n_grid] for t in range(T)]
+        self.gmom = [gmom_l[t % n_grid] for t in range(T)]
+        self.gvel = [gvel_l[t % n_grid] for t in range(T)]
         # SUPPORT-GATED APIC (kernels.k_support_gate; docs/thin_feature_transport.md §3):
         # omega_t[p] scales the affine term m*C in P2G at step t. Piecewise constant in x,
         # so it is computed OUTSIDE the tape per step and read by the adjoint as a constant.
@@ -222,7 +231,7 @@ class Trajectory:
         inv_dx, gmin, fext = 1.0 / prm.dx, wp.vec3(*prm.grid_min), wp.vec3(*prm.f_ext)
         dfc = self._dfc(t)
         bnb, brest, bnc, bK = self._bond_args(t)
-        if self.persistent:                          # P2G accumulates: fresh grid per rollout
+        if self.share_grid or self.persistent:       # P2G accumulates: fresh grid per step
             self.gm[t].zero_()
             self.gmom[t].zero_()
         wp.launch(K.k_stress, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)

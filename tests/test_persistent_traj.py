@@ -97,3 +97,21 @@ def test_torch_assimilation_matches_numpy():
     finally:
         A._torch_cuda = saved
     assert np.allclose(got_g, ref_g, atol=2e-4), float(np.abs(got_g - ref_g).max())
+
+
+def test_shared_grid_rollout_equals_per_step_grid_rollout():
+    """A no-grad trajectory shares one grid across steps; a requires_grad one keeps T. Same
+    rollout (CPU: bit-identical)."""
+    x0, prm, T = _cloud(), _prm(), 5
+    N = len(x0)
+    vol0 = compute_rest_volumes(x0, 1.0, prm, "cpu")
+    dfc = _controls(N, T, 7)
+    seq_a = [wp.array(dfc[t], dtype=wp.mat33, device="cpu") for t in range(T)]
+    seq_b = [wp.array(dfc[t], dtype=wp.mat33, device="cpu", requires_grad=True) for t in range(T)]
+    a = Trajectory(x0, 1.0, 800.0, 400.0, prm, T, dFc=seq_a, device="cpu", requires_grad=False, vol0=vol0)
+    b = Trajectory(x0, 1.0, 800.0, 400.0, prm, T, dFc=seq_b, device="cpu", requires_grad=True, vol0=vol0)
+    assert a.share_grid and not b.share_grid and a.gm[0] is a.gm[1] and b.gm[0] is not b.gm[1]
+    a.rollout(); b.rollout()
+    assert np.array_equal(a.x[T].numpy(), b.x[T].numpy())
+    assert np.array_equal(a.v[T].numpy(), b.v[T].numpy())
+    assert np.array_equal(a.F[T].numpy(), b.F[T].numpy())
