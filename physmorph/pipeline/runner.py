@@ -58,6 +58,14 @@ def _surface_weights(x: np.ndarray, k: int, fraction: float, floor: float) -> np
     return np.ascontiguousarray(floor + (1.0 - floor) * soft, np.float32)
 
 
+def _iso_count(x: np.ndarray, radius: float) -> int:
+    """Number of particles with no other particle within `radius` (the ejection signature:
+    a lone particle cannot be re-coupled by the grid)."""
+    from scipy.spatial import cKDTree
+    d = cKDTree(x).query(x, k=2, workers=-1)[0][:, 1]
+    return int((d > radius).sum())
+
+
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     dev = cfg.device
     N = target_x.shape[0]
@@ -234,7 +242,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                   cfg.surface_grad_floor)
                  if cfg.surface_grad_frac > 0 else None)
     coh_nbr = None
-    if cfg.w_coh > 0 or cfg.w_bond > 0:   # frozen source-material neighbours
+    if cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0:   # frozen source-material neighbours
         from scipy.spatial import cKDTree
         coh_nbr = cKDTree(src).query(src, k=int(cfg.coh_k) + 1, workers=-1)[1][:, 1:]
     if cfg.render_surface_only:
@@ -461,8 +469,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # instead (cfg.gauss_cov_sat, gauss_loss.saturate_stretch), which is a fixed
         # function of the state at every step.
         # archive the PROMOTED states (identical to raw when no guard fired)
-        frames.extend(f.copy() for f in fr[1:-1]); frames.append(x.copy())
-        F_frames.extend(F_seq[1:-1]); F_frames.append(Fc.copy())
+        ks = max(1, int(cfg.archive_stride))            # archive stride (150k archives)
+        frames.extend(f.copy() for f in fr[1:-1][::ks]); frames.append(x.copy())
+        F_frames.extend(F_seq[1:-1][::ks]); F_frames.append(Fc.copy())
         if Fg_p is not None:
             Fg_commits.append((len(frames), Fg_p.copy()))
 
@@ -582,6 +591,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             components["jdens"] = d_jd_v
         if d_h1_v is not None:
             components["h1"] = d_h1_v
+        # mass-ejection veto: isolated-particle count must not increase over a window
+        eject_reject = False
+        if cfg.eject_veto:
+            iso_r = float(cfg.eject_iso_k) * float(max(tgt.nn_spacing, 1e-6))
+            iso_cand = _iso_count(x, iso_r)
+            iso_start = _iso_count(x_start, iso_r)
+            rec.update({"iso_count": iso_cand, "iso_start": iso_start})
+            eject_reject = iso_cand > iso_start
         disp = (x - x_start).reshape(-1)
         reversal_cos = None
         if prev_disp is not None:
@@ -662,6 +679,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # limit cycle, overshoot windows d_vol 62->215 with kin spikes),
                 # never a legitimate trade.
                 brake_reject = outer_gain < -max(cfg.pace, 0.05)
+                if eject_reject:
+                    # the window launched a particle: discard it like an insane
+                    # candidate (shrink the step, cold restart), never commit it
+                    brake_reject = True
+                    rec["eject_reject"] = 1
                 if brake_reject:
                     outer_reject = True
                 if ((outer_gate_latched or cfg.outer_reversal_always)
@@ -726,7 +748,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     v_hold = np.zeros_like(x) if st["v"] is None else st["v"]
                     on_commit(a, x, F_hold, v_hold, rec)
                 log(f"[v2] anim {a + 1}: outer merit rejected candidate "
-                    f"(gain={outer_gain:.3g}, reversal={reversal_cos})")
+                    f"(gain={outer_gain:.3g}, reversal={reversal_cos}"
+                    f"{', EJECTION ' + str(rec.get('iso_start')) + '->' + str(rec.get('iso_count')) if eject_reject else ''})")
                 if stale >= cfg.patience:
                     frozen = True
                 continue

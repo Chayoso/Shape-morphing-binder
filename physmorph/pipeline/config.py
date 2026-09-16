@@ -393,6 +393,16 @@ class PipelineConfig:
                                     # commit (continuous, no snap); the flat-valley
                                     # wandering tail is dropped from frames, kept in
                                     # history (b4: best d_vol 62 at a435, final 158)
+    eject_veto: bool = False        # MASS-EJECTION VETO (2026-09-16): reject a candidate
+                                    # window that increases the number of ISOLATED particles
+                                    # (nearest neighbour > eject_iso_k target spacings);
+                                    # shrinks the step like a brake reject. Needs outer_merit.
+    eject_iso_k: float = 3.0
+    w_esc: float = 0.0              # ESCAPE-VELOCITY hinge on the window-end velocity relative
+                                    # to the frozen source neighbours (coh_k):
+                                    # mean relu(|v_i - mean_j v_j| - esc_k*median|v|)^2 / thr^2
+    esc_k: float = 3.0
+    archive_stride: int = 1         # keep every k-th per-step state in frames/F_frames
     outer_merit: bool = False       # fixed-scale trust gate for production runs
     outer_merit_tol: float = 1e-4   # relative sufficient decrease required for a commit
     outer_gate_move_frac: float = 6e-3 # RETIRED as latch evidence (s1: reachable at 10% of descent; s3: pacing makes every move small) — kept for provenance

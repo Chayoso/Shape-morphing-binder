@@ -260,7 +260,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         from scipy.spatial import cKDTree
         sp_ref = float(np.median(cKDTree(x0).query(x0, k=2, workers=-1)[0][:, 1]))
     coh_sp2 = max(sp_ref, 1e-6) ** 2
-    if (cfg.w_coh > 0 or cfg.w_bond > 0) and coh_nbr is not None:
+    if (cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0) and coh_nbr is not None:
         coh_t = torch.as_tensor(np.ascontiguousarray(coh_nbr), device=dev)
     bond_t = None
     if cfg.w_bond > 0 and coh_nbr is not None:
@@ -455,7 +455,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             jt = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
         return (xT, FT, vT, jt), lv, lk, lr, lpbr, extra
 
-    def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None):
+    def _vT(extra):
+        v = extra.get("V") if isinstance(extra, dict) else None
+        return v[-1] if v is not None else None
+
+    def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
         """Physics objective WITHOUT the W1 term — the lambda balancer's numerator and
         PCGrad's reference direction (Codex finding 9: folding the W1 term into gp let
         w_dt inflate the balanced silhouette weight and project render components off a
@@ -469,6 +473,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # velocity VARIANCE over the window: the measured limit cycle (speed V-shape,
             # period T) is a reversal inside the window; constant-velocity progress is free
             L = L + wu * cfg.w_kin_var * lk_var
+        if coh_t is not None and cfg.w_esc > 0 and vT is not None:
+            # escape-velocity hinge: a particle whose window-end velocity differs from its
+            # source neighbours' mean by more than esc_k x the median speed is being
+            # launched; quadratic above the threshold, zero for coherent motion
+            speed = vT.norm(dim=1)
+            thr = (float(cfg.esc_k) * speed.median()).detach().clamp(min=1e-6)
+            rel = (vT - vT[coh_t].mean(1)).norm(dim=1)
+            L = L + wu * cfg.w_esc * torch.relu(rel - thr).pow(2).mean() / (thr * thr)
         if coh_t is not None and cfg.w_coh > 0:
             # material coherence: a particle may not leave its source neighbours' motion
             u = xT - x0_t
@@ -548,8 +560,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         from ..losses.volumetric import d_fill_pairs
         return d_fill_pairs(xT, fill_pairs[0], fill_pairs[1], 0.5 * tgt.dtdx)
 
-    def phys_total(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None):
-        L = phys_core(lv, lk, dfc, xT, fT, lk_run, fR, lk_var)
+    def phys_total(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
+        L = phys_core(lv, lk, dfc, xT, fT, lk_run, fR, lk_var, vT)
         ldt = dt_term(xT)
         if ldt is not None:
             L = L + ldt
@@ -557,13 +569,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + fill_lam * fill_raw(xT)
         return L
 
-    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None):
+    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
         with torch.no_grad():    # scalar only — never build a second autograd graph
             L = float(phys_total(lv, lk, dfc.detach(), xT.detach(),
                                  fT.detach() if fT is not None else None,
                                  lk_run.detach() if lk_run is not None else None,
                                  fR.detach() if fR is not None else None,
-                                 lk_var.detach() if lk_var is not None else None))
+                                 lk_var.detach() if lk_var is not None else None,
+                                 vT.detach() if vT is not None else None))
         return L if lr is None else L + lam_r * float(lr.detach())
 
     hist, accepted, rejected = [], 0, 0
@@ -587,7 +600,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # stack-review f5: an INVALID cold baseline must not be the comparator — its
         # position-only loss can be artificially low and block every valid warm start
         E0 = (scalars(lv0, lk0, lr0, lam_r, ex0["dfc"], st0[0], st0[1], ex0["lk_run"],
-                      ex0["Fg"], ex0["lk_var"])
+                      ex0["Fg"], ex0["lk_var"], _vT(ex0))
               if _state_ok(st0) else np.inf)
         with torch.no_grad():
             init = torch.tensor(np.ascontiguousarray(dfc_init, np.float32), device=dev)
@@ -596,7 +609,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             dFc.copy_((init if basis.per_particle else basis.project(init)) * cfg.warm_decay)
         stw, lvw, lkw, lrw, _, exw = eval_terms(dFc)
         Ew = scalars(lvw, lkw, lrw, lam_r, exw["dfc"], stw[0], stw[1], exw["lk_run"],
-                     exw["Fg"], exw["lk_var"])
+                     exw["Fg"], exw["lk_var"], _vT(exw))
         if not (_state_ok(stw) and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
                 dFc.zero_()                          # stale controls: fall back to cold start
@@ -616,9 +629,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         stA, lvA, lkA, lrA, _, exA = eval_terms(dFc)
         stB, lvB, lkB, lrB, _, exB = eval_terms(dFc)
         EA = scalars(lvA, lkA, lrA, lam_r, exA["dfc"], stA[0], stA[1], exA["lk_run"], exA["Fg"],
-                     exA["lk_var"])
+                     exA["lk_var"], _vT(exA))
         EB = scalars(lvB, lkB, lrB, lam_r, exB["dfc"], stB[0], stB[1], exB["lk_run"], exB["Fg"],
-                     exB["lk_var"])
+                     exB["lk_var"], _vT(exB))
         if np.isfinite(EA) and np.isfinite(EB):
             replay_rel = abs(EA - EB) / max(abs(EA), 1.0)
 
@@ -631,7 +644,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if lk_start is None:
             lk_start = float(lk.detach())
         Lp_core = phys_core(lv, lk, dfc_x, state[0], state[1], extra["lk_run"],
-                            extra["Fg"] if use_geom else None, extra["lk_var"])
+                            extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra))
         Lfill = fill_raw(state[0]) if fill_on else None
         smooth = balancer.active and cfg.render_gs_iters > 0
         special_render = smooth or surface_w_t is not None or cfg.control_h1_iters > 0
@@ -731,7 +744,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             total = Lp_core if Ldt is None else Lp_core + Ldt
             g = list(torch.autograd.grad(total, leaves))
         cur = scalars(lv, lk, lr, lam_r, dfc_x, state[0], state[1], extra["lk_run"],
-                      extra["Fg"] if use_geom else None, extra["lk_var"])
+                      extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra))
         if not np.isfinite(cur):
             log(f"[win] iter {it}: non-finite loss, aborting window")
             break
@@ -780,7 +793,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             state_n, lv_n, lk_n, lr_n, lpbr_n, extra_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, extra_n["dfc"], state_n[0],
-                              state_n[1], extra_n["lk_run"], extra_n["Fg"], extra_n["lk_var"])
+                              state_n[1], extra_n["lk_run"], extra_n["Fg"], extra_n["lk_var"], _vT(extra_n))
                 predicted_decrease = -float(sum((gi.detach() * (p - b)).sum()
                                                 for gi, p, b in zip(g, leaves, bak)))
                 # The Armijo slope is only meaningful when the model predicts descent.
@@ -926,7 +939,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final, Fg_final)
         E_final = scalars(lv_f, lk_f, lr_f, lam_r, dc, x_final, F_final,
                           V_final.pow(2).sum(2).mean(), Fg_final,
-                          (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean())
+                          (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean(), V_final[-1])
         E_accept = hist[-1]["loss"] if hist else None
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
                       * max(abs(E_accept or 0.0), 1.0 / unit_ratio))

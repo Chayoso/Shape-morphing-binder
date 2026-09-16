@@ -122,6 +122,8 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           w_kin_running=args.w_kin_running,
                           w_kin_var=args.w_kin_var,
                           w_coh=args.w_coh, coh_k=args.coh_k,
+                          eject_veto=args.eject_veto, eject_iso_k=args.eject_iso_k,
+                          w_esc=args.w_esc, esc_k=args.esc_k, archive_stride=args.archive_stride,
                           w_bond=args.w_bond, bond_s0=args.bond_s0,
                           vol_frontier=args.vol_frontier,
                           warm_start=args.warm_start,
@@ -533,6 +535,11 @@ def main():
     ap.add_argument("--w_kin_running", type=float, default=0.0)
     ap.add_argument("--w_kin_var", type=float, default=0.0)   # window velocity-variance term
     ap.add_argument("--w_coh", type=float, default=0.0)       # material-coherence prior (thin-feature vanguard)
+    ap.add_argument("--eject_veto", action="store_true")       # reject windows that add isolated particles
+    ap.add_argument("--eject_iso_k", type=float, default=3.0)  #   isolation radius in target spacings
+    ap.add_argument("--w_esc", type=float, default=0.0)        # escape-velocity hinge (window-end v vs neighbours)
+    ap.add_argument("--esc_k", type=float, default=3.0)
+    ap.add_argument("--archive_stride", type=int, default=1)   # keep every k-th step in the archive
     ap.add_argument("--coh_k", type=int, default=8)
     ap.add_argument("--w_bond", type=float, default=0.0)      # one-sided bond-stretch bound
     ap.add_argument("--bond_s0", type=float, default=0.3)
