@@ -1402,3 +1402,26 @@ target, az 35/215), scatter probe, stray census, loss curves → `report150/<T>/
 
 - **150k batch v2, corrected domain** (14:27 →): bunny — 101 commits (10 rejects), 11.7 min,
   chamfer 0.0765, silIoU 0.920, hole 0.09 %, 47 fragments, 98 far (0.065 %, max 1.8 wu).
+  teapot — 176 commits, 20.2 min, chamfer 0.0716, silIoU 0.969, hole 0 %, 1 fragment,
+  stray 0.115 % (the void auto-calibration run: 0.093 / 0.888 / 81 fragments).
+  armadillo — 190 commits (23 rejects/nulls), 19.0 min, chamfer 0.0814, silIoU 0.794, hole
+  0.35 %, 86 fragments, stray 1.24 %. heart (corrected) — 101 commits, 11.1 min, chamfer
+  0.0728, silIoU 0.983, hole 0 %, 0 fragments, stray 0.035 %, **G4_ejection PASS** (the
+  18-commit freeze was the calibration bug).
+  dragon — 111 commits, 11.0 min, chamfer 0.1435, silIoU 0.642, hole 2.37 %, 128 fragments,
+  stray 2.98 % — the weakest 150k result (40k corrected reference: 0.1199 / 0.901); the run
+  stopped at 111: a slow plateau (L 0.2159 → 0.2147 over the last windows, acc 8/0) ended
+  by the low-gain latch (gain 1.3e-5 < tol, then a −3e-4 reject) and patience; every
+  late window also reports GUARD clamp=71 — 71 particles pinned at the auto box edge, the
+  ejecta that reached the leash. The dragon's thin spines and legs are where the 150k
+  discretisation loses most (hole 2.4 %).
+  A — 240 commits, 23.0 min, chamfer 0.0781, silIoU 0.848, hole 0.39 %, 179 fragments,
+  stray 2.38 %. spot — 92 commits, 8.7 min, chamfer 0.0769, silIoU 0.951, hole 0 %, 21
+  fragments, stray 0.80 %.
+  C — FROZE at 20 commits (2.1 min): brake rejects from anim 16 (gain −0.054, reversal
+  0.98, replay) with the calibration fixed — the outer-merit gate's first-window
+  normalisation genuinely misfires on C at 150k (the 40k gallery also noted "C stalls");
+  chamfer 0.571. Re-run queued as `h150_C2` with `--no_outer_merit` after V.
+  bob — 112 commits, 10.9 min, chamfer 0.1621, silIoU 0.577, hole 0.78 %, 134 fragments,
+  stray 1.91 % (40k v5: 0.1425 / 0.822) — with dragon the second target that loses at
+  150k: both are the thin-feature/ring shapes where the 150k material clumps.
