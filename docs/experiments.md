@@ -920,3 +920,10 @@ thickens, a few strays stay at the feet — volume, or something else? Dossier:
 - **Batch q2 (40k `--ppc 8` + density + recipe + 36³ basis):** froze at commit 119; chamfer
   0.1151, silIoU 0.9738, hole 0.00 %, spray 0.433 → 0.344, delivered 0.173, strays 0.11 % —
   within noise of the per-particle recipe (dossier §5f). Flagship candidate unchanged.
+- **Ear–head "connection" (user report, 40k flagship frame 1746):** measured as projection —
+  the wedge between the lower ear and the head is covered by the target's own az-0.6
+  projection (the far ear edge-on); morph-only pixels are a ≤ 0.2 wu fringe (1 % of the
+  target area), zero particles beyond 0.25 wu of the target surface, the notch preserved at
+  az 1.4. The real residual is ear UNDER-fill (3–4 % of the projected ear area, 1.2 % of ear
+  target points uncovered at 0.15 wu). Dossier §6; probes `scripts/probes/{web_probe,
+  ear_views, cover_diff}.py`; gallery `40k_ppc8_loss_notch.gif` + `cover_diff` sheet.

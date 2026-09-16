@@ -365,3 +365,36 @@ on top, and the basis's own end-sparsity gain (0.240 in legacy units) is lost. T
 reach the same floor (~0.49 peak) because they remove the same thing — the single-particle
 actuation that the coarse loss cannot see — and nothing measured so far goes below it. For
 40k: the flagship candidate as recorded in §5f.
+
+## 6. The ear–head "connection" (user report on the 40k flagship candidate, frame 1746/2545)
+
+Measured on `rcpj_40k_ppc8_dens_rec` (raw state; `scripts/probes/web_probe.py`,
+`ear_views.py`, `cover_diff.py`, the last two using the gallery's own splat renderer at 300 px
+= 0.030 wu/px), mid frame 1745 and end frame 2545:
+
+| quantity | mid | end |
+|---|---|---|
+| particles farther than 0.15 / 0.25 / 0.40 wu from ANY target point (over-mass in 3D) | 0.005 % / 0 / 0 | 0.003 % / 0 / 0 |
+| target points with no particle within 0.15 wu (under-fill), ear / body | 1.56 % / 0.08 % | 1.20 % / 0.11 % |
+| projected EXTRA (morph-only pixels, share of target area), az 0.6 / 1.4 / 2.2 / top | 1.04 / 0.92 / 0.70 / 1.01 % | 0.98 / 1.00 / 0.80 / 1.13 % |
+| projected MISSING (target-only pixels), same views | 3.60 / 3.49 / 1.89 / 4.13 % | 3.30 / 2.84 / 1.77 / 4.02 % |
+
+Reading (`cover_diff_*.png`, `ear_views_*.png`):
+- In the az-0.6 gallery view the wedge between the lower ear and the head is covered by the
+  TARGET's own projection — it is the far ear seen edge-on (the target render shows the same
+  wedge, as a sparse band because a thin sheet sampled at 40k projects sparsely). The morph
+  is not putting mass where the target has none: zero particles beyond 0.25 wu of the target
+  surface at either frame, and the morph-only pixels are a ≤ 0.2 wu fringe along the ear base
+  and rims (1 % of the projected area), not a bridge.
+- At az 1.4, where the notch between the two ears and the head is visible, the notch is
+  preserved in both the mid and the end frame (`40k_ppc8_loss_notch.gif` in the gallery).
+- The genuine residual is the opposite sign: the ears are UNDER-filled — 3–4 % of the
+  projected ear area and 1.2 % of the ear target points have no particle within 0.15 wu
+  (body 0.1 %), the "sparse" 0.33 of §5f. What the eye reads as a web joining ear and head
+  is the far ear rendered as a diffuse, coarser cloud (particles at ~2× spacing) instead of
+  the target's dense thin sheet, overlapping the notch in projection.
+- So the fix for the visual is the ear fill, not a separation term: the levers of §5 (loss
+  granularity, basis at 20k), and — for a thin sheet whose thickness (~0.2 wu) is at the loss
+  cell (0.215 wu at 40k `--ppc 8`) — a loss cell below the sheet thickness (density units,
+  `--loss_res` above 149 at 40k) is the next pre-registered arm. A term that pushes mass OUT
+  of the notch would act on mass that is not there.
