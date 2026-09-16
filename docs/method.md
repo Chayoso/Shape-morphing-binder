@@ -291,3 +291,29 @@ Rejected parameter routes (docs/experiments.md 2026-09-16 ladder): a window-leve
 veto (freezes on legitimate stretching: k = 3 and k = 6 both replayed the same candidate to
 a freeze), an escape-velocity hinge (a weight), and a G2P speed cap `v_max` (a cap; froze
 the dragon at 2 min with 17 % far particles). They remain opt-in for the record.
+
+### 10.7 Material bonds for decoupled particles (forward model; the mass-ejection mechanism, 2026-09-16; code: mpm/kernels.py `k_bond_force`, mpm/traj.py `_fb`)
+
+```
+(24)  for a particle p with NO other particle in its 3^3 grid cells (n_p = 1: it shares no
+      node with the body, so Σ_g w_gp (x_g − x_p) = 0 and the grid cannot act on it):
+          f_p = Σ_{j∈N(p)} k_pj (|x_j − x_p| − r_pj)_+ (x_j − x_p)/|x_j − x_p|,
+          k_pj = (6/K)(λ_p + 2μ_p) r_pj,      f_j −= f_pj (reaction),
+      r_pj = |x_j − x_p| at the window START (re-based every window: plastic), N(p) = the
+      K frozen source-material neighbours (coh_k). P2G momentum (5) receives + Δt f_p.
+```
+
+Why this and not a penalty or a cap: the measured ejecta (docs/experiments.md 2026-09-16)
+are not launched — their velocity relative to their material neighbours is 0.5–1.1 wu/s
+(below the continuity limit) while the absolute speed is 2–5 wu/s; they drift away over
+many windows after leaving every other particle's stencil, which is numerical fracture (Yue
+2015 §2): once alone, nothing in the continuum reaches them. Lagrangian bonds (Jiang 2017,
+Han 2019) are the literature's remedy; here they are restricted to the particles for which
+the grid coupling has physically failed (a binary condition of the discretisation, no
+threshold), and their stiffness is the lattice stiffness that reproduces the continuum's
+P-wave modulus (λ + 2μ) — a bond network of K springs of stiffness (6/K)(λ+2μ) r per unit
+cell has modulus λ + 2μ — so the pull-back is the material's own elasticity. Momentum is
+conserved (the reaction goes to the neighbour), the force is differentiable (Warp adjoint,
+`tests/test_material_bonds.py`: FD within 5 %), and with every particle coupled the rollout
+is bit-identical to (5) (fb ≡ 0). Only physical variables move; the control still acts
+only through stress. Stability: ω = sqrt(K k / m) Δt ≈ 1.3 (40k), 1.05 (150k) < 2.

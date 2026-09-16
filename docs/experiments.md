@@ -1138,3 +1138,19 @@ dragon 274, bob 580, armadillo 13 far particles):
   armadillo (render arm, 40k): 0 far particles at the end, chamfer within ±3 % of batch h,
   silIoU within ±1 pt, line-search exhaustion no more frequent than batch h. Falsifier: any
   far particle at the end, or a freeze before commit 60.
+- Continuity v1 (reference = warm-started rollout): dragon 170 far (was 274), chamfer 0.1276,
+  silIoU 0.837 — reduced, not solved; armadillo 15 (was 13).
+- **Continuity v2 FALSIFIED** (reference = free rollout, max over steps): armadillo 12 far,
+  bob 717 (was 580). Probe on the archives: the far particles are not a clump (7–10 % of
+  their source neighbours are also far), their velocity RELATIVE to their material
+  neighbours is 0.5–1.1 wu/s (limit 1.3) while the absolute speed is 2–5 wu/s — the
+  neighbours move too; the particle then keeps going after the neighbourhood stops, having
+  left every other particle's stencil. Numerical fracture, not a launch: a rule on the
+  per-window relative velocity cannot see a slow, sustained drift of a decoupled particle.
+- **Material bonds for decoupled particles** (`--bonds`, method.md eq. 24, commit below):
+  one-sided tension bonds to the frozen source neighbours, rest length re-based at the
+  window start, stiffness (6/K)(λ+2μ) r, acting only on particles with no other particle in
+  their 3³ cells; force into P2G momentum with the reaction on the neighbour. Bit-identical
+  when nothing is decoupled; adjoint checked. Pre-registered on dragon / bob / armadillo:
+  0 far particles at the end, chamfer within ±3 % of batch h, silIoU within ±1 pt.
+  Falsifier: any far particle at the end (a decoupled particle the bonds could not hold).
