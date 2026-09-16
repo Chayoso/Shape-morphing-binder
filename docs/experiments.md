@@ -1437,3 +1437,17 @@ target, az 35/215), scatter probe, stray census, loss curves → `report150/<T>/
   FAILURE (reported with the gated run's numbers: chamfer 0.571, silIoU 0.70, 20 commits).
   V — 224 commits, 20.7 min, chamfer 0.0766, silIoU 0.792, hole 1.03 %, 260 fragments,
   stray 1.58 %.
+
+
+### 2026-09-16 — diverse-mesh batch (`n40_*`, launched 16:40)
+
+User request: try meshes beyond the ten in the gallery. Nine public test models
+(alecjacobson/common-3d-test-models: cow, homer, max-planck, nefertiti, ogre, fandisk, beast,
+cheburashka, bimba; beast / max-planck / ogre are not watertight — the axis-based fill still
+produces a solid) added to `assets/` and run at 40k `--ppc 8` with the v5 recipe on the
+corrected auto domain (`run_new40_20260916.sh`; GPU 0: cow homer maxplanck nefertiti
+fandisk, GPU 2: ogre beast cheburashka bimba), post-processed per target into
+`report_new40/<T>/` (surface video, particle GIF, PBR stills, census, fragments, loss).
+Pre-registration: chamfer ≤ 0.13 and silIoU ≥ 0.85 on the blob-like models (cow, homer,
+cheburashka, bimba, nefertiti, max-planck); the sharp-edged fandisk and the thin-limbed
+beast/ogre are the expected weak cases; ejection counted by the grid fragment mask.
