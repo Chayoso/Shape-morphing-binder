@@ -1040,6 +1040,9 @@ walks every frame — sample every 4th.
   graph rollout 24 ms vs 32 ms from Python). The adjoint kernels are now the floor: 300
   windows ≈ 12–14 min at 150k. Below 10 min needs hand-written adjoints of P2G/G2P (the
   automatic adjoint of the atomic scatter is ~4× the forward) — not done in this pass.
+- `--domain auto` calibration fix (commit 6cf1a23): the density-unit reference cell now
+  reaches the runner (0.5 wu on any box); the auto domain's speed gain stands, the
+  earlier auto-domain results do not (see the ejection ladder for the root cause).
 
 ### 2026-09-16 — high-resolution gallery (batch h): 10 targets × {render, physics-only}
 
@@ -1328,3 +1331,74 @@ chamfer ≤ the 40k batch-h values; ejection reported by the census, not gated a
 Post-processing per target (`hr150_post.sh` via `hr150_watch.sh`): surface video (GPU
 z-buffer splats, two azimuths, target outline), particle GIF, PBR stills (delivered +
 target, az 35/215), scatter probe, stray census, loss curves → `report150/<T>/`.
+- Results as they land: teapot — 77 commits (outer-merit patience stop), 7.6 min, chamfer
+  0.0931, silIoU 0.888, hole 0 %, 81 fragments (0.05 %); heart — FROZE at 18 commits
+  (1.9 min): from anim 6 every candidate was a brake reject (gain −0.052 < −0.05,
+  reversal +0.90, replay of the same candidate after the cold restart), chamfer 0.150,
+  move_cv 0.17. At 40k (batch h) heart ran 123 commits with rejects only at the end, so
+  this is a 150k/auto-domain-specific plateau at the very start; diagnostics
+  `dbg_heart_auto` / `dbg_heart_fixed` (40k, 60 anims, current code) and `dbg_dragon_v5`
+  (v5 config on the current code — regression check for the ejb/ejc/ejd/eje verdicts).
+  Bunny and A show no outer-merit rejects (129 / 42 commits at 14:05).
+  Diagnosis of the heart freeze (history json): the outer merit is Σ component/scale with
+  the scales fixed at the first commit; heart's `d_dt` (isolation-gated distance-transform
+  term) GROWS 8308 → 10704 (+29 %) over the first six windows while d_vol (0.107 → 0.052)
+  and d_sil (0.142 → 0.101) fall — the expanding body crosses outside the target's DT
+  band before it takes the heart's shape — so the merit rises 5.2 %/window, the brake
+  fires (gain < −0.05), the cold restart replays the same candidate and patience ends the
+  run. The window objective (which weights the same terms with their optimiser weights)
+  still decreased every window (0.138 → 0.0845). 40k heart with the current code
+  (`dbg_heart_auto/fixed`, 60 anims) shows no rejects and reproduces batch h's first
+  window to 4 digits, so this is not a code regression but the gate's first-window
+  normalisation meeting a 150k transient.
+  Side finding from the same pair (40k heart, 60 anims, current code): `--domain fixed`
+  chamfer 0.1124 / silIoU 0.983 / 0 rejects vs `--domain auto` 0.1254 / 0.892 / 3 rejects.
+  The auto domain changes the density-unit calibration cell (`unit_ref_res` follows the
+  box) and therefore the effective weights — a quality confound of the speed change that
+  must be checked target by target before the auto domain is kept (heart2 at 150k runs
+  with `--no_outer_merit`; the fixed-vs-auto question is open).
+- **Root cause found (14:15)**: the auto-domain block set `args.unit_ref_res` (a 0.5 wu
+  reference cell) but `cfg.unit_ref_res` never received it, so the density-unit
+  calibration ran its legacy cell sum on a 64³ grid over the SMALLER auto box — a 0.2 wu
+  reference cell — and every converted weight was ~3× off: dragon 40k ratio 4.36e4 (auto)
+  vs 1.45e4 (fixed). Every run launched with `--domain auto` (ejb, ejc, ejd, eje, the 150k
+  batch, the heart diagnostics) carried this. Fixed in `pipeline_run.py` (cfg receives the
+  reference cell); the affected mechanism verdicts (basis, consensus assimilation, Sobolev
+  direction) are VOID and must be re-run; the v5 trio (fixed domain) stands.
+- Code-regression check (14:20): `dbg_dragon_v5fixed` — the v5 configuration on the FIXED
+  domain with the current code (persistent trajectories, tape graphs, line-search break,
+  shared grid, torch assimilation): chamfer 0.1224, silIoU 0.887, 62 fragments, 204
+  commits, 6.8 min vs v5's 0.1225 / 0.893 / 82 / 141 / 9.0 min. No regression from the
+  speed work; the catastrophes were the calibration bug alone.
+- **Corrected auto domain, v5 reference (`ejf2_dragon`, 14:26)**: chamfer 0.1199, silIoU
+  0.901, hole 0.34 %, 83 far (0.21 %, max 2.5 wu), 24 fragments, 251 commits, 8.5 min — on
+  par with or slightly better than the fixed-domain v5 (0.1225 / 0.893 / 121 far). The auto
+  domain with the 0.5 wu calibration cell is a valid speed lever; the mechanism re-tests
+  (`eje2` Sobolev, `ejd2` consensus, `ejc2` basis 24) run against this reference.
+- **Sobolev direction re-test FALSIFIED** (`eje2_dragon`, corrected domain): chamfer
+  0.1240, silIoU 0.882, 97 far (max 5.2 wu), froze at 100 commits (12 rejects) vs the
+  reference 0.1199 / 0.901 / 83 far / 251 commits. Smoothing the descent direction over
+  the material graph neither reduces the far set nor keeps quality — the differential
+  push the ejecta receive is not a sub-stencil gradient artefact that a κ = 2 graph
+  smoothing removes.
+- **Consensus assimilation re-test FALSIFIED** (`ejd2_dragon`): chamfer 0.1294, silIoU
+  0.824, 219 far (max 4.6 wu), froze at 79 commits — worse than the reference on every
+  count (the earlier catastrophe was the calibration bug; the mechanism itself still
+  loses: retained elastic mismatch between neighbours degrades the body).
+- **Control basis re-test FALSIFIED for ejection** (`ejc2_dragon`, flagship + 24³ basis):
+  chamfer 0.1324, silIoU 0.931, 192 far (max 3.6 wu), froze at 66 commits. Higher
+  silhouette IoU but more than twice the far particles of per-particle control; the
+  basis moves chunks coherently and detaches them.
+- Ladder verdict (corrected domain): per-particle control + material re-coupling v5 with
+  the no-grad bonds fix is the best configuration measured — dragon 83 far (0.21 %),
+  chamfer 0.1199; bunny 150k 98 far (0.065 %), chamfer 0.0765 — and ejection is NOT
+  solved. The by-construction direction the literature points to is a permanent
+  reference connectivity (total-Lagrangian MPM: shape functions on the undeformed grid,
+  so neighbours can never lose each other — de Vaucorbeil et al.; "Simulating Brittle
+  Fracture with Material Points" constrains particle domains to the cell size), at the
+  price of forbidding the topology changes (holes in A, the teapot handle) that the
+  updated-Lagrangian formulation creates by the same numerical fracture — a hybrid with
+  a discretisation-defined bond range is the open design.
+
+- **150k batch v2, corrected domain** (14:27 →): bunny — 101 commits (10 rejects), 11.7 min,
+  chamfer 0.0765, silIoU 0.920, hole 0.09 %, 47 fragments, 98 far (0.065 %, max 1.8 wu).
