@@ -983,3 +983,33 @@ lobes, no line, but 6 particles (0.015 %) leave the body downward from commit ~1
 as dots under the bunny at the end — G4_ejection FAIL on this run (the streaky-target run had 0.07 %
 strays > 2 sp but none this far). Reported, not gated; the far-stray census belongs to
 `docs/floaters.md`.
+
+### 2026-09-16 — speed profile and the allocation fix (hyde06 GPU 2, 40k `--ppc 8` density recipe, 12 commits, cProfile)
+
+Where a window's time went (108 s in `run_pipeline`, 97.8 s in 12 `optimize_window` calls):
+
+| item | time | share |
+|---|---|---|
+| `Trajectory.__init__` — 291 rollouts × 189 per-step arrays built from numpy zeros / identity (host → device copy, 57,252 `wp.array` constructions, `warp.context.copy` 30.4 s) | 43.5 s | 40 % |
+| `warp_mpm_ext` forward + torch `run_backward` (MPM adjoint through the tape) | 17.4 + 16.5 s | 31 % |
+| `.item()` syncs in `_norm` / `scalars` (line search bookkeeping) | 7.9 + 6.1 s | 13 % |
+| PBR-lite shading channel `d_pbr` (5,184 shaded views) | 8.3 s | 8 % |
+| silhouette loss `d_render` | 5.0 s | 5 % |
+| one-off: `savez_compressed` 5.4 s, metrics 6.9 s (stray trajectory census 3.8 s) | | |
+
+Fix (commit 5a3b8ee): the t > 0 arrays are allocated on the device (`wp.zeros`) and the
+F-type lists are `wp.clone`d from a cached device identity — same values, no host traffic
+(micro-benchmark: 15.6 → 5.2 ms per rollout's zero arrays, 3.4 → 1.4 ms for the identities).
+Re-profiled with the same 12-commit run while the same batch shared the GPU: `run_pipeline`
+108.3 → 78.7 s (−27 %), `optimize_window` 97.8 → 67.3 s (−31 %), the arm 1.8 → 1.3 min.
+Results are bit-identical on the CPU and inside CUDA's atomic-add run-to-run noise on the
+GPU (`tests/test_traj_alloc.py`: the SAME code differs run-to-run by 7e-9 on x_T and 5e-7 on
+the dFc gradient; the change stays inside that band). Deployed mid-batch-h; later runs of
+that batch use it.
+
+Not done (candidates, in order of expected gain): (1) fewer `.item()` syncs — batch the
+line-search scalars into one tensor and read once per iteration (~10 %); (2) the PBR-lite
+channel evaluates 18 shaded views per loss call — half the views at the coarse phase; (3) a
+CUDA-graph capture of the T-step rollout + adjoint (launch overhead is small at T = 20, so
+the gain is uncertain); (4) the ejection census at the end (`metrics.ejection_trajectory`)
+walks every frame — sample every 4th.
