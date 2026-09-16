@@ -1013,3 +1013,40 @@ channel evaluates 18 shaded views per loss call — half the views at the coarse
 CUDA-graph capture of the T-step rollout + adjoint (launch overhead is small at T = 20, so
 the gain is uncertain); (4) the ejection census at the end (`metrics.ejection_trajectory`)
 walks every frame — sample every 4th.
+
+### 2026-09-16 — high-resolution gallery (batch h): 10 targets × {render, physics-only}
+
+User request: judge what remains (mass ejection, high-res + diverse examples, speed), then a
+document with ~10 high-res examples, PBR stills, gradient reach (% of surface, magnitudes,
+heatmaps), loss curves + wall-clock, the physics-only comparison, hi-res GIFs; every result
+viewable in the 3D viewer later.
+
+Discretisation (all runs): 40k particles, `--ppc 8` (dx 0.2148, MPM 149³, loss grid 149³ in
+density units with the reference-64 calibration), T 20, dt 1/240, `--warm_start --w_kin 5
+--w_kin_var 200`, 300-commit budget with the patience freeze, `--pace 0 --anneal 0.7
+--mom_carry 0 --nn_far_k 1000`, source isosphere, target volume matched to the source, FIXED
+sampler (0ccc43a). Arms: `render_full_dt_iso_nn` (λ_auto 0.5) and the same with
+`--lambda_auto 0` (physics-only, same code path). Targets (asset survey: 14 of 15 meshes fill
+with the orthographic voxeliser; `car.obj` is a surface shell and is refused): bunny,
+armadillo, dragon, spot, bob, teapot, heart, A, C, V — GPU 0 takes the first five, GPU 2 the
+rest, render then physics-only per target; the speed fix 5a3b8ee was deployed after the first
+two render runs started, so later runs are faster (s/commit is reported per run).
+
+Measured per run (raw state): chamfer, silIoU, hole, gates (G4_ejection), delivered commits,
+wall-clock and s/commit (live-packet mtimes), the window loss and D_vol curves, thin-feature
+sparse peak → end and delivered thin mass (`scatter_probe2`), strays > 2 sp. Gradient probe
+(`scripts/probes/grad_field.py`) at commits 5 % / 35 % / delivered of the render run and the
+delivered frame of the physics-only run: share of all / surface / interior particles with
+|∂D_render/∂x|, |∂D_vol/∂x|, |∂D_render/∂dFc| (through the MPM adjoint over one window from
+the archived state with v = C = 0) above 1e-3 of the max, magnitude means, reach by depth
+decile, heatmaps. Display: hi-res GIFs (`make_gif --res 320`), PBR stills
+(`scripts/render_pbr.py`: surface splatting + GGX; the 3DGS photoreal path smears solids —
+docs/floaters.md 2026-09-04 — so this is screen-space surface reconstruction, raw state only).
+
+Pre-registered expectations: (i) render vs physics-only: silIoU +0.5–1 pt and more thin-feature
+mass for render on every target, chamfer within ±3 % (the 20k finding); (ii) the image
+gradient on x touches 5–10 % of particles (15–25 % of the surface set) and, through the
+adjoint, 30–55 % of all particles; (iii) G4_ejection fails on some targets with a handful of
+far particles — the count per target decides the next ejection ladder; (iv) s/commit drops by
+~25 % on the runs started after 5a3b8ee. Results: `docs/highres_report.md` (written from
+`output/report/`, the artifact page is the deliverable).
