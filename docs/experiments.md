@@ -1489,6 +1489,12 @@ with the flag.
 - `ejr_bob` (17:29): end census **0 particles > 0.25 wu, max 0.13 wu** (v5: 507 far); chamfer
   0.1122, silIoU 0.980 (v5: 0.1425 / 0.822), hole 2.68 % (v5 2.3 %); 324 particles
   re-attached over 21 commits, 7.3 min.
+- `ejr_dragon` (17:33): end census **0 particles > 0.5 wu** (17 at 0.25–0.45 wu — within two
+  cells, stretched surface material, not detached), 0 fragments; chamfer 0.1183, silIoU
+  0.965 (v5: 0.1199 / 0.901); 227 particles re-attached over 27 commits, 7.3 min.
+- Verdict: the pre-registration holds on all three (0 fragments and 0 far > 0.5 wu at the
+  end; chamfer within noise, silIoU better on all three). The 150k gallery is re-run with the
+  flag (v3 below).
 
 
 ### 2026-09-16 — 150k gallery v3 (`h150r_*`, launched 17:36): the v2 recipe + `--reattach`
