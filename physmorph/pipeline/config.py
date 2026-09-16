@@ -402,6 +402,11 @@ class PipelineConfig:
                                     # commit (continuous, no snap); the flat-valley
                                     # wandering tail is dropped from frames, kept in
                                     # history (b4: best d_vol 62 at a435, final 158)
+    reattach: bool = False          # conservative particle resampling at the commit: a particle
+                                    # whose grid cell is not connected to the body (fragment
+                                    # mask on the dilated occupancy) is not a continuum element
+                                    # and is merged back onto the nearest body particle (its
+                                    # state copied); mass conserved, 0 fragments by construction
     bonds: bool = False             # MATERIAL BONDS for decoupled particles (forward model,
                                     # kernels.k_bond_force, method.md eq 24): one-sided tension
                                     # bonds to the frozen source neighbours (coh_k), rest length

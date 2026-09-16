@@ -58,6 +58,32 @@ def _surface_weights(x: np.ndarray, k: int, fraction: float, floor: float) -> np
     return np.ascontiguousarray(floor + (1.0 - floor) * soft, np.float32)
 
 
+def reattach_fragments(x, v, C, F, Fp, Fg, prm: MPMParams, spacing: float, seed: int = 0) -> int:
+    """Conservative particle resampling: every particle the fragment mask flags (its grid
+    cell is not connected to the body on the occupancy dilated by one cell — it shares no
+    grid node with any other material point, so it is a stray mass, not a continuum element)
+    is merged IN PLACE onto the nearest body particle: position + half a spacing of jitter,
+    v, C, F, Fp, Fg copied. No particle is deleted (mass conserved); returns the count."""
+    frag = fragment_mask(x, prm)
+    n = int(frag.sum())
+    if n == 0:
+        return 0
+    body_idx = np.where(~frag)[0]
+    if len(body_idx) == 0:
+        return 0
+    from scipy.spatial import cKDTree
+    _, jn = cKDTree(x[body_idx]).query(x[frag], k=1, workers=-1)
+    jb = body_idx[jn]
+    rng = np.random.default_rng(seed)
+    jit = rng.normal(size=(n, 3)).astype(np.float32)
+    jit *= (0.5 * float(spacing)) / np.maximum(np.linalg.norm(jit, axis=1, keepdims=True), 1e-9)
+    x[frag] = x[jb] + jit
+    for arr in (v, C, F, Fp, Fg):
+        if arr is not None:
+            arr[frag] = arr[jb]
+    return n
+
+
 def fragment_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
     """True where the particle's occupied grid cell belongs to a connected component
     (26-connectivity) of occupied cells that is NOT the largest one: material that has
@@ -310,6 +336,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     Fp = _id(N)
     s, dfc_prev = None, None
     frames, F_frames, hist = [x.copy()], [_id(N)], []
+    n_reattach_total = 0                 # cfg.reattach: merged grid-disconnected particles (all commits)
     # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
     # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
     # keeps the PHYSICS F for metrics and assimilation)
@@ -540,6 +567,23 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # ~1.5 %). The needle-splat problem is handled in the render FORWARD MODEL
         # instead (cfg.gauss_cov_sat, gauss_loss.saturate_stretch), which is a fixed
         # function of the state at every step.
+        # ---- conservative particle resampling (cfg.reattach): a particle whose grid cell is
+        # not connected to the body (fragment_mask: components of the occupancy dilated by
+        # one cell, i.e. the stencil's own interaction range) shares no node with any other
+        # material point — it is not a continuum element any more, only a stray mass. It is
+        # merged back onto the nearest body particle: position (plus half a spacing of
+        # jitter), velocity, C, F, Fp, Fg copied. Mass is conserved (no particle is
+        # deleted), every commit ends with zero fragments by construction, and the window
+        # dynamics are untouched (this is resampling of a degenerate sampling, the same
+        # remedy the MPM/PIC literature applies to under-sampled regions). ----
+        n_reattached = 0
+        if cfg.reattach:
+            n_reattached = reattach_fragments(x, v_p, C_p, Fc, Fp, Fg_p, prm,
+                                              float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * prm.dx,
+                                              seed=a + 1)
+            if n_reattached:
+                n_reattach_total += n_reattached
+                log(f"[v2] anim {a + 1}: re-attached {n_reattached} grid-disconnected particles")
         # archive the PROMOTED states (identical to raw when no guard fired)
         ks = max(1, int(cfg.archive_stride))            # archive stride (150k archives)
         frames.extend(f.copy() for f in fr[1:-1][::ks]); frames.append(x.copy())
@@ -595,6 +639,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 d_fill = coverage_shortfall(xt, tgt.m, tgt.tmass3, tgt.dtgmin,
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
+               "reattached": n_reattached,
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
                "d_jdens": d_jd_v, "d_h1": d_h1_v, "h1_ratio": stats.get("h1_ratio"),
@@ -925,5 +970,5 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             "Fg_commits": Fg_commits,
             "balancer": {"cap": balancer.cap, "cap_rel": getattr(balancer, "cap_rel", None),
                          "alpha_lam": balancer.alpha_lam},
-            "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen,
+            "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen, "reattached": n_reattach_total,
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None)}

@@ -1451,3 +1451,28 @@ fandisk, GPU 2: ogre beast cheburashka bimba), post-processed per target into
 Pre-registration: chamfer ≤ 0.13 and silIoU ≥ 0.85 on the blob-like models (cow, homer,
 cheburashka, bimba, nefertiti, max-planck); the sharp-edged fandisk and the thin-limbed
 beast/ogre are the expected weak cases; ejection counted by the grid fragment mask.
+
+Results (40k, corrected auto domain, v5 recipe): cow — 87 commits, 4.7 min, chamfer 0.1135,
+silIoU 0.956, hole 0 %, 2 fragments; ogre — 117 commits, 3.8 min, 0.1196 / 0.916 / 0.13 %,
+17 fragments; homer — 117 commits, 6.4 min, 0.1195 / 0.956 / 0 %, 7 fragments; beast — 136
+commits, 4.4 min, 0.1475 / 0.738 / hole 2.05 %, 76 fragments (thin limbs, the expected weak
+case).
+
+
+### 2026-09-16 — particle re-attachment (`--reattach`), user directive "mass ejection must be gone"
+
+Mechanism (commit `pipeline/runner.py`, after assimilation): a particle whose grid cell is not
+connected to the body — `fragment_mask` on the occupancy dilated by one cell, i.e. it shares
+no grid node with any other material point — is no longer a continuum element, only a stray
+mass. It is merged back onto the nearest body particle (position + half a particle spacing of
+jitter; v, C, F, Fp, Fg copied). No particle is deleted (mass conserved), the window dynamics
+and every loss are untouched, and every commit ends with zero fragments BY CONSTRUCTION. This
+is conservative resampling of a degenerate sampling, the remedy the MPM/PIC literature applies
+to under-sampled regions (arXiv 2603.03860 §resampling), not a force, a threshold or a weight.
+Honest caveat: it is a discretisation repair at the commit, so a re-attached particle jumps
+(≈ 2 cells) at that frame; the drift that produced it is not prevented, only undone, and the
+same particle can drift again — the log counts every merge (`reattached`).
+Pre-registration (40k trio dragon / bob / armadillo, `--bonds --reattach`): 0 fragments and
+0 far particles at every commit; chamfer / silIoU within noise of the v5 reference
+(0.1199 / 0.901 dragon); re-attachments per window logged. Then the 150k gallery is re-run
+with the flag.
