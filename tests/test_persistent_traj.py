@@ -115,3 +115,42 @@ def test_shared_grid_rollout_equals_per_step_grid_rollout():
     assert np.array_equal(a.x[T].numpy(), b.x[T].numpy())
     assert np.array_equal(a.v[T].numpy(), b.v[T].numpy())
     assert np.array_equal(a.F[T].numpy(), b.F[T].numpy())
+
+
+@pytest.mark.parametrize("dev", ["cpu", "cuda"])
+def test_persistent_adjoint_matches_the_plain_bridge(dev):
+    """PersistentAdjoint (graphs on CUDA, plain tape on CPU) gives the _WarpMPMExt outputs and
+    control gradient; a second backward with another seed on the same forward is consistent."""
+    if dev == "cuda" and not torch.cuda.is_available():
+        pytest.skip("no CUDA")
+    from physmorph.mpm.function import PersistentAdjoint, RolloutSpec, warp_mpm_ext
+    x0, prm, T = _cloud(120), _prm(), 3
+    N = len(x0)
+    vol0 = compute_rest_volumes(x0, 1.0, prm, dev)
+    nbr, rest, frag = _bonds(x0)
+    spec = RolloutSpec(x0=x0, m=1.0, lam=800.0, mu=400.0, prm=prm, T=T, device=dev, vol0=vol0,
+                       bond_nbr=nbr, bond_rest=rest, bond_frag=frag)
+    adj = PersistentAdjoint(spec)
+    torch.manual_seed(0)
+    dfc = (torch.randn(T, N, 3, 3, device=dev) * 2e-2)
+    w = torch.linspace(0.5, 1.5, 3, device=dev)
+
+    def run(fn, d):
+        d = d.clone().requires_grad_(True)
+        xT, FT, vT, FgT, V = fn(d)
+        L1 = (xT * w).pow(2).sum() * 1e2 + FgT.pow(2).sum() * 1e-1
+        L2 = V.pow(2).sum() * 1e2 + (vT * w).sum()
+        g1 = torch.autograd.grad(L1, d, retain_graph=True)[0]
+        g2 = torch.autograd.grad(L2, d)[0]
+        return xT.detach(), FT.detach(), V.detach(), g1, g2
+    a = run(lambda d: warp_mpm_ext(d, spec), dfc)
+    b = run(lambda d: adj.apply(d), dfc)
+    tol = 0.0 if dev == "cpu" else 1e-4
+    for ua, ub in zip(a, b):
+        assert torch.allclose(ua, ub, rtol=tol, atol=tol * max(1.0, float(ua.abs().max()))), float((ua - ub).abs().max())
+    assert float(b[3].abs().max()) > 0 and float(b[4].abs().max()) > 0
+    # a second forward on the same buffers with another control
+    c = run(lambda d: adj.apply(d), dfc * 0.5)
+    e = run(lambda d: warp_mpm_ext(d, spec), dfc * 0.5)
+    for ua, ub in zip(e, c):
+        assert torch.allclose(ua, ub, rtol=tol, atol=tol * max(1.0, float(ua.abs().max())))

@@ -34,7 +34,7 @@ from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_d
                                  deficit_field, isolation_gate, kde_assign, nn_band_assign,
                                  w1_budget)
 from ..mpm.constitutive import lame
-from ..mpm.function import RolloutSpec, warp_mpm_ext
+from ..mpm.function import PersistentAdjoint, RolloutSpec, warp_mpm_ext
 from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig
@@ -243,6 +243,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                          Fg0=Fg0, track_geom=use_geom, persistent=True,
                          bonds=((bond_nbr, bond_rest, bond_frag) if bond_nbr is not None else None))
     tr_eval.capture()
+    adj_box = [None]                 # PersistentAdjoint, built at the first gradient rollout
 
     def _set_material(lam_t, mu_t):
         if lam_t is None:
@@ -472,7 +473,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         kinetic}."""
         lam_t, mu_t = material()
         dfc = expand(leaf)
-        xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t)
+        if lam_t is None and str(dev).startswith("cuda"):
+            # persistent tape trajectory (forward + adjoint as CUDA graphs), one per window
+            if adj_box[0] is None:
+                adj_box[0] = PersistentAdjoint(spec)
+            xT, FT, vT, FgT, V = adj_box[0].apply(dfc)
+        else:
+            xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t)
         lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
         extra = {"dfc": dfc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                  "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}

@@ -196,3 +196,129 @@ def warp_mpm_ext(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None):
     """Extended differentiable rollout. Returns (x_T [N,3], F_T [N,9], v_T [N,3],
     Fg_T [N,9], V [T,N,3])."""
     return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, spec)
+
+
+# ---- persistent tape trajectory: forward and adjoint as CUDA graphs (2026-09-16) ----------------
+_ADJ_WARMED: set = set()
+
+
+class PersistentAdjoint:
+    """One tape trajectory whose forward rollout and adjoint are captured CUDA graphs.
+    Inputs/outputs go through persistent buffers: `dc` (T,N,3,3) is the control the dFc
+    sequence views; `sx, sF, sv, sFg, sV` are the adjoint seeds the tape assigns from;
+    the control gradient is read from the dFc grads. Replaying the forward graph rolls out
+    the CURRENT contents of the trajectory's initial state (fixed for a window) with the
+    current `dc`; replaying the adjoint graph differentiates the LAST forward with the
+    current seeds — so several seeds per forward (PCGrad's per-term gradients) cost one
+    graph launch each. Non-CUDA devices record a fresh tape per forward (tests)."""
+
+    def __init__(self, spec: RolloutSpec):
+        N, T, dev = spec.x0.shape[0], spec.T, spec.device
+        self.N, self.T, self.dev = N, T, dev
+        self.cuda = str(dev).startswith("cuda")
+        self.dc = torch.zeros(T, N, 3, 3, device=dev)
+        self.dc_wp = [wp.from_torch(self.dc[t], dtype=wp.mat33, requires_grad=True) for t in range(T)]
+        bonds = ((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None)
+        self.traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
+                               Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp,
+                               device=dev, requires_grad=True, vol0=spec.vol0,
+                               Fg0=spec.Fg0, track_geom=True, bonds=bonds, persistent=True)
+        tr = self.traj
+        self.sx = torch.zeros(N, 3, device=dev)
+        self.sF = torch.zeros(N, 3, 3, device=dev)
+        self.sv = torch.zeros(N, 3, device=dev)
+        self.sFg = torch.zeros(N, 3, 3, device=dev)
+        self.sV = torch.zeros(max(T - 1, 1), N, 3, device=dev)
+        self.seeds = {tr.x[T]: wp.from_torch(self.sx, dtype=wp.vec3),
+                      tr.F[T]: wp.from_torch(self.sF, dtype=wp.mat33),
+                      tr.v[T]: wp.from_torch(self.sv, dtype=wp.vec3),
+                      tr.Fg[T]: wp.from_torch(self.sFg, dtype=wp.mat33)}
+        for t in range(1, T):
+            self.seeds[tr.v[t]] = wp.from_torch(self.sV[t - 1], dtype=wp.vec3)
+        # every gradient buffer the adjoint accumulates into (tape.zero() only knows the
+        # arrays of a tape that has already run backward — a fresh tape zeroes nothing)
+        self.grad_arrays = []
+        for val in list(vars(tr).values()) + [self.dc_wp]:
+            items = val if isinstance(val, (list, tuple)) else [val]
+            for a in items:
+                if isinstance(a, wp.array) and a.grad is not None and a.grad not in self.grad_arrays:
+                    self.grad_arrays.append(a.grad)
+        self.tape = None
+        self.g_fwd = self.g_bwd = None
+        if self.cuda:
+            key = str(dev)
+            if key not in _ADJ_WARMED:              # module load outside any capture
+                self._record_forward()
+                self._zero_grads()
+                self.tape.backward(grads=self.seeds)
+                wp.synchronize_device(dev)
+                _ADJ_WARMED.add(key)
+            with wp.ScopedCapture(device=dev) as cap:
+                self._record_forward()
+            self.g_fwd = cap.graph
+            with wp.ScopedCapture(device=dev) as cap:
+                self._zero_grads()
+                self.tape.backward(grads=self.seeds)
+            self.g_bwd = cap.graph
+
+    def _zero_grads(self):
+        for g in self.grad_arrays:
+            g.zero_()
+
+    def _record_forward(self):
+        self.tape = wp.Tape()
+        with self.tape:
+            self.traj.rollout()
+
+    def forward(self):
+        if self.g_fwd is not None:
+            wp.capture_launch(self.g_fwd)
+        else:
+            self._record_forward()
+
+    def backward(self):
+        if self.g_bwd is not None:
+            wp.capture_launch(self.g_bwd)
+        else:
+            self._zero_grads()
+            self.tape.backward(grads=self.seeds)
+
+    def apply(self, dFc_t: torch.Tensor):
+        return _WarpMPMPersistent.apply(dFc_t, self)
+
+
+class _WarpMPMPersistent(torch.autograd.Function):
+    """The _WarpMPMExt bridge on a PersistentAdjoint (same outputs, same seeds)."""
+
+    @staticmethod
+    def forward(ctx, dFc_t: torch.Tensor, adj: PersistentAdjoint):
+        N, T = adj.N, adj.T
+        adj.dc.copy_(dFc_t.detach().reshape(T, N, 3, 3))
+        adj.forward()
+        ctx.adj = adj
+        tr = adj.traj
+        V = torch.stack([wp.to_torch(tr.v[t]).clone() for t in range(1, T + 1)])
+        return (wp.to_torch(tr.x[T]).clone(), wp.to_torch(tr.F[T]).reshape(N, 9).clone(),
+                wp.to_torch(tr.v[T]).clone(),
+                wp.to_torch(tr.Fg[T]).reshape(N, 9).clone(), V)
+
+    @staticmethod
+    def backward(ctx, gx, gF, gv, gFg, gV):
+        adj = ctx.adj
+        N, T = adj.N, adj.T
+        with torch.no_grad():
+            adj.sx.copy_(gx) if gx is not None else adj.sx.zero_()
+            adj.sF.copy_(gF.reshape(N, 3, 3)) if gF is not None else adj.sF.zero_()
+            adj.sFg.copy_(gFg.reshape(N, 3, 3)) if gFg is not None else adj.sFg.zero_()
+            gvT = (gv if gv is not None else 0.0) + (gV[T - 1] if gV is not None else 0.0)
+            if isinstance(gvT, torch.Tensor):
+                adj.sv.copy_(gvT)
+            else:
+                adj.sv.zero_()
+            if gV is not None and T > 1:
+                adj.sV.copy_(gV[:T - 1])
+            else:
+                adj.sV.zero_()
+            adj.backward()
+            g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3).clone() for d in adj.dc_wp])
+        return g.reshape(T, N, 3, 3), None
