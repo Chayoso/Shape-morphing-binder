@@ -127,12 +127,12 @@ ul{max-width:84ch}
 H = [f'<title>{TITLE}</title>',
      '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">',
      f'<style>{css}</style>', '<main>',
-     '<div class="eyebrow">PhysMorph · sphere → 10 targets · 150k particles, --ppc 8, density units, kinetic recipe, auto domain, material re-coupling · hyde06 2026-09-16</div>',
-     '<h1>150k 고해상도 갤러리 — 표면 렌더, mass ejection 조사, 속도</h1>',
+     f'<div class="eyebrow">{G.get("eyebrow", "PhysMorph · sphere → 10 targets · 150k particles, --ppc 8, density units, kinetic recipe, auto domain, material re-coupling · hyde06 2026-09-16")}</div>',
+     f'<h1>{G.get("h1", "150k 고해상도 갤러리 — 표면 렌더, mass ejection 조사, 속도")}</h1>',
      f'<p class="lede">{G.get("lede", "")}</p>']
 H.append('<h2>1. 판단</h2>'); H.append(G.get("assessment_html", ""))
-H.append('<h2>2. 10개 예제 요약 (raw state 지표, 렌더러 미사용)</h2>')
-H.append('<p class="lede">arm = render_full_dt_iso_nn (λ=0.5), 150k `--ppc 8`, `--bonds` (재료 재결합, 그리드 연결성 fragment mask), `--domain auto`, archive stride 8. "far"는 마지막 프레임에서 8번째 이웃까지의 거리가 0.5 wu를 넘는 입자 수(= 이탈 입자). 시간은 hyde06 벽시계(1 GPU, 다른 40k 런과 공유된 구간 포함).</p>')
+H.append(f'<h2>2. {len(rows)}개 예제 요약 (raw state 지표, 렌더러 미사용)</h2>')
+H.append(f'<p class="lede">{G.get("table_lede", "arm = render_full_dt_iso_nn (λ=0.5), 150k `--ppc 8`, `--bonds` (재료 재결합, 그리드 연결성 fragment mask), `--domain auto`, archive stride 8.")} "far"는 마지막 프레임에서 8번째 이웃까지의 거리가 0.5 wu를 넘는 입자 수(= 이탈 입자). 시간은 hyde06 벽시계(1 GPU, 다른 40k 런과 공유된 구간 포함).</p>')
 H.append('<div class="wrap"><table><thead><tr><th>target</th><th>chamfer</th><th>silIoU</th><th>hole</th><th>commits</th><th>min</th><th>s/commit</th><th>loss ×</th><th>sparse peak→end</th><th>thin mass / tgt</th><th>fragments (grid)</th><th>far &gt;0.5 wu (n, %)</th><th>max far</th><th>G4 ej.</th></tr></thead><tbody>')
 for r in rows:
     a, s, l, c = r["arm"], r["sc"], r["lo"], r["ce"]
