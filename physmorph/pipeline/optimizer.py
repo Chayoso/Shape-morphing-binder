@@ -496,10 +496,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             vT = wp.to_torch(tr.v[T]).clone()
             FgT = wp.to_torch(tr.Fg[T]).reshape(N, 9).clone() if use_geom else None
             V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
-            _tm_add("eval", t0)
+            _tm_add("eval_roll", t0)
+            t0 = _tick()
             lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
             extra = {"dfc": dc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                      "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
+            _tm_add("eval_loss", t0)
+            t0 = _tick()
             # whole-trajectory orientation check for _state_ok. Stack-review fixes:
             # f1 — the stored F is SMOOTHED, so a constitutive inversion in the
             # EFFECTIVE deformation (F+dFc, whose det sign equals det(F_e) since
@@ -511,6 +514,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                  for t in range(T)])
             j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
             jt = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
+            _tm_add("eval_det", t0)
         return (xT, FT, vT, jt), lv, lk, lr, lpbr, extra
 
     def _vT(extra):
@@ -1079,10 +1083,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         _tm_add("final", t0)
     if _TIMING:
         tot = time.perf_counter() - _TM.get("t_win", time.perf_counter())
-        log("[time] " + " ".join(f"{k} {_TM.get(k, 0.0):.2f}s/{_TM.get('n_' + k, 0)}x"
-                                 for k in ("eval", "terms", "grad", "final"))
-            + f" other {tot - sum(_TM.get(k, 0.0) for k in ('eval', 'terms', 'grad', 'final')):.2f}s"
-            + f" window {tot:.2f}s")
+        keys = ("eval_roll", "eval_loss", "eval_det", "terms", "grad", "final")
+        print("[time] " + " ".join(f"{k} {_TM.get(k, 0.0):.2f}s/{_TM.get('n_' + k, 0)}x" for k in keys)
+              + f" other {tot - sum(_TM.get(k, 0.0) for k in keys):.2f}s window {tot:.2f}s", flush=True)
     s_out = s.detach().cpu().numpy() if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
