@@ -1870,3 +1870,27 @@ arrival test was a coin flip and the paced grid stayed a blurred copy of the clo
 snapped to it (removes the normal blur component, keeps the tangential transport);
 positions still in flight stay advected. Deployed mid-batch: bunny and teapot (v2 code)
 are queued for a re-run after the new-mesh batches; armadilo onward run on the final code.
+
+**The snap was wrong (09:40):** 150k cow on the snap code — 0 fragments but 104
+re-attachments (density recipe n150: 83), silIoU 0.920 (0.944), hole 1.54 % (0), chamfer
+0.111 (0.076): where the source sphere overlaps the target body, 99 % of the paced positions
+lie "on the support" and snapping them to their own nearest target point removes the
+tangential transport — the pacing degenerates into a projection. Reverted (commit after
+211565b) to the arrival projection (f68df6c). A full-resolution map (potentials
+c-transformed to every target point and every particle, N × N passes, 7 s per call at 150k)
+was then measured on the real 150k bunny end state: the plan displacement is p50 2.0 blur
+radii, p90 7, with EITHER map (arrived 26 vs 28 %), while the end state is 0.99 spacings
+from the target — the large displacements are interior density redistribution (the MPM
+cloud is not uniformly dense; the target sampling is), not sample noise. The cell sum's
+log form tolerates that; the plan does not, and the paced target keeps asking for interior
+moves that perturb the surface — the source of the +0.02 wu chamfer at 150k. Accepted for
+now (silIoU equal, re-attachments 7–70× fewer); the 150k batches were stopped and relaunched
+on one consistent code (bunny / teapot / heart, already on that code, kept).
+
+**40k cause-test sweep COMPLETE (09:45), all 19 meshes, no re-attachment, end fragments
+density → ot_pace:** bunny 3→0, teapot 0→0, armadilo 12→0, heart 0→0, A 0→0, dragon 41→2,
+C 0(frozen)→8, V 33→0, spot 0→0, bob 85→1, cow 2→2, homer 7→14, maxplanck 0→0, nefertiti
+29→0, fandisk 1→0, ogre 17→3, beast 76→14, cheburashka 1→0, bimba 0→0. Sum 307 → 44;
+fragment-free on 13 of 19, ≤ 3 on 16 of 19; worse only on homer (thin arms); C morphs
+(silIoU 0.77 → 0.93) but the gate stops it with 8. silIoU up on every ejecting mesh
+(+3…+14 points); chamfer +0.005…+0.01 on most (the paced surface).
