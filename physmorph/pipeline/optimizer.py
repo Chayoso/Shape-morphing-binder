@@ -336,6 +336,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         _t_ot = time.perf_counter()
         # the dual is solved on an ot_samples-sized subsample of the particles and the
         # entropic map evaluated for all N (cost independent of N per sweep)
+        # (SinkhornPull.debiased_map_full — potentials c-transformed to every target point
+        # and every particle — was measured on the real 150k bunny end state: |d| p50 2.0
+        # blur radii with either map, arrived 26 vs 28 %: the large plan displacements are
+        # interior density redistribution, not sample noise, so the 3x dearer map is not used)
         if getattr(cfg, "ot_debias", False):
             ot_T = x0_ot + tgt.ot_pull.debiased_map_displacement(x0_ot, cfg.ot_samples)
         else:
@@ -381,24 +385,22 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             dn = disp.norm(dim=1, keepdim=True)
             step = torch.clamp(leash_r / dn.clamp_min(1e-9), max=1.0)
             x_int = (x0_ot + step * disp).detach()
-            # a paced position that already lies ON the target support (within one blur
-            # radius of a target point) is snapped to that point: the entropic image sits
-            # ~0.9 spacings inside the target (blur), which left the end state fuzzy (150k
-            # bunny chamfer 0.098 vs 0.076). The snap removes the normal (blur) component
-            # and keeps the tangential transport; positions still in flight, farther than a
-            # blur radius from the support, keep the advected position. (The earlier test
-            # "|d_i| <= blur radius" was a coin flip at 150k, where the map noise is the
-            # blur radius itself: only 26 % of the particles ever counted as arrived.)
-            d_sup, nn_a = tgt.ot_kd.query(x_int.cpu().numpy(), workers=-1)
-            on_sup = torch.as_tensor(d_sup <= leash_r, device=dev)
-            x_int = torch.where(on_sup[:, None], tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype), x_int)
-            pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
+            # an ARRIVED particle (within one blur radius of its image) contributes its
+            # image projected onto the target point set: the entropic image sits inside
+            # the target (blur), which left the end state fuzzy (150k bunny chamfer 0.098
+            # vs 0.076); on the target support the end target is the target. (Snapping
+            # every paced position that lies on the support instead — d4db68a — killed the
+            # tangential transport where the source overlaps the target: 150k cow silIoU
+            # 0.920 vs 0.944, 104 re-attachments vs 83.)
             arrived = dn.squeeze(1) <= leash_r
+            if bool(arrived.any()):
+                _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
+                x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
+            pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             frac_arrived = float(arrived.float().mean())
-            frac_sup = float(on_sup.float().mean())
+            frac_sup = float("nan")
             print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
-                  f"of their image, {frac_sup * 100:.1f}% of paced positions on the support, "
-                  f"max |d|={float(dn.max()):.3g} wu", flush=True)
+                  f"of their image, mean |d|={float(dn.mean()):.3g} wu, max |d|={float(dn.max()):.3g} wu", flush=True)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         _sp = getattr(tgt.ot_pull, "_self_pull", None)

@@ -265,6 +265,69 @@ class SinkhornPull:
         return T - T_self
 
     @torch.no_grad()
+    def _c_transform(self, f_sub: torch.Tensor, xs: torch.Tensor, y_full: torch.Tensor, log_w: float) -> torch.Tensor:
+        """Exact dual potential at ANY point of the other side from the subsample potentials:
+        g(y) = -eps logsumexp_i((f_i - |x_i - y|^2)/eps + log a_i)  (the c-transform)."""
+        M = y_full.shape[0]
+        rows = max(1024, (1 << 27) // max(xs.shape[0], 1))
+        g = torch.empty(M, device=y_full.device)
+        for s in range(0, M, rows):
+            e = min(M, s + rows)
+            ys = y_full[s:e]
+            C = (ys * ys).sum(1, keepdim=True) - 2.0 * ys @ xs.T + (xs * xs).sum(1)[None, :]
+            g[s:e] = -self.eps * torch.logsumexp((f_sub[None, :] - C) / self.eps + log_w, dim=1)
+        return g
+
+    @torch.no_grad()
+    def _map_over(self, x: torch.Tensor, g_full: torch.Tensor, y_full: torch.Tensor) -> torch.Tensor:
+        """Row-normalised barycentric map of every x onto the FULL point set y_full with its
+        potentials g_full: T(x_i) = softmax_j((g_j - |x_i - y_j|^2)/eps) . y_j."""
+        N = x.shape[0]
+        rows = max(256, (1 << 27) // max(y_full.shape[0], 1))
+        T = torch.zeros_like(x)
+        yy = (y_full * y_full).sum(1)[None, :]
+        for s in range(0, N, rows):
+            e = min(N, s + rows)
+            xs = x[s:e]
+            C = (xs * xs).sum(1, keepdim=True) - 2.0 * xs @ y_full.T + yy
+            T[s:e] = torch.softmax((g_full[None, :] - C) / self.eps, dim=1) @ y_full
+        return T
+
+    @torch.no_grad()
+    def debiased_map_full(self, x: torch.Tensor, y_full: torch.Tensor, n_sub: int = 8192,
+                          seed: int = 0) -> torch.Tensor:
+        """Debiased displacement evaluated on the FULL point sets: the dual is solved on the
+        subsample (n_sub particles vs the M target samples, as entropic_map), then the
+        potentials are c-transformed to every target point and every particle, and the
+        barycentric maps are taken over ALL target points (T) and ALL particles (T_self).
+        This removes the sample-scale noise of the 8192-point maps (at 150k the sample
+        spacing is 2.6 particle spacings; the noise of the subsampled map was the blur radius
+        itself, so a converged cloud still showed |d| ~ blur for 3/4 of the particles).
+        Cost: one N x M_full and one N x N pass per call (chunked), independent of sweeps."""
+        N = x.shape[0]
+        n_sub = min(int(n_sub), N)
+        if getattr(self, "_sub_idx", None) is None or self._sub_idx.shape[0] != n_sub:
+            gen = torch.Generator(device="cpu").manual_seed(seed)
+            self._sub_idx = torch.randperm(N, generator=gen)[:n_sub].to(x.device)
+            self.f = None
+            self.f_cold = True
+        xs = x[self._sub_idx]
+        f, g, log_a = self._solve(xs)                       # dual on (subsample, target samples)
+        g_full = self._c_transform(f, xs, y_full, log_a)    # potential at every target point
+        T = self._map_over(x, g_full, y_full)
+        # self plan (subsample onto itself, symmetric): potential at every particle
+        sp = self._self_pull
+        if sp is None or sp.M != xs.shape[0]:
+            sp = self._self_pull = SinkhornPull(xs, eps=self.eps, iters=self.iters, tol=self.tol)
+        else:
+            sp.y = xs.detach()
+        sp.coarse_sweeps = self.coarse_sweeps
+        fs, gs, log_as = sp._solve(sp.y)
+        f_self_full = sp._c_transform(fs, sp.y, x, log_as)
+        T_self = sp._map_over(x, f_self_full, x)
+        return T - T_self
+
+    @torch.no_grad()
     def entropic_map_from(self, x: torch.Tensor, xs: torch.Tensor) -> torch.Tensor:
         """entropic_map with an explicit subsample xs (the self-transport case)."""
         f, g, log_a = self._solve(xs)
