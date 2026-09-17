@@ -1711,6 +1711,14 @@ leaders, fixed target late = full fill), `oh2_{bunny,dragon,bob}` at 40k, cell 0
 re-attachment. Pre-registration: fragments ≤ v6 (0 / 0 / 2) and chamfer / silIoU within
 0.005 / 0.01 of the density recipe (0.118 / 0.960, 0.126 / 0.955, 0.118 / 0.958).
 
+**Goal-3 baseline from the first photoreal video (v6 bunny, 150k, 369 video frames of
+1103 archived):** isosurface components > 1 in **54 frames** (max 6) — archived frames
+18–108 (the expansion phase: 50–182 isolated particles per frame, some clustering into
+blobs) and 282–366 (a small blob at the ear tip: the "particle-looking sphere" the user
+forbids) — and 0 from frame 471 on. This is the number every recipe change is now judged
+by, per video, from the `<video>.components.txt` sidecar: the goal is 0 frames with more
+than one component and 0 isolated particles.
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
