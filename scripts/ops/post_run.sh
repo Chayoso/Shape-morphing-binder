@@ -12,7 +12,8 @@ case $PFX in h150) D=$OUT/report150/$T ;; *) D=$OUT/report_${PFX}/$T ;; esac
 mkdir -p $D
 export CUDA_VISIBLE_DEVICES=$GPU
 NLAB=$(grep -m1 -o "N=[0-9]*" $OUT/${PFX}_$T.log | head -1)
-$PY scripts/render_surface_video.py --npz $OUT/$R.npz --out $D/${T}_surface.gif --res 440 --stride 3 --label "sphere -> $T, $NLAB, surface" 2>&1 | grep saved
+$PY scripts/render_iso_video.py --npz $OUT/$R.npz --out $D/${T}_surface.gif --res 440 --stride 3 --label "sphere -> $T, $NLAB, isosurface" 2>&1 | grep saved
+$PY scripts/render_surface_video.py --npz $OUT/$R.npz --out $D/${T}_splat.gif --res 440 --stride 3 --label "sphere -> $T, $NLAB, splats" 2>&1 | grep saved
 $PY scripts/make_gif.py --npz $OUT/$R.npz --res 220 --stride 2 --label "sphere -> $T, $NLAB --ppc 8 (particles)" --out $D/${T}_particles.gif 2>&1 | grep saved
 for AZ in 35 215; do
   $PY scripts/render_pbr.py --npz $OUT/$R.npz --out $D/${T}_render_pbr_az$AZ.png --azim $AZ 2>&1 | grep saved
