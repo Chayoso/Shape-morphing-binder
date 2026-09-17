@@ -155,6 +155,11 @@ for r in rows:
             ("wall (min) · s/commit", f'{a.get("min","–")} · {r["lo"].get("spc","–")}'),
             ("fragments (grid) · off-target > 0.5 wu", f'{r["frag"] or "–"} · {c.get("n50","–")} ({c.get("p50","–")} %), max {c.get("mx","–")} wu'),
             ("thin mass / tgt", f'{r["sc"].get("mass","–")} / {r["sc"].get("tgt","–")}')]) + '</div>')
+    qa_path = os.path.join(ROOT, t, f"{t}_photoreal.mp4.components.txt")
+    if os.path.exists(qa_path):
+        qa_line = [l for l in open(qa_path, encoding="utf-8") if l.startswith("#")]
+        qa_txt = qa_line[-1].lstrip("# ").strip() if qa_line else ""
+        H.append('<div class="grid">' + fig(t, f"{t}_photoreal.mp4", f"{t} — photoreal (Filament PBR, IBL + sun, soft shadows; marching-cubes isosurface of the same density). Frame QA: {qa_txt}") + '</div>')
     H.append('<div class="grid">' + fig(t, f"{t}_surface.gif", f"{t} — isosurface of the particle density (two azimuths, target outline)") + fig(t, f"{t}_splat.gif", f"{t} — disk splats (the previous surface render, same frames)") + fig(t, f"{t}_particles.gif", f"{t} — raw particles (same frames)") + '</div>')
     H.append('<div class="grid4">' + fig(t, f"{t}_target_pbr_az35.png", "target (az 35°)") + fig(t, f"{t}_render_pbr_az35.png", "delivered (az 35°)") + fig(t, f"{t}_target_pbr_az215.png", "target (az 215°)") + fig(t, f"{t}_render_pbr_az215.png", "delivered (az 215°)") + '</div>')
     H.append('<div class="grid">' + fig(t, f"{t}_loss.png", "window loss and D_vol vs commit; loss vs wall-clock") + '</div>')
