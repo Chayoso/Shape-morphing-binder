@@ -378,3 +378,16 @@ cell removes the fracture the reward exploits. The lever the user named ("mesh s
 Ladder record (same day, 40k, dragon / bob / armadilo): loss_res 64 -> 32 halves dragon's
 fragments only (23 / 87 / 5); a linear density residual is not a drop-in (the merit,
 tracker and unit calibration are log form; runs freeze).
+
+Mesh size vs ppc — the definition (user question, same day). The mesh size is not an
+independent knob: with the particle spacing h = (V/N)^(1/3) the MPM cell is
+dx = (V ppc / N)^(1/3) = h ppc^(1/3), so ppc 8 / 27 / 64 mean a cell of 2 / 3 / 4 spacings,
+and at fixed ppc the cell shrinks as N^(-1/3). The decoupling gap is one cell (no shared
+node under the quadratic stencil), i.e. ppc^(1/3) spacings; the lead a surface leader can
+build per window is bounded by the control clip, so the boundary between "fractures in a
+few windows" (2 spacings) and "the elastic neighbourhood holds" (3 spacings) is a measured
+fact, not a derivation. The loss cell ldx = bbox / loss_res is a separate discretisation
+and is not the ejection variable (loss_res 32 vs 64 above). Rule: ppc is the discretisation
+constant (27 = 3^3), dx follows N; the rule holds while dx <= t_min / 2 for the thinnest
+target feature t_min (bunny ear ~0.3-0.4 wu against dx 0.205 at 150k). ppc 64 (4 spacings)
+is being measured to close the curve.
