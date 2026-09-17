@@ -1991,3 +1991,20 @@ All 0 end fragments in both (the net). Re-attachments 8023 → 829 (−90 %). si
 +19, bob +38, armadilo +4, spot +0.5, the rest within 0.006. Chamfer: worse by 0.010–0.030
 on the seven easy targets (the paced surface), better on dragon and bob. The PBR stills:
 v4 bob is a clean ring with a porous lower part; v3 bob is a disc with chunks in flight.
+
+**User (12:00): is the LOG in the loss right, given ejection persists? — and try a larger
+mesh size.** The log residual r = log(1+m_t/m_ref) − log(1+m/m_ref) has gradient
+2r/(m_ref + m) per unit cell mass: largest at an EMPTY cell (m = 0) and collapsing as the
+cell fills, so a surface particle is rewarded more for reaching a far empty cell than for
+finishing an adjacent nearly-full one — H3 amplified by the log. A linear residual
+(m − m_t)/m_ref has a gradient proportional to the deficit (no empty-cell amplification).
+Mesh size: a coarser MPM grid (ppc 8 → 27, cell = 3 spacings) makes the numerical
+fracture (a particle sharing no grid node with its neighbours) far rarer; a coarser loss
+grid (loss_res 64 → 32) halves the number of empty cells a leader can be pulled to and
+doubles the CIC reach. Three trials on the worst density-loss ejectors (dragon 41, bob 85,
+armadilo 12 fragments; 40k, no re-attach, otherwise the recipe): `lin40` `--dvol_form
+linear` (commit after a9ea680), `pp40` `--ppc 27`, `lr40` `--loss_res 32`.
+Pre-registration: fragments vs d40 (41 / 85 / 12) and chamfer / silIoU / hole vs d40
+(0.1277/0.854/1.15, 0.1239/0.849/2.49, 0.1144/0.935/0.27); the mechanism claim (log
+empty-cell amplification) is supported if `lin40` alone cuts the fragments by more than
+half on all three without a quality loss.
