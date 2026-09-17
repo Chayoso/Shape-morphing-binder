@@ -2120,4 +2120,11 @@ burst), chamfer 0.0760 (v3 0.0737), silIoU **0.983** (v3 0.975). Visual QA of th
 (bunny az35, teapot az215): solid bodies, the ears / spout / handle fuller than v3 and far
 better than v4, a slightly blobbier surface texture from the coarser cell, one stray at the
 bunny ear tip. 40k sweep at ppc 27 continues clean: V 33 → 0 (0.970), A 0, C gate stop,
-fandisk 1 → 0.
+fandisk 1 → 0. bob v5 still (az35): a clean solid ring with its base — v3 was a disc with
+chunks in flight, v4 a porous ring — with one stray particle below it.
+
+Re-attachment net amendment (runner.reattach_fragments, `tgt_points`): a flagged particle
+that lies within one MPM cell of a target point is left alone — a part of the body that
+sits where the target is, separated by a thin neck, is not ejecta (the bob burst). No new
+constant (the cell). Committed, to be deployed with the next batch (the running batch keeps
+the old net so the gallery stays on one code).

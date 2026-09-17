@@ -58,13 +58,24 @@ def _surface_weights(x: np.ndarray, k: int, fraction: float, floor: float) -> np
     return np.ascontiguousarray(floor + (1.0 - floor) * soft, np.float32)
 
 
-def reattach_fragments(x, v, C, F, Fp, Fg, prm: MPMParams, spacing: float, seed: int = 0) -> int:
+def reattach_fragments(x, v, C, F, Fp, Fg, prm: MPMParams, spacing: float, seed: int = 0,
+                       tgt_points: np.ndarray | None = None) -> int:
     """Conservative particle resampling: every particle the fragment mask flags (its grid
     cell is not connected to the body on the occupancy dilated by one cell — it shares no
     grid node with any other material point, so it is a stray mass, not a continuum element)
     is merged IN PLACE onto the nearest body particle: position + half a spacing of jitter,
-    v, C, F, Fp, Fg copied. No particle is deleted (mass conserved); returns the count."""
+    v, C, F, Fp, Fg copied. No particle is deleted (mass conserved); returns the count.
+    tgt_points: when given, a flagged particle that lies ON the target support (within one
+    MPM cell of a target point) is left alone — a part of the body that sits where the
+    target is, separated from the rest by a thin neck, is not ejecta (150k bob at ppc 27:
+    2343 particles merged in one commit, a whole part teleported)."""
     frag = fragment_mask(x, prm)
+    if tgt_points is not None and frag.any():
+        from scipy.spatial import cKDTree
+        d_t, _ = cKDTree(tgt_points).query(x[frag], k=1, workers=-1)
+        keep = np.zeros_like(frag)
+        keep[np.where(frag)[0][d_t > float(prm.dx)]] = True
+        frag = keep
     n = int(frag.sum())
     if n == 0:
         return 0
@@ -582,9 +593,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # remedy the MPM/PIC literature applies to under-sampled regions). ----
         n_reattached = 0
         if cfg.reattach:
+            if getattr(tgt, "points_np", None) is None:
+                tgt.points_np = np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32)
             n_reattached = reattach_fragments(x, v_p, C_p, Fc, Fp, Fg_p, prm,
                                               float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * prm.dx,
-                                              seed=a + 1)
+                                              seed=a + 1, tgt_points=tgt.points_np)
             if n_reattached:
                 n_reattach_total += n_reattached
                 log(f"[v2] anim {a + 1}: re-attached {n_reattached} grid-disconnected particles")
