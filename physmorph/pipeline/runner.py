@@ -388,6 +388,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             f"gs_cheb={cfg.render_gs_cheb} loss_units={cfg.loss_units}")
 
     for a in range(cfg.animations):
+        if cfg.render_until > 0 and a == cfg.render_until and balancer.active:
+            # INTERVENTION (2026-09-17): the render channel is switched off from here on;
+            # everything else (merit, gate, targets) is unchanged, so any divergence of the
+            # trajectory from the render-on twin after this window is the render gradient's
+            # effect on the physics
+            balancer.alpha_lam = 0.0
+            balancer.lam = 0.0
+            log(f"[v2] anim {a + 1}: render channel OFF from here (render_until={cfg.render_until})")
         if frozen:
             if cfg.hold_after_converge:
                 frames.append(x.copy()); F_frames.append(F_frames[-1].copy())

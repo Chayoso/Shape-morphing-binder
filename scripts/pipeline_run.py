@@ -98,6 +98,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
+                         young=args.young, poisson=args.poisson, render_until=args.render_until,
                          render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
@@ -486,6 +487,10 @@ def main():
     ap.add_argument("--w_tctrl", type=float, default=0.0)
     ap.add_argument("--w_box", type=float, default=10.0)
     ap.add_argument("--assim", type=float, default=0.5)
+    ap.add_argument("--young", type=float, default=1.4e5, help="Young's modulus of the body (material study)")
+    ap.add_argument("--poisson", type=float, default=0.2, help="Poisson ratio of the body (material study)")
+    ap.add_argument("--render_until", type=int, default=0,
+                    help=">0: switch the render channel off from this window on (intervention)")
     ap.add_argument("--assim_consensus", action="store_true")  # neighbourhood-consensus plasticity
     ap.add_argument("--render_views", type=int, default=6)
     ap.add_argument("--render_res", type=int, default=64)
@@ -623,7 +628,7 @@ def main():
               f"-> ppc = N dx^3 / V = {args.ppc:.1f}", flush=True)
     if args.ppc > 0:                       # discretisation contract: dx follows N
         from physmorph.mpm.discretisation import derive, report
-        mat = PipelineConfig()             # the material the arms actually use
+        mat = PipelineConfig(young=args.young, poisson=args.poisson)   # the material the arms actually use
         domain_half = -prm.grid_min[0]
         if args.domain == "auto":
             # the leash box the objective already assumes (runner.build_target: extent =

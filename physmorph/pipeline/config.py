@@ -349,6 +349,9 @@ class PipelineConfig:
                                     # (the cold plan anneals eps geometrically from the squared
                                     # target diameter; warm plans re-solve at the target eps)
     ot_debias: bool = False         # debiased divergence: subtract the self-transport map (no shrinkage)
+    render_until: int = 0           # >0: the render channel is switched OFF from this window on
+                                    # (intervention experiment: does the render gradient change
+                                    # the physics trajectory? 2026-09-17)
     dvol_form: str = "log"          # density-unit residual: "log" (log(1+m/m_ref)) or "linear"
                                     # ((m - m_t)/m_ref: gradient proportional to the deficit, no
                                     # empty-cell amplification)
