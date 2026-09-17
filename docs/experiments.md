@@ -2080,3 +2080,20 @@ skin, and the MPM cell (0.21 wu at ppc 8) is **4.8 shell spacings** wide. Dragon
 shell 74 % of the body (thin). Trials `sh40_{dragon,bob,armadilo}` (ppc 8, no re-attach).
 Pre-registration: fragments ≤ 3 on all three (the decoupling gap is 4.8 spacings); the
 interest is whether the surface quality holds with a nearly hollow interior.
+
+ppc 64 armadilo: 0 / 0.1220 / 0.941 (ppc 27: 0.955) — the ppc curve is closed: fracture-free
+from three spacings on, 27 is the finest fracture-free grid. sh40_dragon (12:00): silIoU
+**0.952** (uniform ppc 8: 0.854), chamfer 0.164, but "fragments 400": the grid-connectivity
+count is meaningless for a shell-biased cloud — its 263 interior particles sit 1.5 wu apart
+and each is its own component by construction. For this sampling the ejection measure has
+to be the off-target census (distance to the nearest target point), computed next.
+
+**Off-target census, dragon 40k end frames (particles farther than 0.5 wu from any target
+point / farther than 1 wu / max):** uniform ppc 8 (d40) **216** (0.54 %) / 195 / 3.92 wu;
+uniform **ppc 27 (pp40) 0 / 0 / 0.24 wu** (nothing beyond 0.25 wu); shell-biased ppc 8
+(sh40) **552** (1.38 %) / 405 / 2.92 wu. Shell-biased sampling at ppc 8 ejects MORE than
+uniform sampling, so the C++ oracle's immunity came from its far coarser grid relative to
+the shape (8 cells across the bunny), not from the shell scheme; the sampler stays in the
+code (`--sample shell`) as a C++-parity option. The bob/armadilo shell trials were stopped.
+ppc 27 uniform is the clean result on every measure: 0 grid fragments and 0 particles
+off the target beyond a quarter world unit.
