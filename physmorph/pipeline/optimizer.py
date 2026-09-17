@@ -376,7 +376,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         def dvol(xT):
             return d_vol_density(xT, tgt.m, pace_grid, tgt.lgmin, tgt.ldx, tgt.ldims,
                                  tgt.m_ref, tgt.n_support)
-    elif getattr(cfg, "phys_loss", "density") in ("ot", "ot_leash", "ot_pace"):
+    elif getattr(cfg, "phys_loss", "density") in ("ot", "ot_leash", "ot_pace", "ot_shape"):
         # H3: entropic optimal transport replaces the cell sum. The plan is solved once per
         # evaluation (warm-started), the differentiated value is the transport cost under
         # the detached plan; rescaled ONCE by gradient-norm parity with D_vol at the source.
@@ -408,12 +408,28 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # and every particle — was measured on the real 150k bunny end state: |d| p50 2.0
         # blur radii with either map, arrived 26 vs 28 %: the large plan displacements are
         # interior density redistribution, not sample noise, so the 3x dearer map is not used)
+        if cfg.phys_loss == "ot_shape":
+            # SHAPE transport: the particle subsample is drawn with probability inverse to
+            # the cloud's cell mass at the particle, so the plan's source measure is uniform
+            # over the OCCUPIED cells (the support), like the uniformly sampled target —
+            # the plan transports the shape, not the mass distribution, and asks for no
+            # interior redistribution (which the cell sum tolerates and ot_pace paid for
+            # with rough surfaces). Redrawn every window; the solve is cold each time.
+            m_t = torch.as_tensor(tgt.m, device=dev) if not torch.is_tensor(tgt.m) else tgt.m
+            cur = rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims)
+            w_p = 1.0 / gather_cic(cur, x0_ot, tgt.lgmin, tgt.ldx, tgt.ldims).clamp_min(1e-12)
+            gen = torch.Generator(device=dev).manual_seed(int(getattr(cfg, "seed", 0)))
+            n_s = int(min(cfg.ot_samples, x0_ot.shape[0]))
+            tgt.ot_pull._sub_idx = torch.multinomial(w_p / w_p.sum(), n_s, replacement=False, generator=gen)
+            tgt.ot_pull.f = None
+            tgt.ot_pull.f_cold = True
+            tgt.ot_pull._self_pull = None
         if getattr(cfg, "ot_debias", False):
             ot_T = x0_ot + tgt.ot_pull.debiased_map_displacement(x0_ot, cfg.ot_samples)
         else:
             ot_T = tgt.ot_pull.entropic_map(x0_ot, cfg.ot_samples)
         leash_r = float(tgt.ot_pull.eps) ** 0.5           # the plan's own resolution
-        if cfg.phys_loss in ("ot_leash", "ot_pace"):
+        if cfg.phys_loss in ("ot_leash", "ot_pace", "ot_shape"):
             # the leash anchors are the map images PROJECTED onto the target point set: the
             # entropic image sits ~0.9 spacings inside the target (blur), which made the
             # leash and the cell sum pull surface particles to different places (v1: merit
@@ -442,7 +458,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
                 ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
         pace_grid = None
-        if cfg.phys_loss == "ot_pace":
+        if cfg.phys_loss in ("ot_pace", "ot_shape"):
             # DISPLACEMENT-INTERPOLATED TARGET (McCann interpolation along the transport
             # plan): this window's target density is the current cloud advected toward its
             # map images by at most one blur radius per particle, rasterised with the same
@@ -488,7 +504,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 lin = leash_r ** 2 + 2.0 * leash_r * (e - leash_r)
                 return torch.where(e <= leash_r, quad, lin).mean()
             return (xT - ot_T).pow(2).sum(1).mean()
-        if tgt.ot_scale is None and cfg.phys_loss == "ot_pace":
+        if tgt.ot_scale is None and cfg.phys_loss in ("ot_pace", "ot_shape"):
             tgt.ot_scale = 1.0                                # no extra term to calibrate
         if tgt.ot_scale is None:
             xg = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
@@ -511,7 +527,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if cfg.phys_loss == "ot_leash":
             def dvol(xT):
                 return dvol_density(xT) + tgt.ot_scale * ot_loss(xT)
-        elif cfg.phys_loss == "ot_pace":
+        elif cfg.phys_loss in ("ot_pace", "ot_shape"):
             def dvol(xT):
                 return d_vol_density(xT, tgt.m, pace_grid, tgt.lgmin, tgt.ldx, tgt.ldims,
                                      tgt.m_ref, tgt.n_support)
