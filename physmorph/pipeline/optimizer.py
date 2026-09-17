@@ -31,8 +31,8 @@ import torch
 import warp as wp
 
 from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_density, d_w1,
-                                 deficit_field, isolation_gate, kde_assign, nn_band_assign,
-                                 rasterize_mass, w1_budget)
+                                 deficit_field, gather_cic, isolation_gate, kde_assign,
+                                 nn_band_assign, rasterize_mass, w1_budget)
 from ..mpm.constitutive import lame
 from ..mpm.function import PersistentAdjoint, RolloutSpec, warp_mpm_ext
 from ..mpm.state import MPMParams
@@ -308,7 +308,75 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             raise ValueError(f"unknown loss_units {cfg.loss_units!r}")
         return d_vol(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims)
 
-    if getattr(cfg, "phys_loss", "density") in ("ot", "ot_leash", "ot_pace"):
+    pace_grid = None
+    if getattr(cfg, "phys_loss", "density") == "ot_resid":
+        # RESIDUAL TRANSPORT PACING. The cell sum's own residual at the window start —
+        # excess = (cloud − target)+ and deficit = (target − cloud)+ per loss cell, equal
+        # totals — is what has to move; a Sinkhorn plan is solved between the EXCESS mass
+        # (particles drawn ∝ their excess fraction e_i = excess/cloud at their cell) and
+        # the DEFICIT mass (target points drawn ∝ the deficit at their cell), and each
+        # particle's paced position is x0 + e_i · min(1, h/|d|) · d with d its debiased map
+        # displacement (material-smoothed, excess-weighted) and h the plan blur radius.
+        # Particles in satisfied cells (e_i = 0) contribute their own position: the paced
+        # target differs from the current occupancy only where the cell sum itself wants
+        # mass to move, and there it asks for at most one blur radius along a coherent
+        # flow — no far cell rewards a lone particle (the ejection mechanism), and no
+        # interior redistribution the cell sum does not ask for (the ot_pace roughness:
+        # a plan between the full cloud and the uniform target equalised the interior).
+        from ..losses.ot import SinkhornPull
+        x0_r = torch.as_tensor(x0, device=dev)
+        _t_ot = time.perf_counter()
+        m_t = torch.as_tensor(tgt.m, device=dev) if not torch.is_tensor(tgt.m) else tgt.m
+        cur = rasterize_mass(x0_r, m_t, tgt.lgmin, tgt.ldx, tgt.ldims)
+        ex_c = torch.clamp(cur - grid_eff, min=0.0)
+        df_c = torch.clamp(grid_eff - cur, min=0.0)
+        e_i = gather_cic(ex_c / cur.clamp_min(1e-12), x0_r, tgt.lgmin, tgt.ldx, tgt.ldims).clamp(0.0, 1.0)
+        w_t = gather_cic(df_c, tgt.points, tgt.lgmin, tgt.ldx, tgt.ldims).clamp_min(0.0)
+        n_p = x0_r.shape[0]
+        p_sp = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)
+        h_r = p_sp * max(1.0, n_p / float(cfg.ot_samples)) ** (1.0 / 3.0)
+        ex_frac = float((e_i * m_t).sum() / (m_t.sum()))
+        if float(w_t.sum()) > 0 and float(e_i.sum()) > 0:
+            n_s = int(min(cfg.ot_samples, int((w_t > 0).sum()), int((e_i > 0).sum())))
+            gen = torch.Generator(device=dev).manual_seed(int(getattr(cfg, "seed", 0)))
+            idx_t = torch.multinomial(w_t / w_t.sum(), n_s, replacement=False, generator=gen)
+            idx_p = torch.multinomial((e_i * m_t) / (e_i * m_t).sum(), n_s, replacement=False, generator=gen)
+            pull = SinkhornPull(tgt.points[idx_t].detach(), eps=h_r ** 2, iters=cfg.ot_iters,
+                                tol=getattr(cfg, "ot_tol", 1e-2))
+            pull._sub_idx = idx_p
+            disp = pull.debiased_map_displacement(x0_r, n_s)
+            if getattr(tgt, "ot_kd", None) is None:
+                from scipy.spatial import cKDTree
+                tgt.ot_kd = cKDTree(np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32))
+                k_nb = int(max(4, min(64, round(4.0 / 3.0 * np.pi * (h_r / p_sp) ** 3))))
+                x0_np = np.ascontiguousarray(np.asarray(x0, np.float32))
+                _, knn = cKDTree(x0_np).query(x0_np, k=k_nb, workers=-1)
+                tgt.ot_knn = torch.as_tensor(knn, device=dev)
+                print(f"[win] OT resid: plan blur {h_r:.4g} wu, displacement denoised over k={k_nb} "
+                      f"material neighbours (excess-weighted)", flush=True)
+            wn = e_i[tgt.ot_knn]                                        # (N, k) excess weights
+            disp = (disp[tgt.ot_knn] * wn[..., None]).sum(1) / wn.sum(1, keepdim=True).clamp_min(1e-12)
+            dn = disp.norm(dim=1, keepdim=True)
+            step = e_i[:, None] * torch.clamp(h_r / dn.clamp_min(1e-9), max=1.0)
+            x_int = (x0_r + step * disp).detach()
+            arrived = (e_i > 0) & (dn.squeeze(1) <= h_r)
+            if bool(arrived.any()):
+                _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
+                x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
+            pace_grid = rasterize_mass(x_int, m_t, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
+            if torch.cuda.is_available():
+                torch.cuda.synchronize()
+            print(f"[win] OT resid: excess mass {ex_frac * 100:.1f}%, {n_s} samples, plan {pull.last_sweeps} sweeps "
+                  f"err={pull.last_err:.3g}, arrived {float(arrived.float().mean()) * 100:.1f}%, "
+                  f"{time.perf_counter() - _t_ot:.2f}s", flush=True)
+        else:
+            pace_grid = grid_eff                                          # nothing to move
+            print(f"[win] OT resid: excess mass {ex_frac * 100:.2f}% — target grid used", flush=True)
+
+        def dvol(xT):
+            return d_vol_density(xT, tgt.m, pace_grid, tgt.lgmin, tgt.ldx, tgt.ldims,
+                                 tgt.m_ref, tgt.n_support)
+    elif getattr(cfg, "phys_loss", "density") in ("ot", "ot_leash", "ot_pace"):
         # H3: entropic optimal transport replaces the cell sum. The plan is solved once per
         # evaluation (warm-started), the differentiated value is the transport cost under
         # the detached plan; rescaled ONCE by gradient-norm parity with D_vol at the source.

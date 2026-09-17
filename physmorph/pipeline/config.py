@@ -337,6 +337,8 @@ class PipelineConfig:
                                     # "ot_pace": D_vol against the DISPLACEMENT-INTERPOLATED target: the
                                     # cloud advected along the plan by at most one blur radius per
                                     # particle, rasterised; local moves only, no far-cell reward
+                                    # "ot_resid": as ot_pace but the plan moves only the cell sum's own
+                                    # RESIDUAL (excess mass -> deficit mass); satisfied particles stay
     ot_eps_cells: float = 0.0       # Sinkhorn epsilon = (ot_eps_cells * loss cell)^2; 0: the
                                     # plan resolves to the particle spacing, eps = (nn spacing)^2
                                     # (= (dx / ppc^(1/3))^2, half a cell at ppc 8: the resolution
