@@ -381,18 +381,24 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             dn = disp.norm(dim=1, keepdim=True)
             step = torch.clamp(leash_r / dn.clamp_min(1e-9), max=1.0)
             x_int = (x0_ot + step * disp).detach()
-            # an ARRIVED particle (within one blur radius of its image) contributes its
-            # image projected onto the target point set: the entropic image sits ~0.9
-            # spacings inside the target (blur), which left the end state fuzzy (150k bunny
-            # chamfer 0.098 vs 0.076); on the target support the end target is the target.
-            arrived = dn.squeeze(1) <= leash_r
-            if bool(arrived.any()):
-                _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
-                x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
+            # a paced position that already lies ON the target support (within one blur
+            # radius of a target point) is snapped to that point: the entropic image sits
+            # ~0.9 spacings inside the target (blur), which left the end state fuzzy (150k
+            # bunny chamfer 0.098 vs 0.076). The snap removes the normal (blur) component
+            # and keeps the tangential transport; positions still in flight, farther than a
+            # blur radius from the support, keep the advected position. (The earlier test
+            # "|d_i| <= blur radius" was a coin flip at 150k, where the map noise is the
+            # blur radius itself: only 26 % of the particles ever counted as arrived.)
+            d_sup, nn_a = tgt.ot_kd.query(x_int.cpu().numpy(), workers=-1)
+            on_sup = torch.as_tensor(d_sup <= leash_r, device=dev)
+            x_int = torch.where(on_sup[:, None], tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype), x_int)
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
+            arrived = dn.squeeze(1) <= leash_r
             frac_arrived = float(arrived.float().mean())
+            frac_sup = float(on_sup.float().mean())
             print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
-                  f"of their image, max |d|={float(dn.max()):.3g} wu", flush=True)
+                  f"of their image, {frac_sup * 100:.1f}% of paced positions on the support, "
+                  f"max |d|={float(dn.max()):.3g} wu", flush=True)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         _sp = getattr(tgt.ot_pull, "_self_pull", None)
