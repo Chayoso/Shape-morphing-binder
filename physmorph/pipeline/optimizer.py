@@ -314,10 +314,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # the detached plan; rescaled ONCE by gradient-norm parity with D_vol at the source.
         from ..losses.ot import SinkhornPull, target_samples
         if getattr(tgt, "ot_pull", None) is None:
-            # blur radius of the plan: the particle spacing (the resolution of the cloud;
-            # dx / ppc^(1/3)), unless a loss-cell multiple is asked for explicitly
+            # blur radius of the plan: the spacing of the SAMPLE sets the plan is computed on
+            # (ot_samples particles / ot_samples target points): particle spacing x
+            # (N / ot_samples)^(1/3) — the resolution of the estimator, derived from the
+            # discretisation — unless a loss-cell multiple is asked for explicitly
+            n_part = int(np.asarray(x0).shape[0])
+            p_sp = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)
             eps_len = (cfg.ot_eps_cells * float(tgt.ldx) if cfg.ot_eps_cells > 0 else
-                       (float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)))
+                       p_sp * max(1.0, n_part / float(cfg.ot_samples)) ** (1.0 / 3.0))
             tgt.ot_pull = SinkhornPull(target_samples(tgt.points, cfg.ot_samples),
                                        eps=eps_len ** 2, iters=cfg.ot_iters,
                                        tol=getattr(cfg, "ot_tol", 1e-2))

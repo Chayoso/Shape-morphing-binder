@@ -83,13 +83,33 @@ class SinkhornPull:
         err = float("inf")
         n_sw = 0
         lev = 0
+        # the cost block is reused across sweeps when it fits one chunk (the subsample solves)
+        C_all = self._cost_rows(x, 0, N) if N <= self.chunk else None
+        cost = (lambda s, e: C_all if C_all is not None else self._cost_rows(x, s, e))
+        # symmetric case (self-transport of a point set onto itself): f = g, one averaged
+        # update per sweep (Feydy et al. 2019, symmetric Sinkhorn), same marginal criterion
+        sym = self.y.shape[0] == N and self.y.data_ptr() == x.data_ptr()
         for it in range(self.iters):
             eps = self.eps * scales[lev]
+            if sym:
+                lse = torch.logsumexp((f[None, :] - C_all) / eps + self.log_b, dim=1)
+                f_new = -eps * lse
+                err_t = (torch.exp((f - f_new) / eps) - 1.0).abs().max()
+                f = 0.5 * (f + f_new)
+                g = f
+                n_sw = it + 1
+                if (it % 4 == 3) or it == self.iters - 1:
+                    err = float(err_t)
+                    if err < self.tol:
+                        if lev == len(scales) - 1:
+                            break
+                        lev += 1
+                continue
             # g_j = -eps * logsumexp_i( (f_i - C_ij)/eps + log a_i )   (accumulated over row chunks)
             acc = None
             for s in range(0, N, self.chunk):
                 e = min(N, s + self.chunk)
-                C = self._cost_rows(x, s, e)
+                C = cost(s, e)
                 lse = torch.logsumexp((f[s:e, None] - C) / eps + log_a, dim=0)
                 acc = lse if acc is None else torch.logaddexp(acc, lse)
             g = -eps * acc
@@ -99,7 +119,7 @@ class SinkhornPull:
             err_t = None
             for s in range(0, N, self.chunk):
                 e = min(N, s + self.chunk)
-                C = self._cost_rows(x, s, e)
+                C = cost(s, e)
                 lse = torch.logsumexp((g[None, :] - C) / eps + self.log_b, dim=1)
                 em = (torch.exp(f[s:e] / eps + lse) - 1.0).abs().max()
                 err_t = em if err_t is None else torch.maximum(err_t, em)
@@ -210,12 +230,14 @@ class SinkhornPull:
         T = self.entropic_map(x, n_sub, seed)
         xs = x[self._sub_idx]
         sp = self._self_pull
+        xs = xs.detach()
         if sp is None or sp.M != xs.shape[0]:
             sp = self._self_pull = SinkhornPull(xs, eps=self.eps, iters=self.iters, tol=self.tol)
         else:
-            sp.y = xs.detach()
+            sp.y = xs
         # the self plan is symmetric (a = b = the subsample): solve it on the subsample itself
-        T_self = sp.entropic_map_from(x, xs)
+        # (the same tensor as sp.y triggers the symmetric update in _solve)
+        T_self = sp.entropic_map_from(x, sp.y)
         return T - T_self
 
     @torch.no_grad()
