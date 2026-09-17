@@ -1728,3 +1728,28 @@ in-spike 87 % (vs 85 % at the particle spacing), 1.2 s vs 1.6 s per window, 100�
 sweeps; (2) the cost block is computed once per solve (the subsample block fits one
 chunk); (3) the self plan uses the symmetric averaged Sinkhorn update (f = g), converging
 to 5e-4 in 80 sweeps. Sweep relaunched as ot40b with these defaults.
+
+**ot40b (OT-only, fixed solver) — stopped after four meshes (07:44):** all runs end in
+3–4 min (outer-merit patience once the map is reached) with holes. bunny 0 frag,
+0.1278 / 0.952 / 0.16 % (density 3 frag, 0.1136 / 0.962 / 0.03 %); cow 0 frag, 0.1313 /
+0.896 / 0.13 % (2 frag, 0.1135 / 0.956 / 0); ogre 0 frag, 0.1334 / 0.887 / **2.66 %** (17
+frag, 0.1196 / 0.916 / 0.13 %); armadilo **5 frag**, 0.1417 / 0.889 / **3.54 %** (12 frag,
+0.1144 / 0.935 / 0.27 %). Whole-trajectory stray_max 0.10–0.80 %. Verdict: the transport
+map alone removes most ejection but not all (armadillo 5) and cannot fill at the particle
+scale — the entropic map's image sits 0.92 spacings from the nearest target point on the
+real bunny whether 8192 or 16384 target samples are used (offline test); the sample count
+is not the limit, the entropic blur is. Convergence criterion switched to the standard L1
+mass error (84 sweeps vs 152 for the max-row criterion, identical map).
+
+**ot_leash (commit after 7e8f99f): the cell sum stays the fill term; the plan is a
+leash.** L = D_vol + s · mean relu(|x_i − T_i| − √ε)², with T_i the debiased map image
+of the window's start position and √ε the plan's own blur radius (the sample spacing);
+s from the one-shot gradient parity. Inside the radius the density loss refines freely;
+a particle that leaves the body by more than the plan's resolution is pulled back to
+where the plan puts its mass; in the first windows every particle is outside the radius
+(the image is the whole transport away), so the term is the OT pull until the cloud
+arrives. Pre-registration (ot40c, 40k, no re-attach, armadilo ogre dragon bob = the
+worst density-loss ejectors, 12 / 17 / 41 / 85 fragments): end fragments ≤ 3 on all four
+AND chamfer / silIoU / hole within noise of the density runs (0.1144/0.935/0.27,
+0.1196/0.916/0.13, 0.1277/0.854/1.15, 0.1239/0.849/2.49). Falsifier: fragments > 3 on any,
+or a hole increase > 0.5 pt.
