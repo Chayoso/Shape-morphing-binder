@@ -2028,3 +2028,15 @@ and nearly on bob with the plain log density loss, and lifts silIoU by 10 points
 numerical fracture (a particle that shares no grid node with its neighbours) needs a
 one-spacing gap at ppc 8 and a three-spacing gap at ppc 27. 27 = 3³ is the standard
 high-quality MPM particle count per cell, a discretisation choice, not a per-shape constant.
+
+**Complete (11:25):** ppc 27 armadilo **0** / 0.1198 / **0.955** / 0.28 % (4.0 min) — all
+three worst ejectors at 0 / 2 / 0 with the plain log density loss, silIoU +10 / +11 / +2,
+chamfer within 0.006, and the runs are faster (grid 41³ instead of 59³ at 40k). loss_res 32:
+bob 87 (no help), armadilo 5. Linear residual: armadilo 38 / 0.685 (broken as a drop-in, as
+above). The mesh-size lever the user asked for beats the transport pacing on both
+fragments and surface quality (no paced target, no roughness). Launched (11:25): the 150k
+gallery on `--ppc 27 --reattach` (density log loss; prefixes h150q / n150q, four chains,
+150k grid 53³) and the ppc-27 40k sweep on the other 16 meshes without re-attachment
+(`pp40_<T>`). Pre-registration for the 150k v5 gallery: 0 fragments (the net) with fewer
+re-attachments than v3 on every target that had > 30, and silIoU ≥ v3 − 0.005 on all but
+C; for the 40k sweep: fragments ≤ 3 on every mesh.
