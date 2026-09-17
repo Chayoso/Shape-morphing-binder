@@ -1550,3 +1550,36 @@ domain, archive stride 8): GPU 0 cow homer maxplanck nefertiti fandisk, GPU 2 og
 cheburashka bimba (`run_batch.sh`), post-processed into `report_n150/<T>/`.
 Pre-registration: 0 fragments at the end on every mesh; chamfer / silIoU at or above the 40k
 values for the eight blob-like meshes; beast remains the weak case.
+
+
+### 2026-09-16 — five hypotheses for the remaining defects (user: visible ejection / pops, particle look, render-feedback doubt)
+
+Symptoms on the v3 gallery: (a) strays still visible in the videos and the commit-time merge
+makes them vanish in one frame; (b) during the morph the object reads as spheres/ellipsoids
+(disk splats) in sparse regions; (c) the render channel carries a third of every update
+(`g_share` 0.33, λ 0.03–0.05) yet `g_cos ≈ 0` and `render_work ≈ 0` — the render pull is
+orthogonal to the physics pull and does no work on the accepted step.
+
+| # | hypothesis | literature (method it borrows) | experiment | falsifier |
+|---|---|---|---|---|
+| H1 | Ejection is born at the free surface from a control field that varies below the grid stencil; a control resolved ON the MPM grid (node spacing = dx, the same B-spline weights) cannot push one particle against its stencil-mates, and permanent reference connectivity removes numerical fracture altogether. | de Vaucorbeil et al. 2020, Total-Lagrangian MPM (no numerical fracture) [S1]; Sadeghirad et al. 2011, CPDI particle domains [S2]; Su et al. 2022, A-ULMPM — adaptively updated reference configuration, "without numerical fracture" [S3] | `ejg_dragon`: 40k, v3 recipe, `--control_grid <grid_n>` (the auto-domain grid itself); then an A-ULMPM-style rule: reference updated only at commits (the window rollout already is; the trial is the control resolution) | fragments before re-attachment not reduced vs v3 (dragon: 227 merges) or chamfer > 0.13 |
+| H2 | The per-commit relaxation (η = 0.5 of ALL elastic stretch) is rate plasticity with no yield surface, so a 2 %/window drift is forgiven exactly like the body's flow; a yield criterion keeps sub-yield strain elastic and pulls leaders back. | Stomakhin et al. 2013, snow MPM (clamped singular values, hardening) [S4]; Klár et al. 2016, Drucker–Prager return mapping [S5] | `--assim_yield`: von Mises return mapping on the Hencky elastic strain, ε_y from the material (the strain at which the fixed-corotated stress equals the control's clip stress) | drift rate of the end-fragment set unchanged (fragment_trace ratio slope) — expected, since the body's own flow is also ~2 %/window |
+| H3 | The cell-sum density loss rewards a lone particle in an empty target cell (largest marginal gain), which is what pulls surface leaders out; a transport loss (EMD / Sinkhorn) moves mass as a flow and has no such reward. | Feydy et al. 2019, Sinkhorn divergences / GeomLoss [S6]; Huang et al. 2021, PlasticineLab — the PRT-EMD loss is "the most ideal choice" for filled targets [S7] | `--phys_loss ot`: debiased Sinkhorn divergence on 20k subsamples replaces D_vol (same units calibration), 40k dragon | merges/fragments not below v3, or chamfer worse |
+| H4 | The particle look is a rendering artefact: disk splats sized by the local spacing separate wherever the sampling is sparse; an implicit surface (blurred density isosurface, anisotropic kernels) reads as one object and, below the resolvable density, a stray is not a surface. | Yu & Turk 2013, anisotropic kernels [S8]; van der Laan et al. 2009, screen-space fluid rendering [S9]; conservative resampling to restore sampling in depleted cells [S10] | `render_surface_video.py --mode iso`: ray-marched isosurface of the blurred density on the GPU; metrics untouched | reviewers still see spheres/ellipsoids or stretched thin features vanish |
+| H5 | The render gradient is real but high-frequency (per-particle silhouette edges) and orthogonal to the smooth physics gradient; with a norm-balanced λ it costs a third of the step budget and does nothing. Either it must be smoothed onto the material (Sobolev pull) or the renderer's support widened (soft rasteriser / Gaussian splats). | Liu et al. 2019, SoftRas — probabilistic soft aggregation gives non-local gradients [S11]; Laine et al. 2020, nvdiffrast — analytic silhouette gradients [S12]; Kerbl et al. 2023, 3DGS — view-space position gradients as the densification signal [S13] | (i) physics-only twins `p40_*` vs render twins `r40_*` on dragon/bunny/armadillo (40k, v3 recipe) — does the render channel change chamfer/silIoU at all; (ii) `--render_gs_iters 4` (grid-GS Sobolev pull) on the same targets — does `g_cos`/`render_work` leave zero and does silIoU rise | twins identical within noise AND the Sobolev pull does not raise `render_work` above zero |
+
+Sources: [S1] https://www.sciencedirect.com/science/article/abs/pii/S0045782519306759 ·
+[S2] https://www.semanticscholar.org/paper/2ab3da08bbbd0fd86642bd5435a7b9189617a172 ·
+[S3] https://onlinelibrary.wiley.com/doi/10.1111/cgf.14477 ·
+[S4] https://www.academia.edu/3847240/A_Material_Point_Method_for_Snow_Simulation ·
+[S5] https://math.ucdavis.edu/~jteran/papers/KGPSJT16.pdf ·
+[S6] https://www.kernel-operations.io/geomloss/ ·
+[S7] https://arxiv.org/pdf/2104.03311 ·
+[S8] https://dl.acm.org/doi/10.1145/2421636.2421641 ·
+[S9] https://dl.acm.org/doi/10.1145/1507149.1507164 ·
+[S10] https://arxiv.org/html/2603.03860 ·
+[S11] https://openaccess.thecvf.com/content_ICCV_2019/papers/Liu_Soft_Rasterizer_A_Differentiable_Renderer_for_Image-Based_3D_Reasoning_ICCV_2019_paper.pdf ·
+[S12] https://nvlabs.github.io/nvdiffrast/ ·
+[S13] https://arxiv.org/pdf/2308.04079
+Order of experiments: H5(i) and H4 first (cheapest, decide whether the render channel and the
+renderer are the problem), then H1, H3, H2.
