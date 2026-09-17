@@ -2170,3 +2170,14 @@ teleport). The dx 0.31 run (`h150x_bob`) tests whether the coarser cell prevents
 The dragon v5 still (150k, dx 0.20, az35) shows it: a solid body with a detached horn /
 head chunk floating at the top right and scattered particles below — the 1562 merges are
 real ejection at this cell size, not a metric artefact.
+
+**40k ppc-27 sweep COMPLETE (12:40), all 19 meshes, no re-attachment — end fragments,
+density ppc 8 → ppc 27 (silIoU at ppc 27):** bunny 3 → 0 (0.960), teapot 0 → 0 (0.972),
+armadilo 12 → 0 (0.955), heart 0 → 0 (0.977), A 0 → 0 (0.972), dragon 41 → 0 (0.955), C
+gate stop in both (0.725), V 33 → 0 (0.970), spot 0 → 0 (0.970), bob 85 → 2 (0.958), cow
+2 → 0 (0.940), homer 7 → 0 (0.958), maxplanck 0 → 0 (0.972), nefertiti 29 → 0 (0.963),
+fandisk 1 → 0 (0.972), ogre 17 → 2 (0.947), beast 76 → 4 (0.803), cheburashka 1 → 3
+(0.961), bimba 0 → 0 (0.971). **Sum 307 → 11; fragment-free on 15 of 19, ≤ 4 on all 19**
+(ot_pace: 44, 13 fragment-free). Against the pre-registration (≤ 3 on every mesh): beast
+misses by one. At 40k the cell is 0.31 wu; the same recipe at 150k (cell 0.20) does not
+carry over on dragon and bob — see the absolute-cell-size test.
