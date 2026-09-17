@@ -350,6 +350,22 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             from scipy.spatial import cKDTree
             if getattr(tgt, "ot_kd", None) is None:
                 tgt.ot_kd = cKDTree(np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32))
+                # material neighbourhood for denoising the sampled map: the k particles
+                # inside one blur radius of a particle at the source (k from the blur
+                # volume and the particle spacing), fixed for the run (material graph)
+                p_sp = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)
+                k_nb = int(max(4, min(64, round(4.0 / 3.0 * np.pi * (leash_r / p_sp) ** 3))))
+                x0_np = np.ascontiguousarray(np.asarray(x0, np.float32))
+                _, tgt.ot_knn = cKDTree(x0_np).query(x0_np, k=k_nb, workers=-1)
+                tgt.ot_knn = torch.as_tensor(tgt.ot_knn, device=dev)
+                print(f"[win] OT leash: displacement denoised over k={k_nb} material neighbours "
+                      f"(blur radius {leash_r:.4g} wu / spacing {p_sp:.4g})", flush=True)
+            # the per-particle sampled map is noisy at the sample scale (~0.9 spacings on
+            # the real bunny); the map of the continuum is smooth, so the displacement is
+            # averaged over the material neighbourhood before projection
+            disp = (ot_T - x0_ot)
+            disp = disp[tgt.ot_knn].mean(dim=1)
+            ot_T = x0_ot + disp
             _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
             ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
         if torch.cuda.is_available():
