@@ -617,6 +617,21 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             Fg_commits.append((len(frames), Fg_p.copy()))
 
         w = whist[-1]
+        if getattr(cfg, "phys_loss", "density") != "density":
+            # the optimiser's d_vol under a transport recipe is the loss against the PACED
+            # (or transport) target — near zero by construction and hypersensitive in
+            # relative terms; the merit, the brake and the convergence tracker must read the
+            # cell sum against the FIXED target (2026-09-17 C forensic: the paced value
+            # 0.0049 -> 0.0055 read as a 9 % merit regression and froze every ot_pace run)
+            with torch.no_grad():
+                xt = torch.as_tensor(x, device=cfg.device)
+                w = dict(w)
+                if cfg.loss_units == "density":
+                    from ..losses.volumetric import d_vol_density as _dvd
+                    w["d_vol"] = float(_dvd(xt, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims,
+                                            tgt.m_ref, tgt.n_support))
+                else:
+                    w["d_vol"] = float(d_vol(xt, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims))
         # after a local pass the archived state differs from the window's last iterate —
         # the freeze and the logged trace must describe the ARCHIVED state (adversarial
         # finding), so recompute the data terms on the final x

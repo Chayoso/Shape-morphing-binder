@@ -1646,6 +1646,55 @@ after a deploy race crashed the first start), nefertiti 0.0896 / 0.868 (559), fa
   next: ε-scaling inside the solve so a smaller ε converges (`ejo5`).
 
 
+### 2026-09-17 evening — five goals (user): (1) zero ejection at 150k AND a proof that the render gradient changes the physics; (2) C morphs; (3) no floating particles / particle-looking blobs in any video; (4) photoreal renders; (5) material properties change the trajectory (proof)
+
+**Diagnostics first (18:30).**
+- C without the gate (`cdiag_C`, 40k, cell 0.31): the run dies in 0.2 min — 3749 particles
+  clamped at the domain box within three windows (614 → 1236 → 1776 → 3749). So C is not a
+  compression failure: it is a runaway EXPANSION. After volume matching the sphere sits
+  inside the C's hole, i.e. entirely in target cells with m_t = 0, where the log residual's
+  gradient is maximal and points outward in every direction with nothing pulling back until
+  the arms are reached; the gate reads the overshoot as a merit regression and freezes the
+  run at ~20 windows (v2–v6 alike). The one method that morphed C at 40k was the
+  transport-paced target (silIoU 0.77 → 0.93, ot40h): the plan gives every hole particle a
+  direction to a specific arm cell. Ladder `cd2_C` (ot_pace + cell 0.31 + net), `cd3_C`
+  (poisson 0.45, the user's compression hypothesis: near-incompressible), `cd4_C`
+  (poisson 0.0, most compressible). Pre-registration: if cd2 morphs (silIoU > 0.9) and
+  cd3/cd4 both freeze, the cause is direction, not compressibility.
+- 150k v6 residual shedding (fragment trace on the dragon and bob archives, cell 0.31): no
+  steady leaders — the fragments appear in EPISODES (dragon 79 / 83 / 83 / 83 particles at
+  frames ~240 and ~320–350 of 761, bob 3–15 at 120–180) and are merged at the next commit;
+  end fragments 0. A burst of ~80 particles at ppc 91 is one cell of material: a thin
+  feature (horn, whisker, bob's ring) whose neck is thinner than the cell detaches as a
+  chunk and pops back. Test `h150z_dragon` (150k, cell 0.31, ot_pace + net): at cell 0.20
+  ot_pace cut dragon's merges to 134 by not pulling thin features ahead of the body; if it
+  brings the cell-0.31 run from 755 to ≤ 100 with silIoU ≥ 0.93 and a smooth still, it is
+  the 150k recipe for the hard shapes.
+- Photoreal renderer (`scripts/render_photoreal.py`, Open3D/Filament, EGL headless works on
+  hyde06, 0.25 s per 640² frame): marching cubes on the same blurred density as the iso
+  videos, Taubin-smoothed, PBR ceramic under IBL + sun with soft shadows and a ground plane.
+  First still (v6 bunny, frame 600) renders; framing and faceting fixed (grid 160, 12
+  smoothing iterations, camera distance from the fov). Sidecar per video: isosurface
+  components and isolated particles per frame — the frame-level QA for goal 3.
+
+**C ladder verdict (18:50).** Compressibility is not the cause: poisson 0.45 (`cd3`) and
+poisson 0.0 (`cd4`) freeze identically at window 12 (silIoU 0.71 / 0.77, 12–15 brake
+rejects, 0.3 min). The per-window record of `cd4` shows the density-loss mechanism: d_vol
+falls 0.475 → 0.140 and d_sil 0.44 → 0.064 by window 6–9 while the kinetic energy climbs
+0.5 → 5.9 — the body, pulled outward from the hole, gains momentum and OVERSHOOTS the
+arms (d_sil back up to 0.129, d_vol to 0.168 by window 11); the brake is right to refuse.
+With the transport-paced target (`cd2`, ot_pace + cell 0.31) there is no overshoot (kin
+peaks 3.7 and falls to 0.47, d_dt 3.0e4 → 274, d_sil 0.44 → 0.050) — and the run STILL
+freezes at window 14, on a −9 % merit "regression" that is an artefact: under ot_pace the
+recorded d_vol is the loss against the paced target (0.0049 → 0.0055, tiny, noisy), and the
+fixed-scale merit normalises it by its window-1 value, so a 12 % wobble of a near-zero
+number dominates a merit whose real components (d_sil, d_dt) were still falling. Fix
+(runner, commit after b387398): under any transport recipe the record's d_vol is recomputed
+as the cell sum against the FIXED target, which is what the merit, brake and tracker are
+defined on. This bug also inflated the gate rejects of every ot_pace run (3–15 per run).
+Re-run `cd5_C` (ot_pace + cell 0.31 + net) on the fix; pre-registration: C reaches silIoU
+> 0.9 without a brake freeze.
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
