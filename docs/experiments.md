@@ -2063,3 +2063,20 @@ its extreme, not a different mechanism. Follow-ups: (a) port the shell-biased sa
 (surface resolution without a fine grid — the way to keep detail at a coarse cell, where
 ppc 64 lost silIoU); (b) diagnostic `it40_{dragon,bob}` with `--iters 1` (the C++ step
 budget) to see whether leader formation depends on the per-window control aggressiveness.
+
+**it40 FALSIFIED (11:50):** one iteration per window makes it far worse — dragon 408
+fragments (0.1562 / 0.861, stop at 2 min), bob 363 (0.1868 / 0.799): a single raw Adam step
+per window without the line search is a larger, less controlled per-particle move, not a
+gentler one. The C++ optimiser is not why the oracle never ejected.
+
+**Shell-biased sampling ported (commit de4f084, `--sample shell --shell_ratio 6
+--shell_cells 2`, the C++ numbers):** `sample_volume_shell` samples a 2-cell surface shell
+at spacing h_s and the interior at 6 h_s with n solved for h_s; every particle carries its
+relative rest volume as mass (density stays uniform; the rest-volume pass, the rollout
+spec, the persistent trajectory and the target grid all take per-particle masses). At 40k
+on the isosphere: shell 39 737 particles (h_s 0.045 wu), interior 263 (h_i 1.48 wu, masses
+up to 89×), shell = 41 % of the volume — i.e. the C++ regime: a hollow-ish body with a dense
+skin, and the MPM cell (0.21 wu at ppc 8) is **4.8 shell spacings** wide. Dragon target:
+shell 74 % of the body (thin). Trials `sh40_{dragon,bob,armadilo}` (ppc 8, no re-attach).
+Pre-registration: fragments ≤ 3 on all three (the decoupling gap is 4.8 spacings); the
+interest is whether the surface quality holds with a nearly hollow interior.
