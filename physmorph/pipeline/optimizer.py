@@ -318,16 +318,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                        eps=(cfg.ot_eps_cells * float(tgt.ldx)) ** 2,
                                        iters=cfg.ot_iters)
             tgt.ot_scale = None
+        # one plan per window: the barycentric targets T of the window's start positions
+        ot_T = tgt.ot_pull.barycentric_targets(torch.as_tensor(x0, device=dev))
+
+        def ot_loss(xT):
+            return (xT - ot_T).pow(2).sum(1).mean()
         if tgt.ot_scale is None:
             xg = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
             gv = torch.autograd.grad(dvol_density(xg), xg)[0].norm()
             xg2 = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
-            go = torch.autograd.grad(tgt.ot_pull(xg2), xg2)[0].norm()
+            go = torch.autograd.grad(ot_loss(xg2), xg2)[0].norm()
             tgt.ot_scale = float(gv / go.clamp_min(1e-30))
-            log(f"[win] OT calibration: |g_vol|={float(gv):.3g} |g_ot|={float(go):.3g} scale={tgt.ot_scale:.3g}")
+            print(f"[win] OT calibration: |g_vol|={float(gv):.3g} |g_ot|={float(go):.3g} scale={tgt.ot_scale:.3g}", flush=True)
 
         def dvol(xT):
-            return tgt.ot_scale * tgt.ot_pull(xT)
+            return tgt.ot_scale * ot_loss(xT)
     else:
         dvol = dvol_density
     s = None

@@ -93,3 +93,22 @@ def target_samples(tgt: torch.Tensor, m: int, seed: int = 0) -> torch.Tensor:
     g = torch.Generator(device="cpu").manual_seed(seed)
     idx = torch.randperm(tgt.shape[0], generator=g)[: min(m, tgt.shape[0])]
     return tgt[idx.to(tgt.device)]
+
+
+    @torch.no_grad()
+    def barycentric_targets(self, x: torch.Tensor) -> torch.Tensor:
+        """T_i = sum_j pi_ij y_j / a_i — where the plan sends particle i (the OT displacement
+        field). Solved once per window from the window's start positions; inside the window
+        the loss is the cheap per-particle L2 to these targets (a per-window EMD matching,
+        the PlasticineLab PRT-EMD choice relaxed to one matching per window)."""
+        f, g, log_a = self._solve(x)
+        N = x.shape[0]
+        eps = self.eps
+        T = torch.zeros_like(x)
+        for s in range(0, N, self.chunk):
+            e = min(N, s + self.chunk)
+            C = self._cost_rows(x, s, e)
+            logpi = (f[s:e, None] + g[None, :] - C) / eps + log_a + self.log_b
+            pi = torch.exp(logpi)                                  # rows sum to a_i = 1/N
+            T[s:e] = (pi @ self.y) * float(N)
+        return T
