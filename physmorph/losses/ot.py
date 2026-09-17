@@ -28,11 +28,17 @@ class SinkhornPull:
     The potentials f (N,), g (M,) persist and warm-start the next call.
     """
 
-    def __init__(self, y: torch.Tensor, eps: float, iters: int = 10, chunk: int = 16384):
+    def __init__(self, y: torch.Tensor, eps: float, iters: int = 10, chunk: int = 16384,
+                 tol: float = 1e-2):
         self.y = y.detach()
         self.M = y.shape[0]
         self.eps = float(eps)
-        self.iters = int(iters)
+        self.iters = int(iters)           # sweep budget per solve (a cap, not a count)
+        self.tol = float(tol)             # stop when the row-marginal error max_i |N sum_j pi_ij - 1| < tol
+        self.last_err = float("nan")      # marginal error of the last solve (diagnostic)
+        self.last_sweeps = 0
+        self.warm_levels = 0              # eps halvings re-annealed on a warm solve (0: target eps only)
+        self._self_pull = None            # persistent self-transport solver (debiasing), warm-started
         # rows per chunk so that one (rows x M) cost block stays at <= 2^27 floats (512 MB)
         self.chunk = max(1024, min(int(chunk), (1 << 27) // max(self.M, 1)))
         self.f = None                     # (N,) dual on the particles
@@ -55,15 +61,25 @@ class SinkhornPull:
         f, g = self.f, self.g
         # epsilon-scaling (Feydy 2019): the first sweeps run at a larger epsilon and anneal
         # to the target so that a small epsilon converges within the sweep budget
-        scales = [4.0, 2.0, 1.0] if self.f_cold else [1.0]
+        # epsilon-scaling (Schmitzer 2019; Feydy et al. 2019): a COLD solve anneals eps
+        # geometrically from the squared diameter of the target down to the target eps,
+        # halving per level, each level iterated to the tolerance (warm-started from the
+        # previous level). The number of levels is set by the geometry, log2(diam^2/eps);
+        # a WARM solve (later windows) runs at the target eps only.
+        if self.f_cold:
+            diam2 = float((self.y.max(0).values - self.y.min(0).values).pow(2).sum())
+            n_lev = max(1, int(torch.tensor(diam2 / self.eps).log2().ceil()))
+            scales = [2.0 ** k for k in range(n_lev, -1, -1)]
+        else:
+            # a warm solve re-anneals over the last `warm_levels` halvings only: the cloud
+            # moved by less than a few blur radii since the previous plan
+            scales = [2.0 ** k for k in range(self.warm_levels, -1, -1)]
         self.f_cold = False
+        err = float("inf")
+        n_sw = 0
+        lev = 0
         for it in range(self.iters):
-            eps = self.eps * scales[min(len(scales) - 1, (it * len(scales)) // max(self.iters, 1))]
-            # f_i = -eps * logsumexp_j( (g_j - C_ij)/eps + log b_j )
-            for s in range(0, N, self.chunk):
-                e = min(N, s + self.chunk)
-                C = self._cost_rows(x, s, e)
-                f[s:e] = -eps * torch.logsumexp((g[None, :] - C) / eps + self.log_b, dim=1)
+            eps = self.eps * scales[lev]
             # g_j = -eps * logsumexp_i( (f_i - C_ij)/eps + log a_i )   (accumulated over row chunks)
             acc = None
             for s in range(0, N, self.chunk):
@@ -72,7 +88,23 @@ class SinkhornPull:
                 lse = torch.logsumexp((f[s:e, None] - C) / eps + log_a, dim=0)
                 acc = lse if acc is None else torch.logaddexp(acc, lse)
             g = -eps * acc
+            # f_i = -eps * logsumexp_j( (g_j - C_ij)/eps + log b_j ). The row marginal of the
+            # plan BEFORE this f-sweep (i.e. after the g-sweep) measures convergence: at the
+            # fixed point both sweeps are identities and the marginal error vanishes.
+            err = 0.0
+            for s in range(0, N, self.chunk):
+                e = min(N, s + self.chunk)
+                C = self._cost_rows(x, s, e)
+                lse = torch.logsumexp((g[None, :] - C) / eps + self.log_b, dim=1)
+                err = max(err, float((torch.exp(f[s:e] / eps + lse) - 1.0).abs().max()))
+                f[s:e] = -eps * lse
+            n_sw = it + 1
+            if err < self.tol:
+                if lev == len(scales) - 1:
+                    break
+                lev += 1                  # next (smaller) epsilon, warm-started
         self.f, self.g = f, g
+        self.last_err, self.last_sweeps = err, n_sw
         return f, g, log_a
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
@@ -88,8 +120,8 @@ class SinkhornPull:
             e = min(N, s + self.chunk)
             with torch.no_grad():
                 Cd = self._cost_rows(x.detach(), s, e)
-                logpi = (f[s:e, None] + g[None, :] - Cd) / eps + log_a + self.log_b   # log plan
-                pi = torch.exp(logpi)                                                  # (rows, M)
+                logpi = (f[s:e, None] + g[None, :] - Cd) / eps                        # log plan
+                pi = torch.softmax(logpi, dim=1) / float(N)                            # rows sum to a_i
             C = self._cost_rows(x, s, e)                                              # differentiable
             prim = prim + (pi * C).sum()
         return value + prim - prim.detach()
@@ -103,18 +135,27 @@ class SinkhornPull:
         ITSELF. The self-term cancels the entropic shrinkage toward the interior (Feydy et al.
         2019), which is what left holes in thin features with the plain barycentric map."""
         T = self.barycentric_targets(x)
-        g = torch.Generator(device="cpu").manual_seed(seed)
-        idx = torch.randperm(x.shape[0], generator=g)[: min(n_self, x.shape[0])].to(x.device)
-        self_pull = SinkhornPull(x[idx], eps=self.eps, iters=self.iters)
-        T_self = self_pull.barycentric_targets(x)
+        sp = self._self_pull
+        if sp is None or sp.M != min(n_self, x.shape[0]):
+            g = torch.Generator(device="cpu").manual_seed(seed)
+            idx = torch.randperm(x.shape[0], generator=g)[: min(n_self, x.shape[0])].to(x.device)
+            sp = self._self_pull = SinkhornPull(x[idx], eps=self.eps, iters=self.iters, tol=self.tol)
+            sp.warm_levels = self.warm_levels
+            sp._idx = idx
+        else:
+            sp.y = x[sp._idx].detach()        # the same subsample, moved with the cloud: warm start
+        T_self = sp.barycentric_targets(x)
         return T - T_self
 
     @torch.no_grad()
     def barycentric_targets(self, x: torch.Tensor) -> torch.Tensor:
-        """T_i = sum_j pi_ij y_j / a_i — where the plan sends particle i (the OT displacement
-        field). Solved once per window from the window's start positions; inside the window
-        the loss is the cheap per-particle L2 to these targets (a per-window EMD matching,
-        the PlasticineLab PRT-EMD choice relaxed to one matching per window)."""
+        """T_i = sum_j pi_ij y_j / sum_j pi_ij — where the plan sends particle i (the OT
+        displacement field), the row-NORMALISED barycentric projection. Dividing by a_i
+        instead assumed converged row marginals; with the potentials far from converged in
+        the first windows that scaled T outside the convex hull of the target (a synthetic
+        ball-to-spike test reached 1.7x the spike length). Solved once per window from the
+        window start positions; inside the window the loss is the cheap per-particle L2 to
+        these targets (the PlasticineLab PRT-EMD matching relaxed to one plan per window)."""
         f, g, log_a = self._solve(x)
         N = x.shape[0]
         eps = self.eps
@@ -122,9 +163,22 @@ class SinkhornPull:
         for s in range(0, N, self.chunk):
             e = min(N, s + self.chunk)
             C = self._cost_rows(x, s, e)
-            logpi = (f[s:e, None] + g[None, :] - C) / eps + log_a + self.log_b
-            pi = torch.exp(logpi)                                  # rows sum to a_i = 1/N
-            T[s:e] = (pi @ self.y) * float(N)
+            pi = torch.softmax((f[s:e, None] + g[None, :] - C) / eps, dim=1)   # row-normalised
+            T[s:e] = pi @ self.y                                   # convex combination of targets
+        return T
+
+    @torch.no_grad()
+    def argmax_targets(self, x: torch.Tensor) -> torch.Tensor:
+        """Rounded (Monge) map: the target sample carrying the largest plan mass for each
+        particle. No entropic averaging, so a thin feature is reached to its tip (the
+        barycentre of a thin feature's samples sits inside it); discrete at the sample scale."""
+        f, g, log_a = self._solve(x)
+        N = x.shape[0]
+        T = torch.zeros_like(x)
+        for s in range(0, N, self.chunk):
+            e = min(N, s + self.chunk)
+            C = self._cost_rows(x, s, e)
+            T[s:e] = self.y[((f[s:e, None] + g[None, :] - C) / self.eps).argmax(1)]
         return T
 
 

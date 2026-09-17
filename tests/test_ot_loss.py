@@ -57,6 +57,31 @@ def test_lone_particle_is_pulled_toward_the_body_not_away():
     assert float(g[0].norm()) > 5 * float(g[1:].norm(dim=1).median())   # and it is the strongest pull
 
 
+def test_barycentric_targets_stay_inside_the_target_hull_even_unconverged():
+    """Row-normalised projection: every target is a convex combination of target samples,
+    so it lies inside the target's bounding box no matter how unconverged the plan is
+    (the a_i-scaled version reached 1.7x a spike's length in the ball-to-spike test)."""
+    x, y = _clouds(5, 800)
+    x = x + torch.tensor([2.0, 0.0, 0.0])                    # far from the target: cold, unconverged
+    pull = SinkhornPull(target_samples(y, 800), eps=0.01, iters=2, tol=0.0)
+    T = pull.barycentric_targets(x)
+    assert pull.last_err > 0.05                              # genuinely unconverged after 2 sweeps
+    assert bool((T.min(0).values >= y.min(0).values - 1e-5).all())
+    assert bool((T.max(0).values <= y.max(0).values + 1e-5).all())
+
+
+def test_epsilon_scaling_converges_to_tolerance_and_stops():
+    """The cold solve anneals eps from the squared diameter and stops at the tolerance;
+    a warm solve on the same cloud needs far fewer sweeps."""
+    x, y = _clouds(6, 1500)
+    pull = SinkhornPull(target_samples(y, 1500), eps=0.05 ** 2, iters=3000, tol=1e-2)
+    pull.barycentric_targets(x)
+    cold = pull.last_sweeps
+    assert pull.last_err < 1e-2 and cold < 3000
+    pull.barycentric_targets(x)
+    assert pull.last_sweeps < cold and pull.last_err < 1e-2
+
+
 def test_debiased_displacement_has_no_shrinkage_on_a_matched_cloud():
     """A cloud that already equals the target: the plain barycentric map shrinks toward the
     interior (entropic bias), the debiased displacement is ~zero."""

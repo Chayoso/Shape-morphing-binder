@@ -319,18 +319,27 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             eps_len = (cfg.ot_eps_cells * float(tgt.ldx) if cfg.ot_eps_cells > 0 else
                        (float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)))
             tgt.ot_pull = SinkhornPull(target_samples(tgt.points, cfg.ot_samples),
-                                       eps=eps_len ** 2, iters=cfg.ot_iters)
+                                       eps=eps_len ** 2, iters=cfg.ot_iters,
+                                       tol=getattr(cfg, "ot_tol", 1e-2))
             print(f"[win] OT plan: sqrt(eps)={eps_len:.4g} wu = {eps_len / float(tgt.ldx):.3g} loss cells, "
-                  f"{cfg.ot_iters} sweeps, {cfg.ot_samples} target samples", flush=True)
+                  f"tol {getattr(cfg, 'ot_tol', 1e-2):.3g} (cap {cfg.ot_iters} sweeps), "
+                  f"{cfg.ot_samples} target samples", flush=True)
             tgt.ot_scale = None
         # one plan per window: the barycentric targets T of the window's start positions;
         # with cfg.ot_debias the self-term of the debiased divergence cancels the entropic
         # shrinkage (target = x0 + (T - T_self))
         x0_ot = torch.as_tensor(x0, device=dev)
+        _t_ot = time.perf_counter()
         if getattr(cfg, "ot_debias", False):
             ot_T = x0_ot + tgt.ot_pull.debiased_displacement(x0_ot, cfg.ot_samples)
         else:
             ot_T = tgt.ot_pull.barycentric_targets(x0_ot)
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        _sp = getattr(tgt.ot_pull, "_self_pull", None)
+        print(f"[win] OT plan solved: {tgt.ot_pull.last_sweeps} sweeps err={tgt.ot_pull.last_err:.3g}"
+              + (f", self {_sp.last_sweeps} sweeps err={_sp.last_err:.3g}" if _sp is not None else "")
+              + f", {time.perf_counter() - _t_ot:.2f}s", flush=True)
 
         def ot_loss(xT):
             return (xT - ot_T).pow(2).sum(1).mean()

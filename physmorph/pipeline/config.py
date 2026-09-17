@@ -336,8 +336,10 @@ class PipelineConfig:
                                     # (= (dx / ppc^(1/3))^2, half a cell at ppc 8: the resolution
                                     # of the cloud itself, derived, not tuned)
     ot_samples: int = 8192          # target samples for the plan
-    ot_iters: int = 20              # Sinkhorn sweeps per plan (warm-started; the first plan
-                                    # anneals over three eps-scaling stages, >= 6 sweeps each)
+    ot_iters: int = 400             # Sinkhorn sweep CAP per plan; the solve stops at ot_tol
+    ot_tol: float = 1e-2            # row-marginal error at which a plan counts as converged
+                                    # (the cold plan anneals eps geometrically from the squared
+                                    # target diameter; warm plans re-solve at the target eps)
     ot_debias: bool = False         # debiased divergence: subtract the self-transport map (no shrinkage)
     loss_units: str = "legacy"      # "legacy": D_vol = 1/2 sum_cells log-mass residual^2
                                     # (Xu et al., grid-count units); "density": the same

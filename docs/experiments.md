@@ -1666,3 +1666,40 @@ sharper plan — ε = (0.5 dx)², 20 sweeps with ε-scaling — beating ejo4 on 
 it is the particle spacing at ppc 8 (dx / 8^(1/3)), i.e. the plan resolves to the resolution
 of the cloud itself instead of the loss cell; the code default is now ε = (nn spacing)² and
 20 sweeps (three ε-scaling stages need ≥ 6 sweeps each). The sweep runs with that setting.
+
+**Density baselines (d40, same recipe, no re-attach, 40k), all 10 targets — complete 07:40.**
+End fragments (grid connectivity): bunny 3, teapot 0, armadilo 12, heart 0, A 0, dragon 41,
+C 0 (frozen at chamfer 0.54), V 33, spot 0, bob 85. Chamfer / silIoU / hole: bunny
+0.1136/0.962/0.03 %, teapot 0.1110/0.975/0.01, armadilo 0.1144/0.935/0.27, heart
+0.1114/0.981/0, A 0.1129/0.976/0, dragon 0.1277/0.854/1.15, C 0.5419/0.768/0.01, V
+0.1224/0.902/0.01, spot 0.1145/0.977/0, bob 0.1239/0.849/2.49. New meshes (n40, same
+recipe): beast 76, ogre 17, nefertiti 29, homer 7, cow 2, cheburashka 1, fandisk 1, bimba 0,
+maxplanck 0. So 11 of 19 meshes eject under the density loss without the safety net.
+
+**The OT sweep was stopped after six meshes (07:20) — two defects found in the OT code
+by a synthetic ball → ball + thin-spike test (20k particles, spike = 1.7 % of the mass,
+run on hyde06):**
+
+1. `barycentric_targets` divided the plan rows by a_i = 1/N, which assumes converged row
+   marginals; the solver returned after a g-sweep, so the rows were not normalised and the
+   targets were scaled OUTSIDE the target's convex hull — the map reached x = 4.18 on a
+   spike whose tip is at 2.40. Fixed: T_i = Σ_j π_ij y_j / Σ_j π_ij (row-normalised
+   projection, always a convex combination of target samples).
+2. 20 sweeps at ε = spacing² leave the plan far from converged: the row-marginal error was
+   0.83 (83 %) and only 57 % of the spike's mass was reached (190 of 332 particles); the
+   converged plan (marginal error < 1 %) reaches 87–88 % (290–294) with every map
+   (barycentric, debiased, argmax). Convergence, not the map, was the thin-feature loss.
+   Naive convergence at the target ε costs ~2000 sweeps (200 s at 20k); geometric
+   ε-scaling from the squared target diameter, halving per level, each level iterated to the
+   tolerance (Schmitzer 2019 / Feydy 2019), reaches the same 1 % in 115 sweeps (3.1 s at
+   20k), 37 sweeps for 10 %, 65 for 3 %. The reach saturates by 3 %; 1 % is the stopping
+   rule (a numerical convergence criterion, no shape constant). Warm re-solves after a
+   coherent 0.04 wu move (a 2 % window) still need 64–181 sweeps at the target ε — the
+   fixed-point iteration is intrinsically slow at small ε — so the per-window cost, not the
+   cold start, sets the OT recipe's speed (measured next at 40k and 150k).
+
+The ot40 runs that finished before the stop (row-scaled, unconverged plans) still had 0–2
+end fragments (bunny 0, teapot 0, heart 0, cow 2) against 3 / 0 / 0 / 2 for the density
+loss: even a bad transport plan does not reward leaving the body. Their quality numbers
+(bunny 0.154 / 0.925 / 0.50 %) are not the OT recipe's and are discarded; the sweep is
+re-run with the fixed solver.
