@@ -1,6 +1,6 @@
 # 150k gallery report (2026-09-16) — sphere → 10 targets, 150k `--ppc 8`, render arm
 
-Artifact (surface videos, PBR stills, loss curves): 
+Artifact (surface videos, PBR stills, loss curves): https://claude.ai/code/artifact/4b18fc06-c010-45ff-89f2-256e77516a1c
 
 | target | chamfer | silIoU | hole | commits | min | s/commit | loss × | sparse peak → end | thin mass / tgt | fragments (grid) | off-target > 0.5 wu | max off-target | G4 ejection |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|

@@ -2191,3 +2191,17 @@ dragon still sheds ~0.7 % of its particles over the run at either cell, while th
 cell at 40k sheds none: the per-particle shedding rate is not a function of the cell in
 spacings (4.5 here vs 3 at 40k) nor of the cell in world units alone. 150k v5 A: 386
 re-attachments (v3 1585, v4 90), 0.0768 / 0.976; fandisk 142 (v3 600), 0.0779 / 0.975.
+
+**h150x bob (150k, dx 0.31, 12:48): 0 fragments, 434 re-attachments with NO burst (max 119
+per commit; dx 0.20 had the 2343 burst), 0.0778 / 0.967 / 2.61 %.** dragon at dx 0.31 has
+three chunk events (410, 326, 144) in its history — the case for the amended net. On the
+two hard targets dx 0.31 beats dx 0.20 at 150k on every count except bob's silIoU
+(0.967 vs 0.975), so the 10-target batch is being re-run at dx 0.31 (`h150y_<T>`, `--ppc
+91`, amended re-attachment net deployed 7072da0) as a candidate v6 while the v5 page
+stands; the new-mesh v5 batch finishes on the same deployment (homer / maxplanck / ogre /
+beast start after it — their net is the amended one, noted on the page).
+
+**Published (12:50):** the main 150k gallery https://claude.ai/code/artifact/2f348b78-324e-4cf0-a491-ea49f92fd5b1
+now shows v5 (ppc 27, all 10 targets, narrative with the v3 / v4 numbers); v4 (ot_pace)
+stays at https://claude.ai/code/artifact/6b144784-69e7-4703-ba73-ac34f6b45724 for
+comparison; docs/highres150_v5_report.md holds the v5 tables.
