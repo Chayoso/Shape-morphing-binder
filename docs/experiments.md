@@ -2160,3 +2160,10 @@ bob no burst. If it holds, the definition the user asked for is: **dx from the s
 (diag / ~26, i.e. the loss-cell scale the density loss already uses), ppc = N dx³ / V from
 N** — the grid resolves the geometry, N refines the quadrature — instead of dx following N
 at a fixed ppc.
+
+**bob 150k ppc 27 WITHOUT the net (`h150qn_bob`, 12:27):** the fragment count climbs
+steadily — 1, 3, 8, 15, 27, 48, 77, 90, 109 by window ~370 — and then a whole part of ~2 500
+particles separates (2498, 2497, 2491 …), ending with 335 fragments after re-merging by the
+physics, silIoU 0.761 (0.975 with the net). So at dx 0.20 bob's thin ring both sheds
+strays and breaks at the neck; the net repaired both (the strays legitimately, the chunk by
+teleport). The dx 0.31 run (`h150x_bob`) tests whether the coarser cell prevents both.
