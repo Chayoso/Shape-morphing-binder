@@ -1857,3 +1857,13 @@ flight keep the advected position), so on the support the end target is the targ
 h150p batch was stopped and relaunched on this code (the first bunny moved to
 void_h150p_v1/); the 40k sweep already in flight keeps the pre-fix code for runs that had
 started (fragments are the sweep's verdict, unaffected by the end-state projection).
+
+150k teapot v2 (09:00): 0 fragments, **2 re-attachments** (v3 32), silIoU 0.977 (v3 0.980),
+hole 0.36 %, 16.6 min — chamfer 0.0826 vs 0.0721 still. The 150k bunny v2 log shows why:
+at anim 121 only 26 % of the particles were "arrived" (|d_i| ≤ blur radius) — at 150k the
+map noise IS the blur radius (both are the sample spacing, 0.1 wu = 2.6 spacings), so the
+arrival test was a coin flip and the paced grid stayed a blurred copy of the cloud. Fix
+(commit after 8df1527): every paced position within one blur radius of a target POINT is
+snapped to it (removes the normal blur component, keeps the tangential transport);
+positions still in flight stay advected. Deployed mid-batch: bunny and teapot (v2 code)
+are queued for a re-run after the new-mesh batches; armadilo onward run on the final code.
