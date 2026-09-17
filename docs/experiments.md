@@ -1817,3 +1817,16 @@ cloud itself. The fixed cell-sum merit, gate and tracker are untouched (they rea
 true target). No new constant: the pace is the plan's blur radius. Pre-registration
 (ot40h, 40k, no re-attach, armadilo ogre dragon bob): fragments ≤ 3 on all four and
 chamfer / silIoU / hole within noise of d40 / n40; falsifier as before.
+
+**ot40h RESULTS (08:20) — ot_pace passes on three of three finished (ogre pending):**
+
+| mesh (40k, no re-attach) | density: frag / chamfer / silIoU / hole | ot_pace: frag / chamfer / silIoU / hole | time |
+|---|---|---|---|
+| bob | 85 / 0.1239 / 0.849 / 2.49 % | **1** / 0.1188 / **0.975** / 2.78 % (target ring) | 6.6 min |
+| dragon | 41 / 0.1277 / 0.854 / 1.15 % | **2** / 0.1296 / **0.967** / **0.45 %** | 9.3 min |
+| armadilo | 12 / 0.1144 / 0.935 / 0.27 % | **0** / 0.1227 / **0.965** / 0.23 % | 12.5 min |
+
+Fragments 85/41/12 → 1/2/0 and silIoU up 3–13 points; chamfer within ±0.008; the runs go
+to 97–164 windows (no tracker stop: the fixed cell sum keeps falling). Whole-trajectory
+stray_max 0.59–0.86 % (transient isolated particles mid-run; the end fragments are what
+remain). The remaining 15 meshes launched as `op40_<T>` (08:21).
