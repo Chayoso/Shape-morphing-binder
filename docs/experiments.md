@@ -2114,3 +2114,10 @@ smaller half was merged onto the other — a whole part teleported, the worst ki
 The net is wrong for a body with a genuinely thin connection at the coarser cell. Check:
 `h150qn_bob` = the same run WITHOUT `--reattach` (true end fragments at 150k, ppc 27; at
 40k bob had 2 fragments / 7 off-target particles).
+
+150k v5 V: 0 fragments, 441 re-attachments (v3 1074, v4 81; steady 1–77 per commit, no
+burst), chamfer 0.0760 (v3 0.0737), silIoU **0.983** (v3 0.975). Visual QA of the v5 stills
+(bunny az35, teapot az215): solid bodies, the ears / spout / handle fuller than v3 and far
+better than v4, a slightly blobbier surface texture from the coarser cell, one stray at the
+bunny ear tip. 40k sweep at ppc 27 continues clean: V 33 → 0 (0.970), A 0, C gate stop,
+fandisk 1 → 0.
