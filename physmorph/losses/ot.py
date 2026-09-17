@@ -94,7 +94,8 @@ class SinkhornPull:
         cost = (lambda s, e: C_all if C_all is not None else self._cost_rows(x, s, e))
         # symmetric case (self-transport of a point set onto itself): f = g, one averaged
         # update per sweep (Feydy et al. 2019, symmetric Sinkhorn), same marginal criterion
-        sym = self.y.shape[0] == N and self.y.data_ptr() == x.data_ptr()
+        sym = (self.y.shape[0] == N and self.y.data_ptr() == x.data_ptr()
+               and C_all is not None)               # the symmetric update needs the cached block
         lev_sw = 0                        # sweeps spent at the current level
         for it in range(self.iters):
             eps = self.eps * scales[lev]
