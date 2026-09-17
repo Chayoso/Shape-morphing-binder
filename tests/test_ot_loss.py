@@ -35,7 +35,7 @@ def test_displaced_cloud_is_pulled_back_and_gradient_shrinks():
 def test_envelope_gradient_matches_finite_difference():
     x, y = _clouds(1, 600)
     x, y = x.double(), y.double()
-    pull = SinkhornPull(target_samples(y, 600), eps=0.3, iters=600)   # converged potentials
+    pull = SinkhornPull(target_samples(y, 600), eps=0.3, iters=5000, tol=1e-6)   # converged potentials
     xg = x.clone().requires_grad_(True)
     L = pull(xg)
     g = torch.autograd.grad(L, xg)[0]
@@ -64,6 +64,7 @@ def test_barycentric_targets_stay_inside_the_target_hull_even_unconverged():
     x, y = _clouds(5, 800)
     x = x + torch.tensor([2.0, 0.0, 0.0])                    # far from the target: cold, unconverged
     pull = SinkhornPull(target_samples(y, 800), eps=0.01, iters=2, tol=0.0)
+    pull.f_cold = False                                      # no annealing: two sweeps at the target eps
     T = pull.barycentric_targets(x)
     assert pull.last_err > 0.05                              # genuinely unconverged after 2 sweeps
     assert bool((T.min(0).values >= y.min(0).values - 1e-5).all())
@@ -80,6 +81,23 @@ def test_epsilon_scaling_converges_to_tolerance_and_stops():
     assert pull.last_err < 1e-2 and cold < 3000
     pull.barycentric_targets(x)
     assert pull.last_sweeps < cold and pull.last_err < 1e-2
+
+
+def test_entropic_map_equals_the_full_projection_when_the_subsample_is_everything():
+    """With n_sub = N the subsampled dual IS the full dual, so the out-of-sample map must
+    reproduce barycentric_targets; with a smaller subsample it stays close (same estimator,
+    potentials from a uniform subsample)."""
+    x, y = _clouds(7, 1200)
+    ys = target_samples(y, 600)
+    full = SinkhornPull(ys, eps=0.05 ** 2 * 4, iters=3000, tol=1e-3)
+    T_full = full.barycentric_targets(x)
+    same = SinkhornPull(ys, eps=0.05 ** 2 * 4, iters=3000, tol=1e-3)
+    T_same = same.entropic_map(x, n_sub=1200)
+    assert float((T_same - T_full).norm(dim=1).max()) < 1e-3
+    sub = SinkhornPull(ys, eps=0.05 ** 2 * 4, iters=3000, tol=1e-3)
+    T_sub = sub.entropic_map(x, n_sub=400)
+    scale = float((T_full - x).norm(dim=1).mean())
+    assert float((T_sub - T_full).norm(dim=1).mean()) < 0.25 * scale
 
 
 def test_debiased_displacement_has_no_shrinkage_on_a_matched_cloud():

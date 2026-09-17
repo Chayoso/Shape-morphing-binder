@@ -330,10 +330,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # shrinkage (target = x0 + (T - T_self))
         x0_ot = torch.as_tensor(x0, device=dev)
         _t_ot = time.perf_counter()
+        # the dual is solved on an ot_samples-sized subsample of the particles and the
+        # entropic map evaluated for all N (cost independent of N per sweep)
         if getattr(cfg, "ot_debias", False):
-            ot_T = x0_ot + tgt.ot_pull.debiased_displacement(x0_ot, cfg.ot_samples)
+            ot_T = x0_ot + tgt.ot_pull.debiased_map_displacement(x0_ot, cfg.ot_samples)
         else:
-            ot_T = tgt.ot_pull.barycentric_targets(x0_ot)
+            ot_T = tgt.ot_pull.entropic_map(x0_ot, cfg.ot_samples)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         _sp = getattr(tgt.ot_pull, "_self_pull", None)

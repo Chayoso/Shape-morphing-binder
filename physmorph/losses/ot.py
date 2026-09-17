@@ -7,14 +7,18 @@ the gradient on a particle is its displacement to its matched target location an
 rewards leaving the body. This is the PRT-EMD choice of PlasticineLab (Huang et al. 2021)
 computed with entropic regularisation (Cuturi 2013; Feydy et al. 2019 for the debiased form).
 
-Implementation: log-domain Sinkhorn between the particle cloud (uniform weights, all N
-particles, chunked over rows) and M target samples (uniform), cost |x - y|^2, epsilon =
-(eps_cells * dx)^2 — the loss cell is the resolution the plan can distinguish. The dual
-potentials are solved WITHOUT autograd (warm-started across calls) and the loss value that is
-differentiated is the primal transport cost under the DETACHED plan; by the envelope theorem
-its gradient with respect to x equals the exact Sinkhorn gradient at the optimum. Units: the
-optimiser rescales it once by gradient-norm parity with D_vol at the first window (the same
-one-shot calibration the h1 / jdens terms use), so no new weight is introduced.
+Implementation: log-domain Sinkhorn, cost |x - y|^2, epsilon = (particle spacing)^2 (the
+resolution of the cloud itself), between uniform measures. The pipeline path
+(entropic_map / debiased_map_displacement) solves the dual on a fixed uniform SUBSAMPLE of
+the particles against M target samples (every sweep O(n_sub M), independent of N) with
+geometric epsilon-scaling from the squared target diameter, stopping at a row-marginal
+error tolerance, and evaluates the out-of-sample entropic map (row-normalised barycentric
+projection with the subsample's potentials; Pooladian & Niles-Weed 2021) for all N
+particles in one pass. The per-window loss is the L2 distance of each particle to its
+(debiased) map image; the optimiser rescales it once by gradient-norm parity with D_vol at
+the first window (the same one-shot calibration the h1 / jdens terms use), so no new
+weight is introduced. __call__ (the full-plan envelope loss) and barycentric_targets (the
+full-plan projection) are kept for tests and small clouds.
 """
 from __future__ import annotations
 
@@ -37,7 +41,7 @@ class SinkhornPull:
         self.tol = float(tol)             # stop when the row-marginal error max_i |N sum_j pi_ij - 1| < tol
         self.last_err = float("nan")      # marginal error of the last solve (diagnostic)
         self.last_sweeps = 0
-        self.warm_levels = 0              # eps halvings re-annealed on a warm solve (0: target eps only)
+        self.warm_levels = -1             # eps halvings re-annealed on a warm solve; -1: the full anneal
         self._self_pull = None            # persistent self-transport solver (debiasing), warm-started
         # rows per chunk so that one (rows x M) cost block stays at <= 2^27 floats (512 MB)
         self.chunk = max(1024, min(int(chunk), (1 << 27) // max(self.M, 1)))
@@ -66,13 +70,14 @@ class SinkhornPull:
         # halving per level, each level iterated to the tolerance (warm-started from the
         # previous level). The number of levels is set by the geometry, log2(diam^2/eps);
         # a WARM solve (later windows) runs at the target eps only.
-        if self.f_cold:
+        # Every solve anneals (warm potentials only shorten the levels): at the target eps
+        # the fixed-point iteration is too slow to absorb even a sub-spacing move (40k:
+        # 570 sweeps warm at the target eps vs 95-108 through the full anneal).
+        if self.f_cold or self.warm_levels < 0:
             diam2 = float((self.y.max(0).values - self.y.min(0).values).pow(2).sum())
             n_lev = max(1, int(torch.tensor(diam2 / self.eps).log2().ceil()))
             scales = [2.0 ** k for k in range(n_lev, -1, -1)]
         else:
-            # a warm solve re-anneals over the last `warm_levels` halvings only: the cloud
-            # moved by less than a few blur radii since the previous plan
             scales = [2.0 ** k for k in range(self.warm_levels, -1, -1)]
         self.f_cold = False
         err = float("inf")
@@ -91,18 +96,22 @@ class SinkhornPull:
             # f_i = -eps * logsumexp_j( (g_j - C_ij)/eps + log b_j ). The row marginal of the
             # plan BEFORE this f-sweep (i.e. after the g-sweep) measures convergence: at the
             # fixed point both sweeps are identities and the marginal error vanishes.
-            err = 0.0
+            err_t = None
             for s in range(0, N, self.chunk):
                 e = min(N, s + self.chunk)
                 C = self._cost_rows(x, s, e)
                 lse = torch.logsumexp((g[None, :] - C) / eps + self.log_b, dim=1)
-                err = max(err, float((torch.exp(f[s:e] / eps + lse) - 1.0).abs().max()))
+                em = (torch.exp(f[s:e] / eps + lse) - 1.0).abs().max()
+                err_t = em if err_t is None else torch.maximum(err_t, em)
                 f[s:e] = -eps * lse
             n_sw = it + 1
-            if err < self.tol:
-                if lev == len(scales) - 1:
-                    break
-                lev += 1                  # next (smaller) epsilon, warm-started
+            # the convergence test forces a device sync: check it every 4 sweeps
+            if (it % 4 == 3) or it == self.iters - 1:
+                err = float(err_t)
+                if err < self.tol:
+                    if lev == len(scales) - 1:
+                        break
+                    lev += 1              # next (smaller) epsilon, warm-started
         self.f, self.g = f, g
         self.last_err, self.last_sweeps = err, n_sw
         return f, g, log_a
@@ -165,6 +174,60 @@ class SinkhornPull:
             C = self._cost_rows(x, s, e)
             pi = torch.softmax((f[s:e, None] + g[None, :] - C) / eps, dim=1)   # row-normalised
             T[s:e] = pi @ self.y                                   # convex combination of targets
+        return T
+
+    @torch.no_grad()
+    def entropic_map(self, x: torch.Tensor, n_sub: int = 8192, seed: int = 0) -> torch.Tensor:
+        """Out-of-sample entropic map (Pooladian & Niles-Weed 2021): the dual potential g on
+        the target side is solved on a fixed uniform SUBSAMPLE of the particles (n_sub x M,
+        every sweep O(n_sub M) instead of O(N M)), then the row-normalised barycentric
+        projection T(x_i) = softmax_j((g_j - |x_i - y_j|^2)/eps) @ y is evaluated for ALL N
+        particles in one chunked pass — the same estimator as barycentric_targets, with the
+        potentials from the subsample. The subsample is kept across calls (it moves with the
+        cloud) and its potentials warm-start the next solve, which still anneals through all
+        eps levels (see _solve)."""
+        N = x.shape[0]
+        n_sub = min(int(n_sub), N)
+        if getattr(self, "_sub_idx", None) is None or self._sub_idx.shape[0] != n_sub:
+            gen = torch.Generator(device="cpu").manual_seed(seed)
+            self._sub_idx = torch.randperm(N, generator=gen)[:n_sub].to(x.device)
+            self.f = None
+            self.f_cold = True
+        xs = x[self._sub_idx]
+        f, g, log_a = self._solve(xs)
+        T = torch.zeros_like(x)
+        for s in range(0, N, self.chunk):
+            e = min(N, s + self.chunk)
+            C = self._cost_rows(x, s, e)
+            T[s:e] = torch.softmax((g[None, :] - C) / self.eps, dim=1) @ self.y
+        return T
+
+    @torch.no_grad()
+    def debiased_map_displacement(self, x: torch.Tensor, n_sub: int = 8192, seed: int = 0) -> torch.Tensor:
+        """Debiased displacement with the subsampled potentials: T(x) - T_self(x), where the
+        self map transports the cloud onto its own subsample (the entropic shrinkage cancels,
+        Feydy et al. 2019). Cost per call: two n_sub x n_sub solves + two N x n_sub passes."""
+        T = self.entropic_map(x, n_sub, seed)
+        xs = x[self._sub_idx]
+        sp = self._self_pull
+        if sp is None or sp.M != xs.shape[0]:
+            sp = self._self_pull = SinkhornPull(xs, eps=self.eps, iters=self.iters, tol=self.tol)
+        else:
+            sp.y = xs.detach()
+        # the self plan is symmetric (a = b = the subsample): solve it on the subsample itself
+        T_self = sp.entropic_map_from(x, xs)
+        return T - T_self
+
+    @torch.no_grad()
+    def entropic_map_from(self, x: torch.Tensor, xs: torch.Tensor) -> torch.Tensor:
+        """entropic_map with an explicit subsample xs (the self-transport case)."""
+        f, g, log_a = self._solve(xs)
+        N = x.shape[0]
+        T = torch.zeros_like(x)
+        for s in range(0, N, self.chunk):
+            e = min(N, s + self.chunk)
+            C = self._cost_rows(x, s, e)
+            T[s:e] = torch.softmax((g[None, :] - C) / self.eps, dim=1) @ self.y
         return T
 
     @torch.no_grad()
