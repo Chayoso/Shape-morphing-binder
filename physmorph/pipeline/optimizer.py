@@ -318,8 +318,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                        eps=(cfg.ot_eps_cells * float(tgt.ldx)) ** 2,
                                        iters=cfg.ot_iters)
             tgt.ot_scale = None
-        # one plan per window: the barycentric targets T of the window's start positions
-        ot_T = tgt.ot_pull.barycentric_targets(torch.as_tensor(x0, device=dev))
+        # one plan per window: the barycentric targets T of the window's start positions;
+        # with cfg.ot_debias the self-term of the debiased divergence cancels the entropic
+        # shrinkage (target = x0 + (T - T_self))
+        x0_ot = torch.as_tensor(x0, device=dev)
+        if getattr(cfg, "ot_debias", False):
+            ot_T = x0_ot + tgt.ot_pull.debiased_displacement(x0_ot, cfg.ot_samples)
+        else:
+            ot_T = tgt.ot_pull.barycentric_targets(x0_ot)
 
         def ot_loss(xT):
             return (xT - ot_T).pow(2).sum(1).mean()

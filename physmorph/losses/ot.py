@@ -90,6 +90,20 @@ class SinkhornPull:
 
 
     @torch.no_grad()
+    def debiased_displacement(self, x: torch.Tensor, n_self: int = 8192, seed: int = 0) -> torch.Tensor:
+        """Per-particle displacement of the DEBIASED Sinkhorn divergence
+        S_eps = OT_eps(a,b) - 1/2 OT_eps(a,a) - 1/2 OT_eps(b,b): (T_i - x_i) - (T_i^self - x_i)
+        = T_i - T_i^self, where T^self is the barycentric map of the cloud onto a subsample of
+        ITSELF. The self-term cancels the entropic shrinkage toward the interior (Feydy et al.
+        2019), which is what left holes in thin features with the plain barycentric map."""
+        T = self.barycentric_targets(x)
+        g = torch.Generator(device="cpu").manual_seed(seed)
+        idx = torch.randperm(x.shape[0], generator=g)[: min(n_self, x.shape[0])].to(x.device)
+        self_pull = SinkhornPull(x[idx], eps=self.eps, iters=self.iters)
+        T_self = self_pull.barycentric_targets(x)
+        return T - T_self
+
+    @torch.no_grad()
     def barycentric_targets(self, x: torch.Tensor) -> torch.Tensor:
         """T_i = sum_j pi_ij y_j / a_i — where the plan sends particle i (the OT displacement
         field). Solved once per window from the window's start positions; inside the window

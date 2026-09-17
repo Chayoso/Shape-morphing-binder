@@ -125,7 +125,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           w_coh=args.w_coh, coh_k=args.coh_k,
                           continuity=args.continuity, bonds=args.bonds, reattach=args.reattach,
                           phys_loss=args.phys_loss, ot_eps_cells=args.ot_eps_cells,
-                          ot_samples=args.ot_samples, ot_iters=args.ot_iters,
+                          ot_samples=args.ot_samples, ot_iters=args.ot_iters, ot_debias=args.ot_debias,
                           eject_veto=args.eject_veto, eject_iso_k=args.eject_iso_k,
                           w_esc=args.w_esc, esc_k=args.esc_k, archive_stride=args.archive_stride,
                           w_bond=args.w_bond, bond_s0=args.bond_s0,
@@ -548,6 +548,7 @@ def main():
     ap.add_argument("--ot_eps_cells", type=float, default=1.0)
     ap.add_argument("--ot_samples", type=int, default=8192)
     ap.add_argument("--ot_iters", type=int, default=10)
+    ap.add_argument("--ot_debias", action="store_true")
     ap.add_argument("--domain", default="fixed", choices=["fixed", "auto"])  # auto: grid = leash box + stencil margin
     ap.add_argument("--v_max", type=float, default=0.0)        # G2P speed cap [wu/s], 0 = off (MPMParams.v_max)
     ap.add_argument("--eject_veto", action="store_true")       # reject windows that add isolated particles

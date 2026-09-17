@@ -55,3 +55,15 @@ def test_lone_particle_is_pulled_toward_the_body_not_away():
     g = torch.autograd.grad(pull(xg), xg)[0]
     assert float(g[0, 0]) > 0                                # gradient +x => descent moves it back (-x)
     assert float(g[0].norm()) > 5 * float(g[1:].norm(dim=1).median())   # and it is the strongest pull
+
+
+def test_debiased_displacement_has_no_shrinkage_on_a_matched_cloud():
+    """A cloud that already equals the target: the plain barycentric map shrinks toward the
+    interior (entropic bias), the debiased displacement is ~zero."""
+    x, y = _clouds(4, 1200)
+    x = y.clone()
+    pull = SinkhornPull(target_samples(y, 1200), eps=0.05, iters=60)
+    T = pull.barycentric_targets(x)
+    plain = (T - x).norm(dim=1).mean()
+    deb = pull.debiased_displacement(x, n_self=1200).norm(dim=1).mean()
+    assert float(deb) < 0.5 * float(plain)

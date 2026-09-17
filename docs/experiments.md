@@ -1623,3 +1623,12 @@ renderer are the problem), then H1, H3, H2.
   hypothesis states. Quality is behind: chamfer 0.1558, silIoU 0.957, hole 0.95 % (density
   loss: 0.1191 / 0.966 / 0.08 %) — the 8192-sample plan at ε = dx² is a blurry coverage
   target. Next: 32768 samples with ε = (0.5 dx)² and ε = dx² (`ejo2`, `ejo3`).
+- **H3 variants** (overnight): `ejo2_dragon` (32768 samples, ε = (0.5 dx)²): chamfer 0.1779,
+  silIoU 0.954, hole 1.77 %, 3 re-attached, 211 commits; `ejo3_dragon` (32768, ε = dx²):
+  0.1519 / 0.956 / 0.88 %, 2 re-attached, 181 commits; `ejo` (8192, dx²): 0.1558 / 0.957 /
+  0.95 %, 1 re-attached. Ejection is gone in every variant (1–3 merges vs 227); more samples
+  do not help and a sharper ε hurts, and every variant leaves a HOLE (0.9–1.8 % vs 0.08 %):
+  the entropic barycentric map shrinks toward the interior (the known Sinkhorn bias), so
+  thin features are under-filled. Remedy by construction: the DEBIASED Sinkhorn divergence
+  S_ε = OT_ε(α,β) − ½OT_ε(α,α) − ½OT_ε(β,β) (Feydy et al. 2019) whose self-term cancels the
+  shrinkage — per window the target displacement becomes T_i − T_i^self (`ejo4`).
