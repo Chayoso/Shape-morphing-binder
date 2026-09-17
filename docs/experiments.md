@@ -2250,3 +2250,8 @@ strays; dragon — one solid body with horns and whiskers attached (v5 had a det
 chunk), two tiny dots at the left; bob — a clean solid ring, no strays (v5 ring with a
 scatter below). v6 is the gallery; v5 becomes the comparison page. New meshes are being
 re-run at dx 0.31 (`n150y_<T>`).
+
+**Published (15:15):** main 150k gallery → v6 at
+https://claude.ai/code/artifact/2f348b78-324e-4cf0-a491-ea49f92fd5b1 (docs/highres150_v6_report.md);
+v5 (ppc 27) kept as a separate comparison page https://claude.ai/code/artifact/2ee53cd2-4c65-4b63-bea1-9026d13d8f78; v4 (ot_pace) at
+6b144784. The recipe (`scripts/ops/hyde06_env.sh`) is `--cell_diag 26`.

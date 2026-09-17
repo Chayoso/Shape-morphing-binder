@@ -64,7 +64,7 @@ volumetric mass matching only (Xu et al.).
   (`docs/oscillation_triage.md`), `scripts/probes/gate_probe.py` and the hyde06-side
   `scatter_probe2.py` (`docs/thin_feature_transport.md` — the 2026-09-15 "scatter then
   return" dossier: sub-cell density deficit of the ear stream, not volume, not fracture;
-  `w_coh`/`w_bond`/`vol_frontier` falsified; control basis + `--ppc 8` are the levers).
+  `w_coh`/`w_bond`/`vol_frontier` falsified; control basis + `--ppc 8` were the levers). 2026-09-17: the MASS-EJECTION cause is the cell size relative to the shape (numerical fracture needs a one-cell gap); the recipe is now `--cell_diag 26` (dx = source bbox diagonal / 26, ppc = N dx^3 / V) — docs/method.md §10.9, docs/experiments.md 2026-09-17.
 - `tests/` — 39 CPU/warp-CPU tests incl. an end-to-end pipeline smoke; run `python -m pytest`.
 - **Deleted 2026-09-01** (git history ≤ `2607972`): v1 loops (`morph.py`,
   `morph_physical.py`, `style_transfer.py`), `losses/render_guidance.py`, v1 plasticity
