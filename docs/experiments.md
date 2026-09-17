@@ -1826,7 +1826,14 @@ chamfer / silIoU / hole within noise of d40 / n40; falsifier as before.
 | dragon | 41 / 0.1277 / 0.854 / 1.15 % | **2** / 0.1296 / **0.967** / **0.45 %** | 9.3 min |
 | armadilo | 12 / 0.1144 / 0.935 / 0.27 % | **0** / 0.1227 / **0.965** / 0.23 % | 12.5 min |
 
-Fragments 85/41/12 → 1/2/0 and silIoU up 3–13 points; chamfer within ±0.008; the runs go
-to 97–164 windows (no tracker stop: the fixed cell sum keeps falling). Whole-trajectory
-stray_max 0.59–0.86 % (transient isolated particles mid-run; the end fragments are what
-remain). The remaining 15 meshes launched as `op40_<T>` (08:21).
+| ogre | 17 / 0.1196 / 0.916 / 0.13 % | **3** / 0.1257 / **0.957** / 0.78 % | 23.1 min (3 runs/GPU) |
+
+Fragments 85/41/12/17 → 1/2/0/3 and silIoU up 3–13 points; chamfer within ±0.008; the
+runs go to 97–243 windows (no tracker stop: the fixed cell sum keeps falling).
+Whole-trajectory stray_max 0.59–0.86 % (transient isolated particles mid-run; the end
+fragments are what remain). Against the pre-registration: fragments ≤ 3 on all four ✓;
+quality within noise on bob, dragon, armadilo ✓; ogre's hole 0.13 → 0.78 % exceeds the
+0.5-pt falsifier (its silIoU is 4 points better) — a partial pass, recorded as such. The
+remaining 15 meshes launched as `op40_<T>` (08:17); first in: C (the letter, which the
+density recipe never morphs at 40k: chamfer 0.54) — ot_pace 8 fragments, 0.1710 / 0.927 /
+6.76 %, gate stop at 31 windows (13 rejects): a much better shape but not fragment-free.
