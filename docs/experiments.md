@@ -1753,3 +1753,16 @@ worst density-loss ejectors, 12 / 17 / 41 / 85 fragments): end fragments ≤ 3 o
 AND chamfer / silIoU / hole within noise of the density runs (0.1144/0.935/0.27,
 0.1196/0.916/0.13, 0.1277/0.854/1.15, 0.1239/0.849/2.49). Falsifier: fragments > 3 on any,
 or a hole increase > 0.5 pt.
+
+**ot40c v1 FALSIFIED (07:50):** armadilo 1 frag, 0.1396 / 0.822 / 4.32 %, ogre 2 frag,
+0.1452 / 0.807 / 1.97 %; both stopped by the outer-merit gate at 26–31 windows (candidates
+rejected with gain −0.04…−0.06 and reversal 0.93: the two terms oscillate). Two causes:
+(1) the entropic image sits ~0.9 spacings INSIDE the target (blur; p90 1.4, leash radius
+1.7), so for the tail of particles the leash and the cell sum pull toward different places;
+(2) the window-1 global-norm calibration (all particles outside the radius, |g_ot| large)
+makes the per-particle hinge on a stray ~1e-6, i.e. no restraint. v2 (commit after
+aa9a970): anchors = map images projected onto the target point set (KD-tree; both terms
+now want the same support, the plan still decides the region), Huber hinge (quadratic r…2r,
+linear beyond), and per-particle parity — the scale is set so that a particle at 2r feels
+the pull the density loss exerts on its most-pulled particle at the source; beyond 2r the
+pull is constant. Trials ot40d on the same four meshes.

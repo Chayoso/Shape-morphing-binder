@@ -340,6 +340,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             ot_T = x0_ot + tgt.ot_pull.debiased_map_displacement(x0_ot, cfg.ot_samples)
         else:
             ot_T = tgt.ot_pull.entropic_map(x0_ot, cfg.ot_samples)
+        leash_r = float(tgt.ot_pull.eps) ** 0.5           # the plan's own resolution
+        if cfg.phys_loss == "ot_leash":
+            # the leash anchors are the map images PROJECTED onto the target point set: the
+            # entropic image sits ~0.9 spacings inside the target (blur), which made the
+            # leash and the cell sum pull surface particles to different places (v1: merit
+            # oscillation, gate stop at ~25 windows). Projected, both terms want the same
+            # support; the plan still decides WHICH region a particle belongs to.
+            from scipy.spatial import cKDTree
+            if getattr(tgt, "ot_kd", None) is None:
+                tgt.ot_kd = cKDTree(np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32))
+            _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
+            ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         _sp = getattr(tgt.ot_pull, "_self_pull", None)
@@ -347,26 +359,35 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               + (f", self {_sp.last_sweeps} sweeps err={_sp.last_err:.3g}" if _sp is not None else "")
               + f", {time.perf_counter() - _t_ot:.2f}s", flush=True)
 
-        leash_r = float(tgt.ot_pull.eps) ** 0.5           # the plan's own resolution
-
         def ot_loss(xT):
             if cfg.phys_loss == "ot_leash":
-                # transport-plan LEASH: zero within the plan's blur radius of the particle's
-                # map image (the density loss refines freely there), quadratic beyond it —
-                # a particle that leaves the body by more than the plan's resolution is
-                # pulled back to where the plan puts its mass. Early windows: every particle
-                # is outside the radius (the map image is the whole transport away), so the
-                # term IS the OT pull until the cloud arrives.
+                # transport-plan LEASH (Huber hinge): zero within the plan's blur radius r of
+                # the particle's anchor (the cell sum refines freely there), quadratic from
+                # r to 2r, linear beyond (a constant pull — no stray is pulled harder than
+                # the density loss pulls its most-pulled particle, see the calibration).
                 d = (xT - ot_T).norm(dim=1)
-                return torch.clamp(d - leash_r, min=0.0).pow(2).mean()
+                e = torch.clamp(d - leash_r, min=0.0)
+                quad = e.pow(2)
+                lin = leash_r ** 2 + 2.0 * leash_r * (e - leash_r)
+                return torch.where(e <= leash_r, quad, lin).mean()
             return (xT - ot_T).pow(2).sum(1).mean()
         if tgt.ot_scale is None:
             xg = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
-            gv = torch.autograd.grad(dvol_density(xg), xg)[0].norm()
-            xg2 = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
-            go = torch.autograd.grad(ot_loss(xg2), xg2)[0].norm()
-            tgt.ot_scale = float(gv / go.clamp_min(1e-30))
-            print(f"[win] OT calibration: |g_vol|={float(gv):.3g} |g_ot|={float(go):.3g} scale={tgt.ot_scale:.3g}", flush=True)
+            g_vol = torch.autograd.grad(dvol_density(xg), xg)[0]
+            gv = g_vol.norm()
+            if cfg.phys_loss == "ot_leash":
+                # per-particle parity: a particle at 2r (and beyond) feels the pull the
+                # density loss exerts on its most-pulled particle at the source
+                n_p = float(xg.shape[0])
+                g_max = float(g_vol.norm(dim=1).max())
+                tgt.ot_scale = g_max * n_p / (2.0 * leash_r)
+                print(f"[win] OT leash calibration: max|g_vol_i|={g_max:.3g} r={leash_r:.4g} wu "
+                      f"scale={tgt.ot_scale:.3g}", flush=True)
+            else:
+                xg2 = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
+                go = torch.autograd.grad(ot_loss(xg2), xg2)[0].norm()
+                tgt.ot_scale = float(gv / go.clamp_min(1e-30))
+                print(f"[win] OT calibration: |g_vol|={float(gv):.3g} |g_ot|={float(go):.3g} scale={tgt.ot_scale:.3g}", flush=True)
 
         if cfg.phys_loss == "ot_leash":
             def dvol(xT):
