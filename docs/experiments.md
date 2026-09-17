@@ -1837,3 +1837,17 @@ quality within noise on bob, dragon, armadilo ✓; ogre's hole 0.13 → 0.78 % e
 remaining 15 meshes launched as `op40_<T>` (08:17); first in: C (the letter, which the
 density recipe never morphs at 40k: chamfer 0.54) — ot_pace 8 fragments, 0.1710 / 0.927 /
 6.76 %, gate stop at 31 windows (13 rejects): a much better shape but not fragment-free.
+Then fandisk 1 → 0 (0.1201 / 0.977 / 0.02 %), V 33 → **0** (0.1186 / **0.979** / 0; density
+0.902), cow 2 → 2 (0.1216 / 0.961 / 0.01), bunny 3 → **0** (0.1225 / 0.972 / 0).
+
+**150k with re-attachment (h150p, EXTRA `--archive_stride 8 --reattach --phys_loss
+ot_pace --ot_debias`), first run bunny (08:46):** 0 fragments, **20 re-attachments** over
+the run (v3 density recipe: 142), silIoU 0.970 (v3 0.974), hole 0.15 %, 25.7 min — but
+chamfer 0.0976 vs 0.0757: the end target was the rasterised IMAGE cloud, whose entropic
+fuzz sits ~0.9 spacings inside the target, so the surface ended slightly inside and
+fuzzy. Fix (commit f68df6c): a particle within one blur radius of its image contributes
+the nearest TARGET point to the paced grid instead of the image (particles still in
+flight keep the advected position), so on the support the end target is the target. The
+h150p batch was stopped and relaunched on this code (the first bunny moved to
+void_h150p_v1/); the 40k sweep already in flight keeps the pre-fix code for runs that had
+started (fragments are the sweep's verdict, unaffected by the end-state projection).
