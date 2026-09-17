@@ -1916,3 +1916,15 @@ same blur radius, same neighbour rule). Trials `or40_bunny`, `or40_dragon` (40k,
 re-attach; excess mass at the start 38 %, plan 120 sweeps, 3.5 s per window with three
 runs per GPU). Pre-registration: fragments ≤ the ot_pace values (0 / 2) AND chamfer within
 0.005 of the density runs (0.1136 / 0.1277) with a smooth surface in the stills.
+
+**ot_resid FALSIFIED on bunny (10:08):** 0 fragments, but chamfer 0.1248 (density 0.1136,
+ot_pace 0.1225), silIoU 0.962, hole 0.16 %, 35 gate rejects in 207 windows — worse than
+ot_pace. 150k V (ot_pace) meanwhile: 0 fragments, 81 re-attachments (v3 1074), silIoU 0.972
+(v3 0.975), chamfer 0.104 (v3 0.074), hole 0.96 %: the same pattern on every 150k target.
+
+**ot_shape (commit after 1381877):** ot_pace with the particle subsample drawn with
+probability inverse to the cloud's cell mass at the particle, so the plan's source measure
+is uniform over the occupied cells (the support) like the uniformly sampled target — the
+plan transports the SHAPE and asks for no interior redistribution (the cell sum tolerates
+the interior; ot_pace paid for equalising it with rough surfaces). Redrawn every window.
+Trials `os40_bunny`, `os40_dragon`; same pre-registration as ot_resid.
