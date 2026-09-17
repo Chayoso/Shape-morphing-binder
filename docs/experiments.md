@@ -2097,3 +2097,10 @@ the shape (8 cells across the bunny), not from the shell scheme; the sampler sta
 code (`--sample shell`) as a C++-parity option. The bob/armadilo shell trials were stopped.
 ppc 27 uniform is the clean result on every measure: 0 grid fragments and 0 particles
 off the target beyond a quarter world unit.
+
+**Off-target census, 40k end frames, particles farther than 0.5 wu from any target point
+(max distance):** bob — density ppc 8 254 (3.50 wu), ppc 27 **7** (2.49), ot_pace 1 (1.13);
+armadilo — 13 (1.43), **0** (0.17), 0 (0.18); dragon — 216 (3.92), **0** (0.24), —; bunny
+ppc 27 0 (0.24); homer ppc 27 0 (0.19); ppc 64 dragon 0 beyond 0.5 wu (94 between 0.25 and
+0.41: near-surface fuzz of the coarse grid). The recipe (`scripts/ops/hyde06_env.sh`,
+docs/pipeline.md) now carries `--ppc 27`.

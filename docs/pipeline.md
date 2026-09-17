@@ -40,14 +40,14 @@ the viewer in [viewer.md](viewer.md).
 Key flags of the production recipe (`render_full_dt_iso_nn` arm):
 
 ```
---n 150000 --ppc 8 --loss_units density --warm_start --w_kin 5 --w_kin_var 200
+--n 150000 --ppc 27 --loss_units density --warm_start --w_kin 5 --w_kin_var 200
 --animations 300 --loss_res 64 --pace 0 --anneal 0.7 --mom_carry 0 --nn_far_k 1000
 --bonds --domain auto --archive_stride 8 --live_dir <OUT>/live
 ```
 
 | flag | meaning | where |
 |---|---|---|
-| `--ppc 8` | dx follows N (8 particles per cell); loss grid = MPM cell in density units | `mpm/discretisation.py` |
+| `--ppc 27` | dx follows N: dx = h·ppc^(1/3) with h the particle spacing, so the MPM cell is 3 spacings and a particle needs a 3-spacing gap to decouple (ppc 8 = 2 spacings fractured: the mass-ejection mechanism, 2026-09-17, docs/method.md §10.9); loss grid = MPM cell in density units | `mpm/discretisation.py` |
 | `--loss_units density` | resolution-invariant D_vol; legacy weights converted on a 0.5 wu reference cell (`cfg.unit_ref_res`) | `pipeline/runner.py::calibrate_units` |
 | `--domain auto` | MPM grid = leash box (1.25 × max|target|) + 2 dx; the reference cell stays 0.5 wu (fix 6cf1a23) | `scripts/pipeline_run.py` |
 | `--bonds` | material re-coupling v5: frozen source kNN, rest lengths as state, fragment mask on the dilated occupancy | `mpm/kernels.py`, `pipeline/runner.py::fragment_mask` |
