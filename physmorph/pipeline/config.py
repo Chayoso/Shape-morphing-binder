@@ -349,6 +349,10 @@ class PipelineConfig:
                                     # (the cold plan anneals eps geometrically from the squared
                                     # target diameter; warm plans re-solve at the target eps)
     ot_debias: bool = False         # debiased divergence: subtract the self-transport map (no shrinkage)
+    ot_handoff: bool = False        # ot_pace: once no target cell with mass lies beyond one cell of
+                                    # the body, the window target is the FIXED target (fill at full
+                                    # strength); first tried 2026-09-17 while the merit read the
+                                    # paced loss (a bug) — re-tested on the fixed merit
     render_until: int = 0           # >0: the render channel is switched OFF from this window on
                                     # (intervention experiment: does the render gradient change
                                     # the physics trajectory? 2026-09-17)

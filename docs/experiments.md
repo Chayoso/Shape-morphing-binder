@@ -1695,6 +1695,22 @@ defined on. This bug also inflated the gate rejects of every ot_pace run (3–15
 Re-run `cd5_C` (ot_pace + cell 0.31 + net) on the fix; pre-registration: C reaches silIoU
 > 0.9 without a brake freeze.
 
+**cd5_C (19:10): silIoU 0.912 (0.72 before), chamfer 0.186, hole 8.4 %, 48 re-attachments,
+stop at window 25.** With the merit reading the fixed cell sum the run descends
+monotonically for 19 windows (merit 3.0 → 0.376, d_sil 0.44 → 0.043, d_dt 3.0e4 → 167,
+kin peaks 3.7 and decays — no overshoot) and then stalls: from window 20 the fixed-target
+d_vol creeps up (0.131 → 0.137) and d_dt (167 → 211) while d_sil is flat, three low-gain
+rejects (−0.8…−1.5 %) trip the latch. The arms are formed but under-filled (hole 8 %): the
+paced target after arrival is the projected image cloud, whose cell masses are not the
+target's, so the optimiser minimises against a target that is itself 0.13 away. The
+hand-off (window target = the fixed target once no deficit cell lies beyond one cell of
+the body) is the designed remedy; its one earlier test (oh40, 07:57) failed while the merit
+was reading the paced loss — the bug — so it is re-tested on the corrected merit: `cd6_C`
+and, as the general recipe candidate for goals 1 and 3 (transport pacing early = no
+leaders, fixed target late = full fill), `oh2_{bunny,dragon,bob}` at 40k, cell 0.31, no
+re-attachment. Pre-registration: fragments ≤ v6 (0 / 0 / 2) and chamfer / silIoU within
+0.005 / 0.01 of the density recipe (0.118 / 0.960, 0.126 / 0.955, 0.118 / 0.958).
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
