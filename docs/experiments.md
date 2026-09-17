@@ -1541,3 +1541,12 @@ bunny (0.920→0.974), armadillo (0.794→0.925), dragon (0.642→0.776), A (0.8
 V (0.792→0.975), spot, teapot; C stays a failure (gate stop at 21, not ejection). Re-attached
 particles per target: heart 0, teapot 32, spot 42, bunny 142, armadillo 619, bob 770, V 1074,
 A 1585, dragon 3753 — the count is the price of the drift the recipe still produces.
+
+
+### 2026-09-16 — new-mesh 150k batch (`n150_*`, launched 21:58, unattended)
+
+The nine public meshes at 150k with the v3 recipe (`--bonds --reattach`, corrected auto
+domain, archive stride 8): GPU 0 cow homer maxplanck nefertiti fandisk, GPU 2 ogre beast
+cheburashka bimba (`run_batch.sh`), post-processed into `report_n150/<T>/`.
+Pre-registration: 0 fragments at the end on every mesh; chamfer / silIoU at or above the 40k
+values for the eight blob-like meshes; beast remains the weak case.
