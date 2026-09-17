@@ -2128,3 +2128,7 @@ that lies within one MPM cell of a target point is left alone — a part of the 
 sits where the target is, separated by a thin neck, is not ejecta (the bob burst). No new
 constant (the cell). Committed, to be deployed with the next batch (the running batch keeps
 the old net so the gallery stays on one code).
+
+150k v5 heart (12:10): 0 fragments, 0 re-attachments, 0.0746 / 0.982 / 0 (v3 0.0732 /
+0.983). (Ops note: density-recipe logs are block-buffered until exit — a run that looks
+stuck at 27 log lines for 20 minutes is running; judge by the status markers.)
