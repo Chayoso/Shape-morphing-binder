@@ -1844,7 +1844,10 @@ new mesh improves by 14 silIoU points but is not fragment-free. spot 0 → 0 (0.
 0), teapot 0 → 0 (0.1180 / 0.971 / 0.22 %), cheburashka 1 → 0 (0.1209 / 0.973 / 0.09 %),
 heart 0 → 0 (0.1145 / 0.981 / 0), **homer 7 → 14** (0.1294 / 0.943 / 0.02 %; density 0.1195 /
 0.956 / 0) — the one counter-example so far: thin arms and hands, the plan sends mass along
-them and the tips detach (stray_max 0.74 %, 0 gate rejects).
+them and the tips detach (stray_max 0.74 %, 0 gate rejects; fragments appear in a burst at
+window 49, +12 at once, and stay). A 0 → 0 (0.1175 / 0.980 / 0.01 %). 150k bunny v2 (the
+arrival-projection code, 09:20): 0 fragments, **19 re-attachments** (v3 142), silIoU 0.974
+(= v3), hole 0.18 %, chamfer 0.0949 (v3 0.0757), 21.4 min.
 
 **150k with re-attachment (h150p, EXTRA `--archive_stride 8 --reattach --phys_loss
 ot_pace --ot_debias`), first run bunny (08:46):** 0 fragments, **20 re-attachments** over
