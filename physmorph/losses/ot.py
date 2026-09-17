@@ -42,6 +42,12 @@ class SinkhornPull:
         self.last_err = float("nan")      # marginal error of the last solve (diagnostic)
         self.last_sweeps = 0
         self.warm_levels = -1             # eps halvings re-annealed on a warm solve; -1: the full anneal
+        self.coarse_sweeps = 0            # >0: fixed sweeps per coarse eps level (only the target level
+                                          # iterates to tol); 0: every level iterates to tol
+        self.err_norm = "mean"            # marginal error: "mean" = the L1 mass error |pi 1 - a|_1 (the
+                                          # standard Sinkhorn criterion; the max over rows stalls on a
+                                          # few outliers: real bunny 152 sweeps vs 84, identical map)
+        self.last_err_max = float("nan")
         self._self_pull = None            # persistent self-transport solver (debiasing), warm-started
         # rows per chunk so that one (rows x M) cost block stays at <= 2^27 floats (512 MB)
         self.chunk = max(1024, min(int(chunk), (1 << 27) // max(self.M, 1)))
@@ -89,21 +95,29 @@ class SinkhornPull:
         # symmetric case (self-transport of a point set onto itself): f = g, one averaged
         # update per sweep (Feydy et al. 2019, symmetric Sinkhorn), same marginal criterion
         sym = self.y.shape[0] == N and self.y.data_ptr() == x.data_ptr()
+        lev_sw = 0                        # sweeps spent at the current level
         for it in range(self.iters):
             eps = self.eps * scales[lev]
+            lev_sw += 1
+            coarse_done = (self.coarse_sweeps > 0 and lev < len(scales) - 1
+                           and lev_sw >= self.coarse_sweeps)
             if sym:
                 lse = torch.logsumexp((f[None, :] - C_all) / eps + self.log_b, dim=1)
                 f_new = -eps * lse
-                err_t = (torch.exp((f - f_new) / eps) - 1.0).abs().max()
+                dev_t = (torch.exp((f - f_new) / eps) - 1.0).abs()
+                err_t, err_m = dev_t.max(), dev_t.mean()
                 f = 0.5 * (f + f_new)
                 g = f
                 n_sw = it + 1
-                if (it % 4 == 3) or it == self.iters - 1:
-                    err = float(err_t)
+                if coarse_done:
+                    lev += 1; lev_sw = 0
+                elif (it % 4 == 3) or it == self.iters - 1:
+                    err_max = float(err_t)
+                    err = float(err_m) if self.err_norm == "mean" else err_max
                     if err < self.tol:
                         if lev == len(scales) - 1:
                             break
-                        lev += 1
+                        lev += 1; lev_sw = 0
                 continue
             # g_j = -eps * logsumexp_i( (f_i - C_ij)/eps + log a_i )   (accumulated over row chunks)
             acc = None
@@ -117,23 +131,31 @@ class SinkhornPull:
             # plan BEFORE this f-sweep (i.e. after the g-sweep) measures convergence: at the
             # fixed point both sweeps are identities and the marginal error vanishes.
             err_t = None
+            err_s = None
             for s in range(0, N, self.chunk):
                 e = min(N, s + self.chunk)
                 C = cost(s, e)
                 lse = torch.logsumexp((g[None, :] - C) / eps + self.log_b, dim=1)
-                em = (torch.exp(f[s:e] / eps + lse) - 1.0).abs().max()
+                dev_t = (torch.exp(f[s:e] / eps + lse) - 1.0).abs()
+                em, es = dev_t.max(), dev_t.sum()
                 err_t = em if err_t is None else torch.maximum(err_t, em)
+                err_s = es if err_s is None else err_s + es
                 f[s:e] = -eps * lse
             n_sw = it + 1
+            if coarse_done:
+                lev += 1; lev_sw = 0      # fixed budget spent at a coarse level: next epsilon
+                continue
             # the convergence test forces a device sync: check it every 4 sweeps
             if (it % 4 == 3) or it == self.iters - 1:
-                err = float(err_t)
+                err_max = float(err_t)
+                err = float(err_s) / N if self.err_norm == "mean" else err_max
                 if err < self.tol:
                     if lev == len(scales) - 1:
                         break
-                    lev += 1              # next (smaller) epsilon, warm-started
+                    lev += 1; lev_sw = 0  # next (smaller) epsilon, warm-started
         self.f, self.g = f, g
         self.last_err, self.last_sweeps = err, n_sw
+        self.last_err_max = locals().get("err_max", float("nan"))
         return f, g, log_a
 
     def __call__(self, x: torch.Tensor) -> torch.Tensor:
@@ -235,6 +257,7 @@ class SinkhornPull:
             sp = self._self_pull = SinkhornPull(xs, eps=self.eps, iters=self.iters, tol=self.tol)
         else:
             sp.y = xs
+        sp.coarse_sweeps = self.coarse_sweeps
         # the self plan is symmetric (a = b = the subsample): solve it on the subsample itself
         # (the same tensor as sp.y triggers the symmetric update in _solve)
         T_self = sp.entropic_map_from(x, sp.y)

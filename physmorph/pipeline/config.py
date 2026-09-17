@@ -330,7 +330,10 @@ class PipelineConfig:
                                     # Gaussian image loss (audit: L1 sign crossings made
                                     # the finite-difference check fail at 12k)
     phys_loss: str = "density"      # "density": the cell-sum D_vol; "ot": entropic optimal transport
-                                    # (losses/ot.SinkhornPull) rescaled once to D_vol's gradient norm
+                                    # (losses/ot.SinkhornPull) rescaled once to D_vol's gradient norm;
+                                    # "ot_leash": D_vol + a hinge on the distance of each particle to
+                                    # its transport-map image beyond the plan's blur radius (the cell
+                                    # sum refines inside the radius, nothing may leave the body by more)
     ot_eps_cells: float = 0.0       # Sinkhorn epsilon = (ot_eps_cells * loss cell)^2; 0: the
                                     # plan resolves to the particle spacing, eps = (nn spacing)^2
                                     # (= (dx / ppc^(1/3))^2, half a cell at ppc 8: the resolution

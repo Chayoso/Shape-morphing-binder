@@ -545,7 +545,8 @@ def main():
     ap.add_argument("--continuity", action="store_true")      # discrete-continuity line-search feasibility (ejection fix)
     ap.add_argument("--bonds", action="store_true")           # material bonds for decoupled particles (numerical-fracture repair)
     ap.add_argument("--reattach", action="store_true")        # merge grid-disconnected particles back onto the body at each commit
-    ap.add_argument("--phys_loss", default="density", choices=["density", "ot"])  # H3: transport loss instead of the cell sum
+    ap.add_argument("--phys_loss", default="density", choices=["density", "ot", "ot_leash"],
+                    help="density: cell sum; ot: transport map L2 (H3); ot_leash: cell sum + hinge beyond the plan blur")
     ap.add_argument("--ot_eps_cells", type=float, default=0.0,
                     help="Sinkhorn sqrt(eps) in loss cells; 0 = the particle spacing (default)")
     ap.add_argument("--ot_samples", type=int, default=8192)

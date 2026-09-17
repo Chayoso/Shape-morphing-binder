@@ -308,7 +308,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             raise ValueError(f"unknown loss_units {cfg.loss_units!r}")
         return d_vol(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims)
 
-    if getattr(cfg, "phys_loss", "density") == "ot":
+    if getattr(cfg, "phys_loss", "density") in ("ot", "ot_leash"):
         # H3: entropic optimal transport replaces the cell sum. The plan is solved once per
         # evaluation (warm-started), the differentiated value is the transport cost under
         # the detached plan; rescaled ONCE by gradient-norm parity with D_vol at the source.
@@ -347,7 +347,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               + (f", self {_sp.last_sweeps} sweeps err={_sp.last_err:.3g}" if _sp is not None else "")
               + f", {time.perf_counter() - _t_ot:.2f}s", flush=True)
 
+        leash_r = float(tgt.ot_pull.eps) ** 0.5           # the plan's own resolution
+
         def ot_loss(xT):
+            if cfg.phys_loss == "ot_leash":
+                # transport-plan LEASH: zero within the plan's blur radius of the particle's
+                # map image (the density loss refines freely there), quadratic beyond it —
+                # a particle that leaves the body by more than the plan's resolution is
+                # pulled back to where the plan puts its mass. Early windows: every particle
+                # is outside the radius (the map image is the whole transport away), so the
+                # term IS the OT pull until the cloud arrives.
+                d = (xT - ot_T).norm(dim=1)
+                return torch.clamp(d - leash_r, min=0.0).pow(2).mean()
             return (xT - ot_T).pow(2).sum(1).mean()
         if tgt.ot_scale is None:
             xg = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
@@ -357,8 +368,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             tgt.ot_scale = float(gv / go.clamp_min(1e-30))
             print(f"[win] OT calibration: |g_vol|={float(gv):.3g} |g_ot|={float(go):.3g} scale={tgt.ot_scale:.3g}", flush=True)
 
-        def dvol(xT):
-            return tgt.ot_scale * ot_loss(xT)
+        if cfg.phys_loss == "ot_leash":
+            def dvol(xT):
+                return dvol_density(xT) + tgt.ot_scale * ot_loss(xT)
+        else:
+            def dvol(xT):
+                return tgt.ot_scale * ot_loss(xT)
     else:
         dvol = dvol_density
     s = None
