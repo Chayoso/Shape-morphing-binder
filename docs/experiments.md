@@ -1583,3 +1583,16 @@ Sources: [S1] https://www.sciencedirect.com/science/article/abs/pii/S00457825193
 [S13] https://arxiv.org/pdf/2308.04079
 Order of experiments: H5(i) and H4 first (cheapest, decide whether the render channel and the
 renderer are the problem), then H1, H3, H2.
+
+- **H5(i) dragon** (22:12): physics-only twin `p40_dragon` (λ = 0, same recipe incl.
+  re-attachment) vs the render twin `r40_dragon`: D_vol at commit 20 0.0511 vs 0.0450, at the
+  end 0.0259 vs 0.0206; final chamfer 0.1230 vs 0.1191, silIoU 0.920 vs 0.966. The render
+  channel lowers even the physics term and adds 4.6 silIoU points — the feedback is real,
+  modest in chamfer, large in silhouette. (armadillo, bunny twins pending.)
+- **H4 result**: `scripts/render_iso_video.py` (ray-marched isosurface, blur 1.5 spacings,
+  iso 0.5 × source bulk density) shows one continuous object at every frame; lone particles
+  fall below the iso-level and do not render, dense detached chunks still do. With the true
+  particle spacing the bunny's ears are revealed as sparse (most of the ear region is below
+  half the bulk density) — a physics fact the splat renderer had hidden with oversized disks.
+  The post-processing now writes the isosurface video as `<T>_surface.gif` and keeps the
+  splat video as `<T>_splat.gif`; the ten v3 targets are being re-rendered.

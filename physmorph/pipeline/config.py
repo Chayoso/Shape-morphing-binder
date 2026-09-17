@@ -329,6 +329,11 @@ class PipelineConfig:
     gauss_robust_eps: float = 0.0   # >0: Charbonnier sqrt(r^2+eps^2) instead of |r| in the
                                     # Gaussian image loss (audit: L1 sign crossings made
                                     # the finite-difference check fail at 12k)
+    phys_loss: str = "density"      # "density": the cell-sum D_vol; "ot": entropic optimal transport
+                                    # (losses/ot.SinkhornPull) rescaled once to D_vol's gradient norm
+    ot_eps_cells: float = 1.0       # Sinkhorn epsilon = (ot_eps_cells * loss cell)^2
+    ot_samples: int = 8192          # target samples for the plan
+    ot_iters: int = 10              # Sinkhorn sweeps per evaluation (warm-started)
     loss_units: str = "legacy"      # "legacy": D_vol = 1/2 sum_cells log-mass residual^2
                                     # (Xu et al., grid-count units); "density": the same
                                     # residual on m/m_ref averaged over target-support

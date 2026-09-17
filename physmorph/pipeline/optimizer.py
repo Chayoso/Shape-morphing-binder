@@ -70,6 +70,9 @@ class TargetPack:
     jd_dims: tuple = ()
     jd_rho0: torch.Tensor | None = None  # per-particle rest density (source, same estimator)
     jd_scale: float | None = None        # one-shot equal-norm calibration vs D_vol
+    points: torch.Tensor | None = None   # the target sample cloud (N_t,3) on the device
+    ot_pull: object = None               # losses/ot.SinkhornPull (phys_loss = "ot")
+    ot_scale: float | None = None        # one-shot equal-norm calibration of the OT loss vs D_vol
     h1_scale: float | None = None        # H^-1 mass-balance term: equal-norm vs D_vol
     kde_h: float = 0.0                  # particle-scale density term (w_kde>0)
     kde_rho_ref: float = 1.0
@@ -297,13 +300,36 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # the window's start occupancy; recomputed per window by the runner
     grid_eff = tgt.grid if frontier is None else tgt.grid * frontier
 
-    def dvol(xT):
+    def dvol_density(xT):
         if cfg.loss_units == "density":
             return d_vol_density(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims,
                                  tgt.m_ref, tgt.n_support)
         if cfg.loss_units != "legacy":
             raise ValueError(f"unknown loss_units {cfg.loss_units!r}")
         return d_vol(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims)
+
+    if getattr(cfg, "phys_loss", "density") == "ot":
+        # H3: entropic optimal transport replaces the cell sum. The plan is solved once per
+        # evaluation (warm-started), the differentiated value is the transport cost under
+        # the detached plan; rescaled ONCE by gradient-norm parity with D_vol at the source.
+        from ..losses.ot import SinkhornPull, target_samples
+        if getattr(tgt, "ot_pull", None) is None:
+            tgt.ot_pull = SinkhornPull(target_samples(tgt.points, cfg.ot_samples),
+                                       eps=(cfg.ot_eps_cells * float(tgt.ldx)) ** 2,
+                                       iters=cfg.ot_iters)
+            tgt.ot_scale = None
+        if tgt.ot_scale is None:
+            xg = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
+            gv = torch.autograd.grad(dvol_density(xg), xg)[0].norm()
+            xg2 = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
+            go = torch.autograd.grad(tgt.ot_pull(xg2), xg2)[0].norm()
+            tgt.ot_scale = float(gv / go.clamp_min(1e-30))
+            log(f"[win] OT calibration: |g_vol|={float(gv):.3g} |g_ot|={float(go):.3g} scale={tgt.ot_scale:.3g}")
+
+        def dvol(xT):
+            return tgt.ot_scale * tgt.ot_pull(xT)
+    else:
+        dvol = dvol_density
     s = None
     if cfg.opt_material:
         s0 = np.zeros((2, N), np.float32) if s_init is None else np.asarray(s_init, np.float32)
