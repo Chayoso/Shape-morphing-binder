@@ -40,14 +40,14 @@ the viewer in [viewer.md](viewer.md).
 Key flags of the production recipe (`render_full_dt_iso_nn` arm):
 
 ```
---n 150000 --ppc 27 --loss_units density --warm_start --w_kin 5 --w_kin_var 200
+--n 150000 --cell_diag 26 --loss_units density --warm_start --w_kin 5 --w_kin_var 200
 --animations 300 --loss_res 64 --pace 0 --anneal 0.7 --mom_carry 0 --nn_far_k 1000
 --bonds --domain auto --archive_stride 8 --live_dir <OUT>/live
 ```
 
 | flag | meaning | where |
 |---|---|---|
-| `--ppc 27` | dx follows N: dx = h·ppc^(1/3) with h the particle spacing, so the MPM cell is 3 spacings and a particle needs a 3-spacing gap to decouple (ppc 8 = 2 spacings fractured: the mass-ejection mechanism, 2026-09-17, docs/method.md §10.9); loss grid = MPM cell in density units | `mpm/discretisation.py` |
+| `--cell_diag 26` | the MPM cell follows the SHAPE: dx = source bbox diagonal / 26 (0.31 wu on the 8 wu normalisation), ppc = N dx³ / V (25 at 40k, 91 at 150k). The mass-ejection ladders (2026-09-17, docs/method.md §10.9) showed the ejection variable is the cell size relative to the shape: dx 0.20 fractures at ppc 8 and 27 alike, 0.31 holds at ppc 27 and 91 alike, 0.41 holds but loses detail. `--ppc` keeps the old contract (dx follows N). Loss grid = MPM cell in density units | `scripts/pipeline_run.py`, `mpm/discretisation.py` |
 | `--loss_units density` | resolution-invariant D_vol; legacy weights converted on a 0.5 wu reference cell (`cfg.unit_ref_res`) | `pipeline/runner.py::calibrate_units` |
 | `--domain auto` | MPM grid = leash box (1.25 × max|target|) + 2 dx; the reference cell stays 0.5 wu (fix 6cf1a23) | `scripts/pipeline_run.py` |
 | `--bonds` | material re-coupling v5: frozen source kNN, rest lengths as state, fragment mask on the dilated occupancy | `mpm/kernels.py`, `pipeline/runner.py::fragment_mask` |

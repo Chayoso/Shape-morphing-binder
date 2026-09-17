@@ -585,6 +585,9 @@ def main():
     ap.add_argument("--ppc", type=float, default=0.0,
                     help=">0: derive dx/grid/loss_res/sigma from N and the source volume "
                          "for this particles-per-cell (docs/render_controls_physics.md §7)")
+    ap.add_argument("--cell_diag", type=float, default=0.0,
+                    help=">0: the MPM cell from the SHAPE, dx = source bbox diagonal / cell_diag, "
+                         "ppc = N dx^3 / V (docs/method.md 10.9; 26 = the finest fracture-free cell)")
     ap.add_argument("--gate_lo", type=float, default=0.0,   # support-gated APIC (Yao-Zhao 2026):
                     help="omega = smoothstep((n/n0 - lo)/(hi - lo)) on the P2G affine term")
     ap.add_argument("--gate_hi", type=float, default=0.0)   # hi <= lo = off (plain APIC)
@@ -606,6 +609,18 @@ def main():
           f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})",
           flush=True)
     prm = MPMParams()
+    if args.cell_diag > 0:
+        # discretisation contract v2 (2026-09-17, docs/method.md 10.9): the MPM cell follows
+        # the SHAPE — dx = source bbox diagonal / cell_diag — and the particles per cell
+        # follow N (ppc = N dx^3 / V). The ladders showed the ejection variable is the cell
+        # size relative to the shape (dx 0.20 wu fractures at ppc 8 and 27 alike; 0.31 holds
+        # at ppc 27 and 91 alike); 26 = the finest fracture-free cell measured (0.31 wu on
+        # the 8 wu normalisation). N then refines the quadrature inside a geometry-set grid.
+        diag_src = float(np.linalg.norm(src.max(0) - src.min(0)))
+        dx_req = diag_src / float(args.cell_diag)
+        args.ppc = float(args.n * dx_req ** 3 / v_src)
+        print(f"[disc] cell from the shape: dx = diag {diag_src:.3f} / {args.cell_diag:g} = {dx_req:.4f} wu "
+              f"-> ppc = N dx^3 / V = {args.ppc:.1f}", flush=True)
     if args.ppc > 0:                       # discretisation contract: dx follows N
         from physmorph.mpm.discretisation import derive, report
         mat = PipelineConfig()             # the material the arms actually use

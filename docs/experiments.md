@@ -2205,3 +2205,48 @@ beast start after it — their net is the amended one, noted on the page).
 now shows v5 (ppc 27, all 10 targets, narrative with the v3 / v4 numbers); v4 (ot_pace)
 stays at https://claude.ai/code/artifact/6b144784-69e7-4703-ba73-ac34f6b45724 for
 comparison; docs/highres150_v5_report.md holds the v5 tables.
+
+**New meshes at 150k, v5 (ppc 27, dx 0.20) — re-attachments v3 → v5, chamfer / silIoU:**
+cow 83 → 10, 0.078 / 0.942; homer 271 → 19, 0.079 / 0.962; maxplanck 14 → 0, 0.076 / 0.976;
+nefertiti 559 → 551, 0.083 / 0.963 (v3 0.868); fandisk 600 → 142, 0.078 / 0.975 (v3 0.804);
+ogre 981 → 194, 0.080 / 0.932 (v3 0.879); beast 3443 → 894, 0.100 / 0.832 (v3 0.829);
+cheburashka 3206 → 45, 0.078 / 0.966; bimba 1491 → 127, 0.076 / 0.974. All 0 fragments.
+Sum 10 648 → 1 982.
+
+**150k v6 = dx 0.31 (ppc 91), amended net — all 10 targets (14:20). Re-attachments
+v5 → v6, chamfer / silIoU v6 (v5):**
+
+| target | re-attach v5 → v6 | chamfer | silIoU | min |
+|---|---|---|---|---|
+| bunny | 27 → **0** | 0.0790 (0.0770) | 0.958 (0.974) | 25 |
+| teapot | 0 → 0 | 0.0762 (0.0749) | 0.970 (0.977) | 16 |
+| heart | 0 → 0 | 0.0758 (0.0746) | 0.980 (0.982) | 9 |
+| spot | 1 → 1 | 0.0796 (0.0799) | 0.964 (0.965) | 10 |
+| A | 386 → **16** | 0.0804 (0.0768) | 0.969 (0.976) | 17 |
+| V | 441 → **29** | 0.0783 (0.0760) | 0.969 (0.983) | 12 |
+| armadilo | 396 → **21** | 0.0818 (0.0795) | 0.919 (0.931) | 11 |
+| dragon | 1562 → **755** | **0.0831** (0.1109) | **0.939** (0.833) | 14 |
+| bob | 3267 → **486** | 0.0778 (0.0773) | 0.968 (0.975) | 13 |
+| C (fails) | 63 → 0 | 0.383 (0.391) | 0.660 (0.748) | 1 |
+
+Sum 6 143 → **1 308** (v3 8 023). Every merge history is steady (bob max 188 per commit,
+dragon 755 total, no teleported part); pops in the videos are correspondingly rare. Cost:
+silIoU −0.1…−1.6 points and chamfer +0.001…+0.004 on the eight easy targets (the coarser
+cell rounds the surface), dragon +10.6 points. Runs are 9–25 min at grid 37–43³.
+
+**Definition, closed (the user's question):** the two ladders together say the ejection
+variable is the cell size relative to the shape, not the particles per cell: dx 0.20 wu
+fractures at both ppc 8 (40k) and ppc 27 (150k); dx 0.31 holds at both ppc 27 (40k) and
+ppc 91 (150k); dx 0.41 holds and loses detail. So the discretisation contract is **dx from
+the shape, ppc from N**: dx = diag / 26 (0.31 wu for the 8 wu normalisation — the finest
+cell the ladders show fracture-free, a measured boundary), ppc = N dx³ / V (25 at 40k, 91
+at 150k), the cell-to-spacing ratio then being 3 at 40k and 4.5 at 150k. N refines the
+quadrature inside a grid that the geometry sets — the C++ oracle's contract (grid_dx 1.0
+on an 8 wu shape, ppc from the sampling), at a finer grid. Implemented as `--cell_diag 26`
+(commit after c20c98b); `--ppc` stays for the old contract.
+
+**Visual QA of the v6 stills (15:05):** bunny — solid body, full ears, smooth surface, no
+strays; dragon — one solid body with horns and whiskers attached (v5 had a detached head
+chunk), two tiny dots at the left; bob — a clean solid ring, no strays (v5 ring with a
+scatter below). v6 is the gallery; v5 becomes the comparison page. New meshes are being
+re-run at dx 0.31 (`n150y_<T>`).
