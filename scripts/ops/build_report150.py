@@ -145,7 +145,7 @@ for r in rows:
 H.append('</tbody></table></div>')
 H.append('<p class="note">"fragments (grid)": 마지막 window에서 그리드 연결성(occupancy를 한 셀 팽창한 뒤의 연결 성분) 기준으로 몸체와 분리된 입자 수 = 이탈 입자. "off-target"은 타깃 점군에서 0.5 wu 이상 떨어진 입자(몸체에 붙어 있어도 타깃 밖이면 셈) — 커버리지 오차이지 이탈이 아니다.</p>')
 H.append('<h2>3. 예제별 결과 — 표면 비디오(object, not particles), 입자 GIF, PBR 스틸, 손실 곡선</h2>')
-H.append('<p class="lede">표면 비디오: GPU z-buffer 디스크 스플랫 → 깊이 평활 → 법선 → GGX 셰이딩, 두 방위각, 타깃 윤곽선 오버레이. 입자 GIF는 같은 프레임의 원시 입자.</p>')
+H.append('<p class="lede">표면 비디오(isosurface): 입자 질량을 128³ 격자에 뿌리고 1.5 spacing 가우시안으로 흐린 밀도의 등밀도면(소스 bulk 밀도의 절반)을 ray-march한 것 — 물체가 하나의 연속 표면으로 보이고, 해상 가능한 밀도 아래의 고립 입자는 표면이 되지 않는다(이탈 수치는 별도 열). 스플랫 비디오는 이전 렌더(디스크 스플랫), 입자 GIF는 원시 입자.</p>')
 for r in rows:
     t = r["t"]; a = r["arm"]; c = r["ce"]
     H.append(f'<h3>sphere → {t}</h3>')
@@ -155,7 +155,7 @@ for r in rows:
             ("wall (min) · s/commit", f'{a.get("min","–")} · {r["lo"].get("spc","–")}'),
             ("fragments (grid) · off-target > 0.5 wu", f'{r["frag"] or "–"} · {c.get("n50","–")} ({c.get("p50","–")} %), max {c.get("mx","–")} wu'),
             ("thin mass / tgt", f'{r["sc"].get("mass","–")} / {r["sc"].get("tgt","–")}')]) + '</div>')
-    H.append('<div class="grid">' + fig(t, f"{t}_surface.gif", f"{t} — surface (two azimuths, target outline)") + fig(t, f"{t}_particles.gif", f"{t} — particles (same frames)") + '</div>')
+    H.append('<div class="grid">' + fig(t, f"{t}_surface.gif", f"{t} — isosurface of the particle density (two azimuths, target outline)") + fig(t, f"{t}_splat.gif", f"{t} — disk splats (the previous surface render, same frames)") + fig(t, f"{t}_particles.gif", f"{t} — raw particles (same frames)") + '</div>')
     H.append('<div class="grid4">' + fig(t, f"{t}_target_pbr_az35.png", "target (az 35°)") + fig(t, f"{t}_render_pbr_az35.png", "delivered (az 35°)") + fig(t, f"{t}_target_pbr_az215.png", "target (az 215°)") + fig(t, f"{t}_render_pbr_az215.png", "delivered (az 215°)") + '</div>')
     H.append('<div class="grid">' + fig(t, f"{t}_loss.png", "window loss and D_vol vs commit; loss vs wall-clock") + '</div>')
 for key, title in (("ejection_html", "4. Mass ejection — 원인 조사와 시도한 메커니즘"), ("speed_html", "5. 속도 — 150k 10분 목표"), ("summary_html", "6. 요약과 다음 단계"), ("viewer_html", "7. 3D 뷰어에서 보기")):
