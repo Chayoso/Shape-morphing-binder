@@ -495,16 +495,22 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # candidates and the run stopped at 136 windows with chamfer 0.1279 — changing
             # the inner objective mid-run reads as a merit regression. Kept opt-in.)
             if getattr(cfg, "ot_handoff", False):
+                # CELL-WISE hand-off (v2, 2026-09-17 evening): every target cell within one cell
+                # of the occupied set carries the FIXED target mass — the CIC gradient reaches
+                # it from the body, so it is ordinary fill, never a far-cell reward — and every
+                # cell beyond that carries the paced mass (coherent transport toward it). The
+                # global switch (v1: fixed target only once NO deficit cell is far) never
+                # fired on C, whose arm tips stay beyond reach (19 cells) while the arms
+                # under-fill (hole 8 %).
                 m_t = torch.as_tensor(tgt.m, device=dev) if not torch.is_tensor(tgt.m) else tgt.m
                 occ = (rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims) > 0).float()
                 nx_, ny_, nz_ = tgt.ldims
                 occ3 = occ.reshape(1, 1, nx_, ny_, nz_)
                 near = torch.nn.functional.max_pool3d(occ3, 3, stride=1, padding=1).reshape(-1) > 0
                 far_deficit = int(((grid_eff > 0) & ~near).sum())
-                if far_deficit == 0:
-                    pace_grid = grid_eff
-                print(f"[win] OT pace: target cells with mass beyond one cell of the body: {far_deficit}"
-                      + (" -> fixed target (hand-off)" if far_deficit == 0 else ""), flush=True)
+                pace_grid = torch.where(near, grid_eff, pace_grid)
+                print(f"[win] OT pace: target cells with mass beyond one cell of the body: {far_deficit} "
+                      f"(cell-wise hand-off: {int(near.sum())} cells on the fixed target)", flush=True)
             print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
                   f"of their image, mean |d|={float(dn.mean()):.3g} wu, max |d|={float(dn.max()):.3g} wu", flush=True)
         if torch.cuda.is_available():

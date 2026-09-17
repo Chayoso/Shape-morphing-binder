@@ -1719,6 +1719,19 @@ forbids) — and 0 from frame 471 on. This is the number every recipe change is 
 by, per video, from the `<video>.components.txt` sidecar: the goal is 0 frames with more
 than one component and 0 isolated particles.
 
+**cd6_C (19:00): the global hand-off never fires** — the count of target cells with mass
+beyond one cell of the body falls 1845 → 19 and stays (the C's arm tips), so the run is
+cd5 again (0.909 / hole 8.3 %). Replaced by a CELL-WISE hand-off (commit after c7eb123):
+every target cell within one cell of the occupied set carries the fixed target mass (the
+CIC gradient reaches it: ordinary fill, never a far-cell reward), every cell beyond it the
+paced mass (coherent transport toward it). Trials `cd7_C` and, as the general candidate,
+`oh3_{bunny,dragon,bob}` (40k, no net). For the early-expansion chunks at 150k (the
+photoreal bunny frames 18–108, h150z dragon 19 merges by window 16 even with ot_pace) the
+descent-direction lever is re-tested at cell 0.31: `--grad_h1` (Sobolev descent on the
+material kNN graph — neighbouring particles move together; falsified once at cell 0.20
+under the calibration bug, verdict void): `gh_{bunny,dragon,bob}` at 40k without the net
+and `h150w_dragon` at 150k with it.
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
