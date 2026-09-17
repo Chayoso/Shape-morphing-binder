@@ -359,3 +359,22 @@ Evidence (40k, no re-attachment, docs/experiments.md 2026-09-17): end fragments 
 dragon 41 -> 2, armadilo 12 -> 0 with silIoU +3..+13 points and chamfer within 0.008;
 falsified alternatives on the way: OT as the loss (holes, tracker stop), a transport leash
 on the cell sum (weak: oscillation; strong: tears the bulk), denoised leash anchors (same).
+
+### 10.9 Particles per cell and the numerical-fracture gap (2026-09-17; the mesh-size lever)
+
+A particle leaves the continuum when it shares no grid node with any neighbour. With the
+quadratic B-spline stencil that needs a gap of about one cell between the particle and the
+body. At 8 particles per cell (cell = 2 spacings) a one-spacing lead, which the density
+gradient gives a surface leader in a few windows (dfc clip 0.02 per window), is enough; at
+27 particles per cell (cell = 3 spacings, the 3 x 3 x 3 arrangement that is the standard
+high-quality MPM sampling) the same lead has to be three spacings, which the elastic
+neighbourhood does not allow. Measured at 40k, no re-attachment, log density loss
+unchanged: end fragments dragon 41 -> 0, bob 85 -> 2, armadilo 12 -> 0, with silIoU
++10 / +11 / +2 points and chamfer within 0.006; the MPM grid is 41^3 instead of 59^3, so the
+runs are faster. This is a discretisation choice (dx = (V ppc / N)^(1/3) with ppc = 27), not
+a per-shape constant, and it supersedes the transport pacing of 10.8 as the ejection
+remedy: the pacing removed the far-cell reward but paid with a paced surface; the coarser
+cell removes the fracture the reward exploits. The lever the user named ("mesh size").
+Ladder record (same day, 40k, dragon / bob / armadilo): loss_res 64 -> 32 halves dragon's
+fragments only (23 / 87 / 5); a linear density residual is not a drop-in (the merit,
+tracker and unit calibration are log form; runs freeze).
