@@ -321,3 +321,41 @@ particle's momentum change is not returned to the neighbours (one particle again
 body; recorded, not hidden). An explicit bond SPRING with stiffness (6/K)(λ+2μ) r was
 implemented first and rejected: integrated explicitly with a multi-wu extension it is
 unstable (dragon: 9 % of particles far, frozen at anim 23).
+
+### 10.8 Transport-paced target for the cell sum (the mass-ejection mechanism, 2026-09-17; code: pipeline/optimizer.py `phys_loss == "ot_pace"`, losses/ot.py)
+
+Cause (H3, confirmed on 19 meshes): the cell sum (13) rewards a lone particle in an empty
+target cell with the largest marginal gain, so a surface particle facing a distant unfilled
+feature is pulled away alone, decouples numerically (§10.6-10.7) and drifts. A transport
+loss has no such reward (mass moves as a flow) but cannot fill at the particle scale: the
+entropic map image sits ~0.9 spacings inside the target regardless of the sample count, and
+the fixed cell-sum merit/tracker then stops the run (`ot40b`, `ot40g`).
+
+Formulation. Per window, from the start positions x0:
+  1. Sinkhorn dual between a fixed uniform subsample of n = ot_samples particles and n
+     target samples, cost |x - y|^2, eps = (h_s)^2 with h_s = particle spacing x (N/n)^(1/3)
+     (the spacing of the sample sets the plan is computed on); geometric eps-scaling from the
+     squared target diameter, stopped at the L1 marginal error ot_tol (1e-2); the potentials
+     warm-start the next window.
+  2. Out-of-sample entropic map T(x_i) = softmax_j((g_j - |x_i - y_j|^2)/eps) . y for all N
+     particles (row-normalised barycentric projection), debiased by the same map onto the
+     subsample itself (T - T_self), and averaged over the k material neighbours inside one
+     blur radius (k from the blur volume; the continuum map is smooth, the sampled one is not).
+  3. Paced target: x_int,i = x0,i + min(1, h_s / |d_i|) d_i with d_i = T(x0,i) - x0,i, i.e. the
+     cloud advected along the plan by at most one blur radius per particle (McCann
+     displacement interpolation, one plan per window), rasterised with the loss CIC splat
+     into the window target grid m_tgt^(k).
+  4. The window objective is (13) in density units against m_tgt^(k); the outer merit, the
+     brake and the convergence tracker keep reading the FIXED target grid.
+
+Properties. Every particle is asked to move at most one blur radius toward where the plan
+puts its mass, so no cell far from a particle can reward it for leaving the body; when all
+|d_i| <= h_s the paced target is the image cloud (the transport end state) and the term is
+the ordinary fill. No new constant: the pace is the plan resolution h_s, the neighbour count
+follows from it, the tolerance is the standard Sinkhorn stopping rule. Cost: O(n^2) per
+sweep independent of N (~1 s per window at 40k with two runs per GPU).
+
+Evidence (40k, no re-attachment, docs/experiments.md 2026-09-17): end fragments bob 85 -> 1,
+dragon 41 -> 2, armadilo 12 -> 0 with silIoU +3..+13 points and chamfer within 0.008;
+falsified alternatives on the way: OT as the loss (holes, tracker stop), a transport leash
+on the cell sum (weak: oscillation; strong: tears the bulk), denoised leash anchors (same).
