@@ -2140,3 +2140,23 @@ cuts re-attachments 1.5–5× (bunny 142 → 27, teapot 32 → 0, spot 42 → 1,
 armadilo 619 → 396, heart 0 → 0) and fixes bob's shape (silIoU 0.581 → 0.975), with surface
 quality equal to v3; ot_pace cut them further on armadilo / V / A (153 / 81 / 90) at a
 surface cost.
+
+**150k v5 dragon (12:20): 0 fragments but 1562 re-attachments (v3 3753, v4 134), 0.1109 /
+0.833 / 0.12 % (v4 0.969)** — at 150k the ppc-27 grid does not tame the dragon although at
+40k it gave 0 fragments and silIoU 0.955. nefertiti (new mesh, 150k): 551 re-attachments
+(v3 559), silIoU 0.868 → 0.963. 40k sweep: cow 2 → 0, beast 76 → 4 (silIoU 0.738 → 0.803),
+cheburashka 1 → 3, spot 0.
+
+**Reading the ppc / N table by the ABSOLUTE cell size (bbox diagonal 8 wu):** 40k ppc 8
+= dx 0.21 → dragon 41 fragments / 0.854; 150k ppc 27 = dx 0.20 → 1562 merges / 0.833;
+40k ppc 27 = dx 0.31 → 0 / 0.955; 40k ppc 64 = dx 0.41 → 0 / 0.930. The two dx ≈ 0.2 cases
+behave alike whatever the particles-per-cell, the two dx ≥ 0.3 cases behave alike: the
+ejection variable looks like the cell size relative to the SHAPE (which features are in
+play: at dx 0.2 the dragon's whiskers and horns are cell-scale and become leaders; at
+0.3 they are sub-cell), not the cell-to-spacing ratio alone. The C++ oracle sat at dx =
+1.0 (diag/8). Test (`h150x_{dragon,bob}`, 150k, `--ppc 91` → dx 0.31, re-attach):
+pre-registration — dragon re-attachments < 200 and silIoU ≥ 0.93 (the 40k ppc-27 level);
+bob no burst. If it holds, the definition the user asked for is: **dx from the shape
+(diag / ~26, i.e. the loss-cell scale the density loss already uses), ppc = N dx³ / V from
+N** — the grid resolves the geometry, N refines the quadrature — instead of dx following N
+at a fixed ppc.
