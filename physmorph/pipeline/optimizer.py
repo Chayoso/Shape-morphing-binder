@@ -483,6 +483,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             frac_arrived = float(arrived.float().mean())
             frac_sup = float("nan")
+            # HAND-OFF to the fixed target: when every target cell that still lacks mass is
+            # within one cell of an occupied cell, the cell sum's gradient (CIC reach: one
+            # cell) already touches every deficit from the body — no far cell can reward a
+            # lone particle — and the fixed target fills the thin features at full strength
+            # (the paced target left them sparse at 150k). Re-evaluated every window.
+            m_t = torch.as_tensor(tgt.m, device=dev) if not torch.is_tensor(tgt.m) else tgt.m
+            occ = (rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims) > 0).float()
+            nx_, ny_, nz_ = tgt.ldims
+            occ3 = occ.reshape(1, 1, nx_, ny_, nz_)
+            near = torch.nn.functional.max_pool3d(occ3, 3, stride=1, padding=1).reshape(-1) > 0
+            far_deficit = int(((grid_eff > 0) & ~near).sum())
+            if far_deficit == 0:
+                pace_grid = grid_eff
+            print(f"[win] OT pace: target cells with mass beyond one cell of the body: {far_deficit}"
+                  + (" -> fixed target (hand-off)" if far_deficit == 0 else ""), flush=True)
             print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
                   f"of their image, mean |d|={float(dn.mean()):.3g} wu, max |d|={float(dn.max()):.3g} wu", flush=True)
         if torch.cuda.is_available():
