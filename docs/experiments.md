@@ -1941,3 +1941,18 @@ at full strength (the paced target left them sparse at 150k). Re-evaluated every
 no constant (cell adjacency). Trials `oh40_bunny`, `oh40_dragon` (1712 far target cells
 at the start on bunny). Pre-registration: fragments ≤ ot_pace (0 / 2), chamfer within
 0.005 of density (0.1136 / 0.1277), smooth stills.
+
+**Hand-off FALSIFIED (10:28):** bunny 0 fragments but chamfer 0.1279, 14 rejects right
+after the switch (14 hand-off windows), stop at 136 windows in 6 min — changing the inner
+objective mid-run reads as a merit regression to the gate. Kept opt-in (`cfg.ot_handoff`),
+off by default; deployed 2a7d9b3 (no 150k run started on the hand-off code). The
+structural search stops here for today: four variants that tried to remove the
+interior-redistribution cost (snap, ot_resid, ot_shape, hand-off) all lost to plain
+ot_pace.
+
+**150k ot_pace + re-attachment so far (v3 → v4: re-attachments, silIoU, chamfer):**
+bunny 142 → 19, 0.974 → 0.974, 0.076 → 0.095; teapot 32 → 2, 0.980 → 0.977, 0.072 → 0.083;
+heart 0 → 0, 0.983 → 0.978, 0.073 → 0.083; V 1074 → 81, 0.975 → 0.972, 0.074 → 0.104;
+spot 42 → 34, 0.951 → 0.981, 0.077 → 0.087; armadilo 619 → 153, 0.925 → 0.968, 0.080 →
+0.091. All 0 fragments. Re-attachments 4–13× fewer, silIoU equal or better (+3…+4 on spot,
+armadilo), chamfer +0.01…+0.03 wu everywhere (the paced surface).
