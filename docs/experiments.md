@@ -1928,3 +1928,16 @@ is uniform over the occupied cells (the support) like the uniformly sampled targ
 plan transports the SHAPE and asks for no interior redistribution (the cell sum tolerates
 the interior; ot_pace paid for equalising it with rough surfaces). Redrawn every window.
 Trials `os40_bunny`, `os40_dragon`; same pre-registration as ot_resid.
+
+**ot_shape FALSIFIED on bunny (10:20):** 0 fragments, chamfer 0.1301, silIoU 0.968, hole
+0.27 %, 16 rejects, stop at 95 windows — worse than ot_pace.
+
+**Hand-off (commit 7fa1ab8, part of ot_pace):** the paced target is used while some target
+cell with mass lies beyond one cell of any occupied cell; once every deficit cell is
+adjacent to the body (3³ dilation of the occupancy on the loss grid), the window target is
+the FIXED target grid — the cell sum's CIC gradient already reaches every deficit from the
+body, so no far cell can reward a lone particle, and the fixed target fills thin features
+at full strength (the paced target left them sparse at 150k). Re-evaluated every window;
+no constant (cell adjacency). Trials `oh40_bunny`, `oh40_dragon` (1712 far target cells
+at the start on bunny). Pre-registration: fragments ≤ ot_pace (0 / 2), chamfer within
+0.005 of density (0.1136 / 0.1277), smooth stills.
