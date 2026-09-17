@@ -136,17 +136,21 @@ def _iso_count(x: np.ndarray, radius: float) -> int:
     return int((d > radius).sum())
 
 
-def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
+def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_src=None) -> TargetPack:
     dev = cfg.device
     N = target_x.shape[0]
-    m = torch.ones(N, device=dev)
+    # per-particle masses: unit by default; with shell-biased sampling the relative rest
+    # volumes (mean 1) of the TARGET particles build the target grid and those of the
+    # SOURCE particles (tgt.m, the moving cloud's masses) enter every particle-side term
+    m_t = torch.ones(N, device=dev) if w_tgt is None else torch.as_tensor(np.asarray(w_tgt, np.float32), device=dev)
+    m = torch.ones(N, device=dev) if w_src is None else torch.as_tensor(np.asarray(w_src, np.float32), device=dev)
     dmin = np.asarray(prm.grid_min, np.float32)
     dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
     ldx = float((dmax - dmin).max() / cfg.loss_res)
     ldims = (cfg.loss_res,) * 3
     lgmin = torch.tensor(dmin, device=dev)
     tgt_t = torch.tensor(np.ascontiguousarray(target_x, np.float32), device=dev)
-    grid = target_mass_grid(tgt_t, m, lgmin, ldx, ldims)
+    grid = target_mass_grid(tgt_t, m_t, lgmin, ldx, ldims)
     views = make_views(cfg.render_views, cfg.render_elevs)
     extent = float(np.abs(target_x).max()) * 1.25
     sils = shade = dt3 = None
@@ -164,7 +168,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
         dtdims = (cfg.dt_res,) * 3
         dtdx = 3.0 * extent / cfg.dt_res
         dtgmin = torch.tensor([-1.5 * extent] * 3, device=dev)
-        dt_mass = target_mass_grid(tgt_t, m, dtgmin, dtdx, dtdims)
+        dt_mass = target_mass_grid(tgt_t, m_t, dtgmin, dtdx, dtdims)
         if cfg.w_dt > 0:
             dt3 = target_dt_grid(dt_mass, dtdx, dtdims,
                                  clamp=cfg.dt_clamp_frac * extent)
@@ -252,7 +256,7 @@ def calibrate_units(tgt: TargetPack, source_x, target_x, cfg: PipelineConfig) ->
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
-                 on_commit=None, on_iter=None):
+                 on_commit=None, on_iter=None, w_src=None, w_tgt=None):
     """Morph source -> target. Returns a result dict (frames, F_frames, history, guards, s,
     n_held, converged). frames/F_frames archive the PROMOTED per-step states.
     on_commit(a, x, F, v, rec) fires after each promoted commit; on_iter(it, xT, FT, tele)
@@ -272,7 +276,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         cfg.pace = 1.0 - cfg.pace_budget ** (1.0 / max(cfg.animations, 1))
         log(f"[v2] pace_budget={cfg.pace_budget:g} over {cfg.animations} anims -> "
             f"per-window cap {cfg.pace:.4f}")
-    tgt = build_target(target_x, prm, cfg)
+    tgt = build_target(target_x, prm, cfg, w_tgt=w_tgt, w_src=w_src)
     if cfg.loss_units == "density":
         calibrate_units(tgt, src, target_x, cfg)
         log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = "
@@ -306,7 +310,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         prm = dataclasses.replace(prm, gate_n0=nominal_support(src, prm, cfg.device))
         log(f"[v2] support gate: n0={prm.gate_n0:.1f} (median 3^3-cell count of the source), "
             f"r_lo={prm.gate_r_lo} r_hi={prm.gate_r_hi}")
-    vol0 = (compute_rest_volumes(src, 1.0, prm, cfg.device)
+    vol0 = (compute_rest_volumes(src, (1.0 if w_src is None else np.asarray(w_src, np.float32)), prm, cfg.device)
             if cfg.persistent_rest_volume else None)
     surface_w = (_surface_weights(src, cfg.surface_grad_k, cfg.surface_grad_frac,
                                   cfg.surface_grad_floor)
@@ -388,7 +392,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             cfg.render_res = cfg.render_res_hi
             keep = (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0, tgt.gauss_scale,
                     tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio)
-            tgt = build_target(target_x, prm, cfg)
+            tgt = build_target(target_x, prm, cfg, w_tgt=w_tgt, w_src=w_src)
             # EVERY one-shot calibration survives the rebuild (REFUTE 2026-09-04 F1: a
             # fresh TargetPack has h1_scale=None, so the next window silently RE-
             # calibrated the H^-1 term at a mid-run state - a hidden weight schedule;

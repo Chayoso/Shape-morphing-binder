@@ -245,7 +245,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     else:
         bond_rest = None
         bond_frag = None
-    spec = RolloutSpec(x0=x0, m=1.0, lam=lam0, mu=mu0, prm=prm, T=T,
+    m_np = (tgt.m.detach().cpu().numpy().astype(np.float32) if torch.is_tensor(tgt.m) else 1.0)
+    if isinstance(m_np, np.ndarray) and np.allclose(m_np, 1.0):
+        m_np = 1.0                                    # unit masses: keep the scalar path
+    spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
                        bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag)
 
@@ -262,7 +265,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # while the adjoint described the re-coupled system.
     dc_buf = torch.zeros(T, N, 3, 3, device=dev)
     seq_eval = [wp.from_torch(dc_buf[t], dtype=wp.mat33) for t in range(T)]
-    tr_eval = Trajectory(x0, 1.0, lam0, mu0, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
+    tr_eval = Trajectory(x0, m_np, lam0, mu0, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
                          dFc=seq_eval, device=dev, requires_grad=False, vol0=vol0,
                          Fg0=Fg0, track_geom=use_geom, persistent=True,
                          bonds=((bond_nbr, bond_rest, bond_frag) if bond_nbr is not None else None))

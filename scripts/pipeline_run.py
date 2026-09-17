@@ -578,6 +578,10 @@ def main():
     ap.add_argument("--loss_units", default="legacy", choices=["legacy", "density"])
     ap.add_argument("--dvol_form", default="log", choices=["log", "linear"],
                     help="density-unit residual: log(1+m/m_ref) (default) or linear (m-m_t)/m_ref")
+    ap.add_argument("--sample", default="volume", choices=["volume", "shell"],
+                    help="particle sampling: uniform volume (default) or the C++ oracle's shell-biased scheme")
+    ap.add_argument("--shell_ratio", type=float, default=6.0, help="interior / shell particle spacing (C++: 6)")
+    ap.add_argument("--shell_cells", type=float, default=2.0, help="shell thickness in MPM cells (C++: 2)")
     ap.add_argument("--ppc", type=float, default=0.0,
                     help=">0: derive dx/grid/loss_res/sigma from N and the source volume "
                          "for this particles-per-cell (docs/render_controls_physics.md §7)")
@@ -636,6 +640,22 @@ def main():
               flush=True)
         print(f"[disc] loss_res {'follows dx: ' + str(disc.loss_res) if args.loss_units == 'density' else 'kept at ' + str(args.loss_res) + ' (legacy units are a cell sum)'}",
               flush=True)
+    w_src = w_tgt = None
+    if args.sample == "shell":
+        # C++ oracle sampling (LoadShellBiasedMPMPointCloudFromObj): a surface shell of
+        # shell_cells MPM cells sampled at spacing h_s, the interior at ratio x h_s; the
+        # particle masses follow the rest volumes so the density stays uniform. The cell then
+        # holds (dx / h_s)^3 particles in the shell — the decoupling gap in surface spacings.
+        thick = float(args.shell_cells) * float(prm.dx)
+        src, v_src, w_src = load(args.src, args.n, args.seed, return_volume=True,
+                                 shell=(args.shell_ratio, thick))
+        tgt, v_tgt, w_tgt = load(args.tgt, args.n, args.seed + 1, match_volume=v_src,
+                                 return_volume=True, shell=(args.shell_ratio, thick))
+        from scipy.spatial import cKDTree
+        h_s = float(np.median(cKDTree(src).query(src, k=2, workers=-1)[0][:, 1]))
+        print(f"[v2run] shell-biased sampling: shell {args.shell_cells} cells = {thick:.3f} wu, "
+              f"interior/shell spacing ratio {args.shell_ratio}; source median NN spacing {h_s:.4f} wu "
+              f"-> cell = {prm.dx / h_s:.2f} shell spacings", flush=True)
     if args.v_max > 0:                     # forward model: G2P speed cap (ejection ladder 2026-09-16)
         prm = dataclasses.replace(prm, v_max=args.v_max)
         print(f"[v2run] G2P speed cap v_max={args.v_max} wu/s (40k archives: body p95 0.25-0.28 wu/s, "
@@ -697,7 +717,8 @@ def main():
         if sink is not None:
             from physmorph.render.covariance import sigma0_from_nn
             cbs = sink.begin_run(arm, src, tgt, prm, cfg, sigma0_from_nn(tgt, 0.9))
-        res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1])
+        res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1],
+                           w_src=w_src, w_tgt=w_tgt)
         dt = time.time() - t0
         dn = res.get("deliver_n") or len(res["frames"])   # metrics on the DELIVERED slice
         res["deliver_n_used"] = dn
