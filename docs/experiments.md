@@ -2132,3 +2132,11 @@ the old net so the gallery stays on one code).
 150k v5 heart (12:10): 0 fragments, 0 re-attachments, 0.0746 / 0.982 / 0 (v3 0.0732 /
 0.983). (Ops note: density-recipe logs are block-buffered until exit — a run that looks
 stuck at 27 log lines for 20 minutes is running; judge by the status markers.)
+150k v5 armadilo (12:07): 0 fragments, 396 re-attachments (v3 619, v4 153), 0.0795 / 0.931 /
+0.03 % (v3 0.0801 / 0.925; v4 0.968); the per-commit history is 1–9 with two events of 160
+and 118 — chunks separated at the coarser cell and merged, the case the amended net (a
+flagged particle on the target support is left alone) is for. At 150k the ppc-27 recipe
+cuts re-attachments 1.5–5× (bunny 142 → 27, teapot 32 → 0, spot 42 → 1, V 1074 → 441,
+armadilo 619 → 396, heart 0 → 0) and fixes bob's shape (silIoU 0.581 → 0.975), with surface
+quality equal to v3; ot_pace cut them further on armadilo / V / A (153 / 81 / 90) at a
+surface cost.
