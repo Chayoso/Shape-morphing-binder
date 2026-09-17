@@ -1838,7 +1838,9 @@ remaining 15 meshes launched as `op40_<T>` (08:17); first in: C (the letter, whi
 density recipe never morphs at 40k: chamfer 0.54) — ot_pace 8 fragments, 0.1710 / 0.927 /
 6.76 %, gate stop at 31 windows (13 rejects): a much better shape but not fragment-free.
 Then fandisk 1 → 0 (0.1201 / 0.977 / 0.02 %), V 33 → **0** (0.1186 / **0.979** / 0; density
-0.902), cow 2 → 2 (0.1216 / 0.961 / 0.01), bunny 3 → **0** (0.1225 / 0.972 / 0).
+0.902), cow 2 → 2 (0.1216 / 0.961 / 0.01), bunny 3 → **0** (0.1225 / 0.972 / 0), beast 76 →
+14 (0.1699 / 0.878 / 1.50 %; density 0.1475 / 0.738 / 2.05 %, 15 gate rejects) — the hardest
+new mesh improves by 14 silIoU points but is not fragment-free.
 
 **150k with re-attachment (h150p, EXTRA `--archive_stride 8 --reattach --phys_loss
 ot_pace --ot_debias`), first run bunny (08:46):** 0 fragments, **20 re-attachments** over
