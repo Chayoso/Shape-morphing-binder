@@ -1795,3 +1795,25 @@ with the cell sum, and a pull weak enough not to tear holds nothing (v1). Added 
 OT-only with the default plan (8192 samples, √ε = sample spacing) and the gate off, on
 armadilo + ogre, to separate the gate effect from the plan sharpness (T1 `ot40e` = sharp
 plan + gate off; `ot40b` = default plan + gate on).
+
+**ot40g (gate off) stopped at 20 windows anyway** (ogre 2 frag, 0.1333 / 0.885 / 2.17 %,
+"converged at anim 20 (phys=0.0131); holding still"): the stop is the convergence tracker
+(runner.py:920, `stale >= patience` on the fixed cell sum + kinetic track), not the gate.
+The cell sum ROSE from window 15 on (0.009 → 0.013) while the OT surrogate kept falling:
+the blurred map pulls the surface inward (fuzz), which the cell sum reads as holes. Mid-run
+the OT runs also clamp 9–11 particles per window at the domain box (fast strays, |v|max
+4.5) — OT-only is not stray-free during the run either. The sharp-plan trial (ot40e) was
+stopped: 27 s per plan (16384² blocks) and the same tracker would stop it.
+
+**ot_pace (commit after d8414f4): the density loss keeps the objective, the transport
+plan paces its TARGET.** Each window the current cloud is advected toward its debiased,
+material-smoothed map image by at most one blur radius per particle
+(x_int,i = x0,i + min(1, √ε/|d_i|) d_i) and rasterised with the loss's own CIC splat;
+that grid is the window's target density (McCann displacement interpolation of the plan,
+one plan per window). The cell sum then only asks for local moves along the plan — no
+cell far from a particle rewards it for leaving the body, which is the H3 mechanism —
+and once every particle is within a blur radius of its image the target is the image
+cloud itself. The fixed cell-sum merit, gate and tracker are untouched (they read the
+true target). No new constant: the pace is the plan's blur radius. Pre-registration
+(ot40h, 40k, no re-attach, armadilo ogre dragon bob): fragments ≤ 3 on all four and
+chamfer / silIoU / hole within noise of d40 / n40; falsifier as before.
