@@ -1956,3 +1956,17 @@ heart 0 → 0, 0.983 → 0.978, 0.073 → 0.083; V 1074 → 81, 0.975 → 0.972,
 spot 42 → 34, 0.951 → 0.981, 0.077 → 0.087; armadilo 619 → 153, 0.925 → 0.968, 0.080 →
 0.091. All 0 fragments. Re-attachments 4–13× fewer, silIoU equal or better (+3…+4 on spot,
 armadilo), chamfer +0.01…+0.03 wu everywhere (the paced surface).
+
+**Where this leaves the day (10:35).** The cause is confirmed on 19 meshes and the
+structural fix works for what it was built for: without any safety net the end fragments
+fall from 307 to 44 (0 on 13 meshes), and with the re-attachment net the 150k runs merge
+4–13× fewer particles, so the visible pops in the videos drop accordingly. Its cost is
+visible too: the PBR stills of V, bunny and teapot show porous thin extremities and a
+particle-scale roughness that the v3 density recipe does not have (v3 shows ejecta blobs
+instead — V's stray at the bottom of the v3 still). The cause of the cost is measured (the
+plan asks for interior redistribution the cell sum tolerates; the paced target is a blurred
+copy of the target wherever the plan has not arrived), and four attempts to remove it in
+one day failed (snap, residual-only plan, support-uniform plan, hand-off). Deliverable: the
+v3 gallery stays; the 150k ot_pace runs go to a separate v4 page for comparison; the open
+item is a paced target that is exact on the arrived support without changing the inner
+objective mid-run.
