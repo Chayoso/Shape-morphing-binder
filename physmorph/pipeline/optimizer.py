@@ -32,7 +32,7 @@ import warp as wp
 
 from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_density, d_w1,
                                  deficit_field, isolation_gate, kde_assign, nn_band_assign,
-                                 w1_budget)
+                                 rasterize_mass, w1_budget)
 from ..mpm.constitutive import lame
 from ..mpm.function import PersistentAdjoint, RolloutSpec, warp_mpm_ext
 from ..mpm.state import MPMParams
@@ -308,7 +308,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             raise ValueError(f"unknown loss_units {cfg.loss_units!r}")
         return d_vol(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims)
 
-    if getattr(cfg, "phys_loss", "density") in ("ot", "ot_leash"):
+    if getattr(cfg, "phys_loss", "density") in ("ot", "ot_leash", "ot_pace"):
         # H3: entropic optimal transport replaces the cell sum. The plan is solved once per
         # evaluation (warm-started), the differentiated value is the transport cost under
         # the detached plan; rescaled ONCE by gradient-norm parity with D_vol at the source.
@@ -341,7 +341,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         else:
             ot_T = tgt.ot_pull.entropic_map(x0_ot, cfg.ot_samples)
         leash_r = float(tgt.ot_pull.eps) ** 0.5           # the plan's own resolution
-        if cfg.phys_loss == "ot_leash":
+        if cfg.phys_loss in ("ot_leash", "ot_pace"):
             # the leash anchors are the map images PROJECTED onto the target point set: the
             # entropic image sits ~0.9 spacings inside the target (blur), which made the
             # leash and the cell sum pull surface particles to different places (v1: merit
@@ -366,8 +366,25 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             disp = (ot_T - x0_ot)
             disp = disp[tgt.ot_knn].mean(dim=1)
             ot_T = x0_ot + disp
-            _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
-            ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
+            if cfg.phys_loss == "ot_leash":
+                _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
+                ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
+        pace_grid = None
+        if cfg.phys_loss == "ot_pace":
+            # DISPLACEMENT-INTERPOLATED TARGET (McCann interpolation along the transport
+            # plan): this window's target density is the current cloud advected toward its
+            # map images by at most one blur radius per particle, rasterised with the same
+            # CIC splat the loss uses. The cell sum then only ever asks for local moves along
+            # the plan — no cell far from a particle rewards it for leaving the body (the
+            # H3 mechanism) — and once every particle is within a blur radius of its image
+            # the target is the image cloud itself (the transport's end state).
+            dn = disp.norm(dim=1, keepdim=True)
+            step = torch.clamp(leash_r / dn.clamp_min(1e-9), max=1.0)
+            x_int = (x0_ot + step * disp).detach()
+            pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
+            frac_arrived = float((dn.squeeze(1) <= leash_r).float().mean())
+            print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
+                  f"of their image, max |d|={float(dn.max()):.3g} wu", flush=True)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         _sp = getattr(tgt.ot_pull, "_self_pull", None)
@@ -387,6 +404,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 lin = leash_r ** 2 + 2.0 * leash_r * (e - leash_r)
                 return torch.where(e <= leash_r, quad, lin).mean()
             return (xT - ot_T).pow(2).sum(1).mean()
+        if tgt.ot_scale is None and cfg.phys_loss == "ot_pace":
+            tgt.ot_scale = 1.0                                # no extra term to calibrate
         if tgt.ot_scale is None:
             xg = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
             g_vol = torch.autograd.grad(dvol_density(xg), xg)[0]
@@ -408,6 +427,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if cfg.phys_loss == "ot_leash":
             def dvol(xT):
                 return dvol_density(xT) + tgt.ot_scale * ot_loss(xT)
+        elif cfg.phys_loss == "ot_pace":
+            def dvol(xT):
+                return d_vol_density(xT, tgt.m, pace_grid, tgt.lgmin, tgt.ldx, tgt.ldims,
+                                     tgt.m_ref, tgt.n_support)
         else:
             def dvol(xT):
                 return tgt.ot_scale * ot_loss(xT)
