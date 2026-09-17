@@ -36,6 +36,7 @@ class SinkhornPull:
         # rows per chunk so that one (rows x M) cost block stays at <= 2^27 floats (512 MB)
         self.chunk = max(1024, min(int(chunk), (1 << 27) // max(self.M, 1)))
         self.f = None                     # (N,) dual on the particles
+        self.f_cold = True                # first solve: epsilon-scaled sweeps
         self.g = torch.zeros(self.M, device=y.device)
         self.log_b = -torch.log(torch.tensor(float(self.M), device=y.device))
 
@@ -52,7 +53,12 @@ class SinkhornPull:
         if self.f is None or self.f.shape[0] != N:
             self.f = torch.zeros(N, device=x.device)
         f, g = self.f, self.g
-        for _ in range(self.iters):
+        # epsilon-scaling (Feydy 2019): the first sweeps run at a larger epsilon and anneal
+        # to the target so that a small epsilon converges within the sweep budget
+        scales = [4.0, 2.0, 1.0] if self.f_cold else [1.0]
+        self.f_cold = False
+        for it in range(self.iters):
+            eps = self.eps * scales[min(len(scales) - 1, (it * len(scales)) // max(self.iters, 1))]
             # f_i = -eps * logsumexp_j( (g_j - C_ij)/eps + log b_j )
             for s in range(0, N, self.chunk):
                 e = min(N, s + self.chunk)

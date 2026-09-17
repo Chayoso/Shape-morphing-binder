@@ -1639,3 +1639,8 @@ ogre 0.0840 / 0.879 (hole 1.28 %, 981), beast 0.1217 / 0.829 (hole 1.69 %, 3443)
 after a deploy race crashed the first start), nefertiti 0.0896 / 0.868 (559), fandisk 0.1106 /
 0.804 (600), bimba 0.0798 / 0.963 (1491) — every delivered state with 0 fragments; runs stop at
 26–94 commits (outer-merit gate). Report: `output/report_n150/` (isosurface videos).
+- **H3 debiased** (`ejo4_dragon`, 06:28): chamfer 0.1443, silIoU 0.965, hole 0.47 %, 2
+  re-attached, 91 commits, 3.3 min. Debiasing halves the hole (0.95 → 0.47 %) and brings
+  silIoU to the density loss's level (0.966); chamfer still lags (0.144 vs 0.119). The
+  remaining gap is the ε-blur of the per-window targets (thin features under-resolved) —
+  next: ε-scaling inside the solve so a smaller ε converges (`ejo5`).
