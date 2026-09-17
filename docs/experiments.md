@@ -2104,3 +2104,13 @@ armadilo — 13 (1.43), **0** (0.17), 0 (0.18); dragon — 216 (3.92), **0** (0.
 ppc 27 0 (0.24); homer ppc 27 0 (0.19); ppc 64 dragon 0 beyond 0.5 wu (94 between 0.25 and
 0.41: near-surface fuzz of the coarse grid). The recipe (`scripts/ops/hyde06_env.sh`,
 docs/pipeline.md) now carries `--ppc 27`.
+
+**150k v5 bob (12:05): silIoU 0.975 (v3 0.581, v4 0.958), chamfer 0.0773 (v3 0.1695), 0
+fragments — but 3267 re-attachments, of which 2343 in ONE commit:** the per-commit history
+is 1 2 3 2 8 9 26 19 4 14 7 17 22 29 19 31 15 1 10 **2343** 1 1 5 93 12 103 15 159 296. A burst
+that size is not ejecta: the fragment mask (26-connected components of the occupancy
+dilated by one MPM cell, now 0.2 wu at 150k/ppc 27) split the body at a thin neck and the
+smaller half was merged onto the other — a whole part teleported, the worst kind of pop.
+The net is wrong for a body with a genuinely thin connection at the coarser cell. Check:
+`h150qn_bob` = the same run WITHOUT `--reattach` (true end fragments at 150k, ppc 27; at
+40k bob had 2 fragments / 7 off-target particles).
