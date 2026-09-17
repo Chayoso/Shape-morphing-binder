@@ -381,8 +381,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             dn = disp.norm(dim=1, keepdim=True)
             step = torch.clamp(leash_r / dn.clamp_min(1e-9), max=1.0)
             x_int = (x0_ot + step * disp).detach()
+            # an ARRIVED particle (within one blur radius of its image) contributes its
+            # image projected onto the target point set: the entropic image sits ~0.9
+            # spacings inside the target (blur), which left the end state fuzzy (150k bunny
+            # chamfer 0.098 vs 0.076); on the target support the end target is the target.
+            arrived = dn.squeeze(1) <= leash_r
+            if bool(arrived.any()):
+                _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
+                x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
-            frac_arrived = float((dn.squeeze(1) <= leash_r).float().mean())
+            frac_arrived = float(arrived.float().mean())
             print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
                   f"of their image, max |d|={float(dn.max()):.3g} wu", flush=True)
         if torch.cuda.is_available():
