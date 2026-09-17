@@ -2181,3 +2181,13 @@ fandisk 1 → 0 (0.972), ogre 17 → 2 (0.947), beast 76 → 4 (0.803), cheburas
 (ot_pace: 44, 13 fragment-free). Against the pre-registration (≤ 3 on every mesh): beast
 misses by one. At 40k the cell is 0.31 wu; the same recipe at 150k (cell 0.20) does not
 carry over on dragon and bob — see the absolute-cell-size test.
+
+**h150x dragon (150k, dx 0.31 = ppc 91, 12:45):** 0 fragments, **1048 re-attachments**
+(dx 0.20: 1562; v3: 3753; ot_pace: 134), chamfer **0.0836** (0.111 / 0.134), silIoU
+**0.937** (0.833 / 0.776; ot_pace 0.969), hole 0.88 %, 20 min. The pre-registration is half
+met: quality ≥ 0.93 ✓, re-attachments < 200 ✗. So the absolute cell size sets the QUALITY
+(the coarser cell stops the whiskers and horns from tearing the surface) but at 150k the
+dragon still sheds ~0.7 % of its particles over the run at either cell, while the same
+cell at 40k sheds none: the per-particle shedding rate is not a function of the cell in
+spacings (4.5 here vs 3 at 40k) nor of the cell in world units alone. 150k v5 A: 386
+re-attachments (v3 1585, v4 90), 0.0768 / 0.976; fandisk 142 (v3 600), 0.0779 / 0.975.
