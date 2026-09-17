@@ -2040,3 +2040,26 @@ gallery on `--ppc 27 --reattach` (density log loss; prefixes h150q / n150q, four
 (`pp40_<T>`). Pre-registration for the 150k v5 gallery: 0 fragments (the net) with fewer
 re-attachments than v3 on every target that had > 30, and silIoU ≥ v3 − 0.005 on all but
 C; for the 40k sweep: fragments ≤ 3 on every mesh.
+
+**ppc curve (40k, no re-attach, log density loss):** ppc 8 (cell 2h): dragon 41 / 0.854,
+bob 85 / 0.849, armadilo 12 / 0.935; ppc 27 (3h): 0 / 0.955, 2 / 0.958, 0 / 0.955; ppc 64
+(4h): dragon 0 / 0.930 (grid 32³, 2.5 min), bob 1 / 0.957 — fracture-free from 3h on, and
+27 is the finest fracture-free grid (64 loses silIoU on dragon). Sweep so far at ppc 27:
+homer 7 → 0 (0.958), bunny 3 → 0 (0.960), maxplanck 0 → 0, teapot 0 → 0. 150k v5 so far:
+teapot 0 fragments, **0 re-attachments** (v3 32), 0.0749 / 0.977; spot 0 / **1** (v3 42),
+0.0799 / 0.965; C gate stop as always.
+
+**Why the C++ oracle never ejected (user remark, 12:20; `legacy/configs/
+ablation_bunny_ppc6_full_method.yaml`):** grid_dx 1.0 on a shape normalised to an 8 wu
+bbox diagonal (the bunny spans ~8 cells; ours spans 38 at 40k and 58 at 150k), with
+SHELL-BIASED sampling — 6³ particles per cell in a 2-cell surface shell, 1 per cell inside —
+so the cell is six surface spacings wide and the thin features are sub-cell: decoupling
+would need a six-spacing gap and there is no far empty cell for a leader to reach. Its
+optimiser is also gentler (one GD/Adam iteration per window, alpha 0.01, dLdF clip 0.05;
+ours: 8 Adam iterations + line search). Same dt (1/240), same F smoothing (0.955), same
+cubic B-spline APIC; drag 0.05 vs our 0.9; no plastic assimilation in the C++ baseline
+(eta 0; plasticity lives in its Python driver). So the C++ result is the mesh-size lever at
+its extreme, not a different mechanism. Follow-ups: (a) port the shell-biased sampling
+(surface resolution without a fine grid — the way to keep detail at a coarse cell, where
+ppc 64 lost silIoU); (b) diagnostic `it40_{dragon,bob}` with `--iters 1` (the C++ step
+budget) to see whether leader formation depends on the per-window control aggressiveness.
