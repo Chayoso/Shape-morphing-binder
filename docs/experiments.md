@@ -2167,3 +2167,6 @@ particles separates (2498, 2497, 2491 …), ending with 335 fragments after re-m
 physics, silIoU 0.761 (0.975 with the net). So at dx 0.20 bob's thin ring both sheds
 strays and breaks at the neck; the net repaired both (the strays legitimately, the chunk by
 teleport). The dx 0.31 run (`h150x_bob`) tests whether the coarser cell prevents both.
+The dragon v5 still (150k, dx 0.20, az35) shows it: a solid body with a detached horn /
+head chunk floating at the top right and scattered particles below — the 1562 merges are
+real ejection at this cell size, not a metric artefact.
