@@ -1717,3 +1717,14 @@ in-spike 537/628 (85.5 %) vs the converged full plan 560/628 (89 %), 2.6 s vs 12
 window; 150k 2586/2385 (an 8 % over-fill; the extension conserves mass only on the
 subsample) at 4.0–4.7 s per window. Subsample fraction is what changes between 40k (20 %)
 and 150k (5.5 %); both within ±10 % of the thin feature's mass share.
+
+**First pipeline runs with the subsampled map (ot40b, 07:32, ε = particle spacing) were
+still slow:** the real source→bunny problem needed 268–400 sweeps for the main plan (the
+400 cap hit, marginal error up to 4.7 %) and 176–388 for the self plan, 5–18 s per window
+with two runs per GPU. Stopped at 07:45. Three changes (commit after ae5313f): (1) the
+plan's blur resolves the SAMPLE set it is computed on — √ε = particle spacing ×
+(N/8192)^(1/3) (1.7 spacings at 40k, 2.6 at 150k), a derived rule; synthetic 40k:
+in-spike 87 % (vs 85 % at the particle spacing), 1.2 s vs 1.6 s per window, 100–108
+sweeps; (2) the cost block is computed once per solve (the subsample block fits one
+chunk); (3) the self plan uses the symmetric averaged Sinkhorn update (f = g), converging
+to 5e-4 in 80 sweeps. Sweep relaunched as ot40b with these defaults.
