@@ -88,13 +88,6 @@ class SinkhornPull:
         return value + prim - prim.detach()
 
 
-def target_samples(tgt: torch.Tensor, m: int, seed: int = 0) -> torch.Tensor:
-    """m uniform samples of the target cloud (the target is a filled sampling already)."""
-    g = torch.Generator(device="cpu").manual_seed(seed)
-    idx = torch.randperm(tgt.shape[0], generator=g)[: min(m, tgt.shape[0])]
-    return tgt[idx.to(tgt.device)]
-
-
     @torch.no_grad()
     def barycentric_targets(self, x: torch.Tensor) -> torch.Tensor:
         """T_i = sum_j pi_ij y_j / a_i — where the plan sends particle i (the OT displacement
@@ -112,3 +105,11 @@ def target_samples(tgt: torch.Tensor, m: int, seed: int = 0) -> torch.Tensor:
             pi = torch.exp(logpi)                                  # rows sum to a_i = 1/N
             T[s:e] = (pi @ self.y) * float(N)
         return T
+
+
+def target_samples(tgt: torch.Tensor, m: int, seed: int = 0) -> torch.Tensor:
+    """m uniform samples of the target cloud (the target is a filled sampling already)."""
+    g = torch.Generator(device="cpu").manual_seed(seed)
+    idx = torch.randperm(tgt.shape[0], generator=g)[: min(m, tgt.shape[0])]
+    return tgt[idx.to(tgt.device)]
+
