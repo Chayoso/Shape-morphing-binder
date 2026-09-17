@@ -1632,3 +1632,10 @@ renderer are the problem), then H1, H3, H2.
   thin features are under-filled. Remedy by construction: the DEBIASED Sinkhorn divergence
   S_ε = OT_ε(α,β) − ½OT_ε(α,α) − ½OT_ε(β,β) (Feydy et al. 2019) whose self-term cancels the
   shrinkage — per window the target displacement becomes T_i − T_i^self (`ejo4`).
+
+New-mesh 150k batch (`n150_*`, v3 recipe, complete 23:41): cow 0.0755 / 0.944 (83 re-attached),
+ogre 0.0840 / 0.879 (hole 1.28 %, 981), beast 0.1217 / 0.829 (hole 1.69 %, 3443), homer
+0.0782 / 0.969 (271), cheburashka 0.0773 / 0.972 (3206), max-planck 0.0734 / 0.981 (14; rerun
+after a deploy race crashed the first start), nefertiti 0.0896 / 0.868 (559), fandisk 0.1106 /
+0.804 (600), bimba 0.0798 / 0.963 (1491) — every delivered state with 0 fragments; runs stop at
+26–94 commits (outer-merit gate). Report: `output/report_n150/` (isosurface videos).
