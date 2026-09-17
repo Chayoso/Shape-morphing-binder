@@ -1596,3 +1596,30 @@ renderer are the problem), then H1, H3, H2.
   half the bulk density) — a physics fact the splat renderer had hidden with oversized disks.
   The post-processing now writes the isosurface video as `<T>_surface.gif` and keeps the
   splat video as `<T>_splat.gif`; the ten v3 targets are being re-rendered.
+- **H5(i) complete** (22:21): physics-only vs render twin (40k, v3 recipe, same stopping
+  rules) — dragon 0.1230 / 0.920 → 0.1191 / 0.966; armadillo 0.1161 / 0.929 → 0.1146 / 0.961;
+  bunny 0.1145 / 0.953 → 0.1135 / 0.967. The render channel raises silIoU by 1.4–4.6 points
+  and lowers chamfer by 1–3 % on every target: the feedback is real. The near-zero
+  `g_cos` / `render_work` therefore mean the render pull acts on directions the physics pull
+  is indifferent to (silhouette-edge material), not that it is ignored. H5(ii) (`r40gs_*`,
+  Sobolev render pull) tests whether smoothing that pull onto the material adds more.
+- **H5(ii) dragon** (22:31): `r40gs_dragon` (grid-GS Sobolev render pull, 4 sweeps):
+  chamfer 0.1175, silIoU 0.970 vs `r40_dragon` 0.1191 / 0.966; telemetry g_share 0.334 vs
+  0.338, render_cos 0.034 vs 0.028, g_cos 0 in both. Smoothing the render pull onto the
+  material changes almost nothing: the render channel's contribution is already in the
+  accepted steps (H5(i)), its orthogonality to the physics pull is structural (silhouette
+  edges vs bulk density), not a conditioning defect. H5 verdict: feedback real, modest;
+  no remedy needed beyond what the recipe already does.
+- **H3 first attempt**: the full Sinkhorn plan at every line-search evaluation (40k × 8192,
+  10 sweeps) cost minutes per window — killed; replaced by one plan per window (barycentric
+  targets of the window's start positions, per-particle L2 inside the window), calibrated
+  once to D_vol's gradient norm at the source. `ejo_dragon` relaunched 22:32.
+- **H5(ii) bunny**: `r40gs_bunny` 0.1134 / 0.968 vs `r40_bunny` 0.1135 / 0.967 — identical
+  within noise. The Sobolev render pull is not a lever; H5 closed (feedback real, modest,
+  structurally orthogonal to the density pull).
+- **H3 dragon, first valid run** (`ejo_dragon`, 22:42; one plan per window, 8192 target
+  samples, ε = dx²): **1 particle re-attached in 141 commits** (the density loss: 227) and 0
+  fragments — the transport loss removes the drift that produced the ejecta, exactly as the
+  hypothesis states. Quality is behind: chamfer 0.1558, silIoU 0.957, hole 0.95 % (density
+  loss: 0.1191 / 0.966 / 0.08 %) — the 8192-sample plan at ε = dx² is a blurry coverage
+  target. Next: 32768 samples with ε = (0.5 dx)² and ε = dx² (`ejo2`, `ejo3`).

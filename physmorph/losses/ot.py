@@ -33,7 +33,8 @@ class SinkhornPull:
         self.M = y.shape[0]
         self.eps = float(eps)
         self.iters = int(iters)
-        self.chunk = int(chunk)
+        # rows per chunk so that one (rows x M) cost block stays at <= 2^27 floats (512 MB)
+        self.chunk = max(1024, min(int(chunk), (1 << 27) // max(self.M, 1)))
         self.f = None                     # (N,) dual on the particles
         self.g = torch.zeros(self.M, device=y.device)
         self.log_b = -torch.log(torch.tensor(float(self.M), device=y.device))
