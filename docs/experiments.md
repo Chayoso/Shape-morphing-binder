@@ -1681,8 +1681,16 @@ residual (not a drop-in: merit / tracker / calibration are log form); shell-bias
 optimiser iteration per window (408 / 363 fragments). Two OT solver bugs fixed on the way
 (row-normalised barycentric projection; ε-scaling with an L1 stopping rule).
 
-**Open:** dragon and bob still shed ~0.3–0.5 % of their particles at 150k even at cell 0.31
-(the 40k runs shed none); C never morphs (gate stop under every recipe).
+**New meshes, 150k, re-attachments v3 → v5 → v6 (silIoU v6):** cow 83 → 10 → 28 (0.925),
+homer 271 → 19 → 5 (0.938), maxplanck 14 → 0 → 0 (0.969), nefertiti 559 → 551 → 152 (0.949),
+fandisk 600 → 142 → 13 (0.976), ogre 981 → 194 → 15 (0.929), beast 3443 → 894 → 493 (0.873),
+cheburashka 3206 → 45 → 3 (0.954), bimba 1491 → 127 → 1 (0.971). Sum 10 648 → 1 982 → **710**.
+silIoU vs v3: −1…−2.4 pt on the smooth meshes, +4…+17 on the ones that ejected.
+
+**Open:** dragon and bob (and beast, nefertiti among the new meshes) still shed ~0.3–0.5 % of
+their particles at 150k even at cell 0.31 (the 40k runs shed none); C never morphs (gate
+stop under every recipe). The recipe in `scripts/ops/hyde06_env.sh` is `--cell_diag 26`
+(deployed 51cfbf3+).
 
 ### 2026-09-17 — the cause test across every mesh (`ot40_*`, launched 06:37)
 
