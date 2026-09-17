@@ -1703,3 +1703,17 @@ end fragments (bunny 0, teapot 0, heart 0, cow 2) against 3 / 0 / 0 / 2 for the 
 loss: even a bad transport plan does not reward leaving the body. Their quality numbers
 (bunny 0.154 / 0.925 / 0.50 %) are not the OT recipe's and are discarded; the sweep is
 re-run with the fixed solver.
+
+**Per-window cost of the converged plan (hyde06, tol 1 %):** full-cloud Sinkhorn, 40k:
+cold 108 sweeps 11 s (main + self plan); a warm re-solve after a 0.04 wu coherent move at
+the target ε needs 570 sweeps / 32 s — MORE than the anneal — and re-annealing from 4
+levels up 95 sweeps / 9 s; 150k: cold 52.7 s. Sweeps are O(N·M) (memory-bound blocks), so
+the full plan is not affordable per window. Structural fix (commit after 4efa440): solve the
+dual on a fixed uniform subsample of 8192 particles against the 8192 target samples (every
+solve anneals through all levels) and evaluate the out-of-sample entropic map — the
+row-normalised barycentric projection with the subsample's potentials (Pooladian &
+Niles-Weed 2021) — for all N particles in one O(N·M) pass. Ball-to-spike, debiased: 40k
+in-spike 537/628 (85.5 %) vs the converged full plan 560/628 (89 %), 2.6 s vs 12 s per
+window; 150k 2586/2385 (an 8 % over-fill; the extension conserves mass only on the
+subsample) at 4.0–4.7 s per window. Subsample fraction is what changes between 40k (20 %)
+and 150k (5.5 %); both within ±10 % of the thin feature's mass share.
