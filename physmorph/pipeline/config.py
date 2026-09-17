@@ -349,6 +349,9 @@ class PipelineConfig:
                                     # (the cold plan anneals eps geometrically from the squared
                                     # target diameter; warm plans re-solve at the target eps)
     ot_debias: bool = False         # debiased divergence: subtract the self-transport map (no shrinkage)
+    dvol_form: str = "log"          # density-unit residual: "log" (log(1+m/m_ref)) or "linear"
+                                    # ((m - m_t)/m_ref: gradient proportional to the deficit, no
+                                    # empty-cell amplification)
     loss_units: str = "legacy"      # "legacy": D_vol = 1/2 sum_cells log-mass residual^2
                                     # (Xu et al., grid-count units); "density": the same
                                     # residual on m/m_ref averaged over target-support

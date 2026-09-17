@@ -303,7 +303,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     def dvol_density(xT):
         if cfg.loss_units == "density":
             return d_vol_density(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims,
-                                 tgt.m_ref, tgt.n_support)
+                                 tgt.m_ref, tgt.n_support, form=getattr(cfg, "dvol_form", "log"))
         if cfg.loss_units != "legacy":
             raise ValueError(f"unknown loss_units {cfg.loss_units!r}")
         return d_vol(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims)
@@ -375,7 +375,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
 
         def dvol(xT):
             return d_vol_density(xT, tgt.m, pace_grid, tgt.lgmin, tgt.ldx, tgt.ldims,
-                                 tgt.m_ref, tgt.n_support)
+                                 tgt.m_ref, tgt.n_support, form=getattr(cfg, "dvol_form", "log"))
     elif getattr(cfg, "phys_loss", "density") in ("ot", "ot_leash", "ot_pace", "ot_shape"):
         # H3: entropic optimal transport replaces the cell sum. The plan is solved once per
         # evaluation (warm-started), the differentiated value is the transport cost under
@@ -549,7 +549,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         elif cfg.phys_loss in ("ot_pace", "ot_shape"):
             def dvol(xT):
                 return d_vol_density(xT, tgt.m, pace_grid, tgt.lgmin, tgt.ldx, tgt.ldims,
-                                     tgt.m_ref, tgt.n_support)
+                                     tgt.m_ref, tgt.n_support, form=getattr(cfg, "dvol_form", "log"))
         else:
             def dvol(xT):
                 return tgt.ot_scale * ot_loss(xT)

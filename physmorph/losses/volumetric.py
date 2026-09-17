@@ -379,15 +379,23 @@ def density_units(target_grid: torch.Tensor) -> tuple[float, int]:
 
 def d_vol_density(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
                   grid_min: torch.Tensor, dx: float, dims, m_ref: float,
-                  n_support: int) -> torch.Tensor:
+                  n_support: int, form: str = "log") -> torch.Tensor:
     """Dimensionless mass matching (docs/render_controls_physics.md §2):
         D = 1/2 · (1/n_support) · sum_cells [log(1 + m/m_ref) − log(1 + m_t/m_ref)]^2.
     Same minimiser as eq (13) (residual zero cell by cell), same log form (self-term
     suppression at high occupancy), but the value and its gradient no longer scale
     with the number of grid cells or with the mass per cell, so it is commensurable
-    with a per-pixel image mean without a 1e3-1e4 lambda."""
+    with a per-pixel image mean without a 1e3-1e4 lambda.
+    form="linear": D = 1/2 (1/n_support) sum [(m − m_t)/m_ref]^2 — the gradient per unit
+    mass is proportional to the deficit, whereas the log form's 2r/(m_ref + m) is largest
+    at an EMPTY cell and collapses as the cell fills, so a surface particle is rewarded
+    more for reaching a far empty cell than for finishing an adjacent nearly-full one
+    (the user's 2026-09-17 question; the ejection mechanism H3 amplified by the log)."""
     cur = rasterize_mass(x, m, grid_min, dx, dims)
-    diff = torch.log1p(cur / m_ref) - torch.log1p(target_grid / m_ref)
+    if form == "linear":
+        diff = (cur - target_grid) / m_ref
+    else:
+        diff = torch.log1p(cur / m_ref) - torch.log1p(target_grid / m_ref)
     return 0.5 * (diff * diff).sum() / float(n_support)
 
 

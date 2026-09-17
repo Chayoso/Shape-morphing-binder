@@ -136,7 +136,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           cagrad_c=args.cagrad_c,
                           render_gs_cheb=args.render_gs_cheb,
                           gauss_robust_eps=args.gauss_robust_eps,
-                          loss_units=args.loss_units)
+                          loss_units=args.loss_units, dvol_form=args.dvol_form)
     if arm == "phys":
         cfg.lambda_auto = 0.0
     elif arm == "render":
@@ -576,6 +576,8 @@ def main():
     ap.add_argument("--render_gs_cheb", action="store_true")
     ap.add_argument("--gauss_robust_eps", type=float, default=0.0)
     ap.add_argument("--loss_units", default="legacy", choices=["legacy", "density"])
+    ap.add_argument("--dvol_form", default="log", choices=["log", "linear"],
+                    help="density-unit residual: log(1+m/m_ref) (default) or linear (m-m_t)/m_ref")
     ap.add_argument("--ppc", type=float, default=0.0,
                     help=">0: derive dx/grid/loss_res/sigma from N and the source volume "
                          "for this particles-per-cell (docs/render_controls_physics.md §7)")
