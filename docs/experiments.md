@@ -1520,3 +1520,24 @@ armadillo — 131 commits, 14.3 min, chamfer 0.0801, silIoU 0.925 (v2: 0.0814 / 
 is the distance to the nearest TARGET point (off-target material), not isolation: on the
 same frame only 4 particles have an 8th neighbour beyond 0.5 wu, each within 0.29 wu of the
 body. The report columns are relabelled (off-target vs fragments).
+dragon — 101 commits, 11.6 min, chamfer 0.1335, silIoU 0.776 (v2: 0.1435 / 0.642), hole
+0.10 % (v2 2.37 %), 0 fragments, 3753 particles re-attached (2.5 % — the spines shed
+material every window; the merges keep the body whole).
+A — 201 commits, 20.6 min, chamfer 0.0743, silIoU 0.984 (v2: 0.0781 / 0.848), hole 0 %,
+0 fragments, 1585 particles re-attached.
+C — froze at 21 commits again (2.5 min; 6 brake rejects, gain ≈ −0.05): chamfer 0.570,
+silIoU 0.708, 0 fragments, 6 re-attached — the sphere→ring overshoot is not an ejection
+problem and the gate stops it correctly; C stays a 150k failure.
+spot — 81 commits, 8.6 min, chamfer 0.0763, silIoU 0.976 (v2: 0.0769 / 0.951), hole 0 %,
+0 fragments, 42 particles re-attached.
+bob — 101 commits, 9.9 min, chamfer 0.1695, silIoU 0.581 (v2: 0.1621 / 0.577), hole 1.44 %,
+0 fragments, 770 particles re-attached — bob stays the weak 150k case (ring + thin limbs) but
+without strays. V — 171 commits, 17.0 min, chamfer 0.0737, silIoU 0.975 (v2: 0.0766 / 0.792),
+hole 0 %, 0 fragments, 1074 particles re-attached.
+
+v3 verdict (10/10 ran; batch 17:36–19:08): every delivered state has **0 grid-disconnected
+particles**; chamfer within noise or better on all nine converged targets; silIoU improved on
+bunny (0.920→0.974), armadillo (0.794→0.925), dragon (0.642→0.776), A (0.848→0.984),
+V (0.792→0.975), spot, teapot; C stays a failure (gate stop at 21, not ejection). Re-attached
+particles per target: heart 0, teapot 32, spot 42, bunny 142, armadillo 619, bob 770, V 1074,
+A 1585, dragon 3753 — the count is the price of the drift the recipe still produces.
