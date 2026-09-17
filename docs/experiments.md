@@ -1970,3 +1970,24 @@ one day failed (snap, residual-only plan, support-uniform plan, hand-off). Deliv
 v3 gallery stays; the 150k ot_pace runs go to a separate v4 page for comparison; the open
 item is a paced target that is exact on the arrived support without changing the inner
 objective mid-run.
+
+**150k, all 10 targets (11:40) — v3 (density + re-attach) → v4 (ot_pace + re-attach):
+re-attachments / chamfer / silIoU / hole**
+
+| target | v3 | v4 |
+|---|---|---|
+| bunny | 142 / 0.0757 / 0.974 / 0 | 19 / 0.0949 / 0.974 / 0.18 % |
+| teapot | 32 / 0.0721 / 0.980 / 0 | 2 / 0.0826 / 0.977 / 0.36 % |
+| heart | 0 / 0.0732 / 0.983 / 0 | 0 / 0.0825 / 0.978 / 0.13 % |
+| spot | 42 / 0.0763 / 0.976 / 0 | 34 / 0.0869 / 0.981 / 0 |
+| A | 1585 / 0.0743 / 0.984 / 0 | 90 / 0.0894 / 0.983 / 0 |
+| V | 1074 / 0.0737 / 0.975 / 0 | 81 / 0.1036 / 0.972 / 0.96 % |
+| armadilo | 619 / 0.0801 / 0.925 / 0.32 % | 153 / 0.0912 / 0.968 / 0.25 % |
+| dragon | 3753 / 0.1335 / 0.776 / 0.10 % | 134 / 0.1206 / 0.969 / 0.55 % |
+| bob | 770 / 0.1695 / 0.581 / 1.44 % | 253 / 0.1020 / 0.958 / 3.01 % |
+| C (fails in both) | 6 / 0.5698 / 0.708 / 0 | 63 / 0.3906 / 0.748 / 1.26 % |
+
+All 0 end fragments in both (the net). Re-attachments 8023 → 829 (−90 %). silIoU: dragon
++19, bob +38, armadilo +4, spot +0.5, the rest within 0.006. Chamfer: worse by 0.010–0.030
+on the seven easy targets (the paced surface), better on dragon and bob. The PBR stills:
+v4 bob is a clean ring with a porous lower part; v3 bob is a disc with chunks in flight.
