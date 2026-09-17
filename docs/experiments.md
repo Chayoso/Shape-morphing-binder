@@ -1894,3 +1894,25 @@ C 0(frozen)→8, V 33→0, spot 0→0, bob 85→1, cow 2→2, homer 7→14, maxp
 fragment-free on 13 of 19, ≤ 3 on 16 of 19; worse only on homer (thin arms); C morphs
 (silIoU 0.77 → 0.93) but the gate stops it with 8. silIoU up on every ejecting mesh
 (+3…+14 points); chamfer +0.005…+0.01 on most (the paced surface).
+
+**Visual QA of the 150k ot_pace stills (09:45) — a regression the metrics understated:**
+bunny and teapot PBR stills against v3: the ot_pace surface is bumpy at the particle scale
+everywhere and the thin features (ears, feet, spout, handle) are visibly sparser — single
+particles instead of a solid. Same silIoU, chamfer +0.02 wu (0.5 spacings): that is what
+"the paced target keeps asking for interior moves" looks like. Not shippable as the gallery.
+
+**ot_resid (commit 99b3753): pace only the cell sum's RESIDUAL.** Per window, on the loss
+grid: excess = (cloud − target)+, deficit = (target − cloud)+ (equal totals). Particles are
+drawn ∝ their excess fraction e_i = excess/cloud at their cell, target points ∝ the deficit
+at their cell; the Sinkhorn plan is solved between those two samples (uniform after the
+importance draw), the debiased map gives every particle a displacement d_i, smoothed over
+the material neighbours with excess weights, and the paced position is
+x0,i + e_i · min(1, h/|d_i|) · d_i (arrived excess particles project onto the target).
+Particles in satisfied cells contribute their own position: the paced target differs from
+the current occupancy only where the cell sum itself wants mass to move, and there it asks
+for one blur radius along a coherent flow. No far-cell reward for a lone particle, and no
+interior redistribution beyond the cell sum's own residual. No new constant (same residual,
+same blur radius, same neighbour rule). Trials `or40_bunny`, `or40_dragon` (40k, no
+re-attach; excess mass at the start 38 %, plan 120 sweeps, 3.5 s per window with three
+runs per GPU). Pre-registration: fragments ≤ the ot_pace values (0 / 2) AND chamfer within
+0.005 of the density runs (0.1136 / 0.1277) with a smooth surface in the stills.
