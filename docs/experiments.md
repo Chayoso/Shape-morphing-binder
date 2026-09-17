@@ -2008,3 +2008,23 @@ Pre-registration: fragments vs d40 (41 / 85 / 12) and chamfer / silIoU / hole vs
 (0.1277/0.854/1.15, 0.1239/0.849/2.49, 0.1144/0.935/0.27); the mechanism claim (log
 empty-cell amplification) is supported if `lin40` alone cuts the fragments by more than
 half on all three without a quality loss.
+
+**Results (11:25):**
+
+| trial (40k, no re-attach) | dragon frag / chamfer / silIoU / hole | bob | armadilo |
+|---|---|---|---|
+| density, ppc 8, loss_res 64 (d40) | 41 / 0.1277 / 0.854 / 1.15 % | 85 / 0.1239 / 0.849 / 2.49 % | 12 / 0.1144 / 0.935 / 0.27 % |
+| ot_pace (ot40h) | 2 / 0.1296 / 0.967 / 0.45 % | 1 / 0.1188 / 0.975 / 2.78 % | 0 / 0.1227 / 0.965 / 0.23 % |
+| linear residual (lin40) | 25 / 0.4451 / 0.531 / 2.14 % (stops at 5 min) | 0 / 0.4148 / 0.702 (gate stop at 1.3 min) | — |
+| loss_res 32 (lr40) | 23 / 0.1204 / 0.903 / 0.06 % | pending | pending |
+| **ppc 27 (pp40)** | **0** / 0.1264 / **0.955** / 0.02 % (7.5 min) | **2** / 0.1176 / **0.958** / 2.89 % (8.9 min) | pending |
+
+The linear residual is not a clean test: without the log's saturation the interior
+over-density of the sphere dominates the objective while the merit, tracker and unit
+calibration are still the log form, so the gate stops the run at once (a fair test needs
+the whole pipeline in linear units). The coarser loss grid halves dragon's fragments. The
+coarser MPM grid — 27 particles per cell, a cell of three spacings — removes them on dragon
+and nearly on bob with the plain log density loss, and lifts silIoU by 10 points: the
+numerical fracture (a particle that shares no grid node with its neighbours) needs a
+one-spacing gap at ppc 8 and a three-spacing gap at ppc 27. 27 = 3³ is the standard
+high-quality MPM particle count per cell, a discretisation choice, not a per-shape constant.
