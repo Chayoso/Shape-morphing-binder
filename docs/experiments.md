@@ -1766,3 +1766,32 @@ now want the same support, the plan still decides the region), Huber hinge (quad
 linear beyond), and per-particle parity — the scale is set so that a particle at 2r feels
 the pull the density loss exerts on its most-pulled particle at the source; beyond 2r the
 pull is constant. Trials ot40d on the same four meshes.
+
+**ot40d v2 FALSIFIED (07:56), worse:** armadilo 5 frag, 0.2016 / 0.730 / 1.48 % (12
+rejects, stop at 28 plans); dragon 10 frag, 0.2020 / 0.775 / 0.88 %. A strong per-particle
+pull toward NOISY anchors (the sampled map's 0.9-spacing fuzz, re-drawn every window)
+drags particles across the body and creates strays. Two structural facts learned:
+
+1. The outer-merit gate reads the fixed cell sum (`rec["d_vol"]`, runner.py:698) while
+   the inner objective of every OT variant is (partly) a per-window transport surrogate:
+   when the inner descent does not lower the cell sum the gate sees a regression, rejects,
+   and patience stops the run — this is why EVERY OT run ended at 3–4 min. An OT term in
+   the inner objective needs either a consistent merit (the window-independent Sinkhorn
+   divergence S_ε as a merit component) or no gate.
+2. A leash needs anchors that are as smooth as the continuum map; v3 (commit 4ebbb04)
+   averages the sampled displacement over the k material neighbours inside one blur
+   radius (k from the blur volume, ~20 at 40k) before projection.
+
+Trials (08:00): T1 `ot40e` — OT-only with a sharper plan (16384 target samples, √ε = one
+particle spacing = 0.28 loss cells) and the gate off (`--no_outer_merit`: the transport
+loss has no runaway mechanism, so the brake is not needed), armadilo + ogre. T2 `ot40f` —
+leash v3, dragon + bob. Pre-registration unchanged (fragments ≤ 3, quality within noise of
+d40).
+
+**Leash v3 FALSIFIED and the leash line closed (07:57):** dragon 13 frag, 0.2063 / 0.776 /
+1.98 %, gate stop at 23 plans — denoising the anchors changed nothing; a per-particle pull
+strong enough to hold a stray is strong enough to tear the bulk when its anchor disagrees
+with the cell sum, and a pull weak enough not to tear holds nothing (v1). Added T3 `ot40g`:
+OT-only with the default plan (8192 samples, √ε = sample spacing) and the gate off, on
+armadilo + ogre, to separate the gate effect from the plan sharpness (T1 `ot40e` = sharp
+plan + gate off; `ot40b` = default plan + gate on).
