@@ -314,9 +314,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # the detached plan; rescaled ONCE by gradient-norm parity with D_vol at the source.
         from ..losses.ot import SinkhornPull, target_samples
         if getattr(tgt, "ot_pull", None) is None:
+            # blur radius of the plan: the particle spacing (the resolution of the cloud;
+            # dx / ppc^(1/3)), unless a loss-cell multiple is asked for explicitly
+            eps_len = (cfg.ot_eps_cells * float(tgt.ldx) if cfg.ot_eps_cells > 0 else
+                       (float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)))
             tgt.ot_pull = SinkhornPull(target_samples(tgt.points, cfg.ot_samples),
-                                       eps=(cfg.ot_eps_cells * float(tgt.ldx)) ** 2,
-                                       iters=cfg.ot_iters)
+                                       eps=eps_len ** 2, iters=cfg.ot_iters)
+            print(f"[win] OT plan: sqrt(eps)={eps_len:.4g} wu = {eps_len / float(tgt.ldx):.3g} loss cells, "
+                  f"{cfg.ot_iters} sweeps, {cfg.ot_samples} target samples", flush=True)
             tgt.ot_scale = None
         # one plan per window: the barycentric targets T of the window's start positions;
         # with cfg.ot_debias the self-term of the debiased divergence cancels the entropic

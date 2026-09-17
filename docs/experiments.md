@@ -1644,3 +1644,25 @@ after a deploy race crashed the first start), nefertiti 0.0896 / 0.868 (559), fa
   silIoU to the density loss's level (0.966); chamfer still lags (0.144 vs 0.119). The
   remaining gap is the ε-blur of the per-window targets (thin features under-resolved) —
   next: ε-scaling inside the solve so a smaller ε converges (`ejo5`).
+
+
+### 2026-09-17 — the cause test across every mesh (`ot40_*`, launched 06:37)
+
+User directive: confirm the cause in parallel and fix it — no ejection on any mesh. If H3 is
+the cause, the transport loss must leave zero grid-disconnected particles on ALL 19 meshes
+WITHOUT the re-attachment safety net. Sweep: the v3 recipe minus `--reattach`, with
+`--phys_loss ot --ot_debias` (8192 target samples, ε = dx², 10 sweeps), 40k, four sequential
+chains (GPU 0: bunny armadilo dragon spot bob | teapot heart A C V; GPU 2: cow homer maxplanck
+nefertiti fandisk | ogre beast cheburashka bimba). Measure: the last `fragments N` line of
+each log (grid-connectivity fragments at the end, no merges), the end census, chamfer /
+silIoU / hole against the density-loss runs (v5 trio, batch h, n40). Pre-registration:
+fragments ≤ 3 on every mesh (density loss: 1–76 on the new meshes, 12–507 far on the trio);
+falsifier: any mesh with > 3 end fragments under OT.
+
+06:42 relaunch (the first four runs killed after 3 min): ejo5_dragon finished at 06:37 with the
+sharper plan — ε = (0.5 dx)², 20 sweeps with ε-scaling — beating ejo4 on every metric
+(chamfer 0.1348 vs 0.1443, silIoU 0.969 vs 0.965, hole 0.25 % vs 0.47 %, 1 merge vs 2, and
+17 commits vs 27: the sharper plan converges in fewer windows). 0.5 dx is not a tuned number:
+it is the particle spacing at ppc 8 (dx / 8^(1/3)), i.e. the plan resolves to the resolution
+of the cloud itself instead of the loss cell; the code default is now ε = (nn spacing)² and
+20 sweeps (three ε-scaling stages need ≥ 6 sweeps each). The sweep runs with that setting.

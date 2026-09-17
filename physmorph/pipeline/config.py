@@ -331,9 +331,13 @@ class PipelineConfig:
                                     # the finite-difference check fail at 12k)
     phys_loss: str = "density"      # "density": the cell-sum D_vol; "ot": entropic optimal transport
                                     # (losses/ot.SinkhornPull) rescaled once to D_vol's gradient norm
-    ot_eps_cells: float = 1.0       # Sinkhorn epsilon = (ot_eps_cells * loss cell)^2
+    ot_eps_cells: float = 0.0       # Sinkhorn epsilon = (ot_eps_cells * loss cell)^2; 0: the
+                                    # plan resolves to the particle spacing, eps = (nn spacing)^2
+                                    # (= (dx / ppc^(1/3))^2, half a cell at ppc 8: the resolution
+                                    # of the cloud itself, derived, not tuned)
     ot_samples: int = 8192          # target samples for the plan
-    ot_iters: int = 10              # Sinkhorn sweeps per evaluation (warm-started)
+    ot_iters: int = 20              # Sinkhorn sweeps per plan (warm-started; the first plan
+                                    # anneals over three eps-scaling stages, >= 6 sweeps each)
     ot_debias: bool = False         # debiased divergence: subtract the self-transport map (no shrinkage)
     loss_units: str = "legacy"      # "legacy": D_vol = 1/2 sum_cells log-mass residual^2
                                     # (Xu et al., grid-count units); "density": the same
