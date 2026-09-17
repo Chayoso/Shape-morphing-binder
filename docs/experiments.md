@@ -1646,6 +1646,44 @@ after a deploy race crashed the first start), nefertiti 0.0896 / 0.868 (559), fa
   next: ε-scaling inside the solve so a smaller ε converges (`ejo5`).
 
 
+### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
+
+**Question:** why do particles eject on every mesh, and what removes it without per-shape
+constants? **Answer:** the log cell-sum density loss rewards a lone surface particle for
+reaching a far empty target cell; once it is one MPM cell from the body it shares no grid
+node (numerical fracture) and plastic assimilation erases the restoring stretch. What decides
+whether that happens is the **cell size relative to the shape**, not the particles per cell:
+
+| MPM cell (8 wu normalisation) | 40k (ppc) | dragon fragments / silIoU, 40k no net | 150k (ppc) | dragon re-attachments / silIoU, 150k with net |
+|---|---|---|---|---|
+| 0.20 wu | 8 | 41 / 0.854 | 27 | 1562 / 0.833 |
+| **0.31 wu** | 27 | **0 / 0.955** | **91** | **755 / 0.939** |
+| 0.41 wu | 64 | 0 / 0.930 | — | — |
+
+**Contract v2 (commit 51cfbf3):** `--cell_diag 26` — dx = source bbox diagonal / 26, ppc = N dx³ / V.
+The grid resolves the geometry, N refines the quadrature (the C++ oracle's structure at a finer
+grid). docs/method.md §10.9.
+
+**Evidence:** 40k, 19 meshes, no re-attachment: end fragments 307 → 11 (15 meshes 0, max 4).
+150k, 10 targets, re-attachments (the pops in the videos): v3 8023 → v5 6143 → **v6 1308**
+(bunny 0, teapot 0, heart 0, spot 1, A 16, V 29, armadilo 21, dragon 755, bob 486, C 0);
+silIoU within −1.6 pt of v3 on the easy targets, dragon 0.776 → 0.939, bob 0.581 → 0.968.
+
+**Pages:** v6 = main gallery https://claude.ai/code/artifact/2f348b78-324e-4cf0-a491-ea49f92fd5b1;
+v5 comparison https://claude.ai/code/artifact/2ee53cd2-4c65-4b63-bea1-9026d13d8f78; v4 (ot_pace)
+https://claude.ai/code/artifact/6b144784-69e7-4703-ba73-ac34f6b45724.
+
+**Falsified today:** OT loss alone (holes, tracker stop); transport leash v1–v3; ot_pace as the
+gallery (ejection −86 % but rough surfaces, porous thin features) and its variants (support
+snap, residual-only plan, support-uniform plan, hand-off); loss_res 32; linear density
+residual (not a drop-in: merit / tracker / calibration are log form); shell-biased sampling
+(the C++ scheme: more ejection at ppc 8 — the C++ immunity was its 8-cell grid); one
+optimiser iteration per window (408 / 363 fragments). Two OT solver bugs fixed on the way
+(row-normalised barycentric projection; ε-scaling with an L1 stopping rule).
+
+**Open:** dragon and bob still shed ~0.3–0.5 % of their particles at 150k even at cell 0.31
+(the 40k runs shed none); C never morphs (gate stop under every recipe).
+
 ### 2026-09-17 — the cause test across every mesh (`ot40_*`, launched 06:37)
 
 User directive: confirm the cause in parallel and fix it — no ejection on any mesh. If H3 is
