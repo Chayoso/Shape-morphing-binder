@@ -1897,6 +1897,15 @@ in the outcome (+1.4–1.8 silIoU points); the dragon's is buried under its chao
 on the per-window share and the outcome. Plot `output/photoreal/render_effect_bob.png`;
 `rp_ctrl7_bob` (noise floor) and `rp_phys7_bunny` run next.
 
+**Bunny triple, consistent (23:30; all v7 recipe, same seed):** render on (`h150v7_bunny`)
+0.0801 / **0.966** / 2 re-attachments; physics-only (`rp_phys7_bunny`, λ = 0) 0.0815 /
+0.932 / 0, 283 windows; render off at 40 (`rp_cut_bunny`) 0.0812 / 0.936 / 0, 300
+windows. Divergence from the render twin: cut 0.14 spacings before window 40 → 0.77
+after (1.05 at the end); physics-only 1.78 at the end (0.03 at the first window). The
+render channel is worth +3.4 silIoU points on the bunny and the runs without it never
+converge (283–300 windows against 211). Plot `output/photoreal/render_effect_bunny.png`
+(updated to the consistent triple).
+
 **oh3_bob (20:15): 0 fragments, 0.1169 / 0.974 / 2.77 % (target ring), stray_max 0.29 %
 (density 2 / 0.118 / 0.958 / 1.1 %).** The trio passes the pre-registration on every count
 (fragments 0 / 0 / 0 against 0 / 0 / 2; chamfer within 0.005; silIoU equal or better by
