@@ -55,6 +55,10 @@ ap.add_argument("--min_cells", type=float, default=1.0,
                      "bbox diagonal / cell_diag): material the grid cannot resolve is not a continuum element. "
                      "0 = draw everything. Dropped components are counted in the sidecar.")
 ap.add_argument("--cell_diag", type=float, default=26.0)
+ap.add_argument("--bridge", type=int, default=1,
+                help="draw particles the isosurface does not enclose but which link the body to another drawn "
+                     "component as a filament one particle spacing thick (the rendered topology follows the "
+                     "particle connectivity, not the threshold); 0 = off. Bridged components are counted in the sidecar.")
 ap.add_argument("--still", type=int, default=-1, help="render only this archived frame to --out (png)")
 ap.add_argument("--max_frames", type=int, default=0)
 ap.add_argument("--label", default="")
@@ -132,11 +136,100 @@ cell_wu = float(np.linalg.norm(np.asarray(frames_np[0], np.float32).max(0) - np.
 min_vol = a.min_cells * cell_wu ** 3
 
 
+def _segment_mesh(p, q, r):
+    """A cylinder of radius r from p to q (world), as an Open3D mesh."""
+    d = q - p; L = float(np.linalg.norm(d))
+    if L < 1e-9:
+        return None
+    cyl = o3d.geometry.TriangleMesh.create_cylinder(radius=r, height=L, resolution=8, split=1)
+    z = np.array([0.0, 0.0, 1.0]); u = d / L
+    v = np.cross(z, u); s = float(np.linalg.norm(v)); c_ = float(np.dot(z, u))
+    if s < 1e-9:
+        R = np.eye(3) if c_ > 0 else np.diag([1.0, -1.0, -1.0])
+    else:
+        vx = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
+        R = np.eye(3) + vx + vx @ vx * ((1 - c_) / (s * s))
+    cyl.rotate(R, center=(0, 0, 0))
+    cyl.translate((p + q) / 2.0)
+    return cyl
+
+
+def filament_bridges(x_np, rho, drawn_labels_needed=2):
+    """Particles the isosurface does not enclose but which link the body to another enclosed
+    component are drawn as a filament one particle spacing thick (docs/method.md 10.10): a
+    feature thinner than a two-particle bundle (the cow's teat: a 72-particle bulb on the
+    target tied to the udder by a single-particle thread) is connected material at the
+    particle scale, and the rendered topology must follow the particles, not the threshold.
+    Returns (filament mesh or None, number of enclosed components bridged to the body)."""
+    from scipy import ndimage
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+    mask = rho >= iso
+    lab, n_lab = ndimage.label(mask)
+    if n_lab < 2:
+        return None, 0
+    counts = np.bincount(lab.ravel(), minlength=n_lab + 1)
+    drawn = np.zeros(n_lab + 1, bool)
+    drawn[1:] = counts[1:] * vox ** 3 >= min_vol                # the volume rule, on voxels
+    if drawn.sum() < drawn_labels_needed:
+        return None, 0
+    body = int(np.argmax(counts[1:]) + 1)
+    p = (x_np - (ctr - half).cpu().numpy()) / vox
+    ijk = np.clip(np.rint(p).astype(np.int64), 0, G - 1)
+    plab = lab[ijk[:, 2], ijk[:, 1], ijk[:, 0]]                  # voxel component of each particle
+    free = np.where(plab == 0)[0]
+    anch = np.where(drawn[plab])[0]
+    if len(free) == 0 or len(anch) == 0:
+        return None, 0
+    r = 2.5 * spacing
+    kf = cKDTree(x_np[free]); ka = cKDTree(x_np[anch])
+    ff = np.array(list(kf.query_pairs(r)), dtype=np.int64).reshape(-1, 2)
+    fa = kf.query_ball_tree(ka, r)
+    # graph nodes: free particles (0..nf-1) then one super-node per drawn label
+    nf = len(free); sup = {l: nf + i for i, l in enumerate(np.where(drawn)[0])}
+    rows_, cols_ = [ff[:, 0], ff[:, 1]], [ff[:, 1], ff[:, 0]]
+    fa_r, fa_c = [], []
+    for i, nb in enumerate(fa):
+        for j in nb:
+            fa_r.append(i); fa_c.append(sup[int(plab[anch[j]])])
+    rows_.append(np.array(fa_r, np.int64)); cols_.append(np.array(fa_c, np.int64))
+    nn_ = nf + len(sup)
+    rr = np.concatenate(rows_); cc = np.concatenate(cols_)
+    if len(rr) == 0:
+        return None, 0
+    gph = coo_matrix((np.ones(len(rr)), (rr, cc)), shape=(nn_, nn_))
+    _, comp = connected_components(gph, directed=False)
+    root_body = comp[sup[body]]
+    others = [l for l in sup if l != body and comp[sup[l]] == root_body]
+    if not others:
+        return None, 0
+    bridge = np.where(comp[:nf] == root_body)[0]                 # free particles on a path to the body
+    if len(bridge) == 0:
+        return None, len(others)
+    bset = set(bridge.tolist())
+    rad = 0.55 * spacing
+    fil = o3d.geometry.TriangleMesh()
+    for i, j in ff:
+        if i in bset or j in bset:
+            seg = _segment_mesh(x_np[free[i]], x_np[free[j]], rad)
+            if seg is not None:
+                fil += seg
+    for i in bridge:
+        for j in fa[i]:
+            seg = _segment_mesh(x_np[free[i]], x_np[anch[j]], rad)
+            if seg is not None:
+                fil += seg
+        sph = o3d.geometry.TriangleMesh.create_sphere(radius=rad, resolution=6)
+        sph.translate(x_np[free[i]]); fil += sph
+    fil.compute_vertex_normals()
+    return fil, len(others)
+
+
 def mesh_of(x):
-    """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components_raw, n_dropped)."""
+    """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components_raw, n_dropped, n_bridged)."""
     rho = density(x).cpu().numpy()                         # [z,y,x]
     if float(rho.max()) <= iso:
-        return None, 0, 0
+        return None, 0, 0, 0
     v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
     v = v[:, ::-1] + origin                                # (z,y,x) -> (x,y,z) world
     m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v.astype(np.float64)),
@@ -162,7 +255,12 @@ def mesh_of(x):
     if a.smooth > 0:
         m = m.filter_smooth_taubin(number_of_iterations=a.smooth)
     m.compute_vertex_normals()
-    return m, n_comp, n_drop
+    n_bridge = 0
+    if a.bridge and n_comp - n_drop > 1:
+        fil, n_bridge = filament_bridges(x.detach().cpu().numpy().astype(np.float64), rho)
+        if fil is not None:
+            m += fil
+    return m, n_comp, n_drop, n_bridge
 
 
 def isolated_count(x_np):
@@ -202,7 +300,7 @@ if a.ground:
     ground.compute_vertex_normals()
     scene.add_geometry("ground", ground, gmat)
 if a.target_ghost > 0:
-    tm, _, _ = mesh_of(tgt)
+    tm, _, _, _ = mesh_of(tgt)
     if tm is not None:
         scene.add_geometry("target", tm, ghost)
 c = ctr.cpu().numpy()
@@ -242,8 +340,8 @@ def label(img, text):
 
 if a.still >= 0:
     fr = torch.as_tensor(np.asarray(frames_np[a.still], np.float32), device=dev)
-    m, n_comp, n_drop = mesh_of(fr)
-    img = label(render_views(m), f"{a.label} frame {a.still}  components {n_comp} (sub-cell dropped {n_drop})")
+    m, n_comp, n_drop, n_bridge = mesh_of(fr)
+    img = label(render_views(m), f"{a.label} frame {a.still}  components {n_comp} (sub-cell dropped {n_drop}, bridged {n_bridge})")
     o3d.io.write_image(a.out, o3d.geometry.Image(np.ascontiguousarray(img)))
     print(f"saved {a.out} (components {n_comp}, sub-cell dropped {n_drop})")
     sys.exit(0)
@@ -257,9 +355,9 @@ tmp = tempfile.mkdtemp(prefix="photoreal_")
 qa = []
 for k, i in enumerate(idx):
     x_np = np.asarray(frames_np[i], np.float32)
-    m, n_comp, n_drop = mesh_of(torch.as_tensor(x_np, device=dev))
+    m, n_comp, n_drop, n_bridge = mesh_of(torch.as_tensor(x_np, device=dev))
     n_iso = isolated_count(x_np)
-    qa.append((i, n_comp, n_iso, n_drop))
+    qa.append((i, n_comp, n_iso, n_drop, n_bridge))
     img = label(render_views(m), f"{a.label}  frame {i}/{dn - 1}")
     o3d.io.write_image(os.path.join(tmp, f"f{k:05d}.png"), o3d.geometry.Image(np.ascontiguousarray(img)))
     if k % 25 == 0:
@@ -270,11 +368,15 @@ for h in range(a.hold):
 subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(a.fps), "-i", os.path.join(tmp, "f%05d.png"),
                 "-movflags", "faststart", "-pix_fmt", "yuv420p", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", a.out], check=True)
 with open(a.out + ".components.txt", "w") as fh:
-    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped\n")
-    for i, n_comp, n_iso, n_drop in qa:
-        fh.write(f"{i} {n_comp} {n_iso} {n_drop}\n")
+    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped components_bridged_to_body\n")
+    for i, n_comp, n_iso, n_drop, n_bridge in qa:
+        fh.write(f"{i} {n_comp} {n_iso} {n_drop} {n_bridge}\n")
     comps = np.array([q[1] for q in qa]); isos = np.array([q[2] for q in qa]); drops = np.array([q[3] for q in qa])
+    bridges = np.array([q[4] for q in qa])
     drawn = comps - drops
+    fh.write(f"# filament bridges (particle connectivity): {(bridges > 0).sum()} frames with a drawn component tied to the "
+             f"body by particles the isosurface does not enclose (max {bridges.max()}); drawn components>1 AND not bridged "
+             f"in {((drawn > 1) & (bridges < drawn - 1)).sum()} frames\n")
     fh.write(f"# iso {iso_frac:.3f} x bulk ({'auto: two-particle filament level' if str(a.iso).lower() == 'auto' else 'fixed'}), "
              f"blur {a.blur} spacings, grid {a.grid}\n")
     fh.write(f"# frames {len(qa)}  raw components>1 in {(comps > 1).sum()} frames (max {comps.max()})  "
