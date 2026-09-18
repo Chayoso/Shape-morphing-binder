@@ -1759,6 +1759,16 @@ transport recipes the merit's physics component is now the Sinkhorn divergence t
 fixed target (`SinkhornPull.divergence`, commit 1800d88) — what the recipe descends, defined
 on the fixed target, monotone along a transport path. `cd9_C` = ot_pace + that merit.
 
+**cd9_C (19:15): 0.901 / hole 8.1 %, stop at window 24 — and now the record shows the
+real limit:** the transport divergence itself stops falling at window 17 (0.740 → 0.751),
+the arrived fraction sits at 4.9 % and kin decays to 0.23: the BODY stops, the gate is
+merely reporting it. Why it stops: the pace is one plan blur radius (0.18 wu) but the loss
+cell is 0.31 wu — for a blob sliding along an arm the paced grid equals the current grid
+except at the ends, so the cell sum is blind to the requested sub-cell shift and the
+descent has nothing to follow. Fix (commit 7e34ba2): the pace is the resolution the loss
+can see, max(blur radius, loss cell). `cd10_C` re-runs; the same stall explains h150z
+(150k dragon, 4 % arrived after 210 windows).
+
 **grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
 stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
 2.31 %): the Sobolev direction leaves the early-expansion stray cloud unchanged. Material
