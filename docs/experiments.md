@@ -2190,6 +2190,12 @@ of the 40k C are its own sub-cell events, not the box.
   prevention at the front (bonds evaluated per step for singles — done; for cell-sized
   fronts the candidate that tears the body has to be infeasible, i.e. the continuity
   check without the free-rollout allowance, or the front held by its material).
+- **Item 3, soft dragon under the walls (10:28 CDT; `matw_soft_dragon`, 40k, young 3e4,
+  net, bonds still window-fixed):** 0.1227 / **0.961** / **41 re-attachments**, 0 box hits
+  (pre-walls 0.846 / 343 / 25 660 hits). So the walls removed 300 of the soft dragon's
+  343 and restored its end quality to the base's (0.957); the residue of 41 (windows
+  23–37, the expansion) is the material-driven part. `matw_nu45_dragon` and
+  `matw_soft_bunny` follow (with the per-step bonds).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
