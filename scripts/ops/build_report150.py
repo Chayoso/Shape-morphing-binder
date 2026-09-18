@@ -58,13 +58,15 @@ def parse_qa(txt):
             continue
         p = line.split()
         if len(p) >= 3:
-            fr.append((int(p[0]), int(p[1]), int(p[2]), int(p[3]) if len(p) > 3 else 0))
+            fr.append((int(p[0]), int(p[1]), int(p[2]), int(p[3]) if len(p) > 3 else 0, int(p[4]) if len(p) > 4 else 0))
     if not fr:
         return {}
-    raw = [f[1] for f in fr]; iso = [f[2] for f in fr]; drop = [f[3] for f in fr]
+    raw = [f[1] for f in fr]; iso = [f[2] for f in fr]; drop = [f[3] for f in fr]; br = [f[4] for f in fr]
     drawn = [r - d for r, d in zip(raw, drop)]
     return dict(n=len(fr), raw_gt1=sum(1 for v in raw if v > 1), raw_max=max(raw),
                 drawn_gt1=sum(1 for v in drawn if v > 1), drawn_max=max(drawn),
+                bridged=sum(1 for v in br if v > 0),
+                unbridged=sum(1 for d_, b_ in zip(drawn, br) if d_ > 1 and b_ < d_ - 1),
                 drop_frames=sum(1 for v in drop if v > 0), drop_total=sum(drop),
                 iso_max=max(iso), iso_end=iso[-1], iso_frame=fr[max(range(len(fr)), key=lambda i: iso[i])][0])
 
@@ -176,17 +178,17 @@ H.append('<p class="note">"fragments (grid)": 마지막 window에서 그리드 �
 if any(r["qa"] for r in rows):
     H.append(f'<h2>2b. 프레임별 QA — 비디오에 떠다니는 조각·입자가 있는가 (photoreal 비디오, {len([r for r in rows if r["qa"]])}개)</h2>')
     H.append('<p class="lede">photoreal 비디오의 매 프레임에서 센 값. "raw 조각"은 같은 밀도장의 marching-cubes 등밀도면 연결 성분 수(몸체 = 1); "그린 조각"은 전달 규칙(부피 &lt; MPM cell 하나 dx³인 조각은 그리드가 해상하지 못하는 물질이므로 그리지 않음)을 적용한 뒤 실제로 화면에 남는 조각 수; "고립 입자"는 8-NN 거리가 중앙값의 3배를 넘는 입자 수(원시 입자 기준, 렌더러 미사용). "재부착"은 런 전체에서 안전망이 몸체로 되돌린 입자 수(0이면 안전망이 한 번도 작동하지 않았다).</p>')
-    H.append('<div class="wrap"><table><thead><tr><th>target</th><th>frames</th><th>물리 조각 ≥1 cell (frames, max 크기)</th><th>raw 조각&gt;1 (frames, max)</th><th>그린 조각&gt;1 (frames, max)</th><th>sub-cell 제외 (frames, 조각 수)</th><th>고립 입자 max (frame)</th><th>고립 입자 end</th><th>재부착 (run)</th><th>fragments (end)</th></tr></thead><tbody>')
+    H.append('<div class="wrap"><table><thead><tr><th>target</th><th>frames</th><th>물리 조각 ≥1 cell (frames, max 크기)</th><th>raw 조각&gt;1 (frames, max)</th><th>그린 조각&gt;1 (frames, max)</th><th>그중 실로 이은 frames</th><th>잇지 못한 frames</th><th>sub-cell 제외 (frames, 조각 수)</th><th>고립 입자 max (frame)</th><th>고립 입자 end</th><th>재부착 (run)</th><th>fragments (end)</th></tr></thead><tbody>')
     for r in rows:
         q = r["qa"]
         if not q:
             continue
         g = r.get("gf", {})
-        cls_d = "ok" if q["drawn_gt1"] == 0 else ("warn" if q["drawn_gt1"] <= 0.05 * q["n"] else "bad")
+        cls_d = "ok" if q["unbridged"] == 0 else ("warn" if q["unbridged"] <= 0.05 * q["n"] else "bad")
         cls_i = "ok" if q["iso_max"] == 0 else ("warn" if q["iso_max"] <= 20 else "bad")
         cls_g = ("ok" if g.get("f1") == "0" else "bad") if g else ""
         gtxt = f'{g["f1"]} ({g["mxc"]} cells)' if g else "–"
-        H.append(f'<tr><td>{r["t"]}</td><td>{q["n"]}</td><td class="{cls_g}">{gtxt}</td><td>{q["raw_gt1"]} ({q["raw_max"]})</td><td class="{cls_d}">{q["drawn_gt1"]} ({q["drawn_max"]})</td>'
+        H.append(f'<tr><td>{r["t"]}</td><td>{q["n"]}</td><td class="{cls_g}">{gtxt}</td><td>{q["raw_gt1"]} ({q["raw_max"]})</td><td>{q["drawn_gt1"]} ({q["drawn_max"]})</td><td>{q["bridged"]}</td><td class="{cls_d}">{q["unbridged"]}</td>'
                  f'<td>{q["drop_frames"]} ({q["drop_total"]})</td><td class="{cls_i}">{q["iso_max"]} ({q["iso_frame"]})</td><td>{q["iso_end"]}</td>'
                  f'<td>{r["reatt"]}</td><td>{r["frag"] or "–"}</td></tr>')
     H.append('</tbody></table></div>')
@@ -228,12 +230,13 @@ for r in rows:
 if any(r["qa"] for r in rows):
     md += ["", "## Frame QA (photoreal videos)", "",
            "Per frame: raw marching-cubes components of the blurred density (body = 1); drawn components after the deliverable rule (components with volume < one MPM cell dx³ are not drawn); isolated particles = 8-NN distance > 3 × median (raw particles, no renderer). Re-attachments = particles the safety net returned to the body over the run.", "",
-           "| target | frames | raw comps > 1 (frames, max) | drawn comps > 1 (frames, max) | sub-cell dropped (frames, comps) | isolated max (frame) | isolated end | re-attachments | fragments (end) |",
-           "|---|---|---|---|---|---|---|---|---|"]
+           "| target | frames | physical fragments >= 1 cell (frames, max) | raw comps > 1 (frames, max) | drawn comps > 1 (frames, max) | bridged by filament (frames) | drawn > 1 and not bridged (frames) | sub-cell dropped (frames, comps) | isolated max (frame) | isolated end | re-attachments | fragments (end) |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in rows:
-        q = r["qa"]
+        q = r["qa"]; g = r.get("gf", {})
         if q:
-            md.append(f'| {r["t"]} | {q["n"]} | {q["raw_gt1"]} ({q["raw_max"]}) | {q["drawn_gt1"]} ({q["drawn_max"]}) | {q["drop_frames"]} ({q["drop_total"]}) | {q["iso_max"]} ({q["iso_frame"]}) | {q["iso_end"]} | {r["reatt"]} | {r["frag"] or "–"} |')
+            gtxt = f'{g["f1"]} ({g["mxc"]} cells)' if g else "–"
+            md.append(f'| {r["t"]} | {q["n"]} | {gtxt} | {q["raw_gt1"]} ({q["raw_max"]}) | {q["drawn_gt1"]} ({q["drawn_max"]}) | {q["bridged"]} | {q["unbridged"]} | {q["drop_frames"]} ({q["drop_total"]}) | {q["iso_max"]} ({q["iso_frame"]}) | {q["iso_end"]} | {r["reatt"]} | {r["frag"] or "–"} |')
 for key, title in (("assessment_html", "Assessment"), ("ejection_html", "Mass ejection"), ("render_html", "Render gradient -> physics"), ("material_html", "Material -> trajectory"), ("speed_html", "Speed"), ("summary_html", "Summary"), ("viewer_html", "Viewer")):
     md += ["", f"## {title}", "", strip(G.get(key, ""))]
 open(MD_OUT, "w", encoding="utf-8").write("\n".join(md) + "\n")
