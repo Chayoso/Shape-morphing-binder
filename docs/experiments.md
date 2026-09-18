@@ -2212,6 +2212,23 @@ of the 40k C are its own sub-cell events, not the box.
   0.1189 / 0.967 in 128 windows / 31 min vs `rvb_bunny` (64 px × 6 views) 0.1195 / 0.966
   in 103 / 25 min — no end-shape difference; the surface measure on matched frames is
   pending (GPU saturated).
+- **Item 3 complete for the tested materials (11:25 CDT):** `matw_soft_bunny` (young 3e4,
+  net, walls + per-step bonds) 1 re-attachment (pre-fix 12); with soft dragon 343 → 41
+  (walls; the per-step bonds not yet in that run) and ν 0.45 dragon 95 → 0. The material
+  study's net-free claim now rests on the walls (box trap) + the per-step decoupling test;
+  the soft dragon's 41 remain to be re-measured with the per-step bonds.
+- **Item 2, C at 40k, three mechanisms FALSIFIED (11:25 CDT; net on, walls, per-step
+  bonds):** `ce40_C` (assim 0.1, more elastic) 0.871 / 3 re-attachments, gate stop at 23
+  windows; `ce25_C` (assim 0.25) 0.868 / 3, stop at 22; `cc40_C` (discrete continuity
+  feasibility) 0.836 / 16, stop at 20 — all three freeze at the sphere-in-the-hole stage
+  (rejections with gains −0.03 … −0.0005 at windows 19–23) where the plastic body
+  (`or40_C`, assim 0.5) goes on to 0.959 in 166 windows with 101 re-attachments. An
+  elastic C cannot be pushed out of the hole into the arms (the rebound undoes each window)
+  and a continuity-feasible step does not exist for that push either. C's arm-front chunks
+  therefore remain the one ejection the model cannot prevent without the net; the ledger
+  of falsified mechanisms for C: paced target, grid-resolved displacement, kNN smoothing,
+  elasticity 0.1 / 0.25, discrete continuity (and, earlier, ot_pace + hand-off, global
+  hand-off, all-near-cell hand-off).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
