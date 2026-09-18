@@ -2196,6 +2196,11 @@ of the 40k C are its own sub-cell events, not the box.
   343 and restored its end quality to the base's (0.957); the residue of 41 (windows
   23–37, the expansion) is the material-driven part. `matw_nu45_dragon` and
   `matw_soft_bunny` follow (with the per-step bonds).
+- **Per-step bonds, first readings (10:45 CDT):** `nnw150_bob` (150k, NO net, walls +
+  per-step decoupling) has **0 fragments through window 75** where `nn150_bob` had shed
+  from window 16 (1) and 27 (4) and reached 54 by window 73; `matw_nu45_dragon` (40k,
+  ν = 0.45, net, walls + per-step bonds) 0 re-attachments through window 64 (pre-fix 95).
+  Final numbers when the runs end.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
