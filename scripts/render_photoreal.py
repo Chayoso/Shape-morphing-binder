@@ -236,19 +236,27 @@ def mesh_of(x):
                                   o3d.utility.Vector3iVector(f[:, ::-1].astype(np.int32)))
     comp = np.asarray(m.cluster_connected_triangles()[0])
     n_comp = int(comp.max()) + 1 if len(comp) else 0
-    n_drop = 0
+    n_drop = n_cav = 0
     if n_comp > 1 and (a.largest_only or a.min_cells > 0):
         keep = np.ones(len(comp), bool)
         if a.largest_only:
             keep = comp == int(np.bincount(comp).argmax())
         else:
-            # component volumes from the signed tetra sum (marching-cubes surfaces are closed)
+            # component volumes from the signed tetra sum (marching-cubes surfaces are closed).
+            # The SIGN separates outer pieces from interior cavities: a closed surface around a
+            # void inside the material has its normals facing the void, i.e. the sign opposite
+            # to the body's (bunny at 150k: a 1.3–1.8-cell hollow inside the ear counted as a
+            # "second drawn piece" in 37 frames while nothing floats). Cavities are removed
+            # from the mesh (they are invisible inside the body anyway) and counted apart.
             vv = v.astype(np.float64); ff = f[:, ::-1]
             tet = np.einsum("ij,ij->i", vv[ff[:, 0]], np.cross(vv[ff[:, 1]], vv[ff[:, 2]])) / 6.0
-            vol = np.abs(np.bincount(comp, weights=tet, minlength=n_comp))
-            small = vol < min_vol
-            keep = ~small[comp]
-        n_drop = n_comp - int(len(np.unique(comp[keep]))) if keep.any() else n_comp
+            svol = np.bincount(comp, weights=tet, minlength=n_comp)
+            body_sign = np.sign(svol[int(np.argmax(np.abs(svol)))])
+            cavity = (np.sign(svol) == -body_sign) & (svol != 0)
+            small = (np.abs(svol) < min_vol) & ~cavity
+            n_cav = int(cavity.sum())
+            keep = ~(small | cavity)[comp]
+        n_drop = n_comp - n_cav - int(len(np.unique(comp[keep]))) if keep.any() else n_comp - n_cav
         if not keep.all():
             m.remove_triangles_by_mask(~keep)
             m.remove_unreferenced_vertices()
@@ -256,11 +264,11 @@ def mesh_of(x):
         m = m.filter_smooth_taubin(number_of_iterations=a.smooth)
     m.compute_vertex_normals()
     n_bridge = 0
-    if a.bridge and n_comp - n_drop > 1:
+    if a.bridge and n_comp - n_drop - n_cav > 1:
         fil, n_bridge = filament_bridges(x.detach().cpu().numpy().astype(np.float64), rho)
         if fil is not None:
             m += fil
-    return m, n_comp, n_drop, n_bridge
+    return m, n_comp, n_drop, n_bridge, n_cav
 
 
 def isolated_count(x_np):
@@ -300,7 +308,7 @@ if a.ground:
     ground.compute_vertex_normals()
     scene.add_geometry("ground", ground, gmat)
 if a.target_ghost > 0:
-    tm, _, _, _ = mesh_of(tgt)
+    tm, _, _, _, _ = mesh_of(tgt)
     if tm is not None:
         scene.add_geometry("target", tm, ghost)
 c = ctr.cpu().numpy()
@@ -340,8 +348,8 @@ def label(img, text):
 
 if a.still >= 0:
     fr = torch.as_tensor(np.asarray(frames_np[a.still], np.float32), device=dev)
-    m, n_comp, n_drop, n_bridge = mesh_of(fr)
-    img = label(render_views(m), f"{a.label} frame {a.still}  components {n_comp} (sub-cell dropped {n_drop}, bridged {n_bridge})")
+    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(fr)
+    img = label(render_views(m), f"{a.label} frame {a.still}  components {n_comp} (sub-cell dropped {n_drop}, cavities {n_cav}, bridged {n_bridge})")
     o3d.io.write_image(a.out, o3d.geometry.Image(np.ascontiguousarray(img)))
     print(f"saved {a.out} (components {n_comp}, sub-cell dropped {n_drop})")
     sys.exit(0)
@@ -355,9 +363,9 @@ tmp = tempfile.mkdtemp(prefix="photoreal_")
 qa = []
 for k, i in enumerate(idx):
     x_np = np.asarray(frames_np[i], np.float32)
-    m, n_comp, n_drop, n_bridge = mesh_of(torch.as_tensor(x_np, device=dev))
+    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(torch.as_tensor(x_np, device=dev))
     n_iso = isolated_count(x_np)
-    qa.append((i, n_comp, n_iso, n_drop, n_bridge))
+    qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav))
     img = label(render_views(m), f"{a.label}  frame {i}/{dn - 1}")
     o3d.io.write_image(os.path.join(tmp, f"f{k:05d}.png"), o3d.geometry.Image(np.ascontiguousarray(img)))
     if k % 25 == 0:
@@ -368,12 +376,14 @@ for h in range(a.hold):
 subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(a.fps), "-i", os.path.join(tmp, "f%05d.png"),
                 "-movflags", "faststart", "-pix_fmt", "yuv420p", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", a.out], check=True)
 with open(a.out + ".components.txt", "w") as fh:
-    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped components_bridged_to_body\n")
-    for i, n_comp, n_iso, n_drop, n_bridge in qa:
-        fh.write(f"{i} {n_comp} {n_iso} {n_drop} {n_bridge}\n")
+    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped components_bridged_to_body interior_cavities\n")
+    for i, n_comp, n_iso, n_drop, n_bridge, n_cav in qa:
+        fh.write(f"{i} {n_comp} {n_iso} {n_drop} {n_bridge} {n_cav}\n")
     comps = np.array([q[1] for q in qa]); isos = np.array([q[2] for q in qa]); drops = np.array([q[3] for q in qa])
-    bridges = np.array([q[4] for q in qa])
-    drawn = comps - drops
+    bridges = np.array([q[4] for q in qa]); cavs = np.array([q[5] for q in qa])
+    drawn = comps - drops - cavs
+    fh.write(f"# interior cavities (closed surfaces with the sign opposite to the body, removed, not pieces): "
+             f"{(cavs > 0).sum()} frames (max {cavs.max()})\n")
     fh.write(f"# filament bridges (particle connectivity): {(bridges > 0).sum()} frames with a drawn component tied to the "
              f"body by particles the isosurface does not enclose (max {bridges.max()}); drawn components>1 AND not bridged "
              f"in {((drawn > 1) & (bridges < drawn - 1)).sum()} frames\n")

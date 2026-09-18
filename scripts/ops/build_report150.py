@@ -49,20 +49,28 @@ def parse_loss(txt):
     return dict(commits=m.group(1), L0=m.group(2), L1=m.group(3), ratio=m.group(4), dv0=m.group(5), dv1=m.group(6), wall=m.group(7), spc=m.group(9)) if m else {}
 
 
-def parse_qa(txt):
+def parse_qa(txt, cav_txt=""):
     """Photoreal sidecar (<t>_photoreal.mp4.components.txt): per-frame raw isosurface components, isolated
-    particles, sub-cell components dropped by the deliverable rule. Returns the per-video QA summary."""
+    particles, sub-cell components dropped by the deliverable rule, bridged components, interior cavities.
+    A sidecar without the cavity column takes it from <t>_cavity.txt (scripts/probes/cavity_sweep.py).
+    Returns the per-video QA summary."""
+    cav = {}
+    for line in cav_txt.splitlines():
+        p = line.split()
+        if p and not line.startswith("#") and p[0].isdigit():
+            cav[int(p[0])] = int(p[1])
     fr = []
     for line in txt.splitlines():
         if line.startswith("#") or line.startswith("archived_frame") or not line.strip():
             continue
         p = line.split()
         if len(p) >= 3:
-            fr.append((int(p[0]), int(p[1]), int(p[2]), int(p[3]) if len(p) > 3 else 0, int(p[4]) if len(p) > 4 else 0))
+            fr.append((int(p[0]), int(p[1]), int(p[2]), int(p[3]) if len(p) > 3 else 0, int(p[4]) if len(p) > 4 else 0,
+                       int(p[5]) if len(p) > 5 else cav.get(int(p[0]), 0)))
     if not fr:
         return {}
-    raw = [f[1] for f in fr]; iso = [f[2] for f in fr]; drop = [f[3] for f in fr]; br = [f[4] for f in fr]
-    drawn = [r - d for r, d in zip(raw, drop)]
+    raw = [f[1] for f in fr]; iso = [f[2] for f in fr]; drop = [f[3] for f in fr]; br = [f[4] for f in fr]; cv = [f[5] for f in fr]
+    drawn = [r - d - c_ for r, d, c_ in zip(raw, drop, cv)]         # outer pieces only (interior cavities are not pieces)
     return dict(n=len(fr), raw_gt1=sum(1 for v in raw if v > 1), raw_max=max(raw),
                 drawn_gt1=sum(1 for v in drawn if v > 1), drawn_max=max(drawn),
                 bridged=sum(1 for v in br if v > 0),
@@ -87,7 +95,7 @@ for t in targets:
                      frag=rd(os.path.join(d, f"{t}_frag.txt")).strip(),
                      reatt=(rd(os.path.join(d, f"{t}_reatt.txt")).split() or ["–"])[0],
                      gf=parse_gridfrag(rd(os.path.join(d, f"{t}_gridfrag.txt"))),
-                     qa=parse_qa(rd(os.path.join(d, f"{t}_photoreal.mp4.components.txt")))))
+                     qa=parse_qa(rd(os.path.join(d, f"{t}_photoreal.mp4.components.txt")), rd(os.path.join(d, f"{t}_cavity.txt")))))
 
 
 def prep(t, name):
