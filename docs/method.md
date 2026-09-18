@@ -447,6 +447,26 @@ window: every particle is asked for at most the move the grid resolves in a wind
 pull is uniform and bounded, and the target still walks the whole map one pace per
 window. No new constant; the same pace and neighbourhood as the cell-sum regime.
 
+### 10.10a The limit case C: why detached material is irreversible, and why C keeps the net (2026-09-18)
+
+The control of this model is a stress (the deformation-gradient control dFc enters through
+k_stress). The internal stress of an isolated body integrates to zero net force, so a chunk
+that has separated from the body cannot be translated by any control — the same reason the
+whole body keeps its centre of mass. Ejection is therefore irreversible by construction: the
+only external force in the model is the re-attachment step (conservative resampling of
+grid-disconnected particles into the body, 10.7), and "no safety net" can only mean "no
+fracture". Prevention is complete for single particles (the per-step decoupling test, 10.7)
+and for the box band (10.11); it is not complete for the one target whose source lies inside
+the target's hole (C): its material must cross empty space to the arms, the per-particle
+transport pull leads the arm fronts by more than a cell, and cell-sized chunks (85–105
+particles at 150k) come off the fronts and stop where the pull can no longer move them
+(the transport map still points inward there — probe 2026-09-18 — the stress simply cannot
+act). Everything that slows the front stalls the morph instead: paced target (0.88 / 0.55),
+grid-resolved displacement (0.59), material-kNN smoothing (0.79), elasticity assim 0.1 / 0.25
+(0.87 / 0.87 at 23 windows), discrete continuity (0.84 at 20 windows), ot_pace + hand-off
+(0.56 at 150k). C is reported with the net and its re-attachment count (530 at 150k) as the
+model's documented limit.
+
 ### 10.11 Domain walls (forward model; the 150k shedding mechanism, 2026-09-17 night; code: mpm/kernels.py `k_grid_op`, `WALL_NODES`)
 
 The MPM grid had no boundary treatment on the six faces of the domain box (only the
