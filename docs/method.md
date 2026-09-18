@@ -441,6 +441,30 @@ window: every particle is asked for at most the move the grid resolves in a wind
 pull is uniform and bounded, and the target still walks the whole map one pace per
 window. No new constant; the same pace and neighbourhood as the cell-sum regime.
 
+### 10.11 Domain walls (forward model; the 150k shedding mechanism, 2026-09-17 night; code: mpm/kernels.py `k_grid_op`, `WALL_NODES`)
+
+The MPM grid had no boundary treatment on the six faces of the domain box (only the
+optional floor). A particle within the stencil half-support of the box edge (two cells,
+cubic B-spline) deposits on and gathers from a truncated stencil — it loses momentum
+every step and freezes in that band, and the commit-time clip keeps it there. The band
+was a TRAP, and the "chunks" the safety net re-attached at 150k were material stranded in
+it: on the 150k C the probe (`output/chunk_origin.py`) found every chunk static at the box
+corners, 1.5–3.3 wu from any target point, with 600–900 particles beyond the box leash in
+every window of the arm phase; the count of particles clipped at the box (`GUARD clamp`)
+tracks the re-attachments across runs — v6 dragon 10706 band hits / 755 re-attachments,
+v6 bob 10934 / 486, 150k C 27–59 k / 885–1914, against 0 / 0 for every run that never
+reached the band (40k C, teapot, heart, A, nn150 bunny/dragon). The 40k runs never reach
+the band; the 150k transients do (the auto domain is the far-field leash plus the two
+stencil cells, so the free region ends one cell beyond the target's outer surface).
+
+Walls: on the outermost `WALL_NODES` = 2 node layers of every face the outward normal
+grid velocity is zeroed; tangential and inward motion stay free (a separating wall, the
+same treatment as the floor without friction). A body that overshoots slides along the
+wall and is pulled back by the loss instead of freezing. The constant is the stencil
+half-support, not a tuning. Runs whose particles never touch the band are bit-identical
+(the wall acts on nodes that carry no mass). Tests: adjoint vs finite differences,
+smoke, bonds (26 passed).
+
 Deliverable rule (scripts/render_photoreal.py `--min_cells 1`): an isosurface component
 whose volume is below one MPM cell (dx^3) is material the grid does not resolve — not a
 continuum element — and is not drawn; the per-frame sidecar records raw, drawn and

@@ -1982,6 +1982,35 @@ deposit and gather with the cell sum's own kernel — before the pace: a displac
 grid cannot resolve is not a continuum displacement; below one cell the split becomes a
 stretch the elastic body carries. Test `c150s_C` (150k, net) against the paced re-run.
 
+**THE 150k SHEDDING MECHANISM (22:10) — the domain box was a trap.** The paced 150k C
+re-run (`h150v7_C`, 2nd) ended 0.1814 / 0.881 / 1528 re-attachments in 131 windows;
+`c150s_C` (grid-resolved displacement) 0.2161 / 0.592 / 885, gate stop at 67 — worse,
+reverted; `c150p_C` (ot_pace + hand-off forced on C) 0.559 / gate stop at 38. Probe
+`output/chunk_origin.py` on the paced archive (frames 100–260): every chunk (23–255
+particles) is STATIC (0.002–0.02 wu/frame), 1.5–3.3 wu from the nearest target point, 0 %
+of its particles on the target, at 4.4–6.7 wu from the hole axis — i.e. at the corners
+of the domain box (half-width 4.98 wu, leash 4.37 + 2 dx), and its origin is the sphere's
+interior (r0 0.7–0.88 R) on the side facing away from the opening. Counting particles
+beyond the box leash per archived frame: 714 (f100), 903 (f140), 751, 621, 304, 44, 0 at
+the end — the whole population of "chunks". The count of particles clipped at the box
+(`GUARD clamp` in the window line, `n_out` in runner.py) tracks the re-attachments across
+EVERY run: v6 dragon 10706 band hits / 755 re-attachments, v6 bob 10934 / 486, nefertiti
+702 / 152, beast 155 / 493, v7 bob 178 / 83, 150k C 27–59 k / 885–1914, against 0 / 0–7
+for every run that never reached the band (40k C 0 / 7 and 0 / 0, teapot, heart, A,
+nn150 bunny 3 / 0, nn150 dragon 0 / 0). Cause in the forward model: the MPM grid had NO
+boundary treatment on the box faces (only the optional floor): a particle within the
+cubic stencil's half-support (2 cells) of the edge deposits on and gathers from a
+truncated stencil, loses momentum every step and freezes there; the commit-time clip
+keeps it. The auto domain (far-field leash + 2 dx) puts that band one cell beyond the
+target's outer surface, which the 150k transients reach and the 40k ones do not. FIX
+68f0a20 (docs/method.md §10.11): separating walls on all six faces — the outward normal
+grid velocity is zeroed on the outermost 2 node layers, tangential and inward motion free
+— the constant being the stencil half-support. Runs that never touched the band are
+bit-identical. Tests 26 passed (adjoint vs FD, smoke, bonds). Tests: `c150w_C` (150k C,
+walls + paced ot, net) and the v7 bob re-run under walls; the v7 targets already finished
+with 0 band hits (teapot, heart, spot, A) stand; bunny (4 hits) and V (29) are within
+noise and stand; the remaining v7 chains run under walls from here.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
