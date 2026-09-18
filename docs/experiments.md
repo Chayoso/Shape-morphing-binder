@@ -2284,7 +2284,9 @@ of the 40k C are its own sub-cell events, not the box.
   automatically; the page is built from the v8 narrative when all 19 are in.
 - **v8 ledger, first four (16:20 CDT; 150k, NO net; end fragments / silIoU, v7 netted
   silIoU in brackets):** V 0 / 0.963 (0.969), dragon 1 / 0.955 (0.960), bob 9 / 0.949
-  (0.969), armadilo 1 / 0.938 (0.949). Wall-clock 38–88 min at two runs per GPU.
+  (0.969), armadilo 1 / 0.938 (0.949), teapot 0 / 0.967 (0.970). Wall-clock 38–88 min at
+  two runs per GPU. The bob's 9: eleven strict clusters of 1–2 particles plus one cluster
+  of 9 packed at 0.05 × the bulk spacing (a collapsed clump), all 24–65 spacings out.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
