@@ -2161,6 +2161,15 @@ of the 40k C are its own sub-cell events, not the box.
   at render time).
 - **Item 1 (bob without the net):** `nn150_bob` sheds from window 16 (1 particle) and
   window 27 (4) — the ring's expansion phase, before the walls mattered (0 box hits).
+- **Item 1, what bob sheds without the net (13:40; `blob_probe.py` on `nn150_bob` at
+  frames 200 / 300 / 420, strict cell clusters down to one particle):** the 54 "fragments"
+  are ~24 clusters of ONE to THREE particles, 35–96 spacings (1.3–3.7 wu) from the body AND
+  from any target point, and static from frame 200 on (their centroids move < 0.05 wu in
+  220 frames). Not chunks: single particles flung out of the expanding sphere in windows
+  16–27 and left in empty space. So the last ejection mode at 150k is the single-particle
+  leader of the expansion phase — it clears the fracture gap within one window and then
+  nothing pulls it back (it sits outside the target's support where the paced cell sum has
+  no deficit to fill with it).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
