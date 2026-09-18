@@ -2215,6 +2215,17 @@ of the 40k C are its own sub-cell events, not the box.
   loss's resolution moves the measure; what it measures at 13–15° may be the floor of the
   marching-cubes discretisation itself — the target cloud rendered through the same
   pipeline gives that floor (next).
+- **Item 4, the floor (11:50 CDT):** the TARGET clouds rendered through the same pipeline
+  (`--still -2`): bunny **14.55°**, dragon **14.46°** — the morphed states (14.96 / 14.42)
+  are as smooth as the target sampled at this N. The particle-scale texture the eye sees
+  ("orange peel") is the sampling noise of a random 150k cloud at a blur of 1.5 spacings
+  (±10 % density fluctuation), present in the target renders too; the renderer kernels,
+  the F-carried covariance and the render-loss resolution cannot go below it because it
+  is not in the state. What IS in the state are the 0.3–0.5 wu lumps (the loss-cell
+  scale), which the measure does not see and which need a surface-aware objective (the
+  next physics experiment). Rendering the texture away needs a smoother reconstruction
+  (a wider kernel or a surface fit — i.e. smoothing), which is the one route the user
+  set aside; the numbers say the Gaussian route does not exist.
 - **Item 3 complete for the tested materials (11:25 CDT):** `matw_soft_bunny` (young 3e4,
   net, walls + per-step bonds) 1 re-attachment (pre-fix 12); with soft dragon 343 → 41
   (walls; the per-step bonds not yet in that run) and ν 0.45 dragon 95 → 0. The material
