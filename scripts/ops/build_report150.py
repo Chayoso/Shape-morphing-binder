@@ -69,6 +69,12 @@ def parse_qa(txt):
                 iso_max=max(iso), iso_end=iso[-1], iso_frame=fr[max(range(len(fr)), key=lambda i: iso[i])][0])
 
 
+def parse_gridfrag(txt):
+    """scripts/probes/grid_fragments.py sidecar: physical fragments by the grid's own criterion."""
+    m = re.search(r"# frames (\d+)\s+fragments>=1cell in (\d+) frames \(max count (\d+), max size (\d+) particles = ([\d.]+) cells; ppc (\d+)[^)]*\)\s+clusters>=20 in (\d+) frames", txt)
+    return dict(n=m.group(1), f1=m.group(2), f1max=m.group(3), mx=m.group(4), mxc=m.group(5), ppc=m.group(6), f20=m.group(7)) if m else {}
+
+
 rows = []
 for t in targets:
     d = os.path.join(ROOT, t)
@@ -78,6 +84,7 @@ for t in targets:
                      tm=rd(os.path.join(d, f"{t}_time.txt")).strip(),
                      frag=rd(os.path.join(d, f"{t}_frag.txt")).strip(),
                      reatt=(rd(os.path.join(d, f"{t}_reatt.txt")).split() or ["–"])[0],
+                     gf=parse_gridfrag(rd(os.path.join(d, f"{t}_gridfrag.txt"))),
                      qa=parse_qa(rd(os.path.join(d, f"{t}_photoreal.mp4.components.txt")))))
 
 
@@ -169,17 +176,21 @@ H.append('<p class="note">"fragments (grid)": 마지막 window에서 그리드 �
 if any(r["qa"] for r in rows):
     H.append(f'<h2>2b. 프레임별 QA — 비디오에 떠다니는 조각·입자가 있는가 (photoreal 비디오, {len([r for r in rows if r["qa"]])}개)</h2>')
     H.append('<p class="lede">photoreal 비디오의 매 프레임에서 센 값. "raw 조각"은 같은 밀도장의 marching-cubes 등밀도면 연결 성분 수(몸체 = 1); "그린 조각"은 전달 규칙(부피 &lt; MPM cell 하나 dx³인 조각은 그리드가 해상하지 못하는 물질이므로 그리지 않음)을 적용한 뒤 실제로 화면에 남는 조각 수; "고립 입자"는 8-NN 거리가 중앙값의 3배를 넘는 입자 수(원시 입자 기준, 렌더러 미사용). "재부착"은 런 전체에서 안전망이 몸체로 되돌린 입자 수(0이면 안전망이 한 번도 작동하지 않았다).</p>')
-    H.append('<div class="wrap"><table><thead><tr><th>target</th><th>frames</th><th>raw 조각&gt;1 (frames, max)</th><th>그린 조각&gt;1 (frames, max)</th><th>sub-cell 제외 (frames, 조각 수)</th><th>고립 입자 max (frame)</th><th>고립 입자 end</th><th>재부착 (run)</th><th>fragments (end)</th></tr></thead><tbody>')
+    H.append('<div class="wrap"><table><thead><tr><th>target</th><th>frames</th><th>물리 조각 ≥1 cell (frames, max 크기)</th><th>raw 조각&gt;1 (frames, max)</th><th>그린 조각&gt;1 (frames, max)</th><th>sub-cell 제외 (frames, 조각 수)</th><th>고립 입자 max (frame)</th><th>고립 입자 end</th><th>재부착 (run)</th><th>fragments (end)</th></tr></thead><tbody>')
     for r in rows:
         q = r["qa"]
         if not q:
             continue
+        g = r.get("gf", {})
         cls_d = "ok" if q["drawn_gt1"] == 0 else ("warn" if q["drawn_gt1"] <= 0.05 * q["n"] else "bad")
         cls_i = "ok" if q["iso_max"] == 0 else ("warn" if q["iso_max"] <= 20 else "bad")
-        H.append(f'<tr><td>{r["t"]}</td><td>{q["n"]}</td><td>{q["raw_gt1"]} ({q["raw_max"]})</td><td class="{cls_d}">{q["drawn_gt1"]} ({q["drawn_max"]})</td>'
+        cls_g = ("ok" if g.get("f1") == "0" else "bad") if g else ""
+        gtxt = f'{g["f1"]} ({g["mxc"]} cells)' if g else "–"
+        H.append(f'<tr><td>{r["t"]}</td><td>{q["n"]}</td><td class="{cls_g}">{gtxt}</td><td>{q["raw_gt1"]} ({q["raw_max"]})</td><td class="{cls_d}">{q["drawn_gt1"]} ({q["drawn_max"]})</td>'
                  f'<td>{q["drop_frames"]} ({q["drop_total"]})</td><td class="{cls_i}">{q["iso_max"]} ({q["iso_frame"]})</td><td>{q["iso_end"]}</td>'
                  f'<td>{r["reatt"]}</td><td>{r["frag"] or "–"}</td></tr>')
     H.append('</tbody></table></div>')
+    H.append('<p class="note">"물리 조각": 렌더러를 쓰지 않고 입자 occupancy를 MPM cell 하나만큼 팽창한 연결 성분(재부착 안전망과 같은 기준)에서 몸체와 떨어진 성분 중 부피가 한 cell(ppc개 입자) 이상인 것의 프레임 수와 최대 크기 — 이것이 0이면 물리에는 떠다니는 몸이 없다. "그린 조각&gt;1"이 남아 있는 프레임은 등밀도면이 얇은 목(2입자 굵기 미만)에서 끊긴 것으로, 같은 프레임의 물리 조각이 0이면 이어진 재료의 끝이다.</p>')
 H.append('<h2>3. 예제별 결과 — 표면 비디오(object, not particles), 입자 GIF, PBR 스틸, 손실 곡선</h2>')
 H.append('<p class="lede">표면 비디오(isosurface): 입자 질량을 128³ 격자에 뿌리고 1.5 spacing 가우시안으로 흐린 밀도의 등밀도면(소스 bulk 밀도의 절반)을 ray-march한 것 — 물체가 하나의 연속 표면으로 보이고, 해상 가능한 밀도 아래의 고립 입자는 표면이 되지 않는다(이탈 수치는 별도 열). 스플랫 비디오는 이전 렌더(디스크 스플랫), 입자 GIF는 원시 입자.</p>')
 for r in rows:
