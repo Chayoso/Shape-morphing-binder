@@ -477,5 +477,18 @@ which a filament two particles across still renders — a 2×2 bundle of particl
 s blurred by σ has the peak density 4 / (2π σ² s) against the bulk 1 / s³, so iso = 2 s² /
 (π σ²) of the bulk, capped at 0.5 (0.28 at the renderer's σ = 1.5 s); a single particle
 peaks at s³ / ((2π)^{3/2} σ³) = 0.02 of the bulk and stays invisible, and a cluster that
-does reach the level but is smaller than a cell is dropped by the volume rule. So the
-rendered topology follows the particle connectivity, not the threshold.
+does reach the level but is smaller than a cell is dropped by the volume rule. Below even
+that — a feature one particle across — the isosurface cannot follow, and the physics does
+produce such features where the target is thinner than the cell (the cow's teat at 150k:
+a 72-particle bulb packed on the target's teat, tied to the udder by a single-particle
+thread; one body at every cell scale down to 0.07 wu). For these the renderer draws the
+PARTICLE connectivity (`--bridge`): particles the isosurface does not enclose but which
+connect the body to another drawn component (a path of particles within 2.5 spacings of
+each other, found by union-find with each enclosed component as one node) are drawn as a
+filament one particle spacing thick. The rendered topology then follows the particles,
+not the threshold; the sidecar records the bridged components per frame, and
+`scripts/probes/grid_fragments.py` records, without any renderer, the physical fragments
+(clusters sharing no dilated cell with the body, ≥ one cell of material) so that "the
+isosurface drew two pieces" and "the physics has two bodies" are separate columns of the
+report. v7 (2026-09-18): physical fragments ≥ 1 cell in 0 frames for 18 of 19 targets,
+C 6 of 202 frames.
