@@ -1769,6 +1769,18 @@ descent has nothing to follow. Fix (commit 7e34ba2): the pace is the resolution 
 can see, max(blur radius, loss cell). `cd10_C` re-runs; the same stall explains h150z
 (150k dragon, 4 % arrived after 210 windows).
 
+**cd10_C (19:20): the transport now moves** — arrived fraction 0.4 % → 34 % by window 14,
+d_vol 0.074 (the lowest any C run reached; cd5 0.131), d_sil 0.033, ot_div 0.447 — and
+then the body OVERSHOOTS: windows 15–17 regress (d_vol 0.074 → 0.091, ot_div 0.447 →
+0.482, d_dt 583 → 740) with kin still 0.6–0.9, the brake refuses every later candidate
+(−6 %), delivered = window 14, silIoU 0.839, hole 5.9 %. So with the cell sum as the inner
+loss the paced transport is either blind (pace < cell: stall) or inertial (pace = cell:
+overshoot). The per-particle transport loss (`--phys_loss ot`) has neither defect — its
+earlier verdicts (holes, "converged at 20 windows") were taken while the record's d_vol
+was the OT loss value (the tracker/merit bug), so it is re-tested on the corrected record:
+`cd11_C` and `o2_{bunny,dragon,bob}` (40k, no net). gh_bob (grad_h1): 25 fragments (v6 2)
+— grad_h1 closed.
+
 **grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
 stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
 2.31 %): the Sobolev direction leaves the early-expansion stray cloud unchanged. Material
