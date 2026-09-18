@@ -1890,6 +1890,18 @@ non-bitwise-reproducible): divergence 0.013 / 0.026 / 0.044 / 0.056 wu at 10 / 2
 of the run is 8× (stiff 0.111, poisson 0.45 0.106) to 20× (soft 0.262) the noise, and at
 the end 1.3–2.5× — the material sets the transient path, the objective sets the end.
 
+**Material study, dragon (spacing 0.060 wu; control noise 0.003 / 0.028 / 0.048 / 0.060 wu
+at 10 / 25 / 50 / 100 %):** soft (young 3e4) 0.40 / 0.54 / 0.51 / 0.49 wu (8.1 spacings at
+the end, 130× the noise at 10 %; path 2.35 wu; 343 re-attachments, silIoU 0.846), stiff
+(6e5) 0.44 / 0.36 / 0.37 / 0.42 (7.0 sp; path 1.81; 0 re-attachments, 0.963), poisson 0.45
+0.26 / 0.39 / 0.42 / 0.43 (7.0 sp; 95 re-attachments, 0.941), assim 0.1 0.09 / 0.19 / 0.18 /
+0.18 (2.9 sp; 0.958); base 14 re-attachments, 0.957. On the dragon the material changes the
+path by 3–8 particle spacings (7–13× the noise at the end), the stray behaviour (soft
+sheds 25× more than base, stiff none) and the end quality (silIoU 0.846–0.963); the
+frame-250 stills show five visibly different intermediate bodies. Together with bunny:
+material properties determine the morphing trajectory — early and strongly — and, on
+shapes with thin features, the end state too.
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
