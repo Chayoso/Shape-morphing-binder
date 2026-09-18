@@ -1920,6 +1920,19 @@ and cut-at-40 (0.956) twins sit 7–9 spreads below the render-on pair; with the
 (+3.4 points) and the dragon (+10, spread 0.021) this is the outcome half of goal 1b on
 three shapes. The trajectory half (control curve on the divergence plot) follows.
 
+**Bob trajectories with the control (00:00; `render_effect.py --ctrl`):** identical
+configuration re-run vs its twin 0.11 spacings before window 40 (max 0.46) → 0.34 after
+(0.50 at the end); render off at 40 vs its twin 0.054 (max 0.15) → 0.57 (0.75 at the
+end); physics-only 1.73 at the end. The cut twin's post-intervention divergence is 1.5–1.7×
+the noise floor — present but modest; the bunny's (0.14 → 0.77, 1.05) awaits its control
+(`rp_ctrl7_bunny`, running). Plots `output/photoreal/render_effect_{bob,dragon}.png`
+now carry the control curve (the dragon's confirms the earlier reading: control 0.58 →
+3.33 → 4.66 against cut 0.58 → 3.38 → 4.72 — indistinguishable). The proof of goal 1b
+therefore rests on (i) the per-window share/orthogonality (0.35, cosine 0.02–0.08,
+deterministic) and (ii) the outcomes against the run-to-run spread (dragon +10 points at
+spread 0.021, bunny +3.4, bob +1.4–1.8 at spread 0.002); the trajectory divergence is a
+supporting signal on the two smooth shapes and pure chaos on the dragon.
+
 **oh3_bob (20:15): 0 fragments, 0.1169 / 0.974 / 2.77 % (target ring), stray_max 0.29 %
 (density 2 / 0.118 / 0.958 / 1.1 %).** The trio passes the pre-registration on every count
 (fragments 0 / 0 / 0 against 0 / 0 / 2; chamfer within 0.005; silIoU equal or better by
