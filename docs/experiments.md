@@ -1777,6 +1777,11 @@ So the material changes the PATH (by 1–2 particle spacings, 10–25 % of the p
 from the first windows on for stiffness and Poisson ratio) while the render+density
 objective drives every material to the same end shape. Control runs (`mat_ctrl`, identical
 configuration) give the numerical noise floor of the divergence; dragon follows.
+Photoreal stills at the divergence peak (archived frame 250 = the same simulated time in
+every run; `output/photoreal/material_bunny_f250.png` on hyde06): the soft body is still a
+sphere with the ears barely budding, the stiff body has both ears fully extended, base /
+poisson 0.45 / elastic lie between — the intermediate SHAPE depends on the material, the
+end shape does not.
 
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
