@@ -66,6 +66,12 @@ ap.add_argument("--kernel", default="iso", choices=["iso", "aniso"],
                      "F from the archive's F samples). Surface bumps and 'visible particles' are hypothesised to be "
                      "the isotropic kernel failing to cover stretched material; see docs/experiments.md 2026-09-18.")
 ap.add_argument("--sigma0", type=float, default=0.7, help="rest Gaussian size in particle spacings (aniso kernel)")
+ap.add_argument("--F", default="geom", choices=["geom", "archive"],
+                help="deformation gradient for the aniso kernel: 'geom' = the TOTAL deformation of each particle's "
+                     "material patch, fitted per frame by least squares over its 12 rest neighbours (the plastic "
+                     "flow included — what the patch actually looks like now); 'archive' = the archived physics F "
+                     "(the ELASTIC part only after plastic assimilation, near identity).")
+ap.add_argument("--knn", type=int, default=12, help="rest neighbours for the geometric F fit")
 ap.add_argument("--still", type=int, default=-1, help="render only this archived frame to --out (png)")
 ap.add_argument("--max_frames", type=int, default=0)
 ap.add_argument("--label", default="")
@@ -130,8 +136,30 @@ from physmorph.render.covariance import select_archive_F  # noqa: E402
 _F_cache = {}
 
 
-def frame_F(fi):
-    """Deformation gradient at archived frame fi (nearest F sample), rotated with the archive."""
+_knn_rest = None
+
+
+def geometric_F(x):
+    """Total deformation gradient of each particle's material patch at the current frame: the
+    least-squares map from its rest neighbour offsets (frame 0, k nearest) to the current ones,
+    F = (sum d d0^T)(sum d0 d0^T)^-1 — the PhysGaussian kinematics of the patch, plastic flow
+    included, which the archived elastic F cannot show."""
+    global _knn_rest
+    if _knn_rest is None:
+        x0n = x0.detach().cpu().numpy().astype(np.float32)
+        _, nb = cKDTree(x0n).query(x0n, k=a.knn + 1, workers=-1)
+        _knn_rest = torch.as_tensor(nb[:, 1:], device=dev)
+    d0 = x0[_knn_rest] - x0[:, None, :]                                   # (N,k,3) rest offsets
+    d1 = x[_knn_rest] - x[:, None, :]                                     # (N,k,3) current offsets
+    A = torch.einsum("nki,nkj->nij", d1, d0)                              # sum d d0^T
+    B = torch.einsum("nki,nkj->nij", d0, d0) + 1e-6 * torch.eye(3, device=dev)[None] * float(spacing ** 2)
+    return torch.linalg.solve(B.transpose(1, 2), A.transpose(1, 2)).transpose(1, 2)   # A B^-1
+
+
+def frame_F(fi, x=None):
+    """Deformation gradient at archived frame fi: geometric (default) or the archived elastic F."""
+    if a.F == "geom" and x is not None:
+        return geometric_F(x)
     F, _kind = select_archive_F(z, int(fi))
     key = id(F)
     if key not in _F_cache:
@@ -183,7 +211,7 @@ def density_aniso(x, F):
     return rho.view(G, G, G)
 
 
-rho0 = density(x0) if a.kernel == "iso" else density_aniso(x0, frame_F(0))
+rho0 = density(x0) if a.kernel == "iso" else density_aniso(x0, frame_F(0, x0))
 occ = rho0[rho0 > 0]
 rho_bulk = float(occ.median()) if occ.numel() else 1.0
 if str(a.iso).lower() == "auto":
@@ -301,11 +329,13 @@ def filament_bridges(x_np, rho, drawn_labels_needed=2):
 def mesh_of(x, fi=None):
     """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components_raw, n_dropped, n_bridged, n_cavities)."""
     if a.kernel == "aniso" and fi is not None:
-        rho = density_aniso(x, frame_F(fi)).cpu().numpy()  # [z,y,x]
+        rho = density_aniso(x, frame_F(fi, x)).cpu().numpy()  # [z,y,x]
     else:
         rho = density(x).cpu().numpy()                     # [z,y,x]
-    if float(rho.max()) <= iso:
-        return None, 0, 0, 0
+    if not (float(np.nanmax(rho)) > iso):
+        print(f"[photoreal] frame {fi}: nothing above the level (rho max {float(np.nanmax(rho)):.3g}, iso {iso:.3g}, "
+              f"nan voxels {int(np.isnan(rho).sum())})", flush=True)
+        return None, 0, 0, 0, 0
     v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
     v = v[:, ::-1] + origin                                # (z,y,x) -> (x,y,z) world
     m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v.astype(np.float64)),
