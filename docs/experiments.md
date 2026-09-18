@@ -2210,8 +2210,11 @@ of the 40k C are its own sub-cell events, not the box.
   too. `nnw150_dragon` and `matw_soft_bunny` follow.
 - **Item 4, objective side (11:11 CDT):** `rv_bunny` (render loss at 128 px × 12 views)
   0.1189 / 0.967 in 128 windows / 31 min vs `rvb_bunny` (64 px × 6 views) 0.1195 / 0.966
-  in 103 / 25 min — no end-shape difference; the surface measure on matched frames is
-  pending (GPU saturated).
+  in 103 / 25 min — no end-shape difference, and no surface difference either: bumpiness
+  at frame 300 rv 13.80° vs rvb 13.53°. So neither the renderer's kernel nor the render
+  loss's resolution moves the measure; what it measures at 13–15° may be the floor of the
+  marching-cubes discretisation itself — the target cloud rendered through the same
+  pipeline gives that floor (next).
 - **Item 3 complete for the tested materials (11:25 CDT):** `matw_soft_bunny` (young 3e4,
   net, walls + per-step bonds) 1 re-attachment (pre-fix 12); with soft dragon 343 → 41
   (walls; the per-step bonds not yet in that run) and ν 0.45 dragon 95 → 0. The material

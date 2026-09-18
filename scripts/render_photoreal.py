@@ -496,9 +496,11 @@ def label(img, text):
         return img
 
 
-if a.still >= 0:
-    fr = torch.as_tensor(np.asarray(frames_np[a.still], np.float32), device=dev)
-    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(fr, a.still)
+if a.still >= 0 or a.still == -2:
+    fr = tgt if a.still == -2 else torch.as_tensor(np.asarray(frames_np[a.still], np.float32), device=dev)
+    # --still -2 renders the TARGET cloud through the same pipeline: the floor of the bumpiness
+    # measure for this discretisation
+    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(fr, a.still if a.still >= 0 else None)
     bump = bumpiness(m)
     print(f"[photoreal] still {a.still}: kernel {a.kernel}, bumpiness (mean |dihedral|) {bump:.2f} deg, "
           f"triangles {len(m.triangles) if m is not None else 0}", flush=True)
