@@ -1870,6 +1870,20 @@ features (+10 silIoU points), at the price of pulling them harder (3× the re-at
 without it the run stalls (cut: 99 windows, gate stop). Bunny: `rp_phys_bunny` 0.0798 /
 0.936 vs render 0.0790 / 0.958 (+2.2 points); `rp_cut_bunny` and the bob twins follow.
 
+**Bunny intervention twin (21:15; v7 recipe — the rp chain sourced the recipe at launch,
+so `rp_cut_bunny` ran under `auto` → ot_pace and is the twin of `h150v7_bunny`, not of
+the v6 run; `rp_phys_bunny` ran under the density recipe and pairs with `h150y_bunny`):**
+render on (`h150v7_bunny`) 0.0801 / **0.966** / 2 re-attachments, 211 windows; render off
+at window 40 (`rp_cut_bunny`) 0.0812 / **0.936** / 0 re-attachments, 300 windows (never
+converges). Divergence from the render twin (spacing 0.038 wu): 0.14 spacings before
+window 40 (max 0.43) → 0.77 after (1.05 at the end) — a 5× step at the intervention on a
+shape whose chaos is 4× milder than the dragon's, but without a bunny control at 150k
+this stays suggestive; the deterministic per-window measurement holds as on the dragon
+(g_share 0.346 / 0.380, cosine 0.03 / 0.06), and the outcome gap is 3 silIoU points. Plot
+`output/photoreal/render_effect_bunny.png`. Queued after the bob twins: `rp_phys7_bunny`
+(λ = 0 under the v7 recipe, the consistent physics-only twin) and `rp_ctrl7_bob` (the bob
+noise floor).
+
 **oh3_bob (20:15): 0 fragments, 0.1169 / 0.974 / 2.77 % (target ring), stray_max 0.29 %
 (density 2 / 0.118 / 0.958 / 1.1 %).** The trio passes the pre-registration on every count
 (fragments 0 / 0 / 0 against 0 / 0 / 2; chamfer within 0.005; silIoU equal or better by
