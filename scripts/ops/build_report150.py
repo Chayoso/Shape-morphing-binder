@@ -14,7 +14,7 @@ import sys
 ROOT = sys.argv[1] if len(sys.argv) > 1 else r"C:\dev\Shape-morphing-binder\output\report150"
 TITLE = sys.argv[2] if len(sys.argv) > 2 else "PhysMorph 150k 갤러리"
 MD_OUT = sys.argv[3] if len(sys.argv) > 3 else r"C:\dev\Shape-morphing-binder\docs\highres150_report.md"
-targets = [os.path.basename(p) for p in sorted(glob.glob(os.path.join(ROOT, "*"))) if os.path.isdir(p) and not os.path.basename(p).startswith("_")]  # _figs: shared figures
+targets = [os.path.basename(p) for p in sorted(glob.glob(os.path.join(ROOT, "*"))) if os.path.isdir(p) and os.path.basename(p) not in ("figs",) and not os.path.basename(p).startswith("_")]  # figs: shared figures (a published path may not start with "_")
 G = json.load(open(os.path.join(ROOT, "global.json"), encoding="utf-8")) if os.path.exists(os.path.join(ROOT, "global.json")) else {}
 
 
