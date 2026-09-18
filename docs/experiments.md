@@ -2170,6 +2170,14 @@ of the 40k C are its own sub-cell events, not the box.
   leader of the expansion phase — it clears the fracture gap within one window and then
   nothing pulls it back (it sits outside the target's support where the paced cell sum has
   no deficit to fill with it).
+- **Item 1, structural fix (14:00, f410ee9):** the material bonds' decoupling test was a
+  mask fixed at the window start (the runner's fragment mask), so a particle that clears
+  the fracture gap MID-window was bonded a window too late — exactly the single-particle
+  leaders above. The test is now evaluated every step from the current state (3³-cell
+  count, outside the tape, OR the commit mask); tests 26 passed (bonds FD, adjoint, smoke).
+  Test runs without the net at 150k under walls + per-step bonds: `nnw150_bob` (54 →
+  ?), `nnw150_dragon` (3 → ?), on GPU 0. (The material re-runs `matw_nu45_dragon` and
+  `matw_soft_bunny` start after this deploy and carry it; `matw_soft_dragon` does not.)
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
