@@ -2041,6 +2041,15 @@ the material-kNN smoothing of the map image stays). Tests: `c150u_C` (150k, wall
 smoothed ot, net) and `ou40_C` (40k, walls, same) — the C entry of v7 is whichever 150k C
 run stands after this.
 
+**Goal 1a at 150k WITHOUT the net (`nn150_*`, v7 recipe, pre-walls; 0 band hits in both):**
+bunny 0.0802 / 0.962 / **0 fragments** at the end (2 transient in windows 24–43), stray
+peak 0.15 %, G4 PASS, 45 min; dragon 0.0847 / 0.952 / **3 fragments** at the end (1
+through windows 59–80, 3 from window 200 on; 0.002 % of the cloud, single particles below
+the deliverable threshold), stray peak 0.96 %, G4 FAIL on the strict zero, 87 min. So the
+recipe alone holds the bunny fully and the dragon to three single particles at 150k; the
+net's re-attachment counts in the v7 gallery (bunny 2, dragon pending) are the same
+events caught early. bob and C follow.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
