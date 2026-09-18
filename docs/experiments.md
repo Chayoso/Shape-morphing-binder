@@ -1830,26 +1830,45 @@ strength. oh3_bunny 0 / 0.1179 / 0.961 (density 0.1178 / 0.960). oh3_bob pending
 holds, `auto` becomes: overlap → ot_pace + hand-off, hole → ot, and the 150k gallery is
 re-run (v7).
 
-**Goal 1b — the render gradient changes the physics (dragon, 150k, v6 recipe; three twins
-with the same seed and particles):** render-on (`h150y`), physics-only (`rp_phys`, λ = 0
-from the start) and the intervention (`rp_cut`, λ = 0 from window 40 = archived frame 120).
-Mean per-particle divergence from the render twin (particle spacing 0.037 wu):
-physics-only 0.000 at the first window (identical start) → 3.7 spacings mid-run → 6.0 at
-the end; the cut twin **0.58 spacings before window 40 (max 1.4, the numerical noise
-level) and 3.4 after (4.7 at the end)** — the trajectories coincide until the render
-channel is removed and separate from that window on, which is the causal signature (a
-confound cannot start at the intervention). Magnitude: the render channel's share of the
-accepted step is 35 % on average (λ-balanced), and the outcome differs accordingly: render
-on chamfer 0.083 / silIoU 0.939 / 755 re-attachments; physics-only 0.090 / 0.840 / 259;
-cut at 40: 0.101 / 0.770 / 68 (the run stalls once the channel is gone). So the render
-gradient (i) moves the particles — every trajectory statistic changes from the window it
-acts — and (ii) is what reaches the thin features (silIoU +10 points), at the price of
-pulling them harder (3× the re-attachments). Plot: `output/photoreal/render_effect_dragon.png`
-(hyde06); bunny and bob twins follow. Caveat read off the plot: the cut twin does not sit
-at exactly zero before window 40 — it drifts to 1.4 spacings by frame 120, the GPU-atomics
-noise the identical-configuration control showed on bunny (0.9 spacings) — and the slope
-changes at the intervention; an identical-configuration control at 150k (`rp_ctrl_dragon`)
-is being run to put that noise floor on the same plot.
+**Goal 1b — the render gradient changes the physics (dragon, 150k, v6 recipe; four runs
+with the same seed and particles):** render-on (`h150y`), an identical-configuration
+re-run (`rp_ctrl`, the run-to-run noise floor), physics-only (`rp_phys`, λ = 0 from the
+start) and the intervention (`rp_cut`, λ = 0 from window 40 = archived frame 120; the log
+confirms `render channel OFF from here` at window 41). Mean per-particle divergence from
+the render twin, particle spacing 0.037 wu — before window 40 mean / max | after mean | end:
+
+| run | before 40 | after 40 | end |
+|---|---|---|---|
+| identical configuration (`rp_ctrl`) | 0.58 / 1.41 | 3.33 | 4.66 |
+| render off at 40 (`rp_cut`) | 0.58 / 1.41 | 3.38 | 4.72 |
+| physics-only (`rp_phys`) | 1.70 / 2.71 | 4.56 | 5.96 |
+
+**Withdrawn:** the earlier reading of this plot ("the trajectories coincide until the
+channel is removed and separate from that window on — a causal signature") was wrong. An
+identical configuration diverges from itself by the same amount at every frame (4.7
+spacings by the end): at 150k the GPU-atomics non-determinism is amplified by the
+contact dynamics into a chaotic divergence, and the intervention twin never separates
+from that floor. Only the physics-only twin exceeds it, and modestly (1.7 vs 0.58 spacings
+before window 40, 6.0 vs 4.7 at the end). Trajectory divergence is therefore a chaos
+measurement at 150k, not a causal one; plot `output/photoreal/render_effect_dragon.png`
+(hyde06) now carries the control curve.
+
+What does separate from the noise: (i) **the per-window control update.** The optimizer
+records g_share = λ‖g_render‖ / (‖g_phys‖ + λ‖g_render‖) and the cosine between the
+physics gradient and the (PCGrad-projected) render gradient every window. Over every
+render-on run at 150k the render channel is 35 % of the accepted update (0.39–0.40 in
+windows 1–40, 0.34 afterwards; dragon 0.348, control 0.354, bunny 0.348, bob 0.344) at a
+cosine of 0.02 (dragon, control, bunny) / 0.05 (bob) to the physics gradient — a third of
+every control update is a direction the cell sum does not contain. This is a
+deterministic per-window measurement, untouched by the chaos above, and is the direct
+proof that the render gradient changes the control (the physics). (ii) **The outcome
+against the run-to-run spread.** silIoU: render-on 0.939 and control 0.918 (two samples
+of the same configuration: mean 0.928, spread 0.021) vs physics-only 0.840 and cut-at-40
+0.770 — 4–8 spreads below the render-on pair; chamfer 0.083 / 0.088 vs 0.090 / 0.101;
+re-attachments 755 / 773 vs 259 / 68. The render channel is what reaches the thin
+features (+10 silIoU points), at the price of pulling them harder (3× the re-attachments);
+without it the run stalls (cut: 99 windows, gate stop). Bunny: `rp_phys_bunny` 0.0798 /
+0.936 vs render 0.0790 / 0.958 (+2.2 points); `rp_cut_bunny` and the bob twins follow.
 
 **oh3_bob (20:15): 0 fragments, 0.1169 / 0.974 / 2.77 % (target ring), stray_max 0.29 %
 (density 2 / 0.118 / 0.958 / 1.1 %).** The trio passes the pre-registration on every count
