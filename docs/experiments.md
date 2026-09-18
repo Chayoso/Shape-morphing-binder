@@ -1732,6 +1732,15 @@ material kNN graph — neighbouring particles move together; falsified once at c
 under the calibration bug, verdict void): `gh_{bunny,dragon,bob}` at 40k without the net
 and `h150w_dragon` at 150k with it.
 
+Photoreal dragon (v6, 255 video frames): components > 1 in 182 frames (max 8); isolated
+particles peak at 5286 (3.5 % of the cloud) around archived frame 48 — the expansion phase
+— and decay to ~500 by frame 170. Frames seen: 48 (a lumpy blob, no strays visible at the
+isosurface), 210 (one chunk floating well above the body and a drop under the tail — the
+forbidden picture), 600 (clean; whiskers attached). So the video defects are (i) the early
+isolated-particle cloud (invisible at the isosurface but real) and (ii) mid-run chunk
+flights that the commit-time net only repairs afterwards. h150z (150k, ot_pace, cell 0.31)
+at window 210: 19 merges (v6: 755 by the end) — the pacing removes most flights.
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
