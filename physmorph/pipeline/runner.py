@@ -299,9 +299,17 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             xs = torch.as_tensor(np.asarray(src, np.float32), device=cfg.device)
             m_at = gather_cic(tgt.grid, xs, tgt.lgmin, tgt.ldx, tgt.ldims)
             empty = float((m_at <= 0).float().mean())
-        cfg.phys_loss = "ot" if empty > 0.5 else "density"
+        if empty > 0.5:
+            cfg.phys_loss = "ot"
+        else:
+            # overlap regime: the transport-PACED cell sum with the cell-wise hand-off —
+            # the expansion is a coherent flow (no far-cell reward, strays 17x fewer on the
+            # dragon) and the deficit cells next to the body fill at full strength
+            cfg.phys_loss = "ot_pace"
+            cfg.ot_handoff = True
+            cfg.ot_debias = True
         log(f"[v2] phys_loss auto: {empty * 100:.1f}% of the source particles sit in target-empty "
-            f"cells -> {cfg.phys_loss}")
+            f"cells -> {cfg.phys_loss}" + (" + cell-wise hand-off" if cfg.phys_loss == "ot_pace" else ""))
     if cfg.loss_units == "density":
         calibrate_units(tgt, src, target_x, cfg)
         log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = "

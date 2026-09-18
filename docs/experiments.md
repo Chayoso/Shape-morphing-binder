@@ -1818,6 +1818,18 @@ side (v6 + auto) is what reduced the raw counts; this rule is what makes every d
 frame show one body. C 40k photoreal (cd11): raw components > 1 in 12 of 302 frames,
 isolated particles peak 2615 at frame 54 (the transport phase).
 
+**oh3_dragon (20:05) — the first recipe that removes the expansion strays at the source:**
+ot_pace with the cell-wise (deficit) hand-off, pace = loss cell, OT-divergence merit,
+cell 0.31, 40k, NO net: end fragments **0**, chamfer 0.1217 (density 0.1264), silIoU
+**0.965** (0.955), hole 0.30 %, whole-run isolated-particle peak (stray_max) **0.14 %**
+against 2.3 % for the density recipe — 17× fewer strays mid-run, better quality, 108
+windows in 22 min (three runs per GPU). Mechanism: the paced target moves one cell per
+window, so the expansion phase is a coherent flow with no far-cell reward for a leader,
+while the deficit cells adjacent to the body carry the fixed target and fill at full
+strength. oh3_bunny 0 / 0.1179 / 0.961 (density 0.1178 / 0.960). oh3_bob pending; if it
+holds, `auto` becomes: overlap → ot_pace + hand-off, hole → ot, and the 150k gallery is
+re-run (v7).
+
 **grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
 stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
 2.31 %): the Sobolev direction leaves the early-expansion stray cloud unchanged. Material
