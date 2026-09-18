@@ -24,15 +24,24 @@ from scipy.spatial import cKDTree
 from skimage import measure
 
 ap = argparse.ArgumentParser()
-ap.add_argument("out"); ap.add_argument("run"); ap.add_argument("frame", type=int, nargs="?", default=-1)
+ap.add_argument("out"); ap.add_argument("run"); ap.add_argument("frame", type=float, nargs="?", default=-1,
+                help="archived frame; -1 = delivered end, -2 = the target cloud (floor); 0 < f < 1 = fraction of the delivered run")
 ap.add_argument("--grid", type=int, default=160); ap.add_argument("--blur", type=float, default=1.5)
 ap.add_argument("--r_wide", type=float, default=0.6); ap.add_argument("--r_narrow", type=float, default=0.15)
+ap.add_argument("--ref", default="surface", choices=["surface", "points"],
+                help="distance reference: the target's own isosurface through the same pipeline (removes the level "
+                     "offset) or the raw target points")
 a = ap.parse_args()
 dev = "cuda" if torch.cuda.is_available() else "cpu"
 z = np.load(f"{a.out}/{a.run}_render_full_dt_iso_nn.npz")
 frames = z["frames"]; tgt = np.asarray(z["tgt"], np.float32)
 dn = int(z["deliver_n"]) if "deliver_n" in z.files else len(frames)
-fi = dn - 1 if a.frame == -1 else a.frame
+if a.frame == -1:
+    fi = dn - 1
+elif 0 < a.frame < 1:
+    fi = int(round(a.frame * (dn - 1)))
+else:
+    fi = int(a.frame)
 x_np = tgt if a.frame == -2 else np.asarray(frames[fi], np.float32)
 G = a.grid
 allp = np.concatenate([frames[:dn:max(1, dn // 40)].reshape(-1, 3), tgt], 0)
@@ -71,18 +80,27 @@ def density(x):
 
 rho0 = density(x0); occ = rho0[rho0 > 0]; bulk = float(occ.median())
 iso = min(0.5, 2.0 * spacing ** 2 / (math.pi * (sig_vox * vox) ** 2)) * bulk
-rho = density(torch.as_tensor(x_np, device=dev)).cpu().numpy()
-v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
-v = v[:, ::-1] + ((ctr - half).cpu().numpy() + 0.5 * vox)
-# largest component only (the body)
 import open3d as o3d
-m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v.astype(np.float64)), o3d.utility.Vector3iVector(f[:, ::-1].astype(np.int32)))
-comp = np.asarray(m.cluster_connected_triangles()[0])
-keep = comp == int(np.bincount(comp).argmax())
-m.remove_triangles_by_mask(~keep); m.remove_unreferenced_vertices()
-v = np.asarray(m.vertices); f = np.asarray(m.triangles)
-# distance of every surface vertex to the nearest target point
-d = cKDTree(tgt).query(v, workers=-1)[0].astype(np.float64)
+
+
+def surface_of(pts):
+    """Body isosurface (largest component) of a cloud through the renderer's pipeline: (v, f)."""
+    rho = density(torch.as_tensor(pts, device=dev)).cpu().numpy()
+    v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
+    v = v[:, ::-1] + ((ctr - half).cpu().numpy() + 0.5 * vox)
+    m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v.astype(np.float64)), o3d.utility.Vector3iVector(f[:, ::-1].astype(np.int32)))
+    comp = np.asarray(m.cluster_connected_triangles()[0])
+    keep = comp == int(np.bincount(comp).argmax())
+    m.remove_triangles_by_mask(~keep); m.remove_unreferenced_vertices()
+    return np.asarray(m.vertices), np.asarray(m.triangles)
+
+
+v, f = surface_of(x_np)
+if a.ref == "surface":
+    vt, _ = surface_of(tgt)                      # the target's own isosurface: same level offset, cancels
+    d = cKDTree(vt).query(v, workers=-1)[0].astype(np.float64)
+else:
+    d = cKDTree(tgt).query(v, workers=-1)[0].astype(np.float64)
 # mesh-graph Laplacian smoothing: n Jacobi iterations spread over ~ edge * sqrt(n)
 e = np.concatenate([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]], 0)
 edge = float(np.linalg.norm(v[e[:, 0]] - v[e[:, 1]], axis=1).mean())
