@@ -2050,6 +2050,16 @@ recipe alone holds the bunny fully and the dragon to three single particles at 1
 net's re-attachment counts in the v7 gallery (bunny 2, dragon pending) are the same
 events caught early. bob and C follow.
 
+**Smoothing falsified on the hole regime (23:10):** `ou40_C` (40k, walls, unpaced ot WITH
+the material-kNN smoothing that efc7fa0 had extended to `ot`) gate-stopped at 26 windows
+with 0.2021 / **0.794** / 79 re-attachments (9 band hits) — against the raw map image's
+0.959–0.963 (auto_C, cd11_C). On a target with a hole the map is genuinely discontinuous
+where the material splits between the arms; averaging the displacement over the material
+neighbourhood across that surface sends the seam into the hole. The `ot` regime is back to
+the raw debiased map image (commit after 65452ae); `c150u_C` (smoothed) was killed at 26
+windows and replaced by `c150r_C` (150k, walls, raw image, net) with `or40_C` (40k) as the
+sanity check. The walls remain the only change to the C recipe.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
