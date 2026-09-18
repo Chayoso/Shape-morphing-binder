@@ -2199,6 +2199,27 @@ of the 40k C are its own sub-cell events, not the box.
   F samples, truncated at 3σ) against `--kernel iso` on the same frames; measures =
   mean absolute dihedral angle of the marching-cubes mesh (bumpiness), number of drawn
   components, and the eye.
+- **Item 4, hypotheses tested (13:10; bunny frame 500 / dragon frame 400, mean |dihedral|
+  in degrees):** isotropic blur 1.5 spacings, grid 160 (the gallery) 14.96 / 14.42.
+  F-carried Gaussians Σ = σ0² F Fᵀ with the TOTAL F fitted per frame over 12 rest
+  neighbours: σ0 = 0.7 → 19.5 / 22.0, σ0 = 1.5 → 16.3 / 17.5 — **bumpier**, and on the
+  dragon the fitted F is streaky where material sheared (17 components, a torn look):
+  H1 (partition of unity) holds only for a regular rest lattice, ours is a random sample,
+  so a kernel at 0.7 spacings overlaps ~10 particles and fluctuates by ~30 %; H2/H4 do not
+  reduce the roughness either. The archived F is the ELASTIC part only (singular values
+  1.19 / 1.00 / 0.84 median, det 0.99) and carries no patch shape. Isotropic variants:
+  blur 2.5 → 13.9 / 13.7; grid 240 → 13.7 / 13.6; both → 13.3 / 13.0 (H5 aliasing: a
+  10 % effect); Taubin 40 iterations → 21.8 / 21.2 (worse: the mesh ripples).
+  **Conclusion:** the renderer is not where the bumps come from — every kernel change
+  moves the measure by ≤ 10 % while the eye sees lumps of 0.3–0.5 wu, ten spacings, i.e.
+  the LOSS-CELL scale (0.31 wu): the cell-sum objective cannot see sub-cell surface shape
+  and the render channel sees a few silhouettes, so the state itself is lumpy at that
+  scale. The rendering hypotheses are falsified; the fix belongs to the objective (the
+  "rendering controls physics" premise): more silhouette views and/or a shading/normal
+  term in the render loss so the gradient reaches the surface texture — a physics
+  experiment for when the GPUs free up. `--kernel aniso` stays as an option with its
+  negative result recorded; the gallery keeps the isotropic kernel (grid 240 + blur 2.5
+  would buy 10 % on the measure at 3× the render cost — not taken).
 
 ### 2026-09-18 — overnight: v7 gallery complete, C under walls, controls
 
