@@ -1964,6 +1964,24 @@ no-net run still leaves 9 particles. Adopted for the hole regime (efc7fa0 stays)
 150k C is re-run under it (`h150v7_C`, replacing the 1914-re-attachment run in v7) and a
 no-net 150k C (`nn150_C`) follows the nn150 trio.
 
+**150k C under the pace (21:40, mid-run): the pace does NOT transfer — 1393 re-attachments
+by window 111** (bursts of 100–270 in windows 46–98; the old run had 1914 by 161). Frames
+of the old 150k C photoreal video (archived 96–162, `output/qa_frames/Cold_f*.png`) show
+what the numbers do not: the body is not a C with a lumpy surface but a C-shaped SHELL
+whose top arm is a separate slab from the start, side walls hanging below it, and by
+frame 162 a detached ball floats above the body — the sphere/circle the deliverable must
+never show. Reading: the sphere → C map is discontinuous on the surface where material
+splits between the arms; every particle on the far side of that surface has a target
+across empty space, and at 150k the material-kNN neighbourhood that smooths the map
+(one plan blur radius, 0.10 wu = a third of a cell) is too small a share of the fracture
+gap (one cell) to blur the split into a stretch — the body tears into cell-sized slabs
+and chunks. At 40k the same 0.10 wu is 1.7 spacings against a 5-spacing gap and the
+tear does not open (7 re-attachments). Fix (commit after 878a1ef): for the hole regime
+the smoothed displacement is additionally RESOLVED ON THE LOSS GRID — mass-weighted CIC
+deposit and gather with the cell sum's own kernel — before the pace: a displacement the
+grid cannot resolve is not a continuum displacement; below one cell the split becomes a
+stretch the elastic body carries. Test `c150s_C` (150k, net) against the paced re-run.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
