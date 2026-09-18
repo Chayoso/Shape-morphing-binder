@@ -199,7 +199,7 @@ for r in rows:
     H.append('<div class="grid">' + fig(t, f"{t}_surface.gif", f"{t} — isosurface of the particle density (two azimuths, target outline)") + fig(t, f"{t}_splat.gif", f"{t} — disk splats (the previous surface render, same frames)") + fig(t, f"{t}_particles.gif", f"{t} — raw particles (same frames)") + '</div>')
     H.append('<div class="grid4">' + fig(t, f"{t}_target_pbr_az35.png", "target (az 35°)") + fig(t, f"{t}_render_pbr_az35.png", "delivered (az 35°)") + fig(t, f"{t}_target_pbr_az215.png", "target (az 215°)") + fig(t, f"{t}_render_pbr_az215.png", "delivered (az 215°)") + '</div>')
     H.append('<div class="grid">' + fig(t, f"{t}_loss.png", "window loss and D_vol vs commit; loss vs wall-clock") + '</div>')
-for key, title in (("ejection_html", "4. Mass ejection — 원인 조사와 시도한 메커니즘"), ("speed_html", "5. 속도 — 150k 10분 목표"), ("summary_html", "6. 요약과 다음 단계"), ("viewer_html", "7. 3D 뷰어에서 보기")):
+for key, title in (("ejection_html", "4. Mass ejection — 원인 조사와 시도한 메커니즘"), ("render_html", "5. 렌더 기울기가 물리를 바꾼다 — 인과 증명"), ("material_html", "6. 물성이 궤적을 바꾼다"), ("speed_html", "7. 속도"), ("summary_html", "8. 요약과 다음 단계"), ("viewer_html", "9. 3D 뷰어에서 보기")):
     if G.get(key):
         H.append(f'<h2>{title}</h2>' + G[key])
 H.append('</main>')
@@ -223,7 +223,7 @@ if any(r["qa"] for r in rows):
         q = r["qa"]
         if q:
             md.append(f'| {r["t"]} | {q["n"]} | {q["raw_gt1"]} ({q["raw_max"]}) | {q["drawn_gt1"]} ({q["drawn_max"]}) | {q["drop_frames"]} ({q["drop_total"]}) | {q["iso_max"]} ({q["iso_frame"]}) | {q["iso_end"]} | {r["reatt"]} | {r["frag"] or "–"} |')
-for key, title in (("assessment_html", "Assessment"), ("ejection_html", "Mass ejection"), ("speed_html", "Speed"), ("summary_html", "Summary"), ("viewer_html", "Viewer")):
+for key, title in (("assessment_html", "Assessment"), ("ejection_html", "Mass ejection"), ("render_html", "Render gradient -> physics"), ("material_html", "Material -> trajectory"), ("speed_html", "Speed"), ("summary_html", "Summary"), ("viewer_html", "Viewer")):
     md += ["", f"## {title}", "", strip(G.get(key, ""))]
 open(MD_OUT, "w", encoding="utf-8").write("\n".join(md) + "\n")
 print("markdown written")
