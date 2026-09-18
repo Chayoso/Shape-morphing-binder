@@ -34,7 +34,12 @@ ap.add_argument("--elev", type=float, default=18.0)
 ap.add_argument("--fps", type=int, default=20)
 ap.add_argument("--hold", type=int, default=20, help="repeat the last frame this many times")
 ap.add_argument("--grid", type=int, default=160)
-ap.add_argument("--iso", type=float, default=0.5)
+ap.add_argument("--iso", default="auto",
+                help="isosurface level as a fraction of the source bulk density, or 'auto' = the level at which a "
+                     "filament two particles across (a 2x2 bundle, the thinnest continuum the particles can carry) "
+                     "still renders: 2 s^2 / (pi sigma^2) with s the particle spacing and sigma the blur, capped at "
+                     "0.5. At 0.5 a thin neck (teat, whisker) falls below the level and its bulb renders as a "
+                     "detached ball although the material is connected at the particle scale (cow at 150k).")
 ap.add_argument("--blur", type=float, default=1.5)
 ap.add_argument("--smooth", type=int, default=12, help="Taubin smoothing iterations")
 ap.add_argument("--fov", type=float, default=30.0, help="vertical field of view (degrees)")
@@ -109,7 +114,17 @@ def density(x):
 rho0 = density(x0)
 occ = rho0[rho0 > 0]
 rho_bulk = float(occ.median()) if occ.numel() else 1.0
-iso = a.iso * rho_bulk
+if str(a.iso).lower() == "auto":
+    # a 2x2 bundle of particles (spacing s) blurred by a 3D Gaussian sigma has a line density
+    # 4/s^2 per unit length -> peak 4 / (s^2 2 pi sigma^2) particles per volume; bulk = 1/s^3
+    sig_wu = sig_vox * vox
+    iso_frac = min(0.5, 2.0 * spacing ** 2 / (np.pi * sig_wu ** 2))
+    print(f"[photoreal] iso auto: spacing {spacing:.4f} wu, blur sigma {sig_wu:.4f} wu -> iso {iso_frac:.3f} x bulk "
+          f"(two-particle filament level; single particles peak at {spacing ** 3 / ((2 * np.pi) ** 1.5 * sig_wu ** 3):.3f})",
+          flush=True)
+else:
+    iso_frac = float(a.iso)
+iso = iso_frac * rho_bulk
 origin = (ctr - half).cpu().numpy() + 0.5 * vox           # world position of voxel centre (0,0,0)
 
 
@@ -260,6 +275,8 @@ with open(a.out + ".components.txt", "w") as fh:
         fh.write(f"{i} {n_comp} {n_iso} {n_drop}\n")
     comps = np.array([q[1] for q in qa]); isos = np.array([q[2] for q in qa]); drops = np.array([q[3] for q in qa])
     drawn = comps - drops
+    fh.write(f"# iso {iso_frac:.3f} x bulk ({'auto: two-particle filament level' if str(a.iso).lower() == 'auto' else 'fixed'}), "
+             f"blur {a.blur} spacings, grid {a.grid}\n")
     fh.write(f"# frames {len(qa)}  raw components>1 in {(comps > 1).sum()} frames (max {comps.max()})  "
              f"drawn components>1 in {(drawn > 1).sum()} frames (max {drawn.max()})  "
              f"sub-cell components dropped in {(drops > 0).sum()} frames (cell {cell_wu:.3f} wu, min {a.min_cells:g} cells)  "
