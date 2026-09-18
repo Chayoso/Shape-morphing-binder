@@ -1830,6 +1830,27 @@ strength. oh3_bunny 0 / 0.1179 / 0.961 (density 0.1178 / 0.960). oh3_bob pending
 holds, `auto` becomes: overlap → ot_pace + hand-off, hole → ot, and the 150k gallery is
 re-run (v7).
 
+**Goal 1b — the render gradient changes the physics (dragon, 150k, v6 recipe; three twins
+with the same seed and particles):** render-on (`h150y`), physics-only (`rp_phys`, λ = 0
+from the start) and the intervention (`rp_cut`, λ = 0 from window 40 = archived frame 120).
+Mean per-particle divergence from the render twin (particle spacing 0.037 wu):
+physics-only 0.000 at the first window (identical start) → 3.7 spacings mid-run → 6.0 at
+the end; the cut twin **0.58 spacings before window 40 (max 1.4, the numerical noise
+level) and 3.4 after (4.7 at the end)** — the trajectories coincide until the render
+channel is removed and separate from that window on, which is the causal signature (a
+confound cannot start at the intervention). Magnitude: the render channel's share of the
+accepted step is 35 % on average (λ-balanced), and the outcome differs accordingly: render
+on chamfer 0.083 / silIoU 0.939 / 755 re-attachments; physics-only 0.090 / 0.840 / 259;
+cut at 40: 0.101 / 0.770 / 68 (the run stalls once the channel is gone). So the render
+gradient (i) moves the particles — every trajectory statistic changes from the window it
+acts — and (ii) is what reaches the thin features (silIoU +10 points), at the price of
+pulling them harder (3× the re-attachments). Plot: `output/photoreal/render_effect_dragon.png`
+(hyde06); bunny and bob twins follow. Caveat read off the plot: the cut twin does not sit
+at exactly zero before window 40 — it drifts to 1.4 spacings by frame 120, the GPU-atomics
+noise the identical-configuration control showed on bunny (0.9 spacings) — and the slope
+changes at the intervention; an identical-configuration control at 150k (`rp_ctrl_dragon`)
+is being run to put that noise floor on the same plot.
+
 **grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
 stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
 2.31 %): the Sobolev direction leaves the early-expansion stray cloud unchanged. Material
