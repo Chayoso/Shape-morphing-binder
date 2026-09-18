@@ -432,7 +432,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         else:
             ot_T = tgt.ot_pull.entropic_map(x0_ot, cfg.ot_samples)
         leash_r = float(tgt.ot_pull.eps) ** 0.5           # the plan's own resolution
-        if cfg.phys_loss in ("ot", "ot_leash", "ot_pace", "ot_shape"):
+        # The hole regime (`ot`, e.g. C) uses the debiased map image as it is. The
+        # material-kNN smoothing below belongs to the cell-sum regimes: on a target with a
+        # hole the map is genuinely discontinuous where the material splits between the
+        # arms, and averaging across that surface sends the seam into the hole (40k C with
+        # the smoothing: gate stop at 26 windows, silIoU 0.79; raw image 0.96).
+        if cfg.phys_loss in ("ot_leash", "ot_pace", "ot_shape"):
             # the leash anchors are the map images PROJECTED onto the target point set: the
             # entropic image sits ~0.9 spacings inside the target (blur), which made the
             # leash and the cell sum pull surface particles to different places (v1: merit
@@ -457,16 +462,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             disp = (ot_T - x0_ot)
             disp = disp[tgt.ot_knn].mean(dim=1)
             ot_T = x0_ot + disp
-            # The hole regime (`ot`, e.g. C) uses this material-smoothed map image directly.
-            # Two per-particle target variants were tried on the 150k C and FALSIFIED
-            # (2026-09-17 night): (i) a PACED target — each window's target bounded to one
-            # pace = max(plan blur, loss cell) along the smoothed map — cut the 40k C's
+            # Per-particle target variants tried on the 150k C and FALSIFIED (2026-09-17
+            # night): (i) a PACED target — each window's target bounded to one pace =
+            # max(plan blur, loss cell) along the smoothed map — cut the 40k C's
             # re-attachments 114 → 7 but at 150k gave silIoU 0.88 / 0.55 (unpaced 0.95): a
             # target that walks with the particle makes the window loss quasi-stationary,
             # so the inner line search and the merit gate see no descent and stop the run
             # on a half-formed body; (ii) resolving the displacement on the loss grid (CIC
-            # deposit/gather) before the pace, 0.59. The chunks those variants were meant
-            # to stop were particles frozen in the domain's boundary band (mpm/kernels.py
+            # deposit/gather) before the pace, 0.59; (iii) the material-kNN smoothing alone
+            # on the hole regime, 0.79 at 40k. The chunks those variants were meant to stop
+            # were particles frozen in the domain's boundary band (mpm/kernels.py
             # k_grid_op, the separating walls) — not a property of the target.
             if cfg.phys_loss == "ot_leash":
                 _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
