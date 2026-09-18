@@ -1750,6 +1750,34 @@ morph in the window budget (at 40k the same recipe reached 0.955 in 7.5 min). Th
 cell-wise hand-off (`oh3`) is the candidate that keeps the fixed target's full-strength
 fill near the body and paces only the far transport.
 
+**C, continued (19:10):** `cd7_C` (cell-wise hand-off, all near cells) = 0.722, 13 rejects
+— the near cells around a body sitting in the hole are m_t = 0 cells, and the fixed target
+there is the outward runaway again. `cd8_C` (deficit cells only) = 0.806 / hole 3.3 %,
+3 rejects. Every C variant stops at 20–27 windows through the fixed-scale merit; the slow
+tangential redistribution that forms the arms reads as no progress to the cell sum. For the
+transport recipes the merit's physics component is now the Sinkhorn divergence to the
+fixed target (`SinkhornPull.divergence`, commit 1800d88) — what the recipe descends, defined
+on the fixed target, monotone along a transport path. `cd9_C` = ot_pace + that merit.
+
+**grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
+stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
+2.31 %): the Sobolev direction leaves the early-expansion stray cloud unchanged. Material
+study, bunny (5 runs): base 0.1178 / 0.960, soft (young 3e4) 0.1185 / 0.959 (12
+re-attachments), stiff (6e5) 0.1167 / 0.971, poisson 0.45 0.1195 / 0.957, assim 0.1
+0.1167 / 0.963 — the END states barely differ; the trajectories are compared next.
+
+**Material study, bunny trajectories (`scripts/probes/material_trajectories.py`, same
+seed → the same particles; spacing 0.060 wu):** mean per-particle divergence from the
+base run at 10 / 25 / 50 / 100 % of the run — soft (young 3e4) 0.26 / 0.17 / 0.12 / 0.11 wu
+(end 1.9 spacings; first > 1 spacing at frame 48; 12 re-attachments, a 3.1 wu jump), stiff
+(6e5) 0.11 / 0.09 / 0.10 / 0.11 (1.8 sp; frame 33), poisson 0.45 0.11 / 0.12 / 0.13 / 0.14
+(2.3 sp; frame 36), assim 0.1 (more elastic) 0.03 / 0.05 / 0.06 / 0.07 (1.2 sp; frame 984).
+Path lengths 1.08 (base) / 1.12 / 1.26 / 1.09 / 1.17 wu; end chamfer 0.0758–0.0779 for all.
+So the material changes the PATH (by 1–2 particle spacings, 10–25 % of the path length,
+from the first windows on for stiffness and Poisson ratio) while the render+density
+objective drives every material to the same end shape. Control runs (`mat_ctrl`, identical
+configuration) give the numerical noise floor of the divergence; dragon follows.
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
