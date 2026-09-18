@@ -1906,6 +1906,13 @@ render channel is worth +3.4 silIoU points on the bunny and the runs without it 
 converge (283–300 windows against 211). Plot `output/photoreal/render_effect_bunny.png`
 (updated to the consistent triple).
 
+**nn150_bob (23:40; 150k, no net, pre-walls, 0 band hits):** 0.0781 / 0.932 / **54
+fragments** at the end — one chunk of ~50 particles (0.55 of a cell at ppc 91, below the
+deliverable threshold) shed between windows 25 and 50 and never recovered; the netted
+run (`h150v7_bob`, walls) 0.969 / 126 re-attachments. So at 150k without the net: bunny 0,
+dragon 3, bob 54 fragments (0 / 0.002 / 0.04 % of the cloud); the net is what keeps bob's
+ring at 0.97. `nn150_C` (walls, raw image) runs last.
+
 **oh3_bob (20:15): 0 fragments, 0.1169 / 0.974 / 2.77 % (target ring), stray_max 0.29 %
 (density 2 / 0.118 / 0.958 / 1.1 %).** The trio passes the pre-registration on every count
 (fragments 0 / 0 / 0 against 0 / 0 / 2; chamfer within 0.005; silIoU equal or better by
