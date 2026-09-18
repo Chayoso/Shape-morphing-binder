@@ -468,19 +468,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # uses) makes the pull uniform and bounded: no particle is asked to move
                 # farther than the grid resolves in one window, so none can lead. The
                 # target still walks the whole map, one pace per window.
-                # The displacement is first RESOLVED ON THE LOSS GRID (mass-weighted CIC
-                # deposit and gather, the cell sum's own kernel). The map of a body onto a
-                # target with a hole is discontinuous where the material splits between
-                # the arms; per-particle targets on either side of that surface tear the
-                # body at the grid's fracture gap (150k C: chunks of 100–270 particles,
-                # 1–3 cells, shed through the whole arm phase even with the pace; 40k does
-                # not tear because its blur-radius neighbourhood is a larger share of the
-                # cell). A field the grid cannot resolve is not a continuum displacement:
-                # below one cell the split becomes a stretch the elastic body carries.
-                m_t = torch.as_tensor(tgt.m, device=dev) if not torch.is_tensor(tgt.m) else tgt.m
-                den = rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims).clamp_min(1e-12)
-                disp = torch.stack([gather_cic(rasterize_mass(x0_ot, m_t * disp[:, j], tgt.lgmin, tgt.ldx, tgt.ldims) / den,
-                                               x0_ot, tgt.lgmin, tgt.ldx, tgt.ldims) for j in range(3)], dim=1)
+                # (Resolving the displacement on the loss grid before the pace — CIC deposit
+                # and gather — was tried for the 150k C and made it worse: silIoU 0.59, gate
+                # stop at 67 windows. The 150k chunks were not a map discontinuity at all but
+                # particles trapped in the domain's boundary band; see mpm/kernels.py
+                # k_grid_op, the separating walls.)
                 pace_r = max(leash_r, float(tgt.ldx))
                 dn = disp.norm(dim=1, keepdim=True)
                 ot_T = x0_ot + disp * torch.clamp(pace_r / dn.clamp_min(1e-12), max=1.0)

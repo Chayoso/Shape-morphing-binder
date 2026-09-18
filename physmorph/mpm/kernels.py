@@ -169,16 +169,47 @@ def k_support_gate(x: wp.array(dtype=wp.vec3), cnt: wp.array(dtype=int), gmin: w
 # Out-of-place (momentum in -> velocity out). In-place read-write of a
 # differentiable array breaks Warp's adjoint, so we keep momentum and velocity
 # in distinct arrays. In-place forward use passes the same array for in/out.
+WALL_NODES = 2   # cubic B-spline half-support: a particle within 2 cells of the box edge has a truncated stencil
+
+
 @wp.kernel
 def k_grid_op(grid_m: wp.array(dtype=float), grid_mom: wp.array(dtype=wp.vec3),
               grid_vel: wp.array(dtype=wp.vec3), dt: float, f_ext: wp.vec3,
-              gmin_y: float, dx: float, ny: int, nz: int, floor_y: float, friction: float):
+              gmin_y: float, dx: float, nx: int, ny: int, nz: int, floor_y: float, friction: float,
+              wall_nodes: int):
     g = wp.tid()
     mg = grid_m[g]
     if mg > 1.0e-12:
         vg = grid_mom[g] / mg + dt * f_ext
-        # floor boundary: separating + Coulomb-style friction (rubber bounces, honey splats)
         j = (g // nz) % ny
+        # domain walls (separating): the outward normal velocity is zeroed on the outermost
+        # `wall_nodes` node layers of every face, tangential and inward motion stay free.
+        # Without them the box edge was a TRAP: a particle within the stencil half-support of
+        # the edge deposits on and gathers from a truncated stencil, loses momentum each step
+        # and freezes there — the 150k C shed 600–900 particles per window into that band
+        # (the "chunks" re-attached by the net sat at the box corners, static, 1.5–3 wu from
+        # any target point) while the 40k C never reached it. A wall the material can slide
+        # along and be pulled back from is the oracle's domain treatment; the trap was not.
+        if wall_nodes > 0:
+            i = g // (ny * nz)
+            k = g % nz
+            vx = vg[0]
+            vy = vg[1]
+            vz = vg[2]
+            if i < wall_nodes and vx < 0.0:
+                vx = 0.0
+            if i >= nx - wall_nodes and vx > 0.0:
+                vx = 0.0
+            if j < wall_nodes and vy < 0.0:
+                vy = 0.0
+            if j >= ny - wall_nodes and vy > 0.0:
+                vy = 0.0
+            if k < wall_nodes and vz < 0.0:
+                vz = 0.0
+            if k >= nz - wall_nodes and vz > 0.0:
+                vz = 0.0
+            vg = wp.vec3(vx, vy, vz)
+        # floor boundary: separating + Coulomb-style friction (rubber bounces, honey splats)
         node_y = gmin_y + float(j) * dx
         if node_y < floor_y and vg[1] < 0.0:
             vt = wp.vec3(vg[0], 0.0, vg[2])                 # tangential

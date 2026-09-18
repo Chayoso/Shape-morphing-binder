@@ -240,7 +240,8 @@ class Trajectory:
                   prm.dt, prm.drag,
                   prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
-                  prm.grid_min[1], prm.dx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction], device=dev)
+                  prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
+                  K.WALL_NODES], device=dev)
         wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)

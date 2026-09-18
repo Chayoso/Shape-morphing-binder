@@ -94,7 +94,8 @@ def mpm_step(s: MPMState, prm: MPMParams):
               device=dev)
     wp.launch(K.k_grid_op, dim=prm.ngrid,
               inputs=[s.grid_m, s.grid_v, s.grid_v, prm.dt, fext,
-                      prm.grid_min[1], prm.dx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction],
+                      prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
+                      K.WALL_NODES],
               device=dev)  # in-place ok (fwd only)
     wp.launch(K.k_g2p, dim=N,
               inputs=[s.x, s.v, s.C, s.F, s.dFc, s.F_new, s.grid_v, s.eta,
