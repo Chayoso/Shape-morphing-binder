@@ -1797,6 +1797,17 @@ re-attachments, chamfer 0.0899, silIoU 0.840 vs the render twin 755 / 0.0831 / 0
 render channel raises the dragon's silIoU by 10 points and its re-attachments 3× (it pulls
 the thin features harder); the causal intervention twin (`rp_cut_dragon`) follows.
 
+**o2_bunny (OT-only, no net): 0 fragments, 0.1294 / 0.945 in 16 windows** — the transport
+loss converges fast and stops short of the density recipe's fill (0.118 / 0.960). So the
+two losses have complementary regimes, and the regime is a property of the discretised
+problem, not a per-shape choice: when the source's mass sits in cells the target leaves
+EMPTY (the sphere inside the C's hole), the cell sum has nothing but an outward push and
+the transport plan is the only term that says where the mass goes; when source and target
+overlap, the cell sum's local fill is the better objective. `--phys_loss auto` (commit
+after 1a5a162) measures at the start the fraction of source particles whose target cell
+carries no mass and picks the transport loss above one half (C: ~1.0; bunny, dragon,
+bob: < 0.5), logged as `[v2] phys_loss auto: …`.
+
 **grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
 stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
 2.31 %): the Sobolev direction leaves the early-expansion stray cloud unchanged. Material

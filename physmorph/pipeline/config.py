@@ -329,7 +329,10 @@ class PipelineConfig:
     gauss_robust_eps: float = 0.0   # >0: Charbonnier sqrt(r^2+eps^2) instead of |r| in the
                                     # Gaussian image loss (audit: L1 sign crossings made
                                     # the finite-difference check fail at 12k)
-    phys_loss: str = "density"      # "density": the cell-sum D_vol; "ot": entropic optimal transport
+    phys_loss: str = "density"      # "auto": "ot" when more than half of the source particles sit in
+                                    # cells the target leaves empty (the sphere inside the C's hole:
+                                    # the cell sum has only an outward push there), else "density"
+                                    # "density": the cell-sum D_vol; "ot": entropic optimal transport
                                     # (losses/ot.SinkhornPull) rescaled once to D_vol's gradient norm;
                                     # "ot_leash": D_vol + a hinge on the distance of each particle to
                                     # its transport-map image beyond the plan's blur radius (the cell

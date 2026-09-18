@@ -288,6 +288,20 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         log(f"[v2] pace_budget={cfg.pace_budget:g} over {cfg.animations} anims -> "
             f"per-window cap {cfg.pace:.4f}")
     tgt = build_target(target_x, prm, cfg, w_tgt=w_tgt, w_src=w_src)
+    if getattr(cfg, "phys_loss", "density") == "auto":
+        # regime of the discretised problem (2026-09-17, C forensic): when the source's
+        # mass sits in cells the target leaves empty (the sphere inside the C's hole) the
+        # cell sum has nothing but an outward push there and only a transport plan says
+        # where the mass goes; when source and target overlap, the cell sum's local fill
+        # is the better objective. Measured once at the start, no per-shape choice.
+        from ..losses.volumetric import gather_cic
+        with torch.no_grad():
+            xs = torch.as_tensor(np.asarray(src, np.float32), device=cfg.device)
+            m_at = gather_cic(tgt.grid, xs, tgt.lgmin, tgt.ldx, tgt.ldims)
+            empty = float((m_at <= 0).float().mean())
+        cfg.phys_loss = "ot" if empty > 0.5 else "density"
+        log(f"[v2] phys_loss auto: {empty * 100:.1f}% of the source particles sit in target-empty "
+            f"cells -> {cfg.phys_loss}")
     if cfg.loss_units == "density":
         calibrate_units(tgt, src, target_x, cfg)
         log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = "
