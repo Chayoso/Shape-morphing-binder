@@ -340,6 +340,27 @@ class SinkhornPull:
         return T
 
     @torch.no_grad()
+    def divergence(self, x: torch.Tensor, n_sub: int = 8192, seed: int = 0) -> float:
+        """Debiased Sinkhorn divergence to the target sample, up to the constant OT(b,b):
+        S = OT_eps(a, b) - 1/2 OT_eps(a, a), both on the fixed n_sub-particle subsample.
+        A merit component for the transport recipes: it is what they descend, it is
+        defined on the FIXED target, and it decreases monotonically along a transport path
+        where the cell sum plateaus (the slow tangential redistribution that formed C's
+        arms read as 'no progress' to the fixed-scale merit). Cold-solved each call (the
+        potentials of the pacing solver are left untouched)."""
+        N = x.shape[0]
+        n_sub = min(int(n_sub), N)
+        gen = torch.Generator(device="cpu").manual_seed(seed)
+        idx = torch.randperm(N, generator=gen)[:n_sub].to(x.device)
+        xs = x[idx].detach()
+        ab = SinkhornPull(self.y, eps=self.eps, iters=self.iters, tol=self.tol)
+        ab.f_cold = True
+        v_ab = float(ab(xs))
+        aa = SinkhornPull(xs, eps=self.eps, iters=self.iters, tol=self.tol)
+        v_aa = float(aa(xs))
+        return v_ab - 0.5 * v_aa
+
+    @torch.no_grad()
     def argmax_targets(self, x: torch.Tensor) -> torch.Tensor:
         """Rounded (Monge) map: the target sample carrying the largest plan mass for each
         particle. No entropic averaging, so a thin feature is reached to its tip (the

@@ -736,6 +736,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # a kinetic merit punishes it. Terminal velocity is a transient, not a
         # shape quality; the brake still catches real regressions (d_vol 62->215).
         components = {"phys": rec["d_vol"]}
+        if getattr(cfg, "phys_loss", "density").startswith("ot") and getattr(tgt, "ot_pull", None) is not None:
+            # transport recipes: the merit's physics component is the Sinkhorn divergence
+            # to the fixed target (what the recipe descends; monotone along a transport
+            # path where the cell sum plateaus — C forensic 2026-09-17), the cell sum stays
+            # in the record for the tracker and the report
+            with torch.no_grad():
+                rec["ot_div"] = float(tgt.ot_pull.divergence(torch.as_tensor(x, device=cfg.device), cfg.ot_samples))
+            components["phys"] = rec["ot_div"]
         rend_gate = (rec["d_sil"] if rec.get("d_sil") is not None
                      else rec["d_render"])
         if rend_gate is not None:
