@@ -780,8 +780,10 @@ def main():
                 "gauss_child_sigma_scale": np.float32(
                     cfg.gauss_child_sigma_scale if cfg.gauss_children > 1 else 1.0),
             }
+        from physmorph.sampling.orientation import orient_name as _orient_name
         np.savez_compressed(
             f"{args.out}_{arm}.npz", src=src, tgt=tgt,
+            orient=np.str_(_orient_name(args.tgt)),        # the loader already rotated the asset to y-up
             frames=np.stack(res["frames"]), deliver_n=np.int64(dn),
             truncation=json.dumps(res.get("truncation")),
             F_samples=np.stack([res["F_frames"][i] for i in idx]),

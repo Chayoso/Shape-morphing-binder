@@ -42,6 +42,13 @@ a = ap.parse_args()
 
 dev = "cuda" if torch.cuda.is_available() else "cpu"
 z = np.load(a.npz, allow_pickle=True)
+import sys as _sys, os as _os  # noqa: E402
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from physmorph.sampling.orientation import orient_archive  # noqa: E402
+_fr, _tg, _sr, _orient = orient_archive(z, a.npz)              # y-up (assets/orientation.json)
+z = {k: z[k] for k in z.files}; z["frames"], z["tgt"] = _fr, _tg
+if _sr is not None:
+    z["src"] = _sr
 frames_np = z["frames"]
 dn = int(z["deliver_n"]) if "deliver_n" in z.files else len(frames_np)
 tgt_np = np.asarray(z["tgt"], np.float32)

@@ -941,6 +941,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     f"{', EJECTION ' + str(rec.get('iso_start')) + '->' + str(rec.get('iso_count')) if eject_reject else ''})")
                 if stale >= cfg.patience:
                     frozen = True
+                if getattr(cfg, "reject_stop", 0) > 0 and reject_streak >= cfg.reject_stop:
+                    # early stop: three consecutive rejected candidates of any kind are the
+                    # plateau (v7: all terminal streaks; the C replayed a rejected step 12x)
+                    log(f"[v2] anim {a + 1}: {reject_streak} consecutive rejected candidates -> "
+                        f"early stop at the best commit")
+                    frozen = True
                 continue
             outer_prev = score
             prev_disp = disp.copy()

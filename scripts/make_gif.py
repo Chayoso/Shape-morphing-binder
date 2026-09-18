@@ -68,7 +68,10 @@ def main():
     args = ap.parse_args()
 
     d = np.load(args.npz)
-    fr, tgt = d["frames"], d["tgt"]
+    import sys as _sys, os as _os
+    _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+    from physmorph.sampling.orientation import orient_archive
+    fr, tgt, _sr, _orient = orient_archive(d, args.npz)        # y-up (assets/orientation.json)
     azs = [float(s) for s in args.views.split(",")]
     ext = float(np.abs(np.stack([fr[0], fr[-1], tgt])).max()) * 1.15
 

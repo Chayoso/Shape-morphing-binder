@@ -2161,6 +2161,19 @@ of the 40k C are its own sub-cell events, not the box.
   at render time).
 - **Item 1 (bob without the net):** `nn150_bob` sheds from window 16 (1 particle) and
   window 27 (4) — the ring's expansion phase, before the walls mattered (0 box hits).
+- **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
+  five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
+  armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `assets/orientation.json` +
+  `physmorph/sampling/orientation.py`: the loader rotates the mesh at load time and the
+  archive records `orient`; every renderer (photoreal, iso video, splat video, particle
+  gif, PBR stills) rotates older archives by the table at render time. No re-run needed.
+- **Item 5 done (12:10):** `cfg.reject_stop = 3` — three consecutive rejected candidates
+  (any kind) end the run at its best commit. Justified by the v7 rejection positions: every
+  run's rejections are a terminal streak of 2–5 (bob 127–129, bunny 208–210, dragon
+  188–190, …); isolated rejections mid-run are followed by descent (A 177 → 217, beast
+  264 → 274, cow 218 → 224) and would not trigger a streak of three; C's 12-window replay
+  would have ended at 154. The loss "spikes" are the logged rejected candidates, not the
+  trajectory; the delivered archive stops at the best commit either way.
 
 ### 2026-09-18 — overnight: v7 gallery complete, C under walls, controls
 

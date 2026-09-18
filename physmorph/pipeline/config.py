@@ -429,6 +429,12 @@ class PipelineConfig:
                                     # (REFUTE M18: the P-render metric was None in
                                     # every run without --live_port)
     patience: int = 5               # commits without tol improvement before freeze
+    reject_stop: int = 3            # consecutive rejected candidates (any kind) that end the run at
+                                    # its best commit — an early stop. v7 forensics: every run's
+                                    # rejections are a terminal streak of 2–5 (the plateau); the C
+                                    # replayed one rejected step 12 times. An isolated rejection is
+                                    # followed by descent (A 177 -> 217, beast 264 -> 274), so a
+                                    # streak, not a count, is the stop signal.
     tol: float = 0.003              # relative improvement threshold on the tracked loss
     persistent_rest_volume: bool = True  # compute Vp0 once at the sampled source state
     best_truncate: bool = True      # deliver the trajectory up to its best shape-merit

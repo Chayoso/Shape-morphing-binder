@@ -72,9 +72,13 @@ from scipy.spatial import cKDTree  # noqa: E402
 o3d.utility.set_verbosity_level(o3d.utility.VerbosityLevel.Error)
 dev = "cuda" if torch.cuda.is_available() else "cpu"
 z = np.load(a.npz, allow_pickle=True)
-frames_np = z["frames"]
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from physmorph.sampling.orientation import orient_archive  # noqa: E402
+frames_np, tgt_np, _src_np, _orient = orient_archive(z, a.npz)   # y-up (assets/orientation.json)
+if _orient != "id":
+    print(f"[photoreal] orientation {_orient} ({'from archive' if 'orient' in z.files else 'from the table, applied at render time'})", flush=True)
 dn = int(z["deliver_n"]) if "deliver_n" in z.files else len(frames_np)
-tgt_np = np.asarray(z["tgt"], np.float32)
+tgt_np = np.asarray(tgt_np, np.float32)
 G = a.grid
 tgt = torch.as_tensor(tgt_np, device=dev)
 x0 = torch.as_tensor(np.asarray(frames_np[0], np.float32), device=dev)

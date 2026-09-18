@@ -40,7 +40,10 @@ a = ap.parse_args()
 
 dev = "cuda" if torch.cuda.is_available() else "cpu"
 d = np.load(a.npz)
-frames_np, tgt_np = d["frames"], d["tgt"]
+import sys as _sys, os as _os  # noqa: E402
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from physmorph.sampling.orientation import orient_archive  # noqa: E402
+frames_np, tgt_np, _sr, _orient = orient_archive(d, a.npz)     # y-up (assets/orientation.json)
 dn = int(d["deliver_n"]) if "deliver_n" in d.files else len(frames_np)
 idx = list(range(0, dn, a.stride))
 if idx[-1] != dn - 1:

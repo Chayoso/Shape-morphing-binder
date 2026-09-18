@@ -123,6 +123,11 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
     shell thickness given in WORLD units; the return then carries the per-particle
     relative rest volumes as a third value (x, vol, w) / (x, w)."""
     mesh = load_mesh(path)
+    # per-asset up-axis (assets/orientation.json): the collection mixes z-up and y-up meshes
+    from .orientation import orient_name, rotation
+    _o = orient_name(path)
+    if _o != "id":
+        mesh.vertices = np.asarray(mesh.vertices, np.float64) @ rotation(_o).T
     if shell is not None:
         ratio, thick_wu = shell
         # the world scale before sampling (bbox diagonal -> size, then the volume match)

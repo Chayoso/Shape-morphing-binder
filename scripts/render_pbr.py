@@ -37,6 +37,13 @@ ap.add_argument("--smooth", type=float, default=0.9, help="depth smoothing sigma
 a = ap.parse_args()
 
 d = np.load(a.npz)
+import sys as _sys, os as _os  # noqa: E402
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+from physmorph.sampling.orientation import orient_archive  # noqa: E402
+_fr, _tg, _sr, _orient = orient_archive(d, a.npz)              # y-up (assets/orientation.json)
+d = {k: d[k] for k in d.files}; d["frames"], d["tgt"] = _fr, _tg
+if _sr is not None:
+    d["src"] = _sr
 if a.target:
     x = d["tgt"].astype(np.float32)
 else:
