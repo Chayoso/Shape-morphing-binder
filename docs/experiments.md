@@ -2178,6 +2178,18 @@ of the 40k C are its own sub-cell events, not the box.
   Test runs without the net at 150k under walls + per-step bonds: `nnw150_bob` (54 →
   ?), `nnw150_dragon` (3 → ?), on GPU 0. (The material re-runs `matw_nu45_dragon` and
   `matw_soft_bunny` start after this deploy and carry it; `matw_soft_dragon` does not.)
+- **Item 2, why detached material never comes back (14:20):** the stranded C chunks
+  (`c150r_C`, walls: 85–105 particles, 1.7–2.3 wu from any target point, 0.003–0.015
+  wu/frame) are NOT starved of transport signal — the plan's map still pulls a probe
+  point 2–3 wu outside the target by 4 wu inward (debiased and plain entropic map alike,
+  148 sweeps). They are static because the CONTROL IS A STRESS (dFc through k_stress):
+  the internal stress of an isolated body integrates to zero net force, so a detached
+  chunk cannot translate under any control — exactly as the whole body keeps its centre
+  of mass. Ejection is therefore irreversible by construction; the net (re-attachment)
+  is the only external force in the model, and "no net" can only mean "no fracture":
+  prevention at the front (bonds evaluated per step for singles — done; for cell-sized
+  fronts the candidate that tears the body has to be infeasible, i.e. the continuity
+  check without the free-rollout allowance, or the front held by its material).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
