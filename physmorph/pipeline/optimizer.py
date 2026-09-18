@@ -457,25 +457,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             disp = (ot_T - x0_ot)
             disp = disp[tgt.ot_knn].mean(dim=1)
             ot_T = x0_ot + disp
-            if cfg.phys_loss == "ot":
-                # PACED per-particle target (the hole regime, e.g. C). The quadratic loss to
-                # the full map image pulls a particle in proportion to its distance, so the
-                # particles farthest behind (the arm tips) are pulled hardest and lead the
-                # body — the H3 leader mechanism in per-particle form (h150v7_C at 150k:
-                # 1914 re-attachments in bursts of 100–440 while |v|max sat at 2.5 wu/s).
-                # Bounding each window's target to one pace along the material-smoothed
-                # map (pace = max(plan blur, loss cell), the same pace the cell-sum regime
-                # uses) makes the pull uniform and bounded: no particle is asked to move
-                # farther than the grid resolves in one window, so none can lead. The
-                # target still walks the whole map, one pace per window.
-                # (Resolving the displacement on the loss grid before the pace — CIC deposit
-                # and gather — was tried for the 150k C and made it worse: silIoU 0.59, gate
-                # stop at 67 windows. The 150k chunks were not a map discontinuity at all but
-                # particles trapped in the domain's boundary band; see mpm/kernels.py
-                # k_grid_op, the separating walls.)
-                pace_r = max(leash_r, float(tgt.ldx))
-                dn = disp.norm(dim=1, keepdim=True)
-                ot_T = x0_ot + disp * torch.clamp(pace_r / dn.clamp_min(1e-12), max=1.0)
+            # The hole regime (`ot`, e.g. C) uses this material-smoothed map image directly.
+            # Two per-particle target variants were tried on the 150k C and FALSIFIED
+            # (2026-09-17 night): (i) a PACED target — each window's target bounded to one
+            # pace = max(plan blur, loss cell) along the smoothed map — cut the 40k C's
+            # re-attachments 114 → 7 but at 150k gave silIoU 0.88 / 0.55 (unpaced 0.95): a
+            # target that walks with the particle makes the window loss quasi-stationary,
+            # so the inner line search and the merit gate see no descent and stop the run
+            # on a half-formed body; (ii) resolving the displacement on the loss grid (CIC
+            # deposit/gather) before the pace, 0.59. The chunks those variants were meant
+            # to stop were particles frozen in the domain's boundary band (mpm/kernels.py
+            # k_grid_op, the separating walls) — not a property of the target.
             if cfg.phys_loss == "ot_leash":
                 _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
                 ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
