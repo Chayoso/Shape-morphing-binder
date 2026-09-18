@@ -2276,6 +2276,12 @@ of the 40k C are its own sub-cell events, not the box.
   more time; the recipe keeps 64. Item 4 therefore closes on three findings: the texture is
   sampling noise (target floor 14.5°), the lumps are not cell-scale (a third of a spacing),
   and the screenshot's lumpiness was the un-oriented view.
+- **v8 launched (14:00 CDT):** the gallery re-run as a NO-NET pass of all 19 targets at
+  150k (walls + per-step bonds + early stop + y-up assets; `--reattach` off, so the
+  end-frame fragment count is the ejection ledger). Two 150k runs at a time on GPU 0 (a
+  150k run takes 6.6–8 GB beside the other user's 27 GB; a third run OOMs — the first
+  bunny and A attempts died that way and were re-queued). Photoreal + QA follow
+  automatically; the page is built from the v8 narrative when all 19 are in.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
