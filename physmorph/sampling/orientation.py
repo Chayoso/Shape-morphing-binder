@@ -1,4 +1,4 @@
-"""Per-asset up-axis (assets/orientation.json): the OBJ collection mixes z-up and y-up meshes,
+"""Per-asset up-axis (physmorph/sampling/orientation.json): the OBJ collection mixes z-up and y-up meshes,
 and the renderers put +y up. The rotation is applied ONCE, at load time (load_normalized), and
 the archive records it as `orient` so that renderers can rotate older, un-oriented archives
 at render time instead (the morph itself is rotation-equivariant: no gravity, no floor).
@@ -24,7 +24,7 @@ _ROT = {
 def table() -> dict:
     global _TABLE
     if _TABLE is None:
-        p = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "assets", "orientation.json")
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "orientation.json")   # inside the package: deploy.sh skips assets/
         _TABLE = {}
         if os.path.exists(p):
             _TABLE = {k: v for k, v in json.load(open(p, encoding="utf-8")).items() if not k.startswith("_")}

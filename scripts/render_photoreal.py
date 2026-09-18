@@ -59,6 +59,13 @@ ap.add_argument("--bridge", type=int, default=1,
                 help="draw particles the isosurface does not enclose but which link the body to another drawn "
                      "component as a filament one particle spacing thick (the rendered topology follows the "
                      "particle connectivity, not the threshold); 0 = off. Bridged components are counted in the sidecar.")
+ap.add_argument("--kernel", default="iso", choices=["iso", "aniso"],
+                help="density kernel: 'iso' = CIC deposit + separable Gaussian blur of --blur spacings (grid-aligned, "
+                     "isotropic); 'aniso' = every particle deposits its own Gaussian with covariance sigma0^2 F F^T "
+                     "(the Gaussian rides the deformation, docs/method.md eq. 11; sigma0 = --sigma0 x rest spacing, "
+                     "F from the archive's F samples). Surface bumps and 'visible particles' are hypothesised to be "
+                     "the isotropic kernel failing to cover stretched material; see docs/experiments.md 2026-09-18.")
+ap.add_argument("--sigma0", type=float, default=0.7, help="rest Gaussian size in particle spacings (aniso kernel)")
 ap.add_argument("--still", type=int, default=-1, help="render only this archived frame to --out (png)")
 ap.add_argument("--max_frames", type=int, default=0)
 ap.add_argument("--label", default="")
@@ -74,7 +81,7 @@ dev = "cuda" if torch.cuda.is_available() else "cpu"
 z = np.load(a.npz, allow_pickle=True)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from physmorph.sampling.orientation import orient_archive  # noqa: E402
-frames_np, tgt_np, _src_np, _orient = orient_archive(z, a.npz)   # y-up (assets/orientation.json)
+frames_np, tgt_np, _src_np, _orient = orient_archive(z, a.npz)   # y-up (physmorph/sampling/orientation.json)
 if _orient != "id":
     print(f"[photoreal] orientation {_orient} ({'from archive' if 'orient' in z.files else 'from the table, applied at render time'})", flush=True)
 dn = int(z["deliver_n"]) if "deliver_n" in z.files else len(frames_np)
@@ -119,7 +126,58 @@ def density(x):
     return rho[0, 0]                                       # (G,G,G) indexed [z,y,x]
 
 
-rho0 = density(x0)
+from physmorph.render.covariance import select_archive_F  # noqa: E402
+_F_cache = {}
+
+
+def frame_F(fi):
+    """Deformation gradient at archived frame fi (nearest F sample), rotated with the archive."""
+    F, _kind = select_archive_F(z, int(fi))
+    key = id(F)
+    if key not in _F_cache:
+        _F_cache.clear()
+        Fr = np.asarray(F, np.float32)
+        if _orient != "id" and "orient" not in z.files:
+            from physmorph.sampling.orientation import rotation
+            R = rotation(_orient).astype(np.float32)
+            Fr = np.einsum("ij,njk->nik", R, Fr)             # x' = R x  ->  F' = R F
+        _F_cache[key] = torch.as_tensor(np.ascontiguousarray(Fr), device=dev)
+    return _F_cache[key]
+
+
+def density_aniso(x, F):
+    """Sum of per-particle Gaussians N(x_p, sigma0^2 F_p F_p^T) on the voxel grid: the kernel is
+    the particle's material patch carried by the deformation, so stretched material stays
+    covered (no gaps -> no 'visible particles') and the sum is flat where the rest cloud was
+    regular (partition of unity -> no bumps). Truncated at 3 sigma_max; fixed stencil."""
+    s0 = a.sigma0 * spacing
+    cov = (s0 * s0) * torch.einsum("nij,nkj->nik", F, F)
+    cov = cov + (1e-3 * s0 * s0) * torch.eye(3, device=dev)[None]
+    prec = torch.linalg.inv(cov)                                          # (N,3,3)
+    det = torch.linalg.det(cov).clamp_min(1e-30)
+    norm = 1.0 / ((2 * math.pi) ** 1.5 * torch.sqrt(det))                # unit mass per particle
+    smax = torch.sqrt(torch.linalg.eigvalsh(cov)[:, -1])                 # largest sigma per particle
+    r = int(min(6, max(1, math.ceil(3.0 * float(smax.max()) / vox))))
+    offs = torch.stack(torch.meshgrid(*(torch.arange(-r, r + 1, device=dev),) * 3, indexing="ij"), -1).reshape(-1, 3)  # (K,3) dz,dy,dx? -> use xyz
+    offs = offs[:, [2, 1, 0]].float()                                     # (K,3) in x,y,z
+    p = (x - (ctr - half)) / vox - 0.5                                    # voxel-centre coordinates
+    i0 = torch.round(p).long()
+    rho = torch.zeros(G * G * G, device=dev)
+    K = offs.shape[0]
+    chunk = max(1, int(2e7 // K))
+    for s in range(0, x.shape[0], chunk):
+        pe = p[s:s + chunk]; ie = i0[s:s + chunk]; Pe = prec[s:s + chunk]; ne = norm[s:s + chunk]
+        idx = ie[:, None, :] + offs[None].long()                          # (n,K,3) voxel indices (x,y,z)
+        d = (idx.float() - pe[:, None, :]) * vox                          # world offset voxel centre - particle
+        q = torch.einsum("nki,nij,nkj->nk", d, Pe, d)                      # Mahalanobis^2
+        w = ne[:, None] * torch.exp(-0.5 * q) * (vox ** 3)                # mass fraction per voxel
+        ok = ((idx >= 0) & (idx < G)).all(-1)
+        lin = (idx[..., 2] * G + idx[..., 1]) * G + idx[..., 0]
+        rho.index_put_((lin[ok],), w[ok], accumulate=True)
+    return rho.view(G, G, G)
+
+
+rho0 = density(x0) if a.kernel == "iso" else density_aniso(x0, frame_F(0))
 occ = rho0[rho0 > 0]
 rho_bulk = float(occ.median()) if occ.numel() else 1.0
 if str(a.iso).lower() == "auto":
@@ -234,9 +292,12 @@ def filament_bridges(x_np, rho, drawn_labels_needed=2):
     return fil, len(others)
 
 
-def mesh_of(x):
-    """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components_raw, n_dropped, n_bridged)."""
-    rho = density(x).cpu().numpy()                         # [z,y,x]
+def mesh_of(x, fi=None):
+    """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components_raw, n_dropped, n_bridged, n_cavities)."""
+    if a.kernel == "aniso" and fi is not None:
+        rho = density_aniso(x, frame_F(fi)).cpu().numpy()  # [z,y,x]
+    else:
+        rho = density(x).cpu().numpy()                     # [z,y,x]
     if float(rho.max()) <= iso:
         return None, 0, 0, 0
     v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
@@ -303,6 +364,25 @@ def mesh_of(x):
         if fil is not None:
             m += fil
     return m, n_comp, n_drop, n_bridge, n_cav
+
+
+def bumpiness(m):
+    """Mean absolute dihedral angle (degrees) over the mesh's interior edges: 0 for a plane, small
+    for a smooth closed surface, large for a bumpy one. The H1 measure (docs/experiments.md
+    2026-09-18 item 4)."""
+    if m is None or len(m.triangles) == 0:
+        return float("nan")
+    m.compute_triangle_normals()
+    f = np.asarray(m.triangles); nrm = np.asarray(m.triangle_normals)
+    e = np.concatenate([f[:, [0, 1]], f[:, [1, 2]], f[:, [2, 0]]], 0)
+    e = np.sort(e, axis=1)
+    key = e[:, 0].astype(np.int64) * (f.max() + 1) + e[:, 1]
+    tri = np.tile(np.arange(len(f)), 3)
+    order = np.argsort(key, kind="stable"); key = key[order]; tri = tri[order]
+    same = key[1:] == key[:-1]
+    a_, b_ = tri[:-1][same], tri[1:][same]
+    cosd = np.clip((nrm[a_] * nrm[b_]).sum(1), -1.0, 1.0)
+    return float(np.degrees(np.arccos(cosd)).mean()) if len(cosd) else float("nan")
 
 
 def isolated_count(x_np):
@@ -382,8 +462,11 @@ def label(img, text):
 
 if a.still >= 0:
     fr = torch.as_tensor(np.asarray(frames_np[a.still], np.float32), device=dev)
-    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(fr)
-    img = label(render_views(m), f"{a.label} frame {a.still}  components {n_comp} (sub-cell dropped {n_drop}, cavities {n_cav}, bridged {n_bridge})")
+    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(fr, a.still)
+    bump = bumpiness(m)
+    print(f"[photoreal] still {a.still}: kernel {a.kernel}, bumpiness (mean |dihedral|) {bump:.2f} deg, "
+          f"triangles {len(m.triangles) if m is not None else 0}", flush=True)
+    img = label(render_views(m), f"{a.label} frame {a.still}  {a.kernel}  bump {bump:.1f} deg  components {n_comp} (dropped {n_drop}, cavities {n_cav}, bridged {n_bridge})")
     o3d.io.write_image(a.out, o3d.geometry.Image(np.ascontiguousarray(img)))
     print(f"saved {a.out} (components {n_comp}, sub-cell dropped {n_drop})")
     sys.exit(0)
@@ -397,7 +480,7 @@ tmp = tempfile.mkdtemp(prefix="photoreal_")
 qa = []
 for k, i in enumerate(idx):
     x_np = np.asarray(frames_np[i], np.float32)
-    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(torch.as_tensor(x_np, device=dev))
+    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(torch.as_tensor(x_np, device=dev), i)
     n_iso = isolated_count(x_np)
     qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav))
     img = label(render_views(m), f"{a.label}  frame {i}/{dn - 1}")

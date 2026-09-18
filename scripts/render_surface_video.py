@@ -43,7 +43,7 @@ d = np.load(a.npz)
 import sys as _sys, os as _os  # noqa: E402
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 from physmorph.sampling.orientation import orient_archive  # noqa: E402
-frames_np, tgt_np, _sr, _orient = orient_archive(d, a.npz)     # y-up (assets/orientation.json)
+frames_np, tgt_np, _sr, _orient = orient_archive(d, a.npz)     # y-up (physmorph/sampling/orientation.json)
 dn = int(d["deliver_n"]) if "deliver_n" in d.files else len(frames_np)
 idx = list(range(0, dn, a.stride))
 if idx[-1] != dn - 1:

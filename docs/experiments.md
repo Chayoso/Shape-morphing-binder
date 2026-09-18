@@ -2163,7 +2163,7 @@ of the 40k C are its own sub-cell events, not the box.
   window 27 (4) — the ring's expansion phase, before the walls mattered (0 box hits).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
-  armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `assets/orientation.json` +
+  armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
   `physmorph/sampling/orientation.py`: the loader rotates the mesh at load time and the
   archive records `orient`; every renderer (photoreal, iso video, splat video, particle
   gif, PBR stills) rotates older archives by the table at render time. No re-run needed.
@@ -2174,6 +2174,31 @@ of the 40k C are its own sub-cell events, not the box.
   264 → 274, cow 218 → 224) and would not trigger a streak of three; C's 12-window replay
   would have ended at 154. The loss "spikes" are the logged rejected candidates, not the
   trajectory; the delivered archive stops at the best commit either way.
+- **Item 4 (surface bumps, visible particles) — five hypotheses, pre-registered (12:30):**
+  the deliverable surface is the isosurface of a density made by CIC deposit + an
+  ISOTROPIC Gaussian blur of 1.5 rest spacings (grid 160). H1 *kernel below the
+  irregularity*: after plastic flow the local spacing varies by tens of percent, and an
+  isotropic kernel at 1.5 rest spacings resolves that irregularity as bumps of 2–3
+  spacings; a kernel that is each particle's MATERIAL PATCH carried by the deformation,
+  Σ = σ0² F Fᵀ (eq. 11), sums to a flat field where the rest cloud was regular (a partition
+  of unity in the rest frame) — bumps should drop by a large factor. H2 *stretched
+  material uncovered*: where the body stretched (ears, horns, arms) the particles are
+  farther apart than the rest spacing, the isotropic kernel leaves gaps between them and
+  the surface shows beads/particles; the F-carried kernel is elongated exactly there.
+  H3 *level inflation*: the two-particle-filament level (0.28) sits 1σ outside the
+  half-density surface and rounds every sharp feature; with H1/H2 kernels the natural
+  half level (0.5) should render thin features without the inflation. H4 *surface
+  discreteness*: the outermost particle layer's kernels are half outside the body, so
+  the half-level surface cuts through them and follows their individual bumps; the
+  F-carried kernel of a surface particle is flattened tangentially under compression and
+  elongated under stretch, which smooths the cut. H5 *grid aliasing*: CIC deposit onto
+  1.3-spacing voxels followed by a separable blur aliases particle motion into
+  frame-to-frame flicker of the bumps; the analytic per-particle Gaussian evaluated at
+  voxel centres has no deposit stage. Test: `render_photoreal.py --kernel aniso` (each
+  particle deposits N(x_p, σ0² F_p F_pᵀ), σ0 = 0.7 rest spacings, F from the archive's
+  F samples, truncated at 3σ) against `--kernel iso` on the same frames; measures =
+  mean absolute dihedral angle of the marching-cubes mesh (bumpiness), number of drawn
+  components, and the eye.
 
 ### 2026-09-18 — overnight: v7 gallery complete, C under walls, controls
 
