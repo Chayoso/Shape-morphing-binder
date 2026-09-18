@@ -1851,6 +1851,16 @@ noise the identical-configuration control showed on bunny (0.9 spacings) — and
 changes at the intervention; an identical-configuration control at 150k (`rp_ctrl_dragon`)
 is being run to put that noise floor on the same plot.
 
+**oh3_bob (20:15): 0 fragments, 0.1169 / 0.974 / 2.77 % (target ring), stray_max 0.29 %
+(density 2 / 0.118 / 0.958 / 1.1 %).** The trio passes the pre-registration on every count
+(fragments 0 / 0 / 0 against 0 / 0 / 2; chamfer within 0.005; silIoU equal or better by
++1…+1.6 points; mid-run strays 8–17× fewer). Adopted (commit e07e0b5, deployed 20:00):
+`--phys_loss auto` now means — source overlapping the target: the transport-paced cell
+sum with the cell-wise deficit hand-off, pace = loss cell, Sinkhorn-divergence merit;
+source inside a target hole (C): the per-particle transport loss. The 150k gallery is
+re-run on it as v7 (`h150v7_<T>`, `n150v7_<T>`, four chains, re-attachment kept as the net;
+its counts are the report's honesty metric).
+
 **grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
 stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
 2.31 %): the Sobolev direction leaves the early-expansion stray cloud unchanged. Material
