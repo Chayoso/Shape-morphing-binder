@@ -21,6 +21,17 @@ if "--png" in sys.argv:
     png = sys.argv[sys.argv.index("--png") + 1]
     if png in args:
         args.remove(png)
+# optional identical-configuration control run (the run-to-run noise floor) and the render run it
+# is compared against (default: the render prefix)
+p_ctrl = p_ref = None
+if "--ctrl" in sys.argv:
+    p_ctrl = sys.argv[sys.argv.index("--ctrl") + 1]
+    if p_ctrl in args:
+        args.remove(p_ctrl)
+if "--ctrl_ref" in sys.argv:
+    p_ref = sys.argv[sys.argv.index("--ctrl_ref") + 1]
+    if p_ref in args:
+        args.remove(p_ref)
 out, T, p_r, p_p, p_c, K = args[0], args[1], args[2], args[3], args[4], int(args[5])
 ARM = "render_full_dt_iso_nn"
 
@@ -39,6 +50,13 @@ m = min(len(fr_r), len(fr_p), len(fr_c))
 ks = np.arange(0, m, max(1, m // 250))
 d_c = np.array([np.linalg.norm(fr_c[k] - fr_r[k], axis=1).mean() for k in ks]) / sp
 d_p = np.array([np.linalg.norm(fr_p[k] - fr_r[k], axis=1).mean() for k in ks]) / sp
+d_ctrl = ks_c = None
+if p_ctrl:
+    fr_ctrl, _ = load(p_ctrl)
+    fr_ref = load(p_ref)[0] if p_ref else fr_r
+    mc = min(len(fr_ctrl), len(fr_ref))
+    ks_c = ks[ks < mc]
+    d_ctrl = np.array([np.linalg.norm(fr_ctrl[k] - fr_ref[k], axis=1).mean() for k in ks_c]) / sp
 
 
 def stride_of(p):
@@ -60,6 +78,11 @@ print(f"cut twin vs render twin: mean divergence BEFORE window {K}: {before.mean
       f"(max {before.max() if len(before) else float('nan'):.4f}); AFTER: {after.mean() if len(after) else float('nan'):.3f} (end {d_c[-1]:.3f})")
 print(f"phys twin vs render twin: first-window divergence {d_p[1] if len(d_p) > 1 else d_p[0]:.3f}, "
       f"mid {d_p[len(d_p) // 2]:.3f}, end {d_p[-1]:.3f} spacings")
+if d_ctrl is not None:
+    b = d_ctrl[ks_c < k_cut]; a = d_ctrl[ks_c >= k_cut]
+    print(f"control ({p_ctrl}, identical configuration) vs {p_ref or p_r}: BEFORE window {K}: "
+          f"{b.mean() if len(b) else float('nan'):.4f} spacings (max {b.max() if len(b) else float('nan'):.4f}); "
+          f"AFTER: {a.mean() if len(a) else float('nan'):.3f} (end {d_ctrl[-1]:.3f}) — the run-to-run noise floor")
 for p in (p_r, p_p, p_c):
     try:
         j = json.load(open(f"{out}/{p}_{T}.json"))
@@ -83,10 +106,12 @@ if png:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(figsize=(7, 4))
-    ax.plot(ks, d_p, label="physics-only twin vs render twin")
-    ax.plot(ks, d_c, label=f"render switched off at window {K} vs render twin")
+    if d_ctrl is not None:
+        ax.plot(ks_c, d_ctrl, color="0.5", label="identical configuration re-run (noise floor)")
+    ax.plot(ks, d_p, label="physics-only twin")
+    ax.plot(ks, d_c, label=f"render switched off at window {K}")
     ax.axvline(k_cut, color="k", ls="--", lw=0.8)
-    ax.set_xlabel("archived frame"); ax.set_ylabel("mean |Δx| (particle spacings)"); ax.grid(alpha=.3); ax.legend()
-    ax.set_title(f"{T}: trajectory divergence caused by the render gradient")
+    ax.set_xlabel("archived frame"); ax.set_ylabel("mean |x - x_render| (particle spacings)"); ax.grid(alpha=.3); ax.legend()
+    ax.set_title(f"{T} 150k: divergence from the render-on twin")
     fig.tight_layout(); fig.savefig(png, dpi=110)
     print("saved", png)

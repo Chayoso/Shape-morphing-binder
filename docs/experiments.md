@@ -1913,6 +1913,13 @@ run (`h150v7_bob`, walls) 0.969 / 126 re-attachments. So at 150k without the net
 dragon 3, bob 54 fragments (0 / 0.002 / 0.04 % of the cloud); the net is what keeps bob's
 ring at 0.97. `nn150_C` (walls, raw image) runs last.
 
+**Bob noise floor (23:50; `rp_ctrl7_bob`, identical configuration re-run of the walled
+`h150v7_bob`):** 0.0776 / **0.968** / 127 re-attachments against 0.0773 / 0.969 / 126 —
+the run-to-run outcome spread on bob is 0.001–0.002 silIoU, so the physics-only (0.952)
+and cut-at-40 (0.956) twins sit 7–9 spreads below the render-on pair; with the bunny
+(+3.4 points) and the dragon (+10, spread 0.021) this is the outcome half of goal 1b on
+three shapes. The trajectory half (control curve on the divergence plot) follows.
+
 **oh3_bob (20:15): 0 fragments, 0.1169 / 0.974 / 2.77 % (target ring), stray_max 0.29 %
 (density 2 / 0.118 / 0.958 / 1.1 %).** The trio passes the pre-registration on every count
 (fragments 0 / 0 / 0 against 0 / 0 / 2; chamfer within 0.005; silIoU equal or better by
