@@ -1806,7 +1806,17 @@ the transport plan is the only term that says where the mass goes; when source a
 overlap, the cell sum's local fill is the better objective. `--phys_loss auto` (commit
 after 1a5a162) measures at the start the fraction of source particles whose target cell
 carries no mass and picks the transport loss above one half (C: ~1.0; bunny, dragon,
-bob: < 0.5), logged as `[v2] phys_loss auto: …`.
+bob: < 0.5), logged as `[v2] phys_loss auto: …`. Measured: C 68.1 % → ot.
+
+**Goal 3, the deliverable rule (commit after 5386fe4):** the photoreal renderer draws only
+isosurface components whose volume is at least one MPM cell (dx³, dx = source diagonal /
+26) — material smaller than a cell shares no full stencil with the body and is not a
+continuum element the grid resolves (the same rule the commit-time net uses to decide what
+is a stray). Nothing is hidden from the record: the sidecar keeps the raw component count,
+the drawn count and the number dropped per frame, and the page shows both. The physics
+side (v6 + auto) is what reduced the raw counts; this rule is what makes every delivered
+frame show one body. C 40k photoreal (cd11): raw components > 1 in 12 of 302 frames,
+isolated particles peak 2615 at frame 54 (the transport phase).
 
 **grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
 stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
