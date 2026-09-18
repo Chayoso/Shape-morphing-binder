@@ -2201,6 +2201,17 @@ sit inside it (the same count `grid_fragments.py` uses). Renderer rule (commit a
 3902a93): mass by voxel-label membership, in addition to the enclosed volume; C, bunny,
 cow and beast re-rendered; the other 15 videos have no extra piece to drop and stand.
 
+**FINAL v7 deliverable QA (10:50; iso auto + mass rule + cavity sign + filament bridges):**
+frames with a drawn piece detached from the body — **0 for 18 of 19 targets** (bunny 0
+with 92 cavity frames, cow 0 with the teat bulb dropped as sub-cell mass in 70 frames,
+beast 0 with 20 cavity frames), **C 29 of 203** (the arm-front chunks ≥ one cell of
+particles; 5 more frames bridged); physical fragments by the grid probe: 0 frames for 18,
+C 6. Pages built with `build_report150.py` (QA table: physical fragments, raw/drawn,
+bridged, unbridged, cavities via the sidecars, re-attachments), fetched with
+`fetch_page.sh`, markdown `docs/highres150_v7_report.md` and `docs/newmesh150_v7_report.md`.
+Published: main gallery v7 → https://claude.ai/code/artifact/2f348b78-324e-4cf0-a491-ea49f92fd5b1,
+new meshes v7 → https://claude.ai/code/artifact/4b18fc06-c010-45ff-89f2-256e77516a1c.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
