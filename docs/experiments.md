@@ -2096,6 +2096,11 @@ the raw debiased map image (commit after 65452ae); `c150u_C` (smoothed) was kill
 windows and replaced by `c150r_C` (150k, walls, raw image, net) with `or40_C` (40k) as the
 sanity check. The walls remain the only change to the C recipe.
 
+`or40_C` (00:05; 40k, walls, raw image, net): 0.1438 / **0.959** / 101 re-attachments,
+7 band hits, 43 min — the 40k baseline restored exactly (auto_C 0.1448 / 0.959 / 114):
+the walls change nothing where the box was never reached, and the ~100 re-attachments
+of the 40k C are its own sub-cell events, not the box.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
