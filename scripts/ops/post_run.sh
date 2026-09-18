@@ -28,4 +28,6 @@ grep -o "anim [0-9]*: fragments [0-9]*" $OUT/${PFX}_$T.log | tail -1 | grep -o "
 grep -o "([0-9.]* min)" $OUT/${PFX}_$T.log | tail -1 > $D/${T}_time.txt
 # safety-net telemetry: particles re-attached over the run, and the number of commits that needed it
 grep -o "re-attached [0-9]*" $OUT/${PFX}_$T.log | awk '{s+=$2; n++} END{print s+0, n+0}' > $D/${T}_reatt.txt
+# physical fragments per archived frame by the grid's own criterion (no renderer; report QA column)
+CUDA_VISIBLE_DEVICES="" $PY scripts/probes/grid_fragments.py $OUT $R 3 $D/${T}_gridfrag.txt 2>&1 | grep -v Warning | tail -1
 echo "POST$(echo $PFX | tr a-z A-Z) $T DONE $(date)" >> $STATUS
