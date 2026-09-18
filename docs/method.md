@@ -391,3 +391,44 @@ and is not the ejection variable (loss_res 32 vs 64 above). Rule: ppc is the dis
 constant (27 = 3^3), dx follows N; the rule holds while dx <= t_min / 2 for the thinnest
 target feature t_min (bunny ear ~0.3-0.4 wu against dx 0.205 at 150k). ppc 64 (4 spacings)
 is being measured to close the curve.
+
+### 10.10 Transport-paced cell sum with the cell-wise hand-off; the loss regime (2026-09-17 evening; code: pipeline/optimizer.py `phys_loss == "ot_pace"` + `cfg.ot_handoff`, pipeline/runner.py `phys_loss == "auto"`)
+
+The residual ejection at the cell of 10.9 is the EXPANSION phase: while the sphere spreads
+toward the target, the cell sum rewards the outermost particles most (empty cells ahead),
+the surface layer accelerates ahead of the interior and sheds isolated particles and, on
+thin features, cell-sized chunks (2–5 % of the cloud isolated at the peak, dragon / bob /
+beast at 150k). Remedy, no new constant:
+  1. Paced target (10.8) with the pace = max(plan blur radius, loss cell): the window
+     target is the cloud advected along the transport plan by at most one loss cell per
+     particle, so the expansion is a coherent flow with no far-cell reward (a pace below
+     the loss cell stalls — the cell sum is blind to sub-cell shifts, C forensic).
+  2. Cell-wise hand-off: every DEFICIT target cell within one cell of the occupied set
+     (the reach of the CIC gradient) carries the fixed target mass — ordinary fill at full
+     strength; excess cells and far cells keep the paced mass (evacuation and transport
+     at the pace). The global hand-off (fixed target only once no deficit cell is far) never
+     fires on shapes with unreachable tips; cells of the fixed target around a body that
+     sits in a target hole re-create the runaway (C), which is why only deficit cells hand
+     off.
+  3. Merit: the physics component of the fixed-scale outer merit is the Sinkhorn
+     divergence to the fixed target (losses/ot `SinkhornPull.divergence`) — what the recipe
+     descends, defined on the fixed target, monotone along a transport path where the cell
+     sum plateaus; the record's d_vol stays the fixed-target cell sum (the paced loss value
+     in the record froze every early ot_pace run through the brake).
+Evidence (40k, cell 0.31, no re-attachment; docs/experiments.md 2026-09-17 evening): end
+fragments bunny / dragon / bob 0 / 0 / 0 (density recipe 0 / 0 / 2), silIoU 0.961 / 0.965 /
+0.974 (0.960 / 0.955 / 0.958), whole-run isolated-particle peak 0.09 / 0.14 / 0.29 % (0.11 /
+2.3 / 1.1 %).
+
+Loss regime (`--phys_loss auto`): measured once at the start, the fraction of source
+particles whose target cell carries no mass. Above one half (the sphere inside the C's
+hole, 68 %) the cell sum has only an outward push and its inertia overshoots the arms
+(v2–v6 froze C at 20 windows under every material: poisson 0.0 and 0.45 alike — the
+failure is not compressibility); the per-particle transport loss (`ot`) morphs it (silIoU
+0.96 vs 0.72). Below one half the paced cell sum of this section applies. The regime is a
+property of the discretised problem, not a per-shape setting.
+
+Deliverable rule (scripts/render_photoreal.py `--min_cells 1`): an isosurface component
+whose volume is below one MPM cell (dx^3) is material the grid does not resolve — not a
+continuum element — and is not drawn; the per-frame sidecar records raw, drawn and
+dropped component counts and the isolated-particle count, so the record is complete.
