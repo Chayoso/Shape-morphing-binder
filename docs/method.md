@@ -465,7 +465,17 @@ half-support, not a tuning. Runs whose particles never touch the band are bit-id
 (the wall acts on nodes that carry no mass). Tests: adjoint vs finite differences,
 smoke, bonds (26 passed).
 
-Deliverable rule (scripts/render_photoreal.py `--min_cells 1`): an isosurface component
-whose volume is below one MPM cell (dx^3) is material the grid does not resolve — not a
-continuum element — and is not drawn; the per-frame sidecar records raw, drawn and
-dropped component counts and the isolated-particle count, so the record is complete.
+Deliverable rule (scripts/render_photoreal.py `--min_cells 1`, `--iso auto`): an isosurface
+component whose volume is below one MPM cell (dx^3) is material the grid does not resolve
+— not a continuum element — and is not drawn; the per-frame sidecar records raw, drawn and
+dropped component counts and the isolated-particle count, so the record is complete. The
+isosurface level is not a free constant either: at half the bulk density a neck two
+particles across (a teat, a whisker) falls below the level and its bulb renders as a
+detached ball although the material is connected at the particle scale (cow at 150k, 62
+frames: connected at every cell scale down to 0.07 wu). The level is therefore the one at
+which a filament two particles across still renders — a 2×2 bundle of particles at spacing
+s blurred by σ has the peak density 4 / (2π σ² s) against the bulk 1 / s³, so iso = 2 s² /
+(π σ²) of the bulk, capped at 0.5 (0.28 at the renderer's σ = 1.5 s); a single particle
+peaks at s³ / ((2π)^{3/2} σ³) = 0.02 of the bulk and stays invisible, and a cluster that
+does reach the level but is smaller than a cell is dropped by the volume rule. So the
+rendered topology follows the particle connectivity, not the threshold.

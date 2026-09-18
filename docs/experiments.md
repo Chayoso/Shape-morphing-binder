@@ -2128,6 +2128,24 @@ against the cut twin's 0.14 → 0.77 (1.05): 1.4–1.6× the floor after the int
 as on bob (1.5–1.7×). Plots `_figs/render_effect_{bunny,bob,dragon}.png` all carry the
 control curve.
 
+**Goal 3, frame QA of the v7 photoreal videos (07:30):** frames with more than one drawn
+component / total — A 0/284, armadilo 0/298, dragon 0/241, heart 0/141, teapot 0/130,
+fandisk 0/215, homer 0/392, maxplanck 0/233, spot 2/229, V 2/204, beast 2/358, bimba
+2/223, ogre 2/310, cheburashka 1/306, bob 17/166, nefertiti 18/258, bunny 23/268, **cow
+62/286**, C (paced run, replaced) 155/168. Frames looked at: bunny 141 and 201, nefertiti
+165, bob 102 — the second component is a lump or tip that reads as part of the body; cow
+465–552 — **a ball floating under the belly for 90 archived frames**, the one true
+violation. Probe `output/blob_probe.py`: at frame 522 the cloud is ONE cluster by occupancy
+connectivity at every cell scale tried (0.31, 0.20, 0.15, 0.10, 0.07 wu — no separate
+cluster of ≥ 10 particles), i.e. the ball is connected to the udder by a neck one to two
+particles thick that the isosurface at half the bulk density does not render (a 2×2
+bundle blurred by σ = 1.5 s peaks at 0.28 of the bulk, a single particle at 0.02).
+Rendering fix 69d4457 (docs/method.md §10.10): `--iso auto` = the two-particle-filament
+level, 2 s² / (π σ²) of the bulk capped at 0.5 (0.283 here); the cow frame 522 renders as
+one component (the ball is the leg/teat tip, attached), single particles and sub-cell
+clusters stay invisible. All 19 v7 videos are being re-rendered under it (GPU 0, the
+only one with room — the other user now holds all four GPUs; ~1 h).
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
