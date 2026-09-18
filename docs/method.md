@@ -465,10 +465,16 @@ half-support, not a tuning. Runs whose particles never touch the band are bit-id
 (the wall acts on nodes that carry no mass). Tests: adjoint vs finite differences,
 smoke, bonds (26 passed).
 
-Deliverable rule (scripts/render_photoreal.py `--min_cells 1`, `--iso auto`): an isosurface
-component whose volume is below one MPM cell (dx^3) is material the grid does not resolve
-— not a continuum element — and is not drawn; the per-frame sidecar records raw, drawn and
-dropped component counts and the isolated-particle count, so the record is complete. The
+Deliverable rule (scripts/render_photoreal.py `--min_cells 1`, `--iso auto`, `--bridge`): an
+isosurface component is drawn iff it is a continuum element of the grid — it holds at
+least one cell of MASS, ppc = N dx³ / V particles (10.9), counted by voxel-label membership,
+and encloses at least dx³. The mass condition is the one that matters: the blurred surface
+of a compressed chunk of a few dozen particles encloses more than dx³ at the filament level
+and would be drawn as a marble (150k C, 53 frames) while it holds a third of a cell of
+material. Closed components whose signed volume has the sign opposite to the body's are
+interior cavities (a hollow inside the bunny's ear, 90 frames), removed and counted apart,
+never as pieces. The per-frame sidecar records raw, dropped, cavity, bridged and drawn
+component counts and the isolated-particle count, so the record is complete. The
 isosurface level is not a free constant either: at half the bulk density a neck two
 particles across (a teat, a whisker) falls below the level and its bulb renders as a
 detached ball although the material is connected at the particle scale (cow at 150k, 62
