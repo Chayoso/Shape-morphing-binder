@@ -508,9 +508,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 occ3 = occ.reshape(1, 1, nx_, ny_, nz_)
                 near = torch.nn.functional.max_pool3d(occ3, 3, stride=1, padding=1).reshape(-1) > 0
                 far_deficit = int(((grid_eff > 0) & ~near).sum())
-                pace_grid = torch.where(near, grid_eff, pace_grid)
+                # only DEFICIT cells hand off (target mass above the current occupancy: fill
+                # from the fixed target); EXCESS cells keep the paced mass — on C the cells
+                # around the body are the hole (m_t = 0) and the fixed target there is the
+                # outward runaway push (cd7: silIoU 0.72 again); the pace evacuates them
+                cur_grid = rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims)
+                near_def = near & (grid_eff > cur_grid)
+                pace_grid = torch.where(near_def, grid_eff, pace_grid)
                 print(f"[win] OT pace: target cells with mass beyond one cell of the body: {far_deficit} "
-                      f"(cell-wise hand-off: {int(near.sum())} cells on the fixed target)", flush=True)
+                      f"(cell-wise hand-off: {int(near_def.sum())} deficit cells on the fixed target)", flush=True)
             print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
                   f"of their image, mean |d|={float(dn.mean()):.3g} wu, max |d|={float(dn.max()):.3g} wu", flush=True)
         if torch.cuda.is_available():

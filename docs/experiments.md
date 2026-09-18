@@ -1741,6 +1741,15 @@ isolated-particle cloud (invisible at the isosurface but real) and (ii) mid-run 
 flights that the commit-time net only repairs afterwards. h150z (150k, ot_pace, cell 0.31)
 at window 210: 19 merges (v6: 755 by the end) — the pacing removes most flights.
 
+**h150z_dragon FALSIFIED as a 150k recipe (19:20): 19 merges but chamfer 0.267 / silIoU
+0.675 after 25 min (300 windows)** — only 4 % of the particles ever came within one blur
+radius of their image: the paced target stays one blur radius (0.18 wu) ahead of the
+current cloud by construction, and at 150k the cloud follows it slowly (the density
+gradient per particle is ~1/N smaller for the same cell), so pure pacing is too weak to
+morph in the window budget (at 40k the same recipe reached 0.955 in 7.5 min). The
+cell-wise hand-off (`oh3`) is the candidate that keeps the fixed target's full-strength
+fill near the body and paces only the far transport.
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
