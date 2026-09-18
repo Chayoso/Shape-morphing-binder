@@ -151,12 +151,18 @@ def density_aniso(x, F):
     covered (no gaps -> no 'visible particles') and the sum is flat where the rest cloud was
     regular (partition of unity -> no bumps). Truncated at 3 sigma_max; fixed stencil."""
     s0 = a.sigma0 * spacing
-    cov = (s0 * s0) * torch.einsum("nij,nkj->nik", F, F)
-    cov = cov + (1e-3 * s0 * s0) * torch.eye(3, device=dev)[None]
+    F = torch.where(torch.isfinite(F).all(-1).all(-1)[:, None, None], F, torch.eye(3, device=dev)[None])
+    # stretch saturation as in the objective's Gaussian forward model (cov_from_F sat): a
+    # particle stretched beyond 3x rest keeps a 3x kernel, so a torn or inverted F cannot
+    # paint a whole cell
+    M = torch.einsum("nij,nkj->nik", F, F)
+    Ms = torch.linalg.solve(torch.eye(3, device=dev)[None] + M / 9.0, M)
+    M = 0.5 * (Ms + Ms.transpose(1, 2))
+    cov = (s0 * s0) * M + (1e-3 * s0 * s0) * torch.eye(3, device=dev)[None]
     prec = torch.linalg.inv(cov)                                          # (N,3,3)
     det = torch.linalg.det(cov).clamp_min(1e-30)
     norm = 1.0 / ((2 * math.pi) ** 1.5 * torch.sqrt(det))                # unit mass per particle
-    smax = torch.sqrt(torch.linalg.eigvalsh(cov)[:, -1])                 # largest sigma per particle
+    smax = torch.sqrt(cov.diagonal(dim1=1, dim2=2).sum(1))               # sigma_max <= sqrt(trace)
     r = int(min(6, max(1, math.ceil(3.0 * float(smax.max()) / vox))))
     offs = torch.stack(torch.meshgrid(*(torch.arange(-r, r + 1, device=dev),) * 3, indexing="ij"), -1).reshape(-1, 3)  # (K,3) dz,dy,dx? -> use xyz
     offs = offs[:, [2, 1, 0]].float()                                     # (K,3) in x,y,z
