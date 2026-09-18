@@ -1781,6 +1781,22 @@ was the OT loss value (the tracker/merit bug), so it is re-tested on the correct
 `cd11_C` and `o2_{bunny,dragon,bob}` (40k, no net). gh_bob (grad_h1): 25 fragments (v6 2)
 — grad_h1 closed.
 
+**cd11_C (19:45): C MORPHS with the per-particle transport loss — silIoU 0.9625** (density
+0.72, ot_pace 0.91), chamfer 0.140, hole 6.3 %, 165 windows in 17 min (the first C run that
+runs long), 109 re-attachments, stray_max 6.6 % mid-run (the L2 pull on far particles
+sends strays, which the net returns). Delivered end state (photoreal still with the target
+ghost): a full C with both arms; the residual hole is the arm ends and the surface is
+lumpy. So the C failure was never compressibility: it is the cell sum's outward push
+from the hole plus the inertial overshoot it causes; a transport plan removes both.
+
+Other verdicts: mat_stiff_dragon 0 re-attachments / 0.963 vs base 14 / 0.957 and soft
+343 / 0.846 — stiffness changes the ejection behaviour on the dragon (soft sheds 25×
+more); h150w_dragon (150k, grad_h1) 733 re-attachments / 0.927 (v6 755 / 0.939) — grad_h1
+closed at 150k too; rp_phys_dragon (150k, render channel off from the start): 259
+re-attachments, chamfer 0.0899, silIoU 0.840 vs the render twin 755 / 0.0831 / 0.939 — the
+render channel raises the dragon's silIoU by 10 points and its re-attachments 3× (it pulls
+the thin features harder); the causal intervention twin (`rp_cut_dragon`) follows.
+
 **grad_h1 at cell 0.31 (goal 3 candidate) FALSIFIED (19:10):** gh_bunny 0 fragments /
 stray_max 0.085 % (v6 0.107 %), gh_dragon 4 fragments / stray_max 2.32 % (v6 no-net 0 /
 2.31 %): the Sobolev direction leaves the early-expansion stray cloud unchanged. Material
