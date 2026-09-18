@@ -1804,6 +1804,11 @@ every run; `output/photoreal/material_bunny_f250.png` on hyde06): the soft body 
 sphere with the ears barely budding, the stiff body has both ears fully extended, base /
 poisson 0.45 / elastic lie between — the intermediate SHAPE depends on the material, the
 end shape does not.
+Noise floor (`mat_ctrl_bunny`, the base configuration re-run; GPU atomics make the rollout
+non-bitwise-reproducible): divergence 0.013 / 0.026 / 0.044 / 0.056 wu at 10 / 25 / 50 /
+100 % (0.9 spacings at the end, never > 1 spacing). Against it the material effect at 10 %
+of the run is 8× (stiff 0.111, poisson 0.45 0.106) to 20× (soft 0.262) the noise, and at
+the end 1.3–2.5× — the material sets the transient path, the objective sets the end.
 
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
