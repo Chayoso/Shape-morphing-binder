@@ -470,7 +470,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # H3 mechanism) — and once every particle is within a blur radius of its image
             # the target is the image cloud itself (the transport's end state).
             dn = disp.norm(dim=1, keepdim=True)
-            step = torch.clamp(leash_r / dn.clamp_min(1e-9), max=1.0)
+            # the pace is the resolution the LOSS can see: one loss cell when that is
+            # coarser than the plan's blur radius (C forensic, cd9: with a 0.18 wu pace on a
+            # 0.31 wu cell the paced grid of a blob sliding along an arm equals its current
+            # grid except at the ends, the cell sum is blind to the shift, and the transport
+            # divergence stalls at 5 % arrived)
+            pace_r = max(leash_r, float(tgt.ldx))
+            step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)
             x_int = (x0_ot + step * disp).detach()
             # an ARRIVED particle (within one blur radius of its image) contributes its
             # image projected onto the target point set: the entropic image sits inside
@@ -479,7 +485,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # every paced position that lies on the support instead — d4db68a — killed the
             # tangential transport where the source overlaps the target: 150k cow silIoU
             # 0.920 vs 0.944, 104 re-attachments vs 83.)
-            arrived = dn.squeeze(1) <= leash_r
+            arrived = dn.squeeze(1) <= pace_r
             if bool(arrived.any()):
                 _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
                 x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
