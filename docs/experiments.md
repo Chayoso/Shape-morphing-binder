@@ -2201,6 +2201,17 @@ of the 40k C are its own sub-cell events, not the box.
   from window 16 (1) and 27 (4) and reached 54 by window 73; `matw_nu45_dragon` (40k,
   ν = 0.45, net, walls + per-step bonds) 0 re-attachments through window 64 (pre-fix 95).
   Final numbers when the runs end.
+- **Per-step bonds, results (11:15 CDT):** `nnw150_bob` (150k, NO net, walls + per-step
+  decoupling) 0.0777 / **0.950** / **1 fragment** at the end (108 windows, 38 min) against
+  `nn150_bob` 0.932 / 54 — the single-particle ejection of the ring's expansion phase is
+  gone but for one particle, and the net-free quality rises by 1.8 points (the netted
+  v7 bob: 0.969). `matw_nu45_dragon` (40k, ν 0.45, net) 0.1237 / **0.967** / **0
+  re-attachments** (pre-fix 0.941 / 95): the ν 0.45 residue was single-particle leaders
+  too. `nnw150_dragon` and `matw_soft_bunny` follow.
+- **Item 4, objective side (11:11 CDT):** `rv_bunny` (render loss at 128 px × 12 views)
+  0.1189 / 0.967 in 128 windows / 31 min vs `rvb_bunny` (64 px × 6 views) 0.1195 / 0.966
+  in 103 / 25 min — no end-shape difference; the surface measure on matched frames is
+  pending (GPU saturated).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
