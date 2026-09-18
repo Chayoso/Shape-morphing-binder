@@ -2101,6 +2101,33 @@ sanity check. The walls remain the only change to the C recipe.
 the walls change nothing where the box was never reached, and the ~100 re-attachments
 of the 40k C are its own sub-cell events, not the box.
 
+### 2026-09-18 — overnight: v7 gallery complete, C under walls, controls
+
+**v7 150k, all 19 targets (chains finished 02:04; photoreal for all 19 at 02:55; walls
+from 22:05 on — dragon, cow, homer, maxplanck, fandisk, ogre, beast, bimba and the bob
+re-run ran under them, the rest never touched the box band):** re-attachments / silIoU:
+bunny 2 / 0.966, teapot 0 / 0.970, heart 0 / 0.979, spot 3 / 0.972, V 1 / 0.969, A 0 /
+0.974, armadilo 28 / 0.949, **dragon 7 / 0.960 (v6 755 / 0.939)**, bob 126 / 0.969 (v6
+486), cow 9 / 0.926, homer 4 / 0.958, maxplanck 0 / 0.968, nefertiti 5 / 0.972, fandisk
+2 / 0.973, ogre 23 / 0.939, beast 68 / 0.930, cheburashka 6 / 0.964, bimba 0 / 0.975.
+Sum without C: 284 (v6 2018 over the same 18). Band hits 0 on every walled run.
+
+**C at 150k, final candidates:** `c150r_C` (walls, raw map image, net) 0.1548 /
+**0.940** / hole 7.2 %, **530 re-attachments** in 163 windows, 990 band hits (all in
+the first windows, before the walls bite), 63 min; `c150_C` (pre-walls) 0.954 / 2675;
+`nn150_C` (walls, no net) 0.889 / 74 fragments at the end. The walls cut the shedding
+5×; the residual ~100-particle chunks (1 cell) come off the arm fronts during the arm
+phase and the net returns them. v7 carries `c150r_C` as its C (files copied to the
+`h150v7_C` names, post-processed and re-rendered 07:15); C remains the one target whose
+150k run needs the net for its shape.
+
+**Controls (goal 1b, trajectory half):** bunny `rp_ctrl7_bunny` 0.0800 / 0.969 (its twin
+0.966: spread 0.003; physics-only 0.932 and cut 0.936 sit 10 spreads below) — divergence
+from the twin 0.12 spacings before window 40 (max 0.30) → 0.48 after (0.74 at the end),
+against the cut twin's 0.14 → 0.77 (1.05): 1.4–1.6× the floor after the intervention,
+as on bob (1.5–1.7×). Plots `_figs/render_effect_{bunny,bob,dragon}.png` all carry the
+control curve.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
