@@ -2141,6 +2141,27 @@ of the 40k C are its own sub-cell events, not the box.
   jitter/spikes near the optimum (optimizer vs early stop); the camera (every mesh looks
   down).
 
+### 2026-09-18 — next round, first readings (11:40)
+
+- **Item 3 (material → net):** the soft dragon's 343 re-attachments were the BOX TRAP —
+  `mat_soft_dragon` 25 660 box hits (base 0, stiff 0, assim 0.1 0, control 0); the soft
+  body overshoots farther and reached the band; ν 0.45 (95 re-attachments, 0 box hits) is
+  the one material-driven case left. The material study must be re-run under the walls.
+- **Item 5 (loss jitter):** the "spike" on C is the logged REJECTED candidates, not the
+  trajectory — windows 152–163 all rejected (gain −0.12 … −0.185, reversal 0.95–0.97), the
+  last six with the identical score (a replay: the optimizer re-proposes the same step),
+  the deliverable ends at the best commit 151. On the 18 density-regime runs the end-game is
+  2–5 rejections with gains −0.0002 … −0.01, i.e. the plateau, and the loss curves are
+  monotone to the eye. So the gate already is an early stop; what is wasted is the replay
+  streak (12 windows on C) — stop at the first exact replay.
+- **Item 6 (camera):** the camera is fine (18° above, y up); several ASSETS are not y-up:
+  bunny and nefertiti lie on their side, spot's head points down, the teapot is seen from
+  above, the armadillo lies flat — a per-asset up-axis table is needed (physics is
+  rotation-equivariant: no gravity, no floor in the morph runs, so archives can be rotated
+  at render time).
+- **Item 1 (bob without the net):** `nn150_bob` sheds from window 16 (1 particle) and
+  window 27 (4) — the ring's expansion phase, before the walls mattered (0 box hits).
+
 ### 2026-09-18 — overnight: v7 gallery complete, C under walls, controls
 
 **v7 150k, all 19 targets (chains finished 02:04; photoreal for all 19 at 02:55; walls
