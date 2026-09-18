@@ -183,6 +183,12 @@ class Trajectory:
             self.bond_rest = wp.array(np.ascontiguousarray(rest, np.float32).reshape(-1), dtype=wp.float32, device=device)
             self.bond_frag = wp.array(np.ascontiguousarray(frag, np.float32), dtype=wp.float32, device=device)
             self.bonds = True
+            # per-step decoupling test (docs/method.md 10.7): the 3^3-cell count of the current
+            # state, outside the tape (piecewise constant), OR-ed with the commit-time mask
+            self.cnt_b = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
+            self.ncount_b = wp.zeros(N, dtype=wp.float32, device=device)
+            self.omega_b = wp.array(np.ones(N, np.float32), dtype=wp.float32, device=device)
+            self.frag_step = wp.zeros(N, dtype=wp.float32, device=device)
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
             self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
@@ -217,10 +223,15 @@ class Trajectory:
 
     def _bond_args(self, t: int):
         """(nbr, rest, frag, K) for step t; K = 0 (placeholders) unless bonds are attached.
-        The fragment mask is fixed for the rollout (computed by the runner at the window start)."""
+        The decoupling flag is re-evaluated EVERY step from the current state (the 3^3-cell
+        count, outside the tape) and OR-ed with the runner's commit-time fragment mask, so a
+        particle that clears the fracture gap mid-window is bonded at once, not a window later."""
         if not self.bonds:
             return self.nbr0, self.rest0, self.ncount0, 0
-        return self.bond_nbr, self.bond_rest, self.bond_frag, self.bond_K
+        gate_omega(self.x[t], self.prm, 1.0, self.omega_b, self.ncount_b, self.cnt_b)
+        wp.launch(K.k_frag_step, dim=self.N, inputs=[self.ncount_b, self.bond_frag, self.frag_step],
+                  device=self.device)
+        return self.bond_nbr, self.bond_rest, self.frag_step, self.bond_K
 
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""

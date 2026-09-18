@@ -316,7 +316,13 @@ PB-MPM / Lagrangian-bond lineage of Jiang 2017, Han 2019, Lewin 2024). The decou
 is binary and comes from the discretisation; the projection is complete (no stiffness, no
 weight, no threshold). Coupled particles are untouched (the rollout is bit-identical to
 (5)+(9)); both operations are gathers, so the Warp adjoint is exact
-(`tests/test_material_bonds.py`: FD within 5 %). Momentum bookkeeping: the decoupled
+(`tests/test_material_bonds.py`: FD within 5 %). The decoupling test (24) is a property
+of the CURRENT state and is evaluated every step (2026-09-18, mpm/traj.py `_bond_args`,
+kernels `k_frag_step`: the 3^3-cell count of x_t, outside the tape, OR-ed with the runner's
+commit-time fragment mask); until then the mask was fixed at the window start, and the
+single-particle leaders of the expansion phase — which clear the gap inside one window —
+were bonded a window too late and left in empty space (150k bob without the net: 54
+particles, 1.3–3.7 wu out, static). Momentum bookkeeping: the decoupled
 particle's momentum change is not returned to the neighbours (one particle against the
 body; recorded, not hidden). An explicit bond SPRING with stiffness (6/K)(λ+2μ) r was
 implemented first and rejected: integrated explicitly with a multi-wu extension it is
