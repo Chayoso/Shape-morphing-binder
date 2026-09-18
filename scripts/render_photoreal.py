@@ -33,16 +33,23 @@ ap.add_argument("--views", default="35,215", help="azimuths in degrees, side by 
 ap.add_argument("--elev", type=float, default=18.0)
 ap.add_argument("--fps", type=int, default=20)
 ap.add_argument("--hold", type=int, default=20, help="repeat the last frame this many times")
-ap.add_argument("--grid", type=int, default=128)
+ap.add_argument("--grid", type=int, default=160)
 ap.add_argument("--iso", type=float, default=0.5)
 ap.add_argument("--blur", type=float, default=1.5)
-ap.add_argument("--smooth", type=int, default=8, help="Taubin smoothing iterations")
+ap.add_argument("--smooth", type=int, default=12, help="Taubin smoothing iterations")
+ap.add_argument("--fov", type=float, default=30.0, help="vertical field of view (degrees)")
+ap.add_argument("--fill", type=float, default=0.78, help="fraction of the frame height the box spans")
 ap.add_argument("--color", default="0.86,0.80,0.72", help="base colour (linear RGB)")
 ap.add_argument("--rough", type=float, default=0.32)
 ap.add_argument("--metal", type=float, default=0.0)
 ap.add_argument("--ground", type=int, default=1, help="shadow-catching ground plane")
 ap.add_argument("--target_ghost", type=float, default=0.0, help="alpha of a translucent target isosurface (0 = off)")
 ap.add_argument("--largest_only", type=int, default=0, help="render only the largest mesh component (illustration only)")
+ap.add_argument("--min_cells", type=float, default=1.0,
+                help="drop isosurface components whose volume is below this many MPM cells (dx^3; dx = source "
+                     "bbox diagonal / cell_diag): material the grid cannot resolve is not a continuum element. "
+                     "0 = draw everything. Dropped components are counted in the sidecar.")
+ap.add_argument("--cell_diag", type=float, default=26.0)
 ap.add_argument("--still", type=int, default=-1, help="render only this archived frame to --out (png)")
 ap.add_argument("--max_frames", type=int, default=0)
 ap.add_argument("--label", default="")
@@ -106,26 +113,41 @@ iso = a.iso * rho_bulk
 origin = (ctr - half).cpu().numpy() + 0.5 * vox           # world position of voxel centre (0,0,0)
 
 
+cell_wu = float(np.linalg.norm(np.asarray(frames_np[0], np.float32).max(0) - np.asarray(frames_np[0], np.float32).min(0))) / a.cell_diag
+min_vol = a.min_cells * cell_wu ** 3
+
+
 def mesh_of(x):
-    """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components)."""
+    """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components_raw, n_dropped)."""
     rho = density(x).cpu().numpy()                         # [z,y,x]
     if float(rho.max()) <= iso:
-        return None, 0
+        return None, 0, 0
     v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
     v = v[:, ::-1] + origin                                # (z,y,x) -> (x,y,z) world
     m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v.astype(np.float64)),
                                   o3d.utility.Vector3iVector(f[:, ::-1].astype(np.int32)))
     comp = np.asarray(m.cluster_connected_triangles()[0])
     n_comp = int(comp.max()) + 1 if len(comp) else 0
-    if a.largest_only and n_comp > 1:
-        counts = np.bincount(comp)
-        keep = comp == int(counts.argmax())
-        m.remove_triangles_by_mask(~keep)
-        m.remove_unreferenced_vertices()
+    n_drop = 0
+    if n_comp > 1 and (a.largest_only or a.min_cells > 0):
+        keep = np.ones(len(comp), bool)
+        if a.largest_only:
+            keep = comp == int(np.bincount(comp).argmax())
+        else:
+            # component volumes from the signed tetra sum (marching-cubes surfaces are closed)
+            vv = v.astype(np.float64); ff = f[:, ::-1]
+            tet = np.einsum("ij,ij->i", vv[ff[:, 0]], np.cross(vv[ff[:, 1]], vv[ff[:, 2]])) / 6.0
+            vol = np.abs(np.bincount(comp, weights=tet, minlength=n_comp))
+            small = vol < min_vol
+            keep = ~small[comp]
+        n_drop = n_comp - int(len(np.unique(comp[keep]))) if keep.any() else n_comp
+        if not keep.all():
+            m.remove_triangles_by_mask(~keep)
+            m.remove_unreferenced_vertices()
     if a.smooth > 0:
         m = m.filter_smooth_taubin(number_of_iterations=a.smooth)
     m.compute_vertex_normals()
-    return m, n_comp
+    return m, n_comp, n_drop
 
 
 def isolated_count(x_np):
@@ -165,11 +187,12 @@ if a.ground:
     ground.compute_vertex_normals()
     scene.add_geometry("ground", ground, gmat)
 if a.target_ghost > 0:
-    tm, _ = mesh_of(tgt)
+    tm, _, _ = mesh_of(tgt)
     if tm is not None:
         scene.add_geometry("target", tm, ghost)
 c = ctr.cpu().numpy()
-dist = 2.6 * half
+# the camera distance that makes the bounding cube span `fill` of the frame height
+dist = half / (a.fill * math.tan(math.radians(a.fov) / 2.0))
 
 
 def render_views(m):
@@ -179,7 +202,7 @@ def render_views(m):
     for az in views:
         el = math.radians(a.elev); az_r = math.radians(az)
         eye = c + dist * np.array([math.cos(el) * math.sin(az_r), math.sin(el), math.cos(el) * math.cos(az_r)])
-        rend.setup_camera(32.0, c.tolist(), eye.tolist(), [0.0, 1.0, 0.0])
+        rend.setup_camera(a.fov, c.tolist(), eye.tolist(), [0.0, 1.0, 0.0])
         imgs.append(np.asarray(rend.render_to_image()))
     if m is not None:
         scene.remove_geometry("body")
@@ -190,9 +213,13 @@ def label(img, text):
     if not text:
         return img
     try:
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
         im = Image.fromarray(img)
-        ImageDraw.Draw(im).text((12, 10), text, fill=(40, 40, 40))
+        try:
+            font = ImageFont.truetype("DejaVuSans.ttf", max(14, img.shape[0] // 40))
+        except Exception:
+            font = ImageFont.load_default()
+        ImageDraw.Draw(im).text((14, 10), text, fill=(50, 50, 50), font=font)
         return np.asarray(im)
     except Exception:
         return img
@@ -200,10 +227,10 @@ def label(img, text):
 
 if a.still >= 0:
     fr = torch.as_tensor(np.asarray(frames_np[a.still], np.float32), device=dev)
-    m, n_comp = mesh_of(fr)
-    img = label(render_views(m), f"{a.label} frame {a.still}  components {n_comp}")
+    m, n_comp, n_drop = mesh_of(fr)
+    img = label(render_views(m), f"{a.label} frame {a.still}  components {n_comp} (sub-cell dropped {n_drop})")
     o3d.io.write_image(a.out, o3d.geometry.Image(np.ascontiguousarray(img)))
-    print(f"saved {a.out} (components {n_comp})")
+    print(f"saved {a.out} (components {n_comp}, sub-cell dropped {n_drop})")
     sys.exit(0)
 
 idx = list(range(0, dn, a.stride))
@@ -215,27 +242,30 @@ tmp = tempfile.mkdtemp(prefix="photoreal_")
 qa = []
 for k, i in enumerate(idx):
     x_np = np.asarray(frames_np[i], np.float32)
-    m, n_comp = mesh_of(torch.as_tensor(x_np, device=dev))
+    m, n_comp, n_drop = mesh_of(torch.as_tensor(x_np, device=dev))
     n_iso = isolated_count(x_np)
-    qa.append((i, n_comp, n_iso))
+    qa.append((i, n_comp, n_iso, n_drop))
     img = label(render_views(m), f"{a.label}  frame {i}/{dn - 1}")
     o3d.io.write_image(os.path.join(tmp, f"f{k:05d}.png"), o3d.geometry.Image(np.ascontiguousarray(img)))
     if k % 25 == 0:
-        print(f"[photoreal] frame {k + 1}/{len(idx)} (archived {i}) components {n_comp} isolated {n_iso}", flush=True)
+        print(f"[photoreal] frame {k + 1}/{len(idx)} (archived {i}) components {n_comp} dropped {n_drop} isolated {n_iso}", flush=True)
 n = len(idx)
 for h in range(a.hold):
     os.link(os.path.join(tmp, f"f{n - 1:05d}.png"), os.path.join(tmp, f"f{n + h:05d}.png"))
 subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(a.fps), "-i", os.path.join(tmp, "f%05d.png"),
                 "-movflags", "faststart", "-pix_fmt", "yuv420p", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", a.out], check=True)
 with open(a.out + ".components.txt", "w") as fh:
-    fh.write("archived_frame isosurface_components isolated_particles\n")
-    for i, n_comp, n_iso in qa:
-        fh.write(f"{i} {n_comp} {n_iso}\n")
-    comps = np.array([q[1] for q in qa]); isos = np.array([q[2] for q in qa])
-    fh.write(f"# frames {len(qa)}  components>1 in {(comps > 1).sum()} frames (max {comps.max()})  "
+    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped\n")
+    for i, n_comp, n_iso, n_drop in qa:
+        fh.write(f"{i} {n_comp} {n_iso} {n_drop}\n")
+    comps = np.array([q[1] for q in qa]); isos = np.array([q[2] for q in qa]); drops = np.array([q[3] for q in qa])
+    drawn = comps - drops
+    fh.write(f"# frames {len(qa)}  raw components>1 in {(comps > 1).sum()} frames (max {comps.max()})  "
+             f"drawn components>1 in {(drawn > 1).sum()} frames (max {drawn.max()})  "
+             f"sub-cell components dropped in {(drops > 0).sum()} frames (cell {cell_wu:.3f} wu, min {a.min_cells:g} cells)  "
              f"isolated particles max {isos.max()} (frame {idx[int(isos.argmax())]})\n")
 for fpath in os.listdir(tmp):
     os.remove(os.path.join(tmp, fpath))
 os.rmdir(tmp)
-print(f"saved {a.out} ({n} frames + {a.hold} hold; components>1 in {(comps > 1).sum()}/{len(qa)} frames, "
-      f"max isolated particles {isos.max()})")
+print(f"saved {a.out} ({n} frames + {a.hold} hold; raw components>1 in {(comps > 1).sum()}/{len(qa)} frames, "
+      f"drawn components>1 in {(drawn > 1).sum()}, max isolated particles {isos.max()})")
