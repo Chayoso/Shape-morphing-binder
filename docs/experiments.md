@@ -1921,6 +1921,38 @@ frame-250 stills show five visibly different intermediate bodies. Together with 
 material properties determine the morphing trajectory — early and strongly — and, on
 shapes with thin features, the end state too.
 
+**C at 150k (20:45) — morphs, but sheds (goal 2 half done):** `h150v7_C` (v7 chain, auto →
+ot, net) 0.1478 / 0.946 / hole 6.7 %, 161 windows / 41 min, **1914 re-attachments** in 17
+events — bursts of 100–440 particles in windows 38–50 while |v|max sat at 2.4–2.7 wu/s and
+400–680 controls were clamped per window; `c150_C` (same recipe, launched earlier) 0.1359 /
+0.954 / 6.0 %, 2675 re-attachments, stray peak 14.8 %. At 40k the same loss sheds 109–114
+(cd11_C, auto_C; stray 6.5 %): the transport loss morphs C at both resolutions and the
+shedding grows with N. Cause read in the code: the `ot` branch used the raw map image as the
+per-particle target — no material-kNN smoothing (only the leash/pace branches had it) and no
+pace. The quadratic pull is proportional to the distance, so the particles farthest behind
+(the sphere material bound for the arm tips, 2–3 wu away) are pulled hardest, lead the body
+and fracture — the H3 leader mechanism in per-particle form, with the sampled map's
+sample-scale noise on top at 150k. Fix efc7fa0: the ot target is the material-smoothed
+displacement (k from the blur volume, as in ot_pace) bounded to one pace = max(plan blur,
+loss cell) per window — the pull is uniform and bounded by what the grid resolves in a
+window, and the target still walks the whole map. No new constant. Tests: `op40_C` (net) /
+`op40n_C` (no net) at 40k against auto_C 114 / 0.959; then 150k.
+
+**Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
+4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
+/ 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
+/ 182 (33); dragon 24 (3) / 5286 (48); heart 0 / 49; spot 2 (2) / 1244 (33); teapot 0 / 60;
+C (v6, did not morph) 4 (3) / 7300. Sub-cell components were dropped in 1–179 frames per
+video (dragon: 396 components over 179 frames). Visual check of the isolated-particle peak
+frames (A 33, dragon 48, bob 48; `output/qa_frames/` on hyde06): one body each, no floating
+piece — the peak is the stretched shell of the early expansion (8-NN spacing > 3 × median
+on a surface that is thinning), not detached material, and it drops to 0–130 by the end. The
+drawn > 1 frames that remain (bob 59, dragon 24) are the shed chunks the net re-attaches
+(≥ one cell in volume, so drawn until the next commit); the v7 recipe removes them at the
+source (oh3 trio; `auto_bunny`, 40k with the net: 0 re-attachments, 0.1188 / 0.967, stray
+peak 0.05 %). The deliverable measure for goal 3 is therefore "frames with drawn
+components > 1" plus the re-attachment count, not the isolated-particle peak.
+
 ### 2026-09-17 — SUMMARY (read this first; the ladder below is the working record)
 
 **Question:** why do particles eject on every mesh, and what removes it without per-shape
