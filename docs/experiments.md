@@ -2146,6 +2146,34 @@ one component (the ball is the leg/teat tip, attached), single particles and sub
 clusters stay invisible. All 19 v7 videos are being re-rendered under it (GPU 0, the
 only one with room — the other user now holds all four GPUs; ~1 h).
 
+**Under the auto level (08:20, first re-rendered videos):** dragon 0 → 1 frame with two
+drawn components, homer 0, cow 62 → 22 (a different episode, frames 339–402), bunny 23 →
+37 (the level lets more ear-tip pieces pass the volume rule; nothing floats in frame 270).
+Cow frame 372 at the strict 0.07 wu cell (2 spacings): one cluster of **72 particles,
+0.4 wu across, packed at 0.65 × the bulk spacing, sitting ON the target (0.3–0.8 spacings
+from the teat points), 13 spacings from the body on average and reaching it only through a
+one-particle chain (closest gap 2.4 spacings)**; at every coarser cell it is one body. So
+the teat is what the physics can make of a feature thinner than its cell: a compressed bulb
+at the target's teat, tied to the udder by a single-particle thread that no isosurface
+level short of the single-particle one (0.07 of the bulk, +0.25 wu of surface bloat) will
+draw. Deliverable consequence: the rendered topology must follow the PARTICLE connectivity
+— particles the isosurface does not enclose but which link the body to an enclosed
+component are drawn as a filament of one particle spacing (the thread), so the bulb
+reads as the tip of a thread, not as a floating ball; the new probe
+`scripts/probes/grid_fragments.py` (physical fragments ≥ 1 cell by the grid's criterion,
+no renderer) is added to the QA table so "the isosurface drew two pieces" and "the physics
+has two bodies" are never confused.
+
+**Physical fragments in the v7 videos (`grid_fragments.py`, every 3rd archived frame, the
+net's criterion — occupancy dilated by one cell — with the cell-volume threshold ppc = 89
+particles; 08:40):** frames with a fragment ≥ 1 cell: **0 in 18 of 19 targets**; C 6 of
+202 frames (max 105 particles = 1.24 cells — the arm-front chunks before the net returns
+them). Clusters ≥ 20 particles (sub-cell): bob 1 frame (32 particles), ogre 2 (21), C 11;
+everything else ≤ 6 particles. So by the physics' own criterion the deliverable is clean
+on 18 targets and C shows cell-sized fragments in 3 % of its frames; the "drawn
+components > 1" frames of bunny (37), cow (22) and bob (17) are threshold splits of
+connected material — now bridged in the rendering (69d4457 → the filament rule).
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
