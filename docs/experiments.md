@@ -2250,6 +2250,21 @@ of the 40k C are its own sub-cell events, not the box.
   after this round: bunny 0, dragon 1, bob 1, C 74 (unchanged — see item 2). Across
   materials with the net: soft dragon 1, ν 0.45 dragon 0, soft bunny 1, stiff / elastic /
   base 0.
+- **Lump measure (12:40 CDT; `scripts/probes/lump_amplitude.py`):** the morph's
+  isosurface (the renderer's own) against the target's isosurface through the same
+  pipeline (so the level offset cancels; the target scores 0 by construction); per-vertex
+  distance split by scale with two mesh-graph smoothings — wide (0.6 wu, the shape error)
+  and narrow (0.15 wu, the sampling texture) — and the LUMP band is their difference,
+  0.15–0.6 wu, the loss-cell scale. Readings (RMS, wu): spot 150k at 50 / 75 / 83 / 100 %
+  of the run: lump 0.012 / 0.011 / 0.011 / 0.010, wide 0.048 / 0.038 / 0.038 / 0.035;
+  bunny 150k 0.014 → 0.013 (wide 0.055 → 0.043); bunny 40k base 0.009 → 0.008 (wide
+  0.040 → 0.035). I.e. at the end the surface sits one spacing (0.035 wu) from the target
+  surface on average and the cell-scale lumps are a third of a spacing — small. The
+  re-rendered v7 spot at 83 % is a clean cow with soft flank undulations; the screenshot
+  the user sent (the same frame, un-oriented) shows the cow belly-up with its legs and
+  head reading as lumps — the orientation fix removes most of that impression. The
+  loss-cell ladder (`lr64/96/128_{bunny,dragon}`, 40k) is running to see whether the
+  remaining 0.01 wu follows the cell.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
