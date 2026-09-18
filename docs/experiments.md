@@ -2101,6 +2101,46 @@ sanity check. The walls remain the only change to the C recipe.
 the walls change nothing where the box was never reached, and the ~100 re-attachments
 of the 40k C are its own sub-cell events, not the box.
 
+### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
+
+- **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages
+  2f348b78 (main) and 4b18fc06 (new meshes), markdown `docs/highres150_v7_report.md`,
+  `docs/newmesh150_v7_report.md`; formulation `docs/method.md` §10.10–10.11.
+- **Ejection, two causes, both structural:** (1) the expansion-phase leader particles →
+  transport-paced cell sum + cell-wise deficit hand-off (`--phys_loss auto`); (2) the domain
+  box was a trap — no wall boundary condition, so a particle within two cells of the box
+  edge froze on a truncated stencil (v6 dragon 755 re-attachments = 10 706 box hits, bob
+  486 = 10 934, 40k 0) → separating walls on six faces (`WALL_NODES` = stencil
+  half-support). v7 re-attachments over 18 targets 284 (v6 2018), dragon 755 → 7, mean
+  silIoU 0.951 → 0.962. Without the net at 150k: bunny 0, dragon 3, bob 54, C 74 fragments.
+- **Render gradient → physics (three shapes):** per window the render channel is 35 % of
+  the accepted update at cosine 0.02–0.08 to the physics gradient (deterministic); outcomes
+  sit 4–10 run-to-run spreads apart (dragon 0.939/0.918 vs 0.840/0.770, bunny 0.966 vs
+  0.932/0.936, bob 0.970/0.968 vs 0.952/0.956). Trajectory divergence: chaos floor on the
+  dragon, a 1.4–1.7× step over the floor on bunny/bob — supporting, not primary.
+- **C at 150k:** morphs (0.940) with the raw transport map + walls; 530 re-attachments
+  (arm-front chunks); paced target, grid-resolved displacement and kNN smoothing on the hole
+  regime all FALSIFIED (0.88/0.55, 0.59, 0.79).
+- **Deliverable rule (goal 3):** isosurface level = two-particle-filament level (0.28 of the
+  bulk); a component is drawn iff it holds ≥ ppc particles and ≥ dx³; closed surfaces with
+  the sign opposite to the body are interior cavities; particles the isosurface does not
+  enclose but which link the body to a drawn piece are drawn as a one-spacing filament.
+  Final QA: detached drawn pieces 0 frames on 18 of 19 targets, C 29/203; physical
+  fragments ≥ 1 cell (grid probe, no renderer) 0 on 18, C 6.
+- **Material → trajectory:** bunny/dragon × 5 materials + identical-config control: early
+  divergence 8–130× the noise; on the dragon stiffness changes the shedding (soft 343 /
+  base 14 / stiff 0) and the end (0.846–0.963).
+- **Cleanup (11:20):** server output 244 → 109 GB — 69 falsified/superseded runs' npz
+  deleted (their logs/json in `logs_archive_20260918.tgz`), live packets pruned to the 19 v7
+  runs (44 GB), report folders of v5/v6 removed (pages are published); local output/ 2 GB →
+  35 MB (only the two v7 page folders). Kept: v7 runs, render-proof twins + controls,
+  material study, nn150, c150r_C, or40_C, h150y_dragon.
+- **Open (next round, user 11:15):** ejection to zero WITHOUT the net (C, bob, and across
+  materials — the soft dragon needs the net too); surface bumpiness / visible particles
+  during the morph (renderer covariance, not smoothing — five hypotheses first); loss
+  jitter/spikes near the optimum (optimizer vs early stop); the camera (every mesh looks
+  down).
+
 ### 2026-09-18 — overnight: v7 gallery complete, C under walls, controls
 
 **v7 150k, all 19 targets (chains finished 02:04; photoreal for all 19 at 02:55; walls
