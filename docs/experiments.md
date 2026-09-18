@@ -2265,6 +2265,17 @@ of the 40k C are its own sub-cell events, not the box.
   head reading as lumps — the orientation fix removes most of that impression. The
   loss-cell ladder (`lr64/96/128_{bunny,dragon}`, 40k) is running to see whether the
   remaining 0.01 wu follows the cell.
+- **Loss-cell ladder, result (13:55 CDT; 40k, net on, walls + per-step bonds; silIoU /
+  lump RMS at the end / at 50 %):** bunny loss_res 64: 0.962 / 0.0084 / 0.0107; 96: 0.967
+  / 0.0085 / 0.0102; 128: 0.966 / 0.0085 / 0.0093. dragon 64: 0.964 / 0.0104 / 0.0114; 96:
+  0.964 / 0.0105 / 0.0112 (128 pending). Re-attachments 0 in every run. **The lump
+  amplitude does not follow the loss cell** (0.0084 → 0.0085 as the cell halves) — the
+  cell hypothesis for the residual surface lumps is falsified; what remains at the end is
+  a third of a spacing of band-passed error, the floor of the particle system through this
+  kernel. loss_res 96 buys +0.4 silIoU on the bunny and nothing on the dragon at ~20 %
+  more time; the recipe keeps 64. Item 4 therefore closes on three findings: the texture is
+  sampling noise (target floor 14.5°), the lumps are not cell-scale (a third of a spacing),
+  and the screenshot's lumpiness was the un-oriented view.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
