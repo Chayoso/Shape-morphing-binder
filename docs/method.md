@@ -428,6 +428,19 @@ failure is not compressibility); the per-particle transport loss (`ot`) morphs i
 0.96 vs 0.72). Below one half the paced cell sum of this section applies. The regime is a
 property of the discretised problem, not a per-shape setting.
 
+Hole-regime target (`ot`; pipeline/optimizer.py, efc7fa0): the per-particle loss is the
+squared distance to a window target, and the target is NOT the raw map image. The raw
+image pulls each particle in proportion to its remaining distance, so the particles
+farthest behind (the sphere material bound for the C's arm tips, 2–3 wu away) are pulled
+hardest, lead the body and fracture — the leader mechanism of 10.6 in per-particle form
+(150k: 1900–2700 re-attachments in bursts of 100–440 particles while |v|max sat at 2.5
+wu/s; 40k: ~110). The window target is instead the material-smoothed map displacement
+(averaged over the k particles inside one plan blur radius at the source, the material
+graph of 10.8) bounded to one pace = max(plan blur radius, loss cell) per particle per
+window: every particle is asked for at most the move the grid resolves in a window, the
+pull is uniform and bounded, and the target still walks the whole map one pace per
+window. No new constant; the same pace and neighbourhood as the cell-sum regime.
+
 Deliverable rule (scripts/render_photoreal.py `--min_cells 1`): an isosurface component
 whose volume is below one MPM cell (dx^3) is material the grid does not resolve — not a
 continuum element — and is not drawn; the per-frame sidecar records raw, drawn and

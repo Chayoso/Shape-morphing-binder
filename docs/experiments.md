@@ -1938,6 +1938,18 @@ loss cell) per window — the pull is uniform and bounded by what the grid resol
 window, and the target still walks the whole map. No new constant. Tests: `op40_C` (net) /
 `op40n_C` (no net) at 40k against auto_C 114 / 0.959; then 150k.
 
+**Paced ot target, 40k C verdict (20:56):** `op40_C` (net) 0.1555 / **0.958** / hole 6.6 %,
+**7 re-attachments** in 6 events (auto_C 114 in 9; cd11_C 109), stray peak 4.0 % (6.4 %),
+G2 guards PASS (auto_C FAIL: 0 clamped controls vs hundreds), 42 windows / 10.7 min
+(auto_C 143 / 34 min; the merit gate stops it at a plateau — three rejected candidates,
+gain −0.007…−0.012 — and delivers the best commit, window 37). `op40n_C` (no net) 0.1583 /
+0.944 / 6.2 %, 0 re-attachments, **9 fragments** at the end (0.02 % of 40k), stray peak
+4.0 %. So the same silIoU with 16× fewer re-attachments and 3× faster; the price is the
+chamfer (0.156 vs 0.145 — the plateau stops before the arm ends are fully filled) and the
+no-net run still leaves 9 particles. Adopted for the hole regime (efc7fa0 stays); the
+150k C is re-run under it (`h150v7_C`, replacing the 1914-re-attachment run in v7) and a
+no-net 150k C (`nn150_C`) follows the nn150 trio.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
