@@ -2243,6 +2243,13 @@ of the 40k C are its own sub-cell events, not the box.
   of falsified mechanisms for C: paced target, grid-resolved displacement, kNN smoothing,
   elasticity 0.1 / 0.25, discrete continuity (and, earlier, ot_pace + hand-off, global
   hand-off, all-near-cell hand-off).
+- **Round results (12:10 CDT):** `nnw150_dragon` (150k, NO net, walls + per-step bonds)
+  0.0848 / **0.954** / **1 fragment** (one particle from window 31 on; `nn150_dragon` 3 /
+  0.952); `matwb_soft_dragon` (40k, young 3e4, walls + per-step bonds, net) 0.1231 /
+  0.959 / **1 re-attachment** (walls only 41; pre-walls 343). Net-free ledger at 150k
+  after this round: bunny 0, dragon 1, bob 1, C 74 (unchanged — see item 2). Across
+  materials with the net: soft dragon 1, ν 0.45 dragon 0, soft bunny 1, stiff / elastic /
+  base 0.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
