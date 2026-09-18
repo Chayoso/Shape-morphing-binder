@@ -1884,6 +1884,19 @@ this stays suggestive; the deterministic per-window measurement holds as on the 
 (λ = 0 under the v7 recipe, the consistent physics-only twin) and `rp_ctrl7_bob` (the bob
 noise floor).
 
+**Bob triple (22:30; all three under the v7 recipe, pre-walls, same seed; the pre-wall
+render-on archive is kept as `h150v7pw_bob` because `h150v7_bob` is re-run under the
+walls):** render on 0.0771 / **0.970** / 83 re-attachments (133 windows); physics-only
+(`rp_phys_bob`) 0.0780 / 0.952 / 144; render off at window 40 (`rp_cut_bob`) 0.0776 /
+0.956 / 84. Divergence from the render twin (spacing 0.038 wu): cut twin **0.054
+spacings before window 40 (max 0.15) → 0.57 after (0.75 at the end)**, a 10× step at the
+intervention; physics-only 1.77 at the end. Per window: render share 0.354 / 0.373, cosine
+0.04 / 0.08. So on bob and bunny — shapes whose run-to-run chaos is an order of magnitude
+below the dragon's — the intervention signature is visible in the trajectories as well as
+in the outcome (+1.4–1.8 silIoU points); the dragon's is buried under its chaos and rests
+on the per-window share and the outcome. Plot `output/photoreal/render_effect_bob.png`;
+`rp_ctrl7_bob` (noise floor) and `rp_phys7_bunny` run next.
+
 **oh3_bob (20:15): 0 fragments, 0.1169 / 0.974 / 2.77 % (target ring), stray_max 0.29 %
 (density 2 / 0.118 / 0.958 / 1.1 %).** The trio passes the pre-registration on every count
 (fragments 0 / 0 / 0 against 0 / 0 / 2; chamfer within 0.005; silIoU equal or better by
