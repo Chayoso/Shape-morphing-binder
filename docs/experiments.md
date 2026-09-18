@@ -2024,6 +2024,23 @@ walls + paced ot, net) and the v7 bob re-run under walls; the v7 targets already
 with 0 band hits (teapot, heart, spot, A) stand; bunny (4 hits) and V (29) are within
 noise and stand; the remaining v7 chains run under walls from here.
 
+**Walls, first results (22:55):** `h150v7_bob` re-run under the walls 0.0773 / 0.969 /
+126 re-attachments, 0 band hits (pre-walls 0.970 / 83 / 178 hits): bob's residual
+shedding is its own thin feature, not the box, and stays at the ~100 level (all sub-cell
+events: 27–32 particles, below the dx³ deliverable threshold of 91 at ppc 91). `c150w_C`
+(walls + PACED ot) 0.1948 / **0.550** / 336 re-attachments, band hits 993 (38 983 before),
+gate stop at 144 windows, G2 FAIL — the box trap is gone (40× fewer band hits, no burst
+above 76 particles) but the morph collapses. Reading, with the earlier paced runs (150k:
+0.881 and 0.550; unpaced 0.946 and 0.954): a target that walks with the particle makes the
+window loss quasi-stationary (every non-arrived particle keeps a pace-sized residual
+whatever its progress), so the inner line search and the merit gate see no descent and
+stop the run on a half-formed body; at 40k the same run stopped at 42 windows with the
+chamfer 7 % worse — the "16× fewer re-attachments" there were box-band hits that the
+walls now remove. **The paced per-particle target is withdrawn** (commit after d17f1bd;
+the material-kNN smoothing of the map image stays). Tests: `c150u_C` (150k, walls, unpaced
+smoothed ot, net) and `ou40_C` (40k, walls, same) — the C entry of v7 is whichever 150k C
+run stands after this.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
