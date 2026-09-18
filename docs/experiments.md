@@ -2174,6 +2174,20 @@ on 18 targets and C shows cell-sized fragments in 3 % of its frames; the "drawn
 components > 1" frames of bunny (37), cow (22) and bob (17) are threshold splits of
 connected material — now bridged in the rendering (69d4457 → the filament rule).
 
+**Filament rule verified, and the bunny's "second piece" explained (09:30):** cow frames
+372 and 345 re-rendered with the bridge show the bulb hanging from the udder on a thread
+(sidecar: 22 of 22 drawn>1 frames bridged); bunny frame 270: bridged 0 — nothing to
+bridge, because the bunny's extra component is not a piece at all: its signed volume has
+the sign OPPOSITE to the body's (body −62 wu³, the extra +0.04 to +0.05 wu³ = 1.3–1.8
+cells, a 0.3 × 0.3 × 1.0–1.6 wu ellipsoid centred in the ear) — a closed isosurface around
+a HOLLOW inside the ear, invisible from outside, which the volume rule had been counting
+as a drawn piece in 37 frames. The C's extra components at frame 150 all carry the body's
+sign (outer pieces, the arm-front chunks). Renderer rule (commit after 82c5347): components
+with the sign opposite to the body are interior cavities — removed from the mesh and
+counted apart, never as pieces; `scripts/probes/cavity_sweep.py` writes the same per-frame
+count for videos rendered before the rule so the report's "drawn pieces" column is
+consistent across the gallery.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)
