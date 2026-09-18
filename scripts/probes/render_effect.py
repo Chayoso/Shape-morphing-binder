@@ -68,7 +68,11 @@ for p in (p_r, p_p, p_c):
         met = r.get("metrics", r)
         h = r.get("history") or []
         shares = [e.get("g_share") for e in h if isinstance(e, dict) and e.get("g_share") is not None]
-        lams = [e.get("lam") for e in h if isinstance(e, dict) and e.get("lam") is not None]
+        lams = [e.get("lambda", e.get("lam")) for e in h if isinstance(e, dict) and e.get("lambda", e.get("lam")) is not None]
+        cos = [e.get("g_cos") for e in h if isinstance(e, dict) and e.get("g_cos") is not None]
+        if cos:
+            print(f"{p:14s} accepted-step cosine with the render gradient: mean {np.mean(cos):.3f}, "
+                  f"share of windows with cos > 0: {np.mean(np.array(cos) > 0) * 100:.0f} %")
         print(f"{p:14s} chamfer {met.get('chamfer', '?')} silIoU {met.get('sil_iou', met.get('silIoU', '?'))} "
               f"windows {len(h)}  render share of the step: mean {np.mean(shares):.3f} (n={len(shares)})" if shares else
               f"{p:14s} chamfer {met.get('chamfer', '?')} silIoU {met.get('sil_iou', met.get('silIoU', '?'))} windows {len(h)}  lam mean {np.mean(lams) if lams else float('nan'):.3g}")
