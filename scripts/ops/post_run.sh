@@ -26,4 +26,6 @@ grep -h "ARM render" $OUT/${PFX}_$T.log | grep chamfer > $D/${T}_arm.txt
 grep -h "gates:" $OUT/${PFX}_$T.log | cut -c1-140 >> $D/${T}_arm.txt
 grep -o "anim [0-9]*: fragments [0-9]*" $OUT/${PFX}_$T.log | tail -1 | grep -o "[0-9]*$" > $D/${T}_frag.txt
 grep -o "([0-9.]* min)" $OUT/${PFX}_$T.log | tail -1 > $D/${T}_time.txt
+# safety-net telemetry: particles re-attached over the run, and the number of commits that needed it
+grep -o "re-attached [0-9]*" $OUT/${PFX}_$T.log | awk '{s+=$2; n++} END{print s+0, n+0}' > $D/${T}_reatt.txt
 echo "POST$(echo $PFX | tr a-z A-Z) $T DONE $(date)" >> $STATUS
