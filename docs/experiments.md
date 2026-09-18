@@ -2188,6 +2188,19 @@ counted apart, never as pieces; `scripts/probes/cavity_sweep.py` writes the same
 count for videos rendered before the rule so the report's "drawn pieces" column is
 consistent across the gallery.
 
+**Bridged + cavity-corrected QA of all 19 (10:20):** frames with a drawn outer piece not
+tied to the body — **0 for 17 targets**, bunny 3, **C 53 of 202**; bridged: cow 22 (all of
+its split frames), beast 1; cavities: bunny 90 frames (the ear hollow), beast 27, bob 24,
+nefertiti 10, C 7. C frame 141 shows the residue: a ball the size of a marble below the
+body — a chunk of a few dozen particles compressed to 0.65 of the bulk spacing, whose
+blurred surface at the filament level encloses more than dx³ although it holds well under
+one cell of particles (the grid probe finds ≥ 1 cell of particles in 6 frames only). The
+volume rule was measuring the wrong thing: "material the grid does not resolve" is a
+MASS statement — a component is a continuum element iff at least ppc = N dx³ / V particles
+sit inside it (the same count `grid_fragments.py` uses). Renderer rule (commit after
+3902a93): mass by voxel-label membership, in addition to the enclosed volume; C, bunny,
+cow and beast re-rendered; the other 15 videos have no extra piece to drop and stand.
+
 **Frame QA of the v6 photoreal videos (sub-cell rule; `build_report150.py` now tables it,
 4c30150):** frames with drawn components > 1 (max) / isolated-particle peak (frame): A 0 (1)
 / 2160 (33); V 0 / 1770 (36); armadilo 0 / 2294 (42); bob 59 (4) / 4446 (48); bunny 2 (2)

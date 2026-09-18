@@ -134,6 +134,11 @@ origin = (ctr - half).cpu().numpy() + 0.5 * vox           # world position of vo
 
 cell_wu = float(np.linalg.norm(np.asarray(frames_np[0], np.float32).max(0) - np.asarray(frames_np[0], np.float32).min(0))) / a.cell_diag
 min_vol = a.min_cells * cell_wu ** 3
+_bb = np.asarray(frames_np[0], np.float32).max(0) - np.asarray(frames_np[0], np.float32).min(0)
+ppc = a.min_cells * N * cell_wu ** 3 / (float(np.prod(_bb)) * 0.5236)   # particles per cell (docs/method.md 10.9)
+print(f"[photoreal] deliverable rule: a component is drawn iff it holds >= {ppc:.0f} particles ({a.min_cells:g} cell of "
+      f"material at ppc {ppc / a.min_cells:.0f}) and encloses >= {min_vol:.4f} wu^3; interior cavities removed; "
+      f"sub-filament necks bridged", flush=True)
 
 
 def _segment_mesh(p, q, r):
@@ -253,7 +258,32 @@ def mesh_of(x):
             svol = np.bincount(comp, weights=tet, minlength=n_comp)
             body_sign = np.sign(svol[int(np.argmax(np.abs(svol)))])
             cavity = (np.sign(svol) == -body_sign) & (svol != 0)
-            small = (np.abs(svol) < min_vol) & ~cavity
+            # "material the grid does not resolve" is measured in MASS, not in isosurface volume:
+            # the blurred surface of a compressed 30–80-particle chunk can enclose more than
+            # dx^3 at the filament level and still be well under one cell of particles (150k C:
+            # balls drawn in 53 frames while the grid probe found >= 1 cell in 6). A component
+            # is a continuum element iff at least ppc = N dx^3 / V particles sit inside it.
+            from scipy import ndimage
+            vlab, _ = ndimage.label(rho >= iso)
+            xp = x.detach().cpu().numpy()
+            pv = (xp - (ctr - half).cpu().numpy()) / vox
+            pijk = np.clip(np.rint(pv).astype(np.int64), 0, G - 1)
+            plab_ = vlab[pijk[:, 2], pijk[:, 1], pijk[:, 0]]
+            vcount = np.bincount(plab_, minlength=int(vlab.max()) + 1)
+            # one representative vertex per mesh component -> its voxel label
+            first_tri = np.full(n_comp, -1, np.int64)
+            first_tri[comp[::-1]] = np.arange(len(comp))[::-1]
+            rep = vv[ff[first_tri, 0]]
+            rv = np.clip(np.rint((rep - (ctr - half).cpu().numpy()) / vox).astype(np.int64), 0, G - 1)
+            # a surface vertex sits on the level: probe one voxel inward along the component's normal-free
+            # guess (its centroid direction) — take the max label over the vertex voxel and its 26 neighbours
+            mass = np.zeros(n_comp)
+            for ci in range(n_comp):
+                zz, yy, xx = rv[ci, 2], rv[ci, 1], rv[ci, 0]
+                nb = vlab[max(zz - 1, 0):zz + 2, max(yy - 1, 0):yy + 2, max(xx - 1, 0):xx + 2]
+                labs = np.unique(nb[nb > 0])
+                mass[ci] = vcount[labs].max() if len(labs) else 0.0
+            small = ((mass < ppc) | (np.abs(svol) < min_vol)) & ~cavity
             n_cav = int(cavity.sum())
             keep = ~(small | cavity)[comp]
         n_drop = n_comp - n_cav - int(len(np.unique(comp[keep]))) if keep.any() else n_comp - n_cav
