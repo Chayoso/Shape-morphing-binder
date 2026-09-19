@@ -2407,6 +2407,39 @@ noise and rerun the acid test with a 0.5-spacing Poisson cell — if the dragon'
 climbs toward the truth without fragments, the sampling is the lever. Awaiting the user's
 call; the 150k gallery re-render stays stopped.
 
+### 2026-09-19 — the gradient at each stage, and the outer-layer projection (17:00–19:30; docs/surface_gradient.md §6)
+
+User: 40k first; analyse the physics and render gradients stage by stage; the render signal
+needs a PROTOCOL, not another loss term (e.g. an external force); make the surface smooth
+during the morph. Done with `--grad_dump` + `scripts/probes/grad_stage.py` (40k bunny, 8
+windows, 3 min): the render covector is 99 % on the outer layer and 65 % of it is
+uncorrelated between neighbours two spacings apart; after the MPM adjoint every channel's
+control gradient has the grid's correlation length (0.86 at two spacings, 0.6 at four, 0.2
+at eight); followed alone, the render channels roughen the outer layer (0.474 → 0.50
+spacings plane-residual RMS) and the physics channel smooths it (0.458). The control has no
+sub-cell modes. An external force on the layer particles is averaged away by P2G/G2P (a
+critically damped spring moved a half-spacing bump 2.4 % in a window) — sub-cell relative
+motion is not a momentum mode, as the bonds already showed. Protocol adopted: a per-step
+POSITION projection of the rough plane residual of the outer layer, 1/T per step
+(`--layer_relax`; kernels `k_layer_resid` / `k_layer_project`, on the tape; a division by a
+loop-accumulated weight inside the kernel broke the adjoint — weights normalised on the
+host; directional finite differences match). Fraction 1 (hard constraint) diverges.
+Full 40k runs: outer-layer plane-residual RMS over the morph bunny 0.442 → 0.290, dragon
+0.403 → 0.279 spacings (the target clouds' own floor 0.339 / 0.325); silhouette IoU 0.962 →
+0.957, 0.964 → 0.952; chamfer unchanged; det F min up. The RENDERED surfaces, however:
+marching cubes 13.4 → 13.8° (no change), Poisson 6.1 → 5.6° (bunny), 7.8 → 7.2° (dragon):
+the level set's texture is the density noise of every particle within the blur, not the
+outer layer's offsets. Sampling test (bunny 40k, `output/sampling_test.py`): drawing WITHOUT
+replacement (one jittered particle per fill voxel) moves marching cubes 13.2 → 12.3° and
+Poisson 5.7 → 4.9°, the layer RMS 0.352 → 0.286, NN-distance CV 0.37 → 0.29 — the
+replacement noise is a tenth of the level set's roughness; the rest is the jittered
+arrangement seen through a 1.5-spacing blur, the floor of any level set of a random
+particle cloud. What is smooth AND detailed at 40k is therefore the combination: the
+projection in the physics (a smooth particle surface with its features — d − d̄ keeps what
+neighbours share) and the Poisson surface for the deliverable (it reads the layer: 5–7°
+against 13° for the level set, with the horns and ears intact). Videos of the relaxed runs
+(Poisson and marching cubes) for the per-frame QA: see the next entry.
+
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
 - **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages
