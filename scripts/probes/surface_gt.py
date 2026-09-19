@@ -86,7 +86,9 @@ def closest(sc, q):
 
 
 def main():
-    run_json, plys = sys.argv[1], sys.argv[2:]
+    gt_all = "--gt_all" in sys.argv          # GT columns for every mesh (an END frame vs the true target
+    args = [a for a in sys.argv[1:] if a != "--gt_all"]   # surface: morph error + roughness, not a floor)
+    run_json, plys = args[0], args[1:]
     prov = json.load(open(run_json))["provenance"]
     repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
     src_p, tgt_p, n, seed = prov["src"], prov["tgt"], int(prov["n"]), int(prov["seed"])
@@ -141,10 +143,12 @@ def main():
             (print(row) if int(meta["frame"]) == -2 else rows_frames.append(row)); continue
         m.compute_vertex_normals()
         rough = roughness(m, r_rough); bump = dihedral_mean(m)
-        if int(meta["frame"]) != -2:
+        if int(meta["frame"]) != -2 and not gt_all:
             rows_frames.append(f"{base} {'':>6} {'':>6} {'':>6} {'':>6} {'':>6} {'':>5} {rough:6.2f} {bump:6.2f} "
                                f"{len(m.triangles):7d} {meta['components']:4d}  frame {meta['frame']}")
             continue
+        if int(meta["frame"]) != -2:
+            base = f"{(name + ' f' + str(meta['frame'])):<30}"
         q = np.asarray(m.vertices); nq = np.asarray(m.vertex_normals)
         cp, pid = closest(gt_sc, q)
         dvec = q - cp
