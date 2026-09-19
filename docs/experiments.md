@@ -2295,7 +2295,12 @@ of the 40k C are its own sub-cell events, not the box.
   armadilo, teapot (max clusters 0–9 particles). spot 0 / 0.965 (0.972), cow 1 / 0.924
   (0.926) (18:52 CDT). Nine of nineteen in: 0 / 1 / 9 / 1 / 0 / 3 / 0 / 0 / 1 fragments.
   bunny 0 / 0.964 (0.966) (19:38 CDT; 43 min once the other user left GPU 0 — the clean
-  single-run time at 150k is ~40 min for the bunny).
+  single-run time at 150k is ~40 min for the bunny). homer 0 / 0.958 (0.958) (20:24
+  CDT). The remaining eight run four abreast on the freed GPU. Grid probe on the v8 C
+  without the net: physical fragments ≥ 1 cell in **0 of 299 frames** (largest 63
+  particles = 0.74 cells; sub-cell clusters ≥ 20 in 104 frames) — the walls + per-step
+  bonds have shrunk C's shed chunks below one cell of material; what the net used to
+  resample is now sub-cell debris that the deliverable rule does not draw.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
