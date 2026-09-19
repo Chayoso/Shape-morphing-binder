@@ -63,26 +63,39 @@ def pca_kernels(x_np: np.ndarray, spacing: float, k: int = 32, kr: float = 4.0, 
 
 
 # ---- surface particles + normals from the blurred density ---------------------------------------
-def surface_particles(x: torch.Tensor, rho: torch.Tensor, ctr, half: float, vox: float, thr: float):
-    """The outer particle layer: particles whose smoothed density is below `thr`, with outward
-    normals = -grad rho / |grad rho| sampled trilinearly. Under the half-space model the
-    density at depth d (spacings) is bulk * Phi(d / sigma); the caller sets thr = bulk *
-    Phi(1 / sigma_sp) — the value one spacing deep, between the first layer (depth 0.5) and
-    the second (1.5) — so thr derives from the kernel width, not from a tuning.
-    Returns (points (M,3) float32, normals (M,3) float32) on the CPU."""
+def trilinear(x: torch.Tensor, rho: torch.Tensor, ctr, half: float, vox: float, with_grad: bool = False):
+    """rho ([z,y,x] voxel grid, voxel centre (0,0,0) at ctr - half + vox/2) sampled trilinearly at
+    the points x; with_grad also returns the central-difference gradient (x,y,z) there."""
     G = rho.shape[0]
-    gz, gy, gx = torch.gradient(rho, spacing=(vox, vox, vox))            # rho is [z,y,x]
-    grad = torch.stack([gx, gy, gz], -1)                                  # (G,G,G,3) in x,y,z
+    if with_grad:
+        gz, gy, gx = torch.gradient(rho, spacing=(vox, vox, vox))
+        grad = torch.stack([gx, gy, gz], -1)                              # (G,G,G,3) in x,y,z
     p = (x - (ctr - half)) / vox - 0.5
     i0 = torch.floor(p).long(); f = p - i0.float()
-    val = torch.zeros(len(x), device=x.device); gv = torch.zeros(len(x), 3, device=x.device)
+    val = torch.zeros(len(x), device=x.device)
+    gv = torch.zeros(len(x), 3, device=x.device) if with_grad else None
     for dz_ in (0, 1):
         for dy_ in (0, 1):
             for dx_ in (0, 1):
                 wgt = ((f[:, 0] if dx_ else 1 - f[:, 0]) * (f[:, 1] if dy_ else 1 - f[:, 1]) * (f[:, 2] if dz_ else 1 - f[:, 2]))
                 i = (i0 + torch.tensor([dx_, dy_, dz_], device=x.device)).clamp(0, G - 1)
                 val = val + wgt * rho[i[:, 2], i[:, 1], i[:, 0]]
-                gv = gv + wgt[:, None] * grad[i[:, 2], i[:, 1], i[:, 0]]
+                if with_grad:
+                    gv = gv + wgt[:, None] * grad[i[:, 2], i[:, 1], i[:, 0]]
+    return (val, gv) if with_grad else val
+
+
+def surface_particles(x: torch.Tensor, rho: torch.Tensor, ctr, half: float, vox: float, thr: float):
+    """The outer particle layer: particles whose smoothed density is below `thr`, with outward
+    normals = -grad rho / |grad rho| sampled trilinearly. Under the half-space model the
+    density at depth d (spacings) is bulk * Phi(d / sigma); the caller sets thr = bulk *
+    Phi(1 / sigma_sp) — the value one spacing deep, between the first layer (depth 0.5) and
+    the second (1.5) — so thr derives from the kernel width, not from a tuning. `bulk` must be
+    the density a typical PARTICLE sees (the median over particles), not the median over
+    occupied voxels: the blur's halo outside the body pulls the voxel median far below the
+    interior value (bunny 150k: 434 particles selected instead of a layer).
+    Returns (points (M,3) float32, normals (M,3) float32) on the CPU."""
+    val, gv = trilinear(x, rho, ctr, half, vox, with_grad=True)
     gn = gv.norm(dim=1).clamp_min(1e-12)
     sel = (val <= thr) & (gn > 1e-9)
     n = -gv[sel] / gn[sel, None]                                          # outward = down the density
@@ -203,14 +216,15 @@ def surfel_mesh(points: np.ndarray, normals: np.ndarray, k: int = 16, cos_min: f
 
 # ---- S2: screened Poisson ---------------------------------------------------------------------
 def poisson_mesh(points: np.ndarray, normals: np.ndarray, spacing: float, depth: int = 0,
-                 cell_sp: float = 2.0, max_dist_sp: float = 2.0):
+                 cell_sp: float = 1.0, max_dist_sp: float = 2.0):
     """Open3D screened Poisson reconstruction of the oriented outer layer.
 
     depth = 0 picks the octree depth from the discretisation: the finest cell equals the
-    outer layer's thickness (cell_sp = 2 spacings: the layer is the first particle layer plus
-    the second-layer particles the density threshold lets through, and the layer's normal-
-    direction noise is the half-spacing jitter of the fill), so the fit averages the layer
-    instead of following it — depth = ceil(log2(extent / (cell_sp * spacing))). Vertices
+    layer's in-plane sample spacing (cell_sp = 1 spacing; a cell holds about one surfel, and
+    the quadratic B-spline basis spanning three cells averages the layer's normal-direction
+    noise — the half-pitch jitter of the fill — instead of following it):
+    depth = ceil(log2(extent / (cell_sp * spacing))). A cell of two spacings (tried first)
+    leaves the surface too far from the samples and the trim below removes it. Vertices
     farther than max_dist_sp spacings from every layer particle are removed: Poisson closes
     every gap with a hallucinated envelope, and no particle supports a surface there."""
     import open3d as o3d

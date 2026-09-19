@@ -76,6 +76,9 @@ ap.add_argument("--pca_sigma", type=float, default=0.0,
                 help="S1 kernel size in spacings (the anisotropic kernel keeps this isotropic volume); 0 = --blur, "
                      "the baseline kernel's size, so only the SHAPE of the kernel differs from the gallery")
 ap.add_argument("--imls_h", type=float, default=2.0, help="S3 kernel width in particle spacings")
+ap.add_argument("--bulk", default="particle", choices=["particle", "voxel"],
+                help="the bulk density the level is a fraction of: median over the particles (correct) or over "
+                     "the occupied voxels (the gallery up to v8: biased low by the blur's halo)")
 ap.add_argument("--pull", type=int, default=1,
                 help="surface poisson|imls|surfel: plane-pulling iterations of the outer layer (weighted PCA "
                      "normals, positions projected onto the local plane); 0 = raw positions and gradient normals")
@@ -110,7 +113,7 @@ z = np.load(a.npz, allow_pickle=True)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from physmorph.sampling.orientation import orient_archive  # noqa: E402
 from physmorph.render.surface_recon import (pca_kernels, surface_particles, layer_threshold, oriented_layer,  # noqa: E402
-                                            poisson_mesh, imls_grid, surfel_mesh, bilateral_normal_smooth)
+                                            poisson_mesh, imls_grid, surfel_mesh, bilateral_normal_smooth, trilinear)
 frames_np, tgt_np, _src_np, _orient = orient_archive(z, a.npz)   # y-up (physmorph/sampling/orientation.json)
 if _orient != "id":
     print(f"[photoreal] orientation {_orient} ({'from archive' if 'orient' in z.files else 'from the table, applied at render time'})", flush=True)
@@ -252,7 +255,16 @@ def density_from_cov(x, cov):
 pca_sigma_sp = a.pca_sigma if a.pca_sigma > 0 else a.blur
 rho0 = density(x0) if a.kernel == "iso" else (density_pca(x0) if a.kernel == "pca" else density_aniso(x0, frame_F(0, x0)))
 occ = rho0[rho0 > 0]
-rho_bulk = float(occ.median()) if occ.numel() else 1.0
+bulk_voxel = float(occ.median()) if occ.numel() else 1.0
+# the bulk = the density a typical PARTICLE sees (median over the particles). The median over
+# occupied VOXELS (the gallery up to v8) is pulled down by the blur's halo — 3 sigma = 4.5
+# spacings of sub-bulk voxels around the whole body — so the "0.283 x bulk" level was in fact
+# ~0.14 of the interior density and every surface sat 1.6–1.9 spacings outside the true one
+# (docs/experiments.md 2026-09-19, surface_gt on bunny/dragon/cow)
+bulk_particle = float(trilinear(x0, rho0, ctr, half, vox).median())
+rho_bulk = bulk_particle if a.bulk == "particle" else bulk_voxel
+print(f"[photoreal] bulk density: particle median {bulk_particle:.4g}, occupied-voxel median {bulk_voxel:.4g} "
+      f"({bulk_voxel / bulk_particle:.3f} of it); using {a.bulk}", flush=True)
 if str(a.iso).lower() == "auto":
     # a 2x2 bundle of particles (spacing s) blurred by a 3D Gaussian sigma has a line density
     # 4/s^2 per unit length -> peak 4 / (s^2 2 pi sigma^2) particles per volume; bulk = 1/s^3
@@ -592,7 +604,7 @@ if a.still >= 0 or a.still == -2:
         o3d.io.write_triangle_mesh(a.save_mesh, m, write_ascii=False, compressed=True)
         with open(os.path.splitext(a.save_mesh)[0] + ".json", "w") as fh:
             json.dump({"npz": a.npz, "frame": a.still, "kernel": a.kernel, "surface": a.surface, "post": a.post,
-                       "pull": a.pull, "pca_sigma": pca_sigma_sp, "label": a.label,
+                       "pull": a.pull, "pca_sigma": pca_sigma_sp, "label": a.label, "bulk": a.bulk, "bulk_voxel_over_particle": bulk_voxel / bulk_particle,
                        "vox": vox, "spacing": spacing, "iso_frac": iso_frac, "layer_thr_frac": layer_thr / rho_bulk,
                        "bump": bump, "triangles": int(len(m.triangles)), "components": n_comp, "dropped": n_drop,
                        "cavities": n_cav, "bridged": n_bridge}, fh, indent=1)
