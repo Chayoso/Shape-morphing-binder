@@ -41,9 +41,17 @@ import sys as _sys, os as _os  # noqa: E402
 _sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
 from physmorph.sampling.orientation import orient_archive  # noqa: E402
 _fr, _tg, _sr, _orient = orient_archive(d, a.npz)              # y-up (physmorph/sampling/orientation.json)
-d = {k: d[k] for k in d.files}; d["frames"], d["tgt"] = _fr, _tg
+
+
+class _Archive(dict):
+    """dict with the NpzFile's `.files` so the code below keeps its `"key" in d.files` tests."""
+    files = list(d.files)
+
+
+_d = _Archive({k: d[k] for k in d.files}); _d["frames"], _d["tgt"] = _fr, _tg
 if _sr is not None:
-    d["src"] = _sr
+    _d["src"] = _sr
+d = _d
 if a.target:
     x = d["tgt"].astype(np.float32)
 else:
