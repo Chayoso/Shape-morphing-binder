@@ -2158,6 +2158,133 @@ frame keeps its thin features (dragon horns, bunny ears, cow teats: component co
 filament/bridge QA unchanged) and the lump amplitude does not rise. Measured on bunny frame
 500 / target, dragon frame 400 / target, cow end / target.
 
+#### Readings (07:45–08:40; `scripts/ops/surface_test.sh`, `scripts/probes/surface_gt.py`)
+
+**The measure had to change first.** Mean |dihedral| depends on the triangle size (a finer
+mesh of the same surface scores lower), so candidates with different meshers cannot be ranked
+by it. `surface_gt.py` reproduces the target cloud (same fill, same seed; residual 2e-6 wu
+against the archive), maps the asset mesh into the cloud frame and measures the
+reconstruction of the TARGET cloud against the true surface: mean |distance| and signed
+distance of the recon vertices (spacings; + = outside), 95th percentile, completeness (true
+surface → recon), the normal deviation at the closest point, and a scale-defined roughness
+(mean angle between a face normal and the area-weighted mean normal within 2 spacings —
+resolution-independent; the true mesh's own value is the floor: bunny 7.3°, dragon 15.4°
+(scales), cow 16.8° (a 5 804-face mesh, faceted at 3–5 spacings)).
+
+**Where the floor comes from.** The target cloud is a voxel fill at 110³ + a uniform jitter
+of half a voxel: pitch 0.82 (bunny) / 1.19 (dragon) / 1.28 (cow) spacings, 0.56 / 1.67 /
+2.12 particles per fill voxel drawn WITH replacement — so the cloud is a Poisson-random
+subsample of a voxel staircase. Blurred at 1.5 spacings the relative shot noise is
+1/√53 ≈ 14 %, which moves the level set by ~0.6 spacing with a 3-spacing correlation
+length: the 14.5° "bumpiness" and the ⅓-spacing lumps of 2026-09-18 item 4, now with a
+cause. It is not the renderer's kernel and it is not the morph.
+
+**A bug in the deliverable level, found by the layer selection.** The outer-layer rule
+(density below the half-space value one spacing deep, 0.748 × bulk) selected 434 of
+150 000 bunny particles. `rho_bulk` was the median over OCCUPIED VOXELS; the blur's halo
+(3σ = 4.5 spacings of sub-bulk voxels around the whole body) pulls that median to ~0.5 of
+the density a particle actually sees, so the "0.283 × bulk" level of §10.10 was in fact
+~0.14 of the interior density and every gallery surface sat OUTSIDE the true one: signed
+distance +1.56 (bunny) / +1.91 (dragon) / +1.76 (cow) spacings (run 1). With the bulk =
+median over the particles (commit 2512410; `--bulk voxel` keeps the old value for
+comparison, the ratio is printed) the marching-cubes surface moves to +0.50 / +1.18 / +1.16
+spacings — the remaining offset is the level itself (the two-particle filament level sits
+0.86 spacing outside the continuum boundary by construction) plus the fill's half-pitch
+overhang. The normal deviation does not change (12.7–15.1°): the bulk fixed the thickness,
+not the bumps. The v8 gallery videos were rendered with the old bulk (surfaces ~0.7–1
+spacing too fat everywhere); a re-render is a deliverable decision, recorded here.
+
+**Candidates on the target clouds (run 3, bulk fixed; spacings / degrees):**
+
+| candidate | bunny d_abs / d_sgn / n_dev / rough | dragon | cow |
+|---|---|---|---|
+| S0 marching cubes (gallery) | 1.71 / +0.50 / 14.5 / 12.8 | 1.19 / +1.18 / 15.1 / 12.3 | 1.16 / +1.16 / 12.7 / 13.2 |
+| S1 Yu & Turk PCA kernel, σ = blur | 1.70 / +0.25 / 15.0 / 13.7 | 1.07 / +1.06 / 14.3 / 13.3 | 1.05 / +1.04 / 12.5 / 13.3 |
+| S2 Poisson, plane-pulled layer | 1.45 / −1.38 / 19.9 / 11.4 † | **0.27 / −0.02 / 16.9 / 9.8** | **0.20 / −0.09 / 12.9 / 9.1** |
+| S2 Poisson, raw layer (pull 0) | 1.49 / −1.40 / 22.3 / 16.0 † | 0.24 / +0.02 / 16.9 / 11.2 | 0.18 / −0.04 / 13.3 / 10.3 |
+| S3 IMLS | 2.85 / −0.96 / 26.5 / 18.6 | (removed) | (removed) |
+| S4 surfel triangulation | 1.17 / −1.14 / 17.8 / 26.3 | 0.36 / −0.25 / 18.4 / 28.2 | 0.30 / −0.26 / 13.7 / 25.9 |
+| S5 bilateral on S0 | 1.71 / +0.50 / 14.5 / 11.5 | 1.19 / +1.18 / 15.5 / 10.3 | 1.16 / +1.16 / 12.8 / 11.0 |
+
+† bunny.obj is open at the base; the fill closes it, so the recon has a floor the true mesh
+lacks (d_95 5–10 spacings for every candidate) — the dragon and cow columns are the clean ones.
+
+- **S2 Poisson on the plane-pulled outer layer** is the one candidate that moves the
+  numbers: the surface sits ON the true one (bias −0.02 / −0.09 spacings against +1.2 for
+  marching cubes; mean distance 0.20–0.27 against 1.16–1.19, a 5× gain), roughness 9.1–9.8°
+  against 12.3–13.2° (the true dragon is 15.4°: its scales are below what any 1.5-spacing
+  kernel resolves, so the reconstruction is smoother than the truth), and the dragon's horns
+  and the cow's legs come out complete (completeness 0.27–0.35 spacings). The normal
+  deviation is the floor of the coarse true meshes (12.9° cow, 16.9° dragon vs 12.7 / 15.1).
+  The plane pulling (the 3DGT constraint) buys 1.2–1.4° of roughness and the pulled
+  positions alone are 0.3–0.36 spacings from the true surface with no bias.
+- **S1 (PCA kernels)**: FALSIFIED as a smoother — the same bumps (13.3–13.7°) whichever the
+  kernel's shape; with the Yu & Turk volume (σ0 0.7 spacings, run 1) it is WORSE (18.4–19.9°
+  dihedral, 56–290 interior cavities: a 0.7-spacing kernel resolves the particle gaps).
+- **S3 (IMLS)**: FALSIFIED as implemented — 54–185 spurious zero crossings on the morph
+  frames, a box around the bunny's ear from the far-field sign rule; the normals of a thin
+  sheet cancel inside the 2-spacing kernel.
+- **S4 (surfel triangulation)**: the surfel POSITIONS are the best of all (0.30–0.36
+  spacings, unbiased), the tangent-plane angular-greedy triangulation is not a surface
+  (overlapping fans, 12 triangles per vertex, roughness 26–28°). Its geometric idea — pull the
+  surfels onto their local plane — lives on inside S2 (`--pull`).
+- **S5 (bilateral)**: −1.5 to −2° of roughness, nothing else; the bumps are 3 spacings wide,
+  the filter's reach is a triangle.
+
+**S2 on the morph frames, first form:** holes (dragon frame 400: 13 components, roughness
+16.9° against 12.5° for marching cubes). Two structural causes, both fixed (commits d47a0da,
+c3993db): (1) the DENSITY rule for the outer layer takes a whole stretched region (0.6 × bulk
+throughout) as "layer", several particles thick with meaningless normals → the layer is now
+the RELATIVE gradient |∇ρ|/ρ above its half-space value one spacing deep (φ(1/σ)/(σΦ(1/σ)) =
+0.285 per spacing), invariant to the local density; (2) the Poisson trim at 2 spacings cut
+the surface wherever the layer was locally sparse → trim at the density kernel's reach
+(3σ = 4.5 spacings: no surface where no particle's kernel reaches). Run 4 measures both.
+
+**Run 4 (gradient layer + 3σ trim), roughness at 2 spacings, degrees:**
+
+| | bunny 500 | dragon 400 | cow 871 | bunny tgt | dragon tgt | cow tgt |
+|---|---|---|---|---|---|---|
+| S0 marching cubes | 13.1 | 12.5 | 13.2 | 12.8 | 12.3 | 13.2 |
+| S2 Poisson, density layer | 16.7 (28 comps) | 35.5 (300 tris) | 15.4 (23) | 11.5 | 9.8 | 9.1 |
+| S2 Poisson, gradient layer | **9.4** (12) | **12.9** (11) | **8.5** (10) | **9.0** | 9.7 | 8.4 |
+
+The gradient layer is the difference between a broken surface and a working one on the
+morph frames (the density layer on dragon 400 collapsed to 300 triangles). On the target
+clouds the two rules select the same particles (uniform density) and score the same. The
+stills: dragon 400 through Poisson is a clean closed surface with the horns and whiskers,
+visibly tighter than the fat marching-cubes blob; bunny 500 smooth with a few dimples on the
+back; cow 871 smooth — but its LOWER LEGS ARE GONE, the hooves float as balls. A leg 2–3
+spacings thick is thinner than the quadratic B-spline's support (3 cells of one spacing), so
+the two sides' normals cancel inside the basis: Poisson's known thin-structure failure, and
+exactly the material the two-particle-filament level of §10.10 was chosen to keep. The cell
+size is therefore not "one surfel per cell" but "the support must be thinner than the
+thinnest drawn continuum (two particles across)": cell = 2/3 spacing (`--poisson_cell`),
+run 5 (with 1/2 as the bracket).
+
+**Run 5 — the legs hypothesis FALSIFIED, cell = 1 spacing stays.** The marching-cubes still
+of cow 871 has the same truncated legs and the same floating hooves: the particles are not
+there (the morph did not fill the lower legs), so Poisson lost nothing. A finer octree
+(depth 8, cell 0.4–0.5 spacing, reached by both 2/3 and 1/2 on the dragon and the cow)
+follows the layer's noise instead: dragon 400 roughness 12.9° → 19.5° with 69 components,
+bunny 500 9.4° → 10.7° with 25; the targets unchanged (dragon 9.7 → 10.8, cow 8.4 → 9.2).
+The octree cell of one spacing (one surfel per cell, the B-spline averaging three) is the
+right discretisation; `--poisson_cell` stays at 1.0.
+
+**Decision (08:45).** S2 — screened Poisson of the plane-pulled outer layer (relative-gradient
+rule, PCA normals oriented by the density gradient, octree cell = one spacing, trim at the
+kernel's 3σ) — is the surface: on the target clouds the mean distance to the true surface
+drops from 1.16–1.19 to 0.20–0.29 spacings with zero bias (marching cubes: +1.2), the
+roughness at two spacings from 12.3–13.2° to 8.4–9.7°, and on the morph frames from
+12.5–13.2° to 8.5–12.9°, with the horns, whiskers and legs intact where the particles are.
+The costs, recorded: 10–13 raw components per morph frame instead of 1 (small flaps of the
+open trim and dimples counted as cavities; the mass rule drops them, the sidecar counts
+them), a 2-spacing filament below the B-spline's reach relies on the bridge rule as before,
+and ~4× the render time (Poisson is CPU). Before the gallery is re-rendered the whole
+trajectory must pass the per-frame QA: three full videos (bunny, dragon, cow) with
+`--surface poisson` are rendering into `surf_test/videos/`; the v8 pages are untouched until
+they do. The bulk fix (2512410) applies to marching cubes as well, so the pages will be
+re-rendered either way.
+
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
 - **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages

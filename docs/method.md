@@ -524,3 +524,57 @@ not the threshold; the sidecar records the bridged components per frame, and
 isosurface drew two pieces" and "the physics has two bodies" are separate columns of the
 report. v7 (2026-09-18): physical fragments ≥ 1 cell in 0 frames for 18 of 19 targets,
 C 6 of 202 frames.
+
+### 10.12 The rendered surface: the outer particle layer, not the density level (2026-09-19; code: render/surface_recon.py, scripts/render_photoreal.py `--surface poisson`, probe scripts/probes/surface_gt.py)
+
+The deliverable surface up to v8 was the marching-cubes level set of the blurred particle
+density. Two things were wrong with it, both measured against the true asset mesh mapped
+into the cloud frame (the probe reproduces the target cloud bit for bit and carries the
+mesh along).
+
+*The bulk.* The "fraction of the bulk density" in 10.11 was taken over the occupied
+VOXELS. The blur's halo — three σ of sub-bulk voxels around the whole body — pulls that
+median to about half of the density a particle actually sees, so the level was ~0.14 of the
+interior density and every surface sat 1.6–1.9 spacings outside the true one (bunny 150k
++1.56, dragon +1.91, cow +1.76 spacings). The bulk is now the median over the PARTICLES
+(what a typical particle sees; robust whenever more than half the particles are interior).
+The marching-cubes surface then sits +0.5 … +1.2 spacings out, which is the level's own
+offset: a level below half the bulk is outside the continuum boundary by construction
+(Φ⁻¹(0.28) σ = 0.86 spacing) — the price of drawing a two-particle filament with a level.
+
+*The bumps.* The texture of the level set is the sampling: the target cloud is a voxel
+fill of pitch 0.8–1.3 spacings with 0.6–2 particles per voxel drawn with replacement, i.e.
+a Poisson-random subsample; blurred at 1.5 spacings its shot noise is ~14 %, which moves
+the level set by ~0.6 spacing with a 3-spacing correlation length. No kernel shape
+changes this (anisotropic PCA kernels: the same 13° roughness; a smaller kernel resolves
+the gaps and is worse), and no mesh filter reaches a 3-spacing bump.
+
+The surface that is right is the one through the OUTER PARTICLE LAYER, denoised as a
+surface: (1) the layer = particles whose relative density gradient |∇ρ|/ρ exceeds the
+half-space value one spacing deep, φ(1/σ)/(σ Φ(1/σ)) = 0.285 per spacing at σ = 1.5 —
+a rule invariant to the local density, so a stretched region of a morph frame (0.6 × bulk
+throughout) is not all "layer" (the density rule takes it whole, several particles thick,
+and the surface breaks); (2) each layer particle gets a plane by weighted PCA over its 24
+layer neighbours (Gaussian weight of two spacings, the layer's thickness), the normal
+oriented by the density gradient, and is PULLED onto that plane — the plane-pulling
+constraint of 3D Gaussian Triangulation, one MLS projection — which removes most of the
+half-pitch jitter and the ~20° noise of the gradient normals; (3) screened Poisson
+reconstruction (Kazhdan & Hoppe 2013) of these oriented surfels with the finest octree
+cell of ONE spacing — one surfel per cell, the quadratic B-spline averaging three — and
+vertices farther than 3σ of the blur from every surfel removed (no particle's kernel
+reaches there). A finer cell follows the noise (dragon frame 400: 12.9° → 19.5°, 69
+components); a coarser one leaves the surface too far from the surfels. The density keeps
+every role it had: the level (for the mass rule's voxel labels), the mass rule, the
+cavities and the bridges; only the drawn surface changes.
+
+Measured on the target clouds of bunny, dragon and cow (`surface_gt.py`; spacings and
+degrees): mean distance to the true surface 1.16–1.19 → 0.20–0.29 with the bias +1.2 → 0;
+completeness 1.2–1.3 → 0.26–0.37; roughness at two spacings 12.3–13.2° → 8.4–9.7° (the true
+dragon is 15.4° — its scales are below what any 1.5-spacing kernel resolves); on the morph
+frames 12.5–13.2° → 8.5–12.9° with the horns, whiskers and legs present wherever the
+particles are. Costs: a frame carries 10–13 raw components instead of one (small flaps of
+the open trim and dimples counted as cavities, dropped by the mass rule and recorded in
+the sidecar), a filament thinner than the B-spline's reach relies on the bridge rule as
+before, and the reconstruction is CPU-bound (~4× the render time). The other candidates
+of the pre-registration (IMLS, surfel triangulation, bilateral filtering, PCA kernels) and
+their numbers are in docs/experiments.md 2026-09-19.
