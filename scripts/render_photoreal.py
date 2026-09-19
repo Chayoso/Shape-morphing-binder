@@ -59,7 +59,22 @@ ap.add_argument("--bridge", type=int, default=1,
                 help="draw particles the isosurface does not enclose but which link the body to another drawn "
                      "component as a filament one particle spacing thick (the rendered topology follows the "
                      "particle connectivity, not the threshold); 0 = off. Bridged components are counted in the sidecar.")
-ap.add_argument("--kernel", default="iso", choices=["iso", "aniso"],
+ap.add_argument("--surface", default="mc", choices=["mc", "poisson", "imls", "surfel"],
+                help="surface from the density: 'mc' = marching cubes at the level (the gallery); 'poisson' = "
+                     "screened Poisson reconstruction of the outer particle layer (density below the one-spacing "
+                     "half-space value, normals from the density gradient; S2 of docs/experiments.md 2026-09-19); "
+                     "'imls' = implicit moving-least-squares field of the same oriented surface particles on the "
+                     "render grid, marching cubes at 0 (S3); 'surfel' = plane-pulled surfels triangulated in "
+                     "their tangent planes, Laplacian remeshed (S4, the geometric part of 3D Gaussian Triangulation).")
+ap.add_argument("--post", default="none", choices=["none", "bilateral"],
+                help="mesh post-filter: 'bilateral' = bilateral normal filtering (Zheng 2011; S5)")
+ap.add_argument("--pca_k", type=int, default=32, help="S1 neighbourhood size for the weighted PCA")
+ap.add_argument("--pca_kr", type=float, default=4.0, help="S1 eigenvalue ratio clamp (Yu & Turk k_r)")
+ap.add_argument("--pca_lam", type=float, default=0.9, help="S1 centre-smoothing weight (Yu & Turk lambda)")
+ap.add_argument("--poisson_depth", type=int, default=9)
+ap.add_argument("--imls_h", type=float, default=2.0, help="S3 kernel width in particle spacings")
+ap.add_argument("--bilateral_iters", type=int, default=5)
+ap.add_argument("--kernel", default="iso", choices=["iso", "aniso", "pca"],
                 help="density kernel: 'iso' = CIC deposit + separable Gaussian blur of --blur spacings (grid-aligned, "
                      "isotropic); 'aniso' = every particle deposits its own Gaussian with covariance sigma0^2 F F^T "
                      "(the Gaussian rides the deformation, docs/method.md eq. 11; sigma0 = --sigma0 x rest spacing, "
@@ -87,6 +102,8 @@ dev = "cuda" if torch.cuda.is_available() else "cpu"
 z = np.load(a.npz, allow_pickle=True)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from physmorph.sampling.orientation import orient_archive  # noqa: E402
+from physmorph.render.surface_recon import (pca_kernels, surface_particles, layer_threshold, poisson_mesh,  # noqa: E402
+                                            imls_grid, surfel_mesh, bilateral_normal_smooth)
 frames_np, tgt_np, _src_np, _orient = orient_archive(z, a.npz)   # y-up (physmorph/sampling/orientation.json)
 if _orient != "id":
     print(f"[photoreal] orientation {_orient} ({'from archive' if 'orient' in z.files else 'from the table, applied at render time'})", flush=True)
@@ -175,9 +192,8 @@ def frame_F(fi, x=None):
 
 def density_aniso(x, F):
     """Sum of per-particle Gaussians N(x_p, sigma0^2 F_p F_p^T) on the voxel grid: the kernel is
-    the particle's material patch carried by the deformation, so stretched material stays
-    covered (no gaps -> no 'visible particles') and the sum is flat where the rest cloud was
-    regular (partition of unity -> no bumps). Truncated at 3 sigma_max; fixed stencil."""
+    the particle's material patch carried by the deformation (FALSIFIED as a smoother,
+    docs/experiments.md 2026-09-18 item 4; kept as an option)."""
     s0 = a.sigma0 * spacing
     F = torch.where(torch.isfinite(F).all(-1).all(-1)[:, None, None], F, torch.eye(3, device=dev)[None])
     # stretch saturation as in the objective's Gaussian forward model (cov_from_F sat): a
@@ -187,6 +203,21 @@ def density_aniso(x, F):
     Ms = torch.linalg.solve(torch.eye(3, device=dev)[None] + M / 9.0, M)
     M = 0.5 * (Ms + Ms.transpose(1, 2))
     cov = (s0 * s0) * M + (1e-3 * s0 * s0) * torch.eye(3, device=dev)[None]
+    return density_from_cov(x, cov)
+
+
+def density_pca(x):
+    """S1, Yu & Turk (2013): kernel centres Laplacian-smoothed (lambda), covariances from the
+    weighted PCA of each particle's neighbourhood (ratio clamp k_r), a sum of anisotropic
+    Gaussians of the isotropic kernel's volume."""
+    x_np = x.detach().cpu().numpy().astype(np.float32)
+    cen, cov = pca_kernels(x_np, spacing, k=a.pca_k, kr=a.pca_kr, lam=a.pca_lam, sigma0=a.sigma0)
+    return density_from_cov(torch.as_tensor(cen, device=dev), torch.as_tensor(cov, device=dev))
+
+
+def density_from_cov(x, cov):
+    """Sum of per-particle Gaussians N(x_p, cov_p) on the voxel grid, truncated at 3 sigma_max
+    with a fixed stencil; unit mass per particle."""
     prec = torch.linalg.inv(cov)                                          # (N,3,3)
     det = torch.linalg.det(cov).clamp_min(1e-30)
     norm = 1.0 / ((2 * math.pi) ** 1.5 * torch.sqrt(det))                # unit mass per particle
@@ -211,7 +242,7 @@ def density_aniso(x, F):
     return rho.view(G, G, G)
 
 
-rho0 = density(x0) if a.kernel == "iso" else density_aniso(x0, frame_F(0, x0))
+rho0 = density(x0) if a.kernel == "iso" else (density_pca(x0) if a.kernel == "pca" else density_aniso(x0, frame_F(0, x0)))
 occ = rho0[rho0 > 0]
 rho_bulk = float(occ.median()) if occ.numel() else 1.0
 if str(a.iso).lower() == "auto":
@@ -226,6 +257,13 @@ else:
     iso_frac = float(a.iso)
 iso = iso_frac * rho_bulk
 origin = (ctr - half).cpu().numpy() + 0.5 * vox           # world position of voxel centre (0,0,0)
+# the outer particle layer for --surface poisson|imls|surfel: density below the half-space value one
+# spacing deep for THIS kernel's width (blur sigma for the isotropic kernel, sigma0 for pca/aniso)
+kernel_sigma_sp = (sig_vox * vox / spacing) if a.kernel == "iso" else a.sigma0
+layer_thr = layer_threshold(rho_bulk, kernel_sigma_sp)
+if a.surface != "mc":
+    print(f"[photoreal] surface {a.surface}: outer layer = density <= {layer_thr / rho_bulk:.3f} x bulk "
+          f"(kernel sigma {kernel_sigma_sp:.2f} spacings)", flush=True)
 
 
 cell_wu = float(np.linalg.norm(np.asarray(frames_np[0], np.float32).max(0) - np.asarray(frames_np[0], np.float32).min(0))) / a.cell_diag
@@ -329,15 +367,37 @@ def filament_bridges(x_np, rho, drawn_labels_needed=2):
 def mesh_of(x, fi=None):
     """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components_raw, n_dropped, n_bridged, n_cavities)."""
     if a.kernel == "aniso" and fi is not None:
-        rho = density_aniso(x, frame_F(fi, x)).cpu().numpy()  # [z,y,x]
+        rho_t = density_aniso(x, frame_F(fi, x))           # [z,y,x]
+    elif a.kernel == "pca":
+        rho_t = density_pca(x)
     else:
-        rho = density(x).cpu().numpy()                     # [z,y,x]
+        rho_t = density(x)
+    rho = rho_t.cpu().numpy()
     if not (float(np.nanmax(rho)) > iso):
         print(f"[photoreal] frame {fi}: nothing above the level (rho max {float(np.nanmax(rho)):.3g}, iso {iso:.3g}, "
               f"nan voxels {int(np.isnan(rho).sum())})", flush=True)
         return None, 0, 0, 0, 0
-    v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
-    v = v[:, ::-1] + origin                                # (z,y,x) -> (x,y,z) world
+    if a.surface == "mc":
+        v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
+        v = v[:, ::-1] + origin                            # (z,y,x) -> (x,y,z) world
+    else:
+        # S2 / S3: the oriented SURFACE particles (within 1.5 voxels of the level set, normals from
+        # the density gradient) define the surface; the density keeps its role for the level, the
+        # component mass rule and the bridges
+        pts, nrm = surface_particles(x, rho_t, ctr, half, vox, layer_thr)
+        if fi is None or fi == 0:
+            print(f"[photoreal] surface {a.surface}: {len(pts)} outer-layer particles of {len(x)}", flush=True)
+        if a.surface in ("poisson", "surfel"):
+            pm = poisson_mesh(pts, nrm, depth=a.poisson_depth) if a.surface == "poisson" else surfel_mesh(pts, nrm)
+            v = np.asarray(pm.vertices, np.float32)
+            f = np.asarray(pm.triangles)[:, ::-1].astype(np.int64)   # the code below re-reverses
+            if len(v) == 0 or len(f) == 0:
+                print(f"[photoreal] frame {fi}: {a.surface} produced no triangles", flush=True)
+                return None, 0, 0, 0, 0
+        else:
+            fld = imls_grid(pts, nrm, origin, vox, G, h=a.imls_h * spacing)
+            v, f, _, _ = measure.marching_cubes(-fld, level=0.0, spacing=(vox, vox, vox))   # inside positive, as rho
+            v = v[:, ::-1] + origin
     m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v.astype(np.float64)),
                                   o3d.utility.Vector3iVector(f[:, ::-1].astype(np.int32)))
     comp = np.asarray(m.cluster_connected_triangles()[0])
@@ -391,6 +451,8 @@ def mesh_of(x, fi=None):
         if not keep.all():
             m.remove_triangles_by_mask(~keep)
             m.remove_unreferenced_vertices()
+    if a.post == "bilateral":
+        m = bilateral_normal_smooth(m, iters=a.bilateral_iters)
     if a.smooth > 0:
         m = m.filter_smooth_taubin(number_of_iterations=a.smooth)
     m.compute_vertex_normals()
@@ -502,9 +564,11 @@ if a.still >= 0 or a.still == -2:
     # measure for this discretisation
     m, n_comp, n_drop, n_bridge, n_cav = mesh_of(fr, a.still if a.still >= 0 else None)
     bump = bumpiness(m)
-    print(f"[photoreal] still {a.still}: kernel {a.kernel}, bumpiness (mean |dihedral|) {bump:.2f} deg, "
-          f"triangles {len(m.triangles) if m is not None else 0}", flush=True)
-    img = label(render_views(m), f"{a.label} frame {a.still}  {a.kernel}  bump {bump:.1f} deg  components {n_comp} (dropped {n_drop}, cavities {n_cav}, bridged {n_bridge})")
+    print(f"[photoreal] still {a.still}: kernel {a.kernel} surface {a.surface} post {a.post}, "
+          f"bumpiness (mean |dihedral|) {bump:.2f} deg, triangles {len(m.triangles) if m is not None else 0}, "
+          f"components {n_comp} dropped {n_drop} cavities {n_cav} bridged {n_bridge}", flush=True)
+    img = label(render_views(m), f"{a.label} frame {a.still}  {a.kernel}/{a.surface}/{a.post}  bump {bump:.1f} deg  "
+                                 f"components {n_comp} (dropped {n_drop}, cavities {n_cav}, bridged {n_bridge})")
     o3d.io.write_image(a.out, o3d.geometry.Image(np.ascontiguousarray(img)))
     print(f"saved {a.out} (components {n_comp}, sub-cell dropped {n_drop})")
     sys.exit(0)
