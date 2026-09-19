@@ -63,6 +63,10 @@ class TargetPack:
     tmass3: torch.Tensor | None = None  # fine target mass raster (hole-side W1, w_fill>0)
     pts: torch.Tensor | None = None     # raw target particles (grid-free near-band, w_nn>0)
     nn_spacing: float = 0.0             # target median NN spacing (the honest metric's unit)
+    pgmin: object = None                # G1 (cfg.pbr_denoised): the morph's normal grid at the render
+    pdx: float = 0.0                    #   pixel, blurred by pblur cells (the renderer's density)
+    pdims: tuple = ()
+    pblur: float = 0.0
     gauss: object | None = None         # GaussViews bundle (use_gauss_loss)
     gauss_scale: float | None = None    # one calibration per target build, not per window
     jd_gmin: torch.Tensor | None = None  # density-J prior raster (w_jdens>0)
@@ -249,15 +253,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     if isinstance(m_np, np.ndarray) and np.allclose(m_np, 1.0):
         m_np = 1.0                                    # unit masses: keep the scalar path
     layer = None
-    if cfg.layer_relax:
-        # outer-layer relaxation (docs/surface_gradient.md §6): the layer, its normals and its
-        # same-side neighbourhoods are frozen at the window start; tau = the window's duration
+    sp0 = None
+    if cfg.layer_relax or cfg.layer_ctrl:
+        # outer-layer relaxation (docs/surface_gradient.md §6) and/or the position-mode control
+        # channel (§7): the layer, its normals and its same-side neighbourhoods are frozen at the
+        # window start; the relaxation fraction is 1/T (over one window), 0 when only the channel is on
         from scipy.spatial import cKDTree as _KD
         from ..render.surface_recon import layer_relax_data
         sub = x0[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
         sp0 = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
         lmask, lnrm, lnbr, lw = layer_relax_data(x0, sp0, k=cfg.layer_k, h_sp=cfg.layer_h_sp)
-        lfrac = cfg.layer_frac if cfg.layer_frac > 0 else 1.0 / float(T)   # default: over one window
+        lfrac = (cfg.layer_frac if cfg.layer_frac > 0 else 1.0 / float(T)) if cfg.layer_relax else 0.0
         layer = (lmask, lnrm, lnbr, lw, float(lfrac))
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
@@ -609,9 +615,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         s0 = np.zeros((2, N), np.float32) if s_init is None else np.asarray(s_init, np.float32)
         s = torch.tensor(s0, device=dev, requires_grad=True)
         leaves.append(s)
+    u = None
+    if cfg.layer_ctrl:
+        # position-mode control leaf (§7): a normal displacement per outer-layer particle for THIS
+        # window (applied 1/T per step, consumed by the window, never warm-started); bounded by one
+        # spacing per window — beyond that it is transport, the stress channel's job
+        u = torch.zeros(N, device=dev, requires_grad=True)
+        leaves.append(u)
     mom = [torch.zeros_like(p) for p in leaves]
     vel = [torch.zeros_like(p) for p in leaves]
-    lr_scale = [1.0] + ([cfg.mat_lr_scale] if s is not None else [])
+    lr_scale = [1.0] + ([cfg.mat_lr_scale] if s is not None else []) + ([1.0] if u is not None else [])
     adam_t = 0
     if cfg.mom_carry > 0 and mom_init is not None:
         m_in, v_in, t_in = mom_init
@@ -782,8 +795,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             sil_gauss["sil"] = float(lsil.detach())
             lr = lsil
             if cfg.w_pbr > 0 and tgt.shade is not None:     # shading channel (PBR-lite)
-                lpbr = d_pbr(xT, tgt.shade, tgt.views, cfg.render_res, tgt.extent,
-                             tgt.lgmin, tgt.ldx, tgt.ldims, cfg.sil_k, cfg.pbr_ambient)
+                if cfg.pbr_denoised and tgt.pdims:
+                    # G1: the morph's normals on the render-pixel grid, blurred by the renderer's
+                    # 1.5 spacings — the normals of the drawn surface, against a denoised target
+                    lpbr = d_pbr(xT, tgt.shade, tgt.views, cfg.render_res, tgt.extent,
+                                 tgt.pgmin, tgt.pdx, tgt.pdims, cfg.sil_k, cfg.pbr_ambient, tgt.pblur)
+                else:
+                    lpbr = d_pbr(xT, tgt.shade, tgt.views, cfg.render_res, tgt.extent,
+                                 tgt.lgmin, tgt.ldx, tgt.ldims, cfg.sil_k, cfg.pbr_ambient)
                 lr = lsil + cfg.w_pbr * lpbr
         return lv, lk, lr, lpbr
 
@@ -798,9 +817,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # persistent tape trajectory (forward + adjoint as CUDA graphs), one per window
             if adj_box[0] is None:
                 adj_box[0] = PersistentAdjoint(spec)
-            xT, FT, vT, FgT, V = adj_box[0].apply(dfc)
+            xT, FT, vT, FgT, V = adj_box[0].apply(dfc, u)
         else:
-            xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t)
+            xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t, u_t=u)
         lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
         extra = {"dfc": dfc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                  "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
@@ -815,6 +834,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             _set_material(lam_t, mu_t)
             dc = expand(leaf.detach()).detach().contiguous()
             dc_buf.copy_(dc.view(T, N, 3, 3))
+            if u is not None:
+                wp.to_torch(tr_eval.layer_u).copy_(u.detach())
             t0 = _tick()
             tr = tr_eval
             tr.run()
@@ -1269,6 +1290,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
                 if s is not None:
                     s.clamp_(-cfg.mat_clamp, cfg.mat_clamp)
+                if u is not None:
+                    u.clamp_(-sp0, sp0)                      # one spacing per window
             state_n, lv_n, lk_n, lr_n, lpbr_n, extra_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, extra_n["dfc"], state_n[0],
@@ -1417,6 +1440,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         _set_material(lam_t, mu_t)
         dc = expand(dFc.detach()).detach().contiguous()
         dc_buf.copy_(dc.view(T, N, 3, 3))
+        if u is not None:                # the ACCEPTED u (a rejected candidate's may sit in the buffer)
+            wp.to_torch(tr_eval.layer_u).copy_(u.detach())
         t0 = _tick()
         tr = tr_eval                     # the same bonds and buffers as every candidate
         tr.run()

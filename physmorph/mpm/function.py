@@ -137,17 +137,19 @@ class _WarpMPMExt(torch.autograd.Function):
     Outputs: x_T (N,3), F_T (N,9), v_T (N,3), Fg_T (N,9), V (T,N,3) with V[t-1] = v_t."""
 
     @staticmethod
-    def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, spec: RolloutSpec):
+    def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, u_t, spec: RolloutSpec):
         N, T = spec.x0.shape[0], spec.T
         dFc_wp, seq = _dfc_to_warp(dFc_t, N, T)
         lam_wp = _leaf_f32(lam_t) if lam_t is not None else spec.lam
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
+        u_wp = _leaf_f32(u_t) if u_t is not None else None       # position-mode control leaf (§7)
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
                           device=spec.device, requires_grad=True, vol0=spec.vol0,
                           Fg0=spec.Fg0, track_geom=True,
                           bonds=((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None),
-                          layer=spec.layer)
+                          layer=spec.layer, layer_u=u_wp)
+        ctx.u_wp = u_wp if (u_t is not None and u_t.requires_grad) else None
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
@@ -190,14 +192,15 @@ class _WarpMPMExt(torch.autograd.Function):
             g = wp.to_torch(ctx.dFc_wp.grad).reshape(N, 3, 3).clone()
         g_lam = wp.to_torch(ctx.lam_wp.grad).clone() if ctx.lam_wp is not None else None
         g_mu = wp.to_torch(ctx.mu_wp.grad).clone() if ctx.mu_wp is not None else None
+        g_u = wp.to_torch(ctx.u_wp.grad).clone() if ctx.u_wp is not None else None
         ctx.tape.zero()
-        return g, g_lam, g_mu, None
+        return g, g_lam, g_mu, g_u, None
 
 
-def warp_mpm_ext(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None):
+def warp_mpm_ext(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None, u_t=None):
     """Extended differentiable rollout. Returns (x_T [N,3], F_T [N,9], v_T [N,3],
-    Fg_T [N,9], V [T,N,3])."""
-    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, spec)
+    Fg_T [N,9], V [T,N,3]). u_t: optional (N,) position-mode control leaf (spec.layer set)."""
+    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, spec)
 
 
 # ---- persistent tape trajectory: forward and adjoint as CUDA graphs (2026-09-16) ----------------
@@ -221,11 +224,14 @@ class PersistentAdjoint:
         self.dc = torch.zeros(T, N, 3, 3, device=dev)
         self.dc_wp = [wp.from_torch(self.dc[t], dtype=wp.mat33, requires_grad=True) for t in range(T)]
         bonds = ((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None)
+        # position-mode control leaf buffer (§7): a persistent (N,) tensor the bridge copies into
+        self.u = torch.zeros(N, device=dev)
+        self.u_wp = wp.from_torch(self.u, dtype=wp.float32, requires_grad=True) if spec.layer is not None else None
         self.traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
                                Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp,
                                device=dev, requires_grad=True, vol0=spec.vol0,
                                Fg0=spec.Fg0, track_geom=True, bonds=bonds, persistent=True,
-                               layer=spec.layer)
+                               layer=spec.layer, layer_u=self.u_wp)
         tr = self.traj
         self.sx = torch.zeros(N, 3, device=dev)
         self.sF = torch.zeros(N, 3, 3, device=dev)
@@ -241,7 +247,7 @@ class PersistentAdjoint:
         # every gradient buffer the adjoint accumulates into (tape.zero() only knows the
         # arrays of a tape that has already run backward — a fresh tape zeroes nothing)
         self.grad_arrays = []
-        for val in list(vars(tr).values()) + [self.dc_wp]:
+        for val in list(vars(tr).values()) + [self.dc_wp] + ([self.u_wp] if self.u_wp is not None else []):
             items = val if isinstance(val, (list, tuple)) else [val]
             for a in items:
                 if isinstance(a, wp.array) and a.grad is not None and a.grad not in self.grad_arrays:
@@ -286,17 +292,20 @@ class PersistentAdjoint:
             self._zero_grads()
             self.tape.backward(grads=self.seeds)
 
-    def apply(self, dFc_t: torch.Tensor):
-        return _WarpMPMPersistent.apply(dFc_t, self)
+    def apply(self, dFc_t: torch.Tensor, u_t: torch.Tensor | None = None):
+        return _WarpMPMPersistent.apply(dFc_t, u_t, self)
 
 
 class _WarpMPMPersistent(torch.autograd.Function):
     """The _WarpMPMExt bridge on a PersistentAdjoint (same outputs, same seeds)."""
 
     @staticmethod
-    def forward(ctx, dFc_t: torch.Tensor, adj: PersistentAdjoint):
+    def forward(ctx, dFc_t: torch.Tensor, u_t, adj: PersistentAdjoint):
         N, T = adj.N, adj.T
         adj.dc.copy_(dFc_t.detach().reshape(T, N, 3, 3))
+        if adj.u_wp is not None:
+            adj.u.copy_(u_t.detach() if u_t is not None else torch.zeros(N, device=adj.u.device))
+        ctx.u_req = u_t is not None and u_t.requires_grad and adj.u_wp is not None
         adj.forward()
         ctx.adj = adj
         tr = adj.traj
@@ -324,4 +333,5 @@ class _WarpMPMPersistent(torch.autograd.Function):
                 adj.sV.zero_()
             adj.backward()
             g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3).clone() for d in adj.dc_wp])
-        return g.reshape(T, N, 3, 3), None
+            g_u = wp.to_torch(adj.u_wp.grad).clone() if ctx.u_req else None
+        return g.reshape(T, N, 3, 3), g_u, None

@@ -369,7 +369,12 @@ def k_layer_resid(x: wp.array(dtype=wp.vec3),
 def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
                     mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
                     nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
-                    frac: float, x_out: wp.array(dtype=wp.vec3)):
+                    frac: float, u: wp.array(dtype=float), frac_u: float,
+                    x_out: wp.array(dtype=wp.vec3)):
+    """Outer-layer position update: the relaxation (frac) and the POSITION-MODE CONTROL
+    CHANNEL u (docs/surface_gradient.md §7): u[p] is a per-window normal displacement leaf
+    of the optimiser, applied frac_u = 1/T per step, so the render covector reaches it
+    without the grid's low-pass (its adjoint is the identity times the physics response)."""
     p = wp.tid()
     if mask[p] < 0.5:
         x_out[p] = x_in[p]
@@ -377,7 +382,7 @@ def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
     dbar = float(0.0)
     for a in range(K):
         dbar = dbar + w[p * K + a] * d[nbr[p * K + a]]
-    x_out[p] = x_in[p] - frac * (d[p] - dbar) * nrm[p]
+    x_out[p] = x_in[p] + (frac_u * u[p] - frac * (d[p] - dbar)) * nrm[p]
 
 
 # ── geometric deformation gradient — the RENDER kinematics ───────────────────

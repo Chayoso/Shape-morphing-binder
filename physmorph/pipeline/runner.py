@@ -165,9 +165,28 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
     views = make_views(cfg.render_views, cfg.render_elevs)
     extent = float(np.abs(target_x).max()) * 1.25
     sils = shade = dt3 = None
+    pgmin, pdx, pdims, pblur = None, 0.0, (), 0.0
     if cfg.lambda_auto > 0:
         sils = target_silhouettes(tgt_t, views, cfg.render_res, extent, cfg.sil_k)
-        if cfg.w_pbr > 0:
+        if cfg.w_pbr > 0 and cfg.pbr_denoised:
+            # G1 (docs/surface_gradient.md §4): the shading reference from the TARGET's reconstructed
+            # surface (no shot noise), the morph's normals on a render-pixel grid over the loss
+            # box, blurred by the renderer's 1.5 spacings
+            from scipy.spatial import cKDTree as _KD
+            from ..render.surface_recon import target_surface_normals
+            sub = target_x[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
+            sp_t = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
+            n_t, sw_t = target_surface_normals(np.asarray(target_x, np.float32), sp_t)
+            shade = shade_targets(tgt_t, views, cfg.render_res, extent, lgmin, ldx, ldims,
+                                  cfg.sil_k, cfg.pbr_ambient,
+                                  normals=(torch.as_tensor(n_t, device=dev), torch.as_tensor(sw_t, device=dev)))
+            pdx = 2.0 * extent / cfg.render_res                       # the render pixel
+            pdims = tuple(int(np.ceil((dmax - dmin).max() / pdx)) for _ in range(3))
+            pgmin = lgmin
+            pblur = 1.5 * sp_t / pdx
+            print(f"[target] denoised shading target: spacing {sp_t:.4f}, normal grid {pdims[0]}^3 at {pdx:.4f} wu "
+                  f"({pdx / sp_t:.2f} spacings), blur {pblur:.2f} cells", flush=True)
+        elif cfg.w_pbr > 0:
             shade = shade_targets(tgt_t, views, cfg.render_res, extent,
                                   lgmin, ldx, ldims, cfg.sil_k, cfg.pbr_ambient)
     dtgmin, dtdx, dtdims, tmass3 = None, 0.0, (), None
@@ -227,7 +246,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3,
                       pts=pts, nn_spacing=nn_sp, gauss=gauss,
                       kde_h=kde_h, kde_rho_ref=kde_rho,
-                      m_ref=m_ref, n_support=n_support)
+                      m_ref=m_ref, n_support=n_support,
+                      pgmin=pgmin, pdx=pdx, pdims=pdims, pblur=pblur)
 
 
 def calibrate_units(tgt: TargetPack, source_x, target_x, cfg: PipelineConfig) -> None:

@@ -223,6 +223,34 @@ def layer_relax_data(x0: np.ndarray, spacing: float, k: int = 24, h_sp: float = 
     return mask.astype(np.float32), nrm.astype(np.float32), nbr, w
 
 
+def target_surface_normals(x_np: np.ndarray, spacing: float, k: int = 24, h_sp: float = 2.0):
+    """G1 (docs/surface_gradient.md §4): per-particle normals and surface weights of a cloud from
+    its RECONSTRUCTED surface — outer layer by the asymmetry rule, plane-pulled surfels, screened
+    Poisson (isolated), then for every particle the normal of the nearest triangle and the weight
+    exp(-(dist / spacing)^2) (1 on the surface, ~0 two spacings inside). The shading target
+    rendered from these carries the sampled cloud's shot noise no longer. Returns
+    (normals (N,3) float32, weights (N,) float32)."""
+    import open3d as o3d
+    mask, ref = layer_by_asymmetry(x_np, spacing)
+    pts, nrm = oriented_layer(x_np[mask], ref[mask], spacing, k=k, h_sp=h_sp)
+    mesh = poisson_mesh(pts, nrm, spacing, max_dist_sp=0.0)
+    if mesh is None or len(mesh.triangles) == 0:
+        return ref.astype(np.float32), mask.astype(np.float32)
+    mesh.compute_triangle_normals()
+    tn = np.asarray(mesh.triangle_normals)
+    sc = o3d.t.geometry.RaycastingScene()
+    sc.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
+    r = sc.compute_closest_points(o3d.core.Tensor(np.asarray(x_np, np.float32)))
+    pid = r["primitive_ids"].numpy().astype(np.int64)
+    dist = np.linalg.norm(r["points"].numpy() - np.asarray(x_np, np.float32), axis=1)
+    n = tn[np.clip(pid, 0, len(tn) - 1)]
+    # orient outward: agree with the asymmetry reference where that is defined
+    flip = (n * ref).sum(1) < 0
+    n = n.copy(); n[flip & mask] = -n[flip & mask]
+    w = np.exp(-(dist / spacing) ** 2)
+    return n.astype(np.float32), w.astype(np.float32)
+
+
 def layer_threshold(bulk: float, sigma_sp: float) -> float:
     """bulk * Phi(1 / sigma_sp): the half-space density one spacing deep for a Gaussian kernel of
     sigma_sp spacings (1.5 -> 0.748 bulk; 0.7 -> 0.923 bulk)."""

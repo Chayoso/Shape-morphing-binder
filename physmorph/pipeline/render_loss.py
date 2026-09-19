@@ -46,17 +46,30 @@ def d_render(x: torch.Tensor, target_alphas, views, res: int, extent: float,
     return (w_hole * deficit.pow(2) + w_spray * excess.pow(2)).mean(dim=(1, 2)).mean()
 
 
-def field_normals(x: torch.Tensor, grid_min, dx: float, dims):
+def field_normals(x: torch.Tensor, grid_min, dx: float, dims, blur_cells: float = 0.0):
     """Per-particle outward normals + surface weight from the density field.
 
     Returns (n_hat, sw): n = -∇ρ/|∇ρ| (SDFDiff recipe, differentiable end-to-end) and
     sw = |∇ρ|/max|∇ρ| ∈ [0,1]. Adversarial finding (v4 round 1): normalising the gradient
     REMOVES the surface/interior discriminator on solid clouds (shell 39% of particles
     carried only 53% of the gradient) — so the magnitude is returned and used to WEIGHT
-    each particle's shading contribution instead of being silently discarded."""
+    each particle's shading contribution instead of being silently discarded.
+    blur_cells > 0: separable Gaussian blur of the CIC density (in cells) before the
+    gradient — on a render-pixel grid this is the renderer's own density (G1,
+    docs/surface_gradient.md §4), so the shading normals are those of the drawn surface."""
     nx, ny, nz = dims
     rho = rasterize_mass(x, torch.ones(len(x), device=x.device), grid_min, dx, dims)
     r = rho.reshape(nx, ny, nz)
+    if blur_cells > 0:
+        import torch.nn.functional as Fn
+        rad = int(3 * blur_cells)
+        k = torch.exp(-torch.arange(-rad, rad + 1, device=x.device, dtype=r.dtype) ** 2 / (2 * blur_cells ** 2))
+        k = k / k.sum()
+        r5 = r.reshape(1, 1, nx, ny, nz)
+        r5 = Fn.conv3d(r5, k.view(1, 1, 1, 1, -1), padding=(0, 0, rad))
+        r5 = Fn.conv3d(r5, k.view(1, 1, 1, -1, 1), padding=(0, rad, 0))
+        r5 = Fn.conv3d(r5, k.view(1, 1, -1, 1, 1), padding=(rad, 0, 0))
+        r = r5.reshape(nx, ny, nz)
     g = torch.zeros(nx, ny, nz, 3, device=x.device, dtype=x.dtype)
     g[1:-1, :, :, 0] = (r[2:] - r[:-2])
     g[:, 1:-1, :, 1] = (r[:, 2:] - r[:, :-2])
@@ -165,19 +178,26 @@ def shaded_views_multi(x: torch.Tensor, views, res: int, extent: float,
 
 
 def shade_targets(target_x: torch.Tensor, views, res: int, extent: float,
-                  grid_min, dx: float, dims, k=1.5, ambient=0.25):
+                  grid_min, dx: float, dims, k=1.5, ambient=0.25, normals=None, blur_cells: float = 0.0):
+    """Target shaded images. normals=(n_t, sw_t) overrides the density-gradient normals
+    with precomputed ones — G1: the normals of the target's reconstructed surface
+    (surface_recon.target_surface_normals), so the reference carries no shot noise."""
     with torch.no_grad():
-        n_t, sw_t = field_normals(target_x, grid_min, dx, dims)
+        if normals is not None:
+            n_t, sw_t = normals
+        else:
+            n_t, sw_t = field_normals(target_x, grid_min, dx, dims, blur_cells)
         return [shaded_view(target_x, th, phi, res, extent, n_t, sw_t, k, ambient)[0]
                 .detach() for th, phi in views]
 
 
 def d_pbr(x: torch.Tensor, shade_tgts, views, res: int, extent: float,
-          grid_min, dx: float, dims, k: float = 1.5, ambient: float = 0.25) -> torch.Tensor:
+          grid_min, dx: float, dims, k: float = 1.5, ambient: float = 0.25,
+          blur_cells: float = 0.0) -> torch.Tensor:
     """Mean multi-view shaded-image L2 — orientation/curvature feedback beyond coverage
     (~70% of its gradient direction is orthogonal to the pure-silhouette term, measured).
     Visibility is only the soft front-bias approximation from shaded_view."""
-    n_p, sw = field_normals(x, grid_min, dx, dims)
+    n_p, sw = field_normals(x, grid_min, dx, dims, blur_cells)
     s, _ = shaded_views_multi(x, views, res, extent, n_p, sw, k, ambient)   # (V,res,res)
     s_t = torch.stack(list(shade_tgts), 0)
     return (s - s_t).pow(2).mean(dim=(1, 2)).mean()

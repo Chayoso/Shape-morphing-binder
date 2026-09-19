@@ -71,6 +71,55 @@ def test_projection_relaxes_the_rough_residual_over_one_window():
     assert np.linalg.norm(xT[interior] - xb[interior], axis=1).max() < 1e-6
 
 
+def test_position_channel_gradient_matches_finite_differences():
+    """The position-mode control leaf u (docs/surface_gradient.md §7): dL/du through the extended
+    bridge vs directional central differences, and u = 0 reproduces the plain rollout."""
+    x, sp = _slab(n_side=5, layers=3)
+    prm = _params()
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=6, h_sp=2.0)
+    T = 3
+    vol0 = compute_rest_volumes(x, 1.0, prm, DEV)
+    spec = RolloutSpec(x0=x, m=1.0, lam=800.0, mu=400.0, prm=prm, T=T, device=DEV, vol0=vol0,
+                       layer=(mask, nrm, nbr, w, 0.0))          # channel only, no relaxation
+    torch.manual_seed(2)
+    dfc = torch.randn(T, len(x), 3, 3) * 2e-2
+    wvec = torch.randn(len(x), 3)
+    with torch.no_grad():
+        x_plain = warp_mpm_ext(dfc, spec)[0]
+        x_zero = warp_mpm_ext(dfc, spec, u_t=torch.zeros(len(x)))[0]
+    assert torch.allclose(x_plain, x_zero, atol=1e-6)
+    u = (torch.randn(len(x)) * 0.05 * sp).requires_grad_(True)
+
+    def L(uu):
+        xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, u_t=uu)
+        return (xT * wvec).sum()
+
+    g, = torch.autograd.grad(L(u), u)
+    assert float(g[mask < 0.5].abs().max()) == 0.0          # interior particles: no channel
+    for _ in range(3):
+        d = torch.randn_like(u); d = d / d.norm()
+        eps = 1e-3 * sp
+        with torch.no_grad():
+            fd = (L(u.detach() + eps * d) - L(u.detach() - eps * d)) / (2 * eps)
+        an = (g * d).sum()
+        assert abs(float(fd - an)) <= 8e-2 * max(abs(float(fd)), abs(float(an)), 1e-4), (fd, an)
+
+
+def test_target_surface_normals_on_a_sphere():
+    from physmorph.render.surface_recon import target_surface_normals
+    rng = np.random.default_rng(0)
+    n = 6000
+    r = rng.uniform(0, 1, n) ** (1 / 3)
+    v = rng.normal(size=(n, 3)); v /= np.linalg.norm(v, axis=1, keepdims=True)
+    x = (v * r[:, None]).astype(np.float32)
+    sp = float(np.median(np.sort(np.linalg.norm(x[:, None, :400] - x[None, :400], axis=-1), axis=1)[:, 8]))
+    nrm, w = target_surface_normals(x, sp)
+    outer = r > 1.0 - sp
+    cos = (nrm[outer] * v[outer]).sum(1)
+    assert np.mean(cos > 0.8) > 0.8, np.mean(cos > 0.8)      # radial normals on the shell
+    assert w[outer].mean() > 0.5 and w[r < 0.5].mean() < 0.05  # surface weights: shell ~1, core ~0
+
+
 def test_adjoint_matches_finite_differences_with_force():
     x, sp = _slab(n_side=5, layers=3)
     prm = _params()

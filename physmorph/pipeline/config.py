@@ -432,6 +432,14 @@ class PipelineConfig:
     layer_frac: float = 0.0         #   projection fraction per step: 0 = 1/T (the rough residual
                                     #   relaxed over one window, e^-1 per window, as the bonds re-join);
                                     #   1 = a hard per-step constraint on the rough residual
+    layer_ctrl: bool = False        # POSITION-MODE CONTROL CHANNEL (docs/surface_gradient.md §7): a
+                                    #   per-window normal displacement leaf u on the outer layer, applied
+                                    #   1/T per step in k_layer_project; the render covector reaches it
+                                    #   without the grid's low-pass. |u| <= one spacing per window.
+    pbr_denoised: bool = False      # G1: the shading target rendered from the TARGET's reconstructed
+                                    #   surface (Poisson mesh normals, surface weights) instead of the
+                                    #   noisy density gradient; the morph's normals on a render-pixel
+                                    #   grid blurred by 1.5 spacings (the renderer's density)
     layer_k: int = 24               #   same-side layer neighbours of the plane fit
     layer_h_sp: float = 2.0         #   Gaussian weight width in spacings (the layer's thickness)
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each

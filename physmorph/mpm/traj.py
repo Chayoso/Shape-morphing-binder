@@ -63,7 +63,7 @@ class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
-                 Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None):
+                 Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None):
         x0 = np.ascontiguousarray(x0, np.float32)
         # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
         # accumulated grid arrays are re-zeroed per step and the rollout can be recorded as
@@ -203,6 +203,10 @@ class Trajectory:
             self.layer_frac = float(lfrac)
             self.xu = [wp.zeros(N, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T + 1)]
             self.ld = [wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg) for t in range(T + 1)]
+            # the position-mode control leaf u (N,): a warp view of the caller's tensor when
+            # given (layer_u), else a zero buffer the eval path assigns into
+            self.layer_u = layer_u if layer_u is not None else wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg)
+            self.layer_frac_u = 1.0 / float(T)
             self.layer = True
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
@@ -280,7 +284,7 @@ class Trajectory:
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ld[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac,
-                      self.x[t + 1]], device=dev)
+                      self.layer_u, self.layer_frac_u, self.x[t + 1]], device=dev)
         if self.track_geom:
             wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],
                       prm.dt], device=dev)
