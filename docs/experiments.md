@@ -2380,8 +2380,32 @@ coincident surfels of opposite normal — ragged rims, pits. Neighbours now coun
 the same side (weight × max(0, n_i·n_j) with the gradient reference normals; commit
 43252a4). The C at 40k still shows a ragged arm rim and dents on the sheet — it is the
 thin-sheet limit of a 2-particle continuum and is recorded as such; the level set draws
-it fat and smooth by hiding the sheet inside 1.9 spacings of blur. 40k videos (Poisson vs
-marching cubes, three archives) for the per-frame QA: running.
+it fat and smooth by hiding the sheet inside 1.9 spacings of blur.
+
+**40k videos, per-frame QA (Poisson vs marching cubes; drawn pieces > 1 / of which
+unbridged / Poisson fallback frames):** bunny (382 frames) 0 / 0 / 0 vs 0 / 0; dragon (683)
+0 / 0 / 0 vs 0 / 0; C (983) 0 / 0 / 0 vs 9 / 0 (the level set's nine bridged frames are
+pieces the Poisson surface keeps attached). One absorbed segfault on the C. The Poisson
+surface passes the deliverable QA on all three 40k archives. Comparison page (stills,
+numbers, the six candidates): artifact 0c05b8c6.
+
+**The user's question (16:50): the smoothing kills detail — should the render gradient
+not have captured it?** Answered with the scales: below the spacing (scales, fur) the
+target cloud has nothing (fill pitch 0.8–1.3 spacings) and no gradient can supply it; at
+1–3 spacings the target is 14 % shot noise (drawn with replacement), the level set shows
+that noise as "detail" (its normal error against the truth equals Poisson's) and the
+Poisson averages features with it — roughness at two spacings dragon 150k true 15.4° →
+level set 12.3° → Poisson 9.8°, bunny 40k 10.6° → 13.2° → 5.6° (below the truth: the
+reconstruction over-smooths at 40k, where a spacing is 2.6 voxels); the loss sees the
+morph through a loss_res-64 density image (cell ≈ 1.5–2 spacings at 150k), so its
+gradient stops there and, in the 1–3 spacing band, chases the target's noise as much as
+its features (the loss-cell ladder's lumps that did not follow the cell). The structural
+lever is upstream: sample source and target WITHOUT shot noise (one jittered particle per
+fill voxel, or Poisson-disk), after which both the loss blur and the reconstruction cell
+can go down to the sampling scale. Proposed test: resample the target clouds without
+noise and rerun the acid test with a 0.5-spacing Poisson cell — if the dragon's roughness
+climbs toward the truth without fragments, the sampling is the lever. Awaiting the user's
+call; the 150k gallery re-render stays stopped.
 
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
