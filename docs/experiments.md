@@ -2300,7 +2300,10 @@ of the 40k C are its own sub-cell events, not the box.
   without the net: physical fragments ≥ 1 cell in **0 of 299 frames** (largest 63
   particles = 0.74 cells; sub-cell clusters ≥ 20 in 104 frames) — the walls + per-step
   bonds have shrunk C's shed chunks below one cell of material; what the net used to
-  resample is now sub-cell debris that the deliverable rule does not draw.
+  resample is now sub-cell debris that the deliverable rule does not draw. fandisk 0 /
+  0.970 (0.973), maxplanck 0 / 0.969 (0.968), A 0 / 0.967 (0.974) (21:05 CDT). Fourteen
+  of nineteen in; the ledger so far: 0 0 0 0 0 0 0 0 0 1 1 1 3 9 (bob 9, C 3, dragon /
+  armadilo / cow 1).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
