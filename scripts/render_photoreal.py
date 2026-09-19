@@ -597,7 +597,11 @@ def mesh_of(x, fi=None):
                         mass[ci] = float((occ_ > 0.5).sum())
                 body = int(np.lexsort((np.abs(svol), mass))[-1])
                 inside_body = scenes[body].compute_occupancy(o3d.core.Tensor(cents.astype(np.float32))).numpy() > 0.5
-                cavity = (mass < ppc) & inside_body
+                # every component the body encloses is interior — a void (light) or a closed sheet the
+                # layer rule drew around a density step INSIDE the material (heavy: spot frame 114, a
+                # second "drawn piece" nobody can see). Neither is a piece; both are removed and counted
+                # in the cavity column.
+                cavity = inside_body.copy()
                 cavity[body] = False
             small = ((mass < ppc) | (np.abs(svol) < min_vol)) & ~cavity
             n_cav = int(cavity.sum())
