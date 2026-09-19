@@ -102,6 +102,21 @@ def surface_particles(x: torch.Tensor, rho: torch.Tensor, ctr, half: float, vox:
     return x[sel].detach().cpu().numpy().astype(np.float32), n.detach().cpu().numpy().astype(np.float32)
 
 
+def surface_particles_grad(x: torch.Tensor, rho: torch.Tensor, ctr, half: float, vox: float, g_thr: float):
+    """The outer particle layer by the RELATIVE density gradient |grad rho| / rho >= g_thr (per
+    world unit). Invariant to the local density amplitude, which the density threshold is not:
+    on a morph frame a stretched region sits at 0.6 x bulk throughout and the density rule
+    takes all of it as 'layer' (several particles thick, garbage normals, holes in the
+    Poisson surface), while its relative gradient is ~0 inside and large only at its edge.
+    Under the half-space model |grad rho| / rho = phi(d / sigma) / (sigma Phi(d / sigma)); the
+    caller sets g_thr at depth d = 1 spacing (layer_threshold_grad)."""
+    val, gv = trilinear(x, rho, ctr, half, vox, with_grad=True)
+    gn = gv.norm(dim=1).clamp_min(1e-12)
+    sel = (gn / val.clamp_min(1e-12) >= g_thr) & (gn > 1e-9)
+    n = -gv[sel] / gn[sel, None]
+    return x[sel].detach().cpu().numpy().astype(np.float32), n.detach().cpu().numpy().astype(np.float32)
+
+
 def oriented_layer(points: np.ndarray, ref_normals: np.ndarray, spacing: float, k: int = 24,
                    h_sp: float = 2.0, pull_iters: int = 1):
     """Denoised surfels from the outer layer: per particle a weighted PCA plane over its k
@@ -136,6 +151,15 @@ def layer_threshold(bulk: float, sigma_sp: float) -> float:
     """bulk * Phi(1 / sigma_sp): the half-space density one spacing deep for a Gaussian kernel of
     sigma_sp spacings (1.5 -> 0.748 bulk; 0.7 -> 0.923 bulk)."""
     return float(bulk) * 0.5 * (1.0 + math.erf((1.0 / sigma_sp) / math.sqrt(2.0)))
+
+
+def layer_threshold_grad(sigma_sp: float, spacing: float) -> float:
+    """phi(1/sigma) / (sigma Phi(1/sigma)) per spacing, i.e. the relative density gradient of a
+    half-space one spacing deep (sigma 1.5 -> 0.285 / spacing), returned per world unit."""
+    u = 1.0 / sigma_sp
+    phi = math.exp(-0.5 * u * u) / math.sqrt(2.0 * math.pi)
+    Phi = 0.5 * (1.0 + math.erf(u / math.sqrt(2.0)))
+    return phi / (sigma_sp * Phi) / spacing
 
 
 # ---- S4: surfel triangulation, the geometric part of 3D Gaussian Triangulation -------------------
