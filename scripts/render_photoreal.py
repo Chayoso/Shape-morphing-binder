@@ -395,7 +395,13 @@ def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
     anch = np.where(drawn[plab])[0]
     if len(free) == 0 or len(anch) == 0:
         return None, 0
-    r = 2.5 * spacing
+    # link radius = the MPM cell (the continuum's own resolution; scripts/probes/grid_fragments.py calls
+    # material a fragment only when it shares no dilated cell with the body), never below the
+    # 2.5-spacing particle-thread radius. With the surface at the true boundary the expansion-phase
+    # leader clusters (>= a cell of particles, 3-4 spacings off the body) were "drawn, unbridged"
+    # pieces at 2.5 spacings (bunny 45-66, cow 24-72, dragon 210-285) while the grid probe counts 0
+    # fragments there: they sit within one cell of the body.
+    r = max(2.5 * spacing, cell_wu)
     kf = cKDTree(x_np[free]); ka = cKDTree(x_np[anch])
     ff = np.array(list(kf.query_pairs(r)), dtype=np.int64).reshape(-1, 2)
     fa = kf.query_ball_tree(ka, r)
