@@ -331,29 +331,59 @@ def _segment_mesh(p, q, r):
     return cyl
 
 
-def filament_bridges(x_np, rho, drawn_labels_needed=2):
-    """Particles the isosurface does not enclose but which link the body to another enclosed
+def levelset_particle_labels(x_np, rho):
+    """Per-particle label of the level-set component enclosing it (0 = none), the drawn mask over
+    labels (the volume rule on voxels) and the body label — the marching-cubes surface's notion
+    of 'enclosed'."""
+    from scipy import ndimage
+    mask = rho >= iso
+    lab, n_lab = ndimage.label(mask)
+    counts = np.bincount(lab.ravel(), minlength=n_lab + 1)
+    drawn = np.zeros(n_lab + 1, bool)
+    drawn[1:] = counts[1:] * vox ** 3 >= min_vol                # the volume rule, on voxels
+    body = int(np.argmax(counts[1:]) + 1) if n_lab else 0
+    p = (x_np - (ctr - half).cpu().numpy()) / vox
+    ijk = np.clip(np.rint(p).astype(np.int64), 0, G - 1)
+    plab = lab[ijk[:, 2], ijk[:, 1], ijk[:, 0]]                  # voxel component of each particle
+    return plab, drawn, body
+
+
+def mesh_particle_labels(m, x_np):
+    """Per-particle label of the DRAWN mesh component enclosing it (0 = none): occupancy of the
+    closed mesh (Open3D ray casting) and the component of the nearest triangle. The Poisson
+    surface is the true boundary, tighter than the blurred level set, so the level set can join
+    two pieces a one-spacing neck separates on the drawn surface (cow video: drawn pieces > 1 in
+    141 frames while the voxel labels saw one body and drew no bridge). The bridge rule must
+    read the surface that is drawn."""
+    comp = np.asarray(m.cluster_connected_triangles()[0])
+    n_lab = int(comp.max()) + 1 if len(comp) else 0
+    if n_lab == 0:
+        return np.zeros(len(x_np), np.int64), np.zeros(1, bool), 0
+    sc = o3d.t.geometry.RaycastingScene()
+    sc.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(m))
+    q = o3d.core.Tensor(np.asarray(x_np, np.float32))
+    inside = sc.compute_occupancy(q).numpy() > 0.5
+    pid = sc.compute_closest_points(q)["primitive_ids"].numpy().astype(np.int64)
+    plab = np.where(inside, comp[np.clip(pid, 0, len(comp) - 1)] + 1, 0).astype(np.int64)
+    counts = np.bincount(plab, minlength=n_lab + 1)
+    drawn = np.ones(n_lab + 1, bool); drawn[0] = False           # every kept component is drawn
+    body = int(np.argmax(counts[1:]) + 1)
+    return plab, drawn, body
+
+
+def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
+    """Particles the drawn surface does not enclose but which link the body to another enclosed
     component are drawn as a filament one particle spacing thick (docs/method.md 10.10): a
     feature thinner than a two-particle bundle (the cow's teat: a 72-particle bulb on the
     target tied to the udder by a single-particle thread) is connected material at the
     particle scale, and the rendered topology must follow the particles, not the threshold.
-    Returns (filament mesh or None, number of enclosed components bridged to the body)."""
-    from scipy import ndimage
+    plab/drawn/body from levelset_particle_labels (marching cubes) or mesh_particle_labels
+    (the Poisson surface). Returns (filament mesh or None, number of enclosed components
+    bridged to the body)."""
     from scipy.sparse import coo_matrix
     from scipy.sparse.csgraph import connected_components
-    mask = rho >= iso
-    lab, n_lab = ndimage.label(mask)
-    if n_lab < 2:
+    if drawn.sum() < drawn_labels_needed or body == 0:
         return None, 0
-    counts = np.bincount(lab.ravel(), minlength=n_lab + 1)
-    drawn = np.zeros(n_lab + 1, bool)
-    drawn[1:] = counts[1:] * vox ** 3 >= min_vol                # the volume rule, on voxels
-    if drawn.sum() < drawn_labels_needed:
-        return None, 0
-    body = int(np.argmax(counts[1:]) + 1)
-    p = (x_np - (ctr - half).cpu().numpy()) / vox
-    ijk = np.clip(np.rint(p).astype(np.int64), 0, G - 1)
-    plab = lab[ijk[:, 2], ijk[:, 1], ijk[:, 0]]                  # voxel component of each particle
     free = np.where(plab == 0)[0]
     anch = np.where(drawn[plab])[0]
     if len(free) == 0 or len(anch) == 0:
@@ -520,7 +550,10 @@ def mesh_of(x, fi=None):
     m.compute_vertex_normals()
     n_bridge = 0
     if a.bridge and n_comp - n_drop - n_cav > 1:
-        fil, n_bridge = filament_bridges(x.detach().cpu().numpy().astype(np.float64), rho)
+        x_np64 = x.detach().cpu().numpy().astype(np.float64)
+        plab, drawn, body_lab = (levelset_particle_labels(x_np64, rho) if a.surface == "mc"
+                                 else mesh_particle_labels(m, x_np64))
+        fil, n_bridge = filament_bridges(x_np64, plab, drawn, body_lab)
         if fil is not None:
             m += fil
     return m, n_comp, n_drop, n_bridge, n_cav
