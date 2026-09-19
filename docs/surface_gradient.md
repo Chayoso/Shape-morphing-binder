@@ -221,6 +221,41 @@ points on 40k: the constraint holds the outer layer to its local plane, so the s
 term's noisy pull on individual particles no longer buys IoU at the pixel — which was the
 noise. Recorded, not hidden.
 
+## 7. Letting the render gradient reach below the cell: G1 + a position-mode control channel (2026-09-19, 19:40–)
+
+User's question: how to make the render gradient see below the cell — is the signal too
+high-resolution? Answer from §6: the signal is not the limit (65 % of the layer covector
+is sub-cell), the ACTUATOR is (the stress control has no sub-cell modes) and the
+REFERENCE is (the shading target carries the target cloud's noise). Two structural
+changes, implemented together:
+
+**G1 — a denoised shading reference** (`--pbr_denoised`; `render/surface_recon.py
+target_surface_normals`, `pipeline/runner.py build_target`, `render_loss.shade_targets`
+with precomputed normals). The target's outer layer (asymmetry rule) is plane-pulled and
+Poisson-reconstructed once at setup; every target particle takes the normal of its nearest
+triangle and a surface weight exp(−(dist/spacing)²), and the shading images are rendered
+from those — no shot noise in the reference. The morph is shaded from `field_normals` on a
+grid at the RENDER PIXEL (2·extent/render_res ≈ 1.7 spacings at 40k) with a Gaussian blur
+of 1.5 spacings (the renderer's own density), instead of the MPM-cell loss grid (3.6
+spacings): the normals of the drawn surface, differentiable in x.
+
+**A — a position-mode control channel** (`--layer_ctrl`; `k_layer_project` term
+`+ (u_p/T) n_p`, the extended and persistent bridges carry `u` as a leaf, the optimiser
+holds it as a second Adam leaf next to dFc, clipped to one spacing per window and never
+warm-started — a window's u is consumed by that window). Its adjoint is the identity times
+the physics response of the remaining steps, so the render covector's sub-cell content
+reaches it unfiltered. Together with the relaxation (frac 1/T, the same kernel) the outer
+layer has two position-mode inputs: the self-referential smoothing of §6 and the
+target-referenced correction of the render channel. Tests: u = 0 reproduces the plain
+rollout; dL/du matches directional central differences; interior particles receive no
+gradient; the reconstructed normals of a sampled sphere are radial on the shell with
+weights ~1 there and ~0 in the core.
+
+Runs at 40k (bunny, dragon; the recipe + `--layer_relax` +): `g1_*` = G1, `g1a_*` = G1 + A.
+Acid test as in §6: outer-layer plane-residual RMS over the morph, the rendered
+roughness (marching cubes / Poisson at the mid frame), silhouette IoU and chamfer, the
+per-frame QA of the videos. Results: next entry.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
