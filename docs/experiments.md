@@ -2292,7 +2292,8 @@ of the 40k C are its own sub-cell events, not the box.
   disconnected particles at window 185), but the arms grow into the stranded chunks by the
   end, so the end-frame ledger reads 3; the silIoU cost of not resampling them is 3.5
   points. Physical fragments ≥ 1 cell by the grid probe: 0 frames on V, dragon, bob,
-  armadilo, teapot (max clusters 0–9 particles).
+  armadilo, teapot (max clusters 0–9 particles). spot 0 / 0.965 (0.972), cow 1 / 0.924
+  (0.926) (18:52 CDT). Nine of nineteen in: 0 / 1 / 9 / 1 / 0 / 3 / 0 / 0 / 1 fragments.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
