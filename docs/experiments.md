@@ -2359,7 +2359,29 @@ After it: spot 114 one piece (4 raw, 2 dropped, 1 interior), spot 792 one (8 / 0
 bunny 57 one (20 / 13 / 6 — the "bridged piece" of the earlier reading was interior too),
 bob 51 one (230 / 227 / 2: the expansion spray as sub-cell blobs). Relaunched on all 19
 (13:58; the same six lanes, markers `SURFRR <prefix> <T> DONE`, v8 files kept as
-`<T>_v8mc_*`). The pages are rebuilt and republished from these.
+`<T>_v8mc_*`) — and STOPPED at 14:36 on the user's call: check N = 40 000 first, before
+the full render.
+
+**40k check (14:40–15:30; `lr64_bunny`, `lr64_dragon`, `or40_C` — the recipe's 40k runs).**
+Acid test on the targets (spacings / degrees): dragon marching cubes 1.09 / +1.09 / 13.2°
+→ Poisson 0.27 / −0.06 / 11.7°; bunny 0.98 / +0.95 / 13.2° → 0.90 / −0.83 / 10.2° (the
+open-base mesh again: d_95 6 spacings, the signed mean is the floor); morph frames 13.4°
+→ 10.8° (bunny 571) and 13.4° → 11.8° (dragon 1022). Two things the 40k stills showed
+that 150k had hidden: (1) FACETS — at 40k the spacing is 2.6 render voxels, so an octree
+cell of one spacing gives triangles far coarser than the level-set mesh's and the bunny
+rendered as a polyhedron. The cell stays (finer follows the noise); the mesh is
+Loop-subdivided until its triangles are no coarser than the render voxel, iterations =
+ceil(log2(cell / vox)) (2 at 40k, 1 at 150k). Roughness at two spacings after it: bunny
+10.2 → 5.6°, dragon 11.7 → 7.8° (the subdivision is itself a smoother at the cell scale;
+the true dragon at 40k is 21.7°). (2) THIN SHEETS — the C's arms at 40k are two or three
+particles thick, and the plane pulling took the k nearest neighbours from BOTH faces: the
+weighted centroid is the mid-plane, both faces were pulled onto it, and Poisson got
+coincident surfels of opposite normal — ragged rims, pits. Neighbours now count only on
+the same side (weight × max(0, n_i·n_j) with the gradient reference normals; commit
+43252a4). The C at 40k still shows a ragged arm rim and dents on the sheet — it is the
+thin-sheet limit of a 2-particle continuum and is recorded as such; the level set draws
+it fat and smooth by hiding the sheet inside 1.9 spacings of blur. 40k videos (Poisson vs
+marching cubes, three archives) for the per-frame QA: running.
 
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
