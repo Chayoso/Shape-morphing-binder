@@ -40,28 +40,35 @@ def test_layer_data_shapes():
     assert np.all(w[mask < 0.5] == 0)
 
 
-def test_force_relaxes_one_bump_and_leaves_a_plane():
-    x, sp = _slab(layers=2)
+def test_projection_relaxes_the_rough_residual_over_one_window():
+    x, sp = _slab(n_side=12, layers=4)
     prm = _params()
     mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
     T = 30
-    # a bump: push one top-face layer particle out along its normal by half a spacing
-    top = np.where((mask > 0.5) & (nrm[:, 1] > 0.5))[0]
+    # a bump: push one top-face layer particle (away from the slab's rim) out along its normal
+    # by half a spacing
+    top = np.where((mask > 0.5) & (nrm[:, 1] > 0.8) & (np.abs(x[:, 0]) < 0.3) & (np.abs(x[:, 2]) < 0.3))[0]
     p = top[len(top) // 2]
     xb = x.copy(); xb[p] += 0.5 * sp * nrm[p]
     vol0 = compute_rest_volumes(xb, 1.0, prm, DEV)
     tr = Trajectory(xb, 1.0, 0.0, 0.0, prm, T, device=DEV, requires_grad=False, vol0=vol0,
                     layer=(mask, nrm, nbr, w, 1.0 / T))   # no elasticity: the projection alone
     tr.rollout()
+    d = np.stack([tr.ld[t].numpy() for t in range(1, T + 1)])          # the kernel's own residual
+    # the bump's rough residual decays by (1 - 1/T)^T ~ e^-1 over one window (its neighbours
+    # absorb a little of it through dbar, so the ratio sits a little above e^-1)
+    ratio = abs(d[-1, p]) / abs(d[0, p])
+    assert 0.2 < ratio < 0.6, (d[0, p], d[-1, p])
+    # the layer as a whole gets smoother: the RMS rough residual (d - dbar) over the top face drops
+    wn = w / (w.sum(1, keepdims=True) + 1e-12)
+    rough = lambda dd: dd - (wn * dd[nbr]).sum(1)
+    top_all = np.where((mask > 0.5) & (nrm[:, 1] > 0.8))[0]
+    r0 = np.sqrt((rough(d[0])[top_all] ** 2).mean()); rT = np.sqrt((rough(d[-1])[top_all] ** 2).mean())
+    assert rT < 0.6 * r0, (r0, rT)
+    # interior particles do not move (no projection off the layer, no elasticity, no gravity)
     xT = tr.x[T].numpy()
-    d0 = float(nrm[p] @ (xb[p] - x[p])); dT = float(nrm[p] @ (xT[p] - x[p]))
-    # (1 - 1/T)^T = e^-1 of the rough residual is left after one window (the neighbours share a
-    # little of it through dbar, so slightly more)
-    assert abs(dT) < 0.55 * abs(d0), (d0, dT)
-    # the plane-sampled particles stayed put (no force where d == dbar)
-    others = np.setdiff1d(top, [p])
-    moved = np.linalg.norm(xT[others] - xb[others], axis=1).max()
-    assert moved < 0.1 * sp, moved
+    interior = mask < 0.5
+    assert np.linalg.norm(xT[interior] - xb[interior], axis=1).max() < 1e-6
 
 
 def test_adjoint_matches_finite_differences_with_force():
