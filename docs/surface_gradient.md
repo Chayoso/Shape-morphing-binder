@@ -254,7 +254,32 @@ weights ~1 there and ~0 in the core.
 Runs at 40k (bunny, dragon; the recipe + `--layer_relax` +): `g1_*` = G1, `g1a_*` = G1 + A.
 Acid test as in §6: outer-layer plane-residual RMS over the morph, the rendered
 roughness (marching cubes / Poisson at the mid frame), silhouette IoU and chamfer, the
-per-frame QA of the videos. Results: next entry.
+per-frame QA of the videos, and — the discriminator between detail and noise — the END
+frame's Poisson surface against the TRUE target mesh (`surface_gt.py --gt_all`): roughness
+that comes with a LOWER normal error is structure, roughness with a higher one is noise.
+
+**Bunny 40k (recipe / + relax / + relax + G1 / + relax + G1 + A):**
+
+| | silIoU | chamfer | det F min | layer RMS (morph / end, sp) | Poisson rough, mid frame | end frame vs true mesh: d_abs / n_dev / rough |
+|---|---|---|---|---|---|---|
+| lr64 (recipe) | 0.9623 | 0.1204 | 0.680 | 0.442 / 0.457 | — (13.4 MC) | 1.05 / 21.7° / 5.90° |
+| lrx (+ relax) | 0.9567 | 0.1206 | 0.717 | 0.290 / 0.270 | 5.60° | 1.01 / 22.6° / 5.91° |
+| g1 (+ G1) | 0.9568 | 0.1203 | 0.716 | 0.288 / 0.232 | 5.92° | 1.02 / 22.3° / 5.85° |
+| g1a (+ G1 + A) | **0.9614** | **0.1196** | **0.758** | 0.363 / 0.329 | 6.19° | **1.00 / 21.9°** / 6.24° |
+| target cloud itself | | | | 0.339 | 5.56° | 0.92 / 18.8° / 5.55° |
+
+Reading: G1 alone changes nothing the metrics see (its normals at the pixel are still a
+1.5-spacing blur; the reference is cleaner but the actuator is the same control stress).
+The position channel A recovers the IoU the relaxation had cost (0.9567 → 0.9614, against
+0.9623 without either), improves the chamfer and the compression floor, and puts the end
+frame closest to the true surface (1.00 spacings) with the LOWEST normal error of the four
+runs (21.9°) while its Poisson roughness is 0.35° higher — the extra roughness is
+structure the channel pulled in from the target, not noise; the plane-residual RMS
+(0.363, above the relaxation's 0.29 but still below the recipe's 0.44 and near the
+target's own 0.339) says the same. In the stills the g1a bunny has fuller ears and a
+rounder body than g1's over-thinned ones. What A cannot do: the target's shading is
+rendered at the pixel (1.7 spacings) through the same 1.5-spacing blur, so the detail it
+recovers is pixel-scale, not sub-pixel — the G5 (sampling) limit stands.
 
 ## 5. Sources
 
