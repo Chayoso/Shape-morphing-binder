@@ -363,8 +363,15 @@ def mesh_particle_labels(m, x_np):
     sc.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(m))
     q = o3d.core.Tensor(np.asarray(x_np, np.float32))
     inside = sc.compute_occupancy(q).numpy() > 0.5
-    pid = sc.compute_closest_points(q)["primitive_ids"].numpy().astype(np.int64)
-    plab = np.where(inside, comp[np.clip(pid, 0, len(comp) - 1)] + 1, 0).astype(np.int64)
+    cp = sc.compute_closest_points(q)
+    pid = cp["primitive_ids"].numpy().astype(np.int64)
+    dist = np.linalg.norm(cp["points"].numpy() - np.asarray(x_np, np.float32), axis=1)
+    # the surface passes THROUGH the outer particle layer (the surfels it was fitted to), so a
+    # particle within one spacing of the drawn surface is a surface particle of that component,
+    # not free material: without this tolerance half the layer is "free" and the bridge rule
+    # draws it all (cow 420: 31 M triangles of filament)
+    enclosed = inside | (dist <= spacing)
+    plab = np.where(enclosed, comp[np.clip(pid, 0, len(comp) - 1)] + 1, 0).astype(np.int64)
     counts = np.bincount(plab, minlength=n_lab + 1)
     drawn = np.ones(n_lab + 1, bool); drawn[0] = False           # every kept component is drawn
     body = int(np.argmax(counts[1:]) + 1)
