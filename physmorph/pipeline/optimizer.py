@@ -1101,6 +1101,23 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             gdt = (torch.autograd.grad(Ldt, leaves, retain_graph=True)
                    if Ldt is not None else None)
             _tm_add("g_dt", t1)
+            if cfg.grad_dump and it == 0 and lr is not None:
+                # gradient-stage dump (docs/surface_gradient.md): the terminal covectors of each
+                # channel on the particles and their pull-back to the control leaf, taken here
+                # while the graph is still retained. Five extra backward passes, first iteration
+                # only; a diagnostic.
+                lsil_t = lr - cfg.w_pbr * lpbr if lpbr is not None else lr
+                _gx_sil, = torch.autograd.grad(lsil_t, state[0], retain_graph=True, allow_unused=True)
+                _gx_pbr = (torch.autograd.grad(lpbr, state[0], retain_graph=True, allow_unused=True)[0]
+                           if lpbr is not None else None)
+                _gx_phys, = torch.autograd.grad(Lp_core, state[0], retain_graph=True, allow_unused=True)
+                _gl_sil = torch.autograd.grad(lsil_t, leaves, retain_graph=True, allow_unused=True)[0]
+                _gl_pbr = (torch.autograd.grad(lpbr, leaves, retain_graph=True, allow_unused=True)[0]
+                           if lpbr is not None else None)
+                _gl_rend = torch.autograd.grad(lr, leaves, retain_graph=True, allow_unused=True)[0]
+                grad_dump_state.update(gx_phys=_gx_phys, gx_sil=_gx_sil, gx_pbr=_gx_pbr,
+                                       gl_phys=gp[0].detach().clone(), gl_sil=_gl_sil, gl_pbr=_gl_pbr,
+                                       gl_rend=_gl_rend, xT0=state[0].detach().clone())
             t1 = _tick()
             if smooth:
                 # v3 grid-GS preconditioning: smooth the IMAGE-SPACE pull on the grid,
@@ -1161,21 +1178,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 g_share = lam_r * nr_ / max(np_ + lam_r * nr_, 1e-30)
                 g_phys_norm, g_rend_norm = np_, nr_
                 if cfg.grad_dump:
-                    # gradient-stage dump (docs/surface_gradient.md): the terminal covectors of
-                    # each channel on the particles and their pull-back to the control leaf.
-                    # Three extra backward passes; a diagnostic, first iteration only.
-                    lsil_t = lr - cfg.w_pbr * lpbr if lpbr is not None else lr
-                    _gx_sil, = torch.autograd.grad(lsil_t, state[0], retain_graph=True, allow_unused=True)
-                    _gx_pbr = (torch.autograd.grad(lpbr, state[0], retain_graph=True, allow_unused=True)[0]
-                               if lpbr is not None else None)
-                    _gx_phys, = torch.autograd.grad(Lp_core, state[0], retain_graph=True, allow_unused=True)
-                    _gl_sil = torch.autograd.grad(lsil_t, leaves, retain_graph=True, allow_unused=True)[0]
-                    _gl_pbr = (torch.autograd.grad(lpbr, leaves, retain_graph=True, allow_unused=True)[0]
-                               if lpbr is not None else None)
-                    grad_dump_state.update(gx_phys=_gx_phys, gx_sil=_gx_sil, gx_pbr=_gx_pbr,
-                                           gl_phys=gp[0].detach().clone(), gl_sil=_gl_sil, gl_pbr=_gl_pbr,
-                                           gl_rend=gr_raw[0].detach().clone(), xT0=state[0].detach().clone(),
-                                           lam_r=float(lam_r), g_share=float(g_share))
+                    grad_dump_state.update(lam_r=float(lam_r), g_share=float(g_share))
             if mode in ("off", "render"):
                 g = [a + lam_r * b for a, b in zip(gp, gr)]
             else:                    # "phys" / "cagrad" / "blend": grad_combine.combine
