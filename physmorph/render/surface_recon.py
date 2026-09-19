@@ -89,6 +89,36 @@ def surface_particles(x: torch.Tensor, rho: torch.Tensor, ctr, half: float, vox:
     return x[sel].detach().cpu().numpy().astype(np.float32), n.detach().cpu().numpy().astype(np.float32)
 
 
+def oriented_layer(points: np.ndarray, ref_normals: np.ndarray, spacing: float, k: int = 24,
+                   h_sp: float = 2.0, pull_iters: int = 1):
+    """Denoised surfels from the outer layer: per particle a weighted PCA plane over its k
+    nearest layer neighbours (Gaussian weights of width h_sp spacings — the layer's thickness),
+    the normal = the plane normal oriented by the density-gradient reference, the position
+    pulled onto the plane (the plane-pulling constraint of 3DGT, one MLS projection per
+    iteration). The gradient normals of a blurred shot-noise density carry ~20 deg of noise
+    each and the positions half a fill pitch; the plane fit over ~k particles removes most of
+    both. Returns (pulled points (M,3) float32, normals (M,3) float32)."""
+    P = points.astype(np.float64).copy()
+    R = ref_normals.astype(np.float64)
+    h = h_sp * spacing
+    for _ in range(max(1, pull_iters)):
+        kd = cKDTree(P)
+        d, nb = kd.query(P, k=k + 1, workers=-1)
+        d, nb = d[:, 1:], nb[:, 1:]
+        w = np.exp(-(d / h) ** 2)
+        wsum = w.sum(1, keepdims=True) + 1e-12
+        c = (w[:, :, None] * P[nb]).sum(1) / wsum
+        dxn = P[nb] - c[:, None, :]
+        C = np.einsum("nk,nki,nkj->nij", w, dxn, dxn) / wsum[:, :, None]
+        evals, evecs = np.linalg.eigh(C)                                   # ascending
+        n = evecs[:, :, 0]                                                 # smallest variance = the normal
+        flip = (n * R).sum(1) < 0
+        n[flip] = -n[flip]
+        P = P - ((P - c) * n).sum(1, keepdims=True) * n
+        R = n
+    return P.astype(np.float32), R.astype(np.float32)
+
+
 def layer_threshold(bulk: float, sigma_sp: float) -> float:
     """bulk * Phi(1 / sigma_sp): the half-space density one spacing deep for a Gaussian kernel of
     sigma_sp spacings (1.5 -> 0.748 bulk; 0.7 -> 0.923 bulk)."""
@@ -172,17 +202,28 @@ def surfel_mesh(points: np.ndarray, normals: np.ndarray, k: int = 16, cos_min: f
 
 
 # ---- S2: screened Poisson ---------------------------------------------------------------------
-def poisson_mesh(points: np.ndarray, normals: np.ndarray, depth: int = 9, trim_quantile: float = 0.02):
-    """Open3D screened Poisson reconstruction; vertices whose Poisson density is in the lowest
-    `trim_quantile` are removed (the hallucinated skirt far from the samples)."""
+def poisson_mesh(points: np.ndarray, normals: np.ndarray, spacing: float, depth: int = 0,
+                 cell_sp: float = 2.0, max_dist_sp: float = 2.0):
+    """Open3D screened Poisson reconstruction of the oriented outer layer.
+
+    depth = 0 picks the octree depth from the discretisation: the finest cell equals the
+    outer layer's thickness (cell_sp = 2 spacings: the layer is the first particle layer plus
+    the second-layer particles the density threshold lets through, and the layer's normal-
+    direction noise is the half-spacing jitter of the fill), so the fit averages the layer
+    instead of following it — depth = ceil(log2(extent / (cell_sp * spacing))). Vertices
+    farther than max_dist_sp spacings from every layer particle are removed: Poisson closes
+    every gap with a hallucinated envelope, and no particle supports a surface there."""
     import open3d as o3d
+    ext = float(np.max(points.max(0) - points.min(0)))
+    if depth <= 0:
+        depth = int(math.ceil(math.log2(max(ext / (cell_sp * spacing), 2.0))))
     pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(points.astype(np.float64)))
     pcd.normals = o3d.utility.Vector3dVector(normals.astype(np.float64))
-    mesh, dens = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=depth, linear_fit=False)
-    dens = np.asarray(dens)
-    if trim_quantile > 0 and len(dens):
-        keep = dens >= np.quantile(dens, trim_quantile)
-        mesh.remove_vertices_by_mask(~keep)
+    mesh, _dens = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=depth, linear_fit=False)
+    v = np.asarray(mesh.vertices)
+    if len(v):
+        d = cKDTree(points).query(v, k=1, workers=-1)[0]
+        mesh.remove_vertices_by_mask(d > max_dist_sp * spacing)
     mesh.remove_degenerate_triangles(); mesh.remove_unreferenced_vertices()
     return mesh
 

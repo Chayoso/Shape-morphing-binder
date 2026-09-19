@@ -71,8 +71,14 @@ ap.add_argument("--post", default="none", choices=["none", "bilateral"],
 ap.add_argument("--pca_k", type=int, default=32, help="S1 neighbourhood size for the weighted PCA")
 ap.add_argument("--pca_kr", type=float, default=4.0, help="S1 eigenvalue ratio clamp (Yu & Turk k_r)")
 ap.add_argument("--pca_lam", type=float, default=0.9, help="S1 centre-smoothing weight (Yu & Turk lambda)")
-ap.add_argument("--poisson_depth", type=int, default=9)
+ap.add_argument("--poisson_depth", type=int, default=0, help="0 = octree cell of two spacings (the outer layer's thickness)")
+ap.add_argument("--pca_sigma", type=float, default=0.0,
+                help="S1 kernel size in spacings (the anisotropic kernel keeps this isotropic volume); 0 = --blur, "
+                     "the baseline kernel's size, so only the SHAPE of the kernel differs from the gallery")
 ap.add_argument("--imls_h", type=float, default=2.0, help="S3 kernel width in particle spacings")
+ap.add_argument("--pull", type=int, default=1,
+                help="surface poisson|imls|surfel: plane-pulling iterations of the outer layer (weighted PCA "
+                     "normals, positions projected onto the local plane); 0 = raw positions and gradient normals")
 ap.add_argument("--bilateral_iters", type=int, default=5)
 ap.add_argument("--kernel", default="iso", choices=["iso", "aniso", "pca"],
                 help="density kernel: 'iso' = CIC deposit + separable Gaussian blur of --blur spacings (grid-aligned, "
@@ -103,8 +109,8 @@ dev = "cuda" if torch.cuda.is_available() else "cpu"
 z = np.load(a.npz, allow_pickle=True)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from physmorph.sampling.orientation import orient_archive  # noqa: E402
-from physmorph.render.surface_recon import (pca_kernels, surface_particles, layer_threshold, poisson_mesh,  # noqa: E402
-                                            imls_grid, surfel_mesh, bilateral_normal_smooth)
+from physmorph.render.surface_recon import (pca_kernels, surface_particles, layer_threshold, oriented_layer,  # noqa: E402
+                                            poisson_mesh, imls_grid, surfel_mesh, bilateral_normal_smooth)
 frames_np, tgt_np, _src_np, _orient = orient_archive(z, a.npz)   # y-up (physmorph/sampling/orientation.json)
 if _orient != "id":
     print(f"[photoreal] orientation {_orient} ({'from archive' if 'orient' in z.files else 'from the table, applied at render time'})", flush=True)
@@ -212,7 +218,7 @@ def density_pca(x):
     weighted PCA of each particle's neighbourhood (ratio clamp k_r), a sum of anisotropic
     Gaussians of the isotropic kernel's volume."""
     x_np = x.detach().cpu().numpy().astype(np.float32)
-    cen, cov = pca_kernels(x_np, spacing, k=a.pca_k, kr=a.pca_kr, lam=a.pca_lam, sigma0=a.sigma0)
+    cen, cov = pca_kernels(x_np, spacing, k=a.pca_k, kr=a.pca_kr, lam=a.pca_lam, sigma0=pca_sigma_sp)
     return density_from_cov(torch.as_tensor(cen, device=dev), torch.as_tensor(cov, device=dev))
 
 
@@ -243,6 +249,7 @@ def density_from_cov(x, cov):
     return rho.view(G, G, G)
 
 
+pca_sigma_sp = a.pca_sigma if a.pca_sigma > 0 else a.blur
 rho0 = density(x0) if a.kernel == "iso" else (density_pca(x0) if a.kernel == "pca" else density_aniso(x0, frame_F(0, x0)))
 occ = rho0[rho0 > 0]
 rho_bulk = float(occ.median()) if occ.numel() else 1.0
@@ -260,7 +267,7 @@ iso = iso_frac * rho_bulk
 origin = (ctr - half).cpu().numpy() + 0.5 * vox           # world position of voxel centre (0,0,0)
 # the outer particle layer for --surface poisson|imls|surfel: density below the half-space value one
 # spacing deep for THIS kernel's width (blur sigma for the isotropic kernel, sigma0 for pca/aniso)
-kernel_sigma_sp = (sig_vox * vox / spacing) if a.kernel == "iso" else a.sigma0
+kernel_sigma_sp = (sig_vox * vox / spacing) if a.kernel == "iso" else (pca_sigma_sp if a.kernel == "pca" else a.sigma0)
 layer_thr = layer_threshold(rho_bulk, kernel_sigma_sp)
 if a.surface != "mc":
     print(f"[photoreal] surface {a.surface}: outer layer = density <= {layer_thr / rho_bulk:.3f} x bulk "
@@ -386,10 +393,13 @@ def mesh_of(x, fi=None):
         # the density gradient) define the surface; the density keeps its role for the level, the
         # component mass rule and the bridges
         pts, nrm = surface_particles(x, rho_t, ctr, half, vox, layer_thr)
+        if a.pull > 0:
+            pts, nrm = oriented_layer(pts, nrm, spacing, pull_iters=a.pull)
         if fi is None or fi == 0:
-            print(f"[photoreal] surface {a.surface}: {len(pts)} outer-layer particles of {len(x)}", flush=True)
+            print(f"[photoreal] surface {a.surface}: {len(pts)} outer-layer particles of {len(x)}"
+                  f"{' (plane-pulled, PCA normals)' if a.pull > 0 else ' (raw, gradient normals)'}", flush=True)
         if a.surface in ("poisson", "surfel"):
-            pm = poisson_mesh(pts, nrm, depth=a.poisson_depth) if a.surface == "poisson" else surfel_mesh(pts, nrm)
+            pm = poisson_mesh(pts, nrm, spacing, depth=a.poisson_depth) if a.surface == "poisson" else surfel_mesh(pts, nrm)
             v = np.asarray(pm.vertices, np.float32)
             f = np.asarray(pm.triangles)[:, ::-1].astype(np.int64)   # the code below re-reverses
             if len(v) == 0 or len(f) == 0:
@@ -418,8 +428,6 @@ def mesh_of(x, fi=None):
             vv = v.astype(np.float64); ff = f[:, ::-1]
             tet = np.einsum("ij,ij->i", vv[ff[:, 0]], np.cross(vv[ff[:, 1]], vv[ff[:, 2]])) / 6.0
             svol = np.bincount(comp, weights=tet, minlength=n_comp)
-            body_sign = np.sign(svol[int(np.argmax(np.abs(svol)))])
-            cavity = (np.sign(svol) == -body_sign) & (svol != 0)
             # "material the grid does not resolve" is measured in MASS, not in isosurface volume:
             # the blurred surface of a compressed 30–80-particle chunk can enclose more than
             # dx^3 at the filament level and still be well under one cell of particles (150k C:
@@ -445,6 +453,13 @@ def mesh_of(x, fi=None):
                 nb = vlab[max(zz - 1, 0):zz + 2, max(yy - 1, 0):yy + 2, max(xx - 1, 0):xx + 2]
                 labs = np.unique(nb[nb > 0])
                 mass[ci] = vcount[labs].max() if len(labs) else 0.0
+            # the BODY is the component holding the most particles (ties: the larger enclosed volume),
+            # not the largest closed surface: a Poisson skirt or a hallucinated envelope encloses more
+            # volume than the body and holds no particles (bunny target, S2: the body was flagged as
+            # the cavity of its own skirt and removed)
+            body = int(np.lexsort((np.abs(svol), mass))[-1])
+            body_sign = np.sign(svol[body]) if svol[body] != 0 else 1.0
+            cavity = (np.sign(svol) == -body_sign) & (svol != 0)
             small = ((mass < ppc) | (np.abs(svol) < min_vol)) & ~cavity
             n_cav = int(cavity.sum())
             keep = ~(small | cavity)[comp]
@@ -577,6 +592,7 @@ if a.still >= 0 or a.still == -2:
         o3d.io.write_triangle_mesh(a.save_mesh, m, write_ascii=False, compressed=True)
         with open(os.path.splitext(a.save_mesh)[0] + ".json", "w") as fh:
             json.dump({"npz": a.npz, "frame": a.still, "kernel": a.kernel, "surface": a.surface, "post": a.post,
+                       "pull": a.pull, "pca_sigma": pca_sigma_sp, "label": a.label,
                        "vox": vox, "spacing": spacing, "iso_frac": iso_frac, "layer_thr_frac": layer_thr / rho_bulk,
                        "bump": bump, "triangles": int(len(m.triangles)), "components": n_comp, "dropped": n_drop,
                        "cavities": n_cav, "bridged": n_bridge}, fh, indent=1)
