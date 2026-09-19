@@ -2,7 +2,7 @@
 
 Per frame the particle mass is rasterised to a 3-D density grid over the run's box, blurred with
 a Gaussian of one particle spacing, and the iso-level rho_iso = 0.5 x rho_bulk (rho_bulk = the
-median density of the SOURCE's occupied voxels, i.e. the material's own bulk density) is
+median density the SOURCE's particles see, i.e. the material's own bulk density) is
 ray-marched orthographically for two azimuths; normals come from the density gradient at the
 hit, shading is the same GGX + hemisphere + AO as render_surface_video.py. Mass below the
 resolvable density (a lone particle) is not a surface and does not render — the raw-state
@@ -105,7 +105,14 @@ def density(x):
 
 rho0 = density(x0)
 occ = rho0[rho0 > 0]
-rho_bulk = float(occ.median()) if occ.numel() else 1.0
+bulk_voxel = float(occ.median()) if occ.numel() else 1.0
+# the bulk = the density a typical PARTICLE sees (median over the particles); the median over
+# occupied voxels is pulled to ~half of it by the blur's halo, which put every surface 1.6–1.9
+# spacings outside the true one (docs/method.md 10.12, 2026-09-19)
+from physmorph.render.surface_recon import trilinear  # noqa: E402
+rho_bulk = float(trilinear(x0, rho0[0, 0], ctr, half, vox).median())
+print(f"[iso] bulk density: particle median {rho_bulk:.4g}, occupied-voxel median {bulk_voxel:.4g} "
+      f"({bulk_voxel / rho_bulk:.3f} of it)", flush=True)
 iso = a.iso * rho_bulk
 
 
