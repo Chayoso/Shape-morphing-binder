@@ -133,7 +133,7 @@ def main():
     rows_frames = []
     for ply in plys:
         meta = metas[ply]
-        name = f"{meta['kernel']}/{meta['surface']}/{meta['post']}" + (f" pull{meta['pull']}" if meta.get("pull", 1) != 1 else "")
+        name = f"{meta['kernel']}/{meta['surface']}/{meta['post']}" + (f" pull{meta['pull']}" if meta.get("pull", 1) != 1 else "") + (f" {meta['layer']}" if meta.get("layer", "grad") != "grad" else "")
         m = o3d.io.read_triangle_mesh(ply)
         base = f"{name:<30}"
         if len(m.triangles) == 0:

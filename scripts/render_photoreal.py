@@ -71,7 +71,7 @@ ap.add_argument("--post", default="none", choices=["none", "bilateral"],
 ap.add_argument("--pca_k", type=int, default=32, help="S1 neighbourhood size for the weighted PCA")
 ap.add_argument("--pca_kr", type=float, default=4.0, help="S1 eigenvalue ratio clamp (Yu & Turk k_r)")
 ap.add_argument("--pca_lam", type=float, default=0.9, help="S1 centre-smoothing weight (Yu & Turk lambda)")
-ap.add_argument("--poisson_depth", type=int, default=0, help="0 = octree cell of two spacings (the outer layer's thickness)")
+ap.add_argument("--poisson_depth", type=int, default=0, help="0 = octree cell of one spacing (the layer's in-plane sample spacing)")
 ap.add_argument("--pca_sigma", type=float, default=0.0,
                 help="S1 kernel size in spacings (the anisotropic kernel keeps this isotropic volume); 0 = --blur, "
                      "the baseline kernel's size, so only the SHAPE of the kernel differs from the gallery")
@@ -79,6 +79,11 @@ ap.add_argument("--imls_h", type=float, default=2.0, help="S3 kernel width in pa
 ap.add_argument("--bulk", default="particle", choices=["particle", "voxel"],
                 help="the bulk density the level is a fraction of: median over the particles (correct) or over "
                      "the occupied voxels (the gallery up to v8: biased low by the blur's halo)")
+ap.add_argument("--layer", default="grad", choices=["grad", "density"],
+                help="outer-layer rule for --surface poisson|imls|surfel: 'grad' = relative density gradient "
+                     "|grad rho|/rho above the half-space value one spacing deep (invariant to the local density; "
+                     "a stretched region of a morph frame is not all 'layer'); 'density' = density below the "
+                     "half-space value one spacing deep (the first reading)")
 ap.add_argument("--pull", type=int, default=1,
                 help="surface poisson|imls|surfel: plane-pulling iterations of the outer layer (weighted PCA "
                      "normals, positions projected onto the local plane); 0 = raw positions and gradient normals")
@@ -112,8 +117,9 @@ dev = "cuda" if torch.cuda.is_available() else "cpu"
 z = np.load(a.npz, allow_pickle=True)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from physmorph.sampling.orientation import orient_archive  # noqa: E402
-from physmorph.render.surface_recon import (pca_kernels, surface_particles, layer_threshold, oriented_layer,  # noqa: E402
-                                            poisson_mesh, imls_grid, surfel_mesh, bilateral_normal_smooth, trilinear)
+from physmorph.render.surface_recon import (pca_kernels, surface_particles, surface_particles_grad,  # noqa: E402
+                                            layer_threshold, layer_threshold_grad, oriented_layer, poisson_mesh,
+                                            imls_grid, surfel_mesh, bilateral_normal_smooth, trilinear)
 frames_np, tgt_np, _src_np, _orient = orient_archive(z, a.npz)   # y-up (physmorph/sampling/orientation.json)
 if _orient != "id":
     print(f"[photoreal] orientation {_orient} ({'from archive' if 'orient' in z.files else 'from the table, applied at render time'})", flush=True)
@@ -281,9 +287,11 @@ origin = (ctr - half).cpu().numpy() + 0.5 * vox           # world position of vo
 # spacing deep for THIS kernel's width (blur sigma for the isotropic kernel, sigma0 for pca/aniso)
 kernel_sigma_sp = (sig_vox * vox / spacing) if a.kernel == "iso" else (pca_sigma_sp if a.kernel == "pca" else a.sigma0)
 layer_thr = layer_threshold(rho_bulk, kernel_sigma_sp)
+layer_gthr = layer_threshold_grad(kernel_sigma_sp, spacing)
 if a.surface != "mc":
-    print(f"[photoreal] surface {a.surface}: outer layer = density <= {layer_thr / rho_bulk:.3f} x bulk "
-          f"(kernel sigma {kernel_sigma_sp:.2f} spacings)", flush=True)
+    print(f"[photoreal] surface {a.surface}: outer layer = " +
+          (f"|grad rho| / rho >= {layer_gthr * spacing:.3f} per spacing" if a.layer == "grad"
+           else f"density <= {layer_thr / rho_bulk:.3f} x bulk") + f" (kernel sigma {kernel_sigma_sp:.2f} spacings)", flush=True)
 
 
 cell_wu = float(np.linalg.norm(np.asarray(frames_np[0], np.float32).max(0) - np.asarray(frames_np[0], np.float32).min(0))) / a.cell_diag
@@ -404,14 +412,18 @@ def mesh_of(x, fi=None):
         # S2 / S3: the oriented SURFACE particles (within 1.5 voxels of the level set, normals from
         # the density gradient) define the surface; the density keeps its role for the level, the
         # component mass rule and the bridges
-        pts, nrm = surface_particles(x, rho_t, ctr, half, vox, layer_thr)
+        if a.layer == "grad":
+            pts, nrm = surface_particles_grad(x, rho_t, ctr, half, vox, layer_gthr)
+        else:
+            pts, nrm = surface_particles(x, rho_t, ctr, half, vox, layer_thr)
         if a.pull > 0:
             pts, nrm = oriented_layer(pts, nrm, spacing, pull_iters=a.pull)
         if fi is None or fi == 0:
             print(f"[photoreal] surface {a.surface}: {len(pts)} outer-layer particles of {len(x)}"
                   f"{' (plane-pulled, PCA normals)' if a.pull > 0 else ' (raw, gradient normals)'}", flush=True)
         if a.surface in ("poisson", "surfel"):
-            pm = poisson_mesh(pts, nrm, spacing, depth=a.poisson_depth) if a.surface == "poisson" else surfel_mesh(pts, nrm)
+            pm = (poisson_mesh(pts, nrm, spacing, depth=a.poisson_depth, max_dist_sp=3.0 * kernel_sigma_sp)
+                  if a.surface == "poisson" else surfel_mesh(pts, nrm))
             v = np.asarray(pm.vertices, np.float32)
             f = np.asarray(pm.triangles)[:, ::-1].astype(np.int64)   # the code below re-reverses
             if len(v) == 0 or len(f) == 0:
@@ -604,7 +616,7 @@ if a.still >= 0 or a.still == -2:
         o3d.io.write_triangle_mesh(a.save_mesh, m, write_ascii=False, compressed=True)
         with open(os.path.splitext(a.save_mesh)[0] + ".json", "w") as fh:
             json.dump({"npz": a.npz, "frame": a.still, "kernel": a.kernel, "surface": a.surface, "post": a.post,
-                       "pull": a.pull, "pca_sigma": pca_sigma_sp, "label": a.label, "bulk": a.bulk, "bulk_voxel_over_particle": bulk_voxel / bulk_particle,
+                       "pull": a.pull, "layer": a.layer, "pca_sigma": pca_sigma_sp, "label": a.label, "bulk": a.bulk, "bulk_voxel_over_particle": bulk_voxel / bulk_particle,
                        "vox": vox, "spacing": spacing, "iso_frac": iso_frac, "layer_thr_frac": layer_thr / rho_bulk,
                        "bump": bump, "triangles": int(len(m.triangles)), "components": n_comp, "dropped": n_drop,
                        "cavities": n_cav, "bridged": n_bridge}, fh, indent=1)

@@ -226,7 +226,10 @@ def poisson_mesh(points: np.ndarray, normals: np.ndarray, spacing: float, depth:
     depth = ceil(log2(extent / (cell_sp * spacing))). A cell of two spacings (tried first)
     leaves the surface too far from the samples and the trim below removes it. Vertices
     farther than max_dist_sp spacings from every layer particle are removed: Poisson closes
-    every gap with a hallucinated envelope, and no particle supports a surface there."""
+    every gap with a hallucinated envelope, and no particle supports a surface there. The
+    caller passes the reach of the density kernel (3 sigma of the blur, 4.5 spacings): a trim
+    at 2 spacings cut holes wherever a morph frame's layer was locally sparse (dragon frame
+    400, 13 components)."""
     import open3d as o3d
     ext = float(np.max(points.max(0) - points.min(0)))
     if depth <= 0:
@@ -235,7 +238,7 @@ def poisson_mesh(points: np.ndarray, normals: np.ndarray, spacing: float, depth:
     pcd.normals = o3d.utility.Vector3dVector(normals.astype(np.float64))
     mesh, _dens = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=depth, linear_fit=False)
     v = np.asarray(mesh.vertices)
-    if len(v):
+    if len(v) and max_dist_sp > 0:
         d = cKDTree(points).query(v, k=1, workers=-1)[0]
         mesh.remove_vertices_by_mask(d > max_dist_sp * spacing)
     mesh.remove_degenerate_triangles(); mesh.remove_unreferenced_vertices()
