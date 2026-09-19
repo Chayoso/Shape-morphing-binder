@@ -426,6 +426,10 @@ class PipelineConfig:
                                     # (frozen source-surface median NN spacing);
                                     # A/B {0.5, 1.0} at stage 1b, pick-by-rule.
     work_telemetry: bool = True     # record render/phys linearized work even headless
+    grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
+                                    #   channel (physics / silhouette / shading), their control
+                                    #   (leaf) gradients and the linear-response rollouts of each
+                                    #   channel alone (docs/surface_gradient.md; probes/grad_stage.py)
                                     # (REFUTE M18: the P-render metric was None in
                                     # every run without --live_port)
     patience: int = 5               # commits without tol improvement before freeze

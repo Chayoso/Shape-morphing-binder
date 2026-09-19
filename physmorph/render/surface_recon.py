@@ -160,6 +160,47 @@ def oriented_layer(points: np.ndarray, ref_normals: np.ndarray, spacing: float, 
     return P.astype(np.float32), R.astype(np.float32)
 
 
+def layer_by_asymmetry(x_np: np.ndarray, spacing: float, k: int = 32, thr_sp: float = 0.5):
+    """Outer layer without a density grid: the offset of a particle from the centroid of its k
+    nearest neighbours, in spacings, is ~0 inside and ~ (0.5 + ...) at the surface (SPH surface
+    detection). thr_sp = 0.5 spacing = the depth of the first layer under the half-space model.
+    Returns (mask (N,) bool, outward normal estimate (N,3) = -(centroid offset) normalised)."""
+    kd = cKDTree(x_np)
+    d, nb = kd.query(x_np, k=k + 1, workers=-1)
+    c = x_np[nb[:, 1:]].mean(1)
+    off = x_np - c
+    n = np.linalg.norm(off, axis=1)
+    mask = n >= thr_sp * spacing
+    normal = off / (n[:, None] + 1e-12)
+    return mask, normal.astype(np.float32)
+
+
+def plane_residual(x_np: np.ndarray, mask: np.ndarray, ref_normals: np.ndarray, spacing: float,
+                   k: int = 24, h_sp: float = 2.0):
+    """Per layer particle, the signed distance to the same-side weighted PCA plane of its k layer
+    neighbours (the plane pulling of oriented_layer, measured instead of applied). The RMS over
+    the layer is the bump amplitude of the particle surface at the 2-spacing scale — no mesh, no
+    kernel, resolution-free. Returns (residual (M,) in spacings, plane normals (M,3))."""
+    P = x_np[mask].astype(np.float64); R = ref_normals[mask].astype(np.float64)
+    if len(P) <= k:
+        return np.zeros(len(P)), R.astype(np.float32)
+    h = h_sp * spacing
+    kd = cKDTree(P)
+    d, nb = kd.query(P, k=k + 1, workers=-1)
+    d, nb = d[:, 1:], nb[:, 1:]
+    w = np.exp(-(d / h) ** 2) * np.clip((R[nb] * R[:, None, :]).sum(-1), 0.0, None)
+    wsum = w.sum(1, keepdims=True) + 1e-12
+    c = (w[:, :, None] * P[nb]).sum(1) / wsum
+    dxn = P[nb] - c[:, None, :]
+    C = np.einsum("nk,nki,nkj->nij", w, dxn, dxn) / wsum[:, :, None]
+    evals, evecs = np.linalg.eigh(C)
+    n = evecs[:, :, 0]
+    flip = (n * R).sum(1) < 0
+    n[flip] = -n[flip]
+    res = ((P - c) * n).sum(1) / spacing
+    return res, n.astype(np.float32)
+
+
 def layer_threshold(bulk: float, sigma_sp: float) -> float:
     """bulk * Phi(1 / sigma_sp): the half-space density one spacing deep for a Gaussian kernel of
     sigma_sp spacings (1.5 -> 0.748 bulk; 0.7 -> 0.923 bulk)."""

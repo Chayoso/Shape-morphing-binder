@@ -1052,6 +1052,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if np.isfinite(EA) and np.isfinite(EB):
             replay_rel = abs(EA - EB) / max(abs(EA), 1.0)
 
+    grad_dump_leaf0 = dFc.detach().clone() if cfg.grad_dump else None   # the window's start control
+    grad_dump_state = {}
     for it in range(cfg.iters):
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
@@ -1158,6 +1160,22 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 g_raw_cos = dot_raw / max(np_raw * nr_raw, 1e-30)
                 g_share = lam_r * nr_ / max(np_ + lam_r * nr_, 1e-30)
                 g_phys_norm, g_rend_norm = np_, nr_
+                if cfg.grad_dump:
+                    # gradient-stage dump (docs/surface_gradient.md): the terminal covectors of
+                    # each channel on the particles and their pull-back to the control leaf.
+                    # Three extra backward passes; a diagnostic, first iteration only.
+                    lsil_t = lr - cfg.w_pbr * lpbr if lpbr is not None else lr
+                    _gx_sil, = torch.autograd.grad(lsil_t, state[0], retain_graph=True, allow_unused=True)
+                    _gx_pbr = (torch.autograd.grad(lpbr, state[0], retain_graph=True, allow_unused=True)[0]
+                               if lpbr is not None else None)
+                    _gx_phys, = torch.autograd.grad(Lp_core, state[0], retain_graph=True, allow_unused=True)
+                    _gl_sil = torch.autograd.grad(lsil_t, leaves, retain_graph=True, allow_unused=True)[0]
+                    _gl_pbr = (torch.autograd.grad(lpbr, leaves, retain_graph=True, allow_unused=True)[0]
+                               if lpbr is not None else None)
+                    grad_dump_state.update(gx_phys=_gx_phys, gx_sil=_gx_sil, gx_pbr=_gx_pbr,
+                                           gl_phys=gp[0].detach().clone(), gl_sil=_gl_sil, gl_pbr=_gl_pbr,
+                                           gl_rend=gr_raw[0].detach().clone(), xT0=state[0].detach().clone(),
+                                           lam_r=float(lam_r), g_share=float(g_share))
             if mode in ("off", "render"):
                 g = [a + lam_r * b for a, b in zip(gp, gr)]
             else:                    # "phys" / "cagrad" / "blend": grad_combine.combine
@@ -1420,6 +1438,50 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                "C": tr.C[T].numpy().copy(),
                "Fg": tr.Fg[T].numpy().copy() if use_geom else None}
         _tm_add("final", t0)
+        if cfg.grad_dump and grad_dump_state.get("gx_phys") is not None:
+            # linear-response rollouts: each channel's control gradient alone, scaled to the
+            # SAME control norm as the accepted change of this window (leaf_final - leaf0), so
+            # the end states are comparable: what would the window have done had it followed
+            # only the physics / silhouette / shading channel?
+            leaf_final = dFc.detach().clone()
+            step_norm_c = float((leaf_final - grad_dump_leaf0).norm())
+            resp = {}
+            for name in ("gl_phys", "gl_sil", "gl_pbr", "gl_rend"):
+                gl = grad_dump_state.get(name)
+                if gl is None:
+                    continue
+                gn = float(gl.norm())
+                if gn <= 0 or step_norm_c <= 0:
+                    continue
+                cand = grad_dump_leaf0 - (step_norm_c / gn) * gl
+                dc_c = expand(cand).detach().contiguous()
+                dc_buf.copy_(dc_c.view(T, N, 3, 3))
+                tr.run()
+                resp["xT_" + name[3:]] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
+            dc_b = expand(grad_dump_leaf0).detach().contiguous()
+            dc_buf.copy_(dc_b.view(T, N, 3, 3))
+            tr.run()
+            resp["xT_base"] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
+            # restore the committed rollout in the buffers (the runner reads frames/end above,
+            # already copied; the buffers themselves are rewritten by the next window)
+            dc_buf.copy_(dc.view(T, N, 3, 3)); tr.run()
+            os.makedirs(cfg.grad_dump, exist_ok=True)
+            k_win = len([f for f in os.listdir(cfg.grad_dump) if f.startswith("win_")])
+            gd = grad_dump_state
+            red = {}
+            for name in ("gl_phys", "gl_sil", "gl_pbr", "gl_rend"):
+                gl = gd.get(name)
+                if gl is not None:
+                    g4 = expand(gl).detach().view(T, N, 9)
+                    red[name + "_pnorm"] = g4.norm(dim=(0, 2)).cpu().numpy()      # (N,)
+                    red[name + "_tmean"] = g4.mean(0).cpu().numpy()               # (N,9)
+            np.savez_compressed(os.path.join(cfg.grad_dump, f"win_{k_win:04d}.npz"),
+                                x0=x0, xT0=gd["xT0"].cpu().numpy(), xT_final=frames[-1],
+                                gx_phys=gd["gx_phys"].cpu().numpy(), gx_sil=gd["gx_sil"].cpu().numpy(),
+                                gx_pbr=(gd["gx_pbr"].cpu().numpy() if gd.get("gx_pbr") is not None else np.zeros(0)),
+                                lam_r=gd["lam_r"], g_share=gd["g_share"], step_norm=step_norm_c,
+                                leaf0_norm=float(grad_dump_leaf0.norm()), leaf_final_norm=float(leaf_final.norm()),
+                                **red, **resp)
     if _TIMING:
         tot = time.perf_counter() - _TM.get("t_win", time.perf_counter())
         keys = ("eval_roll", "eval_loss", "eval_det", "terms", "grad", "g_phys", "g_dt", "g_rend", "final")
