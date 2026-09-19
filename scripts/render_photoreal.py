@@ -88,6 +88,7 @@ ap.add_argument("--F", default="geom", choices=["geom", "archive"],
                      "(the ELASTIC part only after plastic assimilation, near identity).")
 ap.add_argument("--knn", type=int, default=12, help="rest neighbours for the geometric F fit")
 ap.add_argument("--still", type=int, default=-1, help="render only this archived frame to --out (png)")
+ap.add_argument("--save_mesh", default="", help="with --still: also write the mesh (.ply) and a .json of its numbers")
 ap.add_argument("--max_frames", type=int, default=0)
 ap.add_argument("--label", default="")
 a = ap.parse_args()
@@ -570,6 +571,16 @@ if a.still >= 0 or a.still == -2:
     img = label(render_views(m), f"{a.label} frame {a.still}  {a.kernel}/{a.surface}/{a.post}  bump {bump:.1f} deg  "
                                  f"components {n_comp} (dropped {n_drop}, cavities {n_cav}, bridged {n_bridge})")
     o3d.io.write_image(a.out, o3d.geometry.Image(np.ascontiguousarray(img)))
+    if a.save_mesh and m is not None:
+        # the mesh + the discretisation it was made at, for scripts/probes/surface_gt.py
+        import json
+        o3d.io.write_triangle_mesh(a.save_mesh, m, write_ascii=False, compressed=True)
+        with open(os.path.splitext(a.save_mesh)[0] + ".json", "w") as fh:
+            json.dump({"npz": a.npz, "frame": a.still, "kernel": a.kernel, "surface": a.surface, "post": a.post,
+                       "vox": vox, "spacing": spacing, "iso_frac": iso_frac, "layer_thr_frac": layer_thr / rho_bulk,
+                       "bump": bump, "triangles": int(len(m.triangles)), "components": n_comp, "dropped": n_drop,
+                       "cavities": n_cav, "bridged": n_bridge}, fh, indent=1)
+        print(f"saved {a.save_mesh}")
     print(f"saved {a.out} (components {n_comp}, sub-cell dropped {n_drop})")
     sys.exit(0)
 
