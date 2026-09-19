@@ -429,6 +429,9 @@ class PipelineConfig:
     layer_relax: bool = False       # outer-layer relaxation PROJECTION in the forward model (kernels
                                     #   k_layer_resid/k_layer_project; docs/surface_gradient.md §6):
                                     #   the rough plane residual removed over one window (1/T per step)
+    layer_frac: float = 0.0         #   projection fraction per step: 0 = 1/T (the rough residual
+                                    #   relaxed over one window, e^-1 per window, as the bonds re-join);
+                                    #   1 = a hard per-step constraint on the rough residual
     layer_k: int = 24               #   same-side layer neighbours of the plane fit
     layer_h_sp: float = 2.0         #   Gaussian weight width in spacings (the layer's thickness)
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
