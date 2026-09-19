@@ -2285,6 +2285,26 @@ trajectory must pass the per-frame QA: three full videos (bunny, dragon, cow) wi
 they do. The bulk fix (2512410) applies to marching cubes as well, so the pages will be
 re-rendered either way.
 
+**The whole-trajectory test, first pass (08:33–09:25): two failures, both structural.**
+(1) The cow video finished and FAILED the deliverable QA: drawn components > 1 in 143 of
+292 frames (v8 marching cubes: 7), 101 of them unbridged, sub-cell pieces dropped in 253
+frames. The 3σ trim opens the Poisson surface into flaps; an open piece has no volume (its
+signed tetra sum is whatever the rim leaves) and takes the body's mass through the voxel
+label it touches, so it is "drawn". Worse, an open BODY can fall below dx³ by the same
+arithmetic and vanish (dragon stills 426–450: 0 triangles in 5 of 9 frames). The trim is
+gone (`--poisson_trim 0`, commit 9b3f46e): a Poisson surface is closed by construction, a
+hallucinated envelope encloses no particles and the mass rule of 10.10 drops it, exactly
+as for marching cubes. Stills unchanged (bunny 500 9.4°, dragon 400 12.9°, cow 871 8.5°).
+(2) The bunny and dragon renders died without a traceback; the retry with the shell's
+stderr kept says it: `Segmentation fault (core dumped)`, exit 139, at frame 51 of 327 —
+the first attempt died at frame 126. Not a frame (every frame 378–450 renders as a still),
+a race inside Open3D 0.19's reconstruction across repeated calls. Poisson now runs in a
+spawned child per frame (`physmorph/render/poisson_worker.py`): a crash costs one retry
+(single-threaded), a second crash makes that frame a level-set frame and the sidecar
+records it (`# surface poisson … fallback … frames`). A layer surfel with no neighbour
+within 3h (an isolated shed particle passes the gradient rule) is dropped before the
+plane fit. Second pass of the three videos running (09:45).
+
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
 - **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages
