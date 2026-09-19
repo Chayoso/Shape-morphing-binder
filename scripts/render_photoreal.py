@@ -388,9 +388,9 @@ def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
     (the Poisson surface). Returns (filament mesh or None, number of enclosed components
     bridged to the body)."""
     from scipy.sparse import coo_matrix
-    from scipy.sparse.csgraph import connected_components
     if drawn.sum() < drawn_labels_needed or body == 0:
         return None, 0
+    from scipy.sparse.csgraph import dijkstra
     free = np.where(plab == 0)[0]
     anch = np.where(drawn[plab])[0]
     if len(free) == 0 or len(anch) == 0:
@@ -399,42 +399,69 @@ def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
     kf = cKDTree(x_np[free]); ka = cKDTree(x_np[anch])
     ff = np.array(list(kf.query_pairs(r)), dtype=np.int64).reshape(-1, 2)
     fa = kf.query_ball_tree(ka, r)
-    # graph nodes: free particles (0..nf-1) then one super-node per drawn label
+    # graph nodes: free particles (0..nf-1) then one super-node per drawn label; edge weights =
+    # distances, so the path drawn is the SHORTEST particle chain from the body to the piece.
+    # (The earlier form drew every free particle in the connected cluster: with the surface at
+    # the true boundary the expansion-phase spray outside the body is free, and bunny frame 63
+    # became 383 M triangles of filament. The rule is "the particles that link", not "every
+    # particle that touches the chain".)
     nf = len(free); sup = {l: nf + i for i, l in enumerate(np.where(drawn)[0])}
-    rows_, cols_ = [ff[:, 0], ff[:, 1]], [ff[:, 1], ff[:, 0]]
-    fa_r, fa_c = [], []
+    w_ff = np.linalg.norm(x_np[free[ff[:, 0]]] - x_np[free[ff[:, 1]]], axis=1) if len(ff) else np.zeros(0)
+    rows_, cols_, wts_ = [ff[:, 0], ff[:, 1]], [ff[:, 1], ff[:, 0]], [w_ff, w_ff]
+    fa_r, fa_c, fa_w = [], [], []
+    edge_anchor = {}                                           # (free i, label) -> nearest anchor particle
     for i, nb in enumerate(fa):
         for j in nb:
-            fa_r.append(i); fa_c.append(sup[int(plab[anch[j]])])
-    rows_.append(np.array(fa_r, np.int64)); cols_.append(np.array(fa_c, np.int64))
+            l = int(plab[anch[j]]); d = float(np.linalg.norm(x_np[free[i]] - x_np[anch[j]]))
+            key = (i, l)
+            if key not in edge_anchor or d < edge_anchor[key][1]:
+                edge_anchor[key] = (j, d)
+    for (i, l), (j, d) in edge_anchor.items():
+        fa_r.append(i); fa_c.append(sup[l]); fa_w.append(d)
+    rows_.append(np.array(fa_r, np.int64)); cols_.append(np.array(fa_c, np.int64)); wts_.append(np.array(fa_w))
     nn_ = nf + len(sup)
-    rr = np.concatenate(rows_); cc = np.concatenate(cols_)
+    rr = np.concatenate(rows_); cc = np.concatenate(cols_); ww = np.concatenate(wts_) + 1e-9
     if len(rr) == 0:
         return None, 0
-    gph = coo_matrix((np.ones(len(rr)), (rr, cc)), shape=(nn_, nn_))
-    _, comp = connected_components(gph, directed=False)
-    root_body = comp[sup[body]]
-    others = [l for l in sup if l != body and comp[sup[l]] == root_body]
+    gph = coo_matrix((ww, (rr, cc)), shape=(nn_, nn_)).tocsr()
+    dist_, pred = dijkstra(gph, directed=False, indices=[sup[body]], return_predecessors=True)
+    dist_, pred = dist_[0], pred[0]
+    others = [l for l in sup if l != body and np.isfinite(dist_[sup[l]])]
     if not others:
         return None, 0
-    bridge = np.where(comp[:nf] == root_body)[0]                 # free particles on a path to the body
-    if len(bridge) == 0:
-        return None, len(others)
-    bset = set(bridge.tolist())
     rad = 0.55 * spacing
     fil = o3d.geometry.TriangleMesh()
-    for i, j in ff:
-        if i in bset or j in bset:
-            seg = _segment_mesh(x_np[free[i]], x_np[free[j]], rad)
+    drawn_nodes = set()
+    for l in others:
+        path = [sup[l]]
+        while path[-1] != sup[body] and pred[path[-1]] >= 0:
+            path.append(int(pred[path[-1]]))
+        if path[-1] != sup[body]:
+            continue
+        sup_lab = {v: k for k, v in sup.items()}
+        pts = []
+        for n_ in path:
+            if n_ < nf:
+                pts.append(x_np[free[n_]])
+            else:                                              # a super-node: the anchor particle of the edge used
+                nxt = None
+                for m_ in (path[path.index(n_) - 1] if path.index(n_) > 0 else None,
+                           path[path.index(n_) + 1] if path.index(n_) + 1 < len(path) else None):
+                    if m_ is not None and m_ < nf and (m_, sup_lab[n_]) in edge_anchor:
+                        nxt = edge_anchor[(m_, sup_lab[n_])][0]; break
+                if nxt is not None:
+                    pts.append(x_np[anch[nxt]])
+        for p_, q_ in zip(pts[:-1], pts[1:]):
+            seg = _segment_mesh(p_, q_, rad)
             if seg is not None:
                 fil += seg
-    for i in bridge:
-        for j in fa[i]:
-            seg = _segment_mesh(x_np[free[i]], x_np[anch[j]], rad)
-            if seg is not None:
-                fil += seg
-        sph = o3d.geometry.TriangleMesh.create_sphere(radius=rad, resolution=6)
-        sph.translate(x_np[free[i]]); fil += sph
+        for n_ in path:
+            if n_ < nf and n_ not in drawn_nodes:
+                drawn_nodes.add(n_)
+                sph = o3d.geometry.TriangleMesh.create_sphere(radius=rad, resolution=6)
+                sph.translate(x_np[free[n_]]); fil += sph
+    if len(fil.triangles) == 0:
+        return None, len(others)
     fil.compute_vertex_normals()
     return fil, len(others)
 
