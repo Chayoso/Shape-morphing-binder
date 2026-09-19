@@ -2304,7 +2304,11 @@ of the 40k C are its own sub-cell events, not the box.
   0.970 (0.973), maxplanck 0 / 0.969 (0.968), A 0 / 0.967 (0.974) (21:05 CDT). Fourteen
   of nineteen in; the ledger so far: 0 0 0 0 0 0 0 0 0 1 1 1 3 9 (bob 9, C 3, dragon /
   armadilo / cow 1). beast 1 / 0.904 (netted 0.930; 21:36 CDT) — the one target where
-  removing the net costs more than two points besides C.
+  removing the net costs more than two points besides C. ogre 21 / 0.933 (0.939): the 21
+  are one collapsed clump of 21 particles (0.05 × 0.15 × 0.05 wu, packed at a twentieth of
+  the bulk spacing) 46 spacings above the body plus a single — the same collapsed-clump
+  signature as bob's nine, a sub-cell object the deliverable does not draw. nefertiti 0 /
+  0.968 (0.972) (22:02 CDT).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
