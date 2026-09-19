@@ -2294,6 +2294,8 @@ of the 40k C are its own sub-cell events, not the box.
   points. Physical fragments ≥ 1 cell by the grid probe: 0 frames on V, dragon, bob,
   armadilo, teapot (max clusters 0–9 particles). spot 0 / 0.965 (0.972), cow 1 / 0.924
   (0.926) (18:52 CDT). Nine of nineteen in: 0 / 1 / 9 / 1 / 0 / 3 / 0 / 0 / 1 fragments.
+  bunny 0 / 0.964 (0.966) (19:38 CDT; 43 min once the other user left GPU 0 — the clean
+  single-run time at 150k is ~40 min for the bunny).
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
