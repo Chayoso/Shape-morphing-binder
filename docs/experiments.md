@@ -2333,6 +2333,24 @@ stay comparable. Test frames after the fixes (Poisson): bunny 63 one drawn piece
 cubes too), dragon 312 one (15 / 10 / 4), cow 507 one, bunny 500 one; ~15 s per frame
 including the child. Third pass of the three videos running (11:15).
 
+**Third pass (11:15–11:56):** drawn pieces > 1 in 10 (bunny) / 21 (dragon) / 79 (cow)
+frames, of which unbridged 6 / 15 / 16 (v8 marching cubes 0 / 0 / 7, all bridged); no
+fallback frames; one absorbed segfault. Every unbridged frame is in the EXPANSION phase
+(bunny 45–66, cow 24–72, dragon 210–285): the leader clusters of the sphere's expansion —
+a cell of particles or more, 3–4 spacings off the body — that the fat level set used to
+swallow and that `grid_fragments.py` counts as 0 fragments because they share a dilated
+cell with the body. The bridge rule's link radius was the particle-thread radius (2.5
+spacings); the continuum's own resolution is the CELL, so the link radius is now
+max(2.5 spacings, dx) (commit c74543c) — the same definition of "one body" as the grid
+probe. Stills after the change: bunny 57 (20 raw, 13 dropped, 5 cavities) one body + one
+bridged piece; dragon 255 the same; cow 30 one body + two bridged; cow 255 one body. The
+bridged pieces sit flush against the body in the stills.
+
+**Gallery re-render launched (12:05):** `scripts/ops/surface_rerender.sh` on all 19 v8
+targets in six lanes on GPU 0 (Poisson photoreal video + isosurface gif with the
+particle-median bulk; the v8 files kept as `<T>_v8mc_*`); markers `SURFRR <prefix> <T>
+DONE`. The pages are rebuilt and republished from these.
+
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
 - **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages
