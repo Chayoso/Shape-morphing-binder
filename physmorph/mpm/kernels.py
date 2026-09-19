@@ -356,14 +356,12 @@ def k_layer_resid(x: wp.array(dtype=wp.vec3),
     if mask[p] < 0.5:
         d[p] = 0.0
         return
+    # w rows are normalised on the host (layer rows sum to 1): a division by a loop-accumulated
+    # weight sum inside the kernel broke the adjoint (gradients 1e23; scratch layer_adj2.py,
+    # 2026-09-19) — no division here
     c = wp.vec3(0.0, 0.0, 0.0)
-    ws = float(0.0)
     for a in range(K):
-        j = nbr[p * K + a]
-        wa = w[p * K + a]
-        c = c + wa * x[j]
-        ws = ws + wa
-    c = c / wp.max(ws, 1.0e-12)
+        c = c + w[p * K + a] * x[nbr[p * K + a]]
     d[p] = wp.dot(nrm[p], x[p] - c)
 
 
@@ -377,13 +375,8 @@ def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
         x_out[p] = x_in[p]
         return
     dbar = float(0.0)
-    ws = float(0.0)
     for a in range(K):
-        j = nbr[p * K + a]
-        wa = w[p * K + a]
-        dbar = dbar + wa * d[j]
-        ws = ws + wa
-    dbar = dbar / wp.max(ws, 1.0e-12)
+        dbar = dbar + w[p * K + a] * d[nbr[p * K + a]]
     x_out[p] = x_in[p] - frac * (d[p] - dbar) * nrm[p]
 
 

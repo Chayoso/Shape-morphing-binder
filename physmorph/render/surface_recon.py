@@ -217,6 +217,7 @@ def layer_relax_data(x0: np.ndarray, spacing: float, k: int = 24, h_sp: float = 
         d, nb = kd.query(P, k=k + 1, workers=-1)
         d, nb = d[:, 1:], nb[:, 1:]
         ww = np.exp(-(d / (h_sp * spacing)) ** 2) * np.clip((R[nb] * R[:, None, :]).sum(-1), 0.0, None)
+        ww = ww / np.maximum(ww.sum(1, keepdims=True), 1e-12)     # rows sum to 1: no division in the kernels
         nbr[idx] = idx[nb]
         w[idx] = ww.astype(np.float32)
     return mask.astype(np.float32), nrm.astype(np.float32), nbr, w
