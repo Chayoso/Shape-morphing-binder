@@ -89,13 +89,13 @@ def test_adjoint_matches_finite_differences_with_force():
 
     loss = L(dfc)
     g, = torch.autograd.grad(loss, dfc)
-    rng = np.random.default_rng(3)
-    for _ in range(4):
-        t, p, i, j = rng.integers(T), rng.integers(len(x)), rng.integers(3), rng.integers(3)
-        eps = 1e-3
-        dp = dfc.detach().clone(); dp[t, p, i, j] += eps
-        dm = dfc.detach().clone(); dm[t, p, i, j] -= eps
+    # directional central differences (the repo's contract for the bridge: single entries are
+    # below float32 resolution of the rollout, directions are not — docs/render_controls_physics.md §4)
+    torch.manual_seed(3)
+    for _ in range(3):
+        u = torch.randn_like(dfc); u = u / u.norm()
+        eps = 2e-3
         with torch.no_grad():
-            fd = (L(dp) - L(dm)) / (2 * eps)
-        an = g[t, p, i, j]
+            fd = (L(dfc.detach() + eps * u) - L(dfc.detach() - eps * u)) / (2 * eps)
+        an = (g * u).sum()
         assert abs(float(fd - an)) <= 5e-2 * max(abs(float(fd)), abs(float(an)), 1e-4), (fd, an)
