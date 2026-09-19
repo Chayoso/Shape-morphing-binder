@@ -102,7 +102,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          ot_handoff=args.ot_handoff,
                          render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
-                         grad_dump=args.grad_dump,
+                         grad_dump=args.grad_dump, layer_relax=args.layer_relax,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
                          render_surface_only=args.render_surface_only,
@@ -610,6 +610,8 @@ def main():
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--out", default="output/v2_ab")
     ap.add_argument("--grad_dump", default="", help="directory for the per-window gradient-stage dumps (probes/grad_stage.py)")
+    ap.add_argument("--layer_relax", action="store_true",
+                    help="outer-layer relaxation force in the forward model (docs/surface_gradient.md §6)")
     args = ap.parse_args()
 
     src, v_src = load(args.src, args.n, args.seed, return_volume=True)

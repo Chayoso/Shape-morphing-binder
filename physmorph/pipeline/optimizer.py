@@ -248,9 +248,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     m_np = (tgt.m.detach().cpu().numpy().astype(np.float32) if torch.is_tensor(tgt.m) else 1.0)
     if isinstance(m_np, np.ndarray) and np.allclose(m_np, 1.0):
         m_np = 1.0                                    # unit masses: keep the scalar path
+    layer = None
+    if cfg.layer_relax:
+        # outer-layer relaxation (docs/surface_gradient.md §6): the layer, its normals and its
+        # same-side neighbourhoods are frozen at the window start; tau = the window's duration
+        from scipy.spatial import cKDTree as _KD
+        from ..render.surface_recon import layer_relax_data
+        sub = x0[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
+        sp0 = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
+        lmask, lnrm, lnbr, lw = layer_relax_data(x0, sp0, k=cfg.layer_k, h_sp=cfg.layer_h_sp)
+        layer = (lmask, lnrm, lnbr, lw, float(T * prm.dt))
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
-                       bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag)
+                       bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer)
 
     basis = ControlBasis(x0, T, cfg.control_grid, cfg.control_tknots, device=dev)
     expand = basis.expand                       # leaf -> (T,N,3,3) control field
@@ -268,7 +278,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     tr_eval = Trajectory(x0, m_np, lam0, mu0, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
                          dFc=seq_eval, device=dev, requires_grad=False, vol0=vol0,
                          Fg0=Fg0, track_geom=use_geom, persistent=True,
-                         bonds=((bond_nbr, bond_rest, bond_frag) if bond_nbr is not None else None))
+                         bonds=((bond_nbr, bond_rest, bond_frag) if bond_nbr is not None else None),
+                         layer=layer)
     tr_eval.capture()
     adj_box = [None]                 # PersistentAdjoint, built at the first gradient rollout
 

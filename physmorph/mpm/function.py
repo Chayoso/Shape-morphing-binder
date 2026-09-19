@@ -45,6 +45,7 @@ class RolloutSpec:
     bond_nbr: np.ndarray | None = None   # (N,K) frozen material neighbours (material bonds)
     bond_rest: np.ndarray | None = None  # (N,K) rest lengths (runner state)
     bond_frag: np.ndarray | None = None  # (N,) 1.0 where the particle is in a fragment
+    layer: tuple | None = None           # (mask, nrm, nbr, w, tau): outer-layer relaxation (traj.Trajectory)
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -72,7 +73,7 @@ class _WarpMPM(torch.autograd.Function):
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
-                          device=spec.device, requires_grad=True, vol0=spec.vol0)
+                          device=spec.device, requires_grad=True, vol0=spec.vol0, layer=spec.layer)
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
@@ -145,7 +146,8 @@ class _WarpMPMExt(torch.autograd.Function):
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
                           device=spec.device, requires_grad=True, vol0=spec.vol0,
                           Fg0=spec.Fg0, track_geom=True,
-                          bonds=((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None))
+                          bonds=((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None),
+                          layer=spec.layer)
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
@@ -222,7 +224,8 @@ class PersistentAdjoint:
         self.traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
                                Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp,
                                device=dev, requires_grad=True, vol0=spec.vol0,
-                               Fg0=spec.Fg0, track_geom=True, bonds=bonds, persistent=True)
+                               Fg0=spec.Fg0, track_geom=True, bonds=bonds, persistent=True,
+                               layer=spec.layer)
         tr = self.traj
         self.sx = torch.zeros(N, 3, device=dev)
         self.sF = torch.zeros(N, 3, 3, device=dev)

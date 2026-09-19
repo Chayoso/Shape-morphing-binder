@@ -201,6 +201,27 @@ def plane_residual(x_np: np.ndarray, mask: np.ndarray, ref_normals: np.ndarray, 
     return res, n.astype(np.float32)
 
 
+def layer_relax_data(x0: np.ndarray, spacing: float, k: int = 24, h_sp: float = 2.0, thr_sp: float = 0.5):
+    """Frozen per-window data of the outer-layer relaxation force (kernels.k_layer_resid /
+    k_layer_force): (mask (N,) float, nrm (N,3), nbr (N,k) int, w (N,k)). Layer by the
+    neighbourhood asymmetry; normals from the asymmetry offset; neighbours = the k nearest
+    LAYER particles with Gaussian weights of h_sp spacings times the normal agreement (same
+    side only). Rows of non-layer particles hold zeros."""
+    N = len(x0)
+    mask, nrm = layer_by_asymmetry(x0, spacing, thr_sp=thr_sp)
+    idx = np.where(mask)[0]
+    nbr = np.zeros((N, k), np.int32); w = np.zeros((N, k), np.float32)
+    if len(idx) > k:
+        P = x0[idx].astype(np.float64); R = nrm[idx].astype(np.float64)
+        kd = cKDTree(P)
+        d, nb = kd.query(P, k=k + 1, workers=-1)
+        d, nb = d[:, 1:], nb[:, 1:]
+        ww = np.exp(-(d / (h_sp * spacing)) ** 2) * np.clip((R[nb] * R[:, None, :]).sum(-1), 0.0, None)
+        nbr[idx] = idx[nb]
+        w[idx] = ww.astype(np.float32)
+    return mask.astype(np.float32), nrm.astype(np.float32), nbr, w
+
+
 def layer_threshold(bulk: float, sigma_sp: float) -> float:
     """bulk * Phi(1 / sigma_sp): the half-space density one spacing deep for a Gaussian kernel of
     sigma_sp spacings (1.5 -> 0.748 bulk; 0.7 -> 0.923 bulk)."""

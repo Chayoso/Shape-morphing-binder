@@ -426,6 +426,11 @@ class PipelineConfig:
                                     # (frozen source-surface median NN spacing);
                                     # A/B {0.5, 1.0} at stage 1b, pick-by-rule.
     work_telemetry: bool = True     # record render/phys linearized work even headless
+    layer_relax: bool = False       # outer-layer relaxation force in the forward model (kernels
+                                    #   k_layer_resid/k_layer_force; docs/surface_gradient.md §6):
+                                    #   critically damped, tau = one window, rough residual only
+    layer_k: int = 24               #   same-side layer neighbours of the plane fit
+    layer_h_sp: float = 2.0         #   Gaussian weight width in spacings (the layer's thickness)
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
                                     #   channel (physics / silhouette / shading), their control
                                     #   (leaf) gradients and the linear-response rollouts of each
