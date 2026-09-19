@@ -191,6 +191,17 @@ residual RMS of the morph (0.45 spacings at 40k without it) and the Poisson / ma
 cubes roughness of the rendered frames, with the gallery QA and the silhouette IoU
 unchanged.
 
+First readings (40k bunny, 8 windows, `--grad_dump`): with the projection at 1/T the
+outer-layer plane-residual RMS sits at 0.35–0.38 spacings against 0.45–0.47 without it
+(−22 %), the rough share of every channel's response drops from 0.10–0.17 to 0.06, and
+each window still ends slightly above where it started (0.350 → 0.365): the physics
+regenerates roughness as fast as one window relaxes it — the equilibrium of the two
+rates. A HARD per-step constraint (fraction 1) is FALSIFIED: it diverged within two
+windows (residual 1.6e7, jitter 6.8, silhouette IoU 0.69) — the rough operator I − W
+built from neighbours' residuals on their own planes is not a contraction when applied
+fully, only when applied at 1/T. The fraction is therefore the window relaxation, as
+derived, and the equilibrium roughness is what it buys.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
