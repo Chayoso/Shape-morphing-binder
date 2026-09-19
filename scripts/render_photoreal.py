@@ -77,6 +77,11 @@ ap.add_argument("--poisson_cell", type=float, default=1.0,
                      "quadratic B-spline spans three cells, so a feature thinner than 3 cells has its two sides "
                      "cancel (cow legs at cell 1.0); the thinnest drawn continuum is two particles across, hence "
                      "cell = 2/3 spacing keeps it (docs/experiments.md 2026-09-19 run 5)")
+ap.add_argument("--poisson_trim", type=float, default=0.0,
+                help="remove Poisson vertices farther than this many blur sigmas from every layer surfel; 0 = no "
+                     "trim: the surface stays CLOSED, so every component has a mass and the mass/cavity rules of "
+                     "10.10 apply as to marching cubes (a trim opens the surface into flaps that pass the mass rule "
+                     "through the body's voxel label: cow video, drawn pieces > 1 in 143 of 292 frames at 3 sigma)")
 ap.add_argument("--pca_sigma", type=float, default=0.0,
                 help="S1 kernel size in spacings (the anisotropic kernel keeps this isotropic volume); 0 = --blur, "
                      "the baseline kernel's size, so only the SHAPE of the kernel differs from the gallery")
@@ -428,7 +433,7 @@ def mesh_of(x, fi=None):
                   f"{' (plane-pulled, PCA normals)' if a.pull > 0 else ' (raw, gradient normals)'}", flush=True)
         if a.surface in ("poisson", "surfel"):
             pm = (poisson_mesh(pts, nrm, spacing, depth=a.poisson_depth, cell_sp=a.poisson_cell,
-                               max_dist_sp=3.0 * kernel_sigma_sp)
+                               max_dist_sp=a.poisson_trim * kernel_sigma_sp)
                   if a.surface == "poisson" else surfel_mesh(pts, nrm))
             v = np.asarray(pm.vertices, np.float32)
             f = np.asarray(pm.triangles)[:, ::-1].astype(np.int64)   # the code below re-reverses
@@ -622,7 +627,7 @@ if a.still >= 0 or a.still == -2:
         o3d.io.write_triangle_mesh(a.save_mesh, m, write_ascii=False, compressed=True)
         with open(os.path.splitext(a.save_mesh)[0] + ".json", "w") as fh:
             json.dump({"npz": a.npz, "frame": a.still, "kernel": a.kernel, "surface": a.surface, "post": a.post,
-                       "pull": a.pull, "layer": a.layer, "poisson_cell": a.poisson_cell, "pca_sigma": pca_sigma_sp, "label": a.label, "bulk": a.bulk, "bulk_voxel_over_particle": bulk_voxel / bulk_particle,
+                       "pull": a.pull, "layer": a.layer, "poisson_cell": a.poisson_cell, "poisson_trim": a.poisson_trim, "pca_sigma": pca_sigma_sp, "label": a.label, "bulk": a.bulk, "bulk_voxel_over_particle": bulk_voxel / bulk_particle,
                        "vox": vox, "spacing": spacing, "iso_frac": iso_frac, "layer_thr_frac": layer_thr / rho_bulk,
                        "bump": bump, "triangles": int(len(m.triangles)), "components": n_comp, "dropped": n_drop,
                        "cavities": n_cav, "bridged": n_bridge}, fh, indent=1)
