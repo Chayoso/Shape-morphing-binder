@@ -2101,6 +2101,63 @@ sanity check. The walls remain the only change to the C recipe.
 the walls change nothing where the box was never reached, and the ~100 re-attachments
 of the 40k C are its own sub-cell events, not the box.
 
+### 2026-09-19 — surface smoothness: six candidates (pre-registered before any run)
+
+The deliverable surface is the marching-cubes isosurface of CIC + isotropic Gaussian blur
+(1.5 spacings) of the particle density. Its texture is the sampling floor: the TARGET cloud
+through the same pipeline is as bumpy as any morph (mean |dihedral| 14.5°). The user asks
+for smooth surfaces and points at the Gaussian → triangle line of work. Papers read:
+Triangle Splatting (Held et al., arXiv 2505.19175: triangles as differentiable splats with
+the window I(p) = ReLU(φ(p)/φ(s))^σ, initialised from SfM points, photometric losses, a
+triangle soup for a standard renderer), Triangle Splatting+ (2509.25122, opaque
+triangles), 2D Triangle Splatting (2506.18575, a mesh-like structure directly),
+Incremental Online Scene Reconstruction by 3D Gaussian Triangulation (ECCV 2026, arXiv
+2607.10690: tangent-plane angular-greedy triangulation of Gaussian SURFELS, a plane-pulling
+constraint Σ|nᵢᵀ(μᵢ − pᵢ)|, normal consistency, Laplacian remeshing toward degree 6; needs
+posed RGB-D), SplatSurf (Visual Computer 2026: triangle-soup optimisation of a trained 3DGS
+to a manifold mesh), SuGaR / 2DGS / Gaussian surfels (surface-aligned Gaussians → Poisson
+or TSDF meshing), Yu & Turk 2013 (anisotropic kernels for particle fluids: weighted-PCA
+covariance per particle, eigenvalue ratio clamp k_r = 4, Laplacian smoothing of the kernel
+centres with λ = 0.9, then a sum of anisotropic kernels), screened Poisson (Kazhdan & Hoppe
+2013), RIMLS (Öztireli et al. 2009), and a 2024 CGF paper learning SDFs from fluid
+particles with a CNN. Every image-based method (Triangle Splatting, SplatSurf, 3DGT, SuGaR,
+2DGS) optimises against photographs we do not have; what transfers is their GEOMETRY: an
+oriented-surfel representation, centres pulled onto the local plane, triangulation or
+Poisson meshing, Laplacian regularisation. The six candidates for OUR input (a 150k
+particle cloud per frame, no images):
+
+- **S1 Yu & Turk anisotropic kernels** (`--kernel pca`): per-particle covariance from the
+  weighted PCA of its neighbourhood (cubic weight, radius 2 h), eigenvalues clamped to a
+  ratio of 4, kernel centres Laplacian-smoothed with λ = 0.9, density = sum of the
+  anisotropic Gaussians, isosurface as now. The particle-fluid standard; the smoothing of
+  the centres is the part our F-carried kernel test lacked.
+- **S2 Screened Poisson from surface particles** (`--surface poisson`): surface particles
+  = those with a density gradient (the outer layer), normals from the blurred density
+  gradient, Open3D screened Poisson (depth 9), low-density trim. A smooth watertight
+  mesh by construction; the SuGaR / 2DGS meshing step without the Gaussians.
+- **S3 IMLS implicit** (`--surface imls`): the implicit moving-least-squares field
+  f(x) = Σ w_j(x) n_jᵀ(x − p_j) / Σ w_j(x) on the render grid from the surface particles
+  and their normals, isosurface at 0. Smooth by construction (a local plane fit), feature
+  preserving with robust weights (RIMLS); no meshing library needed.
+- **S4 Surfel triangulation, geometric version of 3DGT** (`--surface surfel`): surface
+  particles pulled onto their local plane (the plane-pulling constraint, one MLS
+  projection), tangent-plane angular-greedy triangulation between neighbours with normal
+  consistency > 0.9, Laplacian remeshing. Direct triangles, no implicit.
+- **S5 Feature-preserving mesh filtering** (`--post bilateral`): bilateral normal
+  filtering of the marching-cubes mesh (face normals averaged with spatial × normal
+  similarity weights, vertices updated to the filtered normals, a few iterations) — the
+  route the user set aside earlier, kept as the baseline lever.
+- **S6 Learned SDF from particles** (Zhao et al. 2024): a CNN over the particle density
+  predicting the SDF; not implemented — it needs a training set of particle clouds with
+  ground-truth surfaces, which we could make from the target meshes, but it is a project,
+  not a candidate for today.
+
+Acid test, pre-registered: the TARGET cloud (150k samples of a clean mesh) rendered through
+each candidate must come out SMOOTH — mean |dihedral| far below 14.5° — while the morphed
+frame keeps its thin features (dragon horns, bunny ears, cow teats: component count and the
+filament/bridge QA unchanged) and the lump amplitude does not rise. Measured on bunny frame
+500 / target, dragon frame 400 / target, cow end / target.
+
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
 - **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages
