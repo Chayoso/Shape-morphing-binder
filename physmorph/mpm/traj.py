@@ -189,21 +189,20 @@ class Trajectory:
             self.ncount_b = wp.zeros(N, dtype=wp.float32, device=device)
             self.omega_b = wp.array(np.ones(N, np.float32), dtype=wp.float32, device=device)
             self.frag_step = wp.zeros(N, dtype=wp.float32, device=device)
-        # OUTER-LAYER RELAXATION (kernels.k_layer_resid / k_layer_force; docs/surface_gradient.md
-        # §6): layer = (mask (N,), nrm (N,3), nbr (N,K), w (N,K), tau) frozen for this rollout.
-        # G2P writes the grid velocity into vg[t+1]; the force kernel writes v[t+1] from it.
+        # OUTER-LAYER RELAXATION (kernels.k_layer_resid / k_layer_project; docs/surface_gradient.md
+        # §6): layer = (mask (N,), nrm (N,3), nbr (N,K), w (N,K), frac) frozen for this rollout.
+        # k_update writes the advected positions into xu[t+1]; the projection writes x[t+1].
         self.layer = None
         if layer is not None:
-            lmask, lnrm, lnbr, lw, ltau = layer
+            lmask, lnrm, lnbr, lw, lfrac = layer
             self.layer_K = int(np.asarray(lnbr).shape[1])
             self.layer_mask = A(np.ascontiguousarray(lmask, np.float32), wp.float32)
             self.layer_nrm = wp.array(np.ascontiguousarray(lnrm, np.float32), dtype=wp.vec3, device=device)
             self.layer_nbr = wp.array(np.ascontiguousarray(lnbr, np.int32).reshape(-1), dtype=wp.int32, device=device)
             self.layer_w = wp.array(np.ascontiguousarray(lw, np.float32).reshape(-1), dtype=wp.float32, device=device)
-            self.layer_tau = float(ltau)
-            self.vg = [wp.zeros(N, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T + 1)]
+            self.layer_frac = float(lfrac)
+            self.xu = [wp.zeros(N, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T + 1)]
             self.ld = [wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg) for t in range(T + 1)]
-            self.lvn = [wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg) for t in range(T + 1)]
             self.layer = True
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
@@ -269,19 +268,19 @@ class Trajectory:
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
                   prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
                   K.WALL_NODES], device=dev)
-        v_next = self.vg[t + 1] if self.layer else self.v[t + 1]
-        wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], v_next, self.C[t + 1], self.F[t], dfc,
+        wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
-        if self.layer:
-            wp.launch(K.k_layer_resid, dim=N, inputs=[self.x[t], self.vg[t + 1], self.layer_mask, self.layer_nrm,
-                      self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1], self.lvn[t + 1]], device=dev)
-            wp.launch(K.k_layer_force, dim=N, inputs=[self.vg[t + 1], self.ld[t + 1], self.lvn[t + 1],
-                      self.layer_mask, self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K,
-                      self.layer_tau, prm.dt, self.v[t + 1]], device=dev)
-        wp.launch(K.k_update, dim=N, inputs=[self.x[t], self.x[t + 1], self.v[t + 1], self.F[t],
+        x_next = self.xu[t + 1] if self.layer else self.x[t + 1]
+        wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], self.F[t + 1], prm.dt, prm.smoothing,
                   bnb, brest, bnc, bK, 1.0 / float(self.T)], device=dev)
+        if self.layer:
+            wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
+                      self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
+            wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ld[t + 1], self.layer_mask,
+                      self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac,
+                      self.x[t + 1]], device=dev)
         if self.track_geom:
             wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],
                       prm.dt], device=dev)

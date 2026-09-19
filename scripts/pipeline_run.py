@@ -611,7 +611,7 @@ def main():
     ap.add_argument("--out", default="output/v2_ab")
     ap.add_argument("--grad_dump", default="", help="directory for the per-window gradient-stage dumps (probes/grad_stage.py)")
     ap.add_argument("--layer_relax", action="store_true",
-                    help="outer-layer relaxation force in the forward model (docs/surface_gradient.md §6)")
+                    help="outer-layer relaxation projection in the forward model (docs/surface_gradient.md §6)")
     args = ap.parse_args()
 
     src, v_src = load(args.src, args.n, args.seed, return_volume=True)

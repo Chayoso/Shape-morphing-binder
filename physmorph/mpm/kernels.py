@@ -326,30 +326,35 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
     x_out[p] = xp
 
 
-# ── outer-layer relaxation — a particle-scale force in the FORWARD model ──────────────
+# ── outer-layer relaxation — a particle-scale POSITION projection in the FORWARD model ──
 # docs/surface_gradient.md §6 (2026-09-19). The gradient-stage analysis (40k bunny, 8
 # windows) showed the render covector to be a surface signal (99 % on the outer layer) whose
 # bump-band content (65 % uncorrelated at 2 spacings) the control cannot act on: after the
 # MPM adjoint every channel's control gradient has the grid's correlation length (~4
 # spacings) and the window's response is 83-90 % smooth. A sub-cell surface bump is not
-# reachable through the control stress; it is reachable by a force at the particle scale.
-# For each outer-layer particle p (frozen per window: mask, reference normal n_p, K same-side
-# layer neighbours with Gaussian weights of h = 2 spacings), with c_p the weighted centroid
-# of the neighbours at the CURRENT positions and d_p = n_p . (x_p - c_p) the plane residual:
-#   a_p = -(d_p - dbar_p) / tau^2 . n_p - 2 (vn_p - vnbar_p) / tau . n_p
-# a critically damped relaxation of the ROUGH part of the residual (the part its
-# neighbourhood mean does not explain: the sampling noise; curvature and features, which the
-# neighbours share, cancel in d - dbar) with the time constant tau = one window. Both
-# kernels are on the tape; the frozen arrays are constants.
+# reachable through the control stress. It is not reachable through a particle FORCE either:
+# a force on one particle accelerates its cell's momentum, which P2G/G2P average over the
+# ~50 particles of the cell — a critically damped spring on one bump moved it 2.4 % in a
+# window (tests/test_layer_relax.py, first form). Sub-cell relative motion is not a momentum
+# mode of the discretisation; it is a POSITION mode, and the same is true of the material
+# bonds (k_update projects positions, not forces). So the relaxation is a per-step position
+# projection: for each outer-layer particle p (frozen per window: mask, reference normal n_p,
+# K same-side layer neighbours with Gaussian weights of h = 2 spacings), with c_p the
+# weighted centroid of the neighbours at the current (advected) positions and
+# d_p = n_p . (x_p - c_p) the plane residual,
+#   x_p <- x_p - frac (d_p - dbar_p) n_p,   frac = 1/T
+# the ROUGH part of the residual (what its neighbourhood mean does not explain: the sampling
+# noise; curvature and features, which the neighbours share, cancel in d - dbar) is removed
+# over one window, as the bonds re-join over one window. Both kernels are on the tape; the
+# frozen arrays are constants.
 @wp.kernel
-def k_layer_resid(x: wp.array(dtype=wp.vec3), vg: wp.array(dtype=wp.vec3),
+def k_layer_resid(x: wp.array(dtype=wp.vec3),
                   mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
                   nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
-                  d: wp.array(dtype=float), vn: wp.array(dtype=float)):
+                  d: wp.array(dtype=float)):
     p = wp.tid()
     if mask[p] < 0.5:
         d[p] = 0.0
-        vn[p] = 0.0
         return
     c = wp.vec3(0.0, 0.0, 0.0)
     ws = float(0.0)
@@ -359,35 +364,27 @@ def k_layer_resid(x: wp.array(dtype=wp.vec3), vg: wp.array(dtype=wp.vec3),
         c = c + wa * x[j]
         ws = ws + wa
     c = c / wp.max(ws, 1.0e-12)
-    n = nrm[p]
-    d[p] = wp.dot(n, x[p] - c)
-    vn[p] = wp.dot(n, vg[p])
+    d[p] = wp.dot(nrm[p], x[p] - c)
 
 
 @wp.kernel
-def k_layer_force(vg: wp.array(dtype=wp.vec3), d: wp.array(dtype=float), vn: wp.array(dtype=float),
-                  mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
-                  nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
-                  tau: float, dt: float, v_out: wp.array(dtype=wp.vec3)):
+def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
+                    mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
+                    nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
+                    frac: float, x_out: wp.array(dtype=wp.vec3)):
     p = wp.tid()
     if mask[p] < 0.5:
-        v_out[p] = vg[p]
+        x_out[p] = x_in[p]
         return
     dbar = float(0.0)
-    vbar = float(0.0)
     ws = float(0.0)
     for a in range(K):
         j = nbr[p * K + a]
         wa = w[p * K + a]
         dbar = dbar + wa * d[j]
-        vbar = vbar + wa * vn[j]
         ws = ws + wa
-    ws = wp.max(ws, 1.0e-12)
-    dbar = dbar / ws
-    vbar = vbar / ws
-    n = nrm[p]
-    acc = -(d[p] - dbar) / (tau * tau) - 2.0 * (vn[p] - vbar) / tau
-    v_out[p] = vg[p] + dt * acc * n
+    dbar = dbar / wp.max(ws, 1.0e-12)
+    x_out[p] = x_in[p] - frac * (d[p] - dbar) * nrm[p]
 
 
 # ── geometric deformation gradient — the RENDER kinematics ───────────────────

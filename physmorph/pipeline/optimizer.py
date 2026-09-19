@@ -257,7 +257,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         sub = x0[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
         sp0 = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
         lmask, lnrm, lnbr, lw = layer_relax_data(x0, sp0, k=cfg.layer_k, h_sp=cfg.layer_h_sp)
-        layer = (lmask, lnrm, lnbr, lw, float(T * prm.dt))
+        layer = (lmask, lnrm, lnbr, lw, 1.0 / float(T))      # frac: the rough residual over one window
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
                        bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer)

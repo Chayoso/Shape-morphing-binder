@@ -1,7 +1,7 @@
-"""Outer-layer relaxation force (kernels.k_layer_resid / k_layer_force; docs/surface_gradient.md
-§6), warp CPU: (1) the force is zero on a plane-sampled layer (d - dbar = 0), (2) it relaxes a
+"""Outer-layer relaxation projection (kernels.k_layer_resid / k_layer_project; docs/surface_gradient.md
+§6), warp CPU: (1) the projection is zero on a plane-sampled layer (d - dbar = 0), (2) it relaxes a
 single out-of-plane particle toward the plane, (3) dL/ddFc through the extended bridge with the
-force on matches central finite differences (the kernels are on the tape)."""
+projection on matches central finite differences (the kernels are on the tape)."""
 import numpy as np
 import pytest
 import torch
@@ -45,19 +45,19 @@ def test_force_relaxes_one_bump_and_leaves_a_plane():
     prm = _params()
     mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
     T = 30
-    tau = T * prm.dt
     # a bump: push one top-face layer particle out along its normal by half a spacing
     top = np.where((mask > 0.5) & (nrm[:, 1] > 0.5))[0]
     p = top[len(top) // 2]
     xb = x.copy(); xb[p] += 0.5 * sp * nrm[p]
     vol0 = compute_rest_volumes(xb, 1.0, prm, DEV)
-    kw = dict(m=1.0, lam=0.0, mu=0.0, prm=prm, T=T, device=DEV, vol0=vol0)   # no elasticity: the force alone
     tr = Trajectory(xb, 1.0, 0.0, 0.0, prm, T, device=DEV, requires_grad=False, vol0=vol0,
-                    layer=(mask, nrm, nbr, w, tau))
+                    layer=(mask, nrm, nbr, w, 1.0 / T))   # no elasticity: the projection alone
     tr.rollout()
     xT = tr.x[T].numpy()
     d0 = float(nrm[p] @ (xb[p] - x[p])); dT = float(nrm[p] @ (xT[p] - x[p]))
-    assert abs(dT) < 0.4 * abs(d0), (d0, dT)            # relaxed by more than half in one window
+    # (1 - 1/T)^T = e^-1 of the rough residual is left after one window (the neighbours share a
+    # little of it through dbar, so slightly more)
+    assert abs(dT) < 0.55 * abs(d0), (d0, dT)
     # the plane-sampled particles stayed put (no force where d == dbar)
     others = np.setdiff1d(top, [p])
     moved = np.linalg.norm(xT[others] - xb[others], axis=1).max()
@@ -71,7 +71,7 @@ def test_adjoint_matches_finite_differences_with_force():
     T = 3
     vol0 = compute_rest_volumes(x, 1.0, prm, DEV)
     spec = RolloutSpec(x0=x, m=1.0, lam=800.0, mu=400.0, prm=prm, T=T, device=DEV, vol0=vol0,
-                       layer=(mask, nrm, nbr, w, T * prm.dt))
+                       layer=(mask, nrm, nbr, w, 1.0 / T))
     torch.manual_seed(1)
     dfc = (torch.randn(T, len(x), 3, 3) * 2e-2).requires_grad_(True)
     wvec = torch.randn(len(x), 3)

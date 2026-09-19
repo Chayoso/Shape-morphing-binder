@@ -45,7 +45,7 @@ class RolloutSpec:
     bond_nbr: np.ndarray | None = None   # (N,K) frozen material neighbours (material bonds)
     bond_rest: np.ndarray | None = None  # (N,K) rest lengths (runner state)
     bond_frag: np.ndarray | None = None  # (N,) 1.0 where the particle is in a fragment
-    layer: tuple | None = None           # (mask, nrm, nbr, w, tau): outer-layer relaxation (traj.Trajectory)
+    layer: tuple | None = None           # (mask, nrm, nbr, w, frac): outer-layer relaxation (traj.Trajectory)
 
 
 def _leaf_f32(t: torch.Tensor):
