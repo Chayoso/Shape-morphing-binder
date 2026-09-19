@@ -2320,6 +2320,15 @@ of the 40k C are its own sub-cell events, not the box.
   C −3.5 (the thin-feature targets where the net returned material). Clean single-run
   times at 150k on a free GPU: 25–45 min for the compact targets, 60–110 min for dragon,
   armadilo, beast.
+- **v8 published (01:05 CDT, 2026-09-19):** main gallery → 2f348b78 (replacing v7), new
+  meshes → 4b18fc06; markdown `docs/highres150_v8_report.md`, `docs/newmesh150_v8_report.md`.
+  Deliverable QA over the 19 v8 videos (iso auto + mass rule + cavity sign + filament
+  bridges, y-up): drawn outer pieces detached from the body — 0 frames on every target
+  (C: 12 frames with two drawn components, all bridged); physical fragments ≥ 1 cell by
+  the grid probe — 0 frames on every target (largest cluster 0.74 cells, C). The
+  post-processing had to be re-run once: the orientation change had turned the archive
+  into a dict inside two renderers and their `deliver_n` test failed silently (no
+  isosurface video, no delivered stills) — fixed in 9b21e21 and re-run for all 19.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
