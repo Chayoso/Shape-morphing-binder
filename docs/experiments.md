@@ -2308,7 +2308,18 @@ of the 40k C are its own sub-cell events, not the box.
   are one collapsed clump of 21 particles (0.05 × 0.15 × 0.05 wu, packed at a twentieth of
   the bulk spacing) 46 spacings above the body plus a single — the same collapsed-clump
   signature as bob's nine, a sub-cell object the deliverable does not draw. nefertiti 0 /
-  0.968 (0.972) (22:02 CDT).
+  0.968 (0.972) (22:02 CDT). cheburashka 0 / 0.963 (0.964) (22:24 CDT); bimba 0 / 0.974
+  (0.975) (22:57 CDT).
+- **v8 ledger complete (22:57 CDT; 19 targets, 150k, NO net):** end fragments — twelve
+  targets 0 (bunny, teapot, heart, spot, V, A, homer, maxplanck, nefertiti, fandisk,
+  cheburashka, bimba); dragon, armadilo, cow, beast 1 (single particles); C 3; bob 9 and
+  ogre 21 (one collapsed clump each, a twentieth of the bulk spacing, sub-cell); total 39
+  particles against v7's 814 netted re-attachments and v6's 2018. Physical fragments
+  ≥ 1 cell by the grid probe: 0 frames on every target. Quality without the net: within
+  0.7 silIoU points of the netted v7 on 15 targets; bob −2.0, beast −2.6, armadilo −1.1,
+  C −3.5 (the thin-feature targets where the net returned material). Clean single-run
+  times at 150k on a free GPU: 25–45 min for the compact targets, 60–110 min for dragon,
+  armadilo, beast.
 - **Item 6 done (12:10):** `scripts/probes/orientation_check.py` rendered every asset under
   five rotations; eleven of the nineteen are z-up (bunny, spot, nefertiti, teapot, dragon,
   armadilo, heart, A, C, V, bob → `x-90`), the rest y-up. `physmorph/sampling/orientation.json` +
