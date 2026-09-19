@@ -281,6 +281,22 @@ rounder body than g1's over-thinned ones. What A cannot do: the target's shading
 rendered at the pixel (1.7 spacings) through the same 1.5-spacing blur, so the detail it
 recovers is pixel-scale, not sub-pixel — the G5 (sampling) limit stands.
 
+**Dragon 40k (same four arms):**
+
+| | silIoU | chamfer | det F min | layer RMS (morph / end) | Poisson rough, mid frame (comps) | end frame vs true mesh: d_abs / n_dev / rough |
+|---|---|---|---|---|---|---|
+| lr64 (recipe) | 0.9642 | 0.1222 | 0.663 | 0.403 / 0.371 | 7.8° | (pending) |
+| lrx (+ relax) | 0.9519 | 0.1237 | 0.705 | 0.279 / 0.261 | 7.2° (7) | (pending) |
+| g1 (+ G1) | 0.9493 | 0.1249 | 0.743 | 0.265 / 0.239 | 7.0° (7) | (pending) |
+| g1a (+ G1 + A) | 0.9594 | 0.1235 | **0.778** | 0.341 / 0.263 | 8.5° (10) | (pending) |
+| target cloud itself | | | | 0.325 | 7.8° | 0.27 / 19.9° / 7.8° |
+
+Same pattern as the bunny: the relaxation costs 1.2 IoU points, A gives 0.75 of them
+back (0.9519 → 0.9594, against 0.9642), the compression floor rises monotonically
+(0.66 → 0.78), the mid-frame Poisson roughness rises with A (7.2 → 8.5°) as the channel
+pulls target structure in (the dragon's scales are at 2 spacings, exactly the scale the
+measure reads).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
