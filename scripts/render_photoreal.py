@@ -506,7 +506,7 @@ def mesh_of(x, fi=None):
                   f"{' (plane-pulled, PCA normals)' if a.pull > 0 else ' (raw, gradient normals)'}", flush=True)
         if a.surface in ("poisson", "surfel"):
             pm = (poisson_mesh(pts, nrm, spacing, depth=a.poisson_depth, cell_sp=a.poisson_cell,
-                               max_dist_sp=a.poisson_trim * kernel_sigma_sp)
+                               max_dist_sp=a.poisson_trim * kernel_sigma_sp, vox=vox)
                   if a.surface == "poisson" else surfel_mesh(pts, nrm))
             if pm is None:
                 # the isolated Poisson child crashed twice (Open3D 0.19 segfaults now and then; a race,

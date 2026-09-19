@@ -142,7 +142,11 @@ def oriented_layer(points: np.ndarray, ref_normals: np.ndarray, spacing: float, 
         kd = cKDTree(P)
         d, nb = kd.query(P, k=k + 1, workers=-1)
         d, nb = d[:, 1:], nb[:, 1:]
-        w = np.exp(-(d / h) ** 2)
+        # neighbours on the SAME side only (normal agreement): in a sheet two or three particles
+        # thick the k nearest span both faces, the weighted centroid is the mid-plane and both faces
+        # get pulled onto it — coincident surfels of opposite normal, a ragged Poisson surface (C at
+        # 40k). The gradient reference normal separates the faces.
+        w = np.exp(-(d / h) ** 2) * np.clip((R[nb] * R[:, None, :]).sum(-1), 0.0, None)
         wsum = w.sum(1, keepdims=True) + 1e-12
         c = (w[:, :, None] * P[nb]).sum(1) / wsum
         dxn = P[nb] - c[:, None, :]
@@ -249,7 +253,7 @@ def surfel_mesh(points: np.ndarray, normals: np.ndarray, k: int = 16, cos_min: f
 
 # ---- S2: screened Poisson ---------------------------------------------------------------------
 def poisson_mesh(points: np.ndarray, normals: np.ndarray, spacing: float, depth: int = 0,
-                 cell_sp: float = 1.0, max_dist_sp: float = 2.0):
+                 cell_sp: float = 1.0, max_dist_sp: float = 2.0, vox: float = 0.0):
     """Open3D screened Poisson reconstruction of the oriented outer layer.
 
     depth = 0 picks the octree depth from the discretisation: the finest cell equals the
@@ -277,6 +281,13 @@ def poisson_mesh(points: np.ndarray, normals: np.ndarray, spacing: float, depth:
         d = cKDTree(points).query(v, k=1, workers=-1)[0]
         mesh.remove_vertices_by_mask(d > max_dist_sp * spacing)
     mesh.remove_degenerate_triangles(); mesh.remove_unreferenced_vertices()
+    # the octree cell sets the triangle size (about one spacing); the level-set mesh's is the render
+    # voxel. Loop-subdivide until the triangles are no coarser than the voxel, so that a 40k cloud
+    # (spacing 2.6 voxels) does not render as facets: iterations = ceil(log2(cell / vox)).
+    if vox > 0 and len(mesh.triangles):
+        n_sub = int(math.ceil(math.log2(max(cell_sp * spacing / vox, 1.0))))
+        if n_sub > 0:
+            mesh = mesh.subdivide_loop(number_of_iterations=n_sub)
     return mesh
 
 
