@@ -2346,10 +2346,20 @@ probe. Stills after the change: bunny 57 (20 raw, 13 dropped, 5 cavities) one bo
 bridged piece; dragon 255 the same; cow 30 one body + two bridged; cow 255 one body. The
 bridged pieces sit flush against the body in the stills.
 
-**Gallery re-render launched (12:05):** `scripts/ops/surface_rerender.sh` on all 19 v8
-targets in six lanes on GPU 0 (Poisson photoreal video + isosurface gif with the
-particle-median bulk; the v8 files kept as `<T>_v8mc_*`); markers `SURFRR <prefix> <T>
-DONE`. The pages are rebuilt and republished from these.
+**Gallery re-render, first launch (12:05) stopped at 8 of 19 (13:55).** The first six
+sidecars (bob, maxplanck, cow, cheburashka, bunny, spot; v8 in brackets): drawn pieces > 1
+in 11 (0) / 14 (0) / 77 (7) / 8 (0) / 7 (0) / 49 (0) frames, unbridged 6 / 0 / 1 / 0 / 4 /
+36. Spot frame 114 rendered as a still shows ONE clean body — the second "drawn piece" is a
+closed sheet INSIDE the body: the relative-gradient rule also selects particles at a
+density step inside the material (a compressed/stretched interface during the morph), the
+Poisson closes a surface around it, and with ≥ ppc particles inside it passed the mass rule
+while the cavity rule only took light components. Every component the body encloses is
+interior, whatever its mass (commit fde333f; removed and counted in the cavity column).
+After it: spot 114 one piece (4 raw, 2 dropped, 1 interior), spot 792 one (8 / 0 / 7),
+bunny 57 one (20 / 13 / 6 — the "bridged piece" of the earlier reading was interior too),
+bob 51 one (230 / 227 / 2: the expansion spray as sub-cell blobs). Relaunched on all 19
+(13:58; the same six lanes, markers `SURFRR <prefix> <T> DONE`, v8 files kept as
+`<T>_v8mc_*`). The pages are rebuilt and republished from these.
 
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
