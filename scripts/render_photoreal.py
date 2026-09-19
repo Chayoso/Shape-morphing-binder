@@ -558,18 +558,41 @@ def mesh_of(x, fi=None):
             # a surface vertex sits on the level: probe one voxel inward along the component's normal-free
             # guess (its centroid direction) — take the max label over the vertex voxel and its 26 neighbours
             mass = np.zeros(n_comp)
-            for ci in range(n_comp):
-                zz, yy, xx = rv[ci, 2], rv[ci, 1], rv[ci, 0]
-                nb = vlab[max(zz - 1, 0):zz + 2, max(yy - 1, 0):yy + 2, max(xx - 1, 0):xx + 2]
-                labs = np.unique(nb[nb > 0])
-                mass[ci] = vcount[labs].max() if len(labs) else 0.0
-            # the BODY is the component holding the most particles (ties: the larger enclosed volume),
-            # not the largest closed surface: a Poisson skirt or a hallucinated envelope encloses more
-            # volume than the body and holds no particles (bunny target, S2: the body was flagged as
-            # the cavity of its own skirt and removed)
-            body = int(np.lexsort((np.abs(svol), mass))[-1])
-            body_sign = np.sign(svol[body]) if svol[body] != 0 else 1.0
-            cavity = (np.sign(svol) == -body_sign) & (svol != 0)
+            if a.surface == "mc":
+                for ci in range(n_comp):
+                    zz, yy, xx = rv[ci, 2], rv[ci, 1], rv[ci, 0]
+                    nb = vlab[max(zz - 1, 0):zz + 2, max(yy - 1, 0):yy + 2, max(xx - 1, 0):xx + 2]
+                    labs = np.unique(nb[nb > 0])
+                    mass[ci] = vcount[labs].max() if len(labs) else 0.0
+                # the BODY is the component holding the most particles (ties: the larger enclosed volume)
+                body = int(np.lexsort((np.abs(svol), mass))[-1])
+                body_sign = np.sign(svol[body]) if svol[body] != 0 else 1.0
+                cavity = (np.sign(svol) == -body_sign) & (svol != 0)
+            else:
+                # a reconstructed surface is not a level set: a piece next to the body would inherit the
+                # body's voxel label (and its mass) and the body's own signed volume is not a safe sign
+                # reference (bunny frame 63: the body classed as the cavity of a spray blob and removed).
+                # The mass of a closed component is the number of particles it ENCLOSES (ray-casting
+                # occupancy, queried over the particles in its bounding box); the body is the component
+                # with the most; a light component whose centroid the body encloses is a cavity.
+                cents = np.zeros((n_comp, 3))
+                scenes = []
+                for ci in range(n_comp):
+                    tri = ff[comp == ci]
+                    sub = o3d.t.geometry.TriangleMesh(o3d.core.Tensor(vv.astype(np.float32)),
+                                                      o3d.core.Tensor(tri.astype(np.int32)))
+                    sc = o3d.t.geometry.RaycastingScene(); sc.add_triangles(sub); scenes.append(sc)
+                    pv_ = vv[np.unique(tri)]
+                    cents[ci] = pv_.mean(0)
+                    lo_, hi_ = pv_.min(0) - vox, pv_.max(0) + vox
+                    inbox = np.where(((xp >= lo_) & (xp <= hi_)).all(1))[0]
+                    if len(inbox):
+                        occ_ = sc.compute_occupancy(o3d.core.Tensor(xp[inbox].astype(np.float32))).numpy()
+                        mass[ci] = float((occ_ > 0.5).sum())
+                body = int(np.lexsort((np.abs(svol), mass))[-1])
+                inside_body = scenes[body].compute_occupancy(o3d.core.Tensor(cents.astype(np.float32))).numpy() > 0.5
+                cavity = (mass < ppc) & inside_body
+                cavity[body] = False
             small = ((mass < ppc) | (np.abs(svol) < min_vol)) & ~cavity
             n_cav = int(cavity.sum())
             keep = ~(small | cavity)[comp]
