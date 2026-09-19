@@ -139,6 +139,58 @@ without a run: resample the target clouds without noise and rerun the surface ac
 a 0.5-spacing Poisson cell — if the dragon's roughness climbs toward the true 15.4° without
 fragments, the sampling is the lever and G1–G3 are worth their runs.
 
+## 6. The gradient-stage analysis at 40k, and the protocol it dictates (2026-09-19, 17:00–18:30)
+
+`--grad_dump` (pipeline/optimizer.py) writes, per window, the terminal covectors of the
+physics, silhouette and shading channels on the particles, their control gradients after
+the MPM adjoint, and the end state of the window under each channel's control gradient
+alone (scaled to the accepted step's control norm); `scripts/probes/grad_stage.py` reads
+them. 40k bunny, the recipe, 8 windows (3 minutes):
+
+| stage | physics | silhouette | shading |
+|---|---|---|---|
+| 1 covector norm | 1.8e-3 | 8.8e-3 | 9.2e-4 |
+| 1 share on the outer layer (8.5 % of particles) | 0.32 | 0.99 | 0.86 |
+| 1 of that, along the normal | 0.49 | 0.73 | 0.61 |
+| 1 of that, ROUGH at 2 spacings (unexplained by the neighbourhood mean) | 0.32 | 0.65 | 0.67 |
+| 2 control gradient: neighbour correlation at 1 / 2 / 4 / 8 spacings | .96 / .87 / .61 / .18 | .96 / .86 / .61 / .23 | .95 / .84 / .52 / .11 |
+| 3 response |dx| on the layer / interior (spacings) | 0.65 / 0.18 | 0.62 / 0.10 | 0.54 / 0.10 |
+| 3 rough share of the layer's normal displacement | 0.10 | 0.16 | 0.17 |
+| 3 outer-layer plane-residual RMS at the window's end (spacings; no step 0.474) | 0.458 | 0.503 | 0.505 |
+
+The accepted composite step ends at 0.451; over the eight windows the RMS goes 0.49 → 0.45
+and stays there. Reading: (1) the render covector IS a surface signal, and two thirds of it
+is bump-band noise — uncorrelated between neighbours two spacings apart — because its
+target images are the target cloud's own shot noise; (2) the pull-back through P2G/G2P
+gives every channel's control gradient the GRID's correlation length (0.86 at two
+spacings, 0.6 at four, 0.2 at eight; cell = 3.6 spacings) whatever the covector's
+roughness was — the bump band is projected out of the control; (3) followed alone, the
+render channels ROUGHEN the outer layer (+0.03 spacing) and the physics channel smooths it
+(−0.016): the accepted step's small smoothing comes from the physics side. So the render
+gradient cannot flatten the surface through the control stress, and adding a smoother
+loss would not change that: the actuator has no sub-cell modes.
+
+The protocol, first form — an external force on the outer-layer particles (the user's
+suggestion): a critically damped spring toward the rough part of the local-plane residual,
+τ = one window. On a slab (tests/test_layer_relax.py) it relaxed a half-spacing bump by
+2.4 % in a window. The reason is the discretisation itself: a force on one particle
+accelerates the momentum of its cell, which P2G/G2P average over the ~50 particles of the
+cell, so the particle keeps only its share; sub-cell RELATIVE motion is not a momentum
+mode. The material bonds of 10.7 already had to be a position projection for the same
+reason. Second form, adopted: a per-step POSITION projection (kernels `k_layer_resid`,
+`k_layer_project`; `--layer_relax`), x_p ← x_p − (1/T)(d_p − d̄_p) n_p on the outer layer
+(the asymmetry rule, 0.5 spacing), d_p the residual to the same-side weighted PCA plane of
+its 24 layer neighbours (Gaussian weights of two spacings, normalised on the host — a
+division by the loop-accumulated weight sum inside the kernel broke the Warp adjoint,
+gradients 1e23), d̄_p the neighbourhood mean of the residual. What the neighbours share
+(curvature, features) cancels in d − d̄; what they do not (the sampling noise) is removed
+over one window, (1 − 1/T)^T = e⁻¹ per window, as the bonds re-join over one window. Both
+kernels are on the tape; directional finite differences through the extended bridge match
+(tests). Frozen per window like the control basis. Acid test: the outer-layer plane-
+residual RMS of the morph (0.45 spacings at 40k without it) and the Poisson / marching-
+cubes roughness of the rendered frames, with the gallery QA and the silhouette IoU
+unchanged.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
