@@ -202,6 +202,25 @@ built from neighbours' residuals on their own planes is not a contraction when a
 fully, only when applied at 1/T. The fraction is therefore the window relaxation, as
 derived, and the equilibrium roughness is what it buys.
 
+Full 40k runs with the projection (`lrx_bunny`, `lrx_dragon`, the recipe + `--layer_relax`;
+`scripts/probes/layer_rms.py`, stride 40 frames), outer-layer plane-residual RMS in spacings:
+
+| | mean over the morph | end frame | target cloud (the sampling floor) |
+|---|---|---|---|
+| bunny, recipe (`lr64_bunny`) | 0.442 | 0.457 | 0.339 |
+| bunny, + layer relaxation | **0.290** | **0.270** | 0.339 |
+| dragon, recipe (`lr64_dragon`) | 0.403 | 0.371 | 0.325 |
+| dragon, + layer relaxation | **0.279** | **0.261** | 0.325 |
+
+The morph's surface ends SMOOTHER than the sampled target it is chasing — the relaxation
+accumulates over the 66–80 windows as the morph slows and regenerates less. End metrics:
+silhouette IoU 0.962 → 0.957 (bunny), 0.964 → 0.952 (dragon); chamfer 0.1204 → 0.1206,
+0.1222 → 0.1237 (unchanged); det F min 0.68 → 0.72, 0.66 → 0.71 (less compression); wall
+12.5 → 10.1 min, 22.5 → 11.8 min (fewer windows to the stop). The IoU cost is 0.5–1.2
+points on 40k: the constraint holds the outer layer to its local plane, so the silhouette
+term's noisy pull on individual particles no longer buys IoU at the pixel — which was the
+noise. Recorded, not hidden.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
