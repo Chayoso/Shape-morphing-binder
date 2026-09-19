@@ -402,6 +402,9 @@ def filament_bridges(x_np, rho, drawn_labels_needed=2):
     return fil, len(others)
 
 
+FALLBACK_FRAMES = []   # frames whose Poisson reconstruction crashed twice and fell back to the level set
+
+
 def mesh_of(x, fi=None):
     """Isosurface mesh (Open3D) of the cloud x; returns (mesh, n_components_raw, n_dropped, n_bridged, n_cavities)."""
     if a.kernel == "aniso" and fi is not None:
@@ -435,8 +438,16 @@ def mesh_of(x, fi=None):
             pm = (poisson_mesh(pts, nrm, spacing, depth=a.poisson_depth, cell_sp=a.poisson_cell,
                                max_dist_sp=a.poisson_trim * kernel_sigma_sp)
                   if a.surface == "poisson" else surfel_mesh(pts, nrm))
-            v = np.asarray(pm.vertices, np.float32)
-            f = np.asarray(pm.triangles)[:, ::-1].astype(np.int64)   # the code below re-reverses
+            if pm is None:
+                # the isolated Poisson child crashed twice (Open3D 0.19 segfaults now and then; a race,
+                # not a frame): this frame falls back to the level set and the sidecar records it
+                FALLBACK_FRAMES.append(fi)
+                print(f"[photoreal] frame {fi}: Poisson failed twice -> marching cubes for this frame", flush=True)
+                v, f, _, _ = measure.marching_cubes(rho, level=iso, spacing=(vox, vox, vox))
+                v = v[:, ::-1] + origin
+            else:
+                v = np.asarray(pm.vertices, np.float32)
+                f = np.asarray(pm.triangles)[:, ::-1].astype(np.int64)   # the code below re-reverses
             if len(v) == 0 or len(f) == 0:
                 print(f"[photoreal] frame {fi}: {a.surface} produced no triangles", flush=True)
                 return None, 0, 0, 0, 0
@@ -668,6 +679,10 @@ with open(a.out + ".components.txt", "w") as fh:
     fh.write(f"# filament bridges (particle connectivity): {(bridges > 0).sum()} frames with a drawn component tied to the "
              f"body by particles the isosurface does not enclose (max {bridges.max()}); drawn components>1 AND not bridged "
              f"in {((drawn > 1) & (bridges < drawn - 1)).sum()} frames\n")
+    fh.write(f"# surface {a.surface}" + (f" (outer layer by {a.layer}, pull {a.pull}, octree cell {a.poisson_cell} spacing, "
+             f"trim {a.poisson_trim} sigma; docs/method.md 10.12); Poisson fallback to the level set in "
+             f"{len(FALLBACK_FRAMES)} frames {FALLBACK_FRAMES[:20]}" if a.surface == "poisson" else "") +
+             f"; bulk = {a.bulk} median (voxel/particle {bulk_voxel / bulk_particle:.3f})\n")
     fh.write(f"# iso {iso_frac:.3f} x bulk ({'auto: two-particle filament level' if str(a.iso).lower() == 'auto' else 'fixed'}), "
              f"blur {a.blur} spacings, grid {a.grid}\n")
     fh.write(f"# frames {len(qa)}  raw components>1 in {(comps > 1).sum()} frames (max {comps.max()})  "

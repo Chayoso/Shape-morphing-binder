@@ -129,6 +129,15 @@ def oriented_layer(points: np.ndarray, ref_normals: np.ndarray, spacing: float, 
     P = points.astype(np.float64).copy()
     R = ref_normals.astype(np.float64)
     h = h_sp * spacing
+    # a particle with no layer neighbour within ~3h is not a surface: an isolated particle (the
+    # morph sheds a few, 1-3 wu from the body) passes the gradient rule, its weights underflow,
+    # and the "plane" it would be pulled onto is undefined
+    kd = cKDTree(P)
+    d1 = kd.query(P, k=2, workers=-1)[0][:, 1] if len(P) > 1 else np.full(len(P), np.inf)
+    keep = d1 <= 3.0 * h
+    P, R = P[keep], R[keep]
+    if len(P) <= k:
+        return P.astype(np.float32), R.astype(np.float32)
     for _ in range(max(1, pull_iters)):
         kd = cKDTree(P)
         d, nb = kd.query(P, k=k + 1, workers=-1)
@@ -255,13 +264,15 @@ def poisson_mesh(points: np.ndarray, normals: np.ndarray, spacing: float, depth:
     at 2 spacings cut holes wherever a morph frame's layer was locally sparse (dragon frame
     400, 13 components)."""
     import open3d as o3d
+    from .poisson_worker import poisson_isolated
     ext = float(np.max(points.max(0) - points.min(0)))
     if depth <= 0:
         depth = int(math.ceil(math.log2(max(ext / (cell_sp * spacing), 2.0))))
-    pcd = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(points.astype(np.float64)))
-    pcd.normals = o3d.utility.Vector3dVector(normals.astype(np.float64))
-    mesh, _dens = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(pcd, depth=depth, linear_fit=False)
-    v = np.asarray(mesh.vertices)
+    res = poisson_isolated(points, normals, depth)
+    if res is None:
+        return None
+    v, f = res
+    mesh = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v.astype(np.float64)), o3d.utility.Vector3iVector(f))
     if len(v) and max_dist_sp > 0:
         d = cKDTree(points).query(v, k=1, workers=-1)[0]
         mesh.remove_vertices_by_mask(d > max_dist_sp * spacing)
