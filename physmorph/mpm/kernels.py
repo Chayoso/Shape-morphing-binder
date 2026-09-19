@@ -352,7 +352,7 @@ def k_layer_resid(x: wp.array(dtype=wp.vec3), vg: wp.array(dtype=wp.vec3),
         vn[p] = 0.0
         return
     c = wp.vec3(0.0, 0.0, 0.0)
-    ws = 0.0
+    ws = float(0.0)
     for a in range(K):
         j = nbr[p * K + a]
         wa = w[p * K + a]
@@ -373,9 +373,9 @@ def k_layer_force(vg: wp.array(dtype=wp.vec3), d: wp.array(dtype=float), vn: wp.
     if mask[p] < 0.5:
         v_out[p] = vg[p]
         return
-    dbar = 0.0
-    vbar = 0.0
-    ws = 0.0
+    dbar = float(0.0)
+    vbar = float(0.0)
+    ws = float(0.0)
     for a in range(K):
         j = nbr[p * K + a]
         wa = w[p * K + a]
