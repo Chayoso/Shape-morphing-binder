@@ -2305,6 +2305,34 @@ records it (`# surface poisson … fallback … frames`). A layer surfel with no
 within 3h (an isolated shed particle passes the gradient rule) is dropped before the
 plane fit. Second pass of the three videos running (09:45).
 
+**Second pass (10:00–10:48): the isolation works, the QA rules did not carry over.** All
+three videos finished (exit 0; the cow's child segfaulted twice, both absorbed by the retry,
+0 fallback frames). But drawn pieces > 1 in 4 (bunny) / 28 (dragon) / 141 (cow) frames
+against 0 / 0 / 7 for v8, with 0 bridges. The rules of 10.10 were written on the LEVEL SET
+and read it: (a) the bridge rule took "enclosed" from the voxel labels of ρ ≥ iso — the
+blurred level set joins a hoof to its leg across a one-spacing neck that the Poisson surface,
+at the true boundary, shows as a gap, so the labels saw one body and drew no filament; (b)
+a component's mass was the count of the voxel label at a representative vertex (± one
+voxel), so a Poisson piece next to the body inherited the body's mass; (c) the body's sign
+reference was its signed volume, which a spray-blob with borrowed mass and a larger
+|volume| could take over — bunny frame 63: the BODY classed as a cavity and removed, two
+blobs drawn. Three structural fixes (commits ec4cc74, f5a8099, d6238c4, 35ee9fc), all
+reading the surface that is drawn: (1) enclosure per particle from the drawn mesh itself
+(ray-casting occupancy + the nearest triangle's component), with a particle within one
+spacing of the surface counted as that component's (the surface passes THROUGH the outer
+layer; without the tolerance half the layer is "free" and the bridge rule drew 31 M
+triangles of filament); (2) the bridge is the SHORTEST particle chain (Dijkstra, distances
+as weights) from the body to each linked piece — the earlier "every free particle in the
+connected cluster" drew the expansion-phase spray whole (bunny 63: 383 M triangles) once
+the surface no longer hid it inside a fat level set; (3) for a reconstructed surface the
+mass of a component is the number of particles it encloses (occupancy per component over
+the particles in its box), the body the heaviest, a light component whose centroid the body
+encloses a cavity — the marching-cubes path keeps its voxel-label rule, so the v8 numbers
+stay comparable. Test frames after the fixes (Poisson): bunny 63 one drawn piece (12 raw,
+9 dropped, 2 cavities), cow 420 one (3 / 2 / 0; the hoof blob is sub-cell for marching
+cubes too), dragon 312 one (15 / 10 / 4), cow 507 one, bunny 500 one; ~15 s per frame
+including the child. Third pass of the three videos running (11:15).
+
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
 - **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages

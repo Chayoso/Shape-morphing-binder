@@ -578,3 +578,17 @@ the sidecar), a filament thinner than the B-spline's reach relies on the bridge 
 before, and the reconstruction is CPU-bound (~4× the render time). The other candidates
 of the pre-registration (IMLS, surfel triangulation, bilateral filtering, PCA kernels) and
 their numbers are in docs/experiments.md 2026-09-19.
+
+The deliverable rules of 10.10 read the surface that is drawn, not the level set. With the
+Poisson surface: a component's mass is the number of particles it encloses (ray-casting
+occupancy of the closed component), the body is the heaviest component, a component below
+one cell of mass whose centroid the body encloses is a cavity; "enclosed" for the bridge
+rule is occupancy by the drawn mesh with a tolerance of one spacing (the surface passes
+through the outer particle layer it was fitted to), and the filament drawn is the shortest
+particle chain (Dijkstra) from the body to the linked piece — the literal rule, not every
+free particle the chain touches, which mattered once the surface stopped hiding the
+expansion-phase spray inside a fat level set. The reconstruction runs in a separate
+interpreter per frame (Open3D 0.19 segfaults now and then across repeated calls); a frame
+whose reconstruction fails twice is a level-set frame and the sidecar says so. The
+marching-cubes path keeps the voxel-label rules of 10.10 so that the v8 numbers remain
+comparable.
