@@ -112,7 +112,8 @@ def test_target_surface_normals_on_a_sphere():
     r = rng.uniform(0, 1, n) ** (1 / 3)
     v = rng.normal(size=(n, 3)); v /= np.linalg.norm(v, axis=1, keepdims=True)
     x = (v * r[:, None]).astype(np.float32)
-    sp = float(np.median(np.sort(np.linalg.norm(x[:, None, :400] - x[None, :400], axis=-1), axis=1)[:, 8]))
+    from scipy.spatial import cKDTree
+    sp = float(np.median(cKDTree(x).query(x, k=9, workers=-1)[0][:, -1]))
     nrm, w = target_surface_normals(x, sp)
     outer = r > 1.0 - sp
     cos = (nrm[outer] * v[outer]).sum(1)

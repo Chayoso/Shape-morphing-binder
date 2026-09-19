@@ -232,8 +232,10 @@ def target_surface_normals(x_np: np.ndarray, spacing: float, k: int = 24, h_sp: 
     (normals (N,3) float32, weights (N,) float32)."""
     import open3d as o3d
     mask, ref = layer_by_asymmetry(x_np, spacing)
+    if mask.sum() <= k + 1:
+        return ref.astype(np.float32), mask.astype(np.float32)
     pts, nrm = oriented_layer(x_np[mask], ref[mask], spacing, k=k, h_sp=h_sp)
-    mesh = poisson_mesh(pts, nrm, spacing, max_dist_sp=0.0)
+    mesh = poisson_mesh(pts, nrm, spacing, max_dist_sp=0.0) if len(pts) > k + 1 else None
     if mesh is None or len(mesh.triangles) == 0:
         return ref.astype(np.float32), mask.astype(np.float32)
     mesh.compute_triangle_normals()
