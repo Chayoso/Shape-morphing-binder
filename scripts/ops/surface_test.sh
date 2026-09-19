@@ -11,7 +11,8 @@ D=$OUT/surf_test/$RUN; mkdir -p $D
 LOG=$D/log.txt; : > $LOG
 declare -A FLAGS=( [mc]="" [pca]="--kernel pca" [poisson]="--surface poisson" [poisson_raw]="--surface poisson --pull 0"
                    [imls]="--surface imls" [surfel]="--surface surfel" [bilateral]="--post bilateral"
-                   [poisson_dl]="--surface poisson --layer density" )
+                   [poisson_dl]="--surface poisson --layer density"
+                   [poisson_c23]="--surface poisson --poisson_cell 0.667" [poisson_c12]="--surface poisson --poisson_cell 0.5" )
 CANDS=${@:-mc pca poisson poisson_raw imls surfel bilateral}
 PLYS=""
 for C in $CANDS; do
