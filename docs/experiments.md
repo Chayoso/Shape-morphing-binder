@@ -2468,6 +2468,23 @@ whole pipeline is verified at 40k.** Verification runs `p40_bunny`, `p40_dragon`
 with the new recipe, to be post-processed end to end (post_run, photoreal Poisson, QA
 sidecars, report page).
 
+**40k pipeline verification, end to end (19:05–21:10; `p40_bunny`, `p40_dragon`, the
+recipe from `hyde06_env.sh`).** Runs: bunny silIoU 0.9628, chamfer 0.1196, det F min
+0.766, 9.6 min; dragon 0.9555, 0.1235, 0.736, 11.4 min — the twins of `g1a_*` (0.9614 /
+0.9594): the run-to-run IoU spread is ±0.4 points, so against the v8 recipe the new one is
++0.05 (bunny) / −0.9 (dragon) with chamfer and det F better on both. Gates G2/G3/G4 PASS
+on both. `post_run.sh`: every output present (surface / splat / particle videos, PBR
+stills, loss, census, scatter, grid fragments); grid fragments ≥ 1 cell 0 frames on both,
+end fragments 0, re-attachments 0, stray census max 0.50 wu (bunny) / 0.39 (dragon).
+`photoreal_batch.sh` (Poisson): bunny 502 frames, drawn pieces > 1 in 0 frames, unbridged
+0, fallback 0, isolated max 17; dragon 656 frames, 0 / 0 / 0, isolated max 59; the
+sub-cell bubbles the mass rule drops: 176 and 636 frames (the shot-noise blobs, not
+pieces; recorded in the sidecar's own column). `build_report150.py` parsed the Poisson
+sidecars (with the `# surface` line) and built the page; fetched with `fetch_page.sh p40`
+and published. The whole chain works at 40k with the new recipe; the 150k gallery can be
+re-run as NEW runs when the user says so (19 targets; the Poisson videos are the slow
+part: 45–100 min per target at 40k, CPU-bound, so lanes).
+
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
 - **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages
