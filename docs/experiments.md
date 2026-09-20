@@ -2459,7 +2459,9 @@ the true mesh at the end frame (high-passed residual `hp_res`, detail correlatio
 the true detail (+0.33 vs +0.28); the relaxation removes noise (residual down, correlation
 flat or up); the relaxation's IoU cost is at the silhouette pixel (chamfer and the
 distance to the true surface unchanged). Per-frame QA of the relaxed runs' Poisson videos:
-bunny 522 frames, drawn pieces > 1 in 0 frames; dragon: running. **User accepted the
+bunny 522 frames, drawn pieces > 1 in 0 frames; dragon 629 frames, 0 frames, 0
+unbridged, no fallback frames (sub-cell Poisson bubbles dropped in 601 frames — the
+sidecar's count of the shot-noise blobs the mass rule removes, not pieces). **User accepted the
 proposal (19:20): recipe = v8 recipe + `--layer_relax --pbr_denoised --layer_ctrl`
 (`hyde06_env.sh`; `RECIPE_V8` kept), Poisson the deliverable surface; 150k only after the
 whole pipeline is verified at 40k.** Verification runs `p40_bunny`, `p40_dragon` launched
