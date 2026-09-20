@@ -74,6 +74,34 @@ def roughness(m, r):
     return float(np.degrees(np.arccos(cos)).mean())
 
 
+def detail_analysis(q, nq, cp, pid, gt_fn, spacing, r_sp=2.0, n_sub=50000, seed=0):
+    """Structure or noise? Two band-limited measures at the 2-spacing scale on a random subset
+    of the recon vertices (the neighbourhoods are taken over ALL vertices):
+      hp_res  RMS of the high-passed signed distance to the true surface (s_i minus its
+              2-spacing neighbourhood mean), in spacings — bumps that FOLLOW the true surface
+              leave it unchanged, bumps that do not raise it
+      dcorr   correlation of the high-passed recon normal field with the high-passed TRUE
+              normal field sampled at the closest points — detail that is the target's is
+              positively correlated, noise is not."""
+    rng = np.random.default_rng(seed)
+    n = len(q)
+    sub = rng.choice(n, min(n_sub, n), replace=False)
+    kd = cKDTree(q)
+    nb = kd.query_ball_point(q[sub], r_sp * spacing, workers=-1)
+    dvec = q - cp
+    s = np.sign((dvec * gt_fn[pid]).sum(1)) * np.linalg.norm(dvec, axis=1)
+    N = gt_fn[pid]
+    hp_s = np.empty(len(sub)); hp_n = np.empty((len(sub), 3)); hp_N = np.empty((len(sub), 3))
+    for k, (i, idx) in enumerate(zip(sub, nb)):
+        idx = np.asarray(idx)
+        hp_s[k] = s[i] - s[idx].mean()
+        hp_n[k] = nq[i] - nq[idx].mean(0)
+        hp_N[k] = N[i] - N[idx].mean(0)
+    hp_res = float(np.sqrt((hp_s ** 2).mean()) / spacing)
+    dcorr = float((hp_n * hp_N).sum() / (np.sqrt((hp_n ** 2).sum() * (hp_N ** 2).sum()) + 1e-30))
+    return hp_res, dcorr
+
+
 def scene_of(m):
     sc = o3d.t.geometry.RaycastingScene()
     sc.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(m))
@@ -158,9 +186,10 @@ def main():
         ang = np.degrees(np.arccos(np.abs(cos)))
         cp2, _ = closest(scene_of(m), gt_samp)
         compl = np.linalg.norm(gt_samp - cp2, axis=1)
+        hp_res, dcorr = detail_analysis(q, nq, cp, pid, gt_fn, spacing)
         print(f"{base} {d.mean() / spacing:6.2f} {(sgn * d).mean() / spacing:6.2f} {np.quantile(d, 0.95) / spacing:6.2f} "
               f"{compl.mean() / spacing:6.2f} {ang.mean():6.2f} {(cos < 0).mean():5.2f} {rough:6.2f} {bump:6.2f} "
-              f"{len(m.triangles):7d} {meta['components']:4d}")
+              f"{len(m.triangles):7d} {meta['components']:4d}   hp_res {hp_res:.3f} sp  dcorr {dcorr:+.3f}")
     if rows_frames:
         print("MORPH FRAME"); print(hdr)
         for r in rows_frames:
