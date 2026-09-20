@@ -340,6 +340,16 @@ to the true surface (1.05 → 1.01) do not move. (4) The recipe's higher residua
 the sampling noise the physics carried to the end; below the target's own floor (0.201)
 nothing can go without G5.
 
+**The run-to-run spread of the IoU comparisons.** The verification runs `p40_bunny` /
+`p40_dragon` are the same configuration as `g1a_*` (the new recipe through
+`hyde06_env.sh`): silIoU 0.9628 vs 0.9614 (bunny), 0.9555 vs 0.9594 (dragon); chamfer
+0.1196 vs 0.1196, 0.1235 vs 0.1235; det F min 0.766 vs 0.758, 0.736 vs 0.778. The IoU
+spread of identical runs is therefore ±0.4 points (CUDA atomics, 2026-09-18 controls
+agreed). Read against it: the relaxation's cost (−0.6 bunny, −1.2 dragon) is 1.5–3× the
+spread; A's recovery (+0.5, +0.75) is 1–2×; the new recipe against the v8 recipe (+0.05
+bunny, −0.9 dragon) is within 2×. Chamfer and det F, which do not move between the
+twins, carry the shape conclusion.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
