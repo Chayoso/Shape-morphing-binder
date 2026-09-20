@@ -285,17 +285,30 @@ recovers is pixel-scale, not sub-pixel — the G5 (sampling) limit stands.
 
 | | silIoU | chamfer | det F min | layer RMS (morph / end) | Poisson rough, mid frame (comps) | end frame vs true mesh: d_abs / n_dev / rough |
 |---|---|---|---|---|---|---|
-| lr64 (recipe) | 0.9642 | 0.1222 | 0.663 | 0.403 / 0.371 | 7.8° | (pending) |
-| lrx (+ relax) | 0.9519 | 0.1237 | 0.705 | 0.279 / 0.261 | 7.2° (7) | (pending) |
-| g1 (+ G1) | 0.9493 | 0.1249 | 0.743 | 0.265 / 0.239 | 7.0° (7) | (pending) |
-| g1a (+ G1 + A) | 0.9594 | 0.1235 | **0.778** | 0.341 / 0.263 | 8.5° (10) | (pending) |
+| lr64 (recipe) | 0.9642 | 0.1222 | 0.663 | 0.403 / 0.371 | 7.8° | 0.40 / 25.1° / 7.89° |
+| lrx (+ relax) | 0.9519 | 0.1237 | 0.705 | 0.279 / 0.261 | 7.2° (7) | 0.39 / 24.6° / 7.82° |
+| g1 (+ G1) | 0.9493 | 0.1249 | 0.743 | 0.265 / 0.239 | 7.0° (7) | 0.39 / 24.8° / 7.46° |
+| g1a (+ G1 + A) | 0.9594 | 0.1235 | **0.778** | 0.341 / 0.263 | 8.5° (10) | 0.40 / 24.9° / 8.59° |
 | target cloud itself | | | | 0.325 | 7.8° | 0.27 / 19.9° / 7.8° |
 
-Same pattern as the bunny: the relaxation costs 1.2 IoU points, A gives 0.75 of them
-back (0.9519 → 0.9594, against 0.9642), the compression floor rises monotonically
-(0.66 → 0.78), the mid-frame Poisson roughness rises with A (7.2 → 8.5°) as the channel
-pulls target structure in (the dragon's scales are at 2 spacings, exactly the scale the
-measure reads).
+Same pattern as the bunny on the global metrics: the relaxation costs 1.2 IoU points, A
+gives 0.75 of them back (0.9519 → 0.9594, against 0.9642), the compression floor rises
+monotonically (0.66 → 0.78). On the surface itself the dragon is less kind to A than the
+bunny was: the end frame's normal error against the true mesh is the same for all four
+arms (24.6–25.1°, the mesh-scale morph error dominating), so the +1.1° of Poisson
+roughness A adds (7.5 → 8.6°) is not shown to be structure here — the dragon's scales sit
+at the render blur and the channel's pull at the pixel cannot resolve them; what it pulls
+is the pixel-scale outline. Honest summary across both targets: A buys shape fidelity
+(IoU, chamfer, det F) at a small roughness cost over the relaxation alone; the relaxation
+buys smoothness at an IoU cost; neither reaches below the render pixel, which is the
+sampling limit (G5).
+
+**Decision proposed to the user (19:10):** recipe += `--layer_relax --pbr_denoised
+--layer_ctrl` (smooth particle surface, shape within 0.3–0.5 IoU points of the old recipe,
+the best chamfer and compression floor), Poisson as the deliverable surface; for the
+smoothest possible surface at a 1-point IoU cost, `--layer_relax` alone. The 150k gallery
+then needs NEW runs (the projection and the channel are forward-model changes), not a
+re-render.
 
 ## 5. Sources
 
