@@ -308,7 +308,37 @@ sampling limit (G5).
 the best chamfer and compression floor), Poisson as the deliverable surface; for the
 smoothest possible surface at a 1-point IoU cost, `--layer_relax` alone. The 150k gallery
 then needs NEW runs (the projection and the channel are forward-model changes), not a
-re-render.
+re-render. Accepted (19:20), with two conditions: the whole pipeline is verified at 40k
+before any 150k run, and the ambiguous readings are resolved.
+
+**The ambiguity resolved: is A's extra roughness structure or noise?** The mean normal
+error was the wrong instrument (dominated by the mesh-scale morph error, equal across
+arms). Two band-limited measures at the two-spacing scale (`surface_gt.py --gt_all`,
+`detail_analysis`): `hp_res` = RMS of the high-passed signed distance of the end frame's
+Poisson surface to the true surface (bumps that FOLLOW the true surface leave it
+unchanged; bumps that do not raise it); `dcorr` = correlation of the high-passed recon
+normal field with the high-passed true normal field at the closest points (the target's
+own detail is positively correlated, noise is not).
+
+| end frame | bunny hp_res (sp) / dcorr | dragon hp_res / dcorr |
+|---|---|---|
+| recipe (lr64) | 0.236 / +0.28 | 0.203 / +0.28 |
+| + relax (lrx) | 0.201 / +0.27 | 0.199 / +0.32 |
+| + G1 (g1) | 0.199 / +0.27 | 0.197 / +0.32 |
+| + G1 + A (g1a) | **0.185** / +0.26 | **0.195** / **+0.33** |
+| target cloud's Poisson (the floor) | 0.201 / +0.37 | 0.181 / +0.44 |
+
+Verdict: (1) A's bumps are STRUCTURE — g1a has the lowest residual to the true surface on
+both targets (its Poisson roughness is higher AND its residual is lower, which only a
+surface that follows the truth can do); on the dragon it is also the most correlated
+with the true detail (+0.33 against +0.28 for the recipe), on the bunny the correlation
+is flat within 0.02 (the bunny has little true detail at two spacings: 10.6° against the
+dragon's 21.7°). (2) The relaxation removes NOISE, not detail: hp_res 0.236 → 0.201 with
+dcorr unchanged (bunny) or up (dragon). (3) The relaxation's IoU cost is at the
+silhouette pixel, not in the shape: chamfer (0.1204 → 0.1206) and the end frame's distance
+to the true surface (1.05 → 1.01) do not move. (4) The recipe's higher residual (0.236) is
+the sampling noise the physics carried to the end; below the target's own floor (0.201)
+nothing can go without G5.
 
 ## 5. Sources
 

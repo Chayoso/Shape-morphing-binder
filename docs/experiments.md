@@ -2440,6 +2440,32 @@ neighbours share) and the Poisson surface for the deliverable (it reads the laye
 against 13° for the level set, with the horns and ears intact). Videos of the relaxed runs
 (Poisson and marching cubes) for the per-frame QA: see the next entry.
 
+### 2026-09-19 — G1 + the position-mode control channel; the recipe changes (19:40–20:00; docs/surface_gradient.md §7)
+
+User: how can the render gradient reach below the cell? Answer: the actuator and the
+reference, not the signal. Implemented G1 (`--pbr_denoised`: the shading reference from the
+target's Poisson-surface normals; the morph's normals on the render-pixel grid with the
+renderer's blur) and A (`--layer_ctrl`: a per-window normal displacement leaf on the outer
+layer, 1/T per step, a second Adam leaf clipped at one spacing, its adjoint bypassing the
+grid). 40k bunny / dragon, four arms (recipe, + relax, + relax + G1, + relax + G1 + A):
+silIoU 0.962 / 0.957 / 0.957 / 0.961 and 0.964 / 0.952 / 0.949 / 0.959; chamfer best with
+A (0.1196, 0.1235); det F min monotone 0.68 → 0.76, 0.66 → 0.78; outer-layer RMS 0.44 /
+0.29 / 0.29 / 0.36 and 0.40 / 0.28 / 0.27 / 0.34. G1 alone: no change (the actuator is
+the same). A: three quarters of the relaxation's IoU cost back, the best shape metrics, a
+little more roughness. Structure or noise, resolved with two band-limited measures against
+the true mesh at the end frame (high-passed residual `hp_res`, detail correlation
+`dcorr`): A's bumps follow the true surface (lowest residual on both targets, 0.185 /
+0.195 spacings against the recipe's 0.236 / 0.203) and on the dragon correlate best with
+the true detail (+0.33 vs +0.28); the relaxation removes noise (residual down, correlation
+flat or up); the relaxation's IoU cost is at the silhouette pixel (chamfer and the
+distance to the true surface unchanged). Per-frame QA of the relaxed runs' Poisson videos:
+bunny 522 frames, drawn pieces > 1 in 0 frames; dragon: running. **User accepted the
+proposal (19:20): recipe = v8 recipe + `--layer_relax --pbr_denoised --layer_ctrl`
+(`hyde06_env.sh`; `RECIPE_V8` kept), Poisson the deliverable surface; 150k only after the
+whole pipeline is verified at 40k.** Verification runs `p40_bunny`, `p40_dragon` launched
+with the new recipe, to be post-processed end to end (post_run, photoreal Poisson, QA
+sidecars, report page).
+
 ### 2026-09-18 — SUMMARY (read this first; the ladder below is the working record)
 
 - **Delivered:** 150k gallery v7 (10 + 9 targets) with the five goals answered — pages
