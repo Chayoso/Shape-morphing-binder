@@ -395,7 +395,32 @@ actuator that lets it reach the surface, which is why the projection below is ne
 is replaced by W·step, W the relaxation's own normalised same-side neighbour weights
 (h = 2 spacings): a search-direction transform, the balancer and the physics untouched.
 Runs `ps40_bunny`, `ps40_dragon` (the recipe + the projection) against `p40_*`; the
-8-window dump `gs40smooth_bunny` for the stage analysis. Results: next entry.
+8-window dump `gs40smooth_bunny` for the stage analysis.
+
+Results (10:30). On the channel it does what it was designed to do: the accepted u goes
+from RMS 0.585 to 0.397 spacings, from 19 % to 8.5 % of the layer at the clip, from a
+2-spacing correlation of 0.31 to 0.71; through u alone the render channels no longer
+roughen the layer (window-end RMS 0.436 = the u = 0 base, against +0.04 before; shading
+even −0.006). The u-gradients themselves are unchanged (the projection acts on the step).
+The 8-window silhouette IoU falls 0.911 → 0.902: with the clip no longer saturated the
+expansion-phase transport through u is slower.
+
+| full 40k runs | silIoU | chamfer | det F min | layer RMS morph / end | Poisson rough mid | end frame hp_res / dcorr |
+|---|---|---|---|---|---|---|
+| bunny, recipe (`p40`) | 0.9628 | 0.1196 | 0.766 | 0.355 / 0.276 | 6.2° | 0.177 / +0.28 |
+| bunny, + projection (`ps40`) | 0.9585 | 0.1205 | 0.767 | **0.330** / 0.265 | 6.2° | 0.199 / +0.24 |
+| dragon, recipe | 0.9555 | 0.1235 | 0.736 | 0.338 / 0.265 | 8.5° | 0.200 / +0.32 |
+| dragon, + projection | 0.9534 | 0.1239 | 0.756 | **0.308** / 0.288 | **7.8°** | 0.197 / +0.31 |
+
+Verdict: FALSIFIED as an addition to the recipe. The morph-mean layer RMS drops 7–9 % and
+the dragon's mid-frame Poisson roughness 8.5 → 7.8°, but the bunny's end frame loses
+detail against the true mesh (high-passed residual 0.177 → 0.199, detail correlation
++0.28 → +0.24, about two twin-spreads), the IoU and chamfer move by the spread, and the
+early morph is slower. The reason is structural: the relaxation IS this same W applied to
+the state one step later, so projecting the step as well is redundant — it takes the
+channel's 2-spacing structure away together with its noise, while the relaxation alone
+takes only what the neighbours do not share. `--layer_ctrl_smooth` stays available; it
+is not in `RECIPE`.
 
 **The run-to-run spread of the IoU comparisons.** The verification runs `p40_bunny` /
 `p40_dragon` are the same configuration as `g1a_*` (the new recipe through

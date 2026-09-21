@@ -3567,3 +3567,19 @@ correlation-vs-scale curves of every path, the single-channel responses of a win
 (stage 3), the per-window λ / g_share / layer-RMS traces and the response bars, and the
 accepted u field with its histogram (the one-spacing clip visible as the two spikes).
 Published as an artifact page; the figures live in `output/gradviz` on hyde06.
+
+**Was the covector always half noise?** Yes: rough share at two spacings, silhouette /
+shading, 8-window means — v8 recipe 0.65 / 0.67, + relaxation 0.52 / 0.56, new recipe
+0.53 / 0.55. Sources: the target images' shot noise and the CIC rasteriser's per-particle
+kernel derivative (recipe-independent); hidden before by the stress path's grid low-pass.
+
+**The projection test (`--layer_ctrl_smooth`: the u step through the relaxation's W).**
+`ps40_bunny` / `ps40_dragon` vs `p40_*`, plus the 8-window dump: the accepted u becomes
+smooth (corr at 2 sp 0.31 → 0.71, at the clip 19 → 8.5 %), the render channels through u
+stop roughening the layer, the morph-mean layer RMS drops 0.355 → 0.330 (bunny), 0.338 →
+0.308 (dragon), the dragon's mid-frame Poisson roughness 8.5 → 7.8°; but the bunny's end
+frame loses detail against the true mesh (hp_res 0.177 → 0.199, dcorr +0.28 → +0.24), IoU
+−0.4 / −0.2 (the spread), the early morph is slower (8-window IoU 0.911 → 0.902).
+FALSIFIED as a recipe addition — the relaxation already applies the same W to the state;
+projecting the step too removes the channel's structure with its noise. Flag kept, not in
+the recipe.
