@@ -531,8 +531,42 @@ video pieces: stage C2, below.
 chamfer 0.1196 → 0.1191, det F 0.766 → 0.736; dragon 0.9555 → 0.9582, 0.1235 → 0.1229,
 0.736 → 0.762 — at the spread's edge, in the good direction. **The combination
 (`gq_*` = G5 + quad):** bunny 0.9658 / 0.1165 / 0.766, dragon 0.9649 / 0.1187 / 0.752 (10
-min each: the combination reaches its stop fastest). Layer RMS, stills and the true-mesh
-columns for both: next.
+min each: the combination reaches its stop fastest).
+
+**Quad and the combination on the surface (12:00):**
+
+| | layer RMS morph / end | Poisson rough mid | end frame vs the true mesh: d_abs / d_95 / n_dev / rough / hp_res / dcorr | frames to the stop |
+|---|---|---|---|---|
+| bunny recipe (`p40`) | 0.355 / 0.276 | 6.2° | 0.99 / 6.13 / 21.8° / 6.42 / 0.177 / +0.28 | 1504 |
+| bunny + quad (`k40`) | 0.374 / 0.341 | 6.3° | 0.99 / 6.12 / 21.7° / 6.45 / **0.212** / +0.28 | 1542 |
+| bunny + G5 (`g5`) | 0.267 / 0.295 | 5.4° | 0.43 / 1.12 / 17.6° / 5.42 / 0.159 / +0.36 | 1143 |
+| bunny + G5 + quad (`gq`) | 0.269 / 0.252 | 5.8° | 0.66 / **4.22** / 18.8° / 5.60 / **0.258** / +0.32 | 882 |
+| dragon recipe | 0.338 / 0.265 | 8.5° | 0.40 / 1.25 / 25.1° / 8.00 / 0.200 / +0.32 | 1965 |
+| dragon + quad | 0.340 / 0.256 | 8.1° | 0.40 / 1.21 / 24.5° / 7.84 / 0.194 / +0.32 | 1746 |
+| dragon + G5 | 0.293 / 0.249 | 8.1° | 0.36 / 1.10 / 23.6° / 8.12 / 0.185 / +0.34 | 1122 |
+| dragon + G5 + quad | 0.307 / 0.241 | 8.0° | 0.36 / 1.13 / 23.8° / 8.17 / 0.194 / +0.34 | 921 |
+
+Verdict on the quad splat: FALSIFIED as a recipe addition. It does what it was built to do
+to the gradient (stage A: the silhouette covector's rough share 0.53 → 0.33) and the
+shape metrics move a spread in the good direction, but the surface it produces is not
+better: the bunny's end frame is ROUGHER in the band against the true mesh (hp_res 0.177 →
+0.212, 3.5 spreads) with a higher outer-layer RMS (0.355 → 0.374, end 0.276 → 0.341); the
+dragon is within the spread. On top of G5 it is worse still — the bunny stops early (882
+frames) with an unfinished base (d_95 1.12 → 4.22) and hp_res 0.159 → 0.258. The
+mechanism, as far as the numbers show it: the CIC kernel's sign-flipping per-particle
+pulls cancel inside a cell and across the relaxation, so they cost nothing on the surface;
+the quad kernel's coherent pull drives the u channel harder at the pixel scale (its
+u-gradient correlation at two spacings 0.46 → 0.61, u at the clip 21 %) and the layer
+sits farther from its relaxed state, while the smoother, smaller silhouette gradient
+(norm −⅓, the balancer restores the share) yields smaller window gains and an earlier
+three-reject stop. A smoother covector was not what the surface needed. `--sil_kernel
+quad` stays available; not in the recipe.
+
+**Decision (12:05).** RECIPE += `--sampler stratified` (G5). The v8 recipe with the outer-
+layer relaxation, the denoised shading reference, the position channel and stratified
+sampling of source and target; the deliverable surface Poisson. The quad splat and the
+smooth-subspace projection are recorded as falsified additions; the thin-feature targets
+pass every QA column and gain IoU under the recipe (their Poisson video pieces: stage C2).
 
 ## 5. Sources
 

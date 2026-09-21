@@ -11,5 +11,6 @@ export OMP_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 MKL_NUM_THREADS=8
 # denoised shading reference and the position-mode control channel; the deliverable surface is Poisson
 # (photoreal_batch.sh SURFACE). RECIPE_V8 is the v8 gallery's recipe for comparison runs.
 export RECIPE_V8="--cell_diag 26 --phys_loss auto --loss_units density --warm_start --w_kin 5 --w_kin_var 200 --animations 300 --loss_res 64 --pace 0 --anneal 0.7 --mom_carry 0 --nn_far_k 1000 --bonds --domain auto"
-export RECIPE="$RECIPE_V8 --layer_relax --pbr_denoised --layer_ctrl"
+# 2026-09-21 (§8): + stratified sampling of source and target (G5); the quad splat and the u-step projection falsified
+export RECIPE="$RECIPE_V8 --layer_relax --pbr_denoised --layer_ctrl --sampler stratified"
 cd $REPO
