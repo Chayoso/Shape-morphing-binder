@@ -442,3 +442,30 @@ def k_volume(x: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
         vol[p] = m[p] / rho
     else:
         vol[p] = 0.0
+
+
+# ── P3: the u channel THROUGH THE DEFORMATION GRADIENT (docs/final_plan.md 2) ────────
+# The step's u displacement delta_p = frac_u u_p n_p is a displacement field on the outer
+# layer. Its gradient over the frozen same-side neighbourhood,
+#   G = sum_a (delta_a - delta_p) (x) g_a       (tangential, least squares; g from
+#                                                 surface_recon.layer_grad_weights)
+#     + delta_p (x) n_p / depth                  (normal: the layer below did not move),
+# and F <- (I + G) F, so a rough u is a strain the stress resists in the following steps
+# and the adjoint reaches u through F. The relaxation projection stays outside F (it is a
+# constraint, like contact). k_update writes Fu[t+1]; this kernel writes F[t+1].
+@wp.kernel
+def k_layer_F(u: wp.array(dtype=float), mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
+              nbr: wp.array(dtype=int), g: wp.array(dtype=wp.vec3), K: int,
+              frac_u: float, inv_depth: float,
+              F_in: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33)):
+    p = wp.tid()
+    if mask[p] < 0.5:
+        F_out[p] = F_in[p]
+        return
+    dp = (frac_u * u[p]) * nrm[p]
+    G = wp.outer(dp, nrm[p]) * inv_depth
+    for a in range(K):
+        q = nbr[p * K + a]
+        dq = (frac_u * u[q]) * nrm[q]
+        G = G + wp.outer(dq - dp, g[p * K + a])
+    F_out[p] = (wp.identity(n=3, dtype=float) + G) * F_in[p]

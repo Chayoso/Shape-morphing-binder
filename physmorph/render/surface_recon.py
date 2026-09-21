@@ -453,3 +453,31 @@ def bilateral_normal_smooth(mesh, iters: int = 5, sigma_s: float | None = None, 
     m = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v), o3d.utility.Vector3iVector(f.astype(np.int32)))
     m.compute_vertex_normals()
     return m
+
+
+def layer_grad_weights(x0: np.ndarray, mask: np.ndarray, nrm: np.ndarray, nbr: np.ndarray, w: np.ndarray,
+                       spacing: float) -> np.ndarray:
+    """P3 (docs/final_plan.md 2; kernels.k_layer_F): per layer particle the least-squares weights
+    g (N,K,3) of the TANGENTIAL gradient over its frozen same-side neighbourhood, so that for a
+    field d given on the layer, grad_t d(p) = sum_a (d_a - d_p) (x) g_a: r_a = x_a - x_p projected
+    onto the tangent plane, M = sum_a w_a r_a r_a^T plus the normal ridge s n n^T that makes M
+    invertible (s = the tangential scale trace(M)/2; the tangential block is the 2-D inverse), and
+    g_a = w_a M^{-1} r_a. The normal derivative is not observable on a one-particle-thick sheet;
+    k_layer_F takes it as d_p / depth with depth = one spacing (the layer thickness under the
+    asymmetry rule). Rows off the layer are zero."""
+    N, K = nbr.shape
+    g = np.zeros((N, K, 3), np.float32)
+    idx = np.where(mask > 0.5)[0]
+    if len(idx) == 0:
+        return g
+    P = np.asarray(x0, np.float64)
+    n = np.asarray(nrm, np.float64)[idx]
+    r = P[nbr[idx]] - P[idx][:, None, :]                                   # (M,K,3)
+    r = r - (r * n[:, None, :]).sum(-1, keepdims=True) * n[:, None, :]     # tangential part
+    ww = np.asarray(w, np.float64)[idx]
+    M = np.einsum("mk,mki,mkj->mij", ww, r, r)
+    s = np.trace(M, axis1=1, axis2=2) / 2.0 + 1e-30
+    ridge = s[:, None, None] * (np.einsum("mi,mj->mij", n, n) + 1e-6 * np.eye(3)[None])
+    Minv = np.linalg.inv(M + ridge)
+    g[idx] = (ww[:, :, None] * np.einsum("mij,mkj->mki", Minv, r)).astype(np.float32)
+    return g

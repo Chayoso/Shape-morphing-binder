@@ -193,8 +193,13 @@ class Trajectory:
         # §6): layer = (mask (N,), nrm (N,3), nbr (N,K), w (N,K), frac) frozen for this rollout.
         # k_update writes the advected positions into xu[t+1]; the projection writes x[t+1].
         self.layer = None
+        self.layer_F = False
         if layer is not None:
-            lmask, lnrm, lnbr, lw, lfrac = layer
+            lmask, lnrm, lnbr, lw, lfrac = layer[:5]
+            # P3 (kernels.k_layer_F; docs/final_plan.md 2): optional (g (N,K,3), depth) — the u channel
+            # through F: k_update writes Fu[t+1], k_layer_F writes F[t+1] = (I + grad delta) Fu[t+1]
+            lg = layer[5] if len(layer) > 5 else None
+            ldepth = float(layer[6]) if len(layer) > 6 else 0.0
             self.layer_K = int(np.asarray(lnbr).shape[1])
             self.layer_mask = A(np.ascontiguousarray(lmask, np.float32), wp.float32)
             self.layer_nrm = wp.array(np.ascontiguousarray(lnrm, np.float32), dtype=wp.vec3, device=device)
@@ -208,6 +213,11 @@ class Trajectory:
             self.layer_u = layer_u if layer_u is not None else wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg)
             self.layer_frac_u = 1.0 / float(T)
             self.layer = True
+            if lg is not None:
+                self.layer_F = True
+                self.layer_g = wp.array(np.ascontiguousarray(lg, np.float32).reshape(-1, 3), dtype=wp.vec3, device=device)
+                self.layer_inv_depth = 1.0 / float(ldepth)
+                self.Fu = [ID(rg) for t in range(T + 1)]
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
             self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
@@ -276,8 +286,9 @@ class Trajectory:
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                   prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
         x_next = self.xu[t + 1] if self.layer else self.x[t + 1]
+        F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
-                  self.Fraw[t + 1], self.F[t + 1], prm.dt, prm.smoothing,
+                  self.Fraw[t + 1], F_next, prm.dt, prm.smoothing,
                   bnb, brest, bnc, bK, 1.0 / float(self.T)], device=dev)
         if self.layer:
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
@@ -285,6 +296,10 @@ class Trajectory:
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ld[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac,
                       self.layer_u, self.layer_frac_u, self.x[t + 1]], device=dev)
+            if self.layer_F:
+                wp.launch(K.k_layer_F, dim=N, inputs=[self.layer_u, self.layer_mask, self.layer_nrm,
+                          self.layer_nbr, self.layer_g, self.layer_K, self.layer_frac_u, self.layer_inv_depth,
+                          self.Fu[t + 1], self.F[t + 1]], device=dev)
         if self.track_geom:
             wp.launch(K.k_geom_update, dim=N, inputs=[self.C[t + 1], self.Fg[t], self.Fg[t + 1],
                       prm.dt], device=dev)

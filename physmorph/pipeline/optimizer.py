@@ -276,6 +276,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             W_apply = None
         lfrac = (cfg.layer_frac if cfg.layer_frac > 0 else 1.0 / float(T)) if cfg.layer_relax else 0.0
         layer = (lmask, lnrm, lnbr, lw, float(lfrac))
+        if cfg.layer_ctrl and cfg.layer_F:
+            # P3 (docs/final_plan.md 2): the u channel through F — the least-squares tangential gradient
+            # weights of the frozen layer neighbourhood, and the layer depth (one spacing)
+            from ..render.surface_recon import layer_grad_weights
+            layer = layer + (layer_grad_weights(x0, lmask, lnrm, lnbr, lw, sp0), float(sp0))
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
                        bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer)

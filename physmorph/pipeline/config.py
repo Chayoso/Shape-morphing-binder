@@ -451,6 +451,9 @@ class PipelineConfig:
                                     #   grid blurred by 1.5 spacings (the renderer's density)
     layer_k: int = 24               #   same-side layer neighbours of the plane fit
     layer_h_sp: float = 2.0         #   Gaussian weight width in spacings (the layer's thickness)
+    layer_F: bool = False           # P3 (docs/final_plan.md 2; kernels.k_layer_F): the u channel THROUGH the
+                                    #   deformation gradient: F <- (I + grad delta) F on the layer each step, so a
+                                    #   rough u is a strain the stress resists and the adjoint reaches u through F
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
                                     #   channel (physics / silhouette / shading), their control
                                     #   (leaf) gradients and the linear-response rollouts of each
