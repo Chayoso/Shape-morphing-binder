@@ -164,12 +164,12 @@ def main():
     for j, c in enumerate(["phys", "sil", "pbr"]):
         dx = z["xT_" + c].astype(np.float32) - xb
         dn = (dx[mb] * nb_[mb]).sum(1) / sp
-        scatter_layer(axes[0, j], xb, mb, dn, f"{c} through the STRESS control: normal displacement of the layer (spacings)\nmean |dx| layer {np.linalg.norm(dx[mb], axis=1).mean()/sp:.2f} sp, interior {np.linalg.norm(dx[~mb], axis=1).mean()/sp:.2f} sp")
+        scatter_layer(axes[0, j], xb, mb, dn, f"{c} via the STRESS control: layer normal displacement (sp)\nmean |dx|: layer {np.linalg.norm(dx[mb], axis=1).mean()/sp:.2f}, interior {np.linalg.norm(dx[~mb], axis=1).mean()/sp:.2f}")
         if has_u and ("xT_" + c + "_u") in z.files:
             xb0 = z["xT_base_u0"].astype(np.float32); mb0, nb0 = layer_by_asymmetry(xb0, sp)
             dxu = z["xT_" + c + "_u"].astype(np.float32) - xb0
             dnu = (dxu[mb0] * nb0[mb0]).sum(1) / sp
-            scatter_layer(axes[1, j], xb0, mb0, dnu, f"{c} through the u CHANNEL: normal displacement of the layer (spacings)\nmean |dx| layer {np.linalg.norm(dxu[mb0], axis=1).mean()/sp:.2f} sp, interior {np.linalg.norm(dxu[~mb0], axis=1).mean()/sp:.3f} sp")
+            scatter_layer(axes[1, j], xb0, mb0, dnu, f"{c} via the u CHANNEL: layer normal displacement (sp)\nmean |dx|: layer {np.linalg.norm(dxu[mb0], axis=1).mean()/sp:.2f}, interior {np.linalg.norm(dxu[~mb0], axis=1).mean()/sp:.3f}")
         else:
             axes[1, j].axis("off")
     fig.suptitle(f"Stage 3 — what one window does when it follows ONE channel (same control norm as the accepted step) — {name0}, window {win}", fontsize=11)
