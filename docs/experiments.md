@@ -3616,3 +3616,28 @@ a particle chain the isosurface does not enclose, so unbridged 0), Poisson fallb
 pieces > 1 in 804 frames, all sub-cell or body-enclosed (isolated particles peak 401 at
 frame 177, the spray episode, then 5 by frame 735). All three thin-feature targets pass
 the video QA under the recipe.
+
+### 2026-09-21 — the render × u factorial under the current recipe (docs/surface_gradient.md §10)
+
+User (13:30): "does the current evidence show rendering meaningfully affects the physics?"
+then "prove everything unproven, then organise the last implementation". Pre-registered
+§10; `scripts/ops/factorial40.sh 0 2`: 40k, seed 1, stratified, bunny / dragon / bob × six
+runs (`fx_11` recipe, `fx_11c` identical re-run, `fx_01` λ = 0, `fx_10` no u, `fx_00`
+neither, `fx_cut` render off at window 20 / 20 / 8); 18 runs in 70 min, readings in
+`output/fx_analysis.log`, figures `output/fx_figs`.
+
+Spread (`fx_11` vs `fx_11c`): silIoU 0.23 / 0.53 / 0.08 points, hp_res ≤ 0.012, dcorr ≤ 0.03.
+**H-A confirmed 3/3 (silhouette):** render channel +1.8–2.0 / +1.0–1.5 / +0.6–0.7 points;
+chamfer within the spread; the cut twin loses the whole gain (dragon, bob) or half (bunny).
+**H-B partly:** g_share 0.39–0.40 (windows 1–20) / 0.35–0.38, cosine 0.01–0.03 (bob 0.11–
+0.15) — deterministic; D_vol at the end lower only on bunny (0.0036 vs 0.0041); det F less
+compressed on dragon (0.77 vs 0.715) and bob. **H-C:** the outline gain needs no u (`fx_10`
+− `fx_00` = +1.6 / +1.6 / +0.9); the physics path carries detail down to the cell on the
+dragon (dcorr +0.28 → +0.35 with u off). **H-D falsified:** the cut twin's divergence equals
+the identical re-run's (0.40 vs 0.41, 0.76 vs 0.63, 0.43 vs 0.44 spacings after K; 0.002
+before) — chaos, as at 150k. **u channel:** +0.4–1.4 IoU points with render, +0.7–1.0
+without; the main roughness source (layer RMS 0.19–0.22 → 0.25–0.33 morph mean; bob end 0.44
+with u driven by the physics gradient alone); necessary on bunny (d_95 5.4 → 1.4 spacings
+without / with u), neutral on dragon, harmful on bob (n_dev 5.6 → 7.0°, dcorr +0.32 →
++0.26). Mechanism: the u projection never updates F, so a rough u costs no strain energy.
+Page: artifact "Render × u 요인 실험". Plan for the last implementation: `docs/final_plan.md`.

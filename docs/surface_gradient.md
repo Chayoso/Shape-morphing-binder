@@ -674,6 +674,120 @@ only if the u-dependent part of H-C is beyond the spread — otherwise the hones
 is "render controls the outline through the physics at the cell scale; the sub-cell surface
 is the kinematic channel plus the Poisson surface".
 
+**Readings (15:10; 18 runs, 70 minutes on two GPUs; `output/fx_analysis.log`, figures
+`output/fx_figs`).** Spread from `fx_11` vs `fx_11c`: silIoU 0.23 (bunny) / 0.53 (dragon) /
+0.08 (bob) points, chamfer ≤ 0.0005, hp_res ≤ 0.012, dcorr ≤ 0.03, n_dev ≤ 0.2°.
+
+| run | windows | silIoU | chamfer | det F min | D_vol end | g_share 1–20 / all | cos |
+|---|---|---|---|---|---|---|---|
+| bunny `fx_11` | 67 | 0.9665 | 0.1165 | 0.761 | 0.0036 | 0.398 / 0.362 | 0.015 |
+| bunny `fx_11c` | 57 | 0.9688 | 0.1163 | 0.766 | 0.0036 | 0.400 / 0.368 | 0.013 |
+| bunny `fx_01` (λ = 0) | 75 | 0.9490 | 0.1167 | 0.765 | 0.0041 | — | — |
+| bunny `fx_10` (no u) | 64 | 0.9552 | 0.1167 | 0.753 | 0.0036 | 0.432 / 0.376 | 0.027 |
+| bunny `fx_00` | 66 | 0.9396 | 0.1171 | 0.740 | 0.0042 | — | — |
+| bunny `fx_cut` (off at 20) | 51 | 0.9571 | 0.1165 | 0.760 | 0.0040 | 0.405 (19 windows) | 0.031 |
+| dragon `fx_11` | 86 | 0.9576 | 0.1188 | 0.771 | 0.0064 | 0.394 / 0.351 | 0.014 |
+| dragon `fx_11c` | 59 | 0.9629 | 0.1193 | 0.784 | 0.0067 | 0.396 / 0.359 | 0.023 |
+| dragon `fx_01` | 93 | 0.9481 | 0.1194 | 0.715 | 0.0067 | — | — |
+| dragon `fx_10` | 81 | 0.9541 | 0.1187 | 0.740 | 0.0058 | 0.416 / 0.362 | 0.025 |
+| dragon `fx_00` | 89 | 0.9379 | 0.1196 | 0.738 | 0.0065 | — | — |
+| dragon `fx_cut` | 85 | 0.9488 | 0.1189 | 0.771 | 0.0065 | 0.400 | 0.043 |
+| bob `fx_11` | 44 | 0.9786 | 0.1144 | 0.856 | 0.0031 | 0.401 / 0.372 | 0.115 |
+| bob `fx_11c` | 48 | 0.9794 | 0.1146 | 0.852 | 0.0032 | 0.392 / 0.368 | 0.145 |
+| bob `fx_01` | 54 | 0.9727 | 0.1148 | 0.839 | 0.0032 | — | — |
+| bob `fx_10` | 43 | 0.9748 | 0.1141 | 0.857 | 0.0029 | 0.400 / 0.382 | 0.107 |
+| bob `fx_00` | 43 | 0.9661 | 0.1138 | 0.823 | 0.0031 | — | — |
+| bob `fx_cut` (off at 8) | 37 | 0.9726 | 0.1149 | 0.849 | 0.0033 | 0.462 | 0.083 |
+
+| run | layer RMS morph / end (target floor) | end frame vs the true mesh: d_abs / d_95 / n_dev / hp_res / dcorr |
+|---|---|---|
+| bunny target (Poisson) | 0.294 | 0.26 / 0.65 / 14.5° / 0.183 / +0.391 |
+| bunny `fx_11` | 0.272 / 0.317 | 0.45 / 1.36 / 17.8° / 0.158 / +0.385 |
+| bunny `fx_11c` | 0.273 / 0.276 | 0.46 / 1.38 / 17.8° / 0.159 / +0.363 |
+| bunny `fx_01` | 0.253 / 0.240 | 0.50 / 1.82 / 19.0° / 0.174 / +0.272 |
+| bunny `fx_10` | 0.199 / 0.179 | 0.77 / **5.39** / 20.2° / 0.295 / +0.285 |
+| bunny `fx_00` | 0.192 / 0.175 | 0.80 / **5.37** / 20.9° / 0.274 / +0.234 |
+| bunny `fx_cut` | 0.271 / 0.225 | 0.48 / 1.48 / 18.1° / 0.167 / +0.353 |
+| dragon target | 0.310 | 0.24 / 0.74 / 19.7° / 0.174 / +0.475 |
+| dragon `fx_11` | 0.280 / 0.198 | 0.40 / 1.30 / 24.8° / 0.205 / +0.312 |
+| dragon `fx_11c` | 0.301 / 0.241 | 0.41 / 1.29 / 24.8° / 0.193 / +0.302 |
+| dragon `fx_01` | 0.286 / 0.222 | 0.41 / 1.28 / 24.6° / 0.205 / +0.312 |
+| dragon `fx_10` | 0.218 / 0.192 | 0.35 / 1.10 / 23.6° / 0.193 / +0.353 |
+| dragon `fx_00` | 0.206 / 0.184 | 0.40 / 1.25 / 24.9° / 0.204 / +0.279 |
+| dragon `fx_cut` | 0.274 / 0.222 | 0.41 / 1.32 / 24.7° / 0.204 / +0.297 |
+| bob target | 0.243 | 0.10 / 0.25 / 4.7° / 0.034 / +0.345 |
+| bob `fx_11` | 0.269 / 0.166 | 0.16 / 0.38 / 6.95° / 0.053 / +0.257 |
+| bob `fx_11c` | 0.265 / 0.177 | 0.15 / 0.37 / 6.75° / 0.052 / +0.282 |
+| bob `fx_01` | 0.332 / **0.439** | 0.17 / 0.39 / 6.79° / 0.053 / +0.255 |
+| bob `fx_10` | 0.197 / 0.124 | 0.12 / 0.32 / 5.58° / 0.040 / +0.322 |
+| bob `fx_00` | 0.188 / 0.134 | 0.15 / 0.37 / 5.67° / 0.040 / +0.330 |
+| bob `fx_cut` | 0.290 / 0.195 | 0.17 / 0.41 / 6.90° / 0.052 / +0.258 |
+
+QA: grid fragments ≥ 1 cell 0 frames, end fragments 0, re-attachments 0 on all 18 runs;
+stray census beyond 0.25 wu at the end 0–51 particles (≤ 0.13 %), none beyond 1 wu.
+Divergence from `fx_11` (mean over particles, spacings; before K / after K / end): bunny cut
+0.002 / 0.404 / 0.612 against the identical re-run 0.002 / 0.408 / 0.614, physics-only 1.10
+at the end; dragon cut 0.002 / 0.757 / 1.029 against 0.002 / 0.634 / 0.945, physics-only
+1.85; bob cut 0.000 / 0.426 / 0.691 against 0.000 / 0.437 / 0.696, physics-only 1.25.
+
+**Verdicts.**
+
+- **H-A CONFIRMED on 3/3 for the silhouette, not for chamfer:** the channel is worth +1.8 /
+  +2.0 (bunny, 8 spreads), +1.0 / +1.5 (dragon, 2–3 spreads), +0.6 / +0.7 (bob, 8 spreads)
+  silIoU points; chamfer moves by less than the spread everywhere. Switching the channel
+  off at a third of the run loses the whole gain on dragon and bob and half of it on bunny:
+  the channel acts through the whole run, nothing is locked in early.
+- **H-B PARTLY:** the deterministic half holds (g_share 0.39–0.40 in windows 1–20, 0.35–0.38
+  over the run, cosine 0.01–0.03 on bunny / dragon and 0.11–0.15 on bob — a third of every
+  accepted control update is a direction the cell sum does not contain); the physics-state
+  half does NOT: D_vol at the end is lower with the channel only on bunny (0.0036 vs 0.0041),
+  within the spread on dragon and bob; det F min is less compressed with the channel on
+  dragon (0.77–0.78 vs 0.715) and bob (0.85 vs 0.84), unchanged on bunny. The v3 reading
+  "the render channel lowers the physics term" does not reproduce under the current recipe:
+  the density term converges to the same level either way, and the channel decides where
+  the mass goes among the configurations the cell sum is indifferent to (the cosine ≈ 0).
+- **H-C: the outline gain does not need u** — with u off the channel is worth +1.6 / +1.6 /
+  +0.9 points (the whole gain); the u-dependent part of the outline effect is within the
+  spread or negative on all three. The physics path is NOT purely cell-scale on the dragon:
+  with u off the channel improves the dragon's detail correlation (+0.279 → +0.353, 3
+  spreads) and normal error (24.9° → 23.6°) — the dragon's ridges are cell-scale features
+  and sit inside the two-spacing band. On bob the channel's surface effect is nil in the
+  band (d_abs 0.15 → 0.12 only); on bunny its detail gain (dcorr +0.27 → +0.39, hp_res
+  0.174 → 0.158) appears only with u on. So: the physics path carries the outline and the
+  features down to the cell; below the cell the effect is target-dependent.
+- **H-D FALSIFIED at 40k as at 150k:** the cut twin's divergence after the intervention
+  equals the identical re-run's (bunny 0.404 vs 0.408, bob 0.426 vs 0.437, dragon 0.757 vs
+  0.634 — 1.2×); both are 0.002 spacings (round-off) before K and grow to 0.6–1.0 spacings
+  by the end. Trajectory divergence is a chaos measurement at 40k too; the proof of
+  "render changes the physics" is the per-window share (deterministic) plus the outcome
+  against the spread, not the trajectory.
+
+**The u channel, read across the factorial (the finding that matters for the last
+implementation).** (i) It adds outline: +1.1 … +1.4 (bunny), +0.4 … +0.9 (dragon), +0.4 …
++0.5 (bob) silIoU points with the render channel on, and +0.9 / +1.0 / +0.7 with it off —
+the physics gradient drives it too. (ii) It is the main source of outer-layer roughness:
+morph-mean layer RMS 0.19–0.22 spacings without it, 0.25–0.33 with it, on every target and
+with the render channel on or off (the render channel alone adds 0.01); bob's end layer
+reaches 0.44 spacings when u is driven by the physics gradient alone (its target floor
+0.24). (iii) On the surface its effect is target-dependent: on bunny it is what finishes the
+shape below the cell (d_95 5.4 → 1.4 spacings, hp_res 0.29 → 0.16 — without u a
+twentieth of the surface stays five spacings from the true mesh, the base region the cell
+sum cannot resolve); on dragon it is neutral (hp_res 0.193–0.205 either way, dcorr −0.04 with
+the channel on); on bob it is harmful (n_dev 5.6 → 7.0°, hp_res 0.040 → 0.053, dcorr +0.32
+→ +0.26; the ring is visibly bumpy with u and smooth without). The mechanism is structural:
+u is a per-step position projection that the constitutive model never sees — F is not
+updated by it, so a rough u costs no strain energy and nothing in the physics resists it;
+the relaxation removes only the part that is rough on the local plane, and both gradients
+(the cell sum at sub-cell granularity, the half-rough render covector) feed it.
+
+**Answer to the user's question, as the data now stands.** The render channel changes the
+control (a third of every update, deterministic) and the outcome (silhouette 2–8 spreads,
+det F on two targets) under the current recipe; it does not change the level the physics
+term reaches, and its trajectory signature is below the chaos floor. Through the physics
+it carries the outline and the cell-scale features; the sub-cell surface is the kinematic
+u channel, which the factorial shows to be both necessary (bunny) and the roughness source
+(all three; harmful on bob). The last implementation is therefore about u: `docs/final_plan.md`.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
