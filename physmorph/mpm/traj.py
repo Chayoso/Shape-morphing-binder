@@ -200,6 +200,9 @@ class Trajectory:
             # through F: k_update writes Fu[t+1], k_layer_F writes F[t+1] = (I + grad delta) Fu[t+1]
             lg = layer[5] if len(layer) > 5 else None
             ldepth = float(layer[6]) if len(layer) > 6 else 0.0
+            # P2 (surface_recon.layer_u_gate): optional per-particle gate on u (1 where u may act)
+            lug = layer[7] if len(layer) > 7 else None
+            self.layer_ug = A(np.ones(N, np.float32) if lug is None else np.ascontiguousarray(lug, np.float32), wp.float32)
             self.layer_K = int(np.asarray(lnbr).shape[1])
             self.layer_mask = A(np.ascontiguousarray(lmask, np.float32), wp.float32)
             self.layer_nrm = wp.array(np.ascontiguousarray(lnrm, np.float32), dtype=wp.vec3, device=device)
@@ -295,9 +298,9 @@ class Trajectory:
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ld[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac,
-                      self.layer_u, self.layer_frac_u, self.x[t + 1]], device=dev)
+                      self.layer_u, self.layer_frac_u, self.layer_ug, self.x[t + 1]], device=dev)
             if self.layer_F:
-                wp.launch(K.k_layer_F, dim=N, inputs=[self.layer_u, self.layer_mask, self.layer_nrm,
+                wp.launch(K.k_layer_F, dim=N, inputs=[self.layer_u, self.layer_ug, self.layer_mask, self.layer_nrm,
                           self.layer_nbr, self.layer_g, self.layer_K, self.layer_frac_u, self.layer_inv_depth,
                           self.Fu[t + 1], self.F[t + 1]], device=dev)
         if self.track_geom:

@@ -481,3 +481,42 @@ def layer_grad_weights(x0: np.ndarray, mask: np.ndarray, nrm: np.ndarray, nbr: n
     Minv = np.linalg.inv(M + ridge)
     g[idx] = (ww[:, :, None] * np.einsum("mij,mkj->mki", Minv, r)).astype(np.float32)
     return g
+
+
+def layer_u_gate(x0: np.ndarray, tgt: np.ndarray, mask: np.ndarray, spacing: float,
+                 sigma_sp: float = 1.5, nsig: float = 2.0, k: int = 256):
+    """P2 (docs/final_plan.md 2; docs/surface_gradient.md 12): WHERE the u channel may act. Per
+    layer particle the particle-scale density residual at the window start,
+        r_p = (rho_morph(x_p) - rho_target(x_p)) / rho_ref,
+    Gaussian kernel of sigma = sigma_sp spacings (the renderer's and the level set's surface
+    scale), rho_ref = the target's bulk value; the gate is |r_p| > nsig * floor with floor = the
+    shot-noise floor of a Poisson-process cloud at that width, (p/sigma)^{3/2} / sqrt(8 pi^{3/2}),
+    p = the volumetric spacing = spacing / 1.24 (surface_gradient.md 9; the morph's cloud is
+    disordered) and nsig standard deviations. A surface half a spacing off the target's crosses
+    the 2-sigma gate (d rho / dn = 0.27 bulk per spacing at sigma = 1.5); a surface on the target
+    and a saturated smooth region stay below it. Both densities are truncated at the same k
+    nearest points so the truncation cancels in r. Returns (gate (N,) float32: 1 where u may act,
+    the active share of the layer)."""
+    N = len(x0)
+    gate = np.zeros(N, np.float32)
+    idx = np.where(np.asarray(mask) > 0.5)[0]
+    if len(idx) == 0 or tgt is None or len(tgt) < k or N < k:
+        return gate, 0.0
+    sig = float(sigma_sp) * float(spacing)
+    x0 = np.asarray(x0, np.float64)
+    tgt = np.asarray(tgt, np.float64)
+    kx, kt = cKDTree(x0), cKDTree(tgt)
+    P = x0[idx]
+    dm, _ = kx.query(P, k=k, workers=-1)
+    dt, _ = kt.query(P, k=k, workers=-1)
+    rho_m = np.exp(-0.5 * (dm / sig) ** 2).sum(1)
+    rho_t = np.exp(-0.5 * (dt / sig) ** 2).sum(1)
+    sub = tgt[np.random.default_rng(0).choice(len(tgt), min(len(tgt), 4000), replace=False)]
+    dtt, _ = kt.query(sub, k=k, workers=-1)
+    rho_ref = float(np.median(np.exp(-0.5 * (dtt / sig) ** 2).sum(1)))
+    p_vol = float(spacing) / 1.24
+    floor = (p_vol / sig) ** 1.5 / math.sqrt(8.0 * math.pi ** 1.5)
+    r = (rho_m - rho_t) / max(rho_ref, 1e-12)
+    on = np.abs(r) > float(nsig) * floor
+    gate[idx[on]] = 1.0
+    return gate, float(on.mean())

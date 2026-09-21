@@ -223,3 +223,22 @@ def test_position_channel_gradient_through_F_matches_finite_differences():
             fd = (L(u.detach() + eps * d) - L(u.detach() - eps * d)) / (2 * eps)
         an = (gr * d).sum()
         assert abs(float(fd - an)) <= 8e-2 * max(abs(float(fd)), abs(float(an)), 1e-4), (fd, an)
+
+
+def test_layer_u_gate_opens_where_the_surface_is_off_the_target():
+    """P2 (surface_recon.layer_u_gate): with the target equal to the cloud the gate stays shut on the
+    whole layer (the residual is below the sampling floor); with the target shifted by one spacing
+    along y the top and bottom faces open (their surfaces are a spacing off the target's) while the
+    side faces, whose relation to the target is unchanged, mostly stay shut."""
+    from physmorph.render.surface_recon import layer_u_gate
+    x, sp = _slab(n_side=14, layers=6)
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
+    gate0, share0 = layer_u_gate(x, x.copy(), mask, sp, k=64)
+    assert share0 < 0.1, share0
+    tgt = x.copy(); tgt[:, 1] += sp
+    gate1, share1 = layer_u_gate(x, tgt, mask, sp, k=64)
+    top = (mask > 0.5) & (nrm[:, 1] > 0.8); bottom = (mask > 0.5) & (nrm[:, 1] < -0.8)
+    side = (mask > 0.5) & (np.abs(nrm[:, 1]) < 0.3) & (np.abs(x[:, 1]) < 0.3)
+    assert gate1[top].mean() > 0.8 and gate1[bottom].mean() > 0.8, (gate1[top].mean(), gate1[bottom].mean())
+    assert gate1[side].mean() < 0.3, gate1[side].mean()
+    assert np.all(gate1[mask < 0.5] == 0)

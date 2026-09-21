@@ -103,7 +103,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
-                         layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth,
+                         layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate,
                          layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
@@ -622,6 +622,8 @@ def main():
                     help="P3: the u channel through the deformation gradient (F <- (I + grad delta) F on the layer; docs/final_plan.md)")
     ap.add_argument("--layer_F_depth", type=float, default=1.0,
                     help="P3: depth of the normal extension in spacings; 0 = tangential gradient only")
+    ap.add_argument("--layer_gate", action="store_true",
+                    help="P2: u acts only where the particle-scale density residual exceeds the sampling floor (docs/surface_gradient.md 12)")
     ap.add_argument("--sil_kernel", default="cic", choices=["cic", "quad"],
                     help="splat kernel of the silhouette/shading rasterisers (quad = quadratic B-spline, C1)")
     ap.add_argument("--sampler", default="replacement", choices=["replacement", "stratified"],

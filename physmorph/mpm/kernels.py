@@ -369,7 +369,7 @@ def k_layer_resid(x: wp.array(dtype=wp.vec3),
 def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
                     mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
                     nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
-                    frac: float, u: wp.array(dtype=float), frac_u: float,
+                    frac: float, u: wp.array(dtype=float), frac_u: float, ug: wp.array(dtype=float),
                     x_out: wp.array(dtype=wp.vec3)):
     """Outer-layer position update: the relaxation (frac) and the POSITION-MODE CONTROL
     CHANNEL u (docs/surface_gradient.md §7): u[p] is a per-window normal displacement leaf
@@ -382,7 +382,7 @@ def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
     dbar = float(0.0)
     for a in range(K):
         dbar = dbar + w[p * K + a] * d[nbr[p * K + a]]
-    x_out[p] = x_in[p] + (frac_u * u[p] - frac * (d[p] - dbar)) * nrm[p]
+    x_out[p] = x_in[p] + (frac_u * ug[p] * u[p] - frac * (d[p] - dbar)) * nrm[p]
 
 
 # ── geometric deformation gradient — the RENDER kinematics ───────────────────
@@ -454,7 +454,7 @@ def k_volume(x: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
 # and the adjoint reaches u through F. The relaxation projection stays outside F (it is a
 # constraint, like contact). k_update writes Fu[t+1]; this kernel writes F[t+1].
 @wp.kernel
-def k_layer_F(u: wp.array(dtype=float), mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
+def k_layer_F(u: wp.array(dtype=float), ug: wp.array(dtype=float), mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
               nbr: wp.array(dtype=int), g: wp.array(dtype=wp.vec3), K: int,
               frac_u: float, inv_depth: float,
               F_in: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33)):
@@ -462,10 +462,10 @@ def k_layer_F(u: wp.array(dtype=float), mask: wp.array(dtype=float), nrm: wp.arr
     if mask[p] < 0.5:
         F_out[p] = F_in[p]
         return
-    dp = (frac_u * u[p]) * nrm[p]
+    dp = (frac_u * ug[p] * u[p]) * nrm[p]
     G = wp.outer(dp, nrm[p]) * inv_depth
     for a in range(K):
         q = nbr[p * K + a]
-        dq = (frac_u * u[q]) * nrm[q]
+        dq = (frac_u * ug[q] * u[q]) * nrm[q]
         G = G + wp.outer(dq - dp, g[p * K + a])
     F_out[p] = (wp.identity(n=3, dtype=float) + G) * F_in[p]

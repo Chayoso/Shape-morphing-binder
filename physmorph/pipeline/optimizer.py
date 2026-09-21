@@ -255,6 +255,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     layer = None
     sp0 = None
     W_apply = None
+    u_gate_frac = None
     if cfg.layer_relax or cfg.layer_ctrl:
         # outer-layer relaxation (docs/surface_gradient.md §6) and/or the position-mode control
         # channel (§7): the layer, its normals and its same-side neighbourhoods are frozen at the
@@ -281,6 +282,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # weights of the frozen layer neighbourhood, and the layer depth (one spacing)
             from ..render.surface_recon import layer_grad_weights
             layer = layer + (layer_grad_weights(x0, lmask, lnrm, lnbr, lw, sp0), float(cfg.layer_F_depth * sp0))
+        if cfg.layer_ctrl and cfg.layer_gate and tgt.pts is not None:
+            # P2 (docs/surface_gradient.md 12): u may act only where the particle-scale density residual
+            # at the window start is above the sampling floor (surface_recon.layer_u_gate)
+            from ..render.surface_recon import layer_u_gate
+            if len(layer) == 5:
+                layer = layer + (None, 0.0)
+            ug, u_gate_frac = layer_u_gate(x0, tgt.pts.detach().cpu().numpy(), lmask, sp0,
+                                           sigma_sp=cfg.layer_gate_sigma_sp, nsig=cfg.layer_gate_nsig)
+            layer = layer + (ug,)
+            print(f"[layer] u gate: {u_gate_frac * 100:.1f} % of the layer above the sampling floor", flush=True)
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
                        bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer)
@@ -1589,7 +1600,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share,
+              "g_share": g_share, "u_gate": u_gate_frac,
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
               "render_work": render_work, "render_work_x": render_work_x,
               "render_work_F": render_work_F, "phys_work": phys_work,

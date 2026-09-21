@@ -456,6 +456,11 @@ class PipelineConfig:
                                     #   rough u is a strain the stress resists and the adjoint reaches u through F
     layer_F_depth: float = 1.0      #   depth of the normal extension in spacings (the layer below did not move);
                                     #   0 = tangential gradient only (no normal term)
+    layer_gate: bool = False        # P2 (docs/surface_gradient.md 12; surface_recon.layer_u_gate): u may act only
+                                    #   where the particle-scale density residual at the window start exceeds
+                                    #   nsig x the Poisson shot-noise floor at the surface scale (sigma_sp)
+    layer_gate_sigma_sp: float = 1.5  #   the renderer's / level set's blur (spacings)
+    layer_gate_nsig: float = 2.0      #   standard deviations above the floor
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
                                     #   channel (physics / silhouette / shading), their control
                                     #   (leaf) gradients and the linear-response rollouts of each

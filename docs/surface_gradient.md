@@ -832,6 +832,88 @@ the window: the resistance is too short-lived — then P2 / P1); bunny's d_95 > 
 resistance blocks the finishing — then the normal term is wrong: test without it); silIoU
 more than 1 point below `fx_11` on two targets (the channel lost its reach).
 
+**Readings (16:55; `output/cand_P3.log`).** FALSIFIED on the first run, and not by the
+pre-registered failure mode — by a collapse of the physics state:
+
+| run | windows to the stop | silIoU | det F min | layer RMS morph / end | strays > 0.25 wu | end frame: n_dev / pieces / dcorr |
+|---|---|---|---|---|---|---|
+| bunny `fx_P3` | 10 (1.2 min) | 0.8132 | 0.008 | 0.401 / 0.442 | 1.5 % | 26.6° / 7 / +0.10 |
+| dragon `fx_P3` | 24 (2.8 min) | 0.4747 | 0.0005 | 0.533 / 0.733 | 8.2 % | 45.4° / 44 / +0.00 |
+| bob `fx_P3` | 16 (2.2 min) | 0.5957 | 0.0007 | 0.481 / 0.522 | 7.0 % | 37.9° / 92 / +0.03 |
+
+(`fx_11`: 67 / 86 / 44 windows, silIoU 0.9665 / 0.9576 / 0.9786, det F min 0.76–0.86,
+layer RMS 0.27–0.28 morph.) The per-window telemetry shows the render share unchanged
+(0.40) and D_vol rising from the first windows (bunny 0.115 → 0.034 at the stop against
+0.0036 in `fx_11`).
+
+**Mechanism.** The strain written into F by the u step is SUB-CELL: the normal extension
+δ/depth of a one-spacing shell and the tangential shear between neighbours one or two
+spacings apart. The stress it produces enters the momentum equation through P2G onto a
+grid whose cell is 3.6 spacings, where a one-spacing pattern averages to nothing — so
+nothing relaxes it, and F compounds: an inward u at the clip multiplies F_nn by
+(1 − 1/T)^T = 0.36 per window, seven windows take det F to 10⁻³. The elastic response
+that should undo it (the layer below moving with the layer) cannot be resolved by the
+grid either. This is the same wall the particle-force relaxation hit (§6: 2.4 % of a bump
+per window) from the other side: MPM at dx = 3.6 spacings cannot carry a sub-cell actuation
+through the physics, whether as a force (averaged away) or as a strain (never relaxed).
+P3 is therefore falsified structurally, not by a tolerance; `--layer_F` stays in the code as
+the record. The tangential-only variant (`--layer_F_depth 0`, `fx_P3t_*`) is run to close
+the pre-registration (prediction: the shear is either assimilated within the window or
+averaged by the grid — no effect on the layer RMS, no collapse); its readings below.
+
+**What this settles for the plan.** Below the cell the surface cannot be driven through
+the physics; the sub-cell actuator is kinematic by necessity. The remaining freedom is
+WHERE and BY WHAT u is driven. The factorial's bunny far region (measured 16:50 against
+the target's Poisson surface: 4.7 % of the u-off end surface farther than 3 spacings, all
+on the inner side, a slab at x ≈ 0 spanning y −1.7 … 1.2 and z −1.7 … 1.2 — the crevice
+between the front legs, a concave feature of the target the stress control does not
+reproduce; the target's own particle counts along that line show the same dip) says what
+u is for: finishing concave features the cell-scale control leaves 1.5 cells short. bob
+says where it must not act: on a saturated, smooth region its rough part is noise. A gate
+that separates the two is the particle-scale density residual at the window start —
+above the sampling floor at the crevice, at the floor on the ring — see §12 (P2).
+
+## 12. P2 — the u channel gated by the particle-scale density residual (2026-09-21; pre-registered before the readings)
+
+After P3 (§11): the sub-cell actuator stays kinematic; what remains is WHERE it acts.
+Implementation (`--layer_gate`, `surface_recon.layer_u_gate`, `kernels.k_layer_project` factor
+`ug[p]`): at the window start, per layer particle,
+
+r_p = (ρ_morph(x_p) − ρ_target(x_p)) / ρ_ref,
+
+Gaussian kernel of σ = 1.5 spacings (the renderer's and the level set's surface scale, §1 /
+§10.12), ρ_ref the target's bulk value, both densities truncated at the same 256 nearest
+points; the gate opens where |r_p| > 2 × floor with floor = the shot-noise floor of a
+Poisson-process cloud at that width, (p/σ)^{3/2}/√(8π^{3/2}) = 5.9 % (§9; p = spacing/1.24 —
+the morph's cloud is disordered), i.e. |r_p| > 11.8 %. Since dρ/dn at a surface is 0.27 ρ_bulk
+per spacing at this σ, the gate opens where the morph's surface is more than ~0.45 spacing
+off the target's (bunny's crevice: 5 spacings), and stays shut where the surface is on the
+target and the region saturated (bob's ring, whose u was noise). The gate is frozen per
+window like the layer; u is multiplied by it in the projection (and its adjoint), so gated
+particles receive no u gradient. Telemetry: `u_gate` = the active share of the layer, per
+window in the run json. No new constant is tuned: σ is the project's surface scale, the floor
+is §9's formula, 2 standard deviations is the convention.
+
+**Design.** `fx_P2_{bunny,dragon,bob}` = RECIPE + `--layer_gate`, read against `fx_11` /
+`fx_11c` (the spread) and `fx_10` (u off), `candidate40.sh`.
+
+**Predictions (spread: IoU 0.5, layer RMS 0.02, hp_res 0.012, dcorr 0.03, n_dev 0.2°).**
+
+- P2-a (bob, the harm removed): the active share falls below 20 % after the first ten
+  windows; morph-mean layer RMS ≤ 0.22 and end ≤ 0.15 (u-off 0.197 / 0.124); n_dev ≤ 6.0°,
+  hp_res ≤ 0.045, dcorr ≥ +0.31.
+- P2-b (bunny, the finishing kept): the crevice stays gated ON (its residual is far above the
+  floor) — d_95 ≤ 1.5, hp_res ≤ 0.17, dcorr ≥ +0.33; morph-mean layer RMS below `fx_11`'s
+  0.272 by more than the spread.
+- P2-c (outline): silIoU within 0.5 of `fx_11` on all three.
+- P2-d (dragon): within the spread of `fx_11` on every column, layer RMS ≤ 0.26.
+
+Falsifiers: bunny d_95 > 3 (the residual measure does not see the concave feature — the gate
+shut it off); bob's morph-mean layer RMS ≥ 0.25 with the active share > 50 % (the floor is
+wrong for the morph cloud: its fluctuation exceeds the Poisson floor — then re-derive the
+floor from the morph's own measured dispersion, §9's `sampling_noise.py`, not by tuning
+nsig); silIoU more than 1 point below `fx_11` on two targets (the channel lost its reach).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle

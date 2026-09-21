@@ -228,7 +228,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
         gauss.bake_targets(tgt_t, mask=target_mask)
     pts, nn_sp = None, 0.0
     kde_h, kde_rho = 0.0, 1.0
-    if cfg.w_nn > 0 or cfg.w_kde > 0:
+    if cfg.w_nn > 0 or cfg.w_kde > 0 or cfg.layer_gate:     # layer_gate: the u gate reads the target cloud
         from scipy.spatial import cKDTree
         nn_sp = float(np.median(cKDTree(target_x).query(target_x, k=2,
                                                         workers=-1)[0][:, 1]))
