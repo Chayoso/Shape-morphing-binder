@@ -454,6 +454,8 @@ class PipelineConfig:
     layer_F: bool = False           # P3 (docs/final_plan.md 2; kernels.k_layer_F): the u channel THROUGH the
                                     #   deformation gradient: F <- (I + grad delta) F on the layer each step, so a
                                     #   rough u is a strain the stress resists and the adjoint reaches u through F
+    layer_F_depth: float = 1.0      #   depth of the normal extension in spacings (the layer below did not move);
+                                    #   0 = tangential gradient only (no normal term)
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
                                     #   channel (physics / silhouette / shading), their control
                                     #   (leaf) gradients and the linear-response rollouts of each

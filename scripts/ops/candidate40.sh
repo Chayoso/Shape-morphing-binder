@@ -10,9 +10,9 @@ export OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 MKL_NUM_THREADS=6 EGL_PLATFORM=s
 GPU=$1; CELL=$2; shift 2
 ARM=render_full_dt_iso_nn
 E=$OUT/surf_test/endframes; F=$OUT/fx_figs; mkdir -p $E $F
-run() { local T=$1
+run() { local T=$1; shift
   CUDA_VISIBLE_DEVICES=$GPU $PY scripts/pipeline_run.py --arms $ARM --tgt assets/$T.obj --n 40000 $RECIPE "$@" --out $OUT/fx_${CELL}_$T > $OUT/fx_${CELL}_$T.log 2>&1
-  echo "FX fx_${CELL}_$T DONE $(date)" >> $STATUS; }
+  echo "FX fx_${CELL}_$T DONE $(date) exit $?" >> $STATUS; }
 run bunny "$@" & sleep 30; run dragon "$@" & sleep 30; run bob "$@" &
 wait
 echo "CAND_${CELL}_RUNS_DONE"

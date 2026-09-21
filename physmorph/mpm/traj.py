@@ -216,7 +216,7 @@ class Trajectory:
             if lg is not None:
                 self.layer_F = True
                 self.layer_g = wp.array(np.ascontiguousarray(lg, np.float32).reshape(-1, 3), dtype=wp.vec3, device=device)
-                self.layer_inv_depth = 1.0 / float(ldepth)
+                self.layer_inv_depth = (1.0 / float(ldepth)) if ldepth > 0 else 0.0   # 0: no normal term
                 self.Fu = [ID(rg) for t in range(T + 1)]
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
