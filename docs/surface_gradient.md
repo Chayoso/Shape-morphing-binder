@@ -521,8 +521,18 @@ No thin-feature target got worse: the ring (bob) and the C gain IoU (+0.45, +7.6
 the beast is within the spread; the outer layer is 20–25 % smoother on all three, the
 beast's end layer below its target's floor. Both C runs stop after 15 windows (301
 frames) — the same early stop on both recipes, so the C comparison is at the stop, where
-the new recipe is far ahead. QA columns (grid fragments, re-attachments, Poisson video
-pieces): stage C2, below.
+the new recipe is far ahead. QA (no renderer): grid fragments ≥ 1 cell 0 frames on all
+six runs; end fragments beast 2 → 0, others 0; re-attachments 0 (no net); stray census
+at the end, particles beyond 1 wu: bob 1 → 0 (max 1.33 → 0.14 wu), beast 4 → 0 (1.42 →
+0.47), C 104 → 29 (2.59 → 1.78). The new recipe is cleaner on every column. Poisson
+video pieces: stage C2, below.
+
+**Quad full runs (`k40_*` vs `p40_*`), end metrics:** bunny silIoU 0.9628 → 0.9658,
+chamfer 0.1196 → 0.1191, det F 0.766 → 0.736; dragon 0.9555 → 0.9582, 0.1235 → 0.1229,
+0.736 → 0.762 — at the spread's edge, in the good direction. **The combination
+(`gq_*` = G5 + quad):** bunny 0.9658 / 0.1165 / 0.766, dragon 0.9649 / 0.1187 / 0.752 (10
+min each: the combination reaches its stop fastest). Layer RMS, stills and the true-mesh
+columns for both: next.
 
 ## 5. Sources
 
