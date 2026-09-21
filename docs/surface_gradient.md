@@ -509,6 +509,21 @@ gradient's own texture — that is the quad splat's job. The morph runs 2.3× lo
 the stratified source/target take more windows to the stop; the run-time budget is not a
 criterion here).
 
+**Thin-feature targets (`t40_*` new recipe vs `t40v8_*` v8 recipe; 11:25):**
+
+| | silIoU | chamfer | hole | det F | wall | layer RMS morph / end (target floor) |
+|---|---|---|---|---|---|---|
+| bob v8 → new | 0.9734 → **0.9779** | 0.1172 → 0.1169 | 0 → 0 | 0.809 → 0.832 | 23 → 26 min | 0.542 → **0.430** / 0.505 → 0.491 (0.472) |
+| beast v8 → new | 0.9376 → 0.9386 | 0.1212 → 0.1239 | 2.17 → 2.01 % | 0.755 → 0.723 | 45 → 39 min | 0.493 → **0.370** / 0.395 → 0.283 (0.353) |
+| C v8 → new | 0.8371 → **0.9134** | 0.1909 → **0.1503** | 0.41 → 0.09 % | 0.813 → 0.841 | 9.6 → 10.3 min | 0.522 → **0.448** / 0.594 → 0.431 (0.313) |
+
+No thin-feature target got worse: the ring (bob) and the C gain IoU (+0.45, +7.6 points),
+the beast is within the spread; the outer layer is 20–25 % smoother on all three, the
+beast's end layer below its target's floor. Both C runs stop after 15 windows (301
+frames) — the same early stop on both recipes, so the C comparison is at the stop, where
+the new recipe is far ahead. QA columns (grid fragments, re-attachments, Poisson video
+pieces): stage C2, below.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
