@@ -340,6 +340,46 @@ to the true surface (1.05 → 1.01) do not move. (4) The recipe's higher residua
 the sampling noise the physics carried to the end; below the target's own floor (0.201)
 nothing can go without G5.
 
+**The gradient at each stage under the new recipe (2026-09-21, 09:30; `gs40new_bunny`,
+8 windows, `--grad_dump` extended to the u channel; `grad_stage.py` stages 2b / 3b).**
+
+| stage | physics | silhouette | shading (G1) |
+|---|---|---|---|
+| 1 covector: layer share / normal / ROUGH at 2 sp | 0.29 / 0.51 / 0.29 | 0.97 / 0.73 / 0.53 | 0.86 / 0.57 / 0.55 (old recipe 0.67) |
+| 2 through the STRESS control: corr at 2 / 4 / 8 sp | .87 / .62 / .19 | .89 / .65 / .26 | .85 / .55 / .15 |
+| 2b through the u CHANNEL: corr at 2 / 4 / 8 sp; rough share | .69 / .37 / .13; 0.18 | **.46 / .21 / .08; 0.35** | .45 / .18 / .06; 0.39 |
+| 2b u-gradient norm | 6.4e-4 | 6.4e-3 | 5.3e-4 |
+| 3b response through u alone: |dx| layer / interior (sp); rough share; layer RMS end (base 0.429) | 0.33 / 0.003; 0.20; 0.474 | 0.19 / 0.001; 0.22; 0.470 | 0.20 / 0.001; 0.26; 0.454 |
+| 3 response through the stress control alone: layer RMS end (base 0.498) | 0.499 | 0.534 | 0.542 |
+
+The accepted u per window: RMS 0.585 spacings over the 3 399 layer particles, 19 % of
+them AT the one-spacing clip, neighbour correlation at 2 sp 0.31. λ 0.05–0.14 (old recipe
+0.09–0.28: the u-gradient raised the render channel's norm and the balancer lowered λ),
+g_share 0.33–0.52.
+
+Reading. (1) The render covector on the particles is what it was: 97 % on the outer
+layer, half of it rough; G1 lowered the shading covector's rough share from 0.67 to 0.55
+(the reference is clean, but the morph's own normals on the finer pixel grid are noisier
+than on the cell grid — the two effects nearly cancel). (2) Through the stress control
+nothing changed: the grid's low-pass (0.89 at two spacings) is the same. (3) Through u
+the render gradient KEEPS half of its two-spacing content (0.46 against 0.89) and a fifth
+at four spacings — this is the sub-cell path that did not exist, and the render channel
+owns it (its u-gradient is 10× the physics channel's before λ). (4) What it does with it,
+alone: moves the layer 0.19 spacing per window and the interior not at all, and RAISES
+the layer's plane residual by 0.04 spacing (0.429 → 0.47) — in the expansion phase the
+silhouette pull at the pixel is half rough, and the relaxation removes that half next
+step; the accepted u sits at the clip on a fifth of the layer, so in this phase the
+channel is doing pixel-scale TRANSPORT (the outline toward the target) at capacity, not
+sub-cell correction. The eight-window RMS with A (0.43–0.51) is above the relaxation-only
+run's (0.35) and level with the old recipe's (0.47); over the full morph the end-frame
+analysis above says the surplus is structure. So the two position inputs fight in the
+expansion phase and agree at the end. What the numbers point at, if anything is to be
+changed: the rough part of u (what its 2-spacing neighbourhood mean does not explain, 35 %
+of the gradient) is exactly what the relaxation undoes one step later — projecting the
+u-gradient onto the layer's smooth subspace with the same W (h = 2 spacings, no new
+constant) would give the channel the pixel-scale structure and none of the noise, and
+free the clip for the transport it is being used for. Not run; recorded as the next test.
+
 **The run-to-run spread of the IoU comparisons.** The verification runs `p40_bunny` /
 `p40_dragon` are the same configuration as `g1a_*` (the new recipe through
 `hyde06_env.sh`): silIoU 0.9628 vs 0.9614 (bunny), 0.9555 vs 0.9594 (dragon); chamfer
