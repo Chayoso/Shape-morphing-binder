@@ -59,12 +59,13 @@ def dispersion(x, centres, radii_sp, sp):
     falls like 1/R. Returns (counts at radii_sp[-1], [var/mean per R])."""
     kd = cKDTree(x)
     out = []
-    counts_last = None
+    counts_15 = None
     for R in radii_sp:
         c = np.array([len(v) for v in kd.query_ball_point(centres, R * sp, workers=-1)], np.float64)
         out.append(float(c.var() / max(c.mean(), 1e-9)))
-        counts_last = c
-    return counts_last, out
+        if abs(R - 1.5) < 1e-9:
+            counts_15 = c
+    return counts_15, out
 
 
 def radial_spectrum(delta, vox):

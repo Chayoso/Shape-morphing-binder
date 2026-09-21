@@ -568,6 +568,44 @@ sampling of source and target; the deliverable surface Poisson. The quad splat a
 smooth-subspace projection are recorded as falsified additions; the thin-feature targets
 pass every QA column and gain IoU under the recipe (their Poisson video pieces: stage C2).
 
+## 9. Why the stratified cloud has no shot noise — the proof (2026-09-21; `scripts/probes/sampling_noise.py`)
+
+Setting: a normalised Gaussian blur K of width σ, n particles in volume V, volumetric
+spacing p = (V/n)^{1/3}, intensity ρ = 1/p³, the blurred density ρ̂(x) = Σ_i K(x − x_i).
+Note the unit: the project's "spacing" is the median 8-NN distance, which for a Poisson
+process is (6/π)^{1/3} = 1.24 p, so the renderer's σ = 1.5 spacings is 1.86 p.
+
+*With replacement* (the v8 sampler: n draws from a fine fill lattice, jittered) is a
+Poisson process: the count in any region has variance equal to its mean, and by Campbell's
+theorem Var[ρ̂] = ρ ∫K² = ρ (4πσ²)^{−3/2}, so the relative fluctuation is
+(p/σ)^{3/2} / √(8π^{3/2}) = 5.9 % at σ = 1.86 p. Its spectrum is white times the blur:
+P(k) = ρ e^{−σ²k²}.
+
+*Stratified* (one particle per fill voxel, jittered by u ~ U(−p/2, p/2)³): the count per
+voxel is exactly one — the monopole term is gone — and only the jitter moves mass:
+ρ̂(x) = Σ_v K(x − x_v − u_v) ≈ Σ_v [K(x − x_v) − u_v·∇K(x − x_v)], a DIPOLE field with
+Var[ρ̂] = (p²/12)(1/p³)∫|∇K|² = 1/(64 π^{3/2} p σ⁵), relative fluctuation
+(p/σ)^{5/2} / √(64π^{3/2}) = 1.1 % at σ = 1.86 p — 5.2× lower — and a spectrum
+P(k) = ρ (k²p²/12) e^{−σ²k²} that vanishes at long wavelengths: the ratio to the Poisson
+spectrum is k²p²/12. A jitter is a displacement, and a displacement field's density
+perturbation is a divergence: it has no k = 0 component. The level-set displacement,
+δh = δρ/|∇ρ| = rel·σ√π at the half-space edge, is 0.19 p vs 0.04 p.
+
+Measured (CIC deposit at 0.6 spacings + the 1.5-spacing blur, interior voxels deeper than
+3σ; the cube with the two pipeline samplers, the bunny / dragon target clouds of the v8 and
+G5 archives): interior relative fluctuation cube 5.5 % → 1.1 % (theory 5.9 / 1.1), bunny
+8.1 → 2.9 %, dragon 5.2 → 2.2 %; index of dispersion of the count in 1.5-spacing spheres
+(Poisson = 1) cube 1.01 → 0.26, bunny 1.30 → 0.31, dragon 1.06 → 0.28 — the replacement
+clouds ARE Poisson (the bunny even over-dispersed: the 110³ fill re-draws voxels); the
+cube's spectrum follows the two theory curves (the stratified one down to a 1 %-power
+measurement floor at k·spacing < 1: window leakage and the lattice–grid beat). The
+stratified targets' extra fluctuation over the cube's 1.1 % is the 6.5 % of fill voxels
+left empty to hit n exactly (a Poisson term, √0.065 × 5.9 % = 1.5 %) plus boundary
+effects. On the surface: the target level set's band-limited residual against the true
+mesh falls 0.185 → 0.137 (bunny) and 0.168 → 0.156 (dragon); the Poisson surface's 0.200 →
+0.174 and 0.181 → 0.171 with the detail correlation up. Page: artifact "층화 샘플링의
+잡음 증명".
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
