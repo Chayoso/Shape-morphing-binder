@@ -432,6 +432,33 @@ spread; A's recovery (+0.5, +0.75) is 1–2×; the new recipe against the v8 rec
 bunny, −0.9 dragon) is within 2×. Chamfer and det F, which do not move between the
 twins, carry the shape conclusion.
 
+## 8. The three-way check at 40k (2026-09-21; pre-registered before the readings)
+
+User: check all three. All at 40k, 150k excluded.
+
+- **G5 — stratified sampling** (`--sampler stratified`; `sampling/mesh.py
+  sample_volume_stratified`): one jittered particle per fill voxel, the fill resolution
+  chosen by bisection so the fill holds ≥ n voxels (bunny 40k: 44³ = 42 759 voxels, pitch
+  0.33 wu), the surplus dropped without replacement; source and target alike. Adopt iff
+  the covector's rough share falls AND the end frame's high-passed residual falls / detail
+  correlation rises beyond the twin spread (0.01 / 0.02), with IoU and chamfer within the
+  spread. Runs `g5_bunny`, `g5_dragon`; dump `gs40g5_bunny`.
+- **The quadratic B-spline splat** (`--sil_kernel quad`; `losses/silhouette.py
+  splat_terms`, `set_kernel`): the silhouette and shading rasterisers splat with the
+  3×3 quadratic B-spline instead of the 2×2 CIC — the lowest-order kernel whose
+  derivative is continuous, so a particle's pull no longer flips sign across pixel edges;
+  targets and morph alike; no constant. Adopt iff the silhouette covector's rough share
+  falls, IoU and chamfer stay within the spread and the end-frame residual / correlation
+  do not worsen. Runs `k40_bunny`, `k40_dragon` (after the thin-feature batch); dump
+  `gs40quad_bunny`.
+- **The thin-feature targets** (bob, beast, C) through the new recipe (`t40_*`) and the
+  v8 recipe (`t40v8_*`): the relaxation and the u channel need same-side neighbours,
+  which a two-particle sheet may not have. Pass iff the QA columns (grid fragments ≥ 1
+  cell, end fragments, re-attachments, drawn pieces > 1 in the Poisson videos) are 0 and
+  the silhouette IoU is within the spread of the v8 twin.
+
+Results: next entry.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
