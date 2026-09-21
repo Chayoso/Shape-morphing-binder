@@ -457,7 +457,25 @@ User: check all three. All at 40k, 150k excluded.
   cell, end fragments, re-attachments, drawn pieces > 1 in the Poisson videos) are 0 and
   the silhouette IoU is within the spread of the v8 twin.
 
-Results: next entry.
+**Stage-1/2b readings (8-window bunny dumps, 11:05):**
+
+| | new recipe | + G5 stratified | + quad splat |
+|---|---|---|---|
+| silhouette covector: norm / rough share at 2 sp | 9.2e-3 / 0.53 | 9.2e-3 / 0.52 | **6.2e-3 / 0.33** |
+| shading covector: rough share | 0.55 | 0.54 | **0.42** |
+| silhouette u-gradient: rough share / corr at 2 sp | 0.35 / 0.46 | 0.37 / 0.45 | **0.22 / 0.61** |
+| accepted u: RMS (sp) / at the clip / corr 2 sp | 0.585 / 19 % / 0.31 | 0.588 / 0 % / 0.40 | 0.568 / 21 % / 0.35 |
+| 8-window silIoU | 0.9105 | 0.9097 | 0.9181 |
+
+G5 changes NOTHING in the covector: the target cloud's shot noise is not where the rough
+half comes from (the stratified cloud still has its ±½-pitch jitter, and the rasteriser
+does not care which sample it splats). The quad splat removes 37 % of the silhouette
+covector's rough share (0.53 → 0.33) and 24 % of the shading's, shrinks the silhouette
+gradient's norm by a third (the discontinuous CIC derivative was carrying sign flips as
+magnitude), and the u channel receives a far more coherent signal (rough 0.35 → 0.22,
+correlation at two spacings 0.46 → 0.61). The recipe-independent half of the roughness
+was the rasteriser, as hypothesised; what is left (0.33) is the quadratic kernel's own
+second-derivative discontinuity plus genuine sub-two-spacing structure. Full runs: next.
 
 ## 5. Sources
 
