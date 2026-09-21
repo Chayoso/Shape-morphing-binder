@@ -176,9 +176,14 @@ def test_layer_F_linear_field_gives_its_gradient():
     inner = top & (np.abs(x[:, 0]) < 0.6) & (np.abs(x[:, 2]) < 0.6)     # away from the rim
     assert inner.sum() > 4
     G = F1[inner] - np.eye(3)[None]
-    assert np.allclose(G[:, 1, 0], a, atol=0.25 * a), G[:, 1, 0]
-    assert np.allclose(G[:, 1, 1], u[inner] / sp, atol=0.25 * abs(u[inner] / sp).max() + 1e-3), G[:, 1, 1]
-    assert np.abs(G[:, 0, :]).max() < 0.25 * a and np.abs(G[:, 2, :]).max() < 0.25 * a
+    # expected per particle with ITS normal n: a n (x) e_x (the tangential gradient of u = a x) plus
+    # (u_p / depth) n (x) n; the least-squares fit over 8 jittered neighbours scatters by ~40 %
+    n_in = nrm[inner].astype(np.float64)
+    e_x = np.array([1.0, 0.0, 0.0])[None, None, :]
+    E = a * n_in[:, :, None] * e_x + (u[inner] / sp)[:, None, None] * n_in[:, :, None] * n_in[:, None, :]
+    err = np.linalg.norm(G - E, axis=(1, 2)) / np.linalg.norm(E, axis=(1, 2))
+    assert err.mean() < 0.35 and err.max() < 0.6, err   # a wrong sign or a missing term gives ~1
+    assert abs(G[:, 1, 0].mean() - a) < 0.15 * a, G[:, 1, 0]
     assert np.allclose(F1[mask < 0.5], np.eye(3)[None], atol=1e-6)
     tr0 = Trajectory(x, 1.0, 0.0, 0.0, prm, 1, device=DEV, requires_grad=False, vol0=vol0,
                      layer=(mask, nrm, nbr, w, 0.0), layer_u=u_wp)

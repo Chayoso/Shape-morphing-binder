@@ -788,6 +788,50 @@ it carries the outline and the cell-scale features; the sub-cell surface is the 
 u channel, which the factorial shows to be both necessary (bunny) and the roughness source
 (all three; harmful on bob). The last implementation is therefore about u: `docs/final_plan.md`.
 
+## 11. P3 — the u channel through the deformation gradient (2026-09-21; pre-registered before the readings)
+
+User (15:55): "start with P3". Implementation (commit c95b503, `--layer_F`): after the
+projection, on every layer particle F ← (I + G) F with the step's u displacement
+δ_p = (u_p/T) n_p and
+
+G = Σ_a (δ_a − δ_p) ⊗ g_a + δ_p ⊗ n_p / depth,
+
+g_a = w_a M⁻¹ r̃_a the least-squares weights of the tangential gradient over the frozen
+same-side neighbourhood (`layer_grad_weights`: r̃_a the neighbour offset projected onto the
+tangent plane, M = Σ w r̃ r̃ᵀ plus a normal ridge; K = 24, h = 2 spacings — the relaxation's own
+neighbourhood, no new constant) and depth = one spacing (the layer thickness under the
+asymmetry rule: the layer below did not move). `k_update` writes Fu, `k_layer_F` writes F;
+the relaxation projection stays outside F (a constraint). The adjoint reaches u through F
+(tests: a linear u field gives its gradient; dL/du matches finite differences with the loss
+on x and on F).
+
+**What changes physically.** A rough u (neighbours displaced differently along their
+normals) becomes a shear F_nt = ∂δ_n/∂t that μ resists in the following steps; an outward
+push of the layer becomes a normal extension F_nn = 1 + δ/depth that λ + 2μ resists — the
+skin can no longer be teleported, it has to pull the material below (or be pulled back).
+The optimizer sees both through the adjoint and the u step is judged by the same merit.
+
+**Design.** `fx_P3_{bunny,dragon,bob}` = RECIPE + `--layer_F` (render on, u on, u through F),
+same seed and particles as the factorial; read against `fx_11` / `fx_11c` (the spread) and
+`fx_10` (u off) with the factorial's readings (`fx_summary`, `layer_rms`, `surface_gt
+--gt_all`, QA, plus the accepted u statistics from the run json where recorded).
+
+**Predictions (fx spread: IoU 0.5, layer RMS 0.02, hp_res 0.012, dcorr 0.03, n_dev 0.2°).**
+
+- P3-a (roughness): morph-mean layer RMS with u within 0.02 of the u-off value — bunny
+  0.272 → ≤ 0.22, dragon 0.280 → ≤ 0.24, bob 0.269 → ≤ 0.22; bob's end layer ≤ 0.15.
+- P3-b (bob's surface): n_dev ≤ 6.0°, hp_res ≤ 0.045, dcorr ≥ +0.31 (the u-off values 5.6° /
+  0.040 / +0.32 within the spread).
+- P3-c (bunny keeps its finish): d_95 ≤ 1.5 spacings, hp_res ≤ 0.17, dcorr ≥ +0.33.
+- P3-d (outline): silIoU within 0.5 of `fx_11` on all three (0.9665 / 0.9576 / 0.9786).
+- P3-e (the physics sees it): det F min lower than `fx_11` by more than the spread on at least
+  one target (the strain now exists), the number of windows within 20 % of `fx_11`.
+
+Falsifiers: the layer stays ≥ 0.25 on two targets (the assimilation erases the strain within
+the window: the resistance is too short-lived — then P2 / P1); bunny's d_95 > 3 (the
+resistance blocks the finishing — then the normal term is wrong: test without it); silIoU
+more than 1 point below `fx_11` on two targets (the channel lost its reach).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle

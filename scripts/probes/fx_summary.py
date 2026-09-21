@@ -13,6 +13,10 @@ import numpy as np
 out = sys.argv[1]
 ARM = "render_full_dt_iso_nn"
 CELLS = ["11", "11c", "01", "10", "00", "cut"]
+for _a in list(sys.argv[2:]):
+    if _a.startswith("--cells="):                   # candidate40.sh: a chosen list of cells
+        CELLS = _a[len("--cells="):].split(",")
+        sys.argv.remove(_a)
 
 
 def mean_of(h, key, sl=slice(None)):
