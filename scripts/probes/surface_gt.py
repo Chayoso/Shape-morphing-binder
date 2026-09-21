@@ -127,7 +127,8 @@ def main():
     spacing = float(meta0["spacing"]); vox = float(meta0["vox"])
     r_rough = 2.0 * spacing
     # the cloud frame: reproduce load_normalized(tgt, n, seed + 1, match_volume=v_src)
-    _, v_src = load_normalized(src_p, n, seed, return_volume=True)
+    _, v_src = load_normalized(src_p, n, seed, return_volume=True,
+                               sample=prov.get("sampler", "replacement"))   # the SOURCE's sampler sets v_src
     mesh = load_mesh(tgt_p)
     o = orient_name(tgt_p)
     V = np.asarray(mesh.vertices, np.float64)
