@@ -3610,5 +3610,9 @@ spacing. Page: artifact "층화 샘플링의 잡음 증명".
 
 **Thin-feature Poisson videos (stage C2, `report_t40`, per-frame QA):** bob 441 frames,
 drawn pieces > 1 in 0 frames, Poisson fallback 0, unbridged 0; C 101 frames, 0 / 0 / 0
-(raw pieces > 1 in 95 frames, all sub-cell, dropped by the mass rule). beast (895 frames)
-still rendering at 13:05 — its line to be added.
+(raw pieces > 1 in 95 frames, all sub-cell, dropped by the mass rule). beast 896 frames,
+drawn pieces > 1 in 2 frames (archived frames 219 and 225, max 2; both tied to the body by
+a particle chain the isosurface does not enclose, so unbridged 0), Poisson fallback 0; raw
+pieces > 1 in 804 frames, all sub-cell or body-enclosed (isolated particles peak 401 at
+frame 177, the spray episode, then 5 by frame 735). All three thin-feature targets pass
+the video QA under the recipe.
