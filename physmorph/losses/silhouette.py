@@ -24,22 +24,55 @@ def _project(x: torch.Tensor, theta: float, phi: float = 0.0) -> torch.Tensor:
     return torch.stack([x @ right, x @ up], dim=1)
 
 
+_KERNEL = {"name": "cic"}
+
+
+def set_kernel(name: str):
+    """Splat kernel of every rasteriser in this module and render_loss: 'cic' (bilinear, 2x2
+    footprint) or 'quad' (quadratic B-spline, 3x3, the lowest order whose DERIVATIVE is
+    continuous — under CIC a particle's gradient is the derivative of its own footprint and
+    flips sign across pixel edges, so neighbours at different sub-pixel offsets pull in
+    different directions: half of the render covector's energy at two spacings was this and
+    the target images' shot noise, docs/surface_gradient.md §7). Set once per run (runner)."""
+    if name not in ("cic", "quad"):
+        raise ValueError(f"unknown splat kernel {name!r}")
+    _KERNEL["name"] = name
+
+
+def splat_terms(rel: torch.Tensor):
+    """Per-particle splat footprint for pixel-lattice coordinates rel (..., 2): a list of
+    (ii, jj, w) with integer node indices and partition-of-unity weights (sum over the list = 1)."""
+    if _KERNEL["name"] == "cic":
+        base = torch.floor(rel).long()
+        frac = rel - base.to(rel.dtype)
+        out = []
+        for ox in (0, 1):
+            wx = frac[..., 0] if ox else 1 - frac[..., 0]
+            for oy in (0, 1):
+                wy = frac[..., 1] if oy else 1 - frac[..., 1]
+                out.append((base[..., 0] + ox, base[..., 1] + oy, wx * wy))
+        return out
+    c = torch.round(rel).long()
+    d = rel - c.to(rel.dtype)                                   # in [-0.5, 0.5]
+    w1 = [0.5 * (0.5 - d[..., 0]) ** 2, 0.75 - d[..., 0] ** 2, 0.5 * (0.5 + d[..., 0]) ** 2]
+    w2 = [0.5 * (0.5 - d[..., 1]) ** 2, 0.75 - d[..., 1] ** 2, 0.5 * (0.5 + d[..., 1]) ** 2]
+    out = []
+    for ox in (-1, 0, 1):
+        for oy in (-1, 0, 1):
+            out.append((c[..., 0] + ox, c[..., 1] + oy, w1[ox + 1] * w2[oy + 1]))
+    return out
+
+
 def soft_silhouette(x: torch.Tensor, theta: float, res: int, extent: float,
                     k: float = 1.5, phi: float = 0.0) -> torch.Tensor:
-    """Differentiable alpha image (res,res) via 2D CIC coverage splat."""
+    """Differentiable alpha image (res,res) via a 2D coverage splat (set_kernel)."""
     p = _project(x, theta, phi)
     rel = (p + extent) / (2 * extent) * res
-    base = torch.floor(rel).long()
-    frac = rel - base.float()
     img = x.new_zeros(res * res)
-    for ox in (0, 1):
-        wx = frac[:, 0] if ox else 1 - frac[:, 0]
-        for oy in (0, 1):
-            wy = frac[:, 1] if oy else 1 - frac[:, 1]
-            ii, jj = base[:, 0] + ox, base[:, 1] + oy
-            valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
-            idx = (ii * res + jj).clamp(0, res * res - 1)
-            img = img.index_add(0, idx, torch.where(valid, wx * wy, torch.zeros_like(wx)))
+    for ii, jj, w in splat_terms(rel):
+        valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+        idx = (ii * res + jj).clamp(0, res * res - 1)
+        img = img.index_add(0, idx, torch.where(valid, w, torch.zeros_like(w)))
     return (1.0 - torch.exp(-k * img)).reshape(res, res)
 
 
@@ -73,16 +106,10 @@ def soft_silhouette_multi(x: torch.Tensor, views, res: int, extent: float,
     V, N = right.shape[0], x.shape[0]
     p = torch.stack([x @ right.T, x @ up.T], -1)                 # (N,V,2)
     rel = (p + extent) / (2 * extent) * res
-    base = torch.floor(rel).long()
-    frac = rel - base.to(x.dtype)
     voff = (torch.arange(V, device=x.device) * (res * res)).view(1, V)
     img = x.new_zeros(V * res * res)
-    for ox in (0, 1):
-        wx = frac[..., 0] if ox else 1 - frac[..., 0]
-        for oy in (0, 1):
-            wy = frac[..., 1] if oy else 1 - frac[..., 1]
-            ii, jj = base[..., 0] + ox, base[..., 1] + oy
-            valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
-            idx = (voff + ii * res + jj).clamp(0, V * res * res - 1)
-            img = img.index_add(0, idx.reshape(-1), torch.where(valid, wx * wy, torch.zeros_like(wx)).reshape(-1))
+    for ii, jj, w in splat_terms(rel):
+        valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+        idx = (voff + ii * res + jj).clamp(0, V * res * res - 1)
+        img = img.index_add(0, idx.reshape(-1), torch.where(valid, w, torch.zeros_like(w)).reshape(-1))
     return (1.0 - torch.exp(-k * img)).reshape(V, res, res)

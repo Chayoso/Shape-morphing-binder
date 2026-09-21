@@ -37,6 +37,32 @@ def sample_volume(mesh: trimesh.Trimesh, n: int, seed: int = 0,
     return (centers[idx] + jitter).astype(np.float32)
 
 
+def sample_volume_stratified(mesh: trimesh.Trimesh, n: int, seed: int = 0) -> np.ndarray:
+    """G5 (docs/surface_gradient.md §4): ONE jittered particle per fill voxel, no drawing with
+    replacement. The fill resolution is chosen (bisection) so that the fill holds at least n
+    voxels; if it holds more, the surplus is dropped uniformly WITHOUT replacement. The cloud
+    is a jittered lattice: the relative shot noise of the blurred density falls from
+    1/sqrt(particles per blur volume) to the lattice's own (bunny 40k: layer plane-residual
+    RMS 0.35 -> 0.29 spacings, NN-distance CV 0.37 -> 0.29; sampling_test 2026-09-19)."""
+    rng = np.random.default_rng(seed)
+    ext = float(mesh.extents.max())
+    lo, hi = 20, 400
+    while hi - lo > 1:
+        mid = (lo + hi) // 2
+        if len(_fill_centers(mesh, ext / mid)) < n:
+            lo = mid
+        else:
+            hi = mid
+    centers = _fill_centers(mesh, ext / hi)
+    if len(centers) < n:
+        raise ValueError(f"stratified fill at {hi}^3 holds {len(centers)} < n = {n} voxels")
+    pitch = ext / hi
+    keep = rng.choice(len(centers), n, replace=False) if len(centers) > n else np.arange(n)
+    jitter = (rng.uniform(-0.5, 0.5, (n, 3)) * pitch).astype(np.float32)
+    print(f"[sampling] stratified: fill {hi}^3 = {len(centers)} voxels for n = {n}, pitch {pitch:.4g}", flush=True)
+    return (centers[keep] + jitter).astype(np.float32)
+
+
 def sample_volume_shell(mesh: trimesh.Trimesh, n: int, shell_thickness: float, ratio: float = 6.0,
                         seed: int = 0, vox_res: int = 110):
     """SHELL-BIASED volume sampling (the C++ oracle's LoadShellBiasedMPMPointCloudFromObj):
@@ -111,7 +137,8 @@ def filled_volume(mesh: trimesh.Trimesh, vox_res: int = 110) -> float:
 def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
                     match_volume: float | None = None,
                     return_volume: bool = False,
-                    shell: tuple[float, float] | None = None):
+                    shell: tuple[float, float] | None = None,
+                    sample: str = "replacement"):
     """Sample n particles from a mesh, centred at the origin and scaled so the bbox
     diagonal is `size` — the normalisation every runner script used to duplicate.
 
@@ -138,7 +165,8 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
         x, w = sample_volume_shell(mesh, n, thick_wu / (s0 * k0), ratio, seed=seed)
         x = x.astype(np.float32)
     else:
-        x = sample_volume(mesh, n, seed=seed).astype(np.float32)
+        x = (sample_volume_stratified(mesh, n, seed=seed) if sample == "stratified"
+             else sample_volume(mesh, n, seed=seed)).astype(np.float32)
         w = None
     x -= x.mean(0)
     s = size / (np.linalg.norm(x.max(0) - x.min(0)) + 1e-9)

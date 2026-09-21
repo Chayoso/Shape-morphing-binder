@@ -104,7 +104,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_res=args.render_res, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
                          layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised,
-                         layer_ctrl_smooth=args.layer_ctrl_smooth,
+                         layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
                          render_surface_only=args.render_surface_only,
@@ -618,14 +618,19 @@ def main():
                     help="projection fraction per step (0 = 1/T over one window; 1 = hard per-step constraint)")
     ap.add_argument("--layer_ctrl", action="store_true",
                     help="position-mode control channel on the outer layer (docs/surface_gradient.md §7)")
+    ap.add_argument("--sil_kernel", default="cic", choices=["cic", "quad"],
+                    help="splat kernel of the silhouette/shading rasterisers (quad = quadratic B-spline, C1)")
+    ap.add_argument("--sample", default="replacement", choices=["replacement", "stratified"],
+                    help="particle sampling of source and target: with replacement (the v8 sampler) or one "
+                         "jittered particle per fill voxel (G5, docs/surface_gradient.md §4)")
     ap.add_argument("--layer_ctrl_smooth", action="store_true",
                     help="project the u channel's step onto the layer's smooth subspace (the relaxation's W)")
     ap.add_argument("--pbr_denoised", action="store_true",
                     help="G1: shading target from the target's reconstructed surface; morph normals on the pixel grid")
     args = ap.parse_args()
 
-    src, v_src = load(args.src, args.n, args.seed, return_volume=True)
-    tgt, v_tgt = load(args.tgt, args.n, args.seed + 1, match_volume=v_src,
+    src, v_src = load(args.src, args.n, args.seed, return_volume=True, sample=args.sample)
+    tgt, v_tgt = load(args.tgt, args.n, args.seed + 1, match_volume=v_src, sample=args.sample,
                       return_volume=True)
     print(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
           f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})",

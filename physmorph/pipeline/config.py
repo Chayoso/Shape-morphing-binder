@@ -436,6 +436,11 @@ class PipelineConfig:
                                     #   per-window normal displacement leaf u on the outer layer, applied
                                     #   1/T per step in k_layer_project; the render covector reaches it
                                     #   without the grid's low-pass. |u| <= one spacing per window.
+    sil_kernel: str = "cic"         # splat kernel of the silhouette / shading rasterisers: 'cic' (bilinear,
+                                    #   2x2, derivative discontinuous at pixel edges — neighbouring particles
+                                    #   get different, even opposite, pulls) or 'quad' (quadratic B-spline,
+                                    #   3x3, the lowest order with a continuous derivative; docs/
+                                    #   surface_gradient.md §7 covector rough share). losses.silhouette.set_kernel
     layer_ctrl_smooth: bool = False # the u channel's Adam STEP projected onto the layer's smooth subspace
                                     #   with the relaxation's own W (h = 2 spacings, no new constant): the
                                     #   rough part of the step is what the relaxation undoes one step later

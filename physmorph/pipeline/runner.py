@@ -149,6 +149,8 @@ def _iso_count(x: np.ndarray, radius: float) -> int:
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_src=None) -> TargetPack:
     dev = cfg.device
+    from ..losses.silhouette import set_kernel
+    set_kernel(getattr(cfg, "sil_kernel", "cic"))     # every rasteriser (targets and morph) alike
     N = target_x.shape[0]
     # per-particle masses: unit by default; with shell-biased sampling the relative rest
     # volumes (mean 1) of the TARGET particles build the target grid and those of the

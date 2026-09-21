@@ -12,7 +12,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from ..losses.silhouette import _project, soft_silhouette
+from ..losses.silhouette import _project, soft_silhouette, splat_terms
 from ..losses.volumetric import rasterize_mass
 
 
@@ -119,22 +119,16 @@ def shaded_view(x: torch.Tensor, theta: float, phi: float, res: int, extent: flo
     pw = (sw + 0.05) * vis                          # surface-weighted, visibility-biased
     p = _project(x, theta, phi)
     rel = (p + extent) / (2 * extent) * res
-    base = torch.floor(rel).long()
-    frac = rel - base.to(x.dtype)
     num = x.new_zeros(res * res)
     den = x.new_zeros(res * res)
     cov = x.new_zeros(res * res)
-    for ox in (0, 1):
-        wx = frac[:, 0] if ox else 1 - frac[:, 0]
-        for oy in (0, 1):
-            wy = frac[:, 1] if oy else 1 - frac[:, 1]
-            ii, jj = base[:, 0] + ox, base[:, 1] + oy
-            valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
-            idx = (ii * res + jj).clamp(0, res * res - 1)
-            w = torch.where(valid, wx * wy, torch.zeros_like(wx))
-            num = num.index_add(0, idx, w * pw * b)
-            den = den.index_add(0, idx, w * pw)
-            cov = cov.index_add(0, idx, w)
+    for ii, jj, w0 in splat_terms(rel):
+        valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+        idx = (ii * res + jj).clamp(0, res * res - 1)
+        w = torch.where(valid, w0, torch.zeros_like(w0))
+        num = num.index_add(0, idx, w * pw * b)
+        den = den.index_add(0, idx, w * pw)
+        cov = cov.index_add(0, idx, w)
     alpha = 1.0 - torch.exp(-k * cov)
     shade = num / den.clamp_min(1e-6)
     return (shade * alpha).reshape(res, res), alpha.reshape(res, res)
@@ -155,23 +149,17 @@ def shaded_views_multi(x: torch.Tensor, views, res: int, extent: float,
     pw = (sw[:, None] + 0.05) * vis                               # (N,V)
     p = torch.stack([x @ right.T, x @ up.T], -1)                  # (N,V,2)
     rel = (p + extent) / (2 * extent) * res
-    base = torch.floor(rel).long()
-    frac = rel - base.to(x.dtype)
     voff = (torch.arange(V, device=x.device) * (res * res)).view(1, V)
     num = x.new_zeros(V * res * res)
     den = x.new_zeros(V * res * res)
     cov = x.new_zeros(V * res * res)
-    for ox in (0, 1):
-        wx = frac[..., 0] if ox else 1 - frac[..., 0]
-        for oy in (0, 1):
-            wy = frac[..., 1] if oy else 1 - frac[..., 1]
-            ii, jj = base[..., 0] + ox, base[..., 1] + oy
-            valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
-            idx = (voff + ii * res + jj).clamp(0, V * res * res - 1).reshape(-1)
-            w = torch.where(valid, wx * wy, torch.zeros_like(wx))
-            num = num.index_add(0, idx, (w * pw * b).reshape(-1))
-            den = den.index_add(0, idx, (w * pw).reshape(-1))
-            cov = cov.index_add(0, idx, w.reshape(-1))
+    for ii, jj, w0 in splat_terms(rel):
+        valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+        idx = (voff + ii * res + jj).clamp(0, V * res * res - 1).reshape(-1)
+        w = torch.where(valid, w0, torch.zeros_like(w0))
+        num = num.index_add(0, idx, (w * pw * b).reshape(-1))
+        den = den.index_add(0, idx, (w * pw).reshape(-1))
+        cov = cov.index_add(0, idx, w.reshape(-1))
     alpha = 1.0 - torch.exp(-k * cov)
     shade = num / den.clamp_min(1e-6)
     return (shade * alpha).reshape(V, res, res), alpha.reshape(V, res, res)
