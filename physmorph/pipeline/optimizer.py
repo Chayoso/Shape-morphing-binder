@@ -1151,6 +1151,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 grad_dump_state.update(gx_phys=_gx_phys, gx_sil=_gx_sil, gx_pbr=_gx_pbr,
                                        gl_phys=gp[0].detach().clone(), gl_sil=_gl_sil, gl_pbr=_gl_pbr,
                                        gl_rend=_gl_rend, xT0=state[0].detach().clone())
+                if u is not None:
+                    # the position-mode channel (§7): each term's gradient on the u leaf (u is the
+                    # last leaf; gp is over all leaves)
+                    def _gu(term):
+                        if term is None:
+                            return None
+                        g_ = torch.autograd.grad(term, u, retain_graph=True, allow_unused=True)[0]
+                        return torch.zeros_like(u) if g_ is None else g_.detach().clone()
+                    grad_dump_state.update(gu_phys=gp[-1].detach().clone(), gu_sil=_gu(lsil_t),
+                                           gu_pbr=_gu(lpbr), gu_rend=_gu(lr))
             t1 = _tick()
             if smooth:
                 # v3 grid-GS preconditioning: smooth the IMAGE-SPACE pull on the grid,
@@ -1502,6 +1512,31 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             dc_buf.copy_(dc_b.view(T, N, 3, 3))
             tr.run()
             resp["xT_base"] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
+            u_red = {}
+            if u is not None:
+                # the u channel alone: each term's u-gradient from u0 = 0, scaled to the accepted
+                # u's norm, with the START control (dFc = leaf0); base = leaf0 with u = 0
+                u_final = u.detach().clone()
+                u_step = float(u_final.norm())
+                for name in ("gu_phys", "gu_sil", "gu_pbr", "gu_rend"):
+                    gu = grad_dump_state.get(name)
+                    if gu is None:
+                        continue
+                    u_red[name] = gu.cpu().numpy()
+                    gn = float(gu.norm())
+                    if gn <= 0 or u_step <= 0:
+                        continue
+                    u_cand = (-(u_step / gn) * gu).clamp(-sp0, sp0)
+                    wp.to_torch(tr_eval.layer_u).copy_(u_cand)
+                    tr.run()
+                    resp["xT_" + name[3:] + "_u"] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
+                wp.to_torch(tr_eval.layer_u).zero_()
+                tr.run()
+                resp["xT_base_u0"] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
+                u_red["u_final"] = u_final.cpu().numpy()
+                u_red["u_step"] = u_step
+                u_red["layer_mask"] = np.asarray(layer[0], np.float32)
+                wp.to_torch(tr_eval.layer_u).copy_(u_final)
             # restore the committed rollout in the buffers (the runner reads frames/end above,
             # already copied; the buffers themselves are rewritten by the next window)
             dc_buf.copy_(dc.view(T, N, 3, 3)); tr.run()
@@ -1521,7 +1556,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                 gx_pbr=(gd["gx_pbr"].cpu().numpy() if gd.get("gx_pbr") is not None else np.zeros(0)),
                                 lam_r=gd["lam_r"], g_share=gd["g_share"], step_norm=step_norm_c,
                                 leaf0_norm=float(grad_dump_leaf0.norm()), leaf_final_norm=float(leaf_final.norm()),
-                                **red, **resp)
+                                **red, **resp, **u_red)
     if _TIMING:
         tot = time.perf_counter() - _TM.get("t_win", time.perf_counter())
         keys = ("eval_roll", "eval_loss", "eval_det", "terms", "grad", "g_phys", "g_dt", "g_rend", "final")

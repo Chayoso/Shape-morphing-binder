@@ -103,6 +103,42 @@ def analyse(path, spacing_arg):
         out[c + "_layer"] = float((pn[mask] ** 2).sum() / ((pn ** 2).sum() + 1e-30))
         for r in (1, 2, 4, 8):
             out[f"{c}_corr{r}"] = corr_at(gl, x0, sp, r)
+    # stage 2b / 3b — the position-mode channel u (docs/surface_gradient.md §7)
+    if "u_final" in z.files:
+        lm = z["layer_mask"] > 0.5
+        xl = x0[lm]
+        out["u_layer_n"] = float(lm.sum())
+        uf = z["u_final"][lm]
+        out["u_rms"] = float(np.sqrt((uf ** 2).mean()) / sp)
+        out["u_clip"] = float((np.abs(uf) >= 0.999 * sp).mean())
+        out["u_corr2"] = corr_at(uf[:, None], xl, sp, 2)
+        for c in ("gu_phys", "gu_sil", "gu_pbr", "gu_rend"):
+            if c not in z.files:
+                continue
+            gu = z[c][lm]
+            e = float((gu ** 2).sum())
+            out[c + "_norm"] = float(np.sqrt(e))
+            out[c + "_rough"] = rough_share(gu, x0, lm, sp)
+            for r in (1, 2, 4, 8):
+                out[f"{c}_corr{r}"] = corr_at(gu[:, None], xl, sp, r)
+        if "xT_base_u0" in z.files:
+            xb0 = z["xT_base_u0"].astype(np.float32)
+            mb0, nb0 = layer_by_asymmetry(xb0, sp)
+            resb0, _ = plane_residual(xb0, mb0, nb0, sp)
+            out["rms_base_u0"] = float(np.sqrt((resb0 ** 2).mean()))
+            for c in ("phys", "sil", "pbr", "rend"):
+                k = f"xT_{c}_u"
+                if k not in z.files:
+                    continue
+                xc = z[k].astype(np.float32)
+                dx = xc - xb0
+                dn = (dx[mb0] * nb0[mb0]).sum(1)
+                out[f"dxu_{c}_layer"] = float(np.linalg.norm(dx[mb0], axis=1).mean() / sp)
+                out[f"dxu_{c}_interior"] = float(np.linalg.norm(dx[~mb0], axis=1).mean() / sp)
+                out[f"dxu_{c}_rough"] = rough_share(dn, xb0, mb0, sp)
+                mc, nc = layer_by_asymmetry(xc, sp)
+                resc, _ = plane_residual(xc, mc, nc, sp)
+                out[f"rmsu_{c}"] = float(np.sqrt((resc ** 2).mean()))
     # stage 3
     if "xT_base" in z.files:
         xb = z["xT_base"].astype(np.float32)
@@ -161,6 +197,20 @@ def main():
         for c in ("phys", "sil", "pbr", "rend"):
             if f"dx_{c}_layer" in rows[0]:
                 print(f"{c:<8} {m(f'dx_{c}_layer'):10.4f} {m(f'dx_{c}_interior'):9.4f} {m(f'dx_{c}_normal'):7.3f} {m(f'dx_{c}_rough'):7.3f} {m(f'rms_{c}'):8.3f}")
+    if "u_rms" in rows[0]:
+        m = lambda k: np.nanmean([r[k] for r in rows])
+        print("\nSTAGE 2b — the u channel (position-mode control on the outer layer): each term's u-gradient — rough share at 2 sp, neighbour correlation")
+        print(f"{'channel':<10} {'norm':>10} {'rough':>7} {'corr1':>7} {'corr2':>7} {'corr4':>7} {'corr8':>7}")
+        for c in ("gu_phys", "gu_sil", "gu_pbr", "gu_rend"):
+            if c + "_norm" in rows[0]:
+                print(f"{c:<10} {m(c+'_norm'):10.3e} {m(c+'_rough'):7.3f} {m(c+'_corr1'):7.3f} {m(c+'_corr2'):7.3f} {m(c+'_corr4'):7.3f} {m(c+'_corr8'):7.3f}")
+        print(f"accepted u: RMS {m('u_rms'):.3f} spacings on {rows[0]['u_layer_n']:.0f} layer particles, at the clip {m('u_clip')*100:.1f} %, corr at 2 sp {m('u_corr2'):.3f}")
+        if "rms_base_u0" in rows[0]:
+            print("\nSTAGE 3b — the window's response to each channel through u ALONE (start control, |u| = the accepted u's norm)")
+            print(f"{'channel':<8} {'|dx| layer':>10} {'|dx| int':>9} {'rough':>7} {'rms end':>8}   (base u=0: {m('rms_base_u0'):.3f})")
+            for c in ("phys", "sil", "pbr", "rend"):
+                if f"dxu_{c}_layer" in rows[0]:
+                    print(f"{c:<8} {m(f'dxu_{c}_layer'):10.4f} {m(f'dxu_{c}_interior'):9.4f} {m(f'dxu_{c}_rough'):7.3f} {m(f'rmsu_{c}'):8.3f}")
     print("\nper window: lam_r, g_share, step_norm, rms xT0 -> final")
     for i, r in enumerate(rows):
         print(f"  win {i:3d}: lam {r['lam_r']:.3g}  g_share {r['g_share']:.3f}  step {r['step_norm']:.3g}  rms {r['rms_xT0']:.3f} -> {r.get('rms_final', float('nan')):.3f}")
