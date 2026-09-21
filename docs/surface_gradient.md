@@ -477,6 +477,38 @@ correlation at two spacings 0.46 → 0.61). The recipe-independent half of the r
 was the rasteriser, as hypothesised; what is left (0.33) is the quadratic kernel's own
 second-derivative discontinuity plus genuine sub-two-spacing structure. Full runs: next.
 
+**G5 full runs (`g5_bunny`, `g5_dragon`; 11:05–11:20).** Against the recipe twins `p40_*`
+(spacings, degrees; the "target" rows are each run's own sampled target through the
+Poisson surface — the floor the morph is chasing):
+
+| | silIoU | chamfer | det F | layer RMS morph / end (target floor) | Poisson rough mid | END FRAME vs the true mesh: d_abs / d_95 / n_dev / rough / hp_res / dcorr |
+|---|---|---|---|---|---|---|
+| bunny, recipe | 0.9628 | 0.1196 | 0.766 | 0.355 / 0.276 (0.339) | 6.2° | 0.99 / 6.13 / 21.8° / 6.42 / 0.177 / +0.28 |
+| bunny, + G5 | **0.9670** | **0.1163** | 0.752 | **0.267** / 0.295 (0.294) | **5.4°** | **0.43 / 1.12 / 17.6° / 5.42 / 0.159 / +0.36** |
+| bunny targets (recipe → G5) | | | | | | 0.92 → 0.26 / 6.0 → 0.66 / 18.8 → 14.5° / 5.55 → 5.00 / 0.201 → 0.174 / +0.37 → +0.38 |
+| dragon, recipe | 0.9555 | 0.1235 | 0.736 | 0.338 / 0.265 (0.325) | 8.5° | 0.40 / 1.25 / 25.1° / 8.00 / 0.200 / +0.32 |
+| dragon, + G5 | **0.9613** | **0.1188** | **0.767** | **0.293** / 0.249 (0.310) | **8.1°** | **0.36 / 1.10 / 23.6° / 8.12 / 0.185 / +0.34** |
+| dragon targets (recipe → G5) | | | | | | 0.27 → 0.24 / 0.67 → 0.74 / 19.9 → 19.7° / 7.78 → 7.17 / 0.181 → 0.171 / +0.44 → +0.49 |
+
+Verdict: ADOPTED. The pre-registered criteria are met on both targets beyond the twin
+spread: the end frame's high-passed residual to the true surface falls (0.177 → 0.159,
+0.200 → 0.185), its detail correlation rises (+0.28 → +0.36, +0.32 → +0.34), the mean
+normal error falls (21.8 → 17.6°, 25.1 → 23.6°), IoU rises 0.4–0.6 and chamfer falls 3–4 %
+(each against its own target), the outer layer is 13–25 % smoother over the morph and its
+Poisson surface 0.4–0.8° smoother at mid-morph. Two honest notes. (1) Part of the bunny's
+absolute-distance gain is the TARGET's: the stratified fill at 44³ (pitch 0.33 wu) does
+not build the spurious closed floor under the open-base bunny.obj that the 110³ fill did
+(target Poisson d_95 6.0 → 0.66), so the bunny's d_abs / d_95 columns compare a morph to a
+better target, and the morph-minus-target gap (0.07 → 0.17 spacings) is not an
+improvement; the dragon, a closed mesh, shows the morph's own gain (gap 0.13 → 0.12,
+n_dev gap 5.2 → 3.9°). The band-limited columns (hp_res, dcorr) and the normal error are
+the ones that carry the verdict. (2) The covector's rough share did NOT move (stage A):
+G5 improves what the gradient is chasing (a target with 25 % less layer noise, 0.339 →
+0.294) and what the morph starts from (the source sphere, the same sampler), not the
+gradient's own texture — that is the quad splat's job. The morph runs 2.3× longer (23 min:
+the stratified source/target take more windows to the stop; the run-time budget is not a
+criterion here).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
