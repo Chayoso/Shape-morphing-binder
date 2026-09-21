@@ -3554,3 +3554,16 @@ re-run at dx 0.31 (`n150y_<T>`).
 https://claude.ai/code/artifact/2f348b78-324e-4cf0-a491-ea49f92fd5b1 (docs/highres150_v6_report.md);
 v5 (ppc 27) kept as a separate comparison page https://claude.ai/code/artifact/2ee53cd2-4c65-4b63-bea1-9026d13d8f78; v4 (ot_pace) at
 6b144784. The recipe (`scripts/ops/hyde06_env.sh`) is `--cell_diag 26`.
+
+### 2026-09-21 — 150k excluded; the gradient results visualised
+
+User: the 150k gallery is out of the experiments for now — everything at 40k; and show the
+gradient results as figures. `scripts/probes/grad_stage_viz.py` draws, from the three
+gradient-stage dumps (v8 recipe, + relaxation, the new recipe): the terminal covectors on
+the particles and their normal component on the outer layer (stage 1), the smooth /
+rough split of the silhouette and shading covectors at two spacings, the same covectors
+after the adjoint through the stress control and through the u channel (stage 2), the
+correlation-vs-scale curves of every path, the single-channel responses of a window
+(stage 3), the per-window λ / g_share / layer-RMS traces and the response bars, and the
+accepted u field with its histogram (the one-spacing clip visible as the two spikes).
+Published as an artifact page; the figures live in `output/gradviz` on hyde06.

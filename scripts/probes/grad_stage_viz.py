@@ -177,7 +177,7 @@ def main():
 
     # ---- fig 6: per-window trajectories and the response RMS bars, every dump --------------------------------
     rows_all = {name: [analyse(f, None) for f in sorted(glob.glob(os.path.join(d, "win_*.npz")))] for name, d in dumps}
-    fig, axes = plt.subplots(1, 4, figsize=(15, 3.8))
+    fig, axes = plt.subplots(1, 4, figsize=(17, 4.6), gridspec_kw={"width_ratios": [1, 1, 1.15, 1.4]})
     for name, rows in rows_all.items():
         w = np.arange(len(rows))
         axes[0].plot(w, [r["lam_r"] for r in rows], "o-", label=name)
@@ -201,8 +201,9 @@ def main():
             for c in ("phys", "sil", "pbr"):
                 labels.append(f"{name}\n{c}/u"); vals.append(m(f"rmsu_{c}")); cols.append(palette[k % 10])
     axes[3].bar(range(len(vals)), vals, color=cols)
-    axes[3].set_xticks(range(len(vals))); axes[3].set_xticklabels(labels, fontsize=5.5, rotation=90)
-    axes[3].set_title("layer RMS at the window's end,\nfollowing one channel alone (mean over windows)"); axes[3].grid(alpha=0.3, axis="y")
+    axes[3].set_xticks(range(len(vals))); axes[3].set_xticklabels([l.replace("\n", " ") for l in labels], fontsize=6, rotation=70, ha="right")
+    axes[3].set_title("layer RMS at the window's end\nfollowing ONE channel (mean over windows)", fontsize=10); axes[3].grid(alpha=0.3, axis="y")
+    axes[3].set_ylabel("spacings")
     fig.tight_layout(); fig.savefig(os.path.join(out, "fig6_windows.png"), dpi=140); plt.close(fig)
 
     # ---- fig 7: the accepted u field ----------------------------------------------------------------------
