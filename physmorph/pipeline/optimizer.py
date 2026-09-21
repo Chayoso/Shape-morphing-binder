@@ -1152,7 +1152,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     gx_rend_diag = gx_rend_diag * surface_w_t
                     if gF_rend_diag is not None:
                         gF_rend_diag = gF_rend_diag * surface_w_t.repeat(1, 9)
-        if balancer.active and (special_render or cfg.grad_project or it == 0):
+        if balancer.active and (special_render or cfg.grad_project or it == 0 or cfg.layer_u_render_only):
             if gp is None:
                 t1 = _tick()
                 gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
@@ -1256,6 +1256,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                          blend_beta=balancer.alpha_lam)
             if gdt is not None:      # W1 joins the composite AFTER lambda/PCGrad (find. 9)
                 g = [gi + di for gi, di in zip(g, gdt)]
+            if cfg.layer_u_render_only and cfg.layer_ctrl:
+                # P1 (docs/surface_gradient.md 13): the u channel driven by the RENDER channel only — the
+                # cell-sum loss lives on the cell grid and has no legitimate sub-cell content, so its
+                # u-gradient is the granularity signal; the W1 term is physics-side too
+                iu = [i for i, l in enumerate(leaves) if l is u][0]
+                g[iu] = lam_r * gr[iu] if gr[iu] is not None else torch.zeros_like(u)
         elif balancer.active:
             total = Lp_core + lam_r * lr if Ldt is None else Lp_core + Ldt + lam_r * lr
             g = list(torch.autograd.grad(total, leaves))

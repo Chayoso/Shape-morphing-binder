@@ -873,6 +873,16 @@ says where it must not act: on a saturated, smooth region its rough part is nois
 that separates the two is the particle-scale density residual at the window start —
 above the sampling floor at the crevice, at the floor on the ring — see §12 (P2).
 
+**Tangential-only variant (`fx_P3t_*`, `--layer_F_depth 0`; 17:45).** No collapse, no benefit,
+worse on every surface column: layer RMS morph / end 0.320 / 0.264 (bunny; `fx_11` 0.272 /
+0.317), 0.309 / 0.290 (dragon; 0.280 / 0.198), 0.404 / 0.347 (bob; 0.269 / 0.166); det F min
+0.15 / 0.015 / 0.12 (the shear's second-order terms and the neighbours' differing normals
+leave a trace per step that compounds); silIoU 0.9578 / 0.9559 / 0.9766 (−0.9 / −0.2 / −0.2);
+end frame vs the true mesh: bunny hp_res 0.383 (0.158), dcorr +0.26 (+0.39); bob n_dev 7.3°
+(7.0), hp_res 0.059 (0.053). The shear written into F is neither relaxed by the grid nor
+useful as a resistance: the strain stays in F (det F drifts) while the layer gets rougher.
+P3 is closed in both forms. `--layer_F` and `--layer_F_depth` remain as the record.
+
 ## 12. P2 — the u channel gated by the particle-scale density residual (2026-09-21; pre-registered before the readings)
 
 After P3 (§11): the sub-cell actuator stays kinematic; what remains is WHERE it acts.
@@ -913,6 +923,77 @@ shut it off); bob's morph-mean layer RMS ≥ 0.25 with the active share > 50 % (
 wrong for the morph cloud: its fluctuation exceeds the Poisson floor — then re-derive the
 floor from the morph's own measured dispersion, §9's `sampling_noise.py`, not by tuning
 nsig); silIoU more than 1 point below `fx_11` on two targets (the channel lost its reach).
+
+**Readings (18:10; `output/cand_P2.log`, against `fx_11` / `fx_11c` / `fx_10`).**
+
+| run | windows | silIoU | det F min | layer RMS morph / end | end frame: d_95 / n_dev / hp_res / dcorr | u gate share w1 → w10 → end |
+|---|---|---|---|---|---|---|
+| bunny `fx_P2` | 51 | 0.9597 | 0.744 | **0.231** / **0.187** | **5.38** / 20.0° / 0.295 / +0.310 | 89 → 42 → 15 % |
+| bunny `fx_11` / `fx_11c` | 67 / 57 | 0.9665 / 0.9688 | 0.76 | 0.272 / 0.317 · 0.273 / 0.276 | 1.36 / 17.8° / 0.158 / +0.385 | — |
+| bunny `fx_10` (u off) | 64 | 0.9552 | 0.753 | 0.199 / 0.179 | 5.39 / 20.2° / 0.295 / +0.285 | — |
+| dragon `fx_P2` | 73 | 0.9566 | 0.762 | **0.251** / 0.190 | 1.29 / 25.3° / 0.204 / +0.293 | 94 → 86 → 19 % |
+| dragon `fx_11` / `fx_11c` | 86 / 59 | 0.9576 / 0.9629 | 0.77–0.78 | 0.280 / 0.198 · 0.301 / 0.241 | 1.30 / 24.8° / 0.205 / +0.312 | — |
+| dragon `fx_10` | 81 | 0.9541 | 0.740 | 0.218 / 0.192 | 1.10 / 23.6° / 0.193 / +0.353 | — |
+| bob `fx_P2` | 45 | 0.9750 | 0.859 | **0.229** / **0.155** | 0.36 / **6.45°** / **0.049** / +0.261 | 94 → 56 → 8 % |
+| bob `fx_11` / `fx_11c` | 44 / 48 | 0.9786 / 0.9794 | 0.85–0.86 | 0.269 / 0.166 · 0.265 / 0.177 | 0.38 / 6.95° / 0.053 / +0.257 | — |
+| bob `fx_10` | 43 | 0.9748 | 0.857 | 0.197 / 0.124 | 0.32 / 5.58° / 0.040 / +0.322 | — |
+
+QA columns 0 on all three. The gate behaves as designed as a POSITION test: open on
+~90 % of the layer at the start (the sphere is far from the target everywhere), closing
+as the outline arrives — bunny 15 %, dragon 19 %, bob 8 % of the layer at the end.
+
+- P2-a (bob): the harm is halved, not removed — layer RMS 0.269 → 0.229 (morph) and 0.166
+  → 0.155 (end), n_dev 6.95 → 6.45°, hp_res 0.053 → 0.049 (the u-off values 0.197 / 0.124 /
+  5.58° / 0.040); dcorr unchanged (+0.26). Below the predictions (≤ 0.22 / ≤ 0.15 / ≤ 6.0°).
+- P2-b (bunny): FALSIFIED — d_95 5.38, hp_res 0.295, exactly the u-off end state: the gate
+  shut u off where u was doing its work. The layer is smoother (0.231 / 0.187) for it.
+- P2-c: silIoU −0.7 / −0.9 (bunny), −0.1 / −0.6 (dragon), −0.4 / −0.4 (bob) against the
+  two render-on twins: bunny and bob outside the 0.5 tolerance; bob lands ON its u-off value.
+- P2-d (dragon): within the spread on every column, layer RMS 0.251 (≤ 0.26 ✓).
+**Where the gate is blind (probes 18:20–18:45).** bunny's far region against the true mesh
+(`fx_10` and `fx_P2`: 7.9 % of the end surface farther than 3 spacings, 99 % on the inner
+side, a slab x −0.26 … 0.59 spanning y −1.8 … 1.2 and z −1.7 … 1.2; `fx_11` 3.3 % in a
+smaller region; `fx_01` 3.3 %) is NOT a density defect: the target cloud has no planar
+deficit (slab counts uniform to ±10 % across x, y, z; median 1.5-spacing counts 26–27
+everywhere), the morph's core density there is bulk, and the particle-scale residual at
+and behind the layer particles of that region is 0.03–0.06 (below the 0.118 gate) — the
+region is the front-bottom fold (the notch visible in the u-off still) plus the base of a
+true mesh that is not watertight (Stanford bunny: holes at the base, `gt.is_watertight ==
+False`), where "distance to the true mesh" is ill-defined. So bunny's d_95 is not a clean
+discriminator; the fold itself is real (the still) and the gate cannot see it because a
+fold of sub-spacing width leaves no residual at σ = 1.5 spacings. Verdict on P2: the gate
+does what it was designed to do (open where the surface is off the target by more than
+half a spacing, shut where it is on it) and that is not the right criterion — u's useful
+work includes folds and outline fine-positioning that the density residual does not
+register. Not adopted; `--layer_gate` kept as the record.
+## 13. P1 — the u channel driven by the render channel only (2026-09-21; pre-registered before the readings)
+
+Implementation (`--layer_u_render_only`): the composite gradient is assembled from the
+separate physics and render gradients every iteration (the balancer's own path) and the u
+leaf's entry is replaced by λ·g_render[u] — the cell-sum loss, the W1 term and every other
+physics-side term no longer reach u. Rationale from the factorial: with u driven by the
+physics gradient alone (`fx_01`) bob's end layer reached 0.44 spacings, with both 0.17,
+without u 0.12 — the physics gradient through u is the cell sum's sub-cell granularity
+(method.md §10.6–10.9: the same signal that ejected particles), a per-particle rough
+signal by construction. The render channel's u-gradient is half rough too (§6: the CIC
+rasteriser), but it is the channel that carries real sub-cell content (the silhouette pixel
+is 1.3 spacings, the denoised shading reference).
+
+**Design.** `fx_P1_{bunny,dragon,bob}` = RECIPE + `--layer_u_render_only`, `candidate40.sh`,
+against `fx_11` / `fx_11c` / `fx_10`.
+
+**Predictions.** P1-a (bob): morph-mean layer RMS ≤ 0.23, end ≤ 0.15, n_dev ≤ 6.5°, hp_res ≤
+0.048 (the physics-driven roughness gone; the render-driven part stays). P1-b (bunny): the
+front-bottom fold closed (the still; hp_res ≤ 0.20, n_dev ≤ 19°; d_95 not used, §12),
+silIoU within 0.5 of `fx_11`. P1-c (dragon): within the spread. P1-d: the accepted u's
+RMS falls below `fx_11`'s 0.585 spacings and its share at the clip below 19 % (the
+physics push at the clip was the physics gradient's).
+
+Falsifiers: bob's layer ≥ 0.25 (the render channel's own u-gradient roughness is enough
+to roughen the layer — then the remaining lever is the rasteriser, and the quad kernel's
+surface result (§8) says that is not it either: u would have to be dropped on saturated
+regions by a criterion other than density); bunny's fold open or silIoU more than 1 point
+below `fx_11` (the physics-driven u was the finishing signal).
 
 ## 5. Sources
 
