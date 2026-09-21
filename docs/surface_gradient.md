@@ -380,6 +380,23 @@ u-gradient onto the layer's smooth subspace with the same W (h = 2 spacings, no 
 constant) would give the channel the pixel-scale structure and none of the noise, and
 free the clip for the transport it is being used for. Not run; recorded as the next test.
 
+**Was the covector always half noise? (user, 2026-09-21).** Yes, and worse: the rough
+share of the layer's normal component at two spacings, 8-window means — v8 recipe
+silhouette 0.65 / shading 0.67; + relaxation 0.52 / 0.56; the new recipe 0.53 / 0.55
+(the 40 % of fig. 2 is window 3 alone). Two sources add: the target images' shot noise
+(what G1 removed from the shading reference) and the CIC silhouette rasteriser itself —
+a particle's gradient is the derivative of its own 2×2-pixel kernel footprint, so
+neighbours at different sub-pixel offsets get different, even opposite, pulls; that part
+is recipe-independent. It was invisible before because the stress path's grid low-pass
+hid it (fig. 4: every recipe's stress-path curve coincides); the u channel is the first
+actuator that lets it reach the surface, which is why the projection below is needed.
+
+**The projection test (`--layer_ctrl_smooth`, commit 878afd0).** The u leaf's Adam step
+is replaced by W·step, W the relaxation's own normalised same-side neighbour weights
+(h = 2 spacings): a search-direction transform, the balancer and the physics untouched.
+Runs `ps40_bunny`, `ps40_dragon` (the recipe + the projection) against `p40_*`; the
+8-window dump `gs40smooth_bunny` for the stage analysis. Results: next entry.
+
 **The run-to-run spread of the IoU comparisons.** The verification runs `p40_bunny` /
 `p40_dragon` are the same configuration as `g1a_*` (the new recipe through
 `hyde06_env.sh`): silIoU 0.9628 vs 0.9614 (bunny), 0.9555 vs 0.9594 (dragon); chamfer
