@@ -3583,3 +3583,32 @@ frame loses detail against the true mesh (hp_res 0.177 → 0.199, dcorr +0.28 �
 FALSIFIED as a recipe addition — the relaxation already applies the same W to the state;
 projecting the step too removes the channel's structure with its noise. Flag kept, not in
 the recipe.
+
+### 2026-09-21 — the three-way check at 40k, the shot-noise proof, the thin-feature Poisson videos (docs/surface_gradient.md §8–§9)
+
+**Three-way check (pre-registered in §8, all at 40k, GPU 0):** G5 stratified sampling
+(`--sampler stratified`) ADOPTED — end frame vs the true mesh, bunny / dragon: hp_res
+0.177 → 0.159 / 0.200 → 0.185, dcorr +0.28 → +0.36 / +0.32 → +0.34, n_dev 21.8 → 17.6° /
+25.1 → 23.6°, silIoU +0.4 / +0.6 points, chamfer −3 / −4 %, morph-mean layer RMS −25 /
+−13 % (spread: IoU ±0.4, hp_res 0.01, dcorr 0.02). The quadratic B-spline splat kernel
+(`--sil_kernel quad`) FALSIFIED — smoother silhouette covector (rough share 0.53 → 0.33)
+but the bunny's end frame rougher in the band (hp_res 0.177 → 0.212), higher layer RMS;
+with G5 an early stop at 882 frames and an unfinished base (d_95 4.22). Thin-feature
+targets under the recipe (`t40_*` vs `t40v8_*`): bob IoU 0.9734 → 0.9779, C 0.8371 →
+0.9134 (both stop after 15 windows), beast within the spread; grid fragments 0, end
+fragments beast 2 → 0, re-attachments 0, stray census cleaner on all three. RECIPE =
+v8 + `--layer_relax --pbr_denoised --layer_ctrl --sampler stratified` (hyde06_env.sh).
+
+**The shot-noise proof (§9, `scripts/probes/sampling_noise.py`):** with replacement is a
+Poisson process (relative fluctuation of the 1.5-spacing-blurred density (p/σ)^{3/2}/√(8π^{3/2})
+= 5.9 % at σ = 1.86 volumetric spacings); stratified leaves a dipole field of the jitter
+((p/σ)^{5/2}/√(64π^{3/2}) = 1.1 %, spectrum ratio k²p²/12, no k = 0 component). Measured:
+cube 5.5 → 1.1 % (theory 5.9 / 1.1), bunny 8.1 → 2.9 %, dragon 5.2 → 2.2 %; index of
+dispersion 1.01 → 0.26, 1.30 → 0.31, 1.06 → 0.28; target level-set hp_res 0.185 → 0.137
+(bunny), 0.168 → 0.156 (dragon). Unit: the project's 8-NN spacing = 1.24 × the volumetric
+spacing. Page: artifact "층화 샘플링의 잡음 증명".
+
+**Thin-feature Poisson videos (stage C2, `report_t40`, per-frame QA):** bob 441 frames,
+drawn pieces > 1 in 0 frames, Poisson fallback 0, unbridged 0; C 101 frames, 0 / 0 / 0
+(raw pieces > 1 in 95 frames, all sub-cell, dropped by the mass rule). beast (895 frames)
+still rendering at 13:05 — its line to be added.
