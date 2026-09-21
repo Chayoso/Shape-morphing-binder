@@ -620,7 +620,7 @@ def main():
                     help="position-mode control channel on the outer layer (docs/surface_gradient.md §7)")
     ap.add_argument("--sil_kernel", default="cic", choices=["cic", "quad"],
                     help="splat kernel of the silhouette/shading rasterisers (quad = quadratic B-spline, C1)")
-    ap.add_argument("--sample", default="replacement", choices=["replacement", "stratified"],
+    ap.add_argument("--sampler", default="replacement", choices=["replacement", "stratified"],
                     help="particle sampling of source and target: with replacement (the v8 sampler) or one "
                          "jittered particle per fill voxel (G5, docs/surface_gradient.md §4)")
     ap.add_argument("--layer_ctrl_smooth", action="store_true",
@@ -629,8 +629,8 @@ def main():
                     help="G1: shading target from the target's reconstructed surface; morph normals on the pixel grid")
     args = ap.parse_args()
 
-    src, v_src = load(args.src, args.n, args.seed, return_volume=True, sample=args.sample)
-    tgt, v_tgt = load(args.tgt, args.n, args.seed + 1, match_volume=v_src, sample=args.sample,
+    src, v_src = load(args.src, args.n, args.seed, return_volume=True, sample=args.sampler)
+    tgt, v_tgt = load(args.tgt, args.n, args.seed + 1, match_volume=v_src, sample=args.sampler,
                       return_volume=True)
     print(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
           f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})",

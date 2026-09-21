@@ -134,7 +134,7 @@ def main():
     if o != "id":
         V = V @ rotation(o).T
     mesh = trimesh.Trimesh(vertices=V, faces=np.asarray(mesh.faces), process=False)
-    if prov.get("sample", "replacement") == "stratified":
+    if prov.get("sampler", "replacement") == "stratified":
         from physmorph.sampling.mesh import sample_volume_stratified
         raw = sample_volume_stratified(mesh, n, seed=seed + 1).astype(np.float64)
     else:
