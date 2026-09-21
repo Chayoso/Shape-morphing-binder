@@ -52,15 +52,29 @@ def density(x, lo, vox, dims, sig_vox):
     return ndimage.gaussian_filter(rho, sig_vox, mode="constant")
 
 
-def counts_per_cell(x, lo, pitch):
-    """Particles per cell of a lattice of the given pitch (the stratified fill's own lattice)."""
-    ijk = np.floor((x - lo) / pitch).astype(np.int64)
-    key = ijk[:, 0] * 1000003 + ijk[:, 1] * 1009 + ijk[:, 2]
-    _, c = np.unique(key, return_counts=True)
-    return c
+def dispersion(x, centres, radii_sp, sp):
+    """Index of dispersion var/mean of the particle count in spheres of radius R around random
+    interior centres (alignment-free clumping measure): a Poisson process gives 1 at every R; a
+    jittered lattice's count varies only through the cells cut by the sphere's surface, so it
+    falls like 1/R. Returns (counts at radii_sp[-1], [var/mean per R])."""
+    kd = cKDTree(x)
+    out = []
+    counts_last = None
+    for R in radii_sp:
+        c = np.array([len(v) for v in kd.query_ball_point(centres, R * sp, workers=-1)], np.float64)
+        out.append(float(c.var() / max(c.mean(), 1e-9)))
+        counts_last = c
+    return counts_last, out
 
 
 def radial_spectrum(delta, vox):
+    # Hann window: the interior box is not periodic, and the leakage of its edges (~k^-2)
+    # would bury the dipole law at long wavelengths
+    w = 1.0
+    for ax_, n in enumerate(delta.shape):
+        h = np.hanning(n).reshape([-1 if i == ax_ else 1 for i in range(3)])
+        w = w * h
+    delta = delta * w / np.sqrt((w ** 2).mean())
     F = np.fft.fftn(delta); P = np.abs(F) ** 2 / delta.size
     kk = [np.fft.fftfreq(n, d=vox) * 2 * np.pi for n in delta.shape]
     K = np.sqrt(kk[0][:, None, None] ** 2 + kk[1][None, :, None] ** 2 + kk[2][None, None, :] ** 2)
@@ -89,14 +103,18 @@ def analyse_pair(name, x_rep, x_st, out, cube=False, L=None):
         inner = ndimage.binary_erosion(body, iterations=int(np.ceil(3 * sig_vox)))
         rel = (rho[inner] - rho[inner].mean()) / rho[inner].mean()
         res[lab] = dict(spacing=sp, rel_std=float(rel.std()), n_inner=int(inner.sum()))
-        # per-cell counts on the stratified pitch lattice
-        pitch = sp if not cube else L / round(len(x) ** (1 / 3))
-        c = counts_per_cell(x, lo, pitch)
-        res[lab]["count_var_over_mean"] = float(c.var() / c.mean())
+        # index of dispersion: counts in spheres around random interior points (alignment-free)
+        ivox = np.argwhere(inner)
+        pick = ivox[np.random.default_rng(1).choice(len(ivox), min(4000, len(ivox)), replace=False)]
+        cpts = lo + (pick + 0.5) * vox
+        radii = (0.75, 1.0, 1.5, 2.0, 3.0)
+        c, disp = dispersion(x, cpts, radii, sp)
+        res[lab]["dispersion"] = disp
+        res[lab]["count_var_over_mean"] = disp[2]
         ax = axes[row, 0]
-        ax.hist(c, bins=np.arange(0, 8) - 0.5, color="#2f6f73" if row else "#a4552b", rwidth=0.8)
-        ax.set_title(f"{lab}: particles per lattice cell (pitch = spacing)\nvar/mean = {c.var()/c.mean():.2f}  (Poisson = 1, one-per-cell = 0)", fontsize=9)
-        ax.set_xlabel("particles in the cell"); ax.set_ylabel("cells")
+        ax.hist(c, bins=np.arange(int(c.min()) - 0.5, int(c.max()) + 1.5), color="#2f6f73" if row else "#a4552b", rwidth=0.85)
+        ax.set_title(f"{lab}: particles within 1.5 spacings of a random interior point\nmean {c.mean():.1f}, var/mean = {disp[2]:.2f}  (Poisson = 1; one per cell -> 0)", fontsize=9)
+        ax.set_xlabel("count"); ax.set_ylabel("sample points")
         # slice through the middle of the body
         k = int(np.argmax(inner.sum((0, 1))))
         sl = rho[:, :, k] / rho_b
@@ -109,12 +127,28 @@ def analyse_pair(name, x_rep, x_st, out, cube=False, L=None):
         ax.set_title(f"{lab}: interior fluctuation (rho - mean)/mean over {int(inner.sum())} voxels\nstd = {rel.std()*100:.1f} %", fontsize=9)
         ax.set_xlabel("relative fluctuation"); ax.set_xlim(-0.3, 0.3)
         res[lab]["rho"] = rho; res[lab]["inner"] = inner; res[lab]["bulk"] = rho_b
-    th_rep = (1 / SIG_SP) ** 1.5 / np.sqrt(8 * np.pi ** 1.5)
-    th_st = (1 / SIG_SP) ** 2.5 / np.sqrt(64 * np.pi ** 1.5)
-    fig.suptitle(f"{name}: shot noise of the blurred density — with replacement vs stratified  (theory: {th_rep*100:.1f} % vs {th_st*100:.1f} %)", fontsize=11)
+    # the theory's p is the VOLUMETRIC spacing (V/n)^(1/3) = rho_bulk^(-1/3); the project's "spacing"
+    # (median 8-NN distance) is 1.24 x that for a Poisson process ((6/pi)^(1/3)), so sigma = 1.5 spacings
+    # = 1.86 volumetric spacings
+    p_vol = float(np.mean([(vox ** 3 / res[l]["bulk"]) ** (1 / 3) for l in ("with replacement", "stratified")]))
+    r = p_vol / sig
+    th_rep = r ** 1.5 / np.sqrt(8 * np.pi ** 1.5)
+    th_st = r ** 2.5 / np.sqrt(64 * np.pi ** 1.5)
+    res["p_vol"] = p_vol
+    fig.suptitle(f"{name}: shot noise of the blurred density — with replacement vs stratified  "
+                 f"(theory at sigma = {sig / p_vol:.2f} volumetric spacings: {th_rep*100:.1f} % vs {th_st*100:.1f} %)", fontsize=11)
     fig.tight_layout(); fig.savefig(os.path.join(out, f"noise_{name}.png"), dpi=130); plt.close(fig)
     res["theory_rep"], res["theory_strat"] = float(th_rep), float(th_st)
     res["vox"], res["sig"] = vox, sig
+    # the dispersion curve
+    fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+    radii = (0.75, 1.0, 1.5, 2.0, 3.0)
+    for lab, col in (("with replacement", "#a4552b"), ("stratified", "#2f6f73")):
+        ax.plot(radii, res[lab]["dispersion"], "o-", color=col, label=lab)
+    ax.axhline(1.0, color="k", ls="--", lw=0.8, label="Poisson process (var = mean)")
+    ax.set_xlabel("sphere radius (spacings)"); ax.set_ylabel("var / mean of the count"); ax.set_ylim(0, 1.3)
+    ax.set_title(f"{name}: index of dispersion of the particle count", fontsize=10); ax.grid(alpha=0.3); ax.legend(fontsize=8)
+    fig.tight_layout(); fig.savefig(os.path.join(out, f"dispersion_{name}.png"), dpi=130); plt.close(fig)
     return res
 
 
@@ -128,15 +162,20 @@ def cube_spectrum(res, out, sp):
         sub = rho[lo_[0]:hi_[0], lo_[1]:hi_[1], lo_[2]:hi_[2]]
         delta = (sub - sub.mean()) / sub.mean()
         k, P = radial_spectrum(delta, res["vox"])
+        k, P = k[1:], P[1:]                                   # the k = 0 bin is the removed mean
         curves[lab] = (k, P)
         ax.loglog(k * sp, P, "o-", ms=3, color=col, label=f"{lab} (measured)")
     k = curves["with replacement"][0]
-    sig, p = res["sig"], sp
-    scale = curves["with replacement"][1][1] / np.exp(-sig ** 2 * k[1] ** 2)
-    ax.loglog(k * sp, scale * np.exp(-sig ** 2 * k ** 2), "--", color="#a4552b", alpha=0.7, label="theory: rho e^(-sigma^2 k^2)  (white noise x blur)")
-    ax.loglog(k * sp, scale * (k ** 2 * p ** 2 / 12) * np.exp(-sig ** 2 * k ** 2), "--", color="#2f6f73", alpha=0.7, label="theory: x k^2 p^2 / 12  (a dipole field: no monopole)")
-    ax.axvline(2 * np.pi / 2.0, color="k", lw=0.8, ls=":"); ax.text(2 * np.pi / 2.0, ax.get_ylim()[0] * 1.5, " 2-spacing wavelength", fontsize=8)
-    ax.set_xlabel("k x spacing"); ax.set_ylabel("power of (rho - mean)/mean"); ax.set_title("cube: radial power spectrum of the interior density fluctuation", fontsize=10)
+    sig, p = res["sig"], res["p_vol"]
+    kk = np.geomspace(k[0], k[-1], 200)
+    # both theory curves share one scale, fixed on the replacement curve's low-k plateau
+    scale = np.median(curves["with replacement"][1][:4] / np.exp(-sig ** 2 * k[:4] ** 2))
+    ax.loglog(kk * sp, scale * np.exp(-sig ** 2 * kk ** 2), "--", color="#a4552b", alpha=0.8, label="theory: rho e^(-sigma^2 k^2)  (white noise x blur)")
+    ax.loglog(kk * sp, scale * (kk ** 2 * p ** 2 / 12) * np.exp(-sig ** 2 * kk ** 2), "--", color="#2f6f73", alpha=0.8, label="theory: x k^2 p^2 / 12  (a dipole field: no monopole)")
+    pm = np.concatenate([curves[l][1] for l in curves])
+    ax.set_ylim(pm[pm > 0].min() / 30, pm.max() * 5)
+    ax.axvline(2 * np.pi / 2.0, color="k", lw=0.8, ls=":"); ax.text(2 * np.pi / 2.0, ax.get_ylim()[0] * 3, " 2-spacing wavelength", fontsize=8)
+    ax.set_xlabel("k x spacing (8-NN spacing)"); ax.set_ylabel("power of (rho - mean)/mean"); ax.set_title("cube: radial power spectrum of the interior density fluctuation (Hann-windowed)", fontsize=10)
     ax.grid(alpha=0.3, which="both"); ax.legend(fontsize=7.5)
     fig.tight_layout(); fig.savefig(os.path.join(out, "noise_spectrum.png"), dpi=130); plt.close(fig)
 
