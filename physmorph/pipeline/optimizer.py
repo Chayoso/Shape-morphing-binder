@@ -254,6 +254,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         m_np = 1.0                                    # unit masses: keep the scalar path
     layer = None
     sp0 = None
+    W_apply = None
     if cfg.layer_relax or cfg.layer_ctrl:
         # outer-layer relaxation (docs/surface_gradient.md §6) and/or the position-mode control
         # channel (§7): the layer, its normals and its same-side neighbourhoods are frozen at the
@@ -263,6 +264,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         sub = x0[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
         sp0 = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
         lmask, lnrm, lnbr, lw = layer_relax_data(x0, sp0, k=cfg.layer_k, h_sp=cfg.layer_h_sp)
+        if cfg.layer_ctrl and cfg.layer_ctrl_smooth:
+            # W of the relaxation as a search-direction transform on the u step (§7): rows of the
+            # normalised same-side neighbour weights; zero rows off the layer
+            _lnbr_t = torch.as_tensor(lnbr, device=dev, dtype=torch.long)
+            _lw_t = torch.as_tensor(lw, device=dev)
+
+            def W_apply(v):
+                return (_lw_t * v[_lnbr_t]).sum(1)
+        else:
+            W_apply = None
         lfrac = (cfg.layer_frac if cfg.layer_frac > 0 else 1.0 / float(T)) if cfg.layer_relax else 0.0
         layer = (lmask, lnrm, lnbr, lw, float(lfrac))
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
@@ -1294,7 +1305,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     v_.mul_(cfg.beta2).addcmul_(gi, gi, value=1 - cfg.beta2)
                     mh = m_ / (1 - cfg.beta1 ** t_)
                     vh = v_ / (1 - cfg.beta2 ** t_)
-                    p -= (a_try * sc) * mh / (vh.sqrt() + eps_eff)
+                    d_ = mh / (vh.sqrt() + eps_eff)
+                    if W_apply is not None and u is not None and p is u:
+                        d_ = W_apply(d_)             # the u step on the layer's smooth subspace (§7)
+                    p -= (a_try * sc) * d_
                 if cfg.dfc_clip > 0:
                     n = dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
                     dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)

@@ -436,6 +436,10 @@ class PipelineConfig:
                                     #   per-window normal displacement leaf u on the outer layer, applied
                                     #   1/T per step in k_layer_project; the render covector reaches it
                                     #   without the grid's low-pass. |u| <= one spacing per window.
+    layer_ctrl_smooth: bool = False # the u channel's Adam STEP projected onto the layer's smooth subspace
+                                    #   with the relaxation's own W (h = 2 spacings, no new constant): the
+                                    #   rough part of the step is what the relaxation undoes one step later
+                                    #   (docs/surface_gradient.md §7); a search-direction transform
     pbr_denoised: bool = False      # G1: the shading target rendered from the TARGET's reconstructed
                                     #   surface (Poisson mesh normals, surface weights) instead of the
                                     #   noisy density gradient; the morph's normals on a render-pixel

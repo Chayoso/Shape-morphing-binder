@@ -104,6 +104,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_res=args.render_res, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
                          layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised,
+                         layer_ctrl_smooth=args.layer_ctrl_smooth,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
                          render_surface_only=args.render_surface_only,
@@ -617,6 +618,8 @@ def main():
                     help="projection fraction per step (0 = 1/T over one window; 1 = hard per-step constraint)")
     ap.add_argument("--layer_ctrl", action="store_true",
                     help="position-mode control channel on the outer layer (docs/surface_gradient.md §7)")
+    ap.add_argument("--layer_ctrl_smooth", action="store_true",
+                    help="project the u channel's step onto the layer's smooth subspace (the relaxation's W)")
     ap.add_argument("--pbr_denoised", action="store_true",
                     help="G1: shading target from the target's reconstructed surface; morph normals on the pixel grid")
     args = ap.parse_args()
