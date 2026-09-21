@@ -606,6 +606,74 @@ mesh falls 0.185 → 0.137 (bunny) and 0.168 → 0.156 (dragon); the Poisson sur
 0.174 and 0.181 → 0.171 with the detail correlation up. Page: artifact "층화 샘플링의
 잡음 증명".
 
+## 10. Does the render channel change the physics under the current recipe? The factorial (2026-09-21; pre-registered before the readings)
+
+The user's question (13:30): can the evidence so far be read as "rendering meaningfully
+affects the physics"? What IS established (docs/experiments.md 2026-09-16/17/18): under
+the v3 recipe at 40k the render channel adds 1.4–4.6 silIoU points and lowers the physics
+term itself (dragon D_vol 0.0259 → 0.0206); under v6/v7 at 150k the render channel is
+~35 % of every accepted control update at a cosine of 0.02–0.08 to the physics gradient
+(a deterministic per-window measurement), and the outcome sits 4–10 run-to-run spreads
+above the physics-only and cut twins on bunny, bob and dragon; the trajectory half
+(the cut twin's divergence after the intervention) is 1.4–1.7× the control's own — present
+but modest, and buried under chaos on the dragon. Two targets (bob ring, V) were worse
+with the channel under v3. What is NOT established:
+
+- (a) any of it under the CURRENT recipe (relaxation + G1 + u + stratified): no λ = 0 twin
+  has been run since the actuator changed;
+- (b) the attribution: through the stress control the render gradient is grid low-passed
+  (§6–§7: correlation 0.87–0.89 at two spacings, the same as the physics gradient), so the
+  physics path acts at the cell scale (3.6 spacings at 40k) and the sub-cell path is u — a
+  per-window position projection that bypasses P2G/G2P (kinematic, not physics);
+- (c) the physics STATE with and without the channel (D_vol, det F, windows to the stop);
+- (d) the trajectory half at 40k, where the chaos is milder than at 150k.
+
+**Design.** 40k, seed 1, stratified sampling (identical particles across the six runs of a
+target), bunny / dragon / bob, `scripts/ops/factorial40.sh`:
+
+| cell | run | flags |
+|---|---|---|
+| render on, u on | `fx_11` | RECIPE |
+| the same again | `fx_11c` | RECIPE (identical configuration: the run-to-run spread) |
+| render off, u on | `fx_01` | RECIPE `--lambda_auto 0` |
+| render on, u off | `fx_10` | RECIPE without `--layer_ctrl` |
+| render off, u off | `fx_00` | RECIPE without `--layer_ctrl`, `--lambda_auto 0` |
+| intervention | `fx_cut` | RECIPE `--render_until K`, K = a third of the run (20 / 20 / 8 windows) |
+
+Readings per run: end metrics (silIoU, chamfer, det F min), json telemetry (`fx_summary.py`:
+windows, g_share over windows 1–20 and all, λ, cosine, D_vol first / last window), outer-
+layer RMS (morph mean / end), QA columns (grid fragments, end fragments, re-attachments,
+stray census), end frame vs the true mesh (Poisson; d_abs / d_95 / n_dev / rough / hp_res /
+dcorr), and the divergence from `fx_11` of the cut twin against the control
+(`render_effect.py --ctrl fx_11c`). The spread is `fx_11` vs `fx_11c` (with `g5_*` as a
+third sample on bunny / dragon); prior spread from the p40 twins: IoU ±0.4, hp_res 0.01,
+dcorr 0.02.
+
+**Hypotheses and what falsifies them.**
+
+- H-A (outcome): `fx_11` − `fx_01` exceeds the spread in silIoU (prediction +1–5 points,
+  as under v3) and chamfer (−1–3 %). Falsified if within the spread — then the channel
+  does not change the outcome under the current recipe.
+- H-B (physics state): with the channel, D_vol at the end is LOWER (as v3 dragon) and the
+  run reaches its stop in fewer windows; g_share 0.33–0.52 in every render-on run (the
+  deterministic proof that the render gradient is in the control update). Falsified if
+  D_vol is higher or equal within the spread.
+- H-C (attribution): with u OFF, `fx_10` − `fx_00` keeps the outline gain (silIoU beyond
+  the spread) but leaves the surface detail (hp_res, dcorr, n_dev) within the spread — the
+  physics path is cell-scale. The render effect that needs u, (`fx_11` − `fx_01`) −
+  (`fx_10` − `fx_00`), is where any detail effect lives. u's own effect `fx_11` − `fx_10`:
+  hp_res / dcorr improve as in §7, IoU within the spread. Falsified if `fx_10` − `fx_00`
+  moves hp_res / dcorr beyond the spread (the physics path DOES carry detail) or if the
+  u-dependent part is nil.
+- H-D (trajectory): the cut twin's divergence from `fx_11` after K exceeds the control's
+  by more than 1.5× (150k bob / bunny: 1.4–1.7×). Falsified if indistinguishable.
+
+Verdict rule: "the render channel meaningfully changes the physics" is supported only if
+H-A and H-B hold on at least two of three targets; the surface-detail claim is supported
+only if the u-dependent part of H-C is beyond the spread — otherwise the honest statement
+is "render controls the outline through the physics at the cell scale; the sub-cell surface
+is the kinematic channel plus the Poisson surface".
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle

@@ -112,6 +112,6 @@ if png:
     ax.plot(ks, d_c, label=f"render switched off at window {K}")
     ax.axvline(k_cut, color="k", ls="--", lw=0.8)
     ax.set_xlabel("archived frame"); ax.set_ylabel("mean |x - x_render| (particle spacings)"); ax.grid(alpha=.3); ax.legend()
-    ax.set_title(f"{T} 150k: divergence from the render-on twin")
+    ax.set_title(f"{T} ({len(tgt) // 1000}k): divergence from the render-on twin")
     fig.tight_layout(); fig.savefig(png, dpi=110)
     print("saved", png)
