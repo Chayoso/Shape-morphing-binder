@@ -995,6 +995,61 @@ surface result (§8) says that is not it either: u would have to be dropped on s
 regions by a criterion other than density); bunny's fold open or silIoU more than 1 point
 below `fx_11` (the physics-driven u was the finishing signal).
 
+**Readings (19:35; `output/cand_P1.log`).** FALSIFIED — the render-only u is rougher, not smoother:
+
+| run | windows | silIoU | chamfer | det F min | layer RMS morph / end | end frame: d_95 / n_dev / hp_res / dcorr |
+|---|---|---|---|---|---|---|
+| bunny `fx_P1` | 59 | 0.9650 | **0.1214** | 0.745 | **0.316 / 0.366** | 5.45 / 20.6° / 0.260 / +0.265 |
+| bunny `fx_11` | 67 | 0.9665 | 0.1165 | 0.761 | 0.272 / 0.317 | 1.36 / 17.8° / 0.158 / +0.385 |
+| dragon `fx_P1` | 100 | 0.9588 | **0.1259** | **0.615** | 0.282 / 0.257 | 1.14 / 24.0° / 0.195 / +0.260 (17 pieces) |
+| dragon `fx_11` | 86 | 0.9576 | 0.1188 | 0.771 | 0.280 / 0.198 | 1.30 / 24.8° / 0.205 / +0.312 |
+| bob `fx_P1` | 56 | 0.9788 | 0.1166 | 0.853 | **0.313 / 0.385** | 0.44 / **7.21°** / 0.056 / +0.181 |
+| bob `fx_11` | 44 | 0.9786 | 0.1144 | 0.856 | 0.269 / 0.166 | 0.38 / 6.95° / 0.053 / +0.257 |
+
+silIoU is kept (within 0.2 of `fx_11`), but chamfer rises 4–6 % on bunny and dragon, the
+dragon's det F falls to 0.615, and the layer is rougher on all three (bob's end layer 0.385
+against 0.166 with both gradients and 0.124 without u). P1-a, P1-b, P1-d all fail. The
+physics gradient through u was not the noise: it was the term that kept u attached to the
+density field; the render channel's u-gradient alone (the CIC rasteriser's per-particle
+pulls) drives the layer at the pixel scale with nothing holding it. `--layer_u_render_only`
+stays as the record.
+## 14. What the bunny probes found: interior pockets in the target and interior sheets in the reconstruction (2026-09-21, 18:20–20:00)
+
+Chasing why every u variant "lost bunny's finish" (d_95 5.4 against 1.4 with u) led to a
+chain of probes whose upshot changes how the bunny numbers must be read.
+
+1. **The far region is not on the exterior.** The end-surface vertices farther than 3
+   spacings from the true mesh (u off: 7.9 % of the vertices; u on: 3.3 %) sit 99 % on the
+   inner side, in a slab x −0.3 … 0.6 spanning y −1.8 … 1.2 and z −1.7 … 1.2, and the nearest
+   particle (morph or target) is 0.6 spacings away — they are inside particle-filled material.
+   The true surface is completely covered by both clouds (0 % of true-surface samples farther
+   than 2 spacings from a particle). The stills show only where the sheet reaches the outside:
+   the notch at the front-bottom.
+2. **Not a crack.** A seam detector (layer particles with an opposite-facing layer particle on
+   their outward side within 2 spacings) finds zero seam particles on every run.
+3. **The TARGET has interior low-density pockets.** On a 0.15-wu probe grid deeper than 2
+   spacings inside the true mesh, 4.5 % of the bunny target's interior points have less than
+   60 % of the bulk count (1.5-spacing balls: bulk 27), in a column x −0.46 … 1.19, y −1.85 …
+   1.30, z −1.6 … 1.1 — above the base of a mesh that is NOT watertight (`bunny.obj`: holes at
+   the base). The same probe: bob (watertight) 0.00 %, dragon (not watertight) 0.45 % (one
+   small pocket). The u-off morph inherits and amplifies it (7.6 % of its deep interior).
+   Non-watertight assets in the gallery: bunny, dragon, beast, armadillo.
+4. **The reconstruction draws sheets on interior density gradients.** The outer-layer rule
+   (|∇ρ|/ρ ≥ 0.285 per spacing, §10.12) fires at the boundary of a 40 %-density pocket as it
+   does at a surface; the oriented surfels feed Poisson, which draws an interior sheet, and
+   `surface_gt` counts it (d_95, hp_res, dcorr all inflated). The sheet is connected to the
+   exterior through the notch, so the mass rule keeps it.
+
+**Consequences.** (i) bunny's true-mesh columns in §10–§13 are contaminated by an interior
+artefact; the u-on / u-off "finish" difference on bunny is the size of that artefact, not
+an exterior-surface effect. The bob and dragon columns stand. (ii) Two structural fixes are
+due before the u decision can be read on bunny: the volume fill of non-watertight meshes
+(the second such defect after the 2026-09-16 streak), and an exterior test in the
+reconstruction — a surfel whose outward side holds particles is interior and must not feed
+Poisson (nor the metric). (iii) The candidate round's verdict on u does not depend on
+bunny: on bob and dragon every variant that smooths, gates, or re-routes u is worse than
+`fx_11` or equal to u-off, and u-off has the best true-mesh surfaces there.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle

@@ -116,3 +116,36 @@ kernel (smoother covector, rougher surface).
 - No metric consumes the renderer: `surface_gt`, `layer_rms` and the QA columns are geometric.
 - No trajectory-divergence claims: the chaos floor equals the intervention's signature at
   40k and 150k; the proof is the per-window share plus the outcome against the spread.
+
+## 6. After the candidate round (2026-09-21 evening; docs/surface_gradient.md §11–§14)
+
+**Tested and falsified.** P3 (u through F): the physics collapses — sub-cell strain written
+into F is never relaxed by a 3.6-spacing grid and compounds (det F 10⁻³ in 10–24 windows).
+P3 tangential-only: no collapse, no benefit, rougher layers, det F drifting. P2 (density-
+residual gate): the gate does what it was designed to do and halves the harm on bob (layer
+0.269 → 0.229, n_dev 6.95 → 6.45°) at −0.4 … −0.9 silIoU; it cannot see the sub-cell work u
+does elsewhere. P1 (render-only u): rougher on all three, chamfer +4–6 % — the physics
+gradient through u was the regulariser. Conclusion: the u channel as it stands (both
+gradients, ungated, kinematic) is the best of its variants; its cost on saturated smooth
+regions is not removable by gating, re-routing or physics coupling; MPM at this cell cannot
+carry a sub-cell actuation through the physics.
+
+**Found on the way (§14).** The bunny target has interior low-density pockets (4.5 % of its
+deep interior; a fill defect of the non-watertight mesh) and the surface reconstruction
+draws interior sheets on such density gradients; bunny's true-mesh metrics are contaminated
+and the "u finishes bunny" reading was that artefact. bob and dragon are clean and say:
+u-off gives the best true-mesh surfaces, u-on the best silhouette IoU (+0.4 … +1.4).
+
+**Revised order.**
+1. Fix the volume fill of non-watertight meshes (`physmorph/sampling/mesh.py`; assets bunny,
+   dragon, beast, armadillo): the interior must be uniformly filled; acceptance = the §14
+   probe (deep-interior low-density share < 0.5 % on every gallery target).
+2. Exterior test in the reconstruction (`render_photoreal.py` / `surface_recon.py`): a surfel
+   with particles on its outward side within two spacings is interior and is dropped before
+   Poisson; the same filter in `surface_gt`. Acceptance = bunny's end surface has no interior
+   sheet (far-vertex share < 0.5 %) with u on and off.
+3. Re-read the factorial's bunny cells with 1–2 (three runs: `fx_11`, `fx_10`, `fx_11c`), then
+   the u decision on clean metrics for all three targets: keep u (IoU) or drop it (surface).
+   This is the user's call; the evidence for both sides will be on one page.
+4. Then as before: λ = 0 twins of the frozen recipe, `method.md` §10.13, the 19-target 40k
+   gallery with Poisson videos, the cleanup sweep. 150k excluded.

@@ -3641,3 +3641,18 @@ with u driven by the physics gradient alone); necessary on bunny (d_95 5.4 → 1
 without / with u), neutral on dragon, harmful on bob (n_dev 5.6 → 7.0°, dcorr +0.32 →
 +0.26). Mechanism: the u projection never updates F, so a rough u costs no strain energy.
 Page: artifact "Render × u 요인 실험". Plan for the last implementation: `docs/final_plan.md`.
+
+### 2026-09-21 — the last-implementation candidate round (docs/surface_gradient.md §11–§14, docs/final_plan.md §6)
+
+P3 (u through F, `--layer_F`): collapse on all three targets (10 / 24 / 16 windows, silIoU
+0.81 / 0.47 / 0.60, det F min 0.008 / 0.0005 / 0.0007) — sub-cell strain the grid cannot
+relax; tangential-only (`--layer_F_depth 0`): rougher layers (0.32 / 0.31 / 0.40), det F
+0.15 / 0.015 / 0.12. P2 (`--layer_gate`): bob layer 0.269 → 0.229, n_dev 6.95 → 6.45°;
+bunny d_95 5.38 (= u off); silIoU −0.4 … −0.9. P1 (`--layer_u_render_only`): layers
+0.32 / 0.28 / 0.31 morph, bob end 0.385; chamfer +4–6 %; dragon det F 0.615. All FALSIFIED;
+`fx_11` (the recipe) remains the best composite; u off the best true-mesh surfaces on bob
+and dragon. Probes: bunny's far region = interior sheets drawn by the reconstruction on
+interior density gradients; the bunny TARGET has interior low-density pockets (4.5 % of
+the deep interior; non-watertight mesh fill) — bob 0.00 %, dragon 0.45 %. Next: fix the
+fill for non-watertight meshes, add an exterior test to the reconstruction, re-read
+bunny, then the u decision (user). Page: artifact "마지막 구현 후보 라운드".
