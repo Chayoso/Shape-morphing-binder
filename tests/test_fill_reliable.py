@@ -39,9 +39,10 @@ def test_box_with_a_bottom_hole_is_filled_above_the_hole():
         assert fps[2].any(axis=0).sum() <= 3, fps[2].any(axis=0).sum()
     rel = sm._fill_ortho_reliable(surf, fps)
     # the column above the hole: interior voxels at the box centre
-    idx = vg.points_to_indices(np.array([[0.0, 0.0, 0.0], [0.3, 0.2, -0.3]]))
+    # probe points in the column above the hole (the rim triangles reach in to ~0.5: stay near the centre)
+    idx = vg.points_to_indices(np.array([[0.0, 0.0, 0.0], [-0.1, -0.4, 0.1], [0.1, 0.5, -0.1]]))
     for i in idx:
-        assert not plain[tuple(i)], "the plain intersection leaves the column above the hole empty"
+        assert not plain[tuple(i)], ("the plain intersection leaves the column above the hole empty", tuple(i), surf.shape, bool(surf[tuple(i)]), surf[i[0], :, i[2]].astype(int).tolist())
         assert rel[tuple(i)], "the reliable-axis fill closes it from the side projections"
     # nothing is filled outside the box
     out = vg.points_to_indices(np.array([[0.0, 1.6, 0.0]]))
