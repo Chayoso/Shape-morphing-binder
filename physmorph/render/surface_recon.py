@@ -523,16 +523,18 @@ def layer_u_gate(x0: np.ndarray, tgt: np.ndarray, mask: np.ndarray, spacing: flo
 
 
 def exterior_surfels(points: np.ndarray, normals: np.ndarray, x_all: np.ndarray, spacing: float,
-                     r_sp: float = 2.0, t_sp: float = 0.75, frac: float = 0.25):
+                     r_sp: float = 2.0, t_sp: float = 0.75, frac: float = 0.1):
     """The EXTERIOR test of the outer layer (docs/surface_gradient.md 14; method.md 10.12): a surfel
     is a surface only if the space on its outward side is empty of particles. The layer rule
     (|grad rho| / rho) also fires at a density step INSIDE the material (a 40 %-density pocket of
     the target, a compressed region of a morph), and the surfels it produces there make Poisson
     draw an interior sheet. Per surfel, count the particles in the outward cap of the 2-spacing
-    ball beyond t_sp = 0.75 spacing (2.5 x the layer's own roughness, so a rough true surface
-    contributes ~nothing); the cap holds cap_vol / p_vol^3 particles at bulk density (7.8 sp^3 x
-    1.9 = 14.8 at r 2, t 0.75) — a surfel with more than frac = 1/4 of that (~4) has material
-    outside and is interior. Returns (points, normals, n_dropped)."""
+    ball beyond t_sp = 0.75 spacing (2.5 x the layer's own roughness: a true surface's ~12 layer
+    neighbours in the cap footprint put 0.07 particles there on average); the cap holds cap_vol /
+    p_vol^3 particles at bulk density (7.8 sp^3 x 1.9 = 14.8 at r 2, t 0.75) and 5.9 at the faintest
+    pocket seen (40 % of bulk, bunny 14). The threshold frac = 1/10 of the bulk cap (1.5, i.e. two or
+    more particles) separates the two Poisson counts: a true surfel is dropped with probability
+    0.2 %, a 40 %-pocket surfel kept with 2 %. Returns (points, normals, n_dropped)."""
     if len(points) == 0:
         return points, normals, 0
     P = np.asarray(points, np.float64); Nn = np.asarray(normals, np.float64)

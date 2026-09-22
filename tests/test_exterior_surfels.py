@@ -18,7 +18,9 @@ def _cloud(seed=0):
                 if rng.uniform() < keep:
                     pts.append([xx, y, zz])
     x = np.asarray(pts, np.float64) + rng.uniform(-0.15, 0.15, (len(pts), 3))
-    return x.astype(np.float32), sp
+    from scipy.spatial import cKDTree
+    sp8 = float(np.median(cKDTree(x).query(x, k=9, workers=-1)[0][:, -1]))   # the pipeline's 8-NN spacing
+    return x.astype(np.float32), sp8
 
 
 def test_true_face_kept_interior_step_dropped():
