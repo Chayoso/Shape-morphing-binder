@@ -38,7 +38,10 @@ def poisson_isolated(points: np.ndarray, normals: np.ndarray, depth: int, n_thre
     with tempfile.TemporaryDirectory(prefix="poisson_") as td:
         fin, fout = os.path.join(td, "in.npz"), os.path.join(td, "out.npz")
         for attempt in range(retries + 1):
-            nt = n_threads if attempt == 0 else 1
+            # the thread cap (2026-09-22): -1 = every core, and five concurrent frames of the gallery videos put a
+            # 128-core host at load 290 (other users' jobs included); PHYSMORPH_POISSON_THREADS caps each child
+            cap = int(os.environ.get("PHYSMORPH_POISSON_THREADS", "16"))
+            nt = (cap if n_threads < 0 or n_threads > cap else n_threads) if attempt == 0 else 1
             np.savez(fin, points=points.astype(np.float32), normals=normals.astype(np.float32),
                      depth=np.int64(depth), n_threads=np.int64(nt))
             if os.path.exists(fout):
