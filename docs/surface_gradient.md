@@ -1050,6 +1050,32 @@ Poisson (nor the metric). (iii) The candidate round's verdict on u does not depe
 bunny: on bob and dragon every variant that smooths, gates, or re-routes u is worse than
 `fx_11` or equal to u-off, and u-off has the best true-mesh surfaces there.
 
+**The fixes (2026-09-22; method.md §10.13; commits 312cf16, 62fc403, bcd1fa3, ce2e88d).**
+
+*Fill.* The cause was the orthographic fill's three-axis intersection: above a hole in the
+base the y-line has no surface below and the column stays empty; the holes make a comb
+(bunny's low region is exactly the column from the base to the back). The fix projects the
+mesh's boundary loops along each axis into hole footprints and asks only the reliable axes
+(at least two; else the plain intersection — one axis alone streaks, which cost beast 6 %
+in the first attempt), then strips streaks and fills sub-voxel pockets. `fill_check.py`
+(deep-interior low-density share, pass < 0.5 %):
+
+| target | before | after | | target | before | after |
+|---|---|---|---|---|---|---|
+| bunny (holes) | 4.79 % | **0.42 %** | | beast (holes) | 0.00 % | 0.00 % |
+| maxplanck (holes) | 9.95 % | **0.33 %** | | armadillo (holes) | 0.00 % | 0.00 % |
+| dragon (holes) | 0.54 % | 0.54 % (far from any loop; left) | | 14 watertight targets | 0.00 % | 0.00 % |
+
+Archives before this date were made with the old fill; `FILL_MODE = "legacy"` reproduces
+them and `surface_gt` retries with it.
+
+*Exterior test.* A surfel with two or more particles in its outward two-spacing cap beyond
+0.75 spacing is an interior density step and is dropped before Poisson (threshold: a tenth
+of the bulk cap count 14.8; a true rough surface puts 0.07 there, a 40 % pocket 5.9). On
+the bunny target's reconstruction 2 907 surfels go. The old runs' end frames were
+re-reconstructed with it and re-measured (below), and the factorial's bunny cells were
+re-run on the fixed target (`fx_11n`, `fx_11cn`, `fx_01n`, `fx_10n`).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle

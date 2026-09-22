@@ -592,3 +592,42 @@ interpreter per frame (Open3D 0.19 segfaults now and then across repeated calls)
 whose reconstruction fails twice is a level-set frame and the sidecar says so. The
 marching-cubes path keeps the voxel-label rules of 10.10 so that the v8 numbers remain
 comparable.
+
+### 10.13 The volume fill of a non-watertight mesh, and the exterior test of the outer layer (2026-09-22; code: sampling/mesh.py `_fill_ortho_reliable`, `_fill_pockets`, `FILL_MODE`; render/surface_recon.py `exterior_surfels`; probe scripts/probes/fill_check.py)
+
+**The fill.** A target cloud is one jittered particle per filled voxel (10.12, §4 of
+docs/surface_gradient.md). The fill of a mesh with holes (bunny, dragon, beast, armadillo,
+maxplanck: boundary loops, no inside/outside) was the orthographic rule — a voxel is filled if,
+along each of the three axes, a surface voxel lies before and after it. Above a hole in the base
+the axis through the hole finds no surface below, so the whole column stays empty; several holes
+side by side make a comb of empty and filled columns, a region at 40 % of the bulk density
+(bunny: 4.5 % of the interior deeper than two spacings, in a column from the base to the back;
+maxplanck 10 %). The density loss then carries the comb into the morph, and the outer-layer rule
+of 10.12 draws surfaces on its density steps. Fix: the mesh's boundary loops are projected along
+each axis and rasterised into a 2-D footprint (holes filled, dilated by one voxel); a column inside
+the footprint is not asked about that axis — the voxel is filled if enclosed along every RELIABLE
+axis, provided at least two axes are reliable (a single axis draws one-voxel streaks between
+unrelated surfaces, as the old 'base' fill did); otherwise the plain intersection stands. Then
+the streak strip of 2026-09-16 and a majority pocket fill (an empty voxel with four or more of
+its six face-neighbours filled is interior; iterated), which closes sub-voxel pockets and
+tunnels only. A watertight mesh has no footprints and is filled exactly as before (a torus hole
+is enclosed along two axes only, and stays open). Acceptance (`fill_check.py`, the share of the
+interior deeper than two spacings whose 1.5-spacing count is below 60 % of the bulk): bunny 4.79 →
+0.42 %, maxplanck 9.95 → 0.33 %, beast 0.00, armadillo 0.00, the fourteen watertight targets 0.00;
+dragon 0.54 % (unchanged, far from any loop — a property of the mesh, recorded). `FILL_MODE =
+"legacy"` reproduces the fill of every archive before this date; `surface_gt` retries the
+target-cloud reproduction with it, so old runs stay measurable.
+
+**The exterior test.** The outer-layer rule |∇ρ|/ρ ≥ 0.285 per spacing fires at any density
+step, inside the material as well as at the surface; the surfels it produces at an interior
+step (a target pocket, a compressed region of a morph) make Poisson draw an interior sheet,
+which the metric counts (bunny d_95 5.4 spacings with the sheet, 1.4 without). A surface has
+empty space on its outward side; an interior step has material there. Per surfel, the
+particles in the outward cap of the two-spacing ball beyond 0.75 spacing (2.5 × the layer's own
+plane residual, so a rough true surface puts 0.07 particles there on average) are counted; the
+cap holds cap_vol / p_vol³ = 7.8 spacings³ × 1.9 = 14.8 particles at the bulk density and 5.9 at
+the faintest pocket seen (40 %). A surfel with two or more (a tenth of the bulk cap) is interior
+and dropped before the plane pulling and the Poisson solve; a true surfel is lost with
+probability 0.2 %, a 40 %-pocket surfel kept with 2 %. The bunny target's reconstruction drops
+2 907 of its surfels this way. Discretisation numbers at 40k: spacing 0.135 wu (8-NN median),
+p_vol = spacing / 1.24, cap radius 0.27 wu, plane 0.10 wu.
