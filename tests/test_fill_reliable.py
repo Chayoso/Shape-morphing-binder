@@ -44,12 +44,13 @@ def test_box_with_a_bottom_hole_is_filled_above_the_hole():
     for i in idx:
         assert not plain[tuple(i)], ("the plain intersection leaves the column above the hole empty", tuple(i), surf.shape, bool(surf[tuple(i)]), surf[i[0], :, i[2]].astype(int).tolist())
         assert rel[tuple(i)], "the reliable-axis fill closes it from the side projections"
-    # nothing is filled outside the box
-    out = vg.points_to_indices(np.array([[0.0, 1.6, 0.0]]))
-    assert not rel[tuple(out[0])]
-    # and the interior count is now close to the closed box's
+    # the same grid as the closed box (the hole does not change the bounds): nothing outside the closed
+    # box's fill is filled, and the interior count is within 5 % of it
     closed = trimesh.creation.box(extents=(4.0, 2.0, 4.0)).voxelized(pitch=pitch)
-    n_closed = int(_plain(closed.matrix.copy()).sum())
+    closed_fill = _plain(closed.matrix.copy())
+    assert closed_fill.shape == rel.shape, (closed_fill.shape, rel.shape)
+    assert not (rel & ~closed_fill).any(), "nothing filled outside the closed box"
+    n_closed = int(closed_fill.sum())
     assert abs(int(rel.sum()) - n_closed) < 0.05 * n_closed, (int(rel.sum()), n_closed)
 
 
