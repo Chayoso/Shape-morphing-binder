@@ -3702,3 +3702,13 @@ the render pull sits on the layer (8–9 % of particles); mean per-particle shar
 the layer, 0.09–0.13 inside, against a global norm share of 0.38–0.42; the render channel
 alone moves the layer 0.2–0.6 spacings per window, the interior 0.02–0.05 (physics 0.16–0.80 /
 0.05–0.12; correlation 0.42–0.86). docs/surface_gradient.md §14.
+
+**g40 videos and page (17:30–19:40).** All 19 Poisson videos: drawn pieces > 1 AND not bridged
+in 0 frames on every target (beast 12 and cow 23 frames with a second drawn piece, every one
+tied to the body by a filament), Poisson fallback 0. The cow's 4 unbridged frames of the first
+pass exposed a hole in the bridge rule (enclosed-to-enclosed contact had no graph edge; fixed
+4aa31cc, method.md §10.12 addendum, cow re-rendered). Mid-morph stills (homer 144, ogre 123,
+armadillo 102: the frames with the most isolated particles) are single closed bodies. Page:
+artifact "40k 최종 갤러리 g40" (`output/report_g40_page`, 172 files, 41 MB); the markdown
+twin `docs/gallery40_report.md` (built by `build_report150.py`, tables 2, 2b, 2c). Cleanup
+sweep follows.
