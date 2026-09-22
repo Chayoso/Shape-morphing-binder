@@ -149,3 +149,11 @@ u-off gives the best true-mesh surfaces, u-on the best silhouette IoU (+0.4 … 
    This is the user's call; the evidence for both sides will be on one page.
 4. Then as before: λ = 0 twins of the frozen recipe, `method.md` §10.13, the 19-target 40k
    gallery with Poisson videos, the cleanup sweep. 150k excluded.
+
+**Status 2026-09-22 (16:00).** Steps 1–3 of §6 are done (docs/surface_gradient.md §14, method.md
+§10.13): the fill of non-watertight meshes is fixed (bunny 4.79 → 0.42 %, maxplanck 9.95 →
+0.33 %; dragon 0.54 % is a property of its mesh), the reconstruction drops interior surfels
+(bunny's d_95 5.4 → 0.9–1.5), and bunny is re-read on the fixed target. The u decision is now
+a clean trade: u on = silhouette +0.4 … +1.9 points on every target and the better bunny
+surface (n_dev 15.7 vs 16.3°, dcorr +0.41 vs +0.39); u off = the better bob and dragon
+surfaces (n_dev 5.3 vs 6.4°, 22.9 vs 24.3°). Awaiting the user's choice; then §4.

@@ -3656,3 +3656,21 @@ interior density gradients; the bunny TARGET has interior low-density pockets (4
 the deep interior; non-watertight mesh fill) — bob 0.00 %, dragon 0.45 %. Next: fix the
 fill for non-watertight meshes, add an exterior test to the reconstruction, re-read
 bunny, then the u decision (user). Page: artifact "마지막 구현 후보 라운드".
+
+### 2026-09-22 — the fill of non-watertight meshes, the exterior test, bunny re-read (docs/surface_gradient.md §14, method.md §10.13)
+
+Cause of the bunny target's interior 40 %-density comb: the orthographic fill's three-axis
+intersection leaves the columns above the base holes empty. Fix (`_fill_ortho_reliable`):
+hole footprints from the boundary loops per axis, fill on the reliable axes (≥ 2), streak
+strip, majority pocket fill; `FILL_MODE = "legacy"` reproduces older archives. `fill_check`
+(deep-interior low-density share): bunny 4.79 → 0.42 %, maxplanck 9.95 → 0.33 %, beast /
+armadillo / 14 watertight targets 0.00 %, dragon 0.54 % (mesh property). Exterior test
+(`exterior_surfels`): surfels with ≥ 2 particles in the outward 2-spacing cap beyond 0.75
+spacing are dropped before Poisson (bunny target 2 907). Re-read: old bunny u-off d_95 5.39 →
+1.53 (the interior sheet), hp_res 0.295 → 0.175; bob / dragon ±0.3–0.5°. New bunny on the
+fixed target: `fx_11n` / `fx_11cn` 0.9638 / 0.9637 (spread 0.01), `fx_01n` 0.9445, `fx_10n`
+0.9558; surface (d_95 / n_dev / hp_res / dcorr) 0.88 / 15.7° / 0.154 / +0.41, 0.83 / 15.4° /
+0.152 / +0.42, 0.99 / 17.1° / 0.171 / +0.33, 0.89 / 16.3° / 0.164 / +0.39. Rendering influence
+(fixed bunny): g_share 0.39–0.40 / 0.36–0.37, cos 0.01–0.02; vs λ = 0: IoU +1.9, n_dev −1.4°,
+dcorr +0.08, D_vol 0.0036 vs 0.0041. u decision: user's call (bunny favours u, bob / dragon
+favour u off). Page: artifact "표면 판정과 렌더링 영향력".

@@ -1076,6 +1076,66 @@ the bunny target's reconstruction 2 907 surfels go. The old runs' end frames wer
 re-reconstructed with it and re-measured (below), and the factorial's bunny cells were
 re-run on the fixed target (`fx_11n`, `fx_11cn`, `fx_01n`, `fx_10n`).
 
+**The re-read (2026-09-22, 15:50).** Two measurements: (a) the factorial's OLD end frames
+(old target) re-reconstructed with the exterior test and re-measured against the true mesh
+(`output/resheet_gt.log`; the legacy fill reproduces every archive to 10⁻⁶ wu); (b) the
+bunny cells re-run on the FIXED target (`fx_11n`, `fx_11cn`, `fx_01n`, `fx_10n`;
+`output/fxbunny.log`), read with the exterior test.
+
+(a) Old end frames, before → after the exterior test (d_95 / n_dev / hp_res / dcorr):
+
+| run | before | after |
+|---|---|---|
+| bunny `fx_11` | 1.36 / 17.8° / 0.158 / +0.385 | 0.94 / 16.0° / 0.157 / +0.367 |
+| bunny `fx_11c` | 1.38 / 17.8° / 0.159 / +0.363 | 1.10 / 16.9° / 0.165 / +0.333 |
+| bunny `fx_10` (u off) | **5.39** / 20.2° / 0.295 / +0.285 | **1.53** / 18.5° / 0.175 / +0.319 |
+| bunny `fx_01` (λ = 0) | 1.82 / 19.0° / 0.174 / +0.272 | 1.04 / 17.1° / 0.176 / +0.300 |
+| bob `fx_11` | 0.38 / 6.95° / 0.053 / +0.257 | 0.40 / 6.44° / 0.047 / +0.257 |
+| bob `fx_10` | 0.32 / 5.58° / 0.040 / +0.322 | 0.33 / 5.27° / 0.037 / +0.331 |
+| dragon `fx_11` | 1.30 / 24.8° / 0.205 / +0.312 | 1.37 / 24.3° / 0.204 / +0.304 |
+| dragon `fx_10` | 1.10 / 23.6° / 0.193 / +0.353 | 1.10 / 22.9° / 0.187 / +0.352 |
+
+The u-off bunny's d_95 5.4 → 1.5 and hp_res 0.295 → 0.175: the interior sheet was the whole
+of the "u finishes bunny" reading. What remains of u on the old bunny target is ordinary:
+d_95 0.94–1.10 with u against 1.53 without, n_dev 16.0–16.9° against 18.5°, dcorr +0.33–0.37
+against +0.32. bob and dragon move by 0.3–0.5° (interior surfels were few) and keep their
+verdict: u off is the better surface there.
+
+(b) bunny on the fixed target (spread `fx_11n` vs `fx_11cn`: silIoU 0.01 point, d_95 0.05,
+n_dev 0.3°, hp_res 0.002, dcorr 0.012):
+
+| run | windows | silIoU | chamfer | det F min | layer RMS morph / end | d_abs / d_95 / n_dev / rough / hp_res / dcorr |
+|---|---|---|---|---|---|---|
+| `fx_11n` (render on, u on) | 45 | 0.9638 | 0.1157 | 0.780 | 0.257 / 0.226 | 0.30 / 0.88 / 15.7° / 4.66 / 0.154 / +0.409 |
+| `fx_11cn` (again) | 54 | 0.9637 | 0.1153 | 0.764 | 0.258 / 0.207 | 0.27 / 0.83 / 15.4° / 4.65 / 0.152 / +0.421 |
+| `fx_01n` (λ = 0, u on) | 65 | 0.9445 | 0.1157 | 0.777 | 0.254 / 0.219 | 0.31 / 0.99 / 17.1° / 4.77 / 0.171 / +0.329 |
+| `fx_10n` (render on, u off) | 42 | 0.9558 | 0.1153 | 0.759 | 0.191 / 0.221 | 0.28 / 0.89 / 16.3° / 3.94 / 0.164 / +0.386 |
+| target (Poisson, fixed fill) | | | | | 0.294 | 0.26 / 0.65 / 14.5° / 5.0 / 0.183 / +0.39 |
+
+QA columns 0 on all four; g_share 0.39–0.40 (windows 1–20) / 0.36–0.39; D_vol at the end
+0.0036 with the channel, 0.0041 without.
+
+**The u decision, on clean metrics (three targets).** With u: silIoU +0.8 (bunny, new),
++1.1 … +1.4 (bunny, old), +0.4 … +0.9 (dragon), +0.4 … +0.5 (bob). On the surface: bunny —
+u BETTER (n_dev 15.7 vs 16.3°, hp_res 0.154 vs 0.164, dcorr +0.41 vs +0.39, d_95 equal; the
+2-spacing roughness 4.7 vs 3.9° and the morph-mean layer 0.26 vs 0.19 are u's cost during the
+morph, the end layer 0.23 vs 0.22 equal); bob — u worse (n_dev 6.4 vs 5.3°, hp_res 0.047 vs
+0.037, dcorr +0.26 vs +0.33); dragon — u worse (24.3 vs 22.9°, 0.204 vs 0.187, +0.30 vs +0.35).
+A blobby target the outline dominates gains from u; a saturated ring and a ridged body lose
+their finish to its roughness. The evidence supports either recipe; the choice is the user's
+(final_plan.md §6.3) — u on for the silhouette and bunny, u off for the bob / dragon finish.
+
+**Rendering influence under the fixed target (the standing block).** Per window the render
+channel is 0.39–0.40 of the accepted control update in windows 1–20 and 0.36–0.37 over the run,
+at a cosine of 0.01–0.02 to the physics gradient (`fx_11n`, `fx_11cn`; deterministic). Outcome
+against the run-to-run spread (`fx_11n` vs `fx_01n`): silIoU +1.9 points (spread 0.01 here, 0.23
+on the old twins), n_dev 15.7 vs 17.1° (−1.4°, 5 spreads), hp_res 0.154 vs 0.171 (8 spreads),
+dcorr +0.41 vs +0.33 (7 spreads), d_95 0.88 vs 0.99; chamfer equal (0.1157); D_vol at the end
+0.0036 vs 0.0041 (−12 %); det F within the spread. What it does not change: the level the
+physics term settles at on dragon / bob (§10), the trajectory beyond the chaos floor (§10 H-D).
+Through which path: the stress control at the cell scale carries the outline (`fx_10` − `fx_00`
+= +1.6 points on the old target, §10); below the cell the kinematic u (this section).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
