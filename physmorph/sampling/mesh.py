@@ -110,6 +110,9 @@ def sample_volume_shell(mesh: trimesh.Trimesh, n: int, shell_thickness: float, r
 def _fill_grid(mesh: trimesh.Trimesh, pitch: float):
     """The filled voxel grid behind _fill_centers: (VoxelGrid, boolean matrix)."""
     try:
+        vgr, Mr, _, _ = _fill_reliable(mesh, pitch)
+        if vgr is not None:
+            return vgr, Mr
         vg = mesh.voxelized(pitch=pitch)
         n_surf = int(vg.filled_count)
         surf = vg.matrix.copy()
@@ -238,6 +241,13 @@ def _fill_centers(mesh: trimesh.Trimesh, pitch: float) -> np.ndarray:
         vg = mesh.voxelized(pitch=pitch)
         n_surf = int(vg.filled_count)
         surf = vg.matrix.copy()
+        vgr, Mr, n_streak, n_pocket = _fill_reliable(mesh, pitch)      # 2026-09-22: holes -> reliable axes
+        if vgr is not None:
+            STREAK_REPORT["stripped"], STREAK_REPORT["method"] = n_streak, "ortho_reliable"
+            POCKET_REPORT["filled"], POCKET_REPORT["iters"] = n_pocket, 0
+            if n_streak or n_pocket:
+                print(f"[sampling] fill 'ortho_reliable': stripped {n_streak} streaks, filled {n_pocket} sub-voxel pockets", flush=True)
+            return vgr.indices_to_points(np.argwhere(Mr)).astype(np.float32)
         for method in ("orthographic", "base", "holes"):
             try:
                 f = vg.copy().fill(method=method)
@@ -257,3 +267,80 @@ def _fill_centers(mesh: trimesh.Trimesh, pitch: float) -> np.ndarray:
         return np.zeros((0, 3), np.float32)
     except Exception:
         return np.zeros((0, 3), np.float32)
+
+
+def _hole_footprints(mesh: trimesh.Trimesh, vg) -> list:
+    """Per axis, the 2-D footprint (in voxel indices of the two other axes) of the mesh's BOUNDARY
+    LOOPS — the holes of a non-watertight mesh — rasterised and filled: the columns along that axis
+    whose enclosure test is unreliable because a hole, not a surface, closes them. Returns a list of
+    three boolean 2-D arrays (or None for an axis without holes), dilated by one voxel."""
+    from scipy import ndimage
+    shape = tuple(int(s) for s in vg.shape)
+    edges = mesh.edges_sorted
+    grp = trimesh.grouping.group_rows(edges, require_count=1)        # edges of exactly one face
+    if len(grp) == 0:
+        return [None, None, None]
+    be = edges[grp]
+    V = np.asarray(mesh.vertices, np.float64)
+    pitch = float(np.max(vg.pitch)) if np.ndim(vg.pitch) else float(vg.pitch)
+    a, b = V[be[:, 0]], V[be[:, 1]]
+    seg = np.linalg.norm(b - a, axis=1)
+    nseg = np.maximum(2, np.ceil(seg / (0.5 * pitch)).astype(int))
+    pts = np.concatenate([a[i] + (b[i] - a[i]) * np.linspace(0.0, 1.0, nseg[i])[:, None] for i in range(len(be))])
+    idx = np.asarray(vg.points_to_indices(pts), np.int64)
+    out = []
+    for ax in range(3):
+        o1, o2 = [k for k in range(3) if k != ax]
+        M = np.zeros((shape[o1], shape[o2]), bool)
+        i1 = np.clip(idx[:, o1], 0, shape[o1] - 1); i2 = np.clip(idx[:, o2], 0, shape[o2] - 1)
+        M[i1, i2] = True
+        F = ndimage.binary_fill_holes(M)
+        F = ndimage.binary_dilation(F, iterations=1)
+        out.append(F if F.any() else None)
+    return out
+
+
+def _fill_ortho_reliable(surf: np.ndarray, footprints: list) -> np.ndarray:
+    """The orthographic fill with RELIABLE axes only (2026-09-22; docs/surface_gradient.md 14): along
+    each axis a voxel is enclosed if a surface voxel lies before and after it on its line; a column
+    that runs through a hole's footprint (the mesh's boundary loops projected along that axis) has
+    no surface to close it and is not asked — the voxel is filled if enclosed along every
+    reliable axis. A watertight mesh has no footprints and this is the plain intersection (a torus
+    hole stays open: two axes enclose it, the third does not). For a base hole (bunny, maxplanck)
+    the columns above it are closed by the two side projections instead of being left as empty
+    shafts — the 40 %-density comb the plain intersection produced."""
+    enc = []
+    for ax in range(3):
+        fwd = np.maximum.accumulate(surf, axis=ax)
+        bwd = np.flip(np.maximum.accumulate(np.flip(surf, axis=ax), axis=ax), axis=ax)
+        enc.append(fwd & bwd)
+    filled = np.ones_like(surf)
+    n_rel = np.zeros(surf.shape, np.int8)
+    for ax in range(3):
+        fp = footprints[ax]
+        if fp is None:
+            rel = np.ones(surf.shape, bool)
+        else:
+            o1, o2 = [k for k in range(3) if k != ax]
+            rel = np.broadcast_to(np.expand_dims(~fp, ax), surf.shape)   # the (o1, o2) footprint lifted along ax
+        filled &= (enc[ax] | ~rel)
+        n_rel += rel.astype(np.int8)
+    # a voxel with no reliable axis at all: fall back to the majority of the three enclosures
+    maj = (enc[0].astype(np.int8) + enc[1].astype(np.int8) + enc[2].astype(np.int8)) >= 2
+    filled = np.where(n_rel == 0, maj, filled)
+    return filled | surf
+
+
+def _fill_reliable(mesh: trimesh.Trimesh, pitch: float):
+    """The fill used first by _fill_centers / _fill_grid: voxelise, the reliable-axis orthographic
+    fill, strip streaks, fill sub-voxel pockets. Returns (VoxelGrid, matrix, n_streak, n_pocket) or
+    (None, ...) when the fill added fewer than 30 % of the surface count (a shell)."""
+    vg = mesh.voxelized(pitch=pitch)
+    surf = vg.matrix.copy()
+    fps = _hole_footprints(mesh, vg)
+    M = _fill_ortho_reliable(surf, fps)
+    if int(M.sum()) - int(surf.sum()) < 0.3 * int(surf.sum()):
+        return None, None, 0, 0
+    M, n_streak = _strip_streaks(M, surf)
+    M, n_pocket, _ = _fill_pockets(M)
+    return vg, M, n_streak, n_pocket
