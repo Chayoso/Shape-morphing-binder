@@ -74,3 +74,29 @@ discretisation contract (`mpm/discretisation.py`, `--ppc`), arms `render_ctrl*`.
 Companions: [viewer.md](viewer.md) (persistent multi-run monitor + tunnel keeper),
 [oscillation_triage.md](oscillation_triage.md) (driver classification probe). The hyde06
 ladder (§10 there) has not run yet.
+
+## State (2026-09-22; branch `v3-grid-gs`)
+
+**Recipe (frozen; `scripts/ops/hyde06_env.sh`):** `render_full_dt_iso_nn` at 40k particles with
+`--cell_diag 26` (MPM cell = shape diagonal / 26 = 3.6 spacings), density-unit cell-sum loss,
+kinetic recipe, `--bonds`, `--domain auto`, plus the outer-layer relaxation projection, the
+position-mode control channel u, the denoised shading reference and stratified sampling
+([method.md §10.9–10.14](method.md)). 150k is excluded from the experiments until re-opened.
+
+**Deliverable surface:** the outer particle layer → same-side plane pulling → screened Poisson →
+the mass rule, with the exterior test that drops surfels sitting on interior density steps
+(§10.12–10.13). Every frame of every gallery video is counted (pieces, bridges, cavities).
+
+**What is established** ([surface_gradient.md](surface_gradient.md) §6–§14, [experiments.md](experiments.md)
+2026-09-19 … 22): the render channel is a third of every accepted control update (g_share
+0.36–0.40, deterministic per window) and moves the outcome 2–8 run-to-run spreads (silhouette
++0.6 … +2.0 points; on the fixed bunny target +1.9, normal error −1.4°, detail correlation
++0.08); through the stress control it carries the outline at the cell scale, below the cell
+the kinematic u channel acts; coupling u to the physics (through F), gating it or driving it
+by the render channel alone are all worse (the candidate round). The stratified cloud has no
+shot noise (§9, proved and measured). The volume fill of non-watertight meshes is fixed
+(§14, `fill_check.py`). Every report carries a "rendering influence" block by standing rule.
+
+**Server:** hyde06 under `/data/relcfd/chayo/physmorph_v2` (`repo/`, `output/`; `scripts/ops/
+hyde06_env.sh`); GPUs 1 and 3 belong to another user. The final 40k gallery is `g40`
+(`output/report_g40`, `scripts/ops/gallery40.sh` on the server; builder `build_report150.py`).
