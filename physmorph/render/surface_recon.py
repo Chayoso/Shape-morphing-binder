@@ -520,3 +520,35 @@ def layer_u_gate(x0: np.ndarray, tgt: np.ndarray, mask: np.ndarray, spacing: flo
     on = np.abs(r) > float(nsig) * floor
     gate[idx[on]] = 1.0
     return gate, float(on.mean())
+
+
+def exterior_surfels(points: np.ndarray, normals: np.ndarray, x_all: np.ndarray, spacing: float,
+                     r_sp: float = 2.0, t_sp: float = 0.75, frac: float = 0.25):
+    """The EXTERIOR test of the outer layer (docs/surface_gradient.md 14; method.md 10.12): a surfel
+    is a surface only if the space on its outward side is empty of particles. The layer rule
+    (|grad rho| / rho) also fires at a density step INSIDE the material (a 40 %-density pocket of
+    the target, a compressed region of a morph), and the surfels it produces there make Poisson
+    draw an interior sheet. Per surfel, count the particles in the outward cap of the 2-spacing
+    ball beyond t_sp = 0.75 spacing (2.5 x the layer's own roughness, so a rough true surface
+    contributes ~nothing); the cap holds cap_vol / p_vol^3 particles at bulk density (7.8 sp^3 x
+    1.9 = 14.8 at r 2, t 0.75) — a surfel with more than frac = 1/4 of that (~4) has material
+    outside and is interior. Returns (points, normals, n_dropped)."""
+    if len(points) == 0:
+        return points, normals, 0
+    P = np.asarray(points, np.float64); Nn = np.asarray(normals, np.float64)
+    r = float(r_sp) * spacing; t = float(t_sp) * spacing
+    h = r - t
+    cap_vol = math.pi * h * h * (3.0 * r - h) / 3.0
+    p_vol = spacing / 1.24
+    thr = float(frac) * cap_vol / p_vol ** 3
+    kd = cKDTree(np.asarray(x_all, np.float64))
+    lists = kd.query_ball_point(P, r, workers=-1)
+    X = np.asarray(x_all, np.float64)
+    cnt = np.zeros(len(P), np.int64)
+    for i, l in enumerate(lists):
+        if len(l) == 0:
+            continue
+        d = X[l] - P[i]
+        cnt[i] = int(((d @ Nn[i]) > t).sum())
+    keep = cnt <= thr
+    return (np.asarray(points)[keep], np.asarray(normals)[keep], int((~keep).sum()))

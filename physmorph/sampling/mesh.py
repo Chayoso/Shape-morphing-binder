@@ -120,6 +120,7 @@ def _fill_grid(mesh: trimesh.Trimesh, pitch: float):
                 continue
             if int(f.filled_count) - n_surf >= 0.3 * n_surf:
                 M, _ = _strip_streaks(f.matrix.copy(), surf)
+                M, _, _ = _fill_pockets(M)
                 return f, M
         return None, None
     except Exception:
@@ -182,6 +183,33 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
 
 
 STREAK_REPORT = {"stripped": 0, "method": None}   # last fill's streak count (tests, logs)
+POCKET_REPORT = {"filled": 0, "iters": 0}         # last fill: sub-voxel pockets filled by _fill_pockets
+
+
+def _fill_pockets(M: np.ndarray, max_iters: int = 20) -> tuple[np.ndarray, int, int]:
+    """Fill the sub-voxel pockets an axis fill leaves in a NON-WATERTIGHT mesh (2026-09-22, docs/
+    surface_gradient.md 14): an empty voxel with a MAJORITY (>= 4 of 6) of filled face-neighbours
+    is interior, filled, and the rule is iterated to convergence. It closes 1-voxel pockets and
+    1-voxel tunnels only (a 2-voxel slot has at most 1 filled neighbour per voxel) — features below
+    the sampler resolution, which the fill cannot represent anyway. On the 40k stratified pitch:
+    bunny 287 -> 2 pockets, dragon 159 -> 0, beast 74 -> 0, armadillo 81 -> 0 (+0.3-1 % voxels);
+    watertight meshes are untouched (bob 6). Returns (matrix, filled count, iterations)."""
+    from scipy import ndimage
+    k = np.zeros((3, 3, 3), int)
+    k[1, 1, 0] = k[1, 1, 2] = k[1, 0, 1] = k[1, 2, 1] = k[0, 1, 1] = k[2, 1, 1] = 1
+    M = M.copy()
+    total = 0
+    it = 0
+    for it in range(1, max_iters + 1):
+        nb = ndimage.convolve(M.astype(int), k, mode="constant")
+        add = (~M) & (nb >= 4)
+        n_add = int(add.sum())
+        if n_add == 0:
+            it -= 1
+            break
+        M |= add
+        total += n_add
+    return M, total, it
 
 
 def _strip_streaks(M: np.ndarray, surf: np.ndarray) -> tuple[np.ndarray, int]:
@@ -218,6 +246,10 @@ def _fill_centers(mesh: trimesh.Trimesh, pitch: float) -> np.ndarray:
             if int(f.filled_count) - n_surf >= 0.3 * n_surf:
                 M, n_streak = _strip_streaks(f.matrix.copy(), surf)
                 STREAK_REPORT["stripped"], STREAK_REPORT["method"] = n_streak, method
+                M, n_pocket, n_it = _fill_pockets(M)
+                POCKET_REPORT["filled"], POCKET_REPORT["iters"] = n_pocket, n_it
+                if n_pocket:
+                    print(f"[sampling] fill '{method}': filled {n_pocket} sub-voxel pockets ({n_it} iterations)", flush=True)
                 if n_streak:
                     print(f"[sampling] fill '{method}': stripped {n_streak} streak voxels", flush=True)
                 idx = np.argwhere(M)

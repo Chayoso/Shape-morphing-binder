@@ -128,7 +128,7 @@ z = np.load(a.npz, allow_pickle=True)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from physmorph.sampling.orientation import orient_archive  # noqa: E402
 from physmorph.render.surface_recon import (pca_kernels, surface_particles, surface_particles_grad,  # noqa: E402
-                                            layer_threshold, layer_threshold_grad, oriented_layer, poisson_mesh,
+                                            layer_threshold, layer_threshold_grad, oriented_layer, poisson_mesh, exterior_surfels,
                                             imls_grid, surfel_mesh, bilateral_normal_smooth, trilinear)
 frames_np, tgt_np, _src_np, _orient = orient_archive(z, a.npz)   # y-up (physmorph/sampling/orientation.json)
 if _orient != "id":
@@ -499,9 +499,13 @@ def mesh_of(x, fi=None):
             pts, nrm = surface_particles_grad(x, rho_t, ctr, half, vox, layer_gthr)
         else:
             pts, nrm = surface_particles(x, rho_t, ctr, half, vox, layer_thr)
+        # the exterior test (docs/surface_gradient.md 14): surfels with material on their outward side are
+        # interior density steps, not surface; they would make Poisson draw an interior sheet
+        pts, nrm, n_interior = exterior_surfels(pts, nrm, x.detach().cpu().numpy(), spacing)
         if a.pull > 0:
             pts, nrm = oriented_layer(pts, nrm, spacing, pull_iters=a.pull)
         if fi is None or fi == 0:
+            print(f"[photoreal] surface {a.surface}: {n_interior} interior surfels dropped by the exterior test", flush=True)
             print(f"[photoreal] surface {a.surface}: {len(pts)} outer-layer particles of {len(x)}"
                   f"{' (plane-pulled, PCA normals)' if a.pull > 0 else ' (raw, gradient normals)'}", flush=True)
         if a.surface in ("poisson", "surfel"):
