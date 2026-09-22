@@ -838,12 +838,12 @@ for k, i in enumerate(idx):
         else:
             V = advect_vertices(np.asarray(trk[0].vertices), trk[1], x64, a.track_k, spacing)
             P = closest_on(m, V)
-            dist = np.linalg.norm(P - V, axis=1)
-            drift = float(np.median(dist) / spacing)                       # the surface as a whole, not a lost neck
+            vdist = np.linalg.norm(P - V, axis=1)
+            drift = float(np.median(vdist) / spacing)                       # the surface as a whole, not a lost neck
             if topo != trk[2] or drift > a.track_tol or (a.track_every > 0 and k - trk[3] >= a.track_every):
                 trk = (copy.deepcopy(m), x64, topo, k); remeshed = 1
             else:
-                gate = (dist <= spacing)[:, None]                          # no pull where the fresh surface is absent
+                gate = (vdist <= spacing)[:, None]                          # no pull where the fresh surface is absent
                 tm = trk[0]
                 tm.vertices = o3d.utility.Vector3dVector(V + a.track_alpha * (P - V) * gate)
                 tm.compute_vertex_normals()
