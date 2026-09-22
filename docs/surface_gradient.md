@@ -1136,6 +1136,21 @@ physics term settles at on dragon / bob (§10), the trajectory beyond the chaos 
 Through which path: the stress control at the cell scale carries the outline (`fx_10` − `fx_00`
 = +1.6 points on the old target, §10); below the cell the kinematic u (this section).
 
+**The proof column under the frozen recipe on the fixed fill (18:30; `fx_11n` / `fx_01n` on all
+three targets, same particles and seed; surfaces with the exterior test).**
+
+| target | silIoU render / λ = 0 | chamfer | D_vol end | n_dev | hp_res | dcorr | layer RMS morph / end | g_share 1–20 / all |
+|---|---|---|---|---|---|---|---|---|
+| bunny | 0.9638 / 0.9445 (+1.9) | 0.1157 / 0.1157 | 0.0036 / 0.0041 | 15.7° / 17.1° | 0.154 / 0.171 | +0.41 / +0.33 | 0.257 / 0.226 · 0.254 / 0.219 | 0.40 / 0.37 |
+| bob | 0.9774 / 0.9710 (+0.6) | 0.1148 / 0.1154 | 0.0031 / 0.0033 | 6.5° / 6.7° | 0.048 / 0.049 | +0.23 / +0.25 | 0.323 / 0.178 · 0.338 / 0.434 | 0.40 / 0.37 |
+| dragon | 0.9635 / 0.9448 (+1.9) | 0.1195 / 0.1198 | 0.0070 / 0.0073 | 22.1° / 25.0° | 0.186 / 0.200 | +0.36 / +0.29 | 0.306 / 0.264 · 0.287 / 0.241 | 0.40 / 0.36 |
+
+The render channel improves the SURFACE, not only the silhouette, on the two targets with
+features (bunny −1.4°, dcorr +0.08; dragon −2.9°, dcorr +0.07); on the ring it changes the
+silhouette only. Without the channel bob's end layer is 0.43 spacings (u driven by the
+physics gradient alone, as in §10), with it 0.18. These three pairs are the standing
+"rendering influence" block of the g40 gallery page.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
