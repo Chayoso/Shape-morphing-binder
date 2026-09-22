@@ -3674,3 +3674,23 @@ fixed target: `fx_11n` / `fx_11cn` 0.9638 / 0.9637 (spread 0.01), `fx_01n` 0.944
 (fixed bunny): g_share 0.39–0.40 / 0.36–0.37, cos 0.01–0.02; vs λ = 0: IoU +1.9, n_dev −1.4°,
 dcorr +0.08, D_vol 0.0036 vs 0.0041. u decision: user's call (bunny favours u, bob / dragon
 favour u off). Page: artifact "표면 판정과 렌더링 영향력".
+
+### 2026-09-22 — the final 40k gallery `g40` under the frozen recipe (docs/method.md §10.9–10.14; page: artifact "40k 최종 갤러리 g40")
+
+Recipe frozen (u kept; `scripts/ops/hyde06_env.sh`); targets re-sampled with the fixed fill
+(§10.13); 19 targets, `scripts/ops/gallery40.sh` (runs + post_run, Poisson videos with the
+exterior test, `gallery_post.sh`: end frame and target vs the true mesh, layer RMS, render
+telemetry). Full test suite: 231 passed, 2 skipped. Runs (chamfer / silIoU / hole / det F min /
+minutes): bunny 0.1152 / 0.9637 / 0 / 0.77 / 4.2; teapot 0.1128 / 0.9732 / 0 / 0.86 / 3.0;
+heart 0.1132 / 0.9782 / 0 / 0.88 / 1.5; spot 0.1144 / 0.9703 / 0 / 0.81 / 5.7; A 0.1170 /
+0.9715 / 0 / 0.84 / 4.0; V 0.1166 / 0.9793 / 0 / 0.85 / 2.2; armadillo 0.1167 / 0.9579 / 0 /
+0.82 / 6.1; dragon 0.1193 / 0.9586 / 0.07 % / 0.74 / 9.2; bob 0.1147 / 0.9788 / 0 / 0.87 / 2.9;
+C 0.1481 / 0.8995 / 0.22 % / 0.86 / 1.6 (the early stop of §8); cow 0.1137 / 0.9583 / 0 / 0.82 /
+5.9; homer 0.1151 / 0.9692 / 0 / 0.84 / 7.7; maxplanck 0.1131 / 0.9702 / 0.05 % / 0.87 / 3.6;
+nefertiti 0.1153 / 0.9683 / 0 / 0.81 / 7.9; fandisk 0.1147 / 0.9697 / 0 / 0.85 / 3.9; ogre
+0.1156 / 0.9558 / 0.76 % / 0.82 / 10.7; beast 0.1176 / 0.9482 / 2.06 % / 0.77 / 9.7;
+cheburashka 0.1157 / 0.9700 / 0 / 0.83 / 5.9; bimba 0.1148 / 0.9733 / 0 / 0.83 / 5.0. The
+proof column (render on / λ = 0 twins on the fixed fill): bunny 0.9638 / 0.9445, n_dev 15.7 /
+17.1°; bob 0.9774 / 0.9710, 6.5 / 6.7°; dragon 0.9635 / 0.9448, 22.1 / 25.0°; g_share 0.36–0.40
+everywhere (docs/surface_gradient.md §14). Video QA, surface columns and the cleanup sweep:
+appended below when the videos land.
