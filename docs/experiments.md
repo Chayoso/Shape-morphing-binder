@@ -3694,3 +3694,11 @@ proof column (render on / λ = 0 twins on the fixed fill): bunny 0.9638 / 0.9445
 17.1°; bob 0.9774 / 0.9710, 6.5 / 6.7°; dragon 0.9635 / 0.9448, 22.1 / 25.0°; g_share 0.36–0.40
 everywhere (docs/surface_gradient.md §14). Video QA, surface columns and the cleanup sweep:
 appended below when the videos land.
+
+**Where the render channel changes dFc (17:30; `grad_where.py`, `gd_bunny` 56 windows,
+page "렌더링이 dFc를 바꾸는 자리").** Render dominates the per-particle dFc gradient at 1.6–5.2 % of
+the particles = 11–23 % of the outer layer (ears, paws, base rim, back outline); 43–58 % of
+the render pull sits on the layer (8–9 % of particles); mean per-particle share 0.25–0.29 on
+the layer, 0.09–0.13 inside, against a global norm share of 0.38–0.42; the render channel
+alone moves the layer 0.2–0.6 spacings per window, the interior 0.02–0.05 (physics 0.16–0.80 /
+0.05–0.12; correlation 0.42–0.86). docs/surface_gradient.md §14.

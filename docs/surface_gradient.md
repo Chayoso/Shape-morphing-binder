@@ -1151,6 +1151,24 @@ silhouette only. Without the channel bob's end layer is 0.43 spacings (u driven 
 physics gradient alone, as in §10), with it 0.18. These three pairs are the standing
 "rendering influence" block of the g40 gallery page.
 
+**Where the render channel changes dFc (2026-09-22, 17:30; `scripts/probes/grad_where.py` on a
+56-window gradient dump of bunny under the frozen recipe, `gd_bunny`; page "렌더링이 dFc를 바꾸는
+자리").** Per particle, share_p = λ|g_render,p| / (|g_phys,p| + λ|g_render,p|) of the control-leaf
+gradient, and the one-window response to each channel's gradient alone at the accepted step's norm:
+
+| window | λ | g_share (norm) | render dominates: all / outer layer | mean share layer / interior | render pull on the layer (8–9 % of particles) | response render layer / interior (sp) | response physics layer / interior | corr |
+|---|---|---|---|---|---|---|---|---|
+| 2 | 0.086 | 0.422 | 1.6 % / 10.7 % | 0.25 / 0.09 | 58 % | 0.567 / 0.042 | 0.802 / 0.123 | 0.67 |
+| 28 | 0.015 | 0.390 | 5.2 % / 22.9 % | 0.29 / 0.13 | 43 % | 0.483 / 0.049 | 0.374 / 0.097 | 0.86 |
+| 54 | 0.012 | 0.378 | 4.8 % / 22.9 % | 0.28 / 0.12 | 44 % | 0.226 / 0.022 | 0.155 / 0.054 | 0.42 |
+
+The render channel's pull on dFc is concentrated on the outer layer and, within it, on the
+silhouette-defining parts (the ears and their base, the front paws and the base rim, the back
+outline); it decides the update at a fifth to a quarter of the layer from mid-run on, and its
+global norm share of 0.38–0.42 comes from that concentration (a small gradient in one place).
+Followed alone it moves the layer 0.2–0.6 spacings per window and the interior 0.02–0.05 —
+through the physics, at the cell scale. The interior is the physics channel's (share 0.09–0.13).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
