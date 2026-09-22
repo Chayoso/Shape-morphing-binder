@@ -832,7 +832,7 @@ for k, i in enumerate(idx):
         # the reconstruction broke off a thin neck while the particles continue is NOT a topology change —
         # the tracked mesh keeps the neck as a tube) and the cavities
         n_drawn = n_comp - n_drop - n_cav
-        topo = (max(n_drawn - n_bridge, 1), n_cav)
+        topo = (max(n_drawn - n_bridge, 1),)           # cavities are interior and never drawn: not a trigger (ogre: 30 of 42 re-meshes)
         if trk is None:
             trk = (copy.deepcopy(m), x64, topo, k); remeshed = 1
         else:
