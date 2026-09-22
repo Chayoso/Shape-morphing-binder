@@ -724,3 +724,18 @@ the current one, in spacings), the tracked drift and the re-mesh events; the QA 
 (pieces, bridges, cavities) keep coming from the fresh reconstruction, so a tracked video is
 judged by the same per-frame counts. Metrics never read the tracked mesh. Discretisation:
 spacing 0.135 wu at 40k, video frame = 3 archived frames = 24 MPM steps.
+
+**Addendum 2026-09-22 (evening; what the per-frame reconstruction actually does, and the re-mesh
+policy).** Measured on the g40 cow: the re-fit jitter of the independent reconstruction is 0.024
+spacings (p90 0.035) and the rendered-image change between consecutive frames 0.08 % of full
+scale — there is no geometric flicker to remove. What the eye reads as "the surface re-adjusting"
+is the TOPOLOGY EVENTS: at a thin neck the reconstruction breaks for a few frames, the far end is
+drawn as a bridged piece and re-joins (cow: 24 frames in four episodes). The tracked mesh is
+therefore re-solved only when the PARTICLES confirm a topology change (a drawn piece the filament
+rule cannot tie to the body, or the cavity count), when the median drift exceeds one spacing, or
+every 60 video frames to bound the stretching of the advected tessellation; the pull toward the
+fresh surface is applied only to vertices within one spacing of it, so a neck the reconstruction
+lost stays a tube. Cow: 10 re-meshes (the periodic ones and the sphere-phase cavities), none at
+the neck episodes; the legs are continuous through frames 207–270 and 432–483. Tracking is the
+default of `photoreal_batch.sh` (`TRACK=0` restores the per-frame surface); the QA columns are
+still those of the fresh reconstruction.

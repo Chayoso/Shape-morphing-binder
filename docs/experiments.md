@@ -3724,3 +3724,15 @@ report folders, the render-proof twins and controls (`rp_*`), the material study
 the no-net proofs (`nn150_*`), every 40k ladder run cited in docs/surface_gradient.md
 (`lr64`, `lrx`, `p40`, `ps40`, `k40`, `g5`, `gq`, `t40*`, `fx_*`, `gd_bunny`), `surf_test`, the
 figure folders. Local: `output/report_h150v7_page`, `output/report_n150v7_page` removed.
+
+### 2026-09-22 — surface tracking for the morph videos (docs/method.md §10.15)
+
+User: the mid-morph surface shows detached floating pieces and looks re-adjusted every frame.
+Measured (cow): the per-frame Poisson re-fit jitter is 0.024 spacings, the image change between
+frames 0.08 % — no geometric flicker; the defect is the topology events at thin necks (a leg tip
+drawn as a bridged piece for a few frames, four episodes, 24 frames). `render_photoreal --track`
+(commits 9f30036, 9f152ee, 807b678): vertices advected with their 8 nearest particles, pulled to
+the fresh surface at 0.3 per frame within one spacing, re-meshed on particle-confirmed topology
+change / median drift > 1 sp / every 60 frames. Cow: 10 re-meshes, none at the neck episodes,
+legs continuous; QA columns unchanged (from the fresh reconstruction). Adopted as the video
+default (`photoreal_batch.sh TRACK=1`); the 19 g40 videos are re-rendered with it.

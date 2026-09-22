@@ -5,13 +5,14 @@ source /data/relcfd/chayo/physmorph_v2/repo/scripts/ops/hyde06_env.sh
 export OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 MKL_NUM_THREADS=6 EGL_PLATFORM=surfaceless
 GPU=$1; PFX=$2; shift 2
 ARM=render_full_dt_iso_nn
-SURFACE=${SURFACE:-poisson}   # docs/method.md 10.12: the outer-layer Poisson surface; mc = the v8 level set
+SURFACE=   # docs/method.md 10.12: the outer-layer Poisson surface; mc = the v8 level set
+TRACK=             # docs/method.md 10.15 (2026-09-22): the surface is tracked with the material; TRACK=0 = per-frame
 case $PFX in h150) D0=$OUT/report150 ;; *) D0=$OUT/report_${PFX} ;; esac
 for T in "$@"; do
   D=$D0/$T; mkdir -p $D
   NLAB=$(grep -m1 -o "N=[0-9]*" $OUT/${PFX}_$T.log | head -1)
   CUDA_VISIBLE_DEVICES=$GPU $PY scripts/render_photoreal.py --npz $OUT/${PFX}_${T}_${ARM}.npz \
-    --out $D/${T}_photoreal.mp4 --res 720 --stride 3 --surface $SURFACE --label "sphere -> $T, $NLAB, photoreal" \
+    --out /_photoreal.mp4 --res 720 --stride 3 --surface  197609 [ "" = 1 ] && echo --track ) --label "sphere -> $T, $NLAB, photoreal" \
     2>&1 | grep "saved\|Traceback\|Error" | tail -2
   echo "PHOTO${PFX^^} $T DONE $(date)" >> $STATUS
 done
