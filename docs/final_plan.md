@@ -157,3 +157,11 @@ u-off gives the best true-mesh surfaces, u-on the best silhouette IoU (+0.4 … 
 a clean trade: u on = silhouette +0.4 … +1.9 points on every target and the better bunny
 surface (n_dev 15.7 vs 16.3°, dcorr +0.41 vs +0.39); u off = the better bob and dragon
 surfaces (n_dev 5.3 vs 6.4°, 22.9 vs 24.3°). Awaiting the user's choice; then §4.
+
+**Status 2026-09-22 (20:00).** §4 done: recipe frozen (u kept for the deliverable; the paper's
+headline will use u off — docs/surface_gradient.md §14, the SIGGRAPH assessment), λ = 0 twins
+on the three targets, method.md §10.13–10.14, the 19-target 40k gallery `g40` with Poisson
+videos (unbridged pieces 0 on 19/19 after the bridge-rule fix), the page with the surface and
+rendering-influence tables, the cleanup sweep (241 → 123 GB). Engineering and algorithm work
+at 40k is closed; what remains is comparison work for a paper (effect-size videos, baselines,
+150k heroes, arbitrary source–target pairs, image-space metrics).

@@ -3712,3 +3712,15 @@ armadillo 102: the frames with the most isolated particles) are single closed bo
 artifact "40k 최종 갤러리 g40" (`output/report_g40_page`, 172 files, 41 MB); the markdown
 twin `docs/gallery40_report.md` (built by `build_report150.py`, tables 2, 2b, 2c). Cleanup
 sweep follows.
+
+**Cleanup sweep (19:50; the user's rule at the gallery milestone).** hyde06 `output/`: 241 → 123 GB.
+Archived first: every `.log`, `.json`, `.md`, `.sh` into `logs_archive_20260922.tgz`. Deleted:
+the superseded 150k v7 galleries (`h150v7_*` 10 runs, `n150v7_*` 9 runs, `report_h150v7`,
+`report_n150v7`), the v6-era `h150y_dragon`, the pre-wall `h150v7pw_bob`, the uncited
+loss-resolution ladder (`lr96_*`, `lr128_*`), single falsified trials (`or40_C`, `rv_bunny`,
+`rvb_bunny`), the walled material / no-net variants (`matw_*`, `matwb_*`, `nnw150_*`), and all
+viewer live packets except `g40_*` (38 folders, 88 GB). Kept: the v8 galleries and their
+report folders, the render-proof twins and controls (`rp_*`), the material study (`mat_*`),
+the no-net proofs (`nn150_*`), every 40k ladder run cited in docs/surface_gradient.md
+(`lr64`, `lrx`, `p40`, `ps40`, `k40`, `g5`, `gq`, `t40*`, `fx_*`, `gd_bunny`), `surf_test`, the
+figure folders. Local: `output/report_h150v7_page`, `output/report_n150v7_page` removed.
