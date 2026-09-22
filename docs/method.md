@@ -685,3 +685,16 @@ docs/surface_gradient.md §9: drawing with replacement is a Poisson process with
 density fluctuation (p/σ)^{3/2}/√(8π^{3/2}) = 5.9 % at σ = 1.5 spacings; the jittered lattice
 leaves a dipole field with (p/σ)^{5/2}/√(64π^{3/2}) = 1.1 % (measured cube 5.5 → 1.1 %,
 bunny 8.1 → 2.9 %, dragon 5.2 → 2.2 %; p = the volumetric spacing = spacing / 1.24).
+
+**Addendum 2026-09-22 (direct contact of drawn pieces; g40 cow frames 267 / 270 / 438 / 480).**
+The bridge rule walked from the body to another drawn piece through FREE particles only (the
+ones the drawn surface does not enclose). When the surface breaks across a thin feature while
+the particles continue — a leg two particles thick whose hoof the Poisson surface caps off —
+the connecting particles lie within the one-spacing tolerance of both caps and are all
+"enclosed": there is no free particle to walk through, and the piece was reported unbridged
+although the cloud is a single connected component at the link radius and the grid probe
+counts no fragment. The graph now also carries an edge between two drawn pieces whose
+enclosed particles come within the link radius (the nearest such pair), and the filament
+drawn for that edge is the segment between those two particles. Nothing else changes: the
+radius is still max(2.5 spacings, one cell), the path is still the shortest chain, a piece
+farther than a cell from everything is still a piece.

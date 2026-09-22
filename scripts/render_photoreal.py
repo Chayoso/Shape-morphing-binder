@@ -425,6 +425,26 @@ def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
     for (i, l), (j, d) in edge_anchor.items():
         fa_r.append(i); fa_c.append(sup[l]); fa_w.append(d)
     rows_.append(np.array(fa_r, np.int64)); cols_.append(np.array(fa_c, np.int64)); wts_.append(np.array(fa_w))
+    # DIRECT contact between two drawn components (2026-09-22, g40 cow frames 267/270/438/480): when the
+    # surface breaks across a thin feature while the particles continue, the connecting particles lie
+    # within the one-spacing tolerance of both caps and are all "enclosed" — no free particle to walk
+    # through, yet the pieces are within one cell at the particle level (a single connected component
+    # at r; the grid probe counts no fragment). Edge between the two super-nodes = the nearest anchor
+    # pair within r; the filament drawn is that pair.
+    direct = {}
+    aa = ka.query_pairs(r, output_type="ndarray")
+    if len(aa):
+        la, lb = plab[anch[aa[:, 0]]], plab[anch[aa[:, 1]]]
+        dd = np.linalg.norm(x_np[anch[aa[:, 0]]] - x_np[anch[aa[:, 1]]], axis=1)
+        for i0, i1, l0, l1, d in zip(aa[:, 0], aa[:, 1], la, lb, dd):
+            if l0 == l1:
+                continue
+            key = (int(min(l0, l1)), int(max(l0, l1)))
+            if key not in direct or d < direct[key][2]:
+                direct[key] = (int(i0), int(i1), float(d))
+    if direct:
+        rows_.append(np.array([sup[k[0]] for k in direct], np.int64)); cols_.append(np.array([sup[k[1]] for k in direct], np.int64))
+        wts_.append(np.array([v[2] for v in direct.values()]))
     nn_ = nf + len(sup)
     rr = np.concatenate(rows_); cc = np.concatenate(cols_); ww = np.concatenate(wts_) + 1e-9
     if len(rr) == 0:
@@ -445,20 +465,24 @@ def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
         if path[-1] != sup[body]:
             continue
         sup_lab = {v: k for k, v in sup.items()}
-        pts = []
-        for n_ in path:
-            if n_ < nf:
-                pts.append(x_np[free[n_]])
-            else:                                              # a super-node: the anchor particle of the edge used
-                nxt = None
-                for m_ in (path[path.index(n_) - 1] if path.index(n_) > 0 else None,
-                           path[path.index(n_) + 1] if path.index(n_) + 1 < len(path) else None):
-                    if m_ is not None and m_ < nf and (m_, sup_lab[n_]) in edge_anchor:
-                        nxt = edge_anchor[(m_, sup_lab[n_])][0]; break
-                if nxt is not None:
-                    pts.append(x_np[anch[nxt]])
-        for p_, q_ in zip(pts[:-1], pts[1:]):
-            seg = _segment_mesh(p_, q_, rad)
+        # the segments along the path: free-free, free-super (the anchor of the edge used), super-super
+        # (the direct anchor pair)
+        for u_, v_ in zip(path[:-1], path[1:]):
+            if u_ < nf and v_ < nf:
+                ends = (x_np[free[u_]], x_np[free[v_]])
+            elif u_ < nf:
+                j = edge_anchor.get((u_, sup_lab[v_]))
+                ends = (x_np[free[u_]], x_np[anch[j[0]]]) if j else None
+            elif v_ < nf:
+                j = edge_anchor.get((v_, sup_lab[u_]))
+                ends = (x_np[anch[j[0]]], x_np[free[v_]]) if j else None
+            else:
+                key = (min(sup_lab[u_], sup_lab[v_]), max(sup_lab[u_], sup_lab[v_]))
+                dp = direct.get(key)
+                ends = (x_np[anch[dp[0]]], x_np[anch[dp[1]]]) if dp else None
+            if ends is None:
+                continue
+            seg = _segment_mesh(ends[0], ends[1], rad)
             if seg is not None:
                 fil += seg
         for n_ in path:
