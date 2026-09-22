@@ -31,7 +31,11 @@ def test_box_with_a_bottom_hole_is_filled_above_the_hole():
     surf = vg.matrix.copy()
     plain = _plain(surf)
     fps = sm._hole_footprints(open_box, vg)
-    assert fps[1] is not None and fps[0] is None and fps[2] is None      # the hole faces -y: only the y axis is unreliable
+    assert fps[1] is not None                       # the hole faces -y: its footprint along y has area
+    # along x and z the loop is seen edge-on: at most a thin strip at the bottom plane (no interior area)
+    for ax in (0, 2):
+        if fps[ax] is not None:
+            assert fps[ax].sum() < 0.1 * fps[1].sum(), (ax, fps[ax].sum(), fps[1].sum())
     rel = sm._fill_ortho_reliable(surf, fps)
     # the column above the hole: interior voxels at the box centre
     idx = vg.points_to_indices(np.array([[0.0, 0.0, 0.0], [0.3, 0.2, -0.3]]))

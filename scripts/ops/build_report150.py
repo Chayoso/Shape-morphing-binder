@@ -85,6 +85,38 @@ def parse_gridfrag(txt):
     return dict(n=m.group(1), f1=m.group(2), f1max=m.group(3), mx=m.group(4), mxc=m.group(5), ppc=m.group(6), f20=m.group(7)) if m else {}
 
 
+def parse_surface_gt(txt):
+    """scripts/probes/surface_gt.py --gt_all (gallery_post.sh): the target's Poisson surface (first line) and the
+    end frame (second): d_abs d_sgn d_95 compl n_dev flip rough bump ntri pieces, then hp_res / dcorr."""
+    out = {}
+    keys = ("d_abs", "d_sgn", "d_95", "compl", "n_dev", "flip", "rough", "bump", "ntri", "pieces")
+    lines = [l for l in txt.splitlines() if re.match(r"^[a-z]+/", l)]
+    for name, l in zip(("tgt", "end"), lines[:2]):
+        head = l.split("hp_res")[0]
+        nums = re.findall(r"(?<![\w.])(-?\d+\.\d+|-?\d+)(?![\w.])", head)      # a frame tag like f1005 is not a number
+        d = dict(zip(keys, nums[-10:])) if len(nums) >= 10 else {}
+        m = re.search(r"hp_res ([\d.]+) sp\s+dcorr ([+-]?[\d.]+)", l)
+        if m:
+            d["hp_res"], d["dcorr"] = m.group(1), m.group(2)
+        out[name] = d
+    m = re.search(r"true mesh: (\d+) faces, rough\(2sp\) ([\d.]+) deg", txt)
+    if m:
+        out["mesh_rough"] = m.group(2)
+    return out
+
+
+def parse_layer(txt):
+    """scripts/probes/layer_rms.py: the outer layer's plane-residual RMS (spacings), morph mean / end / target floor."""
+    m = re.search(r"mean over the morph ([\d.]+)\s+end ([\d.]+)", txt)
+    t = re.search(r"target cloud: rms ([\d.]+) sp", txt)
+    return dict(morph=m.group(1), end=m.group(2), tgt=t.group(1) if t else "–") if m else {}
+
+
+def parse_render(txt):
+    """gallery_post.sh <t>_render.txt: the per-window render share of the control update and the outcome telemetry."""
+    return dict(re.findall(r"(\w+) ([\w.+-]+)", txt.strip())) if txt.strip() else {}
+
+
 rows = []
 for t in targets:
     d = os.path.join(ROOT, t)
@@ -95,7 +127,10 @@ for t in targets:
                      frag=rd(os.path.join(d, f"{t}_frag.txt")).strip(),
                      reatt=(rd(os.path.join(d, f"{t}_reatt.txt")).split() or ["–"])[0],
                      gf=parse_gridfrag(rd(os.path.join(d, f"{t}_gridfrag.txt"))),
-                     qa=parse_qa(rd(os.path.join(d, f"{t}_photoreal.mp4.components.txt")), rd(os.path.join(d, f"{t}_cavity.txt")))))
+                     qa=parse_qa(rd(os.path.join(d, f"{t}_photoreal.mp4.components.txt")), rd(os.path.join(d, f"{t}_cavity.txt"))),
+                     sg=parse_surface_gt(rd(os.path.join(d, f"{t}_surface_gt.txt"))),
+                     ly=parse_layer(rd(os.path.join(d, f"{t}_layer.txt"))),
+                     rn=parse_render(rd(os.path.join(d, f"{t}_render.txt")))))
 
 
 def prep(t, name):
@@ -201,6 +236,19 @@ if any(r["qa"] for r in rows):
                  f'<td>{r["reatt"]}</td><td>{r["frag"] or "–"}</td></tr>')
     H.append('</tbody></table></div>')
     H.append('<p class="note">"물리 조각": 렌더러를 쓰지 않고 입자 occupancy를 MPM cell 하나만큼 팽창한 연결 성분(재부착 안전망과 같은 기준)에서 몸체와 떨어진 성분 중 부피가 한 cell(ppc개 입자) 이상인 것의 프레임 수와 최대 크기 — 이것이 0이면 물리에는 떠다니는 몸이 없다. "그린 조각&gt;1"이 남아 있는 프레임은 등밀도면이 얇은 목(2입자 굵기 미만)에서 끊긴 것으로, 같은 프레임의 물리 조각이 0이면 이어진 재료의 끝이다.</p>')
+if any(r.get("sg") or r.get("rn") for r in rows):
+    H.append(f'<h2>2c. 표면 (실제 메시 대비) 과 렌더링 영향력 — {len([r for r in rows if r.get("sg")])}개</h2>')
+    H.append('<p class="lede">끝 프레임의 Poisson 표면(docs/method.md 10.12–10.13: 바깥층, 외부 검사, 평면 당김)을 실제 메시에 견준 값. d_abs / d_95 = 표면까지의 거리(간격 단위, 평균 / 95 분위), n_dev = 법선 오차, hp_res = 2 간격 고역 잔차, dcorr = 고역 법선장 상관(+1 = 세부가 실제 메시와 같은 자리). "타깃" 열은 타깃 구름 자체의 Poisson 표면이 실제 메시에서 얼마나 떨어지는가 = 샘플링 바닥. 층 RMS = 바깥층의 평면 잔차(간격), morph 평균 / 끝 (타깃 구름 바닥). 렌더링 영향력: g_share = 채택된 제어 갱신에서 render 채널의 몫 λ‖g_r‖/(‖g_p‖+λ‖g_r‖), 창 1–20 / 전체; cos = physics 기울기와의 코사인. 창마다 결정론적으로 측정된 값이다.</p>')
+    H.append('<div class="wrap"><table><thead><tr><th>target</th><th>타깃 바닥 n_dev / hp_res / dcorr</th><th>end d_abs / d_95</th><th>n_dev</th><th>hp_res</th><th>dcorr</th><th>층 RMS morph / end (tgt)</th><th>g_share 1–20 / all</th><th>cos</th><th>λ</th><th>windows</th><th>D_vol end</th></tr></thead><tbody>')
+    for r in rows:
+        sg, ly, rn = r.get("sg", {}), r.get("ly", {}), r.get("rn", {})
+        tg, en = sg.get("tgt", {}), sg.get("end", {})
+        H.append(f'<tr><td>{r["t"]}</td><td>{tg.get("n_dev","–")}° / {tg.get("hp_res","–")} / {tg.get("dcorr","–")}</td>'
+                 f'<td>{en.get("d_abs","–")} / {en.get("d_95","–")}</td><td>{en.get("n_dev","–")}°</td><td>{en.get("hp_res","–")}</td><td>{en.get("dcorr","–")}</td>'
+                 f'<td>{ly.get("morph","–")} / {ly.get("end","–")} ({ly.get("tgt","–")})</td>'
+                 f'<td>{rn.get("g_share_1_20","–")} / {rn.get("g_share","–")}</td><td>{rn.get("g_cos","–")}</td><td>{rn.get("lambda","–")}</td><td>{rn.get("windows","–")}</td><td>{rn.get("d_vol_end","–")}</td></tr>')
+    H.append('</tbody></table></div>')
+    H.append('<p class="note">렌더링 영향력의 결과 쪽(λ = 0 쌍둥이 대비 실루엣·표면·D_vol)은 §5의 증명 열에 있다. 이 표의 g_share는 모든 런에서 같은 방식으로 기록되며, 궤적 발산은 카오스 바닥과 구별되지 않으므로 쓰지 않는다(docs/surface_gradient.md §10).</p>')
 H.append('<h2>3. 예제별 결과 — 표면 비디오(object, not particles), 입자 GIF, PBR 스틸, 손실 곡선</h2>')
 H.append('<p class="lede">표면 비디오(isosurface): 입자 질량을 128³ 격자에 뿌리고 1.5 spacing 가우시안으로 흐린 밀도의 등밀도면(소스 bulk 밀도의 절반)을 ray-march한 것 — 물체가 하나의 연속 표면으로 보이고, 해상 가능한 밀도 아래의 고립 입자는 표면이 되지 않는다(이탈 수치는 별도 열). 스플랫 비디오는 이전 렌더(디스크 스플랫), 입자 GIF는 원시 입자.</p>')
 for r in rows:
@@ -245,6 +293,14 @@ if any(r["qa"] for r in rows):
         if q:
             gtxt = f'{g["f1"]} ({g["mxc"]} cells)' if g else "–"
             md.append(f'| {r["t"]} | {q["n"]} | {gtxt} | {q["raw_gt1"]} ({q["raw_max"]}) | {q["drawn_gt1"]} ({q["drawn_max"]}) | {q["bridged"]} | {q["unbridged"]} | {q["drop_frames"]} ({q["drop_total"]}) | {q["iso_max"]} ({q["iso_frame"]}) | {q["iso_end"]} | {r["reatt"]} | {r["frag"] or "–"} |')
+if any(r.get("sg") or r.get("rn") for r in rows):
+    md += ["", "## Surface vs the true mesh, and the rendering influence", "",
+           "| target | target floor n_dev / hp_res / dcorr | end d_abs / d_95 | n_dev | hp_res | dcorr | layer RMS morph / end (tgt) | g_share 1-20 / all | cos | lambda | windows | D_vol end |",
+           "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for r in rows:
+        sg, ly, rn = r.get("sg", {}), r.get("ly", {}), r.get("rn", {})
+        tg, en = sg.get("tgt", {}), sg.get("end", {})
+        md.append(f'| {r["t"]} | {tg.get("n_dev","–")} / {tg.get("hp_res","–")} / {tg.get("dcorr","–")} | {en.get("d_abs","–")} / {en.get("d_95","–")} | {en.get("n_dev","–")} | {en.get("hp_res","–")} | {en.get("dcorr","–")} | {ly.get("morph","–")} / {ly.get("end","–")} ({ly.get("tgt","–")}) | {rn.get("g_share_1_20","–")} / {rn.get("g_share","–")} | {rn.get("g_cos","–")} | {rn.get("lambda","–")} | {rn.get("windows","–")} | {rn.get("d_vol_end","–")} |')
 for key, title in (("assessment_html", "Assessment"), ("ejection_html", "Mass ejection"), ("render_html", "Render gradient -> physics"), ("material_html", "Material -> trajectory"), ("speed_html", "Speed"), ("summary_html", "Summary"), ("viewer_html", "Viewer")):
     md += ["", f"## {title}", "", strip(G.get(key, ""))]
 open(MD_OUT, "w", encoding="utf-8").write("\n".join(md) + "\n")
