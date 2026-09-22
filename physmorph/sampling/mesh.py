@@ -123,7 +123,8 @@ def _fill_grid(mesh: trimesh.Trimesh, pitch: float):
                 continue
             if int(f.filled_count) - n_surf >= 0.3 * n_surf:
                 M, _ = _strip_streaks(f.matrix.copy(), surf)
-                M, _, _ = _fill_pockets(M)
+                if FILL_MODE == "reliable":
+                    M, _, _ = _fill_pockets(M)
                 return f, M
         return None, None
     except Exception:
@@ -258,7 +259,8 @@ def _fill_centers(mesh: trimesh.Trimesh, pitch: float) -> np.ndarray:
             if int(f.filled_count) - n_surf >= 0.3 * n_surf:
                 M, n_streak = _strip_streaks(f.matrix.copy(), surf)
                 STREAK_REPORT["stripped"], STREAK_REPORT["method"] = n_streak, method
-                M, n_pocket, n_it = _fill_pockets(M)
+                # the pocket fill belongs to the 2026-09-22 fill only: "legacy" must reproduce the old archives
+                M, n_pocket, n_it = _fill_pockets(M) if FILL_MODE == "reliable" else (M, 0, 0)
                 POCKET_REPORT["filled"], POCKET_REPORT["iters"] = n_pocket, n_it
                 if n_pocket:
                     print(f"[sampling] fill '{method}': filled {n_pocket} sub-voxel pockets ({n_it} iterations)", flush=True)
