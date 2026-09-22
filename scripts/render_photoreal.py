@@ -42,6 +42,8 @@ ap.add_argument("--track", action="store_true",
 ap.add_argument("--track_alpha", type=float, default=0.3, help="per-frame pull of the tracked vertices toward the fresh surface")
 ap.add_argument("--track_tol", type=float, default=1.0, help="re-mesh when the mean drift exceeds this many spacings")
 ap.add_argument("--track_k", type=int, default=8, help="particles a vertex is bound to (Gaussian weights of one spacing)")
+ap.add_argument("--track_every", type=int, default=60, help="re-mesh at least every this many video frames (bounds the "
+                                                              "stretching of the advected tessellation); 0 = never forced")
 ap.add_argument("--grid", type=int, default=160)
 ap.add_argument("--iso", default="auto",
                 help="isosurface level as a fraction of the source bulk density, or 'auto' = the level at which a "
@@ -826,20 +828,26 @@ for k, i in enumerate(idx):
     prev_fresh = (m, x64)
     draw_m = m
     if a.track and m is not None and len(m.triangles) > 0:
-        topo = (n_comp - n_drop - n_cav, n_bridge, n_cav)
+        # the topology the PARTICLES confirm: drawn pieces the filament rule could not tie to the body (a piece
+        # the reconstruction broke off a thin neck while the particles continue is NOT a topology change —
+        # the tracked mesh keeps the neck as a tube) and the cavities
+        n_drawn = n_comp - n_drop - n_cav
+        topo = (max(n_drawn - n_bridge, 1), n_cav)
         if trk is None:
-            trk = (copy.deepcopy(m), x64, topo); remeshed = 1
+            trk = (copy.deepcopy(m), x64, topo, k); remeshed = 1
         else:
             V = advect_vertices(np.asarray(trk[0].vertices), trk[1], x64, a.track_k, spacing)
             P = closest_on(m, V)
-            drift = float(np.linalg.norm(P - V, axis=1).mean() / spacing)
-            if topo != trk[2] or drift > a.track_tol:
-                trk = (copy.deepcopy(m), x64, topo); remeshed = 1
+            dist = np.linalg.norm(P - V, axis=1)
+            drift = float(np.median(dist) / spacing)                       # the surface as a whole, not a lost neck
+            if topo != trk[2] or drift > a.track_tol or (a.track_every > 0 and k - trk[3] >= a.track_every):
+                trk = (copy.deepcopy(m), x64, topo, k); remeshed = 1
             else:
+                gate = (dist <= spacing)[:, None]                          # no pull where the fresh surface is absent
                 tm = trk[0]
-                tm.vertices = o3d.utility.Vector3dVector(V + a.track_alpha * (P - V))
+                tm.vertices = o3d.utility.Vector3dVector(V + a.track_alpha * (P - V) * gate)
                 tm.compute_vertex_normals()
-                trk = (tm, x64, topo)
+                trk = (tm, x64, topo, trk[3])
         draw_m = trk[0]
     qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav, jitter, drift, remeshed))
     img = label(render_views(draw_m), f"{a.label}  frame {i}/{dn - 1}")
@@ -862,7 +870,7 @@ with open(a.out + ".components.txt", "w") as fh:
     fh.write(f"# re-fit jitter of the independent per-frame reconstruction (previous fresh mesh carried with the material vs "
              f"the current fresh mesh, spacings): mean {np.nanmean(jits):.3f}, p90 {np.nanpercentile(jits, 90):.3f}; "
              f"tracking {'ON' if a.track else 'off'}"
-             + (f": re-meshed {int(rms.sum())} frames (topology change or drift > {a.track_tol} sp), tracked drift before the pull "
+             + (f": re-meshed {int(rms.sum())} frames (particle-confirmed topology change, drift > {a.track_tol} sp or every {a.track_every} frames), tracked drift (median) before the pull "
                 f"mean {np.nanmean(drfs):.3f} sp, pull alpha {a.track_alpha}, k {a.track_k}" if a.track else "") + "\n")
     fh.write(f"# interior cavities (closed surfaces with the sign opposite to the body, removed, not pieces): "
              f"{(cavs > 0).sum()} frames (max {cavs.max()})\n")
