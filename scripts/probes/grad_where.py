@@ -49,11 +49,18 @@ def spacing_of(x):
     return float(np.median(cKDTree(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(len(x), 20000) / len(x)) ** (1 / 3)
 
 
-def panel(ax, x, vals, title, cmap, vmin=None, vmax=None, log=False, s=1.4):
+def panel(ax, x, vals, title, cmap, vmin=None, vmax=None, log=False, s=1.4, mask=None):
+    """mask: draw only these particles in colour, the rest grey underneath (the outer layer over a grey interior)."""
     px, py, order = view(x)
     v = np.log10(np.maximum(vals, 1e-12)) if log else vals
-    sc = ax.scatter(px[order], py[order], c=v[order], s=s, cmap=cmap, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
-    ax.set_aspect("equal"); ax.set_axis_off(); ax.set_title(title, fontsize=10)
+    if mask is not None:
+        o_in = order[~mask[order]]
+        ax.scatter(px[o_in], py[o_in], c="#d9d4cb", s=s * 0.6, linewidths=0, rasterized=True)
+        o_on = order[mask[order]]
+        sc = ax.scatter(px[o_on], py[o_on], c=v[o_on], s=s * 1.6, cmap=cmap, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
+    else:
+        sc = ax.scatter(px[order], py[order], c=v[order], s=s, cmap=cmap, vmin=vmin, vmax=vmax, linewidths=0, rasterized=True)
+    ax.set_aspect("equal"); ax.set_axis_off(); ax.set_title(title, fontsize=9.5)
     return sc
 
 
@@ -98,17 +105,17 @@ def main():
                 f"one-window response (spacings): render layer {stats['resp_rend_layer']:.3f} / interior {stats['resp_rend_int']:.3f}, "
                 f"physics layer {stats['resp_phys_layer']:.3f} / interior {stats['resp_phys_int']:.3f}; corr(resp) {stats['corr_resp']:.2f}")
         print(line, flush=True); lines.append(line)
-        rows.append((k, x0, share, pull, r_rend, r_phys, stats))
-    fig, axes = plt.subplots(len(rows), 4, figsize=(17, 4.3 * len(rows)))
+        rows.append((k, x0, share, pull, r_rend, r_phys, stats, lay))
+    fig, axes = plt.subplots(len(rows), 5, figsize=(21, 4.3 * len(rows)))
     axes = np.atleast_2d(axes)
-    pmax = max(np.percentile(r[3], 99) for r in rows)
     rmax = max(np.percentile(np.concatenate([r[4], r[5]]), 99) for r in rows)
-    for i, (k, x0, share, pull, r_rend, r_phys, st) in enumerate(rows):
-        sc0 = panel(axes[i, 0], x0, share, f"window {k}: render share of the dFc gradient (>0.5 = render decides)", "RdBu_r", 0, 1)
-        sc1 = panel(axes[i, 1], x0, pull / max(np.median(pull), 1e-30), f"window {k}: render pull on dFc, λ|g_rend| / median (log10)", "magma", -1.5, 1.5, log=True)
-        sc2 = panel(axes[i, 2], x0, r_rend, f"window {k}: response to the render channel alone (spacings)", "viridis", 0, rmax)
-        sc3 = panel(axes[i, 3], x0, r_phys, f"window {k}: response to the physics channel alone (spacings)", "viridis", 0, rmax)
-        for sc, ax in ((sc0, axes[i, 0]), (sc1, axes[i, 1]), (sc2, axes[i, 2]), (sc3, axes[i, 3])):
+    for i, (k, x0, share, pull, r_rend, r_phys, st, lay) in enumerate(rows):
+        sc0 = panel(axes[i, 0], x0, share, f"w{k} · render share of the dFc gradient, all particles", "RdBu_r", 0, 1)
+        sc1 = panel(axes[i, 1], x0, share, f"w{k} · the same on the OUTER LAYER (interior grey)", "RdBu_r", 0, 1, mask=lay)
+        sc2 = panel(axes[i, 2], x0, pull / max(np.median(pull[lay]), 1e-30), f"w{k} · render pull λ|g_rend| on the layer, log10 / median", "magma", -1.5, 1.5, log=True, mask=lay)
+        sc3 = panel(axes[i, 3], x0, r_rend, f"w{k} · one-window response: render channel alone (sp)", "viridis", 0, rmax)
+        sc4 = panel(axes[i, 4], x0, r_phys, f"w{k} · one-window response: physics channel alone (sp)", "viridis", 0, rmax)
+        for sc, ax in ((sc0, axes[i, 0]), (sc1, axes[i, 1]), (sc2, axes[i, 2]), (sc3, axes[i, 3]), (sc4, axes[i, 4])):
             fig.colorbar(sc, ax=ax, fraction=0.035, pad=0.01)
     fig.suptitle("Where the render channel changes dFc — " + os.path.basename(os.path.normpath(dump)) + f" ({n} windows)", fontsize=12)
     fig.tight_layout()
