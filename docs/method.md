@@ -698,3 +698,29 @@ enclosed particles come within the link radius (the nearest such pair), and the 
 drawn for that edge is the segment between those two particles. Nothing else changes: the
 radius is still max(2.5 spacings, one cell), the path is still the shortest chain, a piece
 farther than a cell from everything is still a piece.
+
+### 10.15 Surface tracking for the morph video (2026-09-22; code: scripts/render_photoreal.py `--track`, `advect_vertices`, `closest_on`)
+
+The deliverable surface of 10.12 is reconstructed independently for every video frame. Two
+things follow that the physics does not contain: the frame-to-frame RE-FIT JITTER — a few
+particles cross the outer-layer rule, the surfel set changes, the Poisson solve moves the
+whole surface a fraction of a spacing — and false BREAKS at thin necks, where a feature one
+or two particles thick falls out of the reconstruction for a few frames and its far end is
+drawn as a piece (bridged by 10.10's filament, still visibly a tube with a bulb). Both are
+properties of the reconstruction, not of the material, which is connected (grid fragments 0)
+and moves smoothly.
+
+The tracked surface carries the mesh with the material: each vertex is bound every frame to
+its k = 8 nearest particles of the previous frame with Gaussian weights of one spacing and
+moves by their weighted mean displacement (advection); then it is pulled toward the fresh
+reconstruction of the current frame by the fraction α = 0.3 of its distance to the closest
+point on it (an exponential filter with a ~3-frame memory: drift is corrected, the re-fit
+jitter is not followed). The mesh is re-solved only when the drawn topology changes (the
+number of drawn pieces, bridges or cavities of the fresh reconstruction) or when the mean
+drift before the pull exceeds one spacing; the last frame is always a fresh reconstruction,
+so the end-frame metrics of 10.12–10.13 are unchanged. The sidecar records per frame the
+re-fit jitter of the independent reconstruction (the previous fresh mesh advected against
+the current one, in spacings), the tracked drift and the re-mesh events; the QA columns
+(pieces, bridges, cavities) keep coming from the fresh reconstruction, so a tracked video is
+judged by the same per-frame counts. Metrics never read the tracked mesh. Discretisation:
+spacing 0.135 wu at 40k, video frame = 3 archived frames = 24 MPM steps.

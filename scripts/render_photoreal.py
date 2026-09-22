@@ -14,6 +14,7 @@ number of isolated particles (8-NN distance > 3 x median), the per-frame QA the 
 judged by (no floating particles, no particle-looking blobs).
 """
 import argparse
+import copy
 import math
 import os
 import subprocess
@@ -33,6 +34,14 @@ ap.add_argument("--views", default="35,215", help="azimuths in degrees, side by 
 ap.add_argument("--elev", type=float, default=18.0)
 ap.add_argument("--fps", type=int, default=20)
 ap.add_argument("--hold", type=int, default=20, help="repeat the last frame this many times")
+ap.add_argument("--track", action="store_true",
+                help="surface tracking (2026-09-22, docs/method.md 10.15): the drawn mesh is advected with the particles its "
+                     "vertices are bound to and pulled toward the fresh reconstruction at --track_alpha per frame; re-meshed "
+                     "only when the drawn topology (pieces, bridges, cavities) changes or the drift exceeds --track_tol "
+                     "spacings. Removes the frame-to-frame re-fit jitter of an independent reconstruction per frame.")
+ap.add_argument("--track_alpha", type=float, default=0.3, help="per-frame pull of the tracked vertices toward the fresh surface")
+ap.add_argument("--track_tol", type=float, default=1.0, help="re-mesh when the mean drift exceeds this many spacings")
+ap.add_argument("--track_k", type=int, default=8, help="particles a vertex is bound to (Gaussian weights of one spacing)")
 ap.add_argument("--grid", type=int, default=160)
 ap.add_argument("--iso", default="auto",
                 help="isosurface level as a fraction of the source bulk density, or 'auto' = the level at which a "
@@ -678,6 +687,26 @@ def isolated_count(x_np):
     return int((d > 3.0 * np.median(d)).sum())
 
 
+# ---- surface tracking (docs/method.md 10.15) ---------------------------------------------
+def advect_vertices(V, x_prev, x_cur, k, h):
+    """Move mesh vertices with the material: each vertex is bound to its k nearest particles of the
+    PREVIOUS frame (Gaussian weights of width h = one spacing) and moves by their weighted mean
+    displacement to the current frame. Particles that are neighbours at one frame are neighbours at
+    the next, so the binding is renewed every frame."""
+    kd = cKDTree(x_prev)
+    d, j = kd.query(V, k=k, workers=-1)
+    w = np.exp(-(d / h) ** 2)
+    w /= np.maximum(w.sum(1, keepdims=True), 1e-12)
+    return V + (w[:, :, None] * (x_cur[j] - x_prev[j])).sum(1)
+
+
+def closest_on(mesh, P):
+    sc = o3d.t.geometry.RaycastingScene()
+    sc.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
+    r = sc.compute_closest_points(o3d.core.Tensor(np.asarray(P, np.float32)))
+    return r["points"].numpy().astype(np.float64)
+
+
 # ---- scene ------------------------------------------------------------------------------
 W = a.res
 views = [float(s) for s in a.views.split(",")]
@@ -781,12 +810,39 @@ if a.max_frames > 0:
     idx = idx[: a.max_frames]
 tmp = tempfile.mkdtemp(prefix="photoreal_")
 qa = []
+trk = None            # (tracked mesh, particles at its last frame, drawn topology)
+prev_fresh = None     # (fresh mesh, particles) of the previous video frame — the re-fit jitter reference
 for k, i in enumerate(idx):
     x_np = np.asarray(frames_np[i], np.float32)
     m, n_comp, n_drop, n_bridge, n_cav = mesh_of(torch.as_tensor(x_np, device=dev), i)
     n_iso = isolated_count(x_np)
-    qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav))
-    img = label(render_views(m), f"{a.label}  frame {i}/{dn - 1}")
+    x64 = x_np.astype(np.float64)
+    jitter = drift = float("nan"); remeshed = 0
+    if m is not None and prev_fresh is not None and prev_fresh[0] is not None and len(m.triangles) > 0:
+        # the re-fit jitter of an independent reconstruction per frame: the previous fresh mesh carried
+        # along with the material against the current fresh mesh (spacings)
+        Vp = advect_vertices(np.asarray(prev_fresh[0].vertices), prev_fresh[1], x64, a.track_k, spacing)
+        jitter = float(np.linalg.norm(closest_on(m, Vp) - Vp, axis=1).mean() / spacing)
+    prev_fresh = (m, x64)
+    draw_m = m
+    if a.track and m is not None and len(m.triangles) > 0:
+        topo = (n_comp - n_drop - n_cav, n_bridge, n_cav)
+        if trk is None:
+            trk = (copy.deepcopy(m), x64, topo); remeshed = 1
+        else:
+            V = advect_vertices(np.asarray(trk[0].vertices), trk[1], x64, a.track_k, spacing)
+            P = closest_on(m, V)
+            drift = float(np.linalg.norm(P - V, axis=1).mean() / spacing)
+            if topo != trk[2] or drift > a.track_tol:
+                trk = (copy.deepcopy(m), x64, topo); remeshed = 1
+            else:
+                tm = trk[0]
+                tm.vertices = o3d.utility.Vector3dVector(V + a.track_alpha * (P - V))
+                tm.compute_vertex_normals()
+                trk = (tm, x64, topo)
+        draw_m = trk[0]
+    qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav, jitter, drift, remeshed))
+    img = label(render_views(draw_m), f"{a.label}  frame {i}/{dn - 1}")
     o3d.io.write_image(os.path.join(tmp, f"f{k:05d}.png"), o3d.geometry.Image(np.ascontiguousarray(img)))
     if k % 25 == 0:
         print(f"[photoreal] frame {k + 1}/{len(idx)} (archived {i}) components {n_comp} dropped {n_drop} isolated {n_iso}", flush=True)
@@ -796,12 +852,18 @@ for h in range(a.hold):
 subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(a.fps), "-i", os.path.join(tmp, "f%05d.png"),
                 "-movflags", "faststart", "-pix_fmt", "yuv420p", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", a.out], check=True)
 with open(a.out + ".components.txt", "w") as fh:
-    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped components_bridged_to_body interior_cavities\n")
-    for i, n_comp, n_iso, n_drop, n_bridge, n_cav in qa:
-        fh.write(f"{i} {n_comp} {n_iso} {n_drop} {n_bridge} {n_cav}\n")
+    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped components_bridged_to_body interior_cavities refit_jitter_sp track_drift_sp remeshed\n")
+    for i, n_comp, n_iso, n_drop, n_bridge, n_cav, jit, drf, rm in qa:
+        fh.write(f"{i} {n_comp} {n_iso} {n_drop} {n_bridge} {n_cav} {jit:.4f} {drf:.4f} {rm}\n")
     comps = np.array([q[1] for q in qa]); isos = np.array([q[2] for q in qa]); drops = np.array([q[3] for q in qa])
     bridges = np.array([q[4] for q in qa]); cavs = np.array([q[5] for q in qa])
+    jits = np.array([q[6] for q in qa], float); drfs = np.array([q[7] for q in qa], float); rms = np.array([q[8] for q in qa])
     drawn = comps - drops - cavs
+    fh.write(f"# re-fit jitter of the independent per-frame reconstruction (previous fresh mesh carried with the material vs "
+             f"the current fresh mesh, spacings): mean {np.nanmean(jits):.3f}, p90 {np.nanpercentile(jits, 90):.3f}; "
+             f"tracking {'ON' if a.track else 'off'}"
+             + (f": re-meshed {int(rms.sum())} frames (topology change or drift > {a.track_tol} sp), tracked drift before the pull "
+                f"mean {np.nanmean(drfs):.3f} sp, pull alpha {a.track_alpha}, k {a.track_k}" if a.track else "") + "\n")
     fh.write(f"# interior cavities (closed surfaces with the sign opposite to the body, removed, not pieces): "
              f"{(cavs > 0).sum()} frames (max {cavs.max()})\n")
     fh.write(f"# filament bridges (particle connectivity): {(bridges > 0).sum()} frames with a drawn component tied to the "
