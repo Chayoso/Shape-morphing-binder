@@ -12,5 +12,8 @@ export OMP_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 MKL_NUM_THREADS=8
 # (photoreal_batch.sh SURFACE). RECIPE_V8 is the v8 gallery's recipe for comparison runs.
 export RECIPE_V8="--cell_diag 26 --phys_loss auto --loss_units density --warm_start --w_kin 5 --w_kin_var 200 --animations 300 --loss_res 64 --pace 0 --anneal 0.7 --mom_carry 0 --nn_far_k 1000 --bonds --domain auto"
 # 2026-09-21 (§8): + stratified sampling of source and target (G5); the quad splat and the u-step projection falsified
+# 2026-09-22 FROZEN (docs/final_plan.md §6, the decision page): the u channel is KEPT (silhouette +0.4..+1.9 on every target,
+# the better bunny surface; bob/dragon lose 1.1-1.4 deg of normal error to it); the fill and the reconstruction fixes of
+# method.md §10.13 are in the code, not in the flags. The 40k gallery g40 runs this recipe.
 export RECIPE="$RECIPE_V8 --layer_relax --pbr_denoised --layer_ctrl --sampler stratified"
 cd $REPO

@@ -631,3 +631,57 @@ and dropped before the plane pulling and the Poisson solve; a true surfel is los
 probability 0.2 %, a 40 %-pocket surfel kept with 2 %. The bunny target's reconstruction drops
 2 907 of its surfels this way. Discretisation numbers at 40k: spacing 0.135 wu (8-NN median),
 p_vol = spacing / 1.24, cap radius 0.27 wu, plane 0.10 wu.
+
+### 10.14 The outer-layer relaxation, the position-mode control channel, the denoised shading reference and stratified sampling (2026-09-19 … 22; code: mpm/kernels.py `k_layer_resid` / `k_layer_project`, mpm/traj.py, pipeline/optimizer.py, render/surface_recon.py `layer_relax_data` / `target_surface_normals`, sampling/mesh.py `sample_volume_stratified`; evidence docs/surface_gradient.md §4, §6–§10, §14)
+
+These four are in the recipe (`scripts/ops/hyde06_env.sh`, frozen 2026-09-22) and were
+documented in docs/surface_gradient.md; this section is their formulation contract.
+
+**The outer layer.** At every window start the layer is the set of particles whose
+offset from the centroid of their 32 nearest neighbours exceeds half a spacing (the SPH
+surface rule; spacing = the median 8-NN distance of the cloud, 0.135 wu at 40k), with the
+outward normal along that offset; each layer particle keeps its K = 24 nearest LAYER
+neighbours with Gaussian weights of width h = 2 spacings times the normal agreement (same
+side only: a sheet two particles thick has both faces in the K nearest), rows normalised to
+one. The layer, normals, neighbours and weights are frozen for the window.
+
+**The relaxation projection** (`--layer_relax`). After the MPM update of each step, the
+plane residual d_p = n_p · (x_p − Σ_q w_pq x_q) is computed on the layer and the ROUGH part
+of it, d_p − Σ_q w_pq d_q (what the neighbourhood mean does not explain), is removed along
+the normal at the fraction 1/T per step: over one window of T = 20 steps a rough residual
+decays by (1 − 1/T)^T ≈ e⁻¹, the rate at which the material bonds re-join. A hard per-step
+projection (fraction 1) is not a contraction and diverges (§6). The projection is a
+constraint on positions; F is not updated by it (contact-like). A particle FORCE for the
+same purpose was falsified: P2G/G2P average a one-spacing pattern away (2.4 % of a bump
+per window). Effect at 40k: the morph's layer plane-residual RMS 0.44 → 0.29 spacings, below
+the target cloud's own 0.29–0.34, at −0.5 … −1.2 silIoU points (the silhouette's per-particle
+pull no longer buys IoU with noise).
+
+**The position-mode control channel u** (`--layer_ctrl`). A second optimiser leaf, one
+scalar per layer particle per window, applied as the displacement (u_p / T) n_p per step in
+the same projection kernel, clipped to one spacing per window; its adjoint is the identity
+times the physics response of the remaining steps, so the render covector reaches the
+layer without the grid's low-pass (through the stress control the covector's neighbour
+correlation at two spacings is 0.87–0.89 — the grid's; through u 0.46). Both loss channels
+drive it. The factorial of §10 (docs/surface_gradient.md) and the candidate round (§11–§13)
+establish: the outline gain of the render channel does not need u (the stress control at
+the cell scale carries it); u adds silhouette +0.4 … +1.9 points on every target and the
+better bunny surface, and costs 1.1–1.4° of normal error on bob / dragon; coupling it to F
+(sub-cell strain the 3.6-spacing grid cannot relax: det F collapses), gating it by the
+density residual, or driving it by the render channel alone are all worse. It stays
+kinematic and ungated (the decision of 2026-09-22, docs/final_plan.md §6).
+
+**The denoised shading reference G1** (`--pbr_denoised`). The shading target is rendered
+from the target's RECONSTRUCTED surface: per particle the normal of the nearest triangle of
+the Poisson mesh of 10.12 and the weight exp(−(dist / spacing)²); the morph's normals on the
+render-pixel grid (pixel = 2 · extent / render_res) blurred by 1.5 spacings. The reference no
+longer carries the sampled cloud's shot noise (rough share of the shading covector at two
+spacings 0.67 → 0.55).
+
+**Stratified sampling** (`--sampler stratified`, G5). One jittered particle per fill voxel,
+the fill resolution found by bisection so that the fill holds at least n voxels, the surplus
+dropped without replacement (bunny 40k: 44³ voxels, 6.5 % dropped). Proof and measurement in
+docs/surface_gradient.md §9: drawing with replacement is a Poisson process with relative
+density fluctuation (p/σ)^{3/2}/√(8π^{3/2}) = 5.9 % at σ = 1.5 spacings; the jittered lattice
+leaves a dipole field with (p/σ)^{5/2}/√(64π^{3/2}) = 1.1 % (measured cube 5.5 → 1.1 %,
+bunny 8.1 → 2.9 %, dragon 5.2 → 2.2 %; p = the volumetric spacing = spacing / 1.24).
