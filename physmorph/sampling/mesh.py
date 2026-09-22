@@ -110,7 +110,7 @@ def sample_volume_shell(mesh: trimesh.Trimesh, n: int, shell_thickness: float, r
 def _fill_grid(mesh: trimesh.Trimesh, pitch: float):
     """The filled voxel grid behind _fill_centers: (VoxelGrid, boolean matrix)."""
     try:
-        vgr, Mr, _, _ = _fill_reliable(mesh, pitch)
+        vgr, Mr, _, _ = _fill_reliable(mesh, pitch) if FILL_MODE == "reliable" else (None, None, 0, 0)
         if vgr is not None:
             return vgr, Mr
         vg = mesh.voxelized(pitch=pitch)
@@ -187,6 +187,8 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
 
 STREAK_REPORT = {"stripped": 0, "method": None}   # last fill's streak count (tests, logs)
 POCKET_REPORT = {"filled": 0, "iters": 0}         # last fill: sub-voxel pockets filled by _fill_pockets
+FILL_MODE = "reliable"     # "reliable" (2026-09-22: hole-aware axes + pocket fill) | "legacy" (plain orthographic + streak
+                           #   strip, the fill of every archive before 2026-09-22; surface_gt retries with it)
 
 
 def _fill_pockets(M: np.ndarray, max_iters: int = 20) -> tuple[np.ndarray, int, int]:
@@ -241,7 +243,7 @@ def _fill_centers(mesh: trimesh.Trimesh, pitch: float) -> np.ndarray:
         vg = mesh.voxelized(pitch=pitch)
         n_surf = int(vg.filled_count)
         surf = vg.matrix.copy()
-        vgr, Mr, n_streak, n_pocket = _fill_reliable(mesh, pitch)      # 2026-09-22: holes -> reliable axes
+        vgr, Mr, n_streak, n_pocket = _fill_reliable(mesh, pitch) if FILL_MODE == "reliable" else (None, None, 0, 0)
         if vgr is not None:
             STREAK_REPORT["stripped"], STREAK_REPORT["method"] = n_streak, "ortho_reliable"
             POCKET_REPORT["filled"], POCKET_REPORT["iters"] = n_pocket, 0
@@ -325,9 +327,11 @@ def _fill_ortho_reliable(surf: np.ndarray, footprints: list) -> np.ndarray:
             rel = np.broadcast_to(np.expand_dims(~fp, ax), surf.shape)   # the (o1, o2) footprint lifted along ax
         filled &= (enc[ax] | ~rel)
         n_rel += rel.astype(np.int8)
-    # a voxel with no reliable axis at all: fall back to the majority of the three enclosures
-    maj = (enc[0].astype(np.int8) + enc[1].astype(np.int8) + enc[2].astype(np.int8)) >= 2
-    filled = np.where(n_rel == 0, maj, filled)
+    # CONSERVATIVE: the reliable-axis rule needs at least two reliable axes (one axis alone draws
+    # 1-voxel streaks between unrelated surfaces, as the 'base' fill did — beast: 121 streaks,
+    # 6 % low-density interior); with fewer, the plain three-axis intersection stands
+    plain = enc[0] & enc[1] & enc[2]
+    filled = np.where(n_rel >= 2, filled, plain)
     return filled | surf
 
 

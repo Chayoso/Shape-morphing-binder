@@ -126,33 +126,41 @@ def main():
     meta0 = metas[plys[0]]
     spacing = float(meta0["spacing"]); vox = float(meta0["vox"])
     r_rough = 2.0 * spacing
-    # the cloud frame: reproduce load_normalized(tgt, n, seed + 1, match_volume=v_src)
-    _, v_src = load_normalized(src_p, n, seed, return_volume=True,
-                               sample=prov.get("sampler", "replacement"))   # the SOURCE's sampler sets v_src
+    # the cloud frame: reproduce load_normalized(tgt, n, seed + 1, match_volume=v_src). The fill changed on
+    # 2026-09-22 (sampling.mesh.FILL_MODE): archives before that were made with the legacy fill, so the
+    # reproduction is tried with the current fill first and then with the legacy one
+    import physmorph.sampling.mesh as _sm
     mesh = load_mesh(tgt_p)
     o = orient_name(tgt_p)
     V = np.asarray(mesh.vertices, np.float64)
     if o != "id":
         V = V @ rotation(o).T
     mesh = trimesh.Trimesh(vertices=V, faces=np.asarray(mesh.faces), process=False)
-    if prov.get("sampler", "replacement") == "stratified":
-        from physmorph.sampling.mesh import sample_volume_stratified
-        raw = sample_volume_stratified(mesh, n, seed=seed + 1).astype(np.float64)
-    else:
-        raw = sample_volume(mesh, n, seed=seed + 1).astype(np.float64)
-    mu = raw.mean(0)
-    s = 8.0 / (np.linalg.norm(raw.max(0) - raw.min(0)) + 1e-9)
-    vol = filled_volume(mesh) * s ** 3
-    k = (v_src / vol) ** (1.0 / 3.0) if vol > 0 else 1.0
-    c = s * k
-    cloud = (raw - mu) * c
     z = np.load(meta0["npz"])
     _, tgt_arch, _, _ = orient_archive(z, meta0["npz"])
-    resid = float(np.abs(np.asarray(tgt_arch, np.float64) - cloud).max())
-    print(f"[surface_gt] {os.path.basename(tgt_p)}: cloud reproduced, max residual vs archive {resid:.2e} wu "
-          f"({resid / spacing:.1e} spacings); spacing {spacing:.4f} wu, render vox {vox:.4f} wu ({vox / spacing:.2f} sp)")
-    if resid > 1e-3 * spacing:
-        print("[surface_gt] the archive's target is not this cloud (a different seed/normalisation?) — abort")
+    mu = c = None
+    for fill_mode in ("reliable", "legacy"):
+        _sm.FILL_MODE = fill_mode
+        _, v_src = load_normalized(src_p, n, seed, return_volume=True, sample=prov.get("sampler", "replacement"))
+        if prov.get("sampler", "replacement") == "stratified":
+            raw = _sm.sample_volume_stratified(mesh, n, seed=seed + 1).astype(np.float64)
+        else:
+            raw = sample_volume(mesh, n, seed=seed + 1).astype(np.float64)
+        mu_ = raw.mean(0)
+        s = 8.0 / (np.linalg.norm(raw.max(0) - raw.min(0)) + 1e-9)
+        vol = filled_volume(mesh) * s ** 3
+        k = (v_src / vol) ** (1.0 / 3.0) if vol > 0 else 1.0
+        c_ = s * k
+        cloud = (raw - mu_) * c_
+        resid = float(np.abs(np.asarray(tgt_arch, np.float64) - cloud).max())
+        print(f"[surface_gt] {os.path.basename(tgt_p)}: fill '{fill_mode}', max residual vs archive {resid:.2e} wu "
+              f"({resid / spacing:.1e} spacings); spacing {spacing:.4f} wu, render vox {vox:.4f} wu ({vox / spacing:.2f} sp)")
+        if resid <= 1e-3 * spacing:
+            mu, c = mu_, c_
+            break
+    _sm.FILL_MODE = "reliable"
+    if mu is None:
+        print("[surface_gt] the archive's target is not this cloud under either fill (a different seed/normalisation?) — abort")
         return
     gt_v = (V - mu) * c
     gt = trimesh.Trimesh(vertices=gt_v, faces=np.asarray(mesh.faces), process=False)

@@ -41,6 +41,14 @@ for asset in sys.argv[1:]:
     inside = deep & (cnt > 0.15 * bulk)
     low = inside & (cnt < 0.6 * bulk)
     share = 100.0 * low.sum() / max(inside.sum(), 1)
+    where = ""
+    if low.any():
+        L = g[low]
+        be = trimesh.grouping.group_rows(mesh.edges_sorted, require_count=1)
+        bv = V[np.unique(mesh.edges_sorted[be])] if len(be) else np.zeros((0, 3))
+        dloop = cKDTree(bv).query(L, k=1, workers=-1)[0] / sp if len(bv) else np.full(len(L), np.inf)
+        where = (f" | low bbox {np.round(L.min(0), 2)}..{np.round(L.max(0), 2)}, median distance to a boundary loop "
+                 f"{np.median(dloop):.1f} sp, share within 3 sp of a loop {100 * (dloop < 3).mean():.0f} %")
     print(f"[fill_check] {asset:10s} watertight={mesh.is_watertight!s:5s} pockets filled {pocket:4d} streaks {streak:3d} | "
-          f"deep interior probes {inside.sum():6d} bulk {bulk:.0f} low-density share {share:.2f} % -> {'PASS' if share < 0.5 else 'FAIL'}",
+          f"deep interior probes {inside.sum():6d} bulk {bulk:.0f} low-density share {share:.2f} % -> {'PASS' if share < 0.5 else 'FAIL'}{where}",
           flush=True)

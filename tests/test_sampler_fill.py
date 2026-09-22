@@ -17,7 +17,7 @@ def bunny():
 def test_bunny_fill_has_no_streaks(bunny):
     ext = float(bunny.extents.max())
     c = sm._fill_centers(bunny, ext / 110)
-    assert len(c) > 200_000 and sm.STREAK_REPORT["method"] == "orthographic"
+    assert len(c) > 200_000 and sm.STREAK_REPORT["method"] in ("orthographic", "ortho_reliable")
     # re-check independently: no interior voxel with <= 2 filled 6-neighbours
     vg = bunny.voxelized(pitch=ext / 110)
     f = vg.copy().fill(method="orthographic")
