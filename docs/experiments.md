@@ -3736,3 +3736,22 @@ the fresh surface at 0.3 per frame within one spacing, re-meshed on particle-con
 change / median drift > 1 sp / every 60 frames. Cow: 10 re-meshes, none at the neck episodes,
 legs continuous; QA columns unchanged (from the fresh reconstruction). Adopted as the video
 default (`photoreal_batch.sh TRACK=1`); the 19 g40 videos are re-rendered with it.
+
+### 2026-09-22 evening — the mid-morph lumps: the u channel, and the transport gate (docs/surface_gradient.md §15, method.md §10.16)
+
+User: the surface is lumpy during the morph. Measured (`scripts/probes/lump_trace.py`: the
+outer-layer plane-residual RMS per frame at 2 spacings / one cell / two cells + the transport
+speed): g40 bunny / ogre / cow are 1.8–2.4× rougher at frames 15–135 than at the end, at every
+scale. Pre-registered H15 (the control field's sub-cell part; `--control_grid 17 / 9`) refuted:
+the peaks unchanged within 10 %, end detail worse, g_share 0.35. The render × u factorial's
+traces named the cause: u on = +30–50 % morph-mean roughness on all three twins, the render
+channel without u within the spread. Levers, pre-registered and run on bunny / bob / dragon
+(each 10 min at 40k): u off (`u0`, −22 … −30 %, end silIoU −0.3 … −0.6, end surface worse);
+the step projection (`sm`, −5 … −13 %, insufficient); the geometric gate on the nearest target
+surface (`ug` / `ugh`, commit 01b1fb4; −1 … −7 %, refuted — the wrong residual); the transport
+gate on the remaining OT transport within one cell (`uo`, commit c9540c4; −16 … −21 %, peaks
+−14 … −31 %, end silIoU −0.04 … −0.2, g_share 0.36–0.38). Adopted: RECIPE + `--layer_gate_ot`
+(hyde06_env.sh). The gallery is re-run as g41. Stills, traces and tables: the artifact "morph 중
+울퉁불퉁함" and `output/cgrid/` on hyde06. Also today: the public code release (github
+Chayoso/Shape-morphing-binder main, single commit, code + assets + README; all other branches
+deleted at the user's request).

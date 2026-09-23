@@ -1354,6 +1354,32 @@ g40 level with the gate < 20 % open early ⇒ arrived particles lump under u as 
 only lever; end silIoU at the u0 level ⇒ u's end gain needs the transit phase and the choice is
 binary (g40's lumps or u0's end cost).
 
+**Readings (20:00–20:05).**
+
+| run | gate share, windows 1–5 → last 5 (% of the layer) | mean 2 sp, frames 0–300 (peak at the cell) | end silIoU vs g40 | g_share |
+|---|---|---|---|---|
+| `uo_bunny` | 13 → 88–94 | 0.237 (0.304) — g40 0.288 (0.442), u0 0.203 (0.276) | −0.2 | 0.377 (g40 0.365) |
+| `uo_bob` | 2 → 100 | 0.270 (0.433) — g40 0.320 (0.501), u0 0.250 (0.419) | −0.04 | 0.376 (0.376) |
+| `uo_dragon` | 0.4 → 78–84 | 0.291 (0.400) — g40 0.369 (0.506), u0 0.285 (0.394) | −0.04 | 0.358 (0.348) |
+
+(i) holds on the early side (13 / 2 / 0.4 %); on the late side bunny and bob reach 88–100 %,
+dragon 78–84 % — a sixth of the dragon's layer never comes within a cell of its image (the thin
+features the plan keeps pulling), so u stays off there to the end. (ii) holds on bob and dragon
+(within 0.020 / 0.006 of u0, peaks +3 / +1.5 %) and sits on the line on bunny (+0.034, peak +10 %):
+the transport gate removes 60 % (bunny) to 90 % (dragon) of the roughness excess that u0 removes;
+the rest is u's texture on arrived material (the same +0.05 that the end frames carry, §10).
+(iii) holds: −0.2 / −0.04 / −0.04 points, inside the twin spread (u0: −0.6 / −0.3 / −0.3); the end
+frames against the true mesh in the `uogate.sh` post-analysis. (iv) holds: g_share 0.36–0.38.
+Stills (bunny frame 20, fresh Poisson): g40 7 components (5 dropped, 1 cavity), bump 1.7°; the
+geometric gate 4 / 1.1°; u0 1 / 0.4°; the transport gate in `output/cgrid/uo_bunny_f20.png`.
+
+**Verdict: adopted.** `--layer_gate_ot` joins the recipe (hyde06_env.sh RECIPE, 2026-09-22
+20:30; method.md §10.16): u acts only where the plan says the remaining transport is sub-grid.
+Nothing tuned — the radius is the MPM cell, the residual is the pace's own. What it does not
+change: the physics path and its render share (g_share 0.36–0.38), D_vol, the outline gain
+through dFc (§10), the end frame (within the spread). The 40k gallery is re-run under the new
+recipe as `g41` (19 targets, `$OUT/gallery41.sh`).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle

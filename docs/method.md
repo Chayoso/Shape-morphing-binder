@@ -739,3 +739,35 @@ lost stays a tube. Cow: 10 re-meshes (the periodic ones and the sphere-phase cav
 the neck episodes; the legs are continuous through frames 207–270 and 432–483. Tracking is the
 default of `photoreal_batch.sh` (`TRACK=0` restores the per-frame surface); the QA columns are
 still those of the fresh reconstruction.
+
+### 10.16 The transport gate of the u channel (2026-09-22 evening; code: pipeline/optimizer.py, the `ot_pace` block; config `layer_gate_ot`, `layer_gate_ot_cells`; evidence docs/surface_gradient.md §15)
+
+The mid-morph surface of the g40 gallery was lumpy (outer-layer plane-residual RMS 1.8–2.4× its
+end value at frames 15–135, cratered patches in the stills). The cause is the position-mode
+channel u of §10.14: its per-particle step, from a covector that is half noise at two spacings
+(§7 of surface_gradient.md), is re-applied every step on material that is still in transit, and
+the relaxation (W at two spacings) does not see the residual it leaves at the cell scale. The
+render × u factorial's traces put it beyond doubt: u on adds +30–50 % to the morph-mean
+roughness on bunny / bob / dragon with or without the render channel; the render channel without
+u adds nothing beyond the twin spread. A coarser control basis (§15a: node spacing one and two
+cells) does not touch the lumps — u is a separate leaf — and costs end detail.
+
+The gate: at every window start the pace block has, for every particle, the remaining transport
+to its entropic-map image, d_p = |x_p − T(x_p)| (material-kNN averaged like the pace itself).
+u may act only on outer-layer particles with d_p ≤ dx (one MPM cell): the residual the grid
+cannot resolve is u's regime; a particle in transit gets none. The gate multiplies the existing
+per-particle gate buffer of the trajectory (`layer_ug`) and is recomputed per window with the plan.
+Nothing is tuned: the radius is the grid's cell, the residual the transport loss already computes.
+
+Readings (§15c; first 300 frames, mean roughness at two spacings, the peak at the cell in
+brackets; end silhouette IoU against the g40 recipe): bunny 0.288 (0.442) → 0.237 (0.304), −0.2
+points; bob 0.320 (0.501) → 0.270 (0.433), −0.04; dragon 0.369 (0.506) → 0.291 (0.400), −0.04.
+u off (`u0`) reaches 0.203 / 0.250 / 0.285 at −0.6 / −0.3 / −0.3 points and a worse end frame
+against the true mesh (surface_gt mean 0.27 vs 0.22 on bunny). The gate's active share starts
+at 0–13 % of the layer and reaches 80–100 % once the material has arrived (the dragon's thin
+features never do: 16–22 % of its layer stays gated). Rendering influence unchanged in kind:
+g_share of the control update 0.36–0.38 with and without the gate; the gate acts on u only.
+Refuted alternatives, all pre-registered (surface_gradient.md §15): the coarse control basis
+(one and two cells), the u-step projection (§7's `--layer_ctrl_smooth`, −5 … −13 %), the
+geometric gate on the distance to the target's nearest surface (−1 … −3 %: a surface point is
+within a cell of the target long before the material under it has arrived — the wrong residual).
