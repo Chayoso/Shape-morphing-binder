@@ -3880,3 +3880,33 @@ control, 300k, the mass fix). Predictions: windows 45–90; `move` and `kin` of 
 within a factor 1.5 of the 40k values; end silIoU ≥ 0.955, chamfer ≤ 0.065; det F min 0.5–0.8
 (the 40k regime; the sluggish run's 0.20 came from strain accumulating over 212 windows). Wall
 under the same load ≤ 25 min. Refutation: windows > 150 or a first-window `move` < 0.01.
+
+**Readings (18:40).** `b300_bunny` (basis, unit masses): 234 windows, 73 min, silIoU 0.9716,
+chamfer 0.0594, det F min **0.0048** — the window count refuted (i), and the basis on a sluggish
+body accumulates strain to the edge of inversion: not a 300k setting. `c300_bunny` (the mass
+fix, per-particle control): the first-window dynamics equal the 40k run's (move 0.024 vs
+0.027, kin 0.48 vs 0.54, |v|max 2.4 vs 2.1), the transport arrives twice as fast as with unit
+masses (58 / 76 / 87 % at windows 25 / 48 / 72 against 33 / 51 / 73), end silIoU **0.9677**
+(the best bunny of all runs; 40k 0.961), chamfer 0.0594, det F min 0.478 — but 176 windows,
+44 min: the mass fix is right (kept: `mass_ref_n = 40000`, 40k bit-identical) and the window
+count is refuted anyway. What the tail does: the 300k cloud keeps improving by 0.1–0.7 % a
+window on residuals below the loss cell that the 40k cloud cannot resolve, so the plateau rule
+(0.3 % relative) never fires — the extra windows are real gains at the finer discretisation,
+not a defect. The delivered quality along the run (the archive's frames, sil_iou / chamfer
+against the target sample):
+
+| window | c300 silIoU / chamfer | minutes at 13 s a window |
+|---|---|---|
+| 20 | 0.9475 / 0.0634 | 5 |
+| 30 | 0.9576 / 0.0621 | 7 |
+| 50 | 0.9597 / 0.0609 | 12 |
+| 70 | 0.9611 / 0.0602 | 16 |
+| 90 | 0.9620 / 0.0598 | 20 |
+| 177 (end) | 0.9677 / 0.0594 | 40 |
+
+At 70 windows the 300k run has the 40k run's end silhouette (0.9611 vs 0.9610); the last 100
+windows buy 0.7 points. A window budget of 70–90 (`--animations`, a resource decision, not a
+tuning) puts a 300k run at 15–20 min under today's host load, ~12 min on a quiet host; the
+archive (13 GB uncompressed at 300k) adds 1–3 min. Rendering influence unchanged in kind:
+g_share 0.34–0.35 at 300k (0.37 at 40k). The 40k gallery is untouched by any of this
+(mass_ref_n = N there; the speed passes are result-identical, suite 249 passed).
