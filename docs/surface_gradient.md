@@ -1242,6 +1242,18 @@ control field's sub-cell part is not the cause (P15.1 falsified; ogre and the en
 0.9633 vs 0.9637, chamfer 0.1149 vs 0.1152; cg9 0.9662 / 0.1159; det F min 0.89 / 0.94 vs 0.77) —
 the basis is a valid recipe element for other reasons, not for this one.
 
+**The post-analysis (`cgrid.sh`, 19:40; stride 20, so the peaks sit on other frames than above).**
+Ogre agrees: peak at the cell 0.569 (g40) → 0.504 (cg17) / 0.560 (cg9), the two-cell peak within
+5 %. End metrics: silIoU cg17 −0.04 / +0.5 / +0.3 points (bunny / ogre / cow), cg9 +0.2 / +0.6
+/ +0.1; det F min 0.89–0.95 against 0.77–0.82 (the basis cannot express the sub-cell strain that
+the per-particle field leaves); windows 64 / 105 / 72 against 57 / 89 / 62. But the end frame
+against the true mesh is worse under both bases: surface_gt mean 0.26 / 0.26 / 0.25 against
+0.22 / 0.21 / 0.19 spacings, hp_res +0.01, dcorr −0.06 … −0.11 — the end-frame detail the
+per-particle field places (§10) is exactly the sub-cell part the basis removes. g_share under the
+basis 0.35–0.36 against 0.36–0.40 per particle (P15.4 falsified: the basis does not favour the
+render pull). Verdict: the basis is not the lever for the lumps and costs end detail; it stays out
+of the recipe.
+
 ### 15b. The cause is the u channel (the factorial twins' traces, 19:30)
 
 The same trace over the first 300 frames of the render × u factorial of §10 (same seed and
