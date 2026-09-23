@@ -1312,6 +1312,48 @@ touch it because u is a separate per-particle leaf.
   not move with u; the render channel's outline gain without u is +0.9 … +1.6 points (`fx_10` −
   `fx_00`, §10). None of the three levers touches the physics path.
 
+**Readings of the first three levers (19:40–20:05; first 300 frames, mean 2-spacing roughness
+and the peak at the cell; end silIoU against g40).**
+
+| run | bunny | bob | dragon | end silIoU vs g40 (bunny / bob / dragon) |
+|---|---|---|---|---|
+| g40 (u on) | 0.288 (0.442) | 0.320 (0.501) | 0.369 (0.506) | 0.9637 / 0.9788 / 0.9586 |
+| `u0` u off | **0.203** (0.276) | **0.250** (0.419) | **0.285** (0.394) | −0.6 / −0.3 / −0.3 |
+| `sm` step projected | 0.250 (0.439) | 0.305 (0.487) | 0.333 (0.507) | −0.5 / −0.5 / +0.0 |
+| `ug` geometric gate, one cell | 0.285 (0.407) | 0.315 (0.446) | 0.359 (0.458) | +0.4 / −0.1 / +0.1 |
+
+P15b.1 holds (u0 within 0.024 / 0.004 / 0.004 of `fx_10`; −30 / −22 / −23 % against g40; the
+peaks −38 / −16 / −22 %; the end cost −0.3 … −0.6 points on the fixed fill, smaller than the
+factorial's). P15b.2 holds (sm −5 … −13 %, insufficient, and it costs the end as much as u0).
+P15b.3 is refuted on its roughness half: the geometric gate keeps the end gain (+0.4 / −0.1 /
++0.1 — the render-sharpened end frame is late-window work, as predicted) but the mean roughness
+stays at the g40 level (−1 … −3 %); only the early peak softens (−8 … −11 % at the cell, −11 …
+−21 % at two cells) and the peak moves to the fastest frames (120–150, correlation with the
+transport speed 0.84–0.95). The gate opened on 31–55 % of the layer at window 1 (a sphere
+surface point is within a cell of the target's surface long before the material under it has
+arrived — the nearest surface is the wrong residual) and on 100 % from mid-run. Lesson: u lumps
+wherever it acts on material that is still in transit, not only where its clip saturates.
+
+### 15c. The transport gate (commit c9540c4; pre-registered before the readings, 20:10)
+
+The right residual is the plan's own: the remaining transport |x − T(x)| to the particle's OT
+image (material-kNN averaged, as the pace uses it), available at every window start in the
+`ot_pace` block. `--layer_gate_ot`: u may act only on layer particles whose remaining transport
+is within one MPM cell (`--layer_gate_ot_cells 1`) — the sub-grid residual that the grid cannot
+resolve and that u was designed for; a particle in transit gets no u. Runs `uo_bunny / bob /
+dragon` (RECIPE + the gate, GPU 0, 20:10).
+
+Predictions: (i) the gate's active share is below 20 % of the layer over windows 1–5 (mean |d| at
+the start is 0.5–1 wu against a 0.31 wu cell) and above 90 % over the last five; (ii) the morph-mean
+roughness over the first 300 frames is within 0.03 of `u0` and the cell-scale peak within 10 % of
+u0's; (iii) the end silIoU is within 0.3 points of g40 and the end frame's hp_res / dcorr at the
+g40 level (u fully on once the material has arrived; the late-window work that makes the end gain
+is untouched); (iv) the rendering influence in kind unchanged (g_share of the dFc update 0.36–0.40;
+the render channel's outline gain through the physics path stays). Refutation: roughness at the
+g40 level with the gate < 20 % open early ⇒ arrived particles lump under u as well and `u0` is the
+only lever; end silIoU at the u0 level ⇒ u's end gain needs the transit phase and the choice is
+binary (g40's lumps or u0's end cost).
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
