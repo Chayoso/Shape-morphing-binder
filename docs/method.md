@@ -740,6 +740,28 @@ the neck episodes; the legs are continuous through frames 207–270 and 432–48
 default of `photoreal_batch.sh` (`TRACK=0` restores the per-frame surface); the QA columns are
 still those of the fresh reconstruction.
 
+
+**Addendum (2026-09-23; code: scripts/render_photoreal.py `--track_keep`, `--track_stretch`; probe
+scripts/probes/video_jumps.py).** The user's reading of the first tracked galleries: a connecting
+part wiped in one frame, and connections drawn with messy triangles. Measured on all 38 tracked
+videos (per video frame: the image change, the object's pixel area and its change, the re-mesh
+flag from the QA sidecar, the particles' displacement): at re-mesh frames the image change is
+2–10× the median and the area change 3–9× that of ordinary frames while the particles move as
+usual — the re-mesh replaced a tracked mesh that still carried a tube (a neck the fresh
+reconstruction lacked) or a web (triangles stretched between two growing ears, bunny frame
+357) with the fresh mesh. Two rules fix it without a new constant: (1) at a re-mesh that the
+particles did not ask for (drift or stretch), the tracked triangles with no fresh counterpart —
+all three vertices farther than one spacing from the fresh surface — are kept, so a lost neck
+stays a tube; a particle-confirmed topology change still re-meshes fully; (2) the tracked mesh
+re-meshes when its 99th-percentile edge exceeds twice the fresh mesh's own 99th-percentile edge
+(the Nyquist factor: a stretched triangle cannot carry the fresh detail), and a stretched
+triangle is never kept — the web never forms. The periodic re-mesh is off (it only wiped).
+Readings (g41 bunny / cow): re-mesh frames' mean area change 14.4 % / 7.1 % with the old
+policy, 2.4 % / 4.5 % with the new (ordinary frames 3.9 % / 1.8 %); the per-frame reconstruction
+has a median frame-to-frame image change 1.5–1.8× the tracked one (the re-fit and the
+particle-scale texture). `photoreal_batch.sh TRACK=1` uses the new policy; the default stays
+per-frame until the user chooses.
+
 ### 10.16 The transport gate of the u channel (2026-09-22 evening; code: pipeline/optimizer.py, the `ot_pace` block; config `layer_gate_ot`, `layer_gate_ot_cells`; evidence docs/surface_gradient.md §15)
 
 The mid-morph surface of the g40 gallery was lumpy (outer-layer plane-residual RMS 1.8–2.4× its

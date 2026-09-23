@@ -9,7 +9,8 @@ SURFACE=${SURFACE:-poisson}   # docs/method.md 10.12: the outer-layer Poisson su
 TRACK=${TRACK:-0}             # docs/method.md 10.15: TRACK=1 tracks the surface with the material; default per-frame again
                               # since 2026-09-23 (the g40 page's videos are per-frame; the tracked ones are under analysis)
 TRACK_FLAG=""
-if [ "$TRACK" = "1" ]; then TRACK_FLAG="--track"; fi
+if [ "$TRACK" = "1" ]; then TRACK_FLAG="--track --track_keep --track_stretch 2 --track_every 0"; fi   # 2026-09-23: the re-mesh
+                              #   policy that wipes nothing (keep the unmatched, non-stretched triangles) and re-meshes on stretch
 PREFETCH=${PREFETCH:-3}       # 2026-09-23: frames reconstructed ahead in parallel (2.6x per video at 6 alone; 3 per video
 export PHYSMORPH_POISSON_THREADS=${PHYSMORPH_POISSON_THREADS:-8}   #   when four batches share the host, 8 Poisson threads each)
 case $PFX in h150) D0=$OUT/report150 ;; *) D0=$OUT/report_${PFX} ;; esac
