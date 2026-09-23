@@ -1442,6 +1442,40 @@ cannot both admit it and reject the lumps — then the choice is per-regime (u i
 lumps, or the outline cost) and goes to the user; bunny's roughness back at g40's level ⇒ the
 normal gate admits the lump-making movers and is no gate at all.
 
+**Reading of 15e (21:15): refuted on both counts.** `uon_nefertiti` still stops early (anim 17,
+silIoU 0.9497); `uon_bunny` 0.267 (g40 0.288, the transport gate 0.238) and it stops early too
+(anim 41); `uon_bob` 0.323 (g40 0.320) — the normal-component gate admits 22–47 % of the layer in
+window 1 (the expansion phase moves material along the normal only in the mean; per particle the
+normal residual is under a cell for half the layer) and is no gate. The full-vector transport
+gate stays.
+
+**The mechanism at nefertiti's stop, in the merit's own terms.** Scaled components (each by its
+window-1 value; ot_div 1.78, d_sil 0.21, d_dt 8150 — no degenerate scale): at a16 → a17 the
+transport divergence falls 0.134 → 0.121 and the stray term d_dt rises 0.035 → 0.058 (285 → 471,
+the arriving front spilling outside the outline); the physics merit gains −5.9 %, the brake fires
+(threshold −5 %), the annealed replays meet the same state, three rejects, early stop. Under u off
+the same spill is accepted (−1.5 % a window: 302 → 399 → 526 → 835 over four windows against
+ot_div's larger drop) and the run recovers to 0.961 at anim 96; under g40 the in-transit u pulled
+the front back each window (d_dt 69 → 48). The candidate cannot avoid the state the transport
+passes through, so rejecting it freezes the run — the brake was written for runaways of the
+descended objective (d_vol 62 → 215 with kin spikes), and here that objective improves.
+
+### 15f. The brake reads the primary objective (commit below; pre-registered 22:05)
+
+`brake_reject` now reads the scaled transport divergence (the recipe's `phys` component) alone;
+the latched low-gain rule and the reversal rule keep the full merit; nothing else changes.
+Across g40 and g41 the brake fired 11 times: C's ten terminal plateau rejects (also latched, the
+divergence flat) and nefertiti's one (the divergence improving 10 %) — the only event this
+changes. Run `g41p_nefertiti` (RECIPE = the transport gate).
+
+Predictions: (i) nefertiti passes a17 (accepted, primary gain +0.10), reaches a plateau at ≥ 80
+windows with the latched rule, and ends at silIoU ≥ 0.960 (u0's 0.961 the floor); (ii) its
+first-300 roughness stays at the gate's level (≤ 0.28 against g40's 0.351); (iii) the other 18
+g41 runs are unaffected in rule (no brake with the divergence improving); (iv) rendering
+influence unchanged (acceptance only; g_share 0.36–0.38). Refutation: nefertiti stops early again
+or ends < 0.955 ⇒ the spill is not transient under the gate and the u-in-transit trade-off goes
+to the user.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle

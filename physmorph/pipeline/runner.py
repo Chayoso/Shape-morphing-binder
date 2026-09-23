@@ -871,7 +871,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # transport gate of u the arriving front regressed nefertiti's silhouette term by 25 %
             # in one window while the transport improved 10 %; the full-merit brake read it as a
             # runaway and the run died at anim 16 — a render transient is not a physics runaway)
-            score_phys = float(sum(v / outer_scales[k] for k, v in components.items() if k != "render"))
+            # 15f (2026-09-22 22:00): the brake reads the PRIMARY objective alone — the transport
+            # divergence (or the cell sum) the recipe descends. A runaway regresses it (d_vol
+            # 62 -> 215); a transient the trajectory must pass through does not: nefertiti's
+            # arriving front spills outside the outline (the stray term d_dt +65 % in one window)
+            # while the divergence improves 10 % — under u off the same spill is accepted at
+            # -1 % a window and the run recovers to 0.961; rejecting it three times froze the run
+            # at anim 16 (the candidate cannot avoid the state the transport passes through)
+            score_phys = float(components["phys"] / outer_scales["phys"])
             phys_gain = None
             if outer_prev is not None:
                 outer_gain = (outer_prev - score) / max(abs(outer_prev), 1e-8)
