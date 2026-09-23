@@ -17,7 +17,9 @@ export RECIPE_V8="--cell_diag 26 --phys_loss auto --loss_units density --warm_st
 # method.md §10.13 are in the code, not in the flags. The 40k gallery g40 runs this recipe.
 # 2026-09-22 20:30 (docs/surface_gradient.md §15c, method.md §10.16): + --layer_gate_ot — the u channel acts only where the
 # remaining transport to the OT image is within one MPM cell; the mid-morph lumps −16..−21 %, the end within the spread. Gallery g41.
-# 2026-09-23: REVERTED to the g40 recipe (no --layer_gate_ot) — the user judged the g40 videos better than g41's
-# (a connecting part wiped in one frame mid-morph); the gate stays available as a flag. See surface_gradient.md §15g.
-export RECIPE="$RECIPE_V8 --layer_relax --pbr_denoised --layer_ctrl --sampler stratified"
+# 2026-09-23 00:10: reverted to the g40 recipe on the user's first reading of the g41 videos (a connecting part wiped in
+# one frame). The per-frame analysis (method.md §10.15 addendum) traced the wipes to the tracked surface's re-mesh,
+# not to the gate; with the re-mesh policy fixed the user chose g41 (03:00): the gate is back in the recipe, the
+# catastrophe brake reads the primary objective (runner.py), the videos are tracked (photoreal_batch.sh TRACK=1).
+export RECIPE="$RECIPE_V8 --layer_relax --pbr_denoised --layer_ctrl --sampler stratified --layer_gate_ot"
 cd $REPO

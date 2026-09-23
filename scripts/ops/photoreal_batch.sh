@@ -6,8 +6,8 @@ export OMP_NUM_THREADS=6 OPENBLAS_NUM_THREADS=6 MKL_NUM_THREADS=6 EGL_PLATFORM=s
 GPU=$1; PFX=$2; shift 2
 ARM=render_full_dt_iso_nn
 SURFACE=${SURFACE:-poisson}   # docs/method.md 10.12: the outer-layer Poisson surface; mc = the v8 level set
-TRACK=${TRACK:-0}             # docs/method.md 10.15: TRACK=1 tracks the surface with the material; default per-frame again
-                              # since 2026-09-23 (the g40 page's videos are per-frame; the tracked ones are under analysis)
+TRACK=${TRACK:-1}             # docs/method.md 10.15 (+ addendum 2026-09-23): the surface tracked with the material under the
+                              # re-mesh policy that wipes nothing; TRACK=0 = per-frame reconstruction
 TRACK_FLAG=""
 if [ "$TRACK" = "1" ]; then TRACK_FLAG="--track --track_keep --track_stretch 2 --track_every 0"; fi   # 2026-09-23: the re-mesh
                               #   policy that wipes nothing (keep the unmatched, non-stretched triangles) and re-meshes on stretch
