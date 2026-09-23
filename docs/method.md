@@ -763,7 +763,7 @@ Readings (§15c; first 300 frames, mean roughness at two spacings, the peak at t
 brackets; end silhouette IoU against the g40 recipe): bunny 0.288 (0.442) → 0.237 (0.304), −0.2
 points; bob 0.320 (0.501) → 0.270 (0.433), −0.04; dragon 0.369 (0.506) → 0.291 (0.400), −0.04.
 u off (`u0`) reaches 0.203 / 0.250 / 0.285 at −0.6 / −0.3 / −0.3 points; the end frame
-against the true mesh is the same for every lever and for the recipe when re-measured like for like today (bunny surface_gt mean 0.27–0.28, hp_res 0.15–0.16; the g40 report column, 0.22, came from the report-time reconstruction code and is not comparable — to be re-measured with g41). The gate's active share starts
+against the true mesh is the same for every lever and for the recipe when re-measured like for like today (bunny surface_gt mean 0.27–0.28, hp_res 0.15–0.16; the same as the g40 report's end-frame row; the 0.22 quoted at first was the target-floor row). The gate's active share starts
 at 0–13 % of the layer and reaches 80–100 % once the material has arrived (the dragon's thin
 features never do: 16–22 % of its layer stays gated). Rendering influence unchanged in kind:
 g_share of the control update 0.36–0.38 with and without the gate; the gate acts on u only.

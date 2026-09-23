@@ -1369,7 +1369,7 @@ features the plan keeps pulling), so u stays off there to the end. (ii) holds on
 the transport gate removes 60 % (bunny) to 90 % (dragon) of the roughness excess that u0 removes;
 the rest is u's texture on arrived material (the same +0.05 that the end frames carry, §10).
 (iii) holds: −0.2 / −0.04 / −0.04 points, inside the twin spread (u0: −0.6 / −0.3 / −0.3). The end
-frames against the true mesh, measured like for like today (bunny): g40 0.28 / hp_res 0.152 / dcorr +0.396, uo 0.28 / 0.158 / +0.391, u0 0.27 / 0.164 / +0.396, ug 0.28 / 0.158 / +0.411 — no lever costs the end surface; the g40 report column (0.22) is from the report-time code path and not comparable (re-measure with g41). (iv) holds: g_share 0.36–0.38.
+frames against the true mesh, measured like for like today (bunny): g40 0.28 / hp_res 0.152 / dcorr +0.396, uo 0.28 / 0.158 / +0.391, u0 0.27 / 0.164 / +0.396, ug 0.28 / 0.158 / +0.411 — no lever costs the end surface; the 0.22 quoted at first was the target-floor row of the report's surface file — its end-frame row is 0.28, like for like. (iv) holds: g_share 0.36–0.38.
 Stills (bunny frame 20, fresh Poisson): g40 7 components (5 dropped, 1 cavity), bump 1.7°; the
 geometric gate 4 / 1.1°; u0 1 / 0.4°; the transport gate in `output/cgrid/uo_bunny_f20.png`.
 
