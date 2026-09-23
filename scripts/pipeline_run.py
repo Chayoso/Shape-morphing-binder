@@ -103,7 +103,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
-                         layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_u_render_only=args.layer_u_render_only,
+                         layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
                          layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
@@ -632,6 +632,8 @@ def main():
                     help="the transport gate: u acts only where the remaining transport to the OT image is within --layer_gate_ot_cells MPM cells (docs/surface_gradient.md 15)")
     ap.add_argument("--layer_gate_ot_cells", type=float, default=1.0,
                     help="radius of the transport gate in MPM cells")
+    ap.add_argument("--layer_gate_ot_normal", action="store_true",
+                    help="transport gate on the NORMAL component of the remaining transport only (docs/surface_gradient.md 15e)")
     ap.add_argument("--layer_u_render_only", action="store_true",
                     help="P1: the u channel driven by the render channel only (docs/surface_gradient.md 13)")
     ap.add_argument("--sil_kernel", default="cic", choices=["cic", "quad"],

@@ -413,7 +413,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
     prev_tracks = None               # last ACCEPTED commit's lambda-free tracks
     mom_prev = None                  # cross-window Adam moments (mom_carry)
-    outer_scales = outer_prev = prev_disp = None
+    outer_scales = outer_prev = outer_prev_phys = prev_disp = None
     # Once the trajectory first reaches the small-motion regime, keep the outer
     # trust gate active.  Without this latch, one accepted large-motion candidate
     # disables the gate again and the optimizer can re-enter a long limit cycle.
@@ -464,7 +464,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0, tgt.gauss_scale,
              tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio) = keep
             best_rend, stale = None, 0              # rescaled track must not inherit a
-            outer_scales = outer_prev = prev_disp = None
+            outer_scales = outer_prev = outer_prev_phys = prev_disp = None
             outer_gate_latched = False              # render track rescaled: re-earn the latch
             if tgt.gauss is not None and cfg.gauss_children > 1:
                 # REFUTE B5: the rebuild constructs a fresh GaussViews whose
@@ -866,8 +866,24 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             if outer_scales is None:
                 outer_scales = {k: max(abs(v), 1e-8) for k, v in components.items()}
             score = float(sum(v / outer_scales[k] for k, v in components.items()))
+            # the PHYSICS part of the merit (every component but the render term): what the
+            # catastrophe brake below watches (docs/surface_gradient.md 15d, 2026-09-22: under the
+            # transport gate of u the arriving front regressed nefertiti's silhouette term by 25 %
+            # in one window while the transport improved 10 %; the full-merit brake read it as a
+            # runaway and the run died at anim 16 — a render transient is not a physics runaway)
+            # 15f (2026-09-22 22:00): the brake reads the PRIMARY objective alone — the transport
+            # divergence (or the cell sum) the recipe descends. A runaway regresses it (d_vol
+            # 62 -> 215); a transient the trajectory must pass through does not: nefertiti's
+            # arriving front spills outside the outline (the stray term d_dt +65 % in one window)
+            # while the divergence improves 10 % — under u off the same spill is accepted at
+            # -1 % a window and the run recovers to 0.961; rejecting it three times froze the run
+            # at anim 16 (the candidate cannot avoid the state the transport passes through)
+            score_phys = float(components["phys"] / outer_scales["phys"])
+            phys_gain = None
             if outer_prev is not None:
                 outer_gain = (outer_prev - score) / max(abs(outer_prev), 1e-8)
+                phys_gain = ((outer_prev_phys - score_phys) / max(abs(outer_prev_phys), 1e-8)
+                             if outer_prev_phys is not None else outer_gain)
                 # Latch evidence must be a SUSTAINED plateau (stale>=2: third
                 # consecutive non-improving commit). "small move" was retired as
                 # a criterion twice over: with a large w_kin it is reachable at
@@ -889,7 +905,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # freeze then held the damaged state; b4 forensic: flat-valley
                 # limit cycle, overshoot windows d_vol 62->215 with kin spikes),
                 # never a legitimate trade.
-                brake_reject = outer_gain < -max(cfg.pace, 0.05)
+                brake_reject = phys_gain < -max(cfg.pace, 0.05)
                 if eject_reject:
                     # the window launched a particle: discard it like an insane
                     # candidate (shrink the step, cold restart), never commit it
@@ -903,6 +919,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                         and outer_gain < cfg.outer_reversal_gain):
                     outer_reject = True
             rec.update({"outer_merit": score, "outer_gain": outer_gain,
+                        "outer_merit_phys": score_phys, "phys_gain": phys_gain,
                         "reversal_cos": reversal_cos,
                         "outer_gate_latched": int(outer_gate_latched),
                         "outer_accepted": 0 if outer_reject else 1})
@@ -959,7 +976,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     v_hold = np.zeros_like(x) if st["v"] is None else st["v"]
                     on_commit(a, x, F_hold, v_hold, rec)
                 log(f"[v2] anim {a + 1}: outer merit rejected candidate "
-                    f"(gain={outer_gain:.3g}, reversal={reversal_cos}"
+                    f"(gain={outer_gain:.3g}, physics gain={phys_gain:.3g}, reversal={reversal_cos}"
                     f"{', EJECTION ' + str(rec.get('iso_start')) + '->' + str(rec.get('iso_count')) if eject_reject else ''})")
                 if stale >= cfg.patience:
                     frozen = True
@@ -971,6 +988,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     frozen = True
                 continue
             outer_prev = score
+            outer_prev_phys = score_phys
             prev_disp = disp.copy()
         else:
             prev_disp = disp.copy()

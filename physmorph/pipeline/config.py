@@ -469,6 +469,8 @@ class PipelineConfig:
                                     #   u may act only where the particle's remaining transport to its OT image
                                     #   is within layer_gate_ot_cells MPM cells at the window start
     layer_gate_ot_cells: float = 1.0  #   the radius in MPM cells
+    layer_gate_ot_normal: bool = False  # 15e: gate on the NORMAL component of the remaining transport (u acts along
+                                    #   the normal; tangential transport along the outline does not disqualify it)
     layer_u_render_only: bool = False  # P1 (docs/surface_gradient.md 13): the u leaf receives the render channel's
                                     #   gradient only (lambda x g_render); the physics gradient through u is dropped
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
