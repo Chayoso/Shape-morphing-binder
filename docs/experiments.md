@@ -3826,3 +3826,38 @@ revert); `photoreal_batch.sh TRACK=1` gives the new policy. The choice of combin
 user's.
 
 **Cleanup sweep (2026-09-23, the user: delete everything not needed).** hyde06 `output/`: 139 → 23 GB. Deleted 125 run archives (103 GB: the 150k v8 galleries h150v8 / n150v8 / nn150 / c150r, the render-proof twins rp_*, the material study mat_*, the factorial fx_*, the ladder runs t40 / p40 / ps40 / k40 / lr* / g1* / g5 / gq / gs40*, the timing runs), their logs and json archived first in `logs_archive_20260923.tgz` (6.4 MB); the viewer packets `live/` (6.7 GB), `surf_test`, the superseded report folders (h150v8, n150v8, p40, t40, t40v8), the test renders (g41pf/tk/tks/tks2/sm, g40tks2), the gradient dumps. Kept: g40 and g41 (19 runs each, the before/after pair), report_g40 / report_g41, cgrid (the §15 analysis data), jumps (the video analysis), the profiles, the sample cache. Local `output/`: the superseded page folders removed; the four published pages kept.
+
+### 2026-09-23 — 300k: the speed passes, the first full run, and the control basis as the 300k discretisation (pre-registered before the reading)
+
+The user's target: a 300k run in 20 minutes. Measured on hyde06 under the neighbours' load
+(load 70–90, a memory-bound CPU job on 78 cores next to us): the per-window cost at 300k was
+20 s of which 6.5 s are the GPU sections; the rest was host work — scipy KD-trees (the layer,
+the OT smoothing, the DT gate, the stray census), a T × N host stack for the window's F
+determinant, the target DT rebuilt per call, np.tile identities, double copies of the readback,
+zlib on the archive. Three result-identical passes (commits 303e9d4, fd4c837, 91746bb, 7594ec8):
+an exact k-NN on the GPU (Warp hash grid, `render/knn_gpu.py`, rows equal to scipy's; tests
+`test_knn_gpu.py`), the layer / relaxation / gate / census computed on the device, the DT sum on
+its gate's support, the sample cache, the device-side det and F conditioning, cached identities,
+uncompressed archives above 100k. Suite 249 passed after each pass. Three-window test at 300k:
+102 s → 102 s → 67 s (the first two passes moved work the host was not bottlenecked on; the
+third removed the host-side stacks and SVD round trips).
+
+**The first full 300k run (`full300_bunny`, per-particle control, the g41 recipe):** 59 min of
+optimisation for 212 windows (16 s a window under load) + a 16 GB archive; end chamfer 0.060,
+silIoU 0.9547, det F min 0.197. The window count is the real multiplier: the 40k bunny stops
+at 59 windows, the 300k at 212 — not the plateau rule (it fires at 196), not the adaptive step
+(alpha at its cap, the gradient norm 4× smaller), not the time discretisation (`--cell_diag 26`
+fixes dx = 0.31 wu and dt at every N; the run had ppc 184 on the same grid). The per-window
+displacement is the same (`move` 0.014 vs 0.010 wu) but d_vol falls 3× more slowly per window
+early on: with 184 particles per cell the per-particle control field is seven times as
+redundant as at 40k, and the grid transfer averages its incoherent part away — only the coherent
+part moves material. That is the control basis's argument (§15a's cg17: node spacing one cell).
+
+**Pre-registered (21:35): `b300_bunny` = the recipe + `--control_grid 17` at 300k** (cell 0.32
+wu ≈ dx; 4913 nodes × 20 knots, 0.9 M dof against 54 M per particle). Predictions: (i) windows
+≤ 90 (the 40k count within a factor 1.5) and the wall clock ≤ 35 min under the same load; (ii)
+end silIoU ≥ 0.955, chamfer ≤ 0.065, det F min ≥ 0.20 (the basis cannot express the sub-cell
+strain that gave 0.197); (iii) the GPU sections per window shorter (the leaf is 60× smaller:
+Adam, the expand, the gradient reduction); (iv) g_share 0.35–0.40. Refutation: windows > 150
+⇒ the redundancy is not the cause and the 300k schedule needs the pace or the plateau rule
+re-derived for N.
