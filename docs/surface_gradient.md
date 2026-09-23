@@ -1224,6 +1224,82 @@ bunny, ogre, cow, the frozen recipe otherwise (GPU 0 / 2, 3 runs each, launched 
   control field's sub-cell part; then (a) holds and the lever is the relaxation's mid-morph strength
   (derived from the transport speed per window) or the rendered mesh — not a coarser basis.
 
+### 15a. The control-basis readings (19:10–19:25): H15 refuted
+
+| run | mean 2 sp (whole morph) | peak cell (frame) | peak 2 cells (frame) | end 2 sp |
+|---|---|---|---|---|
+| g40 bunny | 0.250 | 0.442 (30) | 0.850 (45) | 0.221 |
+| cg17 bunny | 0.225 | 0.471 (30) | 0.903 (45) | 0.195 |
+| cg9 bunny | 0.232 | 0.473 (30) | 0.911 (45) | 0.200 |
+| g40 cow | 0.307 | 0.616 (360) | 0.960 (45) | 0.221 |
+| cg17 cow | 0.287 | 0.578 (1185) | 1.016 (45) | 0.197 |
+
+The peaks are within 10 % of g40 on both (bunny +7 %, cow −6 %; the two-cell peaks +6 % / +6 %),
+at the same frames; the whole-morph mean drops 8–10 % and the end 2-spacing roughness 0.02 — the
+basis smooths the rest state a little and the lumps not at all, at one cell and at two. The
+control field's sub-cell part is not the cause (P15.1 falsified; ogre and the end metrics in the
+`cgrid.sh` post-analysis, recorded in experiments.md). The end fidelity is kept (cg17 bunny silIoU
+0.9633 vs 0.9637, chamfer 0.1149 vs 0.1152; cg9 0.9662 / 0.1159; det F min 0.89 / 0.94 vs 0.77) —
+the basis is a valid recipe element for other reasons, not for this one.
+
+### 15b. The cause is the u channel (the factorial twins' traces, 19:30)
+
+The same trace over the first 300 frames of the render × u factorial of §10 (same seed and
+particles; the frames that hold the lump peak):
+
+| mean 2 sp, frames 0–300 (peak at the cell) | bunny | bob | dragon |
+|---|---|---|---|
+| `fx_00` render off, u off | 0.206 (0.274) | 0.254 (0.423) | 0.262 (0.383) |
+| `fx_10` render on, u off | 0.227 (0.336) | 0.254 (0.411) | 0.289 (0.416) |
+| `fx_01` render off, u on | 0.280 (0.442) | 0.381 (0.589) | 0.370 (0.634) |
+| `fx_11` render on, u on | 0.302 (0.474) | 0.344 (0.654) | 0.378 (0.544) |
+| `fx_11n` (= g40 recipe) | 0.284 (0.442) | 0.336 (0.500) | 0.381 (0.580) |
+
+u on adds +0.07 … +0.13 spacings to the morph-mean roughness (+30–50 %) and +0.1 … +0.2 to the
+peak on all three targets, with or without the render channel; the render channel without u adds
+0.00 … +0.03 (the twin spread is 0.02). Without u the roughness follows the transport speed
+(correlation 0.7–0.8 on bob and dragon, peak at the fastest frames 90–135) — the physics' own
+transport texture; with u the peak comes earlier (frames 30–75), where the outline residual is
+largest and u's clip saturates (§7: 19 % of the layer at the clip in the expansion phase).
+
+Why u lumps mid-morph and the relaxation does not remove it: the u step is per particle, from a
+covector that is half noise at two spacings (§7, 53–55 % rough share); the relaxation's W (h = 2
+spacings) takes the 2-spacing part one step later, but the step is re-applied every step and its
+residual accumulates at the scales W does not see — the excess is 0.32 at 2 spacings and 0.64 at
+two cells on bunny (frame 30–45, in quadrature over the rest value). The control basis could not
+touch it because u is a separate per-particle leaf.
+
+**Three levers, the runs launched before these predictions were read (19:25–19:40):**
+
+- `u0_*` — RECIPE without `--layer_ctrl` (u off) on the fixed fill; bunny / bob / dragon.
+- `sm_*` — RECIPE `--layer_ctrl_smooth` (§7's step projection, W at 2 spacings).
+- `ug_*` / `ugh_*` — RECIPE `--layer_gate_geom` [`--layer_gate_geom_cells 0.5`]: the geometric gate
+  (commit 01b1fb4; `surface_recon.layer_u_gate_geom`): u may act only on layer particles whose
+  distance to the target's outer layer is at most one MPM cell (0.31 wu = 2.3 spacings; the residual
+  the grid cannot resolve is u's regime) — or half a cell (1.1 spacings, u's own per-window bound).
+  Farther off, the outline is the transport's job. The radius is the grid's resolution, not a tuned
+  length; the gate is recomputed at every window start.
+
+**Predictions:**
+
+- P15b.1 `u0`: morph-mean 2-spacing roughness (frames 0–300) within 0.02 of `fx_10` (bunny 0.227,
+  bob 0.254, dragon 0.289) = −20 … −30 % against g40; the cell-scale peak −25 … −30 %. End silIoU
+  −0.4 … −1.1 points (the factorial's u effect: bunny −1.1, bob −0.4, dragon −0.35), end layer RMS
+  lower, end hp_res higher (less end detail). The clean but costly lever.
+- P15b.2 `sm`: morph-mean −7 … −9 % (§7 repeated), end detail loss on bunny (hp_res +0.02);
+  less than half of u0's reduction — insufficient.
+- P15b.3 `ug` (one cell): the gate's active share < 25 % of the layer over windows 1–5 and > 80 %
+  over the last 5; morph-mean roughness within 0.03 of `u0` (the lumps gone with u0's); end silIoU
+  within 0.3 points of g40 and end hp_res / dcorr at the g40 level (u's end gain is late-window
+  sub-cell work, kept). `ugh` (half a cell): the same roughness, a smaller active share, the end
+  gain partly lost (−0.3 … −0.6 points).
+- Refutation of the gate: end silIoU at the u0 level ⇒ u's end gain comes from its early-morph
+  transport, and the choice is binary (g40 or u0); roughness at the g40 level ⇒ the lumps arise
+  where the gate is open (within a cell of the target) and u0 is the only lever.
+- Rendering influence, in kind: g_share (0.36–0.40) is the render share of the dFc update and does
+  not move with u; the render channel's outline gain without u is +0.9 … +1.6 points (`fx_10` −
+  `fx_00`, §10). None of the three levers touches the physics path.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
