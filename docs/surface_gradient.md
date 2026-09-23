@@ -1476,6 +1476,16 @@ influence unchanged (acceptance only; g_share 0.36–0.38). Refutation: nefertit
 or ends < 0.955 ⇒ the spill is not transient under the gate and the u-in-transit trade-off goes
 to the user.
 
+**Reading (21:50): confirmed on all four.** `g41p_nefertiti`: a17 accepted (primary gain
++0.098 while the full merit lost 8 %; d_dt climbs 455 → 954 over a17–a21 and the divergence
+keeps falling), plateau at anim 82 by the latched rule (physics gain ~0), 90 windows; end silIoU
+0.9676 (g40 0.9683, g41's early stop 0.9352), chamfer 0.1147 (g40 0.1153); first-300 roughness
+0.265 against g40's 0.351 (−25 %, the gate's reduction kept); g_share 0.358. The run replaces
+`g41_nefertiti` in the gallery (the early-stopped run kept as `g41old_nefertiti`); the other 18
+g41 runs stand — the rule change touches no window of theirs (no brake event with the divergence
+improving). The brake's definition is now: the primary objective regressing beyond the pace
+budget. What this does not change: the gate, the gradients, the physics path, g_share.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
