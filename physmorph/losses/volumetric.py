@@ -131,10 +131,15 @@ def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
     clumps as an open defect with no owner. gate = ramp of d_kNN/median from lo to hi,
     frozen per window."""
     import numpy as np
-    from physmorph.render.knn_gpu import knn_self
+    from physmorph.render.knn_gpu import gpu_available, knn_self, knn_self_torch
     with torch.no_grad():
+        if gpu_available() and x.is_cuda and x.shape[0] >= 4096:
+            d_t, _ = knn_self_torch(x, k + 1)            # on the device, no host round-trip (2026-09-23)
+            dk_t = d_t[:, -1]
+            ratio_t = dk_t / torch.clamp(dk_t.median(), min=1e-12)
+            return torch.clamp((ratio_t - lo) / max(hi - lo, 1e-6), 0.0, 1.0).to(x.dtype)
         xn = x.detach().cpu().numpy()
-        dk = knn_self(xn, k + 1)[0][:, -1]               # GPU hash grid (2026-09-23); scipy rows
+        dk = knn_self(xn, k + 1)[0][:, -1]               # scipy rows
         ratio = dk / max(float(np.median(dk)), 1e-12)
         gate = np.clip((ratio - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
         return torch.as_tensor(gate, dtype=x.dtype, device=x.device)

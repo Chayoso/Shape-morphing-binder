@@ -7,8 +7,9 @@ CPU: 1–3 s each at 300k particles, the GPU idle meanwhile, and 5–10× slower
 users load the host. This module answers the same query on the GPU with a Warp hash grid: a
 radius query with the k best kept in a per-row insertion sort, the radius doubled until every row
 has k candidates, scipy for any row still short (never observed on a cloud). Same rows as
-`cKDTree.query(x, k)` (self first, distances ascending) up to float32 ties. `PHYSMORPH_KNN=cpu`
-restores scipy everywhere.
+`cKDTree.query(x, k)` (self first, distances ascending) up to float32 ties. `knn_self_torch`
+keeps the result on the device (no 40 MB host copies per call); `knn_self` returns numpy.
+`PHYSMORPH_KNN=cpu` restores scipy everywhere.
 """
 from __future__ import annotations
 
@@ -71,7 +72,9 @@ def _cpu_knn(x: np.ndarray, k: int):
     return cKDTree(x).query(x, k=k, workers=-1)
 
 
-def _gpu_ready() -> bool:
+def gpu_available() -> bool:
+    if _CPU:
+        return False
     if _state["ok"] is None:
         try:
             import torch
@@ -83,20 +86,25 @@ def _gpu_ready() -> bool:
     return bool(_state["ok"])
 
 
-def knn_self(x, k: int, device: str = "cuda"):
-    """(d, idx) of the k nearest points of every point of x within x itself, self included as
-    column 0 — the rows of `cKDTree(x).query(x, k)`. x: (N,3) array-like."""
-    x = np.ascontiguousarray(np.asarray(x, np.float32))
-    N = int(len(x))
-    if _CPU or N < 4096 or N <= k or not _gpu_ready():
-        return _cpu_knn(x, k)
+def knn_self_torch(x_t, k: int):
+    """(d, idx) CUDA tensors (float32 distances, int64 indices) of the k nearest points of every point
+    of the CUDA tensor x_t (N,3) within itself, self included as column 0 — the rows of
+    `cKDTree(x).query(x, k)`, without a host round-trip."""
+    import torch
+    N = int(x_t.shape[0])
+    if not gpu_available() or not x_t.is_cuda or N < 4096 or N <= k:
+        d, i = _cpu_knn(x_t.detach().cpu().numpy().astype(np.float32), k)
+        return (torch.as_tensor(np.asarray(d, np.float32), device=x_t.device),
+                torch.as_tensor(np.asarray(i, np.int64), device=x_t.device))
     kern = _state["kernel"]
-    pts = wp.array(x, dtype=wp.vec3, device=device)
-    lo, hi = x.min(0), x.max(0)
+    device = str(x_t.device)
+    xt = x_t.detach().contiguous().float()
+    pts = wp.from_torch(xt, dtype=wp.vec3)
+    lo = xt.min(0).values.cpu().numpy(); hi = xt.max(0).values.cpu().numpy()
     ext = float((hi - lo).max())
     vol = float(np.prod(np.maximum(hi - lo, 1e-9)))
     pitch = (vol / N) ** (1.0 / 3.0)
-    # the ball holding k points at the cloud's mean density, times 1.5: a surface point has half a ball
+    # the ball holding k points at the bbox mean density, times 1.5 (a surface point has half a ball)
     R = 1.5 * pitch * (3.0 * k / (4.0 * np.pi)) ** (1.0 / 3.0)
     dim = int(min(256, max(32, 2 * int(np.ceil(N ** (1.0 / 3.0))))))
     grid = wp.HashGrid(dim, dim, dim, device=device)
@@ -114,12 +122,26 @@ def knn_self(x, k: int, device: str = "cuda"):
         R *= 2.0
         if R > 4.0 * ext:
             break
-    d = np.sqrt(out_d.numpy().astype(np.float64))
-    idx = out_i.numpy().astype(np.int64)
+    d = torch.sqrt(wp.to_torch(out_d).clone())
+    idx = wp.to_torch(out_i).clone().long()
     short = c < k
     if short.any():
         from scipy.spatial import cKDTree
-        dd, ii = cKDTree(x).query(x[short], k=k, workers=-1)
-        d[short] = dd
-        idx[short] = ii
+        xn = xt.cpu().numpy()
+        dd, ii = cKDTree(xn).query(xn[short], k=k, workers=-1)
+        sel = torch.as_tensor(np.where(short)[0], device=x_t.device)
+        d[sel] = torch.as_tensor(np.asarray(dd, np.float32), device=x_t.device)
+        idx[sel] = torch.as_tensor(np.asarray(ii, np.int64), device=x_t.device)
     return d, idx
+
+
+def knn_self(x, k: int, device: str = "cuda"):
+    """(d, idx) numpy arrays of the k nearest points of every point of x within x itself, self
+    included as column 0 — the rows of `cKDTree(x).query(x, k)`. x: (N,3) array-like."""
+    x = np.ascontiguousarray(np.asarray(x, np.float32))
+    N = int(len(x))
+    if not gpu_available() or N < 4096 or N <= k:
+        return _cpu_knn(x, k)
+    import torch
+    d, i = knn_self_torch(torch.as_tensor(x, device=device), k)
+    return d.double().cpu().numpy(), i.cpu().numpy()
