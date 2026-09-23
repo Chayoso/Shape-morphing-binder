@@ -130,12 +130,11 @@ def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
     ineffective, ear coverage 23.1->23.5%) and the flagship runs without fill; treat
     clumps as an open defect with no owner. gate = ramp of d_kNN/median from lo to hi,
     frozen per window."""
-    from scipy.spatial import cKDTree
     import numpy as np
+    from physmorph.render.knn_gpu import knn_self
     with torch.no_grad():
         xn = x.detach().cpu().numpy()
-        dk = cKDTree(xn).query(xn, k=k + 1, workers=-1)[0][:, -1]
-        import numpy as np
+        dk = knn_self(xn, k + 1)[0][:, -1]               # GPU hash grid (2026-09-23); scipy rows
         ratio = dk / max(float(np.median(dk)), 1e-12)
         gate = np.clip((ratio - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
         return torch.as_tensor(gate, dtype=x.dtype, device=x.device)

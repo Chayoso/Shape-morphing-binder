@@ -165,8 +165,8 @@ def layer_by_asymmetry(x_np: np.ndarray, spacing: float, k: int = 32, thr_sp: fl
     nearest neighbours, in spacings, is ~0 inside and ~ (0.5 + ...) at the surface (SPH surface
     detection). thr_sp = 0.5 spacing = the depth of the first layer under the half-space model.
     Returns (mask (N,) bool, outward normal estimate (N,3) = -(centroid offset) normalised)."""
-    kd = cKDTree(x_np)
-    d, nb = kd.query(x_np, k=k + 1, workers=-1)
+    from .knn_gpu import knn_self
+    d, nb = knn_self(x_np, k + 1)                        # GPU hash grid (2026-09-23); scipy rows
     c = x_np[nb[:, 1:]].mean(1)
     off = x_np - c
     n = np.linalg.norm(off, axis=1)
@@ -213,8 +213,8 @@ def layer_relax_data(x0: np.ndarray, spacing: float, k: int = 24, h_sp: float = 
     nbr = np.zeros((N, k), np.int32); w = np.zeros((N, k), np.float32)
     if len(idx) > k:
         P = x0[idx].astype(np.float64); R = nrm[idx].astype(np.float64)
-        kd = cKDTree(P)
-        d, nb = kd.query(P, k=k + 1, workers=-1)
+        from .knn_gpu import knn_self
+        d, nb = knn_self(P, k + 1)                        # GPU hash grid (2026-09-23); scipy rows
         d, nb = d[:, 1:], nb[:, 1:]
         ww = np.exp(-(d / (h_sp * spacing)) ** 2) * np.clip((R[nb] * R[:, None, :]).sum(-1), 0.0, None)
         ww = ww / np.maximum(ww.sum(1, keepdims=True), 1e-12)     # rows sum to 1: no division in the kernels

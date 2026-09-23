@@ -511,7 +511,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 p_sp = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)
                 k_nb = int(max(4, min(64, round(4.0 / 3.0 * np.pi * (leash_r / p_sp) ** 3))))
                 x0_np = np.ascontiguousarray(np.asarray(x0, np.float32))
-                _, tgt.ot_knn = cKDTree(x0_np).query(x0_np, k=k_nb, workers=-1)
+                from ..render.knn_gpu import knn_self
+                _, tgt.ot_knn = knn_self(x0_np, k_nb)     # GPU hash grid (2026-09-23); scipy rows
                 tgt.ot_knn = torch.as_tensor(tgt.ot_knn, device=dev)
                 print(f"[win] OT leash: displacement denoised over k={k_nb} material neighbours "
                       f"(blur radius {leash_r:.4g} wu / spacing {p_sp:.4g})", flush=True)
@@ -745,6 +746,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                      cfg.dt_budget)
         else:                             # "knn" — the honest-metric winner (§7.6)
             m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi)
+    # the gate's support (2026-09-23, speed): the DT sum runs on these particles only — the same
+    # sum and gradient, a small fraction of N (the isolated particles)
+    dt_idx = torch.nonzero(m_dt > 0).squeeze(1) if m_dt is not None else None
 
     # grid-free near-band cleanup, frozen per window (fork-halo forensic §7.10)
     if cfg.w_jdens > 0 and tgt.jd_rho0 is not None and tgt.jd_scale is None:
@@ -1051,7 +1055,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         it carries its own norm-balanced weight (fill v3)."""
         L = None
         if tgt.dt3 is not None:
-            L = wu * cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+            # 2026-09-23 (speed): the DT term is a SUM of m_p * DT(x_p) and the gate m_p is zero on
+            # all but the isolated particles; the gather and its backward ran over every particle
+            # (1.0 s of a 6 s window at 300k). Evaluating it on the gate's support is the same
+            # sum and the same gradient (a zero-weight particle contributes nothing to either).
+            if dt_idx is not None and dt_idx.numel() > 0:
+                L = wu * cfg.w_dt * d_w1(xT.index_select(0, dt_idx), m_dt.index_select(0, dt_idx),
+                                         tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+            elif dt_idx is not None:
+                L = xT.sum() * 0.0                          # an empty gate: zero, still on the graph
+            else:
+                L = wu * cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
         if nn_idx is not None:
             Ln = wu * cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
                                       cfg.nn_berth_k * tgt.nn_spacing)

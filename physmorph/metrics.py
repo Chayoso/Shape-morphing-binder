@@ -93,7 +93,8 @@ def stray_frac(x, k: int = 8, factor: float = 3.0) -> float:
     """Fraction of ISOLATED particles (kNN distance > factor x median) — the near-field
     ejecta the extent box cannot see (v1's outlier definition, now a metric not a fix)."""
     x = np.ascontiguousarray(x, np.float32)
-    d = cKDTree(x).query(x, k=k + 1, workers=-1)[0][:, -1]
+    from physmorph.render.knn_gpu import knn_self
+    d = knn_self(x, k + 1)[0][:, -1]                     # GPU hash grid (2026-09-23); scipy rows
     return float((d > factor * np.median(d)).mean())
 
 

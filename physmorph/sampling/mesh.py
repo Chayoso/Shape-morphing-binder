@@ -170,13 +170,48 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
         x, w = sample_volume_shell(mesh, n, thick_wu / (s0 * k0), ratio, seed=seed)
         x = x.astype(np.float32)
     else:
-        x = (sample_volume_stratified(mesh, n, seed=seed) if sample == "stratified"
-             else sample_volume(mesh, n, seed=seed)).astype(np.float32)
+        # 2026-09-23 (speed): the stratified sample and the filled volume are deterministic in
+        # (mesh file, n, seed, sampler, fill mode, orientation) and cost 90 s at 300k (trimesh
+        # voxelise / subdivide); cached under output/cache (PHYSMORPH_CACHE overrides the
+        # directory, PHYSMORPH_SAMPLE_CACHE=0 disables). The fill reports are restored on a hit.
+        import hashlib
+        import os
+        cache_on = os.environ.get("PHYSMORPH_SAMPLE_CACHE", "1") != "0"
+        key = hashlib.sha1(f"{os.path.abspath(path)}|{os.path.getmtime(path)}|{os.path.getsize(path)}|{n}|{seed}|"
+                           f"{sample}|{FILL_MODE}|{_o}|v1".encode()).hexdigest()[:16]
+        cdir = os.environ.get("PHYSMORPH_CACHE",
+                              os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                                           "output", "cache"))
+        cpath = os.path.join(cdir, f"sample_{os.path.splitext(os.path.basename(path))[0]}_{n}_{key}.npz")
+        hit = None
+        if cache_on and os.path.exists(cpath):
+            try:
+                z = np.load(cpath)
+                hit = (np.asarray(z["x"], np.float32), float(z["vol_mesh"]),
+                       {"stripped": int(z["streak_stripped"]), "method": (str(z["streak_method"]) if str(z["streak_method"]) != "None" else None)},
+                       {"filled": int(z["pocket_filled"]), "iters": int(z["pocket_iters"])})
+            except Exception:
+                hit = None
+        if hit is not None:
+            x, vol_mesh, sr, pr = hit
+            STREAK_REPORT.update(sr); POCKET_REPORT.update(pr)
+        else:
+            x = (sample_volume_stratified(mesh, n, seed=seed) if sample == "stratified"
+                 else sample_volume(mesh, n, seed=seed)).astype(np.float32)
+            vol_mesh = float(filled_volume(mesh))
+            if cache_on:
+                try:
+                    os.makedirs(cdir, exist_ok=True)
+                    np.savez(cpath, x=x, vol_mesh=vol_mesh, streak_stripped=STREAK_REPORT.get("stripped", 0),
+                             streak_method=str(STREAK_REPORT.get("method")), pocket_filled=POCKET_REPORT.get("filled", 0),
+                             pocket_iters=POCKET_REPORT.get("iters", 0))
+                except Exception:
+                    pass
         w = None
     x -= x.mean(0)
     s = size / (np.linalg.norm(x.max(0) - x.min(0)) + 1e-9)
     x = (x * s).astype(np.float32)
-    vol = filled_volume(mesh) * float(s) ** 3
+    vol = (vol_mesh if w is None and shell is None else filled_volume(mesh)) * float(s) ** 3
     if match_volume is not None and vol > 0:
         k = float((match_volume / vol) ** (1.0 / 3.0))
         x = (x * k).astype(np.float32)
