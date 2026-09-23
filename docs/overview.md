@@ -100,3 +100,5 @@ shot noise (§9, proved and measured). The volume fill of non-watertight meshes 
 **Server:** hyde06 under `/data/relcfd/chayo/physmorph_v2` (`repo/`, `output/`; `scripts/ops/
 hyde06_env.sh`); GPUs 1 and 3 belong to another user. The final 40k gallery is `g40`
 (`output/report_g40`, `scripts/ops/gallery40.sh` on the server; builder `build_report150.py`).
+
+**State as of 2026-09-22 night.** The recipe is RECIPE_V8 + `--layer_relax --pbr_denoised --layer_ctrl --sampler stratified --layer_gate_ot` (hyde06_env.sh); the outer merit's catastrophe brake reads the primary objective alone. The deliverable gallery is g41 (19 targets at 40k, tracked Poisson videos; `docs/gallery41_report.md`, artifact "40k 최종 갤러리 g41"); g40 (the same recipe without the gate) is kept as the before/after pair. The mid-morph lumps of g40 were the u channel acting on material in transit (surface_gradient.md §15); the gate removes 60–90 % of that excess with the end frame within the twin spread. Open: the `ot` hole regime (C) is ungated; the paper comparisons and the 150k heroes are not started.

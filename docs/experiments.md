@@ -3755,3 +3755,25 @@ gate on the remaining OT transport within one cell (`uo`, commit c9540c4; −16 
 울퉁불퉁함" and `output/cgrid/` on hyde06. Also today: the public code release (github
 Chayoso/Shape-morphing-binder main, single commit, code + assets + README; all other branches
 deleted at the user's request).
+
+### 2026-09-22 night — the g41 gallery: the recipe with the transport gate and the primary-objective brake (docs/surface_gradient.md §15c–15f, method.md §10.16)
+
+19 targets at 40k under RECIPE + `--layer_gate_ot` (`$OUT/gallery41.sh`; runs 20:40–20:48,
+tracked Poisson videos and the surface / render-influence post to 22:40). Against g40 (the same
+recipe without the gate): end silIoU within ±0.3 points on 18 targets (12 up), chamfer better
+on 15, the end frame against the true mesh the same within 0.02 spacings (dragon 0.43 → 0.37);
+the morph-mean outer-layer roughness (`scripts/probes/lump_trace.py`, first 300 frames) lower on
+18 of 19 by 6–29 % (cow −29, ogre −28, homer −27, spot −25); C unchanged (the `ot` hole regime is
+ungated). Video QA: a single drawn body throughout on 18 videos, cow 10 frames with a bridged
+second piece (g40: 24). g_share 0.36–0.41. nefertiti first stopped early (anim 16, 0.935): the
+arriving front spills outside the outline (d_dt +65 % in one window) and the full-merit
+catastrophe brake rejected it three times — g40's in-transit u had masked the spill. Refuted on
+the way (pre-registered): the brake on every physics component (398d216; d_dt still trips it),
+the gate on the normal transport component (`--layer_gate_ot_normal`, 1156498; no gate — bunny
+back at g40's roughness). Adopted (b8cd7db): the brake reads the primary objective (the transport
+divergence) alone; nefertiti 0.9676 (g40 0.9683), 90 windows, roughness −25 %; its run replaced in
+g41 (`g41old_nefertiti` kept), its video and post regenerated. The other 18 runs stand (the rule
+touches no window of theirs). Report: `docs/gallery41_report.md`; page: artifact "40k 최종 갤러리
+g41" (same URL as the interim page); analysis page "Morph 중의 울퉁불퉁함". Public main updated
+to 276b3c1 (gate + brake). A misreading corrected: the "0.22" end-surface value quoted for g40
+was the target-floor row; the end-frame row is 0.28 on bunny for g40, g41 and every lever alike.
