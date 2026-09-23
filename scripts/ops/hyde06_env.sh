@@ -17,5 +17,7 @@ export RECIPE_V8="--cell_diag 26 --phys_loss auto --loss_units density --warm_st
 # method.md §10.13 are in the code, not in the flags. The 40k gallery g40 runs this recipe.
 # 2026-09-22 20:30 (docs/surface_gradient.md §15c, method.md §10.16): + --layer_gate_ot — the u channel acts only where the
 # remaining transport to the OT image is within one MPM cell; the mid-morph lumps −16..−21 %, the end within the spread. Gallery g41.
-export RECIPE="$RECIPE_V8 --layer_relax --pbr_denoised --layer_ctrl --sampler stratified --layer_gate_ot"
+# 2026-09-23: REVERTED to the g40 recipe (no --layer_gate_ot) — the user judged the g40 videos better than g41's
+# (a connecting part wiped in one frame mid-morph); the gate stays available as a flag. See surface_gradient.md §15g.
+export RECIPE="$RECIPE_V8 --layer_relax --pbr_denoised --layer_ctrl --sampler stratified"
 cd $REPO

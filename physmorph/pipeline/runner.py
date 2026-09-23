@@ -905,7 +905,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # freeze then held the damaged state; b4 forensic: flat-valley
                 # limit cycle, overshoot windows d_vol 62->215 with kin spikes),
                 # never a legitimate trade.
-                brake_reject = phys_gain < -max(cfg.pace, 0.05)
+                # 2026-09-23: the full-merit brake restored with the g40 recipe (the user judged the
+                # g40 videos better; surface_gradient.md 15g). The primary-objective reading
+                # (phys_gain) stays in the telemetry.
+                brake_reject = outer_gain < -max(cfg.pace, 0.05)
                 if eject_reject:
                     # the window launched a particle: discard it like an insane
                     # candidate (shrink the step, cold restart), never commit it

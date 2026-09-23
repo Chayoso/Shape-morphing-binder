@@ -1486,6 +1486,25 @@ g41 runs stand — the rule change touches no window of theirs (no brake event w
 improving). The brake's definition is now: the primary objective regressing beyond the pace
 budget. What this does not change: the gate, the gradients, the physics path, g_share.
 
+### 15g. The user's reading of the g41 videos, and the revert (2026-09-23 00:10)
+
+The user, on the g41 gallery: the earlier version looks better — mid-morph a frame jumps and a
+connecting part is wiped out at once. Decision (the user's): revert to the version published on
+GitHub (the g40 recipe: no `--layer_gate_ot`; the catastrophe brake on the full merit; per-frame
+Poisson videos as on the g40 page) and show the g40 results again. Done: hyde06_env.sh RECIPE,
+runner.py brake (the primary-objective reading stays in the telemetry), photoreal_batch.sh
+TRACK default 0. The gate, the brake variant and the tracking stay available as flags. The g40
+page (artifact "40k 최종 갤러리 g40") is unchanged — its videos are the per-frame reconstruction.
+
+What is under analysis (`scripts/probes/video_jumps.py`: per video frame the image change, the
+object's pixel area and its change, the re-mesh flag and component counts from the QA sidecar,
+the particles' displacement): whether the wiped connections are (a) the tracked surface's
+re-mesh events — the tracked mesh keeps a tube through a thin neck that the fresh reconstruction
+lacks, and a periodic or drift-triggered re-mesh replaces it in one frame (the g40 page's videos
+were per-frame, where the same neck flickers instead of vanishing at once) — or (b) the gate's
+u switching per window, or (c) the trajectory itself. The g41 videos were tracked and gated; the
+g40 tracked re-render exists on the server for the (a)-vs-(b) split.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
