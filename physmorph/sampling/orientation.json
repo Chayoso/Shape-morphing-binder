@@ -1,0 +1,14 @@
+{
+  "_comment": "Per-asset rotation to y-up (applied by physmorph.sampling.orientation at load time; archives carry 'orient' so renderers can rotate older, un-oriented archives at render time). Decided by eye from scripts/probes/orientation_check.py sheets, 2026-09-18. 'x-90' = rotate -90 deg about x (z-up -> y-up).",
+  "bunny": "x-90",
+  "spot": "x-90",
+  "nefertiti": "x-90",
+  "teapot": "x-90",
+  "dragon": "x-90",
+  "armadilo": "x-90",
+  "heart": "x-90",
+  "A": "x-90",
+  "C": "x-90",
+  "V": "x-90",
+  "bob": "x-90"
+}

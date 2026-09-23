@@ -1,0 +1,90 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# 🎯 DiffMPM v2.1.0 - Conda Environment Configuration
+# ═══════════════════════════════════════════════════════════════════════════
+# A sophisticated differentiable Material Point Method implementation
+# with Gaussian Splatting integration for high-fidelity physics simulation
+# ═══════════════════════════════════════════════════════════════════════════
+
+name: diffmpm_v2.3.0
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # ─────────────────────────────────────────────────────────────────────────
+  # 🛠️  Core Build Environment & Python Runtime
+  # ─────────────────────────────────────────────────────────────────────────
+  - python=3.10
+  - vs2022_win-64                    # Visual Studio 2022 build tools
+  - cmake>=3.20                      # Cross-platform build system
+  - ninja                            # Fast build system
+  - pip=24.0
+  - pybind11>=2.11                   # Python-C++ bindings
+  - setuptools=68.0.0
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 📊 Scientific Computing & Data Processing Stack
+  # ─────────────────────────────────────────────────────────────────────────
+  - h5py==3.10.0                     # HDF5 file format support
+  - numpy==1.24.1                    # Numerical computing foundation
+  - scipy==1.12.0                    # Scientific algorithms
+  - scikit-learn                     # Machine learning utilities
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 🎨 Visualization & Image Processing
+  # ─────────────────────────────────────────────────────────────────────────
+  - opencv==4.8.1                    # Computer vision library
+  - matplotlib                       # 2D plotting library
+  - pillow==10.2.0                   # Image processing
+  
+  # ─────────────────────────────────────────────────────────────────────────
+  # 🔧 Geometry & Utilities
+  # ─────────────────────────────────────────────────────────────────────────
+  - plyfile==1.0.3                   # PLY mesh file I/O
+  - PyMCubes==0.1.4                  # Marching cubes algorithm
+  - tqdm==4.66.1                     # Progress bars
+  - pyyaml                           # YAML configuration parser
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 📦 Additional Python Packages (via pip)
+  # ─────────────────────────────────────────────────────────────────────────
+  - pip:
+    - imageio-freeimage              # Advanced image I/O with FreeImage
+    - openexr                        # High dynamic range image format
+
+# ═══════════════════════════════════════════════════════════════════════════
+# 🚀 POST-INSTALLATION STEPS
+# ═══════════════════════════════════════════════════════════════════════════
+# After creating this environment, complete the setup with:
+#
+# 1️⃣  Install PyTorch with CUDA 12.8 support:
+#     pip install torch==2.8.0 torchvision torchaudio \
+#            --index-url https://download.pytorch.org/whl/cu128    
+#
+# 2️⃣  Install FAISS for GPU-accelerated similarity search:
+#     conda install -c pytorch -c nvidia \
+#       faiss-gpu=1.7.4 mkl=2021 blas=1.0=mkl
+#
+# 3️⃣  Install Gaussian Splatting submodules (editable mode):
+#     pip install -e gaussian-splatting/submodules/diff-gaussian-rasterization
+#     pip install -e gaussian-splatting/submodules/fused-ssim
+#     pip install -e gaussian-splatting/submodules/simple-knn
+#
+# 4️⃣  Install DiffMPM simulation package (editable mode):
+#     pip install -e . --no-build-isolation
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# 🐛 DEBUGGING ENVIRONMENT VARIABLES
+# ═══════════════════════════════════════════════════════════════════════════
+# Enable diagnostic output for troubleshooting:
+#
+# PowerShell:
+#   $env:DIFFMPM_DIAGNOSTICS = "1"    # Volume Particles diagnostics
+#   $env:GS_DEBUG = "1"               # Gaussian Splatting debug mode
+#
+# Bash/Zsh:
+#   export DIFFMPM_DIAGNOSTICS=1
+#   export GS_DEBUG=1
+#  
+# ═══════════════════════════════════════════════════════════════════════════

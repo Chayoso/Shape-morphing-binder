@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<!-- PhysMorph viewer: animates a 3DGS .ply sequence (ep000.ply ...) as splats.
+     Run a local server in this folder:  python -m http.server 8000
+     then open  http://localhost:8000/index.html -->
+<html><head><meta charset="utf-8"><title>PhysMorph viewer</title>
+<style>
+  body{margin:0;background:#111;color:#ddd;font-family:system-ui,sans-serif;overflow:hidden}
+  #ui{position:fixed;left:12px;bottom:12px;z-index:10;background:#0008;padding:10px 14px;border-radius:8px}
+  #ui input{width:320px;vertical-align:middle}
+  button{background:#2a6;border:0;color:#fff;padding:4px 10px;border-radius:5px;cursor:pointer}
+  #hint{position:fixed;right:12px;top:10px;font-size:12px;color:#888}
+</style></head>
+<body>
+<div id="hint">drag to orbit · scroll to zoom</div>
+<div id="ui">
+  <button id="play">⏸ pause</button>
+  <input id="slider" type="range" min="0" max="0" value="0">
+  <span id="lbl">0</span>
+</div>
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+import {OrbitControls} from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+
+const NF = __NFRAMES__, STRIDE = 17 * 4;  // bytes per gaussian (17 float32)
+const C0 = 0.28209479177387814;
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.01, 1000);
+cam.position.set(0, 0, 45);
+const r = new THREE.WebGLRenderer({antialias:true}); r.setSize(innerWidth,innerHeight);
+document.body.appendChild(r.domElement);
+const ctrl = new OrbitControls(cam, r.domElement); ctrl.enableDamping=true;
+addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();r.setSize(innerWidth,innerHeight);});
+
+async function loadPly(i){
+  const url = `splats/ep${String(i).padStart(3,'0')}.ply`;
+  const buf = await (await fetch(url)).arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let h=''; let off=0;
+  while(!h.includes('end_header\n')){ h += String.fromCharCode(bytes[off++]); }
+  const N = parseInt(h.match(/element vertex (\d+)/)[1]);
+  const dv = new DataView(buf, off);
+  const pos = new Float32Array(N*3), col = new Float32Array(N*3);
+  for(let k=0;k<N;k++){
+    const b=k*STRIDE;
+    pos[k*3]=dv.getFloat32(b,true); pos[k*3+1]=dv.getFloat32(b+8,true); pos[k*3+2]=dv.getFloat32(b+4,true);
+    col[k*3]  =0.5+C0*dv.getFloat32(b+24,true);
+    col[k*3+1]=0.5+C0*dv.getFloat32(b+28,true);
+    col[k*3+2]=0.5+C0*dv.getFloat32(b+32,true);
+  }
+  return {pos,col,N};
+}
+
+const geo = new THREE.BufferGeometry();
+const mat = new THREE.PointsMaterial({size:0.5, vertexColors:true, sizeAttenuation:true});
+const pts = new THREE.Points(geo, mat); scene.add(pts);
+
+const frames=[];
+for(let i=0;i<NF;i++) frames.push(await loadPly(i));
+geo.setAttribute('position', new THREE.BufferAttribute(frames[0].pos,3));
+geo.setAttribute('color', new THREE.BufferAttribute(frames[0].col,3));
+
+const slider=document.getElementById('slider'), lbl=document.getElementById('lbl'), play=document.getElementById('play');
+slider.max=NF-1;
+let cur=0, playing=true, t=0;
+function show(i){
+  geo.setAttribute('position', new THREE.BufferAttribute(frames[i].pos,3));
+  geo.setAttribute('color', new THREE.BufferAttribute(frames[i].col,3));
+  geo.attributes.position.needsUpdate=true; geo.attributes.color.needsUpdate=true;
+  slider.value=i; lbl.textContent=i; cur=i;
+}
+slider.oninput=()=>{playing=false;play.textContent='▶ play';show(+slider.value);};
+play.onclick=()=>{playing=!playing;play.textContent=playing?'⏸ pause':'▶ play';};
+
+r.setAnimationLoop(()=>{
+  if(playing){ t++; if(t%6===0) show((cur+1)%NF); }
+  ctrl.update(); r.render(scene,cam);
+});
+</script></body></html>

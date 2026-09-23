@@ -1,0 +1,198 @@
+"""Metrics for the v2 gates (docs/pipeline_v2.md §5). RAW simulation state only —
+the renderer is never consumed (AGENTS.md rule 3), and — after the adversarial round —
+NO metric shares an operator with any loss:
+
+  * sil_iou / hole_frac use a BINARY 3x3-footprint point splat (numpy, the quicklook.py
+    construction), not the soft CIC alpha the loss optimises — compaction/density games
+    that raise the soft alpha do not move these numbers;
+  * every projected quantity uses ONE FIXED extent derived from the TARGET, shared across
+    arms and frames — the per-call autoscale let a single ejecta particle shrink the body
+    and close holes (verified adversarially: one stray flipped hole_frac 7.7%→4.4%);
+  * jitter excludes runner-held (duplicated) frames — measuring the padding, not the
+    physics, made gate G3 unfailable.
+"""
+from __future__ import annotations
+
+import numpy as np
+from scipy import ndimage
+from scipy.spatial import cKDTree
+
+from .pipeline.render_loss import make_views
+
+
+def chamfer(a: np.ndarray, b: np.ndarray) -> float:
+    """Symmetric mean nearest-neighbour distance."""
+    da = cKDTree(b).query(a, k=1, workers=-1)[0]
+    db = cKDTree(a).query(b, k=1, workers=-1)[0]
+    return float(da.mean() + db.mean())
+
+
+def target_extent(tgt: np.ndarray, pad: float = 1.15) -> float:
+    """The ONE shared projection extent: pad * max particle radius of the TARGET.
+    |x·u| <= ||x||_2 for unit u, so every view of the target fits at any (theta, phi)."""
+    return float(np.linalg.norm(np.ascontiguousarray(tgt, np.float32), axis=1).max()) * pad
+
+
+def _splat_body(x, res, theta, phi, extent):
+    """Binary body mask: orthographic 3x3-footprint point splat at a FIXED extent.
+    Basis matches losses.silhouette._project (right, up as functions of theta/phi)."""
+    right = np.array([np.cos(theta), 0.0, -np.sin(theta)], np.float32)
+    up = np.array([-np.sin(phi) * np.sin(theta), np.cos(phi),
+                   -np.sin(phi) * np.cos(theta)], np.float32)
+    p = np.stack([x @ right, x @ up], 1)
+    rel = (p + extent) / (2 * extent) * res
+    ij = np.floor(rel).astype(np.int64)
+    ok = (ij >= 0).all(1) & (ij < res).all(1)
+    ij = ij[ok]
+    flat = np.zeros(res * res, np.float64)
+    for ox in (-1, 0, 1):
+        for oy in (-1, 0, 1):
+            i2 = np.clip(ij[:, 0] + ox, 0, res - 1)
+            j2 = np.clip(ij[:, 1] + oy, 0, res - 1)
+            flat += np.bincount(i2 * res + j2, minlength=res * res)   # == add.at, ~50x faster
+    return flat.reshape(res, res) > 0
+
+
+def sil_iou(x, tgt, extent=None, n_azim=8, elevs=(0.0, 0.5, -0.5), res=128) -> float:
+    """Mean multi-view IoU of BINARY splat bodies. Independent of the soft-alpha loss
+    operator (no CIC weights, no 1-exp saturation, no threshold-on-density)."""
+    x = np.ascontiguousarray(x, np.float32)
+    tgt = np.ascontiguousarray(tgt, np.float32)
+    e = target_extent(tgt) if extent is None else extent
+    ious = []
+    for th, phi in make_views(n_azim, elevs):
+        a = _splat_body(x, res, th, phi, e)
+        b = _splat_body(tgt, res, th, phi, e)
+        u = (a | b).sum()
+        ious.append((a & b).sum() / u if u else 1.0)
+    return float(np.mean(ious))
+
+
+def hole_frac(x, extent, res=160, views=((0.6, 0.18), (2.2, 0.18))) -> float:
+    """Mean over views of (filled-silhouette minus body) / filled — background visible
+    inside the body. extent is REQUIRED (pass target_extent(tgt)) so the number is
+    commensurable across frames, arms and with its own threshold."""
+    x = np.ascontiguousarray(x, np.float32)
+    out = []
+    for az, el in views:
+        body = _splat_body(x, res, az, el, extent)
+        filled = ndimage.binary_fill_holes(body)
+        n = filled.sum()
+        out.append(float((filled & ~body).sum() / n) if n else 0.0)
+    return float(np.mean(out))
+
+
+def outside_frac(x, extent) -> float:
+    """Fraction of particles beyond the (target-derived) extent box — ejecta telemetry
+    for exactly the far field where the render loss has no pixels."""
+    x = np.ascontiguousarray(x, np.float32)
+    return float((np.abs(x) > extent).any(1).mean())
+
+
+def stray_frac(x, k: int = 8, factor: float = 3.0) -> float:
+    """Fraction of ISOLATED particles (kNN distance > factor x median) — the near-field
+    ejecta the extent box cannot see (v1's outlier definition, now a metric not a fix)."""
+    x = np.ascontiguousarray(x, np.float32)
+    d = cKDTree(x).query(x, k=k + 1, workers=-1)[0][:, -1]
+    return float((d > factor * np.median(d)).mean())
+
+
+def ejection_trajectory(frames, extent, samples: int = 120) -> dict:
+    """Mass-ejection check over the WHOLE trajectory, not just the endpoint: max
+    outside_frac and max stray_frac over `samples` evenly-spaced frames (Opus F7:
+    at 10 samples a 500-particle ejection injected between samples was invisible —
+    the default now covers every commit boundary of a 120-commit run)."""
+    idx = sorted(set(np.linspace(0, len(frames) - 1, samples).astype(int)))
+    outs = [outside_frac(frames[i], extent) for i in idx]
+    strays = [stray_frac(np.ascontiguousarray(frames[i], np.float32)) for i in idx]
+    return {"outside_max": float(max(outs)), "stray_max": float(max(strays)),
+            "stray_final": strays[-1]}
+
+
+def jitter(frames, tail=10, n_held=0) -> dict:
+    """Tail rest-stability over SIMULATED frames only (held/duplicated tail excluded):
+    mean per-particle displacement per frame, absolute and relative to the final bbox
+    diagonal (gate G3)."""
+    end = len(frames) - int(n_held)
+    if end < 2:
+        return {"jitter_abs": 0.0, "jitter_rel": 0.0, "jitter_max_abs": 0.0}
+    tail = min(tail, end - 1)
+    ds = [float(np.linalg.norm(frames[i + 1] - frames[i], axis=1).mean())
+          for i in range(end - 1 - tail, end - 1)]
+    xf = frames[end - 1]
+    diag = float(np.linalg.norm(xf.max(0) - xf.min(0))) + 1e-9
+    return {"jitter_abs": float(np.mean(ds)), "jitter_rel": float(np.mean(ds) / diag),
+            "jitter_max_abs": float(np.max(ds))}
+
+
+def tgt_nn_metrics(x, tgt, k_med: float = 2.0) -> dict:
+    """Grid-free target-distance metrics (Opus stack-review F7): distance to the
+    nearest TARGET particle in units of the target's own median NN spacing. The
+    grid-based out_dt_frac has a ~3.5-fine-cell dead radius (cells threshold + CIC
+    support dilation + nearest-cell lookup) — a 1%-of-body halo at 0.03-0.10 wu read
+    0.000% there while this reads 0.26-0.47%. Report the fraction AND the tail so
+    nothing hides under a threshold."""
+    x = np.ascontiguousarray(x, np.float32)
+    tgt = np.ascontiguousarray(tgt, np.float32)
+    tree = cKDTree(tgt)
+    nn_t = float(np.median(tree.query(tgt, k=2, workers=-1)[0][:, 1]))
+    d = tree.query(x, workers=-1)[0]
+    out = d > k_med * nn_t
+    return {"tgt_nn_spacing": nn_t,
+            "out_nn_frac": float(out.mean()),
+            "out_nn_far_frac": float((d > 4.5 * nn_t).mean()),
+            "out_nn_mean": float(d[out].mean()) if out.any() else 0.0,
+            "out_nn_p95": float(np.percentile(d, 95)),
+            "out_nn_max": float(d.max())}
+
+
+def out_dt_frac(x, tgt, res: int = 160, cells: float = 2.0) -> float:
+    """DIAGNOSTIC ONLY (kept for continuity with the fringe-tranche logs): fraction of
+    particles farther than `cells` fine-DT cells from dilated target support. Opus
+    stack-review F7: dead radius ~3.5 fine cells (threshold + CIC dilation + floored
+    lookup) — blind to the 0.07-0.15 wu halo; it also reuses the loss's CIC/EDT
+    operators, breaking metric independence. The honest endpoint metric is
+    tgt_nn_metrics. stray_frac is SELF-referential (body-kNN, no target term)."""
+    import torch
+    from .losses.volumetric import target_dt_grid, target_mass_grid
+    t = torch.tensor(np.ascontiguousarray(tgt, np.float32))
+    extent = float(np.abs(tgt).max()) * 1.25
+    dx = 3.0 * extent / res
+    gmin = torch.tensor([-1.5 * extent] * 3)
+    dt3 = target_dt_grid(target_mass_grid(t, torch.ones(len(t)), gmin, dx, (res,) * 3),
+                         dx, (res,) * 3, clamp=2 * extent).reshape(res, res, res)
+    idx = ((torch.tensor(np.ascontiguousarray(x, np.float32)) - gmin) / dx
+           ).long().clamp(0, res - 1)
+    v = dt3[idx[:, 0], idx[:, 1], idx[:, 2]].numpy()
+    return float((v > cells * dx).mean())
+
+
+def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
+              render_mask=None) -> dict:
+    """All gate metrics for one arm. frames: list of (N,3); tgt: (M,3)."""
+    tgt = np.ascontiguousarray(tgt, np.float32)
+    xf = np.ascontiguousarray(frames[-1], np.float32)
+    e = target_extent(tgt)
+    out = {"chamfer": chamfer(xf, tgt), "sil_iou": sil_iou(xf, tgt, extent=e),
+           "hole_frac": hole_frac(xf, e), "hole_frac_tgt": hole_frac(tgt, e),
+           "outside_frac": outside_frac(xf, e), "extent": e,
+           "out_dt_frac": out_dt_frac(xf, tgt),
+           **tgt_nn_metrics(xf, tgt),
+           "bbox_diag": float(np.linalg.norm(xf.max(0) - xf.min(0))),
+           "frames": len(frames), "n_held": int(n_held)}
+    out.update(jitter(frames, tail, n_held))
+    out.update(ejection_trajectory(frames, e))
+    if render_mask is not None:
+        rm = np.asarray(render_mask, bool)
+        if rm.shape != (len(xf),) or not rm.any():
+            raise ValueError("render_mask must select at least one final-state particle")
+        vis = tgt_nn_metrics(xf[rm], tgt)
+        out.update({"render_out_nn_frac": vis["out_nn_frac"],
+                    "render_out_nn_far_frac": vis["out_nn_far_frac"],
+                    "render_out_nn_p95": vis["out_nn_p95"],
+                    "render_out_nn_max": vis["out_nn_max"],
+                    "render_particle_frac": float(rm.mean())})
+    if F_frames is not None and len(F_frames):
+        from .mpm.conditioning import batched_det
+        out["detF_min"] = min(float(batched_det(F).min()) for F in F_frames)
+    return out

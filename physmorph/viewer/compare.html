@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<!-- PhysMorph compare: two independent embedded viewers (/?run=<name>) side by side plus a
+     shared telemetry strip built from the tails of the two /r/<name>/history lists
+     (d_vol, d_render, kin, move, Jmin of the latest row).  Served by scripts/viewer_serve.py
+     at /compare; ?l=<run>&r=<run> preselects.  Cameras are independent. -->
+<html><head><meta charset="utf-8"><title>PhysMorph Compare</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0b0e;color:#cfd3da;font:12px system-ui,sans-serif}
+  #strip{display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:4px 8px;
+         background:#07090d;border-bottom:1px solid #202633}
+  select{background:#1b2230;color:#d8dde7;border:1px solid #39445a;border-radius:4px;padding:2px 6px;max-width:260px}
+  table{border-collapse:collapse} td,th{padding:1px 8px;text-align:right;font-variant-numeric:tabular-nums}
+  th{color:#8d96a6;font-weight:600} td:first-child,th:first-child{text-align:left}
+  #panes{display:grid;grid-template-columns:1fr 1fr;gap:4px;height:calc(100vh - 64px);padding:4px;box-sizing:border-box}
+  .pane{position:relative;background:#101014;border:1px solid #23262c;border-radius:6px;overflow:hidden}
+  .pane iframe{width:100%;height:100%;border:0}
+  .tag{position:absolute;left:8px;top:6px;z-index:9;font:600 12px/1 system-ui;color:#7fc97f;
+       background:#000c;padding:3px 8px;border-radius:4px;pointer-events:none}
+</style></head>
+<body>
+<div id="strip">
+  <span>L <select id="selL"></select></span><span>R <select id="selR"></select></span>
+  <table id="tele"><thead><tr><th></th><th>phase</th><th>commit</th><th>d_vol</th><th>d_render</th><th>kin</th><th>move</th><th>Jmin</th></tr></thead>
+  <tbody><tr id="rowL"><td>L</td></tr><tr id="rowR"><td>R</td></tr></tbody></table>
+</div>
+<div id="panes">
+  <div class="pane"><iframe id="ifL"></iframe><div class="tag" id="tagL"></div></div>
+  <div class="pane"><iframe id="ifR"></iframe><div class="tag" id="tagR"></div></div>
+</div>
+<script>
+const $=id=>document.getElementById(id),q=new URLSearchParams(location.search),KEYS=['d_vol','d_render','kin','move','Jmin'];
+const sides={L:{name:q.get('l')||'',sel:$('selL'),ifr:$('ifL'),tag:$('tagL'),row:$('rowL')},
+             R:{name:q.get('r')||'',sel:$('selR'),ifr:$('ifR'),tag:$('tagR'),row:$('rowR')}};
+let runs=[],lastKey='';
+const fmt=(v,d=4)=>v==null||!Number.isFinite(+v)?'--':(+v).toPrecision(d);
+function apply(s){const want=s.name?'/?run='+encodeURIComponent(s.name):'';
+ if(s.ifr.getAttribute('src')!==want){if(want)s.ifr.src=want;else s.ifr.removeAttribute('src')}
+ const r=runs.find(r=>r.name===s.name);s.tag.textContent=s.name?(r?.live?'● ':'○ ')+s.name+(r?.arm?' · '+r.arm:''):'(none)';
+ window.history.replaceState(null,'',`?l=${encodeURIComponent(sides.L.name)}&r=${encodeURIComponent(sides.R.name)}`)}
+function fill(){for(const s of Object.values(sides)){s.sel.innerHTML='';s.sel.add(new Option('(none)',''));
+ for(const r of runs)s.sel.add(new Option(`${r.live?'● ':'○ '}${r.name}${r.arm?' · '+r.arm:''}`,r.name));s.sel.value=s.name;apply(s)}}
+async function refreshRuns(){try{const r=await fetch('/runs');if(!r.ok)throw new Error(r.status);runs=await r.json()}catch(e){return}
+ if(!sides.L.name&&!sides.R.name&&runs.length){const live=runs.filter(r=>r.live),pick=live.length?live:runs;
+  sides.L.name=pick[0].name;sides.R.name=(pick[1]||runs.find(r=>r.name!==pick[0].name)||pick[0]).name}
+ const key=JSON.stringify(runs.map(r=>[r.name,r.live,r.arm]));if(key!==lastKey){lastKey=key;fill()}}  // rebuild only on change (keeps open menus)
+async function refreshTele(){for(const s of Object.values(sides)){const cells=[];
+ try{if(!s.name)throw new Error('none');const r=await fetch('/r/'+encodeURIComponent(s.name)+'/history');if(!r.ok)throw new Error(r.status);
+  const rows=await r.json(),h=Array.isArray(rows)?rows.at(-1):null;if(!h)throw new Error('empty');
+  cells.push(h.phase||'',h.commit??'',...KEYS.map(k=>fmt(h[k])))}catch(e){cells.push('--','',...KEYS.map(()=>'--'))}
+ s.row.innerHTML='<td>'+(s===sides.L?'L':'R')+'</td>'+cells.map(c=>'<td>'+c+'</td>').join('')}}
+for(const s of Object.values(sides))s.sel.onchange=()=>{s.name=s.sel.value;apply(s);refreshTele()};
+refreshRuns();setInterval(refreshRuns,5000);refreshTele();setInterval(refreshTele,2000);
+</script>
+</body></html>

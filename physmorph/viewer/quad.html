@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!-- PhysMorph quad dashboard.
+     Run mode (served by scripts/viewer_serve.py): /quad — up to four panes, each an embedded
+     live viewer (/?run=<name>) for the runs ticked in the strip.  The strip comes from /runs
+     (refreshed every 10 s); default = the four newest live runs (newest runs when none is
+     live).  ?runs=a,b,c preselects.
+     Legacy port mode: /quad?ports=8765,8766,8767,8768 — one in-process LiveServer per port;
+     tunnel every port:  ssh -N -L 8765:localhost:8765 -L 8766:localhost:8766 \
+       -L 8767:localhost:8767 -L 8768:localhost:8768 -J chayo@hyde01.dabh.io chayo@hyde06.dabh.io -->
+<html><head><meta charset="utf-8"><title>PhysMorph Quad</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0b0e;color:#cfd3da;font:12px system-ui,sans-serif}
+  #strip{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center;padding:4px 8px;min-height:23px;
+         background:#07090d;border-bottom:1px solid #202633}
+  #strip label{cursor:pointer;white-space:nowrap} .live{color:#66e48f} .idle{color:#6b7078} .dim{color:#8d96a6}
+  #grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:4px;
+        height:calc(100vh - 32px);box-sizing:border-box;padding:4px}
+  .pane{position:relative;background:#101014;border:1px solid #23262c;border-radius:6px;overflow:hidden}
+  .pane iframe{width:100%;height:100%;border:0}
+  .tag{position:absolute;left:8px;top:6px;z-index:9;font:600 12px/1 system-ui;
+       color:#7fc97f;background:#000c;padding:3px 8px;border-radius:4px;pointer-events:none}
+</style></head>
+<body>
+<div id="strip"></div>
+<div id="grid"></div>
+<script>
+const q=new URLSearchParams(location.search),grid=document.getElementById('grid'),strip=document.getElementById('strip');
+function pane(src,label){const p=document.createElement('div');p.className='pane';const t=document.createElement('div');t.className='tag';t.textContent=label;
+ const f=document.createElement('iframe');f.src=src;p.append(f,t);grid.append(p);return {pane:p,tag:t}}
+if(q.get('ports')){
+  // legacy: one in-process LiveServer per port
+  strip.innerHTML='<span class="dim">port mode</span>';
+  q.get('ports').split(',').map(s=>s.trim()).filter(Boolean).slice(0,4).forEach(p=>{
+    const {tag}=pane('http://localhost:'+p+'/',':'+p);
+    const poll=async()=>{try{const m=await(await fetch('http://localhost:'+p+'/meta')).json();tag.textContent=':'+p+' \u00b7 '+(m.arm||m.pipeline||'')}
+      catch(e){tag.textContent=':'+p+' \u00b7 offline'}setTimeout(poll,5000)};
+    poll()});
+}else{
+  const panes=new Map();let chosen=q.get('runs')?new Set(q.get('runs').split(',').filter(Boolean).slice(0,4)):null;
+  function layout(list){
+    for(const [name,p] of panes)if(!chosen.has(name)){p.pane.remove();panes.delete(name)}
+    for(const r of list)if(chosen.has(r.name)){
+      if(!panes.has(r.name))panes.set(r.name,pane('/?run='+encodeURIComponent(r.name),r.name));   // iframe src is stable across refreshes
+      panes.get(r.name).tag.textContent=(r.live?'\u25cf ':'\u25cb ')+r.name+(r.arm?' \u00b7 '+r.arm:'')}
+    grid.style.gridTemplateRows=panes.size<=2?'1fr':'1fr 1fr';
+    window.history.replaceState(null,'','?runs='+[...chosen].map(encodeURIComponent).join(','))}
+  async function refresh(){let list;
+    try{const r=await fetch('/runs');if(!r.ok)throw new Error(r.status);list=await r.json()}
+    catch(e){strip.textContent='viewer_serve unreachable ('+e+')';setTimeout(refresh,10000);return}
+    if(chosen===null){const live=list.filter(r=>r.live);chosen=new Set((live.length?live:list).slice(0,4).map(r=>r.name))}
+    strip.innerHTML='';const head=document.createElement('span');head.className='dim';
+    head.textContent=`runs (${list.filter(r=>r.live).length} live, max 4 panes):`;strip.append(head);
+    for(const r of list){const l=document.createElement('label'),c=document.createElement('input');c.type='checkbox';c.checked=chosen.has(r.name);
+      c.onchange=()=>{if(c.checked){if(chosen.size>=4){c.checked=false;return}chosen.add(r.name)}else chosen.delete(r.name);layout(list)};
+      l.className=r.live?'live':'idle';l.append(c,document.createTextNode(` ${r.live?'\u25cf':'\u25cb'} ${r.name}${r.arm?' \u00b7 '+r.arm:''}`));strip.append(l)}
+    if(!list.length)strip.append(document.createTextNode(' none yet'));
+    layout(list);setTimeout(refresh,10000)}
+  refresh();
+}
+</script>
+</body></html>
