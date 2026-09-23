@@ -3777,3 +3777,30 @@ touches no window of theirs). Report: `docs/gallery41_report.md`; page: artifact
 g41" (same URL as the interim page); analysis page "Morph 중의 울퉁불퉁함". Public main updated
 to 276b3c1 (gate + brake). A misreading corrected: the "0.22" end-surface value quoted for g40
 was the target-floor row; the end-frame row is 0.28 on bunny for g40, g41 and every lever alike.
+
+### 2026-09-23 — speed: where a window's time goes, the warm merit divergence, the parallel video reconstruction
+
+User: why does 150k take so long when a forward MPM at 1M runs fine. Measured (PHYSMORPH_TIMING=1,
+cProfile, bunny 40k / 150k alone): the optimisation proper (8 Adam iterations of forward + adjoint
+over T = 20, the evaluation rollouts) is 0.96 s a window at 40k and 2.5 s at 150k; the rest of
+the 4.6 s / ~6 s window is the transport plan machinery — the pace map's Sinkhorn (warm, ~0.4 s
+a solve), the debiased self-map, and the merit's Sinkhorn divergence, which was COLD-solved
+twice every window (0.9 s at 150k, the single largest item); the gallery batches add contention
+(three runs a GPU plus four Poisson videos). Per window 40k → 150k the cost scales 3.6× for
+3.75× the particles: the per-particle cost is flat; the multiplier (iterations × adjoint ×
+render × plan) is what makes it 30–40 forward rollouts a window. The user's order: verify the
+warm start, then do the two result-neutral speedups.
+
+Done (commit a35c2e4): (1) `SinkhornPull.divergence` keeps its two solvers across calls and
+warm-starts them (the subsample is the same fixed draw every call; `PHYSMORPH_OTDIV_COLD=1`
+restores the cold pair). Verified on bunny 40k, warm vs cold twin: the ot_div trace agrees to
+1.0 % mean / 1.6 % max relative (the same fixed point to the solver's tolerance), the runs then
+part on the chaos floor (silIoU 0.9632 vs 0.9659, 62 vs 45 windows — within the twin spread);
+wall time 6.0 vs 7.0 s a window running side by side (≈ −0.8 s, the expected two solves).
+(2) `render_photoreal --prefetch W` reconstructs the next W frames in threads (the Poisson solve
+is a child process per frame, so they overlap): the cow per-frame video 930 s → 355 s at W = 6
+alone (2.6×); output equal within the GPU's own nondeterminism (mean 0.25 grey levels between
+the two videos, one sub-cell fragment counted differently in one frame, nothing drawn changes).
+`photoreal_batch.sh` uses PREFETCH=3 and 8 Poisson threads per video when four batches share
+the host. Not done (a design change, needs its own verification): resampling the pace subsample
+less often; fewer render views / iterations (quality trade-offs).
