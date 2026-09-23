@@ -41,6 +41,9 @@ ap.add_argument("--track", action="store_true",
                      "spacings. Removes the frame-to-frame re-fit jitter of an independent reconstruction per frame.")
 ap.add_argument("--track_alpha", type=float, default=0.3, help="per-frame pull of the tracked vertices toward the fresh surface")
 ap.add_argument("--track_tol", type=float, default=1.0, help="re-mesh when the mean drift exceeds this many spacings")
+ap.add_argument("--track_stretch", type=float, default=0.0,
+                help="re-mesh when the tracked mesh's 90th-percentile edge exceeds this multiple of the fresh mesh's "
+                     "median edge (2 = the Nyquist factor: stretched triangles cannot carry the fresh detail); 0 = off")
 ap.add_argument("--track_keep", action="store_true",
                 help="at a drift / periodic re-mesh keep the tracked triangles that have no fresh counterpart (a neck the "
                      "reconstruction lost stays a tube); a particle-confirmed topology change still re-meshes fully")
@@ -843,7 +846,21 @@ for k, i in enumerate(idx):
             P = closest_on(m, V)
             vdist = np.linalg.norm(P - V, axis=1)
             drift = float(np.median(vdist) / spacing)                       # the surface as a whole, not a lost neck
-            if topo != trk[2] or drift > a.track_tol or (a.track_every > 0 and k - trk[3] >= a.track_every):
+            stretched = False
+            if a.track_stretch > 0:
+                # the tracked triangles stretch where the surface grows (an ear pulled out of the body): past
+                # twice the fresh reconstruction's own edge length they cannot carry its detail (Nyquist) and
+                # read as flat facets — re-mesh there (with --track_keep the re-mesh wipes nothing)
+                def _edges(mm):
+                    t = np.asarray(mm.triangles); v = np.asarray(mm.vertices)
+                    e = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]])
+                    return np.linalg.norm(v[e[:, 0]] - v[e[:, 1]], axis=1)
+                l0 = float(np.median(_edges(m)))
+                tri_t = np.asarray(trk[0].triangles)
+                e_t = np.concatenate([tri_t[:, [0, 1]], tri_t[:, [1, 2]], tri_t[:, [2, 0]]])
+                l_t = np.linalg.norm(V[e_t[:, 0]] - V[e_t[:, 1]], axis=1)
+                stretched = bool(np.quantile(l_t, 0.9) > a.track_stretch * l0)
+            if topo != trk[2] or drift > a.track_tol or stretched or (a.track_every > 0 and k - trk[3] >= a.track_every):
                 fresh = copy.deepcopy(m)
                 if a.track_keep and topo == trk[2]:
                     # a re-mesh that the particles did NOT ask for (drift / periodic): the fresh reconstruction
