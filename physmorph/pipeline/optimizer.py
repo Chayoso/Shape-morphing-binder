@@ -600,6 +600,23 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                       f"(cell-wise hand-off: {int(near_def.sum())} deficit cells on the fixed target)", flush=True)
             print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
                   f"of their image, mean |d|={float(dn.mean()):.3g} wu, max |d|={float(dn.max()):.3g} wu", flush=True)
+            if cfg.layer_ctrl and cfg.layer_gate_ot and layer is not None:
+                # the transport gate (docs/surface_gradient.md 15c): u may act only on layer particles
+                # whose remaining transport |x - T(x)| (the plan's image, material-kNN averaged like the
+                # pace) is at most layer_gate_ot_cells MPM cells — the sub-grid residual is u's regime;
+                # while a particle is still in transit, u's per-particle step rides a moving surface and
+                # leaves the mid-morph lumps (15b). Recomputed at every window start with the plan.
+                ug_ot = (dn.squeeze(1) <= float(cfg.layer_gate_ot_cells) * float(prm.dx)).float().cpu().numpy()
+                ug_ot = (ug_ot * (np.asarray(lmask, np.float32) > 0.5)).astype(np.float32)
+                lay = spec.layer if len(spec.layer) >= 7 else spec.layer + (None, 0.0)
+                base = lay[7] if len(lay) > 7 and lay[7] is not None else None
+                ug_new = np.ascontiguousarray(ug_ot if base is None else ug_ot * np.asarray(base, np.float32), np.float32)
+                spec.layer = lay[:7] + (ug_new,)
+                tr_eval.layer_ug.assign(ug_new)
+                _lm = np.asarray(lmask) > 0.5
+                u_gate_frac = float(ug_new[_lm].mean()) if bool(_lm.any()) else 0.0
+                print(f"[layer] u transport gate: {u_gate_frac * 100:.1f} % of the layer within "
+                      f"{cfg.layer_gate_ot_cells:g} cell(s) of its OT image", flush=True)
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         _sp = getattr(tgt.ot_pull, "_self_pull", None)

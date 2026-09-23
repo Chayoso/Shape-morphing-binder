@@ -26,7 +26,7 @@ The photoreal renderer uses EGL (`EGL_PLATFORM=surfaceless` on a headless host).
 python scripts/pipeline_run.py --arms render_full_dt_iso_nn --tgt assets/bunny.obj --n 40000 \
   --cell_diag 26 --phys_loss auto --loss_units density --warm_start --w_kin 5 --w_kin_var 200 \
   --animations 300 --loss_res 64 --pace 0 --anneal 0.7 --mom_carry 0 --nn_far_k 1000 --bonds \
-  --domain auto --layer_relax --pbr_denoised --layer_ctrl --sampler stratified --out output/bunny
+  --domain auto --layer_relax --pbr_denoised --layer_ctrl --sampler stratified --layer_gate_ot --out output/bunny
 
 # the video of the reconstructed surface (tracked with the material)
 python scripts/render_photoreal.py --npz output/bunny_render_full_dt_iso_nn.npz \
