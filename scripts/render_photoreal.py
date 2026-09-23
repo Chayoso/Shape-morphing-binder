@@ -20,6 +20,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 
 import numpy as np
 import torch
@@ -48,6 +49,13 @@ ap.add_argument("--track_keep", action="store_true",
                 help="at a drift / periodic re-mesh keep the tracked triangles that have no fresh counterpart (a neck the "
                      "reconstruction lost stays a tube); a particle-confirmed topology change still re-meshes fully")
 ap.add_argument("--track_k", type=int, default=8, help="particles a vertex is bound to (Gaussian weights of one spacing)")
+ap.add_argument("--surfel_memory", type=int, default=0,
+                help="temporal coherence WITHOUT a tracked mesh (2026-09-23): the outer-layer surfels of the previous "
+                     "K-1 video frames, carried to the current frame with the material (the same kNN advection as "
+                     "--track) and kept only where material still is (within one spacing of a particle), join the "
+                     "current surfels before the Poisson solve, downsampled at half a spacing; every frame is a fresh "
+                     "mesh (no stretched triangles, no re-mesh pops). K = frames of one control window (T / stride); "
+                     "0 = off")
 ap.add_argument("--prefetch", type=int, default=4,
                 help="reconstruct this many upcoming frames in parallel threads (the Poisson solve runs in a child "
                      "process per frame, so the reconstruction overlaps across frames and with the rendering); 0 = serial")
@@ -517,6 +525,63 @@ def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
 
 
 FALLBACK_FRAMES = []   # frames whose Poisson reconstruction crashed twice and fell back to the level set
+LAYER_CACHE = {}       # archived frame -> (surfel points, normals) of its outer layer (the surfel memory's input)
+_LAYER_LOCK = threading.Lock()
+
+
+def _layer_raw(i):
+    """The outer-layer surfels of archived frame i (density -> layer -> exterior test -> optional pull),
+    cached; the surfel memory reads the previous frames through this."""
+    with _LAYER_LOCK:
+        if i in LAYER_CACHE:
+            return LAYER_CACHE[i]
+    x = torch.as_tensor(np.asarray(frames_np[i], np.float32), device=dev)
+    rho_t = density_aniso(x, frame_F(i, x)) if a.kernel == "aniso" else (density_pca(x) if a.kernel == "pca" else density(x))
+    if a.layer == "grad":
+        pts, nrm = surface_particles_grad(x, rho_t, ctr, half, vox, layer_gthr)
+    else:
+        pts, nrm = surface_particles(x, rho_t, ctr, half, vox, layer_thr)
+    pts, nrm, _ = exterior_surfels(pts, nrm, x.detach().cpu().numpy(), spacing)
+    if a.pull > 0:
+        pts, nrm = oriented_layer(pts, nrm, spacing, pull_iters=a.pull)
+    with _LAYER_LOCK:
+        LAYER_CACHE[i] = (pts, nrm)
+    return pts, nrm
+
+
+def surfel_memory_union(fi, pts, nrm, x_np):
+    """The current frame's surfels plus the previous K-1 video frames' surfels carried to this frame with the
+    material, kept only where a particle is still within one spacing, downsampled at half a spacing (normals
+    averaged): a box filter of one control window over the surface, so a neck the reconstruction loses for a
+    few frames stays, the re-fit jitter averages out, and the mesh is still fresh every frame."""
+    with _LAYER_LOCK:
+        LAYER_CACHE[fi] = (pts, nrm)
+    x_cur = np.asarray(x_np, np.float64)
+    kd_cur = cKDTree(x_cur)
+    ups, unr = [np.asarray(pts, np.float64)], [np.asarray(nrm, np.float64)]
+    for m in range(1, a.surfel_memory):
+        j = fi - m * a.stride
+        if j < 0:
+            break
+        pj, nj = _layer_raw(j)
+        if len(pj) == 0:
+            continue
+        xj = np.asarray(frames_np[j], np.float64)
+        pj = np.asarray(pj, np.float64); nj = np.asarray(nj, np.float64)
+        pa = advect_vertices(pj, xj, x_cur, a.track_k, spacing)
+        tip = advect_vertices(pj + spacing * nj, xj, x_cur, a.track_k, spacing)
+        na = tip - pa
+        na /= np.maximum(np.linalg.norm(na, axis=1, keepdims=True), 1e-9)
+        d, _ = kd_cur.query(pa, k=1, workers=-1)
+        keep = d <= spacing                                   # the material is still there
+        ups.append(pa[keep]); unr.append(na[keep])
+    P = np.concatenate(ups); Nn = np.concatenate(unr)
+    pc = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(P))
+    pc.normals = o3d.utility.Vector3dVector(Nn)
+    pc = pc.voxel_down_sample(0.5 * spacing)
+    out_p = np.asarray(pc.points, np.float32); out_n = np.asarray(pc.normals, np.float32)
+    out_n /= np.maximum(np.linalg.norm(out_n, axis=1, keepdims=True), 1e-9)
+    return out_p, out_n, len(P)
 
 
 def mesh_of(x, fi=None):
@@ -548,6 +613,12 @@ def mesh_of(x, fi=None):
         pts, nrm, n_interior = exterior_surfels(pts, nrm, x.detach().cpu().numpy(), spacing)
         if a.pull > 0:
             pts, nrm = oriented_layer(pts, nrm, spacing, pull_iters=a.pull)
+        if a.surfel_memory > 0 and fi is not None and fi >= 0:
+            n_own = len(pts)
+            pts, nrm, n_union = surfel_memory_union(fi, pts, nrm, x.detach().cpu().numpy())
+            if fi == a.stride * (a.surfel_memory - 1):
+                print(f"[photoreal] surfel memory: {a.surfel_memory} frames; frame {fi}: {n_own} own surfels, "
+                      f"{n_union} in the union, {len(pts)} after the half-spacing downsample", flush=True)
         if fi is None or fi == 0:
             print(f"[photoreal] surface {a.surface}: {n_interior} interior surfels dropped by the exterior test", flush=True)
             print(f"[photoreal] surface {a.surface}: {len(pts)} outer-layer particles of {len(x)}"
