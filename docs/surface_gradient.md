@@ -1415,6 +1415,33 @@ latched rejects as well) — so they are not re-run; (iii) rendering influence u
 touches acceptance, not the gradient: g_share 0.36–0.38). Refutation: nefertiti still stops early
 or ends < 0.955 ⇒ the transient is not a render-only event and the gate itself must change.
 
+**Reading of 15d (21:55): refuted.** `g41n_nefertiti` (the gate + the physics-scoped brake)
+stops at anim 16 again (silIoU 0.9356): the physics merit alone loses 5.9 % at a17. The
+component is d_dt, the distance-transform outline term: 285 → 471 at a16 → a17 (+65 %); under
+u off it climbs 399 → 958 over a16 → a20 (the run survives only because its merit weights differ,
+and ends lower, 0.961); under g40 it falls 69 → 48 — u in transit was pulling the arriving front
+back onto the outline every window, and the transport gate denied u exactly there. The brake
+scoping stays (harmless, and right for its purpose) but is not the fix.
+
+### 15e. The gate on the normal component of the remaining transport (commit below; pre-registered 22:00)
+
+u acts along the layer normal. Tangential transport — material sliding along the outline, as
+nefertiti's front does — does not put the surface in motion through space and does not make u's
+step a lump; transport across space (the expansion phase) does. So the residual the gate should
+read is the normal component of the remaining transport, |(x − T(x)) · n| ≤ one cell
+(`--layer_gate_ot_normal`), n the frozen layer normal of the window. Same constant, same plan.
+Runs `uon_nefertiti / bunny / bob` (`$OUT/uon.sh`, 22:00).
+
+Predictions: (i) nefertiti runs past a17 without a brake reject and ends at silIoU ≥ 0.960 with
+d_dt on g40's path (< 100 by a20); (ii) bunny and bob keep the transport gate's roughness
+reduction within 0.02 (first-300 mean ≤ 0.26 / 0.29 against g40's 0.288 / 0.320) and their end
+silIoU within 0.3 points of g40; (iii) the gate's active share is higher than the full-vector
+gate's early on (tangential movers admitted) but still below 40 % over windows 1–5 on bunny.
+Refutation: nefertiti still stops early ⇒ the front's overshoot is normal transport and the gate
+cannot both admit it and reject the lumps — then the choice is per-regime (u in transit with
+lumps, or the outline cost) and goes to the user; bunny's roughness back at g40's level ⇒ the
+normal gate admits the lump-making movers and is no gate at all.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
