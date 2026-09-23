@@ -32,7 +32,8 @@ from .surface_local import surface_local_pass
 
 
 def _id(N):
-    return np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
+    from ..mpm.traj import _id as _traj_id      # the cached identity (2026-09-23 speed pass)
+    return _traj_id(N)
 
 
 def _surface_weights(x: np.ndarray, k: int, fraction: float, floor: float) -> np.ndarray:
@@ -573,8 +574,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # whole-window F health, not just the endpoint (an inversion mid-window that
         # recovers by T would otherwise be invisible)
         from ..mpm.conditioning import batched_det
-        dets = batched_det(np.stack(F_seq[1:]))        # one batched det over the window
-        n_inv = int((dets <= 0.0).any(0).sum())
+        if end.get("n_inv_steps") is not None:
+            n_inv = int(end["n_inv_steps"])            # counted on the device (2026-09-23 speed pass)
+            jmin_traj = float(end["Jmin_traj"])
+        else:
+            dets = batched_det(np.stack(F_seq[1:]))    # one batched det over the window
+            n_inv = int((dets <= 0.0).any(0).sum())
+            jmin_traj = float(dets.min())
         guards["clamped"] += n_out; guards["nan_x"] += n_nan; guards["nan_state"] += n_ns
         guards["F_reset"] += n_bad; guards["F_flip"] += n_flip
         guards["F_invert_steps"] += n_inv
@@ -754,7 +760,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "v_mean": float(np.linalg.norm(v_p, axis=1).mean()),
                "move": float(np.linalg.norm(x - x_start, axis=1).mean()),
                "Jmin": float(batched_det(Fc).min()),
-               "Jmin_traj": float(dets.min()),
+               "Jmin_traj": jmin_traj,
                "clamped": n_out, "nan_x": n_nan, "nan_state": n_ns,
                "F_reset": n_bad, "F_flip": n_flip, "F_invert_steps": n_inv}
         if tgt.gauss is not None:
@@ -905,7 +911,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # freeze then held the damaged state; b4 forensic: flat-valley
                 # limit cycle, overshoot windows d_vol 62->215 with kin spikes),
                 # never a legitimate trade.
-                # 2026-09-23 03:00: the primary-objective brake (15f) is the recipe again — the user chose
+                # 2026-09-23 09:40: the primary-objective brake (15f) is the recipe again — the user chose
                 # g41 once the video wipes were traced to the surface tracking, not the gate
                 brake_reject = phys_gain < -max(cfg.pace, 0.05)
                 if eject_reject:

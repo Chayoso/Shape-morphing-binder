@@ -818,7 +818,11 @@ def main():
                     cfg.gauss_child_sigma_scale if cfg.gauss_children > 1 else 1.0),
             }
         from physmorph.sampling.orientation import orient_name as _orient_name
-        np.savez_compressed(
+        # 2026-09-23 (speed): zlib on a 300k x 1000-frame stack is minutes of single-thread CPU at
+        # the end of the run (17 s for 100 frames); above 100k particles the archive is written
+        # uncompressed (float32 positions compress poorly anyway; disk is not the constraint)
+        _saver = np.savez if len(src) >= 100000 else np.savez_compressed
+        _saver(
             f"{args.out}_{arm}.npz", src=src, tgt=tgt,
             orient=np.str_(_orient_name(args.tgt)),        # the loader already rotated the asset to y-up
             frames=np.stack(res["frames"]), deliver_n=np.int64(dn),

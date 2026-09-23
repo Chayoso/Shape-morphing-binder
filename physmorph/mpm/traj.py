@@ -14,8 +14,17 @@ from .state import MPMParams, make_state
 from .step import gate_omega, nominal_support
 
 
+_ID_HOST: dict = {}
+
+
 def _id(N):
-    return np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
+    """(N,3,3) float32 identities. A fresh copy of a cached array (2026-09-23 speed pass: np.tile
+    took 0.13 s per call at 300k and ran 17 times a window; a memcpy is 5 ms)."""
+    a = _ID_HOST.get(N)
+    if a is None:
+        a = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
+        _ID_HOST[N] = a
+    return a.copy()
 
 
 _ID_CACHE: dict = {}

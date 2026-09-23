@@ -165,8 +165,19 @@ def layer_by_asymmetry(x_np: np.ndarray, spacing: float, k: int = 32, thr_sp: fl
     nearest neighbours, in spacings, is ~0 inside and ~ (0.5 + ...) at the surface (SPH surface
     detection). thr_sp = 0.5 spacing = the depth of the first layer under the half-space model.
     Returns (mask (N,) bool, outward normal estimate (N,3) = -(centroid offset) normalised)."""
-    kd = cKDTree(x_np)
-    d, nb = kd.query(x_np, k=k + 1, workers=-1)
+    from .knn_gpu import gpu_available, knn_self, knn_self_torch
+    if gpu_available() and len(x_np) >= 4096:
+        # 2026-09-23 (speed): the neighbour search and the centroid offsets on the GPU; the same
+        # numbers as the scipy / numpy path (float32), 1.1 s -> 0.05 s at 300k
+        import torch
+        x_t = torch.as_tensor(np.ascontiguousarray(x_np, np.float32), device="cuda")
+        _, nb_t = knn_self_torch(x_t, k + 1)
+        off_t = x_t - x_t[nb_t[:, 1:]].mean(1)
+        n_t = off_t.norm(dim=1)
+        mask_t = n_t >= thr_sp * spacing
+        normal_t = off_t / (n_t[:, None] + 1e-12)
+        return mask_t.cpu().numpy(), normal_t.float().cpu().numpy()
+    d, nb = knn_self(x_np, k + 1)                        # scipy rows (small clouds, or PHYSMORPH_KNN=cpu)
     c = x_np[nb[:, 1:]].mean(1)
     off = x_np - c
     n = np.linalg.norm(off, axis=1)
@@ -212,12 +223,24 @@ def layer_relax_data(x0: np.ndarray, spacing: float, k: int = 24, h_sp: float = 
     idx = np.where(mask)[0]
     nbr = np.zeros((N, k), np.int32); w = np.zeros((N, k), np.float32)
     if len(idx) > k:
-        P = x0[idx].astype(np.float64); R = nrm[idx].astype(np.float64)
-        kd = cKDTree(P)
-        d, nb = kd.query(P, k=k + 1, workers=-1)
-        d, nb = d[:, 1:], nb[:, 1:]
-        ww = np.exp(-(d / (h_sp * spacing)) ** 2) * np.clip((R[nb] * R[:, None, :]).sum(-1), 0.0, None)
-        ww = ww / np.maximum(ww.sum(1, keepdims=True), 1e-12)     # rows sum to 1: no division in the kernels
+        from .knn_gpu import gpu_available, knn_self, knn_self_torch
+        if gpu_available() and len(idx) >= 4096:
+            # 2026-09-23 (speed): the layer's neighbour search and Gaussian x same-side weights on
+            # the GPU (float32; the CPU path below is float64 — the weights agree to ~1e-6)
+            import torch
+            P_t = torch.as_tensor(np.ascontiguousarray(x0[idx], np.float32), device="cuda")
+            R_t = torch.as_tensor(np.ascontiguousarray(nrm[idx], np.float32), device="cuda")
+            d_t, nb_t = knn_self_torch(P_t, k + 1)
+            d_t, nb_t = d_t[:, 1:], nb_t[:, 1:]
+            ww_t = torch.exp(-(d_t / (h_sp * spacing)) ** 2) * torch.clamp((R_t[nb_t] * R_t[:, None, :]).sum(-1), min=0.0)
+            ww_t = ww_t / torch.clamp(ww_t.sum(1, keepdim=True), min=1e-12)
+            nb = nb_t.cpu().numpy(); ww = ww_t.cpu().numpy()
+        else:
+            P = x0[idx].astype(np.float64); R = nrm[idx].astype(np.float64)
+            d, nb = knn_self(P, k + 1)                    # scipy rows
+            d, nb = d[:, 1:], nb[:, 1:]
+            ww = np.exp(-(d / (h_sp * spacing)) ** 2) * np.clip((R[nb] * R[:, None, :]).sum(-1), 0.0, None)
+            ww = ww / np.maximum(ww.sum(1, keepdims=True), 1e-12)   # rows sum to 1: no division in the kernels
         nbr[idx] = idx[nb]
         w[idx] = ww.astype(np.float32)
     return mask.astype(np.float32), nrm.astype(np.float32), nbr, w

@@ -250,6 +250,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         bond_rest = None
         bond_frag = None
     m_np = (tgt.m.detach().cpu().numpy().astype(np.float32) if torch.is_tensor(tgt.m) else 1.0)
+    _mref = int(getattr(cfg, "mass_ref_n", 0) or 0)
+    if _mref > 0 and int(len(x0)) != _mref:
+        # the dynamics mass of the discretisation (config.mass_ref_n): the body's mass is N-invariant,
+        # so a unit control moves the 300k body as it moves the 40k one; the loss-side tgt.m is untouched
+        m_np = np.asarray(m_np, np.float32) * np.float32(_mref / float(len(x0)))
     if isinstance(m_np, np.ndarray) and np.allclose(m_np, 1.0):
         m_np = 1.0                                    # unit masses: keep the scalar path
     layer = None
@@ -511,7 +516,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 p_sp = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)
                 k_nb = int(max(4, min(64, round(4.0 / 3.0 * np.pi * (leash_r / p_sp) ** 3))))
                 x0_np = np.ascontiguousarray(np.asarray(x0, np.float32))
-                _, tgt.ot_knn = cKDTree(x0_np).query(x0_np, k=k_nb, workers=-1)
+                from ..render.knn_gpu import knn_self
+                _, tgt.ot_knn = knn_self(x0_np, k_nb)     # GPU hash grid (2026-09-23); scipy rows
                 tgt.ot_knn = torch.as_tensor(tgt.ot_knn, device=dev)
                 print(f"[win] OT leash: displacement denoised over k={k_nb} material neighbours "
                       f"(blur radius {leash_r:.4g} wu / spacing {p_sp:.4g})", flush=True)
@@ -745,6 +751,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                      cfg.dt_budget)
         else:                             # "knn" — the honest-metric winner (§7.6)
             m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi)
+    # the gate's support (2026-09-23, speed): the DT sum runs on these particles only — the same
+    # sum and gradient, a small fraction of N (the isolated particles)
+    dt_idx = torch.nonzero(m_dt > 0).squeeze(1) if m_dt is not None else None
 
     # grid-free near-band cleanup, frozen per window (fork-halo forensic §7.10)
     if cfg.w_jdens > 0 and tgt.jd_rho0 is not None and tgt.jd_scale is None:
@@ -1051,7 +1060,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         it carries its own norm-balanced weight (fill v3)."""
         L = None
         if tgt.dt3 is not None:
-            L = wu * cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+            # 2026-09-23 (speed): the DT term is a SUM of m_p * DT(x_p) and the gate m_p is zero on
+            # all but the isolated particles; the gather and its backward ran over every particle
+            # (1.0 s of a 6 s window at 300k). Evaluating it on the gate's support is the same
+            # sum and the same gradient (a zero-weight particle contributes nothing to either).
+            if dt_idx is not None and dt_idx.numel() > 0:
+                L = wu * cfg.w_dt * d_w1(xT.index_select(0, dt_idx), m_dt.index_select(0, dt_idx),
+                                         tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+            elif dt_idx is not None:
+                L = xT.sum() * 0.0                          # an empty gate: zero, still on the graph
+            else:
+                L = wu * cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
         if nn_idx is not None:
             Ln = wu * cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
                                       cfg.nn_berth_k * tgt.nn_spacing)
@@ -1555,11 +1574,26 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
                 "discarding window (replay/accepted-candidate mismatch)")
             hist, accepted = [], 0
-        frames = [tr.x[t].numpy().copy() for t in range(T + 1)]
-        F_seq = [tr.F[t].numpy().copy() for t in range(T + 1)]
-        end = {"F": tr.F[T].numpy().copy(), "v": tr.v[T].numpy().copy(),
-               "C": tr.C[T].numpy().copy(),
-               "Fg": tr.Fg[T].numpy().copy() if use_geom else None}
+        # 2026-09-23 (speed): wp.array.numpy() already returns a fresh host copy — the extra
+        # .copy() doubled 300 MB of traffic a window; and the whole-window F health (any step
+        # with det F <= 0, per particle) is counted on the device instead of stacking T x N
+        # matrices on the host for a numpy determinant (4 s a window at 300k)
+        frames = [tr.x[t].numpy() for t in range(T + 1)]
+        F_seq = [tr.F[t].numpy() for t in range(T + 1)]
+        with torch.no_grad():
+            inv_any = None
+            jmin_traj = float("inf")
+            for t in range(1, T + 1):
+                Ft = wp.to_torch(tr.F[t]).reshape(-1, 3, 3).float()
+                det_t = torch.linalg.det(Ft)
+                bad = det_t <= 0.0                            # NaN rows compare False, as the numpy path did
+                inv_any = bad if inv_any is None else (inv_any | bad)
+                jmin_traj = min(jmin_traj, float(det_t.min().item()))   # numpy min propagates NaN; torch min too
+            n_inv_steps = int(inv_any.sum().item()) if inv_any is not None else 0
+        end = {"F": tr.F[T].numpy(), "v": tr.v[T].numpy(),
+               "C": tr.C[T].numpy(),
+               "Fg": tr.Fg[T].numpy() if use_geom else None,
+               "n_inv_steps": n_inv_steps, "Jmin_traj": jmin_traj}
         _tm_add("final", t0)
         if cfg.grad_dump and grad_dump_state.get("gx_phys") is not None:
             # linear-response rollouts: each channel's control gradient alone, scaled to the

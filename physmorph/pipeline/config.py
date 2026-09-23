@@ -469,6 +469,12 @@ class PipelineConfig:
                                     #   u may act only where the particle's remaining transport to its OT image
                                     #   is within layer_gate_ot_cells MPM cells at the window start
     layer_gate_ot_cells: float = 1.0  #   the radius in MPM cells
+    mass_ref_n: int = 40000         # 2026-09-23 (docs/experiments.md, the 300k discretisation): the DYNAMICS mass per
+                                    #   particle is mass_ref_n / N, so the body's mass, its density, the wave speed and
+                                    #   the response to a unit control are the same at every N (unit masses made the
+                                    #   300k body 7.5x more sluggish than the 40k one: 212 windows against 59). The
+                                    #   losses keep their unit masses (their normalisations are built on them). 40k =
+                                    #   the reference discretisation, bit-identical. 0 = legacy unit masses at every N
     layer_gate_ot_normal: bool = False  # 15e: gate on the NORMAL component of the remaining transport (u acts along
                                     #   the normal; tangential transport along the outline does not disqualify it)
     layer_u_render_only: bool = False  # P1 (docs/surface_gradient.md 13): the u leaf receives the render channel's
