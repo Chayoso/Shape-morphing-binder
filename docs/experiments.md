@@ -3804,3 +3804,23 @@ the two videos, one sub-cell fragment counted differently in one frame, nothing 
 `photoreal_batch.sh` uses PREFETCH=3 and 8 Poisson threads per video when four batches share
 the host. Not done (a design change, needs its own verification): resampling the pace subsample
 less often; fewer render views / iterations (quality trade-offs).
+
+### 2026-09-23 — the tracked surface's re-mesh policy, from the per-frame analysis of 38 videos (method.md §10.15 addendum)
+
+User (on g41): the earlier version looks better — a frame jumps and a connecting part is wiped at
+once; connections drawn with messy triangles; the surface moves like flowing ripples. Reverted
+to the GitHub version at the user's request (RECIPE without the gate, full-merit brake,
+per-frame videos; commit 205b90f). Then measured (`scripts/probes/video_jumps.py`): the ripples
+are the material's surface texture flowing (0.20–0.25 spacings at rest, +30–50 % with u in
+transit) plus the per-frame re-fit (median frame-to-frame image change 1.5–1.8× the tracked
+one); the wipes are the tracked re-mesh (re-mesh frames change 3–9× more than ordinary frames on
+all 38 videos, particles moving as usual): a kept tube or a stretched-triangle web replaced by
+the fresh mesh; the messy triangles are the tracked triangles stretched where the surface grows
+(facets at bunny 180, the web between the ears at 357). Fix (commits 2ec467d, e89a180, a35c2e4;
+no constant): keep the unmatched non-stretched triangles at a non-topology re-mesh, re-mesh when
+the tracked p99 edge exceeds 2× the fresh p99 edge, never keep a stretched triangle, no periodic
+re-mesh. Readings (bunny / cow): re-mesh frames' mean area change 14.4 / 7.1 % → 2.4 / 4.5 %
+(ordinary frames 3.9 / 1.8 %); the web gone at 357. Page: artifact "표면 표현 네 방식" (g40 and g41
+physics × per-frame / tracked variants, same frames). The default stays per-frame (the user's
+revert); `photoreal_batch.sh TRACK=1` gives the new policy. The choice of combination is the
+user's.
