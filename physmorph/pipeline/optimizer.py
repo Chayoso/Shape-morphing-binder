@@ -606,7 +606,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # pace) is at most layer_gate_ot_cells MPM cells — the sub-grid residual is u's regime;
                 # while a particle is still in transit, u's per-particle step rides a moving surface and
                 # leaves the mid-morph lumps (15b). Recomputed at every window start with the plan.
-                ug_ot = (dn.squeeze(1) <= float(cfg.layer_gate_ot_cells) * float(prm.dx)).float().cpu().numpy()
+                res_ot = dn.squeeze(1)
+                if getattr(cfg, "layer_gate_ot_normal", False):
+                    # the NORMAL part of the remaining transport (15e): u acts along the layer normal,
+                    # so tangential transport (material sliding along the outline, nefertiti's arriving
+                    # front) does not disqualify it — only transport through space does (the lumps)
+                    res_ot = (disp * torch.as_tensor(np.asarray(lnrm, np.float32), device=disp.device)).sum(1).abs()
+                ug_ot = (res_ot <= float(cfg.layer_gate_ot_cells) * float(prm.dx)).float().cpu().numpy()
                 ug_ot = (ug_ot * (np.asarray(lmask, np.float32) > 0.5)).astype(np.float32)
                 lay = spec.layer if len(spec.layer) >= 7 else spec.layer + (None, 0.0)
                 base = lay[7] if len(lay) > 7 and lay[7] is not None else None
