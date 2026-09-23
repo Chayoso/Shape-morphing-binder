@@ -3824,3 +3824,5 @@ re-mesh. Readings (bunny / cow): re-mesh frames' mean area change 14.4 / 7.1 % �
 physics × per-frame / tracked variants, same frames). The default stays per-frame (the user's
 revert); `photoreal_batch.sh TRACK=1` gives the new policy. The choice of combination is the
 user's.
+
+**Cleanup sweep (2026-09-23, the user: delete everything not needed).** hyde06 `output/`: 139 → 23 GB. Deleted 125 run archives (103 GB: the 150k v8 galleries h150v8 / n150v8 / nn150 / c150r, the render-proof twins rp_*, the material study mat_*, the factorial fx_*, the ladder runs t40 / p40 / ps40 / k40 / lr* / g1* / g5 / gq / gs40*, the timing runs), their logs and json archived first in `logs_archive_20260923.tgz` (6.4 MB); the viewer packets `live/` (6.7 GB), `surf_test`, the superseded report folders (h150v8, n150v8, p40, t40, t40v8), the test renders (g41pf/tk/tks/tks2/sm, g40tks2), the gradient dumps. Kept: g40 and g41 (19 runs each, the before/after pair), report_g40 / report_g41, cgrid (the §15 analysis data), jumps (the video analysis), the profiles, the sample cache. Local `output/`: the superseded page folders removed; the four published pages kept.
