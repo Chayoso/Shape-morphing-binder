@@ -292,6 +292,20 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                            sigma_sp=cfg.layer_gate_sigma_sp, nsig=cfg.layer_gate_nsig)
             layer = layer + (ug,)
             print(f"[layer] u gate: {u_gate_frac * 100:.1f} % of the layer above the sampling floor", flush=True)
+        if cfg.layer_ctrl and cfg.layer_gate_geom and tgt.pts is not None:
+            # the geometric gate (docs/surface_gradient.md 15): u may act only where the target's outer
+            # layer lies within layer_gate_geom_cells MPM cells of the particle — the sub-grid residual
+            # the stress path cannot resolve; farther off, the outline is the transport's job and u's
+            # per-particle step is noise on a moving surface (the mid-morph lumps)
+            from ..render.surface_recon import layer_u_gate_geom
+            ug_g, g_frac = layer_u_gate_geom(x0, tgt.pts.detach().cpu().numpy(), lmask, sp0,
+                                             float(cfg.layer_gate_geom_cells) * float(prm.dx))
+            if len(layer) == 5:
+                layer = layer + (None, 0.0)
+            layer = (layer[:7] + (layer[7] * ug_g,)) if len(layer) > 7 else layer + (ug_g,)
+            u_gate_frac = g_frac if u_gate_frac is None else float(u_gate_frac) * g_frac
+            print(f"[layer] u geometric gate: {g_frac * 100:.1f} % of the layer within "
+                  f"{cfg.layer_gate_geom_cells:g} cell(s) of the target surface", flush=True)
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
                        bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer)

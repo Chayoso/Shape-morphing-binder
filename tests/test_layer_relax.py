@@ -242,3 +242,25 @@ def test_layer_u_gate_opens_where_the_surface_is_off_the_target():
     assert gate1[top].mean() > 0.8 and gate1[bottom].mean() > 0.8, (gate1[top].mean(), gate1[bottom].mean())
     assert gate1[side].mean() < 0.3, gate1[side].mean()
     assert np.all(gate1[mask < 0.5] == 0)
+
+
+def test_layer_u_gate_geom_opens_within_the_radius_of_the_target_surface():
+    """The geometric gate (surface_recon.layer_u_gate_geom): with the target shifted by three spacings
+    along y, a one-spacing radius shuts the gate on the central top face (two spacings from the
+    target's nearest face) and opens it on the side faces (the same planes); a four-spacing radius
+    opens the top as well. Off the layer the gate is zero."""
+    from physmorph.render.surface_recon import layer_u_gate_geom
+    x, sp = _slab(n_side=14, layers=6)
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
+    tgt = x.copy(); tgt[:, 1] += 3 * sp
+    ext = np.abs(x).max(0)
+    central = (np.abs(x[:, 0]) < 0.5 * ext[0]) & (np.abs(x[:, 2]) < 0.5 * ext[2])
+    top = (mask > 0.5) & (nrm[:, 1] > 0.8) & central
+    side = (mask > 0.5) & (np.abs(nrm[:, 1]) < 0.3) & (x[:, 1] > 0) & (x[:, 1] < 0.3 * ext[1])
+    assert top.sum() > 10 and side.sum() > 10
+    g1, s1 = layer_u_gate_geom(x, tgt, mask, sp, 1.0 * sp)
+    assert g1[top].mean() < 0.2, g1[top].mean()
+    assert g1[side].mean() > 0.8, g1[side].mean()
+    assert np.all(g1[mask < 0.5] == 0)
+    g4, s4 = layer_u_gate_geom(x, tgt, mask, sp, 4.0 * sp)
+    assert g4[top].mean() > 0.8 and s4 > s1, (g4[top].mean(), s1, s4)

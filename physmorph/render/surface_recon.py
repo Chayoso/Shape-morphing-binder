@@ -522,6 +522,28 @@ def layer_u_gate(x0: np.ndarray, tgt: np.ndarray, mask: np.ndarray, spacing: flo
     return gate, float(on.mean())
 
 
+def layer_u_gate_geom(x0: np.ndarray, tgt: np.ndarray, mask: np.ndarray, spacing: float, radius: float):
+    """The geometric gate of the u channel (docs/surface_gradient.md 15): WHERE the position-mode
+    channel may act — only on layer particles whose distance to the TARGET's outer layer is at most
+    `radius` (one MPM cell in the recipe: the residual the grid cannot resolve is u's regime; farther
+    off the outline is the transport's job, and u's per-particle step on a moving surface is the
+    mid-morph lump texture of §15). The target's outer layer is the same asymmetry test as the
+    morph's, on the target sample at the same spacing. Returns (gate (N,) float32: 1 where u may
+    act, the active share of the layer)."""
+    N = len(x0)
+    gate = np.zeros(N, np.float32)
+    idx = np.where(np.asarray(mask) > 0.5)[0]
+    if len(idx) == 0 or tgt is None or len(tgt) < 64:
+        return gate, 0.0
+    tgt = np.asarray(tgt, np.float32)
+    tm, _ = layer_by_asymmetry(tgt, float(spacing))
+    tl = tgt[tm] if int(tm.sum()) >= 8 else tgt
+    d, _ = cKDTree(tl).query(np.asarray(x0, np.float32)[idx], k=1, workers=-1)
+    on = d <= float(radius)
+    gate[idx[on]] = 1.0
+    return gate, float(on.mean())
+
+
 def exterior_surfels(points: np.ndarray, normals: np.ndarray, x_all: np.ndarray, spacing: float,
                      r_sp: float = 2.0, t_sp: float = 0.75, frac: float = 0.1):
     """The EXTERIOR test of the outer layer (docs/surface_gradient.md 14; method.md 10.12): a surfel

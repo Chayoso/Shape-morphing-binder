@@ -461,6 +461,10 @@ class PipelineConfig:
                                     #   nsig x the Poisson shot-noise floor at the surface scale (sigma_sp)
     layer_gate_sigma_sp: float = 1.5  #   the renderer's / level set's blur (spacings)
     layer_gate_nsig: float = 2.0      #   standard deviations above the floor
+    layer_gate_geom: bool = False   # the geometric gate (docs/surface_gradient.md 15; surface_recon.layer_u_gate_geom):
+                                    #   u may act only where the target's outer layer is within layer_gate_geom_cells
+                                    #   MPM cells of the particle at the window start (the sub-grid residual)
+    layer_gate_geom_cells: float = 1.0  #   the radius in MPM cells (dx = the grid's resolution, not a tuned length)
     layer_u_render_only: bool = False  # P1 (docs/surface_gradient.md 13): the u leaf receives the render channel's
                                     #   gradient only (lambda x g_render); the physics gradient through u is dropped
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
