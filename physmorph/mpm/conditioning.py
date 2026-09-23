@@ -49,6 +49,31 @@ def condition_F(F, smin=0.5, smax=2.0, clamp=True):
     projection rewrites the state every commit without any counter, which gate G2 exists to
     forbid (adversarial finding). Legacy callers keep clamp=True."""
     F = np.ascontiguousarray(F, np.float32).reshape(-1, 3, 3)
+    if not clamp and F.shape[0] >= 20000:
+        # 2026-09-23 (speed): the v2 path on the device end to end — the non-finite test and the
+        # reflection test (det F < 0 <=> det U det V^T < 0 for F = U S V^T, S >= 0) need no
+        # SVD, and the SVD runs only for the rows that need a repair. The unrepaired F is
+        # returned bit-exact as before; the counts are the same.
+        try:
+            import torch
+            if torch.cuda.is_available():
+                Ft = torch.as_tensor(F, device="cuda")
+                bad_t = ~torch.isfinite(Ft).all(dim=(1, 2))
+                Fw = Ft.clone() if bool(bad_t.any()) else Ft
+                if bool(bad_t.any()):
+                    Fw[bad_t] = torch.eye(3, device="cuda")
+                flip_t = torch.linalg.det(Fw) < 0
+                n_bad = int(bad_t.sum().item()); n_flip = int(flip_t.sum().item())
+                if n_bad == 0 and n_flip == 0:
+                    return F, 0, 0, 0
+                out = Fw.clone()
+                if n_flip:
+                    U, S, Vh = torch.linalg.svd(Fw[flip_t])
+                    U = U.clone(); U[:, :, -1] *= -1.0
+                    out[flip_t] = U @ torch.diag_embed(S) @ Vh
+                return out.cpu().numpy().astype(np.float32), n_bad, n_flip, 0
+        except Exception:
+            pass
     bad = ~np.isfinite(F).all(axis=(1, 2))
     if bad.any():
         F = F.copy()
