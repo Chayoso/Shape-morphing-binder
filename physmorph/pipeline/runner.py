@@ -573,10 +573,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         st = {"F": Fc, "v": v_p, "C": C_p, "Fg": Fg_p}
         # whole-window F health, not just the endpoint (an inversion mid-window that
         # recovers by T would otherwise be invisible)
+        from ..mpm.conditioning import batched_det
         if end.get("n_inv_steps") is not None:
             n_inv = int(end["n_inv_steps"])            # counted on the device (2026-09-23 speed pass)
         else:
-            from ..mpm.conditioning import batched_det
             dets = batched_det(np.stack(F_seq[1:]))    # one batched det over the window
             n_inv = int((dets <= 0.0).any(0).sum())
         guards["clamped"] += n_out; guards["nan_x"] += n_nan; guards["nan_state"] += n_ns
