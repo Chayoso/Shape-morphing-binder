@@ -30,7 +30,7 @@ python scripts/pipeline_run.py --arms render_full_dt_iso_nn --tgt assets/bunny.o
 
 # the video of the reconstructed surface (tracked with the material)
 python scripts/render_photoreal.py --npz output/bunny_render_full_dt_iso_nn.npz \
-  --out output/bunny.mp4 --res 720 --stride 3 --surface poisson --track
+  --out output/bunny.mp4 --res 720 --stride 3 --surface poisson --track --track_keep --track_stretch 2 --track_every 0
 
 # a single frame
 python scripts/render_photoreal.py --npz output/bunny_render_full_dt_iso_nn.npz \

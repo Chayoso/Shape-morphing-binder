@@ -41,7 +41,16 @@ ap.add_argument("--track", action="store_true",
                      "spacings. Removes the frame-to-frame re-fit jitter of an independent reconstruction per frame.")
 ap.add_argument("--track_alpha", type=float, default=0.3, help="per-frame pull of the tracked vertices toward the fresh surface")
 ap.add_argument("--track_tol", type=float, default=1.0, help="re-mesh when the mean drift exceeds this many spacings")
+ap.add_argument("--track_stretch", type=float, default=0.0,
+                help="re-mesh when the tracked mesh's 90th-percentile edge exceeds this multiple of the fresh mesh's "
+                     "median edge (2 = the Nyquist factor: stretched triangles cannot carry the fresh detail); 0 = off")
+ap.add_argument("--track_keep", action="store_true",
+                help="at a drift / periodic re-mesh keep the tracked triangles that have no fresh counterpart (a neck the "
+                     "reconstruction lost stays a tube); a particle-confirmed topology change still re-meshes fully")
 ap.add_argument("--track_k", type=int, default=8, help="particles a vertex is bound to (Gaussian weights of one spacing)")
+ap.add_argument("--prefetch", type=int, default=4,
+                help="reconstruct this many upcoming frames in parallel threads (the Poisson solve runs in a child "
+                     "process per frame, so the reconstruction overlaps across frames and with the rendering); 0 = serial")
 ap.add_argument("--track_every", type=int, default=60, help="re-mesh at least every this many video frames (bounds the "
                                                               "stretching of the advected tessellation); 0 = never forced")
 ap.add_argument("--grid", type=int, default=160)
@@ -814,12 +823,33 @@ tmp = tempfile.mkdtemp(prefix="photoreal_")
 qa = []
 trk = None            # (tracked mesh, particles at its last frame, drawn topology)
 prev_fresh = None     # (fresh mesh, particles) of the previous video frame — the re-fit jitter reference
+
+
+def _mesh_job(i):
+    return mesh_of(torch.as_tensor(np.asarray(frames_np[i], np.float32), device=dev), i)
+
+
+_pool = None; _fut = {}
+if a.prefetch > 0 and len(idx) > 1:
+    # 2026-09-23: the per-frame reconstruction (density grid on the GPU + a Poisson child process) is
+    # independent across frames; run the next --prefetch frames ahead in threads so the Poisson
+    # children overlap (the 128-core host was rendering one frame at a time)
+    from concurrent.futures import ThreadPoolExecutor
+    _pool = ThreadPoolExecutor(max_workers=a.prefetch)
+    for j in range(min(a.prefetch, len(idx))):
+        _fut[j] = _pool.submit(_mesh_job, idx[j])
 for k, i in enumerate(idx):
     x_np = np.asarray(frames_np[i], np.float32)
-    m, n_comp, n_drop, n_bridge, n_cav = mesh_of(torch.as_tensor(x_np, device=dev), i)
+    if _pool is not None:
+        nxt = k + a.prefetch
+        if nxt < len(idx) and nxt not in _fut:
+            _fut[nxt] = _pool.submit(_mesh_job, idx[nxt])
+        m, n_comp, n_drop, n_bridge, n_cav = _fut.pop(k).result()
+    else:
+        m, n_comp, n_drop, n_bridge, n_cav = mesh_of(torch.as_tensor(x_np, device=dev), i)
     n_iso = isolated_count(x_np)
     x64 = x_np.astype(np.float64)
-    jitter = drift = float("nan"); remeshed = 0
+    jitter = drift = float("nan"); remeshed = 0; n_orphan = 0
     if m is not None and prev_fresh is not None and prev_fresh[0] is not None and len(m.triangles) > 0:
         # the re-fit jitter of an independent reconstruction per frame: the previous fresh mesh carried
         # along with the material against the current fresh mesh (spacings)
@@ -840,8 +870,45 @@ for k, i in enumerate(idx):
             P = closest_on(m, V)
             vdist = np.linalg.norm(P - V, axis=1)
             drift = float(np.median(vdist) / spacing)                       # the surface as a whole, not a lost neck
-            if topo != trk[2] or drift > a.track_tol or (a.track_every > 0 and k - trk[3] >= a.track_every):
-                trk = (copy.deepcopy(m), x64, topo, k); remeshed = 1
+            stretched = False
+            if a.track_stretch > 0:
+                # the tracked triangles stretch where the surface grows (an ear pulled out of the body): past
+                # twice the fresh reconstruction's own edge length they cannot carry its detail (Nyquist) and
+                # read as flat facets — re-mesh there (with --track_keep the re-mesh wipes nothing)
+                def _edges(mm):
+                    t = np.asarray(mm.triangles); v = np.asarray(mm.vertices)
+                    e = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]])
+                    return np.linalg.norm(v[e[:, 0]] - v[e[:, 1]], axis=1)
+                # the reference is the fresh mesh's own long-edge tail (its 99th percentile), so the
+                # tracked mesh is allowed what a fresh reconstruction has and no more; the web of
+                # stretched triangles between two growing ears (g41 bunny frame 357) is 5-20x that
+                l0 = float(np.quantile(_edges(m), 0.99))
+                tri_t = np.asarray(trk[0].triangles)
+                e_t = np.concatenate([tri_t[:, [0, 1]], tri_t[:, [1, 2]], tri_t[:, [2, 0]]])
+                l_t = np.linalg.norm(V[e_t[:, 0]] - V[e_t[:, 1]], axis=1)
+                stretched = bool(np.quantile(l_t, 0.99) > a.track_stretch * l0)
+                tri_long = (l_t.reshape(3, -1) > a.track_stretch * l0).any(0)   # per triangle: any edge stretched
+            if topo != trk[2] or drift > a.track_tol or stretched or (a.track_every > 0 and k - trk[3] >= a.track_every):
+                fresh = copy.deepcopy(m)
+                if a.track_keep and topo == trk[2]:
+                    # a re-mesh that the particles did NOT ask for (drift / periodic): the fresh reconstruction
+                    # may lack a neck the tracked mesh still carries as a tube (2026-09-23, the wiped
+                    # connections of the g41 videos: at re-mesh frames the drawn area changed 3-9x more than
+                    # elsewhere). Keep the tracked triangles that have no fresh counterpart — all three
+                    # vertices farther than one spacing from the fresh surface — and let the pull merge
+                    # them back when the reconstruction regains the neck. A particle-confirmed topology
+                    # change still re-meshes honestly.
+                    tri = np.asarray(trk[0].triangles)
+                    keep = (vdist > spacing)[tri].all(1)
+                    if a.track_stretch > 0:
+                        keep &= ~tri_long                    # never keep a stretched (web) triangle
+                    n_orphan = int(keep.sum())
+                    if n_orphan > 0:
+                        om = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(V), o3d.utility.Vector3iVector(tri[keep]))
+                        om.remove_unreferenced_vertices()
+                        fresh += om
+                        fresh.compute_vertex_normals()
+                trk = (fresh, x64, topo, k); remeshed = 1
             else:
                 gate = (vdist <= spacing)[:, None]                          # no pull where the fresh surface is absent
                 tm = trk[0]
@@ -849,7 +916,8 @@ for k, i in enumerate(idx):
                 tm.compute_vertex_normals()
                 trk = (tm, x64, topo, trk[3])
         draw_m = trk[0]
-    qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav, jitter, drift, remeshed))
+    n_vert = int(len(draw_m.vertices)) if draw_m is not None else 0
+    qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav, jitter, drift, remeshed, n_vert, n_orphan))
     img = label(render_views(draw_m), f"{a.label}  frame {i}/{dn - 1}")
     o3d.io.write_image(os.path.join(tmp, f"f{k:05d}.png"), o3d.geometry.Image(np.ascontiguousarray(img)))
     if k % 25 == 0:
@@ -860,9 +928,9 @@ for h in range(a.hold):
 subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(a.fps), "-i", os.path.join(tmp, "f%05d.png"),
                 "-movflags", "faststart", "-pix_fmt", "yuv420p", "-vf", "pad=ceil(iw/2)*2:ceil(ih/2)*2", a.out], check=True)
 with open(a.out + ".components.txt", "w") as fh:
-    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped components_bridged_to_body interior_cavities refit_jitter_sp track_drift_sp remeshed\n")
-    for i, n_comp, n_iso, n_drop, n_bridge, n_cav, jit, drf, rm in qa:
-        fh.write(f"{i} {n_comp} {n_iso} {n_drop} {n_bridge} {n_cav} {jit:.4f} {drf:.4f} {rm}\n")
+    fh.write("archived_frame isosurface_components isolated_particles subcell_components_dropped components_bridged_to_body interior_cavities refit_jitter_sp track_drift_sp remeshed drawn_vertices orphan_triangles_kept\n")
+    for i, n_comp, n_iso, n_drop, n_bridge, n_cav, jit, drf, rm, nv, no in qa:
+        fh.write(f"{i} {n_comp} {n_iso} {n_drop} {n_bridge} {n_cav} {jit:.4f} {drf:.4f} {rm} {nv} {no}\n")
     comps = np.array([q[1] for q in qa]); isos = np.array([q[2] for q in qa]); drops = np.array([q[3] for q in qa])
     bridges = np.array([q[4] for q in qa]); cavs = np.array([q[5] for q in qa])
     jits = np.array([q[6] for q in qa], float); drfs = np.array([q[7] for q in qa], float); rms = np.array([q[8] for q in qa])
