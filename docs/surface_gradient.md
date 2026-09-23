@@ -1169,6 +1169,61 @@ global norm share of 0.38–0.42 comes from that concentration (a small gradient
 Followed alone it moves the layer 0.2–0.6 spacings per window and the interior 0.02–0.05 —
 through the physics, at the cell scale. The interior is the physics channel's (share 0.09–0.13).
 
+## 15. The mid-morph lumps and the coarse control basis (2026-09-22; pre-registered before the readings)
+
+**The complaint.** The user, on the g40 videos: the morph is lumpy half-way ("입자들이 오돌토돌 …
+morphing 중 울퉁불퉁"). The end frames are not (surface_gt mean 0.2–0.3 spacings, §14 / the g40
+report), so the defect is transient: the layer is rough while the material moves and smooth once it
+stops. Two candidate causes at two scales: (a) particle-scale texture — the layer relaxation
+(method.md §10.14) holds the 2-spacing scale at rest but the fast mid-morph transport outruns it;
+(b) cell-scale transport lumps — the per-particle control field dFc drives neighbouring particles
+apart at sub-cell scale and only the grid's P2G/G2P averages them (the same granularity that made
+the spray of 2026-09-15). The two call for different levers: (a) the relaxation schedule or the
+rendered mesh, (b) a control basis that cannot express sub-cell relative motion.
+
+**The measurement** (`scripts/probes/lump_trace.py`): per archived frame (stride 15), the outer
+layer by asymmetry and the plane-residual RMS (§4's roughness) at three neighbourhood scales —
+2 spacings (K 24; the relaxation's own scale), one MPM cell and two cells. Spacing convention here:
+the layer's (median 9-NN distance of the source sample, 0.135 wu at 40k); dx = bbox diag / 26
+= 0.308 wu = 2.28 of these (K 31), two cells 4.6 (K 125). (The ppc convention dx / 23^(1/3)
+= 0.108 wu is the mean pitch, 2.8 per cell; the numbers in this section are in layer spacings.)
+
+First pass on the g40 runs (two scales; the third is running):
+
+| run | mean over the morph 2 sp / cell | end 2 sp / cell | peak cell (frame) | peak / end |
+|---|---|---|---|---|
+| g40 bunny | 0.250 / 0.279 | 0.221 / 0.250 | 0.442 (30) | 1.8 |
+| g40 ogre | 0.270 / 0.302 | 0.200 / 0.237 | 0.569 (120) | 2.4 |
+| g40 cow | 0.307 / 0.314 | 0.221 / 0.252 | 0.616 (360) | 2.4 |
+
+Reading so far: mid-morph the layer is 1.8–2.4× rougher than at the end, and the 2-spacing and
+cell-scale residuals are within 10 % of each other — the two scales are too close (2.0 vs 2.28) to
+separate (a) from (b); the two-cell reading does that: if the peak at two cells exceeds the 2-spacing
+peak by ≥ 50 %, the bumps are larger than the particle texture (b); if the three are alike, the
+roughness is white down to the particle scale (a).
+
+**H15 (the physics lever).** The control basis at one-cell node spacing (`--control_grid 17`:
+ControlBasis h = side · 1.1 / 16 with the sphere's side 4.6 wu → 0.32 wu ≈ 1.03 dx) removes the
+sub-cell part of dFc; two cells (`--control_grid 9`, h = 0.64 wu = 2.06 dx) removes more but
+cannot place features under two cells (ears, horns, legs). Runs: `$OUT/cgrid.sh` — cg17 / cg9 on
+bunny, ogre, cow, the frozen recipe otherwise (GPU 0 / 2, 3 runs each, launched 18:55).
+
+**Predictions, written before any reading:**
+
+- P15.1 cg17: the peak cell-scale roughness drops by ≥ 25 % on all three (bunny < 0.33, ogre
+  < 0.43, cow < 0.46); the end 2-spacing roughness is unchanged within 0.03 (the relaxation sets it).
+- P15.2 cg17 end fidelity within the twin spread: IoU ≥ g40 − 0.01, surface_gt mean ≤ g40 + 0.05 sp,
+  D_vol level unchanged. Then cg17 ships as the mid-morph fix (a discretisation-derived basis, not a
+  tuned constant: node spacing = the cell).
+- P15.3 cg9: the peak drops further than cg17 but IoU falls by > 0.02 on at least one of the three
+  — the resolution cost of a basis coarser than the target's features.
+- P15.4 rendering influence: g_share under the basis at or above the per-particle value (the basis
+  averages the incoherent part of the physics pull more than the layer-coherent render pull):
+  expect 0.36–0.45 against 0.36–0.40 (§10).
+- Refutation of H15: the cg17 peak within 10 % of g40 on two of the three ⇒ the lumps are not the
+  control field's sub-cell part; then (a) holds and the lever is the relaxation's mid-morph strength
+  (derived from the transport speed per window) or the rendered mesh — not a coarser basis.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
