@@ -1380,6 +1380,41 @@ change: the physics path and its render share (g_share 0.36–0.38), D_vol, the 
 through dFc (§10), the end frame (within the spread). The 40k gallery is re-run under the new
 recipe as `g41` (19 targets, `$OUT/gallery41.sh`).
 
+### 15d. The g41 gallery under the gate, and the one early stop (nefertiti; pre-registered before the fix's reading, 21:35)
+
+**g41 (19 targets, RECIPE + the transport gate, 20:40–20:48).** End silIoU within ±0.3 points of g40
+on 18 targets (12 up, 6 down; chamfer better on 15), det F min 0.75–0.87. Mid-morph roughness
+(first 300 frames, mean at 2 spacings) lower on 18 of 19: −6 % (teapot) … −29 % (cow); ogre −28,
+homer −27, spot −25, cheburashka / nefertiti −22, armadillo / dragon −21. The exception is C
+(0 %): the hole-topology target runs the `ot` regime, and the gate lives in the `ot_pace` block —
+C's u is ungated (to be extended if C's videos need it; its transport map is discontinuous at the
+hole, so the pace's kNN-averaged residual is not available there).
+
+**nefertiti: silIoU 0.968 → 0.935, reproducible (re-run 0.936).** The run died at anim 16 of
+~90: at a17 the outer merit's catastrophe brake (`brake_reject = gain < −max(pace, 0.05)`)
+rejected three candidates in a row (gain −0.11 … −0.13) and the 3-streak rule stopped it. The
+telemetry: d_vol (the transport divergence) improved 9.8 % in that window, kin improved 7 %, and
+d_sil rose 25 % — the arriving front overshoots the outline. Under u off the same event happens
+(u0: d_sil +15 % / +9 % at a15–a17) but spreads over windows at −1 % merit each and the run goes
+on to 0.961 at anim 96; under g40 u (always on, in transit) held the outline (d_sil flat at
+0.006). A wider gate (two cells) fails the same way at a19–a22. Across both galleries the brake
+fired 11 times: 10 on C's terminal plateau (also latched, physics flat) and this one — the only
+brake with the physics improving.
+
+**The fix (commit below): the brake watches the physics.** The catastrophe brake was written for
+physics runaways (d_vol 62 → 215 with kin spikes, s1 / b4 forensics); it now reads the merit
+without the render component (`score_phys`, `phys_gain`), the latched low-gain rule and the
+reversal rule unchanged on the full merit. No new constant.
+
+Predictions: (i) nefertiti under the gate + the physics brake passes a17 (the candidate is
+accepted: physics gain +0.10), runs to a plateau of ≥ 80 windows and ends at silIoU ≥ 0.960
+(u0's 0.961 as the floor, g40's 0.968 as the ceiling) with the gate's roughness reduction kept
+(mean ≤ 0.28 over the first 300 frames against g40's 0.351); (ii) the other 18 g41 runs are
+unaffected in rule — none had a brake reject with the physics improving (C's terminal brakes are
+latched rejects as well) — so they are not re-run; (iii) rendering influence unchanged (the rule
+touches acceptance, not the gradient: g_share 0.36–0.38). Refutation: nefertiti still stops early
+or ends < 0.955 ⇒ the transient is not a render-only event and the gate itself must change.
+
 ## 5. Sources
 
 Triangle Splatting arXiv 2505.19175; Triangle Splatting+ 2509.25122; 2D Triangle
