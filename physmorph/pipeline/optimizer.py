@@ -250,6 +250,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         bond_rest = None
         bond_frag = None
     m_np = (tgt.m.detach().cpu().numpy().astype(np.float32) if torch.is_tensor(tgt.m) else 1.0)
+    _mref = int(getattr(cfg, "mass_ref_n", 0) or 0)
+    if _mref > 0 and int(len(x0)) != _mref:
+        # the dynamics mass of the discretisation (config.mass_ref_n): the body's mass is N-invariant,
+        # so a unit control moves the 300k body as it moves the 40k one; the loss-side tgt.m is untouched
+        m_np = np.asarray(m_np, np.float32) * np.float32(_mref / float(len(x0)))
     if isinstance(m_np, np.ndarray) and np.allclose(m_np, 1.0):
         m_np = 1.0                                    # unit masses: keep the scalar path
     layer = None

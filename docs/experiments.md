@@ -3861,3 +3861,22 @@ strain that gave 0.197); (iii) the GPU sections per window shorter (the leaf is 
 Adam, the expand, the gradient reduction); (iv) g_share 0.35–0.40. Refutation: windows > 150
 ⇒ the redundancy is not the cause and the 300k schedule needs the pace or the plateau rule
 re-derived for N.
+
+**The cause of the 300k window count (17:55), and the fix pre-registered.** The basis run
+`b300_bunny` tracks the per-particle run's transport-arrival curve window for window (17.7 →
+19 → 28 → 43 → 55 … 85 % at window 100, against 18 → 91 % by window 10 at 40k): the control
+parametrisation is not the cause (P(i) of the basis test refuted). The optimiser telemetry of
+the first windows says what is: the same control magnitude (|dFc| max 0.02, alpha 0.02, 8
+accepted iterations) moves the 300k body 3–6× less (`move` 0.004–0.037 wu against 0.027–0.081)
+with 10–100× less kinetic energy (kin 0.01–0.3 against 0.5–1.2). The dynamics use UNIT particle
+masses (`m = torch.ones(N)`, runner.build_target): the body's mass grows with N while the
+control force per cell (∝ the particle rest volume ∝ 1/N, summed) does not — the acceleration
+from a unit control scales as 1/N, the 300k body is 7.5× more sluggish, and the pace's windows
+multiply. Fix (config `mass_ref_n = 40000`, optimizer): the dynamics mass per particle is
+mass_ref_n / N — the body's mass, density, wave speed and control response are then the same at
+every N, 40k is the reference discretisation (scale 1, bit-identical), the loss-side masses
+stay unit (their normalisations are built on them). Run `c300_bunny` (the recipe, per-particle
+control, 300k, the mass fix). Predictions: windows 45–90; `move` and `kin` of the first windows
+within a factor 1.5 of the 40k values; end silIoU ≥ 0.955, chamfer ≤ 0.065; det F min 0.5–0.8
+(the 40k regime; the sluggish run's 0.20 came from strain accumulating over 212 windows). Wall
+under the same load ≤ 25 min. Refutation: windows > 150 or a first-window `move` < 0.01.
