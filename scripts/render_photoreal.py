@@ -73,6 +73,10 @@ ap.add_argument("--smooth", type=int, default=12, help="Taubin smoothing iterati
 ap.add_argument("--fov", type=float, default=30.0, help="vertical field of view (degrees)")
 ap.add_argument("--fill", type=float, default=0.78, help="fraction of the frame height the box spans")
 ap.add_argument("--color", default="0.86,0.80,0.72", help="base colour (linear RGB)")
+ap.add_argument("--plain", action="store_true",
+                help="the mesh as it is: flat-shaded triangles (face normals, no smoothing), matte grey, no photoreal "
+                     "material — the triangulation reads directly (2026-09-23)")
+ap.add_argument("--wire", action="store_true", help="with --plain: draw the triangle edges as lines")
 ap.add_argument("--rough", type=float, default=0.32)
 ap.add_argument("--metal", type=float, default=0.0)
 ap.add_argument("--ground", type=int, default=1, help="shadow-catching ground plane")
@@ -814,6 +818,16 @@ gmat = o3d.visualization.rendering.MaterialRecord()
 gmat.shader = "defaultLit"
 gmat.base_color = [0.97, 0.97, 0.965, 1.0]
 gmat.base_roughness = 0.9
+plain_mat = o3d.visualization.rendering.MaterialRecord()     # --plain: matte, no reflectance, facets only
+plain_mat.shader = "defaultLit"
+plain_mat.base_color = [0.72, 0.72, 0.70, 1.0]
+plain_mat.base_roughness = 1.0
+plain_mat.base_metallic = 0.0
+plain_mat.base_reflectance = 0.0
+wire_mat = o3d.visualization.rendering.MaterialRecord()
+wire_mat.shader = "unlitLine"
+wire_mat.line_width = 1.0
+wire_mat.base_color = [0.12, 0.12, 0.14, 1.0]
 floor_y = float(min(tgt_np[:, 1].min(), frames_np[:dn:max(1, dn // 40)][..., 1].min())) - 0.02 * half
 if a.ground:
     ground = o3d.geometry.TriangleMesh.create_box(40 * half, 0.02 * half, 40 * half)
@@ -829,10 +843,29 @@ c = ctr.cpu().numpy()
 dist = half / (a.fill * math.tan(math.radians(a.fov) / 2.0))
 
 
+def _plain_mesh(m):
+    """The mesh as it is: every triangle with its own three vertices and its face normal (flat shading —
+    the triangulation reads directly, no vertex-normal smoothing), and optionally the edges as lines."""
+    V = np.asarray(m.vertices); F = np.asarray(m.triangles)
+    soup = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(V[F].reshape(-1, 3)),
+                                     o3d.utility.Vector3iVector(np.arange(3 * len(F)).reshape(-1, 3)))
+    soup.compute_triangle_normals()
+    tn = np.asarray(soup.triangle_normals)
+    soup.vertex_normals = o3d.utility.Vector3dVector(np.repeat(tn, 3, axis=0))
+    wire = o3d.geometry.LineSet.create_from_triangle_mesh(m) if a.wire else None
+    return soup, wire
+
+
 def render_views(m):
     imgs = []
     if m is not None:
-        scene.add_geometry("body", m, mat)
+        if a.plain:
+            soup, wire = _plain_mesh(m)
+            scene.add_geometry("body", soup, plain_mat)
+            if wire is not None:
+                scene.add_geometry("wire", wire, wire_mat)
+        else:
+            scene.add_geometry("body", m, mat)
     for az in views:
         el = math.radians(a.elev); az_r = math.radians(az)
         eye = c + dist * np.array([math.cos(el) * math.sin(az_r), math.sin(el), math.cos(el) * math.cos(az_r)])
@@ -840,6 +873,8 @@ def render_views(m):
         imgs.append(np.asarray(rend.render_to_image()))
     if m is not None:
         scene.remove_geometry("body")
+        if a.plain and a.wire and scene.has_geometry("wire"):
+            scene.remove_geometry("wire")
     return np.concatenate(imgs, axis=1)
 
 
