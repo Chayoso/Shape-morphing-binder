@@ -22,6 +22,8 @@ full-plan projection) are kept for tests and small clouds.
 """
 from __future__ import annotations
 
+import os
+
 import torch
 
 
@@ -353,10 +355,23 @@ class SinkhornPull:
         gen = torch.Generator(device="cpu").manual_seed(seed)
         idx = torch.randperm(N, generator=gen)[:n_sub].to(x.device)
         xs = x[idx].detach()
-        ab = SinkhornPull(self.y, eps=self.eps, iters=self.iters, tol=self.tol)
-        ab.f_cold = True
+        # 2026-09-23: the two solves are WARM across calls (the subsample is the same fixed draw every
+        # call, and the cloud moves less than a spacing per window): the same fixed point to the same
+        # tolerance, through the warm anneal levels instead of the full cold ladder. Measured at 150k:
+        # the cold pair was 0.9 s of a 6 s window. PHYSMORPH_OTDIV_COLD=1 restores the cold solves.
+        cold = os.environ.get("PHYSMORPH_OTDIV_COLD", "") == "1"
+        ab = getattr(self, "_div_ab", None)
+        if cold or ab is None:
+            ab = SinkhornPull(self.y, eps=self.eps, iters=self.iters, tol=self.tol)
+            ab.f_cold = True
+            self._div_ab = ab
         v_ab = float(ab(xs))
-        aa = SinkhornPull(xs, eps=self.eps, iters=self.iters, tol=self.tol)
+        aa = getattr(self, "_div_aa", None)
+        if cold or aa is None or aa.M != xs.shape[0]:
+            aa = SinkhornPull(xs, eps=self.eps, iters=self.iters, tol=self.tol)
+            self._div_aa = aa
+        else:
+            aa.y = xs
         v_aa = float(aa(xs))
         return v_ab - 0.5 * v_aa
 
