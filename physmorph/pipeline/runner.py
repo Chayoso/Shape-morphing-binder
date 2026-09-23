@@ -32,7 +32,8 @@ from .surface_local import surface_local_pass
 
 
 def _id(N):
-    return np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
+    from ..mpm.traj import _id as _traj_id      # the cached identity (2026-09-23 speed pass)
+    return _traj_id(N)
 
 
 def _surface_weights(x: np.ndarray, k: int, fraction: float, floor: float) -> np.ndarray:
@@ -572,9 +573,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         st = {"F": Fc, "v": v_p, "C": C_p, "Fg": Fg_p}
         # whole-window F health, not just the endpoint (an inversion mid-window that
         # recovers by T would otherwise be invisible)
-        from ..mpm.conditioning import batched_det
-        dets = batched_det(np.stack(F_seq[1:]))        # one batched det over the window
-        n_inv = int((dets <= 0.0).any(0).sum())
+        if end.get("n_inv_steps") is not None:
+            n_inv = int(end["n_inv_steps"])            # counted on the device (2026-09-23 speed pass)
+        else:
+            from ..mpm.conditioning import batched_det
+            dets = batched_det(np.stack(F_seq[1:]))    # one batched det over the window
+            n_inv = int((dets <= 0.0).any(0).sum())
         guards["clamped"] += n_out; guards["nan_x"] += n_nan; guards["nan_state"] += n_ns
         guards["F_reset"] += n_bad; guards["F_flip"] += n_flip
         guards["F_invert_steps"] += n_inv

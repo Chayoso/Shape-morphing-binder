@@ -1569,11 +1569,23 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
                 "discarding window (replay/accepted-candidate mismatch)")
             hist, accepted = [], 0
-        frames = [tr.x[t].numpy().copy() for t in range(T + 1)]
-        F_seq = [tr.F[t].numpy().copy() for t in range(T + 1)]
-        end = {"F": tr.F[T].numpy().copy(), "v": tr.v[T].numpy().copy(),
-               "C": tr.C[T].numpy().copy(),
-               "Fg": tr.Fg[T].numpy().copy() if use_geom else None}
+        # 2026-09-23 (speed): wp.array.numpy() already returns a fresh host copy — the extra
+        # .copy() doubled 300 MB of traffic a window; and the whole-window F health (any step
+        # with det F <= 0, per particle) is counted on the device instead of stacking T x N
+        # matrices on the host for a numpy determinant (4 s a window at 300k)
+        frames = [tr.x[t].numpy() for t in range(T + 1)]
+        F_seq = [tr.F[t].numpy() for t in range(T + 1)]
+        with torch.no_grad():
+            inv_any = None
+            for t in range(1, T + 1):
+                Ft = wp.to_torch(tr.F[t]).reshape(-1, 3, 3).float()
+                bad = torch.linalg.det(Ft) <= 0.0            # NaN rows compare False, as the numpy path did
+                inv_any = bad if inv_any is None else (inv_any | bad)
+            n_inv_steps = int(inv_any.sum().item()) if inv_any is not None else 0
+        end = {"F": tr.F[T].numpy(), "v": tr.v[T].numpy(),
+               "C": tr.C[T].numpy(),
+               "Fg": tr.Fg[T].numpy() if use_geom else None,
+               "n_inv_steps": n_inv_steps}
         _tm_add("final", t0)
         if cfg.grad_dump and grad_dump_state.get("gx_phys") is not None:
             # linear-response rollouts: each channel's control gradient alone, scaled to the

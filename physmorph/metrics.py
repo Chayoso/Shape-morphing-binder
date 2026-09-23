@@ -152,6 +152,9 @@ def tgt_nn_metrics(x, tgt, k_med: float = 2.0) -> dict:
             "out_nn_max": float(d.max())}
 
 
+_DT_CACHE: dict = {}   # the target's distance transform, by content (out_dt_frac; 2026-09-23 speed pass)
+
+
 def out_dt_frac(x, tgt, res: int = 160, cells: float = 2.0) -> float:
     """DIAGNOSTIC ONLY (kept for continuity with the fringe-tranche logs): fraction of
     particles farther than `cells` fine-DT cells from dilated target support. Opus
@@ -159,14 +162,22 @@ def out_dt_frac(x, tgt, res: int = 160, cells: float = 2.0) -> float:
     lookup) — blind to the 0.07-0.15 wu halo; it also reuses the loss's CIC/EDT
     operators, breaking metric independence. The honest endpoint metric is
     tgt_nn_metrics. stray_frac is SELF-referential (body-kNN, no target term)."""
+    import hashlib
     import torch
     from .losses.volumetric import target_dt_grid, target_mass_grid
-    t = torch.tensor(np.ascontiguousarray(tgt, np.float32))
+    tgt = np.ascontiguousarray(tgt, np.float32)
     extent = float(np.abs(tgt).max()) * 1.25
     dx = 3.0 * extent / res
     gmin = torch.tensor([-1.5 * extent] * 3)
-    dt3 = target_dt_grid(target_mass_grid(t, torch.ones(len(t)), gmin, dx, (res,) * 3),
-                         dx, (res,) * 3, clamp=2 * extent).reshape(res, res, res)
+    # 2026-09-23 (speed): the target's distance transform (a scipy EDT on res^3) was rebuilt on
+    # every call — 3 s a window at res 160 — for a target that never changes; cached by content
+    key = (tgt.shape, int(res), hashlib.sha1(tgt.tobytes()).hexdigest())
+    dt3 = _DT_CACHE.get(key)
+    if dt3 is None:
+        t = torch.tensor(tgt)
+        dt3 = target_dt_grid(target_mass_grid(t, torch.ones(len(t)), gmin, dx, (res,) * 3),
+                             dx, (res,) * 3, clamp=2 * extent).reshape(res, res, res)
+        _DT_CACHE.clear(); _DT_CACHE[key] = dt3
     idx = ((torch.tensor(np.ascontiguousarray(x, np.float32)) - gmin) / dx
            ).long().clamp(0, res - 1)
     v = dt3[idx[:, 0], idx[:, 1], idx[:, 2]].numpy()
