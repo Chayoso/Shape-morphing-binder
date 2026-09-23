@@ -465,6 +465,10 @@ class PipelineConfig:
                                     #   u may act only where the target's outer layer is within layer_gate_geom_cells
                                     #   MPM cells of the particle at the window start (the sub-grid residual)
     layer_gate_geom_cells: float = 1.0  #   the radius in MPM cells (dx = the grid's resolution, not a tuned length)
+    layer_gate_ot: bool = False     # the transport gate (docs/surface_gradient.md 15c; optimizer, the OT pace block):
+                                    #   u may act only where the particle's remaining transport to its OT image
+                                    #   is within layer_gate_ot_cells MPM cells at the window start
+    layer_gate_ot_cells: float = 1.0  #   the radius in MPM cells
     layer_u_render_only: bool = False  # P1 (docs/surface_gradient.md 13): the u leaf receives the render channel's
                                     #   gradient only (lambda x g_render); the physics gradient through u is dropped
     grad_dump: str = ""             # directory: per window, dump the terminal covectors of each
