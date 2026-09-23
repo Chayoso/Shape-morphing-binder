@@ -771,3 +771,20 @@ Refuted alternatives, all pre-registered (surface_gradient.md §15): the coarse 
 (one and two cells), the u-step projection (§7's `--layer_ctrl_smooth`, −5 … −13 %), the
 geometric gate on the distance to the target's nearest surface (−1 … −3 %: a surface point is
 within a cell of the target long before the material under it has arrived — the wrong residual).
+
+**Addendum (2026-09-22 22:00; code: pipeline/runner.py, the outer-merit block; evidence
+surface_gradient.md §15d–15f).** The gate's first gallery (g41) ran 18 of 19 targets as predicted
+(mid-morph roughness −6 … −29 %, end silIoU within ±0.3 points) and stopped nefertiti at anim 16
+(0.935): its arriving front spills outside the outline for a few windows (the stray-cleanup term
+d_dt +65 % in one window, 455 → 954 over five) while the transport divergence keeps falling, and
+the outer merit's catastrophe brake — a full-merit regression beyond one pace budget, written for
+runaways of the descended objective — rejected the candidate three times; the annealed replays
+meet the same state, because the trajectory has to pass through it. Under the old recipe the
+in-transit u pulled the front back every window and hid the spill; under u off the spill is
+accepted at −1 % a window and the run recovers. The brake now reads the primary objective alone
+(the scaled transport divergence, or the cell sum for density recipes); the latched low-gain rule
+and the reversal rule keep the full merit. Nefertiti under the gate: 0.9676 (old recipe 0.9683),
+90 windows, roughness −25 %. Refuted on the way, pre-registered: the brake on every physics
+component (d_dt still trips it) and a gate on the normal component of the remaining transport
+(admits half the layer in the expansion phase — no gate). The gate does not act in the `ot`
+(hole-topology) regime, where the pace's kNN-averaged residual is not formed; C runs ungated.
