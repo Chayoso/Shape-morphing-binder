@@ -3746,7 +3746,7 @@ scale. Pre-registered H15 (the control field's sub-cell part; `--control_grid 17
 the peaks unchanged within 10 %, end detail worse, g_share 0.35. The render × u factorial's
 traces named the cause: u on = +30–50 % morph-mean roughness on all three twins, the render
 channel without u within the spread. Levers, pre-registered and run on bunny / bob / dragon
-(each 10 min at 40k): u off (`u0`, −22 … −30 %, end silIoU −0.3 … −0.6, end surface worse);
+(each 10 min at 40k): u off (`u0`, −22 … −30 %, end silIoU −0.3 … −0.6, end surface like for like unchanged);
 the step projection (`sm`, −5 … −13 %, insufficient); the geometric gate on the nearest target
 surface (`ug` / `ugh`, commit 01b1fb4; −1 … −7 %, refuted — the wrong residual); the transport
 gate on the remaining OT transport within one cell (`uo`, commit c9540c4; −16 … −21 %, peaks
