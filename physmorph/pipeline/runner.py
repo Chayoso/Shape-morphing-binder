@@ -414,6 +414,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
     rev_prev_neg_acc = False             # config.outer_latch_reversal: the same reading, kept at every accepted commit
+    rev_prev_neg_arr = False             # config.ctrl_rprop_hold_onset: the reversal on the arrived particles, previous commit
     outer_latched_rev = False            # config.outer_latch_reversal: the gate armed at the alternation's onset (kept)
     # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
     # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
@@ -938,6 +939,17 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # a reversal by the gate's own definition (cos below outer_reversal_cos): r300 armed on two
         # near-zero cosines (−0.08, −0.01) twelve windows before l300's alternation and stopped short
         rev_neg_now = reversal_cos is not None and float(reversal_cos) < float(cfg.outer_reversal_cos)
+        # the reversal read on the ARRIVED particles only (the paced target's mask; the whole body when
+        # fewer than half have arrived): the global cosine reverses transiently on long curved transports
+        # (nefertiti, C in g41x) and a global hold engaged there cannot finish the transport
+        reversal_cos_arr = reversal_cos
+        _am = stats.get("arrived_mask")
+        if prev_disp is not None and _am is not None and len(_am) * 3 == len(disp) and float(np.mean(_am)) >= 0.5:
+            _m3 = np.repeat(np.asarray(_am, bool), 3)
+            _da, _pa = disp[_m3], prev_disp[_m3]
+            reversal_cos_arr = float(np.dot(_da, _pa) / max(np.linalg.norm(_da) * np.linalg.norm(_pa), 1e-12))
+        rec["reversal_cos_arrived"] = reversal_cos_arr
+        rev_neg_now_arr = reversal_cos_arr is not None and float(reversal_cos_arr) < float(cfg.outer_reversal_cos)
 
         # λ-free plateau tracks, evaluated BEFORE the outer gate: "no track improved"
         # is this pipeline's validated definition of near-stationarity (driver #4 —
@@ -1019,11 +1031,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # config.ctrl_rprop_hold_onset: the global step's hold (ctrl_rprop_hold) engages only from the
                 # alternation's onset — the transport keeps the growing step (g41u: a hold from the start
                 # ended C / beast / nefertiti / V early), the tail gets the held one
-                if (getattr(cfg, "ctrl_rprop_hold_onset", False) and rev_neg_now and rev_prev_neg_acc
+                if (getattr(cfg, "ctrl_rprop_hold_onset", False) and rev_neg_now_arr and rev_prev_neg_arr
                         and not getattr(cfg, "ctrl_rprop_hold", False)):
                     cfg.ctrl_rprop_hold = True
-                    log(f"[v2] anim {a + 1}: the global step held from here on (two accepted commits reversing in a row, "
-                        f"cos {float(reversal_cos):.2f})")
+                    log(f"[v2] anim {a + 1}: the global step held from here on (two accepted commits reversing in a row "
+                        f"on the arrived particles, cos {float(reversal_cos_arr):.2f})")
                 if (getattr(cfg, "outer_latch_reversal", False) and rev_neg_now and rev_prev_neg_acc
                         and not outer_latched_rev):
                     outer_latched_rev = True
@@ -1130,10 +1142,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             outer_prev = score
             outer_prev_phys = score_phys
             prev_disp = disp.copy()
-            rev_prev_neg_acc = rev_neg_now
+            rev_prev_neg_acc = rev_neg_now; rev_prev_neg_arr = rev_neg_now_arr
         else:
             prev_disp = disp.copy()
-            rev_prev_neg_acc = rev_neg_now
+            rev_prev_neg_acc = rev_neg_now; rev_prev_neg_arr = rev_neg_now_arr
         rec["frame_end"] = len(frames)          # archive index after this commit
         if dress is not None:
             # Tier D post-gate solve (design §4.3): runs only on ACCEPTED commits,
