@@ -4378,3 +4378,17 @@ it; that variant (pca / F-anisotropic / isotropic, all at the reference spacing 
 frame) is rendered next. Prediction for it: the anisotropic level set's bump ≤ the isotropic level
 set's by ≥ 0.2°, tips intact; if the isotropic level set is itself ≥ the Poisson 1.3°, the
 Poisson path stays the deliverable.
+
+**Readings of `k300_bunny` (the g300 recipe + `--cell_diag 36` = dx 0.218, grid 49³; 01:00).** 96
+windows, 2003 s = 33 min (the stale rule; 30 s a window on the 2.7× grid), re-attachments 0,
+fragments 0, off-body 9 singletons (P40 no fracture — holds), det F 0.784, tip **37.3** reference
+particles (8-NN 0.84; over-packed 1.7× like h300; P41 holds), silIoU **0.9736** (P42 ≥ 0.975 —
+refuted by 0.0014; chamfer 0.0552, the best), mid-morph roughness at 2 native spacings 0.17–0.23
+(g300 0.21–0.32; P44 holds), the tail's net/summed 0.5–0.9 (no cycle). The finer cell does not
+fracture the bunny under the mass contract + the reference constants + shifting: the "26 is the
+finest fracture-free cell" rule was a statement about the old contract on the dragon. The shift's
+cell-sum change reads −4.2 % a commit on the 49³ grid (−0.4 % on 36³ at 20k): with smaller cells
+the sub-cell arrangement is not below the loss any more, as the audit warned. Not adopted: the
+fit is not better than g300's (0.9736 / 0.0552 against 0.975 / 0.0556), the cost is 2× the wall
+and the tip is over-packed; kept as evidence that the grid can be refined when the ear-scale
+features demand it.
