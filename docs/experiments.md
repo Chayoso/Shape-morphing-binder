@@ -5480,3 +5480,27 @@ twins (g41f / aj300: control zeroed, velocity zeroed, stretch assimilated for th
 isolate: either the persisting warm-started control replaying each window, or the rollout's own
 response to a stationary state (the relaxation projection at 1/T per step, the shifting, the
 grid's cell-crossing noise) transmitted from unfrozen neighbours.
+
+**2026-09-24 18:55 — g41f (40k + freeze at arrival).** 24 delivered windows (the plateau rule
+ended it at ~30), 3.6 min. **P147 ✓** frozen 28 % at window 15, 66 % at 20, 81 % at 30; the
+bulk's reversal never negative, the layer's low-band correlation **+0.39** (a drift, no
+alternation), flips **0.34**; det F 0.788 ✓; bump 1.08° (smoother). **P150 ✗** silIoU **0.9561**
+(g41 0.961, g41h 0.963): the lock closes on particles before the fit is finished — the freeze
+costs 0.005 of fit at 40k. **P149 ✗** the video tail 0.0015 (stride 12), the stride-19 alternating
+component 0.0017 (g41 0.0014). *The decisive number:* the body's median per-window motion with
+80 % of its particles frozen — control zeroed, velocity zeroed, stretch assimilated — is still
+**0.0016 wu** (g41 0.0023–0.0041, g41h 0.0021–0.0031): the residual per-window motion of a
+settled body is **not the control's and not the optimiser's**; it is the rollout's own — the
+grid carries the unfrozen 20 % (the ear, the last arrivals) into the frozen material every
+window, the layer relaxation follows the moved neighbourhood, and the deliverable frames ARE
+those simulated steps. At 40k that is 1 % of a spacing a window and the per-frame Poisson refit
+turns it into the shading change the eye reads as flicker (M1/M2 at 300k: 10 % of a spacing,
+the surface following it 1:1).
+*Consequence for the two defects' fix:* the optimiser side is done as far as it goes — the
+per-particle rule (held step, arrival-gated, smoothed) removes the ALTERNATION at both N without
+the fit or det F cost (g41h; ai300 pending at 300k); the freeze removes it faster at a fit cost
+and does not remove the residual motion — not adopted. The residual per-window motion is a
+property of delivering simulated frames; the deliverable side must not re-fit the surface from
+scratch against a sub-resolution jitter: the tracked surface advected by the GRID velocity and
+projected onto the refit only beyond half a spacing (the survey's item 3; Yu 2012 / Dagenais
+2017 / Bojsen-Hansen 2013) is the pre-registered next step (`--track` with a band = ½ spacing).
