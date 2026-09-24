@@ -4003,3 +4003,23 @@ cell amplitude. d300 stops before the alternation sets in (corr +0.35 at window 
 51–52 with reversal cos 0.23 / 0.31). The transport subsample is fixed for the run
 (`entropic_map` keeps `_sub_idx`), so the alternation is not subsample noise: it is the outer
 loop over-correcting a residual the grid cannot resolve and the next window undoing it.
+
+**Next experiments after the digest (docs/related_work.md 2026-09-23 night), pre-registered.**
+E1 `e300_bunny` — the recipe (native constants, the mass contract) + the cell-scale control basis
+(`--control_grid 17`, one-cell node spacing, the setting of the 40k H15 test and of b300): the
+control loses its sub-cell DOF (884k against 2.7M for per-particle dFc) so it cannot chase
+sub-cell residuals — the digest's (a) in our code. b300's verdict (det F 0.005) was taken with
+unit masses (the body 7.5× sluggish, 234 windows) and is re-read here. P10 det F min ≥ 0.4
+(c300 0.478). P11 windows ≤ 120, wall ≤ 30 min (c300 176 / 44). P12 end silIoU ≥ 0.960, chamfer
+≤ 0.065. P13 the tail's window-to-window displacement correlation (osc_probe, last 30 windows,
+median) > −0.3 (c300 −0.3 … −0.7). P14 mid-morph roughness (lump_trace rms 2 sp, frames
+300–825) within c300's 0.20–0.29 and the end native bump ≤ 1.9°; off-body particles at the end
+≤ 37. P15 tip mass ≥ 5.9 reference particles (no worse than c300). Refutation: det F < 0.2 or
+silIoU < 0.955 → the basis is not a 300k discretisation; P13 failing with the rest holding → the
+reversal is not the control's sub-cell DOF but the outer loop itself.
+E2 (to implement, opt-in) — Fickian particle shifting at the window commit, the digest's (b):
+Δx_p = −½ h² ∇C_p with ∇C_p = Σ_j (m_j/ρ_j) ∇W(x_p − x_j; h) over the kNN, h = 2 native spacings
+(the quadrature's own neighbourhood, the width of the layer relaxation), λ = ½ the explicit-
+diffusion stability limit (Lind 2012 / Skillen 2013), the outer layer shifted in its tangent
+plane only (the free-surface rule), positions only (F, C, v untouched; the shift ≪ a spacing).
+Predictions to be written with the run.

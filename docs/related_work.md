@@ -122,3 +122,65 @@ Read for `docs/thin_feature_transport.md`. Items marked * were verified from abs
 ## Surface from particles and the triangle-splatting line (2026-09-19)
 
 See `docs/surface_gradient.md`: what the render channel resolves, why it does not flatten the surface, five mechanisms to give it that role, and a table of how SuGaR, 2DGS, Gaussian Surfels, Triangle Splatting (+, 2D) and 3D Gaussian Triangulation obtain their surfaces (regularisers with formulas, meshing, manifoldness, reported geometry).
+
+## Smooth deformation DOF, particle shifting and resampling, oscillation damping (read 2026-09-23 night)
+
+Read for the sub-cell question of docs/method.md §10.17a (the pair c300 / d300: the method has no
+term that orders the quadrature below the cell; the outer loop reverses window to window while it
+chases sub-cell residuals). Six papers, digest by the research agent (extracted texts in the
+session scratchpad); Lind 2012 itself is paywalled and is taken from the authors' 2020 review.
+
+- **Eisenberger, Lähner, Cremers — divergence-free shape interpolation (SGP 2019, arXiv
+  1806.10417).** The deformation is a stationary Eulerian velocity v = ∇×Φ with Φ in the first
+  K = 3000 Dirichlet-Laplacian eigenfunctions of the box (a sine basis, eq. 9–12); volume is
+  preserved exactly (eq. 6) and high modes are damped a priori by a Karhunen–Loève prior
+  λ_k = (π² Σ_d j_d²)^(−D/2) (eq. 13). Particles follow ẋ = v(x) by RK2 in T = 20 steps. Loss:
+  soft correspondences (EM) + Huber, one Gauss-Newton / LM step per EM round; r₀ = 0.01, σ² = 0.01
+  stated, not derived. Smoothness is by construction: there is no per-particle DOF.
+- **Eisenberger, Cremers — Hamiltonian dynamics for shape interpolation (ECCV 2020).** The same
+  basis with time-varying coefficients (K ≈ 1000); H = ½‖v‖² + W(p), W an anisotropic ARAP with
+  learned per-vertex metrics (eq. 9); a variational implicit Euler with the divergence-free
+  constraint (eq. 10–11), velocity extrapolation v̄ = 2v^{t+1} − v^t (Thm 5.1: O(τ²)); an outer
+  shooting problem on the initial coefficients. No dissipation, nothing on oscillation. Repo:
+  T = 16, 100 Adam iterations, lr 0.02.
+- **Smooth Shells (CVPR 2020).** X′ = X + Φ_K α in the first K Laplace–Beltrami eigenfunctions
+  (eq. 4) + ARAP; a shell operator with sigmoid weights (eq. 8) and Thm 1: the change between
+  consecutive scales is bounded independently of K; K log-spaced 6 → 500 over 50 iterations,
+  each warm-started. λ_feat, λ_arap, σ tuned ("the same set for all experiments").
+- **NeuroMorph (CVPR 2021).** Per-vertex displacements from an EdgeConv net — no basis, no
+  null-space removal; smoothness only through losses (ARAP between consecutive frames, geodesic
+  preservation); T grown on a log scale (1 → 3 → 7) for "faster and more robust convergence";
+  hyperparameters on a validation set.
+- **Lind, Xu, Stansby, Rogers 2012 (JCP), via Lind, Rogers, Stansby 2020 (Proc. R. Soc. A §10).**
+  Particle shifting: the disorder measure ∇C_i = Σ_j m_j ∇_i W_ij / ρ_j (10.1), the Fickian shift
+  Δx_s = −D Δt ∇C_i (10.2) with D = λ h² / Δt, λ < 0.5 the explicit-diffusion stability limit
+  (10.3–10.4) — the one constant is derived from the discretisation; masses are untouched, only
+  positions move; the velocity correction is "often not necessary as the shifting distance was
+  very small compared with the particle spacing"; shifting is restricted near the free surface.
+  The velocity-scaled variant D = A h |u| Δt (A ∈ [1, 6], default 2; Skillen 2013) is tuned.
+- **Yue et al. 2015 (continuum foam) §6; Gao et al. 2017 (adaptive GIMP) §7.2 — MPM resampling.**
+  Yue: particles as spheres of radius h/2; Poisson-disk insertion where the SDF is below −2.2 r
+  (empirical) outside spheres of radius ρ r with ρ = √3/2 + 1/100 chosen so an intact 8-ppc lattice
+  triggers nothing; the new particle takes 1/(N+1) of each neighbour's mass and volume (exactly
+  conserving); v, F by mass-weighted interpolation, F rescaled to the interpolated J; merge when a
+  neighbour is closer than 0.03 r; every 50 steps. Gao: split into 4/8 children on a rotated cube
+  of half-diagonal dx/4 (mass, volume divided; v, F copied), merge at the centroid (F by SVD
+  averaging), gated by tuned distances to the surface and by per-cell counts.
+
+What this settles for §10.17a:
+(a) The only construction that removes the sub-cell null space of the control is a band-limited
+    field for the control (the Eisenberger line: K Fourier / Laplace–Beltrami modes, high modes
+    damped a priori, volume by curl). Our equivalent is the cell-scale control basis
+    (`--control_grid`, method.md 10.x), whose 300k verdict (det F 0.005, run b300) was taken with
+    the unit-mass bug and must be re-read with the mass contract. NeuroMorph's per-vertex DOF +
+    losses is our current situation.
+(b) The discretisation-derived, mass-preserving repair of sub-cell disorder is Fickian shifting
+    with λ = ½ h² (the stability limit): positions only, one explicit diffusion step of the
+    particle concentration per window, restricted to the tangent plane on the outer layer (the
+    free-surface rule). Resampling (Yue, Gao) conserves mass exactly but carries empirical
+    thresholds and breaks particle identity (our F conditioning and control are per particle).
+(c) None of these optimises window by window; the shooting formulations damp by implicit
+    variational integration, O(τ²) extrapolation, LM damping and warm starts across scales
+    (Smooth Shells' bounded inter-scale change). Their lesson for our outer loop: the residual
+    the control cannot resolve must not be in the objective it descends — (a) removes the DOF
+    that chase it; the window-to-window reversal is the symptom.
