@@ -197,3 +197,22 @@ it. With M1 (normal-only twin = full change) and M2 (surface normal velocity = l
 the residual is a genuine normal motion of the settled surface carried by the particles
 (~0.001 wu a window at 300k). Physics side: the pin (§10, g41p/ap300 running). Deliverable
 side: only averaging (0.0009–0.0010), cosmetic.
+
+## 12. Addendum (01:00) — g41p: the pin passes every pre-registration at 40k
+| reading (40k bunny) | g41 | g41h (H) | **g41p (H + pin)** |
+|---|---|---|---|
+| reversal windows | many | 1 of 36 | **0 of 49** |
+| layer flips / step / low-band corr. | 0.74 / 0.021 sp / −0.5…−0.7 | 0.47 / 0.019 sp / −0.18 | 0.30 / **0.0093 sp** / +0.17 |
+| settled body's motion (frames, pin_probe) | 0.002–0.004 wu a window | 0.0016 wu (g41f freeze) | **0 of 28 119 pinned particles ever moved again** |
+| pinned fraction at window 20 / 30 / 49 | — | — | 0.34 / 0.54 / 0.70 |
+| silIoU / det F / strays | 0.9610 / 0.77 / — | 0.964 / 0.78 / — | **0.9679** / 0.74 / 0.02 % |
+| video tail stride 12 / stride-19 ALT | 0.0013 / 0.0014 | 0.0013 / 0.0014 | **0.0003** / **0.0005** |
+| ear tip / bump / components | — | — | 17 of 18 / 1.18° / 1 |
+
+P181–P184 ✓. The fit gains rather than pays (a pinned particle no longer trades its own
+error against its neighbours'); the residual 0.0003 is the fit of the still-moving 30 % and
+the codec. A defect the pin's own reading exposed: the optimiser's no-grad evaluation
+trajectory (the commit rollout) took no eta/pin — fixed; g41v (viscosity) withdrawn.
+Adoption gates running: g41z (the same form on all 19 targets, P185), g41q (the pin without
+the global hold on C and the bunny, P186 — if C recovers, the hold is unnecessary and the
+recipe is simpler), ap300 (300k, P181–P184). g41z_bunny reproduces g41p (0.9674, det F 0.75).
