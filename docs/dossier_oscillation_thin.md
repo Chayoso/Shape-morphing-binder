@@ -144,3 +144,24 @@ freeze as the fit-costing extreme). At 300k, ai300 (l300 + H): α held at 0.0010
 step 0.00077 wu, flips 0.50, low-band +0.11, det F 0.70, video tail **0.0011** (below the 40k
 value), silIoU 0.9766, bump 1.15°. The KDE-ear combo with H (al300) is the deliverable
 candidate; the visible residual is the tracked-surface question (P151–P153).
+
+## 9. Addendum (22:25) — the generalisation of H, and what the deliverable side can add
+| gallery sweep (19 targets, 40k) | fit vs g41 | det F vs g41 | flips/step improved | failed |
+|---|---|---|---|---|
+| g41s smoothed Rprop | 17 up, C −0.011 | homer −0.06 | 15 / 13 | C (a transport direction change read as overshoot), homer |
+| g41t + arrival gate | all within −0.003, C **+0.049** (its stall ends) | C 0.53, beast 0.49 | 16 / 18 | the arrived/in-transit boundary shears |
+| g41u + held step | C −0.010, beast −0.006, nefertiti −0.006, V −0.004 | all within −0.06 | 16 / 16 | a held step ends slow transports early |
+| g41x + hold from the onset | 17 ok; C −0.010, **nefertiti −0.041** (29 of 90 windows) | all within −0.025 | 11 | the global onset misfires on long curved transports |
+| g41y + the onset read on arrived particles | running | | | |
+
+The per-particle halving needed the arrival gate; the global hold needs the same reading — the
+onset on the arrived particles only (the paced target's own mask, no constant). At 300k: ai300
+(l300 + H) tail 0.0011 / stride-19 ALT 0.0005 / det F 0.70 / silIoU 0.9766; al300 (the KDE ear +
+H) silIoU 0.9771, det F 0.51; am300 (the KDE ear + H with the arrival-read onset hold) running.
+
+Deliverable side: the tracked mesh with a half-spacing band makes the tail WORSE (an advected
+mesh follows the jitter in full: 0.0036 vs 0.0024), the window-averaged tracked mesh 0.0019 with
+re-mesh pops, surfel memory 0.0020 / 0.0010 (z300b / ac300), and the particle positions
+averaged over two control windows (`--frame_avg 38`) 0.0010 with the tongue's tip continuous in
+every frame — a cosmetic option (the frames shown are averages, the transport lagged by a
+window), to be stated as such if used.
