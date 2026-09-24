@@ -4508,3 +4508,10 @@ renderer's 1.31° (Open3D screened Poisson + the exterior test + the Loop subdiv
 voxel, watertight). The dihedral measure penalises PoissonRecon's coarser triangles, so the
 absolute gap overstates it, but the envelope made every case worse and opened the mesh: a
 density-level-set hull is not everywhere outside the surface. The deliverable renderer stays.
+
+**The tracked surface on g300 (the persistent-mesh line of the MPM survey; `--track --track_keep
+--track_stretch 2 --track_every 0`, plain, stride 12; 00:40):** the delivered tail's per-frame
+change 0.0016 (untracked 0.0019; 40k 0.0012): the re-fit jitter of an independent Poisson per
+frame is a small part of the visible tail motion; the rest is the particles' own (the carried-
+momentum alternation), which the tracking follows faithfully. The video is on the server
+(`r300/plain/g300_plain_track_s12.mp4`); not adopted over the untracked render on this number.
