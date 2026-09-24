@@ -5621,3 +5621,15 @@ levers are exhausted (every one of them from the surveys' lists, each with its t
 left for the VISIBLE flicker is the deliverable surface: the tracked mesh with the half-spacing
 band and the window-time average (P151–P153, rendering). The viscosity and settle forms stay
 diagnostics (§10.26); H stays the optimiser-side fix.
+*(20:45) The tracked surface with the half-spacing band, first reading (z300b `--track --track_band
+0.5`):* the delivered tail **0.0036** per frame (untracked 0.0024), max 0.0126 at re-mesh frames —
+**P151 ✗**: a mesh advected by its k particles follows their per-window jitter in full (no
+low-pass), and without the pull inside the band nothing corrects it; the per-frame refit is the
+better temporal filter of the two. The window-average variant (`--track_avg 3`) and ac300 are
+still rendering. *Pre-registered `--frame_avg K`*: each video frame reconstructed from the
+particle positions averaged over a centred window of K archived frames — K = T = 19 (one
+control window: the deliverable at the control's own time resolution) and K = 2T = 38 (the
+alternation's period). **P167** z300b's tail ≤ 0.0012 at K = 19 and ≤ 0.0008 at K = 38, the
+stride-19 alternating component ≤ 0.0010 at K = 38 (0.0021); **P168** no smearing of the
+transport: the mid-morph per-frame change (frames 20–60) within 25 % of the untracked render's
+and the ear's drawn length at frame 30 within one spacing.

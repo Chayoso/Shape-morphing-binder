@@ -59,6 +59,10 @@ ap.add_argument("--track_avg", type=int, default=0,
                 help="draw the tracked vertices averaged over the last N drawn frames (a moving average at the control "
                      "window's own time resolution: N = T / stride frames covers one window, 2N the alternation's period); "
                      "the buffer resets at a re-mesh; 0 = off")
+ap.add_argument("--frame_avg", type=int, default=0,
+                help="2026-09-24: reconstruct each video frame from the particle positions AVERAGED over a centred window "
+                     "of this many archived frames (one control window T = the control's time resolution; 2T the "
+                     "alternation's period) — the deliverable at the resolution the control acts at; 0 = off")
 ap.add_argument("--surfel_memory", type=int, default=0,
                 help="temporal coherence WITHOUT a tracked mesh (2026-09-23): the outer-layer surfels of the previous "
                      "K-1 video frames, carried to the current frame with the material (the same kNN advection as "
@@ -592,7 +596,7 @@ def _layer_raw(i):
     with _LAYER_LOCK:
         if i in LAYER_CACHE:
             return LAYER_CACHE[i]
-    x = torch.as_tensor(np.asarray(frames_np[i], np.float32), device=dev)
+    x = torch.as_tensor(frame_np(i) if "frame_np" in globals() else np.asarray(frames_np[i], np.float32), device=dev)
     rho_t = density_aniso(x, frame_F(i, x)) if a.kernel == "aniso" else (density_pca(x) if a.kernel == "pca" else density(x))
     if a.layer == "grad":
         pts, nrm = surface_particles_grad(x, rho_t, ctr, half, vox, layer_gthr)
@@ -1067,8 +1071,18 @@ trk = None            # (tracked mesh, particles at its last frame, drawn topolo
 prev_fresh = None     # (fresh mesh, particles) of the previous video frame — the re-fit jitter reference
 
 
+def frame_np(i):
+    """The particles of archived frame i — or, with --frame_avg K, their positions averaged over the centred
+    window of K archived frames (clipped to the delivered range)."""
+    K = int(a.frame_avg)
+    if K <= 1:
+        return np.asarray(frames_np[i], np.float32)
+    lo_, hi_ = max(0, i - K // 2), min(dn - 1, i + K // 2)
+    return np.asarray(frames_np[lo_:hi_ + 1], np.float32).mean(0)
+
+
 def _mesh_job(i):
-    return mesh_of(torch.as_tensor(np.asarray(frames_np[i], np.float32), device=dev), i)
+    return mesh_of(torch.as_tensor(frame_np(i), device=dev), i)
 
 
 _pool = None; _fut = {}
