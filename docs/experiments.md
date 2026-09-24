@@ -5671,3 +5671,12 @@ the whole-video per-frame change 0.0012 against 0.0026 — the average smooths t
 much as the tail (a one-window lag of the growth), which is the filter's cost; the ear's drawn
 length at frames 20–40 is checked on the frames before any use. This is a deliverable-side
 cosmetic (the frames shown are no longer the simulated ones): an option to state, not the fix.
+*(21:55) The frame-averaged (K = 38) ear, frames 216–492 looked at:* the tip is present and
+continuous in every frame — the dropout of the untracked render (pointed / blunt / pointed at
+frames 16–27) is gone — and the tongue's beaded edge is drawn as one smooth tip; the ear's
+length keeps pace with the untracked render (no visible lag at this stride). So the
+window-average of the particle positions answers D2's VISIBLE dropout as a side effect (the
+beads' frame-to-frame arrangement averages out) while the physics of the edge is unchanged.
+*al300 (z300b's recipe + H) ended:* 135 windows, silIoU **0.9771** (P164 ✓), det F **0.511** (P163
+✗ by 0.04 — the KDE term's push under the held step still costs det F, less than without the
+hold: 0.19 / 0.23 / 0.43 → 0.51); its chain runs.
