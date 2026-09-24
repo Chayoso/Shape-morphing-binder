@@ -408,6 +408,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     cyc_stale = 0                        # consecutive windows at or below the random-walk bound
     u_scale, u_prev = None, None         # config.u_rprop: the per-particle u bound scale and the last accepted u
     ctrl_scale, ctrl_prev_disp = None, None   # config.ctrl_rprop: the per-particle control step scale and the last accepted displacement
+    ctrl_scale_apply = None              # the scale handed to the optimiser (neighbourhood-smoothed under ctrl_rprop_smooth)
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
     rev_prev_neg_acc = False             # config.outer_latch_reversal: the same reading, kept at every accepted commit
@@ -528,7 +529,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             surface_w=surface_w, Fg0=st.get("Fg"), coh_nbr=coh_nbr, coh_nbr_src=src,
             frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag,
             u_scale_init=(u_scale if getattr(cfg, "u_rprop", False) else None),
-            ctrl_scale_init=(ctrl_scale if getattr(cfg, "ctrl_rprop", False) else None))
+            ctrl_scale_init=(ctrl_scale_apply if getattr(cfg, "ctrl_rprop", False) else None))
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):
@@ -1221,24 +1222,49 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # never reverses. Particles that did not move (either displacement below 1e-4 cell) keep theirs. ----
         if getattr(cfg, "ctrl_rprop", False):
             _d_now = np.asarray(x, np.float32) - np.asarray(x_start, np.float32)
+            # config.ctrl_rprop_smooth (10.24, second form): the reversal is read on the displacement averaged
+            # over the material neighbourhood (the bond / coherence kNN, frozen at the source) and the scale
+            # applied is the neighbourhood mean of the per-particle scales — per-particle scales alone made
+            # neighbouring particles' control updates differ by orders of magnitude (ac300: det F 0.39
+            # against 0.66), sub-cell control noise the creg term exists to forbid
+            _nbr = None
+            if getattr(cfg, "ctrl_rprop_smooth", False):
+                _kk = int(getattr(cfg, "ctrl_rprop_k", 0) or 0)
+                if _kk <= 0 and coh_nbr is not None and len(coh_nbr) == len(_d_now):
+                    _nbr = coh_nbr
+                else:
+                    _kk = _kk if _kk > 0 else 24
+                    if not hasattr(run_pipeline, "_rprop_nbr") or run_pipeline._rprop_nbr.shape != (len(_d_now), _kk):
+                        from scipy.spatial import cKDTree as _KDn
+                        run_pipeline._rprop_nbr = _KDn(src).query(src, k=_kk + 1, workers=-1)[1][:, 1:]
+                    _nbr = run_pipeline._rprop_nbr
+            def _smooth(v):
+                if _nbr is None:
+                    return v
+                if v.ndim == 1:
+                    return (v + v[_nbr].sum(1)) / float(_nbr.shape[1] + 1)
+                return (v + v[_nbr].sum(1)) / float(_nbr.shape[1] + 1)
             if ctrl_scale is None or len(ctrl_scale) != len(_d_now):
                 ctrl_scale = np.ones(len(_d_now), np.float32)
             if ctrl_prev_disp is not None and len(ctrl_prev_disp) == len(_d_now):
-                _n0 = np.linalg.norm(_d_now, axis=1); _n1 = np.linalg.norm(ctrl_prev_disp, axis=1)
+                _dn_s, _dp_s = _smooth(_d_now), _smooth(ctrl_prev_disp)
+                _n0 = np.linalg.norm(_dn_s, axis=1); _n1 = np.linalg.norm(_dp_s, axis=1)
                 _tiny = 1e-4 * float(prm.dx)
                 _act = (_n0 > _tiny) & (_n1 > _tiny)
-                _cos = (_d_now * ctrl_prev_disp).sum(1) / np.maximum(_n0 * _n1, 1e-30)
+                _cos = (_dn_s * _dp_s).sum(1) / np.maximum(_n0 * _n1, 1e-30)
                 _flip = _act & (_cos < 0.0); _same = _act & (_cos >= 0.0)
                 ctrl_scale[_flip] *= 0.5
                 ctrl_scale[_same] = np.minimum(1.0, ctrl_scale[_same] * 1.2)
                 if _act.any():
-                    rec["ctrl_flip_frac"] = float(_flip[_act].mean()); rec["ctrl_scale_med"] = float(np.median(ctrl_scale[_act]))
-                    rec["ctrl_scale_lo"] = float((ctrl_scale[_act] < 0.01).mean())
+                    _cs_app = _smooth(ctrl_scale) if _nbr is not None else ctrl_scale
+                    rec["ctrl_flip_frac"] = float(_flip[_act].mean()); rec["ctrl_scale_med"] = float(np.median(_cs_app[_act]))
+                    rec["ctrl_scale_lo"] = float((_cs_app[_act] < 0.01).mean())
                     if (a + 1) % 5 == 0:
                         log(f"[v2] anim {a + 1}: control step reversals {100 * _flip[_act].mean():.0f} % of the moving particles, "
-                            f"step scale median {np.median(ctrl_scale[_act]):.3f}, below 0.1: {100 * (ctrl_scale[_act] < 0.1).mean():.0f} %, "
-                            f"below 0.01: {100 * (ctrl_scale[_act] < 0.01).mean():.0f} %")
+                            f"step scale median {np.median(_cs_app[_act]):.3f}, below 0.1: {100 * (_cs_app[_act] < 0.1).mean():.0f} %, "
+                            f"below 0.01: {100 * (_cs_app[_act] < 0.01).mean():.0f} %")
             ctrl_prev_disp = _d_now
+            ctrl_scale_apply = _smooth(ctrl_scale) if _nbr is not None else ctrl_scale
         # ---- the next window starts from rest (config.rest_commit; docs/method.md 10.21): the carried momentum
         # of an accepted commit is what the rebound probe measured continuing forward and the next window's
         # control cancelling — the two-window alternation at the resolved scale. v and C zeroed; x, F, Fp kept. ----

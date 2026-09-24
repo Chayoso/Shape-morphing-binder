@@ -532,6 +532,14 @@ class PipelineConfig:
                                     #   reversal converges (the Robbins-Monro condition per particle), and a part
                                     #   still in transport never reverses, so the ear keeps its step while the body
                                     #   settles (the onset gate cut the ear short: z300). Riedmiller & Braun 1993.
+    ctrl_rprop_smooth: bool = False #   the reversal read on the displacement averaged over the material neighbourhood
+                                    #   (the coherence kNN) and the applied scale the neighbourhood mean of the
+                                    #   per-particle scales — a control update coherent at the particle-neighbourhood
+                                    #   scale (ac300: per-particle scales alone cost det F 0.66 -> 0.39).
+    ctrl_rprop_k: int = 0           #   the smoothing neighbourhood: 0 = the coherence kNN (coh_k x N/ref, ~60 at 300k,
+                                    #   half a cell — ad300: det F kept (0.64) but the decay diluted, corr -0.31);
+                                    #   k > 0 = its own source kNN of k (creg_k = 8: the control regulariser's own
+                                    #   neighbourhood, the scale the control is already held coherent at).
     u_rprop_floor: float = 0.05     #   the u channel's Rprop floor (10.19); 0 with ctrl_rprop — a floor of 0.05
                                     #   spacings a window is the breathing's own amplitude.
     outer_latch_reversal: bool = False  # 2026-09-24 (docs/method.md 10.21 addendum 3): arm the outer merit gate's

@@ -5320,3 +5320,21 @@ target silIoU ≥ g41's − 0.003 and det F ≥ g41's − 0.05; **P125** the lay
 step ≤ g41's on at least 15 of 19 targets; **P126** windows ≤ 1.5 × g41's on every target (the
 rule must not stall a transport). A target failing P124 by more sends the form back to the
 mechanism (the smoothing radius or the reversal read) before any adoption.
+
+**2026-09-24 15:40 — ad300's verdict (l300 + the smoothed Rprop, coherence kNN ≈ 60).** 81 windows
+in 23.3 min. **P116 ✓** det F **0.643** (l300 0.664; ac300 0.388 — the smoothing restores the
+control's coherence); **P119 ✓** silIoU 0.9792; **P117 ✗ marginal** — the layer's step 0.0179
+spacings = **0.0012 wu** (l300 0.0017, ac300 0.00095; the criterion 0.001), flips **0.54** (✓);
+**P118 ✗** — the low-band correlation **−0.31** (l300 −0.67, ac300 +0.04) and the bulk's reversal
+negative from window 60 to the end: the 60-neighbour mean dilutes the decay (a settled particle's
+scale is pulled up by neighbours still moving). ab300 (z300b + the per-particle form): silIoU
+0.9783, det F 0.19, flips 0.58, net 0.44, step 0.0009 wu, low-band −0.18, one stray, 135 windows.
+So the trade is decay strength against spatial coherence, and the neighbourhood's size is the
+lever between ac300 (k = 0, det F 0.39, corr +0.04) and ad300 (k ≈ 60, det F 0.64, corr −0.31).
+*Pre-registered ag300 = l300 + `--ctrl_rprop --ctrl_rprop_smooth --ctrl_rprop_k 8`* (GPU 1, 15:40):
+the smoothing over the control regulariser's own neighbourhood (creg_k = 8 — the scale at which
+the control is already held coherent by the creg term; not tuned: the regulariser's constant).
+**P127** det F ≥ 0.6; **P128** the layer's step ≤ 0.001 wu and flips ≤ 0.55; **P129** the low-band
+correlation > −0.2; **P130** silIoU ≥ 0.977. Refutation: P127 failing at k = 8 says the coherence
+the control needs is wider than the regulariser's and the smoothing must be the coherence kNN
+with a stronger η⁻ (then Riedmiller's 0.5 is the thing to derive, not to keep).
