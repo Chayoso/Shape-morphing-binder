@@ -4401,3 +4401,12 @@ level set at the render voxel (0.04 wu here), where our CIC-plus-blur density ca
 particle texture; the deliverable stays the screened Poisson fit of the outer-layer surfels, and
 the geometry survey's other surface items (the envelope constraint, the stochastic variance
 test, the feature-weighted smoothing) apply to that fit, not to a level set.
+
+**Stochastic PSR (Sellán & Jacobson 2022, gpytoolbox) on the g300 surfels (01:20):** the full set
+(40 860 surfels, grid 64³) segfaults — the Gaussian-process formulation builds dense covariances
+and does not scale to this size on the host; retried on a 6k subsample at 40³ for the posterior
+position-uncertainty scale only (result below when it finishes). Kazhdan's PoissonRecon (built
+with the conda libjpeg-turbo / libpng headers) ran at depth 7 and 8 with and without
+`--envelope` (the envelope = the density level set at 5 % of the bulk, one closed component);
+visually the envelope-constrained fits show pits on the body that the unconstrained fit does
+not, so the hull built that way is not everywhere outside the surface; the bump numbers follow.
