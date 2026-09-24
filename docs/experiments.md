@@ -4339,3 +4339,12 @@ the delivered tail's per-frame change ≤ 0.0012 (the 40k values), with the traj
 up to convergence and held after it, as the 40k gallery is. g300 / h300 are not there yet; the
 remaining amplitude is the objective's sub-cell chase at the reference constants' own floor plus
 the stress channel's transport, and the next mechanisms come from the surveys.
+
+**Pre-registration (00:10): the anisotropic kernel of Yu & Turk 2013 for the delivered surface
+(the geometry survey's shortlist 2; `render_photoreal --kernel pca`, already implemented, never
+used at 300k).** On g300's end frame at the reference spacing, `--kernel pca` with the PCA
+neighbourhood at the reference mass (`--pca_k 240` = 32 × 7.5) and, as the control, at the native
+count (32). P45 bump ≤ 1.1° (iso kernel 1.3°; 40k 1.2°). P46 components 1, cavities 0, both ear
+tips intact (the tip region of the mesh present at the same length as the iso render; no
+bridging of the ears). P47 the same on frame t = 0.5 (sub-cell texture of the morph). Refutation:
+the tips shortened or bridged, or bump ≥ 1.3° → the kernel does not help at this spacing.
