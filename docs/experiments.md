@@ -5565,3 +5565,15 @@ targets, the settle displacement per commit ≤ 0.02 cells after ten windows (th
 equilibrium), no fit loss. Both are DIAGNOSTIC forms (method.md §10.26): they change the material
 during the morph, so even if they hold they enter the recipe only as a settling-phase option the
 user accepts; the recipe's own fix stays on the optimiser (H) and the deliverable surface.
+
+**2026-09-24 20:00 — ah300's verdict (z300b's recipe + the smoothed Rprop at k = 8, no hold).** 147
+windows in 63 min (sharing GPU 2): the ear **0.968** (the best fill of any run), tip 13.6, silIoU
+0.9761, video tail **0.0013**, low-band −0.05, flips 0.54, step 0.0009 wu, bump 1.20° — and **det
+F 0.427**: with the KDE term every form without the held step collapses det F (ab300 0.19, af300
+0.23, ah300 0.43), as the global step re-inflates against the per-particle decay (ag300's
+finding) while the KDE keeps pulling at the sub-cell scale. *Pre-registered al300 = z300b's recipe
++ H (`--ctrl_rprop --ctrl_rprop_smooth --ctrl_rprop_k 8 --ctrl_rprop_arrived --ctrl_rprop_hold
+--u_rprop --u_rprop_floor 0`)* — the 300k deliverable candidate with the physics untouched (GPU 2,
+20:00): **P163** det F ≥ 0.55; **P164** ear fill ≥ 0.93, silIoU ≥ 0.977; **P165** flips ≤ 0.55, the
+layer's step ≤ 0.001 wu, low-band > −0.2, the video tail ≤ 0.0013; **P166** the bulk's reversal
+negative in ≤ 3 windows.
