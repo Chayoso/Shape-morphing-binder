@@ -5235,3 +5235,19 @@ bump is unchanged (1.24° ± 0.05); **P115** the tail's per-frame change is unch
 is not the breathing's fix). Refutation: P114 failing (spheres over the body) says the
 one-spacing threshold is inside the body's own layer noise and the fallback needs the thin
 detector (σ₃/σ₁) as a co-condition.
+
+*R-3 tried in two forms (14:35; `--thin_fallback spheres | level`).* **spheres** (a union of spheres of
+one reference spacing at the uncaptured, attached, chained surfels): 11 / 25 / 12 spheres at frames
+240 / 264 / 312, 0 at the end frame, the body untouched (P114 ✓: no hair, bump unchanged) — but the
+tip is drawn as what it is at that resolution, a **bead chain**: the tongue's leading edge holds
+39–50 surfels in a 0.2-wu knob on a filament, and the spheres render exactly that (the user's
+"물방울"). **level** (the frame's density marched in the fallback region): **nothing at 240 / 264**
+— the sparse tip's density lies below the iso level, the same reason the level-set renderer lost
+thin tips — 12 at 312. So the render side can either hide the tip (the fit, flickering as it
+catches the tip or not) or show it faithfully as beads; it cannot make a smooth tongue out of a
+beaded edge. The edge's coherence is the physics' (the third survey's P-1: sheet-aware splitting
+at the commit, Ando 2012 — particles inserted in the sheet plane where the in-plane gap exceeds
+two spacings so the front stays a sheet the fit can represent; or the codimensional carrier).
+`--thin_fallback` stays opt-in (spheres: the faithful rendering of a fragmented edge; useful as a
+diagnostic overlay), `--keep_attached` opt-in (the two pinch-off frames). The physics route is
+pre-registered once ab300 / ac300 have read the oscillation.

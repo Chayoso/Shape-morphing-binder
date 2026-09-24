@@ -82,6 +82,11 @@ ap.add_argument("--metal", type=float, default=0.0)
 ap.add_argument("--ground", type=int, default=1, help="shadow-catching ground plane")
 ap.add_argument("--target_ghost", type=float, default=0.0, help="alpha of a translucent target isosurface (0 = off)")
 ap.add_argument("--largest_only", type=int, default=0, help="render only the largest mesh component (illustration only)")
+ap.add_argument("--thin_fallback", default="", choices=["", "spheres", "level"],
+                help="R-3 (docs/experiments.md 2026-09-24 14:20): surfels the drawn surface neither encloses nor comes "
+                     "within one reference spacing of, and that lie within the link radius of the body, are drawn as "
+                     "spheres of half a spacing (the surfel size) — a filament narrower than the Poisson node is not "
+                     "representable at the reference resolution and vanished frame to frame (the ear tip)")
 ap.add_argument("--keep_attached", action="store_true",
                 help="keep (and bridge) a sub-cell isosurface piece whose enclosed particles lie within the link "
                      "radius max(2.5 spacings, one cell) of the body's — the tongue's tip pinched off by the Poisson "
@@ -556,6 +561,15 @@ def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
     return fil, len(others)
 
 
+THIN_LAST = [0]        # --thin_fallback: spheres drawn in the last mesh_of call (surfels the fit left out)
+THIN_MESH = [None]     # --thin_fallback: their mesh, added to the drawn mesh at render time only
+
+
+def with_thin(m):
+    """The mesh to render: the fitted surface plus the thin-fallback spheres of the last mesh_of call."""
+    if THIN_MESH[0] is None or m is None:
+        return m
+    return m + THIN_MESH[0]
 FALLBACK_FRAMES = []   # frames whose Poisson reconstruction crashed twice and fell back to the level set
 LAYER_CACHE = {}       # archived frame -> (surfel points, normals) of its outer layer (the surfel memory's input)
 _LAYER_LOCK = threading.Lock()
@@ -797,6 +811,66 @@ def mesh_of(x, fi=None):
         fil, n_bridge = filament_bridges(x_np64, plab, drawn, body_lab)
         if fil is not None:
             m += fil
+    THIN_LAST[0] = 0; THIN_MESH[0] = None
+    if a.thin_fallback and a.surface != "mc" and m is not None and len(m.triangles):
+        # R-3: the surfels the drawn surface leaves out — not enclosed and farther than one reference
+        # spacing from it (the body's own layer sits within that of the fit) — and attached to the body
+        # (within the link radius of an enclosed particle) are material the fit cannot represent at
+        # its node size: the ear tip, a filament two-three native spacings across under a node as wide.
+        # Drawn as spheres of half a spacing (Yu & Turk 2013's isolated-particle rule; Bhattacharya
+        # 2011: the surface encloses every particle's sphere) — the tip then follows the particles,
+        # which grow monotonically, instead of the fit, which reached it in one frame and not the next.
+        sc_ = o3d.t.geometry.RaycastingScene(); sc_.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(m))
+        P_s = np.asarray(pts, np.float32)
+        q_ = o3d.core.Tensor(P_s)
+        inside_ = sc_.compute_occupancy(q_).numpy() > 0.5
+        dist_ = np.linalg.norm(sc_.compute_closest_points(q_)["points"].numpy() - P_s, axis=1)
+        unc = (~inside_) & (dist_ > spacing)
+        if unc.any():
+            x_np = x.detach().cpu().numpy().astype(np.float32)
+            enc_ = sc_.compute_occupancy(o3d.core.Tensor(x_np)).numpy() > 0.5
+            r_link = max(2.5 * spacing, cell_wu)
+            att = (cKDTree(x_np[enc_]).query(P_s[unc], k=1, workers=-1)[0] <= r_link) if enc_.any() else np.zeros(int(unc.sum()), bool)
+            P_f = P_s[unc][att]
+            if len(P_f) > 1:
+                # a CHAIN, not stray beads: a fallback surfel is drawn only with another fallback surfel or an
+                # enclosed particle within one spacing (an isolated stray stays undrawn, as before); the spheres
+                # have the radius of the reference spacing, so neighbours a native spacing apart overlap into
+                # one tube (Bhattacharya 2011's union of spheres) as thick as the target's own ear tip
+                kf_ = cKDTree(P_f); ke_ = cKDTree(x_np[enc_])
+                chain = (np.array([len(v) for v in kf_.query_ball_point(P_f, spacing)]) > 1) | (ke_.query(P_f, k=1, workers=-1)[0] <= spacing)
+                P_f = P_f[chain]
+            if len(P_f) and a.thin_fallback == "level":
+                # the LEVEL-SET form: the frame's own density (the kernel of the reference spacing) marched
+                # in the fallback region only — voxels within two spacings of a fallback surfel — so the tip's
+                # beads merge into one smooth envelope at the kernel's width (the level-set renderer's
+                # thin-feature behaviour), unioned with the Poisson surface at render time
+                r_fb = 2.0 * spacing
+                o_np = np.asarray(origin, np.float64)
+                lo_i = np.maximum(np.floor((P_f.min(0) - r_fb - o_np) / vox).astype(int), 0)
+                hi_i = np.minimum(np.ceil((P_f.max(0) + r_fb - o_np) / vox).astype(int) + 1, np.array(rho.shape[::-1]))
+                sub = rho[lo_i[2]:hi_i[2], lo_i[1]:hi_i[1], lo_i[0]:hi_i[0]].astype(np.float32)
+                zz, yy, xx = np.meshgrid(np.arange(lo_i[2], hi_i[2]), np.arange(lo_i[1], hi_i[1]), np.arange(lo_i[0], hi_i[0]), indexing="ij")
+                cen = np.stack([xx, yy, zz], -1).reshape(-1, 3) * vox + o_np
+                near = cKDTree(P_f).query(cen, k=1, workers=-1)[0].reshape(sub.shape) <= r_fb
+                sub_m = np.where(near, sub, float(min(iso * 0.5, np.nanmin(sub))))
+                fb = None
+                if np.isfinite(sub_m).all() and float(sub_m.max()) > iso and sub_m.shape[0] > 2 and sub_m.shape[1] > 2 and sub_m.shape[2] > 2:
+                    v_, f_, _, _ = measure.marching_cubes(sub_m, level=iso, spacing=(vox, vox, vox))
+                    v_ = v_[:, ::-1] + o_np + lo_i * vox
+                    fb = o3d.geometry.TriangleMesh(o3d.utility.Vector3dVector(v_.astype(np.float64)), o3d.utility.Vector3iVector(f_[:, ::-1].astype(np.int32)))
+                    fb.compute_vertex_normals()
+            elif len(P_f):
+                fb = o3d.geometry.TriangleMesh()
+                for p_ in P_f:
+                    sph = o3d.geometry.TriangleMesh.create_sphere(radius=spacing, resolution=10)
+                    sph.translate(p_); fb += sph
+                fb.compute_vertex_normals()
+            else:
+                fb = None
+            if fb is not None and len(fb.triangles):
+                THIN_MESH[0] = fb               # added at render time only: the bump measure reads the fitted surface
+                THIN_LAST[0] = int(len(P_f))
     return m, n_comp, n_drop, n_bridge, n_cav
 
 
@@ -953,8 +1027,8 @@ if a.still >= 0 or a.still == -2:
     bump = bumpiness(m)
     print(f"[photoreal] still {a.still}: kernel {a.kernel} surface {a.surface} post {a.post}, "
           f"bumpiness (mean |dihedral|) {bump:.2f} deg, triangles {len(m.triangles) if m is not None else 0}, "
-          f"components {n_comp} dropped {n_drop} cavities {n_cav} bridged {n_bridge}", flush=True)
-    img = label(render_views(m), f"{a.label} frame {a.still}  {a.kernel}/{a.surface}/{a.post}  bump {bump:.1f} deg  "
+          f"components {n_comp} dropped {n_drop} cavities {n_cav} bridged {n_bridge}" + (f" thin-fallback spheres {THIN_LAST[0]}" if a.thin_fallback else ""), flush=True)
+    img = label(render_views(with_thin(m)), f"{a.label} frame {a.still}  {a.kernel}/{a.surface}/{a.post}  bump {bump:.1f} deg  "
                                  f"components {n_comp} (dropped {n_drop}, cavities {n_cav}, bridged {n_bridge})")
     o3d.io.write_image(a.out, o3d.geometry.Image(np.ascontiguousarray(img)))
     if a.save_mesh and m is not None:
@@ -1075,10 +1149,10 @@ for k, i in enumerate(idx):
         draw_m = trk[0]
     n_vert = int(len(draw_m.vertices)) if draw_m is not None else 0
     qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav, jitter, drift, remeshed, n_vert, n_orphan))
-    img = label(render_views(draw_m), f"{a.label}  frame {i}/{dn - 1}")
+    img = label(render_views(with_thin(draw_m)), f"{a.label}  frame {i}/{dn - 1}")
     o3d.io.write_image(os.path.join(tmp, f"f{k:05d}.png"), o3d.geometry.Image(np.ascontiguousarray(img)))
     if k % 25 == 0:
-        print(f"[photoreal] frame {k + 1}/{len(idx)} (archived {i}) components {n_comp} dropped {n_drop} isolated {n_iso}", flush=True)
+        print(f"[photoreal] frame {k + 1}/{len(idx)} (archived {i}) components {n_comp} dropped {n_drop} isolated {n_iso}" + (f" thin-fallback spheres {THIN_LAST[0]}" if a.thin_fallback else ""), flush=True)
 n = len(idx)
 for h in range(a.hold):
     os.link(os.path.join(tmp, f"f{n - 1:05d}.png"), os.path.join(tmp, f"f{n + h:05d}.png"))
