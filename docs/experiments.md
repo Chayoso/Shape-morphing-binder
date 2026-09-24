@@ -5029,3 +5029,18 @@ decays to |cos| ≤ 0.2 within 10 windows of its onset (v300's reading), the low
 correlation read for the record; **P100** bump ≤ 1.3°. The onset gate stays a separate opt-in
 for recipes whose thin features arrive with the bulk (the 40k gallery's do); an ear-aware onset
 (arm only once the u gate of the thin features reads arrival) is the open form.
+
+**2026-09-24 09:05 — z300b's verdict (plan blur corrected + KDE + the fixed target from arrival,
+no onset gate): the best deliverable of the night.** 92 windows in 29.2 min. **P97 ✓** — ear fill
+**0.936**, silIoU **0.9802** (the night's best; l300 0.9797), **7** strays, 92 windows; **P98 ✓** —
+the base slab ≤ 1.01× through the growth (1.08–1.12× at the end, the head's own mass), the
+tongue at 0.84–1.06 of the target thickness where filled (t = 0.30: 1.06 / 0.95 / 0.90 at the
+three lowest slabs); **P100 ✓** — bump 1.24°; the ear tip **16.7** reference particles at 0.99
+spacings. **P99 ✗** — the reversal turns negative at 51 and stays so for 35 windows (v300's decay
+did not carry over: with the KDE term the objective keeps a moving part as the ear fills), the
+low-band layer correlation −0.67, video tail 0.0024, det F 0.560 (the KDE's push on the sub-cell
+arrangement; l300 0.664). Reading: the ear item is answered for N > 40k by `--plan_native
+--w_kde 1` (+ `--ot_handoff` at no cost); the alternation after arrival remains in the archive
+as in l300 and is removed from the deliverable only by the onset gate, which cannot be used with
+the slow ear until the onset reads the thin features' arrival too (the open form). The 40k
+gallery untouched; the recipe for N > 40k is opt-in.
