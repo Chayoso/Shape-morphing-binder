@@ -5044,3 +5044,29 @@ arrangement; l300 0.664). Reading: the ear item is answered for N > 40k by `--pl
 as in l300 and is removed from the deliverable only by the onset gate, which cannot be used with
 the slow ear until the onset reads the thin features' arrival too (the open form). The 40k
 gallery untouched; the recipe for N > 40k is opt-in.
+
+**2026-09-24 09:40 — the user's two questions after the night: what KIND of motion the tail
+shows, and the ear tip that vanishes and re-forms at 1–2 s (z300b).** The survey digest is in
+related_work.md (09:30). *Seen in the frames* (ffmpeg tiles of z300b's plain video, frames
+16–27 = 0.8–1.35 s): the ear does not vanish as a whole; its LEADING SEGMENT (a few particles
+across) is reconstructed in some frames and not in the next (pointed at 16–18, blunt and shorter
+at 20–21, pointed again at 22–23, a curled hook from 26) — the tongue's sparse edge (P91 ✗)
+sitting on the boundary of the surfel classification / Poisson support; the ear's mass itself is
+monotone (0.12 → 0.30 over t = 0.07–0.20). To confirm: the ear-tip region's particle count vs
+surfel count per frame, and the video sidecar's dropped / bridged components.
+*Pre-registered measurements for the kind of the tail motion* (the server's key is rejected at
+the jump host since 09:00; scripts ready in `$OUT/scratch`: `decomp_twins.py`, `surface_vn.py`):
+**M1** the decomposition twins — from the tail's first frame, derived archives whose layer moves
+by the normal part (d·n)n only or by the tangential remainder only (bulk unchanged), each rendered
+with the same plain renderer: the twin that carries the tail's per-frame change carries the
+visible motion; **M2** the level-set normal velocity (Stam–Schmidt 2011): the signed distance of
+frame k's Poisson surface to frame k+1's, RMS, against the layer's RMS normal step over the same
+gap — RMS(v_n) ≈ RMS(d·n) says the surface follows the particles (a/b), RMS(v_n) ≪ RMS(d·n) with a
+shimmering video says the fit re-samples a rearranged set (c); **M3** the band-limited
+reconstruction — the finest Poisson leaf = the MPM cell (`--poisson_cell 2.27` at the reference
+spacing; Kazhdan's 15 samples per node ≈ √15 spacings ≈ 0.9 cell): predicted, if (c), the tail's
+per-frame change falls toward the transport-only level while M2's v_n is unchanged; predicted
+cost, the ear tip's thickness at 1.1 cells blurred (read alongside). Predictions before reading:
+from the night's data (the layer's normal step 0.002–0.003 wu = 3–4 % of a spacing, the tangential
+step of the same size in c300's tail, 0.05–0.13 spacings) I expect (c) to carry at least half of
+the tail's per-frame change, and the normal part the rest.

@@ -421,3 +421,77 @@ Eisenberger, Lähner, Cremers 2020 — verbatim "exactly volume preserving inter
 the abstract states the Hele-Shaw limit and that the free boundary's motion needs the cell-density
 equation besides the pressure, but not where the pressure lives: that statement remains the agent's
 reading of the paper's body.
+
+## Temporal coherence of particle surfaces, surface vs material velocity, window-loop oscillation, the position null space (agent digest, 2026-09-24 09:30)
+
+Question put to the survey: is the visible tail motion (a) the layer moving along its normal,
+(b) the render objective pushing the surface back and forth, or (c) particles rearranging
+tangentially under a stationary surface so that the per-frame Poisson fit re-samples a different
+point set — and what the literature does about each. Marks: *verified* = read from the fetched
+page; otherwise the agent's reading of abstracts.
+
+**Temporally coherent reconstruction.** Yu, Turk, *Reconstructing surfaces of particle-based
+fluids using anisotropic kernels*, TOG 2013 — anisotropic kernels from a weighted PCA plus
+(*verified*) "a smoothing step that repositions the centers of these smoothing kernels": a
+low-pass of the point set before the fit. Bhattacharya, Gao, Bargteil, *A level-set method for
+skinning animated particle data*, SCA 2011 / TVCG 2015 — the smoothest (thin-plate) surface
+constrained to lie between the union-of-spheres shells of the particles, "skins each frame
+independently while preserving the temporal coherence of the underlying particle animation": a
+point-set change smaller than the band leaves the optimum unchanged, where screened Poisson
+interpolates the surfels and inherits their sub-band motion. Yu, Wojtan, Turk, Yap, *Explicit mesh
+surfaces for particle-based fluids*, EG 2012 (*verified*: vertices "advected using nearby particle
+velocities", "periodically project the mesh surface onto an implicit surface") and Dagenais,
+Gagnon, Paquette, CGF 2017 (a detail-preserving SDF-band projection): a persistent mesh that
+re-imports the implicit only outside a band. Bojsen-Hansen, Wojtan, *Liquid surface tracking with
+error compensation*, SIGGRAPH 2013 (*verified*: an error function between the tracked surface
+and the physically valid states) — the error itself is a measure of "how much the implicit moved
+relative to a coherently advected surface". Akinci et al. CGF 2012 (narrow-band scalar field, no
+temporal mechanism); van der Laan et al. I3D 2009 (screen-space curvature flow; a grid-locked
+extraction is a documented flicker source); Löschner et al. VMV 2023 (splashsurf: weighted
+Laplacian mesh smoothing, treats spatial roughness only); Zhao, Shinar, Schroeder, CGF 2024 / 2025
+(CNN on a grid splat: the temporal coherence comes from averaging sub-cell jitter on the grid
+before any fit); Chen, Zhou, Zhu, *Neural particle level set*, TOG 2025 (oriented particles as
+trackers and seeders, an SDF evolved from the previous frame). Kazhdan's PoissonRecon README
+(*verified*): `--samplesPerNode` 1.0–5.0 for clean samples, 15–20 for noisy ones; Open3D's
+binding exposes depth, width, scale, linear_fit only. Every method reported coherent either
+low-passes the point set, fits the smoothest surface inside a band, or keeps a persistent surface
+with a band-limited projection; none blends level sets across frames.
+
+**Surface velocity vs material velocity.** Stam, Schmidt, *On the velocity of an implicit
+surface*, TOG 2011 (*verified*): "only the normal component of the velocity is unambiguously
+defined" — the surface's normal velocity between consecutive implicits, compared with the
+particles' normal displacement, is the discriminator between (a)/(b) and (c). Kelly, Optics
+Letters 1979 (*verified*): the flicker sensitivity peak at 0.5 cpd / 7.6 Hz — a sign flip every
+window at 20–30 fps is a low-spatial-frequency 10–15 Hz modulation inside that peak, invisible as
+geometry (3 % of a spacing) and visible as flicker.
+
+**Window-loop oscillation.** DiffTaichi (ICLR 2020), PlasticineLab (ICLR 2021), PhysMorph-GS
+(arXiv 2511.16988) and the TVCG 2025 morph run tens of Adam/GD iterations and report no
+window-to-window reversal measure or remedy (*verified* for the three reachable texts). Peng et
+al., *Anderson acceleration for geometry optimization and physics simulation*, TOG 2018
+(*verified*: window m = 5, the accelerated iterate taken only "if [it] decreases the energy").
+Mao, Szmuk, Açıkmeşe, successive convexification (*verified*: a trust region updated by the ratio
+of actual to predicted decrease). Metz et al. 2021, Suh et al. ICML 2022 (unrolled-gradient
+chaos and bias). The gap: no differentiable-MPM paper tests a window's commit on the true merit.
+
+**The position null space.** Jiang, Schroeder, Teran, *An angular momentum conserving APIC*, JCP
+2017 (*verified*): "particle velocity modes persist, invisible to the dynamics on the grid only to
+reappear after particle movement"; PIC/APIC filter velocity null modes — the text does not
+discuss POSITION null modes, which no transfer filters. Gritton, Berzins 2017 (null-space
+filter), Tran, Sołowski IJNME 2019 (temporal + null-space filter), Baumgarten, Kamrin IJNME 2023
+(*verified*: MPM's errors are the ringing instability and the solution-dependent integration
+errors; a δ-correction shifts positions), Fei et al. ASFLIP SIGGRAPH 2021 (a position correction
+from the particle's own velocity), Sun et al. δ⁺-SPH CMAME 2019 and the corrected
+transport-velocity line (the free-surface rule: kill the normal shift, keep the tangential — a
+generator of (c) under a sub-cell-resolved fit).
+
+**Shortlist as applied.** (1) the decomposition twins and the level-set normal velocity — the
+measurement (no constant); (2) the reconstruction band-limited to the MPM cell (finest Poisson
+leaf = the cell, from Kazhdan's samples-per-node rule: √15 spacings ≈ 0.9 cell) — expressible
+with the existing `--poisson_cell` (cell / reference spacing = 2.27); (3) a tracked mesh advected
+by the GRID velocity with a projection band of half a spacing; (4) a window commit accepted on a
+true-merit ratio test (SCvx ρ ≥ 0) or a safeguarded Anderson iterate (m = 5) — the structural
+cure for the merit reversal; (5) Yu–Turk repositioning of the surfels over a 2-spacing radius;
+(6) the alternating (Nyquist-bin) power of the video's per-frame change as the perceptual
+measure. Not to do: blending level sets across frames (no mechanism, hides (a)); tangential-only
+shifting at the surface before (2) is in place.
