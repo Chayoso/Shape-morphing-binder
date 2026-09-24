@@ -185,7 +185,7 @@ def out_dt_frac(x, tgt, res: int = 160, cells: float = 2.0) -> float:
 
 
 def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
-              render_mask=None) -> dict:
+              render_mask=None, window: int = 19) -> dict:
     """All gate metrics for one arm. frames: list of (N,3); tgt: (M,3)."""
     tgt = np.ascontiguousarray(tgt, np.float32)
     xf = np.ascontiguousarray(frames[-1], np.float32)
@@ -199,6 +199,7 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
            "frames": len(frames), "n_held": int(n_held)}
     out.update(jitter(frames, tail, n_held))
     out.update(ejection_trajectory(frames, e))
+    out.update(layer_breathing(frames, window=window, n_held=n_held))   # the layer's window-to-window breathing
     if render_mask is not None:
         rm = np.asarray(render_mask, bool)
         if rm.shape != (len(xf),) or not rm.any():
@@ -213,3 +214,52 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
         from .mpm.conditioning import batched_det
         out["detF_min"] = min(float(batched_det(F).min()) for F in F_frames)
     return out
+
+
+def layer_breathing(frames, window: int = 19, k_windows: int = 10, n_held: int = 0,
+                    n_sub: int = 20000, seed: int = 0) -> dict:
+    """The outer layer's window-to-window motion over the last k_windows windows of the SIMULATED
+    trajectory (docs/oscillation.md Addendum 9; the 2026-09-23 audit: G3's 10-frame bulk average
+    cannot see it). Layer = the particles of the final frame whose 32-NN centroid offset exceeds
+    half the spacing (the asymmetry rule), on a fixed subsample; normals = the offset direction.
+    Returns the fraction of layer particles whose normal step flips sign between consecutive
+    windows (a coin flip gives 0.5; the 300k breathing 0.6–0.97), the ratio of the net normal
+    drift to the summed |normal step| over the k windows (honest descent near 1, a limit cycle
+    near 0), and the median |normal step| per window in units of the final spacing."""
+    from scipy.spatial import cKDTree
+    end = len(frames) - int(n_held)
+    nwin = (end - 1) // max(int(window), 1)
+    if nwin < 3:
+        return {"layer_flip_frac": float("nan"), "layer_net_ratio": float("nan"), "layer_step_sp": float("nan")}
+    xe = np.ascontiguousarray(frames[end - 1], np.float32); N = len(xe)
+    sub = np.sort(np.random.default_rng(seed).choice(N, min(N, n_sub), replace=False))
+    kd = cKDTree(xe)
+    d, nb = kd.query(xe[sub], k=33, workers=-1)
+    sp = float(np.median(d[:, 8]))
+    off = xe[sub] - xe[nb[:, 1:]].mean(1); om = np.linalg.norm(off, axis=1)
+    sel = om >= 0.5 * sp
+    if sel.sum() < 50:
+        return {"layer_flip_frac": float("nan"), "layer_net_ratio": float("nan"), "layer_step_sp": float("nan")}
+    layer = sub[sel]; nrm = off[sel] / om[sel][:, None]
+    k = min(int(k_windows), nwin)
+    steps = []
+    for w in range(nwin - k, nwin):
+        a_, b_ = w * window, min((w + 1) * window, end - 1)
+        dlt = (np.asarray(frames[b_], np.float32)[layer] - np.asarray(frames[a_], np.float32)[layer])
+        steps.append((dlt * nrm).sum(1))
+    S = np.stack(steps, 0)                                   # (k, layer)
+    # over the particles that moved at all (|normal step| > 1 % of a spacing); a static layer is not
+    # "breathing" and must not dilute the fraction of those that do
+    tol = 0.01 * sp
+    pair_active = [(np.abs(S[i]) > tol) & (np.abs(S[i - 1]) > tol) for i in range(1, k)]
+    fl = []
+    for i in range(1, k):
+        act = pair_active[i - 1]
+        if act.sum() >= 10:
+            fl.append(float(((np.sign(S[i]) * np.sign(S[i - 1])) < 0)[act].mean()))
+    flips = float(np.mean(fl)) if fl else float("nan")
+    net = np.abs(S.sum(0)); summed = np.abs(S).sum(0)
+    moved = summed > tol
+    ratio = 1.0 if moved.sum() < 10 else float(np.median(net[moved]) / max(float(np.median(summed[moved])), 1e-12))
+    step = float(np.median(np.abs(S[:, moved])) / max(sp, 1e-12)) if moved.sum() >= 10 else 0.0
+    return {"layer_flip_frac": float(flips), "layer_net_ratio": ratio, "layer_step_sp": step}

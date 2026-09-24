@@ -469,7 +469,9 @@ def eval_gates(tag, res, met, prm, T, rel_tol=0.003, hole_tol=0.02):
                                          for k, v in gates.items()) +
           f"   (guards={g}, jitter_rel={met['jitter_rel']:.5f}, drift_rel={drift_rel:.5f}, "
           f"hole={met['hole_frac']*100:.2f}% tgt={met['hole_frac_tgt']*100:.2f}%, "
-          f"outside_max={met['outside_max']*100:.3f}%, stray_max={met['stray_max']*100:.3f}%)",
+          f"outside_max={met['outside_max']*100:.3f}%, stray_max={met['stray_max']*100:.3f}%; "
+          f"layer breathing: flips {met.get('layer_flip_frac', float('nan')):.2f}, net/summed "
+          f"{met.get('layer_net_ratio', float('nan')):.2f}, step {met.get('layer_step_sp', float('nan')):.3f} sp)",
           flush=True)
     gates["drift_rel"] = drift_rel
     return gates
@@ -804,7 +806,8 @@ def main():
         dn = res.get("deliver_n") or len(res["frames"])   # metrics on the DELIVERED slice
         res["deliver_n_used"] = dn
         met = metrics.summarize(res["frames"][:dn], tgt, F_frames=res["F_frames"][:dn],
-                                n_held=res["n_held"], render_mask=res.get("render_mask"))
+                                n_held=res["n_held"], render_mask=res.get("render_mask"),
+                                window=max(int(args.T) - 1, 1))
         # trajectory evenness: CV of per-commit displacement (snap-to-target -> high CV)
         mv = [h["move"] for h in res["history"] if "move" in h]
         # <3 commits IS the snap pathology — score it worst, not best (adversarial finding)

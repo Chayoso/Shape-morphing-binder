@@ -70,3 +70,33 @@ def test_summarize_keys(shell, blob):
 
 def test_chamfer_zero_on_identical(blob):
     assert metrics.chamfer(blob, blob) == 0.0
+
+
+def test_layer_breathing_separates_drift_from_alternation():
+    """metrics.layer_breathing (docs/oscillation.md Addendum 9): a slab whose top face drifts
+    outward every window reads flips ~0 and net/summed ~1; one whose top face goes out and back
+    every window reads flips ~1 and net/summed ~0."""
+    import numpy as np
+    from physmorph.metrics import layer_breathing
+    s = 0.2; g = np.arange(16) * s
+    X, Y, Z = np.meshgrid(g, np.arange(6) * s, g, indexing="ij")
+    x0 = np.stack([X.ravel(), Y.ravel(), Z.ravel()], 1).astype(np.float32)
+    x0 += np.random.default_rng(0).uniform(-0.03, 0.03, x0.shape).astype(np.float32) * s
+    top = x0[:, 1] > x0[:, 1].max() - 0.5 * s
+    T = 5; nwin = 14
+    def frames_of(kind):
+        fr = []
+        for w in range(nwin * T + 1):
+            x = x0.copy()
+            k = w // T
+            if kind == "drift":
+                x[top, 1] += 0.05 * s * k
+            else:
+                x[top, 1] += 0.05 * s * (k % 2)
+            fr.append(x)
+        return fr
+    d = layer_breathing(frames_of("drift"), window=T, k_windows=10)
+    a = layer_breathing(frames_of("alt"), window=T, k_windows=10)
+    assert d["layer_flip_frac"] < 0.2 and d["layer_net_ratio"] > 0.8
+    assert a["layer_flip_frac"] > 0.8 and a["layer_net_ratio"] < 0.2
+    assert 0.0 < a["layer_step_sp"] < 0.2
