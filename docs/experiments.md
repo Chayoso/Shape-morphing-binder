@@ -3961,3 +3961,45 @@ P5 < 8 or P7 fails → §10.17a does not close the tip, the flag stays off. Rend
 influence: unchanged in kind — the render loss's splats are the 40k splats (fewer, larger
 than the native ones), g_share to be read from the run. Tests: `tests/test_disc_ref.py`
 (the factor, the asymmetry count), the touched suites 34 passed on hyde06.
+
+**Readings of the twin `d300_bunny` (20:05; the run: 52 windows, 984 s wall = 16 min, stopped by
+the outer-merit brake at windows 51–52 after a null commit at 49 — the plateau is real at the
+reference resolution).** P5 tip mass **18.3** reference particles within 0.25 wu of the target tip
+(c300 5.9, 40k 13) — holds, 3×. P6 tip 8-NN **0.58** native spacings (c300 1.67) — holds; off-body
+particles at 1.5 spacings **95 in 46 pieces** (c300 37 / 12; the largest 12 and 10, on the underside
+0.6–1.2 spacings from the target) — refuted. P7 end silIoU **0.9699** (c300 0.9677, the best bunny
+so far), chamfer 0.0598, det F min 0.745 (0.478), stray_max 0.0002 — holds, at 52 windows against
+176: the 300k-in-20-minutes budget is met without a window cap, because the objective at the
+reference spacing (OT blur radius 0.135 wu, the gate, the isolation k = 60) no longer sees the
+sub-cell residuals c300 kept chasing for 120 windows (the transport gate reaches 100 % of the
+layer at window 52; c300 was at 61 % there). P8 end bump at the reference render 1.5° (c300 1.5°,
+prediction ≤ 1.3) — refuted; at the native render **2.3°** (c300 1.9°, ≤ 1.5) — refuted, with 4
+interior cavities and 5 dropped sub-cell pieces. P9 mid-morph roughness (lump_trace, rms at 2
+native spacings, frames 300–825) **0.42–0.59** against c300's 0.20–0.26 — refuted, 2×; at the
+cell scale 0.66 against 0.47. Rendering influence: g_share 0.29–0.33 (c300 0.25–0.30; 40k 0.37);
+the render loss's splats are the 40k ones; the deliverable renderer is the same for both.
+
+**Reading.** Rule (38) fixes what it was derived for — the tip's mass and stretch, the response
+of the layer and the u channel, the convergence — and worsens the sub-cell arrangement: the
+relaxation now smooths at 0.27 wu, the u step is 0.135 wu a window, the isolation gate looks at
+60 particles, so nothing acts below the cell any more, and the surface at the native scale is
+rougher (the pits and cavities of the native still). The two runs bracket the same defect from
+both sides: at the native constants the per-particle machinery half-orders the sub-cell
+arrangement while the objective chases sub-cell residuals for 120 windows (the window-to-window
+reversal of c300's tail, corr −0.5…−0.7, see below); at the reference constants the chase is gone
+and so is the ordering. The method has no term whose job is the ORDER of the quadrature below
+the cell — the null space of the cell sum, the transport plan and the render. `--disc_ref` stays
+opt-in (not in RECIPE); the deliverable renderer keeps `--ref_n` (a render at the physics
+resolution is right regardless).
+
+**The oscillation near the optimum (the user, 20:00: "진동이 매우 심하다").** Measured on the
+archives (`$OUT/scratch/osc_probe.py`, per-window displacement of a 40k subsample): c300's last 60
+windows move a median 0.02–0.13 native spacings (0.005–0.03 cells) a window, consecutive windows
+anti-correlated (**corr −0.55 … −0.72** at windows 123 / 141 / 147 / 165, −0.13 … −0.42
+elsewhere) and spatially coherent (0.7–0.97 of the energy in the 2-spacing neighbourhood mean):
+a grid-smooth back-and-forth, not sub-cell jitter (the sub-cell part is 0.004 spacings). 40k
+g41's last 30 windows: 0.014–0.03 spacings, corr −0.09 … −0.65, the same in kind at half the
+cell amplitude. d300 stops before the alternation sets in (corr +0.35 at window 42, the brake at
+51–52 with reversal cos 0.23 / 0.31). The transport subsample is fixed for the run
+(`entropic_map` keeps `_sub_idx`), so the alternation is not subsample noise: it is the outer
+loop over-correcting a residual the grid cannot resolve and the next window undoing it.

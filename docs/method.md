@@ -859,3 +859,15 @@ the reference spacing the beads are gone (one component, nothing dropped), the f
 left ear is one tip, the bump is 1.5° — the knobs that remain at both tips are the stretched
 tip material itself, which the render cannot and should not hide. Whether (38) in the physics
 closes the tip is the pre-registered twin `d300_bunny` (docs/experiments.md 2026-09-23 night).
+
+Addendum (2026-09-23 night, the twin `d300_bunny`; docs/experiments.md): (38) in the physics
+brings the tip's mass to 18.3 reference particles (5.9 / 13 at 40k), its 8-NN to 0.58 native
+spacings (1.67), the end silIoU to 0.9699 (0.9677) in 52 windows / 16 minutes (176 / 44) with
+det F min 0.745 (0.478) — and leaves the sub-cell arrangement to itself: the native-scale bump
+2.3° (1.9°), the mid-morph roughness 2×, 95 particles in small pieces (37). The rule is kept
+opt-in (`disc_ref`, not in the recipe); the deliverable renderer keeps `--ref_n`. What the pair
+c300 / d300 establishes: the method has no term that orders the quadrature below the cell, and
+the two runs are the two ways of not having one (chasing sub-cell residuals for 120 windows with
+a window-to-window reversal, or ignoring them). The next mechanism is a sub-cell ordering step
+that is loss-neutral and mass-preserving (particle shifting / redistribution), designed after
+the literature (docs/related_work.md, pending).
