@@ -4301,3 +4301,14 @@ bunny unless stated):
 Two survey agents launched (MPM particles–grid–surface, 2013–2026; SIGGRAPH geometry
 interpolation and surface-from-particles); their digests go to docs/related_work.md, the chosen
 mechanisms are pre-registered here before they run.
+
+**Roughness in WORLD units, 40k against the 300k combinations (23:45; lump_trace at each run's own
+spacing, the "cell" column = the plane residual at the MPM cell scale, converted to wu).** g41 (40k,
+spacing 0.1385): rms at 2 spacings 0.18–0.27 sp = 0.025–0.037 wu; at the cell scale 0.21–0.30 sp =
+0.029–0.042 wu. g300: cell-scale 0.46–0.60 native sp = 0.032–0.041 wu; h300 0.41–0.57 = 0.028–0.039
+wu; c300 0.45–0.50 = 0.031–0.035 wu. At the scale the physics resolves, the 300k combinations are
+as smooth as the 40k run; the extra roughness of 300k lives below the cell (the 2-native-spacing
+column, 0.14 wu: g300 0.21–0.32 sp = 0.014–0.022 wu, a scale the 40k probe cannot even sample).
+The acceptance criterion "within the 40k band" is therefore met at the cell scale by g300 / h300;
+the sub-cell texture is the remaining item, and the reference-spacing render draws the cell
+scale — which is why the g300 / h300 end bump (1.3° / 1.2°) equals the 40k one.
