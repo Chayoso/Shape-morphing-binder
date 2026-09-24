@@ -4312,3 +4312,30 @@ column, 0.14 wu: g300 0.21–0.32 sp = 0.014–0.022 wu, a scale the 40k probe c
 The acceptance criterion "within the 40k band" is therefore met at the cell scale by g300 / h300;
 the sub-cell texture is the remaining item, and the reference-spacing render draws the cell
 scale — which is why the g300 / h300 end bump (1.3° / 1.2°) equals the 40k one.
+
+**The breathing metric on the finished archives, and a correction (23:55; `metrics.layer_breathing`,
+last 10 windows; the videos' delivered tails with the 20 hold frames excluded).**
+
+| run | layer flips | net / summed | normal step (sp) | step in wu | video tail |dI| (delivered last third) |
+|---|---|---|---|---|---|
+| g41 (40k) | 0.742 | 0.193 | 0.021 | 0.0029 | 0.0012 |
+| c300 | 0.775 | 0.119 | 0.073 | 0.0050 | 0.0025 (reference render) |
+| g300 | **0.557** | **0.254** | 0.068 | 0.0047 | **0.0019** |
+| h300 | 0.658 | 0.132 | 0.113 | 0.0078 | **0.0017** |
+| i300 | — | — | — | — | 0.0028 |
+| j300 (u_rprop) | 0.931 | 0.108 | 0.069 | 0.0048 | — |
+
+Correction of "the breathing vanishes in g300 / h300" (the cycle-ratio probe on the BULK's 3-D
+displacement read 0.7–0.9): on the LAYER's normal component over the last 10 windows g300 flips
+0.56 and drifts 0.25 of its summed motion — a random walk (1/√10 = 0.32), no longer c300's
+anti-correlated cycle (0.78 / 0.12) — and h300 0.66 / 0.13. The 40k reference itself flips 0.74 at
+0.021 spacings = 0.003 wu a window, the sub-spacing jitter Addendum 7 closed as invisible; its
+video's delivered tail changes 0.0012 a frame, and it looks still only where the frames are held.
+So the visible quantity is the AMPLITUDE in world units, not the flip fraction: g300 / h300 move
+0.0047 / 0.0078 wu a window in the tail (1.6–2.7× the 40k value) and their videos' delivered tails
+change 0.0019 / 0.0017 a frame (1.4–1.6× the 40k's; c300 2.1×). The acceptance criterion is
+restated in those terms: the layer's normal step ≤ 0.003 wu a window over the last 10 windows and
+the delivered tail's per-frame change ≤ 0.0012 (the 40k values), with the trajectory delivered
+up to convergence and held after it, as the 40k gallery is. g300 / h300 are not there yet; the
+remaining amplitude is the objective's sub-cell chase at the reference constants' own floor plus
+the stress channel's transport, and the next mechanisms come from the surveys.
