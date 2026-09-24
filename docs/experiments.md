@@ -4542,3 +4542,15 @@ its OT image) is the existing measure of arrival, and at 100 % the morph is in i
 phase, where the carried momentum only overshoots. `rest_commit_gate` (config; default 1.0 =
 apply from the first commit at which the gate reads 100 %); `m300` (unconditional) is read to the
 end as the transport cost, `m300b` runs the gated rule with the same P53–P57.
+
+**l300, the rest of its readings (01:05).** End bump at the reference render **1.19°** (the 40k
+reference 1.2°; g300 1.3°, c300 1.5°), at the native render 1.33° (c300 1.9°); components 1, no
+cavity, both ear tips clean; tip mass 18.5 reference particles (P51 ≥ 18 holds by 0.5; 8-NN 1.03 —
+the projection thins the tip slightly against g300's 0.79 / 23.7); the plain video (stride 12):
+sub-cell pieces dropped in **3 of 124 frames** (g300 17 of 87, c300 208 of 282), drawn components
+1 everywhere, the delivered tail's per-frame change **0.0016** (g300 0.0019, c300 0.0025, the 40k
+value 0.0012). Against the acceptance criteria (2026-09-23 night): surface ✓ (1.19° ≤ 1.2°),
+pieces ✓ (2 % of frames ≤ 10 %), fit ✓ (0.9797 / det F 0.66), the breathing's amplitude ✓ (0.0017
+wu a window ≤ 0.003), the breathing's flip fraction ✗ (0.74 — universal, the momentum
+alternation) and the video tail ✗ (0.0016 > 0.0012). The last two are what m300b (windows from
+rest once arrived) is for.
