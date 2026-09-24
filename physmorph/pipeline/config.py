@@ -487,6 +487,11 @@ class PipelineConfig:
                                     #   instead of a body whose constants shrink with the quadrature (at 300k the u
                                     #   clip, the relaxation width and the layer depth were half the 40k lengths, and
                                     #   the ear tip held 5.9 reference particles against 13 at 40k). 40k bit-identical.
+    rebound_probe: bool = False     # 2026-09-24 DIAGNOSTIC (docs/experiments.md, the elastic-rebound hypothesis): after
+                                    #   every accepted commit, roll one window with ZERO control from the commit state
+                                    #   (plain elastic dynamics, no layer, no bonds) and log the projection of that free
+                                    #   displacement on the window's committed displacement — the rebound fraction
+                                    #   (-0.5 = the body springs half-way back on its own). Costs one rollout a window.
     commit_pic: bool = False        # 2026-09-24 (docs/method.md 10.20; mpm/gridfilter.py): at every window commit the
                                     #   window's displacement is projected onto the grid-representable subspace —
                                     #   x_end <- x_start + G2P(P2G(x_end - x_start)) with the simulation's own B-spline

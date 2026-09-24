@@ -670,6 +670,35 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             if n_reattached:
                 n_reattach_total += n_reattached
                 log(f"[v2] anim {a + 1}: re-attached {n_reattached} grid-disconnected particles")
+        # ---- DIAGNOSTIC (cfg.rebound_probe): the elastic rebound. One window of zero-control dynamics from
+        # the commit state (after the assimilation; plain elastic body, no layer, no bonds); its
+        # displacement projected on the committed window displacement. -0.5 = half of what the control
+        # achieved springs back on its own (docs/experiments.md 2026-09-24, the spectral finding). ----
+        rec_rebound = None
+        if getattr(cfg, "rebound_probe", False):
+            try:
+                from ..mpm.constitutive import lame as _lame
+                from ..mpm.function import RolloutSpec as _RS, warp_mpm as _wm
+                _lam0, _mu0 = _lame(cfg.young, cfg.poisson)
+                _N = len(x)
+                _mref = int(getattr(cfg, "mass_ref_n", 0) or 0)
+                _mass = (float(_mref) / float(_N)) if (_mref > 0 and _N != _mref) else 1.0
+                _spec = _RS(x0=np.ascontiguousarray(x, np.float32), m=_mass, lam=_lam0, mu=_mu0, prm=prm, T=int(cfg.T),
+                            Fp=np.ascontiguousarray(Fp, np.float32), v0=np.ascontiguousarray(v_p, np.float32),
+                            F0=np.ascontiguousarray(Fc, np.float32), C0=np.ascontiguousarray(C_p, np.float32),
+                            device=cfg.device, vol0=vol0)
+                with torch.no_grad():
+                    _xT, _ = _wm(torch.zeros(_N, 3, 3, device=cfg.device), _spec)
+                _d_free = _xT.detach().cpu().numpy().astype(np.float32) - np.asarray(x, np.float32)
+                _d_prev = np.asarray(x, np.float32) - np.asarray(x_start, np.float32)
+                _den = float((_d_prev * _d_prev).sum())
+                _reb = float((_d_free * _d_prev).sum() / _den) if _den > 0 else float("nan")
+                _mf = float(np.median(np.linalg.norm(_d_free, axis=1))); _mp = float(np.median(np.linalg.norm(_d_prev, axis=1)))
+                rec_rebound = {"rebound": _reb, "free_median": _mf, "commit_median": _mp}
+                log(f"[v2] anim {a + 1}: rebound probe — free displacement projected on the committed one "
+                    f"{_reb:+.3f} (free median {_mf:.4f} wu, committed median {_mp:.4f} wu)")
+            except Exception as _e:
+                log(f"[v2] anim {a + 1}: rebound probe failed: {_e}")
         # ---- the null-space projection of the window's displacement (cfg.commit_pic; mpm/gridfilter.py,
         # docs/method.md 10.20): x_end <- x_start + G2P(P2G(x_end - x_start)) with the simulation's cubic
         # stencil at the window-start positions; the grid-invisible part is dropped. Before the shift. ----
@@ -793,6 +822,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "reattached": n_reattached,
                "shift_median_sp": (last_shift or {}).get("median_sp"), "shift_dvol_rel": (last_shift or {}).get("dvol_rel"),
                "pic_null_share": (rec_pic or {}).get("null_share"),
+               "rebound": (rec_rebound or {}).get("rebound"),
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
                "d_jdens": d_jd_v, "d_h1": d_h1_v, "h1_ratio": stats.get("h1_ratio"),
