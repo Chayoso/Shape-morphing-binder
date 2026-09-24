@@ -5160,3 +5160,13 @@ ALT/DRIFT 1.2–2.2 — white noise between consecutive frames gives 1.73, so at
 frame-to-frame change is mostly the per-frame refit's own noise, and the window-to-window
 alternation is aliased (stride 12 against a 19-frame window). Re-read at stride 19 (one frame
 per commit) below.
+*At stride 19 (one frame per commit; 14:00):* g41 tail D1 0.0015, ALT/DRIFT 1.65; g41r tail D1
+0.0018, ALT/DRIFT 1.29 — g41r alternates less and drifts more, as its particles do, but both sit
+near the white-noise ratio (1.73): even between commit frames the image change is mostly
+uncorrelated frame to frame. Read with the particle statistics (g41r's layer no longer
+alternates, its step 0.0032 wu ≈ 2 % of a spacing), this says the visible per-frame change is
+dominated by the **per-frame refit's response to small particle changes**, not by the
+particles' alternation itself — the reconstruction side of the question (hypothesis c), which
+M1 (the normal-only / tangential-only twins at stride 4) and M3 (the leaf at the cell) are
+measuring on GPU 0 / GPU 1 now. The decisive comparison: D1 at stride 4 against stride 12 / 19 —
+a refit-noise floor is stride-independent, a genuine motion scales with the stride.
