@@ -4049,3 +4049,45 @@ the sub-cell residuals are ordered instead of chased) and the tail's window-to-w
 (osc_probe, median of the last 30 windows) > −0.3. P21 the shift itself: median ≤ 0.1 spacing a
 commit after window 30 (the cloud stays ordered), p99 ≤ 0.3. Refutation: P16 or P19 failing →
 shifting does not order the quadrature of the morph, or harms the fit; the flag stays off.
+
+**Readings of E1 `e300_bunny` (the recipe + `--control_grid 17`, the mass contract; 21:00).** 206
+windows, 2434 s = 41 min (the brake at 205–206, reversal cos −0.33). P10 det F min **0.739** (c300
+0.478) — holds. P11 windows ≤ 120 — refuted (206). P12 end silIoU **0.9795**, chamfer 0.0586 — holds,
+the best silhouette of every bunny run. P13 the tail's window-to-window reversal — **refuted**: corr
+−0.62 / −0.18 / −0.84 / −0.76 / −0.02 / −0.43 at windows 167–197, the same alternation as c300 with
+the control's sub-cell DOF gone (884k against 2.7M DOF). P14 mid-morph roughness 0.196–0.244 (c300
+0.20–0.26) — holds; end off-body 44 particles in 11 pieces (c300 37) — holds. P15 tip mass 8.7
+reference particles (c300 5.9), 8-NN 1.35 (1.67) — holds. b300's verdict is overturned: with the
+mass contract the basis is a sound 300k discretisation (det F 0.74, the best fit), and it does not
+touch the oscillation, which is therefore the outer loop's, not the control parametrisation's.
+
+**Readings of E2 `f300_bunny` (the recipe + `--shift_sub`; 21:00).** 176 windows, 2131 s = 36 min
+(the brake at 175–176). The shift itself: median 0.173 spacing at the first commit (the stratified
+source), 0.02–0.025 from window 20 on, p99 0.10–0.12, the disorder |∇C| h 0.465 → 0.18 and flat —
+P21 holds (the cloud stays ordered at a cost of 0.02 spacing a commit). P16 mid-morph roughness
+**0.176–0.210** (c300 0.20–0.26; lower at every frame 450–825) — holds. P19 silIoU **0.9748**,
+chamfer **0.0554** (the best chamfer), det F 0.535 — holds. P20 windows ≤ 150 — refuted (176); the
+tail reversal −0.48 … −0.83 — refuted (the ordered quadrature does not stop the alternation
+either). P18 — **refuted, and how**: 397 particles off the body in 28 pieces, among them a
+**295-particle chunk** (1.6 cells of mass) and a 67-particle piece at the RIGHT ear's tip
+([−1.19, 3.51, −0.12]; the target 1.2 cells thick there), ON the target (0.41 spacings) and 5.3
+spacings = 1.2 cells from the body (min 2.5); it separated slowly from window ~105 (to-body
+median 1.2 → 3.7 spacings over frames 2000–3150), the 67-piece from window ~55. In c300 the same
+tip is held by a stretched thread of particles (8-NN 2×); once shifting evens the spacing the
+thread is gone, the tip block shares no node with the body and drifts on the target. The left
+tip: 4.8 reference particles (c300 5.9), 8-NN 1.88. The deliverable rule draws a 295-particle
+piece (≥ 170) and cannot bridge it (0.36 wu > the 0.31 wu link radius): a floating ear tip.
+Neither mechanism alone is adoptable; the pair says what each does — the basis: the fit and det F;
+shifting: the surface and the chamfer; neither: the oscillation, the thin tip.
+
+**Pre-registration (21:05) of the combinations, both on the recipe at 300k.** `g300_bunny` =
+`--disc_ref --shift_sub`: P22 tip mass ≥ 15 reference particles (d300 18.3, f300 4.8), tip 8-NN
+≤ 0.8 (d300 0.58). P23 mid-morph roughness (median, frames 300–825) ≤ 0.25 (d300 0.42–0.59: the
+shift orders what the reference constants leave). P24 end bump at the native render ≤ 1.8° (d300
+2.3°), at the reference render ≤ 1.5°. P25 silIoU ≥ 0.968, chamfer ≤ 0.061, windows ≤ 80 (d300
+52), det F ≥ 0.6. P26 off-body ≤ 40, the largest piece < 50 particles (f300's chunk must not
+recur: at the reference constants the tip holds 3× the mass and the neck is filled). Refutation:
+P22 or P26 failing → the combination is out. `h300_bunny` = `--disc_ref --shift_sub
+--control_grid 17`: P22–P26 as above, P27 silIoU ≥ 0.975 (e300 0.9795) with det F ≥ 0.6, P28 the
+tail reversal persists (median corr < −0.3) — the prediction that the oscillation is the outer
+loop's, to be falsified a second time. Next after these: the outer loop's damping (E3).
