@@ -5504,3 +5504,16 @@ property of delivering simulated frames; the deliverable side must not re-fit th
 scratch against a sub-resolution jitter: the tracked surface advected by the GRID velocity and
 projected onto the refit only beyond half a spacing (the survey's item 3; Yu 2012 / Dagenais
 2017 / Bojsen-Hansen 2013) is the pre-registered next step (`--track` with a band = ½ spacing).
+*Pre-registered, the deliverable side (19:05; `--track_band`, `--track_avg` in render_photoreal):*
+the tracked mesh (vertices bound to their k particles) pulled toward the fresh refit only where
+the refit lies farther than half a spacing (the reconstruction's own resolution — Yu 2012 /
+Dagenais 2017's band), and optionally drawn as the moving average of the last N frames (N = the
+control window in video frames; 2N the alternation's period — the surface at the control's time
+resolution). On z300b (tail 0.0024 untracked): **P151** `--track --track_band 0.5`: the delivered
+tail ≤ 0.0015 and the stride-19 alternating component ≤ 0.0012 (0.0021); **P152** `+ --track_avg 3`
+(stride 12: three frames ≈ two windows): tail ≤ 0.0010; **P153** no lag artefact — the ear's
+drawn length at video frames 20–40 within one spacing of the untracked render's, and the
+stride-12 mid-morph per-frame change (t = 0.2–0.5) within 20 % of the untracked (the transport
+must not be smeared). On ac300 the same for comparison. Read as: the residual per-window jitter
+of a settled body (the rollout's, not the optimiser's — g41f) is below the deliverable's own
+resolution and is not to be re-fitted every frame.

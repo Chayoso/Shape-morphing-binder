@@ -49,6 +49,16 @@ ap.add_argument("--track_keep", action="store_true",
                 help="at a drift / periodic re-mesh keep the tracked triangles that have no fresh counterpart (a neck the "
                      "reconstruction lost stays a tube); a particle-confirmed topology change still re-meshes fully")
 ap.add_argument("--track_k", type=int, default=8, help="particles a vertex is bound to (Gaussian weights of one spacing)")
+ap.add_argument("--track_band", type=float, default=0.0,
+                help="2026-09-24 (docs/experiments.md 18:55): no pull toward the fresh surface within this many spacings "
+                     "of it — a tracked vertex follows the fresh refit only beyond the reconstruction's own resolution "
+                     "(half a spacing), so a sub-resolution per-window jitter of the layer (1-10 %% of a spacing, the "
+                     "rollout's residual motion of a settled body) is not re-imported every frame (Yu 2012, Dagenais "
+                     "2017: a persistent mesh projected outside a band); 0 = the previous behaviour")
+ap.add_argument("--track_avg", type=int, default=0,
+                help="draw the tracked vertices averaged over the last N drawn frames (a moving average at the control "
+                     "window's own time resolution: N = T / stride frames covers one window, 2N the alternation's period); "
+                     "the buffer resets at a re-mesh; 0 = off")
 ap.add_argument("--surfel_memory", type=int, default=0,
                 help="temporal coherence WITHOUT a tracked mesh (2026-09-23): the outer-layer surfels of the previous "
                      "K-1 video frames, carried to the current frame with the material (the same kNN advection as "
@@ -561,6 +571,7 @@ def filament_bridges(x_np, plab, drawn, body, drawn_labels_needed=2):
     return fil, len(others)
 
 
+TRACK_AVG_BUF = []     # --track_avg: the last N drawn tracked-vertex arrays
 THIN_LAST = [0]        # --thin_fallback: spheres drawn in the last mesh_of call (surfels the fit left out)
 THIN_MESH = [None]     # --thin_fallback: their mesh, added to the drawn mesh at render time only
 
@@ -1142,11 +1153,25 @@ for k, i in enumerate(idx):
                 trk = (fresh, x64, topo, k); remeshed = 1
             else:
                 gate = (vdist <= spacing)[:, None]                          # no pull where the fresh surface is absent
+                if a.track_band > 0:
+                    gate = gate & (vdist > a.track_band * spacing)[:, None]    # nor within the band: the refit's own resolution
                 tm = trk[0]
                 tm.vertices = o3d.utility.Vector3dVector(V + a.track_alpha * (P - V) * gate)
                 tm.compute_vertex_normals()
                 trk = (tm, x64, topo, trk[3])
         draw_m = trk[0]
+        if a.track_avg > 0:
+            # the moving average of the tracked vertices over the last N drawn frames (reset at a re-mesh)
+            Vt = np.asarray(draw_m.vertices)
+            if remeshed or TRACK_AVG_BUF and TRACK_AVG_BUF[-1].shape != Vt.shape:
+                TRACK_AVG_BUF.clear()
+            TRACK_AVG_BUF.append(Vt.copy())
+            while len(TRACK_AVG_BUF) > a.track_avg:
+                TRACK_AVG_BUF.pop(0)
+            if len(TRACK_AVG_BUF) > 1:
+                draw_m = copy.deepcopy(draw_m)
+                draw_m.vertices = o3d.utility.Vector3dVector(np.mean(np.stack(TRACK_AVG_BUF, 0), 0))
+                draw_m.compute_vertex_normals()
     n_vert = int(len(draw_m.vertices)) if draw_m is not None else 0
     qa.append((i, n_comp, n_iso, n_drop, n_bridge, n_cav, jitter, drift, remeshed, n_vert, n_orphan))
     img = label(render_views(with_thin(draw_m)), f"{a.label}  frame {i}/{dn - 1}")
