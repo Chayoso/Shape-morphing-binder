@@ -551,6 +551,12 @@ class PipelineConfig:
                                     #   reversed twice is frozen for good — elastic stretch assimilated in full
                                     #   (F_e -> R_e), control zeroed, update scale 0, u bound 0, v / C zeroed at
                                     #   commits. Needs ctrl_rprop (the reversal reading). The frozen set only grows.
+    settle_eta: bool = False        # 2026-09-24 (10.26): a particle arrived and twice reversed gets the forward model's
+                                    #   per-particle viscosity with the time constant of one window, eta = 1 / (T dt) —
+                                    #   the quasi-static limit of settled material; needs ctrl_rprop (the reading).
+    settle_commit: bool = False     # 2026-09-24 (10.26): with rest_commit's latch, the accepted state is rolled one
+                                    #   window with zero control under that viscosity and the settled x, F replace the
+                                    #   commit's: the delivered commit is an equilibrium, the next window linearised at rest.
     u_rprop_floor: float = 0.05     #   the u channel's Rprop floor (10.19); 0 with ctrl_rprop — a floor of 0.05
                                     #   spacings a window is the breathing's own amplitude.
     outer_latch_reversal: bool = False  # 2026-09-24 (docs/method.md 10.21 addendum 3): arm the outer merit gate's

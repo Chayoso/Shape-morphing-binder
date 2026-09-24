@@ -5558,3 +5558,10 @@ read by the same chain (layer breathing, low-band correlation, video tail, strid
   `--settle_commit`. Pre-registered when built (**P161**, **P162**).
 Every candidate that holds its P at 40k is then combined into the 300k recipe with the KDE ear
 and the tracked-surface deliverable (P151–P153), and the whole is run on the 19-target gallery.
+*(19:50) Built and launched (40k, GPU 3 / 0):* **g41v = H + `--settle_eta`** — **P161** the body's
+per-window motion in the tail ≤ 0.5 × g41h's (≤ 0.0012 wu), flips ≤ 0.4, ALT ≤ 0.0010, silIoU ≥
+0.961; **g41w = H + `--rest_commit --rest_commit_reversal --settle_commit`** — **P162** the same
+targets, the settle displacement per commit ≤ 0.02 cells after ten windows (the commit already an
+equilibrium), no fit loss. Both are DIAGNOSTIC forms (method.md §10.26): they change the material
+during the morph, so even if they hold they enter the recipe only as a settling-phase option the
+user accepts; the recipe's own fix stays on the optimiser (H) and the deliverable surface.

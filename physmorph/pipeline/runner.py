@@ -410,6 +410,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     ctrl_scale, ctrl_prev_disp = None, None   # config.ctrl_rprop: the per-particle control step scale and the last accepted displacement
     ctrl_scale_apply = None              # the scale handed to the optimiser (neighbourhood-smoothed under ctrl_rprop_smooth)
     ctrl_rev_count, frozen_p = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
+    settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
     rev_prev_neg_acc = False             # config.outer_latch_reversal: the same reading, kept at every accepted commit
@@ -530,7 +531,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             surface_w=surface_w, Fg0=st.get("Fg"), coh_nbr=coh_nbr, coh_nbr_src=src,
             frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag,
             u_scale_init=(u_scale if getattr(cfg, "u_rprop", False) else None),
-            ctrl_scale_init=(ctrl_scale_apply if (getattr(cfg, "ctrl_rprop", False) or getattr(cfg, "freeze_arrived", False)) else None))
+            ctrl_scale_init=(ctrl_scale_apply if (getattr(cfg, "ctrl_rprop", False) or getattr(cfg, "freeze_arrived", False)) else None),
+            eta_init=settle_eta_arr)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):
@@ -1281,6 +1283,23 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # stretch assimilated in full (F_e -> R_e: no stress of its own), its control zeroed and its update
             # scale 0, its u bound 0, its velocity zeroed at commits. Frozen material is inert, carried by the
             # grid with its neighbours; the frozen set only grows. ----
+            # ---- config.settle_eta (docs/method.md 10.26): the settled body's viscosity. A particle that has
+            # arrived and reversed twice (the same reading as the freeze) is given the forward model's
+            # per-particle viscosity with the time constant of ONE WINDOW, eta = 1 / (T dt) — the
+            # quasi-static limit of settled material: whatever motion the grid hands it decays within
+            # the window it arises in, instead of being carried into the next window's linearisation.
+            # Derived from the discretisation; nothing else changes (control, u, assimilation as before). ----
+            if getattr(cfg, "settle_eta", False) and ctrl_prev_disp is not None and frozen_p is not None:
+                if settled_p is None or len(settled_p) != len(_d_now):
+                    settled_p = np.zeros(len(_d_now), bool)
+                _arr_s = stats.get("arrived_mask")
+                _arr_s = np.ones(len(_d_now), bool) if _arr_s is None or len(_arr_s) != len(_d_now) else np.asarray(_arr_s, bool)
+                settled_p |= _arr_s & (ctrl_rev_count >= 2)
+                _eta_w = 1.0 / (float(cfg.T) * float(prm.dt))
+                settle_eta_arr = np.where(settled_p, np.float32(_eta_w), np.float32(0.0)).astype(np.float32)
+                rec["settled_frac"] = float(settled_p.mean())
+                if (a + 1) % 5 == 0:
+                    log(f"[v2] anim {a + 1}: settled {100 * settled_p.mean():.1f} % of the particles (viscosity {_eta_w:.3g}, one window)")
             if getattr(cfg, "freeze_arrived", False) and ctrl_prev_disp is not None and frozen_p is not None:
                 _arr_f = stats.get("arrived_mask")
                 _arr_f = np.ones(len(_d_now), bool) if _arr_f is None or len(_arr_f) != len(_d_now) else np.asarray(_arr_f, bool)
@@ -1324,6 +1343,35 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] anim {a + 1}: windows from rest from here on ("
                     + (f"u transport gate {100 * float(_ug if _ug is not None else 0):.1f} % >= {100 * _gate_thr:.0f} %"
                        if _by_gate else f"two accepted commits reversing in a row, cos {float(reversal_cos):.2f}") + ")")
+            if rest_latched and getattr(cfg, "settle_commit", False):
+                # ---- config.settle_commit (docs/method.md 10.26): the delivered commit is an EQUILIBRIUM — from
+                # the accepted state, one window of zero-control dynamics under the settled body's viscosity
+                # (eta = 1 / (T dt), the same constant as settle_eta), the carried velocity and affine state
+                # included; the settled positions and F replace the commit's, the velocity is then zeroed.
+                # The next window is linearised at rest instead of at a state still moving. ----
+                try:
+                    from ..mpm.constitutive import lame as _lame_s
+                    from ..mpm.function import RolloutSpec as _RS_s, warp_mpm as _wm_s
+                    _lam0, _mu0 = _lame_s(cfg.young, cfg.poisson)
+                    _N = len(x); _mref = int(getattr(cfg, "mass_ref_n", 0) or 0)
+                    _mass = (float(_mref) / float(_N)) if (_mref > 0 and _N != _mref) else 1.0
+                    _eta_w = 1.0 / (float(cfg.T) * float(prm.dt))
+                    _spec_s = _RS_s(x0=np.ascontiguousarray(x, np.float32), m=_mass, lam=_lam0, mu=_mu0, prm=prm, T=int(cfg.T),
+                                    Fp=np.ascontiguousarray(Fp, np.float32), v0=np.ascontiguousarray(st["v"], np.float32),
+                                    F0=np.ascontiguousarray(Fc, np.float32),
+                                    C0=(np.ascontiguousarray(st["C"], np.float32) if st.get("C") is not None else None),
+                                    device=cfg.device, vol0=vol0, eta=np.full(_N, np.float32(_eta_w), np.float32))
+                    with torch.no_grad():
+                        _xS, _FS = _wm_s(torch.zeros(_N, 3, 3, device=cfg.device), _spec_s)
+                    _xS = _xS.detach().cpu().numpy().astype(np.float32); _FS = _FS.detach().cpu().numpy().astype(np.float32).reshape(-1, 3, 3)
+                    _ds = float(np.median(np.linalg.norm(_xS - np.asarray(x, np.float32), axis=1)))
+                    if np.isfinite(_xS).all() and np.isfinite(_FS).all():
+                        x = _xS; Fc = _FS
+                        rec["settle_disp"] = _ds
+                        if (a + 1) % 5 == 0:
+                            log(f"[v2] anim {a + 1}: settle at commit — median displacement {_ds:.5f} wu ({_ds / max(float(prm.dx), 1e-9):.4f} cells)")
+                except Exception as _e:
+                    log(f"[v2] anim {a + 1}: settle at commit failed: {_e}")
             if rest_latched:
                 st["v"] = np.zeros_like(st["v"])
                 if st.get("C") is not None:

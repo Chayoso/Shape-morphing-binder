@@ -1149,3 +1149,27 @@ ag300, running): the neighbourhood is the regulariser's constant, not a new one.
 costs the transport: a particle whose arrival wiggle reverses once keeps half its step for good —
 the ear tip in ac300 held 10.7 reference particles against l300's 18.5; the reading of the form
 on the tongue is af300 (with the KDE term).
+
+### 10.26 The settled body's viscosity and the settle at commit (2026-09-24 evening; config `settle_eta`, `settle_commit`; DIAGNOSTIC forms)
+
+The freeze twin (g41f) showed that a settled body with its control zeroed, its velocity zeroed
+at commits and its elastic stretch assimilated still moves 0.0016 wu a window: the residual
+per-window motion is the rollout's own — the grid carries the last arrivals into settled
+material, the layer relaxation follows — and not the optimiser's. Two forms read whether that
+motion decays if the settled material is quasi-static:
+
+```
+(48)  eta_p = 1 / (T dt)  for settled particles (arrived, twice reversed), 0 otherwise    [settle_eta: inside the windows]
+(49)  x, F <- rollout(zero control, eta = 1 / (T dt) everywhere, T steps) from the accepted state; v, C <- 0   [settle_commit]
+```
+
+(48) is the forward model's own per-particle viscosity (traj.Trajectory eta, the Kelvin–Voigt
+damping of the MPM) with the time constant of one window — the constant is the discretisation's,
+not a material's; (49) is the quasi-static commit: the delivered commit is an equilibrium and the
+next window is linearised at rest. **Both change the material during the morph**: a viscous
+settled body responds to an external force during the morph with that damping, and the
+committed state of (49) is a relaxed one. They are therefore diagnostics of where the residual
+motion lives, and are not in the deliverable recipe unless the user accepts a damped settling
+phase; the deliverable object itself (the archived x, F, Fp with λ, μ) carries no viscosity —
+after the morph it responds to external forces through its elastic parameters alone, and with
+the plastic assimilation its rest state is the morphed shape.
