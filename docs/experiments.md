@@ -5104,3 +5104,15 @@ is not driven by the control step at all (then it is the physics rollout's own r
 stationary control — the terminal kinetic term's rest is not rest — and the settle-at-commit
 twin is next); P105 failing on the ear says the ear's particles do reverse mid-transport (then
 the scale must be reset when the particle's transport gate reads "in transit").
+
+*13:15 — the server back (direct route; hyde06's authorized_keys had been rewritten at 06:55 CDT
+without the key; hyde01 still lacks it). Syntax of all five changed files ok on hyde06; the
+Rprop smoke (3k, 6 windows, the z300b recipe + `--ctrl_rprop --u_rprop --u_rprop_floor 0`) ran
+clean: 2–5 % of the moving particles reversed per window during the transport, step-scale median
+1.000, none below 0.1 — the rule is quiet while the body travels, as designed. **ab300 launched
+13:20 on GPU 2** (verdict chain armed, with the per-window reversal / scale series). In parallel
+on GPU 0 the morning chain: 19 Poisson stills with meshes (the dropout window's archived frames
+192–324 and the tail's last seven window commits), the ear-tip census, M2 (surface normal
+velocity vs the layer's normal step), M1 (the tail-only decomposition twins full / normal /
+tangent, rendered at stride 4), and the `--keep_attached` re-render of z300b with its sidecar
+against the original.*
