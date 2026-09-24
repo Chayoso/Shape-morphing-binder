@@ -5851,3 +5851,20 @@ same flags as g41t's 113-window run — C's early stop is a run-to-run event of 
 rejection streak, so C's numbers carry that variance; the pin's +0.06 is far outside it.
 cow: −0.0009, det F 0.775 (g41y 0.843; P185's det F bound −0.05 ✗ on cow by 0.02 — the
 transport round a pinned body compresses at the boundary; watch the rest of the gallery).
+
+**2026-09-25 02:15 — g41y complete (19 of 19): the arrival-read onset hold on the gallery.**
+Fit vs g41: 17 up or within −0.0015; **C −0.0148** (P172 ✗ on C alone — its 25-window early
+stop, a rejection streak during pure transport, cos +0.85, the hold never engaged); det F: beast
+−0.060, dragon −0.053, homer −0.033, the rest within −0.01, ogre +0.051; flips ≤ 0.6 on 15 and
+step ≤ g41's on 16 (P174 ✓). The onset hold is a clean improvement over g41x (nefertiti +0.0043,
+82 windows) but it does not touch what the pin does: the alternation's residual (steps 0.017–0.05
+spacings, flips 0.5–0.66 on the smooth targets) stays.
+
+*g41z so far (the pin, 4 of 19):* C **+0.061**, bunny +0.006, nefertiti +0.001 (81 windows,
+step 0.0038 spacings, flips 0.38), cow −0.001 — the fit holds everywhere; **det F: bunny −0.02,
+C −0.04, cow −0.078 (0.775), nefertiti −0.083 (0.681)** — P185's det F bound (−0.05) ✗ on cow
+and nefertiti: the last arrivals compress against the pinned body (a fixed obstacle at the
+arrived/in-transit boundary, the same shear g41t showed on C/beast). The pin's cost is where
+the freeze's was — at the boundary — and it is the reading to watch on the remaining 15 before
+adoption. A boundary-aware variant, if needed: pin only particles whose neighbourhood (the
+regulariser's kNN) is arrived as well — no constant, the coherence neighbourhood's own test.
