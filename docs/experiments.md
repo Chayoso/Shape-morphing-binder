@@ -5428,3 +5428,17 @@ det F −0.011 (the −0.060 gone); A +0.005, bunny +0.005, fandisk +0.006, drag
 +0.000, heart +0.001, V −0.001; flips down on 8 of 9. C's det F is the next thing to read (where
 the compression sits — the arms' fronts arriving at the hole's rim under a step the gate never
 decays because they never "arrive" by the pace radius?).
+
+*18:00 — two 40k analogues launched for speed (3 min each; the user: "저 진동이 진짜 너무 안 잡히네").*
+**g41h** = the 40k gallery recipe + the held-step arrival-gated smoothed form (the 40k analogue of
+ai300): **P145** the layer's flips ≤ 0.5 and step ≤ 0.6 × g41's (0.0208 spacings), the stride-19
+alternating component ≤ 0.7 × g41's (0.0014), det F ≥ 0.75, silIoU ≥ 0.961. **g41a** = the 40k
+recipe with the plastic assimilation OFF (`--assim 0`; η: F_e → R_e S_e^{1−η} per commit — the
+one commit-time operation on the material state not yet tested as the breathing's carrier): a
+DIAGNOSTIC, expected to morph worse (the control must then hold the shape elastically); **P146**
+if its layer flips fall below 0.5 with the step ≤ 0.5 × g41's while the fit stays ≥ 0.95, the
+assimilation's commit-time jump (the elastic stretch halved at every commit, the next window's
+stress state discontinuous) is a carrier and the structural form is a commit at equilibrium
+(assimilate, then settle before the next window's linearisation); if the breathing is unchanged
+the assimilation is out too, and with the held step (ai300 / g41h) the optimiser's step is the
+last candidate standing or falling.
