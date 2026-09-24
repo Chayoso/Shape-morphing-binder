@@ -4861,3 +4861,14 @@ without correspondence: bunny 0.111–0.115 at every t (never leaves the sphere)
 0.138–0.149 with 2–17 components from t = 0.2. Ours (bunny, Poisson at the reference spacing):
 0.0109–0.0123 at t = 1, one body, genus 0, watertight at every t. The correspondence-given
 (nearest) chain is queued after these.
+*t300's chain readings (05:20):* video tail 0.0026, bump 1.26°, low-band correlation −0.43 (the
+alternation present as in every run).
+*Ours on the torus (05:30; gt_torus = 40k, the gallery recipe, the baselines' torus target).* The
+auto regime chose ot_pace + hand-off (36 % of the source in target-empty cells); the merit gate
+stopped the run at window 17 after three regressions of −11 … −14 % (deliverable to window 13,
+2.8 min): silIoU 0.9674, hole 6.2 %, end Chamfer **0.039** of our target's diagonal (ISD 0.0070,
+4Deform 0.138) — genus 1 at the end (the hole formed), one watertight body at t = 0.25, 0.5 and
+1.0, but three components at t = 0.75 and Poisson cavities at t = 0.5–0.75 (volumes 67–82 wu³
+against the sphere's 45: the reconstruction closes over the forming hole). The genus change is
+our weak case as it is the baselines' — ours keeps one body and gets the topology, ISD gets the
+end surface and tears the middle, 4Deform gets neither. Recorded as is; not pursued tonight.
