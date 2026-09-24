@@ -103,7 +103,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
-                         disc_ref=args.disc_ref, stop_on_cycle=args.stop_on_cycle, u_rprop=args.u_rprop, commit_pic=args.commit_pic, rebound_probe=args.rebound_probe, rest_commit=args.rest_commit, rest_commit_gate=args.rest_commit_gate, rest_commit_reversal=args.rest_commit_reversal, pace_project=args.pace_project, outer_latch_reversal=args.outer_latch_reversal, plan_native=args.plan_native, shift_sub=args.shift_sub, shift_h_sp=args.shift_h_sp, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
+                         disc_ref=args.disc_ref, stop_on_cycle=args.stop_on_cycle, u_rprop=args.u_rprop, commit_pic=args.commit_pic, rebound_probe=args.rebound_probe, rest_commit=args.rest_commit, rest_commit_gate=args.rest_commit_gate, rest_commit_reversal=args.rest_commit_reversal, pace_project=args.pace_project, outer_latch_reversal=args.outer_latch_reversal, plan_native=args.plan_native, ctrl_rprop=args.ctrl_rprop, u_rprop_floor=args.u_rprop_floor, shift_sub=args.shift_sub, shift_h_sp=args.shift_h_sp, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
                          layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
@@ -648,6 +648,12 @@ def main():
     ap.add_argument("--plan_native", action="store_true",
                     help="with --disc_ref: the OT plan's blur from the native target spacing (the sample-derived "
                          "formula is N-independent already; config.plan_native; docs/method.md 10.17a correction)")
+    ap.add_argument("--ctrl_rprop", action="store_true",
+                    help="per-particle Rprop on the control step: halve a particle's step when its window displacement "
+                         "reversed the previous accepted one, raise it x1.2 (to 1) when it kept its direction, no floor "
+                         "(config.ctrl_rprop; docs/method.md 10.24)")
+    ap.add_argument("--u_rprop_floor", type=float, default=0.05,
+                    help="the u channel's Rprop floor (config.u_rprop_floor); 0 removes it")
     ap.add_argument("--outer_latch_reversal", action="store_true",
                     help="arm the outer merit gate's low-gain reversal reject at the alternation's onset (the second "
                          "accepted commit in a row reversing the previous one) and keep it armed "

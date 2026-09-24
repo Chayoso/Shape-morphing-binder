@@ -5086,3 +5086,21 @@ rather than dropped; **P102**: no change to any frame in which only one componen
 (the body's bump 1.24° unchanged). The census (particles / surfels / mesh vertices / dropped
 components per frame in the ear mask) runs first when the server is reachable, to confirm the
 particles never retract there.
+
+**2026-09-24 10:30 — the structural fix for the alternation: per-particle Rprop on the control
+step (method.md §10.24, `--ctrl_rprop --u_rprop --u_rprop_floor 0`).** The user: "그럼 이제 진동을
+수정해야지". Built while the server's key is still rejected; syntax and the smoke run pending.
+*Pre-registered ab300 = z300b's recipe (`--plan_native --w_kde 1 --ot_handoff`) + the per-particle
+Rprop.* **P103** the moving particles' step-scale median falls below 0.1 within 15 windows of the
+reversal onset (the bulk settles) while the ear region's particles keep a median scale ≥ 0.5
+until the ear is ≥ 0.9 filled (the transport is untouched); **P104** the layer's per-window normal
+step over the last 10 delivered windows ≤ 0.001 wu (l300 0.0017, the 40k reference 0.0029) and
+the low-band consecutive-window correlation > −0.3 (−0.6 … −0.7 in every run so far); **P105** the
+end not worse than z300b's — ear fill ≥ 0.93, silIoU ≥ 0.977, ≤ 10 strays, bump ≤ 1.3°; **P106**
+the run ends on the plateau rule (no accepted window moving the layer above 0.001 wu) within 120
+windows, and the video's delivered tail per-frame change reaches the frozen-hold level (≤ 0.0005)
+over its last ten frames. Refutation: P104 failing with P103 holding says the layer's breathing
+is not driven by the control step at all (then it is the physics rollout's own response to a
+stationary control — the terminal kinetic term's rest is not rest — and the settle-at-commit
+twin is next); P105 failing on the ear says the ear's particles do reverse mid-transport (then
+the scale must be reset when the particle's transport gate reads "in transit").

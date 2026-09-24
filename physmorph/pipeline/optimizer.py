@@ -223,7 +223,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
                     mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None,
                     coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
-                    u_scale_init=None):
+                    u_scale_init=None, ctrl_scale_init=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -740,6 +740,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     mom = [torch.zeros_like(p) for p in leaves]
     vel = [torch.zeros_like(p) for p in leaves]
     lr_scale = [1.0] + ([cfg.mat_lr_scale] if s is not None else []) + ([1.0] if u is not None else [])
+    # per-particle Rprop scale of the control step (config.ctrl_rprop; docs/method.md 10.24): the runner
+    # halves a particle's scale when its window displacement reversed the previous accepted one and
+    # raises it x1.2 (to 1) when it kept its direction; no floor — the arrived body's step decays to
+    # zero while a part still in transport keeps its step. Broadcast along the leaf's particle axis
+    # (per-particle leaves only: a coarse node basis has no particle axis).
+    ctrl_scale_v = None
+    if ctrl_scale_init is not None and int(getattr(cfg, "control_grid", 0) or 0) == 0:
+        _cs = torch.as_tensor(np.asarray(ctrl_scale_init, np.float32), device=dev)
+        _ax = [i for i, sz in enumerate(dFc.shape) if sz == N]
+        if _ax:
+            ctrl_scale_v = _cs.view([N if i == _ax[0] else 1 for i in range(dFc.dim())])
     adam_t = 0
     if cfg.mom_carry > 0 and mom_init is not None:
         m_in, v_in, t_in = mom_init
@@ -1432,6 +1443,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     mh = m_ / (1 - cfg.beta1 ** t_)
                     vh = v_ / (1 - cfg.beta2 ** t_)
                     d_ = mh / (vh.sqrt() + eps_eff)
+                    if ctrl_scale_v is not None and p is dFc:
+                        d_ = d_ * ctrl_scale_v          # the per-particle Rprop scale (config.ctrl_rprop)
                     if W_apply is not None and u is not None and p is u:
                         d_ = W_apply(d_)             # the u step on the layer's smooth subspace (§7)
                     p -= (a_try * sc) * d_

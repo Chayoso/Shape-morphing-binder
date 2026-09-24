@@ -1092,3 +1092,39 @@ N-independent (0.119 wu at 40k, 0.116 at 300k native) — and 10.17a's scaling o
 spacing doubled it to 0.227 wu. `plan_native` keeps it at the sample's spacing; u300 read no
 change in the ear and none in the transport, so it is a correctness fix of rule (38), not a
 mechanism.
+
+### 10.24 The per-particle Rprop on the control step (2026-09-24; code: pipeline/optimizer.py at the Adam step, pipeline/runner.py at the accepted commit; config `ctrl_rprop`, `u_rprop_floor`; evidence docs/experiments.md 2026-09-24 07:30 and 10:30)
+
+Every run alternates once its bulk has arrived, and every intervention that changed a carrier —
+the momentum (o300), the render channel (p300), the relaxation (w300), the moving target (v300,
+in part), the balancer, the u bound (j300) — left the alternation's amplitude where it was: the
+layer's per-window normal step sits at 0.002–0.003 wu at 40k and at 300k alike, and l300 and the
+40k reference alternate with the step at its annealed floor (0.05 of α). A first-order controller
+with a fixed minimum step against a residual that changes sign when crossed is a limit cycle of
+that step's amplitude; the cure is a step that keeps shrinking on reversal (the Robbins–Monro
+condition), and the reason the recipe has a floor at all is the transport: a global step decayed
+to zero would freeze a part that is still travelling (z300's gate cut the ear short). The two are
+separated per particle:
+
+```
+(46)  at an accepted commit, for every particle p with d_p = x_p - x_p,start and d'_p its previous accepted displacement:
+      r_p <- r_p / 2                if d_p · d'_p < 0            (the step reversed)
+      r_p <- min(1, 1.2 r_p)        if d_p · d'_p >= 0           (the step kept its direction)
+      the control's Adam step for p is scaled by r_p (no floor); particles with |d| below 1e-4 cell keep r_p
+```
+
+This is Rprop (Riedmiller, Braun 1993: η⁻ = ½, η⁺ = 1.2, the standard values; here without Δ_min),
+applied per particle to the control leaf, with the same rule the u channel has had since 10.19
+(`u_rprop`) whose floor of 0.05 spacings — the breathing's own amplitude — is now a value
+(`u_rprop_floor`, 0 in this recipe). A particle still in transport moves the same way window
+after window and keeps r_p = 1; a particle of the arrived body reverses at every window and its
+step halves each time — the alternation decays geometrically instead of persisting at the floor,
+and the run ends on the plateau rule when nothing moves. No constant beyond Rprop's two, which
+are the literature's; the floor is removed, not set.
+
+What it does not do: it does not change the window's objective, the paced target or the render
+channel, so the merit reversal's cause (the moving target, 10.21 addendum 3) is untouched — the
+step decays under it. Read together with the reconstruction question (the kind of the tail
+motion, experiments.md 09:40): if the tail's visible change is a tangential re-sampling of the
+Poisson fit (hypothesis c), the decayed step removes that too, since a particle that no longer
+moves cannot rearrange.

@@ -524,6 +524,16 @@ class PipelineConfig:
                                     #   alternation, the carried momentum an overshoot by definition. m300b's gate
                                     #   at 100 % latched at window 62 of 66 (the last stragglers define arrival);
                                     #   the sign of the reversal is the mechanism's own reading. The gate still applies.
+    ctrl_rprop: bool = False        # 2026-09-24 (docs/method.md 10.24): per-particle Rprop on the CONTROL step —
+                                    #   after an accepted window a particle whose displacement reversed its previous
+                                    #   accepted one has its step halved, one that kept its direction x1.2 up to 1;
+                                    #   NO floor. Every run alternates at the optimiser's floor step once arrived
+                                    #   (0.002-0.003 wu a window at 40k and 300k); a step that keeps shrinking on
+                                    #   reversal converges (the Robbins-Monro condition per particle), and a part
+                                    #   still in transport never reverses, so the ear keeps its step while the body
+                                    #   settles (the onset gate cut the ear short: z300). Riedmiller & Braun 1993.
+    u_rprop_floor: float = 0.05     #   the u channel's Rprop floor (10.19); 0 with ctrl_rprop — a floor of 0.05
+                                    #   spacings a window is the breathing's own amplitude.
     outer_latch_reversal: bool = False  # 2026-09-24 (docs/method.md 10.21 addendum 3): arm the outer merit gate's
                                     #   low-gain reversal reject at the ALTERNATION'S ONSET — the second accepted
                                     #   commit in a row whose displacement reverses the previous one — and keep it
