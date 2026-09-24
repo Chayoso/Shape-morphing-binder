@@ -5463,3 +5463,20 @@ video's delivered tail ≤ 0.0013 (stride-19 alternating component ≤ 0.5 × th
 (40k), the ear fill ≥ 0.93 at 300k (the ear's particles freeze only once arrived). Refutation:
 P148 failing with P147 holding says the frozen body still moves — then the motion is the grid's
 (neighbours in transport dragging inert material) and the breathing was never the optimiser's.
+
+**2026-09-24 18:40 — g41h (40k, the held-step form) and g41a (40k, no assimilation).**
+*g41h:* silIoU 0.9632, det F 0.781, the bulk's reversal negative in ONE window of 36 (g41: from
+window 20 to the end), the layer's low-band correlation −0.18, flips 0.47 — the alternation is
+gone at 40k too; but the layer's step 0.0193 spacings (g41 0.0208 = 0.0029 wu; **P145's amplitude
+✗**) and the stride-19 alternating component 0.0014 (= g41's; ✗) are unchanged: with the global
+step held and the per-particle scales at 0.05, the layer still moves 2 % of a spacing a window
+as an uncorrelated jitter. *g41a (`--assim 0`):* silIoU 0.966, det F 0.82, flips 0.64, step 0.036
+spacings, video tail 0.0022, ALT 0.0019 — larger, not smaller: **P146 ✗, the assimilation is not
+the carrier** (without it the elastic body springs more). So at 40k the picture after every twin
+is: the window-to-window ALTERNATION is the optimiser's (removed by the per-particle rule), the
+residual per-window MOTION of the layer (0.02 spacings, spatially incoherent, white-noise-like
+between commit frames) is not set by the control update's size — its source is what the freeze
+twins (g41f / aj300: control zeroed, velocity zeroed, stretch assimilated for the arrived body)
+isolate: either the persisting warm-started control replaying each window, or the rollout's own
+response to a stationary state (the relaxation projection at 1/T per step, the shifting, the
+grid's cell-crossing noise) transmitted from unfrozen neighbours.
