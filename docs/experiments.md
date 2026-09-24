@@ -5827,3 +5827,27 @@ the tail is the fit of the still-moving 30 % (the ears' last arrivals) and the c
 The generalisation (g41z, 19 targets) and the no-hold form (g41q) are the adoption gate
 (P185–P186); ap300 the 300k reading. The archive now records the pin window per particle
 (`pinned_at`) for the exact check on every later run.
+
+**2026-09-25 01:40 — am300's verdict, and the pin's first gallery readings (C).** *am300 (the
+KDE ear + H with the arrival-read onset hold, 300k):* 129 windows, **silIoU 0.9799** (the best
+300k fit with the ear so far; z300b 0.9802 without H), det F **0.4067** (P175 ✗ — the KDE
+ear's compression is not the hold's to fix), the hold engaged at window 90 (P178's 45–70 ✗:
+the arrived-read cosine equals the global one on the bunny — the arrived set IS the bulk — and
+it crossed −0.2 twice in a row only at 89–90), and the alternation continued under the hold
+(37 negative windows from 86 on, layer flips 0.62, step 0.0148 spacings) — with the KDE term the
+held step is not enough: the KDE's per-window pull reverses itself at the held amplitude. The
+ear: 118 particles at the tip = 15.7 reference particles (target 89 at 300k's count — the tip
+census is at the 40k reference scale; the fill number follows in the chain). The KDE ear at
+300k is therefore not settled by H; the pin is the next reading on it (ap300 has no KDE).
+
+*The pin on C (40k, g41z / g41q, 51 windows):* **g41z_C silIoU 0.9616** (g41 0.9009, g41t
+0.9496, g41y 0.8861), det F 0.82, layer step 0.0095 spacings; **g41q_C (the pin WITHOUT the
+global hold) 0.9621**, det F 0.82 — identical: the hold never engaged on C in either (its
+cosine stays +0.85, pure transport), so the pin alone ends C's stall — C's failure mode was
+the arrived arms' re-adjustment fighting the transport of the rest, and a pinned arm is a
+fixed obstacle the transport flows round. A caveat read from g41y_C: its 25-window early stop
+("3 consecutive rejected candidates") happened at cos +0.85 with the hold never engaged, on the
+same flags as g41t's 113-window run — C's early stop is a run-to-run event of the merit's
+rejection streak, so C's numbers carry that variance; the pin's +0.06 is far outside it.
+cow: −0.0009, det F 0.775 (g41y 0.843; P185's det F bound −0.05 ✗ on cow by 0.02 — the
+transport round a pinned body compresses at the boundary; watch the rest of the gallery).
