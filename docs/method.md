@@ -887,8 +887,9 @@ diffuses down its gradient, one explicit step at the stability limit, at every w
 ```
 
 Constants and their origin: ½ is the explicit-diffusion stability limit (the 2020 review's
-10.3–10.4); the anti-pairing factor is Monaghan's tensile correction that Lind 2012 carries in
-the shifting gradient — without it the kernel gradient vanishes for close pairs and the step
+10.3–10.4); the anti-pairing factor is Monaghan's tensile correction that Lind 2012 added to the
+shifting gradient (R = 0.2, n = 4 as in the δ⁺-SPH form; Lind's own values unverified,
+docs/related_work.md) — without it the kernel gradient vanishes for close pairs and the step
 dis-orders a cloud (measured, experiments.md); h = Δp for the Gaussian is the width of the cubic
 spline at the standard SPH ratio h = 1.3 Δp (σ 0.71 against 0.78 Δp), the one that orders;
 k = 40 is where the Gaussian is below 2 % (a ball of radius 2 Δp holds ≈ 34 particles); the

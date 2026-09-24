@@ -184,3 +184,14 @@ What this settles for §10.17a:
     (Smooth Shells' bounded inter-scale change). Their lesson for our outer loop: the residual
     the control cannot resolve must not be in the objective it descends — (a) removes the DOF
     that chase it; the window-to-window reversal is the symptom.
+
+Refinement of item 5 (the agent, 20:25): the anti-pairing factor entered shifting WITH Lind 2012 —
+a citing paper (SPH-ASR, arXiv 2008.01326 §3) states that Lind et al. "modified the concentration
+gradient by adding an artificial pressure-like function to prevent particle pairing instability";
+the δ⁺-SPH form (arXiv 2109.09697 eq. 16) writes it as Σ_j [1 + R (W_ij / W(Δs))ⁿ] ∇W_ij V_j with
+R = 0.2, n = 4 (Monaghan 2000) and Δs the initial spacing. Whether Lind 2012 used exactly R = 0.2,
+n = 4 is unverified (paywalled). Kernel and h: the group's open ISPH paper (Xenakis et al.) uses a
+quintic spline with h = 1.3 dx and shifting δr = −A h |u| Δt ∇C (A = 2, floor D₀ = 0.01 h²); the
+quintic spline for Lind 2012 is corroborated by a snippet of Mokos 2017, h = 1.3 dx for Lind 2012
+specifically is inferred, not read. Our (39) takes R = 0.2, n = 4 and the Gaussian at h = Δp (the
+width of the spline at h = 1.3 Δp) on that basis, and marks them as literature constants.

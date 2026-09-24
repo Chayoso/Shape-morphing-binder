@@ -12,7 +12,9 @@ and each particle diffuses down its gradient,
 
 λ = ½ being the stability limit of the explicit diffusion step (Lind 2012 / Skillen 2013 eq.
 10.3–10.4 of the 2020 review) and [1 + R (W_ij / W(Δp))^n] Monaghan's (2000) anti-pairing factor
-that Lind 2012 carries in the shifting gradient (R = 0.2, n = 4, Δp the particle spacing): without
+that Lind 2012 added to the shifting gradient "to prevent particle pairing" (SPH-ASR 2020 citing it; the
+values R = 0.2, n = 4 are the δ⁺-SPH form's, arXiv 2109.09697 eq. 16, after Monaghan 2000; Lind's own
+values unverified, docs/related_work.md), Δp the particle spacing: without
 it the kernel gradient vanishes for close pairs and the step DIS-orders a cloud (measured,
 `/scratch/shift_probe2.py`: the 1-NN spacing CV of a jittered lattice 0.16 → 0.36 in ten
 steps; with it 0.16 → 0.08, a uniform random cloud 0.38 → 0.10). With uniform
