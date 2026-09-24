@@ -4367,3 +4367,14 @@ reference particles (23.7; the risk: the projection smears the tip), no piece �
 80. Refutation: silIoU < 0.965 or tip < 12 → the sub-cell fit the control needs is the same
 subspace, and the filter cannot be the fix; P48 failing with the rest holding → the breathing is
 NOT in the grid-invisible subspace (then it is the grid-resolved control's own alternation).
+
+**P45–P47 (the Yu & Turk kernel through the Poisson path; 00:55): no effect — bump 1.32° at k = 240
+and at k = 32, 1.33° at t = 0.5 against 1.33° for the isotropic kernel, components 1 in all.** The
+reason is structural, not a refutation of the kernel: with `--surface poisson` the density kernel
+only selects the outer-layer surfels and sets the level; the surface itself is the screened
+Poisson fit of the surfel positions and normals, which the anisotropy never reaches. The kernel
+shapes the surface only on the level-set path (`--surface mc`), which is where Yu & Turk apply
+it; that variant (pca / F-anisotropic / isotropic, all at the reference spacing on g300's end
+frame) is rendered next. Prediction for it: the anisotropic level set's bump ≤ the isotropic level
+set's by ≥ 0.2°, tips intact; if the isotropic level set is itself ≥ the Poisson 1.3°, the
+Poisson path stays the deliverable.
