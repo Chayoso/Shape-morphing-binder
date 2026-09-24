@@ -5276,3 +5276,8 @@ normal-only **0.0013**, tangential-only **0.0009**. The normal part reproduces t
 it: a refit-response floor exists (c) alongside the genuine motion — at stride 4 the two are of
 one size. The Rprop removes the particles' motion (both parts shrink together: a particle that
 stops cannot rearrange), which is why ac300's video tail is the next reading (its chain).
+*R-1 read (14:55; the `--keep_attached` re-render of z300b):* the sidecar is unchanged — the one
+pinch-off frame (276) stays dropped (the piece lies beyond the link radius), one more appears at
+288 from the refit's own variation, and every frame of the dropout window is a single component
+in both renders: **P101 ✗ / P102 ✓** — the component filter is not the tip's mechanism (the census
+had said so); the flag stays opt-in for the rare detached pinch-off.
