@@ -4217,3 +4217,23 @@ relaxation's response to the sub-cell residuals the objective keeps presenting a
 constants; the independent audit's objection to the render-u attribution stands and is now
 measured. Consistent with g300 / h300: the breathing vanishes when the objective's constants are
 the reference ones, not when u is damped. `--u_rprop` is refuted as a fix; the flag stays off.
+
+**Head-to-head, our side (23:05; `$OUT/r300/mesh/`, `baselines_prep/compare_baselines.py`).** Meshes
+exported by `render_photoreal --still --save_mesh` (Poisson, the reference-spacing rule) at t = 0.25,
+0.5, 0.75, 1.0 of the delivered trajectory; the target's surface = the outer layer of its 300k
+volume sample (asymmetry rule, 15 770 points); Chamfer = symmetric mean distance / the target's
+bbox diagonal (9.76 wu), 20k surface samples a side.
+
+| run | t 0.25 | t 0.5 | t 0.75 | t 1.0 | volume (wu³, t 0.25 → 1) | comps / genus / watertight |
+|---|---|---|---|---|---|---|
+| c300 | 0.0147 | 0.0127 | 0.0125 | **0.0123** | 44.07 → 44.23 | 1 / 0 / yes at every t |
+| g300 | 0.0154 | 0.0115 | 0.0110 | **0.0109** | 45.54 → 44.83 | 1 / 0 / yes |
+| h300 | 0.0133 | 0.0109 | 0.0112 | **0.0111** | 45.59 → 44.55 | 1 / 0 / yes |
+
+(A first pass against the VOLUME sample of the target read 0.049 — the interior points' distance
+to a surface; the surface-to-surface number is the comparable one.) The morph is essentially at
+the target by t = 0.25 (the transport arrives by window 25–50 of 176 / 59 / 79); the source
+sphere's material volume is 47.5 wu³ and the reconstructed surface encloses 44–45 (the Poisson
+surface sits inside the outer layer by about half a spacing), drifting ≤ 2.3 % over the tail.
+The baselines' rows follow when their runs finish (ISD in its post-training reconstruction at
+23:05; 4Deform and the torus pair queued).
