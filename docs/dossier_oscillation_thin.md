@@ -117,3 +117,18 @@ smoothed form) is running.
 2. C's det F under the arrival gate (where the compression sits).
 3. D2's leading edge: the sheet-aware splitting at the commit (physics), pre-registered on the
    census measures (pieces at the edge, tip capture, tip drawn every frame).
+
+## 7. Addendum (19:15) — what the 40k twins settled this evening
+| Twin (40k bunny) | What it isolates | Reading |
+|---|---|---|
+| g41h — held global step + arrival-gated smoothed Rprop | one step control, per particle | the bulk's reversal in ONE window of 36, the layer's low-band correlation −0.18, flips 0.47, det F 0.78, silIoU 0.963 (+0.002): **the alternation is gone at no cost**; the layer's per-window motion (0.019 spacings) and the video's alternating component (0.0014) unchanged |
+| g41a — no plastic assimilation | the commit-time stress jump | worse (flips 0.64, step 0.036): **not the carrier** |
+| g41f — freeze at arrival (control 0, velocity 0, stretch assimilated) | the persisting control | 80 % frozen by window 30, correlation +0.39, flips 0.34 — and the body still moves **0.0016 wu a window** (g41 0.002–0.004); silIoU −0.005: **the residual motion is the rollout's** (the grid carrying the last arrivals into settled material, the layer relaxation following); not adopted |
+| g41t — arrival-gated gallery, 19 targets | generalisation | fit within −0.003 everywhere (C +0.049: its 28-window stall ends), flips/step improved on 15; **det F collapses on C (0.53) and beast (0.49)** at the arrived/in-transit boundary; the held-step sweep (g41u) is running |
+
+Conclusion for D1: the optimiser's part — the window-to-window alternation — is removed by the
+per-particle rule in its held-step, arrival-gated, smoothed form; a residual per-window motion of
+1 % (40k) to 10 % (300k) of a spacing remains as a property of delivering simulated frames, and
+the deliverable surface must not re-fit itself against it: the tracked mesh with a half-spacing
+projection band (and the window-time moving average) is the pre-registered deliverable-side fix
+(P151–P153, rendering now).
