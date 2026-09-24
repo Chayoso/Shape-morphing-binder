@@ -4525,3 +4525,20 @@ distortion and stretching regularisers hold the sphere and the endpoint term can
 target it has no correspondences to; the correspondence-driven setting (queued) is its fair run.
 On this pair, without correspondences, neither implicit baseline produces a morph: ISD collapses
 the body between the endpoints, 4Deform never leaves the source.
+
+**The two 20k diagnostics (00:50).** (1) The probe with the from-rest variant: the zero-control
+motion from a commit with v = C = 0 projects only +0.02 … +0.12 on the committed displacement
+(median 0.002–0.006 wu) against +0.37 … +1.4 with the carried velocity — the free travel is
+momentum, the elastic part is a tenth of it (the rebound hypothesis is dead twice over). (2) The
+recipe + `--rest_commit` for 30 windows: the alternation goes as predicted — `layer_flip_frac`
+0.33, `layer_net_ratio` 0.46 (the baseline 0.62 / 0.20) — **and the morph lags badly: silIoU
+0.919 against 0.967 at the same 30 windows**, chamfer 0.152 / 0.144. With every window from rest
+the body must re-accelerate each time (the probe reads the windows ending at +1.2 … +1.5 of
+free travel), and the expansion, which rode 0.9 of a window's free travel, loses it. The
+pre-registration's refutation clause fires: the carried momentum is the transport; the
+unconditional rule is out. The derived form that follows: windows from rest only ONCE THE
+TRANSPORT HAS ARRIVED — the u transport gate (10.16: the fraction of the layer within one cell of
+its OT image) is the existing measure of arrival, and at 100 % the morph is in its refinement
+phase, where the carried momentum only overshoots. `rest_commit_gate` (config; default 1.0 =
+apply from the first commit at which the gate reads 100 %); `m300` (unconditional) is read to the
+end as the transport cost, `m300b` runs the gated rule with the same P53–P57.
