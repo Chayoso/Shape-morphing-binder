@@ -4252,10 +4252,12 @@ layer-local amplitude / reversal metric belongs in the run's metrics (to do). Op
 phase-aligned surface comparisons across runs with different window counts.
 
 Its recommendation (3) — spatial refinement at fixed N and physical mass — is the one worth a run
-now: the "finest fracture-free cell = 26" rule (experiments 2026-09-17/18: dx 0.20–0.21 at 150k →
-dragon 41 fragments / 1562 merges) was measured with UNIT particle masses, before the mass
-contract (2026-09-23), when a 150k body was 3.75× sluggish — the same confound that overturned
-the basis verdict (e300). `k300_bunny` = the g300 recipe (`--disc_ref --shift_sub`) + `--cell_diag
+now: the "finest fracture-free cell = 26" rule (experiments 2026-09-17: the dragon at dx 0.20–0.21 —
+40k ppc 8: 41 fragments; 150k ppc 27: 1562 re-attachments) rests on two cases, of which only the
+150k one was taken with unit masses before the mass contract (the 40k one had the reference mass:
+the confound of the basis verdict applies to half the evidence, not all of it), on the dragon's
+whiskers and horns, and without the reference constants or shifting. For the bunny the rule was
+never tested at dx 0.22 at all. `k300_bunny` = the g300 recipe (`--disc_ref --shift_sub`) + `--cell_diag
 36` (dx 0.22 wu, grid ≈ 50³, the ear tip 1.6 cells thick instead of 1.1): P40 no fracture — re-
 attachments 0, off-body ≤ 10 particles, no piece ≥ 6, det F min ≥ 0.5 (the 150k runs at this dx
 fragmented). P41 tip mass ≥ 20 reference particles (g300 23.7) with 8-NN ≤ 0.9. P42 silIoU ≥
