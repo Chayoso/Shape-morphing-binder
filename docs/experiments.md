@@ -5663,3 +5663,11 @@ every target (C ≥ 0.898, beast ≥ 0.951, nefertiti ≥ 0.965, V ≥ 0.976); *
 (≤ 0.0018). Against these, the optimiser-side H at 300k (ai300: tail 0.0011, stride-19 ALT
 0.0005) does more than any render-side filter tried; the deliverable-side measures are
 secondary and cosmetic, to be combined only if the user wants the last third off.
+*(21:45) `--frame_avg 38` on z300b (two control windows, the alternation's period):* tail **0.0010**
+(untracked 0.0024, K = 19: 0.0016), stride-19 ALT 0.0010 (0.0021), ALT/DRIFT 1.06 — the
+alternating part halved and the tail at the 40k level; **P167** ✓ at K = 19's target missed, ✓
+at the tail level for K = 38 but the ALT target (≤ 0.0010) met only at equality; **P168** at risk:
+the whole-video per-frame change 0.0012 against 0.0026 — the average smooths the transport as
+much as the tail (a one-window lag of the growth), which is the filter's cost; the ear's drawn
+length at frames 20–40 is checked on the frames before any use. This is a deliverable-side
+cosmetic (the frames shown are no longer the simulated ones): an option to state, not the fix.
