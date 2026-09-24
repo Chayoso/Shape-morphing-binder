@@ -4703,3 +4703,47 @@ the construction); **P73** end bump at the reference render ≤ 1.3° and ear fi
 l300's, unchanged). Refutation: a run that arms early (before 40) and stops short of arrival (silIoU
 < 0.975) says a transient reversal mid-transport reads as the onset — then the onset needs the
 arrival (the u gate) as a co-condition.
+
+**2026-09-24 03:30 — n300's verdict (the support-preserving paced target) and o300's (the
+reversal-latched windows from rest); the fourth ear mechanism t300.**
+
+*n300 (l300 + --pace_project), 80 windows in 21.5 min, three low-gain reversal rejections at the
+end.* **P58 ✗** — the base slab's mid-growth maximum 1.50× (l300 1.49×); **P59 ✗** — the mid-ear
+thickness ratio at t = 0.15–0.25 in median 0.63 (l300 0.68); **P60 ✗ / ✓** — native pieces
+25–160 per frame through t ≤ 0.33 (l300 86–177) but one piece of ≥ 20 particles in every frame;
+**P61 ✓ with margin** — silIoU 0.9790 (0.9797), 80 windows, the end ear filled to **0.987** (l300
+0.948; upper slabs 0.89–1.04 filled, 0.91–1.00 thick), det F min **0.717** (0.664), **2** stray
+particles off the body (10), the layer's per-window step **0.028** spacings (0.06–0.08); flips 0.83
+/ net 0.24; low-band correlation −0.69. The transit-density mechanism is refuted at the target
+level: the bulge and the filament do not follow the target's transit density at all. The
+dense-pocket series says why — with the projected (incompressible) target the compression pocket
+of the first windows is DEEPER (40 % of the mass at ≥ 2× bulk at window 6, l300 25 %, the 40k
+reference 11 %) and the transport three windows slower: the cell sum cannot see an incompressible
+interior flow (a shifted uniform interior has the same cell masses), so the projected target's
+interior goes unfollowed and the surface push compresses the material. The straight-ray target,
+for all its transit distortion, is what makes the interior move — through the transient density
+changes the cell sum can see. The mechanism of the ear, restated: the front is pulled by the loss
+and the control stretches the material behind it (free: the rest state is the control's), while
+the supply through the base piles up at 1.5–8× bulk because the log cell sum's gradient
+2r/(m_ref + m) collapses as a cell fills — a pile is nearly free, a thin stream nearly free. The
+projection stays opt-in for its end state (the fuller ear, the stiffer det F, the halved tail step).
+
+*o300 (l300 + --rest_commit --rest_commit_reversal), 53 windows in 28.8 min.* **P62 ✓** latched at
+43; **P63 ✗** flips 0.66, net 0.16; **P64 ✗** low-band correlation −0.64 (min −0.80); **P65** silIoU
+0.9780 ✓, 53 windows ✓, the video tail in the chain. Refuted as the carrier (details 02:55).
+
+*Pre-registered ear mechanism 4 — the linear cell sum, t300 = l300 + `--dvol_form linear`* (the
+form exists since 2026-09-17: the gradient per unit mass proportional to the deficit, no collapse
+at high occupancy; the log form was chosen at 40k against ejection). Launched 03:30. **P74** the
+base slab's mid-growth maximum ≤ 1.20× (1.49); **P75** the mid-ear thickness ratio at t =
+0.15–0.25 ≥ 0.80 (0.68); **P76** the dense-pocket maximum ≤ 10 % of the mass (25 %); **P77** silIoU
+≥ 0.975 within 110 windows and no ejection — stray_max ≤ 0.001, ≤ 10 particles off the body at
+the end. Refutation: P74–P76 failing says the pile is not the log form's tolerance but the supply
+itself (then the physics must carry the flow: an incompressible MPM step, Stomakhin 2014); P77
+failing on ejection says the log form's protection is needed and the linear form must be confined
+to occupied cells (a hybrid: linear where the cell has mass, log where it is empty).
+*o300's chain readings (03:40):* the plain video's delivered tail **0.0028** per frame (l300 0.0016,
+the 40k value 0.0013 — P65's tail ✗: the deliverable ends at window 48, six windows into the
+alternation, where the layer still moves 0.07–0.2 spacings a window), end bump at the reference
+render 1.26° (l300 1.19°), cycle ratio never below the random-walk bound (0.55–0.85). o300 is
+refuted on every count but the fit; `--rest_commit` stays opt-in as a diagnostic.
