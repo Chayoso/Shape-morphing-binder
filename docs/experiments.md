@@ -4195,3 +4195,10 @@ frame |dI| median 0.0026 against c300's 0.0021); the held tail is static by cons
 not what the metric measured. Reading: the rule cuts 70 windows of breathing off the deliverable
 and stops at the 40k-level silhouette, but does not reduce the breathing while the run is alive;
 next to g300 / h300, where the breathing does not arise, it is a secondary safeguard. Kept opt-in.
+
+**The g300 / h300 plain-mesh videos (23:35; `$OUT/r300/plain/{g300,h300}_plain_s12.mp4`, stride 12,
+the reference-spacing render).** Sub-cell pieces dropped by the deliverable rule in **17 of 87**
+frames (g300) and **21 of 125** (h300) against c300's 208 of 282 (124 of 282 at the reference
+render); isolated particles peak 75 / 171 against c300's 135 (the peak sits in the expansion phase,
+frames 228–240, as before); drawn components 1 in every frame of both. On the page with the
+stills and the table.
