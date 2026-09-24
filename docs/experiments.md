@@ -5444,3 +5444,22 @@ the assimilation is out too, and with the held step (ai300 / g41h) the optimiser
 last candidate standing or falling.
 *af300's chain tail (18:05):* video tail **0.0013** (the 40k acceptance value), bump 1.23°, ear
 0.966 — with det F 0.23 the only thing standing between it and a deliverable.
+
+**2026-09-24 18:20 — the user's proposal: "plasticity를 사용해서 최적화되어버리면 고정시켜버리면
+안 되나?" — freeze at arrival (method.md §10.25, `--freeze_arrived`).** The limit of the Rprop
+taken at once: a particle that has ARRIVED (the paced target's own mask) and reversed twice (one
+full period — settled by the rule's reading) is frozen for good: its elastic stretch assimilated
+in full (F_e → R_e: no stress of its own; the plasticity used as the lock), its warm-started
+control zeroed, its update scale 0, its u bound 0, its velocity and affine state zeroed at
+commits. Frozen material is inert and rides the grid with its neighbours; the frozen set only
+grows, so the settled body cannot breathe, while unarrived material (the ear) keeps its full
+step. No constant: the arrival mask and the period are the rule's. *Pre-registered aj300 = l300 +
+the held-step arrival-gated smoothed Rprop + `--freeze_arrived`* (GPU 2) and **g41f** its 40k
+analogue (GPU 3): **P147** the frozen fraction reaches ≥ 0.9 of the particles within 20 windows of
+the reversal onset and the run ends on the plateau rule; **P148** the layer's flips ≤ 0.3 and its
+step ≤ 0.0005 wu over the last 10 delivered windows, the low-band correlation > −0.1; **P149** the
+video's delivered tail ≤ 0.0013 (stride-19 alternating component ≤ 0.5 × the reference's);
+**P150** det F ≥ 0.6 (the full assimilation must not compress), silIoU ≥ 0.977 (300k) / ≥ 0.961
+(40k), the ear fill ≥ 0.93 at 300k (the ear's particles freeze only once arrived). Refutation:
+P148 failing with P147 holding says the frozen body still moves — then the motion is the grid's
+(neighbours in transport dragging inert material) and the breathing was never the optimiser's.

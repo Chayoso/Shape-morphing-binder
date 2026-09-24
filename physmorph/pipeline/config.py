@@ -547,6 +547,10 @@ class PipelineConfig:
                                     #   Rprop has no global rate. ag300 (k = 8): the per-particle scales decayed to
                                     #   0.05 while alpha re-inflated from the 0.001 floor to 0.005-0.008 (the anneal
                                     #   recovering x1.15 on every "improved" window) — the layer breathed as before.
+    freeze_arrived: bool = False    # 2026-09-24 (10.25, the user): a particle arrived (the paced target's mask) and
+                                    #   reversed twice is frozen for good — elastic stretch assimilated in full
+                                    #   (F_e -> R_e), control zeroed, update scale 0, u bound 0, v / C zeroed at
+                                    #   commits. Needs ctrl_rprop (the reversal reading). The frozen set only grows.
     u_rprop_floor: float = 0.05     #   the u channel's Rprop floor (10.19); 0 with ctrl_rprop — a floor of 0.05
                                     #   spacings a window is the breathing's own amplitude.
     outer_latch_reversal: bool = False  # 2026-09-24 (docs/method.md 10.21 addendum 3): arm the outer merit gate's
