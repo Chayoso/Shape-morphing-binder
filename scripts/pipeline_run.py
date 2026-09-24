@@ -693,9 +693,14 @@ def main():
             dx0 = float((v_src * args.ppc / args.n) ** (1.0 / 3.0))
             leash = 1.25 * float(max(np.abs(src).max(), np.abs(tgt).max()))
             domain_half = leash + 2.0 * dx0
+        # the dynamics mass per particle is mass_ref_n / N (config.mass_ref_n, method.md 10.17), so the
+        # printed density, sound speed and CFL must use it — with the unit mass the diagnostic was off
+        # by N / mass_ref_n at every N != 40k (the independent audit, docs/diagnosis_300k_20260923.md)
+        _mref = int(PipelineConfig().mass_ref_n or 0)
+        _mass = (_mref / float(args.n)) if (_mref > 0 and args.n != _mref) else 1.0
         disc = derive(args.n, v_src, float(np.linalg.norm(src.max(0) - src.min(0))),
                       prm.dt, mat.young, mat.poisson, ppc=args.ppc,
-                      domain_half=domain_half)
+                      domain_half=domain_half, mass=_mass)
         prm = dataclasses.replace(prm, dx=disc.dx, nx=disc.grid_n, ny=disc.grid_n,
                                   nz=disc.grid_n, grid_min=(disc.grid_min,) * 3)
         if args.domain == "auto":
