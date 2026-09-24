@@ -1056,3 +1056,39 @@ the run at the best commit, and the deliverable carries no alternation. No new c
 one period, and the gate's existing gain threshold. What it does not do is say WHY consecutive
 optimisations from a stationary state alternate; the intervention twins (p300: the render channel
 off from the arrival; then the fixed target) are pre-registered for that in experiments.md.
+
+### 10.23 The particle scale at a thin feature (2026-09-24; code: losses/volumetric.py d_kde / kde_assign, config `w_kde`, `plan_native`; evidence docs/experiments.md 2026-09-24 07:55, y300)
+
+The reference discretisation (10.17a) delivers the mass to the ear region, and the cell sum
+receives it as the straight-ray target says: a converging fan piles at the base, a stretching one
+thins into the ear. At 300k the front realises the sub-bulk stream as a filament of bulk density
+three particles across — a sparse cell and a dense filament in part of the cell have the same CIC
+mass, so the cell sum cannot tell them apart, and the supply through the base piles up behind a
+front that takes it up slowly (experiments.md: the base slab at 1.5–1.7×, the mid-ear at 0.5–0.7
+of the target thickness, the 40k tongue at 0.8–1.0 because its spacing forbids a filament thinner
+than a cell). The projected target (10.22), the linear cell sum and the plan's blur (below) do
+not change this; the term that does sees the particle scale:
+
+```
+(45)  D_kde = mean_p [ rho_h(x_p; particles) - rho_h(x_p; target points) ]^2 / rho_ref^2,
+      rho_h(y; S) = sum_{s in S, k nearest} exp(-|y - s|^2 / h^2),   h = k_h * (target NN spacing at the reference),
+      neighbour lists frozen per window; weighted by w_kde * s_kde with s_kde = |grad D_vol| / |grad D_kde| at the source (once)
+```
+
+(45) compares the kernel density of the particles with the kernel density of the target's own
+points at every particle (the SPH form of the cell sum, 2026-09-03), and its gradient runs from
+crowded to deficient regions: a filament surrounded by target volume it leaves empty is a deficit
+at that scale, a pile an excess. With w_kde = 1 the term enters at the cell sum's gradient norm —
+a ratio, not a constant. y300 (l300 + the term): the base slab's maximum 1.11× (1.49), the ear
+grown as a tongue from the base at 0.90–1.05 of the target thickness where it has mass, the tip
+at 16.1 reference particles with 4 strays, silIoU 0.9782; the price is a later ear (0.31 filled at
+t = 0.20 against 0.83) and det F 0.59, and the tongue's leading edge still fragments at the
+native spacing (the thin-feature carrier of related_work.md — split particles or a spine where the
+destination is thinner than two cells — is the open item for that).
+
+The plan's blur under 10.17a (correction). The plan's blur is sample-derived — the target NN
+spacing × (N / ot_samples)^(1/3), the spacing of the ot_samples-point sample of the shape, hence
+N-independent (0.119 wu at 40k, 0.116 at 300k native) — and 10.17a's scaling of the target NN
+spacing doubled it to 0.227 wu. `plan_native` keeps it at the sample's spacing; u300 read no
+change in the ear and none in the transport, so it is a correctness fix of rule (38), not a
+mechanism.
