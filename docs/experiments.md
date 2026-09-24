@@ -5070,3 +5070,19 @@ cost, the ear tip's thickness at 1.1 cells blurred (read alongside). Predictions
 from the night's data (the layer's normal step 0.002–0.003 wu = 3–4 % of a spacing, the tangential
 step of the same size in c300's tail, 0.05–0.13 spacings) I expect (c) to carry at least half of
 the tail's per-frame change, and the normal part the rest.
+*The ear tip's dropout, first suspect (10:00; the thin-feature digest in related_work.md).* The
+deliverable rule draws an isosurface component only if it encloses at least one cell of
+material (≈ 87 native particles at 300k) — a native-spacing piece of the tongue's edge is 1/87 of
+a cell, so whenever the Poisson surface pinches the sparse tip off into its own closed piece,
+that piece is dropped and the tip vanishes; in the next frame the surface is continuous and the
+tip is drawn. The bridge rule (a one-spacing filament from the body to an enclosed component)
+never fires for a dropped piece. *Pre-registered R-1:* a sub-cell component whose enclosed
+particles lie within the link radius of the body's (max(2.5 spacings, one cell) — the rule the
+bridge and the grid-fragment probe already use) is KEPT and bridged instead of dropped; only
+pieces beyond that radius are "material the grid does not resolve". Prediction **P101**: in
+z300b's video the ear-region mesh area is monotone through frames 12–30 (no frame with tip
+surfels present and no tip surface), and the raw-components>1 frames become drawn-and-bridged
+rather than dropped; **P102**: no change to any frame in which only one component exists
+(the body's bump 1.24° unchanged). The census (particles / surfels / mesh vertices / dropped
+components per frame in the ear mask) runs first when the server is reachable, to confirm the
+particles never retract there.

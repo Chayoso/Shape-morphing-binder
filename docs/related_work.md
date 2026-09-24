@@ -495,3 +495,65 @@ cure for the merit reversal; (5) Yu–Turk repositioning of the surfels over a 2
 (6) the alternating (Nyquist-bin) power of the video's per-frame change as the perceptual
 measure. Not to do: blending level sets across frames (no mechanism, hides (a)); tangential-only
 shifting at the surface before (2) is in place.
+
+## Thin-feature persistence in particle → surface pipelines (agent digest, 2026-09-24 09:50)
+
+Question put to the survey: the tongue's sparse leading edge is reconstructed in one frame and
+not the next — reconstruction or physics, and what keeps a thin feature present frame to frame.
+Marks as above.
+
+**Reconstruction of thin features from sparse points.** Yu, Turk TOG 2013 (additive anisotropic
+kernels never cancel: a two-particle sheet still yields a slab of thickness ≥ h/k_r, an isolated
+particle a sphere; per-frame). Ando, Thürey, Tsuruno TVCG 2012 (*verified*: "we preserve fluid
+sheets by filling the breaking sheets with particle splitting in the thin regions … we compute the
+anisotropy of the particle neighborhoods, and use this information as a resampling criterion").
+Kazhdan, Hoppe, *Screened Poisson*, TOG 2013 (*verified* README: `--samplesPerNode` 1.5 adapts
+the octree to the sampling density — sparser regions get COARSER nodes; `--pointWeight`, `--trim`)
+— two failure modes at a thin tip: opposite-facing normals of a sheet thinner than the finest
+node cancel in the splatted field, and the density adaptivity coarsens the node exactly there.
+Kohlbrenner, Liu, Alexa, Kazhdan, *Symmetrized Poisson*, SGP 2025 (normals replaced by their
+outer products: the two faces of a sheet no longer cancel). Lin et al., Parametric Gauss
+Reconstruction, TOG 2022 (normal-free, thin-aware, ~1 min per 40k points). Huang et al., NKSR,
+CVPR 2023 (*verified*: complete geometry "at the level of extreme sparsity", seconds per frame).
+Bhattacharya, Gao, Bargteil SCA 2011 / TVCG 2015 (the surface must stay between the
+union-of-spheres shells: a tip can never vanish). Löschner et al. VMV 2023 (splashsurf, every
+particle contributes). Sandim et al. CGF 2016 / C&G 2019 (boundary detection by hidden-point
+removal; boundary particle resampling in poorly sampled regions before the reconstruction).
+Kong et al., Metric-Phase Fields, 2026 (*verified*: why signed implicits lose thin sheets — "a
+stable sign becomes ill-conditioned" between nearby layers). Codimensional MPM (Jiang, Gast, Teran
+2017; Guo et al. 2018; Han et al. 2019; Wang et al. 2020 MLS codimension flag): the rendered
+surface is the carried mesh, never reconstructed.
+
+**Temporal persistence.** Shen, Shah (Pixar) SIGGRAPH sketch 2007 / US 8,010,330 (*verified*: the
+signed distance averaged with values at velocity-extrapolated positions in neighbouring frames);
+Digital Domain US 8,199,148 (*verified*: particle kernels extended backward and forward in time;
+holes and disconnected pieces removed by morphological operations, not by a volume cut); Yu,
+Wojtan, Turk, Yap EG 2012 and Dagenais et al. CGF 2017 (a persistent mesh, projected only where
+the implicit is trusted); Wojtan, Thürey, Gross, Turk SIGGRAPH 2010 (*verified*: topology changes
+"in the presence of arbitrarily thin features like sheets and strands" by reusing the original
+surface's points — thin sheets exempted from the topology grid's resolution); Brochu, Bridson
+2009 (El Topo); Heiss-Synak et al. SIGGRAPH 2024; Adams et al. SIGGRAPH 2007 (a particle-carried
+surface distance = temporal memory on the particles). Houdini's particle-fluid surfacing
+(*verified* docs): dilate / smooth / erode in voxel units; no minimum-lifetime filter found.
+
+**Physics side.** Ando 2012 splitting (a commit-time resampling pass: mass-conserving split, C
+copied, no forward-model change); Marquez-Razon et al. SIGGRAPH 2022 (*verified*: surface
+particles sampled from a union-of-spheres level set, mass m/(2|Π|+1), temporary); Ferstl et al.
+narrow-band FLIP 2016 (reseeding in the band from the level set); Kim, Lee, Bhattarai PLOS ONE
+2020 (*verified*: thin test σ₃ ≤ α σ₁, a pair-density threshold τ deciding "reconnect vs a real
+break"); Levi 2024 (a per-cell particle-count bound as a linear programme); the codimensional
+carriers (forward-model changes).
+
+**Shortlist as applied.** The decisive census first: per frame in the ear mask, particles /
+surfels / mesh vertices / dropped components and the finest Poisson node against the tip's PCA
+thickness. Reconstruction side: R-1 replace the one-cell volume cut with a spacing-derived,
+hysteretic keep rule (a native-spacing piece is 1/87 of a cell: every tongue fragment falls
+under the cut; keep if ≥ the reference particles of one cell, or within two spacings of the body,
+or overlapping a drawn component at t ± 1 by its own velocity); R-2 a finest node ≤ the tip's
+half-thickness with no density coarsening (samples-per-node 1.0), Symmetrized Poisson if the
+faces still cancel; R-3 anisotropic kernels / union of spheres for components the thin detector
+flags (σ₃/σ₁ ≲ 1/4), Poisson elsewhere; R-4 in-plane surfel resampling (Sandim 2019) with Kim's τ
+as the break rule; R-5 velocity-advected temporal averaging of the SDF over ±1–2 frames (Shen &
+Shah); R-6 a tracked ear mesh. Physics side: P-1 sheet-aware splitting at the commit (Ando 2012;
+α from the sheet thickness, gap 2 spacings); P-2 narrow-band reseeding of front cells below half
+the reference count; P-3 a codimensional carrier (the principled answer, a forward-model change).

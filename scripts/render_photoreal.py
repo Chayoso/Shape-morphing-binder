@@ -82,6 +82,10 @@ ap.add_argument("--metal", type=float, default=0.0)
 ap.add_argument("--ground", type=int, default=1, help="shadow-catching ground plane")
 ap.add_argument("--target_ghost", type=float, default=0.0, help="alpha of a translucent target isosurface (0 = off)")
 ap.add_argument("--largest_only", type=int, default=0, help="render only the largest mesh component (illustration only)")
+ap.add_argument("--keep_attached", action="store_true",
+                help="keep (and bridge) a sub-cell isosurface piece whose enclosed particles lie within the link "
+                     "radius max(2.5 spacings, one cell) of the body's — the tongue's tip pinched off by the Poisson "
+                     "fit for a frame (docs/experiments.md 2026-09-24 10:00, R-1); only detached pieces are dropped")
 ap.add_argument("--min_cells", type=float, default=1.0,
                 help="drop isosurface components whose volume is below this many MPM cells (dx^3; dx = source "
                      "bbox diagonal / cell_diag): material the grid cannot resolve is not a continuum element. "
@@ -735,6 +739,7 @@ def mesh_of(x, fi=None):
                 # with the most; a light component whose centroid the body encloses is a cavity.
                 cents = np.zeros((n_comp, 3))
                 scenes = []
+                encl = [np.zeros(0, np.int64)] * n_comp          # the particles each component encloses
                 for ci in range(n_comp):
                     tri = ff[comp == ci]
                     sub = o3d.t.geometry.TriangleMesh(o3d.core.Tensor(vv.astype(np.float32)),
@@ -747,6 +752,7 @@ def mesh_of(x, fi=None):
                     if len(inbox):
                         occ_ = sc.compute_occupancy(o3d.core.Tensor(xp[inbox].astype(np.float32))).numpy()
                         mass[ci] = float((occ_ > 0.5).sum())
+                        encl[ci] = inbox[occ_ > 0.5]
                 body = int(np.lexsort((np.abs(svol), mass))[-1])
                 inside_body = scenes[body].compute_occupancy(o3d.core.Tensor(cents.astype(np.float32))).numpy() > 0.5
                 # every component the body encloses is interior — a void (light) or a closed sheet the
@@ -756,6 +762,22 @@ def mesh_of(x, fi=None):
                 cavity = inside_body.copy()
                 cavity[body] = False
             small = ((mass < ppc) | (np.abs(svol) < min_vol)) & ~cavity
+            if a.keep_attached and a.surface != "mc" and small.any():
+                # 2026-09-24 (docs/experiments.md 10:00, the tongue's tip): a sub-cell piece ATTACHED to the
+                # body — its enclosed particles within the link radius of the body's, the radius the bridge
+                # and the grid-fragment probe already use — is part of the body that the Poisson surface
+                # pinched off in this frame, not material the grid does not resolve. It is kept (and the
+                # bridge rule below draws the neck) instead of vanishing for a frame. Pieces beyond the
+                # radius stay dropped.
+                r_link = max(2.5 * spacing, cell_wu)
+                kb = cKDTree(xp[encl[body]]) if len(encl[body]) else None
+                n_att = 0
+                for ci in np.where(small)[0]:
+                    if kb is not None and len(encl[ci]) and bool((kb.query(xp[encl[ci]], k=1, workers=-1)[0] <= r_link).any()):
+                        small[ci] = False
+                        n_att += 1
+                if n_att:
+                    print(f"[photoreal] {n_att} sub-cell piece(s) attached to the body kept (link radius {r_link:.3f} wu)", flush=True)
             n_cav = int(cavity.sum())
             keep = ~(small | cavity)[comp]
         n_drop = n_comp - n_cav - int(len(np.unique(comp[keep]))) if keep.any() else n_comp - n_cav
