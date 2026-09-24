@@ -5796,3 +5796,34 @@ ALT/DRIFT 1.14 against (A)'s 2.05: the advected mesh also carries the tangential
 the re-fit does not see. The remedy is therefore on the physics side — the pin (10.27), whose
 settled body does not move at all — and the deliverable side can only average (frame_avg /
 bandavg 0.0009–0.0010), which is cosmetic.
+
+**2026-09-25 00:40 — g41p's first reading, and the pin's generalisation launched.** g41p (40k
+bunny, the g41y form + `--settle_pin`): 49 windows (early stop at the best commit), **silIoU
+0.9679** (g41 0.9610, the H twins 0.964–0.965 — the pin does not cost the fit, it gains: a
+settled particle that can no longer wander stops trading its own error against its
+neighbours'), det F 0.74 (P184 ✓), the metric's jitter_rel 0.00000, pinned 41 % at window 20,
+49 % at 25, 70 % at 45 (P181's fraction ✓; the frame reading and P182's video follow in the
+chain). Launched 00:38 (the user's rule: the whole gallery before adoption): **g41z** = the
+g41p form on all 19 targets (GPU 2 and GPU 1, two chains) — **P185** every target within
+−0.003 of g41y (or of g41, where g41y is worse), pinned ≥ 0.5 at the end on ≥ 15, det F within
+−0.05 on all; **g41q** = the pin WITHOUT the hold (`--ctrl_rprop --ctrl_rprop_smooth
+--ctrl_rprop_arrived --u_rprop --u_rprop_floor 0 --settle_pin`) on C and the bunny (GPU 0)
+— **P186** C recovers g41t's fit (≥ 0.94, the hold's stall gone) and the bunny keeps g41p's
+(≥ 0.965) with the same still fraction: then the pin makes the global hold unnecessary and the
+recipe is the simpler one (arrival-gated smoothed Rprop + pin).
+
+**2026-09-25 01:00 — g41p's verdict: P181–P184 all ✓ on the bunny at 40k.** 49 windows (early
+stop at the best commit), silIoU **0.9679** (g41 0.9610, g41h 0.964–0.965: P183 ✓ with a gain),
+det F 0.7415, strays 0.02 % (P184 ✓), ear tip 17 of 18 reference particles, one component,
+bumpiness 1.18°. The reversal series has **no negative window at all** (g41h 1 of 36, g41 many),
+layer flips 0.30, the layer's step 0.0093 spacings (the H twins 0.02), low-band correlation
++0.17. Pinned fraction per window 0.01 at 10, 0.34 at 20, 0.54 at 30, 0.70 at 49; the frames'
+own reading (`pin_probe.py`, window level): **0 of 28 119 end-pinned particles moved again
+after their first still window** — the settled body is exactly still (P181 ✓). Video: stride 12
+delivered tail **0.0003** (p90 0.0005), stride 19 tail D1 0.0004 / ALT 0.0005 / DRIFT 0.0004
+(P182 ✓: g41h's ALT 0.0014 — a third); whole-run 0.0016 (the transport itself). What remains in
+the tail is the fit of the still-moving 30 % (the ears' last arrivals) and the codec.
+
+The generalisation (g41z, 19 targets) and the no-hold form (g41q) are the adoption gate
+(P185–P186); ap300 the 300k reading. The archive now records the pin window per particle
+(`pinned_at`) for the exact check on every later run.

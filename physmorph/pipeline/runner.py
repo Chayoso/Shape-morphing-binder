@@ -412,6 +412,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     ctrl_rev_count, frozen_p = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
     settle_pin_arr = None                # config.settle_pin: the (N,) pin array handed to the rollout
+    settled_at = None                    # config.settle_pin: the window (1-based) at which each particle was pinned, -1 = never
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
     rev_prev_neg_acc = False             # config.outer_latch_reversal: the same reading, kept at every accepted commit
@@ -1331,7 +1332,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     settled_p = np.zeros(len(_d_now), bool)
                 _arr_p = stats.get("arrived_mask")
                 _arr_p = np.ones(len(_d_now), bool) if _arr_p is None or len(_arr_p) != len(_d_now) else np.asarray(_arr_p, bool)
-                settled_p |= _arr_p & (ctrl_rev_count >= 2)
+                if settled_at is None or len(settled_at) != len(_d_now):
+                    settled_at = np.full(len(_d_now), -1, np.int32)
+                _newly = _arr_p & (ctrl_rev_count >= 2) & (~settled_p)
+                settled_at[_newly] = a + 1           # pinned from the rollout of window a + 2 on (frames after this commit)
+                settled_p |= _newly
                 settle_pin_arr = settled_p.astype(np.float32)
                 if settled_p.any():
                     ctrl_scale[settled_p] = 0.0
@@ -1479,4 +1484,5 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                          "alpha_lam": balancer.alpha_lam},
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen, "reattached": n_reattach_total,
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None),
-            "pinned": settled_p}                      # config.settle_pin / settle_eta: the settled set at the end (None when off)
+            "pinned": settled_p,                      # config.settle_pin / settle_eta: the settled set at the end (None when off)
+            "pinned_at": settled_at}                  # config.settle_pin: the window at which each particle was pinned (-1 never)

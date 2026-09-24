@@ -901,6 +901,7 @@ def main():
             orient=np.str_(_orient_name(args.tgt)),        # the loader already rotated the asset to y-up
             frames=np.stack(res["frames"]), deliver_n=np.int64(dn),
             pinned=np.asarray(res["pinned"] if res.get("pinned") is not None else np.zeros(len(src), bool), bool),
+            pinned_at=np.asarray(res["pinned_at"] if res.get("pinned_at") is not None else np.full(len(src), -1), np.int32),
             truncation=json.dumps(res.get("truncation")),
             F_samples=np.stack([res["F_frames"][i] for i in idx]),
             F_sample_idx=np.array(idx),
