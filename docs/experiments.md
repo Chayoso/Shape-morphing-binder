@@ -5140,3 +5140,23 @@ with the finest Poisson leaf at the MPM cell** (`--poisson_cell 2.27`, GPU 1, re
 falls from 0.0024 toward the transport-only level (≤ 0.0015) with the end bump within 0.2° of
 1.24°; a bump rising above 1.5° or the ear tip lost says the cell-wide leaf cannot carry the
 1.1-cell ear and the band limit must be half a cell with the anisotropic surfels.
+
+**2026-09-24 13:50 — g41r's verdict (the 40k gallery recipe + the per-particle Rprop; 36 windows
+in 2.0 min).** silIoU **0.9666** (g41 0.961, +0.0056 — P110's fit ✓ with margin), det F 0.776, no
+strays, bump 1.19°. The rule's log: reversals 4–6 % of the moving particles through window 10,
+32 % at 15, 40 % at 25, 50 % at 30; the step scale's median 1.0 → 0.86 (15) → 0.25 (20) → 0.09
+(25) → 0.03 (30), 68 % of the moving particles below 0.1 at 30; three merit rejections ended the
+run at 36 (the plateau reached at the optimiser's resolution). **P109 half ✓**: the layer's flip
+fraction 0.74 → **0.47** and the layer's consecutive-window correlation **+0.22 … +0.26** (g41
+−0.04 … −0.69), the bulk's +0.12 … +0.73 — **the alternation is gone**; but the normal step's
+amplitude is not: layer step 0.023 spacings = 0.0032 wu (the same size as before), now a
+coherent DRIFT (net/summed 0.26, cycle ratio 0.57–0.61 above the random-walk bound = net
+motion, the fit still improving when the gate stopped it). **P110 tail ✗ as measured**: the
+delivered tail's per-frame change 0.0017 (g41 0.0013) — the last 11 video frames are the settling
+drift, not a rest. *The measure was the wrong one for the eye*: a new probe (`video_flicker.py`)
+splits the per-frame change into an ALTERNATING part (|I_{t+1} − 2I_t + I_{t−1}|/2, a Nyquist
+flicker) and a DRIFT part (|I_{t+1} − I_{t−1}|/2); on the stride-12 videos every run reads
+ALT/DRIFT 1.2–2.2 — white noise between consecutive frames gives 1.73, so at that stride the
+frame-to-frame change is mostly the per-frame refit's own noise, and the window-to-window
+alternation is aliased (stride 12 against a 19-frame window). Re-read at stride 19 (one frame
+per commit) below.
