@@ -5414,3 +5414,17 @@ residual motion is not the optimiser's step at all (the settle-at-commit twin is
 component):* l300 **0.0011**, z300b **0.0021**, ac300 **0.0007** — the per-particle form cuts the
 alternating part to 0.65× of l300's and a third of z300b's (whose tail, with the ear still
 filling under the KDE term, alternates the most: ALT/DRIFT 1.81).
+
+**2026-09-24 17:40 — af300's verdict and the arrival-gated gallery, first half.** af300 (z300b's
+recipe + the smoothed Rprop k ≈ 60; 145 windows, 79 min sharing GPU 2): silIoU 0.9768, ear fill
+**0.966**, tip 16.8, flips 0.61, step 0.0013 wu, low-band −0.24 — and **det F 0.226** (P120 ✗): with
+the KDE term the k ≈ 60 smoothing does not protect det F either (ad300 without KDE kept 0.64), so
+the compression comes from the KDE's sub-cell pull acting under the re-inflated global step, not
+from the per-particle scales alone; the held-step form (ai300, and its combo) is the reading that
+matters. *g41t (the arrival-gated form), 9 of 19 targets:* **C 0.9009 → 0.9496** at 113 windows
+(the run that stalled at 28 windows in every recipe since the C forensic now transports —
+particles in transit keep their step, arrived ones settle) but **det F 0.865 → 0.528**; homer's
+det F −0.011 (the −0.060 gone); A +0.005, bunny +0.005, fandisk +0.006, dragon +0.002, cow
++0.000, heart +0.001, V −0.001; flips down on 8 of 9. C's det F is the next thing to read (where
+the compression sits — the arms' fronts arriving at the hole's rim under a step the gate never
+decays because they never "arrive" by the pace radius?).
