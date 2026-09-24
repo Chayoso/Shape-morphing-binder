@@ -5533,3 +5533,28 @@ flips ≤ 0.6 and step ≤ g41's on ≥ 15. P154 failing on C / beast says the g
 material's coherence, not the step's: the smoothing neighbourhood must straddle the
 arrived/in-transit boundary (the scale = the neighbourhood MINIMUM rather than the mean, so a
 particle next to settled material settles with it).
+
+**2026-09-24 19:30 — the user: "일단 진동부터 없애자. 진동 없앨 수 있는 모든 방법을 사용해 봐야 할 거
+같아." The oscillation first, every method.** The candidates, layered by where the motion is made,
+each run as a 40k twin on the held-step Rprop base (H = `--ctrl_rprop --ctrl_rprop_smooth
+--ctrl_rprop_k 8 --ctrl_rprop_arrived --ctrl_rprop_hold --u_rprop --u_rprop_floor 0`, g41h) and
+read by the same chain (layer breathing, low-band correlation, video tail, stride-19 ALT):
+- **g41k = H + `--rest_commit --rest_commit_reversal`** (windows from rest once reversing: the
+  carried velocity of the settled body zeroed at commits) — **P157** the body's per-window
+  motion in the tail ≤ 0.5 × g41h's (0.0021–0.0031 wu), flips ≤ 0.4, ALT ≤ 0.0010.
+- **g41o = H + `--outer_latch_reversal`** (the deliverable stops at the onset) — **P158** the run
+  ends within 8 windows of the onset with silIoU ≥ 0.960 and no negative reversal in the
+  deliverable; the tail measure then reads the transport's end, not a breathing.
+- **g41m = H + `--ot_handoff`** (the fixed target from arrival: the merit's moving part removed) —
+  **P159** flips ≤ 0.45 and ALT ≤ 0.0012 with silIoU ≥ 0.961.
+- **surfel memory** (`--surfel_memory 2`, z300b / ac300 renders): the previous frame's surfels
+  carried with the material join the fit — **P160** the tail ≤ 0.0018 (z300b 0.0024) with the
+  ear tip's growth intact.
+- **the settled body's viscosity (next, code)**: the forward model has a per-particle viscosity
+  (RolloutSpec eta); a particle arrived and twice reversed gets η with the time constant of one
+  window (η = 1 / (T dt): derived, the quasi-static limit of settled material) so its carried
+  motion decays within the window it arises — `--settle_eta`; and the settle-at-commit rollout
+  (zero control, that viscosity, T steps) so the delivered commit is an equilibrium —
+  `--settle_commit`. Pre-registered when built (**P161**, **P162**).
+Every candidate that holds its P at 40k is then combined into the 300k recipe with the KDE ear
+and the tracked-surface deliverable (P151–P153), and the whole is run on the 19-target gallery.
