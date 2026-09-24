@@ -356,6 +356,13 @@ class PipelineConfig:
                                     # the body, the window target is the FIXED target (fill at full
                                     # strength); first tried 2026-09-17 while the merit read the
                                     # paced loss (a bug) — re-tested on the fixed merit
+    pace_project: bool = False      # 2026-09-24 (docs/method.md 10.22): the paced step projected onto the
+                                    # divergence-free fields on the body (Chorin projection on the loss
+                                    # grid, pressure zero on the free surface) before the paced target
+                                    # is rasterised — the advected cloud keeps bulk density in transit
+                                    # and a thin feature is extruded from the body instead of streamed
+                                    # (the 300k ear: a base bulge at 1.5-1.7x feeding a filament at
+                                    # 0.5-0.7 of the target thickness; experiments.md 2026-09-24 ear_slab)
     render_until: int = 0           # >0: the render channel is switched OFF from this window on
                                     # (intervention experiment: does the render gradient change
                                     # the physics trajectory? 2026-09-17)
@@ -502,6 +509,12 @@ class PipelineConfig:
                                     #   windows from rest at EVERY commit cost the transport (silIoU 0.919 against
                                     #   0.967 at 30 windows: the expansion rides 0.9 of a window's free travel), and
                                     #   the m300 run transported 3x slower. 0 = every commit (the refuted form).
+    rest_commit_reversal: bool = False  # 2026-09-24 (10.21, second form): with rest_commit, latch windows from rest
+                                    #   at the SECOND accepted commit in a row whose displacement reverses the
+                                    #   previous one (reversal cosine < 0) — one full period of the two-window
+                                    #   alternation, the carried momentum an overshoot by definition. m300b's gate
+                                    #   at 100 % latched at window 62 of 66 (the last stragglers define arrival);
+                                    #   the sign of the reversal is the mechanism's own reading. The gate still applies.
     rebound_probe: bool = False     # 2026-09-24 DIAGNOSTIC (docs/experiments.md, the elastic-rebound hypothesis): after
                                     #   every accepted commit, roll one window with ZERO control from the commit state
                                     #   (plain elastic dynamics, no layer, no bonds) and log the projection of that free

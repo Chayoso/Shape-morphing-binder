@@ -408,6 +408,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     cyc_stale = 0                        # consecutive windows at or below the random-walk bound
     u_scale, u_prev = None, None         # config.u_rprop: the per-particle u bound scale and the last accepted u
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
+    rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
     # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
     # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
     # keeps the PHYSICS F for metrics and assimilation)
@@ -832,6 +833,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "reattached": n_reattached,
                "shift_median_sp": (last_shift or {}).get("median_sp"), "shift_dvol_rel": (last_shift or {}).get("dvol_rel"),
                "pic_null_share": (rec_pic or {}).get("null_share"),
+               "pace_proj_div0": (stats.get("pace_proj") or {}).get("div0"), "pace_proj_div1": (stats.get("pace_proj") or {}).get("div1"), "pace_proj_corr": (stats.get("pace_proj") or {}).get("corr_med"),
                "rebound": (rec_rebound or {}).get("rebound"),
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
@@ -1201,10 +1203,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if getattr(cfg, "rest_commit", False) and st.get("v") is not None:
             _gate_thr = float(getattr(cfg, "rest_commit_gate", 1.0) or 0.0)
             _ug = stats.get("u_gate")
-            if not rest_latched and (_gate_thr <= 0.0 or (_ug is not None and float(_ug) >= _gate_thr - 1e-6)):
+            _by_gate = _gate_thr <= 0.0 or (_ug is not None and float(_ug) >= _gate_thr - 1e-6)
+            # the reversal latch (10.21, second form): once consecutive accepted windows reverse each
+            # other the carried momentum is an overshoot by definition; two accepted commits in a row
+            # with a negative reversal cosine = one full period of the alternation
+            _rev_neg = reversal_cos is not None and float(reversal_cos) < 0.0
+            _by_rev = bool(getattr(cfg, "rest_commit_reversal", False)) and _rev_neg and rev_prev_neg
+            rev_prev_neg = _rev_neg
+            if not rest_latched and (_by_gate or _by_rev):
                 rest_latched = True
-                log(f"[v2] anim {a + 1}: windows from rest from here on (u transport gate "
-                    f"{100 * float(_ug if _ug is not None else 0):.1f} % >= {100 * _gate_thr:.0f} %)")
+                log(f"[v2] anim {a + 1}: windows from rest from here on ("
+                    + (f"u transport gate {100 * float(_ug if _ug is not None else 0):.1f} % >= {100 * _gate_thr:.0f} %"
+                       if _by_gate else f"two accepted commits reversing in a row, cos {float(reversal_cos):.2f}") + ")")
             if rest_latched:
                 st["v"] = np.zeros_like(st["v"])
                 if st.get("C") is not None:

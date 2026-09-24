@@ -553,6 +553,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
                 ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
         pace_grid = None
+        pace_proj_stats = None
         if cfg.phys_loss in ("ot_pace", "ot_shape"):
             # DISPLACEMENT-INTERPOLATED TARGET (McCann interpolation along the transport
             # plan): this window's target density is the current cloud advected toward its
@@ -570,6 +571,34 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             pace_r = max(leash_r, float(tgt.ldx))
             step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)
             x_int = (x0_ot + step * disp).detach()
+            if getattr(cfg, "pace_project", False):
+                # the SUPPORT-PRESERVING paced target (docs/method.md 10.22): the straight-ray
+                # interpolant of an anisotropic map is not volume preserving in transit (a fan
+                # converging into a thin feature is over-dense at its root and under-dense in the
+                # stream; at 300k the cloud realises that as a base bulge feeding a sub-cell
+                # filament). The paced step's divergent part on the body is removed (Chorin
+                # projection on the loss grid, pressure zero on the free surface) so the advected
+                # cloud keeps bulk density and thin features are extruded from the body.
+                from ..losses.projection import bulk_mode, project_step
+                m_pj = torch.as_tensor(tgt.m, device=dev) if not torch.is_tensor(tgt.m) else tgt.m
+                if getattr(tgt, "bulk_node", None) is None:
+                    # the body's reference density is the TARGET's bulk node mass, read once from
+                    # the fixed target grid (a cloud in transit gives no reliable estimate of it)
+                    tgt.bulk_node = bulk_mode(grid_eff.detach())
+                    print(f"[win] pace project: bulk node mass from the target grid {tgt.bulk_node:.1f} "
+                          f"(the body = nodes at half of it or more)", flush=True)
+                d_pj, pace_proj_stats = project_step(x0_ot, (step * disp).detach(), m_pj,
+                                                     tgt.lgmin, tgt.ldx, tgt.ldims, bulk=tgt.bulk_node)
+                x_int = (x0_ot + d_pj).detach()
+                _pp = pace_proj_stats["peak_pos"]
+                print(f"[win] pace project: body {pace_proj_stats['body']} nodes (densest node "
+                      f"{pace_proj_stats['peak']:.1f}x bulk at ({_pp[0]:.2f}, {_pp[1]:.2f}, {_pp[2]:.2f}), "
+                      f"{100 * pace_proj_stats['dense_frac']:.1f} % of the mass in nodes >= 2x bulk), step divergence rms "
+                      f"{pace_proj_stats['div0']:.3f} -> {pace_proj_stats['div1']:.4f} per window "
+                      f"(p95 {pace_proj_stats['div0_p95']:.3f}), correction median "
+                      f"{pace_proj_stats['corr_med']:.3f} / p95 {pace_proj_stats['corr_p95']:.3f} cells, "
+                      f"grid view of the step off by {100 * pace_proj_stats['pic_change']:.0f} %, "
+                      f"CG {pace_proj_stats['cg_iters']} it (res {pace_proj_stats['cg_res']:.1e})", flush=True)
             # an ARRIVED particle (within one blur radius of its image) contributes its
             # image projected onto the target point set: the entropic image sits inside
             # the target (blur), which left the end state fuzzy (150k bunny chamfer 0.098
@@ -1696,7 +1725,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share, "u_gate": u_gate_frac,
+              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats,
               "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
               "render_work": render_work, "render_work_x": render_work_x,

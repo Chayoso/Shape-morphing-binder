@@ -4568,3 +4568,87 @@ entropic plans, no congestion or connectivity constraint) and which formulations
 coherent body (congestion / incompressibility / elastic regularisation of the transport,
 unbalanced OT for growth, mesh-carried thin features, sheet-preserving particles). The candidate
 mechanisms are pre-registered once the probe and the digest are in.
+
+**2026-09-24 01:45 — the ear-formation item: readings and the mechanism (ear_probe / ear_slab on
+g300, l300, k300, g41); m300b's verdict; two pre-registered twins of l300 (n300, o300).**
+
+*The user's hypothesis ("too few particles reach the ears early").* The ear region's coverage
+(target ear points with a particle within one cell) does lag the body's: at 300k 0.73 against
+0.97 at t = 0.10, 0.79 / 0.98 at 0.15, 0.98 / 1.00 at 0.24, 1.00 at 0.34 (g300; l300 and k300
+alike); at 40k 0.83 / 0.99 at t = 0.09 and 1.00 at 0.23. The lag is the pacing: every particle
+advances one loss cell per window along its plan ray, and the ear tip is the farthest destination
+(≈ 3 wu = 10 windows against 3–6 for the body). Confirmed in part — and 40k shares it, so it is not
+by itself the droplets.
+
+*The per-slab probe* (`$OUT/scratch/ear_slab.py`: 0.3 wu slabs from the ear base + 0.3 to the tip;
+per slab and ear, particles / target points and the xz cross-section thickness against the target's;
+the pure ear material's pieces at 1.5 native and at 1.5 reference spacings) reads what the eye sees:
+(i) **a base bulge** — the lowest ear slab holds 1.49× its target count (l300, t = 0.20), 1.54×
+(g300, 0.30), 1.74× (k300, 0.20); 40k 0.99–1.02;
+(ii) **a filament above it** — the mid-ear slabs (y 2.56–3.16) at 0.49–0.86 of the target thickness
+through t = 0.15–0.30 (l300; g300 0.40–0.68), filled to 0.16–0.6; the 40k tongue at 0.80–1.01;
+(iii) **pieces** — the pure ear material in 86–177 pieces at 1.5 native spacings (l300, t =
+0.10–0.23; g300 43–87 with 2–4 pieces of ≥ 20 particles at t = 0.17–0.33); 40k ≤ 10 pieces, one of
+≥ 20; at the reference spacing (what the reference-spacing render shows) 1–3 pieces;
+(iv) **the end state** — the pure ear at 0.944–0.948 of its target count (300k), its upper slabs
+0.85–0.92 filled and 0.92–0.97 as thick as the target; the 40k end ear 0.838, upper slabs 0.55–0.70
+filled and 0.83–0.90 thick (the gallery's thin ears); k300 (dx 0.22) 0.993, upper slabs 1.00–1.05,
+the tips over-filled 1.5–1.8;
+(v) **the ear mass overshoots** — the ear tube's count 1.64× at t = 0.34 → 1.49 at 0.49 → 1.57 at the
+end (g300; l300 1.62 → 1.48; k300 1.82 → 1.53); 40k monotone 1.37 → 1.42. The overshoot is the
+momentum alternation read in one region (the oscillation item).
+
+*Mechanism* (with the third survey, related_work.md 2026-09-24 01:30): the paced target is the
+straight-ray displacement interpolant of the plan (optimizer.py: x_int = x0 + min(1, h/|d|)·d).
+For a volume-preserving but anisotropic map (a broad patch of the sphere's crown into a 1.1-cell
+ear, J ≈ diag(4, ½, ½)) the interpolant is not volume preserving in transit — det(I + t(J − I)) ≠ 1
+(method.md (43)): the rays converge at the ear base (density above bulk: the bulge) and stretch
+into the ear (below bulk: the stream). The cell sum cannot tell a sparse cell from a dense filament
+in part of the cell, so at 300k, where a filament three particles across exists, the cloud
+realises the sub-bulk stream as a thin filament of bulk density (fill 0.36 at thickness 0.68 = bulk
+density in a 0.6 × 0.6 cross-section) that breaks into pieces at the native spacing; at 40k the
+spacing (0.45 cell) forbids the filament and the tongue is a cell thick. Nothing in the target
+enforces bulk density on the transported support (Bonneel 2011: a plan splits blobs; Solomon 2015:
+the entropic interpolant is blurred; Maury 2010 and Perthame 2014: the density constraint is what
+makes a crowd or a growing tissue move as one body).
+
+*Pre-registered fix E3 — the support-preserving paced target* (method.md §10.22, `--pace_project`,
+losses/projection.py, tests/test_projection.py 3 passed on hyde06): the paced step projected onto
+the divergence-free fields on the body (Chorin projection on the loss grid: MAC faces by the CIC
+deposit, pressure zero outside the body at half-bulk occupancy, the correction gathered back
+FLIP-style) before the paced target is rasterised. **n300 = l300 + --pace_project** (GPU 2, 01:45).
+Predictions against l300: **P58** the base slab's fill at its mid-growth maximum ≤ 1.15 (l300
+1.49); **P59** the mid-ear slabs' thickness ratio at t = 0.15–0.25 ≥ 0.80 in median (l300 0.68);
+**P60** one piece of ≥ 20 particles at 1.5 native spacings in every sampled frame and ≤ 20 native
+pieces per frame at t ≤ 0.30 (l300 86–177); **P61** the end not worse — silIoU ≥ 0.975 (0.9797),
+windows ≤ 110 (85), end ear fill ≥ 0.93 (0.948), end bump at the reference render ≤ 1.3° (1.19°).
+Refutation: P58 or P59 failing refutes the transit-density mechanism (next: the thin-feature
+carrier, Ando 2012 / Jiang 2017 — the particles whose destination is thinner than two cells split
+so the ear cells keep the reference count); P61 failing with P58–P60 holding says the projection
+costs transport (next: the unbalanced / Wasserstein–Fisher–Rao plan, Chizat 2018).
+
+*m300b's verdict (01:35).* 66 windows in 1987 s, silIoU 0.9782, det F 0.66; the gate crept from
+93 % (window 34) to 100 % at window 62 and the run stopped at 66 on two merit rejections: the rule
+was engaged for four windows. As measured P53 ✗ (low-band corr −0.67), P54 ✗ (flips 0.74), P55 ✗
+(net 0.15), P56 ✓ (0.9782), P57 ✓ (66 windows) — no reading of the mechanism, a reading of the
+latch: the last stragglers define arrival. **The reversal cosine reads arrival itself** (the
+runner's `reversal_cos`, consecutive accepted windows' displacements): +0.9 through the transport,
+a zero crossing, then negative at every window to the end — m300b from window 44 (of 66), l300
+from 49 (of 85), the 40k reference from 20 (of 59): 33–67 % of every run's windows are the
+alternation. *Pre-registered second form* (method.md §10.21 addendum 2, `--rest_commit_reversal`):
+the latch fires at the second accepted commit in a row with a negative reversal — one full period.
+**o300 = l300 + --rest_commit --rest_commit_reversal** (GPU 0, 01:46). **P62** the latch fires
+between windows 40 and 60; **P63** the layer breathing over the last 10 windows: flips ≤ 0.55 (l300
+0.74) and net/summed ≥ 0.4 (0.15); **P64** the low-band consecutive-window correlation > −0.3
+(−0.67); **P65** silIoU ≥ 0.975, ≤ 110 windows, the plain video's delivered tail ≤ 0.0012 per frame
+(l300 0.0016). Refutation: P63 and P64 failing with the rule engaged for ≥ 10 windows refutes the
+carried momentum as the alternation's carrier (the control's own per-window overshoot is then the
+remaining candidate: the line search against a target that moves one cell per window).
+
+*Baselines, the genus change.* ISD (no correspondence) on sphere → torus: volume 0.17–0.43 of the
+target's through t = 0.1–0.5 and non-watertight from t = 0.6 (5–17 components, Euler 3–12), end
+surface Chamfer 0.0070 / diagonal — the implicit velocity field opens the hole by tearing the
+surface, not by transporting it. The 4Deform torus is still training.
+
+*k300's plain video* (dx 0.22, reference spacing): raw components > 1 in 5 of 150 frames, drawn
+components 1 everywhere, at most 58 isolated particles — for the eye's ear-growth comparison.

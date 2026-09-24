@@ -338,3 +338,77 @@ breathing and the sub-cell disorder live in the grid-invisible subspace. (3) A g
 per window (Koßler) as the diagnostic of grid-locked bias. (4) A persistent mesh surface projected
 within a half-spacing band (Yu 2012 / Dagenais 2017). (5) Local refinement at thin features
 (Sun 2020 / Luo 2026); Power PIC weights in place of the Fickian shift as the runner-up.
+
+## Transport-driven droplets and filaments at protrusions; density-constrained and support-preserving transport (agent digest, 2026-09-24 01:30)
+
+Question put to the survey: why does a transport-paced target grow a thin protrusion (the bunny
+ear, ≈ 1.1 cells) as droplets and a filament, and which formulations keep the transported mass one
+body. Statements marked *verified* were read from the paper's page by the agent; the others are its
+reading of abstracts and secondary sources and are marked as such.
+
+**A. Why a transport target splits mass**
+- Bonneel, van de Panne, Paris, Heidrich, *Displacement interpolation using Lagrangian mass
+  transport*, SIGGRAPH Asia 2011. An RBF decomposition, a Kantorovich pairing and partial transport
+  of each blob; a blob may be split across destinations and each piece travels its own straight ray
+  (wording unverified). Our per-window target is exactly such a blob-wise straight-ray advection.
+- Solomon et al., *Convolutional Wasserstein distances*, SIGGRAPH 2015. *Verified*: "the method
+  blurs the input distributions, and the interpolated distributions are typically of higher entropy
+  than the endpoints", repaired by an entropy-bound projection. A 1.1-cell ear is what the blur erases.
+  Feydy et al., *Sinkhorn divergences*, AISTATS 2019: the debiased divergence (our `ot_debias`).
+- Chizat, Peyré, Schmitzer, Vialard, *Unbalanced optimal transport* (FoCM 2018) and *An interpolating
+  distance between optimal transport and Fisher–Rao* (JFA 2018). *Verified*: "geodesics between
+  mixtures of sufficiently close Diracs are made of translating mixtures of Diracs"; beyond a cut
+  length mass is destroyed and created instead of transported (the cut length's value unverified).
+  Growth in place next to the existing support instead of long rays.
+
+**B. Formulations that keep the mass one body**
+- Maury, Roudneff-Chupin, Santambrogio, *A macroscopic crowd motion model of gradient flow type*,
+  M3AS 2010; Mészáros, Santambrogio, *Advection–diffusion equations with density constraints*, 2016.
+  rho ≤ 1; the actual velocity is the projection of the desired one onto the admissible fields; the
+  pressure lives only where rho = 1. The saturated zone moves as one body, no filaments. → §10.22.
+- Perthame, Quirós, Vázquez, *The Hele-Shaw asymptotics for mechanical models of tumor growth*,
+  ARMA 2014; Di Marino, Chizat, *A tumor growth model of Hele-Shaw type as a gradient flow*, ESAIM
+  COCV 2020; Gallouët, Monsaingeon, *A JKO splitting scheme for Kantorovich–Fisher–Rao gradient
+  flows*, SIMA 2017. Growth = pressure-driven expansion of a saturated region; protrusions grow as
+  tongues from the boundary (tip growth: Campàs, Mahadevan 2009). → §10.22's free-surface pressure.
+- Benamou, Carlier, Santambrogio, *Variational mean field games*, 2017; Cardaliaguet, Mészáros,
+  Santambrogio, density constraints ("pressure equals price"), 2016; Papadakis, Peyré, Oudet,
+  *Optimal transport with proximal splitting*, SIIMS 2014. Dynamic transport under a density cap on a
+  staggered grid — the window target as the first frame of a congested geodesic on our own grid.
+- Ferradans, Papadakis, Peyré, Aujol, *Regularized discrete optimal transport*, SIIMS 2014; Paty,
+  d'Aspremont, Cuturi, *Regularity as regularization*, AISTATS 2020. A spatially regular plan /
+  a smooth strongly convex potential ⇒ a Lipschitz map: neighbouring mass is not sent apart.
+- Eisenberger, Lähner, Cremers, *Divergence-free shape correspondence by deformation*, SGP 2019, and
+  *Hamiltonian dynamics for real-world shape interpolation*, ECCV 2020. A band-limited
+  divergence-free velocity, exactly volume preserving, no self-intersection — it cannot form a
+  sub-cell filament. Zhang, Smirnov, Solomon, *Wassersplines*, SCA 2022: one smooth neural velocity
+  field carrying the whole density with a Sinkhorn divergence and PDE regularisers (their exact
+  list unverified). Feydy, Charlier, Vialard, Peyré, *Optimal transport for diffeomorphic
+  registration*, MICCAI 2017: transport as the objective, a diffeomorphic flow as the carrier.
+
+**C. Thin features in particle and MPM methods**
+- Ando, Thürey, Tsuruno, *Preserving fluid sheets with adaptively sampled anisotropic particles*,
+  TVCG 2012: neighbourhood anisotropy splits particles in thin sheets and merges them in bulk, so
+  sub-kernel features keep their particles per cell.
+- Jiang, Gast, Teran, *Anisotropic elastoplasticity for cloth, knit and hair*, SIGGRAPH 2017; Guo et
+  al., *A material point method for thin shells with frictional contact*, SIGGRAPH 2018; Fei, Guo,
+  Wu, Huang, Gao, *Revisiting integration in the material point method*, SIGGRAPH 2021. A Lagrangian
+  mesh carries the codimensional elasticity, the grid the contact; particles more than a cell apart
+  lose their interaction — a 1.1-cell ear sits at the fracture threshold.
+
+**D. Our own prior work, read for the same defect.** Xu, Song, Levin, Hyde, *A differentiable
+material point method framework for shape morphing*, TVCG 2025: per-particle control F, a log
+nodal-mass loss chosen against mass ejection, chained windows, the bunny's ears reproduced, the
+smoothness weight hand-set per example, no thin-feature mechanism. *PhysMorph-GS* (arXiv
+2511.16988): render gradients through F, the surface-focused subset, the largest gains on
+thin-feature targets, and the stated limitation that particles cannot be created at thin
+protrusions where the source lacks density.
+
+**The shortlist as applied.** (1) the support-preserving paced target — the plan's step projected
+onto divergence-free fields on the body with p = 0 on the free surface (Maury 2010, Perthame 2014,
+Eisenberger 2019): built as §10.22, pre-registered as n300; (2) the unbalanced (WFR) window plan
+(Chizat 2018): the fallback if (1) costs transport; (3) an entropy-bounded target (Solomon 2015):
+not the mechanism here — the transit density is a property of displacement interpolation, not of
+the blur; (4) the thin-feature carrier — Ando-split particles whose destination is thinner than two
+cells, or a Lagrangian spine (Ando 2012, Jiang 2017): the fallback if (1) does not thicken the
+stream.

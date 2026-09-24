@@ -981,3 +981,59 @@ The rule therefore applies only once the transport has ARRIVED, read from the u 
 10.16 (the fraction of the layer within one cell of its OT image): from the first accepted commit
 at which it reads 100 % (`rest_commit_gate`, latched), windows start from rest; before that the
 momentum is the transport. No new constant: the gate is the recipe's own arrival measure.
+
+Addendum 2 (2026-09-24 01:40): m300b's gate latched at window 62 of 66 — it crept from 93 % to
+100 % over 28 windows, the last stragglers defining arrival — so the rule was engaged for four
+windows before the merit gate stopped the run: no reading of the mechanism. Arrival is read
+better by the runner's own reversal cosine (the cosine between consecutive accepted windows'
+displacements): +0.9 through the transport, a zero crossing, then negative at every window to the
+end of the run (m300b from window 44, l300 from 49, the 40k reference from 20). Second form
+(`rest_commit_reversal`): the latch fires at the second accepted commit in a row whose reversal
+cosine is negative — one full period of the two-window alternation, the carried momentum an
+overshoot by definition. No constant beyond the sign; the gate of the first form still applies.
+Pre-registered as o300 (experiments.md P62–P65).
+
+### 10.22 The support-preserving paced target (2026-09-24; code: losses/projection.py, pipeline/optimizer.py in the paced-target block; config `pace_project`; evidence docs/experiments.md 2026-09-24 01:45)
+
+The paced target of the transport regimes (`phys_loss` ot_pace / ot_shape) advects the cloud
+along its plan by one loss cell per window, x_int = x0 + min(1, h/|d|) d with d the
+material-denoised plan displacement, and rasterises it with the loss's own CIC splat. That is the
+straight-ray (displacement) interpolant of the plan, and for a volume-preserving but anisotropic
+map it is not volume preserving in transit:
+
+```
+(43)  rho_t = rho_0 / det(I + t (J - I)),   det(I + t (J - I)) = prod_i (1 + t (lambda_i - 1))  !=  1   (0 < t < 1, J != I)
+```
+
+Where the map stretches (a patch of the sphere's crown into a 1.1-cell ear, lambda = (4, 1/2, 1/2))
+the paced density falls to rho_0 / 1.4 at t = 1/2, and it rises above rho_0 where the rays converge
+at the feature's root. The cell sum then asks for a dense root and a sparse stream, and a cloud
+whose spacing is a third of a cell can supply exactly that — a filament of bulk density in part of
+the cell, breaking into pieces at the native spacing (experiments.md 2026-09-24 01:45: the 300k
+ear, a base slab at 1.5–1.7× and a stream at 0.5–0.7 of the target thickness; the 40k tongue,
+which cannot form a sub-cell filament, at 0.8–1.0).
+
+```
+(44)  d' = d - grad p,    -Lap p = -div d  on Omega,   p = 0 on and outside the boundary of Omega,
+      Omega = { lattice nodes whose CIC mass >= 1/2 of the bulk node mass }
+```
+
+(44) removes the divergent part of the paced step on the body Omega (Chorin's projection; the
+admissible-velocity projection of the density-constrained crowd model of Maury, Roudneff-Chupin
+and Santambrogio 2010; the Hele-Shaw limit of Perthame, Quirós and Vázquez 2014, where the pressure
+lives on the saturated set and vanishes on the free surface). The advected cloud keeps its density
+and a thin feature grows as a tongue extruded from the body, fed through its base at bulk density,
+instead of being assembled from a stream. The plan is re-solved every window from the advected
+cloud, so the endpoint is unchanged; only the path through transit is.
+
+Discretisation: the loss grid's node lattice; MAC face velocities from the mass-weighted CIC
+deposit of the step at the lattice shifted by half a cell along each axis; the seven-point
+Laplacian with p = 0 outside Omega (the Dirichlet free surface), conjugate gradients to a 1e-4
+relative residual; the correction -grad p on the faces gathered back at the particles with the
+same shifted CIC, FLIP-style — the particle keeps its own denoised step minus the grid's divergent
+part. No constant beyond the discretisation: the half-bulk occupancy is the CIC value of a node
+lying on the surface, the tolerance a solver residual. Logged per window: the step's divergence
+rms before and after (a relative volume change per window) and the correction in cells
+(`pace_proj_div0 / div1 / corr` in the record). Tests: tests/test_projection.py — a translation
+and a rotation of a ball pass unchanged (< 3 % / 5 %), a radial expansion is removed inside the
+ball (< 20 % of the step remains), the divergence falls by more than 85 %.
