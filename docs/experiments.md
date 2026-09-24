@@ -4781,3 +4781,61 @@ end bump at the reference render **1.19°** (= l300; P61's bump ✓), raw compon
 frames (l300 3 of 124 — more transient sub-cell pieces mid-morph), drawn components 1 throughout.
 u300's first launch on GPU 0 died of CUDA memory (the baseline training holds 21 GB there);
 relaunched on GPU 2 at 04:20.
+
+**2026-09-24 04:35 — p300 and r300 read; v300 and r300b pre-registered.**
+*p300 (the render channel off from window 45), 55 windows, silIoU 0.9765 (P69 ✓, the render's
+tail worth 0.003).* **P66 ✗** — the reversal cosine after 45: median −0.29, seven of eight windows
+negative (windows 31–45 before it: +0.26); **P67 ✗** flips 0.71, net 0.18; the merit gain after 45
++0.0001 … +0.0008 a window (progress ≈ 0 while the alternation continues). The render channel
+is refuted as the carrier; with momentum (o300), the step size and the balancer already out, the
+alternation is in the physics loss's own window-to-window re-linearisation — the plan re-solved
+from the moved cloud (and its arrived-snap onto the target's nearest points) or the window's
+dynamics against the commit (a commit not at equilibrium with its own control: the rebound
+probe's 0.1-window forward travel from rest).
+*r300 (the gate armed at the alternation's onset), 43 windows, silIoU 0.9776, det F 0.699,
+deliverable to window 40 (743 frames).* **P70 ✗ as specified** — armed at 41 on two barely
+negative cosines (−0.08, −0.01), nine windows before l300's alternation; stopped at 43 on three
+rejections (gains −0.9 %, −1.4 %, −1.0 %); **P71 ✓** (0.9776 ≥ 0.977, by 0.0006); **P73** (bump,
+ear) in the chain. The onset must be read by the gate's own definition of a reversal (cos <
+outer_reversal_cos = −0.2), not by any negative value — the code now does; pre-registered
+**r300b** (GPU 2 after t300): **P70b** armed between 48 and 58 and the run ends within 12 windows
+of it; **P71b** silIoU ≥ 0.978; **P72b** the delivered tail's per-frame change ≤ 0.0013.
+*Pre-registered v300 = l300 + `--ot_handoff`* (the cell-wise hand-off to the FIXED target once no
+deficit cell lies beyond one cell of the body — from then on the window target no longer changes
+with the cloud; GPU 0, 04:35): **P82** the reversal cosine after the hand-off: median ≥ 0 (l300
+−0.20 … −0.57); **P83** the layer's per-window step ≤ 0.03 spacings over the last 10 windows
+(l300 0.06–0.08) and the delivered tail ≤ 0.0013; **P84** silIoU ≥ 0.972 within 110 windows (the
+hand-off was falsified on the 40k C for stopping a half-formed body; the bunny arrives). P82
+holding says the moving paced target carries the alternation (the fix is then a target that
+stops moving once arrived — the hand-off itself, made the rule from arrival); P82 failing says the
+window's dynamics against its commit do, and the next twin commits the settled state (a
+zero-control rollout from rest at the commit, positions and F updated together).
+
+*p300 / r300 chain readings and a distinction (04:50).* p300: video tail 0.0024, bump 1.24°.
+r300: video tail **0.0030** (l300 0.0016), bump in the chain — the deliverable ends at window 40
+while the body still transports (arrived 95–98 %), and the per-frame change reads that motion:
+the measure conflates transport with the flicker. Two phenomena have been run together: (a) the
+**merit reversal** (consecutive optimiser displacements anti-correlated) begins only at arrival
+(l300 window 50, 40k 20) and is what the gate's reversal rule addresses; (b) the **layer
+breathing** (the archived layer's normal step flipping sign window to window; flips 0.66–0.83)
+is present in EVERY phase of every run — r300's last 10 delivered windows have reversal cosines
+of +0.1 … +0.5 and flips 0.68 all the same — so it is not the reversal. What acts on the layer
+once per window in every recipe, the 40k included, is the commit-time relaxation projection
+(`--layer_relax`, §10.13): the optimiser moves the layer during the window, the projection moves
+it back at the commit, and the archived frames show out-and-in once per window. *Pre-registered
+w300 = l300 without `--layer_relax`* (GPU 0, 04:50): **P85** the layer's flip fraction over the
+last 10 windows ≤ 0.55 and net/summed ≥ 0.4 (l300 0.74 / 0.21); **P86** the layer's per-window
+normal step halves or better (0.06–0.08 → ≤ 0.03 spacings); **P87** the surface is rougher —
+the end bump at the reference render > 1.3° (l300 1.19°; the relaxation was adopted for the
+surface) — a reading, not a criterion; **P88** silIoU ≥ 0.975. P85–P86 holding says the
+relaxation's commit-time projection carries the breathing, and the structural fix is to move it
+INSIDE the optimisation (the relaxation as the search-direction transform on the u step,
+`layer_ctrl_smooth`, or as a term of the window objective) so the optimiser and the smoother
+agree on one state instead of alternating between two.
+*Correction (04:55):* the relaxation is not a commit-time operation — it is a projection inside the
+forward model, the rough plane residual removed at 1/T per step over the window (§10.13,
+config.layer_relax), and the u channel is likewise applied 1/T per step in the same kernel. The
+w300 intervention stands as the test of the relaxation's part in the breathing; the mechanism, if
+it holds, is the two per-step channels on the layer (u pushing along the normal from u = 0 each
+window, the relaxation pulling the rough part back) settling to different states in alternate
+windows rather than a commit-time jump. r300's chain: end bump 1.24° (P73's bump ✓).

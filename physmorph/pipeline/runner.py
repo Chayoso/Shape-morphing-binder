@@ -929,7 +929,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             reversal_cos = float(np.dot(disp, prev_disp) /
                                  max(np.linalg.norm(disp) * np.linalg.norm(prev_disp), 1e-12))
         rec["reversal_cos"] = reversal_cos
-        rev_neg_now = reversal_cos is not None and float(reversal_cos) < 0.0
+        # a reversal by the gate's own definition (cos below outer_reversal_cos): r300 armed on two
+        # near-zero cosines (−0.08, −0.01) twelve windows before l300's alternation and stopped short
+        rev_neg_now = reversal_cos is not None and float(reversal_cos) < float(cfg.outer_reversal_cos)
 
         # λ-free plateau tracks, evaluated BEFORE the outer gate: "no track improved"
         # is this pipeline's validated definition of near-stationarity (driver #4 —
