@@ -201,7 +201,8 @@ width of the spline at h = 1.3 Δp) on that basis, and marks them as literature 
 The user asked what this is better than, against FEM-based morphing and the recent ICLR work.
 The research agent's scan (17 papers; the closest first).
 
-**The same family — differentiable MPM with a deformation-gradient control:**
+**The same family — differentiable MPM with a deformation-gradient control (the user's own prior
+work; this project is its follow-up, closing what PhysMorph-GS lists as open):**
 - *A Differentiable MPM Framework for Shape Morphing*, Xu, Song, Levin, Hyde — TVCG 2025 (SCA
   2024 best poster); predecessor *Deformation Gradient Control of Amorphous Solids*, Xu and Levin,
   SCA 2023. Per-particle F control, chained multi-pass, topology change (differing connected

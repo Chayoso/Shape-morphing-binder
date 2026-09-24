@@ -4156,3 +4156,12 @@ end bump at the reference render (P24, stills pending), g300's mid-morph roughne
 h300's over-packed tip (1.9× the target density — the knob risk), and the 40k gallery is untouched
 by all of it (disc_ref is a no-op at N ≤ 40000; shift_sub / the basis are opt-in). Adoption into
 the recipe for N > 40k is the user's call after the stills and the videos.
+
+**P24 (22:55, the end-frame stills at the reference render):** g300 bump **1.3°**, h300 **1.2°**
+(40k g41 1.2°; c300 1.5°, d300 1.5°, e300 1.4°) — holds for both; both ear tips clean and sharp,
+one component, nothing dropped, no cavity. At equal render resolution the 300k surface now matches
+the 40k one, with silIoU 0.975 / 0.977 against 0.961 and chamfer 0.0556 / 0.0554 against the 40k
+run's. Correction of the framing (the user, 22:45): the two closest papers of the scan — the TVCG
+2025 MPM morph and PhysMorph-GS — are the user's own; this project is their follow-up, and today's
+combination closes the two items PhysMorph-GS lists as open, thin features and watertightness
+(docs/related_work.md updated).
