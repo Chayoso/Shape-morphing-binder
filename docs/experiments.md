@@ -5600,3 +5600,24 @@ window 54 and the osc_layer probe's whole-layer correlation −0.6 while the spe
 reads +0.11 — the smooth band no longer alternates, the sub-cell band (high-band share 0.71)
 still does at a fifth of the old amplitude. This is the best physics-untouched form at 300k; the
 KDE-ear combo with the same flags (al300) is running as the deliverable candidate.
+
+**2026-09-24 20:30 — the five 40k twins on top of H (every remaining physics / loop lever).**
+| twin | added to H | silIoU | det F | flips / step (sp) / low-band | tail (s12) | ALT (s19) |
+|---|---|---|---|---|---|---|
+| g41h | — | 0.9632 | 0.781 | 0.47 / 0.019 / −0.18 | 0.0015 | 0.0014 |
+| g41k | windows from rest (latched at 33) | 0.9636 | 0.792 | 0.47 / 0.021 / −0.10 | 0.0015 | 0.0014 |
+| g41o | the onset gate (stopped at 33) | 0.9646 | 0.777 | 0.46 / 0.025 / — | 0.0015 | 0.0015 |
+| g41m | the fixed target from arrival | 0.9640 | 0.758 | 0.48 / 0.019 / −0.11 | 0.0014 | 0.0014 |
+| g41v | the settled body's viscosity | 0.9644 | 0.787 | 0.47 / 0.023 / 0.00 | 0.0017 | 0.0015 |
+| g41w | settle at commit (+ rest) | 0.9647 | 0.783 | 0.49 / 0.021 / −0.02 | 0.0015 | 0.0014 |
+| g41 (reference) | — | 0.961 | 0.771 | 0.74 / 0.021 / −0.4 … −0.7 | 0.0013 | 0.0014 |
+**P157–P162 ✗ on every amplitude target, ✓ on fit and det F**: with the alternation removed by H,
+the residual per-window jitter of the layer (0.02 spacings, ALT 0.0014 at stride 19) is
+INVARIANT under the carried velocity (rest), the moving target (hand-off), the run's end (the
+onset gate), the settled body's viscosity and the quasi-static commit. It is the floor of
+delivering simulated frames at this discretisation — the grid's carriage of whatever still moves
+into the settled material, the layer relaxation following at 1/T per step — and the physics
+levers are exhausted (every one of them from the surveys' lists, each with its twin). What is
+left for the VISIBLE flicker is the deliverable surface: the tracked mesh with the half-spacing
+band and the window-time average (P151–P153, rendering). The viscosity and settle forms stay
+diagnostics (§10.26); H stays the optimiser-side fix.

@@ -132,3 +132,15 @@ per-particle rule in its held-step, arrival-gated, smoothed form; a residual per
 the deliverable surface must not re-fit itself against it: the tracked mesh with a half-spacing
 projection band (and the window-time moving average) is the pre-registered deliverable-side fix
 (P151–P153, rendering now).
+
+## 8. Addendum (20:30) — the physics levers exhausted at 40k; the 300k held-step reading
+On top of H (held step, arrival gate, smoothing k = 8) five more levers were tried at 40k, each
+its own twin: windows from rest, the onset gate, the fixed target from arrival, the settled
+body's viscosity (η = 1/(T dt)), the settle-at-commit rollout. All give the same tail — flips
+0.46–0.49, step 0.02 spacings, low-band −0.1 … 0.0, stride-19 alternating component 0.0014
+(= the reference's) — with fit 0.964–0.965 (≥ g41's 0.961) and det F 0.76–0.79. The residual
+jitter is the floor of delivering simulated frames; the physics side is closed with H (and the
+freeze as the fit-costing extreme). At 300k, ai300 (l300 + H): α held at 0.0010, the layer's
+step 0.00077 wu, flips 0.50, low-band +0.11, det F 0.70, video tail **0.0011** (below the 40k
+value), silIoU 0.9766, bump 1.15°. The KDE-ear combo with H (al300) is the deliverable
+candidate; the visible residual is the tracked-surface question (P151–P153).
