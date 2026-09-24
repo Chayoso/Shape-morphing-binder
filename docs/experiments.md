@@ -5680,3 +5680,19 @@ beads' frame-to-frame arrangement averages out) while the physics of the edge is
 *al300 (z300b's recipe + H) ended:* 135 windows, silIoU **0.9771** (P164 ✓), det F **0.511** (P163
 ✗ by 0.04 — the KDE term's push under the held step still costs det F, less than without the
 hold: 0.19 / 0.23 / 0.43 → 0.51); its chain runs.
+
+**2026-09-24 22:00 — the hold-from-onset gallery (g41x) against g41.** det F within −0.025 on all
+19 — **P170 ✓** (C 0.863, beast 0.801: the collapse of the arrival gate alone is gone, the early
+stop of the hold-from-the-start is gone on most: A 40 windows, bunny 45, heart 33); fit up or
+within tolerance on 17 (bunny +0.006, maxplanck +0.006, fandisk +0.005, armadilo +0.004); but
+**P169 ✗ on two: C −0.010** (0.891 at 28 windows, its stall) and **nefertiti −0.041** (0.927 at 29
+windows against 90 — the run stopped with the transport a third done); **P171 ✗** (flips ≤ 0.6
+and step ≤ g41's on 11). The onset reading — two consecutive negative reversal cosines of the
+WHOLE body — misfires on the long, curved transports: nefertiti's and C's material reverses
+transiently on the way, the hold engages, and a held step cannot finish the transport. The
+per-particle halving is already protected by the arrival gate; the global hold's onset needs the
+same protection: *the reversal read on the ARRIVED particles only* (the paced target's mask;
+the global cosine when fewer than half have arrived) — no constant beyond the mask the pace
+already computes. *g41y = the 19-target sweep with the arrival-read onset* (GPUs 3 and 0):
+**P172** nefertiti ≥ 0.965 and C ≥ 0.898 with det F ≥ g41's − 0.05 everywhere; **P173** silIoU ≥
+g41's − 0.003 on every target; **P174** flips ≤ 0.6 and step ≤ g41's on ≥ 15.
