@@ -5198,3 +5198,6 @@ the fit's sampling rule (finest nodes kept at the tip, screening on), implementa
 in-plane surfel resampling at thin regions for the Open3D path (R-4) or by the binary; **P112
 failing** (capture flat across settings) says the tip is not representable at this node size and
 the band limit must be relaxed locally (a deeper octree at the tip = R-2's other half).
+*The codec floor (14:15):* over the 20 identical hold frames the per-frame change is 0.0000 (p90
+0.0001) in both z300b's and g41's videos — the encoder contributes nothing; the 0.0015–0.0025 per
+frame is image change from the renders themselves.
