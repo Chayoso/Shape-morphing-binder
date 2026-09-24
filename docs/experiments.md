@@ -5773,3 +5773,26 @@ at the white-noise ratio 1.73 — no excess alternation in the video) while the 
 correlation was −0.68 in the particles: the bulk's alternation of ~0.0007 wu is below what the
 stride-19 video resolves. End still: bumpiness 1.19°, one component. The pin twins (g41p,
 ap300) are the physics answer to the user's bar; al300/am300 remain the KDE-ear candidates.
+
+**2026-09-25 00:10 — the user's question "is it the particles, or the re-mesh updating every
+frame?" — answered on ai300 (300k, l300 + H), M4.** Two renders of the same archived frames,
+stride 12: (A) the delivered one — the surface re-fitted (Poisson) on every frame; (B) the
+advect-only one — the mesh fitted ONCE at the first delivered frame and carried by the
+particles' own displacement thereafter, never re-fitted (`--track --track_alpha 0 --track_tol
+1e9 --track_every 0`). Per-frame pixel change of the delivered tail (last 34 frames):
+
+| render | tail D1 | ALT | DRIFT | ALT/DRIFT |
+|---|---|---|---|---|
+| (A) re-fitted every frame | 0.0011 | 0.0011 | 0.0005 | 2.05 |
+| (B) advected, never re-fitted | **0.0015** | 0.0012 | 0.0010 | 1.14 |
+
+The mesh that only follows the particles moves MORE than the re-fitted one: the visible motion
+is the particles', and the per-frame re-fit does not create it — it removes part of it (the fit
+averages the sub-cell rearrangement out; 0.0015 → 0.0011). With M1 (the normal-only twin
+reproduces the full change) and M2 (the surface's normal velocity equals the layer's normal
+step, ratio 0.91–0.98) the kind is settled: **a genuine normal motion of the settled surface of
+~0.001 wu a window at 300k, carried by the particles, not a reconstruction artefact.** (B)'s
+ALT/DRIFT 1.14 against (A)'s 2.05: the advected mesh also carries the tangential drift, which
+the re-fit does not see. The remedy is therefore on the physics side — the pin (10.27), whose
+settled body does not move at all — and the deliverable side can only average (frame_avg /
+bandavg 0.0009–0.0010), which is cosmetic.

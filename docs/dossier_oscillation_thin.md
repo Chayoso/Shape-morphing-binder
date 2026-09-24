@@ -188,3 +188,12 @@ user's question "is it the particles or the re-mesh?": with the pinned body exac
 motion left in the video over the pinned region is the reconstruction's (the per-frame fit),
 and the advect-only render of ai300 (the mesh advected by the particles, never re-fitted)
 gives the same split on the un-pinned run.
+
+## 11. Addendum (00:10) — particles or re-mesh? Answered: the particles
+The user asked whether the visible motion is the particles' or the per-frame re-mesh. On
+ai300 (300k), the mesh advected by the particles and never re-fitted moves 0.0015 per frame
+in the delivered tail; the re-fitted mesh 0.0011. The re-fit removes motion, it does not add
+it. With M1 (normal-only twin = full change) and M2 (surface normal velocity = layer step),
+the residual is a genuine normal motion of the settled surface carried by the particles
+(~0.001 wu a window at 300k). Physics side: the pin (§10, g41p/ap300 running). Deliverable
+side: only averaging (0.0009–0.0010), cosmetic.
