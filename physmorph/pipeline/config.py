@@ -475,6 +475,18 @@ class PipelineConfig:
                                     #   300k body 7.5x more sluggish than the 40k one: 212 windows against 59). The
                                     #   losses keep their unit masses (their normalisations are built on them). 40k =
                                     #   the reference discretisation, bit-identical. 0 = legacy unit masses at every N
+    disc_ref: bool = False          # 2026-09-24 (docs/method.md 10.17a): every LENGTH the pipeline derives from the
+                                    #   particle spacing (the OT plan blur radius, the outer-layer depth and its
+                                    #   relaxation width, the u clip per window, the splat size, the shading target's
+                                    #   normal grid, the cleanup band, the re-attachment jitter, the ejection radius)
+                                    #   and every neighbour COUNT (the layer and relaxation kNN, the isolation gate's k,
+                                    #   the bond neighbours, the decoupling count) is taken at the REFERENCE
+                                    #   discretisation: spacing x (N / mass_ref_n)^(1/3), counts x N / mass_ref_n
+                                    #   (config.disc_ref_factor). A cloud at N > mass_ref_n is then the reference
+                                    #   continuum sampled finer — as the mass contract already makes its dynamics —
+                                    #   instead of a body whose constants shrink with the quadrature (at 300k the u
+                                    #   clip, the relaxation width and the layer depth were half the 40k lengths, and
+                                    #   the ear tip held 5.9 reference particles against 13 at 40k). 40k bit-identical.
     layer_gate_ot_normal: bool = False  # 15e: gate on the NORMAL component of the remaining transport (u acts along
                                     #   the normal; tangential transport along the outline does not disqualify it)
     layer_u_render_only: bool = False  # P1 (docs/surface_gradient.md 13): the u leaf receives the render channel's
@@ -548,3 +560,14 @@ class PipelineConfig:
     device: str = "cuda"
 
     history: list = field(default_factory=list)
+
+
+def disc_ref_factor(n: int, cfg) -> float:
+    """The reference-to-native spacing ratio (N / mass_ref_n)^(1/3) under cfg.disc_ref for a cloud of n
+    particles above the reference discretisation, 1 otherwise (the reference cloud and every run without
+    the flag are bit-identical). Lengths scale with it, neighbour counts with its cube (the same mass per
+    neighbourhood at every N). Field docs: PipelineConfig.disc_ref."""
+    ref = int(getattr(cfg, "mass_ref_n", 0) or 0)
+    if not bool(getattr(cfg, "disc_ref", False)) or ref <= 0 or int(n) <= ref:
+        return 1.0
+    return float((int(n) / float(ref)) ** (1.0 / 3.0))

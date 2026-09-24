@@ -103,7 +103,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
-                         layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
+                         disc_ref=args.disc_ref, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
                          layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
@@ -628,6 +628,10 @@ def main():
                     help="the geometric gate: u acts only where the target's outer layer is within --layer_gate_geom_cells MPM cells (docs/surface_gradient.md 15)")
     ap.add_argument("--layer_gate_geom_cells", type=float, default=1.0,
                     help="radius of the geometric gate in MPM cells (the grid's resolution)")
+    ap.add_argument("--disc_ref", action="store_true",
+                    help="the reference discretisation: every spacing-derived length and every neighbour count of the "
+                         "pipeline at the reference spacing s (N / mass_ref_n)^(1/3) and count x N / mass_ref_n "
+                         "(config.disc_ref); at N <= mass_ref_n a no-op")
     ap.add_argument("--layer_gate_ot", action="store_true",
                     help="the transport gate: u acts only where the remaining transport to the OT image is within --layer_gate_ot_cells MPM cells (docs/surface_gradient.md 15)")
     ap.add_argument("--layer_gate_ot_cells", type=float, default=1.0,

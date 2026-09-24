@@ -814,3 +814,48 @@ component (d_dt still trips it) and a gate on the normal component of the remain
 ### 10.17 The dynamics mass of the discretisation (2026-09-23; code: pipeline/config.py `mass_ref_n`, pipeline/optimizer.py; evidence docs/experiments.md 2026-09-23)
 
 The particle mass of the forward model was unit at every N. The control force per cell is a sum of particle rest volumes (∝ 1/N each) and does not grow with N, so the acceleration a unit control produces scaled as 1/N: the 300k body was 7.5× more sluggish than the 40k one (first-window displacement 0.004 against 0.027 wu, kinetic energy 0.014 against 0.54) and the transport took 212 windows against 59. The dynamics mass is now mass_ref_n / N per particle with mass_ref_n = 40000, the discretisation the constants were calibrated at: the body’s mass, density, wave speed and control response are the same at every N, the 40k runs are bit-identical, and the loss-side unit masses (whose normalisations — m_ref, the density units — are built on them) are untouched. With it the 300k first windows equal the 40k ones (0.024 wu, 0.48) and the end silhouette is 0.9677 (40k 0.961). The 300k run still runs to 176 windows: the finer cloud keeps improving below the loss cell, where the 40k cloud has reached its noise floor — a window budget of 70–90 delivers the 40k-level silhouette in 15–20 min.
+
+### 10.17a The reference discretisation of the spacing-derived constants (2026-09-24; code: pipeline/config.py `disc_ref`, `disc_ref_factor`; scripts/render_photoreal.py `--ref_n`; evidence docs/experiments.md 2026-09-23 night)
+
+10.17 makes the DYNAMICS of a cloud at N > `mass_ref_n` those of the reference cloud sampled
+finer: the same grid (10.9), the same mass, the same response to a control. Every other
+constant the pipeline derives from the particle spacing was still taken at the native
+spacing, so at 300k on the 40k grid (spacing 0.069 against 0.135 wu) the outer layer was half
+as deep, its relaxation half as wide, the u channel clipped to half the length per window,
+the splats of the render loss half the size, the shading target's normal grid twice as fine,
+the cleanup band and the ejection radius half as long, and every neighbour COUNT (the layer
+and asymmetry kNN, the isolation gate's k, the bond neighbours, the decoupling count of one
+particle) covered a seventh of the mass. The measured consequence at the bunny's ear tip
+(thinnest extent 0.35 wu = 1.13 cells; the tip cell holds 0.60 of a bulk cell's mass): the
+300k body puts 5.9 reference particles' mass within 0.25 wu of the tip against 13 at 40k, and
+the material that does arrive is stretched to 1.7–2.4 native spacings (0.11–0.16 wu, within
+half a cell — connected for the grid, a separate bead for a renderer whose kernel is the
+native spacing), 18 particles of it off the body at 1.5 spacings at the end. None of the
+three mechanisms for detached material sees it: the per-step decoupling test counts single
+particles (10.7), the fragment mask is grid connectivity (10.7), the kNN gate's ratio is 1
+inside a compact clump (10.5) and the DT pull is zero on the target anyway.
+
+```
+(38)  f = (N / mass_ref_n)^(1/3)   (1 for N <= mass_ref_n)
+      every spacing-derived LENGTH   <- length x f
+      every neighbour COUNT          <- count x f^3
+      the decoupling count (24)      <- N_p(3^3 cells) <= f^3   (one reference particle's mass)
+```
+
+Under `disc_ref` the pipeline applies (38) at its sources: the target NN spacing
+(`runner.build_target`, hence the OT plan blur radius of 10.8/10.10, the cleanup band, the
+ejection radius, the re-attachment jitter, the KDE width), the layer spacing `sp0` of the
+relaxation and the u channel (the layer depth, the relaxation width, the u clip), the splat
+size of the render loss and the shading target's spacing, and the counts (layer 24, asymmetry
+32, isolation 8, bonds `coh_k`, the decoupling count). The reference cloud and every run
+without the flag are bit-identical (f = 1). No new constant: f is the mass contract of 10.17.
+
+The deliverable renderer applies the same rule (`--ref_n`, default `mass_ref_n`): its kernel
+width, outer-layer threshold, level, Poisson octree cell, trim, bridging radius and tracking
+tolerances are taken at the reference spacing. At the native spacing the 300k octree was one
+level finer than the 40k one (cell 0.034 against 0.069 wu), the sub-cell beads of the ear
+tips were separate components and the bump angle of the end surface was 1.9° against 1.2°; at
+the reference spacing the beads are gone (one component, nothing dropped), the fork of the
+left ear is one tip, the bump is 1.5° — the knobs that remain at both tips are the stretched
+tip material itself, which the render cannot and should not hide. Whether (38) in the physics
+closes the tip is the pre-registered twin `d300_bunny` (docs/experiments.md 2026-09-23 night).

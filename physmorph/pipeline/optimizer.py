@@ -37,7 +37,7 @@ from ..mpm.constitutive import lame
 from ..mpm.function import PersistentAdjoint, RolloutSpec, warp_mpm_ext
 from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
-from .config import PipelineConfig
+from .config import PipelineConfig, disc_ref_factor
 from .control_basis import ControlBasis
 from .grad_combine import combine as combine_grads, pcgrad as _pcgrad_impl
 from .grid_smooth import chebyshev_rho, smooth_particle_field
@@ -269,7 +269,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         from ..render.surface_recon import layer_relax_data
         sub = x0[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
         sp0 = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
-        lmask, lnrm, lnbr, lw = layer_relax_data(x0, sp0, k=cfg.layer_k, h_sp=cfg.layer_h_sp)
+        # the reference discretisation (config.disc_ref): the layer depth, the relaxation width and the u clip
+        # at the reference spacing, the layer / asymmetry neighbour counts at the reference MASS
+        _f = disc_ref_factor(N, cfg)
+        sp0 *= _f
+        lmask, lnrm, lnbr, lw = layer_relax_data(x0, sp0, k=int(round(cfg.layer_k * _f ** 3)), h_sp=cfg.layer_h_sp,
+                                                 k_asym=int(round(32 * _f ** 3)))
         if cfg.layer_ctrl and cfg.layer_ctrl_smooth:
             # W of the relaxation as a search-direction transform on the u step (§7): rows of the
             # normalised same-side neighbour weights; zero rows off the layer
@@ -331,7 +336,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     tr_eval = Trajectory(x0, m_np, lam0, mu0, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
                          dFc=seq_eval, device=dev, requires_grad=False, vol0=vol0,
                          Fg0=Fg0, track_geom=use_geom, persistent=True,
-                         bonds=((bond_nbr, bond_rest, bond_frag) if bond_nbr is not None else None),
+                         bonds=((bond_nbr, bond_rest, bond_frag, disc_ref_factor(N, cfg) ** 3)   # decoupling count = 1 reference particle
+                                if bond_nbr is not None else None),
                          layer=layer)
     tr_eval.capture()
     adj_box = [None]                 # PersistentAdjoint, built at the first gradient rollout
@@ -750,7 +756,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             m_dt = tgt.m * w1_budget(x0_t, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
                                      cfg.dt_budget)
         else:                             # "knn" — the honest-metric winner (§7.6)
-            m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi)
+            # k = 8 reference particles' mass (config.disc_ref: x N / mass_ref_n — a clump of a few native
+            # particles alone in that neighbourhood is isolated at every N)
+            m_dt = tgt.m * isolation_gate(x0_t, cfg.dt_iso_lo, cfg.dt_iso_hi,
+                                          k=int(round(8 * disc_ref_factor(len(x0), cfg) ** 3)))
     # the gate's support (2026-09-23, speed): the DT sum runs on these particles only — the same
     # sum and gradient, a small fraction of N (the isolated particles)
     dt_idx = torch.nonzero(m_dt > 0).squeeze(1) if m_dt is not None else None

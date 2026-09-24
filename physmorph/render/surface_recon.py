@@ -212,14 +212,17 @@ def plane_residual(x_np: np.ndarray, mask: np.ndarray, ref_normals: np.ndarray, 
     return res, n.astype(np.float32)
 
 
-def layer_relax_data(x0: np.ndarray, spacing: float, k: int = 24, h_sp: float = 2.0, thr_sp: float = 0.5):
+def layer_relax_data(x0: np.ndarray, spacing: float, k: int = 24, h_sp: float = 2.0, thr_sp: float = 0.5,
+                     k_asym: int = 32):
     """Frozen per-window data of the outer-layer relaxation force (kernels.k_layer_resid /
     k_layer_force): (mask (N,) float, nrm (N,3), nbr (N,k) int, w (N,k)). Layer by the
-    neighbourhood asymmetry; normals from the asymmetry offset; neighbours = the k nearest
-    LAYER particles with Gaussian weights of h_sp spacings times the normal agreement (same
-    side only). Rows of non-layer particles hold zeros."""
+    neighbourhood asymmetry (k_asym neighbours); normals from the asymmetry offset; neighbours
+    = the k nearest LAYER particles with Gaussian weights of h_sp spacings times the normal
+    agreement (same side only). Rows of non-layer particles hold zeros. At the reference
+    discretisation (config.disc_ref) the caller passes spacing and both counts scaled so the
+    neighbourhoods hold the same MASS at every N."""
     N = len(x0)
-    mask, nrm = layer_by_asymmetry(x0, spacing, thr_sp=thr_sp)
+    mask, nrm = layer_by_asymmetry(x0, spacing, k=k_asym, thr_sp=thr_sp)
     idx = np.where(mask)[0]
     nbr = np.zeros((N, k), np.int32); w = np.zeros((N, k), np.float32)
     if len(idx) > k:

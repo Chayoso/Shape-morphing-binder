@@ -24,7 +24,7 @@ from ..mpm.conditioning import condition_F
 from ..mpm.state import MPMParams
 from ..mpm.traj import compute_rest_volumes
 from ..plasticity import assimilate_elastic
-from .config import PipelineConfig
+from .config import PipelineConfig, disc_ref_factor
 from .optimizer import TargetPack, optimize_window
 from .render_loss import (LambdaBalancer, d_render, make_views, shade_targets,
                           target_silhouettes)
@@ -179,6 +179,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
             from ..render.surface_recon import target_surface_normals
             sub = target_x[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
             sp_t = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
+            sp_t *= disc_ref_factor(N, cfg)                       # the reference spacing (config.disc_ref)
             n_t, sw_t = target_surface_normals(np.asarray(target_x, np.float32), sp_t)
             shade = shade_targets(tgt_t, views, cfg.render_res, extent, lgmin, ldx, ldims,
                                   cfg.sil_k, cfg.pbr_ambient,
@@ -219,7 +220,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
             target_mask = torch.as_tensor(tw > 0.5, device=dev)
             gaussian_points = target_x[tw > 0.5]
         gauss = GaussViews(views, extent,
-                           sigma0_from_nn(gaussian_points, cfg.gauss_sigma_scale),
+                           sigma0_from_nn(gaussian_points, cfg.gauss_sigma_scale) * disc_ref_factor(len(target_x), cfg),
                            cfg.gauss_res, dev, child_count=cfg.gauss_children,
                            child_sigma_scale=cfg.gauss_child_sigma_scale,
                            child_offset_scale=cfg.gauss_child_offset_scale,
@@ -233,6 +234,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
         from scipy.spatial import cKDTree
         nn_sp = float(np.median(cKDTree(target_x).query(target_x, k=2,
                                                         workers=-1)[0][:, 1]))
+        nn_sp *= disc_ref_factor(len(target_x), cfg)      # the reference spacing (config.disc_ref)
         pts = tgt_t
         if cfg.w_kde > 0:
             from ..losses.volumetric import kde_self_density
@@ -376,7 +378,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     bond_frag = None
     if cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0 or cfg.continuity or cfg.bonds:   # frozen source-material neighbours
         from scipy.spatial import cKDTree
-        coh_nbr = cKDTree(src).query(src, k=int(cfg.coh_k) + 1, workers=-1)[1][:, 1:]
+        # the bond neighbourhood holds coh_k REFERENCE particles' mass (config.disc_ref: x N / mass_ref_n)
+        coh_nbr = cKDTree(src).query(src, k=int(round(cfg.coh_k * disc_ref_factor(len(src), cfg) ** 3)) + 1,
+                                     workers=-1)[1][:, 1:]
     if cfg.render_surface_only:
         if surface_w is None:
             raise ValueError("render_surface_only requires surface_grad_frac > 0")

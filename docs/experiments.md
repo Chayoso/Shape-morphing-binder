@@ -3910,3 +3910,54 @@ tuning) puts a 300k run at 15–20 min under today's host load, ~12 min on a qui
 archive (13 GB uncompressed at 300k) adds 1–3 min. Rendering influence unchanged in kind:
 g_share 0.34–0.35 at 300k (0.37 at 40k). The 40k gallery is untouched by any of this
 (mass_ref_n = N there; the speed passes are result-identical, suite 249 passed).
+
+### 2026-09-23 night — the isolated pieces of the 300k end frame; the reference discretisation of the spacing-derived constants (method.md §10.17a)
+
+**The user (after the plain-mesh stills): the isolated mesh pieces at the ear tips must be
+dealt with.** Facts first (`$OUT/scratch/iso_trace.py`, `iso_tip.py` on the c300 and g41
+archives). The 300k end frame has 37 particles (0.012 %) farther than 1.5 native spacings
+(0.10 wu) from the body, in 12 pieces (18 / 6 / 3 / 2 / 1 …); the 40k g41 run has 0 from
+frame 400 on (peak 28 = 0.07 % at frame 125; 300k peak 215 = 0.07 % at frame 150 — the
+expansion-phase spray is the same fraction at both N). The ear-tip piece: 18 particles ON the
+target (0.36 spacings), 1.74 spacings (median) / 2.21 (max) = 0.12 / 0.15 wu from the body —
+inside half an MPM cell — with 159 particles in its 3³ cells (not decoupled), inside the
+dilated occupancy (not a fragment), 8-NN ratio 1.0 inside the clump (the kNN gate does not
+fire, and the DT pull is zero on the target regardless). It travelled with its own material
+(source spread 0.29 wu; its 70 source neighbours are the ear material 0.33 wu behind it):
+spray at frames 150–450, re-attached and re-compressed by frame 1650 (8-NN 0.54 spacings),
+then stretched apart again over frames 1800–2700 (8-NN 2.2–2.4) as the tip cell fills, 1.67
+at the end. The target tip is 0.35 wu = 1.13 cells thick and its cell holds 0.60 of a bulk
+cell's mass; the bodies reach it to the same distance in wu (300k 0.173 / 0.080 max / median
+against 40k 0.126 / 0.083), but the 300k body brings **5.9 reference particles' mass** within
+0.25 wu of the tip against **13** at 40k. Both runs: dx 0.306, grid 36³, loss cell = dx.
+
+**Reading.** The piece is connected material for the grid and a separate bead for a
+renderer whose kernel is the native spacing, and no mechanism owns it because all three
+count particles, not mass. The cause of the thinner tip is the constants: at 300k on the
+40k grid every spacing-derived length (u clip, layer depth, relaxation width, splat size,
+cleanup band …) is half the 40k length and every neighbour count covers a seventh of the
+mass — the dynamics were made N-invariant on 2026-09-23 (`mass_ref_n`), the constants were
+not. Rule (38), method.md §10.17a: lengths × (N / mass_ref_n)^(1/3), counts × N / mass_ref_n.
+
+**The render at the reference spacing (`render_photoreal --ref_n`, default = mass_ref_n),
+pre-registered.** P1 end bump ≤ 1.3° (native 1.9, 40k 1.2): **refuted** — 1.5°. P2 the
+ear-tip beads and the left ear's fork merge: half — the fork is one tip and no bead is
+drawn anywhere, both tips keep a knob. P3 dropped sub-cell components ≤ 3: holds (0; the
+pieces fall below the two-particle level at the reference kernel). P4 frame 900 keeps its
+silhouette: holds (bump 1.4, the growing ears' front beads remain as 2 dropped pieces). Also
+found: at the native spacing the 300k Poisson octree was one level finer than the 40k one
+(cell 0.034 against 0.069 wu), so the earlier 1.9° vs 1.2° comparison was at different mesh
+resolutions. Kept as the default: the rule is the render-side half of §10.17a, 40k
+bit-identical; the knobs it leaves are the physics of the tip and belong to the twin below.
+
+**The physics at the reference discretisation (`--disc_ref`), pre-registered before the
+run (`d300_bunny`, the recipe + the flag, 300k; smoke `s300_ref` 3 windows first).**
+P5 tip mass within 0.25 wu of the target tip ≥ 10 reference particles (c300 5.9, 40k 13).
+P6 the tip material's end 8-NN ≤ 1.3 native spacings (c300 1.67); ≤ 10 particles off the
+body at 1.5 spacings (c300 37), no piece of ≥ 6. P7 end silIoU ≥ 0.964 (c300 0.9677),
+chamfer ≤ 0.0625, windows ≤ 210. P8 end bump at the native render spacing ≤ 1.5° (c300 1.9),
+at the reference spacing ≤ 1.3°. P9 mid-morph roughness within the c300 band. Refutation:
+P5 < 8 or P7 fails → §10.17a does not close the tip, the flag stays off. Rendering
+influence: unchanged in kind — the render loss's splats are the 40k splats (fewer, larger
+than the native ones), g_share to be read from the run. Tests: `tests/test_disc_ref.py`
+(the factor, the asymmetry count), the touched suites 34 passed on hyde06.

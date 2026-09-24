@@ -87,6 +87,13 @@ ap.add_argument("--min_cells", type=float, default=1.0,
                      "bbox diagonal / cell_diag): material the grid cannot resolve is not a continuum element. "
                      "0 = draw everything. Dropped components are counted in the sidecar.")
 ap.add_argument("--cell_diag", type=float, default=26.0)
+ap.add_argument("--ref_n", type=int, default=-1,
+                help="the reference discretisation (particles): at N > ref_n every spacing-derived render constant "
+                     "(kernel width, outer-layer threshold, level, Poisson cell, bridging radius, tracking tolerances) "
+                     "is taken at the REFERENCE spacing s (N / ref_n)^(1/3) — the cloud is the reference continuum "
+                     "sampled finer (docs/method.md 10.17: the same grid, the same mass), and the render draws the "
+                     "continuum, not the sub-cell arrangement of its quadrature. -1 = the pipeline's mass_ref_n "
+                     "(40000); 0 = the native spacing.")
 ap.add_argument("--bridge", type=int, default=1,
                 help="draw particles the isosurface does not enclose but which link the body to another drawn "
                      "component as a filament one particle spacing thick (the rendered topology follows the "
@@ -182,6 +189,20 @@ n_sub = min(N, 20000)
 sub = x0[torch.randperm(N, device=dev)[:n_sub]]
 d8 = torch.cdist(sub, sub).topk(9, largest=False).values[:, -1]
 spacing = float(d8.median()) * (n_sub / N) ** (1.0 / 3.0)
+# the render's length scale is the continuum's discretisation, not the quadrature's (2026-09-24): a 300k
+# cloud on the 40k grid is the 40k continuum sampled 7.5x finer (docs/method.md 10.17), and at its native
+# spacing the renderer drew the sub-cell arrangement of the particles — the stretched ear-tip material
+# (8-NN 1.7–2.4 s = 0.11–0.16 wu, within half an MPM cell, invisible to the grid) as beads and lobes, the
+# Poisson octree one level finer than at 40k (cell 0.034 vs 0.069 wu), bump angle 1.9 deg against 1.2.
+spacing_native = spacing
+if a.ref_n < 0:
+    from physmorph.pipeline.config import PipelineConfig
+    a.ref_n = int(PipelineConfig().mass_ref_n)
+if a.ref_n > 0 and N > a.ref_n:
+    spacing = spacing_native * (N / a.ref_n) ** (1.0 / 3.0)
+    print(f"[photoreal] reference spacing: N {N} > ref_n {a.ref_n} -> {spacing_native:.4f} wu native, {spacing:.4f} wu "
+          f"used (x{(N / a.ref_n) ** (1.0 / 3.0):.2f}; every spacing-derived constant at the reference discretisation)",
+          flush=True)
 sig_vox = max(0.6, a.blur * spacing / vox)
 
 
@@ -913,7 +934,7 @@ if a.still >= 0 or a.still == -2:
         with open(os.path.splitext(a.save_mesh)[0] + ".json", "w") as fh:
             json.dump({"npz": a.npz, "frame": a.still, "kernel": a.kernel, "surface": a.surface, "post": a.post,
                        "pull": a.pull, "layer": a.layer, "poisson_cell": a.poisson_cell, "poisson_trim": a.poisson_trim, "pca_sigma": pca_sigma_sp, "label": a.label, "bulk": a.bulk, "bulk_voxel_over_particle": bulk_voxel / bulk_particle,
-                       "vox": vox, "spacing": spacing, "iso_frac": iso_frac, "layer_thr_frac": layer_thr / rho_bulk,
+                       "vox": vox, "spacing": spacing, "spacing_native": spacing_native, "ref_n": a.ref_n, "iso_frac": iso_frac, "layer_thr_frac": layer_thr / rho_bulk,
                        "bump": bump, "triangles": int(len(m.triangles)), "components": n_comp, "dropped": n_drop,
                        "cavities": n_cav, "bridged": n_bridge}, fh, indent=1)
         print(f"saved {a.save_mesh}")

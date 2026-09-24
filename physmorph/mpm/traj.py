@@ -185,7 +185,10 @@ class Trajectory:
         self.rest0 = wp.zeros(1, dtype=wp.float32, device=device)
         self.ncount0 = wp.zeros(N, dtype=wp.float32, device=device)
         if bonds is not None:
-            nbr, rest, frag = bonds                  # frag: (N,) 1.0 = fragment particle
+            nbr, rest, frag = bonds[:3]              # frag: (N,) 1.0 = fragment particle
+            # the decoupling count threshold of kernels.k_frag_step: one particle, or one REFERENCE
+            # particle's mass N / mass_ref_n under config.disc_ref (the optional fourth element)
+            self.frag_thr = float(bonds[3]) if len(bonds) > 3 else 1.0
             nbr = np.ascontiguousarray(nbr, np.int32)
             self.bond_K = int(nbr.shape[1])
             self.bond_nbr = wp.array(nbr.reshape(-1), dtype=wp.int32, device=device)
@@ -270,7 +273,7 @@ class Trajectory:
         if not self.bonds:
             return self.nbr0, self.rest0, self.ncount0, 0
         gate_omega(self.x[t], self.prm, 1.0, self.omega_b, self.ncount_b, self.cnt_b)
-        wp.launch(K.k_frag_step, dim=self.N, inputs=[self.ncount_b, self.bond_frag, self.frag_step],
+        wp.launch(K.k_frag_step, dim=self.N, inputs=[self.ncount_b, self.bond_frag, self.frag_step, self.frag_thr],
                   device=self.device)
         return self.bond_nbr, self.bond_rest, self.frag_step, self.bond_K
 

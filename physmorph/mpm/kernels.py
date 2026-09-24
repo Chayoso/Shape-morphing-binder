@@ -160,15 +160,17 @@ def k_support_gate(x: wp.array(dtype=wp.vec3), cnt: wp.array(dtype=int), gmin: w
 
 @wp.kernel
 def k_frag_step(ncount: wp.array(dtype=float), frag_commit: wp.array(dtype=float),
-                frag: wp.array(dtype=float)):
+                frag: wp.array(dtype=float), thr: float):
     """Decoupling flag for THIS step: a particle with no other particle in the 3^3 cells around
     its own (count <= 1 counts only itself) is decoupled now — the grid cannot act on it — or
     it was flagged at the commit (the runner's fragment mask). Evaluated every step: the
     single-particle leaders of the expansion phase clear the fracture gap inside one window
     (150k bob: 54 particles flung 1.3-3.7 wu, static afterwards), and a mask fixed at the
-    window start bonds them one window too late."""
+    window start bonds them one window too late. thr = 1 counts only the particle itself; at
+    the reference discretisation (config.disc_ref) thr = N / mass_ref_n, one REFERENCE particle's
+    mass — a clump of fewer particles than that, alone in its cells, is decoupled material."""
     p = wp.tid()
-    if ncount[p] <= 1.0 or frag_commit[p] > 0.5:
+    if ncount[p] <= thr or frag_commit[p] > 0.5:
         frag[p] = 1.0
     else:
         frag[p] = 0.0
