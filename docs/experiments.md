@@ -5125,3 +5125,18 @@ scale at 1.0, then reversal from 52 (0.4) and the scale decaying to 0.06 at 67 �
 arrival comes 23 windows after the body's, and the rule reads it per particle. The body's median
 per-window displacement in z300b's tail stays 0.004–0.008 wu (the breathing) — the quantity the
 rule is meant to send to zero in ab300.
+
+*13:25 — all four GPUs in use (the user lifted the GPU 1/3 restriction: "GPU 1, 3도 이제 비어
+있으면 전부 다 쓰자"; hyde06-ops memory updated). Three more pre-registered runs launched:*
+**ac300 = l300 + `--ctrl_rprop --u_rprop --u_rprop_floor 0`** (GPU 3) — the rule on the original
+recipe, the attribution twin of ab300: **P107** the layer breathing over the last 10 delivered
+windows: flips ≤ 0.55, normal step ≤ 0.001 wu, low-band correlation > −0.3 (l300 0.74 / 0.0017 /
+−0.67); **P108** silIoU ≥ 0.977 (0.9797) and the ear as l300's (fill ≥ 0.93). **g41r = the 40k
+gallery recipe + the rule** (GPU 1; a diagnostic twin, the gallery untouched): **P109** the 40k
+breathing's normal step 0.0029 → ≤ 0.001 wu, flips 0.74 → ≤ 0.55; **P110** silIoU within 0.003
+of g41's and the video's delivered tail at the hold level (≤ 0.0005). **M3 = z300b re-rendered
+with the finest Poisson leaf at the MPM cell** (`--poisson_cell 2.27`, GPU 1, render only):
+**P111** if the tail motion is a tangential re-sampling (c), the delivered tail's per-frame change
+falls from 0.0024 toward the transport-only level (≤ 0.0015) with the end bump within 0.2° of
+1.24°; a bump rising above 1.5° or the ear tip lost says the cell-wide leaf cannot carry the
+1.1-cell ear and the band limit must be half a cell with the anisotropic surfels.
