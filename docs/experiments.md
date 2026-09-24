@@ -4839,3 +4839,25 @@ w300 intervention stands as the test of the relaxation's part in the breathing; 
 it holds, is the two per-step channels on the layer (u pushing along the normal from u = 0 each
 window, the relaxation pulling the rough part back) settling to different states in alternate
 windows rather than a commit-time jump. r300's chain: end bump 1.24° (P73's bump ✓).
+
+**2026-09-24 05:05 — t300's verdict (the linear cell sum).** 50 windows in 30.7 min, early stop.
+**P74 ✗** — the base slab's mid-growth maximum 1.34× (l300 1.49; the pile broader: slabs 1.96–2.56
+at 1.1–1.3× through t = 0.30–0.40); **P75 ✗** — the mid-ear thickness at t = 0.15–0.25 in median
+≈ 0.6 (0.68); **P76 ✓✓** — the dense pockets are gone (0–0.35 % of the mass at ≥ 2× bulk, peak
+node 1.6–2.1× against l300's 25 % and 3.6–5×): the log form's tolerance IS what let the early
+compression happen; **P77 ✗** — silIoU **0.9707** (0.9797), det F min **0.53** (0.66), **24**
+particles off the body at the end (10), the layer's per-window step 0.12 spacings (0.06–0.08),
+the ear over-filled to 1.09× at t = 0.39 and drained to 0.93 — with the gradient no longer
+collapsing at full cells, every excess cell pushes its mass out at full strength and the sub-cell
+arrangement pays. Refuted as the ear fix: the base pile is not the log form's tolerance. The
+linear form's one gain (no compression pockets) is noted for a hybrid (linear on deficit, log on
+excess) should the pockets matter elsewhere; not pursued now.
+
+*Baselines, both pairs, complete (05:00; compare_baselines.py).* ISD sphere → bunny: end Chamfer
+0.0071 / diagonal, but the mid-way body collapses (volume 0.001–0.013 at t = 0.4–0.7 against
+0.199 at the end) and the mesh is five pieces at t = 0 and 0.9; sphere → torus: end 0.0070, the
+hole opened by tearing — non-watertight from t = 0.6 (5–17 components, Euler 3–12). 4Deform
+without correspondence: bunny 0.111–0.115 at every t (never leaves the sphere), torus
+0.138–0.149 with 2–17 components from t = 0.2. Ours (bunny, Poisson at the reference spacing):
+0.0109–0.0123 at t = 1, one body, genus 0, watertight at every t. The correspondence-given
+(nearest) chain is queued after these.
