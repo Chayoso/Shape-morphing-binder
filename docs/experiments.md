@@ -5300,3 +5300,23 @@ grid-projected one (the projection runs before the Rprop block reads x − x_sta
 ad300 already read the grid-visible part; the defect was the per-particle SCALE's spatial noise,
 which the neighbourhood-smoothed form addresses. GPU 3 left free; g41s (40k + the smoothed form)
 runs on GPU 0 as the 40k check.
+
+**2026-09-24 15:25 — the user's rule: the fixes must generalise beyond the bunny ("이거 bunny 뿐
+아니라 일반화가 되어야 하는 거 알지?").** Recorded as a standing rule (memory
+generalise-beyond-bunny): after a mechanism passes its bunny pre-registration it runs on the
+whole 40k gallery (19 targets: A, C, V, armadilo, beast, bimba, bob, bunny, cheburashka, cow,
+dragon, fandisk, heart, homer, maxplanck, nefertiti, ogre, spot, teapot) with the same metrics
+against g41, and a fix that helps the bunny and hurts another target goes back to the mechanism.
+*g41s (bunny, 40k + the smoothed Rprop; 48 windows, 2.8 min):* silIoU 0.9662 (g41 0.961), det F
+0.769 (0.771 — no damage at 40k in either form), flips 0.55 (g41r 0.47, g41 0.74), net 0.22, step
+0.0218 spacings (0.0030 wu), low-band correlation −0.43 (the smoothing dilutes the per-particle
+decay: neighbours still moving pull a settled particle's scale up), stride-19 flicker ALT 0.0015 —
+the same as g41's 0.0014 and g41r's 0.0015: **at 40k neither form changes the video's per-frame
+alternating change**, only the particles' statistics. What the eye sees at 40k is then the
+per-window motion's magnitude (0.003 wu, spatially incoherent) whether it reverses or drifts; the
+300k reading (ac300's stride-19 video, rendering) decides whether the halved layer step there
+shows. *Pre-registered gallery sweep (g41s_<target>, GPUs 0 and 3, 15:25):* **P124** on every
+target silIoU ≥ g41's − 0.003 and det F ≥ g41's − 0.05; **P125** the layer's flips ≤ 0.6 and the
+step ≤ g41's on at least 15 of 19 targets; **P126** windows ≤ 1.5 × g41's on every target (the
+rule must not stall a transport). A target failing P124 by more sends the form back to the
+mechanism (the smoothing radius or the reversal read) before any adoption.
