@@ -5251,3 +5251,28 @@ two spacings so the front stays a sheet the fit can represent; or the codimensio
 `--thin_fallback` stays opt-in (spheres: the faithful rendering of a fragmented edge; useful as a
 diagnostic overlay), `--keep_attached` opt-in (the two pinch-off frames). The physics route is
 pre-registered once ab300 / ac300 have read the oscillation.
+
+**2026-09-24 14:45 — ac300's verdict (l300 + the per-particle Rprop) and M1.** ac300: 112 windows
+in 24 min, silIoU **0.9792** (P108 ✓), layer flips **0.41** (P107 ✓), the layer's normal step
+**0.0138 spacings = 0.00095 wu** (P107's ≤ 0.001 ✓, l300 0.0017), net/summed 0.30 (P107's ≥ 0.4
+✗); the step scale's median at 0.000 from window ~60 with 90 % of the moving particles below 0.1
+(the body settles as designed); but **det F min 0.388** (l300 0.664) — the per-particle scales
+make neighbouring particles' control updates differ by orders of magnitude, a sub-cell control
+noise (the creg term's reason for existing), and the material pays in local compression. The
+bulk's reversal cosine also stays negative from window 55 to the end while the layer no longer
+alternates — the settled particles' residual is the noise. *Second form (method.md §10.24
+addendum, `--ctrl_rprop_smooth`): the reversal is read on the displacement averaged over the
+material neighbourhood (the bond / coherence kNN frozen at the source, ≈ 60 neighbours at 300k
+= half a cell) and the scale applied is the neighbourhood mean of the per-particle scales — the
+update stays coherent at the neighbourhood scale, the per-particle rule stays as the memory.*
+*Pre-registered ad300 = l300 + `--ctrl_rprop --ctrl_rprop_smooth --u_rprop --u_rprop_floor 0`*
+(GPU 1, 14:50): **P116** det F min ≥ 0.6 (l300 0.664; ac300 0.388); **P117** the layer's normal
+step ≤ 0.001 wu and flips ≤ 0.55 as in ac300; **P118** the bulk's reversal cosine after the
+onset decays to |cos| ≤ 0.2 within 15 windows (ac300: negative to the end); **P119** silIoU ≥
+0.977.
+*M1 (the tail-only twins at stride 4; per-frame image change, median):* full **0.0013**,
+normal-only **0.0013**, tangential-only **0.0009**. The normal part reproduces the full change
+(a — with M2, the surface's own normal motion), and the tangential-only twin still shows 70 % of
+it: a refit-response floor exists (c) alongside the genuine motion — at stride 4 the two are of
+one size. The Rprop removes the particles' motion (both parts shrink together: a particle that
+stops cannot rearrange), which is why ac300's video tail is the next reading (its chain).
