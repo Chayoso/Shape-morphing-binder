@@ -5633,3 +5633,11 @@ alternation's period). **P167** z300b's tail ≤ 0.0012 at K = 19 and ≤ 0.0008
 stride-19 alternating component ≤ 0.0010 at K = 38 (0.0021); **P168** no smearing of the
 transport: the mid-morph per-frame change (frames 20–60) within 25 % of the untracked render's
 and the ear's drawn length at frame 30 within one spacing.
+*(21:05) ai300 at one frame per commit (stride 19):* the delivered tail's D1 **0.0006**, alternating
+component **0.0005** — l300 0.0011, z300b 0.0021, ac300 0.0007, the 40k reference 0.0014: the
+held-step form's tail flickers at a third of the 40k gallery's. *The tracked surface, window
+average (z300b `--track --track_band 0.5 --track_avg 3`):* tail 0.0019 (untracked 0.0024, band
+alone 0.0036), ALT 0.0014 (0.0021), ALT/DRIFT 0.93 — the average attenuates the alternation but
+the re-mesh pops remain (max 0.0128): **P152 ✗** (≤ 0.0010). The tracked-mesh family is not the
+deliverable's temporal filter; the frame average (`--frame_avg`, rendering) is the remaining
+deliverable-side candidate.
