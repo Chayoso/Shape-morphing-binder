@@ -195,3 +195,59 @@ quintic spline with h = 1.3 dx and shifting δr = −A h |u| Δt ∇C (A = 2, fl
 quintic spline for Lind 2012 is corroborated by a snippet of Mokos 2017, h = 1.3 dx for Lind 2012
 specifically is inferred, not read. Our (39) takes R = 0.2, n = 4 and the Gaussian at h = Δp (the
 width of the spline at h = 1.3 Δp) on that basis, and marks them as literature constants.
+
+## Competitors and baselines, 2024–2026 venues (scan 2026-09-23 night; verified from arXiv / OpenReview / venue pages unless marked)
+
+The user asked what this is better than, against FEM-based morphing and the recent ICLR work.
+The research agent's scan (17 papers; the closest first).
+
+**The same family — differentiable MPM with a deformation-gradient control:**
+- *A Differentiable MPM Framework for Shape Morphing*, Xu, Song, Levin, Hyde — TVCG 2025 (SCA
+  2024 best poster); predecessor *Deformation Gradient Control of Amorphous Solids*, Xu and Levin,
+  SCA 2023. Per-particle F control, chained multi-pass, topology change (differing connected
+  components), a log-based mass loss, a GEOMETRIC target (mesh / particles), no images. Code
+  linked on the project page. This is the ancestry of our physics-only arm (the "C++ oracle" of
+  the config); the morph by F control itself is prior work.
+- *PhysMorph-GS*, Song, Hyde — arXiv 2511.16988 (venue unverified). MLS-MPM on a 32³ grid +
+  3DGS render on a surface subset (~1k anchors → 10⁶ render particles), per-particle F control,
+  Chamfer-guided plasticity, silhouette + depth + edge losses, a grid-mass loss at anchors only;
+  topology partial (duck → quadruped fails); 21–30 min per episode at 18–25 GB on an RTX A4000;
+  lists watertightness and thin features as open. The closest to "rendering controls physics".
+
+**Implicit / neural morphs (public code, minutes per pair, watertight SDF surfaces):**
+- *Implicit Neural Surface Deformation with Explicit Velocity Fields* — ICLR 2025 (Sang et al.,
+  Cremers): neural SDF + velocity field from point-cloud pairs, topology change shown, a soft
+  divergence-free term, sparse correspondences, ~20 min per pair.
+- *4Deform* — CVPR 2025 (the same group): SDF + Euclidean velocity, deviatoric-stress and strain
+  losses + a divergence regulariser, endpoint point clouds only, 8–10 min per pair.
+- *Volume Preserving Neural Shape Morphing* — SGP/CGF 2025 (Buonomo, Digne, Chaine): an SDF
+  advected by an adaptive-divergence velocity, volume preserved with a guarantee (equal volumes).
+- *Spectral Meets Spatial* — CVPR 2024 (Cao et al.): mesh + functional maps + ARAP, no topology
+  change; beats NeuroMorph, Hamiltonian (Eisenberger 2020), LIMP.
+- *FLOWING* — NeurIPS 2025: an invertible INR flow, landmarks, no topology treatment.
+- ICLR 2024: no 3D shape-interpolation paper found; ICLR 2026: none in this group.
+
+**Image gradients through MPM / Gaussians (they fit materials or run forward; not morphs):**
+PAC-NeRF (ICLR 2023), PhysGaussian (CVPR 2024), GIC (NeurIPS 2024 oral; mask L1 + Chamfer →
+materials, at least 1.5 h per object), NeuMA (NeurIPS 2024), OmniPhysGS (ICLR 2025; SDS from a
+video model, ~8k particles), AS-DiffMPM (NeurIPS 2025), Fracture-GS (ICLR 2026), PhysDreamer and
+Spring-Gaus (ECCV 2024). **4D generation:** ShapeGen4D (ICLR 2026, feed-forward, no physics),
+PhysGen3D (CVPR 2025), Phys4DGen (ACM MM 2025) — forward simulation from a generated asset.
+
+**Synthesis (the agent, checked against our docs).**
+(a) Runnable baselines on sphere → bunny and sphere → C with public code: the ICLR 2025 implicit
+    velocity-field morph, 4Deform, the volume-preserving SDF morph (equal volumes needed), and
+    the TVCG 2025 MPM morph (our own family, geometric target). The material-fitting works are
+    baselines only for the render → physics gradient path, not for the task.
+(b) Already covered by others: per-particle F control of differentiable MPM for topology-changing
+    morphs (SCA 2023 / TVCG 2025); F control + splat silhouette/depth losses on MLS-MPM
+    (PhysMorph-GS); image gradients through MPM (PAC-NeRF, GIC, NeuMA); volume-preserving neural
+    morphs. Plausibly ours: the whole trajectory as optimal control with the Sinkhorn transport
+    term coupled to the volumetric cell sum; exact mass conservation across the morph (against an
+    anchor-only or a soft term); shading supervision (not silhouette/depth only); the λ = 0 twin
+    isolating the render channel; the spacing-derived constant contract; the measured limits of
+    the render channel (docs/oscillation.md Addendum 9; experiments 2026-09-23).
+(c) Where we lose on their numbers: surface quality (watertight SDF surfaces, no sub-cell
+    roughness; PhysMorph-GS names thin features open, as do we); speed (8–20 min per pair for the
+    implicit morphs on old GPUs against our 16–44 min at 300k); memory (10⁶ render particles
+    against their 8–100k). Unverified: several wall-clocks; PhysMorph-GS's venue.
