@@ -152,6 +152,9 @@ ap.add_argument("--F", default="geom", choices=["geom", "archive"],
 ap.add_argument("--knn", type=int, default=12, help="rest neighbours for the geometric F fit")
 ap.add_argument("--still", type=int, default=-1, help="render only this archived frame to --out (png)")
 ap.add_argument("--save_mesh", default="", help="with --still: also write the mesh (.ply) and a .json of its numbers")
+ap.add_argument("--save_surfels", default="", help="with --still: write the oriented outer-layer surfels (.ply with normals) "
+                                                     "that the Poisson fit consumes — for external reconstructions "
+                                                     "(Kazhdan's PoissonRecon with --envelope, stochastic PSR)")
 ap.add_argument("--max_frames", type=int, default=0)
 ap.add_argument("--label", default="")
 a = ap.parse_args()
@@ -638,6 +641,11 @@ def mesh_of(x, fi=None):
         pts, nrm, n_interior = exterior_surfels(pts, nrm, x.detach().cpu().numpy(), spacing)
         if a.pull > 0:
             pts, nrm = oriented_layer(pts, nrm, spacing, pull_iters=a.pull)
+        if a.save_surfels and fi is not None and fi == a.still:
+            _pc = o3d.geometry.PointCloud(o3d.utility.Vector3dVector(np.asarray(pts, np.float64)))
+            _pc.normals = o3d.utility.Vector3dVector(np.asarray(nrm, np.float64))
+            o3d.io.write_point_cloud(a.save_surfels, _pc, write_ascii=False)
+            print(f"[photoreal] saved {len(pts)} oriented surfels to {a.save_surfels}", flush=True)
         if a.surfel_memory > 0 and fi is not None and fi >= 0:
             n_own = len(pts)
             pts, nrm, n_union = surfel_memory_union(fi, pts, nrm, x.detach().cpu().numpy())
