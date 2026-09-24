@@ -5357,3 +5357,6 @@ losing them: *pre-registered ah300 = z300b's recipe + `--ctrl_rprop --ctrl_rprop
 --ctrl_rprop_k 8`* (GPU 2 alongside af300, 16:05): **P131** det F ≥ 0.55; **P132** ear fill ≥ 0.93,
 silIoU ≥ 0.977; **P133** the video tail ≤ 0.0015 and the low-band correlation > −0.2; **P134** flips
 ≤ 0.6, the layer's step ≤ 0.001 wu.
+*ad300's chain tail (16:15):* video tail 0.0015 (l300 0.0016), bump 1.25°, 8 strays, the ear tip
+10.4 reference particles (l300 18.5 — the same thinning as ac300's 10.7: the rule's cost at the
+tip is not the neighbourhood's doing). ag300 (k = 8) ended at 77 windows; its chain runs.
