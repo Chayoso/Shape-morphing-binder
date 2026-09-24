@@ -5012,3 +5012,20 @@ render. Refutation on any of them says the pieces do not compose (the hand-off's
 the KDE's pull competing at the surface would be the first suspect).
 *y300's chain readings (08:10):* video tail 0.0022 (144 delivered frames: the ear still filling
 at the end), bump 1.25°.
+
+**2026-09-24 08:30 — z300's verdict (the combination): the onset gate and the slow ear conflict.**
+58 windows in 22.1 min. **P93 ✓** (base slab maximum 0.74× through the growth, 1.10× at the end;
+the tongue at 0.93–1.06 where filled); **P95 ✓** (the reversal negative from 49, the gate armed and
+the run ended at 58); **P96 ✓** (bump 1.24°); **P94 ✗** — ear fill **0.844**, silIoU **0.9705**,
+det F 0.54, 17 strays, the tip 6.8 reference particles: the run stopped while the ear was still
+filling (0.66 at t = 0.60 of the delivered trajectory, 0.84 at the end; y300 reached 0.94 at 95
+windows). The bulk arrives and begins to alternate at window ~50 whatever the ear is doing, and
+the KDE-throttled ear needs ~95 windows; armed at the bulk's onset, the gate truncates the ear.
+The pieces do not compose in this form. *Pre-registered z300b = l300 + `--plan_native --w_kde 1
+--ot_handoff`* (no onset gate; the fixed target from arrival calmed the alternation in v300
+without stopping; GPU 2, 08:30): **P97** ear fill ≥ 0.93, silIoU ≥ 0.977, ≤ 10 strays, ≤ 110
+windows; **P98** base ≤ 1.2×, the tongue ≥ 0.9 where filled; **P99** the reversal after arrival
+decays to |cos| ≤ 0.2 within 10 windows of its onset (v300's reading), the low-band layer
+correlation read for the record; **P100** bump ≤ 1.3°. The onset gate stays a separate opt-in
+for recipes whose thin features arrive with the bulk (the 40k gallery's do); an ear-aware onset
+(arm only once the u gate of the thin features reads arrival) is the open form.
