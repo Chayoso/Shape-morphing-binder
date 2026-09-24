@@ -22,7 +22,11 @@ claude.ai. Server results were wiped the same day (1.9 GB → 59 MB).
 ## What this project is
 
 **PhysMorph**: a source shape is carried to a target by *real* elastodynamics — the optimisation
-variable is the MPM **deformation-gradient control field `dFc`** (`F_e = (F + dFc) Fp⁻¹`), not a
+variable is the MPM **deformation-gradient control field `dFc`** (`F_e = (F + dFc) Fp⁻¹`) — PLUS,
+in the current recipe, a direct position channel on the outer layer (`--layer_ctrl`: the per-particle
+normal displacement `u`, one spacing a window) and the layer relaxation projection
+(`--layer_relax`), both applied to positions outside the stress path (docs/method.md 10.15–10.16,
+surface_gradient.md §6–§7; the hybrid was named by the 2026-09-23 audit, docs/diagnosis_300k_20260923.md). Not a
 servo pulling particles to a goal. The thesis being pursued: **render guidance makes the morph
 qualitatively better than 3-D supervision alone.** Baseline = the same dFc optimisation driven by
 volumetric mass matching only (Xu et al.).

@@ -3,7 +3,9 @@
 *(rewritten from scratch 2026-09-01 on branch `v3-grid-gs`; the v1/v2 doc set lives in git
 history ≤ `f0b31e9`.)*
 
-**Thesis.** A source shape is carried to a target by *real* elastodynamics, and
+**Thesis.** A source shape is carried to a target by *real* elastodynamics (the stress control `dFc`; the
+current recipe adds a direct position channel on the outer layer, `u`, and the layer relaxation —
+a hybrid, docs/method.md 10.15–10.16, named by the 2026-09-23 audit), and
 **differentiable render feedback makes the morph qualitatively and measurably better than
 3-D supervision alone** — while touching only physical quantities (control stress, material,
 plastic rest state, terminal velocity). No displacement injection, no geometric post-ops.

@@ -4237,3 +4237,28 @@ sphere's material volume is 47.5 wu³ and the reconstructed surface encloses 44�
 surface sits inside the outer layer by about half a spacing), drifting ≤ 2.3 % over the tail.
 The baselines' rows follow when their runs finish (ISD in its post-training reconstruction at
 23:05; 4Deform and the torus pair queued).
+
+**Review of the independent audit (the user, 23:15: "진단 문서도 한 번 봐 줄래"; docs/diagnosis_300k_20260923.md)
+and the spatial-refinement test it asks for, pre-registered.** Accepted and folded in (0ccfad1,
+5410dda, a7a3005): the cubic-stencil overlap of the detached piece, "underconstrained" in place of
+"null space", the unproved (now refuted, j300) render-u attribution, the CFL diagnostic's mass, the
+objective change across a shift (now logged). Accepted now: the method is a HYBRID (stress control
++ the layer's position channel u + the relaxation projection) — AGENTS.md and overview.md said
+"real elastodynamics" alone; corrected. Its oscillation re-measurement on accepted-window endpoints
+(cos −0.546, 0.134 sp, 71 % flips) agrees with the fixed-19-frame probe within its own spread, so
+the finding does not depend on the grouping; future probes take the accepted endpoints. Its point
+that G3 can PASS while the layer breathes is right — the gate reads a 10-frame bulk average; a
+layer-local amplitude / reversal metric belongs in the run's metrics (to do). Open, as it says:
+phase-aligned surface comparisons across runs with different window counts.
+
+Its recommendation (3) — spatial refinement at fixed N and physical mass — is the one worth a run
+now: the "finest fracture-free cell = 26" rule (experiments 2026-09-17/18: dx 0.20–0.21 at 150k →
+dragon 41 fragments / 1562 merges) was measured with UNIT particle masses, before the mass
+contract (2026-09-23), when a 150k body was 3.75× sluggish — the same confound that overturned
+the basis verdict (e300). `k300_bunny` = the g300 recipe (`--disc_ref --shift_sub`) + `--cell_diag
+36` (dx 0.22 wu, grid ≈ 50³, the ear tip 1.6 cells thick instead of 1.1): P40 no fracture — re-
+attachments 0, off-body ≤ 10 particles, no piece ≥ 6, det F min ≥ 0.5 (the 150k runs at this dx
+fragmented). P41 tip mass ≥ 20 reference particles (g300 23.7) with 8-NN ≤ 0.9. P42 silIoU ≥
+0.975, chamfer/diag (surface) ≤ 0.0109 (g300). P43 windows ≤ 100, wall ≤ 45 min (the grid ops
+×2.7). P44 end bump at the reference render ≤ 1.3°, mid-morph roughness ≤ g300's 0.27. Refutation:
+fragments or det F < 0.3 → the finer cell fractures even with the mass contract, the rule stands.
