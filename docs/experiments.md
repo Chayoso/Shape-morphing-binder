@@ -4515,3 +4515,13 @@ change 0.0016 (untracked 0.0019; 40k 0.0012): the re-fit jitter of an independen
 frame is a small part of the visible tail motion; the rest is the particles' own (the carried-
 momentum alternation), which the tracking follows faithfully. The video is on the server
 (`r300/plain/g300_plain_track_s12.mp4`); not adopted over the untracked render on this number.
+
+**Head-to-head, 4Deform (CVPR 2025) on sphere → bunny without correspondences (00:45; 3639 s
+training, eval at t = k/5).** Chamfer / diag 0.113 at t = 0.2, 0.114 at 0.4, 0.115 at 0.6, 0.114 at
+0.8, **0.111 at t = 1.0** — the implicit never reaches the bunny (ISD's end fit was 0.0070); the
+volume is kept (0.21 → 0.18 in its normalised units) and the body stays one genus-0 surface except
+at t = 0 and 0.8 (7 / 5 components). Reading: with its matching loss off, 4Deform's divergence,
+distortion and stretching regularisers hold the sphere and the endpoint term cannot pull it to a
+target it has no correspondences to; the correspondence-driven setting (queued) is its fair run.
+On this pair, without correspondences, neither implicit baseline produces a morph: ISD collapses
+the body between the endpoints, 4Deform never leaves the source.
