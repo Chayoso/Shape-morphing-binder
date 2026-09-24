@@ -77,6 +77,8 @@ Companions: [viewer.md](viewer.md) (persistent multi-run monitor + tunnel keeper
 [oscillation_triage.md](oscillation_triage.md) (driver classification probe). The hyde06
 ladder (§10 there) has not run yet.
 
+**2026-09-24 evening — the two-defect dossier** ([dossier_oscillation_thin.md](dossier_oscillation_thin.md)): by the user's directive the deliverable documents are organised around the tail's oscillation and the thin feature that moves like droplets only; experiments.md stays the lab log.
+
 **2026-09-24 night — the 300k defects, mechanism by mechanism** (experiments.md 2026-09-23 night → 2026-09-24 08:00, method.md §10.17a–10.23): the ear grows as a base pile feeding a sub-cell filament because the cell sum cannot see the particle scale — fixed by the particle-scale KDE density term at equal gradient norm (`--w_kde 1`, §10.23; y300: a tongue from the base at target thickness), with the plan blur's double count under `--disc_ref` corrected (`--plan_native`); the merit alternation after arrival is partly the moving paced target (`--ot_handoff` calms it) and the deliverable stops at its onset (`--outer_latch_reversal`, §10.21 addendum 3); the layer's breathing survived every carrier test (momentum, render, relaxation, step, balancer) and sits at the optimiser's floor step, 0.002–0.003 wu a window at both N. All opt-in; the 40k gallery untouched. Refuted and kept as diagnostics: `--pace_project` (§10.22), `--rest_commit[_reversal]`, `--dvol_form linear`, `--render_until`.
 
 ## State (2026-09-22; branch `v3-grid-gs`)
