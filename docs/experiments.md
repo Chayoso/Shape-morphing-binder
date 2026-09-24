@@ -4185,3 +4185,13 @@ meshes at t = k/N, largest component only, plus advected point clouds). Comparis
 morph at the same t, report silhouette IoU / Chamfer, the Euler characteristic per frame (the
 genus change), volume drift, self-intersection, wall-clock. Scripts and the agent's notes in the
 session scratchpad `baselines/`; server `baselines_prep/`, `baselines/`.
+
+**Readings of `i300_bunny` (the recipe + `--stop_on_cycle`; 23:20).** The rule fired at animation
+**106** (net/summed 0.400 ≤ 0.447 for 5 windows), 1148 s = 19 min; silIoU **0.9625**, chamfer 0.0598,
+det F 0.759. P31 (freeze between 60 and 100) — refuted, narrowly (106). P32 (silIoU ≥ 0.9605) —
+holds. P34 (≤ 22 min) — holds. P33 — refuted as written: the delivered archive ends at the freeze,
+so the plain-mesh video's last third is the pre-freeze tail, which breathes as c300's does (per-
+frame |dI| median 0.0026 against c300's 0.0021); the held tail is static by construction and was
+not what the metric measured. Reading: the rule cuts 70 windows of breathing off the deliverable
+and stops at the 40k-level silhouette, but does not reduce the breathing while the run is alive;
+next to g300 / h300, where the breathing does not arise, it is a secondary safeguard. Kept opt-in.
