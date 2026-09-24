@@ -4410,3 +4410,26 @@ with the conda libjpeg-turbo / libpng headers) ran at depth 7 and 8 with and wit
 `--envelope` (the envelope = the density level set at 5 % of the bulk, one closed component);
 visually the envelope-constrained fits show pits on the body that the unconstrained fit does
 not, so the hull built that way is not everywhere outside the surface; the bump numbers follow.
+
+**The spectral band criterion (the geometry survey's shortlist 4; `baselines_prep/spectral_probe.py`,
+robust-laplacians on the end-frame outer layer, 150 modes = wavelengths ≥ 1.5 wu ≈ 5 cells; 00:10).**
+Per-window normal displacement of the layer over the last 10 windows, split into the low band
+(≥ 1.5 wu) and the rest:
+
+| run | high-band (sub-1.5 wu) energy share | low-band consecutive-window correlation (median / min) |
+|---|---|---|
+| c300 | 0.45 | **−0.79 / −0.88** |
+| g300 | 0.72 | **−0.49 / −0.78** |
+
+Reading: in c300 more than half of the tail's layer motion is at wavelengths of five cells and
+more, and THAT part alternates almost perfectly (−0.79): the breathing is a coherent, grid-
+resolved in-and-out of the whole surface, not sub-cell jitter — the outer loop over-correcting
+at the scale it does resolve, exactly the audit's "optimiser property". In g300 the coherent part
+is smaller (the high band holds 72 % of a motion that is itself smaller) and still alternates
+(−0.49). Consequence for the running l300 (the null-space projection): it can remove only the
+high-band 72 % (its own log reads a 74 % null-space share of the window's displacement at
+window 59 — consistent); the low-band alternation is out of its reach, as P48's refutation clause
+anticipated. The mechanism for the low band is a step-size question of the outer loop at the
+resolved scale (no MPM paper found; the shell-space acceleration functional of Heeren et al.
+2016 is the metric), to be designed after l300 reads. The stochastic PSR test is withdrawn as a
+tool (segfault at 6k surfels / 40³ as well).
