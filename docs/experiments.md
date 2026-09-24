@@ -5338,3 +5338,10 @@ the control is already held coherent by the creg term; not tuned: the regularise
 correlation > −0.2; **P130** silIoU ≥ 0.977. Refutation: P127 failing at k = 8 says the coherence
 the control needs is wider than the regulariser's and the smoothing must be the coherence kNN
 with a stronger η⁻ (then Riedmiller's 0.5 is the thing to derive, not to keep).
+*ac300's chain tail (15:50):* the plain video's delivered tail **0.0013** per frame at stride 12 —
+**the 40k reference value, the acceptance number** (l300 0.0016, z300b 0.0024) — and at one frame
+per commit (stride 19) tail D1 **0.0008**, ALT **0.0007** (g41 0.0014, g41r 0.0015): at 300k the
+per-particle Rprop halves the visible per-frame change and its alternating part. Bump 1.22°, 11
+strays; the ear tip **10.7** reference particles (l300 18.5) — a particle whose arrival wiggle
+reverses once halves its step for good, and the tip fills less: the cost to read on af300 (with
+the KDE term) and the reason the smoothing / neighbourhood question matters for the ear too.
