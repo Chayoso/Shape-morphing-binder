@@ -4908,3 +4908,11 @@ the control's (then the carrier is structural — Ando 2012 / Jiang 2017, partic
 spine carried where the destination is thinner than two cells); P92 failing on the fit says the
 KDE's pull competes with the cell sum at the surface (the equal-norm ratio too high there; a
 surface-masked KDE would be next).
+*(06:20) The KDE term's presence in the paced regime checked on a 3k smoke run* (2 windows,
+`--w_kde 0` vs `1`): the window loss 0.1398 vs 0.2506 at the same cell sum (0.1353), the KDE
+value 0.247 entering at the calibrated scale (≈ 0.47) — the term is in the objective; its
+calibration line is not written to the log (the optimizer's logger is silent there), which is why
+y300's log shows nothing. y300 stands.
+*u300's chain readings (06:40):* video tail 0.0030, bump 1.26°; like o300 and r300 it stopped at
+53 windows and its deliverable ends while the body still transports (the per-frame tail measure
+reads that motion; the runs that continue to 80–85 windows read 0.0016–0.0018).
