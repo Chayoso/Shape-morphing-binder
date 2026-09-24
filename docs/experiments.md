@@ -4652,3 +4652,54 @@ surface, not by transporting it. The 4Deform torus is still training.
 
 *k300's plain video* (dx 0.22, reference spacing): raw components > 1 in 5 of 150 frames, drawn
 components 1 everywhere, at most 58 isolated particles — for the eye's ear-growth comparison.
+
+*The video tail measure, made a tool (02:25).* `$OUT/scratch/video_tail.py MP4`: the plain video decoded
+by ffmpeg to grey, the mean per-frame |ΔI| over the frame, the delivered tail = the last fifth of the
+frames before the hold. Same-tool values: g41 (40k) 0.0013, l300 0.0016, k300 0.0017, g300 0.0020,
+h300 0.0020, c300 0.0024, i300 0.0031. The acceptance number for the tail is therefore the 40k value
+as this tool reads it, 0.0013 (the earlier 0.0012 was the same quantity read by hand). The verdict
+chain (`$OUT/scratch/verdict.sh TAG GPU`) now runs, at a run's DONE marker: wall time, windows,
+rejections, the arrival / u-gate / dense-mass / reversal series, the run's metrics, the end frame
+(pieces off the body, ear-tip mass, under-fill), the ear slabs, the dense pockets, the layer's tail
+motion, the spectral band criterion, the cycle ratio, the plain video at the reference spacing and
+its tail change.
+
+**2026-09-24 02:55 — o300's early reading and the render intervention p300.** o300 latched at
+window 43 (two accepted commits reversing in a row, cos −0.26 — P62 ✓, inside 40–60), ran five more
+accepted windows from rest and stopped at 53 on three merit rejections (silIoU 0.9780, P65's fit
+✓). **The windows that started from rest reverse their predecessors just the same**: reversal
+cosine −0.63, −0.51, −0.49, −0.46, −0.48, −0.35, −0.31, −0.33, −0.35 with the kinetic energy down
+from 0.020 to 0.003; layer flips 0.66, net/summed 0.16 (P63 ✗, the spectral reading P64 in the
+verdict chain). The carried momentum is refuted as the alternation's carrier (m300b could not
+say it; o300 can). Two more things the records rule out: (i) the step size — l300's and the 40k
+reference's tails run at the annealed floor (α 0.001, anneal 0.05) and reverse at −0.5; (ii) the
+balancer — λ sits at 0.003–0.005 and g_share at 0.3–0.4 without alternation. What DOES alternate
+is the shape merit itself: at 40k the outer gain flips sign at every window in the tail (−1.2 %,
++1.7 %, −2.0 %, +1.2 %, −0.4 %, +1.1 %, −1.1 %, +0.8 %; sign-alternation 0.50, l300 0.53, o300
+0.39) with the silhouette term moving in step (0.0046 ↔ 0.0053) while the cell sum is flat — the
+commits alternate between two states, a better and a worse one. The remaining candidates are the
+terms whose target changes with the cloud from window to window: the render channel (the
+silhouette against the deliverable render of the moving layer) and the paced target (the plan
+re-solved from the moved cloud, the entropic image 0.9 spacings inside the target against the
+arrived-particle snap onto it).
+*Pre-registered intervention p300 = l300 + `--render_until 45`* (the render channel off from window
+45, one window before l300's zero crossing at 50; GPU 0, 02:55): **P66** the reversal cosine's
+median over the windows after 45 ≥ 0 (l300 −0.20 … −0.57); **P67** layer flips ≤ 0.55 and
+net/summed ≥ 0.4 over the last 10 windows (l300 0.74 / 0.15); **P68** the low-band consecutive
+correlation > −0.3 (−0.67); **P69** silIoU ≥ 0.972 (the render's tail contribution is small once
+arrived; l300 0.9797 — a larger loss is itself a reading of what the render does in the tail).
+P66–P68 holding says the render channel carries the alternation (the next question is which of its
+two inputs — the silhouette at 64→96 px or the denoised shading reference — and the fix is in the
+reference, not the weight); P66–P68 failing with the render off says the paced target carries it,
+and the second intervention is `--ot_handoff` (the fixed target from arrival), pre-registered then.
+
+*Pre-registered r300 = l300 + `--outer_latch_reversal`* (method.md §10.21 addendum 3; GPU 2, 03:15):
+**P70** the gate arms between windows 44 and 55 (l300's onset 50, o300's 43, n300's 44) and the run
+ends within 12 windows of it on three rejections (l300 85 windows → ≤ 67); **P71** silIoU ≥ 0.977
+(l300 0.9797: the alternating windows contributed +0.0017 over 35 windows); **P72** the delivered
+tail's per-frame change ≤ 0.0013 and the layer breathing over the delivered last 10 windows: flips
+≤ 0.55, net/summed ≥ 0.4 (by construction no accepted reversal after the onset; the reading tests
+the construction); **P73** end bump at the reference render ≤ 1.3° and ear fill ≥ 0.93 (the ear is
+l300's, unchanged). Refutation: a run that arms early (before 40) and stops short of arrival (silIoU
+< 0.975) says a transient reversal mid-transport reads as the onset — then the onset needs the
+arrival (the u gate) as a co-condition.

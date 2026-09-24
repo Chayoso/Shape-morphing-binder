@@ -409,6 +409,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     u_scale, u_prev = None, None         # config.u_rprop: the per-particle u bound scale and the last accepted u
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
+    rev_prev_neg_acc = False             # config.outer_latch_reversal: the same reading, kept at every accepted commit
+    outer_latched_rev = False            # config.outer_latch_reversal: the gate armed at the alternation's onset (kept)
     # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
     # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
     # keeps the PHYSICS F for metrics and assimilation)
@@ -927,6 +929,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             reversal_cos = float(np.dot(disp, prev_disp) /
                                  max(np.linalg.norm(disp) * np.linalg.norm(prev_disp), 1e-12))
         rec["reversal_cos"] = reversal_cos
+        rev_neg_now = reversal_cos is not None and float(reversal_cos) < 0.0
 
         # λ-free plateau tracks, evaluated BEFORE the outer gate: "no track improved"
         # is this pipeline's validated definition of near-stationarity (driver #4 —
@@ -1002,8 +1005,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # window's move is small BY DESIGN, so one noisy no-improvement
                 # commit armed the latch at anim ~59/300 (s3_paced).
                 near_stationary = (not improved) and stale >= 2
-                outer_gate_latched = outer_gate_latched or near_stationary
-                if improved and not stats.get("pace_bound"):
+                # the alternation's onset (10.21 addendum 3): two accepted commits in a row reversing
+                # each other is the near-stationarity the tracks cannot see — their up-swings set new
+                # bests by a fraction of a per-mille each cycle and disarm the gate for 30-40 windows
+                if (getattr(cfg, "outer_latch_reversal", False) and rev_neg_now and rev_prev_neg_acc
+                        and not outer_latched_rev):
+                    outer_latched_rev = True
+                    log(f"[v2] anim {a + 1}: outer gate armed at the alternation's onset (two accepted commits "
+                        f"reversing in a row, cos {float(reversal_cos):.2f}) — low-gain reversals are rejected from here on")
+                outer_gate_latched = outer_gate_latched or near_stationary or outer_latched_rev
+                if improved and not stats.get("pace_bound") and not outer_latched_rev:
                     # A REAL track improvement is plateau evidence gone: a latch
                     # armed by a mid-run 3-commit stall self-heals instead of
                     # freezing the run (b6: latched at ~a90 of 450, 5 low-gain
@@ -1103,8 +1114,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             outer_prev = score
             outer_prev_phys = score_phys
             prev_disp = disp.copy()
+            rev_prev_neg_acc = rev_neg_now
         else:
             prev_disp = disp.copy()
+            rev_prev_neg_acc = rev_neg_now
         rec["frame_end"] = len(frames)          # archive index after this commit
         if dress is not None:
             # Tier D post-gate solve (design §4.3): runs only on ACCEPTED commits,

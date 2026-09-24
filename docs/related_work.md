@@ -412,3 +412,12 @@ not the mechanism here — the transit density is a property of displacement int
 the blur; (4) the thin-feature carrier — Ando-split particles whose destination is thinner than two
 cells, or a Lagrangian spine (Ando 2012, Jiang 2017): the fallback if (1) does not thicken the
 stream.
+
+*Verification of the three sources §10.22 leans on (02:40, from the arXiv abstracts):* Maury,
+Roudneff-Chupin, Santambrogio 2010 — verbatim "the actual velocity is the projection of the desired
+one onto the set of admissible velocities" under the incompressibility (density) constraint;
+Eisenberger, Lähner, Cremers 2020 — verbatim "exactly volume preserving intermediate shapes" and
+"avoids self-intersections" with a divergence-free deformation; Perthame, Quirós, Vázquez 2014 —
+the abstract states the Hele-Shaw limit and that the free boundary's motion needs the cell-density
+equation besides the pressure, but not where the pressure lives: that statement remains the agent's
+reading of the paper's body.

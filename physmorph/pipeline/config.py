@@ -515,6 +515,15 @@ class PipelineConfig:
                                     #   alternation, the carried momentum an overshoot by definition. m300b's gate
                                     #   at 100 % latched at window 62 of 66 (the last stragglers define arrival);
                                     #   the sign of the reversal is the mechanism's own reading. The gate still applies.
+    outer_latch_reversal: bool = False  # 2026-09-24 (docs/method.md 10.21 addendum 3): arm the outer merit gate's
+                                    #   low-gain reversal reject at the ALTERNATION'S ONSET — the second accepted
+                                    #   commit in a row whose displacement reverses the previous one — and keep it
+                                    #   armed. The plateau tracks disarm the gate on any track improvement, and
+                                    #   the alternation's up-swings set new bests by 0.03 % each cycle, so l300 /
+                                    #   the 40k reference committed 35 / 40 alternating windows before three
+                                    #   rejections ended them. Armed at the onset, a reversing candidate below
+                                    #   outer_reversal_gain is rejected, three in a row end the run at the best
+                                    #   commit, and the deliverable carries no alternation. No new constant.
     rebound_probe: bool = False     # 2026-09-24 DIAGNOSTIC (docs/experiments.md, the elastic-rebound hypothesis): after
                                     #   every accepted commit, roll one window with ZERO control from the commit state
                                     #   (plain elastic dynamics, no layer, no bonds) and log the projection of that free

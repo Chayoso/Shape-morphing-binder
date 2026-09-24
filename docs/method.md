@@ -1037,3 +1037,22 @@ rms before and after (a relative volume change per window) and the correction in
 (`pace_proj_div0 / div1 / corr` in the record). Tests: tests/test_projection.py — a translation
 and a rotation of a ball pass unchanged (< 3 % / 5 %), a radial expansion is removed inside the
 ball (< 20 % of the step remains), the divergence falls by more than 85 %.
+
+Addendum 3 (2026-09-24 03:10) — the alternation as the plateau. o300 (the second form, latched at
+window 43) answers the question 10.21 asked: the windows started from rest reverse their
+predecessors just the same (reversal cosine −0.63 … −0.31 with the kinetic energy down seven-fold),
+so the carried momentum is not the alternation's carrier; nor is the step size (l300 and the 40k
+reference alternate at the annealed floor) nor the balancer (λ and the gradient share do not
+alternate). What alternates is the shape merit itself — at 40k the outer gain flips sign at every
+tail window (±1–2 %), the silhouette term with it, the cell sum flat: the commits alternate between
+a better and a worse state. The outer merit gate has, since 2026-09-04, a rule for exactly this
+(reject a reversing candidate whose gain is below 0.5 %), but its latch reads the λ-free plateau
+tracks, and the alternation's up-swings set new bests by a fraction of a per-mille each cycle and
+disarm it — l300 committed 35 alternating windows, the 40k reference 40, before three rejections
+ended them. `outer_latch_reversal` arms the gate at the alternation's onset — the second accepted
+commit in a row whose displacement reverses the previous one, the same reading as the second
+form's latch — and keeps it armed: reversing low-gain candidates are rejected, three in a row end
+the run at the best commit, and the deliverable carries no alternation. No new constant: the sign,
+one period, and the gate's existing gain threshold. What it does not do is say WHY consecutive
+optimisations from a stationary state alternate; the intervention twins (p300: the render channel
+off from the arrival; then the fixed target) are pre-registered for that in experiments.md.
