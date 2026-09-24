@@ -487,6 +487,15 @@ class PipelineConfig:
                                     #   instead of a body whose constants shrink with the quadrature (at 300k the u
                                     #   clip, the relaxation width and the layer depth were half the 40k lengths, and
                                     #   the ear tip held 5.9 reference particles against 13 at 40k). 40k bit-identical.
+    rest_commit: bool = False       # 2026-09-24 (docs/method.md 10.21): every accepted commit starts the next window
+                                    #   FROM REST — v <- 0 and C <- 0 at the commit (positions, F, Fp untouched). The
+                                    #   rebound probe measured the zero-control dynamics from a commit state
+                                    #   continuing FORWARD along the committed displacement (+0.3 ... +0.9 of it,
+                                    #   never a spring-back): the carried momentum overshoots what the objective
+                                    #   asked for and the next window's control cancels it — the two-window
+                                    #   alternation at the resolved scale. A morph delivered as a sequence of
+                                    #   equilibria carries no momentum between windows; the terminal kinetic term
+                                    #   already asks for rest and this makes it exact. No constant.
     rebound_probe: bool = False     # 2026-09-24 DIAGNOSTIC (docs/experiments.md, the elastic-rebound hypothesis): after
                                     #   every accepted commit, roll one window with ZERO control from the commit state
                                     #   (plain elastic dynamics, no layer, no bonds) and log the projection of that free

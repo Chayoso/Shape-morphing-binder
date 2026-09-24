@@ -4477,3 +4477,34 @@ window's motion — and the fit improves rather than degrades (0.9797 / 0.0551 a
 0.975 / 0.0556): the sub-cell motion the control was spending its windows on was not fit, it was
 noise. The candidate recipe for N > 40k is now `--disc_ref --shift_sub --commit_pic`; the end
 render, the video's tail and the tip follow.
+
+**The rebound diagnostic (00:35; `--rebound_probe`, 20k, 30 windows, the recipe): the elastic-rebound
+hypothesis is REFUTED, and the mechanism is read off directly.** The zero-control rollout from
+every accepted commit moves the body FORWARD along the committed displacement, never back: the
+projection is +1.42 at window 1, +0.9 through the expansion (windows 2–8), +0.7 at 11, +0.6 at 17,
++0.4 at 23, **+0.30–0.42 in the tail (windows 24–30)**, with the free displacement's median 0.005 wu
+against the committed 0.007. So in the tail three quarters of what a window "moves" is the body's
+own carried motion; the window's control then has to cancel the overshoot it produces, and the
+next commit carries the reversed momentum — the two-window alternation at the resolved scale,
+in every run, at any N. Nothing elastic springs back. The carried momentum is `v0 = st["v"]`
+(the commit's velocity) and the APIC C; the terminal kinetic term asks for rest at the window's
+end but leaves 0.005 wu of a window's free travel. The mechanism that follows (config
+`rest_commit`, method.md §10.21): every accepted commit starts the next window from rest — v and
+C zeroed, x / F / Fp kept; no constant. The 20k diagnostics running now: the probe with a
+from-rest variant (v = C = 0, the elastic part alone) and the recipe + `--rest_commit`.
+Pre-registration of `m300_bunny` = l300 + `--rest_commit`: P53 the tail's low-band correlation
+(spectral probe) > −0.3 (every run so far −0.5 … −0.98), `layer_flip_frac` ≤ 0.55, `layer_net_ratio`
+≥ 0.4; P54 the layer step ≤ 0.0017 wu (l300); P55 silIoU ≥ 0.978, chamfer ≤ 0.056; P56 windows ≤
+110 (the carried momentum helped the expansion: +0.9 of a window's travel was free; without it
+the arrival may take longer); P57 the video's delivered tail |dI| ≤ 0.0012 (the 40k value).
+Refutation: windows > 150 or silIoU < 0.972 → the momentum is needed for transport and the
+alternation must be damped otherwise (e.g. carried momentum only while the transport gate is
+below 100 %).
+
+**The envelope-constrained reconstruction (Kazhdan 2020), refuted as built (00:35):** on the same
+41k surfels PoissonRecon depth 7 reads 3.5° (unconstrained) and 5.1° with the density-hull
+envelope (3 components), depth 8 5.3° / 5.8° (9 / 7 components), none watertight, against the
+renderer's 1.31° (Open3D screened Poisson + the exterior test + the Loop subdivision to the
+voxel, watertight). The dihedral measure penalises PoissonRecon's coarser triangles, so the
+absolute gap overstates it, but the envelope made every case worse and opened the mesh: a
+density-level-set hull is not everywhere outside the surface. The deliverable renderer stays.

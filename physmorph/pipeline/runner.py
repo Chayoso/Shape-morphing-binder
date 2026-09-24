@@ -689,14 +689,23 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                             device=cfg.device, vol0=vol0)
                 with torch.no_grad():
                     _xT, _ = _wm(torch.zeros(_N, 3, 3, device=cfg.device), _spec)
+                    # the same from REST (v = 0, C = 0): the elastic-stress part of the free motion alone
+                    _spec0 = _RS(x0=_spec.x0, m=_mass, lam=_lam0, mu=_mu0, prm=prm, T=int(cfg.T), Fp=_spec.Fp,
+                                 v0=np.zeros_like(_spec.v0), F0=_spec.F0, C0=np.zeros_like(_spec.C0),
+                                 device=cfg.device, vol0=vol0)
+                    _xT0, _ = _wm(torch.zeros(_N, 3, 3, device=cfg.device), _spec0)
                 _d_free = _xT.detach().cpu().numpy().astype(np.float32) - np.asarray(x, np.float32)
+                _d_free0 = _xT0.detach().cpu().numpy().astype(np.float32) - np.asarray(x, np.float32)
                 _d_prev = np.asarray(x, np.float32) - np.asarray(x_start, np.float32)
                 _den = float((_d_prev * _d_prev).sum())
                 _reb = float((_d_free * _d_prev).sum() / _den) if _den > 0 else float("nan")
+                _reb0 = float((_d_free0 * _d_prev).sum() / _den) if _den > 0 else float("nan")
                 _mf = float(np.median(np.linalg.norm(_d_free, axis=1))); _mp = float(np.median(np.linalg.norm(_d_prev, axis=1)))
-                rec_rebound = {"rebound": _reb, "free_median": _mf, "commit_median": _mp}
+                _mf0 = float(np.median(np.linalg.norm(_d_free0, axis=1)))
+                rec_rebound = {"rebound": _reb, "rebound_rest": _reb0, "free_median": _mf, "free_rest_median": _mf0, "commit_median": _mp}
                 log(f"[v2] anim {a + 1}: rebound probe — free displacement projected on the committed one "
-                    f"{_reb:+.3f} (free median {_mf:.4f} wu, committed median {_mp:.4f} wu)")
+                    f"{_reb:+.3f} (free median {_mf:.4f} wu, committed median {_mp:.4f} wu); from rest (v = C = 0): "
+                    f"{_reb0:+.3f} (median {_mf0:.4f} wu)")
             except Exception as _e:
                 log(f"[v2] anim {a + 1}: rebound probe failed: {_e}")
         # ---- the null-space projection of the window's displacement (cfg.commit_pic; mpm/gridfilter.py,
@@ -1185,6 +1194,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                             f"u bound scale median {np.median(u_scale[act]):.2f}, "
                             f"at the floor {100 * (u_scale[act] <= 0.05).mean():.0f} %")
             u_prev = u_now
+        # ---- the next window starts from rest (config.rest_commit; docs/method.md 10.21): the carried momentum
+        # of an accepted commit is what the rebound probe measured continuing forward and the next window's
+        # control cancelling — the two-window alternation at the resolved scale. v and C zeroed; x, F, Fp kept. ----
+        if getattr(cfg, "rest_commit", False) and st.get("v") is not None:
+            st["v"] = np.zeros_like(st["v"])
+            if st.get("C") is not None:
+                st["C"] = np.zeros_like(st["C"])
 
         any_guard = n_out or n_nan or n_ns or n_bad or n_flip or n_inv
         if a % max(1, cfg.animations // 10) == 0 or a == cfg.animations - 1 or any_guard:

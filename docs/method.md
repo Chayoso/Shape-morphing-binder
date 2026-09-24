@@ -950,3 +950,25 @@ two-cell sinusoid is removed as well — the cubic stencil cannot carry it — w
 pre-registration puts on the ear tip (P51). No constant beyond the order; positions only; v, C,
 F untouched (the removed part is a fraction of a spacing). The share of the window's displacement
 in the null space is logged (`pic_null_share`; 28 % at the first window of a 20k smoke).
+
+### 10.21 Windows from rest (2026-09-24; code: pipeline/runner.py at the accepted commit; config `rest_commit`; evidence docs/experiments.md 2026-09-24, the rebound diagnostic)
+
+The morph is delivered as a sequence of windows, each of which ends at rest as far as the
+terminal kinetic term (10.2) can ask; the next window has started from the commit's velocity and
+APIC affine state. The rebound diagnostic (`rebound_probe`: a zero-control rollout from every
+accepted commit) reads what that carried state does: the body travels on, along the committed
+displacement, by 0.9 of a window's motion in the expansion and 0.3–0.4 in the tail — an
+overshoot the next window's control must cancel, whose reversed momentum the following commit
+then carries: the coherent two-window alternation at the resolved scale that the spectral
+criterion finds in every run (correlation −0.5 … −0.98, the 40k reference included). Nothing
+springs back elastically (the same rollout from rest moves far less).
+
+```
+(42)  at an accepted commit:   v_p <- 0,   C_p <- 0        (x, F, F_p unchanged)
+```
+
+A sequence of equilibria carries no momentum between its members; (42) makes the terminal
+rest the kinetic term asks for exact, at no constant, and removes the carried overshoot at its
+source. What it may cost is the free travel that helped the expansion phase (0.9 of a window's
+motion at windows 2–8); the pre-registration of `m300_bunny` (experiments.md) puts a window
+budget on that.
