@@ -1016,6 +1016,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # the alternation's onset (10.21 addendum 3): two accepted commits in a row reversing
                 # each other is the near-stationarity the tracks cannot see — their up-swings set new
                 # bests by a fraction of a per-mille each cycle and disarm the gate for 30-40 windows
+                # config.ctrl_rprop_hold_onset: the global step's hold (ctrl_rprop_hold) engages only from the
+                # alternation's onset — the transport keeps the growing step (g41u: a hold from the start
+                # ended C / beast / nefertiti / V early), the tail gets the held one
+                if (getattr(cfg, "ctrl_rprop_hold_onset", False) and rev_neg_now and rev_prev_neg_acc
+                        and not getattr(cfg, "ctrl_rprop_hold", False)):
+                    cfg.ctrl_rprop_hold = True
+                    log(f"[v2] anim {a + 1}: the global step held from here on (two accepted commits reversing in a row, "
+                        f"cos {float(reversal_cos):.2f})")
                 if (getattr(cfg, "outer_latch_reversal", False) and rev_neg_now and rev_prev_neg_acc
                         and not outer_latched_rev):
                     outer_latched_rev = True

@@ -547,6 +547,9 @@ class PipelineConfig:
                                     #   Rprop has no global rate. ag300 (k = 8): the per-particle scales decayed to
                                     #   0.05 while alpha re-inflated from the 0.001 floor to 0.005-0.008 (the anneal
                                     #   recovering x1.15 on every "improved" window) — the layer breathed as before.
+    ctrl_rprop_hold_onset: bool = False  # the hold engages only from the alternation's onset (two accepted commits
+                                    #   reversing in a row): the transport keeps the growing global step, the tail
+                                    #   gets the held one (g41u: a hold from the start stalled C / beast / nefertiti / V).
     freeze_arrived: bool = False    # 2026-09-24 (10.25, the user): a particle arrived (the paced target's mask) and
                                     #   reversed twice is frozen for good — elastic stretch assimilated in full
                                     #   (F_e -> R_e), control zeroed, update scale 0, u bound 0, v / C zeroed at
