@@ -4128,3 +4128,31 @@ the plateau rule from firing are the breathing). P39 the u scale's median over t
 tail ≤ 0.5 (the rule is active where it should be). Refutation: P35 failing → the breathing is
 not the u channel's (then it is the stress channel's tangential part, Addendum 9's other half);
 silIoU < 0.960 → the damping costs the fit and is withdrawn.
+
+**Readings of the combinations (22:40). `g300_bunny` = `--disc_ref --shift_sub`: 59 windows, 1001 s
+= 17 min (the stale rule at 59), silIoU **0.975**, chamfer 0.0556, det F min 0.718, stray_max 0.0003;
+tip mass **23.7** reference particles (178 particles within 0.25 wu of the tip; the target sample
+holds 163 there), tip 8-NN 0.79, body under-fill max 0.073 wu; off-body **5 particles, all
+singletons**; mid-morph roughness 0.21–0.32 (median 0.27); the tail's net/summed ratio 0.7–0.9 and
+the layer's window correlation +0.07 … +0.29 — no breathing; the shift median 0.02 sp a commit,
+disorder 0.21; g_share 0.37. P22 ✓ P23 ✗ (0.27 against ≤ 0.25, marginal) P24 pending (stills)
+P25 ✓ P26 ✓. `h300_bunny` = `--disc_ref --shift_sub --control_grid 17`: 79 windows, 1937 s = 32
+min (the brake at 78–79, reversal cos −0.05 / −0.03), silIoU **0.977**, chamfer **0.0554**, det F
+**0.835**; tip mass 41.7 reference particles (313 within 0.25 wu: over-packed at 1.9× the target's
+density, 8-NN 0.81 / p90 0.94), under-fill max 0.087; off-body 4 singletons; roughness 0.18–0.33
+(median 0.22); net/summed 0.53–0.95, layer correlation −0.31 … +0.28; g_share 0.35. P22 ✓ P23 ✓
+P25 ✓ P26 ✓ P27 ✓ (0.977 ≥ 0.975, det F ≥ 0.6) **P28 ✗ in the good direction**: the tail does not
+alternate — under the reference constants the objective no longer sees the sub-cell residuals the
+loop was chasing, so the prediction "the oscillation is the outer loop's regardless of the
+control" holds only at the native constants (e300); at the reference constants the loop converges
+instead of breathing (d300, g300, h300 all: net/summed ≥ 0.5 to the end).
+
+**Reading.** The three defects the user named — the thin tips, the isolated pieces, the breathing —
+are absent together in g300 / h300, with the best silhouette, chamfer and det F of every bunny run
+and the 300k budget met (17 / 32 min). Each mechanism alone had failed on one of them (d300 rough,
+e300 breathing, f300 a detached chunk): the reference constants stop the chase and bring the tip's
+mass, shifting orders what they leave, the basis adds det F and fit at 2× the windows. Open: the
+end bump at the reference render (P24, stills pending), g300's mid-morph roughness 0.27 (h300 0.22),
+h300's over-packed tip (1.9× the target density — the knob risk), and the 40k gallery is untouched
+by all of it (disc_ref is a no-op at N ≤ 40000; shift_sub / the basis are opt-in). Adoption into
+the recipe for N > 40k is the user's call after the stills and the videos.
