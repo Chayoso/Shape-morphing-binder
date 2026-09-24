@@ -5588,3 +5588,15 @@ alternation and halves the layer's residual motion (0.025–0.031 spacings a win
 l300's 0.05–0.08; the bulk 0.016) but locks the body before the fit is finished and costs 0.01 of
 silIoU. Not the deliverable form; it confirms that the residual per-window motion of a frozen
 body (0.0007 wu at 300k) is the rollout's carriage of the unfrozen rest, as at 40k.
+
+**2026-09-24 20:20 — ai300's verdict (300k, l300 + H: the held-step, arrival-gated, smoothed
+Rprop; the physics untouched).** 112 windows in 45 min. **P141 ✓** α = 0.0010 and anneal 0.05
+throughout the tail (the hold holds). **P142 ✓** the layer's step **0.0111 spacings = 0.00077 wu**
+(l300 0.0017), flips **0.50**, the low-band correlation **+0.11** (l300 −0.67). **P143** det F
+**0.696** ✓ (l300 0.664), ear fill 0.953 ✓, silIoU **0.9766** (✗ by 0.0004 against 0.977; l300
+0.9797). **P144 ✓** the video's delivered tail **0.0011** — below the 40k value 0.0013 for the first
+time; bump **1.15°** (l300 1.19°). The residual: the bulk's reversal cosine stays negative from
+window 54 and the osc_layer probe's whole-layer correlation −0.6 while the spectral low band
+reads +0.11 — the smooth band no longer alternates, the sub-cell band (high-band share 0.71)
+still does at a fifth of the old amplitude. This is the best physics-untouched form at 300k; the
+KDE-ear combo with the same flags (al300) is running as the deliverable candidate.
