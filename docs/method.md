@@ -927,3 +927,26 @@ to alternate. It is the source-side counterpart of the delivered-trajectory rule
 (`stop_on_cycle`, which stops the tail; this removes the breathing that makes the tail). The
 rendering influence of the channel is reported by g_share and the u gate as before; the damping
 reduces the render's push only where the push was being undone.
+
+### 10.20 The null-space projection of the window's displacement (2026-09-24; code: mpm/gridfilter.py `grid_project`, pipeline/runner.py at the commit; config `commit_pic`; evidence docs/experiments.md 2026-09-24, docs/related_work.md "MPM particles ↔ grid")
+
+The grid sees a particle field only through the transfer: P2G with the cubic B-spline weights,
+G2P back. P = G2P ∘ P2G maps particle fields onto what the grid can represent; I − P is the grid's
+null space — the sub-cell modes the dynamics cannot act on and the cell sum cannot see, where the
+measured sub-cell disorder and the tail's breathing live (10.17a, oscillation.md Addendum 9).
+Gritton and Berzins (2017) remove that null space per cell by an SVD of the P2G operator;
+XPIC(m) (Hammerquist and Nairn, 2017) removes it by alternating transfers, exactly as m → ∞. Here
+it is applied ONCE per window to the window's displacement, at the commit and before the shift:
+
+```
+(41)  d = x_end − x_start,   d_f = d − (I − P)^m d,   x_end ← x_start + d_f      (m = 5)
+      P(f)_p = Σ_g w_gp (Σ_q w_gq m_q f_q) / (Σ_q w_gq m_q),  w = the simulation's cubic stencil at x_start
+```
+
+On a random cloud P is not an exact projection (a linear field returns with a first-order
+sampling error, 6 % at m = 1), so the order matters: at m = 5 a linear field is reproduced within
+2 % and uncorrelated sub-cell noise is removed to 7 % of its RMS (`tests/test_gridfilter.py`); a
+two-cell sinusoid is removed as well — the cubic stencil cannot carry it — which is the price the
+pre-registration puts on the ear tip (P51). No constant beyond the order; positions only; v, C,
+F untouched (the removed part is a fraction of a spacing). The share of the window's displacement
+in the null space is logged (`pic_null_share`; 28 % at the first window of a 20k smoke).

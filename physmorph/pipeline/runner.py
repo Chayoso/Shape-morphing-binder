@@ -670,6 +670,22 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             if n_reattached:
                 n_reattach_total += n_reattached
                 log(f"[v2] anim {a + 1}: re-attached {n_reattached} grid-disconnected particles")
+        # ---- the null-space projection of the window's displacement (cfg.commit_pic; mpm/gridfilter.py,
+        # docs/method.md 10.20): x_end <- x_start + G2P(P2G(x_end - x_start)) with the simulation's cubic
+        # stencil at the window-start positions; the grid-invisible part is dropped. Before the shift. ----
+        if getattr(cfg, "commit_pic", False):
+            from ..mpm.gridfilter import grid_project
+            _d = np.asarray(x, np.float32) - np.asarray(x_start, np.float32)
+            _pd, _ps = grid_project(_d, np.asarray(x_start, np.float32), float(prm.dx), prm.grid_min,
+                                    (prm.nx, prm.ny, prm.nz), device=cfg.device)
+            x = (np.asarray(x_start, np.float32) + _pd).astype(np.float32)
+            rec_pic = _ps
+            if (a + 1) % 10 == 1 or _ps["null_share"] > 0.5:
+                log(f"[v2] anim {a + 1}: commit projection — null-space share of the window's displacement "
+                    f"{100 * _ps['null_share']:.1f} % (removed median {_ps['removed_median']:.4f} wu of "
+                    f"{_ps['d_median']:.4f})")
+        else:
+            rec_pic = None
         # ---- Fickian shifting of the sub-cell arrangement (cfg.shift_sub; mpm/shifting.py, docs/method.md
         # 10.18): the quadrature below the cell is a null space of the objective and nothing else orders
         # it; one explicit diffusion step of the particle concentration at its stability limit, positions
@@ -776,6 +792,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "reattached": n_reattached,
                "shift_median_sp": (last_shift or {}).get("median_sp"), "shift_dvol_rel": (last_shift or {}).get("dvol_rel"),
+               "pic_null_share": (rec_pic or {}).get("null_share"),
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
                "d_jdens": d_jd_v, "d_h1": d_h1_v, "h1_ratio": stats.get("h1_ratio"),

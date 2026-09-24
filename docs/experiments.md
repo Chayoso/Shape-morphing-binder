@@ -4348,3 +4348,22 @@ count (32). P45 bump ≤ 1.1° (iso kernel 1.3°; 40k 1.2°). P46 components 1, 
 tips intact (the tip region of the mesh present at the same length as the iso render; no
 bridging of the ears). P47 the same on frame t = 0.5 (sub-cell texture of the morph). Refutation:
 the tips shortened or bridged, or bump ≥ 1.3° → the kernel does not help at this spacing.
+
+**From the MPM survey (docs/related_work.md 2026-09-24): the null-space projection at the window
+commit, pre-registered (00:30).** Gritton & Berzins 2017 / Tran & Sołowski 2019 remove, per cell,
+the particle components the P2G operator cannot see; XPIC(m) (Hammerquist & Nairn 2017) does it
+by alternating transfers. Our breathing and sub-cell disorder are, by the audit's own words and
+ours, motion below the grid's resolution — the grid-invisible subspace. Mechanism (`--commit_pic`,
+config `commit_pic`, mpm/gridfilter.py, method.md §10.20): at every commit the window's
+displacement d = x_end − x_start is projected once through the simulation's own transfer,
+P(d) = G2P(P2G(d)) with the cubic B-spline weights, mass-weighted; x_end ← x_start + P(d). The
+sub-cell part d − P(d) is dropped. No constant. Positions only, before the shift and the archive.
+Run `l300_bunny` = the g300 recipe (`--disc_ref --shift_sub`) + `--commit_pic`. P48 the layer's
+normal step in the last 10 windows ≤ 0.003 wu (g300 0.0047), `layer_flip_frac` ≤ 0.5 (0.56),
+`layer_net_ratio` ≥ 0.4 (0.25). P49 mid-morph roughness at 2 native spacings ≤ 0.15 (g300
+0.21–0.32), the end bump at the reference render ≤ 1.2° (1.3°). P50 silIoU ≥ 0.972 (g300 0.975;
+the projection may cost sub-cell fit), chamfer/diag ≤ 0.0115 (0.0109). P51 tip mass ≥ 18
+reference particles (23.7; the risk: the projection smears the tip), no piece ≥ 6. P52 windows ≤
+80. Refutation: silIoU < 0.965 or tip < 12 → the sub-cell fit the control needs is the same
+subspace, and the filter cannot be the fix; P48 failing with the rest holding → the breathing is
+NOT in the grid-invisible subspace (then it is the grid-resolved control's own alternation).

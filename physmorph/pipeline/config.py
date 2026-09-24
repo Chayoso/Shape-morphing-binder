@@ -487,6 +487,13 @@ class PipelineConfig:
                                     #   instead of a body whose constants shrink with the quadrature (at 300k the u
                                     #   clip, the relaxation width and the layer depth were half the 40k lengths, and
                                     #   the ear tip held 5.9 reference particles against 13 at 40k). 40k bit-identical.
+    commit_pic: bool = False        # 2026-09-24 (docs/method.md 10.20; mpm/gridfilter.py): at every window commit the
+                                    #   window's displacement is projected onto the grid-representable subspace —
+                                    #   x_end <- x_start + G2P(P2G(x_end - x_start)) with the simulation's own B-spline
+                                    #   weights, mass-weighted — and the grid-invisible (sub-cell, null-space) part is
+                                    #   dropped: the null-space filter of Gritton & Berzins 2017 / XPIC (Hammerquist &
+                                    #   Nairn 2017) applied once per window to positions. No constant. Positions
+                                    #   only; v, C, F untouched; before the shift and the archive.
     u_rprop: bool = False           # 2026-09-23 night (docs/method.md 10.19, docs/oscillation.md Addendum 9): the u
                                     #   channel's per-window bound is damped PER PARTICLE by its own sign history —
                                     #   Rprop (Riedmiller & Braun 1993): a particle whose u flipped sign against the
