@@ -4202,3 +4202,18 @@ frames (g300) and **21 of 125** (h300) against c300's 208 of 282 (124 of 282 at 
 render); isolated particles peak 75 / 171 against c300's 135 (the peak sits in the expansion phase,
 frames 228–240, as before); drawn components 1 in every frame of both. On the page with the
 stills and the table.
+
+**Readings of `j300_bunny` (the recipe + `--u_rprop`; 23:45).** 184 windows, 1988 s = 33 min (the
+stale rule at 184); silIoU 0.9641, chamfer 0.0594, det F 0.658; tip 7.9 reference particles; off-body
+34 particles in 12 pieces. The damping did what it was built to do — the u bound's median scale
+0.60 at window 10, 0.10 at 30, 0.07 at 60, **0.05 (the floor) for 74 % of the layer** at 180 (P39
+holds) — and the breathing did not go: sign flips 32 % at window 10, 43 % at 60, **76 % at 180,
+92–97 % at windows 179–184**, the layer's window correlation −0.89 … −0.95 in the last windows,
+its normal motion 0.04–0.11 spacings a window (c300 0.07–0.11), net/summed 0.23–0.30 in the tail
+(P35, P36 refuted), windows 184 (P38 refuted), silIoU 0.9641 (P37 holds by 0.0001). **Verdict, as
+pre-registered:** with u all but disabled the layer still breathes along its normal, so the
+breathing is NOT the u channel's — it is the stress channel's (the transport control) and the
+relaxation's response to the sub-cell residuals the objective keeps presenting at the native
+constants; the independent audit's objection to the render-u attribution stands and is now
+measured. Consistent with g300 / h300: the breathing vanishes when the objective's constants are
+the reference ones, not when u is damped. `--u_rprop` is refuted as a fix; the flag stays off.

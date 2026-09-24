@@ -290,3 +290,12 @@ displacement over the last k windows (the breathing has net/summed ≈ 0.02; hon
 so the deliverable holds still after convergence as the 40k one does; (b) the source — the u
 channel's step damped per particle by its own sign history (Rprop: halve on a flip, grow slowly
 when consistent), or stopped at the render target's own noise floor. Neither is in the code yet.
+
+**Addendum 9, verdict (2026-09-23 23:45, run j300 `--u_rprop`).** Damping the u channel per particle
+to its floor (0.05 × spacing for 74 % of the layer) leaves the breathing intact — sign flips
+92–97 %, layer correlation −0.9 in the last windows, normal motion 0.04–0.11 spacings a window.
+The attribution of the breathing to the u channel is refuted; the normal motion is the stress
+control's and the relaxation's, driven by the sub-cell residuals the objective presents at the
+native constants. What removes it is the reference discretisation of those constants (d300, g300,
+h300: net/summed ≥ 0.5 to the end, layer correlation ≥ −0.3), not a brake on any channel — the
+same conclusion as Addendum 6 for the reversal brakes, reached from the other side.
