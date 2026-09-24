@@ -5382,3 +5382,10 @@ sweep with the arrival gate (GPUs 0 and 3, 16:30):* **P135** C's silIoU ≥ g41'
 homer's det F ≥ g41's − 0.05; **P136** silIoU ≥ g41's − 0.003 and det F ≥ g41's − 0.05 on every
 target; **P137** flips ≤ 0.6 and step ≤ g41's on ≥ 15 of 19. The 300k forms in flight (af300,
 ag300, ah300) run without the gate; their bunny readings stand for the bunny.
+*Pre-registered, the first 300k target besides the bunny (16:45; GPU 1):* **d300 = dragon at
+300k with z300b's recipe** and **dr300 = the same + `--ctrl_rprop --ctrl_rprop_smooth
+--ctrl_rprop_k 8 --ctrl_rprop_arrived --u_rprop --u_rprop_floor 0`** (the arrival-gated smoothed
+form). The dragon is the gallery's thin-feature target (horns, spikes; g41_dragon silIoU 0.958, det
+F 0.763). **P138** d300 itself: silIoU ≥ 0.955, det F ≥ 0.6, ≤ 20 strays (the 300k recipe holds on a
+second target); **P139** dr300 against d300: flips ≤ 0.6 (and lower), the layer's step ≤ 0.7× d300's,
+silIoU within 0.003, det F ≥ 0.55; **P140** the video tails (stride 12): dr300 ≤ d300 − 0.0003.
