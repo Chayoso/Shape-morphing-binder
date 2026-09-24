@@ -5289,3 +5289,8 @@ its chain runs. ac300's spectral reading: the layer's low-band consecutive-windo
 300k too — with the high-band energy share 0.80 (the residual motion is sub-cell: the control
 noise the smoothed form (ad300) is built to remove). The ad300 smoke ran clean (1 % reversals in
 transport); the run is on GPU 1.
+*Pre-registered af300 = z300b's recipe + the neighbourhood-smoothed Rprop* (GPU 2, 15:10; the
+deliverable candidate if ad300 holds P116): **P120** det F min ≥ 0.55 (z300b 0.560); **P121** ear
+fill ≥ 0.93 and silIoU ≥ 0.977 (z300b 0.936 / 0.9802); **P122** the layer's normal step ≤ 0.001 wu,
+flips ≤ 0.55, low-band correlation > −0.3 over the last 10 delivered windows; **P123** the
+delivered tail's alternating component (video_flicker ALT at stride 19) ≤ half of z300b's.
