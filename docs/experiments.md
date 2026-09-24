@@ -4946,3 +4946,29 @@ thing again (w300). The hand-off was falsified on the 40k C for stopping a half-
 (2026-09-17); on the bunny at 300k it costs nothing (0.9795) and calms the tail. Kept opt-in;
 the combination `--ot_handoff --outer_latch_reversal` is the natural deliverable recipe if w300
 finds the breathing's carrier.
+*v300's chain readings (07:15):* video tail 0.0025, bump 1.25°, 10 strays; the layer's low-band
+consecutive-window correlation −0.64 — the layer still alternates in the smooth band while the
+bulk's merit reversal has decayed to zero: the two phenomena separate in one run.
+
+**2026-09-24 07:25 — w300's verdict (the recipe without the layer relaxation).** 106 windows in
+40.0 min, silIoU 0.9795, det F **0.586** (l300 0.664). **P85 ✗, decisively** — the layer's flip
+fraction **0.94** (l300 0.74), net/summed 0.068 (0.21): without the relaxation the layer flips
+nearly every window; **P86 ✗** — the per-window step 0.074 spacings; **P87** — bump in the chain;
+**P88 ✓**. The relaxation is not the breathing's carrier; it damps it. The reversal: negative from
+window 42 and the run alternated on to 106 windows (56 negative windows).
+
+*Where the breathing stands after the night's interventions.* Tested and refuted as its carrier:
+the carried momentum (o300), the render channel (p300: flips 0.71 with the render off), the
+relaxation (w300: worse without it), the step size (l300 and the 40k reference alternate at the
+anneal floor), the balancer (λ and g_share flat), the u channel's bound (j300, 2026-09-23), the
+XPIC commit projection and the shifting (g41 has neither and breathes), the moving paced target
+(v300: the bulk's merit reversal decays to zero, the layer's low-band correlation stays −0.64).
+What every run shares is the optimiser's floor step at the surface: an anneal floor of 0.05 on α
+(α 0.001) that the reversal-annealing reaches within ten windows of arrival, and the layer's
+per-window normal step then sits at 0.002–0.003 wu at both N (l300 0.0017, the 40k reference
+0.0029) — the same amplitude the acceptance criterion already admits (≤ 0.003 wu a window, the
+40k value). Read as a mechanism: a first-order position controller with a fixed minimum step
+against a surface residual that changes sign when crossed is a limit cycle of that step's
+amplitude; its cure is a step that shrinks to zero (a line search on the merit at the surface) or
+a stop when it is reached — the reversal-armed gate (r300b) is the second, at the deliverable
+level, and the first is the structural item left open (the anneal floor is the literal 0.05 in runner.py, four places, and is not lowered by hand under the no-parameter rule; a floor derived from the discretisation — the step below which the loss cannot see a change — is the structural form).
