@@ -4264,3 +4264,22 @@ fragmented). P41 tip mass ≥ 20 reference particles (g300 23.7) with 8-NN ≤ 0
 0.975, chamfer/diag (surface) ≤ 0.0109 (g300). P43 windows ≤ 100, wall ≤ 45 min (the grid ops
 ×2.7). P44 end bump at the reference render ≤ 1.3°, mid-morph roughness ≤ g300's 0.27. Refutation:
 fragments or det F < 0.3 → the finer cell fractures even with the mass contract, the rule stands.
+
+**Head-to-head, the ICLR 2025 implicit velocity-field morph (ISD) on sphere → bunny, no
+correspondences (23:30; 1058 s training, eval MC 256 at t = k/10).** Surface Chamfer / diag against
+its own normalised target mesh (the bunny with its open base: euler −3, not watertight):
+
+| t | 0 | 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1.0 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| chamfer/diag | 0.098 | 0.140 | 0.176 | 0.232 | 0.276 | **0.298** | 0.297 | 0.228 | 0.150 | 0.063 | **0.0070** |
+| volume (norm. units) | — (5 comps) | 0.049 | 0.035 | 0.013 | 0.004 | **0.002** | 0.001 | 0.012 | 0.042 | — (5 comps) | 0.199 |
+| euler / genus | 5 / ? | −46 / 24 | −4 / 3 | 2 / 0 | 2 / 0 | 2 / 0 | 2 / 0 | 2 / 0 | 2 / 0 | 5 / ? | 2 / 0 |
+
+Reading: the end fit is excellent (0.0070 — an SDF fitted to the target; ours 0.0109–0.0123 at the
+same relative measure, against a particle-sampled surface), and the trajectory between is not a
+morph: without correspondences the velocity field collapses the body to 1 % of its end volume at
+t = 0.5–0.6 and regrows it, with genus 24 and 3 surfaces at t = 0.1–0.2 and five components at t = 0
+and 0.9. The axis on which the continuum morph is defined — one body, its mass and volume
+conserved at every t, no surface to hallucinate — is exactly where the baseline has nothing:
+ours holds one watertight genus-0 body at every t with the volume within 2.3 %. The
+correspondence-driven setting (CORR=nearest / radial) and 4Deform follow; the torus pair next.
