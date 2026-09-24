@@ -487,6 +487,15 @@ class PipelineConfig:
                                     #   instead of a body whose constants shrink with the quadrature (at 300k the u
                                     #   clip, the relaxation width and the layer depth were half the 40k lengths, and
                                     #   the ear tip held 5.9 reference particles against 13 at 40k). 40k bit-identical.
+    stop_on_cycle: bool = False     # 2026-09-23 night (docs/oscillation.md Addendum 9): the run has converged when its
+                                    #   NET displacement over the last `patience` windows is no more than a random walk's
+                                    #   — median over a fixed 20k subsample of |x_w − x_{w−k}| / Σ|x_{i+1} − x_i| ≤ 1/√k.
+                                    #   Honest descent has the ratio near 1, the outer layer's window-to-window
+                                    #   breathing (300k: 0.1–0.2 sp a window, 60–80 % sign flips, net 0.04 sp for
+                                    #   2.5 sp summed) near 0; the plateau rule never fires on it because the merit
+                                    #   keeps gaining 0.1–0.7 % a window. On freeze the delivered trajectory holds
+                                    #   (hold_after_converge), as the 40k one does after its own convergence.
+                                    #   The ratio is logged every window regardless (rec["net_ratio"]).
     shift_sub: bool = False         # 2026-09-23 night (docs/method.md 10.18, mpm/shifting.py): Fickian shifting of the
                                     #   sub-cell arrangement at every window commit — Δx = −½ h² ∇C, the particle
                                     #   concentration diffused one explicit step at its stability limit (Lind 2012),

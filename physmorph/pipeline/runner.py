@@ -402,6 +402,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     frames, F_frames, hist = [x.copy()], [_id(N)], []
     n_reattach_total = 0                 # cfg.reattach: merged grid-disconnected particles (all commits)
     sp_native = None                     # cfg.shift_sub: the cloud's native spacing (measured at the first commit)
+    cyc_sub, cyc_hist = None, []         # net / summed displacement test (config.stop_on_cycle): a fixed subsample,
+                                         # its commit positions over the last `patience` windows
+    cyc_stale = 0                        # consecutive windows at or below the random-walk bound
     # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
     # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
     # keeps the PHYSICS F for metrics and assimilation)
@@ -1063,6 +1066,31 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if stale >= cfg.patience:
             frozen = True
             log(f"[v2] converged at anim {a + 1} (phys={phys_track:.4f}); holding still")
+        # ---- net displacement against summed displacement over the last `patience` windows (config
+        # stop_on_cycle; docs/oscillation.md Addendum 9): the outer layer's window-to-window breathing
+        # has a net/summed ratio near 0, honest descent near 1, a random walk 1/sqrt(k). Logged every
+        # window; a convergence trigger when the flag is on. ----
+        if cyc_sub is None:
+            cyc_sub = np.sort(np.random.default_rng(0).choice(len(x), min(len(x), 20000), replace=False))
+        cyc_hist.append(np.asarray(x[cyc_sub], np.float32).copy())
+        k_cyc = max(int(cfg.patience), 2)
+        if len(cyc_hist) > k_cyc + 1:
+            del cyc_hist[0]
+        if len(cyc_hist) == k_cyc + 1:
+            summed = np.sum([np.linalg.norm(cyc_hist[i + 1] - cyc_hist[i], axis=1) for i in range(k_cyc)], axis=0)
+            net = np.linalg.norm(cyc_hist[-1] - cyc_hist[0], axis=1)
+            net_ratio = float(np.median(net) / max(float(np.median(summed)), 1e-12))
+            rec["net_ratio"] = net_ratio
+            # the same patience as the stale rule: `patience` consecutive windows at or below the
+            # random-walk bound (late honest descent hovers just above it — c300 windows 32–60 at
+            # 0.41–0.68 against 0.447 — and a single dip must not freeze the run)
+            cyc_stale = cyc_stale + 1 if net_ratio <= 1.0 / np.sqrt(k_cyc) else 0
+            rec["cyc_stale"] = cyc_stale
+            if getattr(cfg, "stop_on_cycle", False) and not frozen and cyc_stale >= k_cyc:
+                frozen = True
+                log(f"[v2] converged at anim {a + 1}: net / summed displacement over {k_cyc} windows "
+                    f"{net_ratio:.3f} <= random walk {1.0 / np.sqrt(k_cyc):.3f} for {cyc_stale} windows "
+                    f"(the tail breathes without progress); holding still")
 
         any_guard = n_out or n_nan or n_ns or n_bad or n_flip or n_inv
         if a % max(1, cfg.animations // 10) == 0 or a == cfg.animations - 1 or any_guard:

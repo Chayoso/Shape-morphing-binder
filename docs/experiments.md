@@ -4091,3 +4091,29 @@ P22 or P26 failing → the combination is out. `h300_bunny` = `--disc_ref --shif
 --control_grid 17`: P22–P26 as above, P27 silIoU ≥ 0.975 (e300 0.9795) with det F ≥ 0.6, P28 the
 tail reversal persists (median corr < −0.3) — the prediction that the oscillation is the outer
 loop's, to be falsified a second time. Next after these: the outer loop's damping (E3).
+
+**The oscillation near the optimum, diagnosed and the first mechanism pre-registered (21:40;
+docs/oscillation.md Addendum 9).** The 300k tail is the outer layer breathing along its normal
+(0.07–0.11 native spacings a window, sign flips in 60–80 % of the layer, net 0.04 spacings for 2.5
+summed over 30 windows; the bulk follows at half the amplitude); 40k has it at 0.003–0.009 wu and
+hides it because its run converges at 57 windows and the frames are held. Not the basis (e300
+layer corr −0.81), not shifting (f300), not the transport subsample (fixed), not the reconstruction
+(the reference-spacing video changes as much). The net-over-summed displacement ratio over the last
+k windows (`$OUT/scratch/cycle_ratio.py`, 20k subsample) separates the phases: c300 0.77–0.88 in
+the descent, below the random-walk bound 1/√5 = 0.447 from window 47 (consistently from ~68), 0.2–
+0.35 in the breathing tail; e300 the same from 51 / ~73; g41 (40k) from 32 (its stale rule fired at
+57); d300 (reference constants, brake at 52) never — it moves coherently to the end. Implemented
+(`--stop_on_cycle`, config `stop_on_cycle`; runner at the commit): the run is converged when the
+ratio has been at or below 1/√patience for `patience` consecutive windows (k = patience = 5, the
+existing horizon; no new constant), then `hold_after_converge` holds the delivered tail as at 40k.
+The ratio and the counter are logged every window regardless (`net_ratio`, `cyc_stale`).
+
+Pre-registration of `i300_bunny` (the recipe + `--stop_on_cycle`, 300k): P31 the freeze between
+windows 60 and 100 (c300's ratio is consistently below the bound from ~68). P32 silIoU at the
+freeze ≥ 0.9605 (c300 at window 70: 0.9611; 40k end 0.9610), chamfer ≤ 0.0605. P33 the delivered
+plain-mesh video's tail per-frame change |dI| median ≤ 0.0003 (held; 40k 0.0001; c300 0.0021).
+P34 wall ≤ 22 min under today's load. Refutation: a freeze before window 50, or silIoU < 0.958 →
+the rule cuts honest descent and is withdrawn. This removes the symptom for the deliverable; the
+source (the render-driven u step undone each window) is the next mechanism (Rprop-style
+per-particle damping of u, or a stop at the render target's noise floor), pre-registered after
+g300 / h300.
