@@ -296,3 +296,45 @@ displacement projected on the first K eigenvectors (K from the sub-cell length),
 high-band energy, oscillation = consecutive-window correlation of the low band; (5) the path
 action Σ W2(P_k, P_{k+1}) against W2(P_0, P_K) via SPOT — an excess-action oscillation budget,
 mass-weighted by construction.
+
+## MPM particles ↔ grid resolution ↔ surface, 2013–2026 (agent digest, 2026-09-24 00:20)
+
+Read for the same directive. Verified on arXiv / ACM / Wiley / Springer pages unless marked. No
+paper treats trust-region or Levenberg–Marquardt outer loops over MPM windows (ChainQueen,
+DiffTaichi, PlasticineLab use plain Adam / GD) — a genuine gap our window-loop breathing sits in.
+
+**Lagrangian mesh coupled to MPM:** Jiang, Gast, Teran (SIGGRAPH 2017) and Guo et al. (SIGGRAPH
+2018) — a Lagrangian mesh carries in-manifold strain, the grid only inertia and contact (a
+codimensional treatment of a 1.1-cell ear tip); Han et al. (SCA 2019) — tet mesh for internal
+force, grid for self-collision; Cao et al., *Unstructured MLS-MPM* (Comput. Mech. 2025) — MLS
+kernels on graded tets. **Adaptivity and error analysis:** Gao et al., *Adaptive GIMP* (SIGGRAPH
+Asia 2017; third-party Taichi code) — octree SPGrid with a C¹ partition-of-unity basis; Sun et al.
+(IJNME 2020), Luo, Li, Jiang (arXiv 2026) — local B-spline refinement / overlapping Schwarz
+subdomains; Steffen, Kirby, Berzins (IJNME 2008) — the internal-force error is a QUADRATURE error
+of the sub-cell arrangement; **Gritton, Berzins (Comput. Particle Mech. 2017), Tran, Sołowski
+(IJNME 2019) — the null-space filter: per-cell SVD of the P2G operator, the particle components
+invisible to the grid removed**; Sadeghirad, Brannon, Guilkey, *CPDI2* (IJNME 2013) — particle
+domains x_p + F_p ξ tracked by corners. **Transfers that reduce sub-cell noise:** Hammerquist,
+Nairn, *XPIC(m)* (CMAME 2017; NairnMPM) — removes the mapping's null space without PIC
+dissipation, exact as m → ∞; Fu et al., *PolyPIC* (SIGGRAPH Asia 2017); Qu, Li, de Goes, Jiang,
+*Power PIC* (SIGGRAPH 2022) — OT, volume-constrained particle domains, uniform distribution and
+exact volume inside P2G/G2P; Lewin, *PB-MPM* (SIGGRAPH 2024 talk, code); de Vaucorbeil et al.,
+*Total-Lagrangian MPM* (CMAME 2020); Ando, Thürey, Tsuruno (TVCG 2012) — anisotropic split/merge
+in sheets. **Surface reconstruction / tracking:** Yu, Turk (TOG 2013); Bhattacharya, Gao, Bargteil
+(TVCG 2015) — thin-plate energy between union-of-spheres shells; Löschner et al. (VMV 2023,
+splashsurf); Yu, Wojtan, Turk, Yap (Eurographics 2012) and Dagenais et al. (CGF 2017) — a
+persistent mesh advected and projected onto the implicit within a band; Baktash, Gillespie,
+Crane, *Subgrid Marching Tetrahedra* (arXiv 2026). **Damping:** Gast et al. (TVCG 2015), Wang et
+al., *HOT* (TOG 2020) — implicit integration removes simulation ringing, not optimiser reversal;
+Koßler et al. (Comput. Particle Mech. 2025) — a random grid-origin shift per step removes
+fixed-grid stress oscillation.
+
+**Shortlist for us (the agent's, checked):** (1) F-domain surfels — CPDI2 corners x_p + F_p ξ
+as sub-cell-resolved surfels for the objective and the render, anisotropy F_p F_pᵀ, constants
+from V_p; no physics change. (2) **The null-space / XPIC projection at the window commit** — the
+window's displacement projected onto the grid-representable subspace (G2P ∘ P2G with the
+B-spline weights), applied to positions and the u channel; the direct test of whether the
+breathing and the sub-cell disorder live in the grid-invisible subspace. (3) A grid-origin shift
+per window (Koßler) as the diagnostic of grid-locked bias. (4) A persistent mesh surface projected
+within a half-spacing band (Yu 2012 / Dagenais 2017). (5) Local refinement at thin features
+(Sun 2020 / Luo 2026); Power PIC weights in place of the Fickian shift as the runner-up.
