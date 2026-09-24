@@ -4460,3 +4460,20 @@ state (`assim 0.5`, the oracle's value), and the other half springs back in the 
 free dynamics — a rebound with a two-window period at the scale the elastic body resolves. The
 diagnostic: a zero-control rollout from each accepted commit state, its displacement projected
 on the previous window's (the rebound fraction; −0.5 would confirm), instrumented next.
+
+**Readings of `l300_bunny` (the g300 recipe + `--commit_pic`; 00:20).** 85 windows, 1321 s = 22 min
+(the brake at 84–85), silIoU **0.9797** (the best of every bunny run; P50 ≥ 0.972 holds), chamfer
+**0.0551** (best), det F 0.664 (holds), stray_max 0.0004, off-body **6 singletons** (P51's piece
+clause holds; the tip mass follows), G3_rest PASS at jitter_rel 0.00004. The projection's log:
+the null-space share of the window's displacement 18 % at window 1, 27 % at 21, **78 % at 85** —
+in the tail four fifths of the window motion was grid-invisible and removed. The breathing
+metric: `layer_step_sp` 0.0244 spacings = **0.0017 wu a window — below the 40k reference's
+0.0029 (P48's amplitude clause holds)**; `layer_flip_frac` 0.74 and `layer_net_ratio` 0.21 — the
+low-band alternation persists at the smaller amplitude, as the spectral criterion predicted
+(P48's flip / ratio clauses refuted, and expected to be: every run including 40k alternates
+there). Mid-morph roughness 0.19–0.23 (P49 ≤ 0.15 refuted; below g300's 0.21–0.32). P52 windows
+85 (≤ 80 refuted by 5). Reading: the projection removes what it can — the sub-cell part of every
+window's motion — and the fit improves rather than degrades (0.9797 / 0.0551 against g300's
+0.975 / 0.0556): the sub-cell motion the control was spending its windows on was not fit, it was
+noise. The candidate recipe for N > 40k is now `--disc_ref --shift_sub --commit_pic`; the end
+render, the video's tail and the tip follow.
