@@ -5760,3 +5760,16 @@ and is withdrawn (not re-run: the viscous form is diagnostic only by the user's 
 (`tr_eval` takes `eta=spec.eta, pin=spec.pin`); the archive now carries the `pinned` mask, and
 `pin_probe.py` reads the pinned set's step directly (exactly 0 expected). The 23:20 twins were
 discarded and relaunched at 23:35 with the fix; P181–P184 stand.
+
+**2026-09-24 23:50 — two chains in.** *The deliverable side (P151–P153, the tracked mesh
+family):* z300b band-tracked + window-averaged, stride 19: tail 0.0021 (ALT/DRIFT 1.06);
+ac300 band-tracked s12: tail 0.0018 (worse than the untracked 0.0013 — an advected mesh
+follows the jitter in full, refuted again); **ac300 band-tracked + window-averaged s12: tail
+0.0009 (ALT 0.0007, DRIFT 0.0008)**, s19: 0.0011 — the averaging, not the tracking, is what
+lowers it, the same 0.0010 that `--frame_avg 38` gives on the particles alone; cosmetic, with a
+one-window lag, and it does not touch the physics. *al300's chain (the KDE ear + H, hold from
+the start):* the stride-19 video's tail D1 0.0008, ALT 0.0008, DRIFT 0.0005 (ALT/DRIFT 1.52,
+at the white-noise ratio 1.73 — no excess alternation in the video) while the layer's low-band
+correlation was −0.68 in the particles: the bulk's alternation of ~0.0007 wu is below what the
+stride-19 video resolves. End still: bumpiness 1.19°, one component. The pin twins (g41p,
+ap300) are the physics answer to the user's bar; al300/am300 remain the KDE-ear candidates.
