@@ -402,6 +402,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     frames, F_frames, hist = [x.copy()], [_id(N)], []
     n_reattach_total = 0                 # cfg.reattach: merged grid-disconnected particles (all commits)
     sp_native = None                     # cfg.shift_sub: the cloud's native spacing (measured at the first commit)
+    last_shift = None                    # cfg.shift_sub: this window's shift statistics (for the record)
     cyc_sub, cyc_hist = None, []         # net / summed displacement test (config.stop_on_cycle): a fixed subsample,
                                          # its commit positions over the last `patience` windows
     cyc_stale = 0                        # consecutive windows at or below the random-walk bound
@@ -679,10 +680,30 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             if sp_native is None:
                 sp_native = native_spacing(x)
             dxs, sst = fickian_shift(x, sp_native, h_sp=float(cfg.shift_h_sp))
+            # the objective's change across the shift, measured (the arrangement is underconstrained,
+            # not an exact null space — the independent audit, docs/diagnosis_300k_20260923.md): the
+            # fixed-target cell sum before and after, in density units when the run uses them
+            _dv0 = _dv1 = None
+            try:
+                with torch.no_grad():
+                    from ..losses.volumetric import d_vol_density as _dvd_s
+                    _xt0 = torch.as_tensor(x, device=cfg.device)
+                    _xt1 = torch.as_tensor(x + dxs, device=cfg.device)
+                    if cfg.loss_units == "density":
+                        _dv0 = float(_dvd_s(_xt0, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref, tgt.n_support))
+                        _dv1 = float(_dvd_s(_xt1, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref, tgt.n_support))
+                    else:
+                        _dv0 = float(d_vol(_xt0, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims))
+                        _dv1 = float(d_vol(_xt1, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims))
+            except Exception:
+                pass
             x += dxs
+            sst["dvol_rel"] = ((_dv1 - _dv0) / max(abs(_dv0), 1e-12)) if (_dv0 is not None and _dv1 is not None) else float("nan")
+            last_shift = sst                                 # attached to this window's record below
             if (a + 1) % 10 == 1 or sst["p99_sp"] > 0.25:
                 log(f"[v2] anim {a + 1}: sub-cell shift median {sst['median_sp']:.3f} sp, p99 {sst['p99_sp']:.3f}, "
-                    f"max {sst['max_sp']:.2f}; disorder |grad C| h {sst['disorder']:.3f}; tangential on {sst['n_surface']}")
+                    f"max {sst['max_sp']:.2f}; disorder |grad C| h {sst['disorder']:.3f}; tangential on {sst['n_surface']}; "
+                    f"cell-sum change across the shift {100 * sst['dvol_rel']:+.3f} %")
         # archive the PROMOTED states (identical to raw when no guard fired)
         ks = max(1, int(cfg.archive_stride))            # archive stride (150k archives)
         frames.extend(f.copy() for f in fr[1:-1][::ks]); frames.append(x.copy())
@@ -754,6 +775,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "reattached": n_reattached,
+               "shift_median_sp": (last_shift or {}).get("median_sp"), "shift_dvol_rel": (last_shift or {}).get("dvol_rel"),
                "grad_norm": w.get("grad_norm"), "d_pbr": w.get("d_pbr"), "d_dt": d_dt,
                "d_sil": w.get("d_sil"), "d_gauss": w.get("d_gauss"), "d_kde": d_kde_v,
                "d_jdens": d_jd_v, "d_h1": d_h1_v, "h1_ratio": stats.get("h1_ratio"),
