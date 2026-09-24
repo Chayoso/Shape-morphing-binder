@@ -409,7 +409,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     u_scale, u_prev = None, None         # config.u_rprop: the per-particle u bound scale and the last accepted u
     ctrl_scale, ctrl_prev_disp = None, None   # config.ctrl_rprop: the per-particle control step scale and the last accepted displacement
     ctrl_scale_apply = None              # the scale handed to the optimiser (neighbourhood-smoothed under ctrl_rprop_smooth)
-    ctrl_rev_count, frozen = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
+    ctrl_rev_count, frozen_p = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
     rev_prev_neg_acc = False             # config.outer_latch_reversal: the same reading, kept at every accepted commit
@@ -1247,7 +1247,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 return (v + v[_nbr].sum(1)) / float(_nbr.shape[1] + 1)
             if ctrl_scale is None or len(ctrl_scale) != len(_d_now):
                 ctrl_scale = np.ones(len(_d_now), np.float32)
-                ctrl_rev_count = np.zeros(len(_d_now), np.int32); frozen = np.zeros(len(_d_now), bool)
+                ctrl_rev_count = np.zeros(len(_d_now), np.int32); frozen_p = np.zeros(len(_d_now), bool)
             if ctrl_prev_disp is not None and len(ctrl_prev_disp) == len(_d_now):
                 _dn_s, _dp_s = _smooth(_d_now), _smooth(ctrl_prev_disp)
                 _n0 = np.linalg.norm(_dn_s, axis=1); _n1 = np.linalg.norm(_dp_s, axis=1)
@@ -1281,31 +1281,31 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # stretch assimilated in full (F_e -> R_e: no stress of its own), its control zeroed and its update
             # scale 0, its u bound 0, its velocity zeroed at commits. Frozen material is inert, carried by the
             # grid with its neighbours; the frozen set only grows. ----
-            if getattr(cfg, "freeze_arrived", False) and ctrl_prev_disp is not None and frozen is not None:
+            if getattr(cfg, "freeze_arrived", False) and ctrl_prev_disp is not None and frozen_p is not None:
                 _arr_f = stats.get("arrived_mask")
                 _arr_f = np.ones(len(_d_now), bool) if _arr_f is None or len(_arr_f) != len(_d_now) else np.asarray(_arr_f, bool)
-                _new = (~frozen) & _arr_f & (ctrl_rev_count >= 2)
+                _new = (~frozen_p) & _arr_f & (ctrl_rev_count >= 2)
                 if _new.any():
                     Fp[_new] = assimilate_elastic(Fc[_new], Fp[_new], eta=1.0, smin=cfg.assim_smin,
                                                   smax=cfg.assim_smax, isochoric=False)
-                    frozen |= _new
-                if frozen.any():
-                    ctrl_scale[frozen] = 0.0
-                    ctrl_scale_apply = np.asarray(ctrl_scale_apply, np.float32).copy(); ctrl_scale_apply[frozen] = 0.0
+                    frozen_p |= _new
+                if frozen_p.any():
+                    ctrl_scale[frozen_p] = 0.0
+                    ctrl_scale_apply = np.asarray(ctrl_scale_apply, np.float32).copy(); ctrl_scale_apply[frozen_p] = 0.0
                     if dfc_prev is not None:
                         _dp = np.asarray(dfc_prev)
-                        _axf = [i for i, sz in enumerate(_dp.shape) if sz == len(frozen)]
+                        _axf = [i for i, sz in enumerate(_dp.shape) if sz == len(frozen_p)]
                         if _axf:
-                            _idx = [slice(None)] * _dp.ndim; _idx[_axf[0]] = frozen; _dp[tuple(_idx)] = 0.0; dfc_prev = _dp
-                    if u_scale is not None and len(u_scale) == len(frozen):
-                        u_scale[frozen] = 0.0
+                            _idx = [slice(None)] * _dp.ndim; _idx[_axf[0]] = frozen_p; _dp[tuple(_idx)] = 0.0; dfc_prev = _dp
+                    if u_scale is not None and len(u_scale) == len(frozen_p):
+                        u_scale[frozen_p] = 0.0
                     if st.get("v") is not None:
-                        st["v"][frozen] = 0.0
+                        st["v"][frozen_p] = 0.0
                         if st.get("C") is not None:
-                            st["C"][frozen] = 0.0
-                    rec["frozen_frac"] = float(frozen.mean())
-                    if (a + 1) % 5 == 0 or _new.sum() > 0.05 * len(frozen):
-                        log(f"[v2] anim {a + 1}: frozen {100 * frozen.mean():.1f} % of the particles ({int(_new.sum())} new this window)")
+                            st["C"][frozen_p] = 0.0
+                    rec["frozen_frac"] = float(frozen_p.mean())
+                    if (a + 1) % 5 == 0 or _new.sum() > 0.05 * len(frozen_p):
+                        log(f"[v2] anim {a + 1}: frozen {100 * frozen_p.mean():.1f} % of the particles ({int(_new.sum())} new this window)")
         # ---- the next window starts from rest (config.rest_commit; docs/method.md 10.21): the carried momentum
         # of an accepted commit is what the rebound probe measured continuing forward and the next window's
         # control cancelling — the two-window alternation at the resolved scale. v and C zeroed; x, F, Fp kept. ----
