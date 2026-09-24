@@ -4074,7 +4074,10 @@ either). P18 — **refuted, and how**: 397 particles off the body in 28 pieces, 
 spacings = 1.2 cells from the body (min 2.5); it separated slowly from window ~105 (to-body
 median 1.2 → 3.7 spacings over frames 2000–3150), the 67-piece from window ~55. In c300 the same
 tip is held by a stretched thread of particles (8-NN 2×); once shifting evens the spacing the
-thread is gone, the tip block shares no node with the body and drifts on the target. The left
+thread is gone and the tip block drifts on the target. CORRECTION (the independent audit,
+docs/diagnosis_300k_20260923.md): the kernel is cubic (4³ stencil), and at the saved endpoint all
+300 particles of the piece still have nonzero weighted stencil overlap with the body — the
+coupling is weak, not absent; "shares no node" was wrong. The left
 tip: 4.8 reference particles (c300 5.9), 8-NN 1.88. The deliverable rule draws a 295-particle
 piece (≥ 170) and cannot bridge it (0.36 wu > the 0.31 wu link radius): a floating ear tip.
 Neither mechanism alone is adoptable; the pair says what each does — the basis: the fit and det F;

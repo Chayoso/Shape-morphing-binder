@@ -895,9 +895,11 @@ spline at the standard SPH ratio h = 1.3 Δp (σ 0.71 against 0.78 Δp), the one
 k = 40 is where the Gaussian is below 2 % (a ball of radius 2 Δp holds ≈ 34 particles); the
 free-surface rule is Lind's (shifting restricted at the free surface), with the outer layer's
 own asymmetry measure (surface_recon.layer_by_asymmetry) as the weight; the ½-spacing cap is
-the explicit step's own bound (no particle passes a neighbour). The shift is loss-neutral by
-construction at the cell scale (the cell sum, the plan and the render do not resolve it) and
-mass-preserving (positions only). The 40k gallery is untouched (opt-in). Whether it orders the
+the explicit step's own bound (no particle passes a neighbour). The shift is mass-preserving (positions only) and acts on an arrangement the objective leaves
+UNDERCONSTRAINED — the CIC weights of the cell sum vary continuously inside a cell and the images
+depend on every position, so "loss-neutral by construction" overstates it (the independent audit,
+docs/diagnosis_300k_20260923.md); the measured change of the objective across a commit's shift is
+to be recorded per run. The 40k gallery is untouched (opt-in). Whether it orders the
 quadrature of the morph without harming the fit is the pre-registered run `f300_bunny`.
 
 ### 10.19 Sign-history damping of the u channel (2026-09-23 night; code: pipeline/runner.py at the accepted commit, pipeline/optimizer.py `u_scale_init` / `stats["u_final"]`; config `u_rprop`; evidence docs/oscillation.md Addendum 9)

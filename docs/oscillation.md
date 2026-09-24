@@ -276,8 +276,12 @@ What it is not (each measured this night, docs/experiments.md): not the control'
 (the cell-scale basis e300 breathes the same, layer corr −0.81), not the sub-cell disorder
 (shifting f300 the same), not transport-subsample noise (the subsample is fixed for the run), not
 the reconstruction (the reference-spacing video changes as much). What it is: the window loop's
-limit cycle on the outer layer — a render-driven u step along the normal each window, undone the
-next — with the tangential part (the per-particle transport control) alternating alongside.
+limit cycle on the outer layer — the layer's normal increment (the u leaf, fed by BOTH the physics
+and the render terms unless `layer_u_render_only`, plus the relaxation projection) taken each
+window and undone the next — with the tangential part (the stress control's transport) alternating
+alongside. The attribution to the render channel alone is NOT established (the independent audit,
+docs/diagnosis_300k_20260923.md: total normal displacement is not a measurement of u alone; the
+render-only u twin is the test).
 Addendum 6's verdict on reversal-triggered brakes stands (v4 / v6 froze honest descent).
 
 The two candidates that follow from the measurement, to be pre-registered: (a) the delivered
