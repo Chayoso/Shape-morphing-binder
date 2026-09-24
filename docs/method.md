@@ -899,3 +899,29 @@ the explicit step's own bound (no particle passes a neighbour). The shift is los
 construction at the cell scale (the cell sum, the plan and the render do not resolve it) and
 mass-preserving (positions only). The 40k gallery is untouched (opt-in). Whether it orders the
 quadrature of the morph without harming the fit is the pre-registered run `f300_bunny`.
+
+### 10.19 Sign-history damping of the u channel (2026-09-23 night; code: pipeline/runner.py at the accepted commit, pipeline/optimizer.py `u_scale_init` / `stats["u_final"]`; config `u_rprop`; evidence docs/oscillation.md Addendum 9)
+
+The tail of a 300k run breathes: the outer layer's u step (10.15/10.16, a normal displacement per
+layer particle bounded by one spacing a window) goes out on the render gradient and comes back
+the next window — sign flips in 60–80 % of the layer per window, 2.5 spacings of motion summed
+for 0.04 of net drift over thirty windows. The window loop re-linearises from u = 0 every window,
+so nothing in it remembers that a particle's last step was undone. Rprop (Riedmiller & Braun
+1993) is the step rule built for exactly this signal — a per-parameter step size adapted by the
+sign of successive updates:
+
+```
+(40)  after an accepted window w, per particle p with u_w(p) u_{w−1}(p) ≠ 0:
+        s_p ← η⁻ s_p  if sign u_w(p) ≠ sign u_{w−1}(p)      (η⁻ = 0.5)
+        s_p ← min(1, η⁺ s_p)  if the sign is kept          (η⁺ = 1.2)
+        s_p ∈ [0.05, 1];   the next window's bound on u(p) is s_p × one spacing
+```
+
+The constants are Rprop's own (η⁻ = 0.5, η⁺ = 1.2) and the anneal floor (0.05); a particle whose
+u keeps its sign descends at the full bound, one that oscillates has its bound halved each flip,
+and a particle that leaves the layer (u = 0) keeps its scale. Positions, the stress control and
+the relaxation are untouched; the rule acts only on the channel whose sign history is measured
+to alternate. It is the source-side counterpart of the delivered-trajectory rule of Addendum 9
+(`stop_on_cycle`, which stops the tail; this removes the breathing that makes the tail). The
+rendering influence of the channel is reported by g_share and the u gate as before; the damping
+reduces the render's push only where the push was being undone.

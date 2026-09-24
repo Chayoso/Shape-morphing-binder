@@ -222,9 +222,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
                     mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None,
-                    coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None):
+                    coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
+                    u_scale_init=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
+
+    u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
+    bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
+    accepted windows' u); the accepted u is returned in stats["u_final"].
 
     2026-09-14 (docs/render_controls_physics.md): the control LEAF may live on a coarse
     basis (cfg.control_grid / control_tknots) — `expand` maps it to the per-particle,
@@ -698,6 +703,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # spacing per window — beyond that it is transport, the stress channel's job
         u = torch.zeros(N, device=dev, requires_grad=True)
         leaves.append(u)
+    # the u bound per particle: one spacing, times the Rprop scale the runner carries (config.u_rprop)
+    u_bound = None
+    if u is not None:
+        _us = np.ones(N, np.float32) if u_scale_init is None else np.asarray(u_scale_init, np.float32)
+        u_bound = torch.as_tensor(float(sp0) * _us, device=dev)
     mom = [torch.zeros_like(p) for p in leaves]
     vel = [torch.zeros_like(p) for p in leaves]
     lr_scale = [1.0] + ([cfg.mat_lr_scale] if s is not None else []) + ([1.0] if u is not None else [])
@@ -1402,7 +1412,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 if s is not None:
                     s.clamp_(-cfg.mat_clamp, cfg.mat_clamp)
                 if u is not None:
-                    u.clamp_(-sp0, sp0)                      # one spacing per window
+                    u.copy_(torch.maximum(torch.minimum(u, u_bound), -u_bound))   # one spacing per window, x the Rprop scale
             state_n, lv_n, lk_n, lr_n, lpbr_n, extra_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, extra_n["dfc"], state_n[0],
@@ -1687,6 +1697,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
               "g_share": g_share, "u_gate": u_gate_frac,
+              "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
               "render_work": render_work, "render_work_x": render_work_x,
               "render_work_F": render_work_F, "phys_work": phys_work,

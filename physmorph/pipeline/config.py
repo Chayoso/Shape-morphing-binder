@@ -487,6 +487,14 @@ class PipelineConfig:
                                     #   instead of a body whose constants shrink with the quadrature (at 300k the u
                                     #   clip, the relaxation width and the layer depth were half the 40k lengths, and
                                     #   the ear tip held 5.9 reference particles against 13 at 40k). 40k bit-identical.
+    u_rprop: bool = False           # 2026-09-23 night (docs/method.md 10.19, docs/oscillation.md Addendum 9): the u
+                                    #   channel's per-window bound is damped PER PARTICLE by its own sign history —
+                                    #   Rprop (Riedmiller & Braun 1993): a particle whose u flipped sign against the
+                                    #   previous window has its bound halved (eta- = 0.5), one whose u kept its sign
+                                    #   has it raised by eta+ = 1.2 up to the full spacing; floor 0.05 (the anneal
+                                    #   floor). The source of the tail's breathing is the render-driven u step
+                                    #   undone the next window (60–80 % sign flips at 300k); the damping acts on
+                                    #   exactly those particles and leaves consistent descent at full step.
     stop_on_cycle: bool = False     # 2026-09-23 night (docs/oscillation.md Addendum 9): the run has converged when its
                                     #   NET displacement over the last `patience` windows is no more than a random walk's
                                     #   — median over a fixed 20k subsample of |x_w − x_{w−k}| / Σ|x_{i+1} − x_i| ≤ 1/√k.

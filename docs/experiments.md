@@ -4117,3 +4117,14 @@ the rule cuts honest descent and is withdrawn. This removes the symptom for the 
 source (the render-driven u step undone each window) is the next mechanism (Rprop-style
 per-particle damping of u, or a stop at the render target's noise floor), pre-registered after
 g300 / h300.
+
+**Pre-registration of `j300_bunny` (the recipe + `--u_rprop`, 300k; method.md §10.19; 22:00).**
+P35 the tail's (last 30 windows) layer normal sign flips ≤ 40 % of the layer (c300 60–80 %), the
+layer's per-window |d| median ≤ 0.06 native spacings (c300 0.10–0.19), consecutive-window layer
+correlation > −0.3 (c300 −0.35 … −0.71). P36 the net/summed displacement ratio in the tail ≥ 0.45
+(c300 0.2–0.35). P37 silIoU ≥ 0.964, chamfer ≤ 0.062 (the channel keeps its end gain; the u-off
+twins at 40k cost 0.3–0.6 points). P38 windows ≤ 150 (c300 176: the noise-level gains that keep
+the plateau rule from firing are the breathing). P39 the u scale's median over the layer in the
+tail ≤ 0.5 (the rule is active where it should be). Refutation: P35 failing → the breathing is
+not the u channel's (then it is the stress channel's tangential part, Addendum 9's other half);
+silIoU < 0.960 → the damping costs the fit and is withdrawn.

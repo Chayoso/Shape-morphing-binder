@@ -405,6 +405,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     cyc_sub, cyc_hist = None, []         # net / summed displacement test (config.stop_on_cycle): a fixed subsample,
                                          # its commit positions over the last `patience` windows
     cyc_stale = 0                        # consecutive windows at or below the random-walk bound
+    u_scale, u_prev = None, None         # config.u_rprop: the per-particle u bound scale and the last accepted u
     # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
     # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
     # keeps the PHYSICS F for metrics and assimilation)
@@ -519,7 +520,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
             fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev, vol0=vol0,
             surface_w=surface_w, Fg0=st.get("Fg"), coh_nbr=coh_nbr, coh_nbr_src=src,
-            frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag)
+            frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag,
+            u_scale_init=(u_scale if getattr(cfg, "u_rprop", False) else None))
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):
@@ -1091,6 +1093,29 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] converged at anim {a + 1}: net / summed displacement over {k_cyc} windows "
                     f"{net_ratio:.3f} <= random walk {1.0 / np.sqrt(k_cyc):.3f} for {cyc_stale} windows "
                     f"(the tail breathes without progress); holding still")
+        # ---- sign-history damping of the u channel (config.u_rprop; docs/method.md 10.19): after an
+        # ACCEPTED window, a particle whose u flipped sign against the previous accepted window has
+        # its bound halved (Rprop eta- = 0.5), one that kept its sign has it raised x1.2 up to the full
+        # spacing; floor 0.05; particles with u = 0 (off the layer) keep their scale. ----
+        if getattr(cfg, "u_rprop", False) and stats.get("u_final") is not None:
+            u_now = np.asarray(stats["u_final"], np.float32)
+            if u_scale is None or len(u_scale) != len(u_now):
+                u_scale = np.ones(len(u_now), np.float32)
+            if u_prev is not None and len(u_prev) == len(u_now):
+                prod = u_now * u_prev
+                flip, same = prod < 0, prod > 0
+                u_scale[flip] *= 0.5
+                u_scale[same] = np.minimum(1.0, u_scale[same] * 1.2)
+                np.clip(u_scale, 0.05, 1.0, out=u_scale)
+                act = u_now != 0
+                if act.any():
+                    rec["u_flip_frac"] = float(flip[act].mean())
+                    rec["u_scale_med"] = float(np.median(u_scale[act]))
+                    if (a + 1) % 10 == 0:
+                        log(f"[v2] anim {a + 1}: u sign flips {100 * flip[act].mean():.0f} % of the layer, "
+                            f"u bound scale median {np.median(u_scale[act]):.2f}, "
+                            f"at the floor {100 * (u_scale[act] <= 0.05).mean():.0f} %")
+            u_prev = u_now
 
         any_guard = n_out or n_nan or n_ns or n_bad or n_flip or n_inv
         if a % max(1, cfg.animations // 10) == 0 or a == cfg.animations - 1 or any_guard:
