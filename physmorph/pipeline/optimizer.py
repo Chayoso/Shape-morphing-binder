@@ -223,7 +223,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
                     mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None,
                     coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
-                    u_scale_init=None, ctrl_scale_init=None, eta_init=None):
+                    u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -324,7 +324,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
                        bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer,
-                       eta=(np.ascontiguousarray(eta_init, np.float32) if eta_init is not None else None))
+                       eta=(np.ascontiguousarray(eta_init, np.float32) if eta_init is not None else None),
+                       pin=(np.ascontiguousarray(pin_init, np.float32) if pin_init is not None else None))
 
     basis = ControlBasis(x0, T, cfg.control_grid, cfg.control_tknots, device=dev)
     expand = basis.expand                       # leaf -> (T,N,3,3) control field
@@ -344,7 +345,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                          Fg0=Fg0, track_geom=use_geom, persistent=True,
                          bonds=((bond_nbr, bond_rest, bond_frag, disc_ref_factor(N, cfg) ** 3)   # decoupling count = 1 reference particle
                                 if bond_nbr is not None else None),
-                         layer=layer)
+                         layer=layer, eta=spec.eta, pin=spec.pin)   # the SAME viscosity / pin as the adjoint rollout
+                                                                    # (2026-09-24 night: the commit rollout is this one)
     tr_eval.capture()
     adj_box = [None]                 # PersistentAdjoint, built at the first gradient rollout
 

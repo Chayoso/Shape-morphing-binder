@@ -411,6 +411,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     ctrl_scale_apply = None              # the scale handed to the optimiser (neighbourhood-smoothed under ctrl_rprop_smooth)
     ctrl_rev_count, frozen_p = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
+    settle_pin_arr = None                # config.settle_pin: the (N,) pin array handed to the rollout
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
     rev_prev_neg_acc = False             # config.outer_latch_reversal: the same reading, kept at every accepted commit
@@ -533,7 +534,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag,
             u_scale_init=(u_scale if getattr(cfg, "u_rprop", False) else None),
             ctrl_scale_init=(ctrl_scale_apply if (getattr(cfg, "ctrl_rprop", False) or getattr(cfg, "freeze_arrived", False)) else None),
-            eta_init=settle_eta_arr)
+            eta_init=settle_eta_arr, pin_init=settle_pin_arr)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):
@@ -1320,6 +1321,35 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 rec["settled_frac"] = float(settled_p.mean())
                 if (a + 1) % 5 == 0:
                     log(f"[v2] anim {a + 1}: settled {100 * settled_p.mean():.1f} % of the particles (viscosity {_eta_w:.3g}, one window)")
+            # ---- config.settle_pin (docs/method.md 10.27; the user: the oscillation must be zero): the settled
+            # set (arrived, twice reversed — the same reading as settle_eta / freeze) is PINNED inside the
+            # rollout: the kernels give it no velocity, no strain, no control, no relaxation move, so the
+            # settled body is exactly still frame to frame; its control is zeroed and its scale 0 as for the
+            # freeze. A kinematic constraint during the morph only. ----
+            if getattr(cfg, "settle_pin", False) and ctrl_prev_disp is not None and frozen_p is not None:
+                if settled_p is None or len(settled_p) != len(_d_now):
+                    settled_p = np.zeros(len(_d_now), bool)
+                _arr_p = stats.get("arrived_mask")
+                _arr_p = np.ones(len(_d_now), bool) if _arr_p is None or len(_arr_p) != len(_d_now) else np.asarray(_arr_p, bool)
+                settled_p |= _arr_p & (ctrl_rev_count >= 2)
+                settle_pin_arr = settled_p.astype(np.float32)
+                if settled_p.any():
+                    ctrl_scale[settled_p] = 0.0
+                    ctrl_scale_apply = np.asarray(ctrl_scale_apply, np.float32).copy(); ctrl_scale_apply[settled_p] = 0.0
+                    if dfc_prev is not None:
+                        _dp = np.asarray(dfc_prev)
+                        _axp = [i for i, sz in enumerate(_dp.shape) if sz == len(settled_p)]
+                        if _axp:
+                            _idx = [slice(None)] * _dp.ndim; _idx[_axp[0]] = settled_p; _dp[tuple(_idx)] = 0.0; dfc_prev = _dp
+                    if u_scale is not None and len(u_scale) == len(settled_p):
+                        u_scale[settled_p] = 0.0
+                    if st.get("v") is not None:
+                        st["v"][settled_p] = 0.0
+                        if st.get("C") is not None:
+                            st["C"][settled_p] = 0.0
+                rec["pinned_frac"] = float(settled_p.mean())
+                if (a + 1) % 5 == 0:
+                    log(f"[v2] anim {a + 1}: pinned {100 * settled_p.mean():.1f} % of the particles")
             if getattr(cfg, "freeze_arrived", False) and ctrl_prev_disp is not None and frozen_p is not None:
                 _arr_f = stats.get("arrived_mask")
                 _arr_f = np.ones(len(_d_now), bool) if _arr_f is None or len(_arr_f) != len(_d_now) else np.asarray(_arr_f, bool)
@@ -1448,4 +1478,5 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             "balancer": {"cap": balancer.cap, "cap_rel": getattr(balancer, "cap_rel", None),
                          "alpha_lam": balancer.alpha_lam},
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen, "reattached": n_reattach_total,
-            "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None)}
+            "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None),
+            "pinned": settled_p}                      # config.settle_pin / settle_eta: the settled set at the end (None when off)

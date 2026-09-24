@@ -1173,3 +1173,32 @@ motion lives, and are not in the deliverable recipe unless the user accepts a da
 phase; the deliverable object itself (the archived x, F, Fp with λ, μ) carries no viscosity —
 after the morph it responds to external forces through its elastic parameters alone, and with
 the plastic assimilation its rest state is the morphed shape.
+
+### 10.27 The pinned settled body (2026-09-24 night; config `settle_pin`; the user's "once optimised, lock it")
+
+The user's requirement is that the settled body's oscillation be exactly zero, not small. The
+freeze (10.25) and the viscous forms (10.26) act on the optimiser's step and on the momentum
+respectively, and the settled body still moved 0.0016 wu a window (g41f), the rollout's floor:
+the grid carries the last arrivals into settled material and the layer relaxation follows. The
+pin closes that floor at the kinematics, inside the forward model:
+
+```
+(50)  P = { p : arrived_p ∧ rev_p ≥ 2 }    (the settle_eta / freeze reading, monotone: once in P, always in P)
+      for p ∈ P, every step t of every later window:
+          v_p^{t+1} = 0,  C_p^{t+1} = 0,  F_p^{t+1} = F_p^t,  x_p^{t+1} = x_p^t          [k_g2p, k_update]
+          the layer relaxation and the u channel skip p                                 [k_layer_project]
+      the control of p is zeroed and its Rprop scale set to 0 (no step), u_p = 0, v_p = C_p = 0 at the commit
+```
+
+The pinned particle still carries its mass and its (zero) momentum to the grid, so the
+transporting material sees the settled body as a fixed obstacle: the constraint is the same
+kinematic one a boundary condition imposes, the grid solve is unchanged, and the adjoint through
+a pinned particle is the identity on x and F (its tape branch is a copy). Nothing is added to
+the material: λ, μ, F_e, F_p of a pinned particle are the ones it arrived with, and the
+delivered object (the archived x, F, F_p) responds to an external force after the morph through
+its elastic parameters alone — the pin exists only while the morph runs, like the OT pace or
+the window loop itself. Its cost is the one the freeze paid: a pinned particle cannot correct
+its arrival error any more, so the fit can only lose from the pin's onset (P183 bounds it), and
+the arrivals that come after it must flow around the pinned body instead of through it (P184
+reads the compression that costs). Read by the frames alone: a pinned particle's frame-to-frame
+step is 0 in float32, an unpinned one's never is (`scratch/pin_probe.py`).

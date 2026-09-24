@@ -165,3 +165,26 @@ re-mesh pops, surfel memory 0.0020 / 0.0010 (z300b / ac300), and the particle po
 averaged over two control windows (`--frame_avg 38`) 0.0010 with the tongue's tip continuous in
 every frame — a cosmetic option (the frames shown are averages, the transport lagged by a
 window), to be stated as such if used.
+
+## 10. Addendum (23:20) — the user's bar is ZERO: the pin (method.md 10.27)
+The user's requirement is exact: no oscillation at all, and "once optimised, lock it" (the
+plasticity idea). H removes the optimiser's alternation; what remains at 40k (0.02 spacings a
+window) and at 300k (~0.001 wu) is the rollout's own floor — the freeze (g41f: control zeroed,
+v zeroed at commits, stretch assimilated) left the settled body moving 0.0016 wu a window,
+and the viscous forms (g41v/g41w) the same. The kernel's viscosity damps only the affine
+velocity C, not v, so it cannot pin. The pin is the kinematic constraint inside the forward
+model (eq. 50): an arrived, twice-reversed particle keeps its position, velocity 0, affine 0,
+strain unchanged, no control, no relaxation move, from that window on; it still carries its
+mass to the grid, so the transport sees the settled body as a fixed obstacle. Nothing is added
+to the material: the delivered object responds to external forces through λ, μ alone, the pin
+exists only while the morph runs (the user's viscosity concern answered).
+
+Twins launched 23:20 (GPU 1): g41p (40k, the g41y form + pin), ap300 (300k, ai300's form +
+pin). Read from the frames alone (`scratch/pin_probe.py`: a pinned particle's frame-to-frame
+step is exactly 0 in float32). Pre-registered P181–P184 (experiments.md 23:20): the pinned
+fraction ≥ 0.6 at the end with no un-pinning; stride-19 ALT ≤ 0.0007 at 40k and video tail ≤
+0.0008 at 300k; fit cost ≤ 0.005; det F ≥ 0.6, strays ≤ 0.3 %. The decisive split for the
+user's question "is it the particles or the re-mesh?": with the pinned body exactly still, any
+motion left in the video over the pinned region is the reconstruction's (the per-frame fit),
+and the advect-only render of ai300 (the mesh advected by the particles, never re-fitted)
+gives the same split on the un-pinned run.

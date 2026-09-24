@@ -18,6 +18,11 @@ _ONES = {}
 _NOBOND = {}
 
 
+def _nopin(N: int, device: str):
+    """No pinned particle (config.settle_pin is a runner-side state; the plain step never pins)."""
+    return wp.zeros(N, dtype=wp.float32, device=device)
+
+
 def _nobond(N: int, device: str):
     """(nbr, rest, ncount) placeholders for launches without material re-coupling (K=0)."""
     a = _NOBOND.get((N, device))
@@ -100,12 +105,12 @@ def mpm_step(s: MPMState, prm: MPMParams):
     wp.launch(K.k_g2p, dim=N,
               inputs=[s.x, s.v, s.C, s.F, s.dFc, s.F_new, s.grid_v, s.eta,
                       gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz, prm.v_max,
-                      prm.eta_sym, prm.eta_mode],
+                      prm.eta_sym, prm.eta_mode, _nopin(N, dev)],
               device=dev)
     nb0 = _nobond(N, dev)
     wp.launch(K.k_update, dim=N,
               inputs=[s.x, s.x, s.v, s.F, s.F_new, s.F, prm.dt, prm.smoothing,
-                      nb0[0], nb0[1], nb0[2], 0, 0.0], device=dev)
+                      nb0[0], nb0[1], nb0[2], 0, 0.0, _nopin(N, dev)], device=dev)
     if prm.floor_y > -1.0e8:                                # sharp particle-level floor (drop heroes)
         wp.launch(K.k_floor_clamp, dim=N,
                   inputs=[s.x, s.v, prm.floor_y, prm.floor_friction], device=dev)

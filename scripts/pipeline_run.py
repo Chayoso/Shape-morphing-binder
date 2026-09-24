@@ -103,7 +103,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
-                         disc_ref=args.disc_ref, stop_on_cycle=args.stop_on_cycle, u_rprop=args.u_rprop, commit_pic=args.commit_pic, rebound_probe=args.rebound_probe, rest_commit=args.rest_commit, rest_commit_gate=args.rest_commit_gate, rest_commit_reversal=args.rest_commit_reversal, pace_project=args.pace_project, outer_latch_reversal=args.outer_latch_reversal, plan_native=args.plan_native, ctrl_rprop=args.ctrl_rprop, ctrl_rprop_smooth=args.ctrl_rprop_smooth, ctrl_rprop_k=args.ctrl_rprop_k, ctrl_rprop_arrived=args.ctrl_rprop_arrived, ctrl_rprop_hold=args.ctrl_rprop_hold, ctrl_rprop_hold_onset=args.ctrl_rprop_hold_onset, freeze_arrived=args.freeze_arrived, settle_eta=args.settle_eta, settle_commit=args.settle_commit, u_rprop_floor=args.u_rprop_floor, shift_sub=args.shift_sub, shift_h_sp=args.shift_h_sp, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
+                         disc_ref=args.disc_ref, stop_on_cycle=args.stop_on_cycle, u_rprop=args.u_rprop, commit_pic=args.commit_pic, rebound_probe=args.rebound_probe, rest_commit=args.rest_commit, rest_commit_gate=args.rest_commit_gate, rest_commit_reversal=args.rest_commit_reversal, pace_project=args.pace_project, outer_latch_reversal=args.outer_latch_reversal, plan_native=args.plan_native, ctrl_rprop=args.ctrl_rprop, ctrl_rprop_smooth=args.ctrl_rprop_smooth, ctrl_rprop_k=args.ctrl_rprop_k, ctrl_rprop_arrived=args.ctrl_rprop_arrived, ctrl_rprop_hold=args.ctrl_rprop_hold, ctrl_rprop_hold_onset=args.ctrl_rprop_hold_onset, freeze_arrived=args.freeze_arrived, settle_eta=args.settle_eta, settle_commit=args.settle_commit, settle_pin=args.settle_pin, u_rprop_floor=args.u_rprop_floor, shift_sub=args.shift_sub, shift_h_sp=args.shift_h_sp, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
                          layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
@@ -667,6 +667,8 @@ def main():
                          "zeroed, velocity zeroed at commits (config.freeze_arrived; needs --ctrl_rprop)")
     ap.add_argument("--settle_eta", action="store_true",
                     help="the settled body's viscosity: arrived, twice-reversed particles get eta = 1/(T dt) in the rollout (config.settle_eta; needs --ctrl_rprop)")
+    ap.add_argument("--settle_pin", action="store_true",
+                    help="pin arrived, twice-reversed particles inside the rollout (no motion at all; config.settle_pin; needs --ctrl_rprop)")
     ap.add_argument("--settle_commit", action="store_true",
                     help="with --rest_commit: the accepted state settled by one zero-control window under that viscosity before the next window (config.settle_commit)")
     ap.add_argument("--u_rprop_floor", type=float, default=0.05,
@@ -898,6 +900,7 @@ def main():
             f"{args.out}_{arm}.npz", src=src, tgt=tgt,
             orient=np.str_(_orient_name(args.tgt)),        # the loader already rotated the asset to y-up
             frames=np.stack(res["frames"]), deliver_n=np.int64(dn),
+            pinned=np.asarray(res["pinned"] if res.get("pinned") is not None else np.zeros(len(src), bool), bool),
             truncation=json.dumps(res.get("truncation")),
             F_samples=np.stack([res["F_frames"][i] for i in idx]),
             F_sample_idx=np.array(idx),

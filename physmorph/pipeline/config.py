@@ -557,6 +557,11 @@ class PipelineConfig:
     settle_eta: bool = False        # 2026-09-24 (10.26): a particle arrived and twice reversed gets the forward model's
                                     #   per-particle viscosity with the time constant of one window, eta = 1 / (T dt) —
                                     #   the quasi-static limit of settled material; needs ctrl_rprop (the reading).
+    settle_pin: bool = False        # 2026-09-24 (10.27, the user: the oscillation must be ZERO): a particle arrived and
+                                    #   twice reversed is PINNED inside the rollout — no velocity, no affine velocity, no
+                                    #   strain, no control, no relaxation move (kernels k_g2p / k_update / k_layer_project)
+                                    #   — a kinematic constraint during the morph only; the settled body is exactly still
+                                    #   frame to frame. Needs ctrl_rprop (the reading).
     settle_commit: bool = False     # 2026-09-24 (10.26): with rest_commit's latch, the accepted state is rolled one
                                     #   window with zero control under that viscosity and the settled x, F replace the
                                     #   commit's: the delivered commit is an equilibrium, the next window linearised at rest.

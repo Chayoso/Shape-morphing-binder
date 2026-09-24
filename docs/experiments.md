@@ -5728,3 +5728,35 @@ plan_native set), not the Rprop's; dl300 / dk300 attribute it. *g41y (the onset 
 particles), first two:* **nefertiti 0.9719 (+0.004, 82 windows)** — the early stop is gone —
 and cow −0.0014, det F within −0.01. *ac300 with the band-tracked mesh:* tail 0.0018 against
 0.0013 untracked — the tracked-mesh family is refuted a second time.
+
+**2026-09-24 23:20 — the PIN (method.md 10.27, `--settle_pin`): the user's "the oscillation
+must be zero; once optimised, lock it".** The freeze (g41f) and the viscous forms (g41v/g41w)
+left the settled body moving 0.0016 wu a window — the rollout's own floor. The pin is the
+kinematic constraint inside the forward model: an arrived, twice-reversed particle has no
+velocity, no affine velocity, no strain change, no control, no relaxation move, from that
+window on (eq. 50), and the frames can read it — its frame-to-frame step is exactly 0. Twins
+launched 23:20 on GPU 1: **g41p** = the g41y form (arrival-read onset hold) + `--settle_pin` at
+40k; **ap300** = ai300's form (l300 recipe + H) + `--settle_pin` at 300k. Pre-registered:
+**P181** the pinned fraction reaches ≥ 0.6 by the last window and the pinned body's
+frame-to-frame step is exactly 0 (pin_probe: `still_frac` ≥ 0.6 at the end, un-pinning 0);
+**P182** the alternation is gone from the arrived material: stride-19 ALT ≤ 0.0007 at 40k
+(g41h 0.0014), the video tail ≤ 0.0008 at 300k (ai300 0.0011), the layer's step ≤ 0.0005 wu;
+**P183** the fit's cost is bounded: silIoU ≥ g41y bunny − 0.005 at 40k and ≥ 0.9660 (ai300 −
+0.005) at 300k, the ear fill ≥ ai300 − 0.02; **P184** the transport around the pinned obstacle
+does not compress: det F ≥ 0.6 and strays ≤ 0.3 %. If P181 holds and P182 fails, the visible
+motion is not the particles' — it is the fit's (the re-mesh), and the deliverable side answers
+it; if P183 fails, the pin's onset (two reversals) is too early for the thin features and the
+onset must be read per feature.
+
+**2026-09-24 23:35 — a defect found by the pin's own reading, and a correction to g41v.** The 3k
+smoke of the pin (12 windows, 1.2 % pinned by window 10) archived NO still particle: every frame's
+zero-step fraction was 0.000. The cause is in `optimize_window`: the adjoint rollouts take the
+`RolloutSpec` (which carried `eta` / `pin`), but the persistent no-grad trajectory `tr_eval` — the
+line search's, the warm-start comparison's and **the commit rollout's** — is built directly and
+had neither. So the pinned particles were pinned in the gradient and free in the delivered
+frames; and the same held for `settle_eta`: **g41v optimised with the settled body viscous but
+committed it inviscid** — its "invariant tail" reading (20:30 addendum) is of the wrong rollout
+and is withdrawn (not re-run: the viscous form is diagnostic only by the user's rule). Fixed
+(`tr_eval` takes `eta=spec.eta, pin=spec.pin`); the archive now carries the `pinned` mask, and
+`pin_probe.py` reads the pinned set's step directly (exactly 0 expected). The 23:20 twins were
+discarded and relaunched at 23:35 with the fix; P181–P184 stand.

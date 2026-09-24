@@ -248,7 +248,8 @@ def k_g2p(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           dFc: wp.array(dtype=wp.mat33), F_new: wp.array(dtype=wp.mat33),
           grid_v: wp.array(dtype=wp.vec3), eta: wp.array(dtype=float),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float,
-          nx: int, ny: int, nz: int, v_max: float, eta_sym: int, eta_mode: int):
+          nx: int, ny: int, nz: int, v_max: float, eta_sym: int, eta_mode: int,
+          pin: wp.array(dtype=float)):
     p = wp.tid()
     xp = x[p]
     if not valid_pos(xp):
@@ -294,6 +295,14 @@ def k_g2p(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
         Cnew = (Cnew - Csym) + Csym * fac
     else:
         Cnew = Cnew * fac
+    if pin[p] > 0.5:
+        # a PINNED particle (config.settle_pin, docs/method.md 10.27): a kinematic constraint during the
+        # morph — no velocity, no affine velocity, no strain, no control; it still carries its mass and
+        # momentum (zero) to the grid, so the rest of the body sees it as a fixed obstacle
+        v[p] = wp.vec3(0.0, 0.0, 0.0)
+        C[p] = wp.mat33(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        F_new[p] = F[p]
+        return
     v[p] = vnew
     C[p] = Cnew
     F_new[p] = (wp.identity(n=3, dtype=float) + dt * Cnew) @ (F[p] + dFc[p])
@@ -308,8 +317,13 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              F_new: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33),
              dt: float, s: float,
              nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
-             frag: wp.array(dtype=float), bond_K: int, bond_frac: float):
+             frag: wp.array(dtype=float), bond_K: int, bond_frac: float,
+             pin: wp.array(dtype=float)):
     p = wp.tid()
+    if pin[p] > 0.5:                                  # pinned (config.settle_pin): the particle does not move
+        x_out[p] = x_in[p]
+        F_out[p] = F_in[p]
+        return
     F_out[p] = (1.0 - s) * F_new[p] + s * F_in[p]   # blend new with OLD F
     xp = x_in[p] + dt * v[p]
     if bond_K > 0 and frag[p] > 0.5:
@@ -372,13 +386,13 @@ def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
                     mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
                     nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
                     frac: float, u: wp.array(dtype=float), frac_u: float, ug: wp.array(dtype=float),
-                    x_out: wp.array(dtype=wp.vec3)):
+                    x_out: wp.array(dtype=wp.vec3), pin: wp.array(dtype=float)):
     """Outer-layer position update: the relaxation (frac) and the POSITION-MODE CONTROL
     CHANNEL u (docs/surface_gradient.md §7): u[p] is a per-window normal displacement leaf
     of the optimiser, applied frac_u = 1/T per step, so the render covector reaches it
     without the grid's low-pass (its adjoint is the identity times the physics response)."""
     p = wp.tid()
-    if mask[p] < 0.5:
+    if mask[p] < 0.5 or pin[p] > 0.5:                # pinned (config.settle_pin): no relaxation move either
         x_out[p] = x_in[p]
         return
     dbar = float(0.0)

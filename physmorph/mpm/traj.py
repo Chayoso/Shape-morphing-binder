@@ -70,7 +70,7 @@ _WARMED: set = set()          # devices whose kernels were launched once outside
 
 class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
-                 Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
+                 Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None, pin=None,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
                  Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None):
         x0 = np.ascontiguousarray(x0, np.float32)
@@ -124,6 +124,7 @@ class Trajectory:
         self.lam = M(lam, 0.0)
         self.mu = M(mu, 0.0)
         self.eta = M(eta, 0.0)
+        self.pin = M(pin, 0.0)            # config.settle_pin: 1 = a pinned particle (kernels k_g2p / k_update / k_layer_project)
         self.Fp = A(_id(N) if Fp is None else Fp, wp.mat33)
         if vol0 is None:
             vol_a = np.zeros(N, np.float32)
@@ -299,18 +300,18 @@ class Trajectory:
                   K.WALL_NODES], device=dev)
         wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
-                  prm.v_max, prm.eta_sym, prm.eta_mode], device=dev)
+                  prm.v_max, prm.eta_sym, prm.eta_mode, self.pin], device=dev)
         x_next = self.xu[t + 1] if self.layer else self.x[t + 1]
         F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], F_next, prm.dt, prm.smoothing,
-                  bnb, brest, bnc, bK, 1.0 / float(self.T)], device=dev)
+                  bnb, brest, bnc, bK, 1.0 / float(self.T), self.pin], device=dev)
         if self.layer:
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ld[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac,
-                      self.layer_u, self.layer_frac_u, self.layer_ug, self.x[t + 1]], device=dev)
+                      self.layer_u, self.layer_frac_u, self.layer_ug, self.x[t + 1], self.pin], device=dev)
             if self.layer_F:
                 wp.launch(K.k_layer_F, dim=N, inputs=[self.layer_u, self.layer_ug, self.layer_mask, self.layer_nrm,
                           self.layer_nbr, self.layer_g, self.layer_K, self.layer_frac_u, self.layer_inv_depth,
