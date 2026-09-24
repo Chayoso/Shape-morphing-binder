@@ -5517,3 +5517,19 @@ stride-12 mid-morph per-frame change (t = 0.2–0.5) within 20 % of the untracke
 must not be smeared). On ac300 the same for comparison. Read as: the residual per-window jitter
 of a settled body (the rollout's, not the optimiser's — g41f) is below the deliverable's own
 resolution and is not to be re-fitted every frame.
+
+**2026-09-24 19:10 — the arrival-gated gallery (g41t, 19 targets) against g41.** silIoU within
+−0.003 on all 19 (up on 15: C **+0.049** — the run that stalled at 28 windows since the C
+forensic transports to 113 —, armadilo +0.005, bunny +0.005, fandisk +0.006, maxplanck +0.005;
+down by ≤ 0.0014 on V, beast, bob, ogre): **P135 ✓, P136's fit ✓ on every target**; flips ≤ 0.6 on
+16, step ≤ g41's on 18, both on 15: **P137 ✓**; **P136's det F ✗ on two**: C 0.865 → **0.528**
+and beast 0.800 → **0.488** (the others within −0.018) — both the longest transports (113 / 133
+windows): where arrived particles settle next to particles still in transit at full step, the
+material between them shears, the spatial-incoherence cost in a new guise; homer's −0.06 became
+−0.011. *Pre-registered g41u = the 19-target sweep with the held global step added
+(`--ctrl_rprop_hold`; g41h's form)* (GPUs 3 and 1, 19:10): **P154** det F ≥ g41's − 0.05 on
+every target, C and beast included; **P155** silIoU ≥ g41's − 0.003 on every target; **P156**
+flips ≤ 0.6 and step ≤ g41's on ≥ 15. P154 failing on C / beast says the gate needs the
+material's coherence, not the step's: the smoothing neighbourhood must straddle the
+arrived/in-transit boundary (the scale = the neighbourhood MINIMUM rather than the mean, so a
+particle next to settled material settles with it).
