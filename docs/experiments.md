@@ -4168,3 +4168,20 @@ run's. Correction of the framing (the user, 22:45): the two closest papers of th
 2025 MPM morph and PhysMorph-GS — are the user's own; this project is their follow-up, and today's
 combination closes the two items PhysMorph-GS lists as open, thin features and watertightness
 (docs/related_work.md updated).
+
+**Baseline comparison started (23:10; docs/related_work.md "Competitors and baselines").** The two
+external morph baselines with public code — *Implicit Neural Surface Deformation with Explicit
+Velocity Fields* (ICLR 2025, Sang et al.; repo Sangluisme/Implicit-surf-Deformation @ e7992a5) and
+*4Deform* (CVPR 2025; Sangluisme/4Deform @ 7f2274e) — set up on hyde06 in a separate conda env
+`nsd` (JAX 0.4.25 + flax 0.8.1; the pip cuda12 plugin pulls cuDNN 9.26, which JAX 0.4.25 cannot
+initialise — pinned to 8.9.7.29, verified). Inputs: an icosphere (subdivision 5, the asset's 42
+vertices are too coarse for 20k samples), `assets/bunny.obj`, and a generated torus of the
+sphere's volume (R/r = 2.5, genus 1) for the hole case; preprocessing on the CPU (20k surface
+samples + normals per shape, 5k paired "verts", one shared scale; `CORR=none`: the matching loss
+off, because sphere → bunny / torus has no correspondences and the authors' functional-map
+matcher does not apply). Runs launched on GPU 0: ISD and 4Deform on sphere → bunny and sphere →
+torus (their shipped confs: ISD 15k epochs, T = 10; 4Deform 25k + 5k, T = 5; outputs = marching-cubes
+meshes at t = k/N, largest component only, plus advected point clouds). Comparison plan: sample our
+morph at the same t, report silhouette IoU / Chamfer, the Euler characteristic per frame (the
+genus change), volume drift, self-intersection, wall-clock. Scripts and the agent's notes in the
+session scratchpad `baselines/`; server `baselines_prep/`, `baselines/`.
