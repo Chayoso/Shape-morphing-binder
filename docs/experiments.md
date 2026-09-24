@@ -5116,3 +5116,12 @@ on GPU 0 the morning chain: 19 Poisson stills with meshes (the dropout window's 
 velocity vs the layer's normal step), M1 (the tail-only decomposition twins full / normal /
 tangent, rendered at stride 4), and the `--keep_attached` re-render of z300b with its sidecar
 against the original.*
+*The rule replayed on z300b (13:40; `rprop_replay.py`, the counterfactual — z300b ran without
+it, so this is what the scales WOULD have been from its reversal history).* The body's moving
+particles: reversal fraction 0.01–0.05 through window 27, 0.5 from 29 — the step scale's median
+would have fallen to 0.5 at 29, 0.125 at 32, 0.002 at 39 (P103's 15 windows ✓ in the
+counterfactual). The ear region's particles: no reversal (0.00–0.02) through window 51 with the
+scale at 1.0, then reversal from 52 (0.4) and the scale decaying to 0.06 at 67 — the ear's
+arrival comes 23 windows after the body's, and the rule reads it per particle. The body's median
+per-window displacement in z300b's tail stays 0.004–0.008 wu (the breathing) — the quantity the
+rule is meant to send to zero in ab300.
