@@ -5868,3 +5868,15 @@ arrived/in-transit boundary, the same shear g41t showed on C/beast). The pin's c
 the freeze's was — at the boundary — and it is the reading to watch on the remaining 15 before
 adoption. A boundary-aware variant, if needed: pin only particles whose neighbourhood (the
 regulariser's kNN) is arrived as well — no constant, the coherence neighbourhood's own test.
+
+**2026-09-25 02:45 — P186 ✓: the pin makes the global hold unnecessary.** g41q (arrival-gated
+smoothed Rprop + `--settle_pin`, NO `--ctrl_rprop_hold*`): **bunny 0.9689** (g41p with the hold
+0.9679, g41 0.9610), det F 0.742, 55 windows, layer flips 0.37, step 0.0124 spacings; **C 0.9621**
+(g41z_C with the onset hold 0.9616). The hold was the answer to the anneal's ×1.15 re-inflation
+of the global step cancelling the per-particle decay (ag300); with the pin the arrived particles
+have no step at all, so the global step may keep its recovery for the transport — the simpler
+recipe is at least as good on both. Launched 02:45 (GPU 0): g41q on the remaining 17 targets —
+the adoption candidate for 40k is now **g41q's form**, gated by P185's bounds applied to it
+(fit within −0.003 of g41y/g41, det F within −0.05 — the boundary compression seen in g41z on
+cow/nefertiti is the open item). The user closed the local session at 02:40 with "keep them
+running"; all chains are detached (nohup, ppid 1).
