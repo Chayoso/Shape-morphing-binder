@@ -5281,3 +5281,11 @@ pinch-off frame (276) stays dropped (the piece lies beyond the link radius), one
 288 from the refit's own variation, and every frame of the dropout window is a single component
 in both renders: **P101 ✗ / P102 ✓** — the component filter is not the tip's mechanism (the census
 had said so); the flag stays opt-in for the rare detached pinch-off.
+
+*15:05 — ab300 ended (135 windows, 40.8 min): silIoU 0.9783, **det F min 0.19** — the per-particle
+form's cost, worse than ac300's 0.39 (the KDE term's push adds to the sub-cell control noise);
+its chain runs. ac300's spectral reading: the layer's low-band consecutive-window correlation
+**+0.04** (l300 −0.67; every earlier run −0.6 … −0.98) — the grid-scale alternation is gone at
+300k too — with the high-band energy share 0.80 (the residual motion is sub-cell: the control
+noise the smoothed form (ad300) is built to remove). The ad300 smoke ran clean (1 % reversals in
+transport); the run is on GPU 1.
