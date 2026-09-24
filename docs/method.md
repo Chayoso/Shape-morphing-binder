@@ -1128,3 +1128,24 @@ step decays under it. Read together with the reconstruction question (the kind o
 motion, experiments.md 09:40): if the tail's visible change is a tangential re-sampling of the
 Poisson fit (hypothesis c), the decayed step removes that too, since a particle that no longer
 moves cannot rearrange.
+
+Addendum (2026-09-24 15:50) — the neighbourhood-smoothed form (`ctrl_rprop_smooth`, `ctrl_rprop_k`).
+The per-particle rule read on the bunny at 300k: the layer's flip fraction 0.74 → 0.41, its
+per-window normal step 0.0017 → 0.00095 wu, the low-band consecutive-window correlation −0.67 →
++0.04, the delivered video's tail 0.0016 → 0.0013 per frame (the 40k reference's value) — and det
+F min 0.664 → 0.388: neighbouring particles' control updates differing by orders of magnitude are
+a sub-cell control noise the regulariser (creg, a kNN Laplacian on the control) exists to forbid,
+and the material pays in local compression. The second form reads the reversal on the window
+displacement averaged over a material neighbourhood (frozen at the source) and applies the
+neighbourhood mean of the per-particle scales:
+
+```
+(47)  d̄_p = mean_{j ∈ N(p) ∪ p} d_j  (same for d'),   r_p updated by (46) on d̄_p · d̄'_p,   the step scaled by  r̄_p = mean_{j ∈ N(p) ∪ p} r_j
+```
+
+N(p) = the coherence kNN (≈ 60 at 300k, half a cell; ad300: det F 0.64 kept, the decay diluted to
+a correlation of −0.31 and a step of 0.0012 wu) or the control regulariser's own kNN (creg_k = 8;
+ag300, running): the neighbourhood is the regulariser's constant, not a new one. What the rule
+costs the transport: a particle whose arrival wiggle reverses once keeps half its step for good —
+the ear tip in ac300 held 10.7 reference particles against l300's 18.5; the reading of the form
+on the tongue is af300 (with the KDE term).
