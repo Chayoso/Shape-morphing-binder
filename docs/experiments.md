@@ -5641,3 +5641,19 @@ alone 0.0036), ALT 0.0014 (0.0021), ALT/DRIFT 0.93 — the average attenuates th
 the re-mesh pops remain (max 0.0128): **P152 ✗** (≤ 0.0010). The tracked-mesh family is not the
 deliverable's temporal filter; the frame average (`--frame_avg`, rendering) is the remaining
 deliverable-side candidate.
+
+**2026-09-24 21:20 — the held-step gallery (g41u = H on the 19 targets) against g41.** det F
+recovered where the arrival gate alone had collapsed it — **C 0.53 → 0.859, beast 0.49 → 0.741**
+(P154 ✓ except beast by 0.009: −0.059 against −0.05); flips ≤ 0.6 and step ≤ g41's on 15 (**P156
+✓**); but the fit drops beyond tolerance on four targets — **C −0.010** (0.891, 24 windows: the
+transport the arrival gate had un-stalled to 0.950 at 113 windows is stalled again by the hold),
+**beast −0.006**, **nefertiti −0.006**, **V −0.004** (**P155 ✗**) — and the runs end earlier
+almost everywhere (A 49 → 33 windows, bunny 59 → 43, heart 34 → 24, teapot 33 → 21): a global
+step that never grows ends the transport early on the targets that need it late. So the hold is
+right in the tail and wrong in the transport, exactly as the arrival gate separates the two for
+the per-particle halving. *Pre-registered form: the hold from the onset* (`--ctrl_rprop_hold_onset`):
+α grows as before until the alternation's onset (two accepted commits reversing in a row — the
+same reading the onset gate and the rest latch use) and is held from then on. *g41x = the
+19-target sweep with H + hold-from-onset* (GPUs 3 and 0): **P169** silIoU ≥ g41's − 0.003 on
+every target (C ≥ 0.898, beast ≥ 0.951, nefertiti ≥ 0.965, V ≥ 0.976); **P170** det F ≥ g41's −
+0.05 on every target; **P171** flips ≤ 0.6 and step ≤ g41's on ≥ 15.
