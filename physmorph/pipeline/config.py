@@ -496,6 +496,12 @@ class PipelineConfig:
                                     #   alternation at the resolved scale. A morph delivered as a sequence of
                                     #   equilibria carries no momentum between windows; the terminal kinetic term
                                     #   already asks for rest and this makes it exact. No constant.
+    rest_commit_gate: float = 1.0   #   apply rest_commit only from the first accepted commit at which the u transport
+                                    #   gate (10.16: the fraction of the layer within one cell of its OT image) reads
+                                    #   at least this — the arrival; latched from then on. The 20k diagnostic showed
+                                    #   windows from rest at EVERY commit cost the transport (silIoU 0.919 against
+                                    #   0.967 at 30 windows: the expansion rides 0.9 of a window's free travel), and
+                                    #   the m300 run transported 3x slower. 0 = every commit (the refuted form).
     rebound_probe: bool = False     # 2026-09-24 DIAGNOSTIC (docs/experiments.md, the elastic-rebound hypothesis): after
                                     #   every accepted commit, roll one window with ZERO control from the commit state
                                     #   (plain elastic dynamics, no layer, no bonds) and log the projection of that free

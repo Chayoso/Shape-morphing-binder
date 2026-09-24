@@ -407,6 +407,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                          # its commit positions over the last `patience` windows
     cyc_stale = 0                        # consecutive windows at or below the random-walk bound
     u_scale, u_prev = None, None         # config.u_rprop: the per-particle u bound scale and the last accepted u
+    rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
     # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
     # keeps the PHYSICS F for metrics and assimilation)
@@ -1198,9 +1199,17 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # of an accepted commit is what the rebound probe measured continuing forward and the next window's
         # control cancelling — the two-window alternation at the resolved scale. v and C zeroed; x, F, Fp kept. ----
         if getattr(cfg, "rest_commit", False) and st.get("v") is not None:
-            st["v"] = np.zeros_like(st["v"])
-            if st.get("C") is not None:
-                st["C"] = np.zeros_like(st["C"])
+            _gate_thr = float(getattr(cfg, "rest_commit_gate", 1.0) or 0.0)
+            _ug = stats.get("u_gate")
+            if not rest_latched and (_gate_thr <= 0.0 or (_ug is not None and float(_ug) >= _gate_thr - 1e-6)):
+                rest_latched = True
+                log(f"[v2] anim {a + 1}: windows from rest from here on (u transport gate "
+                    f"{100 * float(_ug if _ug is not None else 0):.1f} % >= {100 * _gate_thr:.0f} %)")
+            if rest_latched:
+                st["v"] = np.zeros_like(st["v"])
+                if st.get("C") is not None:
+                    st["C"] = np.zeros_like(st["C"])
+            rec["rest_from_here"] = int(rest_latched)
 
         any_guard = n_out or n_nan or n_ns or n_bad or n_flip or n_inv
         if a % max(1, cfg.animations // 10) == 0 or a == cfg.animations - 1 or any_guard:
