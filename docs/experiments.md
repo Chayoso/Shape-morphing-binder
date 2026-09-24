@@ -5657,3 +5657,9 @@ same reading the onset gate and the rest latch use) and is held from then on. *g
 19-target sweep with H + hold-from-onset* (GPUs 3 and 0): **P169** silIoU ≥ g41's − 0.003 on
 every target (C ≥ 0.898, beast ≥ 0.951, nefertiti ≥ 0.965, V ≥ 0.976); **P170** det F ≥ g41's −
 0.05 on every target; **P171** flips ≤ 0.6 and step ≤ g41's on ≥ 15.
+*(21:30) Deliverable-side readings so far:* `--frame_avg 19` on z300b: tail **0.0016** (untracked
+0.0024), ALT 0.0013 (0.0021) — a third off, **P167 ✗** at K = 19 (≤ 0.0012); K = 38 rendering.
+`--surfel_memory 2`: z300b 0.0020, ac300 **0.0010** (0.0013) — small gains, **P160 ✗** for z300b
+(≤ 0.0018). Against these, the optimiser-side H at 300k (ai300: tail 0.0011, stride-19 ALT
+0.0005) does more than any render-side filter tried; the deliverable-side measures are
+secondary and cosmetic, to be combined only if the user wants the last third off.
