@@ -5696,3 +5696,10 @@ the global cosine when fewer than half have arrived) — no constant beyond the 
 already computes. *g41y = the 19-target sweep with the arrival-read onset* (GPUs 3 and 0):
 **P172** nefertiti ≥ 0.965 and C ≥ 0.898 with det F ≥ g41's − 0.05 everywhere; **P173** silIoU ≥
 g41's − 0.003 on every target; **P174** flips ≤ 0.6 and step ≤ g41's on ≥ 15.
+*Pre-registered am300 = z300b's recipe + H with the hold from the arrival-read onset*
+(`--ctrl_rprop --ctrl_rprop_smooth --ctrl_rprop_k 8 --ctrl_rprop_arrived --ctrl_rprop_hold_onset
+--u_rprop --u_rprop_floor 0`; GPU 2, 22:20) — the 300k deliverable candidate with the transport's
+growing step kept until the settled body reverses: **P175** det F ≥ 0.55 (al300 0.51); **P176** ear
+fill ≥ 0.93, silIoU ≥ 0.977; **P177** the layer's step ≤ 0.001 wu, flips ≤ 0.55, low-band > −0.2,
+the video tail ≤ 0.0013, stride-19 ALT ≤ 0.0008; **P178** the hold engages between windows 45
+and 70.
