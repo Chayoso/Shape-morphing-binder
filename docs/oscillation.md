@@ -246,3 +246,43 @@ period T; stiffness and volume excluded); cause = the per-window terminal-only o
 not the cold start (warm start: unchanged). `w_kin_var 200` removes it (power 0.04–0.06,
 shape unchanged); `warm_start + w_kin 5 + w_kin_var 50` reaches visible 0.3 %. Details and
 the recommended recipe: docs/experiments.md (2026-09-15) and docs/render_controls_physics.md §9.
+
+## Addendum 9 — the 300k tail: the outer layer breathes along its normal, visibly (2026-09-23 night)
+
+The user, on the 300k plain-mesh video: "the oscillation near the optimum is severe". Measured on
+the archives (`$OUT/scratch/osc_probe.py`, `osc_layer.py`, `osc_normal.py`; per-window displacement
+over 19-frame windows, in native spacings):
+
+| run | tail windows | bulk |d| median | layer |d| median | layer normal / tangential | normal sign flips | net normal drift / summed |normal| |
+|---|---|---|---|---|---|---|
+| c300 (300k) | 147–176 | 0.02–0.13 | 0.10–0.19 (p90 0.18–0.39) | 0.07–0.11 / 0.05–0.13 | 59–79 % | 0.04 / 2.5 sp |
+| g41 (40k) | 27–56 | 0.01–0.03 | 0.03–0.09 | 0.02–0.07 / 0.01–0.04 | 42–74 % | 0.002 / 0.96 sp |
+| e300 (basis) | 173–202 | 0.04–0.09 | 0.13–0.22 | — | — | — |
+| f300 (shifting) | 139–168 | 0.04–0.13 | 0.14–0.22 | — | — | — |
+
+The outer layer moves 0.1–0.2 spacings a window (0.007–0.014 wu; p90 up to 0.027 wu), the normal
+component flips sign in 60–80 % of the layer particles from one window to the next, and thirty
+windows of it sum to 2.5 spacings of normal motion for 0.04 spacings of net drift: the surface
+breathes in and out with no progress. Consecutive-window correlation of the layer −0.35 … −0.81.
+The bulk follows at half the amplitude (grid-smooth, corr −0.5 … −0.9). The 40k tail is the same
+phenomenon at 0.003–0.009 wu — Addendum 7's "sub-spacing, invisible" — and its video is still only
+because the run converged at 57 windows and the frames are HELD; the 300k run never converges (the
+plateau rule sees 0.1–0.7 % gains a window) and its tail plays the breathing at 1.5–2.5× the
+40k amplitude. Per-frame image change in the videos (`video_jumps.py`, plain-mesh, stride 12): the
+300k tail's median |dI| 0.0021 equals its own morph phase (0.0022) and is unchanged at the
+reference-spacing render (0.0023) — not a reconstruction artefact; the 40k tail 0.0001.
+
+What it is not (each measured this night, docs/experiments.md): not the control's sub-cell DOF
+(the cell-scale basis e300 breathes the same, layer corr −0.81), not the sub-cell disorder
+(shifting f300 the same), not transport-subsample noise (the subsample is fixed for the run), not
+the reconstruction (the reference-spacing video changes as much). What it is: the window loop's
+limit cycle on the outer layer — a render-driven u step along the normal each window, undone the
+next — with the tangential part (the per-particle transport control) alternating alongside.
+Addendum 6's verdict on reversal-triggered brakes stands (v4 / v6 froze honest descent).
+
+The two candidates that follow from the measurement, to be pre-registered: (a) the delivered
+trajectory stops where progress stops — a convergence test on NET displacement against summed
+displacement over the last k windows (the breathing has net/summed ≈ 0.02; honest descent ≈ 1),
+so the deliverable holds still after convergence as the 40k one does; (b) the source — the u
+channel's step damped per particle by its own sign history (Rprop: halve on a flip, grow slowly
+when consistent), or stopped at the render target's own noise floor. Neither is in the code yet.
