@@ -5577,3 +5577,14 @@ finding) while the KDE keeps pulling at the sub-cell scale. *Pre-registered al30
 20:00): **P163** det F ≥ 0.55; **P164** ear fill ≥ 0.93, silIoU ≥ 0.977; **P165** flips ≤ 0.55, the
 layer's step ≤ 0.001 wu, low-band > −0.2, the video tail ≤ 0.0013; **P166** the bulk's reversal
 negative in ≤ 3 windows.
+
+**2026-09-24 20:10 — aj300's verdict (300k, l300 + H + freeze at arrival).** 59 windows in 21.5
+min, the run ending on five stale commits with 88 % frozen. **P147 ✓** (64 % frozen at window 40,
+82 % at 50); **P148** flips **0.29** ✓, low-band **+0.18** ✓ (no alternation at all), the step
+0.0102 spacings = 0.0007 wu (✗ against 0.0005 by a hair); **P149** the video tail 0.0015 (✗ by
+0.0002), bump **1.11°** (the smoothest 300k surface so far); **P150 ✗** silIoU **0.9701** (l300
+0.9797), the ear fill 0.928, det F 0.587 ✓. The same picture as at 40k: the freeze removes the
+alternation and halves the layer's residual motion (0.025–0.031 spacings a window against
+l300's 0.05–0.08; the bulk 0.016) but locks the body before the fit is finished and costs 0.01 of
+silIoU. Not the deliverable form; it confirms that the residual per-window motion of a frozen
+body (0.0007 wu at 300k) is the rollout's carriage of the unfrozen rest, as at 40k.
