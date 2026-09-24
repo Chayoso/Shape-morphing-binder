@@ -4872,3 +4872,39 @@ stopped the run at window 17 after three regressions of −11 … −14 % (deliv
 against the sphere's 45: the reconstruction closes over the forming hole). The genus change is
 our weak case as it is the baselines' — ours keeps one body and gets the topology, ISD gets the
 end surface and tears the middle, 4Deform gets neither. Recorded as is; not pursued tonight.
+
+**2026-09-24 05:50 — u300's verdict (the plan blur at the sample spacing).** 53 windows in 32.5
+min, silIoU 0.9788, det F 0.639. **P78 ✓** (sqrt(eps) 0.116 wu); **P79 ✗** — the base slab's
+mid-growth maximum 1.37× (l300 1.49); **P80 ✗** — the mid-ear thickness at t = 0.15–0.25 in
+median 0.68 (0.68); **P81** — ear fill 0.929 (≥ 0.93 missed by 0.001), 18 strays (10), the fit and
+the window count fine. The doubled blur was real and is corrected (the arrival curve is identical
+to l300's, so the transport did not depend on it), but it is not the bulge's constant: the pile
+and the filament survive it almost unchanged. What disc_ref scales besides the plan's spacing:
+the layer's u bound and relaxation neighbourhood, the isolation gate, the coherence radius and
+count, the bond decoupling count, the shading reference's normal grid, and — through the same
+scaled target spacing — the nearest-neighbour band term and the ejection veto radius. The next
+twin dissects by group (read below).
+
+*The picture that fits the five ear twins (06:00), and mechanism 6.* c300 (native constants):
+no pile, the ear never fills. d300 / g300 / l300 / n300 / t300 / u300 (the reference
+discretisation, whatever else): the ear fills, the supply arrives at the base faster than the
+front takes it up, and the front is a sub-cell filament. So the pile is the supply the reference
+constants deliver meeting an uptake the front cannot give — the front stretches into a filament
+of bulk density three particles across, which the cell sum cannot tell from the target's ear
+cells (a sparse cell and a dense filament in part of the cell have the same CIC mass); at 40k the
+spacing forbids a filament thinner than a cell and the front is a tongue. The correction that
+cannot be found among the scaled constants is a term that sees the particle scale. The code has
+one: the two-sided KDE density match (losses/volumetric.py d_kde, 2026-09-03: the kernel density
+of the particles against the kernel density of the target's own points at every particle, the
+neighbour lists frozen per window, its gradient from crowded to deficient regions), scaled once
+to the cell sum's gradient norm (`kde_scale`) so its weight is a ratio, not a constant. A filament
+surrounded by target volume it leaves empty is a deficit at that scale; a pile is an excess.
+*Pre-registered y300 = l300 + `--plan_native --w_kde 1`* (equal gradient norm with the cell sum;
+GPU 2, 06:00): **P89** the base slab's mid-growth maximum ≤ 1.20× (u300 1.37); **P90** the mid-ear
+thickness at t = 0.15–0.25 ≥ 0.80 (0.68); **P91** native pieces at t ≤ 0.30 ≤ 40 per frame (u300
+81–196); **P92** ear fill ≥ 0.93, silIoU ≥ 0.975, ≤ 110 windows, ≤ 10 strays. Refutation: P89–P90
+failing says the particle-scale term cannot move the supply either and the front's stretching is
+the control's (then the carrier is structural — Ando 2012 / Jiang 2017, particles split or a
+spine carried where the destination is thinner than two cells); P92 failing on the fit says the
+KDE's pull competes with the cell sum at the surface (the equal-norm ratio too high there; a
+surface-masked KDE would be next).
