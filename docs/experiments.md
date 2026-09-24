@@ -5201,3 +5201,37 @@ the band limit must be relaxed locally (a deeper octree at the tip = R-2's other
 *The codec floor (14:15):* over the 20 identical hold frames the per-frame change is 0.0000 (p90
 0.0001) in both z300b's and g41's videos — the encoder contributes nothing; the 0.0015–0.0025 per
 frame is image change from the renders themselves.
+
+**2026-09-24 14:20 — M2 and the PoissonRecon tip probe read; the kind of the tail motion.**
+*M2 (z300b's last six window commits; the Poisson surface of frame k sampled and its signed
+distance to frame k+1's surface = the surface's own normal displacement, against the layer
+particles' normal step over the same window):* **v_n rms / d·n rms = 0.91–0.98** in every pair
+(v_n rms 0.006–0.011 wu, mean ±0.001–0.005) — **the reconstructed surface moves along its normal
+by exactly what the layer particles move**: the visible motion is a genuine normal displacement
+of the surface (hypothesis a), not a re-sampling of a stationary surface (c). With M3 (a
+cell-wide leaf changes nothing) this closes the reconstruction hypothesis for the breathing:
+the per-frame image change IS the surface breathing, window-coherent (per archived frame the
+layer's normal step is 0.0006 wu, per window 0.007–0.012 wu rms — the motion inside a window is
+one rollout, coherent; the sign flips between windows), with a tangential part of the same
+size riding along (d_t rms 0.008–0.015 wu). The amplitude, 0.007 wu per window at the surface
+(10 % of the native spacing, 2 % of a cell), is what the per-particle Rprop must remove — g41r
+removed its alternation and left its size as a drift (13:50); ab300 / ac300 read at 300k.
+*The PoissonRecon probe (P112):* the tip's capture is **0.00–0.10 at every setting**
+(samplesPerNode 1 / 1.5 / 5, pointWeight 0 / 4; frames 240 / 264 / 312, 39–50 tip surfels, the
+finest node 0.10 wu at depth 6) — **P112 ✗**: neither the density adaptivity nor the screening
+is the tip's problem; a filament 2–3 native spacings across (0.13–0.19 wu) is narrower than the
+finest node and far narrower than the quadratic B-spline's three-node support (0.31 wu) — it is
+not representable at the reference-spacing resolution, whatever the sampling rule. The
+literature's answer for exactly this case is a surfacer that never cancels (Yu–Turk 2013's
+isolated-particle spheres; Bhattacharya 2011's surface enclosing every particle's sphere): R-3.
+*Pre-registered R-3 (`--thin_fallback`): surfels the drawn surface neither encloses nor comes
+within one reference spacing of, and that lie within the link radius of the body, are drawn as
+spheres of radius half the reference spacing (the render's own resolution; the surfel size)
+unioned into the image.* **P113** the tip is drawn in every census frame (192–324) with the drawn
+tip length monotone in the frame index (no frame shorter than the previous by more than one
+spacing); **P114** the fallback touches ≤ 0.5 % of the surfels outside the ear region (the body's
+uncaptured surfels sit within one spacing of the surface — no hair on the body) and the end
+bump is unchanged (1.24° ± 0.05); **P115** the tail's per-frame change is unchanged (the fallback
+is not the breathing's fix). Refutation: P114 failing (spheres over the body) says the
+one-spacing threshold is inside the body's own layer noise and the fallback needs the thin
+detector (σ₃/σ₁) as a co-condition.
