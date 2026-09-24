@@ -45,7 +45,7 @@ volumetric mass matching only (Xu et al.).
   all opt-in): `control_grid/control_tknots`, `render_F_geom` (geometric F_g from
   `mpm/kernels.k_geom_update`, exposed by `mpm/function.warp_mpm_ext`), `w_kin_running`,
   `grad_project_mode`, `render_gs_cheb`, `gauss_robust_eps`, `loss_units=density`,
-  `mpm/discretisation.py` + `pipeline_run --ppc`, arms `render_ctrl*`.
+  `mpm/discretisation.py` + `pipeline_run --ppc`, arms `render_ctrl*`. **2026-09-24 (all opt-in, method.md §10.17a–10.23):** `--disc_ref`, `--plan_native`, `--shift_sub`, `--commit_pic`, `--pace_project`, `--w_kde`, `--ot_handoff`, `--outer_latch_reversal`, `--rest_commit[_reversal]`, `--dvol_form`, `--render_until`, `--rebound_probe`.
 - `metrics.py` — gate metrics (chamfer, sil_iou, hole_frac, jitter); raw sim state only,
   no operator shared with any loss.
 - `mpm/` — MLS-MPM engine ported from the C++ oracle. `kernels.py` (cubic B-spline 4³, APIC,
