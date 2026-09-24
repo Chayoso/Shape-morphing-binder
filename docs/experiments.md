@@ -5010,3 +5010,5 @@ and the tongue at ≥ 0.9 thickness where filled > 0.3; **P94** ear fill ≥ 0.9
 with no accepted reversal below −0.2 in the deliverable; **P96** end bump ≤ 1.3° at the reference
 render. Refutation on any of them says the pieces do not compose (the hand-off's fixed target and
 the KDE's pull competing at the surface would be the first suspect).
+*y300's chain readings (08:10):* video tail 0.0022 (144 delivered frames: the ear still filling
+at the end), bump 1.25°.
