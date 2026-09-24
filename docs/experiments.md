@@ -5360,3 +5360,7 @@ silIoU ≥ 0.977; **P133** the video tail ≤ 0.0015 and the low-band correlatio
 *ad300's chain tail (16:15):* video tail 0.0015 (l300 0.0016), bump 1.25°, 8 strays, the ear tip
 10.4 reference particles (l300 18.5 — the same thinning as ac300's 10.7: the rule's cost at the
 tip is not the neighbourhood's doing). ag300 (k = 8) ended at 77 windows; its chain runs.
+*The rule's ear cost, read properly (16:20):* the end ear fill is **0.961** (ac300) / **0.954** (ad300)
+against l300's 0.948 — the ear is not under-filled; only the top slab reads 0.80 (l300 0.86) and
+the 0.25-wu tip count 10.4–10.7 against 18.5: a slightly blunter tip, not a lost ear. No
+transport-gated reset of the scale is needed.
