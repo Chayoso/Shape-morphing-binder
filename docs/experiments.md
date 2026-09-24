@@ -4972,3 +4972,41 @@ against a surface residual that changes sign when crossed is a limit cycle of th
 amplitude; its cure is a step that shrinks to zero (a line search on the merit at the surface) or
 a stop when it is reached — the reversal-armed gate (r300b) is the second, at the deliverable
 level, and the first is the structural item left open (the anneal floor is the literal 0.05 in runner.py, four places, and is not lowered by hand under the no-parameter rule; a floor derived from the discretisation — the step below which the loss cannot see a change — is the structural form).
+*w300's chain readings (07:40):* **95** particles off the body at the end (l300 10 — the
+relaxation was also what kept the outer layer's strays in), the layer's low-band correlation
+**−0.96** with the high-band share 0.15 (without the relaxation the alternation is a nearly pure
+grid-scale back-and-forth of the whole layer), video tail 0.0014 (the smallest of the 300k runs:
+106 windows, the transport long finished — the tail measure again reads the transport, not the
+flicker), bump 1.23°. P87 (rougher surface) ✗ as predicted — the bump did not rise; the price was
+paid in strays and det F instead.
+
+**2026-09-24 07:55 — y300's verdict (the particle-scale KDE density term): the growth mode
+changes.** 95 windows in 33.6 min, silIoU 0.9782, det F 0.588, **4** strays (l300 10), the ear tip
+**16.1** reference particles (l300 18.5, n300 12.5, u300 11.2), 8-NN 1.03 spacings.
+**P89 ✓** — the base slab's maximum **1.11×** (l300 1.49, u300 1.37): the pile is gone.
+**P90 mixed** — read per slab with its fill: at t = 0.30 the fill profile from the base is 0.86,
+0.64, 0.40, 0.10, 0.06, 0.03 — monotone, a **tongue growing from the base** — and where the
+tongue has mass (fill > 0.3) its thickness is **0.90–1.05** of the target's (y 1.96 / 2.26 / 2.56:
+1.06 / 0.95 / 0.90); the 0.47–0.5 readings sit at slabs holding 2–6 % of their mass, the tongue's
+leading edge, so the pre-registered median over fixed slabs (0.59) fails while the thing it was
+meant to measure holds. l300 at the same t: 1.09, 0.94, 0.76, 0.48, 0.54, 0.62, 0.14 — mass all
+the way up the ear with a bulge at the base and a stream at 0.5–0.7 thickness.
+**P91 ✗** — native pieces 50–139 per frame through t ≤ 0.20 (at the tongue's leading edge; one
+piece of ≥ 20 particles throughout); **P92 ✓** — ear fill 0.940, fit 0.9782, 95 windows, 4 strays.
+The price: the ear grows LATER (0.31 filled at t = 0.20 against l300's 0.83; 0.80 at t = 0.53;
+still rising at the end, the upper slabs 0.79–0.88 filled) and det F 0.588 (0.664); the dense
+pockets 18.6 % (25 %). Mechanism confirmed as pre-registered: the supply into the ear is throttled
+to what the front takes up once the particle scale is in the objective — a filament surrounded by
+empty target volume is a deficit the KDE sees and the cell sum does not — so the front thickens to
+the target and the base stops piling; the leading edge still fragments (the carrier item, Ando
+2012 / Jiang 2017, stays open for that), and the ear's lateness is the pace's (one cell a window,
+the farthest destination). Adopted as the ear's mechanism for N > 40k, opt-in pending the
+combined run; the 40k gallery untouched.
+
+*Pre-registered z300 = the combined deliverable candidate* (GPU 2, 08:00): l300 +
+`--plan_native --w_kde 1 --ot_handoff --outer_latch_reversal`. **P93** base slab maximum ≤ 1.2×
+and the tongue at ≥ 0.9 thickness where filled > 0.3; **P94** ear fill ≥ 0.93, silIoU ≥ 0.977,
+≤ 10 strays; **P95** the gate arms between 45 and 65 and the run ends within 12 windows of it
+with no accepted reversal below −0.2 in the deliverable; **P96** end bump ≤ 1.3° at the reference
+render. Refutation on any of them says the pieces do not compose (the hand-off's fixed target and
+the KDE's pull competing at the surface would be the first suspect).
