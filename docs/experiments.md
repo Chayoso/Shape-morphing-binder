@@ -5715,3 +5715,16 @@ additions are the cause; **dk300 = z300b's recipe without `--w_kde`** — **P180
 the KDE term is the cause (the same term that gave the bunny its ear: a thin-feature target
 with many spikes is where a particle-scale density pull compresses). Whichever it is, the D2
 mechanism's adoption is conditional on the dragon.
+
+**2026-09-24 23:00 — readings in hand.** *al300 (the KDE ear + H, hold from the start):* silIoU
+0.9771 ✓, ear 0.952 ✓, det F 0.511 (P163 ✗ by 0.04), flips 0.51, step 0.00066 wu, video tail
+0.0012 ✓ — but the layer's low-band correlation **−0.68**: with the KDE term the smooth band of
+the layer still alternates (the bulk's reversal negative from 88 to the end) even though the
+visible tail is at the acceptance value; the held global step and the KDE's per-window pull
+alternate together. am300 (the hold from the arrival-read onset) is the next reading. *dr300 (the
+dragon + the arrival-gated smoothed Rprop, no hold):* 206 windows, silIoU 0.9769, **det F 0.139**
+— the same as d300's: the dragon's det F collapse is the 300k recipe's (the KDE / hand-off /
+plan_native set), not the Rprop's; dl300 / dk300 attribute it. *g41y (the onset read on arrived
+particles), first two:* **nefertiti 0.9719 (+0.004, 82 windows)** — the early stop is gone —
+and cow −0.0014, det F within −0.01. *ac300 with the band-tracked mesh:* tail 0.0018 against
+0.0013 untracked — the tracked-mesh family is refuted a second time.
