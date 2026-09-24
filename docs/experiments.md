@@ -4392,3 +4392,12 @@ the sub-cell arrangement is not below the loss any more, as the audit warned. No
 fit is not better than g300's (0.9736 / 0.0552 against 0.975 / 0.0556), the cost is 2× the wall
 and the tip is over-packed; kept as evidence that the grid can be refined when the ear-scale
 features demand it.
+
+**The level-set variants (01:05): refuted.** On g300's end frame at the reference spacing the
+marching-cubes level set of the density is far rougher than the Poisson fit of the same surfels —
+isotropic kernel **13.8°**, Yu & Turk PCA kernel 14.5°, the F-anisotropic kernel 17.3° with 43
+components — against the Poisson 1.3°. The anisotropic kernels of Yu & Turk are built for a
+level set at the render voxel (0.04 wu here), where our CIC-plus-blur density carries the
+particle texture; the deliverable stays the screened Poisson fit of the outer-layer surfels, and
+the geometry survey's other surface items (the envelope constraint, the stochastic variance
+test, the feature-weighted smoothing) apply to that fit, not to a level set.
