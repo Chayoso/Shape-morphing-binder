@@ -972,3 +972,12 @@ rest the kinetic term asks for exact, at no constant, and removes the carried ov
 source. What it may cost is the free travel that helped the expansion phase (0.9 of a window's
 motion at windows 2–8); the pre-registration of `m300_bunny` (experiments.md) puts a window
 budget on that.
+
+Addendum (2026-09-24 01:00): the unconditional form of (42) is refuted — at 20k it left the morph at
+silIoU 0.919 against 0.967 after 30 windows, and at 300k the transport gate stood at 22 % at window
+10 against 65 % (run m300, stopped): the expansion rides the carried momentum (0.9 of a window's
+travel is free in windows 2–8), and a body restarted from rest every window must re-accelerate.
+The rule therefore applies only once the transport has ARRIVED, read from the u transport gate of
+10.16 (the fraction of the layer within one cell of its OT image): from the first accepted commit
+at which it reads 100 % (`rest_commit_gate`, latched), windows start from rest; before that the
+momentum is the transport. No new constant: the gate is the recipe's own arrival measure.
