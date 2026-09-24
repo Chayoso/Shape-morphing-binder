@@ -5442,3 +5442,5 @@ stress state discontinuous) is a carrier and the structural form is a commit at 
 (assimilate, then settle before the next window's linearisation); if the breathing is unchanged
 the assimilation is out too, and with the held step (ai300 / g41h) the optimiser's step is the
 last candidate standing or falling.
+*af300's chain tail (18:05):* video tail **0.0013** (the 40k acceptance value), bump 1.23°, ear
+0.966 — with det F 0.23 the only thing standing between it and a deliverable.
