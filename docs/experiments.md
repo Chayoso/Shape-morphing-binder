@@ -5294,3 +5294,9 @@ deliverable candidate if ad300 holds P116): **P120** det F min ≥ 0.55 (z300b 0
 fill ≥ 0.93 and silIoU ≥ 0.977 (z300b 0.936 / 0.9802); **P122** the layer's normal step ≤ 0.001 wu,
 flips ≤ 0.55, low-band correlation > −0.3 over the last 10 delivered windows; **P123** the
 delivered tail's alternating component (video_flicker ALT at stride 19) ≤ half of z300b's.
+*(15:15) A third form considered and not run:* reading the reversal on the grid-projected
+displacement — but with `--commit_pic` in the recipe the committed displacement IS the
+grid-projected one (the projection runs before the Rprop block reads x − x_start), so ac300 /
+ad300 already read the grid-visible part; the defect was the per-particle SCALE's spatial noise,
+which the neighbourhood-smoothed form addresses. GPU 3 left free; g41s (40k + the smoothed form)
+runs on GPU 0 as the 40k check.
