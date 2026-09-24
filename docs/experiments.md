@@ -5170,3 +5170,31 @@ particles' alternation itself — the reconstruction side of the question (hypot
 M1 (the normal-only / tangential-only twins at stride 4) and M3 (the leaf at the cell) are
 measuring on GPU 0 / GPU 1 now. The decisive comparison: D1 at stride 4 against stride 12 / 19 —
 a refit-noise floor is stride-independent, a genuine motion scales with the stride.
+
+**2026-09-24 14:10 — M3 and the ear-tip census read.**
+*M3 (z300b re-rendered with the finest Poisson leaf at the MPM cell, `--poisson_cell 2.27`):*
+**P111 ✗** — the delivered tail's per-frame change 0.0022 (0.0024 at the default leaf), the
+alternating/drift split unchanged (1.55 vs 1.51); the end bump falls to **1.06°** (1.24°) and the
+raw-components>1 frames rise to 11 of 140 (2): the coarser leaf smooths the body and pinches the
+thin tip off more often. So the per-frame image change is NOT a sub-leaf re-sampling of the
+surfel set — a fit that cannot see the sub-cell arrangement changes just as much. What remains
+as its source: the refit's global response (the octree and the screened solve re-done from
+scratch on a slightly different set — vertex placement, the Loop subdivision, per-vertex
+normals), or the genuine motion at the cell scale. M1's stride-4 twins (running) separate
+these: a refit response is stride-independent, a motion scales with the stride.
+*The ear-tip census (frames 192–324 of z300b, one Poisson mesh per frame):* the tip's particles
+(within 0.6 wu of the target's highest point) grow monotonically 47 → 108 and are all outer-layer
+surfels (45 → 95) — **the particles never retract**; the mesh is ONE component in every census
+frame (no piece dropped there — R-1 is not the tip's mechanism, though it still covers the two
+frames with a pinch-off); and the mesh CAPTURES only 3–27 of those surfels (within half a
+spacing), jumping frame to frame (5, 3, 15, 7, 22, 12, 27, 26) against 66 % over the ear as a
+whole. The tip's dropout is the Poisson fit passing below a sparse tip by a varying amount —
+reconstruction-side, the density-adaptive octree / weak screening at a sparse region (R-2 of
+the digest), not the component filter and not physics. *Pre-registered probe (14:10,
+`psr_probe.py`, Kazhdan's PoissonRecon on the frame's oriented surfels at the renderer's depth):*
+**P112** samplesPerNode 1 with pointWeight 4 raises the tip capture from ≤ 0.25 to ≥ 0.5 at
+frames 240 / 264 / 312 while the whole-layer capture stays within 0.1 of Open3D's — then the fix is
+the fit's sampling rule (finest nodes kept at the tip, screening on), implementable by
+in-plane surfel resampling at thin regions for the Open3D path (R-4) or by the binary; **P112
+failing** (capture flat across settings) says the tip is not representable at this node size and
+the band limit must be relaxed locally (a deeper octree at the tip = R-2's other half).
