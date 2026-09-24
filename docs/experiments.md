@@ -5703,3 +5703,15 @@ growing step kept until the settled body reverses: **P175** det F ≥ 0.55 (al30
 fill ≥ 0.93, silIoU ≥ 0.977; **P177** the layer's step ≤ 0.001 wu, flips ≤ 0.55, low-band > −0.2,
 the video tail ≤ 0.0013, stride-19 ALT ≤ 0.0008; **P178** the hold engages between windows 45
 and 70.
+
+**2026-09-24 22:30 — d300 (the dragon at 300k with z300b's recipe, no Rprop): a generalisation
+failure of the 300k recipe.** 175 windows: silIoU 0.9769 (the 40k g41_dragon 0.958 — the fit
+generalises) but **det F 0.141**, strays 0.2 %, the layer's step 0.082 spacings (0.0056 wu) —
+**P138 ✗ on det F**: on the dragon's spikes the recipe compresses the material badly, before any
+Rprop. dr300 (with the arrival-gated smoothed Rprop) is still running (187 windows). *Attribution
+twins launched (22:30):* **dl300 = the dragon with l300's recipe** (`--disc_ref --shift_sub
+--commit_pic`, no KDE / hand-off / plan_native) — **P179** det F ≥ 0.6 says the KDE / hand-off
+additions are the cause; **dk300 = z300b's recipe without `--w_kde`** — **P180** det F ≥ 0.55 says
+the KDE term is the cause (the same term that gave the bunny its ear: a thin-feature target
+with many spikes is where a particle-scale density pull compresses). Whichever it is, the D2
+mechanism's adoption is conditional on the dragon.
