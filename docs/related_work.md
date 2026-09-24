@@ -252,3 +252,47 @@ PhysGen3D (CVPR 2025), Phys4DGen (ACM MM 2025) — forward simulation from a gen
     roughness; PhysMorph-GS names thin features open, as do we); speed (8–20 min per pair for the
     implicit morphs on old GPUs against our 16–44 min at 300k); memory (10⁶ render particles
     against their 8–100k). Unverified: several wall-clocks; PhysMorph-GS's venue.
+
+## Geometry-side survey 2013–2026: smooth interpolants and smooth surfaces from particles (agent digest, 2026-09-24 00:05)
+
+Read for the user's directive (docs/experiments.md 2026-09-23 night: until the oscillation is zero
+and the surface smooth). Verified on ACM / Wiley / EG / GitHub pages unless marked; the full digest
+with links is in the session scratchpad.
+
+**Interpolation / morphing (smoothness, mass, topology):** Heeren et al., *Exploring the Geometry
+of the Space of Shells* (SGP 2014) and *Splines in the Space of Shells* (SGP 2016; code GOAST) —
+time-discrete geodesics and a covariant-acceleration functional per window (an oscillation
+detector for a tracked mesh); Sassen, Schumacher, Rumpf, Crane, *Repulsive Shells* (SIGGRAPH 2024,
+code) — intersection-free geodesics in shell space, a clean reference morph; Solomon et al.,
+*Convolutional Wasserstein Distances* (SIGGRAPH 2015, code) — mass-preserving volume barycenters
+at grid resolution; Lavenant et al., *Dynamical OT on Discrete Surfaces* (SIGGRAPH Asia 2018) —
+the action ∫ρ|v|² as a tortuosity metric; Bonneel, Coeurjolly, *SPOT* (SIGGRAPH 2019, code) — a
+W2-type distance between 10⁵–10⁶-point sets, cheap; Buonomo, Digne, Chaine, *Volume Preserving
+Neural Shape Morphing* (SGP 2025, code) and *Explicit Flows for Implicit Surfaces* (SIGGRAPH
+2026, code) — volume-preserving / invertible implicit morphs, the closest geometry-side
+competitors; Eisenberger et al. (SGP 2019) already listed.
+
+**Surface from a noisy particle set:** Kazhdan, Hoppe, *Screened Poisson* (TOG 2013) — our
+reconstruction; Kazhdan et al., *PSR with Envelope Constraints* (SGP 2020, `--envelope` in
+PoissonRecon) — Dirichlet constraints on a particle-derived hull so the fit cannot bridge gaps or
+fatten one-cell sheets; Sellán, Jacobson, *Stochastic PSR* (SIGGRAPH Asia 2022, gpytoolbox) —
+the PSR as a Gaussian process, its posterior variance = "is this bump supported by particles?";
+Yu, Turk, *Anisotropic Kernels* (TOG 2013) — per-particle PCA covariances, smooth flats and
+preserved sheets (our renderer's `--kernel pca` is this line); Löschner et al., *Weighted
+Laplacian Smoothing for Particle Fluids* (VMV 2023, splashsurf) — post-smoothing damped near
+splashes and isolated particles, no volume loss; Zhao, Shinar, Schroeder (CGF 2024) — CNN SDF
+from splatted particles [venue detail unverified]; Wang et al., *Neural-Singular-Hessian*
+(SIGGRAPH Asia 2023, code) — offline smooth implicit fit; Huang et al., *Edge-Aware Point Set
+Resampling* (TOG 2013, CGAL) — feature-preserving point denoising; Sharp, Crane, *A Laplacian
+for Nonmanifold Triangle Meshes* (SGP 2020, robust-laplacians) — a PSD Laplacian on the
+outer-layer points, the tool for a spectral roughness / oscillation metric without meshing.
+
+**Shortlist for us.** Surface: (1) envelope-constrained screened PSR with the envelope = the
+union of particle spheres at the spacing rule (one cell at the ear); (2) anisotropic kernels +
+feature-weighted Laplacian smoothing; (3) stochastic PSR variance as the test of which bumps
+are particle-supported (smooth only below the uncertainty floor; report the retained area).
+Trajectory: (4) a spectral band criterion on the point-cloud Laplacian — the per-window
+displacement projected on the first K eigenvectors (K from the sub-cell length), roughness =
+high-band energy, oscillation = consecutive-window correlation of the low band; (5) the path
+action Σ W2(P_k, P_{k+1}) against W2(P_0, P_K) via SPOT — an excess-action oscillation budget,
+mass-weighted by construction.
