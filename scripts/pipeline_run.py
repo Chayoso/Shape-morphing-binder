@@ -103,7 +103,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_views=args.render_views,
                          render_res=args.render_res, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
-                         disc_ref=args.disc_ref, stop_on_cycle=args.stop_on_cycle, u_rprop=args.u_rprop, commit_pic=args.commit_pic, rebound_probe=args.rebound_probe, rest_commit=args.rest_commit, rest_commit_gate=args.rest_commit_gate, rest_commit_reversal=args.rest_commit_reversal, pace_project=args.pace_project, outer_latch_reversal=args.outer_latch_reversal, plan_native=args.plan_native, ctrl_rprop=args.ctrl_rprop, ctrl_rprop_smooth=args.ctrl_rprop_smooth, ctrl_rprop_k=args.ctrl_rprop_k, u_rprop_floor=args.u_rprop_floor, shift_sub=args.shift_sub, shift_h_sp=args.shift_h_sp, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
+                         disc_ref=args.disc_ref, stop_on_cycle=args.stop_on_cycle, u_rprop=args.u_rprop, commit_pic=args.commit_pic, rebound_probe=args.rebound_probe, rest_commit=args.rest_commit, rest_commit_gate=args.rest_commit_gate, rest_commit_reversal=args.rest_commit_reversal, pace_project=args.pace_project, outer_latch_reversal=args.outer_latch_reversal, plan_native=args.plan_native, ctrl_rprop=args.ctrl_rprop, ctrl_rprop_smooth=args.ctrl_rprop_smooth, ctrl_rprop_k=args.ctrl_rprop_k, ctrl_rprop_arrived=args.ctrl_rprop_arrived, u_rprop_floor=args.u_rprop_floor, shift_sub=args.shift_sub, shift_h_sp=args.shift_h_sp, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
                          layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
                          eps=args.eps, w_tctrl=args.w_tctrl, w_cov=args.w_cov,
                          surface_grad_frac=args.surface_grad_frac,
@@ -656,6 +656,8 @@ def main():
                     help="with --ctrl_rprop: the reversal read and the scale applied on the material neighbourhood (config.ctrl_rprop_smooth)")
     ap.add_argument("--ctrl_rprop_k", type=int, default=0,
                     help="with --ctrl_rprop_smooth: the smoothing kNN (0 = the coherence neighbourhood; creg_k = 8 the regulariser's)")
+    ap.add_argument("--ctrl_rprop_arrived", action="store_true",
+                    help="with --ctrl_rprop: halve only ARRIVED particles' steps (the paced target's per-particle arrival mask); config.ctrl_rprop_arrived")
     ap.add_argument("--u_rprop_floor", type=float, default=0.05,
                     help="the u channel's Rprop floor (config.u_rprop_floor); 0 removes it")
     ap.add_argument("--outer_latch_reversal", action="store_true",

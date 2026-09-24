@@ -1253,6 +1253,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 _act = (_n0 > _tiny) & (_n1 > _tiny)
                 _cos = (_dn_s * _dp_s).sum(1) / np.maximum(_n0 * _n1, 1e-30)
                 _flip = _act & (_cos < 0.0); _same = _act & (_cos >= 0.0)
+                # config.ctrl_rprop_arrived: a direction change while a particle is still in TRANSPORT (its
+                # plan image farther than the pace radius — a curved path, the C's arms round the hole) is
+                # not an overshoot; only an ARRIVED particle's reversal halves its step (g41s: C lost 0.011
+                # of silIoU to halvings in transit). The arrival is the paced target's own per-particle mask.
+                _arr = stats.get("arrived_mask") if getattr(cfg, "ctrl_rprop_arrived", False) else None
+                if _arr is not None and len(_arr) == len(_flip):
+                    _flip = _flip & np.asarray(_arr, bool)
                 ctrl_scale[_flip] *= 0.5
                 ctrl_scale[_same] = np.minimum(1.0, ctrl_scale[_same] * 1.2)
                 if _act.any():

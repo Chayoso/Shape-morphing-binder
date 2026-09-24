@@ -540,6 +540,9 @@ class PipelineConfig:
                                     #   half a cell — ad300: det F kept (0.64) but the decay diluted, corr -0.31);
                                     #   k > 0 = its own source kNN of k (creg_k = 8: the control regulariser's own
                                     #   neighbourhood, the scale the control is already held coherent at).
+    ctrl_rprop_arrived: bool = False #  the halving applies only to ARRIVED particles (the paced target's per-particle
+                                    #   mask: plan image within the pace radius); a direction change in transport
+                                    #   (a curved path) is not an overshoot. No constant: the pace radius is the plan's.
     u_rprop_floor: float = 0.05     #   the u channel's Rprop floor (10.19); 0 with ctrl_rprop — a floor of 0.05
                                     #   spacings a window is the breathing's own amplitude.
     outer_latch_reversal: bool = False  # 2026-09-24 (docs/method.md 10.21 addendum 3): arm the outer merit gate's

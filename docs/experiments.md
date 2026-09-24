@@ -5364,3 +5364,21 @@ tip is not the neighbourhood's doing). ag300 (k = 8) ended at 77 windows; its ch
 against l300's 0.948 — the ear is not under-filled; only the top slab reads 0.80 (l300 0.86) and
 the 0.25-wu tip count 10.4–10.7 against 18.5: a slightly blunter tip, not a lost ear. No
 transport-gated reset of the scale is needed.
+
+**2026-09-24 16:30 — the 40k gallery with the smoothed Rprop (g41s, 19 targets) against g41.**
+silIoU up on 17 of 19 (+0.0002 … +0.0099; bunny +0.005, dragon +0.010, maxplanck +0.005), down on
+bob (−0.0007) and **C (−0.011)**; det F within −0.024 on 18, **homer −0.060** (0.812 → 0.752);
+windows ≤ 1.2× everywhere (P126 ✓); the layer's flips down on 15 of 19 (bunny 0.74 → 0.55,
+armadilo 0.79 → 0.55, ogre 0.71 → 0.43, teapot 0.70 → 0.47), its step down on 13 of 19
+(nefertiti 0.058 → 0.019, armadilo 0.064 → 0.024 spacings), net/summed up on 17. **P124 ✗** on C
+and homer, **P125 ✗** (flips ≤ 0.6 and step ≤ g41's together on 11 of 19, not 15), **P126 ✓**.
+Per the generalisation rule the form goes back to the mechanism: C is the hole regime, where the
+material moves round the hole on a curved path, and a particle whose displacement turns by more
+than 90° between windows in TRANSPORT is halved by the rule as if it had overshot — C's fit paid
+0.011. *Third form (`--ctrl_rprop_arrived`): the halving applies only to particles the paced
+target reads as ARRIVED (its own per-particle mask: plan image within the pace radius); a
+direction change in transport keeps the step. No constant.* *Pre-registered g41t = the 19-target
+sweep with the arrival gate (GPUs 0 and 3, 16:30):* **P135** C's silIoU ≥ g41's − 0.003 and
+homer's det F ≥ g41's − 0.05; **P136** silIoU ≥ g41's − 0.003 and det F ≥ g41's − 0.05 on every
+target; **P137** flips ≤ 0.6 and step ≤ g41's on ≥ 15 of 19. The 300k forms in flight (af300,
+ag300, ah300) run without the gate; their bunny readings stand for the bunny.

@@ -554,6 +554,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
         pace_grid = None
         pace_proj_stats = None
+        arrived_mask_np = None
         if cfg.phys_loss in ("ot_pace", "ot_shape"):
             # DISPLACEMENT-INTERPOLATED TARGET (McCann interpolation along the transport
             # plan): this window's target density is the current cloud advected toward its
@@ -612,6 +613,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             frac_arrived = float(arrived.float().mean())
+            arrived_mask_np = arrived.detach().cpu().numpy().astype(bool)   # per-particle arrival (config.ctrl_rprop_arrived)
             frac_sup = float("nan")
             # HAND-OFF to the fixed target: when every target cell that still lacks mass is
             # within one cell of an occupied cell, the cell sum's gradient (CIC reach: one
@@ -1738,7 +1740,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats,
+              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np,
               "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
               "render_work": render_work, "render_work_x": render_work_x,
