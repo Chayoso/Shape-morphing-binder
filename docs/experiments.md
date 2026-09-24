@@ -4554,3 +4554,17 @@ pieces ✓ (2 % of frames ≤ 10 %), fit ✓ (0.9797 / det F 0.66), the breathin
 wu a window ≤ 0.003), the breathing's flip fraction ✗ (0.74 — universal, the momentum
 alternation) and the video tail ✗ (0.0016 > 0.0012). The last two are what m300b (windows from
 rest once arrived) is for.
+
+**The ear-formation item (01:10; the user: the ears grow too thin, as droplets that meet and
+merge; keep reading and fixing this and the oscillation after m300b).** Opened as its own item
+with its own measurement: `$OUT/scratch/ear_probe.py` — per archived frame, the particles in the
+target's ear region (the top slab of the target where its cross-section splits into the two
+ears), their connected components at 1.5 spacings (the droplets), the thinnest PCA extent of the
+largest piece in each ear against the target ear's own extent, and the ear mass fraction. Runs on
+g300 / l300 / k300 (k300's ear is 1.6 cells thick on its finer grid, the natural first
+comparison; its plain video is rendered for the eye). A third survey is launched on why
+transport-driven morphs form droplets and filaments at protrusions (displacement interpolation,
+entropic plans, no congestion or connectivity constraint) and which formulations keep the mass a
+coherent body (congestion / incompressibility / elastic regularisation of the transport,
+unbalanced OT for growth, mesh-carried thin features, sheet-preserving particles). The candidate
+mechanisms are pre-registered once the probe and the digest are in.
