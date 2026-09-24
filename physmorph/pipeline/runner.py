@@ -401,6 +401,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     s, dfc_prev = None, None
     frames, F_frames, hist = [x.copy()], [_id(N)], []
     n_reattach_total = 0                 # cfg.reattach: merged grid-disconnected particles (all commits)
+    sp_native = None                     # cfg.shift_sub: the cloud's native spacing (measured at the first commit)
     # geometric (render) deformation at every ACCEPTED commit, aligned to frame_end —
     # the covariance the viewer/deliverable renders when cfg.render_F_geom (F_frames
     # keeps the PHYSICS F for metrics and assimilation)
@@ -663,6 +664,20 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             if n_reattached:
                 n_reattach_total += n_reattached
                 log(f"[v2] anim {a + 1}: re-attached {n_reattached} grid-disconnected particles")
+        # ---- Fickian shifting of the sub-cell arrangement (cfg.shift_sub; mpm/shifting.py, docs/method.md
+        # 10.18): the quadrature below the cell is a null space of the objective and nothing else orders
+        # it; one explicit diffusion step of the particle concentration at its stability limit, positions
+        # only, the outer layer tangentially. Applied to the COMMIT state, so the archived frame and the
+        # next window's start are the ordered cloud. ----
+        if getattr(cfg, "shift_sub", False):
+            from ..mpm.shifting import fickian_shift, native_spacing
+            if sp_native is None:
+                sp_native = native_spacing(x)
+            dxs, sst = fickian_shift(x, sp_native, h_sp=float(cfg.shift_h_sp))
+            x += dxs
+            if (a + 1) % 10 == 1 or sst["p99_sp"] > 0.25:
+                log(f"[v2] anim {a + 1}: sub-cell shift median {sst['median_sp']:.3f} sp, p99 {sst['p99_sp']:.3f}, "
+                    f"max {sst['max_sp']:.2f}; disorder |grad C| h {sst['disorder']:.3f}; tangential on {sst['n_surface']}")
         # archive the PROMOTED states (identical to raw when no guard fired)
         ks = max(1, int(cfg.archive_stride))            # archive stride (150k archives)
         frames.extend(f.copy() for f in fr[1:-1][::ks]); frames.append(x.copy())

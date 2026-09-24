@@ -4023,3 +4023,29 @@ E2 (to implement, opt-in) — Fickian particle shifting at the window commit, th
 diffusion stability limit (Lind 2012 / Skillen 2013), the outer layer shifted in its tangent
 plane only (the free-surface rule), positions only (F, C, v untouched; the shift ≪ a spacing).
 Predictions to be written with the run.
+
+**E2 implemented (mpm/shifting.py, `--shift_sub`; method.md §10.18) and its constants measured
+before the run (`$OUT/scratch/shift_probe.py`, `shift_probe2.py`, CPU).** The plain Fickian step
+(Gaussian W, any h) DIS-orders a cloud: the kernel gradient vanishes for close pairs, so mid-range
+neighbours push harder than near ones and the 1-NN spacing CV of a jittered lattice grows 0.16 →
+0.36 in ten steps (a uniform random cloud 0.38 → 0.58). With Monaghan's anti-pairing factor
+[1 + 0.2 (W_ij / W(Δp))⁴] in the gradient (Lind 2012 carries it) and the Gaussian at h = Δp (the
+width of the cubic spline at the SPH ratio h = 1.3 Δp) the step orders: 0.16 → 0.08 and 0.38 →
+0.10 in ten steps, the 8-NN CV 0.30 → 0.16, the disorder |∇C| h 0.74 → 0.33, lattice tie bias
+0.006 Δp, median shift 0.13–0.23 Δp on disordered clouds; h = 1.3 Δp (Gaussian) orders weakly,
+h = 2 Δp dis-orders even with the factor, the cubic spline at h = Δp saturates the ½-spacing cap.
+On a slab the top layer's normal shift is 0.009 Δp (median), tangential up to 0.2 Δp. Tests
+`tests/test_shifting.py` (lattice fixed point, one-step ordering of a jittered lattice and a
+random cloud, the free-surface rule, the cap).
+
+**Pre-registration of `f300_bunny` — the recipe (native constants) + `--shift_sub`, 300k, one
+shifting step at every window commit.** P16 mid-morph roughness (lump_trace rms at 2 native
+spacings, median over frames 300–825) ≤ 0.20 (c300 0.20–0.26, d300 0.42–0.59). P17 end bump at
+the native render ≤ 1.6° (c300 1.9°, d300 2.3°), at the reference render ≤ 1.4° (1.5°). P18 end
+off-body particles at 1.5 spacings ≤ 20 (c300 37), no piece ≥ 6 at the ear tip; the tip
+material's 8-NN ≤ 1.5 (c300 1.67 — the shift orders the tip, it cannot bring mass to it). P19 end
+silIoU ≥ 0.964, chamfer ≤ 0.062 (loss-neutral within 0.004 of c300). P20 windows ≤ 150 (c300 176:
+the sub-cell residuals are ordered instead of chased) and the tail's window-to-window reversal
+(osc_probe, median of the last 30 windows) > −0.3. P21 the shift itself: median ≤ 0.1 spacing a
+commit after window 30 (the cloud stays ordered), p99 ≤ 0.3. Refutation: P16 or P19 failing →
+shifting does not order the quadrature of the morph, or harms the fit; the flag stays off.

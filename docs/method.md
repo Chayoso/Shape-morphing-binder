@@ -871,3 +871,30 @@ the two runs are the two ways of not having one (chasing sub-cell residuals for 
 a window-to-window reversal, or ignoring them). The next mechanism is a sub-cell ordering step
 that is loss-neutral and mass-preserving (particle shifting / redistribution), designed after
 the literature (docs/related_work.md, pending).
+
+### 10.18 Fickian shifting of the sub-cell arrangement (2026-09-23 night; code: mpm/shifting.py `fickian_shift`, pipeline/runner.py at the commit; config `shift_sub`, `shift_h_sp`; evidence docs/experiments.md 2026-09-23 night, docs/related_work.md)
+
+The quadrature below the cell is a null space of every term of the objective (10.17a: the pair
+c300 / d300). Shifting is the SPH remedy (Lind, Xu, Stansby, Rogers 2012): the particle
+concentration C_i = Σ_j (m_j/ρ_j) W_ij is 1 in a uniform arrangement and each particle
+diffuses down its gradient, one explicit step at the stability limit, at every window commit:
+
+```
+(39)  Δx_i = −½ h² ∇C_i,   ∇C_i = Σ_j (m_j/ρ_j) [1 + R (W_ij / W(Δp))^n] ∇_i W_ij
+      W Gaussian of width h = Δp (native spacing), R = 0.2, n = 4 (Monaghan 2000), k = 40 neighbours
+      outer layer (one-sided neighbourhood): the tangential part only, weight → 1 at ½ Δp of offset
+      |Δx_i| ≤ ½ Δp; positions only — m, v, C, F untouched; applied to the COMMIT state
+```
+
+Constants and their origin: ½ is the explicit-diffusion stability limit (the 2020 review's
+10.3–10.4); the anti-pairing factor is Monaghan's tensile correction that Lind 2012 carries in
+the shifting gradient — without it the kernel gradient vanishes for close pairs and the step
+dis-orders a cloud (measured, experiments.md); h = Δp for the Gaussian is the width of the cubic
+spline at the standard SPH ratio h = 1.3 Δp (σ 0.71 against 0.78 Δp), the one that orders;
+k = 40 is where the Gaussian is below 2 % (a ball of radius 2 Δp holds ≈ 34 particles); the
+free-surface rule is Lind's (shifting restricted at the free surface), with the outer layer's
+own asymmetry measure (surface_recon.layer_by_asymmetry) as the weight; the ½-spacing cap is
+the explicit step's own bound (no particle passes a neighbour). The shift is loss-neutral by
+construction at the cell scale (the cell sum, the plan and the render do not resolve it) and
+mass-preserving (positions only). The 40k gallery is untouched (opt-in). Whether it orders the
+quadrature of the morph without harming the fit is the pre-registered run `f300_bunny`.

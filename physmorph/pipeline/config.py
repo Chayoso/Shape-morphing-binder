@@ -487,6 +487,14 @@ class PipelineConfig:
                                     #   instead of a body whose constants shrink with the quadrature (at 300k the u
                                     #   clip, the relaxation width and the layer depth were half the 40k lengths, and
                                     #   the ear tip held 5.9 reference particles against 13 at 40k). 40k bit-identical.
+    shift_sub: bool = False         # 2026-09-23 night (docs/method.md 10.18, mpm/shifting.py): Fickian shifting of the
+                                    #   sub-cell arrangement at every window commit — Δx = −½ h² ∇C, the particle
+                                    #   concentration diffused one explicit step at its stability limit (Lind 2012),
+                                    #   positions only, the outer layer tangentially, |Δx| ≤ ½ spacing. The order of
+                                    #   the quadrature below the cell is a null space of every term of the objective
+                                    #   (the pair c300 / d300); this is the one step whose job it is.
+    shift_h_sp: float = 1.0         #   Gaussian width in NATIVE spacings (= the cubic spline at the SPH ratio h = 1.3 dp;
+                                    #   the one that orders — mpm/shifting.py)
     layer_gate_ot_normal: bool = False  # 15e: gate on the NORMAL component of the remaining transport (u acts along
                                     #   the normal; tangential transport along the outline does not disqualify it)
     layer_u_render_only: bool = False  # P1 (docs/surface_gradient.md 13): the u leaf receives the render channel's
