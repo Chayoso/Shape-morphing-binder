@@ -5345,3 +5345,15 @@ per-particle Rprop halves the visible per-frame change and its alternating part.
 strays; the ear tip **10.7** reference particles (l300 18.5) — a particle whose arrival wiggle
 reverses once halves its step for good, and the tip fills less: the cost to read on af300 (with
 the KDE term) and the reason the smoothing / neighbourhood question matters for the ear too.
+
+**2026-09-24 16:05 — ab300's verdict (z300b + the per-particle Rprop; 135 windows, 41 min).**
+The best ear of any run: fill **0.965** at the end (z300b 0.936), the base slab ≤ 1.12× (no pile),
+the tongue at 0.71–0.97 of the target thickness where filled, the tip 12.1 reference particles,
+one stray, bump 1.26°; the video's delivered tail **0.0015** (z300b 0.0024; the 40k value 0.0013),
+the low-band correlation −0.18, flips 0.58, net 0.44, step 0.0009 wu — **P103–P106 ✓ except the
+tail by 0.0002 and P105's det F: 0.19** (the per-particle form's cost, as in ac300). So the
+per-particle form gives the ear and the tail, and the smoothing must give back det F without
+losing them: *pre-registered ah300 = z300b's recipe + `--ctrl_rprop --ctrl_rprop_smooth
+--ctrl_rprop_k 8`* (GPU 2 alongside af300, 16:05): **P131** det F ≥ 0.55; **P132** ear fill ≥ 0.93,
+silIoU ≥ 0.977; **P133** the video tail ≤ 0.0015 and the low-band correlation > −0.2; **P134** flips
+≤ 0.6, the layer's step ≤ 0.001 wu.
