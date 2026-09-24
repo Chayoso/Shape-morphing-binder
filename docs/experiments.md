@@ -5410,3 +5410,7 @@ step control. No constant.* *Pre-registered ai300 = l300 + `--ctrl_rprop --ctrl_
 correlation > −0.2; **P143** det F ≥ 0.6, silIoU ≥ 0.977, ear fill ≥ 0.93; **P144** the video
 tail ≤ 0.0013 (the 40k value). Refutation: P142 failing with P141 holding says the layer's
 residual motion is not the optimiser's step at all (the settle-at-commit twin is then next).
+*Stride-19 flicker at 300k (17:05; one frame per commit, the delivered tail's alternating
+component):* l300 **0.0011**, z300b **0.0021**, ac300 **0.0007** — the per-particle form cuts the
+alternating part to 0.65× of l300's and a third of z300b's (whose tail, with the ear still
+filling under the KDE term, alternates the most: ALT/DRIFT 1.81).
