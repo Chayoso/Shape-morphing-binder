@@ -4283,3 +4283,21 @@ and 0.9. The axis on which the continuum morph is defined — one body, its mass
 conserved at every t, no surface to hallucinate — is exactly where the baseline has nothing:
 ours holds one watertight genus-0 body at every t with the volume within 2.3 %. The
 correspondence-driven setting (CORR=nearest / radial) and 4Deform follow; the torus pair next.
+
+**The user's standing directive (23:40): keep experimenting and reading until the oscillation is
+zero and the surface is smooth; mine the SIGGRAPH geometry literature and the MPM
+particle–grid–mesh literature from 2013 on and apply what addresses the problems.** Acceptance
+criteria, fixed now so that "done" is measurable (the 40k g41 values are the bar; all on the 300k
+bunny unless stated):
+- Breathing: `layer_flip_frac` ≤ 0.50 (a coin flip; c300 0.6–0.8) and `layer_net_ratio` ≥ 0.5 over
+  the last 10 windows (metrics.layer_breathing, now in every run's metrics); the plain video's
+  tail per-frame change ≤ the 40k value (0.0001–0.0005; c300 0.0021).
+- Surface: end bump at the reference render ≤ 1.2° (g300 1.3°, h300 1.2°); mid-morph roughness
+  (lump_trace rms at 2 native spacings, frames 300–825) within the 40k band, to be measured on
+  g41 at its own spacing for the comparison (phase-aligned, not frame-aligned).
+- Pieces: no particle piece ≥ 6 at any archived frame from the arrival on; sub-cell drops in the
+  video ≤ 10 % of frames (g300 17/87 = 20 %, h300 17 %; c300 74 %).
+- Fit: silIoU ≥ 0.975 and det F ≥ 0.6 kept (g300 / h300).
+Two survey agents launched (MPM particles–grid–surface, 2013–2026; SIGGRAPH geometry
+interpolation and surface-from-particles); their digests go to docs/related_work.md, the chosen
+mechanisms are pre-registered here before they run.
