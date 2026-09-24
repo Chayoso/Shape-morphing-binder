@@ -4433,3 +4433,30 @@ anticipated. The mechanism for the low band is a step-size question of the outer
 resolved scale (no MPM paper found; the shell-space acceleration functional of Heeren et al.
 2016 is the metric), to be designed after l300 reads. The stochastic PSR test is withdrawn as a
 tool (segfault at 6k surfels / 40³ as well).
+
+**The spectral band criterion on every finished run (00:20).** Low band = wavelengths ≥ 1.45–1.52
+wu (≈ 5 cells; 150 modes of the end-frame layer's Laplacian); the last 10 windows' normal
+displacement of the layer:
+
+| run | high-band share | low-band consecutive-window correlation (median / min) |
+|---|---|---|
+| g41 (40k) | 0.49 | −0.77 / −0.85 |
+| c300 | 0.45 | −0.79 / −0.88 |
+| d300 (ref. constants) | 0.71 | −0.62 / −0.72 |
+| g300 (+ shifting) | 0.72 | −0.49 / −0.78 |
+| h300 (+ basis) | 0.43 | −0.66 / −0.72 |
+| j300 (u damped) | **0.13** | **−0.98 / −0.99** |
+| k300 (dx 0.22) | 0.28 | −0.96 / −0.98 |
+
+Every run, the 40k reference included, alternates coherently at the resolved scale — a
+whole-surface in-and-out with a two-window period; the amplitude differs (40k 0.003 wu a
+window, the 300k runs 0.005–0.008), the phenomenon does not. With the u channel damped (j300)
+or the grid refined (k300) the alternation is almost purely low-band and almost perfect
+(−0.96 … −0.98): the stress channel's own window-to-window over-correction, laid bare. The
+null-space projection (l300) cannot reach it by construction. Working hypothesis for the
+mechanism, to be tested before any fix: each window deforms the body ELASTICALLY to reach its
+target and ends at rest (w_kin), the commit assimilates half the elastic strain into the plastic
+state (`assim 0.5`, the oracle's value), and the other half springs back in the next window's
+free dynamics — a rebound with a two-window period at the scale the elastic body resolves. The
+diagnostic: a zero-control rollout from each accepted commit state, its displacement projected
+on the previous window's (the rebound fraction; −0.5 would confirm), instrumented next.
