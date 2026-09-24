@@ -356,6 +356,15 @@ class PipelineConfig:
                                     # the body, the window target is the FIXED target (fill at full
                                     # strength); first tried 2026-09-17 while the merit read the
                                     # paced loss (a bug) — re-tested on the fixed merit
+    plan_native: bool = False       # 2026-09-24 (docs/method.md 10.17a, correction): with disc_ref, the OT plan's
+                                    #   blur radius (and the leash / material-neighbourhood spacing it derives)
+                                    #   is computed from the NATIVE target spacing. The blur formula already
+                                    #   normalises to the sample set (spacing x (N / ot_samples)^(1/3) = the
+                                    #   spacing of ot_samples points of the shape, N-independent: 0.119 wu at 40k,
+                                    #   0.116 at c300); scaling the input spacing too doubled it (0.227 wu in
+                                    #   d300 / l300 / n300), declared particles arrived at twice the radius, and
+                                    #   parked mass at the ear base (the bulge, ear_slab 2026-09-24). Opt-in for
+                                    #   the twin u300; folds into disc_ref once read.
     pace_project: bool = False      # 2026-09-24 (docs/method.md 10.22): the paced step projected onto the
                                     # divergence-free fields on the body (Chorin projection on the loss
                                     # grid, pressure zero on the free surface) before the paced target

@@ -4747,3 +4747,37 @@ the 40k value 0.0013 — P65's tail ✗: the deliverable ends at window 48, six 
 alternation, where the layer still moves 0.07–0.2 spacings a window), end bump at the reference
 render 1.26° (l300 1.19°), cycle ratio never below the random-walk bound (0.55–0.85). o300 is
 refuted on every count but the fit; `--rest_commit` stays opt-in as a diagnostic.
+
+*The bulge is the reference discretisation's (03:55; ear_slab on c300 and d300).* c300 (300k at
+native constants): **no base bulge at any time** (the base slab 0.42 → 0.85, monotone), the base
+slabs at 0.85–1.0 of the target thickness — but the ear never fills (end 0.669, upper slabs
+0.24–0.49) and the tip beads (the isolated pieces) are c300's known defect. d300 (`--disc_ref`
+alone): the bulge appears (1.49× at t = 0.40, 1.20× at 0.30), the mid-ear at 0.30–0.70 of the
+thickness, end fill 0.931. So the base pile and the filament came WITH the reference
+discretisation — the same change that fixed the tip mass and let the ear fill. The scaled
+constants (§10.17a) are the layer's u bound and relaxation neighbourhood, the isolation gate, the
+coherence radius and count, and the bond decoupling count; the twins that dissect them are
+pre-registered below once t300 (the linear cell sum, with disc_ref) has read whether the pile is
+the log form's tolerance at all.
+
+*The bulge's constant found (04:05): the plan blur doubled under disc_ref.* The plan's blur is
+sample-derived — target NN spacing × (N / 8192)^(1/3), the spacing of the 8192-point sample of
+the shape, N-independent by construction: **0.119 wu at 40k, 0.116 at c300** (0.38–0.39 loss
+cells). Under `--disc_ref` the target NN spacing that feeds it is itself scaled by 1.96, so d300,
+l300 and n300 ran the plan at **0.227 wu (0.74 cells)** — twice the 40k blur: blurrier images
+(deeper inside the target), the leash and the "arrived" radius doubled, so material within 0.23
+wu of its image at the ear base is declared arrived, snapped onto the target's base surface, and
+parks there while the supply keeps coming — the pile; the layer, gated by the same radius, runs
+on into the ear ahead of the bulk — the filament. This is a double count against rule (38), not a
+new constant: the plan's resolution is the sample's. *Pre-registered u300 = l300 +
+`--plan_native`* (GPU 0, 04:10): **P78** the log reads sqrt(eps) 0.116 wu; **P79** the base slab's
+mid-growth maximum ≤ 1.20× (1.49); **P80** the mid-ear thickness ratio at t = 0.15–0.25 ≥ 0.80
+(0.68); **P81** the end not worse — ear fill ≥ 0.93, silIoU ≥ 0.975, ≤ 110 windows (the transport
+may slow: c300 at the same blur took 176 windows, but with native layer constants). Refutation:
+the ear fill falling below 0.90 says the doubled blur was what filled the ear at 300k and the
+pile is its price; then the plan's blur is the lever to set from the feature scale, not the sample.
+*n300's chain readings (04:15):* the plain video's delivered tail 0.0018 per frame (l300 0.0016),
+end bump at the reference render **1.19°** (= l300; P61's bump ✓), raw components > 1 in 13 of 112
+frames (l300 3 of 124 — more transient sub-cell pieces mid-morph), drawn components 1 throughout.
+u300's first launch on GPU 0 died of CUDA memory (the baseline training holds 21 GB there);
+relaunched on GPU 2 at 04:20.

@@ -411,7 +411,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         e_i = gather_cic(ex_c / cur.clamp_min(1e-12), x0_r, tgt.lgmin, tgt.ldx, tgt.ldims).clamp(0.0, 1.0)
         w_t = gather_cic(df_c, tgt.points, tgt.lgmin, tgt.ldx, tgt.ldims).clamp_min(0.0)
         n_p = x0_r.shape[0]
-        p_sp = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)
+        p_sp = (float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)) / (disc_ref_factor(int(x0_r.shape[0]), cfg) if getattr(cfg, "plan_native", False) else 1.0)   # config.plan_native: the plan blur from the sample spacing, never the reference one
         h_r = p_sp * max(1.0, n_p / float(cfg.ot_samples)) ** (1.0 / 3.0)
         ex_frac = float((e_i * m_t).sum() / (m_t.sum()))
         if float(w_t.sum()) > 0 and float(e_i.sum()) > 0:
@@ -465,7 +465,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # (N / ot_samples)^(1/3) — the resolution of the estimator, derived from the
             # discretisation — unless a loss-cell multiple is asked for explicitly
             n_part = int(np.asarray(x0).shape[0])
-            p_sp = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)
+            p_sp = (float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)) / (disc_ref_factor(int(np.asarray(x0).shape[0]), cfg) if getattr(cfg, "plan_native", False) else 1.0)   # config.plan_native: the plan blur from the sample spacing, never the reference one
             eps_len = (cfg.ot_eps_cells * float(tgt.ldx) if cfg.ot_eps_cells > 0 else
                        p_sp * max(1.0, n_part / float(cfg.ot_samples)) ** (1.0 / 3.0))
             tgt.ot_pull = SinkhornPull(target_samples(tgt.points, cfg.ot_samples),
@@ -524,7 +524,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # material neighbourhood for denoising the sampled map: the k particles
                 # inside one blur radius of a particle at the source (k from the blur
                 # volume and the particle spacing), fixed for the run (material graph)
-                p_sp = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)
+                p_sp = (float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * float(tgt.ldx)) / (disc_ref_factor(int(np.asarray(x0).shape[0]), cfg) if getattr(cfg, "plan_native", False) else 1.0)   # config.plan_native: the plan blur from the sample spacing, never the reference one
                 k_nb = int(max(4, min(64, round(4.0 / 3.0 * np.pi * (leash_r / p_sp) ** 3))))
                 x0_np = np.ascontiguousarray(np.asarray(x0, np.float32))
                 from ..render.knn_gpu import knn_self
