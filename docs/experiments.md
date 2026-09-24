@@ -4916,3 +4916,33 @@ y300's log shows nothing. y300 stands.
 *u300's chain readings (06:40):* video tail 0.0030, bump 1.26°; like o300 and r300 it stopped at
 53 windows and its deliverable ends while the body still transports (the per-frame tail measure
 reads that motion; the runs that continue to 80–85 windows read 0.0016–0.0018).
+
+**2026-09-24 06:50 — r300b's verdict (the gate armed at the onset by its own threshold).** 48
+windows in 23.0 min; the reversal cosine negative from window 43, the gate armed on the second
+one below −0.2 and the run ended at 48 on three rejections, the deliverable to window 45 (862
+frames). **P70b ✗ as specified** (armed before 48: this run's alternation began at 43, l300's at
+50 — the onset moves by a few windows from run to run); **P71b ✓** silIoU 0.9782 (l300's 85-window
+0.9797 within 0.0015); **P72b ✗ as measured** — the video tail 0.0031 reads the transport still
+under way at window 45 (the runs that stop at 45–53 all read 0.0028–0.0031; those that run to
+80–85 read 0.0016–0.0018), and the layer breathing is unchanged (flips 0.69, net 0.14, low-band
+correlation −0.65); det F 0.683, bump 1.24°, 10 strays. The rule does what it was built to do —
+no accepted reversal enters the deliverable and the run does not spend 35 windows alternating —
+and it is honest about what it is: the stop at the alternation's onset, not its cure; the
+breathing the eye sees is the layer's, present before the onset too, and w300 is its test. Kept
+opt-in; the deliverable choice between "stop at the onset" (r300b, 45 windows) and "run on"
+(l300, 85 windows, +0.0015 silIoU, 35 alternating windows in the archive) is the user's.
+
+**2026-09-24 07:00 — v300's verdict (the cell-wise hand-off to the fixed target).** 69 windows in
+32.5 min, silIoU **0.9795** (l300 0.9797), det F 0.655. The reversal cosine turns negative at
+window 52 for five windows (−0.49, −0.39, −0.45, −0.39, −0.26) and then decays to zero for the
+last eight (+0.07, −0.03, −0.00, −0.02, +0.15, −0.05, −0.04): **P82 ✗ as specified** (the median
+after 50 is −0.05, not ≥ 0) **but the alternation is weaker and does not persist** — l300 sits at
+−0.3 … −0.57 for 35 windows, o300/m300b at −0.3 … −0.6 to the end. **P83 ✗** — the layer's
+per-window step 0.074 spacings, flips 0.72, net 0.12 (the breathing unchanged; the video tail in
+the chain). **P84 ✓**. Reading: the paced target that moves with the cloud carries PART of the
+merit alternation — once the deficit cells hold the fixed target the optimiser's consecutive
+moves stop reversing each other after a few windows — and the layer's breathing is a separate
+thing again (w300). The hand-off was falsified on the 40k C for stopping a half-formed body
+(2026-09-17); on the bunny at 300k it costs nothing (0.9795) and calms the tail. Kept opt-in;
+the combination `--ot_handoff --outer_latch_reversal` is the natural deliverable recipe if w300
+finds the breathing's carrier.
