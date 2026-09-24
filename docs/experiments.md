@@ -5389,3 +5389,24 @@ form). The dragon is the gallery's thin-feature target (horns, spikes; g41_drago
 F 0.763). **P138** d300 itself: silIoU ≥ 0.955, det F ≥ 0.6, ≤ 20 strays (the 300k recipe holds on a
 second target); **P139** dr300 against d300: flips ≤ 0.6 (and lower), the layer's step ≤ 0.7× d300's,
 silIoU within 0.003, det F ≥ 0.55; **P140** the video tails (stride 12): dr300 ≤ d300 − 0.0003.
+
+**2026-09-24 17:00 — ag300's verdict (l300 + the smoothed Rprop at k = 8) and the global step's
+re-inflation.** 77 windows in 30.6 min; **P127 ✓** det F 0.655, **P130 ✓** silIoU 0.9784; **P128 ✗**
+flips 0.68, step 0.0243 spacings = 0.0017 wu (= l300); **P129 ✗** low-band −0.32; video tail
+0.0019, bump 1.28°, ear fill 0.955, tip 10.4. The per-particle scales decayed further than in
+ad300 (median 0.05 at window 70 against 0.14) and the layer breathed MORE — the scale is not
+what sets the layer's step. The records say why: the optimiser's GLOBAL step, α, sits at its
+floor 0.0010 in l300's tail (anneal 0.05) but at **0.005–0.008 in ag300's** (anneal 0.22–0.34),
+0.002–0.006 in ad300's, 0.002–0.003 in ac300's — the plateau anneal recovers ×1.15 on every
+window the tracks call "improved", and with the rule shrinking the per-particle steps every
+window improves a little, so α re-inflates 5–8× and cancels the per-particle decay (in ac300 the
+scales reached 0.000 and the product still fell; that is why its layer step halved). The step
+control had two knobs, one per particle and one global, pulling against each other. *Fourth
+form (`--ctrl_rprop_hold`): while the rule is on, the global step never grows — no ×1.1 on
+acceptance, no anneal recovery — Rprop has no global rate; the per-particle scale is the only
+step control. No constant.* *Pre-registered ai300 = l300 + `--ctrl_rprop --ctrl_rprop_smooth
+--ctrl_rprop_k 8 --ctrl_rprop_arrived --ctrl_rprop_hold`* (GPU 0, 17:00): **P141** the tail's α ≤
+0.0015 throughout (no re-inflation); **P142** the layer's step ≤ 0.001 wu, flips ≤ 0.55, low-band
+correlation > −0.2; **P143** det F ≥ 0.6, silIoU ≥ 0.977, ear fill ≥ 0.93; **P144** the video
+tail ≤ 0.0013 (the 40k value). Refutation: P142 failing with P141 holding says the layer's
+residual motion is not the optimiser's step at all (the settle-at-commit twin is then next).

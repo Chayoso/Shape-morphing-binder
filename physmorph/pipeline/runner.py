@@ -1157,7 +1157,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         reject_streak, last_reject_score = 0, None
         stale = 0 if improved else stale + 1
         if cfg.anneal_stale > 0:     # optimizer-side zigzag damping (docs/oscillation.md)
-            anneal = (min(1.0, anneal * 1.15) if improved
+            anneal = (min(1.0, anneal * (1.0 if getattr(cfg, "ctrl_rprop_hold", False) and getattr(cfg, "ctrl_rprop", False) else 1.15)) if improved
                       else max(0.05, anneal * cfg.anneal_stale))
         if (cfg.anneal_on_reversal > 0 and reversal_cos is not None
                 and reversal_cos < cfg.outer_reversal_cos):

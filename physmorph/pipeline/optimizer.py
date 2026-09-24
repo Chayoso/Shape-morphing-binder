@@ -1480,7 +1480,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             cont_ok = cont_check(extra_n) if merit_ok else True
             if merit_ok and cont_ok:
                 adam_t = t_
-                alpha = min(a_try * 1.1, cfg.alpha * alpha_scale)  # C++ grows alpha on acceptance
+                # config.ctrl_rprop_hold: under the per-particle Rprop the global step does not grow on
+                # acceptance (Rprop has no global rate: the per-particle scale is the only step control) —
+                # ag300 read the global step re-inflating 5-8x and cancelling the per-particle decay
+                alpha = a_try if (ctrl_scale_v is not None and getattr(cfg, "ctrl_rprop_hold", False)) else min(a_try * 1.1, cfg.alpha * alpha_scale)  # C++ grows alpha on acceptance
                 step_ok = True
                 accepted += 1
                 break

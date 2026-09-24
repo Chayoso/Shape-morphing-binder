@@ -543,6 +543,10 @@ class PipelineConfig:
     ctrl_rprop_arrived: bool = False #  the halving applies only to ARRIVED particles (the paced target's per-particle
                                     #   mask: plan image within the pace radius); a direction change in transport
                                     #   (a curved path) is not an overshoot. No constant: the pace radius is the plan's.
+    ctrl_rprop_hold: bool = False   #   the GLOBAL step (alpha, the plateau anneal) does not grow while the rule is on:
+                                    #   Rprop has no global rate. ag300 (k = 8): the per-particle scales decayed to
+                                    #   0.05 while alpha re-inflated from the 0.001 floor to 0.005-0.008 (the anneal
+                                    #   recovering x1.15 on every "improved" window) — the layer breathed as before.
     u_rprop_floor: float = 0.05     #   the u channel's Rprop floor (10.19); 0 with ctrl_rprop — a floor of 0.05
                                     #   spacings a window is the breathing's own amplitude.
     outer_latch_reversal: bool = False  # 2026-09-24 (docs/method.md 10.21 addendum 3): arm the outer merit gate's
