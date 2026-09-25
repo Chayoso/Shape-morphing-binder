@@ -7404,3 +7404,9 @@ shaded per particle from the blurred CIC density gradient (Lambert, the plain vi
 plain video's two views from a camera fixed on the target's centre (`scratch/render_splat_video.py`);
 no mesh, no iso-surface. Pre-registered: the tail change at the mc level or below (≤ 0.0007) with
 the detail of the splat scale (finer than the 1.5-spacing kernel); the user judges the look.
+
+**2026-09-25 12:40 CDT — cleanup 7 (the user: wipe the previous results): 80 → 39 GB.** Every
+archive except the bases and the chosen forms deleted — ai300, au300, dh300, bf300, bj300, bk300,
+bl300, bn300, g41fs (3), g41ro (3), g41rc (3): 17 files, 41 GB (`.deleted_list_20260925c.txt`; json +
+logs tarred into `logs_archive_20260925c.tgz`). Kept: g41 (19), g41pw (19), ar300, bm300, bo300
+(running), gt, the reports and every video.
