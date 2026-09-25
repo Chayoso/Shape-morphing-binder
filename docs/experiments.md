@@ -6392,3 +6392,38 @@ dragon, bunny, beast (GPU 0). Pre-registered: **P225** fit within ±0.003 of g41
 ≤ g41pw's + 0.10, the released fraction ≤ 10 % at any window, pinned at the end ≥ 0.8, the
 settled body still (pin_probe's still fraction 1.0 at the end); if the follow rule passes P224
 at 300k and P225 at 40k it joins the recipe, else it stays a 300k-only option.
+
+**2026-09-26 01:10 — cleanup (the user: "기존 관련 없는 결과들도 한 번 지워주고"), and the push.**
+Branch `v3-grid-gs` pushed to origin (new remote branch; the remote had only `main`). Server
+output 472 GB → **98 GB**: 890 entries deleted (400.7 GB) after archiving their 575 logs / json /
+verdict texts to `output/logs_archive_20260925.tgz` (the list of deleted paths beside it,
+`logs_archive_20260925.deleted_list.txt`); 120 stride videos of deleted tags removed. Deleted:
+the superseded 300k runs c300 d300 dr300 e300 f300 j300 dp300 dk300 ah300 af300 al300 ab300
+am300 ac300 i300 w300 k300 ap300 y300 ay300 h300 ad300 n300 ag300 an300 m300b v300 z300 aj300
+g300 p300 o300 u300 r300 t300 r300b s300 b300 m300 full300; the superseded 40k sweeps g40 (raw;
+its report folder kept) g41s g41t g41u g41x g41y g41z g41q g41n g41py g41pz g41ps g41pr g41p
+g41f g41h g41k g41m g41o g41v g41w g41a g41r s20; `stale_20260922`; the scratch smoke dirs.
+Kept: g41 + report_g40 / report_g41 (deliverables), g41pw (the adopted 40k form), g41pc / g41pf
+(live), ai300 l300 z300b (the ear's references), ar300 aw300 ak300 az300 (the current 300k pin
+runs), dl300 dw300 dc300 (the dragon), every small older probe (< 10 MB), the scratch scripts.
+Every number of a deleted run stays in this log. Local `output/` (1 GB, the deliverable pages)
+untouched.
+
+**Verdicts in:** *az300 (300k, ar300's form + the follow rule):* 53 windows, silIoU 0.9769, no
+reversal window, **the follow rule released 0.0 %**: by window 50 the plan calls **100 %** of
+the particles arrived (mean |d| 0.053 wu) — a pinned particle's image never leaves the pace
+radius, so the rule is inert; ear tip 8.1, slabs 0.90 / 0.87 / 0.78 / 0.57; P224 ✗. *dw300 /
+dc300 (the 300k dragon under the slip form, without / with the capacity rule):* silIoU 0.9646 /
+0.9625 (dl300 0.9772), end p1 0.80 / 0.77, below 0.5: 30 / 80 particles (dl300 272) — the pin
+improves the dragon's spikes, the cap does not add to it at 300k, and the fit drops by 0.013
+(the spikes are many thin features that stop filling, as the ear does). *g41pf (40k + follow):*
+nefertiti 0.9716 (−0.0016 vs g41pw), dragon 0.9659 (+0.0017), released ≤ 8 %.
+
+**What the four 300k pin runs now say together.** The tip's deficit is visible to the cell-sum
+loss only at the tip's own cells, whose particles are pinned; the particles that must MOVE to
+fill it (a chain down the ear, each stepping up into the vacancy the one above leaves) are all
+"arrived" by the plan's measure and pinned, and a pinned particle has no control gradient (its
+control has no effect). In the un-pinned ai300 that chain ran for 50 windows. So the pin must be
+released on the evidence of the LOSS, not of the plan: the active-set rule the digest
+prescribes (Bertsekas 1982; the strong rules' KKT check) — a fixed variable whose loss gradient
+exceeds what the free variables carry is not at its optimum. Next: `--settle_pin_kkt`.
