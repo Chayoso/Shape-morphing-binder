@@ -6114,3 +6114,16 @@ a few particles. g41py so far: bunny p1 0.914, C 0.899, maxplanck 0.911, ogre 0.
 count below 0.5 ≤ 0.1 %) **every pin run passes**; the run minimum stays reported as the
 transit's dip. What is left for the adoption of the 40k form is the fit on the stream cases
 (beast, nefertiti, ogre) under the yield rule and the sweep of the rest.
+
+**2026-09-25 15:30 — the yield form to the whole gallery and to 300k.** The g41ps chain (the
+form without the yield) is stopped as superseded; **g41py** now runs on all 19 (the remaining
+ten on GPU 0). **ay300** = as300's form + `--settle_pin_yield` (300k, GPU 2). Pre-registered:
+**P210** g41py on the 19: fit up or within −0.003 of max(g41, g41pz) on ≥ 17 with beast ≥
+0.950 and nefertiti ≥ 0.970 (the stream cases); the end-state det F p1 ≥ 0.85 and no more than
+0.1 % below 0.5 on all; the layer's step ≤ 0.02 spacings and flips ≤ 0.56 on ≥ 18; the pinned
+fraction at the end ≥ 0.6 on ≥ 17. **P211** ay300: the ear's tip ≥ 11 reference particles and
+the last two slabs ≥ 0.85 / 1.0, silIoU ≥ 0.9725, end p1 ≥ 0.85, the tail ≤ 0.0011 with the
+body far from the ear exactly still, released ≤ 30 % of the settled set at any window. If P210
+holds, the 40k recipe becomes the g41py form (arrival-gated smoothed Rprop + onset hold + pin
++ ray clearance at 2 Δx + yield + stress-free assimilation) and the D1 phase closes at 40k; if
+P211 holds, the same at 300k.
