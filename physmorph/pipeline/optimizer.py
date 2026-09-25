@@ -580,6 +580,24 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # divergence stalls at 5 % arrived)
             pace_r = max(leash_r, float(tgt.ldx))
             step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)
+            if getattr(cfg, "pace_coherent", False):
+                # config.pace_coherent (2026-09-26 23:00, method.md 10.30): the ear's material is one column of the head
+                # that the plan translates by one length, and the physics STRETCHES it in transit (its rear inside the
+                # head is slow, its front in the ear free): 68-100 % of the tip-bound material stands above the neck
+                # before 30 % of the neck-bound has arrived, on every form, with or without the render channel — the
+                # stretched column is the spike, its lead bunching at the top the knob. The paced target keeps the
+                # material neighbourhood together: a particle more than one blur radius AHEAD of its plan neighbours'
+                # centroid along its own ray (the neighbourhood is a ball of that radius at the source, fixed for the
+                # run) has its step shortened by the excess and waits for the rear; particles behind advance at the
+                # pace. A smooth map moves a neighbourhood together, so the bulk is untouched. No new constant.
+                _cen = x0_ot[tgt.ot_knn].mean(dim=1)                                       # (N, 3) neighbourhood centroid
+                _u = disp / dn.clamp_min(1e-9)                                              # the ray direction
+                _lead = ((x0_ot - _cen) * _u).sum(dim=1, keepdim=True)                      # offset ahead along the ray
+                _excess = (_lead - float(leash_r)).clamp_min(0.0)
+                step = torch.clamp((pace_r - _excess).clamp_min(0.0) / dn.clamp_min(1e-9), max=1.0)
+                pace_coh_frac = float((_excess > 0.0).float().mean())
+                print(f"[win] coherent pace: {100.0 * pace_coh_frac:.1f} % of the particles ahead of their neighbourhood "
+                      f"(held share of the step {float((_excess.clamp_max(pace_r) / pace_r).mean()):.3f})", flush=True)
             x_int = (x0_ot + step * disp).detach()
             if getattr(cfg, "pace_project", False):
                 # the SUPPORT-PRESERVING paced target (docs/method.md 10.22): the straight-ray

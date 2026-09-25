@@ -7107,3 +7107,22 @@ the control in those windows, pulls with it rather than ahead of it. The 300k tw
 read for the record; the remedy moves to the transport: a column-coherent pace (a particle more
 than one pace ahead of its plan neighbours, in remaining distance, waits — the plan's own
 neighbourhood, no new constant), pre-registered next.
+
+**2026-09-26 23:00 — the coherent pace (method.md §10.30, eq. 53, `--pace_coherent`): the remedy
+aimed at the measured mechanism.** No front on the target can stop the stretched column, because
+the lead fills the points around it and the reveal follows at the pace; the render channel does
+not drive it (g41pl); the plan blur is under test (bc300). The paced target itself now keeps the
+material neighbourhood together: a particle more than one blur radius ahead of its plan
+neighbours' centroid along its own ray (the neighbourhood = the k particles inside one blur
+radius at the source, fixed for the run — the set the plan is already averaged over) has its pace
+step shortened by the excess and waits for the rear; particles behind advance at the pace. A
+smooth map moves a neighbourhood together, so the bulk is untouched. No new constant. Launched:
+**bd300** = ar300's form + `--pace_coherent` (300k bunny, GPU 0) and **g41fc** = the adopted 40k
+form + `--pace_coherent` on bunny, nefertiti, dragon (GPU 3). Pre-registered **P253** (bd300): the
+tip-bound material above the neck slab at t = 0.4 ≤ 40 % (ar300 68 %), the neck-bound share of the
+early top region ≤ 20 % (38–72 %), knob index ≤ 1.3 (2.2), tip ≥ 9 at the end, silIoU within
+−0.003 of ar300 (≥ 0.974), end p1 ≥ 0.80, no negative-reversal window; by eye the ear grows as a
+tongue (the growth strip against ar300). **P254** (g41fc): bunny / nefertiti / dragon within
+±0.003 of g41pw with p1 ≥ 0.85 and no reversal window, and the bunny's ordering changed
+(tip-bound above the neck at t = 0.2 ≤ 40 %; g41pw 72 %). If P253 holds and P254's fit holds, the
+rule goes to the 19 (the adoption gate) and to the 300k dragon.

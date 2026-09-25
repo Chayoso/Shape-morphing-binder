@@ -1515,3 +1515,35 @@ boundary was never held. The cap (`pace_cap`) is withdrawn from the front's form
 nodes it is the target's surface halo (the CIC partial nodes), and min(paced, target) there changes
 the transport's drive on every target (g41fy nefertiti −0.006 with the front holding nothing);
 (52c)/(52e) already hold the front at the target's mass.
+
+
+### 10.30 The coherent pace (2026-09-26 23:00; config `pace_coherent`; the stretched column measured)
+
+**What the ear's growth is.** The ear's particles grouped by where they end (the left ear's tip,
+neck and base slabs; `ear_order_probe.py`) are ordered from the first window — tip-bound above
+neck-bound above base-bound — and each group travels the same distance (1.34 wu on ar300): the
+plan translates one column of the head into the ear, base-first by construction. In transit the
+column is stretched: its rear, inside the head, moves slowly against the body; its front, in the
+ear, moves freely. At t = 0.4, 68 % of the tip-bound material stands above the neck slab while
+27 % of the neck-bound has arrived (ar300; 100 % / 12 % at t = 0.2 at 40k without the render
+channel, g41pl — the render is not the driver). The stretched column is thin (the spike); its lead
+bunching at the top before the column arrives is the knob on a neck (`knob_probe.py`: the early
+top region holds the ear's own material only — tip-bound first, and neck-bound particles that
+overshoot their slab and return); a piece of the stretched column parting is the bead. Every
+density term thickens the stretched column afterwards; no front on the target (10.29) stops it,
+because the lead fills the points around it and the reveal follows at the pace.
+
+**The rule.** The paced target of §10.19 moves every particle one pace step along its own ray.
+Let N_i be the plan's material neighbourhood of particle i (the k particles inside one blur
+radius r_b of it at the source, fixed for the run — the set the plan's displacement is already
+averaged over), c_i = mean_{j ∈ N_i} x_j its centroid at the window's start, and û_i the
+particle's ray direction. Its lead along the ray is ℓ_i = (x_i − c_i) · û_i, and its pace step is
+
+  s_i = min(1, max(0, r_pace − max(0, ℓ_i − r_b)) / |d_i|),   x̂_i = x_i + s_i d_i.              (53)
+
+A particle inside its neighbourhood's ball (ℓ_i ≤ r_b) advances at the full pace; a particle
+that has run more than the ball's radius ahead of its neighbours along its ray has its step
+shortened by the excess and waits for the rear; the particles behind advance at the pace, so
+the column contracts from its rear. A smooth map moves a neighbourhood together (the offsets
+stay inside the ball), so the bulk is untouched; the rule binds only where the material
+stretches. No new constant: the pace step, the plan's blur radius and its neighbourhood.
