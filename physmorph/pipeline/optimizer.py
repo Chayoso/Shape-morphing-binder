@@ -678,8 +678,23 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                           f"{float(np.median(tgt.front_rcov)) / max(_sp, 1e-9):.2f} spacings", flush=True)
                 _treeP = tgt.front_tree; _rcov = tgt.front_rcov
                 _X0 = x0_ot.detach().cpu().numpy().astype(np.float32)
-                _dP, _ = _KDf(_X0).query(_P, k=1, workers=-1)
-                _filled = _dP <= _rcov                                  # a target point with a particle within its shell radius
+                if getattr(cfg, "pace_front_dense", False):
+                    # config.pace_front_dense (2026-09-26 20:40): the ear's material is one column below the ear that the plan
+                    # translates by one length (tip-, neck- and base-bound groups all travel 1.34 wu on ar300), and the
+                    # physics STRETCHES the column in transit (its rear inside the head is slow, its front in the ear is
+                    # free): at t = 0.4 68 % of the tip-bound material is above the neck slab while 27 % of the neck-bound
+                    # has arrived — the stretched column is the spike, the tip group bunching at the top is the knob. A
+                    # point counted as filled by ONE particle lets a sparse lead run the front at the pace (a chain); here
+                    # a point is filled when the particles within its shell radius reach HALF its own count there (the
+                    # target holds 8 by the shell's definition; half = the body convention of 10.22, scaled by n / |target|),
+                    # so the front advances only as a plug at the target's density — the material accumulates at the
+                    # boundary until the rear catches up: the tongue. No new constant.
+                    _need = max(1, int(round(0.5 * 8.0 * len(x_int) / max(1, len(_P)))))
+                    _cntP = _KDf(_X0).query_ball_point(_P, r=_rcov, return_length=True, workers=-1)
+                    _filled = np.asarray(_cntP) >= _need
+                else:
+                    _dP, _ = _KDf(_X0).query(_P, k=1, workers=-1)
+                    _filled = _dP <= _rcov                              # a target point with a particle within its shell radius
                 if getattr(cfg, "pace_front_geo", False):
                     # config.pace_front_geo (2026-09-26, method.md 10.29 eq. 52b): the fill-based front below holds every
                     # particle whose ray does not touch a filled point — the part of the source outside the target waits
@@ -712,8 +727,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     _revealed = tgt.front_geo_d <= float(pace_r) * float(tgt.front_geo_k + 1)
                 else:
                     if _filled.any() and (~_filled).any():
-                        _dR, _ = _KDf(_P[_filled]).query(_P[~_filled], k=1, distance_upper_bound=float(pace_r), workers=-1)
-                        _revealed = _filled.copy(); _revealed[np.nonzero(~_filled)[0][np.isfinite(_dR)]] = True
+                        if getattr(cfg, "pace_front_dense", False):
+                            # (20:55) the reveal is one SHELL beyond the filled region — the fill's own resolution — not one
+                            # pace (0.3 wu at 40k: a lead a third of the ear ahead of the filled boundary was never held)
+                            _dR, _ = _KDf(_P[_filled]).query(_P[~_filled], k=1, workers=-1)
+                            _revealed = _filled.copy(); _revealed[np.nonzero(~_filled)[0][_dR <= _rcov[~_filled]]] = True
+                        else:
+                            _dR, _ = _KDf(_P[_filled]).query(_P[~_filled], k=1, distance_upper_bound=float(pace_r), workers=-1)
+                            _revealed = _filled.copy(); _revealed[np.nonzero(~_filled)[0][np.isfinite(_dR)]] = True
                     else:
                         _revealed = _filled | (~_filled)                 # nothing filled yet (the first window) or all filled
                 if getattr(cfg, "pace_front_thin", False):

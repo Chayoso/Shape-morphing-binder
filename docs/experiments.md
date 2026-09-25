@@ -6980,3 +6980,54 @@ Corrected in `pace_front_pts`: a ray is held only where it passes through unreve
 in the air is passable; a sample inside the target is passable when its nearest point is revealed),
 the image clamped at the last passable sample before the first unpassable one. g41fy relaunched:
 nefertiti holds 0.000 from the first window (the front inert on a bulk target, as P246 requires).
+
+**2026-09-26 20:30 — cleanup 4 (the results passed 100 GB): 101 → 62 GB.** Deleted the archives (npz)
+of the refuted or superseded forms — g41phb (19), g41ph (19), g41fr (3), g41fp cow / nefertiti /
+dragon, ae300, l300 (46 files, 40 GB; the list in `$OUT/.deleted_list_20260926d.txt`, their json +
+logs tarred first into `logs_archive_20260926d.tgz`). Kept: g41, g41pw, g41fp bunny + beast, the
+open front runs, ai300, ar300, aw300, ak300, au300, ao300, ag300, the reports and videos.
+
+**20:35 — g41fy (the front restricted to the sub-bulk target) nefertiti: 0.9670, 58 windows, p1
+0.889, no reversal — −0.006 against g41pw with the front holding nothing in any window.** The
+thin part of nefertiti is 0.0 % of its points, so the one thing the form still did was the cap
+at the "thin" nodes — which are the target's SURFACE HALO (the CIC partial nodes hold less than
+half the bulk mass everywhere on the surface): min(paced, target) at every surface node changes
+the transport's drive there. The cap is withdrawn from the front's form (52c/52e make it
+redundant: the assigned images hold exactly the target's mass). And the thin restriction is
+vacuous where it matters: at 300k under `--disc_ref` the bunny's thin part is **0.1 %** of its
+points (ah300, withdrawn) — the ear is bulk at the loss cell; the knob is not a sub-cell defect.
+
+**20:40 — what the ear's growth IS (probe `ear_order_probe.py`: the ear's particles grouped by
+where they END).** ar300, the left ear: the tip-bound (432), neck-bound (2137) and base-bound
+(846) groups are ordered from the first window — tip above neck above base — and each travels
+the same distance, **1.34 wu**: the plan translates one column of the head into the ear. In
+transit the column is STRETCHED — its rear inside the head is slow (it displaces the body), its
+front in the ear is free: at t = 0.4, **68 % of the tip-bound material is above the neck slab
+while 27 % of the neck-bound has arrived** (ao300: 29 % / 13 %; the groups' y-spread 0.3 wu in
+transit for 0.07 at the end). A stretched column is thin — the spike; the tip group stopping at
+the top while the column behind is still stretched — the knob on a neck. So the fronts of (52)
+with "filled = one particle within the radius" cannot stop it: the sparse lead fills the points
+around it and the reveal moves with it at the pace (a chain), which is why every front held ≈ 0
+once its bugs were fixed (g41fd first launch: 0.000 on the bunny). **New fill (52f,
+`--pace_front_dense`)**: a target point is filled when the particles within its shell radius reach
+HALF its own count there (the target holds 8 by the shell's definition; half = the body
+convention of §10.22, scaled by n / |target|), and the reveal is one shell beyond the filled
+region (the fill's own resolution; one pace at 40k is a third of the ear). A lead filament does
+not fill; its images are clamped at the front; the material accumulates until the rear arrives;
+the front advances as a plug at the target's density — the tongue. No cap. Launched: **g41fd** =
+adopted form + `--pace_front_pts --pace_front_fill --pace_front_dense` on bunny, dragon (GPU 0),
+nefertiti (GPU 2); **ba300** = the 300k candidate form (ar300 + `--w_h1 1`) + the same front
+(GPU 3). Pre-registered **P247** (40k): bunny / nefertiti / dragon within ±0.003 of g41pw with
+p1 ≥ 0.85 and no reversal window; the bunny's ear by eye a stub/tongue without a tip bulb
+(growth strips vs g41p). **P248** (300k): silIoU ≥ 0.977, end p1 ≥ 0.80, tip ≥ 10, knob index
+≤ 1.3 (the neck slab ≥ 0.8× when the top slab first exceeds 0.9×), and no negative-window
+streak at the end.
+
+**20:45 — ag300 (300k bunny, ar300's form + the front of the morning's code + cap): silIoU 0.9803
+— the best 300k fit so far** (ar300 0.9773, z300b 0.9802), run det F min 0.72, 76 windows, tip
+10.4 (ar300 9.2), pinned 70 % at 70; but the knob persists (t = 0.2: top slab 1.11× over 0.46×
+below; t = 0.3: 0.47× neck under 0.68×) — the growth order is ar300's (56 % of the tip-bound
+above the neck slab at t = 0.4 for 32 % of the neck-bound arrived) — and **the last five windows
+(71–75) reverse in a row**, a D1 streak at the end of the run (the free 30 %). Read as: the
+morning's front (air-side hold + coverage-gap floor) acted on 3 % of the images after window 11
+and the fit gain is the cap's or noise; the tongue needs (52f).

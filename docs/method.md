@@ -1487,3 +1487,31 @@ only to the part of the target the cell sum cannot resolve — points none of wh
 half the target's bulk node mass (the body of §10.22, read once from the target grid); the bulk is
 always revealed and its arrangement is the loss's to resolve. On a bulk target the front is inert
 by construction; a thin feature grows from its base.
+
+**Addendum (2026-09-26 20:40) — the front's fill at the target's own density (config
+`pace_front_dense`, eq. 52f); what the ear's growth actually is.** Tracking the ear's material by
+where it ENDS (ar300, the left ear's tip / neck / base slabs): the three groups are ordered from
+the first window (tip-bound above neck-bound above base-bound) and each travels the same distance
+(1.34 wu) — the plan translates one column of the head into the ear. In transit the column is
+STRETCHED: its rear, inside the head, moves slowly against the body; its front, in the ear, moves
+freely — at t = 0.4, 68 % of the tip-bound material is above the neck slab while 27 % of the
+neck-bound has arrived. A stretched column is thin (the spike), and the tip group stopping at the
+top while the column behind it is still stretched is the knob on a neck. The fronts of (52) with
+"filled = one particle within the radius" cannot stop this: a sparse lead fills the points around
+it and the reveal moves with it at the pace (a chain). Let n_p be the number of particles within
+the shell radius r_cov(p) of target point p; the target itself holds 8 there by the shell's
+definition. The point is filled when
+
+  n_p ≥ ½ · 8 · n / |Ω|                                                              (52f)
+
+(half = the body convention of §10.22, scaled by the particle-to-point ratio). A lead filament
+does not fill, the reveal does not follow it, its images are clamped at the front and its
+material accumulates there until the rear arrives — the front advances as a plug at the
+target's density: the tongue. Air samples are passable (19:55), the vacancies (52c, 52e) and the
+cap stay. No new constant.
+*(20:55)* Under (52f) the reveal is one shell beyond the filled region — the fill's own resolution —
+not one pace step: at 40k one pace is a third of the ear, and a lead that far ahead of the filled
+boundary was never held. The cap (`pace_cap`) is withdrawn from the front's form: at the "thin"
+nodes it is the target's surface halo (the CIC partial nodes), and min(paced, target) there changes
+the transport's drive on every target (g41fy nefertiti −0.006 with the front holding nothing);
+(52c)/(52e) already hold the front at the target's mass.
