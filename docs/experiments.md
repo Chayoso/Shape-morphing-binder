@@ -7126,3 +7126,25 @@ tongue (the growth strip against ar300). **P254** (g41fc): bunny / nefertiti / d
 ±0.003 of g41pw with p1 ≥ 0.85 and no reversal window, and the bunny's ordering changed
 (tip-bound above the neck at t = 0.2 ≤ 40 %; g41pw 72 %). If P253 holds and P254's fit holds, the
 rule goes to the 19 (the adoption gate) and to the 300k dragon.
+
+**2026-09-26 23:30 — bb300 (300k bunny, ar300's form with the render channel OFF): no knob, a
+tapered tongue, a starved tip — the render channel is the EARLY driver of the top region at 300k
+(P250 half met).** silIoU 0.9694 (−0.008 vs ar300), 65 windows, run det F min 0.743, tip **6.1**
+(ar300 9.2), no negative-reversal window. The slab table has no knob at any time: at t = 0.3 the
+ear is 0.65 / 0.41 / 0.25× from the base up and nothing above the neck; at t = 0.4, 0.76 / 0.77 /
+0.61× with the top two slabs still empty; the top fills last (0.70 / 0.78× at t = 0.6, 0.92 /
+0.97× at the end) — a monotone taper from the base, i.e. the tongue, but late and starved at the
+tip. `knob_probe.py`: **no particle in the top region before t = 0.4** (ar300 21 / 67 / 39 at
+t = 0.2 / 0.25 / 0.3). The ear-order probe: the tip-bound above the neck slab at t = 0.2 is 0 %
+(ar300 6 %) and at t = 0.4 61 % (68 %) — the column's stretch is still the transport's and comes
+later; what the render channel adds is the lead's EARLY arrival at the top (the silhouette term
+pulls the first material up the target ear's outline, which a thin lead satisfies). At 40k
+(g41pl) the same twin showed no such effect, so this is a 300k statement (the ear is many cells
+there and the silhouette's pull on a sub-cell lead is what the cell sum cannot see). *Design
+that follows (pre-registered as the next lever, §10.31):* the render channel keeps its role but
+its TARGET becomes the paced target's own images — the silhouettes of the paced image cloud
+x̂ (the same intermediate target the physics channel is driven to), re-rendered each window
+without gradient — so the two channels agree on the growth order and the render adds its fit
+as the paced target converges to the target (the final windows are unchanged: x̂ = target).
+P255: with the paced render target, the top region stays empty before t = 0.3 as in bb300, the
+knob index ≤ 1.3, and the fit and the tip return to ar300's (≥ 0.974, tip ≥ 9).
