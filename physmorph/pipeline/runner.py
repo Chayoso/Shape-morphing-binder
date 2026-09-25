@@ -411,6 +411,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     ctrl_scale_apply = None              # the scale handed to the optimiser (neighbourhood-smoothed under ctrl_rprop_smooth)
     ctrl_rev_count, frozen_p = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
+    c2f_done = False                     # config.c2f_onset_pin: the render targets rebuilt once, at the pin's onset
     settle_pin_arr = None                # config.settle_pin: the (N,) pin array handed to the rollout
     h1_w_full, h1_armed = float(getattr(cfg, "w_h1", 0.0) or 0.0), False   # config.h1_onset_pin
     if getattr(cfg, "h1_onset_pin", False) and h1_w_full > 0:
@@ -477,8 +478,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 continue
             break
         # coarse-to-fine: sharpen the render targets late in the run (thin features)
-        if (cfg.c2f_at > 0 and cfg.lambda_auto > 0
-                and a == int(cfg.c2f_at * cfg.animations)):
+        # config.c2f_onset_pin (2026-09-26, the user's rendering trick as a loss schedule: large voxels first — smooth,
+        # volumetric, no disconnected droplets — smaller later for the detail): the rebuild fires at the pin's onset,
+        # the run's own "stable result", instead of at a fixed fraction of the windows
+        _c2f_now = (cfg.c2f_at > 0 and a == int(cfg.c2f_at * cfg.animations)) or (
+            getattr(cfg, "c2f_onset_pin", False) and not c2f_done
+            and settled_p is not None and bool(np.any(settled_p)))
+        if cfg.lambda_auto > 0 and _c2f_now and cfg.render_res != cfg.render_res_hi:
+            c2f_done = True
             cfg.render_res = cfg.render_res_hi
             keep = (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0, tgt.gauss_scale,
                     tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio)

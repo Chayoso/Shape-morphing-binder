@@ -6657,3 +6657,36 @@ after; the tip's shape at the spike stage (hook / knob / bead) is the defect. Nu
 windows); av300 0.9742 / 0.70 / 0.0009 / 81 %. The fit and health favour H⁻¹, the growth order
 KDE; neither fixes the spike stage. *Cleanup (the 100 GB rule):* z300b, ak300, g41pc removed
 (22.6 GB, logs archived to `logs_archive_20260926b.tgz`); now 85 GB.
+
+**2026-09-26 09:00 — the user's three points: the marching-cubes look, the early dent, and the
+coarse-to-fine trick.** *(1) "ar300mc looks good; could the render loss thin the ears naturally
+late in the run?"* Two facts first: the ear's particles are already at the target thickness
+(ear_slab 0.89–1.04× per slab at the end), so the fat ears of the mc video are the reconstruction
+kernel — the mc render used the 40k reference kernel (`--ref_n 40000`, radius 0.138 wu) on
+particles 0.054 wu apart; renders at the native and an intermediate kernel are running
+(`ar300_mc_ref300000 / ref100000`, with end stills and bumpiness). The physics half of the idea
+is the coarse-to-fine schedule below. *(2) The early dent (the user's frame at the video's
+start):* it is in the particles. `scratch/dent_probe.py` (the outer shell's radius per angular
+bin against its neighbours, and the radial density beneath): frame 0 no dip; **frame 96
+(window 5): the deepest bin −15 % with 24 bins below −8 %, and the density in the outer bands
+of that cone 0.43–0.52 of the body's median** — the surface has receded where the transport
+drains the blob from that side first (the outer material there leaves inward along its rays
+before the interior follows). By frame 144 −20 % (37 bins). Later frames read the ears' bases as
+dips (the probe's limit), but the early crater is a transport-phase drain, not a reconstruction
+artifact — the mc surface shows it because it is there. *(3) The user's rendering trick — large
+voxels first (smooth, volumetric, no disconnected droplets), smaller later for detail — as a
+LOSS schedule:* the code has half of it (`--c2f_at`: the render targets rebuilt at
+`render_res_hi` at a fixed fraction of the run; tested once at 20k in the ladder as "render_c2f ≈
+tie", never in the recipe). Made principled: **`--c2f_onset_pin`** — the rebuild at the pin's
+onset (the "stable result" the user names), not at a fixed fraction; and the coarse phase
+COARSER than now (render_res 32 against the recipe's 64). Launched on bunny, dragon,
+nefertiti on top of the adopted 40k form (g41pw): **g41cA** `--render_res 32 --render_res_hi
+96 --c2f_onset_pin`, **g41cB** `--render_res 32 --render_res_hi 64 --c2f_onset_pin`, **g41cC**
+`--render_res 64 --render_res_hi 96 --c2f_onset_pin` (the "detail later" half alone).
+Pre-registered: **P234** by eye on the stride-12 videos: the early blob smoother (no crater at
+windows 5–12 — the dent probe's deepest bin ≥ −8 % at frame 96) and the ear's spike stage
+without a hook / knob / bead, in A or B; **P235** the fit within ±0.003 of g41pw and the end p1 ≥
+0.85 on the three, and the pinned fraction ≥ 0.9 (the coarse phase must not delay the pin). The
+density-voxel half of the trick (a coarse loss grid first) is held: the paced target's arrival
+radius is the loss cell, so a coarse grid would pin material a coarse cell from its image —
+the arrival radius has to be decoupled from the loss cell before that half can be tested.

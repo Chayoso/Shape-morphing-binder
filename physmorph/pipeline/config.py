@@ -76,6 +76,7 @@ class PipelineConfig:
                                     #   grad when they conflict (cos<0 — measured late-run -0.74)
     c2f_at: float = 0.0             # >0: coarse-to-fine — rebuild render targets at this
     render_res_hi: int = 96         #   fraction of the run at render_res_hi
+    c2f_onset_pin: bool = False     # 2026-09-26: the coarse-to-fine render rebuild at the pin's onset instead of c2f_at
     lg_sweeps: int = 0              # LOCAL-GLOBAL: >0 runs a surface-band GS pass per
     lg_young: float = 2e3           #   commit (global MPM owns bulk transport; the band,
                                     #   interior-pinned, owns the rim render residual —

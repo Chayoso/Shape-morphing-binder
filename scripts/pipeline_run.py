@@ -101,7 +101,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
                          ot_handoff=args.ot_handoff,
                          render_views=args.render_views,
-                         render_res=args.render_res, loss_res=args.loss_res,
+                         render_res=args.render_res, render_res_hi=args.render_res_hi, c2f_onset_pin=args.c2f_onset_pin, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
                          disc_ref=args.disc_ref, stop_on_cycle=args.stop_on_cycle, u_rprop=args.u_rprop, commit_pic=args.commit_pic, rebound_probe=args.rebound_probe, rest_commit=args.rest_commit, rest_commit_gate=args.rest_commit_gate, rest_commit_reversal=args.rest_commit_reversal, pace_project=args.pace_project, outer_latch_reversal=args.outer_latch_reversal, plan_native=args.plan_native, ctrl_rprop=args.ctrl_rprop, ctrl_rprop_smooth=args.ctrl_rprop_smooth, ctrl_rprop_k=args.ctrl_rprop_k, ctrl_rprop_arrived=args.ctrl_rprop_arrived, ctrl_rprop_hold=args.ctrl_rprop_hold, ctrl_rprop_hold_onset=args.ctrl_rprop_hold_onset, freeze_arrived=args.freeze_arrived, settle_eta=args.settle_eta, settle_commit=args.settle_commit, settle_pin=args.settle_pin, settle_pin_clear=args.settle_pin_clear, settle_pin_assim=args.settle_pin_assim, settle_pin_ray=args.settle_pin_ray, settle_pin_yield=args.settle_pin_yield, settle_pin_slip=args.settle_pin_slip, h1_outside=args.h1_outside, h1_onset_pin=args.h1_onset_pin, settle_pin_kkt=args.settle_pin_kkt, settle_pin_kkt_dry=args.settle_pin_kkt_dry, settle_pin_follow=args.settle_pin_follow, arrive_cap=args.arrive_cap, u_rprop_floor=args.u_rprop_floor, shift_sub=args.shift_sub, shift_h_sp=args.shift_h_sp, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
                          layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
@@ -502,6 +502,8 @@ def main():
     ap.add_argument("--assim_consensus", action="store_true")  # neighbourhood-consensus plasticity
     ap.add_argument("--render_views", type=int, default=6)
     ap.add_argument("--render_res", type=int, default=64)
+    ap.add_argument("--render_res_hi", type=int, default=96, help="the render resolution after the coarse-to-fine rebuild (config.render_res_hi)")
+    ap.add_argument("--c2f_onset_pin", action="store_true", help="rebuild the render targets at render_res_hi at the pin's onset (config.c2f_onset_pin)")
     ap.add_argument("--loss_res", type=int, default=32)
     ap.add_argument("--render_gs_iters", type=int, default=20)
     ap.add_argument("--w_pbr", type=float, default=1.0)
