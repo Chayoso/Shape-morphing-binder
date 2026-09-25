@@ -1541,6 +1541,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     rec["arrive_cap_frac"] = float(stats["arrive_cap_frac"])
                 if stats.get("pace_front_frac") is not None:
                     rec["pace_front_frac"] = float(stats["pace_front_frac"])
+                if stats.get("pace_front_fill_frac") is not None:
+                    rec["pace_front_fill_frac"] = float(stats["pace_front_fill_frac"])
                 if (a + 1) % 5 == 0:
                     log(f"[v2] anim {a + 1}: pinned {100 * settled_p.mean():.1f} % of the particles")
             if getattr(cfg, "freeze_arrived", False) and ctrl_prev_disp is not None and frozen_p is not None:

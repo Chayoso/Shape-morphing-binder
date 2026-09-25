@@ -1401,3 +1401,46 @@ H⁻¹ terms read the fixed target and would pull ahead of the front; with `h1_o
 H⁻¹ term is off during the transport, and the KDE term is not in the 40k form. Read by eye at
 the spike stage (no hook, knob or bead), by the knob index on the 300k slab tables, and by the
 fit (a front that queues material must not cost the end state).
+
+**Addendum (2026-09-26 16:40) — the geodesic front (config `pace_front_geo`, eq. 52b).** The
+fill-based fronts (52, at the grid and at the particle scale) hold every image whose ray does
+not touch the filled region, so the part of the source that lies outside the target waits until
+the fill reaches the surface near it, and a bulk target is transported as a wave from the
+overlap at about half the pace (g41fp: nefertiti 115 windows for g41pw's 57 and −0.008, cow
+−0.006, a standing queue of 26 % of the images from window 40 to the end). The front the growth
+order needs is the target's own. Let Ω be the target's point set with its geodesic metric d_Ω
+(the 8-nearest-neighbour graph of the points, edges weighted by length), O ⊂ Ω the points
+within one spacing of a particle at the run's first window (the source–target overlap; the
+nearest point when there is none), and at pace step k the revealed target
+
+  Ω_k = { p ∈ Ω : d_Ω(p, O) ≤ (k + 1) r_pace }.                                        (52b)
+
+A particle's paced image is clamped along its ray at the last sample inside Ω_k, as in (52).
+Material moving along the target (up the ear from its base) is never held, because the growth
+and the pace share the speed r_pace per window; only material that would shortcut through the
+air to a region the growth has not reached is held at the growth's boundary, and the images
+held there queue at the boundary (the cap of `pace_cap` keeps the cell sum from asking for
+them). A point the graph cannot reach from O (a separate piece) takes its Euclidean distance
+from O. No new constant: the pace radius, the spacing, and the target's own metric.
+
+**Addendum (2026-09-26 17:00) — the held images fill the front's vacancies (config `pace_front_fill`, eq. 52c).**
+The clamp of (52) piles every held image at the same place on its ray, and the pile has no
+right answer at the cell scale: without the cap it over-fills the front cell (g41fp dragon: 44
+particles below det F 0.5 at the spikes' fronts), and with the cap (`pace_cap`) the front cell
+is full before the unfilled target points behind it are reached — the fill is read at the point
+scale (one spacing) and the cap at the cell scale, so a sub-cell spike DEADLOCKS: no pull toward
+the vacancies, no fill, no reveal (g41fq dragon: 35 % pinned at 86 windows, the merit's
+rejections end the run, 0.9508). The same pile holds the part of the source that lies outside
+the target (nothing on its ray is revealed) until the wave reaches it (nefertiti 2× the windows).
+The front's held images are instead ASSIGNED to its vacancies. Let V_k = Ω_k \ F_k be the
+revealed points without a particle within one spacing (the vacancies). A held particle whose
+clamped image c_i (52) lies within one pace step of a vacancy takes the nearest one as its image,
+
+  x̂_i = argmin_{p ∈ V_k, |p − c_i| ≤ r_pace} |p − c_i|,   at most n/|Ω| particles per point,  (52c)
+
+closest first (the capacity of §10.28); a held particle with no vacancy in reach keeps its clamp.
+The images at the front then hold exactly the target's mass there (one particle per point, no
+pile, the cap redundant), the vacancies are pulled on at the point scale (the fill advances,
+the reveal follows: no deadlock), and material outside the target moves onto the nearest
+revealed vacancies of the surface within its reach (the wave is seeded from the air side as
+well as from the overlap). No new constant: the pace step, the spacing, the capacity ratio.

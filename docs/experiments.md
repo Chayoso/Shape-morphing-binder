@@ -6857,3 +6857,38 @@ the two discretisation losses (clamp at the exact boundary crossing along the ra
 last sample; a filled point read at the pace's own radius) and re-read nefertiti's window
 count — P243: nefertiti under the corrected front within 1.3× of g41pw's windows and within
 −0.003 of its fit, with beast's finish and the stub kept.
+
+**2026-09-26 17:00 — the cap (g41fq): bunny recovered, the dragon deadlocked; the geodesic front
+launched as a diagnostic; the front's vacancy fill as the answer (P244).** g41fq (adopted form +
+`--pace_front_pts --pace_cap`): **bunny 0.9704 (= g41pw 0.9703; g41fp 0.9678), 60 windows (45),
+end-state p1 0.926, none below 0.5, no reversal window** — P240's bunny part ✓ and the front's
+bunny cost was the pile. **Dragon 0.9508 (−0.013 vs g41pw), 86 windows, p1 0.864, none below
+0.5, 12 null commits, ended by the merit's rejections at 35 % pinned** — P240 ✗ on the fit
+while ✓ on the health. By window: pinned g41pw 0.40 / 0.68 / 0.81 / 0.90 at 30 / 40 / 50 / 80;
+g41fp 0.17 / 0.29 / 0.38 / 0.53 (0.72 at 144); g41fq 0.10 / 0.18 / 0.28 / 0.35; the fraction of
+images held at the front 0.32–0.40 on the dragon throughout (bunny 0.27, nefertiti 0.26). *Read:*
+the clamp piles the held images at one place on the ray. Without the cap the pile over-fills
+the front cell (the compression); with the cap the front CELL is full before the unfilled
+target POINTS behind it are reached — the fill is read at one spacing and the cap at one cell,
+so a sub-cell spike deadlocks: no pull toward the vacancies, no fill, no reveal, and the run
+ends on rejections. The bunny's ear is wider than a cell, so its front does not deadlock and
+the cap only removes the pile. The same pile is why a bulk target waits: the source's part
+outside the target has nothing revealed on its ray and sits until the wave arrives.
+*Diagnostic in parallel:* the geodesic front (`--pace_front_geo`, eq. 52b: the target grown
+along its own geodesics from the window-0 overlap at one pace per window) on nefertiti
+(g41fg): origin 39 % of the target points, full reach in 9.2 pace steps; pinned 0.17 at window
+35 (g41pw ≈ 0.6) — it holds as much as the fill-based front in its first windows; read at the
+end for the record only, since a wave at the pace's own speed cannot order material that also
+moves at the pace's speed (the ear's rays run along the ear: geodesic = ray), and its sweep was
+stopped after nefertiti. **The answer to both costs is one rule (method.md 10.29 addendum, eq.
+52c, `--pace_front_fill`): a held image is assigned to a revealed VACANCY (a revealed target
+point without a particle within one spacing) within one pace of its clamp, one particle per
+point (the capacity ratio of §10.28), closest first** — the front holds exactly the target's
+mass (no pile, the cap redundant), the vacancies are pulled on at the point scale (no
+deadlock), and material outside the target moves onto the nearest revealed surface vacancies
+in its reach (the wave seeded from the air side too). Launched: **g41fv** = adopted form +
+`--pace_front_pts --pace_cap --pace_front_fill` on dragon, nefertiti, bunny, beast (GPU 0).
+Pre-registered **P244**: dragon within −0.003 of g41pw (≥ 0.961) with p1 ≥ 0.85 and ≤ 0.02 %
+below 0.5; nefertiti ≥ 0.970 within 1.3× of g41pw's windows (≤ 74); bunny ≥ 0.967 with the stub
+growth kept (by eye); beast ≥ 0.955 with its transport finished (pinned ≥ 0.9) and no reversal
+window. If it holds on the four, the form goes to the 19 (the adoption gate) and to 300k.

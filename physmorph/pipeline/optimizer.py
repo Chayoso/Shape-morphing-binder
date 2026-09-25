@@ -563,6 +563,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         plan_img_np = None                  # the plan image per particle (config.settle_pin_ray: the transit rays)
         arrive_cap_frac = None              # config.arrive_cap: the fraction of arrivals over capacity (kept on the plan image)
         pace_front_frac = None              # config.pace_front: the fraction of particles whose image was clamped at the front
+        pace_front_fill_frac = None         # config.pace_front_fill: the fraction of particles assigned to a front vacancy
         if cfg.phys_loss in ("ot_pace", "ot_shape"):
             # DISPLACEMENT-INTERPOLATED TARGET (McCann interpolation along the transport
             # plan): this window's target density is the current cloud advected toward its
@@ -652,7 +653,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     pace_front_frac = float(_out.float().mean())
                 else:
                     pace_front_frac = 0.0
-            if getattr(cfg, "pace_front_pts", False) and tgt.pts is not None:
+            if (getattr(cfg, "pace_front_pts", False) or getattr(cfg, "pace_front_geo", False)) and tgt.pts is not None:
                 # config.pace_front_pts (2026-09-26, method.md 10.29 at the particle scale): the grid front orders the
                 # growth at the loss-cell scale (the head's hump) and cannot order it below — the ear's spike is a
                 # filament thinner than the cell. Here the front is read on the target's own points: a target point is
@@ -667,12 +668,44 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     _sp = float(np.median(_KDf(_P).query(_P, k=2, workers=-1)[0][:, 1]))
                 _X0 = x0_ot.detach().cpu().numpy().astype(np.float32)
                 _dP, _ = _KDf(_X0).query(_P, k=1, distance_upper_bound=_sp, workers=-1)
-                _filled = np.isfinite(_dP)
-                if _filled.any() and (~_filled).any():
-                    _dR, _ = _KDf(_P[_filled]).query(_P[~_filled], k=1, distance_upper_bound=float(pace_r), workers=-1)
-                    _revealed = _filled.copy(); _revealed[np.nonzero(~_filled)[0][np.isfinite(_dR)]] = True
+                _filled = np.isfinite(_dP)                              # a target point with a particle within one spacing
+                if getattr(cfg, "pace_front_geo", False):
+                    # config.pace_front_geo (2026-09-26, method.md 10.29 eq. 52b): the fill-based front below holds every
+                    # particle whose ray does not touch a filled point — the part of the source outside the target waits
+                    # until the fill reaches its surface, and a bulk target is transported as a wave at half the pace
+                    # (g41fp nefertiti: 115 windows for g41pw's 57, -0.008). Here the front is the TARGET grown along its
+                    # own geodesics from the region the source occupies at the first window, one pace step per window:
+                    # material moving along the target (the ear's base-to-tip order) is never held, only material that
+                    # would shortcut through the air to a region the growth has not reached. A piece the graph cannot
+                    # reach takes its Euclidean distance from the origin. No new constant (the pace, the spacing).
+                    if getattr(tgt, "front_geo_d", None) is None:
+                        from scipy.sparse import coo_matrix as _coo
+                        from scipy.sparse.csgraph import dijkstra as _dijk
+                        _dk, _ik = _KDf(_P).query(_P, k=9, workers=-1)
+                        _src = np.repeat(np.arange(len(_P)), 8); _dst = _ik[:, 1:].reshape(-1); _w = _dk[:, 1:].reshape(-1)
+                        _ok = _dst < len(_P)
+                        _G = _coo((_w[_ok].astype(np.float64), (_src[_ok], _dst[_ok])), shape=(len(_P), len(_P))).tocsr()
+                        _d0, _ = _KDf(_X0).query(_P, k=1, distance_upper_bound=_sp, workers=-1)
+                        _orig = np.nonzero(np.isfinite(_d0))[0]
+                        if len(_orig) == 0:
+                            _orig = np.array([int(np.argmin(_KDf(_X0).query(_P, k=1, workers=-1)[0]))])
+                        _dg = _dijk(_G, directed=False, indices=_orig, min_only=True)
+                        _isl = int((~np.isfinite(_dg)).sum())
+                        _de, _ = _KDf(_P[_orig]).query(_P, k=1, workers=-1)
+                        _dg = np.where(np.isfinite(_dg), _dg, _de).astype(np.float32)
+                        tgt.front_geo_d = _dg; tgt.front_geo_k = 0
+                        print(f"[win] geodesic front: origin {len(_orig)} of {len(_P)} target points, reach "
+                              f"{float(_dg.max()):.3f} wu = {float(_dg.max()) / float(pace_r):.1f} pace steps, "
+                              f"{_isl} island points", flush=True)
+                    else:
+                        tgt.front_geo_k += 1
+                    _revealed = tgt.front_geo_d <= float(pace_r) * float(tgt.front_geo_k + 1)
                 else:
-                    _revealed = _filled | (~_filled)                     # nothing filled yet (the first window) or all filled
+                    if _filled.any() and (~_filled).any():
+                        _dR, _ = _KDf(_P[_filled]).query(_P[~_filled], k=1, distance_upper_bound=float(pace_r), workers=-1)
+                        _revealed = _filled.copy(); _revealed[np.nonzero(~_filled)[0][np.isfinite(_dR)]] = True
+                    else:
+                        _revealed = _filled | (~_filled)                 # nothing filled yet (the first window) or all filled
                 _treeR = _KDf(_P[_revealed])
                 _XI = x_int.detach().cpu().numpy().astype(np.float32)
                 _dI, _ = _treeR.query(_XI, k=1, distance_upper_bound=_sp, workers=-1)
@@ -685,6 +718,30 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     _inside = np.isfinite(_dS).reshape(-1, _K); _inside[:, 0] = True
                     _last = (_inside * np.arange(_K)[None, :]).max(1)
                     _new = _seg[np.arange(_seg.shape[0]), _last]
+                    if getattr(cfg, "pace_front_fill", False):
+                        # config.pace_front_fill (2026-09-26, method.md 10.29 eq. 52c): the clamp piles every held image at one
+                        # place on its ray — without the cap the pile over-fills the front cell (g41fp dragon: 44 below det F
+                        # 0.5), with it the front CELL is full before the unfilled target POINTS behind it are reached and a
+                        # sub-cell spike deadlocks (g41fq dragon: 35 % pinned at 86 windows). A held image is assigned instead
+                        # to a revealed VACANCY (a revealed point without a particle within one spacing) within one pace of its
+                        # clamp, one particle per point (the capacity ratio of 10.28), closest first; no vacancy in reach =
+                        # keep the clamp. The front then holds exactly the target's mass and the fill advances at the point scale.
+                        _vac = np.nonzero(_revealed & ~_filled)[0]
+                        _nfill = 0
+                        if len(_vac) > 0:
+                            _dv, _iv = _KDf(_P[_vac]).query(_new, k=1, distance_upper_bound=float(pace_r), workers=-1)
+                            _hit = np.nonzero(np.isfinite(_dv))[0]
+                            if len(_hit) > 0:
+                                _capv = max(1, int(round(len(x_int) / max(1, len(_P)))))
+                                _pv = _iv[_hit]; _dh = _dv[_hit]
+                                _ordv = np.lexsort((_dh, _pv)); _pvs = _pv[_ordv]
+                                _firstv = np.r_[True, _pvs[1:] != _pvs[:-1]]
+                                _gs = np.maximum.accumulate(np.where(_firstv, np.arange(len(_pvs)), 0))
+                                _keepv = np.zeros(len(_pvs), bool); _keepv[_ordv] = (np.arange(len(_pvs)) - _gs) < _capv
+                                _new[_hit[_keepv]] = _P[_vac[_pv[_keepv]]]
+                                _nfill = int(_keepv.sum())
+                        pace_front_fill_frac = float(_nfill) / float(len(x_int))
+                        print(f"[win] front: held {float(_out.mean()):.3f}, vacancies {len(_vac)}, assigned {pace_front_fill_frac:.3f}", flush=True)
                     x_int = x_int.clone()
                     x_int[torch.as_tensor(np.nonzero(_out)[0], device=dev)] = torch.as_tensor(_new, device=dev, dtype=x_int.dtype)
                 pace_front_frac = float(_out.mean())
@@ -1863,7 +1920,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac,
+              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac, "pace_front_fill_frac": pace_front_fill_frac,
               "gx": (gx_box[0].cpu().numpy().astype(np.float32) if gx_box[0] is not None else None),
               "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
