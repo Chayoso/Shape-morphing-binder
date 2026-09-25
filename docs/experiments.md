@@ -6784,3 +6784,14 @@ the settled body) holds on beast's pinned 70 %; the residual is the transport's 
 arrive, which is the item the fronts address — beast and cow added to the particle-scale
 front run (g41fp). Recorded as open: *beast's transport stalls at 76 % arrival under every
 form since g41t (0.9516–0.9544), and its free remainder alternates.*
+
+**2026-09-26 14:00 — g41phb complete (19 of 19): the placed H⁻¹ (outside the core, from the pin's
+onset) is neutral at 40k.** vs the adopted g41pw: within ±0.003 on 17 (beast +0.0028, armadilo
++0.0025, V +0.0016, bimba +0.0011, maxplanck +0.0009, dragon +0.0005, ogre +0.0037, fandisk
++0.0002, teapot +0.0001, heart 0, bob −0.0002, spot −0.0006, A −0.0007, C −0.0008, cheburashka
+−0.0009, homer −0.0010, bunny −0.0013), **cow −0.0068 and nefertiti −0.0036** beyond it; no early
+stop, no brake stop, no ejection; the reversal windows no worse than g41pw's (beast 7 against 10).
+Not adopted at 40k (neutral); it remains the 300k supply lever (au300 filled the tip), read on
+ao300. The from-the-start term (g41ph) keeps its +0.008 to +0.015 on ten targets and its two
+catastrophes; a placement that keeps the gain without them is not found — the gain is a
+transport-phase effect and the failures are transport-phase effects of the same term.
