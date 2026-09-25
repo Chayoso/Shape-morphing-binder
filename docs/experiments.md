@@ -7180,3 +7180,10 @@ the pace's own step; the 40k gate for the pair is read after the 300k pair.
 Health of the three: bd300 end p1 0.869, none below 0.5, 52 windows, no negative-reversal window;
 bc300 end p1 0.858 (the 0.59 is the run's transit minimum), 45 windows, none below 0.5; g41fc end p1
 0.916 / 0.901 / 0.883 (bunny / nefertiti / dragon), none below 0.5, no reversal window on any.
+
+**00:30 — g41rp (40k, the render channel targeting the paced cloud): costs the fit.** bunny 0.9654
+(−0.0049 vs g41pw), dragon 0.9564 (−0.0078), nefertiti 0.9665 (−0.0067); the 40k ordering is read
+below with be300. Under the pin a particle is locked at arrival, while its render target is still
+the paced cloud's silhouette; the final outline reaches it only through the last free material.
+If be300 removes the 300k knob, the placement to test is the one accepted for H⁻¹: the paced render
+target until the pin's onset (the growth), the target's own images after (the fit).
