@@ -6221,3 +6221,15 @@ form goes to the remaining 15 targets now (GPU 0; GPU 1 continues beast, bunny, 
 pinned ≥ 0.8 at the end on ≥ 17. g41py (the yield form) at 18 of 19: cheburashka +0.001,
 fandisk +0.005, heart +0.000, spot +0.002 — 14 of 18 up or within −0.003, beast −0.016, cow
 −0.004, ogre −0.004, nefertiti +0.003; it is the fallback if the slip form fails P218.
+
+**2026-09-25 18:30 — g41pw (the slip form), 5 of 19, vs g41:** bunny **0.9703** (+0.0093, the
+best bunny of any run; det F run-min 0.787 = +0.015 over g41), nefertiti +0.0056, C +0.0616,
+**beast 0.9516 (−0.0025 — the yield form had −0.016, the point rule −0.017: the stream case is
+answered)**, ogre −0.0017. Flips 0.20–0.38, steps 0.012–0.023 spacings. The run-minimum det F
+drops on C (−0.081), ogre (−0.063, 0.691), beast (−0.041) — the end-state reading follows below.
+ay300 (300k + yield) run: silIoU 0.9703, det F 0.633; chain rendering. *A naming error:* the
+aw300 chain was derived from as300's script by a substitution that did not match, so the slip
+run at 300k writes under the tag as300 (its flags are the slip form's: `settle_pin
+settle_pin_assim settle_pin_slip`); the original as300 archive, json, verdict and video were
+copied to `as300orig_*` before the overwrite, and the slip run's outputs will be renamed to
+aw300 when it ends. The numbers of as300 (17:20 entry) stand.
