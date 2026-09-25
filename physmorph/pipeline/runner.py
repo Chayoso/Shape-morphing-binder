@@ -413,6 +413,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
     c2f_done = False                     # config.c2f_onset_pin: the render targets rebuilt once, at the pin's onset
     settle_pin_arr = None                # config.settle_pin: the (N,) pin array handed to the rollout
+    stick_arr = np.full(N, -1, np.int64) if getattr(cfg, "plan_sticky", False) else None   # config.plan_sticky (10.33)
     h1_w_full, h1_armed = float(getattr(cfg, "w_h1", 0.0) or 0.0), False   # config.h1_onset_pin
     if getattr(cfg, "h1_onset_pin", False) and h1_w_full > 0:
         cfg.w_h1 = 0.0                       # the transport phase runs without the H^-1 term
@@ -562,7 +563,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag,
             u_scale_init=(u_scale if getattr(cfg, "u_rprop", False) else None),
             ctrl_scale_init=(ctrl_scale_apply if (getattr(cfg, "ctrl_rprop", False) or getattr(cfg, "freeze_arrived", False)) else None),
-            eta_init=settle_eta_arr, pin_init=settle_pin_arr)
+            eta_init=settle_eta_arr, pin_init=settle_pin_arr, stick_init=stick_arr)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):
@@ -1182,6 +1183,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 continue
             outer_prev = score
             outer_prev_phys = score_phys
+            if stick_arr is not None and stats.get("arrive_idx") is not None:
+                # config.plan_sticky: a particle that arrived in this (accepted) window keeps its point from here on
+                _ai = np.asarray(stats["arrive_idx"], np.int64)
+                _new_stk = (stick_arr < 0) & (_ai >= 0)
+                stick_arr[_new_stk] = _ai[_new_stk]
+                rec["stuck_frac"] = float((stick_arr >= 0).mean())
             prev_disp = disp.copy()
             rev_prev_neg_acc = rev_neg_now; rev_prev_neg_arr = rev_neg_now_arr
         else:
@@ -1684,4 +1691,5 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None),
             "pinned": settled_p,                      # config.settle_pin / settle_eta: the settled set at the end (None when off)
             "pinned_at": settled_at,
-            "gx_last": kkt_last_g}                  # config.settle_pin: the window at which each particle was pinned (-1 never)
+            "gx_last": kkt_last_g,
+            "stuck": stick_arr}                    # config.plan_sticky: the target point each particle arrived at (-1 never)                  # config.settle_pin: the window at which each particle was pinned (-1 never)

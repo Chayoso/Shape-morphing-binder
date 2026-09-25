@@ -1594,3 +1594,18 @@ A particle inside a continuous stream (a full ball behind it) advances at the pa
 sparse stream behind it advances in proportion to that fill and waits for the material to arrive;
 the bulk, a moving body, is untouched. Half the ball's count is the body convention of §10.22. No
 new constant: the pace step, the plan's blur radius and its neighbourhood count.
+
+### 10.33 Sticky endpoints (2026-09-25 13:30 CDT; config `plan_sticky`; the surface sliding of arrived material)
+
+The plan of §10.19 is re-solved every window from the current positions. On a filled surface the
+assignment of the arrived material is free up to a permutation — many endpoints are equally good —
+so each re-solve hands an arrived particle a slightly different endpoint, the particle chases it
+along the surface (the cell sum is flat there, the silhouette term nearly so), it never reverses
+twice, and it is never pinned: 40–50 % of the body is free at the end of every 300k pin run (bm300
+49 %, ar300 41 %) and drifts through the delivered tail, which is the algorithm's share of the
+visible shake (the user's memory: "particles that had reached the surface kept flowing along it").
+Under `plan_sticky` a particle that has ARRIVED (within one pace step of its endpoint) keeps the
+target point it arrived at: from that window on its plan endpoint is that point (after the
+neighbourhood averaging, which no longer moves it), and the arrival snap sends it there. Its
+control then works against a fixed goal, it settles, reverses, and the pin of §10.27 takes it. No
+new constant: the arrival radius is the pace step, the point is the snap's own.

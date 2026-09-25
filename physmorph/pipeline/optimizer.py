@@ -223,7 +223,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
                     mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None,
                     coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
-                    u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None):
+                    u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -542,6 +542,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             disp = (ot_T - x0_ot)
             disp = disp[tgt.ot_knn].mean(dim=1)
             ot_T = x0_ot + disp
+            _stk = None
+            if getattr(cfg, "plan_sticky", False) and stick_init is not None:
+                # config.plan_sticky (2026-09-25 13:30 CDT, method.md 10.33): an arrived particle KEEPS the target point it
+                # arrived at. The plan is re-solved every window and, on a filled surface, the assignment of arrived
+                # material is free up to a permutation: each re-solve hands an arrived particle a slightly different
+                # endpoint, it chases it along the surface (the cell sum is flat there), it never reverses twice and is
+                # never pinned — 40-50 % of the body free at the end of every 300k run (bm300 49 %), drifting through the
+                # delivered tail. With its endpoint fixed the arrived material settles, reverses, pins. No constant.
+                _stk = torch.as_tensor(np.asarray(stick_init, np.int64), device=dev)
+                _has = _stk >= 0
+                if bool(_has.any()):
+                    ot_T = ot_T.clone(); ot_T[_has] = tgt.points[_stk[_has]].to(ot_T.dtype)
+                    disp = ot_T - x0_ot
             # Per-particle target variants tried on the 150k C and FALSIFIED (2026-09-17
             # night): (i) a PACED target — each window's target bounded to one pace =
             # max(plan blur, loss cell) along the smoothed map — cut the 40k C's
@@ -874,8 +887,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     x_int[torch.as_tensor(np.nonzero(_out)[0], device=dev)] = torch.as_tensor(_new, device=dev, dtype=x_int.dtype)
                 pace_front_frac = float(_out.mean())
             arrived = dn.squeeze(1) <= pace_r
+            arrive_idx_np = None
             if bool(arrived.any()):
                 _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
+                if _stk is not None:
+                    _stk_a = _stk[arrived].cpu().numpy()
+                    nn_a = np.where(_stk_a >= 0, _stk_a, np.asarray(nn_a))        # a stuck particle snaps to ITS point
+                arrive_idx_np = np.full(len(x_int), -1, np.int64)
+                arrive_idx_np[arrived.detach().cpu().numpy()] = np.asarray(nn_a, np.int64)
                 if getattr(cfg, "arrive_cap", False):
                     # config.arrive_cap (method.md 10.28): the snap respects the target's CAPACITY. Without it every
                     # arrived particle near a thin feature snaps to the same few target points and the cell sum packs
@@ -2084,7 +2103,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac, "pace_front_fill_frac": pace_front_fill_frac,
+              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "arrive_idx": arrive_idx_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac, "pace_front_fill_frac": pace_front_fill_frac,
               "gx": (gx_box[0].cpu().numpy().astype(np.float32) if gx_box[0] is not None else None),
               "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,

@@ -7453,3 +7453,25 @@ is flickering (probably from the optimisation) but it is fine." The 300k bunny f
 two owners as measured (11:40): the Poisson re-mesh (half to two thirds) and the free 40–50 % at
 the early stop (the rest); the delivered surface (the splat forms or mc at iso 0.5) answers the
 first, the termination rule the second.
+
+**2026-09-25 13:40 CDT — the user's base: bm300 + the splat render; the dots in the sparse phase; the
+sticky endpoints launched (P269/P270).** The user: bm300 with the splat render is the best result so
+far; the base to build on; the frame at 96/767 (the head's top a cloud of dots) is what to remove —
+"is it the number of Gaussians?" Read: the count is the particle count; the dots are the splat
+RADIUS against the LOCAL spacing — σ₀ = 0.7 × the global median spacing, while a stretched region's
+particles sit 1.5–2 spacings apart, so their splats do not overlap and each shows as a dot. Two
+principled sizes: the user's own PhysMorph-GS covariance σ₀² F Fᵀ (the Gaussian rides the stretch;
+its F jitters in the tail — the anisotropic mc gave 0.0024) or an isotropic radius scaled by the
+particle's own shell radius over the target's (the k-th neighbour distance; the adaptive kernel of
+SPH practice): **splat v4** = v2 (opacity by support) + the adaptive radius, rendered with stills at
+frames 96 / 240 / 720 for the comparison. The user's caution ("this is the moment to be careful")
+is right in a second sense: the sparse phase is the PHYSICS (the stretched column at half density)
+made visible; the opacity and the radius rules make it deliverable, and the physics is judged on the
+unhidden render (v1) and the probes, not on the delivered one. *(b) sticky endpoints* (method.md
+§10.33, `--plan_sticky`): implemented — an arrived particle keeps its target point across the plan's
+re-solves, the answer to the sliding that leaves half the body un-pinned; launched **bp300** =
+bm300's form + `--plan_sticky` (GPU 2) and **g41sk** = the adopted 40k form + `--plan_sticky` on bunny,
+nefertiti, dragon (GPU 0). Pre-registered **P269** (bp300): pinned at the end ≥ 0.75 (bm300 0.49),
+the mc tail ≤ 0.0005 (0.0007), silIoU ≥ 0.971 (within −0.003 of bm300), no reversal window, the
+ear's growth unchanged (knob ≤ 1.3, tip ≥ 9); **P270** (g41sk): within ±0.003 of g41pw with pinned ≥
+0.95 and no reversal window. (a), the arrival-weighted kinetic charge, waits on (b)'s reading.

@@ -582,6 +582,7 @@ class PipelineConfig:
     pace_stream: bool = False       # 2026-09-27 (10.32): the pace step scales with the fill of the stream one pace behind the particle
     render_paced_onset: bool = False   # 2026-09-27: the paced render target until the pin's onset, the target's images after
     render_paced_conv: bool = False    # 2026-09-27: the paced render target until the paced cloud converges to the target in the render's metric
+    plan_sticky: bool = False       # 2026-09-25 (10.33): an arrived particle keeps the target point it arrived at
     pace_front: bool = False        # 2026-09-26 (10.29): the paced target grows as a front from the filled body — a
                                     #   particle's image is clamped along its ray at the revealed region (target cells filled
                                     #   or within one pace step of a filled one); thin features fill from the base.
