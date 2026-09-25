@@ -7595,3 +7595,15 @@ Launched **bt300** = bm300's form + `--pace_support --pace_support_hard` (GPU 2)
 rendered with splat v6: tail change 0.0002 (97 % pinned) — the 40k D1 closure holds under the
 honest renderer as well; on the page (v69) as the 40k reference. The 300k dragon's splat render
 follows.
+
+**2026-09-25 18:30 CDT — the clean splat (v8): discs + smoothed normals + deferred shading.** The
+user: the Gaussian render's surface is bumpy and messy. Three renderer changes, no physics: (1)
+the shading normals are averaged over each particle's 32 nearest particles, two passes — the
+shading field at the surfel scale instead of the particle scale; (2) every Gaussian is a disc in
+its tangent plane (radius one spacing, a quarter thick — surface splatting); (3) DEFERRED shading:
+the splats carry their normals and a coverage to the screen (two rasterisations per view), the
+normal buffer is normalised per pixel after the blend and lit there with the hemispheric light —
+no per-splat flat shading, so no ball-pit look; the same opacity by support and adaptive radius
+as v6. A two-frame test on bm300 (frame 380): a clean, smooth, mesh-like surface with the ears'
+sparse tips still honest. Full renders of bm300, g41pw (40k) and bo300 (dragon) queued; the page
+moves to v8 when they land, with the tail change measured as before.
