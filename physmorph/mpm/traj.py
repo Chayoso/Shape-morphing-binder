@@ -70,7 +70,7 @@ _WARMED: set = set()          # devices whose kernels were launched once outside
 
 class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
-                 Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None, pin=None,
+                 Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None, pin=None, pin_slip=False,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
                  Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None):
         x0 = np.ascontiguousarray(x0, np.float32)
@@ -125,6 +125,13 @@ class Trajectory:
         self.mu = M(mu, 0.0)
         self.eta = M(eta, 0.0)
         self.pin = M(pin, 0.0)            # config.settle_pin: 1 = a pinned particle (kernels k_g2p / k_update / k_layer_project)
+        # config.settle_pin_slip: the pinned body's mass field, rasterised once per window (the pinned particles do
+        # not move inside it) and read by k_grid_op as a separating collider; pin_mode 0 = pinned mass on the grid
+        self.pin_mode = 1 if (pin_slip and pin is not None) else 0
+        self.gmpin = wp.zeros(prm.ngrid, dtype=wp.float32, device=device)
+        if self.pin_mode == 1:
+            wp.launch(K.k_pin_mass, dim=N, inputs=[self.x[0], self.m, self.pin, self.gmpin, wp.vec3(*prm.grid_min), prm.dx,
+                      1.0 / prm.dx, prm.nx, prm.ny, prm.nz], device=device)
         self.Fp = A(_id(N) if Fp is None else Fp, wp.mat33)
         if vol0 is None:
             vol_a = np.zeros(N, np.float32)
@@ -255,7 +262,8 @@ class Trajectory:
         C0 = wp.zeros(N, dtype=wp.mat33, device=dev)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[0], self.dFc, self.Fp, self.lam, self.mu, P0], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[0], v0, C0, self.F[0], self.dFc, P0, self.m, self.vol,
-                  self.omega1, self.nbr0, self.ncount0, 0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
+                  self.omega1, self.nbr0, self.ncount0, 0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz,
+                  self.pin, 0], device=dev)
         wp.launch(K.k_volume, dim=N, inputs=[self.x[0], self.m, gm, self.vol, gmin, prm.dx, inv_dx,
                   prm.nx, prm.ny, prm.nz], device=dev)
 
@@ -294,10 +302,10 @@ class Trajectory:
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
                   self.m, self.vol, self._omega(t), bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
                   prm.dt, prm.drag,
-                  prm.nx, prm.ny, prm.nz], device=dev)
+                  prm.nx, prm.ny, prm.nz, self.pin, self.pin_mode], device=dev)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
                   prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
-                  K.WALL_NODES], device=dev)
+                  K.WALL_NODES, self.gmpin, self.pin_mode], device=dev)
         wp.launch(K.k_g2p, dim=N, inputs=[self.x[t], self.v[t + 1], self.C[t + 1], self.F[t], dfc,
                   self.Fraw[t + 1], self.gvel[t], self.eta, gmin, prm.dx, inv_dx, prm.dt, prm.nx, prm.ny, prm.nz,
                   prm.v_max, prm.eta_sym, prm.eta_mode, self.pin], device=dev)

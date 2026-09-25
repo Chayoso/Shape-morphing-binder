@@ -48,6 +48,7 @@ class RolloutSpec:
     layer: tuple | None = None           # (mask, nrm, nbr, w, frac[, g, depth]): outer-layer relaxation / u channel [P3 through F] (traj.Trajectory)
     eta: np.ndarray | None = None        # (N,) per-particle viscosity (traj.Trajectory eta; config.settle_eta: the settled body's)
     pin: np.ndarray | None = None        # (N,) 1 = pinned (config.settle_pin): a kinematic constraint during the morph
+    pin_slip: bool = False               # config.settle_pin_slip: the pinned body as a grid-level separating collider
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -74,7 +75,7 @@ class _WarpMPM(torch.autograd.Function):
         lam_wp = _leaf_f32(lam_t) if lam_t is not None else spec.lam
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
-                          Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp, eta=spec.eta, pin=spec.pin,
+                          Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip,
                           device=spec.device, requires_grad=True, vol0=spec.vol0, layer=spec.layer)
         ctx.tape = wp.Tape()
         with ctx.tape:
@@ -146,7 +147,7 @@ class _WarpMPMExt(torch.autograd.Function):
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
         u_wp = _leaf_f32(u_t) if u_t is not None else None       # position-mode control leaf (§7)
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
-                          Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp, eta=spec.eta, pin=spec.pin,
+                          Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip,
                           device=spec.device, requires_grad=True, vol0=spec.vol0,
                           Fg0=spec.Fg0, track_geom=True,
                           bonds=((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None),
@@ -230,7 +231,7 @@ class PersistentAdjoint:
         self.u = torch.zeros(N, device=dev)
         self.u_wp = wp.from_torch(self.u, dtype=wp.float32, requires_grad=True) if spec.layer is not None else None
         self.traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
-                               Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp, eta=spec.eta, pin=spec.pin,
+                               Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip,
                                device=dev, requires_grad=True, vol0=spec.vol0,
                                Fg0=spec.Fg0, track_geom=True, bonds=bonds, persistent=True,
                                layer=spec.layer, layer_u=self.u_wp)

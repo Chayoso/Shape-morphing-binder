@@ -1288,3 +1288,26 @@ The optimiser drives nothing in the released set (no step, no relaxation move), 
 alternate; the motion there is the elastic response to the stream, which ends when the stream
 has arrived. Far from every stream the body is exactly still, as before. The delivered object
 is stress-free at every pinned particle (the re-pin assimilates).
+
+Addendum 5 (2026-09-25) — the pinned body as a separating collider (`settle_pin_slip`). Every
+pin variant so far kept the pinned particles' mass in the grid's momentum average: a node they
+cover carries their mass with zero momentum, and the free material that shares the node is
+dragged toward rest — the wall was no-slip by construction, which is what the course notes
+call the Dirichlet (sticky) condition (Jiang et al. 2016 §12.1) and what every engine avoids
+for a collider by applying the collision to the grid velocity after the forces, relative to
+the collider's velocity, and only when approaching (taichi_elements / warp-mpm `separate`,
+Houdini's collider projection). The pinned body is such a collider:
+
+```
+(50f)  P2G:  a pinned particle deposits nothing (no mass, no momentum, no stress force)
+       once per window:  m_pin(node) = Σ_{p ∈ P} w_ip m_p                         [k_pin_mass]
+       grid, after forces, at nodes with m_pin > 0:  n = ∇m_pin / |∇m_pin| (into the body),
+           v ← v − n max(n·v, 0)                                                   [k_grid_op]
+```
+
+The free material's velocity at a shared node is its own; the approaching normal component is
+removed, the tangential and any separating motion stay — a slip wall. The pinned particles
+themselves keep (50): x, v = 0, C = 0, F fixed, and with addendum 2 they are stress-free, so
+dropping their stress force from P2G changes nothing. The clearance and yield rules (50b–50e)
+are geometric substitutes for this and are not needed with it; the boundary wedging of the
+last arrivals (the over-fill at the arrival snap) is a separate item (dossier §14.0).

@@ -569,6 +569,10 @@ class PipelineConfig:
     settle_pin_ray: bool = False    # 2026-09-25 (10.27 addendum 3): with settle_pin, a particle is pinned only when no
                                     #   unarrived particle's straight path to its plan image (optimizer stats "plan_img")
                                     #   passes within the pace radius of it — the pinned body never blocks a transit stream.
+    settle_pin_slip: bool = False   # 2026-09-25 (10.27 addendum 5): the pinned body is a grid-level SEPARATING collider —
+                                    #   its mass leaves the momentum average (k_p2g skips it), its mass field is rasterised
+                                    #   once per window (k_pin_mass) and k_grid_op removes the approaching normal component
+                                    #   at the nodes it covers; material slides along the settled body with no drag.
     settle_pin_yield: bool = False  # 2026-09-25 (10.27 addendum 4): with settle_pin_ray, a settled particle within the
                                     #   kernel support of a transit ray is released for the window (no control, physics
                                     #   only) and re-pinned (re-assimilated) when the stream has passed.

@@ -6147,3 +6147,25 @@ snap, or a density-capped hand-off (the Maury 2010 congestion projection applied
 arrival, not to the whole transport as §10.22 did). To be pre-registered when the D2 phase
 opens (dossier §14 gains this as item 0). For the 300k gallery gate the dragon's reading is
 p1 / the counts; `--disc_ref` stays in the 300k recipe.
+
+**2026-09-25 17:00 — the practitioner digest (docs/related_work.md, "Practitioner rules …") and
+the slip wall.** What the graphics-side cookbooks and engine docs settle: 8 particles per cell
+is the production default everywhere (Houdini MPM grid scale 2, taichi_elements 2^dim, Warp,
+ZIRAN, GPU-MPM "eight per cell for stability") — ours is ≈ 25 at 40k and ≈ 190 at 300k under
+`--disc_ref`, which buys nothing; a feature needs ≥ 2 cells across (FLIP Fluids, OpenVDB's
+1.5-voxel Nyquist radius) — the ear has ≈ 1; a collider is handled on the GRID after the forces,
+relative to its velocity, only when approaching (course notes §12.1, taichi/warp-mpm
+`separate`), and overriding particle velocities — our pin — is the sticky/Dirichlet case; the
+surfacing docs put the particle radius at 1.4–1.6 × separation and the voxel at 0.5–0.75 ×
+radius with 15–25 feature-weighted smoothing iterations (splashsurf), which is the R-2 item. The
+5 ranked changes are in the digest; the one for D1 is the second: **the pinned body as a
+grid-level separating collider** (method.md 10.27 addendum 5, `--settle_pin_slip`, eq. 50f):
+pinned mass leaves the momentum average, its mass field is rasterised once per window, and the
+approaching normal component is removed at the nodes it covers. Launched (GPU 1, after a 3k
+smoke): **g41pw** = onset hold + pin + assim + slip (no clearance, no ray, no yield) on
+nefertiti, beast, bunny, cow. Pre-registered: **P213** nefertiti ≥ 0.970 with ≥ 90 windows and
+no rejection streak before 95 % arrival, and its un-pinned det F minimum ≥ 0.70 through the
+stream (the wall neither drags nor squeezes); **P214** beast ≥ 0.950; bunny / cow within ±0.003
+of g41py with the pinned fraction at the end ≥ 0.65 (the slip wall pins earlier than the
+clearance rules allowed); **P215** the end-state p1 ≥ 0.88 on all four. If P213–P215 hold, the
+slip form replaces the ray / yield rules in the recipe and goes to the 19 and to 300k.

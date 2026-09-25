@@ -75,10 +75,15 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
           grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
-          nx: int, ny: int, nz: int):
+          nx: int, ny: int, nz: int, pin: wp.array(dtype=float), pin_mode: int):
     p = wp.tid()
     xp = x[p]
     if not valid_pos(xp):
+        return
+    if pin_mode == 1 and pin[p] > 0.5:
+        # config.settle_pin_slip: a pinned particle is a COLLIDER, not mass in the momentum average — its mass
+        # field is rasterised once per window (k_pin_mass) and k_grid_op treats the nodes it covers as a
+        # separating boundary; the free material slides along it instead of being dragged to a stop
         return
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
@@ -108,6 +113,30 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
                     g = gid(i, j, k, ny, nz)
                     wp.atomic_add(grid_m, g, w * m[p])
                     wp.atomic_add(grid_v, g, w * (mv + G @ dgp))
+
+
+# ── the pinned body's mass field (config.settle_pin_slip; once per window, outside the tape) ───────
+@wp.kernel
+def k_pin_mass(x: wp.array(dtype=wp.vec3), m: wp.array(dtype=float), pin: wp.array(dtype=float),
+               grid_mpin: wp.array(dtype=float), gmin: wp.vec3, dx: float, inv_dx: float,
+               nx: int, ny: int, nz: int):
+    p = wp.tid()
+    if pin[p] < 0.5:
+        return
+    xp = x[p]
+    if not valid_pos(xp):
+        return
+    b = base_node(xp, gmin, inv_dx)
+    for oi in range(4):
+        for oj in range(4):
+            for ok in range(4):
+                i = b[0] + oi
+                j = b[1] + oj
+                k = b[2] + ok
+                if i >= 0 and i < nx and j >= 0 and j < ny and k >= 0 and k < nz:
+                    xg = gmin + wp.vec3(float(i), float(j), float(k)) * dx
+                    w = weight(xg - xp, inv_dx)
+                    wp.atomic_add(grid_mpin, gid(i, j, k, ny, nz), w * m[p])
 
 
 # ── support gate (Yao-Zhao 2026, arXiv 2603.03860 §support-gated APIC) ──────
@@ -194,7 +223,7 @@ WALL_NODES = 2   # cubic B-spline half-support: a particle within 2 cells of the
 def k_grid_op(grid_m: wp.array(dtype=float), grid_mom: wp.array(dtype=wp.vec3),
               grid_vel: wp.array(dtype=wp.vec3), dt: float, f_ext: wp.vec3,
               gmin_y: float, dx: float, nx: int, ny: int, nz: int, floor_y: float, friction: float,
-              wall_nodes: int):
+              wall_nodes: int, grid_mpin: wp.array(dtype=float), pin_mode: int):
     g = wp.tid()
     mg = grid_m[g]
     if mg > 1.0e-12:
@@ -236,6 +265,32 @@ def k_grid_op(grid_m: wp.array(dtype=float), grid_mom: wp.array(dtype=wp.vec3),
             if tl > 1.0e-8:
                 vt = vt * wp.max(0.0, 1.0 - friction * vn / tl)   # friction
             vg = wp.vec3(vt[0], 0.0, vt[2])
+        # the pinned body as a separating collider (config.settle_pin_slip; course notes 12.1: the collision is
+        # applied to the grid velocity after the forces, relative to the collider's velocity — zero here — and
+        # only when approaching): at a node that carries pinned mass the normal is the gradient of the pinned
+        # mass field (pointing into the body); the approaching normal component is removed, the tangential
+        # velocity and any separating motion stay — a slip wall, no drag on the material sliding past it
+        if pin_mode == 1:
+            mp = grid_mpin[g]
+            if mp > 1.0e-12:
+                i2 = g // (ny * nz)
+                k2 = g % nz
+                gx = 0.0
+                gy = 0.0
+                gz = 0.0
+                if i2 + 1 < nx and i2 - 1 >= 0:
+                    gx = grid_mpin[gid(i2 + 1, j, k2, ny, nz)] - grid_mpin[gid(i2 - 1, j, k2, ny, nz)]
+                if j + 1 < ny and j - 1 >= 0:
+                    gy = grid_mpin[gid(i2, j + 1, k2, ny, nz)] - grid_mpin[gid(i2, j - 1, k2, ny, nz)]
+                if k2 + 1 < nz and k2 - 1 >= 0:
+                    gz = grid_mpin[gid(i2, j, k2 + 1, ny, nz)] - grid_mpin[gid(i2, j, k2 - 1, ny, nz)]
+                nrm = wp.vec3(gx, gy, gz)
+                ln = wp.length(nrm)
+                if ln > 1.0e-12:
+                    nrm = nrm / ln
+                    vn = wp.dot(vg, nrm)
+                    if vn > 0.0:
+                        vg = vg - nrm * vn
         grid_vel[g] = vg
     else:
         grid_vel[g] = wp.vec3(0.0, 0.0, 0.0)
