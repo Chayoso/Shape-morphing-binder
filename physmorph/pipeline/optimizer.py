@@ -612,6 +612,34 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 pace_coh_frac = float((_excess > 0.0).float().mean())
                 print(f"[win] coherent pace: {100.0 * pace_coh_frac:.1f} % of the particles ahead of their neighbourhood "
                       f"(held share of the step {float((_excess.clamp_max(pace_r) / pace_r).mean()):.3f})", flush=True)
+            if getattr(cfg, "pace_support", False):
+                # config.pace_support (2026-09-25 17:30 CDT, method.md 10.34): the empty-looking transit measured — above the
+                # head at t = 0.10-0.14 the material present is 5-8 % of the target's density (bm300, bq300 alike): the
+                # front's few leads run at the pace through free space while the bulk drags through the body, and
+                # density = flux / speed falls. The stream pace (10.32) read the material BEHIND a lead — the body, dense
+                # but slow — and let it run (bq300: 0.06 / 0.08 at t = 0.10 / 0.14, unchanged). The step is instead
+                # scaled by the density AT the particle: the particles within the target's shell radius around it over
+                # half the target's own count at its nearest target point (the body convention). Under-dense material
+                # waits for its bulk; the bulk moves at the pace; the front is a plug. No constant.
+                from scipy.spatial import cKDTree as _KDu
+                if getattr(tgt, "supp_tree", None) is None:
+                    _Pu = tgt.pts.detach().cpu().numpy().astype(np.float32)
+                    tgt.supp_tree = _KDu(_Pu)
+                    _d8 = tgt.supp_tree.query(_Pu, k=9, workers=-1)[0]
+                    tgt.supp_rcov = float(np.median(_d8[:, 8]))
+                    tgt.supp_cnt = np.asarray(tgt.supp_tree.query_ball_point(_Pu, r=tgt.supp_rcov, return_length=True), np.float32) - 1.0
+                    print(f"[win] support pace: target shell radius {tgt.supp_rcov:.4f} wu, median count {float(np.median(tgt.supp_cnt)):.1f}", flush=True)
+                _x0u = x0_ot.detach().cpu().numpy().astype(np.float32)
+                _n_i = np.asarray(_KDu(_x0u).query_ball_point(_x0u, r=tgt.supp_rcov, return_length=True), np.float32) - 1.0
+                _, _q = tgt.supp_tree.query(_x0u, k=1, workers=-1)
+                _need = np.maximum(1.0, 0.5 * tgt.supp_cnt[_q])
+                _supp = np.clip(_n_i / _need, 0.0, 1.0)
+                if getattr(cfg, "pace_support_hard", False):
+                    _supp = (_supp >= 1.0).astype(np.float32)                    # the body convention as a gate: below half, no step
+                _supp_t = torch.as_tensor(_supp, device=dev, dtype=dn.dtype).unsqueeze(1)
+                step = torch.clamp(_supp_t * pace_r / dn.clamp_min(1e-9), max=1.0)
+                print(f"[win] support pace: {100.0 * float((_supp < 1.0).mean()):.1f} % under-dense (mean support there "
+                      f"{float(_supp[_supp < 1.0].mean()) if (_supp < 1.0).any() else 1.0:.2f})", flush=True)
             if getattr(cfg, "pace_stream", False):
                 # config.pace_stream (2026-09-27 01:10, method.md 10.32): the coherent pace of 10.30 compares a particle with
                 # its source ball (one blur radius, k neighbours) and the column's layers — tip-, neck-, base-bound — lie

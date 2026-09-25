@@ -580,6 +580,8 @@ class PipelineConfig:
     pace_coherent: bool = False     # 2026-09-26 (10.30): a particle more than one blur radius ahead of its plan neighbours waits
     render_paced: bool = False      # 2026-09-26 (10.31): the render channel targets the paced cloud's own images
     pace_stream: bool = False       # 2026-09-27 (10.32): the pace step scales with the fill of the stream one pace behind the particle
+    pace_support: bool = False      # 2026-09-25 (10.34): the pace step scales with the density AT the particle over half the target's
+    pace_support_hard: bool = False # 2026-09-25: the support pace as a gate (no step below half the target's local density)
     render_paced_onset: bool = False   # 2026-09-27: the paced render target until the pin's onset, the target's images after
     render_paced_conv: bool = False    # 2026-09-27: the paced render target until the paced cloud converges to the target in the render's metric
     plan_sticky: bool = False       # 2026-09-25 (10.33): an arrived particle keeps the target point it arrived at
