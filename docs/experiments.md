@@ -6539,3 +6539,25 @@ the tip is empty (nan) while the tip slab holds particles — the tip detached f
 40k droplet, in g41pw and g41pe alike. *g41pe bunny (the 40k adopted form + the KDE set):*
 silIoU 0.9592 (g41pw 0.9703, −0.011): at 40k the KDE term costs the fit and does not change the
 early detachment; the five other targets and ae300 follow before any decision.
+
+**2026-09-26 04:40 — KDE at 40k refuted; the H⁻¹ term, already in the code, brought back.**
+*g41pe (the adopted 40k form + the KDE set), stopped at 3 of 6:* bunny 0.9592 (g41pw −0.011),
+armadilo 0.9450 (−0.012), dragon 0.9579 (−0.006) — at 40k the particle-scale term costs the fit
+on every target read and does not change the early tip detachment; it stays a 300k option. *The
+40k growth by eye* (g41p's stride-12 video, the ear region at t = 0.10 … 0.40): at 0.20 the tall
+ear is a spike with a small nub at its tip, at 0.25 a knob on a neck, at 0.30 the other ear's tip
+shows a small separate sliver, filled by 0.40 — the same growth defects as at 300k, transient.
+*The H⁻¹ term* (`--w_h1`, method.md "H⁻¹ mass balance", 2026-09-04) is the digest's first
+mechanism and it already exists: an FFT Poisson solve of the fixed-target residual on the loss
+grid with the P3M self-energy correction, in the physics core, calibrated once to D_vol's
+gradient norm. Built for the same symptom — the solid bunny's ears 30 % under-filled at a wrong
+fixed point — it filled them at 20k (ear fraction 0.078 → 0.105, the vertical bands 1.46 → 1.04,
+the sub-cell cluster ratio improved) and was adopted provisionally, then not carried into the
+recipe when the render contract replaced the pipeline's front end; it has never run with the
+paced OT target, the density units or the pin. Launched: **g41ph** = the adopted 40k form +
+`--w_h1 1` on bunny, armadilo, dragon, nefertiti; **au300** = ar300's form + `--w_h1 1`.
+Pre-registered: **P230** (by eye on the stride-12 videos, ear region, both scales) the ear grows
+from its base with no knob on a neck and no separated sliver at t = 0.15–0.35, the 300k knob
+index ≤ 1.3 on the 300k tables; **P231** the fit within ±0.003 of g41pw / ar300 and the end-state
+p1 ≥ 0.85; **P232** D1 kept: no reversal window, pinned ≥ 0.8 at the end at 40k, the 300k tail ≤
+0.0010. The H⁻¹ ratio (`h1_ratio`) is logged per window.
