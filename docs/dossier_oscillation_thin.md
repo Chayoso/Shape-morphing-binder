@@ -446,3 +446,23 @@ is the D2 test proper (P242: stub/tongue growth by eye, tip ≥ 9, knob index �
 The supply lever's 300k placement is being generalised on the dragon (dh300: H⁻¹ inside the core
 from the start, P241) — ao300 (outside, from the onset) kept 0.977 and det F 0.72 but not the tip
 (7.2 for au300's 14.0).
+
+### 17.1 (18:50) — the hold's floor was the sample's coverage gap; the air-side material approaches the front
+
+Every front run held 26–32 % of the images to the end. Measured on the adopted form's own end
+states: 24–27 % of a target-filling particle cloud lies farther than one spacing from every
+target point (the point cloud's gaps), 0–1 % farther than the 8-neighbour shell radius (1.98
+spacings). The front read "filled" and "inside" at one spacing, so a quarter of the target was
+never inside and a quarter of the images were clamped by construction — the bulk targets'
+serialisation and the dragon's stall under the cap were mostly this, not the front's semantics.
+The radius is now the per-point shell radius (method.md 10.29, the 17:40 correction). With it
+the dragon's hold falls to 3 % by window 45 and the run is healthy (0.9588, p1 0.85, none below
+0.5) at −0.005; what remains held is the part of the source outside the target (dragon 39 %,
+nefertiti 56 % at the first window), which has nothing revealed on its ray and no vacancy
+within a pace. Rule 52e: such a particle takes its nearest open vacancy wherever the front is
+(one per point, closest first, in rounds) and approaches it at the pace — the material outside
+the target accretes at the growing front (the user's "volume first"), and nothing seeds an
+unrevealed thin feature from the air; the front absorbs its whole vacancy count per window
+(10 % of the particles on nefertiti). The gate P245 (g41fx) and the 300k test (ag300, P242) are
+running; the 300k form's supply flag is settled by dh300 (P241 ✓: 0.9685, p1 0.839) — the 300k
+form is ar300's + `--w_h1 1`, the 40k form without it.
