@@ -6819,3 +6819,41 @@ front reveals its next cell — the queue semantics the rule intends. Launched: 
 + `--pace_cap` on dragon, bunny, beast. Pre-registered: **P240** dragon's end-state below-0.5
 count ≤ 0.02 % (g41pw 0.01 %) and p1 ≥ 0.85 with the fit within −0.003 of g41pw; bunny and beast
 within ±0.003 of g41fp; the stub growth kept (by eye).
+
+**2026-09-26 16:00 — ao300 (300k, H⁻¹ outside the core from the pin's onset): the fit without the
+supply.** 57 windows, silIoU **0.977** (au300 0.977, ar300 0.9773), det F 0.717, no reversal
+window, strays 0.04 % — and the ear's tip **7.2** reference particles (au300 14.0, ar300 9.2),
+the slabs near the target by the end (0.95–1.13) with the growth's knob at t = 0.4 (1.05× over
+0.47× = 2.2). P239 ✗ on the tip: the placed term keeps the fit and the health but not the
+supply — the tip was filled by the term acting from the START inside the core (au300), which
+is exactly the placement that fails beast and bimba at 40k. At 300k the gallery is the bunny
+and the dragon; the generalisation test of au300's form is the dragon: **dh300** = the slip
+form + `--w_h1 1` (inside, from the start) on the 300k dragon, launched (P241: silIoU ≥ 0.965
+— dw300's 0.9646 under the slip form — with the end-state p1 ≥ 0.80 and ≤ 0.05 % below 0.5,
+no ejection, no early stop before 90 % arrival; if it holds, the 300k form takes H⁻¹ from the
+start and the 40k form does not — the two forms differ by one flag with a stated reason).
+
+**16:20 — the particle-scale front's cost on bulk targets: the transport is serialised.**
+g41fp's remaining rows vs g41pw: cow 0.9602 (**−0.0058**, 96 windows vs 115), nefertiti 0.9653
+(**−0.0079**, **115 windows vs 57**); the end-state health is kept (p1 cow 0.891, nefertiti
+0.853). The pinned fraction by window tells the mechanism — nefertiti g41pw 0.23 / 0.51 / 0.75 /
+0.95 at windows 24 / 32 / 40 / 56; g41fp 0.10 / 0.14 / 0.20 / 0.39 / 0.75 / 0.95 at 24 / 32 / 40 /
+56 / 80 / 112 — the front halves the transport's speed on a target with no thin feature, and
+the fraction of images held at the front stays at **0.26 from window 40 to the end** (a
+standing queue), the run ending on the merit's rejections at 0.95 pinned. So the front's
+first form is a wave from the source–target overlap outward at about half the pace's speed
+(the images are clamped at the last of 24 ray SAMPLES inside the revealed region, and a point
+counts as filled only with a particle within one spacing — two discretisation losses on the
+wave's speed), and every target pays for it, thin feature or not. The trade as it stands:
+beast +0.006 (its transport finishes, D1 residual 0), the ear a stub, dragon / cow /
+nefertiti −0.006 to −0.008. The cap (g41fq) answers the dragon's over-fill, not the
+serialisation; the front is not adoptable at 40k in this form. Launched in parallel:
+**af300** = ar300's form + `--pace_front_pts --pace_cap` on the 300k bunny (GPU 1; the D2 test
+the front exists for). Pre-registered **P242**: the ear grows as a stub/tongue (by eye against
+ar300's frames), tip ≥ 9 (ar300 9.2), knob index ≤ 1.6 (ar300 2.2), silIoU ≥ 0.974 (within
+−0.003 of ar300), end-state p1 ≥ 0.80, no reversal window; the window count is expected to
+double (the serialisation), which is the cost to remove next. Next on the front itself: remove
+the two discretisation losses (clamp at the exact boundary crossing along the ray, not the
+last sample; a filled point read at the pace's own radius) and re-read nefertiti's window
+count — P243: nefertiti under the corrected front within 1.3× of g41pw's windows and within
+−0.003 of its fit, with beast's finish and the stub kept.
