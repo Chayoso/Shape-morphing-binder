@@ -561,6 +561,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         arrived_mask_np = None
         pace_r_np = None                    # the paced target's arrival radius (config.settle_pin_clear reads it)
         plan_img_np = None                  # the plan image per particle (config.settle_pin_ray: the transit rays)
+        arrive_cap_frac = None              # config.arrive_cap: the fraction of arrivals over capacity (kept on the plan image)
         if cfg.phys_loss in ("ot_pace", "ot_shape"):
             # DISPLACEMENT-INTERPOLATED TARGET (McCann interpolation along the transport
             # plan): this window's target density is the current cloud advected toward its
@@ -616,7 +617,26 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             arrived = dn.squeeze(1) <= pace_r
             if bool(arrived.any()):
                 _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
-                x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
+                if getattr(cfg, "arrive_cap", False):
+                    # config.arrive_cap (method.md 10.28): the snap respects the target's CAPACITY. Without it every
+                    # arrived particle near a thin feature snaps to the same few target points and the cell sum packs
+                    # them in (the dragon's spikes at 300k: 50-270 particles below det F 0.3; the last arrivals wedged
+                    # against a pinned neighbour). Each target point takes at most cap = N / |target points| arrivals
+                    # (the mass ratio, no constant), the closest first; the surplus keeps its plan image.
+                    _idx_arr = torch.nonzero(arrived).squeeze(1).cpu().numpy()
+                    _d_a = np.linalg.norm(x_int[arrived].cpu().numpy() - tgt.points[torch.as_tensor(nn_a, device=dev)].cpu().numpy(), axis=1)
+                    _cap = max(1, int(round(len(x_int) / max(1, len(tgt.points)))))
+                    _ord = np.lexsort((_d_a, nn_a))                       # by target point, then by distance
+                    _nn_s = np.asarray(nn_a)[_ord]
+                    _first = np.r_[True, _nn_s[1:] != _nn_s[:-1]]
+                    _grp_start = np.maximum.accumulate(np.where(_first, np.arange(len(_nn_s)), 0))
+                    _rank = np.arange(len(_nn_s)) - _grp_start
+                    _keep = np.zeros(len(_nn_s), bool); _keep[_ord] = _rank < _cap
+                    arrive_cap_frac = float(1.0 - _keep.mean())
+                    _sel = torch.as_tensor(_idx_arr[_keep], device=dev)
+                    x_int[_sel] = tgt.points[torch.as_tensor(np.asarray(nn_a)[_keep], device=dev)].to(x_int.dtype)
+                else:
+                    x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             frac_arrived = float(arrived.float().mean())
             arrived_mask_np = arrived.detach().cpu().numpy().astype(bool)   # per-particle arrival (config.ctrl_rprop_arrived)
@@ -1751,7 +1771,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "pace_r": pace_r_np, "plan_img": plan_img_np,
+              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac,
               "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
               "render_work": render_work, "render_work_x": render_work_x,

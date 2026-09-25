@@ -1311,3 +1311,24 @@ themselves keep (50): x, v = 0, C = 0, F fixed, and with addendum 2 they are str
 dropping their stress force from P2G changes nothing. The clearance and yield rules (50b–50e)
 are geometric substitutes for this and are not needed with it; the boundary wedging of the
 last arrivals (the over-fill at the arrival snap) is a separate item (dossier §14.0).
+
+### 10.28 The arrival's capacity (2026-09-25 night; config `arrive_cap`; dossier §14.0)
+
+The paced target declares a particle arrived within one pace radius of its plan image and
+then replaces the image by the NEAREST target point (the entropic image lies inside the blur;
+without the snap the end state was fuzzy — chamfer 0.098 against 0.076 at 150k). The snap has
+no exclusivity: near a thin feature every arrival snaps to the same few target points and the
+cell-sum objective packs the material into them. The dragon at 300k compresses at its spikes
+under every discretisation (50–270 particles below det F 0.3; worse at the finer grid), and
+under the pin the last arrivals wedge against pinned neighbours (nefertiti: 3–15 particles at
+det F < 0.7, all touching pinned ones) — the same over-fill. The snap with capacity:
+
+```
+(51)  cap = N / |target points|   (the mass ratio; no constant)
+      for each target point q: the cap closest arrivals whose nearest point is q snap to q; the rest keep their plan image
+```
+
+The surplus is still driven toward the feature by its plan image, but no longer to a point
+already occupied at the target's density; a spike or an ear tip fills to the target's own
+count and not beyond. Read by the end-state det F quantiles (dragon p1, the count below 0.3)
+and by the wedged count on the pin runs (P212).

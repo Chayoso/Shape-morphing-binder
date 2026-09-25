@@ -6335,3 +6335,17 @@ the tip's last growth (ai300's windows 62–112) is never asked for — a sub-ce
 cell-sum merit does not see. ak300 (the particle-scale KDE term on top of the slip form) is
 the test of exactly that; if it fills the tip, the 300k form is ar300's + KDE; if not, the
 early-stop rule under the pin (the merit's plateau at a few 10⁻³ of gain) is the next lever.
+
+**2026-09-25 21:30 — D2 item 0 opened in parallel: the arrival's capacity (method.md 10.28,
+`--arrive_cap`).** The paced target's arrival snap (nearest target point, no exclusivity) is
+the one mechanism behind the dragon's spike compression at 300k and the wedged last arrivals
+on the pin runs (§14.0). With the cap each target point takes at most N / |points| arrivals,
+closest first; the surplus keeps its plan image. Launched (after a 3k smoke): **g41pc** = the
+adopted 40k slip form + `--arrive_cap` on dragon, nefertiti, bunny, cow (GPU 0), and **dc300** =
+dw300's form + `--arrive_cap` on the 300k dragon (GPU 3; dw300 without it is the control).
+Pre-registered (P212 made concrete): **P212a** dc300's end-state p1 ≥ 0.85 and ≤ 0.02 % below
+0.3 (dl300 0.76 / 0.02 %; dw300 pending) at silIoU ≥ 0.975; **P212b** g41pc dragon: no particle
+below 0.5 at the end (g41pw 5) with the fit within ±0.003 of g41pw; nefertiti's wedged count
+(un-pinned det F < 0.7) 0 (g41py 15); bunny / cow within ±0.003 of g41pw. If the cap costs the
+fit (the surplus no longer pulled onto the support: the 150k chamfer reading of d4db68a), the
+end-state fuzziness is the price to weigh against the spikes.

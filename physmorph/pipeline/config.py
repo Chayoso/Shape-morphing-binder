@@ -569,6 +569,9 @@ class PipelineConfig:
     settle_pin_ray: bool = False    # 2026-09-25 (10.27 addendum 3): with settle_pin, a particle is pinned only when no
                                     #   unarrived particle's straight path to its plan image (optimizer stats "plan_img")
                                     #   passes within the pace radius of it — the pinned body never blocks a transit stream.
+    arrive_cap: bool = False        # 2026-09-25 (10.28): the paced target's arrival snap respects the target's capacity —
+                                    #   each target point takes at most N / |points| arrivals (closest first), the surplus
+                                    #   keeps its plan image; the thin feature is no longer over-filled at the arrival.
     settle_pin_slip: bool = False   # 2026-09-25 (10.27 addendum 5): the pinned body is a grid-level SEPARATING collider —
                                     #   its mass leaves the momentum average (k_p2g skips it), its mass field is rasterised
                                     #   once per window (k_pin_mass) and k_grid_op removes the approaching normal component
