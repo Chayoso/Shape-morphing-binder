@@ -7366,3 +7366,11 @@ bk300 a little better; the remaining visible defect is the surface's shake (the 
 entry). Launched **bo300** = the 300k dragon under the slip form + the same three flags (GPU 2).
 Pre-registered **P268**: silIoU ≥ 0.9616 (dw300's 0.9646 − 0.003), end p1 ≥ 0.80, ≤ 0.05 % below 0.5,
 no reversal streak at the end, the spikes' growth by eye without beads (strip).
+
+**2026-09-25 12:05 CDT — the candidates' videos on the page (v58), Poisson and marching cubes each.**
+Tail flicker (per-frame change, last ~20 frames) Poisson / mc on the same particles: bm300 0.0017 /
+0.0007, bn300 0.0017 / 0.0005, bk300 0.0022 / 0.0007, bf300 0.0011 / 0.0005 — the reconstruction owns
+half to two thirds of the visible shake on every candidate, the rest is the free 40–50 % at the
+runs' ends. Correction to the 11:50 entry: bn300's convergence switch DID fire once (the log has
+the message; bm300's never did). bo300 (the 300k dragon under the chosen form) at window 55, 35 %
+pinned, no traceback.
