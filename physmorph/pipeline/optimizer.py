@@ -666,9 +666,20 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 _sp = float(getattr(tgt, "nn_spacing", 0.0) or 0.0)
                 if _sp <= 0.0:
                     _sp = float(np.median(_KDf(_P).query(_P, k=2, workers=-1)[0][:, 1]))
+                if getattr(tgt, "front_tree", None) is None:
+                    # the inside / filled radius is the sample's COVERAGE radius, not its median spacing (2026-09-26 17:40):
+                    # 24-27 % of a target-filling particle cloud lies farther than one spacing from every target point (the
+                    # point cloud's own gaps) and 0-1 % farther than the 8-neighbour shell radius (1.98 spacings) — the fronts
+                    # of g41fp / g41fq / g41fg held a standing 26-32 % of the images for that reason (the serialisation of the
+                    # bulk targets and the dragon's stall were mostly this). Per target point, its shell radius.
+                    tgt.front_tree = _KDf(_P)
+                    tgt.front_rcov = tgt.front_tree.query(_P, k=9, workers=-1)[0][:, 8].astype(np.float32)
+                    print(f"[win] front: coverage radius median {float(np.median(tgt.front_rcov)):.4f} wu = "
+                          f"{float(np.median(tgt.front_rcov)) / max(_sp, 1e-9):.2f} spacings", flush=True)
+                _treeP = tgt.front_tree; _rcov = tgt.front_rcov
                 _X0 = x0_ot.detach().cpu().numpy().astype(np.float32)
-                _dP, _ = _KDf(_X0).query(_P, k=1, distance_upper_bound=_sp, workers=-1)
-                _filled = np.isfinite(_dP)                              # a target point with a particle within one spacing
+                _dP, _ = _KDf(_X0).query(_P, k=1, workers=-1)
+                _filled = _dP <= _rcov                                  # a target point with a particle within its shell radius
                 if getattr(cfg, "pace_front_geo", False):
                     # config.pace_front_geo (2026-09-26, method.md 10.29 eq. 52b): the fill-based front below holds every
                     # particle whose ray does not touch a filled point — the part of the source outside the target waits
@@ -685,8 +696,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         _src = np.repeat(np.arange(len(_P)), 8); _dst = _ik[:, 1:].reshape(-1); _w = _dk[:, 1:].reshape(-1)
                         _ok = _dst < len(_P)
                         _G = _coo((_w[_ok].astype(np.float64), (_src[_ok], _dst[_ok])), shape=(len(_P), len(_P))).tocsr()
-                        _d0, _ = _KDf(_X0).query(_P, k=1, distance_upper_bound=_sp, workers=-1)
-                        _orig = np.nonzero(np.isfinite(_d0))[0]
+                        _orig = np.nonzero(_filled)[0]
                         if len(_orig) == 0:
                             _orig = np.array([int(np.argmin(_KDf(_X0).query(_P, k=1, workers=-1)[0]))])
                         _dg = _dijk(_G, directed=False, indices=_orig, min_only=True)
@@ -706,16 +716,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         _revealed = _filled.copy(); _revealed[np.nonzero(~_filled)[0][np.isfinite(_dR)]] = True
                     else:
                         _revealed = _filled | (~_filled)                 # nothing filled yet (the first window) or all filled
-                _treeR = _KDf(_P[_revealed])
                 _XI = x_int.detach().cpu().numpy().astype(np.float32)
-                _dI, _ = _treeR.query(_XI, k=1, distance_upper_bound=_sp, workers=-1)
-                _out = ~np.isfinite(_dI)
+                _dI, _qI = _treeP.query(_XI, k=1, workers=-1)
+                _out = ~(_revealed[_qI] & (_dI <= _rcov[_qI]))         # the image's nearest point unrevealed, or the image in the air
                 if _out.any():
                     _K = 24
                     _tt = np.linspace(0.0, 1.0, _K, dtype=np.float32)
                     _seg = _X0[_out][:, None, :] + _tt[None, :, None] * (_XI[_out] - _X0[_out])[:, None, :]
-                    _dS, _ = _treeR.query(_seg.reshape(-1, 3), k=1, distance_upper_bound=_sp, workers=-1)
-                    _inside = np.isfinite(_dS).reshape(-1, _K); _inside[:, 0] = True
+                    _dS, _qS = _treeP.query(_seg.reshape(-1, 3), k=1, workers=-1)
+                    _inside = (_revealed[_qS] & (_dS <= _rcov[_qS])).reshape(-1, _K); _inside[:, 0] = True
                     _last = (_inside * np.arange(_K)[None, :]).max(1)
                     _new = _seg[np.arange(_seg.shape[0]), _last]
                     if getattr(cfg, "pace_front_fill", False):
@@ -726,22 +735,48 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         # to a revealed VACANCY (a revealed point without a particle within one spacing) within one pace of its
                         # clamp, one particle per point (the capacity ratio of 10.28), closest first; no vacancy in reach =
                         # keep the clamp. The front then holds exactly the target's mass and the fill advances at the point scale.
+                        # (52e, 18:10) and a held particle with NO vacancy within one pace does not wait either: the part of
+                        # the source outside the target (dragon 39 %, nefertiti 56 % of the particles at the first window)
+                        # has nothing revealed on its ray and would sit until the fill walked to it — the bulk targets'
+                        # serialisation. Its image is instead its nearest vacancy, wherever the front is (one per point
+                        # among its 8 nearest, closest first), approached at the pace: material outside the target accretes
+                        # at the growing front, which is the "volume first" growth the user described, and nothing seeds an
+                        # unrevealed thin feature from the air.
                         _vac = np.nonzero(_revealed & ~_filled)[0]
-                        _nfill = 0
+                        _nfill = 0; _nappr = 0
                         if len(_vac) > 0:
-                            _dv, _iv = _KDf(_P[_vac]).query(_new, k=1, distance_upper_bound=float(pace_r), workers=-1)
-                            _hit = np.nonzero(np.isfinite(_dv))[0]
-                            if len(_hit) > 0:
-                                _capv = max(1, int(round(len(x_int) / max(1, len(_P)))))
-                                _pv = _iv[_hit]; _dh = _dv[_hit]
-                                _ordv = np.lexsort((_dh, _pv)); _pvs = _pv[_ordv]
-                                _firstv = np.r_[True, _pvs[1:] != _pvs[:-1]]
-                                _gs = np.maximum.accumulate(np.where(_firstv, np.arange(len(_pvs)), 0))
-                                _keepv = np.zeros(len(_pvs), bool); _keepv[_ordv] = (np.arange(len(_pvs)) - _gs) < _capv
-                                _new[_hit[_keepv]] = _P[_vac[_pv[_keepv]]]
-                                _nfill = int(_keepv.sum())
+                            _capv = max(1, int(round(len(x_int) / max(1, len(_P)))))
+                            _goal = np.full(len(_new), -1, np.int64)
+                            _cnt = np.zeros(len(_vac), np.int32)
+                            _free = np.ones(len(_new), bool); _open = np.ones(len(_vac), bool)
+                            for _round in range(64):                         # each round: nearest OPEN vacancy, closest first
+                                _pi = np.nonzero(_free)[0]; _vi = np.nonzero(_open)[0]
+                                if len(_pi) == 0 or len(_vi) == 0:
+                                    break
+                                _dv, _iv = _KDf(_P[_vac[_vi]]).query(_new[_pi], k=1, workers=-1)
+                                _ordv = np.lexsort((_dv, _iv)); _ivs = _iv[_ordv]
+                                _firstv = np.r_[True, _ivs[1:] != _ivs[:-1]]
+                                _gs = np.maximum.accumulate(np.where(_firstv, np.arange(len(_ivs)), 0))
+                                _rank = np.arange(len(_ivs)) - _gs
+                                _take = np.zeros(len(_pi), bool); _take[_ordv] = _rank < (_capv - _cnt[_vi[_iv]][_ordv])
+                                _sel = np.nonzero(_take)[0]
+                                if len(_sel) == 0:
+                                    break
+                                _goal[_pi[_sel]] = _vi[_iv[_sel]]
+                                np.add.at(_cnt, _vi[_iv[_sel]], 1)
+                                _free[_pi[_sel]] = False
+                                _open[_vi] = _cnt[_vi] < _capv
+                            _has = _goal >= 0
+                            if _has.any():
+                                _gp = _P[_vac[_goal[_has]]]; _c0 = _new[_has]
+                                _dvec = _gp - _c0; _dl = np.linalg.norm(_dvec, axis=1, keepdims=True)
+                                _near = (_dl[:, 0] <= float(pace_r))
+                                _stp = np.minimum(1.0, float(pace_r) / np.maximum(_dl, 1e-9))
+                                _new[_has] = np.where(_near[:, None], _gp, _c0 + _stp * _dvec).astype(np.float32)
+                                _nfill = int(_near.sum()); _nappr = int((~_near).sum())
                         pace_front_fill_frac = float(_nfill) / float(len(x_int))
-                        print(f"[win] front: held {float(_out.mean()):.3f}, vacancies {len(_vac)}, assigned {pace_front_fill_frac:.3f}", flush=True)
+                        print(f"[win] front: held {float(_out.mean()):.3f}, vacancies {len(_vac)}, assigned {pace_front_fill_frac:.3f}, "
+                              f"approaching {float(_nappr) / float(len(x_int)):.3f}", flush=True)
                     x_int = x_int.clone()
                     x_int[torch.as_tensor(np.nonzero(_out)[0], device=dev)] = torch.as_tensor(_new, device=dev, dtype=x_int.dtype)
                 pace_front_frac = float(_out.mean())

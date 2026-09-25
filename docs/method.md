@@ -1444,3 +1444,34 @@ pile, the cap redundant), the vacancies are pulled on at the point scale (the fi
 the reveal follows: no deadlock), and material outside the target moves onto the nearest
 revealed vacancies of the surface within its reach (the wave is seeded from the air side as
 well as from the overlap). No new constant: the pace step, the spacing, the capacity ratio.
+
+**Correction (2026-09-26 17:40) — the front's radius is the sample's coverage radius (52, 52c).** The
+particle-scale front read "filled" and "inside" at one spacing (the target sample's median
+nearest-neighbour distance). Measured on the adopted form's own end states (the particles fill
+the target): 24–27 % of the particles lie farther than one spacing from EVERY target point — the
+point cloud's own gaps — and 0–1 % farther than the 8-neighbour shell radius (1.98 spacings;
+bunny, dragon, at the end and at a third of the run). So every front run held a standing
+26–32 % of the images by construction (the floor of `pace_front_frac` on bunny 0.27, nefertiti
+0.26, dragon 0.32, the geodesic front 0.27 after its full reveal), and the serialisation of the
+bulk targets and the dragon's stall under the cap were mostly that. The radius is now per target
+point its shell radius r_cov(p) (the distance to its 8th neighbour, the kNN shell of the
+discretisation, cached once): p is filled when a particle lies within r_cov(p); a sample s is
+inside when its nearest target point q is revealed and |s − q| ≤ r_cov(q) (air excluded by the
+same bound); the reveal (one pace step from a filled point) and the vacancies (52c) unchanged.
+No new constant: the shell radius is the sample's own.
+
+**Addendum (2026-09-26 18:10) — the held material approaches the front (52e).** With the coverage
+radius in place the standing hold is gone, but the part of the source that lies OUTSIDE the target
+(dragon 39 %, nefertiti 56 % of the particles at the first window) still has nothing revealed on
+its ray and no vacancy within one pace of its clamp, and would sit until the fill walked to it —
+the serialisation of the bulk targets. Under (52c) such a particle no longer waits: its image is
+its nearest vacancy wherever the front is (one particle per point — the capacity of
+§10.28 — assigned closest first in rounds over the open vacancies), taken as the image when within one pace and approached at the
+pace otherwise,
+
+  x̂_i = c_i + min(1, r_pace / |v_i − c_i|) (v_i − c_i),   v_i = the assigned vacancy.          (52e)
+
+Material outside the target thus accretes at the growing front — the "volume first" growth of
+the user's rendering trick, now in the transport — and nothing seeds an unrevealed thin feature
+from the air. The cap (`pace_cap`) stays as the cell sum's guard while the approaching material
+converges. No new constant.

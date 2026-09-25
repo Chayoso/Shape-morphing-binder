@@ -6892,3 +6892,52 @@ Pre-registered **P244**: dragon within −0.003 of g41pw (≥ 0.961) with p1 ≥
 below 0.5; nefertiti ≥ 0.970 within 1.3× of g41pw's windows (≤ 74); bunny ≥ 0.967 with the stub
 growth kept (by eye); beast ≥ 0.955 with its transport finished (pinned ≥ 0.9) and no reversal
 window. If it holds on the four, the form goes to the 19 (the adoption gate) and to 300k.
+
+**2026-09-26 17:40 — the front's standing hold was the point cloud's coverage gap (a discretisation
+error of the front, corrected).** The fraction of images held at the front never fell below
+0.26–0.32 in any front run (bunny 0.27, nefertiti 0.26, dragon 0.32 — and the geodesic front
+0.27 after its full reveal at window 9). Measured on the adopted form's own end states, where
+the particles fill the target: **24–27 % of the particles lie farther than one spacing from
+every target point** (bunny 23.9 % at the end / 26.2 % at a third of the run; dragon 25.9 /
+26.7 %), 0.1–2.4 % farther than 1.5 spacings, and **0.0–0.9 % farther than the 8-neighbour
+shell radius** (1.98 spacings). The front read "filled" and "inside" at one spacing, so a
+quarter of the target's volume was never inside, a quarter of the images were clamped by
+construction, and every front run carried that hold — the bulk targets' serialisation and the
+dragon's stall under the cap were mostly this. Corrected in `pace_front_pts` (method.md 10.29,
+the 17:40 correction): the radius is per target point its shell radius (the 8th neighbour's
+distance, cached once); no new constant. *Withdrawn as superseded:* g41fv (the vacancy fill
+under the one-spacing radius; its dragon at window 30: held 0.33, pinned 11 %) and af300 (the
+300k front under the same radius, at window 60). *Recorded:* **g41fg** (the geodesic front,
+nefertiti) 0.9515 (−0.022), frozen after 5 null commits at 52 windows with 23 % pinned — refuted
+as a form, and its hold was the same floor. **g41fq's other rows** (cap, one-spacing radius):
+cow **0.9648** (−0.0012 vs g41pw, 75 windows for 115, p1 0.915, no reversal) ✓; nefertiti
+**0.9527** (−0.021, 47 windows, 18 % pinned) ✗; beast **0.8929** (−0.059, 127 windows, 57 %
+pinned) ✗ — under the cap the held quarter has nothing to pull it and the transport starves.
+
+**18:00 — dh300 (300k dragon, the slip form + H⁻¹ inside the core from the start): P241 ✓.**
+silIoU **0.9685** (dw300, the slip form alone, 0.9646: +0.004), end-state p1 **0.839**, 4
+particles below 0.5 (0.001 %), pinned 57 %, no traceback, early stop at window 82 on three
+rejections (the run's usual end under the pin). With au300 (300k bunny, the same form: 0.977,
+det F 0.76, tip 14.0) the 300k form is **ar300's form + `--w_h1 1`** — the one flag the 300k
+form has and the 40k form has not, for the stated reason (the supply to a thin feature is a
+300k need; at 40k the term's placement is neutral or harmful).
+
+**18:10–18:50 — the coverage radius alone (g41fw dragon), and the air-side material approaches
+the front (52e, g41fx).** g41fw (front + cap + in-reach fill, coverage radius) dragon: **0.9588**
+(−0.0054 vs g41pw), 79 windows, end p1 0.848, none below 0.5, pinned 36 % at the end, held
+0.39 → 0.03 by window 45 with almost nothing assigned (vacancies rarely within one pace of a
+clamp). So with the floor gone the remaining hold is the part of the source OUTSIDE the target
+(dragon 39 %, nefertiti 56 % of the particles at the first window): nothing revealed on its ray,
+no vacancy in reach — it sits until the fill walks to it. Rule (52e, method.md 10.29 addendum):
+a held particle with no vacancy in reach takes its nearest open vacancy wherever the front is
+(one per point, closest first, in rounds over the open vacancies) and approaches it at the pace
+— material outside the target accretes at the growing front (the user's "volume first"), and
+nothing seeds an unrevealed thin feature from the air. First form (8 candidates per particle)
+assigned 0.9 % per window (the near points exhausted), the rounds form 4.6 % at 16 rounds and
+**10 % at 64 rounds** = the front's whole vacancy count per window. Launched: **g41fx** = adopted
+form + `--pace_front_pts --pace_cap --pace_front_fill` (coverage radius, 52c + 52e) on nefertiti,
+dragon, bunny, beast (GPU 3). Pre-registered **P245**: nefertiti ≥ 0.970 within 74 windows;
+dragon ≥ 0.961 with p1 ≥ 0.85 and none below 0.5; bunny ≥ 0.967 with the stub growth kept (by
+eye); beast ≥ 0.955 with its transport finished (pinned ≥ 0.9) and no reversal window. At 300k:
+**ag300** = ar300's form + front + cap + fill (coverage radius, without 52e — its air-side hold is
+3 % by window 11) running as the D2 test (P242).
