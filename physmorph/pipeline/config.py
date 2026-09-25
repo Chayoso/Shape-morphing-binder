@@ -579,6 +579,8 @@ class PipelineConfig:
     settle_pin_kkt: bool = False    # 2026-09-26 (10.27 addendum 7): a pinned particle whose fixed-target cell-sum gradient
                                     #   exceeds the free particles' median is released for the window (the active set's KKT
                                     #   check) — the pinned body can feed a feature whose deficit the plan no longer sees.
+    h1_outside: bool = False        # 2026-09-26: the H^-1 term outside the physics core (the balancer's reference = the cell sum)
+    h1_onset_pin: bool = False      # 2026-09-26: the H^-1 term switched on at the pin's onset (zero during the transport)
     settle_pin_slip: bool = False   # 2026-09-25 (10.27 addendum 5): the pinned body is a grid-level SEPARATING collider —
                                     #   its mass leaves the momentum average (k_p2g skips it), its mass field is rasterised
                                     #   once per window (k_pin_mass) and k_grid_op removes the approaching normal component

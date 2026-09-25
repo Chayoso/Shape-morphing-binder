@@ -1113,7 +1113,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # cannot be actuated (REFUTE F9: the (T,N,k,9) gather was built and multiplied
             # by zero when only control_h1 needed the neighbour list)
             L = L + wu * cfg.w_creg * (dfc - dfc[:, knn_t].mean(2)).pow(2).mean()
-        if cfg.w_h1 > 0 and tgt.h1_scale is not None:
+        if cfg.w_h1 > 0 and tgt.h1_scale is not None and not getattr(cfg, "h1_outside", False):
             # non-local mass balance (REVISION 3 amendment): H^-1 norm of the density
             # residual, self-energy corrected. INSIDE phys_core: it is a data term on
             # the same residual, so it belongs in the physics direction the lambda
@@ -1187,6 +1187,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
 
     def phys_total(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
         L = phys_core(lv, lk, dfc, xT, fT, lk_run, fR, lk_var, vT)
+        if cfg.w_h1 > 0 and tgt.h1_scale is not None and getattr(cfg, "h1_outside", False):
+            # config.h1_outside (2026-09-26): the H^-1 term OUTSIDE the core, the W1 precedent — inside it, its
+            # gradient inflates the physics norm the lambda balancer scales the render channel against (the
+            # h1 ratio 0.3-1.4 along a morph), and on bimba the render channel then out-pulled the transport at
+            # 88 % arrival (the divergence +7 % a window, the brake stopped the run at 15). Outside, the balancer
+            # and PCGrad see the cell sum alone; the H^-1 pull is added unscaled after them.
+            L = L + cfg.w_h1 * tgt.h1_scale * d_h1(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
         ldt = dt_term(xT)
         if ldt is not None:
             L = L + ldt

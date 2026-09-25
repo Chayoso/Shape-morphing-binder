@@ -6621,3 +6621,39 @@ mid-ear slab 1.16–1.21× over a 0.65–0.70× neck, the tip 1.19–1.26× over
 the growth, H⁻¹ supplies and fits: **av300** = ar300's form + both, launched. *Cleanup (the user's
 rule, 117 GB > 100):* ax300 az300 aw300 dc300 g41pe g41pf removed (24 GB) after archiving their 27
 logs/json to `logs_archive_20260926.tgz`; now 95–97 GB.
+
+**2026-09-26 08:00 — g41ph complete (19 of 19): H⁻¹ under the pin, vs g41 / vs g41pw.** Up or
+within −0.003 on **17**: ogre +0.015, dragon +0.011, bunny +0.011, fandisk +0.011, armadilo
++0.008, maxplanck +0.008, C +0.065, cheburashka +0.005, cow +0.005, A +0.005, nefertiti +0.004,
+heart +0.003, spot / teapot / V +0.001, bob −0.001, homer −0.002; vs the adopted g41pw: up on 15,
+bunny +0.002, dragon +0.005, armadilo +0.012, ogre +0.016. End-state det F p1 **0.885–0.940** on
+all, none below 0.5; pinned at the end 0.95–0.99 on 16 (beast 0.77, heart 0.77); one reversal
+window on A and C, none elsewhere. **Two failures: bimba 0.9482 (−0.027, 15 windows) and beast
+0.9263 (−0.028, 97 windows).** *bimba's cause, read from the record:* at windows 13–15 the merit's
+physics component (the transport divergence to the fixed target) rose 0.127 → 0.137 (+7 % a
+window) while the total merit still improved (+2–3 %: the render channel) — the catastrophe brake
+did its job three times and stopped the run at 88.6 % arrival. Why the render channel won: the
+H⁻¹ term sits inside the physics core, so its gradient (ratio 0.35–1.4 to D_vol's along the run)
+inflates the physics norm the λ-balancer scales the render channel against (Codex F3's concern
+in method.md), and on a smooth head the amplified render pull beats the transport at arrival.
+*beast:* the long transport (the tail and legs) ended at 76 % arrival with the fit down 0.025 —
+a fixed-target pull competing with the paced target's plan during the transport. Two structural
+placements, both already argued in method.md's H⁻¹ section: **`--h1_outside`** (the term
+outside the core, the W1 precedent: the balancer and PCGrad see the cell sum alone) and
+**`--h1_onset_pin`** (the term switched on at the pin's onset — the endgame, where the pinned
+body no longer supplies; zero during the transport). Launched on bimba, beast, bunny (3 min
+each): **g41pho** (outside), **g41phn** (onset), **g41phb** (both). Pre-registered: **P233** bimba
+≥ 0.975 (g41pw 0.9767) without a brake stop and beast ≥ 0.949 (g41pw 0.9516) on at least one
+placement, with bunny within −0.003 of g41ph's 0.9724; the passing placement goes to the 19.
+
+**The 300k growth trio by eye** (`growth_300k_trio.png`: the ear region at t = 0.15 … 0.6; rows
+ae300 KDE / au300 H⁻¹ / av300 both): none is a clean tongue. ae300: the tall ear rises as a thin
+finger whose tip CURLS into a hook (t = 0.20–0.40) before it thickens from the base; the wide ear
+is a tongue. au300: a cone, then a knob on top (0.25), a knob on a neck (0.30–0.40), filled by 0.6.
+av300: a finger with a **detached bead at its tip at t = 0.20** (the D2 droplet itself), a hooked
+tip at 0.25, a tongue from 0.30. All three grow the ear as a thin spike first and thicken it
+after; the tip's shape at the spike stage (hook / knob / bead) is the defect. Numbers: ae300
+0.9737 / det F 0.59 / tail 0.0008 / pinned 79 %; au300 0.977 / 0.76 / 0.0018 at 61 % pinned (46
+windows); av300 0.9742 / 0.70 / 0.0009 / 81 %. The fit and health favour H⁻¹, the growth order
+KDE; neither fixes the spike stage. *Cleanup (the 100 GB rule):* z300b, ak300, g41pc removed
+(22.6 GB, logs archived to `logs_archive_20260926b.tgz`); now 85 GB.

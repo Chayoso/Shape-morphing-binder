@@ -412,6 +412,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     ctrl_rev_count, frozen_p = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
     settle_pin_arr = None                # config.settle_pin: the (N,) pin array handed to the rollout
+    h1_w_full, h1_armed = float(getattr(cfg, "w_h1", 0.0) or 0.0), False   # config.h1_onset_pin
+    if getattr(cfg, "h1_onset_pin", False) and h1_w_full > 0:
+        cfg.w_h1 = 0.0                       # the transport phase runs without the H^-1 term
     pin_yield_prev = None                # config.settle_pin_yield: the settled particles released last window
     kkt_prev_g, kkt_last_g = None, None  # config.settle_pin_kkt: the previous window's smoothed objective gradient; the last raw one (archived)
     settled_at = None                    # config.settle_pin: the window (1-based) at which each particle was pinned, -1 = never
@@ -529,6 +532,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             bond_frag = frag_np.astype(np.float32)
             if a % 10 == 0 or frag_np.any():
                 log(f"[v2] anim {a + 1}: fragments {int(frag_np.sum())} particles")
+        if (getattr(cfg, "h1_onset_pin", False) and not h1_armed and h1_w_full > 0
+                and settled_p is not None and bool(np.any(settled_p))):
+            # config.h1_onset_pin (2026-09-26): the H^-1 supply term from the pin's onset — the endgame, where the
+            # pinned body no longer supplies a thin feature; during the transport the paced target is in charge
+            # and a fixed-target pull competes with it (beast under H^-1 from the start: 0.9263 against 0.9516)
+            cfg.w_h1 = h1_w_full; h1_armed = True
+            log(f"[v2] anim {a + 1}: the H^-1 term armed at the pin's onset (w_h1 = {h1_w_full:g})")
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
@@ -1013,6 +1023,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if cfg.outer_merit:
             if outer_scales is None:
                 outer_scales = {k: max(abs(v), 1e-8) for k, v in components.items()}
+            for _k, _v in components.items():           # a track that starts mid-run (h1 from the pin's onset)
+                outer_scales.setdefault(_k, max(abs(_v), 1e-8))
             score = float(sum(v / outer_scales[k] for k, v in components.items()))
             # the PHYSICS part of the merit (every component but the render term): what the
             # catastrophe brake below watches (docs/surface_gradient.md 15d, 2026-09-22: under the
