@@ -6383,3 +6383,12 @@ released with a fresh step and re-pinned when arrived. Launched (GPU 1, after a 
 slabs ≥ 0.85 / 1.0, silIoU ≥ 0.975, end p1 ≥ 0.85, the tail ≤ 0.0010, the released fraction of
 the pinned set ≤ 15 % at any window, no reversal window, and the run past 80 windows (the ear's
 growth is asked for).
+
+**2026-09-25 23:30 — the follow rule at 40k in parallel (g41pf).** The 3k smoke of the follow
+rule released 0.0 % (at 3k the plan does not move pinned images); az300 runs at 300k (GPU 1).
+Because the rule re-opens the pin on evidence, it must not bring the oscillation back where the
+40k form is adopted: **g41pf** = the adopted 40k form + `--settle_pin_follow` on nefertiti,
+dragon, bunny, beast (GPU 0). Pre-registered: **P225** fit within ±0.003 of g41pw, layer flips
+≤ g41pw's + 0.10, the released fraction ≤ 10 % at any window, pinned at the end ≥ 0.8, the
+settled body still (pin_probe's still fraction 1.0 at the end); if the follow rule passes P224
+at 300k and P225 at 40k it joins the recipe, else it stays a 300k-only option.
