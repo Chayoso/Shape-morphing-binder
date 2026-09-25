@@ -7031,3 +7031,18 @@ above the neck slab at t = 0.4 for 32 % of the neck-bound arrived) — and **the
 (71–75) reverse in a row**, a D1 streak at the end of the run (the free 30 %). Read as: the
 morning's front (air-side hold + coverage-gap floor) acted on 3 % of the images after window 11
 and the fit gain is the cap's or noise; the tongue needs (52f).
+
+**2026-09-26 21:20 — g41fd (the density-fill front, no cap) on the three: P247's numbers ✓.** bunny
+**0.9712** (+0.0009 vs g41pw), 49 windows (45), end p1 0.921, pinned 97 %; dragon **0.9643**
+(+0.0001), **68 windows (103)**, p1 0.884, pinned 88 %; nefertiti **0.9712** (−0.0020), 53
+windows (57), p1 0.894, pinned 91 %; none below det F 0.5 and no negative-reversal window on any
+of the three. The front held 4–6 % of the images in the windows where the head and ears grow
+(bunny windows ~8–20, nefertiti ~8–30), then nothing; the dragon held nothing in any window
+(its spikes' material never fell below half the target's density in transit) and still finished
+35 windows sooner than under the adopted form — the front's fill (52c) assigned the transit
+material to the front's vacancies. The by-eye part of P247 (the bunny's ear a tongue without a
+tip bulb) is pending the plain video (`fd_video.sh`). Launched: the density front on the 16
+remaining gallery targets (GPUs 0 and 2; `gallery_table_g41fd.py`) — the adoption gate
+(P249: 19/19 within −0.003 of g41pw, end p1 ≥ 0.85, none below 0.5, no negative-reversal
+window; beast's stall the one expected exception, read separately). ba300 (300k) at window 25:
+pinned 16 %, held 0.1–0.9 %.
