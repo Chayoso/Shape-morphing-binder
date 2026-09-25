@@ -896,7 +896,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     x_int[_sel] = tgt.points[torch.as_tensor(np.asarray(nn_a)[_keep], device=dev)].to(x_int.dtype)
                 else:
                     x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
-            if getattr(cfg, "render_paced", False) and tgt.sils is not None:
+            if getattr(cfg, "render_paced", False) and tgt.sils is not None and not getattr(tgt, "render_paced_off", False):
                 # config.render_paced (2026-09-26 23:40, method.md 10.31): the render channel's target is the PACED target's
                 # own images. With the target's final silhouettes as the reference, the silhouette term pulls the first
                 # material up the ear's outline (a thin lead satisfies it) — at 300k the early knob's material is there
@@ -913,6 +913,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         shade_eff = _shd(x_int.detach(), tgt.views, cfg.render_res, tgt.extent,
                                          tgt.lgmin, tgt.ldx, tgt.ldims, cfg.sil_k, cfg.pbr_ambient)
                         pbr_grid_eff = False
+                    if getattr(cfg, "render_paced_conv", False):
+                        # config.render_paced_conv (2026-09-27 03:30): the switch to the target's own images is read in the
+                        # render's own metric — when the paced cloud's silhouettes are closer to the target's than the morph
+                        # is to the paced cloud's, the paced target is no longer what limits the fit (the pin's onset came
+                        # too early for the ear on bj300 / bl300: the neck-bound overshoot returned; the full paced target
+                        # cost -0.004 on bf300). Permanent once met. No constant.
+                        _d_pt = float(d_render(x_int.detach(), tgt.sils, tgt.views, cfg.render_res, tgt.extent,
+                                               cfg.sil_k, cfg.w_hole, cfg.w_spray))
+                        _d_m = float(d_render(x0_ot.detach(), sils_eff, tgt.views, cfg.render_res, tgt.extent,
+                                              cfg.sil_k, cfg.w_hole, cfg.w_spray))
+                        print(f"[win] paced render target: paced-vs-target {_d_pt:.3e}, morph-vs-paced {_d_m:.3e}", flush=True)
+                        if _d_pt < _d_m:
+                            tgt.render_paced_off = True
+                            sils_eff, shade_eff, pbr_grid_eff = tgt.sils, tgt.shade, True
+                            print("[win] paced render target: converged in the render's metric — the target's own images from here", flush=True)
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             if getattr(cfg, "pace_cap", False):
                 # config.pace_cap (2026-09-26, with the fronts of 10.29): every image lies inside the target, so the paced

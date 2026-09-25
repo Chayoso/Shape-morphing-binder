@@ -7288,3 +7288,32 @@ neck-bound material; bk300 = paced render + stream pace is running, P261). Launc
 ar300 + `--render_paced --render_paced_onset --pace_coherent` (GPU 2; P260) and **bl300** = the same
 + `--pace_stream` (GPU 1; **P262**: bf300's growth or better — the base slabs ≥ 0.8× when the top
 slab first appears — with silIoU ≥ 0.974, tip ≥ 9, no reversal window).
+
+**2026-09-27 03:30 — the onset placement loses the growth; the density front's gallery; the 40k
+twins; cleanup 6; the convergence placement (P265–P267).** **bj300** (paced render until the pin's
+onset + coherent pace): silIoU 0.9751 (−0.0022 ✓), 50 windows, tip 8.7, end p1 0.864, no reversal —
+but the neck-bound overshoot is back (45–66 % of a 31–51-particle top region at t = 0.25–0.4) and a
+knob of 1.9 at t = 0.3: the pin's onset (the first pinned particle, in the head) comes before the
+ear's growth ends, and the target's outline pulls the lead again. **bl300** (the same + stream
+pace): 0.9754, tip 10.7, p1 0.893, knob 1.54 at t = 0.25 (85 % neck-bound) and **six reversing
+windows at the end**. **bk300** (paced render + stream pace, no placement): 0.9743 (−0.003), 45
+windows, tip 8.8, no reversal, a tapered ear at t = 0.3 (0.69 / 0.70 / 0.45×) with the top region
+1 / 31 / 27 (52–71 % tip-bound) — bf300's growth with the stream pace, the fit a shade better
+(0.9743 vs 0.9732), the tip lower (8.8 vs 14.8). P260 ✗, P261 borderline, P262 ✗. *The density
+front's gallery (g41fd, 19/19 vs g41pw):* min −0.0036 (cow), max +0.0019, 17 within ±0.003
+(cheburashka −0.0032, cow −0.0036), end det F none below 0.5 on all 19 — fit-neutral; a speed lever
+on the dragon (68 windows for 103); not adopted (it does not change the growth). *The 40k twins:*
+g41fs (stream pace) bunny −0.0031, dragon −0.0025, nefertiti −0.0041 with 1.3–1.5× the windows —
+the stream pace costs at 40k; g41ro (paced render until the onset) bunny +0.0001, dragon +0.0003,
+nefertiti −0.0024 — the onset placement restores the 40k fit (P264 ✓) but at 300k it loses the
+growth. *Cleanup 6* (112 → 64 GB): the read 300k twins (ao300, ba300–be300, bg300, bh300, bi300)
+and the g41fd / g41fc / g41rp sweeps lose their npz (34 files, 48 GB; `.deleted_list_20260927b.txt`,
+logs tarred). *The placement that follows:* the switch from the paced render target to the target's
+own images read in the render's own metric — when the paced cloud's silhouettes are closer to the
+target's than the morph is to the paced cloud's, the paced target is no longer what limits the fit
+(`--render_paced_conv`, permanent once met; no constant). Launched: **bm300** = ar300 + `--render_paced
+--render_paced_conv --pace_coherent` (GPU 2), **bn300** = the same + `--pace_stream` (GPU 3), **g41rc** =
+the adopted 40k form + `--render_paced --render_paced_conv` on bunny, nefertiti, dragon (GPU 0).
+Pre-registered **P265** (bm300): bf300's growth (knob ≤ 1.3, the top region ≤ 40 particles before t =
+0.3 and ≤ 40 % neck-bound) with silIoU ≥ 0.974 and tip ≥ 9; **P266** (bn300): the same; **P267** (g41rc):
+within ±0.003 of g41pw on the three.
