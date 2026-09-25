@@ -7148,3 +7148,35 @@ without gradient — so the two channels agree on the growth order and the rende
 as the paced target converges to the target (the final windows are unchanged: x̂ = target).
 P255: with the paced render target, the top region stays empty before t = 0.3 as in bb300, the
 knob index ≤ 1.3, and the fit and the tip return to ar300's (≥ 0.974, tip ≥ 9).
+
+**2026-09-27 00:10 — three levers on the stretched column, read side by side (300k, ar300's form +
+one flag each; the ear-order and knob probes).**
+
+| run | lever | silIoU | tip | tip-bound above the neck at t = 0.4 (ar300 68 %) | early top region | knob |
+|---|---|---|---|---|---|---|
+| bb300 | render OFF | 0.9694 | 6.1 | 61 % | none before t = 0.4 | none |
+| bd300 | coherent pace (53) | **0.9771** | 7.3 | **19 %** | 29 / 61 particles at t = 0.25 / 0.3, 41–66 % neck-bound | 1.8 at t = 0.3 (1.28× over 0.70×), gone at t = 0.4 |
+| bc300 | plan blur native | 0.9741 | **14.4** | **10 %** | 9 / 51 at t = 0.25 / 0.3, 0–45 % neck-bound | 1.8 at t = 0.3 (1.60× over 0.88×), 2.1 at t = 0.4 |
+
+Readings. **P253 (bd300) half met**: the coherent pace keeps the fit (−0.0002), holds the
+tip-bound column (68 → 19 % overtaking) while binding on only 0.2 % of the particles per window
+(the ones ahead of their neighbourhood), has no reversal window and end p1 read below — but the
+tip ends starved (7.3) and a knob still forms at t = 0.3 from material that is 66 % NECK-bound
+and leaves again by t = 0.4. **P252 (bc300) half met**: the native plan blur orders the tip-bound
+group best (10 %) and fills the tip (14.4), but the run's det F min is 0.59 and the knob is the
+largest (1.60× at t = 0.3). **bb300** shows what removes the early top material entirely: the
+render channel off. So the knob has two makers — the tip-bound group's lead (the transport's
+stretch, which the coherent pace and the unblurred plan both reduce) and the NECK-bound
+overshoot into the top region, which is present under both and absent only without the render
+channel: the silhouette term pulls whatever material is nearest to the ear's outline, tip-bound
+or not. The lever for the second is §10.31 (the render channel targets the paced cloud; be300
+running, P255), and the natural form is the pair: **bf300** = ar300's form + `--render_paced
+--pace_coherent` (GPU 3). Pre-registered **P256**: the top region empty before t = 0.3 (as bb300),
+the tip-bound above the neck at t = 0.4 ≤ 40 %, knob index ≤ 1.3 at every t, tip ≥ 9, silIoU ≥
+0.974, end p1 ≥ 0.80, no reversal window. **P254 (g41fc, 40k coherent pace)**: bunny 0.9705
+(+0.0002), dragon 0.9650 (+0.0008), nefertiti 0.9702 (−0.0030, at the bound); the 40k ordering
+barely moves (65 % vs 72 % at t = 0.2) — at 40k the column is three cells and the stretch is
+the pace's own step; the 40k gate for the pair is read after the 300k pair.
+Health of the three: bd300 end p1 0.869, none below 0.5, 52 windows, no negative-reversal window;
+bc300 end p1 0.858 (the 0.59 is the run's transit minimum), 45 windows, none below 0.5; g41fc end p1
+0.916 / 0.901 / 0.883 (bunny / nefertiti / dragon), none below 0.5, no reversal window on any.
