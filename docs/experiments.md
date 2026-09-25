@@ -7374,3 +7374,15 @@ half to two thirds of the visible shake on every candidate, the rest is the free
 runs' ends. Correction to the 11:50 entry: bn300's convergence switch DID fire once (the log has
 the message; bm300's never did). bo300 (the 300k dragon under the chosen form) at window 55, 35 %
 pinned, no traceback.
+
+**2026-09-25 12:05 CDT — the user's surface verdict and the reconstructions that follow.** The user:
+the marching-cubes videos are stable but too thick (the detail is lost); every Poisson video
+shakes. The mc's thickness is its ISO-LEVEL, not its kernel (2026-09-25 morning: 40k / 100k / 300k
+kernels alike): the renderer's 'auto' level is the one at which a filament two particles across
+still renders (2 s² / π σ², capped at 0.5), i.e. deliberately low so thin necks do not detach, and
+a low level inflates every surface by a fraction of the blur. Three local (per-frame independent,
+band-limited — the property that keeps mc still) reconstructions of bm300 are rendered for the
+user's eye: mc at the half-bulk level (`--iso 0.5`, the surface of a smoothed indicator; the thin
+necks' detachment is the known risk), mc with Yu & Turk anisotropic kernels (`--kernel aniso`, S1:
+thin features keep their sharpness), and the implicit MLS surface (`--surface imls`, S3). Each is
+measured on the tail as before.
