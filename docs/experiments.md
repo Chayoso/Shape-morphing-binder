@@ -6771,3 +6771,16 @@ stop, no ejection on any. At 40k the placed term is neutral — its value is the
 start, which bimba and beast forbid at 40k). Launched: **ao300** = ar300's form + `--w_h1 1
 --h1_outside --h1_onset_pin` at 300k — P239: silIoU ≥ 0.977, det F ≥ 0.7, the tip ≥ 13 (au300's
 fill) with no knob at the spike stage worse than au300's, the tail ≤ 0.0010, no reversal window.
+
+**2026-09-26 13:30 — a D1 residual found on beast under the adopted 40k form.** Counting the
+negative-reversal windows of g41pw on all 19: **14 targets at 0**, cow / dragon / fandisk 1,
+homer 2 (windows 47, 66; pinned 0.68–0.73), **beast 10 of 87** (windows 54–56, 59, 62, 65–66, 73,
+82, 86; pinned 0.54–0.69). Beast is the one target whose transport never finishes (76 %
+arrived at the stop, pinned 0.70): the un-pinned 30 % — the tail and legs' slow transport —
+alternates window to window from 54 on; the onset hold engaged at the third reversal in a row
+(54–56) and the reversals thin out but continue. Under the placed H⁻¹ (g41phb) beast has 7 of
+108 (58, 68, 74, 94, 102, 107, 110) — not the term's doing either way. The user's bar (zero on
+the settled body) holds on beast's pinned 70 %; the residual is the transport's failure to
+arrive, which is the item the fronts address — beast and cow added to the particle-scale
+front run (g41fp). Recorded as open: *beast's transport stalls at 76 % arrival under every
+form since g41t (0.9516–0.9544), and its free remainder alternates.*
