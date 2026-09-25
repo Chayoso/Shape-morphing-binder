@@ -6233,3 +6233,16 @@ run at 300k writes under the tag as300 (its flags are the slip form's: `settle_p
 settle_pin_assim settle_pin_slip`); the original as300 archive, json, verdict and video were
 copied to `as300orig_*` before the overwrite, and the slip run's outputs will be renamed to
 aw300 when it ends. The numbers of as300 (17:20 entry) stand.
+
+**2026-09-25 19:00 — ay300's verdict (300k, the yield form), and the dragon under the slip form.**
+ay300: 88 windows, silIoU 0.9703, det F 0.633 (end un-pinned p1 0.79), pinned 91.3 % and exactly
+still, **tail 0.0005 (p90 0.0007), ALT 0.0006**, bump 1.21°, one component — the body is as
+still as as300's; **the ear: tip 5.3 reference particles**, the last two slabs 0.84 / 0.33
+(as300 7.7, 0.81 / 0.41; ai300 13.6, 0.89 / 1.13): P211 ✗, and the yield rule released 0.0 % of
+the settled set in the last windows — at 300k the ear's feed is not a straight-ray stream the
+rule can see. The 300k ear is now the slip collider's to answer (the misnamed run, window 61+).
+Launched on GPU 2: **dw300** = the 300k dragon under the slip form (l300's recipe + H + pin +
+assim + slip) — the 300k generalisation reading of the pin. Pre-registered: **P219** silIoU ≥
+0.975 (dl300 0.9772), end-state p1 ≥ 0.76 (dl300's own) with ≤ 0.02 % below 0.3, pinned ≥ 0.85
+and exactly still, the delivered tail ≤ 0.0008 (the dragon's own reference: none yet — dl300's
+video was never rendered; the number is recorded as the first).
