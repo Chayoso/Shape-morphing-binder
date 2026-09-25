@@ -7324,3 +7324,23 @@ clock is the server's, which is also the user's PC clock (CDT): the session's en
 2026-09-25 ~06:30 CDT (the "2026-09-26 13:30" entry) to 2026-09-25 11:20 CDT (the "03:30" entry);
 the order and the relative spacing of the entries are right, the dates are not. From here the
 stamps are CDT.
+
+**2026-09-25 11:40 CDT — the user's reading of the candidate videos, and the surface's shake measured
+again.** The user: bk300 and be300 both look good by eye (bk300 a little better); what remains is the
+surface shaking from the per-frame re-mesh, and it does not show on the "thick" (coarse-kernel)
+renders. Measured on the delivered videos' tails (per-frame change, last ~20 frames): Poisson —
+ar300 0.0013, be300 0.0014, bf300 0.0011, bk300 0.0022; the same particles of bf300 through marching
+cubes on a fixed grid with the reference kernel: **0.0005**. Free (unpinned) particles at the runs'
+ends: 41–50 % (ar300 59 % pinned, be300 57, bk300 53, bf300 50) — the runs end on the merit's three
+rejections with half the body still free and drifting slowly. Two owners, as on 2026-09-25 morning
+(then read as 3/4 : 1/4 on ar300): the reconstruction (screened Poisson re-solves a global implicit
+function from every point and its estimated normal each frame, so a sub-spacing move of a few free
+particles shifts the surface everywhere and the normals' re-estimation adds its own jitter) and
+the free half's motion. The coarse kernel does not show it because a kernel of radius h averages the
+density over ~(h/spacing)³ particles: a displacement δ of one particle moves the iso-surface by δ
+times its share of the kernel, and anything below h is filtered; Poisson at depth d matches each
+point as a constraint at the leaf scale and filters nothing below it. Remedy on the surface side:
+the delivered 300k surface as the local band-limited reconstruction (the mc at the reference kernel
+— the "thick" look, 0.0005) or a temporally coherent Poisson (a fixed octree from the target, normals
+carried and smoothed frame to frame); on the physics side: the free half at the end (the pin's
+"arrived and twice reversed" never meets the growth-phase material before the early stop).
