@@ -7187,3 +7187,20 @@ below with be300. Under the pin a particle is locked at arrival, while its rende
 the paced cloud's silhouette; the final outline reaches it only through the last free material.
 If be300 removes the 300k knob, the placement to test is the one accepted for H⁻¹: the paced render
 target until the pin's onset (the growth), the target's own images after (the fit).
+
+**2026-09-27 00:50 — be300 (300k bunny, ar300's form + the paced render target): P255 met on the fit,
+the health and the order; the tip starves.** silIoU **0.9754** (−0.0019 vs ar300, within the
+bound), 51 windows, end p1 0.877, none below 0.5, no negative-reversal window. The order: the
+tip-bound above the neck slab at t = 0.4 is **19 %** (ar300 68 %; the coherent pace alone also
+19 %), 0 % at t = 0.2. The slab table: a monotone taper at t = 0.3 (0.65 / 0.59 / 0.40× from the
+base up, nothing above the neck); at t = 0.4 a slight bump (0.86× at y 3.46 over 0.63× below —
+index 1.37, the bound 1.3), 1.2 at t = 0.6. The early top region: 19 / 40 / 25 particles at t =
+0.25 / 0.3 / 0.4 (ar300 21 / 67 / 39; bb300 none), neck-bound 37–65 % of them — reduced, not
+gone. The tip ends at **6.9** reference particles (ar300 9.2): the render channel's final
+outline was what fed the tip at the end, and the paced target does not (its images arrive at the
+tip only with the last material). At 40k the same flag costs −0.005 to −0.008 and changes no
+order (g41rp: 79 % vs 72 % at t = 0.2) — a 300k flag, like `--w_h1 1`, and the tip's supply is
+that flag's job. Launched **bg300** = the 300k candidate form (ar300 + `--w_h1 1`) + `--render_paced
+--pace_coherent` (GPU 1), alongside bf300 (the pair without H⁻¹, GPU 3). Pre-registered **P257**
+(bg300): tip ≥ 9, silIoU ≥ 0.974, end p1 ≥ 0.80, no reversal window, the tip-bound above the
+neck at t = 0.4 ≤ 40 %, knob index ≤ 1.3 at every t, and by eye a tongue (the 300k strip).
