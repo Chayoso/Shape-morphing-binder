@@ -6349,3 +6349,15 @@ below 0.5 at the end (g41pw 5) with the fit within ±0.003 of g41pw; nefertiti's
 (un-pinned det F < 0.7) 0 (g41py 15); bunny / cow within ±0.003 of g41pw. If the cap costs the
 fit (the surplus no longer pulled onto the support: the 150k chamfer reading of d4db68a), the
 end-state fuzziness is the price to weigh against the spikes.
+
+**2026-09-25 22:25 — run-end readings (chains pending).** *g41pc dragon (the adopted slip form +
+`--arrive_cap`, 40k):* silIoU 0.9620 (g41pw 0.9642, −0.002), pinned 88 %, **end-state det F
+minimum 0.715 (g41pw 0.409), p1 0.888 (0.874), no particle below 0.5 (g41pw five)** — P212b's
+dragon clause ✓: the spike over-fill was the snap's. *ak300 (300k, the slip form + the KDE
+ear term):* 104 windows (aw300 62, ar300 61 — the particle-scale term keeps the merit gaining
+through the ear's last growth, as predicted), silIoU 0.9695, det F run-min 0.414, 99.5 %
+arrived; its ear and tail follow in the chain. *dw300 (the 300k dragon, the slip form):* 100+
+windows, 97.4 % arrived, pinned 59 %, **silIoU 0.9646 against dl300's 0.9772 (−0.013)**, det F
+run-min 0.372 — the dragon's fit under the pin drops where the bunny's did not: a target with
+many thin spikes is many streams into sub-cell features, each stopping at the merit's plateau
+early; dc300 (+ the capacity rule) is running as its twin.
