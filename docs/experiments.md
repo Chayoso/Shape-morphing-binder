@@ -7446,3 +7446,10 @@ particles (weak density gradient) take their nearest strong-gradient particle's 
 (radius one spacing, thickness a quarter), so the drawn surface is a sheet of overlapping surfels.
 No new constant beyond the surfel's spacing-sized radius. Read on the mid-morph still (frame 20)
 and the end (60), and on the tail change (target ≤ mc's 0.0007).
+
+**2026-09-25 13:10 CDT — the user's verdict on bm300: accepted.** "bm300 is quite to my liking; there
+is flickering (probably from the optimisation) but it is fine." The 300k bunny form (ar300's form +
+`--render_paced --render_paced_conv --pace_coherent`) stands as the user's choice. The flicker's
+two owners as measured (11:40): the Poisson re-mesh (half to two thirds) and the free 40–50 % at
+the early stop (the rest); the delivered surface (the splat forms or mc at iso 0.5) answers the
+first, the termination rule the second.
