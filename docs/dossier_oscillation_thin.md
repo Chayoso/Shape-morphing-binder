@@ -321,9 +321,10 @@ per window, and the approaching normal component is removed at the nodes it cove
 | bunny | **0.9703** (+0.0093; the best bunny of any run) | 0.920 | — |
 | C · cow · dragon · maxplanck · A | +0.062 · +0.005 · +0.006 · +0.005 · +0.003 | 0.90–0.93 | — |
 | beast (the long transport) | 0.9516 (−0.0025; the yield form −0.016, the point rule −0.017) | 0.917 | — |
-| ogre · V · homer | −0.002 · +0.000 · −0.004 | 0.91 · 0.91 · 0.91 | — |
+| ogre · V · homer | −0.002 · +0.000 · −0.004 | 0.91 · 0.91 · 0.91 | 85 % · 92 % · 73 % |
+| fandisk · cheburashka · bimba · heart · bob · spot · teapot · armadilo | +0.006 · +0.003 · +0.002 · +0.001 · −0.001 · −0.001 · −0.002 · −0.003 | 0.90–0.93 | 88–97 % |
 
-Eleven of nineteen at the time of writing; the rest follow. The clearance, ray and yield rules
+**All nineteen (21:00): fit up or within −0.003 on 17, armadilo −0.0032 and homer −0.0043, none worse than −0.005; flips 0.17–0.43 and steps ≤ 0.024 spacings on all; end-state p1 ≥ 0.874 on all; pinned at the end median 0.92 (≥ 0.8 on 17), exactly still. Adopted as the 40k pin form.** The clearance, ray and yield rules
 are superseded and stay opt-in as the record of the diagnosis. 300k: aw300 (the slip form)
 silIoU 0.9754, no reversal window, end p1 0.856 — and the ear's tip 8.5 with the run
 converging at 62 windows / 55 % pinned: the ear is fed THROUGH its base, and its remaining

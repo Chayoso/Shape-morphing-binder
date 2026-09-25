@@ -6299,3 +6299,22 @@ nefertiti +0.006, cow +0.005, maxplanck +0.005, A +0.003, V +0.000, ogre −0.00
 p1 0.874–0.928 on all, none below 0.5 except the dragon's 5 particles (0.01 %, its spikes —
 the §14.0 capacity item), homer's end minimum 0.618. Dossier §15 written (the sticky collider
 diagnosis and the slip form's table); the page follows the full sweep.
+
+**2026-09-25 21:00 — g41pw complete (19 of 19): the slip form is adopted as the 40k pin form.**
+vs g41 (the deliverable gallery): up or within −0.003 on **17** — C +0.062, bunny +0.009,
+dragon +0.006, fandisk +0.006, nefertiti +0.006, cow +0.005, maxplanck +0.005, A +0.003,
+cheburashka +0.003, bimba +0.002, heart +0.001, V +0.000, bob −0.001, spot −0.001, teapot
+−0.002, ogre −0.002, beast −0.0025; **armadilo −0.0032, homer −0.0043** (none worse than
+−0.005). The oscillation metrics on all 19: layer flips 0.17–0.43 (g41 0.54–0.79), step
+0.000–0.024 spacings (g41 0.02–0.06), the reversal series empty on nefertiti; end-state det F
+p1 0.874–0.928 on all, no particle below 0.5 except the dragon's five (0.01 %, the spikes);
+pinned at the end median 0.92 (min beast 0.70, homer 0.73; ≥ 0.8 on 17), the pinned body
+exactly still and stress-free (det F_e 1.000) on every target read. P218 ✗ by one target at
+−0.0032 (the bound was −0.003) and ✓ on every other clause; P190 ✓ on 19. **Decision:** the
+40k recipe's pin form is `--ctrl_rprop --ctrl_rprop_smooth --ctrl_rprop_arrived
+--ctrl_rprop_hold_onset --u_rprop --u_rprop_floor 0 --settle_pin --settle_pin_assim
+--settle_pin_slip` on top of RECIPE (hyde06_env.sh) — the settled body's oscillation is zero on
+the whole gallery at a fit cost ≤ 0.0043 on two targets and a gain on twelve; the clearance,
+ray and yield rules stay opt-in as the diagnosis's record. D1 at 40k is closed by the user's
+bar (zero on the settled body); at 300k the ear (ar300 0.9773, chain pending; ak300; dw300)
+decides the 300k form.
