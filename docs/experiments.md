@@ -6525,3 +6525,17 @@ the fit within ±0.003 of g41pw with end p1 ≥ 0.85 — the gallery rule before
 term (the digest's first mechanism) is held: it reads the same smeared splat as the cell sum,
 so it adds reach, not the resolution the knob needs. ax300 (the KKT evidence recorded, nothing
 released) finished as a record.
+
+**2026-09-26 04:10 — correction: there is no permanent bulb at 40k.** The 03:50 entry read the
+40k left ear's top slab (y 3.51) at 2.8–3.2× the target thickness in g41p, g41h, g41pw and
+g41pe alike and called it a bulb. The end still of g41p (the 40k pinned bunny) shows the tall
+ear's tip tapered and the other ear's tip ordinary — no bulb. The reading is the metric's: the
+target's tip slab at 40k is 77 points, 0.38 wu thick (2.75 spacings), and a ratio near 3 would
+mean more than 1 wu of material in one ear's slab — particles outside the ear enter that slab's
+mask at 40k. The top slab's thickness at 40k is withdrawn as evidence; the knob index is read
+on the 300k tables (where the top slabs sit at 0.9–1.5× and move with the mechanism) and by
+eye. What the 40k tables do show before that slab saturates: at t = 0.15–0.25 the slab below
+the tip is empty (nan) while the tip slab holds particles — the tip detached from its stem, the
+40k droplet, in g41pw and g41pe alike. *g41pe bunny (the 40k adopted form + the KDE set):*
+silIoU 0.9592 (g41pw 0.9703, −0.011): at 40k the KDE term costs the fit and does not change the
+early detachment; the five other targets and ae300 follow before any decision.
