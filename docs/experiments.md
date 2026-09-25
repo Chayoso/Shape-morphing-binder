@@ -6102,3 +6102,15 @@ literature digest on slip / kinematic boundaries in MLS-MPM (CPIC and the multi-
 contacts) and adaptive-resolution MPM, and a practitioner digest (course notes, Houdini / Taichi
 / Warp / splashsurf / OpenVDB docs) on ppc, cells across a feature, dt, thin features, pinned
 material and surfacing smoothness — both to docs/related_work.md when they return.
+
+**2026-09-25 15:20 — the pin gallery's det F, read at the END state by quantiles
+(`detf_dist.py`, the last archived F):** g41pz, all 19: 1st percentile **0.883–0.921**, end
+minimum 0.738–0.846, **no particle below 0.5 on any target** (the metric's "detF_min" is the
+run minimum over the trajectory — the transit's transient dip, 0.73–0.85 — not the delivered
+state). g41 references: p1 0.936–0.946, end min 0.84–0.89 — the pin broadens the distribution
+by ~0.03 at p1 and lowers the end minimum by ~0.05: the boundary wedging of the last arrivals,
+a few particles. g41py so far: bunny p1 0.914, C 0.899, maxplanck 0.911, ogre 0.915, nefertiti
+0.885 with 3 particles below 0.5 (0.01 %). Under the health gate stated at 15:00 (p1 ≥ 0.85,
+count below 0.5 ≤ 0.1 %) **every pin run passes**; the run minimum stays reported as the
+transit's dip. What is left for the adoption of the 40k form is the fit on the stream cases
+(beast, nefertiti, ogre) under the yield rule and the sweep of the rest.
