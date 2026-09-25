@@ -7072,3 +7072,26 @@ complete at the end (tip ≥ 9); if the numbers stay, the stretch is the transpo
 (the rear's drag in the head), and the remedy is on the transport side (a column-coherent pace).
 **P251** (g41pl): the same reading at 40k (72 % → ≤ 40 % at t = 0.2), the fit read but not gated
 (the λ = 0 twin is a diagnostic, not a form).
+
+**2026-09-26 22:20 — ba300 (300k bunny, the candidate form + the density front): the best tip, no
+reversal, and a BIGGER knob; who the knob is.** silIoU 0.9765 (au300 0.977, ar300 0.9773), 51
+windows, run det F min 0.764 (the best of the 300k pin runs), **tip 16.3** (au300 14.0, ar300
+9.2), no negative-reversal window. The slab table: at t = 0.25 the top slab 1.23× over a 0.42×
+neck (knob index 2.9; ar300 2.2), at t = 0.4 1.32× over 0.67× — the front supplied the tip and
+left the neck thin; a plug at 1.25× sat at the base slab (y 2.86) at t = 0.25–0.3. The ear-order
+probe: the tip-bound above the neck slab at t = 0.4 is 41 % (ar300 68 %) — the front held the
+tip-bound group back — and yet the top region is fuller. `knob_probe.py` (who is in the left
+ear's top region, y > 3.55, at t, by where they END): **the ear's own material only** (no head or
+foreign particles in any run), tip-bound 54–69 % and **neck-bound 31–46 %** on ba300 (100 / 155 /
+164 particles there at t = 0.2 / 0.25 / 0.3; ar300 21 / 67 / 39 with the neck-bound 38–72 %; au300
+57 / 122 / 171). So the early knob is the ear's column's lead — tip-bound particles arriving
+first AND neck-bound particles OVERSHOOTING their slab to the top and returning later. The
+overshoot points at the plan's kNN-averaged displacement (the "plan blur": a neck-bound
+particle whose source neighbours are tip-bound takes their longer displacement; under
+`--disc_ref` the blur was found doubled on 2026-09-23 and corrected by `--plan_native`, which was
+only ever run inside the KDE bundle — ak300, whose tongue growth was credited to the KDE term).
+Launched **bc300** = ar300's form + `--plan_native` alone (GPU 2). Pre-registered **P252**: the
+neck-bound share of the top region at t = 0.2–0.3 falls below 20 % and the knob index to ≤ 1.3
+with the fit within −0.003 of ar300; if so, ak300's tongue was the plan's, not the KDE's, and the
+300k form takes `--plan_native` (a discretisation correction, no constant). The render-off twins
+(bb300, g41pl) run in parallel for the render's share of the same overshoot.
