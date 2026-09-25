@@ -6127,3 +6127,23 @@ body far from the ear exactly still, released ≤ 30 % of the settled set at any
 holds, the 40k recipe becomes the g41py form (arrival-gated smoothed Rprop + onset hold + pin
 + ray clearance at 2 Δx + yield + stress-free assimilation) and the D1 phase closes at 40k; if
 P211 holds, the same at 300k.
+
+**2026-09-25 16:10 — dp300 (the dragon at 300k WITHOUT `--disc_ref`, the native, finer grid):
+P187 ✗, and the opposite of it.** 200 windows, silIoU 0.9721, det F minimum **0.003**, end-state
+p1 **0.699**, 270 particles below 0.3 (0.09 %), 817 below 0.5 (0.27 %) — against dl300 (with
+`--disc_ref`): p1 0.764, 59 below 0.3, 272 below 0.5. The finer grid makes the spike
+compression WORSE, not better: the reference discretisation is not the cause. What the three
+dragon runs share is the spikes themselves — thin target features into which the transport
+delivers more particles than the feature holds: the paced target snaps every arrived
+particle's image to its NEAREST target point with no exclusivity (optimizer, the arrival
+snap), so a thin spike's few target points receive the images of every particle the plan sends
+near them, and the cell-sum loss packs them in. At 40k the spikes are below the cell and the
+question does not arise (det F 0.81); at 300k the finer the grid, the more exactly the loss
+resolves the over-filled spike. The same mechanism wedges the last arrivals against the pinned
+body at 40k (15:00). This is a D2 item (the thin feature's capacity), not the pin's: the
+arrival step must respect the target's capacity — the plan's own matching (a particle's
+image is its transported mass's destination, one-to-one by mass) instead of the nearest-point
+snap, or a density-capped hand-off (the Maury 2010 congestion projection applied at the
+arrival, not to the whole transport as §10.22 did). To be pre-registered when the D2 phase
+opens (dossier §14 gains this as item 0). For the 300k gallery gate the dragon's reading is
+p1 / the counts; `--disc_ref` stays in the 300k recipe.
