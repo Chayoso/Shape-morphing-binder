@@ -7344,3 +7344,25 @@ the delivered 300k surface as the local band-limited reconstruction (the mc at t
 — the "thick" look, 0.0005) or a temporally coherent Poisson (a fixed octree from the target, normals
 carried and smoothed frame to frame); on the physics side: the free half at the end (the pin's
 "arrived and twice reversed" never meets the growth-phase material before the early stop).
+
+**2026-09-25 11:50 CDT — bm300 / bn300 (the convergence placement): P265 ✓, the 300k bunny form
+chosen; the 40k twin ✗; the dragon launched (P268).** **bm300** (ar300 + `--render_paced
+--render_paced_conv --pace_coherent`): silIoU **0.9741** (ar300 0.9773; the bound 0.974), 45 windows,
+**tip 13.3**, end p1 0.893, none below 0.5, no negative-reversal window; **no particle in the ear's
+top region before t = 0.4** (18 at t = 0.4), a monotone taper at t = 0.4 (0.67 / 0.57 / 0.38× from the
+base, nothing above the neck), no knob at any time; the tip-bound above the neck slab 8 % at t =
+0.3 and 0.4. **bn300** (the same + `--pace_stream`): silIoU **0.9772** (−0.0001), 49 windows, end p1
+0.877, no reversal — but the tip starves (6.1) and a bump of 1.65 at t = 0.4 (0.89× at y 3.46 over
+0.54×). The convergence switch never fired in either run (the paced cloud's silhouette distance to
+the target stayed above the morph's residual to the paced cloud until the end), so both are the
+full paced target in effect — bm300 is bf300's form re-run (0.9732 / 14.8 there, 0.9741 / 13.3 here:
+the run-to-run spread is ±0.001). **g41rc** (the same placement at 40k): bunny −0.0059, dragon
+−0.0083, nefertiti −0.0076 — the paced render target is a 300k flag in every placement but the
+onset's, which loses the 300k growth. *Decision:* the **300k bunny form = ar300's form +
+`--render_paced --pace_coherent`** (with `--render_paced_conv` carried as the placement that will
+switch when the render's metric says so; H⁻¹ from the start out; `--pace_stream` not added: it
+starves the tip and costs at 40k). The user's reading of the videos: bk300 and be300 look good,
+bk300 a little better; the remaining visible defect is the surface's shake (the re-mesh; 11:40
+entry). Launched **bo300** = the 300k dragon under the slip form + the same three flags (GPU 2).
+Pre-registered **P268**: silIoU ≥ 0.9616 (dw300's 0.9646 − 0.003), end p1 ≥ 0.80, ≤ 0.05 % below 0.5,
+no reversal streak at the end, the spikes' growth by eye without beads (strip).
