@@ -570,6 +570,9 @@ class PipelineConfig:
     settle_pin_ray: bool = False    # 2026-09-25 (10.27 addendum 3): with settle_pin, a particle is pinned only when no
                                     #   unarrived particle's straight path to its plan image (optimizer stats "plan_img")
                                     #   passes within the pace radius of it — the pinned body never blocks a transit stream.
+    pace_front_pts: bool = False    # 2026-09-26 (10.29, particle scale): the front read on the target's own points — filled
+                                    #   = a particle within one spacing, revealed = within one pace step of a filled point.
+    pace_cap: bool = False          # 2026-09-26: with a front, the paced grid capped at the target's cell mass (queue semantics)
     pace_front: bool = False        # 2026-09-26 (10.29): the paced target grows as a front from the filled body — a
                                     #   particle's image is clamped along its ray at the revealed region (target cells filled
                                     #   or within one pace step of a filled one); thin features fill from the base.

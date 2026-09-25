@@ -652,6 +652,42 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     pace_front_frac = float(_out.float().mean())
                 else:
                     pace_front_frac = 0.0
+            if getattr(cfg, "pace_front_pts", False) and tgt.pts is not None:
+                # config.pace_front_pts (2026-09-26, method.md 10.29 at the particle scale): the grid front orders the
+                # growth at the loss-cell scale (the head's hump) and cannot order it below — the ear's spike is a
+                # filament thinner than the cell. Here the front is read on the target's own points: a target point is
+                # FILLED when a particle lies within one spacing of it, REVEALED when within one pace step of a filled
+                # one, and a sample on a particle's ray is inside when a revealed point lies within one spacing of it
+                # (the coverage probe's definition). A tip-bound particle's image is clamped along its ray at the last
+                # inside sample. No new constant: the spacing is the target's, the reveal step the arrival radius.
+                from scipy.spatial import cKDTree as _KDf
+                _P = tgt.pts.detach().cpu().numpy().astype(np.float32)
+                _sp = float(getattr(tgt, "nn_spacing", 0.0) or 0.0)
+                if _sp <= 0.0:
+                    _sp = float(np.median(_KDf(_P).query(_P, k=2, workers=-1)[0][:, 1]))
+                _X0 = x0_ot.detach().cpu().numpy().astype(np.float32)
+                _dP, _ = _KDf(_X0).query(_P, k=1, distance_upper_bound=_sp, workers=-1)
+                _filled = np.isfinite(_dP)
+                if _filled.any() and (~_filled).any():
+                    _dR, _ = _KDf(_P[_filled]).query(_P[~_filled], k=1, distance_upper_bound=float(pace_r), workers=-1)
+                    _revealed = _filled.copy(); _revealed[np.nonzero(~_filled)[0][np.isfinite(_dR)]] = True
+                else:
+                    _revealed = _filled | (~_filled)                     # nothing filled yet (the first window) or all filled
+                _treeR = _KDf(_P[_revealed])
+                _XI = x_int.detach().cpu().numpy().astype(np.float32)
+                _dI, _ = _treeR.query(_XI, k=1, distance_upper_bound=_sp, workers=-1)
+                _out = ~np.isfinite(_dI)
+                if _out.any():
+                    _K = 24
+                    _tt = np.linspace(0.0, 1.0, _K, dtype=np.float32)
+                    _seg = _X0[_out][:, None, :] + _tt[None, :, None] * (_XI[_out] - _X0[_out])[:, None, :]
+                    _dS, _ = _treeR.query(_seg.reshape(-1, 3), k=1, distance_upper_bound=_sp, workers=-1)
+                    _inside = np.isfinite(_dS).reshape(-1, _K); _inside[:, 0] = True
+                    _last = (_inside * np.arange(_K)[None, :]).max(1)
+                    _new = _seg[np.arange(_seg.shape[0]), _last]
+                    x_int = x_int.clone()
+                    x_int[torch.as_tensor(np.nonzero(_out)[0], device=dev)] = torch.as_tensor(_new, device=dev, dtype=x_int.dtype)
+                pace_front_frac = float(_out.mean())
             arrived = dn.squeeze(1) <= pace_r
             if bool(arrived.any()):
                 _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
@@ -676,6 +712,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 else:
                     x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
+            if getattr(cfg, "pace_cap", False):
+                # config.pace_cap (2026-09-26, with the fronts of 10.29): every image lies inside the target, so the paced
+                # grid may never ask a cell for more than the target holds there — the images queued at the front no
+                # longer over-fill the front cell (g41fp dragon: 44 particles below det F 0.5 at the spikes' fronts)
+                pace_grid = torch.minimum(pace_grid, tgt.grid)
             frac_arrived = float(arrived.float().mean())
             arrived_mask_np = arrived.detach().cpu().numpy().astype(bool)   # per-particle arrival (config.ctrl_rprop_arrived)
             pace_r_np = float(pace_r)

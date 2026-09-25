@@ -6795,3 +6795,27 @@ Not adopted at 40k (neutral); it remains the 300k supply lever (au300 filled the
 ao300. The from-the-start term (g41ph) keeps its +0.008 to +0.015 on ten targets and its two
 catastrophes; a placement that keeps the gain without them is not found — the gain is a
 transport-phase effect and the failures are transport-phase effects of the same term.
+
+**2026-09-26 15:00 — the particle-scale front changes the growth: a stub instead of a spike, and
+beast's transport finishes.** g41fp (the adopted 40k form + `--pace_front_pts`) by eye
+(`frontpts_growth_40k.png`, the same frames 3–30 as before, the baseline above): the head rises
+as a rounded hump (frames 3–7), the ear appears as a SHORT THICK STUB (10–13) instead of a thin
+spike with a nub, and grows shorter and thicker than the baseline's at every frame (17–30);
+what remains is a rounded knob at the stub's tip (17–30) — no thin spike, no separated bead.
+**P236 half met** (the stub is the tongue's beginning; the tip's knob stays). The numbers:
+bunny 0.9678 (−0.0025 vs g41pw), **beast 0.9578 (+0.0062 vs g41pw), 161 windows, 93 %
+arrived (76 % before), pinned 0.94 (0.70), no reversal window (10 before)** — the front
+finishes the transport that stalled since g41t, and beast's D1 residual is gone; **dragon 0.9583
+(−0.0059 vs g41pw)** with the end-state p1 **0.774 and 44 particles below 0.5 (0.11 %; the
+health bound 0.1 %)**: the material that waits at the front of the dragon's many spikes packs
+into the front cells. The early dent: 10 band bins (baseline 18–21) — the front halves it as
+H⁻¹ did. The fraction of images held at the front: 0.38–0.64 in the first window, 0.25–0.36
+at the end. *The dragon's cost, read:* a queued particle's image sits at the front cell, so the
+paced grid there holds the images of every particle queued behind it and the cell sum asks for
+more mass than the target holds in that cell — the front cell over-fills. With the front every
+image lies inside the target, so the paced grid can be CAPPED at the target's own cell mass
+(`--pace_cap`: min(paced, target) per cell): a queued particle is asked for nothing until the
+front reveals its next cell — the queue semantics the rule intends. Launched: **g41fq** = g41fp
++ `--pace_cap` on dragon, bunny, beast. Pre-registered: **P240** dragon's end-state below-0.5
+count ≤ 0.02 % (g41pw 0.01 %) and p1 ≥ 0.85 with the fit within −0.003 of g41pw; bunny and beast
+within ±0.003 of g41fp; the stub growth kept (by eye).
