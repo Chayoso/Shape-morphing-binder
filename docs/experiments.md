@@ -6720,3 +6720,27 @@ coarse-to-fine render schedule at the pin's onset (bunny):* fit-neutral — A (3
 (32 → 64) 0.9701, C (64 → 96) 0.9700 against g41pw's 0.9703; the growth by eye follows from the
 videos (P234); the early dent is unchanged by the coarse start (A 18 bins at −16.7 %, B 18 at −19.8 %):
 the drain is the transport's, not the render channel's.
+
+**2026-09-26 11:30 — the coarse-to-fine render schedule read by eye, and the front.** g41cA (32 →
+96 px at the pin's onset) against the pinned baseline, frame for frame in the ear region
+(`c2f_growth_40k.png`, stride-12 frames 3–30): the same spike with a nub at frame 10, the same
+knob on the tip at 17, the same fill by 30 — no change at the spike stage, and the early dent
+unchanged (18 band bins). Fits: A bunny 0.9695 / dragon 0.9656 / nefertiti 0.9733, B 0.9701 /
+0.9639 / 0.9712, C 0.9700 / 0.9661 / 0.9715, all within ±0.003 of g41pw — P234 ✗, P235 ✓: the
+render-loss schedule is harmless and does nothing for the growth. **The growth order is the
+transport's** (method.md 10.29): the paced target sends the tip-bound and base-bound material
+in parallel along their rays, the intermediate density into a protrusion is a filament, and
+the density and silhouette terms only thicken it after the fact (the silhouette is as content
+with a spike as with a tongue). The user's trick, moved to where the order lives: the target
+revealed as a FRONT — a particle's paced image is clamped along its ray at the boundary of the
+revealed region (target cells filled to half the target's mass, or within one pace step of
+one), so a feature fills from its base at the target's cross-section. `--pace_front`, no new
+constant (the fill threshold is the target's own occupancy, the reveal step the arrival
+radius). Launched after a 3k smoke: **g41fr** = the adopted 40k form + `--pace_front` on
+bunny, dragon, nefertiti. Pre-registered: **P236** by eye at frames 7–22 the ear rises at its
+base's thickness with no nub, knob or bead ahead of the filled part (the tongue); the
+fraction of images clamped at the front is > 0 through the transport and 0 at the end;
+**P237** the fit within −0.003 of g41pw on the three and the end-state p1 ≥ 0.85, no reversal
+window, pinned ≥ 0.9 (a queued transport must not cost the end state or the pin); if the
+front costs the fit, the reading is whether the queue starves the tip (the 300k supply item)
+or only delays it.

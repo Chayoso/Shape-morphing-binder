@@ -562,6 +562,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         pace_r_np = None                    # the paced target's arrival radius (config.settle_pin_clear reads it)
         plan_img_np = None                  # the plan image per particle (config.settle_pin_ray: the transit rays)
         arrive_cap_frac = None              # config.arrive_cap: the fraction of arrivals over capacity (kept on the plan image)
+        pace_front_frac = None              # config.pace_front: the fraction of particles whose image was clamped at the front
         if cfg.phys_loss in ("ot_pace", "ot_shape"):
             # DISPLACEMENT-INTERPOLATED TARGET (McCann interpolation along the transport
             # plan): this window's target density is the current cloud advected toward its
@@ -614,6 +615,43 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # every paced position that lies on the support instead — d4db68a — killed the
             # tangential transport where the source overlaps the target: 150k cow silIoU
             # 0.920 vs 0.944, 104 re-attachments vs 83.)
+            if getattr(cfg, "pace_front", False):
+                # config.pace_front (2026-09-26, method.md 10.29): the target is REVEALED as a front. A straight-ray
+                # displacement interpolation into a thin feature is a filament (the ear rises as a spike, the tip bound
+                # particles move in parallel with the base-bound ones and arrive by ray length); the density terms
+                # then thicken the spike after the fact, and the silhouette term is satisfied by the spike as much as
+                # by a tongue. Here a particle may only be sent to target cells that are filled or within one pace
+                # step of a filled one: its image is clamped along its own ray at the revealed region's boundary, so
+                # the feature fills from its base at the target's cross-section (the front advances one pace step per
+                # window). "Filled" = the cell holds at least half of the target's mass in it (the target's own
+                # occupancy); the reveal step = the pace radius (the arrival scale). No new constant.
+                nxg, nyg, nzg = tgt.ldims
+                _tg = tgt.grid.reshape(nxg, nyg, nzg)
+                _cur = rasterize_mass(x0_ot, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).reshape(nxg, nyg, nzg)
+                _filled = (_tg > 0) & (_cur >= 0.5 * _tg)
+                _reach = max(1, int(round(float(pace_r) / float(tgt.ldx))))
+                _rev = torch.nn.functional.max_pool3d(_filled.float()[None, None], kernel_size=2 * _reach + 1,
+                                                      stride=1, padding=_reach)[0, 0] > 0.5
+                _rev = _rev & (_tg > 0)                                  # revealed = target cells near filled ones
+                _rev = _rev | (_tg > 0) & (_cur > 0)                      # every occupied target cell counts
+                def _in_rev(p):
+                    ijk = torch.floor((p - tgt.lgmin) / tgt.ldx).long()
+                    ok = ((ijk >= 0) & (ijk < torch.tensor([nxg, nyg, nzg], device=p.device))).all(1)
+                    ijk = ijk.clamp(min=0); ijk[:, 0].clamp_(max=nxg - 1); ijk[:, 1].clamp_(max=nyg - 1); ijk[:, 2].clamp_(max=nzg - 1)
+                    return ok & _rev[ijk[:, 0], ijk[:, 1], ijk[:, 2]]
+                _out = ~_in_rev(x_int)
+                if bool(_out.any()):
+                    _K = 24
+                    _t = torch.linspace(0.0, 1.0, _K, device=dev)                      # samples along the ray x0 -> image
+                    _seg = x0_ot[_out][:, None, :] + _t[None, :, None] * (x_int[_out] - x0_ot[_out])[:, None, :]
+                    _inside = _in_rev(_seg.reshape(-1, 3)).reshape(-1, _K)
+                    _inside[:, 0] = True                                                # the particle's own position
+                    _last = (_inside.float() * torch.arange(_K, device=dev).float()[None, :]).max(1).values.long()
+                    x_int = x_int.clone()
+                    x_int[_out] = _seg[torch.arange(_seg.shape[0], device=dev), _last]
+                    pace_front_frac = float(_out.float().mean())
+                else:
+                    pace_front_frac = 0.0
             arrived = dn.squeeze(1) <= pace_r
             if bool(arrived.any()):
                 _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
@@ -1784,7 +1822,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac,
+              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac,
               "gx": (gx_box[0].cpu().numpy().astype(np.float32) if gx_box[0] is not None else None),
               "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,

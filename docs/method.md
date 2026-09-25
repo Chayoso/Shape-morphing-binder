@@ -1371,3 +1371,33 @@ The threshold is the free set's own median, re-read every window; a released par
 when its gradient falls back. The settled body stays exactly still where the objective is
 satisfied and gives way along a chain where a deficit lies beyond it — the ear's tip feeding
 from the stem, window by window, as the un-pinned run did.
+
+### 10.29 The paced target as a front (2026-09-26; config `pace_front`; the user's "big voxels first, detail later" moved to the transport)
+
+The user's rendering trick — a coarse voxel surface first (smooth, volumetric, no disconnected
+droplets), finer later for the detail — as a render-loss schedule (`c2f_onset_pin`, 10.31 of the
+experiments log) was fit-neutral and changed nothing in how the ear grows: by eye the coarse-start
+run's spike, nub and knob are frame for frame the baseline's. The growth order is not the
+losses' — it is the transport's. The paced target moves every particle along the straight ray
+to its plan image by one pace radius per window, so the particles bound for a thin feature
+advance in parallel and arrive by ray length: the tip-bound ones travel alongside the base-bound
+ones, and the intermediate density of a displacement interpolation into a protrusion is a
+filament (the transport digest: Bonneel 2011, Solomon 2015). Every density term then thickens
+the filament after the fact, and the silhouette term is satisfied by the spike as well as by a
+tongue. The order the user's trick produces at render time is a FRONT — the surface grows
+outward from the body — and the transport can be given the same order without a new constant:
+
+```
+(52)  filled cells   Φ = { c : m_t(c) > 0 ∧ m(c) ≥ ½ m_t(c) }                        (the target's own occupancy)
+      revealed cells R = { c : m_t(c) > 0 ∧ dist(c, Φ) ≤ r_pace }  ∪  { c : m_t(c) > 0 ∧ m(c) > 0 }
+      for a particle whose paced image x̂ lies outside R:  x̂ ← the farthest point of the ray [x, x̂] inside R
+```
+
+r_pace is the arrival radius (one loss cell), so the front advances one cell per window — the
+speed the pace moves material anyway. A tip-bound particle waits at the feature's base while
+the base fills to the target's density, then advances one cell per window: the feature fills
+from its base at the target's own cross-section — the tongue, by construction. The KDE and
+H⁻¹ terms read the fixed target and would pull ahead of the front; with `h1_onset_pin` the
+H⁻¹ term is off during the transport, and the KDE term is not in the 40k form. Read by eye at
+the spike stage (no hook, knob or bead), by the knob index on the 300k slab tables, and by the
+fit (a front that queues material must not cost the end state).
