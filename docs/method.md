@@ -1351,3 +1351,23 @@ stays exactly still wherever the plan is satisfied, and gives up material where 
 for it — the evidence-based release the optimisation literature prescribes for an active set
 (the digest: Bertsekas 1982, the strong rules' KKT check), with the plan's residual as the
 evidence.
+
+Addendum 7 (2026-09-26) — the pin as an active set released on the objective's evidence
+(`settle_pin_kkt`). The follow rule (50g) is inert at 300k: by window 50 the plan calls every
+particle arrived, so no pinned image ever leaves the pace radius. The deficit that stalls the
+ear's tip is the objective's, not the plan's: the tip's cells are under-filled, the chain of
+particles that must step up into them is pinned, and a pinned particle's control has no effect,
+so it carries no control gradient. The optimisation literature's rule for a fixed set (the
+projected-Newton active set, re-identified every iteration from the gradient — Bertsekas 1982;
+the strong rules' KKT check — Tibshirani et al. 2012): a fixed variable whose gradient exceeds
+what the free variables carry is not at its optimum.
+
+```
+(50h)  g_p = |∂D/∂x_p|  at the committed state (D = the fixed-target cell sum, the deliverable's objective)
+       p ∈ P with g_p > median_{q ∉ P} g_q   ⇒  released for the window (pin 0, the control step restored)
+```
+
+The threshold is the free set's own median, re-read every window; a released particle re-pins
+when its gradient falls back. The settled body stays exactly still where the objective is
+satisfied and gives way along a chain where a deficit lies beyond it — the ear's tip feeding
+from the stem, window by window, as the un-pinned run did.

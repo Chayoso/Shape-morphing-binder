@@ -6427,3 +6427,17 @@ control has no effect). In the un-pinned ai300 that chain ran for 50 windows. So
 released on the evidence of the LOSS, not of the plan: the active-set rule the digest
 prescribes (Bertsekas 1982; the strong rules' KKT check) — a fixed variable whose loss gradient
 exceeds what the free variables carry is not at its optimum. Next: `--settle_pin_kkt`.
+
+**2026-09-26 01:30 — the KKT release (method.md 10.27 addendum 7, `--settle_pin_kkt`,
+eq. 50h).** A pinned particle whose fixed-target cell-sum gradient exceeds the free set's
+median is released for the window. Launched after a 3k smoke: **aq300** = ar300's form (ray
+clearance + slip + assim + hold) + kkt at 300k; **g41pk** = the adopted 40k form + kkt on
+bunny, nefertiti, dragon. Pre-registered: **P226** (aq300) the ear's tip ≥ 11 reference
+particles and the last two slabs ≥ 0.85 / 1.0, silIoU ≥ 0.9773 (ar300), the run past 80
+windows, end p1 ≥ 0.85, the tail ≤ 0.0010, released ≤ 15 % of the pinned set at any window and
+the released centroid moving toward the ear over the windows the tip grows; **P227** (g41pk)
+fit within ±0.003 of g41pw, flips ≤ g41pw + 0.10, pinned ≥ 0.8 at the end (the release does not
+bring the breathing back at 40k). *In parallel (the user: "300K 쪽, 귀 안 되면 계속 paper /
+cookbook 찾아줘"):* a digest on growing thin target features from a bulk source (target-driven
+fluid control, sub-cell-aware losses, the practitioners' logo-forming recipes, capacity-exact
+matching) is being gathered for related_work.md.

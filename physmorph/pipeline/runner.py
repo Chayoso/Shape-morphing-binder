@@ -1439,6 +1439,34 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     rec["pin_follow_frac"] = float(_follow.sum() / max(1, settled_p.sum()))
                     if (a + 1) % 5 == 0:
                         log(f"[v2] anim {a + 1}: pinned particles released to follow the plan {100 * _follow.sum() / max(1, settled_p.sum()):.1f} %")
+                # config.settle_pin_kkt (10.27 addendum 7): the pin is an ACTIVE SET and is released on the evidence of
+                # the objective itself (Bertsekas 1982; the strong rules' KKT check): a pinned particle whose gradient of
+                # the fixed-target cell sum exceeds the median gradient of the FREE particles is not at its optimum and is
+                # released for the window with its control step back. At 300k every pin run stalled with the ear's tip
+                # at 0.5-0.6: the deficit sits in the tip's cells, the chain of particles that must step up into it is
+                # pinned (arrived by the plan's measure) and a pinned particle carries no control gradient. The
+                # threshold is the free set's own median — no constant.
+                if getattr(cfg, "settle_pin_kkt", False) and settled_p.any() and (~settled_p).any():
+                    from ..losses.volumetric import d_vol_density as _dvd_k, d_vol as _dv_k
+                    _xk = torch.as_tensor(np.asarray(x, np.float32), device=cfg.device).requires_grad_(True)
+                    if cfg.loss_units == "density":
+                        _Lk = _dvd_k(_xk, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref, tgt.n_support)
+                    else:
+                        _Lk = _dv_k(_xk, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
+                    _gk = torch.autograd.grad(_Lk, _xk)[0].norm(dim=1).detach().cpu().numpy()
+                    _thr_k = float(np.median(_gk[~settled_p]))
+                    _kkt = settled_p & (_gk > _thr_k)
+                    _yield = _yield | _kkt
+                    _follow = _follow | _kkt
+                    rec["pin_kkt_frac"] = float(_kkt.sum() / max(1, settled_p.sum()))
+                    rec["pin_kkt_thr"] = _thr_k
+                    rec["pin_kkt_gmed_pinned"] = float(np.median(_gk[settled_p]))
+                    if _kkt.any():
+                        _ck = np.asarray(x, np.float32)[_kkt]
+                        rec["pin_kkt_centroid"] = [float(v) for v in _ck.mean(0)]
+                    if (a + 1) % 5 == 0 or rec["pin_kkt_frac"] > 0.2:
+                        log(f"[v2] anim {a + 1}: KKT release {100 * rec['pin_kkt_frac']:.1f} % of the pinned set (|dL/dx| above the "
+                            f"free median {_thr_k:.3g}; pinned median {rec['pin_kkt_gmed_pinned']:.3g})")
                 pin_yield_prev = _yield
                 settle_pin_arr = (settled_p & ~_yield).astype(np.float32)
                 if settled_p.any():
