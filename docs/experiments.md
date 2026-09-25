@@ -7569,3 +7569,10 @@ blend. v7 (v6 + 4 render children per outer parent, surface splats ×4): 0.0009,
 240 marginally finer — the children add coverage, not detail, without an appearance model. The
 delivered 300k render is now a two-way choice on equal stillness: splat v6 (honest) or mc iso 0.5
 (interpolated); the user's call.
+
+**2026-09-25 17:55 CDT — the page rebuilt: current results only, Gaussian-splat renders only (the
+user's rule).** The artifact now carries: the delivered render's definition (splat v6), bm300's
+numbers against ar300, the measured empty transit, the running experiments with their gates, the
+plan; 70 old files (Poisson / mc videos, montages of refuted forms) removed from the artifact. The
+history stays here and in the server's r300/ folders. Splat v6 renders of g41pw bunny (40k) and
+bo300 dragon (300k) queued for the page.
