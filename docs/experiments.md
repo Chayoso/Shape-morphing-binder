@@ -7558,3 +7558,14 @@ pace, the front advances as a plug. No constant. Launched **bs300** = bm300's fo
 GPUs 0 and 1, free at the user's question, now carry **br300** (the 300k dragon under the chosen
 form + the stream pace, for its p1 0.77) and the coherent pace's remaining 16 gallery targets
 (g41fc; the 40k adoption question for that flag).
+
+**2026-09-25 17:45 CDT — splat v6 tail 0.0007: the splat render is as still as marching cubes.** v6
+(adaptive radius + support opacity + shading normals at 3 spacings + the mesh render's hemispheric
+lighting): tail change **0.0007** — mc iso 0.5's number, on the same particles, with the splat's
+honesty (the sparse phase visible) and a bright, smooth look (frames 240 and 720). v5's 0.0012 →
+0.0007 came from the LIGHTING alone: under a bare Lambert the back-facing and interior splats
+blended in dark and their per-frame changes were the flicker; the wrap light removes the dark
+blend. v7 (v6 + 4 render children per outer parent, surface splats ×4): 0.0009, the look at frame
+240 marginally finer — the children add coverage, not detail, without an appearance model. The
+delivered 300k render is now a two-way choice on equal stillness: splat v6 (honest) or mc iso 0.5
+(interpolated); the user's call.
