@@ -6690,3 +6690,33 @@ without a hook / knob / bead, in A or B; **P235** the fit within ±0.003 of g41p
 density-voxel half of the trick (a coarse loss grid first) is held: the paced target's arrival
 radius is the loss cell, so a coarse grid would pin material a coarse cell from its image —
 the arrival radius has to be decoupled from the loss cell before that half can be tested.
+
+**2026-09-26 10:30 — the morning's readings.** *(a) The marching-cubes look (the user's ar300mc):*
+the ears' fatness is NOT the kernel radius — ar300 re-rendered with the 40k / 100k / native 300k
+kernels gives the same ears (the montage `kernels_ar300.png`), a slightly more textured body at
+the native one, tails 0.0003 / 0.0004 / 0.0005 against Poisson's 0.0012, and a much smoother
+body than Poisson at every radius. The remaining thickness is the density iso-level's offset
+from the particle layer (a render setting, `--iso`), not the particles (at target thickness) —
+so the user's "let the render loss thin them late" has no physics left to act on at 300k.
+(The mc mesh's dihedral bumpiness reads 13–14° against Poisson's 1.2°: that metric measures
+the voxel faceting of a marching-cubes mesh and is not comparable across reconstructions.)
+*(b) The early dent, measured (`scratch/dent_probe.py`, the outer shell's radius per angular bin
+against its neighbours, the equatorial band only — the poles are the flat base and the ears):*
+at window 5 (frame 96) the deepest bin is −15 % with 18–21 of 360 band bins below −8 %, the
+same at 300k (ar300) and 40k (g41pw bunny), at the same place (the lower front-left of the blob:
+the material that leaves first toward the head and ears); it grows to −22 % / 23–27 bins by
+window 10. **H⁻¹ from the start halves it** (g41ph bunny 9 bins at −12 %; armadillo 9 against
+15): the non-local balance fills the drained shell from the interior. The render schedule with
+the current coarse phase (g41cC, 64 → 96 px at the onset) leaves it unchanged (19 bins); the
+coarse-start variants (32 px) are read below. *(c) The H⁻¹ placement twins (bimba / beast /
+bunny):* **outside the core from the start** (g41pho): bimba 0.9759 ✓ but **beast 0.5231 — the
+inner optimiser found no accepted step from window 7 and the run ejected particles** (an
+unbalanced non-local pull on a long transport); **from the pin's onset, inside** (g41phn): beast
+0.9531 ✓, bunny 0.9703 (= g41pw: the +0.002 of the from-the-start term was a transport-phase
+gain), bimba 0.9591 ✗ (the brake at 18 — the balancer inflation is there at the onset too);
+**both** (g41phb): **bimba 0.9778 ✓ (+0.003 vs g41), beast 0.9544 ✓ (+0.003 vs g41pw)**, bunny
+pending. P233 ✓ on the both-placement; it goes to the remaining 16 (the gallery gate). *(d) The
+coarse-to-fine render schedule at the pin's onset (bunny):* fit-neutral — A (32 → 96) 0.9695, B
+(32 → 64) 0.9701, C (64 → 96) 0.9700 against g41pw's 0.9703; the growth by eye follows from the
+videos (P234); the early dent is unchanged by the coarse start (A 18 bins at −16.7 %, B 18 at −19.8 %):
+the drain is the transport's, not the render channel's.
