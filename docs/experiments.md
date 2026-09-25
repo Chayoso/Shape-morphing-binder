@@ -6062,3 +6062,16 @@ the squeeze but not the transit's own dip); **P209** the released fraction of th
 is < 20 % at any window on the bunny and the settled set far from streams is exactly still
 (pin_probe on the frames). If P207 holds, g41py's form goes to the 19 as the 40k adoption
 sweep and to 300k.
+
+**2026-09-25 14:20 — g41pz complete (19 of 19; the pin with the point clearance at r_pace +
+onset hold + assim), vs g41:** fit up or within −0.003 on **16** (C +0.055, bunny +0.007,
+maxplanck +0.007, fandisk +0.006, dragon +0.006, A +0.003, cheburashka +0.002, bimba +0.002,
+spot +0.002, bob +0.001, armadilo +0.001, heart +0.001, V +0.001, teapot −0.001, homer −0.001,
+cow −0.002); **beast −0.014, nefertiti −0.013** (the stream cases), ogre −0.003. det F within
+−0.05 on 12, beyond on 7 (maxplanck 0.778, C 0.784, V 0.776, cow 0.782, homer 0.753, teapot
+0.813, all ≥ 0.75); the layer's step ≤ 0.024 spacings and flips ≤ 0.56 on all but beast (0.78:
+its transport never settles under the pin). P188' ✗ (16 of 18), P189' ✗ (12 of 15), P190 ✓ on
+18. The yield form (g41py) is the candidate that addresses the two failing classes (streams);
+it runs on nefertiti, bunny, cow, beast (GPU 3) and ogre, C, maxplanck, dragon, homer (GPU 1).
+The 3k yield smoke: released fraction 0–2 % of the settled set (the bunny at 3k has no long
+stream), pinned set's elastic det F_e 1.000.
