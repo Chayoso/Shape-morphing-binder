@@ -1467,6 +1467,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                             _persist = np.zeros(len(_gs), bool)
                         kkt_prev_g = _gs
                         _kkt = settled_p & _persist & (_mag > _thr_k)
+                        if getattr(cfg, "settle_pin_kkt_dry", False):
+                            rec["pin_kkt_frac_dry"] = float(_kkt.sum() / max(1, settled_p.sum()))
+                            _kkt = np.zeros_like(_kkt)          # diagnostic: evidence recorded and archived, nothing released
                         rec["pin_kkt_persist_frac"] = float(_persist[settled_p].mean())
                         _gk = _mag
                     else:

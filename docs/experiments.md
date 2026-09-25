@@ -6463,3 +6463,18 @@ set's median: noise flips window to window (that is how the particles were pinne
 keeps pulling. The archive now carries the last window's gradient (`gx_last`) so the ear's
 signal can be read offline. aq300 and g41pk were stopped and relaunched on v3 (P226–P227
 unchanged).
+
+**2026-09-26 03:00 — KKT v3 refuted by its smoke; the evidence is measured before any further
+rule.** v3 (the window objective's gradient, neighbourhood-averaged, persistent across windows,
+above the free median) released 56–63 % of the pinned set, and 95 % of the pinned set passed
+the persistence test. That is structural: a pinned particle's gradient is the pin constraint's
+multiplier — the particle cannot move, so the objective's pull on it never relaxes and keeps
+its direction window after window, and it exceeds the free particles' (which relax theirs).
+Neither the magnitude nor the persistence of the gradient on a pinned particle is evidence of
+a deficit. aq300 / g41pk v3 stopped. **ax300** = ar300's form with the evidence recorded and
+archived but nothing released (`--settle_pin_kkt_dry`): the window objective's gradient at the
+pinned plateau, read offline by region (tip, stem, body) for magnitude, direction (does the
+objective want the ear's particles to move up the ear?) and neighbourhood coherence
+(`scratch/gx_probe.py`). If no statistic separates the ear's supply chain from the body at the
+plateau, the release cannot be made from the pinned state and the ear must be finished before
+its material pins (the pin's onset read per feature), which is the other branch.

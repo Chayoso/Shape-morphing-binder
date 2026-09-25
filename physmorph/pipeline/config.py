@@ -575,6 +575,7 @@ class PipelineConfig:
     settle_pin_follow: bool = False # 2026-09-25 (10.27 addendum 6): a pinned particle whose plan image has moved beyond
                                     #   the pace radius is released (fresh control step) and re-pinned when arrived again —
                                     #   the pin follows the plan; the settled body can still supply a feature that fills last.
+    settle_pin_kkt_dry: bool = False # 2026-09-26: with settle_pin_kkt, record and archive the evidence only (no release)
     settle_pin_kkt: bool = False    # 2026-09-26 (10.27 addendum 7): a pinned particle whose fixed-target cell-sum gradient
                                     #   exceeds the free particles' median is released for the window (the active set's KKT
                                     #   check) — the pinned body can feed a feature whose deficit the plan no longer sees.
