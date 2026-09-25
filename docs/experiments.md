@@ -6587,3 +6587,37 @@ curled flap and forked tips); the fit and the health are the clearest gains of t
 Launched: g41ph on the remaining 15 targets (GPUs 3 and 0) — the gallery gate before adding
 `--w_h1 1` to the adopted 40k form (P231 on all 19: the fit within ±0.003 of g41pw or better,
 end p1 ≥ 0.85; P232: no reversal window, pinned ≥ 0.8).
+
+**2026-09-26 06:30 — the user: "300K에서 여전히 remesh인지 뭔지 모르겠지만 진동이 살짝 보인다. 계속 주시해 줘." The
+visible 300k tail motion is mostly the surface reconstruction (M5).** *Where it flickers* (a
+temporal-difference heatmap of the delivered tail — the mean |Δframe| over the last 24 stride-12
+frames, gain ×25, `tailheat_*.png`): on as300 and ar300 the change sits on the ears (their whole
+surface), on a thin line along the whole silhouette, and as a faint speckle over the body's
+interior — although 90 % (as300) / 60 % (ar300) of the particles are pinned and move exactly zero.
+*The decisive twin:* ar300's archived frames rendered with the local surface (`--surface mc`:
+marching cubes on the kernel density at the reference spacing, on a grid fixed across the frames
+— a region with no moving particle within the kernel gets identical triangles) instead of the
+screened Poisson fit (a global solve: a particle moving anywhere shifts the implicit function
+everywhere):
+
+| ar300, same particles | whole-run per-frame change | delivered tail median / p90 | tail ALT/DRIFT |
+|---|---|---|---|
+| screened Poisson (the delivered videos) | 0.0029 | 0.0012 / 0.0014 | 1.71 |
+| marching cubes on the kernel density | 0.0009 | **0.0003 / 0.0005** | 1.18 |
+
+About three quarters of the 300k tail's visible change is the reconstruction amplifying the small
+motion of the still-free particles (the ears, 10–40 % unpinned at the stop) over the whole
+surface; with the local surface the tail equals the 40k pinned run's (g41p 0.0003). The end frame
+(`ar300_end_poisson_vs_mc.png`): the marching-cubes body is SMOOTHER (the lumps on the back gone —
+the smoothness item), the ears slightly thicker and rounder (the kernel's blur), a faint stair-step
+banding of the voxel grid. So the remaining 300k oscillation has two parts with two owners: the
+re-mesh (the delivered surface: a local or temporally-coupled reconstruction), and the last free
+particles' own motion (the pin's coverage at the stop).
+*The 300k growth runs (chains):* **ae300** (ar300 + KDE): the ear grows as a tongue (the tip slab
+first at t = 0.4, 0.55× over 0.51×; knob index ≤ 1.3), silIoU 0.9737, det F 0.59, 92 windows —
+P228's growth ✓, fit ✗; **au300** (ar300 + H⁻¹): silIoU **0.977**, det F **0.76**, the tip filled
+(14.0 reference particles), 46 windows, no reversal — but a knobby growth (t = 0.25–0.4: the
+mid-ear slab 1.16–1.21× over a 0.65–0.70× neck, the tip 1.19–1.26× over 0.52–0.66×). KDE orders
+the growth, H⁻¹ supplies and fits: **av300** = ar300's form + both, launched. *Cleanup (the user's
+rule, 117 GB > 100):* ax300 az300 aw300 dc300 g41pe g41pf removed (24 GB) after archiving their 27
+logs/json to `logs_archive_20260926.tgz`; now 95–97 GB.
