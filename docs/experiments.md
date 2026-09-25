@@ -7270,3 +7270,21 @@ the target's own images after (`--render_paced_onset`, pre-registered **P260**: 
 with silIoU ≥ 0.974). Launched meanwhile **bk300** = ar300 + `--render_paced --pace_stream` (GPU 3;
 P261: the stream pace under the paced render against bf300's coherent pace — knob ≤ 1.3, tip ≥
 9, fit ≥ 0.974).
+
+**2026-09-27 02:20 — bg300 (the 300k candidate form with H⁻¹ from the start + the pair) fails at
+the end; the pair's strip by eye.** bg300: silIoU 0.9734 (−0.004), 74 windows, tip 17.5, end p1
+0.913 — and **the last 16 windows reverse in a row** (a D1 streak: the settled end-game under
+H⁻¹ from the start with the paced target held back), the top region 153 / 93 / 61 particles at
+t = 0.2 / 0.25 / 0.3 (84 % tip-bound: the supply's early pull), knob 2.4 at t = 0.25. H⁻¹ from the
+start leaves the 300k form when the pair is present; if the tip needs it, at the pin's onset. The
+strip `pair_growth_300k.png` (ar300 / be300 / bf300): by eye the early ear (frames 13–21) is
+still a thin spike in all three rows, bf300's slightly thicker and without the bead; the
+probes' "taper" at t = 0.3 is a taper of a thin ear (0.65 / 0.53 / 0.38× of the target's
+thickness) — the tongue needs the base near 0.9× while the ear extends, and the base-bound
+material is the column's deepest layer, the last to arrive under the monotone plan; the ear
+extends as fast as the pace lets its front go while the flux into it is the head's drag. The
+flux-limited front is the stream pace's semantics (bh300 held 2–3 % but the render pulled the
+neck-bound material; bk300 = paced render + stream pace is running, P261). Launched: **bj300** =
+ar300 + `--render_paced --render_paced_onset --pace_coherent` (GPU 2; P260) and **bl300** = the same
++ `--pace_stream` (GPU 1; **P262**: bf300's growth or better — the base slabs ≥ 0.8× when the top
+slab first appears — with silIoU ≥ 0.974, tip ≥ 9, no reversal window).

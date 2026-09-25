@@ -546,6 +546,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # and a fixed-target pull competes with it (beast under H^-1 from the start: 0.9263 against 0.9516)
             cfg.w_h1 = h1_w_full; h1_armed = True
             log(f"[v2] anim {a + 1}: the H^-1 term armed at the pin's onset (w_h1 = {h1_w_full:g})")
+        if (getattr(cfg, "render_paced_onset", False) and getattr(cfg, "render_paced", False)
+                and settled_p is not None and bool(np.any(settled_p))):
+            # config.render_paced_onset (2026-09-27): the paced render target (method.md 10.31) owns the GROWTH — the
+            # transport, where the target's final outline pulled a thin lead up the ear — and the target's own images
+            # own the FIT from the pin's onset, where the transport is done and a particle locked at arrival would
+            # otherwise never see the final outline (g41rp: -0.005..-0.008 at 40k; bf300: -0.004 at 300k).
+            cfg.render_paced = False
+            log(f"[v2] anim {a + 1}: the render target is the target's own images from the pin's onset (config.render_paced_onset)")
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
