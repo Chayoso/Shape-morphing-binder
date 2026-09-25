@@ -7623,3 +7623,8 @@ The remaining lever for the vapour is on the physics side — unsupported materi
 one half) has no elastic medium and coasts; a body-convention drag on it would be the first
 physics-side change, and it is proposed, not run. The delivered render answers the vapour
 visually (support opacity: the vapour is drawn as what it is).
+
+**2026-09-25 18:50 CDT — the coherent pace on the gallery (g41fc, 18 of 19 vs g41pw): not neutral at
+40k.** 16 within ±0.003; cow **−0.0110** (52 windows for 115: the run stopped early), beast −0.0068,
+nefertiti −0.0030. The coherent pace stays a 300k flag with `--render_paced`; the 40k form remains
+g41pw. (The 19th, C, still running.)
