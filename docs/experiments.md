@@ -7590,3 +7590,8 @@ front is then the bulk itself, and the region is empty rather than misty until t
 Launched **bt300** = bm300's form + `--pace_support --pace_support_hard` (GPU 2). Pre-registered
 **P273**: above the head at t = 0.10–0.20 either fewer than 200 particles present or a mean density
 ≥ 0.5; silIoU ≥ 0.971; tip ≥ 9; end p1 ≥ 0.80; no reversal window.
+
+**2026-09-25 18:15 CDT — the adopted 40k form under the splat render: tail 0.0002.** g41pw bunny
+rendered with splat v6: tail change 0.0002 (97 % pinned) — the 40k D1 closure holds under the
+honest renderer as well; on the page (v69) as the 40k reference. The 300k dragon's splat render
+follows.
