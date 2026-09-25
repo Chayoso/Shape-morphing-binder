@@ -412,6 +412,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     ctrl_rev_count, frozen_p = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
     settle_pin_arr = None                # config.settle_pin: the (N,) pin array handed to the rollout
+    pin_yield_prev = None                # config.settle_pin_yield: the settled particles released last window
     settled_at = None                    # config.settle_pin: the window (1-based) at which each particle was pinned, -1 = never
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
@@ -1345,6 +1346,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if settled_at is None or len(settled_at) != len(_d_now):
                     settled_at = np.full(len(_d_now), -1, np.int32)
                 _newly = _arr_p & (ctrl_rev_count >= 2) & (~settled_p)
+                _ray_samples = None
                 # config.settle_pin_clear (10.27 addendum): a particle is pinned only when no UNARRIVED particle
                 # lies within the pace radius of it — the paced target's own arrival scale, no new constant. The
                 # pinned body then never blocks a channel material still flows through (ap300: the ear's tip
@@ -1381,6 +1383,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     _k = np.arange(len(_rep)) - np.repeat(np.cumsum(np.concatenate([[0], _ns[:-1] + 1])), _ns + 1)
                     _s = (_k / np.repeat(_ns, _ns + 1)).astype(np.float32)[:, None]
                     _samples = _xq[_rep] + _s * _dq[_rep]
+                    _ray_samples = _samples
                     _dn_r, _ = _KDr(_samples).query(np.asarray(x, np.float32)[_newly], k=1, distance_upper_bound=float(_pr), workers=-1)
                     _clear_r = ~np.isfinite(_dn_r)
                     rec["pin_ray_blocked_frac"] = float(1.0 - _clear_r.mean())
@@ -1397,7 +1400,35 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if getattr(cfg, "settle_pin_assim", False) and _newly.any():
                     Fp[_newly] = assimilate_elastic(Fc[_newly], Fp[_newly], eta=1.0, smin=cfg.assim_smin,
                                                     smax=cfg.assim_smax, isochoric=False)
-                settle_pin_arr = settled_p.astype(np.float32)
+                # config.settle_pin_yield (10.27 addendum 4): a settled particle within the grid kernel's support of a
+                # transit ray is RELEASED for the window: no control, no relaxation move, no step of the optimiser,
+                # passive material that yields to the passing stream through the physics alone and re-pins when
+                # the stream has gone (nefertiti g41ps: the crown stream squeezed between pinned walls, det F 0.78
+                # -> 0.46 over windows 45-85 and locked at 0.55 on arrival; a body fed by a stream must yield
+                # where the stream passes). On re-pinning the elastic strain is assimilated again (stress-free).
+                _yield = np.zeros(len(settled_p), bool)
+                if getattr(cfg, "settle_pin_yield", False) and settled_p.any() and _pr is not None and _pi is not None and (~_arr_p).any():
+                    from scipy.spatial import cKDTree as _KDy
+                    if _ray_samples is None:
+                        _xq = np.asarray(x, np.float32)[~_arr_p]; _dq = np.asarray(_pi, np.float32)[~_arr_p] - _xq
+                        _Lq = np.linalg.norm(_dq, axis=1); _ns = np.maximum(1, np.ceil(_Lq / float(_pr)).astype(np.int64))
+                        _rep = np.repeat(np.arange(len(_xq)), _ns + 1)
+                        _k = np.arange(len(_rep)) - np.repeat(np.cumsum(np.concatenate([[0], _ns[:-1] + 1])), _ns + 1)
+                        _s = (_k / np.repeat(_ns, _ns + 1)).astype(np.float32)[:, None]
+                        _ray_samples = _xq[_rep] + _s * _dq[_rep]
+                    _idx_s = np.nonzero(settled_p)[0]
+                    _dn_y, _ = _KDy(_ray_samples).query(np.asarray(x, np.float32)[_idx_s], k=1, distance_upper_bound=float(_pr), workers=-1)
+                    _yield[_idx_s[np.isfinite(_dn_y)]] = True
+                    rec["pin_yield_frac"] = float(_yield.sum() / max(1, settled_p.sum()))
+                    if getattr(cfg, "settle_pin_assim", False) and pin_yield_prev is not None and len(pin_yield_prev) == len(_yield):
+                        _repin = settled_p & (~_yield) & pin_yield_prev
+                        if _repin.any():
+                            Fp[_repin] = assimilate_elastic(Fc[_repin], Fp[_repin], eta=1.0, smin=cfg.assim_smin,
+                                                            smax=cfg.assim_smax, isochoric=False)
+                    if (a + 1) % 5 == 0:
+                        log(f"[v2] anim {a + 1}: settled particles released to a passing stream {100 * _yield.sum() / max(1, settled_p.sum()):.1f} %")
+                pin_yield_prev = _yield
+                settle_pin_arr = (settled_p & ~_yield).astype(np.float32)
                 if settled_p.any():
                     ctrl_scale[settled_p] = 0.0
                     ctrl_scale_apply = np.asarray(ctrl_scale_apply, np.float32).copy(); ctrl_scale_apply[settled_p] = 0.0
