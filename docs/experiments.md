@@ -7607,3 +7607,19 @@ no per-splat flat shading, so no ball-pit look; the same opacity by support and 
 as v6. A two-frame test on bm300 (frame 380): a clean, smooth, mesh-like surface with the ears'
 sparse tips still honest. Full renders of bm300, g41pw (40k) and bo300 (dragon) queued; the page
 moves to v8 when they land, with the tail change measured as before.
+
+**2026-09-25 18:45 CDT — bt300 (the support gate) and br300 (the dragon + stream pace).** bt300:
+silIoU 0.9734, 55 windows, tip 8.3, end p1 0.868, none below 0.5, no reversal window; the transit
+density above the head at t = 0.10 / 0.14 / 0.20 / 0.30: **0.15 / 0.22 / 0.53 / 1.64** (bs300 0.09 /
+0.18 / 0.31 / 1.31; bm300 0.17 / 0.05 / 0.26 / 1.00). P273 ✗ at t = 0.10–0.14 (997 / 1699 particles at
+0.15 / 0.22), ✓ from t = 0.20. With a zero pace step for under-dense material the leads still get
+there: the paced target's images are not what carries them — the cell sum pulls whatever
+material is nearest into the cells the BULK's images already claim ahead of the plug, and a
+particle in free space has nothing to hold it (no medium, no drag). Every pace rule improved the
+order and kept the fit; none empties the first windows' vapour, because it is not the transport's
+to remove. br300 (the dragon under the chosen form + the stream pace): silIoU 0.9666 (bo300 0.9699),
+end p1 0.746, 210 below 0.5 (0.07 %) — worse on every count; the stream pace leaves the 300k form.
+The remaining lever for the vapour is on the physics side — unsupported material (support below
+one half) has no elastic medium and coasts; a body-convention drag on it would be the first
+physics-side change, and it is proposed, not run. The delivered render answers the vapour
+visually (support opacity: the vapour is drawn as what it is).
