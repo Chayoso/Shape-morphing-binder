@@ -384,3 +384,65 @@ without a growth term, 1.1–1.3 with KDE. The next levers are the growth ORDER,
 density term: a front that advances from the base (the pace scheduled by the image's position
 along the feature — the target's own geometry), or the leading edge's coherence at the commit
 (Ando 2012's sheet-aware split) — both pre-registered in §14, neither run yet.
+
+
+## 17. Addendum (2026-09-26 afternoon) — the growth order is the transport's: the front, its pile, and the vacancies
+
+**The user's trick, tried where it was described.** The rendering trick (big voxels first, so the
+early shape is smooth and volumetric with no disconnected drops; smaller voxels later for the
+detail) moved to the render loss as a resolution schedule from the pin's onset (`--c2f_onset_pin`,
+32 → 96 px): fit-neutral on the bunny and, frame for frame, the same growth as the baseline —
+the spike, the nub, the early dent all unchanged. The loss does not own the growth order. The
+paced target does: the OT plan sends the tip's and the base's material along parallel straight
+rays at one pace step per window, so the ear's intermediate density is a filament of in-transit
+material (the displacement interpolation into a protrusion, transport digest), and every density
+or silhouette term thickens that filament afterwards — the silhouette is already satisfied by it.
+
+**The front (method.md 10.29).** The same trick applied to the transport: the target is revealed
+as a front, and a particle's paced image is clamped along its ray at the revealed region's
+boundary. At the loss-cell scale (`--pace_front`: target cells filled to half their mass or one
+pace step from one) the front is coarser than the spike (thinner than a cell) — the head's hump
+rounder, the spike unchanged; refuted by eye. At the particle scale (`--pace_front_pts`: a target
+point filled when a particle lies within one spacing, revealed within one pace step of a filled
+point; no new constant) the ear rises as a **short thick stub instead of a spike** (montage
+`frontpts_growth_40k.png`, the same frames 3–30 as the baseline), no separated bead, a rounded
+knob at the stub's tip remaining; the early dent halves (10 band bins for 18–21); and **beast's
+transport finishes** (93 % arrived for 76 %, pinned 0.94, no reversal window — the adopted form's
+last D1 residual, 10 of 87 windows, gone; fit +0.006).
+
+**Its costs, and their one cause.** Dragon −0.006 with 44 particles below det F 0.5 at the end
+(0.11 %): the images of every particle queued behind a spike's front pile into the front cell and
+the cell sum packs them in. Nefertiti −0.008 at 115 windows for 57, cow −0.006: the part of the
+source that lies outside the target has nothing revealed on its ray and waits until the fill
+reaches the surface near it — a bulk target is transported as a wave from the overlap at about
+half the pace, with a standing queue of 26 % of the images. The cap (`--pace_cap`: the paced grid
+never asks a cell for more than the target holds there) removes the pile's pull: bunny 0.9704 (=
+the adopted form's 0.9703; 60 windows for 45; end p1 0.926; no reversal), dragon healthy (none
+below 0.5, p1 0.864) but **0.9508 — the front deadlocks**: the cap is read at the cell and the fill
+at the point, so a sub-cell spike's front cell is full before the unfilled points behind it are
+reached, nothing pulls toward them, nothing fills, nothing reveals (35 % pinned at 86 windows, the
+merit's rejections end the run). Both costs are the clamp's pile: every held image at one place
+on its ray.
+
+**The rule that removes the pile (eq. 52c, `--pace_front_fill`).** A held image is assigned to a
+revealed VACANCY — a revealed target point without a particle within one spacing — within one pace
+step of its clamp, one particle per point (the capacity ratio of §10.28), closest first; a held
+particle with no vacancy in reach keeps its clamp. The front then holds exactly the target's mass
+(no pile; the cap redundant), the vacancies are pulled on at the point scale (the fill advances,
+the reveal follows: no deadlock), and material outside the target moves onto the nearest revealed
+surface vacancies within its reach (the wave seeded from the air side as well as from the
+overlap). First windows on the dragon: held 0.62 → 0.56 with 8–9 % of the particles assigned per
+window and the vacancy count rising (9k → 15k). The geodesic front (eq. 52b: the target grown
+along its own geodesics from the window-0 overlap at one pace per window) ran once on nefertiti as
+a diagnostic: a wave at the pace's own speed cannot order material that also moves at the pace's
+speed (the ear's rays run along the ear), and it held as much as the fill-based front in its first
+windows; kept as a record.
+
+**Gate.** P244 on g41fv (dragon, nefertiti, bunny, beast): dragon within −0.003 of the adopted
+form with p1 ≥ 0.85 and ≤ 0.02 % below 0.5; nefertiti ≥ 0.970 within 1.3× the windows; bunny
+≥ 0.967 with the stub kept by eye; beast ≥ 0.955 with its transport finished and no reversal
+window. Then the 19 (the adoption gate) and 300k. At 300k the front + cap (af300, ar300's form)
+is the D2 test proper (P242: stub/tongue growth by eye, tip ≥ 9, knob index ≤ 1.6, silIoU ≥ 0.974).
+The supply lever's 300k placement is being generalised on the dragon (dh300: H⁻¹ inside the core
+from the start, P241) — ao300 (outside, from the onset) kept 0.977 and det F 0.72 but not the tip
+(7.2 for au300's 14.0).
