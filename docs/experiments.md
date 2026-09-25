@@ -6203,3 +6203,21 @@ arrived and still lets the feed through); **P217** the tail ≤ 0.0008 (as300 0.
 0.9725, end-state un-pinned p1 ≥ 0.85, the body exactly still. If P216–P217 hold, the 300k
 recipe is the slip form and D1 closes at 300k with the ear intact; ay300 (the yield form, GPU
 2) stays as the comparison.
+
+**2026-09-25 18:00 — g41pw nefertiti: the slip collider closes the pin's wall problem.** g41pw
+(onset hold + pin + stress-free assimilation + the separating collider; no clearance, ray or
+yield): nefertiti **silIoU 0.9732** (+0.0056 — the best fit of any run on it; g41 0.9676 at 90
+windows, g41ps 0.9727 at 114), **57 windows** (no stall: it converged earlier, not later),
+pinned **94.8 %** at the end, layer flips 0.25, step 0.013 spacings; det F run-minimum **0.752**
+(g41's own 0.764 — the transit's dip, unchanged by the pin), end-state minimum 0.815, p1
+0.899, **the un-pinned set's minimum through the stream 0.77–0.81** (g41ps 0.46, g41py 0.26:
+no squeeze), the pinned set's elastic det F_e 1.000. P213 ✓ (the window bound was against
+early stops; a faster convergence is the opposite), P215 ✓. Every geometric substitute
+(clearance 50b, ray 50d, yield 50e) is superseded: the pinned body deposits no mass, so it
+neither stops nor squeezes a stream, and it pins 95 % of the body instead of 70 %. The slip
+form goes to the remaining 15 targets now (GPU 0; GPU 1 continues beast, bunny, cow) as the
+40k adoption sweep — gate **P218**: fit up or within −0.003 of max(g41, g41pz, g41py) on ≥ 18
+(beast ≥ 0.950), end-state p1 ≥ 0.85 on all, step ≤ 0.02 spacings and flips ≤ 0.56 on ≥ 18,
+pinned ≥ 0.8 at the end on ≥ 17. g41py (the yield form) at 18 of 19: cheburashka +0.001,
+fandisk +0.005, heart +0.000, spot +0.002 — 14 of 18 up or within −0.003, beast −0.016, cow
+−0.004, ogre −0.004, nefertiti +0.003; it is the fallback if the slip form fails P218.
