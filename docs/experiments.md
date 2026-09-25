@@ -6561,3 +6561,13 @@ from its base with no knob on a neck and no separated sliver at t = 0.15–0.35,
 index ≤ 1.3 on the 300k tables; **P231** the fit within ±0.003 of g41pw / ar300 and the end-state
 p1 ≥ 0.85; **P232** D1 kept: no reversal window, pinned ≥ 0.8 at the end at 40k, the 300k tail ≤
 0.0010. The H⁻¹ ratio (`h1_ratio`) is logged per window.
+
+**2026-09-26 05:00 — g41ph bunny (40k adopted form + H⁻¹):** silIoU **0.9724** — the best 40k
+bunny of any run (g41pw 0.9703, g41 0.9610), 46 windows, det F run-min 0.744. The growth by eye
+(`h1_growth_40k.png`: the ear region at stride-12 frames 7, 10, 13, 17, 20, 27, 35; g41p above,
+g41ph below): the ears emerge EARLIER (by frame 10 against 17), and the thin nub, the knob on a
+neck and the separated sliver of g41p are gone — but new transients appear: the left ear first
+rises as a curled flap with a wavy edge (frames 10–13) and the tips FORK into two lobes that merge
+later (frame 17 the right ear, frame 27 the left). H⁻¹ fills the target's cross-section from
+several sides at once instead of feeding one tongue from the base. P230 ✗ as stated (no clean
+tongue); the fit is a clear gain. The other three targets and au300 (300k) follow.
