@@ -495,3 +495,35 @@ ear starts (g41fd). Gates: P247 (40k: bunny / nefertiti / dragon within ±0.003 
 bunny's ear a tongue by eye) and P248 (300k: ≥ 0.977, p1 ≥ 0.80, tip ≥ 10, knob ≤ 1.3, no reversal
 streak). ag300 (the morning's front + cap at 300k) reached 0.9803 — the best 300k fit — with the knob
 intact and five reversing windows at its end: the fit gain was not the ordering's.
+
+### 17.3 (2026-09-27 02:40) — the knob's three makers, each isolated; the levers; where the tongue stands
+
+Measured on the 300k bunny with one flag at a time on ar300's form (`ear_order_probe.py`, `knob_probe.py`,
+the slab tables): the early knob at the ear's top is the ear's own material, and it has three makers.
+(1) The transport's stretch of the column — the tip-bound layer leads (68 % above the neck slab at
+t = 0.4). The coherent pace (§10.30, eq. 53: a particle more than one blur radius ahead of its plan
+neighbourhood waits) cuts it to 19 % at fit 0.9771 but binds on 0.2 % of the particles (the column's
+layers lie outside each other's balls); the stream pace (§10.32, eq. 55: the step scales with the fill
+one pace behind on the ray) binds on 2–3 % through the growth and holds the tip-bound group (4–8 %
+above the neck at t = 0.2–0.3); the native plan blur orders it best (10 %) but leaves the transit's det
+F at 0.59. (2) The render channel's early pull — neck-bound material overshoots to the top (31–77 % of
+the early top region), absent only with the render off (bb300: no top material before t = 0.4, a
+tapered profile, but −0.008 and a starved tip). The paced render target (§10.31, eq. 54: the render
+channel's target is the paced cloud's own silhouettes and shading) keeps the fit at 300k (−0.002),
+removes the neck-bound overshoot when paired with a pace rule, and costs −0.005 to −0.008 at 40k under
+the pin (a particle locked at arrival never sees the final outline) — hence its placement until the
+pin's onset (`render_paced_onset`), the placement that kept H⁻¹ safe. (3) The supply's early pull — H⁻¹
+from the start sends the tip-bound group to the tip's deficit before the column arrives (bi300, bg300:
+84–95 % tip-bound in a top region of 150 particles at t = 0.2–0.25, knob 2.4–2.9), and bg300 ends in a
+16-window reversal streak: H⁻¹ from the start leaves the 300k form when a pace rule is present.
+
+The pair without H⁻¹ (bf300: paced render + coherent pace) has none of the three — a tapered profile
+at t = 0.3, knob ≤ 1.2 at every time, tip 14.8, end p1 0.895, no reversal — at −0.004 in fit. By eye
+(`pair_growth_300k.png`) its early ear is still thin: the taper is a taper of a thin ear (base 0.65×
+at t = 0.3). The tongue the user asked for needs the base near 0.9× while the ear extends; the
+base-bound layer is the column's deepest and arrives last under the monotone plan, and the front
+extends at the pace while the flux into the ear is the head's drag. The flux-limited front is the
+stream pace's semantics; the runs that decide the 300k bunny form are bj300 (paced render until the
+onset + coherent), bk300 (paced render + stream) and bl300 (paced render until the onset + coherent +
+stream), gates P260–P262; the 40k twins g41fs (stream) and g41ro (paced render until the onset) run
+for the gate. The 300k dragon follows the chosen form; H⁻¹, if the tip needs it, at the onset.
