@@ -1220,3 +1220,24 @@ r_pace is the radius within which the paced target declares a particle arrived (
 `pace_r`); no constant is added. A particle next to material in transit stays free until that
 material has arrived, so the pinned body's boundary is always one arrival radius inside the
 settled region, and a channel through which material still flows is never pinned shut.
+
+Addendum 2 (2026-09-25) — the pinned body is stress-free (`settle_pin_assim`). The per-window
+det F series split by pin state (`scratch/detf_time.py`) shows what the pin's det F cost is: on
+the bunny a particle pinned at window 30 with det F 0.762 keeps it for good (the un-pinned
+material's own minimum recovers 0.75 → 0.84 by elastic expansion, as in g41), on the cow the
+material still in transit compresses progressively (0.857 → 0.770 over windows 20–42 while the
+pinned fraction rises 18 → 61 %) and relaxes to 0.80 once it settles. The pinned particle's F is
+the TOTAL deformation (k_stress reads F_e = F F_p^{-1}), so a transient compression at the pin
+is locked as elastic strain — and a pinned body with locked elastic strain is not at
+equilibrium: once the morph ends and the object answers to λ, μ alone, that strain releases.
+The settled body must therefore be pinned stress-free:
+
+```
+(50c)  at the pin of p:  F_p ← S_e F_p  with  R_e S_e = polar(F F_p^{-1})   (η = 1: F_e → R_e; the freeze's assimilation, 10.25)
+```
+
+F is kept (the transient compression becomes the rest volume there — a density excess of a few
+per cent in a few particles, invisible), the pinned particle's stress is zero, the arrivals
+settle against a wall that neither pushes nor pulls, and the delivered object is at rest. The
+det F read on the archive stays the total deformation's; the elastic det F_e of the pinned set
+is 1 by construction (P192).

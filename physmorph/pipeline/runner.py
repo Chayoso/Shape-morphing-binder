@@ -1351,6 +1351,15 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     _newly = np.zeros_like(_newly); _newly[_idx_new[_clear]] = True
                 settled_at[_newly] = a + 1           # pinned from the rollout of window a + 2 on (frames after this commit)
                 settled_p |= _newly
+                # config.settle_pin_assim (10.27 addendum 2): the elastic stretch of a newly pinned particle is
+                # assimilated in full (F_e -> R_e, as the freeze does): the pinned body is STRESS-FREE, so the
+                # delivered object is at equilibrium (a pinned particle with locked elastic strain would deform
+                # spontaneously once the morph ends and the object answers to lambda, mu alone) and the
+                # arrivals settle against a wall that neither pushes nor pulls. F (the total deformation) is
+                # kept: a transient compression at the pin becomes the rest volume there.
+                if getattr(cfg, "settle_pin_assim", False) and _newly.any():
+                    Fp[_newly] = assimilate_elastic(Fc[_newly], Fp[_newly], eta=1.0, smin=cfg.assim_smin,
+                                                    smax=cfg.assim_smax, isochoric=False)
                 settle_pin_arr = settled_p.astype(np.float32)
                 if settled_p.any():
                     ctrl_scale[settled_p] = 0.0

@@ -5934,3 +5934,25 @@ ear tip ≥ 11 reference particles and the last two slabs ≥ 0.85 / 1.0 (ai300'
 0.9729, det F ≥ 0.6, pinned ≥ 0.85 at the end, tail ≤ 0.0008. **P187** (the dragon, not yet
 launched): the 300k dragon under the 40k recipe scaled without `--disc_ref` has p1 ≥ 0.9 —
 then the spike compression is disc_ref's shortened lengths on the spikes.
+
+**2026-09-25 10:30 — where the pin's det F goes (`scratch/detf_time.py`), and the stress-free
+pin.** g41n's first two: bunny 0.9686 (+0.0075), det F 0.752; cow 0.9614 (+0.0006), det F
+0.770 — the clear rule changed nothing on det F (g41z cow 0.775). The per-window series split
+by pin state: **cow** — the compression is in the UNPINNED set and grows with the pinned
+fraction (0.857 at window 20 / 18 % pinned → 0.770 at 42 / 61 %), then relaxes to 0.80 by 45;
+the pinned set's minimum is 0.804, locked at pin time. **bunny** — the un-pinned minimum is the
+transport's own (0.752 at window 17; g41 0.771 at 16) and recovers to 0.84 by window 30, but
+the particle pinned at window 30 with 0.762 keeps it: **the pin locks transient compression as
+elastic strain** (F is the total deformation; the metric reads it). Two consequences: the
+metric's minimum is a few locked particles, and — the real defect — a pinned body with locked
+elastic strain is not at equilibrium after the morph. Addendum 2 (eq. 50c, `--settle_pin_assim`):
+the elastic stretch is assimilated in full at pin time (the freeze's assimilation), the pinned
+body is stress-free, the delivered object at rest. Launched (GPU 0, after a 3k smoke): **g41pa**
+= pin + clear + assim (no hold) on bunny, cow, nefertiti, beast, armadilo, ogre. Pre-registered:
+**P192** the pinned set's elastic det F_e = det(F F_p^{-1}) at the end ≥ 0.99 (the archive now
+carries F_p); **P193** fit within ±0.002 of g41n on bunny / cow, and beast / ogre / nefertiti no
+worse than g41n's; **P194** cow's transient un-pinned compression no deeper than g41n's (0.770)
+— the stress-free wall neither pushes nor pulls — and the end minimum ≥ 0.80. The
+generalisation gate for adoption stays P188–P190 on the full g41n sweep, read with p1 and the
+count below 0.5 alongside the minimum. g41f (the freeze, which assimilated) had det F 0.788 on
+the bunny against H's 0.781: the assimilation did not cost det F there.

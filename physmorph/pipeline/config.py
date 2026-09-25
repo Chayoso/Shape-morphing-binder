@@ -566,6 +566,9 @@ class PipelineConfig:
                                     #   unarrived particle lies within the pace radius (optimizer stats "pace_r": the paced
                                     #   target's arrival scale) — the pinned body never blocks a flowing channel and its
                                     #   boundary stays one arrival radius clear of the last arrivals.
+    settle_pin_assim: bool = False  # 2026-09-25 (10.27 addendum 2): with settle_pin, a newly pinned particle's elastic
+                                    #   stretch is assimilated in full (F_e -> R_e): the pinned body is stress-free and the
+                                    #   delivered object at equilibrium; F (total) kept.
     settle_commit: bool = False     # 2026-09-24 (10.26): with rest_commit's latch, the accepted state is rolled one
                                     #   window with zero control under that viscosity and the settled x, F replace the
                                     #   commit's: the delivered commit is an equilibrium, the next window linearised at rest.
