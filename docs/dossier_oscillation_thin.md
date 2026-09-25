@@ -334,3 +334,53 @@ body breathed). Two runs answer it: ar300 (the ray clearance keeping the feed's 
 + the slip collider) and ak300 (the slip collider + the particle-scale KDE term that sees a
 sub-cell deficit). The dragon's five particles below 0.5 at 40k (0.01 %) are its spikes —
 §14.0's capacity item.
+
+## 16. Addendum (2026-09-26 morning) — the night after the pin: re-mesh, supply, and the spike stage
+**D1 at 300k, the user's "still a slight oscillation".** Two owners. (i) The delivered surface:
+screened Poisson is a global solve, so the small motion of the last free particles (10–40 %
+at the stop, the ears) moves the fitted surface everywhere — the tail heatmap lights the ears,
+the whole silhouette and a speckle over a body whose particles are pinned and exactly still.
+Rendering the same archive with the local marching-cubes surface on a fixed grid: the tail's
+per-frame change 0.0012 → **0.0003** (ar300; the 40k pinned run's value), the body smoother
+(the lumps on the back gone), the ears slightly fatter, a faint voxel banding. Three quarters
+of the visible 300k oscillation is the reconstruction; the choice of the delivered surface is
+the user's (both videos on the page). (ii) The last free particles themselves: the pin's
+coverage at the stop (55–81 % at 300k against 92–99 % at 40k).
+
+**The ear's supply under the pin.** Every 300k pin run stopped at 46–104 windows with the
+un-pinned ai300's tip density unreached (8–9 against 13.6 reference particles): the un-pinned
+run had fed the tip from the whole body over 50 windows. What was tried and refuted, each with
+its measured reason: the plan-following release (the plan calls 100 % arrived), the KKT release
+in two forms (a pinned particle's gradient is the pin's own multiplier — persistent and above
+the free median by construction; and the cell sum carries no ear signal at the 0.31-wu loss
+cell — the ear reads 89–96 % full per grid row), the particle-scale KDE term at 40k (−0.006 to
+−0.015 on three targets). What holds: the coverage at the particle spacing is EQUAL (3.1 % vs
+3.4 % of the tip's points uncovered) and the end stills are indistinguishable — the "tip
+deficit" was a density difference the surface does not show; the tip criterion is withdrawn.
+The digest (related_work.md, "supply") names the mechanism the literature has for supply from a
+settled bulk: the Ḣ⁻¹ misfit (W₂ linearised; Fattal's gathering made non-local), whose gradient
+is a flux that reaches the supply side in proportion to the deficit beyond it — and the code
+already had it (`--w_h1`, 2026-09-04, built for the same symptom, never carried into the recipe).
+
+**H⁻¹ under the pin (g41ph, 19 targets).** Fit up or within −0.003 on 17 (bunny 0.9724, the best
+40k bunny; ogre +0.015, dragon / fandisk +0.011), end-state det F p1 0.885–0.940 with no
+particle below 0.5, pinned 0.95–0.99, no reversal window on 17. Two failures with read causes:
+bimba (the term inside the physics core inflates the norm the λ-balancer scales the render
+channel against; the render out-pulled the transport at 88 % arrival and the brake stopped the
+run) and beast (a fixed-target pull competing with the paced plan on a long transport). The two
+placements method.md already argues — outside the core (the W1 precedent) and from the pin's
+onset (the endgame only) — are the running twins. At 300k, H⁻¹ (au300): silIoU 0.977, det F
+0.76, the tip filled (14.0) — the healthiest 300k pin run.
+
+**D2, what remains: the spike stage.** By eye at 300k (ae300 / au300 / av300) and at 40k
+(g41p / g41ph): the ear rises first as a thin spike and thickens afterwards; the defect is the
+tip's shape during the spike stage — a curled hook (KDE), a knob on a neck (H⁻¹, the pin without
+either), a detached bead (both), a forked tip (H⁻¹ at 40k). The mechanism is the paced target's
+straight-ray transport into a thin feature: the intermediate density of a displacement
+interpolation into a protrusion is a filament (Bonneel 2011, Solomon 2015 in the transport
+digest), and every density term then thickens the filament after the fact. The knob index
+(the thickest top slab over the thinnest slab below) reads it on the 300k tables: 2.2–2.4
+without a growth term, 1.1–1.3 with KDE. The next levers are the growth ORDER, not another
+density term: a front that advances from the base (the pace scheduled by the image's position
+along the feature — the target's own geometry), or the leading edge's coherence at the commit
+(Ando 2012's sheet-aware split) — both pre-registered in §14, neither run yet.
