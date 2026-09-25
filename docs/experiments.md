@@ -7507,3 +7507,14 @@ v5 = v4 with the shading normals at 3 spacings (twice the loss's blur; the geome
 rendered to measure the normals' share; if the tail drops to mc's 0.0007 the splat render is the
 deliverable at the user's taste, else the shading needs the band-limited surface's normals (the
 iso-0.5 field's) instead of per-particle samples.
+
+**2026-09-25 15:10 CDT — splat v4 / v5 tails: 0.0016 / 0.0012.** The adaptive radius (v4) makes the
+sparse regions' larger splats move visibly (0.0016); the shading normals at 3 spacings (v5) bring
+the tail to 0.0012 — the normals' scale owns part of the shake but not all of it: at 3 spacings the
+splat still moves twice mc's 0.0007 with the same particles, because every splat is drawn where
+its particle is (the free 40–50 % drift is rendered one-to-one), while an iso-surface draws the
+band-limited density in which that drift averages out. So the splat render's stillness is bounded
+by the particles' own motion; the mesh's is not. The delivered choice is the user's: the splat
+(honest, the sparse phase visible, tail 0.0012–0.0016) or mc at iso 0.5 (stable at 0.0007, the
+thickness fixed, the sparse phase interpolated). The remaining algorithm item — the free half at
+the end — is what would make both still.
