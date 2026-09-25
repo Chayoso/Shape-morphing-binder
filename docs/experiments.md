@@ -7518,3 +7518,26 @@ by the particles' own motion; the mesh's is not. The delivered choice is the use
 (honest, the sparse phase visible, tail 0.0012–0.0016) or mc at iso 0.5 (stable at 0.0007, the
 thickness fixed, the sparse phase interpolated). The remaining algorithm item — the free half at
 the end — is what would make both still.
+
+**2026-09-25 17:15 CDT — the empty-looking transit measured (the continuity reading); the splat's
+darkness and roughness; the plan.** `hollow_probe.py` on bm300: above the head (y > 2.3) at t =
+0.10 / 0.14 / 0.20 the particles present are 776 / 1320 / 2396 of the 14,423 that end there, **96.5
+/ 99.9 / 80.7 % below half the target's density, at a mean of 0.17 / 0.05 / 0.26 of it**; full by t
+= 0.3. ar300 the same (0.05 at t = 0.10). The region the user sees as empty IS empty — the front's
+few leads run at the pace through free space while the bulk drags through the body, and density =
+flux / speed falls (the spike of yesterday, read from the density side). Poisson interpolates the
+5 % vapour into a bloated blob; the splat draws it translucent. Raising the surface sampling
+cannot change the ratio (the target's count rises with it); the answer is the front's speed tied
+to the supply — **bq300** = bm300's form + `--pace_stream` (GPU 2), judged for the first time on this
+measure (P271: the top region's mean density ≥ 0.5 of the target's at every t ≥ 0.10, with bm300's
+fit and growth). The splat's darkness and roughness were the renderer's: a bare Lambert with a low
+ambient and per-particle normals at 1.5 spacings; **v6** (v5 + the mesh render's hemispheric
+lighting) is bright and smooth at frame 240 (`bm300_f240_pv5v6.png`, page v66) with a smaller ear
+knob than Poisson's. The user's PhysGaussian question (surface-only Gaussians + interior fill):
+the surface is not a material invariant of a morph (the ears' surface is the head's interior
+column), so a surface-only sampling cannot form the thin features; what transfers is the render
+side — **render children** (render/children.py, the user's PhysMorph-GS): v7 = v6 + 4 tangent-plane
+sub-splats per outer parent (GPU 3) tests the surface-splat density ×4 at no physics cost; and
+adaptive (shell-weighted) sampling of the same 300k is the geometric-detail lever, gated on the
+transport (later). Typical 3DGS counts for the record: objects 100k–500k Gaussians, scenes 1–6 M —
+nearly all on the surface, against our ~30k outer-layer parents of a uniform 300k.
