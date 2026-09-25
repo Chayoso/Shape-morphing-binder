@@ -7475,3 +7475,13 @@ nefertiti, dragon (GPU 0). Pre-registered **P269** (bp300): pinned at the end �
 the mc tail ≤ 0.0005 (0.0007), silIoU ≥ 0.971 (within −0.003 of bm300), no reversal window, the
 ear's growth unchanged (knob ≤ 1.3, tip ≥ 9); **P270** (g41sk): within ±0.003 of g41pw with pinned ≥
 0.95 and no reversal window. (a), the arrival-weighted kinetic charge, waits on (b)'s reading.
+
+**2026-09-25 14:40 CDT — frame 96 under the adaptive splat (v4): the dots are gone, the sparse phase
+shows as what it is.** `bm300_f96_pv1v4.png` (page v63): Poisson interpolates the head's top into a
+confident smooth bump; splat v1 shows the same region as a cloud of dots (10.5 % of the particles
+with fewer than half the target's shell count there); splat v4 (each particle's radius = its own
+shell radius over the target's; opacity = support) draws it as a soft translucent mass — no dots,
+the half-density material rendered as half-dense. The shading's blotchiness (the density-gradient
+normals at 1.5 spacings on a cloud in transit) is the remaining look issue in every splat form. The
+user chooses between the faithful look (v4) and a Poisson-like solid look (an opacity floor: only
+singletons fade); the physics is judged on v1 and the probes.
