@@ -216,3 +216,24 @@ trajectory (the commit rollout) took no eta/pin — fixed; g41v (viscosity) with
 Adoption gates running: g41z (the same form on all 19 targets, P185), g41q (the pin without
 the global hold on C and the bunny, P186 — if C recovers, the hold is unnecessary and the
 recipe is simpler), ap300 (300k, P181–P184). g41z_bunny reproduces g41p (0.9674, det F 0.75).
+
+## 13. Addendum (09:50) — the pin on the gallery and at 300k: one cost, one rule
+| reading | g41z (pin + hold, 19/19) | g41q (pin, no hold, 14/19) | ap300 (300k + pin) |
+|---|---|---|---|
+| fit vs g41 / ai300 | 17 up or within −0.003; beast −0.017, ogre −0.006 (early stops) | same picture; nefertiti −0.013 (42 windows) | 0.9729 (ai300 0.9766) |
+| oscillation | step 0.000–0.02 sp (g41 0.02–0.06), flips 0.2–0.56 (0.54–0.79) on **all 19** | same | flips 0.22, low-band +0.66, tail **0.0008** (ai300 0.0011), pinned 92 % |
+| det F | 6 targets beyond −0.05 (armadilo 0.731, nefertiti 0.681, cow 0.775 …), all ≥ 0.68; the minimum in the **unpinned** set on cow / armadilo | cow 0.749 | 0.591 (bound 0.6) |
+| thin feature | — | — | **ear tip 3.9 reference particles (ai300 13.6)**, tip slabs 0.66 / 0.18 vs 0.89 / 1.13 |
+
+One mechanism: the pinned body is a fixed obstacle. Material that still has to settle against
+it is compressed (the det F minima in the unpinned set at the boundary), and a channel through
+which material still flows (the ear's base, feeding the tip) is pinned shut — the tip starves.
+The rule (eq. 50b, `--settle_pin_clear`): pin only a particle with no unarrived particle within
+the pace radius — the paced target's own arrival scale, no new constant. Running: g41n (19
+targets) and an300 (300k), P188–P191.
+
+Side readings: am300 (KDE ear + H) refuted at 300k (det F 0.41, tail 0.0015). The dragon's
+300k det F "collapse" is 50–60 particles at the spikes (0.02 %; p1 0.76 vs 0.93 at 40k) under
+the base 300k recipe, not the KDE (which multiplies the count ×6) nor the hand-off; dp300
+(without `--disc_ref`) attributes it (P187). For N > 40k the reading is p1 and the count below
+0.5, not the minimum over 300k particles.
