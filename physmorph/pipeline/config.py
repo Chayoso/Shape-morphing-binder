@@ -579,6 +579,7 @@ class PipelineConfig:
     pace_front_dense: bool = False  # 2026-09-26: a target point is filled at half its own shell count (a plug, not a chain)
     pace_coherent: bool = False     # 2026-09-26 (10.30): a particle more than one blur radius ahead of its plan neighbours waits
     render_paced: bool = False      # 2026-09-26 (10.31): the render channel targets the paced cloud's own images
+    pace_stream: bool = False       # 2026-09-27 (10.32): the pace step scales with the fill of the stream one pace behind the particle
     pace_front: bool = False        # 2026-09-26 (10.29): the paced target grows as a front from the filled body — a
                                     #   particle's image is clamped along its ray at the revealed region (target cells filled
                                     #   or within one pace step of a filled one); thin features fill from the base.

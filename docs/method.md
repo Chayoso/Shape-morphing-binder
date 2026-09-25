@@ -1574,3 +1574,23 @@ The two channels now share one intermediate target and one growth order; the ren
 fit arrives as x̂ converges to the target (in the last windows x̂ is the target and (54) is the
 original loss). The rendering-influence path is unchanged in kind — render → control → outcome
 — and changed in order: the render can no longer lead the transport. No new constant.
+
+
+### 10.32 The stream pace (2026-09-27 01:10; config `pace_stream`; the coherence at the column's scale)
+
+The coherent pace of §10.30 compares a particle with its source ball — one blur radius, k
+neighbours. The ear's column has layers (tip-, neck-, base-bound) 0.2–0.5 wu apart at the source,
+outside each other's balls, so the rule saw only the few particles ahead of their own layer (0.2 %
+per window), cut the tip-bound overtaking from 68 to 19 % and still left a thin early ear by eye:
+the column's centre outruns its periphery and the layers behind, and the material that emerges
+into the ear is a sparse jet. The coherence the tongue needs is along the stream, at the pace's
+scale. Let û_i be particle i's ray direction, b_i = x_i − r_pace û_i the point one pace step
+behind it on its ray, n_i the number of particles within the blur radius r_b of b_i, and k the
+count that ball holds at the source density (the plan's neighbourhood count). The step is
+
+  s_i = min(1, f_i r_pace / |d_i|),   f_i = min(1, n_i / (k/2)),   x̂_i = x_i + s_i d_i.              (55)
+
+A particle inside a continuous stream (a full ball behind it) advances at the pace; a lead with a
+sparse stream behind it advances in proportion to that fill and waits for the material to arrive;
+the bulk, a moving body, is untouched. Half the ball's count is the body convention of §10.22. No
+new constant: the pace step, the plan's blur radius and its neighbourhood count.

@@ -599,6 +599,27 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 pace_coh_frac = float((_excess > 0.0).float().mean())
                 print(f"[win] coherent pace: {100.0 * pace_coh_frac:.1f} % of the particles ahead of their neighbourhood "
                       f"(held share of the step {float((_excess.clamp_max(pace_r) / pace_r).mean()):.3f})", flush=True)
+            if getattr(cfg, "pace_stream", False):
+                # config.pace_stream (2026-09-27 01:10, method.md 10.32): the coherent pace of 10.30 compares a particle with
+                # its source ball (one blur radius, k neighbours) and the column's layers — tip-, neck-, base-bound — lie
+                # 0.2-0.5 wu apart at the source, outside each other's balls: the rule bound on 0.2 % of the particles
+                # and the ear still rose as a thin jet by eye (the column's centre outruns its periphery and the layers
+                # behind). The stream rule reads the material BEHIND a particle on its own ray: the ball of one blur
+                # radius around the point one pace step behind it, against half the count that ball holds at the source
+                # density (k, the plan's own neighbourhood count; half = the body convention). A particle's step scales
+                # with that fill: a lead with a sparse stream behind it waits, a particle inside a continuous stream
+                # advances at the pace, the bulk (a moving body) is untouched. No new constant.
+                _u_s = disp / dn.clamp_min(1e-9)
+                _rear = (x0_ot - float(pace_r) * _u_s).detach().cpu().numpy().astype(np.float32)
+                from scipy.spatial import cKDTree as _KDs
+                _x0np = x0_ot.detach().cpu().numpy().astype(np.float32)
+                _cnt_r = np.asarray(_KDs(_x0np).query_ball_point(_rear, r=float(leash_r), return_length=True, workers=-1), np.float32)
+                _k_nb = int(tgt.ot_knn.shape[1]) if getattr(tgt, "ot_knn", None) is not None else 64
+                _fill_r = torch.as_tensor(np.minimum(1.0, _cnt_r / max(1.0, 0.5 * _k_nb)), device=dev, dtype=dn.dtype).unsqueeze(1)
+                step = torch.clamp(_fill_r * pace_r / dn.clamp_min(1e-9), max=1.0)
+                pace_stream_frac = float((_fill_r < 1.0).float().mean())
+                print(f"[win] stream pace: {100.0 * pace_stream_frac:.1f} % of the particles with a sparse stream behind "
+                      f"(mean fill there {float(_fill_r[_fill_r < 1.0].mean()) if pace_stream_frac > 0 else 1.0:.2f}; k {_k_nb})", flush=True)
             x_int = (x0_ot + step * disp).detach()
             if getattr(cfg, "pace_project", False):
                 # the SUPPORT-PRESERVING paced target (docs/method.md 10.22): the straight-ray

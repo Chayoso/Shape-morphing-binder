@@ -7204,3 +7204,25 @@ that flag's job. Launched **bg300** = the 300k candidate form (ar300 + `--w_h1 1
 --pace_coherent` (GPU 1), alongside bf300 (the pair without H⁻¹, GPU 3). Pre-registered **P257**
 (bg300): tip ≥ 9, silIoU ≥ 0.974, end p1 ≥ 0.80, no reversal window, the tip-bound above the
 neck at t = 0.4 ≤ 40 %, knob index ≤ 1.3 at every t, and by eye a tongue (the 300k strip).
+
+**2026-09-27 01:15 — the 300k strip of the three levers (`levers_growth_300k.png`: ar300 / bb300 /
+bc300 / bd300, frames 3–30): by eye none gives the tongue.** Every row raises a thin spike first
+(frames 13–21) and thickens it afterwards; bb300 (render off) and bc300 (native plan) carry a
+bead on a thin neck at frames 21–25, bd300 (coherent pace) looks like ar300 with a bulb at 30.
+The probes' improvements (the tip-bound overtaking 68 → 10–19 %) do not show as a thicker early
+ear, because the stretch is between the column's LAYERS (tip-, neck-, base-bound: 0.2–0.5 wu
+apart at the source, outside each other's blur balls) and the material that emerges into the
+ear is a sparse jet whatever its end group; the coherent pace saw 0.2 % of the particles. **The
+stream pace (method.md §10.32, eq. 55, `--pace_stream`)** reads the coherence at the pace's scale
+along the ray: a particle's step scales with the fill of the ball (one blur radius) one pace
+step behind it on its own ray, against half the count that ball holds at the source density
+(k = 64, the plan's own neighbourhood); a lead with a sparse stream behind it waits, a
+continuous stream advances at the pace, the bulk is untouched. First windows: 1.9 → 0.7 % of
+the particles with a sparse stream behind (mean fill 0.34 there) — ten times the coherent
+pace's reach before the ear even starts. Launched: **bh300** = ar300's form + `--pace_stream`
+(GPU 2) and **bi300** = the 300k candidate form (ar300 + `--w_h1 1`) + `--render_paced
+--pace_stream` (GPU 0). Pre-registered **P258** (bh300): the rule binds on ≥ 2 % of the particles
+in the growth windows (8–25), the early top region empty before t = 0.3, the tip-bound above the
+neck at t = 0.4 ≤ 40 %, knob index ≤ 1.3, silIoU ≥ 0.974, end p1 ≥ 0.80, no reversal window, and
+by eye a thick early ear on the strip; **P259** (bi300): the same with tip ≥ 9. Page v52 carries
+the three-lever table and the strip.
