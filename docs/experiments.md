@@ -6478,3 +6478,27 @@ objective want the ear's particles to move up the ear?) and neighbourhood cohere
 (`scratch/gx_probe.py`). If no statistic separates the ear's supply chain from the body at the
 plateau, the release cannot be made from the pinned state and the ear must be finished before
 its material pins (the pin's onset read per feature), which is the other branch.
+
+**2026-09-26 03:30 — the 300k ear under the pin is COMPLETE at the end; what remains is its growth
+(a knob on a neck).** Three readings reframe the night's ear item. (1) *Coverage at the particle
+spacing* (`scratch/cover_probe.py`, the target points whose nearest particle is farther than
+one spacing, 0.054 wu): ai300 (no pin, tip 13.6 reference particles) 3.4 % of the tip's points,
+ar300 (pin, tip 9.2) 3.1 %, az300 3.9 % — the pinned runs cover the whole ear; the "tip 9.2 vs
+13.6" count is a DENSITY difference (69 vs 102 particles against the target's 89 within 0.25 wu:
+ar300 at 78 %, ai300 over-filled to 115 %), not a missing tip. (2) *The end stills* (the page):
+ar300's ears are full length with both tips, indistinguishable from ai300's. The acceptance
+bound "tip ≥ 11 reference particles" (P204, P216, P222, P224) measured the particle density,
+which the delivered surface does not show; it is withdrawn as an ear criterion. (3) *The growth*
+(`ear_growth_ai300_ar300.png`: the left view's ear region at t = 0.25 … 0.8 of each run): in
+ar300 the tall ear rises as a thin spike that grows a KNOB on a narrow neck (t = 0.35–0.45) and
+fills out by 0.6; ear_slab's thickness table says it — the left ear at t = 0.25: the upper slabs
+1.20× and **1.46×** the target thickness over a neck at 0.66–0.76× (ai300's worst: 1.05× over
+0.44–0.65× at t = 0.15, and a smoother profile after). That knob on a neck is the D2 droplet,
+seen at 300k under the pin: the leading material arrives as a lump ahead of its stem.
+*So:* D1's pin at 300k (ar300: silIoU 0.9773, no reversal window, the body exactly still) does
+not cost the ear's end state; the ear item moves to D2 — the growth order. ax300 (the KKT
+evidence recorded without release) finishes as a record; the KKT release is not pursued.
+Pre-registered for the D2 growth runs: **the knob index** K = max over the sampled frames of
+(the thickest of the ear's top two slabs) / (the thinnest slab below them), with every slab ≥
+0.5 of its target thickness once filled — ai300 1.6, ar300 2.2; the aim K ≤ 1.2 (a tongue that
+thickens from its base) with the end state and D1's stillness kept.
