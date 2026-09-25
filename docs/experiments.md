@@ -6075,3 +6075,30 @@ its transport never settles under the pin). P188' ✗ (16 of 18), P189' ✗ (12 
 it runs on nefertiti, bunny, cow, beast (GPU 3) and ogre, C, maxplanck, dragon, homer (GPU 1).
 The 3k yield smoke: released fraction 0–2 % of the settled set (the bunny at 3k has no long
 stream), pinned set's elastic det F_e 1.000.
+
+**2026-09-25 15:00 — g41py nefertiti (the yield rule): the fit holds, the det F minimum is a
+handful of boundary particles, and the reading of det F changes.** g41py nefertiti 0.9702
+(+0.0026), 107 windows, pinned 70 %, released ≤ 6 % of the settled set at any window; det F
+minimum **0.260** (g41ps 0.457). Where (`scratch/compress_where.py`, the end frame): the
+un-pinned particles below 0.5 are **3**, below 0.7 **15** (of 11 878), every one within 2 Δx of a
+pinned particle (median 0.26–0.31 Δx — touching), in the bust's middle band, not the crown's
+stream; the pinned set's own minimum 0.68 (one particle, pinned at window 92), p1 0.90; the
+elastic det F_e of the pinned set 0.925 min / 0.992 p1 (a few re-pinned late). So the yield
+rule did remove the corridor squeeze (no compressed band along the stream) and what remains
+is **the last arrivals wedged against pinned neighbours**: the paced target snaps an arrived
+particle's image to the nearest target point without exclusivity, so a late arrival's
+destination can be occupied by pinned material, and where the un-pinned run would jostle both
+until equal, the pinned neighbour does not move and the arrival compresses. Three particles.
+P207's "≥ 0.70 through the stream" is ✗ on the minimum and ✓ on the stream (the compression is
+not in the corridor); the minimum over 40k particles is not the reading for this — as decided
+for the dragon, the health gate for the pin runs is **the 1st percentile ≥ 0.85 and the count
+below 0.5 ≤ 0.1 %**, alongside the minimum reported. Arrived vs pinned over nefertiti's run:
+arrived 78–80 % from window 30 to 70 while pinned rose 24 → 59 %, arrived 92–96 % from 80 on —
+the pinned set never exceeds the arrived set (no re-assigned pinned images).
+
+*dp300* (the dragon at 300k without `--disc_ref`) at 171 of 175 windows; verdict next.
+*Agents launched* (the user: "수단과 방법을 가리지 마", and "cookbook / 해상도 자료도 전부"): a
+literature digest on slip / kinematic boundaries in MLS-MPM (CPIC and the multi-field
+contacts) and adaptive-resolution MPM, and a practitioner digest (course notes, Houdini / Taichi
+/ Warp / splashsurf / OpenVDB docs) on ppc, cells across a feature, dt, thin features, pinned
+material and surfacing smoothness — both to docs/related_work.md when they return.
