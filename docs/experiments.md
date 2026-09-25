@@ -6502,3 +6502,26 @@ Pre-registered for the D2 growth runs: **the knob index** K = max over the sampl
 (the thickest of the ear's top two slabs) / (the thinnest slab below them), with every slab ≥
 0.5 of its target thickness once filled — ai300 1.6, ar300 2.2; the aim K ≤ 1.2 (a tongue that
 thickens from its base) with the end state and D1's stillness kept.
+
+**2026-09-26 03:50 — the ear's growth knob: the particle-scale KDE term under the pin gives a
+tongue.** The left ear's thickness per slab over the frames (ear_slab): **ak300** (the slip
+form + `--w_kde 1 --plan_native --ot_handoff`) grows the ear from its base — each upper slab
+appears only after the one below has filled, the tip slab first at t = 0.4 at 0.64× and 1.07×
+at the end; **knob index 1.1–1.3** over the frames. z300b (the same KDE set, no pin) 1.2–1.3.
+aw300 (the pin without KDE) **2.3** at t = 0.3 (1.13× over a 0.49× neck), ar300 2.2, ai300
+(neither) 2.4 at window 17: the knob is the transport's, not the pin's (ai300 has it at the same
+absolute window). At 40k it is permanent: g41p's left ear ends with the top slab at **2.8×** the
+target thickness over a 0.60-filled slab below (knob index about 3.2 — a bulb at the tip), g41h
+3.1×. ak300's end still: both ears complete with tapered tips; the body lumpier (bump 1.3° vs
+ar300's 1.2°) — the smoothness item. End-state health (the quantile gate): p1 0.859, 2 particles
+below 0.5 ✓; D1: pinned 81 %, tail 0.0009, the body exactly still. So the KDE term, set aside at
+300k for its det F collapse without the pin and its alternation under the hold alone, is the
+growth-order answer under the pin. Launched: **ae300** = ar300's form (ray clearance, the best
+300k fit) + the KDE set; **g41pe** = the adopted 40k form + the KDE set on bunny, armadilo,
+dragon, nefertiti, cow, C. Pre-registered: **P228** ae300 knob index ≤ 1.3 on both ears over the
+frames, silIoU ≥ 0.975, end p1 ≥ 0.85, the tail ≤ 0.0010, no reversal window; **P229** g41pe
+bunny's end-state top slab ≤ 1.5× with the slab below ≥ 0.8 (the 40k bulb gone), and on the six
+the fit within ±0.003 of g41pw with end p1 ≥ 0.85 — the gallery rule before adoption. The Ḣ⁻¹
+term (the digest's first mechanism) is held: it reads the same smeared splat as the cell sum,
+so it adds reach, not the resolution the knob needs. ax300 (the KKT evidence recorded, nothing
+released) finished as a record.

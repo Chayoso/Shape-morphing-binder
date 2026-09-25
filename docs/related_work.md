@@ -844,3 +844,81 @@ is the closest analogue of the pin. **Top 3 to try:** (1) the mass-less slip col
 5); (2) the nested fine box by penalty over the ear (R-1: +10–20 % adjoint memory for a 1–2 % box); (3) the
 evidence-based release of the pin (KKT on the adjoint gradient at the commit; contact wake). Runner-up at zero
 memory: the quadratic or CK compact kernel.
+
+## Growing a thin feature from a settled body: supply, sub-cell losses, capacities (agent digest, 2026-09-26 03:40)
+Question put to the survey (the user: "300K 쪽, 귀 안 되면 계속 paper/cookbook 찾아줘"): with the settled body pinned, the
+300k ear's tip stalls at 0.5–0.6 of its target density — the cell sum sees no gain, the paced target calls the material
+arrived, nothing asks the body to send more. *verified* = read in full text / abstract / doc page. (Later the same night the
+end-state ear turned out to be complete — the stall is a density difference, experiments.md 03:30 — and the growth's knob on
+a neck is the real defect; the digest's mechanisms are kept for both.)
+
+**1. Target-driven control: how mass reaches a thin feature.** McNamara, Treuille, Popović, Stam, SIGGRAPH 2004 (*verified*):
+Gaussian wind controls; smoke bunny / armadillo on 50³ "faithfully reproduce fine scale detail such as the tail and horns";
+liquids needed "sources" ("crucial … for matching complex shapes and for preserving the mass"); water "often could only reach
+a certain level of detail"; "when the system has trouble matching keyframes, it is often because it is given excessive
+control". Fattal & Lischinski, SIGGRAPH 2004 (*verified*): the driving force uses the normalised gradient of the blurred
+target; "increasing σ makes it more difficult for the flow to cause ρ to form the finer features of ρ*"; "it is not possible
+to match a given target density field solely by advection" when the target is sharper, hence the gathering term, which
+diffuses the error; §3.3 splits the smoke into independent density fields with their own targets. (Our reading: gathering is
+the local Wasserstein gradient flow of the cell-sum mismatch — it spreads a tip deficit back through the body over time, the
+"whole body moves slightly" supply of ai300, exactly what the pin cuts.) Shi & Yu, SCA 2005 (*verified* abstract): a
+divergence-free feedback force plus the gradient of a potential "defined by the shape and skeleton of the target". Thürey,
+Keiser, Pauly, Rüde, SCA 2006 (*verified* abstract; slides): control particles sampled from the target, the attraction
+"scaled down when the influence region of the control particle is already covered with fluid" (deficit-weighted), control on
+the low-pass velocity only. Raveendran et al., SCA 2012; Nielsen & Bridson, SIGGRAPH 2011 (a thin shell around a coarse
+guide); Pan et al. 2013; Schoentgen et al., SCA 2020 ("a variable proportion of temporary particles"); Chen, Levin, Langlois,
+arXiv 2511.15189 (control on a floating coarse grid of 10–20 particle radii). Our own line: PhysMorph-GS v2 (*verified*,
+April 2026) — a 64³ grid, the bunny at 534K particles with shell-biased sampling (correcting our 2026-09-23 note of 32³), and
+"particles cannot be created or destroyed during simulation, limiting resolution at thin protrusions where the source has
+insufficient density". PlasticineLab (*verified*): an SDF·mass term that is zero inside the target — it cannot feed a tip from
+within. **Net:** nobody grows a one-cell protrusion from a settled body with exact mass; controllers source mass, prescribe the
+transport, or act at the coarse scale; thin features finish last or fail in every source that discusses them.
+
+**2. Losses that see a sub-cell deficit, and which reach the supply side.** GeomLoss (Feydy et al., AISTATS 2019; *verified*
+docs): the blur is "the finest level of detail that should be handled"; kernel (MMD) losses are "blind to details which are
+smaller than the blurring scale" and at small blur particles "may spread out"; the Sinkhorn divergence's gradient maps a point
+to a barycenter and tends to the Monge map as the blur goes to 0 (200k × 202k at σ = 0.01 in 0.3–9 s). **Linearised OT is
+Ḣ⁻¹:** Peyre, ESAIM COCV 2018 (*verified*): W₂ "is formally equivalent, for infinitesimally small perturbations, to some
+weighted H⁻¹ homogeneous Sobolev norm"; Engquist, Ren, Yang 2020 (*verified*); the flux (Beckmann) form in Solomon et al.
+2014 / 2015; Moser Flow, NeurIPS 2021. Our reading: an Ḣ⁻¹ misfit's force on a particle is the gradient of φ with
+−Δφ = m − m* — non-local, and by flux conservation the flux through any cross-section of the ear's stem equals the deficit
+beyond it: the only term whose supply-side gradient is proportional to what the tip lacks, with no blur. Its limit here: on
+the loss grid it reads the same cubic splat as the cell sum — reach, not resolution. A 4ˡ-weighted pyramid approximates it
+(reach about 2ᴸ cells). Sliced Wasserstein (Bonneel et al., JMIV 2015; *verified*) reaches the supply side, noisy and
+global. DCD (Wu et al., NeurIPS 2021; *verified*): a 1/n weight for a target point shared by several particles (a soft
+capacity). A one-sided target-to-particle Chamfer acts on the nearest particle only.
+
+**3. Practitioners.** Houdini Suction Fluid (*verified*): "thin features in the target object will require a high resolution
+fluid simulation to fully represent them"; "using a wide Outside Distance will target more particles but also tends to fill
+up the region outside … Reducing Outside Distance once the target is full is a good approach" (a coarse-to-fine reach
+schedule). POP Attract (a point per particle vs an average position), POP Steer Seek (the nearest goal via attribute transfer
+and a goal id, arrival braking), SideFX "Fluid Transform I" (*verified*: "creating points that fill the letters, using an
+attractor pop and using the ability of the flip fluid solver to turn off solving for a subset of particles" — the
+practitioner's pin plus one goal per particle), tyFlow Set Target (*verified*: "Prevent duplicate assignments" — capacity 1),
+FLIP "Reseed Particles", Houdini MPM Source pin constraints. Moana, SIGGRAPH 2017 talk (*verified*): FAB seeding for "the
+perpetual birthing and sinking of particles"; Frozen 2 water horse, SIGGRAPH 2020 talk (*verified*): the mane and tail are
+hair-solver curves used as particle sources. **Net:** production never grows thin features by long-range transport of bulk
+material — it sources mass at the feature, gives the feature its own carrier, or fixes one goal per particle from the start
+and freezes subsets.
+
+**4. Capacity-exact vs entropic assignment.** Balzer et al., SIGGRAPH 2009; de Goes et al., SIGGRAPH Asia 2012 ("enforce the
+capacity constraints exactly"); Mérigot, CGF 2011; Lévy, M2AN 2015 (semi-discrete, power diagrams); Plateau Holleville & Lévy
+2026 (*verified* abstracts). Solomon et al., SIGGRAPH 2015 (*verified*): entropic plans grow "increasingly smooth"; the
+barycentric map converges to the OT map as γ goes to 0; "numerics degrade if γ is too small". Pooladian, Cuturi, Niles-Weed
+2022 (*verified*): at large ε a "bias towards the mean of the target". Does an exact plan send more mass to a thin tip? The
+entropic plan's marginals are exact, but the paced target is built from BARYCENTRIC images, convex combinations of the row's
+targets — at an extremal feature every row touching the tip also touches the interior, so the images sit about one blur
+inside (method.md 10.8: ~0.9 spacings) and their splat under-fills the tip. An exact assignment's images are target points.
+
+**What is new to us.** Supply is a flux, not a displacement: a body particle's share of the ear's supply falls as the ear's
+cross-section over the local one, every link below the pace radius, so "arrived" and the plan-image release (50g) are blind to
+it by construction. The paced target under-fills extremal features although the plan is balanced. Gathering is the local
+form of our cell sum's Wasserstein flow; its non-local counterpart is the Ḣ⁻¹ misfit. Production avoids long-range supply.
+**Ranked mechanisms (the agent's):** (1) the Ḣ⁻¹ Poisson misfit against the fixed target (two FFTs on the loss grid; in the
+window objective and the merit; its flux field as the pin's release evidence); (2) exact-capacity images in the endgame (an
+auction on a kNN graph, or full-N multiscale Sinkhorn at blur = spacing, debiased); (3) a label channel (Fattal §3.3: the
+ear-bound material as its own density field); (4) sliced Wasserstein as a cross-check; (5) the 4ˡ pyramid as the no-FFT
+fallback. Not to do: unbalanced OT (breaks exact mass), mass sourcing, entropic sharpening of the paced grid.
+**Applied (03:50):** the growth's knob was answered first by the particle-scale KDE term already in the code (ak300 under the
+pin: the ear grows as a tongue, knob index 1.1–1.3 against 2.3 without it); the Ḣ⁻¹ term stays the candidate for supply where
+the particle-scale term cannot reach.
