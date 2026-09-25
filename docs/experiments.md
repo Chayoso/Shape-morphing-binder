@@ -6246,3 +6246,19 @@ assim + slip) — the 300k generalisation reading of the pin. Pre-registered: **
 0.975 (dl300 0.9772), end-state p1 ≥ 0.76 (dl300's own) with ≤ 0.02 % below 0.3, pinned ≥ 0.85
 and exactly still, the delivered tail ≤ 0.0008 (the dragon's own reference: none yet — dl300's
 video was never rendered; the number is recorded as the first).
+
+**2026-09-25 19:30 — the 300k slip run ended (62 windows, early stop, silIoU 0.9754, det F
+0.614; its chain is rendering), and a correction to the 18:30 note.** The copies made as
+`as300orig_*` were taken after the slip run had already written its archive under the as300
+tag (21:22 server time): they hold the slip run, not the original as300 — the original as300
+archive (npz, json, verdict text) is lost; its numbers stand in the 17:20 entry and its
+delivered video survives (`as300orig_plain_s12.mp4`, 20:55, and the page's copy). When the chain
+ends, the slip run's outputs are renamed aw300_* and the surviving video restored under as300.
+g41pw at 8 of 19: cow **0.9660 (+0.0053)** and dragon 0.9642 (+0.0060) added; the run-minimum
+det F on the dragon 0.406 and the cow 0.710 are the transit's dips (end-state reading with the
+sweep). GPU 1 idle → **ak300** = the slip form at 300k + the KDE ear term (z300b's `--w_kde 1
+--plan_native --ot_handoff`): the D2 lever that gave the tongue at the target thickness (y300 /
+z300b) but collapsed det F without the hold and alternated with it (al300 / am300); with the
+settled body pinned stress-free and no wall, the question is whether the KDE ear survives.
+Pre-registered: **P220** ear tip ≥ 13 reference particles and the last two slabs ≥ 0.9 / 1.0,
+silIoU ≥ 0.977, end-state p1 ≥ 0.85 and ≤ 0.1 % below 0.5, the tail ≤ 0.0008, pinned ≥ 0.85.
