@@ -641,11 +641,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 dem = growth_demand(torch.as_tensor(x, device=cfg.device), tgt.m,
                                     tgt.tmass3, tgt.dtgmin, tgt.dtdx, tgt.dtdims,
                                     cfg.fill_sigma)
-                Fp = assimilate_growth(Fc, Fp, eta=cfg.assim,
-                                       smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                       isochoric=cfg.assim_iso,
-                                       grow=1.0 + cfg.w_grow * dem,
-                                       grow_band=cfg.grow_band)
+                _Fp_new = assimilate_growth(Fc, Fp, eta=cfg.assim,
+                                            smin=cfg.assim_smin, smax=cfg.assim_smax,
+                                            isochoric=cfg.assim_iso,
+                                            grow=1.0 + cfg.w_grow * dem,
+                                            grow_band=cfg.grow_band)
+                if getattr(cfg, "settle_pin_assim", False) and settled_p is not None and len(settled_p) == len(Fp):
+                    _Fp_new[settled_p] = Fp[settled_p]      # a pinned particle's F_p is final (10.27 addendum 2)
+                Fp = _Fp_new
             else:
                 Fe_bar = None
                 if cfg.assim_consensus:
@@ -655,9 +658,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     from ..plasticity.assimilation import consensus_elastic
                     Fe_bar = consensus_elastic(x, Fc, Fp, prm.grid_min, prm.dx,
                                                (prm.nx, prm.ny, prm.nz), device=cfg.device)
-                Fp = assimilate_elastic(Fc, Fp, eta=cfg.assim,
-                                        smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                        isochoric=cfg.assim_iso, Fe=Fe_bar)
+                _Fp_new = assimilate_elastic(Fc, Fp, eta=cfg.assim,
+                                             smin=cfg.assim_smin, smax=cfg.assim_smax,
+                                             isochoric=cfg.assim_iso, Fe=Fe_bar)
+                # config.settle_pin_assim: a PINNED particle is excluded — its F_e is R_e already, and the
+                # isochoric projection of the cumulative F_p (det F_p = 1) would undo the volumetric part of
+                # the pin-time assimilation at the next commit (measured on the 3k smoke: particles pinned
+                # one commit earlier were back at det F_p = 1 with the compression elastic again)
+                if getattr(cfg, "settle_pin_assim", False) and settled_p is not None and len(settled_p) == len(Fp):
+                    _Fp_new[settled_p] = Fp[settled_p]
+                Fp = _Fp_new
 
         # F_g is NOT edited at commits (REFUTE-2 F11: a commit-time relaxation changed
         # the image with no particle motion and saturated the rendered anisotropy at

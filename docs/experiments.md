@@ -5956,3 +5956,28 @@ worse than g41n's; **P194** cow's transient un-pinned compression no deeper than
 generalisation gate for adoption stays P188–P190 on the full g41n sweep, read with p1 and the
 count below 0.5 alongside the minimum. g41f (the freeze, which assimilated) had det F 0.788 on
 the bunny against H's 0.781: the assimilation did not cost det F there.
+
+**2026-09-25 11:00 — two corrections from the readings, and the adoption sweep.** *(1) The hold
+is needed with the pin (P186 revised).* g41n (the no-hold pin + clear, 6 of 19): C 0.9638
+(+0.063), bunny +0.0075, dragon +0.0054, fandisk +0.0054, cow +0.0006 — and **nefertiti 0.9540
+(−0.0136) at 38 windows**, the same early stop as g41q's (42 windows); with the onset hold
+(g41z) nefertiti ran 81 windows to 0.9685, and without pin or hold (g41t) 90 windows to
+0.9676. Without the hold the global step keeps re-inflating (the anneal's ×1.15) while the free
+set shrinks under the pin, the candidates on the remaining slow transport are rejected three
+times and the run stops. P186 held on the bunny and C only; the onset hold stays in the recipe.
+The g41n sweep was stopped at 6 (its six archives kept). *(2) The pin-time assimilation was
+undone at the next commit.* On the stress-free pin's 3k smoke, particles pinned one commit or
+more earlier were back at det F_p = 1 with their compression elastic again: the commit-time
+assimilation (η = 0.5) projects the cumulative F_p onto det F_p = 1 (`assim_iso`, the exact
+log-band projection) for every particle, so the volumetric part of the pin-time assimilation
+is removed one commit later. A pinned particle's F_p is now final — it is excluded from the
+commit-time assimilation (it has nothing left to assimilate). The clear rule alone does not
+change det F (g41n cow 0.770 against g41z's 0.775; the compression is the transit's, 10:30).
+
+**g41pz** = the z form (arrival-gated smoothed Rprop + onset hold) + `--settle_pin
+--settle_pin_clear --settle_pin_assim`, all 19 targets (GPUs 1 and 3, after a 3k smoke): the
+adoption candidate for 40k. Gates: **P188'** fit within −0.003 of max(g41, g41z) on ≥ 18
+(nefertiti ≥ 0.965 with ≥ 70 windows; beast, ogre no worse than g41z); **P189'** det F within
+−0.05 of g41 on ≥ 15 and ≥ 0.65 on all; **P190** step ≤ 0.02 spacings and flips ≤ 0.56 on all;
+**P192** the pinned set's elastic det F_e ≥ 0.99 at the end on every target (the archive's
+F_p). an300 (300k, ap300's form + clear, no assim) keeps running as the ear reading (P191).
