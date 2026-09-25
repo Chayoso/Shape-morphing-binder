@@ -1609,3 +1609,23 @@ target point it arrived at: from that window on its plan endpoint is that point 
 neighbourhood averaging, which no longer moves it), and the arrival snap sends it there. Its
 control then works against a fixed goal, it settles, reverses, and the pin of §10.27 takes it. No
 new constant: the arrival radius is the pace step, the point is the snap's own.
+
+### 10.34 The support pace (2026-09-25 17:30 CDT; config `pace_support`; the empty transit measured)
+
+Above the head at t = 0.10–0.14 the material present is 5–8 % of the target's density (bm300, bq300:
+`hollow_probe.py`), full only by t = 0.3: the front's few leads run at the pace through free space
+while the bulk drags through the body, and density = flux / speed falls. Poisson interpolates the
+vapour into a bloated blob, the splat draws it translucent; no sampling density changes the ratio.
+The stream pace (§10.32) reads the material one pace BEHIND a particle — behind a lead lies the
+head, dense but slow — and lets the lead run. The quantity that is wrong is the density AT the
+lead, so the rule is written on it. Let r be the target's shell radius (its median 8th-neighbour
+distance), n_i the particles within r of particle i, and n_t(q_i) the target's own count within r
+at i's nearest target point q_i. The step is
+
+  s_i = min(1, σ_i r_pace / |d_i|),   σ_i = min(1, n_i / (½ n_t(q_i))),   x̂_i = x_i + s_i d_i.        (56)
+
+Material at or above half the target's local density moves at the pace; material in an
+under-dense region takes the corresponding fraction of a step and waits for its bulk; the front
+advances as a plug. The reference is the target's own count at the nearest point, so a thin
+feature (fewer target points within r) is not read as under-dense by its geometry. No new constant:
+the shell radius, the target's counts, the body convention of one half.
