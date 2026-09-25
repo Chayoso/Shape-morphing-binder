@@ -6280,3 +6280,15 @@ the slip form + `--settle_pin_ray` at 300k. Pre-registered: **P222** the ear's t
 last two slabs ≥ 0.85 / 1.0, silIoU ≥ 0.975, end p1 ≥ 0.85, pinned ≥ 0.8 at the end, the tail
 ≤ 0.0008, no early stop before 95 % arrival. ak300 (slip + KDE ear, GPU 1) and dw300 (the
 dragon, GPU 2) continue.
+
+*aw300's early stop, read (20:00):* the three rejections at windows 60–62 carry gains of
+−0.0025 … −0.0035 with the physics gain positive, at **99.8 % arrived** — not a blocked stream
+(nefertiti's were −0.05 at 80 % arrived) but the merit's plateau: with 55 % of the body pinned
+the remaining objective gain per window is small and the rejection rule ends the run. The
+ear's last growth is what the un-pinned ai300 did between windows 62 and 112 (tip slab 0.75 →
+1.13) while the whole body breathed; under the pin that phase does not happen because the
+cell-sum merit no longer sees enough gain in it — "arrived" (within the pace radius, a loss
+cell) is not "filled" for a feature thinner than the cell. That is the D2 statement again:
+the ear's remaining deficit is below the cell, and the term that sees it is the particle-scale
+one — ak300 (slip + KDE) is the run that tests exactly this; ar300 (ray clearance + slip) tests
+whether a free base alone lets the merit keep the ear's gain.
