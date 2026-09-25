@@ -7485,3 +7485,16 @@ the half-density material rendered as half-dense. The shading's blotchiness (the
 normals at 1.5 spacings on a cloud in transit) is the remaining look issue in every splat form. The
 user chooses between the faithful look (v4) and a Poisson-like solid look (an opacity floor: only
 singletons fade); the physics is judged on v1 and the probes.
+
+**2026-09-25 14:50 CDT — sticky endpoints (b) refuted; (a) not pursued.** g41sk (40k, the adopted form
++ `--plan_sticky`): bunny 0.9689 (−0.0014 vs g41pw), dragon 0.9637 (−0.0006; 71 windows for 103),
+nefertiti 0.9698 (−0.0034), no reversal window — and the pinned fraction at the end is NOT higher
+(97 / 93 / 83 % for g41pw's 97 / 95 / 91 %): freezing the arrived material's endpoint does not make it
+settle sooner at 40k. bp300 (300k, bm300's form + sticky): **7 % pinned at window 40** (bm300 ≈ 35 %)
+— withdrawn. Read: the first arrival's point is taken without capacity, so several particles freeze
+onto the same target point and compete for it forever (the plan's re-solve was what resolved that
+competition); a capacity-aware form would be the next patch, and that is the engineering spiral the
+user warned against. Decision: (b) refuted as implemented, (a) not pursued; the free half at the end
+stays an open algorithm item, stated as such, and the delivered look is the splat render's (the
+opacity by support and the adaptive radius make the sparse phase deliverable without touching the
+physics). P269 ✗, P270 ✗ (the pin did not rise).
