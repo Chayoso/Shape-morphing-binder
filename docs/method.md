@@ -1241,3 +1241,22 @@ per cent in a few particles, invisible), the pinned particle's stress is zero, t
 settle against a wall that neither pushes nor pulls, and the delivered object is at rest. The
 det F read on the archive stays the total deformation's; the elastic det F_e of the pinned set
 is 1 by construction (P192).
+
+Addendum 3 (2026-09-25) — the transit rays (`settle_pin_ray`). The pinned body is a wall, and
+material whose plan image lies beyond it has to pass through it: on nefertiti the crown's
+stream through the settled bust made every candidate 5 % worse at a reversal cosine of +0.94
+(a transport window, no oscillation) and the run stopped at 42 of 90 windows under every pin
+variant that pinned the bust (g41q, g41n, g41pz); at 300k the bunny's ear was fed through its
+pinned base and the tip starved. The clear rule (50b) protects the boundary at pin time only;
+the traffic is known from the plan itself — the paced target moves each particle along the
+straight McCann ray from its position to its plan image — so the rule that keeps every stream
+open is:
+
+```
+(50d)  p ∈ P  only if  arrived_p ∧ rev_p ≥ 2  ∧  min_{q unarrived, s ∈ [0,1]} |x_p − (x_q + s (y_q − x_q))| > r_pace
+```
+
+y_q the plan image of q; the rays sampled at r_pace and put in one kd-tree; a candidate within
+r_pace of any sample stays free. Nothing is added: r_pace is the arrival radius, the rays are the
+plan's. A settled region a stream still has to cross stays a yielding body (the no-pin
+behaviour there) until the stream has arrived, and pins afterwards.

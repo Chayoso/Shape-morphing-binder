@@ -5990,3 +5990,20 @@ Ando 2012 sheet-aware split at the commit → pieces < 10, tongue ≥ 0.9, tip �
 0.85), P199 (≥ 70 % of the dihedral excess within one cell of the last arrivals' boundary).
 Not launched until g41pz / an300 / dp300 are read. The stress-free pin's smoke: the pinned
 set's elastic det F_e = 1.000 exactly (min, p1, median) — P192 holds on the smoke.
+
+**2026-09-25 11:50 — the pinned body blocks transit streams (g41pz 4 of 19), and the ray rule.**
+g41pz (onset hold + pin + clear + assim): bunny 0.9679 (+0.0069, det F 0.760), dragon 0.9640
+(+0.0058), fandisk 0.9753 (+0.0062) — and **nefertiti 0.9549 at 42 windows again** (g41q 42,
+g41n 38; g41z's 81 was the exception, not the hold's doing — P186's revision is itself
+revised: the hold is not what decides nefertiti). Its log: windows 36–42, candidates rejected
+with gain −0.046 … −0.070 at reversal cosine **+0.94** — transport windows whose candidate is
+worse than the last commit, 80.7 % arrived, 46 % pinned: the crown's remaining stream has to
+pass through the pinned bust, and cannot. The point-clear rule protects the boundary only at
+pin time. Addendum 3 (eq. 50d, `--settle_pin_ray`): a particle is pinned only when no unarrived
+particle's plan ray passes within the pace radius of it. Launched (GPU 0, after a 3k smoke):
+**g41pr** = onset hold + pin + ray + assim on nefertiti, beast, ogre, bunny, C, cow.
+Pre-registered: **P200** nefertiti ≥ 0.965 with ≥ 70 windows and no rejection streak before
+95 % arrival; beast ≥ g41z's 0.9374 + 0.01, ogre ≥ g41z's 0.9488 + 0.005; **P201** bunny / C /
+cow within ±0.003 of g41pz / g41z and the pinned fraction at the end ≥ 0.6 (the rays only delay,
+they do not prevent the pin); **P202** (later, at 300k) the ear's tip ≥ 11 reference particles
+with the base pinned last. g41pz continues on the other 15 as the point-rule reading.

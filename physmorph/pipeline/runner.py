@@ -1359,6 +1359,26 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     rec["pin_blocked_frac"] = float(1.0 - _clear.mean())
                     _idx_new = np.nonzero(_newly)[0]
                     _newly = np.zeros_like(_newly); _newly[_idx_new[_clear]] = True
+                # config.settle_pin_ray (10.27 addendum 3): the transit RAYS. A pinned body is a wall; material whose
+                # plan image lies beyond it must pass through it (nefertiti: the crown's stream through the settled
+                # bust — candidates 5 % worse at reversal +0.94, three rejections, the run stopped at 42 of 90; the
+                # bunny's ear fed through its pinned base at 300k). A particle is pinned only when no unarrived
+                # particle's straight path to its plan image (the McCann ray the paced target itself follows)
+                # passes within the pace radius of it: the ray sampled at the pace radius, one kd-tree query.
+                _pi = stats.get("plan_img")
+                if getattr(cfg, "settle_pin_ray", False) and _newly.any() and _pr is not None and _pi is not None and (~_arr_p).any():
+                    from scipy.spatial import cKDTree as _KDr
+                    _xq = np.asarray(x, np.float32)[~_arr_p]; _dq = np.asarray(_pi, np.float32)[~_arr_p] - _xq
+                    _Lq = np.linalg.norm(_dq, axis=1); _ns = np.maximum(1, np.ceil(_Lq / float(_pr)).astype(np.int64))
+                    _rep = np.repeat(np.arange(len(_xq)), _ns + 1)
+                    _k = np.arange(len(_rep)) - np.repeat(np.cumsum(np.concatenate([[0], _ns[:-1] + 1])), _ns + 1)
+                    _s = (_k / np.repeat(_ns, _ns + 1)).astype(np.float32)[:, None]
+                    _samples = _xq[_rep] + _s * _dq[_rep]
+                    _dn_r, _ = _KDr(_samples).query(np.asarray(x, np.float32)[_newly], k=1, distance_upper_bound=float(_pr), workers=-1)
+                    _clear_r = ~np.isfinite(_dn_r)
+                    rec["pin_ray_blocked_frac"] = float(1.0 - _clear_r.mean())
+                    _idx_new = np.nonzero(_newly)[0]
+                    _newly = np.zeros_like(_newly); _newly[_idx_new[_clear_r]] = True
                 settled_at[_newly] = a + 1           # pinned from the rollout of window a + 2 on (frames after this commit)
                 settled_p |= _newly
                 # config.settle_pin_assim (10.27 addendum 2): the elastic stretch of a newly pinned particle is

@@ -566,6 +566,9 @@ class PipelineConfig:
                                     #   unarrived particle lies within the pace radius (optimizer stats "pace_r": the paced
                                     #   target's arrival scale) — the pinned body never blocks a flowing channel and its
                                     #   boundary stays one arrival radius clear of the last arrivals.
+    settle_pin_ray: bool = False    # 2026-09-25 (10.27 addendum 3): with settle_pin, a particle is pinned only when no
+                                    #   unarrived particle's straight path to its plan image (optimizer stats "plan_img")
+                                    #   passes within the pace radius of it — the pinned body never blocks a transit stream.
     settle_pin_assim: bool = False  # 2026-09-25 (10.27 addendum 2): with settle_pin, a newly pinned particle's elastic
                                     #   stretch is assimilated in full (F_e -> R_e): the pinned body is stress-free and the
                                     #   delivered object at equilibrium; F (total) kept.
