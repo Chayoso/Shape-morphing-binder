@@ -918,6 +918,7 @@ def main():
             frames=np.stack(res["frames"]), deliver_n=np.int64(dn),
             pinned=np.asarray(res["pinned"] if res.get("pinned") is not None else np.zeros(len(src), bool), bool),
             pinned_at=np.asarray(res["pinned_at"] if res.get("pinned_at") is not None else np.full(len(src), -1), np.int32),
+            gx_last=(np.asarray(res["gx_last"], np.float32) if res.get("gx_last") is not None else np.zeros((0, 3), np.float32)),
             Fp=(np.asarray(res["Fp"], np.float32).reshape(-1, 3, 3) if res.get("Fp") is not None else np.zeros((0, 3, 3), np.float32)),
             truncation=json.dumps(res.get("truncation")),
             F_samples=np.stack([res["F_frames"][i] for i in idx]),

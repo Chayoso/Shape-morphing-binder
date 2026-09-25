@@ -6441,3 +6441,25 @@ bring the breathing back at 40k). *In parallel (the user: "300K 쪽, 귀 안 되
 cookbook 찾아줘"):* a digest on growing thin target features from a bulk source (target-driven
 fluid control, sub-cell-aware losses, the practitioners' logo-forming recipes, capacity-exact
 matching) is being gathered for related_work.md.
+
+**2026-09-26 02:30 — the KKT release, first form refuted by its smoke and by a probe; the
+second form.** *v1 (the fixed-target cell-sum gradient against the free median):* the 3k smoke
+released 40–55 % of the pinned set, g41pk bunny (40k) 27 % at window 48 with silIoU 0.9692
+(−0.001 vs g41pw), aq300 50 % in its first windows — pinned and free particles share one noise
+floor. *Why the cell sum cannot drive the ear at all (`scratch/grad_probe.py` on ar300's end
+state):* at the 0.306-wu loss cell (the loss grid IS the 36³ MPM grid at 300k) the cubic
+rasterisation reads the left ear 0.96 / 0.89 / 0.93 / 0.91 / 0.89 / 0.89 / 0.74 full per grid
+row from the base, the ear's residuals (min −0.155, p5 −0.066) inside the body's band (p5
+−0.077, p95 +0.148); the pinned particles above the free median are 60 % of the pinned set and
+their ear share (4.4 %) equals the ear's share of the pinned set (4.0 %); at 2× and 4× the cell
+the picture is the same. The ear's tip deficit is sub-cell for the objective that the pin was
+supposed to leave in charge — what grew ai300's tip is the render term (a third of the
+gradient throughout, g_share 0.31–0.35 in windows 62–112), which sees the tip at pixel scale.
+*v3 (`--settle_pin_kkt`, now):* the evidence is the WINDOW objective's gradient with respect to
+the end-of-window positions (render term included; a hook on x_T in the adjoint — optimizer
+stats "gx"), averaged over the Rprop smoothing's kNN, and a pinned particle is released only
+when that averaged gradient kept its direction since the previous window AND exceeds the free
+set's median: noise flips window to window (that is how the particles were pinned), a deficit
+keeps pulling. The archive now carries the last window's gradient (`gx_last`) so the ear's
+signal can be read offline. aq300 and g41pk were stopped and relaunched on v3 (P226–P227
+unchanged).

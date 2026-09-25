@@ -968,6 +968,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 lr = lsil + cfg.w_pbr * lpbr
         return lv, lk, lr, lpbr
 
+    gx_box = [None]                  # config.settle_pin_kkt: dL/dx_T of the last gradient evaluation (every particle)
+
     def terms(leaf):
         """Differentiable path: torch Function + wp.Tape (gradient phase only).
         Returns (state=(xT,FT,vT), lv, lk, lr, lpbr, extra) with extra = {"dfc": the
@@ -982,6 +984,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             xT, FT, vT, FgT, V = adj_box[0].apply(dfc, u)
         else:
             xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t, u_t=u)
+        if xT.requires_grad and getattr(cfg, "settle_pin_kkt", False):
+            # the objective's gradient at the end-of-window positions of EVERY particle, pinned ones included (a pinned
+            # particle's control has no effect, but its position still carries the render and density residuals)
+            xT.register_hook(lambda g: gx_box.__setitem__(0, g.detach()))
         lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
         extra = {"dfc": dfc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                  "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
@@ -1772,6 +1778,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
               "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac,
+              "gx": (gx_box[0].cpu().numpy().astype(np.float32) if gx_box[0] is not None else None),
               "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
               "render_work": render_work, "render_work_x": render_work_x,

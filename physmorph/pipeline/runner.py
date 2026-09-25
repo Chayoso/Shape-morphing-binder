@@ -413,6 +413,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
     settle_pin_arr = None                # config.settle_pin: the (N,) pin array handed to the rollout
     pin_yield_prev = None                # config.settle_pin_yield: the settled particles released last window
+    kkt_prev_g, kkt_last_g = None, None  # config.settle_pin_kkt: the previous window's smoothed objective gradient; the last raw one (archived)
     settled_at = None                    # config.settle_pin: the window (1-based) at which each particle was pinned, -1 = never
     rest_latched = False                 # config.rest_commit: windows from rest once the transport has arrived
     rev_prev_neg = False                 # config.rest_commit_reversal: the previous accepted commit reversed its predecessor
@@ -1447,15 +1448,40 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # pinned (arrived by the plan's measure) and a pinned particle carries no control gradient. The
                 # threshold is the free set's own median — no constant.
                 if getattr(cfg, "settle_pin_kkt", False) and settled_p.any() and (~settled_p).any():
-                    from ..losses.volumetric import d_vol_density as _dvd_k, d_vol as _dv_k
-                    _xk = torch.as_tensor(np.asarray(x, np.float32), device=cfg.device).requires_grad_(True)
-                    if cfg.loss_units == "density":
-                        _Lk = _dvd_k(_xk, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref, tgt.n_support)
+                    # v3 (2026-09-26): the evidence is the window objective's gradient w.r.t. the end-of-window positions
+                    # (optimizer stats "gx", render term included), averaged over the material neighbourhood (the Rprop
+                    # smoothing's kNN) and required to keep its DIRECTION since the previous window. The plain magnitude test
+                    # against the free median released 40-55 % of the pinned set on either evidence (the smoke, g41pk,
+                    # aq300 v1): pinned and free particles sit on the same noise floor, and noise flips direction window to
+                    # window (that is how they were pinned) while a deficit keeps pulling the same way — the Rprop rule
+                    # (a kept sign grows the step) read at the pin's limit. No constant: the free median and a sign.
+                    _gv = stats.get("gx")
+                    if _gv is not None and len(_gv) == len(settled_p):
+                        _gv = np.asarray(_gv, np.float64); kkt_last_g = _gv.astype(np.float32)
+                        _gs = _smooth(_gv) if "_smooth" in dir() else _gv
+                        _mag = np.linalg.norm(_gs, axis=1)
+                        _thr_k = float(np.median(_mag[~settled_p]))
+                        if kkt_prev_g is not None and len(kkt_prev_g) == len(_gs):
+                            _persist = (_gs * kkt_prev_g).sum(1) > 0.0
+                        else:
+                            _persist = np.zeros(len(_gs), bool)
+                        kkt_prev_g = _gs
+                        _kkt = settled_p & _persist & (_mag > _thr_k)
+                        rec["pin_kkt_persist_frac"] = float(_persist[settled_p].mean())
+                        _gk = _mag
                     else:
-                        _Lk = _dv_k(_xk, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
-                    _gk = torch.autograd.grad(_Lk, _xk)[0].norm(dim=1).detach().cpu().numpy()
-                    _thr_k = float(np.median(_gk[~settled_p]))
-                    _kkt = settled_p & (_gk > _thr_k)
+                        _gk = None
+                    if _gk is None:
+                        from ..losses.volumetric import d_vol_density as _dvd_k, d_vol as _dv_k
+                        _xk = torch.as_tensor(np.asarray(x, np.float32), device=cfg.device).requires_grad_(True)
+                        if cfg.loss_units == "density":
+                            _Lk = _dvd_k(_xk, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref, tgt.n_support)
+                        else:
+                            _Lk = _dv_k(_xk, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
+                        _gk = torch.autograd.grad(_Lk, _xk)[0].norm(dim=1).detach().cpu().numpy()
+                        _thr_k = float(np.median(_gk[~settled_p]))
+                        _kkt = settled_p & (_gk > _thr_k)
+                    _gk = np.asarray(_gk, np.float64)
                     _yield = _yield | _kkt
                     _follow = _follow | _kkt
                     rec["pin_kkt_frac"] = float(_kkt.sum() / max(1, settled_p.sum()))
@@ -1623,4 +1649,5 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen, "reattached": n_reattach_total,
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None),
             "pinned": settled_p,                      # config.settle_pin / settle_eta: the settled set at the end (None when off)
-            "pinned_at": settled_at}                  # config.settle_pin: the window at which each particle was pinned (-1 never)
+            "pinned_at": settled_at,
+            "gx_last": kkt_last_g}                  # config.settle_pin: the window at which each particle was pinned (-1 never)
