@@ -5880,3 +5880,57 @@ the adoption candidate for 40k is now **g41q's form**, gated by P185's bounds ap
 (fit within −0.003 of g41y/g41, det F within −0.05 — the boundary compression seen in g41z on
 cow/nefertiti is the open item). The user closed the local session at 02:40 with "keep them
 running"; all chains are detached (nohup, ppid 1).
+
+**2026-09-25 09:50 (server 19:45 CDT) — the night's verdicts, read after the reconnection
+(hyde01 jump → socat proxy; hyde06 is campus-private 10.2.191.42).**
+
+*g41z (the pin + onset hold, 19 of 19) vs g41:* fit up or within −0.003 on **17** (C +0.061,
+maxplanck +0.007, bunny +0.006, dragon +0.006, fandisk +0.005, A +0.004 …); **beast −0.017,
+ogre −0.006** (both early stops, 77 / 52 windows). det F within −0.05 on 13; beyond on six —
+armadilo −0.111 (0.731), nefertiti −0.083 (0.681), cow −0.078 (0.775), V −0.054, dragon −0.054,
+maxplanck −0.051 — all still ≥ 0.68. The layer's step 0.000–0.02 spacings on every target (g41
+0.02–0.06), flips 0.2–0.56 (g41 0.54–0.79): **the oscillation metrics fall everywhere.** P185:
+fit ✗ on 2, det F ✗ on 6 → not adopted as is. *g41q (the pin without the hold, 14 of 19):* the
+same picture; bunny 0.9689, dragon 0.9648, beast 0.9449 better than z, nefertiti 0.9542 (42
+windows, early stop) and cow 0.9557 worse — hold vs no hold is a wash; the pin's onset decides.
+
+*Where the det F minimum lives (`scratch/detf_dist.py`, the last archived F):* g41z cow min
+0.778 in the UNPINNED set (pinned 0.816), armadilo 0.718 unpinned (pinned 0.818) — the last
+arrivals compressed against the pinned boundary; nefertiti 0.696 in the pinned set (pinned
+with that strain, at the boundary too).
+
+*ap300 (300k bunny, ai300 + pin):* 103 windows, pinned **91.8 %** (P181 ✓; the frames read
+still fraction 1.000 at the end), silIoU 0.9729 (P183's fit ≥ 0.9660 ✓; ai300 0.9766), strays
+0.04 %, layer flips 0.22, step 0.0056 spacings, low-band correlation **+0.66**, video tail
+stride 12 **0.0008** (P182 ✓ at the bound; ai300 0.0011), stride-12 ALT 0.0008, bump 1.23°,
+one component. **det F 0.591 (P184 ✗ by 0.009; the minimum in the pinned set).** **The ear:
+tip 3.9 reference particles (ai300 13.6), the last two slabs 0.66 / 0.18 against 0.89 / 1.13
+— P183's ear ✗:** the base was pinned while the tip was still fed through it, and the
+transport stopped. The pin works on the settled body and starves the thin feature.
+
+*am300's chain:* video tail 0.0015 (stride 19: 0.0013, ALT 0.0012), bump 1.28° — worse than
+ai300 (0.0011): with the KDE term the held step still alternates (P177 ✗). The KDE ear + H
+is refuted at 300k on det F (0.41) and on the tail.
+
+*The dragon's det F (dl300 = l300's recipe, dk300 = z300b's without the KDE):* dl300 silIoU
+0.9772, det F **0.169**; dk300 0.9718, det F **0.162** — P179 ✗, P180 ✗: neither the KDE nor
+the hand-off / plan_native set is the cause. The distribution says what the minimum hides:
+**59 / 53 particles below 0.3 (0.02 %), p1 0.76 / 0.78, median 0.997** (the 40k dragon: min
+0.81, p1 0.93; d300 with the KDE: 334 below 0.3 — the KDE multiplies the count ×6 but does not
+create it). The 300k dragon's "collapse" is a few dozen particles at the spikes under the base
+300k recipe (`--disc_ref --shift_sub --commit_pic`); the reading to adopt for N > 40k is the
+1st percentile and the count below 0.5, not the minimum over 300k particles. The base recipe's
+spike compression is a separate item (P187 below).
+
+**The clear-neighbourhood pin (method.md 10.27 addendum, eq. 50b; `--settle_pin_clear`):** a
+particle is pinned only when no unarrived particle lies within the pace radius of it — the
+paced target's own arrival scale. Launched (after a 3k smoke): **g41n** = the no-hold pin form
++ clear on all 19 targets (GPUs 1 and 3), **an300** = ap300's form + clear (GPU 2).
+Pre-registered: **P188** g41n fit within −0.003 of max(g41, g41z) on ≥ 18 (beast, ogre
+recover: no early stop before g41's window count × 0.7); **P189** det F within −0.05 of g41 on
+≥ 17 and the minimum no longer in the unpinned set on cow / armadilo; **P190** the
+oscillation metrics stay at g41z's (step ≤ 0.02 spacings, flips ≤ 0.56 on all); **P191** an300
+ear tip ≥ 11 reference particles and the last two slabs ≥ 0.85 / 1.0 (ai300's), silIoU ≥
+0.9729, det F ≥ 0.6, pinned ≥ 0.85 at the end, tail ≤ 0.0008. **P187** (the dragon, not yet
+launched): the 300k dragon under the 40k recipe scaled without `--disc_ref` has p1 ≥ 0.9 —
+then the spike compression is disc_ref's shortened lengths on the spikes.

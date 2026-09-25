@@ -1335,6 +1335,20 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if settled_at is None or len(settled_at) != len(_d_now):
                     settled_at = np.full(len(_d_now), -1, np.int32)
                 _newly = _arr_p & (ctrl_rev_count >= 2) & (~settled_p)
+                # config.settle_pin_clear (10.27 addendum): a particle is pinned only when no UNARRIVED particle
+                # lies within the pace radius of it — the paced target's own arrival scale, no new constant. The
+                # pinned body then never blocks a channel material still flows through (ap300: the ear's tip
+                # starved at 3.9 reference particles against 13.6) and its boundary stays one arrival radius
+                # clear of the last arrivals (g41z: det F −0.05…−0.11 at the arrived/in-transit boundary).
+                _pr = stats.get("pace_r")
+                if getattr(cfg, "settle_pin_clear", False) and _newly.any() and _pr is not None and (~_arr_p).any():
+                    from scipy.spatial import cKDTree as _KDc
+                    _dn_c, _ = _KDc(np.asarray(x, np.float32)[~_arr_p]).query(np.asarray(x, np.float32)[_newly], k=1,
+                                                                           distance_upper_bound=float(_pr), workers=-1)
+                    _clear = ~np.isfinite(_dn_c)
+                    rec["pin_blocked_frac"] = float(1.0 - _clear.mean())
+                    _idx_new = np.nonzero(_newly)[0]
+                    _newly = np.zeros_like(_newly); _newly[_idx_new[_clear]] = True
                 settled_at[_newly] = a + 1           # pinned from the rollout of window a + 2 on (frames after this commit)
                 settled_p |= _newly
                 settle_pin_arr = settled_p.astype(np.float32)

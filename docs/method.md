@@ -1202,3 +1202,21 @@ its arrival error any more, so the fit can only lose from the pin's onset (P183 
 the arrivals that come after it must flow around the pinned body instead of through it (P184
 reads the compression that costs). Read by the frames alone: a pinned particle's frame-to-frame
 step is 0 in float32, an unpinned one's never is (`scratch/pin_probe.py`).
+
+Addendum (2026-09-25 morning) — the clear-neighbourhood pin (`settle_pin_clear`). The pin's
+two costs on the gallery and at 300k are one mechanism: a pinned body is a fixed obstacle, and
+material that still has to pass through or settle against it is compressed (g41z: det F
+−0.05…−0.11 on six targets, the minimum in the UNPINNED set on cow / armadilo — the last
+arrivals against the pinned boundary) or cut off (ap300: the ear's tip 3.9 reference particles
+against ai300's 13.6, the last two slabs 0.66 / 0.18 against 0.89 / 1.13 — the base pinned
+while the tip was still fed through it). The rule that keeps the channel open and the boundary
+clear reads the paced target's own arrival scale:
+
+```
+(50b)  p ∈ P  only if  arrived_p ∧ rev_p ≥ 2  ∧  min_{q unarrived} |x_p − x_q| > r_pace,    r_pace = max(leash, Δx_loss)
+```
+
+r_pace is the radius within which the paced target declares a particle arrived (optimizer
+`pace_r`); no constant is added. A particle next to material in transit stays free until that
+material has arrived, so the pinned body's boundary is always one arrival radius inside the
+settled region, and a channel through which material still flows is never pinned shut.
