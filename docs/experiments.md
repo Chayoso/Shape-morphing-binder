@@ -6190,3 +6190,16 @@ adaptive scheme that changes nothing in the transfers is a nested fine box coupl
 (He 2025), and the quadratic / compact kernel halves both the stick layer and the ear's smear at
 zero memory. The slip smoke's first launch crashed (the pinned mass rasterised before the
 positions existed); fixed (rasterised at step 0 of each rollout), relaunched.
+
+**2026-09-25 17:45 — the slip collider at 300k in parallel (aw300, GPU 3).** The slip smoke (3k)
+passed with the pinned set's elastic det F_e 1.000; g41pw runs on nefertiti / beast / bunny /
+cow (GPU 1). Since the 300k ear's starvation (ap300 3.9 → an300 6.8 → as300 7.7 against
+ai300's 13.6) is the boundary layer at the pinned base dragging the feed, and the slip
+collider is the mechanism that removes that layer, **aw300** = ai300's form + `--settle_pin
+--settle_pin_assim --settle_pin_slip` (no clearance, ray or yield) is launched without waiting.
+Pre-registered: **P216** the ear's tip ≥ 11 reference particles and the last two slabs ≥ 0.85 /
+1.0 with the pinned fraction ≥ 0.85 at the end (the slip wall pins the base as soon as it has
+arrived and still lets the feed through); **P217** the tail ≤ 0.0008 (as300 0.0006), silIoU ≥
+0.9725, end-state un-pinned p1 ≥ 0.85, the body exactly still. If P216–P217 hold, the 300k
+recipe is the slip form and D1 closes at 300k with the ear intact; ay300 (the yield form, GPU
+2) stays as the comparison.
