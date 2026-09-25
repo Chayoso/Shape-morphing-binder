@@ -7410,3 +7410,14 @@ archive except the bases and the chosen forms deleted — ai300, au300, dh300, b
 bl300, bn300, g41fs (3), g41ro (3), g41rc (3): 17 files, 41 GB (`.deleted_list_20260925c.txt`; json +
 logs tarred into `logs_archive_20260925c.tgz`). Kept: g41 (19), g41pw (19), ar300, bm300, bo300
 (running), gt, the reports and every video.
+
+**2026-09-25 12:45 CDT — bo300 (the 300k dragon under the chosen form: slip + paced render + coherent
+pace): P268 on the fit, not on the health.** silIoU **0.9699** (the slip form alone 0.9646, with H⁻¹
+from the start 0.9685 — the best 300k dragon), 102 windows (early stop on three rejections), pinned
+62 %, 82 particles below det F 0.5 at the end (0.03 %, within the 0.05 % bound), but the end-state
+p1 is **0.770** (the bound 0.80): the pinned 62 % sits at p1 0.80 and the free 38 % — the spikes'
+material still in transit — at 0.72 (min 0.26). The coherent pace holds the spikes' leads and the
+material queues behind them; the dragon's many thin spikes are where the queue compresses. Not a
+reversal issue (no streak); a compression of the transit at the spikes, the same place the
+arrival's capacity (§10.28) and the front's cap addressed at 40k. The dragon video is rendered for
+the eye. The 300k form stands on the bunny; the dragon's p1 is the open number.
