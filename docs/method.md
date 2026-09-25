@@ -1260,3 +1260,13 @@ y_q the plan image of q; the rays sampled at r_pace and put in one kd-tree; a ca
 r_pace of any sample stays free. Nothing is added: r_pace is the arrival radius, the rays are the
 plan's. A settled region a stream still has to cross stays a yielding body (the no-pin
 behaviour there) until the stream has arrived, and pins afterwards.
+
+Correction to addendum 3 (2026-09-25, g41pr): the clearance radius is the grid kernel's
+support, 2 Δx (the cubic B-spline), not r_pace. With r_pace (≈ 0.3 Δx at 40k) nefertiti stopped
+at 38 of 90 windows exactly as before: a pinned particle carries its mass to every node of its
+stencil, and a moving particle that shares a node with it receives the mass-weighted, near-zero
+momentum — the pinned body is a no-slip wall with a boundary layer one support wide, and a
+stream passing along the settled bust within that layer is dragged to a stop whether or not
+the ray itself is clear. (50b) and (50d) therefore read `max(r_pace, 2 Δx)`: the discretisation's
+own length. A settled region within one support of a transit ray stays a yielding body until the
+stream has arrived; far from every stream it pins as before.

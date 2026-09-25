@@ -6007,3 +6007,18 @@ Pre-registered: **P200** nefertiti ≥ 0.965 with ≥ 70 windows and no rejectio
 cow within ±0.003 of g41pz / g41z and the pinned fraction at the end ≥ 0.6 (the rays only delay,
 they do not prevent the pin); **P202** (later, at 300k) the ear's tip ≥ 11 reference particles
 with the base pinned last. g41pz continues on the other 15 as the point-rule reading.
+
+**2026-09-25 12:30 — the ray rule at the pace radius refuted (g41pr nefertiti 38 windows, the
+same rejections: gain −0.056 / −0.068 at reversal +0.93), and the clearance corrected to the
+grid kernel's support.** The ray was clear and the stream still stopped: the pace radius (≈ 0.1
+wu, the loss grid's cell) is a third of the MPM cell (Δx ≈ 0.33 wu at 40k) and the pinned mass
+acts through the grid over the kernel's support (2 Δx): a stream particle sharing a node with
+pinned mass receives the mass-weighted momentum, near zero — a no-slip boundary layer one
+support wide along the settled bust. The clearance of (50b)/(50d) is now max(r_pace, 2 Δx).
+Consequence: a settled region within 2 Δx of a transit ray stays free (breathing as before)
+until that stream has arrived, and pins afterwards — the pin acts early only far from every
+stream. g41pr's sweep was stopped; **g41ps** (the same form with the stencil clearance) on
+nefertiti, beast, ogre, bunny, C, cow (GPU 0). P200–P201 carried over to g41ps; **P203** the
+pinned fraction at the end of nefertiti ≥ 0.6 (the clearance delays, it does not prevent).
+an300's run: silIoU 0.9725, **det F 0.657** (ap300 0.591 — the point clearance at r_pace already
+lifted the 300k det F above the bound), 71 windows; its chain (ear, tail) pending.

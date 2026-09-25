@@ -1351,6 +1351,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # starved at 3.9 reference particles against 13.6) and its boundary stays one arrival radius
                 # clear of the last arrivals (g41z: det F −0.05…−0.11 at the arrived/in-transit boundary).
                 _pr = stats.get("pace_r")
+                # the clearance is the GRID KERNEL's support (2 dx, the cubic B-spline), not the pace radius (10.27
+                # addendum 3, corrected): a pinned particle carries its mass to every node of its stencil, and a
+                # moving particle sharing a node with it receives the mass-weighted (near-zero) momentum — a
+                # no-slip boundary layer one support wide. With the pace radius (≈ 0.3 dx) nefertiti's crown
+                # stream was still dragged along the pinned bust and the run stopped at 38 of 90 (g41pr).
+                if _pr is not None:
+                    _pr = max(float(_pr), 2.0 * float(prm.dx))
                 if getattr(cfg, "settle_pin_clear", False) and _newly.any() and _pr is not None and (~_arr_p).any():
                     from scipy.spatial import cKDTree as _KDc
                     _dn_c, _ = _KDc(np.asarray(x, np.float32)[~_arr_p]).query(np.asarray(x, np.float32)[_newly], k=1,
