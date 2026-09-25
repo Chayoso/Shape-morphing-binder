@@ -7421,3 +7421,14 @@ material queues behind them; the dragon's many thin spikes are where the queue c
 reversal issue (no streak); a compression of the transit at the spikes, the same place the
 arrival's capacity (§10.28) and the front's cap addressed at 40k. The dragon video is rendered for
 the eye. The 300k form stands on the bunny; the dragon's p1 is the open number.
+
+**2026-09-25 12:50 CDT — the splat render and IMLS read; the surface table complete.** bm300, tail
+change: Poisson 0.0017 · mc auto 0.0007 (thick) · **mc iso 0.5 0.0007** (thickness recovered) · mc iso
+0.5 at the native kernel 0.0009 (more detail) · mc anisotropic 0.0024 ✗ · IMLS **0.0049** ✗ (the outer
+layer's surfels are re-selected each frame) · **the splat itself 0.0014** (first implementation: one
+isotropic Gaussian per particle, σ₀ = 0.7 spacings, per-particle Lambert from the blurred CIC
+density gradient; the silhouette and geometry are stable, the shading is coarse — interior
+particles show through and the per-frame normals jitter — so the number is Poisson's; a proper
+surface splatting would draw the outer layer only with wider-smoothed normals). The delivered 300k
+surface that answers the user's two complaints at once is mc at iso 0.5 (native kernel if the
+detail is wanted at 0.0009).
