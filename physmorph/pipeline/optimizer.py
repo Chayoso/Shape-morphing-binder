@@ -564,6 +564,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         arrive_cap_frac = None              # config.arrive_cap: the fraction of arrivals over capacity (kept on the plan image)
         pace_front_frac = None              # config.pace_front: the fraction of particles whose image was clamped at the front
         pace_front_fill_frac = None         # config.pace_front_fill: the fraction of particles assigned to a front vacancy
+        sils_eff, shade_eff, pbr_grid_eff = tgt.sils, tgt.shade, True   # config.render_paced replaces them per window
         if cfg.phys_loss in ("ot_pace", "ot_shape"):
             # DISPLACEMENT-INTERPOLATED TARGET (McCann interpolation along the transport
             # plan): this window's target density is the current cloud advected toward its
@@ -874,6 +875,23 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     x_int[_sel] = tgt.points[torch.as_tensor(np.asarray(nn_a)[_keep], device=dev)].to(x_int.dtype)
                 else:
                     x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
+            if getattr(cfg, "render_paced", False) and tgt.sils is not None:
+                # config.render_paced (2026-09-26 23:40, method.md 10.31): the render channel's target is the PACED target's
+                # own images. With the target's final silhouettes as the reference, the silhouette term pulls the first
+                # material up the ear's outline (a thin lead satisfies it) — at 300k the early knob's material is there
+                # only with the render channel on (ar300 21-67 particles in the top region at t = 0.2-0.3, bb300 none) —
+                # while the physics channel is driven to the paced cloud one step ahead. Here the silhouettes (and the
+                # shading, on the loss grid's normals for both sides) are those of the paced cloud x_int, re-rendered each
+                # window without gradient: the two channels agree on the growth order, and the render's fit arrives as
+                # the paced cloud converges to the target (the last windows are unchanged, x_int = target). No constant.
+                from .render_loss import target_silhouettes as _tsil   # the (theta, phi) views variant the runner uses
+                with torch.no_grad():
+                    sils_eff = _tsil(x_int.detach(), tgt.views, cfg.render_res, tgt.extent, cfg.sil_k)
+                    if cfg.w_pbr > 0 and tgt.shade is not None:
+                        from .render_loss import shade_targets as _shd
+                        shade_eff = _shd(x_int.detach(), tgt.views, cfg.render_res, tgt.extent,
+                                         tgt.lgmin, tgt.ldx, tgt.ldims, cfg.sil_k, cfg.pbr_ambient)
+                        pbr_grid_eff = False
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             if getattr(cfg, "pace_cap", False):
                 # config.pace_cap (2026-09-26, with the fronts of 10.29): every image lies inside the target, so the paced
@@ -1184,7 +1202,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                  mask=gauss_mask)
             sil_gauss["gauss"] = float(lg_.detach())
             if cfg.gauss_mix > 0:                 # hybrid: silhouette keeps fine geometry
-                lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
+                lsil = d_render(xT, sils_eff, tgt.views, cfg.render_res, tgt.extent,
                                 cfg.sil_k, cfg.w_hole, cfg.w_spray)
                 sil_gauss["sil"] = float(lsil.detach())
                 if tgt.gauss_scale is None:
@@ -1198,18 +1216,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                             xT.detach(), tgt.sils, tgt.views, cfg.render_res,
                             tgt.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray))
         elif balancer.active:
-            lsil = d_render(xT, tgt.sils, tgt.views, cfg.render_res, tgt.extent,
+            lsil = d_render(xT, sils_eff, tgt.views, cfg.render_res, tgt.extent,
                             cfg.sil_k, cfg.w_hole, cfg.w_spray)
             sil_gauss["sil"] = float(lsil.detach())
             lr = lsil
             if cfg.w_pbr > 0 and tgt.shade is not None:     # shading channel (PBR-lite)
-                if cfg.pbr_denoised and tgt.pdims:
+                if cfg.pbr_denoised and tgt.pdims and pbr_grid_eff:
                     # G1: the morph's normals on the render-pixel grid, blurred by the renderer's
                     # 1.5 spacings — the normals of the drawn surface, against a denoised target
-                    lpbr = d_pbr(xT, tgt.shade, tgt.views, cfg.render_res, tgt.extent,
+                    lpbr = d_pbr(xT, shade_eff, tgt.views, cfg.render_res, tgt.extent,
                                  tgt.pgmin, tgt.pdx, tgt.pdims, cfg.sil_k, cfg.pbr_ambient, tgt.pblur)
                 else:
-                    lpbr = d_pbr(xT, tgt.shade, tgt.views, cfg.render_res, tgt.extent,
+                    lpbr = d_pbr(xT, shade_eff, tgt.views, cfg.render_res, tgt.extent,
                                  tgt.lgmin, tgt.ldx, tgt.ldims, cfg.sil_k, cfg.pbr_ambient)
                 lr = lsil + cfg.w_pbr * lpbr
         return lv, lk, lr, lpbr

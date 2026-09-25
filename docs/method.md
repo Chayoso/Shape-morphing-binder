@@ -1547,3 +1547,30 @@ shortened by the excess and waits for the rear; the particles behind advance at 
 the column contracts from its rear. A smooth map moves a neighbourhood together (the offsets
 stay inside the ball), so the bulk is untouched; the rule binds only where the material
 stretches. No new constant: the pace step, the plan's blur radius and its neighbourhood.
+
+
+### 10.31 The render channel's target is the paced target (2026-09-26 23:40; config `render_paced`)
+
+**The reading.** With the render channel off (bb300, 300k) the ear grows as a tapered tongue from
+its base — no particle in the ear's top region before t = 0.4, no knob at any time — but late and
+starved at the tip (6.1 reference particles, −0.008 in fit); with it on (ar300) the top region
+holds 21–67 particles at t = 0.2–0.3 and the knob is there. The column's stretch is the
+transport's either way (61 % vs 68 % of the tip-bound above the neck at t = 0.4); what the render
+channel adds is the lead's EARLY arrival at the top. The reason is in the two channels' targets:
+the physics channel is driven to the paced target — the image cloud one pace step ahead — while
+the render channel is driven to the TARGET's final silhouettes, which a thin lead up the ear's
+outline already satisfies. The render channel is half the control in those windows (g_share
+0.4–0.5), so it pulls the lead.
+
+**The rule.** The render channel keeps its role and its balancer, and its target becomes the
+paced target's own images: at each window, the silhouettes S(x̂) of the paced image cloud x̂
+(§10.19 with 10.27–10.30) in the render views, and the shading of x̂ on the loss grid's normals
+(the morph's shading is then taken on the same grid, so both sides of the shading term are built
+alike), re-rendered without gradient,
+
+  L_render = D_sil( R(x_T), S(x̂) ) + w_pbr · D_pbr( R(x_T), Sh(x̂) ).                              (54)
+
+The two channels now share one intermediate target and one growth order; the render channel's
+fit arrives as x̂ converges to the target (in the last windows x̂ is the target and (54) is the
+original loss). The rendering-influence path is unchanged in kind — render → control → outcome
+— and changed in order: the render can no longer lead the transport. No new constant.
