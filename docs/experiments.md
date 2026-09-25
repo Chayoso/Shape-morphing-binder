@@ -7498,3 +7498,12 @@ user warned against. Decision: (b) refuted as implemented, (a) not pursued; the 
 stays an open algorithm item, stated as such, and the delivered look is the splat render's (the
 opacity by support and the adaptive radius make the sparse phase deliverable without touching the
 physics). P269 ✗, P270 ✗ (the pin did not rise).
+
+**2026-09-25 14:55 CDT — splat v2 / v3 tails: 0.0014 each (v1 0.0014).** The opacity-by-support and
+the disc surfels change the look (fewer dots, no interior bleed) but not the tail's change: the
+splat's frame-to-frame shake is the SHADING's — the per-particle normals from the density gradient
+at 1.5 spacings re-estimated each frame — not the geometry's (the silhouette is as still as mc's).
+v5 = v4 with the shading normals at 3 spacings (twice the loss's blur; the geometry untouched) is
+rendered to measure the normals' share; if the tail drops to mc's 0.0007 the splat render is the
+deliverable at the user's taste, else the shading needs the band-limited surface's normals (the
+iso-0.5 field's) instead of per-particle samples.
