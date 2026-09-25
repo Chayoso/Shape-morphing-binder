@@ -6262,3 +6262,21 @@ z300b) but collapsed det F without the hold and alternated with it (al300 / am30
 settled body pinned stress-free and no wall, the question is whether the KDE ear survives.
 Pre-registered: **P220** ear tip ≥ 13 reference particles and the last two slabs ≥ 0.9 / 1.0,
 silIoU ≥ 0.977, end-state p1 ≥ 0.85 and ≤ 0.1 % below 0.5, the tail ≤ 0.0008, pinned ≥ 0.85.
+
+**2026-09-25 19:50 — aw300's verdict (300k, the slip collider; outputs renamed from the as300
+tag):** 62 windows (early stop), **silIoU 0.9754** (the best 300k pin run; ai300 0.9766), det F
+0.614 with the end-state un-pinned p1 **0.856** ✓, no reversal window at all, flips 0.32, step
+0.008 spacings, low-band +0.31; pinned **55.4 %** only (the run stopped at 62 windows, before
+the body had pinned), exactly still; tail 0.0010 (as300 0.0006 at 90 % pinned), bump 1.24°.
+**The ear: tip 8.5** (as300 7.7, ai300 13.6), the last two slabs 0.64 / 0.62 — the tip slab is
+the best of the pin runs (as300 0.41) but the ear is still short (P216 ✗), and its slabs were
+still rising when the run stopped. Why the slip collider did not free the ear as it freed
+nefertiti's crown: the crown stream flows ALONG the bust's surface, which a slip wall permits;
+the bunny's ear is fed THROUGH its base — the feed enters the pinned volume, and a collider,
+correctly, refuses penetration. For a feature fed through settled material the base must stay
+free until the feature is done: the ray clearance (50d) says exactly which material that is,
+and its failure at 40k was the drag, which the collider removes. Launched (GPU 3): **ar300** =
+the slip form + `--settle_pin_ray` at 300k. Pre-registered: **P222** the ear's tip ≥ 11 and the
+last two slabs ≥ 0.85 / 1.0, silIoU ≥ 0.975, end p1 ≥ 0.85, pinned ≥ 0.8 at the end, the tail
+≤ 0.0008, no early stop before 95 % arrival. ak300 (slip + KDE ear, GPU 1) and dw300 (the
+dragon, GPU 2) continue.
