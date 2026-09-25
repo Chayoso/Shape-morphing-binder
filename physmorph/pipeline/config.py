@@ -572,6 +572,9 @@ class PipelineConfig:
     arrive_cap: bool = False        # 2026-09-25 (10.28): the paced target's arrival snap respects the target's capacity —
                                     #   each target point takes at most N / |points| arrivals (closest first), the surplus
                                     #   keeps its plan image; the thin feature is no longer over-filled at the arrival.
+    settle_pin_follow: bool = False # 2026-09-25 (10.27 addendum 6): a pinned particle whose plan image has moved beyond
+                                    #   the pace radius is released (fresh control step) and re-pinned when arrived again —
+                                    #   the pin follows the plan; the settled body can still supply a feature that fills last.
     settle_pin_slip: bool = False   # 2026-09-25 (10.27 addendum 5): the pinned body is a grid-level SEPARATING collider —
                                     #   its mass leaves the momentum average (k_p2g skips it), its mass field is rasterised
                                     #   once per window (k_pin_mass) and k_grid_op removes the approaching normal component

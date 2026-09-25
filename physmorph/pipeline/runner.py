@@ -1427,6 +1427,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                                             smax=cfg.assim_smax, isochoric=False)
                     if (a + 1) % 5 == 0:
                         log(f"[v2] anim {a + 1}: settled particles released to a passing stream {100 * _yield.sum() / max(1, settled_p.sum()):.1f} %")
+                # config.settle_pin_follow (10.27 addendum 6): the pin FOLLOWS THE PLAN. A pinned particle whose plan
+                # image has moved beyond the pace radius is no longer arrived — the paced target wants it elsewhere
+                # (at 300k the ear's last fill is mass the pinned body holds: ai300 fed the tip from the whole body
+                # between windows 62 and 112, every pin run stopped at 62 with the tip at 0.6). It is released for
+                # the window with a fresh control step and re-pinned (re-assimilated) when it has arrived again.
+                _follow = np.zeros(len(settled_p), bool)
+                if getattr(cfg, "settle_pin_follow", False) and settled_p.any():
+                    _follow = settled_p & (~_arr_p)
+                    _yield = _yield | _follow
+                    rec["pin_follow_frac"] = float(_follow.sum() / max(1, settled_p.sum()))
+                    if (a + 1) % 5 == 0:
+                        log(f"[v2] anim {a + 1}: pinned particles released to follow the plan {100 * _follow.sum() / max(1, settled_p.sum()):.1f} %")
                 pin_yield_prev = _yield
                 settle_pin_arr = (settled_p & ~_yield).astype(np.float32)
                 if settled_p.any():
@@ -1443,6 +1455,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                         st["v"][settled_p] = 0.0
                         if st.get("C") is not None:
                             st["C"][settled_p] = 0.0
+                if _follow.any():
+                    ctrl_scale[_follow] = 1.0
+                    ctrl_scale_apply = np.asarray(ctrl_scale_apply, np.float32).copy(); ctrl_scale_apply[_follow] = 1.0
+                    if u_scale is not None and len(u_scale) == len(_follow):
+                        u_scale[_follow] = 1.0
                 rec["pinned_frac"] = float(settled_p.mean())
                 if stats.get("arrive_cap_frac") is not None:
                     rec["arrive_cap_frac"] = float(stats["arrive_cap_frac"])

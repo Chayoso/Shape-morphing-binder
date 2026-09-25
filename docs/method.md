@@ -1332,3 +1332,22 @@ The surplus is still driven toward the feature by its plan image, but no longer 
 already occupied at the target's density; a spike or an ear tip fills to the target's own
 count and not beyond. Read by the end-state det F quantiles (dragon p1, the count below 0.3)
 and by the wedged count on the pin runs (P212).
+
+Addendum 6 (2026-09-25 night) — the pin follows the plan (`settle_pin_follow`). At 300k every
+pin run stops at 61–104 windows with the ear's tip at 0.5–0.6 of the target (aw300 8.5, ar300
+9.2, ak300 8.7 reference particles against ai300's 13.6): the un-pinned ai300 filled the tip
+between windows 62 and 112 while the whole body moved a little each window — that motion was
+the body SUPPLYING the ear, and a pinned body cannot. The plan says which pinned material the
+feature still needs: the paced target re-solves the plan every window, and a pinned particle
+whose image has moved beyond the pace radius is, by the pace's own definition, no longer
+arrived. So:
+
+```
+(50g)  p ∈ P and |x_p − y_p| > r_pace  ⇒  released for the window (pin 0, a fresh control step); re-pinned with F_e → R_e when arrived again
+```
+
+Nothing is added: "arrived" is read every window instead of latched once. The settled body
+stays exactly still wherever the plan is satisfied, and gives up material where the plan asks
+for it — the evidence-based release the optimisation literature prescribes for an active set
+(the digest: Bertsekas 1982, the strong rules' KKT check), with the plan's residual as the
+evidence.

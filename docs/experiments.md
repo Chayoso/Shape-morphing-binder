@@ -6361,3 +6361,25 @@ windows, 97.4 % arrived, pinned 59 %, **silIoU 0.9646 against dl300's 0.9772 (�
 run-min 0.372 — the dragon's fit under the pin drops where the bunny's did not: a target with
 many thin spikes is many streams into sub-cell features, each stopping at the merit's plateau
 early; dc300 (+ the capacity rule) is running as its twin.
+
+**2026-09-25 23:00 — ak300's verdict, g41pc's, and the pin that follows the plan.** *ak300
+(300k, the slip form + the KDE ear term):* 104 windows, silIoU 0.9695, det F run-min 0.414
+(end p1 0.859, two particles below 0.5), pinned 81 %, tail 0.0009, bump 1.25°, **ear tip 8.7,
+slabs 0.80 / 0.72 / 0.66 / 0.49** — the ear fills LATER and no further (P220 ✗): the
+particle-scale term does not supply the mass either. *g41pc (the adopted 40k form + the
+capacity rule):* dragon 0.9620 (−0.002 vs g41pw) with **no particle below 0.5 and the end
+minimum 0.715 (g41pw 0.409)** ✓; bunny 0.9685 (−0.002), cow 0.9616 (−0.004), **nefertiti 0.9679
+(−0.005)** ✗; 30–40 % of the arrivals are over capacity throughout (|target points| ≈ N). P212b
+✓ on the dragon, ✗ on the fit elsewhere: the cap removes the over-fill and costs the fit the
+snap bought — kept opt-in for spiky targets, not adopted for the gallery; dc300 reads it on
+the 300k dragon. **The reading that unifies the 300k ear:** the tip's last growth in ai300
+(windows 62–112) was fed by the whole body moving a little each window — material supply, not
+oscillation. Every pin run stops early with the tip at 0.5–0.6 because the pinned body no
+longer supplies it; neither the free base (ar300), nor the particle-scale term (ak300), nor
+the yield (ay300) restores that supply. Addendum 6 (eq. 50g, `--settle_pin_follow`): "arrived"
+is read every window, a pinned particle whose plan image has moved beyond the pace radius is
+released with a fresh step and re-pinned when arrived. Launched (GPU 1, after a 3k smoke):
+**az300** = ar300's form + follow. Pre-registered: **P224** the ear's tip ≥ 11 and the last two
+slabs ≥ 0.85 / 1.0, silIoU ≥ 0.975, end p1 ≥ 0.85, the tail ≤ 0.0010, the released fraction of
+the pinned set ≤ 15 % at any window, no reversal window, and the run past 80 windows (the ear's
+growth is asked for).
