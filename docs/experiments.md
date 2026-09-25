@@ -7226,3 +7226,18 @@ in the growth windows (8–25), the early top region empty before t = 0.3, the t
 neck at t = 0.4 ≤ 40 %, knob index ≤ 1.3, silIoU ≥ 0.974, end p1 ≥ 0.80, no reversal window, and
 by eye a thick early ear on the strip; **P259** (bi300): the same with tip ≥ 9. Page v52 carries
 the three-lever table and the strip.
+
+**2026-09-27 01:35 — bf300 (300k bunny, ar300's form + the paced render target + the coherent pace):
+the best growth profile so far; the fit −0.004.** silIoU 0.9732 (ar300 0.9773; P256's bound 0.974
+missed by 0.001), 62 windows, **tip 14.8** (ar300 9.2; the paced render alone starved it at 6.9 —
+with the coherent pace the held column arrives together), end p1 **0.895** (the best of the 300k
+pin runs), none below 0.5, no negative-reversal window (two streaks of three null commits at
+windows ~11 and ~54). The slab table: a monotone taper at t = 0.3 (0.65 / 0.53 / 0.38× from the
+base, nothing above), a bump of 1.2 at t = 0.4 (0.66× over 0.55×), 0.94 / 0.89 / 0.86 / 0.71 /
+0.87× at t = 0.6 — **knob index ≤ 1.2 at every time** (ar300 2.2). The early top region: 8 / 20
+particles at t = 0.25 / 0.3 (ar300 21 / 67), 75–100 % tip-bound — the neck-bound overshoot is
+gone. The overtaking measure reads 55 % at t = 0.4 (the held tip-bound column arrives as one
+group between t = 0.3 and 0.4, which is the intended plug, not the jet: 5 % at t = 0.2, 9 % at
+0.3). P256: growth ✓ (taper, knob, top region), tip ✓, health ✓, reversal ✓, fit ✗ by 0.001.
+The by-eye strip is pending its video. The 300k candidate with H⁻¹ (bg300) and the stream-pace
+runs (bh300, bi300) decide the form.
