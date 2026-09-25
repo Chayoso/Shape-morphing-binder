@@ -466,3 +466,32 @@ unrevealed thin feature from the air; the front absorbs its whole vacancy count 
 (10 % of the particles on nefertiti). The gate P245 (g41fx) and the 300k test (ag300, P242) are
 running; the 300k form's supply flag is settled by dh300 (P241 ✓: 0.9685, p1 0.839) — the 300k
 form is ar300's + `--w_h1 1`, the 40k form without it.
+
+### 17.2 (20:40) — what the ear's growth is, measured; the front's fill at the target's density
+
+The ear's particles grouped by where they END (the left ear's tip / neck / base slabs; probe
+`ear_order_probe.py`) show the mechanism the fronts were guessing at. On ar300 the three groups are
+ordered from the first window — tip-bound above neck-bound above base-bound — and each travels the
+same distance, 1.34 wu: the plan translates one column of the head into the ear, base-first by
+construction. In transit the column is STRETCHED: its rear, inside the head, moves slowly (it
+displaces the body); its front, in the ear, moves freely. At t = 0.4, 68 % of the tip-bound material
+is above the neck slab while 27 % of the neck-bound has arrived (the groups' spread in y is 0.3 wu in
+transit for 0.07 at the end). A stretched column is thin — that is the spike; the tip group stopping
+at the top while the column behind it is still stretched — that is the knob on a neck; a piece of the
+stretched column parting — the bead. Every density term thickens the stretched column afterwards.
+
+The fronts of §17 (filled = one particle within the radius) cannot stop the stretch: the sparse lead
+fills the points around it and the reveal moves with it at the pace (a chain) — which is why each
+front held about nothing once its two bugs (the coverage gap, the air-side hold) were fixed, and why
+the "stub" of g41fp was the pile's pull, not an ordering. The cap is withdrawn (its "thin" nodes are
+the surface halo; g41fy nefertiti −0.006 with the front inert), and the thin restriction is vacuous
+where it matters (the ear is bulk at the loss cell; 0.1 % thin at 300k). The fill is now the target's
+own density (52f): a point is filled when the particles within its shell radius reach half its own
+count there, and the reveal is one shell beyond the filled region. A lead filament does not fill;
+its images are clamped at the front; its material accumulates until the rear arrives; the front
+advances as a plug at the target's density — the tongue. At 300k the front binds from the first
+window (3.6 % held, 3.4 % assigned to the front's vacancies; ba300); at 40k it does not bind before the
+ear starts (g41fd). Gates: P247 (40k: bunny / nefertiti / dragon within ±0.003 of g41pw, healthy, the
+bunny's ear a tongue by eye) and P248 (300k: ≥ 0.977, p1 ≥ 0.80, tip ≥ 10, knob ≤ 1.3, no reversal
+streak). ag300 (the morning's front + cap at 300k) reached 0.9803 — the best 300k fit — with the knob
+intact and five reversing windows at its end: the fit gain was not the ordering's.
