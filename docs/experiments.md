@@ -6022,3 +6022,20 @@ nefertiti, beast, ogre, bunny, C, cow (GPU 0). P200–P201 carried over to g41ps
 pinned fraction at the end of nefertiti ≥ 0.6 (the clearance delays, it does not prevent).
 an300's run: silIoU 0.9725, **det F 0.657** (ap300 0.591 — the point clearance at r_pace already
 lifted the 300k det F above the bound), 71 windows; its chain (ear, tail) pending.
+
+**2026-09-25 13:00 — an300's verdict (300k, the point clearance at r_pace, no assimilation):**
+71 windows, silIoU 0.9725, **det F 0.657** (ap300 0.591: the clearance lifts the 300k det F above
+the bound), strays 0.04 %, pinned **76.8 %** with the body exactly still (still fraction 1.000
+at the end), bump 1.23°, one component. **The ear: tip 6.8 reference particles** (ap300 3.9,
+ai300 13.6), the last two slabs 0.72 / 0.46 (ap300 0.66 / 0.18, ai300 0.89 / 1.13) — better,
+still starved (P191 ✗). **The tail: 0.0011** (ap300 0.0008, ai300 0.0011), ALT 0.0011, the
+layer's flips 0.47, low-band correlation −0.18 (min −0.70): the material the clearance keeps
+free (23 %, the ear's region) breathes as in ai300. The reading is consistent with g41pr/g41ps:
+a pinned body drags every stream within its stencil, and the ear at 300k IS a stream to the
+end — the base must stay free while the tip is fed. **as300** launched (GPU 2): ai300's form
++ `--settle_pin --settle_pin_ray --settle_pin_assim` with the stencil clearance (2 Δx).
+Pre-registered: **P204** the ear tip ≥ 11 reference particles and the last two slabs ≥ 0.85 /
+1.0 (ai300's, the ear no longer starved); **P205** the body far from the ear exactly still with
+the pinned fraction ≥ 0.6 at the end; **P206** the tail ≤ 0.0011 (ai300's — the ear's own
+breathing is the floor while it is fed) and det F ≥ 0.6, silIoU ≥ 0.9725, the pinned set's
+elastic det F_e ≥ 0.99.
