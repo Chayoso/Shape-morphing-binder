@@ -7095,3 +7095,15 @@ neck-bound share of the top region at t = 0.2–0.3 falls below 20 % and the kno
 with the fit within −0.003 of ar300; if so, ak300's tongue was the plan's, not the KDE's, and the
 300k form takes `--plan_native` (a discretisation correction, no constant). The render-off twins
 (bb300, g41pl) run in parallel for the render's share of the same overshoot.
+
+**2026-09-26 22:45 — g41pl (40k bunny, the adopted form with the render channel OFF): the render
+does not drive the stretch — P251 ✗.** silIoU 0.9499 (−0.020, the render's fit share at 40k, as
+known), 51 windows, end p1 0.914, no reversal. The ear order WITHOUT the render: the tip-bound
+material above the neck slab at t = 0.2 is **100 %** (g41pw 72 %), 65 % already at the tip (31 %),
+the neck-bound in its slab 12 % (5 %) — the lead runs faster without the render, not slower;
+the knob's composition at 40k is 90–100 % tip-bound in both. So the stretched column is the
+transport's and the physics' (the rear's drag inside the head), and the render channel, half of
+the control in those windows, pulls with it rather than ahead of it. The 300k twin (bb300) is
+read for the record; the remedy moves to the transport: a column-coherent pace (a particle more
+than one pace ahead of its plan neighbours, in remaining distance, waits — the plan's own
+neighbourhood, no new constant), pre-registered next.
