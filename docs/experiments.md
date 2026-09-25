@@ -7241,3 +7241,9 @@ group between t = 0.3 and 0.4, which is the intended plug, not the jet: 5 % at t
 0.3). P256: growth ✓ (taper, knob, top region), tip ✓, health ✓, reversal ✓, fit ✗ by 0.001.
 The by-eye strip is pending its video. The 300k candidate with H⁻¹ (bg300) and the stream-pace
 runs (bh300, bi300) decide the form.
+
+**01:40 — cleanup 5 (98 GB with three 300k runs in flight): 98 → 84 GB.** Deleted the archives of
+the superseded 40k front forms and the read twins — g41fq (5), g41fw, g41fx, g41fg, g41fy (2), g41fp
+(2), g41pl, ag300, ah300, af300 (13 files, 14 GB; list in `.deleted_list_20260927a.txt`, json + logs
+tarred first into `logs_archive_20260927a.tgz`). Kept: g41, g41pw, g41fd, g41fc, g41rp, the 300k
+readings (ai300, ar300, aw300, ak300, au300, ao300, dh300, ba300–bi300), reports and videos.
