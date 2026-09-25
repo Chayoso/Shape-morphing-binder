@@ -557,3 +557,290 @@ as the break rule; R-5 velocity-advected temporal averaging of the SDF over ±1�
 Shah); R-6 a tracked ear mesh. Physics side: P-1 sheet-aware splitting at the commit (Ando 2012;
 α from the sheet thickness, gap 2 spacings); P-2 narrow-band reseeding of front cells below half
 the reference count; P-3 a codimensional carrier (the principled answer, a forward-model change).
+
+## Practitioner rules on resolution, thin features, pinned material and surfacing — graphics-side cookbooks, engine docs and repos (agent digest, 2026-09-25 16:40)
+Question put to the agent (the user: "paper뿐 아니라 cookbook / 각종 해상도 및 관련 자료들 전부"): what the
+course notes, engine documentation, tutorials and repos say about grid resolution vs particle count, thin
+features, frozen material and surfacing. **[V]** = read on the source page/file; **[S]** = the agent's reading
+of a summary. Where a page states no number the digest says so.
+
+### 1. Grid resolution vs particle count (ppc, dx vs feature, dt)
+- **8 particles per cell is the production default everywhere.** Houdini MPM Container, *Grid Scale*:
+  "Multiplies the Particle Separation to define the voxel width dx of the background grid. The default of 2
+  will pack 8 particles per voxel on average" [V]; the MPM Solver's deterministic P2G calls "tightly packed
+  particles (8 per voxel default)" the fast path [V]. taichi_elements `mpm_solver.py`: `sample_density =
+  2**self.dim` → 8 in 3-D [V]. Warp `example_apic_fluid.py`: `PARTICLES_PER_CELL_DIM = 2` (8 ppc), linear basis,
+  free-slip projection `vel_adv -= max(v_n, 0) * sdf_gradient` [V]. ZIRAN 2019 `MpmInit3D.h`: every 3-D scene
+  `particlesPerCell = 8`, `cfl = 0.6`, `max_dt = suggested_dt * 0.6`, FLIP/PIC blend 0.98–0.99, walls STICKY,
+  ground SLIP μ = 0.15–0.4 [V]. GPU-MPM (Gao et al.): "eight particles per cell are usually required for
+  stability considerations"; benchmarks sweep 4/8/12/16 [V]. Taichi `mpm99.py`: 4 ppc in 2-D, quadratic kernel
+  [V]; Hu's 88-line MLS-MPM: the "higher quality" recipe drops dt 10× for 4× resolution and multiplies
+  particles ×16 (ppc held) [V]. Genesis `MPMOptions`: `grid_density` (cells per metre) 64, `particle_size`
+  proportional to the cell (≈ 4 ppc at the reference values, the agent's inference) [V]. PhysGaussian
+  defaults `n_grid = 50`, `grid_lim = 2.0`, `substep_dt = 1e-4`; wolf (sand, E = 5e7) `n_grid = 200`, `dt =
+  2e-5` [V]. PhysDreamer: `grid_size = 64`, 768 substeps per frame [V]. Houdini FLIP forum (Tamte): reseeding
+  particles-per-voxel "should usually be set to gridscale^3" [V]; Lait: FLIP particles "are just markers" [V].
+- **Why 8 and not 25.** The SIGGRAPH 2016 course notes (Jiang, Schroeder, Teran, Stomakhin, Selle): "the
+  Eulerian grid is the essential computational mesh while particles act as quadrature points" [V]; the
+  notes give no ppc number and no dt table [V, absence]. Engineering summaries: ~4 points per cell per
+  direction minimises the quadrature error; the null-space (ringing) error is absent at 1 ppc without cell
+  crossing [S]. More ppc buys quadrature accuracy up to a point; it adds no resolution and does not stop cell
+  crossing — the kernel's job.
+- **Kernel order.** Course notes: C1 continuity is required against the cell-crossing instability;
+  quadratic B-splines are cheaper, cubic "provides wider coverage, therefore less sensitive to numerical errors
+  such as numerical fracture when they are not desired artistic effects"; linear "theoretically unstable" [V].
+  D_p = ¼ dx² I (quadratic), ⅓ dx² I (cubic) [V]. Our cubic choice is the conservative one for the ear.
+- **dt / CFL.** Houdini MPM Solver: *CFL Condition* = "the fraction of voxel width that a particle is
+  allowed to travel within a single timestep"; *Material Condition* = a multiplier on the stiffness-based
+  maximum; substeps automatic up to 10 000 [V]. taichi_elements: `default_dt = 2e-2 * dx / size * dt_scale`,
+  adaptive `cfl_dt = allowed_cfl * dx / max_grid_v` [V]. Blender Mantaflow: "CFL Number … in grid cells per
+  time step" [V]. ZIRAN: cfl 0.6 and 0.6–0.7 × the stiffness dt [V]. FLIP Fluids: fast fluid disappears
+  unless *Max Frame Substeps* is raised [V].
+- **dx vs the smallest feature.** No MPM doc states an "N cells across a feature" rule; the FLIP / level-set
+  world does: FLIP Fluids wiki — "the size of a voxel is the minimum amount of physics detail that can be
+  resolved", an obstacle "should be at least 1 voxel thick" but "at least 2 voxels is best to be fully
+  resolved in all cases", an inflow "at least one voxel" [V]; Houdini FLIP — "If the Particle Radius Scale /
+  Grid Scale ≥ √3/2, then particles will never be under-resolved" [V]; OpenVDB `ParticlesToLevelSet` —
+  minimum radius 1.5 voxels "corresponding to the Nyquist frequency" [V]; Houdini VDB from Particles — radius
+  below 1.5 voxels "will likely cause aliasing artifacts" [V]; Houdini MPM Water Glass example — a thin glass
+  needs *Voxel Size* 0.001 or "the top of the glass disappears" [V].
+
+### 2. Thin features (sheets / strands) in practice
+- Houdini FLIP keeps thin sheets by **reseeding**: *Surface Oversampling* within *Oversampling Bandwidth* of
+  the surface (≥ 2 for thin sheets), with the warning that too much reseeding makes "fluid gaining volume
+  over time" [V]; forum recipe against flicker: particles per voxel +1–2, surface oversampling +10–20,
+  bandwidth 1.5–2 [V]. Droplet detection: "a fully droplet particle also does not contribute velocity back to
+  the fluid simulation" and "can also break up tendrils on the leading edge of splashes" [V] — Houdini
+  deliberately DECOUPLES sub-cell material from the grid rather than resolving it. *Narrow Band*: "very fast
+  moving simulations might require a larger bandwidth to maintain stability" [V].
+- Houdini MPM has no thin-shell / cloth mode (the H21 list: sleeping, resimulation, surface tension,
+  deterministic P2G, phase IDs, debris, post-fracture) [V]; small-scale / sparse work goes to Vellum / Grains
+  [V]. MPM Source *Surface* type, *Oversampling* "can make the material more resilient against fracturing",
+  *Relax Points* against clumping [V]. Thin colliders: raise the collider's voxel resolution, *Particle-Level
+  Collisions*, *Velocity-Based Move Outside Colliders*; "Materials stick together excessively → Reduce the
+  Grid Scale … reduces material property bleeding between particles" [V].
+- Genesis: `enable_CPIC` "to support coupling with thin objects" [V]; CPIC = coloured distance field +
+  compatibility between particles and nodes (Hu et al. 2018) [S].
+- splashsurf: radius "1.4 to 1.6 times larger than the original SPH particle radius"; cube size ≤ 1.0 ×
+  radius, "start with 0.75 to 0.5"; smoothing length 2.0 r; threshold 0.6 [V]. Houdini Neural Point Surface
+  *Liquid* model "good at reconstructing thin sheets of water by connecting nearby water droplets" [V] —
+  the thin-feature problem solved at surfacing time. Blender: *Particle Radius* in cell units, *Upres Factor*
+  [V]; FLIP Fluids: *Subdivisions*, particle scale 1.0–1.5 smooths, lower "risks mesh holes" [V].
+
+### 3. Frozen / kinematic material and streams past it
+- Course notes §12.1 (the rule every engine copies): collisions are applied "on the grid velocity vᵢ
+  immediately after forces are applied", **relative to the collider**, `v_rel = v − v_co`; "If the bodies are
+  separating (v_n ≥ 0), then no collision is applied"; sticking if |v_t| ≤ −μ v_n, else Coulomb; "Dirichlet
+  boundary condition on grid nodes is equivalent to sticky collision"; a second pass on particles "will
+  introduce inconsistency in the deformation gradients … should only be turned on if necessary" [V].
+- taichi_elements: sticky → `grid_v = 0`, slip → `v − n(n·v)`, separate → `v − n·min(n·v, 0)` [V]. warp-mpm
+  (PhysGaussian / PhysDreamer): sticky zeroes the node, slip removes the normal component, friction projects
+  inward + Coulomb; `enforce_particle_velocity_*` overwrite PARTICLE velocity before P2G, `set_velocity_on_cuboid`
+  overwrites GRID nodes [V] — the field has both idioms, and the particle idiom is ours: pinned particles keep
+  entering the momentum average.
+- Houdini MPM Collider *Sticky*: projection "even when moving away … prevents the material from detaching";
+  *Detection Distance* = the particle radius; animated colliders rigid (VDB + transform) or deforming (surface +
+  velocity VDB) [V]. Houdini FLIP *Stick on Collision* / *Slip on Collision* [V]. Houdini MPM Auto Sleep: three
+  states — Passive, Active and "Boundary (red) … a hybrid state … needed for this to work under the hood" [V];
+  *Pin Constraints* on the MPM Source [V]; the docs do not say whether passive particles leave the grid
+  transfer [V, absence]. POP auto-sleep caveat: "Start Asleep" can produce "a drooping effect when sand is
+  activated and settles" [V]. The documented dragging artefact: "Materials stick together excessively → reduce
+  Grid Scale" (bleeding via shared nodes) [V]; CPIC exists because particles on either side of a sub-cell
+  boundary share nodes [S].
+
+### 4. Surface-reconstruction smoothness
+- Houdini Particle Fluid Surface: *Voxel Scale*, *Influence Scale* (multiples of separation; "small increases
+  can give smoother results but increase cooking time greatly"), *Droplet Scale* < influence; *Dilate / Smooth /
+  Erode / Final Smooth* in voxels and iterations; flicker → *Limit Refinement*, adaptivity 0 [V]; forum:
+  lower influence → bumpy, lower droplet scale → holes [V]. Houdini MPM Surface: *Masked Smooth* protects by
+  *Min Stretch* (J_p) and *Min Curvature* [V]. VDB Smooth SDF: *Mean Curvature Flow* "flatten out bumps",
+  *Median* "de-spiking" [V]; OpenVDB `LevelSetFilter`: gaussian ≈ 4 separable mean iterations [V].
+- splashsurf: "25 iterations appeared to strike a good balance between an initially bumpy surface and
+  potential over-smoothing"; `--mesh-smoothing-weights=on` (feature-preserving), normals smoothing 10,
+  `--decimate-barnacles`; reference `-r 0.025 -l 2.0 -c 0.5 -t 0.6 --mesh-smoothing-iters 15` [V].
+  PoissonRecon: `--samplesPerNode` 1.5 default, "[1.0–5.0]" for noise-free, "[15.0–20.0]" for noisy; `--depth`
+  8 or `--width`; `--pointWeight` 2 × degree; `--envelope`; SurfaceTrimmer removes the low-density sheet [V].
+- No numeric dihedral / bumpiness target anywhere; production tunes by eye [V, absence].
+
+### Our values against the rules
+| quantity | ours | the rule | source |
+|---|---|---|---|
+| ppc | ≈ 25 at 40k (dx 0.30 wu); ≈ 190 at 300k under `--disc_ref`, ≈ 25 native | 8 (2 per axis); 4–16 swept | Houdini MPM, taichi_elements, Warp, ZIRAN, GPU-MPM [V] |
+| cells across the ear | ≈ 1 | ≥ 2 "fully resolved"; radius ≥ 1.5 voxels (Nyquist) | FLIP Fluids, OpenVDB, Houdini FLIP [V] |
+| dt / CFL | window of 18 steps, fraction not reported | CFL 0.6 of a voxel; stiffness dt × 0.6 | ZIRAN, Houdini MPM [V] |
+| reconstruction voxel vs separation | screened Poisson at depth; separation ≈ 0.10 wu | voxel 0.5–0.75 × radius, radius 1.4–1.6 × separation; samples-per-node 1–5 clean | splashsurf, OpenVDB, PoissonRecon [V] |
+
+### Five changes, ranked by the agent (with our reading)
+1. ≥ 2 cells across the ear AND 8 ppc, jointly: dx ≈ 0.12–0.15 wu — at 40k that is 1.6–3 ppc, so it means
+   the 300k set at the native grid (ppc 25, ear ≈ 2 cells), not `--disc_ref`. Cost: nodes × 12, adjoint memory
+   likewise unless the grid is sparse. (Our reading: the 300k native run c300 did not fill the ear and dp300
+   compresses the dragon's spikes more — the resolution is necessary, the arrival's capacity (§14.0) is the
+   missing half.)
+2. **The pin as a grid-level collider with the relative-velocity separating rule**, pinned mass out of the
+   momentum average. → method.md 10.27 addendum 5 (`--settle_pin_slip`), g41pw.
+3. Reconstruct at radius ≥ 1.5 voxels with feature-weighted smoothing (splashsurf 15–25 iterations, OpenVDB
+   mean-curvature pass, PoissonRecon `--width` / `--envelope`). → the R-2 item of the D2 phase.
+4. Cap the per-step travel at ≤ 0.6 voxel with adaptive substeps; report the CFL fraction per run.
+5. Oversample the thin-feature source region 2× and relax it (Houdini FLIP surface oversampling, MPM *Relax
+   Points*), with an exact mass budget; keep the grid scaling with N^(1/3) at 300k.
+Not reachable this session: the Disney snow PDF and the MLS-MPM/CPIC PDF (size), docs.blender.org (403; the
+manual was read from its RST source).
+
+## Slip at frozen and rigid bodies in (MLS-)MPM, 2000–2026 (agent digest, 2026-09-25 17:10)
+Question put to the survey: a pinned body that deposits its mass with zero momentum is a no-slip wall with a
+boundary layer one kernel support wide (2 dx, cubic B-spline) — how does the community let material slide
+past a rigid or frozen body without the mass-averaged drag at shared nodes. *verified* = read from the fetched
+paper or abstract page; otherwise the agent's reading.
+
+**Grid-node collision objects: a velocity constraint, never a mass.** Stomakhin, Schroeder, Chai, Teran, Selle,
+*A material point method for snow simulation*, SIGGRAPH 2013 (*verified* full text): collision objects are level
+sets that deposit no mass; collisions are processed on the grid velocity after forces and again on particle
+velocities before the position update; per node v_rel = v − v_co, nothing if v_n ≥ 0, else v_t = v_rel − n v_n
+and v'_rel = v_t + μ v_n v_t/|v_t| (v'_rel = 0 when |v_t| ≤ −μ v_n); "sticky" = v'_rel = 0 unconditionally.
+Klár et al., *Drucker-Prager elastoplasticity for sand animation*, SIGGRAPH 2016 (*verified*): "three types of
+collisions: sticky, slipping, and separating", node constraints with Lagrange multipliers inside the implicit
+solve; "processing collisions directly on particles produces poor results … it is necessary to process
+collisions using the grid velocities". PlasticineLab, ICLR 2021 (*verified*): grid-based contact with Coulomb
+friction after Stomakhin, rigid bodies as time-varying SDFs; for backpropagation a softened contact
+s = min{exp(−αd), 1} blending pre/post-projection node velocity; "gradients will vanish if the tasks involve
+detachment and reattachment". Newton (newton-physics, Warp) implicit MPM `rasterized_collisions.py`
+(*verified* source): per node an SDF value, contact normal, collider velocity, friction and adhesion; the
+relative velocity gets an isotropic Coulomb response; collider mass is never added to the node. GeoWarp (2025,
+*verified*): Dirichlet nodal velocities and a penalty contact under Warp reverse-mode AD. Common structure: the
+wall has its own reference velocity and no mass, so the kernel-wide layer is a slip layer.
+
+**One grid, a discontinuity by node colouring.** Hu, Fang, Ge, Qu, Zhu, Pradhana, Jiang, *A moving least
+squares MPM with displacement discontinuity and two-way rigid body coupling* (CPIC), SIGGRAPH 2018 (*verified*
+full text): "rigid body" includes "a rigid collision boundary with scripted kinematics motion"; a colored
+distance field (unsigned distance, per-surface affinity, side tag) is splatted on the grid and particles
+inherit their colour; "a grid node i and a particle p are compatible if and only if for all surfaces shared by
+the particle and the grid node, all tags are the same"; "near rigid surfaces, particles only transfer to
+compatible grid nodes"; in G2P an incompatible node takes a ghost velocity, the particle's own velocity
+projected against the body with boundary type (sticky / slip / separate) and friction, and the impulse goes
+to the body. Limitation (*verified*): "it only resolves features at a scale of grid Δx … the compatibility
+condition … is a binary decision and essentially grid-aligned". The drag vanishes because the two sides never
+share a momentum average.
+
+**Multi-velocity-field contact.** Bardenhagen, Brackbill, Sulsky, CMAME 2000 (own field per body, mass-gradient
+normal) and CMES 2001 (*verified* abstract); Nairn, CMES 2013 (*verified* abstract): "extrapolates each material
+to its own velocity field … by reconciling momenta at nodes interacting with two or more materials". Nairn,
+Hammerquist, Smith, CMAME 2020 (*verified* full text): with the velocity criterion alone "contact is always
+detected too early", and for a mid-cell interface "all grid-based methods falsely detect contact too soon" —
+our phantom layer, named; the fix is a logistic-regression plane through the point cloud around each contact
+node (normal + separation), contact only when approaching AND separation < 0. Graphics: Tampubolon et al.,
+SIGGRAPH 2017 (*verified*): "a two-grid Material Point Method"; Gao et al., *Animating fluid sediment mixture in
+particle-laden flows*, SIGGRAPH 2018 (*verified* abstract): "two-way coupled through a momentum exchange force …
+two MPM background grids"; Han, Gast, Guo, Wang, Jiang, Teran, SCA 2019 (*verified* full text): "to prevent
+numerical cohesion between phases common to MPM, we adopt two separate background MPM grids", contact via
+collision particles sampled on the boundary "at a density proportional to the grid spacing", Coulomb
+impulses — "removes the excessive numerical friction common to traditional MPM". Fang et al., IQ-MPM,
+SIGGRAPH 2020 (*verified* full text): "the automatic MPM coupling is inherently restricted to sticky and no-slip
+interactions. As a result, solid-solid interfaces experience infinite friction"; separate solid and fluid
+domains, normals from the negative mass gradient, free slip weakly in one monolithic solve; open: "to allow
+two solids to freely slide against one another". Ménager, Carpentier, arXiv 2602.02038 (2026, *verified*):
+"classical node-based approaches enforce no-penetration and no-slip implicitly by sharing the same
+interpolation space at a standard grid node"; one grid per object, contact by ADMM. Zong et al., arXiv
+2503.05046 (2025, *verified*): single-valued grid, one contact point per particle inside rigid geometry.
+SoftMAC (2023/24, *verified*): forecast G2P, per-particle SDF test, drop v_n, decay v_t by Coulomb,
+differentiable. Qu et al., *The power particle-in-cell method*, SIGGRAPH 2022 (*verified* abstract): volume
+clipping, not slip. Liu, Wang, Li, CK-MPM, 2025 (*verified*): a compact kernel (16 nodes per particle vs 27)
+lets "a ball at 1.5Δx margin" fall freely where the quadratic kernel leaves it stuck — the stick layer is the
+kernel support.
+
+**Shortlist as applied.** (S-1) the pinned body as a Stomakhin/Newton collider, not a mass: its particles
+rasterise a mass field, n = ∇m_pin/|∇m_pin|, v_co = 0, their mass and momentum leave the average; after the
+grid update, nodes in the pinned support get the approaching normal component removed (μ = 0 slip, or
+Coulomb μ) — one node pass, a piecewise-linear adjoint → **method.md 10.27 addendum 5, `--settle_pin_slip`**;
+(S-2) CPIC colouring by the pinned/free interface (floor one cell, grid-aligned); (S-3) a second grid field for
+pinned mass with Nairn's approach + separation test (×2 grid memory); (S-4) a narrower kernel (quadratic 1.5
+dx; CK-MPM ~1 dx) shrinks whatever layer remains. Not to do: drag coupling (no-slip by construction); soft
+contact at evaluation.
+
+## Adaptive resolution and thin-feature carriers in MPM, 2006–2026 (agent digest, 2026-09-25 17:10)
+Question put to the survey: resolve a one-cell-wide protrusion (the ear) without refining the whole grid,
+under an adjoint that stores every step's grid (dx/2 = ×16 memory).
+
+**Adaptive grids.** Gao, Tampubolon, Jiang, Sifakis, *An adaptive generalized interpolation material point
+method for simulating elastoplastic materials*, SIGGRAPH Asia 2017 (*verified* abstract): "adaptive refining
+and coarsening of different regions", "a C1 continuous adaptive basis function that satisfies the partition of
+unity property and remains non-negative", SPGrid sparse multi-layered grids; levels graded, hanging nodes carry
+no DOF (agent's reading). Bird, Coombs, Augarde, Pretti, O'Hare, *An implicit octree-based adaptive MPM*, 2026
+(*verified*): refinement by proximity to the rigid surface; hanging nodes constrained to their parent (C0);
+a particle splits into 8 when it "occupies elements smaller than β·l_p (β ≥ 2)", never merges back; 5.5× and
+29.5× faster than the conforming mesh; CPU, no AD. He, Jin, Zhou, Yin, Chen, *A multi-resolution MPM based on
+penalty formulation*, IJNAMG 2025 (*verified* abstract): separate MPM models per level, "bounded material
+points that connect these levels", a penalty on their positional deviation, "it is only necessary to map the
+penalty forces of bounded material points to the corresponding level background grids. No other modifications
+are required"; a penalty factor independent of E and spacing; the fine region is prescribed. Ma, Lu,
+Komanduri, CMES 2006 (structured GIMP refinement with transition cells) is the precursor. Li et al. 2026
+(*verified* abstract): the multi-level blocks belong to the LBM fluid, the MPM stays single-resolution. Zhao et
+al. 2026 (*verified* abstract): sparse but uniform; "adaptive refinement methods usually require significant
+changes to the MPM formulation". HOT (Wang et al., TOG 2020): a solver hierarchy on a uniform grid.
+Aanjaneya et al., SIGGRAPH 2017: octree liquids, power diagrams. Net: the graphics GPU line 2018–2026 stayed
+uniform; every adaptive MPM picks the fine region by distance to a feature and pays a custom basis (C1 AGIMP,
+C0 Bird) or a penalty overlap (He 2025).
+
+**Narrower kernels at fixed dx.** CK-MPM (*verified*): compact kernel on dual grids offset ±¼Δx, 16 nodes per
+particle vs 27 quadratic and 64 cubic; less diffusion; no AD discussion. MPM Lite (Feng et al., 2026, *verified*
+abstract): linear kernels onto fixed quadrature points. A one-cell ear under the cubic kernel spreads over four
+to five node columns per axis, three under the quadratic, two under CK.
+
+**Lagrangian carriers.** Jiang, Gast, Teran, SIGGRAPH 2017 (*verified*): the mesh carries the in-manifold
+deformation gradient, the grid the orthogonal components; "the apparent thickness of the surface/curve depends
+on the grid resolution", "numerical separation … about half a grid cell width or numerical stickiness", "works
+best if the size of the surface or curve elements is at most the size of the grid spacing". Guo et al.,
+SIGGRAPH 2018 (*verified*): subdivision shells + MPM. Han et al., SCA 2019 (*verified*): elastic forces fully
+Lagrangian; collision particles at grid density "remove the effect of grid resolution on collision
+resolution". Fan, Chitalu, Komura, CGF 2025 (*verified* abstract): hybrid shell with phase-field tearing.
+Hybrid Grains (Yue et al., SIGGRAPH Asia 2018, *verified* full text): an oracle from the packing fraction on a
+grid, a reconciliation zone at a chosen distance from the threshold isocontour, mass-splitting with velocity
+agreement enforced node-wise, enrichment / homogenisation when the zone moves — the closest published analogue
+of the pin, and it re-homogenises when the zone moves.
+
+**Particle-side thin features.** Ando, Thürey, Tsuruno, TVCG 2012: neighbourhood anisotropy as the criterion,
+split thin, collapse deep. Ferstl, Ando, Wojtan, Westermann, Thuerey, *Narrow band FLIP*, EG 2016 (*verified*):
+particles only within R = 3h–4h of the surface; the naive coupling "leads to a consistent over-estimation of
+the fluid motion" at the band edge, fixed by blending. Yue et al., *Continuum foam*, TOG 2015: resampling plus
+"an explicit tearing model to prevent regions from shearing into artificially thin threads". None of these
+enlarges what the grid can represent; they repair sampling.
+
+**Differentiability.** No adaptive MPM is differentiable; DiffTaichi / PlasticineLab keep static uniform
+grids. A penalty-coupled fine box (He 2025) adds only a smooth force; a C0 hanging-node basis is piecewise
+linear in the state; a Lagrangian carrier (Han 2019) is FEM, smooth.
+
+**Shortlist as applied.** (R-1) a nested fine MPM box (dx/2) over the ear's bounding box, the coarse grid
+untouched, overlap particles "bounded" by a penalty (He 2025) — 8 fine cells per coarse cell inside the box
+only (a 2 % box costs +16 %, not ×16), differentiable; (R-2) the compact or quadratic kernel at the present dx
+— zero memory, the ear's node footprint halves; (R-3) a Lagrangian carrier for the ear (Han 2019); (R-4) a C0
+hanging-node octree inside the box; (R-5) band reseeding at the tip (Ferstl / Ando) for sampling only. Not to
+do: global dx/2; ppc as a resolution substitute.
+
+## Freezing converged variables and releasing them (agent digest, 2026-09-25 17:10)
+Deep-learning freezing is monotone (FreezeOut 2017, AutoFreeze 2021, Egeria 2022/23, SmartFRZ 2023,
+TimelyFreeze 2026, ULMFiT's gradual unfreezing — all *verified* abstracts): none re-opens a frozen block on
+evidence. The principled release lives in optimisation: Bertsekas, *Projected Newton methods*, SIAM J. Control
+Optim. 1982 (the ε-active set re-identified every iteration from the gradient); Facchinei, Fischer, Kanzow,
+SIAM J. Optim. 1998 (*verified* abstract): an identification function of the KKT residual; Tibshirani et al.,
+JRSS-B 2012 (*verified*): after solving on the screened set "rely on the Karush–Kuhn–Tucker conditions … add the
+variables that fail a KKT check back"; LIBSVM shrinking (Chang & Lin 2011, *verified*): "if not, then we
+reactivate all variables". Rigid-body engines release by contact: Box2D islands (*verified*): a velocity
+threshold held for a time-to-sleep sleeps the whole island, "bodies wake other sleeping bodies through
+constraints and this must propagate through all touching bodies immediately". Applied: the pin is an active
+set; release it by (i) a KKT check at each window commit — the adjoint already yields the objective gradient
+on pinned particles; un-pin those above the free-particle median — and (ii) contact wake — a pinned node
+receiving free-stream momentum above the sleep threshold wakes its connected pinned component. Evidence rules,
+not distance rules.
+
+**What is genuinely new to us.** The 2 dx stick layer is a documented property of shared-node MPM (Nairn 2020,
+Ménager 2026, CK-MPM), not our bug; every production collider deposits no mass — it is a per-node velocity
+constraint with its own reference velocity, and our pin deposited mass, which is the drag; CPIC holds a
+discontinuity on one grid at a one-cell floor; two-field contact needs a separation test or it fires a kernel
+width early; solid–solid free slip in a monolithic solve is still open (IQ-MPM); no differentiable or GPU
+adaptive MPM exists, He 2025's penalty-linked nested levels is the only scheme that changes nothing in the
+transfers; codimensional carriers decouple a feature's resolution from dx at half a cell of contact
+separation; a compact/quadratic kernel halves both the stick layer and the ear's smear at zero memory; DL
+freezing never un-freezes on evidence — the principled release is a KKT check or contact wake; Hybrid Grains
+is the closest analogue of the pin. **Top 3 to try:** (1) the mass-less slip collider (S-1, done as addendum
+5); (2) the nested fine box by penalty over the ear (R-1: +10–20 % adjoint memory for a 1–2 % box); (3) the
+evidence-based release of the pin (KKT on the adjoint gradient at the commit; contact wake). Runner-up at zero
+memory: the quadratic or CK compact kernel.

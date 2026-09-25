@@ -6169,3 +6169,24 @@ stream (the wall neither drags nor squeezes); **P214** beast ≥ 0.950; bunny / 
 of g41py with the pinned fraction at the end ≥ 0.65 (the slip wall pins earlier than the
 clearance rules allowed); **P215** the end-state p1 ≥ 0.88 on all four. If P213–P215 hold, the
 slip form replaces the ray / yield rules in the recipe and goes to the 19 and to 300k.
+
+**2026-09-25 17:20 — as300's verdict (300k; the ray clearance at 2 Δx + stress-free assimilation
++ hold), and the two digests in.** 92 windows, silIoU 0.9713, det F 0.650 (end-state un-pinned p1
+0.80), strays 0.04 %, **pinned 90.1 % and exactly still**, the pinned set's elastic det F_e 1.000,
+bump 1.21°, one component. **The tail: 0.0006 (p90 0.0008), stride-12 ALT 0.0006, low-band
+correlation +0.46, flips 0.53** — the lowest tail of any 300k run (ai300 0.0011, the 40k
+acceptance 0.0013): P205 ✓, P206 ✓ by a wide margin. **The ear: tip 7.7 reference particles**
+(an300 6.8, ap300 3.9, ai300 13.6), the last two slabs 0.81 / 0.41 (ai300 0.89 / 1.13): P204 ✗ —
+the ear is still fed through material the clearance rules keep free only along straight
+rays, and the base's boundary layer drags the feed. ay300 (+ the yield) is the next reading at
+300k; the slip collider (addendum 5) after it. *The digests* (docs/related_work.md): the
+2 Δx stick layer is a documented property of shared-node MPM (Nairn 2020: "contact is always
+detected too early"; Ménager 2026; CK-MPM's ball stuck at 1.5 Δx); every production collider
+deposits no mass and is a per-node velocity constraint relative to its own velocity (Stomakhin
+2013, Klár 2016, PlasticineLab, Newton/Warp) — our pin deposited mass, which is the drag; the
+principled release of a frozen set is a KKT check on the gradient or a contact wake (Bertsekas
+1982, strong rules, LIBSVM shrinking, Box2D islands), not a distance; for the ear, the only
+adaptive scheme that changes nothing in the transfers is a nested fine box coupled by a penalty
+(He 2025), and the quadratic / compact kernel halves both the stick layer and the ear's smear at
+zero memory. The slip smoke's first launch crashed (the pinned mass rasterised before the
+positions existed); fixed (rasterised at step 0 of each rollout), relaunched.

@@ -128,10 +128,7 @@ class Trajectory:
         # config.settle_pin_slip: the pinned body's mass field, rasterised once per window (the pinned particles do
         # not move inside it) and read by k_grid_op as a separating collider; pin_mode 0 = pinned mass on the grid
         self.pin_mode = 1 if (pin_slip and pin is not None) else 0
-        self.gmpin = wp.zeros(prm.ngrid, dtype=wp.float32, device=device)
-        if self.pin_mode == 1:
-            wp.launch(K.k_pin_mass, dim=N, inputs=[self.x[0], self.m, self.pin, self.gmpin, wp.vec3(*prm.grid_min), prm.dx,
-                      1.0 / prm.dx, prm.nx, prm.ny, prm.nz], device=device)
+        self.gmpin = wp.zeros(prm.ngrid, dtype=wp.float32, device=device)   # rasterised at step 0 (x exists by then)
         self.Fp = A(_id(N) if Fp is None else Fp, wp.mat33)
         if vol0 is None:
             vol_a = np.zeros(N, np.float32)
@@ -298,6 +295,11 @@ class Trajectory:
         if self.share_grid or self.persistent:       # P2G accumulates: fresh grid per step
             self.gm[t].zero_()
             self.gmom[t].zero_()
+        if self.pin_mode == 1 and t == 0:
+            # the pinned body's mass field, once per window (pinned particles do not move inside it)
+            self.gmpin.zero_()
+            wp.launch(K.k_pin_mass, dim=N, inputs=[self.x[0], self.m, self.pin, self.gmpin, gmin, prm.dx, inv_dx,
+                      prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
                   self.m, self.vol, self._omega(t), bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
