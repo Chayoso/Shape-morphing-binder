@@ -282,3 +282,19 @@ Rendering influence for the phase: R-2 and the dihedral map are reconstruction-s
 no particle; the Ando split is a commit-time resampling that the render gradient does not see
 (the split particles inherit the control of their parent). The KDE term is the only item that
 moves the render → control path (it competes with the render covector at the layer).
+
+### 14.0 (added 16:15) — the thin feature's capacity: the arrival without exclusivity
+The dragon at 300k compresses at its spikes under every discretisation (dl300 p1 0.76, dk300
+0.78, dp300 at the native grid **0.70** with 270 particles below 0.3), and at 40k the last
+arrivals wedge against the pinned body (3–15 particles at det F < 0.7, all touching pinned
+neighbours). One mechanism: the paced target snaps an arrived particle's image to the nearest
+target point with no exclusivity, so a thin feature's few target points receive every particle
+the plan sends near them and the cell-sum loss packs them in; where the un-pinned body would
+jostle until equal, a pinned neighbour or a spike's wall does not move. The lever is the
+arrival step: the plan's own matching as the image (one target point per unit of transported
+mass) or a density-capped hand-off at the arrival (Maury 2010's congestion projection at the
+snap, not over the whole transport as §10.22 did). Pre-registered as **P212**: on the 300k
+dragon with `--disc_ref`, end-state p1 ≥ 0.85 and ≤ 0.02 % below 0.3 at silIoU ≥ 0.970; on
+the pin gallery the wedged count (un-pinned det F < 0.7) falls to 0 on nefertiti. Item 0 of
+the D2 phase, since the same rule decides whether an ear tip at 300k can be filled without
+being over-filled.
