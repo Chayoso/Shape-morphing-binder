@@ -5981,3 +5981,12 @@ adoption candidate for 40k. Gates: **P188'** fit within −0.003 of max(g41, g41
 −0.05 of g41 on ≥ 15 and ≥ 0.65 on all; **P190** step ≤ 0.02 spacings and flips ≤ 0.56 on all;
 **P192** the pinned set's elastic det F_e ≥ 0.99 at the end on every target (the archive's
 F_p). an300 (300k, ap300's form + clear, no assim) keeps running as the ear reading (P191).
+
+**2026-09-25 11:20 — the next phase pre-registered (dossier §14; the user's order: once the
+oscillation is caught, the droplets and the smooth surface).** P196 (the tip's dropout is the
+reconstruction's, unchanged by the pin), P197 (R-2: finest node ≤ the tip's half-thickness, no
+density coarsening, symmetrized normals → capture ≥ 0.8 every frame at ≤ 1.2°), P198 (the
+Ando 2012 sheet-aware split at the commit → pieces < 10, tongue ≥ 0.9, tip ≥ 11, det F p1 ≥
+0.85), P199 (≥ 70 % of the dihedral excess within one cell of the last arrivals' boundary).
+Not launched until g41pz / an300 / dp300 are read. The stress-free pin's smoke: the pinned
+set's elastic det F_e = 1.000 exactly (min, p1, median) — P192 holds on the smoke.

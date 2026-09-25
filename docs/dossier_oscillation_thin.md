@@ -237,3 +237,48 @@ Side readings: am300 (KDE ear + H) refuted at 300k (det F 0.41, tail 0.0015). Th
 the base 300k recipe, not the KDE (which multiplies the count ×6) nor the hand-off; dp300
 (without `--disc_ref`) attributes it (P187). For N > 40k the reading is p1 and the count below
 0.5, not the minimum over 300k particles.
+
+## 14. The next phase, pre-registered (11:20; the user: "once the oscillation is caught, the droplets and a smooth surface")
+Not launched — the D1 gates (g41pz P188'–P192, an300 P191, dp300 P187) close first. What the
+phase starts from, per defect, with the prediction that decides each step.
+
+**D2 — the thin feature that moves like a droplet.** Established: at 300k the ear grows as a
+base pile plus a filament 2–3 native spacings across; the tip's particles never retract (census:
+47 → 108 monotone, all surfels) — the per-frame Poisson fit passes below a filament narrower
+than its finest node (0.10 wu) and its B-spline support (0.31); the bead chain is what the
+resolution holds. The KDE particle-scale term changes the growth mode (base 1.49× → 1.11×, the
+tongue at the target thickness) at the price of det F, which the dragon showed to be the base
+300k recipe's spike compression (a few dozen particles; dp300 attributes it to `--disc_ref`).
+With the pin the settled body is still, so any motion left at the tip is the tip's own.
+1. *Census on the pin runs (no new mechanism):* the tip's frame-to-frame particle count,
+   surfels, mesh capture, and the tip's PCA thickness against the finest node, on an300 / the
+   300k adoption run. **P196** the tip particles are monotone and the mesh capture still jumps
+   frame to frame (the dropout is the reconstruction's, unchanged by the pin).
+2. *Reconstruction side, R-2:* the finest node ≤ the tip's half-thickness with no density
+   coarsening (samples-per-node 1.0), and the Symmetrized Poisson normal term (Kohlbrenner
+   2025) so the two faces of a sheet thinner than a node do not cancel. **P197** the tip's
+   capture ≥ 0.8 of its particles in every frame at the same body bumpiness (≤ 1.2°); if the
+   capture stays below 0.5 the tip is below what any signed implicit holds (Kong 2026) and the
+   physics side must thicken it.
+3. *Physics side, the leading edge's coherence:* the sheet-aware split at the commit (Ando,
+   Thürey, Tsuruno 2012 — neighbourhood anisotropy σ₃ ≤ α σ₁ read on the coherence kNN, a
+   particle inserted in the sheet plane where the in-plane gap exceeds two spacings, mass
+   conserved, C copied; a commit-time resampling, no forward-model change). **P198** the
+   filament's pieces (ear_slab) fall below 10 at 300k with the tongue's thickness ≥ 0.9 of the
+   target's, the tip ≥ 11 reference particles, det F p1 ≥ 0.85, and no stray. The KDE term is
+   re-read on top only if dp300 clears the dragon (p1 ≥ 0.9 without `--disc_ref`).
+
+**Surface smoothness.** Established: the end bump at the reference render 1.15–1.28° against the
+≤ 1.2° criterion (g41p 1.18°, ap300 1.23°, am300 1.28°); mid-morph roughness within the 40k
+band; the tail's jitter was the pin's to remove (done). What remains is static: the sub-cell
+arrangement (the Fickian shift orders it; `--disc_ref` roughens it) and the fit's own bumps.
+4. *Where the bumps are:* the dihedral map on the end still of the pin runs — bumps on the
+   pinned body vs the last arrivals vs the thin features. **P199** ≥ 70 % of the dihedral
+   excess over 1.0° sits within one cell of the last arrivals' boundary (then the settle order
+   is the lever: the clear rule's margin, or a final zero-control settle window before the
+   commit that pins) — else it is the arrangement's, and the reading is the shift's constant
+   (`shift_h_sp`) against the node size, and the reconstruction's depth.
+Rendering influence for the phase: R-2 and the dihedral map are reconstruction-side and change
+no particle; the Ando split is a commit-time resampling that the render gradient does not see
+(the split particles inherit the control of their parent). The KDE term is the only item that
+moves the render → control path (it competes with the render covector at the layer).
