@@ -7046,3 +7046,29 @@ remaining gallery targets (GPUs 0 and 2; `gallery_table_g41fd.py`) — the adopt
 (P249: 19/19 within −0.003 of g41pw, end p1 ≥ 0.85, none below 0.5, no negative-reversal
 window; beast's stall the one expected exception, read separately). ba300 (300k) at window 25:
 pinned 16 %, held 0.1–0.9 %.
+
+**2026-09-26 21:50 — the density front does not change the ear's growth; the render channel is half
+the control during the spike stage → the λ = 0 twins (P250, P251).** By eye (`dense_growth_40k.png`:
+rows g41p / g41fq / g41fd, frames 3–30): g41fd's ear rises as the same thin spike with a nub as the
+adopted form's (frames 10–13) and thickens on the same frames; the tip bulb at 25–30 is the same. The
+ear-order probe agrees: at t = 0.2 the tip-bound material above the neck slab is 75 % (g41pw 72 %)
+with 7 % (5 %) of the neck-bound arrived; at t = 0.3, 84 % (87 %) of the tip-bound is already at the
+tip while the neck is 44 % (37 %) full. P247's by-eye part ✗; the front's 4–6 % hold in the growth
+windows did not stop the stretched column. At 300k (`dense_growth_300k.png`: ar300 over ag300) the
+morning's front + cap made the tip WORSE — a ball on a thin neck at frames 21–25 (the bead). The
+density front is fit-neutral on the seven targets read so far (A ±0.0000, armadilo +0.0017, bunny
++0.0009, dragon +0.0001 in 68 windows for 103, fandisk −0.0002, heart −0.0005, nefertiti −0.0020;
+p1 0.88–0.93, none below 0.5, no reversal window) — the sweep continues as the record of a
+neutral lever (the dragon's 35 windows are the vacancy assignment's). *What drives the lead:* the
+render channel's share of the control gradient is **0.50 / 0.43 / 0.34 / 0.42 at t = 0.1 / 0.2 /
+0.3 / 0.4 on ar300** (g41pw 0.53 / 0.48 / 0.35 / 0.37; λ 0.02–0.12) — half of the control in the
+windows where the ear grows, and the silhouette term is satisfied by a filament along the ear's
+outline: the fastest way to fill the target's silhouette is to run a thin lead up it. The
+rendering-influence rule asks for the λ = 0 twin here anyway. Launched: **bb300** = ar300's form +
+`--lambda_auto 0` (300k, GPU 1) and **g41pl** = the adopted 40k form + `--lambda_auto 0` (bunny,
+GPU 1). Pre-registered **P250** (bb300): if the render channel drives the stretch, the tip-bound
+above the neck slab at t = 0.4 falls from 68 % to ≤ 40 % and the knob index to ≤ 1.3, with the ear
+complete at the end (tip ≥ 9); if the numbers stay, the stretch is the transport's and the physics'
+(the rear's drag in the head), and the remedy is on the transport side (a column-coherent pace).
+**P251** (g41pl): the same reading at 40k (72 % → ≤ 40 % at t = 0.2), the fit read but not gated
+(the λ = 0 twin is a diagnostic, not a form).
