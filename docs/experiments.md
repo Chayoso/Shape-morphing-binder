@@ -7386,3 +7386,21 @@ user's eye: mc at the half-bulk level (`--iso 0.5`, the surface of a smoothed in
 necks' detachment is the known risk), mc with Yu & Turk anisotropic kernels (`--kernel aniso`, S1:
 thin features keep their sharpness), and the implicit MLS surface (`--surface imls`, S3). Each is
 measured on the tail as before.
+
+**2026-09-25 12:30 CDT — the surface alternatives read; the render loss's origin (the user's
+question); the splat render.** bm300, same particles, tail change: mc auto level 0.0007 (thick),
+**mc iso 0.5: 0.0007** (the thickness recovered — the end-frame still `bm300_surfaces_f60.png`), mc
+iso 0.5 at the native 300k kernel (half the reference blur): **0.0009** with more detail, mc with
+Yu & Turk anisotropic kernels: **0.0024** — worse than Poisson (each particle's covariance rides its
+F, which jitters with it) → refused; IMLS pending. *The render loss does not come from the
+reconstruction:* the silhouette term is a differentiable 2D coverage splat of the particles into
+the render pixels (CIC kernel, α = 1 − e^{−k w}, `losses/silhouette.py`) and the shading term reads
+the density's grid normals blurred 1.5 spacings — both band-limited at the pixel (96 px ≈ 1.7
+spacings at 300k), i.e. an "mc-like" image; the optimisation neither sees nor can reduce the
+Poisson re-mesh's shake, and the delivered surface is a post-hoc choice. *The user's next
+question — render the splat itself:* the repository's PhysMorph-GS rasteriser (`render_3dgs`) is
+used as the delivered renderer: one isotropic Gaussian per particle (σ₀ = 0.7 × its spacing),
+shaded per particle from the blurred CIC density gradient (Lambert, the plain video's light), the
+plain video's two views from a camera fixed on the target's centre (`scratch/render_splat_video.py`);
+no mesh, no iso-surface. Pre-registered: the tail change at the mc level or below (≤ 0.0007) with
+the detail of the splat scale (finer than the 1.5-spacing kernel); the user judges the look.
