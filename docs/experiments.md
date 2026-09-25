@@ -7317,3 +7317,10 @@ the adopted 40k form + `--render_paced --render_paced_conv` on bunny, nefertiti,
 Pre-registered **P265** (bm300): bf300's growth (knob ≤ 1.3, the top region ≤ 40 particles before t =
 0.3 and ≤ 40 % neck-bound) with silIoU ≥ 0.974 and tip ≥ 9; **P266** (bn300): the same; **P267** (g41rc):
 within ±0.003 of g41pw on the three.
+
+**CLOCK CORRECTION (written at 2026-09-25 11:25 CDT).** The entries of this session labelled
+"2026-09-26 13:30 … 2026-09-27 03:30" were stamped under a wrong local-time assumption. The true
+clock is the server's, which is also the user's PC clock (CDT): the session's entries run from
+2026-09-25 ~06:30 CDT (the "2026-09-26 13:30" entry) to 2026-09-25 11:20 CDT (the "03:30" entry);
+the order and the relative spacing of the entries are right, the dates are not. From here the
+stamps are CDT.
