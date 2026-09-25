@@ -6039,3 +6039,26 @@ Pre-registered: **P204** the ear tip ≥ 11 reference particles and the last two
 the pinned fraction ≥ 0.6 at the end; **P206** the tail ≤ 0.0011 (ai300's — the ear's own
 breathing is the floor while it is fed) and det F ≥ 0.6, silIoU ≥ 0.9725, the pinned set's
 elastic det F_e ≥ 0.99.
+
+**2026-09-25 13:45 — g41ps nefertiti: the stream passes (P200 ✓) and is squeezed; the yield
+rule.** g41ps (stencil clearance along the rays + assim + onset hold): nefertiti **0.9727**
+(+0.0052 — the best fit of any run on it; g41t 0.9676 at 90 windows), 114 windows, pinned
+71 %, flips 0.37, step 0.020. **det F 0.457** — the time series split by pin state: the
+pinned fraction stalls at 51 % for windows 41–72 while the crown stream flows, the UNPINNED
+minimum falls 0.78 → 0.46 over windows 45–85 (the stream squeezed between pinned walls two
+supports apart), the arrivals pin at 0.55 and the free set recovers to 0.76; the pinned set's
+elastic det F_e is 1.000 (stress-free, the compression is rest volume). g41pz (the point
+clearance at r_pace, 16 of 19): fit up or within −0.003 on 13; beast −0.014, nefertiti −0.013,
+ogre −0.003, C +0.055; det F beyond −0.05 on 7 (maxplanck 0.778, C 0.784, V 0.776, cow 0.782,
+homer 0.753, teapot 0.813). Addendum 4 (eq. 50e, `--settle_pin_yield`): a settled particle
+within 2 Δx of a transit ray is released for the window — no control, no relaxation move,
+passive material that yields to the stream through the physics alone — and re-pinned
+(re-assimilated) when the stream has passed. Launched (GPU 3, after a 3k smoke): **g41py** =
+g41ps's form + yield on nefertiti, bunny, cow, beast. Pre-registered: **P207** nefertiti's
+un-pinned det F minimum stays ≥ 0.70 through the stream (g41ps 0.46) and the end minimum ≥
+0.75, with the fit ≥ 0.970 and ≥ 90 windows; **P208** cow / bunny within ±0.003 of g41ps /
+g41pz with det F ≥ 0.78 (g41's cow 0.853 is the no-pin reference; the yielding walls remove
+the squeeze but not the transit's own dip); **P209** the released fraction of the settled set
+is < 20 % at any window on the bunny and the settled set far from streams is exactly still
+(pin_probe on the frames). If P207 holds, g41py's form goes to the 19 as the 40k adoption
+sweep and to 300k.

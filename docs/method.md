@@ -1270,3 +1270,21 @@ stream passing along the settled bust within that layer is dragged to a stop whe
 the ray itself is clear. (50b) and (50d) therefore read `max(r_pace, 2 Δx)`: the discretisation's
 own length. A settled region within one support of a transit ray stays a yielding body until the
 stream has arrived; far from every stream it pins as before.
+
+Addendum 4 (2026-09-25) — the settled body yields to a passing stream (`settle_pin_yield`).
+With the stencil clearance nefertiti's crown stream is no longer stopped (g41ps: 114 windows,
+silIoU 0.9727, the best fit of any run on it) but it is squeezed: between pinned walls two
+supports apart the free set's det F falls 0.78 → 0.46 over windows 45–85 and the arrivals pin at
+0.55. A body that is fed by a stream has to yield where the stream passes — in the un-pinned
+run that yielding is a large part of what is seen as breathing. The rule keeps the yielding
+and only the yielding:
+
+```
+(50e)  a settled particle within 2 Δx of a transit ray is RELEASED for the window:  pin_p = 0, control_p = 0, u_p = 0
+       (passive material: it moves by the physics alone); it is pinned again when no ray is within 2 Δx, with F_e → R_e
+```
+
+The optimiser drives nothing in the released set (no step, no relaxation move), so it cannot
+alternate; the motion there is the elastic response to the stream, which ends when the stream
+has arrived. Far from every stream the body is exactly still, as before. The delivered object
+is stress-free at every pinned particle (the re-pin assimilates).
