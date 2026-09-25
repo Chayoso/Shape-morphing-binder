@@ -6571,3 +6571,19 @@ rises as a curled flap with a wavy edge (frames 10–13) and the tips FORK into 
 later (frame 17 the right ear, frame 27 the left). H⁻¹ fills the target's cross-section from
 several sides at once instead of feeding one tongue from the base. P230 ✗ as stated (no clean
 tongue); the fit is a clear gain. The other three targets and au300 (300k) follow.
+
+**2026-09-26 05:20 — H⁻¹ under the pin: a fit gain everywhere read, and healthier.** g41ph (the
+adopted 40k form + `--w_h1 1`) vs g41 / vs g41pw: **bunny 0.9724** (+0.0114 / +0.0021),
+**armadilo 0.9681** (+0.0084 / +0.0116), **dragon 0.9695** (+0.0113 / +0.0053); end-state det F
+p1 0.917 / 0.896 / 0.889 with **no particle below 0.5** (g41pw's dragon had five), pinned at the
+end **0.99 / 0.97 / 0.98** (g41pw 0.91–0.97), **no reversal window on any**; the H⁻¹ ratio
+(its gradient against D_vol's, calibrated to 1 at the source) falls to 0.23–0.39 by the end. The
+run minimum of det F drops on the dragon (0.538) and armadillo (0.668) — the transit's dip; the end
+state is healthier than without the term. At 300k the runs themselves: **au300** (ar300's form +
+H⁻¹) silIoU **0.9770**, det F run-min **0.76** (ar300 0.68) — the healthiest 300k pin run;
+**ae300** (ar300's form + the KDE set) 0.9737, det F 0.59; their chains (ear, tail, growth) are
+rendering. The growth by eye at 40k is changed, not cleaned (05:00: no nub / knob / sliver, but a
+curled flap and forked tips); the fit and the health are the clearest gains of the night.
+Launched: g41ph on the remaining 15 targets (GPUs 3 and 0) — the gallery gate before adding
+`--w_h1 1` to the adopted 40k form (P231 on all 19: the fit within ±0.003 of g41pw or better,
+end p1 ≥ 0.85; P232: no reversal window, pinned ≥ 0.8).
