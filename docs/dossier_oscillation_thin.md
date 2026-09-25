@@ -298,3 +298,38 @@ dragon with `--disc_ref`, end-state p1 ≥ 0.85 and ≤ 0.02 % below 0.3 at silI
 the pin gallery the wedged count (un-pinned det F < 0.7) falls to 0 on nefertiti. Item 0 of
 the D2 phase, since the same rule decides whether an ear tip at 300k can be filled without
 being over-filled.
+
+## 15. Addendum (20:15) — the pin's wall was the sticky collider; the slip collider closes it
+What the day's variants measured, in one line each: the pin removes the settled body's
+oscillation exactly (P181–P182 on every run) and costs where material still has to pass —
+nefertiti's crown stream stopped at 38–42 of 90 windows under every pin variant that kept the
+pinned mass in the momentum average; the clearance (50b) and the transit rays (50d) at the
+pace radius changed nothing because the drag acts over the grid kernel's support (2 Δx); at
+2 Δx the stream passed but was squeezed between rigid walls (det F 0.78 → 0.46); the yield
+rule (50e) released the corridor and the squeeze moved to the last arrivals wedged against
+pinned neighbours. The digests (docs/related_work.md) name the thing: a body whose particles
+deposit mass with zero momentum is the Dirichlet / sticky condition of shared-node MPM, and
+every production collider is instead a per-node velocity constraint that deposits no mass
+(Stomakhin 2013 §12.1 in the course notes, Klár 2016, PlasticineLab, Newton/Warp; Nairn 2020
+on why contact fires a kernel width early). Addendum 5 (eq. 50f, `--settle_pin_slip`) makes
+the pinned body that collider: its mass leaves the average, its mass field is rasterised once
+per window, and the approaching normal component is removed at the nodes it covers.
+
+| 40k, the slip form (g41pw) vs g41 | fit | end-state det F p1 | pinned at the end |
+|---|---|---|---|
+| nefertiti (the stream case) | **0.9732** (+0.0056; the best fit on it) in 57 windows, no stall, no squeeze (un-pinned min 0.77–0.81 through the stream; g41ps 0.46, g41py 0.26) | 0.899 | 95 % |
+| bunny | **0.9703** (+0.0093; the best bunny of any run) | 0.920 | — |
+| C · cow · dragon · maxplanck · A | +0.062 · +0.005 · +0.006 · +0.005 · +0.003 | 0.90–0.93 | — |
+| beast (the long transport) | 0.9516 (−0.0025; the yield form −0.016, the point rule −0.017) | 0.917 | — |
+| ogre · V · homer | −0.002 · +0.000 · −0.004 | 0.91 · 0.91 · 0.91 | — |
+
+Eleven of nineteen at the time of writing; the rest follow. The clearance, ray and yield rules
+are superseded and stay opt-in as the record of the diagnosis. 300k: aw300 (the slip form)
+silIoU 0.9754, no reversal window, end p1 0.856 — and the ear's tip 8.5 with the run
+converging at 62 windows / 55 % pinned: the ear is fed THROUGH its base, and its remaining
+deficit is below the cell, which the cell-sum merit no longer sees once the body is pinned
+(the un-pinned ai300 grew the tip from 0.75 to 1.13 between windows 62 and 112 while the whole
+body breathed). Two runs answer it: ar300 (the ray clearance keeping the feed's material free
++ the slip collider) and ak300 (the slip collider + the particle-scale KDE term that sees a
+sub-cell deficit). The dragon's five particles below 0.5 at 40k (0.01 %) are its spikes —
+§14.0's capacity item.

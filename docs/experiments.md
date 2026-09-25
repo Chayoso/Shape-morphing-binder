@@ -6292,3 +6292,10 @@ cell) is not "filled" for a feature thinner than the cell. That is the D2 statem
 the ear's remaining deficit is below the cell, and the term that sees it is the particle-scale
 one — ak300 (slip + KDE) is the run that tests exactly this; ar300 (ray clearance + slip) tests
 whether a free base alone lets the merit keep the ear's gain.
+
+**2026-09-25 20:15 — g41pw at 11 of 19** vs g41: C +0.062, bunny +0.009, dragon +0.006,
+nefertiti +0.006, cow +0.005, maxplanck +0.005, A +0.003, V +0.000, ogre −0.002, beast −0.0025,
+**homer −0.0043** (the one beyond −0.003 so far: 67 windows against g41's 74). End-state det F
+p1 0.874–0.928 on all, none below 0.5 except the dragon's 5 particles (0.01 %, its spikes —
+the §14.0 capacity item), homer's end minimum 0.618. Dossier §15 written (the sticky collider
+diagnosis and the slip form's table); the page follows the full sweep.
