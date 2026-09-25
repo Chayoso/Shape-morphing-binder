@@ -7247,3 +7247,26 @@ the superseded 40k front forms and the read twins — g41fq (5), g41fw, g41fx, g
 (2), g41pl, ag300, ah300, af300 (13 files, 14 GB; list in `.deleted_list_20260927a.txt`, json + logs
 tarred first into `logs_archive_20260927a.tgz`). Kept: g41, g41pw, g41fd, g41fc, g41rp, the 300k
 readings (ai300, ar300, aw300, ak300, au300, ao300, dh300, ba300–bi300), reports and videos.
+
+**2026-09-27 02:00 — the stream pace (bh300) and the H⁻¹ pair (bi300): the knob's makers confirmed
+one by one.** **bh300** (ar300 + `--pace_stream`): silIoU 0.9756 (−0.0017), 57 windows, tip 10.0, end
+p1 0.867, no negative-reversal window; the rule binds on 2–3.4 % of the particles through the
+growth (rising with the ear; the coherent pace saw 0.2 %). The tip-bound group is held (4 / 8 % above
+the neck at t = 0.2 / 0.3) — and the knob is there all the same: 1.26× over 0.76× at t = 0.25, 1.12×
+over 0.49× at t = 0.3 (index 1.7–2.3), made of NECK-bound material (71–77 % of the 70 / 48 particles in
+the top region) — the render channel's pull, untouched by any pace rule. P258 ✗ on the knob. **bi300**
+(ar300 + `--w_h1 1 --render_paced --pace_stream`): silIoU 0.9753 (−0.002), 59 windows, end p1 0.916,
+tip **21.5** (the target's own density there is 11.9: over-filled), and the top region holds 77 /
+159 / 95 particles at t = 0.2 / 0.25 / 0.3 — **84–95 % tip-bound** — with a knob of 1.12× over a
+0.38× neck at t = 0.3 (index 2.9): H⁻¹ from the start is the knob's third maker, the non-local
+supply pulling the tip-bound group to the tip's deficit before the column arrives (au300's knob,
+now isolated); one negative-reversal window at the end. So the three makers and their levers:
+the transport's stretch (coherent / stream pace), the render's early pull (the paced render
+target), the supply's early pull (H⁻¹ placed at the pin's onset — the placement that kept bimba
+and beast at 40k). bf300 (render paced + coherent, no H⁻¹) has none of the three (knob ≤ 1.2,
+tip 14.8) and costs −0.004 in fit; the fit's cost is the paced render target's under the pin
+(g41rp at 40k), so the next form places it too: the paced render target until the pin's onset,
+the target's own images after (`--render_paced_onset`, pre-registered **P260**: bf300's growth
+with silIoU ≥ 0.974). Launched meanwhile **bk300** = ar300 + `--render_paced --pace_stream` (GPU 3;
+P261: the stream pace under the paced render against bf300's coherent pace — knob ≤ 1.3, tip ≥
+9, fit ≥ 0.974).
