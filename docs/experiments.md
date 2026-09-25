@@ -7432,3 +7432,17 @@ particles show through and the per-frame normals jitter — so the number is Poi
 surface splatting would draw the outer layer only with wider-smoothed normals). The delivered 300k
 surface that answers the user's two complaints at once is mc at iso 0.5 (native kernel if the
 detail is wanted at 0.0009).
+
+**2026-09-25 13:05 CDT — the user prefers the splat render; its two defects and the forms that
+answer them.** By eye the user would rather have the splat than any mesh, with two complaints: the
+floaters seen mid-morph (every in-transit particle draws as a dot: the ears' leads at frame 20 are
+dotted tips, where Poisson hides them below its node) and a rough surface (a pile of balls, dark
+interior particles showing through). Two forms rendered on bm300: **splat v2** — opacity by
+SUPPORT: a particle's opacity is the fraction of the target's own shell count present around it,
+n_i / (k/2) clipped (n_i = particles within the shell radius, k = 8, half = the body convention), so
+a lone floater (n_i < 4) is nearly transparent and a stretched lead fades in proportion; interior
+particles (weak density gradient) take their nearest strong-gradient particle's normal; **splat v3**
+— v2 plus surface splatting (Zwicker 2001): each Gaussian a disc in the tangent plane of its normal
+(radius one spacing, thickness a quarter), so the drawn surface is a sheet of overlapping surfels.
+No new constant beyond the surfel's spacing-sized radius. Read on the mid-morph still (frame 20)
+and the end (60), and on the tail change (target ≤ mc's 0.0007).
