@@ -6318,3 +6318,20 @@ the whole gallery at a fit cost ≤ 0.0043 on two targets and a gain on twelve; 
 ray and yield rules stay opt-in as the diagnosis's record. D1 at 40k is closed by the user's
 bar (zero on the settled body); at 300k the ear (ar300 0.9773, chain pending; ak300; dw300)
 decides the 300k form.
+
+**2026-09-25 21:10 — ar300's verdict (300k; the transit-ray clearance + the slip collider +
+assim + hold).** 61 windows (the merit's plateau again), **silIoU 0.9773 — the best fit of any
+300k run** (ai300 0.9766, aw300 0.9754), det F run-min 0.681 with the end-state p1 0.864 on
+both the pinned (0.867) and un-pinned (0.860) sets, strays 0.04 %, **no reversal window**,
+flips 0.21, step 0.008 spacings, pinned 59.8 % and exactly still (det F_e 1.000), bump 1.23°,
+one component. **The ear: tip 9.2 reference particles** (aw300 8.5, as300 7.7, ai300 13.6),
+slabs from the base 1.04 / 0.96 / 0.95 / 0.91 / 0.89 / 0.82 / 0.63 — the middle of the ear is
+now at ai300's fill (0.94 / 0.88 / 0.89 there) and only the last two slabs are short (ai300
+0.89 / 1.13): the free base lets the feed through (P222's fill ✓ to the sixth slab, ✗ at the
+tip). The tail 0.0012 (60 % pinned at the stop; the ear's region breathes as in ai300) — P222
+✗ on the tail and the tip, ✓ on the fit and the health. The 300k picture is now consistent
+across aw300 / ar300: with the settled body pinned the merit plateaus at 61–62 windows and
+the tip's last growth (ai300's windows 62–112) is never asked for — a sub-cell deficit the
+cell-sum merit does not see. ak300 (the particle-scale KDE term on top of the slip form) is
+the test of exactly that; if it fills the tip, the 300k form is ar300's + KDE; if not, the
+early-stop rule under the pin (the merit's plateau at a few 10⁻³ of gain) is the next lever.
