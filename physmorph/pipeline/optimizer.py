@@ -716,16 +716,48 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         _revealed = _filled.copy(); _revealed[np.nonzero(~_filled)[0][np.isfinite(_dR)]] = True
                     else:
                         _revealed = _filled | (~_filled)                 # nothing filled yet (the first window) or all filled
+                if getattr(cfg, "pace_front_thin", False):
+                    # config.pace_front_thin (2026-09-26 19:40): the front orders only the part of the target the cell sum
+                    # cannot resolve — points whose CIC nodes are all below half the target's bulk node mass (the body's
+                    # definition of 10.22, read once from the target grid). The bulk is transported by the pace as before:
+                    # its arrangement is the loss's to resolve, and every front form so far scrambled it (nefertiti under
+                    # 52c+52e: 22 % pinned at 45 windows with the target 99.7 % covered — the plan's endpoints no longer
+                    # match where the accreted material sits). The thin features still grow from their base.
+                    if getattr(tgt, "front_bulk_pt", None) is None:
+                        from ..losses.projection import bulk_mode as _bm
+                        _g3 = tgt.grid.detach().reshape(tuple(int(v) for v in tgt.ldims)).cpu().numpy()
+                        _bn = float(_bm(tgt.grid.detach()))
+                        _lg = tgt.lgmin.detach().cpu().numpy() if torch.is_tensor(tgt.lgmin) else np.asarray(tgt.lgmin)
+                        _b0 = np.floor((_P - np.asarray(_lg, np.float32)[None, :]) / float(tgt.ldx)).astype(np.int64)
+                        _mx = np.zeros(len(_P), np.float32)
+                        for _ox in (0, 1):
+                            for _oy in (0, 1):
+                                for _oz in (0, 1):
+                                    _ix = np.clip(_b0[:, 0] + _ox, 0, _g3.shape[0] - 1)
+                                    _iy = np.clip(_b0[:, 1] + _oy, 0, _g3.shape[1] - 1)
+                                    _iz = np.clip(_b0[:, 2] + _oz, 0, _g3.shape[2] - 1)
+                                    _mx = np.maximum(_mx, _g3[_ix, _iy, _iz].astype(np.float32))
+                        tgt.front_bulk_pt = _mx >= 0.5 * _bn
+                        tgt.front_bulk_node = (tgt.grid.detach() >= 0.5 * _bn)
+                        print(f"[win] front: thin part of the target = {100.0 * float((~tgt.front_bulk_pt).mean()):.1f} % of its "
+                              f"points (bulk node mass {_bn:.1f}; a point is bulk when one of its CIC nodes holds half of it)", flush=True)
+                    _revealed = _revealed | tgt.front_bulk_pt
                 _XI = x_int.detach().cpu().numpy().astype(np.float32)
-                _dI, _qI = _treeP.query(_XI, k=1, workers=-1)
-                _out = ~(_revealed[_qI] & (_dI <= _rcov[_qI]))         # the image's nearest point unrevealed, or the image in the air
+                # (19:55) a ray is held only where it passes through UNREVEALED TARGET: a sample in the air is passable (the
+                # source's part outside the target flies to the target as the pace says — holding it was the air-side hold
+                # that serialised the bulk targets and, under 52e, re-routed 30 % of the material to vacancies), a sample
+                # inside the target is passable when its nearest point is revealed; the image is clamped at the last
+                # passable sample before the first unpassable one (contiguous from the particle).
+                _K = 24
+                _tt = np.linspace(0.0, 1.0, _K, dtype=np.float32)
+                _segA = _X0[:, None, :] + _tt[None, :, None] * (_XI - _X0)[:, None, :]
+                _dSA, _qSA = _treeP.query(_segA.reshape(-1, 3), k=1, workers=-1)
+                _badA = ((_dSA <= _rcov[_qSA]) & ~_revealed[_qSA]).reshape(-1, _K); _badA[:, 0] = False
+                _out = _badA.any(1)
                 if _out.any():
-                    _K = 24
-                    _tt = np.linspace(0.0, 1.0, _K, dtype=np.float32)
-                    _seg = _X0[_out][:, None, :] + _tt[None, :, None] * (_XI[_out] - _X0[_out])[:, None, :]
-                    _dS, _qS = _treeP.query(_seg.reshape(-1, 3), k=1, workers=-1)
-                    _inside = (_revealed[_qS] & (_dS <= _rcov[_qS])).reshape(-1, _K); _inside[:, 0] = True
-                    _last = (_inside * np.arange(_K)[None, :]).max(1)
+                    _first = np.argmax(_badA[_out], axis=1)             # the first unpassable sample (one exists)
+                    _last = np.maximum(_first - 1, 0)
+                    _seg = _segA[_out]
                     _new = _seg[np.arange(_seg.shape[0]), _last]
                     if getattr(cfg, "pace_front_fill", False):
                         # config.pace_front_fill (2026-09-26, method.md 10.29 eq. 52c): the clamp piles every held image at one
@@ -808,7 +840,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # config.pace_cap (2026-09-26, with the fronts of 10.29): every image lies inside the target, so the paced
                 # grid may never ask a cell for more than the target holds there — the images queued at the front no
                 # longer over-fill the front cell (g41fp dragon: 44 particles below det F 0.5 at the spikes' fronts)
-                pace_grid = torch.minimum(pace_grid, tgt.grid)
+                if getattr(cfg, "pace_front_thin", False) and getattr(tgt, "front_bulk_node", None) is not None:
+                    _bnode = tgt.front_bulk_node.reshape(pace_grid.shape)
+                    pace_grid = torch.where(_bnode, pace_grid, torch.minimum(pace_grid, tgt.grid))   # the cap at the thin nodes only
+                else:
+                    pace_grid = torch.minimum(pace_grid, tgt.grid)
             frac_arrived = float(arrived.float().mean())
             arrived_mask_np = arrived.detach().cpu().numpy().astype(bool)   # per-particle arrival (config.ctrl_rprop_arrived)
             pace_r_np = float(pace_r)

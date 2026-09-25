@@ -1475,3 +1475,15 @@ Material outside the target thus accretes at the growing front — the "volume f
 the user's rendering trick, now in the transport — and nothing seeds an unrevealed thin feature
 from the air. The cap (`pace_cap`) stays as the cell sum's guard while the approaching material
 converges. No new constant.
+
+**Corrections (2026-09-26 19:40–19:55) — the front's domain.** (i) A ray is held only where it
+passes through unrevealed TARGET: a sample in the air is passable (the part of the source that lies
+outside the target flies to it as the pace says), a sample inside the target is passable when its
+nearest point is revealed, and the image is clamped at the last passable sample before the first
+unpassable one. Holding the images in the air was the air-side hold that serialised the bulk
+targets (52e's re-routing of that material scrambled the plan's arrangement: nefertiti 22 % pinned
+at 45 windows with the target 99.7 % covered). (ii) `pace_front_thin`: the front and its cap apply
+only to the part of the target the cell sum cannot resolve — points none of whose CIC nodes holds
+half the target's bulk node mass (the body of §10.22, read once from the target grid); the bulk is
+always revealed and its arrangement is the loss's to resolve. On a bulk target the front is inert
+by construction; a thin feature grows from its base.

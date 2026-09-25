@@ -6941,3 +6941,42 @@ dragon ≥ 0.961 with p1 ≥ 0.85 and none below 0.5; bunny ≥ 0.967 with the s
 eye); beast ≥ 0.955 with its transport finished (pinned ≥ 0.9) and no reversal window. At 300k:
 **ag300** = ar300's form + front + cap + fill (coverage radius, without 52e — its air-side hold is
 3 % by window 11) running as the D2 test (P242).
+
+**2026-09-26 19:40 — the front on a bulk target scrambles the arrangement; the stub at 40k was the
+pile's; the front restricted to the loss-blind part of the target (P246).** (1) g41fx nefertiti
+(coverage radius + 52c + 52e): the hold is gone by window 12 (0.01) and yet pinned 7.6 / 14.0 /
+22.2 % at windows 30 / 35 / 45 (g41pw 0.51 at 32, 0.88 at 48). A pinned-crust reading was
+tested and refuted: at the end of g41fq nefertiti (19 % pinned, stalled) the target's points
+without a particle within the shell radius are **0.3 %**, every unpinned particle is inside the
+target, and the pinned particles sit on the shell in the same proportion as under g41pw (33 %
+vs 32 %) — the target is covered, the pin does not engage. So the plan's endpoints no longer
+match where the material sits: the front's accretion (at whatever vacancy was near) leaves an
+arrangement the re-solved plan wants to permute over long paths through a filled body, the
+transport merit cannot, and the run ends on rejections with the fine-scale density irregular
+(silIoU 0.953 at 99.7 % coverage). The bulk's arrangement is the loss's to resolve; every front
+form scrambles it. (2) The growth strips built with one crop (`growth_montage.sh`; rows g41p /
+g41fp / g41fq, frames 3–30, `front_cap_growth_40k.png`): under the cap the ear rises as a spike
+again (frames 10–13 thicker than the baseline's, a bulb at the tip from 25) — **the stub of
+g41fp was the pile's pull at the base**, not the ordering's; the ordering alone thickens the
+early ear a little. The cap also deepens the early dent (25 band bins for 18–21). (3) The
+principled restriction, `--pace_front_thin`: the front and its cap apply only to the part of the
+target the cell sum cannot resolve — target points none of whose CIC nodes holds half the
+target's bulk node mass (the body's definition of §10.22, read once) — and the bulk is always
+revealed, transported by the pace as before. On a bulk target the front is inert by
+construction; on the dragon its spikes and on the bunny the ear's sub-cell tip are ordered
+(at 300k under `--disc_ref` the ear is bulk except its tip — the knob's and the bead's place).
+Launched **g41fy** = adopted form + `--pace_front_pts --pace_cap --pace_front_fill
+--pace_front_thin` on nefertiti, dragon, bunny, beast (GPU 0). Pre-registered **P246**:
+nefertiti within ±0.002 of g41pw and within 1.15× its windows (the inert front — a cost here
+is the cap's or the fill's, not the front's); dragon ≥ 0.961 with p1 ≥ 0.85 and none below 0.5;
+bunny ≥ 0.967; beast ≥ 0.949. ag300 (300k bunny, the front unrestricted but holding 1–3 % after
+window 11 — in effect the tip's front) is the ear reading to compare with the thin form.
+
+**19:55 — the air-side hold was the front's own error, removed.** g41fy's first launch on nefertiti
+held 34 % of the images with the thin part at 0.0 % of the target: the "out" test held every image
+not within the shell radius of a revealed point, which includes every image IN THE AIR — the source's
+part outside the target — and 52e then re-routed those 30 % to vacancies (the scramble of item 1).
+Corrected in `pace_front_pts`: a ray is held only where it passes through unrevealed TARGET (a sample
+in the air is passable; a sample inside the target is passable when its nearest point is revealed),
+the image clamped at the last passable sample before the first unpassable one. g41fy relaunched:
+nefertiti holds 0.000 from the first window (the front inert on a bulk target, as P246 requires).

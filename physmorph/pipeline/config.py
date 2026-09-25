@@ -575,6 +575,7 @@ class PipelineConfig:
     pace_cap: bool = False          # 2026-09-26: with a front, the paced grid capped at the target's cell mass (queue semantics)
     pace_front_geo: bool = False    # 2026-09-26 (10.29 eq. 52b): the target grown along its geodesics from the source's overlap, one pace per window
     pace_front_fill: bool = False   # 2026-09-26 (10.29 eq. 52c): held images assigned to the front's revealed vacancies, one per point
+    pace_front_thin: bool = False   # 2026-09-26: the front (and its cap) only where the target is below half the bulk node mass
     pace_front: bool = False        # 2026-09-26 (10.29): the paced target grows as a front from the filled body — a
                                     #   particle's image is clamped along its ray at the revealed region (target cells filled
                                     #   or within one pace step of a filled one); thin features fill from the base.
