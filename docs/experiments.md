@@ -7576,3 +7576,17 @@ numbers against ar300, the measured empty transit, the running experiments with 
 plan; 70 old files (Poisson / mc videos, montages of refuted forms) removed from the artifact. The
 history stays here and in the server's r300/ folders. Splat v6 renders of g41pw bunny (40k) and
 bo300 dragon (300k) queued for the page.
+
+**2026-09-25 18:00 CDT — bs300 (bm300 + the support pace): P272 half — the vapour is denser, not
+dense.** silIoU 0.9734 (−0.0007 vs bm300), 46 windows, tip **12.5**, end p1 0.865, none below 0.5, no
+reversal window; the ear grows later (nothing above y 2.86 at t = 0.3; the neck appears at t = 0.4)
+and the plug arrives dense (1.31× at t = 0.3). The transit density above the head at t = 0.10 / 0.14
+/ 0.20: **0.09 / 0.18 / 0.31** (bm300 0.17 / 0.05 / 0.26; bq300 0.06 / 0.08 / 0.27) — the leads are
+held to 5–10 % steps and still trickle in ahead of the bulk, which arrives only by t = 0.3. The
+measure asks ≥ 0.5 or no material there at all; a proportional hold leaves the trickle. The
+variant that follows is the same convention as a gate: material below half the target's local
+density does not advance (`--pace_support_hard`: step 0 below half, the pace at or above) — the
+front is then the bulk itself, and the region is empty rather than misty until the plug arrives.
+Launched **bt300** = bm300's form + `--pace_support --pace_support_hard` (GPU 2). Pre-registered
+**P273**: above the head at t = 0.10–0.20 either fewer than 200 particles present or a mean density
+≥ 0.5; silIoU ≥ 0.971; tip ≥ 9; end p1 ≥ 0.80; no reversal window.
