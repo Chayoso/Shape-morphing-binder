@@ -6744,3 +6744,30 @@ fraction of images clamped at the front is > 0 through the transport and 0 at th
 window, pinned ≥ 0.9 (a queued transport must not cost the end state or the pin); if the
 front costs the fit, the reading is whether the queue starves the tip (the 300k supply item)
 or only delays it.
+
+**2026-09-26 12:30 — the grid-scale front does not reach the spike; the H⁻¹ placement sweep
+near its end.** *g41fr (the adopted 40k form + `--pace_front`):* bunny 0.9683 (−0.002 vs g41pw),
+dragon 0.9654 (+0.001), end-state p1 0.902 / 0.842 (the dragon 7 particles below 0.5 — a
+queued transport compresses at the spikes a little), the early dent 16 band bins (baseline
+18–21), 3–7 % of the images clamped at the front each window. By eye (`front_growth_40k.png`,
+the same frames as the coarse-to-fine read): the head's hump rises broader and rounder in
+frames 3–7, but the ear still rises as a spike with a nub at frame 13 and a knob at 17–22 —
+**P236 ✗**. The reason is the scale: the front advances one LOSS CELL per window and a cell
+counts as filled at half the target's mass, while the spike is a filament thinner than the
+cell (≈ 0.2 wu against the 0.31-wu cell at 40k): within a revealed cell the tip-bound
+material still forms the filament first. The grid front orders the growth at the cell scale
+(the head) and cannot order it below (the ear's width). The front at the PARTICLE scale is the
+same rule with the target's own points: a target point is filled when a particle lies within
+one spacing of it, the revealed points are those within one pace step of a filled one, and a
+sample on the ray is inside the revealed region when a revealed point lies within one spacing
+of it — the coverage probe's definition, no new constant (`--pace_front_pts`, pre-registered
+here as P238 with P236's reading: the tongue by eye at frames 7–22; P237's fit bound).
+*g41phb (H⁻¹ outside the core, from the pin's onset; 16 of 19):* vs g41pw — bunny −0.0013, C
+−0.0008, cheburashka −0.0009, bob −0.0002, spot −0.0006, V +0.0016, bimba +0.0011, beast +0.0028,
+armadilo +0.0025, fandisk +0.0002, heart 0.0000, dragon +0.0005, maxplanck +0.0009, teapot
++0.0001; **cow −0.0068 and nefertiti −0.0036** beyond the −0.003 bound; no early stop, no brake
+stop, no ejection on any. At 40k the placed term is neutral — its value is the 300k supply
+(au300: the tip filled at 14.0 with the fit 0.977 and det F 0.76, inside the core from the
+start, which bimba and beast forbid at 40k). Launched: **ao300** = ar300's form + `--w_h1 1
+--h1_outside --h1_onset_pin` at 300k — P239: silIoU ≥ 0.977, det F ≥ 0.7, the tip ≥ 13 (au300's
+fill) with no knob at the spike stage worse than au300's, the tail ≤ 0.0010, no reversal window.
