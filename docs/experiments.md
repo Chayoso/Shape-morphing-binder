@@ -7541,3 +7541,20 @@ sub-splats per outer parent (GPU 3) tests the surface-splat density ×4 at no ph
 adaptive (shell-weighted) sampling of the same 300k is the geometric-detail lever, gated on the
 transport (later). Typical 3DGS counts for the record: objects 100k–500k Gaussians, scenes 1–6 M —
 nearly all on the surface, against our ~30k outer-layer parents of a uniform 300k.
+
+**2026-09-25 17:25 CDT — bq300 (bm300 + the stream pace): P271 ✗ — the transit is as empty; why the
+rule cannot see it; the support pace.** bq300: silIoU 0.9759 (+0.002 vs bm300), 43 windows, end p1
+0.857, no reversal window, a tapered ear without a knob, tip 6.5 (starved) — and the density above
+the head at t = 0.10 / 0.14 / 0.20 is **0.06 / 0.08 / 0.27** of the target's (bm300 0.17 / 0.05 /
+0.26). The stream pace scales a particle's step by the fill one pace BEHIND it on its ray: behind
+the front's leads lies the head — dense, so the rule lets them run; the head is slow, so they
+outrun it. The measured quantity is the density AT the lead (5 %), so the rule is written on that:
+`--pace_support` (method.md §10.34) — the step scales with the particles within the target's shell
+radius around the particle over half the target's own count at its nearest target point; a lead
+in a 5 %-density region takes 10 % of a pace step until its bulk arrives, the bulk moves at the
+pace, the front advances as a plug. No constant. Launched **bs300** = bm300's form + `--pace_support`
+(GPU 2). Pre-registered **P272**: the top region's mean density ≥ 0.5 of the target's at every t ≥
+0.10 (the quantity itself), silIoU ≥ 0.971, tip ≥ 9, end p1 ≥ 0.80, no reversal window, knob ≤ 1.3.
+GPUs 0 and 1, free at the user's question, now carry **br300** (the 300k dragon under the chosen
+form + the stream pace, for its p1 0.77) and the coherent pace's remaining 16 gallery targets
+(g41fc; the 40k adoption question for that flag).
