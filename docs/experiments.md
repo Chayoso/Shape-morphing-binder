@@ -8498,3 +8498,29 @@ copies were transferred to `C:/dev/physmorph_archives/c291/`, SHA-256 matched an
 locally fsynced before single-file server duplicate removal. Durable receipts
 remain in `archives/completed_failed_runs/`; logs/JSON/baselines/running evidence
 are retained. At13:50 project usage88.386GB. No other user's paths were touched.
+
+**2026-09-26 14:04 CDT — P291 final candidate gates fail (no promotion).**
+Discretisation unchanged: bunny300k, T20, dt1/240, dx0.3062907544wu, loss36^3,
+seed1, animations300, cap60. `mixed60` (788b16e, two-mode body + dFc) ends at
+window39: silIoU0.972392, min detF0.7662, highest-tip count6.933 (8.933 at raw
+frame480, then regresses). `confirm60` (788b16e, baseline + start/end arrival)
+early-stops at attempt45: silIoU0.975239, min detF0.6939, tip7.2. Required tip>=13
+fails on both. All existing G2/G3/G4 gates pass, demonstrating why those global
+gates alone do not establish this task's success.
+
+Post-pin raw maximum displacement is exactly0 on266360/178280 checked particles.
+The fixed delivered-end unpinned surface cohorts1513/3979 still move: late median
+normal/tangential step0.01680/0.01210sp and0.01543/0.01487sp; reversal fractions
+0.0870/0.1059. These are per archived simulation step, exclude hold padding, and
+are not all-particle convergence proofs. All67/70 rendered frames inspected.
+Mixed control grows denser material earlier but retains a sparse developing head;
+confirmation retains the baseline's early translucent front. No accepted video
+or default recipe is replaced. The failed bunny gates stop dragon/gallery expansion.
+
+5052922 restores non-paced legacy settlement compatibility, explicitly labelled
+`legacy_no_arrival_contract` with null accepted-end arrival rate; the confirmed
+arrival diagnostic rejects unsupported regimes before optimization. This avoids
+silently disabling C's pins without claiming new evidence of geometric arrival.
+Full CPU suite: **285 passed,8 skipped**,49.48s. Read-only adversarial reviews
+validated the historical pin indexing/null-frame cutoff and the compatibility
+branch. A bounded C40k prefix checks actual non-paced runtime, not gallery quality.
