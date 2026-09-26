@@ -642,10 +642,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # cloud's native spacing (the median nearest-neighbour distance, measured once) — the smallest step
                 # the body delivers coherently (P278: ~1 spacing per early window at both N). No world-unit constant.
                 if getattr(tgt, "native_sp", None) is None:
-                    _xs_np = np.ascontiguousarray(np.asarray(x0, np.float32))
+                    # measured on the SOURCE cloud (coh_nbr_src), not the window's start positions: the target pack
+                    # is rebuilt in some runs (bp306d, the 300k dragon: a second measurement on the stretched cloud
+                    # gave 0.0527 instead of 0.0350 wu, 2026-09-26 02:10 CDT)
+                    _xs_np = np.ascontiguousarray(np.asarray(coh_nbr_src if coh_nbr_src is not None else x0, np.float32))
                     from scipy.spatial import cKDTree as _KDn
                     tgt.native_sp = float(np.median(_KDn(_xs_np).query(_xs_np, k=2, workers=-1)[0][:, 1]))
-                    print(f"[win] pace lead: {cfg.pace_lead_sp:g} x native spacing {tgt.native_sp:.4f} wu = "
+                    print(f"[win] pace lead: {cfg.pace_lead_sp:g} x native spacing {tgt.native_sp:.4f} wu "
+                          f"({'source' if coh_nbr_src is not None else 'window start'}) = "
                           f"{cfg.pace_lead_sp * tgt.native_sp:.4f} wu (arrival radius {arr_r:.4f})", flush=True)
                 pace_r = float(cfg.pace_lead_sp) * float(tgt.native_sp)
             step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)

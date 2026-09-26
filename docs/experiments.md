@@ -8136,3 +8136,14 @@ land): 95 → 54 GB.** Logs and JSONs of the refuted / superseded 300k runs arch
 br300 (dragon), and the run outputs of the diagnostic replays (`scratch/replay/*_run*`), the six-window lead
 runs (`scratch/lead/*.npz`), `scratch/corrchk` and `scratch/plandump/*_render*`. Kept: bm300, bo300, g41 / g41pw
 galleries, bp306a/b, the replay controls and plan dumps (small), every page video.
+
+**2026-09-26 02:15 CDT — clock correction and P285 interim.** The entries stamped "2026-09-26 02:10, 02:35,
+02:55, 03:15, 03:40, 03:50 CDT" above were written between about 00:40 and 01:55 CDT by the server's clock
+(the only clock that counts); their order is right, the stamps are ahead by up to 1.9 h. From here the stamps
+follow the server. P285 (the 300k dragon with the one-spacing lead) is still running at 02:09: 182 windows,
+arrived 85.6 % and rising ~0.25 points per window, against bo300's 102 windows / 44.5 min — the lead of one
+spacing makes the dragon's long transport (tail, legs) crawl; not a stall, but 2.5× the windows, so the
+fixed lead is not universal and the delivery-tied lead is what the reviewer's order anticipated. A bug found
+in it: the target pack was rebuilt once and the native spacing was re-measured on the window's start cloud
+(0.0527 wu instead of the source's 0.0350) — fixed to measure on the source cloud (`coh_nbr_src`); the fix
+is not synced until the running gallery sweep (12 of 19 done at 02:09) finishes, so all 19 run the same code.
