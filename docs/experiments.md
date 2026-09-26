@@ -7750,3 +7750,16 @@ interior column), so a surface-only particle set cannot form the thin features, 
 that survive are the render children (already in the repository, ×4 coverage, no appearance model
 yet) and adaptive shell-weighted sampling of the same 300k (a physics-consistent density boost of
 the outer layer, gated on the transport). Both queued behind the two items above.
+
+**2026-09-25 22:50 CDT — bp303 (the still pin): P276 ✗ — the pin now takes 89 %, too early.** Pinned
+0.40 / 0.86 / 0.89 at windows 10 / 20 / 30 (bm300 0.35 at 40); the pinned surface exactly still
+(0.000 / 0.004 spacings per frame), the free surface remnant 1,160 particles at 0.135 / 0.061. But:
+silIoU **0.9669** (−0.007 vs bm300), the ear tip **23.1** reference particles (the target's own
+11.9 — a bulb, the top slab 1.56× at the end), **3 negative-reversal windows and a streak of 16
+reversing windows at the end** — D1 back. Read: "still over two windows" is true of material
+that has not yet been asked to move (the overlapped core in the first windows: arrived within a
+pace of its image, and still because the transport has not reached it), so the body locks at
+window 20 while half the transport remains; the plan's later re-solves cannot move the core, the
+surplus is pushed into the free ear tip (over-fill) and the merit oscillates there. Stillness is
+not settledness before the transport has passed. Not iterated further: the correspondence term
+(bp304) is the structural lever and its reading is pending.
