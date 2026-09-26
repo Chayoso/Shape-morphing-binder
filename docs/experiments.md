@@ -8353,3 +8353,22 @@ bunny), and the ear's onset (the first frame with a pure-ear slab above half fil
 current form's; the transit-slab density stays a gate but cannot buy those three. bp306a is therefore not
 "the best result": bm300 remains the delivered 300k form and the page is unchanged; bp306a's fit (+0.006)
 and slab density are recorded as what a small lead buys and at what visible cost.
+
+**2026-09-26 12:30 CDT — P289 ✗ on the bunny by the eye-corrected gates: the governor dithers below 0.14 wu
+through the whole ear-growth phase.** bp308 = bm300 + `--pace_lead_gov`: silIoU 0.9736 (bm300 0.9733), 0
+negative-reversal windows, the transit slab 0.32 / 0.31 at frames 76 / 114 (bm300 0.17 / 0.09), the late
+unpinned surface 0.097 / 0.060 sp per frame (the calmest on record), pinned 59 % at the end — but the ear tip
+**11.1** reference particles (gate ≥ 13; bm300 13.3), **63 windows** (gate ≤ 53; bm300 44), 15 min. The lead
+trajectory: 0.035 at the start, candidates alternately kept and reverted between 0.035 and 0.14 through
+windows 2–32 (grow candidates reverted whenever the moving set's progress dipped, shrink candidates
+proposed whenever its thinning ticked up), the cell reached only at window 35–41 and held from window 43 —
+i.e. the governor behaves as designed but its acceptance test, driven by window-to-window fluctuations, keeps
+the lead small exactly during the ear's growth, which reproduces the small lead's visible cost (P288, the
+user's reading of bp306a). Verdict: within the current formulation both levers are now exhausted for the
+visual goal — the supply side (the taper, P290) does not separate skin from bulk, and the demand side (the
+lead, fixed or governed) buys transit-slab density only with a later, blunter ear that the eye weighs more.
+bm300 stays the 300k form. The dragon governor run (bp308d) is left to finish as a check that the governor
+sits at the cell where thinning is flat. Remaining directions, for decision: (a) the transit look on the
+render side with physically consistent stretched splats (the material in transit is stretched; drawing it so
+is the truthful rendering of the state), testable in minutes; (b) a body-force control channel, a formulation
+change of days, with render-off and dFc controls kept as the reviewer required.
