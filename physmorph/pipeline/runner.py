@@ -413,6 +413,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
     c2f_done = False                     # config.c2f_onset_pin: the render targets rebuilt once, at the pin's onset
     settle_pin_arr = None                # config.settle_pin: the (N,) pin array handed to the rollout
+    still_cnt = None                     # config.settle_pin_still: consecutive still windows per particle
     stick_arr = np.full(N, -1, np.int64) if getattr(cfg, "plan_sticky", False) else None   # config.plan_sticky (10.33)
     h1_w_full, h1_armed = float(getattr(cfg, "w_h1", 0.0) or 0.0), False   # config.h1_onset_pin
     if getattr(cfg, "h1_onset_pin", False) and h1_w_full > 0:
@@ -1381,6 +1382,25 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if settled_at is None or len(settled_at) != len(_d_now):
                     settled_at = np.full(len(_d_now), -1, np.int32)
                 _newly = _arr_p & (ctrl_rev_count >= 2) & (~settled_p)
+                if getattr(cfg, "settle_pin_still", False):
+                    # config.settle_pin_still (2026-09-25 21:40 CDT): "settled" read as STILLNESS as well as reversal.
+                    # At 300k the free half of the body slides along the surface monotonically (0.3 spacings per
+                    # window) and never reverses twice, so the pin took 49 % of bm300 against 97 % of g41pw at 40k,
+                    # where the coarser cells make the same drift reverse. An arrived particle that moved less than
+                    # the shell radius (the reconstruction's resolution) over each of two consecutive windows (two
+                    # events, as the reversal rule) is settled and pinned. No new constant.
+                    if getattr(tgt, "points_np", None) is None:
+                        tgt.points_np = np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32)
+                    if getattr(tgt, "pin_rcov", None) is None:
+                        from scipy.spatial import cKDTree as _KDs
+                        tgt.pin_rcov = float(np.median(_KDs(tgt.points_np).query(tgt.points_np, k=9, workers=-1)[0][:, 8]))
+                    if still_cnt is None or len(still_cnt) != len(_d_now):
+                        still_cnt = np.zeros(len(_d_now), np.int32)
+                    _still_now = np.linalg.norm(_d_now, axis=1) < tgt.pin_rcov
+                    still_cnt = np.where(_still_now, still_cnt + 1, 0).astype(np.int32)
+                    _still = _arr_p & (still_cnt >= 2)
+                    rec["pin_still_frac"] = float(_still.mean())
+                    _newly = _newly | (_still & ~settled_p)
                 if getattr(cfg, "settle_pin_stuck", False) and stick_arr is not None:
                     # config.settle_pin_stuck (2026-09-25 19:55 CDT): a stuck particle (config.plan_sticky) converges to
                     # its fixed point monotonically and never reverses twice (bp301: 83 % stuck, 6 % pinned, at the best
