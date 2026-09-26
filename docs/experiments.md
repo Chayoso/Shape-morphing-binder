@@ -8089,3 +8089,32 @@ moving particles, not an appearance refit. The thinned region's coverage at fram
 0.392–0.400) with the material variants — the clamped radius (≤ 4×) and area ratio keep it from painting a
 membrane over the deficit; at frames 240 and 720 the coverage is unchanged. Kept opt-in; page unchanged; the
 surface sample budget (§8 of the proposal) remains a separate item.
+
+**2026-09-26 03:15 CDT — P284 ✓ on both leads: bp306a (lead 0.035 wu = one native spacing) and bp306b (0.07).**
+Read at equal physical time (`scratch/hollow_frames.py`, frames 76 / 114 / 152 / 190 = windows 4 / 6 / 8 / 10):
+
+| | bm300 (lead = cell 0.306) | **bp306a (0.035)** | bp306b (0.07) |
+|---|---|---|---|
+| windows / wall | 44 / ~12 min | 58 / 13.1 min | 64 (early stop) / 13.5 min |
+| silIoU / chamfer | 0.9733 / 0.0554 | **0.9792** / 0.0551 | 0.9739 / 0.0555 |
+| top region density over the target's, windows 4 / 6 / 8 / 10 | 0.17 / 0.09 / 0.25 / 0.54 | **0.33 / 0.32 / 0.50 / 0.81** | 0.30 / 0.28 / 0.42 / 0.68 |
+| below half density in the top region at window 6 | 99.0 % | 74.6 % | 80.0 % |
+| progress by source depth at t = 0.14 (d0–2 / d2–5 / d5–10) | 0.03 / −0.03 / −0.07 | 0.09 / 0.07 / 0.06 | 0.12 / 0.10 / 0.07 |
+| arrived % by windows 6 / 9 / 12 / 22 / 39 | 27 / 68 / 93 / 97 / 99.9 | 23 / 58 / 90 / 95 / 99.2 | 24 / 42 / 90 / 95 / 99.4 |
+| negative-reversal windows | 0 | 0 | 0 |
+| ear tip (reference particles) / stray particles | 13.3 / 15 | 11.3 / 7 | 11.7 / 15 |
+| detF_min / pinned at the end | 0.72 / 49 % | 0.75 / 45.8 % | 0.69 / 44.0 % |
+| late unpinned surface motion (normal / tangential, sp per frame) | 0.179 / 0.131 | 0.147 / 0.082 | 0.112 / 0.056 |
+
+Every P284 gate holds for both: the vapour 2–3.5× denser at the same frames (0.33 / 0.32 against 0.17 /
+0.09), no stall (the arrival slower by 2–3 windows early, 99 % reached; bp306b pauses one window at 30 %),
+the fit up 0.006 for the one-spacing lead (the best 300k bunny on the record), zero reversals, the tip ≥ 9,
+the wall within a minute of bm300's. The bulk now moves with the skin at t = 0.14 (0.09 / 0.07 / 0.06 by
+depth against 0.03 / −0.03 / −0.07). What the small lead does mechanically (P278, item 1): the paced slab
+is now one particle spacing deep, which is what the outermost layer's kick delivers per window, so the slab
+is fed by the layer that would have run ahead anyway and the bulk is not asked for a cell it cannot supply.
+Written as a RULE, not a world-unit value: `--pace_lead_sp 1` = one native spacing of the source cloud
+(measured; 0.035 wu at 300k, 0.070 at 40k), the arrival radius unchanged. Not adopted yet: the 300k dragon
+with the rule (P285: silIoU ≥ 0.9699, no stall, 0 reversals) and the 40k gallery with the rule (the 19
+targets, since the lead there drops from one cell to one spacing) are the adoption gates; the splat renders
+of bp306a/b are being made for the tail and the page.

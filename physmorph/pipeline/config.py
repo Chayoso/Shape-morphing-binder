@@ -35,6 +35,8 @@ class PipelineConfig:
     dfc_clip: float = 0.0           # optional per-particle |dFc| cap (0 = off; C++ has none)
     pace_lead: float = 0.0          # 2026-09-26 (reviewer item 3): >0 = the paced target's LEAD distance in wu, fixed, with the
                                     #   arrival radius left at max(plan blur, loss cell); 0 = lead = arrival radius (the record)
+    pace_lead_sp: float = 0.0       # 2026-09-26 (P284 rule): >0 = the lead in NATIVE particle spacings of the source (measured);
+                                    #   1 = the smallest coherently delivered step; overrides pace_lead; 0 = off
     pace_budget: float = 0.0        # >0: derive the per-window pace cap FROM THE
                                     # ANIMATION BUDGET as 1 - pace_budget^(1/animations)
                                     # (an exponential glidepath whose residual at the
