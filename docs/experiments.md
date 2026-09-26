@@ -8118,3 +8118,13 @@ Written as a RULE, not a world-unit value: `--pace_lead_sp 1` = one native spaci
 with the rule (P285: silIoU ≥ 0.9699, no stall, 0 reversals) and the 40k gallery with the rule (the 19
 targets, since the lead there drops from one cell to one spacing) are the adoption gates; the splat renders
 of bp306a/b are being made for the tail and the page.
+
+**2026-09-26 03:40 CDT — the lead runs' delivered renders and the adoption gates launched.** GPU splat renders
+(`render_splat_gpu.py`, the page's pipeline, no material flags), `video_flicker` tails: bm300 0.0008 / 0.0007
+(D1 / ALT) → **bp306a 0.0006 / 0.0006**, **bp306b 0.0005 / 0.0004** — the calmer late surface of the two-spacing
+lead (0.112 / 0.056 sp per frame unpinned) shows in the delivered video; the best 300k tail on the record
+(g41pw 40k: 0.0002). Launched: **P285** bp306d = the 300k dragon, bo300's form + `--pace_lead_sp 1` (GPU 3;
+gates: silIoU ≥ 0.9699, no stall, 0 negative-reversal windows), and **P286** the 40k gallery g41ld = g41pw's form
++ `--pace_lead_sp 1` on all 19 targets (GPUs 0–1; the lead there drops from one cell 0.302 wu to one spacing
+0.070; gate: no target loses more than 0.005 silIoU against g41pw, no new reversal streak, the layer breathing
+not worse). Adoption of the rule needs both; until then bm300 / g41pw stay the forms and the page is unchanged.
