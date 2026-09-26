@@ -68,17 +68,7 @@ class _WarpMPM(torch.autograd.Function):
     @staticmethod
     def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, spec: RolloutSpec):
         N, T = spec.x0.shape[0], spec.T
-        seq = dFc_t.dim() == 4
-        if seq:
-            assert dFc_t.shape[0] == T, f"dFc sequence must be (T={T},N,3,3), got {tuple(dFc_t.shape)}"
-            dc = dFc_t.contiguous()
-            # each slice of a contiguous (T,N,3,3) tensor is itself contiguous, so from_torch
-            # SHARES memory with the leaf and .grad maps straight back — no copies.
-            dFc_wp = [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33,
-                                    requires_grad=dFc_t.requires_grad) for t in range(T)]
-        else:
-            dFc_wp = wp.from_torch(dFc_t.contiguous().view(N, 3, 3), dtype=wp.mat33,
-                                   requires_grad=dFc_t.requires_grad)
+        dFc_wp, seq = _dfc_to_warp(dFc_t, N, T)
         lam_wp = _leaf_f32(lam_t) if lam_t is not None else spec.lam
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
@@ -133,6 +123,7 @@ def _dfc_to_warp(dFc_t: torch.Tensor, N: int, T: int):
     if dFc_t.dim() == 4:
         assert dFc_t.shape[0] == T, f"dFc sequence must be (T={T},N,3,3), got {tuple(dFc_t.shape)}"
         dc = dFc_t.contiguous()
+        # Each time slice shares the contiguous tensor's storage and leaf gradient.
         return [wp.from_torch(dc[t].view(N, 3, 3), dtype=wp.mat33,
                               requires_grad=dFc_t.requires_grad) for t in range(T)], True
     return wp.from_torch(dFc_t.contiguous().view(N, 3, 3), dtype=wp.mat33,

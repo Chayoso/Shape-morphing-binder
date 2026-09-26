@@ -1401,18 +1401,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             if getattr(cfg, "settle_pin", False) and ctrl_prev_disp is not None and frozen_p is not None:
                 if settled_p is None or len(settled_p) != len(_d_now):
                     settled_p = np.zeros(len(_d_now), bool)
-                _arr_p = stats.get("arrived_mask")
-                from .settlement import accepted_arrivals
-                _has_end_plan = stats.get("plan_img") is not None and stats.get("pace_r") is not None
-                if not _has_end_plan and _arr_p is None:
-                    # Preserve the existing non-paced controller, explicitly without claiming target arrival.
-                    _arr_p = np.ones(len(x), bool)
-                _end_arr = accepted_arrivals(x, stats.get("plan_img"), stats.get("pace_r"), _arr_p)
-                rec["arrived_end_frac"] = float(_end_arr.mean()) if _has_end_plan else None
-                rec["pin_arrival_evidence"] = "accepted_full_plan" if _has_end_plan else "legacy_no_arrival_contract"
-                _arr_p = (accepted_arrivals(x, stats.get("plan_img"), stats.get("pace_r"), _arr_p,
-                                            require_start=True) if cfg.settle_pin_confirm else _end_arr)
-                rec["pin_arrival_eligible_frac"] = float(_arr_p.mean())
+                from .settlement import pin_arrival_evidence
+                _arrival = pin_arrival_evidence(
+                    x, stats.get("plan_img"), stats.get("pace_r"), stats.get("arrived_mask"),
+                    require_start=cfg.settle_pin_confirm)
+                _arr_p = _arrival.eligible
+                rec.update(_arrival.telemetry())
                 rec["active_pin_motion_max"] = (float(np.linalg.norm(_d_now[pin_window], axis=1).max())
                                                 if pin_window.any() else 0.0)
                 if settled_at is None or len(settled_at) != len(_d_now):

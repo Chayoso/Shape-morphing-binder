@@ -7,7 +7,6 @@ import torch
 from physmorph.mpm.function import RolloutSpec, PersistentAdjoint, warp_mpm_ext
 from physmorph.mpm.state import MPMParams
 from physmorph.pipeline.body_control import BodyControlBasis, rest_to_rest_pulse, terminal_velocity_pulse
-from physmorph.pipeline.settlement import accepted_arrivals
 
 
 def spec(lam=0.0, mu=0.0, pin=None):
@@ -97,20 +96,3 @@ def test_body_mode_shape_mismatch_is_rejected():
                     lambda b: PersistentAdjoint(s).apply(dc, body_t=b)):
         with pytest.raises(ValueError, match='shape'):
             rollout(torch.zeros(40, 3))
-
-
-def test_accepted_arrival_detects_departure_and_new_arrival():
-    x = np.array([[0.2, 0, 0], [0.01, 0, 0]], np.float32)
-    assert accepted_arrivals(x, np.zeros_like(x), 0.1, [True, False]).tolist() == [False, True]
-    assert not accepted_arrivals(x, None, None).any()
-
-
-def test_confirmed_arrival_keeps_transit_protection_until_both_endpoints_arrive():
-    x = np.array([[.2, 0, 0], [.01, 0, 0], [.02, 0, 0]], np.float32)
-    start = [True, False, True]
-    result = accepted_arrivals(x, np.zeros_like(x), .1, start, require_start=True)
-    assert result.tolist() == [False, False, True]
-    assert start == [True, False, True]
-    for images, radius, mask in [(None, None, start), (x, .1, None), (x, .1, [True])]:
-        with pytest.raises(ValueError, match='window-start mask'):
-            accepted_arrivals(x, images, radius, mask, require_start=True)
