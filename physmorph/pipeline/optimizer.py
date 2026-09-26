@@ -363,7 +363,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer,
                        eta=(np.ascontiguousarray(eta_init, np.float32) if eta_init is not None else None),
                        pin=(np.ascontiguousarray(pin_init, np.float32) if pin_init is not None else None),
-                       pin_slip=bool(getattr(cfg, "settle_pin_slip", False)))
+                       pin_slip=bool(getattr(cfg, "settle_pin_slip", False)), body_ctrl=cfg.body_ctrl)
+    if cfg.body_ctrl and (T < 2 or cfg.grad_dump or cfg.mom_carry > 0
+                         or os.environ.get("PHYSMORPH_REPLAY_LOAD")
+                         or os.environ.get("PHYSMORPH_REPLAY_SAVE")):
+        raise ValueError("body_ctrl needs T >= 2, mom_carry=0, and no legacy replay/gradient dumps")
 
     basis = ControlBasis(x0, T, cfg.control_grid, cfg.control_tknots, device=dev)
     taper_t = None
@@ -406,13 +410,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # this pass the no-grad rollouts had none, so the line search evaluated plain physics
     # while the adjoint described the re-coupled system.
     dc_buf = torch.zeros(T, N, 3, 3, device=dev)
+    body_buf = torch.zeros(N, 3, device=dev) if cfg.body_ctrl else None
+    body_wp = wp.from_torch(body_buf, dtype=wp.vec3) if body_buf is not None else None
     seq_eval = [wp.from_torch(dc_buf[t], dtype=wp.mat33) for t in range(T)]
     tr_eval = Trajectory(x0, m_np, lam0, mu0, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
                          dFc=seq_eval, device=dev, requires_grad=False, vol0=vol0,
                          Fg0=Fg0, track_geom=use_geom, persistent=True,
                          bonds=((bond_nbr, bond_rest, bond_frag, disc_ref_factor(N, cfg) ** 3)   # decoupling count = 1 reference particle
                                 if bond_nbr is not None else None),
-                         layer=layer, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip)   # the SAME viscosity / pin as the adjoint rollout
+                         layer=layer, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip,
+                         body_control=body_wp)   # the SAME force, viscosity and pin as the adjoint rollout
                                                                     # (2026-09-24 night: the commit rollout is this one)
     tr_eval.capture()
     adj_box = [None]                 # PersistentAdjoint, built at the first gradient rollout
@@ -457,6 +464,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return d_vol(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims)
 
     pace_grid = None
+    corr_chat = pace_proj_stats = arrived_mask_np = pace_r = None
+    arrive_idx_np = pace_r_np = plan_img_np = None
+    arrive_cap_frac = pace_front_frac = pace_front_fill_frac = None
+    sils_eff, shade_eff, pbr_grid_eff = tgt.sils, tgt.shade, True
     if getattr(cfg, "phys_loss", "density") == "ot_resid":
         # RESIDUAL TRANSPORT PACING. The cell sum's own residual at the window start —
         # excess = (cloud − target)+ and deficit = (target − cloud)+ per loss cell, equal
@@ -1323,6 +1334,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         s0 = np.zeros((2, N), np.float32) if s_init is None else np.asarray(s_init, np.float32)
         s = torch.tensor(s0, device=dev, requires_grad=True)
         leaves.append(s)
+    body_coeff = body_basis = body_gate = None
+    if cfg.body_ctrl:
+        from .body_control import BodyControlBasis
+        body_basis = BodyControlBasis(x0, prm.grid_min, prm.dx, device=dev)
+        body_coeff = body_basis.zeros()
+        # A settled particle released only to let a stream pass remains passive.
+        # Follow/KKT reactivation restores its control scale in the runner.
+        _body_active = (np.ones(N, bool) if ctrl_scale_init is None else np.asarray(ctrl_scale_init) > 0)
+        body_gate = torch.as_tensor(_body_active, device=dev, dtype=torch.float32)[:, None]
+        leaves.append(body_coeff)
+        log(f"[win] body control: {body_basis.n_nodes} grid nodes, zero-impulse pulse, nominal free displacement bound {prm.dx:.4f} wu")
+
+    def body_field():
+        return body_basis.expand(body_coeff) * body_gate if body_coeff is not None else None
+
     u = None
     if cfg.layer_ctrl:
         # position-mode control leaf (§7): a normal displacement per outer-layer particle for THIS
@@ -1337,7 +1363,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         u_bound = torch.as_tensor(float(sp0) * _us, device=dev)
     mom = [torch.zeros_like(p) for p in leaves]
     vel = [torch.zeros_like(p) for p in leaves]
-    lr_scale = [1.0] + ([cfg.mat_lr_scale] if s is not None else []) + ([1.0] if u is not None else [])
+    lr_scale = ([1.0] + ([cfg.mat_lr_scale] if s is not None else [])
+                + ([1.0] if body_coeff is not None else []) + ([1.0] if u is not None else []))
     # per-particle Rprop scale of the control step (config.ctrl_rprop; docs/method.md 10.24): the runner
     # halves a particle's scale when its window displacement reversed the previous accepted one and
     # raises it x1.2 (to 1) when it kept its direction; no floor — the arrived body's step decays to
@@ -1563,9 +1590,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # persistent tape trajectory (forward + adjoint as CUDA graphs), one per window
             if adj_box[0] is None:
                 adj_box[0] = PersistentAdjoint(spec)
-            xT, FT, vT, FgT, V = adj_box[0].apply(dfc, u)
+            xT, FT, vT, FgT, V = adj_box[0].apply(dfc, u, body_field())
         else:
-            xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t, u_t=u)
+            xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t, u_t=u, body_t=body_field())
         if xT.requires_grad and getattr(cfg, "settle_pin_kkt", False):
             # the objective's gradient at the end-of-window positions of EVERY particle, pinned ones included (a pinned
             # particle's control has no effect, but its position still carries the render and density residuals)
@@ -1584,6 +1611,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             _set_material(lam_t, mu_t)
             dc = expand(leaf.detach()).detach().contiguous()
             dc_buf.copy_(dc.view(T, N, 3, 3))
+            if body_buf is not None:
+                body_buf.copy_(body_field().detach())
             if u is not None:
                 wp.to_torch(tr_eval.layer_u).copy_(u.detach())
             t0 = _tick()
@@ -1662,6 +1691,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         w_dt inflate the balanced silhouette weight and project render components off a
         direction that was never 'the physics')."""
         L = lv + wu * cfg.w_kin * lk + wu * cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
+        if body_coeff is not None:
+            L = L + wu * cfg.w_ctrl * (body_field() / float(prm.dx)).square().sum(1).mean()
         if cfg.w_kin_running > 0 and lk_run is not None:
             # RUNNING kinetic (docs/oscillation_triage.md driver C): penalise motion at
             # every step, not only the endpoint, so a window cannot sprint-then-brake
@@ -2123,6 +2154,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     s.clamp_(-cfg.mat_clamp, cfg.mat_clamp)
                 if u is not None:
                     u.copy_(torch.maximum(torch.minimum(u, u_bound), -u_bound))   # one spacing per window, x the Rprop scale
+                if body_coeff is not None:
+                    body_coeff.div_(body_coeff.norm(dim=1, keepdim=True).clamp_min(1.0))
             state_n, lv_n, lk_n, lr_n, lpbr_n, extra_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, extra_n["dfc"], state_n[0],
@@ -2274,6 +2307,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         _set_material(lam_t, mu_t)
         dc = expand(dFc.detach()).detach().contiguous()
         dc_buf.copy_(dc.view(T, N, 3, 3))
+        if body_buf is not None:
+            body_buf.copy_(body_field().detach())
         if u is not None:                # the ACCEPTED u (a rejected candidate's may sit in the buffer)
             wp.to_torch(tr_eval.layer_u).copy_(u.detach())
         t0 = _tick()
@@ -2418,6 +2453,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
+             "body_rms_wu": (float(body_field().detach().square().sum(1).mean().sqrt()) if body_coeff is not None else None),
+             "body_nodes": (body_basis.n_nodes if body_basis is not None else 0),
              "mom_out": mom_out if cfg.mom_carry > 0 else None,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,

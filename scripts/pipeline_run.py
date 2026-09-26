@@ -95,7 +95,7 @@ def gate1_channels(src, prm, young=1.4e5, poisson=0.2, device="cuda"):
 
 
 def arm_config(arm: str, args) -> PipelineConfig:
-    cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations,
+    cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations, body_ctrl=args.body_ctrl,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
@@ -488,6 +488,8 @@ def eval_gates(tag, res, met, prm, T, rel_tol=0.003, hole_tol=0.02):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--body_ctrl", action="store_true",
+                    help="add a cell-scale external-force control with a zero-impulse temporal pulse")
     ap.add_argument("--src", default="assets/isosphere.obj")
     ap.add_argument("--tgt", default="assets/bunny.obj")
     ap.add_argument("--n", type=int, default=20000)

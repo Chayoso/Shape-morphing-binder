@@ -72,7 +72,8 @@ class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None, pin=None, pin_slip=False,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
-                 Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None):
+                 Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None,
+                 body_control=None):
         x0 = np.ascontiguousarray(x0, np.float32)
         # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
         # accumulated grid arrays are re-zeroed per step and the rollout can be recorded as
@@ -110,6 +111,14 @@ class Trajectory:
         # shared, non-differentiated
         m_a = np.broadcast_to(m, (N,)).astype(np.float32)
         self.m = A(m_a, wp.float32)
+        self.body_control = body_control
+        self.body_pulse = None
+        if body_control is not None:
+            if T < 2:
+                raise ValueError("body control requires T >= 2")
+            # Zero net impulse, unit free displacement under this integrator.
+            q = T - 1 - 2 * np.arange(T, dtype=np.float64)
+            self.body_pulse = q / (prm.dt ** 2 * np.dot(T - np.arange(T), q))
 
         # material: scalar / numpy -> constant array; a wp.array passes through UNCHANGED so the
         # torch bridge can hand in from_torch leaves (dL/d(lam,mu) flows back through the tape).
@@ -305,6 +314,10 @@ class Trajectory:
                   self.m, self.vol, self._omega(t), bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
                   prm.dt, prm.drag,
                   prm.nx, prm.ny, prm.nz, self.pin, self.pin_mode], device=dev)
+        if self.body_control is not None:
+            wp.launch(K.k_body_impulse, dim=N, inputs=[self.x[t], self.m, self.body_control, self.pin,
+                      self.gmom[t], float(self.body_pulse[t] * prm.dt), gmin, prm.dx, inv_dx,
+                      prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
                   prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
                   K.WALL_NODES, self.gmpin, self.pin_mode], device=dev)

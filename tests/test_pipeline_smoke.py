@@ -54,6 +54,16 @@ def test_phys_arm_runs(prm, clouds):
     assert np.isfinite(met["chamfer"]) and 0 <= met["sil_iou"] <= 1
 
 
+def test_body_control_pipeline_optimises_the_force_leaf(prm, clouds):
+    src, tgt = clouds
+    cfg = _cfg(body_ctrl=True)
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    _check_result(res, cfg, len(src))
+    recs = [h for h in res["history"] if "d_vol" in h]
+    assert all(r["body_nodes"] > 0 for r in recs)
+    assert any(r["body_rms_wu"] > 0 for r in recs)
+
+
 def test_render_arm_runs_and_lambda_is_live(prm, clouds):
     src, tgt = clouds
     cfg = _cfg(lambda_auto=0.5)

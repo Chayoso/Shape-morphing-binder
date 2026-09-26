@@ -297,6 +297,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     n_held, converged). frames/F_frames archive the PROMOTED per-step states.
     on_commit(a, x, F, v, rec) fires after each promoted commit; on_iter(it, xT, FT, tele)
     streams each accepted optimisation iteration (live viewer hooks)."""
+    if cfg.settle_pin and (cfg.reattach or cfg.settle_commit):
+        raise ValueError("settle_pin cannot be combined with reattach/settle_commit: those commit operators do not preserve pins")
     src = np.ascontiguousarray(source_x, np.float32)
     N = src.shape[0]
     assert target_x.shape[0] == N, ("D_vol compares unit-mass clouds: source and target need "
@@ -510,6 +512,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             log(f"[v2] c2f at anim {a + 1}: render targets rebuilt at {cfg.render_res}px")
             # plateau counter (adversarial finding: freeze could fire one commit later)
         x_start = x.copy()
+        pin_window = (np.zeros(len(x), bool) if settle_pin_arr is None
+                      else np.asarray(settle_pin_arr) > 0.5)
         rollback = {
             "st": {k: (None if q is None else q.copy()) for k, q in st.items()},
             "Fp": Fp.copy(), "s": None if s is None else s.copy(),
@@ -769,6 +773,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             _pd, _ps = grid_project(_d, np.asarray(x_start, np.float32), float(prm.dx), prm.grid_min,
                                     (prm.nx, prm.ny, prm.nz), device=cfg.device)
             x = (np.asarray(x_start, np.float32) + _pd).astype(np.float32)
+            x[pin_window] = x_start[pin_window]
             rec_pic = _ps
             if (a + 1) % 10 == 1 or _ps["null_share"] > 0.5:
                 log(f"[v2] anim {a + 1}: commit projection — null-space share of the window's displacement "
@@ -786,6 +791,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             if sp_native is None:
                 sp_native = native_spacing(x)
             dxs, sst = fickian_shift(x, sp_native, h_sp=float(cfg.shift_h_sp))
+            dxs[pin_window] = 0.0
             # the objective's change across the shift, measured (the arrangement is underconstrained,
             # not an exact null space — the independent audit, docs/diagnosis_300k_20260923.md): the
             # fixed-target cell sum before and after, in density units when the run uses them
@@ -880,6 +886,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 d_fill = coverage_shortfall(xt, tgt.m, tgt.tmass3, tgt.dtgmin,
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
+               "body_rms_wu": stats.get("body_rms_wu"), "body_nodes": stats.get("body_nodes", 0),
+               "pace_lead_applied": stats.get("pace_lead_applied"),
                "reattached": n_reattached,
                "shift_median_sp": (last_shift or {}).get("median_sp"), "shift_dvol_rel": (last_shift or {}).get("dvol_rel"),
                "pic_null_share": (rec_pic or {}).get("null_share"),
@@ -1378,7 +1386,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if settled_p is None or len(settled_p) != len(_d_now):
                     settled_p = np.zeros(len(_d_now), bool)
                 _arr_p = stats.get("arrived_mask")
-                _arr_p = np.ones(len(_d_now), bool) if _arr_p is None or len(_arr_p) != len(_d_now) else np.asarray(_arr_p, bool)
+                from .settlement import accepted_arrivals
+                _arr_p = accepted_arrivals(x, stats.get("plan_img"), stats.get("pace_r"), _arr_p)
+                rec["arrived_end_frac"] = float(_arr_p.mean())
+                rec["active_pin_motion_max"] = (float(np.linalg.norm(_d_now[pin_window], axis=1).max())
+                                                if pin_window.any() else 0.0)
                 if settled_at is None or len(settled_at) != len(_d_now):
                     settled_at = np.full(len(_d_now), -1, np.int32)
                 _newly = _arr_p & (ctrl_rev_count >= 2) & (~settled_p)
@@ -1587,7 +1599,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     ctrl_scale_apply = np.asarray(ctrl_scale_apply, np.float32).copy(); ctrl_scale_apply[_follow] = 1.0
                     if u_scale is not None and len(u_scale) == len(_follow):
                         u_scale[_follow] = 1.0
-                rec["pinned_frac"] = float(settled_p.mean())
+                rec["settled_frac"] = float(settled_p.mean())
+                rec["pinned_frac"] = float((settle_pin_arr > 0.5).mean())
+                rec["pin_released_frac"] = float((settled_p & _yield).mean())
                 if stats.get("arrive_cap_frac") is not None:
                     rec["arrive_cap_frac"] = float(stats["arrive_cap_frac"])
                 if stats.get("pace_front_frac") is not None:
@@ -1595,7 +1609,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if stats.get("pace_front_fill_frac") is not None:
                     rec["pace_front_fill_frac"] = float(stats["pace_front_fill_frac"])
                 if (a + 1) % 5 == 0:
-                    log(f"[v2] anim {a + 1}: pinned {100 * settled_p.mean():.1f} % of the particles")
+                    log(f"[v2] anim {a + 1}: pinned {100 * rec['pinned_frac']:.1f} % of the particles")
             if getattr(cfg, "freeze_arrived", False) and ctrl_prev_disp is not None and frozen_p is not None:
                 _arr_f = stats.get("arrived_mask")
                 _arr_f = np.ones(len(_d_now), bool) if _arr_f is None or len(_arr_f) != len(_d_now) else np.asarray(_arr_f, bool)
@@ -1725,7 +1739,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                          "alpha_lam": balancer.alpha_lam},
             "s": s, "Fp": Fp, "n_held": n_held, "converged": frozen, "reattached": n_reattach_total,
             "render_mask": ((surface_w > 0.5) if cfg.render_surface_only else None),
-            "pinned": settled_p,                      # config.settle_pin / settle_eta: the settled set at the end (None when off)
+            "pinned": (None if settle_pin_arr is None else settle_pin_arr > 0.5),
+            "settled": settled_p,
             "pinned_at": settled_at,
             "gx_last": kkt_last_g,
             "stuck": stick_arr}                    # config.plan_sticky: the target point each particle arrived at (-1 never)                  # config.settle_pin: the window at which each particle was pinned (-1 never)
