@@ -8045,3 +8045,26 @@ motion scales ~1/dx. Two interpretations remain open for the reviewer: the low-m
 B-spline stencil (numerical, favoured by the sp- and dx-dependences) or the elastic wave front in one step
 (c·dt); neither is "stress control cannot move the bulk" — it is "a stress increment near a free surface
 kicks the outermost layer first, by orders of magnitude, in this discretisation".
+
+**2026-09-26 02:35 CDT — reviewer item 3 at the initial state: a small FIXED lead of the paced target feeds the
+slab 4–6× denser.** `--pace_lead` (the lead distance decoupled from the arrival radius, which stays at
+max(plan blur, loss cell) = 0.306 wu; the snap, Rprop-arrived and the pin unchanged), bm300's form, 6 windows
+from the source (window 6 ≈ the full run's t = 0.14), `scratch/lead/`:
+
+| lead (wu) | arrived % by window | top region (y > 2.3) at window 6: particles / below half / density over target | at window 4.2 |
+|---|---|---|---|
+| 0 (= 0.306, the record) | 17.7 17.5 17.8 20.0 22.9 27.5 | 1514 / 99.7 % / 0.05 | 899 / 100 % / 0.06 |
+| 0.035 (1 native sp) | 17.7 17.1 16.1 17.6 20.0 22.8 | 1260 / 78.6 % / **0.29** | 347 / 92 % / 0.21 |
+| 0.07 (2 sp) | 17.7 17.2 16.5 18.2 20.8 23.9 | 1280 / 87.8 % / 0.23 | 407 / 96 % / 0.19 |
+| 0.14 (4 sp) | 17.7 17.4 17.2 19.2 22.0 26.0 | 1413 / 98.7 % / 0.11 | 571 / 98 % / 0.13 |
+
+The progress by source depth is uniform (d0–2 ≈ d2–5) in all four at this stage; the transport is 17 % slower
+by window 6 at 1 sp. The lead, not the loss resolution, was the free variable P280 left open. The
+mid-transport case (cd9's stall below the cell) is what a full run tests: pre-registered **P284** — bp306a =
+bm300 + `--pace_lead 0.035`, bp306b = + `--pace_lead 0.07` (GPUs 1, 3): the vapour (top region's density over
+the target's) at t = 0.10 / 0.14 ≥ 0.2 (bm300 0.17 / 0.05); no stall (arrived ≥ 95 % by window ≤ 70 and
+reaching 99 %); silIoU ≥ 0.971; 0 negative-reversal windows; tip ≥ 9 reference particles; wall ≤ 35 min; the
+lead recorded raw per window (fixed here by construction); comparisons at equal physical time (frame index),
+not normalised t, since the window count will differ. Refuted if the transport stalls or the fit / reversal /
+tip gates fail; if it holds, the delivery-tied lead is the next step, and the 40k gallery is untouched
+(at 40k the lead equals the cell unless the flag is passed).
