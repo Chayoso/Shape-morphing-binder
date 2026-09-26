@@ -364,6 +364,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        eta=(np.ascontiguousarray(eta_init, np.float32) if eta_init is not None else None),
                        pin=(np.ascontiguousarray(pin_init, np.float32) if pin_init is not None else None),
                        pin_slip=bool(getattr(cfg, "settle_pin_slip", False)), body_ctrl=cfg.body_ctrl)
+    if cfg.body_no_dfc and not cfg.body_ctrl:
+        raise ValueError('body_no_dfc requires body_ctrl')
     if cfg.body_ctrl and (T < 2 or cfg.grad_dump or cfg.mom_carry > 0
                          or os.environ.get("PHYSMORPH_REPLAY_LOAD")
                          or os.environ.get("PHYSMORPH_REPLAY_SAVE")):
@@ -399,6 +401,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         out = basis.expand(leaf)
         return (out.view(T, N, 3, 3) * taper_t.view(1, N, 1, 1)).view_as(out)
 
+    if cfg.body_no_dfc:
+        taper_t = torch.zeros(N, device=dev)
     expand = basis.expand if taper_t is None else _expand_tapered   # leaf -> (T,N,3,3) control field
     dFc = basis.zeros()                         # the LEAF (per-particle when grid=0)
     leaves = [dFc]

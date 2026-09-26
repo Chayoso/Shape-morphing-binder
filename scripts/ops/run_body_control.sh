@@ -20,6 +20,7 @@ fi
 case "$MODE" in
     baseline) ;;
     body) FL+=(--body_ctrl) ;;
+    body_no_dfc) FL+=(--body_ctrl --body_no_dfc) ;;
     body_phys) FL+=(--body_ctrl --lambda_auto 0) ;;
     *) exit 2 ;;
 esac

@@ -1654,3 +1654,29 @@ the source, the set the plan is averaged over), x̄_i the centroid of N_i at the
 A neighbourhood is pulled as a whole, so the bulk translates with the front and nothing is torn
 from its neighbours; inside the neighbourhood the arrangement — the sub-blur detail — stays the
 density and render terms'. No new constant: the plan's neighbourhood, its images, the parity scale.
+
+### 10.36 Optional bulk force control (P291, 2026-09-26)
+
+`--body_ctrl` adds an external force field to the existing dFc/u controls. It is a
+different actuator class, and render attribution requires the same actuator with
+`lambda_auto=0`. No production recipe or physical baseline is replaced by this option.
+
+Frozen trilinear interpolation on the MPM lattice gives a nominal displacement
+`b_p = dx sum_i w_pi c_i`, with each dimensionless node vector bounded by `|c_i| <= 1`.
+At substep t in a T-step window the cubic P2G momentum receives
+`dt sum_p w_ip m_p a_t b_p`, where `q_t=T-1-2t` and
+`a_t=q_t/[dt^2 sum_s (T-s) q_s]`. This has zero applied impulse and unit nominal
+free-displacement response. An elastic, damped or contacting body's terminal velocity
+is not guaranteed zero; the existing rollout and kinetic terms measure it.
+
+The field is zero for active pins and for exactly zero control-scale particles.
+It participates in both adjoint paths, line-search candidates and the accepted
+rollout; its dimensionless particle mean-square norm uses the existing `w_ctrl`.
+Node moments are not carried across windows; unsupported replay/dump modes are rejected.
+The lead, arrival radius and discretisation retain their existing definitions.
+
+Settlement correctness changes alongside this experiment: admission uses the accepted
+endpoint with the frozen full plan image; commit PIC and subgrid shifts preserve active
+pins. Active pin and broader admitted fractions are reported separately. A diagnostic
+`--stop_after_windows` limits execution while leaving `animations`-based schedules intact.
+Implementation, limitations and quality gates: [P291](body_control_p291.md).

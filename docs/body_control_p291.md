@@ -70,3 +70,41 @@ Project storage is checked every 30 seconds. Above 100 decimal GB, only the expl
 completed failed bp308/bp308d raw archives are eligible: gzip, verify all bytes by
 SHA-256, write a manifest, then remove the original single file. Logs, JSON, accepted
 baselines and other users' data remain intact. Exhausting candidates is reported.
+
+## Initial results and the next ablation
+
+Same-schedule 300k bunny prefixes (`ddc6930`, T=20, dt=1/240, dx=0.3062907 wu,
+36^3 loss grid, seed1, animations300, stop_after_windows8):
+
+| raw target-radius neighbor density above y=2.3 | baseline | body + dFc |
+|---|---:|---:|
+| window4, frame80 | 0.0580 | 0.0335 |
+| window6, frame120 | 0.0483 | 0.0858 |
+| window8, frame160 | 0.2620 | 0.3827 |
+
+The mixed actuator improves later filling but worsens the earliest sparse front.
+It **does not pass the no-hole goal** and is not advanced to the full gallery.
+The existing global hole_frac metric reads zero on both prefixes and therefore
+does not detect this specific defect. These are neighborhood counts, not a
+topological-hole certificate. The new raw audit also checked every delivered
+frame after admission: max active-pin displacement is exactly0 in both prefixes
+(169 baseline /2039 mixed particles with at least one later frame checked).
+The last10% of an8-window prefix is not a converged tail.
+
+`--body_no_dfc` is the next diagnostic: retain elasticity and u, but make learned
+dFc identically zero, leaving the bulk-force field as the actuation channel for
+transport. It distinguishes mixed stress/body forcing from insufficient bulk
+delivery. It requires body_ctrl and is not a proposed default or proof of success.
+
+The earlier `c291_bunny_body8` run used animations8 and switched c2f at window5;
+it is plumbing evidence only. `base8s` and `body8s` preserve the300-window schedule.
+
+## Rendering settled points
+
+`render_splat_gpu --settled_freeze` checks every raw delivered frame from actual
+pin admission, rejects moving pins and release modes without active-mask history,
+then fixes each active pin's normal/radius at its first rendered settled frame.
+Opacity support remains based on current neighbors; `--material_support` is
+incompatible. This prevents attribute refitting from rotating a settled splat
+without masking density loss. It does not freeze unpinned points or establish
+that all particles have converged. Visual validation remains pending.

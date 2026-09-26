@@ -64,6 +64,14 @@ def test_body_control_pipeline_optimises_the_force_leaf(prm, clouds):
     assert any(r["body_rms_wu"] > 0 for r in recs)
 
 
+def test_body_ablation_removes_learned_stress_but_keeps_force(prm, clouds):
+    src, tgt = clouds
+    res = run_pipeline(src, tgt, prm, _cfg(body_ctrl=True, body_no_dfc=True), log=lambda *_: None)
+    recs = [h for h in res['history'] if 'd_vol' in h]
+    assert recs and all(h['dfc_absmax'] == 0 for h in recs)
+    assert any(h['body_rms_wu'] > 0 for h in recs)
+
+
 def test_diagnostic_prefix_preserves_full_run_schedule(prm, clouds):
     src, tgt = clouds
     params = dict(animations=4, c2f_at=0.5, lambda_auto=0.5, render_res_hi=32,

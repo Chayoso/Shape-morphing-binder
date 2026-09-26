@@ -8,10 +8,11 @@ Same picture as render_splat_video8 --adaptive --blur 3 --soft --disc --sigma 1 
   * deferred shading: the normal and coverage buffers from the 3DGS rasteriser, lit per pixel (hemispheric wrap light).
 CPU work per frame: none but the PNG write. Two views (35 / 215 deg, elevation 18), stride 12, a fixed camera.
 """
-import sys, os, math, argparse, subprocess, tempfile, time
+import sys, os, math, argparse, subprocess, tempfile, time, json
+from pathlib import Path
 import numpy as np, torch
 import torch.nn.functional as Fn
-sys.path.insert(0, "/data/relcfd/chayo/physmorph_v2/repo")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from physmorph.render.photoreal import render_3dgs
 from physmorph.render.knn_gpu import knn_self_torch
 from PIL import Image, ImageDraw
@@ -24,6 +25,8 @@ ap.add_argument("--opacity", type=float, default=0.92); ap.add_argument("--hold"
 ap.add_argument("--k", type=int, default=8); ap.add_argument("--nsmooth", type=int, default=2)
 ap.add_argument("--label", default=""); ap.add_argument("--stills", default="")
 ap.add_argument("--views", default="35,215"); ap.add_argument("--elev", type=float, default=18.0)
+ap.add_argument("--settled_freeze", action="store_true",
+                help="freeze active-pin normals/radii; density support stays live and raw pin motion is validated")
 ap.add_argument("--material_size", action="store_true",
                 help="P283 second stage (with --material_normals): an anchored particle's splat radius follows the in-plane "
                      "area change of its material neighbourhood")
@@ -34,10 +37,24 @@ ap.add_argument("--material_normals", action="store_true",
                 help="P283 (2026-09-26): normals anchored at a particle's first exposed frame and transported by the tangent-plane "
                      "deformation of its fixed 32-neighbourhood instead of being re-estimated every frame")
 a = ap.parse_args()
+if a.settled_freeze and a.material_support:
+    raise ValueError('--settled_freeze requires live density support; omit --material_support')
 dev = "cuda"
 z = np.load(a.npz, allow_pickle=True)
 F = z["frames"]; T = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
-n = len(F); idx = list(range(0, n, a.stride))
+n = min(len(F), int(z['deliver_n'])) if 'deliver_n' in z.files else len(F)
+idx = sorted(set(range(0, n, a.stride)) | {n-1})
+settled = None
+if a.settled_freeze:
+    from physmorph.render.settled import SettledAppearance, pin_start_frames, validate_pinned_frames
+    suffix = '_render_full_dt_iso_nn.npz'
+    if not a.npz.endswith(suffix):
+        raise ValueError('--settled_freeze requires the run JSON and render_full_dt_iso_nn archive')
+    with open(a.npz[:-len(suffix)] + '.json') as f:
+        arm = json.load(f)['arms']['render_full_dt_iso_nn']
+    starts = pin_start_frames(np.asarray(z['pinned'], bool), z['pinned_at'], arm['history'], arm['config'])
+    validate_pinned_frames(F, starts, n)
+    settled = SettledAppearance(starts, dev)
 ctr = T.mean(0); rad = float((T - ctr).norm(dim=1).max())
 dT, _ = knn_self_torch(T, a.k + 1)
 sp = float(dT[:, 1].median()); rcov = float(dT[:, a.k].median())
@@ -158,6 +175,8 @@ for kf, i in enumerate(idx):
                                    float(ang_r.median()), float((ang_r > 5).float().mean()), float(anch.float().mean())))
         mat["last"], mat["last_anch"], mat["last_refit"] = n_s.clone(), anch.clone(), nr_s.clone()
         nrm = n_s
+    if settled is not None:
+        nrm, sig_i, support = settled.apply(i, x, nrm, sig_i, support)
     # discs: R diag(s^2, s^2, (s/4)^2) R^T with the normal as the third axis
     ref = torch.where(nrm[:, :1].abs() < 0.9, torch.tensor([[1.0, 0, 0]], device=dev), torch.tensor([[0, 1.0, 0]], device=dev)).expand(len(x), 3)
     t1 = torch.cross(nrm, ref, dim=1); t1 = t1 / t1.norm(dim=1, keepdim=True).clamp_min(1e-9); t2 = torch.cross(nrm, t1, dim=1)

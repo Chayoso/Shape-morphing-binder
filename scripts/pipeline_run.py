@@ -96,7 +96,7 @@ def gate1_channels(src, prm, young=1.4e5, poisson=0.2, device="cuda"):
 
 def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations, body_ctrl=args.body_ctrl,
-                         stop_after_windows=args.stop_after_windows,
+                         stop_after_windows=args.stop_after_windows, body_no_dfc=args.body_no_dfc,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
@@ -491,6 +491,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--body_ctrl", action="store_true",
                     help="add a cell-scale external-force control with a zero-impulse temporal pulse")
+    ap.add_argument("--body_no_dfc", action="store_true",
+                    help="with body_ctrl: ablate learned dFc only; elastic stress and the u channel remain")
     ap.add_argument("--src", default="assets/isosphere.obj")
     ap.add_argument("--tgt", default="assets/bunny.obj")
     ap.add_argument("--n", type=int, default=20000)
@@ -870,9 +872,12 @@ def main():
     tracked = [Path("physmorph/pipeline/config.py"),
                Path("physmorph/pipeline/optimizer.py"),
                Path("physmorph/pipeline/runner.py"),
+               Path("physmorph/pipeline/body_control.py"),
+               Path("physmorph/pipeline/settlement.py"),
                Path("physmorph/pipeline/gauss_loss.py"),
                Path("physmorph/losses/volumetric.py"),
                Path("physmorph/mpm/kernels.py"),
+               Path("physmorph/mpm/function.py"),
                Path("physmorph/mpm/traj.py")]
     code_hash = hashlib.sha256(b"".join(p.read_bytes() for p in tracked)).hexdigest()[:16]
     try:

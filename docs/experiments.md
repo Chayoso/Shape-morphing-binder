@@ -8385,3 +8385,29 @@ fit. P289 refuted on both gates; together with P290 and the fixed leads (P284–
 the taper as levers within the current formulation. bm300 (bunny) and bo300 (dragon) remain the 300k
 forms; the page is unchanged. Open for the user's decision: the body-force control channel (a formulation
 change) or accepting the transit look as the physical state and moving to the other open items.
+
+**2026-09-26 — P291 implementation and initial same-schedule prefixes (Codex).** User authorised
+code changes and hyde01→hyde06 runs for no sparse holes, post-arrival flow or oscillation.
+Implementation ec71b0a, storage durability742b92a, schedule-preserving prefixddc6930;
+isolated snapshots in `/data/relcfd/chayo/physmorph_v2/work/c291/`. Production/page unchanged.
+External force is an additional actuator, not an equivalent dFc parameterisation (§10.36).
+
+CPU force tests: zero applied impulse/free displacement units, mass independence, adjoint FD,
+persistent/fresh parity, active-pin invariance, accepted-end arrival and pipeline leaf updates pass.
+CUDA smoke (N100, T6, dt0.005, dx0.5, GPU0): max position difference5.96e-8wu and relative
+gradient difference1.03e-7 across body coefficients1/-0.7/1. Existing CPU suite initially
+261pass/8skip/2fail: closed the Poisson NPZ handle on Windows; independent baseline663a43e
+reproduced the identical layer-relax FD failure. Double-precision scalar accumulation and
+resolved epsilon0.01/0.03 bring all three directions below0.63%/0.21%; test now uses1% bound
+instead of8%. Neither failure was used to waive physics checks.
+
+`c291_bunny_base8s` vs `c291_bunny_body8s`: N300k, T20, dt1/240, dx0.3062907wu, loss36^3,
+seed1, animations300 with stop_after_windows8. Above-head raw neighbor density at frames80/120/160:
+baseline0.0580/0.0483/0.2620; mixed body+dFc0.0335/0.0858/0.3827. Global hole_frac0 on both
+misses the transient sparse slab. Mixed actuation fails the earliest density gate; no full-gallery
+promotion. Active-pin motion over all raw delivered frames is exactly0 (169/2039 particles
+with a later frame available); this does not establish convergence of the unpinned population.
+Next diagnostic: body_ctrl + body_no_dfc, keeping elasticity/u but eliminating learned stress.
+The first body8 run shortened animations and moved c2f to window5; it is excluded from comparisons.
+
+Details, limitations, raw audit and rendering-latch policy: [P291](body_control_p291.md).
