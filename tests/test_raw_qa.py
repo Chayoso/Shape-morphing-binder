@@ -31,6 +31,7 @@ def test_pin_audit_detects_motion_after_admission(tmp_path):
     result = qa.audit(prefix)
     assert result['pin_motion']['checked_particles'] == 1
     assert result['pin_motion']['max_wu'] == pytest.approx(0.1, abs=1e-6)
+    assert result['pin_motion']['moved_particles_exact'] == 1
 
 
 def test_pins_admitted_after_delivery_are_not_counted_as_active(tmp_path):
@@ -45,3 +46,4 @@ def test_pins_admitted_after_delivery_are_not_counted_as_active(tmp_path):
     result = qa.audit(prefix)
     assert result['active_pins_at_delivered_end'] == 0
     assert result['pin_motion']['checked_particles'] == 0
+    assert result['pin_motion']['per_particle_max_drift_sp'] is None

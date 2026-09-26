@@ -73,7 +73,7 @@ def audit(prefix, every_frame=False):
     end_pins = np.zeros(len(pins), bool)
     release = any(cfg.get(k) for k in ('settle_pin_yield', 'settle_pin_follow', 'settle_pin_kkt'))
     if not release:
-        worst = 0.; checked = 0
+        worst = 0.; checked = 0; particle_maxima = []
         ani_to_frame = {int(r['animation'])+1: int(r['frame_end'])-1 for r in records}
         for when, frame in ani_to_frame.items():
             if frame < delivered:
@@ -85,10 +85,16 @@ def audit(prefix, every_frame=False):
             if start >= delivered-1:
                 continue
             anchor = np.asarray(frames[start])[selected].copy()
+            maxima = np.zeros(len(anchor), np.float32)
             for i in range(start+1, delivered):
-                worst = max(worst, float(np.linalg.norm(np.asarray(frames[i])[selected]-anchor, axis=1).max()))
+                maxima = np.maximum(maxima, np.linalg.norm(np.asarray(frames[i])[selected]-anchor, axis=1))
+            particle_maxima.append(maxima)
+            worst = max(worst, float(maxima.max()))
             checked += int(selected.sum())
-        pin_motion = dict(checked_particles=checked, max_wu=worst, max_sp=worst/spacing)
+        maxima = np.concatenate(particle_maxima) if particle_maxima else np.array([])
+        pin_motion = dict(checked_particles=checked, max_wu=worst, max_sp=worst/spacing,
+                          moved_particles_exact=int((maxima > 0).sum()),
+                          per_particle_max_drift_sp=stats(maxima/spacing))
     final = np.asarray(frames[delivered-1]); tree = cKDTree(final)
     count = np.asarray(tree.query_ball_point(final, 2*spacing, return_length=True, workers=8))
     surface = count < 0.6*np.median(count)

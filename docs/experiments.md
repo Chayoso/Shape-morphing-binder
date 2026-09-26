@@ -8458,3 +8458,43 @@ include a threshold-sensitive separated cluster, replay-unit invariance and a
 rejected trial overwriting the last accepted trajectory. Adversarial review found
 no remaining blocking issue in these changes. Repaired baseline/body runs are
 executing in isolated3555293 snapshots; no production/page promotion.
+
+**2026-09-26 13:37-13:51 CDT — corrected full comparisons, measured historical
+pin drift, and verified storage offload (P291, hyde06).** All production-size
+numbers in this entry: bunny300k, T20, dt1/240, dx0.3062907544wu, loss36^3,
+seed1, animations300 (diagnostic cap60 or8 as named).
+
+| run | silIoU | highest-tip reference count | exact post-pin max displacement |
+|---|---:|---:|---:|
+| fixedbase60 (3555293) | 0.973296 | 5.867 | 0wu, 144492 checked |
+| fixedbody60 (3555293, body-only two modes) | 0.972067 | 6.0 | 0wu, 288436 checked |
+| historical bm300_bunny | 0.974125 | 13.333 | 0.2943015wu, 144992 checked |
+
+Every checked historical pin moves: per-particle maximum drift median0.6183sp,
+p95=2.4695sp, max8.4114sp. Release modes are off. Both repaired runs pass existing
+G2/G3/G4 metrics but fail the thin-tip gate; their unpinned surfaces retain motion
+and reversals. All65/87 rendered frames respectively inspected: fixedbase has a
+translucent early head/ear, body-only has denser growth but a blunter tip. These
+are diagnostic clips, not no-hole deliverables.
+
+The mixed two-mode eight-window run (`mixed8s`, d48a9f2) reaches silIoU0.9172;
+head densities at raw frames80/120/160 are0.33735/0.54157/0.68003. All15 rendered
+frames inspected: early sparse/translucent head persists; growth is denser and
+the ear appears sooner. This warrants a bounded full test, not adoption. Running
+on788b16e: `mixed60` (same body+dFc control), and `confirm60` (baseline plus
+start AND accepted-end arrival for new-pin admission and ray protection).
+The latter isolates timing while retaining all consistency repairs and exact pins.
+
+CUDA reference-bond probe (N100,T6,dt0.005,dx0.5,bond threshold7.5): fresh adjoint,
+persistent adjoint and captured no-grad candidate agree across changed body fields
+(scales1/-0.7/1), max position5.96e-8wu, velocity2.98e-8wu/s, relative gradient
+9.17e-8. The isolated sparse cluster exercises the repaired threshold branch.
+Confirmed-arrival targeted CPU suite32 passed; raw audit distribution suite4 passed.
+
+Storage exceeded100 decimal GB while full archives were written. Explicit completed
+failures were losslessly compressed and decompressed SHA-256 verified. Because
+compression saved little, bp308_bunny/bp308d_dragon/c291_bunny_terminal60s gzip
+copies were transferred to `C:/dev/physmorph_archives/c291/`, SHA-256 matched and
+locally fsynced before single-file server duplicate removal. Durable receipts
+remain in `archives/completed_failed_runs/`; logs/JSON/baselines/running evidence
+are retained. At13:50 project usage88.386GB. No other user's paths were touched.

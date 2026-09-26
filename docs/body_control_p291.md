@@ -23,6 +23,15 @@ compare tip, early density, fit, pin trajectory and unpinned movement to fixedba
 An improvement is a diagnostic result, not automatic adoption; original shape,
 no-hole and gallery gates still apply.
 
+Historical pin audit (bm300_bunny, same N300k/T20/dt1/240/dx0.3062907544/loss36^3):
+all 144992 admitted particles having a later delivered frame moved after admission.
+Per-particle maximum displacement relative to its admission point: median0.6183sp,
+p95=2.4695sp, max8.4114sp (0.2943015wu). Release modes are off. Thus the historical
+"pinned" label did not certify immobility through the commit operators. The repaired
+baseline and body runs have max0.0wu over the corresponding whole-frame audit.
+The new distribution diagnostic reports exact nonzero movement, not a tolerance-
+based convergence decision. Raw pin invariance is distinct from all-surface rest.
+
 The goals are continuous material coverage during transport, no material sliding after
 individual convergence, and no arrival oscillation. Adding an actuator alone proves
 none of these goals. P280/P287/P289/P290 failures remain on record; loss resolution,
@@ -90,6 +99,14 @@ Project storage is checked every 30 seconds. Above 100 decimal GB, only the expl
 completed failed bp308/bp308d and explicitly listed failed P291 raw archives are eligible: gzip, verify all bytes by
 SHA-256, write a manifest, then remove the original single file. Logs, JSON, accepted
 baselines and other users' data remain intact. Exhausting candidates is reported.
+
+2026-09-26 cleanup: lossless compression of completed failures alone saved little.
+Three verified gzip archives (bp308_bunny, bp308d_dragon, c291_bunny_terminal60s)
+were copied to `C:/dev/physmorph_archives/c291/`; compressed SHA-256 was compared
+on both machines and the local files fsynced before removing the server duplicates.
+Server `.gz.json` and `.gz.offload.json` receipts retain raw/compressed hashes,
+sizes and the recovery path. Project usage fell to88.386GB before the next results.
+The current accepted baselines, current tests, logs and JSON remain on hyde06.
 
 ## Initial results and the next ablation
 
