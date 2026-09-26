@@ -161,6 +161,19 @@ tolerance and (for body runs) endpoint position/velocity differences. Diagnostic
 results before this repair cannot establish a correctly differentiated 300k
 disc_ref controller; compare repaired candidate and baseline anew.
 
+The trace (`c291_bunny_replay20s`, N300k/T20/dt1/240/dx0.3062907) measured one
+rejection at E=0.019885529165 vs accepted 0.019885527130, tolerance 1.9886e-9,
+with identical lambda, max endpoint delta 8.34e-7 wu and velocity delta 4.29e-6.
+No scalar-tolerance multiplier was increased. The final commit now reuses the
+last accepted trajectory **only while that exact evaluation remains in the
+buffer**. Every subsequent candidate evaluation invalidates reuse; restoring
+control leaves after rejection does not restore the overwritten trajectory.
+That path still replays and validates. Both paths keep finite-loss/state checks.
+`commit_from_accepted` distinguishes cached accepted merit from an independent
+replay measurement. CPU integration tests cover direct reuse and forced candidate
+rejection after an accepted step, checking the committed endpoint against the
+accepted callback state.
+
 ## Conditioning diagnostic after the stress ablation
 
 `c291_bunny_force60s` (same discretisation, 300-window schedule, capped at 60)

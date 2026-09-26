@@ -1620,10 +1620,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                  "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
         return (xT, FT, vT), lv, lk, lr, lpbr, extra
 
+    accepted_eval_valid = False
+
     def eval_terms(leaf):
         """No-grad path for line-search candidates: plain rollout, NO tape, NO adjoint
         buffers — the graph path allocates ~2x memory and tape bookkeeping that a
         candidate evaluation (up to max_ls_iters per iteration) never uses."""
+        nonlocal accepted_eval_valid
+        accepted_eval_valid = False  # even a rejected trial overwrites the trajectory buffers
         with torch.no_grad():
             lam_t, mu_t = material()
             _set_material(lam_t, mu_t)
@@ -2200,6 +2204,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             merit_ok = bool(np.isfinite(new) and floor <= new <= cur - required and _state_ok(state_n))
             cont_ok = cont_check(extra_n) if merit_ok else True
             if merit_ok and cont_ok:
+                accepted_eval_valid = True
                 adam_t = t_
                 # config.ctrl_rprop_hold: under the per-particle Rprop the global step does not grow on
                 # acceptance (Rprop has no global rate: the per-particle scale is the only step control) —
@@ -2325,6 +2330,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 break
 
     # ---- final rollout: every intermediate state + FULL end state ----
+    commit_from_accepted = bool(accepted_eval_valid and accepted > 0 and hist)
+    E_accept = hist[-1]["loss"] if hist else None
     with torch.no_grad():
         lam_t, mu_t = material()
         _set_material(lam_t, mu_t)
@@ -2336,11 +2343,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             wp.to_torch(tr_eval.layer_u).copy_(u.detach())
         t0 = _tick()
         tr = tr_eval                     # the same bonds and buffers as every candidate
-        tr.run()
-        # stack-review f2: this rollout — not the accepted candidate — is what gets
-        # COMMITTED, and CUDA atomics make replay non-bit-identical: validate it with
-        # the same trajectory checks; a failed replay hands the runner an empty window
-        # (null commit) instead of an unchecked trajectory.
+        if not commit_from_accepted:
+            tr.run()
+        # Reuse the accepted trajectory only if no later trial overwrote it.
+        # Otherwise CUDA atomics can make the required replay non-bit-identical:
+        # validate both paths; a failed replay yields an empty window (null commit).
         F_post = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3)
                               for t in range(1, T + 1)])
         F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
@@ -2351,18 +2358,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         v_final = wp.to_torch(tr.v[T])
         Fg_final = wp.to_torch(tr.Fg[T]).reshape(N, 9) if use_geom else None
         V_final = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
-        lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final, Fg_final)
-        E_final = scalars(lv_f, lk_f, lr_f, lam_r, dc, x_final, F_final,
-                          V_final.pow(2).sum(2).mean(), Fg_final,
-                          (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean(), V_final[-1])
-        E_accept = hist[-1]["loss"] if hist else None
+        if commit_from_accepted:
+            E_final = E_accept  # exactly the state and merit already accepted; no replay measurement
+        else:
+            lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final, Fg_final)
+            E_final = scalars(lv_f, lk_f, lr_f, lam_r, dc, x_final, F_final,
+                              V_final.pow(2).sum(2).mean(), Fg_final,
+                              (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean(), V_final[-1])
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
                       * max(abs(E_accept or 0.0), 1.0 / unit_ratio))
-        replay_bad = E_accept is not None and E_final > E_accept + replay_tol
-        replay_diagnostics = dict(replay_E_final=float(E_final), replay_E_accepted=E_accept,
-                                  replay_E_tol=float(replay_tol), replay_lambda_final=float(lam_r),
+        replay_bad = not commit_from_accepted and E_accept is not None and E_final > E_accept + replay_tol
+        replay_diagnostics = dict(commit_source='accepted_buffer' if commit_from_accepted else 'replay',
+                                  replay_E_final=None if commit_from_accepted else float(E_final), replay_E_accepted=E_accept,
+                                  replay_E_tol=None if commit_from_accepted else float(replay_tol), replay_lambda_final=float(lam_r),
                                   replay_lambda_accepted=(hist[-1]['lambda'] if hist else None))
-        if last_accepted_state is not None:
+        if last_accepted_state is not None and not commit_from_accepted:
             replay_diagnostics.update(replay_x_max=float((x_final-last_accepted_state[0]).abs().max()),
                                       replay_v_max=float((v_final-last_accepted_state[2]).abs().max()))
         if ((not np.isfinite(E_final) or not np.isfinite(jt_final)
@@ -2484,6 +2494,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
              "replay_diagnostics": replay_diagnostics,
+             "commit_from_accepted": commit_from_accepted,
              "body_rms_wu": (float(body_field()[:N].detach().square().sum(1).mean().sqrt()) if body_coeff is not None else None),
              "body_terminal_rms_wu": (float(body_field()[N:].detach().square().sum(1).mean().sqrt()) if cfg.body_terminal_ctrl else None),
              "body_coeff_max": (float(body_coeff.detach().norm(dim=1).max()) if body_coeff is not None else None),

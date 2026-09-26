@@ -92,6 +92,30 @@ def test_diagnostic_prefix_preserves_full_run_schedule(prm, clouds):
     assert np.allclose(prefix['frames'], full['frames'][:len(prefix['frames'])], atol=1e-6)
 
 
+@pytest.mark.parametrize('overwrite_with_rejected_trial', [False, True])
+def test_commit_uses_accepted_state_even_after_rejected_buffer_overwrite(prm, clouds, monkeypatch,
+                                                                      overwrite_with_rejected_trial):
+    from physmorph.pipeline import optimizer
+    original = optimizer._state_ok
+    calls = []
+    def state_ok(state):
+        calls.append(None)
+        if overwrite_with_rejected_trial and len(calls) == 2:
+            return False  # reject iteration two AFTER it overwrote tr_eval
+        return original(state)
+    monkeypatch.setattr(optimizer, '_state_ok', state_ok)
+    accepted = []
+    def capture(it, x, F, stats):
+        accepted.append(x.copy())
+    cfg = _cfg(animations=1, iters=2 if overwrite_with_rejected_trial else 1,
+               max_ls_iters=1, body_ctrl=True, body_terminal_ctrl=True)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None, on_iter=capture)
+    recs = [r for r in res['history'] if 'move' in r]
+    assert len(accepted) == len(recs) == 1
+    assert recs[0]['commit_from_accepted'] is (not overwrite_with_rejected_trial)
+    assert np.allclose(res['frames'][-1], accepted[0], atol=2e-6)
+
+
 def test_render_arm_runs_and_lambda_is_live(prm, clouds):
     src, tgt = clouds
     cfg = _cfg(lambda_auto=0.5)

@@ -890,6 +890,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "body_rms_wu": stats.get("body_rms_wu"), "body_nodes": stats.get("body_nodes", 0),
                "body_step_scale": stats.get("body_step_scale"),
+               "commit_from_accepted": stats.get("commit_from_accepted", False),
                "body_terminal_rms_wu": stats.get("body_terminal_rms_wu"),
                "body_coeff_max": stats.get("body_coeff_max"),
                "body_coeff_saturated_frac": stats.get("body_coeff_saturated_frac"),
