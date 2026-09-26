@@ -630,6 +630,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # grid except at the ends, the cell sum is blind to the shift, and the transport
             # divergence stalls at 5 % arrived)
             pace_r = max(leash_r, float(tgt.ldx))
+            arr_r = pace_r                       # the ARRIVAL radius: config.pace_lead leaves it here
+            if float(getattr(cfg, "pace_lead", 0.0)) > 0:
+                # reviewer item 3 (2026-09-26 01:50 CDT): the LEAD distance of the paced target decoupled from the
+                # arrival radius — a small fixed pace at the existing grid (P280: the 36^3 cell sum sees a plan-shaped
+                # 0.5-spacing move), while "arrived", the snap, Rprop-arrived and the pin keep the previous radius.
+                pace_r = float(cfg.pace_lead)
             step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)
             if getattr(cfg, "pace_coherent", False):
                 # config.pace_coherent (2026-09-26 23:00, method.md 10.30): the ear's material is one column of the head
@@ -951,7 +957,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     x_int = x_int.clone()
                     x_int[torch.as_tensor(np.nonzero(_out)[0], device=dev)] = torch.as_tensor(_new, device=dev, dtype=x_int.dtype)
                 pace_front_frac = float(_out.mean())
-            arrived = dn.squeeze(1) <= pace_r
+            arrived = dn.squeeze(1) <= arr_r
             arrive_idx_np = None
             if bool(arrived.any()):
                 _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
@@ -1066,7 +1072,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     pace_grid = torch.minimum(pace_grid, tgt.grid)
             frac_arrived = float(arrived.float().mean())
             arrived_mask_np = arrived.detach().cpu().numpy().astype(bool)   # per-particle arrival (config.ctrl_rprop_arrived)
-            pace_r_np = float(pace_r)
+            pace_r_np = float(arr_r)                  # the arrival radius (config.pace_lead: not the lead)
             plan_img_np = (x0_ot + disp).detach().cpu().numpy().astype(np.float32)
             frac_sup = float("nan")
             # HAND-OFF to the fixed target: when every target cell that still lacks mass is
@@ -1726,6 +1732,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         _z = np.load(_rp_load)
         _xs = torch.as_tensor(np.asarray(_z["x0"], np.float32), device=dev)
         _dc_src = torch.as_tensor(np.asarray(_z["dfc"], np.float32), device=dev)
+        if _dc_src.shape[0] > T:         # a shorter horizon (e.g. --T 1 for the first-step response): the first T slices
+            _dc_src = _dc_src[:T].contiguous()
         _mode = os.environ.get("PHYSMORPH_REPLAY_MAP", "grid")
         _with_u = os.environ.get("PHYSMORPH_REPLAY_U", "0") == "1" and "u" in _z.files
         with torch.no_grad():

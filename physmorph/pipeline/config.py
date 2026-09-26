@@ -33,6 +33,8 @@ class PipelineConfig:
                                    # tolerance at 10x it (probe: 1e-7 discarded ~10% of
                                    # accepted windows)
     dfc_clip: float = 0.0           # optional per-particle |dFc| cap (0 = off; C++ has none)
+    pace_lead: float = 0.0          # 2026-09-26 (reviewer item 3): >0 = the paced target's LEAD distance in wu, fixed, with the
+                                    #   arrival radius left at max(plan blur, loss cell); 0 = lead = arrival radius (the record)
     pace_budget: float = 0.0        # >0: derive the per-window pace cap FROM THE
                                     # ANIMATION BUDGET as 1 - pace_budget^(1/animations)
                                     # (an exponential glidepath whose residual at the

@@ -8010,3 +8010,38 @@ the arrival radius decoupled from the pace, at the initial state and from a rest
 the body-force control as a candidate with render-off and dFc controls kept. P283's `--material_size` also
 freezes the anchor's support opacity: to be split into radius transport and support freeze and read
 separately, with the coverage of thinned regions checked.
+
+**2026-09-26 02:10 CDT — reviewer items 1 and 2 measured.** (2) `scratch/slab_probe.py` — the lead slab (the
+paced target's points farther than one spacing from any source particle) after the first window and who fed
+it: 40k own control fill 0.27 (head-top half 0.18), feeders' source depth median 2.2 sp = 0.153 wu, 41 %
+within 0.14 wu of the surface, outer-layer bias ×1.4; 300k own control fill 0.39 (head-top half 0.16),
+feeders' depth 2.6 sp = **0.091 wu, 87 % within 0.14 wu**, bias ×1.5; the along-plan progress of the
+head-top-bound material median 0.098 at 40k (19 % moving against the plan) against **0.029 / −0.001 at 300k
+(42–50 % against the plan)**. So the slab's per-point fill after one window is alike at both N; what differs
+is the supply zone (half as thick in wu at 300k) and the bulk's progress along the plan (a third, half the
+particles moving backwards). (1) `scratch/accel_probe.py` on `--T 1` replays (one MPM step, dt = 1/240, the
+real kernels; displacement = acceleration profile), the head-top-bound material by depth:
+
+| one step (1e-4 wu) | outer layer | 1–2 sp | 2–4 sp | deep (> 1 dx) |
+|---|---|---|---|---|
+| 40k, 40k control (dx 0.30) | **128** | 2.7 | 1.0 | 0.6 |
+| 40k, dx 0.60 | 129 | 1.5 | 0.9 | — |
+| 300k, 40k control via the grid (dx 0.31) | **49** | 2.2 | 0.9 | (0.9) |
+| 300k, own control | 50 | 1.5 | 1.0 | (1.0) |
+| 300k, dx 0.16 | 49 | 2.3 | 0.9 | 0.9 |
+| 40k, SYNTHETIC uniform 0.02·I | 134 | 5.6 (0.07–0.14 wu) | 2.0 | 0.3 |
+| 40k, SYNTHETIC uniform 0.02·e_y e_yᵀ | 130 | 3.1 | 1.1 | 0.16 |
+| 300k, synthetic 0.02·I / e_y e_yᵀ | 49 / 49 | 1.1 / 0.6 | 0.3 / 0.15 | — |
+
+Readings. The first step's acceleration is almost entirely in the OUTERMOST PARTICLE LAYER — two to three
+orders above the bulk (×200 at 40k, ×50 at 300k against the deep bulk, ×400–800 under the uniform synthetic
+controls) — and the second layer already gets 2–5 %. The kick is the same for the optimised controls and for
+a spatially UNIFORM stress increment (isotropic or uniaxial), so it is not a property of the control's spatial
+pattern; it does not depend on dx (dx 0.30 and 0.60 at 40k, 0.31 and 0.16 at 300k give the same kick); it
+depends on the particle spacing (128–134 at sp 0.070, 49 at sp 0.035, ≈ sp^1.4). This measures directly what
+round 3 inferred: with a per-particle stress increment, the first-step force lands on the free surface's
+outermost layer at both N; over the window that layer's excess spreads into a two-layer zone whose integrated
+motion scales ~1/dx. Two interpretations remain open for the reviewer: the low-mass exterior nodes of the
+B-spline stencil (numerical, favoured by the sp- and dx-dependences) or the elastic wave front in one step
+(c·dt); neither is "stress control cannot move the bulk" — it is "a stress increment near a free surface
+kicks the outermost layer first, by orders of magnitude, in this discretisation".
