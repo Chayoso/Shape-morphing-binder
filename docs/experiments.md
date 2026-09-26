@@ -7644,3 +7644,12 @@ plan image if none of its 8 nearest is free. Launched **bp301** = bm300's form +
 (capacity-aware) (GPU 2). Pre-registered **P274**: pinned at the end ≥ 0.75 (bm300 0.49); the
 arrived-unpinned move at t = 0.9–1.0 ≤ 0.03 spacings per frame (0.07); silIoU ≥ 0.971; no reversal
 window; the growth unchanged (tip ≥ 9, knob ≤ 1.3).
+
+**2026-09-25 19:30 CDT — the splat render pipeline on the GPU (`scripts/render_splat_gpu.py`).** The
+v8 picture end to end in torch: the shell counts and the particle's own shell radius from the
+repository's GPU hash-grid kNN (33 nearest), the CIC density on a torch grid with a separable
+conv3d blur, its gradient sampled at the particles by trilinear interpolation, the normals
+averaged over the 32 nearest (two passes), the discs, the deferred shading on the rasteriser's
+normal and coverage buffers. **2 s per frame at 300k** (the CPU path 15–20 s): a 64-frame video in
+about two minutes, the same picture (frame 240 checked). The user declined 100k screening (the
+sparse regions are 300k's own), so the turnaround gain is the renderer's. Committed to scripts/.
