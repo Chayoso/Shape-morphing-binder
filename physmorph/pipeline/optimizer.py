@@ -689,7 +689,87 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                           f"({'source' if coh_nbr_src is not None else 'window start'}) = "
                           f"{cfg.pace_lead_sp * tgt.native_sp:.4f} wu (arrival radius {arr_r:.4f})", flush=True)
                 pace_r = float(cfg.pace_lead_sp) * float(tgt.native_sp)
-            if float(getattr(cfg, "pace_lead", 0.0)) > 0 or float(getattr(cfg, "pace_lead_sp", 0.0)) > 0:
+            if getattr(cfg, "pace_lead_gov", False) and _lead_on:
+                # P289 (2026-09-26 11:50 CDT): the TESTED-CANDIDATE lead governor (the reviewer's design). The lead is
+                # not copied from a delivered length (no expansion, P287) nor from a per-window fill (no signal,
+                # P288): each window a candidate lead — half the current one when the moving set's thinning rose
+                # over the last window, twice it otherwise, within [one native spacing, the record's cell lead] —
+                # is applied for one window and KEPT only if the moving set's progress toward its FINAL images did
+                # not fall and its thinning did not rise against the window before; otherwise the previous lead
+                # returns and that direction is blocked for two windows (the reversal rule's count). Two windows of
+                # zero progress force a grow candidate (a small target starving the delivery is not "thin"); a stall
+                # at the cell is logged as outside the lead's remit. The moving set and the images are those of
+                # the window start; only accepted windows reach here. Start from rest at one spacing.
+                from scipy.spatial import cKDTree as _KDg
+                if getattr(tgt, "native_sp", None) is None:
+                    _xs = np.ascontiguousarray(np.asarray(coh_nbr_src if coh_nbr_src is not None else x0, np.float32))
+                    tgt.native_sp = float(np.median(_KDg(_xs).query(_xs, k=2, workers=-1)[0][:, 1]))
+                if getattr(tgt, "gov_rcov", None) is None:
+                    _tp = np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32)
+                    tgt.gov_rcov = float(np.median(_KDg(_tp).query(_tp, k=9, workers=-1)[0][:, 8]))
+                _s, _h = float(tgt.native_sp), float(arr_r)
+                _xn = x0_ot.detach().cpu().numpy().astype(np.float32)
+                _dn_np = dn.squeeze(1).detach().cpu().numpy()
+                _mov = _dn_np > _h
+                _kd = _KDg(_xn)
+                _thin = (float((np.asarray(_kd.query_ball_point(_xn[_mov], r=tgt.gov_rcov, return_length=True, workers=-1)) - 1 < 4).mean())
+                         if _mov.sum() > 0 else 0.0)
+                g = getattr(tgt, "gov", None)
+                _msg = ""
+                if g is None:
+                    g = dict(lead=_s, prev_lead=_s, cand=None, block=None, block_left=0, prog_before=None, thin_before=_thin,
+                             stall=0, x_prev=None, img_prev=None, mov_prev=None, thin_prev=_thin)
+                    _msg = "start at one spacing"
+                else:
+                    _prog = None
+                    if g["x_prev"] is not None and g["mov_prev"] is not None and g["mov_prev"].sum() > 0:
+                        _m = g["mov_prev"]
+                        _d0 = np.linalg.norm(g["x_prev"][_m] - g["img_prev"][_m], axis=1)
+                        _d1 = np.linalg.norm(_xn[_m] - g["img_prev"][_m], axis=1)
+                        _prog = float(np.median(1.0 - _d1 / np.maximum(_d0, 1e-9)))
+                    if g["cand"] is not None:
+                        _worse = ((g["prog_before"] is not None and _prog is not None and _prog < g["prog_before"])
+                                  or (_thin > g["thin_before"]))
+                        if _worse:
+                            g["block"], g["block_left"] = g["cand"], 2
+                            g["lead"] = g["prev_lead"]
+                            _msg = f"candidate {g['cand']} REVERTED (progress {_prog}, thinning {_thin:.3f} vs {g['thin_before']:.3f})"
+                        else:
+                            _msg = f"candidate {g['cand']} kept"
+                        g["cand"] = None
+                    else:
+                        if g["block_left"] > 0:
+                            g["block_left"] -= 1
+                            if g["block_left"] == 0:
+                                g["block"] = None
+                        g["stall"] = g["stall"] + 1 if (_prog is not None and _prog <= 0.0) else 0
+                        _dir = None
+                        if g["stall"] >= 2:
+                            _dir = "grow"
+                        elif _thin > g["thin_prev"]:
+                            _dir = "shrink"
+                        else:
+                            _dir = "grow"
+                        if _dir == g["block"]:
+                            _dir = None
+                        _new = g["lead"]
+                        if _dir == "shrink":
+                            _new = max(_s, 0.5 * g["lead"])
+                        elif _dir == "grow":
+                            _new = min(_h, 2.0 * g["lead"])
+                        if _dir is not None and abs(_new - g["lead"]) > 1e-9:
+                            g["prev_lead"], g["cand"], g["prog_before"], g["thin_before"] = g["lead"], _dir, _prog, _thin
+                            g["lead"] = _new
+                            _msg = f"candidate {_dir} -> {_new:.4f} wu (progress {_prog}, thinning {_thin:.3f}, stall {g['stall']})"
+                        else:
+                            _msg = (f"hold {g['lead']:.4f} wu (progress {_prog}, thinning {_thin:.3f}, stall {g['stall']}"
+                                    + (", stall at the cell: outside the lead's remit" if g["stall"] >= 2 and g["lead"] >= _h - 1e-9 else "") + ")")
+                g["x_prev"], g["img_prev"], g["mov_prev"], g["thin_prev"] = _xn, (x0_ot + disp).detach().cpu().numpy().astype(np.float32), _mov, _thin
+                tgt.gov = g
+                pace_r = float(g["lead"])
+                print(f"[win] lead governor: lead {pace_r:.4f} wu [{_s:.4f}, {_h:.4f}] — {_msg}; moving {100 * _mov.mean():.1f} %", flush=True)
+            if (float(getattr(cfg, "pace_lead", 0.0)) > 0 or float(getattr(cfg, "pace_lead_sp", 0.0)) > 0
+                    or getattr(cfg, "pace_lead_gov", False)):
                 print(f"[win] lead applied: {float(pace_r):.4f} wu (window {int(win_index) + 1 if win_index is not None else '?'}, "
                       f"{'rule on' if _lead_on else 'before the switch'}; arrival radius {arr_r:.4f})", flush=True)
             step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)

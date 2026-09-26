@@ -8324,3 +8324,18 @@ the surface-weighted response is a property of the body's response to any interi
 first-step reading: uniform controls give it too), not of where the control is applied — while the bulk's
 own delivery collapses with the taper depth because the ear-bound material IS the near-surface material.
 Refuted; the flag stays as a record. Next, as decided: P289, the tested-candidate adaptive lead.
+
+**2026-09-26 11:55 CDT — P289 pre-registered: the tested-candidate lead governor (`--pace_lead_gov`).** Rule (the
+reviewer's design; optimizer, the OT pace block, state on the target pack): the lead starts at one native
+spacing; each window a candidate — half the lead when the moving set's thinning (share below half density
+within the target's 8-NN radius) rose over the last window, double it otherwise, within [one spacing, the
+record's cell lead]; two windows of zero progress force a grow candidate — is applied for one window and kept
+only if the moving set's median progress toward its FINAL images did not fall and its thinning did not rise
+against the window before the candidate; otherwise the previous lead returns and that direction is blocked
+for two windows. The moving set (farther than the arrival radius from its image) and the images are the
+window start's; the arrival radius is unchanged; the lead, the candidate, the decision, progress and thinning
+are printed per window and the applied lead recorded in the stats. No new constant beyond the reversal
+rule's two windows and the "half density" convention. Gates: bp308 = bm300 + governor — the transit slab at
+frames 76 / 114 ≥ 0.2, silIoU ≥ 0.971, 0 negative-reversal windows, tip ≥ 9, windows ≤ 60, the lead seen to
+leave one spacing when the slab is fed; bp308d = bo300 + governor (in parallel) — silIoU ≥ 0.9699, no stall,
+the lead at the cell through the long transport; then the 40k gallery. Refuted at the first failing gate.

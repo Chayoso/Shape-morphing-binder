@@ -41,6 +41,7 @@ class PipelineConfig:
                                     #   before it the lead is the cell, so runs differing only in the lead share their first windows
     ctrl_taper_sp: float = 0.0      # 2026-09-26 (P290): >0 = surface-tapered stress control: the expanded dFc x a depth weight,
                                     #   0 on the outermost layer, 1 at this many NATIVE spacings from it (2 = the measured excess zone)
+    pace_lead_gov: bool = False     # 2026-09-26 (P289): the tested-candidate lead governor (optimizer, the OT pace block)
     pace_budget: float = 0.0        # >0: derive the per-window pace cap FROM THE
                                     # ANIMATION BUDGET as 1 - pace_budget^(1/animations)
                                     # (an exponential glidepath whose residual at the
