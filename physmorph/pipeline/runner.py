@@ -563,7 +563,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             log(f"[v2] anim {a + 1}: the render target is the target's own images from the pin's onset (config.render_paced_onset)")
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
-            s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=lambda *_: None,
+            s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=log if cfg.body_ctrl else (lambda *_: None),
             fill_bal=fill_balancer, alpha_scale=anneal, mom_init=mom_prev, vol0=vol0,
             surface_w=surface_w, Fg0=st.get("Fg"), coh_nbr=coh_nbr, coh_nbr_src=src,
             frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag,
