@@ -7,7 +7,7 @@ import pytest
 import torch
 from scipy.spatial import cKDTree
 
-from physmorph.mpm.function import RolloutSpec, warp_mpm_ext
+from physmorph.mpm.function import RolloutSpec, PersistentAdjoint, warp_mpm_ext, warp_mpm_full
 from physmorph.mpm.state import MPMParams
 from physmorph.mpm.traj import Trajectory, compute_rest_volumes
 
@@ -85,6 +85,29 @@ def test_recoupled_adjoint_matches_finite_difference(kind):
         fd = float((loss(dp) - loss(dm)) / (2 * eps))
     an = float(g[idx])
     assert abs(fd - an) / max(abs(fd), abs(an), 1e-9) < 0.05, (fd, an)
+
+
+def test_reference_count_threshold_matches_direct_fresh_and_persistent_paths():
+    x0 = _cloud(40)
+    nbr, rest = _bonds(x0)
+    x = x0.copy()
+    x[:3] = np.array([[3., 0., 0.], [3.05, 0., 0.], [3., 0.05, 0.]], np.float32)
+    prm = _prm()
+    vol = compute_rest_volumes(x0, 1., prm, DEV)
+    frag = np.zeros(len(x), np.float32)
+    spec = RolloutSpec(x, 1., 0., 0., prm, 3, device=DEV, vol0=vol,
+                       bond_nbr=nbr, bond_rest=rest, bond_frag=frag, bond_threshold=7.5)
+    direct = Trajectory(x, 1., 0., 0., prm, 3, device=DEV, requires_grad=False,
+                         vol0=vol, bonds=(nbr, rest, frag, 7.5))
+    wrong = Trajectory(x, 1., 0., 0., prm, 3, device=DEV, requires_grad=False,
+                        vol0=vol, bonds=(nbr, rest, frag, 1.))
+    direct.rollout(); wrong.rollout()
+    expected = torch.from_numpy(direct.x[-1].numpy())
+    assert np.linalg.norm(direct.x[-1].numpy()[:3] - wrong.x[-1].numpy()[:3]) > 0.1
+    dc = torch.zeros(3, len(x), 3, 3)
+    for actual in (warp_mpm_full(dc, spec)[0], warp_mpm_ext(dc, spec)[0],
+                   PersistentAdjoint(spec).apply(dc)[0]):
+        assert torch.allclose(actual, expected, atol=2e-6)
 
 
 def test_fragment_mask_flags_only_broken_off_material():

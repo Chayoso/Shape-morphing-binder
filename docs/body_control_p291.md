@@ -139,6 +139,28 @@ occupied nodes, including inactive support. Accepted alphas are shared line-sear
 steps, to be read with `body_step_scale` and the coefficient projection; they are
 not measured displacement. The coefficient regularizer is not integrated energy.
 
+## Replay and adjoint consistency audit
+
+The longer two-mode diagnostic exposed rejected final replays with positive det F.
+The adversarial review found two preexisting discrepancies:
+
+* The no-grad trajectory received the disc_ref bond threshold `N/mass_ref_n`, but
+  fresh/persistent adjoints silently defaulted to 1. `RolloutSpec.bond_threshold`
+  and a shared bonds tuple now preserve the same threshold in all three bridges
+  and the candidate/commit path. A three-particle separated cluster distinguishes
+  thresholds 1 and 7.5 and tests all paths against a direct trajectory.
+* Replay calibration divided its absolute discrepancy by `max(|E|,1)`, while the
+  commit check used `max(|E|,1/unit_ratio)`. The calibration now uses the same
+  transformed floor. A unit-rescaling test checks that physical tolerances agree.
+  The 10x measured-noise multiplier is unchanged. This is not a guarantee that
+  start-control noise bounds noise at the accepted, strongly forced state.
+
+The final replay now also requires finite loss and the same finite-state check
+as candidates. Null commits retain accepted/final energies, lambda values,
+tolerance and (for body runs) endpoint position/velocity differences. Diagnostic
+results before this repair cannot establish a correctly differentiated 300k
+disc_ref controller; compare repaired candidate and baseline anew.
+
 ## Conditioning diagnostic after the stress ablation
 
 `c291_bunny_force60s` (same discretisation, 300-window schedule, capped at 60)

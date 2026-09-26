@@ -51,6 +51,11 @@ class RolloutSpec:
     pin_slip: bool = False               # config.settle_pin_slip: the pinned body as a grid-level separating collider
     body_ctrl: bool = False              # optional external-force leaf, mode-major (modes*N,3)
     body_modes: int = 1                  # displacement, optionally independent terminal velocity
+    bond_threshold: float = 1.0          # reference-particle count, identical in every rollout path
+
+    def bonds(self):
+        return ((self.bond_nbr, self.bond_rest, self.bond_frag, self.bond_threshold)
+                if self.bond_nbr is not None else None)
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -78,7 +83,8 @@ class _WarpMPM(torch.autograd.Function):
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip,
-                          device=spec.device, requires_grad=True, vol0=spec.vol0, layer=spec.layer)
+                          device=spec.device, requires_grad=True, vol0=spec.vol0, layer=spec.layer,
+                          bonds=spec.bonds())
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
@@ -158,7 +164,7 @@ class _WarpMPMExt(torch.autograd.Function):
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip,
                           device=spec.device, requires_grad=True, vol0=spec.vol0,
                           Fg0=spec.Fg0, track_geom=True,
-                          bonds=((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None),
+                          bonds=spec.bonds(),
                           layer=spec.layer, layer_u=u_wp, body_control=body_wp)
         ctx.u_wp = u_wp if (u_t is not None and u_t.requires_grad) else None
         ctx.body_wp = body_wp if (body_t is not None and body_t.requires_grad) else None
@@ -236,7 +242,7 @@ class PersistentAdjoint:
         self.cuda = str(dev).startswith("cuda")
         self.dc = torch.zeros(T, N, 3, 3, device=dev)
         self.dc_wp = [wp.from_torch(self.dc[t], dtype=wp.mat33, requires_grad=True) for t in range(T)]
-        bonds = ((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None)
+        bonds = spec.bonds()
         # position-mode control leaf buffer (§7): a persistent (N,) tensor the bridge copies into
         self.u = torch.zeros(N, device=dev)
         self.u_wp = wp.from_torch(self.u, dtype=wp.float32, requires_grad=True) if spec.layer is not None else None

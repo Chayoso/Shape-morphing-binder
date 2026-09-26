@@ -44,6 +44,11 @@ from .grid_smooth import chebyshev_rho, smooth_particle_field
 from .render_loss import LambdaBalancer, d_pbr, d_render
 
 
+def replay_relative_error(a: float, b: float, unit_ratio: float) -> float:
+    """Replay noise in the same units/floor used by the commit acceptance check."""
+    return abs(a - b) / max(abs(a), 1.0 / unit_ratio)
+
+
 @dataclass
 class TargetPack:
     """Precomputed target quantities shared by every window (built once in runner)."""
@@ -365,7 +370,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        eta=(np.ascontiguousarray(eta_init, np.float32) if eta_init is not None else None),
                        pin=(np.ascontiguousarray(pin_init, np.float32) if pin_init is not None else None),
                        pin_slip=bool(getattr(cfg, "settle_pin_slip", False)), body_ctrl=cfg.body_ctrl,
-                       body_modes=body_modes)
+                       body_modes=body_modes, bond_threshold=disc_ref_factor(N, cfg) ** 3)
     if cfg.body_terminal_ctrl and not cfg.body_ctrl:
         raise ValueError('body_terminal_ctrl requires body_ctrl')
     if cfg.body_no_dfc and not cfg.body_ctrl:
@@ -426,8 +431,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     tr_eval = Trajectory(x0, m_np, lam0, mu0, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
                          dFc=seq_eval, device=dev, requires_grad=False, vol0=vol0,
                          Fg0=Fg0, track_geom=use_geom, persistent=True,
-                         bonds=((bond_nbr, bond_rest, bond_frag, disc_ref_factor(N, cfg) ** 3)   # decoupling count = 1 reference particle
-                                if bond_nbr is not None else None),
+                         bonds=spec.bonds(),   # identical reference-count threshold in the adjoint
                          layer=layer, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip,
                          body_control=body_wp)   # the SAME force, viscosity and pin as the adjoint rollout
                                                                     # (2026-09-24 night: the commit rollout is this one)
@@ -1898,7 +1902,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         EB = scalars(lvB, lkB, lrB, lam_r, exB["dfc"], stB[0], stB[1], exB["lk_run"], exB["Fg"],
                      exB["lk_var"], _vT(exB))
         if np.isfinite(EA) and np.isfinite(EB):
-            replay_rel = abs(EA - EB) / max(abs(EA), 1.0)
+            replay_rel = replay_relative_error(EA, EB, unit_ratio)
+        if cfg.body_ctrl:
+            log(f"[win] replay calibration: EA={EA:.9g} EB={EB:.9g} unit_ratio={unit_ratio:.9g} "
+                f"abs_noise={abs(EA-EB):.9g} relative_noise={replay_rel:.9g}")
 
     grad_dump_leaf0 = dFc.detach().clone() if cfg.grad_dump else None   # the window's start control
     grad_dump_state = {}
@@ -2358,7 +2365,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if last_accepted_state is not None:
             replay_diagnostics.update(replay_x_max=float((x_final-last_accepted_state[0]).abs().max()),
                                       replay_v_max=float((v_final-last_accepted_state[2]).abs().max()))
-        if ((not np.isfinite(jt_final) or jt_final <= 1e-4 or replay_bad)
+        if ((not np.isfinite(E_final) or not np.isfinite(jt_final)
+             or not _state_ok((x_final, F_final, v_final, jt_final)) or replay_bad)
                 and accepted > 0):
             log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
                 f"discarding window (replay/accepted-candidate mismatch): {replay_diagnostics}")

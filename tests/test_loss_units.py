@@ -2,9 +2,21 @@
 approximately invariant to the loss-grid resolution, gradient O(1)-commensurable."""
 import numpy as np
 import torch
+import pytest
 
 from physmorph.losses.volumetric import (d_vol, d_vol_density, density_units,
                                          target_mass_grid)
+
+
+def test_replay_noise_and_tolerance_are_invariant_to_density_units():
+    from physmorph.pipeline.optimizer import replay_relative_error
+    # The same physical loss and replay discrepancy expressed in three units.
+    relative = replay_relative_error(20., 20.002, 1.)
+    for ratio in (1., 1000., 1000000.):
+        measured = replay_relative_error(20./ratio, 20.002/ratio, ratio)
+        assert measured == pytest.approx(relative, rel=1e-10)
+        tolerance = 10 * measured * max(15./ratio, 1./ratio)
+        assert tolerance * ratio == pytest.approx(10 * relative * 15., rel=1e-10)
 
 
 def _ball(n, r, seed):
