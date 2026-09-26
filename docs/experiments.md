@@ -7869,3 +7869,33 @@ unpinned 47 % at 300k, 0.18–0.22 spacings per frame, a physics fact) nor the v
 Gaussian loss path (the CUDA rasteriser with ×4 children already in `gauss_loss.py`, constant colour
 and opacity, not used by the flagship arm) cannot control sub-cell arrangement through a grid of
 184 particles per cell. Not implemented yet; the user decides.
+
+**2026-09-25 23:55 CDT — P280 (the observation test of the density cell sum, corrected design): ✗ — a finer
+loss grid observes LESS, not more; route (a) refuted as designed.** `scratch/obs_probe.py`: bm300's source
+(300k, native spacing 0.035 wu), two smooth displacement fields (a C² bump of radius 3 MPM cells on the
+head-top column along +y; the first window's paced plan field rescaled), the target FIXED as the moved
+cloud's CIC grid, the loss and gradient evaluated at the source, the noise floor = the loss the grid
+assigns to a resampling of the same distribution (0.3-spacing jitter), 4 grid origins × 3 seeds, both
+loss forms. vis = L(0)/L_noise, cos = alignment of the descent direction with the field on its support:
+
+| grid (cell) | ppc | bump 2 sp: vis / cos | bump 8.8 sp | plan 0.5 sp | plan 1 sp | plan 8.8 sp |
+|---|---|---|---|---|---|---|
+| 36³ (0.306) | 184 | **9.3 / 0.79** | 185 / 0.64 | **58 / 0.54** | 231 / 0.54 | 16064 / 0.50 |
+| 72³ (0.153) | 23 | 0.50 / 0.55 | 10.0 / 0.42 | 3.9 / 0.38 | 15.5 / 0.38 | 821 / 0.33 |
+| 144³ (0.077) | 2.8 | 0.06 / 0.20 | 0.57 / 0.16 | 0.62 / 0.28 | 2.2 / 0.25 | 38 / 0.16 |
+
+(log form; the linear form is the same picture within 20 %; finite-difference / autograd 0.98 everywhere;
+the loss along the path is quadratic in every case.) The pre-registered rule (vis ≥ 3 and cos ≥ 0.5 at
+every origin) passes only at 36³: the bump from 2 spacings, the plan-shaped field from 0.5 spacings. At
+72³ the 2-spacing bump sits below the noise floor (vis 0.5) and the plan field's descent direction has
+cos 0.38; at 144³ nothing passes and an 8.8-spacing bump is below the floor. Read: the cell sum sees a
+displacement only through the divergence of the field and the moving outline, and its floor is the
+sampling noise of the particles per cell — 184 at the MPM cell, 2.8 at 144³ — so refinement raises the
+floor faster than it sharpens the signal. This also says why `--disc_ref`'s finer arrangement was
+"rougher": below ~20 particles per cell the gradient answers the sampling pattern. Consequences: the
+finer loss grid (P281) and the delivery-limited pace that depended on it (P282) are withdrawn; the
+plan-shaped field IS observable at the existing grid down to 0.5 spacings (vis 58), so the pace's
+one-cell lead is not what the loss needs to see — the open item is the DELIVERY (P278: 10–20 % of the
+pace per early window at both N, half at 300k), i.e. P278b. Note the alignment at 36³ is only 0.5–0.8:
+the density descent is not the transport field; a correspondence term (bp304) has cos 1 by construction
+and was still inert, which again points at delivery, not direction.
