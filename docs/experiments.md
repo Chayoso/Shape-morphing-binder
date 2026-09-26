@@ -8229,3 +8229,23 @@ effect of ~×1.7 at the first step, growing to the ×3 window difference as the 
 window-scale conclusions (the two-layer zone at every N, ~1/dx of its integrated motion, the halved supply
 mass at 300k) stand on their own measurements; the first-step "mechanism" claims of 02:10 are replaced by
 this table.
+
+**2026-09-26 03:30 CDT — P288 pre-registered: the lead's reaction curve from the SAME start state (the
+reviewer's step 1).** `--pace_lead_from W` (the lead rule applies from window W; before it the lead is the cell,
+so runs differing only in the lead share their first W − 1 windows up to GPU-atomics noise); the applied lead
+is printed per window and recorded in `stats["pace_lead_applied"]`. Cases and candidates (each run capped at
+W + 12 windows; the cell lead = the existing full run read at the same windows):
+- the 300k dragon mid-transport (bo300's form, W = 30, arrived ≈ 70 %): leads 1 / 2 / 4 native spacings
+  (0.035 / 0.070 / 0.140 wu) against bo300 (cell 0.306);
+- the 40k nefertiti (g41pw's form, W = 20; the target that degraded most under the fixed lead, −0.0064 and
+  57 → 177 windows): leads 1 / 2 spacings (0.070 / 0.139) against g41pw_nefertiti (cell 0.302);
+- the 300k bunny initial state: the existing bm300 / bp306a / bp306b at windows 1–12.
+Readings per window (`scratch/lead_response.py`): the moving set fixed at W (farther than the arrival radius
+from its FINAL position in the reference run), its progress toward the final positions (median and the
+slowest decile — the local stall), its thinning (share below half density), the global arrived increment,
+the applied lead. Progress is against the final target, never a paced-loss value. Predictions: in the two
+mid-transport cases the progress per window falls monotonically with the lead (1 < 2 < 4 sp < cell) while
+the thinning falls too, i.e. the small lead trades supply density for speed, and the slowest decile stalls
+first at 1 sp; in the bunny initial case the small lead thickens the slab at a 17 % speed cost (known). If
+progress does not depend on the lead in the mid-transport states, the lead is not the lever there and the
+expansion rule has nothing to key on. The expansion rule is written only after these curves.

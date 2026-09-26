@@ -564,7 +564,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag,
             u_scale_init=(u_scale if getattr(cfg, "u_rprop", False) else None),
             ctrl_scale_init=(ctrl_scale_apply if (getattr(cfg, "ctrl_rprop", False) or getattr(cfg, "freeze_arrived", False)) else None),
-            eta_init=settle_eta_arr, pin_init=settle_pin_arr, stick_init=stick_arr)
+            eta_init=settle_eta_arr, pin_init=settle_pin_arr, stick_init=stick_arr, win_index=a)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):

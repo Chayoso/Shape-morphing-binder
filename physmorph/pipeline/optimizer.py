@@ -259,7 +259,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     fill_bal: LambdaBalancer | None = None, alpha_scale: float = 1.0,
                     mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None,
                     coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
-                    u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None):
+                    u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None,
+                    win_index=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -609,6 +610,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         pace_grid = None
         pace_proj_stats = None
         arrived_mask_np = None
+        pace_r = None                       # the applied lead (stats["pace_lead_applied"]); set in the ot_pace block only
         arrive_idx_np = None                # the plan_sticky arrival index; set only in the ot_pace block (the "ot" branch —
                                             # the C target, 64 % of its source in target-empty cells — crashed on it, g41ld 02:13)
         pace_r_np = None                    # the paced target's arrival radius (config.settle_pin_clear reads it)
@@ -633,12 +635,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # divergence stalls at 5 % arrived)
             pace_r = max(leash_r, float(tgt.ldx))
             arr_r = pace_r                       # the ARRIVAL radius: config.pace_lead leaves it here
-            if float(getattr(cfg, "pace_lead", 0.0)) > 0:
+            # config.pace_lead_from (2026-09-26 03:20 CDT, the reviewer's step 1): the lead rule applies from window
+            # pace_lead_from on (1 = from the first window); before it the lead is the record's (the cell), so runs
+            # that differ only in the lead share the same windows up to the switch — a same-start-state comparison
+            _lead_on = (win_index is None or int(getattr(cfg, "pace_lead_from", 1)) <= int(win_index) + 1)
+            if float(getattr(cfg, "pace_lead", 0.0)) > 0 and _lead_on:
                 # reviewer item 3 (2026-09-26 01:50 CDT): the LEAD distance of the paced target decoupled from the
                 # arrival radius — a small fixed pace at the existing grid (P280: the 36^3 cell sum sees a plan-shaped
                 # 0.5-spacing move), while "arrived", the snap, Rprop-arrived and the pin keep the previous radius.
                 pace_r = float(cfg.pace_lead)
-            if float(getattr(cfg, "pace_lead_sp", 0.0)) > 0:
+            if float(getattr(cfg, "pace_lead_sp", 0.0)) > 0 and _lead_on:
                 # the same lead as a RULE (2026-09-26 03:20 CDT, P284: a lead of one native particle spacing fed the
                 # slab 2-3x denser at 300k with the fit up 0.005 and no stall): lead = pace_lead_sp x the source
                 # cloud's native spacing (the median nearest-neighbour distance, measured once) — the smallest step
@@ -654,6 +660,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                           f"({'source' if coh_nbr_src is not None else 'window start'}) = "
                           f"{cfg.pace_lead_sp * tgt.native_sp:.4f} wu (arrival radius {arr_r:.4f})", flush=True)
                 pace_r = float(cfg.pace_lead_sp) * float(tgt.native_sp)
+            if float(getattr(cfg, "pace_lead", 0.0)) > 0 or float(getattr(cfg, "pace_lead_sp", 0.0)) > 0:
+                print(f"[win] lead applied: {float(pace_r):.4f} wu (window {int(win_index) + 1 if win_index is not None else '?'}, "
+                      f"{'rule on' if _lead_on else 'before the switch'}; arrival radius {arr_r:.4f})", flush=True)
             step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)
             if getattr(cfg, "pace_coherent", False):
                 # config.pace_coherent (2026-09-26 23:00, method.md 10.30): the ear's material is one column of the head

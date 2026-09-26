@@ -37,6 +37,8 @@ class PipelineConfig:
                                     #   arrival radius left at max(plan blur, loss cell); 0 = lead = arrival radius (the record)
     pace_lead_sp: float = 0.0       # 2026-09-26 (P284 rule): >0 = the lead in NATIVE particle spacings of the source (measured);
                                     #   1 = the smallest coherently delivered step; overrides pace_lead; 0 = off
+    pace_lead_from: int = 1         # 2026-09-26 (reviewer step 1): the lead rule applies from this window on (1 = always);
+                                    #   before it the lead is the cell, so runs differing only in the lead share their first windows
     pace_budget: float = 0.0        # >0: derive the per-window pace cap FROM THE
                                     # ANIMATION BUDGET as 1 - pace_budget^(1/animations)
                                     # (an exponential glidepath whose residual at the
