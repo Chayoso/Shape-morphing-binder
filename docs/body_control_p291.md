@@ -15,7 +15,10 @@ loss grid 36^3, seed 1, animations=300, diagnostic cap=60.
 | mixed60 / 788b16e, two-mode body + dFc | 0.972392 | 6.933 | 39 |
 | confirm60 / 788b16e, baseline + confirmed arrival | 0.975239 | 7.200 | 45 |
 
-All fail the required tip count >=13. Active pins checked over every delivered
+All fail the declared historical-shape tip gate >=13. The saved target itself has
+89 native particles in that ball, or 11.867 reference particles; the gate is not
+an exact target-density identity. All candidates are also below that target count.
+Active pins checked over every delivered
 frame remain exactly fixed (144492 / 288436 / 266360 / 178280 checked particles),
 but unpinned surfaces still move and reverse. Mixed control improves early head
 density but does not eliminate the sparse growth front. Its tip count drops from
@@ -28,6 +31,9 @@ Latest full CPU suite (5052922): **285 passed, 8 skipped**. The CUDA probe also
 checks reference-threshold sparse bonds across fresh/persistent adjoints and the
 captured no-grad candidate. A separate C40k prefix checks non-paced compatibility;
 it cannot certify complete C convergence or the full gallery.
+That prefix completed eight windows on5052922 (T20, dt1/240, dx0.2985634406wu,
+loss33^3): legacy admission remains active (30 pins, 27 checked with zero motion),
+but its in-transit rest/ejection gates fail. It is runtime evidence only.
 
 The old bm300 tip13.333 is not a matched controller-only comparison: both the
 adjoint bond threshold and real pin preservation changed. To isolate admission
@@ -49,8 +55,8 @@ p95=2.4695sp, max8.4114sp (0.2943015wu). Release modes are off. Thus the histori
 baseline and body runs have max0.0wu over the corresponding whole-frame audit.
 The new distribution diagnostic reports exact nonzero movement, not a tolerance-
 based convergence decision. Raw pin invariance is distinct from all-surface rest.
-Of fixedbody60's checked pins, 461 final admissions only have a subsequent held
-frame, not another physical rollout. This audit alone does not prove that historical
+Final admissions with only a subsequent held frame, not another physical rollout,
+number 461 in fixedbody60, 1673 in mixed60 and 2848 in confirm60. This audit alone does not prove that historical
 post-pin drift supplied the missing tip mass.
 
 The goals are continuous material coverage during transport, no material sliding after

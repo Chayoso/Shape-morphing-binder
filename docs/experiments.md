@@ -8524,3 +8524,21 @@ silently disabling C's pins without claiming new evidence of geometric arrival.
 Full CPU suite: **285 passed,8 skipped**,49.48s. Read-only adversarial reviews
 validated the historical pin indexing/null-frame cutoff and the compatibility
 branch. A bounded C40k prefix checks actual non-paced runtime, not gallery quality.
+
+**2026-09-26 14:05 CDT — C compatibility prefix complete.** `c291_C_compat8`
+on5052922: N40000, T20, dt1/240, dx0.2985634406wu, loss33^3, animations300,
+cap8; auto selects plain OT. All eight records explicitly report
+`legacy_no_arrival_contract`, null end-arrival rate and eligibility1.0. Thirty
+particles are pinned by the historical reversal rule; 27 have later delivered
+frames, with exact max drift0. This confirms the compatibility path executes;
+it is not a no-hole/rest result (prefix G3 and G4 ejection fail while still in
+transport, silIoU0.8081). No full C/gallery convergence claim is made.
+
+All simulation/render jobs launched here have ended. Project storage at14:05:
+95.208GB, below100GB; the six-hour storage watcher remains active. Three local
+archive copies and both server/local manifests preserve all offloaded evidence.
+Some final pin admissions in the full bunny runs only have subsequent hold frames
+(body461, mixed1673, confirmation2848); raw-frame zero remains correct but is not
+a subsequent-dynamics test for those particles. The tip>=13 gate is historical
+shape preservation; the sampled target count is11.867. Both candidates fall below
+either threshold.
