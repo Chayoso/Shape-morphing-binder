@@ -7657,3 +7657,18 @@ sparse regions are 300k's own), so the turnaround gain is the renderer's. Commit
 **2026-09-25 19:35 CDT — the page at v71: the three current results under the GPU splat.** bm300
 (tail 0.0008), g41pw bunny 40k (0.0002), bo300 dragon (0.0008; 300k, the chosen form: 0.9699, p1 0.77
 open), all rendered by `scripts/render_splat_gpu.py` in about two minutes each.
+
+**2026-09-25 19:50 CDT — bp301 (bm300 + sticky endpoints with capacity): the best 300k fit, the drift
+halved, the pin switched off.** silIoU **0.9784** (bm300 0.9741; ar300 0.9773 — the best 300k bunny),
+64 windows, end p1 0.899, none below 0.5, no negative-reversal window, tip 8.4; 83 % of the particles
+stuck to a point by window 20 — and **6 % pinned** at the end (bm300 49 %). The unpinned material's
+move per delivered frame (spacings): 0.08 / 0.06 / **0.05** at t = 0.5–0.6 / 0.7–0.8 / 0.9–1.0 (bm300's
+unpinned 0.14 / 0.10 / 0.07; its pinned 0.02). Read: with a fixed goal the arrived material converges
+to it monotonically — it never reverses twice, which is exactly the pin's criterion (§10.27), so the
+pin never takes it, and it creeps at 0.05 spacings per frame toward its point under the control's
+residual pull. P274 ✗ on the pin (6 %) and the move (0.05), ✓ on the fit and the reversal. The two
+rules are consistent only if the pin's criterion knows the fixed goal: a stuck particle within the
+shell radius of its reserved point is settled — pin it (no reversal needed; the goal cannot move).
+No new constant (the shell radius is the fill's resolution). Launched **bp302** = bp301 +
+`--settle_pin_stuck` (GPU 2). Pre-registered **P275**: pinned at the end ≥ 0.75, the unpinned move at
+t = 0.9–1.0 ≤ 0.03 spacings per frame, silIoU ≥ 0.975, no reversal window, tip ≥ 8.
