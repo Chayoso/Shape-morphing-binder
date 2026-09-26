@@ -8339,3 +8339,17 @@ rule's two windows and the "half density" convention. Gates: bp308 = bm300 + gov
 frames 76 / 114 ≥ 0.2, silIoU ≥ 0.971, 0 negative-reversal windows, tip ≥ 9, windows ≤ 60, the lead seen to
 leave one spacing when the slab is fed; bp308d = bo300 + governor (in parallel) — silIoU ≥ 0.9699, no stall,
 the lead at the cell through the long transport; then the 40k gallery. Refuted at the first failing gate.
+
+**2026-09-26 12:20 CDT — the user's eye against the gates: bm300 looks better than bp306a.** Matched-frame stills
+(the splat renders, trajectory frames 240 and 720 = the same physical time in both): at frame 240 bm300 (31 % of
+its 767-frame run) already carries both ears as thin protrusions while bp306a (22 % of its 1107-frame run) has
+one short stub and a nub — the one-spacing lead delays the ear by 2–3 windows and stretches the run 1.45×; at
+frame 720 bm300 is 94 % done with pointed tips (13.3 reference particles at the tip) while bp306a, at 65 %,
+has smoother but blunter ears (11.3). The slab density the gates rewarded (0.33 vs 0.17 at frame 76) is not
+what the eye rewards; the eye rewards an ear that grows early and ends pointed. Consequence for the
+criteria, recorded so the next gates agree with the eye: the ear tip must not fall below the current form's
+(≥ 13 reference particles, not ≥ 9), the window count must stay within 1.2× the current form's (≤ 53 for the
+bunny), and the ear's onset (the first frame with a pure-ear slab above half fill) must not be later than the
+current form's; the transit-slab density stays a gate but cannot buy those three. bp306a is therefore not
+"the best result": bm300 remains the delivered 300k form and the page is unchanged; bp306a's fit (+0.006)
+and slab density are recorded as what a small lead buys and at what visible cost.
