@@ -366,6 +366,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        pin_slip=bool(getattr(cfg, "settle_pin_slip", False)), body_ctrl=cfg.body_ctrl)
     if cfg.body_no_dfc and not cfg.body_ctrl:
         raise ValueError('body_no_dfc requires body_ctrl')
+    if cfg.body_step_normalized and (not cfg.body_ctrl or cfg.dfc_clip <= 0):
+        raise ValueError('body_step_normalized requires body_ctrl and positive dfc_clip')
     if cfg.body_ctrl and (T < 2 or cfg.grad_dump or cfg.mom_carry > 0
                          or os.environ.get("PHYSMORPH_REPLAY_LOAD")
                          or os.environ.get("PHYSMORPH_REPLAY_SAVE")):
@@ -1367,8 +1369,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         u_bound = torch.as_tensor(float(sp0) * _us, device=dev)
     mom = [torch.zeros_like(p) for p in leaves]
     vel = [torch.zeros_like(p) for p in leaves]
+    body_step_scale = 1.0 / cfg.dfc_clip if cfg.body_step_normalized else 1.0
     lr_scale = ([1.0] + ([cfg.mat_lr_scale] if s is not None else [])
-                + ([1.0] if body_coeff is not None else []) + ([1.0] if u is not None else []))
+                + ([body_step_scale] if body_coeff is not None else []) + ([1.0] if u is not None else []))
     # per-particle Rprop scale of the control step (config.ctrl_rprop; docs/method.md 10.24): the runner
     # halves a particle's scale when its window displacement reversed the previous accepted one and
     # raises it x1.2 (to 1) when it kept its direction; no floor — the arrived body's step decays to
@@ -2459,6 +2462,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
              "body_rms_wu": (float(body_field().detach().square().sum(1).mean().sqrt()) if body_coeff is not None else None),
              "body_nodes": (body_basis.n_nodes if body_basis is not None else 0),
+             "body_step_scale": (body_step_scale if body_coeff is not None else None),
              "mom_out": mom_out if cfg.mom_carry > 0 else None,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,

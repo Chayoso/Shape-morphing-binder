@@ -53,6 +53,8 @@ def audit(prefix, every_frame=False):
     rcov = float(np.median(cKDTree(target).query(target, k=9, workers=8)[0][:, 8]))
     sample = np.linspace(0, len(source)-1, min(20000, len(source)), dtype=np.int64)
     frame_records = {int(r['frame_end'])-1: r for r in records}
+    committed = [r for r in records if int(r['frame_end']) <= delivered]
+    simulated_end = max((int(r['frame_end']) for r in committed), default=0)
     ids = range(delivered) if every_frame else sorted({0} | {i for i in frame_records if i < delivered})
     density = []
     for i in ids:
@@ -94,11 +96,11 @@ def audit(prefix, every_frame=False):
     if len(chosen) > 20000:
         chosen = chosen[np.linspace(0, len(chosen)-1, 20000, dtype=np.int64)]
     tail = None
-    if not release and len(chosen) and delivered > 3:
+    if not release and len(chosen) and simulated_end > 3:
         _, neighbors = tree.query(final[chosen], k=33, workers=8)
         normal = final[chosen]-final[neighbors].mean(1)
         normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-9)
-        moves = np.diff(np.asarray(frames[max(0, int(delivered*.9)-1):delivered, chosen]), axis=0)
+        moves = np.diff(np.asarray(frames[max(0, int(simulated_end*.9)-1):simulated_end, chosen]), axis=0)
         signed = (moves*normal).sum(2)
         tangent = np.linalg.norm(moves-signed[:, :, None]*normal, axis=2)
         moving = (np.linalg.norm(moves[1:], axis=2) > 1e-4*spacing) & (np.linalg.norm(moves[:-1], axis=2) > 1e-4*spacing)
@@ -112,6 +114,7 @@ def audit(prefix, every_frame=False):
                 code_hash=meta.get('provenance', {}).get('code_hash'),
                 stop_after_windows=cfg.get('stop_after_windows', 0), native_nn_spacing=spacing,
                 target_r8=rcov, delivered_frames=delivered, metrics=arm['metrics'], guards=arm['guards'],
+                simulated_frames=simulated_end, terminal_v_mean=(committed[-1].get('v_mean') if committed else None),
                 active_pins_at_delivered_end=(int(end_pins.sum()) if not release else None),
                 body_ctrl=cfg.get('body_ctrl', False), density=density, pin_motion=pin_motion,
                 tail_unpinned_surface=tail, windows=[{k:r.get(k) for k in ('animation','body_rms_wu','body_nodes',

@@ -888,6 +888,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "body_rms_wu": stats.get("body_rms_wu"), "body_nodes": stats.get("body_nodes", 0),
+               "body_step_scale": stats.get("body_step_scale"),
                "pace_lead_applied": stats.get("pace_lead_applied"),
                "reattached": n_reattached,
                "shift_median_sp": (last_shift or {}).get("median_sp"), "shift_dvol_rel": (last_shift or {}).get("dvol_rel"),

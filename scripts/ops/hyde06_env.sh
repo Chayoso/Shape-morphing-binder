@@ -8,8 +8,12 @@ export STATUS=$OUT/rcp_ladder_status.log
 export OMP_NUM_THREADS=8 OPENBLAS_NUM_THREADS=8 MKL_NUM_THREADS=8
 export XDG_CACHE_HOME=/data/relcfd/chayo/physmorph_v2/cache
 export WARP_CACHE_PATH=$XDG_CACHE_HOME/warp
+export CUDA_CACHE_PATH=$XDG_CACHE_HOME/cuda
+export TORCH_HOME=$XDG_CACHE_HOME/torch
+export TORCH_EXTENSIONS_DIR=$XDG_CACHE_HOME/torch_extensions
+export MPLCONFIGDIR=$XDG_CACHE_HOME/matplotlib
 export TMPDIR=/data/relcfd/chayo/physmorph_v2/tmp
-mkdir -p "$XDG_CACHE_HOME" "$WARP_CACHE_PATH" "$TMPDIR"
+mkdir -p "$XDG_CACHE_HOME" "$WARP_CACHE_PATH" "$CUDA_CACHE_PATH" "$TORCH_HOME" "$TORCH_EXTENSIONS_DIR" "$MPLCONFIGDIR" "$TMPDIR"
 # the production recipe (render_full_dt_iso_nn arm); N is passed by the caller
 # 2026-09-19 (docs/surface_gradient.md §6-7, accepted by the user): the outer-layer relaxation projection, the
 # denoised shading reference and the position-mode control channel. Current deliverables use

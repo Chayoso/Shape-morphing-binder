@@ -108,3 +108,28 @@ Opacity support remains based on current neighbors; `--material_support` is
 incompatible. This prevents attribute refitting from rotating a settled splat
 without masking density loss. It does not freeze unpinned points or establish
 that all particles have converged. Visual validation remains pending.
+
+## Conditioning diagnostic after the stress ablation
+
+`c291_bunny_force60s` (same discretisation, 300-window schedule, capped at 60)
+stopped after three outer rejections at window 19; the best delivered commit is
+window 8, silIoU 0.7112. This is a failure to reach the shape, not a hole-free
+solution. All 15 rendered frames of each 8-window prefix were inspected: baseline
+and mixed control have a translucent developing head; the stress-free-control
+ablation remains largely a rounded body without an ear. These are diagnostic
+Gaussian-splat clips, not approved morph deliverables.
+
+The body field's nominal RMS stays 0.0733–0.0739 wu over windows 2–15 while actual
+motion falls from 0.0449 to 0.0089 wu. Its dimensionless coefficient bound is 1;
+the dFc bound is 0.02, yet both previously used Adam step size 0.02. Eight updates
+therefore explore different fractions of the allowed control ranges.
+`--body_step_normalized` tests body step scale `1/dfc_clip` (50 in this recipe),
+leaving dFc/u steps, the body norm bound and all objective terms unchanged. Armijo
+still uses the actual projected candidate. This is an optimization-conditioning
+test, not an assertion that the larger step solves the physical defect.
+Its matched render-off mode is `force_normalized_phys`, which retains all three
+body flags including `body_no_dfc`.
+
+CPU suite at eb9fb59: 272 passed, 8 skipped (CUDA/reference requirements). Follow-up
+CPU tests exercise both body step scalings and the raw audit's delivered-time mask.
+The raw motion audit excludes appended hold frames and reports terminal velocity.
