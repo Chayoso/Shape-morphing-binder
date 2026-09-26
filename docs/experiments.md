@@ -7807,3 +7807,35 @@ flag, the delivered share of the paced step alike; if (ii), the paced steps are 
 delivered share is what drops at 300k; if neither, the delay is elsewhere (the pin, the front rules)
 and the probe says so. The surface side stays queued (render children with an appearance model,
 adaptive shell-weighted sampling) behind this.
+
+**2026-09-25 23:45 CDT — P278 read: the plan asks the same in all three; the window delivers a tenth
+of it, and half as much along the plan at 300k. Hypothesis (i) ✗, (ii) stands. P279 withdrawn.** The
+first window's dump (`scratch/plan_probe.txt`; the source clouds match the full runs to the bit):
+the head-top-bound skin's paced step is the full pace in every case — 0.306 wu in all three (8.8
+native spacings at 300k, 4.3 at 40k), the paced direction's +y share 0.60 at 300k and 0.70 at 40k,
+the full plan displacement 1.14 / 1.14 / 1.25 wu — and the plan blur makes no difference to it
+(300k with `--disc_ref` 0.227 wu, without 0.116 wu: the same step, the same delivery within 10 %).
+So the doubled plan blur does not damp the skin's start. What the window DELIVERS of that step:
+the skin (source depth 0–2 spacings) 0.064 wu at 40k (0.91 spacings, 0.19 of the paced step along
+the plan) against 0.037 wu at 300k (1.04 native spacings, 0.09 along); the whole head-top-bound
+set 0.033 / 0.10 at 40k against 0.028 / 0.01 at 300k; every set delivers 10–20 % of its paced step
+at 40k and 1–9 % at 300k, the rest of the window's motion sideways. Read: the pace is one cell
+(0.306 wu) in both runs, the first windows deliver a tenth of it, the paced target therefore sits a
+cell-deep slab ahead of the body in the ear's path and the density objective fills that slab with
+the nearest skin — the vapour at both resolutions; at 300k the skin's layer is half as thick in wu
+per particle layer and its delivery along the plan is half the 40k's, hence the vapour at a third of
+the density and the start three windows later. **Where the halved delivery comes from is the open
+measurement** (candidates: the per-particle control acts through an MPM grid of 184 particles per
+cell at 300k against 24.5 at 40k, so the same per-particle Rprop step averages to a weaker node
+velocity; the smoothing over `--ctrl_rprop_k 8`; the u gate's onset). **P279 withdrawn before any
+reading:** the finer loss grid (`--loss_res 128`) is inert under `--loss_units density` — the
+discretisation sets `loss_res` to the MPM grid (36 at 300k, the loss cell = dx = 0.306 wu; the
+`[disc]` line, `pipeline_run.py` "loss_res follows dx"), so bp305 was bm300 again and was stopped at
+its first window. A finer loss grid than the MPM grid is a change to the formulation contract
+(the cell sum's resolution-invariance argument, F4), and a closed-loop pace below the cell stalls
+the transport on the record (C forensic, cd9), so neither is launched without a decision: the two
+structural routes are (a) decouple the loss grid from the MPM grid under density units so that the
+loss cell keeps 40k's particles per cell (72³ at 300k, cell 0.153 wu; the pace then
+max(blur, cell) = 0.227 wu with `--disc_ref`, 0.153 without), and (b) find and remove the cause of
+the halved delivery at the window's start. The user's standing rule (no global dx cut) is kept by
+both. Pending the decision; bm300 remains the 300k form, the page unchanged.
