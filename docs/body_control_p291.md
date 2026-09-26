@@ -67,7 +67,7 @@ also requires no added inversions, raw frame coverage checks, late normal/tangen
 motion and reversal checks, and per-frame visual QA of Gaussian-splat output.
 
 Project storage is checked every 30 seconds. Above 100 decimal GB, only the explicit
-completed failed bp308/bp308d raw archives are eligible: gzip, verify all bytes by
+completed failed bp308/bp308d and explicitly listed failed P291 raw archives are eligible: gzip, verify all bytes by
 SHA-256, write a manifest, then remove the original single file. Logs, JSON, accepted
 baselines and other users' data remain intact. Exhausting candidates is reported.
 

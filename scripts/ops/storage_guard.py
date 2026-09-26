@@ -14,6 +14,11 @@ import time
 
 ROOT = Path('/data/relcfd/chayo/physmorph_v2')
 FAILED = [('bp308_bunny', 'bp308_end'), ('bp308d_dragon', 'bp308d_end')]
+# Completed P291 failures only. Nested run names keep the same done/log/JSON checks.
+FAILED += [(f'c291/{name}', f'c291/{name}.done') for name in (
+    'c291_bunny_force60s', 'c291_bunny_terminal60s',
+    'c291_bunny_norm8s', 'c291_bunny_normphys8s', 'c291_bunny_force8s',
+)]
 
 
 def sync_directory(path):
