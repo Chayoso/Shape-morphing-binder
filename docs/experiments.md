@@ -7628,3 +7628,19 @@ visually (support opacity: the vapour is drawn as what it is).
 40k.** 16 within ±0.003; cow **−0.0110** (52 windows for 115: the run stopped early), beast −0.0068,
 nefertiti −0.0030. The coherent pace stays a 300k flag with `--render_paced`; the 40k form remains
 g41pw. (The 19th, C, still running.)
+
+**2026-09-25 19:00 CDT — the user on the 300k v8 video: still flickering, and particles flow along
+the surface. Measured.** Whole-video change (all frames): v8 splat 0.0018, Poisson 0.0031 — the
+splat flickers less than the re-mesh, but the physics' motion is drawn one-to-one. The sliding
+(bm300, per delivered frame, in spacings, median): particles unpinned at the end = 47 %; at t =
+0.5–0.6 they move 0.14 (arrived ones 0.14), at 0.7–0.8 0.10, at 0.9–1.0 **0.07** — against 0.02 for
+the pinned — i.e. the arrived-but-unpinned half drifts two spacings over the last thirty frames:
+the flow the user sees, the same "particles that reached the surface kept flowing" of their
+memory, the plan's permutation freedom on a filled surface re-assigning arrived material every
+window. The sticky endpoint (§10.33) failed for one reason — no capacity: several particles froze
+onto one point and competed. Corrected: an arriving particle takes the nearest target point not
+reserved by another (closest arrivals first, one per point, reserved for the run), or keeps the
+plan image if none of its 8 nearest is free. Launched **bp301** = bm300's form + `--plan_sticky`
+(capacity-aware) (GPU 2). Pre-registered **P274**: pinned at the end ≥ 0.75 (bm300 0.49); the
+arrived-unpinned move at t = 0.9–1.0 ≤ 0.03 spacings per frame (0.07); silIoU ≥ 0.971; no reversal
+window; the growth unchanged (tip ≥ 9, knob ≤ 1.3).
