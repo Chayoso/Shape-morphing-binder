@@ -8306,3 +8306,21 @@ windows ≤ 60; (c) the 300k dragon (bo300 + taper): silIoU ≥ 0.9699, no stall
 taper: no target below −0.005 silIoU, det F not worse than g41pw by more than 0.05 on any target, windows
 within 1.5×. Refuted at the first failing stage. The adaptive lead (P289) stays the second candidate, alone or
 combined, if the taper falls short.
+
+**2026-09-26 11:45 CDT — P290 ✗ at stage (a): the surface taper does not separate the skin from the bulk.** The
+saved first-window controls replayed with the taper (direct, T = 20, same code), per particle layer (median
+|x1 − x0| wu; ratio = outermost layer / the 2–4 sp band):
+
+| taper depth | 40k outer | 40k 2–4 sp | ratio | 300k outer | 300k 2–4 sp | ratio |
+|---|---|---|---|---|---|---|
+| none (R1 / R5) | 0.0705 | 0.0250 | 2.8 | 0.0420 | 0.0236 | 1.8 |
+| 2 sp (the rule) | 0.0514 | 0.0222 (−11 %) | 2.3 | 0.0348 | 0.0214 (−9 %) | 1.6 |
+| 4 sp | 0.0310 | 0.0158 (−37 %) | 2.0 | 0.0225 | 0.0156 (−34 %) | 1.4 |
+| 8 sp | 0.0157 | 0.0082 (−67 %) | 1.9 | 0.0106 | 0.0080 (−66 %) | 1.3 |
+
+The gate (ratio ≤ 1.5 with the bulk within 20 %) is never met: zeroing the control on the outer layers moves
+the stress jump one taper depth inward and the free surface is still dragged by its elastic neighbours —
+the surface-weighted response is a property of the body's response to any interior stress (the corrected
+first-step reading: uniform controls give it too), not of where the control is applied — while the bulk's
+own delivery collapses with the taper depth because the ear-bound material IS the near-surface material.
+Refuted; the flag stays as a record. Next, as decided: P289, the tested-candidate adaptive lead.
