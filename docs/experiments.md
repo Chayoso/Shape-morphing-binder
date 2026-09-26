@@ -7839,3 +7839,33 @@ loss cell keeps 40k's particles per cell (72³ at 300k, cell 0.153 wu; the pace 
 max(blur, cell) = 0.227 wu with `--disc_ref`, 0.153 without), and (b) find and remove the cause of
 the halved delivery at the window's start. The user's standing rule (no global dx cut) is kept by
 both. Pending the decision; bm300 remains the 300k form, the page unchanged.
+
+**2026-09-25 23:35 CDT — reading `docs/gaussian_surface_physics_proposal.md`: its one testable
+separation measured (refit normals vs material motion), `scratch/normal_probe.py`.** For the outer
+layer of frame 0 that stays outer, per 12 frames: the normal re-estimated from the CURRENT
+neighbourhood (the delivered renderer's kind of estimator; here the centroid form) against the
+normal TRANSPORTED by the least-squares affine map of the FIXED 32-neighbourhood (the proposal's
+material binding), with the material's own motion per frame beside them.
+
+| run | t band | refit Δn med (>5°) | transported Δn med (>5°) | motion normal / tangential (sp per frame) |
+|---|---|---|---|---|
+| bm300 (300k) | 0.1–0.3 | 8.6° (75 %) | 3.3° (27 %) | 0.039 / 0.111 |
+| bm300 | 0.6–0.9 | 3.6° (38 %) | 0.85° (4 %) | 0.002 / 0.006 |
+| bm300 | 0.9–1.0 | **2.6° (30 %)** | **0.47° (2 %)** | 0.001 / 0.004 |
+| g41pw (40k) | 0.1–0.3 | 5.6° (55 %) | 1.4° (3 %) | 0.011 / 0.024 |
+| g41pw | 0.9–1.0 | 0.0° (1 %) | 0.0° (0 %) | 0.000 / 0.000 |
+
+Read: at the end of the 300k morph the settled surface moves 0.004 spacings per frame, yet its
+re-estimated normal still turns 2.6° per 12 frames for a third of the particles — five times what
+the material's own deformation imposes (0.47°). The late shimmer at 300k is therefore mostly a
+refit artefact of the renderer, not material motion; at 40k the pinned surface is exactly still and
+both vanish. Mid-morph the material really moves (0.11 spacings per frame tangential) and the
+transported normal turns 3.3° — the floor a material-bound appearance would keep. Assessment of the
+proposal: its material-bound appearance (persistent normals and covariances transported by the
+material neighbourhood, anchored at first exposure) is worth implementing in the delivered
+renderer (`render_splat_gpu.py`) — a renderer change, no physics, expected to remove most of the
+settled-surface shimmer at 300k; it does not and does not claim to stop the material flow (the
+unpinned 47 % at 300k, 0.18–0.22 spacings per frame, a physics fact) nor the vapour (P278), and the
+Gaussian loss path (the CUDA rasteriser with ×4 children already in `gauss_loss.py`, constant colour
+and opacity, not used by the flagship arm) cannot control sub-cell arrangement through a grid of
+184 particles per cell. Not implemented yet; the user decides.
