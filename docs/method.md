@@ -1699,3 +1699,49 @@ For a free uniform body initially moving at v0, fields `b=d-H v0`, `c=-H v0`
 reach displacement d and terminal rest, subject to the bound. This endpoint
 identity does not extend to elastic/damped/contacting bodies; both modes remain
 optimized through the complete rollout. No velocity reset is introduced.
+
+### 10.37 Transit-protected body-update conditioning (P292, 2026-09-26)
+
+`--body_rprop` applies the existing raw per-particle RPROP history to the body's
+displacement-mode optimizer update. Let A contain controllable, unpinned particles,
+and U contain members of A not yet arrived under the current paced plan. For the
+body's frozen trilinear weights w_pi, define
+
+`s_i = 1` if any p in U has w_pi > 0; otherwise
+`s_i = sum_(p in A) w_pi r_p / sum_(p in A) w_pi`, with empty nodes assigned0.
+
+Only the first three components of the node's Adam direction are multiplied by
+s_i. Raw r_p is passed separately, before the stress channel's neighborhood
+smoothing; pinned or passively released material does not dilute the mean. Every
+active transit particle therefore interpolates unit update scale, up to rounding.
+The terminal-force mode retains its original update, and the existing joint six-
+component projection, complete-rollout objective, line search and rollback remain.
+The joint projection can still couple the two modes; their actual accepted update
+RMS values and coefficient saturation are recorded. Coefficients still start at0
+per window. Neither force amplitudes nor particle positions are post-scaled.
+
+This is an opt-in conditioning experiment, requiring body_ctrl, ctrl_rprop and a
+paced arrival mask. It does not certify rest, preserve actual transport under the
+coupled solve, or identify body force as the cause of observed motion. Accepted
+displacements used by RPROP also include the existing commit corrections. Adoption
+requires matched time/progress comparisons of thin supply, fit, residual motion,
+terminal velocity, pin invariance and per-frame visual quality.
+
+### 10.38 Fixed-target merit on committed geometry (P292, 2026-09-26)
+
+`--outer_render_committed` versions two outer-loop bookkeeping corrections while
+leaving historical reproduction available with the default false value. For an
+active inner render channel, the outer render track is the pure silhouette loss
+against the fixed target, evaluated on the candidate positions AFTER commit PIC,
+subgrid shifting and other position corrections. Its value is shared by the outer
+merit, plateau/best tracking and the previous accepted track. Inner `d_sil` and
+`d_render` remain separate telemetry; their paced targets and pre-commit endpoints
+must not be used as a fixed across-window merit. If both inner channels are absent,
+the new track is absent as well; a physics-only run gains no rendering criterion.
+
+The previous-track dictionary advances only after outer acceptance. A rejected
+candidate therefore cannot become the reference for the next pace-bound regression
+test. This restores the intended accepted-state comparison without changing the
+inner losses, actuator, lead, admission radius or discretisation. The additional
+silhouette evaluation remains on the configured Torch device. It is a versioned
+correctness change, not a demonstrated cure for raw motion or missing material.

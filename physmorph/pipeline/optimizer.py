@@ -265,6 +265,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     mom_init=None, vol0=None, surface_w=None, Fg0=None, coh_nbr=None,
                     coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
                     u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None,
+                    body_scale_init=None,
                     win_index=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
@@ -377,6 +378,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         raise ValueError('body_no_dfc requires body_ctrl')
     if cfg.body_step_normalized and (not cfg.body_ctrl or cfg.dfc_clip <= 0):
         raise ValueError('body_step_normalized requires body_ctrl and positive dfc_clip')
+    if cfg.body_rprop and (not cfg.body_ctrl or not cfg.ctrl_rprop):
+        raise ValueError('body_rprop requires body_ctrl and ctrl_rprop')
     if cfg.body_ctrl and (T < 2 or cfg.grad_dump or cfg.mom_carry > 0
                          or os.environ.get("PHYSMORPH_REPLAY_LOAD")
                          or os.environ.get("PHYSMORPH_REPLAY_SAVE")):
@@ -1348,7 +1351,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         s0 = np.zeros((2, N), np.float32) if s_init is None else np.asarray(s_init, np.float32)
         s = torch.tensor(s0, device=dev, requires_grad=True)
         leaves.append(s)
-    body_coeff = body_basis = body_gate = None
+    body_coeff = body_basis = body_gate = body_step_v = None
+    body_step_stats = {}
     if cfg.body_ctrl:
         from .body_control import BodyControlBasis
         body_basis = BodyControlBasis(x0, prm.grid_min, prm.dx, device=dev)
@@ -1357,6 +1361,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # Follow/KKT reactivation restores its control scale in the runner.
         _body_active = (np.ones(N, bool) if ctrl_scale_init is None else np.asarray(ctrl_scale_init) > 0)
         body_gate = torch.as_tensor(_body_active, device=dev, dtype=torch.float32)[:, None]
+        if cfg.body_rprop:
+            if arrived_mask_np is None:
+                raise ValueError('body_rprop requires the paced plan arrival mask')
+            raw_scale = torch.as_tensor(np.ones(N, np.float32) if body_scale_init is None
+                                        else np.asarray(body_scale_init, np.float32), device=dev)
+            active = body_gate[:, 0] > 0
+            if pin_init is not None:
+                active &= torch.as_tensor(np.asarray(pin_init), device=dev) <= .5
+            node_scale, body_step_stats = body_basis.displacement_step_scale(
+                raw_scale, active, torch.as_tensor(arrived_mask_np, device=dev))
+            body_step_v = torch.ones_like(body_coeff)
+            body_step_v[:, :3] = node_scale
         leaves.append(body_coeff)
         log(f"[win] body control: {body_basis.n_nodes} grid nodes, {body_modes} temporal mode(s), joint nominal coefficient bound {prm.dx:.4f} wu")
 
@@ -2182,6 +2198,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     d_ = mh / (vh.sqrt() + eps_eff)
                     if ctrl_scale_v is not None and p is dFc:
                         d_ = d_ * ctrl_scale_v          # the per-particle Rprop scale (config.ctrl_rprop)
+                    if body_step_v is not None and p is body_coeff:
+                        d_ = d_ * body_step_v          # preserve independent terminal braking updates
                     if W_apply is not None and u is not None and p is u:
                         d_ = W_apply(d_)             # the u step on the layer's smooth subspace (§7)
                     p -= (a_try * sc) * d_
@@ -2308,7 +2326,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # history from the ACCEPTED evaluation. NOTE "d_render" is the pure silhouette
         # scalar; the shading channel is logged separately (they were conflated before).
         last_accepted_state = state_n if cfg.body_ctrl else None
+        body_update = None
+        if body_coeff is not None:
+            body_index = next(i for i, leaf in enumerate(leaves) if leaf is body_coeff)
+            delta = (body_coeff.detach() - bak[body_index]).reshape(-1, body_modes, 3)
+            body_update = [float(v) for v in delta.square().sum(-1).mean(0).sqrt()]
         hist.append({"iter": it, "loss": new,
+                     "body_update_modes_rms": body_update,
                      "d_vol": float(lv_n), "kin": float(lk_n),
                      "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
                      "d_sil": sil_gauss["sil"], "d_gauss": sil_gauss["gauss"],
@@ -2343,6 +2367,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
 
     # ---- final rollout: every intermediate state + FULL end state ----
     commit_from_accepted = bool(accepted_eval_valid and accepted > 0 and hist)
+    motion_accounting = None
     E_accept = hist[-1]["loss"] if hist else None
     with torch.no_grad():
         lam_t, mu_t = material()
@@ -2426,6 +2451,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                "C": to_array(tr.C[T], copy=True),
                "Fg": to_array(tr.Fg[T], copy=True) if use_geom else None,
                "n_inv_steps": n_inv_steps, "Jmin_traj": jmin_traj}
+        if cfg.motion_accounting and accepted > 0:
+            if plan_img_np is None or arrived_mask_np is None or pace_r_np is None:
+                raise ValueError('motion_accounting requires a frozen paced arrival plan')
+            from .motion_accounting import collect_rollout
+            motion_accounting = collect_rollout(tr, float(prm.dt))
         _tm_add("final", t0)
         if cfg.grad_dump and grad_dump_state.get("gx_phys") is not None:
             # linear-response rollouts: each channel's control gradient alone, scaled to the
@@ -2505,6 +2535,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
+             "motion_accounting": motion_accounting,
              "replay_diagnostics": replay_diagnostics,
              "commit_from_accepted": commit_from_accepted,
              "body_rms_wu": (float(body_field()[:N].detach().square().sum(1).mean().sqrt()) if body_coeff is not None else None),
@@ -2512,8 +2543,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
              "body_coeff_max": (float(body_coeff.detach().norm(dim=1).max()) if body_coeff is not None else None),
              "body_coeff_saturated_frac": (float((body_coeff.detach().norm(dim=1) >= 0.999).float().mean()) if body_coeff is not None else None),
              "body_accepted_alphas": ([float(h['alpha']) for h in hist] if body_coeff is not None else None),
+             "body_update_modes_rms": ([h['body_update_modes_rms'] for h in hist] if body_coeff is not None else None),
              "body_nodes": (body_basis.n_nodes if body_basis is not None else 0),
              "body_step_scale": (body_step_scale if body_coeff is not None else None),
+             **body_step_stats,
              "mom_out": mom_out if cfg.mom_carry > 0 else None,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,

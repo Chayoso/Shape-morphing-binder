@@ -15,6 +15,7 @@ import torch.nn.functional as Fn
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from physmorph.render.photoreal import render_3dgs_torch
 from physmorph.render.knn_gpu import knn_self_torch
+from physmorph.render.support import live_support, normal_filter_size, filter_normal_buffer
 from PIL import Image, ImageDraw
 
 ap = argparse.ArgumentParser()
@@ -25,6 +26,10 @@ ap.add_argument("--opacity", type=float, default=0.92); ap.add_argument("--hold"
 ap.add_argument("--k", type=int, default=8); ap.add_argument("--nsmooth", type=int, default=2)
 ap.add_argument("--label", default=""); ap.add_argument("--stills", default="")
 ap.add_argument("--views", default="35,215"); ap.add_argument("--elev", type=float, default=18.0)
+ap.add_argument("--smooth_support", action="store_true",
+                help="compact current-density support; transition width is one target native spacing")
+ap.add_argument("--scale_normal_filter", action="store_true",
+                help="scale odd normal-buffer filter from height1080; coverage is unchanged")
 ap.add_argument("--settled_freeze", action="store_true",
                 help="freeze active-pin normals/radii; density support stays live and raw pin motion is validated")
 ap.add_argument("--material_size", action="store_true",
@@ -37,8 +42,8 @@ ap.add_argument("--material_normals", action="store_true",
                 help="P283 (2026-09-26): normals anchored at a particle's first exposed frame and transported by the tangent-plane "
                      "deformation of its fixed 32-neighbourhood instead of being re-estimated every frame")
 a = ap.parse_args()
-if a.settled_freeze and a.material_support:
-    raise ValueError('--settled_freeze requires live density support; omit --material_support')
+if (a.settled_freeze or a.smooth_support) and a.material_support:
+    raise ValueError('settled/smooth support requires live density support; omit --material_support')
 dev = "cuda"
 z = np.load(a.npz, allow_pickle=True)
 F = z["frames"]; T = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
@@ -100,7 +105,7 @@ for kf, i in enumerate(idx):
     x = torch.as_tensor(np.asarray(F[i], np.float32), device=dev)
     d, j = knn_self_torch(x, 33)                                            # self first
     n_i = (d[:, 1:a.k + 1] <= rcov).sum(1).float()                          # neighbours within the target's shell radius
-    support = (n_i / (0.5 * a.k)).clamp(0, 1)
+    support = live_support(d, rcov, sp, k=a.k, smooth=a.smooth_support)
     r_i = d[:, a.k]
     sig_i = a.sigma * sp * (r_i / rcov).clamp(1.0, 4.0)
     nrm, mag = density_normals(x)
@@ -191,9 +196,7 @@ for kf, i in enumerate(idx):
                   dist=rad * 3.6, res=a.res, fovy_deg=30.0, center=ctr)
         N_img = render_3dgs_torch(x, ncol, bg=(0, 0, 0), **kw)
         A_img = render_3dgs_torch(x, torch.ones_like(ncol), bg=(0, 0, 0), **kw)[..., 0]
-        blur = lambda im: Fn.avg_pool2d(im.permute(2, 0, 1)[None], 3, 1, 1)[0].permute(1, 2, 0)
-        N_s = blur(N_img); A_s = blur(A_img[..., None])[..., 0]
-        npx = 2 * N_s / A_s.clamp_min(1e-3)[..., None] - 1; npx = npx / npx.norm(dim=-1, keepdim=True).clamp_min(1e-6)
+        npx = filter_normal_buffer(N_img, A_img, normal_filter_size(a.res, a.scale_normal_filter))
         ndl = (npx * (-light)).sum(-1)
         shade = (0.40 + 0.60 * (0.5 * (1 + ndl)).clamp(0, 1)) * 0.97
         alpha = A_img.clamp(0, 1)[..., None]
@@ -210,6 +213,13 @@ for h in range(a.hold):
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", "20", "-i", os.path.join(tmp, "f%04d.png"),
                 "-c:v", "h264_nvenc", "-preset", "p5", "-pix_fmt", "yuv420p", "-cq", "20", a.out], check=True)
 print(f"saved {a.out} ({len(idx)} frames + {a.hold} hold; {time.time() - t0:.0f} s total; sp {sp:.4f} rcov {rcov:.4f})")
+Path(a.out).with_suffix('.render.json').write_text(json.dumps(dict(
+    source=str(Path(a.npz).resolve()), raw_frame_indices=idx, options=vars(a),
+    spacing_wu=sp, coverage_radius_wu=rcov, support_transition_wu=sp,
+    support_transition_sp=1., normal_filter_reference_height=1080,
+    normal_filter_size=normal_filter_size(a.res, a.scale_normal_filter),
+    coverage='current support; original unfiltered raster coverage',
+    sigma_rule='sigma * spacing * clamp(current rk / target median rk, 1, 4); optional material and pin modes as recorded'), indent=2))
 if mat is not None and stat_lines:
     S_ = np.array(stat_lines)
     print("P283 normal turn per rendered frame (deg, particles anchored at both frames): t band | n | anchored share | "

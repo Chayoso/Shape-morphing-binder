@@ -96,3 +96,39 @@ def test_body_mode_shape_mismatch_is_rejected():
                     lambda b: PersistentAdjoint(s).apply(dc, body_t=b)):
         with pytest.raises(ValueError, match='shape'):
             rollout(torch.zeros(40, 3))
+
+
+def test_body_rprop_restriction_excludes_passive_mass_and_protects_shared_transit():
+    # Coincident active/passive points share every node. Passive low scales must
+    # not dilute the update; one live transit particle protects all its nodes.
+    from physmorph.pipeline.body_control import BodyControlBasis
+    x = np.full((4, 3), .25, np.float32)
+    basis = BodyControlBasis(x, (0, 0, 0), 1.)
+    scale = torch.tensor([.25, .75, 0., 0.])
+    active = torch.tensor([True, True, False, False])
+    arrived = torch.ones(4, dtype=torch.bool)
+    nodes, _ = basis.displacement_step_scale(scale, active, arrived)
+    torch.testing.assert_close(nodes, torch.full_like(nodes, .5))
+    arrived[0] = False
+    nodes, stats = basis.displacement_step_scale(scale, active, arrived)
+    torch.testing.assert_close(nodes, torch.ones_like(nodes))
+    assert stats['body_step_transit_min'] == pytest.approx(1.)
+    active.zero_()
+    nodes, stats = basis.displacement_step_scale(scale, active, arrived)
+    assert torch.count_nonzero(nodes) == 0 and stats['body_step_node_mean'] is None
+
+
+def test_body_rprop_restriction_keeps_disconnected_arrived_region_local():
+    from physmorph.pipeline.body_control import BodyControlBasis
+    x = np.array([[.2, .2, .2], [3.2, 3.2, 3.2]], np.float32)
+    basis = BodyControlBasis(x, (0, 0, 0), 1.)
+    nodes, stats = basis.displacement_step_scale(torch.tensor([.125, 1.]),
+                                                torch.ones(2, dtype=torch.bool),
+                                                torch.tensor([True, False]))
+    coefficients = torch.cat([nodes.expand(-1, 3), torch.ones(basis.n_nodes, 3)], 1)
+    actual = basis.expand(coefficients)
+    torch.testing.assert_close(actual, torch.tensor([[.125]*3 + [1.]*3, [1.]*6]))
+    assert stats['body_step_transit_min'] == pytest.approx(1.)
+    with pytest.raises(ValueError, match='finite'):
+        basis.displacement_step_scale(torch.tensor([float('nan'), 1.]),
+                                      torch.ones(2, dtype=torch.bool), torch.ones(2, dtype=torch.bool))

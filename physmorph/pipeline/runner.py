@@ -618,6 +618,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             frontier=frontier, bond_rest=bond_rest, bond_frag=bond_frag,
             u_scale_init=(u_scale if getattr(cfg, "u_rprop", False) else None),
             ctrl_scale_init=(ctrl_scale_apply if (getattr(cfg, "ctrl_rprop", False) or getattr(cfg, "freeze_arrived", False)) else None),
+            body_scale_init=(ctrl_scale if cfg.body_rprop else None),
             eta_init=settle_eta_arr, pin_init=settle_pin_arr, stick_init=stick_arr, win_index=a)
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
@@ -818,6 +819,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         # ---- the null-space projection of the window's displacement (cfg.commit_pic; mpm/gridfilter.py,
         # docs/method.md 10.20): x_end <- x_start + G2P(P2G(x_end - x_start)) with the simulation's cubic
         # stencil at the window-start positions; the grid-invisible part is dropped. Before the shift. ----
+        motion_pre_pic = x.copy() if cfg.motion_accounting else None
         if getattr(cfg, "commit_pic", False):
             from ..mpm.gridfilter import grid_project
             _d = np.asarray(x, np.float32) - np.asarray(x_start, np.float32)
@@ -837,6 +839,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         # it; one explicit diffusion step of the particle concentration at its stability limit, positions
         # only, the outer layer tangentially. Applied to the COMMIT state, so the archived frame and the
         # next window's start are the ordered cloud. ----
+        motion_post_pic = x.copy() if cfg.motion_accounting else None
         if getattr(cfg, "shift_sub", False):
             from ..mpm.shifting import fickian_shift, native_spacing
             if sp_native is None:
@@ -867,6 +870,16 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                 log(f"[v2] anim {a + 1}: sub-cell shift median {sst['median_sp']:.3f} sp, p99 {sst['p99_sp']:.3f}, "
                     f"max {sst['max_sp']:.2f}; disorder |grad C| h {sst['disorder']:.3f}; tangential on {sst['n_surface']}; "
                     f"cell-sum change across the shift {100 * sst['dvol_rel']:+.3f} %")
+        motion_report = None
+        if stats.get('motion_accounting') is not None:
+            from .motion_accounting import summarize
+            from .settlement import accepted_arrivals
+            end_arrived = accepted_arrivals(x, stats['plan_img'], stats['pace_r'])
+            tensors = [torch.as_tensor(value, device=cfg.device) for value in
+                       (x_start, fr[-1], motion_pre_pic, motion_post_pic, x,
+                        stats['arrived_mask'], end_arrived, pin_window)]
+            motion_report = summarize(stats.pop('motion_accounting'), *tensors)
+            motion_report['commit_source'] = stats['replay_diagnostics']['commit_source']
         # archive the PROMOTED states (identical to raw when no guard fired)
         ks = max(1, int(cfg.archive_stride))            # archive stride (150k archives)
         frames.extend(to_host(f) for f in fr[1:-1][::ks]); frames.append(to_host(x))
@@ -937,8 +950,11 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                 d_fill = coverage_shortfall(xt, tgt.m, tgt.tmass3, tgt.dtgmin,
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
+               "motion_accounting": motion_report,
                "body_rms_wu": stats.get("body_rms_wu"), "body_nodes": stats.get("body_nodes", 0),
                "body_step_scale": stats.get("body_step_scale"),
+               **{k: v for k, v in stats.items() if k.startswith("body_step_")},
+               "body_update_modes_rms": stats.get("body_update_modes_rms"),
                "commit_from_accepted": stats.get("commit_from_accepted", False),
                "body_terminal_rms_wu": stats.get("body_terminal_rms_wu"),
                "body_coeff_max": stats.get("body_coeff_max"),
@@ -994,6 +1010,16 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         if lg_tele is not None:
             rec.update(lg_tele)
 
+        # Inner render telemetry can use a paced target and precedes PIC/shift.
+        # The versioned outer track evaluates the state that will be committed.
+        if cfg.outer_render_committed:
+            from .outer_merit import fixed_outer_render
+            outer_render = fixed_outer_render(
+                torch.as_tensor(x, device=cfg.device), cfg, tgt,
+                whist[-1].get("d_sil"), whist[-1].get("d_render"))
+            rec["outer_render"] = None if outer_render is None else float(outer_render)
+            rec["outer_track_version"] = "committed_fixed_v1"
+
         # Fixed-scale outer trust gate.  The inner objective contains an adaptive
         # render lambda, so it cannot safely decide whether a whole physical state
         # should be committed across windows.  Normalize each raw channel once per
@@ -1017,6 +1043,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             components["phys"] = rec["ot_div"]
         rend_gate = (rec["d_sil"] if rec.get("d_sil") is not None
                      else rec["d_render"])
+        if cfg.outer_render_committed:
+            rend_gate = rec["outer_render"]
         if rend_gate is not None:
             components["render"] = rend_gate     # merit reads d_sil only (B1)
         if d_dt is not None:
@@ -1065,8 +1093,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         # at small move) fired at anim ~20 of 300 — pace + a large w_kin make moves
         # small long before the descent is done — and then rejected every window to
         # a fake "converged" at anim 27 (final_hires20k_child4_latched forensic).
-        rend_track = (rec["d_sil"] if rec.get("d_sil") is not None
-                      else rec["d_render"])    # gates read the PURE silhouette (B1)
+        rend_track = rend_gate    # merit, plateau and accepted history use the same channel
         improved = best_phys is None or phys_track < best_phys - cfg.tol * abs(best_phys)
         if rend_track is not None and best_rend is not None:
             improved = improved or rend_track < best_rend - cfg.tol * abs(best_rend)
@@ -1099,7 +1126,9 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                         regressed = True
             if not regressed:
                 improved = True
-        prev_tracks = {"phys": phys_track, "rend": rend_track, "dt": d_dt}
+        candidate_tracks = {"phys": phys_track, "rend": rend_track, "dt": d_dt}
+        if not cfg.outer_render_committed:
+            prev_tracks = candidate_tracks  # legacy replay contract, including rejected candidates
 
         outer_reject = False
         outer_gain = None
@@ -1261,6 +1290,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         else:
             prev_disp = disp.copy()
             rev_prev_neg_acc = rev_neg_now; rev_prev_neg_arr = rev_neg_now_arr
+        if cfg.outer_render_committed:
+            prev_tracks = candidate_tracks
         rec["frame_end"] = len(frames)          # archive index after this commit
         if dress is not None:
             # Tier D post-gate solve (design §4.3): runs only on ACCEPTED commits,

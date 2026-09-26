@@ -61,3 +61,40 @@ class BodyControlBasis:
 
     def expand(self, coefficients):
         return self.dx * (coefficients[self.idx] * self.weights[..., None]).sum(1)
+
+    @torch.no_grad()
+    def displacement_step_scale(self, particle_scale, active, arrived):
+        """Restrict raw RPROP scales; any live transit contribution protects its node.
+
+        This conditions the optimizer's displacement-mode update only. It neither
+        scales the physical force nor changes the independently optimized brake.
+        Pinned/passive particles must be absent from ``active``.
+        """
+        n = len(self.idx)
+        if any(value.shape != (n,) or value.device != self.idx.device
+               for value in (particle_scale, active, arrived)):
+            raise ValueError('body step inputs must be device-matched particle vectors')
+        if (not torch.isfinite(particle_scale).all() or (particle_scale < 0).any()
+                or (particle_scale > 1).any()):
+            raise ValueError('RPROP scales must be finite and in [0,1]')
+        active, arrived = active.bool(), arrived.bool()
+        weights = self.weights * active[:, None]
+        ids = self.idx.reshape(-1)
+        denom = self.weights.new_zeros(self.n_nodes)
+        numerator = torch.zeros_like(denom)
+        transit = torch.zeros_like(denom)
+        denom.index_add_(0, ids, weights.reshape(-1))
+        numerator.index_add_(0, ids, (weights * particle_scale[:, None]).reshape(-1))
+        transit.index_add_(0, ids, ((weights > 0) & ~arrived[:, None]).float().reshape(-1))
+        node_scale = torch.where(denom > 0, numerator / denom.clamp_min(1e-30), 0.)
+        node_scale = torch.where(transit > 0, 1., node_scale).clamp(0., 1.)
+        effective = (node_scale[self.idx] * self.weights).sum(1)
+        occupied = denom > 0
+        moving = active & ~arrived
+        settled = active & arrived
+        telemetry = dict(
+            body_step_node_mean=float(node_scale[occupied].mean()) if occupied.any() else None,
+            body_step_transit_nodes_frac=float((transit[occupied] > 0).float().mean()) if occupied.any() else None,
+            body_step_transit_min=float(effective[moving].min()) if moving.any() else None,
+            body_step_arrived_median=float(effective[settled].median()) if settled.any() else None)
+        return node_scale[:, None], telemetry

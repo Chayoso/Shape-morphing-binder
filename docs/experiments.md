@@ -8625,3 +8625,53 @@ suite27 passed, GPU compute/raw-audit suite18 passed plus earlier integration ch
 40 changed/new Python files compiled, and independent adversarial reviews closed
 all identified blockers. Active-path execution details and unsupported historical
 options are listed in [gpu_execution.md](gpu_execution.md).
+
+**2026-09-26 18:27 CDT — P292 motion/appearance isolation and commit bookkeeping.**
+All following physical comparisons use bunny N300000, T20, dt1/240,
+dx0.3062907544wu, loss36^3, eight inner iterations, animations300 and cap60 unless
+explicitly labelled an eight-window prefix. They use the same archived mixed60
+source/target. Candidate defaults and published pages remain unchanged.
+
+The body-RPROP full trial did not improve the joint gates: silhouette changed
+0.973039 to0.973517, but tip-ball supply53 to50 and the common1374-ID free boundary
+cohort's median commit motion0.1757 to0.2131sp. A mixed-body stress-taper prefix
+also lost shape/coverage. These are retained opt-in experiments, not adopted fixes.
+The same-cohort raw phase audit locates over98.99% of measured baseline reversals
+at the last rollout/commit transition and the following first step; interior
+reversals are rare. See [full definitions and comparisons](quality_comparison_p292.md).
+
+Read-only stage accounting then completed40 accepted commits in41 attempts,
+650.59s, with zero guards. Within its last10 accepted windows, changing arrived-free
+cohorts have median accumulated advection RMS0.010867wu, opposing commit-PIC
+RMS0.009345wu, and net promoted displacement RMS0.004421wu. RMS values are not
+additive; signed coefficients and cohort limitations are in
+[the accounting report](motion_accounting_p292.md). This diagnostic trajectory
+must not be treated as a paired endpoint-quality arm.
+
+An eight-window whole-operator PIC-off ablation improves top density0.67609 to
+0.76023 and the new early common-free cohort's boundary normal return, but loses
+early silhouette0.91640 to0.91316 and top coverage0.74608 to0.72969. It warrants a
+bounded full follow-up; it does not justify promotion. `no_pic60` launched GPU2
+at23:26:53UTC on the unchanged numerical snapshot, with shift retained and neither
+bodyRPROP nor the new outer-gate option enabled.
+
+`outer_render_committed` separately versions a real outer-loop correction: pure
+fixed-target silhouette is measured on promoted positions after PIC/shift, and
+rejected candidates no longer advance the previous accepted plateau tracks.
+The legacy default remains reproducible. Twelve helper and three real pipeline
+tests passed independently. The full CPU suite before the final telemetry/audit
+extensions passed357 tests/22 skipped in83.58s with CUDA disabled; subsequent
+targeted checks cover those extensions. GPU integration uses a separate paired
+eight-window snapshot, never bundled into the PIC-off experiment.
+
+On the original unchanged4K trajectory, continuous-support and material-normal
+variants failed: late RGB differences worsen2.35x and58.7% respectively. Scaling
+the screen-space normal filter alone reduces that diagnostic only about1.96%,
+with identical coverage; none is evidence of physical hole removal. All402 encoded
+diagnostic frames were visually checked, and the original deliverable is retained.
+See [renderer report](render_artifacts_p292.md).
+
+The separately requested original raw frames0,36,108,420 are saved byte-for-byte
+as3840x2160 PNGs in local `output/c291/photoreal4k/original_selected_raw_frames/`.
+Their manifest records source paths, video/raw index mapping, SHA-256 and visual
+checks. They are the original images, not revised render output.

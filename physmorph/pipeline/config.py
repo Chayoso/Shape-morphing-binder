@@ -16,6 +16,8 @@ class PipelineConfig:
     body_no_dfc: bool = False       # diagnostic ablation: elastic stress stays, learned dFc is zero
     body_step_normalized: bool = False  # heuristic body step scaling by the reference dFc bound
     body_terminal_ctrl: bool = False    # second physical-force mode for independent endpoint velocity
+    body_rprop: bool = False            # displacement-mode updates only; live transit nodes keep full step
+    motion_accounting: bool = False     # diagnostic only: accepted rollout and commit displacement components
     # ---- horizon / outer loop ----
     T: int = 20                     # rollout length = control layers per window (C++ num_timesteps)
     iters: int = 8                  # optimiser iterations per window
@@ -733,6 +735,7 @@ class PipelineConfig:
     esc_k: float = 3.0
     archive_stride: int = 1         # keep every k-th per-step state in frames/F_frames
     outer_merit: bool = False       # fixed-scale trust gate for production runs
+    outer_render_committed: bool = False  # P292: fixed-target render on promoted x; accepted-only track history
     outer_merit_tol: float = 1e-4   # relative sufficient decrease required for a commit
     outer_gate_move_frac: float = 6e-3 # RETIRED as latch evidence (s1: reachable at 10% of descent; s3: pacing makes every move small) — kept for provenance
     outer_gate_merit_max: float = 0.55 # normalized fixed merit required before latching

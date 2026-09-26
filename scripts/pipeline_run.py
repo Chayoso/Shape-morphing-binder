@@ -132,6 +132,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          stop_after_windows=args.stop_after_windows, body_no_dfc=args.body_no_dfc,
                          body_step_normalized=args.body_step_normalized,
                          body_terminal_ctrl=args.body_terminal_ctrl,
+                         body_rprop=args.body_rprop,
                          settle_pin_confirm=args.settle_pin_confirm,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
@@ -148,6 +149,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          control_h1_iters=args.control_h1_iters, grad_h1=args.grad_h1,
                          nn_tail_frac=args.nn_tail_frac,
                          outer_merit=args.outer_merit,
+                         outer_render_committed=args.outer_render_committed,
                          persistent_rest_volume=not args.legacy_recompute_volumes,
                           gauss_covariance=not args.legacy_gauss_centers_only,
                           gauss_sigma_scale=args.gauss_sigma_scale,
@@ -536,6 +538,8 @@ def main():
                     help="with body_ctrl: heuristic body Adam scale=1/dfc_clip (reference-bound scaling)")
     ap.add_argument("--body_terminal_ctrl", action="store_true",
                     help="with body_ctrl: add a second force pulse controlling terminal velocity independently")
+    ap.add_argument("--body_rprop", action="store_true",
+                    help="condition displacement-mode updates by RPROP, protecting transit nodes and terminal braking")
     ap.add_argument("--src", default="assets/isosphere.obj")
     ap.add_argument("--tgt", default="assets/bunny.obj")
     ap.add_argument("--n", type=int, default=20000)
@@ -591,6 +595,8 @@ def main():
     ap.add_argument("--control_h1_iters", type=int, default=0)
     ap.add_argument("--grad_h1", action="store_true")          # Sobolev descent direction (material kNN)
     ap.add_argument("--outer_merit", dest="outer_merit", action="store_true", default=True)
+    ap.add_argument("--outer_render_committed", action="store_true",
+                    help="Fixed-target silhouette on the promoted commit and accepted-only plateau history (P292)")
     ap.add_argument("--no_outer_merit", dest="outer_merit", action="store_false")  # gate v3 brake is a safety net (r5: 0 rejects)
     ap.add_argument("--patience", type=int, default=5)
     ap.add_argument("--tol", type=float, default=0.003)  # plateau-track relative improvement threshold

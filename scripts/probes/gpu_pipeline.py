@@ -31,6 +31,11 @@ def main():
     parser.add_argument('--repeat', type=int, default=1)
     parser.add_argument('--archive', action='store_true', help='Save raw frames and canonical render metadata')
     parser.add_argument('--confirm', action='store_true', help='Existing start/end pin confirmation diagnostic')
+    parser.add_argument('--body-rprop', action='store_true', help='Transit-protected displacement-mode RPROP')
+    parser.add_argument('--taper-sp', type=float, default=None, help='Existing stress taper with the mixed body controller')
+    parser.add_argument('--motion-accounting', action='store_true', help='Read-only accepted hybrid displacement decomposition')
+    parser.add_argument('--no-commit-pic', action='store_true', help='Ablate the existing endpoint PIC correction only')
+    parser.add_argument('--outer-render-committed', action='store_true', help='Fixed-target promoted-state outer render gate')
     parser.add_argument('--out', required=True)
     parser.add_argument('--trace_seconds', type=int, default=0)
     args = parser.parse_args()
@@ -67,6 +72,18 @@ def main():
         config['lambda_auto'] = 0.
     if args.confirm:
         config['settle_pin_confirm'] = True
+    if args.body_rprop:
+        config['body_rprop'] = True
+    if args.motion_accounting:
+        config['motion_accounting'] = True
+    if args.no_commit_pic:
+        config['commit_pic'] = False
+    if args.outer_render_committed:
+        config['outer_render_committed'] = True
+    if args.taper_sp is not None:
+        if not np.isfinite(args.taper_sp) or args.taper_sp < 0:
+            parser.error('--taper-sp must be finite and nonnegative')
+        config['ctrl_taper_sp'] = args.taper_sp
     cfg = PipelineConfig(**config)
     prm = MPMParams(**metadata['provenance']['mpm'])
     start = time.monotonic()

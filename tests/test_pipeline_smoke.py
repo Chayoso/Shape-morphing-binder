@@ -104,6 +104,107 @@ def test_diagnostic_prefix_preserves_full_run_schedule(prm, clouds):
     assert np.allclose(prefix['frames'], full['frames'][:len(prefix['frames'])], atol=1e-6)
 
 
+def test_motion_accounting_does_not_change_the_accepted_trajectory(prm, clouds):
+    cfg = _cfg(body_ctrl=True, body_terminal_ctrl=True, ctrl_rprop=True,
+               phys_loss='ot_pace', ot_samples=64, ot_iters=4, animations=1,
+               layer_ctrl=True, layer_relax=True, commit_pic=True, shift_sub=True)
+    plain = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    cfg.motion_accounting = True
+    observed = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    np.testing.assert_array_equal(observed['frames'], plain['frames'])
+    np.testing.assert_array_equal(observed['F_frames'], plain['F_frames'])
+    report = next(r['motion_accounting'] for r in observed['history'] if r.get('frame_end'))
+    assert report['T'] == cfg.T and report['window_closure_max_wu'] < 1e-5
+    assert report['cohorts']['all']['particles'] == len(clouds[0])
+    assert sum(report['cohorts'][k]['particles'] for k in ('arrived_free', 'transit_free', 'pinned_at_start')) == len(clouds[0])
+
+
+@pytest.mark.parametrize('fixed_gate', [False, True])
+def test_outer_plateau_history_ignores_rejected_candidates(prm, clouds, monkeypatch, fixed_gate):
+    from physmorph.pipeline import runner
+    original = runner.optimize_window
+    losses = iter([1., 2., 1.01])
+    def controlled_tracks(*args, **kwargs):
+        result = original(*args, **kwargs)
+        # Real accepted inner trajectories with prescribed outer density tracks:
+        # W2 triggers the catastrophe brake; W3 regresses only versus accepted W1.
+        result[4][-1]['d_vol'] = next(losses)
+        result[-1]['pace_bound'] = True
+        return result
+    monkeypatch.setattr(runner, 'optimize_window', controlled_tracks)
+    cfg = _cfg(animations=3, patience=10, outer_merit=True, w_kin=0.,
+               outer_render_committed=fixed_gate)
+    result = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    records = [r for r in result['history'] if 'd_vol' in r]
+    assert len(records) == 3
+    assert records[1]['outer_rejected'] == 1 and records[1]['brake_reject'] == 1
+    assert records[2]['outer_accepted'] == 1
+    assert records[2]['improved'] == (0 if fixed_gate else 1)
+    if fixed_gate:
+        assert all(r['outer_render'] is None for r in records)
+
+
+def test_outer_render_tracks_promoted_positions_and_retains_inner_telemetry(prm, clouds):
+    import torch
+    from physmorph.pipeline.runner import build_target
+    from physmorph.pipeline.outer_merit import fixed_outer_render
+    cfg = _cfg(animations=1, outer_render_committed=True, lambda_auto=.5,
+               layer_ctrl=True, layer_relax=True, commit_pic=True, shift_sub=True,
+               phys_loss='ot_pace', ot_samples=64, ot_iters=4, render_paced=True)
+    result = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    record = next(r for r in result['history'] if r.get('frame_end'))
+    target = build_target(clouds[1], prm, cfg)
+    expected = fixed_outer_render(torch.as_tensor(result['frames'][-1]), cfg, target,
+                                  record['d_sil'], record['d_render'])
+    assert record['outer_track_version'] == 'committed_fixed_v1'
+    assert record['outer_render'] == pytest.approx(float(expected), rel=1e-6)
+    assert record['d_sil'] is not None and record['d_render'] is not None
+
+
+def test_body_rprop_runs_with_independent_braking_and_requires_arrival(prm, clouds):
+    cfg = _cfg(body_ctrl=True, body_terminal_ctrl=True, body_rprop=True,
+               ctrl_rprop=True, phys_loss='ot_pace', ot_samples=64, ot_iters=4,
+               dfc_clip=.02, animations=2)
+    result = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    records = [r for r in result['history'] if r.get('frame_end')]
+    assert records and all(r['body_step_node_mean'] is not None for r in records)
+    assert any(r['body_terminal_rms_wu'] > 0 for r in records)
+    for record in records:
+        assert record['body_step_transit_min'] is None or record['body_step_transit_min'] >= 1 - 1e-6
+        assert len(record['body_update_modes_rms']) == record['accepted']
+    cfg.phys_loss = 'density'
+    with pytest.raises(ValueError, match='arrival mask'):
+        run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+
+
+def test_body_rprop_nonunit_scale_reaches_optimizer_without_scaling_brake(prm, clouds, monkeypatch):
+    from physmorph.pipeline import runner
+    source = clouds[0]
+    target = source + np.array([.02, 0., 0.], np.float32)
+    original = runner.optimize_window
+    factor = [1.]
+    def with_scale(x, *args, **kwargs):
+        kwargs['body_scale_init'] = np.full(len(x), factor[0], np.float32)
+        return original(x, *args, **kwargs)
+    monkeypatch.setattr(runner, 'optimize_window', with_scale)
+    cfg = _cfg(body_ctrl=True, body_terminal_ctrl=True, body_rprop=True,
+               ctrl_rprop=True, phys_loss='ot_pace', ot_samples=64, ot_iters=4,
+               animations=1, iters=1, adaptive_alpha=False, alpha=1e-4, ls_noise_rel=0.)
+    results = []
+    for value in (1., .125):
+        factor[0] = value
+        result = run_pipeline(source, target, prm, cfg, log=lambda *_: None)
+        results.append(next(r for r in result['history'] if r.get('frame_end')))
+    full, small = results
+    assert full['body_accepted_alphas'] == small['body_accepted_alphas']
+    assert small['body_step_transit_min'] is None  # all points arrived in this fixture
+    first, second = np.asarray(full['body_update_modes_rms']), np.asarray(small['body_update_modes_rms'])
+    assert first[0, 0] > 0 and first[0, 1] > 0
+    np.testing.assert_allclose(second[:, 0], .125 * first[:, 0], rtol=2e-3)
+    np.testing.assert_allclose(second[:, 1], first[:, 1], rtol=2e-3)
+    assert full['body_coeff_max'] < 1 and small['body_coeff_max'] < 1
+
+
 @pytest.mark.parametrize('overwrite_with_rejected_trial', [False, True])
 def test_commit_uses_accepted_state_even_after_rejected_buffer_overwrite(prm, clouds, monkeypatch,
                                                                       overwrite_with_rejected_trial):
