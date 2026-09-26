@@ -27,5 +27,5 @@ export CUDA_VISIBLE_DEVICES=$GPU
 date -Is > "$OUT/c291/$NAME.start"
 # RECIPE is a trusted space-delimited flag list from the repository.
 $PY scripts/pipeline_run.py --arms render_full_dt_iso_nn --tgt "assets/$TARGET.obj" --n "$N" \
-    $RECIPE "${FL[@]}" --animations "$WINDOWS" --out "$OUT/c291/$NAME" > "$OUT/c291/$NAME.log" 2>&1
+    $RECIPE "${FL[@]}" --stop_after_windows "$WINDOWS" --out "$OUT/c291/$NAME" > "$OUT/c291/$NAME.log" 2>&1
 date -Is > "$OUT/c291/$NAME.done"

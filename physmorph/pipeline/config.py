@@ -15,6 +15,7 @@ class PipelineConfig:
     T: int = 20                     # rollout length = control layers per window (C++ num_timesteps)
     iters: int = 8                  # optimiser iterations per window
     animations: int = 30            # outer commits (C++ num_animations)
+    stop_after_windows: int = 0     # diagnostic prefix; preserve animations-based loss schedules
     hold_after_converge: bool = True  # pad frames once frozen (smooth gif tails)
 
     # ---- optimiser (line-searched Adam; C++ step control) ----

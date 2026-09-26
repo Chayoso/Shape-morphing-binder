@@ -54,8 +54,8 @@ def poisson_isolated(points: np.ndarray, normals: np.ndarray, depth: int, n_thre
             except subprocess.TimeoutExpired:
                 code, err = "timeout", []
             if code == 0 and os.path.exists(fout):
-                z = np.load(fout)
-                return z["v"], z["f"]
+                with np.load(fout) as z:
+                    return z["v"], z["f"]
             print(f"[poisson_worker] attempt {attempt + 1} failed (exit {code}, threads {nt}) {err}", flush=True)
     return None
 

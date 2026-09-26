@@ -463,7 +463,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             f"{cfg.grad_project_mode if cfg.grad_project else 'off'} "
             f"gs_cheb={cfg.render_gs_cheb} loss_units={cfg.loss_units}")
 
-    for a in range(cfg.animations):
+    window_limit = min(cfg.animations, cfg.stop_after_windows) if cfg.stop_after_windows > 0 else cfg.animations
+    for a in range(window_limit):
         if cfg.render_until > 0 and a == cfg.render_until and balancer.active:
             # INTERVENTION (2026-09-17): the render channel is switched off from here on;
             # everything else (merit, gate, targets) is unchanged, so any divergence of the

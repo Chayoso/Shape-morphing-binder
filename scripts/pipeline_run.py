@@ -96,6 +96,7 @@ def gate1_channels(src, prm, young=1.4e5, poisson=0.2, device="cuda"):
 
 def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations, body_ctrl=args.body_ctrl,
+                         stop_after_windows=args.stop_after_windows,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
@@ -496,6 +497,8 @@ def main():
     ap.add_argument("--T", type=int, default=20)
     ap.add_argument("--iters", type=int, default=8)
     ap.add_argument("--animations", type=int, default=30)
+    ap.add_argument("--stop_after_windows", type=int, default=0,
+                    help="stop a diagnostic prefix without shortening the animations-based loss schedules")
     ap.add_argument("--alpha", type=float, default=0.02)
     ap.add_argument("--eps", type=float, default=1e-3)
     ap.add_argument("--lambda_auto", type=float, default=0.5)

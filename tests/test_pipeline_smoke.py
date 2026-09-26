@@ -64,6 +64,17 @@ def test_body_control_pipeline_optimises_the_force_leaf(prm, clouds):
     assert any(r["body_rms_wu"] > 0 for r in recs)
 
 
+def test_diagnostic_prefix_preserves_full_run_schedule(prm, clouds):
+    src, tgt = clouds
+    params = dict(animations=4, c2f_at=0.5, lambda_auto=0.5, render_res_hi=32,
+                  hold_after_converge=False, patience=10)
+    full = run_pipeline(src, tgt, prm, _cfg(**params), log=lambda *_: None)
+    prefix = run_pipeline(src, tgt, prm, _cfg(stop_after_windows=2, **params), log=lambda *_: None)
+    assert not any('c2f_render_res' in h for h in prefix['history'])
+    assert len(prefix['frames']) < len(full['frames'])
+    assert np.allclose(prefix['frames'], full['frames'][:len(prefix['frames'])], atol=1e-6)
+
+
 def test_render_arm_runs_and_lambda_is_live(prm, clouds):
     src, tgt = clouds
     cfg = _cfg(lambda_auto=0.5)
