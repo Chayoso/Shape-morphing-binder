@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np, torch
 import torch.nn.functional as Fn
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from physmorph.render.photoreal import render_3dgs
+from physmorph.render.photoreal import render_3dgs_torch
 from physmorph.render.knn_gpu import knn_self_torch
 from PIL import Image, ImageDraw
 
@@ -46,14 +46,14 @@ n = min(len(F), int(z['deliver_n'])) if 'deliver_n' in z.files else len(F)
 idx = sorted(set(range(0, n, a.stride)) | {n-1})
 settled = None
 if a.settled_freeze:
-    from physmorph.render.settled import SettledAppearance, pin_start_frames, validate_pinned_frames
+    from physmorph.render.settled import SettledAppearance, pin_start_frames, validate_pinned_frames_cuda
     suffix = '_render_full_dt_iso_nn.npz'
     if not a.npz.endswith(suffix):
         raise ValueError('--settled_freeze requires the run JSON and render_full_dt_iso_nn archive')
     with open(a.npz[:-len(suffix)] + '.json') as f:
         arm = json.load(f)['arms']['render_full_dt_iso_nn']
     starts = pin_start_frames(np.asarray(z['pinned'], bool), z['pinned_at'], arm['history'], arm['config'])
-    validate_pinned_frames(F, starts, n)
+    validate_pinned_frames_cuda(F, starts, n, dev)
     settled = SettledAppearance(starts, dev)
 ctr = T.mean(0); rad = float((T - ctr).norm(dim=1).max())
 dT, _ = knn_self_torch(T, a.k + 1)
@@ -182,23 +182,23 @@ for kf, i in enumerate(idx):
     t1 = torch.cross(nrm, ref, dim=1); t1 = t1 / t1.norm(dim=1, keepdim=True).clamp_min(1e-9); t2 = torch.cross(nrm, t1, dim=1)
     R = torch.stack([t1, t2, nrm], 2)
     S = torch.zeros(len(x), 3, 3, device=dev); S[:, 0, 0] = sig_i ** 2; S[:, 1, 1] = sig_i ** 2; S[:, 2, 2] = (sig_i / 4) ** 2
-    cov = (R @ S @ R.transpose(1, 2)).cpu().numpy().astype(np.float32)
-    xn = x.cpu().numpy(); op = (a.opacity * support).cpu().numpy().astype(np.float32)
-    ncol = (0.5 * (nrm + 1)).cpu().numpy().astype(np.float32)
+    cov = R @ S @ R.transpose(1, 2)
+    op = a.opacity * support
+    ncol = 0.5 * (nrm + 1)
     panels = []
     for az in views:
         kw = dict(F=None, sigma0=float(sp), cov=cov, opacity=op, azimuth=math.radians(az), elevation=math.radians(a.elev),
-                  dist=rad * 3.6, res=a.res, fovy_deg=30.0, center=ctr.cpu().numpy())
-        N_img = torch.as_tensor(render_3dgs(xn, ncol, bg=(0, 0, 0), **kw), device=dev)
-        A_img = torch.as_tensor(render_3dgs(xn, np.ones_like(ncol), bg=(0, 0, 0), **kw), device=dev)[..., 0]
+                  dist=rad * 3.6, res=a.res, fovy_deg=30.0, center=ctr)
+        N_img = render_3dgs_torch(x, ncol, bg=(0, 0, 0), **kw)
+        A_img = render_3dgs_torch(x, torch.ones_like(ncol), bg=(0, 0, 0), **kw)[..., 0]
         blur = lambda im: Fn.avg_pool2d(im.permute(2, 0, 1)[None], 3, 1, 1)[0].permute(1, 2, 0)
         N_s = blur(N_img); A_s = blur(A_img[..., None])[..., 0]
         npx = 2 * N_s / A_s.clamp_min(1e-3)[..., None] - 1; npx = npx / npx.norm(dim=-1, keepdim=True).clamp_min(1e-6)
         ndl = (npx * (-light)).sum(-1)
         shade = (0.40 + 0.60 * (0.5 * (1 + ndl)).clamp(0, 1)) * 0.97
         alpha = A_img.clamp(0, 1)[..., None]
-        panels.append((shade[..., None] * alpha + 0.92 * (1 - alpha)).expand(-1, -1, 3).cpu().numpy())
-    img = (np.concatenate(panels, 1) * 255).astype(np.uint8)
+        panels.append((shade[..., None] * alpha + 0.92 * (1 - alpha)).expand(-1, -1, 3))
+    img = (torch.cat(panels, 1) * 255).to(torch.uint8).cpu().numpy()  # image I/O boundary
     im = Image.fromarray(img); ImageDraw.Draw(im).text((10, 8), f"{a.label} splat frame {i}/{n - 1}  under-half {100 * float((n_i < 0.5 * a.k).float().mean()):.1f}%", fill=(20, 20, 20))
     im.save(os.path.join(tmp, f"f{kf:04d}.png"))
     if kf in stills:
@@ -208,7 +208,7 @@ for kf, i in enumerate(idx):
 for h in range(a.hold):
     Image.fromarray(img).save(os.path.join(tmp, f"f{len(idx) + h:04d}.png"))
 subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", "20", "-i", os.path.join(tmp, "f%04d.png"),
-                "-pix_fmt", "yuv420p", "-crf", "20", a.out], check=True)
+                "-c:v", "h264_nvenc", "-preset", "p5", "-pix_fmt", "yuv420p", "-cq", "20", a.out], check=True)
 print(f"saved {a.out} ({len(idx)} frames + {a.hold} hold; {time.time() - t0:.0f} s total; sp {sp:.4f} rcov {rcov:.4f})")
 if mat is not None and stat_lines:
     S_ = np.array(stat_lines)

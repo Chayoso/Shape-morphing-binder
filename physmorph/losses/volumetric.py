@@ -53,10 +53,11 @@ def target_dt_grid(target_grid: torch.Tensor, dx: float, dims,
     the runner builds it at cfg.dt_res on a target-fitted cube so dilation + flat band
     shrink to ~2 fine cells. 3D on purpose: the 2D multi-view variant was falsified by
     forensics (visual hull hides interior concavities)."""
-    from scipy.ndimage import distance_transform_edt
-    import numpy as np
+    from physmorph.compute import ndimage
+    distance_transform_edt = ndimage.distance_transform_edt
+    from physmorph.compute import array_api as np, to_array
     nx, ny, nz = dims
-    occ = (target_grid > 1e-6).reshape(nx, ny, nz).cpu().numpy()
+    occ = to_array((target_grid > 1e-6).reshape(nx, ny, nz), copy=True)
     assert occ.any(), "empty support: EDT would measure distance to the array border"
     dt = distance_transform_edt(~occ) * dx
     if clamp is not None:
@@ -130,7 +131,7 @@ def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
     ineffective, ear coverage 23.1->23.5%) and the flagship runs without fill; treat
     clumps as an open defect with no owner. gate = ramp of d_kNN/median from lo to hi,
     frozen per window."""
-    import numpy as np
+    from physmorph.compute import array_api as np, to_array
     from physmorph.render.knn_gpu import gpu_available, knn_self, knn_self_torch
     with torch.no_grad():
         if gpu_available() and x.is_cuda and x.shape[0] >= 4096:
@@ -138,7 +139,7 @@ def isolation_gate(x: torch.Tensor, lo: float = 1.2, hi: float = 1.8,
             dk_t = d_t[:, -1]
             ratio_t = dk_t / torch.clamp(dk_t.median(), min=1e-12)
             return torch.clamp((ratio_t - lo) / max(hi - lo, 1e-6), 0.0, 1.0).to(x.dtype)
-        xn = x.detach().cpu().numpy()
+        xn = to_array(x.detach(), copy=True)
         dk = knn_self(xn, k + 1)[0][:, -1]               # scipy rows
         ratio = dk / max(float(np.median(dk)), 1e-12)
         gate = np.clip((ratio - lo) / max(hi - lo, 1e-6), 0.0, 1.0)
@@ -185,12 +186,14 @@ def deficit_field(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
     budget). deficit_mass = summed shortfall, the budget's denominator (F2: budgeting
     on the in-range PARTICLE count attenuated the useful mode 22-78x while the harmful
     mode ran at full weight). Frozen per window, detached."""
-    from scipy.ndimage import distance_transform_edt, gaussian_filter
-    import numpy as np
+    from physmorph.compute import ndimage
+    distance_transform_edt = ndimage.distance_transform_edt
+    gaussian_filter = ndimage.gaussian_filter
+    from physmorph.compute import array_api as np, to_array
     nx, ny, nz = dims
     with torch.no_grad():
-        b = rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz).cpu().numpy()
-        t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
+        b = to_array(rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz), copy=True)
+        t = to_array(tmass_fine.reshape(nx, ny, nz), copy=True)
         bb = gaussian_filter(b, sigma)
         tb = gaussian_filter(t, sigma)
         # v2 (Opus stack-review F1, CRITICAL): the ratio test on the blurred field
@@ -223,14 +226,14 @@ def nn_band_assign(x0: torch.Tensor, tgt_pts: torch.Tensor, spacing: float,
     farthest bounded fraction beyond far_k; this catches coherent floater clusters
     without turning the term into an all-particle Chamfer servo.  Returns
     (assigned_idx, eligible_mask), both frozen/detached."""
-    from scipy.spatial import cKDTree
-    import numpy as np
+    from physmorph.compute import KDTree as cKDTree
+    from physmorph.compute import array_api as np, to_array
     with torch.no_grad():
-        xn = x0.detach().cpu().numpy()
-        tn = tgt_pts.detach().cpu().numpy()
+        xn = to_array(x0.detach(), copy=True)
+        tn = to_array(tgt_pts.detach(), copy=True)
         dist, idx = cKDTree(tn).query(xn, workers=-1)
         elig = (dist > berth_k * spacing) & (dist < far_k * spacing)
-        tail_frac = float(np.clip(tail_frac, 0.0, 1.0))
+        tail_frac = float(min(max(tail_frac, 0.0), 1.0))
         budget = min(len(dist), int(np.ceil(tail_frac * len(dist))))
         far = np.flatnonzero(dist >= far_k * spacing)
         if budget > 0 and len(far):
@@ -258,17 +261,18 @@ def growth_demand(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
     """Per-particle coverage demand in [0,1] for the GROWTH channel: blurred relative
     shortfall relu(tb-bb)/tb on TRUE support, trilinearly gathered at the particle.
     Zero wherever coverage is met — growth stops by construction (demand-driven)."""
-    from scipy.ndimage import gaussian_filter
-    import numpy as np
+    from physmorph.compute import ndimage
+    gaussian_filter = ndimage.gaussian_filter
+    from physmorph.compute import array_api as np, to_array
     nx, ny, nz = dims
     with torch.no_grad():
-        b = rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz).cpu().numpy()
-        t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
+        b = to_array(rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz), copy=True)
+        t = to_array(tmass_fine.reshape(nx, ny, nz), copy=True)
         bb = gaussian_filter(b, sigma)
         tb = gaussian_filter(t, sigma)
         dem = np.where(t > 1e-6, np.maximum(tb - bb, 0.0) / np.maximum(tb, 1e-9), 0.0)
         field = torch.as_tensor(dem, dtype=x.dtype, device=x.device).reshape(-1)
-        return gather_cic(field, x, grid_min, dx, dims).clamp(0.0, 1.0).cpu().numpy()
+        return to_array(gather_cic(field, x, grid_min, dx, dims).clamp(0.0, 1.0), copy=True)
 
 
 def deficit_assign(x0: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
@@ -286,26 +290,27 @@ def deficit_assign(x0: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
     matching itself, not by a weight scalar that then dies with the physics gradient
     (the fill-v3 failure). Frozen per window. Returns (particle_idx, centers) or
     None."""
-    from scipy.ndimage import gaussian_filter
-    from scipy.spatial import cKDTree
-    import numpy as np
+    from physmorph.compute import ndimage
+    gaussian_filter = ndimage.gaussian_filter
+    from physmorph.compute import KDTree as cKDTree
+    from physmorph.compute import array_api as np, to_array
     nx, ny, nz = dims
     with torch.no_grad():
-        b = rasterize_mass(x0, m, grid_min, dx, dims).reshape(nx, ny, nz).cpu().numpy()
-        t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
+        b = to_array(rasterize_mass(x0, m, grid_min, dx, dims).reshape(nx, ny, nz), copy=True)
+        t = to_array(tmass_fine.reshape(nx, ny, nz), copy=True)
         bb = gaussian_filter(b, sigma)
         tb = gaussian_filter(t, sigma)
         deficit = (t > 1e-6) & (tb > 1e-4) & (bb < thresh * tb)
         if not deficit.any():
             return None
         ii, jj, kk = np.nonzero(deficit)
-        gm = grid_min.cpu().numpy()
+        gm = to_array(grid_min, copy=True)
         centers = np.stack([ii, jj, kk], 1).astype(np.float32) * dx + gm + 0.5 * dx
         short = np.maximum(thresh * tb - bb, 0.0)[deficit]
         order = np.argsort(-short)               # worst-covered cells claim donors first
         centers, short = centers[order], short[order]
         n_cap = max(1, int(cap_frac * len(x0)))
-        xn = x0.detach().cpu().numpy()
+        xn = to_array(x0.detach(), copy=True)
         tree = cKDTree(xn)
         used = np.zeros(len(xn), bool)
         pi, cc = [], []
@@ -345,12 +350,13 @@ def coverage_shortfall(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tenso
     target shortfall sum(relu(t_blur - b_blur))/sum(t_blur) over TRUE support — no
     mask, no threshold, no gate, so it is comparable across windows (per-window binary
     EDT energies are not: their masks change)."""
-    from scipy.ndimage import gaussian_filter
-    import numpy as np
+    from physmorph.compute import ndimage
+    gaussian_filter = ndimage.gaussian_filter
+    from physmorph.compute import array_api as np, to_array
     nx, ny, nz = dims
     with torch.no_grad():
-        b = rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz).cpu().numpy()
-        t = tmass_fine.reshape(nx, ny, nz).cpu().numpy()
+        b = to_array(rasterize_mass(x, m, grid_min, dx, dims).reshape(nx, ny, nz), copy=True)
+        t = to_array(tmass_fine.reshape(nx, ny, nz), copy=True)
         bb = gaussian_filter(b, sigma)
         tb = gaussian_filter(t, sigma)
         sup = t > 1e-6
@@ -415,10 +421,10 @@ def d_vol_density(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
 
 def kde_self_density(pts: torch.Tensor, h: float, k: int = 32) -> float:
     """Mean kernel density of a point set at its own points (rho_ref)."""
-    from scipy.spatial import cKDTree
-    import numpy as np
+    from physmorph.compute import KDTree as cKDTree
+    from physmorph.compute import array_api as np, to_array
     with torch.no_grad():
-        pn = pts.detach().cpu().numpy()
+        pn = to_array(pts.detach(), copy=True)
         d, _ = cKDTree(pn).query(pn, k=k + 1, workers=-1)
         return float(np.mean(np.exp(-(d / h) ** 2).sum(1)))   # includes self (d=0)
 
@@ -434,11 +440,11 @@ def kde_assign(x0: torch.Tensor, tgt_pts: torch.Tensor, k: int = 32):
     dissolved outward (cluster ratio 2.0 -> 1.25 but out_nn 8 -> 22%). The target-side
     residual is what pulls particles INTO deficient regions.
     Returns (nbr_p (N,k), nbr_t (N,k+1), tnbr_p (M,k+1), tnbr_t (M,k))."""
-    from scipy.spatial import cKDTree
-    import numpy as np
+    from physmorph.compute import KDTree as cKDTree
+    from physmorph.compute import array_api as np, to_array
     with torch.no_grad():
-        xn = x0.detach().cpu().numpy()
-        tn = tgt_pts.detach().cpu().numpy()
+        xn = to_array(x0.detach(), copy=True)
+        tn = to_array(tgt_pts.detach(), copy=True)
         xtree, ttree = cKDTree(xn), cKDTree(tn)
         _, ip = xtree.query(xn, k=k + 1, workers=-1)
         _, it = ttree.query(xn, k=k + 1, workers=-1)

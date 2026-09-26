@@ -7,7 +7,7 @@ volumetrically blind; the displacement-field polar variant mismatched the dFc-in
 """
 from __future__ import annotations
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array
 import torch
 
 
@@ -156,7 +156,7 @@ def consensus_elastic(x, F, Fp, grid_min, dx, dims, m=None, device=None) -> np.n
         den = den + torch.where(vote, w, torch.zeros_like(w))
     has = den > 1e-12
     Fbar = torch.where(has[:, None], num / den.clamp_min(1e-30)[:, None], Fe)
-    return Fbar.reshape(N, 3, 3).float().cpu().numpy()
+    return to_array(Fbar.reshape(N, 3, 3).float(), copy=True)
 
 
 def _torch_cuda() -> bool:
@@ -195,7 +195,7 @@ def _assimilate_torch(F, Fp, eta, smin, smax, isochoric, grow, grow_band) -> np.
     elif isochoric:
         S2 = _project_logsv_torch(S2.log(), float(np.log(smin)), float(np.log(smax)),
                                   torch.zeros_like(S2[:, 0]))
-    return (U2 @ torch.diag_embed(S2) @ Vh2).float().cpu().numpy()
+    return to_array((U2 @ torch.diag_embed(S2) @ Vh2).float(), copy=True)
 
 
 def _project_logsv_torch(l0, lo, hi, target):

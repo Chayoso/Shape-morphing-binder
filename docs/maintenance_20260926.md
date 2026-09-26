@@ -50,3 +50,19 @@ the GPU. That migration is separate from the tested extraction above. CPU remain
 the host for file I/O and orchestration; GPU validation runs on hyde06 via hyde01.
 The current audit found CPU covariance decomposition in the GPU-labelled splat
 script, CPU kNN fallbacks, and NumPy/SciPy window preparation and commit work.
+
+## Server headroom for the matched render-loss ablation
+
+After the full GPU baseline archive, project usage reached99.776GB. Five completed
+failed-run artifacts were copied to `C:/dev/physmorph_archives/c291/offload20260926T2206/`:
+the already verified gzip archives for `force60s`, `force8s`, `norm8s`, `normphys8s`,
+and the raw `fixedbody60` NPZ (all `c291_bunny_*_render_full_dt_iso_nn`).
+Total7,353,173,578bytes. Each copy was SHA-256 checked and locally fsynced before
+single-file server duplicate removal. Source identity, size, timestamp and SHA were
+rechecked immediately before removal; durable offload receipts remain on both machines.
+Logs, JSON, current mixed60/render videos and the CUDA baseline were retained.
+Project usage after offload:92.426GB. The100GB watcher remains active.
+
+The exact allowlist, sizes, hashes and local destinations are in
+`output/c291/gpuwork/offload_2206_verified.json` locally and durable per-file
+receipts in `/data/relcfd/chayo/physmorph_v2/archives/completed_failed_runs/`.

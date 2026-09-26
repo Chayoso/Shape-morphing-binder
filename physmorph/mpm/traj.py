@@ -6,8 +6,9 @@ See docs/SPEC.md §4.2.
 """
 from __future__ import annotations
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array, is_cuda_execution
 import warp as wp
+from physmorph.compute import warp_array
 
 from . import kernels as K
 from .state import MPMParams, make_state
@@ -20,10 +21,11 @@ _ID_HOST: dict = {}
 def _id(N):
     """(N,3,3) float32 identities. A fresh copy of a cached array (2026-09-23 speed pass: np.tile
     took 0.13 s per call at 300k and ran 17 times a window; a memcpy is 5 ms)."""
-    a = _ID_HOST.get(N)
+    key = (N, int(np.cuda.runtime.getDevice()) if is_cuda_execution() else None)
+    a = _ID_HOST.get(key)
     if a is None:
         a = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
-        _ID_HOST[N] = a
+        _ID_HOST[key] = a
     return a.copy()
 
 
@@ -34,10 +36,10 @@ def _id_dev(N: int, device: str):
     """Cached device identity (N,3,3): per-step F arrays are cloned from it on the device
     instead of being copied from a fresh numpy identity each time (2026-09-16 profile:
     host->device array construction was 40 % of a window)."""
-    key = (N, str(device))
+    key = (N, str(wp.get_device(device)))
     a = _ID_CACHE.get(key)
     if a is None:
-        a = wp.array(_id(N), dtype=wp.mat33, device=device)
+        a = warp_array(_id(N), dtype=wp.mat33, device=device)
         _ID_CACHE[key] = a
     return a
 
@@ -59,7 +61,7 @@ def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda") -> np.ndarray:
     from .step import compute_volumes
     state = make_state(x0, m, 0.0, 0.0, prm, device=device, requires_grad=False)
     compute_volumes(state, prm)
-    vol0 = np.ascontiguousarray(state.vol.numpy(), np.float32)
+    vol0 = np.ascontiguousarray(to_array(state.vol, copy=True), np.float32)
     if not np.isfinite(vol0).all() or (vol0 < 0.0).any():
         raise RuntimeError("rest-volume estimation produced invalid Vp0")
     return vol0
@@ -85,7 +87,7 @@ class Trajectory:
         rg = requires_grad
 
         def A(a, dt, g=False):
-            return wp.array(np.ascontiguousarray(a), dtype=dt, device=device, requires_grad=g)
+            return warp_array(np.ascontiguousarray(a), dtype=dt, device=device, requires_grad=g)
 
         def Z(dt, g=False):                    # device-side zeros: no host copy
             return wp.zeros(N, dtype=dt, device=device, requires_grad=g)
@@ -118,10 +120,12 @@ class Trajectory:
             if T < 2 or body_control.shape not in ((N,), (2 * N,)):
                 raise ValueError("body control requires T >= 2 and one/two N-vector fields")
             # Zero net impulse, unit free displacement under this integrator.
-            q = T - 1 - 2 * np.arange(T, dtype=np.float64)
-            self.body_pulse = q / (prm.dt ** 2 * np.dot(T - np.arange(T), q))
+            q = [T - 1 - 2 * t for t in range(T)]
+            denominator = prm.dt ** 2 * sum((T - t) * value for t, value in enumerate(q))
+            self.body_pulse = [value / denominator for value in q]
             if body_control.shape == (2 * N,):
-                self.body_terminal_pulse = 1 / (T * prm.dt) ** 2 - (T + 1) / (2 * T) * self.body_pulse
+                self.body_terminal_pulse = [1 / (T * prm.dt) ** 2 - (T + 1) / (2 * T) * value
+                                            for value in self.body_pulse]
 
         # material: scalar / numpy -> constant array; a wp.array passes through UNCHANGED so the
         # torch bridge can hand in from_torch leaves (dL/d(lam,mu) flows back through the tape).
@@ -208,15 +212,15 @@ class Trajectory:
             self.frag_thr = float(bonds[3]) if len(bonds) > 3 else 1.0
             nbr = np.ascontiguousarray(nbr, np.int32)
             self.bond_K = int(nbr.shape[1])
-            self.bond_nbr = wp.array(nbr.reshape(-1), dtype=wp.int32, device=device)
-            self.bond_rest = wp.array(np.ascontiguousarray(rest, np.float32).reshape(-1), dtype=wp.float32, device=device)
-            self.bond_frag = wp.array(np.ascontiguousarray(frag, np.float32), dtype=wp.float32, device=device)
+            self.bond_nbr = warp_array(nbr.reshape(-1), dtype=wp.int32, device=device)
+            self.bond_rest = warp_array(np.ascontiguousarray(rest, np.float32).reshape(-1), dtype=wp.float32, device=device)
+            self.bond_frag = warp_array(np.ascontiguousarray(frag, np.float32), dtype=wp.float32, device=device)
             self.bonds = True
             # per-step decoupling test (docs/method.md 10.7): the 3^3-cell count of the current
             # state, outside the tape (piecewise constant), OR-ed with the commit-time mask
             self.cnt_b = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
             self.ncount_b = wp.zeros(N, dtype=wp.float32, device=device)
-            self.omega_b = wp.array(np.ones(N, np.float32), dtype=wp.float32, device=device)
+            self.omega_b = warp_array(np.ones(N, np.float32), dtype=wp.float32, device=device)
             self.frag_step = wp.zeros(N, dtype=wp.float32, device=device)
         # OUTER-LAYER RELAXATION (kernels.k_layer_resid / k_layer_project; docs/surface_gradient.md
         # §6): layer = (mask (N,), nrm (N,3), nbr (N,K), w (N,K), frac) frozen for this rollout.
@@ -234,9 +238,9 @@ class Trajectory:
             self.layer_ug = A(np.ones(N, np.float32) if lug is None else np.ascontiguousarray(lug, np.float32), wp.float32)
             self.layer_K = int(np.asarray(lnbr).shape[1])
             self.layer_mask = A(np.ascontiguousarray(lmask, np.float32), wp.float32)
-            self.layer_nrm = wp.array(np.ascontiguousarray(lnrm, np.float32), dtype=wp.vec3, device=device)
-            self.layer_nbr = wp.array(np.ascontiguousarray(lnbr, np.int32).reshape(-1), dtype=wp.int32, device=device)
-            self.layer_w = wp.array(np.ascontiguousarray(lw, np.float32).reshape(-1), dtype=wp.float32, device=device)
+            self.layer_nrm = warp_array(np.ascontiguousarray(lnrm, np.float32), dtype=wp.vec3, device=device)
+            self.layer_nbr = warp_array(np.ascontiguousarray(lnbr, np.int32).reshape(-1), dtype=wp.int32, device=device)
+            self.layer_w = warp_array(np.ascontiguousarray(lw, np.float32).reshape(-1), dtype=wp.float32, device=device)
             self.layer_frac = float(lfrac)
             self.xu = [wp.zeros(N, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T + 1)]
             self.ld = [wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg) for t in range(T + 1)]
@@ -247,7 +251,7 @@ class Trajectory:
             self.layer = True
             if lg is not None:
                 self.layer_F = True
-                self.layer_g = wp.array(np.ascontiguousarray(lg, np.float32).reshape(-1, 3), dtype=wp.vec3, device=device)
+                self.layer_g = warp_array(np.ascontiguousarray(lg, np.float32).reshape(-1, 3), dtype=wp.vec3, device=device)
                 self.layer_inv_depth = (1.0 / float(ldepth)) if ldepth > 0 else 0.0   # 0: no normal term
                 self.Fu = [ID(rg) for t in range(T + 1)]
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)

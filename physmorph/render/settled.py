@@ -51,3 +51,18 @@ def validate_pinned_frames(frames, starts, stop):
         active = starts < i
         if active.any() and not np.array_equal(frames[i][active], anchors[active]):
             raise ValueError(f'active pins moved in raw frame {i}; appearance lock refused')
+
+
+def validate_pinned_frames_cuda(frames, starts, stop, device='cuda'):
+    """GPU check of every raw frame, including frames omitted by export stride."""
+    if torch.device(device).type != 'cuda':
+        raise ValueError('CUDA pin validation requires a CUDA device')
+    starts = torch.as_tensor(starts, device=device)
+    anchors = torch.zeros((len(starts), 3), device=device)
+    for index in range(stop):
+        x = torch.as_tensor(np.asarray(frames[index], np.float32), device=device)
+        new = starts == index
+        anchors[new] = x[new]
+        active = starts < index
+        if not torch.equal(x[active], anchors[active]):
+            raise ValueError(f'active pins moved at raw frame {index}; rendering refused')

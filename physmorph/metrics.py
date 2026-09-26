@@ -13,9 +13,10 @@ NO metric shares an operator with any loss:
 """
 from __future__ import annotations
 
-import numpy as np
-from scipy import ndimage
-from scipy.spatial import cKDTree
+import math
+import numpy as host_np
+from physmorph.compute import (array_api as np, ndimage, KDTree as cKDTree,
+                              is_cuda_execution, cuda_execution, to_array, sample_indices)
 
 from .pipeline.render_loss import make_views
 
@@ -36,9 +37,9 @@ def target_extent(tgt: np.ndarray, pad: float = 1.15) -> float:
 def _splat_body(x, res, theta, phi, extent):
     """Binary body mask: orthographic 3x3-footprint point splat at a FIXED extent.
     Basis matches losses.silhouette._project (right, up as functions of theta/phi)."""
-    right = np.array([np.cos(theta), 0.0, -np.sin(theta)], np.float32)
-    up = np.array([-np.sin(phi) * np.sin(theta), np.cos(phi),
-                   -np.sin(phi) * np.cos(theta)], np.float32)
+    right = np.asarray([math.cos(theta), 0.0, -math.sin(theta)], np.float32)
+    up = np.asarray([-math.sin(phi) * math.sin(theta), math.cos(phi),
+                     -math.sin(phi) * math.cos(theta)], np.float32)
     p = np.stack([x @ right, x @ up], 1)
     rel = (p + extent) / (2 * extent) * res
     ij = np.floor(rel).astype(np.int64)
@@ -108,7 +109,7 @@ def ejection_trajectory(frames, extent, samples: int = 120) -> dict:
     outside_frac and max stray_frac over `samples` evenly-spaced frames (Opus F7:
     at 10 samples a 500-particle ejection injected between samples was invisible —
     the default now covers every commit boundary of a 120-commit run)."""
-    idx = sorted(set(np.linspace(0, len(frames) - 1, samples).astype(int)))
+    idx = sorted(set(host_np.linspace(0, len(frames) - 1, samples).astype(int)))  # frame metadata
     outs = [outside_frac(frames[i], extent) for i in idx]
     strays = [stray_frac(np.ascontiguousarray(frames[i], np.float32)) for i in idx]
     return {"outside_max": float(max(outs)), "stray_max": float(max(strays)),
@@ -123,12 +124,12 @@ def jitter(frames, tail=10, n_held=0) -> dict:
     if end < 2:
         return {"jitter_abs": 0.0, "jitter_rel": 0.0, "jitter_max_abs": 0.0}
     tail = min(tail, end - 1)
-    ds = [float(np.linalg.norm(frames[i + 1] - frames[i], axis=1).mean())
+    ds = [float(np.linalg.norm(np.asarray(frames[i + 1]) - np.asarray(frames[i]), axis=1).mean())
           for i in range(end - 1 - tail, end - 1)]
-    xf = frames[end - 1]
+    xf = np.asarray(frames[end - 1])
     diag = float(np.linalg.norm(xf.max(0) - xf.min(0))) + 1e-9
     return {"jitter_abs": float(np.mean(ds)), "jitter_rel": float(np.mean(ds) / diag),
-            "jitter_max_abs": float(np.max(ds))}
+            "jitter_max_abs": float(max(ds))}
 
 
 def tgt_nn_metrics(x, tgt, k_med: float = 2.0) -> dict:
@@ -168,25 +169,32 @@ def out_dt_frac(x, tgt, res: int = 160, cells: float = 2.0) -> float:
     tgt = np.ascontiguousarray(tgt, np.float32)
     extent = float(np.abs(tgt).max()) * 1.25
     dx = 3.0 * extent / res
-    gmin = torch.tensor([-1.5 * extent] * 3)
+    device = "cuda" if is_cuda_execution() else "cpu"
+    gmin = torch.tensor([-1.5 * extent] * 3, device=device)
     # 2026-09-23 (speed): the target's distance transform (a scipy EDT on res^3) was rebuilt on
     # every call — 3 s a window at res 160 — for a target that never changes; cached by content
-    key = (tgt.shape, int(res), hashlib.sha1(tgt.tobytes()).hexdigest())
-    dt3 = _DT_CACHE.get(key)
+    key = None if is_cuda_execution() else (tgt.shape, int(res), hashlib.sha1(tgt.tobytes()).hexdigest())
+    dt3 = _DT_CACHE.get(key) if key is not None else None
     if dt3 is None:
-        t = torch.tensor(tgt)
-        dt3 = target_dt_grid(target_mass_grid(t, torch.ones(len(t)), gmin, dx, (res,) * 3),
+        t = torch.as_tensor(tgt, device=device)
+        dt3 = target_dt_grid(target_mass_grid(t, torch.ones(len(t), device=device), gmin, dx, (res,) * 3),
                              dx, (res,) * 3, clamp=2 * extent).reshape(res, res, res)
-        _DT_CACHE.clear(); _DT_CACHE[key] = dt3
-    idx = ((torch.tensor(np.ascontiguousarray(x, np.float32)) - gmin) / dx
+        if key is not None:
+            _DT_CACHE.clear(); _DT_CACHE[key] = dt3
+    idx = ((torch.as_tensor(np.ascontiguousarray(x, np.float32), device=device) - gmin) / dx
            ).long().clamp(0, res - 1)
-    v = dt3[idx[:, 0], idx[:, 1], idx[:, 2]].numpy()
+    v = to_array(dt3[idx[:, 0], idx[:, 1], idx[:, 2]])
     return float((v > cells * dx).mean())
 
 
 def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
-              render_mask=None, window: int = 19) -> dict:
+              render_mask=None, window: int = 19, compute_backend="legacy", device="cuda",
+              commit_frames=None) -> dict:
     """All gate metrics for one arm. frames: list of (N,3); tgt: (M,3)."""
+    if compute_backend == "cuda" and not is_cuda_execution():
+        with cuda_execution(device, input_sizes=(len(frames[-1]),)):
+            return summarize(frames, tgt, F_frames, n_held, tail, render_mask, window,
+                             commit_frames=commit_frames)
     tgt = np.ascontiguousarray(tgt, np.float32)
     xf = np.ascontiguousarray(frames[-1], np.float32)
     e = target_extent(tgt)
@@ -199,7 +207,8 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
            "frames": len(frames), "n_held": int(n_held)}
     out.update(jitter(frames, tail, n_held))
     out.update(ejection_trajectory(frames, e))
-    out.update(layer_breathing(frames, window=window, n_held=n_held))   # the layer's window-to-window breathing
+    out.update(layer_breathing(frames, window=window, n_held=n_held, commit_frames=commit_frames))
+    out['layer_time_basis'] = 'accepted_commits' if commit_frames is not None else 'fixed_archive_lag'
     if render_mask is not None:
         rm = np.asarray(render_mask, bool)
         if rm.shape != (len(xf),) or not rm.any():
@@ -217,7 +226,7 @@ def summarize(frames, tgt, F_frames=None, n_held=0, tail=10,
 
 
 def layer_breathing(frames, window: int = 19, k_windows: int = 10, n_held: int = 0,
-                    n_sub: int = 20000, seed: int = 0) -> dict:
+                    n_sub: int = 20000, seed: int = 0, commit_frames=None) -> dict:
     """The outer layer's window-to-window motion over the last k_windows windows of the SIMULATED
     trajectory (docs/oscillation.md Addendum 9; the 2026-09-23 audit: G3's 10-frame bulk average
     cannot see it). Layer = the particles of the final frame whose 32-NN centroid offset exceeds
@@ -226,13 +235,17 @@ def layer_breathing(frames, window: int = 19, k_windows: int = 10, n_held: int =
     windows (a coin flip gives 0.5; the 300k breathing 0.6–0.97), the ratio of the net normal
     drift to the summed |normal step| over the k windows (honest descent near 1, a limit cycle
     near 0), and the median |normal step| per window in units of the final spacing."""
-    from scipy.spatial import cKDTree
     end = len(frames) - int(n_held)
-    nwin = (end - 1) // max(int(window), 1)
+    if commit_frames is None:  # historical fixed-lag diagnostic; not an accepted-window clock
+        nwin = (end - 1) // max(int(window), 1)
+        boundaries = [w * max(int(window), 1) for w in range(nwin + 1)]
+    else:
+        boundaries = [0] + sorted({int(i) for i in commit_frames if 0 < int(i) < end})
+        nwin = len(boundaries) - 1
     if nwin < 3:
         return {"layer_flip_frac": float("nan"), "layer_net_ratio": float("nan"), "layer_step_sp": float("nan")}
     xe = np.ascontiguousarray(frames[end - 1], np.float32); N = len(xe)
-    sub = np.sort(np.random.default_rng(seed).choice(N, min(N, n_sub), replace=False))
+    sub = np.sort(sample_indices(N, min(N, n_sub), seed))
     kd = cKDTree(xe)
     d, nb = kd.query(xe[sub], k=33, workers=-1)
     sp = float(np.median(d[:, 8]))
@@ -244,7 +257,7 @@ def layer_breathing(frames, window: int = 19, k_windows: int = 10, n_held: int =
     k = min(int(k_windows), nwin)
     steps = []
     for w in range(nwin - k, nwin):
-        a_, b_ = w * window, min((w + 1) * window, end - 1)
+        a_, b_ = boundaries[w], boundaries[w + 1]
         dlt = (np.asarray(frames[b_], np.float32)[layer] - np.asarray(frames[a_], np.float32)[layer])
         steps.append((dlt * nrm).sum(1))
     S = np.stack(steps, 0)                                   # (k, layer)

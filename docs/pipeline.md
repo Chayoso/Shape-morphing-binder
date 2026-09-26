@@ -4,6 +4,28 @@ One page for the current production path (branch `v3-grid-gs`). Equations are in
 [method.md](method.md); the result log and every gate in [experiments.md](experiments.md);
 the viewer in [viewer.md](viewer.md).
 
+## Active CUDA entry (2026-09-26)
+
+For the active mixed60 recipe, prepare immutable sampled inputs once on CPU, then run
+the strict CUDA launcher. Mesh bytes, sampling options, point hashes and reference
+discretization must match; there is no CPU fallback or silent resampling:
+
+```bash
+source scripts/ops/hyde06_env.sh
+CUDA_VISIBLE_DEVICES=-1 "$PY" scripts/prepare_pipeline_input.py \
+  /data/relcfd/chayo/physmorph_v2/work/bunny300k_input.npz \
+  --tgt assets/bunny.obj --n 300000 --seed 1 --sampler stratified --disc_ref
+bash scripts/ops/run_body_control.sh 0 c291_bunny_cuda_new bunny 300000 60 body_terminal \
+  --input-reference /data/relcfd/chayo/physmorph_v2/work/bunny300k_input.npz
+```
+
+Use a fresh output name. `--legacy-comparison` explicitly selects the comparison backend.
+Physics/loss/commit arrays, raw metrics and archive rendering use CUDA; input preparation,
+file I/O and host orchestration remain CPU tasks. The historical live-viewer flags below
+are rejected in strict CUDA mode until their numerical work is ported. Compatibility
+limits and validation are in [gpu_execution.md](gpu_execution.md). The older stage/flag
+descriptions below remain a map of the comparison implementation.
+
 ## 1. Stages of one run (`scripts/pipeline_run.py`)
 
 ```

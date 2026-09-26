@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array
 import warp as wp
+from physmorph.compute import warp_array
 
 
 @dataclass
@@ -56,9 +57,9 @@ class MPMState:
     def clone_kinematic(self) -> dict:
         """Snapshot x, v, C, F, Fp as numpy (for promotion / checkpointing)."""
         return {
-            "x": self.x.numpy().copy(), "v": self.v.numpy().copy(),
-            "C": self.C.numpy().copy(), "F": self.F.numpy().copy(),
-            "Fp": self.Fp.numpy().copy(),
+            "x": to_array(self.x, copy=True).copy(), "v": to_array(self.v, copy=True).copy(),
+            "C": to_array(self.C, copy=True).copy(), "F": to_array(self.F, copy=True).copy(),
+            "Fp": to_array(self.Fp, copy=True).copy(),
         }
 
 
@@ -91,7 +92,7 @@ def make_state(
     Fp = _mat_id(N) if Fp is None else np.ascontiguousarray(Fp, np.float32)
 
     def arr(a, dtype, rg=False):
-        return wp.array(a, dtype=dtype, device=device, requires_grad=rg)
+        return warp_array(a, dtype=dtype, device=device, requires_grad=rg)
 
     return MPMState(
         x=arr(x, wp.vec3, requires_grad),

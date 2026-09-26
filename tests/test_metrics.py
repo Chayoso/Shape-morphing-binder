@@ -100,3 +100,21 @@ def test_layer_breathing_separates_drift_from_alternation():
     assert d["layer_flip_frac"] < 0.2 and d["layer_net_ratio"] > 0.8
     assert a["layer_flip_frac"] > 0.8 and a["layer_net_ratio"] < 0.2
     assert 0.0 < a["layer_step_sp"] < 0.2
+
+
+def test_layer_breathing_uses_recorded_commits_across_irregular_archives():
+    rng = np.random.default_rng(71)
+    x = rng.uniform(-1, 1, (1200, 3)).astype(np.float32)
+    commits = [x + np.float32(.012 * (i % 2)) for i in range(9)]
+    frames = [commits[0]]
+    boundaries = []
+    for i in range(1, len(commits)):
+        # Unequal archive stride and null-frame duplication must not move the clock.
+        frames.extend([commits[i-1]] * (i % 3 + 1))
+        frames.append(commits[i]); boundaries.append(len(frames)-1)
+    frames.extend([commits[-1]] * 3)
+    actual = metrics.layer_breathing(frames, n_held=3, commit_frames=boundaries)
+    expected = metrics.layer_breathing(commits, window=1)
+    assert expected['layer_flip_frac'] > .9
+    for key in expected:
+        assert actual[key] == pytest.approx(expected[key])

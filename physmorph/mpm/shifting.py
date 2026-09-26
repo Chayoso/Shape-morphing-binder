@@ -32,16 +32,16 @@ dis-orders: probe above). k = 40 neighbours: the Gaussian is below 2 % beyond 2 
 radius 2 Δp holds (4π/3)·8 ≈ 34 particles."""
 from __future__ import annotations
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array, is_cuda_execution, sample_indices
 
 
 def native_spacing(x: np.ndarray, n_sub: int = 20000, seed: int = 0) -> float:
     """The cloud's median 8-NN distance, on a subsample scaled to the full density (the same
     estimator as the optimiser's sp0 and the renderer's spacing)."""
-    from scipy.spatial import cKDTree
+    from physmorph.compute import KDTree as cKDTree
     x = np.ascontiguousarray(x, np.float32)
     n = min(len(x), n_sub)
-    sub = x[np.random.default_rng(seed).choice(len(x), n, replace=False)] if n < len(x) else x
+    sub = x[sample_indices(len(x), n, seed)] if n < len(x) else x
     d = cKDTree(sub).query(sub, k=9, workers=-1)[0][:, -1]
     return float(np.median(d)) * (n / len(x)) ** (1.0 / 3.0)
 
@@ -60,7 +60,7 @@ def fickian_shift(x: np.ndarray, spacing: float, h_sp: float = 1.0, k: int = 40,
     k = int(min(k, N - 1))
     if k < 2:
         return np.zeros_like(x), {"median_sp": 0.0, "p99_sp": 0.0, "max_sp": 0.0, "n_surface": 0, "disorder": 0.0}
-    if gpu_available() and N >= 4096:
+    if is_cuda_execution() or (gpu_available() and N >= 4096):
         xt = torch.as_tensor(x, device="cuda")
         d, nb = knn_self_torch(xt, k + 1)                      # self at column 0
         d = d[:, 1:].float(); nb = nb[:, 1:].long()
@@ -94,4 +94,4 @@ def fickian_shift(x: np.ndarray, spacing: float, h_sp: float = 1.0, k: int = 40,
                  "max_sp": float(m.max()) / float(spacing),
                  "n_surface": int((ws >= 1.0).sum()),
                  "disorder": disorder}
-    return dx.float().cpu().numpy(), stats
+    return to_array(dx.float(), copy=True), stats

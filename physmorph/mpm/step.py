@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import warp as wp
+from physmorph.compute import warp_array
 
 from . import kernels as K
 from .state import MPMParams, MPMState
@@ -58,15 +59,15 @@ def gate_omega(x: wp.array, prm: MPMParams, n0: float, omega: wp.array, ncount: 
 
 def nominal_support(x0, prm: MPMParams, device: str = "cuda") -> float:
     """The gate's n0: median 3^3-cell particle count over the cloud (interior-dominated)."""
-    import numpy as np
+    from physmorph.compute import array_api as np, to_array
     x0 = np.ascontiguousarray(x0, np.float32)
     N = x0.shape[0]
-    xa = wp.array(x0, dtype=wp.vec3, device=device)
+    xa = warp_array(x0, dtype=wp.vec3, device=device)
     om = wp.zeros(N, dtype=float, device=device)
     nc = wp.zeros(N, dtype=float, device=device)
     cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
     gate_omega(xa, prm, 1.0, om, nc, cnt)
-    n = nc.numpy()
+    n = to_array(nc, copy=True)
     n = n[n > 0]
     return float(max(np.median(n), 1.0)) if n.size else 1.0
 
@@ -75,7 +76,7 @@ def support_gate(s: MPMState, prm: MPMParams):
     """omega for the non-differentiable path (same kernels as traj.Trajectory)."""
     if not prm.gate_r_hi > prm.gate_r_lo:
         return _ones(s.N, s.device)
-    n0 = prm.gate_n0 if prm.gate_n0 > 0 else nominal_support(s.x.numpy(), prm, s.device)
+    n0 = prm.gate_n0 if prm.gate_n0 > 0 else nominal_support(to_array(s.x, copy=True), prm, s.device)
     om = wp.zeros(s.N, dtype=float, device=s.device)
     nc = wp.zeros(s.N, dtype=float, device=s.device)
     cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=s.device)

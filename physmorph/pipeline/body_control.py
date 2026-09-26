@@ -6,7 +6,7 @@ nonzero impulse. Elasticity, contact and damping determine the actual motion.
 """
 from __future__ import annotations
 
-import numpy as np
+from physmorph.compute import array_api as np, is_cuda_execution
 import torch
 
 
@@ -35,8 +35,20 @@ class BodyControlBasis:
         f = r - base
         offsets = np.asarray([(i, j, k) for i in (0, 1) for j in (0, 1)
                               for k in (0, 1)], np.int64)
-        nodes, inv = np.unique((base[:, None] + offsets).reshape(-1, 3),
-                               axis=0, return_inverse=True)
+        node_rows = (base[:, None] + offsets).reshape(-1, 3)
+        if is_cuda_execution():
+            # CuPy14 unique(axis=0) compares rows in a Python loop. A bounded
+            # integer lattice key gives the identical lexicographic node order.
+            lower = node_rows.min(0)
+            widths = node_rows.max(0) - lower + 1
+            width_y, width_z = int(widths[1]), int(widths[2])
+            if int(widths[0]) * width_y * width_z >= 2**63:
+                raise ValueError('body lattice key exceeds int64 capacity')
+            shifted = node_rows - lower
+            keys = (shifted[:, 0] * width_y + shifted[:, 1]) * width_z + shifted[:, 2]
+            nodes, inv = np.unique(keys, return_inverse=True)
+        else:
+            nodes, inv = np.unique(node_rows, axis=0, return_inverse=True)
         weights = np.prod(np.where(offsets[None] != 0, f[:, None], 1 - f[:, None]), axis=2)
         self.idx = torch.as_tensor(inv.reshape(len(x), 8), device=device)
         self.weights = torch.as_tensor(weights, dtype=torch.float32, device=device)

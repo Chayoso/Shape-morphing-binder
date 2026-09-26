@@ -17,7 +17,12 @@ def test_npz_frames_are_read_exactly(tmp_path, compressed):
     assert np.array_equal(qa.frames_array(path), frames)
 
 
-def test_pin_audit_detects_motion_after_admission(tmp_path):
+@pytest.mark.parametrize('backend', ['legacy', 'cuda'])
+def test_pin_audit_detects_motion_after_admission(tmp_path, backend):
+    if backend == 'cuda':
+        import torch
+        if not torch.cuda.is_available():
+            pytest.skip('hyde06 CUDA audit')
     prefix = tmp_path / 'trial'
     x = np.random.default_rng(5).normal(size=(100, 3)).astype(np.float32)
     frames = np.stack([x, x, x]); frames[2, 4, 0] += 0.1
@@ -28,7 +33,7 @@ def test_pin_audit_detects_motion_after_admission(tmp_path):
     Path(str(prefix)+'.json').write_text(json.dumps({'arms': {qa.ARM: dict(
         config=dict(T=1, animations=2), history=[dict(animation=0, frame_end=2),
         dict(animation=1, frame_end=3)], metrics={}, guards={})}}))
-    result = qa.audit(prefix)
+    result = qa.audit(prefix, compute_backend=backend)
     assert result['pin_motion']['checked_particles'] == 1
     assert result['pin_motion']['max_wu'] == pytest.approx(0.1, abs=1e-6)
     assert result['pin_motion']['moved_particles_exact'] == 1

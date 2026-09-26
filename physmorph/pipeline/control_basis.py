@@ -19,7 +19,7 @@ Per-particle mode (grid=0) is the identity map — the legacy path is unchanged.
 """
 from __future__ import annotations
 
-import numpy as np
+from physmorph.compute import array_api as np
 import torch
 
 

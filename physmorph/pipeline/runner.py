@@ -15,7 +15,7 @@ next window all describe the same trajectory.
 from __future__ import annotations
 
 import dataclasses
-import numpy as np
+from physmorph.compute import array_api as np, to_array, to_host, is_cuda_execution, sample_indices, prepared_target_reference
 import torch
 
 from ..losses.volumetric import (coverage_shortfall, d_h1, d_vol, d_w1, density_units,
@@ -43,7 +43,7 @@ def _surface_weights(x: np.ndarray, k: int, fraction: float, floor: float) -> np
     particle does not.  The score is computed once in source/material coordinates so the
     active set cannot flicker between optimisation windows.
     """
-    from scipy.spatial import cKDTree
+    from physmorph.compute import KDTree as cKDTree
     n = len(x)
     kk = min(n, max(2, 3 * int(k) + 1))  # tolerate duplicate voxel samples
     _, idx = cKDTree(x).query(x, k=kk, workers=-1)
@@ -72,7 +72,7 @@ def reattach_fragments(x, v, C, F, Fp, Fg, prm: MPMParams, spacing: float, seed:
     2343 particles merged in one commit, a whole part teleported)."""
     frag = fragment_mask(x, prm)
     if tgt_points is not None and frag.any():
-        from scipy.spatial import cKDTree
+        from physmorph.compute import KDTree as cKDTree
         d_t, _ = cKDTree(tgt_points).query(x[frag], k=1, workers=-1)
         keep = np.zeros_like(frag)
         keep[np.where(frag)[0][d_t > float(prm.dx)]] = True
@@ -83,7 +83,7 @@ def reattach_fragments(x, v, C, F, Fp, Fg, prm: MPMParams, spacing: float, seed:
     body_idx = np.where(~frag)[0]
     if len(body_idx) == 0:
         return 0
-    from scipy.spatial import cKDTree
+    from physmorph.compute import KDTree as cKDTree
     _, jn = cKDTree(x[body_idx]).query(x[frag], k=1, workers=-1)
     jb = body_idx[jn]
     rng = np.random.default_rng(seed)
@@ -101,11 +101,11 @@ def fragment_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
     (26-connectivity) of occupied cells that is NOT the largest one: material that has
     broken off the body (numerical fracture debris). Thin features stay connected to
     the body through occupied cells and are never flagged."""
-    from scipy import ndimage
+    from physmorph.compute import ndimage
     ijk = np.floor((x - np.asarray(prm.grid_min, np.float32)) / prm.dx).astype(np.int64)
     dims = np.array([prm.nx, prm.ny, prm.nz])
     ok = ((ijk >= 0) & (ijk < dims)).all(1)
-    occ = np.zeros(dims, bool)
+    occ = np.zeros((prm.nx, prm.ny, prm.nz), bool)
     occ[ijk[ok, 0], ijk[ok, 1], ijk[ok, 2]] = True
     # STENCIL connectivity: two particles couple through shared grid nodes when their cells
     # are within the 4^3 B-spline support of each other, so components are taken on the
@@ -129,7 +129,7 @@ def _coupled_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
     ijk = np.floor((x - np.asarray(prm.grid_min, np.float32)) / prm.dx).astype(np.int64)
     dims = np.array([prm.nx, prm.ny, prm.nz])
     ok = ((ijk >= 0) & (ijk < dims)).all(1)
-    grid = np.zeros(dims, np.int32)
+    grid = np.zeros((prm.nx, prm.ny, prm.nz), np.int32)
     np.add.at(grid, (ijk[ok, 0], ijk[ok, 1], ijk[ok, 2]), 1)
     pad = np.pad(grid, 1)
     n = np.zeros(len(x), np.int64)
@@ -143,13 +143,14 @@ def _coupled_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
 def _iso_count(x: np.ndarray, radius: float) -> int:
     """Number of particles with no other particle within `radius` (the ejection signature:
     a lone particle cannot be re-coupled by the grid)."""
-    from scipy.spatial import cKDTree
+    from physmorph.compute import KDTree as cKDTree
     d = cKDTree(x).query(x, k=2, workers=-1)[0][:, 1]
     return int((d > radius).sum())
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_src=None) -> TargetPack:
     dev = cfg.device
+    reference = None
     from ..losses.silhouette import set_kernel
     set_kernel(getattr(cfg, "sil_kernel", "cic"))     # every rasteriser (targets and morph) alike
     N = target_x.shape[0]
@@ -175,12 +176,21 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
             # G1 (docs/surface_gradient.md §4): the shading reference from the TARGET's reconstructed
             # surface (no shot noise), the morph's normals on a render-pixel grid over the loss
             # box, blurred by the renderer's 1.5 spacings
-            from scipy.spatial import cKDTree as _KD
+            from physmorph.compute import KDTree as _KD
             from ..render.surface_recon import target_surface_normals
-            sub = target_x[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
-            sp_t = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
-            sp_t *= disc_ref_factor(N, cfg)                       # the reference spacing (config.disc_ref)
-            n_t, sw_t = target_surface_normals(np.asarray(target_x, np.float32), sp_t)
+            if is_cuda_execution() or cfg.target_reference:
+                if is_cuda_execution():
+                    reference = prepared_target_reference()
+                else:
+                    from ..input_assets import load_target_reference
+                    reference = load_target_reference(cfg.target_reference, target_x, disc_ref_factor(N, cfg))
+                sp_t = reference['spacing']
+                n_t, sw_t = to_array(reference['normals']), to_array(reference['weights'])
+            else:
+                sub = target_x[sample_indices(N, min(N, 20000))]
+                sp_t = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
+                sp_t *= disc_ref_factor(N, cfg)
+                n_t, sw_t = target_surface_normals(np.asarray(target_x, np.float32), sp_t)
             shade = shade_targets(tgt_t, views, cfg.render_res, extent, lgmin, ldx, ldims,
                                   cfg.sil_k, cfg.pbr_ambient,
                                   normals=(torch.as_tensor(n_t, device=dev), torch.as_tensor(sw_t, device=dev)))
@@ -231,7 +241,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
     pts, nn_sp = None, 0.0
     kde_h, kde_rho = 0.0, 1.0
     if cfg.w_nn > 0 or cfg.w_kde > 0 or cfg.layer_gate:     # layer_gate: the u gate reads the target cloud
-        from scipy.spatial import cKDTree
+        from physmorph.compute import KDTree as cKDTree
         nn_sp = float(np.median(cKDTree(target_x).query(target_x, k=2,
                                                         workers=-1)[0][:, 1]))
         nn_sp *= disc_ref_factor(len(target_x), cfg)      # the reference spacing (config.disc_ref)
@@ -246,13 +256,15 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
         jd_dx = float((dmax - dmin).max() / cfg.jdens_res)
         jd = dict(jd_gmin=lgmin, jd_dx=jd_dx, jd_dims=jd_dims)
     m_ref, n_support = density_units(grid)      # loss_units="density" constants
-    return TargetPack(**jd, points=tgt_t, grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
+    pack = TargetPack(**jd, points=tgt_t, grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3,
                       pts=pts, nn_spacing=nn_sp, gauss=gauss,
                       kde_h=kde_h, kde_rho_ref=kde_rho,
                       m_ref=m_ref, n_support=n_support,
                       pgmin=pgmin, pdx=pdx, pdims=pdims, pblur=pblur)
+    pack.target_reference_provenance = reference['provenance'] if reference is not None else None
+    return pack
 
 
 def calibrate_units(tgt: TargetPack, source_x, target_x, cfg: PipelineConfig) -> None:
@@ -293,6 +305,33 @@ def calibrate_units(tgt: TargetPack, source_x, target_x, cfg: PipelineConfig) ->
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
                  on_commit=None, on_iter=None, w_src=None, w_tgt=None):
+    """Select the explicit numerical backend; host copies are archive/viewer outputs."""
+    if cfg.compute_backend == 'legacy':
+        return _run_pipeline(source_x, target_x, prm, cfg, log, on_commit, on_iter, w_src, w_tgt)
+    if cfg.compute_backend != 'cuda':
+        raise ValueError('compute_backend must be legacy or cuda')
+    unsupported = [name for name in ('reattach', 'pace_front_geo', 'local_dress_iters', 'use_gauss_loss', 'assim_consensus')
+                   if getattr(cfg, name, False)]
+    if unsupported:
+        raise ValueError('CUDA execution has no validated implementation for: ' + ', '.join(unsupported))
+    from ..compute import cuda_execution
+    from ..input_assets import load_target_reference
+    reference = (load_target_reference(cfg.target_reference, target_x, disc_ref_factor(len(target_x), cfg))
+                 if cfg.lambda_auto > 0 and cfg.w_pbr > 0 and cfg.pbr_denoised else None)
+
+    def host_callback(callback):
+        if callback is None:
+            return None
+        return lambda *args: callback(*(to_host(arg) for arg in args))
+
+    with cuda_execution(cfg.device, input_sizes=(len(source_x), len(target_x)), target_reference=reference):
+        result = _run_pipeline(source_x, target_x, prm, cfg, log,
+                               host_callback(on_commit), host_callback(on_iter), w_src, w_tgt)
+        return to_host(result, copy_host=False)
+
+
+def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
+                 on_commit=None, on_iter=None, w_src=None, w_tgt=None):
     """Morph source -> target. Returns a result dict (frames, F_frames, history, guards, s,
     n_held, converged). frames/F_frames archive the PROMOTED per-step states.
     on_commit(a, x, F, v, rec) fires after each promoted commit; on_iter(it, xT, FT, tele)
@@ -304,6 +343,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     if cfg.settle_pin_confirm and (cfg.settle_pin_stuck or cfg.settle_eta):
         raise ValueError("settle_pin_confirm cannot use separate stuck-point or viscosity admission rules")
     src = np.ascontiguousarray(source_x, np.float32)
+    target_x = np.ascontiguousarray(target_x, np.float32)
     N = src.shape[0]
     assert target_x.shape[0] == N, ("D_vol compares unit-mass clouds: source and target need "
                                     f"the same particle count (got {N} vs {target_x.shape[0]})")
@@ -387,7 +427,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     bond_rest = None                     # material re-coupling: rest lengths carried across windows
     bond_frag = None
     if cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0 or cfg.continuity or cfg.bonds:   # frozen source-material neighbours
-        from scipy.spatial import cKDTree
+        from physmorph.compute import KDTree as cKDTree
         # the bond neighbourhood holds coh_k REFERENCE particles' mass (config.disc_ref: x N / mass_ref_n)
         coh_nbr = cKDTree(src).query(src, k=int(round(cfg.coh_k * disc_ref_factor(len(src), cfg) ** 3)) + 1,
                                      workers=-1)[1][:, 1:]
@@ -409,7 +449,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     st = {"F": None, "v": None, "C": None, "Fg": None}
     Fp = _id(N)
     s, dfc_prev = None, None
-    frames, F_frames, hist = [x.copy()], [_id(N)], []
+    frames, F_frames, hist = [to_host(x)], [to_host(_id(N))], []
     n_reattach_total = 0                 # cfg.reattach: merged grid-disconnected particles (all commits)
     sp_native = None                     # cfg.shift_sub: the cloud's native spacing (measured at the first commit)
     last_shift = None                    # cfg.shift_sub: this window's shift statistics (for the record)
@@ -418,6 +458,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     cyc_stale = 0                        # consecutive windows at or below the random-walk bound
     u_scale, u_prev = None, None         # config.u_rprop: the per-particle u bound scale and the last accepted u
     ctrl_scale, ctrl_prev_disp = None, None   # config.ctrl_rprop: the per-particle control step scale and the last accepted displacement
+    rprop_neighbors = None               # material neighborhoods belong to this source/run only
     ctrl_scale_apply = None              # the scale handed to the optimiser (neighbourhood-smoothed under ctrl_rprop_smooth)
     ctrl_rev_count, frozen_p = None, None  # config.freeze_arrived: per-particle reversal count and the frozen set
     settled_p, settle_eta_arr = None, None  # config.settle_eta: the settled set and the per-particle viscosity handed to the rollout
@@ -483,7 +524,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             log(f"[v2] anim {a + 1}: render channel OFF from here (render_until={cfg.render_until})")
         if frozen:
             if cfg.hold_after_converge:
-                frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
+                frames.append(to_host(x)); F_frames.append(F_frames[-1].copy())
             if dress is not None:
                 dress.cover_frames(len(frames))
                 hist.append({"animation": a, "held": 1})
@@ -595,7 +636,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # stop here bypassed patience — hero7_base truncated at anim 106). Null
             # commit: hold the state, let the patience counter decide the freeze.
             log(f"[v2] anim {a + 1}: no accepted step — null commit (stale {stale + 1})")
-            frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
+            frames.append(to_host(x)); F_frames.append(F_frames[-1].copy())
             if dress is not None:
                 dress.cover_frames(len(frames))
             hist.append({"animation": a, "null_commit": 1, "ls_exhausted": stats.get("ls_exhausted"),
@@ -729,7 +770,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         n_reattached = 0
         if cfg.reattach:
             if getattr(tgt, "points_np", None) is None:
-                tgt.points_np = np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32)
+                tgt.points_np = np.ascontiguousarray(to_array(tgt.points.detach(), copy=True), np.float32)
             n_reattached = reattach_fragments(x, v_p, C_p, Fc, Fp, Fg_p, prm,
                                               float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.5 * prm.dx,
                                               seed=a + 1, tgt_points=tgt.points_np)
@@ -760,8 +801,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                  v0=np.zeros_like(_spec.v0), F0=_spec.F0, C0=np.zeros_like(_spec.C0),
                                  device=cfg.device, vol0=vol0)
                     _xT0, _ = _wm(torch.zeros(_N, 3, 3, device=cfg.device), _spec0)
-                _d_free = _xT.detach().cpu().numpy().astype(np.float32) - np.asarray(x, np.float32)
-                _d_free0 = _xT0.detach().cpu().numpy().astype(np.float32) - np.asarray(x, np.float32)
+                _d_free = to_array(_xT.detach(), copy=True).astype(np.float32) - np.asarray(x, np.float32)
+                _d_free0 = to_array(_xT0.detach(), copy=True).astype(np.float32) - np.asarray(x, np.float32)
                 _d_prev = np.asarray(x, np.float32) - np.asarray(x_start, np.float32)
                 _den = float((_d_prev * _d_prev).sum())
                 _reb = float((_d_free * _d_prev).sum() / _den) if _den > 0 else float("nan")
@@ -828,10 +869,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     f"cell-sum change across the shift {100 * sst['dvol_rel']:+.3f} %")
         # archive the PROMOTED states (identical to raw when no guard fired)
         ks = max(1, int(cfg.archive_stride))            # archive stride (150k archives)
-        frames.extend(f.copy() for f in fr[1:-1][::ks]); frames.append(x.copy())
-        F_frames.extend(F_seq[1:-1][::ks]); F_frames.append(Fc.copy())
+        frames.extend(to_host(f) for f in fr[1:-1][::ks]); frames.append(to_host(x))
+        F_frames.extend(to_host(f) for f in F_seq[1:-1][::ks]); F_frames.append(to_host(Fc))
         if Fg_p is not None:
-            Fg_commits.append((len(frames), Fg_p.copy()))
+            Fg_commits.append((len(frames), to_host(Fg_p)))
 
         w = whist[-1]
         if getattr(cfg, "phys_loss", "density") != "density":
@@ -914,6 +955,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "d_jdens": d_jd_v, "d_h1": d_h1_v, "h1_ratio": stats.get("h1_ratio"),
                "d_fill": d_fill, "g_cos": stats.get("g_cos"),
                "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
+               "render_channels": stats.get("render_channels"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
                "cont_ratio": stats.get("cont_ratio"), "cont_rejects": stats.get("cont_rejects"),
                "cont_ref_ratio": stats.get("cont_ref_ratio"),
@@ -1268,13 +1310,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # has a net/summed ratio near 0, honest descent near 1, a random walk 1/sqrt(k). Logged every
         # window; a convergence trigger when the flag is on. ----
         if cyc_sub is None:
-            cyc_sub = np.sort(np.random.default_rng(0).choice(len(x), min(len(x), 20000), replace=False))
+            cyc_sub = np.sort(sample_indices(len(x), min(len(x), 20000)))
         cyc_hist.append(np.asarray(x[cyc_sub], np.float32).copy())
         k_cyc = max(int(cfg.patience), 2)
         if len(cyc_hist) > k_cyc + 1:
             del cyc_hist[0]
         if len(cyc_hist) == k_cyc + 1:
-            summed = np.sum([np.linalg.norm(cyc_hist[i + 1] - cyc_hist[i], axis=1) for i in range(k_cyc)], axis=0)
+            summed = np.stack([np.linalg.norm(cyc_hist[i + 1] - cyc_hist[i], axis=1) for i in range(k_cyc)]).sum(axis=0)
             net = np.linalg.norm(cyc_hist[-1] - cyc_hist[0], axis=1)
             net_ratio = float(np.median(net) / max(float(np.median(summed)), 1e-12))
             rec["net_ratio"] = net_ratio
@@ -1330,10 +1372,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     _nbr = coh_nbr
                 else:
                     _kk = _kk if _kk > 0 else 24
-                    if not hasattr(run_pipeline, "_rprop_nbr") or run_pipeline._rprop_nbr.shape != (len(_d_now), _kk):
-                        from scipy.spatial import cKDTree as _KDn
-                        run_pipeline._rprop_nbr = _KDn(src).query(src, k=_kk + 1, workers=-1)[1][:, 1:]
-                    _nbr = run_pipeline._rprop_nbr
+                    if rprop_neighbors is None:
+                        from physmorph.compute import KDTree as _KDn
+                        rprop_neighbors = _KDn(src).query(src, k=_kk + 1, workers=-1)[1][:, 1:]
+                    _nbr = rprop_neighbors
             def _smooth(v):
                 if _nbr is None:
                     return v
@@ -1420,9 +1462,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     # the shell radius (the reconstruction's resolution) over each of two consecutive windows (two
                     # events, as the reversal rule) is settled and pinned. No new constant.
                     if getattr(tgt, "points_np", None) is None:
-                        tgt.points_np = np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32)
+                        tgt.points_np = np.ascontiguousarray(to_array(tgt.points.detach(), copy=True), np.float32)
                     if getattr(tgt, "pin_rcov", None) is None:
-                        from scipy.spatial import cKDTree as _KDs
+                        from physmorph.compute import KDTree as _KDs
                         tgt.pin_rcov = float(np.median(_KDs(tgt.points_np).query(tgt.points_np, k=9, workers=-1)[0][:, 8]))
                     if still_cnt is None or len(still_cnt) != len(_d_now):
                         still_cnt = np.zeros(len(_d_now), np.int32)
@@ -1437,9 +1479,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     # 300k fit); its goal cannot move, so it is settled when within the shell radius of its point — the
                     # fill's own resolution, no constant — and the pin takes it there.
                     if getattr(tgt, "points_np", None) is None:
-                        tgt.points_np = np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32)
+                        tgt.points_np = np.ascontiguousarray(to_array(tgt.points.detach(), copy=True), np.float32)
                     if getattr(tgt, "pin_rcov", None) is None:
-                        from scipy.spatial import cKDTree as _KDs
+                        from physmorph.compute import KDTree as _KDs
                         tgt.pin_rcov = float(np.median(_KDs(tgt.points_np).query(tgt.points_np, k=9, workers=-1)[0][:, 8]))
                     _has_s = stick_arr >= 0
                     _dist_s = np.full(len(_d_now), np.inf, np.float32)
@@ -1462,7 +1504,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if _pr is not None:
                     _pr = max(float(_pr), 2.0 * float(prm.dx))
                 if getattr(cfg, "settle_pin_clear", False) and _newly.any() and _pr is not None and (~_arr_p).any():
-                    from scipy.spatial import cKDTree as _KDc
+                    from physmorph.compute import KDTree as _KDc
                     _dn_c, _ = _KDc(np.asarray(x, np.float32)[~_arr_p]).query(np.asarray(x, np.float32)[_newly], k=1,
                                                                            distance_upper_bound=float(_pr), workers=-1)
                     _clear = ~np.isfinite(_dn_c)
@@ -1477,11 +1519,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # passes within the pace radius of it: the ray sampled at the pace radius, one kd-tree query.
                 _pi = stats.get("plan_img")
                 if getattr(cfg, "settle_pin_ray", False) and _newly.any() and _pr is not None and _pi is not None and (~_arr_p).any():
-                    from scipy.spatial import cKDTree as _KDr
+                    from physmorph.compute import KDTree as _KDr
                     _xq = np.asarray(x, np.float32)[~_arr_p]; _dq = np.asarray(_pi, np.float32)[~_arr_p] - _xq
                     _Lq = np.linalg.norm(_dq, axis=1); _ns = np.maximum(1, np.ceil(_Lq / float(_pr)).astype(np.int64))
                     _rep = np.repeat(np.arange(len(_xq)), _ns + 1)
-                    _k = np.arange(len(_rep)) - np.repeat(np.cumsum(np.concatenate([[0], _ns[:-1] + 1])), _ns + 1)
+                    _k = np.arange(len(_rep)) - np.repeat(np.cumsum(np.concatenate([np.asarray([0], dtype=_ns.dtype), _ns[:-1] + 1])), _ns + 1)
                     _s = (_k / np.repeat(_ns, _ns + 1)).astype(np.float32)[:, None]
                     _samples = _xq[_rep] + _s * _dq[_rep]
                     _ray_samples = _samples
@@ -1509,12 +1551,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # where the stream passes). On re-pinning the elastic strain is assimilated again (stress-free).
                 _yield = np.zeros(len(settled_p), bool)
                 if getattr(cfg, "settle_pin_yield", False) and settled_p.any() and _pr is not None and _pi is not None and (~_arr_p).any():
-                    from scipy.spatial import cKDTree as _KDy
+                    from physmorph.compute import KDTree as _KDy
                     if _ray_samples is None:
                         _xq = np.asarray(x, np.float32)[~_arr_p]; _dq = np.asarray(_pi, np.float32)[~_arr_p] - _xq
                         _Lq = np.linalg.norm(_dq, axis=1); _ns = np.maximum(1, np.ceil(_Lq / float(_pr)).astype(np.int64))
                         _rep = np.repeat(np.arange(len(_xq)), _ns + 1)
-                        _k = np.arange(len(_rep)) - np.repeat(np.cumsum(np.concatenate([[0], _ns[:-1] + 1])), _ns + 1)
+                        _k = np.arange(len(_rep)) - np.repeat(np.cumsum(np.concatenate([np.asarray([0], dtype=_ns.dtype), _ns[:-1] + 1])), _ns + 1)
                         _s = (_k / np.repeat(_ns, _ns + 1)).astype(np.float32)[:, None]
                         _ray_samples = _xq[_rep] + _s * _dq[_rep]
                     _idx_s = np.nonzero(settled_p)[0]
@@ -1581,7 +1623,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                             _Lk = _dvd_k(_xk, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref, tgt.n_support)
                         else:
                             _Lk = _dv_k(_xk, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
-                        _gk = torch.autograd.grad(_Lk, _xk)[0].norm(dim=1).detach().cpu().numpy()
+                        _gk = to_array(torch.autograd.grad(_Lk, _xk)[0].norm(dim=1).detach(), copy=True)
                         _thr_k = float(np.median(_gk[~settled_p]))
                         _kkt = settled_p & (_gk > _thr_k)
                     _gk = np.asarray(_gk, np.float64)
@@ -1691,7 +1733,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                                     device=cfg.device, vol0=vol0, eta=np.full(_N, np.float32(_eta_w), np.float32))
                     with torch.no_grad():
                         _xS, _FS = _wm_s(torch.zeros(_N, 3, 3, device=cfg.device), _spec_s)
-                    _xS = _xS.detach().cpu().numpy().astype(np.float32); _FS = _FS.detach().cpu().numpy().astype(np.float32).reshape(-1, 3, 3)
+                    _xS = to_array(_xS.detach(), copy=True).astype(np.float32); _FS = to_array(_FS.detach(), copy=True).astype(np.float32).reshape(-1, 3, 3)
                     _ds = float(np.median(np.linalg.norm(_xS - np.asarray(x, np.float32), axis=1)))
                     if np.isfinite(_xS).all() and np.isfinite(_FS).all():
                         x = _xS; Fc = _FS
@@ -1750,6 +1792,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     if dress is not None:                        # close the archive over any tail
         dress.cover_frames(len(frames))
     return {"truncation": trunc, "deliver_n": deliver_n,   # frames are NEVER dropped
+            "input_assets": {"target_reference": getattr(tgt, "target_reference_provenance", None)},
             "dressing": dress.export() if dress is not None else None,
             "frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,
             "Fg_commits": Fg_commits,

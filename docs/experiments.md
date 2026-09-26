@@ -8542,3 +8542,86 @@ Some final pin admissions in the full bunny runs only have subsequent hold frame
 a subsequent-dynamics test for those particles. The tip>=13 gate is historical
 shape preservation; the sampled target count is11.867. Both candidates fall below
 either threshold.
+
+**2026-09-26 17:20 CDT — CUDA active-path validation and separated motion/render
+diagnostics (hyde06).** The user requested three concurrent tasks: complete the GPU
+execution path, separate particle movement from changing Gaussian appearance, and
+measure the render channel with a matched ablation. The earlier behavior-preserving
+extraction and local archive cleanup were pushed separately at `13baf6b`.
+
+All full simulation numbers below use bunny N=300000, T=20, dt=1/240,
+dx=0.3062907544 wu, loss36^3, seed1, animations300, cap60, eight inner iterations,
+and source median nearest-neighbor spacing0.0349885366wu. CUDA full on/off runs use
+the identical archived source/target and differ only in lambda_auto0.5/0.0.
+Their snapshots differ in reporting and unused imports; a hash-bound source review
+found the active numerical ASTs equivalent. This is not bitwise repeatability.
+
+| full CUDA arm | render on | render off |
+|---|---:|---:|
+| accepted / attempted windows | 39 / 42 | 33 / 33 |
+| runtime (seconds) | 589.05 | 333.91 |
+| independent silIoU | 0.971810 | 0.967927 |
+| symmetric mean nearest-neighbor distance (wu) | 0.055912 | 0.055957 |
+| raw particles within0.25wu of highest target tip | 54 | 36 |
+| minimum accepted-rollout detF | 0.7734 | 0.8252 |
+| post-pin displacement across all delivered raw frames | exactly0 | exactly0 |
+
+The sampled target has89 particles in the same tip ball. At shared commit33 the
+on/off tip counts are already54/36 and silIoU0.971641/0.967927, so the endpoint
+advantage is not solely the six extra commits. The render channel also changes
+acceptance/stopping; this measures the whole channel, not a gradient-only intervention.
+Its nominal gradient share is39.27% median at each accepted window's first iteration,
+not a displacement or quality fraction. At shared commits6/10/20, top-region density
+is0.5943/0.6994/0.8329 on versus0.6241/0.7347/0.8857 off. Rendering does not uniformly
+repair early sparse supply. Both arms retain unpinned motion; neither passes the
+user's hole-free and all-particle-rest goals. See [render influence](render_influence_20260926.md)
+for cohort definitions, threshold-crossing comparisons and repeat limitations.
+
+The full CUDA on raw audit checked253911 admitted pins, exact maximum drift0.
+Its fixed delivered-end unpinned surface cohort1959 still has median normal/tangential
+motion0.01490/0.01240sp per archived simulation step, excluding trailing hold padding.
+The radius-count audit initially exposed an illegal-address fault in CuPy14's native
+radius-query kernel at300k. Replacing it with adaptive exact GPU kNN counting gave
+identical inclusive counts to SciPy for all300000 source and all300000 target points
+at radius0.0689865998wu, without a fixed count cap or CPU fallback. The repaired full
+audit completed. Layer-motion reporting now uses actual accepted archive boundaries;
+historical fixed-lag measurements are labelled separately. See [CUDA execution](gpu_execution.md).
+
+The appearance audit reuses the original mixed60 source and frozen4K renderer,
+not the new CUDA simulation. At the same N/T/dt/dx/loss discretization, its spacing
+unit is the renderer's TARGET median nearest-neighbor spacing0.0349308103wu.
+For a fixed upper-ear material cohort over raw480–780 (25 transitions,12 raw frames
+each), stable pins have exactly zero center, normal-vector and radius changes.
+Support/opacity nevertheless changes in1.7097% of pinned particle-transition samples
+(268 of4756 pinned particles change at least once). Unpinned ears have median center
+motion0.1230sp per12frames and median normal rotation1.024degrees; both saved particle
+movement and attribute recomputation contribute possible visible change. No Gaussian
+appearance optimizer runs during movie export. The held780–781 negative control
+has zero center/radius/support changes. These measurements are not pixel-level causal
+fractions or proof of periodic oscillation. See [motion versus appearance](motion_vs_appearance_20260926.md).
+
+GPU migration preserves the current physical formulation. The image loss remains
+64x64 silhouette/density-normal shading; it is not a4K anisotropic-splat appearance
+loss. High-resolution appearance improvement and new thin-supply/settlement policies
+are not promoted by these diagnostic results. No gallery/page result is replaced.
+
+**17:26 CDT — strict CLI integration closed.** The production body-control launcher
+now defaults to CUDA and accepts one immutable CPU-prepared input bundle. A fresh
+bundle avoids dependence on sampler cache paths and the NumPy version used during
+simulation. Point/mesh hashes, sampling options, positive volumes and shading
+discretization are validated; missing GPU support never selects a CPU fallback.
+The actual `c291_gpu_bundle1` CLI run passed G1a/G1b, all trajectory guards and raw
+postmetrics with N300000/T20/dt1/240/dx0.3063033045wu/loss36^3, eight iterations,
+animations300 and a one-window cap (21 frames,11.33s arm runtime). Geometry and
+shading use the same recorded bundle SHA. This fresh input is an execution test,
+not a matched historical quality result; its expected early-motion G3 failure
+does not establish convergence.
+
+The full-on metrics' trailing-null correction preserves the original JSON and
+records782 delivered/781 simulated frames/1 held frame. Recomputed jitter is
+0.0001493908134wu mean and1.517466891e-5 relative; no physics was rerun or changed.
+Validation: full CPU reference suite305 passed/22 skipped, final input/entry/metric
+suite27 passed, GPU compute/raw-audit suite18 passed plus earlier integration checks,
+40 changed/new Python files compiled, and independent adversarial reviews closed
+all identified blockers. Active-path execution details and unsupported historical
+options are listed in [gpu_execution.md](gpu_execution.md).

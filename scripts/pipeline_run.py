@@ -94,8 +94,41 @@ def gate1_channels(src, prm, young=1.4e5, poisson=0.2, device="cuda"):
             "pass": bool(ok)}
 
 
+def gate1_checks(src, prm, compute_backend="legacy", device="cuda"):
+    """Run CLI physics checks inside the same numerical backend as the arm."""
+    from contextlib import nullcontext
+    from physmorph.compute import cuda_execution
+    if compute_backend not in ("legacy", "cuda"):
+        raise ValueError("compute_backend must be legacy or cuda")
+    with (cuda_execution(device) if compute_backend == "cuda" else nullcontext()):
+        return {"G1a": gate1_plumbing(src, prm, device=device),
+                "G1b": gate1_channels(src, prm, device=device)}
+
+
+def validate_cli_backend(args):
+    if args.compute_backend == "cuda" and (args.live_port or args.live_dir):
+        raise ValueError("CUDA execution does not support the CPU numerical live viewer; "
+                         "omit --live_port/--live_dir and use the CUDA archive renderer")
+
+
+def delivered_metric_timing(frame_count, deliver_n, history):
+    """Exclude only the held suffix after the last accepted trajectory boundary."""
+    delivered = int(deliver_n or frame_count)
+    if not 1 <= delivered <= frame_count:
+        raise ValueError("Delivered frame count is outside the archive")
+    accepted = [int(row['frame_end']) for row in history
+                if row.get('frame_end') and not row.get('null_commit')]
+    if any(end < 1 or end > frame_count for end in accepted):
+        raise ValueError("Accepted boundary is outside the archive")
+    # Clamp the final accepted boundary to the delivered prefix. This preserves
+    # real motion if a caller truncates inside a later accepted window, and keeps
+    # null frames between accepted windows in their original archive positions.
+    simulated_end = min(delivered, max(accepted, default=1))
+    return delivered, delivered - simulated_end, [end - 1 for end in accepted if end <= delivered]
+
+
 def arm_config(arm: str, args) -> PipelineConfig:
-    cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations, body_ctrl=args.body_ctrl,
+    cfg = PipelineConfig(compute_backend=args.compute_backend, target_reference=args.target_reference, T=args.T, iters=args.iters, animations=args.animations, body_ctrl=args.body_ctrl,
                          stop_after_windows=args.stop_after_windows, body_no_dfc=args.body_no_dfc,
                          body_step_normalized=args.body_step_normalized,
                          body_terminal_ctrl=args.body_terminal_ctrl,
@@ -492,6 +525,9 @@ def eval_gates(tag, res, met, prm, T, rel_tol=0.003, hole_tol=0.02):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--compute_backend", choices=("legacy", "cuda"), default="legacy")
+    ap.add_argument("--target_reference", default="", help="Prepared denoised shading asset for CUDA execution")
+    ap.add_argument("--input_reference", default="", help="Immutable CPU-prepared source/target bundle; mesh/sampling flags must match")
     ap.add_argument("--body_ctrl", action="store_true",
                     help="add a cell-scale external-force control with a zero-impulse temporal pulse")
     ap.add_argument("--body_no_dfc", action="store_true",
@@ -782,10 +818,23 @@ def main():
     ap.add_argument("--pbr_denoised", action="store_true",
                     help="G1: shading target from the target's reconstructed surface; morph normals on the pixel grid")
     args = ap.parse_args()
+    validate_cli_backend(args)
 
-    src, v_src = load(args.src, args.n, args.seed, return_volume=True, sample=args.sampler)
-    tgt, v_tgt = load(args.tgt, args.n, args.seed + 1, match_volume=v_src, sample=args.sampler,
-                      return_volume=True)
+    input_provenance = None
+    if args.input_reference:
+        from physmorph.input_assets import load_input_reference
+        prepared = load_input_reference(args.input_reference, args.n, source_path=args.src,
+                                        target_path=args.tgt, seed=args.seed,
+                                        sampler=args.sampler, sample=args.sample)
+        src, tgt = prepared['source'], prepared['target']
+        v_src, v_tgt = prepared['volumes']
+        input_provenance = prepared['provenance']
+        if not args.target_reference:
+            args.target_reference = args.input_reference
+    else:
+        src, v_src = load(args.src, args.n, args.seed, return_volume=True, sample=args.sampler)
+        tgt, v_tgt = load(args.tgt, args.n, args.seed + 1, match_volume=v_src, sample=args.sampler,
+                          return_volume=True)
     print(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
           f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})",
           flush=True)
@@ -869,7 +918,11 @@ def main():
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={args.T}  iters={args.iters}  "
           f"anims={args.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}",
           flush=True)
-    print(f"[v2run] baseline chamfer (undeformed) = {metrics.chamfer(src, tgt):.4f}", flush=True)
+    from contextlib import nullcontext
+    from physmorph.compute import cuda_execution
+    with (cuda_execution("cuda") if args.compute_backend == "cuda" else nullcontext()):
+        baseline_chamfer = metrics.chamfer(src, tgt)
+    print(f"[v2run] baseline chamfer (undeformed) = {baseline_chamfer:.4f}", flush=True)
 
     live = None
     if args.live_port:
@@ -877,17 +930,11 @@ def main():
         live = LiveServer(args.live_port)
     live_dir = Path(args.live_dir) if args.live_dir else None
 
-    tracked = [Path("physmorph/pipeline/config.py"),
-               Path("physmorph/pipeline/optimizer.py"),
-               Path("physmorph/pipeline/runner.py"),
-               Path("physmorph/pipeline/body_control.py"),
-               Path("physmorph/pipeline/settlement.py"),
-               Path("physmorph/pipeline/gauss_loss.py"),
-               Path("physmorph/losses/volumetric.py"),
-               Path("physmorph/mpm/kernels.py"),
-               Path("physmorph/mpm/function.py"),
-               Path("physmorph/mpm/traj.py")]
-    code_hash = hashlib.sha256(b"".join(p.read_bytes() for p in tracked)).hexdigest()[:16]
+    code_root = Path(__file__).resolve().parents[1]
+    tracked = sorted((code_root / "physmorph").rglob("*.py")) + [Path(__file__).resolve()]
+    code_hash = hashlib.sha256(b"".join(
+        p.relative_to(code_root).as_posix().encode() + b"\0" + p.read_bytes()
+        for p in tracked)).hexdigest()[:16]
     try:
         git_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True,
                                           stderr=subprocess.DEVNULL).strip()
@@ -898,8 +945,7 @@ def main():
         git_sha = vf.read_text().strip() if vf.exists() else None
     out = {"provenance": {**vars(args), "mpm": dataclasses.asdict(prm),
                            "git_sha": git_sha, "code_hash": code_hash},   # AGENTS rule 4:
-           "G1a": gate1_plumbing(src, prm),                                # discretisation
-           "G1b": gate1_channels(src, prm), "arms": {}}                    # travels with numbers
+           **gate1_checks(src, prm, args.compute_backend), "arms": {}}
 
     for arm in [a.strip() for a in args.arms.split(",") if a.strip()]:
         cfg = arm_config(arm, args)
@@ -924,11 +970,13 @@ def main():
         res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1],
                            w_src=w_src, w_tgt=w_tgt)
         dt = time.time() - t0
-        dn = res.get("deliver_n") or len(res["frames"])   # metrics on the DELIVERED slice
+        dn, delivered_held, commit_frames = delivered_metric_timing(
+            len(res["frames"]), res.get("deliver_n"), res["history"])
         res["deliver_n_used"] = dn
         met = metrics.summarize(res["frames"][:dn], tgt, F_frames=res["F_frames"][:dn],
-                                n_held=res["n_held"], render_mask=res.get("render_mask"),
-                                window=max(int(args.T) - 1, 1))
+                                n_held=delivered_held, render_mask=res.get("render_mask"),
+                                window=max(int(args.T) - 1, 1), compute_backend=cfg.compute_backend,
+                                device=cfg.device, commit_frames=commit_frames)
         # trajectory evenness: CV of per-commit displacement (snap-to-target -> high CV)
         mv = [h["move"] for h in res["history"] if "move" in h]
         # <3 commits IS the snap pathology — score it worst, not best (adversarial finding)
@@ -990,6 +1038,7 @@ def main():
                         else np.zeros((0, 0, 3, 3), np.float32)),
             **archive_extra)
         out["arms"][arm] = {"config": cfg_dump, "metrics": met,
+                            "input_assets": {**res.get("input_assets", {}), "particles": input_provenance},
                             "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v)
                                       for k, v in gates.items()},
                             "guards": res["guards"], "converged": res["converged"],

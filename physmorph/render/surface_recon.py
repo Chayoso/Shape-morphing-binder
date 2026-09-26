@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array
 import torch
-from scipy.spatial import cKDTree
+from physmorph.compute import KDTree as cKDTree
 
 
 # ---- S1: Yu & Turk ---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ def surface_particles(x: torch.Tensor, rho: torch.Tensor, ctr, half: float, vox:
     gn = gv.norm(dim=1).clamp_min(1e-12)
     sel = (val <= thr) & (gn > 1e-9)
     n = -gv[sel] / gn[sel, None]                                          # outward = down the density
-    return x[sel].detach().cpu().numpy().astype(np.float32), n.detach().cpu().numpy().astype(np.float32)
+    return to_array(x[sel].detach(), copy=True).astype(np.float32), to_array(n.detach(), copy=True).astype(np.float32)
 
 
 def surface_particles_grad(x: torch.Tensor, rho: torch.Tensor, ctr, half: float, vox: float, g_thr: float):
@@ -114,7 +114,7 @@ def surface_particles_grad(x: torch.Tensor, rho: torch.Tensor, ctr, half: float,
     gn = gv.norm(dim=1).clamp_min(1e-12)
     sel = (gn / val.clamp_min(1e-12) >= g_thr) & (gn > 1e-9)
     n = -gv[sel] / gn[sel, None]
-    return x[sel].detach().cpu().numpy().astype(np.float32), n.detach().cpu().numpy().astype(np.float32)
+    return to_array(x[sel].detach(), copy=True).astype(np.float32), to_array(n.detach(), copy=True).astype(np.float32)
 
 
 def oriented_layer(points: np.ndarray, ref_normals: np.ndarray, spacing: float, k: int = 24,
@@ -176,7 +176,7 @@ def layer_by_asymmetry(x_np: np.ndarray, spacing: float, k: int = 32, thr_sp: fl
         n_t = off_t.norm(dim=1)
         mask_t = n_t >= thr_sp * spacing
         normal_t = off_t / (n_t[:, None] + 1e-12)
-        return mask_t.cpu().numpy(), normal_t.float().cpu().numpy()
+        return to_array(mask_t, copy=True), to_array(normal_t.float(), copy=True)
     d, nb = knn_self(x_np, k + 1)                        # scipy rows (small clouds, or PHYSMORPH_KNN=cpu)
     c = x_np[nb[:, 1:]].mean(1)
     off = x_np - c
@@ -237,7 +237,7 @@ def layer_relax_data(x0: np.ndarray, spacing: float, k: int = 24, h_sp: float = 
             d_t, nb_t = d_t[:, 1:], nb_t[:, 1:]
             ww_t = torch.exp(-(d_t / (h_sp * spacing)) ** 2) * torch.clamp((R_t[nb_t] * R_t[:, None, :]).sum(-1), min=0.0)
             ww_t = ww_t / torch.clamp(ww_t.sum(1, keepdim=True), min=1e-12)
-            nb = nb_t.cpu().numpy(); ww = ww_t.cpu().numpy()
+            nb = to_array(nb_t, copy=True); ww = to_array(ww_t, copy=True)
         else:
             P = x0[idx].astype(np.float64); R = nrm[idx].astype(np.float64)
             d, nb = knn_self(P, k + 1)                    # scipy rows
@@ -269,8 +269,8 @@ def target_surface_normals(x_np: np.ndarray, spacing: float, k: int = 24, h_sp: 
     sc = o3d.t.geometry.RaycastingScene()
     sc.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
     r = sc.compute_closest_points(o3d.core.Tensor(np.asarray(x_np, np.float32)))
-    pid = r["primitive_ids"].numpy().astype(np.int64)
-    dist = np.linalg.norm(r["points"].numpy() - np.asarray(x_np, np.float32), axis=1)
+    pid = to_array(r["primitive_ids"], copy=True).astype(np.int64)
+    dist = np.linalg.norm(to_array(r["points"], copy=True) - np.asarray(x_np, np.float32), axis=1)
     n = tn[np.clip(pid, 0, len(tn) - 1)]
     # orient outward: agree with the asymmetry reference where that is defined
     flip = (n * ref).sum(1) < 0

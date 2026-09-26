@@ -9,7 +9,7 @@ identity first (numpy's SVD raises on NaN input).
 """
 from __future__ import annotations
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array
 
 
 def batched_svd(F):
@@ -22,7 +22,7 @@ def batched_svd(F):
         if torch.cuda.is_available() and F.shape[0] >= 20000:
             Ft = torch.as_tensor(np.ascontiguousarray(F, np.float32), device="cuda")
             U, S, Vh = torch.linalg.svd(Ft)
-            return U.cpu().numpy(), S.cpu().numpy(), Vh.cpu().numpy()
+            return to_array(U, copy=True), to_array(S, copy=True), to_array(Vh, copy=True)
     except Exception:
         pass
     return np.linalg.svd(F)
@@ -34,7 +34,7 @@ def batched_det(F):
     try:
         import torch
         if torch.cuda.is_available() and F.size >= 20000 * 9:
-            return torch.linalg.det(torch.as_tensor(np.ascontiguousarray(F, np.float32), device="cuda")).cpu().numpy()
+            return to_array(torch.linalg.det(torch.as_tensor(np.ascontiguousarray(F, np.float32), device="cuda")), copy=True)
     except Exception:
         pass
     return np.linalg.det(F)
@@ -71,7 +71,7 @@ def condition_F(F, smin=0.5, smax=2.0, clamp=True):
                     U, S, Vh = torch.linalg.svd(Fw[flip_t])
                     U = U.clone(); U[:, :, -1] *= -1.0
                     out[flip_t] = U @ torch.diag_embed(S) @ Vh
-                return out.cpu().numpy().astype(np.float32), n_bad, n_flip, 0
+                return to_array(out, copy=True).astype(np.float32), n_bad, n_flip, 0
         except Exception:
             pass
     bad = ~np.isfinite(F).all(axis=(1, 2))

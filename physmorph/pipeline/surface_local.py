@@ -16,7 +16,7 @@ velocities untouched, rest state preserved; det(F) changes flow into the same gu
 """
 from __future__ import annotations
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array
 import torch
 
 from .render_loss import d_render
@@ -227,8 +227,8 @@ def surface_local_pass(x, F, Fp, tgt, cfg, lg_balancer, prm):
     u, info = sl.solve(energy, sweeps=cfg.lg_sweeps)
     with torch.no_grad():
         disp, Ap = sl.kinematics(u)
-        x_new = (sl.x0 + disp).cpu().numpy().astype(np.float32)
-        F_new = Ap.cpu().numpy().astype(np.float32) @ F
+        x_new = to_array(sl.x0 + disp, copy=True).astype(np.float32)
+        F_new = to_array(Ap, copy=True).astype(np.float32) @ F
     tele = {"lg_E0": info["E0"], "lg_E1": info["E1"], "lg_nodes": int(sl.A),
             "lg_lam": lam_loc, "lg_gnorm": info["gnorm"], "lg_sweeps": info["sweeps"],
             "lg_converged": info["converged"],

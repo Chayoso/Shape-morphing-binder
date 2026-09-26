@@ -10,6 +10,8 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PipelineConfig:
+    compute_backend: str = "legacy"  # cuda = device array work through accepted commits, no CPU fallback
+    target_reference: str = ""       # immutable denoised shading input, prepared outside CUDA execution
     body_ctrl: bool = False         # opt-in grid-basis external force; first mode has zero impulse
     body_no_dfc: bool = False       # diagnostic ablation: elastic stress stays, learned dFc is zero
     body_step_normalized: bool = False  # heuristic body step scaling by the reference dFc bound

@@ -18,7 +18,7 @@ untouched (the projected displacement is a fraction of a spacing).
 """
 from __future__ import annotations
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array
 
 
 def _cubic_bspline(t):
@@ -90,4 +90,4 @@ def grid_project(d: np.ndarray, x: np.ndarray, dx: float, grid_min, dims, m: np.
         stats = {"null_share": float(rem.norm(dim=1).pow(2).mean().sqrt() / max(float(d_t.norm(dim=1).pow(2).mean().sqrt()), 1e-12)),
                  "removed_median": float(rem.norm(dim=1).median()),
                  "d_median": float(d_t.norm(dim=1).median())}
-    return out.float().cpu().numpy(), stats
+    return to_array(out.float(), copy=True), stats

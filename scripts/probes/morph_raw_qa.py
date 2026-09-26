@@ -9,8 +9,12 @@ import json
 from pathlib import Path
 import struct
 import zipfile
-import numpy as np
-from scipy.spatial import cKDTree
+import sys
+import numpy as host_np
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from physmorph.compute import (array_api as np, KDTree as cKDTree, cuda_execution,
+                              is_cuda_execution, to_array)
 
 ARM = 'render_full_dt_iso_nn'
 
@@ -19,18 +23,18 @@ def frames_array(path):
     with zipfile.ZipFile(path) as archive:
         info = archive.getinfo('frames.npy')
         if info.compress_type != zipfile.ZIP_STORED:
-            with np.load(path) as z:
+            with host_np.load(path) as z:
                 return z['frames']
         with archive.open(info) as stream:
-            version = np.lib.format.read_magic(stream)
-            shape, fortran, dtype = np.lib.format._read_array_header(stream, version)
+            version = host_np.lib.format.read_magic(stream)
+            shape, fortran, dtype = host_np.lib.format._read_array_header(stream, version)
             npy_header = stream.tell()
         with open(path, 'rb') as stream:
             stream.seek(info.header_offset)
             header = stream.read(30)
         name_len, extra_len = struct.unpack_from('<HH', header, 26)
         offset = info.header_offset + 30 + name_len + extra_len + npy_header
-    return np.memmap(path, dtype=dtype, mode='r', offset=offset, shape=shape,
+    return host_np.memmap(path, dtype=dtype, mode='r', offset=offset, shape=shape,
                      order='F' if fortran else 'C')
 
 
@@ -39,15 +43,18 @@ def stats(values):
                 max=float(np.max(values))) if len(values) else None
 
 
-def audit(prefix, every_frame=False):
+def audit(prefix, every_frame=False, compute_backend="legacy"):
+    if compute_backend == "cuda" and not is_cuda_execution():
+        with cuda_execution("cuda"):
+            return audit(prefix, every_frame)
     meta = json.loads(Path(str(prefix) + '.json').read_text())
     arm = meta['arms'][ARM]; cfg = arm['config']
     records = [r for r in arm['history'] if r.get('frame_end') and not r.get('null_commit')]
     path = str(prefix) + '_' + ARM + '.npz'
     frames = frames_array(path)
-    with np.load(path) as z:
-        target, source = z['tgt'], z['src']
-        pins, pin_at = z['pinned'], z['pinned_at']
+    with host_np.load(path) as z:
+        target, source = to_array(z['tgt']), to_array(z['src'])
+        pins, pin_at = to_array(z['pinned']), to_array(z['pinned_at'])
         delivered = min(int(z['deliver_n']), len(frames))
     spacing = float(np.median(cKDTree(source).query(source, k=2, workers=8)[0][:, 1]))
     rcov = float(np.median(cKDTree(target).query(target, k=9, workers=8)[0][:, 8]))
@@ -73,25 +80,23 @@ def audit(prefix, every_frame=False):
     end_pins = np.zeros(len(pins), bool)
     release = any(cfg.get(k) for k in ('settle_pin_yield', 'settle_pin_follow', 'settle_pin_kkt'))
     if not release:
-        worst = 0.; checked = 0; particle_maxima = []
         ani_to_frame = {int(r['animation'])+1: int(r['frame_end'])-1 for r in records}
+        admission = np.full(len(pins), -1, dtype=np.int64)
         for when, frame in ani_to_frame.items():
             if frame < delivered:
                 end_pins |= pins & (pin_at == when)
-        for when in np.unique(pin_at[pins]):
-            if int(when) not in ani_to_frame:
-                continue
-            start = ani_to_frame[int(when)]; selected = pins & (pin_at == when)
-            if start >= delivered-1:
-                continue
-            anchor = np.asarray(frames[start])[selected].copy()
-            maxima = np.zeros(len(anchor), np.float32)
-            for i in range(start+1, delivered):
-                maxima = np.maximum(maxima, np.linalg.norm(np.asarray(frames[i])[selected]-anchor, axis=1))
-            particle_maxima.append(maxima)
-            worst = max(worst, float(maxima.max()))
-            checked += int(selected.sum())
-        maxima = np.concatenate(particle_maxima) if particle_maxima else np.array([])
+                admission[pins & (pin_at == when)] = frame
+        valid = (admission >= 0) & (admission < delivered-1)
+        anchors = np.zeros((len(pins), 3), dtype=np.float32)
+        maxima = np.zeros(len(pins), dtype=np.float32)
+        for i in range(delivered):
+            x = np.asarray(frames[i])
+            newly = valid & (admission == i)
+            anchors[newly] = x[newly]
+            active = valid & (admission < i)
+            maxima[active] = np.maximum(maxima[active], np.linalg.norm(x[active]-anchors[active], axis=1))
+        maxima = maxima[valid]
+        checked = int(valid.sum()); worst = float(maxima.max()) if checked else 0.
         pin_motion = dict(checked_particles=checked, max_wu=worst, max_sp=worst/spacing,
                           moved_particles_exact=int((maxima > 0).sum()),
                           per_particle_max_drift_sp=stats(maxima/spacing))
@@ -106,7 +111,9 @@ def audit(prefix, every_frame=False):
         _, neighbors = tree.query(final[chosen], k=33, workers=8)
         normal = final[chosen]-final[neighbors].mean(1)
         normal /= np.maximum(np.linalg.norm(normal, axis=1, keepdims=True), 1e-9)
-        moves = np.diff(np.asarray(frames[max(0, int(simulated_end*.9)-1):simulated_end, chosen]), axis=0)
+        cohort = np.stack([np.asarray(frames[i])[chosen]
+                           for i in range(max(0, int(simulated_end*.9)-1), simulated_end)])
+        moves = np.diff(cohort, axis=0)
         signed = (moves*normal).sum(2)
         tangent = np.linalg.norm(moves-signed[:, :, None]*normal, axis=2)
         moving = (np.linalg.norm(moves[1:], axis=2) > 1e-4*spacing) & (np.linalg.norm(moves[:-1], axis=2) > 1e-4*spacing)
@@ -130,7 +137,8 @@ def audit(prefix, every_frame=False):
 def main():
     p = argparse.ArgumentParser(); p.add_argument('prefix', type=Path)
     p.add_argument('--out', required=True, type=Path); p.add_argument('--every-frame', action='store_true')
-    args = p.parse_args(); result = audit(args.prefix, args.every_frame)
+    p.add_argument('--compute-backend', choices=('legacy', 'cuda'), default='legacy')
+    args = p.parse_args(); result = audit(args.prefix, args.every_frame, args.compute_backend)
     args.out.write_text(json.dumps(result, indent=2))
     print(json.dumps({k:result[k] for k in ('prefix','n','body_ctrl','pin_motion','tail_unpinned_surface','density')}))
 

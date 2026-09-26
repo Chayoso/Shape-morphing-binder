@@ -1,7 +1,7 @@
 """Arrival evidence is evaluated on the accepted state, independently of pacing."""
 from dataclasses import dataclass
 
-import numpy as np
+from physmorph.compute import array_api as np
 
 
 def _require_start_mask(x, images, radius, start):

@@ -128,3 +128,68 @@ def render_3dgs(x, color, F=None, sigma0=None, opacity=0.92, cov=None,
         return rc[0].clamp(0, 1).detach().cpu().numpy()[::-1].copy()   # same y-up/y-down fix as above
 
     raise RuntimeError("no 3DGS rasteriser available (diff_gauss / diff_gaussian_rasterization / gsplat)")
+
+
+def render_3dgs_torch(x, color, F=None, sigma0=None, opacity=0.92, cov=None,
+                     azimuth=0.6, elevation=0.3, dist=None, res=800, fovy_deg=45.0,
+                     bg=(1, 1, 1), center=None):
+    """CUDA tensors in, CUDA HWC image out; no host array conversion or CPU fallback.
+
+    The NumPy entry point above remains the frozen comparison/export interface.
+    Encoding or saving the final image is the caller's explicit I/O boundary.
+    """
+    from .covariance_torch import decompose_cov_torch, world_to_view_torch
+    if not torch.is_tensor(x) or not x.is_cuda:
+        raise ValueError('render_3dgs_torch requires CUDA positions')
+    dev = x.device
+    as_tensor = lambda value: torch.as_tensor(value, dtype=torch.float32, device=dev).contiguous()
+    x = as_tensor(x)
+    if x.ndim != 2 or x.shape[1] != 3 or not len(x):
+        raise ValueError('positions must be a nonempty (N,3) tensor')
+    N = len(x)
+    ctr = x.mean(0) if center is None else as_tensor(center)
+    if dist is None:
+        dist = (x - ctr).norm(dim=1).max() * 3.0
+    if sigma0 is None and cov is None:
+        from .knn_gpu import knn_self_torch
+        d, _ = knn_self_torch(x, 2)
+        sigma0 = 0.7 * torch.quantile(d[:, 1], 0.5)
+    if cov is None:
+        deformation = (torch.eye(3, device=dev).expand(N, 3, 3) if F is None else as_tensor(F))
+        cov = (float(sigma0) ** 2 * (deformation @ deformation.transpose(1, 2)).double()).float()
+        cov = cov + 1e-8 * torch.eye(3, device=dev)[None]
+    scales, quats = decompose_cov_torch(as_tensor(cov))
+    cam = ctr + dist * x.new_tensor((math.cos(elevation) * math.sin(azimuth),
+                                    math.sin(elevation), math.cos(elevation) * math.cos(azimuth)))
+    view = world_to_view_torch(cam, ctr)
+    fovy = math.radians(fovy_deg)
+    tangent = math.tan(fovy / 2)
+    colors = as_tensor(color)
+    opacities = as_tensor(opacity).expand(N).reshape(N, 1)
+    gd = _graphdeco_rasterizer()
+    if gd is not None:
+        Settings, Rasterizer = gd
+        projection = torch.zeros(4, 4, device=dev)
+        projection[0, 0] = projection[1, 1] = 1.0 / tangent
+        projection[3, 2] = 1.0
+        projection[2, 2] = 100.0 / (100.0 - 0.01)
+        projection[2, 3] = -(100.0 * 0.01) / (100.0 - 0.01)
+        settings = Settings(
+            image_height=res, image_width=res, tanfovx=tangent, tanfovy=tangent,
+            bg=as_tensor(bg), scale_modifier=1.0,
+            viewmatrix=view.T.contiguous(), projmatrix=(projection @ view).T.contiguous(),
+            sh_degree=0, campos=cam, prefiltered=False, debug=False)
+        out = Rasterizer(settings)(x, torch.zeros_like(x), opacities,
+                                   shs=None, colors_precomp=colors,
+                                   scales=scales, rotations=quats)
+        img = out[0] if isinstance(out, (tuple, list)) else out
+        return img.clamp(0, 1).permute(1, 2, 0).flip(0).contiguous()
+    if _have_gsplat():
+        import gsplat
+        focal = (res / 2) / tangent
+        intrinsics = x.new_tensor([[[focal, 0, res / 2], [0, focal, res / 2], [0, 0, 1]]])
+        rc, _, _ = gsplat.rasterization(
+            x, quats, scales, opacities[:, 0], colors, view[None], intrinsics, res, res,
+            near_plane=0.01, far_plane=1e3, render_mode='RGB', backgrounds=as_tensor(bg)[None])
+        return rc[0].clamp(0, 1).flip(0).contiguous()
+    raise RuntimeError('no CUDA 3DGS rasterizer is available')

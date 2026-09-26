@@ -26,7 +26,7 @@ from dataclasses import dataclass
 import os
 import time
 
-import numpy as np
+from physmorph.compute import array_api as np, to_array, sample_indices, warp_assign
 import torch
 import warp as wp
 
@@ -296,7 +296,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     else:
         bond_rest = None
         bond_frag = None
-    m_np = (tgt.m.detach().cpu().numpy().astype(np.float32) if torch.is_tensor(tgt.m) else 1.0)
+    m_np = (to_array(tgt.m.detach(), copy=True).astype(np.float32) if torch.is_tensor(tgt.m) else 1.0)
     _mref = int(getattr(cfg, "mass_ref_n", 0) or 0)
     if _mref > 0 and int(len(x0)) != _mref:
         # the dynamics mass of the discretisation (config.mass_ref_n): the body's mass is N-invariant,
@@ -312,9 +312,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # outer-layer relaxation (docs/surface_gradient.md §6) and/or the position-mode control
         # channel (§7): the layer, its normals and its same-side neighbourhoods are frozen at the
         # window start; the relaxation fraction is 1/T (over one window), 0 when only the channel is on
-        from scipy.spatial import cKDTree as _KD
+        from physmorph.compute import KDTree as _KD
         from ..render.surface_recon import layer_relax_data
-        sub = x0[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
+        sub = x0[sample_indices(N, min(N, 20000))]
         sp0 = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
         # the reference discretisation (config.disc_ref): the layer depth, the relaxation width and the u clip
         # at the reference spacing, the layer / asymmetry neighbour counts at the reference MASS
@@ -345,7 +345,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             from ..render.surface_recon import layer_u_gate
             if len(layer) == 5:
                 layer = layer + (None, 0.0)
-            ug, u_gate_frac = layer_u_gate(x0, tgt.pts.detach().cpu().numpy(), lmask, sp0,
+            ug, u_gate_frac = layer_u_gate(x0, to_array(tgt.pts.detach(), copy=True), lmask, sp0,
                                            sigma_sp=cfg.layer_gate_sigma_sp, nsig=cfg.layer_gate_nsig)
             layer = layer + (ug,)
             print(f"[layer] u gate: {u_gate_frac * 100:.1f} % of the layer above the sampling floor", flush=True)
@@ -355,7 +355,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # the stress path cannot resolve; farther off, the outline is the transport's job and u's
             # per-particle step is noise on a moving surface (the mid-morph lumps)
             from ..render.surface_recon import layer_u_gate_geom
-            ug_g, g_frac = layer_u_gate_geom(x0, tgt.pts.detach().cpu().numpy(), lmask, sp0,
+            ug_g, g_frac = layer_u_gate_geom(x0, to_array(tgt.pts.detach(), copy=True), lmask, sp0,
                                              float(cfg.layer_gate_geom_cells) * float(prm.dx))
             if len(layer) == 5:
                 layer = layer + (None, 0.0)
@@ -392,7 +392,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # (the count-based outer set of the window's start cloud), rising linearly to 1 at ctrl_taper_sp NATIVE
         # spacings from it — 2 = the measured excess zone, no per-shape constant — so the stress jump sits inside the
         # taper depth and pulls the bulk; the outline stays with the u channel and the pin.
-        from scipy.spatial import cKDTree as _KDt
+        from physmorph.compute import KDTree as _KDt
         _x0n = np.ascontiguousarray(np.asarray(x0, np.float32))
         if getattr(tgt, "native_sp", None) is None:
             _xs = np.ascontiguousarray(np.asarray(coh_nbr_src if coh_nbr_src is not None else x0, np.float32))
@@ -441,8 +441,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     def _set_material(lam_t, mu_t):
         if lam_t is None:
             return
-        tr_eval.lam.assign(np.ascontiguousarray(np.broadcast_to(lam_t.detach().cpu().numpy(), (N,)), np.float32))
-        tr_eval.mu.assign(np.ascontiguousarray(np.broadcast_to(mu_t.detach().cpu().numpy(), (N,)), np.float32))
+        warp_assign(tr_eval.lam, np.ascontiguousarray(np.broadcast_to(to_array(lam_t.detach(), copy=True), (N,)), np.float32))
+        warp_assign(tr_eval.mu, np.ascontiguousarray(np.broadcast_to(to_array(mu_t.detach(), copy=True), (N,)), np.float32))
     if cfg.control_h1_iters > 0 and not basis.per_particle:
         # the kNN control preconditioner indexes PARTICLES; the leaf is nodes x knots
         # (measured: IndexError at the first window). The basis already propagates a
@@ -519,8 +519,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             pull._sub_idx = idx_p
             disp = pull.debiased_map_displacement(x0_r, n_s)
             if getattr(tgt, "ot_kd", None) is None:
-                from scipy.spatial import cKDTree
-                tgt.ot_kd = cKDTree(np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32))
+                from physmorph.compute import KDTree as cKDTree
+                tgt.ot_kd = cKDTree(np.ascontiguousarray(to_array(tgt.points.detach(), copy=True), np.float32))
                 k_nb = int(max(4, min(64, round(4.0 / 3.0 * np.pi * (h_r / p_sp) ** 3))))
                 x0_np = np.ascontiguousarray(np.asarray(x0, np.float32))
                 _, knn = cKDTree(x0_np).query(x0_np, k=k_nb, workers=-1)
@@ -534,7 +534,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             x_int = (x0_r + step * disp).detach()
             arrived = (e_i > 0) & (dn.squeeze(1) <= h_r)
             if bool(arrived.any()):
-                _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
+                _, nn_a = tgt.ot_kd.query(to_array(x_int[arrived], copy=True), workers=-1)
                 x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
             pace_grid = rasterize_mass(x_int, m_t, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             if torch.cuda.is_available():
@@ -613,9 +613,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # leash and the cell sum pull surface particles to different places (v1: merit
             # oscillation, gate stop at ~25 windows). Projected, both terms want the same
             # support; the plan still decides WHICH region a particle belongs to.
-            from scipy.spatial import cKDTree
+            from physmorph.compute import KDTree as cKDTree
             if getattr(tgt, "ot_kd", None) is None:
-                tgt.ot_kd = cKDTree(np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32))
+                tgt.ot_kd = cKDTree(np.ascontiguousarray(to_array(tgt.points.detach(), copy=True), np.float32))
                 # material neighbourhood for denoising the sampled map: the k particles
                 # inside one blur radius of a particle at the source (k from the blur
                 # volume and the particle spacing), fixed for the run (material graph)
@@ -658,7 +658,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # were particles frozen in the domain's boundary band (mpm/kernels.py
             # k_grid_op, the separating walls) — not a property of the target.
             if cfg.phys_loss == "ot_leash":
-                _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
+                _, nn = tgt.ot_kd.query(to_array(ot_T.detach(), copy=True), workers=-1)
                 ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
         corr_chat = None                    # config.w_corr (10.35): the centroid of each neighbourhood's paced images
         pace_grid = None
@@ -708,7 +708,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     # is rebuilt in some runs (bp306d, the 300k dragon: a second measurement on the stretched cloud
                     # gave 0.0527 instead of 0.0350 wu, 2026-09-26 02:10 CDT)
                     _xs_np = np.ascontiguousarray(np.asarray(coh_nbr_src if coh_nbr_src is not None else x0, np.float32))
-                    from scipy.spatial import cKDTree as _KDn
+                    from physmorph.compute import KDTree as _KDn
                     tgt.native_sp = float(np.median(_KDn(_xs_np).query(_xs_np, k=2, workers=-1)[0][:, 1]))
                     print(f"[win] pace lead: {cfg.pace_lead_sp:g} x native spacing {tgt.native_sp:.4f} wu "
                           f"({'source' if coh_nbr_src is not None else 'window start'}) = "
@@ -725,16 +725,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # zero progress force a grow candidate (a small target starving the delivery is not "thin"); a stall
                 # at the cell is logged as outside the lead's remit. The moving set and the images are those of
                 # the window start; only accepted windows reach here. Start from rest at one spacing.
-                from scipy.spatial import cKDTree as _KDg
+                from physmorph.compute import KDTree as _KDg
                 if getattr(tgt, "native_sp", None) is None:
                     _xs = np.ascontiguousarray(np.asarray(coh_nbr_src if coh_nbr_src is not None else x0, np.float32))
                     tgt.native_sp = float(np.median(_KDg(_xs).query(_xs, k=2, workers=-1)[0][:, 1]))
                 if getattr(tgt, "gov_rcov", None) is None:
-                    _tp = np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32)
+                    _tp = np.ascontiguousarray(to_array(tgt.points.detach(), copy=True), np.float32)
                     tgt.gov_rcov = float(np.median(_KDg(_tp).query(_tp, k=9, workers=-1)[0][:, 8]))
                 _s, _h = float(tgt.native_sp), float(arr_r)
-                _xn = x0_ot.detach().cpu().numpy().astype(np.float32)
-                _dn_np = dn.squeeze(1).detach().cpu().numpy()
+                _xn = to_array(x0_ot.detach(), copy=True).astype(np.float32)
+                _dn_np = to_array(dn.squeeze(1).detach(), copy=True)
                 _mov = _dn_np > _h
                 _kd = _KDg(_xn)
                 _thin = (float((np.asarray(_kd.query_ball_point(_xn[_mov], r=tgt.gov_rcov, return_length=True, workers=-1)) - 1 < 4).mean())
@@ -789,7 +789,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         else:
                             _msg = (f"hold {g['lead']:.4f} wu (progress {_prog}, thinning {_thin:.3f}, stall {g['stall']}"
                                     + (", stall at the cell: outside the lead's remit" if g["stall"] >= 2 and g["lead"] >= _h - 1e-9 else "") + ")")
-                g["x_prev"], g["img_prev"], g["mov_prev"], g["thin_prev"] = _xn, (x0_ot + disp).detach().cpu().numpy().astype(np.float32), _mov, _thin
+                g["x_prev"], g["img_prev"], g["mov_prev"], g["thin_prev"] = _xn, to_array((x0_ot + disp).detach(), copy=True).astype(np.float32), _mov, _thin
                 tgt.gov = g
                 pace_r = float(g["lead"])
                 print(f"[win] lead governor: lead {pace_r:.4f} wu [{_s:.4f}, {_h:.4f}] — {_msg}; moving {100 * _mov.mean():.1f} %", flush=True)
@@ -825,15 +825,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # scaled by the density AT the particle: the particles within the target's shell radius around it over
                 # half the target's own count at its nearest target point (the body convention). Under-dense material
                 # waits for its bulk; the bulk moves at the pace; the front is a plug. No constant.
-                from scipy.spatial import cKDTree as _KDu
+                from physmorph.compute import KDTree as _KDu
                 if getattr(tgt, "supp_tree", None) is None:
-                    _Pu = tgt.pts.detach().cpu().numpy().astype(np.float32)
+                    _Pu = to_array(tgt.pts.detach(), copy=True).astype(np.float32)
                     tgt.supp_tree = _KDu(_Pu)
                     _d8 = tgt.supp_tree.query(_Pu, k=9, workers=-1)[0]
                     tgt.supp_rcov = float(np.median(_d8[:, 8]))
                     tgt.supp_cnt = np.asarray(tgt.supp_tree.query_ball_point(_Pu, r=tgt.supp_rcov, return_length=True), np.float32) - 1.0
                     print(f"[win] support pace: target shell radius {tgt.supp_rcov:.4f} wu, median count {float(np.median(tgt.supp_cnt)):.1f}", flush=True)
-                _x0u = x0_ot.detach().cpu().numpy().astype(np.float32)
+                _x0u = to_array(x0_ot.detach(), copy=True).astype(np.float32)
                 _n_i = np.asarray(_KDu(_x0u).query_ball_point(_x0u, r=tgt.supp_rcov, return_length=True), np.float32) - 1.0
                 _, _q = tgt.supp_tree.query(_x0u, k=1, workers=-1)
                 _need = np.maximum(1.0, 0.5 * tgt.supp_cnt[_q])
@@ -855,9 +855,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # with that fill: a lead with a sparse stream behind it waits, a particle inside a continuous stream
                 # advances at the pace, the bulk (a moving body) is untouched. No new constant.
                 _u_s = disp / dn.clamp_min(1e-9)
-                _rear = (x0_ot - float(pace_r) * _u_s).detach().cpu().numpy().astype(np.float32)
-                from scipy.spatial import cKDTree as _KDs
-                _x0np = x0_ot.detach().cpu().numpy().astype(np.float32)
+                _rear = to_array((x0_ot - float(pace_r) * _u_s).detach(), copy=True).astype(np.float32)
+                from physmorph.compute import KDTree as _KDs
+                _x0np = to_array(x0_ot.detach(), copy=True).astype(np.float32)
                 _cnt_r = np.asarray(_KDs(_x0np).query_ball_point(_rear, r=float(leash_r), return_length=True, workers=-1), np.float32)
                 _k_nb = int(tgt.ot_knn.shape[1]) if getattr(tgt, "ot_knn", None) is not None else 64
                 _fill_r = torch.as_tensor(np.minimum(1.0, _cnt_r / max(1.0, 0.5 * _k_nb)), device=dev, dtype=dn.dtype).unsqueeze(1)
@@ -946,8 +946,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # one, and a sample on a particle's ray is inside when a revealed point lies within one spacing of it
                 # (the coverage probe's definition). A tip-bound particle's image is clamped along its ray at the last
                 # inside sample. No new constant: the spacing is the target's, the reveal step the arrival radius.
-                from scipy.spatial import cKDTree as _KDf
-                _P = tgt.pts.detach().cpu().numpy().astype(np.float32)
+                from physmorph.compute import KDTree as _KDf
+                _P = to_array(tgt.pts.detach(), copy=True).astype(np.float32)
                 _sp = float(getattr(tgt, "nn_spacing", 0.0) or 0.0)
                 if _sp <= 0.0:
                     _sp = float(np.median(_KDf(_P).query(_P, k=2, workers=-1)[0][:, 1]))
@@ -962,7 +962,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     print(f"[win] front: coverage radius median {float(np.median(tgt.front_rcov)):.4f} wu = "
                           f"{float(np.median(tgt.front_rcov)) / max(_sp, 1e-9):.2f} spacings", flush=True)
                 _treeP = tgt.front_tree; _rcov = tgt.front_rcov
-                _X0 = x0_ot.detach().cpu().numpy().astype(np.float32)
+                _X0 = to_array(x0_ot.detach(), copy=True).astype(np.float32)
                 if getattr(cfg, "pace_front_dense", False):
                     # config.pace_front_dense (2026-09-26 20:40): the ear's material is one column below the ear that the plan
                     # translates by one length (tip-, neck- and base-bound groups all travel 1.34 wu on ar300), and the
@@ -1031,9 +1031,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     # match where the accreted material sits). The thin features still grow from their base.
                     if getattr(tgt, "front_bulk_pt", None) is None:
                         from ..losses.projection import bulk_mode as _bm
-                        _g3 = tgt.grid.detach().reshape(tuple(int(v) for v in tgt.ldims)).cpu().numpy()
+                        _g3 = to_array(tgt.grid.detach().reshape(tuple(int(v) for v in tgt.ldims)), copy=True)
                         _bn = float(_bm(tgt.grid.detach()))
-                        _lg = tgt.lgmin.detach().cpu().numpy() if torch.is_tensor(tgt.lgmin) else np.asarray(tgt.lgmin)
+                        _lg = to_array(tgt.lgmin.detach(), copy=True) if torch.is_tensor(tgt.lgmin) else np.asarray(tgt.lgmin)
                         _b0 = np.floor((_P - np.asarray(_lg, np.float32)[None, :]) / float(tgt.ldx)).astype(np.int64)
                         _mx = np.zeros(len(_P), np.float32)
                         for _ox in (0, 1):
@@ -1048,7 +1048,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         print(f"[win] front: thin part of the target = {100.0 * float((~tgt.front_bulk_pt).mean()):.1f} % of its "
                               f"points (bulk node mass {_bn:.1f}; a point is bulk when one of its CIC nodes holds half of it)", flush=True)
                     _revealed = _revealed | tgt.front_bulk_pt
-                _XI = x_int.detach().cpu().numpy().astype(np.float32)
+                _XI = to_array(x_int.detach(), copy=True).astype(np.float32)
                 # (19:55) a ray is held only where it passes through UNREVEALED TARGET: a sample in the air is passable (the
                 # source's part outside the target flies to the target as the pace says — holding it was the air-side hold
                 # that serialised the bulk targets and, under 52e, re-routed 30 % of the material to vacancies), a sample
@@ -1121,22 +1121,22 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             arrived = dn.squeeze(1) <= arr_r
             arrive_idx_np = None
             if bool(arrived.any()):
-                _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
+                _, nn_a = tgt.ot_kd.query(to_array(x_int[arrived], copy=True), workers=-1)
                 if _stk is not None:
                     # (2026-09-25 19:05 CDT) the sticky assignment with CAPACITY: a stuck particle snaps to its own point; an
                     # arriving particle takes the nearest target point not reserved by another (closest arrivals first, one
                     # per point, reserved for the run); none free among its 8 nearest -> it keeps the plan image, not stuck.
                     # The first form froze several particles onto one point and they competed for it forever (bp300: 7 %
                     # pinned at window 40).
-                    _stk_np = _stk.cpu().numpy(); _stk_a = _stk_np[arrived.detach().cpu().numpy()]
+                    _stk_np = to_array(_stk, copy=True); _stk_a = _stk_np[to_array(arrived.detach(), copy=True)]
                     _reserved = np.zeros(len(tgt.points), bool); _reserved[_stk_np[_stk_np >= 0]] = True
-                    _arr_idx = torch.nonzero(arrived).squeeze(1).cpu().numpy()
+                    _arr_idx = to_array(torch.nonzero(arrived).squeeze(1), copy=True)
                     _free_arr = np.nonzero(_stk_a < 0)[0]                             # arrived, not yet stuck
                     nn_a = np.asarray(nn_a, np.int64).copy()
                     nn_a[_stk_a >= 0] = _stk_a[_stk_a >= 0]
                     _taken_now = np.zeros(len(_free_arr), np.int64) - 1
                     if len(_free_arr) > 0:
-                        _xa = x_int[torch.as_tensor(_arr_idx[_free_arr], device=dev)].cpu().numpy()
+                        _xa = to_array(x_int[torch.as_tensor(_arr_idx[_free_arr], device=dev)], copy=True)
                         _dk, _ik = tgt.ot_kd.query(_xa, k=8, workers=-1)
                         for _o in np.argsort(_dk[:, 0]):                              # closest arrivals first
                             for _c in range(_ik.shape[1]):
@@ -1151,15 +1151,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         arrive_idx_np[_arr_idx[_free_arr[_ok]]] = _taken_now[_ok]
                 else:
                     arrive_idx_np = np.full(len(x_int), -1, np.int64)
-                    arrive_idx_np[arrived.detach().cpu().numpy()] = np.asarray(nn_a, np.int64)
+                    arrive_idx_np[to_array(arrived.detach(), copy=True)] = np.asarray(nn_a, np.int64)
                 if getattr(cfg, "arrive_cap", False):
                     # config.arrive_cap (method.md 10.28): the snap respects the target's CAPACITY. Without it every
                     # arrived particle near a thin feature snaps to the same few target points and the cell sum packs
                     # them in (the dragon's spikes at 300k: 50-270 particles below det F 0.3; the last arrivals wedged
                     # against a pinned neighbour). Each target point takes at most cap = N / |target points| arrivals
                     # (the mass ratio, no constant), the closest first; the surplus keeps its plan image.
-                    _idx_arr = torch.nonzero(arrived).squeeze(1).cpu().numpy()
-                    _d_a = np.linalg.norm(x_int[arrived].cpu().numpy() - tgt.points[torch.as_tensor(nn_a, device=dev)].cpu().numpy(), axis=1)
+                    _idx_arr = to_array(torch.nonzero(arrived).squeeze(1), copy=True)
+                    _d_a = np.linalg.norm(to_array(x_int[arrived], copy=True) - to_array(tgt.points[torch.as_tensor(nn_a, device=dev)], copy=True), axis=1)
                     _cap = max(1, int(round(len(x_int) / max(1, len(tgt.points)))))
                     _ord = np.lexsort((_d_a, nn_a))                       # by target point, then by distance
                     _nn_s = np.asarray(nn_a)[_ord]
@@ -1219,8 +1219,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # diagnostic only (2026-09-25 23:30 CDT): the first window's plan — the source, the denoised full
                 # displacement and the paced images — for the plan-vs-delivery probe (scratch/plan_probe.py)
                 np.savez(_dump, x0=np.ascontiguousarray(np.asarray(x0, np.float32)),
-                         x_int=x_int.detach().cpu().numpy().astype(np.float32),
-                         disp=disp.detach().cpu().numpy().astype(np.float32), pace_r=float(pace_r), leash_r=float(leash_r))
+                         x_int=to_array(x_int.detach(), copy=True).astype(np.float32),
+                         disp=to_array(disp.detach(), copy=True).astype(np.float32), pace_r=float(pace_r), leash_r=float(leash_r))
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             if getattr(cfg, "pace_cap", False):
                 # config.pace_cap (2026-09-26, with the fronts of 10.29): every image lies inside the target, so the paced
@@ -1232,9 +1232,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 else:
                     pace_grid = torch.minimum(pace_grid, tgt.grid)
             frac_arrived = float(arrived.float().mean())
-            arrived_mask_np = arrived.detach().cpu().numpy().astype(bool)   # per-particle arrival (config.ctrl_rprop_arrived)
+            arrived_mask_np = to_array(arrived.detach(), copy=True).astype(bool)   # per-particle arrival (config.ctrl_rprop_arrived)
             pace_r_np = float(arr_r)                  # the arrival radius (config.pace_lead: not the lead)
-            plan_img_np = (x0_ot + disp).detach().cpu().numpy().astype(np.float32)
+            plan_img_np = to_array((x0_ot + disp).detach(), copy=True).astype(np.float32)
             frac_sup = float("nan")
             # HAND-OFF to the fixed target: when every target cell that still lacks mass is
             # within one cell of an occupied cell, the cell sum's gradient (CIC reach: one
@@ -1281,13 +1281,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     # so tangential transport (material sliding along the outline, nefertiti's arriving
                     # front) does not disqualify it — only transport through space does (the lumps)
                     res_ot = (disp * torch.as_tensor(np.asarray(lnrm, np.float32), device=disp.device)).sum(1).abs()
-                ug_ot = (res_ot <= float(cfg.layer_gate_ot_cells) * float(prm.dx)).float().cpu().numpy()
+                ug_ot = to_array((res_ot <= float(cfg.layer_gate_ot_cells) * float(prm.dx)).float(), copy=True)
                 ug_ot = (ug_ot * (np.asarray(lmask, np.float32) > 0.5)).astype(np.float32)
                 lay = spec.layer if len(spec.layer) >= 7 else spec.layer + (None, 0.0)
                 base = lay[7] if len(lay) > 7 and lay[7] is not None else None
                 ug_new = np.ascontiguousarray(ug_ot if base is None else ug_ot * np.asarray(base, np.float32), np.float32)
                 spec.layer = lay[:7] + (ug_new,)
-                tr_eval.layer_ug.assign(ug_new)
+                warp_assign(tr_eval.layer_ug, ug_new)
                 _lm = np.asarray(lmask) > 0.5
                 u_gate_frac = float(ug_new[_lm].mean()) if bool(_lm.any()) else 0.0
                 print(f"[layer] u transport gate: {u_gate_frac * 100:.1f} % of the layer within "
@@ -1408,7 +1408,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # penalty lives purely in control space (no rollout needed for its gradient)
     knn_t = None
     if cfg.w_creg > 0 or cfg.control_h1_iters > 0 or cfg.grad_h1:   # (creg penalty below is gated on w_creg)
-        from scipy.spatial import cKDTree
+        from physmorph.compute import KDTree as cKDTree
         knn = cKDTree(x0).query(x0, k=cfg.creg_k + 1)[1][:, 1:]
         knn_t = torch.as_tensor(np.ascontiguousarray(knn), device=dev)
     surface_w_t = (torch.as_tensor(surface_w, device=dev).view(N, 1)
@@ -1419,7 +1419,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     sp_ref = float(tgt.nn_spacing) if tgt.nn_spacing > 0 else 0.0
     if sp_ref <= 0 and (cfg.w_coh > 0 or cfg.w_bond > 0):
         # nn spacing is only built for the nn/kde terms; derive it from the source here
-        from scipy.spatial import cKDTree
+        from physmorph.compute import KDTree as cKDTree
         sp_ref = float(np.median(cKDTree(x0).query(x0, k=2, workers=-1)[0][:, 1]))
     coh_sp2 = max(sp_ref, 1e-6) ** 2
     if (cfg.w_coh > 0 or cfg.w_bond > 0 or cfg.w_esc > 0 or cfg.continuity or cfg.bonds) and coh_nbr is not None:
@@ -1856,6 +1856,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     pace_bound = False               # window exited via the pace floor (on schedule)
     lk_start = None                  # kinetic term at window start (quasi-static rule)
     g_cos = g_raw_cos = g_share = g_phys_norm = g_rend_norm = None
+    render_channels = None
     lam_capped = None                # REFUTE F12: read at the update, not at window end
     render_work = render_work_x = render_work_F = None
     phys_work = phys_work_x = phys_work_F = phys_work_v = None
@@ -2087,6 +2088,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 g_raw_cos = dot_raw / max(np_raw * nr_raw, 1e-30)
                 g_share = lam_r * nr_ / max(np_ + lam_r * nr_, 1e-30)
                 g_phys_norm, g_rend_norm = np_, nr_
+                render_channels = {}
+                for leaf, physical, raw, projected in zip(leaves, gp, gr_raw, gr):
+                    name = ('stress' if leaf is dFc else 'body' if leaf is body_coeff
+                            else 'surface_u' if leaf is u else 'material')
+                    pn, rn, rr = float(physical.norm()), float(projected.norm()), float(raw.norm())
+                    render_channels[name] = dict(
+                        physical_norm=pn, render_raw_norm=rr, render_projected_norm=rn,
+                        weighted_render_norm=lam_r * rn,
+                        nominal_share=lam_r * rn / max(pn + lam_r * rn, 1e-30),
+                        raw_cos=float((physical * raw).sum()) / max(pn * rr, 1e-30),
+                        projected_cos=float((physical * projected).sum()) / max(pn * rn, 1e-30))
                 if cfg.grad_dump:
                     grad_dump_state.update(lam_r=float(lam_r), g_share=float(g_share))
             if mode in ("off", "render"):
@@ -2275,8 +2287,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             step_norm = float((dFc.detach() - bak[0]).norm())
         if on_iter is not None:                      # live viewer: stream the window's
             F_view = extra_n["Fg"] if use_geom else state_n[1]     # REFUTE F8: same F
-            on_iter(it, state_n[0].detach().cpu().numpy().astype(np.float32),  # as on_commit
-                     F_view.detach().reshape(N, 3, 3).cpu().numpy().astype(np.float32),
+            on_iter(it, to_array(state_n[0].detach(), copy=True).astype(np.float32),  # as on_commit
+                     to_array(F_view.detach().reshape(N, 3, 3), copy=True).astype(np.float32),
                      {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
                       "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
                       "d_render": float(lr_n) if lr_n is not None else None,
@@ -2289,9 +2301,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        "phys_work_v": phys_work_v,
                       "step_norm": step_norm, "predicted_decrease": predicted_decrease,
               "render_cos": render_cos, "phys_cos": phys_cos,
-                      "_grad_phys": (gx_phys_diag.detach().cpu().numpy().astype(np.float32)
+                      "_grad_phys": (to_array(gx_phys_diag.detach(), copy=True).astype(np.float32)
                                      if gx_phys_diag is not None else None),   # first/last iter only
-                      "_grad_render": (gx_rend_diag.detach().cpu().numpy().astype(np.float32)
+                      "_grad_render": (to_array(gx_rend_diag.detach(), copy=True).astype(np.float32)
                                        if gx_rend_diag is not None else None)})
         # history from the ACCEPTED evaluation. NOTE "d_render" is the pure silhouette
         # scalar; the shading channel is logged separately (they were conflated before).
@@ -2385,12 +2397,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # .copy() doubled 300 MB of traffic a window; and the whole-window F health (any step
         # with det F <= 0, per particle) is counted on the device instead of stacking T x N
         # matrices on the host for a numpy determinant (4 s a window at 300k)
-        frames = [tr.x[t].numpy() for t in range(T + 1)]
-        F_seq = [tr.F[t].numpy() for t in range(T + 1)]
+        frames = [to_array(tr.x[t], copy=True) for t in range(T + 1)]
+        F_seq = [to_array(tr.F[t], copy=True) for t in range(T + 1)]
         if _rp_save:                     # P278b: the window's accepted control and what it delivered
             np.savez(_rp_save, x0=np.asarray(frames[0], np.float32), x1=np.asarray(frames[-1], np.float32),
-                     dfc=dc.view(T, N, 3, 3).cpu().numpy().astype(np.float32),
-                     u=(u.detach().cpu().numpy().astype(np.float32) if u is not None else np.zeros(N, np.float32)))
+                     dfc=to_array(dc.view(T, N, 3, 3), copy=True).astype(np.float32),
+                     u=(to_array(u.detach(), copy=True).astype(np.float32) if u is not None else np.zeros(N, np.float32)))
             print(f"[replay] window control saved to {_rp_save} (T={T}, N={N})", flush=True)
         if _rp_load:
             _rp_out = os.environ.get("PHYSMORPH_REPLAY_OUT", _rp_load.replace(".npz", "") + f"_replayed_N{N}.npz")
@@ -2410,9 +2422,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 inv_any = bad if inv_any is None else (inv_any | bad)
                 jmin_traj = min(jmin_traj, float(det_t.min().item()))   # numpy min propagates NaN; torch min too
             n_inv_steps = int(inv_any.sum().item()) if inv_any is not None else 0
-        end = {"F": tr.F[T].numpy(), "v": tr.v[T].numpy(),
-               "C": tr.C[T].numpy(),
-               "Fg": tr.Fg[T].numpy() if use_geom else None,
+        end = {"F": to_array(tr.F[T], copy=True), "v": to_array(tr.v[T], copy=True),
+               "C": to_array(tr.C[T], copy=True),
+               "Fg": to_array(tr.Fg[T], copy=True) if use_geom else None,
                "n_inv_steps": n_inv_steps, "Jmin_traj": jmin_traj}
         _tm_add("final", t0)
         if cfg.grad_dump and grad_dump_state.get("gx_phys") is not None:
@@ -2434,11 +2446,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 dc_c = expand(cand).detach().contiguous()
                 dc_buf.copy_(dc_c.view(T, N, 3, 3))
                 tr.run()
-                resp["xT_" + name[3:]] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
+                resp["xT_" + name[3:]] = to_array(wp.to_torch(tr.x[T]).clone(), copy=True)
             dc_b = expand(grad_dump_leaf0).detach().contiguous()
             dc_buf.copy_(dc_b.view(T, N, 3, 3))
             tr.run()
-            resp["xT_base"] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
+            resp["xT_base"] = to_array(wp.to_torch(tr.x[T]).clone(), copy=True)
             u_red = {}
             if u is not None:
                 # the u channel alone: each term's u-gradient from u0 = 0, scaled to the accepted
@@ -2449,18 +2461,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     gu = grad_dump_state.get(name)
                     if gu is None:
                         continue
-                    u_red[name] = gu.cpu().numpy()
+                    u_red[name] = to_array(gu, copy=True)
                     gn = float(gu.norm())
                     if gn <= 0 or u_step <= 0:
                         continue
                     u_cand = (-(u_step / gn) * gu).clamp(-sp0, sp0)
                     wp.to_torch(tr_eval.layer_u).copy_(u_cand)
                     tr.run()
-                    resp["xT_" + name[3:] + "_u"] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
+                    resp["xT_" + name[3:] + "_u"] = to_array(wp.to_torch(tr.x[T]).clone(), copy=True)
                 wp.to_torch(tr_eval.layer_u).zero_()
                 tr.run()
-                resp["xT_base_u0"] = wp.to_torch(tr.x[T]).clone().cpu().numpy()
-                u_red["u_final"] = u_final.cpu().numpy()
+                resp["xT_base_u0"] = to_array(wp.to_torch(tr.x[T]).clone(), copy=True)
+                u_red["u_final"] = to_array(u_final, copy=True)
                 u_red["u_step"] = u_step
                 u_red["layer_mask"] = np.asarray(layer[0], np.float32)
                 wp.to_torch(tr_eval.layer_u).copy_(u_final)
@@ -2475,12 +2487,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 gl = gd.get(name)
                 if gl is not None:
                     g4 = expand(gl).detach().view(T, N, 9)
-                    red[name + "_pnorm"] = g4.norm(dim=(0, 2)).cpu().numpy()      # (N,)
-                    red[name + "_tmean"] = g4.mean(0).cpu().numpy()               # (N,9)
+                    red[name + "_pnorm"] = to_array(g4.norm(dim=(0, 2)), copy=True)      # (N,)
+                    red[name + "_tmean"] = to_array(g4.mean(0), copy=True)               # (N,9)
             np.savez_compressed(os.path.join(cfg.grad_dump, f"win_{k_win:04d}.npz"),
-                                x0=x0, xT0=gd["xT0"].cpu().numpy(), xT_final=frames[-1],
-                                gx_phys=gd["gx_phys"].cpu().numpy(), gx_sil=gd["gx_sil"].cpu().numpy(),
-                                gx_pbr=(gd["gx_pbr"].cpu().numpy() if gd.get("gx_pbr") is not None else np.zeros(0)),
+                                x0=x0, xT0=to_array(gd["xT0"], copy=True), xT_final=frames[-1],
+                                gx_phys=to_array(gd["gx_phys"], copy=True), gx_sil=to_array(gd["gx_sil"], copy=True),
+                                gx_pbr=(to_array(gd["gx_pbr"], copy=True) if gd.get("gx_pbr") is not None else np.zeros(0)),
                                 lam_r=gd["lam_r"], g_share=gd["g_share"], step_norm=step_norm_c,
                                 leaf0_norm=float(grad_dump_leaf0.norm()), leaf_final_norm=float(leaf_final.norm()),
                                 **red, **resp, **u_red)
@@ -2489,7 +2501,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         keys = ("eval_roll", "eval_loss", "eval_det", "terms", "grad", "g_phys", "g_dt", "g_rend", "final")
         print("[time] " + " ".join(f"{k} {_TM.get(k, 0.0):.2f}s/{_TM.get('n_' + k, 0)}x" for k in keys)
               + f" other {tot - sum(_TM.get(k, 0.0) for k in keys[:6]):.2f}s window {tot:.2f}s", flush=True)
-    s_out = s.detach().cpu().numpy() if s is not None else None
+    s_out = to_array(s.detach(), copy=True) if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
@@ -2506,9 +2518,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "arrive_idx": arrive_idx_np, "pace_r": pace_r_np, "pace_lead_applied": (float(pace_r) if pace_r is not None else None), "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac, "pace_front_fill_frac": pace_front_fill_frac,
-              "gx": (gx_box[0].cpu().numpy().astype(np.float32) if gx_box[0] is not None else None),
-              "u_final": (u.detach().cpu().numpy() if u is not None else None),
+              "g_share": g_share, "render_channels": render_channels, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "arrive_idx": arrive_idx_np, "pace_r": pace_r_np, "pace_lead_applied": (float(pace_r) if pace_r is not None else None), "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac, "pace_front_fill_frac": pace_front_fill_frac,
+              "gx": (to_array(gx_box[0], copy=True).astype(np.float32) if gx_box[0] is not None else None),
+              "u_final": (to_array(u.detach(), copy=True) if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
               "render_work": render_work, "render_work_x": render_work_x,
               "render_work_F": render_work_F, "phys_work": phys_work,
@@ -2519,7 +2531,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
              "fill_lam": fill_lam if fill_on else None,
              "basis": basis.describe(),
              "lambda_capped": lam_capped,
-             "dfc": dc.cpu().numpy() if cfg.warm_start else None,
+             "dfc": to_array(dc, copy=True) if cfg.warm_start else None,
              "cont_ratio": cont_state["ratio"] if cont_lim is not None else None,
              "cont_rejects": cont_state["rejects"] if cont_lim is not None else None,
              "cont_ref_ratio": cont_state["ref_ratio"] if cont_lim is not None else None}
