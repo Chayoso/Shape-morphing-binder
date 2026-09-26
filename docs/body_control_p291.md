@@ -174,6 +174,22 @@ replay measurement. CPU integration tests cover direct reuse and forced candidat
 rejection after an accepted step, checking the committed endpoint against the
 accepted callback state.
 
+The pre-repair two-mode 60-window run converged at attempted window 55 with
+silIoU 0.970760 and no guard events. Its highest-target-point tip count
+(end_probe.py convention: radius 0.25 wu, count*40000/N) is only **4.8** reference
+particles, versus **13.333** in the archived bm300 delivered endpoint. It fails
+the ear gate despite the improved developing-head density. This motivates a
+matched mixed-actuator test (`body_terminal`), retaining dFc alongside the two
+body modes. The earlier mixed test used only one temporal mode without the
+reference-bound step scaling; it does not establish the mixed two-mode result.
+No claim that dFc is uniquely necessary follows from this observation.
+
+Baseline provenance clarification: the available bm300 JSON and recomputed raw
+delivered endpoint both give silIoU 0.9741246 at frame 724 (deliver_n=725), while
+the last archived state gives 0.9735716. These differ from the quoted 0.9733/767
+summary. Comparisons here use the declared delivery cutoff and matching raw
+frames; stored metadata is not silently replaced by a narrative value.
+
 ## Conditioning diagnostic after the stress ablation
 
 `c291_bunny_force60s` (same discretisation, 300-window schedule, capped at 60)

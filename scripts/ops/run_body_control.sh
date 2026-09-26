@@ -29,6 +29,8 @@ case "$MODE" in
     force_normalized_phys) FL+=(--body_ctrl --body_no_dfc --body_step_normalized --lambda_auto 0) ;;
     force_terminal) FL+=(--body_ctrl --body_no_dfc --body_step_normalized --body_terminal_ctrl) ;;
     force_terminal_phys) FL+=(--body_ctrl --body_no_dfc --body_step_normalized --body_terminal_ctrl --lambda_auto 0) ;;
+    body_terminal) FL+=(--body_ctrl --body_step_normalized --body_terminal_ctrl) ;;
+    body_terminal_phys) FL+=(--body_ctrl --body_step_normalized --body_terminal_ctrl --lambda_auto 0) ;;
     body_phys) FL+=(--body_ctrl --lambda_auto 0) ;;
     *) exit 2 ;;
 esac
