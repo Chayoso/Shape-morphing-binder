@@ -7687,3 +7687,31 @@ point and never satisfies a distance criterion. The last candidate for the pin w
 not distance: a stuck particle moving less than one shell radius per window is still at the
 reconstruction's resolution — pin it. Proposed; the user's call, since the fit and the growth are
 already the best on record and the residual creep is half bm300's.
+
+**2026-09-25 21:10 CDT — the root cause of both visible defects, measured (`scratch/strip_probe.py`).**
+The user: bp302 looks worse by eye (more motion), the empty frames persist, and Gaussians still flow
+along the surface. (1) *The empty frames.* The head top's OWN material (14,423 particles, from the
+source's shallow layer, median depth 2.7 spacings) makes no progress toward its end position until
+t ≈ 0.14 — median progress 0.03 / −0.01 / −0.03 at t = 0.05 for source depth 0–2 / 2–5 / 5–10
+spacings, −0.05 / −0.08 at t = 0.10 (it first moves AWAY), 0.14 / 0.11 / 0.08 at t = 0.20, 0.33 at
+t = 0.30 (bm300; bp302 alike). What fills the region above the head meanwhile is the ear column's
+lead passing through (yesterday's stretched column) — the vapour. The transport is `ot_pace`: the
+paced cell sum, a DENSITY comparison. A uniformly filled region translating has the same cell sums
+inside, so only the density-jump layer (1–2 cells) receives a pull; the body behind moves only
+through elasticity and through re-planned targets that change window to window (the negative
+early progress). (2) *The surface flow.* At t = 0.9–1.0 the unpinned SURFACE particles move 0.179
+spacings per frame along the normal and 0.131 along the surface (bm300; pinned 0.002 / 0.012; the
+unpinned interior 0.034 / 0.056). bp302: 0.138 / 0.063 — slower, but only 831 surface particles
+pinned against bm300's 6,730, so 90 % of its surface moves: why it looks worse. Tangential motion
+costs nothing under a density loss and a silhouette; the normal motion is the outer layer's fit
+steps, accepted at noise-level merit gains. *The common root:* the objective has no per-particle
+correspondence — translation inside a filled region and rearrangement along a filled surface are
+its null directions. Early, the bulk is not pulled and the front skin strips off (vapour); late,
+free particles wander in the null space (flow, flicker). Every rule added since the fronts
+(fronts, paces, sticky, pin variants) patched a symptom of this null space. The structural remedy
+is a transport term that is a correspondence, not a density: each particle pulled toward its own
+paced image (the plan already computes it), so the interior translates with the front and
+surface rearrangement has a cost. The record says a walking per-particle target was falsified on
+the 150k C (2026-09-17: the loss became quasi-stationary and the merit gate stopped the run), so
+the merit must then measure progress on the fixed plan (the distance to the plan images), not the
+walking loss. Proposed; not run — the user asked for the cause.
