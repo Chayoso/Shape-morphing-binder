@@ -150,6 +150,7 @@ class PipelineConfig:
                                     # 1.32x ear dilation / 0.94x body compression this
                                     # term measures directly.
     jdens_res: int = 128            #   its own raster (64^3 is biased vs the kNN J)
+    w_corr: float = 0.0             # 2026-09-25 (10.35): correspondence at the plan's resolution (neighbourhood centroids), equal-norm vs D_vol
     w_h1: float = 0.0               # NON-LOCAL mass balance (REVISION 3 amendment):
                                     # H^-1 norm of the density residual on the loss
                                     # grid (FFT Poisson). Same minimiser as D_vol; its

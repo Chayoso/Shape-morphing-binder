@@ -235,6 +235,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_kde = args.w_kde
         cfg.w_jdens = args.w_jdens
         cfg.w_h1 = args.w_h1
+        cfg.w_corr = args.w_corr
         cfg.nn_berth_k = args.nn_berth_k
         cfg.mom_carry = args.mom_carry
         cfg.anneal_stale = args.anneal
@@ -254,6 +255,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_kde = args.w_kde
         cfg.w_jdens = args.w_jdens
         cfg.w_h1 = args.w_h1
+        cfg.w_corr = args.w_corr
         cfg.nn_berth_k = args.nn_berth_k
         cfg.w_fill = args.w_fill
         cfg.w_jvol = args.w_jvol
@@ -291,6 +293,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_kde = args.w_kde
         cfg.w_jdens = args.w_jdens
         cfg.w_h1 = args.w_h1
+        cfg.w_corr = args.w_corr
         cfg.nn_berth_k = args.nn_berth_k
         cfg.w_fill = args.w_fill
         cfg.w_jvol = args.w_jvol
@@ -315,6 +318,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_nn = args.w_nn
         cfg.nn_far_k = args.nn_far_k
         cfg.w_h1 = args.w_h1
+        cfg.w_corr = args.w_corr
         cfg.nn_berth_k = args.nn_berth_k
         cfg.anneal_stale = args.anneal
         cfg.assim_iso = True
@@ -352,6 +356,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_kde = args.w_kde
         cfg.w_jdens = args.w_jdens
         cfg.w_h1 = args.w_h1
+        cfg.w_corr = args.w_corr
         cfg.nn_berth_k = args.nn_berth_k
         cfg.w_jvol = args.w_jvol
         cfg.gauss_mix = args.gauss_mix
@@ -375,6 +380,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_kde = args.w_kde
         cfg.w_jdens = args.w_jdens
         cfg.w_h1 = args.w_h1
+        cfg.w_corr = args.w_corr
         cfg.nn_berth_k = args.nn_berth_k
         cfg.w_jvol = args.w_jvol
         cfg.assim_iso = True
@@ -404,6 +410,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
         cfg.w_kde = args.w_kde
         cfg.w_jdens = args.w_jdens
         cfg.w_h1 = args.w_h1
+        cfg.w_corr = args.w_corr
         cfg.nn_berth_k = args.nn_berth_k
         cfg.w_jvol = args.w_jvol
         cfg.gauss_mix = args.gauss_mix if args.gauss_mix > 0 else 0.25
@@ -544,6 +551,7 @@ def main():
     ap.add_argument("--w_kde", type=float, default=0.0)  # particle-scale density matching (1 = equal-norm to D_vol)
     ap.add_argument("--w_jdens", type=float, default=0.0)  # density-measured volume prior (1 = equal-norm to D_vol)
     ap.add_argument("--w_h1", type=float, default=0.0)  # non-local H^-1 mass balance (1 = equal-norm to D_vol)
+    ap.add_argument("--w_corr", type=float, default=0.0, help="neighbourhood correspondence to the paced images, equal-norm vs D_vol (config.w_corr; 1 = parity)")
     ap.add_argument("--nn_berth_k", type=float, default=1.0)  # near-band berth (x2 adopted: no dead band)
     ap.add_argument("--nn_tail_frac", type=float, default=0.0)
     ap.add_argument("--live_port", type=int, default=0)  # >0: stream this run

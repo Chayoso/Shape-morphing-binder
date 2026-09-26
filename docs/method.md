@@ -1629,3 +1629,28 @@ under-dense region takes the corresponding fraction of a step and waits for its 
 advances as a plug. The reference is the target's own count at the nearest point, so a thin
 feature (fewer target points within r) is not read as under-dense by its geometry. No new constant:
 the shell radius, the target's counts, the body convention of one half.
+
+### 10.35 Correspondence at the plan's resolution (2026-09-25 22:15 CDT; config `w_corr`; the null space measured)
+
+The transport of §10.19 is a density comparison against the paced cloud. Its null space is
+measured on bm300 (`strip_probe.py`): a filled region translating has equal cell sums inside, so
+only its density-jump layer is pulled — the material that ends at the head's top (the source's
+shallow layer, depth 2.7 spacings) makes no progress toward its place until t ≈ 0.14 (median
+progress −0.05 at t = 0.10) while the ear column's lead runs through the region as a vapour; and
+late in the morph the free surface material moves 0.18 spacings per frame along the normal and
+0.13 along the surface, the tangential part costing nothing under a density and a silhouette. A
+per-particle pull to the plan's images cures both and kills the detail (the leash, falsified three
+times on 40k: the images sit ~0.9 spacings inside the target, re-drawn noisy every window, and a
+pull strong enough to hold a stray tears the bulk where its anchor disagrees with the cell sum),
+because the permutation freedom that lets the surface flow is what lets material rearrange into a
+thin tip. The correspondence is therefore written at the plan's own resolution. Let N_i be the
+plan's material neighbourhood of particle i (§10.30: the k particles within one blur radius at
+the source, the set the plan is averaged over), x̄_i the centroid of N_i at the window's end and
+ĉ_i the centroid of its paced images x̂ (§10.19 with 10.27–10.31). The term is
+
+  L_corr = (1/n) Σ_i |x̄_i − ĉ_i|²,   added outside the physics core with the one-shot equal-norm
+  scale against D_vol at the first window (the H⁻¹ precedent, §10.24 note).                    (57)
+
+A neighbourhood is pulled as a whole, so the bulk translates with the front and nothing is torn
+from its neighbours; inside the neighbourhood the arrangement — the sub-blur detail — stays the
+density and render terms'. No new constant: the plan's neighbourhood, its images, the parity scale.

@@ -78,6 +78,7 @@ class TargetPack:
     ot_pull: object = None               # losses/ot.SinkhornPull (phys_loss = "ot")
     ot_scale: float | None = None        # one-shot equal-norm calibration of the OT loss vs D_vol
     h1_scale: float | None = None        # H^-1 mass-balance term: equal-norm vs D_vol
+    corr_scale: float | None = None      # 10.35 neighbourhood correspondence: equal-norm vs D_vol
     kde_h: float = 0.0                  # particle-scale density term (w_kde>0)
     kde_rho_ref: float = 1.0
     kde_scale: float | None = None      # one-shot equal-norm calibration vs D_vol
@@ -569,6 +570,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             if cfg.phys_loss == "ot_leash":
                 _, nn = tgt.ot_kd.query(ot_T.detach().cpu().numpy(), workers=-1)
                 ot_T = tgt.points[torch.as_tensor(nn, device=dev)].detach().to(ot_T.dtype)
+        corr_chat = None                    # config.w_corr (10.35): the centroid of each neighbourhood's paced images
         pace_grid = None
         pace_proj_stats = None
         arrived_mask_np = None
@@ -919,10 +921,35 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             if bool(arrived.any()):
                 _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
                 if _stk is not None:
-                    _stk_a = _stk[arrived].cpu().numpy()
-                    nn_a = np.where(_stk_a >= 0, _stk_a, np.asarray(nn_a))        # a stuck particle snaps to ITS point
-                arrive_idx_np = np.full(len(x_int), -1, np.int64)
-                arrive_idx_np[arrived.detach().cpu().numpy()] = np.asarray(nn_a, np.int64)
+                    # (2026-09-25 19:05 CDT) the sticky assignment with CAPACITY: a stuck particle snaps to its own point; an
+                    # arriving particle takes the nearest target point not reserved by another (closest arrivals first, one
+                    # per point, reserved for the run); none free among its 8 nearest -> it keeps the plan image, not stuck.
+                    # The first form froze several particles onto one point and they competed for it forever (bp300: 7 %
+                    # pinned at window 40).
+                    _stk_np = _stk.cpu().numpy(); _stk_a = _stk_np[arrived.detach().cpu().numpy()]
+                    _reserved = np.zeros(len(tgt.points), bool); _reserved[_stk_np[_stk_np >= 0]] = True
+                    _arr_idx = torch.nonzero(arrived).squeeze(1).cpu().numpy()
+                    _free_arr = np.nonzero(_stk_a < 0)[0]                             # arrived, not yet stuck
+                    nn_a = np.asarray(nn_a, np.int64).copy()
+                    nn_a[_stk_a >= 0] = _stk_a[_stk_a >= 0]
+                    _taken_now = np.zeros(len(_free_arr), np.int64) - 1
+                    if len(_free_arr) > 0:
+                        _xa = x_int[torch.as_tensor(_arr_idx[_free_arr], device=dev)].cpu().numpy()
+                        _dk, _ik = tgt.ot_kd.query(_xa, k=8, workers=-1)
+                        for _o in np.argsort(_dk[:, 0]):                              # closest arrivals first
+                            for _c in range(_ik.shape[1]):
+                                _p = int(_ik[_o, _c])
+                                if not _reserved[_p]:
+                                    _reserved[_p] = True; _taken_now[_o] = _p; break
+                        nn_a[_free_arr] = np.where(_taken_now >= 0, _taken_now, nn_a[_free_arr])
+                    arrive_idx_np = np.full(len(x_int), -1, np.int64)
+                    arrive_idx_np[_arr_idx[_stk_a >= 0]] = _stk_a[_stk_a >= 0]
+                    if len(_free_arr) > 0:
+                        _ok = _taken_now >= 0
+                        arrive_idx_np[_arr_idx[_free_arr[_ok]]] = _taken_now[_ok]
+                else:
+                    arrive_idx_np = np.full(len(x_int), -1, np.int64)
+                    arrive_idx_np[arrived.detach().cpu().numpy()] = np.asarray(nn_a, np.int64)
                 if getattr(cfg, "arrive_cap", False):
                     # config.arrive_cap (method.md 10.28): the snap respects the target's CAPACITY. Without it every
                     # arrived particle near a thin feature snaps to the same few target points and the cell sum packs
@@ -975,6 +1002,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                             tgt.render_paced_off = True
                             sils_eff, shade_eff, pbr_grid_eff = tgt.sils, tgt.shade, True
                             print("[win] paced render target: converged in the render's metric — the target's own images from here", flush=True)
+            if getattr(cfg, "w_corr", 0.0) > 0 and getattr(tgt, "ot_knn", None) is not None:
+                # config.w_corr (2026-09-25 22:15 CDT, method.md 10.35): correspondence at the plan's own resolution. The
+                # paced cell sum is a density comparison: a filled region translating has equal cell sums inside, so
+                # only its density-jump layer is pulled, the body behind lags, and the front's skin strips off as the
+                # vapour (strip_probe: the head top's own material makes no progress until t = 0.14 while the ear's
+                # lead passes). A per-particle pull to the plan images tears the bulk and kills the detail (the leash,
+                # falsified three times). Here each material NEIGHBOURHOOD (the plan's k-NN set, one blur radius at the
+                # source) is pulled as a whole: its centroid at the window's end toward the centroid of its paced
+                # images; inside the neighbourhood the arrangement stays the density and render terms'.
+                corr_chat = x_int[tgt.ot_knn].mean(dim=1).detach()
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             if getattr(cfg, "pace_cap", False):
                 # config.pace_cap (2026-09-26, with the fronts of 10.29): every image lies inside the target, so the paced
@@ -1224,6 +1261,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             log(f"[win] h1 calibration: |g_vol|={float(gv):.3g} |g_h1|={float(gh):.3g} "
                 f"scale={tgt.h1_scale:.3g}")
         h1_ratio = float(tgt.h1_scale * gh / gv.clamp_min(1e-30))
+    def corr_loss(xc):
+        return ((xc[tgt.ot_knn].mean(dim=1) - corr_chat) ** 2).sum(dim=1).mean()
+    if getattr(cfg, "w_corr", 0.0) > 0 and corr_chat is not None and tgt.corr_scale is None:
+        # one-shot equal-norm calibration vs D_vol at the first window (the H^-1 precedent): at the source the
+        # neighbourhood centroids are one pace from their images, so the gradient is non-zero and shares D_vol's
+        # direction of descent
+        xg = x0_t.detach().clone().requires_grad_(True)
+        gv = torch.autograd.grad(dvol(xg), xg)[0].norm()
+        gc = torch.autograd.grad(corr_loss(xg), xg)[0].norm()
+        tgt.corr_scale = float(min(gv / gc.clamp_min(1e-30), 1e3))
+        log(f"[win] corr calibration: |g_vol|={float(gv):.3g} |g_corr|={float(gc):.3g} scale={tgt.corr_scale:.3g}")
     kde_nbr = None
     if cfg.w_kde > 0 and tgt.pts is not None:
         kde_nbr = kde_assign(x0_t, tgt.pts, cfg.kde_k)
@@ -1541,6 +1589,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # 88 % arrival (the divergence +7 % a window, the brake stopped the run at 15). Outside, the balancer
             # and PCGrad see the cell sum alone; the H^-1 pull is added unscaled after them.
             L = L + cfg.w_h1 * tgt.h1_scale * d_h1(xT, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims)
+        if getattr(cfg, "w_corr", 0.0) > 0 and corr_chat is not None and tgt.corr_scale is not None:
+            L = L + cfg.w_corr * tgt.corr_scale * corr_loss(xT)     # 10.35, outside the core as H^-1
         ldt = dt_term(xT)
         if ldt is not None:
             L = L + ldt
