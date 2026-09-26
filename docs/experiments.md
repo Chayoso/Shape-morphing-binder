@@ -8372,3 +8372,16 @@ sits at the cell where thinning is flat. Remaining directions, for decision: (a)
 render side with physically consistent stretched splats (the material in transit is stretched; drawing it so
 is the truthful rendering of the state), testable in minutes; (b) a body-force control channel, a formulation
 change of days, with render-off and dFc controls kept as the reviewer required.
+
+**2026-09-26 12:40 CDT — P289 ✗ on the dragon too (bp308d).** bo300's form + the governor: silIoU **0.9652**
+(bo300 0.9699, −0.0047; gate ≥ 0.9699), det F min 0.301 (0.264), 0 negative-reversal windows, 99 windows with the
+early stop at 96.8 % arrived (bo300 102 windows to 99.9 %), wall 28.5 min (46.5). The lead: 0.035–0.14 wu for
+windows 1–26 (the long transport's onset delayed as with the fixed lead), the cell from window 27, then from
+window 40 a three-window cycle — a shrink candidate to 0.151 whenever the moving set's thinning ticked up,
+reverted the next window, held one window, again — i.e. the acceptance test does what it says but the
+thinning signal fluctuates enough to propose a shrink every third window through the settled phase. The
+governor sits at the cell where it should only after its own slow start, and the periodic shrink costs the
+fit. P289 refuted on both gates; together with P290 and the fixed leads (P284–P286) this closes the lead and
+the taper as levers within the current formulation. bm300 (bunny) and bo300 (dragon) remain the 300k
+forms; the page is unchanged. Open for the user's decision: the body-force control channel (a formulation
+change) or accepting the transit look as the physical state and moving to the other open items.
