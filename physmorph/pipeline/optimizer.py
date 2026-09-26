@@ -218,6 +218,41 @@ def _state_ok(state) -> bool:
     return True                     # dets like 1e-12 with exploding F^-T
 
 
+def _cic_gather(g: torch.Tensor, x: torch.Tensor, grid_min: torch.Tensor, dx: float, dims) -> torch.Tensor:
+    """Trilinear gather of a per-node field g (cells, C) at the positions x — the mirror of rasterize_mass."""
+    nx, ny, nz = dims
+    rel = (x - grid_min) / dx
+    base = torch.floor(rel).long()
+    frac = rel - base.float()
+    acc = torch.zeros(len(x), g.shape[1], device=x.device, dtype=g.dtype)
+    for ox in (0, 1):
+        wx = frac[:, 0] if ox else 1.0 - frac[:, 0]
+        for oy in (0, 1):
+            wy = frac[:, 1] if oy else 1.0 - frac[:, 1]
+            for oz in (0, 1):
+                wz = frac[:, 2] if oz else 1.0 - frac[:, 2]
+                ii, jj, kk = base[:, 0] + ox, base[:, 1] + oy, base[:, 2] + oz
+                valid = (ii >= 0) & (ii < nx) & (jj >= 0) & (jj < ny) & (kk >= 0) & (kk < nz)
+                idx = ((ii * ny + jj) * nz + kk).clamp(0, nx * ny * nz - 1)
+                acc = acc + (wx * wy * wz * valid.float())[:, None] * g[idx]
+    return acc
+
+
+def _grid_map(field: torch.Tensor, x_src: torch.Tensor, x_dst: torch.Tensor, grid_min, dx: float, dims) -> torch.Tensor:
+    """P278b replay (diagnostic, 2026-09-26): a per-particle control field (T, Ns, C) at the source cloud x_src
+    projected onto the loss grid (CIC node average) and sampled back at x_dst (trilinear) -> (T, Nd, C). With
+    x_dst = x_src it measures the projection's own smoothing; with another cloud of the same body it hands the
+    SAME grid-level control to a different sampling."""
+    ones = torch.ones(len(x_src), device=x_src.device)
+    wsum = rasterize_mass(x_src, ones, grid_min, dx, dims).clamp_min(1e-12)
+    out = []
+    for t in range(field.shape[0]):
+        g = torch.stack([rasterize_mass(x_src, field[t, :, c], grid_min, dx, dims) / wsum
+                         for c in range(field.shape[2])], 1)
+        out.append(_cic_gather(g, x_dst, grid_min, dx, dims))
+    return torch.stack(out)
+
+
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, F0=None, Fp=None, v0=None, C0=None,
                     s_init=None, dfc_init=None, on_iter=None, log=print,
@@ -1679,7 +1714,40 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
 
     grad_dump_leaf0 = dFc.detach().clone() if cfg.grad_dump else None   # the window's start control
     grad_dump_state = {}
-    for it in range(cfg.iters):
+    _rp_load = os.environ.get("PHYSMORPH_REPLAY_LOAD", "")
+    _rp_save = os.environ.get("PHYSMORPH_REPLAY_SAVE", "")
+    n_iters = cfg.iters
+    if _rp_load:
+        # P278b (diagnostic only, 2026-09-26 00:50 CDT): REPLAY a saved window control instead of optimising. The
+        # control is the saved run's accepted expanded field (T, Ns, 3, 3); PHYSMORPH_REPLAY_MAP=direct copies it
+        # (same cloud), "grid" projects it onto the loss grid and samples it at THIS cloud (same or another N).
+        # u is zero unless PHYSMORPH_REPLAY_U=1 (then mapped the same way and applied with this cloud's own
+        # layer mask, normals and gate). No iteration runs; the commit rollout below delivers the window.
+        _z = np.load(_rp_load)
+        _xs = torch.as_tensor(np.asarray(_z["x0"], np.float32), device=dev)
+        _dc_src = torch.as_tensor(np.asarray(_z["dfc"], np.float32), device=dev)
+        _mode = os.environ.get("PHYSMORPH_REPLAY_MAP", "grid")
+        _with_u = os.environ.get("PHYSMORPH_REPLAY_U", "0") == "1" and "u" in _z.files
+        with torch.no_grad():
+            if _mode == "direct":
+                assert _dc_src.shape[1] == N, "direct replay needs the same cloud"
+                _init = _dc_src
+                _u_new = torch.as_tensor(np.asarray(_z["u"], np.float32), device=dev) if _with_u else None
+            else:
+                _init = _grid_map(_dc_src.reshape(_dc_src.shape[0], -1, 9), _xs, x0_t, tgt.lgmin, tgt.ldx,
+                                  tgt.ldims).reshape(_dc_src.shape[0], N, 3, 3)
+                _u_new = (_grid_map(torch.as_tensor(np.asarray(_z["u"], np.float32), device=dev).reshape(1, -1, 1),
+                                    _xs, x0_t, tgt.lgmin, tgt.ldx, tgt.ldims).reshape(N) if _with_u else None)
+            dFc.copy_(_init if basis.per_particle else basis.project(_init))
+            if u is not None:
+                if _u_new is not None:
+                    u.copy_(_u_new)
+                else:
+                    u.zero_()
+        print(f"[replay] control loaded from {_rp_load} (map {_mode}, u {'on' if _u_new is not None else 'off'}): "
+              f"|dFc| mean {float(dFc.detach().abs().mean()):.3e} (source {float(_dc_src.abs().mean()):.3e})", flush=True)
+        n_iters = 0
+    for it in range(n_iters):
         # ---- gradients. λ_R is fixed for the WHOLE window (estimated from the first
         # iteration's per-term norms), so every accepted step decreases one objective. ----
         t0 = _tick()
@@ -2094,6 +2162,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # matrices on the host for a numpy determinant (4 s a window at 300k)
         frames = [tr.x[t].numpy() for t in range(T + 1)]
         F_seq = [tr.F[t].numpy() for t in range(T + 1)]
+        if _rp_save:                     # P278b: the window's accepted control and what it delivered
+            np.savez(_rp_save, x0=np.asarray(frames[0], np.float32), x1=np.asarray(frames[-1], np.float32),
+                     dfc=dc.view(T, N, 3, 3).cpu().numpy().astype(np.float32),
+                     u=(u.detach().cpu().numpy().astype(np.float32) if u is not None else np.zeros(N, np.float32)))
+            print(f"[replay] window control saved to {_rp_save} (T={T}, N={N})", flush=True)
+        if _rp_load:
+            _rp_out = os.environ.get("PHYSMORPH_REPLAY_OUT", _rp_load.replace(".npz", "") + f"_replayed_N{N}.npz")
+            np.savez(_rp_out, x0=np.asarray(frames[0], np.float32), x1=np.asarray(frames[-1], np.float32))
+            print(f"[replay] delivered end positions saved to {_rp_out}", flush=True)
         with torch.no_grad():
             inv_any = None
             jmin_traj = float("inf")

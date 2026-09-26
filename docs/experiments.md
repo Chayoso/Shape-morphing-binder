@@ -7899,3 +7899,40 @@ one-cell lead is not what the loss needs to see — the open item is the DELIVER
 pace per early window at both N, half at 300k), i.e. P278b. Note the alignment at 36³ is only 0.5–0.8:
 the density descent is not the transport field; a correspondence term (bp304) has cos 1 by construction
 and was still inert, which again points at delivery, not direction.
+
+**2026-09-26 00:25 CDT — P283 (material-bound appearance in the delivered renderer) partial; P278b round 1:
+the first-window deficit at 300k is in the FORWARD response to a common control, and the control itself is
+clip-bound and coherent at both N.** `render_splat_gpu.py --material_normals [--material_size]` (normals anchored
+at first exposure and transported by the tangent-plane map of the fixed 32-neighbourhood, 2D→3D least squares,
+re-anchored when the fit residual exceeds 0.5; the second flag lets the splat radius follow the in-plane area
+change and keeps the anchor's support opacity). bm300, same frames / cameras / stride: the per-rendered-frame
+normal turn of anchored particles at t 0.9–1.0 0.74° → 0.60° (refit vs transported; anchored share 0.41), the
+video tail D1 0.0008 → 0.0007 (normals) → **0.0006** (normals + size), ALT 0.0007 → 0.0005. The reviewer's
+caution was right: the 2.6° → 0.47° of the centroid-estimator probe does not transfer — the delivered renderer's
+two smoothing passes already remove most of the refit noise, and the remaining tail is coverage/size refits
+(sig_i, support) more than normals. −25 % on the tail, short of the ≤ 0.0004 target; kept opt-in, page unchanged.
+**P278b round 1** (`optimizer.py` replay hook `PHYSMORPH_REPLAY_SAVE/LOAD/MAP/U/OUT`, `scratch/replay_chain.sh`,
+`replay_probe.py`, `ctrl_probe.py`): the accepted first-window control of the 40k form (T = 20) replayed (a)
+directly on the 40k cloud, (b) projected through the loss grid (CIC node average, trilinear sample) back onto
+the 40k cloud, (c) the same grid control sampled at the 300k cloud under bm300's form; u off, then u on.
+Delivered motion of the head-top-bound material by SOURCE DEPTH IN WORLD UNITS (median |x1 − x0| wu / share
+along the paced step):
+
+| replay | 0–0.14 wu (skin) | 0.14–0.35 wu |
+|---|---|---|
+| R1 40k original | 0.0632 / 0.190 | 0.0221 / 0.059 |
+| R2 40k direct replay (u off, and u on) | identical to R1 to four digits | identical |
+| R3 40k grid-projected | 0.0588 / 0.180 (−7 %) | 0.0204 / 0.055 |
+| R4 same grid control at 300k | **0.0230 / 0.045** (36 % / 24 % of R3) | 0.0193 / −0.036 |
+| R5 300k original (its own control) | 0.0245 / 0.012 | 0.0227 / −0.050 |
+
+Readings: the hook is faithful (R2 = R1); the u channel contributes nothing in the first window (u on = u off,
+so the gate's onset is not the cause); the projection costs 7 %; under the SAME grid-level control the 300k
+cloud's skin moves a third as far in the same physical band and a quarter as far along the plan — a forward
+difference, per the reviewer's framing, not yet "184 ppc"; and the 300k's own optimised control delivers the same
+magnitude with an even smaller along-plan share. The controls themselves: median |dFc| = 2.00e-2 at both N —
+the `--dfc_clip 0.02` bound, so the first window's control is clip-saturated at both N — and the 32-NN coherence
+0.96–0.99 at both, so cancellation and per-particle step scaling are excluded. In native-spacing bands the same
+data had read "88 %": the world-unit binding the reviewer asked for changed the conclusion. Round 2 launched:
+the same grid control at 300k with one forward ingredient removed at a time (`--layer_relax`, `--disc_ref`,
+`--bonds`, `--layer_ctrl`, and bm300's flags replaced by the 40k form's), plus 40k without `--layer_relax`.

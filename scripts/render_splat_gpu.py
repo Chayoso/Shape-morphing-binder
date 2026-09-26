@@ -24,6 +24,9 @@ ap.add_argument("--opacity", type=float, default=0.92); ap.add_argument("--hold"
 ap.add_argument("--k", type=int, default=8); ap.add_argument("--nsmooth", type=int, default=2)
 ap.add_argument("--label", default=""); ap.add_argument("--stills", default="")
 ap.add_argument("--views", default="35,215"); ap.add_argument("--elev", type=float, default=18.0)
+ap.add_argument("--material_size", action="store_true",
+                help="P283 second stage (with --material_normals): an anchored particle's splat radius follows the in-plane "
+                     "area change of its material neighbourhood and its support opacity stays at the anchor's value")
 ap.add_argument("--material_normals", action="store_true",
                 help="P283 (2026-09-26): normals anchored at a particle's first exposed frame and transported by the tangent-plane "
                      "deformation of its fixed 32-neighbourhood instead of being re-estimated every frame")
@@ -70,7 +73,8 @@ mat = None                                                                   # P
 if a.material_normals:
     _N = len(np.asarray(F[0]))
     mat = dict(anch=torch.zeros(_N, dtype=torch.bool, device=dev), nb0=None, P0=None, G=None, n_prev=None,
-               last=None, last_anch=None, last_refit=None)
+               last=None, last_anch=None, last_refit=None,
+               sig0=torch.zeros(_N, device=dev), sup0=torch.zeros(_N, device=dev))
     stat_lines = []
 for kf, i in enumerate(idx):
     x = torch.as_tensor(np.asarray(F[i], np.float32), device=dev)
@@ -109,12 +113,19 @@ for kf, i in enumerate(idx):
             ai = torch.nonzero(anch).squeeze(1)
             D = x[mat["nb0"][ai]] - x[ai][:, None]                                          # (M,32,3) current offsets
             Mmap = torch.einsum("mki,mkj->mij", D, mat["P0"][ai]) @ mat["G"][ai]           # (M,3,2) transported tangents
-            nt = torch.cross(Mmap[:, :, 0], Mmap[:, :, 1], dim=1); nt = nt / nt.norm(dim=1, keepdim=True).clamp_min(1e-9)
+            nt = torch.cross(Mmap[:, :, 0], Mmap[:, :, 1], dim=1); nt_norm = nt.norm(dim=1)   # = the in-plane area ratio
+            nt = nt / nt_norm.clamp_min(1e-9)[:, None]
             flip = (nt * mat["n_prev"][ai]).sum(1) < 0; nt[flip] = -nt[flip]
             pred = torch.einsum("mkj,mij->mki", mat["P0"][ai], Mmap)
             resid = (D - pred).norm(dim=(1, 2)) / D.norm(dim=(1, 2)).clamp_min(1e-9)
             bad = resid > 0.5
             n_trans[ai[~bad]] = nt[~bad]
+            if a.material_size:
+                # second stage: the splat radius follows the neighbourhood's in-plane area change (PhysGaussian's
+                # covariance transport restricted to the tangent plane), the support opacity stays the anchor's
+                area = nt_norm[~bad].clamp(0.25, 16.0)
+                sig_i[ai[~bad]] = (mat["sig0"][ai[~bad]] * area.sqrt()).clamp(a.sigma * sp, 4.0 * a.sigma * sp)
+                support[ai[~bad]] = mat["sup0"][ai[~bad]]
             anch[ai[bad]] = False
         new = strong & ~anch
         if new.any():
@@ -125,6 +136,7 @@ for kf, i in enumerate(idx):
             P0 = torch.stack([(D0 * t1_[:, None]).sum(2), (D0 * t2_[:, None]).sum(2)], 2)     # (m,32,2) in-plane rest coordinates
             A_ = torch.einsum("mki,mkj->mij", P0, P0) + 1e-9 * torch.eye(2, device=dev)
             mat["nb0"][ni] = js[ni]; mat["P0"][ni] = P0; mat["G"][ni] = torch.linalg.inv(A_)
+            mat["sig0"][ni] = sig_i[ni]; mat["sup0"][ni] = support[ni]
             anch[ni] = True; n_trans[ni] = n_a
         mat["n_prev"] = n_trans.clone()
         n_s = n_trans
