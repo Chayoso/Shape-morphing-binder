@@ -31,6 +31,9 @@ p95=2.4695sp, max8.4114sp (0.2943015wu). Release modes are off. Thus the histori
 baseline and body runs have max0.0wu over the corresponding whole-frame audit.
 The new distribution diagnostic reports exact nonzero movement, not a tolerance-
 based convergence decision. Raw pin invariance is distinct from all-surface rest.
+Of fixedbody60's checked pins, 461 final admissions only have a subsequent held
+frame, not another physical rollout. This audit alone does not prove that historical
+post-pin drift supplied the missing tip mass.
 
 The goals are continuous material coverage during transport, no material sliding after
 individual convergence, and no arrival oscillation. Adding an actuator alone proves
@@ -74,6 +77,13 @@ is not admitted. Commit PIC and subgrid translation preserve already active pins
 Reported `pinned_frac` and exported `pinned` mean the active constraints; the broader
 admitted set is reported separately as `settled_frac`. Reattachment and settle-commit
 cannot currently be combined with pins and are explicitly rejected.
+
+Non-paced losses (including the C target's plain OT regime) export no per-particle
+arrival contract. Their existing reversal-only settlement is retained and explicitly
+logged as `pin_arrival_evidence=legacy_no_arrival_contract`; `arrived_end_frac` is null,
+not a fabricated arrival rate. `settle_pin_confirm` rejects those regimes before
+optimization. Their historical gallery results do not certify accepted-end arrival,
+and the exact-pin changes still need matched quality checks on those shapes.
 
 Admission still uses the existing reversal/history/ray conditions. These fixes do
 not establish immediate convergence detection, and active-pin invariance must not

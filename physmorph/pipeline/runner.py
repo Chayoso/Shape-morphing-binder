@@ -341,6 +341,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             cfg.ot_debias = True
         log(f"[v2] phys_loss auto: {empty * 100:.1f}% of the source particles sit in target-empty "
             f"cells -> {cfg.phys_loss}" + (" + cell-wise hand-off" if cfg.phys_loss == "ot_pace" else ""))
+    if cfg.settle_pin_confirm and cfg.phys_loss not in ("ot_pace", "ot_shape"):
+        raise ValueError("settle_pin_confirm requires an ot_pace/ot_shape full-plan arrival contract")
+    if cfg.settle_pin and cfg.phys_loss not in ("ot_pace", "ot_shape"):
+        log("[v2] settlement evidence: legacy reversal-only (this loss exports no per-particle arrival contract)")
     if cfg.loss_units == "density":
         calibrate_units(tgt, src, target_x, cfg)
         log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = "
@@ -1399,8 +1403,13 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     settled_p = np.zeros(len(_d_now), bool)
                 _arr_p = stats.get("arrived_mask")
                 from .settlement import accepted_arrivals
+                _has_end_plan = stats.get("plan_img") is not None and stats.get("pace_r") is not None
+                if not _has_end_plan and _arr_p is None:
+                    # Preserve the existing non-paced controller, explicitly without claiming target arrival.
+                    _arr_p = np.ones(len(x), bool)
                 _end_arr = accepted_arrivals(x, stats.get("plan_img"), stats.get("pace_r"), _arr_p)
-                rec["arrived_end_frac"] = float(_end_arr.mean())
+                rec["arrived_end_frac"] = float(_end_arr.mean()) if _has_end_plan else None
+                rec["pin_arrival_evidence"] = "accepted_full_plan" if _has_end_plan else "legacy_no_arrival_contract"
                 _arr_p = (accepted_arrivals(x, stats.get("plan_img"), stats.get("pace_r"), _arr_p,
                                             require_start=True) if cfg.settle_pin_confirm else _end_arr)
                 rec["pin_arrival_eligible_frac"] = float(_arr_p.mean())

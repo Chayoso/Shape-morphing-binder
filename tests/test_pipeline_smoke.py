@@ -54,6 +54,18 @@ def test_phys_arm_runs(prm, clouds):
     assert np.isfinite(met["chamfer"]) and 0 <= met["sil_iou"] <= 1
 
 
+def test_nonpaced_settlement_preserves_legacy_evidence_without_claiming_arrival(prm, clouds):
+    cfg = _cfg(animations=1, ctrl_rprop=True, ctrl_rprop_arrived=True, settle_pin=True)
+    result = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    records = [h for h in result['history'] if 'pin_arrival_evidence' in h]
+    assert records and all(r['pin_arrival_evidence'] == 'legacy_no_arrival_contract' for r in records)
+    assert all(r['arrived_end_frac'] is None and r['pin_arrival_eligible_frac'] == 1 for r in records)
+    # Arrival confirmation must fail before optimizing a loss with no arrival contract.
+    cfg.settle_pin_confirm = True
+    with pytest.raises(ValueError, match='arrival contract'):
+        run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+
+
 def test_body_control_pipeline_optimises_the_force_leaf(prm, clouds):
     src, tgt = clouds
     cfg = _cfg(body_ctrl=True)
