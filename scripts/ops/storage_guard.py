@@ -16,6 +16,15 @@ ROOT = Path('/data/relcfd/chayo/physmorph_v2')
 FAILED = [('bp308_bunny', 'bp308_end'), ('bp308d_dragon', 'bp308d_end')]
 
 
+def sync_directory(path):
+    if os.name == 'posix':  # production guard runs on Linux; Windows CPU tests skip directory fsync
+        fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+
 def digest_stream(stream):
     h = hashlib.sha256()
     while block := stream.read(8 * 1024 * 1024):
@@ -29,7 +38,11 @@ def archive_verified(src, root):
         raise ValueError('refusing a path outside the project output directory')
     before = src.stat()
     archive_dir = root / 'archives' / 'completed_failed_runs'
+    if not archive_dir.resolve().is_relative_to(root):
+        raise ValueError('archive directory escapes the project')
     archive_dir.mkdir(parents=True, exist_ok=True)
+    sync_directory(root)
+    sync_directory(archive_dir.parent)
     dest = archive_dir / (src.name + '.gz')
     part = dest.with_suffix('.gz.partial')
     if dest.exists() or part.exists():
@@ -55,11 +68,13 @@ def archive_verified(src, root):
     manifest = dest.with_suffix('.gz.json')
     with manifest.open('w') as out:
         json.dump(record, out, indent=2); out.flush(); os.fsync(out.fileno())
+    sync_directory(archive_dir)
     # Re-check identity immediately before the single-file unlink (no recursive deletion).
     now = src.stat()
     if (now.st_size, now.st_mtime_ns, now.st_ino) != (before.st_size, before.st_mtime_ns, before.st_ino):
         raise RuntimeError('source changed before removal; original retained')
     src.unlink()
+    sync_directory(src.parent)
     print(json.dumps(record), flush=True)
     return record
 
