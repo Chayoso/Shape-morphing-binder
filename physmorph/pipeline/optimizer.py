@@ -1841,6 +1841,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return L if lr is None else L + lam_r * float(lr.detach())
 
     hist, accepted, rejected = [], 0, 0
+    last_accepted_state = None
     ls_exhausted = False
     _TM.clear()
     _TM["t_win"] = time.perf_counter()
@@ -2282,6 +2283,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                        if gx_rend_diag is not None else None)})
         # history from the ACCEPTED evaluation. NOTE "d_render" is the pure silhouette
         # scalar; the shading channel is logged separately (they were conflated before).
+        last_accepted_state = state_n if cfg.body_ctrl else None
         hist.append({"iter": it, "loss": new,
                      "d_vol": float(lv_n), "kin": float(lk_n),
                      "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
@@ -2350,10 +2352,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
                       * max(abs(E_accept or 0.0), 1.0 / unit_ratio))
         replay_bad = E_accept is not None and E_final > E_accept + replay_tol
+        replay_diagnostics = dict(replay_E_final=float(E_final), replay_E_accepted=E_accept,
+                                  replay_E_tol=float(replay_tol), replay_lambda_final=float(lam_r),
+                                  replay_lambda_accepted=(hist[-1]['lambda'] if hist else None))
+        if last_accepted_state is not None:
+            replay_diagnostics.update(replay_x_max=float((x_final-last_accepted_state[0]).abs().max()),
+                                      replay_v_max=float((v_final-last_accepted_state[2]).abs().max()))
         if ((not np.isfinite(jt_final) or jt_final <= 1e-4 or replay_bad)
                 and accepted > 0):
             log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
-                "discarding window (replay/accepted-candidate mismatch)")
+                f"discarding window (replay/accepted-candidate mismatch): {replay_diagnostics}")
             hist, accepted = [], 0
         # 2026-09-23 (speed): wp.array.numpy() already returns a fresh host copy — the extra
         # .copy() doubled 300 MB of traffic a window; and the whole-window F health (any step
@@ -2467,6 +2475,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
+             "replay_diagnostics": replay_diagnostics,
              "body_rms_wu": (float(body_field()[:N].detach().square().sum(1).mean().sqrt()) if body_coeff is not None else None),
              "body_terminal_rms_wu": (float(body_field()[N:].detach().square().sum(1).mean().sqrt()) if cfg.body_terminal_ctrl else None),
              "body_coeff_max": (float(body_coeff.detach().norm(dim=1).max()) if body_coeff is not None else None),

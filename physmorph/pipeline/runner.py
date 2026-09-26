@@ -590,7 +590,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
             if dress is not None:
                 dress.cover_frames(len(frames))
-            hist.append({"animation": a, "null_commit": 1})
+            hist.append({"animation": a, "null_commit": 1, "ls_exhausted": stats.get("ls_exhausted"),
+                         "replay_diagnostics": stats.get("replay_diagnostics")})
             stale += 1
             mom_prev = None
             reject_streak, last_reject_score = 0, None   # lineage changed: no replay across
