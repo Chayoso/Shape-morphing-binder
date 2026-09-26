@@ -143,7 +143,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           gauss_robust_eps=args.gauss_robust_eps,
                           loss_units=args.loss_units, dvol_form=args.dvol_form,
                           pace_lead=args.pace_lead, pace_lead_sp=args.pace_lead_sp,
-                          pace_lead_from=args.pace_lead_from)
+                          pace_lead_from=args.pace_lead_from, ctrl_taper_sp=args.ctrl_taper_sp)
     if arm == "phys":
         cfg.lambda_auto = 0.0
     elif arm == "render":
@@ -520,6 +520,7 @@ def main():
     ap.add_argument("--pace_lead", type=float, default=0.0, help="fixed lead distance of the paced target in wu, arrival radius unchanged (config.pace_lead; diagnostic, reviewer item 3)")
     ap.add_argument("--pace_lead_sp", type=float, default=0.0, help="lead of the paced target in native particle spacings (config.pace_lead_sp; 1 = P284 rule)")
     ap.add_argument("--pace_lead_from", type=int, default=1, help="apply the lead rule from this window on, 1-based (config.pace_lead_from; same-start-state lead comparisons)")
+    ap.add_argument("--ctrl_taper_sp", type=float, default=0.0, help="surface-tapered stress control: depth weight 0 on the outer layer, 1 at this many native spacings (config.ctrl_taper_sp; P290 rule = 2)")
     ap.add_argument("--lg_sweeps", type=int, default=8)
     ap.add_argument("--w_creg", type=float, default=100.0)
     ap.add_argument("--w_dt", type=float, default=0.2)   # SUM form: per-particle pull

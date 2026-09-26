@@ -8291,3 +8291,18 @@ each window, the lead candidate (smaller when the transit region's accumulated d
 target's; larger, up to the cell, otherwise) is kept only if the window's progress toward the final target and
 the moving set's thinning do not worsen against the previous window — with nefertiti's case showing that a
 thinning signal alone would misfire. Design to be written as P289 for review; nothing launched.
+
+**2026-09-26 11:25 CDT — P290 pre-registered: surface-tapered stress control (`--ctrl_taper_sp 2`).** The user's
+decision after P288: stop measuring, test the supply-side change that targets the measured mechanism. The
+expanded control field dFc is multiplied by a per-particle depth weight — 0 on the outermost layer of the
+window's start cloud (count-based), rising linearly to 1 at two native spacings from it (the excess zone of
+rounds 1–3; no per-shape constant) — so a stress increment's divergence sits inside the taper depth and pulls
+the bulk instead of the skin; the outline keeps the u channel and the pin. Stages and gates: (a) the replay
+test on the saved first-window controls (ctrl40 at 40k, ctrl300 at 300k, direct, T = 20, the same code): the
+outermost-layer / 2–4 sp delivery ratio from ~3 toward ≤ 1.5 with the 2–4 sp band's delivery within 20 % of
+the untapered, and the along-plan share of the bulk not lower; (b) bp307 = bm300 + the taper, full run: the
+transit slab at frames 76 / 114 ≥ 0.2 (bm300 0.17 / 0.09), silIoU ≥ 0.971, 0 negative-reversal windows, tip ≥ 9,
+windows ≤ 60; (c) the 300k dragon (bo300 + taper): silIoU ≥ 0.9699, no stall; (d) the 40k gallery with the
+taper: no target below −0.005 silIoU, det F not worse than g41pw by more than 0.05 on any target, windows
+within 1.5×. Refuted at the first failing stage. The adaptive lead (P289) stays the second candidate, alone or
+combined, if the taper falls short.

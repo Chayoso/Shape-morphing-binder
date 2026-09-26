@@ -366,7 +366,36 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                        pin_slip=bool(getattr(cfg, "settle_pin_slip", False)))
 
     basis = ControlBasis(x0, T, cfg.control_grid, cfg.control_tknots, device=dev)
-    expand = basis.expand                       # leaf -> (T,N,3,3) control field
+    taper_t = None
+    if float(getattr(cfg, "ctrl_taper_sp", 0.0)) > 0:
+        # P290 (2026-09-26 11:20 CDT): SURFACE-TAPERED stress control. A per-particle stress increment near a free
+        # surface moves the outermost one or two particle layers 2.5-3x the bulk over a window (P278b rounds 1-3;
+        # the first step read at T = 20: x2-6), and the density objective fills its lead slab with exactly those
+        # layers (the vapour). The expanded control field is multiplied by a depth weight: 0 on the outermost layer
+        # (the count-based outer set of the window's start cloud), rising linearly to 1 at ctrl_taper_sp NATIVE
+        # spacings from it — 2 = the measured excess zone, no per-shape constant — so the stress jump sits inside the
+        # taper depth and pulls the bulk; the outline stays with the u channel and the pin.
+        from scipy.spatial import cKDTree as _KDt
+        _x0n = np.ascontiguousarray(np.asarray(x0, np.float32))
+        if getattr(tgt, "native_sp", None) is None:
+            _xs = np.ascontiguousarray(np.asarray(coh_nbr_src if coh_nbr_src is not None else x0, np.float32))
+            tgt.native_sp = float(np.median(_KDt(_xs).query(_xs, k=2, workers=-1)[0][:, 1]))
+        _cnt = np.asarray(_KDt(_x0n).query_ball_point(_x0n, r=2.0 * tgt.native_sp, return_length=True, workers=-1))
+        _outer = _cnt < 0.6 * np.median(_cnt)
+        _depth = (_KDt(_x0n[_outer]).query(_x0n, k=1, workers=-1)[0] if _outer.any()
+                  else np.full(N, np.inf, np.float32))
+        _tw = np.clip(_depth / (float(cfg.ctrl_taper_sp) * tgt.native_sp), 0.0, 1.0).astype(np.float32)
+        _tw[_outer] = 0.0
+        taper_t = torch.as_tensor(_tw, device=dev)
+        print(f"[win] control taper: 0 on the outer layer ({int(_outer.sum())} particles), 1 at {cfg.ctrl_taper_sp:g} x "
+              f"{tgt.native_sp:.4f} wu; weight mean {float(_tw.mean()):.3f}, below 0.5: {float((_tw < 0.5).mean()):.3f}",
+              flush=True)
+
+    def _expand_tapered(leaf):
+        out = basis.expand(leaf)
+        return (out.view(T, N, 3, 3) * taper_t.view(1, N, 1, 1)).view_as(out)
+
+    expand = basis.expand if taper_t is None else _expand_tapered   # leaf -> (T,N,3,3) control field
     dFc = basis.zeros()                         # the LEAF (per-particle when grid=0)
     leaves = [dFc]
     use_geom = bool(cfg.render_F_geom)
