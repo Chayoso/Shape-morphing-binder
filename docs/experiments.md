@@ -7715,3 +7715,19 @@ surface rearrangement has a cost. The record says a walking per-particle target 
 the 150k C (2026-09-17: the loss became quasi-stationary and the merit gate stopped the run), so
 the merit must then measure progress on the fixed plan (the distance to the plan images), not the
 walking loss. Proposed; not run — the user asked for the cause.
+
+**2026-09-25 21:25 CDT — the correspondence remedy re-weighed against the record (the user: "won't
+detail die?").** It would, and the log says so: the per-particle leash to the plan images beside
+the cell sum was falsified three times at 40k (ot40c/d/f: 1–13 fragments, silIoU 0.73–0.82 against
+0.85–0.93 — the entropic images sit ~0.9 spacings inside the target and are re-drawn noisy every
+window, and "a pull strong enough to hold a stray is strong enough to tear the bulk where its
+anchor disagrees with the cell sum; weak enough not to tear, it holds nothing"), and the
+per-particle paced target on the 150k C gave 0.88 / 0.55 against 0.95. The plan is only as sharp
+as its blur (~3.3 spacings at 300k) and a fixed per-particle assignment removes the permutation
+freedom that lets material rearrange into a thin tip — the same null space that lets the surface
+flow is what gives the density loss its detail. The 21:10 proposal is withdrawn as stated. What
+the measurement supports instead is correspondence only at the plan's own resolution: each
+material neighbourhood (the k particles within the blur radius, already the plan's smoothing set)
+pulled as a whole — its centroid toward the centroid of its images — so the bulk translates with
+the front, while the arrangement inside the neighbourhood stays the density and render terms'
+(the detail). Proposed, not run.
