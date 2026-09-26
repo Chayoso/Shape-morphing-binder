@@ -8174,3 +8174,31 @@ zero-delivery window with a cap on consecutive holds, the arrival radius unchang
 criterion kept; predicted to keep bp306a's slab filling in the bunny's early windows and to open toward the
 cell where the body keeps up (the dragon, the gallery's long transports). Until then the forms stay bm300 and
 g41pw; the page is unchanged. The g41ld and bp306d archives are deleted after this record (logs kept).
+
+**2026-09-26 02:55 CDT — corrections after the reviewer's reading of the scripts (item 1 withdrawn; P285's
+scope; P287's flaw).** (i) The "first-step kick" of 02:10 is CONFOUNDED: `replay_chain4.sh` ran `--T 1` with
+`--layer_relax` in the recipe, whose projection coefficient is 1/T (`lfrac`, optimizer.py) — 1.0 at T = 1
+against 0.05 in the real windows — and `k_layer_project` adds −frac·(d − d̄)·n directly to the position,
+untouched by u = 0; `accel_probe.py` read |x1 − x0| after that projection with no dFc = 0 control. The outermost
+layer of a sampled cloud sits ~sp/2 above its neighbours' plane, so a full projection alone moves it by a
+fraction of a spacing — which is the size (0.013 / 0.005 wu), the sp-dependence and the dx-independence
+reported, and why uniform synthetic controls gave the same numbers. The ×200 / ×50 and "≈ sp^1.4" are
+withdrawn as stress-response readings; which term dominates is unmeasured. The window-integrated findings
+(rounds 1–3: two-layer zone, ~1/dx, 84 % per layer) stand — they were 20-step windows with the ordinary
+coefficient, and removing `--layer_relax` did not change them. Redo: the first step read at T = 20 from
+`x_step1` (now saved by the replay hook) for the optimised control and for a dFc = 0 replay on the same state;
+the difference is the stress response, the zero-control step is the projection's own share. (ii) P285's run
+had the lead re-measured after window 145 (0.035 → 0.0527 wu, the bug fixed since), so it is a failed run but
+not an exact test of the fixed one-spacing policy; and one policy's failure does not exclude every fixed
+length. (iii) `slab_probe.py` counts particles within one spacing of the slab's paced points — where the
+supply comes from — not a mass flux through a common physical boundary. (iv) `stats["pace_r"]` is the ARRIVAL
+radius; the applied lead is now recorded separately (`stats["pace_lead_applied"]`). (v) P287 as written has
+no expansion: ℓ_{w+1} = clip(d_w, s, h) with d_w ≤ ℓ_w never leaves s even when the body delivers 100 %; an
+adaptive lead needs an explicit expansion test (a larger candidate lead accepted on progress against the
+final target and the physics gates, never on paced-loss values across different targets), a separate
+shrink-vs-stall rule with a defined action when the hold cap is reached, the measured set and plan direction
+fixed at the window start, accepted (not rejected) displacements, and local progress (tail, legs) beside the
+global median. Order agreed with the reviewer: the corrected first-step diagnostic; then lead comparisons
+from the SAME start state at representative states (bunny initial, the dragon mid-transport, a 40k target
+that degraded) reading delivery, supply density and local deformation against the lead; then the expansion
+rule; then the three gates (P284, P285, P286) together, C with the fixed code and its control.

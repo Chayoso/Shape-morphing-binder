@@ -2201,7 +2201,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             print(f"[replay] window control saved to {_rp_save} (T={T}, N={N})", flush=True)
         if _rp_load:
             _rp_out = os.environ.get("PHYSMORPH_REPLAY_OUT", _rp_load.replace(".npz", "") + f"_replayed_N{N}.npz")
-            np.savez(_rp_out, x0=np.asarray(frames[0], np.float32), x1=np.asarray(frames[-1], np.float32))
+            # x_step1 = the position after the FIRST step of the window (reviewer, 2026-09-26 02:50 CDT: the first-step
+            # response must be read at the run's own T, since the layer projection's coefficient is 1/T — a --T 1
+            # replay applied it 20x — and against a dFc = 0 control replayed on the same state)
+            np.savez(_rp_out, x0=np.asarray(frames[0], np.float32), x1=np.asarray(frames[-1], np.float32),
+                     x_step1=np.asarray(frames[1], np.float32) if len(frames) > 1 else np.asarray(frames[0], np.float32))
             print(f"[replay] delivered end positions saved to {_rp_out}", flush=True)
         with torch.no_grad():
             inv_any = None
@@ -2300,7 +2304,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
               "accepted": accepted, "rejected": rejected, "grad_converged": grad_converged,
               "ls_exhausted": ls_exhausted,
               "L_start": L_start, "g_cos": g_cos, "g_raw_cos": g_raw_cos,
-              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "arrive_idx": arrive_idx_np, "pace_r": pace_r_np, "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac, "pace_front_fill_frac": pace_front_fill_frac,
+              "g_share": g_share, "u_gate": u_gate_frac, "pace_proj": pace_proj_stats, "arrived_mask": arrived_mask_np, "arrive_idx": arrive_idx_np, "pace_r": pace_r_np, "pace_lead_applied": (float(pace_r) if pace_r is not None else None), "plan_img": plan_img_np, "arrive_cap_frac": arrive_cap_frac, "pace_front_frac": pace_front_frac, "pace_front_fill_frac": pace_front_fill_frac,
               "gx": (gx_box[0].cpu().numpy().astype(np.float32) if gx_box[0] is not None else None),
               "u_final": (u.detach().cpu().numpy() if u is not None else None),
               "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
