@@ -8068,3 +8068,24 @@ lead recorded raw per window (fixed here by construction); comparisons at equal 
 not normalised t, since the window count will differ. Refuted if the transport stalls or the fit / reversal /
 tip gates fail; if it holds, the delivery-tied lead is the next step, and the 40k gallery is untouched
 (at 40k the lead equals the cell unless the flag is passed).
+
+**2026-09-26 02:55 CDT — P283 split (reviewer): radius transport and support freeze read apart; the thinned
+region's coverage checked.** bm300, same frames / cameras / stride, `video_flicker` tail (last 19 rendered
+frames, D1 / ALT) and the ear-base crop's coverage in the saved stills (`scratch/still_cov.py`; f8 = trajectory
+frame 96, the "empty" frame):
+
+| variant | tail D1 / ALT | f8 cover / dark | f20 | f60 |
+|---|---|---|---|---|
+| baseline (refit every frame) | 0.0008 / 0.0007 | 0.379 / 0.088 | 0.441 / 0.117 | 0.445 / 0.106 |
+| normals bound | 0.0007 / 0.0006 | 0.392 / 0.091 | 0.432 / 0.107 | 0.445 / 0.105 |
+| + radius transport only | 0.0007 / 0.0006 | 0.396 / 0.091 | 0.433 / 0.107 | 0.450 / 0.105 |
+| + support freeze only | 0.0007 / 0.0006 | 0.398 / 0.092 | 0.432 / 0.108 | 0.446 / 0.105 |
+| + both | 0.0006 / 0.0005 | 0.400 / 0.092 | 0.433 / 0.107 | 0.451 / 0.105 |
+
+Readings: the normals give the first step (−12 %), the radius transport and the support freeze each add
+nothing visible at the 1e-4 rounding and only together reach 0.0006 (−25 %); the DRIFT component (0.0004) is
+the floor in every variant, i.e. the remaining tail is the material's own motion and the coverage change of
+moving particles, not an appearance refit. The thinned region's coverage at frame 96 rises 3–5 % (0.379 →
+0.392–0.400) with the material variants — the clamped radius (≤ 4×) and area ratio keep it from painting a
+membrane over the deficit; at frames 240 and 720 the coverage is unchanged. Kept opt-in; page unchanged; the
+surface sample budget (§8 of the proposal) remains a separate item.

@@ -26,7 +26,10 @@ ap.add_argument("--label", default=""); ap.add_argument("--stills", default="")
 ap.add_argument("--views", default="35,215"); ap.add_argument("--elev", type=float, default=18.0)
 ap.add_argument("--material_size", action="store_true",
                 help="P283 second stage (with --material_normals): an anchored particle's splat radius follows the in-plane "
-                     "area change of its material neighbourhood and its support opacity stays at the anchor's value")
+                     "area change of its material neighbourhood")
+ap.add_argument("--material_support", action="store_true",
+                help="P283 third stage (with --material_normals): an anchored particle's support opacity stays at the anchor's "
+                     "value instead of the per-frame neighbour count")
 ap.add_argument("--material_normals", action="store_true",
                 help="P283 (2026-09-26): normals anchored at a particle's first exposed frame and transported by the tangent-plane "
                      "deformation of its fixed 32-neighbourhood instead of being re-estimated every frame")
@@ -122,9 +125,12 @@ for kf, i in enumerate(idx):
             n_trans[ai[~bad]] = nt[~bad]
             if a.material_size:
                 # second stage: the splat radius follows the neighbourhood's in-plane area change (PhysGaussian's
-                # covariance transport restricted to the tangent plane), the support opacity stays the anchor's
+                # covariance transport restricted to the tangent plane)
                 area = nt_norm[~bad].clamp(0.25, 16.0)
                 sig_i[ai[~bad]] = (mat["sig0"][ai[~bad]] * area.sqrt()).clamp(a.sigma * sp, 4.0 * a.sigma * sp)
+            if a.material_support:
+                # third stage, separate (reviewer): the support opacity stays the anchor's value instead of the
+                # per-frame neighbour count — read apart from the radius transport, and check thinned regions
                 support[ai[~bad]] = mat["sup0"][ai[~bad]]
             anch[ai[bad]] = False
         new = strong & ~anch
