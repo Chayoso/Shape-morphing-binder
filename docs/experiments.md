@@ -8147,3 +8147,30 @@ fixed lead is not universal and the delivery-tied lead is what the reviewer's or
 in it: the target pack was rebuilt once and the native spacing was re-measured on the window's start cloud
 (0.0527 wu instead of the source's 0.0350) — fixed to measure on the source cloud (`coh_nbr_src`); the fix
 is not synced until the running gallery sweep (12 of 19 done at 02:09) finishes, so all 19 run the same code.
+
+**2026-09-26 02:35 CDT — P285 ✗ and P286 ✗: the FIXED one-spacing lead does not generalise; it holds on the
+300k bunny only.** P285 (the 300k dragon, bo300's form + `--pace_lead_sp 1`): 233 windows, early stop at 232
+with the arrival stuck at 89.5 % for the last 12 windows (a stall of the long transport — tail, legs — that
+bo300 finished in 102 windows), silIoU **0.9655** (bo300 0.9699, −0.0044), det F min 0.137 (0.264), wall 63.6
+min (46.5), 0 negative-reversal windows; the delivered splat tail is better (0.0005 vs 0.0008) but the
+transport did not complete. P286 (the 40k gallery, g41pw's form + the rule, 19 targets, `gallery_table_g41ld`):
+silIoU lower on 14 of 18 (bunny −0.0057, nefertiti −0.0064 beyond the −0.005 gate; cow −0.0049, beast
+−0.0037, fandisk −0.0034; up on armadilo +0.0021, ogre +0.0020, spot/teapot +0.0008), det F min much worse
+on most (beast 0.76 → 0.35, ogre 0.69 → 0.36, spot 0.77 → 0.42, nefertiti 0.75 → 0.42, cow 0.71 → 0.45,
+bimba 0.78 → 0.58, bunny 0.79 → 0.64), windows 1.2–3.8× (bimba 37 → 140, nefertiti 57 → 177, beast 96 →
+184), the breathing mixed (flip similar, the step larger on bimba 0.081, spot 0.052, V 0.047); C crashed at
+window 1 on a latent bug unrelated to the lead (`arrive_idx_np` initialised only in the ot_pace block; C takes
+the "ot" branch — 64 % of its source in target-empty cells; the plan_sticky addition of 2026-09-25 introduced
+it; fixed, so any current-code run of C would have crashed). Reading: a lead of one spacing lets the paced
+slab be fed by the body (P284: the vapour 2–3.5× denser, the fit +0.006 on the 300k bunny, whose transport is
+short and radial), but on long transports the same lead starves the plan — the target advances only as far
+as the lead per window, the arrival crawls, the material behind compresses (det F) and the run ends early —
+so the lead cannot be a fixed length at any N. With the reviewer's order this is the expected branch point:
+"a small fixed pace first, then the delivery-tied adjustment". Proposed next, for decision, **P287**: the
+lead per window from the previous window's delivered progress along the plan of the moving set fixed at that
+window's start (a robust median, not the leaders), clamped to [one native spacing, the loss cell], held
+fixed within the inner solve, starting at one spacing from rest, kept at its previous value on a rejected or
+zero-delivery window with a cap on consecutive holds, the arrival radius unchanged and the arrived-vs-final
+criterion kept; predicted to keep bp306a's slab filling in the bunny's early windows and to open toward the
+cell where the body keeps up (the dragon, the gallery's long transports). Until then the forms stay bm300 and
+g41pw; the page is unchanged. The g41ld and bp306d archives are deleted after this record (logs kept).

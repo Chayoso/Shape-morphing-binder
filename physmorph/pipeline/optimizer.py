@@ -609,6 +609,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         pace_grid = None
         pace_proj_stats = None
         arrived_mask_np = None
+        arrive_idx_np = None                # the plan_sticky arrival index; set only in the ot_pace block (the "ot" branch —
+                                            # the C target, 64 % of its source in target-empty cells — crashed on it, g41ld 02:13)
         pace_r_np = None                    # the paced target's arrival radius (config.settle_pin_clear reads it)
         plan_img_np = None                  # the plan image per particle (config.settle_pin_ray: the transit rays)
         arrive_cap_frac = None              # config.arrive_cap: the fraction of arrivals over capacity (kept on the plan image)
