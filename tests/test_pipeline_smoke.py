@@ -65,14 +65,20 @@ def test_body_control_pipeline_optimises_the_force_leaf(prm, clouds):
 
 
 @pytest.mark.parametrize('normalized', [False, True])
-def test_body_ablation_removes_learned_stress_but_keeps_force(prm, clouds, normalized):
+@pytest.mark.parametrize('terminal', [False, True])
+def test_body_ablation_removes_learned_stress_but_keeps_force(prm, clouds, normalized, terminal):
     src, tgt = clouds
-    cfg = _cfg(body_ctrl=True, body_no_dfc=True, body_step_normalized=normalized, dfc_clip=0.02)
+    cfg = _cfg(body_ctrl=True, body_no_dfc=True, body_step_normalized=normalized,
+               body_terminal_ctrl=terminal, dfc_clip=0.02)
     res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
     recs = [h for h in res['history'] if 'd_vol' in h]
     assert recs and all(h['dfc_absmax'] == 0 for h in recs)
     assert any(h['body_rms_wu'] > 0 for h in recs)
     assert all(h['body_step_scale'] == (1/cfg.dfc_clip if normalized else 1) for h in recs)
+    assert all(h['body_coeff_max'] <= 1.000001 for h in recs)
+    assert all(len(h['body_accepted_alphas']) == h['accepted'] for h in recs)
+    if terminal:
+        assert any(h['body_terminal_rms_wu'] > 0 for h in recs)
 
 
 def test_diagnostic_prefix_preserves_full_run_schedule(prm, clouds):

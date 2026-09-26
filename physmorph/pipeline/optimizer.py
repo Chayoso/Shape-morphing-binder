@@ -358,12 +358,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             u_gate_frac = g_frac if u_gate_frac is None else float(u_gate_frac) * g_frac
             print(f"[layer] u geometric gate: {g_frac * 100:.1f} % of the layer within "
                   f"{cfg.layer_gate_geom_cells:g} cell(s) of the target surface", flush=True)
+    body_modes = 2 if cfg.body_terminal_ctrl else 1
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
                        bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer,
                        eta=(np.ascontiguousarray(eta_init, np.float32) if eta_init is not None else None),
                        pin=(np.ascontiguousarray(pin_init, np.float32) if pin_init is not None else None),
-                       pin_slip=bool(getattr(cfg, "settle_pin_slip", False)), body_ctrl=cfg.body_ctrl)
+                       pin_slip=bool(getattr(cfg, "settle_pin_slip", False)), body_ctrl=cfg.body_ctrl,
+                       body_modes=body_modes)
+    if cfg.body_terminal_ctrl and not cfg.body_ctrl:
+        raise ValueError('body_terminal_ctrl requires body_ctrl')
     if cfg.body_no_dfc and not cfg.body_ctrl:
         raise ValueError('body_no_dfc requires body_ctrl')
     if cfg.body_step_normalized and (not cfg.body_ctrl or cfg.dfc_clip <= 0):
@@ -416,7 +420,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # this pass the no-grad rollouts had none, so the line search evaluated plain physics
     # while the adjoint described the re-coupled system.
     dc_buf = torch.zeros(T, N, 3, 3, device=dev)
-    body_buf = torch.zeros(N, 3, device=dev) if cfg.body_ctrl else None
+    body_buf = torch.zeros(body_modes * N, 3, device=dev) if cfg.body_ctrl else None
     body_wp = wp.from_torch(body_buf, dtype=wp.vec3) if body_buf is not None else None
     seq_eval = [wp.from_torch(dc_buf[t], dtype=wp.mat33) for t in range(T)]
     tr_eval = Trajectory(x0, m_np, lam0, mu0, prm, T, F0=F0, Fp=Fp, v0=v0, C0=C0,
@@ -1344,16 +1348,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     if cfg.body_ctrl:
         from .body_control import BodyControlBasis
         body_basis = BodyControlBasis(x0, prm.grid_min, prm.dx, device=dev)
-        body_coeff = body_basis.zeros()
+        body_coeff = body_basis.zeros(body_modes)
         # A settled particle released only to let a stream pass remains passive.
         # Follow/KKT reactivation restores its control scale in the runner.
         _body_active = (np.ones(N, bool) if ctrl_scale_init is None else np.asarray(ctrl_scale_init) > 0)
         body_gate = torch.as_tensor(_body_active, device=dev, dtype=torch.float32)[:, None]
         leaves.append(body_coeff)
-        log(f"[win] body control: {body_basis.n_nodes} grid nodes, zero-impulse pulse, nominal free displacement bound {prm.dx:.4f} wu")
+        log(f"[win] body control: {body_basis.n_nodes} grid nodes, {body_modes} temporal mode(s), joint nominal coefficient bound {prm.dx:.4f} wu")
 
     def body_field():
-        return body_basis.expand(body_coeff) * body_gate if body_coeff is not None else None
+        if body_coeff is None:
+            return None
+        field = (body_basis.expand(body_coeff) * body_gate).reshape(N, body_modes, 3)
+        return field.permute(1, 0, 2).reshape(body_modes * N, 3).contiguous()
 
     u = None
     if cfg.layer_ctrl:
@@ -1699,7 +1706,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         direction that was never 'the physics')."""
         L = lv + wu * cfg.w_kin * lk + wu * cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
         if body_coeff is not None:
-            L = L + wu * cfg.w_ctrl * (body_field() / float(prm.dx)).square().sum(1).mean()
+            L = L + wu * cfg.w_ctrl * (body_field().reshape(body_modes, N, 3) / float(prm.dx)).square().sum((0, 2)).mean()
         if cfg.w_kin_running > 0 and lk_run is not None:
             # RUNNING kinetic (docs/oscillation_triage.md driver C): penalise motion at
             # every step, not only the endpoint, so a window cannot sprint-then-brake
@@ -2460,7 +2467,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
-             "body_rms_wu": (float(body_field().detach().square().sum(1).mean().sqrt()) if body_coeff is not None else None),
+             "body_rms_wu": (float(body_field()[:N].detach().square().sum(1).mean().sqrt()) if body_coeff is not None else None),
+             "body_terminal_rms_wu": (float(body_field()[N:].detach().square().sum(1).mean().sqrt()) if cfg.body_terminal_ctrl else None),
+             "body_coeff_max": (float(body_coeff.detach().norm(dim=1).max()) if body_coeff is not None else None),
+             "body_coeff_saturated_frac": (float((body_coeff.detach().norm(dim=1) >= 0.999).float().mean()) if body_coeff is not None else None),
+             "body_accepted_alphas": ([float(h['alpha']) for h in hist] if body_coeff is not None else None),
              "body_nodes": (body_basis.n_nodes if body_basis is not None else 0),
              "body_step_scale": (body_step_scale if body_coeff is not None else None),
              "mom_out": mom_out if cfg.mom_carry > 0 else None,

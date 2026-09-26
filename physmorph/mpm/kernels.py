@@ -119,7 +119,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
 @wp.kernel
 def k_body_impulse(x: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
                    body: wp.array(dtype=wp.vec3), pin: wp.array(dtype=float),
-                   grid_mom: wp.array(dtype=wp.vec3), gain_dt: float,
+                   grid_mom: wp.array(dtype=wp.vec3), gain_dt: float, offset: int,
                    gmin: wp.vec3, dx: float, inv_dx: float, nx: int, ny: int, nz: int):
     """External force integrated into grid momentum, using the same P2G stencil."""
     p = wp.tid()
@@ -127,7 +127,7 @@ def k_body_impulse(x: wp.array(dtype=wp.vec3), m: wp.array(dtype=float),
     if pin[p] > 0.5 or not valid_pos(xp):
         return
     b = base_node(xp, gmin, inv_dx)
-    impulse = m[p] * gain_dt * body[p]
+    impulse = m[p] * gain_dt * body[p + offset]
     for oi in range(4):
         for oj in range(4):
             for ok in range(4):

@@ -74,30 +74,30 @@ baselines and other users' data remain intact. Exhausting candidates is reported
 ## Initial results and the next ablation
 
 Same-schedule 300k bunny prefixes (`ddc6930`, T=20, dt=1/240, dx=0.3062907 wu,
-36^3 loss grid, seed1, animations300, stop_after_windows8):
+36^3 loss grid, seed 1, animations=300, stop_after_windows=8):
 
 | raw target-radius neighbor density above y=2.3 | baseline | body + dFc |
 |---|---:|---:|
-| window4, frame80 | 0.0580 | 0.0335 |
-| window6, frame120 | 0.0483 | 0.0858 |
-| window8, frame160 | 0.2620 | 0.3827 |
+| window 4, frame 80 | 0.0580 | 0.0335 |
+| window 6, frame 120 | 0.0483 | 0.0858 |
+| window 8, frame 160 | 0.2620 | 0.3827 |
 
 The mixed actuator improves later filling but worsens the earliest sparse front.
 It **does not pass the no-hole goal** and is not advanced to the full gallery.
 The existing global hole_frac metric reads zero on both prefixes and therefore
 does not detect this specific defect. These are neighborhood counts, not a
 topological-hole certificate. The new raw audit also checked every delivered
-frame after admission: max active-pin displacement is exactly0 in both prefixes
-(169 baseline /2039 mixed particles with at least one later frame checked).
-The last10% of an8-window prefix is not a converged tail.
+frame after admission: max active-pin displacement is exactly 0 in both prefixes
+(169 baseline / 2039 mixed particles with at least one later frame checked).
+The last 10% of an 8-window prefix is not a converged tail.
 
 `--body_no_dfc` is the next diagnostic: retain elasticity and u, but make learned
 dFc identically zero, leaving the bulk-force field as the actuation channel for
 transport. It distinguishes mixed stress/body forcing from insufficient bulk
 delivery. It requires body_ctrl and is not a proposed default or proof of success.
 
-The earlier `c291_bunny_body8` run used animations8 and switched c2f at window5;
-it is plumbing evidence only. `base8s` and `body8s` preserve the300-window schedule.
+The earlier `c291_bunny_body8` run used animations=8 and switched c2f at window 5;
+it is plumbing evidence only. `base8s` and `body8s` preserve the 300-window schedule.
 
 ## Rendering settled points
 
@@ -108,6 +108,36 @@ Opacity support remains based on current neighbors; `--material_support` is
 incompatible. This prevents attribute refitting from rotating a settled splat
 without masking density loss. It does not freeze unpinned points or establish
 that all particles have converged. Visual validation remains pending.
+
+## Independent terminal-force diagnostic
+
+Reference-bound step scaling (`b9c438f`, same N300k/T20/dt1/240/dx0.3062907/loss36^3
+and 300-window schedule) still fails: `c291_bunny_norm8s` delivers best window 5,
+silIoU 0.7909; matched render-off `normphys8s` delivers window 6, silIoU 0.7920.
+Both fail terminal rest (drift_rel 0.01589/0.01625). These are unequal best-window
+endpoints, not evidence of a render benefit or detriment. The no-dFc normalized
+actuator is not promoted to full runs.
+
+The original single time mode couples actual displacement and terminal velocity;
+zero *applied* impulse does not remove initial momentum or elastic recoil.
+`--body_terminal_ctrl` adds a second physical-force mode `h_t=1/H^2-(T+1)/(2T)a_t`,
+`H=T dt`, acting on another spatial field. For a free particle this mode changes
+velocity by `c/H` with zero endpoint displacement. It may supply net impulse.
+The joint six-component node coefficient is bounded by one; the regularizer sums
+both mode norms per particle. It is not a velocity overwrite, and does not claim
+rest in the nonlinear elastic case. The same force must enter all rollout paths.
+
+Tests cover braking a moving free body without changing its prescribed endpoint,
+mass independence, adjoint finite differences, persistent parity, pin invariance,
+shape mismatch rejection and end-to-end two-mode optimization. Experiments also
+record coefficient saturation and each accepted line-search alpha; nominal RMS
+alone cannot identify the limitation. First gate: bounded eight-window bunny,
+followed by longer runs only if transport, density and residual motion warrant it.
+Telemetry units: `body_terminal_rms_wu` is the RMS velocity-equivalent displacement
+field c; divide by H for its nominal free velocity change. Saturation is over all
+occupied nodes, including inactive support. Accepted alphas are shared line-search
+steps, to be read with `body_step_scale` and the coefficient projection; they are
+not measured displacement. The coefficient regularizer is not integrated energy.
 
 ## Conditioning diagnostic after the stress ablation
 
@@ -127,6 +157,10 @@ therefore explore different fractions of the allowed control ranges.
 leaving dFc/u steps, the body norm bound and all objective terms unchanged. Armijo
 still uses the actual projected candidate. This is an optimization-conditioning
 test, not an assertion that the larger step solves the physical defect.
+The scale is a heuristic based on the reference bound: the 3-component body
+vectors and 9-component dFc matrices have different interpolation and Rprop
+operators, so it does not make their effective optimizer steps equal. Constant
+nominal RMS alone does not prove the cause of declining physical delivery.
 Its matched render-off mode is `force_normalized_phys`, which retains all three
 body flags including `body_no_dfc`.
 

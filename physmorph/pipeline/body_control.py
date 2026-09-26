@@ -1,8 +1,8 @@
 """Cell-scale external force, parameterised by nominal window displacement.
 
-The basis is frozen at window start. The pulse has zero impulse and unit
-displacement for a free particle under semi-implicit Euler; elasticity, contact
-and damping determine the actual motion.
+The basis is frozen at window start. The first pulse has zero impulse and unit
+free displacement. The optional second pulse has zero free displacement and
+nonzero impulse. Elasticity, contact and damping determine the actual motion.
 """
 from __future__ import annotations
 
@@ -15,6 +15,12 @@ def rest_to_rest_pulse(T: int, dt: float) -> np.ndarray:
         raise ValueError("body control needs T >= 2 and positive finite dt")
     q = T - 1 - 2 * np.arange(T, dtype=np.float64)
     return (q / (dt * dt * np.dot(T - np.arange(T), q))).astype(np.float32)
+
+
+def terminal_velocity_pulse(T: int, dt: float) -> np.ndarray:
+    """Zero free displacement; terminal velocity 1/(T*dt) per unit coefficient."""
+    a = rest_to_rest_pulse(T, dt).astype(np.float64)
+    return (1 / (T * dt) ** 2 - (T + 1) / (2 * T) * a).astype(np.float32)
 
 
 class BodyControlBasis:
@@ -36,8 +42,10 @@ class BodyControlBasis:
         self.weights = torch.as_tensor(weights, dtype=torch.float32, device=device)
         self.n_nodes, self.dx, self.device = len(nodes), float(dx), device
 
-    def zeros(self):
-        return torch.zeros(self.n_nodes, 3, device=self.device, requires_grad=True)
+    def zeros(self, modes=1):
+        if modes not in (1, 2):
+            raise ValueError("body control supports one or two temporal modes")
+        return torch.zeros(self.n_nodes, 3 * modes, device=self.device, requires_grad=True)
 
     def expand(self, coefficients):
         return self.dx * (coefficients[self.idx] * self.weights[..., None]).sum(1)

@@ -49,7 +49,8 @@ class RolloutSpec:
     eta: np.ndarray | None = None        # (N,) per-particle viscosity (traj.Trajectory eta; config.settle_eta: the settled body's)
     pin: np.ndarray | None = None        # (N,) 1 = pinned (config.settle_pin): a kinematic constraint during the morph
     pin_slip: bool = False               # config.settle_pin_slip: the pinned body as a grid-level separating collider
-    body_ctrl: bool = False              # optional external-force leaf, nominal displacement (N,3)
+    body_ctrl: bool = False              # optional external-force leaf, mode-major (modes*N,3)
+    body_modes: int = 1                  # displacement, optionally independent terminal velocity
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -149,6 +150,8 @@ class _WarpMPMExt(torch.autograd.Function):
         u_wp = _leaf_f32(u_t) if u_t is not None else None       # position-mode control leaf (§7)
         if (body_t is not None) != spec.body_ctrl:
             raise ValueError("body_ctrl spec and body tensor must be enabled together")
+        if spec.body_modes not in (1, 2) or (body_t is not None and tuple(body_t.shape) != (spec.body_modes * N, 3)):
+            raise ValueError("body tensor must have shape (body_modes*N,3), modes in {1,2}")
         body_wp = (wp.from_torch(body_t.contiguous(), dtype=wp.vec3, requires_grad=body_t.requires_grad)
                    if body_t is not None else None)
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
@@ -237,7 +240,9 @@ class PersistentAdjoint:
         # position-mode control leaf buffer (§7): a persistent (N,) tensor the bridge copies into
         self.u = torch.zeros(N, device=dev)
         self.u_wp = wp.from_torch(self.u, dtype=wp.float32, requires_grad=True) if spec.layer is not None else None
-        self.body = torch.zeros(N, 3, device=dev)
+        if spec.body_modes not in (1, 2):
+            raise ValueError("body_modes must be one or two")
+        self.body = torch.zeros(spec.body_modes * N, 3, device=dev)
         self.body_wp = wp.from_torch(self.body, dtype=wp.vec3, requires_grad=True) if spec.body_ctrl else None
         self.traj = Trajectory(spec.x0, spec.m, spec.lam, spec.mu, spec.prm, T,
                                Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp, eta=spec.eta, pin=spec.pin, pin_slip=spec.pin_slip,
@@ -307,6 +312,8 @@ class PersistentAdjoint:
     def apply(self, dFc_t: torch.Tensor, u_t: torch.Tensor | None = None, body_t=None):
         if (body_t is not None) != (self.body_wp is not None):
             raise ValueError("body control buffer and tensor must be enabled together")
+        if body_t is not None and body_t.shape != self.body.shape:
+            raise ValueError("body tensor shape must match the persistent mode-major buffer")
         return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self)
 
 

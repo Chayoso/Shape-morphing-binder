@@ -10,9 +10,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PipelineConfig:
-    body_ctrl: bool = False         # opt-in grid-basis external force, zero-impulse window pulse
+    body_ctrl: bool = False         # opt-in grid-basis external force; first mode has zero impulse
     body_no_dfc: bool = False       # diagnostic ablation: elastic stress stays, learned dFc is zero
-    body_step_normalized: bool = False  # compare Adam steps as a fraction of each control's norm bound
+    body_step_normalized: bool = False  # heuristic body step scaling by the reference dFc bound
+    body_terminal_ctrl: bool = False    # second physical-force mode for independent endpoint velocity
     # ---- horizon / outer loop ----
     T: int = 20                     # rollout length = control layers per window (C++ num_timesteps)
     iters: int = 8                  # optimiser iterations per window

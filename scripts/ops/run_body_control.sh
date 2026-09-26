@@ -8,6 +8,10 @@ GPU=$1; NAME=$2; TARGET=$3; N=$4; WINDOWS=$5; MODE=$6
 [[ "$NAME" =~ ^c291_[a-zA-Z0-9_]+$ ]] || exit 2
 [[ "$TARGET" =~ ^[a-zA-Z0-9_]+$ ]] || exit 2
 mkdir -p "$OUT/c291"
+if [ -e "$OUT/c291/$NAME.start" ] || [ -e "$OUT/c291/$NAME.json" ] || [ -e "$OUT/c291/$NAME.log" ]; then
+    echo "Refusing to overwrite existing run evidence: $NAME" >&2
+    exit 2
+fi
 FL=(--ctrl_rprop --ctrl_rprop_smooth --ctrl_rprop_arrived --u_rprop --u_rprop_floor 0
     --settle_pin --settle_pin_assim --settle_pin_slip)
 if [ "$N" -ge 100000 ]; then
@@ -23,6 +27,8 @@ case "$MODE" in
     body_no_dfc) FL+=(--body_ctrl --body_no_dfc) ;;
     force_normalized) FL+=(--body_ctrl --body_no_dfc --body_step_normalized) ;;
     force_normalized_phys) FL+=(--body_ctrl --body_no_dfc --body_step_normalized --lambda_auto 0) ;;
+    force_terminal) FL+=(--body_ctrl --body_no_dfc --body_step_normalized --body_terminal_ctrl) ;;
+    force_terminal_phys) FL+=(--body_ctrl --body_no_dfc --body_step_normalized --body_terminal_ctrl --lambda_auto 0) ;;
     body_phys) FL+=(--body_ctrl --lambda_auto 0) ;;
     *) exit 2 ;;
 esac

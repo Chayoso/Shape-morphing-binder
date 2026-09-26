@@ -98,6 +98,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations, body_ctrl=args.body_ctrl,
                          stop_after_windows=args.stop_after_windows, body_no_dfc=args.body_no_dfc,
                          body_step_normalized=args.body_step_normalized,
+                         body_terminal_ctrl=args.body_terminal_ctrl,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
@@ -495,7 +496,9 @@ def main():
     ap.add_argument("--body_no_dfc", action="store_true",
                     help="with body_ctrl: ablate learned dFc only; elastic stress and the u channel remain")
     ap.add_argument("--body_step_normalized", action="store_true",
-                    help="with body_ctrl: body Adam scale=1/dfc_clip, equal step fraction of the control norm bound")
+                    help="with body_ctrl: heuristic body Adam scale=1/dfc_clip (reference-bound scaling)")
+    ap.add_argument("--body_terminal_ctrl", action="store_true",
+                    help="with body_ctrl: add a second force pulse controlling terminal velocity independently")
     ap.add_argument("--src", default="assets/isosphere.obj")
     ap.add_argument("--tgt", default="assets/bunny.obj")
     ap.add_argument("--n", type=int, default=20000)

@@ -1680,3 +1680,13 @@ endpoint with the frozen full plan image; commit PIC and subgrid shifts preserve
 pins. Active pin and broader admitted fractions are reported separately. A diagnostic
 `--stop_after_windows` limits execution while leaving `animations`-based schedules intact.
 Implementation, limitations and quality gates: [P291](body_control_p291.md).
+
+`--body_terminal_ctrl` optionally adds a second field `c_p` with pulse
+`h_t=1/H^2 - (T+1)/(2T) a_t`, `H=T dt`. Its free response is zero displacement
+and terminal velocity `c_p/H`; it permits net external impulse. The two fields
+use the same frozen spatial weights and a **joint** six-component node norm
+bound of one. The regularizer sums the two mode norms before averaging particles.
+For a free uniform body initially moving at v0, fields `b=d-H v0`, `c=-H v0`
+reach displacement d and terminal rest, subject to the bound. This endpoint
+identity does not extend to elastic/damped/contacting bodies; both modes remain
+optimized through the complete rollout. No velocity reset is introduced.

@@ -113,12 +113,15 @@ class Trajectory:
         self.m = A(m_a, wp.float32)
         self.body_control = body_control
         self.body_pulse = None
+        self.body_terminal_pulse = None
         if body_control is not None:
-            if T < 2:
-                raise ValueError("body control requires T >= 2")
+            if T < 2 or body_control.shape not in ((N,), (2 * N,)):
+                raise ValueError("body control requires T >= 2 and one/two N-vector fields")
             # Zero net impulse, unit free displacement under this integrator.
             q = T - 1 - 2 * np.arange(T, dtype=np.float64)
             self.body_pulse = q / (prm.dt ** 2 * np.dot(T - np.arange(T), q))
+            if body_control.shape == (2 * N,):
+                self.body_terminal_pulse = 1 / (T * prm.dt) ** 2 - (T + 1) / (2 * T) * self.body_pulse
 
         # material: scalar / numpy -> constant array; a wp.array passes through UNCHANGED so the
         # torch bridge can hand in from_torch leaves (dL/d(lam,mu) flows back through the tape).
@@ -316,8 +319,12 @@ class Trajectory:
                   prm.nx, prm.ny, prm.nz, self.pin, self.pin_mode], device=dev)
         if self.body_control is not None:
             wp.launch(K.k_body_impulse, dim=N, inputs=[self.x[t], self.m, self.body_control, self.pin,
-                      self.gmom[t], float(self.body_pulse[t] * prm.dt), gmin, prm.dx, inv_dx,
+                      self.gmom[t], float(self.body_pulse[t] * prm.dt), 0, gmin, prm.dx, inv_dx,
                       prm.nx, prm.ny, prm.nz], device=dev)
+            if self.body_terminal_pulse is not None:
+                wp.launch(K.k_body_impulse, dim=N, inputs=[self.x[t], self.m, self.body_control, self.pin,
+                          self.gmom[t], float(self.body_terminal_pulse[t] * prm.dt), N,
+                          gmin, prm.dx, inv_dx, prm.nx, prm.ny, prm.nz], device=dev)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
                   prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
                   K.WALL_NODES, self.gmpin, self.pin_mode], device=dev)
