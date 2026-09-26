@@ -7769,3 +7769,41 @@ bm300's to the digit (silIoU 0.9733, the vapour 0.06 / 0.08 at t = 0.10 / 0.14, 
 depth −0.05 / −0.08 at t = 0.10, the late surface motion 0.24 / 0.16) — the one-shot calibration
 sat inside the `w_h1 > 0` block and never set the scale, so the term was never added. Fixed (the
 calibration on its own, printed to the log) and relaunched as bp304; the v1 archive renamed.
+
+**2026-09-25 23:35 CDT — bp304 (the correspondence at the plan's resolution, active this time): P277 ✗ —
+the vapour is untouched; the term is inert against the paced cell sum because their null spaces
+coincide.** Active was confirmed by a two-window check with the calibration printed: |g_vol| 9.3e-4,
+|g_corr| 1.06e-3, scale 0.882 (parity). The full run's log shows no calibration line because the
+runner hands `optimize_window` `log=lambda *_: None` — the h1 and jdens calibration lines have never
+reached a run log either; the correspondence line now prints. bp304 vs bm300: silIoU 0.9733 vs
+0.9733; 44 windows, negative-reversal windows 0 vs 0; the ear tip **8.4** vs 13.3 reference particles;
+the knob region at t = 0.5 **95** vs 36 particles; the vapour (the top region's density over the
+target's at t = 0.10 / 0.14) **0.06 / 0.12** vs 0.17 / 0.05; progress by source depth at t = 0.10
+0.02 / −0.05 / −0.09 vs 0.02 / −0.05 / −0.08, at t = 0.20 0.19 / 0.16 / 0.15 vs 0.14 / 0.11 / 0.08;
+the late unpinned surface motion 0.224 / 0.144 vs 0.179 / 0.131 spacings per frame (normal /
+tangential), the pinned 0.012 / 0.039 vs 0.002 / 0.012; 15 stray particles. Reading: the material
+neighbourhood (64-NN, one blur radius 0.227 wu) and the loss cell (0.306 wu) are the same
+resolution, so a centroid pull per neighbourhood asks for what the paced cell sum already asks
+for and leaves the same arrangement free — the one visible effect is a slightly more uniform
+progress across depth at t = 0.2 (spread 0.04 vs 0.06). **bp304 rejected; bm300 stays the 300k
+form.** The 40k reference (g41pw bunny) under the same probes: the vapour exists at 40k too, at
+about three times the density (the top region 0.22 / 0.30 / 0.50 at t = 0.10 / 0.14 / 0.20 against
+0.06–0.17 / 0.05–0.12 / 0.26–0.34 at 300k), and the head-top-bound material starts moving at
+t = 0.05 at 40k (progress by depth 0.30 / 0.15 / 0.03 at t = 0.10, 0.40 / 0.29 / 0.18 at t = 0.14)
+against ≈ 0 until t = 0.14 at 300k. The pace per window is the same 0.306 wu (one loss cell), both
+runs have 45 windows of ~19 frames (t = 0.10 / 0.14 = windows 4–6 in both), the u transport gate
+opens at the same rate (40k 4.4 5.6 11.2 19.1 25.7 34.9 %; 300k 4.1 5.0 9.2 16.0 21.7 28.2 %), yet
+the arrived share by window 6 has risen 19 points at 40k and 9.5 at 300k. So the 300k excess of
+the vapour is a **delayed start of the head-top-bound skin**, not a stronger stripping (the
+stripping by depth is in fact wider at 40k). Two candidate causes, both measurable before any
+rule: (i) the plan blur doubled by `--disc_ref` (0.227 wu = 6.5 native spacings at 300k against
+0.119 wu = 1.7 at 40k) denoises the skin's displacement — its source depth is 2.7 spacings —
+together with the staying interior, so its early paced image barely moves; (ii) the window's
+control delivers less of the same paced step at 300k. Pre-registered **P278** (the plan-vs-delivery
+probe, `scratch/plan_probe.py` on a one-window dump of the source, the full and paced displacements
+and the delivered end position; 300k with `--disc_ref`, 300k without, 40k): if (i), the skin's paced
+step at 300k with `--disc_ref` is below half the 40k value in native spacings and rises without the
+flag, the delivered share of the paced step alike; if (ii), the paced steps are alike and the
+delivered share is what drops at 300k; if neither, the delay is elsewhere (the pin, the front rules)
+and the probe says so. The surface side stays queued (render children with an appearance model,
+adaptive shell-weighted sampling) behind this.

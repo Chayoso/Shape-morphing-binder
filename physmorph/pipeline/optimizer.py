@@ -1012,6 +1012,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # source) is pulled as a whole: its centroid at the window's end toward the centroid of its paced
                 # images; inside the neighbourhood the arrangement stays the density and render terms'.
                 corr_chat = x_int[tgt.ot_knn].mean(dim=1).detach()
+            _dump = os.environ.get("PHYSMORPH_DUMP_PLAN", "")
+            if _dump and not os.path.exists(_dump):
+                # diagnostic only (2026-09-25 23:30 CDT): the first window's plan — the source, the denoised full
+                # displacement and the paced images — for the plan-vs-delivery probe (scratch/plan_probe.py)
+                np.savez(_dump, x0=np.ascontiguousarray(np.asarray(x0, np.float32)),
+                         x_int=x_int.detach().cpu().numpy().astype(np.float32),
+                         disp=disp.detach().cpu().numpy().astype(np.float32), pace_r=float(pace_r), leash_r=float(leash_r))
             pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
             if getattr(cfg, "pace_cap", False):
                 # config.pace_cap (2026-09-26, with the fronts of 10.29): every image lies inside the target, so the paced
@@ -1271,7 +1278,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         gv = torch.autograd.grad(dvol(xg), xg)[0].norm()
         gc = torch.autograd.grad(corr_loss(xg), xg)[0].norm()
         tgt.corr_scale = float(min(gv / gc.clamp_min(1e-30), 1e3))
-        log(f"[win] corr calibration: |g_vol|={float(gv):.3g} |g_corr|={float(gc):.3g} scale={tgt.corr_scale:.3g}")
+        # print, not log: the runner hands optimize_window log=lambda *_: None, so the h1/jdens calibration lines
+        # never reach the run log (found 2026-09-25 23:10 CDT while checking whether bp304 was active)
+        print(f"[win] corr calibration: |g_vol|={float(gv):.3g} |g_corr|={float(gc):.3g} scale={tgt.corr_scale:.3g}",
+              flush=True)
     kde_nbr = None
     if cfg.w_kde > 0 and tgt.pts is not None:
         kde_nbr = kde_assign(x0_t, tgt.pts, cfg.kde_k)
