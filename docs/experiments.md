@@ -7987,3 +7987,26 @@ ingredient of the 300k form, u, dt, or the particles per cell is the cause. Not 
 user's rule and the fracture ladder). Remedy candidates are on the control side — a control whose surface
 traction does not outrun the bulk (the bulk must be moved by body forces, not by the surface's stress jump) —
 and are a formulation change to bring to the user, not launched here.
+
+**2026-09-26 01:30 CDT — corrections to the 01:05 entry (reviewer).** (i) The "62 %" compared the 300k's own
+control on the 300k cloud (outer layer 0.042 wu) with the 40k control on the 40k cloud (0.0675); the same-cloud
+comparison is 0.042 / 0.0566 = **74 %** in magnitude and 0.11 / 0.17 = **65 %** in the share along the plan.
+(ii) The bulk's ~0.02 wu per window is not progress along the plan: its along-plan share is 0 or negative in
+the table. (iii) "Per layer the response is the same, the world-unit band was a binning artefact" understates
+the finding: if the fast zone is two particle layers at every N, the mass supplied ahead of the bulk per
+window is half at 300k — that IS the supply deficit, not an artefact of binning. (iv) "A stress control only
+moves the surface; the bulk needs body forces" is an over-generalisation: ρ v̇ = ∇·σ + f, a spatially varying
+stress makes internal forces, and the stress here depends on F, Fp and the material as well as dFc; high
+32-NN coherence of dFc does not make the stress uniform. What the replays support is narrower: THE CONTROLS
+OBTAINED HERE produce surface-weighted motion whose outer-layer response scales ~1/dx. (v) Why the fast
+zone's thickness follows the particle spacing rather than dx is not explained by "the grid resolves the
+traction over one cell"; a sampling/boundary-layer effect (the nodes just outside the surface carry mass from
+the outermost one or two layers only, so their f/m is large and returns to those layers through G2P) is a
+candidate to be measured, not a reading. Next (the reviewer's order, all smaller than a formulation change):
+(1) the first step's control-induced acceleration by depth with the real kernels (a T = 1 replay), depth in wu
+and depth/dx with native spacings auxiliary; (2) the mass that crossed a fixed physical boundary into the
+lead slab during the window and the along-plan progress; (3) a small FIXED pace at the current 36³ grid with
+the arrival radius decoupled from the pace, at the initial state and from a rest restart mid-transport; then
+the body-force control as a candidate with render-off and dFc controls kept. P283's `--material_size` also
+freezes the anchor's support opacity: to be split into radius transport and support freeze and read
+separately, with the coverage of thinned regions checked.
