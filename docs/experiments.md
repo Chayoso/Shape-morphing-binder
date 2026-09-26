@@ -7653,3 +7653,7 @@ averaged over the 32 nearest (two passes), the discs, the deferred shading on th
 normal and coverage buffers. **2 s per frame at 300k** (the CPU path 15–20 s): a 64-frame video in
 about two minutes, the same picture (frame 240 checked). The user declined 100k screening (the
 sparse regions are 300k's own), so the turnaround gain is the renderer's. Committed to scripts/.
+
+**2026-09-25 19:35 CDT — the page at v71: the three current results under the GPU splat.** bm300
+(tail 0.0008), g41pw bunny 40k (0.0002), bo300 dragon (0.0008; 300k, the chosen form: 0.9699, p1 0.77
+open), all rendered by `scripts/render_splat_gpu.py` in about two minutes each.
