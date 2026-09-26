@@ -1734,10 +1734,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 _init = _dc_src
                 _u_new = torch.as_tensor(np.asarray(_z["u"], np.float32), device=dev) if _with_u else None
             else:
-                _init = _grid_map(_dc_src.reshape(_dc_src.shape[0], -1, 9), _xs, x0_t, tgt.lgmin, tgt.ldx,
-                                  tgt.ldims).reshape(_dc_src.shape[0], N, 3, 3)
+                # the projection grid: this run's loss grid, or PHYSMORPH_REPLAY_GRID cells per axis over the same
+                # domain (so a run at another MPM cell size still receives the SAME grid-level control)
+                _g = int(os.environ.get("PHYSMORPH_REPLAY_GRID", "0") or 0)
+                _dims_m = (_g, _g, _g) if _g > 0 else tuple(tgt.ldims)
+                _ldx_m = float(tgt.ldx) * float(tgt.ldims[0]) / float(_dims_m[0])
+                _init = _grid_map(_dc_src.reshape(_dc_src.shape[0], -1, 9), _xs, x0_t, tgt.lgmin, _ldx_m,
+                                  _dims_m).reshape(_dc_src.shape[0], N, 3, 3)
                 _u_new = (_grid_map(torch.as_tensor(np.asarray(_z["u"], np.float32), device=dev).reshape(1, -1, 1),
-                                    _xs, x0_t, tgt.lgmin, tgt.ldx, tgt.ldims).reshape(N) if _with_u else None)
+                                    _xs, x0_t, tgt.lgmin, _ldx_m, _dims_m).reshape(N) if _with_u else None)
+                print(f"[replay] projection grid {_dims_m[0]}^3, cell {_ldx_m:.4f} wu", flush=True)
             dFc.copy_(_init if basis.per_particle else basis.project(_init))
             if u is not None:
                 if _u_new is not None:

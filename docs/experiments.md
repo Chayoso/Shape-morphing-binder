@@ -7936,3 +7936,54 @@ the `--dfc_clip 0.02` bound, so the first window's control is clip-saturated at 
 data had read "88 %": the world-unit binding the reviewer asked for changed the conclusion. Round 2 launched:
 the same grid control at 300k with one forward ingredient removed at a time (`--layer_relax`, `--disc_ref`,
 `--bonds`, `--layer_ctrl`, and bm300's flags replaced by the 40k form's), plus 40k without `--layer_relax`.
+
+**2026-09-26 00:45 CDT — P278b round 2: none of the 300k form's forward ingredients is the cause.** The same
+grid-projected 40k control replayed at 300k with one ingredient removed at a time — `--layer_relax`,
+`--disc_ref`, `--bonds`, `--layer_ctrl`, and all of bm300's flags replaced by the 40k form's — delivers the
+skin (0–0.14 wu) 0.0230 wu / 0.045 along the plan in every case, to four digits (the flags took effect: the
+plan blur 0.116 wu without `--disc_ref`; the outputs are distinct files); at 40k, removing `--layer_relax`
+moves the skin 0.0588 → 0.0603. The time step and horizon are identical at both N (dt = 1/240 fixed, T = 20;
+the dynamics mass per particle is mass_ref_n / N), so the physical duration is the same. What remains
+between the two forward models is the discretisation itself: the same MPM cell (0.30–0.31 wu) with 25
+against 184 particles per cell. Round 3 launched with the projection grid held at 36³
+(`PHYSMORPH_REPLAY_GRID`): the same grid control at 300k with the 40k's particles per cell (`--cell_diag 51`,
+dx 0.156, ppc ≈ 24) and at 40k with the 300k's (`--cell_diag 13`, dx 0.60, ppc ≈ 190), dt and T unchanged.
+Pre-registered: if the skin's delivery follows the particles per cell (300k at ppc 24 → toward 0.06 wu; 40k at
+ppc 190 → toward 0.02), the forward difference is the quadrature density of the MPM cell; if it follows N or
+dx instead, it is not.
+
+**2026-09-26 01:05 CDT — P278b round 3 read, with the delivery binned by PARTICLE LAYER: the "skin strip" is a
+grid-resolved surface response of the MPM to a stress control — the outermost two particle layers move 2.5–3×
+the bulk at every N, the per-layer response scales ≈ 1/dx, and at 300k the same two layers are half as thick in
+world units.** `scratch/layer_probe.py` (the count-based outermost layer, then depth bands in native spacings
+behind it; median |x1 − x0| wu / share along the paced step; same 36³ grid control unless "own"):
+
+| replay | outer layer | 1–2 sp | 2–4 sp | 4–8 sp |
+|---|---|---|---|---|
+| R8 40k dx 0.30 (ppc 25) | **0.0675** / 0.20 | 0.0534 / 0.16 | 0.0233 / 0.07 | 0.0117 |
+| R9 300k dx 0.31 (ppc 184) | **0.0566** / 0.17 | 0.0498 / 0.15 | 0.0216 / 0.03 | 0.0193 |
+| R7 40k dx 0.60 (ppc 190) | 0.0231 / 0.07 | 0.0230 / 0.07 | 0.0163 / 0.05 | 0.0114 |
+| R6 300k dx 0.16 (ppc 24) | 0.1028 / 0.31 | 0.0593 / 0.17 | 0.0265 / −0.02 | 0.0250 |
+| R5 300k own control dx 0.31 | 0.0420 / 0.11 | 0.0324 / 0.09 | 0.0236 / 0.00 | 0.0227 |
+| R1 40k own control dx 0.30 | 0.0705 / 0.22 | 0.0574 / 0.17 | 0.0250 / 0.07 | 0.0131 |
+
+Readings. (1) Per layer, the forward response to the same control is nearly the same at both N (the outermost
+layer 0.057 at 300k against 0.068 at 40k, 84 %); the world-unit band read "a third" because the excess zone is
+two PARTICLE layers deep at both N — 0.14 wu at 40k, 0.07 wu at 300k — so the mass that runs ahead of the bulk
+per window is half at 300k. (2) The excess is not the particles per cell: at fixed N = 40k, coarsening the cell
+to 0.60 wu removes it (0.068 → 0.023) and at fixed N = 300k refining to 0.16 wu doubles it (0.057 → 0.103);
+at fixed dx it barely depends on N. A stress increment applied per particle is a uniform stress inside the
+body whose divergence is the traction at the free surface; the grid resolves that traction over one cell and
+accelerates the surface node's mass, so the outer layers' response per window goes as ~1/dx while the bulk
+(2–4 spacings and deeper) moves ~0.02 wu at every dx and N — the density objective then fills its one-cell
+lead with exactly these layers. (3) The 300k's own optimised control moves its outer layer 62 % of what the
+40k's control would on the same cloud (0.042 vs 0.057) and is less aligned with the plan (0.11 vs 0.17), the
+optimisation-side half of the deficit, with the control clip-saturated and coherent at both N (round 1). So
+the vapour's causal chain is now measured end to end: pace one cell ahead → the optimiser saturates a
+stress control → the MPM moves the outermost two particle layers 2.5–3× the bulk (∝ 1/dx) → those layers fill
+the lead as a vapour whose density is two layers' mass, half at 300k; the 40k shows the same at three times the
+density and the 300k's start is later because its control is also 62 % as effective per layer. No forward
+ingredient of the 300k form, u, dt, or the particles per cell is the cause. Not a remedy: coarsening dx (the
+user's rule and the fracture ladder). Remedy candidates are on the control side — a control whose surface
+traction does not outrun the bulk (the bulk must be moved by body forces, not by the surface's stress jump) —
+and are a formulation change to bring to the user, not launched here.
