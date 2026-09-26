@@ -7731,3 +7731,22 @@ material neighbourhood (the k particles within the blur radius, already the plan
 pulled as a whole — its centroid toward the centroid of its images — so the bulk translates with
 the front, while the arrangement inside the neighbourhood stays the density and render terms'
 (the detail). Proposed, not run.
+
+**2026-09-25 21:45 CDT — the user's decision: complete the pin first, then the neighbourhood-level
+correspondence; the surface side.** The flow of the 300k Gaussians is the pin's COVERAGE gap, not a
+new defect: the pin (§10.27) takes 97 % of g41pw at 40k and 49 % of bm300 at 300k; the pinned
+material is exactly still at both (0.002 / 0.012 spacings per frame normal / tangential), the free
+half slides monotonically (0.18 / 0.13) and never meets "twice reversed" — at 40k the coarser cells
+make the same drift reverse. `--settle_pin_still` (runner): an arrived particle that moved less
+than the shell radius over each of two consecutive windows is settled and pinned — stillness read
+as settling beside reversal, two events as the reversal rule, the reconstruction's resolution as
+the scale; no new constant. Launched **bp303** = bm300's form + `--settle_pin_still` (GPU 2).
+Pre-registered **P276**: pinned at the end ≥ 0.90, the unpinned surface move at t = 0.9–1.0 ≤ 0.02
+spacings per frame, silIoU ≥ 0.971, no reversal window, tip ≥ 9, knob ≤ 1.3. If it holds, the
+neighbourhood-level correspondence (21:25) follows for the vapour; if not, the same. On the surface
+side (the user's "interior = physics, exterior = 300k Gaussians"): nothing has been run; what was
+established is that a morph's surface is not a material invariant (the ears' surface is the head's
+interior column), so a surface-only particle set cannot form the thin features, and the two routes
+that survive are the render children (already in the repository, ×4 coverage, no appearance model
+yet) and adaptive shell-weighted sampling of the same 300k (a physics-consistent density boost of
+the outer layer, gated on the transport). Both queued behind the two items above.
