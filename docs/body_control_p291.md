@@ -3,6 +3,26 @@
 Status: opt-in implementation; quality gates pending. User authorised implementation
 and hyde06 experiments on 2026-09-26. Baseline at implementation: 663a43e.
 
+Latest controlled full runs (3555293, N300k, T20, dt1/240, dx0.3062907544 wu,
+loss36^3, seed1, animations300, cap60): corrected baseline silIoU0.973296,
+highest-tip count5.867; two-mode body-only silIoU0.972067, tip6.0. Neither passes
+the thin-tip gate. Active pins checked over every delivered frame remain exactly
+fixed (144492 / 288436 checked particles), but unpinned surfaces still move and
+reverse. Existing rest/hole gates passing does not establish the user's goals.
+
+The old bm300 tip13.333 is not a matched controller-only comparison: both the
+adjoint bond threshold and real pin preservation changed. To isolate admission
+timing while retaining those repairs, `--settle_pin_confirm` requires the existing
+window-start arrival mask AND arrival at the accepted endpoint against the frozen
+full plan. The same mask defines particles needing transit-ray protection. It
+adds no distance threshold, preserves all active pins, and does not change the
+optimizer's arrived/pace criteria. Stuck-point and viscosity admission rules are
+incompatible because they otherwise write the same settled set independently.
+First diagnostic: `baseline_confirm` on bunny300k, same cap60 and all other flags;
+compare tip, early density, fit, pin trajectory and unpinned movement to fixedbase60.
+An improvement is a diagnostic result, not automatic adoption; original shape,
+no-hole and gallery gates still apply.
+
 The goals are continuous material coverage during transport, no material sliding after
 individual convergence, and no arrival oscillation. Adding an actuator alone proves
 none of these goals. P280/P287/P289/P290 failures remain on record; loss resolution,

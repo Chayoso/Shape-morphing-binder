@@ -1681,6 +1681,15 @@ pins. Active pin and broader admitted fractions are reported separately. A diagn
 `--stop_after_windows` limits execution while leaving `animations`-based schedules intact.
 Implementation, limitations and quality gates: [P291](body_control_p291.md).
 
+P291 admission diagnostic (`--settle_pin_confirm`, default off): the new-pin
+arrival mask is the intersection of the window-start mask and accepted-end
+arrival against that window's frozen full plan and unchanged arrival radius.
+Ray/clearance protection uses its complement. Existing active pins remain fixed;
+optimizer pacing and arrival statistics are unchanged. Separate stuck-point and
+viscosity admission modes cannot be combined with this diagnostic. This tests
+whether lost transit protection contributes to the repaired baseline's thin-tip
+regression; it is not a convergence guarantee.
+
 `--body_terminal_ctrl` optionally adds a second field `c_p` with pulse
 `h_t=1/H^2 - (T+1)/(2T) a_t`, `H=T dt`. Its free response is zero displacement
 and terminal velocity `c_p/H`; it permits net external impulse. The two fields

@@ -23,6 +23,7 @@ else
 fi
 case "$MODE" in
     baseline) ;;
+    baseline_confirm) FL+=(--settle_pin_confirm) ;;
     body) FL+=(--body_ctrl) ;;
     body_no_dfc) FL+=(--body_ctrl --body_no_dfc) ;;
     force_normalized) FL+=(--body_ctrl --body_no_dfc --body_step_normalized) ;;

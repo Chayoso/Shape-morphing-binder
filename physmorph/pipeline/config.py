@@ -578,6 +578,7 @@ class PipelineConfig:
                                     #   strain, no control, no relaxation move (kernels k_g2p / k_update / k_layer_project)
                                     #   — a kinematic constraint during the morph only; the settled body is exactly still
                                     #   frame to frame. Needs ctrl_rprop (the reading).
+    settle_pin_confirm: bool = False  # P291 diagnostic: require arrival at both window start and accepted end
     settle_pin_clear: bool = False  # 2026-09-25 (10.27 addendum): with settle_pin, a particle is pinned only when no
                                     #   unarrived particle lies within the pace radius (optimizer stats "pace_r": the paced
                                     #   target's arrival scale) — the pinned body never blocks a flowing channel and its

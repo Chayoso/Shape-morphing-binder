@@ -99,6 +99,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          stop_after_windows=args.stop_after_windows, body_no_dfc=args.body_no_dfc,
                          body_step_normalized=args.body_step_normalized,
                          body_terminal_ctrl=args.body_terminal_ctrl,
+                         settle_pin_confirm=args.settle_pin_confirm,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
@@ -719,6 +720,7 @@ def main():
     ap.add_argument("--plan_sticky", action="store_true", help="an arrived particle keeps the target point it arrived at across the plan's re-solves (config.plan_sticky)")
     ap.add_argument("--settle_pin_stuck", action="store_true", help="with plan_sticky: a stuck particle within the shell radius of its point is pinned (config.settle_pin_stuck)")
     ap.add_argument("--settle_pin_still", action="store_true", help="an arrived particle that moved less than the shell radius over two consecutive windows is pinned (config.settle_pin_still)")
+    ap.add_argument("--settle_pin_confirm", action="store_true", help="require start and accepted-end arrival for pin admission and transit-ray clearance")
     ap.add_argument("--pace_front", action="store_true", help="the paced target grows as a front from the filled body (config.pace_front; method.md 10.29)")
     ap.add_argument("--arrive_cap", action="store_true",
                     help="the arrival snap respects the target's capacity (config.arrive_cap; method.md 10.28)")

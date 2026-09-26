@@ -299,6 +299,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     streams each accepted optimisation iteration (live viewer hooks)."""
     if cfg.settle_pin and (cfg.reattach or cfg.settle_commit):
         raise ValueError("settle_pin cannot be combined with reattach/settle_commit: those commit operators do not preserve pins")
+    if cfg.settle_pin_confirm and not (cfg.settle_pin and cfg.ctrl_rprop):
+        raise ValueError("settle_pin_confirm requires settle_pin and ctrl_rprop")
+    if cfg.settle_pin_confirm and (cfg.settle_pin_stuck or cfg.settle_eta):
+        raise ValueError("settle_pin_confirm cannot use separate stuck-point or viscosity admission rules")
     src = np.ascontiguousarray(source_x, np.float32)
     N = src.shape[0]
     assert target_x.shape[0] == N, ("D_vol compares unit-mass clouds: source and target need "
@@ -1395,8 +1399,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     settled_p = np.zeros(len(_d_now), bool)
                 _arr_p = stats.get("arrived_mask")
                 from .settlement import accepted_arrivals
-                _arr_p = accepted_arrivals(x, stats.get("plan_img"), stats.get("pace_r"), _arr_p)
-                rec["arrived_end_frac"] = float(_arr_p.mean())
+                _end_arr = accepted_arrivals(x, stats.get("plan_img"), stats.get("pace_r"), _arr_p)
+                rec["arrived_end_frac"] = float(_end_arr.mean())
+                _arr_p = (accepted_arrivals(x, stats.get("plan_img"), stats.get("pace_r"), _arr_p,
+                                            require_start=True) if cfg.settle_pin_confirm else _end_arr)
+                rec["pin_arrival_eligible_frac"] = float(_arr_p.mean())
                 rec["active_pin_motion_max"] = (float(np.linalg.norm(_d_now[pin_window], axis=1).max())
                                                 if pin_window.any() else 0.0)
                 if settled_at is None or len(settled_at) != len(_d_now):
