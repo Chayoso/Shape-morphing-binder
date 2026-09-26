@@ -8249,3 +8249,45 @@ the thinning falls too, i.e. the small lead trades supply density for speed, and
 first at 1 sp; in the bunny initial case the small lead thickens the slab at a 17 % speed cost (known). If
 progress does not depend on the lead in the mid-transport states, the lead is not the lever there and the
 expansion rule has nothing to key on. The expansion rule is written only after these curves.
+
+**2026-09-26 11:05 CDT — P288 read: the lead sets the speed monotonically; its benefit is local to the bunny's
+transit slab and does not show in global thinning; a per-window slab-fill signal does not discriminate the
+states.** (Clock: the P288 pre-registration above was written at ≈ 10:20 CDT, not 03:30 — the user's go came
+in the morning.) `scratch/lead_response.py` (the moving set fixed at W = the particles farther than the arrival
+radius from their final position in the reference run; progress = toward those final positions; thinning =
+share of the moving set below half density), read 12 windows after the switch:
+
+| case | lead | progress median at W+12 | slowest decile | thinning at W+12 | arrived % W → W+12 |
+|---|---|---|---|---|---|
+| dragon 300k, W = 30 | cell 0.306 (bo300) | **0.443** | **0.180** | 0.001 | 69.8 → 78.6 |
+| | 4 sp 0.140 | 0.250 | 0.038 | 0.002 | 67.7 → 77.1 |
+| | 2 sp 0.070 | 0.214 | 0.022 | 0.002 | 67.2 → 75.2 |
+| | 1 sp 0.035 | 0.201 | 0.020 | 0.002 | 66.3 → 71.5 |
+| nefertiti 40k, W = 20 | cell 0.302 (g41pw, 09-24 code) | **0.790** | **0.593** | **0.129** | 84.6 → 95.8 |
+| | 1 sp 0.070 | 0.604 | 0.115 | 0.160 | 84.6 → 96.9 |
+| | 2 sp 0.139 | 0.482 | 0.100 | 0.157 | 83.7 → 87.9 |
+| bunny 300k, W = 0 | cell (bm300) | 0.716 | 0.438 | 0.001 | 17.7 → 93.4 |
+| | 1 sp (bp306a) | 0.637 | 0.317 | 0.000 | 17.7 → 90.4 |
+| | 2 sp (bp306b) | 0.679 | 0.355 | 0.000 | 17.7 → 89.6 |
+
+Readings. (1) Progress toward the final target falls with the lead in every case — on the dragon
+mid-transport by half (0.44 → 0.20) with the slowest decile stalling (0.18 → 0.02), on nefertiti from 0.79 to
+0.48–0.60 with the slowest decile 0.59 → 0.10, and even on the bunny (0.72 → 0.64): the small lead is never
+faster. (2) The small lead's benefit — the bunny's transit slab 2–3.5× denser, the fit +0.006 — is local; the
+moving set's global thinning is ~0 on the bunny and the dragon under every lead, and on nefertiti the small
+lead makes the moving remnant THINNER (0.16 vs 0.13), not denser: mid-transport stragglers are left more
+isolated by a small lead. Prediction (i) held for speed, failed for thinning. (3) The nefertiti reference is
+the 09-24 run (older code) and the two P288 nefertiti runs differ in their moving sets at W (5154 vs 6061;
+frames per window 20.0 vs 18.2, so the window → frame mapping is approximate) — the nefertiti ordering
+between 1 and 2 sp is not reliable; the dragon comparison (same code, 18.6–20.0 frames per window) is.
+(4) A per-window governor signal was tried offline (`scratch/fill_probe.py`: the lead slab = target cells
+within one cell of the body and under 10 % filled at the window start; fill = the mass that entered them
+during the window over the target's): 0.05–0.19 in every case and under both leads — one window fills a
+cell-deep slab ~10 % whatever the lead, so this increment does not separate "vapour" from "fed"; the
+vapour is the ACCUMULATED transit-region density (hollow at fixed frames: 0.09 vs 0.32 at window 6), a
+state, not an increment. Consequences for the adaptive rule: it cannot be proportional to a delivered
+length (no expansion, reviewer 2) nor to a per-window fill (no signal); it has to be a TESTED candidate —
+each window, the lead candidate (smaller when the transit region's accumulated density is below half the
+target's; larger, up to the cell, otherwise) is kept only if the window's progress toward the final target and
+the moving set's thinning do not worsen against the previous window — with nefertiti's case showing that a
+thinning signal alone would misfire. Design to be written as P289 for review; nothing launched.
