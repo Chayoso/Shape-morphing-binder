@@ -7763,3 +7763,9 @@ window 20 while half the transport remains; the plan's later re-solves cannot mo
 surplus is pushed into the free ear tip (over-fill) and the merit oscillates there. Stillness is
 not settledness before the transport has passed. Not iterated further: the correspondence term
 (bp304) is the structural lever and its reading is pending.
+
+**2026-09-25 23:00 CDT — bp304 v1 was bm300: the correspondence term never ran.** Its numbers equal
+bm300's to the digit (silIoU 0.9733, the vapour 0.06 / 0.08 at t = 0.10 / 0.14, the progress by
+depth −0.05 / −0.08 at t = 0.10, the late surface motion 0.24 / 0.16) — the one-shot calibration
+sat inside the `w_h1 > 0` block and never set the scale, so the term was never added. Fixed (the
+calibration on its own, printed to the log) and relaunched as bp304; the v1 archive renamed.
