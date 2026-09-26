@@ -7672,3 +7672,18 @@ shell radius of its reserved point is settled — pin it (no reversal needed; th
 No new constant (the shell radius is the fill's resolution). Launched **bp302** = bp301 +
 `--settle_pin_stuck` (GPU 2). Pre-registered **P275**: pinned at the end ≥ 0.75, the unpinned move at
 t = 0.9–1.0 ≤ 0.03 spacings per frame, silIoU ≥ 0.975, no reversal window, tip ≥ 8.
+
+**2026-09-25 20:40 CDT — bp302 (sticky with capacity + the pin at the stuck point): the best 300k
+fit, a clean taper, the pin still off.** silIoU **0.9798** (bm300 0.9741, ar300 0.9773; z300b's 0.9802
+was the KDE form with the beads), 61 windows, end p1 0.888, none below 0.5, no negative-reversal
+window, tip 10.8, the ear a monotone taper at every t (0.79 / 0.68 / 0.52× at t = 0.3, no knob) —
+and **pinned 15.5 %**: 83 % of the particles are stuck to a point from window 20, but only 8–11 %
+are ever within the shell radius of it — the reserved points are not reached; the material hovers
+two to four spacings off and creeps (the unpinned move per frame 0.08 / 0.06 / 0.05 spacings at t =
+0.5–0.6 / 0.7–0.8 / 0.9–1.0, as bp301). P275 ✓ on the fit, the reversal and the tip; ✗ on the pin
+and the move. Read: a greedy nearest-free-point assignment is a permutation the material cannot
+realise exactly (neighbours in the way), so each particle settles at a small offset from its
+point and never satisfies a distance criterion. The last candidate for the pin would be motion,
+not distance: a stuck particle moving less than one shell radius per window is still at the
+reconstruction's resolution — pin it. Proposed; the user's call, since the fit and the growth are
+already the best on record and the residual creep is half bm300's.
