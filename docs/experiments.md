@@ -8411,3 +8411,50 @@ Next diagnostic: body_ctrl + body_no_dfc, keeping elasticity/u but eliminating l
 The first body8 run shortened animations and moved c2f to window5; it is excluded from comparisons.
 
 Details, limitations, raw audit and rendering-latch policy: [P291](body_control_p291.md).
+
+**2026-09-26 — P291 actuator ablations and consistency repairs (Codex, hyde06).**
+All 300k results below use T20, dt1/240, dx0.3062907544 wu, loss36^3, seed1 and
+the unchanged animations300 schedule; diagnostic caps limit execution only.
+
+| run under output/c291 | change | delivered silIoU | disposition |
+|---|---|---:|---|
+| c291_bunny_force60s | body, no learned dFc | 0.7112 | stopped at attempt19, best commit8; no ear |
+| c291_bunny_norm8s | reference-bound body step scaling | 0.7909 | best commit5; rest fails |
+| c291_bunny_normphys8s | matched render-off | 0.7920 | best commit6; unequal endpoints, no attribution claim |
+| c291_bunny_terminal8s | second force time mode, no learned dFc | 0.8673 | seven accepted windows, one null; rest fails |
+| c291_bunny_terminalphys8s | matched two-mode render-off | 0.8705 | prefix only |
+| c291_bunny_terminal60s | same two-mode controller, cap60 | 0.970760 | converges attempt55; highest-tip count4.8, gate fails |
+
+`terminal8s` top-region neighbor density at raw frames80/120/140 is
+0.3941/0.5368/0.6608 (baseline at80/120:0.0580/0.0483). This is a mean density,
+not a no-hole certificate. All13 rendered frames were inspected: the head grows
+as a denser body, but at this prefix the ears remain blunt. Earlier baseline,
+mixed single-mode and force-only prefixes had all15 frames inspected each;
+the first two show transient translucency, the last fails to grow the shape.
+
+The no-body 40k regression `c291_bunny_pin40k` (5b8e10d, dx0.3018368781 wu,
+T20/dt1/240/loss36^3, config shared fields identical to g41pw_bunny) gives
+silIoU0.969258 vs historical0.970277, detFmin0.8013 vs0.7866, and all existing
+guard/rest/hole/ejection gates pass. All60 rendered frames inspected: early
+head/ear translucency remains, so the user's no-hole goal does not pass. At the
+declared cutoff702, 37075/40000 are pinned;36697 have later raw frames available
+and exact max drift0. The fixed unpinned surface cohort368 has late median
+normal/tangential motion0.00214/0.00385 native spacings per archived simulation
+step. Neither this regression nor pin invariance proves every particle has settled.
+
+Adversarial review found preexisting forward/adjoint bond-threshold disagreement
+under disc_ref and inconsistent loss-unit floors in replay calibration. Fixed in
+ede48a9; final loss/state finiteness is checked as for candidates. The replay trace
+7ccc16e measured a2.03e-9 loss change vs1.99e-9 tolerance, identical lambda, and
+8.34e-7wu max position difference. 3555293 reuses an already accepted trajectory
+when no later evaluation overwrote it; otherwise replay and validation remain.
+It does not widen the multiplier. Previous300k actuator ablations are diagnostic
+evidence, not final quality gates for the repaired controller.
+
+Two-mode CUDA probe5b8e10d (N100,T6,dt0.005,dx0.5) changes both mode fields through
+scales1/-0.7/1: max position difference1.49e-8wu, velocity2.24e-8wu/s, relative
+gradient9.44e-8. Latest full CPU suite: **283 passed,8 skipped**. Regression tests
+include a threshold-sensitive separated cluster, replay-unit invariance and a
+rejected trial overwriting the last accepted trajectory. Adversarial review found
+no remaining blocking issue in these changes. Repaired baseline/body runs are
+executing in isolated3555293 snapshots; no production/page promotion.
