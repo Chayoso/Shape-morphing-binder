@@ -1381,6 +1381,22 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 if settled_at is None or len(settled_at) != len(_d_now):
                     settled_at = np.full(len(_d_now), -1, np.int32)
                 _newly = _arr_p & (ctrl_rev_count >= 2) & (~settled_p)
+                if getattr(cfg, "settle_pin_stuck", False) and stick_arr is not None:
+                    # config.settle_pin_stuck (2026-09-25 19:55 CDT): a stuck particle (config.plan_sticky) converges to
+                    # its fixed point monotonically and never reverses twice (bp301: 83 % stuck, 6 % pinned, at the best
+                    # 300k fit); its goal cannot move, so it is settled when within the shell radius of its point — the
+                    # fill's own resolution, no constant — and the pin takes it there.
+                    if getattr(tgt, "points_np", None) is None:
+                        tgt.points_np = np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32)
+                    if getattr(tgt, "pin_rcov", None) is None:
+                        from scipy.spatial import cKDTree as _KDs
+                        tgt.pin_rcov = float(np.median(_KDs(tgt.points_np).query(tgt.points_np, k=9, workers=-1)[0][:, 8]))
+                    _has_s = stick_arr >= 0
+                    _dist_s = np.full(len(_d_now), np.inf, np.float32)
+                    _dist_s[_has_s] = np.linalg.norm(np.asarray(x, np.float32)[_has_s] - tgt.points_np[stick_arr[_has_s]], axis=1)
+                    _stuck_at = _has_s & (_dist_s <= tgt.pin_rcov)
+                    rec["pin_stuck_frac"] = float(_stuck_at.mean())
+                    _newly = _newly | (_stuck_at & ~settled_p)
                 _ray_samples = None
                 # config.settle_pin_clear (10.27 addendum): a particle is pinned only when no UNARRIVED particle
                 # lies within the pace radius of it — the paced target's own arrival scale, no new constant. The
