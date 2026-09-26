@@ -8202,3 +8202,30 @@ global median. Order agreed with the reviewer: the corrected first-step diagnost
 from the SAME start state at representative states (bunny initial, the dragon mid-transport, a 40k target
 that degraded) reading delivery, supply density and local deformation against the lead; then the expansion
 rule; then the three gates (P284, P285, P286) together, C with the fixed code and its control.
+
+**2026-09-26 03:05 CDT — the first step read correctly (T = 20, the ordinary projection coefficient 0.05, a
+dFc = 0 replay on the same state as the control): the projection alone is as large as the stress response
+on the outermost layer; the stress response is surface-weighted by ×2–6, not ×50–200.** `scratch/step1_probe.py`
+on `x_step1` of the T = 20 replays (medians, 1e-4 wu; "projection" = |x₁(0) − x₀|, "stress" = |x₁(dFc) − x₁(0)|):
+
+| band | 40k projection | 40k stress | 300k projection | 300k stress |
+|---|---|---|---|---|
+| outermost layer | **6.49** | **3.80** (×6.0 the deep bulk) | **2.51** | **2.29** |
+| 1–2 sp | 0.00 | 2.55 (×4.1) | 0.00 | 1.41 |
+| 2–4 sp | 0.00 | 0.98 (×1.6) | 0.00 | 1.03 |
+| 0.14–0.35 wu | 0.00 | 0.87 (×1.4) | 0.00 | 1.03 |
+| deep bulk (> 1 dx) | 0.00 | 0.63 | — | — |
+
+Readings: (1) the `--T 1` numbers of 02:10 were the layer projection at coefficient 1.0 (the reviewer's point):
+at the ordinary coefficient the projection moves the outermost layer 6.5e-4 (40k) / 2.5e-4 (300k) per step and
+nothing else, mean-reverting toward the local plane (which is why removing `--layer_relax` did not change the
+20-step delivery in round 2 — it does not accumulate). (2) The control's own first-step response is
+surface-weighted but modestly: the outermost layer ×6 the deep bulk at 40k and ×2.2 the 0.14–0.35 wu band at
+300k, decaying over two spacings — consistent with the window-integrated two-layer zone of round 3 (×2.5–3)
+and with a stress increment whose divergence is largest at the free surface, not with a per-layer kick of
+two orders. (3) Per layer the 300k's stress response is 60 % of the 40k's on the outermost layer (2.29 vs 3.80)
+and the same in the bulk (1.03 vs 0.87–0.98); so the same-control forward difference of round 3 is a surface
+effect of ~×1.7 at the first step, growing to the ×3 window difference as the outer layers separate. The
+window-scale conclusions (the two-layer zone at every N, ~1/dx of its integrated motion, the halved supply
+mass at 300k) stand on their own measurements; the first-step "mechanism" claims of 02:10 are replaced by
+this table.
