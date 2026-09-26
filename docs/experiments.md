@@ -8128,3 +8128,11 @@ gates: silIoU ≥ 0.9699, no stall, 0 negative-reversal windows), and **P286** t
 + `--pace_lead_sp 1` on all 19 targets (GPUs 0–1; the lead there drops from one cell 0.302 wu to one spacing
 0.070; gate: no target loses more than 0.005 silIoU against g41pw, no new reversal streak, the layer breathing
 not worse). Adoption of the rule needs both; until then bm300 / g41pw stay the forms and the page is unchanged.
+
+**2026-09-26 03:50 CDT — server cleanup (the 100 GB rule, applied before the gallery and dragon archives
+land): 95 → 54 GB.** Logs and JSONs of the refuted / superseded 300k runs archived to
+`logs_archive_20260926e.tgz` (54 files), the deleted paths listed in `logs_archive_20260926e.deleted_list.txt`
+(57 files, 41 GB): the particle archives of bp301, bp302, bp303, bp304, bq300, bs300, bt300, ar300 (bunny) and
+br300 (dragon), and the run outputs of the diagnostic replays (`scratch/replay/*_run*`), the six-window lead
+runs (`scratch/lead/*.npz`), `scratch/corrchk` and `scratch/plandump/*_render*`. Kept: bm300, bo300, g41 / g41pw
+galleries, bp306a/b, the replay controls and plan dumps (small), every page video.
