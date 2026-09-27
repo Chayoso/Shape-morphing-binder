@@ -198,3 +198,47 @@ the subprocess explicitly reported `CUDA_VISIBLE_DEVICES=-1` and
 local test invocations require the explicit `-1` value; an empty string is not a
 valid GPU exclusion on this host. CUDA captured-graph validation remains assigned
 to hyde06 through the jump host.
+
+## Five completed raw archives offloaded before the P294 full pair
+
+At 2026-09-27 01:09 UTC, five explicitly approved completed raw archives had been
+copied into `C:/dev/physmorph_archives/p294_headroom_20260927/`, fully SHA-256
+verified and fsynced locally. Only their remote duplicates were then removed.
+Parent confirmed that the completed audits had no remaining consumers. Before
+transfer, the user process list showed no numerical job and `lsof` found no open
+candidate file; its warnings concerned unrelated users' FUSE mounts.
+
+| Original remote path below the project root | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `work/p292/taper8_render_full_dt_iso_nn.npz` | 696,302,308 | `ceefc6fe580839f47e0fb1299467d69be490e42be73e5e5d401097f270da226c` |
+| `work/p292/no_pic8_render_full_dt_iso_nn.npz` | 696,302,308 | `bc2bad0faed87ad11bd8857c2cfa1e0df9177da04fcab42f549e412405285d9c` |
+| `work/p293/pic_legacy8_render_full_dt_iso_nn.npz` | 696,302,308 | `0f886be69b5eb8e7f71204a8598a309d83ae1ba007ab61f7f7e90bfd18ac3855` |
+| `work/p293/pic_objective8_render_full_dt_iso_nn.npz` | 696,302,308 | `15bab0aeb17b982d83e93db9106f8d67dd242bdf38fd7e6f037b997fab2ee06a` |
+| `work/gpu_refactor/cuda_phys60_full_render_full_dt_iso_nn.npz` | 2,780,702,684 | `1e3e56b4675a44c13b9fe23970f3fdddab0a5070fb60d98b5348c6b1b17e45d7` |
+
+The local directory contains those exact five basenames, each case's
+`*_manifest.json` and `*_verified.json`, and copies of all five durable server
+receipts named `<archive basename>.p294_offload.json`. The downloaded server
+receipts were checked for exact equality with the local verified records. Their
+server originals remain in `archives/completed_failed_runs/`.
+
+The reviewed scripts are `output/p294/offload_headroom.py` and
+`output/p294/verify_headroom.py`. The remote script accepts only the five fixed
+case names and unlinks one exact source per invocation. Each commit rehashed
+the full source, matched canonical path and device/inode/size/mtime to its plan
+and local verified receipt, wrote and fsynced its server receipt, then unlinked
+that single duplicate and fsynced its parent. Independent protocol review closed
+before commit; the reviewer also checked all completed local receipts, manifest
+fields and file sizes without claiming a second payload rehash.
+
+All JSON/log/compact NPZ and audit evidence remain remote, including
+`render_off_full.log`, `.done`, and `render_influence_full.json`. The original
+c291 source and all inputs/render deliverables/code were untouched. No local
+file was deleted and no GPU task was launched for this storage operation.
+Exactly **5,565,911,916 bytes** were freed. Measured project usage was
+**88,628,322,583 bytes (88.628 GB)** at 01:09 UTC, down from the initial
+94,191,350,462-byte inventory and below the planned 89 GB launch threshold.
+The user's cleanup threshold remains 100 GB; 89 GB was the working headroom
+target for the upcoming pair of full archives, not a new user requirement.
+The net project-size change also includes concurrent metadata/code writes; the
+freed-byte total above is the sum of the five verified payloads.

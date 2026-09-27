@@ -80,8 +80,15 @@ supervision remains a subsequent change; no quality improvement is asserted.
 
 The subsequent `geometric_rest` prototype now adds a separately differentiated
 raw last-step/remap penalty on frozen arrived/free material. CPU integration,
-the CUDA bridge probe and a300k one-window pair passed; the multi-window quality
-comparison remains pending. It preserves physical v/C/F and the existing pin
-policy. Its coefficient is an explicit experiment at fixed T20/dt1/240, and
+the CUDA bridge probe and a300k one-window pair passed. The subsequent eight-window
+comparison completed with zero state guards and exact owned endpoint agreement.
+At the same T20/dt1/240/dx0.3062907544/loss36^3 discretization, its common14468 free
+IDs have raw-step median0.136071/0.132152 native spacings, but accepted-window
+direction reversals increase6.642%/7.625%. Overall pin admission also differs:
+35.622%/43.071%. This is mixed early-transport evidence, not a settling result.
+The full-morph comparison remains pending. It leaves the commit-time treatment
+of stored v/C/F and the existing pin policy unchanged. Optimized trajectories
+and their state values can differ. Its coefficient is an explicit experiment at fixed T20/dt1/240, and
 terminal-only control cannot certify motion throughout the window. See
-[P294 execution and limits](geometric_rest_p294.md). No quality fix is promoted.
+[P294 execution and limits](geometric_rest_p294.md) and the
+[prefix audit](geometric_rest_prefix_p294.md). No quality fix is promoted.

@@ -1,5 +1,6 @@
 """Archive-clock regression for the P292 raw comparison; CPU metadata only."""
 import importlib.util
+import json
 from pathlib import Path
 
 import numpy as np
@@ -199,7 +200,7 @@ def test_geometric_rest_prefix_changes_only_the_arrived_motion_penalty(probe):
                        ('outer_render_committed', False), ('lambda_auto', 0.),
                        ('stop_after_windows', 60), ('T', 10), ('render_until', 7),
                        ('w_kin', 0.), ('w_kin', -1.), ('w_kin', float('inf')),
-                       ('phys_loss', 'ot'), ('phys_loss', 'auto')]:
+                       ('phys_loss', 'ot'), ('phys_loss', 'density')]:
         with pytest.raises(ValueError, match=mode):
             probe.checked_config_changes(dict(baseline, **{key: value}),
                                          dict(candidate, **{key: value}), mode)
@@ -239,3 +240,76 @@ def test_geometric_rest_prefix_preserves_telemetry_without_final_rest_inference(
     assert [run['delivered'] for run in scoped] == [101, 101]
     assert scoped[0]['records'][-1]['geometric_rest'] == records[4]['geometric_rest']
     assert len(runs[0]['records']) == 8 and runs[0]['delivered'] == 161
+
+
+def test_actual_serialized_p294_auto_configs_require_resolution_and_history(probe, tmp_path):
+    fixture = json.loads((Path(__file__).parent/'fixtures/p294_auto_arrival.json').read_text())
+    mode = 'geometric_rest_prefix'
+    a, b = fixture['baseline'], fixture['candidate']
+    assert a['config']['phys_loss'] == b['config']['phys_loss'] == 'auto'
+    assert probe.checked_config_changes(a['config'], b['config'], mode) == {'geometric_rest': [None, True]}
+    for name, original in (('baseline', a), ('candidate', b)):
+        prefix = tmp_path/name
+        log = Path(str(prefix)+'.log')
+        log.write_text(original['resolver_line']+'\n', encoding='utf-8')
+        run = dict(prefix=prefix, arm=dict(config=original['config']), records=original['records'])
+        result = probe.checked_arrival_evidence(run)
+        assert result['resolved_mode'] == 'ot_pace' and result['accepted_commits_checked'] == 8
+        assert result['log_sha256'] == probe.hashlib.sha256(log.read_bytes()).hexdigest()
+        for contents in ('', original['resolver_line']+'\n'+original['resolver_line'],
+                         original['resolver_line'].replace('ot_pace + cell-wise hand-off', 'ot')):
+            log.write_text(contents, encoding='utf-8')
+            with pytest.raises(ValueError, match='Serialized auto'):
+                probe.checked_arrival_evidence(run)
+        log.write_text(original['resolver_line']+'\n', encoding='utf-8')
+        for wrong in (dict(original['records'][0], pin_arrival_evidence='legacy_no_arrival_contract'),
+                      dict(original['records'][0], arrived_end_frac=None),
+                      dict(original['records'][0], arrived_end_frac=float('nan'))):
+            with pytest.raises(ValueError, match='Every accepted commit'):
+                probe.checked_arrival_evidence(dict(run, records=[wrong]+original['records'][1:]))
+
+
+def test_full_geometric_rest_retains_strict_contract_at_cap60(probe):
+    fixture = json.loads((Path(__file__).parent/'fixtures/p294_auto_arrival.json').read_text())
+    a = dict(fixture['baseline']['config'], stop_after_windows=60)
+    b = dict(fixture['candidate']['config'], stop_after_windows=60)
+    mode = 'geometric_rest_full'
+    assert mode in probe.FULL_INTERVENTIONS and mode not in probe.PREFIX_INTERVENTIONS
+    assert probe.checked_config_changes(a, b, mode) == {'geometric_rest': [None, True]}
+    for key, value in [('commit_pic', False), ('commit_pic_objective', False), ('shift_sub', True),
+                       ('outer_render_committed', False), ('T', 10), ('w_kin', 0.),
+                       ('stop_after_windows', 8), ('render_until', 8), ('lambda_auto', 0.)]:
+        with pytest.raises(ValueError, match=mode):
+            probe.checked_config_changes(dict(a, **{key: value}), dict(b, **{key: value}), mode)
+    for changed in (dict(b, stop_after_windows=8), dict(b, w_kin=10.), dict(b, body_rprop=True)):
+        with pytest.raises(ValueError, match=mode):
+            probe.checked_config_changes(a, changed, mode)
+    mpm = dict(dt=1/240, dx=.3062907544)
+    probe.checked_mpm_parameters(mpm, dict(mpm), mode)
+    with pytest.raises(ValueError, match='requires dt=1/240'):
+        probe.checked_mpm_parameters(dict(mpm, dt=1/120), dict(mpm, dt=1/120), mode)
+
+
+def test_full_geometric_rest_uses_complete_unequal_runs(probe):
+    runs = [dict(records=[dict(frame_end=1+20*(i+1)) for i in range(n)], delivered=1+20*n)
+            for n in (32, 40)]
+    scoped, description = probe.scoped_runs(runs, 'geometric_rest_full')
+    assert scoped is runs
+    assert [len(run['records']) for run in scoped] == [32, 40]
+    assert [run['delivered'] for run in scoped] == [641, 801]
+    assert description['kind'] == 'full runs'
+
+
+def test_serialized_auto_pair_cannot_resolve_to_different_ot_modes(probe, tmp_path):
+    fixture = json.loads((Path(__file__).parent/'fixtures/p294_auto_arrival.json').read_text())
+    runs = []
+    for name in ('baseline', 'candidate'):
+        original = fixture[name]
+        prefix = tmp_path/name
+        Path(str(prefix)+'.log').write_text(original['resolver_line']+'\n', encoding='utf-8')
+        runs.append(dict(prefix=prefix, arm=dict(config=original['config']), records=original['records']))
+    assert [v['resolved_mode'] for v in probe.checked_arrival_modes(runs)] == ['ot_pace', 'ot_pace']
+    Path(str(runs[1]['prefix'])+'.log').write_text(
+        fixture['candidate']['resolver_line'].replace('ot_pace', 'ot_shape')+'\n', encoding='utf-8')
+    with pytest.raises(ValueError, match='same full-plan OT arrival mode'):
+        probe.checked_arrival_modes(runs)

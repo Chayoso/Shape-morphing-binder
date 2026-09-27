@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 
 import numpy as host_np
@@ -25,9 +26,10 @@ from scripts.probes.morph_raw_qa import audit
 from scripts.probes.render_influence import load_run, channel_summary
 
 wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
-FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff')
+FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff', 'geometric_rest_full')
 PREFIX_INTERVENTIONS = ('stress_taper', 'commit_pic_off', 'commit_pic_objective_prefix',
                         'geometric_rest_prefix')
+GEOMETRIC_INTERVENTIONS = ('geometric_rest_prefix', 'geometric_rest_full')
 
 
 def stats(values):
@@ -80,16 +82,17 @@ def checked_config_changes(ca, cb, intervention):
                          and c.get('lambda_auto', 0.) > 0
                          and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
                          for c in (ca, cb)))
-    elif intervention == 'geometric_rest_prefix':
+    elif intervention in GEOMETRIC_INTERVENTIONS:
+        cap = 8 if intervention == 'geometric_rest_prefix' else 60
         valid = (set(changes) == {'geometric_rest'}
                  and ca.get('geometric_rest', False) is False and cb.get('geometric_rest') is True
-                 and all(c.get('stop_after_windows') == 8 and c.get('T') == 20
+                 and all(c.get('stop_after_windows') == cap and c.get('T') == 20
                          and c.get('commit_pic') is True and c.get('commit_pic_objective') is True
                          and c.get('shift_sub') is False and c.get('outer_render_committed') is True
-                         and c.get('phys_loss') in ('ot_pace', 'ot_shape')
+                         and c.get('phys_loss') in ('auto', 'ot_pace', 'ot_shape')
                          and host_np.isfinite(c.get('w_kin', 0.)) and c.get('w_kin', 0.) > 0
                          and c.get('lambda_auto', 0.) > 0
-                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
+                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= cap)
                          for c in (ca, cb)))
     else:
         raise ValueError(f'Unknown intervention: {intervention}')
@@ -101,8 +104,43 @@ def checked_config_changes(ca, cb, intervention):
 def checked_mpm_parameters(baseline, candidate, intervention):
     if baseline != candidate:
         raise ValueError('MPM discretisation mismatch')
-    if intervention == 'geometric_rest_prefix' and baseline.get('dt') != 1/240:
-        raise ValueError('geometric_rest_prefix requires dt=1/240')
+    if intervention in GEOMETRIC_INTERVENTIONS and baseline.get('dt') != 1/240:
+        raise ValueError(f'{intervention} requires dt=1/240')
+
+
+def checked_arrival_evidence(run):
+    """Serialized auto is allowed only with a recorded OT resolution and accepted arrival evidence."""
+    mode = run['arm']['config'].get('phys_loss')
+    evidence = dict(serialized_mode=mode, resolved_mode=mode, log_sha256=None, resolver_line=None)
+    if mode == 'auto':
+        path = Path(str(run['prefix'])+'.log')
+        data = path.read_bytes()
+        lines = [line for line in data.decode('utf-8').splitlines() if line.startswith('[v2] phys_loss auto:')]
+        if len(lines) != 1:
+            raise ValueError('Serialized auto requires exactly one recorded loss-resolution event')
+        match = re.fullmatch(r'\[v2\] phys_loss auto: [0-9.]+% of the source particles sit in target-empty '
+                             r'cells -> (ot_pace|ot_shape)(?: \+ cell-wise hand-off)?', lines[0])
+        if match is None:
+            raise ValueError('Serialized auto did not resolve to a full-plan OT arrival mode')
+        evidence.update(resolved_mode=match.group(1), log_sha256=hashlib.sha256(data).hexdigest(),
+                        resolver_line=lines[0])
+    elif mode not in ('ot_pace', 'ot_shape'):
+        raise ValueError('Full-plan OT arrival mode required')
+    records = run['records']
+    if not records or any(row.get('pin_arrival_evidence') != 'accepted_full_plan'
+                          or not isinstance(row.get('arrived_end_frac'), (int, float))
+                          or not host_np.isfinite(row['arrived_end_frac'])
+                          or not 0 <= row['arrived_end_frac'] <= 1 for row in records):
+        raise ValueError('Every accepted commit must record full-plan arrival evidence')
+    evidence['accepted_commits_checked'] = len(records)
+    return evidence
+
+
+def checked_arrival_modes(runs):
+    evidence = [checked_arrival_evidence(run) for run in runs]
+    if len({item['resolved_mode'] for item in evidence}) != 1:
+        raise ValueError('Both arms must resolve to the same full-plan OT arrival mode')
+    return evidence
 
 
 def checked_runs(baseline, candidate, intervention):
@@ -135,6 +173,9 @@ def checked_runs(baseline, candidate, intervention):
             raise ValueError('Material particle IDs must be preserved')
         run['physical_indices'] = accepted_raw_indices(run['records'], config['T'])
         run['interior_hold_frames'] = run['physical_indices'][-1]+1-len(run['physical_indices'])
+    if intervention in GEOMETRIC_INTERVENTIONS:
+        for run, evidence in zip(runs, checked_arrival_modes(runs)):
+            run['arrival_mode_evidence'] = evidence
     return runs, changes
 
 
@@ -447,6 +488,7 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                      else len(run['arm']['history'])),
                            original_attempts=len(run['arm']['history']),
                            guards=run['arm']['guards'], guards_scope='complete original run',
+                           arrival_mode_evidence=run.get('arrival_mode_evidence'),
                            curve=run['curve'], tip_history=run['tip_history'],
                            min_accepted_detF=min(row['Jmin_traj'] for row in run['curve'] if row['Jmin_traj'] is not None),
                            interior_hold_frames=run['interior_hold_frames'],

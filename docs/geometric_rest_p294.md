@@ -88,3 +88,30 @@ The control and candidate recorded15.804/16.761s and Torch allocation peaks
 7.947/8.009GB on different GPUs; this is not a performance benchmark. Launches
 were00:50:43 and00:51:41UTC, checked against the prior launch's server timestamp.
 The JSONs are `output/p294/geom_control1.json` and `geom_rest1.json`.
+
+## Eight-window screen and longer comparison
+
+The [completed prefix comparison](geometric_rest_prefix_p294.md) retains the
+same numerical snapshot and changes only geometric_rest. Both arms complete8
+accepted windows with zero guards and exact owned endpoints. Early shape and
+upper-region supply improve modestly, but the same14468 free IDs show only a
+2.88% reduction in raw-step median and more commit-to-commit direction reversals.
+Pin selection also differs. Independent review closed the result/report gate;
+this screen does not establish late rest or disappearance of holes.
+
+The next bounded experiment keeps the exact same two formulations, source,
+target, discretization and8 inner iterations. Only the stop cap changes from8
+to60; the animation schedule remains300. The frozen launchers are
+`work/p294/geom_control60.sh` and `geom_rest60.sh`, with outputs of those names.
+Before launch, completed raw archives are offloaded with full-hash verification
+to leave server project usage below89GB for the worst-case pair. The control
+uses GPU0 and the candidate GPU2, separated by at least50s on the server clock.
+
+Evaluation must retain actual termination, equal accepted commits, first
+crossings of fixed geometric-progress thresholds, early thin-region supply,
+final silhouette (existing0.971 gate), tip retention and state guards. The
+source-defined cohort and the same free material IDs in both arms remain
+separate. Raw-step, accepted-window and boundary-phase motion are all reported;
+increased pinning or a smaller changing eligible cohort cannot establish rest.
+Archive hold frames must not dilute motion. An encouraging longer comparison
+would still require visual QA and broader-shape validation before adoption.

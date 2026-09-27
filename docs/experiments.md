@@ -8765,3 +8765,29 @@ CUDA commits were exercised. Runtime15.804/16.761s and Torch peaks7.947/8.009GB
 are descriptive, not cross-GPU performance claims. Cap8 comparison is underway;
 no full-morph, final-rest or appearance improvement follows from these gates.
 See [P294 formulation/execution](geometric_rest_p294.md).
+
+**2026-09-26 20:06 CDT -- P294 early-transport comparison.**
+The original bunny300k/T20/dt1/240/dx0.3062907544wu/loss36^3 pair, with8 inner
+iterations and cap8 under animations300, changes only geometric_rest. Both arms
+use the shared XPIC objective, no subcell shifting and committed-state outer
+render merit. Each completes8/8 accepted commits with zero state guards and
+exact owned endpoint agreement. Candidate previous-position ownership also
+agrees exactly; this CUDA pair uses accepted buffers rather than final replay.
+
+At commit8, IoU is0.912640/0.915179, top-region density0.70910/0.71768 and
+coverage0.71754/0.72518. Both tip-ball counts are0: the prefix is unfinished
+transport. Pin fractions are35.622%/43.071%. On the same14468 IDs that remain
+free in both arms, raw-step medians are0.136071/0.132152 native spacings and
+commit-direction reversals6.642%/7.625%. Raw-phase20 displacement medians are
+0.192929/0.178183sp, while reversal20-to-next1 remains19.976%/19.503%.
+These mixed differences do not establish rest, periodic-oscillation removal or
+watertightness. The fixed source cohort and common free IDs remain separate.
+
+The first audit rejected the serialized phys_loss=auto before measurement.
+Both original logs explicitly resolve it to ot_pace; all8 accepted records carry
+finite full-plan arrival evidence. The reviewed audit_v2 requires both proofs,
+preserves the first failed log, and changes no simulation-core byte. Its18 CPU
+tests passed independently. Quality/phase GPU launches were01:04:13/01:05:26 UTC
+on September27, separated by73s. The bounded prefix supports proceeding to an
+exploratory cap60 comparison after verified storage offload, not promotion.
+See [P294 prefix evidence](geometric_rest_prefix_p294.md).
