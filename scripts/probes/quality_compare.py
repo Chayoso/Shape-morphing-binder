@@ -1,8 +1,9 @@
-"""P292 matched raw-state quality audit; execute on hyde06 with CUDA only.
+"""P292/P293 matched raw-state quality audit; execute on hyde06 with CUDA only.
 
 The baseline/candidate must share inputs, MPM parameters and exact simulation code.
 Default: only body_rprop may change. Explicit stress_taper and commit_pic_off
 interventions permit their one flag plus cap 60 -> 8 and compare a common prefix.
+The shared-PIC objective prefix permits only its objective flag, with cap8 in both arms.
 Numerical geometry, cohorts and motion use CUDA;
 archive/hash/JSON I/O use the host. No renderer or optimization-loss operator is read.
 """
@@ -24,6 +25,7 @@ from scripts.probes.render_influence import load_run, channel_summary
 
 wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
 FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff')
+PREFIX_INTERVENTIONS = ('stress_taper', 'commit_pic_off', 'commit_pic_objective_prefix')
 
 
 def stats(values):
@@ -68,6 +70,14 @@ def checked_config_changes(ca, cb, intervention):
                  and all(c.get('stop_after_windows') == 60 and c.get('commit_pic') is False
                          and c.get('outer_render_committed') is True and c.get('render_paced') is True
                          and c.get('lambda_auto', 0.) > 0 for c in (ca, cb)))
+    elif intervention == 'commit_pic_objective_prefix':
+        valid = (set(changes) == {'commit_pic_objective'}
+                 and not ca.get('commit_pic_objective', False) and cb.get('commit_pic_objective') is True
+                 and all(c.get('stop_after_windows') == 8 and c.get('commit_pic') is True
+                         and c.get('shift_sub') is False and c.get('outer_render_committed') is True
+                         and c.get('lambda_auto', 0.) > 0
+                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
+                         for c in (ca, cb)))
     else:
         raise ValueError(f'Unknown intervention: {intervention}')
     if not valid:
@@ -97,7 +107,7 @@ def checked_runs(baseline, candidate, intervention):
         if config.get('compute_backend') != 'cuda':
             raise ValueError('Both simulations must use the strict CUDA backend')
         if int(config.get('archive_stride', 1)) != 1:
-            raise ValueError('P292 exact raw-step audit requires archive_stride=1')
+            raise ValueError('Exact raw-step audit requires archive_stride=1')
         if any(config.get(k) for k in ('settle_pin_yield', 'settle_pin_follow', 'settle_pin_kkt')):
             raise ValueError('This audit requires monotone pin admission')
         if not run['records']:
@@ -171,6 +181,7 @@ def geometry_curve(run, target, target_tree, extent, target_spacing, radius, tip
                    top_density=float(counts.mean()/8) if counts is not None else None,
                    top_under_half=float((counts < 4).mean()) if counts is not None else None)
         for key in ('Jmin_traj', 'pinned_frac', 'arrived_end_frac', 'v_mean', 'v_absmax',
+                    'endpoint_contract', 'commit_from_accepted', 'pic_null_share',
                     'body_step_node_mean', 'body_step_transit_nodes_frac',
                     'body_step_transit_min', 'body_step_arrived_median', 'body_update_modes_rms',
                     'body_rms_wu', 'body_terminal_rms_wu', 'body_step_scale',
@@ -244,10 +255,25 @@ def bounded_ids(mask, limit=20000):
                      ids_sha256=hashlib.sha256(host_ids.tobytes()).hexdigest())
 
 
-def cohort_motion(run, ids, common, spacing):
+def handoff_intervals(trigger_commit, common):
+    """The trigger commit used paced guidance; only subsequent solves are fixed."""
+    if not 1 <= trigger_commit <= common:
+        return {}
+    intervals = {}
+    if trigger_commit > 1:
+        intervals['pre_trigger'] = [max(1, trigger_commit-10), trigger_commit]
+    if common > trigger_commit:
+        intervals['post_trigger'] = [trigger_commit, min(common, trigger_commit+10)]
+    return intervals
+
+
+def cohort_motion(run, ids, common, spacing, first_commit=None):
     if not len(ids) or common < 3:
         return None
-    rows = run['curve'][max(0, common-11):common]
+    first = max(1, common-10) if first_commit is None else int(first_commit)
+    if not 1 <= first < common <= len(run['curve']):
+        raise ValueError('Invalid common material motion interval')
+    rows = run['curve'][first-1:common]
     positions = np.stack([to_array(run['frames'][row['frame']])[ids] for row in rows])
     moves = positions[1:]-positions[:-1]
     lengths = np.linalg.norm(moves, axis=2)
@@ -357,6 +383,17 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                     ('common_endpoint_free_both', free_ids, free_meta)):
             cohorts[name] = dict(**metadata, arms={arm: cohort_motion(run, ids, common, spacing)
                                                   for arm, run in zip(names, runs)})
+        handoff_bands = None
+        if intervention == 'render_arrival_handoff':
+            trigger = next((row for row in runs[1]['curve'] if row.get('render_arrival_trigger')), None)
+            if trigger:
+                intervals = handoff_intervals(trigger['commit'], common)
+                handoff_bands = dict(trigger_commit=trigger['commit'], trigger_attempt=trigger['attempt'],
+                                     cohort=free_meta,
+                                     definition='same outcome-selected common endpoint-free IDs; trigger endpoint finishes paced solve, subsequent intervals begin fixed solves; each band has its own arm-specific endpoint normal basis',
+                                     intervals={label: dict(commit_range=bounds, arms={
+                                         arm: cohort_motion(run, free_ids, bounds[1], spacing, first_commit=bounds[0])
+                                         for arm, run in zip(names, runs)}) for label, bounds in intervals.items()})
     result = dict(probe_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                   intervention=intervention, analysis_scope=analysis_scope,
                   config_changes=changes, code_hash=a['meta']['provenance']['code_hash'],
@@ -376,7 +413,8 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                    velocity='history v_mean: mean speed; v_absmax: maximum absolute component, wu/s',
                                    reversal='negative dot of successive displacement vectors with each magnitude>1e-4 source native spacings',
                                    caveats='No renderer consumed; coverage counts do not prove watertightness, direction changes do not prove periodic oscillation'),
-                  equal_accepted_commits=pairs, first_chamfer_threshold_crossings=progress, cohorts=cohorts)
+                  equal_accepted_commits=pairs, first_chamfer_threshold_crossings=progress, cohorts=cohorts,
+                  handoff_common_material_bands=handoff_bands)
     result['dependencies'] = {
         name: hashlib.sha256(Path(sys.modules[name].__file__).read_bytes()).hexdigest()
         for name in ('scripts.probes.render_influence', 'scripts.probes.morph_raw_qa')}
@@ -410,6 +448,6 @@ if __name__ == '__main__':
     parser.add_argument('--baseline', required=True, type=Path)
     parser.add_argument('--candidate', required=True, type=Path)
     parser.add_argument('--out', required=True, type=Path)
-    parser.add_argument('--intervention', choices=(*FULL_INTERVENTIONS, 'stress_taper', 'commit_pic_off'), default='body_rprop')
+    parser.add_argument('--intervention', choices=(*FULL_INTERVENTIONS, *PREFIX_INTERVENTIONS), default='body_rprop')
     args = parser.parse_args()
     compare(args.baseline, args.candidate, args.out, args.intervention)

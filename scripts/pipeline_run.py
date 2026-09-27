@@ -151,6 +151,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          outer_merit=args.outer_merit,
                          outer_render_committed=args.outer_render_committed,
                          render_paced_arrived=args.render_paced_arrived,
+                         commit_pic_objective=args.commit_pic_objective,
                          persistent_rest_volume=not args.legacy_recompute_volumes,
                           gauss_covariance=not args.legacy_gauss_centers_only,
                           gauss_sigma_scale=args.gauss_sigma_scale,
@@ -762,6 +763,8 @@ def main():
     ap.add_argument("--render_paced_conv", action="store_true", help="the paced render target until the paced cloud converges to the target in the render's own metric (config.render_paced_conv)")
     ap.add_argument("--render_paced_arrived", action="store_true",
                     help="Latch fixed render targets after an accepted all-arrived commit; requires --outer_render_committed")
+    ap.add_argument("--commit_pic_objective", action="store_true",
+                    help="Optimize the same XPIC endpoint that is committed; requires --commit_pic and shift/local remaps off")
     ap.add_argument("--plan_sticky", action="store_true", help="an arrived particle keeps the target point it arrived at across the plan's re-solves (config.plan_sticky)")
     ap.add_argument("--settle_pin_stuck", action="store_true", help="with plan_sticky: a stuck particle within the shell radius of its point is pinned (config.settle_pin_stuck)")
     ap.add_argument("--settle_pin_still", action="store_true", help="an arrived particle that moved less than the shell radius over two consecutive windows is pinned (config.settle_pin_still)")

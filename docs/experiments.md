@@ -8707,3 +8707,40 @@ The new option is an experiment, not yet an adopted fix. Rejected-candidate,
 inactive-render, unsupported-combination and C2F latch tests passed independent
 review. The full CPU suite passed366 tests/22 skipped before the last scope guards;
 the final full pipeline smoke suite passed37 tests after those guards.
+
+**2026-09-26 19:10 CDT — handoff completion; shared-endpoint prototype.**
+The matched no-PIC/corrected-outer pair uses bunny N300000, T20, dt1/240,
+dx0.3062907544wu, loss36^3, eight iterations and cap60 under animations300.
+Control completed44 accepted/47 attempts in714.65s; handoff completed37/37 in629.03s.
+Both had zero guards. The accepted26 latch led to fixed render references in
+solves27–37. Common37 silhouette IoU was0.966288/0.968164, top coverage
+0.970024/0.977077 and tip count62/89. Both miss the0.971 shape gate. The same423
+IDs free in both arms have commit movement0.15812/0.17894 source-native spacings
+over27–37; movement remains. Both admitted-pin audits are exactly zero.
+The pre-trigger median position difference is already1.720sp at20, so the
+whole-pair difference is not a causal handoff effect. The final raw/report
+adversarial gate is closed; see [handoff report](render_handoff_p292.md).
+
+The next opt-in prototype, `commit_pic_objective`, is defined in method §10.40.
+It moves the finite-order XPIC endpoint map inside every supported spatial loss
+and carries the owned evaluated endpoint through acceptance/replay/promotion.
+Shift and other external position remaps are explicitly excluded; both arms of
+a future comparison must have them off. CPU operator and real pipeline closure
+tests pass, including rejected-buffer replay, exact saved positions, callbacks
+and forbidden guard repairs. The full CPU suite passed403 tests/22 skipped in89.52s
+before the last scope exclusions;16 endpoint-contract tests cover those exclusions.
+This is objective/commit agreement work, not evidence of physical rest or quality.
+
+**2026-09-26 19:35 CDT -- P293 CUDA execution.**
+The original300k source, dx0.3062907544wu, order5 shared XPIC operator passed
+CUDA forward parity (maximum9.536743e-7wu), transpose dot/finite-difference,
+repeated-call and exact17648-pin checks. Matched one-window MPM runs use
+T20/dt1/240/loss36^3/eight inner iterations, PIC on and shift off in both arms,
+with only commit_pic_objective changed. Both had8 accepted inner updates,
+1 accepted outer commit and zero guards; candidate objective/commit difference0.
+The CUDA case uses the accepted buffer; replay is covered separately on CPU.
+The subsequent cap8/animations300 pair completed8/8 commits in141.99/167.10s,
+all guards0 and all candidate endpoint contracts0. Raw prefix quality/phase
+audits are separate. No adoption or final-rest claim follows from these checks.
+See [shared endpoint execution](shared_endpoint_p293.md), including measured
+allocation scope and actual launch-spacing deviations.

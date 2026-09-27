@@ -263,8 +263,9 @@ def test_body_rprop_nonunit_scale_reaches_optimizer_without_scaling_brake(prm, c
 
 
 @pytest.mark.parametrize('overwrite_with_rejected_trial', [False, True])
+@pytest.mark.parametrize('shared_pic', [False, True])
 def test_commit_uses_accepted_state_even_after_rejected_buffer_overwrite(prm, clouds, monkeypatch,
-                                                                      overwrite_with_rejected_trial):
+                                                                      overwrite_with_rejected_trial, shared_pic):
     from physmorph.pipeline import optimizer
     original = optimizer._state_ok
     calls = []
@@ -278,12 +279,16 @@ def test_commit_uses_accepted_state_even_after_rejected_buffer_overwrite(prm, cl
     def capture(it, x, F, stats):
         accepted.append(x.copy())
     cfg = _cfg(animations=1, iters=2 if overwrite_with_rejected_trial else 1,
-               max_ls_iters=1, body_ctrl=True, body_terminal_ctrl=True)
+               max_ls_iters=1, body_ctrl=True, body_terminal_ctrl=True,
+               commit_pic=shared_pic, commit_pic_objective=shared_pic)
     res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None, on_iter=capture)
     recs = [r for r in res['history'] if 'move' in r]
     assert len(accepted) == len(recs) == 1
     assert recs[0]['commit_from_accepted'] is (not overwrite_with_rejected_trial)
     assert np.allclose(res['frames'][-1], accepted[0], atol=2e-6)
+    if shared_pic:
+        assert recs[0]['endpoint_contract']['objective_commit_max_wu'] == 0.
+        assert recs[0]['replay_diagnostics']['position_space'] == 'promoted_xpic'
 
 
 def test_render_arm_runs_and_lambda_is_live(prm, clouds):

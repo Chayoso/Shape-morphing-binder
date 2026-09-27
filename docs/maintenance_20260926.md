@@ -135,3 +135,38 @@ alongside each archive; all compact commit NPZs, JSONs and logs remain remote.
 No local result was deleted. Total raw bytes freed: 6,058,205,416. Measured project
 usage after this cleanup was 90,868,927,247 bytes (90.869 GB), leaving room for
 the bounded accepted-arrival handoff pair without crossing 100 GB.
+
+## Completed P292 outer-control and arrival-handoff raw archives
+
+At 2026-09-27 00:20 UTC, after the matched raw-quality and phase audits completed,
+only `work/p292/outer_no_pic60_render_full_dt_iso_nn.npz` and
+`work/p292/handoff_no_pic60_render_full_dt_iso_nn.npz` were offloaded. No renderer
+consumer remained. The local archives are:
+
+| Local directory | Raw file size, bytes | SHA-256 |
+| --- | ---: | --- |
+| `C:/dev/physmorph_archives/p292_outer_no_pic/` | 3,691,502,772 | `2deb73ca975898a4b940df5ddac61daebb049c621bbc2cb3e0adb422b1f722b9` |
+| `C:/dev/physmorph_archives/p292_handoff_no_pic/` | 3,111,902,716 | `81e76912235dbc80387901f9b0aba89421c8855729cc8b478182ab030032860b` |
+
+Each directory contains its named raw NPZ, `manifest.json`, `verified.json` and
+`remote_receipt.json`. Both copies passed complete SHA-256 comparison and local
+fsync before any unlink. The reviewed scripts are exact fixed-name substitutions
+of `offload_baseline.py` and `verify_baseline.py`, retained in `output/p292/` as
+`offload_outer_no_pic.py`, `verify_outer_no_pic.py`, `offload_handoff_no_pic.py` and
+`verify_handoff_no_pic.py`. The independent narrow protocol gate closed before
+deletion. It reviewed the procedure, not the subsequently completed transfers.
+
+At commit, each server source was rehashed and its canonical path, device/inode,
+size and timestamp rechecked against the plan and verified local receipt. A
+durable per-file receipt and directory fsync preceded each sole authorized unlink;
+the source directory was fsynced afterward. Both server receipts were copied back
+and checked against their local verified receipts. Durable server receipt names
+are `archives/completed_failed_runs/outer_no_pic60_render_full_dt_iso_nn.npz.p292_offload.json`
+and `handoff_no_pic60_render_full_dt_iso_nn.npz.p292_offload.json` in that same directory.
+
+The compact commit NPZ, JSON and log for both runs remain on the server. All local
+copies remain; no other file was deleted and no GPU task was launched. Exactly
+**6,803,405,488 raw-file bytes** were removed from the server. Measured project
+usage afterward was **91,169,734,912 bytes (91.170 GB)**, below the user's 100 GB
+threshold. Concurrent metadata/code writes may also affect the net project-size
+change; the freed-byte count is the sum of the two verified payload sizes.

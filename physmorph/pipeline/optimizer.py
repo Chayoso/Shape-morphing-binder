@@ -281,6 +281,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     step's velocity; grid smoothing may be Chebyshev-accelerated and covers the F
     covector; the physics/render composite follows cfg.grad_project_mode."""
     dev = cfg.device
+    from .endpoint_contract import validate_endpoint_config
+    validate_endpoint_config(cfg)
     x0 = np.ascontiguousarray(x0, np.float32)
     N, T = x0.shape[0], cfg.T
     lam0, mu0 = lame(cfg.young, cfg.poisson)
@@ -1461,6 +1463,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     # budget form has no per-particle classification to get wrong, rationale §7.5)
     m_dt = None
     x0_t = torch.as_tensor(x0, device=dev)
+    endpoint_filter = endpoint_pin = endpoint_limits = None
+    if cfg.commit_pic_objective:
+        from ..mpm.endpoint_filter import FixedEndpointFilter
+        from .endpoint_contract import endpoint_bounds, valid_endpoint
+        endpoint_limits = endpoint_bounds(prm, x0_t)
+        if not valid_endpoint(x0_t, endpoint_limits):
+            raise ValueError('commit_pic_objective requires a finite in-bounds window start')
+        endpoint_pin = (torch.zeros(N, device=dev, dtype=torch.bool) if pin_init is None else
+                        torch.as_tensor(pin_init, device=dev) > .5)
+        endpoint_filter = FixedEndpointFilter(x0_t, prm.dx, prm.grid_min, (prm.nx, prm.ny, prm.nz))
+
+    def objective_endpoint(raw):
+        return endpoint_filter.endpoint(raw, endpoint_pin) if endpoint_filter is not None else raw
     if tgt.dt3 is not None:
         if cfg.dt_gate not in ("knn", "budget"):    # f18: a typo must not silently
             raise ValueError(f"unknown dt_gate {cfg.dt_gate!r}")   # select the default
@@ -1630,6 +1645,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             xT, FT, vT, FgT, V = adj_box[0].apply(dfc, u, body_field())
         else:
             xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t, u_t=u, body_t=body_field())
+        xT = objective_endpoint(xT)
         if xT.requires_grad and getattr(cfg, "settle_pin_kkt", False):
             # the objective's gradient at the end-of-window positions of EVERY particle, pinned ones included (a pinned
             # particle's control has no effect, but its position still carries the render and density residuals)
@@ -1661,6 +1677,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             tr.run()
             # the buffers are rewritten by the next candidate: the outputs are copies
             xT = wp.to_torch(tr.x[T]).clone()
+            x_raw = xT
+            xT = objective_endpoint(xT)
             FT = wp.to_torch(tr.F[T]).reshape(N, 9).clone()
             vT = wp.to_torch(tr.v[T]).clone()
             FgT = wp.to_torch(tr.Fg[T]).reshape(N, 9).clone() if use_geom else None
@@ -1683,6 +1701,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                  for t in range(T)])
             j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
             jt = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
+            if endpoint_filter is not None:
+                if (not valid_endpoint(x_raw, endpoint_limits) or not valid_endpoint(xT, endpoint_limits)
+                        or not bool(torch.isfinite(wp.to_torch(tr.C[T])).all())
+                        or (FgT is not None and not bool(torch.isfinite(FgT).all()))):
+                    jt = float('nan')  # existing candidate rejection; no repair is allowed
             _tm_add("eval_det", t0)
         return (xT, FT, vT, jt), lv, lk, lr, lpbr, extra
 
@@ -2311,6 +2334,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             on_iter(it, to_array(state_n[0].detach(), copy=True).astype(np.float32),  # as on_commit
                      to_array(F_view.detach().reshape(N, 3, 3), copy=True).astype(np.float32),
                      {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
+                      "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
                       "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
                       "d_render": float(lr_n) if lr_n is not None else None,
                       "lambda": lam_r if balancer.active else None, "grad_norm": gn,
@@ -2328,13 +2352,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                        if gx_rend_diag is not None else None)})
         # history from the ACCEPTED evaluation. NOTE "d_render" is the pure silhouette
         # scalar; the shading channel is logged separately (they were conflated before).
-        last_accepted_state = state_n if cfg.body_ctrl else None
+        last_accepted_state = state_n if (cfg.body_ctrl or cfg.commit_pic_objective) else None
         body_update = None
         if body_coeff is not None:
             body_index = next(i for i, leaf in enumerate(leaves) if leaf is body_coeff)
             delta = (body_coeff.detach() - bak[body_index]).reshape(-1, body_modes, 3)
             body_update = [float(v) for v in delta.square().sum(-1).mean(0).sqrt()]
         hist.append({"iter": it, "loss": new,
+                     "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
                      "body_update_modes_rms": body_update,
                      "d_vol": float(lv_n), "kin": float(lk_n),
                      "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
@@ -2393,7 +2418,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
         j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
         jt_final = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
-        x_final = wp.to_torch(tr.x[T])
+        x_final_raw = wp.to_torch(tr.x[T])
+        x_final = (last_accepted_state[0] if endpoint_filter is not None and commit_from_accepted else
+                   objective_endpoint(x_final_raw))
         F_final = wp.to_torch(tr.F[T]).reshape(N, 9)
         v_final = wp.to_torch(tr.v[T])
         Fg_final = wp.to_torch(tr.Fg[T]).reshape(N, 9) if use_geom else None
@@ -2412,15 +2439,25 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                   replay_E_final=None if commit_from_accepted else float(E_final), replay_E_accepted=E_accept,
                                   replay_E_tol=None if commit_from_accepted else float(replay_tol), replay_lambda_final=float(lam_r),
                                   replay_lambda_accepted=(hist[-1]['lambda'] if hist else None))
+        replay_diagnostics['position_space'] = 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout'
         if last_accepted_state is not None and not commit_from_accepted:
             replay_diagnostics.update(replay_x_max=float((x_final-last_accepted_state[0]).abs().max()),
                                       replay_v_max=float((v_final-last_accepted_state[2]).abs().max()))
-        if ((not np.isfinite(E_final) or not np.isfinite(jt_final)
+        endpoint_safe = (endpoint_filter is None or
+                         (valid_endpoint(x_final_raw, endpoint_limits) and valid_endpoint(x_final, endpoint_limits)
+                          and bool(torch.isfinite(wp.to_torch(tr.C[T])).all())
+                          and (Fg_final is None or bool(torch.isfinite(Fg_final).all()))))
+        if ((not endpoint_safe or not np.isfinite(E_final) or not np.isfinite(jt_final)
              or not _state_ok((x_final, F_final, v_final, jt_final)) or replay_bad)
                 and accepted > 0):
             log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
                 f"discarding window (replay/accepted-candidate mismatch): {replay_diagnostics}")
             hist, accepted = [], 0
+        owned_endpoint = None
+        if endpoint_filter is not None and accepted > 0:
+            from .endpoint_contract import OwnedEndpoint
+            owned_endpoint = OwnedEndpoint.capture(endpoint_filter, x0_t, endpoint_pin, x_final_raw,
+                                                     x_final, replay_diagnostics['commit_source'])
         # 2026-09-23 (speed): wp.array.numpy() already returns a fresh host copy — the extra
         # .copy() doubled 300 MB of traffic a window; and the whole-window F health (any step
         # with det F <= 0, per particle) is counted on the device instead of stacking T x N
@@ -2543,6 +2580,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
              "render_target_kind": render_target_kind,
              "motion_accounting": motion_accounting,
+             "owned_endpoint": owned_endpoint,
+             "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
              "replay_diagnostics": replay_diagnostics,
              "commit_from_accepted": commit_from_accepted,
              "body_rms_wu": (float(body_field()[:N].detach().square().sum(1).mean().sqrt()) if body_coeff is not None else None),

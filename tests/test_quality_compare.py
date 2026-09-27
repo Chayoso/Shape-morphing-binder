@@ -135,3 +135,48 @@ def test_prefix_view_preserves_original_metadata(probe):
     assert description['original_commits'] == [10, 8]
     assert len(original['records']) == 10 and original['delivered'] == 22
     assert scoped[0]['arm']['config']['stop_after_windows'] == 60
+
+
+def test_handoff_bands_split_after_trigger_without_including_later_paced_solve(probe):
+    assert probe.handoff_intervals(26, 39) == {'pre_trigger': [16, 26], 'post_trigger': [26, 36]}
+    assert probe.handoff_intervals(26, 29) == {'pre_trigger': [16, 26], 'post_trigger': [26, 29]}
+    assert probe.handoff_intervals(26, 26) == {'pre_trigger': [16, 26]}
+    assert probe.handoff_intervals(26, 25) == {}
+    assert probe.handoff_intervals(1, 5) == {'post_trigger': [1, 5]}
+
+
+def test_shared_pic_prefix_requires_one_objective_flag_and_fixed_contract(probe):
+    baseline = dict(commit_pic=True, shift_sub=False, outer_render_committed=True,
+                    lambda_auto=.5, stop_after_windows=8, T=20)
+    candidate = dict(baseline, commit_pic_objective=True)
+    mode = 'commit_pic_objective_prefix'
+    assert probe.checked_config_changes(baseline, candidate, mode) == {
+        'commit_pic_objective': [None, True]}
+    assert probe.checked_config_changes(dict(baseline, commit_pic_objective=False), candidate, mode) == {
+        'commit_pic_objective': [False, True]}
+    for key, value in [('commit_pic', False), ('shift_sub', True),
+                       ('outer_render_committed', False), ('lambda_auto', 0.),
+                       ('stop_after_windows', 60), ('render_until', 7)]:
+        with pytest.raises(ValueError, match=mode):
+            probe.checked_config_changes(dict(baseline, **{key: value}),
+                                         dict(candidate, **{key: value}), mode)
+    for changed in (dict(candidate, T=10), dict(candidate, stop_after_windows=7),
+                    dict(candidate, commit_pic_objective=False)):
+        with pytest.raises(ValueError, match=mode):
+            probe.checked_config_changes(baseline, changed, mode)
+
+
+def test_shared_pic_audit_uses_only_common_prefix_and_preserves_endpoint_record(probe):
+    records = [dict(animation=i, frame_end=1+20*(i+1),
+                    endpoint_contract=dict(space='promoted_xpic', objective_commit_max_wu=0.))
+               for i in range(8)]
+    runs = [dict(records=records[:n], delivered=1+20*n,
+                 arm=dict(config=dict(T=20, stop_after_windows=8))) for n in (8, 6)]
+    scoped, description = probe.scoped_runs(runs, 'commit_pic_objective_prefix')
+    assert description['kind'] == 'common accepted prefix'
+    assert description['requested_commits'] == 8 and description['analyzed_commits'] == 6
+    assert description['endpoint_claim'] == 'prefix endpoint only; no final quality or convergence inference'
+    assert [len(run['records']) for run in scoped] == [6, 6]
+    assert [run['delivered'] for run in scoped] == [121, 121]
+    assert scoped[1]['records'][-1]['endpoint_contract'] == records[5]['endpoint_contract']
+    assert len(runs[0]['records']) == 8 and runs[0]['delivered'] == 161

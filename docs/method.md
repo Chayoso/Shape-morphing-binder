@@ -1780,3 +1780,58 @@ The handoff includes the existing PBR reference path: paced shading uses the
 loss-grid normals, whereas the fixed denoised reference uses the render-normal
 grid when pbr_denoised is enabled. This is the complete existing reference
 handoff, not an isolated silhouette-target change; d_pbr remains recorded.
+
+The first full pair activated the handoff correctly but failed the shape/rest
+criteria; it remains opt-in. See [the measured handoff report](render_handoff_p292.md).
+
+### 10.40 Shared finite-order XPIC endpoint objective (P293 prototype)
+
+`--commit_pic_objective` is an opt-in hybrid endpoint formulation requiring
+`commit_pic`. With a stencil frozen at window-start x0 and the same unit masses
+as the legacy commit filter, let P = S^-1 W D^-1 W^T M and
+H = I-(I-P)^5. S and D retain the legacy denominator lower bounds. Q zeros the
+output displacement of particles already pinned at the window start. Define
+
+    x_obj = x0 + Q H (x_raw_T - x0),     dL/dx_raw_T = H^T Q dL/dx_obj.
+
+H is neither idempotent nor generally Euclidean-symmetric. The exact transpose
+includes mass and retained-stencil normalization. A custom Torch autograd
+operator applies H/H^T on the input device without retaining all transfer
+intermediates. The reference positions, masses, stencil and pin mask are owned
+window constants; pinned mass remains in the transfer before Q is applied.
+
+Every inner endpoint spatial term reads x_obj: volumetric/OT loss, silhouette
+and shading, box/coherence/bonds, W1/fill/KDE/inside-H1 and measured-density
+penalties. Gradient evaluation, line-search evaluation and final replay share
+the same map. F, Fg, stored v, velocity history, control regularization and their
+penalties keep their original meanings. The existing one-shot position-space
+weight calibrations at x0 are retained as a convention, not reinterpreted as
+equal post-filter control-gradient norms. Position covectors, spatial smoothing,
+work telemetry and KKT telemetry are now in x_obj coordinates; their control
+pullback passes through H^T Q.
+
+Accepted candidate tensors are owned independently of the reusable rollout
+buffers. If that trajectory remains valid, the exact accepted x_obj is retained;
+an overwritten trajectory is replayed and evaluated in x_obj coordinates.
+Replay comparisons use promoted versus promoted positions. The runner verifies
+the raw endpoint, x0 and pins against the package and promotes the owned x_obj
+exactly once. It does not repeat an atomic transfer at commit. Intermediate raw
+frames remain raw; only the saved final transition includes this position remap.
+
+The first prototype forbids shifting, local-global position updates,
+reattachment, settle_commit, geometry-dependent growth/consensus assimilation,
+Gaussian objectives/telemetry and legacy gradient/control replay dumps. Active
+outside-H1 and correspondence penalties are also excluded: their historical
+gradient/evaluation mismatch requires a separate repair and is not inherited
+as a supported new formulation. Both raw
+and mapped endpoints must be finite and inside the runner's grid margin. Invalid
+line-search candidates are rejected; any subsequent guard repair fails closed.
+The on_commit callback receives state copies in this mode. Off means the legacy
+path is retained. Controlled tests must disable shifting in BOTH arms and vary
+only this option, not compare this version directly to a shifted historical run.
+
+This change aligns the optimized and delivered geometry; it does not reconcile
+physical v/C/F with the remap, make every intermediate frame filtered, or certify
+rest or watertightness. Actual geometric-rest supervision is a separate future
+change. Operator/adjoint tests and CPU objective/commit tests precede any CUDA
+quality experiment; no default recipe or gallery is promoted by implementation.

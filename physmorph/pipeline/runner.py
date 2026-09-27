@@ -348,6 +348,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         raise ValueError("render_paced_arrived cannot combine with render_paced_onset")
     if cfg.render_paced_arrived and cfg.use_gauss_loss and cfg.gauss_in_objective:
         raise ValueError("render_paced_arrived does not support a Gaussian objective")
+    from .endpoint_contract import validate_endpoint_config
+    validate_endpoint_config(cfg)
     src = np.ascontiguousarray(source_x, np.float32)
     target_x = np.ascontiguousarray(target_x, np.float32)
     N = src.shape[0]
@@ -418,6 +420,10 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
     dmin = np.asarray(prm.grid_min, np.float32)
     dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
     lo, hi = dmin + 2 * prm.dx, dmax - 2 * prm.dx
+    if cfg.commit_pic_objective:
+        from .endpoint_contract import endpoint_bounds
+        bound_t = endpoint_bounds(prm, torch.as_tensor(src, device=cfg.device))
+        lo, hi = (to_array(value, copy=True) for value in bound_t)
 
     x = src.copy()
     if prm.gate_r_hi > prm.gate_r_lo and prm.gate_n0 <= 0:
@@ -708,6 +714,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         guards["clamped"] += n_out; guards["nan_x"] += n_nan; guards["nan_state"] += n_ns
         guards["F_reset"] += n_bad; guards["F_flip"] += n_flip
         guards["F_invert_steps"] += n_inv
+        if cfg.commit_pic_objective and any((n_out, n_nan, n_ns, n_bad, n_flip, n_inv)):
+            raise RuntimeError('commit_pic_objective forbids state repairs after endpoint evaluation')
 
         # ---- LOCAL phase (local-global): band-limited surface GS pass on the render
         # residual, interior pinned to the global solution just promoted. Runs BEFORE
@@ -835,7 +843,26 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         # H = I-(I-P)^5 uses the cubic stencil at window-start positions; H is not idempotent.
         # Position-only commit correction, before shifting and outside the inner objective. ----
         motion_pre_pic = x.copy() if cfg.motion_accounting else None
-        if getattr(cfg, "commit_pic", False):
+        endpoint_telemetry = None
+        if cfg.commit_pic_objective:
+            from .endpoint_contract import endpoint_bounds
+            package = stats.pop('owned_endpoint', None)
+            if package is None:
+                raise RuntimeError('shared PIC objective did not return an owned endpoint')
+            raw_t = torch.as_tensor(x, device=cfg.device)
+            start_t = torch.as_tensor(x_start, device=cfg.device)
+            pin_t = torch.as_tensor(pin_window, device=cfg.device)
+            promoted = package.promote(raw_t, start_t, pin_t, endpoint_bounds(prm, raw_t))
+            x = to_array(promoted, copy=True).astype(np.float32)
+            delta, removed = raw_t - start_t, raw_t - promoted
+            rec_pic = dict(null_share=float(removed.square().sum(1).mean().sqrt() /
+                                           delta.square().sum(1).mean().sqrt().clamp_min(1e-12)),
+                           removed_median=float(removed.norm(dim=1).median()),
+                           d_median=float(delta.norm(dim=1).median()))
+            endpoint_telemetry = dict(space='promoted_xpic', source=package.source,
+                                      objective_commit_max_wu=float((torch.as_tensor(x, device=cfg.device)-promoted).abs().max()))
+            del package  # release the per-window stencil before the next optimization
+        elif getattr(cfg, "commit_pic", False):
             from ..mpm.gridfilter import grid_project
             _d = np.asarray(x, np.float32) - np.asarray(x_start, np.float32)
             _pd, _ps = grid_project(_d, np.asarray(x_start, np.float32), float(prm.dx), prm.grid_min,
@@ -965,6 +992,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                 d_fill = coverage_shortfall(xt, tgt.m, tgt.tmass3, tgt.dtgmin,
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
+               "endpoint_contract": endpoint_telemetry,
                "motion_accounting": motion_report,
                "render_target_kind": stats.get("render_target_kind"),
                "body_rms_wu": stats.get("body_rms_wu"), "body_nodes": stats.get("body_nodes", 0),
@@ -972,6 +1000,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                **{k: v for k, v in stats.items() if k.startswith("body_step_")},
                "body_update_modes_rms": stats.get("body_update_modes_rms"),
                "commit_from_accepted": stats.get("commit_from_accepted", False),
+               "replay_diagnostics": stats.get("replay_diagnostics"),
                "body_terminal_rms_wu": stats.get("body_terminal_rms_wu"),
                "body_coeff_max": stats.get("body_coeff_max"),
                "body_coeff_saturated_frac": stats.get("body_coeff_saturated_frac"),
@@ -1338,7 +1367,10 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         if on_commit is not None:
             # the viewer renders the GEOMETRIC F when it exists (Sigma = s0^2 Fg Fg^T,
             # PhysGaussian kinematics); F_frames keeps the physics F for metrics
-            on_commit(a, x, Fc if Fg_p is None else Fg_p, v_p, rec)
+            if cfg.commit_pic_objective:
+                on_commit(a, x.copy(), (Fc if Fg_p is None else Fg_p).copy(), v_p.copy(), dict(rec))
+            else:
+                on_commit(a, x, Fc if Fg_p is None else Fg_p, v_p, rec)
 
         # ---- plateau freeze on RAW components (λ-free; stops post-convergence sloshing).
         # `improved` was computed above, against the pre-commit bests; the bests only

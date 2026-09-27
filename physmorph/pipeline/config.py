@@ -651,13 +651,9 @@ class PipelineConfig:
                                     #   (plain elastic dynamics, no layer, no bonds) and log the projection of that free
                                     #   displacement on the window's committed displacement — the rebound fraction
                                     #   (-0.5 = the body springs half-way back on its own). Costs one rollout a window.
-    commit_pic: bool = False        # 2026-09-24 (docs/method.md 10.20; mpm/gridfilter.py): at every window commit the
-                                    #   window's displacement is projected onto the grid-representable subspace —
-                                    #   x_end <- x_start + G2P(P2G(x_end - x_start)) with the simulation's own B-spline
-                                    #   weights, mass-weighted — and the grid-invisible (sub-cell, null-space) part is
-                                    #   dropped: the null-space filter of Gritton & Berzins 2017 / XPIC (Hammerquist &
-                                    #   Nairn 2017) applied once per window to positions. No constant. Positions
-                                    #   only; v, C, F untouched; before the shift and the archive.
+    commit_pic: bool = False        # docs/method.md 10.20: finite-order XPIC H=I-(I-P)^5 at window-start positions.
+                                    # Changes endpoint x only, before shifting; v/C/F stay unchanged. H is not an exact projection.
+    commit_pic_objective: bool = False  # shared finite-order XPIC endpoint in every inner spatial loss and promotion
     u_rprop: bool = False           # 2026-09-23 night (docs/method.md 10.19, docs/oscillation.md Addendum 9): the u
                                     #   channel's per-window bound is damped PER PARTICLE by its own sign history —
                                     #   Rprop (Riedmiller & Braun 1993): a particle whose u flipped sign against the
