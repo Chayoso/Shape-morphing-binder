@@ -51,6 +51,33 @@ def test_changed_endpoint_is_not_an_induced_response_and_components_close():
     assert 'bond' not in components
 
 
+def test_induced_advection_and_layer_can_cancel_without_zero_component_response():
+    data, branches = make_case([1., 2., 3.], [.25]*3, [0.]*3, [0.]*3,
+                               pin=[False, False, True], layer=[True, False, True])
+    # A moves -j/4 before the layer operator; its layer then undoes this.
+    # B has neither movement. Final next displacements are identical, while
+    # the two induced components are nonzero and point in opposite directions.
+    for arm in ('pic', 'pic_repeat'):
+        branches[arm]['v1'] = vectors([-.5, -1., 0.])
+        branches[arm]['pre_layer'] = branches[arm]['x0']+.5*branches[arm]['v1']
+    report = summarize_boundary(data, branches, dt=.5, spacing=.25)
+    for name, count in (('all_free', 2), ('layer_free', 1)):
+        got = report['cohorts'][name]
+        parts = got['induced_components']
+        assert got['induced_next_response']['response']['wu']['max'] == 0.
+        assert got['alignment_with_negative_j']['global_cosine'] is None
+        assert parts['advection']['wu']['count'] == count
+        assert parts['advection']['wu']['mean'] == (.375 if count == 2 else .25)
+        assert parts['layer']['sp']['mean'] == (1.5 if count == 2 else 1.)
+        for component, sign in (('advection', 1), ('layer', -1)):
+            alignment = parts[component]['alignment_with_negative_j']
+            assert alignment['global_projection_coefficient'] == sign*.25
+            assert alignment['global_cosine'] == sign
+        assert parts['pre_layer_residual']['wu']['max'] == 0.
+        assert parts['sum_vs_induced_response_closure']['wu']['max'] == 0.
+    assert report['pin_checks']['pic']['pre_layer_position_exact']
+
+
 def test_known_recoil_common_cohorts_alignment_and_reversal_counts():
     data, branches = make_case([1., 2., 0., 3.], [.2]*4,
                                [-.4, -.9, .1, 9.], [.1]*4,
@@ -63,6 +90,11 @@ def test_known_recoil_common_cohorts_alignment_and_reversal_counts():
     assert all_free['alignment_with_negative_j']['global_projection_coefficient'] == pytest.approx(.5)
     assert all_free['alignment_with_negative_j']['global_cosine'] == pytest.approx(1.)
     assert all_free['alignment_with_negative_j']['direction_pair_count'] == 2
+    for component, fraction in (('advection', .5), ('pre_layer_residual', .25), ('layer', .25)):
+        part = all_free['induced_components'][component]
+        assert part['wu']['rms'] == pytest.approx(fraction*math.sqrt(1.25/3))
+        assert part['alignment_with_negative_j']['global_projection_coefficient'] == pytest.approx(.5*fraction)
+    assert all_free['induced_components']['sum_vs_induced_response_closure']['wu']['max'] < 1e-15
     assert all_free['reversals']['pic'] == dict(eligible=3, reversals=2, fraction=2/3)
     assert all_free['reversals']['free_raw']['fraction'] == 0
     assert thin['reversals']['pic']['fraction'] == .5
@@ -165,6 +197,9 @@ def test_empty_cohorts_are_absence_not_zero_motion_evidence(all_pinned):
     assert empty['reversals']['pic'] == dict(eligible=0, reversals=0, fraction=None)
     assert empty['induced_next_response']['noise_status'] == 'empty_cohort'
     assert empty['state_differences']['pic_minus_free_raw']['F1']['frobenius']['count'] == 0
+    assert empty['induced_components']['advection']['wu']['rms'] is None
+    assert empty['induced_components']['layer']['alignment_with_negative_j']['global_cosine'] is None
+    assert empty['induced_components']['sum_vs_induced_response_closure']['wu']['max'] is None
     json.dumps(got, allow_nan=False)
 
 

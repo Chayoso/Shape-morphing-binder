@@ -170,12 +170,25 @@ def summarize_boundary(data, branches, dt, spacing):
     response = step['pic']-step['free_raw']
     repeat_noise = step['pic_repeat']-step['pic']
     endpoint_difference = branches['pic']['x1']-branches['free_raw']['x1']
+    components = {}
+    for arm, values in branches.items():
+        advection = dt*values['v1']
+        components[arm] = dict(advection=advection,
+            pre_layer_residual=values['pre_layer']-values['x0']-advection,
+            layer=values['x1']-values['pre_layer'])
+    induced_components = dict(
+        advection=dt*(branches['pic']['v1']-branches['free_raw']['v1']),
+        pre_layer_residual=components['pic']['pre_layer_residual']-components['free_raw']['pre_layer_residual'],
+        layer=components['pic']['layer']-components['free_raw']['layer'])
+    induced_closure = (induced_components['advection']+induced_components['pre_layer_residual']
+                       +induced_components['layer']-response)
     threshold = spacing*1e-4
     result = dict(N=len(pin), dt=float(dt), spacing=float(spacing), direction_threshold_wu=float(threshold),
                   definitions=dict(
                       cohorts='same NEXT-window unpinned IDs; layer_free additionally uses frozen NEXT layer_mask',
                       boundary_j='promoted-raw; applied x0 intervention is zero on NEXT-window pins',
                       induced_response='(pic.x1-pic.x0)-(free_raw.x1-free_raw.x0), not pic.x1-free_raw.x1',
+                      induced_components='pic minus free_raw advection, pre-layer residual and layer displacement; vector sum equals induced response up to arithmetic roundoff, but components can cancel',
                       saved_last_step='raw-previous+j; alternative last step is raw-previous',
                       pre_layer_residual='pre_layer-x0-dt*v1; not attributed to pure bond motion',
                       alignment='positive projection on -j means induced next response opposes the preceding PIC remap',
@@ -203,9 +216,9 @@ def summarize_boundary(data, branches, dt, spacing):
                       last_raw_step=_motion(last_raw[mask], spacing),
                       last_saved_step=_motion(last_saved[mask], spacing), branches={})
         for arm, values in branches.items():
-            advection = dt*values['v1']
-            pre_residual = values['pre_layer']-values['x0']-advection
-            layer = values['x1']-values['pre_layer']
+            advection = components[arm]['advection']
+            pre_residual = components[arm]['pre_layer_residual']
+            layer = components[arm]['layer']
             closure = advection+pre_residual+layer-step[arm]
             cohort['branches'][arm] = dict(
                 advection=_motion(advection[mask], spacing),
@@ -213,6 +226,11 @@ def summarize_boundary(data, branches, dt, spacing):
                 layer=_motion(layer[mask], spacing), total=_motion(step[arm][mask], spacing),
                 component_closure=_motion(closure[mask], spacing))
         cohort['induced_next_response'] = _response_noise(response[mask], repeat_noise[mask], spacing, threshold)
+        cohort['induced_components'] = {
+            component: dict(**_motion(delta[mask], spacing),
+                            alignment_with_negative_j=_alignment(delta[mask], j[mask], spacing, threshold))
+            for component, delta in induced_components.items()}
+        cohort['induced_components']['sum_vs_induced_response_closure'] = _motion(induced_closure[mask], spacing)
         cohort['endpoint_difference'] = _motion(endpoint_difference[mask], spacing)
         cohort['endpoint_identity_residual'] = _motion((endpoint_difference-applied_j-response)[mask], spacing)
         cohort['alignment_with_negative_j'] = _alignment(response[mask], j[mask], spacing, threshold)

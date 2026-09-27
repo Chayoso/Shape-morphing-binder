@@ -27,6 +27,21 @@ BOUNDARIES = (1, 24, 30)  # One-based accepted commits, fixed before results.
 ATOL, RTOL = 3e-6, 3e-5
 
 
+def check_original_step(got, reference, field, dt, dx):
+    """Compare dimensionless state; C has units 1/s, unlike x or F."""
+    factors = dict(x1=1 / dx, pre_layer=1 / dx, v1=dt / dx, F1=1., C1=dt)
+    names = dict(x1='x/dx', pre_layer='x/dx', v1='dt*v/dx', F1='F', C1='dt*C')
+    scale = factors[field]
+    difference = got.double() - reference.double()
+    error = difference.abs() * scale
+    allowed = ATOL + RTOL * (reference.double() * scale).abs()
+    return dict(passed=bool((error <= allowed).all()), normalization=names[field],
+                max_abs_native_units=float(difference.abs().max()),
+                component_rms_native_units=float(difference.square().mean().sqrt()),
+                max_abs_dimensionless=float(error.max()),
+                max_tolerance_ratio=float((error / allowed).max()))
+
+
 def utc():
     return datetime.now(timezone.utc).isoformat()
 
@@ -168,7 +183,9 @@ def capture(root, out, boundaries, windows):
                     metadata_sha256=hashlib.sha256(metadata_bytes).hexdigest(),
                     target_reference_sha256=sha(config['target_reference']),
                     config=config, mpm=asdict(prm), native_spacing_wu=spacing,
-                    code_sha256=code_hashes(), closure_tolerance=dict(atol=ATOL, rtol=RTOL),
+                    code_sha256=code_hashes(), closure_tolerance=dict(atol=ATOL, rtol=RTOL,
+                        protocol_version=2, units='dimensionless',
+                        normalization=dict(x1='x/dx', pre_layer='x/dx', v1='dt*v/dx', F1='F', C1='dt*C')),
                     closure_fields=['x1', 'pre_layer', 'v1', 'F1', 'C1'],
                     comparison='same actual accepted next rollout; only free x0 is intervened',
                     limitations=['post-PIC assimilation, pins and optimized controls are conditioned on',
@@ -230,11 +247,8 @@ def replay(out):
             for key in protocol['closure_fields']:
                 actual = torch.as_tensor(arrays['original_' + key], device='cuda')
                 actual = actual.reshape_as(branches['pic'][key])
-                error = branches['pic'][key] - actual
-                tolerance = ATOL + RTOL * actual.abs()
-                closure[key] = dict(passed=bool((error.abs() <= tolerance).all()),
-                                    max_abs=float(error.abs().max()), rms=float(error.square().mean().sqrt()),
-                                    max_tolerance_ratio=float((error.abs() / tolerance).max()))
+                closure[key] = check_original_step(branches['pic'][key], actual, key,
+                                                    protocol['mpm']['dt'], protocol['mpm']['dx'])
             free = ~data['pin']
             response = ((branches['pic']['x1'] - branches['pic']['x0']) -
                         (branches['free_raw']['x1'] - branches['free_raw']['x0']))[free]

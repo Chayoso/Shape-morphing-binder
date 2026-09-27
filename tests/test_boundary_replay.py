@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pytest
 
-from scripts.probes.boundary_replay import Capture, load_packet, save_packet
+from scripts.probes.boundary_replay import Capture, load_packet, save_packet, check_original_step
 
 
 def candidate(attempt, marker, *, boundary=False, packet=False):
@@ -80,3 +80,27 @@ def test_real_optimizer_observer_captures_actual_next_accepted_step(tmp_path, mo
     np.testing.assert_array_equal(p['original_x1'], result['frames'][4])
     assert packet['meta']['T'] == 3
     assert packet['meta']['has_body_control']
+
+
+@pytest.mark.parametrize('field', ['x1', 'pre_layer', 'v1', 'F1', 'C1'])
+def test_closure_is_invariant_to_consistent_length_and_time_units(field):
+    import torch
+    ref = torch.tensor([.1, 2., -.3], dtype=torch.float64)
+    got = ref + torch.tensor([.0001, -.0002, .00001], dtype=torch.float64)
+    dt, dx = 1 / 240, .3
+    length_factor, time_factor = 1000., .001
+    units = dict(x1=length_factor, pre_layer=length_factor,
+                 v1=length_factor / time_factor, F1=1., C1=1 / time_factor)
+    first = check_original_step(got, ref, field, dt, dx)
+    second = check_original_step(got * units[field], ref * units[field], field,
+                                 dt * time_factor, dx * length_factor)
+    assert first['passed'] == second['passed']
+    assert first['max_tolerance_ratio'] == pytest.approx(second['max_tolerance_ratio'], rel=1e-10)
+
+
+@pytest.mark.parametrize('field,factor', [('x1', .3), ('pre_layer', .3),
+                                          ('v1', .3 * 240), ('F1', 1.), ('C1', 240.)])
+def test_closure_rejects_same_dimensionless_state_error_in_every_field(field, factor):
+    import torch
+    reference = torch.zeros(3, dtype=torch.float64)
+    assert not check_original_step(reference + 1e-3 * factor, reference, field, 1 / 240, .3)['passed']
