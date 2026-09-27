@@ -266,9 +266,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
                     u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None,
                     body_scale_init=None,
-                    win_index=None):
+                    win_index=None, on_rollout=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
+
+    on_rollout(tr, promoted, win_index): optional read-only diagnostic observer
+    of the validated inner rollout, before scratch buffers can be overwritten.
+    The outer runner may still reject it; observers must await outer acceptance
+    and own any retained arrays. This callback must not modify the trajectory.
 
     u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
     bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
@@ -2553,6 +2558,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                "C": to_array(tr.C[T], copy=True),
                "Fg": to_array(tr.Fg[T], copy=True) if use_geom else None,
                "n_inv_steps": n_inv_steps, "Jmin_traj": jmin_traj}
+        if on_rollout is not None and accepted > 0:
+            on_rollout(tr, x_final, win_index)
         if cfg.motion_accounting and accepted > 0:
             if plan_img_np is None or arrived_mask_np is None or pace_r_np is None:
                 raise ValueError('motion_accounting requires a frozen paced arrival plan')
