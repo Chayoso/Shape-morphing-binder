@@ -93,10 +93,11 @@ def test_body_ablation_removes_learned_stress_but_keeps_force(prm, clouds, norma
         assert any(h['body_terminal_rms_wu'] > 0 for h in recs)
 
 
-def test_diagnostic_prefix_preserves_full_run_schedule(prm, clouds):
+@pytest.mark.parametrize('fixed_gate', [False, True])
+def test_diagnostic_prefix_preserves_full_run_schedule(prm, clouds, fixed_gate):
     src, tgt = clouds
     params = dict(animations=4, c2f_at=0.5, lambda_auto=0.5, render_res_hi=32,
-                  hold_after_converge=False, patience=10)
+                  hold_after_converge=False, patience=10, outer_render_committed=fixed_gate)
     full = run_pipeline(src, tgt, prm, _cfg(**params), log=lambda *_: None)
     prefix = run_pipeline(src, tgt, prm, _cfg(stop_after_windows=2, **params), log=lambda *_: None)
     assert not any('c2f_render_res' in h for h in prefix['history'])
@@ -159,6 +160,62 @@ def test_outer_render_tracks_promoted_positions_and_retains_inner_telemetry(prm,
     assert record['outer_track_version'] == 'committed_fixed_v1'
     assert record['outer_render'] == pytest.approx(float(expected), rel=1e-6)
     assert record['d_sil'] is not None and record['d_render'] is not None
+
+
+def test_render_arrival_handoff_requires_acceptance_and_survives_c2f(prm, clouds, monkeypatch):
+    from physmorph.pipeline import runner
+    original = runner.optimize_window
+    calls = []
+    def observed_window(*args, **kwargs):
+        result = original(*args, **kwargs)
+        calls.append(result[-1]['render_target_kind'])
+        # Prescribe full-plan arrival evidence, not a rounded arrival percentage.
+        result[-1]['plan_img'] = result[0][-1].copy()
+        result[-1]['pace_r'] = .01
+        if len(calls) == 1:
+            result[-1]['plan_img'][-1, 0] += 1.  # exactly one unarrived point blocks the latch
+        return result
+    monkeypatch.setattr(runner, 'optimize_window', observed_window)
+    counts = iter([0, 0, 1, 0, 0, 0, 0, 0])  # candidate/start counts; reject only W2
+    monkeypatch.setattr(runner, '_iso_count', lambda *_: next(counts))
+    cfg = _cfg(animations=4, patience=10, lambda_auto=.5, outer_merit=True,
+               body_ctrl=True, body_terminal_ctrl=True,
+               outer_render_committed=True, render_paced=True, render_paced_arrived=True,
+               phys_loss='ot_pace', ot_samples=64, ot_iters=4, eject_veto=True,
+               c2f_at=.75, render_res_hi=32, pace=.9)
+    result = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    records = [r for r in result['history'] if 'd_vol' in r]
+    assert len(records) == 4
+    assert records[0]['render_arrival_count'] == len(clouds[0])-1
+    assert records[0]['render_arrival_trigger'] == 0
+    assert records[1]['outer_rejected'] == 1 and not records[1].get('render_arrival_trigger')
+    assert records[2]['render_arrival_trigger_attempt'] == 3
+    assert records[2]['render_arrival_trigger_commit'] == 2
+    assert calls == ['paced', 'paced', 'paced', 'fixed']
+    assert any(r.get('c2f_render_res') == 32 for r in result['history'])
+    assert records[3]['render_arrival_latched'] == 1
+
+
+def test_render_arrival_handoff_stays_inactive_in_physics_only_run(prm, clouds):
+    cfg = _cfg(animations=1, render_paced=True, render_paced_arrived=True,
+               body_ctrl=True, body_terminal_ctrl=True,
+               outer_render_committed=True, phys_loss='ot_pace', ot_samples=64, ot_iters=4)
+    result = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    record = next(r for r in result['history'] if r.get('frame_end'))
+    assert record['render_target_kind'] == 'inactive'
+    assert record['render_arrival_trigger'] == record['render_arrival_latched'] == 0
+    assert record['outer_render'] is None
+
+
+@pytest.mark.parametrize('options, message', [
+    ({}, 'requires render_paced'),
+    ({'render_paced': True}, 'outer_render_committed'),
+    ({'render_paced': True, 'outer_render_committed': True, 'render_paced_onset': True}, 'render_paced_onset'),
+    ({'render_paced': True, 'outer_render_committed': True, 'use_gauss_loss': True, 'gauss_in_objective': True}, 'Gaussian objective'),
+    ({'render_paced': True, 'outer_render_committed': True}, 'full-plan arrival contract')])
+def test_render_arrival_handoff_rejects_missing_contract(prm, clouds, options, message):
+    with pytest.raises(ValueError, match=message):
+        run_pipeline(*clouds, prm, _cfg(render_paced_arrived=True, **options), log=lambda *_: None)
 
 
 def test_body_rprop_runs_with_independent_braking_and_requires_arrival(prm, clouds):

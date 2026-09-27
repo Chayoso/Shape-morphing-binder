@@ -1,20 +1,16 @@
-"""The null-space projection at the window commit (docs/method.md 10.20; config.commit_pic).
+"""Finite-order XPIC at the window commit (docs/method.md 10.20; config.commit_pic).
 
-The MPM grid represents a particle field only through its transfer: P2G scatters with the cubic
-B-spline weights w_gp, G2P gathers them back. The composition P = G2P ∘ P2G is a projection onto
-the grid-representable subspace of particle fields, and I − P is the grid's null space — the
-sub-cell modes the dynamics cannot act on and the cell-sum objective cannot see, which is where
-the measured sub-cell disorder and the tail's breathing live (docs/experiments.md 2026-09-23
-night; the audit). Gritton and Berzins (Comput. Particle Mech. 2017) remove that null space per
-cell by an SVD of the P2G operator; XPIC(m) (Hammerquist and Nairn, CMAME 2017) removes it by
-alternating transfers, exactly as m → ∞. Here it is applied ONCE per window, to the window's
-displacement:
+P is the mass-normalized P2G/G2P transfer with cubic B-spline weights, including
+the retained-stencil weight normalization near walls. P is generally not an
+idempotent projection; I-P is not itself an exact null-space projector. The
+implemented filter is H = I-(I-P)^order (default order5):
 
-    x_end  <-  x_start + P(x_end - x_start),   P(d)_p = Σ_g w_gp (Σ_q w_gq m_q d_q) / (Σ_q w_gq m_q)
+    x_end <- x_start + H(x_end - x_start).
 
-with the simulation's own stencil (base node floor(x/dx) - 1, 4³ cubic B-spline weights) evaluated
-at the window-START positions, mass-weighted. No constant. Positions only; velocities, C and F are
-untouched (the projected displacement is a fraction of a spacing).
+The stencil is fixed at window-start positions. At finite order this can alter
+resolved displacement too; the removed fraction is not proof of an unobservable
+mode. Only positions change. Velocities, C and F are untouched, and the endpoint
+correction can therefore create a saved-geometry jump not represented by v_T.
 """
 from __future__ import annotations
 

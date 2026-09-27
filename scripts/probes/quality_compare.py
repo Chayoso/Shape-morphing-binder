@@ -23,7 +23,7 @@ from scripts.probes.morph_raw_qa import audit
 from scripts.probes.render_influence import load_run, channel_summary
 
 wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
-FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full')
+FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff')
 
 
 def stats(values):
@@ -62,6 +62,12 @@ def checked_config_changes(ca, cb, intervention):
                  and ca.get('commit_pic') is True and cb.get('commit_pic') is False
                  and ca.get('stop_after_windows') == 60 and cb.get('stop_after_windows') == 60
                  and not ca.get('body_rprop', False) and not cb.get('body_rprop', False))
+    elif intervention == 'render_arrival_handoff':
+        valid = (set(changes) == {'render_paced_arrived'}
+                 and not ca.get('render_paced_arrived', False) and cb.get('render_paced_arrived') is True
+                 and all(c.get('stop_after_windows') == 60 and c.get('commit_pic') is False
+                         and c.get('outer_render_committed') is True and c.get('render_paced') is True
+                         and c.get('lambda_auto', 0.) > 0 for c in (ca, cb)))
     else:
         raise ValueError(f'Unknown intervention: {intervention}')
     if not valid:
@@ -122,6 +128,26 @@ def scoped_runs(runs, intervention):
                         metadata='Original archives, run metadata and configurations remain unchanged')
 
 
+def render_reference_history(run, intervention):
+    """Host metadata; retain rejected/null attempts and distinguish delivery trims."""
+    last_attempt = int(run['records'][-1]['animation'])+1
+    result = []
+    for record in run['arm']['history']:
+        if 'animation' not in record or 'c2f_render_res' in record or record.get('held'):
+            continue
+        attempt = int(record['animation'])+1
+        if intervention not in FULL_INTERVENTIONS and attempt > last_attempt:
+            continue
+        accepted = bool(record.get('frame_end') and not record.get('null_commit'))
+        result.append(dict(attempt=attempt, accepted=accepted,
+                           delivered=bool(accepted and int(record['frame_end']) <= run['delivered']),
+                           null_commit=bool(record.get('null_commit')),
+                           **{key: record.get(key) for key in (
+                               'render_target_kind', 'render_arrival_count', 'render_arrival_trigger',
+                               'render_arrival_trigger_attempt', 'render_arrival_trigger_commit')}))
+    return result
+
+
 def geometry_curve(run, target, target_tree, extent, target_spacing, radius, tip):
     top_target = target[:, 1] > 2.3
     curve = []
@@ -147,7 +173,9 @@ def geometry_curve(run, target, target_tree, extent, target_spacing, radius, tip
         for key in ('Jmin_traj', 'pinned_frac', 'arrived_end_frac', 'v_mean', 'v_absmax',
                     'body_step_node_mean', 'body_step_transit_nodes_frac',
                     'body_step_transit_min', 'body_step_arrived_median', 'body_update_modes_rms',
-                    'body_rms_wu', 'body_terminal_rms_wu', 'body_step_scale'):
+                    'body_rms_wu', 'body_terminal_rms_wu', 'body_step_scale',
+                    'render_target_kind', 'render_arrival_count', 'render_arrival_trigger',
+                    'render_arrival_trigger_attempt', 'render_arrival_trigger_commit'):
             row[key] = record.get(key)
         curve.append(row)
     return curve
@@ -368,6 +396,7 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                            gradient_summary=channel_summary(run['records']),
                            scoped_pin_motion=prefix_pin,
                            raw_audit=audit(Path(run['prefix']), compute_backend='cuda') if intervention in FULL_INTERVENTIONS else None)
+        result[name]['render_reference_history'] = render_reference_history(run, intervention)
         if run['interior_hold_frames'] and result[name]['raw_audit'] and result[name]['raw_audit']['tail_unpinned_surface']:
             result[name]['raw_audit']['tail_unpinned_surface']['time_basis_warning'] = (
                 'Legacy audit includes interior null holds; use corrected common-cohort raw-step motion for this comparison')

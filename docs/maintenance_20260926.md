@@ -118,3 +118,20 @@ Exactly 2,946,302,700 bytes were freed. Project usage after removal was
 **93,315,528,838 bytes (93.316 GB)**; the net change from the earlier 96.218 GB
 measurement also includes writes by concurrent tasks. This creates headroom for
 the bounded no-PIC completion test without discarding failed-experiment evidence.
+
+## Completed P292 baseline and PIC-off raw archives
+
+At 23:51 UTC the completed baseline and PIC-off raw archives were copied to
+`C:/dev/physmorph_archives/p292_baseline/` and `p292_no_pic/`. The baseline file is
+2,697,902,676 bytes, SHA-256
+`212aa6723445674c8930e27824521fd7f64e2e796b430b7811233d2c070e6527`;
+PIC-off is 3,360,302,740 bytes, SHA-256
+`cc9010417c5188a0bed439600fc6dd05e2ddd0eb4bcb170e635c76b7351a618e`.
+Both full raw audits and the separate diagnostic renderer had finished before
+the remote duplicates were removed. The independent review verified that the
+two procedures are exact fixed-path substitutions of the approved body-RPROP
+hash/fsync/identity/receipt protocol. Local verified and remote receipts exist
+alongside each archive; all compact commit NPZs, JSONs and logs remain remote.
+No local result was deleted. Total raw bytes freed: 6,058,205,416. Measured project
+usage after this cleanup was 90,868,927,247 bytes (90.869 GB), leaving room for
+the bounded accepted-arrival handoff pair without crossing 100 GB.

@@ -88,6 +88,43 @@ def test_full_pic_scope_preserves_different_complete_run_lengths(probe):
     assert scope['kind'] == 'full runs'
 
 
+def test_render_handoff_requires_single_flag_and_active_committed_render(probe):
+    baseline = dict(commit_pic=False, outer_render_committed=True, render_paced=True,
+                    render_paced_arrived=False, lambda_auto=.5, stop_after_windows=60)
+    candidate = dict(baseline, render_paced_arrived=True)
+    assert probe.checked_config_changes(baseline, candidate, 'render_arrival_handoff') == {
+        'render_paced_arrived': [False, True]}
+    for key, value in [('commit_pic', True), ('outer_render_committed', False),
+                       ('render_paced', False), ('lambda_auto', 0.), ('stop_after_windows', 8)]:
+        with pytest.raises(ValueError, match='render_arrival_handoff'):
+            probe.checked_config_changes(dict(baseline, **{key: value}),
+                                         dict(candidate, **{key: value}), 'render_arrival_handoff')
+    with pytest.raises(ValueError, match='render_arrival_handoff'):
+        probe.checked_config_changes(baseline, dict(candidate, settle_pin_confirm=True), 'render_arrival_handoff')
+    runs = [dict(records=[1]*32), dict(records=[1]*40)]
+    scoped, scope = probe.scoped_runs(runs, 'render_arrival_handoff')
+    assert scoped is runs and scope['kind'] == 'full runs'
+
+
+def test_reference_history_preserves_null_trials_and_separates_trimmed_acceptance(probe):
+    history = [dict(animation=0, frame_end=21, render_target_kind='paced'),
+               dict(animation=1, null_commit=1, render_target_kind='paced'),
+               dict(animation=2, frame_end=41, render_target_kind='fixed'),
+               dict(animation=3, frame_end=61, render_target_kind='fixed'),
+               dict(animation=4, render_target_kind='fixed')]
+    run = dict(records=[history[0], history[2]], delivered=41, arm=dict(history=history))
+    history.insert(2, dict(animation=2, c2f_render_res=96))
+    history.append(dict(animation=5, held=1))
+    full = probe.render_reference_history(run, 'render_arrival_handoff')
+    assert [row['attempt'] for row in full] == [1, 2, 3, 4, 5]
+    assert not full[1]['accepted'] and full[1]['null_commit']
+    assert full[3]['accepted'] and not full[3]['delivered']
+    assert not full[4]['accepted']
+    prefix = probe.render_reference_history(run, 'commit_pic_off')
+    assert [row['attempt'] for row in prefix] == [1, 2, 3]
+    assert [row['render_target_kind'] for row in prefix] == ['paced', 'paced', 'fixed']
+
+
 def test_prefix_view_preserves_original_metadata(probe):
     records = [dict(animation=i, frame_end=1+2*(i+1)) for i in range(10)]
     original = dict(records=records, delivered=22, arm=dict(config=dict(T=2, stop_after_windows=60)))

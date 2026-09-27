@@ -485,6 +485,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     arrive_idx_np = pace_r_np = plan_img_np = None
     arrive_cap_frac = pace_front_frac = pace_front_fill_frac = None
     sils_eff, shade_eff, pbr_grid_eff = tgt.sils, tgt.shade, True
+    render_target_kind = 'fixed' if balancer.active and tgt.sils is not None else 'inactive'
     if getattr(cfg, "phys_loss", "density") == "ot_resid":
         # RESIDUAL TRANSPORT PACING. The cell sum's own residual at the window start —
         # excess = (cloud − target)+ and deficit = (target − cloud)+ per loss cell, equal
@@ -1176,14 +1177,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 else:
                     x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
             if getattr(cfg, "render_paced", False) and tgt.sils is not None and not getattr(tgt, "render_paced_off", False):
+                render_target_kind = 'paced' if balancer.active else 'inactive'
                 # config.render_paced (2026-09-26 23:40, method.md 10.31): the render channel's target is the PACED target's
                 # own images. With the target's final silhouettes as the reference, the silhouette term pulls the first
                 # material up the ear's outline (a thin lead satisfies it) — at 300k the early knob's material is there
                 # only with the render channel on (ar300 21-67 particles in the top region at t = 0.2-0.3, bb300 none) —
                 # while the physics channel is driven to the paced cloud one step ahead. Here the silhouettes (and the
                 # shading, on the loss grid's normals for both sides) are those of the paced cloud x_int, re-rendered each
-                # window without gradient: the two channels agree on the growth order, and the render's fit arrives as
-                # the paced cloud converges to the target (the last windows are unchanged, x_int = target). No constant.
+                # window without gradient. All-arrived does not ensure x_int equals the target distribution:
+                # independent nearest-target assignments may duplicate IDs. Fixed-target handoff is a separate policy.
                 from .render_loss import target_silhouettes as _tsil   # the (theta, phi) views variant the runner uses
                 with torch.no_grad():
                     sils_eff = _tsil(x_int.detach(), tgt.views, cfg.render_res, tgt.extent, cfg.sil_k)
@@ -1206,6 +1208,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         if _d_pt < _d_m:
                             tgt.render_paced_off = True
                             sils_eff, shade_eff, pbr_grid_eff = tgt.sils, tgt.shade, True
+                            render_target_kind = 'fixed' if balancer.active else 'inactive'
                             print("[win] paced render target: converged in the render's metric — the target's own images from here", flush=True)
             if getattr(cfg, "w_corr", 0.0) > 0 and getattr(tgt, "ot_knn", None) is not None:
                 # config.w_corr (2026-09-25 22:15 CDT, method.md 10.35): correspondence at the plan's own resolution. The
@@ -2534,7 +2537,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     s_out = to_array(s.detach(), copy=True) if s is not None else None
     if cfg.mom_carry > 0:
         mom_out = ([m.detach() for m in mom], [v.detach() for v in vel], adam_t)
+    if balancer.active and tgt.gauss is not None and cfg.gauss_in_objective:
+        render_target_kind = ('fixed_gaussian' if cfg.gauss_mix <= 0 else
+                              f'fixed_gaussian+{render_target_kind}_silhouette')
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
+             "render_target_kind": render_target_kind,
              "motion_accounting": motion_accounting,
              "replay_diagnostics": replay_diagnostics,
              "commit_from_accepted": commit_from_accepted,

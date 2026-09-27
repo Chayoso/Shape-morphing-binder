@@ -8675,3 +8675,35 @@ The separately requested original raw frames0,36,108,420 are saved byte-for-byte
 as3840x2160 PNGs in local `output/c291/photoreal4k/original_selected_raw_frames/`.
 Their manifest records source paths, video/raw index mapping, SHA-256 and visual
 checks. They are the original images, not revised render output.
+
+**2026-09-26 18:52 CDT — full PIC-off result and accepted-reference follow-up.**
+At the same N300000/T20/dt1/240/dx0.3062907544wu/loss36^3 discretization,
+the full PIC-off arm completed40 accepted commits in41 attempts (646.80s, zero
+guards), compared with32 in35 for the baseline. Tip-ball count improved53 to87
+(target89), top-region density0.90748 to0.97712, and its under-half-density
+fraction0.09174 to0.06659. However silIoU fell0.973039 to0.966396, below the prior
+0.971 gate. The common1037 free surface IDs had smaller raw-step motion but
+larger accepted-commit motion/reversal. PIC-off is therefore not promoted.
+Full definitions and matched-commit comparisons are in
+[the full PIC-off report](no_pic_full_p292.md).
+
+The corrected outer-merit eight-window GPU integration also completed. Direct
+fixed-target silhouette recomputation on each stored promoted state matched
+the new recorded track exactly at all eight commits. Legacy inner paced loss
+and actual fixed-target committed loss differ by factors5.85–9.77; these are
+different quantities, not comparable convergence scores. This verifies the
+bookkeeping correction, not a visual improvement. See
+[the outer-merit report](outer_merit_p292.md).
+
+The full PIC-off trajectory reaches exact all-arrived at commit28, with87.863%
+already pinned, but the historical paced-render convergence switch never fires.
+The opt-in `render_paced_arrived` policy in method §10.39 switches the NEXT solve
+to existing fixed target references only after an accepted all-arrived state.
+It neither releases pins nor changes arrival, annealing, patience or termination.
+Two otherwise identical no-PIC/corrected-outer cap60 arms use a new immutable
+snapshot `work/p292/handoff`; the control arm launched GPU0 at23:52:09UTC,
+and the candidate GPU2 at23:53:11UTC.
+The new option is an experiment, not yet an adopted fix. Rejected-candidate,
+inactive-render, unsupported-combination and C2F latch tests passed independent
+review. The full CPU suite passed366 tests/22 skipped before the last scope guards;
+the final full pipeline smoke suite passed37 tests after those guards.

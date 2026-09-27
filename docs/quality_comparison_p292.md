@@ -40,6 +40,9 @@ only the PIC flag change. It preserves each complete run for endpoint, pin and
 tip-history audits; comparisons still use common accepted commits and fixed
 progress, with the late phase interval taken from the last ten shared intervals.
 It does not reuse the eight-commit scope or cohort.
+The completed [full PIC-off result](no_pic_full_p292.md) improves tip density and
+within-window motion but fails final silhouette/coverage and free-material rest;
+it remains a diagnostic candidate.
 
 ## Measurement
 

@@ -736,6 +736,7 @@ class PipelineConfig:
     archive_stride: int = 1         # keep every k-th per-step state in frames/F_frames
     outer_merit: bool = False       # fixed-scale trust gate for production runs
     outer_render_committed: bool = False  # P292: fixed-target render on promoted x; accepted-only track history
+    render_paced_arrived: bool = False  # P292: accepted all-arrived commit latches fixed render targets for later solves
     outer_merit_tol: float = 1e-4   # relative sufficient decrease required for a commit
     outer_gate_move_frac: float = 6e-3 # RETIRED as latch evidence (s1: reachable at 10% of descent; s3: pacing makes every move small) — kept for provenance
     outer_gate_merit_max: float = 0.55 # normalized fixed merit required before latching

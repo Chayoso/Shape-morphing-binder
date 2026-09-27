@@ -342,6 +342,12 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         raise ValueError("settle_pin_confirm requires settle_pin and ctrl_rprop")
     if cfg.settle_pin_confirm and (cfg.settle_pin_stuck or cfg.settle_eta):
         raise ValueError("settle_pin_confirm cannot use separate stuck-point or viscosity admission rules")
+    if cfg.render_paced_arrived and not (cfg.render_paced and cfg.outer_render_committed):
+        raise ValueError("render_paced_arrived requires render_paced and outer_render_committed")
+    if cfg.render_paced_arrived and cfg.render_paced_onset:
+        raise ValueError("render_paced_arrived cannot combine with render_paced_onset")
+    if cfg.render_paced_arrived and cfg.use_gauss_loss and cfg.gauss_in_objective:
+        raise ValueError("render_paced_arrived does not support a Gaussian objective")
     src = np.ascontiguousarray(source_x, np.float32)
     target_x = np.ascontiguousarray(target_x, np.float32)
     N = src.shape[0]
@@ -383,6 +389,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             f"cells -> {cfg.phys_loss}" + (" + cell-wise hand-off" if cfg.phys_loss == "ot_pace" else ""))
     if cfg.settle_pin_confirm and cfg.phys_loss not in ("ot_pace", "ot_shape"):
         raise ValueError("settle_pin_confirm requires an ot_pace/ot_shape full-plan arrival contract")
+    if cfg.render_paced_arrived and cfg.phys_loss not in ("ot_pace", "ot_shape"):
+        raise ValueError("render_paced_arrived requires an ot_pace/ot_shape full-plan arrival contract")
     if cfg.settle_pin and cfg.phys_loss not in ("ot_pace", "ot_shape"):
         log("[v2] settlement evidence: legacy reversal-only (this loss exports no per-particle arrival contract)")
     if cfg.loss_units == "density":
@@ -499,6 +507,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
     # trust gate active.  Without this latch, one accepted large-motion candidate
     # disables the gate again and the optimizer can re-enter a long limit cycle.
     outer_gate_latched = False
+    render_arrival_latched = False       # accepted evidence survives target-resolution rebuilds
 
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render={'on(a=%g)' % cfg.lambda_auto if cfg.lambda_auto > 0 else 'OFF'} "
@@ -544,6 +553,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             keep = (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0, tgt.gauss_scale,
                     tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio)
             tgt = build_target(target_x, prm, cfg, w_tgt=w_tgt, w_src=w_src)
+            if render_arrival_latched:
+                tgt.render_paced_off = True
             # EVERY one-shot calibration survives the rebuild (REFUTE 2026-09-04 F1: a
             # fresh TargetPack has h1_scale=None, so the next window silently RE-
             # calibrated the H^-1 term at a mid-run state - a hidden weight schedule;
@@ -553,6 +564,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
              tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio) = keep
             best_rend, stale = None, 0              # rescaled track must not inherit a
             outer_scales = outer_prev = outer_prev_phys = prev_disp = None
+            if cfg.outer_render_committed:
+                prev_tracks = None  # the preceding render track used another resolution
             outer_gate_latched = False              # render track rescaled: re-earn the latch
             if tgt.gauss is not None and cfg.gauss_children > 1:
                 # REFUTE B5: the rebuild constructs a fresh GaussViews whose
@@ -630,7 +643,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         if not whist:
             if stats.get("grad_converged"):
                 frozen = True                       # zero gradient at the start: at the optimum
-                hist.append({"animation": a, "grad_converged": 1})
+                hist.append({"animation": a, "grad_converged": 1,
+                             "render_target_kind": stats.get("render_target_kind")})
                 log(f"[v2] anim {a + 1}: gradient converged at window start; holding still")
                 continue
             # line-search exhaustion is NOT convergence (Codex stack-review f6: a hard
@@ -641,6 +655,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             if dress is not None:
                 dress.cover_frames(len(frames))
             hist.append({"animation": a, "null_commit": 1, "ls_exhausted": stats.get("ls_exhausted"),
+                         "render_target_kind": stats.get("render_target_kind"),
                          "replay_diagnostics": stats.get("replay_diagnostics")})
             stale += 1
             mom_prev = None
@@ -816,9 +831,9 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                     f"{_reb0:+.3f} (median {_mf0:.4f} wu)")
             except Exception as _e:
                 log(f"[v2] anim {a + 1}: rebound probe failed: {_e}")
-        # ---- the null-space projection of the window's displacement (cfg.commit_pic; mpm/gridfilter.py,
-        # docs/method.md 10.20): x_end <- x_start + G2P(P2G(x_end - x_start)) with the simulation's cubic
-        # stencil at the window-start positions; the grid-invisible part is dropped. Before the shift. ----
+        # ---- finite-order XPIC of the window displacement (cfg.commit_pic; docs/method.md 10.20).
+        # H = I-(I-P)^5 uses the cubic stencil at window-start positions; H is not idempotent.
+        # Position-only commit correction, before shifting and outside the inner objective. ----
         motion_pre_pic = x.copy() if cfg.motion_accounting else None
         if getattr(cfg, "commit_pic", False):
             from ..mpm.gridfilter import grid_project
@@ -951,6 +966,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "motion_accounting": motion_report,
+               "render_target_kind": stats.get("render_target_kind"),
                "body_rms_wu": stats.get("body_rms_wu"), "body_nodes": stats.get("body_nodes", 0),
                "body_step_scale": stats.get("body_step_scale"),
                **{k: v for k, v in stats.items() if k.startswith("body_step_")},
@@ -1292,6 +1308,23 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             rev_prev_neg_acc = rev_neg_now; rev_prev_neg_arr = rev_neg_now_arr
         if cfg.outer_render_committed:
             prev_tracks = candidate_tracks
+        if cfg.render_paced_arrived:
+            rec["render_arrival_trigger"] = 0
+            if balancer.active and tgt.sils is not None and not render_arrival_latched:
+                from .settlement import accepted_arrivals
+                if stats.get("plan_img") is None or stats.get("pace_r") is None:
+                    raise ValueError("render arrival handoff requires a frozen full plan and radius")
+                render_arrived = accepted_arrivals(x, stats["plan_img"], stats["pace_r"])
+                rec["render_arrival_count"] = int(render_arrived.sum())
+                if bool(render_arrived.all()):
+                    render_arrival_latched = True
+                    tgt.render_paced_off = True
+                    rec.update(render_arrival_trigger=1,
+                               render_arrival_trigger_attempt=a + 1,
+                               render_arrival_trigger_commit=1 + sum(bool(r.get("frame_end")) for r in hist))
+                    log(f"[v2] anim {a + 1}: all particles within the frozen plan arrival radius at accepted commit; "
+                        "fixed render targets from the next solve")
+            rec["render_arrival_latched"] = int(render_arrival_latched)
         rec["frame_end"] = len(frames)          # archive index after this commit
         if dress is not None:
             # Tier D post-gate solve (design §4.3): runs only on ACCEPTED commits,

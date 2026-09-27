@@ -1741,7 +1741,42 @@ the new track is absent as well; a physics-only run gains no rendering criterion
 
 The previous-track dictionary advances only after outer acceptance. A rejected
 candidate therefore cannot become the reference for the next pace-bound regression
-test. This restores the intended accepted-state comparison without changing the
+test. A render-resolution rebuild clears this reference along with the other
+rescaled outer tracks. This restores the intended accepted-state comparison without changing the
 inner losses, actuator, lead, admission radius or discretisation. The additional
 silhouette evaluation remains on the configured Torch device. It is a versioned
 correctness change, not a demonstrated cure for raw motion or missing material.
+
+### 10.39 Accepted-arrival render-reference handoff (P292, 2026-09-26)
+
+`--render_paced_arrived` adds an opt-in reference handoff to `render_paced`,
+requiring `outer_render_committed` and an ot_pace/ot_shape full-plan arrival
+contract. After an OUTER-ACCEPTED commit, evaluate every actual promoted position
+against that window's frozen full plan using the existing arrival radius. If all
+entries are finite and arrived, latch the fixed target silhouettes/shading for
+the NEXT optimization window. This accepted latch survives a render-resolution
+rebuild. A rejected candidate cannot trigger it; inactive rendering cannot trigger
+it. The exact mask, not a rounded percentage or the pin-admission fallback, is
+the evidence. Attempt and accepted-commit ordinals are recorded at the trigger.
+
+`render_target_kind` records the silhouette/shading reference actually used by
+each solve (`paced`, `fixed`, or `inactive`), including null or rejected attempts.
+This allows a trigger to be distinguished from an actual later fixed-target solve.
+The existing render_paced_conv policy keeps its historical behavior and can
+switch first. Gaussian objectives and render_paced_onset are unsupported with
+this new option and fail explicitly. The new latch does not reset patience, annealing, best tracks,
+pins or the physical state, and does not force another solve after convergence.
+For comparisons, both arms use the same corrected outer merit and all other
+flags; only the accepted-arrival option differs.
+
+Arrival means proximity to the smoothed plan at its existing radius, not exact
+target occupancy or convergence of each material point. The PIC-off experiment
+first reaches all-arrived at commit28 with 87.863% already pinned and silIoU0.9660;
+its paced render reference never switches by the older metric criterion. The
+new reference can supervise the remaining fixed-target residual, but permanent
+pins may prevent recovery. This is a hypothesis requiring matched shape, supply,
+tip, deformation and free-particle-motion gates, not an asserted quality fix.
+The handoff includes the existing PBR reference path: paced shading uses the
+loss-grid normals, whereas the fixed denoised reference uses the render-normal
+grid when pbr_denoised is enabled. This is the complete existing reference
+handoff, not an isolated silhouette-target change; d_pbr remains recorded.

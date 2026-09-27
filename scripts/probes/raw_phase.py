@@ -54,7 +54,7 @@ def phase_audit(baseline, candidate, reference, out):
         raise FileExistsError('Use a new output path to preserve evidence')
     report = json.loads(reference.read_text())
     intervention = report['intervention']
-    if intervention not in ('body_rprop', 'commit_pic_off', 'commit_pic_off_full'):
+    if intervention not in ('body_rprop', 'commit_pic_off', 'commit_pic_off_full', 'render_arrival_handoff'):
         raise ValueError('Phase diagnostic permits only explicitly reviewed interventions')
     runs, changes = checked_runs(baseline, candidate, intervention)
     quality_file = Path(sys.modules['scripts.probes.quality_compare'].__file__)
