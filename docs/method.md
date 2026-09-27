@@ -1835,3 +1835,53 @@ physical v/C/F with the remap, make every intermediate frame filtered, or certif
 rest or watertightness. Actual geometric-rest supervision is a separate future
 change. Operator/adjoint tests and CPU objective/commit tests precede any CUDA
 quality experiment; no default recipe or gallery is promoted by implementation.
+
+### 10.41 Terminal geometric-rest diagnostic (P294 prototype)
+
+`--geometric_rest` requires the shared endpoint formulation, positive finite
+`w_kin` and a frozen full-plan arrival mask. Let x_minus be the actual post-layer
+position at rollout step T-1, x_raw the unfiltered rollout endpoint, and x_plus
+the owned promoted endpoint from section 10.40. Freeze a_i at window start to
+one for arrived, unpinned material and zero elsewhere. The added term is
+
+    R = (1/N) sum_i a_i (|x_raw_i-x_minus_i|^2 + |x_plus_i-x_raw_i|^2) / dt^2.
+    L_phys_new = L_phys_old + wu * w_kin * R.
+
+The stored-momentum kinetic penalty remains present. Equal reuse of w_kin is an
+explicit experimental policy, not a coefficient derived from physics solely by
+unit agreement. There is no shape-specific tuning constant or new hard pin.
+Normalization by all N particles avoids amplifying a small eligible cohort;
+consequently a shrinking free cohort also contributes less total weight. Both
+whole-cloud and conditional means and the eligible count/fraction are recorded.
+
+Separating the two nonnegative components prevents raw motion from canceling a
+remap jump at zero cost. Telemetry also records the squared delivered transition
+and cross term. R bounds half that delivered squared speed, but it does not
+measure motion earlier than T-1 or certify a zero-control mechanical equilibrium.
+The remap is instantaneous in this hybrid model: its square divided by dt squared
+depends on temporal discretization. Initial comparisons hold T20/dt1/240 fixed;
+R is not asserted to be a discretization-invariant energy. The delivered interval
+matches consecutive saved frames only with archive stride one.
+
+New opt-in ordinary/persistent Warp interfaces expose an owned differentiable
+x_minus with its own adjoint seed. T=1 returns constant x0, and T<1 is invalid.
+Persistent contexts reject a backward after another forward overwrites their
+trajectory; repeated backwards on the same forward are valid. Existing public
+five-output interfaces and stored v/C/F/Fg keep their meanings. No full position
+history is copied to Torch for this term.
+
+Gradient, line-search, warm/cold comparisons, replay-noise calibration and final
+replay include the same R. Accepted-buffer reuse owns the raw, previous and mapped
+positions and component values; replay recomputes them together. Promotion checks
+the preceding raw frame against the owned previous position. An empty eligible
+cohort yields connected zero gradients, not a whole-cloud fallback. The new term
+enters phys_core, so automatic render lambda and gradient projection may change;
+the comparison is of the complete policy and must report those channels. Legacy
+endpoint x/F/v work telemetry excludes the new direct raw/previous paths and is
+not total geometric-rest work. Endpoint-only KKT pin admission is unsupported.
+
+This remains an opt-in diagnostic. Frozen arrival is proximity to the plan, not
+proof of per-particle optimality or local material coverage. The penalty can
+still suppress necessary redistribution or affect travelers through coupling.
+Raw per-step motion, shape, thin-region supply and actual completion must all
+be checked before any adoption; implementation alone establishes none of them.

@@ -139,8 +139,14 @@ class _WarpMPMExt(torch.autograd.Function):
     Outputs: x_T (N,3), F_T (N,9), v_T (N,3), Fg_T (N,9), V (T,N,3) with V[t-1] = v_t."""
 
     @staticmethod
-    def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, u_t, body_t, spec: RolloutSpec):
+    def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, u_t, body_t, spec: RolloutSpec,
+                previous_position: bool):
         N, T = spec.x0.shape[0], spec.T
+        if previous_position and T < 1:
+            raise ValueError("previous-position rollout requires T>=1")
+        ctx.previous_position = previous_position
+        if previous_position:
+            ctx.set_materialize_grads(False)
         dFc_wp, seq = _dfc_to_warp(dFc_t, N, T)
         lam_wp = _leaf_f32(lam_t) if lam_t is not None else spec.lam
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
@@ -167,12 +173,18 @@ class _WarpMPMExt(torch.autograd.Function):
         ctx.lam_wp = lam_wp if (lam_t is not None and lam_t.requires_grad) else None
         ctx.mu_wp = mu_wp if (mu_t is not None and mu_t.requires_grad) else None
         V = torch.stack([wp.to_torch(traj.v[t]).clone() for t in range(1, T + 1)])
-        return (wp.to_torch(xT).clone(), wp.to_torch(FT).reshape(N, 9).clone(),
-                wp.to_torch(traj.v[T]).clone(),
-                wp.to_torch(traj.Fg[T]).reshape(N, 9).clone(), V)
+        outputs = (wp.to_torch(xT).clone(), wp.to_torch(FT).reshape(N, 9).clone(),
+                   wp.to_torch(traj.v[T]).clone(),
+                   wp.to_torch(traj.Fg[T]).reshape(N, 9).clone(), V)
+        if previous_position:
+            previous = wp.to_torch(traj.x[T - 1]).clone()
+            if T == 1:  # x0 is fixed input state, not a differentiable leaf of this bridge.
+                ctx.mark_non_differentiable(previous)
+            return (*outputs, previous)
+        return outputs
 
     @staticmethod
-    def backward(ctx, gx, gF, gv, gFg, gV):
+    def backward(ctx, gx, gF, gv, gFg, gV, g_previous=None):
         traj = ctx.traj
         N, T = traj.N, traj.T
         dev = traj.device
@@ -192,6 +204,9 @@ class _WarpMPMExt(torch.autograd.Function):
         gVc = gV.contiguous()
         for t in range(1, T):
             grads[traj.v[t]] = wp.from_torch(gVc[t - 1], dtype=wp.vec3)
+        if ctx.previous_position and T > 1:
+            gp = z((N, 3)) if g_previous is None else g_previous
+            grads[traj.x[T - 1]] = wp.from_torch(gp.contiguous(), dtype=wp.vec3)
         ctx.tape.backward(grads=grads)
         if not ctx.dFc_req:
             g = None
@@ -204,13 +219,24 @@ class _WarpMPMExt(torch.autograd.Function):
         g_u = wp.to_torch(ctx.u_wp.grad).clone() if ctx.u_wp is not None else None
         g_body = wp.to_torch(ctx.body_wp.grad).clone() if ctx.body_wp is not None else None
         ctx.tape.zero()
-        return g, g_lam, g_mu, g_u, g_body, None
+        return g, g_lam, g_mu, g_u, g_body, None, None
 
 
 def warp_mpm_ext(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None, u_t=None, body_t=None):
     """Extended differentiable rollout. Returns (x_T [N,3], F_T [N,9], v_T [N,3],
     Fg_T [N,9], V [T,N,3]). u_t: optional (N,) position-mode control leaf (spec.layer set)."""
-    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, body_t, spec)
+    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, body_t, spec, False)
+
+
+def warp_mpm_ext_with_previous(dFc_t: torch.Tensor, spec: RolloutSpec,
+                               lam_t=None, mu_t=None, u_t=None, body_t=None):
+    """The five extended outputs plus owned post-layer x[T-1] [N,3].
+
+    x[T-1] differentiates through its actual trajectory array for T>1; at
+    T=1 it is constant x0. Stored velocity/deformation and the legacy API stay
+    unchanged. This exposes geometry, not a new velocity or rest objective.
+    """
+    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, body_t, spec, True)
 
 
 # ---- persistent tape trajectory: forward and adjoint as CUDA graphs (2026-09-16) ----------------
@@ -227,9 +253,13 @@ class PersistentAdjoint:
     current seeds — so several seeds per forward (PCGrad's per-term gradients) cost one
     graph launch each. Non-CUDA devices record a fresh tape per forward (tests)."""
 
-    def __init__(self, spec: RolloutSpec):
+    def __init__(self, spec: RolloutSpec, *, previous_position: bool = False):
         N, T, dev = spec.x0.shape[0], spec.T, spec.device
+        if T < 1:
+            raise ValueError("persistent rollout requires T>=1")
         self.N, self.T, self.dev = N, T, dev
+        self.previous_position = bool(previous_position)
+        self.forward_generation = 0
         self.cuda = str(dev).startswith("cuda")
         self.dc = torch.zeros(T, N, 3, 3, device=dev)
         self.dc_wp = [wp.from_torch(self.dc[t], dtype=wp.mat33, requires_grad=True) for t in range(T)]
@@ -258,6 +288,9 @@ class PersistentAdjoint:
                       tr.Fg[T]: wp.from_torch(self.sFg, dtype=wp.mat33)}
         for t in range(1, T):
             self.seeds[tr.v[t]] = wp.from_torch(self.sV[t - 1], dtype=wp.vec3)
+        self.sx_previous = torch.zeros(N, 3, device=dev) if previous_position and T > 1 else None
+        if self.sx_previous is not None:
+            self.seeds[tr.x[T - 1]] = wp.from_torch(self.sx_previous, dtype=wp.vec3)
         # every gradient buffer the adjoint accumulates into (tape.zero() only knows the
         # arrays of a tape that has already run backward — a fresh tape zeroes nothing)
         self.grad_arrays = []
@@ -294,6 +327,7 @@ class PersistentAdjoint:
             self.traj.rollout()
 
     def forward(self):
+        self.forward_generation += 1
         if self.g_fwd is not None:
             wp.capture_launch(self.g_fwd)
         else:
@@ -311,15 +345,37 @@ class PersistentAdjoint:
             raise ValueError("body control buffer and tensor must be enabled together")
         if body_t is not None and body_t.shape != self.body.shape:
             raise ValueError("body tensor shape must match the persistent mode-major buffer")
-        return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self)
+        return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self, False)
+
+    def apply_with_previous(self, dFc_t: torch.Tensor, u_t: torch.Tensor | None = None,
+                            body_t=None):
+        """Six-output bridge; construct with previous_position=True before capture.
+
+        Backward requires this object's forward buffers to remain current.
+        Multiple backward seeds of the same forward (e.g. PCGrad) are allowed.
+        """
+        if not self.previous_position:
+            raise ValueError("construct PersistentAdjoint with previous_position=True")
+        if (body_t is not None) != (self.body_wp is not None):
+            raise ValueError("body control buffer and tensor must be enabled together")
+        if body_t is not None and body_t.shape != self.body.shape:
+            raise ValueError("body tensor shape must match the persistent mode-major buffer")
+        return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self, True)
 
 
 class _WarpMPMPersistent(torch.autograd.Function):
     """The _WarpMPMExt bridge on a PersistentAdjoint (same outputs, same seeds)."""
 
     @staticmethod
-    def forward(ctx, dFc_t: torch.Tensor, u_t, body_t, adj: PersistentAdjoint):
+    def forward(ctx, dFc_t: torch.Tensor, u_t, body_t, adj: PersistentAdjoint,
+                previous_position: bool):
         N, T = adj.N, adj.T
+        ctx.previous_position = previous_position
+        if previous_position:
+            ctx.set_materialize_grads(False)
+        # Even a later failed input copy may change a leaf read by the old tape.
+        # Invalidate old contexts before touching any reusable input buffer.
+        adj.forward_generation += 1
         adj.dc.copy_(dFc_t.detach().reshape(T, N, 3, 3))
         if adj.u_wp is not None:
             adj.u.copy_(u_t.detach() if u_t is not None else torch.zeros(N, device=adj.u.device))
@@ -329,15 +385,24 @@ class _WarpMPMPersistent(torch.autograd.Function):
         ctx.body_req = body_t is not None and body_t.requires_grad
         adj.forward()
         ctx.adj = adj
+        ctx.forward_generation = adj.forward_generation
         tr = adj.traj
         V = torch.stack([wp.to_torch(tr.v[t]).clone() for t in range(1, T + 1)])
-        return (wp.to_torch(tr.x[T]).clone(), wp.to_torch(tr.F[T]).reshape(N, 9).clone(),
-                wp.to_torch(tr.v[T]).clone(),
-                wp.to_torch(tr.Fg[T]).reshape(N, 9).clone(), V)
+        outputs = (wp.to_torch(tr.x[T]).clone(), wp.to_torch(tr.F[T]).reshape(N, 9).clone(),
+                   wp.to_torch(tr.v[T]).clone(),
+                   wp.to_torch(tr.Fg[T]).reshape(N, 9).clone(), V)
+        if previous_position:
+            previous = wp.to_torch(tr.x[T - 1]).clone()
+            if T == 1:
+                ctx.mark_non_differentiable(previous)
+            return (*outputs, previous)
+        return outputs
 
     @staticmethod
-    def backward(ctx, gx, gF, gv, gFg, gV):
+    def backward(ctx, gx, gF, gv, gFg, gV, g_previous=None):
         adj = ctx.adj
+        if ctx.previous_position and ctx.forward_generation != adj.forward_generation:
+            raise RuntimeError("previous-position backward has stale persistent forward buffers")
         N, T = adj.N, adj.T
         with torch.no_grad():
             adj.sx.copy_(gx) if gx is not None else adj.sx.zero_()
@@ -352,8 +417,10 @@ class _WarpMPMPersistent(torch.autograd.Function):
                 adj.sV.copy_(gV[:T - 1])
             else:
                 adj.sV.zero_()
+            if adj.sx_previous is not None:
+                adj.sx_previous.copy_(g_previous) if g_previous is not None else adj.sx_previous.zero_()
             adj.backward()
             g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3).clone() for d in adj.dc_wp])
             g_u = wp.to_torch(adj.u_wp.grad).clone() if ctx.u_req else None
             g_body = wp.to_torch(adj.body_wp.grad).clone() if ctx.body_req else None
-        return g.reshape(T, N, 3, 3), g_u, g_body, None
+        return g.reshape(T, N, 3, 3), g_u, g_body, None, None

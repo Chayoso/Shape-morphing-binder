@@ -55,7 +55,7 @@ def phase_audit(baseline, candidate, reference, out):
     report = json.loads(reference.read_text())
     intervention = report['intervention']
     if intervention not in ('body_rprop', 'commit_pic_off', 'commit_pic_off_full',
-                           'render_arrival_handoff', 'commit_pic_objective_prefix'):
+                           'render_arrival_handoff', 'commit_pic_objective_prefix', 'geometric_rest_prefix'):
         raise ValueError('Phase diagnostic permits only explicitly reviewed interventions')
     runs, changes = checked_runs(baseline, candidate, intervention)
     quality_file = Path(sys.modules['scripts.probes.quality_compare'].__file__)

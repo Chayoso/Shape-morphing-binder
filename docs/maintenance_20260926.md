@@ -170,3 +170,31 @@ copies remain; no other file was deleted and no GPU task was launched. Exactly
 usage afterward was **91,169,734,912 bytes (91.170 GB)**, below the user's 100 GB
 threshold. Concurrent metadata/code writes may also affect the net project-size
 change; the freed-byte count is the sum of the two verified payload sizes.
+
+## Local regression-test CUDA exposure, recorded 2026-09-27 00:43 UTC
+
+The previous-position bridge's legacy regression launcher incorrectly used
+PowerShell `$env:CUDA_VISIBLE_DEVICES=''`. In this shell the empty value did not
+hide the local GPU. The owned pytest process was observed in local `nvidia-smi`
+while entering a CUDA-parametrized legacy test. Its PID was **39484**, and the
+verified command was:
+
+```text
+C:\Users\ok429\anaconda3\python.exe -X utf8 -m pytest tests/test_ext_bridge.py tests/test_bridge_cpu.py tests/test_persistent_traj.py tests/test_body_control.py tests/test_layer_relax.py tests/test_material_bonds.py -q
+```
+
+Only that process was stopped, after checking its PID and command line with
+`Get-CimInstance`; no other GPU process was touched. The unfinished run's result
+was discarded. No pipeline or rendering job was launched. The exact process
+start/stop timestamps and elapsed duration were not captured and are unknown;
+termination completed before this 00:43 UTC entry. This was an unintended local
+CUDA test branch and violated the intended CPU-only local verification scope.
+
+The corrected invocation sets `$env:CUDA_VISIBLE_DEVICES='-1'`. Before rerunning,
+the subprocess explicitly reported `CUDA_VISIBLE_DEVICES=-1` and
+`torch.cuda.is_available()==False`. That complete CPU regression run passed
+**40 tests with 3 CUDA skips in 7.85 seconds**. The independent reviewer also used
+`-1` and passed the 25 new bridge tests plus 7 geometric-rest helper tests. Future
+local test invocations require the explicit `-1` value; an empty string is not a
+valid GPU exclusion on this host. CUDA captured-graph validation remains assigned
+to hyde06 through the jump host.

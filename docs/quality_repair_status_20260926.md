@@ -77,3 +77,11 @@ agreement. See [the shared-endpoint report](shared_endpoint_p293.md).
 See method §10.40 for supported terms and calibration conventions. This aligns
 an explicitly hybrid endpoint map, not physical v/C/F. Actual geometric-rest
 supervision remains a subsequent change; no quality improvement is asserted.
+
+The subsequent `geometric_rest` prototype now adds a separately differentiated
+raw last-step/remap penalty on frozen arrived/free material. CPU integration,
+the CUDA bridge probe and a300k one-window pair passed; the multi-window quality
+comparison remains pending. It preserves physical v/C/F and the existing pin
+policy. Its coefficient is an explicit experiment at fixed T20/dt1/240, and
+terminal-only control cannot certify motion throughout the window. See
+[P294 execution and limits](geometric_rest_p294.md). No quality fix is promoted.

@@ -34,7 +34,7 @@ from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_d
                                  deficit_field, gather_cic, isolation_gate, kde_assign,
                                  nn_band_assign, rasterize_mass, w1_budget)
 from ..mpm.constitutive import lame
-from ..mpm.function import PersistentAdjoint, RolloutSpec, warp_mpm_ext
+from ..mpm.function import PersistentAdjoint, RolloutSpec, warp_mpm_ext, warp_mpm_ext_with_previous
 from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig, disc_ref_factor
@@ -1476,6 +1476,33 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
 
     def objective_endpoint(raw):
         return endpoint_filter.endpoint(raw, endpoint_pin) if endpoint_filter is not None else raw
+
+    geom_mask = None
+    geom_count = 0
+    if cfg.geometric_rest:
+        from .geometric_rest import terminal_motion
+        if arrived_mask_np is None:
+            raise ValueError('geometric_rest requires a frozen full-plan arrival mask')
+        geom_mask = (torch.as_tensor(arrived_mask_np, device=dev, dtype=torch.bool)
+                     & ~endpoint_pin).detach().clone()
+        geom_count = int(geom_mask.sum())
+
+    def attach_geometry(extra, raw, previous, promoted):
+        if geom_mask is not None:
+            extra.update(geom_raw=raw, geom_previous=previous,
+                         geom_rest=terminal_motion(raw, previous, promoted, geom_mask, prm.dt))
+        return extra
+
+    def geometry_telemetry(motion):
+        if motion is None:
+            return None
+        whole = {k: float(v.detach()) for k, v in motion.items()}
+        fraction = geom_count / N
+        return dict(**whole, eligible_count=geom_count, eligible_fraction=fraction,
+                    conditional=({k: v / fraction for k, v in whole.items()} if geom_count else None),
+                    normalization='all_particles', weight=cfg.w_kin, unit_multiplier=wu,
+                    effective_weight=wu * cfg.w_kin, dt=prm.dt,
+                    work_scope='endpoint work excludes direct raw/previous geometric paths')
     if tgt.dt3 is not None:
         if cfg.dt_gate not in ("knn", "budget"):    # f18: a typo must not silently
             raise ValueError(f"unknown dt_gate {cfg.dt_gate!r}")   # select the default
@@ -1641,10 +1668,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if lam_t is None and str(dev).startswith("cuda") and not _NO_ADJ_GRAPH:
             # persistent tape trajectory (forward + adjoint as CUDA graphs), one per window
             if adj_box[0] is None:
-                adj_box[0] = PersistentAdjoint(spec)
-            xT, FT, vT, FgT, V = adj_box[0].apply(dfc, u, body_field())
+                adj_box[0] = PersistentAdjoint(spec, previous_position=cfg.geometric_rest)
+            values = (adj_box[0].apply_with_previous(dfc, u, body_field()) if cfg.geometric_rest else
+                      adj_box[0].apply(dfc, u, body_field()))
         else:
-            xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t, u_t=u, body_t=body_field())
+            rollout = warp_mpm_ext_with_previous if cfg.geometric_rest else warp_mpm_ext
+            values = rollout(dfc, spec, lam_t, mu_t, u_t=u, body_t=body_field())
+        xT, FT, vT, FgT, V = values[:5]
+        x_raw = xT
+        x_previous = values[5] if cfg.geometric_rest else None
         xT = objective_endpoint(xT)
         if xT.requires_grad and getattr(cfg, "settle_pin_kkt", False):
             # the objective's gradient at the end-of-window positions of EVERY particle, pinned ones included (a pinned
@@ -1653,6 +1685,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
         extra = {"dfc": dfc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                  "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
+        attach_geometry(extra, x_raw, x_previous, xT)
         return (xT, FT, vT), lv, lk, lr, lpbr, extra
 
     accepted_eval_valid = False
@@ -1678,6 +1711,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # the buffers are rewritten by the next candidate: the outputs are copies
             xT = wp.to_torch(tr.x[T]).clone()
             x_raw = xT
+            x_previous = wp.to_torch(tr.x[T-1]).clone() if cfg.geometric_rest else None
             xT = objective_endpoint(xT)
             FT = wp.to_torch(tr.F[T]).reshape(N, 9).clone()
             vT = wp.to_torch(tr.v[T]).clone()
@@ -1688,6 +1722,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
             extra = {"dfc": dc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                      "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
+            attach_geometry(extra, x_raw, x_previous, xT)
             _tm_add("eval_loss", t0)
             t0 = _tick()
             # whole-trajectory orientation check for _state_ok. Stack-review fixes:
@@ -1749,12 +1784,18 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             cont_state["rejects"] += 1
         return viol == 0
 
-    def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
+    def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None):
         """Physics objective WITHOUT the W1 term — the lambda balancer's numerator and
         PCGrad's reference direction (Codex finding 9: folding the W1 term into gp let
         w_dt inflate the balanced silhouette weight and project render components off a
         direction that was never 'the physics')."""
         L = lv + wu * cfg.w_kin * lk + wu * cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
+        if cfg.geometric_rest:
+            if geom is None:
+                raise RuntimeError('geometric_rest is missing from an objective evaluation')
+            # Explicit equal-weight diagnostic at fixed T/dt, not a physical remap energy.
+            # This also changes the physics norm used by the render lambda balancer.
+            L = L + wu * cfg.w_kin * geom['total']
         if body_coeff is not None:
             L = L + wu * cfg.w_ctrl * (body_field().reshape(body_modes, N, 3) / float(prm.dx)).square().sum((0, 2)).mean()
         if cfg.w_kin_running > 0 and lk_run is not None:
@@ -1862,8 +1903,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         from ..losses.volumetric import d_fill_pairs
         return d_fill_pairs(xT, fill_pairs[0], fill_pairs[1], 0.5 * tgt.dtdx)
 
-    def phys_total(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
-        L = phys_core(lv, lk, dfc, xT, fT, lk_run, fR, lk_var, vT)
+    def phys_total(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None):
+        L = phys_core(lv, lk, dfc, xT, fT, lk_run, fR, lk_var, vT, geom)
         if cfg.w_h1 > 0 and tgt.h1_scale is not None and getattr(cfg, "h1_outside", False):
             # config.h1_outside (2026-09-26): the H^-1 term OUTSIDE the core, the W1 precedent — inside it, its
             # gradient inflates the physics norm the lambda balancer scales the render channel against (the
@@ -1880,18 +1921,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + fill_lam * fill_raw(xT)
         return L
 
-    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None):
+    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None):
         with torch.no_grad():    # scalar only — never build a second autograd graph
             L = float(phys_total(lv, lk, dfc.detach(), xT.detach(),
                                  fT.detach() if fT is not None else None,
                                  lk_run.detach() if lk_run is not None else None,
                                  fR.detach() if fR is not None else None,
                                  lk_var.detach() if lk_var is not None else None,
-                                 vT.detach() if vT is not None else None))
+                                 vT.detach() if vT is not None else None, geom))
         return L if lr is None else L + lam_r * float(lr.detach())
 
     hist, accepted, rejected = [], 0, 0
     last_accepted_state = None
+    last_accepted_geometry = None
     ls_exhausted = False
     _TM.clear()
     _TM["t_win"] = time.perf_counter()
@@ -1916,7 +1958,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # stack-review f5: an INVALID cold baseline must not be the comparator — its
         # position-only loss can be artificially low and block every valid warm start
         E0 = (scalars(lv0, lk0, lr0, lam_r, ex0["dfc"], st0[0], st0[1], ex0["lk_run"],
-                      ex0["Fg"], ex0["lk_var"], _vT(ex0))
+                      ex0["Fg"], ex0["lk_var"], _vT(ex0), ex0.get("geom_rest"))
               if _state_ok(st0) else np.inf)
         with torch.no_grad():
             init = torch.tensor(np.ascontiguousarray(dfc_init, np.float32), device=dev)
@@ -1925,7 +1967,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             dFc.copy_((init if basis.per_particle else basis.project(init)) * cfg.warm_decay)
         stw, lvw, lkw, lrw, _, exw = eval_terms(dFc)
         Ew = scalars(lvw, lkw, lrw, lam_r, exw["dfc"], stw[0], stw[1], exw["lk_run"],
-                     exw["Fg"], exw["lk_var"], _vT(exw))
+                     exw["Fg"], exw["lk_var"], _vT(exw), exw.get("geom_rest"))
         if not (_state_ok(stw) and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
                 dFc.zero_()                          # stale controls: fall back to cold start
@@ -1945,9 +1987,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         stA, lvA, lkA, lrA, _, exA = eval_terms(dFc)
         stB, lvB, lkB, lrB, _, exB = eval_terms(dFc)
         EA = scalars(lvA, lkA, lrA, lam_r, exA["dfc"], stA[0], stA[1], exA["lk_run"], exA["Fg"],
-                     exA["lk_var"], _vT(exA))
+                     exA["lk_var"], _vT(exA), exA.get("geom_rest"))
         EB = scalars(lvB, lkB, lrB, lam_r, exB["dfc"], stB[0], stB[1], exB["lk_run"], exB["Fg"],
-                     exB["lk_var"], _vT(exB))
+                     exB["lk_var"], _vT(exB), exB.get("geom_rest"))
         if np.isfinite(EA) and np.isfinite(EB):
             replay_rel = replay_relative_error(EA, EB, unit_ratio)
         if cfg.body_ctrl:
@@ -2009,7 +2051,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if lk_start is None:
             lk_start = float(lk.detach())
         Lp_core = phys_core(lv, lk, dfc_x, state[0], state[1], extra["lk_run"],
-                            extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra))
+                            extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra), extra.get("geom_rest"))
         Lfill = fill_raw(state[0]) if fill_on else None
         smooth = balancer.active and cfg.render_gs_iters > 0
         special_render = smooth or surface_w_t is not None or cfg.control_h1_iters > 0
@@ -2169,7 +2211,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             g[0] = _sobolev_direction(g[0], knn_t, cfg.control_h1_kappa)
         _tm_add("grad", t0)
         cur = scalars(lv, lk, lr, lam_r, dfc_x, state[0], state[1], extra["lk_run"],
-                      extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra))
+                      extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra), extra.get("geom_rest"))
         if not np.isfinite(cur):
             log(f"[win] iter {it}: non-finite loss, aborting window")
             break
@@ -2241,7 +2283,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             state_n, lv_n, lk_n, lr_n, lpbr_n, extra_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, extra_n["dfc"], state_n[0],
-                              state_n[1], extra_n["lk_run"], extra_n["Fg"], extra_n["lk_var"], _vT(extra_n))
+                              state_n[1], extra_n["lk_run"], extra_n["Fg"], extra_n["lk_var"], _vT(extra_n), extra_n.get("geom_rest"))
                 predicted_decrease = -float(sum((gi.detach() * (p - b)).sum()
                                                 for gi, p, b in zip(g, leaves, bak)))
                 # The Armijo slope is only meaningful when the model predicts descent.
@@ -2335,6 +2377,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      to_array(F_view.detach().reshape(N, 3, 3), copy=True).astype(np.float32),
                      {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
                       "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
+                      "geometric_rest": geometry_telemetry(extra_n.get('geom_rest')),
                       "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
                       "d_render": float(lr_n) if lr_n is not None else None,
                       "lambda": lam_r if balancer.active else None, "grad_norm": gn,
@@ -2353,12 +2396,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # history from the ACCEPTED evaluation. NOTE "d_render" is the pure silhouette
         # scalar; the shading channel is logged separately (they were conflated before).
         last_accepted_state = state_n if (cfg.body_ctrl or cfg.commit_pic_objective) else None
+        last_accepted_geometry = ({k: extra_n[k] for k in ('geom_raw', 'geom_previous', 'geom_rest')}
+                                  if cfg.geometric_rest else None)
         body_update = None
         if body_coeff is not None:
             body_index = next(i for i, leaf in enumerate(leaves) if leaf is body_coeff)
             delta = (body_coeff.detach() - bak[body_index]).reshape(-1, body_modes, 3)
             body_update = [float(v) for v in delta.square().sum(-1).mean(0).sqrt()]
         hist.append({"iter": it, "loss": new,
+                     "geometric_rest": geometry_telemetry(extra_n.get('geom_rest')),
                      "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
                      "body_update_modes_rms": body_update,
                      "d_vol": float(lv_n), "kin": float(lk_n),
@@ -2425,13 +2471,24 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         v_final = wp.to_torch(tr.v[T])
         Fg_final = wp.to_torch(tr.Fg[T]).reshape(N, 9) if use_geom else None
         V_final = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
+        previous_final = wp.to_torch(tr.x[T-1]) if cfg.geometric_rest else None
+        geom_final = None
+        if cfg.geometric_rest:
+            if commit_from_accepted:
+                if (not torch.equal(previous_final, last_accepted_geometry['geom_previous'])
+                        or not torch.equal(x_final_raw, last_accepted_geometry['geom_raw'])):
+                    raise RuntimeError('accepted geometric-rest trajectory no longer matches its owned positions')
+                previous_final = last_accepted_geometry['geom_previous']
+                geom_final = last_accepted_geometry['geom_rest']
+            else:
+                geom_final = terminal_motion(x_final_raw, previous_final, x_final, geom_mask, prm.dt)
         if commit_from_accepted:
             E_final = E_accept  # exactly the state and merit already accepted; no replay measurement
         else:
             lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final, Fg_final)
             E_final = scalars(lv_f, lk_f, lr_f, lam_r, dc, x_final, F_final,
                               V_final.pow(2).sum(2).mean(), Fg_final,
-                              (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean(), V_final[-1])
+                              (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean(), V_final[-1], geom_final)
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
                       * max(abs(E_accept or 0.0), 1.0 / unit_ratio))
         replay_bad = not commit_from_accepted and E_accept is not None and E_final > E_accept + replay_tol
@@ -2440,6 +2497,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                   replay_E_tol=None if commit_from_accepted else float(replay_tol), replay_lambda_final=float(lam_r),
                                   replay_lambda_accepted=(hist[-1]['lambda'] if hist else None))
         replay_diagnostics['position_space'] = 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout'
+        if cfg.geometric_rest:
+            replay_diagnostics['geometric_rest'] = geometry_telemetry(geom_final)
+            if last_accepted_geometry is not None:
+                replay_diagnostics['replay_previous_max'] = float(
+                    (previous_final - last_accepted_geometry['geom_previous']).abs().max())
         if last_accepted_state is not None and not commit_from_accepted:
             replay_diagnostics.update(replay_x_max=float((x_final-last_accepted_state[0]).abs().max()),
                                       replay_v_max=float((v_final-last_accepted_state[2]).abs().max()))
@@ -2457,7 +2519,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if endpoint_filter is not None and accepted > 0:
             from .endpoint_contract import OwnedEndpoint
             owned_endpoint = OwnedEndpoint.capture(endpoint_filter, x0_t, endpoint_pin, x_final_raw,
-                                                     x_final, replay_diagnostics['commit_source'])
+                                                     x_final, replay_diagnostics['commit_source'], previous_final)
         # 2026-09-23 (speed): wp.array.numpy() already returns a fresh host copy — the extra
         # .copy() doubled 300 MB of traffic a window; and the whole-window F health (any step
         # with det F <= 0, per particle) is counted on the device instead of stacking T x N
@@ -2581,6 +2643,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
              "render_target_kind": render_target_kind,
              "motion_accounting": motion_accounting,
              "owned_endpoint": owned_endpoint,
+             "geometric_rest": geometry_telemetry(geom_final),
+             "geometric_rest_mask": geom_mask,
              "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
              "replay_diagnostics": replay_diagnostics,
              "commit_from_accepted": commit_from_accepted,

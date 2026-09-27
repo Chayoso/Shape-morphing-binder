@@ -1,9 +1,10 @@
-"""P292/P293 matched raw-state quality audit; execute on hyde06 with CUDA only.
+"""P292/P293/P294 matched raw-state quality audit; run on hyde06 with CUDA only.
 
 The baseline/candidate must share inputs, MPM parameters and exact simulation code.
 Default: only body_rprop may change. Explicit stress_taper and commit_pic_off
 interventions permit their one flag plus cap 60 -> 8 and compare a common prefix.
 The shared-PIC objective prefix permits only its objective flag, with cap8 in both arms.
+The geometric-rest prefix additionally fixes T=20, dt=1/240 and a positive kinetic weight.
 Numerical geometry, cohorts and motion use CUDA;
 archive/hash/JSON I/O use the host. No renderer or optimization-loss operator is read.
 """
@@ -25,7 +26,8 @@ from scripts.probes.render_influence import load_run, channel_summary
 
 wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
 FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff')
-PREFIX_INTERVENTIONS = ('stress_taper', 'commit_pic_off', 'commit_pic_objective_prefix')
+PREFIX_INTERVENTIONS = ('stress_taper', 'commit_pic_off', 'commit_pic_objective_prefix',
+                        'geometric_rest_prefix')
 
 
 def stats(values):
@@ -78,11 +80,29 @@ def checked_config_changes(ca, cb, intervention):
                          and c.get('lambda_auto', 0.) > 0
                          and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
                          for c in (ca, cb)))
+    elif intervention == 'geometric_rest_prefix':
+        valid = (set(changes) == {'geometric_rest'}
+                 and ca.get('geometric_rest', False) is False and cb.get('geometric_rest') is True
+                 and all(c.get('stop_after_windows') == 8 and c.get('T') == 20
+                         and c.get('commit_pic') is True and c.get('commit_pic_objective') is True
+                         and c.get('shift_sub') is False and c.get('outer_render_committed') is True
+                         and c.get('phys_loss') in ('ot_pace', 'ot_shape')
+                         and host_np.isfinite(c.get('w_kin', 0.)) and c.get('w_kin', 0.) > 0
+                         and c.get('lambda_auto', 0.) > 0
+                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
+                         for c in (ca, cb)))
     else:
         raise ValueError(f'Unknown intervention: {intervention}')
     if not valid:
         raise ValueError(f'Unexpected {intervention} configuration changes: {changes}')
     return changes
+
+
+def checked_mpm_parameters(baseline, candidate, intervention):
+    if baseline != candidate:
+        raise ValueError('MPM discretisation mismatch')
+    if intervention == 'geometric_rest_prefix' and baseline.get('dt') != 1/240:
+        raise ValueError('geometric_rest_prefix requires dt=1/240')
 
 
 def checked_runs(baseline, candidate, intervention):
@@ -101,8 +121,7 @@ def checked_runs(baseline, candidate, intervention):
                                        for p in source_files)).hexdigest()
     if audit_hash != hashes[0]:
         raise ValueError('Audit numerical source must match the simulation snapshot')
-    if a['meta']['provenance']['mpm'] != b['meta']['provenance']['mpm']:
-        raise ValueError('MPM discretisation mismatch')
+    checked_mpm_parameters(a['meta']['provenance']['mpm'], b['meta']['provenance']['mpm'], intervention)
     for run, config in zip(runs, configs):
         if config.get('compute_backend') != 'cuda':
             raise ValueError('Both simulations must use the strict CUDA backend')
@@ -181,7 +200,7 @@ def geometry_curve(run, target, target_tree, extent, target_spacing, radius, tip
                    top_density=float(counts.mean()/8) if counts is not None else None,
                    top_under_half=float((counts < 4).mean()) if counts is not None else None)
         for key in ('Jmin_traj', 'pinned_frac', 'arrived_end_frac', 'v_mean', 'v_absmax',
-                    'endpoint_contract', 'commit_from_accepted', 'pic_null_share',
+                    'endpoint_contract', 'commit_from_accepted', 'pic_null_share', 'geometric_rest',
                     'body_step_node_mean', 'body_step_transit_nodes_frac',
                     'body_step_transit_min', 'body_step_arrived_median', 'body_update_modes_rms',
                     'body_rms_wu', 'body_terminal_rms_wu', 'body_step_scale',

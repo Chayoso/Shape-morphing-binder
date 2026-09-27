@@ -852,7 +852,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             raw_t = torch.as_tensor(x, device=cfg.device)
             start_t = torch.as_tensor(x_start, device=cfg.device)
             pin_t = torch.as_tensor(pin_window, device=cfg.device)
-            promoted = package.promote(raw_t, start_t, pin_t, endpoint_bounds(prm, raw_t))
+            previous_t = torch.as_tensor(fr[-2], device=cfg.device) if cfg.geometric_rest else None
+            promoted = package.promote(raw_t, start_t, pin_t, endpoint_bounds(prm, raw_t), previous_t)
             x = to_array(promoted, copy=True).astype(np.float32)
             delta, removed = raw_t - start_t, raw_t - promoted
             rec_pic = dict(null_share=float(removed.square().sum(1).mean().sqrt() /
@@ -993,6 +994,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "endpoint_contract": endpoint_telemetry,
+               "geometric_rest": stats.get('geometric_rest'),
                "motion_accounting": motion_report,
                "render_target_kind": stats.get("render_target_kind"),
                "body_rms_wu": stats.get("body_rms_wu"), "body_nodes": stats.get("body_nodes", 0),

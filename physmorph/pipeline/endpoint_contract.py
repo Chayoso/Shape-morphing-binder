@@ -2,12 +2,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 import os
 
 import torch
 
 
 def validate_endpoint_config(cfg):
+    if cfg.geometric_rest:
+        if not cfg.commit_pic_objective:
+            raise ValueError('geometric_rest requires commit_pic_objective')
+        if not math.isfinite(cfg.w_kin) or cfg.w_kin <= 0 or cfg.T < 1:
+            raise ValueError('geometric_rest requires positive finite w_kin and T>=1')
+        if cfg.phys_loss not in ('auto', 'ot_pace', 'ot_shape'):
+            raise ValueError('geometric_rest requires the full-plan arrived cohort')
+        if cfg.settle_pin_kkt:
+            raise ValueError('geometric_rest does not support endpoint-only KKT pin admission')
     if not cfg.commit_pic_objective:
         return
     if not cfg.commit_pic:
@@ -51,16 +61,22 @@ class OwnedEndpoint:
     raw: torch.Tensor
     promoted: torch.Tensor
     source: str
+    previous: torch.Tensor | None = None
 
     @classmethod
-    def capture(cls, operator, start, pin, raw, promoted, source):
-        return cls(operator, *(v.detach().clone() for v in (start, pin, raw, promoted)), source)
+    def capture(cls, operator, start, pin, raw, promoted, source, previous=None):
+        return cls(operator, *(v.detach().clone() for v in (start, pin, raw, promoted)), source,
+                   previous.detach().clone() if previous is not None else None)
 
-    def promote(self, raw, start, pin, bounds):
+    def promote(self, raw, start, pin, bounds, previous=None):
         for label, actual, expected in (('raw', raw, self.raw), ('start', start, self.start),
                                         ('pins', pin, self.pin)):
             if actual.device != expected.device or actual.shape != expected.shape or not torch.equal(actual, expected):
                 raise ValueError(f'shared PIC endpoint {label} no longer matches its evaluated state')
+        if self.previous is not None:
+            if (previous is None or previous.device != self.previous.device
+                    or previous.shape != self.previous.shape or not torch.equal(previous, self.previous)):
+                raise ValueError('shared PIC endpoint previous position no longer matches its evaluated state')
         if not valid_endpoint(self.promoted, bounds):
             raise ValueError('shared PIC endpoint requires finite in-bounds promoted positions; repair is forbidden')
         if not torch.equal(self.promoted[self.pin], self.start[self.pin]):

@@ -180,3 +180,62 @@ def test_shared_pic_audit_uses_only_common_prefix_and_preserves_endpoint_record(
     assert [run['delivered'] for run in scoped] == [121, 121]
     assert scoped[1]['records'][-1]['endpoint_contract'] == records[5]['endpoint_contract']
     assert len(runs[0]['records']) == 8 and runs[0]['delivered'] == 161
+
+
+def test_geometric_rest_prefix_changes_only_the_arrived_motion_penalty(probe):
+    baseline = dict(commit_pic=True, commit_pic_objective=True, shift_sub=False,
+                    outer_render_committed=True, lambda_auto=.5, stop_after_windows=8,
+                    T=20, w_kin=.5, phys_loss='ot_pace')
+    candidate = dict(baseline, geometric_rest=True)
+    mode = 'geometric_rest_prefix'
+    assert mode in probe.PREFIX_INTERVENTIONS and mode not in probe.FULL_INTERVENTIONS
+    for base_value in (None, False):
+        original = dict(baseline)
+        if base_value is not None:
+            original['geometric_rest'] = base_value
+        assert probe.checked_config_changes(original, candidate, mode) == {
+            'geometric_rest': [base_value, True]}
+    for key, value in [('commit_pic', False), ('commit_pic_objective', False), ('shift_sub', True),
+                       ('outer_render_committed', False), ('lambda_auto', 0.),
+                       ('stop_after_windows', 60), ('T', 10), ('render_until', 7),
+                       ('w_kin', 0.), ('w_kin', -1.), ('w_kin', float('inf')),
+                       ('phys_loss', 'ot'), ('phys_loss', 'auto')]:
+        with pytest.raises(ValueError, match=mode):
+            probe.checked_config_changes(dict(baseline, **{key: value}),
+                                         dict(candidate, **{key: value}), mode)
+    for changed in (dict(candidate, w_kin=1.), dict(candidate, body_rprop=True),
+                    dict(candidate, settle_pin_still=True), dict(candidate, geometric_rest=False)):
+        with pytest.raises(ValueError, match=mode):
+            probe.checked_config_changes(baseline, changed, mode)
+    with pytest.raises(ValueError, match=mode):
+        probe.checked_config_changes(dict(baseline, geometric_rest=None), candidate, mode)
+
+
+def test_geometric_rest_prefix_fixes_the_motion_time_unit(probe):
+    mode = 'geometric_rest_prefix'
+    mpm = dict(dt=1/240, dx=.3062907544, nx=36, ny=36, nz=36)
+    probe.checked_mpm_parameters(mpm, dict(mpm), mode)
+    with pytest.raises(ValueError, match='discretisation mismatch'):
+        probe.checked_mpm_parameters(mpm, dict(mpm, dt=1/120), mode)
+    for dt in (1/120, 0., float('inf'), None):
+        wrong = dict(mpm, dt=dt)
+        with pytest.raises(ValueError, match='requires dt=1/240'):
+            probe.checked_mpm_parameters(wrong, dict(wrong), mode)
+    # Older reviewed comparisons retain their own exact matched discretisation.
+    wrong = dict(mpm, dt=1/120)
+    probe.checked_mpm_parameters(wrong, dict(wrong), 'body_rprop')
+
+
+def test_geometric_rest_prefix_preserves_telemetry_without_final_rest_inference(probe):
+    records = [dict(animation=i, frame_end=1+20*(i+1),
+                    geometric_rest=dict(eligible_count=7+i, raw_sq=.1, remap_sq=.2, total=.3,
+                                        weight=.5, effective_weight=.25, unit_multiplier=.5))
+               for i in range(8)]
+    runs = [dict(records=records[:n], delivered=1+20*n,
+                 arm=dict(config=dict(T=20, stop_after_windows=8))) for n in (8, 5)]
+    scoped, description = probe.scoped_runs(runs, 'geometric_rest_prefix')
+    assert description['kind'] == 'common accepted prefix' and description['analyzed_commits'] == 5
+    assert description['endpoint_claim'] == 'prefix endpoint only; no final quality or convergence inference'
+    assert [run['delivered'] for run in scoped] == [101, 101]
+    assert scoped[0]['records'][-1]['geometric_rest'] == records[4]['geometric_rest']
+    assert len(runs[0]['records']) == 8 and runs[0]['delivered'] == 161

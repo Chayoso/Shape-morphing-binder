@@ -38,6 +38,7 @@ def main():
     parser.add_argument('--outer-render-committed', action='store_true', help='Fixed-target promoted-state outer render gate')
     parser.add_argument('--render-paced-arrived', action='store_true', help='Accepted full-plan all-arrival render handoff')
     parser.add_argument('--commit-pic-objective', action='store_true', help='Shared inner/committed XPIC endpoint')
+    parser.add_argument('--geometric-rest', action='store_true', help='Arrived-free terminal geometric-rest diagnostic')
     parser.add_argument('--no-shift-sub', action='store_true', help='Disable the external subgrid position shift')
     parser.add_argument('--out', required=True)
     parser.add_argument('--trace_seconds', type=int, default=0)
@@ -87,6 +88,8 @@ def main():
         config['render_paced_arrived'] = True
     if args.commit_pic_objective:
         config['commit_pic_objective'] = True
+    if args.geometric_rest:
+        config['geometric_rest'] = True
     if args.no_shift_sub:
         config['shift_sub'] = False
     if args.taper_sp is not None:

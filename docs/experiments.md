@@ -8744,3 +8744,24 @@ all guards0 and all candidate endpoint contracts0. Raw prefix quality/phase
 audits are separate. No adoption or final-rest claim follows from these checks.
 See [shared endpoint execution](shared_endpoint_p293.md), including measured
 allocation scope and actual launch-spacing deviations.
+
+**2026-09-26 19:53 CDT -- P294 terminal geometric-rest prototype.**
+Method10.41 adds a frozen arrived/free raw-final-step plus remap penalty to the
+shared endpoint model. It explicitly reuses wu*w_kin and retains the stored
+momentum penalty; full-cloud and conditional diagnostics remain separate.
+The coefficient is a policy choice and remap/dt is tied to the tested temporal
+discretization. The new term also enters the render-lambda balancing numerator.
+Independent CPU review covered both Warp bridges, true x[T-1] seeds, ownership,
+empty/pinned cohorts, all scalar/gradient/replay paths and density units. The
+complete CPU-only suite passed455 tests/22 skipped in89.31s.
+
+A64-point/T3 bridge probe at original dx0.3062907544wu/dt1/240 passed CUDA captured
+versus ordinary forward/adjoint, finite difference, repeated/missing seeds and
+T1/pin/stale-context checks. The subsequent300k/T20/loss36^3/eight-iteration cap1
+pair has the same frozen core and only geometric_rest differs. Both accepted
+8 inner updates and1 outer commit, all guards0 and exact endpoint agreement.
+The candidate's owned previous position agrees exactly; only accepted-buffer
+CUDA commits were exercised. Runtime15.804/16.761s and Torch peaks7.947/8.009GB
+are descriptive, not cross-GPU performance claims. Cap8 comparison is underway;
+no full-morph, final-rest or appearance improvement follows from these gates.
+See [P294 formulation/execution](geometric_rest_p294.md).

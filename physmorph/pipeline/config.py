@@ -654,6 +654,7 @@ class PipelineConfig:
     commit_pic: bool = False        # docs/method.md 10.20: finite-order XPIC H=I-(I-P)^5 at window-start positions.
                                     # Changes endpoint x only, before shifting; v/C/F stay unchanged. H is not an exact projection.
     commit_pic_objective: bool = False  # shared finite-order XPIC endpoint in every inner spatial loss and promotion
+    geometric_rest: bool = False  # fixed-discretization arrived-free raw-step/remap penalty, weighted by w_kin
     u_rprop: bool = False           # 2026-09-23 night (docs/method.md 10.19, docs/oscillation.md Addendum 9): the u
                                     #   channel's per-window bound is damped PER PARTICLE by its own sign history —
                                     #   Rprop (Riedmiller & Braun 1993): a particle whose u flipped sign against the
