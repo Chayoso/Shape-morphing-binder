@@ -86,9 +86,18 @@ At the same T20/dt1/240/dx0.3062907544/loss36^3 discretization, its common14468 
 IDs have raw-step median0.136071/0.132152 native spacings, but accepted-window
 direction reversals increase6.642%/7.625%. Overall pin admission also differs:
 35.622%/43.071%. This is mixed early-transport evidence, not a settling result.
-The full-morph comparison remains pending. It leaves the commit-time treatment
-of stored v/C/F and the existing pin policy unchanged. Optimized trajectories
-and their state values can differ. Its coefficient is an explicit experiment at fixed T20/dt1/240, and
-terminal-only control cannot certify motion throughout the window. See
-[P294 execution and limits](geometric_rest_p294.md) and the
-[prefix audit](geometric_rest_prefix_p294.md). No quality fix is promoted.
+The subsequent full comparison is **rejected as a quality repair**. Control and
+candidate stop after35 and34 accepted windows, with zero state guards and exact
+owned endpoint agreement. At common commit34, IoU is0.967615/0.969363, both below
+0.971; tip-ball supply decreases52/42 particles. On the same2640 IDs free in both
+arms over commits24–34, raw-step median decreases0.014130/0.013256sp, but commit
+median increases0.135939/0.150093sp and commit reversals7.997%/16.330%. The boundary
+pattern becomes smaller but remains. This is not stationary material or a hole fix.
+
+The experiment leaves the commit-time treatment of stored v/C/F and the existing
+pin policy unchanged. Optimized trajectories and their state values can differ.
+Its coefficient is an explicit choice at fixed T20/dt1/240, and terminal-only
+control cannot certify motion throughout the window. See
+[P294 execution and limits](geometric_rest_p294.md), the
+[prefix audit](geometric_rest_prefix_p294.md) and the
+[full comparison](geometric_rest_full_p294.md). No quality fix is promoted.

@@ -8791,3 +8791,28 @@ tests passed independently. Quality/phase GPU launches were01:04:13/01:05:26 UTC
 on September27, separated by73s. The bounded prefix supports proceeding to an
 exploratory cap60 comparison after verified storage offload, not promotion.
 See [P294 prefix evidence](geometric_rest_prefix_p294.md).
+
+**2026-09-26 20:25 CDT -- P294 full comparison rejected as a quality repair.**
+Both arms retain bunny300k/T20/dt1/240/dx0.3062907544wu/loss36^3/eight inner
+iterations, cap60 under animations300, shared XPIC, no subcell shift and corrected
+outer merit. Only geometric_rest differs. They complete35/38 and34/37
+accepted/attempted windows in635.79/630.30s. Both stop after three outer-merit
+rejections; the converged metadata flag is not a stationary-material certificate.
+All state guards and owned endpoint differences are0.
+
+At common commit34, IoU is0.967615/0.969363, both below0.971; upper-region coverage
+is0.964929/0.960554 and tip-ball count52/42. The same2640 IDs remain free in both
+arms over24–34. Their raw-step median falls0.014130/0.013256 source-native
+spacings, but commit median rises0.135939/0.150093sp and commit reversals
+1900/23760 (7.997%)/3880/23760 (16.330%). Phase20 path share falls38.1246%/31.9294%,
+yet reversal20-to-next1 remains77.7357%/58.2449%. These are trajectory-direction
+statistics, not oscillation frequencies. The boundary pattern survives.
+
+Final archive pin checks include one duplicate held frame. Last-admitted pins
+therefore have no subsequent physical rollout in this evidence; common-free
+motion excludes that suffix. The candidate's lower pin fraction also prevents
+whole-cloud means from being read as matched-material rest. The intervention
+changes automatic render-lambda balancing as documented in its formulation.
+No new renderer experiment or default promotion follows from this failed gate.
+Full quality/phase audits launched01:22:54/01:24:27UTC on September27,93s apart.
+See [P294 full evidence and limitations](geometric_rest_full_p294.md).

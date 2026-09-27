@@ -1,8 +1,9 @@
 # P294: terminal geometric-rest diagnostic
 
-Status: implemented and independently reviewed on CPU; the CUDA bridge probe
-and one-window300k execution passed. Physical quality remains unverified. This is
-an opt-in experiment, with the formulation and limitations in method section10.41.
+Status: implemented and independently reviewed; the CUDA bridge and integration
+gates passed. The subsequent full comparison fails the combined shape, supply
+and rest gates. This remains an opt-in experiment, not an adopted quality repair;
+the formulation and limitations are in method section10.41.
 
 The objective separately penalizes the final raw position step and the endpoint
 remap on a frozen arrived/free material cohort. It retains stored-momentum kinetic
@@ -62,7 +63,7 @@ Evidence is local `output/p294/previous_gpu.json`, SHA256
 The reviewer matched all executed dependency hashes to the frozen ZIP and closed
 this bounded evidence gate. This is neither a300k stress test nor a rest result.
 
-## Planned physical comparison
+## Physical comparison protocol
 
 Both arms use the original bunny N300000/T20/dt1/240/dx0.3062907544/loss36^3,
 eight inner iterations, the300-window schedule, shared XPIC objective, shifting
@@ -115,3 +116,27 @@ separate. Raw-step, accepted-window and boundary-phase motion are all reported;
 increased pinning or a smaller changing eligible cohort cannot establish rest.
 Archive hold frames must not dilute motion. An encouraging longer comparison
 would still require visual QA and broader-shape validation before adoption.
+
+## What arrival and visual matching do not establish
+
+The active density, silhouette and density-normal shading terms compare aggregate
+fields. They do not assign a unique final position to each material ID. Tangential
+rearrangement that leaves those fields alike is not identified by the matching
+terms alone; finite sampling, dynamics and control/kinetic/strain penalties can
+still respond to it. This is not a claim that the entire objective has an exact
+tangential nullspace.
+
+The current arrival test is distance to this window's frozen full-plan OT image
+within max(plan blur, loss-cell width). It contains no speed, gradient, stress or
+local-optimality test. P294 freezes this eligibility at window start and penalizes
+all three components of terminal raw motion and remapping. It does not establish
+stationarity of the actual position path over every substep. The active running
+kinetic weight is0; velocity variance has weight200 and uses stored physical V.
+Neither observation makes a position correction equivalent to a velocity update.
+These distinctions remain necessary even if the full comparison improves.
+
+The [completed full comparison](geometric_rest_full_p294.md) does not improve the
+requested combination: both arms miss0.971 IoU, tip retention is worse with the
+new term, and identical free material has larger accepted-window displacement
+and more window-to-window reversals despite smaller raw/boundary motion. The
+term stays disabled by default. The original rendered deliverables are unchanged.
