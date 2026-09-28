@@ -36,6 +36,17 @@ def load_run(prefix):
                 frames=frames, delivered=delivered, records=records, pins=pins, pin_at=pin_at)
 
 
+def count_optimizer_attempts(history, through_animation=None):
+    """Count optimizer-call rows, optionally through a zero-based outer index.
+
+    Accepted, rejected, null and gradient-converged calls count. Copied-frame
+    and resolution-change metadata do not; this is not len(history).
+    """
+    return sum(1 for row in history
+               if 'animation' in row and not row.get('held') and 'c2f_render_res' not in row
+               and (through_animation is None or int(row['animation']) <= through_animation))
+
+
 def channel_summary(records):
     keys = ('g_share', 'g_raw_cos', 'lambda')
     result = {k: float(host_np.median([r[k] for r in records if r.get(k) is not None]))
@@ -187,7 +198,9 @@ def compare(on_prefix, off_prefix, out, provenance_review=None, repeat_prefix=No
     for name, run in zip(('on', 'off'), runs):
         result[name] = dict(prefix=run['prefix'], code_hash=run['meta']['provenance']['code_hash'],
                            seconds=run['meta'].get('seconds'), commits=len(run['records']),
-                           attempts=len(run['arm']['history']), guards=run['arm']['guards'],
+                           attempts=count_optimizer_attempts(run['arm']['history']),
+                           attempts_scope='optimizer calls in complete original run, including after delivery',
+                           history_records=len(run['arm']['history']), guards=run['arm']['guards'],
                            curve=run['curve'], gradient_summary=channel_summary(run['records']),
                            raw_audit=audit(Path(run['prefix']), compute_backend='cuda'))
     Path(out).write_text(json.dumps(result, indent=2))

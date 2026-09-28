@@ -7,7 +7,7 @@ The shared-PIC objective prefix permits only its objective flag, with cap8 in bo
 The geometric-rest prefix additionally fixes T=20, dt=1/240 and a positive kinetic weight.
 The geometric-variance prefix compares the whole adaptive policy at cap8 with
 positive temporal variance weight and matched read-only motion accounting.
-Its full mode uses the same policy guard at cap60 and retains each full endpoint.
+Its full mode uses the same policy guard at cap60 and audits each delivered endpoint.
 Numerical geometry, cohorts and motion use CUDA;
 archive/hash/JSON I/O use the host. No renderer or optimization-loss operator is read.
 """
@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from physmorph.compute import array_api as np, cuda_execution, KDTree, to_array, to_host
 from physmorph.metrics import sil_iou, target_extent
 from scripts.probes.morph_raw_qa import audit
-from scripts.probes.render_influence import load_run, channel_summary
+from scripts.probes.render_influence import load_run, channel_summary, count_optimizer_attempts
 
 wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
 FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff',
@@ -207,7 +207,9 @@ def checked_runs(baseline, candidate, intervention):
 
 def scoped_runs(runs, intervention):
     if intervention in FULL_INTERVENTIONS:
-        return runs, dict(kind='full runs', endpoint_claim='final accepted states at each arm stopping point')
+        return runs, dict(kind='full runs', endpoint_claim=(
+            'last accepted states retained in each arm delivery; later accepted states '
+            'can be omitted by best-state truncation'))
     common = min(8, *(len(run['records']) for run in runs))
     scoped = []
     for original in runs:
@@ -543,8 +545,9 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                 f'windows{first+1}..{common}; at most the last10 common windows, W1 excluded')
             result['definitions']['full_run_limit'] = result['definitions'].pop('prefix_limit')
             result['definitions']['endpoints'] = (
-                'each arm retains its full accepted endpoint and raw audit; matched phase motion '
-                'ends at the common accepted count, not necessarily either final endpoint')
+                'each arm uses its delivered accepted endpoint and delivery-scoped raw audit; '
+                'later accepted states may be excluded by truncation; matched phase motion '
+                'ends at the common delivered accepted count, not necessarily either endpoint')
     result['dependencies'] = {
         name: hashlib.sha256(Path(sys.modules[name].__file__).read_bytes()).hexdigest()
         for name in ('scripts.probes.render_influence', 'scripts.probes.morph_raw_qa')}
@@ -554,9 +557,16 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
         result[name] = dict(prefix=run['prefix'], seconds=run['meta'].get('seconds'),
                            runtime_scope='complete original run, not the analyzed prefix',
                            commits=len(run['records']),
-                           attempts=(int(run['records'][-1]['animation'])+1 if intervention not in FULL_INTERVENTIONS
-                                     else len(run['arm']['history'])),
-                           original_attempts=len(run['arm']['history']),
+                           attempts=count_optimizer_attempts(
+                               run['arm']['history'],
+                               through_animation=(int(run['records'][-1]['animation'])
+                                                  if intervention not in FULL_INTERVENTIONS else None)),
+                           attempts_scope=('optimizer calls through last analyzed accepted endpoint'
+                                           if intervention not in FULL_INTERVENTIONS else
+                                           'optimizer calls in complete original run, including after delivery'),
+                           original_attempts=count_optimizer_attempts(run['arm']['history']),
+                           history_records=len(run['arm']['history']),
+                           history_records_scope='complete original history, including non-optimizer metadata',
                            guards=run['arm']['guards'], guards_scope='complete original run',
                            arrival_mode_evidence=run.get('arrival_mode_evidence'),
                            curve=run['curve'], tip_history=run['tip_history'],

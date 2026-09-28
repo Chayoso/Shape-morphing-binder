@@ -8913,3 +8913,20 @@ Control pin QA includes1065 newest admissions observed only on a copied hold;
 Late lambda also differs(W30 0.02177/0.21094), an association rather than proof
 of the fit-loss cause. Strict primitive failures remain open. No default or
 render promotion. See [P297 full result, endpoint scopes and hashes](geometric_variance_p297.md).
+
+**2026-09-28 -- P298: same-state gradient change is principally direct regularization.**
+Frozen aa81ea5, original bunny300k/T20/dt1/240/dx0.3062907544wu/loss36^3,
+eight inner iterations, shared PIC, no shift, physical-variance baseline capped24.
+Only W24's first gradient is observed on one prepared graph; no alternate forward
+or optimizer update. All24 windows accepted, guards0,420.62s. Cloned baseline
+lambda exactly matches production0.036338788; replacing only the variance
+observable gives a counterfactual lambda0.072669826 from the same EMA/cap state.
+
+Physics-gradient norm grows5.17x and direction rotates71.06 degrees. Ordered
+pre-Adam difference norms are1.58443e-4(direct regularizer),3.34111e-6(PCGrad),
+1.99999e-5(lambda), with3.31e-12 vector closure error. Direct substitution is
+largest at this state; these are not independent causal shares or Adam steps.
+Its difference exceeds the larger of the two observed adjoint-repeat differences
+by33117x, without redefining any strict tolerance. Lambda alone is not supported
+as the main local explanation. No motion/fit/coverage improvement was evaluated,
+no gain is selected and no primitive failure is cleared. See [P298](variance_gradient_p298.md).

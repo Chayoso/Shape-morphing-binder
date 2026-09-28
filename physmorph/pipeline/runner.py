@@ -540,10 +540,11 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         if frozen:
             if cfg.hold_after_converge:
                 frames.append(to_host(x)); F_frames.append(F_frames[-1].copy())
-            if dress is not None:
-                dress.cover_frames(len(frames))
+                # Count copied archive rows, including the no-dressing suffix.
                 hist.append({"animation": a, "held": 1})
                 n_held += 1
+            if dress is not None:
+                dress.cover_frames(len(frames))
                 continue
             break
         # coarse-to-fine: sharpen the render targets late in the run (thin features)
