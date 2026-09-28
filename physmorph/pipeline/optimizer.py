@@ -40,6 +40,7 @@ from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig, disc_ref_factor
 from .control_basis import ControlBasis
+from .control_proposal import apply_proposal, required_decrease
 from .grad_combine import combine as combine_grads, pcgrad as _pcgrad_impl
 from .grid_smooth import chebyshev_rho, smooth_particle_field
 from .render_loss import LambdaBalancer, d_pbr, d_render
@@ -268,7 +269,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None,
                     body_scale_init=None,
                     win_index=None, on_rollout=None, on_objective=None,
-                    on_gradient_audit=None):
+                    on_gradient_audit=None, audit_proposals=False):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -286,6 +287,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     physical versus geometric variance on ONE prepared graph. Receives owned
     detached gradients before PCGrad/lambda update; never changes the objective.
     This baseline-only observer does not perform an alternative optimizer step.
+    audit_proposals adds a callback-lifetime, noncommitting first-trial evaluator
+    using the same prepared loss and production proposal math. It is restricted
+    to the mixed recipe's fixed-material, non-Gaussian, non-continuity path.
 
     u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
     bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
@@ -308,6 +312,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 or not balancer.active or mode not in ('render', 'off') or cfg.grad_h1):
             raise ValueError('gradient audit requires physical variance, shared PIC, active render, '
                              'T>=2 and positive variance weight; no geometric rest/KKT/grad_h1')
+    if audit_proposals and (on_gradient_audit is None or cfg.opt_material or cfg.use_gauss_loss
+            or cfg.continuity or cfg.grad_dump or cfg.w_corr > 0 or cfg.h1_outside):
+        raise ValueError('proposal audit requires a gradient observer, fixed material and no '
+                         'Gaussian/continuity/dump/outside-core objectives')
     capture_positions = cfg.geometric_variance or on_gradient_audit is not None
     x0 = np.ascontiguousarray(x0, np.float32)
     N, T = x0.shape[0], cfg.T
@@ -1451,6 +1459,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 v_.copy_(vi)                   # second moment: curvature scale, verbatim
             adam_t = int(t_in)
 
+    def leaf_index(value):
+        return next((i for i, leaf in enumerate(leaves) if leaf is value), None)
+
+    proposal_options = dict(lr_scale=lr_scale, beta1=cfg.beta1, beta2=cfg.beta2, eps=eps_eff,
+        stress_index=0, material_index=leaf_index(s), body_index=leaf_index(body_coeff),
+        surface_index=leaf_index(u), ctrl_scale=ctrl_scale_v, body_scale=body_step_v,
+        surface_project=W_apply, dfc_clip=cfg.dfc_clip, material_clip=cfg.mat_clamp,
+        surface_bound=u_bound)
+
     # control-field spatial regularisation: frozen kNN topology at window start; the
     # penalty lives purely in control space (no rollout needed for its gradient)
     knn_t = None
@@ -1983,6 +2000,117 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                  vT.detach() if vT is not None else None, geom))
         return L if lr is None else L + lam_r * float(lr.detach())
 
+    def proposal_observer(audit, state, lv, lk, lr, extra, physical, render, transport):
+        """Private first-trial scratch, with a callback-lifetime evaluation lease."""
+        from .geometric_variance import path_rates, temporal_variance
+        if accepted_eval_valid or accepted != 0:
+            raise RuntimeError('proposal audit cannot overwrite an accepted trajectory')
+        clone = lambda values: [value.detach().clone() for value in values]
+        originals, moments, seconds = clone(leaves), clone(mom), clone(vel)
+        immutable = {'x0': tr_eval.x[0], 'v0': tr_eval.v[0],
+                     'F0': tr_eval.F[0], 'C0': tr_eval.C[0]}
+        for name in ('Fp', 'm', 'lam', 'mu', 'eta', 'pin', 'vol', 'bond_nbr', 'bond_rest',
+                     'bond_frag', 'layer_mask', 'layer_nrm', 'layer_nbr', 'layer_w',
+                     'layer_g', 'layer_ug'):
+            value = getattr(tr_eval, name, None)
+            if value is not None:
+                immutable[name] = value
+        if use_geom:
+            immutable['Fg0'] = tr_eval.Fg[0]
+        immutable = {name: (wp.to_torch(value), wp.to_torch(value).detach().clone())
+                     for name, value in immutable.items()}
+        projected = _pcgrad(physical, render)[0] if audit['mode'] == 'render' else list(render)
+        shadow_balancer = LambdaBalancer.__new__(LambdaBalancer)
+        shadow_balancer.__dict__.update(vars(balancer))
+        weight = shadow_balancer.update(_norm(physical), _norm(projected))
+        if not np.isfinite(weight) or weight <= 0:
+            raise RuntimeError('proposal audit requires the actual positive baseline lambda')
+        baseline_direction = [p + weight*r for p, r in zip(physical, projected)]
+        if transport is not None:
+            baseline_direction = [p+t for p, t in zip(baseline_direction, transport)]
+        if cfg.layer_u_render_only and u is not None:
+            iu = leaf_index(u)
+            baseline_direction[iu] = weight*projected[iu]
+        fixed_alpha = alpha
+        if cfg.adaptive_alpha:
+            fixed_alpha *= max(cfg.min_alpha_scale, min(1.0, target_norm_eff/max(_norm(baseline_direction), 1e-30)))
+        geometric_var = temporal_variance(path_rates(x0_t, extra['audit_positions'], state[0], prm.dt))
+        initial_merits = {
+            name: scalars(lv, lk, lr, weight, extra['dfc'], state[0], state[1], extra['lk_run'],
+                          extra['Fg'], variance, _vT(extra), extra.get('geom_rest'))
+            for name, variance in (('physical', extra['lk_var']), ('geometric', geometric_var))}
+        reference = dict(x0=x0_t.detach().clone(), pins=endpoint_pin.detach().clone(),
+            positions=extra['audit_positions'].detach().clone(), promoted=state[0].detach().clone(),
+            physical_v=extra['V'].detach().clone())
+        active = True
+
+        @torch.no_grad()
+        def evaluate(gradients, observable='physical'):
+            if not active:
+                raise RuntimeError('proposal audit evaluator expired')
+            if observable not in initial_merits or len(gradients) != len(leaves):
+                raise ValueError('invalid proposal observable or leaf count')
+            for gradient, parameter in zip(gradients, originals):
+                if (gradient.shape != parameter.shape or gradient.device != parameter.device
+                        or gradient.dtype != parameter.dtype or not bool(torch.isfinite(gradient).all())):
+                    raise ValueError('invalid proposal gradient layout or values')
+            if not all(torch.equal(p, b) for p, b in zip(leaves, originals)):
+                raise RuntimeError('production controls changed during proposal audit')
+            candidate = clone(originals)
+            apply_proposal(candidate, gradients, clone(moments), clone(seconds),
+                           step=adam_t+1, alpha=fixed_alpha, **proposal_options)
+            delta = [p-b for p, b in zip(candidate, originals)]
+            predicted = -float(sum((g.detach()*d).sum() for g, d in zip(gradients, delta)))
+            sil_saved, gauss_saved = dict(sil_gauss), tgt.gauss_scale
+            try:
+                for live, value in zip(leaves, candidate):
+                    live.copy_(value)
+                st, lv_n, lk_n, lr_n, _, ex = eval_terms(dFc)
+                positions = torch.stack([wp.to_torch(tr_eval.x[t]) for t in range(1, T+1)])
+                geo = temporal_variance(path_rates(x0_t, positions, st[0], prm.dt))
+                merits = {name: scalars(lv_n, lk_n, lr_n, weight, ex['dfc'], st[0], st[1],
+                                       ex['lk_run'], ex['Fg'], variance, _vT(ex), ex.get('geom_rest'))
+                          for name, variance in (('physical', ex['lk_var']), ('geometric', geo))}
+                current, new = initial_merits[observable], merits[observable]
+                required = required_decrease(current, predicted, unit_ratio, cfg.ls_noise_rel, cfg.armijo_c1)
+                floor = (1.0-cfg.pace)*current if cfg.pace > 0 else -np.inf
+                state_ok = _state_ok(st)
+                output = dict(controls_delta=clone(delta), positions=positions.detach().clone(),
+                    promoted=st[0].detach().clone(), physical_v=ex['V'].detach().clone(),
+                    F=st[1].detach().clone(), v=st[2].detach().clone(),
+                    C=wp.to_torch(tr_eval.C[T]).detach().clone(), state_ok=state_ok, Jmin=st[3],
+                    merits=merits, predicted_decrease=predicted, required_decrease=required,
+                    first_trial_merit_ok=bool(np.isfinite(new) and floor <= new <= current-required and state_ok),
+                    physical_variance=float(ex['lk_var']), geometric_variance=float(geo),
+                    alpha=fixed_alpha, **{'lambda': weight}, observable=observable)
+            finally:
+                for live, original in zip(leaves, originals):
+                    live.copy_(original)
+                sil_gauss.clear(); sil_gauss.update(sil_saved)
+                tgt.gauss_scale = gauss_saved
+            output['prepared_inputs_exact'] = all(torch.equal(value, saved) for value, saved in immutable.values())
+            output['prepared_input_names'] = list(immutable)
+            output['stats_restore_exact'] = (
+                all(torch.equal(p, b) for p, b in zip(leaves, originals))
+                and all(torch.equal(p, b) for p, b in zip(mom, moments))
+                and all(torch.equal(p, b) for p, b in zip(vel, seconds))
+                and output['prepared_inputs_exact'])
+            if not output['stats_restore_exact']:
+                raise RuntimeError('proposal audit modified production search state')
+            return output
+
+        def close():
+            nonlocal active
+            active = False
+
+        audit.update(trial_evaluate=evaluate, trial_reference=reference,
+            trial_settings=dict(alpha=fixed_alpha, **{'lambda': weight}, initial_merits=initial_merits,
+                unit_ratio=unit_ratio, pace=cfg.pace, noise_rel=cfg.ls_noise_rel, armijo_c1=cfg.armijo_c1,
+                unscaled_alpha=alpha, adaptive_alpha=bool(cfg.adaptive_alpha),
+                target_norm=target_norm_eff, min_alpha_scale=cfg.min_alpha_scale,
+                mode='one bounded proposal at fixed baseline alpha/lambda; no line search or commit'))
+        return close
+
     hist, accepted, rejected = [], 0, 0
     last_accepted_state = None
     last_accepted_geometry = None
@@ -2237,7 +2365,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             if gradient_audit is not None:
                 gradient_audit['gradients'].update(render_raw=own(gr_raw),
                     transport=own(gdt) if gdt is not None else None)
-                on_gradient_audit(win_index, gradient_audit)
+                close_trial_audit = (proposal_observer(gradient_audit, state, lv, lk, lr, extra, gp, gr_raw, gdt)
+                                     if audit_proposals else None)
+                try:
+                    on_gradient_audit(win_index, gradient_audit)
+                finally:
+                    if close_trial_audit is not None:
+                        close_trial_audit()
                 del gradient_audit
             np_raw, nr_raw = _norm(gp), _norm(gr_raw)
             dot_raw = float(sum((a * b).sum() for a, b in zip(gp, gr_raw)))
@@ -2342,30 +2476,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # finding: one big accepted step could still snap the morph).
         floor = (1.0 - cfg.pace) * L_start if cfg.pace > 0 else -np.inf
         for _ls in range(cfg.max_ls_iters):
-            with torch.no_grad():
-                t_ = adam_t + 1
-                for p, gi, m_, v_, sc in zip(leaves, g, mom, vel, lr_scale):
-                    m_.mul_(cfg.beta1).add_(gi, alpha=1 - cfg.beta1)
-                    v_.mul_(cfg.beta2).addcmul_(gi, gi, value=1 - cfg.beta2)
-                    mh = m_ / (1 - cfg.beta1 ** t_)
-                    vh = v_ / (1 - cfg.beta2 ** t_)
-                    d_ = mh / (vh.sqrt() + eps_eff)
-                    if ctrl_scale_v is not None and p is dFc:
-                        d_ = d_ * ctrl_scale_v          # the per-particle Rprop scale (config.ctrl_rprop)
-                    if body_step_v is not None and p is body_coeff:
-                        d_ = d_ * body_step_v          # preserve independent terminal braking updates
-                    if W_apply is not None and u is not None and p is u:
-                        d_ = W_apply(d_)             # the u step on the layer's smooth subspace (§7)
-                    p -= (a_try * sc) * d_
-                if cfg.dfc_clip > 0:
-                    n = dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
-                    dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
-                if s is not None:
-                    s.clamp_(-cfg.mat_clamp, cfg.mat_clamp)
-                if u is not None:
-                    u.copy_(torch.maximum(torch.minimum(u, u_bound), -u_bound))   # one spacing per window, x the Rprop scale
-                if body_coeff is not None:
-                    body_coeff.div_(body_coeff.norm(dim=1, keepdim=True).clamp_min(1.0))
+            t_ = adam_t + 1
+            apply_proposal(leaves, g, mom, vel, step=t_, alpha=a_try, **proposal_options)
             state_n, lv_n, lk_n, lr_n, lpbr_n, extra_n = eval_terms(dFc)
             with torch.no_grad():
                 new = scalars(lv_n, lk_n, lr_n, lam_r, extra_n["dfc"], state_n[0],
@@ -2379,9 +2491,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # first windows after every plateau commit (observed: null commits
                 # at anim 12/18 in final_hires20k_child4). Fall back to the
                 # noise-floor sufficient decrease instead.
-                noise_floor = cfg.ls_noise_rel * max(abs(cur), 1.0 / unit_ratio)  # loss units
-                required = (max(cfg.armijo_c1 * predicted_decrease, noise_floor)
-                            if predicted_decrease > 0.0 else noise_floor)
+                required = required_decrease(cur, predicted_decrease, unit_ratio, cfg.ls_noise_rel, cfg.armijo_c1)
             # acceptance requires a FINITE, ORIENTATION-PRESERVING state: NaN particles
             # vanish from the splats and det(F)<=0 is invisible to the data terms — both
             # can fake a lower loss (adversarial finding + v3 warm-start cascade).
