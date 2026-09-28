@@ -29,6 +29,12 @@ packages load their additional CUDA 11 library. The package applies `WARP_CACHE_
 before `wp.init()`; setting the environment variable alone does not configure Warp.
 All server caches remain under /data.
 
+Warp1.16 or newer is required by the constitutive custom adjoint. The existing
+hyde06 environment already uses1.16.0. Warp1.9's code generator orders nested
+custom adjoints incorrectly and cannot compile this path; the package fails
+early on older versions. Local CPU validation can use an isolated1.16 install
+without changing the machine's global environment. See [P300](constitutive_adjoint_p300.md).
+
 The tensor rasterizer keeps covariance eigendecomposition, quaternion conversion,
 camera matrices, raster buffers and deferred shading on CUDA. `render_splat_gpu.py`
 encodes using NVENC. PNG/file transport and labels remain host output operations.

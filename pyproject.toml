@@ -9,7 +9,7 @@ description = "Differentiable elastoplastic MPM morphing (Warp + torch + 3DGS)"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-  "warp-lang>=1.9",
+  "warp-lang>=1.16",
   "torch>=2.5",
   "numpy",
   "scipy",

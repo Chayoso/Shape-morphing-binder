@@ -21,6 +21,14 @@ morphing line). Oracle: `legacy/DiffMPMLib3D` (Xu et al.), ported kernel-for-ker
 (3)  P(F) = 2μ(F−R) + λ(J−1)J F^{−T},  R from proper SVD (reflection-repaired)
 ```
 
+The rotation pullback uses the polar Sylvester adjoint, retaining the same proper
+SVD forward in (3). With S=R^T F and incoming cotangent B, solve
+S Z+Z S=R^T B-B^T R and return R Z. Repeated positive singular values have
+nonzero pairwise sums; generic U/V SVD adjoints are not used for this rotation.
+The smooth signed branch is supported where that system is nonsingular;
+nonunique inverted ties are outside the derivative contract. See
+[P300 validation and domain](constitutive_adjoint_p300.md). Warp>=1.16 is required.
+
 ## §3.3 One MPM step (code: mpm/kernels.py, mpm/step.py)
 
 ```

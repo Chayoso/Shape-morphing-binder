@@ -69,6 +69,38 @@ def corotated_R(F: wp.mat33) -> wp.mat33:
     return R
 
 
+@wp.func_grad(corotated_R)
+def adj_corotated_R(F: wp.mat33, adj_R: wp.mat33):
+    """Polar Sylvester adjoint, without differentiating the SVD's U/V factors.
+
+    For positive determinant and full rank, signed stretch S=R^T F is positive
+    definite; its pairwise eigenvalue SUMS remain nonzero at repeated spectra.
+    The proper-rotation branch for an inverted F is differentiable only where
+    the corresponding signed sums are nonzero. Inverted minimum-value ties and
+    rank-deficient inputs are outside this derivative's contract: no clamp or
+    regularization assigns them an artificial derivative. A singular computed
+    system emits NaN rather than Warp inverse's zero-matrix fallback.
+    """
+    R = corotated_R(F)
+    stretch = wp.transpose(R) @ F
+    S = 0.5 * (stretch + wp.transpose(stretch))
+    B = wp.transpose(R) @ adj_R
+    skew_rhs = B - wp.transpose(B)
+    rhs = wp.vec3(skew_rhs[2, 1], skew_rhs[0, 2], skew_rhs[1, 0])
+    # S*K + K*S = B-B^T, K=[w]_x:
+    # (trace(S) I - S) w = axial(B-B^T).
+    # Form diagonal pair sums directly, avoiding trace-minus-largest cancellation.
+    system = wp.mat33(S[1, 1] + S[2, 2], -S[0, 1], -S[0, 2],
+                      -S[1, 0], S[0, 0] + S[2, 2], -S[1, 2],
+                      -S[2, 0], -S[2, 1], S[0, 0] + S[1, 1])
+    if wp.determinant(system) == 0.0:
+        wp.adjoint[F] += wp.mat33(wp.nan)
+    else:
+        w = wp.inverse(system) @ rhs
+        K = wp.mat33(0.0, -w[2], w[1], w[2], 0.0, -w[0], -w[1], w[0], 0.0)
+        wp.adjoint[F] += R @ K
+
+
 @wp.func
 def pk1_fixed_corotated(F: wp.mat33, lam: float, mu: float) -> wp.mat33:
     """1st Piola–Kirchhoff stress — eq (3). P = 2mu(F-R) + lam(J-1)J F^{-T}."""
