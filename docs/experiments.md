@@ -8989,3 +8989,22 @@ core: N64 subset of original300k, T3 plus T1, dt1/240, dx0.3062907543956724wu,
 original inputs, seeds and tolerances. These are differentiation gates, not a
 hole/rest certificate. A matched300k cap6 comparison is being audited separately.
 See [P300 evidence and retained failure](constitutive_adjoint_p300.md).
+
+**2026-09-28 -- P300 cap24: modest shape progress, free motion not repaired.**
+Matched9706141/0402e8e, original bunny300k/T20/dt1/240/dx0.3062907543956724wu,
+loss36^3/eight inner iterations/shared PIC/no shift. Both24/24 accepted, all
+guards0,481 physical frames,423.928/420.734s. At W24 IoU0.968238->0.969364 and
+upper-target coverage0.956766->0.964668 improve, but fixed6712-source-ID density
+0.712642->0.711096 falls and its under-half fraction0.229291->0.232569 rises.
+
+On5568 identical free IDs over W15..24, saved-step RMS rises2.78%, tangent RMS
+7.51%, interior-phase RMS16.1% and accepted-commit RMS21.75%. Phase20 RMS falls
+1.48% and its following reversal fraction61.11%->56.19%, while commit reversal
+rises3.32%->5.60%. Source-native spacing0.03498853660707278wu. Checked pins
+231985/232154 show exactly0 movement; their final admissions are excluded.
+At comparable measured progress the shape difference is small and candidate
+source density is lower; faster progress does not establish rest or no holes.
+Keep the verified derivative fix, with no geometric-variance or renderer
+promotion. Accepted-endpoint hole_frac0 is not an all-frame certificate.
+The cap24 audit/source/result scopes passed independent review. See the
+[P300 matched results and hashes](constitutive_adjoint_p300.md).

@@ -5,8 +5,9 @@ server CUDA; the same-forward derivative fix passed10 focused Warp1.16 CPU
 tests. The first CUDA suite has9 passes and1 chain finite-difference failure,
 now isolated to the float32 forward difference by a separate all-channel oracle.
 The original strict position-sequence probe passes on the new derivative.
-The revised focused suite passes10/10 on CPU and CUDA. Actual morph-quality
-checks remain pending. This is a constitutive differentiation
+The revised focused suite passes10/10 on CPU and CUDA. Matched cap6/cap24
+morph checks show mixed changes and do not establish repaired holes or rest.
+This is a constitutive differentiation
 correction, not a new morph loss or evidence that holes/rest are repaired.
 
 The current rotation is R=UV^T from a signed SVD, with the existing proper-
@@ -237,3 +238,71 @@ JSON/logs and snapshots remain remote. Archive receipt SHA256:
 7dd35308c9185305a6d4a3ae315b279985f5e5e00df64976185b76a71626f0ad.
 Removal record: output/p300/cap6_removed_receipt.json. Project usage after removal
 was96,939,061,771bytes. No unarchived source or output was deleted.
+
+## Matched cap24 result: better progress, residual motion persists
+
+The same frozen9706141/0402e8e simulation pair was rerun with cap24 only;
+N300k, T20, dt1/240, dx0.3062907543956724wu, loss36^3, eight inner iterations
+and every other recipe setting remain as above. Both accept24/24 with zero
+guards and retain481 physical frames without holds or delivery trimming.
+Runtime is423.928/420.734s. The frozen32756ba CUDA audit passed provenance and
+state checks; independent review verified both complete source manifests,
+run hashes and all reported scopes. These are capped runs, not a final gallery.
+
+| At accepted W24 | Old | Corrected |
+|---|---:|---:|
+| Silhouette IoU | 0.968238 | 0.969364 |
+| Chamfer (wu) | 0.0588659 | 0.0587629 |
+| Fixed upper-target coverage | 0.956766 | 0.964668 |
+| Highest-tip neighbors, raw count within0.25wu | 49 | 51 |
+| Fixed6712-source-ID density | 0.712642 | 0.711096 |
+| Same source IDs with density<0.5 | 0.229291 | 0.232569 |
+| Current top-region density | 0.901699 | 0.898589 |
+| Arrived fraction | 0.999197 | 0.999563 |
+| Pinned fraction | 0.779923 | 0.799700 |
+| Minimum accepted trajectory det(F) | 0.854025 | 0.872049 |
+
+The5568 identical IDs still free in both arms at W24 are measured over the
+same accepted endpoint interval14..24, i.e. displacements in W15..24. Their
+source-native spacing remains0.03498853660707278wu. Saved raw-step RMS rises
+0.088178 to0.090628sp (+2.78%), tangent RMS0.049521 to0.053239sp (+7.51%),
+and phases1..19 RMS0.043159 to0.050097sp (+16.1%). Phase20 RMS falls0.346577
+to0.341441sp (-1.48%), but includes final physical/layer motion plus PIC.
+Tangent bases use each arm's frozen endpoint normals, not a common normal
+basis; the saved vector RMS does not have that decomposition ambiguity.
+The phase20-to-next-phase1 reversal fraction falls0.611111 to0.561901;
+accepted-commit RMS instead rises0.705277 to0.858705sp (+21.75%) and commit
+reversal rises0.033246 to0.055995. No rest or individual post-arrival conclusion
+follows from that mixed motion redistribution.
+
+Previously admitted pins remain exactly still on231985/232154 checked IDs.
+Total admissions are233977/239910, with final admissions excluded from later
+physical observation. The fixed source cohort includes MORE pinned IDs in the
+candidate (74.76% to76.61%); any smaller aggregate motion on that mixed cohort
+must not be presented as a matched free-particle improvement.
+
+Progress also differs: the0.225-times-initial-Chamfer crossing occurs at oldW21
+and correctedW18. There, IoU is0.967285/0.967470 and upper coverage
+0.949909/0.950104, while fixed-source density is0.704093/0.693795. Thus the
+same-W24 shape improvement partly accompanies faster progress, and does not
+remove the sparse-support tradeoff. Both W24 point-projection hole fractions
+are0; the accepted-endpoint audit alone cannot rule out transient gaps between
+commits or visible splat coverage problems.
+
+Across all accepted rows, the median nominal render-gradient share is
+0.433711/0.435868 and median adaptive lambda0.059384/0.058539. These are scalar
+history diagnostics before Adam in mixed control coordinates, not causal
+fractions of motion or a render-on/off ablation. Geometry, density and material
+motion are computed on CUDA; scalar history summaries and provenance I/O use
+the host. The fixed renderer and its high-resolution appearance are unchanged.
+
+The derivative correction is retained for its independent numerical evidence.
+It is not a solution to the remaining holes, drift or oscillation. No geometric
+variance weight/default or new render result is adopted. Next, inspect saved
+intermediate physical frames for endpoint-supported regions that disappear
+and return; an individual arrival-time audit needs additional per-ID records.
+
+Evidence: output/p300/{control24,candidate24,quality24}.json. Quality SHA256:
+447afcfe743087d7495955a9adb18f2da7e15f454c1332a23aa9225719159aed.
+All cap24 raw archives remain under server work/p300. Project usage after the
+audit is99,063,384,101bytes; do not start another large archive without headroom.
