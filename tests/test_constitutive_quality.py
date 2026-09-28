@@ -103,6 +103,36 @@ def test_exact_original_cap6_recipe_accepted(recipe):
     assert probe.validate_recipe([cfg, deepcopy(cfg)], [mpm, deepcopy(mpm)], metadata, fields, path) == cfg
 
 
+@pytest.mark.parametrize('windows', [6, 24])
+def test_selected_cap_has_identical_recipe_and_both_arms_must_match(recipe, windows):
+    metadata, fields, path, _ = recipe
+    cfg = probe.expected_config(metadata, fields, path, windows=windows)
+    mpm = metadata['provenance']['mpm']
+    assert cfg['stop_after_windows'] == windows
+    assert probe.validate_recipe([cfg, deepcopy(cfg)], [mpm, deepcopy(mpm)],
+                                 metadata, fields, path, windows=windows) == cfg
+    opposite_cap = 24 if windows == 6 else 6
+    mismatched = dict(cfg, stop_after_windows=opposite_cap)
+    with pytest.raises(ValueError):
+        probe.validate_recipe([cfg, mismatched], [mpm, deepcopy(mpm)],
+                              metadata, fields, path, windows=windows)
+    with pytest.raises(ValueError):
+        probe.validate_recipe([mismatched, deepcopy(mismatched)], [mpm, deepcopy(mpm)],
+                              metadata, fields, path, windows=windows)
+
+
+@pytest.mark.parametrize('windows', [0, 8, 23, 25, 60])
+def test_unregistered_caps_cannot_create_a_new_comparison(recipe, windows):
+    metadata, fields, path, cfg = recipe
+    with pytest.raises(ValueError):
+        probe.expected_config(metadata, fields, path, windows=windows)
+    with pytest.raises(ValueError):
+        probe.scope_history([dict(animation=0, frame_end=21)], delivered=21,
+                            archived=21, windows=windows)
+    with pytest.raises(ValueError):
+        probe.comparison_interval(1, windows)
+
+
 @pytest.mark.parametrize('change', ['alpha', 'both_alpha', 'cap', 'both_cap', 'variance', 'dt',
                                    'target_reference', 'release'])
 def test_recipe_guard_rejects_policy_or_discretization_change(recipe, change):
@@ -218,6 +248,63 @@ def test_delivery_truncation_never_relabels_later_acceptance_geometry():
     assert scope['endpoint_scope']['delivered_accepted_commits'] == 2
     assert scope['endpoint_scope']['actual_last_accepted_frame'] == 60
     assert scope['endpoint_scope']['later_accepted_geometry_measured'] is False
+
+
+def test_cap24_attempt_boundary_is_exact_and_legacy_default_stays_cap6():
+    rows = [dict(animation=23, frame_end=21)]
+    scoped = probe.scope_history(rows, delivered=21, archived=21, windows=24)
+    assert scoped['records'] == rows
+    with pytest.raises(ValueError):
+        probe.scope_history(rows, delivered=21, archived=21)
+    with pytest.raises(ValueError):
+        probe.scope_history([dict(animation=24, frame_end=21)], delivered=21,
+                            archived=21, windows=24)
+
+
+def test_cap24_null_commits_do_not_manufacture_physical_motion_observations():
+    history = [dict(animation=0, frame_end=21),
+               dict(animation=1, frame_end=22, null_commit=True),
+               dict(animation=2, frame_end=42)]
+    scoped = probe.scope_history(history, delivered=42, archived=42, windows=24)
+    assert scoped['physical_indices'] == list(range(21))+list(range(22, 42))
+    assert scoped['interior_hold_frames'] == 1
+    assert scoped['endpoint_scope']['delivered_accepted_commits'] == 2
+    assert probe.matching_motion_status(20, len(scoped['records'])) == 'inconclusive_fewer_than_three_common_commits'
+    with pytest.raises(ValueError, match='No delivered accepted physical endpoint'):
+        probe.scope_history([dict(animation=0, frame_end=2, null_commit=True),
+                             dict(animation=1, frame_end=3, held=True)],
+                            delivered=3, archived=3, windows=24)
+
+
+@pytest.mark.parametrize('windows,common,wanted', [
+    (6, 1, (1, 1)), (6, 6, (1, 6)),
+    (24, 1, (1, 1)), (24, 2, (1, 2)), (24, 10, (1, 10)),
+    (24, 11, (1, 11)), (24, 12, (2, 12)), (24, 24, (14, 24)),
+])
+def test_selected_common_interval_is_full_cap6_or_last_ten_cap24(windows, common, wanted):
+    assert probe.comparison_interval(common, windows) == wanted
+    if windows == 24 and common > 11:
+        first, last = wanted
+        assert last-first == 10  # Ten displacements, eleven accepted endpoints.
+
+
+@pytest.mark.parametrize('windows', [6, 24])
+@pytest.mark.parametrize('common', [0, -1])
+def test_empty_common_interval_is_not_misreported_as_rest(common, windows):
+    with pytest.raises(ValueError):
+        probe.comparison_interval(common, windows)
+
+
+@pytest.mark.parametrize('windows', [6, 24])
+def test_common_interval_cannot_exceed_the_selected_attempt_budget(windows):
+    with pytest.raises(ValueError):
+        probe.comparison_interval(windows+1, windows)
+
+
+@pytest.mark.parametrize('count,common,first', [(0, 24, 14), (1, 1, 1), (1, 2, 1)])
+def test_inconclusive_phase_scope_does_not_attempt_to_read_raw_frames(count, common, first):
+    # No fabricated motion: an empty run proves these outcomes return before I/O.
+    assert probe.phase_summary({}, np.arange(count), common, 1., first_commit=first) is None
 
 
 @pytest.mark.parametrize('records', [[dict(animation=0, frame_end=19)],

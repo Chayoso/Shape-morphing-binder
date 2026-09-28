@@ -1,4 +1,4 @@
-"""P300 cap6 raw-state comparison of the exact old/new corotated adjoints.
+"""P300 cap6/cap24 raw-state comparison of the exact old/new corotated adjoints.
 
 Numerical metrics run in the strict CUDA context. Host work is input/provenance
 I/O and JSON metadata only. Existing same-code comparison guards are untouched.
@@ -83,18 +83,23 @@ def validate_run_binding(meta, digest):
     require(meta['guards'] == arm['guards'] and not any(meta['guards'].values()), 'State guard fired or metadata differs')
 
 
-def expected_config(metadata, fields, target_reference):
+def validate_windows(windows):
+    require(type(windows) is int and windows in (6, 24), 'Only cap6 or cap24 is supported')
+
+
+def expected_config(metadata, fields, target_reference, windows=6):
+    validate_windows(windows)
     config = {k: v for k, v in metadata['arms'][ARM]['config'].items() if k in fields}
-    config.update(compute_backend='cuda', stop_after_windows=6, iters=8,
+    config.update(compute_backend='cuda', stop_after_windows=windows, iters=8,
                   target_reference=str(target_reference), motion_accounting=True,
                   outer_render_committed=True, commit_pic_objective=True,
                   shift_sub=False, geometric_variance=False)
     return config
 
 
-def validate_recipe(configs, mpms, metadata, fields, target_reference):
-    expected = expected_config(metadata, fields, target_reference)
-    require(configs[0] == configs[1] == expected, 'Configs differ or depart from the original cap6 recipe')
+def validate_recipe(configs, mpms, metadata, fields, target_reference, windows=6):
+    expected = expected_config(metadata, fields, target_reference, windows)
+    require(configs[0] == configs[1] == expected, f'Configs differ or depart from the original cap{windows} recipe')
     require(mpms[0] == mpms[1] == metadata['provenance']['mpm'], 'MPM/input metadata mismatch')
     require(mpms[0]['dt'] == 1/240 and mpms[0]['dx'] == .3062907543956724,
             'Unexpected discretization')
@@ -118,12 +123,13 @@ def validate_inputs(source, target):
     return dict(source_sha256=hashes[0], target_sha256=hashes[1])
 
 
-def scope_history(history, delivered, archived, steps=20):
+def scope_history(history, delivered, archived, steps=20, windows=6):
     """Exclude copied suffixes from physical observation; keep stopping metadata."""
+    validate_windows(windows)
     accepted = [r for r in history if r.get('frame_end') and not r.get('null_commit') and not r.get('held')]
     records = [r for r in accepted if int(r['frame_end']) <= delivered]
     require(0 < delivered <= archived and records, 'No delivered accepted physical endpoint')
-    require(all(0 <= int(r['animation']) < 6 for r in accepted), 'History exceeds cap6 attempts')
+    require(all(0 <= int(r['animation']) < windows for r in accepted), f'History exceeds cap{windows} attempts')
     indices = [0]
     for row in records:
         end = int(row['frame_end'])
@@ -146,6 +152,12 @@ def matching_motion_status(count, common):
             'inconclusive_fewer_than_three_common_commits' if common < 3 else 'available_descriptive')
 
 
+def comparison_interval(common, windows):
+    validate_windows(windows)
+    require(type(common) is int and 1 <= common <= windows, 'Invalid common accepted count for selected cap')
+    return (1 if windows == 6 else max(1, common-10), common)
+
+
 def file_identity(path):
     stat = path.stat()
     return dict(device=stat.st_dev, inode=stat.st_ino, bytes=stat.st_size, mtime_ns=stat.st_mtime_ns)
@@ -161,13 +173,13 @@ def file_record(path):
     return dict(path=str(path), sha256=digest.hexdigest(), **before)
 
 
-def phase_summary(run, ids, common, spacing):
+def phase_summary(run, ids, common, spacing, first_commit=1):
     """Saved phases only; reuse the reviewed phase indexing/distribution helpers."""
     from physmorph.compute import array_api as np, to_array
     from scripts.probes.raw_phase import phase_frame_indices, distribution
     if matching_motion_status(len(ids), common) != 'available_descriptive':
         return None
-    indices = phase_frame_indices(run['records'], 1, common, 20)
+    indices = phase_frame_indices(run['records'], first_commit, common, 20)
     positions = np.stack([np.stack([to_array(run['frames'][frame])[ids] for frame in window])
                           for window in indices])
     moves = positions[:, 1:]-positions[:, :-1]
@@ -189,14 +201,17 @@ def phase_summary(run, ids, common, spacing):
                             fraction=reversed_count/count if count else None)
     path = lengths.sum((0, 1))
     moving = path > 1e-4*spacing
-    return dict(accepted_interval=[1, common], audited_windows=[2, common], window1_excluded=True,
+    return dict(accepted_interval=[first_commit, common], audited_windows=[first_commit+1, common], window1_excluded=True,
         frame_indices=indices, first_19_sp=stats((lengths[:, :-1]/spacing).ravel()),
         final_phase_sp=stats((lengths[:, -1]/spacing).ravel()),
         phases=[dict(phase=i+1, displacement_sp=stats((lengths[:, i]/spacing).ravel())) for i in range(20)],
         final_path_share=float(lengths[:, -1].sum()/path.sum()) if float(path.sum()) else None,
         net_over_path=stats(np.linalg.norm(positions[-1, -1]-positions[0, 0], axis=1)[moving]/path[moving]),
         reversal_groups=groups,
-        definition='W2..common; phase20 is final raw physical/layer step PLUS PIC. W1->W2 terminal reversal is not measured.')
+        definition=('W2..common; phase20 is final raw physical/layer step PLUS PIC. W1->W2 terminal reversal is not measured.'
+                    if first_commit == 1 else
+                    f'W{first_commit+1}..{common}; phase20 is final raw physical/layer step PLUS PIC. '
+                    f'W{first_commit}->W{first_commit+1} terminal reversal is not measured.'))
 
 
 def raw_checks(run):
@@ -208,7 +223,8 @@ def raw_checks(run):
                 frame_indices=run['physical_indices'], scope='Every accepted physical position row; no renderer')
 
 
-def compare(old_root, new_root, baseline, candidate, source_metadata, target_reference, out):
+def compare(old_root, new_root, baseline, candidate, source_metadata, target_reference, out, windows=6):
+    validate_windows(windows)
     require(not out.exists(), 'Output exists; preserve earlier evidence')
     trees = [snapshot(root) for root in (old_root, new_root)]
     helper_sets = [{name: sha((root/name).read_bytes()) for name in HELPERS}
@@ -236,17 +252,17 @@ def compare(old_root, new_root, baseline, candidate, source_metadata, target_ref
         require(int(run['arm']['deliver_n']) == run['delivered'], 'Delivered archive/metadata mismatch')
         run['evidence'] = [file_record(Path(run['prefix']+suffix))
                            for suffix in ('.json', '.log', '_'+ARM+'.npz')]
-        run.update(scope_history(run['arm']['history'], run['delivered'], len(run['frames'])))
+        run.update(scope_history(run['arm']['history'], run['delivered'], len(run['frames']), windows=windows))
     config = validate_recipe([r['arm']['config'] for r in runs], [r['meta']['mpm'] for r in runs],
-                             metadata, PipelineConfig.__dataclass_fields__, target_reference)
-    require(all(count_optimizer_attempts(r['arm']['history']) <= 6 for r in runs), 'Attempt budget exceeds cap6')
+                             metadata, PipelineConfig.__dataclass_fields__, target_reference, windows)
+    require(all(count_optimizer_attempts(r['arm']['history']) <= windows for r in runs), f'Attempt budget exceeds cap{windows}')
     arrival = checked_arrival_modes(runs)
     names = ('baseline', 'candidate')
-    result = dict(scope='One cap6 whole-optimizer comparison; no final quality, rest, hole repair or promotion claim',
+    result = dict(scope=f'One cap{windows} whole-optimizer comparison; no final quality, rest, hole repair or promotion claim',
         source_treatment=provenance, probe_sha256=sha(Path(__file__).read_bytes()),
         input_hashes=dict(source=SOURCE_SHA, target=TARGET_SHA, metadata=METADATA_SHA, target_reference=REFERENCE_SHA),
         metadata_path=str(source_metadata), config_changes={}, config=config, mpm=runs[0]['meta']['mpm'],
-        n=300000, T=20, loss_res=36, no_policy_promotion=True)
+        n=300000, T=20, loss_res=36, requested_windows=windows, no_policy_promotion=True)
     with cuda_execution('cuda'):
         source, target = to_array(runs[0]['source']), to_array(runs[0]['target'])
         source_tree, target_tree = KDTree(source), KDTree(target)
@@ -277,9 +293,10 @@ def compare(old_root, new_root, baseline, candidate, source_metadata, target_ref
                 interior_hold_frames=run['interior_hold_frames'], raw_checks=finite, scoped_pin_motion=pin,
                 min_accepted_trajectory_detF=min(minimums), arrival_mode_evidence=arrival_evidence,
                 gradient_summary=channel_summary(run['records']), tip_history=tip_history(run, tip),
-                render_reference_history=render_reference_history(run, 'constitutive_cap6'),
+                render_reference_history=render_reference_history(run, f'constitutive_cap{windows}'),
                 artifact_provenance=run['evidence'])
         common = min(len(run['records']) for run in runs)
+        first_commit, _ = comparison_interval(common, windows)
         boundary, free = np.zeros(300000, bool), np.ones(300000, bool)
         for run in runs:
             row = run['curve'][common-1]
@@ -292,17 +309,21 @@ def compare(old_root, new_root, baseline, candidate, source_metadata, target_ref
         for label, ids, cohort in (('fixed_source_upper_surface', source_ids, source_cohort),
                                     ('common_endpoint_free_both', free_ids, free_cohort)):
             cohorts[label] = dict(**cohort, status=matching_motion_status(len(ids), common),
-                arms={name: cohort_motion(run, ids, common, spacing, first_commit=1, include_rms=True)
+                arms={name: cohort_motion(run, ids, common, spacing, first_commit=first_commit, include_rms=True)
                       for name, run in zip(names, runs)},
-                phases={name: phase_summary(run, ids, common, spacing) for name, run in zip(names, runs)})
+                phases={name: phase_summary(run, ids, common, spacing, first_commit=first_commit)
+                        for name, run in zip(names, runs)})
+        selected_commits = (3, 6) if windows == 6 else (3, 6, 12, 18, 24)
+        progress_fractions = (.75, .5, .25) if windows == 6 else (.75, .5, .25, .225, .22, .215, .2, .15, .1)
         result.update(native_spacing=spacing, target_spacing=target_spacing, density_radius=radius,
             target_extent=float(extent), target_tip_n=int((np.linalg.norm(target-tip, axis=1) < .25).sum()),
-            common_accepted_commits=common, cohorts=cohorts, initial_chamfer=initial_chamfer,
+            common_accepted_commits=common, motion_commit_interval=[first_commit, common],
+            cohorts=cohorts, initial_chamfer=initial_chamfer,
             matched_endpoints=[dict(commit=i, baseline=runs[0]['curve'][i-1], candidate=runs[1]['curve'][i-1])
-                               for i in sorted({1, common} | {i for i in (3, 6) if i <= common})],
+                               for i in sorted({1, common} | {i for i in selected_commits if i <= common})],
             progress_crossings=[dict(chamfer_fraction=fraction, threshold=initial_chamfer*fraction,
                 **{name: next((row for row in run['curve'] if row['chamfer'] <= initial_chamfer*fraction), None)
-                   for name, run in zip(names, runs)}) for fraction in (.75, .5, .25)])
+                   for name, run in zip(names, runs)}) for fraction in progress_fractions])
     result['definitions'] = dict(
         fixed_source='Original source upper sparse boundary, sorted IDs sampled once at most20000; includes pinned IDs. Same IDs both arms.',
         common_free='Outcome-selected sparse-boundary union at common accepted endpoint, intersect unpinned in BOTH arms. Not an after-arrival cohort.',
@@ -314,6 +335,12 @@ def compare(old_root, new_root, baseline, candidate, source_metadata, target_ref
         policy='Whole adaptive optimizer/code intervention: corrected gradients can change lambda, PCGrad, controls and pins. Not a fixed-lambda comparison.',
         stopping='converged can mean policy plateau/reject stop; copied suffix does not establish physical rest.',
         limitation='One pair cannot remove CUDA optimizer variability; early density/coverage are not watertightness and lower motion may be slower transport.')
+    if windows == 24:
+        result['definitions'].update(
+            phase=f'Common accepted interval{first_commit}..{common}; W{first_commit+1}..{common}, at most last10 common windows. W1 excluded; phase20=raw final physical/layer step+PIC.',
+            endpoints='Full delivered accepted curves and own delivered endpoints retained; motion ends at common delivered count, which may differ from either actual last accepted state.',
+            progress='Crossings use each full retained curve from its first accepted commit; lower motion in the common tail is not certified after-arrival rest.',
+            history='Attempt count covers complete original history; render-reference rows stop at the last delivered accepted endpoint. Later accepted geometry is unmeasured when delivery truncates.')
     for run in runs:
         for evidence in run['evidence']:
             require(file_identity(Path(evidence['path'])) == {key: evidence[key]
@@ -329,16 +356,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ('old-root', 'new-root', 'baseline', 'candidate', 'source-metadata', 'target-reference', 'out'):
         parser.add_argument('--'+name, type=Path, required=True)
+    parser.add_argument('--windows', type=int, choices=(6, 24), default=6)
     args = parser.parse_args()
     for value in vars(args).values():
-        require(value.resolve().is_relative_to('/data'), 'All production paths must resolve below /data')
+        if isinstance(value, Path):
+            require(value.resolve().is_relative_to('/data'), 'All production paths must resolve below /data')
     for name in ('WARP_CACHE_PATH', 'CUPY_CACHE_DIR', 'CUDA_CACHE_PATH'):
         value = os.environ.get(name)
         require(value and Path(value).resolve().is_relative_to('/data'), 'Explicit /data cache required: '+name)
     sys.path.insert(0, str(ROOT))
     import torch
     require(torch.cuda.is_available(), 'CUDA required; no CPU numerical fallback')
-    result = compare(**{key: value.resolve() for key, value in vars(args).items()})
+    result = compare(**{key: value.resolve() if isinstance(value, Path) else value for key, value in vars(args).items()})
     print(json.dumps(dict(out=str(args.out), common=result['common_accepted_commits'],
                           status=result['cohorts']['common_endpoint_free_both']['status'])), flush=True)
 

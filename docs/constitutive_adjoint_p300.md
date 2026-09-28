@@ -174,3 +174,66 @@ A fresh full CPU run on frozen0402e8e with isolated Warp1.16 completed:
 output/p300/full_cpu_116_v2.log. The skips remain recorded and are not GPU
 passes. The separate CUDA unit and position-sequence runs above cover their
 explicit scopes. No full-morph quality inference follows from unit validation.
+
+## Matched cap6 morph comparison
+
+Frozen9706141 old core versus0402e8e corrected core use exactly the original
+bunny300k inputs, T20, dt1/240, dx0.3062907543956724wu, loss36^3, eight inner
+iterations and cap6. Both retain shared PIC, physical temporal variance,
+motion accounting and the promoted-state outer render gate; external shift,
+geometric variance and geometric rest are off. The two approved physmorph
+byte changes are the rotation adjoint and the Warp version guard, inert on
+the common1.16.0 server. The driver and numerical metric helpers are identical.
+
+Both runs accept6/6 windows with zero guards, in107.314/107.271s. The independent
+CUDA audit binds each result to its own complete frozen source digest, exact
+old/new blob pair, inputs, prepared reference, configurations and MPM parameters.
+It checks all121 physical position frames, excludes the copied suffix, and uses
+raw simulation states without a renderer. Audit source491bf2c; its66 focused
+provenance/scope tests also passed independent CPU review.
+
+| At accepted W6 | Old | Corrected |
+|---|---:|---:|
+| Silhouette IoU | 0.895936 | 0.894246 |
+| Chamfer (wu) | 0.0663149 | 0.0664017 |
+| Fixed upper-target coverage | 0.609979 | 0.609653 |
+| Fixed6712-source-ID density | 0.618687 | 0.619245 |
+| Current top-region density | 0.613066 | 0.606212 |
+| Arrived fraction | 0.942377 | 0.943667 |
+| Pinned fraction | 0.071837 | 0.098207 |
+| Minimum accepted trajectory det(F) | 0.905836 | 0.903680 |
+
+On20000 identical sampled IDs out of21658 particles free in both arms at the
+common endpoint, W2..6 saved-step RMS changes0.257236 to0.257005 native spacings
+(-0.090%). Native spacing is0.03498853660707278wu. Phase1..19 RMS changes
+0.250454 to0.250126sp, while phase20 RMS changes0.362758 to0.363777sp (+0.281%).
+Phase20 includes the final physical/layer step plus PIC. Raw-step reversal
+fraction changes0.015636 to0.015378; accepted-commit reversal instead increases
+0.07719 to0.08495. These are direction changes, not proof of periodic oscillation.
+The cohort is selected at the common endpoint, not by individual arrival time.
+Both progress crossings occur at the same measured accepted commits. The larger
+pin fraction must be retained in any later interpretation of reduced motion.
+
+Previously admitted pins show exact zero motion on4165/5357 checked IDs.
+Total admissions are21551/29462: the newest admissions have no later physical
+observation and are excluded from that denominator. The two-view point-projection
+hole fraction is9.54e-5/0, but this does not certify watertightness or the absence
+of visible Gaussian holes. Neither arm reaches the highest tip at W6.
+
+This is a small mixed early result, not a quality repair. It justifies observing
+the corrected derivative later in the same recipe with a bounded cap24 pair;
+there is no new gain, geometric-variance promotion or new renderer result.
+The extended audit keeps exact provenance gates, uses an explicit6/24 cap and
+reports the last10 common accepted displacements separately from each retained
+endpoint and full progression. Its92 focused CPU tests passed independent review.
+
+Evidence: output/p300/{control6,candidate6,quality6}.json. Quality SHA256:
+f8bfe1385892b98bcb27c9a6aec6fcf1db2dee1fbb1344bd14690ad0013c471c.
+All eight original NPZ/JSON/log files were copied, fully hashed and fsynced to
+C:/dev/physmorph_archives/p300_cap6_pair_20260928T181241Z. After audit completion,
+the four NPZ duplicates were locally rehashed and removed from the server under
+the reviewed read-lease/hash/durable-receipt procedure, freeing1,127,856,850bytes.
+JSON/logs and snapshots remain remote. Archive receipt SHA256:
+7dd35308c9185305a6d4a3ae315b279985f5e5e00df64976185b76a71626f0ad.
+Removal record: output/p300/cap6_removed_receipt.json. Project usage after removal
+was96,939,061,771bytes. No unarchived source or output was deleted.
