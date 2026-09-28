@@ -8816,3 +8816,24 @@ changes automatic render-lambda balancing as documented in its formulation.
 No new renderer experiment or default promotion follows from this failed gate.
 Full quality/phase audits launched01:22:54/01:24:27UTC on September27,93s apart.
 See [P294 full evidence and limitations](geometric_rest_full_p294.md).
+
+**2026-09-28 -- P295 conditional PIC handoff replay completed (captured September27).**
+Bunny300k/T20/dt1/240/dx0.3062907544wu/loss36^3, mixed body+dFc, shared PIC,
+shift_sub off, eight inner iterations. The fresh diagnostic accepted33/36 windows
+in552.25s; all guards were zero and fixed accepted boundaries1/24/30 were captured.
+Independent first-step replays retained actual controls/state and next-window pins;
+only free x0 changed from promoted to previous raw. Original/repeat closure and
+all active-pin contracts passed; late pin counts were257040/264662.
+
+On late layer-free cohorts5150/4600, the PIC jump RMS was0.56031/0.47987 native
+spacings and the induced next-step response0.02085/0.02026sp. Advection response
+was0.000844/0.000403sp, layer-position response0.02107/0.02028sp. Norms are not
+additive causal shares. Holding the preceding saved vector fixed, reversal was
+93.79%/97.39% with PIC and86.74%/93.96% after the position intervention. The much
+larger whole-boundary reversal reduction changes both vectors and mainly removes
+the explicit endpoint jump; it is not a next-response suppression result.
+
+The initial native-unit closure test failed only C; the retained v1 evidence and
+preregistered dimensionless v2 correction are documented. Fresh v2 smoke and full
+replay passed. This is a diagnostic, not a hole/rest/fit repair or default change.
+See [P295 protocol, results and limits](boundary_replay_p295.md).
