@@ -5,7 +5,8 @@ server CUDA; the same-forward derivative fix passed10 focused Warp1.16 CPU
 tests. The first CUDA suite has9 passes and1 chain finite-difference failure,
 now isolated to the float32 forward difference by a separate all-channel oracle.
 The original strict position-sequence probe passes on the new derivative.
-Test-oracle revision and actual morph-quality checks remain pending. This is a constitutive differentiation
+The revised focused suite passes10/10 on CPU and CUDA. Actual morph-quality
+checks remain pending. This is a constitutive differentiation
 correction, not a new morph loss or evidence that holes/rest are repaired.
 
 The current rotation is R=UV^T from a signed SVD, with the existing proper-
@@ -161,4 +162,15 @@ original epsilon.003/.1 and original relative.002/absolute.02 bounds.
 Every other actual-kernel finite-difference test is unchanged. This changes
 the chain oracle, not the production code or its derivative tolerances, and
 retains the original failed float32-FD evidence above. The revised focused
-CPU module passed all10 tests in8.99s; a fresh CUDA run remains required.
+CPU module passed all10 tests in8.99s. A fresh frozen0402e8e CUDA execution
+passed the same10 tests with zero errors or skips (pytest0.899s; wrapper1.692s).
+The test, constitutive and kernel hashes were independently verified against
+the reviewed source. The original9/10 execution remains separately recorded.
+Evidence: output/p300/run_cuda_tests_v2.{json,xml}; result SHA256:
+c43c22adccd0aef4f589772ba972bc8c242d92464342b3bb4f3282101b414365.
+
+A fresh full CPU run on frozen0402e8e with isolated Warp1.16 completed:
+662 passed,22 skipped,0 failed in313.63s. Log:
+output/p300/full_cpu_116_v2.log. The skips remain recorded and are not GPU
+passes. The separate CUDA unit and position-sequence runs above cover their
+explicit scopes. No full-morph quality inference follows from unit validation.

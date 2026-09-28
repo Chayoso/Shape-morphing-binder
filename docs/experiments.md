@@ -8968,3 +8968,24 @@ nearly equal; no initial fixed-source density was measured. These mixed results
 do not establish rest or repaired holes and do not justify a full geometric-
 variance solve or default promotion. Independent provenance/result review passed.
 See [P299b details and hashes](variance_proposal_p299.md#p299b-cuda-result-september-28).
+
+**2026-09-28 -- P300: corrected corotated rotation adjoint, forward unchanged.**
+An independent constitutive oracle reproduced the generic-SVD derivative defect
+on CPU and hyde06 Warp1.16 CUDA. For example, identity stress with a skew seed
+has analytic directional derivative0 but old CUDA AD70.9093. The signed proper
+rotation forward remains bitwise identical; the custom adjoint solves the
+polar Sylvester equation with signed-stretch sums, not singular-value differences.
+Computed-singular systems return NaN; this does not detect every nonunique
+inverted tie. Warp>=1.16 is required for nested custom-adjoint compilation.
+
+The first new CUDA suite passed9/10; its remaining float32 chain FD failure is
+preserved and independently traced to forward subtraction error. Full-vector
+F/dFc/Fp/lambda/mu AD agrees with the analytic chain (maximum relative error
+4.32e-6). A reviewed replacement chain oracle retains original FP64 FD steps
+and bounds, and all other actual-kernel FD tests. Frozen0402e8e then passes
+10/10 CPU and10/10 CUDA, and the full CPU suite passes662 with22 skips in313.63s.
+The unchanged strict position-sequence probe passes all52 checks on the new
+core: N64 subset of original300k, T3 plus T1, dt1/240, dx0.3062907543956724wu,
+original inputs, seeds and tolerances. These are differentiation gates, not a
+hole/rest certificate. A matched300k cap6 comparison is being audited separately.
+See [P300 evidence and retained failure](constitutive_adjoint_p300.md).
