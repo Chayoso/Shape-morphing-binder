@@ -11,7 +11,7 @@ import math
 import torch
 import torch.nn.functional as F
 
-from ..render.studio import StudioRaster
+from ..render.studio import StudioRaster, raster_identity
 from ..render.surface_gaussians import SurfaceGaussians
 
 
@@ -68,10 +68,11 @@ def select_surface_views(views, count):
 
 class SurfaceRenderViews:
     def __init__(self, reference, views, *, coarse_height=256, detail_height=2160,
-                 patch_size=256, view_count=4, deficit_weight=2., excess_weight=1.):
+                 patch_size=256, view_count=4, deficit_weight=2., excess_weight=1., raster_backend='legacy'):
         if not reference.is_cuda:
             raise ValueError('Surface Gaussian raster loss requires CUDA; no CPU fallback')
         self.geometry = SurfaceGaussians.from_reference(reference)
+        self.raster_backend = raster_backend
         # Include the delivered studio camera, then distribute additional views.
         self.views = select_surface_views(views, view_count)
         self.coarse_height, self.detail_height = coarse_height, detail_height
@@ -83,7 +84,7 @@ class SurfaceRenderViews:
                 width = 2*round(height*16/9/2)
                 cameras.append(StudioRaster(self.geometry.center, self.geometry.radius,
                     width, height, math.degrees(az), math.degrees(el), direct_covariance=True,
-                    coverage_only=True))
+                    coverage_only=True, raster_backend=raster_backend))
 
     def prepare(self, reference, target_kind):
         targets = []
@@ -101,7 +102,9 @@ class SurfaceRenderViews:
     def metadata(self):
         return dict(**self.geometry.metadata(), coarse_height=self.coarse_height,
                     detail_height=self.detail_height, aspect=16/9, patch_size=self.patch_size,
-                    views_radians=self.views, detail_raster='full camera then crop; not a resized crop')
+                    views_radians=self.views, raster_backend=self.raster_backend,
+                    raster_files=raster_identity(self.raster_backend),
+                    detail_raster='full camera then crop; not a resized crop')
 
 
 class SurfaceWindowLoss:

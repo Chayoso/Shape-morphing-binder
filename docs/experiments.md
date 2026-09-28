@@ -9082,3 +9082,61 @@ pass, but broad raster finite differences still differ8.46..10.32%; N300k whole
 cloud translation differs5.97..6.09%. That global derivative gate stays open.
 No full morph/rest/hole/artifact fix, no new rendered delivery, no gallery or
 default promotion. Scope, reports and evidence: [P302](surface_render_p302.md).
+
+## 2026-09-28 — P303: raster cutoff repair; raw endpoint still fails coverage
+
+The user requested continued implementation/verification until the hole, rest,
+oscillation and high-resolution artifact problems are resolved. Work remains
+active; the following is an experimental checkpoint, not completion.
+
+An independent dense oracle reproduces the legacy 48-splat broad-FD failure.
+Continuous shifted-alpha support, conservative tiles, correct saturation/FoV
+derivatives and full log-transmittance now pass that operator's tests, including
+opaque colored stacks and a side-stream adjoint. Full N300k/four-camera/4K
+y-translation relative differences are .0855%, .000404%, .0102% at .1/.03/.01sp;
+the legacy result was ~6%. Default backend unchanged, no quality promotion.
+
+Physical pair: original N300k, T20, dt1/240, dx.3062907543956724wu, loss36^3,
+eight-iteration inner budget, cap24, repaired constitutive adjoint, subgrid shift
+off, GS off. Only commit_pic and commit_pic_objective change. Both have zero
+guards and 24 commits. Raw endpoint reduces matched free saved-step RMS
+.103175→.048158sp and sampled reversals4.922%→.103%, but IoU.968871→.963604 and
+fixed upper-target coverage.965060→.936455 reject adoption. Pins remain exact;
+free material remains in motion. Density/tip improve, underscoring the need to
+measure both local supply and spatial coverage.
+
+Matched raw render on/off changes only lambda_auto .5→0: IoU.963604/.955043,
+tip80/59 (target89), Chamfer.059339/.059455wu. Rendering helps shape here but
+does not solve physical coverage/rest or supervise exported4K appearance. Raw
+nominal gradient-share median .4372 is not a displacement fraction.
+
+Completed pin-disabled comparison, same discretization/budget: both execute24
+windows, but delivery selects W23 for pin-off. Common delivered W23 IoU drops
+.963819→.957751 while fixed upper coverage rises .929924→.931100; same4952
+free IDs' saved-step RMS rises .046462→.051070sp. Pre-pin W1 treatment difference
+exceeds the single same-policy repeat, so final differences cannot all be
+attributed to pin admission. Optional null pin fields were normalized only in
+a separate archive, with all non-pin payload bytes unchanged and receipts kept.
+
+Continuous-GS cap1/budget2 weight0/1, same N/T/dt/dx/loss grid: local detail
+image losses improve but raw IoU falls .731116→.726179 and Chamfer rises
+.167825→.170180wu. Correcting the raster derivative does not resolve the
+objective tradeoff. No quality/default promotion. The next discriminator is
+a read-only previous/current-reference swap on one actual trajectory.
+Full protocol and preserved evidence: [P303](continuous_raster_p303.md).
+
+## 2026-09-28 — P304: late reference swap still rewards actual density fitting
+
+Fresh raw/no-PIC/no-shift N300k, T20, dt1/240, dx.3062907544wu, loss36^3,
+budget8/cap24; preregistered W19/W20 accepted, all state guards0. Same W20 path,
+current lambda and common physical/cleanup terms, previous/current prepared
+references: density decreases3.68616e-5/4.01046e-5 and weighted rendering
+decreases8.84e-9/1.42427e-7. Both reward movement after coarse arrival.
+Arrival radius is8.75sp; it is not rest or per-particle optimum. The49,925
+previously/currently-arrived free IDs move.0139064wu RMS in this window;
+MPM-advection sum RMS.0138119wu and stored/geometric running mean-square speeds
+.0320122/.0324161 indicate actual advective movement here. No retarget-only or
+hidden-u explanation, and no proof of complete convergence. Exact merit closure
+passes in a source-bound post-run check (error3.34e-10); later guards are not
+retroactively attributed to the original execution. Scope and evidence:
+[P304](reference_swap_p304.md). No physical or visual promotion.

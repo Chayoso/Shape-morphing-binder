@@ -5,6 +5,7 @@ The finite difference below isolates packed covariance rasterization on fixed
 primitives. The 300k audit checks the full live primitive path for finite gradients.
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -28,7 +29,11 @@ def main():
     parser.add_argument('--out', required=True)
     parser.add_argument('--detail-height', type=int, default=2160)
     parser.add_argument('--views', type=int, default=4)
+    parser.add_argument('--backend', choices=('legacy', 'continuous'), default='legacy')
     args = parser.parse_args()
+    out = Path(args.out)
+    if out.exists():
+        raise FileExistsError(out)
     torch.manual_seed(302)
     wp.init()
     start = time.monotonic()
@@ -38,8 +43,9 @@ def main():
     normals = torch.nn.functional.normalize(torch.randn_like(x), dim=1)
     sigma = x.new_full((len(x),), .08)
     opacity = x.new_full((len(x),), .25)
-    direct = StudioRaster(center, 1.5, 256, 144, 35., 18., direct_covariance=True, coverage_only=True)
-    old = StudioRaster(center, 1.5, 256, 144, 35., 18., coverage_only=True)
+    direct = StudioRaster(center, 1.5, 256, 144, 35., 18., direct_covariance=True, coverage_only=True,
+                          raster_backend=args.backend)
+    old = StudioRaster(center, 1.5, 256, 144, 35., 18., coverage_only=True, raster_backend=args.backend)
     def primitive(scale):
         return SurfacePrimitives(normals, tangent_covariance(normals, sigma*scale), opacity, sigma, opacity)
     with torch.no_grad():
@@ -89,7 +95,8 @@ def main():
         src = torch.tensor(archive['src'], device=device)
         target = torch.tensor(archive['tgt'], device=device)
     cameras = [(az, el) for az in np.linspace(0., 2*np.pi, 6, endpoint=False) for el in (-.3, 0., .3)]
-    shared = SurfaceRenderViews(target, cameras, view_count=args.views, detail_height=args.detail_height)
+    shared = SurfaceRenderViews(target, cameras, view_count=args.views, detail_height=args.detail_height,
+                                raster_backend=args.backend)
     # One fixed paced reference, detached for all candidate evaluations.
     reference = src.clone()
     reference[:, 1] += shared.geometry.spacing
@@ -113,7 +120,7 @@ def main():
     repeat, _ = window(candidate.detach())
     assert abs(float(repeat-value.detach())) < 1e-6
     torch.cuda.synchronize()
-    result = dict(status='core_adjoint_pass_global_fd_open', N=len(src),
+    result = dict(status='core_adjoint_pass_global_fd_open', raster_backend=args.backend, N=len(src),
                   seconds=time.monotonic()-start, packed_parity_max=parity,
                   packed_directional_derivatives=derivatives,
                   fixed_core_derivatives=core_derivatives,
@@ -123,8 +130,17 @@ def main():
                   full_gradient_max=float(gradient.abs().max()),
                   torch_peak_bytes=torch.cuda.max_memory_allocated(), model=window.metadata(),
                   scope='packed raster derivative + live full-cloud finite adjoint; no MPM trajectory/quality claim')
-    out = Path(args.out); out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(result, indent=2))
+    root = Path(__file__).resolve().parents[2]
+    result['source_sha256'] = {name: hashlib.sha256((root/name).read_bytes()).hexdigest() for name in (
+        'scripts/probes/surface_render_cuda.py', 'physmorph/pipeline/surface_render_loss.py',
+        'physmorph/render/studio.py', 'physmorph/render/stream_adapter.py',
+        'physmorph/render/surface_gaussians.py', 'physmorph/render/covariance_torch.py',
+        'physmorph/render/knn_gpu.py', 'physmorph/render/support.py')}
+    result['input_sha256'] = hashlib.sha256((Path(args.root)/
+        'repro/current_pair/source_render_full_dt_iso_nn.npz').read_bytes()).hexdigest()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open('x') as stream:
+        json.dump(result, stream, indent=2)
     print(json.dumps(result), flush=True)
 
 

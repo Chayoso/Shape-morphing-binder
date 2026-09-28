@@ -1,11 +1,28 @@
 """Shared CUDA studio camera, density normals and fixed-light display model."""
 import math
+from functools import lru_cache
 
 import torch
 import torch.nn.functional as nnf
 
 from .covariance_torch import decompose_cov_torch, world_to_view_torch
 from .support import filter_normal_buffer
+
+
+@lru_cache(maxsize=2)
+def raster_identity(backend):
+    """Bind the loaded binary and Python wrapper, including the isolated patch receipt."""
+    import hashlib
+    import importlib
+    from pathlib import Path
+    if backend not in ('legacy', 'continuous'):
+        raise ValueError(backend)
+    module = importlib.import_module('diff_gauss' if backend == 'legacy' else 'physmorph_diff_gauss')
+    paths = dict(python=Path(module.__file__), binary=Path(module._C.__file__))
+    if backend == 'continuous':
+        paths['build_receipt'] = Path(module.__file__).parent.parent/'physmorph_build.json'
+    return {name: dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+            for name, path in paths.items()}
 
 
 class DensityNormals:
@@ -52,8 +69,13 @@ class DensityNormals:
 class StudioRaster:
     """Fixed perspective camera and GGX dielectric material; alpha is never enlarged."""
     def __init__(self, center, radius, width, height, azimuth, elevation, *, direct_covariance=False,
-                 coverage_only=False):
-        from diff_gauss import GaussianRasterizationSettings, GaussianRasterizer
+                 coverage_only=False, raster_backend='legacy'):
+        if raster_backend == 'legacy':
+            from diff_gauss import GaussianRasterizationSettings, GaussianRasterizer
+        elif raster_backend == 'continuous':
+            from physmorph_diff_gauss import GaussianRasterizationSettings, GaussianRasterizer
+        else:
+            raise ValueError(f'Unknown raster backend: {raster_backend}')
 
         self.direct_covariance = direct_covariance
 
@@ -73,6 +95,9 @@ class StudioRaster:
             bg=center.new_zeros(3), scale_modifier=1., viewmatrix=view.T.contiguous(),
             projmatrix=(projection @ view).T.contiguous(), sh_degree=0, campos=camera,
             prefiltered=False, debug=False))
+        if raster_backend == 'continuous':
+            from .stream_adapter import OrderedDefaultRaster
+            self.raster = OrderedDefaultRaster(self.raster)
         if coverage_only:
             return  # The loss does not allocate full-frame lighting buffers.
         yy, xx = torch.meshgrid(

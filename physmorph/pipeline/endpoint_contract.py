@@ -10,6 +10,8 @@ import torch
 
 def validate_endpoint_config(cfg):
     if cfg.surface_gs_loss:
+        if cfg.surface_gs_raster not in ('legacy', 'continuous'):
+            raise ValueError('surface_gs_raster must be legacy or continuous')
         if not cfg.commit_pic_objective or cfg.use_gauss_loss:
             raise ValueError('surface_gs_loss requires shared PIC and excludes legacy use_gauss_loss')
         if cfg.compute_backend != 'cuda' or not str(cfg.device).startswith('cuda'):

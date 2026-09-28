@@ -153,3 +153,14 @@ These are the leading candidates for the unresolved problems, and they are ports
   and `.md`. P302 shared surface loss is experimental and OFF by default; its
   broad finite-difference and cap1 quality gates remain open. See
   `docs/surface_render_p302.md` before using or promoting it.
+- **P303 continuation:** `docs/continuous_raster_p303.md` records the opt-in
+  continuous CUDA raster and its isolated build/stream contract. Its cutoff and
+  recorded live-cloud directional tests pass; legacy remains default and no GS
+  quality/full-morph/rest/artifact promotion follows. The corrected-core,
+  shift-off raw-endpoint comparison improves motion but loses target coverage;
+  do not promote PIC removal from those motion numbers alone.
+- **P304 continuation:** `docs/reference_swap_p304.md` distinguishes coarse
+  transport arrival (8.75sp in the audited300k run) from convergence/rest.
+  Both old/current references reward W20's actual density fitting; target
+  refresh is not its sole cause. The observer is read-only and opt-in. Do not
+  infer all-window causality or introduce another pin threshold from this test.

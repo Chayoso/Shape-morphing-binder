@@ -271,7 +271,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None,
                     body_scale_init=None,
                     win_index=None, on_rollout=None, on_objective=None,
-                    on_gradient_audit=None, audit_proposals=False):
+                    on_gradient_audit=None, audit_proposals=False, on_reference=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -292,6 +292,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     audit_proposals adds a callback-lifetime, noncommitting first-trial evaluator
     using the same prepared loss and production proposal math. It is restricted
     to the mixed recipe's fixed-material, non-Gaussian, non-continuity path.
+
+    on_reference(win_index, owned, common): read-only reference-swap diagnostic.
+    owned contains detached snapshots; common evaluates current non-data terms
+    at hypothetical positions with F/V/controls fixed, only during the callback.
+    This endpoint covector is not a control gradient or feasible counterfactual.
+    The runner can still reject the window after this observer returns.
 
     u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
     bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
@@ -2857,6 +2863,63 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 audit_active = False
         if on_rollout is not None and accepted > 0:
             on_rollout(tr, x_final, win_index)
+        if on_reference is not None and accepted > 0:
+            if cfg.commit_pic or cfg.shift_sub or cfg.opt_material:
+                raise ValueError('Reference audit requires raw/no-shift fixed-material endpoints')
+            if plan_img_np is None or arrived_mask_np is None or pace_r_np is None:
+                raise ValueError('Reference audit requires the actual frozen full plan')
+            from .prepared_reference import PreparedReference, own
+            reference = PreparedReference.capture(cfg, tgt, pace_grid, sils_eff,
+                                                  shade_eff, pbr_grid_eff, render_target_kind)
+            # Restore caches even if the observer fails. The detached copy keeps
+            # a later window from mutating a previous window's reference.
+            sil_saved, surface_saved = dict(sil_gauss), dict(surface_last)
+            gauss_saved = tgt.gauss_scale
+            try:
+                lv_a, lk_a, lr_a, _ = losses_of(x_final, F_final, v_final, Fg_final)
+                owned = dict(reference=reference, x0=x0_t.detach().clone(),
+                    xT=x_final.detach().clone(),
+                    positions=torch.stack([wp.to_torch(tr.x[t]) for t in range(1, T+1)]),
+                    V=V_final.detach().clone(), pins=wp.to_torch(tr.pin).clone() > .5,
+                    plan=own(plan_img_np, dev), start_arrived=own(arrived_mask_np, dev),
+                    arrival_radius=float(pace_r_np), lambda_render=float(lam_r),
+                    dt=float(prm.dt), unit_weight=float(wu),
+                    weights=dict(terminal=cfg.w_kin, running=cfg.w_kin_running, variance=cfg.w_kin_var),
+                    normal=wp.to_torch(tr.layer_nrm).clone() if tr.layer else torch.zeros_like(x0_t),
+                    surface=wp.to_torch(tr.layer_mask).clone() >= .5 if tr.layer else torch.zeros(N, device=dev, dtype=torch.bool),
+                    expected=dict(volume=float(lv_a), render=float(lr_a), merit=float(E_final),
+                                  merit_tolerance=float(replay_tol)),
+                    commit_source=replay_diagnostics['commit_source'])
+                from .motion_accounting import collect_rollout
+                owned['motion'] = collect_rollout(tr, float(prm.dt))
+                lease = True
+
+                def common_positions(position):
+                    if not lease:
+                        raise RuntimeError('Reference audit evaluator expired')
+                    if position.shape != x0_t.shape or position.device != x0_t.device:
+                        raise ValueError('Reference audit position layout mismatch')
+                    # Current NN assignment, gates and physical state are shared
+                    # between both reference arms; no old mutable closure escapes.
+                    with torch.enable_grad():
+                        private = position.detach().clone().requires_grad_(True)
+                        value = phys_total(private.sum()*0., lk_a.detach(), dc.detach(), private,
+                                           F_final.detach(), V_final.square().sum(2).mean(),
+                                           Fg_final.detach() if Fg_final is not None else None,
+                                           var_final.detach(), v_final.detach(), geom_final)
+                        gradient = torch.autograd.grad(value, private)[0]
+                    if not bool(torch.isfinite(value).all() & torch.isfinite(gradient).all()):
+                        raise ValueError('Nonfinite reference-audit common term')
+                    return dict(value=float(value.detach()), gradient=gradient.detach().clone())
+
+                try:
+                    on_reference(win_index, owned, common_positions)
+                finally:
+                    lease = False
+            finally:
+                sil_gauss.clear(); sil_gauss.update(sil_saved)
+                surface_last.clear(); surface_last.update(surface_saved)
+                tgt.gauss_scale = gauss_saved
         if cfg.motion_accounting and accepted > 0:
             if plan_img_np is None or arrived_mask_np is None or pace_r_np is None:
                 raise ValueError('motion_accounting requires a frozen paced arrival plan')

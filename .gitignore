@@ -68,6 +68,7 @@ logs/
 *.jpeg
 !assets/**
 !docs/**
+docs/**/__pycache__/
 
 # OS
 .DS_Store

@@ -1952,3 +1952,26 @@ directions unavailable from combined-only branches stay unavailable.
 The initial bounded CUDA comparison is not a quality promotion, and broad
 finite-difference discrepancies remain open. Full specification, limits and
 evidence: [P302](surface_render_p302.md).
+
+### 10.44 Continuous raster support (P303, opt-in)
+
+With `surface_gs_raster=continuous`, both shared surface guidance and the matching
+export backend use alpha = min(0.99, max(o exp(power) - tau, 0)), tau=1/255.
+Only zero alpha is skipped. The compact footprint is continuous (C0, not C1),
+and its derivative is the raw Gaussian derivative on unsaturated positive
+support, zero outside or at upper saturation. Projected tile bounds conservatively
+contain the full positive support. The raster has no transmittance early stop;
+it stores and reverses a double log product to preserve the reverse recurrence
+through opaque stacks. Depth sorting and primitive-builder active sets remain
+discrete. This does not imply a globally smooth objective.
+
+The isolated dependency does not replace legacy diff_gauss. The GPU stream
+adapter owns its copied inputs and orders stream0 against the numerical caller
+using device events. Legacy remains the default. Shared loss and export must
+select the same backend; opacity/covariance are still stateless derived
+attributes. There is no new learned appearance or physical pin policy.
+
+P303's current-adjoint/no-shift raw-endpoint policy comparison removes both
+commit_pic and its objective map. It improves saved motion but loses target
+coverage, so neither its physical default nor a new rest rule is adopted.
+Operator tests, raw quality, render influence and limits: [P303](continuous_raster_p303.md).

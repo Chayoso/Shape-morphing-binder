@@ -1,0 +1,20 @@
+{
+  "LICENSE.md": "cd5c95b3cfff3acc1bd412420c770f88809331c3db6872df11a970147aa8e81f",
+  "cuda_rasterizer/auxiliary.h": "7cae00048a4a3a20a71ad69e6a186cdc5522c310cc79144d400da34468a48dba",
+  "cuda_rasterizer/backward.cu": "50534772997777419a717357ad68fe2e27c665faab483dbc9eb0630e9e7930cd",
+  "cuda_rasterizer/backward.h": "c0e140b7f4884f10398cf806d7e8d9c89ad9dfa765a106d61d9e9e2550d5239f",
+  "cuda_rasterizer/config.h": "86d90fe26989e5a991104842961341d1bcb4374d5068dcb2a56d63a9017f8d65",
+  "cuda_rasterizer/forward.cu": "fc01c577c47dbf0ab93347010121bcc31eda3ac804a6d76e3d4e054ef228bf0c",
+  "cuda_rasterizer/forward.h": "be2c9039259e55c4315560ee07508ddb5dbecb8db0fcb42d7be15a8fda60f651",
+  "cuda_rasterizer/rasterizer.h": "9834847f5f5964e2e1d6c71e31767a43b6dd5b706df9556c9a9ab3fd498cf5c6",
+  "cuda_rasterizer/rasterizer_impl.cu": "0361aeb32b1659316baacadc42a012ff4ee9f186451d3a6198431a725428f9d5",
+  "cuda_rasterizer/rasterizer_impl.h": "ca74f75f38eea38fb8240dd8de8a3be36daaf6806e0ac145b2af6c2761c42833",
+  "diff_gauss/__init__.py": "fcd44b4bde69c86642472961426fce5ba90ec08d198be1e26ed2418968cd3d03",
+  "ext.cpp": "102d6ca2a07cf57717e5828c49a7100841cc0147f7373de768070f06bc4909ef",
+  "rasterize_points.cu": "1c981714bb73720e2df3a6571e9a3e530a0556dd1e3f28d2836e385f2ce5f3ae",
+  "setup.py": "966a4a4bfea7be93e2f6b598851dbbfecdb8e048cf7d166775e86b450fc46180",
+  "_input_tree": {
+    "sha256": "cc9461824db83de1f329f0ab3d8a83c983d60119ef718f9d73b8fa4137aaac1d",
+    "files": 1550
+  }
+}

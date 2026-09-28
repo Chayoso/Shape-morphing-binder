@@ -91,6 +91,7 @@ class PipelineConfig:
     surface_gs_detail_res: int = 2160
     surface_gs_patch: int = 256
     surface_gs_views: int = 4
+    surface_gs_raster: str = 'legacy'  # P303: opt-in continuous alpha support
     render_influence_report: bool = True  # user 2026-09-28: accepted-step telemetry, not causal displacement share
     sil_k: float = 1.5              # alpha saturation 1-exp(-k w)
     w_hole: float = 2.0             # deficit inside target (holes/missing extremities)

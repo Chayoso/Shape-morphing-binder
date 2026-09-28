@@ -32,7 +32,9 @@ wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
 FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff',
                       'geometric_rest_full', 'geometric_variance_full')
 PREFIX_INTERVENTIONS = ('stress_taper', 'commit_pic_off', 'commit_pic_objective_prefix',
-                        'geometric_rest_prefix', 'geometric_variance_prefix')
+                        'geometric_rest_prefix', 'geometric_variance_prefix', 'shared_pic_off_prefix',
+                        'pin_admission_off_prefix')
+P303_INTERVENTIONS = ('shared_pic_off_prefix', 'pin_admission_off_prefix')
 GEOMETRIC_INTERVENTIONS = ('geometric_rest_prefix', 'geometric_rest_full')
 VARIANCE_PREFIX = 'geometric_variance_prefix'
 VARIANCE_INTERVENTIONS = (VARIANCE_PREFIX, 'geometric_variance_full')
@@ -46,6 +48,14 @@ def stats(values, include_rms=False):
     if include_rms:
         result['rms'] = float(np.sqrt(np.mean(np.asarray(values, np.float64)**2)))
     return result
+
+
+def file_digest(path):
+    digest = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(4*1024*1024), b''):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def accepted_raw_indices(records, steps):
@@ -93,6 +103,36 @@ def checked_config_changes(ca, cb, intervention):
                          and c.get('lambda_auto', 0.) > 0
                          and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
                          for c in (ca, cb)))
+    elif intervention == 'shared_pic_off_prefix':
+        valid = (set(changes) == {'commit_pic', 'commit_pic_objective'}
+                 and all(ca.get(k) is True and cb.get(k) is False
+                         for k in ('commit_pic', 'commit_pic_objective'))
+                 and all(c.get('stop_after_windows') == 24 and c.get('T') == 20
+                         and c.get('iters') == 8 and c.get('loss_res') == 36
+                         and c.get('shift_sub') is False and c.get('outer_render_committed') is True
+                         and c.get('motion_accounting') is True and c.get('lambda_auto', 0.) > 0
+                         and host_np.isfinite(c['lambda_auto'])
+                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 24)
+                         and not any(c.get(k, False) for k in ('surface_gs_loss', 'geometric_rest',
+                             'geometric_variance', 'reattach', 'settle_commit', 'assim_consensus',
+                             'settle_pin_yield', 'settle_pin_follow', 'settle_pin_kkt'))
+                         and c.get('lg_sweeps', 0) == 0 and c.get('w_grow', 0) == 0
+                         for c in (ca, cb)))
+    elif intervention == 'pin_admission_off_prefix':
+        valid = (set(changes) == {'settle_pin'} and ca.get('settle_pin') is True
+                 and cb.get('settle_pin') is False
+                 and all(c.get('stop_after_windows') == 24 and c.get('T') == 20
+                         and c.get('iters') == 8 and c.get('loss_res') == 36
+                         and c.get('commit_pic') is False and c.get('commit_pic_objective') is False
+                         and c.get('shift_sub') is False and c.get('outer_render_committed') is True
+                         and c.get('motion_accounting') is True and c.get('lambda_auto', 0.) > 0
+                         and host_np.isfinite(c['lambda_auto'])
+                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 24)
+                         and not any(c.get(k, False) for k in ('surface_gs_loss', 'geometric_rest',
+                             'geometric_variance', 'reattach', 'settle_commit', 'assim_consensus',
+                             'settle_pin_yield', 'settle_pin_follow', 'settle_pin_kkt', 'freeze_arrived', 'settle_eta'))
+                         and c.get('lg_sweeps', 0) == 0 and c.get('w_grow', 0) == 0
+                         for c in (ca, cb)))
     elif intervention in VARIANCE_INTERVENTIONS:
         cap = 8 if intervention == VARIANCE_PREFIX else 60
         def positive_finite(value):
@@ -130,7 +170,8 @@ def checked_config_changes(ca, cb, intervention):
 def checked_mpm_parameters(baseline, candidate, intervention):
     if baseline != candidate:
         raise ValueError('MPM discretisation mismatch')
-    if (intervention in GEOMETRIC_INTERVENTIONS or intervention in VARIANCE_INTERVENTIONS) and baseline.get('dt') != 1/240:
+    if (intervention in GEOMETRIC_INTERVENTIONS or intervention in VARIANCE_INTERVENTIONS
+            or intervention in P303_INTERVENTIONS) and baseline.get('dt') != 1/240:
         raise ValueError(f'{intervention} requires dt=1/240')
 
 
@@ -187,6 +228,24 @@ def checked_runs(baseline, candidate, intervention):
         raise ValueError('Audit numerical source must match the simulation snapshot')
     checked_mpm_parameters(a['meta']['provenance']['mpm'], b['meta']['provenance']['mpm'], intervention)
     for run, config in zip(runs, configs):
+        if intervention in P303_INTERVENTIONS:
+            receipt_path = Path(run['prefix']+'.pin_schema.json')
+            if receipt_path.exists():
+                receipt = json.loads(receipt_path.read_text())
+                if file_digest(run['prefix']+'_render_full_dt_iso_nn.npz') != receipt['normalized_archive_sha256']:
+                    raise ValueError('Normalized archive no longer matches its schema receipt')
+                if file_digest(run['prefix']+'.json') != receipt['original_metadata_sha256']:
+                    raise ValueError('Schema normalization changed simulation metadata')
+                run['archive_schema'] = dict(receipt_sha256=file_digest(receipt_path),
+                                             receipt=receipt)
+            if (run['meta']['guards'] != run['arm']['guards'] or any(run['arm']['guards'].values())
+                    or run['meta']['config'] != config or run['meta']['history'] != run['arm']['history']):
+                raise ValueError('Invalid raw-endpoint run metadata or a physical guard fired')
+            if not config['commit_pic']:
+                for row in run['records']:
+                    components = row['motion_accounting']['cohorts']['all']['window_component_rms_wu']
+                    if any(components[name] != 0. for name in ('commit_other', 'commit_pic', 'commit_shift')):
+                        raise ValueError('Raw-endpoint candidate has an external position correction')
         if config.get('compute_backend') != 'cuda':
             raise ValueError('Both simulations must use the strict CUDA backend')
         if int(config.get('archive_stride', 1)) != 1:
@@ -199,7 +258,25 @@ def checked_runs(baseline, candidate, intervention):
             raise ValueError('Material particle IDs must be preserved')
         run['physical_indices'] = accepted_raw_indices(run['records'], config['T'])
         run['interior_hold_frames'] = run['physical_indices'][-1]+1-len(run['physical_indices'])
-    if intervention in GEOMETRIC_INTERVENTIONS or intervention in VARIANCE_INTERVENTIONS:
+        if intervention in P303_INTERVENTIONS:
+            prm = run['meta']['provenance']['mpm']
+            with cuda_execution('cuda'):
+                lo = to_array(prm['grid_min']) + 2*prm['dx']
+                hi = to_array(prm['grid_min']) + prm['dx']*to_array([prm['nx'], prm['ny'], prm['nz']]) - 2*prm['dx']
+                for index in run['physical_indices']:
+                    state = to_array(run['frames'][index])
+                    if not bool((np.isfinite(state) & (state >= lo) & (state <= hi)).all()):
+                        raise ValueError(f'Invalid raw position at frame {index}')
+                with host_np.load(run['prefix']+'.npz') as compact:
+                    if not bool(np.array_equal(to_array(compact['final']), to_array(run['frames'][-1]))):
+                        raise ValueError('Compact/raw final state differs')
+                    f = to_array(compact['F'])
+                    if not bool(np.isfinite(f).all()) or not bool((np.linalg.det(f) > 0).all()):
+                        raise ValueError('Invalid compact final deformation state')
+                if not bool(np.array_equal(to_array(run['source']), to_array(run['frames'][0]))):
+                    raise ValueError('Raw archive does not begin at the exact source')
+    if (intervention in GEOMETRIC_INTERVENTIONS or intervention in VARIANCE_INTERVENTIONS
+            or intervention == 'shared_pic_off_prefix'):
         for run, evidence in zip(runs, checked_arrival_modes(runs)):
             run['arrival_mode_evidence'] = evidence
     return runs, changes
@@ -210,7 +287,8 @@ def scoped_runs(runs, intervention):
         return runs, dict(kind='full runs', endpoint_claim=(
             'last accepted states retained in each arm delivery; later accepted states '
             'can be omitted by best-state truncation'))
-    common = min(8, *(len(run['records']) for run in runs))
+    requested = 24 if intervention in P303_INTERVENTIONS else 8
+    common = min(requested, *(len(run['records']) for run in runs))
     scoped = []
     for original in runs:
         run = dict(original)
@@ -219,7 +297,7 @@ def scoped_runs(runs, intervention):
         run['physical_indices'] = accepted_raw_indices(run['records'], run['arm']['config']['T'])
         run['interior_hold_frames'] = run['physical_indices'][-1]+1-len(run['physical_indices'])
         scoped.append(run)
-    return scoped, dict(kind='common accepted prefix', requested_commits=8, analyzed_commits=common,
+    return scoped, dict(kind='common accepted prefix', requested_commits=requested, analyzed_commits=common,
                         original_commits=[len(run['records']) for run in runs],
                         original_delivered_frames=[run['delivered'] for run in runs],
                         endpoint_claim='prefix endpoint only; no final quality or convergence inference',
@@ -455,7 +533,8 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
         endpoint_union = np.zeros(len(source), dtype=bool)
         for name, run in zip(names, runs):
             run['curve'] = geometry_curve(run, target, target_tree, target_extent(target), target_spacing, radius, tip,
-                                          source_ids if intervention in VARIANCE_INTERVENTIONS else None)
+                                          source_ids if intervention in VARIANCE_INTERVENTIONS
+                                          or intervention in P303_INTERVENTIONS else None)
             run['tip_history'] = tip_history(run, tip)
             final = to_array(run['frames'][run['delivered']-1])
             counts = KDTree(final).query_ball_point(final, 2*spacing, return_length=True)
@@ -490,7 +569,8 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                     ('endpoint_free_union', endpoint_ids, endpoint_meta),
                                     ('common_endpoint_free_both', free_ids, free_meta)):
             cohorts[name] = dict(**metadata, arms={arm: cohort_motion(run, ids, common, spacing,
-                                                                     include_rms=intervention in VARIANCE_INTERVENTIONS)
+                                                                     include_rms=(intervention in VARIANCE_INTERVENTIONS
+                                                                                  or intervention in P303_INTERVENTIONS))
                                                   for arm, run in zip(names, runs)})
         handoff_bands = None
         if intervention == 'render_arrival_handoff':
@@ -569,6 +649,7 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                            history_records_scope='complete original history, including non-optimizer metadata',
                            guards=run['arm']['guards'], guards_scope='complete original run',
                            arrival_mode_evidence=run.get('arrival_mode_evidence'),
+                           archive_schema=run.get('archive_schema'),
                            curve=run['curve'], tip_history=run['tip_history'],
                            min_accepted_detF=min(row['Jmin_traj'] for row in run['curve'] if row['Jmin_traj'] is not None),
                            interior_hold_frames=run['interior_hold_frames'],

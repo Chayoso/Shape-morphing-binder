@@ -267,7 +267,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
         from .surface_render_loss import SurfaceRenderViews
         pack.surface_gs = SurfaceRenderViews(tgt_t, views, coarse_height=cfg.surface_gs_res,
             detail_height=cfg.surface_gs_detail_res, patch_size=cfg.surface_gs_patch,
-            view_count=cfg.surface_gs_views, deficit_weight=cfg.w_hole, excess_weight=cfg.w_spray)
+            view_count=cfg.surface_gs_views, deficit_weight=cfg.w_hole, excess_weight=cfg.w_spray,
+            raster_backend=cfg.surface_gs_raster)
     pack.target_reference_provenance = reference['provenance'] if reference is not None else None
     return pack
 

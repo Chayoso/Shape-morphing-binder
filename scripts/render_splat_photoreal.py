@@ -73,7 +73,10 @@ def main():
                         help='Matched baseline versus material shading; identical covariance/live opacity/filter')
     parser.add_argument('--surface-common', action='store_true',
                         help='P302 stateless primitives shared with surface_gs_loss; no appearance latch')
+    parser.add_argument('--raster-backend', choices=('legacy', 'continuous'), default='legacy')
     args = parser.parse_args()
+    if args.raster_backend == 'continuous' and not args.surface_common:
+        parser.error('--raster-backend continuous requires --surface-common')
     if args.surface_common and any((args.compare_artifacts, args.smooth_support,
             args.scale_normal_filter, args.material_shading, args.compare_material_shading)):
         parser.error('--surface-common excludes historical appearance variants')
@@ -135,7 +138,7 @@ def main():
         from physmorph.render.surface_gaussians import SurfaceGaussians
         common = SurfaceGaussians(center, radius, spacing, coverage_radius)
     studio = StudioRaster(center, radius, args.width, args.height, args.azimuth, args.elevation,
-                          direct_covariance=args.surface_common)
+                          direct_covariance=args.surface_common, raster_backend=args.raster_backend)
     material = MaterialShadingNormals(len(frames[0]), device) if any(v[3] for v in variants) else None
     shading_latch = SettledAppearance(starts, device) if material is not None else None
     cohort_index = min(480, count-1)
@@ -255,6 +258,9 @@ def main():
                     source_config=arm['config'], script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
     if common is not None:
         metadata['surface_render_model'] = common.metadata()
+        from physmorph.render.studio import raster_identity
+        metadata['raster_backend'] = args.raster_backend
+        metadata['raster_files'] = raster_identity(args.raster_backend)
         metadata['sigma_rule'] = 'spacing * clamp(current r8 / target median r8, 1, 4); stateless'
     support_file = Path(__file__).resolve().parents[1] / 'physmorph/render/support.py'
     metadata['support_sha256'] = hashlib.sha256(support_file.read_bytes()).hexdigest()

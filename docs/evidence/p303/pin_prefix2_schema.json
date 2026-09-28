@@ -1,0 +1,329 @@
+{
+  "scope": "first two windows before observed pin admission; one repeat is not a noise distribution",
+  "code_sha256": "cce1bbd2f7c69a7ed25aee1eb7f5c185307b4018b198e262e565c70e50b60c46",
+  "mpm": {
+    "dx": 0.3062907543956724,
+    "dt": 0.004166666666666667,
+    "drag": 0.9,
+    "smoothing": 0.955,
+    "v_max": 0.0,
+    "eta_sym": 0,
+    "eta_mode": 0,
+    "gate_r_lo": 0.0,
+    "gate_r_hi": 0.0,
+    "gate_n0": 0.0,
+    "f_ext": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "grid_min": [
+      -5.513233579122103,
+      -5.513233579122103,
+      -5.513233579122103
+    ],
+    "nx": 36,
+    "ny": 36,
+    "nz": 36,
+    "floor_y": -1000000000.0,
+    "floor_friction": 0.0
+  },
+  "N": 300000,
+  "T": 20,
+  "loss_res": 36,
+  "rows": [
+    {
+      "frame": 0,
+      "repeat_rms_wu": 0.0,
+      "treatment_rms_wu": 0.0,
+      "repeat_max_wu": 0.0,
+      "treatment_max_wu": 0.0
+    },
+    {
+      "frame": 1,
+      "repeat_rms_wu": 2.491461543741025e-07,
+      "treatment_rms_wu": 1.8094535789714428e-06,
+      "repeat_max_wu": 1.6049041278165532e-06,
+      "treatment_max_wu": 8.199929288821295e-05
+    },
+    {
+      "frame": 2,
+      "repeat_rms_wu": 6.971922061893565e-07,
+      "treatment_rms_wu": 5.188771410757909e-06,
+      "repeat_max_wu": 4.615512807504274e-06,
+      "treatment_max_wu": 0.000159742558025755
+    },
+    {
+      "frame": 3,
+      "repeat_rms_wu": 1.3208025393396383e-06,
+      "treatment_rms_wu": 9.93340290733613e-06,
+      "repeat_max_wu": 8.936921403801534e-06,
+      "treatment_max_wu": 0.0002335495810257271
+    },
+    {
+      "frame": 4,
+      "repeat_rms_wu": 2.090537464027875e-06,
+      "treatment_rms_wu": 1.5842759239603765e-05,
+      "repeat_max_wu": 1.4291324077930767e-05,
+      "treatment_max_wu": 0.00030419137328863144
+    },
+    {
+      "frame": 5,
+      "repeat_rms_wu": 2.978945531140198e-06,
+      "treatment_rms_wu": 2.2722413632436655e-05,
+      "repeat_max_wu": 2.0553859940264374e-05,
+      "treatment_max_wu": 0.00037176726618781686
+    },
+    {
+      "frame": 6,
+      "repeat_rms_wu": 3.9603369259566534e-06,
+      "treatment_rms_wu": 3.0384304409381002e-05,
+      "repeat_max_wu": 2.7729167413781397e-05,
+      "treatment_max_wu": 0.00043659075163304806
+    },
+    {
+      "frame": 7,
+      "repeat_rms_wu": 5.009908818465192e-06,
+      "treatment_rms_wu": 3.864519385388121e-05,
+      "repeat_max_wu": 3.5805329389404505e-05,
+      "treatment_max_wu": 0.0004985320847481489
+    },
+    {
+      "frame": 8,
+      "repeat_rms_wu": 6.104869044065708e-06,
+      "treatment_rms_wu": 4.732656816486269e-05,
+      "repeat_max_wu": 4.4550804886966944e-05,
+      "treatment_max_wu": 0.0005583111196756363
+    },
+    {
+      "frame": 9,
+      "repeat_rms_wu": 7.222641670523444e-06,
+      "treatment_rms_wu": 5.625581252388656e-05,
+      "repeat_max_wu": 5.3668092732550576e-05,
+      "treatment_max_wu": 0.0006159807089716196
+    },
+    {
+      "frame": 10,
+      "repeat_rms_wu": 8.342202818312217e-06,
+      "treatment_rms_wu": 6.526341167045757e-05,
+      "repeat_max_wu": 6.312911864370108e-05,
+      "treatment_max_wu": 0.0006713448674418032
+    },
+    {
+      "frame": 11,
+      "repeat_rms_wu": 9.443439921597019e-06,
+      "treatment_rms_wu": 7.418598397634923e-05,
+      "repeat_max_wu": 7.279189594555646e-05,
+      "treatment_max_wu": 0.0007439698674716055
+    },
+    {
+      "frame": 12,
+      "repeat_rms_wu": 1.0507410479476675e-05,
+      "treatment_rms_wu": 8.286470983875915e-05,
+      "repeat_max_wu": 8.264476491604e-05,
+      "treatment_max_wu": 0.0008359209750778973
+    },
+    {
+      "frame": 13,
+      "repeat_rms_wu": 1.151700780610554e-05,
+      "treatment_rms_wu": 9.114611748373136e-05,
+      "repeat_max_wu": 9.250188304577023e-05,
+      "treatment_max_wu": 0.0009256487246602774
+    },
+    {
+      "frame": 14,
+      "repeat_rms_wu": 1.2455569049052428e-05,
+      "treatment_rms_wu": 9.888458589557558e-05,
+      "repeat_max_wu": 0.00010263861622661352,
+      "treatment_max_wu": 0.0010115306358784437
+    },
+    {
+      "frame": 15,
+      "repeat_rms_wu": 1.33093235490378e-05,
+      "treatment_rms_wu": 0.0001059416463249363,
+      "repeat_max_wu": 0.00011264344357186928,
+      "treatment_max_wu": 0.0010926466202363372
+    },
+    {
+      "frame": 16,
+      "repeat_rms_wu": 1.4065361028769985e-05,
+      "treatment_rms_wu": 0.00011218811414437369,
+      "repeat_max_wu": 0.00012232930748723447,
+      "treatment_max_wu": 0.0011792461154982448
+    },
+    {
+      "frame": 17,
+      "repeat_rms_wu": 1.4713748896610923e-05,
+      "treatment_rms_wu": 0.00011750623525585979,
+      "repeat_max_wu": 0.00013146961282473058,
+      "treatment_max_wu": 0.0012622788781300187
+    },
+    {
+      "frame": 18,
+      "repeat_rms_wu": 1.5248007002810482e-05,
+      "treatment_rms_wu": 0.00012179272016510367,
+      "repeat_max_wu": 0.00013991705782245845,
+      "treatment_max_wu": 0.0013396111316978931
+    },
+    {
+      "frame": 19,
+      "repeat_rms_wu": 1.5665184037061408e-05,
+      "treatment_rms_wu": 0.00012496227282099426,
+      "repeat_max_wu": 0.00014776780153624713,
+      "treatment_max_wu": 0.0014098451938480139
+    },
+    {
+      "frame": 20,
+      "repeat_rms_wu": 1.596765469003003e-05,
+      "treatment_rms_wu": 0.00012695322220679373,
+      "repeat_max_wu": 0.00015466345939785242,
+      "treatment_max_wu": 0.0014717086451128125
+    },
+    {
+      "frame": 21,
+      "repeat_rms_wu": 2.0110288460273296e-05,
+      "treatment_rms_wu": 0.0001284525787923485,
+      "repeat_max_wu": 0.0023943129926919937,
+      "treatment_max_wu": 0.0033376484643667936
+    },
+    {
+      "frame": 22,
+      "repeat_rms_wu": 3.376211680006236e-05,
+      "treatment_rms_wu": 0.00013305473839864135,
+      "repeat_max_wu": 0.004752297420054674,
+      "treatment_max_wu": 0.005302296951413155
+    },
+    {
+      "frame": 23,
+      "repeat_rms_wu": 5.569047061726451e-05,
+      "treatment_rms_wu": 0.0001444570953026414,
+      "repeat_max_wu": 0.007043824065476656,
+      "treatment_max_wu": 0.007145506329834461
+    },
+    {
+      "frame": 24,
+      "repeat_rms_wu": 8.3702958363574e-05,
+      "treatment_rms_wu": 0.00016490364214405417,
+      "repeat_max_wu": 0.009263954125344753,
+      "treatment_max_wu": 0.008873360231518745
+    },
+    {
+      "frame": 25,
+      "repeat_rms_wu": 0.0001163551933132112,
+      "treatment_rms_wu": 0.00019426635117270052,
+      "repeat_max_wu": 0.011412162333726883,
+      "treatment_max_wu": 0.010492753237485886
+    },
+    {
+      "frame": 26,
+      "repeat_rms_wu": 0.00015254219761118293,
+      "treatment_rms_wu": 0.00023084580607246608,
+      "repeat_max_wu": 0.013490664772689342,
+      "treatment_max_wu": 0.012285957112908363
+    },
+    {
+      "frame": 27,
+      "repeat_rms_wu": 0.0001913051528390497,
+      "treatment_rms_wu": 0.0002725140657275915,
+      "repeat_max_wu": 0.015502925962209702,
+      "treatment_max_wu": 0.014245073311030865
+    },
+    {
+      "frame": 28,
+      "repeat_rms_wu": 0.00023176285321824253,
+      "treatment_rms_wu": 0.00031728550675325096,
+      "repeat_max_wu": 0.017452729865908623,
+      "treatment_max_wu": 0.01616932451725006
+    },
+    {
+      "frame": 29,
+      "repeat_rms_wu": 0.00027308877906762064,
+      "treatment_rms_wu": 0.0003634458116721362,
+      "repeat_max_wu": 0.0193434227257967,
+      "treatment_max_wu": 0.018058814108371735
+    },
+    {
+      "frame": 30,
+      "repeat_rms_wu": 0.00031450047390535474,
+      "treatment_rms_wu": 0.0004095220356248319,
+      "repeat_max_wu": 0.021178113296628,
+      "treatment_max_wu": 0.019914524629712105
+    },
+    {
+      "frame": 31,
+      "repeat_rms_wu": 0.0003552591660991311,
+      "treatment_rms_wu": 0.00045423771371133626,
+      "repeat_max_wu": 0.0229583028703928,
+      "treatment_max_wu": 0.021738087758421898
+    },
+    {
+      "frame": 32,
+      "repeat_rms_wu": 0.00039466744055971503,
+      "treatment_rms_wu": 0.0004964750842191279,
+      "repeat_max_wu": 0.024684829637408257,
+      "treatment_max_wu": 0.023531420156359673
+    },
+    {
+      "frame": 33,
+      "repeat_rms_wu": 0.00043207238195464015,
+      "treatment_rms_wu": 0.0005352587322704494,
+      "repeat_max_wu": 0.02635696902871132,
+      "treatment_max_wu": 0.02529699169099331
+    },
+    {
+      "frame": 34,
+      "repeat_rms_wu": 0.00046687270514667034,
+      "treatment_rms_wu": 0.0005697525921277702,
+      "repeat_max_wu": 0.027972880750894547,
+      "treatment_max_wu": 0.02703787386417389
+    },
+    {
+      "frame": 35,
+      "repeat_rms_wu": 0.0004985260311514139,
+      "treatment_rms_wu": 0.0005992737715132535,
+      "repeat_max_wu": 0.02952941507101059,
+      "treatment_max_wu": 0.028757132589817047
+    },
+    {
+      "frame": 36,
+      "repeat_rms_wu": 0.000526560063008219,
+      "treatment_rms_wu": 0.0006233231979422271,
+      "repeat_max_wu": 0.03102235123515129,
+      "treatment_max_wu": 0.030458291992545128
+    },
+    {
+      "frame": 37,
+      "repeat_rms_wu": 0.0005505906301550567,
+      "treatment_rms_wu": 0.0006416273536160588,
+      "repeat_max_wu": 0.03244645148515701,
+      "treatment_max_wu": 0.0321454182267189
+    },
+    {
+      "frame": 38,
+      "repeat_rms_wu": 0.0005703401402570307,
+      "treatment_rms_wu": 0.0006542126066051424,
+      "repeat_max_wu": 0.033795371651649475,
+      "treatment_max_wu": 0.03382376208901405
+    },
+    {
+      "frame": 39,
+      "repeat_rms_wu": 0.000585668720304966,
+      "treatment_rms_wu": 0.0006615045131184161,
+      "repeat_max_wu": 0.03506333380937576,
+      "treatment_max_wu": 0.03549892082810402
+    },
+    {
+      "frame": 40,
+      "repeat_rms_wu": 0.00059660425176844,
+      "treatment_rms_wu": 0.0006644533714279532,
+      "repeat_max_wu": 0.03624657914042473,
+      "treatment_max_wu": 0.0371800996363163
+    }
+  ],
+  "probe_sha256": "c53a4b42fbcfa75699f6ef7d25be45c679b3ae6a3b371312084db2976a8e4180",
+  "metadata_sha256": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw24a": "3860aed6a1e01574f4000e6bae6bc898cbd85c86661cf7e68c285a0f5a28781e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw_repeat24": "5913bea523e5280509d283e958e5c04be9b6ffd5d3e25c9c7fd3fe988f8f967b",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw_no_pin24_schema": "691ce7179091fa4e7e249b74b6eb431331882c29a3e4ea15c46469136e2562fe"
+  }
+}

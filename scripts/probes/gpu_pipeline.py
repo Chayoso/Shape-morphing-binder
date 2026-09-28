@@ -35,6 +35,7 @@ def main():
     parser.add_argument('--taper-sp', type=float, default=None, help='Existing stress taper with the mixed body controller')
     parser.add_argument('--motion-accounting', action='store_true', help='Read-only accepted hybrid displacement decomposition')
     parser.add_argument('--no-commit-pic', action='store_true', help='Ablate the existing endpoint PIC correction only')
+    parser.add_argument('--no-settle-pin', action='store_true', help='Disable pin admission from the initial source')
     parser.add_argument('--outer-render-committed', action='store_true', help='Fixed-target promoted-state outer render gate')
     parser.add_argument('--render-paced-arrived', action='store_true', help='Accepted full-plan all-arrival render handoff')
     parser.add_argument('--commit-pic-objective', action='store_true', help='Shared inner/committed XPIC endpoint')
@@ -47,7 +48,10 @@ def main():
                         help='Enable P302; zero measures the new loss without adding it to the objective')
     parser.add_argument('--surface-gs-detail-res', type=int, default=2160)
     parser.add_argument('--surface-gs-views', type=int, default=4)
+    parser.add_argument('--surface-gs-raster', choices=('legacy', 'continuous'), default='legacy')
     args = parser.parse_args()
+    if args.no_commit_pic and args.commit_pic_objective:
+        parser.error('--no-commit-pic and --commit-pic-objective are mutually exclusive')
     if args.trace_seconds:
         faulthandler.dump_traceback_later(args.trace_seconds, repeat=True)
     wp.init()
@@ -87,6 +91,9 @@ def main():
         config['motion_accounting'] = True
     if args.no_commit_pic:
         config['commit_pic'] = False
+        config['commit_pic_objective'] = False
+    if args.no_settle_pin:
+        config['settle_pin'] = False
     if args.outer_render_committed:
         config['outer_render_committed'] = True
     if args.render_paced_arrived:
@@ -104,7 +111,8 @@ def main():
         config['ctrl_taper_sp'] = args.taper_sp
     if args.surface_gs_weight is not None:
         config.update(surface_gs_loss=True, surface_gs_weight=args.surface_gs_weight,
-                      surface_gs_detail_res=args.surface_gs_detail_res, surface_gs_views=args.surface_gs_views)
+                      surface_gs_detail_res=args.surface_gs_detail_res, surface_gs_views=args.surface_gs_views,
+                      surface_gs_raster=args.surface_gs_raster)
     cfg = PipelineConfig(**config)
     prm = MPMParams(**metadata['provenance']['mpm'])
     start = time.monotonic()
@@ -134,8 +142,16 @@ def main():
                   torch_peak_bytes=torch.cuda.max_memory_allocated())
     if args.archive:
         ids = sorted({0, len(result['frames'])-1} | {int(r['frame_end'])-1 for r in result['history'] if r.get('frame_end')})
+        pins, pin_at = result['pinned'], result['pinned_at']
+        if pins is None and pin_at is None:
+            pins = np.zeros(len(src), dtype=bool)
+            pin_at = np.full(len(src), -1, dtype=np.int64)
+        elif pins is None or pin_at is None:
+            raise ValueError('Incomplete pin archive state')
+        if pins.shape != (len(src),) or pin_at.shape != (len(src),):
+            raise ValueError('Invalid pin archive layout')
         np.savez(str(out)+'_render_full_dt_iso_nn.npz', src=src, tgt=tgt, frames=np.stack(result['frames']),
-                 deliver_n=result['deliver_n'], pinned=result['pinned'], pinned_at=result['pinned_at'],
+                 deliver_n=result['deliver_n'], pinned=pins, pinned_at=pin_at,
                  Fp=result['Fp'], F_samples=np.stack([result['F_frames'][i] for i in ids]), F_sample_idx=ids)
         record['provenance'] = dict(source_archive=str(prefix), mpm=dataclasses.asdict(prm), code_hash=digest,
                                     compute_backend=args.backend)

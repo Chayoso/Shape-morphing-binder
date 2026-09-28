@@ -413,3 +413,31 @@ def test_new_motion_rms_is_optional_and_not_mean_or_signed_mean(probe):
     assert updated['rms'] == pytest.approx(np.sqrt(12.5))
     assert {k: updated[k] for k in legacy} == legacy
     assert probe.stats(values[:0], include_rms=True) is None
+def test_current_adjoint_pic_off_requires_exact_pair():
+    from scripts.probes import quality_compare as probe
+    baseline = dict(commit_pic=True, commit_pic_objective=True, stop_after_windows=24,
+                    T=20, iters=8, loss_res=36, shift_sub=False,
+                    outer_render_committed=True, motion_accounting=True, lambda_auto=.5)
+    candidate = dict(baseline, commit_pic=False, commit_pic_objective=False)
+    mode = 'shared_pic_off_prefix'
+    assert set(probe.checked_config_changes(baseline, candidate, mode)) == {'commit_pic', 'commit_pic_objective'}
+    for key, value in [('shift_sub', True), ('surface_gs_loss', True), ('motion_accounting', False),
+                       ('geometric_variance', True), ('stop_after_windows', 8), ('settle_pin_follow', True),
+                       ('lambda_auto', float('inf')), ('render_until', 12)]:
+        with pytest.raises(ValueError):
+            probe.checked_config_changes(dict(baseline, **{key: value}), dict(candidate, **{key: value}), mode)
+    with pytest.raises(ValueError):
+        probe.checked_config_changes(baseline, dict(candidate, lambda_auto=0.), mode)
+
+
+def test_pin_admission_diagnostic_excludes_other_freezing_routes(probe):
+    baseline = dict(commit_pic=False, commit_pic_objective=False, settle_pin=True, stop_after_windows=24,
+                    T=20, iters=8, loss_res=36, shift_sub=False, render_until=0,
+                    outer_render_committed=True, motion_accounting=True, lambda_auto=.5)
+    candidate = dict(baseline, settle_pin=False)
+    mode = 'pin_admission_off_prefix'
+    assert probe.checked_config_changes(baseline, candidate, mode) == {'settle_pin': [True, False]}
+    for key, value in [('freeze_arrived', True), ('settle_eta', True), ('commit_pic', True),
+                       ('motion_accounting', False), ('render_until', 10)]:
+        with pytest.raises(ValueError):
+            probe.checked_config_changes(dict(baseline, **{key: value}), dict(candidate, **{key: value}), mode)

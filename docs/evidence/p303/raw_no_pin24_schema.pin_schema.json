@@ -1,0 +1,37 @@
+{
+  "scope": "optional pin schema reconstructed from disabled policy; no simulated state changed",
+  "source": "work/p303/raw_no_pin24",
+  "target": "work/p303/raw_no_pin24_schema",
+  "N": 300000,
+  "replaced": [
+    "pinned.npy",
+    "pinned_at.npy"
+  ],
+  "original_members": {
+    "src.npy": "c8a674896c5413bbdad2119de0fe9f0374dce0e8bc7a96b11293a6ea995e5322",
+    "tgt.npy": "a7185c09666490f8c58ca281967e9628c7f0d4a0ccf8cace08f41020da7c31f8",
+    "frames.npy": "fae6457aa072ac8ee36250e736cd77d1d36654367b88a701c1be6504c0d016df",
+    "deliver_n.npy": "9ee1123de4c6eb45a3369cb54c42ee4bb02167fead2b409418463e8278c7df2e",
+    "pinned.npy": "f71ad5181b54295a708f4e1a7c57610379617e7a9cfc8e848ceb8e7d07fac68a",
+    "pinned_at.npy": "f71ad5181b54295a708f4e1a7c57610379617e7a9cfc8e848ceb8e7d07fac68a",
+    "Fp.npy": "17e48ef80c76dab5aa38dab146d828053d4b2b599b65e7af3c683234cdd31b80",
+    "F_samples.npy": "826c986f5148c1d67f2d97d239c7100e5d33b7bbe958f808d922ee89dd546a9d",
+    "F_sample_idx.npy": "c15812fd605a29e5f306e8e4a0f554a0524b656b2d85ace790c3ff2e144d28a7"
+  },
+  "normalized_members": {
+    "src.npy": "c8a674896c5413bbdad2119de0fe9f0374dce0e8bc7a96b11293a6ea995e5322",
+    "tgt.npy": "a7185c09666490f8c58ca281967e9628c7f0d4a0ccf8cace08f41020da7c31f8",
+    "frames.npy": "fae6457aa072ac8ee36250e736cd77d1d36654367b88a701c1be6504c0d016df",
+    "deliver_n.npy": "9ee1123de4c6eb45a3369cb54c42ee4bb02167fead2b409418463e8278c7df2e",
+    "pinned.npy": "612d6617dc9fe1d6879257ee3f5b9c901f369394dab129ec00382ebda92a952e",
+    "pinned_at.npy": "c3b004dabed95702a63a079b677c6e2bf5e7b144bec93896a402ec28397a921f",
+    "Fp.npy": "17e48ef80c76dab5aa38dab146d828053d4b2b599b65e7af3c683234cdd31b80",
+    "F_samples.npy": "826c986f5148c1d67f2d97d239c7100e5d33b7bbe958f808d922ee89dd546a9d",
+    "F_sample_idx.npy": "c15812fd605a29e5f306e8e4a0f554a0524b656b2d85ace790c3ff2e144d28a7"
+  },
+  "original_metadata_sha256": "691ce7179091fa4e7e249b74b6eb431331882c29a3e4ea15c46469136e2562fe",
+  "script_sha256": "a00e3dfe313f2070b98d78fe9b48402080bcc235628c38d256f504596e04e777",
+  "original_archive_sha256": "1adcacef60fcbaaa05d6a85f5f687d972af32ee333b0fc3bd7b7faa0f88c940d",
+  "normalized_archive_sha256": "c242aaee1cfd2b266d6b810f355a408a9359ee4a5136dcd6f368a58a33b97d22",
+  "pin_motion_interpretation": "zero checked IDs; vacuous pin test, not stationary material"
+}

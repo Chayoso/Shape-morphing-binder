@@ -1,0 +1,2298 @@
+{
+  "backend": "continuous",
+  "scope": "in-frustum operator only; no physical-quality claim",
+  "loaded_files": {
+    "physmorph.render.studio": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code4/physmorph/render/studio.py",
+      "sha256": "c7dcaa57356977d966d4e09567e323aff74db5d5559e9bcaf500238ce198632d"
+    },
+    "physmorph.render.surface_gaussians": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code4/physmorph/render/surface_gaussians.py",
+      "sha256": "c63de551421c73a996d9e51149f214aca06ad00be3102429920aee5aee1cefef"
+    },
+    "physmorph.render.covariance_torch": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code4/physmorph/render/covariance_torch.py",
+      "sha256": "30ef0c11fa2841389aaac4207f3e1b5ac36ba2e07231279e9fcefab0745bc764"
+    },
+    "stream_adapter": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code4/physmorph/render/stream_adapter.py",
+      "sha256": "ff4e83f7f6490c3b155ebee0efa526a55ccdf3b9e8f312162bb57602b8ed40dd"
+    },
+    "raster_python": {
+      "path": "/data/relcfd/chayo/physmorph_v2/deps/continuous_raster2/physmorph_diff_gauss/__init__.py",
+      "sha256": "32cc79aaa0d43391d76637c5ebaecb05944b31296d0c548f894c8ad7f6f1d5cb"
+    },
+    "raster_binary": {
+      "path": "/data/relcfd/chayo/physmorph_v2/deps/continuous_raster2/physmorph_diff_gauss/_C.cpython-310-x86_64-linux-gnu.so",
+      "sha256": "099798aae655aa536c98c5bd7c65fe35c69e06ae1d0928d93f21da1371d1abf9"
+    },
+    "probe": {
+      "path": "scripts/probes/raster_cutoff_audit.py",
+      "sha256": "0315403dfdaddf2157921f9a2e78f5d3f89ff49e7de611f1580cd0334b1a48cf"
+    },
+    "build_receipt": {
+      "path": "/data/relcfd/chayo/physmorph_v2/deps/continuous_raster2/physmorph_build.json",
+      "sha256": "36403cd8ac1163f61764a3b7dbcb66e74d22a34c97bb1c6d1f34a0a9a73cd026"
+    }
+  },
+  "torch_version": "2.8.0+cu128",
+  "cuda_version": "12.8",
+  "probe_sha256": "0315403dfdaddf2157921f9a2e78f5d3f89ff49e7de611f1580cd0334b1a48cf",
+  "results": [
+    {
+      "population": "single",
+      "motion": "mean",
+      "weights": "uniform",
+      "methods": {
+        "cuda": {
+          "value": 0.0006108313100412488,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 4.8370566219091415e-06,
+              "analytic": 4.913755219604354e-06,
+              "relative": 0.015608957968652248,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 4.889443516731262e-06,
+              "analytic": 4.913755219604354e-06,
+              "relative": 0.0049476828426122665,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 4.889443061983911e-06,
+              "analytic": 4.913755219604354e-06,
+              "relative": 0.004947775509208441,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 5.141676410858054e-06,
+              "analytic": 4.913755219604354e-06,
+              "relative": 0.04638431966304779,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.0006542340738071609,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 4.838694088265226e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 0.01527915076964753,
+              "raw_threshold_mask_flips": 2,
+              "applied_mask_flips": 2
+            },
+            {
+              "step": 0.003,
+              "fd": 2.2620031802831307e-05,
+              "analytic": 4.913772356954866e-06,
+              "relative": 3.60339432916857,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 4.9137722676591625e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 1.817253562919231e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 4.9137723487213455e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 1.6756006664942067e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.0006542340738071609,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 4.913763424640614e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 1.817811978797084e-06,
+              "raw_threshold_mask_flips": 2,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 4.91377155307958e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 1.6359636282784733e-07,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 4.9137722676591625e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 1.817253562919231e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 4.9137723487213455e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 1.6756006664942067e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.000610831296029383,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 4.838694088270647e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 0.015279150768544301,
+              "raw_threshold_mask_flips": 2,
+              "applied_mask_flips": 2
+            },
+            {
+              "step": 0.003,
+              "fd": 4.890138919740166e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 0.004809632090760122,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 4.9137722676591625e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 1.817253562919231e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 4.9137723489020455e-06,
+              "analytic": 4.913772356954866e-06,
+              "relative": 1.6388264599152549e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "single",
+      "motion": "mean",
+      "weights": "ramp",
+      "methods": {
+        "cuda": {
+          "value": 0.0003658715868368745,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 1.0870280675590038e-06,
+              "analytic": 1.1341767276462633e-06,
+              "relative": 0.04157082363963127,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 1.1156469099660171e-06,
+              "analytic": 1.1341767276462633e-06,
+              "relative": 0.01633768156170845,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 1.1204973588974099e-06,
+              "analytic": 1.1341767276462633e-06,
+              "relative": 0.01206105574965477,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 1.1641532182693481e-06,
+              "analytic": 1.1341767276462633e-06,
+              "relative": 0.026430176571011543,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.0003918755273177407,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 9.57258719581672e-07,
+              "analytic": 1.134178821832631e-06,
+              "relative": 0.1559896013267888,
+              "raw_threshold_mask_flips": 2,
+              "applied_mask_flips": 2
+            },
+            {
+              "step": 0.003,
+              "fd": 1.1230218941794042e-05,
+              "analytic": 1.134178821832631e-06,
+              "relative": 8.90162990669144,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 1.134178790679818e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 2.7467285060473707e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 1.1341788189323198e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 2.5571905162231795e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.0003918755273177407,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 1.1341757030563452e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 2.749810017470469e-06,
+              "raw_threshold_mask_flips": 2,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 1.134178541168758e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 2.4745998394436874e-07,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 1.134178790679818e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 2.7467285060473707e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 1.1341788189323198e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 2.5571905162231795e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.000365871572981166,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 1.0907543122732656e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 0.03828718075444152,
+              "raw_threshold_mask_flips": 2,
+              "applied_mask_flips": 2
+            },
+            {
+              "step": 0.003,
+              "fd": 1.120703305990484e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 0.011881297360475294,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 1.134178790652713e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 2.7491183456203174e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 1.1341788189323198e-06,
+              "analytic": 1.134178821832631e-06,
+              "relative": 2.5571905162231795e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "single",
+      "motion": "scale",
+      "weights": "uniform",
+      "methods": {
+        "cuda": {
+          "value": 0.0006108313100412488,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.00011985248420387506,
+              "analytic": 0.00011987116886302829,
+              "relative": 0.00015587283996865153,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 0.00011986897879978642,
+              "analytic": 0.00011987116886302829,
+              "relative": 1.8270142390974797e-05,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 0.00011987867037532851,
+              "analytic": 0.00011987116886302829,
+              "relative": 6.257979111978784e-05,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.00011971375352004543,
+              "analytic": 0.00011987116886302829,
+              "relative": 0.0013132044114172459,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.0006542340738071609,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0001411210789036986,
+              "analytic": 0.00011987119409538994,
+              "relative": 0.17727265477474616,
+              "raw_threshold_mask_flips": 4,
+              "applied_mask_flips": 4
+            },
+            {
+              "step": 0.003,
+              "fd": 0.00013759638922550044,
+              "analytic": 0.00011987119409538994,
+              "relative": 0.14786867907568615,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 0.00011987119348885354,
+              "analytic": 0.00011987119409538994,
+              "relative": 5.059901213136867e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.00011987119404094736,
+              "analytic": 0.00011987119409538994,
+              "relative": 4.5417563021237185e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.0006542340738071609,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0001198711334448807,
+              "analytic": 0.00011987119409538994,
+              "relative": 5.059640031959893e-07,
+              "raw_threshold_mask_flips": 4,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 0.00011987118863679583,
+              "analytic": 0.00011987119409538994,
+              "relative": 4.5537163023308965e-08,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 0.00011987119348885354,
+              "analytic": 0.00011987119409538994,
+              "relative": 5.059901213136867e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.00011987119404094736,
+              "analytic": 0.00011987119409538994,
+              "relative": 4.5417563021237185e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.000610831296029383,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.00011984520744399464,
+              "analytic": 0.00011987119409538994,
+              "relative": 0.0002167881248819257,
+              "raw_threshold_mask_flips": 4,
+              "applied_mask_flips": 4
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0001198664963424093,
+              "analytic": 0.00011987119409538994,
+              "relative": 3.9190007374874714e-05,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 0.00011987119348879933,
+              "analytic": 0.00011987119409538994,
+              "relative": 5.060353449464646e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.00011987119404094736,
+              "analytic": 0.00011987119409538994,
+              "relative": 4.5417563021237185e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "single",
+      "motion": "scale",
+      "weights": "ramp",
+      "methods": {
+        "cuda": {
+          "value": 0.0003658715868368745,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 7.17933289706707e-05,
+              "analytic": 7.180534885264933e-05,
+              "relative": 0.0001673953520366922,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 7.1794303948991e-05,
+              "analytic": 7.180534885264933e-05,
+              "relative": 0.00015381728007923812,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 7.178459054557607e-05,
+              "analytic": 7.180534885264933e-05,
+              "relative": 0.0002890913747251034,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 7.174094207584858e-05,
+              "analytic": 7.180534885264933e-05,
+              "relative": 0.0008969635237008333,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.0003918755273177407,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 8.430512696607092e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 0.1740783606059618,
+              "raw_threshold_mask_flips": 4,
+              "applied_mask_flips": 4
+            },
+            {
+              "step": 0.003,
+              "fd": 8.191220332437104e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 0.14075322407621155,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 7.180536612224134e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 5.05970340943653e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 7.180536645286879e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 4.5520838794025207e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.0003918755273177407,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 7.180533016303372e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 5.058468921219521e-07,
+              "raw_threshold_mask_flips": 4,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 7.180536321650723e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 4.5526513254708156e-08,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 7.180536612224134e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 5.05970340943653e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 7.180536645286879e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 4.5520838794025207e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.000365871572981166,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 7.178990825523182e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 0.00021527959649762942,
+              "raw_threshold_mask_flips": 4,
+              "applied_mask_flips": 4
+            },
+            {
+              "step": 0.003,
+              "fd": 7.180268768857651e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 3.730636176371364e-05,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 7.180536612226844e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 5.05932592992993e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 7.180536645286879e-05,
+              "analytic": 7.18053664855552e-05,
+              "relative": 4.5520838794025207e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "single",
+      "motion": "joint",
+      "weights": "uniform",
+      "methods": {
+        "cuda": {
+          "value": 0.0006108313100412488,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.00012469827197492123,
+              "analytic": 0.00012478491407819092,
+              "relative": 0.0006943315383978188,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 0.00012470991350710392,
+              "analytic": 0.00012478491407819092,
+              "relative": 0.0006010387442074716,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 0.00012482631427701563,
+              "analytic": 0.00012478491407819092,
+              "relative": 0.0003317724622320384,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.00012495243572629988,
+              "analytic": 0.00012478491407819092,
+              "relative": 0.0013424832141026855,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.0006542340738071609,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.00014065759689126664,
+              "analytic": 0.0001247849664523448,
+              "relative": 0.12719986141105857,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 3
+            },
+            {
+              "step": 0.003,
+              "fd": 0.00014244795544367567,
+              "analytic": 0.0001247849664523448,
+              "relative": 0.14154741146704042,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0001247849634220628,
+              "analytic": 0.0001247849664523448,
+              "relative": 2.4284031039851753e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0001247849661793335,
+              "analytic": 0.0001247849664523448,
+              "relative": 2.187854061326566e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.0006542340738071609,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.00012478466343505815,
+              "analytic": 0.0001247849664523448,
+              "relative": 2.428315647723313e-06,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0001247849391807478,
+              "analytic": 0.0001247849664523448,
+              "relative": 2.1854873833671972e-07,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0001247849634220628,
+              "analytic": 0.0001247849664523448,
+              "relative": 2.4284031039851753e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0001247849661793335,
+              "analytic": 0.0001247849664523448,
+              "relative": 2.187854061326566e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.000610831296029383,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.00012470069329650088,
+              "analytic": 0.0001247849664523448,
+              "relative": 0.000675347024884577,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 3
+            },
+            {
+              "step": 0.003,
+              "fd": 0.00012471806256062067,
+              "analytic": 0.0001247849664523448,
+              "relative": 0.0005361534616405065,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0001247849634220628,
+              "analytic": 0.0001247849664523448,
+              "relative": 2.4284031039851753e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0001247849661798756,
+              "analytic": 0.0001247849664523448,
+              "relative": 2.183509779305624e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "single",
+      "motion": "joint",
+      "weights": "ramp",
+      "methods": {
+        "cuda": {
+          "value": 0.0003658715868368745,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 7.288617780432105e-05,
+              "analytic": 7.293951784959063e-05,
+              "relative": 0.0007312914240173995,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 7.290024950634688e-05,
+              "analytic": 7.293951784959063e-05,
+              "relative": 0.0005383685347624123,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 7.294874376384541e-05,
+              "analytic": 7.293951784959063e-05,
+              "relative": 0.00012648718256969005,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 7.30506144464016e-05,
+              "analytic": 7.293951784959063e-05,
+              "relative": 0.00152313313446939,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.0003918755273177407,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 8.223828462056246e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 0.12748556731450855,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 3
+            },
+            {
+              "step": 0.003,
+              "fd": 8.30109121993545e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 0.13807827906690517,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 7.29395435344123e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 2.4307466094840235e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 7.293954514784066e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 2.18738910326387e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.0003918755273177407,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 7.293936801457059e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 2.430681689798676e-06,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 7.293952935101501e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 2.1876161624632485e-07,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 7.29395435344123e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 2.4307466094840235e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 7.293954514784066e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 2.18738910326387e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.000365871572981166,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 7.288941619315874e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 0.0006872693546118283,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 3
+            },
+            {
+              "step": 0.003,
+              "fd": 7.290139656355094e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 0.0005230186680779846,
+              "raw_threshold_mask_flips": 1,
+              "applied_mask_flips": 1
+            },
+            {
+              "step": 0.001,
+              "fd": 7.293954353443941e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 2.4307094484978972e-08,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 7.293954514775032e-05,
+              "analytic": 7.293954530738783e-05,
+              "relative": 2.188627678931454e-09,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "single",
+      "forward_dense_max": 1.0562218732967921e-07
+    },
+    {
+      "population": "p302_48",
+      "motion": "mean",
+      "weights": "uniform",
+      "methods": {
+        "cuda": {
+          "value": 0.018092622980475426,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": -0.0003327615559101105,
+              "analytic": -0.0003262484387960285,
+              "relative": 0.019963672384619713,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": -0.0003275151248089969,
+              "analytic": -0.0003262484387960285,
+              "relative": 0.0038825811352580786,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": -0.0003268941945862025,
+              "analytic": -0.0003262484387960285,
+              "relative": 0.00197933753952384,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": -0.0003259629011154175,
+              "analytic": -0.0003262484387960285,
+              "relative": 0.0008752154535613954,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.019298475157793153,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": -0.00029428823460023873,
+              "analytic": -0.00032435480218078236,
+              "relative": 0.09269653903192632,
+              "raw_threshold_mask_flips": 379,
+              "applied_mask_flips": 379
+            },
+            {
+              "step": 0.003,
+              "fd": -0.0002727438739950442,
+              "analytic": -0.00032435480218078236,
+              "relative": 0.1591187423116132,
+              "raw_threshold_mask_flips": 126,
+              "applied_mask_flips": 126
+            },
+            {
+              "step": 0.001,
+              "fd": -0.000258524666316845,
+              "analytic": -0.00032435480218078236,
+              "relative": 0.20295717967279014,
+              "raw_threshold_mask_flips": 43,
+              "applied_mask_flips": 43
+            },
+            {
+              "step": 0.0003,
+              "fd": -0.00065871085317785,
+              "analytic": -0.00032435480218078236,
+              "relative": 1.030834286247783,
+              "raw_threshold_mask_flips": 12,
+              "applied_mask_flips": 12
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.019298475157793153,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": -0.0003237776591539024,
+              "analytic": -0.00032435480218078236,
+              "relative": 0.0017793571206579522,
+              "raw_threshold_mask_flips": 379,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": -0.0003243029551153187,
+              "analytic": -0.00032435480218078236,
+              "relative": 0.00015984676383722063,
+              "raw_threshold_mask_flips": 126,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": -0.0003243490423344292,
+              "analytic": -0.00032435480218078236,
+              "relative": 1.775785748955754e-05,
+              "raw_threshold_mask_flips": 43,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": -0.00032435428380777254,
+              "analytic": -0.00032435480218078236,
+              "relative": 1.5981665951664613e-06,
+              "raw_threshold_mask_flips": 12,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.018092623263759513,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": -0.000332736539556365,
+              "analytic": -0.0003262474788522494,
+              "relative": 0.01988999494170608,
+              "raw_threshold_mask_flips": 379,
+              "applied_mask_flips": 379
+            },
+            {
+              "step": 0.003,
+              "fd": -0.0003275132639286628,
+              "analytic": -0.0003262474788522494,
+              "relative": 0.003879830982499803,
+              "raw_threshold_mask_flips": 126,
+              "applied_mask_flips": 126
+            },
+            {
+              "step": 0.001,
+              "fd": -0.0003257929764213102,
+              "analytic": -0.0003262474788522494,
+              "relative": 0.0013931216649953632,
+              "raw_threshold_mask_flips": 43,
+              "applied_mask_flips": 43
+            },
+            {
+              "step": 0.0003,
+              "fd": -0.0003257272148474618,
+              "analytic": -0.0003262474788522494,
+              "relative": 0.0015946912651031197,
+              "raw_threshold_mask_flips": 12,
+              "applied_mask_flips": 12
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "p302_48",
+      "motion": "mean",
+      "weights": "ramp",
+      "methods": {
+        "cuda": {
+          "value": 0.010470375418663025,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": -0.00012526288628578186,
+              "analytic": -0.00012125788634875789,
+              "relative": 0.033028777688741684,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": -0.0001220032645505853,
+              "analytic": -0.00012125788634875789,
+              "relative": 0.006147049367427826,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": -0.00012107192742405459,
+              "analytic": -0.00012125788634875789,
+              "relative": 0.0015335821080952883,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": -0.000119519725558348,
+              "analytic": -0.00012125788634875789,
+              "relative": 0.014334414154291153,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.011167805189027477,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": -9.685357573955417e-05,
+              "analytic": -0.00012024614810007569,
+              "relative": 0.1945390578420266,
+              "raw_threshold_mask_flips": 379,
+              "applied_mask_flips": 379
+            },
+            {
+              "step": 0.003,
+              "fd": -8.766692855046812e-05,
+              "analytic": -0.00012024614810007569,
+              "relative": 0.27093773949826055,
+              "raw_threshold_mask_flips": 126,
+              "applied_mask_flips": 126
+            },
+            {
+              "step": 0.001,
+              "fd": -7.889660126342984e-05,
+              "analytic": -0.00012024614810007569,
+              "relative": 0.34387419048327766,
+              "raw_threshold_mask_flips": 43,
+              "applied_mask_flips": 43
+            },
+            {
+              "step": 0.0003,
+              "fd": -0.0002721375826596206,
+              "analytic": -0.00012024614810007569,
+              "relative": 1.26317089536317,
+              "raw_threshold_mask_flips": 12,
+              "applied_mask_flips": 12
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.011167805189027477,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": -0.00011990054251944868,
+              "analytic": -0.00012024614810007569,
+              "relative": 0.0028741509485973524,
+              "raw_threshold_mask_flips": 379,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": -0.00012021509180678892,
+              "analytic": -0.00012024614810007569,
+              "relative": 0.00025827266633869395,
+              "raw_threshold_mask_flips": 126,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": -0.0001202426978741053,
+              "analytic": -0.00012024614810007569,
+              "relative": 2.8693026969300485e-05,
+              "raw_threshold_mask_flips": 43,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": -0.00012024583758684279,
+              "analytic": -0.00012024614810007569,
+              "relative": 2.582313344777681e-06,
+              "raw_threshold_mask_flips": 12,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.010470376236858635,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": -0.00012519633505190045,
+              "analytic": -0.00012125761113966248,
+              "relative": 0.03248228193858616,
+              "raw_threshold_mask_flips": 379,
+              "applied_mask_flips": 379
+            },
+            {
+              "step": 0.003,
+              "fd": -0.00012197039221962154,
+              "analytic": -0.00012125761113966248,
+              "relative": 0.005878237854596081,
+              "raw_threshold_mask_flips": 126,
+              "applied_mask_flips": 126
+            },
+            {
+              "step": 0.001,
+              "fd": -0.00012088033785051522,
+              "analytic": -0.00012125761113966248,
+              "relative": 0.0031113369758928333,
+              "raw_threshold_mask_flips": 43,
+              "applied_mask_flips": 43
+            },
+            {
+              "step": 0.0003,
+              "fd": -0.00012091876421445788,
+              "analytic": -0.00012125761113966248,
+              "relative": 0.0027944384028341673,
+              "raw_threshold_mask_flips": 12,
+              "applied_mask_flips": 12
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "p302_48",
+      "motion": "scale",
+      "weights": "uniform",
+      "methods": {
+        "cuda": {
+          "value": 0.018092622980475426,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.003285706043243408,
+              "analytic": 0.003285726998001337,
+              "relative": 6.3775105445529334e-06,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 0.003285706043243408,
+              "analytic": 0.003285726998001337,
+              "relative": 6.3775105445529334e-06,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 0.00328663713298738,
+              "analytic": 0.003285726998001337,
+              "relative": 0.0002769965212792158,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0032844641245901585,
+              "analytic": 0.003285726998001337,
+              "relative": 0.0003843512968160212,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.019298475157793153,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0035013180196833554,
+              "analytic": 0.00326139899496362,
+              "relative": 0.07356322396929281,
+              "raw_threshold_mask_flips": 52,
+              "applied_mask_flips": 52
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0035337889471327476,
+              "analytic": 0.00326139899496362,
+              "relative": 0.08351935859113303,
+              "raw_threshold_mask_flips": 17,
+              "applied_mask_flips": 17
+            },
+            {
+              "step": 0.001,
+              "fd": 0.003405534397321261,
+              "analytic": 0.00326139899496362,
+              "relative": 0.04419434806358263,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 3
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.003261398993428348,
+              "analytic": 0.00326139899496362,
+              "relative": 4.707404232522897e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.019298475157793153,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0032613972893176524,
+              "analytic": 0.00326139899496362,
+              "relative": 5.229798532514244e-07,
+              "raw_threshold_mask_flips": 52,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 0.003261398841455006,
+              "analytic": 0.00326139899496362,
+              "relative": 4.706833309181747e-08,
+              "raw_threshold_mask_flips": 17,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 0.003261398977903729,
+              "analytic": 0.00326139899496362,
+              "relative": 5.2308507135815035e-09,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.003261398993428348,
+              "analytic": 0.00326139899496362,
+              "relative": 4.707404232522897e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.018092623263759513,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0032857136514937227,
+              "analytic": 0.0032857268619207597,
+              "relative": 4.020549361574164e-06,
+              "raw_threshold_mask_flips": 52,
+              "applied_mask_flips": 52
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0032857223255562903,
+              "analytic": 0.0032857268619207597,
+              "relative": 1.3806273801904557e-06,
+              "raw_threshold_mask_flips": 17,
+              "applied_mask_flips": 17
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0032857082281137484,
+              "analytic": 0.0032857268619207597,
+              "relative": 5.671136949097578e-06,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 3
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0032857268603773047,
+              "analytic": 0.0032857268619207597,
+              "relative": 4.697453862667335e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "p302_48",
+      "motion": "scale",
+      "weights": "ramp",
+      "methods": {
+        "cuda": {
+          "value": 0.010470375418663025,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0019002705812454224,
+              "analytic": 0.0019001851323992014,
+              "relative": 4.496869587455876e-05,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 0.001900363713502884,
+              "analytic": 0.0019001851323992014,
+              "relative": 9.398089605383575e-05,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 0.001900363597087562,
+              "analytic": 0.0019001851323992014,
+              "relative": 9.391963249072433e-05,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0018998980522155762,
+              "analytic": 0.0019001851323992014,
+              "relative": 0.000151080108480528,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.011167805189027477,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0020247892101283617,
+              "analytic": 0.001885972710313404,
+              "relative": 0.07360472347019781,
+              "raw_threshold_mask_flips": 52,
+              "applied_mask_flips": 52
+            },
+            {
+              "step": 0.003,
+              "fd": 0.002042442527563336,
+              "analytic": 0.001885972710313404,
+              "relative": 0.08296504843059496,
+              "raw_threshold_mask_flips": 17,
+              "applied_mask_flips": 17
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0019669569044315077,
+              "analytic": 0.001885972710313404,
+              "relative": 0.04294027886789834,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 3
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.001885972709424084,
+              "analytic": 0.001885972710313404,
+              "relative": 4.71544513727332e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.011167805189027477,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0018859717233469207,
+              "analytic": 0.001885972710313404,
+              "relative": 5.233195994670466e-07,
+              "raw_threshold_mask_flips": 52,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 0.001885972621486036,
+              "analytic": 0.001885972710313404,
+              "relative": 4.70989679321605e-08,
+              "raw_threshold_mask_flips": 17,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0018859727004428423,
+              "analytic": 0.001885972710313404,
+              "relative": 5.23367161103738e-09,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.001885972709424084,
+              "analytic": 0.001885972710313404,
+              "relative": 4.71544513727332e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.010470376236858635,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0019001739918849542,
+              "analytic": 0.00190018508879924,
+              "relative": 5.839912307131285e-06,
+              "raw_threshold_mask_flips": 52,
+              "applied_mask_flips": 52
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0019001815023889205,
+              "analytic": 0.00190018508879924,
+              "relative": 1.8874005172904595e-06,
+              "raw_threshold_mask_flips": 17,
+              "applied_mask_flips": 17
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0019001745783170723,
+              "analytic": 0.00190018508879924,
+              "relative": 5.5312938880096695e-06,
+              "raw_threshold_mask_flips": 3,
+              "applied_mask_flips": 3
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.00190018508790304,
+              "analytic": 0.00190018508879924,
+              "relative": 4.716382647017827e-10,
+              "raw_threshold_mask_flips": 0,
+              "applied_mask_flips": 0
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "p302_48",
+      "motion": "joint",
+      "weights": "uniform",
+      "methods": {
+        "cuda": {
+          "value": 0.018092622980475426,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0029539689421653748,
+              "analytic": 0.0029594786465168,
+              "relative": 0.0018617145251482725,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0029585014563053846,
+              "analytic": 0.0029594786465168,
+              "relative": 0.0003301899996586144,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 0.002959742909297347,
+              "analytic": 0.0029594786465168,
+              "relative": 8.929369505494833e-05,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.002958501223474741,
+              "analytic": 0.0029594786465168,
+              "relative": 0.00033026866731233895,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.019298475157793153,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.003227585320672577,
+              "analytic": 0.0029370441927828376,
+              "relative": 0.09892296772506261,
+              "raw_threshold_mask_flips": 383,
+              "applied_mask_flips": 383
+            },
+            {
+              "step": 0.003,
+              "fd": 0.003193296355729601,
+              "analytic": 0.0029370441927828376,
+              "relative": 0.08724831705850691,
+              "raw_threshold_mask_flips": 131,
+              "applied_mask_flips": 131
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0032344655307714465,
+              "analytic": 0.0029370441927828376,
+              "relative": 0.10126553039939223,
+              "raw_threshold_mask_flips": 44,
+              "applied_mask_flips": 44
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0029371898103691214,
+              "analytic": 0.0029370441927828376,
+              "relative": 4.957963746054384e-05,
+              "raw_threshold_mask_flips": 10,
+              "applied_mask_flips": 10
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.019298475157793153,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.002937109738812907,
+              "analytic": 0.0029370441927828376,
+              "relative": 2.2317005045536207e-05,
+              "raw_threshold_mask_flips": 383,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 0.002937050015233584,
+              "analytic": 0.0029370441927828376,
+              "relative": 1.982418501115451e-06,
+              "raw_threshold_mask_flips": 131,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0029370448389708093,
+              "analytic": 0.0029370441927828376,
+              "relative": 2.2001302302796705e-07,
+              "raw_threshold_mask_flips": 44,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.002937044250930776,
+              "analytic": 0.0029370441927828376,
+              "relative": 1.9798114863304936e-08,
+              "raw_threshold_mask_flips": 10,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.018092623263759513,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0029537468931370783,
+              "analytic": 0.00295947938306851,
+              "relative": 0.0019369926900751576,
+              "raw_threshold_mask_flips": 383,
+              "applied_mask_flips": 383
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0029583613697619035,
+              "analytic": 0.00295947938306851,
+              "relative": 0.00037777364255449597,
+              "raw_threshold_mask_flips": 131,
+              "applied_mask_flips": 131
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0029598654690456833,
+              "analytic": 0.00295947938306851,
+              "relative": 0.00013045739712934813,
+              "raw_threshold_mask_flips": 44,
+              "applied_mask_flips": 44
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0029601591467557273,
+              "analytic": 0.00295947938306851,
+              "relative": 0.00022969029320026808,
+              "raw_threshold_mask_flips": 10,
+              "applied_mask_flips": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "p302_48",
+      "motion": "joint",
+      "weights": "ramp",
+      "methods": {
+        "cuda": {
+          "value": 0.010470375418663025,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0017753802239894867,
+              "analytic": 0.0017789273988455534,
+              "relative": 0.001993996324017644,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0017783604562282562,
+              "analytic": 0.0017789273988455534,
+              "relative": 0.0003186991380061954,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0017788260011002421,
+              "analytic": 0.0017789273988455534,
+              "relative": 5.699937173631042e-05,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0017803782830014825,
+              "analytic": 0.0017789273988455534,
+              "relative": 0.0008155949180945754,
+              "raw_threshold_mask_flips": null,
+              "applied_mask_flips": null
+            }
+          ]
+        },
+        "dense_hard": {
+          "value": 0.011167805189027477,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0019450060323183797,
+              "analytic": 0.0017657265622133284,
+              "relative": 0.10153297455089846,
+              "raw_threshold_mask_flips": 383,
+              "applied_mask_flips": 383
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0019147918289477474,
+              "analytic": 0.0017657265622133284,
+              "relative": 0.08442148967140554,
+              "raw_threshold_mask_flips": 131,
+              "applied_mask_flips": 131
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0019475994987565998,
+              "analytic": 0.0017657265622133284,
+              "relative": 0.10300175601101828,
+              "raw_threshold_mask_flips": 44,
+              "applied_mask_flips": 44
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0018035873615545226,
+              "analytic": 0.0017657265622133284,
+              "relative": 0.021442051193779326,
+              "raw_threshold_mask_flips": 10,
+              "applied_mask_flips": 10
+            }
+          ]
+        },
+        "dense_frozen": {
+          "value": 0.011167805189027477,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0017657680559771648,
+              "analytic": 0.0017657265622133284,
+              "relative": 2.3499541052569744e-05,
+              "raw_threshold_mask_flips": 383,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.003,
+              "fd": 0.001765730260431623,
+              "analytic": 0.0017657265622133284,
+              "relative": 2.094445637097641e-06,
+              "raw_threshold_mask_flips": 131,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0017657269727718375,
+              "analytic": 0.0017657265622133284,
+              "relative": 2.3251533836023387e-07,
+              "raw_threshold_mask_flips": 44,
+              "applied_mask_flips": 0
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0017657265991618404,
+              "analytic": 0.0017657265622133284,
+              "relative": 2.0925387174348753e-08,
+              "raw_threshold_mask_flips": 10,
+              "applied_mask_flips": 0
+            }
+          ]
+        },
+        "dense_shifted": {
+          "value": 0.010470376236858635,
+          "derivatives": [
+            {
+              "step": 0.01,
+              "fd": 0.0017753716471941364,
+              "analytic": 0.0017789274776595775,
+              "relative": 0.0019988619604208425,
+              "raw_threshold_mask_flips": 383,
+              "applied_mask_flips": 383
+            },
+            {
+              "step": 0.003,
+              "fd": 0.0017783023288882199,
+              "analytic": 0.0017789274776595775,
+              "relative": 0.0003514189191006761,
+              "raw_threshold_mask_flips": 131,
+              "applied_mask_flips": 131
+            },
+            {
+              "step": 0.001,
+              "fd": 0.0017792583241671087,
+              "analytic": 0.0017789274776595775,
+              "relative": 0.00018598088549761328,
+              "raw_threshold_mask_flips": 44,
+              "applied_mask_flips": 44
+            },
+            {
+              "step": 0.0003,
+              "fd": 0.0017793561593072715,
+              "analytic": 0.0017789274776595775,
+              "relative": 0.0002409775851335014,
+              "raw_threshold_mask_flips": 10,
+              "applied_mask_flips": 10
+            }
+          ]
+        }
+      }
+    },
+    {
+      "population": "p302_48",
+      "forward_dense_max": 9.099201444540128e-07
+    }
+  ],
+  "boundary_and_stack": [
+    {
+      "case": "tile_15.25",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -6.578074476237816e-07,
+          "dense": -6.578052826547372e-07,
+          "fd": -6.9849187411819e-07,
+          "absolute_error": 2.164969044458258e-12,
+          "relative_error": 3.2912004533028157e-06
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.00010749913053587079,
+          "dense": 0.00010749915204663228,
+          "fd": 0.00010745133477030322,
+          "absolute_error": 2.1510761488013896e-11,
+          "relative_error": 2.0010168525499344e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 6.219429633347318e-05,
+          "dense": 6.219431020726941e-05,
+          "fd": 6.219487841008231e-05,
+          "absolute_error": 1.3873796236201288e-11,
+          "relative_error": 2.2307179209746566e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.0001976278581423685,
+          "dense": 0.00019762778469035026,
+          "fd": 0.00019758589041884989,
+          "absolute_error": 7.345201823074493e-11,
+          "relative_error": 3.7166847943892086e-07
+        }
+      ],
+      "forward_max_error": 1.0306070943877366e-07
+    },
+    {
+      "case": "tile_15.75",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -1.1890268751812982e-06,
+          "dense": -1.1890210053379372e-06,
+          "fd": -1.1932569350392441e-06,
+          "absolute_error": 5.869843361067486e-12,
+          "relative_error": 4.936702829231507e-06
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.00010885980736929923,
+          "dense": 0.00010885979091739135,
+          "fd": 0.00010884831863222644,
+          "absolute_error": 1.6451907883436624e-11,
+          "relative_error": 1.5112933567841606e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 6.26944238319993e-05,
+          "dense": 6.269443439599013e-05,
+          "fd": 6.271874735830352e-05,
+          "absolute_error": 1.056399083064919e-11,
+          "relative_error": 1.6849965921895057e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.0001991738099604845,
+          "dense": 0.00019917387273150485,
+          "fd": 0.00019921570492442697,
+          "absolute_error": 6.277102034229869e-11,
+          "relative_error": 3.1515690025727816e-07
+        }
+      ],
+      "forward_max_error": 8.573261964239798e-08
+    },
+    {
+      "case": "tile_16.01",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -1.4676242017230834e-06,
+          "dense": -1.4676180023884383e-06,
+          "fd": -1.4551914091498475e-06,
+          "absolute_error": 6.199334645076108e-12,
+          "relative_error": 4.2240791779517255e-06
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.00010946608381345868,
+          "dense": 0.00010946610055040181,
+          "fd": 0.00010945949907181785,
+          "absolute_error": 1.673694313025255e-11,
+          "relative_error": 1.5289612990778187e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 6.293920159805566e-05,
+          "dense": 6.293914973288496e-05,
+          "fd": 6.292247417150065e-05,
+          "absolute_error": 5.1865170700425046e-11,
+          "relative_error": 8.240526114595112e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.0001999531959882006,
+          "dense": 0.0001999532927135759,
+          "fd": 0.00019997240451630205,
+          "absolute_error": 9.672537529497975e-11,
+          "relative_error": 4.83739847352924e-07
+        }
+      ],
+      "forward_max_error": 1.2389642339849516e-07
+    },
+    {
+      "case": "tile_31.99",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -6.861668225610629e-06,
+          "dense": -6.861662112112592e-06,
+          "fd": -6.868503533041803e-06,
+          "absolute_error": 6.113498036360878e-12,
+          "relative_error": 8.909645996075771e-07
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.00013373912952374667,
+          "dense": 0.00013373916350743658,
+          "fd": 0.0001337029825663194,
+          "absolute_error": 3.398368991270641e-11,
+          "relative_error": 2.541042505534794e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 7.483173249056563e-05,
+          "dense": 7.483170346233415e-05,
+          "fd": 7.485504465876147e-05,
+          "absolute_error": 2.9028231478701177e-11,
+          "relative_error": 3.879135464731505e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.0002372884046053514,
+          "dense": 0.00023728847461908527,
+          "fd": 0.00023728351516183466,
+          "absolute_error": 7.001373387841882e-11,
+          "relative_error": 2.9505745692373197e-07
+        }
+      ],
+      "forward_max_error": 2.0308636758392673e-07
+    },
+    {
+      "case": "tile_32.01",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -6.869991466373904e-06,
+          "dense": -6.8699888309929714e-06,
+          "fd": -6.897607363498537e-06,
+          "absolute_error": 2.6353809322391666e-12,
+          "relative_error": 3.836077462528065e-07
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.0001337608409812674,
+          "dense": 0.00013376077870830738,
+          "fd": 0.00013373208639677614,
+          "absolute_error": 6.227296000908822e-11,
+          "relative_error": 4.655547060240064e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 7.484523666789755e-05,
+          "dense": 7.484527118250953e-05,
+          "fd": 7.485504465876147e-05,
+          "absolute_error": 3.451461198008404e-11,
+          "relative_error": 4.611461944726002e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.0002373324241489172,
+          "dense": 0.00023733252980570404,
+          "fd": 0.0002373126189922914,
+          "absolute_error": 1.0565678684065251e-10,
+          "relative_error": 4.4518459786001555e-07
+        }
+      ],
+      "forward_max_error": 9.576218362727928e-08
+    },
+    {
+      "case": "stack_8",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -9.671306906966493e-05,
+          "dense": -9.671310832718611e-05,
+          "fd": -9.685754048405215e-05,
+          "absolute_error": 3.9257521184028234e-11,
+          "relative_error": 4.0591727288112526e-07
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.0010452686110511422,
+          "dense": 0.0010452688876463113,
+          "fd": 0.001045176642946899,
+          "absolute_error": 2.7659516907765913e-10,
+          "relative_error": 2.646162842371435e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 0.0001632123749004677,
+          "dense": 0.00016321254802536642,
+          "fd": 0.00016321426664944738,
+          "absolute_error": 1.731248987213701e-10,
+          "relative_error": 1.0607327734045491e-06
+        },
+        {
+          "variable": "color",
+          "cuda": 0.0012511693639680743,
+          "dense": 0.0012511695165516624,
+          "fd": 0.0012509989319369197,
+          "absolute_error": 1.525835881255322e-10,
+          "relative_error": 1.2195276987411467e-07
+        }
+      ],
+      "forward_max_error": 1.223418726326031e-07
+    },
+    {
+      "case": "stack_64",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -0.00016711938951630145,
+          "dense": -0.0001671193821348931,
+          "fd": -0.00016717238759156317,
+          "absolute_error": 7.381408364311864e-12,
+          "relative_error": 4.4168475673000285e-08
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.0018160395557060838,
+          "dense": 0.0018160394503791005,
+          "fd": 0.0018156132427975535,
+          "absolute_error": 1.0532698324627887e-10,
+          "relative_error": 5.799818017405499e-08
+        },
+        {
+          "variable": "opacity",
+          "cuda": 0.000161515868967399,
+          "dense": 0.00016151592156865197,
+          "fd": 0.00016111879085656255,
+          "absolute_error": 5.260125297032285e-11,
+          "relative_error": 3.2567224617521567e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.002037186874076724,
+          "dense": 0.0020371877215794817,
+          "fd": 0.0020372678991407156,
+          "absolute_error": 8.475027576428096e-10,
+          "relative_error": 4.1601603458797597e-07
+        }
+      ],
+      "forward_max_error": 2.1937913197156433e-07
+    },
+    {
+      "case": "stack_256",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -0.00018939722212962806,
+          "dense": -0.00018939709726191467,
+          "fd": -0.00018952412938233465,
+          "absolute_error": 1.2486771339137448e-10,
+          "relative_error": 6.592905339974489e-07
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.002089009154587984,
+          "dense": 0.0020890076290315455,
+          "fd": 0.002088024979457259,
+          "absolute_error": 1.5255564385537046e-09,
+          "relative_error": 7.302780599518182e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 0.00015366030856966972,
+          "dense": 0.00015366017111017037,
+          "fd": 0.00015366821025963873,
+          "absolute_error": 1.3745949934947446e-10,
+          "relative_error": 8.94568178314207e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.002327457070350647,
+          "dense": 0.002327458274413874,
+          "fd": 0.0023269092198461294,
+          "absolute_error": 1.2040632271607954e-09,
+          "relative_error": 5.173296726292615e-07
+        }
+      ],
+      "forward_max_error": 5.578808695005932e-07
+    },
+    {
+      "case": "saturated",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": -3.605190067901276e-05,
+          "dense": -3.6051914611991135e-05,
+          "fd": -3.6088746128370985e-05,
+          "absolute_error": 1.3932978374015838e-11,
+          "relative_error": 3.8646985947818775e-07
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.00038936061901040375,
+          "dense": 0.00038936068413519684,
+          "fd": 0.00038929280708543956,
+          "absolute_error": 6.512479309083927e-11,
+          "relative_error": 1.6726083486186326e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 9.53011549427174e-05,
+          "dense": 9.530117423527803e-05,
+          "fd": 9.528593363938853e-05,
+          "absolute_error": 1.929256063172742e-11,
+          "relative_error": 2.0243780610822539e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.0006869931821711361,
+          "dense": 0.0006869932515000004,
+          "fd": 0.0006869667558930814,
+          "absolute_error": 6.93288642640566e-11,
+          "relative_error": 1.009163687018497e-07
+        }
+      ],
+      "forward_max_error": 9.787510046876946e-08
+    },
+    {
+      "case": "clipped_fov",
+      "derivatives": [
+        {
+          "variable": "mean_depth",
+          "cuda": 0.0002814572071656585,
+          "dense": 0.0002814565417533347,
+          "fd": 0.0002756714529823512,
+          "absolute_error": 6.654123237657961e-10,
+          "relative_error": 2.364174304212676e-06
+        },
+        {
+          "variable": "scale",
+          "cuda": 0.006290239281952381,
+          "dense": 0.006290237607578165,
+          "fd": 0.00629108352586627,
+          "absolute_error": 1.6743742165328812e-09,
+          "relative_error": 2.6618616354264243e-07
+        },
+        {
+          "variable": "opacity",
+          "cuda": 0.003177257953211665,
+          "dense": 0.003177256464089401,
+          "fd": 0.0031795350369066,
+          "absolute_error": 1.4891222642997304e-09,
+          "relative_error": 4.6868179548310766e-07
+        },
+        {
+          "variable": "color",
+          "cuda": 0.010121479630470276,
+          "dense": 0.010121473569158091,
+          "fd": 0.010121612809598446,
+          "absolute_error": 6.0613121848074325e-09,
+          "relative_error": 5.988566924955786e-07
+        }
+      ],
+      "forward_max_error": 1.2058191684038988e-07
+    },
+    {
+      "case": "side_stream",
+      "forward_max_error": 0.0,
+      "gradient_max_error": 2.0489096641540527e-08
+    }
+  ]
+}

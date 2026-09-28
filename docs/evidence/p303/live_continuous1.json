@@ -1,0 +1,199 @@
+{
+  "status": "core_adjoint_pass_global_fd_open",
+  "raster_backend": "continuous",
+  "N": 300000,
+  "seconds": 4.207413538126275,
+  "packed_parity_max": 1.1920928955078125e-07,
+  "packed_directional_derivatives": [
+    {
+      "eps": 0.01,
+      "analytic": 0.001778927049599588,
+      "finite_difference": 0.0017754267901182175,
+      "relative": 0.0019676240626722574
+    },
+    {
+      "eps": 0.003,
+      "analytic": 0.001778927049599588,
+      "finite_difference": 0.0017783604562282562,
+      "relative": 0.0003185028617735952
+    },
+    {
+      "eps": 0.001,
+      "analytic": 0.001778927049599588,
+      "finite_difference": 0.0017788260011002421,
+      "relative": 5.680305912392214e-05
+    }
+  ],
+  "fixed_core_derivatives": [
+    {
+      "mode": "mean",
+      "eps": 0.01,
+      "analytic": -0.0013764454051852226,
+      "finite_difference": -0.0013768672943115234,
+      "relative": 0.0003065062628593296
+    },
+    {
+      "mode": "mean",
+      "eps": 0.003,
+      "analytic": -0.0013764454051852226,
+      "finite_difference": -0.0013758739223703742,
+      "relative": 0.00041518741636537015
+    },
+    {
+      "mode": "mean",
+      "eps": 0.001,
+      "analytic": -0.0013764454051852226,
+      "finite_difference": -0.0013709067134186625,
+      "relative": 0.004023909568786621
+    },
+    {
+      "mode": "covariance",
+      "eps": 0.01,
+      "analytic": 0.01601724699139595,
+      "finite_difference": 0.016017258167266846,
+      "relative": 6.977398356866615e-07
+    },
+    {
+      "mode": "covariance",
+      "eps": 0.003,
+      "analytic": 0.01601724699139595,
+      "finite_difference": 0.01601874828338623,
+      "relative": 9.372971544507891e-05
+    },
+    {
+      "mode": "covariance",
+      "eps": 0.001,
+      "analytic": 0.01601724699139595,
+      "finite_difference": 0.01601874642074108,
+      "relative": 9.361342381453142e-05
+    },
+    {
+      "mode": "both",
+      "eps": 0.01,
+      "analytic": 0.014640800654888153,
+      "finite_difference": 0.014641880989074707,
+      "relative": 7.378928421530873e-05
+    },
+    {
+      "mode": "both",
+      "eps": 0.003,
+      "analytic": 0.014640800654888153,
+      "finite_difference": 0.014642874710261822,
+      "relative": 0.00014166270557325333
+    },
+    {
+      "mode": "both",
+      "eps": 0.001,
+      "analytic": 0.014640800654888153,
+      "finite_difference": 0.01466274168342352,
+      "relative": 0.0014986221212893724
+    }
+  ],
+  "live_cloud_derivatives": [
+    {
+      "step_sp": 0.1,
+      "analytic": -1.0907961130142212,
+      "finite_difference": -1.089863657951355,
+      "relative": 0.0008548390040458955
+    },
+    {
+      "step_sp": 0.03,
+      "analytic": -1.0907961130142212,
+      "finite_difference": -1.0907917022705078,
+      "relative": 4.043600504947345e-06
+    },
+    {
+      "step_sp": 0.01,
+      "analytic": -1.0907961130142212,
+      "finite_difference": -1.0909072160720825,
+      "relative": 0.00010185501812461961
+    }
+  ],
+  "full_loss": 0.02476600557565689,
+  "components": {
+    "coverage": 0.0014312069397419691,
+    "detail_coverage": 0.02287854626774788,
+    "detail_edge": 0.0004562539397738874
+  },
+  "full_gradient_norm": 0.15985560417175293,
+  "full_gradient_max": 0.038516659289598465,
+  "torch_peak_bytes": 4101825536,
+  "model": {
+    "model": "surface_gs_stateless_v1",
+    "radius": 4.893071174621582,
+    "spacing": 0.03493081033229828,
+    "coverage_radius": 0.06898657977581024,
+    "normal_blur_sp": 3.0,
+    "sigma_range_sp": [
+      1.0,
+      4.0
+    ],
+    "opacity_scale": 0.92,
+    "normal_axis_ratio": 0.25,
+    "gradient": "live continuous attributes; discrete KNN/support/donors refreshed per forward",
+    "limitations": "Hard-zero support has no GS recovery gradient; no learned opacity; no pin appearance latch",
+    "coarse_height": 256,
+    "detail_height": 2160,
+    "aspect": 1.7777777777777777,
+    "patch_size": 256,
+    "views_radians": [
+      [
+        0.6108652381980153,
+        0.3141592653589793
+      ],
+      [
+        4.1887902047863905,
+        -0.3
+      ],
+      [
+        2.0943951023931953,
+        -0.3
+      ],
+      [
+        5.235987755982988,
+        0.3
+      ]
+    ],
+    "raster_backend": "continuous",
+    "raster_files": {
+      "python": {
+        "path": "/data/relcfd/chayo/physmorph_v2/deps/continuous_raster2/physmorph_diff_gauss/__init__.py",
+        "sha256": "32cc79aaa0d43391d76637c5ebaecb05944b31296d0c548f894c8ad7f6f1d5cb"
+      },
+      "binary": {
+        "path": "/data/relcfd/chayo/physmorph_v2/deps/continuous_raster2/physmorph_diff_gauss/_C.cpython-310-x86_64-linux-gnu.so",
+        "sha256": "099798aae655aa536c98c5bd7c65fe35c69e06ae1d0928d93f21da1371d1abf9"
+      },
+      "build_receipt": {
+        "path": "/data/relcfd/chayo/physmorph_v2/deps/continuous_raster2/physmorph_build.json",
+        "sha256": "36403cd8ac1163f61764a3b7dbcb66e74d22a34c97bb1c6d1f34a0a9a73cd026"
+      }
+    },
+    "detail_raster": "full camera then crop; not a resized crop",
+    "target_kind": "operator_synthetic_translation",
+    "rois_y_x_size": [
+      [
+        1280,
+        1408,
+        256
+      ],
+      [
+        640,
+        2176,
+        256
+      ],
+      [
+        1280,
+        1408,
+        256
+      ],
+      [
+        512,
+        1536,
+        256
+      ]
+    ],
+    "outer_acceptance": "unchanged fixed-target CIC/physics gate; not a GS convergence certificate"
+  },
+  "scope": "packed raster derivative + live full-cloud finite adjoint; no MPM trajectory/quality claim"
+}
