@@ -52,3 +52,8 @@ and then empty directories. Retained result copies, active source code and runti
 dependencies are excluded from the deletion scopes. Old work snapshots and the
 original result paths are archived and removed after preserving the current pair.
 No other project is cleaned.
+
+P302 experiments are now under server `work/p302/`, separate from these retained
+movies. They add opt-in shared surface observations and automatic render influence
+reports; the cap1 comparison does **not** qualify for replacing either movie.
+The report and measured regressions are in [P302](surface_render_p302.md).

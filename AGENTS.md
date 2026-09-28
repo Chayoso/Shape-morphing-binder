@@ -146,3 +146,10 @@ These are the leading candidates for the unresolved problems, and they are ports
 - Python: numpy / torch / warp; scripts are argparse CLIs; terse comments that state constraints.
 - Compile-check before pushing: `python -m py_compile <file>`.
 - Korean is the user's working language; code and docs are English.
+- **Render influence reporting (user 2026-09-28):** report rendering-loss influence
+  with future runs. Keep adaptive lambda/direction norms, actual accepted updates,
+  image-loss changes and independent raw-state evidence distinct; norm share is
+  not causal displacement share. Standard drivers write `*.render_influence.json`
+  and `.md`. P302 shared surface loss is experimental and OFF by default; its
+  broad finite-difference and cap1 quality gates remain open. See
+  `docs/surface_render_p302.md` before using or promoting it.

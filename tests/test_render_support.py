@@ -130,9 +130,10 @@ def test_invalid_support_scales_fail(radius, spacing):
 
 
 def test_studio_diagnostic_buffers_have_a_shared_pixel_mask(monkeypatch):
-    from scripts import render_splat_photoreal as renderer
+    from physmorph.render import studio as renderer
     monkeypatch.setattr(renderer, 'decompose_cov_torch', lambda cov: (torch.ones(1, 3), torch.ones(1, 4)))
     studio = renderer.StudioRaster.__new__(renderer.StudioRaster)
+    studio.direct_covariance = False
     studio.raster = lambda *args, **kw: (kw['colors_precomp'][0, :, None, None].expand(3, 4, 6),)
     studio.to_camera = torch.tensor([0., 0., 1.]).expand(4, 6, 3)
     studio.background = torch.zeros(4, 6, 3)

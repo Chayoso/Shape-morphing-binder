@@ -1,0 +1,188 @@
+{
+  "status": "core_adjoint_pass_global_fd_failed",
+  "original_status": "operator_pass_not_quality_promotion",
+  "original_status_note": "Historical probe status did not encode broad FD failure; superseded status above records it.",
+  "source_artifact": "/data/relcfd/chayo/physmorph_v2/work/p302/operator3.json",
+  "source_sha256": "6f37eb63f33f1c575ef082c3435a960b47b1ef1d25bfed1f7160a125b4dbfaed",
+  "snapshot_tar_sha256": "4fb21d9215ee0dcf0e3c0e8bc318239682359380dea29fc33901600714e23602",
+  "N": 300000,
+  "seconds": 1.0413994970731437,
+  "packed_parity_max": 8.940696716308594e-08,
+  "packed_directional_derivatives": [
+    {
+      "eps": 0.01,
+      "analytic": 0.0017657261341810226,
+      "finite_difference": 0.0019449740648269653,
+      "relative": 0.10151513665914536
+    },
+    {
+      "eps": 0.003,
+      "analytic": 0.0017657261341810226,
+      "finite_difference": 0.0019151096930727363,
+      "relative": 0.08460177481174469
+    },
+    {
+      "eps": 0.001,
+      "analytic": 0.0017657261341810226,
+      "finite_difference": 0.0019478610483929515,
+      "relative": 0.1031501516699791
+    }
+  ],
+  "fixed_core_derivatives": [
+    {
+      "mode": "mean",
+      "eps": 0.01,
+      "analytic": -0.0013764461036771536,
+      "finite_difference": -0.0013783574104309082,
+      "relative": 0.0013885808875784278
+    },
+    {
+      "mode": "mean",
+      "eps": 0.003,
+      "analytic": -0.0013764461036771536,
+      "finite_difference": -0.0013709068298339844,
+      "relative": 0.004024330526590347
+    },
+    {
+      "mode": "mean",
+      "eps": 0.001,
+      "analytic": -0.0013764461036771536,
+      "finite_difference": -0.0013858078746125102,
+      "relative": 0.0068014077842235565
+    },
+    {
+      "mode": "covariance",
+      "eps": 0.01,
+      "analytic": 0.01601724699139595,
+      "finite_difference": 0.01601874828338623,
+      "relative": 9.372971544507891e-05
+    },
+    {
+      "mode": "covariance",
+      "eps": 0.003,
+      "analytic": 0.01601724699139595,
+      "finite_difference": 0.01602371595799923,
+      "relative": 0.00040387504850514233
+    },
+    {
+      "mode": "covariance",
+      "eps": 0.001,
+      "analytic": 0.01601724699139595,
+      "finite_difference": 0.01601874642074108,
+      "relative": 9.361342381453142e-05
+    },
+    {
+      "mode": "both",
+      "eps": 0.01,
+      "analytic": 0.014640793204307556,
+      "finite_difference": 0.014641880989074707,
+      "relative": 7.429821562254801e-05
+    },
+    {
+      "mode": "both",
+      "eps": 0.003,
+      "analytic": 0.014640793204307556,
+      "finite_difference": 0.014637907966971397,
+      "relative": 0.00019706838065758348
+    },
+    {
+      "mode": "both",
+      "eps": 0.001,
+      "analytic": 0.014640793204307556,
+      "finite_difference": 0.014647840522229671,
+      "relative": 0.00048134810640476644
+    }
+  ],
+  "live_cloud_derivatives": [
+    {
+      "step_sp": 0.1,
+      "analytic": -1.0195221900939941,
+      "finite_difference": -1.0803629159927368,
+      "relative": 0.05967572505031353
+    },
+    {
+      "step_sp": 0.03,
+      "analytic": -1.0195221900939941,
+      "finite_difference": -1.0808770656585693,
+      "relative": 0.060180029587113375
+    },
+    {
+      "step_sp": 0.01,
+      "analytic": -1.0195221900939941,
+      "finite_difference": -1.0815808773040771,
+      "relative": 0.060870364385459376
+    }
+  ],
+  "full_loss": 0.024331357330083847,
+  "components": {
+    "coverage": 0.0013990388251841068,
+    "detail_coverage": 0.022497184574604034,
+    "detail_edge": 0.00043513361015357077
+  },
+  "full_gradient_norm": 0.15148544311523438,
+  "full_gradient_max": 0.038199860602617264,
+  "torch_peak_bytes": 3548174336,
+  "model": {
+    "model": "surface_gs_stateless_v1",
+    "radius": 4.893071174621582,
+    "spacing": 0.03493081033229828,
+    "coverage_radius": 0.06898657977581024,
+    "normal_blur_sp": 3.0,
+    "sigma_range_sp": [
+      1.0,
+      4.0
+    ],
+    "opacity_scale": 0.92,
+    "normal_axis_ratio": 0.25,
+    "gradient": "live continuous attributes; discrete KNN/support/donors refreshed per forward",
+    "limitations": "Hard-zero support has no GS recovery gradient; no learned opacity; no pin appearance latch",
+    "coarse_height": 256,
+    "detail_height": 2160,
+    "aspect": 1.7777777777777777,
+    "patch_size": 256,
+    "views_radians": [
+      [
+        0.6108652381980153,
+        0.3141592653589793
+      ],
+      [
+        4.1887902047863905,
+        -0.3
+      ],
+      [
+        2.0943951023931953,
+        -0.3
+      ],
+      [
+        5.235987755982988,
+        0.3
+      ]
+    ],
+    "detail_raster": "full camera then crop; not a resized crop",
+    "target_kind": "operator_synthetic_translation",
+    "rois_y_x_size": [
+      [
+        1280,
+        1408,
+        256
+      ],
+      [
+        640,
+        2176,
+        256
+      ],
+      [
+        1280,
+        1408,
+        256
+      ],
+      [
+        512,
+        1536,
+        256
+      ]
+    ],
+    "outer_acceptance": "unchanged fixed-target CIC/physics gate; not a GS convergence certificate"
+  },
+  "scope": "packed raster derivative + live full-cloud finite adjoint; no MPM trajectory/quality claim"
+}

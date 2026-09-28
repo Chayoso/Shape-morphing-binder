@@ -1924,3 +1924,31 @@ The changed physics gradient also changes automatic render lambda; an adaptive
 comparison is a whole-policy comparison, not fixed-lambda causal evidence.
 No quality or gallery adoption follows from the implementation. Protocol and
 limitations: [P297](geometric_variance_p297.md).
+
+### 10.43 Shared surface observation and render influence (P302, opt-in)
+
+`surface_gs_loss` adds coverage and Sobel-edge observations of the same stateless
+Gaussian primitives exported by `render_splat_photoreal --surface-common`.
+At the shared promoted endpoint, the render objective is
+
+    Lr = L_CIC + w_pbr L_PBR + surface_gs_weight *
+         mean_views(L_global_coverage + L_native_patch_coverage + L_native_patch_edge).
+
+Reference calibration is fixed from the final target. Per-window paced targets,
+cameras and edge patches are fixed during gradient, merit and replay evaluations.
+Current candidate positions determine continuous attributes; KNN/support/donor
+identities are discrete active sets recomputed per forward. Tangent-isotropic
+covariance is sigma^2*(I-15/16*n*n^T), passed directly to the rasterizer, avoiding
+eigenvector derivatives. Native patches are cropped after full-camera rasterization.
+The outer CIC/physics gate is unchanged; the new mode has no mutable appearance
+latch and does not establish settled appearance or physical rest.
+
+Accepted-step render telemetry is on by default at the user's 2026-09-28 request.
+Reports separate optimizer direction norms, actual accepted control updates,
+observed render loss changes, and raw physical evidence. Nominal norm share is
+not causal displacement share. No extra adjoint is added solely for reporting;
+directions unavailable from combined-only branches stay unavailable.
+
+The initial bounded CUDA comparison is not a quality promotion, and broad
+finite-difference discrepancies remain open. Full specification, limits and
+evidence: [P302](surface_render_p302.md).

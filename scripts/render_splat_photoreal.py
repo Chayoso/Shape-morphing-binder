@@ -33,127 +33,7 @@ from physmorph.render.support import (live_support, normal_filter_size, filter_n
                                       MaterialShadingNormals)
 
 
-class DensityNormals:
-    def __init__(self, center, radius, spacing, blur=3.0):
-        self.cell = 0.5 * blur * spacing
-        self.lo = center - 1.15 * radius
-        self.dims = int(math.ceil(2.3 * radius / self.cell)) + 3
-        self.pad = int(math.ceil(3 * blur * spacing / self.cell))
-        coord = torch.arange(-self.pad, self.pad + 1, device=center.device)
-        weights = torch.exp(-0.5 * (coord * self.cell / (blur * spacing)) ** 2)
-        self.weights = weights / weights.sum()
-
-    def __call__(self, x):
-        relative = (x - self.lo) / self.cell
-        base = relative.floor().long()
-        frac = relative - base
-        dims = self.dims
-        grid = x.new_zeros(dims ** 3)
-        for dx in (0, 1):
-            for dy in (0, 1):
-                for dz in (0, 1):
-                    offset = (dx, dy, dz)
-                    index = [(base[:, axis] + step).clamp(0, dims - 1)
-                             for axis, step in enumerate(offset)]
-                    weight = torch.ones(len(x), device=x.device)
-                    for axis, step in enumerate(offset):
-                        weight *= frac[:, axis] if step else 1 - frac[:, axis]
-                    grid.index_add_(0, (index[0] * dims + index[1]) * dims + index[2], weight)
-        grid = grid.reshape(1, 1, dims, dims, dims)
-        for axis in range(3):
-            shape = [1, 1, 1, 1, 1]
-            shape[axis + 2] = len(self.weights)
-            grid = nnf.conv3d(grid, self.weights.reshape(shape),
-                             padding=[self.pad if d == axis else 0 for d in range(3)])
-        gradient = torch.stack(torch.gradient(grid[0, 0], spacing=self.cell))
-        coords = 2 * relative / (dims - 1) - 1
-        sample = nnf.grid_sample(gradient[None], coords[None, :, None, None].flip(-1),
-                                 align_corners=True, mode='bilinear')
-        normals = -sample[0, :, :, 0, 0].T
-        magnitude = normals.norm(dim=1)
-        return normals / magnitude.clamp_min(1e-9)[:, None], magnitude
-
-
-class StudioRaster:
-    """Fixed perspective camera and GGX dielectric material; alpha is never enlarged."""
-    def __init__(self, center, radius, width, height, azimuth, elevation):
-        from diff_gauss import GaussianRasterizationSettings, GaussianRasterizer
-
-        az, el = math.radians(azimuth), math.radians(elevation)
-        camera = center + 3.6 * radius * center.new_tensor(
-            (math.cos(el) * math.sin(az), math.sin(el), math.cos(el) * math.cos(az)))
-        view = world_to_view_torch(camera, center)
-        tan_y = math.tan(math.radians(30) / 2)
-        tan_x = tan_y * width / height
-        projection = center.new_zeros(4, 4)
-        projection[0, 0], projection[1, 1] = 1 / tan_x, 1 / tan_y
-        projection[3, 2] = 1
-        projection[2, 2] = 100 / (100 - .01)
-        projection[2, 3] = -100 * .01 / (100 - .01)
-        self.raster = GaussianRasterizer(GaussianRasterizationSettings(
-            image_height=height, image_width=width, tanfovx=tan_x, tanfovy=tan_y,
-            bg=center.new_zeros(3), scale_modifier=1., viewmatrix=view.T.contiguous(),
-            projmatrix=(projection @ view).T.contiguous(), sh_degree=0, campos=camera,
-            prefiltered=False, debug=False))
-        yy, xx = torch.meshgrid(
-            torch.arange(height, device=center.device, dtype=torch.float32),
-            torch.arange(width, device=center.device, dtype=torch.float32), indexing='ij')
-        rays = ((2 * (xx + .5) / width - 1)[..., None] * tan_x * view[0, :3]
-                + (1 - 2 * (yy + .5) / height)[..., None] * tan_y * view[1, :3]
-                + view[2, :3])
-        self.to_camera = -nnf.normalize(rays, dim=-1)
-        # Smooth studio backdrop, independent of coverage; no synthetic contact shadow.
-        blend = (yy / max(1, height - 1))[..., None]
-        self.background = (1 - blend) * center.new_tensor((.115, .137, .165)) + blend * center.new_tensor((.215, .237, .265))
-        self.albedo = center.new_tensor((.64, .69, .72))
-        self.lights = []
-        # Directions are in camera coordinates, then transformed to world coordinates.
-        for direction, color, intensity in (
-                ((-.65, .8, -1.), (1., .91, .81), 2.6),
-                ((.8, .15, -.7), (.73, .85, 1.), .85),
-                ((.4, .75, .8), (.85, .92, 1.), 1.35)):
-            light = nnf.normalize(center.new_tensor(direction) @ view[:3, :3], dim=0)
-            self.lights.append((light, center.new_tensor(color) * intensity))
-
-    def __call__(self, x, normals, covariance, opacity, *, normal_kernel=3, return_buffers=False):
-        scales, rotations = decompose_cov_torch(covariance)
-        def raster(colors):
-            result = self.raster(x, torch.zeros_like(x), opacity[:, None], shs=None,
-                                 colors_precomp=colors.contiguous(), scales=scales,
-                                 rotations=rotations)
-            image = result[0] if isinstance(result, (tuple, list)) else result
-            return image.clamp(0, 1).permute(1, 2, 0).flip(0).contiguous()
-        normal_buffer = raster(.5 * (normals + 1))
-        coverage = raster(torch.ones_like(normals))[..., 0]
-        # Smooth only the normal estimate. Compositing uses the original coverage.
-        normal = filter_normal_buffer(normal_buffer, coverage, normal_kernel)
-        view = self.to_camera
-        nv = (normal * view).sum(-1).clamp_min(1e-4)
-        ambient = .20 + .12 * (.5 + .5 * normal[..., 1])
-        radiance = self.albedo * ambient[..., None]
-        # GGX with Schlick Fresnel and Smith visibility, fixed satin-ceramic roughness.
-        roughness = .36
-        alpha2 = roughness ** 4
-        k = (roughness + 1) ** 2 / 8
-        visibility_v = nv / (nv * (1 - k) + k)
-        for light, energy in self.lights:
-            half_vector = nnf.normalize(view + light, dim=-1)
-            nl = (normal * light).sum(-1).clamp(0, 1)
-            nh = (normal * half_vector).sum(-1).clamp(0, 1)
-            vh = (view * half_vector).sum(-1).clamp(0, 1)
-            distribution = alpha2 / (math.pi * ((nh * nh * (alpha2 - 1) + 1) ** 2).clamp_min(1e-8))
-            fresnel = .04 + .96 * (1 - vh) ** 5
-            visibility_l = nl / (nl * (1 - k) + k)
-            specular = distribution * fresnel * visibility_v * visibility_l / (4 * nv * nl).clamp_min(1e-5)
-            diffuse = self.albedo * (1 - fresnel[..., None]) / math.pi
-            radiance = radiance + (diffuse + specular[..., None]) * energy * nl[..., None]
-        coverage = coverage[..., None]
-        linear = radiance * coverage + self.background * (1 - coverage)
-        # Fixed photographic shoulder then sRGB transfer, with no frame-wise exposure fitting.
-        mapped = linear / (1 + linear)
-        srgb = torch.where(mapped <= .0031308, 12.92 * mapped, 1.055 * mapped.pow(1 / 2.4) - .055)
-        image = srgb.clamp(0, 1)
-        return (image, coverage[..., 0], normal) if return_buffers else image
+from physmorph.render.studio import DensityNormals, StudioRaster
 
 
 def validate_pins_cuda(frames, starts, stop, device):
@@ -191,7 +71,12 @@ def main():
                         help='Guarded fixed32-neighbor affine transport of shading normals only')
     parser.add_argument('--compare-material-shading', action='store_true',
                         help='Matched baseline versus material shading; identical covariance/live opacity/filter')
+    parser.add_argument('--surface-common', action='store_true',
+                        help='P302 stateless primitives shared with surface_gs_loss; no appearance latch')
     args = parser.parse_args()
+    if args.surface_common and any((args.compare_artifacts, args.smooth_support,
+            args.scale_normal_filter, args.material_shading, args.compare_material_shading)):
+        parser.error('--surface-common excludes historical appearance variants')
     if min(args.width, args.height, args.stride, args.fps) <= 0 or args.width % 2 or args.height % 2 or args.max_frames < 0:
         parser.error('positive even dimensions, positive stride and fps are required')
     if args.compare_artifacts and (args.smooth_support or args.scale_normal_filter):
@@ -245,7 +130,12 @@ def main():
     target_d, _ = knn_self_torch(target, 9)
     spacing, coverage_radius = float(target_d[:, 1].median()), float(target_d[:, 8].median())
     normals_from_density = DensityNormals(center, radius, spacing)
-    studio = StudioRaster(center, radius, args.width, args.height, args.azimuth, args.elevation)
+    common = None
+    if args.surface_common:
+        from physmorph.render.surface_gaussians import SurfaceGaussians
+        common = SurfaceGaussians(center, radius, spacing, coverage_radius)
+    studio = StudioRaster(center, radius, args.width, args.height, args.azimuth, args.elevation,
+                          direct_covariance=args.surface_common)
     material = MaterialShadingNormals(len(frames[0]), device) if any(v[3] for v in variants) else None
     shading_latch = SettledAppearance(starts, device) if material is not None else None
     cohort_index = min(480, count-1)
@@ -260,25 +150,31 @@ def main():
         for output_index, raw_index in enumerate(selected):
             tick = time.perf_counter()
             x = torch.as_tensor(np.asarray(frames[raw_index], np.float32), device=device)
-            distances, neighbors = knn_self_torch(x, 33)
-            support = live_support(distances, coverage_radius, spacing)
-            compact_support = live_support(distances, coverage_radius, spacing, smooth=True)
-            sigma = spacing * (distances[:, 8] / coverage_radius).clamp(1., 4.)
-            normals, magnitude = normals_from_density(x)
-            strong = magnitude >= torch.quantile(magnitude[::max(1, len(x) // 100000)], .6)
-            nearest = neighbors[:, 1:33]
-            strong_neighbors = strong[nearest]
-            chosen = nearest[torch.arange(len(x), device=device), strong_neighbors.float().argmax(1)]
-            normals = torch.where((~strong & strong_neighbors.any(1))[:, None], normals[chosen], normals)
-            for _ in range(2):
-                normals = nnf.normalize(normals[neighbors].mean(1), dim=1, eps=1e-9)
-            normals, sigma, support = settled.apply(raw_index, x, normals, sigma, support)
-            reference = torch.where(normals[:, :1].abs() < .9,
-                                    x.new_tensor((1., 0., 0.)), x.new_tensor((0., 1., 0.))).expand_as(x)
-            tangent = nnf.normalize(torch.linalg.cross(normals, reference), dim=1, eps=1e-9)
-            rotation = torch.stack((tangent, torch.linalg.cross(normals, tangent), normals), dim=2)
-            variance = torch.stack((sigma ** 2, sigma ** 2, (sigma / 4) ** 2), dim=1)
-            covariance = (rotation * variance[:, None]) @ rotation.transpose(1, 2)
+            if common is not None:
+                primitive = common(x)
+                normals, sigma, support = primitive.normals, primitive.sigma, primitive.support
+                covariance = primitive.covariance
+                compact_support = support
+            else:
+                distances, neighbors = knn_self_torch(x, 33)
+                support = live_support(distances, coverage_radius, spacing)
+                compact_support = live_support(distances, coverage_radius, spacing, smooth=True)
+                sigma = spacing * (distances[:, 8] / coverage_radius).clamp(1., 4.)
+                normals, magnitude = normals_from_density(x)
+                strong = magnitude >= torch.quantile(magnitude[::max(1, len(x) // 100000)], .6)
+                nearest = neighbors[:, 1:33]
+                strong_neighbors = strong[nearest]
+                chosen = nearest[torch.arange(len(x), device=device), strong_neighbors.float().argmax(1)]
+                normals = torch.where((~strong & strong_neighbors.any(1))[:, None], normals[chosen], normals)
+                for _ in range(2):
+                    normals = nnf.normalize(normals[neighbors].mean(1), dim=1, eps=1e-9)
+                normals, sigma, support = settled.apply(raw_index, x, normals, sigma, support)
+                reference = torch.where(normals[:, :1].abs() < .9,
+                                        x.new_tensor((1., 0., 0.)), x.new_tensor((0., 1., 0.))).expand_as(x)
+                tangent = nnf.normalize(torch.linalg.cross(normals, reference), dim=1, eps=1e-9)
+                rotation = torch.stack((tangent, torch.linalg.cross(normals, tangent), normals), dim=2)
+                variance = torch.stack((sigma ** 2, sigma ** 2, (sigma / 4) ** 2), dim=1)
+                covariance = (rotation * variance[:, None]) @ rotation.transpose(1, 2)
             material_stats = None
             if material is not None:
                 shader_normals, status = material.update(x, normals, neighbors, strong, shading_latch.anchored)
@@ -353,12 +249,18 @@ def main():
                     variants={name: dict(smooth_support=smooth, scale_normal_filter=scaled, material_shading=mat,
                                          normal_filter_size=normal_filter_size(args.height, scaled),
                                          output=str(outputs[name])) for name, smooth, scaled, mat in variants},
-                    settled_freeze=True, all_raw_pin_frames_validated=count,
+                    settled_freeze=not args.surface_common, all_raw_pin_frames_validated=count,
                     setup_seconds=setup_seconds, frame_seconds=timings,
                     encode_seconds=time.perf_counter()-encode_started, total_seconds=time.perf_counter()-started,
                     source_config=arm['config'], script_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest())
+    if common is not None:
+        metadata['surface_render_model'] = common.metadata()
+        metadata['sigma_rule'] = 'spacing * clamp(current r8 / target median r8, 1, 4); stateless'
     support_file = Path(__file__).resolve().parents[1] / 'physmorph/render/support.py'
     metadata['support_sha256'] = hashlib.sha256(support_file.read_bytes()).hexdigest()
+    metadata['render_source_sha256'] = {name: hashlib.sha256(
+        (support_file.parent/name).read_bytes()).hexdigest()
+        for name in ('studio.py', 'surface_gaussians.py', 'knn_gpu.py', 'covariance_torch.py')}
     args.out.with_suffix('.json').write_text(json.dumps(metadata, indent=2))
     if comparison:
         args.out.with_suffix('.comparison.json').write_text(json.dumps(dict(

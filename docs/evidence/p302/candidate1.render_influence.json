@@ -1,0 +1,108 @@
+{
+  "definitions": "Observational optimizer telemetry, not causal attribution. Norm shares exclude post-combination transforms and transport addends. Compare matched raw trajectories with render disabled for causal evidence. Image losses do not certify physical holes/rest.",
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "loss_res": 36,
+    "render_res": 64,
+    "iters": 2
+  },
+  "render": {
+    "lambda_auto": 0.5,
+    "surface_gs_loss": true,
+    "surface_gs_weight": 1.0,
+    "detail_height": 2160
+  },
+  "windows": 1,
+  "raw_history_rows": 1,
+  "committed_windows": 1,
+  "inner_accepted_steps": 2,
+  "recorded_inner_steps": 2,
+  "recorded_committed_steps": 2,
+  "steps_in_committed_windows": 2,
+  "step_nominal_share": {
+    "count": 2,
+    "minimum": 0.2213551665108019,
+    "median": 0.27734424464130797,
+    "maximum": 0.33333332277181404
+  },
+  "first_iteration_nominal_share": {
+    "count": 1,
+    "minimum": 0.3333333333333333,
+    "median": 0.3333333333333333,
+    "maximum": 0.3333333333333333
+  },
+  "adaptive_lambda": {
+    "count": 1,
+    "minimum": 0.014882053691095213,
+    "median": 0.014882053691095213,
+    "maximum": 0.014882053691095213
+  },
+  "observed_render_loss_change": {
+    "count": 2,
+    "minimum": -0.49986670166254044,
+    "median": -0.25747913494706154,
+    "maximum": -0.015091568231582642
+  },
+  "endpoint_optimizer_change_rms_wu": {
+    "count": 2,
+    "minimum": 0.09867466986179352,
+    "median": 0.13456719368696213,
+    "maximum": 0.17045971751213074
+  },
+  "channels": {
+    "body": {
+      "nominal_share": {
+        "count": 2,
+        "minimum": 0.20696081892461166,
+        "median": 0.2646740711010619,
+        "maximum": 0.3223873232775121
+      },
+      "control_delta_norm": {
+        "count": 2,
+        "minimum": 38.732357025146484,
+        "median": 45.202842712402344,
+        "maximum": 51.6733283996582
+      }
+    },
+    "stress": {
+      "nominal_share": {
+        "count": 2,
+        "minimum": 0.32644586118010477,
+        "median": 0.3794257960289288,
+        "maximum": 0.4324057308777528
+      },
+      "control_delta_norm": {
+        "count": 2,
+        "minimum": 20.738759994506836,
+        "median": 33.49841594696045,
+        "maximum": 46.25807189941406
+      }
+    },
+    "surface_u": {
+      "nominal_share": {
+        "count": 2,
+        "minimum": 0.5040796293066812,
+        "median": 0.5663556730800352,
+        "maximum": 0.6286317168533891
+      },
+      "control_delta_norm": {
+        "count": 2,
+        "minimum": 0.4813452959060669,
+        "median": 0.5288282036781311,
+        "maximum": 0.5763111114501953
+      }
+    }
+  },
+  "last_committed_surface_components": {
+    "coverage": 0.020636191591620445,
+    "detail_coverage": 0.029709048569202423,
+    "detail_edge": 0.0003185058885719627,
+    "total": 0.050663746893405914,
+    "weight": 1.0,
+    "coarse_render": 0.03295880928635597
+  },
+  "causal_render_ablation": "not measured by this report"
+}

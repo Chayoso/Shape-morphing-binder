@@ -76,6 +76,7 @@ class TargetPack:
     pdims: tuple = ()
     pblur: float = 0.0
     gauss: object | None = None         # GaussViews bundle (use_gauss_loss)
+    surface_gs: object | None = None    # P302 shared calibration/cameras; per-window targets are separate
     gauss_scale: float | None = None    # one calibration per target build, not per window
     jd_gmin: torch.Tensor | None = None  # density-J prior raster (w_jdens>0)
     jd_dx: float = 0.0
@@ -522,6 +523,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     arrive_idx_np = pace_r_np = plan_img_np = None
     arrive_cap_frac = pace_front_frac = pace_front_fill_frac = None
     sils_eff, shade_eff, pbr_grid_eff = tgt.sils, tgt.shade, True
+    surface_reference = tgt.points
     render_target_kind = 'fixed' if balancer.active and tgt.sils is not None else 'inactive'
     if getattr(cfg, "phys_loss", "density") == "ot_resid":
         # RESIDUAL TRANSPORT PACING. The cell sum's own residual at the window start —
@@ -1214,6 +1216,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 else:
                     x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
             if getattr(cfg, "render_paced", False) and tgt.sils is not None and not getattr(tgt, "render_paced_off", False):
+                surface_reference = x_int.detach().clone()
                 render_target_kind = 'paced' if balancer.active else 'inactive'
                 # config.render_paced (2026-09-26 23:40, method.md 10.31): the render channel's target is the PACED target's
                 # own images. With the target's final silhouettes as the reference, the silhouette term pulls the first
@@ -1246,6 +1249,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                             tgt.render_paced_off = True
                             sils_eff, shade_eff, pbr_grid_eff = tgt.sils, tgt.shade, True
                             render_target_kind = 'fixed' if balancer.active else 'inactive'
+                            surface_reference = tgt.points
                             print("[win] paced render target: converged in the render's metric — the target's own images from here", flush=True)
             if getattr(cfg, "w_corr", 0.0) > 0 and getattr(tgt, "ot_knn", None) is not None:
                 # config.w_corr (2026-09-25 22:15 CDT, method.md 10.35): correspondence at the plan's own resolution. The
@@ -1661,6 +1665,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         return lam0 * torch.exp(s[0]), mu0 * torch.exp(s[1])
 
     sil_gauss = {"sil": None, "gauss": None}
+    surface_window = (tgt.surface_gs.prepare(surface_reference, render_target_kind)
+                      if tgt.surface_gs is not None and balancer.active else None)
+    surface_last = {}
     # REFUTE B1 (Opus) / finding 9 (Codex): when the gauss term rides in the render
     # scalar, every gate that reads d_render — freeze track, outer merit, latch —
     # can be moved by an observation-side change (dressing) with zero state change.
@@ -1716,6 +1723,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     lpbr = d_pbr(xT, shade_eff, tgt.views, cfg.render_res, tgt.extent,
                                  tgt.lgmin, tgt.ldx, tgt.ldims, cfg.sil_k, cfg.pbr_ambient)
                 lr = lsil + cfg.w_pbr * lpbr
+        surface_last.clear()
+        if surface_window is not None:
+            gs_value, gs_parts = surface_window(xT)
+            surface_last.update({k: float(v.detach()) for k, v in gs_parts.items()})
+            surface_last.update(total=float(gs_value.detach()), weight=cfg.surface_gs_weight,
+                                coarse_render=float(lr.detach()))
+            if cfg.surface_gs_weight > 0:
+                lr = lr + cfg.surface_gs_weight * gs_value
         return lv, lk, lr, lpbr
 
     gx_box = [None]                  # config.settle_pin_kkt: dL/dx_T of the last gradient evaluation (every particle)
@@ -1787,7 +1802,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
             _tm_add("eval_roll", t0)
             t0 = _tick()
-            lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
+            unsafe_surface = surface_window is not None and (
+                not valid_endpoint(x_raw, endpoint_limits) or not valid_endpoint(xT, endpoint_limits)
+                or not bool(torch.isfinite(FT).all() & torch.isfinite(vT).all())
+                or not bool(torch.isfinite(wp.to_torch(tr.C[T])).all())
+                or (FgT is not None and not bool(torch.isfinite(FgT).all())))
+            if unsafe_surface:
+                # Reject before KNN/rasterization; the ordinary line search shrinks
+                # the trial. Neither repair the candidate nor swallow raster errors.
+                lv = lk = lr = xT.new_tensor(float('inf'))
+                lpbr = None
+                sil_gauss['sil'] = sil_gauss['gauss'] = None
+                surface_last.clear()
+                surface_last['invalid_candidate'] = True
+            else:
+                lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
             extra = {"dfc": dc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                      "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
             attach_geometry(extra, x_raw, x_previous, xT)
@@ -2234,6 +2263,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # iteration's per-term norms), so every accepted step decreases one objective. ----
         t0 = _tick()
         state, lv, lk, lr, lpbr, extra = terms(dFc)
+        render_before = dict(surface_last)
         _tm_add("terms", t0)
         t0 = _tick()
         dfc_x = extra["dfc"]                           # expanded control field (graph)
@@ -2245,7 +2275,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         Lfill = fill_raw(state[0]) if fill_on else None
         smooth = balancer.active and cfg.render_gs_iters > 0
         special_render = smooth or surface_w_t is not None or cfg.control_h1_iters > 0
-        gp = None
+        gp = gr = None
         Ldt = dt_term(state[0])
         if Lfill is not None:
             Ldt = (fill_lam * Lfill) if Ldt is None else (Ldt + fill_lam * Lfill)
@@ -2439,6 +2469,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # convergence; norm preserved). Every channel, after PCGrad/lambda.
             g[0] = _sobolev_direction(g[0], knn_t, cfg.control_h1_kappa)
         _tm_add("grad", t0)
+        # Preserve available channel directions without extra adjoints or changing
+        # the combined-only branch. Never reuse a previous iteration's directions.
+        report_gp = ([v.detach().clone() for v in gp]
+                     if cfg.render_influence_report and gp is not None else None)
+        report_gr = ([v.detach().clone() for v in gr]
+                     if cfg.render_influence_report and gr is not None else None)
         cur = scalars(lv, lk, lr, lam_r, dfc_x, state[0], state[1], extra["lk_run"],
                       extra["Fg"] if use_geom else None, extra["lk_var"], _vT(extra), extra.get("geom_rest"))
         if not np.isfinite(cur):
@@ -2576,6 +2612,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 render_work = render_work_x = render_work_F = None
                 render_cos = None
             step_norm = float((dFc.detach() - bak[0]).norm())
+        influence = None
+        render_after = dict(surface_last)
+        if cfg.render_influence_report:
+            from .render_reporting import accepted_render_step
+            names = [('stress' if p is dFc else 'body' if p is body_coeff else
+                      'surface_u' if p is u else 'material') for p in leaves]
+            influence = accepted_render_step(
+                report_gp, report_gr, leaves, bak, names,
+                lam_r if balancer.active else 0., lr, lr_n, render_before, render_after,
+                state[0], state_n[0], it, _ls, a_try)
         if on_iter is not None:                      # live viewer: stream the window's
             F_view = extra_n["Fg"] if use_geom else state_n[1]     # REFUTE F8: same F
             on_iter(it, to_array(state_n[0].detach(), copy=True).astype(np.float32),  # as on_commit
@@ -2585,7 +2631,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                       "geometric_rest": geometry_telemetry(extra_n.get('geom_rest')),
                       "geometric_variance": path_report(extra_n, state_n[0]),
                       "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
-                      "d_render": float(lr_n) if lr_n is not None else None,
+                      "d_render": sil_gauss['sil'] if surface_window is not None else (float(lr_n) if lr_n is not None else None),
+                      "d_render_total": float(lr_n) if lr_n is not None else None,
                       "lambda": lam_r if balancer.active else None, "grad_norm": gn,
                       "g_raw_cos": g_raw_cos, "g_cos": g_cos, "g_share": g_share,
                       "g_phys_norm": g_phys_norm, "g_rend_norm": g_rend_norm,
@@ -2611,6 +2658,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             delta = (body_coeff.detach() - bak[body_index]).reshape(-1, body_modes, 3)
             body_update = [float(v) for v in delta.square().sum(-1).mean(0).sqrt()]
         hist.append({"iter": it, "loss": new,
+                     "render_influence": influence,
+                     "surface_render": render_after if surface_window is not None else None,
                      "geometric_variance": path_report(extra_n, state_n[0]),
                      "geometric_rest": geometry_telemetry(extra_n.get('geom_rest')),
                      "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
@@ -2618,9 +2667,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      "d_vol": float(lv_n), "kin": float(lk_n),
                      "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
                      "d_sil": sil_gauss["sil"], "d_gauss": sil_gauss["gauss"],
-                     "d_render": (float(lr_n) - cfg.w_pbr * float(lpbr_n)
-                                  if lpbr_n is not None else
-                                  (float(lr_n) if lr_n is not None else None)),
+                     "d_render": (sil_gauss['sil'] if surface_window is not None else
+                                  (float(lr_n) - cfg.w_pbr * float(lpbr_n)
+                                   if lpbr_n is not None else
+                                   (float(lr_n) if lr_n is not None else None))),
                      "d_pbr": float(lpbr_n) if lpbr_n is not None else None,
                       "lambda": lam_r if balancer.active else None,
                       "grad_norm": gn, "alpha": a_try,
@@ -2775,12 +2825,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # Diagnostic only: preserve loss telemetry/cache while constructing
             # the fixed-state objective. No extra evaluations on the default path.
             sil_saved, gauss_scale_saved = dict(sil_gauss), tgt.gauss_scale
+            surface_saved = dict(surface_last)
             try:
                 lv_audit, lk_audit, lr_audit, _ = losses_of(x_final, F_final, v_final, Fg_final)
             finally:
                 sil_gauss.clear()
                 sil_gauss.update(sil_saved)
                 tgt.gauss_scale = gauss_scale_saved
+                surface_last.clear()
+                surface_last.update(surface_saved)
             audit_active = True
 
             def evaluate_variance(variance_override):
@@ -2891,6 +2944,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         render_target_kind = ('fixed_gaussian' if cfg.gauss_mix <= 0 else
                               f'fixed_gaussian+{render_target_kind}_silhouette')
     stats = {"pace_bound": pace_bound, "replay_rel": replay_rel, "h1_ratio": h1_ratio,
+             "surface_render": (hist[-1]['surface_render'] if hist and surface_window is not None else None),
+             "surface_render_model": surface_window.metadata() if surface_window is not None else None,
+             "render_influence_steps": [h['render_influence'] for h in hist if h.get('render_influence') is not None],
              "render_target_kind": render_target_kind,
              "motion_accounting": motion_accounting,
              "owned_endpoint": owned_endpoint,

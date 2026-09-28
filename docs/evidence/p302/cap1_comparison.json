@@ -1,0 +1,139 @@
+{
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx": 0.3062907543956724,
+    "loss_res": 36,
+    "iters": 2
+  },
+  "code_sha256": "523350aa6d3669009f214af95d66da0c4f7a4dbce704cf5d436b8ce37055610f",
+  "rows": [
+    {
+      "name": "control1",
+      "seconds": 11.432115190895274,
+      "peak_torch_bytes": 9560482816,
+      "guards": {
+        "clamped": 0,
+        "nan_x": 0,
+        "nan_state": 0,
+        "F_reset": 0,
+        "F_flip": 0,
+        "F_invert_steps": 0
+      },
+      "accepted": 2,
+      "rejected": 0,
+      "lambda_render": 0.32715868993558916,
+      "d_vol": 0.07205304503440857,
+      "d_cic": 0.024392087012529373,
+      "surface_components": {
+        "coverage": 0.017258459702134132,
+        "detail_coverage": 0.03165704756975174,
+        "detail_edge": 0.0003331259067635983,
+        "total": 0.04924863204360008,
+        "weight": 0.0,
+        "coarse_render": 0.02727740816771984
+      },
+      "Jmin_traj": 0.970745325088501,
+      "endpoint_chamfer_wu": 0.16782520549559898,
+      "endpoint_binary_sil_iou": 0.7311159249615781,
+      "saved_step_rms_wu": 0.009846082888543606,
+      "scope": "Entire first window including travelers; not settled motion or a holes metric"
+    },
+    {
+      "name": "candidate1",
+      "seconds": 11.578186835162342,
+      "peak_torch_bytes": 11095022080,
+      "guards": {
+        "clamped": 0,
+        "nan_x": 0,
+        "nan_state": 0,
+        "F_reset": 0,
+        "F_flip": 0,
+        "F_invert_steps": 0
+      },
+      "accepted": 2,
+      "rejected": 0,
+      "lambda_render": 0.014882053691095213,
+      "d_vol": 0.0717250257730484,
+      "d_cic": 0.029638702049851418,
+      "surface_components": {
+        "coverage": 0.020636191591620445,
+        "detail_coverage": 0.029709048569202423,
+        "detail_edge": 0.0003185058885719627,
+        "total": 0.050663746893405914,
+        "weight": 1.0,
+        "coarse_render": 0.03295880928635597
+      },
+      "Jmin_traj": 0.9736119508743286,
+      "endpoint_chamfer_wu": 0.17016559498803957,
+      "endpoint_binary_sil_iou": 0.7261594406966342,
+      "saved_step_rms_wu": 0.009954756125807762,
+      "scope": "Entire first window including travelers; not settled motion or a holes metric"
+    },
+    {
+      "name": "control_repeat1",
+      "seconds": 11.412369769997895,
+      "peak_torch_bytes": 9560484352,
+      "guards": {
+        "clamped": 0,
+        "nan_x": 0,
+        "nan_state": 0,
+        "F_reset": 0,
+        "F_flip": 0,
+        "F_invert_steps": 0
+      },
+      "accepted": 2,
+      "rejected": 0,
+      "lambda_render": 0.3271585734852943,
+      "d_vol": 0.07205304503440857,
+      "d_cic": 0.02439206652343273,
+      "surface_components": {
+        "coverage": 0.017258508130908012,
+        "detail_coverage": 0.03165746107697487,
+        "detail_edge": 0.00033312683808617294,
+        "total": 0.04924909397959709,
+        "weight": 0.0,
+        "coarse_render": 0.027277382090687752
+      },
+      "Jmin_traj": 0.9707446098327637,
+      "endpoint_chamfer_wu": 0.1678251918076907,
+      "endpoint_binary_sil_iou": 0.7311159249615781,
+      "saved_step_rms_wu": 0.009846077300608158,
+      "scope": "Entire first window including travelers; not settled motion or a holes metric"
+    }
+  ],
+  "input_evidence": [
+    {
+      "prefix": "/data/relcfd/chayo/physmorph_v2/work/p302/control1",
+      "sha256": {
+        ".json": "6c0aaf581f6f7aa0dd7a99722e74d43c22757a2065949137d7148342d5ac6806",
+        ".npz": "71e29983416239c7dcf661fa0721d1c676b71089d7d64a2be1c7b42e0a980d89",
+        "_render_full_dt_iso_nn.npz": "b7faeb9acae306fc75afcbdc807d2b117287d656ea52f13141ba1d135ebd1b5c"
+      }
+    },
+    {
+      "prefix": "/data/relcfd/chayo/physmorph_v2/work/p302/candidate1",
+      "sha256": {
+        ".json": "9d6ab896bfb47a7adb358945d75a2e811c989c9d3b348d25465af8aa77152b63",
+        ".npz": "3455894f9ea547eb5c982e9452d4bd19c47cc91bfd33d06d6698647243e4c442",
+        "_render_full_dt_iso_nn.npz": "be4bc04a361851730079ea693604ff3cea315b422769160c89c939c2e380fd36"
+      }
+    },
+    {
+      "prefix": "/data/relcfd/chayo/physmorph_v2/work/p302/control_repeat1",
+      "sha256": {
+        ".json": "38eb851a457bc5431eff44cf1bb975d628f5f6282b02ddfd337d20701128fc81",
+        ".npz": "10076dfd63d53ea8c6f6235cdaef9e8d02c46bd8ac325fe761c0a5f2d8bcd458",
+        "_render_full_dt_iso_nn.npz": "d8c273fbed1a7aa53262face3b71647d07e19c048257326493af9ac7e4f31e9c"
+      }
+    }
+  ],
+  "helper_sha256": "b83c4aaacf932527f4ff30c3759a79d3d2a8e4436e2a9176a2090810b3ecc5c3",
+  "metric_source_sha256": "c5820db406fe8a8e22446c4954cc6e618a0c3545da40c81c2d2beeda59c5c809",
+  "candidate_vs_control_endpoint_rms_wu": 0.026577549055218697,
+  "repeat_vs_control_endpoint_rms_wu": 2.12787290365668e-06,
+  "candidate_vs_control_path_rms_wu": 0.01756392978131771,
+  "repeat_vs_control_path_rms_wu": 1.5383110394395771e-06,
+  "limitations": "One cap1 realization plus one control repeat, not a noise distribution. Only GS weight differs; existing CIC/PBR guidance remains in both. Lambda adapts. No all-frame holes/rest/high-resolution appearance certificate."
+}

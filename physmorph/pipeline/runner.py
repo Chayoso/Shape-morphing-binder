@@ -263,6 +263,11 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
                       kde_h=kde_h, kde_rho_ref=kde_rho,
                       m_ref=m_ref, n_support=n_support,
                       pgmin=pgmin, pdx=pdx, pdims=pdims, pblur=pblur)
+    if cfg.surface_gs_loss and cfg.lambda_auto > 0:
+        from .surface_render_loss import SurfaceRenderViews
+        pack.surface_gs = SurfaceRenderViews(tgt_t, views, coarse_height=cfg.surface_gs_res,
+            detail_height=cfg.surface_gs_detail_res, patch_size=cfg.surface_gs_patch,
+            view_count=cfg.surface_gs_views, deficit_weight=cfg.w_hole, excess_weight=cfg.w_spray)
     pack.target_reference_provenance = reference['provenance'] if reference is not None else None
     return pack
 
@@ -1021,6 +1026,9 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                "d_fill": d_fill, "g_cos": stats.get("g_cos"),
                "g_raw_cos": stats.get("g_raw_cos"), "g_share": stats.get("g_share"),
                "render_channels": stats.get("render_channels"),
+               "surface_render": stats.get("surface_render"),
+               "surface_render_model": stats.get("surface_render_model"),
+               "render_influence_steps": stats.get("render_influence_steps"),
                "g_phys_norm": stats.get("g_phys_norm"), "g_rend_norm": stats.get("g_rend_norm"),
                "cont_ratio": stats.get("cont_ratio"), "cont_rejects": stats.get("cont_rejects"),
                "cont_ref_ratio": stats.get("cont_ref_ratio"),

@@ -9058,3 +9058,27 @@ falls0.718750→0.696514, with126 support losses/22 gains and8 zero-neighbor los
 Direct operator geometry remains a tradeoff; no rest, watertightness, renderer
 or policy promotion. Fresh realization, not P300's original realized trajectory.
 [P301 evidence, sampling limits and hashes](arrival_history_p301.md).
+
+**2026-09-28 -- P302 shared surface loss implemented; cap1 is not a promotion.**
+Current defaults retain CIC/PBR-lite. Opt-in surface_gs_loss uses the same stateless
+primitives as studio --surface-common, direct covariance, live differentiable
+distances/density normals, fixed calibration, per-window paced targets and four
+separated cameras. Native 4K edge crops retain full-camera rasterization. New
+default telemetry and JSON/Markdown reports record accepted updates and render
+norms without presenting norm shares as causal displacement percentages.
+
+CUDA code3 uses N300k/T20/dt1/240/dx0.3062907543956724/loss36^3, one window and
+two inner iterations. Matched GS weight0/1 and weight0 repeat each accept2/2
+steps, one outer commit, all state guards0. Time11.43/11.58/11.41s and peakTorch
+9.56/11.10/9.56GB. Weight1 reduces local detail coverage/edge loss6.15%/4.39%,
+but global GS coverage and CIC worsen19.57%/21.51%; totalGS worsens2.87%.
+Lambda shifts0.327159 to0.014882. Independent raw binary IoU falls0.731116 to
+0.726159 and Chamfer rises0.167825 to0.170166wu. Candidate endpoint difference
+is0.026578wu RMS versus control repeat2.13e-6wu, so this bounded change clearly
+exceeds the observed single-repeat discrepancy; no noise distribution is claimed.
+
+Packed-covariance forward parity is8.94e-8 and core-pixel analytic derivatives
+pass, but broad raster finite differences still differ8.46..10.32%; N300k whole
+cloud translation differs5.97..6.09%. That global derivative gate stays open.
+No full morph/rest/hole/artifact fix, no new rendered delivery, no gallery or
+default promotion. Scope, reports and evidence: [P302](surface_render_p302.md).

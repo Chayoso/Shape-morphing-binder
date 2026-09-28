@@ -139,7 +139,10 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
                          ot_handoff=args.ot_handoff,
                          render_views=args.render_views,
-                         render_res=args.render_res, render_res_hi=args.render_res_hi, c2f_onset_pin=args.c2f_onset_pin, loss_res=args.loss_res,
+                         render_res=args.render_res, render_res_hi=args.render_res_hi,
+                         surface_gs_loss=args.surface_gs_loss, surface_gs_weight=args.surface_gs_weight,
+                         surface_gs_res=args.surface_gs_res, surface_gs_detail_res=args.surface_gs_detail_res,
+                         surface_gs_patch=args.surface_gs_patch, surface_gs_views=args.surface_gs_views, c2f_onset_pin=args.c2f_onset_pin, loss_res=args.loss_res,
                          grad_dump=args.grad_dump, layer_relax=args.layer_relax, layer_frac=args.layer_frac,
                          disc_ref=args.disc_ref, stop_on_cycle=args.stop_on_cycle, u_rprop=args.u_rprop, commit_pic=args.commit_pic, rebound_probe=args.rebound_probe, rest_commit=args.rest_commit, rest_commit_gate=args.rest_commit_gate, rest_commit_reversal=args.rest_commit_reversal, pace_project=args.pace_project, outer_latch_reversal=args.outer_latch_reversal, plan_native=args.plan_native, ctrl_rprop=args.ctrl_rprop, ctrl_rprop_smooth=args.ctrl_rprop_smooth, ctrl_rprop_k=args.ctrl_rprop_k, ctrl_rprop_arrived=args.ctrl_rprop_arrived, ctrl_rprop_hold=args.ctrl_rprop_hold, ctrl_rprop_hold_onset=args.ctrl_rprop_hold_onset, freeze_arrived=args.freeze_arrived, settle_eta=args.settle_eta, settle_commit=args.settle_commit, settle_pin=args.settle_pin, settle_pin_clear=args.settle_pin_clear, settle_pin_assim=args.settle_pin_assim, settle_pin_ray=args.settle_pin_ray, settle_pin_yield=args.settle_pin_yield, settle_pin_slip=args.settle_pin_slip, h1_outside=args.h1_outside, h1_onset_pin=args.h1_onset_pin, settle_pin_kkt=args.settle_pin_kkt, settle_pin_kkt_dry=args.settle_pin_kkt_dry, settle_pin_follow=args.settle_pin_follow, arrive_cap=args.arrive_cap, pace_front=args.pace_front, pace_cap=args.pace_cap, pace_front_geo=args.pace_front_geo, pace_front_fill=args.pace_front_fill, pace_front_thin=args.pace_front_thin, pace_front_dense=args.pace_front_dense, pace_coherent=args.pace_coherent, render_paced=args.render_paced, pace_stream=args.pace_stream, pace_support=args.pace_support, pace_support_hard=args.pace_support_hard, render_paced_onset=args.render_paced_onset, render_paced_conv=args.render_paced_conv, plan_sticky=args.plan_sticky, settle_pin_stuck=args.settle_pin_stuck, settle_pin_still=args.settle_pin_still, pace_front_pts=args.pace_front_pts, u_rprop_floor=args.u_rprop_floor, shift_sub=args.shift_sub, shift_h_sp=args.shift_h_sp, layer_ctrl=args.layer_ctrl, pbr_denoised=args.pbr_denoised, layer_F=args.layer_F, layer_F_depth=args.layer_F_depth, layer_gate=args.layer_gate, layer_gate_geom=args.layer_gate_geom, layer_gate_geom_cells=args.layer_gate_geom_cells, layer_gate_ot=args.layer_gate_ot, layer_gate_ot_cells=args.layer_gate_ot_cells, layer_gate_ot_normal=args.layer_gate_ot_normal, layer_u_render_only=args.layer_u_render_only,
                          layer_ctrl_smooth=args.layer_ctrl_smooth, sil_kernel=args.sil_kernel,
@@ -572,6 +575,12 @@ def main():
                     help="ot_pace: hand the window target to the FIXED target once every deficit cell is adjacent to the body")
     ap.add_argument("--assim_consensus", action="store_true")  # neighbourhood-consensus plasticity
     ap.add_argument("--render_views", type=int, default=6)
+    ap.add_argument("--surface_gs_loss", action="store_true", help="P302 shared surface coverage/edge guidance; experimental")
+    ap.add_argument("--surface_gs_weight", type=float, default=1.)
+    ap.add_argument("--surface_gs_res", type=int, default=256)
+    ap.add_argument("--surface_gs_detail_res", type=int, default=2160)
+    ap.add_argument("--surface_gs_patch", type=int, default=256)
+    ap.add_argument("--surface_gs_views", type=int, default=4)
     ap.add_argument("--render_res", type=int, default=64)
     ap.add_argument("--render_res_hi", type=int, default=96, help="the render resolution after the coarse-to-fine rebuild (config.render_res_hi)")
     ap.add_argument("--c2f_onset_pin", action="store_true", help="rebuild the render targets at render_res_hi at the pin's onset (config.c2f_onset_pin)")
@@ -988,6 +997,8 @@ def main():
         res = run_pipeline(src, tgt, prm, cfg, on_commit=cbs[0], on_iter=cbs[1],
                            w_src=w_src, w_tgt=w_tgt)
         dt = time.time() - t0
+        from physmorph.pipeline.render_reporting import write_render_report
+        write_render_report(f"{args.out}_{arm}", res['history'], cfg_dump, dataclasses.asdict(prm), len(src))
         dn, delivered_held, commit_frames = delivered_metric_timing(
             len(res["frames"]), res.get("deliver_n"), res["history"])
         res["deliver_n_used"] = dn

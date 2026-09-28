@@ -43,6 +43,10 @@ def main():
     parser.add_argument('--no-shift-sub', action='store_true', help='Disable the external subgrid position shift')
     parser.add_argument('--out', required=True)
     parser.add_argument('--trace_seconds', type=int, default=0)
+    parser.add_argument('--surface-gs-weight', type=float, default=None,
+                        help='Enable P302; zero measures the new loss without adding it to the objective')
+    parser.add_argument('--surface-gs-detail-res', type=int, default=2160)
+    parser.add_argument('--surface-gs-views', type=int, default=4)
     args = parser.parse_args()
     if args.trace_seconds:
         faulthandler.dump_traceback_later(args.trace_seconds, repeat=True)
@@ -65,14 +69,14 @@ def main():
         print('CUDA primitives PASS', flush=True)
         return
     root = Path(args.root)
-    prefix = root / 'output/c291/c291_bunny_mixed60'
+    prefix = root / 'repro/current_pair/source'
     metadata = json.loads(prefix.with_suffix('.json').read_text())
     with np.load(str(prefix) + '_render_full_dt_iso_nn.npz') as data:
         src, tgt = data['src'], data['tgt']
     config = metadata['arms']['render_full_dt_iso_nn']['config']
     config = {k: v for k, v in config.items() if k in PipelineConfig.__dataclass_fields__}
     config.update(compute_backend=args.backend, stop_after_windows=args.windows, iters=args.iters,
-                  target_reference=str(root / 'work/gpu_refactor/target_reference.npz'))
+                  target_reference=str(root / 'repro/current_pair/target_reference.npz'))
     if args.physical:
         config['lambda_auto'] = 0.
     if args.confirm:
@@ -98,6 +102,9 @@ def main():
         if not np.isfinite(args.taper_sp) or args.taper_sp < 0:
             parser.error('--taper-sp must be finite and nonnegative')
         config['ctrl_taper_sp'] = args.taper_sp
+    if args.surface_gs_weight is not None:
+        config.update(surface_gs_loss=True, surface_gs_weight=args.surface_gs_weight,
+                      surface_gs_detail_res=args.surface_gs_detail_res, surface_gs_views=args.surface_gs_views)
     cfg = PipelineConfig(**config)
     prm = MPMParams(**metadata['provenance']['mpm'])
     start = time.monotonic()
@@ -135,6 +142,8 @@ def main():
         record['arms'] = {'render_full_dt_iso_nn': dict(config=config, history=result['history'],
                           guards=result['guards'], metrics={}, deliver_n=result['deliver_n'],
                           converged=result['converged'], truncation=result['truncation'], n_held=result['n_held'])}
+    from physmorph.pipeline.render_reporting import write_render_report
+    record['render_influence'] = write_render_report(out, result['history'], config, dataclasses.asdict(prm), len(src))
     out.with_suffix('.json').write_text(json.dumps(record, indent=2))
     print(json.dumps({'seconds': record['seconds'], 'guards': record['guards']}), flush=True)
 

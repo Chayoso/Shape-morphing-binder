@@ -85,6 +85,13 @@ class PipelineConfig:
     render_views: int = 6           # azimuths per elevation ring
     render_elevs: tuple = (0.0, 0.5, -0.5)   # elevation angles (v1 was equator-only)
     render_res: int = 64
+    surface_gs_loss: bool = False   # P302: additive shared, stateless surface coverage/edge loss
+    surface_gs_weight: float = 1.0
+    surface_gs_res: int = 256
+    surface_gs_detail_res: int = 2160
+    surface_gs_patch: int = 256
+    surface_gs_views: int = 4
+    render_influence_report: bool = True  # user 2026-09-28: accepted-step telemetry, not causal displacement share
     sil_k: float = 1.5              # alpha saturation 1-exp(-k w)
     w_hole: float = 2.0             # deficit inside target (holes/missing extremities)
     w_spray: float = 1.0            # excess outside target (ejecta pulled back by the objective)

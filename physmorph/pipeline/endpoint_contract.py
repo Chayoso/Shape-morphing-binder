@@ -9,6 +9,19 @@ import torch
 
 
 def validate_endpoint_config(cfg):
+    if cfg.surface_gs_loss:
+        if not cfg.commit_pic_objective or cfg.use_gauss_loss:
+            raise ValueError('surface_gs_loss requires shared PIC and excludes legacy use_gauss_loss')
+        if cfg.compute_backend != 'cuda' or not str(cfg.device).startswith('cuda'):
+            raise ValueError('surface_gs_loss requires the CUDA numerical backend')
+        if not math.isfinite(cfg.surface_gs_weight) or cfg.surface_gs_weight < 0:
+            raise ValueError('surface_gs_weight must be finite and nonnegative')
+        if not (16 <= cfg.surface_gs_res <= cfg.surface_gs_detail_res <= 4320):
+            raise ValueError('surface GS resolutions must satisfy 16 <= coarse <= detail <= 4320')
+        if not (8 <= cfg.surface_gs_patch <= cfg.surface_gs_detail_res and 1 <= cfg.surface_gs_views <= 18):
+            raise ValueError('invalid surface GS patch/views')
+        if cfg.grad_dump or cfg.local_dress_iters or cfg.settle_pin_kkt:
+            raise ValueError('surface GS excludes legacy dressing, grad_dump and endpoint KKT branches')
     if cfg.geometric_variance:
         if not cfg.commit_pic_objective or cfg.geometric_rest:
             raise ValueError('geometric_variance requires shared PIC and no geometric_rest intervention')
