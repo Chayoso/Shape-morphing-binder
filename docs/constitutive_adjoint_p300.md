@@ -2,7 +2,10 @@
 
 Status: local CPU counterexample independently verified and reproduced on
 server CUDA; the same-forward derivative fix passed10 focused Warp1.16 CPU
-tests, with full CPU and CUDA validation pending. This is a constitutive differentiation
+tests. The first CUDA suite has9 passes and1 chain finite-difference failure,
+now isolated to the float32 forward difference by a separate all-channel oracle.
+The original strict position-sequence probe passes on the new derivative.
+Test-oracle revision and actual morph-quality checks remain pending. This is a constitutive differentiation
 correction, not a new morph loss or evidence that holes/rest are repaired.
 
 The current rotation is R=UV^T from a signed SVD, with the existing proper-
@@ -90,3 +93,72 @@ computed-singular NaN path. The latter is not a claim to detect every nonunique
 inverted tie. Warp1.9 cannot compile a nested custom adjoint because of function
 declaration ordering; the dependency minimum is now1.16 with an early import
 check. The server already has1.16.0. No tolerance in P297 was changed.
+
+The first frozen7437f1e CUDA suite executed10 tests with no skips:9 passed and
+the stress-chain directional finite-difference case failed. Its AD value
+-12.427041947996095 differs from FD-12.453812206315954 by0.0267702583,
+above the unchanged0.0249076244 allowance. That loop stops at its first failure,
+so its later channels are not validated by the nine other passing cases.
+The failed XML/JSON are retained as output/p300/run_cuda_tests.{xml,json}.
+Do not relabel this as a full CUDA pass or loosen the allowance. A separate
+all-channel analytical check is needed to distinguish a pullback error from
+float32 forward finite-difference error. The unchanged-tolerance rollout probe
+can supply separate diagnostic evidence but cannot clear this chain failure.
+
+## Independent chain diagnosis and original rollout probe
+
+The frozen7437f1e all-channel oracle ran on hyde06 GPU0, Warp1.16.0 CUDA,
+using the failed test's exact float32 inputs, cotangent and seeded directions.
+It compares complete F/dFc/Fp/lambda/mu gradients to a separate float64
+SVD/Sylvester chain reference. Both Fp paths are included: the elastic argument
+(F+dFc)Fp^-1 and the final stress multiplication by Fp^-T. No MPM discretization
+applies to this single-particle constitutive check. The fixed matrix epsilon
+sweep(.02,.01,.005,.003,.001,.0003) and scalar sweep(.4,.2,.1,.05,.02) were
+recorded before CUDA execution; no best epsilon or new tolerance is selected.
+
+Full-gradient relative errors are3.53e-7(F and dFc),4.64e-7(Fp),1.00e-6(lambda)
+and4.32e-6(mu). For the failed F direction, analytic-12.4270501958 and actual
+AD-12.4270419480 differ by8.25e-6. The original epsilon.003 CUDA FD remains
+-12.4538122063 and still fails its original bound. At that same epsilon,
+float64 FD is-12.4274397988, and rounding only the perturbed input to float32
+gives-12.4243706362. CUDA forward loss error contributes another-0.0294415701
+to the FD, accounting for the discrepancy. The other four original directional
+FD readouts pass. This diagnoses the test's float32 forward subtraction;
+it does not retroactively label the original9/10 suite a pass.
+
+Evidence: output/p300/chain_diagnostic.py, chain_reference.json, chain_cuda.json.
+CUDA result SHA256:
+4d75f83841a6c3e9983e87b7d46cba0b414c750dfc8cae8d5f172c922f56751e.
+Diagnostic script SHA256:
+766f29aa9d51309320361731913aae68d5a03eadb98c776bd979bf1cbfc2d14a.
+
+Separately, the unchanged scripts/probes/position_sequence.py passed all52
+pass-bearing checks on frozen7437f1e, hyde06 GPU2. It retains the original
+N64 subset of the300k source, T3 plus T1 edge case, dt1/240,
+dx0.3062907543956724wu, seeds, masks, controls and all tolerances. Ordinary
+and captured rollouts, full/terminal/velocity/merged cotangents, first-step
+gradients, pinned particles, nontrivial layer relaxation, ownership, reset
+and all six finite-difference cases pass. Independent review checked all62
+dependency hashes and exact input/tolerance parity with the failed old-core
+probe. This clears that small bridge test only, not all300k behavior or holes.
+Evidence: output/p300/position_sequence.json; SHA256:
+c7993926569d44ac53b2816b1b574aa72db9ace904090f74472ff18bfa5ca805.
+
+The full local Warp1.16 CPU suite returned658 passed,22 skipped and2 failures
+in421.64s. Both failures were the same mock Warp module lacking __version__,
+newly read by the dependency guard. The mock was corrected and two explicit
+old-version early-rejection cases added; tests/test_gpu_entry.py then passed
+all19 tests. This is a recorded full run plus targeted repair, not an assertion
+that the initial full run was green. No global local package was replaced.
+
+The chain test was subsequently revised after independent review of that error
+decomposition. It now compares the complete actual CUDA/CPU VJP for all five
+inputs against the analytic chain with the same64-float32-epsilon,
+coefficient/cotangent-scaled allowance as the existing spectral tests. It also
+checks actual forward P against the independent reference. The reference's
+directional derivatives are checked by float64 forward differences at the
+original epsilon.003/.1 and original relative.002/absolute.02 bounds.
+Every other actual-kernel finite-difference test is unchanged. This changes
+the chain oracle, not the production code or its derivative tolerances, and
+retains the original failed float32-FD evidence above. The revised focused
+CPU module passed all10 tests in8.99s; a fresh CUDA run remains required.

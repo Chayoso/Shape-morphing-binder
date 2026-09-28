@@ -156,3 +156,99 @@ This is one first-update search, not another inner-iteration solve, outer
 acceptance or native adaptive-lambda geometric policy. No additional gradient,
 plan preparation, window state update, pin admission or renderer is introduced.
 Prior primitive failures and whole-policy quality failures remain recorded.
+
+## P299b CUDA result, September 28
+
+The bounded observation passed, but does not justify policy promotion or a new
+full geometric-variance solve. Frozen9706141 ran on hyde06 GPU0 in467.743s,
+using the original300k/T20/dt1/240, dx0.3062907543956724wu, loss36^3,
+shared-PIC/no-shift recipe. This snapshot uses the prior constitutive
+implementation; the separate P300 adjoint work is outside this observation.
+All24 baseline attempts were outer accepted, with zero state guards. This is a
+newly executed prepared state, not a matched-state comparison with the earlier
+P299 run: baseline lambda is0.01908374959286506, and the fixed cohorts contain
+66204 window-start free IDs and1801 source-upper free IDs.
+
+Both native initial alphas equal0.02. Both directions reject indices0 through3
+and first pass at index4, alpha0.00125. A's selected alpha equals the actual
+baseline continuation's first accepted alpha exactly; all eight accepted inner
+updates retain0.00125. Selection uses each direction's own merit, not geometry.
+
+| Halving index / alpha | A physical merit | B geometric merit | Own merit passes |
+|---|---:|---:|---|
+| Initial prepared rollout |0.002645249863|0.002881857020|not a proposal|
+|0 /0.02|0.005817247435|0.015082329859|neither|
+|1 /0.01|0.005369909743|0.014023532782|neither|
+|2 /0.005|0.003336223112|0.005722650853|neither|
+|3 /0.0025|0.002744243614|0.003255634390|neither|
+|4 /0.00125|0.002632946547|0.002805015354|both|
+
+Compare each column with its own initial merit. At selection, A lowers physical
+merit0.4651% but raises geometric merit0.8540%; B lowers geometric merit2.6664%
+but raises physical merit0.7218%. Jmin is0.846537/0.846449 for A/B. These are
+first-update merit passes, not independently admitted alternate outer windows.
+
+All evaluated trials preserve the prepared inputs and live controls/moments
+exactly. The233796 start-pinned IDs have exact raw and promoted anchors.
+A-repeat at index4 has identical control deltas; maximum promoted-coordinate
+difference is2.38419e-7wu and both merit differences are4.65661e-10. These
+descriptive repeat measurements neither set new tolerances nor clear the
+previous failed strict primitive gates. Independent isolated CPU review passed
+24 cases (20 driver,4 observer) before this run.
+
+The reference below is the initial prepared forward rollout and its promoted
+endpoint, not the starting cloud x0. All motion columns use the same66204 free
+material IDs, normalized by source native spacing0.03498853660707278wu.
+Raw steps include the existing layer operator; saved final means raw final
+step plus PIC, not PIC alone.
+
+| Motion RMS (sp) | Initial rollout | A selected | B selected |
+|---|---:|---:|---:|
+| Raw steps1–19 |0.0218215|0.0236004|0.0234008|
+| Raw final step |0.0208691|0.0276144|0.0472123|
+| PIC jump |0.226904|0.238826|0.170210|
+| Saved final phase |0.214979|0.232523|0.172924|
+| All saved steps |0.0525659|0.0568549|0.0448927|
+| Saved net displacement |0.300736|0.246761|0.191329|
+
+B reduces saved-step RMS21.04% and PIC RMS28.73% relative to A, while raw-final
+RMS rises70.97% and all-raw-step RMS rises5.52%. Raw-path reversal fraction
+rises0.7623% to1.7344%; saved-path reversals fall2.6721% to2.4386%. The saved
+path-length RMS falls12.52%, net-displacement RMS falls22.46%, and median
+net/path falls0.4575 to0.2863. Thus the smaller saved motion accompanies less
+net transport and more raw direction changes; it is not evidence of rest.
+For the1801 source-upper free IDs, B similarly lowers saved RMS11.17% but
+raises raw-final RMS51.49%, with raw reversals0.5728% to1.4407%. These fixed
+free cohorts are not certified after-arrival cohorts, and this one-window
+measurement does not observe the next-window boundary response.
+
+| Promoted endpoint geometry | Initial rollout | A selected | B selected |
+|---|---:|---:|---:|
+| Silhouette IoU |0.969281767|0.969100325|0.969018017|
+| Fixed upper target coverage |0.964668234|0.958398642|0.958202717|
+| Target-tip neighbors |59|42|42|
+
+Independent geometry is nearly equal between selected A/B, with B slightly
+worse on silhouette and upper coverage. Both lose coverage and tip neighbors
+relative to the initial rollout. The binary-projection hole metric is0 for
+all three; it does not certify absence of physical holes. Fixed-source upper
+6712-ID density is0.69973555/0.69953069 for A/B and under-half support is
+0.23897497/0.23882598. For the1801 free subset, density is
+0.82849806/0.82842865 and under-half0.15880067/0.15824542: the latter difference
+is one ID. The fixed density radius remains target median eighth-neighbor
+distance0.06898659982768912wu (target native spacing0.03493084911867985wu).
+Initial-rollout fixed-ID supply was not recorded. Current-top density uses
+position-dependent membership and is not a substitute for these fixed cohorts.
+
+Backtracking removes the rejected-large-step confound and demonstrates that
+both directions have a first merit-passing proposal at the same step size.
+The observed tradeoff remains mixed: lower geometric merit/saved motion,
+greater final raw motion and reversals, less net transport, and no thin-region
+coverage improvement. No default, new weight, physical-hole/rest claim, or
+clearance of P297's whole-policy failures follows. Constitutive/primitive
+correctness must be resolved separately before treating this as a repair path.
+
+Evidence: local output/p299/backtrack24/{protocol,proposal_audit}.json;
+server /data/relcfd/chayo/physmorph_v2/work/p299/backtrack24.
+Result SHA256:5152e561156407ad4eeae7017a9884b36c39a9e5c7e77dea264ee70ae0bcf187.
+Protocol SHA256:0809b5050988507a8cbd05adec5277e69220734b3e540d776a23f17c88e6075e.

@@ -8948,3 +8948,23 @@ coverage relative to their initial prepared rollout. Their endpoint differences
 cannot stand in for accepted-update quality. No gain/default is promoted;
 a separate bounded first-iteration backtracking comparison is warranted before
 any larger solver experiment. See [P299 evidence and limits](variance_proposal_p299.md).
+
+**2026-09-28 -- P299b: accepted first updates reduce saved motion but redistribute raw motion.**
+Frozen9706141 (original constitutive derivative), bunny300k/T20/dt1/240,
+dx0.3062907543956724wu/loss36^3/eight inner iterations, shared PIC; sp0.03498853660707278wu.
+All24 baseline windows accepted with zero guards in467.743s. A and B each
+first pass their own merit at backtrack index4, alpha0.00125, exactly matching
+the actual baseline's first accepted step. Prepared inputs, moments, controls
+and233796 pin anchors remain unchanged by observation. This is a fresh run:
+its66204 free and1801 upper-free IDs differ from the earlier P299 cohorts.
+
+On the fixed all-free cohort, B versus A lowers saved-step RMS21.04% and PIC
+RMS28.73%, while raw-final RMS rises70.97% and raw reversals rise0.7623% to1.7344%.
+Net transport also falls. A improves physical merit0.4651% but worsens geometric
+merit0.8540%; B improves geometric merit2.6664% but worsens physical merit0.7218%.
+Initial-rollout/A/B IoU is0.969282/0.969100/0.969018; upper-target coverage
+0.964668/0.958399/0.958203 and tip count59/42/42. A/B fixed-source density is
+nearly equal; no initial fixed-source density was measured. These mixed results
+do not establish rest or repaired holes and do not justify a full geometric-
+variance solve or default promotion. Independent provenance/result review passed.
+See [P299b details and hashes](variance_proposal_p299.md#p299b-cuda-result-september-28).

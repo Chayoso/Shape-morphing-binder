@@ -24,10 +24,25 @@ def test_package_configures_warp_cache_before_initialization(monkeypatch, config
         monkeypatch.setenv('WARP_CACHE_PATH', configured)
     state = SimpleNamespace(kernel_cache_dir='existing-local-default')
     seen = []
-    fake = SimpleNamespace(config=state, init=lambda: seen.append(state.kernel_cache_dir))
+    fake = SimpleNamespace(__version__='1.16.0', config=state,
+                           init=lambda: seen.append(state.kernel_cache_dir))
     monkeypatch.setitem(sys.modules, 'warp', fake)
     runpy.run_path(str(Path(__file__).resolve().parents[1] / 'physmorph' / '__init__.py'))
     assert seen == [configured or 'existing-local-default']
+
+
+@pytest.mark.parametrize('version', ['1.9.0', '1.15.0'])
+def test_package_rejects_old_warp_before_initialization(monkeypatch, version):
+    monkeypatch.setenv('WARP_CACHE_PATH', '/data/test/cache/warp')
+    state = SimpleNamespace(kernel_cache_dir='existing-local-default')
+    seen = []
+    fake = SimpleNamespace(__version__=version, config=state,
+                           init=lambda: seen.append('initialized'))
+    monkeypatch.setitem(sys.modules, 'warp', fake)
+    with pytest.raises(RuntimeError, match='requires warp-lang>=1.16'):
+        runpy.run_path(str(Path(__file__).resolve().parents[1] / 'physmorph' / '__init__.py'))
+    assert not seen
+    assert state.kernel_cache_dir == 'existing-local-default'
 
 
 def _reference(path, target, *, schema=1, count=None):

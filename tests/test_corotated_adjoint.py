@@ -146,30 +146,65 @@ def test_material_and_plastic_inverse_chain_still_use_autodiff():
     Fp = np.array([[1.03, .02, 0.], [0., .97, -.01], [.01, 0., 1.01]], np.float32)
     dc = rng.normal(0., .01, (3, 3)).astype(np.float32)
     seed = rng.normal(size=(3, 3)).astype(np.float32)
-    def run(F_value, dc_value, fp_value, lam_value, mu_value, grad=False):
-        arrays = [wp.array(value[None], dtype=wp.mat33, device=DEVICE, requires_grad=grad)
-                  for value in (F_value, dc_value, fp_value)]
-        scalars = [wp.array(np.array([value], np.float32), device=DEVICE, requires_grad=grad)
-                   for value in (lam_value, mu_value)]
-        p = wp.zeros(1, dtype=wp.mat33, device=DEVICE, requires_grad=grad)
-        with wp.Tape() as tape:
-            wp.launch(k_stress, 1, inputs=[*arrays, *scalars, p], device=DEVICE)
-        loss = float(np.sum(p.numpy()[0].astype(np.float64)*seed))
-        if grad:
-            tape.backward(grads={p:wp.array(seed[None], dtype=wp.mat33, device=DEVICE)})
-            return loss, [x.grad.numpy().astype(np.float64) for x in arrays+scalars]
-        return loss
     base = [F, dc, Fp, 80., 40.]
-    _, gradients = run(*base, grad=True)
+    arrays = [wp.array(value[None], dtype=wp.mat33, device=DEVICE, requires_grad=True)
+              for value in base[:3]]
+    scalars = [wp.array(np.array([value], np.float32), device=DEVICE, requires_grad=True)
+               for value in base[3:]]
+    p = wp.zeros(1, dtype=wp.mat33, device=DEVICE, requires_grad=True)
+    with wp.Tape() as tape:
+        wp.launch(k_stress, 1, inputs=[*arrays, *scalars, p], device=DEVICE)
+    tape.backward(grads={p:wp.array(seed[None], dtype=wp.mat33, device=DEVICE)})
+    gradients = [x.grad.numpy()[0].astype(np.float64) for x in arrays+scalars]
     np.testing.assert_array_equal(gradients[0], gradients[1])
+
+    def exact_forward(values):
+        f, d, fp, lam, mu = [np.asarray(value, np.float64) for value in values]
+        G = np.linalg.inv(fp)
+        E = (f+d)@G
+        U, _, Vh = np.linalg.svd(E)
+        assert np.linalg.det(E) > 1e-6
+        R = U@Vh
+        J = np.linalg.det(E)
+        Pe = 2*mu*(E-R)+lam*(J-1)*J*np.linalg.inv(E).T
+        return Pe@G.T
+
+    f, d, fp, lam, mu = [np.asarray(value, np.float64) for value in base]
+    B = seed.astype(np.float64)
+    G = np.linalg.inv(fp)
+    A, E = f+d, (f+d)@G
+    barPe = B@G
+    R, _, barE = reference(E, barPe, lam, mu)
+    J = np.linalg.det(E)
+    volume = (J-1)*J*np.linalg.inv(E).T
+    Pe = 2*mu*(E-R)+lam*volume
+    barA = barE@G.T
+    # Fp affects both E=(F+dFc)G and the right factor in P=Pe G^T.
+    barG = A.T@barE+B.T@Pe
+    expected = [barA, barA.copy(), -G.T@barG@G.T,
+                np.asarray(np.sum(barPe*volume)), np.asarray(np.sum(barPe*2*(E-R)))]
+    eps32 = np.finfo(np.float32).eps
+    forward = exact_forward(base)
+    assert np.linalg.norm(p.numpy()[0].astype(np.float64)-forward) <= 64*eps32*max(
+        np.linalg.norm(forward), abs(lam)+2*abs(mu), 1.)
+    for actual, wanted, coefficient in zip(gradients, expected, (160., 160., 160., 1., 2.)):
+        assert np.isfinite(actual).all()
+        # Same fixed 64-epsilon coefficient/cotangent allowance as the spectral
+        # test above, now applied to every entry of all five chain gradients.
+        scale = max(np.linalg.norm(wanted), np.linalg.norm(B)*coefficient, 1.)
+        assert np.linalg.norm(actual-wanted) <= 64*eps32*scale
+
     for channel in range(5):
         direction = rng.normal(size=(3, 3)) if channel < 3 else np.array(1.)
         direction = direction/np.linalg.norm(direction)
         eps = .003 if channel < 3 else .1
         plus, minus = list(base), list(base)
         plus[channel], minus[channel] = base[channel]+eps*direction, base[channel]-eps*direction
-        fd = (run(*plus)-run(*minus))/(2*eps)
-        ad = float(np.sum(gradients[channel]*direction))
+        # Validate the analytic chain independently in float64 with the original
+        # steps and criterion. The preserved P300 CUDA failure shows that the
+        # old float32 forward subtraction at eps=.003 is not this oracle.
+        fd = float(np.sum((exact_forward(plus)-exact_forward(minus))*B)/(2*eps))
+        ad = float(np.sum(expected[channel]*direction))
         assert ad == pytest.approx(fd, rel=2e-3, abs=.02)
 
 
