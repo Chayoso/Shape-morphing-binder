@@ -34,7 +34,8 @@ from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_d
                                  deficit_field, gather_cic, isolation_gate, kde_assign,
                                  nn_band_assign, rasterize_mass, w1_budget)
 from ..mpm.constitutive import lame
-from ..mpm.function import PersistentAdjoint, RolloutSpec, warp_mpm_ext, warp_mpm_ext_with_previous
+from ..mpm.function import (PersistentAdjoint, RolloutSpec, warp_mpm_ext,
+                            warp_mpm_ext_with_previous, warp_mpm_ext_with_positions)
 from ..mpm.state import MPMParams
 from ..mpm.traj import Trajectory
 from .config import PipelineConfig, disc_ref_factor
@@ -1482,6 +1483,24 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     def objective_endpoint(raw):
         return endpoint_filter.endpoint(raw, endpoint_pin) if endpoint_filter is not None else raw
 
+    def attach_path(extra, positions, promoted):
+        if cfg.geometric_variance:
+            from .geometric_variance import path_rates, temporal_variance
+            extra['positions'] = positions
+            extra['lk_var_physical'] = extra['lk_var']
+            extra['lk_var'] = temporal_variance(path_rates(x0_t, positions, promoted, prm.dt))
+        return extra
+
+    def path_report(extra, promoted):
+        if not cfg.geometric_variance:
+            return None
+        from .geometric_variance import path_telemetry
+        return dict(path_telemetry(x0_t, extra['positions'], promoted, extra['V'], prm.dt),
+                    weight=cfg.w_kin_var, unit_multiplier=wu,
+                    effective_weight=wu*cfg.w_kin_var, T=T, dt=prm.dt,
+                    path_scope='every post-layer substep plus promoted endpoint; archive rates agree at stride one',
+                    work_scope='endpoint-only work telemetry excludes direct intermediate-position paths')
+
     geom_mask = None
     geom_count = 0
     if cfg.geometric_rest:
@@ -1673,11 +1692,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if lam_t is None and str(dev).startswith("cuda") and not _NO_ADJ_GRAPH:
             # persistent tape trajectory (forward + adjoint as CUDA graphs), one per window
             if adj_box[0] is None:
-                adj_box[0] = PersistentAdjoint(spec, previous_position=cfg.geometric_rest)
-            values = (adj_box[0].apply_with_previous(dfc, u, body_field()) if cfg.geometric_rest else
+                adj_box[0] = PersistentAdjoint(spec, previous_position=cfg.geometric_rest,
+                                               position_sequence=cfg.geometric_variance)
+            values = (adj_box[0].apply_with_positions(dfc, u, body_field()) if cfg.geometric_variance else
+                      adj_box[0].apply_with_previous(dfc, u, body_field()) if cfg.geometric_rest else
                       adj_box[0].apply(dfc, u, body_field()))
         else:
-            rollout = warp_mpm_ext_with_previous if cfg.geometric_rest else warp_mpm_ext
+            rollout = (warp_mpm_ext_with_positions if cfg.geometric_variance else
+                       warp_mpm_ext_with_previous if cfg.geometric_rest else warp_mpm_ext)
             values = rollout(dfc, spec, lam_t, mu_t, u_t=u, body_t=body_field())
         xT, FT, vT, FgT, V = values[:5]
         x_raw = xT
@@ -1691,6 +1713,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         extra = {"dfc": dfc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                  "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
         attach_geometry(extra, x_raw, x_previous, xT)
+        attach_path(extra, values[5] if cfg.geometric_variance else None, xT)
         return (xT, FT, vT), lv, lk, lr, lpbr, extra
 
     accepted_eval_valid = False
@@ -1728,6 +1751,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             extra = {"dfc": dc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
                      "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
             attach_geometry(extra, x_raw, x_previous, xT)
+            attach_path(extra, torch.stack([wp.to_torch(tr.x[t]) for t in range(1, T+1)])
+                        if cfg.geometric_variance else None, xT)
             _tm_add("eval_loss", t0)
             t0 = _tick()
             # whole-trajectory orientation check for _state_ok. Stack-review fixes:
@@ -1939,6 +1964,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     hist, accepted, rejected = [], 0, 0
     last_accepted_state = None
     last_accepted_geometry = None
+    last_accepted_path = None
     ls_exhausted = False
     _TM.clear()
     _TM["t_win"] = time.perf_counter()
@@ -2383,6 +2409,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      {"loss": new, "d_vol": float(lv_n), "kin": float(lk_n),
                       "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
                       "geometric_rest": geometry_telemetry(extra_n.get('geom_rest')),
+                      "geometric_variance": path_report(extra_n, state_n[0]),
                       "kin_run": float(extra_n["lk_run"]), "kin_var": float(extra_n["lk_var"]),
                       "d_render": float(lr_n) if lr_n is not None else None,
                       "lambda": lam_r if balancer.active else None, "grad_norm": gn,
@@ -2403,12 +2430,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         last_accepted_state = state_n if (cfg.body_ctrl or cfg.commit_pic_objective) else None
         last_accepted_geometry = ({k: extra_n[k] for k in ('geom_raw', 'geom_previous', 'geom_rest')}
                                   if cfg.geometric_rest else None)
+        last_accepted_path = extra_n['positions'] if cfg.geometric_variance else None
         body_update = None
         if body_coeff is not None:
             body_index = next(i for i, leaf in enumerate(leaves) if leaf is body_coeff)
             delta = (body_coeff.detach() - bak[body_index]).reshape(-1, body_modes, 3)
             body_update = [float(v) for v in delta.square().sum(-1).mean(0).sqrt()]
         hist.append({"iter": it, "loss": new,
+                     "geometric_variance": path_report(extra_n, state_n[0]),
                      "geometric_rest": geometry_telemetry(extra_n.get('geom_rest')),
                      "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
                      "body_update_modes_rms": body_update,
@@ -2476,6 +2505,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         v_final = wp.to_torch(tr.v[T])
         Fg_final = wp.to_torch(tr.Fg[T]).reshape(N, 9) if use_geom else None
         V_final = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
+        path_final = None
+        var_final = (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean()
+        if cfg.geometric_variance:
+            from .geometric_variance import path_rates, temporal_variance
+            X_final = torch.stack([wp.to_torch(tr.x[t]) for t in range(1, T+1)])
+            if commit_from_accepted and not torch.equal(X_final, last_accepted_path):
+                raise RuntimeError('accepted geometric-variance path no longer matches its owned positions')
+            var_final = temporal_variance(path_rates(x0_t, X_final, x_final, prm.dt))
+            path_final = path_report(dict(positions=X_final, V=V_final), x_final)
         previous_final = wp.to_torch(tr.x[T-1]) if cfg.geometric_rest else None
         geom_final = None
         if cfg.geometric_rest:
@@ -2493,7 +2531,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final, Fg_final)
             E_final = scalars(lv_f, lk_f, lr_f, lam_r, dc, x_final, F_final,
                               V_final.pow(2).sum(2).mean(), Fg_final,
-                              (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean(), V_final[-1], geom_final)
+                              var_final, V_final[-1], geom_final)
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
                       * max(abs(E_accept or 0.0), 1.0 / unit_ratio))
         replay_bad = not commit_from_accepted and E_accept is not None and E_final > E_accept + replay_tol
@@ -2502,6 +2540,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                   replay_E_tol=None if commit_from_accepted else float(replay_tol), replay_lambda_final=float(lam_r),
                                   replay_lambda_accepted=(hist[-1]['lambda'] if hist else None))
         replay_diagnostics['position_space'] = 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout'
+        replay_diagnostics['geometric_variance'] = path_final
         if cfg.geometric_rest:
             replay_diagnostics['geometric_rest'] = geometry_telemetry(geom_final)
             if last_accepted_geometry is not None:
@@ -2651,6 +2690,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
              "motion_accounting": motion_accounting,
              "owned_endpoint": owned_endpoint,
              "geometric_rest": geometry_telemetry(geom_final),
+             "geometric_variance": path_final,
              "geometric_rest_mask": geom_mask,
              "endpoint_space": 'promoted_xpic' if endpoint_filter is not None else 'raw_rollout',
              "replay_diagnostics": replay_diagnostics,

@@ -153,6 +153,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          render_paced_arrived=args.render_paced_arrived,
                          commit_pic_objective=args.commit_pic_objective,
                          geometric_rest=args.geometric_rest,
+                         geometric_variance=args.geometric_variance,
                          persistent_rest_volume=not args.legacy_recompute_volumes,
                           gauss_covariance=not args.legacy_gauss_centers_only,
                           gauss_sigma_scale=args.gauss_sigma_scale,
@@ -557,6 +558,8 @@ def main():
     ap.add_argument("--w_kin", type=float, default=0.5)
     ap.add_argument("--geometric_rest", action="store_true",
                     help="Arrived-free terminal raw-step/remap penalty with the existing w_kin weight")
+    ap.add_argument("--geometric_variance", action="store_true",
+                    help="Use the saved positional path for w_kin_var; shared PIC required (experimental)")
     ap.add_argument("--w_ctrl", type=float, default=1e-3)
     ap.add_argument("--w_tctrl", type=float, default=0.0)
     ap.add_argument("--w_box", type=float, default=10.0)

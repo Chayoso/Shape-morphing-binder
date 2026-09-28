@@ -140,13 +140,22 @@ class _WarpMPMExt(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, dFc_t: torch.Tensor, lam_t, mu_t, u_t, body_t, spec: RolloutSpec,
-                previous_position: bool):
+                previous_position: bool, position_sequence: bool):
         N, T = spec.x0.shape[0], spec.T
-        if previous_position and T < 1:
-            raise ValueError("previous-position rollout requires T>=1")
+        if previous_position and position_sequence:
+            raise ValueError("previous_position and position_sequence are mutually exclusive")
+        if (previous_position or position_sequence) and T < 1:
+            mode = 'previous-position' if previous_position else 'position-sequence'
+            raise ValueError(f"{mode} rollout requires T>=1")
         ctx.previous_position = previous_position
-        if previous_position:
+        ctx.position_sequence = position_sequence
+        if previous_position or position_sequence:
             ctx.set_materialize_grads(False)
+        if position_sequence:
+            # The ordinary trajectory can alias control/material input storage.
+            # Reject in-place changes before backward instead of reading stale inputs.
+            ctx.save_for_backward(*(v for v in (dFc_t, lam_t, mu_t, u_t, body_t)
+                                    if torch.is_tensor(v)))
         dFc_wp, seq = _dfc_to_warp(dFc_t, N, T)
         lam_wp = _leaf_f32(lam_t) if lam_t is not None else spec.lam
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
@@ -181,13 +190,18 @@ class _WarpMPMExt(torch.autograd.Function):
             if T == 1:  # x0 is fixed input state, not a differentiable leaf of this bridge.
                 ctx.mark_non_differentiable(previous)
             return (*outputs, previous)
+        if position_sequence:
+            positions = torch.stack([wp.to_torch(traj.x[t]).clone() for t in range(1, T + 1)])
+            return (*outputs, positions)
         return outputs
 
     @staticmethod
-    def backward(ctx, gx, gF, gv, gFg, gV, g_previous=None):
+    def backward(ctx, gx, gF, gv, gFg, gV, g_position=None):
         traj = ctx.traj
         N, T = traj.N, traj.T
         dev = traj.device
+        if ctx.position_sequence:
+            _ = ctx.saved_tensors  # Trigger Torch's input-version validation.
 
         def z(shape):
             return torch.zeros(shape, device=gx.device if gx is not None else dev)
@@ -196,6 +210,10 @@ class _WarpMPMExt(torch.autograd.Function):
         gv = z((N, 3)) if gv is None else gv
         gFg = z((N, 9)) if gFg is None else gFg
         gV = z((T, N, 3)) if gV is None else gV
+        gX = None
+        if ctx.position_sequence:
+            gX = z((T, N, 3)) if g_position is None else g_position.contiguous()
+            gx = gx + gX[T - 1]                     # x_T also appears in X[-1].
         gvT = (gv + gV[T - 1]).contiguous()          # v_T is also V[T-1]: one seed
         grads = {traj.x[T]: wp.from_torch(gx.contiguous(), dtype=wp.vec3),
                  traj.F[T]: wp.from_torch(gF.contiguous().view(N, 3, 3), dtype=wp.mat33),
@@ -204,8 +222,10 @@ class _WarpMPMExt(torch.autograd.Function):
         gVc = gV.contiguous()
         for t in range(1, T):
             grads[traj.v[t]] = wp.from_torch(gVc[t - 1], dtype=wp.vec3)
+            if gX is not None:
+                grads[traj.x[t]] = wp.from_torch(gX[t - 1], dtype=wp.vec3)
         if ctx.previous_position and T > 1:
-            gp = z((N, 3)) if g_previous is None else g_previous
+            gp = z((N, 3)) if g_position is None else g_position
             grads[traj.x[T - 1]] = wp.from_torch(gp.contiguous(), dtype=wp.vec3)
         ctx.tape.backward(grads=grads)
         if not ctx.dFc_req:
@@ -219,13 +239,13 @@ class _WarpMPMExt(torch.autograd.Function):
         g_u = wp.to_torch(ctx.u_wp.grad).clone() if ctx.u_wp is not None else None
         g_body = wp.to_torch(ctx.body_wp.grad).clone() if ctx.body_wp is not None else None
         ctx.tape.zero()
-        return g, g_lam, g_mu, g_u, g_body, None, None
+        return g, g_lam, g_mu, g_u, g_body, None, None, None
 
 
 def warp_mpm_ext(dFc_t: torch.Tensor, spec: RolloutSpec, lam_t=None, mu_t=None, u_t=None, body_t=None):
     """Extended differentiable rollout. Returns (x_T [N,3], F_T [N,9], v_T [N,3],
     Fg_T [N,9], V [T,N,3]). u_t: optional (N,) position-mode control leaf (spec.layer set)."""
-    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, body_t, spec, False)
+    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, body_t, spec, False, False)
 
 
 def warp_mpm_ext_with_previous(dFc_t: torch.Tensor, spec: RolloutSpec,
@@ -236,7 +256,18 @@ def warp_mpm_ext_with_previous(dFc_t: torch.Tensor, spec: RolloutSpec,
     T=1 it is constant x0. Stored velocity/deformation and the legacy API stay
     unchanged. This exposes geometry, not a new velocity or rest objective.
     """
-    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, body_t, spec, True)
+    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, body_t, spec, True, False)
+
+
+def warp_mpm_ext_with_positions(dFc_t: torch.Tensor, spec: RolloutSpec,
+                                lam_t=None, mu_t=None, u_t=None, body_t=None):
+    """Five extended outputs plus owned post-layer X=[x1,...,xT] [T,N,3].
+
+    Every position is differentiated through its actual rollout array. x0 is
+    fixed input state and is not part of X. This exposes a geometric observable;
+    stored velocities, physical state and all existing entry points are unchanged.
+    """
+    return _WarpMPMExt.apply(dFc_t, lam_t, mu_t, u_t, body_t, spec, False, True)
 
 
 # ---- persistent tape trajectory: forward and adjoint as CUDA graphs (2026-09-16) ----------------
@@ -253,12 +284,16 @@ class PersistentAdjoint:
     current seeds — so several seeds per forward (PCGrad's per-term gradients) cost one
     graph launch each. Non-CUDA devices record a fresh tape per forward (tests)."""
 
-    def __init__(self, spec: RolloutSpec, *, previous_position: bool = False):
+    def __init__(self, spec: RolloutSpec, *, previous_position: bool = False,
+                 position_sequence: bool = False):
         N, T, dev = spec.x0.shape[0], spec.T, spec.device
+        if previous_position and position_sequence:
+            raise ValueError("previous_position and position_sequence are mutually exclusive")
         if T < 1:
             raise ValueError("persistent rollout requires T>=1")
         self.N, self.T, self.dev = N, T, dev
         self.previous_position = bool(previous_position)
+        self.position_sequence = bool(position_sequence)
         self.forward_generation = 0
         self.cuda = str(dev).startswith("cuda")
         self.dc = torch.zeros(T, N, 3, 3, device=dev)
@@ -291,6 +326,10 @@ class PersistentAdjoint:
         self.sx_previous = torch.zeros(N, 3, device=dev) if previous_position and T > 1 else None
         if self.sx_previous is not None:
             self.seeds[tr.x[T - 1]] = wp.from_torch(self.sx_previous, dtype=wp.vec3)
+        self.sX = torch.zeros(T - 1, N, 3, device=dev) if position_sequence and T > 1 else None
+        if self.sX is not None:
+            for t in range(1, T):
+                self.seeds[tr.x[t]] = wp.from_torch(self.sX[t - 1], dtype=wp.vec3)
         # every gradient buffer the adjoint accumulates into (tape.zero() only knows the
         # arrays of a tape that has already run backward — a fresh tape zeroes nothing)
         self.grad_arrays = []
@@ -345,7 +384,7 @@ class PersistentAdjoint:
             raise ValueError("body control buffer and tensor must be enabled together")
         if body_t is not None and body_t.shape != self.body.shape:
             raise ValueError("body tensor shape must match the persistent mode-major buffer")
-        return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self, False)
+        return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self, False, False)
 
     def apply_with_previous(self, dFc_t: torch.Tensor, u_t: torch.Tensor | None = None,
                             body_t=None):
@@ -360,7 +399,22 @@ class PersistentAdjoint:
             raise ValueError("body control buffer and tensor must be enabled together")
         if body_t is not None and body_t.shape != self.body.shape:
             raise ValueError("body tensor shape must match the persistent mode-major buffer")
-        return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self, True)
+        return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self, True, False)
+
+    def apply_with_positions(self, dFc_t: torch.Tensor, u_t: torch.Tensor | None = None,
+                             body_t=None):
+        """Six outputs including X; prepare position_sequence=True before capture.
+
+        The forward buffers must remain current until backward. Multiple seed
+        sets on one forward are supported; ordinary apply clears all X seeds.
+        """
+        if not self.position_sequence:
+            raise ValueError("construct PersistentAdjoint with position_sequence=True")
+        if (body_t is not None) != (self.body_wp is not None):
+            raise ValueError("body control buffer and tensor must be enabled together")
+        if body_t is not None and body_t.shape != self.body.shape:
+            raise ValueError("body tensor shape must match the persistent mode-major buffer")
+        return _WarpMPMPersistent.apply(dFc_t, u_t, body_t, self, False, True)
 
 
 class _WarpMPMPersistent(torch.autograd.Function):
@@ -368,10 +422,15 @@ class _WarpMPMPersistent(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, dFc_t: torch.Tensor, u_t, body_t, adj: PersistentAdjoint,
-                previous_position: bool):
+                previous_position: bool, position_sequence: bool):
         N, T = adj.N, adj.T
+        if previous_position and position_sequence:
+            raise ValueError("previous_position and position_sequence are mutually exclusive")
+        if position_sequence and not adj.position_sequence:
+            raise ValueError("position_sequence=True must be prepared before forward")
         ctx.previous_position = previous_position
-        if previous_position:
+        ctx.position_sequence = position_sequence
+        if previous_position or position_sequence:
             ctx.set_materialize_grads(False)
         # Even a later failed input copy may change a leaf read by the old tape.
         # Invalidate old contexts before touching any reusable input buffer.
@@ -396,16 +455,23 @@ class _WarpMPMPersistent(torch.autograd.Function):
             if T == 1:
                 ctx.mark_non_differentiable(previous)
             return (*outputs, previous)
+        if position_sequence:
+            positions = torch.stack([wp.to_torch(tr.x[t]).clone() for t in range(1, T + 1)])
+            return (*outputs, positions)
         return outputs
 
     @staticmethod
-    def backward(ctx, gx, gF, gv, gFg, gV, g_previous=None):
+    def backward(ctx, gx, gF, gv, gFg, gV, g_position=None):
         adj = ctx.adj
-        if ctx.previous_position and ctx.forward_generation != adj.forward_generation:
-            raise RuntimeError("previous-position backward has stale persistent forward buffers")
+        if (ctx.previous_position or adj.position_sequence) and ctx.forward_generation != adj.forward_generation:
+            mode = 'previous-position' if ctx.previous_position else 'position-sequence'
+            raise RuntimeError(f"{mode} backward has stale persistent forward buffers")
         N, T = adj.N, adj.T
         with torch.no_grad():
-            adj.sx.copy_(gx) if gx is not None else adj.sx.zero_()
+            gxT = gx
+            if ctx.position_sequence and g_position is not None:
+                gxT = g_position[T - 1] if gx is None else gx + g_position[T - 1]
+            adj.sx.copy_(gxT) if gxT is not None else adj.sx.zero_()
             adj.sF.copy_(gF.reshape(N, 3, 3)) if gF is not None else adj.sF.zero_()
             adj.sFg.copy_(gFg.reshape(N, 3, 3)) if gFg is not None else adj.sFg.zero_()
             gvT = (gv if gv is not None else 0.0) + (gV[T - 1] if gV is not None else 0.0)
@@ -418,9 +484,14 @@ class _WarpMPMPersistent(torch.autograd.Function):
             else:
                 adj.sV.zero_()
             if adj.sx_previous is not None:
-                adj.sx_previous.copy_(g_previous) if g_previous is not None else adj.sx_previous.zero_()
+                adj.sx_previous.copy_(g_position) if g_position is not None else adj.sx_previous.zero_()
+            if adj.sX is not None:
+                if ctx.position_sequence and g_position is not None:
+                    adj.sX.copy_(g_position[:T - 1])
+                else:
+                    adj.sX.zero_()
             adj.backward()
             g = torch.stack([wp.to_torch(d.grad).reshape(N, 3, 3).clone() for d in adj.dc_wp])
             g_u = wp.to_torch(adj.u_wp.grad).clone() if ctx.u_req else None
             g_body = wp.to_torch(adj.body_wp.grad).clone() if ctx.body_req else None
-        return g.reshape(T, N, 3, 3), g_u, g_body, None, None
+        return g.reshape(T, N, 3, 3), g_u, g_body, None, None, None

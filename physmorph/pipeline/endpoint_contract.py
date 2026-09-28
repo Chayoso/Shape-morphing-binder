@@ -9,6 +9,13 @@ import torch
 
 
 def validate_endpoint_config(cfg):
+    if cfg.geometric_variance:
+        if not cfg.commit_pic_objective or cfg.geometric_rest:
+            raise ValueError('geometric_variance requires shared PIC and no geometric_rest intervention')
+        if not math.isfinite(cfg.w_kin_var) or cfg.w_kin_var <= 0 or cfg.T < 2:
+            raise ValueError('geometric_variance requires positive finite w_kin_var and T>=2')
+        if cfg.settle_pin_kkt:
+            raise ValueError('geometric_variance does not support endpoint-only KKT pin admission')
     if cfg.geometric_rest:
         if not cfg.commit_pic_objective:
             raise ValueError('geometric_rest requires commit_pic_objective')

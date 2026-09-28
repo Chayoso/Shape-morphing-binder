@@ -995,6 +995,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
                "endpoint_contract": endpoint_telemetry,
                "geometric_rest": stats.get('geometric_rest'),
+               "geometric_variance": stats.get('geometric_variance'),
                "motion_accounting": motion_report,
                "render_target_kind": stats.get("render_target_kind"),
                "body_rms_wu": stats.get("body_rms_wu"), "body_nodes": stats.get("body_nodes", 0),

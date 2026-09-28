@@ -1885,3 +1885,34 @@ proof of per-particle optimality or local material coverage. The penalty can
 still suppress necessary redistribution or affect travelers through coupling.
 Raw per-step motion, shape, thin-region supply and actual completion must all
 be checked before any adoption; implementation alone establishes none of them.
+
+### 10.42 Full-substep geometric variance (P297 prototype)
+
+`--geometric_variance` replaces the input of the existing `w_kin_var` term by
+U_t=(y_t-y_(t-1))/dt, where y0=x0, y_t=x_t after the layer update for t<T, and yT
+is the exact owned shared XPIC endpoint from section10.40. The term is
+
+    wu * w_kin_var * mean_p mean_t |U_t - mean_t U_t|^2.
+
+The legacy physical V variance is replaced only in this term. Physical terminal
+and running kinetic, contact and continuity terms retain V. The full post-layer
+position sequence is an owned optional Warp output with an adjoint seed at every
+substep. The last position seed and xT seed are summed; physical V/vT seeds keep
+their existing sum. Start state is fixed. Ordinary and captured interfaces must
+agree; prior five-output/previous-position interfaces retain their behavior.
+
+The option requires shared PIC, T>=2, positive finite w_kin_var, geometric_rest
+off and endpoint-only KKT admission off. Every optimization/evaluation/replay
+path uses the same term. Reused accepted paths must exactly match their owned
+positions. There is no added physical impulse, state correction or pin policy.
+Intermediate x remains raw; this changes the objective, not displayed-frame
+interpolation. U matches consecutive archived frames only at stride one.
+
+Constant drift has zero variance; distributing an endpoint jump over the window
+can lower the penalty. Both physical/geometric variances, raw/saved per-phase
+displacements, separate remap, total path length and net movement are therefore
+reported. Endpoint-only work telemetry omits direct intermediate-position work.
+The changed physics gradient also changes automatic render lambda; an adaptive
+comparison is a whole-policy comparison, not fixed-lambda causal evidence.
+No quality or gallery adoption follows from the implementation. Protocol and
+limitations: [P297](geometric_variance_p297.md).
