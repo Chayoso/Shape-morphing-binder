@@ -20,6 +20,7 @@ from pathlib import Path
 import sys
 import time
 from unittest.mock import patch
+import xml.etree.ElementTree as ET
 
 import numpy as host_np
 import torch
@@ -29,6 +30,87 @@ sys.path.insert(0, str(ROOT))
 from scripts.probes.variance_gradient_audit import (
     GradientAudit, composite, grouped_comparison, norm, require, updated_balancer,
 )
+
+HISTORICAL_PRIMITIVE_SCOPE = 'Preserved P297 v1/v2 results on their original core; not the current prerequisite status'
+CURRENT_EVIDENCE_SHA = {
+    'position': 'c7993926569d44ac53b2816b1b574aa72db9ace904090f74472ff18bfa5ca805',
+    'constitutive': 'c43c22adccd0aef4f589772ba972bc8c242d92464342b3bb4f3282101b414365',
+    'constitutive_xml': '26b08634f2d19d4530f1f0604ddf090d915f60ba00f87f9d72d42cf2290f0412',
+}
+
+
+def current_prerequisites(position_path=None, constitutive_path=None, *, source_root=ROOT):
+    """Optional exact P300 evidence; no old failure is reclassified or tolerated.
+
+    The frozen source must match every recorded physical module and primitive
+    dependency byte. This bounded path has no source-diff exception mechanism.
+    """
+    require((position_path is None) == (constitutive_path is None),
+            'Both current P300 prerequisite JSONs are required together')
+    if position_path is None:
+        return None
+    paths = {'position': Path(position_path), 'constitutive': Path(constitutive_path),
+             'constitutive_xml': Path(constitutive_path).with_suffix('.xml')}
+    data, evidence = {}, {}
+    for kind, path in paths.items():
+        raw = path.read_bytes()
+        digest = hashlib.sha256(raw).hexdigest()
+        require(digest == CURRENT_EVIDENCE_SHA[kind], 'Unapproved current prerequisite bytes: '+kind)
+        data[kind] = raw
+        evidence[kind] = dict(path=str(path.resolve()), sha256=digest, bytes=len(raw))
+    position = json.loads(data['position'])
+    constitutive = json.loads(data['constitutive'])
+
+    def passed_values(value):
+        if isinstance(value, dict):
+            return ([value['passed']] if 'passed' in value else []) + [
+                check for key, item in value.items() if key != 'passed' for check in passed_values(item)]
+        if isinstance(value, list):
+            return [check for item in value for check in passed_values(item)]
+        return []
+
+    checks = passed_values(position.get('checks'))
+    require(position.get('passed') is True and len(checks) == 52 and all(v is True for v in checks),
+            'Current position prerequisite must retain all 52 passed checks')
+    require(position.get('device', {}).get('warp') == '1.16.0', 'Unexpected position prerequisite runtime')
+    require(constitutive.get('passed') is True and constitutive.get('status') == 0
+            and constitutive.get('device') == 'cuda' and constitutive.get('warp_version') == '1.16.0',
+            'Current constitutive CUDA prerequisite did not pass')
+    suites = ET.fromstring(data['constitutive_xml']).findall('.//testsuite')
+    require(len(suites) == 1 and all(suites[0].get(key) == value for key, value in
+            {'tests': '10', 'errors': '0', 'failures': '0', 'skipped': '0'}.items()),
+            'Constitutive prerequisite must contain exactly ten passing tests')
+    cases = suites[0].findall('testcase')
+    require(len(cases) == 10 and not any(case.find(tag) is not None for case in cases
+            for tag in ('failure', 'error', 'skipped')), 'Constitutive test case outcome mismatch')
+
+    source_root = Path(source_root).resolve()
+    expected = position['code_sha256']
+    actual_core = {path.relative_to(source_root).as_posix()
+                   for path in (source_root/'physmorph').rglob('*.py')}
+    require(actual_core == {name for name in expected if name.startswith('physmorph/')},
+            'Current source membership differs from passed position prerequisite')
+    checked = {}
+    for name, digest in expected.items():
+        path = (source_root/name).resolve()
+        require(path.is_relative_to(source_root), 'Invalid current prerequisite dependency path')
+        require(hashlib.sha256(path.read_bytes()).hexdigest() == digest,
+                'Current source differs from passed position prerequisite: '+name)
+        checked[name] = digest
+    constitutive_root = Path(constitutive['source_root'])
+    constitutive_files = constitutive['code_sha256']
+    for name in ('physmorph/mpm/constitutive.py', 'physmorph/mpm/kernels.py',
+                 'tests/test_corotated_adjoint.py'):
+        key = (constitutive_root/name).as_posix()
+        require(key in constitutive_files, 'Missing constitutive prerequisite dependency: '+name)
+        digest = constitutive_files[key]
+        require(hashlib.sha256((source_root/name).read_bytes()).hexdigest() == digest,
+                'Current source differs from passed constitutive prerequisite: '+name)
+        checked[name] = digest
+    return dict(passed=True, evidence=evidence, position_passed_checks=52,
+                constitutive_passed_tests=10, source_dependencies=checked,
+                source_binding='Exact bytes and physical-module membership; no source-diff exception',
+                scope='Corrected-core derivative prerequisites only; no trajectory, rest or quality claim')
 
 
 def finite_json(value):
@@ -285,7 +367,7 @@ def analyze_proposals(audit, geometry_reference, source_mask, source_metadata, *
         evaluation_order=['A physical variance', 'B geometric variance', 'A repeated physical variance'],
         definition='Only physical-gradient substitution plus its PCGrad reference changes; baseline lambda, initial Adam state, first-trial alpha and preparation are shared',
         limits='Noncommitting first proposals; first_trial_merit_ok is not full line-search or outer acceptance. No weight is calibrated, no alternative lambda update is used, no rest/repair/policy promotion follows.',
-        primitive_gate_passed=False)
+        primitive_gate_passed=False, primitive_gate_scope=HISTORICAL_PRIMITIVE_SCOPE)
     if backtrack:
         report.update(backtracking=search,
             evaluation_order=[f'{label}[{row["backtrack_index"]}]' for label in ('A', 'B')
@@ -354,11 +436,19 @@ def main():
     parser.add_argument('--baseline-protocol', type=Path)
     parser.add_argument('--out', type=Path, required=True)
     parser.add_argument('--backtrack', action='store_true', help='Bounded first-iteration halving search; no full alternate solve')
+    parser.add_argument('--current-position-prerequisite', type=Path)
+    parser.add_argument('--current-constitutive-prerequisite', type=Path)
     args = parser.parse_args()
     root, out = args.root.resolve(), args.out.resolve()
     baseline_path = (args.baseline_protocol or root/'work/p297/integration_control/protocol.json').resolve()
     for path in (root, out, baseline_path):
         require(path.is_relative_to('/data'), 'All paths must resolve under /data')
+    for path in (args.current_position_prerequisite, args.current_constitutive_prerequisite):
+        if path is not None:
+            require(path.resolve().is_relative_to('/data'), 'Current prerequisites must resolve under /data')
+    if args.current_constitutive_prerequisite is not None:
+        require(args.current_constitutive_prerequisite.with_suffix('.xml').resolve().is_relative_to('/data'),
+                'Current prerequisite XML must resolve under /data')
     require(not out.exists(), 'Output directory already exists')
     caches = {name: os.environ.get(name) for name in ('WARP_CACHE_PATH', 'CUPY_CACHE_DIR', 'CUDA_CACHE_PATH')}
     require(all(value and Path(value).resolve().is_relative_to('/data') for value in caches.values()), 'Explicit /data caches required')
@@ -399,6 +489,10 @@ def main():
         require(hashlib.sha256(data).hexdigest() == entry['sha256'] and json.loads(data).get('passed') is False, 'Failed strict evidence changed')
         primitives.append(deepcopy(entry))
     require(len(primitives) == 2, 'Both failed strict primitive results must remain')
+    current = current_prerequisites(args.current_position_prerequisite, args.current_constitutive_prerequisite)
+    if current is not None:
+        require(wp.__version__ == '1.16.0', 'Corrected prerequisite scope requires the tested Warp 1.16.0 runtime')
+        current['execution_warp_version'] = wp.__version__
     dependencies = [Path(__file__), ROOT/'scripts/probes/variance_gradient_audit.py',
                     ROOT/'scripts/probes/pic_endpoint_quality.py', ROOT/'scripts/probes/geometric_variance_integration.py']
     code = sorted((ROOT/'physmorph').rglob('*.py')) + dependencies
@@ -411,6 +505,7 @@ def main():
         code_sha256={path.resolve().relative_to(ROOT).as_posix(): sha(path) for path in code},
         cache_directories=caches, visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
         preserved_primitive_evidence=primitives, primitive_gate_passed=False,
+        primitive_gate_scope=HISTORICAL_PRIMITIVE_SCOPE, current_prerequisites=current,
         proposal_mode='bounded_backtracking' if args.backtrack else 'first_trial',
         scope=('Same prepared noncommitting first-iteration bounded backtracking at baseline lambda; baseline continuation only, no alternate solve or raw archive'
                if args.backtrack else 'Same prepared noncommitting A/B/A first proposals at baseline lambda; baseline continuation only, no alternate solve or raw archive'))
@@ -420,9 +515,12 @@ def main():
     result, report = run_audited(source, target, prm, cfg, backtrack=args.backtrack)
     torch.cuda.synchronize()
     report.update(seconds=time.monotonic()-start, end_utc=datetime.now(timezone.utc).isoformat(),
-                  protocol_sha256=sha(out/'protocol.json'), torch_peak_bytes=torch.cuda.max_memory_allocated())
+                  protocol_sha256=sha(out/'protocol.json'), torch_peak_bytes=torch.cuda.max_memory_allocated(),
+                  primitive_gate_scope=HISTORICAL_PRIMITIVE_SCOPE, current_prerequisites=current)
     save_json(out/'proposal_audit.json', report)
-    print(json.dumps(dict(out=str(out), observation_valid=report['observation_valid'], primitive_gate_passed=False)), flush=True)
+    print(json.dumps(dict(out=str(out), observation_valid=report['observation_valid'], primitive_gate_passed=False,
+                         primitive_gate_scope=HISTORICAL_PRIMITIVE_SCOPE,
+                         current_prerequisites_passed=current['passed'] if current else None)), flush=True)
     if not report['observation_valid']:
         raise SystemExit('Proposal observation contract or selected baseline outer admission failed; preserved report')
 
