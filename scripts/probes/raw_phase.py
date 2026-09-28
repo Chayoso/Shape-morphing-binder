@@ -12,7 +12,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from physmorph.compute import array_api as np, cuda_execution, KDTree, to_array
-from scripts.probes.quality_compare import checked_runs, admitted_mask, bounded_ids
+from scripts.probes.quality_compare import checked_runs, admitted_mask, bounded_ids, VARIANCE_PREFIX
 
 
 def phase_frame_indices(records, first_commit, last_commit, steps):
@@ -31,22 +31,27 @@ def phase_frame_indices(records, first_commit, last_commit, steps):
     return rows
 
 
-def distribution(x):
-    return dict(mean=float(x.mean()), p05=float(np.percentile(x, 5)),
-                median=float(np.median(x)), p95=float(np.percentile(x, 95)),
-                max=float(x.max())) if x.size else None
+def distribution(x, include_rms=False):
+    if not x.size:
+        return None
+    result = dict(mean=float(x.mean()), p05=float(np.percentile(x, 5)),
+                  median=float(np.median(x)), p95=float(np.percentile(x, 95)), max=float(x.max()))
+    if include_rms:
+        result['rms'] = float(np.sqrt(np.mean(np.asarray(x, np.float64)**2)))
+    return result
 
 
-def motion_summary(moves, normals, tangent1, tangent2, spacing):
+def motion_summary(moves, normals, tangent1, tangent2, spacing, include_rms=False):
     lengths = np.linalg.norm(moves, axis=-1)/spacing
     signed = (moves*normals).sum(-1)/spacing
     tangent = np.linalg.norm(moves-signed[..., None]*spacing*normals, axis=-1)/spacing
-    return dict(displacement_sp=distribution(lengths.ravel()),
-                signed_normal_sp=distribution(signed.ravel()),
-                absolute_normal_sp=distribution(np.abs(signed).ravel()),
-                tangent_length_sp=distribution(tangent.ravel()),
-                signed_tangent1_sp=distribution(((moves*tangent1).sum(-1)/spacing).ravel()),
-                signed_tangent2_sp=distribution(((moves*tangent2).sum(-1)/spacing).ravel()))
+    summarize = lambda values: distribution(values, include_rms=include_rms)
+    return dict(displacement_sp=summarize(lengths.ravel()),
+                signed_normal_sp=summarize(signed.ravel()),
+                absolute_normal_sp=summarize(np.abs(signed).ravel()),
+                tangent_length_sp=summarize(tangent.ravel()),
+                signed_tangent1_sp=summarize(((moves*tangent1).sum(-1)/spacing).ravel()),
+                signed_tangent2_sp=summarize(((moves*tangent2).sum(-1)/spacing).ravel()))
 
 
 def phase_audit(baseline, candidate, reference, out):
@@ -56,7 +61,7 @@ def phase_audit(baseline, candidate, reference, out):
     intervention = report['intervention']
     if intervention not in ('body_rprop', 'commit_pic_off', 'commit_pic_off_full',
                            'render_arrival_handoff', 'commit_pic_objective_prefix',
-                           'geometric_rest_prefix', 'geometric_rest_full'):
+                           'geometric_rest_prefix', 'geometric_rest_full', VARIANCE_PREFIX):
         raise ValueError('Phase diagnostic permits only explicitly reviewed interventions')
     runs, changes = checked_runs(baseline, candidate, intervention)
     quality_file = Path(sys.modules['scripts.probes.quality_compare'].__file__)
@@ -68,6 +73,23 @@ def phase_audit(baseline, candidate, reference, out):
         if Path(report[name]['prefix']) != Path(run['prefix']):
             raise ValueError('Reference names different simulation artifacts')
     previous_cohort = report['cohorts']['common_endpoint_free_both']
+    if intervention == VARIANCE_PREFIX and any(previous_cohort['arms'][name] is None
+                                              for name in ('baseline', 'candidate')):
+        reason = ('empty_common_free_cohort' if not previous_cohort['sampled_count'] else
+                  'fewer_than_three_common_commits')
+        result = dict(status='inconclusive', reason=reason, intervention=intervention,
+                      probe_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                      quality_json_sha256=hashlib.sha256(reference.read_bytes()).hexdigest(),
+                      quality_probe_sha256=report['probe_sha256'], code_hash=report['code_hash'],
+                      analysis_scope=report['analysis_scope'], cohort=previous_cohort,
+                      mpm=report['mpm'], n=report['n'], T=report['T'],
+                      native_spacing_wu=report['native_spacing'],
+                      baseline=None, candidate=None,
+                      scope='No matched phase motion measured; W1 excluded; no rest or repair conclusion')
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(result, indent=2))
+        print(json.dumps({'out': str(out), 'status': 'inconclusive', 'reason': reason}), flush=True)
+        return
     ranges = [previous_cohort['arms'][name]['commit_range'] for name in ('baseline', 'candidate')]
     if ranges[0] != ranges[1]:
         raise ValueError('Reference cohort intervals differ')
@@ -92,6 +114,14 @@ def phase_audit(baseline, candidate, reference, out):
                       reversal='negative consecutive displacement dot; both lengths exceed 1e-4 source-native spacing',
                       speed='geometric endpoint displacement/dt; distinct from recorded terminal state mean speed',
                       attribution='Archive cannot separate last physical step, layer changes, commit PIC and subgrid shift'))
+    if intervention == VARIANCE_PREFIX:
+        result.update(status='available_descriptive', audited_windows=[first_commit+1, last_commit],
+                      window1_excluded=True)
+        result['definitions'].update(
+            interval='starts at accepted commit1; windows2..common (at most8); W1 excluded and cap1 is separate evidence',
+            attribution='phase20 contains the raw final physical/layer step PLUS shared PIC; motion_accounting separates them only on per-arm cohorts, not matched-ID causal evidence',
+            policy='whole adaptive-lambda comparison; lower variance/movement may reflect slower progress or changed pins, not rest',
+            rms='float64 root mean squared vector lengths/components in source-native spacing units')
     with cuda_execution('cuda'):
         n = len(runs[0]['source'])
         boundary, free = np.zeros(n, bool), np.ones(n, bool)
@@ -125,7 +155,9 @@ def phase_audit(baseline, candidate, reference, out):
             tangent1 = np.cross(axis, normal)
             tangent1 /= np.linalg.norm(tangent1, axis=1)[:, None]
             tangent2 = np.cross(normal, tangent1)
-            phases = [dict(phase=p+1, **motion_summary(moves[:, p], normal, tangent1, tangent2, spacing))
+            summarize_motion = lambda values: motion_summary(values, normal, tangent1, tangent2, spacing,
+                                                              include_rms=intervention == VARIANCE_PREFIX)
+            phases = [dict(phase=p+1, **summarize_motion(moves[:, p]))
                       for p in range(steps)]
             total_path = lengths.sum((0, 1))
             last_path = lengths[:, -1].sum(0)
@@ -157,10 +189,10 @@ def phase_audit(baseline, candidate, reference, out):
                                        final_path_fraction=float(lengths[j, -1].sum()/lengths[j].sum()),
                                        final_geometric_mean_speed_all_particles_wu_s=float(geometric_speed.mean()),
                                        recorded_terminal_mean_speed_wu_s=record.get('v_mean'),
-                                       final_phase=motion_summary(moves[j, -1], normal, tangent1, tangent2, spacing)))
+                                       final_phase=summarize_motion(moves[j, -1])))
             result[name] = dict(phases=phases, per_window=per_window,
-                                first_19_phases=motion_summary(moves[:, :-1], normal, tangent1, tangent2, spacing),
-                                final_phase=motion_summary(moves[:, -1], normal, tangent1, tangent2, spacing),
+                                first_19_phases=summarize_motion(moves[:, :-1]),
+                                final_phase=summarize_motion(moves[:, -1]),
                                 final_phase_total_path_share=float(last_path.sum()/total_path.sum()),
                                 per_particle_final_path_share=distribution(last_path[moving]/total_path[moving]),
                                 per_particle_raw_net_over_path=distribution(

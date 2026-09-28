@@ -8854,3 +8854,21 @@ Preserving relaxation alone also loses fit/coverage. Both candidates fail every
 selected exact directional screen. Density improves locally, while hole_frac is
 zero even at early unfilled geometry; neither is a watertightness certificate.
 See [P296 protocol and evidence](pic_components_p296.md).
+
+**2026-09-28 -- P297 bounded saved-path integration passed; primitive gates remain failed.**
+The optional geometric_variance replaces physical-V population variance by
+variance of actual post-layer positions plus the same shared PIC endpoint;
+all other objective and state updates stay unchanged. At bunny300k/T20/dt1/240/
+dx0.3062907544wu/loss36^3/eight iterations, frozenfc07572 cap1 control/geometry
+each accepted8 inner steps and one outer window, no guards, in14.99/16.22s.
+Independent float64 reconstruction, nonzero weighted merit contribution,
+earlier-X gradient participation and owned/archive endpoint checks passed.
+First-window pins are empty; no late pin or rest claim follows. Pair hashes and
+configuration checks confirm only the optional observable flag changes.
+
+Both strict CUDA primitive probes remain failed. Repeated T3 dFc adjoints
+show variability consistent with the cross-implementation differences, with no
+observed seed-cycle growth; this is not an atomics-only proof. The T1 merged
+oracle discrepancy is unresolved. Independent review allowed the new bounded
+T20 integration evidence without reclassifying either primitive result.
+No default or physical-quality promotion. See [P297 evidence and scope](geometric_variance_p297.md).

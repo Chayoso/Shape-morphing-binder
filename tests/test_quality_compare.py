@@ -313,3 +313,67 @@ def test_serialized_auto_pair_cannot_resolve_to_different_ot_modes(probe, tmp_pa
         fixture['candidate']['resolver_line'].replace('ot_pace', 'ot_shape')+'\n', encoding='utf-8')
     with pytest.raises(ValueError, match='same full-plan OT arrival mode'):
         probe.checked_arrival_modes(runs)
+
+
+def test_geometric_variance_prefix_requires_exact_policy_and_diagnostic_flags(probe):
+    mode = 'geometric_variance_prefix'
+    baseline = dict(stop_after_windows=8, T=20, commit_pic=True, commit_pic_objective=True,
+                    shift_sub=False, outer_render_committed=True, geometric_rest=False,
+                    motion_accounting=True, w_kin_var=200., lambda_auto=.5, phys_loss='ot_pace')
+    candidate = dict(baseline, geometric_variance=True)
+    assert mode in probe.PREFIX_INTERVENTIONS and mode not in probe.FULL_INTERVENTIONS
+    assert probe.checked_config_changes(baseline, candidate, mode) == {'geometric_variance': [None, True]}
+    assert probe.checked_config_changes(dict(baseline, geometric_variance=False), candidate, mode) == {
+        'geometric_variance': [False, True]}
+    for key, value in [('stop_after_windows', 60), ('T', 10), ('commit_pic', False),
+                       ('commit_pic_objective', False), ('shift_sub', True),
+                       ('outer_render_committed', False), ('geometric_rest', True),
+                       ('motion_accounting', False), ('render_until', 7), ('phys_loss', 'density'),
+                       ('w_kin_var', 0.), ('w_kin_var', -1.), ('w_kin_var', float('inf')),
+                       ('w_kin_var', float('nan')), ('w_kin_var', None), ('w_kin_var', True),
+                       ('lambda_auto', 0.), ('lambda_auto', float('inf'))]:
+        with pytest.raises(ValueError, match=mode):
+            probe.checked_config_changes(dict(baseline, **{key: value}), dict(candidate, **{key: value}), mode)
+    for changed in (dict(candidate, w_kin_var=100.), dict(candidate, layer_relax=False),
+                    dict(candidate, body_rprop=True), dict(candidate, geometric_variance=False)):
+        with pytest.raises(ValueError, match=mode):
+            probe.checked_config_changes(baseline, changed, mode)
+    with pytest.raises(ValueError, match=mode):
+        probe.checked_config_changes(dict(baseline, geometric_variance=None), candidate, mode)
+
+
+def test_geometric_variance_prefix_requires_original_time_step(probe):
+    mode = 'geometric_variance_prefix'
+    mpm = dict(dt=1/240, dx=.3062907543956724, nx=36, ny=36, nz=36)
+    probe.checked_mpm_parameters(mpm, dict(mpm), mode)
+    for dt in (1/120, 0., None, float('nan')):
+        wrong = dict(mpm, dt=dt)
+        with pytest.raises(ValueError, match='requires dt=1/240'):
+            probe.checked_mpm_parameters(wrong, dict(wrong), mode)
+    with pytest.raises(ValueError, match='discretisation mismatch'):
+        probe.checked_mpm_parameters(mpm, dict(mpm, dx=.3), mode)
+
+
+def test_fixed_source_density_keeps_ids_that_leave_the_moving_top(probe):
+    x = np.array([[0., 2.5, 0.], [.125, 2.5, 0.], [5., 0., 0.]])
+    ids = np.array([0, 1])
+    before = probe.fixed_material_density(x, probe.KDTree(x), ids, .2)
+    assert before == dict(particles=2, density=.125, under_half=1., y_gt_2_3_frac=1.)
+    moved = x.copy()
+    moved[1] = [0., 0., 0.]
+    after = probe.fixed_material_density(moved, probe.KDTree(moved), ids, .2)
+    assert after == dict(particles=2, density=0., under_half=1., y_gt_2_3_frac=.5)
+    assert (moved[:, 1] > 2.3).sum() == 1  # No dynamic cohort reselection occurred.
+    assert probe.fixed_material_density(moved, probe.KDTree(moved), ids[:0], .2) == dict(
+        particles=0, density=None, under_half=None, y_gt_2_3_frac=None)
+    np.testing.assert_array_equal(ids, [0, 1])
+
+
+def test_new_motion_rms_is_optional_and_not_mean_or_signed_mean(probe):
+    values = np.array([-3., 4.])
+    legacy = probe.stats(values)
+    updated = probe.stats(values, include_rms=True)
+    assert set(legacy) == {'median', 'p95', 'max'}
+    assert updated['rms'] == pytest.approx(np.sqrt(12.5))
+    assert {k: updated[k] for k in legacy} == legacy
+    assert probe.stats(values[:0], include_rms=True) is None

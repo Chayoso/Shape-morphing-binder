@@ -137,3 +137,42 @@ float32 scalar merits uses an explicit rounding bound based on their magnitudes;
 this is separate from the unchanged derivative criteria. Inner validation is
 not outer acceptance. No full-run, gallery or render promotion follows from a
 successful one-window integration alone.
+
+## Actual T20 cap1 integration, September 28
+
+Frozen sourcefc07572 passed independent code review and17 CPU tests covering
+accepted-buffer and forced-replay paths in both observable modes. GPU0 control
+and GPU2 geometry each accepted all8 inner iterations and one outer window,
+with no guards, in14.99s and16.22s respectively. Both used the accepted buffer.
+Emitted protocols have identical source/target/reference hashes, MPM parameters
+and code hashes; geometric_variance is the only configuration difference.
+The original strict v1/v2 failures remain attached by hash.
+
+| Observable check | Control | Geometric variance |
+|---|---:|---:|
+| Independently reconstructed geometric variance |0.651513681|0.617452826|
+| Independently reconstructed physical variance |0.565108990|0.566999004|
+| Selected term's expected weighted contribution |0.00342455436|0.00374175743|
+| Scalar subtraction absolute error |7.08e-10|1.35e-9|
+| Recorded merit equals recomputed merit |exact|exact|
+| Gradient forwards returning full X |0|8|
+
+Variances have units(wu/s)^2 at T20/dt1/240; dx0.3062907543956724wu and N300k
+are unchanged. The effective weight is200/33003.359375=0.00605998916.
+The geometric arm has finite full-X seeds and nonzero earlier-position gradient
+participation. Returned X is owned, finite and terminal-exact; accepted/promoted
+positions and every archived position match the evaluated saved path. F/v/C are
+checked at optimizer return; outer commit independently checks x/F/v, not C.
+Both initial pin counts are zero and that pin check is explicitly vacuous.
+
+This passes the new bounded integration check only. The lower first-window
+geometric variance is not a rest, hole or fit improvement claim. Before any
+full-run decision, the conditional next experiment compares8 attempted windows
+with motion accounting in both arms, retaining all original controls/objective
+terms and adaptive render balancing. It must report progress and fixed-ID
+motion/coverage alongside the variance; all strict primitive failures remain.
+
+Evidence: server work/p297/integration_control and integration_geometry;
+local output/p297 holds both protocol.json and integration.json. Each server
+accepted_path.npz is105,601,458bytes. Control SHA256 startsd089effaec802e3d;
+geometry startsc7f38157dc065b7f; full hashes are in each integration result.

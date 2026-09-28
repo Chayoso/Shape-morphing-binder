@@ -5,6 +5,8 @@ Default: only body_rprop may change. Explicit stress_taper and commit_pic_off
 interventions permit their one flag plus cap 60 -> 8 and compare a common prefix.
 The shared-PIC objective prefix permits only its objective flag, with cap8 in both arms.
 The geometric-rest prefix additionally fixes T=20, dt=1/240 and a positive kinetic weight.
+The geometric-variance prefix compares the whole adaptive policy at cap8 with
+positive temporal variance weight and matched read-only motion accounting.
 Numerical geometry, cohorts and motion use CUDA;
 archive/hash/JSON I/O use the host. No renderer or optimization-loss operator is read.
 """
@@ -28,13 +30,19 @@ from scripts.probes.render_influence import load_run, channel_summary
 wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
 FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff', 'geometric_rest_full')
 PREFIX_INTERVENTIONS = ('stress_taper', 'commit_pic_off', 'commit_pic_objective_prefix',
-                        'geometric_rest_prefix')
+                        'geometric_rest_prefix', 'geometric_variance_prefix')
 GEOMETRIC_INTERVENTIONS = ('geometric_rest_prefix', 'geometric_rest_full')
+VARIANCE_PREFIX = 'geometric_variance_prefix'
 
 
-def stats(values):
-    return dict(median=float(np.median(values)), p95=float(np.percentile(values, 95)),
-                max=float(np.max(values))) if values.size else None
+def stats(values, include_rms=False):
+    if not values.size:
+        return None
+    result = dict(median=float(np.median(values)), p95=float(np.percentile(values, 95)),
+                  max=float(np.max(values)))
+    if include_rms:
+        result['rms'] = float(np.sqrt(np.mean(np.asarray(values, np.float64)**2)))
+    return result
 
 
 def accepted_raw_indices(records, steps):
@@ -82,6 +90,20 @@ def checked_config_changes(ca, cb, intervention):
                          and c.get('lambda_auto', 0.) > 0
                          and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
                          for c in (ca, cb)))
+    elif intervention == VARIANCE_PREFIX:
+        def positive_finite(value):
+            return (isinstance(value, (int, float)) and not isinstance(value, bool)
+                    and host_np.isfinite(value) and value > 0)
+        valid = (set(changes) == {'geometric_variance'}
+                 and ca.get('geometric_variance', False) is False and cb.get('geometric_variance') is True
+                 and all(c.get('stop_after_windows') == 8 and c.get('T') == 20
+                         and c.get('commit_pic') is True and c.get('commit_pic_objective') is True
+                         and c.get('shift_sub') is False and c.get('outer_render_committed') is True
+                         and c.get('geometric_rest', False) is False and c.get('motion_accounting') is True
+                         and positive_finite(c.get('w_kin_var')) and positive_finite(c.get('lambda_auto'))
+                         and c.get('phys_loss') in ('auto', 'ot_pace', 'ot_shape')
+                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
+                         for c in (ca, cb)))
     elif intervention in GEOMETRIC_INTERVENTIONS:
         cap = 8 if intervention == 'geometric_rest_prefix' else 60
         valid = (set(changes) == {'geometric_rest'}
@@ -104,7 +126,7 @@ def checked_config_changes(ca, cb, intervention):
 def checked_mpm_parameters(baseline, candidate, intervention):
     if baseline != candidate:
         raise ValueError('MPM discretisation mismatch')
-    if intervention in GEOMETRIC_INTERVENTIONS and baseline.get('dt') != 1/240:
+    if (intervention in GEOMETRIC_INTERVENTIONS or intervention == VARIANCE_PREFIX) and baseline.get('dt') != 1/240:
         raise ValueError(f'{intervention} requires dt=1/240')
 
 
@@ -173,7 +195,7 @@ def checked_runs(baseline, candidate, intervention):
             raise ValueError('Material particle IDs must be preserved')
         run['physical_indices'] = accepted_raw_indices(run['records'], config['T'])
         run['interior_hold_frames'] = run['physical_indices'][-1]+1-len(run['physical_indices'])
-    if intervention in GEOMETRIC_INTERVENTIONS:
+    if intervention in GEOMETRIC_INTERVENTIONS or intervention == VARIANCE_PREFIX:
         for run, evidence in zip(runs, checked_arrival_modes(runs)):
             run['arrival_mode_evidence'] = evidence
     return runs, changes
@@ -218,7 +240,18 @@ def render_reference_history(run, intervention):
     return result
 
 
-def geometry_curve(run, target, target_tree, extent, target_spacing, radius, tip):
+def fixed_material_density(x, tree, ids, radius):
+    """Same source-selected IDs, including those outside the moving top region."""
+    if not len(ids):
+        return dict(particles=0, density=None, under_half=None, y_gt_2_3_frac=None)
+    counts = tree.query_ball_point(x[ids], radius, return_length=True)-1
+    return dict(particles=len(ids), density=float(counts.mean()/8),
+                under_half=float((counts < 4).mean()),
+                y_gt_2_3_frac=float((x[ids, 1] > 2.3).mean()))
+
+
+def geometry_curve(run, target, target_tree, extent, target_spacing, radius, tip,
+                   fixed_source_ids=None):
     top_target = target[:, 1] > 2.3
     curve = []
     for ordinal, record in enumerate(run['records'], 1):
@@ -248,6 +281,13 @@ def geometry_curve(run, target, target_tree, extent, target_spacing, radius, tip
                     'render_target_kind', 'render_arrival_count', 'render_arrival_trigger',
                     'render_arrival_trigger_attempt', 'render_arrival_trigger_commit'):
             row[key] = record.get(key)
+        if fixed_source_ids is not None:
+            row['source_upper_surface_density'] = fixed_material_density(x, tree, fixed_source_ids, radius)
+            row['source_upper_surface_density']['pinned_frac'] = (
+                float(admitted_mask(run, int(record['animation'])+1)[fixed_source_ids].mean())
+                if len(fixed_source_ids) else None)
+            row['geometric_variance'] = record.get('geometric_variance')
+            row['motion_accounting'] = record.get('motion_accounting')
         curve.append(row)
     return curve
 
@@ -327,7 +367,7 @@ def handoff_intervals(trigger_commit, common):
     return intervals
 
 
-def cohort_motion(run, ids, common, spacing, first_commit=None):
+def cohort_motion(run, ids, common, spacing, first_commit=None, include_rms=False):
     if not len(ids) or common < 3:
         return None
     first = max(1, common-10) if first_commit is None else int(first_commit)
@@ -361,24 +401,25 @@ def cohort_motion(run, ids, common, spacing, first_commit=None):
     raw_tangent = np.linalg.norm(raw_moves-raw_signed[:, :, None]*normal[None], axis=2)
     raw_active = (raw_lengths[:-1] > 1e-4*spacing) & (raw_lengths[1:] > 1e-4*spacing)
     raw_reversal = (raw_moves[:-1]*raw_moves[1:]).sum(2) < 0
+    summarize_values = lambda values: stats(values, include_rms=include_rms)
     return dict(commit_range=[rows[0]['commit'], rows[-1]['commit']],
                 frame_range=[rows[0]['frame'], rows[-1]['frame']],
                 raw_physical_states=len(raw_indices),
                 excluded_interior_hold_frames=rows[-1]['frame']-rows[0]['frame']+1-len(raw_indices),
                 pinned_frac_start=float(admitted_mask(run, rows[0]['attempt'])[ids].mean()),
                 pinned_frac_end=float(admitted_mask(run, rows[-1]['attempt'])[ids].mean()),
-                step_sp=stats(lengths.ravel()/spacing),
-                normal_sp_per_commit=stats(np.abs(signed[:, valid]).ravel()/spacing),
-                tangent_sp_per_commit=stats(tangent[:, valid].ravel()/spacing),
+                step_sp=summarize_values(lengths.ravel()/spacing),
+                normal_sp_per_commit=summarize_values(np.abs(signed[:, valid]).ravel()/spacing),
+                tangent_sp_per_commit=summarize_values(tangent[:, valid].ravel()/spacing),
                 reversal_fraction=float(reversal[active].mean()) if active.any() else None,
                 reversed_pairs=int(reversal[active].sum()), moving_pairs=int(active.sum()),
                 moving_material_points=int(moving.sum()),
-                net_over_path=stats(efficiency),
+                net_over_path=summarize_values(efficiency),
                 normal_basis='arm-specific frozen 33NN centroid-offset normal at common interval endpoint',
                 normal_valid_points=int(valid.sum()),
-                raw_step_sp=stats(raw_lengths.ravel()/spacing),
-                normal_sp_per_raw_step=stats(np.abs(raw_signed[:, valid]).ravel()/spacing),
-                tangent_sp_per_raw_step=stats(raw_tangent[:, valid].ravel()/spacing),
+                raw_step_sp=summarize_values(raw_lengths.ravel()/spacing),
+                normal_sp_per_raw_step=summarize_values(np.abs(raw_signed[:, valid]).ravel()/spacing),
+                tangent_sp_per_raw_step=summarize_values(raw_tangent[:, valid].ravel()/spacing),
                 raw_reversal_fraction=float(raw_reversal[raw_active].mean()) if raw_active.any() else None,
                 raw_reversed_pairs=int(raw_reversal[raw_active].sum()), raw_moving_pairs=int(raw_active.sum()))
 
@@ -407,7 +448,8 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
             raise ValueError('Source-only upper-surface cohort is empty')
         endpoint_union = np.zeros(len(source), dtype=bool)
         for name, run in zip(names, runs):
-            run['curve'] = geometry_curve(run, target, target_tree, target_extent(target), target_spacing, radius, tip)
+            run['curve'] = geometry_curve(run, target, target_tree, target_extent(target), target_spacing, radius, tip,
+                                          source_ids if intervention == VARIANCE_PREFIX else None)
             run['tip_history'] = tip_history(run, tip)
             final = to_array(run['frames'][run['delivered']-1])
             counts = KDTree(final).query_ball_point(final, 2*spacing, return_length=True)
@@ -441,7 +483,8 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
         for name, ids, metadata in (('source_upper_surface', source_ids, source_meta),
                                     ('endpoint_free_union', endpoint_ids, endpoint_meta),
                                     ('common_endpoint_free_both', free_ids, free_meta)):
-            cohorts[name] = dict(**metadata, arms={arm: cohort_motion(run, ids, common, spacing)
+            cohorts[name] = dict(**metadata, arms={arm: cohort_motion(run, ids, common, spacing,
+                                                                     include_rms=intervention == VARIANCE_PREFIX)
                                                   for arm, run in zip(names, runs)})
         handoff_bands = None
         if intervention == 'render_arrival_handoff':
@@ -475,6 +518,20 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                    caveats='No renderer consumed; coverage counts do not prove watertightness, direction changes do not prove periodic oscillation'),
                   equal_accepted_commits=pairs, first_chamfer_threshold_crossings=progress, cohorts=cohorts,
                   handoff_common_material_bands=handoff_bands)
+    if intervention == VARIANCE_PREFIX:
+        result['matched_free_motion_status'] = (
+            'available_descriptive' if free_meta['sampled_count'] and common >= 3 else
+            'inconclusive_empty_common_free_cohort' if not free_meta['sampled_count'] else
+            'inconclusive_fewer_than_three_common_commits')
+        result['definitions'].update(
+            comparison='whole adaptive-lambda policy; no fixed-lambda causal inference or primitive-gate promotion',
+            source_upper_density='same pre-treatment source_upper_surface sampled IDs at each accepted endpoint; target median r8, self excluded, count/8; includes IDs below y=2.3 and pinned IDs',
+            moving_top_density='top_density/top_under_half condition on each current cloud y>2.3; membership can differ across arms and windows',
+            fixed_target_top='top_target_near_frac/gap use the SAME target IDs with y>2.3; coverage is not watertightness',
+            phase_scope='paired archive phase audit starts at commit1 and covers windows2..common (at most8); W1 excluded and separately checked by cap1 integration',
+            final_phase='phase20 is the raw final step plus PIC remap, not PIC alone',
+            motion_accounting='separate raw-step/PIC telemetry uses per-arm, per-window arrival/pin cohorts; not matched-ID causal evidence',
+            prefix_limit='lower motion may reflect slower progress or more pins; compare geometry/arrival, common progress and pin fractions; no rest/repair conclusion')
     result['dependencies'] = {
         name: hashlib.sha256(Path(sys.modules[name].__file__).read_bytes()).hexdigest()
         for name in ('scripts.probes.render_influence', 'scripts.probes.morph_raw_qa')}
