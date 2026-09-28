@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import math
 import os
 import time
 
@@ -2045,9 +2046,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         active = True
 
         @torch.no_grad()
-        def evaluate(gradients, observable='physical'):
+        def evaluate(gradients, observable='physical', backtrack_index=0):
             if not active:
                 raise RuntimeError('proposal audit evaluator expired')
+            if type(backtrack_index) is not int or not 0 <= backtrack_index < cfg.max_ls_iters:
+                raise ValueError('proposal backtrack index outside production search budget')
             if observable not in initial_merits or len(gradients) != len(leaves):
                 raise ValueError('invalid proposal observable or leaf count')
             for gradient, parameter in zip(gradients, originals):
@@ -2057,8 +2060,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             if not all(torch.equal(p, b) for p, b in zip(leaves, originals)):
                 raise RuntimeError('production controls changed during proposal audit')
             candidate = clone(originals)
+            # Production halves rejected steps; each trial restarts from the same
+            # controls and Adam state. No continuity gate is supported by this audit.
+            trial_alpha = math.ldexp(fixed_alpha, -backtrack_index)
             apply_proposal(candidate, gradients, clone(moments), clone(seconds),
-                           step=adam_t+1, alpha=fixed_alpha, **proposal_options)
+                           step=adam_t+1, alpha=trial_alpha, **proposal_options)
             delta = [p-b for p, b in zip(candidate, originals)]
             predicted = -float(sum((g.detach()*d).sum() for g, d in zip(gradients, delta)))
             sil_saved, gauss_saved = dict(sil_gauss), tgt.gauss_scale
@@ -2082,7 +2088,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     merits=merits, predicted_decrease=predicted, required_decrease=required,
                     first_trial_merit_ok=bool(np.isfinite(new) and floor <= new <= current-required and state_ok),
                     physical_variance=float(ex['lk_var']), geometric_variance=float(geo),
-                    alpha=fixed_alpha, **{'lambda': weight}, observable=observable)
+                    alpha=trial_alpha, **{'lambda': weight}, observable=observable,
+                    backtrack_index=backtrack_index)
+                output['proposal_merit_ok'] = output['first_trial_merit_ok']
             finally:
                 for live, original in zip(leaves, originals):
                     live.copy_(original)
@@ -2108,7 +2116,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 unit_ratio=unit_ratio, pace=cfg.pace, noise_rel=cfg.ls_noise_rel, armijo_c1=cfg.armijo_c1,
                 unscaled_alpha=alpha, adaptive_alpha=bool(cfg.adaptive_alpha),
                 target_norm=target_norm_eff, min_alpha_scale=cfg.min_alpha_scale,
-                mode='one bounded proposal at fixed baseline alpha/lambda; no line search or commit'))
+                max_ls_iters=int(cfg.max_ls_iters), backtrack_factor=0.5,
+                mode='noncommitting first-iteration proposals on the production halving schedule; fixed baseline lambda and initial controls/moments'))
         return close
 
     hist, accepted, rejected = [], 0, 0

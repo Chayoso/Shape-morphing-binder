@@ -49,8 +49,19 @@ def test_trial_replays_restore_controls_moments_and_production(monkeypatch, unit
         ga = composite(p, rp, lam, values['transport'], names, audit['layer_u_render_only'])
         gb = composite(q, rq, lam, values['transport'], names, audit['layer_u_render_only'])
         evaluate = audit['trial_evaluate']
+        assert settings['max_ls_iters'] == cfg.max_ls_iters and settings['backtrack_factor'] == .5
+        for invalid in (-1, cfg.max_ls_iters, 1.0, True):
+            with pytest.raises(ValueError, match='backtrack index'):
+                evaluate(ga, backtrack_index=invalid)
         a = evaluate(ga, observable='physical')
         b = evaluate(gb, observable='geometric')
+        half = evaluate(ga, observable='physical', backtrack_index=1)
+        assert half['alpha'] == settings['alpha']*.5 and half['backtrack_index'] == 1
+        assert half['stats_restore_exact'] and half['prepared_inputs_exact']
+        # This small unconstrained CPU case has a linear alpha-dependent update.
+        for full_delta, half_delta in zip(a['controls_delta'], half['controls_delta']):
+            torch.testing.assert_close(half_delta, full_delta*.5, atol=2e-7, rtol=2e-4)
+        assert half['proposal_merit_ok'] == half['first_trial_merit_ok']
         # Fail after candidate controls are installed, then prove restoration by replay.
         raise_in_trial[0] = True
         with pytest.raises(RuntimeError, match='injected trial'):
@@ -67,6 +78,7 @@ def test_trial_replays_restore_controls_moments_and_production(monkeypatch, unit
             after = value['merits'][value['observable']]
             expected_gate = value['state_ok'] and after <= before-value['required_decrease']
             assert value['first_trial_merit_ok'] == expected_gate
+            assert value['proposal_merit_ok'] == expected_gate and value['backtrack_index'] == 0
         assert sum(float((x-y).square().sum()) for x, y in
                    zip(a['controls_delta'], b['controls_delta'])) > 0
         expired.append(evaluate)

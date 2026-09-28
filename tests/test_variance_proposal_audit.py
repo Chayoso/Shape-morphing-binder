@@ -7,9 +7,9 @@ import pytest
 import torch
 
 from scripts.probes.variance_proposal_audit import (
-    analyze_proposals, native_alpha, pin_report, prepare_metrics, trajectory_summary, run_audited,
+    ProposalAudit, analyze_proposals, native_alpha, pin_report, prepare_metrics, trajectory_summary, run_audited,
 )
-from scripts.probes.variance_gradient_audit import updated_balancer
+from scripts.probes.variance_gradient_audit import GradientAudit, updated_balancer
 
 
 def path_fixture():
@@ -76,22 +76,25 @@ def audit_fixture(u_only=False):
     initial = dict(x0=x0, pins=pins, positions=positions,
                    promoted=positions[-1].clone(), physical_v=torch.zeros_like(positions))
     calls = []
-    def evaluate(values, observable):
+    def evaluate(values, observable, backtrack_index=0):
         calls.append((observable, [value.clone() for value in values]))
-        shift = float(values[0].sum())*.001
+        alpha = .1/(2**backtrack_index)
+        shift = float(values[0].sum())*.01*alpha
         X = positions.clone()
         X[:, ~pins, 0] += shift
-        return dict(controls_delta=[-.1*value for value in values], positions=X,
+        return dict(controls_delta=[-alpha*value for value in values], positions=X,
             promoted=X[-1].clone(), physical_v=torch.zeros_like(X),
             F=torch.eye(3).reshape(1, 9).repeat(12, 1), v=torch.zeros(12, 3), C=torch.zeros(12, 3, 3),
             state_ok=True, Jmin=1., merits=dict(physical=1.+shift, geometric=2.+shift),
             predicted_decrease=.1, required_decrease=.01, first_trial_merit_ok=False,
-            alpha=.1, **{'lambda': weight}, observable=observable, stats_restore_exact=True)
+            proposal_merit_ok=False, backtrack_index=backtrack_index,
+            alpha=alpha, **{'lambda': weight}, observable=observable, stats_restore_exact=True)
     audit = dict(same_graph=True, alternate_forward_count=0, mode='render', grad_h1=False,
         gradients=dict(physical=p, geometric=q, render_raw=r, transport=[torch.tensor([.1, -.2]), torch.tensor([.7])]),
         leaf_names=['stress', 'surface_u'], balancer_state=state, layer_u_render_only=u_only,
         trial_settings=dict(alpha=.1, **{'lambda': weight}, initial_merits=dict(physical=1., geometric=2.),
-                            unscaled_alpha=.1, adaptive_alpha=False, target_norm=1., min_alpha_scale=.1),
+                            unscaled_alpha=.1, adaptive_alpha=False, target_norm=1., min_alpha_scale=.1,
+                            max_ls_iters=3, backtrack_factor=.5),
         trial_reference=initial, trial_evaluate=evaluate, win_index=23, N=12, T=2, dt=.5)
     return audit, reference, mask, metadata, calls
 
@@ -180,7 +183,8 @@ def test_repeat_control_gate_is_exact_but_state_repeat_is_descriptive(change_con
     assert report['cohorts']['all_window_start_free']['particles'] == 11
 
 
-def test_small_real_noninitial_window_preserves_baseline_and_actual_lambda():
+@pytest.mark.parametrize('backtrack', [False, True])
+def test_small_real_noninitial_window_preserves_baseline_and_actual_lambda(backtrack):
     from physmorph.pipeline import PipelineConfig, run_pipeline
     from physmorph.mpm.state import MPMParams
     source = np.random.default_rng(31).uniform(-1.3, 1.3, (96, 3)).astype(np.float32)
@@ -194,13 +198,87 @@ def test_small_real_noninitial_window_preserves_baseline_and_actual_lambda():
         w_ctrl=0., w_box=0., max_ls_iters=1, adaptive_alpha=False, alpha=1e-4, loss_units='density')
     prm = MPMParams(dx=1., nx=32, ny=32, nz=32)
     plain = run_pipeline(source, target, prm, deepcopy(cfg), log=lambda *_: None)
-    actual, report = run_audited(source, target, prm, deepcopy(cfg), selected_index=1, log=lambda *_: None)
+    actual, report = run_audited(source, target, prm, deepcopy(cfg), selected_index=1,
+                                log=lambda *_: None, backtrack=backtrack)
     assert report['observation_valid'] and report['baseline_lambda_matches_production_exactly']
     assert report['selected_outer_accepted'] and report['selected_commit']['accepted_ordinal'] == 2
     assert report['audit']['comparisons']['A_to_A_repeat']['controls_exact']
     assert report['audit']['leaf_names'] == ['stress', 'body', 'surface_u']
+    if backtrack:
+        assert report['baseline_first_accepted_alpha_verification']['exact_match']
+        assert report['audit']['backtracking']['A']['merit_passed']
     assert all(trial['prepared_inputs_exact'] and trial['prepared_input_names']
                for trial in report['audit']['trials'].values())
     json.dumps(report, allow_nan=False)
     np.testing.assert_array_equal(np.stack(actual['frames']), np.stack(plain['frames']))
     assert not any(actual['guards'].values())
+
+
+@pytest.mark.parametrize('candidate_pass', [True, False])
+def test_backtracking_selects_first_merit_pass_or_last_rejected(candidate_pass):
+    audit, reference, mask, metadata, calls = audit_fixture()
+    evaluate, order = audit['trial_evaluate'], []
+    def search(values, observable, backtrack_index=0):
+        order.append((observable, backtrack_index))
+        result = evaluate(values, observable, backtrack_index)
+        passed = backtrack_index >= (1 if observable == 'physical' else 2) and (
+            observable == 'physical' or candidate_pass)
+        result.update(proposal_merit_ok=passed, first_trial_merit_ok=passed)
+        result['merits'][observable] = .5 if passed else 10.
+        return result
+    audit['trial_evaluate'] = search
+    report = analyze_proposals(audit, reference, mask, metadata, backtrack=True)
+    assert order == [('physical', 0), ('physical', 1), ('geometric', 0),
+                     ('geometric', 1), ('geometric', 2), ('physical', 1)]
+    a, b = report['backtracking']['A'], report['backtracking']['B']
+    assert a['merit_passed'] and a['backtrack_index'] == 1 and len(a['trials']) == 2
+    assert b['merit_passed'] is candidate_pass and b['exhausted'] is (not candidate_pass)
+    assert b['backtrack_index'] == 2 and len(b['trials']) == 3
+    assert b['returned_endpoint'] == ('first_merit_passing' if candidate_pass else 'last_rejected')
+    assert report['trials']['B']['endpoint_status'] == b['returned_endpoint']
+    assert report['trials']['A']['alpha'] == .05 and report['trials']['B']['alpha'] == .025
+    assert report['comparisons']['A_to_A_repeat']['controls_exact'] and report['contract_valid']
+    assert 'fixed_for_all_trials' not in report['alpha_comparison']
+    json.dumps(report, allow_nan=False)
+
+
+def test_backtracking_rejects_unequal_native_initial_alpha_before_evaluation():
+    from physmorph.pipeline.grad_combine import pcgrad
+    audit, reference, mask, metadata, calls = audit_fixture()
+    settings = audit['trial_settings']
+    settings.update(adaptive_alpha=True, target_norm=1.)
+    gradients = audit['gradients']
+    p, r, t = [gradients[key] for key in ('physical', 'render_raw', 'transport')]
+    rp = pcgrad(p, r)[0]
+    direction = [a+settings['lambda']*b+c for a, b, c in zip(p, rp, t)]
+    settings['alpha'] = native_alpha(direction, settings)
+    with pytest.raises(RuntimeError, match='equal native initial alpha'):
+        analyze_proposals(audit, reference, mask, metadata, backtrack=True)
+    assert calls == []
+
+
+def test_exhausted_a_repeats_final_rejected_index_without_feasibility_claim():
+    audit, reference, mask, metadata, calls = audit_fixture()
+    report = analyze_proposals(audit, reference, mask, metadata, backtrack=True)
+    assert report['backtracking']['A']['exhausted']
+    assert report['backtracking']['A']['returned_endpoint'] == 'last_rejected'
+    assert report['backtracking']['repeat']['backtrack_index'] == 2
+    assert not report['backtracking']['repeat']['proposal_merit_ok']
+    assert report['trials']['A_repeat']['endpoint_status'] == 'repeat_of_A_last_rejected'
+    assert report['evaluation_order'] == ['A[0]', 'A[1]', 'A[2]', 'B[0]', 'B[1]', 'B[2]', 'A_repeat[2]']
+    assert report['comparisons']['A_to_A_repeat']['controls_exact']
+
+
+@pytest.mark.parametrize('diagnostic_pass,production_alpha,expected', [
+    (True, .025, True), (True, .05, False), (True, None, False), (False, None, False)])
+def test_observation_requires_actual_first_accepted_alpha(diagnostic_pass, production_alpha, expected):
+    coordinator = ProposalAudit.__new__(ProposalAudit)
+    GradientAudit.__init__(coordinator, 23)
+    coordinator.backtrack = True
+    coordinator.audit = dict(lambda_baseline=.3, contract_valid=True,
+        backtracking=dict(A=dict(alpha=.025, merit_passed=diagnostic_pass)))
+    coordinator.commit(23, None, None, None, dict(frame_end=481, **{'lambda': .3},
+        body_accepted_alphas=[production_alpha] if production_alpha is not None else []))
+    report = coordinator.finish(dict(history=[], guards={}))
+    assert report['observation_valid'] is expected
+    assert report['baseline_first_accepted_alpha_verification']['exact_match'] is expected

@@ -1,7 +1,8 @@
 """P299: two noncommitting first-trial proposals at the same baseline lambda.
 
 The CUDA CLI reruns the original physical-variance recipe through attempt24.
-Only A/B/A proposals are evaluated; no alternate solve or raw archive is saved.
+Default evaluates only A/B/A first proposals. --backtrack evaluates the first
+inner iteration's bounded halving search; no alternate solve/raw archive is saved.
 Repeat differences are descriptive and never set a cross-arm tolerance.
 """
 from __future__ import annotations
@@ -156,7 +157,34 @@ def trial_comparison(a, b, names):
                 definition='B minus A within matched quantities; replay differences are descriptive, not a tolerance or confidence interval')
 
 
-def analyze_proposals(audit, geometry_reference, source_mask, source_metadata):
+def backtrack_proposal(evaluate, direction, observable, settings, reference):
+    """First production-merit pass only; discarded candidates retain scalar evidence."""
+    limit = settings['max_ls_iters']
+    require(type(limit) is int and limit > 0 and settings['backtrack_factor'] == .5,
+            'Unsupported bounded backtracking contract')
+    trace = []
+    for index in range(limit):
+        trial = evaluate(direction, observable=observable, backtrack_index=index)
+        require(trial['backtrack_index'] == index and trial['observable'] == observable
+                and trial['alpha'] == math.ldexp(settings['alpha'], -index)
+                and trial['lambda'] == settings['lambda'], 'Backtracking trial identity/gain changed')
+        row = {key: deepcopy(trial[key]) for key in ('backtrack_index', 'alpha', 'lambda', 'observable',
+               'state_ok', 'Jmin', 'merits', 'predicted_decrease', 'required_decrease',
+               'proposal_merit_ok', 'stats_restore_exact')}
+        row.update(pins=pin_report(reference, trial),
+                   prepared_inputs_exact=trial.get('prepared_inputs_exact'),
+                   prepared_input_names=trial.get('prepared_input_names'))
+        trace.append(row)
+        if trial['proposal_merit_ok']:
+            break
+    passed = bool(trial['proposal_merit_ok'])
+    return trial, dict(merit_passed=passed, exhausted=not passed,
+        returned_endpoint='first_merit_passing' if passed else 'last_rejected',
+        backtrack_index=trial['backtrack_index'], alpha=trial['alpha'], trials=trace,
+        selection='first proposal_merit_ok only; no geometry/motion/supply used for selection')
+
+
+def analyze_proposals(audit, geometry_reference, source_mask, source_metadata, *, backtrack=False):
     from physmorph.compute import to_host
     from physmorph.pipeline.grad_combine import pcgrad
     from scripts.probes.pic_endpoint_quality import endpoint_quality
@@ -183,6 +211,8 @@ def analyze_proposals(audit, geometry_reference, source_mask, source_metadata):
                   for a, b in ((p, rp), (q, rq))]
     native_a, native_b = [native_alpha(direction, settings) for direction in directions]
     require(native_a == settings['alpha'], 'Baseline adaptive alpha mismatch')
+    if backtrack:
+        require(native_b == settings['alpha'], 'Backtracking requires equal native initial alpha for both directions')
     masks = dict(all_window_start_free=~reference['pins'],
                  source_upper_free=source_mask & ~reference['pins'])
     cohort_metadata = {name: dict(particles=int(mask.sum()),
@@ -190,14 +220,26 @@ def analyze_proposals(audit, geometry_reference, source_mask, source_metadata):
         definition='same material IDs in reference/A/B/A-repeat, selected once before trial evaluation')
         for name, mask in masks.items()}
     evaluate = audit['trial_evaluate']  # Callback-lifetime only; never retained.
-    a = evaluate(directions[0], observable='physical')
-    b = evaluate(directions[1], observable='geometric')
-    repeat = evaluate(directions[0], observable='physical')
+    search = None
+    if backtrack:
+        a, search_a = backtrack_proposal(evaluate, directions[0], 'physical', settings, reference)
+        b, search_b = backtrack_proposal(evaluate, directions[1], 'geometric', settings, reference)
+        repeat = evaluate(directions[0], observable='physical', backtrack_index=search_a['backtrack_index'])
+        require(repeat['backtrack_index'] == search_a['backtrack_index'], 'Repeat backtracking index changed')
+        search = dict(A=search_a, B=search_b,
+            repeat=dict(backtrack_index=repeat['backtrack_index'], proposal_merit_ok=repeat['proposal_merit_ok']),
+            limit=settings['max_ls_iters'], factor=settings['backtrack_factor'],
+            scope='first inner iteration only; gradients/lambda/start controls/moments remain fixed for all halvings; no accepted trial is installed')
+    else:
+        a = evaluate(directions[0], observable='physical')
+        b = evaluate(directions[1], observable='geometric')
+        repeat = evaluate(directions[0], observable='physical')
     trials = dict(A=a, B=b, A_repeat=repeat)
     spacing = geometry_reference['source_spacing']
     results = {}
     for label, trial in trials.items():
-        require(trial['lambda'] == weight and trial['alpha'] == settings['alpha'], 'Trial gain changed')
+        expected_alpha = math.ldexp(settings['alpha'], -trial['backtrack_index']) if backtrack else settings['alpha']
+        require(trial['lambda'] == weight and trial['alpha'] == expected_alpha, 'Trial gain changed')
         require(len(trial['controls_delta']) == len(names), 'Trial control layout changed')
         finite = all(bool(torch.isfinite(trial[key]).all()) for key in
                      ('positions', 'promoted', 'physical_v', 'F', 'v', 'C'))
@@ -206,6 +248,10 @@ def analyze_proposals(audit, geometry_reference, source_mask, source_metadata):
         values.update(finite=finite, pins=pin_report(reference, trial))
         values.update({key: trial.get(key) for key in ('physical_variance', 'geometric_variance',
                       'prepared_inputs_exact', 'prepared_input_names')})
+        if backtrack:
+            values.update(backtrack_index=trial['backtrack_index'], proposal_merit_ok=trial['proposal_merit_ok'],
+                endpoint_status=(search[label]['returned_endpoint'] if label != 'A_repeat' else
+                                 'repeat_of_A_first_pass' if search['A']['merit_passed'] else 'repeat_of_A_last_rejected'))
         values['motion'] = {name: trajectory_summary(reference, trial, mask, audit['dt'], spacing)
                             for name, mask in masks.items()} if finite else None
         # A-repeat gets full state/merit differences; repeating expensive geometry is unnecessary.
@@ -216,7 +262,11 @@ def analyze_proposals(audit, geometry_reference, source_mask, source_metadata):
     comparisons = dict(A_to_B=trial_comparison(a, b, names), A_to_A_repeat=trial_comparison(a, repeat, names))
     pin_exact = all(value['pins']['raw_exact'] and value['pins']['promoted_exact'] for value in results.values())
     restored = all(value['stats_restore_exact'] for value in results.values())
-    return finite_json(dict(lambda_baseline=weight, trial_settings=deepcopy(settings),
+    if backtrack:
+        pin_exact &= all(row['pins']['raw_exact'] and row['pins']['promoted_exact']
+                         for label in ('A', 'B') for row in search[label]['trials'])
+        restored &= all(row['stats_restore_exact'] for label in ('A', 'B') for row in search[label]['trials'])
+    report = dict(lambda_baseline=weight, trial_settings=deepcopy(settings),
         alpha_comparison=dict(fixed_for_all_trials=settings['alpha'], native_baseline=native_a,
             native_geometric_at_baseline_lambda=native_b,
             composite_norms=[norm(direction) for direction in directions],
@@ -235,18 +285,30 @@ def analyze_proposals(audit, geometry_reference, source_mask, source_metadata):
         evaluation_order=['A physical variance', 'B geometric variance', 'A repeated physical variance'],
         definition='Only physical-gradient substitution plus its PCGrad reference changes; baseline lambda, initial Adam state, first-trial alpha and preparation are shared',
         limits='Noncommitting first proposals; first_trial_merit_ok is not full line-search or outer acceptance. No weight is calibrated, no alternative lambda update is used, no rest/repair/policy promotion follows.',
-        primitive_gate_passed=False))
+        primitive_gate_passed=False)
+    if backtrack:
+        report.update(backtracking=search,
+            evaluation_order=[f'{label}[{row["backtrack_index"]}]' for label in ('A', 'B')
+                              for row in search[label]['trials']] + [f'A_repeat[{repeat["backtrack_index"]}]'],
+            definition='Two fixed initial composite directions, shared initial native alpha and lambda; each proposal resets initial controls/moments and halves alpha; first merit pass only',
+            limits='One bounded first-inner-iteration backtracking search, not a full inner solve or outer acceptance. Exhaustion returns last rejected endpoint only. No policy promotion or primitive-gate repair.')
+        report['alpha_comparison'].pop('fixed_for_all_trials')
+        report['alpha_comparison'].update(shared_initial_alpha=settings['alpha'],
+            limitation='Native initial alphas must agree; selected A/B alphas may differ because each uses its first merit pass. No weight is fitted.')
+    return finite_json(report)
 
 
 class ProposalAudit(GradientAudit):
-    def __init__(self, source, target, device, selected_index=23):
+    def __init__(self, source, target, device, selected_index=23, *, backtrack=False):
         super().__init__(selected_index)
+        self.backtrack = backtrack
         self.geometry_reference, self.source_mask, self.source_metadata = prepare_metrics(source, target, device)
 
     def observe(self, win_index, audit):
         require(int(win_index) == self.selected_index and self.audit is None, 'Unexpected/repeated proposal audit')
         require(int(audit['win_index']) == self.selected_index, 'Audit window mismatch')
-        self.audit = analyze_proposals(audit, self.geometry_reference, self.source_mask, self.source_metadata)
+        self.audit = analyze_proposals(audit, self.geometry_reference, self.source_mask, self.source_metadata,
+                                       backtrack=self.backtrack)
 
     def wrap(self, original):
         def wrapped(*args, **kwargs):
@@ -260,16 +322,27 @@ class ProposalAudit(GradientAudit):
         report = super().finish(result)
         report.pop('no_quality_or_motion_conclusion')
         report['observation_valid'] &= bool(self.audit and self.audit['contract_valid'])
+        if self.backtrack:
+            selected = self.audit['backtracking']['A'] if self.audit else None
+            alphas = (self.commit_record['record'].get('body_accepted_alphas')
+                      if self.commit_record else None)
+            measured = alphas[0] if alphas else None
+            expected = selected['alpha'] if selected and selected['merit_passed'] else None
+            matched = bool(expected is not None and measured is not None and expected == measured)
+            report['baseline_first_accepted_alpha_verification'] = dict(
+                diagnostic=expected, production=measured, exact_match=matched,
+                criterion='exact first accepted body_accepted_alphas entry; exhaustion/missing evidence is not a match')
+            report['observation_valid'] &= matched
         report['no_policy_promotion'] = True
         return finite_json(report)
 
 
-def run_audited(source, target, prm, cfg, selected_index=23, log=print):
+def run_audited(source, target, prm, cfg, selected_index=23, log=print, *, backtrack=False):
     from physmorph.compute import cuda_execution
     from physmorph.pipeline import runner
     context = cuda_execution(cfg.device) if cfg.compute_backend == 'cuda' else nullcontext()
     with context:
-        coordinator = ProposalAudit(source, target, cfg.device, selected_index)
+        coordinator = ProposalAudit(source, target, cfg.device, selected_index, backtrack=backtrack)
         with patch.object(runner, 'optimize_window', coordinator.wrap(runner.optimize_window)):
             result = runner.run_pipeline(source, target, prm, cfg, on_commit=coordinator.commit, log=log)
         return result, coordinator.finish(result)
@@ -280,6 +353,7 @@ def main():
     parser.add_argument('--root', type=Path, default=Path('/data/relcfd/chayo/physmorph_v2'))
     parser.add_argument('--baseline-protocol', type=Path)
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--backtrack', action='store_true', help='Bounded first-iteration halving search; no full alternate solve')
     args = parser.parse_args()
     root, out = args.root.resolve(), args.out.resolve()
     baseline_path = (args.baseline_protocol or root/'work/p297/integration_control/protocol.json').resolve()
@@ -337,11 +411,13 @@ def main():
         code_sha256={path.resolve().relative_to(ROOT).as_posix(): sha(path) for path in code},
         cache_directories=caches, visible_devices=os.environ.get('CUDA_VISIBLE_DEVICES'),
         preserved_primitive_evidence=primitives, primitive_gate_passed=False,
-        scope='Same prepared noncommitting A/B/A first proposals at baseline lambda; baseline continuation only, no alternate solve or raw archive')
+        proposal_mode='bounded_backtracking' if args.backtrack else 'first_trial',
+        scope=('Same prepared noncommitting first-iteration bounded backtracking at baseline lambda; baseline continuation only, no alternate solve or raw archive'
+               if args.backtrack else 'Same prepared noncommitting A/B/A first proposals at baseline lambda; baseline continuation only, no alternate solve or raw archive'))
     out.mkdir(parents=True, exist_ok=False)
     save_json(out/'protocol.json', protocol)
     start = time.monotonic()
-    result, report = run_audited(source, target, prm, cfg)
+    result, report = run_audited(source, target, prm, cfg, backtrack=args.backtrack)
     torch.cuda.synchronize()
     report.update(seconds=time.monotonic()-start, end_utc=datetime.now(timezone.utc).isoformat(),
                   protocol_sha256=sha(out/'protocol.json'), torch_peak_bytes=torch.cuda.max_memory_allocated())
