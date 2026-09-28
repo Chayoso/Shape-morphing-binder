@@ -9,7 +9,8 @@ from physmorph.mpm.state import MPMParams
 from physmorph.pipeline import PipelineConfig, runner
 
 
-def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatch):
+@pytest.mark.parametrize('layer', [False,True])
+def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatch,layer):
     source = np.random.default_rng(27).uniform(-1.5, 1.5, (160,3)).astype(np.float32)
     target = (source*[1.2,.85,1.05]+[.1,0,0]).astype(np.float32)
     cfg = PipelineConfig(T=3,iters=2,animations=2,loss_res=12,render_views=2,
@@ -17,7 +18,8 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
         outer_render_committed=True,body_ctrl=True,body_terminal_ctrl=True,
         lambda_auto=.3,w_kin=.2,w_kin_var=0.,w_ctrl=0.,w_box=0.,max_ls_iters=1,
         adaptive_alpha=False,alpha=1e-4,replay_calibrate=False,phys_loss='ot_pace',
-        loss_units='density',ot_samples=128,ot_iters=20,render_paced=True)
+        loss_units='density',ot_samples=128,ot_iters=20,render_paced=True,
+        layer_ctrl=layer,layer_relax=layer)
     prm = MPMParams(dx=1.,nx=32,ny=32,nz=32)
     baseline = runner.run_pipeline(source,target,prm,deepcopy(cfg),log=lambda *_:None)
     original = runner.optimize_window
@@ -51,3 +53,47 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
     for a,b in zip(observed['history'],baseline['history']):
         for key in ('loss','lambda','d_vol','d_sil','frame_end'):
             assert a.get(key) == b.get(key)
+
+    checkpoints = []
+    models = []
+
+    def checkpoint(index,packet):
+        assert packet['optimizer_state_exact']
+        assert packet['gradient_replay']['merit'] == pytest.approx(packet['history']['loss'],rel=3e-6,abs=1e-8)
+        assert set(packet['scalar_gradient']) == ({'stress','body','surface_u'} if layer else {'stress','body'})
+        if layer:
+            assert packet['scalar_gradient']['surface_u']['norm'] > 0
+            assert bool((packet['controls']['surface_u'] != 0).any())
+        model = packet['rollout']
+        terminal = packet['controls']['body'][:,3:].detach().clone().requires_grad_()
+        values = model.evaluate(terminal)
+        assert values['valid']
+        torch.testing.assert_close(values['positions'],packet['positions'],rtol=1e-6,atol=2e-7)
+        torch.testing.assert_close(values['V'],packet['V'],rtol=1e-5,atol=2e-7)
+        speed = values['v'].square().mean()+((values['positions'][-1]-values['positions'][-2])/packet['dt']).square().mean()
+        derivative, = torch.autograd.grad(speed,terminal)
+        assert bool(torch.isfinite(derivative).all()) and float(derivative.norm()) > 0
+        model.coefficients.fill_(0.)
+        models.append(model)
+        checkpoints.append((index,packet['iteration']))
+        packet['positions'].fill_(-123.)
+        packet['controls']['stress'].fill_(999.)
+        assert packet['history'].get('render_influence') is not None
+        packet['history']['render_influence'].clear()
+
+    def with_checkpoints(*args,**kwargs):
+        return original(*args,on_checkpoint=checkpoint,checkpoint_iterations=(1,2),checkpoint_rollout=True,**kwargs)
+
+    monkeypatch.setattr(runner,'optimize_window',with_checkpoints)
+    checkpointed = runner.run_pipeline(source,target,prm,deepcopy(cfg),log=lambda *_:None)
+    assert checkpoints == [(0,1),(0,2),(1,1),(1,2)]
+    for model in models:
+        with pytest.raises(RuntimeError,match='expired'):
+            model.evaluate(torch.zeros_like(model.coefficients[:,3:]))
+    np.testing.assert_array_equal(checkpointed['frames'],baseline['frames'])
+    np.testing.assert_array_equal(checkpointed['F_frames'],baseline['F_frames'])
+    for a,b in zip(checkpointed['history'],baseline['history']):
+        for key in ('loss','lambda','d_vol','d_sil','frame_end'):
+            assert a.get(key) == b.get(key)
+        assert a.get('render_influence_steps')
+        assert a['render_influence_steps'] == b['render_influence_steps']

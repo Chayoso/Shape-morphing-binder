@@ -5,7 +5,7 @@ base=/data/relcfd/chayo/physmorph_v2
 mode=${1:?baseline or raw or raw-off or raster or continuous or quality or phase or render-compare}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify) ;; *) exit 2;; esac
+case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -36,6 +36,16 @@ set +o noclobber
 printf '%s\n' "$now" > "$base/maintenance/last_gpu_launch_epoch"
 flock -u 9
 cd "$REPO"
+if [[ "$mode" == terminal-braking ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/terminal_braking.py --out "$out"
+fi
+if [[ "$mode" == inner-verify ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/inner_budget_verify.py \
+        --run "$base/work/p303/inner_budget2" --snapshot "$base/work/p303/code_inner_budget2" --out "$out.json"
+fi
+if [[ "$mode" == inner-budget ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/inner_budget.py --out "$out"
+fi
 if [[ "$mode" == reference-verify ]]; then
     exec "$PY" scripts/ops/cuda_python.py scripts/probes/reference_swap_verify.py \
         --run "$base/work/p303/reference_swap2" --snapshot "$base/work/p303/code_reference2" --out "$out.json"

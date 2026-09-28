@@ -9140,3 +9140,17 @@ hidden-u explanation, and no proof of complete convergence. Exact merit closure
 passes in a source-bound post-run check (error3.34e-10); later guards are not
 retroactively attributed to the original execution. Scope and evidence:
 [P304](reference_swap_p304.md). No physical or visual promotion.
+
+## 2026-09-28 — P305: more inner fitting increases residual motion
+
+Same prepared W20, N300k,T20,dt1/240,dx.3062907544wu,loss36^3, raw/no-PIC/no-
+shift. One solve reaches8/16/32 without restarting;32 accepted,0 rejected,
+all guards0. Same53,561 start-arrived-free IDs:8→32 merit−2.69%, net RMS
++69.39%, stored/geometric terminal RMS+25.47%/+28.07%. Fixed-target IoU rises
+.961526→.962018 but tips fall75→70. Joint body bound is active on7.02% of nodes
+at32. Rendering weighted decrease3.77781e-6 versus density4.71546e-5; nominal
+gradient share .4927→.5608 is not displacement attribution. Independent bound
+source/sidecar verification and CPU observer parity pass. Budget extension is
+rejected as a rest remedy for this window, not a claim about final convergence.
+[P305 evidence and limits](inner_budget_p305.md). Next preregistered experiment:
+[noncommitting terminal-body braking](terminal_braking_p306.md).

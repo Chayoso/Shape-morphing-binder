@@ -271,7 +271,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None,
                     body_scale_init=None,
                     win_index=None, on_rollout=None, on_objective=None,
-                    on_gradient_audit=None, audit_proposals=False, on_reference=None):
+                    on_gradient_audit=None, audit_proposals=False, on_reference=None,
+                    on_checkpoint=None, checkpoint_iterations=(), checkpoint_rollout=False):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -299,6 +300,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     This endpoint covector is not a control gradient or feasible counterfactual.
     The runner can still reject the window after this observer returns.
 
+    on_checkpoint(win_index, owned): opt-in inner-solve observer at specified
+    one-based iteration numbers. Copies accepted buffers and re-evaluates the
+    true scalar/control gradient at the same controls without changing Adam,
+    lambda, targets or the accepted evaluation trajectory. Re-evaluation may
+    have CUDA atomic noise; this is not a constrained stationarity certificate.
+
     u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
     bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
     accepted windows' u); the accepted u is returned in stats["u_final"].
@@ -312,6 +319,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     dev = cfg.device
     from .endpoint_contract import validate_endpoint_config
     validate_endpoint_config(cfg)
+    if checkpoint_iterations:
+        if (on_checkpoint is None or any(type(i) is not int or i < 1 for i in checkpoint_iterations)
+                or cfg.commit_pic or cfg.shift_sub or cfg.opt_material
+                or cfg.geometric_rest or cfg.geometric_variance or cfg.grad_dump):
+            raise ValueError('Inner checkpoints require a read-only raw fixed-material observer')
+    if checkpoint_rollout and (not checkpoint_iterations or not cfg.body_terminal_ctrl):
+        raise ValueError('Private checkpoint rollout requires checkpoints and terminal body mode')
     if on_gradient_audit is not None:
         mode = cfg.grad_project_mode if cfg.grad_project else 'off'
         if (cfg.geometric_variance or cfg.geometric_rest or cfg.settle_pin_kkt
@@ -2689,6 +2703,76 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      "render_cos": render_cos, "phys_cos": phys_cos,
                      "dfc_absmax": float(extra_n["dfc"].abs().max()),
                      "s_absmax": float(s.detach().abs().max()) if s is not None else None})
+        if on_checkpoint is not None and it+1 in checkpoint_iterations:
+            if not accepted_eval_valid or plan_img_np is None or arrived_mask_np is None:
+                raise ValueError('Inner checkpoint requires accepted buffers and frozen arrival plan')
+            from .prepared_reference import PreparedReference, own
+            from copy import deepcopy
+            reference = PreparedReference.capture(cfg, tgt, pace_grid, sils_eff, shade_eff,
+                                                  pbr_grid_eff, render_target_kind)
+            with torch.no_grad():
+                originals = [leaf.detach().clone() for leaf in leaves]
+                moments = [m.detach().clone() for m in mom]
+                seconds = [v.detach().clone() for v in vel]
+                packet = dict(iteration=it+1, reference=reference, history=deepcopy(hist[-1]),
+                    x0=x0_t.detach().clone(),
+                    positions=torch.stack([wp.to_torch(tr_eval.x[t]) for t in range(1,T+1)]),
+                    V=torch.stack([wp.to_torch(tr_eval.v[t]) for t in range(1,T+1)]),
+                    F=wp.to_torch(tr_eval.F[T]).clone(),
+                    pins=wp.to_torch(tr_eval.pin).clone() > .5,
+                    plan=own(plan_img_np,dev), start_arrived=own(arrived_mask_np,dev).bool(),
+                    arrival_radius=float(pace_r_np), lambda_render=float(lam_r),
+                    dt=float(prm.dt), adam_time=int(adam_t), alpha=float(alpha),
+                    controls={('stress' if leaf is dFc else 'body' if leaf is body_coeff else
+                               'surface_u' if leaf is u else 'material'):original.clone()
+                              for leaf,original in zip(leaves,originals)})
+                if not torch.equal(packet['positions'][-1],state_n[0]):
+                    raise ValueError('Inner checkpoint is not the accepted raw endpoint')
+            saved_sil, saved_surface, saved_gauss = dict(sil_gauss), dict(surface_last), tgt.gauss_scale
+            saved_gx = gx_box[0]
+            try:
+                with torch.enable_grad():
+                    state_c, lv_c, lk_c, lr_c, _, extra_c = terms(dFc)
+                    merit = phys_total(lv_c,lk_c,extra_c['dfc'],state_c[0],state_c[1],
+                                       extra_c['lk_run'],extra_c['Fg'],extra_c['lk_var'],state_c[2])
+                    if lr_c is not None:
+                        merit = merit+lam_r*lr_c
+                    gradients = torch.autograd.grad(merit,leaves,allow_unused=True)
+                    packet['scalar_gradient'] = {name:dict(
+                        norm=0. if g is None else float(g.detach().norm()),
+                        rms=0. if g is None else float(g.detach().square().mean().sqrt()),
+                        absmax=0. if g is None else float(g.detach().abs().max()))
+                        for name,g in zip(packet['controls'],gradients)}
+                    if not bool(torch.isfinite(merit)) or any(g is not None and not bool(torch.isfinite(g).all()) for g in gradients):
+                        raise ValueError('Nonfinite checkpoint scalar/control gradient')
+                    packet['gradient_replay'] = dict(merit=float(merit.detach()),
+                        accepted_merit=float(new), absolute_difference=abs(float(merit.detach())-float(new)),
+                        endpoint_rms_wu=float((state_c[0].detach()-packet['positions'][-1]).square().sum(-1).mean().sqrt()))
+                if not (all(torch.equal(p,b) for p,b in zip(leaves,originals))
+                        and all(torch.equal(p,b) for p,b in zip(mom,moments))
+                        and all(torch.equal(p,b) for p,b in zip(vel,seconds))
+                        and all(torch.equal(wp.to_torch(tr_eval.x[t]),packet['positions'][t-1]) for t in range(1,T+1))
+                        and all(torch.equal(wp.to_torch(tr_eval.v[t]),packet['V'][t-1]) for t in range(1,T+1))
+                        and torch.equal(wp.to_torch(tr_eval.F[T]),packet['F'])):
+                    raise ValueError('Checkpoint gradient replay changed accepted buffers or optimizer state')
+                packet['optimizer_state_exact'] = True
+                model = None
+                try:
+                    if checkpoint_rollout:
+                        from .frozen_body_window import FrozenBodyWindow
+                        model = FrozenBodyWindow(spec,body_basis,body_gate,body_coeff,
+                                                 expand(dFc).detach(),u)
+                        packet['rollout'] = model
+                    on_checkpoint(win_index,packet)
+                finally:
+                    if model is not None:
+                        model.close()
+            finally:
+                sil_gauss.clear(); sil_gauss.update(saved_sil)
+                surface_last.clear(); surface_last.update(saved_surface)
+                tgt.gauss_scale = saved_gauss
+                gx_box[0] = saved_gx
+            del gradients, state_c, extra_c, merit, originals, moments, seconds, packet
         # pacing: budget reached (within one halving) — this window's share is done.
         # QUASI-STATIC commit rule (b8 forensic): a paced window that exits on its
         # shape budget after 1-2 iterations commits a body still in flight; the

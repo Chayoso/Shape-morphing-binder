@@ -164,3 +164,9 @@ These are the leading candidates for the unresolved problems, and they are ports
   Both old/current references reward W20's actual density fitting; target
   refresh is not its sole cause. The observer is read-only and opt-in. Do not
   infer all-window causality or introduce another pin threshold from this test.
+- **P305/P306 continuation:** `docs/inner_budget_p305.md` rejects extra inner
+  iterations as W20's rest remedy: lower merit accompanied greater motion.
+  This is not final convergence. `docs/terminal_braking_p306.md` preregisters a
+  private, noncommitting terminal-body feasibility probe. Its displacement
+  coefficients must remain fixed; only the remaining joint radius is available.
+  No additional kinetic weight or stopping policy is promoted by these probes.
