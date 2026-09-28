@@ -1,6 +1,8 @@
 # P297: let temporal variance observe the saved positional path
 
-Status: optional implementation under review; no quality improvement established.
+Status: optional implementation passed CPU review; the first CUDA derivative
+gate failed strict dFc comparisons. A separate repeat-noise diagnostic is being
+prepared. No quality improvement or CUDA execution readiness is established.
 P295 resolves an explicit window-end position jump and a smaller immediate
 layer-relaxation response. P296 screens whether removing parts of that endpoint
 filter preserves geometry before any such split can be selected. P297 keeps
@@ -65,3 +67,33 @@ Validation sequence:
 The automatic lambda balancer uses the changed physics gradient. Its response
 is part of a whole-policy comparison and must not be described as fixed-lambda
 causal evidence. No new rendering experiment is included here.
+
+## Initial validation, September 28
+
+Source5a3cd5f preserves defaults off. Independent review passed67 focused CPU
+cases; the full CPU suite passed558 with22 skipped in161.63s. This includes
+accepted-buffer and forced-replay merits in both loss unit systems. New Warp
+position interfaces retain all existing public output meanings. The CLI rejects
+the endpoint-only KKT combination because it cannot certify full-path sensitivity.
+
+The first CUDA primitive probe uses64 particles from the immutable original
+300k source, T3, dt1/240, dx0.3062907543956724wu, fixed nontrivial layer relaxation,
+nonzero initial state and mixed dFc/u/body controls. It launched16:01:05UTC on
+GPU0. Forward X and xT agree exactly, other forward fields and u/body derivative
+comparisons pass, and independent finite differences at both preregistered eps
+pass for all three channels. However dFc coordinatewise derivative comparisons
+fail: max discrepancies2.86e-6 to5.71e-6, strict tolerance ratios1.09 to1.83.
+The stored path-seed repeat also differs by5.71e-6, after intervening seed types.
+
+This does not yet distinguish ordinary backward variability from seed-reset
+contamination. Keep `position_sequence.json`/log and frozen source unchanged;
+the run is failed, not reclassified. A separate v2 measures consecutive identical
+seeds on both implementations before held-out cross/seed-cycle comparisons, and
+reports float64 vector statistics alongside every unchanged strict criterion.
+No noise allowance is inferred from the disputed cross difference and no strict
+pass is silently substituted. Integration remains pending its interpretation.
+
+Evidence: server `/data/relcfd/chayo/physmorph_v2/work/p297/position_sequence.json`,
+local `output/p297/position_sequence.json`. The T1 edge case keeps the T3 frozen
+layer relaxation fraction while disabling body control; it tests API/adjoint
+behavior and is not a one-step physical experiment.
