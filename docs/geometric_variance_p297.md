@@ -237,8 +237,9 @@ supply and persistent motion remain required before any promotion; strict CUDA
 primitive failures, full gallery and per-frame render QA remain outstanding.
 
 Evidence: local output/p297/variance_{control,geometry}8.json,
-variance_quality8.json and variance_phase8.json; full stride-one NPZ archives
-remain on hyde06 under work/p297. The phase audit is bound to the exact quality
+variance_quality8.json and variance_phase8.json. The candidate stride-one NPZ
+remains on hyde06 under work/p297; the completed control stride-one NPZ was
+subsequently archived locally as recorded below. The phase audit is bound to the exact quality
 JSON hash and identical cohort ID hash. Source/code/config equality is checked
 by the quality driver; it compares paired input arrays, not a reported source hash.
 
@@ -246,4 +247,151 @@ Storage: one already archived P295 smoke NPZ(692,411,244bytes) was removed from
 the server after renewed local and server full SHA256 verification, an inode
 read lease and durable receipts. All companion evidence and its local archive
 remain; usage after that action was98,568,868,826bytes. No other deletion is
-implied by this record.
+implied by that individual receipt.
+
+Before full60, all nine previously verified P294/P295 raw duplicates and the
+completed P297 prefix-control raw archive were removed with the same renewed
+local full-hash/fsync and server lease/full-hash/receipt procedure. Total removed
+logical bytes:11,360,768,568. Every payload remains in its verified local archive;
+JSON/log/compact evidence stays on the server. The prefix-control archive and
+its companions are at C:/dev/physmorph_archives/p297_prefix_control_20260928T163844Z.
+Other local archive roots are listed in output/p297/archived_cleanup_manifest.json.
+Each exact removal has a local output/p297/remove_*.json and durable server
+prepared/completed receipt; no recursive deletion was used.
+
+The cap60 worst-case bound is1201 position frames,61 F samples and60 compact
+commits at N300k/T20. A conservative5.30GB per arm plus250MB reserve requires
+10.85GB headroom. After the final duplicate removal, project use was
+88,644,736,788bytes, leaving11,355,263,212bytes below the user's100GB limit.
+The full pair runs from frozene0ca68d with no physics changes after cap1.
+
+## Full60 exploratory result: promotion rejected
+
+The unchanged cap60 pair ran from e0ca68d on September28, with original
+bunny300k, T20, dt1/240, dx0.3062907543956724wu, loss36^3, eight inner
+iterations, shared PIC, shift off, corrected outer render merit and motion
+accounting in both arms. Only geometric_variance differs. The numerical source
+hash is c9c622efa148287a66c31b361b25c94d565ab6a05bfe803403895b8028e333b1.
+State guards are zero in both runs. The candidate reduces measured late motion
+but loses silhouette fit and thin-region supply. It does not pass the combined
+quality/rest gate; defaults and renderer deliverables remain unchanged.
+
+Delivery, actual stopping and physical rest are different scopes:
+
+| Run scope | Control | Geometric variance |
+|---|---:|---:|
+| Actual accepted / attempted windows |35 /35|34 /37|
+| Accepted windows retained in delivery |35|30|
+| Runtime(s), descriptive |544.2853|637.7387|
+| Actual last accepted frame index |700|680|
+| Delivered frame count |702|601|
+| Archived frame count |702|682|
+| Minimum detF over delivered accepted windows |0.862778664|0.847918212|
+
+Control W31..35 are accepted but have improved=0 and stale=1..5. With tol0.003
+and patience5, runner.py:1145 and1395..1406 set frozen after insufficient track
+improvement. The candidate ends after three consecutive outer rejections at
+attempts35..37; best-state delivery selects W30 and excludes accepted W31..34.
+Its actual W34 metadata reports detF minimum0.842885017 and v_mean0.055535905wu/s,
+but that state's independent geometric metrics were not sampled by these audits.
+The flag converged=True returns frozen (runner.py:1900), not equilibrium or rest.
+
+The current quality loader filters accepted records by frame_end<=deliver_n
+(scripts/probes/render_influence.py:34). Thus its inherited analysis_scope phrase
+"final accepted states at each arm stopping point" must be read here as the last
+delivered accepted state: control W35 versus candidate W30. The original JSON is
+preserved; variance_summary60.json explicitly adds both endpoint scopes and keeps
+candidate W34 raw_geometry=null. The common phase interval is W21..30, starting
+at accepted endpoint20/frame400 and ending at endpoint30/frame600.
+
+At the same accepted W30, source-native spacing is0.03498853660707278wu and
+target-native spacing0.03493084911867985wu:
+
+| Raw geometry at W30 | Control | Geometric variance |
+|---|---:|---:|
+| Silhouette IoU |0.969559302|0.967885164|
+| Chamfer(wu) |0.058820392|0.058786497|
+| Fixed upper-target coverage |0.962317137|0.956178161|
+| Fixed source-ID density |0.704875596|0.680125149|
+| Fixed source-ID under-half fraction |0.233611442|0.245530393|
+| Moving-top conditional density |0.918641821|0.889664916|
+| Moving-top under-half fraction |0.119756744|0.134829672|
+| Tip-ball particle count(target89) |45|55|
+| Arrival fraction |0.999640000|0.999883333|
+| Pin fraction |0.898543333|0.753083333|
+
+Fixed source density uses the same6712 pre-treatment upper-boundary IDs and
+the historical target median r8 radius0.06898659982768912wu; counts exclude self
+and divide by8. This cohort includes pinned particles and IDs outside y>2.3.
+Upper-target coverage uses the same target IDs in y>2.3, whereas moving-top
+membership differs(12826/12564). The candidate's additional tip particles do not
+cancel the lower fixed-target coverage or fixed-ID density. Neither density nor
+binary projection proves watertightness. Own delivered-endpoint IoU is
+0.969392301/0.967885164; both miss0.971. The0.225-initial-Chamfer crossing moves
+from W18 toW20, so some late progress is slower despite slightly lower W30 Chamfer.
+
+The matched free cohort contains3601 material IDs, unpinned in both arms over
+W21..30. It is selected from the common-endpoint sparse-boundary union, not by
+each particle's arrival time. Normals are separately frozen at each arm's common
+endpoint; vector RMS is independent of those normal bases. All motion below uses
+source-native spacings per saved physical step at dt1/240:
+
+| Same-ID late motion | Control | Geometric variance |
+|---|---:|---:|
+| All saved-step RMS(sp) |0.086603403|0.065759785|
+| Tangential saved-step RMS(sp) |0.049024267|0.028934023|
+| Phases1..19 vector RMS(sp) |0.031073246|0.022855344|
+| Phase20 vector RMS(sp) |0.362846526|0.276698423|
+| Phase20 path share |0.330740631|0.330483705|
+| Raw-path net/path median |0.388131499|0.560677826|
+| Commit-path net/path median |0.859447062|0.924351513|
+| Raw-step reversal fraction |0.066352311|0.056256637|
+| Commit reversal fraction |0.127433738|0.040297448|
+| 19->20 reversal fraction |0.668258817|0.564121077|
+| 20->next1 reversal fraction |0.711592459|0.602085840|
+| Interior reversal fraction |0.000651054|0.000749801|
+
+Overall RMS falls24.07% and tangent RMS40.98%. Both earlier phases and phase20
+fall(26.45%/23.74%), while the phase20 path share remains about33%. This is not
+a selective removal of the boundary pattern: into/out-of-boundary reversals
+remain56.41%/60.21%. Their denominators are36010/32409 pairs in each arm;
+interior counts are422/648180 and486/648172. Phase20 includes the raw final step
+plus PIC. The per-arm motion-accounting decomposition uses changing cohorts,
+so its components are descriptive, not a matched-ID causal operator split.
+No post-arrival rest test or periodic-oscillation frequency was measured here.
+
+Pin observations also require an archive-clock qualification. The control's
+frozen branch appends one copied frame701 after physical endpoint700, then
+breaks without incrementing n_held when dressing is absent(runner.py:540..548).
+Thus n_held=0 coexists with one nonphysical held copy. Raw QA checks274258 pins
+and reports zero drift, but the final1065 admissions have only that copied row
+as a subsequent observation. The history-derived count with a later physical
+step is273193. Candidate delivery has no suffix:225925 admitted pins versus
+223417 checked, excluding2508 final admissions. Zero drift is observed over the
+reported archive rows, not evidence of continued physical rest for unobserved
+final admissions. The matched phase audit excludes held suffixes. Own-tail raw
+QA uses different free cohorts(2925/6668) and is not an A/B matched-ID rest test.
+
+Render lambda changes alongside this policy: at W20 it is0.0374227/0.0892803,
+W24 0.0293259/0.0891700, and W30 0.0217697/0.2109393. This association does not
+establish that lambda caused the fit loss; entering state, controls and objective
+gradients also differ. If further mechanism work is authorized, an identical
+prepared late state/target/control snapshot with fixed positive lambda would
+separate the combined regularizer-plus-PCGrad effect from lambda feedback.
+It would not isolate the regularizer alone: the changed physics gradient also
+changes PCGrad's reference direction. Before a solve, a same-state gradient audit
+should separately record delta physics gradient, projected render-gradient
+direction and lambda from a cloned balancer. This is a proposed diagnostic,
+not a causal conclusion from the adaptive pair.
+No new weight is selected here. Both strict primitive CUDA failures, including
+the unresolved T1 comparison, remain open; this full run does not relax them.
+No renderer run, gallery pass or default promotion follows from this result.
+
+Evidence is local output/p297/variance_{control,geometry}60.json and logs,
+variance_quality60.json, variance_phase60.json and variance_summary60.json.
+The phase report binds exact quality bytes and the cohort ID hash. The stdlib-only
+selector preserves all nulls, both original run hashes and the distinction between
+delivered and actual last-accepted metadata; it performs no geometry recomputation.
+Summary SHA256:026eb50fd1e461769318eac19f3f599748cd6c1e95c7548062e0fa06e187eec8.
+Quality SHA256:7b9d67d5387f8a17ef11eb24b79f36b25e1252cab40871c61a2a8ff47180e605.
+Phase SHA256:a199692972ee398586b05ee2d2dbe924293b4a9c20c790a371eebcbc799485a6.

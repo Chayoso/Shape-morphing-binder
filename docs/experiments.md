@@ -8889,3 +8889,27 @@ Chamfer0.0617261->0.0616580wu. Progress crossings stay at windows1/2/7. Pins ris
 falls. Both tips have zero particles: late completion/rest is not yet tested.
 Independent review allows one frozen cap60 exploratory comparison, with no
 retuning or default promotion. Full evidence and limitations are in the P297 doc.
+
+**2026-09-28 -- P297 full60: late motion reduced, quality gate failed.**
+Frozen e0ca68d, bunny300k/T20/dt1/240/dx0.3062907544wu/loss36^3/eight inner
+iterations; same shared PIC/no shift/corrected outer merit/motion accounting.
+Only geometric_variance differs. Control accepts35/35 in544.29s and stops on
+five insufficient-improvement windows; candidate accepts34/37 in637.74s and
+ends after three outer rejections. All guards are zero. Candidate best-state
+delivery retains W30, excluding accepted W31..34; the unsampled W34 geometric
+metrics remain unknown. converged=True is a stopping flag, not physical rest.
+
+At common delivered W30, IoU0.969559->0.967885, fixed upper-target coverage
+0.962317->0.956178 and fixed6712-source-ID density0.704876->0.680125 worsen;
+tip count45->55 improves. Own delivered IoU0.969392/0.967885 both miss0.971.
+On3601 identical free IDs over W21..30, saved-step RMS falls0.086603->0.065760sp
+and tangent RMS0.049024->0.028934sp. Interior/final-phase RMS both fall,
+but phase20 still supplies about33% of path length and20->next1 reversal remains
+60.21%. These IDs are not selected by arrival time: no post-arrival rest pass.
+
+Control pin QA includes1065 newest admissions observed only on a copied hold;
+273193 have a later physical step. Candidate delivery has225925 admitted versus
+223417 observed pins. Held suffixes are excluded from the matched phase audit.
+Late lambda also differs(W30 0.02177/0.21094), an association rather than proof
+of the fit-loss cause. Strict primitive failures remain open. No default or
+render promotion. See [P297 full result, endpoint scopes and hashes](geometric_variance_p297.md).
