@@ -8837,3 +8837,20 @@ The initial native-unit closure test failed only C; the retained v1 evidence and
 preregistered dimensionless v2 correction are documented. Fresh v2 smoke and full
 replay passed. This is a diagnostic, not a hole/rest/fit repair or default change.
 See [P295 protocol, results and limits](boundary_replay_p295.md).
+
+**2026-09-28 15:54UTC -- P296 whole-window PIC accounting completed; static splits rejected.**
+Bunny300k/T20/dt1/240/dx0.3062907544wu/loss36^3/eight inner iterations,
+shared PIC, shift_sub off, same frozen simulation bytes as P295. The cap1 smoke
+passed; the full run accepted33/36 in554.57s with zero guards and all fixed
+accepted windows1/24/30 present. Every accounting closure and start-pin check
+passed. This was a read-only diagnostic: candidate endpoints were never committed.
+
+Late layer-free cohorts5564/5187 have PIC-jump RMS0.54435/0.45788 native spacings.
+Layer-relaxation residual signed projections onto J are0.64307/0.80377; these are
+cohort-specific linear projections with cross terms, not causal energy shares.
+Filtering advection alone gives jump RMS0.32211/0.20387sp, but IoU drops
+0.001767/0.001368 and fixed upper-target coverage drops0.006400/0.005617.
+Preserving relaxation alone also loses fit/coverage. Both candidates fail every
+selected exact directional screen. Density improves locally, while hole_frac is
+zero even at early unfilled geometry; neither is a watertightness certificate.
+See [P296 protocol and evidence](pic_components_p296.md).
