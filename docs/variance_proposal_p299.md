@@ -252,3 +252,76 @@ Evidence: local output/p299/backtrack24/{protocol,proposal_audit}.json;
 server /data/relcfd/chayo/physmorph_v2/work/p299/backtrack24.
 Result SHA256:5152e561156407ad4eeae7017a9884b36c39a9e5c7e77dea264ee70ae0bcf187.
 Protocol SHA256:0809b5050988507a8cbd05adec5277e69220734b3e540d776a23f17c88e6075e.
+
+## Corrected-core recheck after P300
+
+Frozen0ac2a2f reruns the same bounded first-update experiment on the corrected
+constitutive adjoint. The historical failed primitive records and their False
+flag are preserved with explicit historical scope; separately hash-bound P300
+prerequisites pass52 original position-sequence checks and10 constitutive CUDA
+tests. Every dependency recorded by those prerequisites matches the executed
+source; the new proposal driver's own byte hash is recorded separately. The
+protocol-only change passes25 new and20 existing CPU tests, with independent
+review; objective, proposal, PCGrad, gain and backtracking calculations are unchanged.
+
+This is a fresh baseline realization through accepted W24: N300k, T20,
+dt1/240, dx0.3062907543956724wu, loss36^3, eight inner updates, shared PIC,
+promoted outer render, shift off, physical variance. Motion accounting is off
+as in this diagnostic's original protocol; P300's separate cap24 comparison
+has that read-only accounting on. There is no shared realized trajectory or
+arrival cohort between these runs. The baseline accepts24/24 in423.296s with
+zero guards; the selected observation, restored state, baseline lambda and
+actual first accepted alpha checks pass.
+
+At the same prepared state, lambda is0.03044188680154145 and the fixed cohorts
+contain63513 window-start free IDs and1621 source-upper free IDs. Both native
+alphas are0.02; both A physical-variance and B geometric-variance directions
+reject indices0..4 and first pass their own merit at index5, alpha0.000625.
+A's selected alpha matches the production continuation exactly. Only A is
+continued by the actual optimizer; B is a noncommitting first update.
+
+| RMS on the same63513 free IDs (source spacings) | A | B |
+|---|---:|---:|
+| Raw steps1..19 |0.0175204|0.0142758|
+| Raw final step |0.0165796|0.0255686|
+| All raw steps |0.0174746|0.0150431|
+| PIC jump |0.188093|0.156481|
+| Saved final phase |0.181135|0.150499|
+| All saved steps |0.0439558|0.0364156|
+| Saved net displacement |0.209848|0.135940|
+
+Source spacing is0.03498853660707278wu. B lowers saved RMS17.15%, all-raw RMS
+13.91% and PIC RMS16.81%, while increasing raw-final RMS54.22%. Raw-path
+reversal fraction rises0.00205180 to0.00613221; saved-path reversal falls
+0.0307455 to0.0234201. Net-displacement RMS falls35.22% and median net/path
+falls0.539703 to0.332290. Lower movement may also reduce transport; signed
+delivery or mass flux was not measured. Motion is redistributed into the last
+raw step, not demonstrated rest. Terminal stored-v L2 also rises33.9386 to
+53.3728, despite the lower saved and full-path stored-velocity RMS.
+On1621 upper-free IDs, saved RMS falls0.0841193 to0.0774162sp while raw-final
+RMS rises0.0191799 to0.0252793sp; the tradeoff is not confined to the interior.
+
+| Promoted geometry | Initial prepared rollout | A | B |
+|---|---:|---:|---:|
+| Silhouette IoU |0.969131|0.969318|0.969155|
+| Fixed upper target coverage |0.958333|0.962709|0.961795|
+| Highest-tip neighbors |50|48|48|
+
+B's Chamfer is slightly lower (0.0588547 vs0.0588566wu), but IoU, upper
+coverage and fixed6712-ID density are slightly worse than A. Fixed density is
+0.717856/0.717744 and under-half fraction0.231377/0.231824, using the unchanged
+target r8 radius0.06898659982768912wu. Both proposals improve coverage over
+the initial prepared rollout and both lose two tip neighbors; retain both facts.
+Trajectory det(F) minima are0.874815/0.875441. Binary projected hole_frac is0
+for both, which does not certify transient coverage or watertightness.
+
+Repeated A has identical control deltas and maximum promoted-coordinate
+difference2.38419e-7wu. These observations do not set new tolerances. The
+changed physics direction also changes PCGrad's reference; fixed lambda does
+not isolate a pure regularizer effect. Constant uniform drift still has zero
+temporal velocity variance. No next-window response, individual post-arrival
+rest, full alternate solve or policy promotion follows from this one update.
+
+Evidence: output/p300/proposal_corrected24.json and
+output/p300/proposal_corrected24_protocol.json; server work/p300/proposal_corrected24.
+Result SHA256:ba9a67d46f2634df91bbaf5ac231e836e1f40a69be427caa0cf3457ad0b18713.

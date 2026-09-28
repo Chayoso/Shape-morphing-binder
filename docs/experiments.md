@@ -9026,3 +9026,35 @@ raw particle coverage losses. Neither watertightness nor post-arrival rest is
 established. Raw final x[T] before PIC remains absent from historical archives.
 No physical policy/default or renderer promotion. Evidence and definitions:
 [P300 transient supply](constitutive_adjoint_p300.md).
+
+**2026-09-28 -- P300 corrected-core P299b recheck: motion tradeoff persists.**
+Frozen0ac2a2f repeats the bounded first-update A/B search at a fresh acceptedW24,
+N300k/T20/dt1/240/dx0.3062907543956724/loss36^3. Current52/10 CUDA prerequisite
+passes are separately bound; historical failed artifacts remain unchanged.
+Baseline24/24 accepts in423.296s, zero guards; observation/lambda/first-alpha
+closures pass. Both directions first pass at alpha0.000625 (halving index5).
+On the same63513 free IDs, geometric variance lowers saved/all-raw RMS17.15%/
+13.91% but raises raw-final RMS54.22%; net-displacement RMS falls35.22%, raw reversals
+increase and upper target coverage is0.961795 versus A0.962709. Both improve
+coverage over their initial rollout; B has slightly better Chamfer but slightly
+worse IoU/fixed-ID density. Not a full alternate solve, same-realization P301
+comparison, individual arrival cohort or rest/holes repair. No policy promotion.
+[Corrected-core details](variance_proposal_p299.md#corrected-core-recheck-after-p300).
+
+**2026-09-28 -- P301 individual arrival and raw-final support captured.**
+Frozen d3d7f26, unchanged corrected recipeN300k/T20/dt1/240/dx0.3062907543956724/
+loss36^3, accepts24/24 in464.808s with zero guards;337,158,728bytes under the
+346.3MB preflight.16 independent CPU tests include actual two-window observer
+parity. Policy radius is8.7540 source spacings;299825 IDs have observations
+after initial/accepted-end qualification,11 new-final admissions are unobserved.
+At W24,56220 previously qualified IDs free at the window start have raw-final/PIC/saved-final RMS
+0.024215/0.254279/0.241968sp. Start-pin motion is exactly0; first-arrival anchor
+excursion includes pre-pin travel. Whole-history plan-reclassification events
+are distinct from physical motion and from unique particle counts.
+Frozen2d57751's archive-only CUDA support audit (5 independent CPU tests) shows
+W24 target coverage95.1803%→96.0423% under PIC, with175 gains/43 losses;155/14641
+endpoint-covered target IDs are uncovered at raw x[T]. Fixed-source density
+falls0.718750→0.696514, with126 support losses/22 gains and8 zero-neighbor losses.
+Direct operator geometry remains a tradeoff; no rest, watertightness, renderer
+or policy promotion. Fresh realization, not P300's original realized trajectory.
+[P301 evidence, sampling limits and hashes](arrival_history_p301.md).
