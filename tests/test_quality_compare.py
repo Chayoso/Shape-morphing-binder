@@ -315,20 +315,22 @@ def test_serialized_auto_pair_cannot_resolve_to_different_ot_modes(probe, tmp_pa
         probe.checked_arrival_modes(runs)
 
 
-def test_geometric_variance_prefix_requires_exact_policy_and_diagnostic_flags(probe):
-    mode = 'geometric_variance_prefix'
-    baseline = dict(stop_after_windows=8, T=20, commit_pic=True, commit_pic_objective=True,
+@pytest.mark.parametrize('mode,cap', [('geometric_variance_prefix', 8),
+                                     ('geometric_variance_full', 60)])
+def test_geometric_variance_requires_exact_policy_and_diagnostic_flags(probe, mode, cap):
+    baseline = dict(stop_after_windows=cap, T=20, commit_pic=True, commit_pic_objective=True,
                     shift_sub=False, outer_render_committed=True, geometric_rest=False,
                     motion_accounting=True, w_kin_var=200., lambda_auto=.5, phys_loss='ot_pace')
     candidate = dict(baseline, geometric_variance=True)
-    assert mode in probe.PREFIX_INTERVENTIONS and mode not in probe.FULL_INTERVENTIONS
+    assert (mode in probe.PREFIX_INTERVENTIONS) == (cap == 8)
+    assert (mode in probe.FULL_INTERVENTIONS) == (cap == 60)
     assert probe.checked_config_changes(baseline, candidate, mode) == {'geometric_variance': [None, True]}
     assert probe.checked_config_changes(dict(baseline, geometric_variance=False), candidate, mode) == {
         'geometric_variance': [False, True]}
-    for key, value in [('stop_after_windows', 60), ('T', 10), ('commit_pic', False),
+    for key, value in [('stop_after_windows', 60 if cap == 8 else 8), ('T', 10), ('commit_pic', False),
                        ('commit_pic_objective', False), ('shift_sub', True),
                        ('outer_render_committed', False), ('geometric_rest', True),
-                       ('motion_accounting', False), ('render_until', 7), ('phys_loss', 'density'),
+                       ('motion_accounting', False), ('render_until', cap-1), ('phys_loss', 'density'),
                        ('w_kin_var', 0.), ('w_kin_var', -1.), ('w_kin_var', float('inf')),
                        ('w_kin_var', float('nan')), ('w_kin_var', None), ('w_kin_var', True),
                        ('lambda_auto', 0.), ('lambda_auto', float('inf'))]:
@@ -342,8 +344,8 @@ def test_geometric_variance_prefix_requires_exact_policy_and_diagnostic_flags(pr
         probe.checked_config_changes(dict(baseline, geometric_variance=None), candidate, mode)
 
 
-def test_geometric_variance_prefix_requires_original_time_step(probe):
-    mode = 'geometric_variance_prefix'
+@pytest.mark.parametrize('mode', ['geometric_variance_prefix', 'geometric_variance_full'])
+def test_geometric_variance_requires_original_time_step(probe, mode):
     mpm = dict(dt=1/240, dx=.3062907543956724, nx=36, ny=36, nz=36)
     probe.checked_mpm_parameters(mpm, dict(mpm), mode)
     for dt in (1/120, 0., None, float('nan')):
@@ -352,6 +354,40 @@ def test_geometric_variance_prefix_requires_original_time_step(probe):
             probe.checked_mpm_parameters(wrong, dict(wrong), mode)
     with pytest.raises(ValueError, match='discretisation mismatch'):
         probe.checked_mpm_parameters(mpm, dict(mpm, dx=.3), mode)
+
+
+def test_full_geometric_variance_retains_each_unequal_endpoint_and_full_history(probe):
+    runs = [dict(records=[dict(animation=i, frame_end=1+20*(i+1)) for i in range(n)],
+                 delivered=1+20*n) for n in (32, 40)]
+    scoped, description = probe.scoped_runs(runs, 'geometric_variance_full')
+    assert scoped is runs and description['kind'] == 'full runs'
+    assert [len(run['records']) for run in scoped] == [32, 40]
+    assert [run['delivered'] for run in scoped] == [641, 801]
+    runs[0]['arm'] = dict(history=runs[0]['records']+[
+        dict(animation=32, null_commit=True), dict(animation=33, outer_accepted=False)])
+    history = probe.render_reference_history(runs[0], 'geometric_variance_full')
+    assert history[-1]['attempt'] == 34 and history[-2]['null_commit'] is True
+    assert not history[-1]['accepted'] and history[31]['delivered'] is True
+
+
+def test_late_common_material_motion_uses_last_ten_windows_not_first_eight(probe):
+    source = np.random.default_rng(91).normal(size=(35, 3))
+    # A large early excursion is outside the late interval, which translates uniformly.
+    offsets = np.arange(801, dtype=float)*.01
+    offsets[:400] += 100.
+    frames = source[None]+offsets[:, None, None]*np.array([1., 0., 0.])
+    records = [dict(animation=i, frame_end=1+20*(i+1)) for i in range(40)]
+    run = dict(source=source, frames=frames, records=records,
+               pins=np.zeros(35, bool), pin_at=np.zeros(35, int),
+               curve=[dict(commit=i+1, attempt=i+1, frame=20*(i+1)) for i in range(40)],
+               physical_indices=list(range(801)))
+    value = probe.cohort_motion(run, np.array([0, 1]), common=32, spacing=.1, include_rms=True)
+    assert value['commit_range'] == [22, 32] and value['frame_range'] == [440, 640]
+    assert value['raw_physical_states'] == 201
+    assert value['raw_step_sp']['rms'] == pytest.approx(.1)
+    assert value['step_sp']['rms'] == pytest.approx(2.)
+    assert value['net_over_path']['median'] == pytest.approx(1.)
+    assert len(run['records']) == 40  # Candidate's later endpoint was not trimmed.
 
 
 def test_fixed_source_density_keeps_ids_that_leave_the_moving_top(probe):

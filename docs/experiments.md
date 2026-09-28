@@ -8872,3 +8872,20 @@ observed seed-cycle growth; this is not an atomics-only proof. The T1 merged
 oracle discrepancy is unresolved. Independent review allowed the new bounded
 T20 integration evidence without reclassifying either primitive result.
 No default or physical-quality promotion. See [P297 evidence and scope](geometric_variance_p297.md).
+
+**2026-09-28 -- P297 prefix8: boundary concentration reduced, mixed motion/quality.**
+Frozen04c1ddc, bunny300k/T20/dt1/240/dx0.3062907544wu/loss36^3, eight inner
+iterations, shared PIC/no shift, same motion accounting and adaptive rendering.
+Both arms accepted8/8, guards zero, in154.34/168.86s. The sole config change is
+geometric_variance. On15372 identical unpinned material IDs over windows2..8,
+phase20 RMS falls0.351469->0.319393sp(9.13%), while interior RMS rises
+0.227721->0.229349sp(0.715%) and total raw RMS falls only0.33%. Boundary reversal
+fractions improve, interior and commit-to-commit reversals worsen. Phase20 is
+raw-final movement plus PIC, not PIC alone. There is no rest/repair pass.
+
+At window8, IoU0.914117->0.914021; fixed upper-target coverage0.718130->0.730669;
+Chamfer0.0617261->0.0616580wu. Progress crossings stay at windows1/2/7. Pins rise
+33.409%->36.006%; fixed source-ID density improves while the moving-top density
+falls. Both tips have zero particles: late completion/rest is not yet tested.
+Independent review allows one frozen cap60 exploratory comparison, with no
+retuning or default promotion. Full evidence and limitations are in the P297 doc.

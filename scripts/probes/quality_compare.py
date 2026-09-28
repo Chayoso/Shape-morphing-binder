@@ -7,6 +7,7 @@ The shared-PIC objective prefix permits only its objective flag, with cap8 in bo
 The geometric-rest prefix additionally fixes T=20, dt=1/240 and a positive kinetic weight.
 The geometric-variance prefix compares the whole adaptive policy at cap8 with
 positive temporal variance weight and matched read-only motion accounting.
+Its full mode uses the same policy guard at cap60 and retains each full endpoint.
 Numerical geometry, cohorts and motion use CUDA;
 archive/hash/JSON I/O use the host. No renderer or optimization-loss operator is read.
 """
@@ -28,11 +29,13 @@ from scripts.probes.morph_raw_qa import audit
 from scripts.probes.render_influence import load_run, channel_summary
 
 wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
-FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff', 'geometric_rest_full')
+FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff',
+                      'geometric_rest_full', 'geometric_variance_full')
 PREFIX_INTERVENTIONS = ('stress_taper', 'commit_pic_off', 'commit_pic_objective_prefix',
                         'geometric_rest_prefix', 'geometric_variance_prefix')
 GEOMETRIC_INTERVENTIONS = ('geometric_rest_prefix', 'geometric_rest_full')
 VARIANCE_PREFIX = 'geometric_variance_prefix'
+VARIANCE_INTERVENTIONS = (VARIANCE_PREFIX, 'geometric_variance_full')
 
 
 def stats(values, include_rms=False):
@@ -90,19 +93,20 @@ def checked_config_changes(ca, cb, intervention):
                          and c.get('lambda_auto', 0.) > 0
                          and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
                          for c in (ca, cb)))
-    elif intervention == VARIANCE_PREFIX:
+    elif intervention in VARIANCE_INTERVENTIONS:
+        cap = 8 if intervention == VARIANCE_PREFIX else 60
         def positive_finite(value):
             return (isinstance(value, (int, float)) and not isinstance(value, bool)
                     and host_np.isfinite(value) and value > 0)
         valid = (set(changes) == {'geometric_variance'}
                  and ca.get('geometric_variance', False) is False and cb.get('geometric_variance') is True
-                 and all(c.get('stop_after_windows') == 8 and c.get('T') == 20
+                 and all(c.get('stop_after_windows') == cap and c.get('T') == 20
                          and c.get('commit_pic') is True and c.get('commit_pic_objective') is True
                          and c.get('shift_sub') is False and c.get('outer_render_committed') is True
                          and c.get('geometric_rest', False) is False and c.get('motion_accounting') is True
                          and positive_finite(c.get('w_kin_var')) and positive_finite(c.get('lambda_auto'))
                          and c.get('phys_loss') in ('auto', 'ot_pace', 'ot_shape')
-                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 8)
+                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= cap)
                          for c in (ca, cb)))
     elif intervention in GEOMETRIC_INTERVENTIONS:
         cap = 8 if intervention == 'geometric_rest_prefix' else 60
@@ -126,7 +130,7 @@ def checked_config_changes(ca, cb, intervention):
 def checked_mpm_parameters(baseline, candidate, intervention):
     if baseline != candidate:
         raise ValueError('MPM discretisation mismatch')
-    if (intervention in GEOMETRIC_INTERVENTIONS or intervention == VARIANCE_PREFIX) and baseline.get('dt') != 1/240:
+    if (intervention in GEOMETRIC_INTERVENTIONS or intervention in VARIANCE_INTERVENTIONS) and baseline.get('dt') != 1/240:
         raise ValueError(f'{intervention} requires dt=1/240')
 
 
@@ -195,7 +199,7 @@ def checked_runs(baseline, candidate, intervention):
             raise ValueError('Material particle IDs must be preserved')
         run['physical_indices'] = accepted_raw_indices(run['records'], config['T'])
         run['interior_hold_frames'] = run['physical_indices'][-1]+1-len(run['physical_indices'])
-    if intervention in GEOMETRIC_INTERVENTIONS or intervention == VARIANCE_PREFIX:
+    if intervention in GEOMETRIC_INTERVENTIONS or intervention in VARIANCE_INTERVENTIONS:
         for run, evidence in zip(runs, checked_arrival_modes(runs)):
             run['arrival_mode_evidence'] = evidence
     return runs, changes
@@ -449,7 +453,7 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
         endpoint_union = np.zeros(len(source), dtype=bool)
         for name, run in zip(names, runs):
             run['curve'] = geometry_curve(run, target, target_tree, target_extent(target), target_spacing, radius, tip,
-                                          source_ids if intervention == VARIANCE_PREFIX else None)
+                                          source_ids if intervention in VARIANCE_INTERVENTIONS else None)
             run['tip_history'] = tip_history(run, tip)
             final = to_array(run['frames'][run['delivered']-1])
             counts = KDTree(final).query_ball_point(final, 2*spacing, return_length=True)
@@ -484,7 +488,7 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                     ('endpoint_free_union', endpoint_ids, endpoint_meta),
                                     ('common_endpoint_free_both', free_ids, free_meta)):
             cohorts[name] = dict(**metadata, arms={arm: cohort_motion(run, ids, common, spacing,
-                                                                     include_rms=intervention == VARIANCE_PREFIX)
+                                                                     include_rms=intervention in VARIANCE_INTERVENTIONS)
                                                   for arm, run in zip(names, runs)})
         handoff_bands = None
         if intervention == 'render_arrival_handoff':
@@ -518,7 +522,7 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                    caveats='No renderer consumed; coverage counts do not prove watertightness, direction changes do not prove periodic oscillation'),
                   equal_accepted_commits=pairs, first_chamfer_threshold_crossings=progress, cohorts=cohorts,
                   handoff_common_material_bands=handoff_bands)
-    if intervention == VARIANCE_PREFIX:
+    if intervention in VARIANCE_INTERVENTIONS:
         result['matched_free_motion_status'] = (
             'available_descriptive' if free_meta['sampled_count'] and common >= 3 else
             'inconclusive_empty_common_free_cohort' if not free_meta['sampled_count'] else
@@ -532,6 +536,15 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
             final_phase='phase20 is the raw final step plus PIC remap, not PIC alone',
             motion_accounting='separate raw-step/PIC telemetry uses per-arm, per-window arrival/pin cohorts; not matched-ID causal evidence',
             prefix_limit='lower motion may reflect slower progress or more pins; compare geometry/arrival, common progress and pin fractions; no rest/repair conclusion')
+        if intervention == 'geometric_variance_full':
+            first = max(1, common-10)
+            result['definitions']['phase_scope'] = (
+                f'paired archive phase audit starts at accepted commit{first} and covers '
+                f'windows{first+1}..{common}; at most the last10 common windows, W1 excluded')
+            result['definitions']['full_run_limit'] = result['definitions'].pop('prefix_limit')
+            result['definitions']['endpoints'] = (
+                'each arm retains its full accepted endpoint and raw audit; matched phase motion '
+                'ends at the common accepted count, not necessarily either final endpoint')
     result['dependencies'] = {
         name: hashlib.sha256(Path(sys.modules[name].__file__).read_bytes()).hexdigest()
         for name in ('scripts.probes.render_influence', 'scripts.probes.morph_raw_qa')}

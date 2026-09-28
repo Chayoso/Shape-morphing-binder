@@ -176,3 +176,74 @@ Evidence: server work/p297/integration_control and integration_geometry;
 local output/p297 holds both protocol.json and integration.json. Each server
 accepted_path.npz is105,601,458bytes. Control SHA256 startsd089effaec802e3d;
 geometry startsc7f38157dc065b7f; full hashes are in each integration result.
+
+## Eight-window policy comparison
+
+Frozen04c1ddc, original bunny300k/T20/dt1/240/dx0.3062907543956724wu/loss36^3,
+eight inner iterations. Both arms add the same read-only motion accounting;
+geometric_variance remains the only A/B configuration difference. Both accepted
+8/8 outer attempts without holds or guards, in154.34s/168.86s. Pin-motion checks
+passed. This is an adaptive-lambda policy comparison, not fixed-lambda causality.
+
+| At accepted window8 | Control | Geometric variance |
+|---|---:|---:|
+| Silhouette IoU |0.914117066|0.914021493|
+| Chamfer(wu) |0.061726091|0.061657956|
+| Fixed upper-target coverage |0.718129572|0.730668757|
+| Arrival fraction |0.957273333|0.958303333|
+| Pin fraction |0.334090000|0.360056667|
+| Minimum detF in this window |0.892302096|0.907784820|
+| Fixed source-ID density |0.633566746|0.641556168|
+| Moving-top conditional density |0.724574669|0.705320409|
+| Tip particles |0|0|
+
+The fixed source cohort contains6712 pre-treatment upper-boundary IDs, including
+IDs now below y2.3 or pinned. Its pin fraction rises0.278010->0.318087, so its
+aggregate motion cannot establish matched-free rest. Moving-top membership
+changes7935->8021; its lower density and higher under-half fraction
+(0.253308->0.267548) cannot alone establish newly opened holes. Fixed upper-target
+coverage uses the same15312 target IDs. First Chamfer-threshold crossings occur
+at the same windows1/2/7 in both arms; there is no clear early progress slowdown.
+
+The matched common-endpoint-free cohort contains15372 IDs (none pinned in either
+arm there), selected from the union of sparse endpoint boundaries. W1 is excluded
+from this paired phase audit; its interval is windows2..8, raw archive frames20..160.
+In source-native spacings0.03498853660707278wu:
+
+| Same-ID movement over windows2..8 | Control | Geometric variance |
+|---|---:|---:|
+| All raw-step RMS(sp) |0.235458124|0.234673322|
+| Phases1..19 RMS(sp) |0.227720968|0.229349141|
+| Phase20 RMS(sp) |0.351469227|0.319392887|
+| 19->20 reversal fraction |0.208068473|0.200308539|
+| 20->next1 reversal fraction |0.208734496|0.190888195|
+| Interior reversal fraction |0.000299968|0.000448662|
+| Commit-to-commit reversal fraction |0.060803192|0.067850638|
+
+Phase20 includes the last raw step and PIC remap. Its RMS falls9.13%, while
+interior RMS rises0.715% and total raw RMS falls only0.33%. This supports less
+concentrated boundary motion with redistribution into earlier steps, not rest.
+The per-arm motion-accounting split does not use the same frozen material cohort
+and is descriptive, not a causal isolation of PIC. Both tips remain empty and
+the late failure regime is unobserved. No prefix quality or repair pass is claimed.
+
+Independent review supports ONE unchanged cap60 exploratory pair to examine
+that missing late regime. No coefficient/tolerance tuning between arms. Record
+each final endpoint and a common accepted-time interval, progress crossings,
+fixed source IDs, shared free IDs, raw/interior/final-phase/tangential drift,
+pin admission and observed-pin denominators, target fit and thin-region supply.
+More pins or a lower variance scalar cannot establish improvement. Final fit,
+supply and persistent motion remain required before any promotion; strict CUDA
+primitive failures, full gallery and per-frame render QA remain outstanding.
+
+Evidence: local output/p297/variance_{control,geometry}8.json,
+variance_quality8.json and variance_phase8.json; full stride-one NPZ archives
+remain on hyde06 under work/p297. The phase audit is bound to the exact quality
+JSON hash and identical cohort ID hash. Source/code/config equality is checked
+by the quality driver; it compares paired input arrays, not a reported source hash.
+
+Storage: one already archived P295 smoke NPZ(692,411,244bytes) was removed from
+the server after renewed local and server full SHA256 verification, an inode
+read lease and durable receipts. All companion evidence and its local archive
+remain; usage after that action was98,568,868,826bytes. No other deletion is
+implied by this record.

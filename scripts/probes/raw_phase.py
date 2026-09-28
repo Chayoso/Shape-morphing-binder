@@ -12,7 +12,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from physmorph.compute import array_api as np, cuda_execution, KDTree, to_array
-from scripts.probes.quality_compare import checked_runs, admitted_mask, bounded_ids, VARIANCE_PREFIX
+from scripts.probes.quality_compare import (checked_runs, admitted_mask, bounded_ids,
+                                            VARIANCE_INTERVENTIONS)
 
 
 def phase_frame_indices(records, first_commit, last_commit, steps):
@@ -61,7 +62,7 @@ def phase_audit(baseline, candidate, reference, out):
     intervention = report['intervention']
     if intervention not in ('body_rprop', 'commit_pic_off', 'commit_pic_off_full',
                            'render_arrival_handoff', 'commit_pic_objective_prefix',
-                           'geometric_rest_prefix', 'geometric_rest_full', VARIANCE_PREFIX):
+                           'geometric_rest_prefix', 'geometric_rest_full', *VARIANCE_INTERVENTIONS):
         raise ValueError('Phase diagnostic permits only explicitly reviewed interventions')
     runs, changes = checked_runs(baseline, candidate, intervention)
     quality_file = Path(sys.modules['scripts.probes.quality_compare'].__file__)
@@ -73,7 +74,7 @@ def phase_audit(baseline, candidate, reference, out):
         if Path(report[name]['prefix']) != Path(run['prefix']):
             raise ValueError('Reference names different simulation artifacts')
     previous_cohort = report['cohorts']['common_endpoint_free_both']
-    if intervention == VARIANCE_PREFIX and any(previous_cohort['arms'][name] is None
+    if intervention in VARIANCE_INTERVENTIONS and any(previous_cohort['arms'][name] is None
                                               for name in ('baseline', 'candidate')):
         reason = ('empty_common_free_cohort' if not previous_cohort['sampled_count'] else
                   'fewer_than_three_common_commits')
@@ -114,7 +115,7 @@ def phase_audit(baseline, candidate, reference, out):
                       reversal='negative consecutive displacement dot; both lengths exceed 1e-4 source-native spacing',
                       speed='geometric endpoint displacement/dt; distinct from recorded terminal state mean speed',
                       attribution='Archive cannot separate last physical step, layer changes, commit PIC and subgrid shift'))
-    if intervention == VARIANCE_PREFIX:
+    if intervention in VARIANCE_INTERVENTIONS:
         result.update(status='available_descriptive', audited_windows=[first_commit+1, last_commit],
                       window1_excluded=True)
         result['definitions'].update(
@@ -122,6 +123,10 @@ def phase_audit(baseline, candidate, reference, out):
             attribution='phase20 contains the raw final physical/layer step PLUS shared PIC; motion_accounting separates them only on per-arm cohorts, not matched-ID causal evidence',
             policy='whole adaptive-lambda comparison; lower variance/movement may reflect slower progress or changed pins, not rest',
             rms='float64 root mean squared vector lengths/components in source-native spacing units')
+        if intervention == 'geometric_variance_full':
+            result['definitions']['interval'] = (
+                f'starts at accepted commit{first_commit}; windows{first_commit+1}..{last_commit}; '
+                'at most the last10 common windows; W1 excluded; each arm full endpoint is separate')
     with cuda_execution('cuda'):
         n = len(runs[0]['source'])
         boundary, free = np.zeros(n, bool), np.ones(n, bool)
@@ -156,7 +161,7 @@ def phase_audit(baseline, candidate, reference, out):
             tangent1 /= np.linalg.norm(tangent1, axis=1)[:, None]
             tangent2 = np.cross(normal, tangent1)
             summarize_motion = lambda values: motion_summary(values, normal, tangent1, tangent2, spacing,
-                                                              include_rms=intervention == VARIANCE_PREFIX)
+                                                              include_rms=intervention in VARIANCE_INTERVENTIONS)
             phases = [dict(phase=p+1, **summarize_motion(moves[:, p]))
                       for p in range(steps)]
             total_path = lengths.sum((0, 1))

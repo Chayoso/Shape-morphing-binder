@@ -36,6 +36,15 @@ def test_prefix_phase_scope_preserves_window1_exclusion(phase_probe):
     assert all(0 not in row for row in rows)
 
 
+def test_full_phase_clock_uses_last_ten_common_windows(phase_probe):
+    records = [dict(frame_end=1+20*k) for k in range(1, 41)]
+    common = 32
+    rows = phase_probe.phase_frame_indices(records, max(1, common-10), common, 20)
+    assert len(rows) == 10
+    assert rows[0] == list(range(440, 461)) and rows[-1] == list(range(620, 641))
+    assert max(max(row) for row in rows) == 640  # Own full endpoint at800 stays separate.
+
+
 def test_rms_reports_vector_and_component_magnitudes_without_changing_old_output(phase_probe):
     moves = np.array([[[3., 4., 0.]], [[5., 12., 0.]]])
     n, t1, t2 = np.eye(3)[:, None, :]
@@ -52,8 +61,9 @@ def test_rms_reports_vector_and_component_magnitudes_without_changing_old_output
 
 @pytest.mark.parametrize('sampled_count,reason', [(0, 'empty_common_free_cohort'),
                                                  (5, 'fewer_than_three_common_commits')])
+@pytest.mark.parametrize('mode', ['geometric_variance_prefix', 'geometric_variance_full'])
 def test_variance_phase_empty_or_short_cohort_returns_inconclusive_report(
-        phase_probe, tmp_path, monkeypatch, sampled_count, reason):
+        phase_probe, tmp_path, monkeypatch, sampled_count, reason, mode):
     a, b = tmp_path/'baseline', tmp_path/'candidate'
     runs = [dict(prefix=str(path), meta=dict(provenance=dict(code_hash='frozen'))) for path in (a, b)]
     monkeypatch.setattr(phase_probe, 'checked_runs', lambda *_: (runs, {'geometric_variance': [False, True]}))
@@ -62,11 +72,11 @@ def test_variance_phase_empty_or_short_cohort_returns_inconclusive_report(
         raise AssertionError('Inconclusive cohort must not run a CUDA calculation')
     monkeypatch.setattr(phase_probe, 'cuda_execution', forbidden)
     quality_file = Path(phase_probe.sys.modules['scripts.probes.quality_compare'].__file__)
-    report = dict(intervention='geometric_variance_prefix', code_hash='frozen',
+    report = dict(intervention=mode, code_hash='frozen',
                   probe_sha256=hashlib.sha256(quality_file.read_bytes()).hexdigest(),
                   baseline=dict(prefix=str(a)), candidate=dict(prefix=str(b)),
                   n=300000, T=20, native_spacing=.035, mpm=dict(dt=1/240),
-                  analysis_scope=dict(kind='common accepted prefix'),
+                  analysis_scope=dict(kind='full runs' if mode.endswith('_full') else 'common accepted prefix'),
                   cohorts=dict(common_endpoint_free_both=dict(sampled_count=sampled_count,
                                eligible_count=sampled_count, ids_sha256='fixture',
                                arms=dict(baseline=None, candidate=None))))
