@@ -8930,3 +8930,21 @@ Its difference exceeds the larger of the two observed adjoint-repeat differences
 by33117x, without redefining any strict tolerance. Lambda alone is not supported
 as the main local explanation. No motion/fit/coverage improvement was evaluated,
 no gain is selected and no primitive failure is cleared. See [P298](variance_gradient_p298.md).
+
+**2026-09-28 -- P299: conditioned proposals differ, but both initial steps are rejected.**
+Frozen e39e0d6, original bunny300k/T20/dt1/240/dx0.3062907543956724wu/loss36^3,
+eight inner iterations, shared PIC and baseline lambda. The CUDA observation
+completed in415.726s: all24 baseline attempts accepted, zero guards, exact
+control/moment/prepared-input restoration and243941 pin anchors. A/A-repeat
+control deltas are identical. At the first gradient of attempt24, both native
+initial alphas are0.02. A's physical merit rises0.00265553 to0.00557958; B's
+geometric merit rises0.00279150 to0.01375418. Both fail sufficient decrease.
+The actual baseline first accepted alpha is0.000625,32 times smaller.
+
+B's saved-step RMS is higher than A for the same56059 free IDs
+(0.361890 vs0.344553sp) and1602 source-upper free IDs (0.371162 vs0.339091sp),
+with native sp0.03498853660707278wu. Both rejected candidates lose substantial
+coverage relative to their initial prepared rollout. Their endpoint differences
+cannot stand in for accepted-update quality. No gain/default is promoted;
+a separate bounded first-iteration backtracking comparison is warranted before
+any larger solver experiment. See [P299 evidence and limits](variance_proposal_p299.md).

@@ -100,6 +100,15 @@ they are not independent causal shares of fit loss, displacement or energy.
 Vector closure residual has L2 3.31e-12. The final composite rotates65.77 degrees
 relative to the baseline composite before Adam, clipping and line search.
 
+Absolute lambda is not the relative render contribution. In the same mixed-leaf
+coordinates, lambda*||projected_render||/(||physics||+lambda*||projected_render||)
+is0.380336 for the baseline,0.107590 for geometric variance at fixed baseline
+lambda, and0.194262 with the cloned adaptive lambda. The denominator excludes
+the separately added transport gradient and subsequent Adam/RPROP/bounds. Thus
+lambda doubling coexists with a smaller nominal render share at this state;
+the absolute weighted render norm increases from1.97105e-5 to4.00041e-5.
+This does not establish render-caused fit loss or a displacement fraction.
+
 The repeated physical/geometric adjoints differ by L2 8.30e-10/4.78e-9. The
 observable-change difference is about33117 times the larger observed repeat
 difference. These two repeats are descriptive, not a confidence interval or a
