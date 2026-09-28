@@ -267,7 +267,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
                     u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None,
                     body_scale_init=None,
-                    win_index=None, on_rollout=None, on_objective=None):
+                    win_index=None, on_rollout=None, on_objective=None,
+                    on_gradient_audit=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -280,6 +281,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     called immediately before on_rollout. audit['evaluate'] recomputes the same
     prepared scalar merit with only its variance observable replaced; it is
     valid only during the callback. Neither callback establishes outer acceptance.
+
+    on_gradient_audit(win_index, audit): optional first-iteration diagnostic of
+    physical versus geometric variance on ONE prepared graph. Receives owned
+    detached gradients before PCGrad/lambda update; never changes the objective.
+    This baseline-only observer does not perform an alternative optimizer step.
 
     u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
     bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
@@ -294,6 +300,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     dev = cfg.device
     from .endpoint_contract import validate_endpoint_config
     validate_endpoint_config(cfg)
+    if on_gradient_audit is not None:
+        mode = cfg.grad_project_mode if cfg.grad_project else 'off'
+        if (cfg.geometric_variance or cfg.geometric_rest or cfg.settle_pin_kkt
+                or not cfg.commit_pic_objective or cfg.T < 2 or cfg.iters < 1
+                or not np.isfinite(cfg.w_kin_var) or cfg.w_kin_var <= 0
+                or not balancer.active or mode not in ('render', 'off') or cfg.grad_h1):
+            raise ValueError('gradient audit requires physical variance, shared PIC, active render, '
+                             'T>=2 and positive variance weight; no geometric rest/KKT/grad_h1')
+    capture_positions = cfg.geometric_variance or on_gradient_audit is not None
     x0 = np.ascontiguousarray(x0, np.float32)
     N, T = x0.shape[0], cfg.T
     lam0, mu0 = lame(cfg.young, cfg.poisson)
@@ -1698,12 +1713,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # persistent tape trajectory (forward + adjoint as CUDA graphs), one per window
             if adj_box[0] is None:
                 adj_box[0] = PersistentAdjoint(spec, previous_position=cfg.geometric_rest,
-                                               position_sequence=cfg.geometric_variance)
-            values = (adj_box[0].apply_with_positions(dfc, u, body_field()) if cfg.geometric_variance else
+                                               position_sequence=capture_positions)
+            values = (adj_box[0].apply_with_positions(dfc, u, body_field()) if capture_positions else
                       adj_box[0].apply_with_previous(dfc, u, body_field()) if cfg.geometric_rest else
                       adj_box[0].apply(dfc, u, body_field()))
         else:
-            rollout = (warp_mpm_ext_with_positions if cfg.geometric_variance else
+            rollout = (warp_mpm_ext_with_positions if capture_positions else
                        warp_mpm_ext_with_previous if cfg.geometric_rest else warp_mpm_ext)
             values = rollout(dfc, spec, lam_t, mu_t, u_t=u, body_t=body_field())
         xT, FT, vT, FgT, V = values[:5]
@@ -1719,6 +1734,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                  "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
         attach_geometry(extra, x_raw, x_previous, xT)
         attach_path(extra, values[5] if cfg.geometric_variance else None, xT)
+        if on_gradient_audit is not None:
+            extra['audit_positions'] = values[5]
         return (xT, FT, vT), lv, lk, lr, lpbr, extra
 
     accepted_eval_valid = False
@@ -2118,6 +2135,34 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 t1 = _tick()
                 gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
                 _tm_add("g_phys", t1)
+            gradient_audit = None
+            if on_gradient_audit is not None and it == 0:
+                from .geometric_variance import path_rates, temporal_variance
+                own = lambda gradients: [g.detach().clone() for g in gradients]
+                # Own the production direction before extra adjoints reuse scratch.
+                gp = own(gp)
+                geometric_var = temporal_variance(path_rates(
+                    x0_t, extra['audit_positions'], state[0], prm.dt))
+                alt_core = phys_core(lv, lk, dfc_x, state[0], state[1], extra['lk_run'],
+                    extra['Fg'] if use_geom else None, geometric_var, _vT(extra), extra.get('geom_rest'))
+                geometric_gp = own(torch.autograd.grad(alt_core, leaves, retain_graph=True))
+                geometric_repeat = own(torch.autograd.grad(alt_core, leaves, retain_graph=True))
+                physical_repeat = own(torch.autograd.grad(Lp_core, leaves, retain_graph=True))
+                gradient_audit = dict(
+                    gradients=dict(physical=own(gp), physical_repeat=physical_repeat,
+                                   geometric=geometric_gp, geometric_repeat=geometric_repeat),
+                    leaf_names=[('stress' if leaf is dFc else 'body' if leaf is body_coeff
+                                 else 'surface_u' if leaf is u else 'material') for leaf in leaves],
+                    physical_variance=float(extra['lk_var'].detach()),
+                    geometric_variance=float(geometric_var.detach()),
+                    effective_weight=float(wu*cfg.w_kin_var),
+                    physics_core=float(Lp_core.detach()), geometric_physics_core=float(alt_core.detach()),
+                    balancer_state=dict(vars(balancer)), N=N, T=T, dt=prm.dt, win_index=win_index,
+                    mode=cfg.grad_project_mode if cfg.grad_project else 'off',
+                    layer_u_render_only=bool(cfg.layer_u_render_only), grad_h1=bool(cfg.grad_h1),
+                    same_graph=True, alternate_forward_count=0,
+                    scope='same live prepared state, controls, targets, plan, neighbors and pins; '
+                          'only variance observable substituted before PCGrad/lambda; pre-Adam direction')
             t1 = _tick()
             gdt = (torch.autograd.grad(Ldt, leaves, retain_graph=True)
                    if Ldt is not None else None)
@@ -2189,6 +2234,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 gr[0] = _control_h1(gr[0], knn_t, cfg.control_h1_iters,
                                     cfg.control_h1_kappa)
             gr_raw = [r.detach().clone() for r in gr]
+            if gradient_audit is not None:
+                gradient_audit['gradients'].update(render_raw=own(gr_raw),
+                    transport=own(gdt) if gdt is not None else None)
+                on_gradient_audit(win_index, gradient_audit)
+                del gradient_audit
             np_raw, nr_raw = _norm(gp), _norm(gr_raw)
             dot_raw = float(sum((a * b).sum() for a, b in zip(gp, gr_raw)))
             mode = cfg.grad_project_mode if cfg.grad_project else "off"
