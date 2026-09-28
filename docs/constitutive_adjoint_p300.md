@@ -306,3 +306,61 @@ Evidence: output/p300/{control24,candidate24,quality24}.json. Quality SHA256:
 447afcfe743087d7495955a9adb18f2da7e15f454c1332a23aa9225719159aed.
 All cap24 raw archives remain under server work/p300. Project usage after the
 audit is99,063,384,101bytes; do not start another large archive without headroom.
+
+## Saved-frame transient supply: endpoint checks miss intermediate losses
+
+The archive-only CUDA audit at frozen aee31a6 traverses all481 retained saved
+states in each cap24 arm, including W1, in68.139s. Discretization is unchanged:
+N300k, T20, dt1/240, dx0.3062907543956724wu, loss36^3. It binds the exact reviewed
+quality24 JSON, all run artifacts and numerical sources before loading evidence.
+The new16 CPU tests and code passed independent review before execution. No
+simulation, objective, pin policy or renderer is changed by this measurement.
+
+The same6712 source material IDs use neighbor count excluding self in the fixed
+target median r8 radius0.06898659982768912wu. The same15312 upper target IDs use
+nearest-particle distance divided by target spacing0.03493084911867985wu.
+Within each window, an event requires support at BOTH accepted endpoints
+(source count>=4 or target distance<=2sp), then loss at an interior phase1..19.
+Unfinished target regions unsupported at either endpoint are excluded from
+these events. Eligibility is arm/window-specific: rates below are descriptive,
+not a causal comparison over a matched at-risk population.
+
+| Across24 accepted windows | Old | Corrected |
+|---|---:|---:|
+| Source IDs ever losing support / ever eligible |1218 /6029 (20.20%)|1204 /6024 (19.99%)|
+| Target IDs ever losing coverage / ever eligible |6614 /15029 (44.01%)|6485 /15094 (42.96%)|
+| Largest eligible target gap, in W8 |4.3963sp|4.8082sp|
+| W24 source transient IDs / eligible |36 /5154|33 /5138|
+| W24 target transient IDs / eligible |155 /14590|141 /14721|
+| W24 coverage dip below the lower endpoint |0.7772 percentage points|0.7053 percentage points|
+
+The across-window unions mean an ID crossed the diagnostic threshold at least
+once; they do NOT mean43% of the surface was missing in one frame. In corrected
+W24 the target-loss maximum is138/14721 at phase19/frame479. Eligible loss
+observations have p95 gap2.3580sp and maximum2.7585sp. This is a raw particle
+coverage deficit before the promoted phase20 endpoint, independent of Gaussian
+appearance. It does not by itself prove an enclosed topological hole or locate
+the deficit in the final rendered image.
+
+Severity is not uniformly improved by the derivative correction. Source
+zero-neighbor loss observations occur11 times in oldW4 and12/1/4/1/2 times in
+correctedW4/W5/W7/W8/W11; each of these windows involves one eligible material
+ID, which cannot be summed into a distinct-ID count across windows. The higher
+corrected maximum target gap in W8 also remains a contrary fact. Most late
+target-loss maxima occur at phase19, consistent with the existing boundary
+motion pattern; this is an association, not a separate causal intervention.
+The largest simultaneous target-loss fraction is3.6281%/3.6671%, also slightly
+worse in the corrected arm with its own eligibility denominator. The aggregate
+source density never falls below its lesser endpoint average in either arm,
+despite the same-ID transient support losses; spatial averaging hides them.
+
+Phase20 combines the raw last physical/layer step and PIC. Raw x[T] before PIC
+was not archived, and between-substep states are unobserved. This audit therefore
+does not certify watertightness, individual post-arrival rest or repair. The
+next read-only capture must retain raw x[T] and the actual per-ID frozen-plan
+arrival evidence; pin admission times cannot substitute for first arrival.
+
+Evidence: output/p300/transient_supply24.json, SHA256
+ccc59bab551fda41f8807c39f45c590e6df52f0e5969118f0fde45e1558c8f8d.
+Probe SHA2562f74dcbe6d9017b26ca104a02d321a0b38934714bdbf265e0af86969b403d818.
+Project usage after the audit is99,071,215,118bytes. No new large archive was made.

@@ -9008,3 +9008,21 @@ Keep the verified derivative fix, with no geometric-variance or renderer
 promotion. Accepted-endpoint hole_frac0 is not an all-frame certificate.
 The cap24 audit/source/result scopes passed independent review. See the
 [P300 matched results and hashes](constitutive_adjoint_p300.md).
+
+**2026-09-28 -- P300 saved-frame audit: transient supply losses persist.**
+Frozen aee31a6 analyzes both481-frame cap24 archives on CUDA in68.139s without
+rerunning physics. SameN300k/T20/dt1/240/dx0.3062907543956724/loss36^3; exact
+source/artifact guards and16 independently passed CPU tests. Events require the
+same ID to be supported at BOTH window endpoints but unsupported inside, so
+unfinished target regions are not automatically classified as transient gaps.
+Across24 windows, old/corrected target event unions are6614/15029 and6485/15094;
+these are ever-event counts over arm-specific eligibility, not simultaneous
+missing surface fractions or matched-risk causal rates. CorrectedW24 still
+loses141/14721 endpoint-covered target IDs temporarily, with maximum138 at
+phase19 and a0.7053-percentage-point aggregate coverage dip. Largest eligible
+target gap in W8 worsens4.3963 to4.8082 target spacings; zero-neighbor source
+events also persist. Thus accepted-endpoint hole_frac=0 misses intermediate
+raw particle coverage losses. Neither watertightness nor post-arrival rest is
+established. Raw final x[T] before PIC remains absent from historical archives.
+No physical policy/default or renderer promotion. Evidence and definitions:
+[P300 transient supply](constitutive_adjoint_p300.md).
