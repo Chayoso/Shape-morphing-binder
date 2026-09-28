@@ -1,8 +1,8 @@
 # P297: let temporal variance observe the saved positional path
 
-Status: optional implementation passed CPU review; the first CUDA derivative
-gate failed strict dFc comparisons. A separate repeat-noise diagnostic is being
-prepared. No quality improvement or CUDA execution readiness is established.
+Status: optional implementation passed CPU review; both CUDA derivative probes
+retain strict failures. Repeated adjoints support a bounded T20 one-window
+integration diagnostic, not acceptance of the primitive gate or a quality claim.
 P295 resolves an explicit window-end position jump and a smaller immediate
 layer-relaxation response. P296 screens whether removing parts of that endpoint
 filter preserves geometry before any such split can be selected. P297 keeps
@@ -97,3 +97,43 @@ Evidence: server `/data/relcfd/chayo/physmorph_v2/work/p297/position_sequence.js
 local `output/p297/position_sequence.json`. The T1 edge case keeps the T3 frozen
 layer relaxation fraction while disabling body control; it tests API/adjoint
 behavior and is not a one-step physical experiment.
+
+## Repeat diagnostic and bounded integration scope
+
+The v2 diagnostic (source48725a3, simulation core unchanged from5a3cd5f)
+preserves the first failed result and every strict criterion. Eight consecutive
+identical-seed adjoints precede held-out seed-cycle comparisons. For the T3 path
+dFc gradient, maximum within-implementation pair RMS differences are6.0381e-7
+(ordinary) and5.7909e-7 (captured); cross-implementation maximum RMS is6.1235e-7.
+The difference of sample means has RMS2.2790e-7, relative L2 1.9443e-5 and
+angle0.001114 degrees. The held-out dFc path deviations show no seed-cycle
+growth. All five dFc sample-mean comparisons meet the original coordinate limits.
+These observations are consistent with backward numerical variability; they do
+not prove an atomics-only cause. Very small u/body velocity-seed differences can
+exceed their own tiny repeated-adjoint envelopes, so no all-channel noise-bound
+claim is made. Forward outputs remain unchanged and the independent finite
+differences pass at both original epsilons for all three control channels.
+
+The v2 strict gate still fails. In addition to T3 dFc comparisons, the T1 merged
+oracle comparison reaches2.863e-6 (tolerance ratio1.058); the T3 repetition does
+not calibrate T1. T1 remains unresolved and is outside the next T20 scope.
+Evidence is preserved as `output/p297/position_sequence_v2.json` locally and
+the corresponding server work/p297 file. No derivative tolerance is relaxed.
+
+Independent review permits a new, explicitly bounded integration pair using the
+actual original bunny300k recipe, T20, dt1/240, dx0.3062907543956724wu, eight
+inner iterations, shared PIC, no subcell shift and one outer window. Both arms
+retain the real objective's other terms; only geometric_variance differs.
+This pair must reconstruct the saved positional variance independently in
+float64, show a nonzero weighted objective contribution, check finite returned
+X and equality of X[-1] with xT, and verify owned/promoted/archive and F/v/C/pin
+state contracts. Zero initial pins make that particular first-window check
+vacuous; this cannot establish late-window pin behavior or physical quality.
+
+An optional read-only `on_objective` observer exposes a callback-lifetime scalar
+evaluator of the same prepared final objective with only variance substituted.
+The default path incurs no additional objective evaluations. Subtraction of
+float32 scalar merits uses an explicit rounding bound based on their magnitudes;
+this is separate from the unchanged derivative criteria. Inner validation is
+not outer acceptance. No full-run, gallery or render promotion follows from a
+successful one-window integration alone.

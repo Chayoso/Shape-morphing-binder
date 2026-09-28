@@ -41,10 +41,33 @@ def test_path_variance_matches_archive_and_merit(monkeypatch, reject_last, units
         return result
     monkeypatch.setattr(geometric_variance, 'path_rates', rates)
     monkeypatch.setattr(geometric_variance, 'temporal_variance', variance)
-    callbacks, records = [], []
+    callbacks, records, audits = [], [], []
+    def objective_audit(tr, promoted, win_index, audit):
+        import warp as wp
+        path_before = [wp.to_torch(x).clone() for x in tr.x]
+        saved = torch.stack(path_before).double()
+        saved[-1] = promoted.double()
+        rates = saved.diff(dim=0)/prm.dt
+        independent = (rates-rates.mean(0)).square().sum(-1).mean()
+        evaluator = audit['evaluate']
+        with_var, without_var = evaluator(independent), evaluator(0.)
+        # Subtraction resolves a small term from two float32 scalar merits.
+        scalar_roundoff = 4*np.finfo(np.float32).eps*max(abs(with_var), abs(without_var))
+        assert with_var-without_var == pytest.approx(
+            audit['effective_weight']*float(independent), rel=4e-5, abs=scalar_roundoff)
+        assert evaluator(audit['observed_variance']) == pytest.approx(
+            audit['final_merit'], rel=4e-6, abs=max(audit['replay_tolerance'], 1e-8))
+        for invalid in (float('nan'), float('inf'), [1., 2.]):
+            with pytest.raises(ValueError, match='finite variance scalar'):
+                evaluator(invalid)
+        assert all(torch.equal(before, wp.to_torch(after))
+                   for before, after in zip(path_before, tr.x))
+        audits.append(dict(audit))
     original = runner.optimize_window
     def capture(*args, **kwargs):
-        result = original(*args, **kwargs)
+        result = original(*args, on_objective=objective_audit, **kwargs)
+        with pytest.raises(RuntimeError, match='expired'):
+            audits[-1]['evaluate'](0.)
         frames, _, end, _, history, stats = result
         assert history
         raw = np.stack(frames).astype(np.float64)
@@ -64,6 +87,7 @@ def test_path_variance_matches_archive_and_merit(monkeypatch, reject_last, units
             assert row['loss'] == pytest.approx(expected_loss, rel=4e-6, abs=1e-8)
             assert row['kin_var'] == row['geometric_variance']['geometric_variance']
         assert stats['commit_from_accepted'] is not reject_last
+        assert audits[-1]['commit_source'] == ('replay' if reject_last else 'accepted_buffer')
         if reject_last:
             replay = stats['replay_diagnostics']
             assert replay['replay_E_final'] <= replay['replay_E_accepted']+replay['replay_E_tol']

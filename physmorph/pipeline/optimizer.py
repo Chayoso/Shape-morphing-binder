@@ -267,7 +267,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     coh_nbr_src=None, frontier=None, bond_rest=None, bond_frag=None,
                     u_scale_init=None, ctrl_scale_init=None, eta_init=None, pin_init=None, stick_init=None,
                     body_scale_init=None,
-                    win_index=None, on_rollout=None):
+                    win_index=None, on_rollout=None, on_objective=None):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -275,6 +275,11 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     of the validated inner rollout, before scratch buffers can be overwritten.
     The outer runner may still reject it; observers must await outer acceptance
     and own any retained arrays. This callback must not modify the trajectory.
+
+    on_objective(tr, promoted, win_index, audit): optional read-only observer,
+    called immediately before on_rollout. audit['evaluate'] recomputes the same
+    prepared scalar merit with only its variance observable replaced; it is
+    valid only during the callback. Neither callback establishes outer acceptance.
 
     u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
     bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
@@ -2597,6 +2602,37 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                "C": to_array(tr.C[T], copy=True),
                "Fg": to_array(tr.Fg[T], copy=True) if use_geom else None,
                "n_inv_steps": n_inv_steps, "Jmin_traj": jmin_traj}
+        if on_objective is not None and accepted > 0:
+            # Diagnostic only: preserve loss telemetry/cache while constructing
+            # the fixed-state objective. No extra evaluations on the default path.
+            sil_saved, gauss_scale_saved = dict(sil_gauss), tgt.gauss_scale
+            try:
+                lv_audit, lk_audit, lr_audit, _ = losses_of(x_final, F_final, v_final, Fg_final)
+            finally:
+                sil_gauss.clear()
+                sil_gauss.update(sil_saved)
+                tgt.gauss_scale = gauss_scale_saved
+            audit_active = True
+
+            def evaluate_variance(variance_override):
+                if not audit_active:
+                    raise RuntimeError('objective audit evaluator expired with its callback')
+                value = torch.as_tensor(variance_override, device=var_final.device,
+                                        dtype=var_final.dtype).detach()
+                if value.numel() != 1 or not bool(torch.isfinite(value).all()):
+                    raise ValueError('objective audit requires one finite variance scalar')
+                return scalars(lv_audit, lk_audit, lr_audit, lam_r, dc, x_final, F_final,
+                               V_final.pow(2).sum(2).mean(), Fg_final, value.reshape(()),
+                               V_final[-1], geom_final)
+
+            audit = dict(accepted_merit=float(E_accept), final_merit=float(E_final),
+                         observed_variance=float(var_final), effective_weight=float(wu * cfg.w_kin_var),
+                         replay_tolerance=float(replay_tol),
+                         commit_source=replay_diagnostics['commit_source'], evaluate=evaluate_variance)
+            try:
+                on_objective(tr, x_final, win_index, audit)
+            finally:
+                audit_active = False
         if on_rollout is not None and accepted > 0:
             on_rollout(tr, x_final, win_index)
         if cfg.motion_accounting and accepted > 0:
