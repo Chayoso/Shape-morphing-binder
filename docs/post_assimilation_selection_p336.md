@@ -33,7 +33,42 @@ with synthetic constant data constraints and a raw-quality stub. It exercises
 real optimization, three confirmations and raw-head registration with newly
 pinned particles. This last test is state-delivery evidence only, not shape or
 rendering-quality evidence. Its explicit hyde06 CUDA version prohibits numerical
-array downloads; actual CUDA execution is pending.
+array downloads. Frozen d2ced5f actual hyde06 `p336_cuda1` passes1 case,0skips,
+3.19s with the same small discretization. It selects candidate_h03 and delivers
+all three confirmation states consistently; full X/F sequences and raw v/C/F
+match the owned final confirmation exactly. This remains a synthetic-constraint
+capability gate, not a native shape/rest or rendering-loss result.
+
+The independent CUDA receipt checks108 frozen source files and all downloaded
+artifacts. The synthetic mean geometric objective falls .5755%, but7 of24
+surviving-free IDs worsen; one newly imposed pin is excluded. Aggregate descent
+does not establish per-particle rest. Evidence: `evidence/p336/independent_cuda_audit.json`.
+
+## Native diagnostic protocol
+
+`post_assimilation_candidate.py --enable-candidate-search` uses the validated
+native2 prepared W21 only as an owned fixed-policy estimate. It starts a fresh
+N300k/T20/dt1/240/dx.3062907544/grid36^3/iters8 prefix, cap21, with `assim_fp64`
+enabled from the start. No other recipe change is permitted. The current live
+W20 context supplies accepted state, full merit and the candidate head's gates.
+Source/target, estimate/result/source, current source and archived states are
+bound by hashes. Evidence has a12GB cap within the100GB project limit.
+
+Retain every evaluated baseline/candidate/confirmation and raw phase envelope.
+If a candidate is selected, the ordinary runner performs its single handoff,
+admission and controlled W21. Afterwards independently replay the actual
+prepared passive coast, report policy differences, compare conditional model
+closure, raw full-phase quality, prepared data constraints and motion on common
+surviving-free material IDs. Continuous policy differences are model mismatch
+evidence, not automatically proof of quality loss. The branch conservatively
+requires these separate gates before claiming its conditional result passed.
+
+No saved merit closure is revived. No same-prefix controlled comparison or
+in-process rollback is fabricated. A successful bounded branch would still
+need full-morph, per-particle rest, gallery and4K validation. The driver passes
+29 independent CPU cases and compile checks. Actual controlled X/V/C/F health,
+late reporting failures, evidence reservations and original fallback are tested.
+Native execution remains a separate gate.
 
 No changes to default loss, rendering covariance, production recipe or deliverable
 are authorized by a small capability pass. Report donor optimizer rendering

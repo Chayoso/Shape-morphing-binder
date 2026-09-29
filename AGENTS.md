@@ -154,7 +154,7 @@ These are the leading candidates for the unresolved problems, and they are ports
   Precision remains opt-in. Median nominal render share.494282 at18views64px
   is not causal motion or exact4K supervision. No altered candidate/rest/hole
   improvement follows. The earlier FP32 failure below remains retained.
-  owns actual next pins/layer/bonds/eta for P334.49 CPU and7 actual CUDA gates
+  The adapter owns actual next pins/layer/bonds/eta for P334.49 CPU and7 actual CUDA gates
   pass; original wide-radius slip and FP32 anchor FD failures remain recorded.
   The small boundary derivative is independently checked by a GPU-FP64 collider
   reference. Frozen c1a2b00 N300k W20/W21 keeps21 original commits/168updates,

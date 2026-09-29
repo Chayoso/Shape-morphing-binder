@@ -1,0 +1,158 @@
+{
+  "schema": "p336_cuda1_independent_receipt_v1",
+  "status": "PASS_SCOPED_CAPABILITY_EVIDENCE",
+  "reviewed_utc": "2026-09-29T10:10:56.398243+00:00",
+  "reviewer": "mixed60_photoreal",
+  "method": "Read-only post-run SSH hash collection, local exact Git blob/source/log/XML/scalar review. No GPU, test or simulation rerun.",
+  "producer_commit": "d2ced5f54fe8eb46f85716aa23e7dcf6892073a3",
+  "source_binding": {
+    "files": 108,
+    "physmorph_files": 89,
+    "all_exact_git_bytes": true,
+    "newline_exceptions": 0,
+    "receipt_sha256": "9b78f5b5ecc901ecf6a418756282db9de7df9b015ec8f5b9e377fd831141c6f1",
+    "scope": "All frozen physmorph files plus selected fixture/probe/launcher dependencies; post-run stat stability, not attested loaded binaries."
+  },
+  "artifacts": {
+    "p336_cuda1.log": {
+      "bytes": 12878,
+      "inode": 10646702,
+      "mtime_ns": 1790676502226803326,
+      "sha256": "05be65604a9f369e5aa5c334ba6b86d9861dfad5aeb2ebd4de69e759081151e0"
+    },
+    "p336_cuda1.xml": {
+      "bytes": 372,
+      "inode": 10646710,
+      "mtime_ns": 1790676501482802763,
+      "sha256": "22f3b8be45c5e1b44c917a1a300c33ea26bab27cfb6e46b4f3457d181808476e"
+    },
+    "p336_cuda1.start": {
+      "bytes": 11,
+      "inode": 10654423,
+      "mtime_ns": 1790676497890800043,
+      "sha256": "2ac4e9eb3a9f23dade5d73e84908b6b88887d4597a6c1673e91969b9fab73e06"
+    },
+    "p336_cuda1.launch.log": {
+      "bytes": 53,
+      "inode": 10659323,
+      "mtime_ns": 1790676503978804653,
+      "sha256": "c504bdd84d297692f7f77337fba16d90a09bab28cfed2bd6112e8e74c192f667"
+    },
+    "p336_cuda1.memory.json": {
+      "bytes": 2911,
+      "inode": 10659325,
+      "mtime_ns": 1790676503966804645,
+      "sha256": "7e0462ee1d5f9cf26afd2666918390bdbecfb848e5097002324a8b5f2955db22"
+    },
+    "p336_cuda1.memory.log": {
+      "bytes": 413,
+      "inode": 10613117,
+      "mtime_ns": 1790676503966804645,
+      "sha256": "ac2ce2933f2c2fd7eeffdb2468ed7ad6f7784ce2573d503862f55f5a8b26a007"
+    },
+    "p336_cuda1.memory.stop": {
+      "bytes": 2,
+      "inode": 10659324,
+      "mtime_ns": 1790676503462804262,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "p336_cuda1.exit": {
+      "bytes": 2,
+      "inode": 10652121,
+      "mtime_ns": 1790676503978804653,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "run_p336_v1.sh": {
+      "bytes": 1223,
+      "inode": 10658304,
+      "mtime_ns": 1790676487322792042,
+      "sha256": "b8fa25897fbcccf90f5e5182c177f327206cef4d5a2b581da6aff7673ce96d8b"
+    },
+    "sample_device_memory.py": {
+      "bytes": 2962,
+      "inode": 10359140,
+      "mtime_ns": 1790663183358804700,
+      "sha256": "e904394951a3113adb71ce65ccd2f43a064425e7ac35b112ea49d4b560dfdca6"
+    }
+  },
+  "xml": {
+    "suite": {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "1",
+      "time": "3.191",
+      "timestamp": "2026-09-29T05:08:18.297130-05:00",
+      "hostname": "hyde06"
+    },
+    "case": {
+      "classname": "tests.test_post_selection_cuda",
+      "name": "test_actual_gpu_search_confirmed_state_stays_on_device",
+      "time": "1.632"
+    },
+    "exit_code": 0
+  },
+  "discretization": {
+    "N": 27,
+    "T": 20,
+    "dt": 0.002,
+    "dx": 0.5,
+    "grid": [
+      16,
+      16,
+      16
+    ],
+    "assim_fp64": true,
+    "pin_slip": false
+  },
+  "logged_selection": {
+    "status": "confirmed_candidate_no_adoption",
+    "selected": "candidate_h03",
+    "cohorts": {
+      "old_start_free": 25,
+      "newly_pinned": 1,
+      "surviving_free": 24,
+      "start_arrived_surviving_free": 24
+    },
+    "confirmation_labels": [
+      "confirm_0",
+      "confirm_1",
+      "confirm_2"
+    ],
+    "confirmation_scalar_reports_identical_excluding_label": true,
+    "geometric_objective_before": 0.051198819490675736,
+    "geometric_objective_after": 0.050904161697139606,
+    "geometric_objective_decrease": 0.0002946577935361294,
+    "geometric_objective_decrease_percent": 0.575516772588462,
+    "objective_floor": 1.9530799671430868e-07,
+    "stored_mean_before": 1.4596710681287937e-05,
+    "stored_mean_after": 1.102599893371108e-05,
+    "stored_mean_decrease_percent": 24.46244106320669,
+    "surviving_free_worsened_geometric_ids": 7,
+    "units": "Mean squared speeds wu^2/s^2; descriptive synthetic-fixture result, not production repair."
+  },
+  "capability_assertions_in_bound_test": [
+    "Exactly three baseline and three confirming gate passes.",
+    "Resolved positions/full F trajectory and terminal F/v/C match the saved last confirmed forward exactly.",
+    "No extra registration forward: selection context model.adjoint remains None.",
+    "One newly pinned ID has nonzero head terminal velocity but zero coast V/C, and is excluded from primary surviving-free objective.",
+    "Selected end does not prematurely carry Fp or pin; donor history stays unchanged.",
+    "CuPy asnumpy, Warp array.numpy and Torch CUDA-to-CPU array copies blocked during search/selection; scalar host control remains allowed."
+  ],
+  "sampled_memory": {
+    "pid": 919630,
+    "samples": 11,
+    "process_peak_MiB": 1332,
+    "device_peak_MiB": 1356,
+    "scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark"
+  },
+  "limitations": [
+    "Data/volume/render/silhouette/full-merit constraints are constant synthetic expressions and the raw-shape callback is a pass stub. This is not native quality feasibility.",
+    "The test assembles and resolves selected whole-window state; it does not run an actual production outer commit or controlled successor solve.",
+    "Only confirmation scalar reports are printed. Baseline triplet arrays, candidate traces, complete gates and resolved arrays are test assertions, not independently replayable archived witnesses.",
+    "Seven of 24 surviving-free IDs have increased geometric and stored energy; aggregate decrease is not per-particle rest.",
+    "No N300k memory/quality conclusion, full-morph rest, hole removal, native derivative finite difference, candidate policy adoption or 4K rendering claim.",
+    "No external-library binary hashes or independent GPU rerun; exact source bindings are post-run evidence. Memory is sampled, not an exact allocator high-water mark."
+  ]
+}

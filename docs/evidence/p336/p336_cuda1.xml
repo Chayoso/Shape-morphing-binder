@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="3.191" timestamp="2026-09-29T05:08:18.297130-05:00" hostname="hyde06"><testcase classname="tests.test_post_selection_cuda" name="test_actual_gpu_search_confirmed_state_stays_on_device" time="1.632" /></testsuite></testsuites>
