@@ -71,6 +71,8 @@ def main():
                         help='Guarded fixed32-neighbor affine transport of shading normals only')
     parser.add_argument('--compare-material-shading', action='store_true',
                         help='Matched baseline versus material shading; identical covariance/live opacity/filter')
+    parser.add_argument('--compare-normal-thickness', action='store_true',
+                        help='Experimental matched baseline versus reference-spacing normal thickness; tangent radii and live opacity identical')
     parser.add_argument('--surface-common', action='store_true',
                         help='P302 stateless primitives shared with surface_gs_loss; no appearance latch')
     parser.add_argument('--raster-backend', choices=('legacy', 'continuous'), default='legacy')
@@ -78,8 +80,12 @@ def main():
     if args.raster_backend == 'continuous' and not args.surface_common:
         parser.error('--raster-backend continuous requires --surface-common')
     if args.surface_common and any((args.compare_artifacts, args.smooth_support,
-            args.scale_normal_filter, args.material_shading, args.compare_material_shading)):
+            args.scale_normal_filter, args.material_shading, args.compare_material_shading,
+            args.compare_normal_thickness)):
         parser.error('--surface-common excludes historical appearance variants')
+    if args.compare_normal_thickness and any((args.compare_artifacts, args.smooth_support,
+            args.scale_normal_filter, args.material_shading, args.compare_material_shading)):
+        parser.error('--compare-normal-thickness preserves baseline shading, support and image filter')
     if min(args.width, args.height, args.stride, args.fps) <= 0 or args.width % 2 or args.height % 2 or args.max_frames < 0:
         parser.error('positive even dimensions, positive stride and fps are required')
     if args.compare_artifacts and (args.smooth_support or args.scale_normal_filter):
@@ -98,12 +104,14 @@ def main():
     args.out.parent.mkdir(parents=True, exist_ok=True)
     if any(args.frames_dir.rglob('*.png')) or args.out.exists():
         raise ValueError('use an empty frames directory to avoid encoding stale frames')
-    compare_mode = args.compare_artifacts or args.compare_material_shading
+    compare_mode = args.compare_artifacts or args.compare_material_shading or args.compare_normal_thickness
     variants = ([('baseline', False, False, False), ('support', True, False, False),
                  ('normal_filter', False, True, False), ('combined', True, True, False)]
                 if args.compare_artifacts else
                 [('baseline', False, False, False), ('material_shading', False, False, True)]
                 if args.compare_material_shading else
+                [('baseline', False, False, False), ('reference_thickness', False, False, False)]
+                if args.compare_normal_thickness else
                 [('selected', args.smooth_support, args.scale_normal_filter, args.material_shading)])
     outputs, directories = {}, {}
     for name, _, _, _ in variants:
@@ -146,7 +154,7 @@ def main():
     upper = torch.as_tensor(np.asarray(frames[cohort_index], np.float32), device=device)[:, 1] >= upper_floor
     setup_seconds = time.perf_counter() - started
     timings = []
-    comparison, previous = [], {}
+    comparison, previous, footprints = [], {}, []
     print(json.dumps(dict(stage='setup', seconds=setup_seconds, frames=len(selected),
                           particles=len(frames[0]), spacing=spacing)), flush=True)
     with torch.inference_mode():
@@ -189,8 +197,26 @@ def main():
             for name, smooth_support, scaled_filter, material_shading in variants:
                 selected_support = compact_support if smooth_support else support
                 kernel = normal_filter_size(args.height, scaled_filter)
+                selected_covariance = covariance
+                if name == 'reference_thickness':
+                    from physmorph.render.footprint_policy import reference_thickness_covariance
+                    selected_covariance = reference_thickness_covariance(rotation, sigma, spacing)
+                if args.compare_normal_thickness:
+                    from physmorph.render.footprint_diagnostics import summarize_world_footprints
+                    observation = summarize_world_footprints(
+                        selected_covariance, normals, support=selected_support, opacity=.92 * selected_support,
+                        populations={'active_pinned': settled.anchored, 'free': ~settled.anchored,
+                                     'upper_cohort': upper, 'sparse_support': selected_support < 1.})
+                    footprints.append(dict(raw=raw_index, variant=name, observation=observation))
+                    if (observation['populations']['positive_support_and_opacity']['invalid_count']
+                            or observation['validation_counts']['invalid_support']
+                            or observation['validation_counts']['invalid_opacity']):
+                        args.out.with_suffix('.footprints.failed.json').write_text(json.dumps(
+                            dict(reason='Invalid renderable footprint; comparison refused before raster', rows=footprints),
+                            indent=2, allow_nan=False))
+                        raise ValueError(f'Invalid positive-opacity footprint at raw frame {raw_index}, variant {name}')
                 image, coverage, pixel_normal = studio(
-                    x, shader_normals if material_shading else normals, covariance, .92 * selected_support,
+                    x, shader_normals if material_shading else normals, selected_covariance, .92 * selected_support,
                     normal_kernel=kernel, return_buffers=True)
                 current[name] = (image, coverage, pixel_normal)
                 if compare_mode:
@@ -250,6 +276,8 @@ def main():
                                           upper_ear_cohort_raw=cohort_index, upper_ear_y_min=upper_floor,
                                           upper_ear_count=int(upper.sum())),
                     variants={name: dict(smooth_support=smooth, scale_normal_filter=scaled, material_shading=mat,
+                                         normal_thickness=('reference spacing / 4' if name == 'reference_thickness'
+                                                           else 'adaptive tangent sigma / 4'),
                                          normal_filter_size=normal_filter_size(args.height, scaled),
                                          output=str(outputs[name])) for name, smooth, scaled, mat in variants},
                     settled_freeze=not args.surface_common, all_raw_pin_frames_validated=count,
@@ -267,6 +295,24 @@ def main():
     metadata['render_source_sha256'] = {name: hashlib.sha256(
         (support_file.parent/name).read_bytes()).hexdigest()
         for name in ('studio.py', 'surface_gaussians.py', 'knn_gpu.py', 'covariance_torch.py')}
+    if args.compare_normal_thickness:
+        from physmorph.render.studio import raster_identity
+        metadata['footprint_experiment'] = dict(
+            rule='Tangent standard deviations unchanged; normal standard deviation uses reference spacing / 4',
+            shared='positions, normals, tangent sigma, live support/opacity, pin latch, camera, lighting, image normal filter',
+            scope='Appearance-only paired experiment. Reduced coverage can expose missing support; no physical-quality or rest claim.',
+            helper_sha256=hashlib.sha256((support_file.parent/'footprint_policy.py').read_bytes()).hexdigest())
+        metadata['footprint_experiment']['diagnostics_sha256'] = hashlib.sha256(
+            (support_file.parent/'footprint_diagnostics.py').read_bytes()).hexdigest()
+        metadata['render_source_sha256']['settled.py'] = hashlib.sha256(
+            (support_file.parent/'settled.py').read_bytes()).hexdigest()
+        metadata['raster_backend'] = 'legacy'
+        metadata['raster_files'] = raster_identity('legacy')
+        metadata['footprint_experiment']['all_observations_valid'] = all(
+            row['observation']['valid'] for row in footprints)
+        args.out.with_suffix('.footprints.json').write_text(json.dumps(dict(
+            upper_cohort=dict(raw=cohort_index, y_min=upper_floor, definition='fixed source IDs in upper target-height band'),
+            rows=footprints), indent=2))
     args.out.with_suffix('.json').write_text(json.dumps(metadata, indent=2))
     if comparison:
         args.out.with_suffix('.comparison.json').write_text(json.dumps(dict(
