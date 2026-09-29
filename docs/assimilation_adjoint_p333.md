@@ -1,7 +1,10 @@
 # P333: derivative of actual elastic assimilation
 
 Status: opt-in primitive and frozen old/new-pin composition implemented; 46 CPU
-checks pass. Initial CUDA run passes 18 parity/derivative/subset cases but fails
+checks and all 20 CUDA tests pass. The fourth run uses frozen `137d897` and
+takes 2.14s. Production-size FP32 graph and composed-map capture are the final
+additional scope checks before recording closure. Initial CUDA run passes
+18 parity/derivative/subset cases but fails
 both graph-capture cases at the host-synchronizing inverse. Capture correction
 uses the same inverse through inv_ex with a device status assertion, and uses
 torch.where for the skipped-row increment. The second CUDA run again passes 18
@@ -9,7 +12,7 @@ cases but exposes linalg.svd's separate host convergence check. The next change
 calls the same cuSOLVER Jacobi routine with device status checking. That third
 run keeps all 18 numerical cases passing, but CuPy's wrapper refuses calls
 during capture. A typed C ABI call to the same installed solver removes that
-wrapper restriction; fourth run pending. Test criteria remain unchanged.
+wrapper restriction; fourth run passes. Test criteria remain unchanged.
 No optimizer, runner or existing withdrawal default uses this derivative yet.
 
 The next coast must respond to the plastic state the runner really commits.

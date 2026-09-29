@@ -184,14 +184,32 @@ def test_actual_runner_subset_handoff_dispatch_numerical_parity(monkeypatch, new
 
 
 @pytest.mark.parametrize('iso', [False, True])
-def test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed(iso):
+@pytest.mark.parametrize('count,dtype', [(1, torch.float64), (20000, torch.float32)],
+                         ids=['n1_float64', 'n20000_float32'])
+def test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed(iso, count, dtype):
+    _assert_graph_replays(count, dtype, iso)
+
+
+def test_torch_cuda_graph_frozen_pin_handoff_forward_backward():
+    _assert_graph_replays(20000, torch.float32, True, handoff=True)
+
+
+def _assert_graph_replays(count, dtype, iso, *, handoff=False):
     with cuda_execution('cuda:0'):
         aligned()
-        F0, P0 = (value[3:4].clone() for value in inputs())
+        F0, P0 = (value[3:4].repeat(count, 1, 1) for value in inputs(dtype))
         F, P = F0.clone().requires_grad_(), P0.clone().requires_grad_()
-        seed = torch.arange(9, dtype=F.dtype, device=F.device).reshape_as(F)/7-.4
+        seed = (torch.arange(9, dtype=F.dtype, device=F.device).reshape(1, 3, 3)/7-.4).repeat(count, 1, 1)
+        old = torch.zeros(count, dtype=torch.bool, device=F.device)
+        new = torch.zeros_like(old)
+        if handoff:
+            old[:1024], new[1024:2048] = True, True
+        old_before, new_before = old.clone(), new.clone()
+        forward_tolerance = (2e-6, 2e-7) if dtype == torch.float32 else (1e-11, 1e-12)
+        gradient_tolerance = (2e-6, 2e-7) if dtype == torch.float32 else (1e-10, 1e-11)
         def evaluate():
-            out = assimilate(F, P, eta=.37, isochoric=iso)
+            out = (assimilate_handoff(F, P, old, new, eta=.37, isochoric=iso)
+                   if handoff else assimilate(F, P, eta=.37, isochoric=iso))
             gradients = torch.autograd.grad((out*seed).sum(), (F, P))
             return out, gradients
         # Initialize the installed inverse/SVD/backward libraries on this same
@@ -209,7 +227,19 @@ def test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed(iso):
                     seed.mul_(-.7).add_(.1)
             graph.replay()
             expected, expected_gradients = evaluate()
-            torch.testing.assert_close(captured, expected, rtol=1e-11, atol=1e-12)
+            torch.testing.assert_close(captured, expected, rtol=forward_tolerance[0], atol=forward_tolerance[1])
             for actual, wanted in zip(captured_gradients, expected_gradients):
                 assert torch.isfinite(actual).all() and float(actual.norm()) > 1e-7
-                torch.testing.assert_close(actual, wanted, rtol=1e-10, atol=1e-11)
+                torch.testing.assert_close(actual, wanted, rtol=gradient_tolerance[0], atol=gradient_tolerance[1])
+            if handoff:
+                assert torch.equal(captured[old], P[old])
+                assert torch.count_nonzero(captured_gradients[0][old]) == 0
+                assert torch.equal(captured_gradients[1][old], seed[old])
+                assert torch.equal(old, old_before) and torch.equal(new, new_before)
+                first_only = assimilate(F, P, eta=.37, isochoric=iso)
+                assert float((captured[new]-first_only[new]).abs().max()) > 1e-3
+            if replay == 0:
+                previous = (captured.clone(), *(value.clone() for value in captured_gradients))
+            else:
+                for actual, before in zip((captured, *captured_gradients), previous):
+                    assert float((actual-before).abs().max()) > 1e-5
