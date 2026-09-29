@@ -4,7 +4,9 @@ Status: opt-in primitive and frozen old/new-pin composition implemented; 46 CPU
 checks pass. Initial CUDA run passes 18 parity/derivative/subset cases but fails
 both graph-capture cases at the host-synchronizing inverse. Capture correction
 uses the same inverse through inv_ex with a device status assertion, and uses
-torch.where for the skipped-row increment. CUDA rerun pending.
+torch.where for the skipped-row increment. The second CUDA run again passes 18
+cases but exposes linalg.svd's separate host convergence check. The next change
+calls the same cuSOLVER Jacobi routine with device status checking; rerun pending.
 No optimizer, runner or existing withdrawal default uses this derivative yet.
 
 The next coast must respond to the plastic state the runner really commits.
@@ -35,6 +37,16 @@ feasible-range clamp. Differentiating bisection decisions or omitting the first
 clamp would give a different derivative. At an exact floor/clamp/health boundary,
 no unique derivative is claimed; finite-difference tests stay within branches.
 Only first derivatives are supported.
+
+`cuda_svd.py` uses the installed PyTorch 2.8 small-matrix settings: scalar-type
+epsilon tolerance, 400 sweeps, sorted singular values, packed column-major
+inputs and owned Torch buffers. The existing linalg.svd checks convergence on
+the host. This helper requires aligned Torch/CuPy streams and checks info on
+the device. A nonconverging matrix fails explicitly; it does not silently take
+PyTorch's host-directed fallback. Thus parity is scoped to converged inputs.
+See [PyTorch's cuSOLVER implementation](https://github.com/pytorch/pytorch/blob/v2.8.0/aten/src/ATen/native/cuda/linalg/BatchLinearAlgebraLib.cpp),
+[its sweep setting](https://github.com/pytorch/pytorch/blob/v2.8.0/aten/src/ATen/native/cuda/linalg/BatchLinearAlgebraLib.h),
+and [NVIDIA's gesvdjBatched contract](https://docs.nvidia.com/cuda/cusolver/#cusolverdn-t-gesvdjbatched).
 
 Invalid elastic determinant sets the increment to identity but still applies
 the cumulative projection. Eta<=0 bypasses both, as in production. The pin

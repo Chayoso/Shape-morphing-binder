@@ -12,6 +12,7 @@ import torch
 from torch.autograd.function import once_differentiable
 
 from .assimilation import _project_logsv_torch
+from .cuda_svd import svd3
 
 
 def _sym(a):
@@ -38,7 +39,7 @@ def _quotient(s, values, repeated, branch):
 class _ElasticIncrement(torch.autograd.Function):
     @staticmethod
     def forward(ctx, Fe, eta, isochoric):
-        U, s, Vh = torch.linalg.svd(Fe)
+        U, s, Vh = svd3(Fe)
         powered = s.clamp_min(1e-3) ** eta
         normalizer = powered.prod(1, keepdim=True) ** (1.0 / 3.0) if isochoric else torch.ones_like(s[:, :1])
         values = powered / normalizer if isochoric else powered
@@ -75,7 +76,7 @@ class _ElasticIncrement(torch.autograd.Function):
 class _CumulativeBand(torch.autograd.Function):
     @staticmethod
     def forward(ctx, value, smin, smax, isochoric):
-        U, s, Vh = torch.linalg.svd(value)
+        U, s, Vh = svd3(value)
         clipped = s.clamp(smin, smax)
         if isochoric:
             q = _project_logsv_torch(clipped.log(), math.log(smin), math.log(smax),
