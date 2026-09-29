@@ -5,7 +5,7 @@ base=/data/relcfd/chayo/physmorph_v2
 mode=${1:?probe mode}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in prepared-withdrawal-verify|trajectory-reporting-verify|withdrawal-adjoint-verify|fragment-adjoint-verify|full-fragment-legacy|full-fragment-retained|fragment-motion|fragment-shape|fragment-quality|fragment-phase) ;; baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|gradient-reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|full-raw-no-layer|support-braking-repair|frozen-replay-noise|frozen-state-identity|withdrawal-capture|withdrawal-analyze|withdrawal-verify) ;; *) exit 2;; esac
+case "$mode" in production-withdrawal|prepared-withdrawal-verify|trajectory-reporting-verify|withdrawal-adjoint-verify|fragment-adjoint-verify|full-fragment-legacy|full-fragment-retained|fragment-motion|fragment-shape|fragment-quality|fragment-phase) ;; baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|gradient-reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|full-raw-no-layer|support-braking-repair|frozen-replay-noise|frozen-state-identity|withdrawal-capture|withdrawal-analyze|withdrawal-verify) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -38,6 +38,9 @@ fi
 if [[ "$mode" == withdrawal-analyze ]]; then
     (( used + 6000000000 < 100000000000 )) || { echo 'Withdrawal6GB reservation exceeds100GB' >&2; exit 76; }
 fi
+if [[ "$mode" == production-withdrawal ]]; then
+    (( used + 3000000000 < 100000000000 )) || { echo 'Prepared withdrawal3GB reservation exceeds100GB' >&2; exit 76; }
+fi
 (set -o noclobber; printf '%s\n' "$now" > "$out.start")
 set -o noclobber
 exec > "$out.log" 2>&1
@@ -57,6 +60,9 @@ fi
 if [[ "$mode" == withdrawal-verify ]]; then
     exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \
         tests/test_withdrawal_cuda.py -q --junitxml="$out.xml"
+fi
+if [[ "$mode" == production-withdrawal ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/prepared_withdrawal.py --out "$out"
 fi
 if [[ "$mode" == prepared-withdrawal-verify ]]; then
     exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \

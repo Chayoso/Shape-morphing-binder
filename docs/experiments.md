@@ -9515,3 +9515,13 @@ future derivatives pass unchanged two-radius finite differences; stream ordering
 captured/ordinary parity, no numerical array download and callback expiration
 also pass. This closes the small-fixture capability gate only; no N300k lookahead,
 new objective, actual-handoff derivative or physical/4K quality promotion.
+
+P329 preregisters N300k W20/inner8 original-control withdrawal capability using
+the unchanged raw recipe except a20-attempt cap. The observer retains full
+accepted X/V and terminal F/C, original private replay, prepared input, joint
+head/coast and separate future covectors before evaluating closure.24 CPU cases
+pass; a deliberately corrupted owned-C witness fails while original frames and
+outer acceptance remain unchanged. Production CUDA/memory is pending. Coast
+prepared image-loss observations are finite diagnostics only; independent raw
+coast quality and actual handoff validation remain required before adoption.
+See `docs/production_withdrawal_p329.md`; no objective/default/render change.

@@ -332,3 +332,9 @@ These are the leading candidates for the unresolved problems, and they are ports
   4ab8510 passes4 actual CUDA cases,0 skipped,2.17s. Full-size VRAM and physical
   quality gates remain pending. No loss/default/adoption change;
   the real assimilation/admission/preparation handoff remains a separate gap.
+- **P329 production capability:** `docs/production_withdrawal_p329.md` preregisters
+  one read-only N300k W20/inner8 joint withdrawal measurement. Accepted full X/V
+  and terminal F/C, private replay, original merit and original outer disposition
+  are separately bound.24 CPU cases pass, including a failed-C witness with
+  unchanged production frames. Full-size CUDA/memory is pending. Prepared coast
+  image terms are diagnostics, not raw quality; no proposal or adoption API.
