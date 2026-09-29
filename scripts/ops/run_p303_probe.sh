@@ -5,7 +5,7 @@ base=/data/relcfd/chayo/physmorph_v2
 mode=${1:?baseline or raw or raw-off or raster or continuous or quality or phase or render-compare}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|baseline-motion|raw-motion|full-baseline|full-raw|support-braking-repair|frozen-replay-noise|frozen-state-identity) ;; *) exit 2;; esac
+case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|baseline-motion|raw-motion|full-baseline|full-raw|support-braking-repair|frozen-replay-noise|frozen-state-identity) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -50,6 +50,10 @@ if [[ "$mode" == horizon-verify ]]; then
     exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \
         tests/test_compute_cuda.py::test_horizon_motion_archive_matches_cpu_with_device_geometry \
         -q --junitxml="$out.xml"
+fi
+if [[ "$mode" == reporting-verify ]]; then
+    exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \
+        tests/test_render_reporting_cuda.py -q --junitxml="$out.xml"
 fi
 if [[ "$mode" == metric-verify ]]; then
     exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \

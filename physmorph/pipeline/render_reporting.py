@@ -11,26 +11,46 @@ import torch
 def accepted_render_step(physics, render, leaves, previous, names, weight,
                          loss_before, loss_after, parts_before, parts_after,
                          endpoint_before, endpoint_after, iteration, backtracks, alpha):
-    channels = {}
-    pn2, rn2 = 0., 0.
+    observations, channel_offsets = [], []
     available = physics is not None and render is not None
     for i, (p, old, name) in enumerate(zip(leaves, previous, names)):
         delta = p.detach()-old
+        channel_offsets.append((name, len(observations)))
         if not available:
-            channels[name] = dict(accepted_control_delta_norm=float(delta.norm()),
-                                  direction_statistics=None)
+            observations.append(delta.norm())
             continue
         pg, rg = physics[i], render[i]
-        pn, rn = float(pg.norm()), float(rg.norm())
+        observations.extend((pg.norm(), rg.norm(), delta.norm(),
+                             (rg*delta).sum(), (pg*rg).sum()))
+    before_index = None if loss_before is None else len(observations)
+    if loss_before is not None:
+        observations.append(loss_before.detach())
+    after_index = None if loss_after is None else len(observations)
+    if loss_after is not None:
+        observations.append(loss_after.detach())
+    observations.append((endpoint_after-endpoint_before.detach()).square().sum(1).mean().sqrt())
+    # Reductions retain their original dtype. Stack promotes (including float64)
+    # only the finished scalars; one host transfer supplies all Python reporting.
+    # Device metadata is host-known; gathering also preserves mixed-device callers.
+    device = next((value.device for value in observations if value.is_cuda), observations[0].device)
+    values = torch.stack([value.to(device=device).reshape(()) for value in observations]).cpu().tolist()
+    channels = {}
+    pn2, rn2 = 0., 0.
+    for name, offset in channel_offsets:
+        if not available:
+            channels[name] = dict(accepted_control_delta_norm=values[offset],
+                                  direction_statistics=None)
+            continue
+        pn, rn, delta_norm, render_dot_delta, physics_dot_render = values[offset:offset+5]
         pn2 += pn*pn; rn2 += rn*rn
         channels[name] = dict(physics_direction_norm=pn, render_direction_norm=rn,
             nominal_render_share=weight*rn/max(pn+weight*rn, 1e-30),
-            accepted_control_delta_norm=float(delta.norm()),
-            optimizer_render_direction_dot_delta=float((rg*delta).sum()),
-            weighted_optimizer_render_direction_dot_delta=weight*float((rg*delta).sum()),
-            physics_render_cosine=float((pg*rg).sum())/max(pn*rn, 1e-30))
-    before = None if loss_before is None else float(loss_before.detach())
-    after = None if loss_after is None else float(loss_after.detach())
+            accepted_control_delta_norm=delta_norm,
+            optimizer_render_direction_dot_delta=render_dot_delta,
+            weighted_optimizer_render_direction_dot_delta=weight*render_dot_delta,
+            physics_render_cosine=physics_dot_render/max(pn*rn, 1e-30))
+    before = None if before_index is None else values[before_index]
+    after = None if after_index is None else values[after_index]
     return dict(iteration=iteration, backtracks=backtracks, accepted_alpha=alpha, lambda_render=weight,
         direction_statistics_available=available,
         nominal_render_share=(weight*rn2**.5/max(pn2**.5+weight*rn2**.5, 1e-30)
@@ -38,7 +58,7 @@ def accepted_render_step(physics, render, leaves, previous, names, weight,
         render_loss_before=before, render_loss_after=after,
         observed_render_loss_change=None if before is None or after is None else after-before,
         components_before=parts_before, components_after=parts_after, channels=channels,
-        optimization_endpoint_change_rms_wu=float((endpoint_after-endpoint_before.detach()).square().sum(1).mean().sqrt()),
+        optimization_endpoint_change_rms_wu=values[-1],
         interpretation='Norm share is not displacement/causal share. Direction dot delta may include gradient transforms; not physical work or an exact loss derivative. Endpoint delta is an optimizer update, not physical velocity.')
 
 
