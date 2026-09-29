@@ -3,10 +3,27 @@ import json
 
 import pytest
 import torch
+from torch.utils._python_dispatch import TorchDispatchMode
 
 from physmorph.render.footprint_diagnostics import summarize_world_footprints
 from test_footprint_diagnostics import rotation
-from test_render_reporting_cuda import ScalarTransferAudit
+
+
+class ScalarTransferAudit(TorchDispatchMode):
+    """Counts CUDA-to-host copies and forbids per-scalar extraction (vendored from v3-grid-gs
+    tests/test_render_reporting_cuda.py, whose reporting module this branch does not carry)."""
+    def __init__(self):
+        super().__init__()
+        self.host_copies = []
+
+    def __torch_dispatch__(self, func, types, args=(), kwargs=None):
+        kwargs = kwargs or {}
+        if func == torch.ops.aten._local_scalar_dense.default and args[0].is_cuda:
+            raise AssertionError('Per-scalar CUDA extraction in telemetry')
+        if (func == torch.ops.aten._to_copy.default and args[0].is_cuda
+                and torch.device(kwargs.get('device', args[0].device)).type == 'cpu'):
+            self.host_copies.append((tuple(args[0].shape), args[0].dtype))
+        return func(*args, **kwargs)
 
 
 pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason='hyde06 CUDA checks')
