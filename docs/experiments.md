@@ -9198,3 +9198,19 @@ No state committed. Silhouette/PBR both improve (7.00937e-7/1.66474e-8),
 weighted render improves1.53185e-8 at lambda.0213474. Endpoint-only repair is
 insufficient for this search; path/data feasibility must remain explicit.
 [Protocol, failed startup, results and limits](braking_compensation_p307.md).
+
+## 2026-09-28 — P308: running motion improves, nonlinear data restoration fails
+
+Fresh W20, N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8. Original20
+windows/160 accepted updates, guards0, exact callback isolation. Fixed61,734
+arrived-free IDs. Affine volume/render restoration with a bounded running-motion
+step finds8 linear-feasible forward trials; all exceed the unchanged actual
+loss ceilings. The next3 smaller balls have no feasible linear step.0 repairs
+accepted or committed. H5 alone fails only data gates: step RMS-3.0822%, terminal
+speeds-30.0870%/-29.8140%, all raw shape/supply and both-cohort motion checks
+pass, but volume/render exceed ceilings3.37604e-9/1.02445e-8 (9.67x/44x observed
+baseline repeat ranges). Silhouette improves while PBR worsens; weighted render
+increases2.68654e-10 at lambda.0256414. No full-morph or4K-quality promotion.
+CPU19 checks and independent code/result review pass. The measured model
+remainder motivates a bounded correction with fixed ceilings, not a looser gate.
+[P308 evidence and limits](running_repair_p308.md).

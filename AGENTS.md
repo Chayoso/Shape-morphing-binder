@@ -179,3 +179,11 @@ These are the leading candidates for the unresolved problems, and they are ports
   and fail volume/local-density gates (`docs/braking_compensation_p307.md`).
   No compensated state was committed. Do not lower gates, add endpoint-only
   iterations or promote a stopping policy from these records.
+- **P308 status:** constrained running repair is diagnostic-only. Its fresh
+  run accepted0 repairs:8 linear-feasible forward trials missed the actual
+  volume/render ceilings; in3 smaller trust balls the active-set solver found
+  no feasible linear step.
+  H5 passes all raw shape/supply and motion gates but still fails both data
+  gates, beyond the observed scalar repeat ranges. Do not promote it or widen
+  ceilings. See `docs/running_repair_p308.md` for observed-model remainders and
+  the bounded correction direction; persistence and4K quality remain untested.

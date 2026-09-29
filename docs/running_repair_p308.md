@@ -83,3 +83,46 @@ verified their fixes, and cleared the complete noncommitting callback path.
 `code_running_repair1` then passed its CUDA opposing-plane preflight on hyde06
 GPU1 and began the fresh300k run. No physical result is available at this entry;
 the old C-repeat/restart gate and production/4K-quality status remain unchanged.
+
+## Completed running_repair1: tangent predictions miss the actual loss ceilings
+
+The fresh run completed20 windows/160 accepted original inner updates with all
+trajectory guards0 and exact post-callback production isolation. N300k,T20,
+dt1/240,dx.3062907543956724wu,loss36^3,budget8 are unchanged. The fixed cohorts
+are61,823 start-free and61,734 start-arrived-free IDs; this is a different fresh
+realization from P307 and is compared only against its own three baselines.
+
+No repair update was accepted. At halves0..7, both data planes are active, the
+final projected coefficient step passes the affine/trust checks, and actual R
+decreases. All eight forward candidates nevertheless exceed both nonlinear
+prepared-loss ceilings. At halves8..10 the active-set solver found no feasible linear step inside
+the smaller radius. The baseline ceilings are volume.0019056980963796377 and
+render.0018326621502637863 and were never widened.
+
+Independent recomputation of all P306 gates identifies h5 as failing only these
+two prepared-data gates. Against its own baseline, arrived-free step RMS falls
+3.0822%, net RMS2.8924%, path mean4.2938%, stored/geometric terminal speeds
+30.0870%/29.8140%; all raw geometry/supply checks and both cohorts' motion gates
+pass. Its fixed-source density/upper coverage/tip count equal baseline, overall
+coverage gains1/300000 and independent silIoU gains2.44208e-5. These are
+same-window measurements, not a full-morph hole/rest/appearance certificate.
+
+H5 volume exceeds its ceiling3.3760443e-9 and render1.0244548e-8:9.67x and44x
+their observed three-baseline ranges. Its projected linear residuals are about
+-2e-14, so these actual excesses are not explained by that affine-dot error.
+The observed model remainder is positive; it is not a certified curvature bound
+or an isolated physical cause. All candidate states remain uncommitted.
+
+Rendering at h5: silhouette decreases3.37837e-7 but PBR increases3.48198e-7;
+the combined increase is1.04774e-8 relative to baseline0 (the frozen ceiling is
+the maximum of all three baselines). Weighted increase is2.68654e-10 at
+lambda.0256413714. Both render and volume constraints bind the linear proposal;
+actual rendering still fails. Across the original160 accepted updates, median
+nominal render-direction share is.5027565 and median lambda.061979; neither
+is a causal displacement share. Exported4K appearance was not measured here.
+
+Independent result review verified JSON/protocol/source bindings, cohort counts,
+guards/isolation, all eight trials' gates and the scalar replay-range comparison.
+Evidence: `docs/evidence/p308`; complete state/control/linearization sidecars
+remain under server `work/p303/running_repair1`. Next is bounded observed-model
+remainder correction, keeping the same ceilings and all final gates.
