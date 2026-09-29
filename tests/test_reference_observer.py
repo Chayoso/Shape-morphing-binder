@@ -56,6 +56,7 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
 
     checkpoints = []
     models = []
+    callback_packets = []
 
     def checkpoint(index,packet):
         assert packet['optimizer_state_exact']
@@ -104,8 +105,10 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
             restored.close()
         model.coefficients.fill_(0.)
         models.append(model)
+        callback_packets.append(packet)
         checkpoints.append((index,packet['iteration']))
         packet['positions'].fill_(-123.)
+        packet['C'].fill_(-123.)
         packet['controls']['stress'].fill_(999.)
         assert packet['history'].get('render_influence') is not None
         packet['history']['render_influence'].clear()
@@ -116,6 +119,7 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
     monkeypatch.setattr(runner,'optimize_window',with_checkpoints)
     checkpointed = runner.run_pipeline(source,target,prm,deepcopy(cfg),log=lambda *_:None)
     assert checkpoints == [(0,1),(0,2),(1,1),(1,2)]
+    assert all(p['optimizer_state_after_callback_exact'] for p in callback_packets)
     for model in models:
         with pytest.raises(RuntimeError,match='expired'):
             model.evaluate(torch.zeros_like(model.coefficients[:,3:]))

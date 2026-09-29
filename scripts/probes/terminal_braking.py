@@ -169,7 +169,9 @@ def main(capture_type=Capture, extra_protocol=None, extra_helpers=()):
         overrides=dict(stop_after_windows=20),scales=[4,2,1,.5,.25],repeats=3,
         direction='negative equal stored/geometric terminal mean square, projected into two data halfspaces',
         scope='Noncommitting positive feasibility in terminal body subspace; frozen displacement/stress/u/ref/pins; no full rest claim')
-    if extra_protocol is not None: protocol['extension'] = extra_protocol
+    if extra_protocol is not None:
+        protocol['extension'] = extra_protocol
+        protocol['scope'] = extra_protocol.get('scope',protocol['scope'])
     (args.out/'protocol.json').write_text(json.dumps(protocol,indent=2))
     with host_np.load(source_path,allow_pickle=False) as archive: source,target=archive['src'],archive['tgt']
     capture = capture_type(source,target,args.out)

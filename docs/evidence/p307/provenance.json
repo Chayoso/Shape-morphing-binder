@@ -2,5 +2,10 @@
   "braking_capture1_failure.log": "94111a62aed2fc560c01aedd673a76f9ecb1342fe9841d55083c0cc148c34c33",
   "braking_capture1_protocol.json": "e6e56fb33f4765d91ac1c7fc9e8af3dc8e9b94d9ebda607903d41b26e82373fd",
   "replay_noise1.json": "a9424d8983e8544008eb1171a33daf5503cd9b87a61a2e98d057e1575590d618",
-  "server_owned_window.npz": "531d670afac538509a6e43920494c4ab57ed314061bf7bd2c677da9384c00008"
+  "server_owned_window.npz": "531d670afac538509a6e43920494c4ab57ed314061bf7bd2c677da9384c00008",
+  "state_identity1.json": "d3c235650718b89acfda424711ef1343217815279d4decb1bf32bd938efde401",
+  "state_identity1_protocol.json": "fa5593c26a97e585f20d711069595fcaef9a1c11440e9c651c5c0eeab8b89959",
+  "live_compensation1_startup_failure.log": "e242160694cab67e67b397e6827ac60c83731d084366502a15fd420dae73f2aa",
+  "live_compensation2.json": "4a3938a169591d4c902340a626052c59207f87e139a89f36f5f4ecf630d7c363",
+  "live_compensation2_protocol.json": "cdbf75f2b48b2547ce0623f0282132f6bc05352e76238e3dcb228ab34af591be"
 }

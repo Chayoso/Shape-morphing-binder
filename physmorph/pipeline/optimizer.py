@@ -2719,6 +2719,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     positions=torch.stack([wp.to_torch(tr_eval.x[t]) for t in range(1,T+1)]),
                     V=torch.stack([wp.to_torch(tr_eval.v[t]) for t in range(1,T+1)]),
                     F=wp.to_torch(tr_eval.F[T]).clone(),
+                    C=wp.to_torch(tr_eval.C[T]).clone(),
                     pins=wp.to_torch(tr_eval.pin).clone() > .5,
                     plan=own(plan_img_np,dev), start_arrived=own(arrived_mask_np,dev).bool(),
                     arrival_radius=float(pace_r_np), lambda_render=float(lam_r),
@@ -2763,7 +2764,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                         model = FrozenBodyWindow(spec,body_basis,body_gate,body_coeff,
                                                  expand(dFc).detach(),u)
                         packet['rollout'] = model
+                    # Callback payloads are owned and may be mutated by the observer.
+                    accepted_buffers = {k:packet[k].clone() for k in ('positions','V','F','C')}
                     on_checkpoint(win_index,packet)
+                    if not (all(torch.equal(p,b) for p,b in zip(leaves,originals))
+                            and all(torch.equal(p,b) for p,b in zip(mom,moments))
+                            and all(torch.equal(p,b) for p,b in zip(vel,seconds))
+                            and all(torch.equal(wp.to_torch(tr_eval.x[t]),accepted_buffers['positions'][t-1]) for t in range(1,T+1))
+                            and all(torch.equal(wp.to_torch(tr_eval.v[t]),accepted_buffers['V'][t-1]) for t in range(1,T+1))
+                            and torch.equal(wp.to_torch(tr_eval.F[T]),accepted_buffers['F'])
+                            and torch.equal(wp.to_torch(tr_eval.C[T]),accepted_buffers['C'])):
+                        raise ValueError('Checkpoint callback changed accepted buffers or optimizer state')
+                    packet['optimizer_state_after_callback_exact'] = True
+                    del accepted_buffers
                 finally:
                     if model is not None:
                         model.close()

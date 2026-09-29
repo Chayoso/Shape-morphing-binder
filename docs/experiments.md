@@ -9171,3 +9171,30 @@ Next bounded test is displacement-mode compensation inside actual MPM with
 the chosen terminal coefficients fixed. A fresh complete owned-window capture
 and GPU array/data/derivative roundtrip are prerequisites; old P306 sidecars
 cannot reconstruct its exact initial state. [P307 protocol](braking_compensation_p307.md).
+
+## 2026-09-28 — P307: identity isolated from C repeatability
+
+At the same N300k,T20,dt1/240,dx.3062907544wu,loss36^3 discretization,
+`state_identity1` compares one archive round trip and12 preserved witnesses.
+All75 input arrays/213 primitive fields and Warp inputs are exact; C is stable
+across adjoints and its public snapshot survives later forwards. All30 pairs
+pass X/V/F/data/gradient gates. C alone fails8pairs, including2same-instance
+pairs, always2of2.7million components; maximum absolute9.6053e-5 s^-1,
+ratio2.0384. Neither this nor the earlier capture is an admitted restart.
+
+The bounded compensation can instead use a fresh real callback without loading
+a saved state. Its own trial05, unchanged search/gates, separate production-state
+isolation checks, and explicit failed C repeatability record are preregistered
+in [P307](braking_compensation_p307.md). No physical or visual promotion follows.
+
+The fresh `live_compensation2` alternative completed W20 at the same
+discretization/budget, all guards0, exact production-state isolation. Four
+endpoint updates reduce discrepancy to the original endpoint78.84% relative
+to its terminal05 and reduce fixed52,604 arrived-free terminal speeds26.45%/
+26.20%. Saved-step RMS nevertheless rises.1605%; volume rises1.69966e-8 and
+fixed-source upper density falls5.58701e-5. All four candidates fail; a
+retrospective check of all25 line-search trials also finds no feasible trial.
+No state committed. Silhouette/PBR both improve (7.00937e-7/1.66474e-8),
+weighted render improves1.53185e-8 at lambda.0213474. Endpoint-only repair is
+insufficient for this search; path/data feasibility must remain explicit.
+[Protocol, failed startup, results and limits](braking_compensation_p307.md).

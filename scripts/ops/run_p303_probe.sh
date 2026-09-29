@@ -5,7 +5,7 @@ base=/data/relcfd/chayo/physmorph_v2
 mode=${1:?baseline or raw or raw-off or raster or continuous or quality or phase or render-compare}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|frozen-replay-noise) ;; *) exit 2;; esac
+case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|frozen-replay-noise|frozen-state-identity) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -36,6 +36,13 @@ set +o noclobber
 printf '%s\n' "$now" > "$base/maintenance/last_gpu_launch_epoch"
 flock -u 9
 cd "$REPO"
+if [[ "$mode" == live-braking-compensation ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/live_braking_compensation.py --out "$out"
+fi
+if [[ "$mode" == frozen-state-identity ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/frozen_state_identity.py \
+        --archive "$base/work/p303/braking_capture1/owned_window.npz" --out "$out"
+fi
 if [[ "$mode" == frozen-replay-noise ]]; then
     exec "$PY" scripts/ops/cuda_python.py scripts/probes/frozen_replay_noise.py \
         --archive "$base/work/p303/braking_capture1/owned_window.npz" --out "$out.json"

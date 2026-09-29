@@ -1,0 +1,26 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+Traceback (most recent call last):
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/code_live_compensation1/scripts/ops/cuda_python.py", line 16, in <module>
+    runpy.run_path(sys.argv[0], run_name='__main__')
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 289, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 96, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "scripts/probes/live_braking_compensation.py", line 91, in <module>
+    main(LiveCompensation,extra_protocol=dict(kind='Fresh live-window displacement compensation',version=1,
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/code_live_compensation1/scripts/probes/terminal_braking.py", line 166, in main
+    helpers = {str(p.relative_to(root)):sha(p) for p in (Path(__file__).resolve(),root/'scripts/probes/inner_budget.py',root/'scripts/probes/reference_swap.py',*extra_helpers)}
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/code_live_compensation1/scripts/probes/terminal_braking.py", line 166, in <dictcomp>
+    helpers = {str(p.relative_to(root)):sha(p) for p in (Path(__file__).resolve(),root/'scripts/probes/inner_budget.py',root/'scripts/probes/reference_swap.py',*extra_helpers)}
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/pathlib.py", line 818, in relative_to
+    raise ValueError("{!r} is not in the subpath of {!r}"
+ValueError: 'scripts/probes/braking_compensation.py' is not in the subpath of '/data/relcfd/chayo/physmorph_v2/work/p303/code_live_compensation1' OR one path is relative and the other is absolute.
