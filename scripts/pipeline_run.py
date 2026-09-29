@@ -136,6 +136,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                          settle_pin_confirm=args.settle_pin_confirm,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
+                         assim_fp64=args.assim_fp64,
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
                          ot_handoff=args.ot_handoff,
                          render_views=args.render_views,
@@ -568,6 +569,8 @@ def main():
     ap.add_argument("--w_tctrl", type=float, default=0.0)
     ap.add_argument("--w_box", type=float, default=10.0)
     ap.add_argument("--assim", type=float, default=0.5)
+    ap.add_argument("--assim_fp64", action="store_true",
+                    help="opt-in FP64 plastic assimilation arithmetic; store FP32 state after each call")
     ap.add_argument("--young", type=float, default=1.4e5, help="Young's modulus of the body (material study)")
     ap.add_argument("--poisson", type=float, default=0.2, help="Poisson ratio of the body (material study)")
     ap.add_argument("--render_until", type=int, default=0,

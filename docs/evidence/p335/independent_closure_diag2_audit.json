@@ -1,0 +1,127 @@
+{
+  "schema": "p335_closure_diag2_independent_metadata_audit_v1",
+  "status": "PASS_REPORTED_ARTIFACT_AND_ARITHMETIC_CONSISTENCY_SYNTHETIC_ONLY",
+  "completed_utc": "2026-09-29T09:37:48.232506+00:00",
+  "method": "Local standard-library SHA256 and scalar metadata/FP32 arithmetic reconstruction; four small proof files fetched through hyde01. No raw numerical array read, GPU, MPM or assimilation replay.",
+  "artifacts": {
+    "p335_closure_diag2.result.json": {
+      "bytes": 4179725,
+      "sha256": "50cb74f4df38fced64df82db9c21477df6e1fddb3197779edd95e17c86b9d616"
+    },
+    "p335_closure_diag2.protocol.json": {
+      "bytes": 24362,
+      "sha256": "1729a4b05290ebf01236772428e9482884ae5ee65589d794b4e8df81f335f292"
+    },
+    "p335_closure_diag2.output_receipt.json": {
+      "bytes": 330,
+      "sha256": "f106e3a69821ac2b0d8970301bec423646acf8cb0f6f7cdf20af164cf1e0a3a2"
+    },
+    "p335_closure_diag2.log": {
+      "bytes": 581,
+      "sha256": "19d56da19c62fb42312f557c69a4f103b5fabc3f23326128f3e1d3d9e51b012b"
+    },
+    "post_assimilation_closure_diagnosis_v2.py.txt": {
+      "bytes": 27198,
+      "sha256": "173d68141a8ddad9ecab63f975344000ec85df572d16634ad72bf7ba03d94a2e"
+    },
+    "p335_source_receipt.json": {
+      "bytes": 103816,
+      "sha256": "3795d960ca22e85e5683f6f7c8d17fabfd52ac4deafb5115bdb812cfaa609361"
+    },
+    "p335_native1.result.json": {
+      "bytes": 1030901,
+      "sha256": "f148e981da13ebb4a0d7bd0f7c1322b6595175a554cdc3ae570a59c0ed66a34f"
+    },
+    "p335_native1.protocol.json": {
+      "bytes": 33504,
+      "sha256": "d382b4a98a71ce252aee1f40aa0b89ab5c0686827b988211f8ac9ce80d4e55c6"
+    }
+  },
+  "source": {
+    "producer_commit": "c1a2b00c26fec0fdcaeee0ca2cc6ba584bf715e1",
+    "diagnostic_sha256": "173d68141a8ddad9ecab63f975344000ec85df572d16634ad72bf7ba03d94a2e",
+    "all_bindings": 93,
+    "physmorph_files_matched_frozen_cuda3_receipt_and_native_protocol": 83,
+    "recorded_before_after_identity_equal": true
+  },
+  "checks": {
+    "output_receipt_hashes_checked": 2,
+    "total_comparison_rows": 1275,
+    "phase_comparison_rows": 1260,
+    "top_component_rows": 10200,
+    "FP32_top_ratio_recalculations_exact": 10200,
+    "summary_recomputed": true,
+    "reported_bit_exact_agrees_with_full_array_hash_pairs": true,
+    "Fp_component_RMS_reconstructed_from_three_cohort_norms": true
+  },
+  "discretization": {
+    "N": 300000,
+    "T_head": 20,
+    "T_coast": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "grid": [
+      36,
+      36,
+      36
+    ]
+  },
+  "cohorts": {
+    "old_pinned": 258974,
+    "newly_pinned": 2898,
+    "surviving_free": 38128
+  },
+  "observed": {
+    "elapsed_seconds": 13.54195049777627,
+    "synthetic_precision_pair_max_ratios": {
+      "x": 0.19217048585414886,
+      "v": 0.30019915103912354,
+      "C": 0.4095695912837982,
+      "F": 0.13900527358055115
+    },
+    "synthetic_precision_pair_all_phases_pass": true,
+    "original_FP32_joint_vs_actual_max_ratios": {
+      "x": 0.2763017416000366,
+      "v": 1.0394701957702637,
+      "C": 2.6833090782165527,
+      "F": 0.13900527358055115
+    },
+    "accepted_precision_vs_original_actual_max_ratios": {
+      "x": 0.34208786487579346,
+      "v": 0.9277700781822205,
+      "C": 3.088253974914551,
+      "F": 0.09404273331165314
+    },
+    "joint_precision_vs_original_actual_max_ratios": {
+      "x": 0.3360094428062439,
+      "v": 0.9192665815353394,
+      "C": 3.0202279090881348,
+      "F": 0.13900527358055115
+    },
+    "Fp_cast_response": {
+      "max_abs": 3.5762786865234375e-07,
+      "component_RMS": 1.5777745731679341e-09
+    },
+    "Fp_ordinary_response": {
+      "max_abs": 4.172325134277344e-06,
+      "component_RMS": 1.3867502624771053e-07
+    },
+    "difference_of_Fp_responses": {
+      "passed": false,
+      "failing_IDs": 4,
+      "max_tolerance_ratio": 1.093745470046997,
+      "new_pinned_failing_IDs": 2,
+      "surviving_free_failing_IDs": 2
+    }
+  },
+  "interpretation": "Within this frozen counterfactual, computing each assimilation call in FP64 and storing FP32 at each actual state boundary markedly reduces the handoff response to the joint-versus-accepted head-F discrepancy. The resulting two synthetic coasts pass against each other. Both nevertheless fail C closure against the original FP32 actual coast: this is not an actual production closure or physical-quality pass.",
+  "limitations": [
+    "Trajectory/Fp arrays were not retained, only full-output hashes, top components and scalar reductions. This audit cannot independently recompute global raw-array reductions or ID-to-cohort membership.",
+    "The Fp RMS denominator is all 300000 particles times 9 matrix components, including 258974 old-pin zero responses; it is not a particle-motion or rest metric.",
+    "The response_difference descriptor fails for four IDs and is retained. Not all precision-related comparisons pass.",
+    "Both synthetic coasts change Fp relative to original actual W21. No production policy is adopted or validated here.",
+    "The counterfactual uses the reviewed FP64/svd3 expression including the small new-pin subset; this is not an isolated library-independent accuracy proof.",
+    "The single libcusolver hash is post-run only, with an empty before map. No library file was independently rehashed in this review.",
+    "No new derivative, closed-hole, visual-oscillation-cause, per-particle rest, rendering or 4K claim follows."
+  ]
+}

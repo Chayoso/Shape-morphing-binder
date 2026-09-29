@@ -312,6 +312,8 @@ def calibrate_units(tgt: TargetPack, source_x, target_x, cfg: PipelineConfig) ->
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
                  on_commit=None, on_iter=None, w_src=None, w_tgt=None, select_window=None):
     """Select the explicit numerical backend; host copies are archive/viewer outputs."""
+    if cfg.assim_fp64 and (cfg.assim_consensus or cfg.w_grow):
+        raise ValueError('assim_fp64 does not support consensus or growth assimilation')
     if cfg.compute_backend == 'legacy':
         return _run_pipeline(source_x, target_x, prm, cfg, log, on_commit, on_iter, w_src, w_tgt,
                              select_window=select_window)
@@ -814,7 +816,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                                                (prm.nx, prm.ny, prm.nz), device=cfg.device)
                 _Fp_new = assimilate_elastic(Fc, Fp, eta=cfg.assim,
                                              smin=cfg.assim_smin, smax=cfg.assim_smax,
-                                             isochoric=cfg.assim_iso, Fe=Fe_bar)
+                                             isochoric=cfg.assim_iso, Fe=Fe_bar, fp64=cfg.assim_fp64)
                 # config.settle_pin_assim: a PINNED particle is excluded — its F_e is R_e already, and the
                 # isochoric projection of the cumulative F_p (det F_p = 1) would undo the volumetric part of
                 # the pin-time assimilation at the next commit (measured on the 3k smoke: particles pinned
@@ -1704,7 +1706,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                 # kept: a transient compression at the pin becomes the rest volume there.
                 if getattr(cfg, "settle_pin_assim", False) and _newly.any():
                     Fp[_newly] = assimilate_elastic(Fc[_newly], Fp[_newly], eta=1.0, smin=cfg.assim_smin,
-                                                    smax=cfg.assim_smax, isochoric=False)
+                                                    smax=cfg.assim_smax, isochoric=False, fp64=cfg.assim_fp64)
                 # config.settle_pin_yield (10.27 addendum 4): a settled particle within the grid kernel's support of a
                 # transit ray is RELEASED for the window: no control, no relaxation move, no step of the optimiser,
                 # passive material that yields to the passing stream through the physics alone and re-pins when
@@ -1729,7 +1731,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                         _repin = settled_p & (~_yield) & pin_yield_prev
                         if _repin.any():
                             Fp[_repin] = assimilate_elastic(Fc[_repin], Fp[_repin], eta=1.0, smin=cfg.assim_smin,
-                                                            smax=cfg.assim_smax, isochoric=False)
+                                                            smax=cfg.assim_smax, isochoric=False, fp64=cfg.assim_fp64)
                     if (a + 1) % 5 == 0:
                         log(f"[v2] anim {a + 1}: settled particles released to a passing stream {100 * _yield.sum() / max(1, settled_p.sum()):.1f} %")
                 # config.settle_pin_follow (10.27 addendum 6): the pin FOLLOWS THE PLAN. A pinned particle whose plan
@@ -1838,7 +1840,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                 _new = (~frozen_p) & _arr_f & (ctrl_rev_count >= 2)
                 if _new.any():
                     Fp[_new] = assimilate_elastic(Fc[_new], Fp[_new], eta=1.0, smin=cfg.assim_smin,
-                                                  smax=cfg.assim_smax, isochoric=False)
+                                                  smax=cfg.assim_smax, isochoric=False, fp64=cfg.assim_fp64)
                     frozen_p |= _new
                 if frozen_p.any():
                     ctrl_scale[frozen_p] = 0.0

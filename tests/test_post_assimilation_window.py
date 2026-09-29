@@ -16,7 +16,7 @@ from test_withdrawal_adjoint_fd import direction_like
 from pin_collider_reference import first_step_pin_velocity
 
 
-def make_case(*, pin_slip=False):
+def make_case(*, pin_slip=False, fp64=False):
     """N27/T20/dt.002/dx.5/grid16^3, gate-off, actual new pin3."""
     owner = make_owner()
     spec = owner.spec
@@ -25,16 +25,16 @@ def make_case(*, pin_slip=False):
     spec.layer = (*spec.layer[:5], None, 0., spec.layer[7])
     cfg = PipelineConfig(T=spec.T, body_ctrl=True, body_terminal_ctrl=True,
                          phys_loss='ot_pace', loss_units='density', device='cpu',
-                         assim=.5, assim_iso=True, settle_pin_assim=True,
+                         assim=.5, assim_iso=True, assim_fp64=fp64, settle_pin_assim=True,
                          settle_pin_slip=pin_slip)
     out = owner.evaluate(owner.coefficients[:, 3:])
     head = owner.adjoint.traj
     F, P = out['F'].detach().reshape(-1, 3, 3).numpy(), spec.Fp.copy()
     old = spec.pin.astype(bool)
     pins = old.copy(); pins[3] = True
-    Fp = assimilate_elastic(F, P, eta=cfg.assim, isochoric=cfg.assim_iso)
+    Fp = assimilate_elastic(F, P, eta=cfg.assim, isochoric=cfg.assim_iso, fp64=fp64)
     Fp[old] = P[old]
-    Fp[pins & ~old] = assimilate_elastic(F[pins & ~old], Fp[pins & ~old], eta=1., isochoric=False)
+    Fp[pins & ~old] = assimilate_elastic(F[pins & ~old], Fp[pins & ~old], eta=1., isochoric=False, fp64=fp64)
     v, C = out['v'].detach().numpy().copy(), out['C'].detach().numpy().copy()
     v[pins], C[pins] = 0., 0.
     layer = deepcopy(spec.layer)
@@ -54,8 +54,9 @@ def future_velocity(values):
     return (velocity.double()*((ids*.43+.2).sin()+.3)).sum()/len(velocity)
 
 
-def test_original_head_basis_and_actual_subset_assimilation_coast_closure():
-    owner, successor, cfg = make_case()
+@pytest.mark.parametrize('fp64', [False, True])
+def test_original_head_basis_and_actual_subset_assimilation_coast_closure(fp64):
+    owner, successor, cfg = make_case(fp64=fp64)
     model = PostAssimilationWindow(owner, successor, cfg, capture=False)
     values = model.evaluate(owner.coefficients[:, 3:])
     original = owner.evaluate(owner.coefficients[:, 3:])
@@ -80,8 +81,9 @@ def test_original_head_basis_and_actual_subset_assimilation_coast_closure():
 
 
 @pytest.mark.parametrize('mode', [0, 1], ids=['displacement', 'terminal'])
-def test_both_reduced_modes_have_resolved_post_assimilation_fd(mode):
-    owner, successor, cfg = make_case()
+@pytest.mark.parametrize('fp64', [False, True])
+def test_both_reduced_modes_have_resolved_post_assimilation_fd(mode, fp64):
+    owner, successor, cfg = make_case(fp64=fp64)
     model = PostAssimilationWindow(owner, successor, cfg, capture=False)
     leaves = [owner.coefficients[:, :3].clone().requires_grad_(), owner.coefficients[:, 3:].clone().requires_grad_()]
     out = model.evaluate(leaves[1], leaves[0])
@@ -234,8 +236,9 @@ def test_unreconstructed_successor_layer_parameters_rejected(key, value):
 
 
 @pytest.mark.parametrize('mode', [0, 1], ids=['displacement', 'terminal'])
-def test_slip_reduced_mode_fd_at_refined_radii(mode):
-    owner, successor, cfg = make_case(pin_slip=True)
+@pytest.mark.parametrize('fp64', [False, True])
+def test_slip_reduced_mode_fd_at_refined_radii(mode, fp64):
+    owner, successor, cfg = make_case(pin_slip=True, fp64=fp64)
     model = PostAssimilationWindow(owner, successor, cfg, capture=False)
     leaves = [owner.coefficients[:, :3].clone().requires_grad_(),
               owner.coefficients[:, 3:].clone().requires_grad_()]

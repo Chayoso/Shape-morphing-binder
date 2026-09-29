@@ -1,0 +1,280 @@
+{
+  "passed": false,
+  "error": {
+    "type": "AssertionError",
+    "message": "raw_mixed_active_render"
+  },
+  "completed_utc": "2026-09-29T09:20:22.253945+00:00",
+  "elapsed_seconds": 0.946866484824568,
+  "checks": [
+    {
+      "name": "gpu1_only",
+      "passed": true
+    },
+    {
+      "name": "data_paths_and_cwd",
+      "passed": true
+    },
+    {
+      "name": "expected_version_argument",
+      "passed": true
+    },
+    {
+      "name": "cache_under_data.WARP_CACHE_PATH",
+      "passed": true
+    },
+    {
+      "name": "cache_under_data.CUPY_CACHE_DIR",
+      "passed": true
+    },
+    {
+      "name": "cache_under_data.CUDA_CACHE_PATH",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/audit_post_assimilation_window_v1.py",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/launch_p335_audit1.sh",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/code_post_window3/VERSION",
+      "passed": true
+    },
+    {
+      "name": "producer_version",
+      "passed": true
+    },
+    {
+      "name": "known_output_members",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/accepted_velocity.npz",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/merit_head.npz",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/prepared_owner.npz",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/protocol.json",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/result.json",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/run.render_influence.json",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/run.render_influence.md",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_20_identity.npz",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_20_prepared.npz",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_21_prepared.npz",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/protocol.json",
+      "passed": true
+    },
+    {
+      "name": "binding_still_identical:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/protocol.json",
+      "passed": true
+    },
+    {
+      "name": "parsed_bytes:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/protocol.json",
+      "passed": true
+    },
+    {
+      "name": "bound_path_under_data:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/result.json",
+      "passed": true
+    },
+    {
+      "name": "binding_still_identical:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/result.json",
+      "passed": true
+    },
+    {
+      "name": "parsed_bytes:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/result.json",
+      "passed": true
+    },
+    {
+      "name": "exact_producer_binding_membership",
+      "passed": true
+    },
+    {
+      "name": "schema",
+      "passed": true
+    },
+    {
+      "name": "registered_discretization",
+      "passed": true
+    },
+    {
+      "name": "registered_rule_and_budget",
+      "passed": true
+    },
+    {
+      "name": "raw_mixed_active_render",
+      "passed": false
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/audit_post_assimilation_window_v1.py",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/launch_p335_audit1.sh",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/code_post_window3/VERSION",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/accepted_velocity.npz",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/merit_head.npz",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/prepared_owner.npz",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/protocol.json",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/result.json",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/run.render_influence.json",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/run.render_influence.md",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_20_identity.npz",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_20_prepared.npz",
+      "passed": true
+    },
+    {
+      "name": "unchanged:/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_21_prepared.npz",
+      "passed": true
+    }
+  ],
+  "check_count": 45,
+  "bindings": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/audit_post_assimilation_window_v1.py": {
+      "bytes": 40559,
+      "mtime_ns": 1790673610960781876,
+      "inode": 10491293,
+      "sha256": "c8fa386d2d66af9d436bede58c1bf3e3b9e1e2a985b2ec87492cda61ead0e7c4"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/launch_p335_audit1.sh": {
+      "bytes": 1709,
+      "mtime_ns": 1790673612368782735,
+      "inode": 10592350,
+      "sha256": "f7862a633f8ac7218fe8d4766da1390ef3b09556ab0e228c01bf5cb75ba20adc"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_post_window3/VERSION": {
+      "bytes": 41,
+      "mtime_ns": 1790673064000000000,
+      "inode": 10634413,
+      "sha256": "5c506df46d07df2fdf081276ea2d0aa2ef1638a5c94beee9b494f78e0cbcba1d"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/accepted_velocity.npz": {
+      "bytes": 11085409,
+      "mtime_ns": 1790673454860693074,
+      "inode": 10641527,
+      "sha256": "daa1cf8f68d69a68272787ee4d211d3a27596dc7d635596a62abfadab9fb2554"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/merit_head.npz": {
+      "bytes": 93073520,
+      "mtime_ns": 1790673474912703717,
+      "inode": 9588279,
+      "sha256": "195b46c504a5cf2bc1246edcb58b2c71e6eba5441b34968d1f611be2a93b71de"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/prepared_owner.npz": {
+      "bytes": 224882943,
+      "mtime_ns": 1790673484780709044,
+      "inode": 9588280,
+      "sha256": "e7d9bc9fbbef607c2458b7f43ab5d3440d3dbac8c7ed59e681743a2f914162ba"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/protocol.json": {
+      "bytes": 33504,
+      "mtime_ns": 1790673132092564569,
+      "inode": 10652101,
+      "sha256": "d382b4a98a71ce252aee1f40aa0b89ab5c0686827b988211f8ac9ce80d4e55c6"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/result.json": {
+      "bytes": 1030901,
+      "mtime_ns": 1790673515584726038,
+      "inode": 9588317,
+      "sha256": "f148e981da13ebb4a0d7bd0f7c1322b6595175a554cdc3ae570a59c0ed66a34f"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/run.render_influence.json": {
+      "bytes": 4628,
+      "mtime_ns": 1790673515560726025,
+      "inode": 9588313,
+      "sha256": "de1fec0d4ea9695d5e03a981dfb09009649733117548e577496a12018692c55c"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/run.render_influence.md": {
+      "bytes": 2604,
+      "mtime_ns": 1790673515560726025,
+      "inode": 9588316,
+      "sha256": "2c02bb082c0c4f46bcdefbeea8c3aee4329e678b2526851de5e15b2e382de55b"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_20_identity.npz": {
+      "bytes": 294352381,
+      "mtime_ns": 1790673471548701914,
+      "inode": 9588271,
+      "sha256": "91d23809ade9c67e916e8b040ef247eeb24df5b480f7530733568e13600de58d"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_20_prepared.npz": {
+      "bytes": 182358085,
+      "mtime_ns": 1790673463324697537,
+      "inode": 10641528,
+      "sha256": "711ccf9ac37659c9ffe9c7196a055b1b33901c2744464ccddb172a875a871be8"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native1/window_21_prepared.npz": {
+      "bytes": 182283195,
+      "mtime_ns": 1790673507428721486,
+      "inode": 9588312,
+      "sha256": "8d2add49b3361dc251492312d3b66850631faf034cf900f24bd7edc6f09de937"
+    }
+  },
+  "observations": {},
+  "environment": {
+    "CUDA_VISIBLE_DEVICES": "1",
+    "WARP_CACHE_PATH": "/data/relcfd/chayo/physmorph_v2/cache/warp",
+    "CUPY_CACHE_DIR": "/data/relcfd/chayo/physmorph_v2/cache/cupy",
+    "CUDA_CACHE_PATH": "/data/relcfd/chayo/physmorph_v2/cache/cuda",
+    "PHYSMORPH_RUN_REPO": "/data/relcfd/chayo/physmorph_v2/work/p303/code_post_window3"
+  }
+}

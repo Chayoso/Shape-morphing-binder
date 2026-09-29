@@ -1,5 +1,6 @@
 """The output cap must retain a failure receipt, without claiming a passed run."""
 import json
+import pytest
 from scripts.probes.post_assimilation_window import Capture
 
 
@@ -32,3 +33,13 @@ def test_small_complete_report_keeps_original_success_flag(tmp_path):
     assert capture.finish(dict(passed=True, failure=None))
     assert json.loads((tmp_path/'result.json').read_text())['passed']
     assert not (tmp_path/'failure.json').exists()
+
+
+@pytest.mark.parametrize('unsupported', ['assim_consensus', 'w_grow'])
+def test_precision_recipe_rejects_unimplemented_maps_before_starting(unsupported):
+    from physmorph.pipeline.config import PipelineConfig
+    from physmorph.pipeline.runner import run_pipeline
+    cfg = PipelineConfig(assim_fp64=True)
+    setattr(cfg, unsupported, True)
+    with pytest.raises(ValueError, match='consensus or growth'):
+        run_pipeline(None, None, None, cfg)

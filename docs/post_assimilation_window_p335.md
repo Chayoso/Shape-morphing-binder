@@ -150,3 +150,127 @@ Free P2G mass/momentum is independently unchanged under the pin-only shifts.
 All49 CPU adapter cases pass in9.62s. The same-device reference is now frozen
 for a third actual CUDA gate; it is not a complete FP64 simulator or a repaired
 full-FP32 FD witness, and does not establish the cause of the earlier mismatch.
+
+## Third actual CUDA gate passes
+
+Frozen c1a2b00, `p335_cuda3`, passes all7 cases,0skips,5.622s. The captured
+anchor pullback .000453369836 agrees with independent GPU-FP64 analytic value
+.000453371044 and FDs .000453370889 / .000453371005 at1e-4 /5e-5. The detached
+negative stays zero; baseline/branch/seed/convergence checks pass. All reduced
+body-mode, actual subset-assimilation/coast and lifetime/stream gates pass.
+The physical kernels are unchanged from91f8bb9; this revision changes the
+independent numerical witness, not the original failed FP32 finite differences.
+
+The native read-only21-window `p335_native1` run uses the same frozen source.
+The small CUDA gate authorizes this capability experiment only.
+
+## First native run: coast state closure fails
+
+N300000,T20,dt1/240,dx.3062907543956724wu,grid/loss36^3,iters8. All21 original
+windows and168 inner updates commit; guards remain zero and the original W20
+trajectory is retained. The run takes382.37s and retains989.1MB of evidence.
+Live W20 full merit, private-head inputs and actual W21 x/v/C/F/Fp boundary
+checks pass. Actual next pins total261872, including2898 new admissions.
+All head/coast health and pin checks pass. These are producer observations
+until independently checked against the available archives.
+
+The complete coast gate fails: C first exceeds the registered bound at phase2,
+reaching max absolute .000245318 and5.29589 times allowance at phase20. Velocity
+first fails at phase10, reaching .0000223666wu/s and1.54183 times allowance at
+phase20. Every position and physical-F phase passes (maximum allowance ratios
+.36001 and .13901). Boundary C and Fp differences are already .0000272095 and
+.00000447035 respectively, within their original bounds. Do not infer a kernel
+bug, roundoff cause, or the cause of visible oscillation from these figures.
+Do not enlarge tolerances or replace the actual coast input by the joint input
+to pass the gate. No gradient/candidate is admitted.
+
+The failure precedes coast/gradient archival, so only six of eight expected
+archives exist. The missing joint path and covectors cannot be independently
+reconstructed from producer comparison scalars. The bounded archive audit must
+retain an overall failure. A separate CUDA diagnostic will compare actual
+coast repeats, same-joint-input coast and isolated Fp versus other-boundary
+changes, with explicit diagnostic labels and unchanged elementwise bounds.
+
+Ordinary rendering influence in this same discretization uses18views64px and
+shared GS loss remains off. Across168 updates, median nominal render-direction
+share is .50702593 (body .35711240, stress .56421557, surface-u .74253830).
+Across21 windows median lambda is .06224250; median observed image-loss change
+per update is -.0001171824. These history observations are not causal movement
+fractions. No render optimization occurs in the private coast, and these64px
+terms do not supervise the exact4K Gaussian footprint.
+
+## Saved-state localization: Fp response carries the discrepancy
+
+The bounded CUDA diagnostic `p335_closure_diag1` completes11.14s on the same
+N300k/T20/dt1/240/dx.3062907543956724/grid36^3 state, with source/input/output
+hashes. It reruns no optimizer. The fresh joint reproduces C failure fromphase2
+(maximum allowance ratio5.27020); its v remains just inside the bound this
+time(.95858). This does not erase the native run's failed velocity witness.
+Two actual-W21 coast replays agree within the original rule, including C .38988.
+
+| Synthetic boundary change | Maximum C allowance ratio versus actual coast |
+| --- | ---: |
+| Joint Fp only; all other actual state retained | 5.03461 |
+| Joint x/v/C/F; actual Fp retained | .65742 (all four state channels pass) |
+| All joint boundary fields | 5.25886 |
+| Joint x/v/C/F plus ordinary assimilation of the same joint F | 5.14404 |
+
+The all-joint-input no-grad coast agrees with the captured joint(C .21920).
+Replacing its Fp by the ordinary map of the SAME joint F also agrees(C .23811
+versus the all-joint no-grad coast). Ordinary/P333 Fp is bit-identical on all
+38128 free IDs at the same F; backend differences occur only in the new-pin
+subset. Ordinary assimilation of the exact accepted W20 F recovers the actual
+W21 Fp bit-for-bit for every ID.
+
+Thus this case localizes the discrepancy to the Fp response to the small head-F
+replay difference, rather than a differing free-particle assimilation backend
+at fixed input. It does not establish why the head differs, a general stability
+bound, or the cause of visible oscillation. Every replacement above is synthetic
+and cannot pass the original actual-handoff gate. Test an explicitly labelled
+FP64-internal/FP32-state assimilation counterfactual before changing production
+precision; retain the original failed gate and all other physical parameters.
+
+The partial archive audit independently checks3300 items, including available
+head and exact ordinary handoff arrays and rendering bookkeeping. Only the four
+expected producer/missing-coast conditions fail; no execution error remains.
+Its first attempt rejected the legitimate declared device alias `cuda`; the
+reviewed correction accepts `cuda`/`cuda:0` while retaining canonical captured
+device checks. Earlier failed audit output is also retained. The diagnostic's
+output arrays are hashed rather than archived, so a source/receipt audit cannot
+independently reconstruct every diagnostic phase value from saved arrays.
+
+## Precision counterfactual and opt-in actual recipe
+
+`p335_closure_diag2` uses the same saved N300000/T20/dt1/240/dx.3062907543956724,
+grid/loss36^3 state. It computes each assimilation call in FP64, stores FP32,
+then feeds that stored state into the new-pin call. The two synthetic coasts
+use their own original versus joint x/v/C/F states and respective high-precision
+Fp. No optimizer or control change occurs. In13.54s their maximum allowance
+ratios are x .19217, v .30020, C .40957 and F .13901; all phases pass.
+
+The Fp response to the small replay-F difference has maximum3.57628e-7 and
+component RMS1.57777e-9 after per-call FP32 storage, versus4.17233e-6 and
+1.38675e-7 for the ordinary FP32 map. RMS includes all300000x9 components,
+including unchanged old pins; it is not a material-motion metric. The response
+difference itself fails the32-epsilon rule on4 IDs (maxratio1.09375), so the
+two precision policies are not declared interchangeable.
+
+Neither synthetic coast matches the original actual FP32 coast in C (maximum
+ratios3.08825/3.02023). The fresh FP32 joint still fails v/C at1.03947/2.68331.
+This is evidence to test a changed numerical recipe, not a pass for native1.
+Independent receipt/source/scalar audit checks1275 rows and10200 worst-component
+ratios exactly; numerical output arrays were hashed, not retained for reanalysis.
+
+The default-off `assim_fp64` option now applies the same high-precision elastic
+map in the ordinary runner and conditional derivative. Every call stores FP32,
+including the intermediate first-call result before new-pin assimilation. The
+same stable spectral pullback retains those casts. Growth and consensus are
+explicitly unsupported. The existing FP32 path and frozen native1 are retained.
+`post-assimilation-window-fp64` starts a fresh ordinary21-window prefix with this
+option enabled from the beginning; it cannot reuse the old actual boundary as
+a precision gate. CPU/CUDA/actual-native gates remain required before adoption.
+
+The head replay's few-ulp difference is consistent with FP32 atomic reduction
+ordering in separate trajectory allocations, but the first divergent reduction
+and equality of all discrete masks have not been measured. No visible jitter,
+hole, natural-rest or Gaussian footprint improvement follows from this test.

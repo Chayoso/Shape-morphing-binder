@@ -12,7 +12,7 @@ import torch
 
 
 def assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0,
-                       isochoric=False, Fe=None) -> np.ndarray:
+                       isochoric=False, Fe=None, *, fp64=False) -> np.ndarray:
     """Fp <- S_e^eta Fp with R_e S_e = polar(F_e), F_e = F Fp^-1. Per particle, EXACT.
 
     Because S_e is symmetric it commutes with its own powers, so
@@ -29,7 +29,29 @@ def assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0,
     in MPM sand/snow lineages); the unnormalised form is a measured volume RATCHET: each
     commit bakes compression permanently, |J-1|>0.3 grew 0->34% across hero6 with detF
     driven to ~0 by 120 commits, and the between-ears floaters are its squeeze-ejecta
-    (J 0.52-0.84, forensics 2026-09-01)."""
+    (J 0.52-0.84, forensics 2026-09-01).
+
+    fp64=True is an opt-in FP32-state path: compute each complete assimilation
+    call in double precision, then store FP32 before any subsequent call. It
+    shares the differentiable forward and SVD implementation; consensus Fe is
+    unsupported. The ordinary result remains detached on the active array backend.
+    """
+    if type(fp64) is not bool:
+        raise ValueError('fp64 must be a boolean precision option')
+    if fp64:
+        if Fe is not None:
+            raise ValueError('FP64 assimilation does not support consensus Fe')
+        # Lazy import after this module is initialized; the unchanged projection
+        # helper below remains the shared primitive used by the adjoint module.
+        from .assimilation_adjoint import assimilate_elastic_differentiable
+        Ft = np.ascontiguousarray(F).reshape(-1, 3, 3)
+        Fpt = np.ascontiguousarray(Fp).reshape(-1, 3, 3)
+        if Ft.dtype != np.float32 or Fpt.dtype != np.float32:
+            raise ValueError('fp64=True requires FP32 stored state')
+        with torch.no_grad():
+            value = assimilate_elastic_differentiable(torch.as_tensor(Ft), torch.as_tensor(Fpt),
+                eta=eta, smin=smin, smax=smax, isochoric=isochoric, fp64=True)
+        return to_array(value, copy=True)
     F = np.ascontiguousarray(F, np.float32).reshape(-1, 3, 3)
     Fp = np.ascontiguousarray(Fp, np.float32).reshape(-1, 3, 3)
     if eta <= 0:

@@ -146,6 +146,19 @@ These are the leading candidates for the unresolved problems, and they are ports
 - Python: numpy / torch / warp; scripts are argparse CLIs; terse comments that state constraints.
 - Compile-check before pushing: `python -m py_compile <file>`.
 - Korean is the user's working language; code and docs are English.
+- **P335 prepared-successor adapter:** `docs/post_assimilation_window_p335.md`
+  owns actual next pins/layer/bonds/eta for P334.49 CPU and7 actual CUDA gates
+  pass; original wide-radius slip and FP32 anchor FD failures remain recorded.
+  The small boundary derivative is independently checked by a GPU-FP64 collider
+  reference. Frozen c1a2b00 N300k W20/W21 keeps21 original commits/168updates,
+  guards0; live full merit/head and actual boundary close, but coast C from
+  phase2 and v fromphase10 fail the unchanged32-epsilon rule. X/F pass.
+  Discretization:T20,dt1/240,dx.3062907544wu,loss36^3,iters8. No gradients or
+  candidate admitted. Partial CUDA archive audit checks3300 items and retains
+  overall failure because joint coast/gradients were not archived. Synthetic
+  Fp/other-boundary swaps are diagnostic only, never an actual-handoff witness.
+  Rendering direction share median.5070 at18views64px is not causal motion or
+  exact4K footprint supervision. Preserve all failures and before/corrected.
 - **P334 joint handoff derivative:** `docs/post_assimilation_adjoint_p334.md`
   connects independent coast Fp and direct x/v/C/F/Fg covectors through P333.
   42 CPU and9 actual CUDA cases pass; captured Fp/C omission controls fail the

@@ -1,0 +1,123 @@
+{
+  "schema": "p335_closure_diag1_independent_metadata_audit_v1",
+  "status": "PASS_REPORTED_ARTIFACT_AND_ARITHMETIC_CONSISTENCY_NATIVE_GATE_REMAINS_FAILED",
+  "completed_utc": "2026-09-29T09:32:05.857011+00:00",
+  "method": "Read-only local Python standard-library hashes, recorded source-receipt comparison, and scalar FP32 arithmetic reconstruction. No CUDA, MPM, assimilation or raw-array replay.",
+  "artifacts": {
+    "p335_closure_diag1.result.json": {
+      "bytes": 3027149,
+      "sha256": "6659f772850e588925daa7936da615c4d2967b99a02619bce6034948710129f4"
+    },
+    "p335_closure_diag1.protocol.json": {
+      "bytes": 24326,
+      "sha256": "9c02bd09a6c81dedb808ae1f84d801db2c8fdb03f254cc09ecf10ceecdc5b4ae"
+    },
+    "p335_closure_diag1.output_receipt.json": {
+      "bytes": 330,
+      "sha256": "29e9b2fd135859dd24df87b125f216ba42948c1ff84d3ab9b1dae24b3d14c4ff"
+    },
+    "p335_closure_diag1.log": {
+      "bytes": 581,
+      "sha256": "6223070300514f3e9381a7594035478d7c0a18f92555b12f7db712768e36c46b"
+    },
+    "post_assimilation_closure_diagnosis_v1.py.txt": {
+      "bytes": 21141,
+      "sha256": "1c41748fe8e199e201f82e4c3ca02d6661d917e2afbb4f7a20dd1a0d6e2409b1"
+    },
+    "p335_native1.result.json": {
+      "bytes": 1030901,
+      "sha256": "f148e981da13ebb4a0d7bd0f7c1322b6595175a554cdc3ae570a59c0ed66a34f"
+    },
+    "p335_native1.protocol.json": {
+      "bytes": 33504,
+      "sha256": "d382b4a98a71ce252aee1f40aa0b89ab5c0686827b988211f8ac9ce80d4e55c6"
+    },
+    "p335_source_receipt.json": {
+      "bytes": 103816,
+      "sha256": "3795d960ca22e85e5683f6f7c8d17fabfd52ac4deafb5115bdb812cfaa609361"
+    }
+  },
+  "source": {
+    "producer_commit": "c1a2b00c26fec0fdcaeee0ca2cc6ba584bf715e1",
+    "diagnostic_sha256": "1c41748fe8e199e201f82e4c3ca02d6661d917e2afbb4f7a20dd1a0d6e2409b1",
+    "all_bindings": 93,
+    "physmorph_files_matched_frozen_cuda3_receipt_and_native_protocol": 83,
+    "imported_modules_under_bound_frozen_tree": 38,
+    "before_after_identity_records_equal": true,
+    "remote_files_not_rehashed_by_this_review": true
+  },
+  "checks": {
+    "protocol_and_result_output_receipt_hashes": 2,
+    "all_phase_comparison_rows": 924,
+    "total_comparison_rows": 932,
+    "top_component_rows": 7456,
+    "FP32_ratio_recalculations_exact": 7456,
+    "summary_fields_recomputed": true,
+    "all_phase_hash_equalities_match_reported_bit_exact": true,
+    "cohort_scalar_counts_sum_to_N": true,
+    "actual_repeats": 2,
+    "synthetic_boundary_variants": 4
+  },
+  "discretization": {
+    "N": 300000,
+    "T_head": 20,
+    "T_coast": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "grid": [
+      36,
+      36,
+      36
+    ]
+  },
+  "cohorts": {
+    "old_pinned": 258974,
+    "newly_pinned": 2898,
+    "surviving_free": 38128
+  },
+  "observed": {
+    "elapsed_seconds": 11.137954127974808,
+    "joint_head_F_max_abs": 7.152557373046875e-07,
+    "joint_vs_actual_C_ratio": 5.270204067230225,
+    "joint_vs_actual_C_failed_phases": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "joint_vs_actual_v_ratio": 0.9585840106010437,
+    "Fp_only_vs_actual_C_ratio": 5.034613609313965,
+    "state_only_vs_actual_C_ratio": 0.6574204564094543,
+    "all_joint_vs_joint_C_ratio": 0.2192004770040512,
+    "actual_repeat_C_ratio": 0.3898757994174957,
+    "same_joint_F_ordinary_vs_custom_free_Fp_max_ratio": 0.0,
+    "same_joint_F_ordinary_vs_custom_old_Fp_max_ratio": 0.0,
+    "same_joint_F_new_pin_Fp_max_ratio": 0.6085838675498962,
+    "accepted_F_ordinary_Fp_bit_exact": true,
+    "ordinary_Fp_same_joint_state_vs_actual_C_ratio": 5.144041061401367
+  },
+  "interpretation": "This realization localizes the failing C comparison principally to differences carried through Fp. The ordinary map reproduces the free-particle Fp exactly at the same joint F and the actual complete Fp exactly at accepted F; this does not support a same-input free-particle backend mismatch. Tiny head-F differences and their Fp response are implicated in this closure test, without proving the ultimate numerical mechanism or visible morph oscillation cause.",
+  "limitations": [
+    "Only output hashes, scalar reductions and top-component records were retained, not diagnostic trajectory or Fp arrays. Global reductions and top-ID cohort memberships cannot be independently recomputed here.",
+    "The two actual coast realizations give descriptive observed variability, not a probabilistic noise bound or evidence that all discrepancy is roundoff.",
+    "The new joint-versus-actual v comparison passes here; that does not erase the original native1 v failure. C still fails in this realization.",
+    "Synthetic boundary swaps are not actual successor witnesses and do not certify production policy quality.",
+    "libcusolver before map was empty; the one recorded SHA is a post-run binding only, not pre/post library stability or an independently rehashed local shared library.",
+    "No derivative, candidate adoption, individual rest, physical hole, rendering artifact or 4K quality claim follows."
+  ]
+}

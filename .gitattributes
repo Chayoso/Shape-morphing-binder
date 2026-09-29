@@ -16,4 +16,4 @@
 docs/*.html linguist-documentation -diff
 
 # Exact frozen Python witnesses include original mixed line endings.
-docs/evidence/p335/*.py.txt -text
+docs/evidence/p335/*.py.txt -text -whitespace

@@ -1,5 +1,39 @@
 # Experiments — gates, metrics, result log
 
+## 2026-09-29: P335 actual prepared successor; native coast closure fails
+
+The owned fixed-policy post-assimilation adapter passes49 CPU and7 actual CUDA
+cases on frozen c1a2b00 (5.622s,0skips). Its newly pinned collider-mass field now
+has a pullback into anchor positions. The original wide-radius slip FD failure
+and later full-FP32 anchor failure remain preserved; an independent first-step
+GPU-FP64 collider reference resolves that small conditional derivative at two
+radii. This is not a repair of the failed original numerical witnesses.
+
+Native p335_native1 uses N300000,T20,dt1/240,dx.3062907543956724wu,loss/grid36^3,
+iters8 and21 ordinary windows (168 inner updates). Original trajectory and
+outer commits are preserved, guards0,382.37s. Live full merit/head state and
+actual W20-to-W21 boundary close. The actual successor admits2898 new pins,
+leaving38128 free. Over its20-step coast, X/F remain within the registered
+32-FP32-epsilon rule; C first fails atphase2 (worst5.29589 allowances), v atphase10
+(worst1.54183). No candidate or native gradient is admitted. The failure occurs
+before joint-coast/gradient archives, so their full numerical witnesses are
+absent. The available-array CUDA audit completes3300 checks with only the four
+expected producer/missing-coast failure conditions; its overall verdict is fail.
+
+Median nominal rendering-direction share is.50702593 (body.35711240,
+stress.56421557,surface-u.74253830), median lambda.06224250 and median observed
+image-loss change per update-.0001171824, using18views64px and no shared GS loss.
+These are history observations, not causal movement fractions or exact4K
+Gaussian supervision. Physical F health remains separate from visible footprint.
+Details and retained failures: `post_assimilation_window_p335.md`, `evidence/p335`.
+Bounded saved-state diagnostics localize the consequential difference to the
+Fp response to tiny head-F replay differences. A per-call FP64/FP32-storage
+counterfactual gives mutually consistent synthetic coasts (maximum C allowance
+ratio .40957), while both remain inconsistent with the original FP32 actual
+coast. The default-off `assim_fp64` recipe is under actual-prefix verification;
+synthetic substitutions cannot close the original native gate. Detailed failed
+comparisons and independent scalar audits remain in the P335 evidence folder.
+
 ## 2026-09-29: P334 post-assimilation joint derivative
 
 Frozen c4a7c82 connects the P333 assimilation derivative to two Warp windows,

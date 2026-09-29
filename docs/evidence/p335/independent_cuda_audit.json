@@ -1,0 +1,646 @@
+{
+  "schema": "p335_independent_cuda_receipt_audit_v1",
+  "reviewer": "mixed60_photoreal",
+  "created_utc": "2026-09-29T09:13:32.546708+00:00",
+  "status": "PASS_SCOPED_CUDA3_WITH_PRIOR_FAILURES_RETAINED",
+  "blocking_binding_findings": [],
+  "receipt_file": "p335_source_receipt.json",
+  "receipt_sha256": "3795d960ca22e85e5683f6f7c8d17fabfd52ac4deafb5115bdb812cfaa609361",
+  "discretization": {
+    "N": 27,
+    "T_per_window": 20,
+    "dt": 0.002,
+    "dx": 0.5,
+    "grid": [
+      16,
+      16,
+      16
+    ]
+  },
+  "runs": [
+    {
+      "run": 1,
+      "frozen_commit": "5d9d47a364a5e390f7513454f2f56c8118d2ca63",
+      "source_count": 95,
+      "git_byte_exact": 75,
+      "git_line_endings_only": 20,
+      "newline_only_paths": [
+        "physmorph/compute.py",
+        "physmorph/losses/ot.py",
+        "physmorph/metrics.py",
+        "physmorph/mpm/function.py",
+        "physmorph/mpm/gridfilter.py",
+        "physmorph/mpm/kernels.py",
+        "physmorph/pipeline/body_control.py",
+        "physmorph/pipeline/config.py",
+        "physmorph/pipeline/control_basis.py",
+        "physmorph/pipeline/gauss_loss.py",
+        "physmorph/pipeline/grad_combine.py",
+        "physmorph/pipeline/grid_smooth.py",
+        "physmorph/pipeline/render_loss.py",
+        "physmorph/pipeline/runner.py",
+        "physmorph/pipeline/settlement.py",
+        "physmorph/render/covariance.py",
+        "physmorph/render/knn_gpu.py",
+        "physmorph/render/studio.py",
+        "physmorph/viewer/server.py",
+        "tests/test_post_assimilation_window.py"
+      ],
+      "current_source_bytes_checked": null,
+      "artifacts": [
+        {
+          "file": "p335_cuda1.log",
+          "bytes": 3119,
+          "sha256": "094d2c3050dca0d57cb8d6d04394749f8ec9ef7207e4e316f8c0de70d3d7281b"
+        },
+        {
+          "file": "p335_cuda1.xml",
+          "bytes": 2238,
+          "sha256": "12afa26f74b16dd208bb8abc49e1efbcc8390a3d782bb32bf0388235aabfe2d5"
+        },
+        {
+          "file": "p335_cuda1.memory.json",
+          "bytes": 3582,
+          "sha256": "c96846c3b547c99a42ab59370b5465e3cf40063a3aa3c9647054ce9695951563"
+        },
+        {
+          "file": "p335_cuda1.exit",
+          "bytes": 2,
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        {
+          "file": "p335_cuda1.launch.log",
+          "bytes": 53,
+          "sha256": "121163cb038d8642fb9b95acd1a4da1408306a20430671db2fa65329d35e677d"
+        }
+      ],
+      "launcher": {
+        "local_path": "C:\\dev\\physmorph_runtime\\p303\\run_p335_v1.sh",
+        "bytes": 1242,
+        "sha256": "7eef76299bfedcdc85d20966ee4bcb651dcbc2db7f5e0f4da5fd5b5c53176d33",
+        "matches_receipt": true
+      },
+      "pytest": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "2",
+        "skipped": "0",
+        "tests": "6",
+        "time": "5.685",
+        "timestamp": "2026-09-29T03:55:32.690870-05:00",
+        "hostname": "hyde06"
+      },
+      "cases": [
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[no_slip-displacement]",
+          "time": "1.302"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[no_slip-terminal]",
+          "time": "0.645"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[slip-displacement]",
+          "time": "0.641"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[slip-terminal]",
+          "time": "0.687"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_actual_gpu_handoff_and_independent_successor_coast",
+          "time": "0.507"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_side_stream_and_expired_owner_cannot_backpropagate",
+          "time": "0.509"
+        }
+      ],
+      "exit_code": 1,
+      "logged_FD_checks": [
+        {
+          "mode": 0,
+          "slip": false,
+          "epsilon": 0.001,
+          "analytical": -0.10721345240236219,
+          "finite_difference": -0.10720237613551573,
+          "checked_abs_error": 1.1076266846460348e-05,
+          "checked_allowance": 0.0021440475227103148,
+          "full_pass": true
+        },
+        {
+          "mode": 0,
+          "slip": false,
+          "epsilon": 0.0005,
+          "analytical": -0.10721345240236219,
+          "finite_difference": -0.10720019266286765,
+          "checked_abs_error": 1.3259739494536626e-05,
+          "checked_allowance": 0.002144003853257353,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": false,
+          "epsilon": 0.001,
+          "analytical": -0.0072763497131362875,
+          "finite_difference": -0.007274196195523869,
+          "checked_abs_error": 2.1535176124186026e-06,
+          "checked_allowance": 0.00014548392391047738,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": false,
+          "epsilon": 0.0005,
+          "analytical": -0.0072763497131362875,
+          "finite_difference": -0.007272626975358466,
+          "checked_abs_error": 3.7227377778217483e-06,
+          "checked_allowance": 0.00014545253950716932,
+          "full_pass": true
+        },
+        {
+          "mode": 0,
+          "slip": true,
+          "epsilon": 0.001,
+          "analytical": -0.2990378592266503,
+          "finite_difference": -0.29296224642928986,
+          "checked_abs_error": 0.0060756127973604634,
+          "checked_allowance": 0.005859244928585797,
+          "full_pass": false
+        },
+        {
+          "mode": 1,
+          "slip": true,
+          "epsilon": 0.001,
+          "analytical": -0.16115650361419487,
+          "finite_difference": -0.15612234830405777,
+          "checked_abs_error": 0.005034155310137095,
+          "checked_allowance": 0.0031224469660811557,
+          "full_pass": false
+        }
+      ],
+      "FP64_FD_convergence": null,
+      "sampled_process_peak_MiB": 1298
+    },
+    {
+      "run": 2,
+      "frozen_commit": "91f8bb9bbd971e885f1f58e4e1a20adb85bfccb3",
+      "source_count": 95,
+      "git_byte_exact": 75,
+      "git_line_endings_only": 20,
+      "newline_only_paths": [
+        "physmorph/compute.py",
+        "physmorph/losses/ot.py",
+        "physmorph/metrics.py",
+        "physmorph/mpm/function.py",
+        "physmorph/mpm/gridfilter.py",
+        "physmorph/mpm/kernels.py",
+        "physmorph/pipeline/body_control.py",
+        "physmorph/pipeline/config.py",
+        "physmorph/pipeline/control_basis.py",
+        "physmorph/pipeline/gauss_loss.py",
+        "physmorph/pipeline/grad_combine.py",
+        "physmorph/pipeline/grid_smooth.py",
+        "physmorph/pipeline/render_loss.py",
+        "physmorph/pipeline/runner.py",
+        "physmorph/pipeline/settlement.py",
+        "physmorph/render/covariance.py",
+        "physmorph/render/knn_gpu.py",
+        "physmorph/render/studio.py",
+        "physmorph/viewer/server.py",
+        "tests/test_post_assimilation_window.py"
+      ],
+      "current_source_bytes_checked": null,
+      "artifacts": [
+        {
+          "file": "p335_cuda2.log",
+          "bytes": 2978,
+          "sha256": "29edb8cf833829e9f60feb922a054e9075237fd9fc58425052a21a29441038c1"
+        },
+        {
+          "file": "p335_cuda2.xml",
+          "bytes": 1772,
+          "sha256": "e23344a1dc8d097974d04736d4165c294b8021617ee6afd87a8febe37c8a0166"
+        },
+        {
+          "file": "p335_cuda2.memory.json",
+          "bytes": 3583,
+          "sha256": "31292ce3d3cbd0a09b1ed0ee8281f2b07c85fb38d204f03fcaf75e5b5ca22dfb"
+        },
+        {
+          "file": "p335_cuda2.exit",
+          "bytes": 2,
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        },
+        {
+          "file": "p335_cuda2.launch.log",
+          "bytes": 53,
+          "sha256": "056d9cee5dbc3ec9fbf2699de5311d5014153c400a252f897861ac78c8d89510"
+        }
+      ],
+      "launcher": {
+        "local_path": "C:\\dev\\physmorph_runtime\\p303\\run_p335_v2.sh",
+        "bytes": 1242,
+        "sha256": "e0e98e0c6df0e46732a6efe6214c3dc17895938bf43caeedd0419a49fdd19fc8",
+        "matches_receipt": true
+      },
+      "pytest": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "1",
+        "skipped": "0",
+        "tests": "7",
+        "time": "5.722",
+        "timestamp": "2026-09-29T04:05:30.515026-05:00",
+        "hostname": "hyde06"
+      },
+      "cases": [
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[no_slip-displacement]",
+          "time": "1.167"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[no_slip-terminal]",
+          "time": "0.530"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[slip-displacement]",
+          "time": "0.546"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[slip-terminal]",
+          "time": "0.594"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_actual_gpu_handoff_and_independent_successor_coast",
+          "time": "0.405"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_side_stream_and_expired_owner_cannot_backpropagate",
+          "time": "0.406"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_new_pin_anchor_pullback_and_detached_mass_negative",
+          "time": "0.788"
+        }
+      ],
+      "exit_code": 1,
+      "logged_FD_checks": [
+        {
+          "mode": 0,
+          "slip": false,
+          "epsilon": 0.001,
+          "analytical": -0.10721345240236219,
+          "finite_difference": -0.10720237613551573,
+          "checked_abs_error": 1.1076266846460348e-05,
+          "checked_allowance": 0.0021440475227103148,
+          "full_pass": true
+        },
+        {
+          "mode": 0,
+          "slip": false,
+          "epsilon": 0.0005,
+          "analytical": -0.10721345240236219,
+          "finite_difference": -0.10720019266286765,
+          "checked_abs_error": 1.3259739494536626e-05,
+          "checked_allowance": 0.002144003853257353,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": false,
+          "epsilon": 0.001,
+          "analytical": -0.0072763497131362875,
+          "finite_difference": -0.007274196195523869,
+          "checked_abs_error": 2.1535176124186026e-06,
+          "checked_allowance": 0.00014548392391047738,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": false,
+          "epsilon": 0.0005,
+          "analytical": -0.0072763497131362875,
+          "finite_difference": -0.007272626975358466,
+          "checked_abs_error": 3.7227377778217483e-06,
+          "checked_allowance": 0.00014545253950716932,
+          "full_pass": true
+        },
+        {
+          "mode": 0,
+          "slip": true,
+          "epsilon": 0.0001,
+          "analytical": -0.2990631921362022,
+          "finite_difference": -0.3039960916617645,
+          "checked_abs_error": 0.0049328995255623065,
+          "checked_allowance": 0.00607992183323529,
+          "full_pass": true
+        },
+        {
+          "mode": 0,
+          "slip": true,
+          "epsilon": 5e-05,
+          "analytical": -0.2990631921362022,
+          "finite_difference": -0.30288785572486676,
+          "checked_abs_error": 0.0038246635886645675,
+          "checked_allowance": 0.006057757114497336,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": true,
+          "epsilon": 0.0001,
+          "analytical": -0.1611554157663666,
+          "finite_difference": -0.16114566273361333,
+          "checked_abs_error": 9.75303275327355e-06,
+          "checked_allowance": 0.0032229132546722668,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": true,
+          "epsilon": 5e-05,
+          "analytical": -0.1611554157663666,
+          "finite_difference": -0.16096870545253236,
+          "checked_abs_error": 0.00018671031383424297,
+          "checked_allowance": 0.0032193741090506475,
+          "full_pass": true
+        },
+        {
+          "scope": "captured_fixed_successor_anchor",
+          "epsilon": 0.0001,
+          "full": 0.0004533698359049654,
+          "detached_gmpin": 0.0,
+          "fd": 0.0004941151644788366,
+          "allowance": 9.882303289576733e-06,
+          "checked_abs_error": 4.0745328573871253e-05,
+          "checked_allowance": 9.882303289576733e-06,
+          "full_pass": false
+        }
+      ],
+      "FP64_FD_convergence": null,
+      "sampled_process_peak_MiB": 1320
+    },
+    {
+      "run": 3,
+      "frozen_commit": "c1a2b00c26fec0fdcaeee0ca2cc6ba584bf715e1",
+      "source_count": 96,
+      "git_byte_exact": 76,
+      "git_line_endings_only": 20,
+      "newline_only_paths": [
+        "physmorph/compute.py",
+        "physmorph/losses/ot.py",
+        "physmorph/metrics.py",
+        "physmorph/mpm/function.py",
+        "physmorph/mpm/gridfilter.py",
+        "physmorph/mpm/kernels.py",
+        "physmorph/pipeline/body_control.py",
+        "physmorph/pipeline/config.py",
+        "physmorph/pipeline/control_basis.py",
+        "physmorph/pipeline/gauss_loss.py",
+        "physmorph/pipeline/grad_combine.py",
+        "physmorph/pipeline/grid_smooth.py",
+        "physmorph/pipeline/render_loss.py",
+        "physmorph/pipeline/runner.py",
+        "physmorph/pipeline/settlement.py",
+        "physmorph/render/covariance.py",
+        "physmorph/render/knn_gpu.py",
+        "physmorph/render/studio.py",
+        "physmorph/viewer/server.py",
+        "tests/test_post_assimilation_window.py"
+      ],
+      "current_source_bytes_checked": 96,
+      "artifacts": [
+        {
+          "file": "p335_cuda3.log",
+          "bytes": 2516,
+          "sha256": "ba9a044bc83fffc3b1700efed40efc01c93f9958a5f7aae889296240121cfc9a"
+        },
+        {
+          "file": "p335_cuda3.xml",
+          "bytes": 1276,
+          "sha256": "608e515545d365b8c9187ce03578fe0d05b0b16073390cfcf1fb47fd74842808"
+        },
+        {
+          "file": "p335_cuda3.memory.json",
+          "bytes": 3360,
+          "sha256": "85efb51b136b20b58a3cba8a3e99a9bef18ea3247b77f9ca52c7c3be553cb9ce"
+        },
+        {
+          "file": "p335_cuda3.exit",
+          "bytes": 2,
+          "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        },
+        {
+          "file": "p335_cuda3.launch.log",
+          "bytes": 53,
+          "sha256": "056748f37db4bf39e9872c4457906420290c8d8153c23119df4ff777a2bb8843"
+        }
+      ],
+      "launcher": {
+        "local_path": "C:\\dev\\physmorph_runtime\\p303\\run_p335_v3.sh",
+        "bytes": 1242,
+        "sha256": "c6f6006e21998c2984787fe0a44cb7278f35096601ec2761de4f2bcadd98f5de",
+        "matches_receipt": true
+      },
+      "pytest": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "7",
+        "time": "5.622",
+        "timestamp": "2026-09-29T04:11:20.755199-05:00",
+        "hostname": "hyde06"
+      },
+      "cases": [
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[no_slip-displacement]",
+          "time": "1.167"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[no_slip-terminal]",
+          "time": "0.509"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[slip-displacement]",
+          "time": "0.546"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_reduced_modes_match_plain_and_fd[slip-terminal]",
+          "time": "0.551"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_actual_gpu_handoff_and_independent_successor_coast",
+          "time": "0.394"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_side_stream_and_expired_owner_cannot_backpropagate",
+          "time": "0.395"
+        },
+        {
+          "classname": "tests.test_post_assimilation_window_cuda",
+          "name": "test_captured_new_pin_anchor_pullback_and_detached_mass_negative",
+          "time": "0.779"
+        }
+      ],
+      "exit_code": 0,
+      "logged_FD_checks": [
+        {
+          "mode": 0,
+          "slip": false,
+          "epsilon": 0.001,
+          "analytical": -0.10721345240236219,
+          "finite_difference": -0.10720237613551573,
+          "checked_abs_error": 1.1076266846460348e-05,
+          "checked_allowance": 0.0021440475227103148,
+          "full_pass": true
+        },
+        {
+          "mode": 0,
+          "slip": false,
+          "epsilon": 0.0005,
+          "analytical": -0.10721345240236219,
+          "finite_difference": -0.10720019266286765,
+          "checked_abs_error": 1.3259739494536626e-05,
+          "checked_allowance": 0.002144003853257353,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": false,
+          "epsilon": 0.001,
+          "analytical": -0.0072763497131362875,
+          "finite_difference": -0.007274196195523869,
+          "checked_abs_error": 2.1535176124186026e-06,
+          "checked_allowance": 0.00014548392391047738,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": false,
+          "epsilon": 0.0005,
+          "analytical": -0.0072763497131362875,
+          "finite_difference": -0.007272626975358466,
+          "checked_abs_error": 3.7227377778217483e-06,
+          "checked_allowance": 0.00014545253950716932,
+          "full_pass": true
+        },
+        {
+          "mode": 0,
+          "slip": true,
+          "epsilon": 0.0001,
+          "analytical": -0.2990631921362022,
+          "finite_difference": -0.3039960916617645,
+          "checked_abs_error": 0.0049328995255623065,
+          "checked_allowance": 0.00607992183323529,
+          "full_pass": true
+        },
+        {
+          "mode": 0,
+          "slip": true,
+          "epsilon": 5e-05,
+          "analytical": -0.2990631921362022,
+          "finite_difference": -0.30288785572486676,
+          "checked_abs_error": 0.0038246635886645675,
+          "checked_allowance": 0.006057757114497336,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": true,
+          "epsilon": 0.0001,
+          "analytical": -0.1611554157663666,
+          "finite_difference": -0.16114566273361333,
+          "checked_abs_error": 9.75303275327355e-06,
+          "checked_allowance": 0.0032229132546722668,
+          "full_pass": true
+        },
+        {
+          "mode": 1,
+          "slip": true,
+          "epsilon": 5e-05,
+          "analytical": -0.1611554157663666,
+          "finite_difference": -0.16096870545253236,
+          "checked_abs_error": 0.00018671031383424297,
+          "checked_allowance": 0.0032193741090506475,
+          "full_pass": true
+        },
+        {
+          "scope": "captured_fp64_fixed_successor_anchor",
+          "epsilon": 0.0001,
+          "full": 0.0004533698359049654,
+          "reference_ad": 0.00045337104359084864,
+          "detached_gmpin": 0.0,
+          "fd": 0.00045337088890387567,
+          "checked_abs_error": 1.0529989102892046e-09,
+          "checked_allowance": 9.067417778077513e-06,
+          "full_pass": true,
+          "reference_AD_agreement": true,
+          "detached_fails": true
+        },
+        {
+          "scope": "captured_fp64_fixed_successor_anchor",
+          "epsilon": 5e-05,
+          "full": 0.0004533698359049654,
+          "reference_ad": 0.00045337104359084864,
+          "detached_gmpin": 0.0,
+          "fd": 0.0004533710048007511,
+          "checked_abs_error": 1.168895785719215e-09,
+          "checked_allowance": 9.067420096015022e-06,
+          "full_pass": true,
+          "reference_AD_agreement": true,
+          "detached_fails": true
+        }
+      ],
+      "FP64_FD_convergence": {
+        "radii": [
+          0.0001,
+          5e-05
+        ],
+        "FD_difference": 1.1589687543001048e-10,
+        "relative_only_allowance": 4.533710048007511e-10,
+        "passes_without_using_rounding_floor": true
+      },
+      "sampled_process_peak_MiB": 1366
+    }
+  ],
+  "scope": "Independent local source/artifact/XML/log-arithmetic audit plus prior static mathematical review; no independent GPU rerun.",
+  "claims": {
+    "cuda1": "4 passed/2 failed: original wide-radius slip control FD remains failed.",
+    "cuda2": "6 passed/1 failed: full-FP32 isolated anchor finite difference remains failed.",
+    "cuda3": "7 passed/0 skipped: unchanged no-slip radii, refined local slip radii, primal/lifetime checks, and independent FP64 conditional pin-collider reference.",
+    "not_claimed": [
+      "The original large-radius slip or full-FP32 anchor FD witness was repaired.",
+      "FP32 mismatch cause was established.",
+      "A complete FP64 MPM/assimilation simulation was independently checked.",
+      "N300k prepared handoff, candidate adoption, natural rest, hole removal, or 4K quality passed."
+    ]
+  },
+  "limitations": [
+    "The reference holds actual free P2G grids and other successor state fixed; its stable returned branch masks do not establish all production contact/admission/preparation branches.",
+    "Python/test/wrapper hashes do not bind all installed shared-library binaries.",
+    "Memory is sampled monitor evidence, not an exact high-water mark; project usage is collector-reported.",
+    "Ongoing native run and its independent audit are excluded."
+  ],
+  "project_bytes_collector_reported": 77544003925
+}

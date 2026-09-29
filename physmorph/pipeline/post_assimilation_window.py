@@ -87,7 +87,7 @@ class PostAssimilationWindow(FrozenWithdrawalWindow):
             successor_layer=self._successor_layer, successor_bonds=self._successor_bonds,
             successor_eta=self._successor_eta, eta=cfg.assim, isochoric=cfg.assim_iso,
             smin=cfg.assim_smin, smax=cfg.assim_smax, settle_pin_assim=cfg.settle_pin_assim,
-            capture=False)
+            capture=False, fp64=cfg.assim_fp64)
         # With layer_F disabled and u=0 this fraction has no numerical effect,
         # but preserve the captured policy before constructing any CUDA graph.
         if adjoint.coast.layer:

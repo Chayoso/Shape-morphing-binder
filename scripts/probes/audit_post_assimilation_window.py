@@ -1,0 +1,676 @@
+"""Independent P335 saved-array audit and actual-W21 passive CUDA replay.
+
+JSON scalars are metadata. All array comparisons/reductions run on CUDA; NumPy
+only decodes archived bytes. Producer-only in-memory assertions remain labelled.
+"""
+import argparse
+from dataclasses import asdict
+from datetime import datetime, timezone
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import sys
+import time
+
+import numpy as host
+
+BASE = Path('/data/relcfd/chayo/physmorph_v2')
+N, T, DT, DX = 300000, 20, 1/240, .3062907543956724
+ARCHIVES = ('window_20_prepared.npz', 'window_20_identity.npz', 'accepted_velocity.npz',
+            'merit_head.npz', 'prepared_owner.npz', 'window_21_prepared.npz',
+            'coast_gradients.npz', 'joint_coast.npz')
+OUTPUTS = {*ARCHIVES, 'protocol.json', 'result.json', 'run.render_influence.json', 'run.render_influence.md'}
+checks, bindings, observations = [], {}, {}
+
+
+def check(name, passed, *, fatal=True, **detail):
+    checks.append(dict(name=name, passed=bool(passed), **detail))
+    if not passed and fatal:
+        raise AssertionError(name)
+
+
+def identity(path):
+    path = Path(path)
+    before = path.stat()
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(8 << 20), b''):
+            digest.update(chunk)
+    after = path.stat()
+    if (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
+        raise AssertionError('File changed while hashing: '+str(path))
+    return dict(bytes=after.st_size, mtime_ns=after.st_mtime_ns, inode=after.st_ino, sha256=digest.hexdigest())
+
+
+def bind(path, expected=None):
+    path = Path(path).resolve()
+    check('bound_path_under_data:'+str(path), path.is_relative_to(BASE))
+    value = identity(path)
+    if expected is not None:
+        check('bound_identity:'+str(path), value == expected)
+    if str(path) in bindings:
+        check('binding_still_identical:'+str(path), value == bindings[str(path)])
+    bindings[str(path)] = value
+    return value
+
+
+def read_json(path):
+    value = bind(path)
+    data = Path(path).read_bytes()
+    check('parsed_bytes:'+str(path), hashlib.sha256(data).hexdigest() == value['sha256'])
+    result = json.loads(data)
+    json.dumps(result, allow_nan=False)
+    return result
+
+
+def span(values):
+    values = sorted(float(v) for v in values if v is not None and math.isfinite(float(v)))
+    if not values:
+        return None
+    middle = len(values)//2
+    median = values[middle] if len(values) % 2 else (values[middle-1]+values[middle])/2
+    return dict(count=len(values), minimum=values[0], median=median, maximum=values[-1])
+
+
+def render_audit(history, report, cfg, prm):
+    """Independent scalar bookkeeping; never imports the production summarizer."""
+    attempts = [r for r in history if 'animation' in r and not r.get('held') and 'c2f_render_res' not in r]
+    committed = [r for r in attempts if r.get('accepted', 0) > 0 and r.get('outer_accepted', 1)
+                 and not r.get('null_commit') and not r.get('outer_rejected')]
+    all_steps = [s for r in attempts for s in (r.get('render_influence_steps') or [])]
+    steps = [s for r in committed for s in (r.get('render_influence_steps') or [])]
+    expected = dict(windows=len(attempts), raw_history_rows=len(history), committed_windows=len(committed),
+        inner_accepted_steps=sum(int(r.get('accepted', 0)) for r in attempts),
+        recorded_inner_steps=len(all_steps), recorded_committed_steps=len(steps),
+        steps_in_committed_windows=sum(int(r.get('accepted', 0)) for r in committed),
+        step_nominal_share=span(s.get('nominal_render_share') for s in steps),
+        first_iteration_nominal_share=span(r.get('g_share') for r in committed),
+        adaptive_lambda=span(r.get('lambda') for r in committed),
+        observed_render_loss_change=span(s.get('observed_render_loss_change') for s in steps),
+        endpoint_optimizer_change_rms_wu=span(s.get('optimization_endpoint_change_rms_wu') for s in steps),
+        channels={k: dict(nominal_share=span(s['channels'].get(k, {}).get('nominal_render_share') for s in steps),
+                         control_delta_norm=span(s['channels'].get(k, {}).get('accepted_control_delta_norm') for s in steps))
+                  for k in sorted({k for s in steps for k in s.get('channels', {})})})
+    for key, value in expected.items():
+        check('render_summary.'+key, report[key] == value)
+    for index, step in enumerate(all_steps):
+        before, after = step.get('render_loss_before'), step.get('render_loss_after')
+        check('render_delta.'+str(index), step.get('observed_render_loss_change') ==
+              (None if before is None or after is None else after-before))
+        if step.get('direction_statistics_available'):
+            pn2 = rn2 = 0.
+            weight = step['lambda_render']
+            for name, channel in step['channels'].items():
+                pn, rn = channel['physics_direction_norm'], channel['render_direction_norm']
+                check('direction_norms.'+str(index)+'.'+name, min(pn, rn, weight) >= 0 and
+                      all(math.isfinite(v) for v in (pn, rn, weight)))
+                pn2 += pn*pn; rn2 += rn*rn
+                check('channel_share.'+str(index)+'.'+name,
+                      channel['nominal_render_share'] == weight*rn/max(pn+weight*rn, 1e-30))
+                check('weighted_direction_dot.'+str(index)+'.'+name,
+                      channel['weighted_optimizer_render_direction_dot_delta'] ==
+                      weight*channel['optimizer_render_direction_dot_delta'])
+            check('joint_direction_share.'+str(index), step['nominal_render_share'] ==
+                  weight*rn2**.5/max(pn2**.5+weight*rn2**.5, 1e-30))
+    check('render_discretization', report['discretization'] == dict(N=N, T=T, dt=DT, dx_wu=DX,
+          loss_res=36, render_res=64, iters=8))
+    selections = [r for r in attempts if r.get('window_selection') is not None]
+    check('identity_selection_only', len(selections) == 1 and selections[0]['animation'] == 19 and
+          selections[0]['window_selection']['selected'] is False)
+    selection = report['window_selection']
+    check('selection_summary_counts', all(selection[k] == v for k, v in dict(selection_windows=1,
+          selected_private_forwards=0, outer_committed_selected_forwards=0,
+          outer_uncommitted_selected_forwards=0, original_result_retained_windows=1, added_adam_steps=0).items()))
+    check('selection_observation', len(selection['observations']) == 1 and
+          selection['observations'][0]['selected'] is False and
+          selection['observations'][0]['selected_forward_observation'] is None and
+          selection['observations'][0]['outer_committed'] is True)
+    donor = selections[0]['window_selection']['donor_observation']
+    check('selection_donor_values', selection['observations'][0]['donor_observation'] ==
+          {key: donor.get(key) for key in ('loss', 'd_render', 'd_sil', 'lambda')})
+    check('render_noncausal_scope', 'DONOR' in report['definitions'] and
+          report['causal_render_ablation'] == 'not measured by this report')
+    return dict(**expected, scope='History-only scalar reconstruction. Stored direction norms/dots are not '
+                'independent gradients; no rendering ablation, motion percentage, hole or rest inference.')
+
+
+def prepared_layout(meta):
+    layout = {k: ((N, 3), 'float32') for k in ('x0', 'v0')}
+    layout.update({k: ((N, 3, 3), 'float32') for k in ('F0', 'C0', 'Fp')})
+    layout.update({k: ((N,), 'float32') for k in ('m', 'lam', 'mu', 'eta', 'pin', 'vol', 'layer_mask')})
+    if meta['track_geom']:
+        layout['Fg0'] = ((N, 3, 3), 'float32')
+    if meta['layer_present']:
+        k = meta['layer_K']
+        layout.update(layer_nrm=((N, 3), 'float32'), layer_ug=((N,), 'float32'),
+                      layer_nbr=((N, k), 'int32'), layer_w=((N, k), 'float32'))
+        if meta['layer_F']:
+            layout['layer_g'] = ((N, k, 3), 'float32')
+    if meta['bonds_present']:
+        layout.update(bond_nbr=((N, meta['bond_K']), 'int32'),
+                      bond_rest=((N, meta['bond_K']), 'float32'), bond_frag=((N,), 'float32'))
+    return layout
+
+
+EXTRAS = ('scripts/probes/post_assimilation_window.py', 'scripts/probes/window_selection.py',
+          'scripts/probes/prepared_withdrawal.py', 'scripts/probes/reference_swap.py',
+          'scripts/ops/run_p303_probe.sh', 'scripts/ops/cuda_python.py',
+          'docs/post_assimilation_window_p335.md')
+RULE = '32*FP32_eps*(native_scale+abs(reference)); elementwise'
+LOSS_NAMES = ('geometric_step_mean_square', 'stored_speed_mean_square')
+
+
+def cuda_zero_alias(device):
+    """Declared logical device only; actual captures must separately be cuda:0."""
+    return isinstance(device,str) and device in ('cuda','cuda:0')
+
+
+def validate_protocol(protocol, result, code, root=BASE):
+    """Metadata-only contract; no production validator or optimizer is imported."""
+    cfg, prm = protocol['effective_config'], protocol['mpm']
+    required = {str(p) for p in (code/'physmorph').rglob('*.py')}
+    required.update(str(code/p) for p in EXTRAS)
+    required.update((str(root/'work/p303/raw24a.json'),
+                     str(root/'repro/current_pair/source_render_full_dt_iso_nn.npz'),
+                     str(Path(cfg['target_reference']))))
+    check('exact_producer_binding_membership', set(protocol['bindings']) == required)
+    check('schema', protocol['schema'] == 'post_assimilation_window_p335_v1' and
+          (protocol['N'], protocol['window'], protocol['successor']) == (N, 20, 21))
+    check('registered_discretization', (cfg['T'], cfg['iters'], cfg['loss_res'], cfg['render_res'],
+          cfg['stop_after_windows'], prm['dt'], prm['dx']) == (T, 8, 36, 64, 21, DT, DX))
+    check('registered_rule_and_budget', protocol['boundary_and_coast_rule'] == RULE and
+          protocol['max_output_bytes'] == 3_000_000_000)
+    check('raw_mixed_active_render', cfg['compute_backend'] == 'cuda' and cuda_zero_alias(cfg['device']) and
+          all(cfg[k] for k in ('body_ctrl', 'body_terminal_ctrl', 'layer_ctrl', 'layer_relax')) and
+          cfg['lambda_auto'] > 0 and cfg['loss_units'] == 'density' and
+          not any(cfg[k] for k in ('commit_pic', 'commit_pic_objective', 'shift_sub', 'opt_material',
+                                  'geometric_rest', 'geometric_variance', 'grad_dump', 'render_F_geom',
+                                  'use_gauss_loss', 'surface_gs_loss', 'continuity', 'settle_pin_kkt')))
+    check('declared_archives_only', set(result.get('files', {})) <= set(ARCHIVES))
+    return cfg, prm
+
+
+def decode_owner(archive, upload):
+    """Decode the explicit numeric tree; CPU does only schema/byte handling."""
+    check('owner_manifest_layout', 'manifest' in archive and archive['manifest'].ndim == 1 and
+          str(archive['manifest'].dtype) == 'uint8')
+    refs = set()
+    def decode(value):
+        if not isinstance(value, dict):
+            check('owner_scalar_type', value is None or type(value) in (bool, int, float, str))
+            if type(value) is float:
+                check('owner_scalar_finite', math.isfinite(value))
+            return value
+        kind = value['type']
+        if kind == 'tensor':
+            key = value['key']
+            check('owner_unique_tensor.'+key, key not in refs and key in archive and key != 'manifest')
+            refs.add(key)
+            a = archive[key]
+            check('owner_tensor_schema.'+key, not a.dtype.hasobject and
+                  list(a.shape) == value['shape'] and str(a.dtype) == value['dtype'])
+            return upload(a)
+        if kind == 'dict':
+            return {k: decode(v) for k, v in value['items'].items()}
+        check('owner_container_type', kind in ('list', 'tuple'))
+        items = [decode(v) for v in value['items']]
+        return tuple(items) if kind == 'tuple' else items
+    decoded = decode(json.loads(archive['manifest'].tobytes()))
+    check('owner_exact_members', set(archive.files) == refs | {'manifest'})
+    check('owner_version', decoded['version'] == 1 and
+          set(decoded) == {'version', 'spec', 'observations', 'model'})
+    return decoded
+
+
+def scalar_receipt(name, row):
+    actual, expected = row['actual'], row['expected']
+    tolerance = 32*2**-23*max(abs(expected), 1e-12)
+    difference = abs(actual-expected)
+    check(name, all(math.isfinite(v) for v in (actual, expected, tolerance)) and
+          row['tolerance'] == tolerance and row['absolute_difference'] == difference and
+          row['passed'] is (difference <= tolerance), fatal=False)
+    check(name+'.passed', row['passed'], fatal=False)
+
+
+def reported_coast_summary(receipt):
+    """Summarize retained reduction receipts, without inventing missing arrays."""
+    rows=receipt.get('joint',{}).get('independent_coast')
+    if rows is None:return None
+    check('producer_coast_receipt_fields',set(rows)=={'x','v','C','F'})
+    result={}
+    for name,unit in (('x',DX),('v',DX/(T*DT)),('C',1/(T*DT)),('F',1.)):
+        phases=rows[name]
+        check('producer_coast_phase_count.'+name,len(phases)==T+1)
+        for phase,row in enumerate(phases):
+            check('producer_coast_rule.'+name+'.'+str(phase),row['rule']==RULE and
+                  row['native_scale']==unit and type(row['passed']) is bool and type(row['finite']) is bool)
+            check('producer_coast_pass_consistent.'+name+'.'+str(phase),row['passed'] ==
+                  (row['finite'] and row['max_tolerance_ratio'] is not None and
+                   math.isfinite(row['max_tolerance_ratio']) and row['max_tolerance_ratio']<=1))
+            if row['finite']:
+                check('producer_coast_finite_summary.'+name+'.'+str(phase),
+                      all(math.isfinite(row[k]) and row[k]>=0 for k in ('max_abs','max_tolerance_ratio')) and
+                      (not row['passed'] or row['max_tolerance_ratio']<=1))
+        finite=[row for row in phases if row['finite']]
+        result[name]=dict(failed_phases=[i for i,row in enumerate(phases) if not row['passed']],
+            max_abs=max((row['max_abs'] for row in finite),default=None),
+            max_tolerance_ratio=max((row['max_tolerance_ratio'] for row in finite),default=None))
+    all_passed=all(row['passed'] for phases in rows.values() for row in phases)
+    check('producer_independent_coast_receipt_passed',all_passed,fatal=False)
+    return dict(passed=all_passed,fields=result,scope='Producer scalar reduction receipts only. '
+        'The original joint/independent replay arrays may be absent after failure; this is not an independent numerical reproduction.')
+
+
+def close_scalar(name, actual, expected, rel=3e-11, absolute=1e-13):
+    actual, expected = float(actual), float(expected)
+    check(name, math.isfinite(actual) and math.isfinite(expected) and
+          math.isclose(actual, expected, rel_tol=rel, abs_tol=absolute), fatal=False,
+          actual=actual, expected=expected, comparison_relative=rel, comparison_absolute=absolute)
+
+
+def json_safe(value):
+    """Failure evidence retains explicit failed checks; JSON cannot encode NaN."""
+    if isinstance(value,dict):return {k:json_safe(v) for k,v in value.items()}
+    if isinstance(value,(list,tuple)):return [json_safe(v) for v in value]
+    return None if isinstance(value,float) and not math.isfinite(value) else value
+
+
+def array_closure(cp, name, actual, expected, unit, reported=None):
+    check(name+'.layout', actual.shape == expected.shape and actual.dtype == expected.dtype == cp.float32)
+    error = cp.abs(actual-expected)
+    tolerance = cp.float32(32*2**-23)*(cp.float32(unit)+cp.abs(expected))
+    finite = bool(cp.isfinite(actual).all() and cp.isfinite(expected).all())
+    row = dict(passed=finite and bool((error <= tolerance).all()), finite=finite, native_scale=unit,
+               max_abs=float(error.max()), max_tolerance_ratio=float((error/tolerance).max()),
+               bit_exact=bool(cp.array_equal(actual, expected)), rule=RULE)
+    check(name+'.gate', row['passed'], fatal=False, **{k:v for k,v in row.items() if k != 'passed'})
+    if reported is not None:
+        check(name+'.reported_flags', reported['passed'] == row['passed'] and
+              reported['finite'] == row['finite'] and reported['native_scale'] == unit and
+              reported['rule'] == RULE, fatal=False)
+        close_scalar(name+'.reported_max', row['max_abs'], reported['max_abs'], rel=0, absolute=0)
+        # Only compare scalar FP32 division reductions; this does not alter the elementwise gate.
+        close_scalar(name+'.reported_ratio', row['max_tolerance_ratio'],
+                     reported['max_tolerance_ratio'], rel=3e-7, absolute=1e-9)
+    return row
+
+
+def determinant(cp, f):
+    """FP64 cofactor polynomial, independently of the producer health helper."""
+    a = f.astype(cp.float64)
+    return (a[...,0,0]*(a[...,1,1]*a[...,2,2]-a[...,1,2]*a[...,2,1])
+            -a[...,0,1]*(a[...,1,0]*a[...,2,2]-a[...,1,2]*a[...,2,0])
+            +a[...,0,2]*(a[...,1,0]*a[...,2,1]-a[...,1,1]*a[...,2,0]))
+
+
+def read_arrays(cp, path):
+    # One archived member at a time; no redundant full host-cloud copies or CPU geometry.
+    with host.load(path, allow_pickle=False) as archive:
+        check('unique_archive_members.'+path.name, len(archive.files) == len(set(archive.files)))
+        if path.name == 'prepared_owner.npz':
+            return decode_owner(archive, cp.asarray)
+        arrays = {}
+        for key in archive.files:
+            value = archive[key]
+            check('numeric_archive.'+path.name+'.'+key, not value.dtype.hasobject)
+            arrays[key] = cp.asarray(value)
+        return arrays
+
+
+def layout(cp, label, arrays, expected):
+    check(label+'.members', set(arrays) == set(expected))
+    for key, (shape, dtype) in expected.items():
+        value = arrays[key]
+        check(label+'.layout.'+key, value.shape == shape and str(value.dtype) == dtype)
+        check(label+'.finite.'+key, bool(cp.isfinite(value).all()), fatal=False)
+
+
+def finite_tree(cp, value, label):
+    if isinstance(value, dict):
+        for k, v in value.items(): finite_tree(cp, v, label+'.'+k)
+    elif isinstance(value, (list, tuple)):
+        for k, v in enumerate(value): finite_tree(cp, v, label+'.'+str(k))
+    elif isinstance(value, cp.ndarray):
+        check(label+'.finite', bool(cp.isfinite(value).all()), fatal=False)
+
+
+def audit_arrays(cp, run, result, cfg, prm):
+    """Archive numerics on device; missing files leave explicit partial diagnostics."""
+    receipt = result.get('receipt', {})
+    arrays = {name: read_arrays(cp, run/name) for name in ARCHIVES if (run/name).exists()}
+    a, h, b, p, owner, coast, grad = (arrays.get(k) for k in
+        ('window_20_prepared.npz', 'window_20_identity.npz', 'window_21_prepared.npz',
+         'merit_head.npz', 'prepared_owner.npz', 'joint_coast.npz', 'coast_gradients.npz'))
+    for window, values in ((20, a), (21, b)):
+        if values is None: continue
+        meta = receipt[f'window_{window}_prepared_metadata']
+        check('prepared_metadata.'+str(window), meta['schema'] == 'owned_withdrawal_v1' and
+              (meta['N'],meta['T'],meta['step']) == (N,T,0) and meta['prm'] == prm and
+              meta['device'] == meta['captured_device'] == 'cuda:0' and meta['source_body_control'] is True and
+              not meta['gate'] and not meta['layer_F'])
+        layout(cp, 'prepared.'+str(window), values, prepared_layout(meta))
+        for key in ('layer_nbr', 'bond_nbr'):
+            if key in values:
+                check('neighbor_bounds.'+str(window)+'.'+key, bool(((values[key]>=0)&(values[key]<N)).all()))
+        check('binary_pins.'+str(window), bool(((values['pin']==0)|(values['pin']==1)).all()))
+    if h is not None:
+        shapes = dict(X=(T+1,N,3), F_sequence=(T+1,N,3,3), x=(N,3), F=(N,3,3), v=(N,3), C=(N,3,3))
+        layout(cp, 'accepted_head', h, {k:(s,'float32') for k,s in shapes.items()})
+        for key, pair in dict(x=(h['X'][-1],h['x']), F=(h['F_sequence'][-1],h['F'])).items():
+            check('accepted_terminal.'+key, bool(cp.array_equal(*pair)), fatal=False)
+    av = arrays.get('accepted_velocity.npz')
+    if av is not None:
+        layout(cp, 'accepted_velocity', av, {'V':((T,N,3),'float32')})
+        if h is not None: check('accepted_terminal.v', bool(cp.array_equal(av['V'][-1],h['v'])), fatal=False)
+    if a is not None and h is not None:
+        for name, left, right in (('x',h['X'][0],a['x0']),('F',h['F_sequence'][0],a['F0'])):
+            check('accepted_initial.'+name, bool(cp.array_equal(left,right)), fatal=False)
+        old = a['pin'] > .5
+        check('old_pin_head_path', bool((h['X'][:,old]==a['x0'][old][None]).all() and
+              (h['v'][old]==0).all() and (h['C'][old]==0).all()), fatal=False)
+        if av is not None: check('old_pin_velocity_path', bool((av['V'][:,old]==0).all()), fatal=False)
+    if all(v is not None for v in (a,h,b)):
+        old, nxt = a['pin']>.5, b['pin']>.5
+        free, new = ~nxt, nxt & ~old
+        handoff = dict(x=bool(cp.array_equal(b['x0'],h['x'])), F=bool(cp.array_equal(b['F0'],h['F'])),
+            v_free=bool(cp.array_equal(b['v0'][free],h['v'][free])),
+            C_free=bool(cp.array_equal(b['C0'][free],h['C'][free])),
+            v_pinned_zero=bool((b['v0'][nxt]==0).all()), C_pinned_zero=bool((b['C0'][nxt]==0).all()),
+            old_pins_retained=bool(nxt[old].all()))
+        check('actual_handoff', all(handoff.values()), fatal=False, values=handoff)
+        changed = (a['Fp'] != b['Fp']).any(axis=(1,2))
+        counts = dict(new_pins=int(new.sum()),surviving_free=int(free.sum()),Fp_changed_particles=int(changed.sum()))
+        claimed = receipt.get('handoff')
+        if claimed:
+            check('handoff_receipt', claimed['checks'] == handoff and
+                  all(claimed[k] == v for k,v in counts.items()), fatal=False)
+        check('nonempty_new_and_free', counts['new_pins']>0 and counts['surviving_free']>0, fatal=False)
+        if cfg['settle_pin_assim']:
+            check('old_pinned_Fp_preserved', bool(cp.array_equal(b['Fp'][old],a['Fp'][old])), fatal=False)
+        for key in ('m','lam','mu','vol'):
+            check('fixed_material.'+key, bool(cp.array_equal(a[key],b[key])), fatal=False)
+        observations['handoff'] = dict(**counts,old_pins=int(old.sum()),next_pins=int(nxt.sum()),
+            Fp_changed_new_pins=int(changed[new].sum()),Fp_changed_free=int(changed[free].sum()),checks=handoff)
+    if p is not None:
+        shapes=dict(x=(N,3),F=(N,9),C=(N,3,3),v=(N,3),V=(T,N,3),positions=(T,N,3),body_energy=())
+        layout(cp,'private_head',p,{k:(v,'float32') for k,v in shapes.items()})
+        check('private_endpoint_consistency', bool(cp.array_equal(p['x'],p['positions'][-1]) and
+              cp.array_equal(p['v'],p['V'][-1])), fatal=False)
+        if h is not None:
+            claimed = receipt.get('live_head_merit',{}).get('head_closure',{})
+            observations['private_accepted_closure'] = {}
+            for key, expected, unit in (('positions',h['X'][1:],DX),('x',h['x'],DX),
+                ('F',h['F'].reshape(N,9),1.),('C',h['C'],1/(T*DT)),('v',h['v'],DX/(T*DT))):
+                observations['private_accepted_closure'][key] = array_closure(cp,'private_accepted.'+key,
+                    p[key],expected,unit,claimed.get(key))
+            if av is not None:
+                observations['private_accepted_closure']['V'] = array_closure(cp,'private_accepted.V',
+                    p['V'],av['V'],DX/(T*DT),claimed.get('V'))
+    if owner is not None:
+        finite_tree(cp,owner,'owner')
+        spec, model, obs = owner['spec'],owner['model'],owner['observations']
+        check('owner_recipe', spec['T']==T and json.loads(json.dumps(spec['prm']))==prm and cuda_zero_alias(spec['device']) and
+              spec['body_ctrl'] is True and spec['body_modes']==2)
+        if a is not None:
+            for key, archived in dict(x0='x0',v0='v0',F0='F0',C0='C0',Fp='Fp',pin='pin',
+                                      m='m',lam='lam',mu='mu',eta='eta',vol0='vol').items():
+                source=spec[key]
+                if key in ('m','lam','mu','eta','pin'):
+                    source=cp.broadcast_to(cp.asarray(0. if source is None else source,dtype=cp.float32),(N,))
+                check('owner_prepared.'+key,bool(cp.array_equal(source,a[archived])),fatal=False)
+            check('owner_pin_mode',bool(spec['pin_slip']) == bool(receipt['window_20_prepared_metadata']['pin_mode']))
+            if spec['layer'] is not None:
+                for i,key in enumerate(('layer_mask','layer_nrm','layer_nbr','layer_w')):
+                    check('owner_layer.'+key,bool(cp.array_equal(spec['layer'][i],a[key])),fatal=False)
+                check('owner_layer_gate', bool(cp.array_equal(spec['layer'][7],a['layer_ug'])),fatal=False)
+                check('owner_layer_fraction', spec['layer'][4] == receipt['window_20_prepared_metadata']['layer_frac'])
+            for key in ('bond_nbr','bond_rest','bond_frag'):
+                if key in a: check('owner_'+key,bool(cp.array_equal(spec[key],a[key])),fatal=False)
+        coefficients, idx = model['coefficients'],model['idx']
+        check('owner_body_layout',coefficients.ndim==2 and coefficients.shape[1]==6 and
+              idx.shape==model['weights'].shape and idx.shape[0]==N and
+              idx.dtype.kind in 'iu' and bool(((idx>=0)&(idx<len(coefficients))).all()))
+        check('owner_joint_radius',bool((cp.sum(coefficients*coefficients,axis=1)<=1+1e-6).all()),fatal=False)
+        if p is not None:
+            # Same expression, independently evaluated; float32 reduction roundoff is allowed only for this scalar.
+            field=cp.float32(DX)*(coefficients[idx]*model['weights'][...,None]).sum(1)*model['gate']
+            energy=float(((field/cp.float32(DX))**2).sum(1).mean())
+            tolerance=32*2**-23*max(abs(float(p['body_energy'])),1e-12)
+            check('body_energy_reconstructed',abs(energy-float(p['body_energy']))<=tolerance,fatal=False,
+                  actual=energy,expected=float(p['body_energy']),tolerance=tolerance)
+        live=receipt.get('live_head_merit',{})
+        check('live_merit_binding',obs['binding']==live.get('binding_before')==live.get('binding_after'),fatal=False)
+        check('live_merit_observations',obs['full_merit']==live.get('terms') and
+              obs['scalar_closure']==live.get('scalar'),fatal=False)
+        scalar_receipt('original_scalar_closure',obs['scalar_closure'])
+        terms=obs['full_merit']
+        check('complete_merit_arithmetic',terms['merit']==terms['physical']+terms['lambda_render']*terms['render'],fatal=False)
+        history = [r for r in result.get('history',[]) if r.get('animation')==19 and not r.get('held')]
+        if history:
+            check('merit_donor_reference', obs['scalar_closure']['expected']==history[0]['window_selection']['donor_observation']['loss'],fatal=False)
+            check('merit_lambda',terms['lambda_render']==history[0]['lambda'],fatal=False)
+        observations['original_merit'] = dict(terms=terms,scalar_closure=obs['scalar_closure'],
+            scope='Full scalar arithmetic and accepted reference only; complete physical/reference loss is not rerun.')
+        if h is not None:
+            stress=model['stress']
+            check('expanded_stress_layout',stress.shape==(T,N,3,3) and stress.dtype==cp.float32)
+            elastic_min=[]
+            for step in range(T):
+                d=determinant(cp,h['F_sequence'][step]+stress[step])
+                check('head.positive_F_plus_dFc.'+str(step),bool(cp.isfinite(d).all() and (d>0).all()),fatal=False)
+                elastic_min.append(float(d.min()))
+            observations['head_F_plus_dFc_minima']=elastic_min
+    if coast is not None:
+        shapes=dict(coast_X=(T+1,N,3),coast_V=(T+1,N,3),coast_C=(T+1,N,3,3),
+                    coast_F=(T+1,N,9),coast_Fp=(N,3,3),coast_pins=(N,))
+        layout(cp,'joint_coast',coast,{k:(s,'bool' if k=='coast_pins' else 'float32') for k,s in shapes.items()})
+        fp_det=determinant(cp,coast['coast_Fp'])
+        check('coast_Fp_positive',bool(cp.isfinite(fp_det).all() and (fp_det>0).all()),fatal=False)
+        if b is not None:
+            claimed=receipt.get('joint',{})
+            observations['actual_boundary']={}
+            for key,value,unit in (('x0',coast['coast_X'][0],DX),('v0',coast['coast_V'][0],DX/(T*DT)),
+                ('C0',coast['coast_C'][0],1/(T*DT)),('F0',coast['coast_F'][0].reshape(N,3,3),1.),
+                ('Fp',coast['coast_Fp'],1.)):
+                observations['actual_boundary'][key]=array_closure(cp,'actual_boundary.'+key,value,b[key],unit,
+                    claimed.get('actual_boundary',{}).get(key))
+            pins=b['pin']>.5; free=~pins
+            check('joint_coast_pin_identity',bool(cp.array_equal(coast['coast_pins'],pins)),fatal=False)
+            check('joint_coast_anchored_pins',bool((coast['coast_X'][:,pins]==coast['coast_X'][0,pins][None]).all() and
+                  (coast['coast_V'][:,pins]==0).all() and (coast['coast_C'][:,pins]==0).all()),fatal=False)
+            check('free_loss_cohort',int(free.sum())==claimed.get('free_particles') and bool(free.any()),fatal=False)
+            if bool(free.any()):
+                xx=coast['coast_X'][:,free].astype(cp.float64); vv=coast['coast_V'][1:,free].astype(cp.float64)
+                losses=dict(geometric_step_mean_square=float((((xx[1:]-xx[:-1])/DT)**2).sum(-1).mean()),
+                            stored_speed_mean_square=float((vv*vv).sum(-1).mean()))
+                for key,value in losses.items():close_scalar('free_loss.'+key,value,claimed['free_losses'][key])
+                observations['free_coast_losses']=dict(**losses,particles=int(free.sum()),units='wu^2/s^2',
+                    scope='Actual next-pin complement, includes first displacement and excludes incoming V0; not a rest threshold.')
+                del xx,vv
+    if grad is not None:
+        check('gradient_names',set(grad)=={k+'__'+mode for k in LOSS_NAMES for mode in ('displacement','terminal')})
+        expected_shape=None if owner is None else owner['model']['coefficients'][:,:3].shape
+        for key,value in grad.items():
+            check('gradient_layout.'+key, value.dtype==cp.float32 and value.ndim==2 and value.shape[1]==3 and
+                  (expected_shape is None or value.shape==expected_shape))
+            finite,nonzero=bool(cp.isfinite(value).all()),bool((value!=0).any())
+            check('gradient_valid.'+key,finite and nonzero,fatal=False)
+            name,mode=key.split('__'); claimed=receipt['joint']['gradient'][name][mode]
+            check('gradient_flags.'+key,claimed['finite']==finite and claimed['nonzero']==nonzero,fatal=False)
+            norm=float(cp.sqrt((value.astype(cp.float64)**2).sum()))
+            close_scalar('gradient_norm.'+key,norm,claimed['norm'])
+    low=cp.asarray(prm['grid_min'],dtype=cp.float32)+2*prm['dx']
+    high=cp.asarray(prm['grid_min'],dtype=cp.float32)+prm['dx']*cp.asarray([prm[k] for k in ('nx','ny','nz')],dtype=cp.float32)-2*prm['dx']
+    for label,positions,deformations in [('head',None if h is None else h['X'],None if h is None else h['F_sequence']),
+          ('coast',None if coast is None else coast['coast_X'],None if coast is None else coast['coast_F'])]:
+        if positions is None:continue
+        check(label+'.all_step_bounds',bool(((positions>=low)&(positions<=high)).all()),fatal=False)
+        minima=[]
+        for step in range(T+1):
+            d=determinant(cp,deformations[step].reshape(N,3,3))
+            check(label+'.positive_F.'+str(step),bool(cp.isfinite(d).all() and (d>0).all()),fatal=False)
+            minima.append(float(d.min()))
+        observations[label+'_physical_F_minima']=minima
+        if label=='coast':
+            expected=receipt['joint']['health']['coast_min_det']
+            tolerance=64*2**-23*(1+abs(expected))
+            check('coast.reported_det',abs(min(minima)-expected)<=tolerance,fatal=False,
+                  actual=min(minima),reported=expected,fp32_det_comparison_allowance=tolerance)
+    # Fresh continuation authorized separately: shared frozen producer physics,
+    # initialized exclusively from actual W21 archive (never joint substitution).
+    if b is not None and coast is not None:
+        import torch
+        import warp as wp
+        from physmorph.mpm.withdrawal import OwnedWithdrawal
+        successor=OwnedWithdrawal.from_arrays(b,receipt['window_21_prepared_metadata'],device='cuda:0')
+        tr=successor.trajectory(persistent=True)
+        check('fresh_coast_zero_controls',tr.body_control is None and
+              bool((wp.to_torch(tr._dfc(0))==0).all()) and
+              (not tr.layer or bool((wp.to_torch(tr.layer_u)==0).all())))
+        started=time.perf_counter()
+        with torch.no_grad():tr.rollout()
+        rows={}
+        for name,key,unit in (('x','coast_X',DX),('v','coast_V',DX/(T*DT)),
+                              ('C','coast_C',1/(T*DT)),('F','coast_F',1.)):
+            rows[name]=[]
+            for step,value in enumerate(getattr(tr,name)):
+                actual=coast[key][step];expected=cp.asarray(wp.to_torch(value)).reshape(actual.shape)
+                rows[name].append(array_closure(cp,'fresh_actual_coast.'+name+'.'+str(step),actual,expected,unit))
+        observations['fresh_actual_coast']=dict(executed=True,rows=rows,elapsed_seconds=time.perf_counter()-started,
+            scope='New no-grad T20 zero-control rollout from actual archived W21 using bound producer physics; '
+                  'independent state initialization and comparison, shared MPM/OwnedWithdrawal kernels; no optimization or gradient replay.')
+        del tr,successor
+    else:
+        check('fresh_actual_coast_available',False,fatal=False)
+        observations['fresh_actual_coast']=dict(executed=False,
+            reason='Actual W21 archive and saved joint-coast comparator are both required; no unmatched replay performed.')
+    observations['available_archives']=list(arrays)
+    return arrays
+
+
+def audit(args):
+    code,run=args.code.resolve(),args.run.resolve()
+    check('gpu1_only',os.environ.get('CUDA_VISIBLE_DEVICES')=='1')
+    check('data_paths_and_cwd',all(p.is_relative_to(BASE) for p in (code,run,args.out.resolve())) and
+          Path.cwd().resolve()==code and args.out.parent!=run)
+    check('expected_version_argument',len(args.expected_version)==40 and
+          all(c in '0123456789abcdef' for c in args.expected_version))
+    for key in ('WARP_CACHE_PATH','CUPY_CACHE_DIR','CUDA_CACHE_PATH'):
+        check('cache_under_data.'+key,key in os.environ and Path(os.environ[key]).resolve().is_relative_to('/data'))
+    bind(Path(__file__))
+    if args.launcher:bind(args.launcher)
+    bind(code/'VERSION')
+    check('producer_version',(code/'VERSION').read_text().strip()==args.expected_version)
+    existing={p.name for p in run.iterdir()}
+    check('known_output_members',existing<=OUTPUTS|{'failure.json'})
+    for name in sorted(existing):bind(run/name)
+    protocol=read_json(run/'protocol.json')
+    result=read_json(run/'result.json') if 'result.json' in existing else read_json(run/'failure.json')
+    cfg,prm=validate_protocol(protocol,result,code)
+    for path,value in protocol['bindings'].items():bind(path,value)
+    for name in ('hyde06_env.sh','gpu_env.sh','cuda_python.py'):bind(code/'scripts/ops'/name)
+    for suffix in ('.log','.start'):bind(run.with_suffix(suffix))
+    check('producer_protocol_link',result.get('protocol_sha256')==bindings[str(run/'protocol.json')]['sha256'],fatal=False)
+    for name,value in result.get('files',{}).items():bind(run/name,value)
+    check('producer_success',result.get('passed') is True and result.get('failure') is None and
+          result.get('bindings_unchanged') is True and not any(result.get('guards',{'missing':1}).values()),fatal=False)
+    check('complete_evidence',existing==OUTPUTS and set(result.get('files',{}))==set(ARCHIVES),fatal=False)
+    check('output_budget',sum(bindings[str(run/name)]['bytes'] for name in existing)<=3_000_000_000)
+    sys.path.insert(0,str(code))
+    import physmorph
+    from physmorph.compute import cuda_execution,cuda_module
+    from physmorph.pipeline.config import PipelineConfig
+    check('imported_producer_source',Path(physmorph.__file__).resolve().parent.parent==code)
+    metadata=read_json(BASE/'work/p303/raw24a.json')
+    expanded=json.loads(json.dumps(asdict(PipelineConfig(**metadata['config']))))
+    check('sole_cap_override',dict(expanded,stop_after_windows=21)==cfg and metadata['mpm']==prm)
+    log_path=run.with_suffix('.log');log_bytes=log_path.read_bytes()
+    check('parsed_log_bytes',hashlib.sha256(log_bytes).hexdigest()==bindings[str(log_path)]['sha256'])
+    resolver=[line for line in log_bytes.decode('utf-8').splitlines() if line.startswith('[v2] phys_loss auto:')]
+    check('ordinary_resolution',(cfg['phys_loss']=='auto' and len(resolver)==1 and
+          resolver[0].endswith(' -> ot_pace + cell-wise hand-off')) or
+          (cfg['phys_loss']=='ot_pace' and not resolver),fatal=False)
+    observations['resolution']=dict(protocol=cfg['phys_loss'],resolver_lines=resolver,
+        scope='Protocol precedes ordinary auto resolution; no altered physics mode is inferred.')
+    history=result.get('history',[])
+    attempts=[r for r in history if 'animation' in r and not r.get('held') and 'c2f_render_res' not in r]
+    check('complete_attempt_clock',[r['animation'] for r in attempts]==list(range(21)),fatal=False)
+    receipt=result.get('receipt',{})
+    observations['producer_coast_receipt']=reported_coast_summary(receipt)
+    check('original_identity_receipts',receipt.get('identity_exact') is True and
+          receipt.get('identity_replay_count')==0 and receipt.get('inspection_mutation_isolated') is True and
+          result.get('archived_identity_exact') is True,fatal=False)
+    for index,key in ((19,'donor_outer_committed'),(20,'successor_outer_committed')):
+        rows=[r for r in attempts if r['animation']==index]
+        committed=bool(rows and rows[0].get('accepted',0)>0 and rows[0].get('outer_accepted')==1 and
+                       not rows[0].get('outer_rejected') and not rows[0].get('null_commit'))
+        check(key,committed and result.get(key) is True,fatal=False)
+    if len(attempts)==21:
+        check('selection_history_link',attempts[19].get('window_selection')==receipt.get('selection_report'),fatal=False)
+        choice=receipt.get('selection_report',{})
+        check('original_choice_only',choice.get('selected_label')==choice.get('requested_label')=='original' and
+              choice.get('selected') is False and not choice.get('failures'),fatal=False)
+        check('successor_inner_count',receipt.get('successor_inner_accepted')==attempts[20].get('accepted',0),fatal=False)
+    with cuda_execution('cuda:0'):
+        cp=cuda_module()
+        with host.load(BASE/'repro/current_pair/source_render_full_dt_iso_nn.npz',allow_pickle=False) as z:
+            for name in ('src','tgt'):
+                array=cp.asarray(z[name])
+                check('native_input.'+name,array.shape==(N,3) and array.dtype==cp.float32 and bool(cp.isfinite(array).all()))
+                del array
+        audit_arrays(cp,run,result,cfg,prm)
+    # Keep archive diagnostics even if a partial producer's history is incomplete.
+    if 'run.render_influence.json' in existing:
+        render=read_json(run/'run.render_influence.json')
+        check('render_result_link',render==result.get('render_influence'),fatal=False)
+        observations['render']=render_audit(history,render,cfg,prm)
+    return dict(passed=all(row['passed'] for row in checks),producer_version=args.expected_version,
+        discretization=dict(N=N,T=T,dt=DT,dx_wu=DX,loss_res=36,render_res=64,iters=8),
+        producer_failure=result.get('failure'),termination=result.get('termination'),
+        scope='CUDA array audit; fresh actual-W21 zero-control T20 replay using bound producer physics is '
+              'attempted only when the actual successor and saved joint-coast comparator both exist. '
+              'No optimizer, candidate change, full-prefix replay, independent gradient AD/FD, or quality/rest/hole/4K gate.',
+        unavailable_witnesses=[
+            'Joint head values and private full F sequence are not archived: their reported closure is not independently reproduced.',
+            'Producer independent-coast arrays are not archived. Any executed audit replay is NEW, not a byte verification of the producer replay; see fresh_actual_coast.executed.',
+            'Complete auxiliary objective inputs are not archived: full scalar arithmetic/reference is checked, not independently recomputed complete merit.',
+            'Inspection isolation and equality to the unexported full prefix archive remain producer receipts.',
+            'Archived covector finiteness/nonzero/norms do not establish derivative correctness or rendering-caused motion.',
+            'No independent reconstruction of the Fp assimilation formula or differentiation of admission/preparation policy.'])
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source','--code',dest='code',type=Path,required=True)
+    parser.add_argument('--run',type=Path,required=True)
+    parser.add_argument('--expected-version',required=True)
+    parser.add_argument('--out',type=Path,required=True)
+    parser.add_argument('--launcher',type=Path)
+    args=parser.parse_args()
+    if not args.out.resolve().is_relative_to(BASE) or args.out.exists():
+        raise ValueError('Fresh output under /data project required')
+    started,failure=time.perf_counter(),None
+    try:report=audit(args)
+    except Exception as exc:
+        failure=exc
+        report=dict(passed=False,error=dict(type=type(exc).__name__,message=str(exc)))
+    try:
+        for path,value in bindings.items():check('unchanged:'+path,identity(path)==value)
+    except Exception as exc:
+        failure=failure or exc
+        report.update(passed=False,binding_error=dict(type=type(exc).__name__,message=str(exc)))
+    report['passed']=bool(report['passed'] and all(row['passed'] for row in checks))
+    report.update(completed_utc=datetime.now(timezone.utc).isoformat(),elapsed_seconds=time.perf_counter()-started,
+        checks=checks,check_count=len(checks),bindings=bindings,observations=observations,
+        environment={k:os.environ.get(k) for k in ('CUDA_VISIBLE_DEVICES','WARP_CACHE_PATH','CUPY_CACHE_DIR',
+                                                  'CUDA_CACHE_PATH','PHYSMORPH_RUN_REPO')})
+    with args.out.open('x') as stream:json.dump(json_safe(report),stream,indent=2,allow_nan=False)
+    print(json.dumps(dict(passed=report['passed'],checks=len(checks),out=str(args.out))),flush=True)
+    if failure is not None:raise failure
+    if not report['passed']:raise SystemExit(1)
+
+
+if __name__=='__main__':main()
+

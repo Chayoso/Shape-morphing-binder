@@ -26,13 +26,14 @@ class PostAssimilationAdjoint(WithdrawalAdjoint):
     """
     def __init__(self, spec, *, next_pins, successor_layer, successor_bonds, successor_eta,
                  eta=.5, isochoric=False, smin=.2, smax=5., settle_pin_assim=True,
-                 capture=True):
+                 capture=True, fp64=False):
         _reject_gradient_inputs((next_pins, successor_layer, successor_bonds, successor_eta))
         super().__init__(spec, capture=False)
         self.capture_enabled = bool(capture and self.cuda)
         self.eta, self.isochoric = eta, bool(isochoric)
         self.smin, self.smax = smin, smax
         self.settle_pin_assim = bool(settle_pin_assim)
+        self.fp64 = bool(fp64)
         with self._scope():
             pins = torch.as_tensor(to_array(next_pins), device=self.device)
             if pins.shape != (self.N,) or pins.dtype != torch.bool:
@@ -118,7 +119,8 @@ class PostAssimilationAdjoint(WithdrawalAdjoint):
         with torch.enable_grad():
             self.boundary_Fp = assimilate_handoff(self.boundary_F, self.fixed_Fp,
                 self.old_pins, self.new_pins, eta=self.eta, isochoric=self.isochoric,
-                smin=self.smin, smax=self.smax, settle_pin_assim=self.settle_pin_assim)
+                smin=self.smin, smax=self.smax, settle_pin_assim=self.settle_pin_assim,
+                fp64=self.fp64)
         with torch.no_grad():
             wp.to_torch(self.coast.Fp).copy_(self.boundary_Fp)
             for name in ('x', 'v', 'C', 'F', 'Fg'):

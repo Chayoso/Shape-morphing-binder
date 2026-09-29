@@ -1,0 +1,31 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_post_window3
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 7 items
+
+tests/test_post_assimilation_window_cuda.py Module physmorph.mpm.kernels c651c54 load on device 'cpu' took 1.27 ms  (cached)
+Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 11.01 ms  (cached)
+{'mode': 0, 'slip': False, 'epsilon': 0.001, 'analytical': -0.10721345240236219, 'finite_difference': -0.10720237613551573}
+{'mode': 0, 'slip': False, 'epsilon': 0.0005, 'analytical': -0.10721345240236219, 'finite_difference': -0.10720019266286765}
+.{'mode': 1, 'slip': False, 'epsilon': 0.001, 'analytical': -0.0072763497131362875, 'finite_difference': -0.007274196195523869}
+{'mode': 1, 'slip': False, 'epsilon': 0.0005, 'analytical': -0.0072763497131362875, 'finite_difference': -0.007272626975358466}
+.{'mode': 0, 'slip': True, 'epsilon': 0.0001, 'analytical': -0.2990631921362022, 'finite_difference': -0.3039960916617645}
+{'mode': 0, 'slip': True, 'epsilon': 5e-05, 'analytical': -0.2990631921362022, 'finite_difference': -0.30288785572486676}
+.{'mode': 1, 'slip': True, 'epsilon': 0.0001, 'analytical': -0.1611554157663666, 'finite_difference': -0.16114566273361333}
+{'mode': 1, 'slip': True, 'epsilon': 5e-05, 'analytical': -0.1611554157663666, 'finite_difference': -0.16096870545253236}
+...{'scope': 'captured_fp64_fixed_successor_anchor', 'epsilon': 0.0001, 'full': 0.0004533698359049654, 'reference_ad': 0.00045337104359084864, 'detached_gmpin': 0.0, 'fd': 0.00045337088890387567}
+{'scope': 'captured_fp64_fixed_successor_anchor', 'epsilon': 5e-05, 'full': 0.0004533698359049654, 'reference_ad': 0.00045337104359084864, 'detached_gmpin': 0.0, 'fd': 0.0004533710048007511}
+.
+
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p335_cuda3.xml -
+============================== 7 passed in 5.62s ===============================

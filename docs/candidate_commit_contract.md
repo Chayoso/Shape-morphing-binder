@@ -150,3 +150,52 @@ rejection isolation and archive clocks. Track new pins separately from common
 surviving free material IDs. Report successor render influence and fixed-target
 outer-render acceptance separately from the donor's prepared render reference.
 This seam alone does not fix holes, natural rest or the exported4K covariance.
+
+## Candidate integration after P335
+
+P335's small CUDA gates pass; its first native boundary closure passes but full
+coast velocity/C closure fails. No candidate run is authorized by that failed
+gate. It owns a real prepared successor but measures only after the
+ordinary run returns. Its saved owner is not a saved complete-merit evaluator.
+The original live selection occurs before assimilation/admission, and the next
+layer geometry and OT-u gate are prepared inside the next optimizer. Extending
+the old merit lease across those mutations would not freeze its captured
+configuration/target/loss dependencies.
+
+The smallest bounded candidate experiment can use a prior identity branch's
+actual successor as an explicitly labelled, owned fixed-policy estimate. In a
+fresh final selection context, use its CURRENT head owner, full scalar merit,
+merit covector, references and lambda. Reject incompatible materials, grid,
+horizon, pin release or unsupported policies; the borrowed policy cannot be
+presented as the new run's actual successor. A different prefix is not a
+matched causal comparison, even with the same seed/configuration.
+
+Supply the post-assimilation model to the existing joint search internally.
+Retain its three original repeats, nonlinear complete-merit and raw-phase
+gates, confirmation repeats, owned same-forward X/V/F/C and body coefficients.
+The current public selection evaluation is no-grad and inspection detaches
+state, so it cannot be repurposed as the gradient path. Register the confirmed
+same-forward result inside the live context; do not accept arbitrary supplied
+endpoint arrays or run another forward and label it the confirmed result.
+
+The selection health contract must use the chosen model's actual coast boundary:
+next pins zero v/C and anchor at head xT, while old head pins retain their old
+anchors. Only the RAW HEAD is selected for ordinary promotion. Never install
+predicted coast Fp/pin projections into the runner or apply assimilation twice.
+No estimated-policy candidate passing all gates means the original result is
+returned unchanged.
+
+After ordinary commit, capture the candidate's freshly prepared successor and
+its actual passive coast. Compare actual versus predicted policy membership,
+full raw phase coverage/shape and the SAME surviving-free material IDs; report
+newly imposed pins separately. Continue ordinary controlled windows as a
+separate coupled-quality gate. If this later actual-policy check fails, reject
+the entire experimental branch and keep the identity deliverable. It is not
+an in-process fallback to the original window.
+
+Such a fallback requires a larger transactional runner refactor: one shared
+commit/preparation implementation operating on owned physical, admission,
+target, balancer, plan, reversal/still/history, scale and stopping state.
+The current rollback dictionary is not that checkpoint. Do not re-enter a
+completed loop iteration, duplicate its commit block, or revive an expired
+merit closure to simulate a transaction. No candidate is adopted by this plan.

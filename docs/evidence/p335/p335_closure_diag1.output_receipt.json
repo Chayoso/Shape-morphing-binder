@@ -1,0 +1,12 @@
+{
+  "protocol.json": {
+    "bytes": 24326,
+    "mtime_ns": 1790674062541092730,
+    "sha256": "9c02bd09a6c81dedb808ae1f84d801db2c8fdb03f254cc09ecf10ceecdc5b4ae"
+  },
+  "result.json": {
+    "bytes": 3027149,
+    "mtime_ns": 1790674073337100812,
+    "sha256": "6659f772850e588925daa7936da615c4d2967b99a02619bce6034948710129f4"
+  }
+}

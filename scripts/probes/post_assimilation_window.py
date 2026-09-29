@@ -226,6 +226,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path('/data/relcfd/chayo/physmorph_v2'))
     parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--assim-fp64', action='store_true',
+                        help='Use FP64 assimilation in both actual runner and joint replay')
     args = parser.parse_args()
     require(args.out.resolve().is_relative_to(args.root.resolve()), 'Output outside project data')
     args.out.mkdir(exist_ok=False)
@@ -235,6 +237,7 @@ def main():
     metadata_binding = identity(metadata_path)
     cfg, prm = validate_recipe(json.loads(metadata_path.read_text()))
     cfg.stop_after_windows = 21
+    cfg.assim_fp64 = args.assim_fp64
     paths = [metadata_path, source_path, Path(cfg.target_reference),
              *sorted((repo/'physmorph').rglob('*.py')),
              *(repo/p for p in ('scripts/probes/post_assimilation_window.py',
@@ -250,6 +253,8 @@ def main():
     capture.write_json('protocol.json', dict(schema='post_assimilation_window_p335_v1',
         start_utc=datetime.now(timezone.utc).isoformat(), scope=SCOPE, bindings=bindings,
         effective_config=asdict(cfg), mpm=asdict(prm), N=len(source),
+        assimilation_precision=('FP64 arithmetic / FP32 storage per call' if cfg.assim_fp64
+                                else 'original FP32'),
         window=20, successor=21, max_output_bytes=3_000_000_000,
         boundary_and_coast_rule='32*FP32_eps*(native_scale+abs(reference)); elementwise'))
     result, failure = None, None

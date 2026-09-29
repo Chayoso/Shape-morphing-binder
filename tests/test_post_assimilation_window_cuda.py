@@ -20,8 +20,8 @@ pytestmark = pytest.mark.skipif(
     reason='Explicit hyde06 post-assimilation adapter gate')
 
 
-def cpu_fixture():
-    owner, saved, cfg = make_case()
+def cpu_fixture(fp64=False):
+    owner, saved, cfg = make_case(fp64=fp64)
     return owner, saved.arrays(), saved.metadata(), cfg
 
 
@@ -41,9 +41,10 @@ def gpu_case(fixture, *, slip=False):
         pins = arrays['pin'].astype(bool)
         F = to_array(head['F'].reshape(-1, 3, 3))
         P = to_array(owner.spec.Fp)
-        first = assimilate_elastic(F, P, eta=cfg.assim, isochoric=cfg.assim_iso)
+        first = assimilate_elastic(F, P, eta=cfg.assim, isochoric=cfg.assim_iso, fp64=cfg.assim_fp64)
         first[old] = P[old]
-        first[pins & ~old] = assimilate_elastic(F[pins & ~old], first[pins & ~old], eta=1., isochoric=False)
+        first[pins & ~old] = assimilate_elastic(F[pins & ~old], first[pins & ~old], eta=1., isochoric=False,
+                                               fp64=cfg.assim_fp64)
         arrays.update(x0=to_array(head['x'], copy=True), F0=F.copy(),
             v0=to_array(head['v'], copy=True), C0=to_array(head['C'], copy=True), Fp=first)
         arrays['v0'][pins], arrays['C0'][pins] = 0., 0.
@@ -59,8 +60,9 @@ def gpu_case(fixture, *, slip=False):
 
 @pytest.mark.parametrize('mode', [0, 1], ids=['displacement', 'terminal'])
 @pytest.mark.parametrize('slip', [False, True], ids=['no_slip', 'slip'])
-def test_captured_reduced_modes_match_plain_and_fd(mode, slip, monkeypatch):
-    fixture = cpu_fixture()
+@pytest.mark.parametrize('fp64', [False, True])
+def test_captured_reduced_modes_match_plain_and_fd(mode, slip, fp64, monkeypatch):
+    fixture = cpu_fixture(fp64)
     with cuda_execution('cuda:0'):
         owner, successor, cfg = gpu_case(fixture, slip=slip)
         plain = PostAssimilationWindow(owner, successor, cfg, capture=False)
@@ -104,8 +106,9 @@ def test_captured_reduced_modes_match_plain_and_fd(mode, slip, monkeypatch):
             assert ad == pytest.approx(fd, rel=.02, abs=5e-6)
 
 
-def test_actual_gpu_handoff_and_independent_successor_coast():
-    fixture = cpu_fixture()
+@pytest.mark.parametrize('fp64', [False, True])
+def test_actual_gpu_handoff_and_independent_successor_coast(fp64):
+    fixture = cpu_fixture(fp64)
     with cuda_execution('cuda:0'):
         owner, successor, cfg = gpu_case(fixture)
         model = PostAssimilationWindow(owner, successor, cfg)
@@ -126,8 +129,9 @@ def test_actual_gpu_handoff_and_independent_successor_coast():
             torch.testing.assert_close(values[key], expected.reshape_as(values[key]), rtol=2e-5, atol=3e-6)
 
 
-def test_side_stream_and_expired_owner_cannot_backpropagate():
-    fixture = cpu_fixture()
+@pytest.mark.parametrize('fp64', [False, True])
+def test_side_stream_and_expired_owner_cannot_backpropagate(fp64):
+    fixture = cpu_fixture(fp64)
     with cuda_execution('cuda:0'):
         primary = torch.cuda.current_stream()
         warp_stream = wp.Stream('cuda:0')

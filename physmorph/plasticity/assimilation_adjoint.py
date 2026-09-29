@@ -133,40 +133,52 @@ def _validate(F, Fp, eta, smin, smax):
         raise ValueError('Assimilation constants must be finite, with 0 < smin < smax')
 
 
-def assimilate_elastic_differentiable(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=False):
+def assimilate_elastic_differentiable(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=False,
+                                     *, fp64=False):
     """First derivative of ordinary assimilation on finite, nonsingular inputs.
 
     Float32 matches the production CUDA operation order; float64 is for gradient
     verification. The det gate and clamp branches are held fixed. No derivative
     at their boundaries or higher-order derivative is claimed. No host copies.
+    fp64=True accepts FP32 stored state, computes this whole call in FP64, and
+    returns FP32. Both casts remain in the graph. A handoff's second call thus
+    consumes the first call's actual FP32 store, not an unrounded FP64 value.
     """
     _validate(F, Fp, eta, smin, smax)
+    if type(fp64) is not bool:
+        raise ValueError('fp64 must be a boolean precision option')
+    if fp64 and F.dtype != torch.float32:
+        raise ValueError('fp64=True requires FP32 stored state')
     if eta <= 0:
         return Fp.clone()
+    if fp64:
+        F, Fp = F.double(), Fp.double()
     # inv() synchronizes its status to the host and cannot be graph-captured.
     # inv_ex uses the same inverse; the status assertion remains on the device.
     inverse, info = torch.linalg.inv_ex(Fp, check_errors=False)
     torch._assert_async((info == 0).all(), 'Assimilation requires nonsingular Fp')
     Fe = F @ inverse
     increment = _ElasticIncrement.apply(Fe, eta, bool(isochoric))
-    return _CumulativeBand.apply(increment @ Fp, smin, smax, bool(isochoric))
+    result = _CumulativeBand.apply(increment @ Fp, smin, smax, bool(isochoric))
+    return result.float() if fp64 else result
 
 
 def assimilate_handoff(F, Fp, old_pins, new_pins, *, eta=0.5, isochoric=False,
-                       smin=0.2, smax=5.0, settle_pin_assim=True):
+                       smin=0.2, smax=5.0, settle_pin_assim=True, fp64=False):
     """Two ordinary calls with frozen, disjoint old/new pin masks.
 
     Caller owns correct masks and policy scope. New pins consume the first call's
-    result. This maps only Fp; v/C projection and the trajectory bridge are separate.
+    result, stored in FP32 after each call when fp64=True. This maps only Fp;
+    v/C projection and the trajectory bridge are separate.
     """
     _validate(F, Fp, eta, smin, smax)
     for pins in (old_pins, new_pins):
         if not isinstance(pins, torch.Tensor) or pins.shape != F.shape[:1] or pins.dtype != torch.bool or pins.device != F.device:
             raise ValueError('Pin masks must be boolean (N,) tensors on the state device')
     torch._assert_async(~(old_pins & new_pins).any(), 'Old and new pin masks must be disjoint')
-    first = assimilate_elastic_differentiable(F, Fp, eta, smin, smax, isochoric)
+    first = assimilate_elastic_differentiable(F, Fp, eta, smin, smax, isochoric, fp64=fp64)
     if not settle_pin_assim:
         return first
     first = torch.where(old_pins[:, None, None], Fp, first)
-    admitted = assimilate_elastic_differentiable(F, first, 1.0, smin, smax, False)
+    admitted = assimilate_elastic_differentiable(F, first, 1.0, smin, smax, False, fp64=fp64)
     return torch.where(new_pins[:, None, None], admitted, first)
