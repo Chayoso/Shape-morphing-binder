@@ -51,17 +51,19 @@ coefficient directions, stale/lifetime behavior and invalid successor policies.
 The old pre-assimilation adapter must retain its current tests and behavior.
 The reduced-control FD observation is weighted terminal coast velocity: the
 older weak position-difference observation lost float32 resolution in the
-terminal mode. Both radii (1e-3,5e-4),2%/5e-6 bounds and the physical fixture
-remain fixed. CUDA tests explicitly include both no-slip and native slip pin
+terminal mode. The initial gate used both radii (1e-3,5e-4),2%/5e-6 bounds and
+the same physical fixture; see the retained failure and radius revision below.
+CUDA tests explicitly include both no-slip and native slip pin
 modes; a passing no-slip test alone does not certify a different contact branch.
 
 Initial implementation validation passes75CPU cases (46new adapter,3failure-
 receipt tests,26existing adapter tests),11.30s. The full original velocity and
 F histories are bound before private replay; the exact original archived W20
 X/F sequence is checked after the run. A64KiB final failure receipt reservation
-keeps output-cap or report failures explicit. Actual CUDA/production is pending.
+keeps output-cap or report failures explicit. At this initial checkpoint, actual
+CUDA/production were pending; actual CUDA results are recorded below.
 The shared evaluator refactor also passes55 existing selection and real CPU
-multiwindow integration cases (17.85s). Six CUDA cases are explicitly registered
+multiwindow integration cases (17.85s). Six CUDA cases were initially registered
 and skipped locally; local skips are not GPU evidence.
 
 All numerical GPU execution is on hyde06; no local simulation outside CPU tests.
@@ -76,3 +78,45 @@ measurement adds no rendering objective or optimizer update. Its motion
 gradients do not measure rendering-caused displacement; 64px feedback does not
 supervise the exact4K footprint. Physical F and visible Gaussian covariance
 remain separate acceptance requirements.
+
+## First actual CUDA attempt: slip derivative fails
+
+Frozen5d9d47a, `p335_cuda1`, passes4 of6 gates. Both no-slip reduced derivatives,
+actual subset-assimilation/fresh-coast forward, and side-stream/lifetime pass.
+Both slip-mode finite differences fail at1e-3: displacement AD -.299037859 versus
+FD -.292962246; terminal AD -.161156504 versus FD -.156122348. Keep the failure
+and original2%/5e-6 thresholds. This does not authorize a native production run.
+
+The coast's pinned-mass raster `gmpin` had no gradient buffer. Newly pinned
+anchors depend on the head controls, and this raster sets the collider normals
+seen by free material. Thus freezing it omits a continuous boundary dependency
+even when pin admission itself is held fixed. The targeted P334 correction makes
+ONLY its coast `gmpin` gradient-bearing before seed registration and graph
+capture; the ordinary single-window Trajectory default and all primal kernels
+are unchanged. Do not infer that this alone cures production oscillation.
+
+The missing edge does NOT explain the wide-radius discrepancy: corrected CPU
+displacement AD is -.29906338, only about2.6e-5 from the detached value. Its
+central FD changes from -.29296201 at1e-3 to -.30417561 at5e-4, -.30399548 at1e-4,
+-.30293984 at5e-5 and -.29933996 at2e-5. Terminal AD -.16115535 compares with FD
+-.15612156 at1e-3, -.15899210 at5e-4, -.16113646 at1e-4 and -.16102674 at5e-5.
+This supports a finite-radius/nonlinear-contact explanation but does not prove
+that all contact active sets remain unchanged.
+
+After this CPU diagnostic, freeze a refined LOCAL slip FD gate at1e-4/5e-5
+before the next CUDA run; keep2%/5e-6 bounds, both coefficient modes, and the
+original1e-3/5e-4 no-slip gate. Preserve the failed original slip test rather than
+calling its large-radius behavior repaired. The aggregate control observation
+cannot distinguish the tiny gmpin contribution at this tolerance; use a separate
+resolved boundary-anchor perturbation and detached-gmpin negative control.
+
+The isolated new-pin-anchor check holds all other actual successor state fixed
+and observes weighted first-step acceleration. On the N27/T20 CPU fixture,
+full AD .000453370168 matches FD .000452877887 at1e-4 (0.109%); detaching only
+gmpin gives exactly zero with identical primal values. Its5e-5 FD .000377522651
+is unresolved and is not a passing second bracket. Repeated seeds agree and a
+zero seed clears the pinned-mass covector. This identifies a boundary derivative,
+not the source of the larger reduced-control discrepancy or production motion.
+The updated adapter suite passes49 CPU cases in8.84s; ten P334 regressions also
+pass. Seven actual CUDA cases are registered for the second run, including this
+captured boundary negative and the separately refined local slip gates.

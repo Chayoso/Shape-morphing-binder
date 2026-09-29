@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="6" time="5.685" timestamp="2026-09-29T03:55:32.690870-05:00" hostname="hyde06"><testcase classname="tests.test_post_assimilation_window_cuda" name="test_captured_reduced_modes_match_plain_and_fd[no_slip-displacement]" time="1.302" /><testcase classname="tests.test_post_assimilation_window_cuda" name="test_captured_reduced_modes_match_plain_and_fd[no_slip-terminal]" time="0.645" /><testcase classname="tests.test_post_assimilation_window_cuda" name="test_captured_reduced_modes_match_plain_and_fd[slip-displacement]" time="0.641"><failure message="assert -0.2990378592266503 == -0.2929622464...6 ± 0.00585924&#10;  &#10;  comparison failed&#10;  Obtained: -0.2990378592266503&#10;  Expected: -0.29296224642928986 ± 0.00585924">tests/test_post_assimilation_window_cuda.py:100: in test_captured_reduced_modes_match_plain_and_fd
+    assert ad == pytest.approx(fd, rel=.02, abs=5e-6)
+E   assert -0.2990378592266503 == -0.2929622464...6 ± 0.00585924
+E     
+E     comparison failed
+E     Obtained: -0.2990378592266503
+E     Expected: -0.29296224642928986 ± 0.00585924</failure></testcase><testcase classname="tests.test_post_assimilation_window_cuda" name="test_captured_reduced_modes_match_plain_and_fd[slip-terminal]" time="0.687"><failure message="assert -0.16115650361419487 == -0.1561223483...7 ± 0.00312245&#10;  &#10;  comparison failed&#10;  Obtained: -0.16115650361419487&#10;  Expected: -0.15612234830405777 ± 0.00312245">tests/test_post_assimilation_window_cuda.py:100: in test_captured_reduced_modes_match_plain_and_fd
+    assert ad == pytest.approx(fd, rel=.02, abs=5e-6)
+E   assert -0.16115650361419487 == -0.1561223483...7 ± 0.00312245
+E     
+E     comparison failed
+E     Obtained: -0.16115650361419487
+E     Expected: -0.15612234830405777 ± 0.00312245</failure></testcase><testcase classname="tests.test_post_assimilation_window_cuda" name="test_actual_gpu_handoff_and_independent_successor_coast" time="0.507" /><testcase classname="tests.test_post_assimilation_window_cuda" name="test_side_stream_and_expired_owner_cannot_backpropagate" time="0.509" /></testsuite></testsuites>

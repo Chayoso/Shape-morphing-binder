@@ -60,6 +60,11 @@ class PostAssimilationAdjoint(WithdrawalAdjoint):
                 layer_u=wp.zeros(self.N, dtype=wp.float32, device=self.dev) if successor_layer is not None else None,
                 body_control=None, **common)
             self.coast.Fp = wp.clone(self.coast.Fp, requires_grad=True)
+            if self.coast.pin_mode == 1:
+                # New pin anchors depend on head controls. Their rasterized
+                # mass field sets collider normals, so retain this pullback
+                # into coast x0 as well as the direct state-transfer paths.
+                self.coast.gmpin = wp.clone(self.coast.gmpin, requires_grad=True)
             self.boundary_F = wp.to_torch(self.head.F[self.T]).detach().requires_grad_()
             self.fixed_Fp = wp.to_torch(self.head.Fp).detach()
             _validate(self.boundary_F, self.fixed_Fp, eta, smin, smax)

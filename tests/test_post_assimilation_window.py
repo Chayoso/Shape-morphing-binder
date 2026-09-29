@@ -15,16 +15,17 @@ from test_frozen_withdrawal_window import make_owner, coast_observable
 from test_withdrawal_adjoint_fd import direction_like
 
 
-def make_case():
-    """N27/T20/dt.002/dx.5/grid16^3, no-slip/gate-off, actual new pin3."""
+def make_case(*, pin_slip=False):
+    """N27/T20/dt.002/dx.5/grid16^3, gate-off, actual new pin3."""
     owner = make_owner()
     spec = owner.spec
-    spec.pin_slip = False
+    spec.pin_slip = pin_slip
     spec.prm.gate_r_lo = spec.prm.gate_r_hi = 0.
     spec.layer = (*spec.layer[:5], None, 0., spec.layer[7])
     cfg = PipelineConfig(T=spec.T, body_ctrl=True, body_terminal_ctrl=True,
                          phys_loss='ot_pace', loss_units='density', device='cpu',
-                         assim=.5, assim_iso=True, settle_pin_assim=True)
+                         assim=.5, assim_iso=True, settle_pin_assim=True,
+                         settle_pin_slip=pin_slip)
     out = owner.evaluate(owner.coefficients[:, 3:])
     head = owner.adjoint.traj
     F, P = out['F'].detach().reshape(-1, 3, 3).numpy(), spec.Fp.copy()
@@ -41,7 +42,7 @@ def make_case():
         Fg0=wp.to_torch(head.Fg[spec.T]).detach().numpy(), m=spec.m, lam=spec.lam, mu=spec.mu,
         vol0=spec.vol0, eta=spec.eta*1.1, pin=pins.astype(np.float32),
         layer=layer, bonds=spec.bonds(), prm=deepcopy(spec.prm), T=spec.T,
-        track_geom=True, persistent=True, requires_grad=False, device='cpu')
+        track_geom=True, persistent=True, requires_grad=False, device='cpu', pin_slip=pin_slip)
     return owner, OwnedWithdrawal.capture(successor, 0), cfg
 
 
@@ -229,3 +230,96 @@ def test_unreconstructed_successor_layer_parameters_rejected(key, value):
     successor = OwnedWithdrawal.from_arrays(successor.arrays(), meta)
     with pytest.raises(ValueError, match='fraction/inverse depth'):
         PostAssimilationWindow(owner, successor, cfg, capture=False)
+
+
+@pytest.mark.parametrize('mode', [0, 1], ids=['displacement', 'terminal'])
+def test_slip_reduced_mode_fd_at_refined_radii(mode):
+    owner, successor, cfg = make_case(pin_slip=True)
+    model = PostAssimilationWindow(owner, successor, cfg, capture=False)
+    leaves = [owner.coefficients[:, :3].clone().requires_grad_(),
+              owner.coefficients[:, 3:].clone().requires_grad_()]
+    out = model.evaluate(leaves[1], leaves[0])
+    full = torch.autograd.grad(future_velocity(out), leaves)
+    direction = direction_like(leaves[mode], mode)
+    ad = float((full[mode].double()*direction.double()).sum())
+    assert abs(ad) > 5e-5
+    # The registered 1e-3 slip brackets failed in the first CUDA run and the
+    # independent CPU audit, even after restoring gmpin's gradient. Refine the
+    # radius, retaining the tolerance; no fixed contact active-set claim follows.
+    # Original no-slip tests above keep their 1e-3/5e-4 brackets unchanged.
+    for epsilon in (1e-4, 5e-5):
+        losses = []
+        for sign in (-1, 1):
+            shifted = [value.detach().clone() for value in leaves]
+            shifted[mode].add_(direction, alpha=sign*epsilon)
+            values = model.evaluate(shifted[1], shifted[0])
+            assert values['valid']
+            losses.append(float(future_velocity(values)))
+        fd = (losses[1]-losses[0])/(2*epsilon)
+        print(dict(mode=mode, epsilon=epsilon, full=ad, fd=fd))
+        assert ad == pytest.approx(fd, rel=.02, abs=5e-6)
+
+
+def test_new_pin_collider_anchor_derivative_and_detached_mass_negative_control():
+    owner, successor, cfg = make_case(pin_slip=True)
+    assert successor.metadata()['pin_mode'] == 1
+    model = PostAssimilationWindow(owner, successor, cfg, capture=False)
+    broken = PostAssimilationWindow(owner, successor, cfg, capture=False)
+    broken.adjoint = broken._make_adjoint()
+    # Reproduce only the old missing edge; keep every primal policy/buffer and
+    # the Fp/v/C handoff intact. The ordinary Trajectory allocation is detached.
+    broken.adjoint.coast.gmpin = wp.clone(broken.adjoint.coast.gmpin, requires_grad=False)
+    broken.adjoint._configure_seeds()
+    leaves = [owner.coefficients[:, :3].clone().requires_grad_(),
+              owner.coefficients[:, 3:].clone().requires_grad_()]
+    actual = model.evaluate(leaves[1], leaves[0])
+    incomplete = broken.evaluate(leaves[1], leaves[0])
+    assert actual['valid'] and incomplete['valid']
+    assert model.adjoint.coast.gmpin.requires_grad
+    assert not broken.adjoint.coast.gmpin.requires_grad
+    for key, value in actual.items():
+        if torch.is_tensor(value):
+            assert torch.equal(value, incomplete[key]), key
+    # Independently verify this is the real slip successor, including moved
+    # new-pin anchors, rather than a no-slip handoff with relabeled metadata.
+    independent = successor.trajectory(persistent=True)
+    independent.rollout()
+    expected = torch.stack([wp.to_torch(value).clone() for value in independent.v])
+    torch.testing.assert_close(actual['coast_V'], expected, rtol=2e-5, atol=3e-6)
+    assert torch.max(torch.abs(actual['x'][3]-torch.from_numpy(owner.spec.x0[3]))) > 1e-6
+    weights = (torch.arange(len(owner.idx)*3, dtype=torch.float64).reshape(-1, 3)*.43+.2).sin()
+    def acceleration(values):
+        return ((values['coast_V'][1].double()-values['coast_V'][0].double())*weights).mean()/owner.spec.prm.dt
+    torch.autograd.grad(acceleration(actual), leaves, retain_graph=True)
+    full = wp.to_torch(model.adjoint.coast.x[0].grad).clone()
+    pin_mass_covector = wp.to_torch(model.adjoint.coast.gmpin.grad).clone()
+    assert float(pin_mass_covector.norm()) > 1e-7
+    torch.autograd.grad(acceleration(actual), leaves, retain_graph=True)
+    assert torch.equal(wp.to_torch(model.adjoint.coast.gmpin.grad), pin_mass_covector)
+    torch.autograd.grad(actual['coast_V'].sum()*0, leaves)
+    assert torch.count_nonzero(wp.to_torch(model.adjoint.coast.gmpin.grad)) == 0
+    torch.autograd.grad(acceleration(incomplete), leaves)
+    missing = wp.to_torch(broken.adjoint.coast.x[0].grad).clone()
+    # This is a conditional boundary-x derivative, not a reduced-body negative:
+    # perturb only the new pin's anchor while holding all other successor state
+    # fixed. Its first-step free velocity path passes through the collider field.
+    direction = torch.zeros_like(actual['x'])
+    direction[3] = torch.tensor([.3, -.7, .5])
+    direction /= direction.norm()
+    ad = float((full.double()*direction.double()).sum())
+    bad = float((missing.double()*direction.double()).sum())
+    assert abs(ad) > 5e-5 and bad == 0.
+    initial_x = wp.to_torch(independent.x[0]).clone()
+    initial_v = wp.to_torch(independent.v[0]).clone()
+    epsilon, losses = 1e-4, []
+    for sign in (-1, 1):
+        wp.to_torch(independent.x[0]).copy_(initial_x+sign*epsilon*direction)
+        independent.step(0)
+        acceleration_fd = (wp.to_torch(independent.v[1]).double()-initial_v.double())/owner.spec.prm.dt
+        losses.append(float((acceleration_fd*weights).mean()))
+    fd = (losses[1]-losses[0])/(2*epsilon)
+    allowance = max(.02*abs(fd), 5e-6)
+    print(dict(scope='fixed_successor_new_pin_anchor', epsilon=epsilon,
+               full=ad, detached_gmpin=bad, fd=fd, allowance=allowance))
+    assert abs(ad-fd) <= allowance
+    assert abs(bad-fd) > allowance
