@@ -6,6 +6,32 @@ import torch
 pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason='hyde06 CUDA checks')
 
 
+def test_horizon_motion_archive_matches_cpu_with_device_geometry(tmp_path, monkeypatch):
+    from test_horizon_motion import make_archive
+    from scripts.probes import horizon_motion
+    from physmorph.compute import cuda_execution, is_cuda_execution, to_host
+    prefix, _ = make_archive(tmp_path)
+    expected_report, expected = horizon_motion.analyze(prefix)
+    original = horizon_motion.window_motion
+    def device_only(*args, **kwargs):
+        assert is_cuda_execution()
+        assert all(hasattr(a, '__cuda_array_interface__') for a in args[:3])
+        return original(*args, **kwargs)
+    monkeypatch.setattr(horizon_motion, 'window_motion', device_only)
+    with cuda_execution('cuda:0'):
+        actual_report, actual = horizon_motion.analyze(prefix)
+        actual = to_host(actual)
+    assert expected.keys() == actual.keys()
+    for k, want in expected.items():
+        if want.dtype == bool or np.issubdtype(want.dtype, np.integer):
+            np.testing.assert_array_equal(actual[k], want, err_msg=k)
+        else:
+            np.testing.assert_allclose(actual[k], want, rtol=2e-12, atol=2e-12, err_msg=k)
+    assert actual_report['reference_relabels'] == expected_report['reference_relabels']
+    assert actual_report['delivery_scope'] == expected_report['delivery_scope']
+    assert actual_report['physical_accepted_windows'] == 2
+
+
 def test_fixed_metric_footprint_avoids_dynamic_histogram(monkeypatch):
     from physmorph import metrics
     from physmorph.compute import cuda_execution, cuda_module, to_array, to_host

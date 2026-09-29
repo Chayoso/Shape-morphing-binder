@@ -1,0 +1,187 @@
+"""Independent P316 identity/history/array-layout audit; no MPM or geometry metrics.
+
+Run after completion on the server with --prefix and an exclusive --out.
+Large output hashes are recorded bindings unless --hash-large is supplied.
+Only indexed frames/controls are decoded; never stack the complete trajectory.
+"""
+import argparse, hashlib, json, math, os, zipfile
+from datetime import datetime, timezone
+from pathlib import Path
+import numpy as np
+
+def require(ok, message):
+    if not ok: raise ValueError(message)
+
+def sha(path):
+    h=hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for b in iter(lambda:stream.read(8<<20),b''): h.update(b)
+    return h.hexdigest()
+
+def identity(path):
+    s=Path(path).stat()
+    return dict(dev=s.st_dev,ino=s.st_ino,size=s.st_size,mtime_ns=s.st_mtime_ns)
+
+def arrhash(a):return hashlib.sha256(np.ascontiguousarray(a).tobytes()).hexdigest()
+
+def load_json(path):
+    b=Path(path).read_bytes();r=json.loads(b)
+    json.dumps(r,allow_nan=False)
+    return r,hashlib.sha256(b).hexdigest()
+
+class Member:
+    """Seek one C-order first-axis item in a .npy member, bounded host memory."""
+    def __init__(self,path,name):
+        self.z=zipfile.ZipFile(path);self.f=self.z.open(name+'.npy')
+        version=np.lib.format.read_magic(self.f)
+        self.shape,self.fortran,self.dtype=np.lib.format._read_array_header(self.f,version)
+        require(not self.fortran and not self.dtype.hasobject,'Unsupported NPY storage')
+        self.offset=self.f.tell()
+        self.row_bytes=math.prod(self.shape[1:])*self.dtype.itemsize
+        self.read_items=set()
+    def item(self,i):
+        require(type(i) is int and 0<=i<self.shape[0],'NPY item out of range')
+        self.f.seek(self.offset+i*self.row_bytes);b=self.f.read(self.row_bytes)
+        require(len(b)==self.row_bytes,'Short NPY item')
+        self.read_items.add(i)
+        return np.frombuffer(b,dtype=self.dtype).reshape(self.shape[1:])
+    def close(self):self.f.close();self.z.close()
+
+def audit(prefix,hash_large=False):
+    prefix=Path(prefix)
+    protocol,psha=load_json(prefix.with_suffix('.protocol.json'))
+    record,rsha=load_json(prefix.with_suffix('.json'))
+    trace,tsha=load_json(prefix.with_suffix('.rest_trace.json'))
+    require('trace_error' not in trace and trace['inputs_code_unchanged'] is True,'Trace did not complete')
+    require(trace['protocol_sha256']==psha and trace['result_sha256']==rsha,'JSON binding mismatch')
+    require(not any(record['guards'].values()),'Physical guard fired')
+    checks=[];paths={**protocol['inputs'],**protocol['code'],**trace['output_sha256']}
+    before={k:identity(k) for k in paths}
+    for name,expected in paths.items():
+        size=before[name]['size'];do_hash=hash_large or size<=64_000_000
+        if do_hash:require(sha(name)==expected,'Hash mismatch: '+name)
+        checks.append(dict(path=name,expected_sha256=expected,full_hash_rechecked=do_hash,**before[name]))
+    code_roots={str(Path(p).parents[len(Path(p).parts)-Path(p).parts.index('physmorph')-1])
+                for p in protocol['code'] if '/physmorph/' in p.replace('\\','/')}
+    require(len(code_roots)==1,'Multiple physical code roots')
+    code_root=Path(next(iter(code_roots)))
+    physical=sorted(p for p in protocol['code'] if '/physmorph/' in p.replace('\\','/'))
+    actual_paths=sorted(str(p) for p in (code_root/'physmorph').rglob('*.py'))
+    require(physical==actual_paths,'Physical module membership changed')
+    digest=hashlib.sha256()
+    for p in physical:
+        q=Path(p);digest.update(q.relative_to(code_root).as_posix().encode()+b'\0'+q.read_bytes())
+    require(digest.hexdigest()==record['code_sha256'],'Physical aggregate mismatch')
+    cfg=record['config'];source=protocol['source_config'];arm=protocol['arm']
+    require(arm in ('baseline','raw'),'Unknown arm')
+    expected={k:v for k,v in source.items() if k in cfg}
+    expected.update(compute_backend='cuda',stop_after_windows=300,iters=8,motion_accounting=True,
+                    outer_render_committed=True,shift_sub=False,geometric_variance=False,
+                    target_reference=str(next(Path(p) for p in protocol['inputs'] if p.endswith('/target_reference.npz'))))
+    if arm=='baseline':expected.update(commit_pic_objective=True)
+    else:expected.update(commit_pic=False,commit_pic_objective=False)
+    require(cfg==expected,'Unexpected recipe difference')
+    require(cfg['animations']==300 and cfg['T']==20 and cfg['archive_stride']==1,'Wrong discretisation/horizon')
+    require(record['mpm']==protocol['mpm'],'MPM parameters changed')
+    require(not any(cfg.get(k,False) for k in ('settle_pin_follow','settle_pin_yield','settle_pin_kkt','local_dress_iters')),'Unsupported release/dressing')
+    armrec=record['arms']['render_full_dt_iso_nn'];history=record['history']
+    require(history==armrec['history'] and cfg==armrec['config'],'Nested result mismatch')
+    raw=prefix.with_name(prefix.name+'_render_full_dt_iso_nn.npz');compact=prefix.with_suffix('.npz')
+    for f in (raw,compact):require(str(f) in trace['output_sha256'],'Unbound output archive')
+    with np.load(raw,allow_pickle=False) as z:
+        src,tgt,pins,pinat,fsidx=(z[k] for k in ('src','tgt','pinned','pinned_at','F_sample_idx'))
+        deliver=int(z['deliver_n'])
+        require(src.shape==tgt.shape==(300000,3) and src.dtype==tgt.dtype==np.float32,'Wrong particle layout')
+        require(pins.dtype==bool and pins.shape==pinat.shape==(len(src),),'Invalid pin arrays')
+        require(np.array_equal(pinat>=0,pins),'Final admission/pin set mismatch')
+    frames=Member(raw,'frames');Fs=Member(raw,'F_samples');commits=Member(compact,'commits')
+    N=len(src);require(frames.shape[1:]==src.shape and frames.dtype==np.float32,'Invalid frame layout')
+    require(np.array_equal(frames.item(0),src),'Initial frame differs from source')
+    require(deliver==trace['deliver_n']==armrec['deliver_n'] and 1<=deliver<=frames.shape[0],'Delivery mismatch')
+    require(trace['actual_archive_frames']==frames.shape[0],'Full archive count mismatch')
+    expected_fs=sorted({0,frames.shape[0]-1}|{int(h['frame_end'])-1 for h in history if h.get('frame_end')})
+    require(fsidx.tolist()==expected_fs and Fs.shape==(len(expected_fs),N,3,3),'F sample scope mismatch')
+    folder=prefix.with_name(prefix.name+'_cohorts');attempts=trace['attempts']
+    require(len(attempts)<=300,'Attempt budget exceeded')
+    expected_names={a['sidecar'] for a in attempts}
+    require({p.name for p in folder.glob('*.npz')}==expected_names,'Cohort member set differs')
+    cursor=0;ai=0;accepted=[];events=[];held=0;commit_i=0;rows=[]
+    for h in history:
+        index=int(h['animation'])
+        if 'c2f_render_res' in h:
+            events.append(h);continue
+        if h.get('held'):
+            require(np.array_equal(frames.item(cursor),frames.item(cursor+1)),'Held frame changed')
+            cursor+=1;held+=1;continue
+        require(index==ai and ai<len(attempts),'Attempt ordering mismatch')
+        a=attempts[ai];require(a['animation']==index and a['start_frame']==cursor,'Trace start mismatch')
+        require(a['x0_sha256']==arrhash(frames.item(cursor)),'Start position hash mismatch')
+        ap=folder/a['sidecar'];s0=identity(ap)
+        require(sha(ap)==a['sha256'],'Cohort sidecar hash mismatch')
+        with np.load(ap,allow_pickle=False) as z:
+            pb=z['pin_before'];rawend=z['optimizer_raw_endpoint']
+            require(pb.shape==(N,) and pb.dtype==bool and rawend.shape==(N,3),'Invalid observed layout')
+            require(np.array_equal(pb,pins&(pinat<=index)),'Window-start admission chronology mismatch')
+            if a['has_plan']:
+                plan,arr,radius=z['plan'],z['start_arrived'],z['radius']
+                require(plan.shape==(N,3) and plan.dtype==np.float32 and arr.shape==(N,) and arr.dtype==bool,'Invalid reference layout')
+                require(np.isfinite(plan).all() and np.isfinite(radius).all() and float(radius)>0,'Invalid reference values')
+            committed=bool(h.get('frame_end') and not h.get('null_commit') and not h.get('outer_rejected') and h.get('outer_accepted',1))
+            require(committed==a['committed'],'Commit scope mismatch')
+            if committed:
+                end=int(h['frame_end'])-1
+                require(end-cursor==20==a['optimizer_frames']-1 and a['inner_accepted']>0,'Accepted interval mismatch')
+                require(a['has_plan'] and 'optimizer_terminal_speed_squared' in z,'Accepted observation incomplete')
+                speed=z['optimizer_terminal_speed_squared']
+                require(speed.shape==(N,) and speed.dtype==np.float64 and np.isfinite(speed).all() and (speed>=0).all(),'Invalid observed velocity scalar')
+                promoted=frames.item(end)
+                require(np.array_equal(rawend[pb],frames.item(cursor)[pb]),'Raw endpoint pin moved')
+                require(np.array_equal(promoted[pb],frames.item(cursor)[pb]),'Promoted endpoint pin moved')
+                if arm=='raw':require(np.array_equal(rawend,promoted),'Raw arm has external endpoint change')
+                accepted.append(index);cursor=end
+            elif h.get('null_commit') and not h.get('outer_rejected'):
+                require(np.array_equal(frames.item(cursor),frames.item(cursor+1)),'Null frame changed')
+                cursor+=1
+            require(a['end_frame']==cursor,'Trace end mismatch')
+            for k in ('outer_rejected','null_commit','grad_converged'):require(a[k]==bool(h.get(k)),'Attempt status mismatch: '+k)
+        require(identity(ap)==s0,'Cohort sidecar changed while read')
+        if h.get('frame_end'):
+            require(np.array_equal(commits.item(commit_i),frames.item(int(h['frame_end'])-1)),'Compact commit mismatch')
+            commit_i+=1
+        rows.append(dict(animation=index,start_frame=a['start_frame'],end_frame=cursor,committed=committed,start_pins=int(pb.sum())))
+        ai+=1
+    require(ai==len(attempts) and cursor==frames.shape[0]-1,'Incomplete physical archive mapping')
+    require(accepted==trace['accepted_attempts'] and events==trace.get('events',[]),'Trace list mismatch')
+    require((accepted[-1] if accepted else None)==trace['actual_last_accepted'],'Last accepted mismatch')
+    require(held==trace['held_archive_rows']==armrec['n_held'],'Held suffix count mismatch')
+    require(commit_i==commits.shape[0],'Compact commit count mismatch')
+    require(trace['reported_converged']==armrec['converged'],'Global stop flag mismatch')
+    require(trace['truncation']==armrec['truncation'],'Truncation mismatch')
+    if trace['final_pin_sha256'] is None:
+        require(not pins.any() and (pinat==-1).all(),'Absent pin state was normalized incorrectly')
+    else:require(trace['final_pin_sha256']==arrhash(pins),'Final pin digest mismatch')
+    require(set((pinat[pins]-1).tolist()).issubset(accepted),'Admission without an accepted commit')
+    with np.load(compact,allow_pickle=False) as z:
+        require(np.array_equal(z['final'],frames.item(frames.shape[0]-1)),'Compact final is not actual final frame')
+        require(np.array_equal(z['F'],Fs.item(len(fsidx)-1)),'Compact final F mismatch')
+    delivered=[h for h in history if h.get('frame_end') and not h.get('null_commit') and not h.get('outer_rejected') and int(h['frame_end'])<=deliver]
+    for name,b in before.items():require(identity(name)==b,'Input/source/output identity changed: '+name)
+    out=dict(passed=True,no_forward=True,no_gpu=True,geometry_metrics_recomputed=False,arrival_predicate_recomputed=False,
+             utc=datetime.now(timezone.utc).isoformat(),protocol_sha256=psha,result_sha256=rsha,trace_sha256=tsha,
+             arm=arm,config=cfg,mpm=record['mpm'],attempts=ai,accepted_count=len(accepted),
+             actual_last_accepted_attempt=(None if not accepted else accepted[-1]+1),
+             delivered_accepted_count=len(delivered),delivered_last_accepted_attempt=(None if not delivered else int(delivered[-1]['animation'])+1),
+             raw_frames=frames.shape[0],deliver_n=deliver,held_rows=held,c2f_events=events,
+             all_final_admissions_on_accepted_attempts=True,final_pin_count=int(pins.sum()),
+             reported_converged=trace['reported_converged'],natural_rest_established=False,
+             last_attempt_history=next((h for h in reversed(history) if not h.get('held') and 'c2f_render_res' not in h),None),
+             archive_frame_items_read=len(frames.read_items),all_raw_phases_finiteness_checked=False,
+             checks=checks,attempt_mapping=rows)
+    frames.close();Fs.close();commits.close()
+    return out
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--prefix',type=Path,required=True);p.add_argument('--out',type=Path,required=True);p.add_argument('--hash-large',action='store_true');a=p.parse_args()
+    result=audit(a.prefix,a.hash_large)
+    with a.out.open('x') as f:json.dump(result,f,indent=2,allow_nan=False)
+    print(json.dumps({k:v for k,v in result.items() if k not in ('config','mpm','checks','attempt_mapping','last_attempt_history')},indent=2))

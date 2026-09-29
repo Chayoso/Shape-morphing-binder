@@ -81,3 +81,26 @@ PIC fixture has a nonzero raw/promoted endpoint difference; the raw fixture
 matches exactly. Output raw/compact archives and rendering reports are bound
 by final hashes, in addition to source/input and per-attempt telemetry bindings.
 No CUDA horizon result is implied by this preparation.
+
+## Baseline result (frozen9cab095; raw comparison still running)
+
+N300k,T20,dt1/240,dx.3062907543956724wu,loss36^3,iters8; configured300 windows.
+The ordinary baseline stops after43 attempts, with40 accepted windows/320 inner
+updates. Attempts41-43 are outer-rejected; three consecutive rejections cause
+the stop. There are802 raw/delivered frames: initial +800 physical steps +one
+held row. No C2F event was reached. Guard counters are all0. Final pin count is
+272864; the remaining27136 material IDs are free. `reported_converged=true`
+means the runner froze; it does not establish individual or natural rest.
+
+Independent `refute_p316.py --hash-large` passes the source/input/output hashes,
+complete attempted/accepted/null/held mapping, raw/compact/F endpoints, delivery
+identity and every pin-admission chronology. It does not recompute arrival,
+all-phase finiteness/holes or geometry. The raw alternative is launched serially
+from the SAME frozen code; no baseline quality or policy promotion follows.
+
+Rendering:18 views at64pixels throughout this baseline. Median nominal weighted
+render-direction share.365489 (320 recorded updates in accepted windows),
+adaptive lambda median.0301579, observed image-loss change median-3.55800e-6.
+These are observational optimizer quantities, not a36.5% displacement share or
+a render-on/off causal estimate. Full report and independent audit are retained
+in `docs/evidence/p316/full_baseline1.*`; physical-motion analysis is P317.

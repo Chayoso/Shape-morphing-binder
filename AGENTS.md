@@ -251,3 +251,11 @@ These are the leading candidates for the unresolved problems, and they are ports
   and maps actual/promoted/delivery/held scopes.4 independent CPU cases pass,
   including real C2F/PIC/raw parity. A global stop or pin-imposed zero motion is
   not natural rest; no P314 candidate is adopted by this driver.
+- **P316 baseline / P317 analysis:** frozen9cab095 baseline stops at43 attempts
+  after3 outer rejections, with40 actual commits andone held row. Full-hash
+  independent archive/pin/delivery audit passes; the global frozen flag is not
+  natural rest. Raw comparison uses the same frozen code serially.
+  `docs/horizon_motion_p317.md` defines bounded archive-only CUDA motion analysis:
+  same-plan arrivals, actual/PIC displacement separation, fixed-ID follow-up
+  denominators, pin timing, accepted-reference relabels and delivery scope.
+  No physical policy or rest/hole/4K quality promotion follows from analysis.
