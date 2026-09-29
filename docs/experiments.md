@@ -9660,3 +9660,33 @@ particles, the unpinned surface 0.179 / 0.131, progress at t = 0.10 0.02 / −0.
 0.09 / 0.25 / 0.54, tail 0.0008, tip 13.3, 12–20 min. Stills inspected (frames 96 / 240 / 720): a solid dome
 at 96, both ears growing as thick columns with hazy ends at 240, a clean bunny at 720. The verdict waits for
 `mjb300` and `ours300` (same seed) and their renders.
+
+**2026-09-29 10:20 CDT — B1 paired read: `mj300` against `ours300` (same seed 97, 300k bunny, same recipe), both
+rendered at 3840×2160 with the deliverable's PBR renderer.** `ours300` = the current code (adb7492) with
+bm300's flags: 47 windows, 12 min, silIoU 0.9769, chamfer 0.0556, det F min 0.608, 30 stray particles (28
+pieces), pinned 60.8 % at the end.
+
+| | mj300 (settled) | ours300 |
+|---|---|---|
+| wall / windows | **7 min / 31** | 12 min / 47 |
+| silIoU / chamfer | **0.9851** / 0.0581 | 0.9769 / **0.0556** |
+| det F min / stray particles | **0.934 / 0** | 0.608 / 30 |
+| late surface motion, normal / tangential (sp per frame) | **0.007 / 0.009** (no pins, all 18,595) | 0.128 / 0.113 (3,991 unpinned; 11,086 pinned at 0) |
+| progress by source depth at t = 0.10 | **0.16 / 0.13 / 0.13** | 0.03 / −0.04 / −0.03 |
+| top region density, frames 76 / 114 / 152 / 190 / 380 | **0.36 / 0.23** / 0.22 / 0.33 / 0.92 | 0.16 / 0.09 / **0.26 / 0.59** / 1.45 |
+| ear fill of the upper slabs at t = 0.40 | **0.73–1.33** | 0.01–0.26 |
+| ear fill per slab at the end (base → tip) | 1.01 1.01 1.00 0.98 0.94 1.10 1.16 | 0.97 0.97 1.01 0.92 0.81 1.89 0.58 |
+| ear tip (reference particles, target 89) | 11.1 | 8.8 |
+| target under-fill max (wu) | 0.166 | **0.140** |
+| splat tail D1 / ALT | **0.0003 / 0.0002** | 0.0008 / 0.0007 |
+
+Gates: transit density ≥ 0.2 and above the baseline at the ear's onset ✓ (frames 76–114), below it at frames
+152–190; ear tip ≥ 13 ✗ for both (11.1 against 8.8); the ear's onset earlier ✓; silIoU ✓ (+0.008); late motion
+and tail ✓; no stall ✓; wall ✓ (0.6×). 4K PBR frames inspected at raw 96 / 240 / 480 / 720 / end (mj300 through
+`render4k_nopin.py`: the renderer requires pin arrays, the settled archive has none, so empty ones are
+supplied and no appearance latch engages): at 240 mj300's ears are long thick columns with ring-like
+banding and soft ends, ours300's are short thin spikes with blurred ends; at the end mj300 has crisp ear
+outlines, a smoother head with less facial relief and a finely pebbled ear surface, ours300 shows more
+facial relief, blurred ear edges and dimples on the body. Verdict so far: the branch passes every paired
+gate except the ear tip, which the current code misses by more; `mjb300` (its legacy baseline) is still
+running. Page: https://claude.ai/artifact/TZEZd3xnsfGQr5y4T4fRMc (private).
