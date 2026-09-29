@@ -53,6 +53,7 @@ class PreparedWindowSelection:
             self._initialize(original, owner, reference, evaluate_merit, merit_lease, cfg, prm, win_index)
             self._accepted_velocity = None
             self._post_pins = None
+            self._admission_history = None
             if accepted_velocity is not None:
                 if (not torch.is_tensor(accepted_velocity)
                         or accepted_velocity.shape != (cfg.T, len(self._start), 3)
@@ -295,6 +296,28 @@ class PreparedWindowSelection:
             report['failures'].append('missing_or_failed_raw_certificate')
         return _own(entry['result'] if selected else self._original), report
 
+    def bind_current_admission_history(self, history):
+        """Runner-only current-state attachment; no preview or numerical forward."""
+        from .preparation_admission import AdmissionHistory
+        self._live()
+        if not isinstance(history, AdmissionHistory) or self._admission_history is not None:
+            raise ValueError('Current admission history must be attached once')
+        self._admission_history = AdmissionHistory(**history.arrays())
+
+    def current_admission_history(self):
+        self._live()
+        if self._admission_history is None:
+            raise ValueError('No current runner admission history attached')
+        return self._admission_history.arrays()
+
+    def preview_current_successor(self):
+        """Owned original-head passive state; no acceptance or rest certificate."""
+        from .current_successor import prepare_original_successor
+        self._live()
+        if self._admission_history is None:
+            raise ValueError('No current runner admission history attached')
+        return prepare_original_successor(self, self._admission_history)
+
     def close(self):
         if not self._closed:
             self._closed = True
@@ -306,5 +329,6 @@ class PreparedWindowSelection:
                 self._owner.close()
             self._choices.clear()
             for name in ('_original', '_model', '_owner', '_evaluate_merit', '_reference',
-                         '_cfg', '_prm', '_start', '_pins', '_lease', '_post_pins', '_accepted_velocity'):
+                         '_cfg', '_prm', '_start', '_pins', '_lease', '_post_pins', '_accepted_velocity',
+                         '_admission_history'):
                 setattr(self, name, None)

@@ -27,7 +27,7 @@ import math
 import os
 import time
 
-from physmorph.compute import array_api as np, to_array, sample_indices, warp_assign
+from physmorph.compute import array_api as np, to_array, warp_assign
 import torch
 import warp as wp
 
@@ -383,16 +383,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # outer-layer relaxation (docs/surface_gradient.md §6) and/or the position-mode control
         # channel (§7): the layer, its normals and its same-side neighbourhoods are frozen at the
         # window start; the relaxation fraction is 1/T (over one window), 0 when only the channel is on
-        from physmorph.compute import KDTree as _KD
-        from ..render.surface_recon import layer_relax_data
-        sub = x0[sample_indices(N, min(N, 20000))]
-        sp0 = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
-        # the reference discretisation (config.disc_ref): the layer depth, the relaxation width and the u clip
-        # at the reference spacing, the layer / asymmetry neighbour counts at the reference MASS
-        _f = disc_ref_factor(N, cfg)
-        sp0 *= _f
-        lmask, lnrm, lnbr, lw = layer_relax_data(x0, sp0, k=int(round(cfg.layer_k * _f ** 3)), h_sp=cfg.layer_h_sp,
-                                                 k_asym=int(round(32 * _f ** 3)))
+        from .preparation_geometry import prepare_layer_geometry
+        layer, sp0 = prepare_layer_geometry(x0, cfg)
+        lmask, lnrm, lnbr, lw, _ = layer
         if cfg.layer_ctrl and cfg.layer_ctrl_smooth:
             # W of the relaxation as a search-direction transform on the u step (§7): rows of the
             # normalised same-side neighbour weights; zero rows off the layer
@@ -403,8 +396,6 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 return (_lw_t * v[_lnbr_t]).sum(1)
         else:
             W_apply = None
-        lfrac = (cfg.layer_frac if cfg.layer_frac > 0 else 1.0 / float(T)) if cfg.layer_relax else 0.0
-        layer = (lmask, lnrm, lnbr, lw, float(lfrac))
         if cfg.layer_ctrl and cfg.layer_F:
             # P3 (docs/final_plan.md 2): the u channel through F — the least-squares tangential gradient
             # weights of the frozen layer neighbourhood, and the layer depth (one spacing)

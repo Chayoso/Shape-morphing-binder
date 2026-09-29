@@ -29,6 +29,7 @@ from .optimizer import TargetPack, optimize_window
 from .render_loss import (LambdaBalancer, d_render, make_views, shade_targets,
                           target_silhouettes)
 from .surface_local import surface_local_pass
+from .preparation_geometry import fragment_mask, prepare_bonds
 
 
 def _id(N):
@@ -94,33 +95,6 @@ def reattach_fragments(x, v, C, F, Fp, Fg, prm: MPMParams, spacing: float, seed:
         if arr is not None:
             arr[frag] = arr[jb]
     return n
-
-
-def fragment_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
-    """True where the particle's occupied grid cell belongs to a connected component
-    (26-connectivity) of occupied cells that is NOT the largest one: material that has
-    broken off the body (numerical fracture debris). Thin features stay connected to
-    the body through occupied cells and are never flagged."""
-    from physmorph.compute import ndimage
-    ijk = np.floor((x - np.asarray(prm.grid_min, np.float32)) / prm.dx).astype(np.int64)
-    dims = np.array([prm.nx, prm.ny, prm.nz])
-    ok = ((ijk >= 0) & (ijk < dims)).all(1)
-    occ = np.zeros((prm.nx, prm.ny, prm.nz), bool)
-    occ[ijk[ok, 0], ijk[ok, 1], ijk[ok, 2]] = True
-    # STENCIL connectivity: two particles couple through shared grid nodes when their cells
-    # are within the 4^3 B-spline support of each other, so components are taken on the
-    # occupancy dilated by one cell (a thin feature with a one-cell occupancy gap is still one
-    # body; v4 on the raw occupancy flagged a 732-particle dragon spine as a fragment)
-    occ_d = ndimage.binary_dilation(occ, structure=np.ones((3, 3, 3), bool))
-    lab, n = ndimage.label(occ_d, structure=np.ones((3, 3, 3), int))
-    if n <= 1:
-        return np.zeros(len(x), bool)
-    sizes = np.bincount(lab.ravel())
-    sizes[0] = 0
-    body = int(sizes.argmax())
-    frag = np.ones(len(x), bool)
-    frag[ok] = lab[ijk[ok, 0], ijk[ok, 1], ijk[ok, 2]] != body
-    return frag
 
 
 def _coupled_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
@@ -637,12 +611,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             # decoupled particle keeps the lengths from its last coupled state, so the
             # projection pulls it back into the body (v2 re-based everything and accepted
             # the separation — the census showed no return)
-            d_now = np.linalg.norm(x_start[coh_nbr] - x_start[:, None, :], axis=2).astype(np.float32)
-            frag_np = fragment_mask(x_start, prm)          # broken-off material this window
-            if bond_rest is None:
-                bond_rest = d_now
-            else:
-                bond_rest = np.where(frag_np[:, None], bond_rest, d_now).astype(np.float32)
+            bond_rest, frag_np = prepare_bonds(x_start, coh_nbr, bond_rest, prm)
             bond_frag = frag_np.astype(np.float32)
             if a % 10 == 0 or frag_np.any():
                 log(f"[v2] anim {a + 1}: fragments {int(frag_np.sum())} particles")
@@ -677,6 +646,11 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         selection_context = stats.pop('_window_selection', None)
         if selection_context is not None:
             try:
+                from .preparation_admission import AdmissionHistory
+                selection_context.bind_current_admission_history(AdmissionHistory(
+                    scale=ctrl_scale, previous=ctrl_prev_disp, reversals=ctrl_rev_count,
+                    frozen=frozen_p, settled=settled_p, settled_at=settled_at,
+                    pins=pin_window, neighbors=rprop_neighbors))
                 selected, selection_report = selection_context.resolve(select_window(selection_context))
                 fr, F_seq, end, s, whist, stats = selected
                 stats['window_selection'] = selection_report
@@ -1540,42 +1514,23 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                         from physmorph.compute import KDTree as _KDn
                         rprop_neighbors = _KDn(src).query(src, k=_kk + 1, workers=-1)[1][:, 1:]
                     _nbr = rprop_neighbors
+            from .preparation_admission import smooth_material, update_reversal
             def _smooth(v):
-                if _nbr is None:
-                    return v
-                if v.ndim == 1:
-                    return (v + v[_nbr].sum(1)) / float(_nbr.shape[1] + 1)
-                return (v + v[_nbr].sum(1)) / float(_nbr.shape[1] + 1)
-            if ctrl_scale is None or len(ctrl_scale) != len(_d_now):
-                ctrl_scale = np.ones(len(_d_now), np.float32)
-                ctrl_rev_count = np.zeros(len(_d_now), np.int32); frozen_p = np.zeros(len(_d_now), bool)
-            if ctrl_prev_disp is not None and len(ctrl_prev_disp) == len(_d_now):
-                _dn_s, _dp_s = _smooth(_d_now), _smooth(ctrl_prev_disp)
-                _n0 = np.linalg.norm(_dn_s, axis=1); _n1 = np.linalg.norm(_dp_s, axis=1)
-                _tiny = 1e-4 * float(prm.dx)
-                _act = (_n0 > _tiny) & (_n1 > _tiny)
-                _cos = (_dn_s * _dp_s).sum(1) / np.maximum(_n0 * _n1, 1e-30)
-                _flip = _act & (_cos < 0.0); _same = _act & (_cos >= 0.0)
-                # config.ctrl_rprop_arrived: a direction change while a particle is still in TRANSPORT (its
-                # plan image farther than the pace radius — a curved path, the C's arms round the hole) is
-                # not an overshoot; only an ARRIVED particle's reversal halves its step (g41s: C lost 0.011
-                # of silIoU to halvings in transit). The arrival is the paced target's own per-particle mask.
-                _arr = stats.get("arrived_mask") if getattr(cfg, "ctrl_rprop_arrived", False) else None
-                if _arr is not None and len(_arr) == len(_flip):
-                    _flip = _flip & np.asarray(_arr, bool)
-                ctrl_scale[_flip] *= 0.5
-                ctrl_rev_count[_flip] += 1
-                ctrl_scale[_same] = np.minimum(1.0, ctrl_scale[_same] * 1.2)
-                if _act.any():
-                    _cs_app = _smooth(ctrl_scale) if _nbr is not None else ctrl_scale
-                    rec["ctrl_flip_frac"] = float(_flip[_act].mean()); rec["ctrl_scale_med"] = float(np.median(_cs_app[_act]))
-                    rec["ctrl_scale_lo"] = float((_cs_app[_act] < 0.01).mean())
-                    if (a + 1) % 5 == 0:
-                        log(f"[v2] anim {a + 1}: control step reversals {100 * _flip[_act].mean():.0f} % of the moving particles, "
-                            f"step scale median {np.median(_cs_app[_act]):.3f}, below 0.1: {100 * (_cs_app[_act] < 0.1).mean():.0f} %, "
-                            f"below 0.01: {100 * (_cs_app[_act] < 0.01).mean():.0f} %")
+                return smooth_material(v, _nbr)
+            _rev = update_reversal(
+                _d_now, ctrl_prev_disp, ctrl_scale, ctrl_rev_count, frozen_p, _nbr,
+                stats.get("arrived_mask") if getattr(cfg, "ctrl_rprop_arrived", False) else None, prm.dx)
+            ctrl_scale, ctrl_rev_count, frozen_p = _rev["scale"], _rev["reversals"], _rev["frozen"]
+            _act, _flip, _cs_app = _rev["active"], _rev["flip"], _rev["scale_apply"]
+            if _act.any():
+                rec["ctrl_flip_frac"] = float(_flip[_act].mean()); rec["ctrl_scale_med"] = float(np.median(_cs_app[_act]))
+                rec["ctrl_scale_lo"] = float((_cs_app[_act] < 0.01).mean())
+                if (a + 1) % 5 == 0:
+                    log(f"[v2] anim {a + 1}: control step reversals {100 * _flip[_act].mean():.0f} % of the moving particles, "
+                        f"step scale median {np.median(_cs_app[_act]):.3f}, below 0.1: {100 * (_cs_app[_act] < 0.1).mean():.0f} %, "
+                        f"below 0.01: {100 * (_cs_app[_act] < 0.01).mean():.0f} %")
             ctrl_prev_disp = _d_now
-            ctrl_scale_apply = _smooth(ctrl_scale) if _nbr is not None else ctrl_scale
+            ctrl_scale_apply = _rev["scale_apply"]
             # ---- config.freeze_arrived (docs/method.md 10.25; the user 2026-09-24: once optimised, lock it with
             # the plasticity): a particle that has ARRIVED (the paced target's mask) and reversed twice (one full
             # period of the alternation: settled by the rule's own reading) is FROZEN for good — its elastic
@@ -1617,7 +1572,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                                                 if pin_window.any() else 0.0)
                 if settled_at is None or len(settled_at) != len(_d_now):
                     settled_at = np.full(len(_d_now), -1, np.int32)
-                _newly = _arr_p & (ctrl_rev_count >= 2) & (~settled_p)
+                from .preparation_admission import reversal_candidates, exclude_transit_rays, accumulate_pins
+                _newly = reversal_candidates(_arr_p, ctrl_rev_count, settled_p)
                 if getattr(cfg, "settle_pin_still", False):
                     # config.settle_pin_still (2026-09-25 21:40 CDT): "settled" read as STILLNESS as well as reversal.
                     # At 300k the free half of the body slides along the surface monotonically (0.3 spacings per
@@ -1683,21 +1639,10 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                 # passes within the pace radius of it: the ray sampled at the pace radius, one kd-tree query.
                 _pi = stats.get("plan_img")
                 if getattr(cfg, "settle_pin_ray", False) and _newly.any() and _pr is not None and _pi is not None and (~_arr_p).any():
-                    from physmorph.compute import KDTree as _KDr
-                    _xq = np.asarray(x, np.float32)[~_arr_p]; _dq = np.asarray(_pi, np.float32)[~_arr_p] - _xq
-                    _Lq = np.linalg.norm(_dq, axis=1); _ns = np.maximum(1, np.ceil(_Lq / float(_pr)).astype(np.int64))
-                    _rep = np.repeat(np.arange(len(_xq)), _ns + 1)
-                    _k = np.arange(len(_rep)) - np.repeat(np.cumsum(np.concatenate([np.asarray([0], dtype=_ns.dtype), _ns[:-1] + 1])), _ns + 1)
-                    _s = (_k / np.repeat(_ns, _ns + 1)).astype(np.float32)[:, None]
-                    _samples = _xq[_rep] + _s * _dq[_rep]
-                    _ray_samples = _samples
-                    _dn_r, _ = _KDr(_samples).query(np.asarray(x, np.float32)[_newly], k=1, distance_upper_bound=float(_pr), workers=-1)
-                    _clear_r = ~np.isfinite(_dn_r)
-                    rec["pin_ray_blocked_frac"] = float(1.0 - _clear_r.mean())
-                    _idx_new = np.nonzero(_newly)[0]
-                    _newly = np.zeros_like(_newly); _newly[_idx_new[_clear_r]] = True
-                settled_at[_newly] = a + 1           # pinned from the rollout of window a + 2 on (frames after this commit)
-                settled_p |= _newly
+                    _ray = exclude_transit_rays(x, _pi, _arr_p, _newly, _pr)
+                    _newly, _ray_samples = _ray["newly"], _ray["samples"]
+                    rec["pin_ray_blocked_frac"] = _ray["blocked_fraction"]
+                settled_p, settled_at = accumulate_pins(settled_p, settled_at, _newly, a)
                 # config.settle_pin_assim (10.27 addendum 2): the elastic stretch of a newly pinned particle is
                 # assimilated in full (F_e -> R_e, as the freeze does): the pinned body is STRESS-FREE, so the
                 # delivered object is at equilibrium (a pinned particle with locked elastic strain would deform
