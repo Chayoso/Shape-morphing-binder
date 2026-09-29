@@ -7,6 +7,7 @@ default. CUDA instances are bound to their constructor's Torch stream.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from contextvars import copy_context
 from copy import deepcopy
 from dataclasses import fields, is_dataclass
 from numbers import Integral
@@ -163,14 +164,36 @@ class WithdrawalAdjoint:
         if not self.cuda:
             yield
             return
-        if (torch.cuda.current_device() != self.device.index or
-                torch.cuda.current_stream(self.device).cuda_stream != self.stream.cuda_stream):
-            raise RuntimeError('WithdrawalAdjoint is bound to its constructor CUDA device/stream')
+        self._check_torch_stream()
         if (wp.get_stream(self.dev).cuda_stream != self.stream.cuda_stream or
                 cuda_module().cuda.get_current_stream().ptr != self.stream.cuda_stream):
             raise RuntimeError('WithdrawalAdjoint requires matching Torch/CuPy/Warp streams')
         with cuda_module().cuda.ExternalStream(self.stream.cuda_stream), wp.ScopedStream(self.warp_stream):
             yield
+
+    def _check_torch_stream(self):
+        if (torch.cuda.current_device() != self.device.index or
+                torch.cuda.current_stream(self.device).cuda_stream != self.stream.cuda_stream):
+            raise RuntimeError('WithdrawalAdjoint is bound to its constructor CUDA device/stream')
+
+    @contextmanager
+    def _autograd_scope(self):
+        """Restore non-Torch thread locals only on the engine's actual stream.
+
+        CUDA autograd may invoke Python on a worker without the forward's
+        ContextVars or CuPy/Warp stream scopes. The caller context is restored by
+        the custom backward, and this scope supplies those thread-local scopes.
+        Never change Torch's current stream to conceal a scheduling mismatch.
+        """
+        if self.cuda:
+            self._check_torch_stream()
+            cp = cuda_module()
+            with cp.cuda.Device(self.device.index), cp.cuda.ExternalStream(self.stream.cuda_stream), \
+                    wp.ScopedStream(self.warp_stream), self._scope():
+                yield
+        else:
+            with self._scope():
+                yield
 
     def _zero_grads(self):
         for gradient in self.grad_arrays:
@@ -230,6 +253,7 @@ class _JointWithdrawal(torch.autograd.Function):
                 adj.body.copy_(body.detach())
             adj.forward()
             ctx.generation = adj.forward_generation
+            ctx.execution_context = copy_context()
             outputs = []
             for index, port in enumerate(adj._ports):
                 width = 9 if index in (1, 3, 8, 9) else 3
@@ -244,7 +268,14 @@ class _JointWithdrawal(torch.autograd.Function):
         adj = ctx.adj
         if ctx.generation != adj.forward_generation:
             raise RuntimeError('WithdrawalAdjoint backward has stale forward buffers')
-        with adj._scope(), torch.no_grad():
+        # A Context cannot be entered concurrently or recursively. A fresh copy
+        # also prevents a previous backward's ContextVar writes leaking forward.
+        return ctx.execution_context.copy().run(_JointWithdrawal._backward_restored, ctx, gradients)
+
+    @staticmethod
+    def _backward_restored(ctx, gradients):
+        adj = ctx.adj
+        with adj._autograd_scope(), torch.no_grad():
             for seed in adj.seed_tensors.values():
                 seed.zero_()
             for index, (port, gradient) in enumerate(zip(adj._ports, gradients)):

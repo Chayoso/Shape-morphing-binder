@@ -1,5 +1,6 @@
 """Joint withdrawal ownership, boundary seeds and frozen-policy CPU contracts."""
 from dataclasses import replace
+from contextvars import Context, ContextVar
 
 import numpy as np
 import pytest
@@ -231,3 +232,33 @@ def test_optional_u_is_zero_with_layer_and_dtype_is_explicit():
     assert torch.isfinite(grad).all() and grad.norm() > 1e-7
     explicit = adj.apply(controls[0], torch.zeros_like(controls[1]))
     assert all(torch.equal(a, b) for a, b in zip(missing, explicit))
+
+
+def test_autograd_restores_independent_forward_context_copy_each_time(monkeypatch):
+    spec, controls = prepared()
+    leaves = control_leaves(controls)
+    adj = WithdrawalAdjoint(spec, capture=False)
+    marker = ContextVar('withdrawal_test_forward_context', default='outside')
+    token = marker.set('forward')
+    try:
+        output = adj.apply(*leaves)
+    finally:
+        marker.reset(token)
+    original = adj.backward
+    seen = []
+    def observed():
+        seen.append(marker.get())
+        assert marker.get() == 'forward'
+        marker.set('backward_write')
+        original()
+    monkeypatch.setattr(adj, 'backward', observed)
+    loss = output.coast_X[-1].square().sum()
+    # A fresh Python context models the missing forward ContextVars. CUDA's
+    # actual engine stream/device behavior remains a separate server gate.
+    worker = Context()
+    first = worker.run(lambda: torch.autograd.grad(loss, leaves, retain_graph=True))
+    repeated = worker.run(lambda: torch.autograd.grad(loss, leaves))
+    assert seen == ['forward', 'forward']
+    assert marker.get() == 'outside' and worker.run(marker.get) == 'outside'
+    for a, b in zip(first, repeated):
+        assert torch.equal(a, b)

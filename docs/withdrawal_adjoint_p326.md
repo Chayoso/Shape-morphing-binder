@@ -74,6 +74,18 @@ tolerances as above; no Torch/Warp/CuPy numerical array download; side-stream
 graph execution, cross-stream rejection and seed/reuse/ownership checks. These
 are derivative/operator gates, not performance or physical quality evidence.
 
+The first actual CUDA run, frozen9b74f6e, failed4 of6 tests: Torch executes
+custom CUDA backward on a worker thread without the caller's ContextVars. The
+strict execution-context check rejected that worker before numerical backward.
+The production captured changing-fragment regression and constructor stream
+rejection passed. The fix saves the actual forward Context and restores a fresh
+copy per autograd callback; it verifies Torch's actual engine device/stream before
+installing the owned Warp/CuPy scopes. Constructor/apply/direct backward remain
+strict, with no stream switch for Torch or global synchronization. An additional
+CPU test verifies empty-worker-context restoration and repeated-callback isolation;
+it does not substitute for the required fresh CUDA run. The original failed log
+is retained, and numerical tolerances are unchanged.
+
 ## Correcting overwritten fragment activity
 
 The original `Trajectory.frag_step` was one scratch array overwritten at every
