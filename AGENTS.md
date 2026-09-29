@@ -229,3 +229,11 @@ These are the leading candidates for the unresolved problems, and they are ports
   opt-in support repair is implemented/reviewed (62 CPU cases); it keeps fixed material
   witnesses and records all-target losses/gains without changing coverage radii.
   No physical state or renderer is promoted.
+- **P314 status:** the fixed-support CUDA comparison accepts0 repairs; all48
+  valid forwards fail original raw IoU. Treatment h8/c1 has no lost target IDs
+  and decreases terminal/step motion, but its protected witness is only8.48e-8wu
+  inside the radius and no candidate repeats ran. Do not call it robust support
+  or rest. Prepared silhouette improves while PBR worsens. Independent source,
+  scalar, saved-control/remainder and endpoint audit passes. See
+  `docs/support_repair_p314.md`. P315 localizes archived raw mask changes with
+  unchanged metrics; W20 is still not a convergence or full-morph rest test.

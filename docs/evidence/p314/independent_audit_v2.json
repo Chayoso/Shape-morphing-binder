@@ -1,0 +1,220 @@
+{
+  "passed": true,
+  "result_sha256": "6108b1950b13c831baf2dd0391d2200e702a4fb586e72a5af0c1782209d2a24e",
+  "protocol_sha256": "5ad732eb513c11c97c08ee78ae0aa3d0aaa4eea4c1bb0c2730e9fc75a2c28f98",
+  "commit": "db241d029356dd4593ecc2551450d8372b579549",
+  "checked_sources": 78,
+  "source_unavailable": [
+    {
+      "path": "physmorph/volumetric.py",
+      "sha256": "aca76c8ae15ef14a7cd9e9d0c5a314cfeb4b3c8edb6132d372588956a5eb5c84"
+    }
+  ],
+  "exact_local_bytes_newline_only_vs_git": [
+    "physmorph/compute.py",
+    "physmorph/losses/ot.py",
+    "physmorph/metrics.py",
+    "physmorph/mpm/function.py",
+    "physmorph/mpm/gridfilter.py",
+    "physmorph/mpm/kernels.py",
+    "physmorph/pipeline/body_control.py",
+    "physmorph/pipeline/config.py",
+    "physmorph/pipeline/control_basis.py",
+    "physmorph/pipeline/gauss_loss.py",
+    "physmorph/pipeline/grad_combine.py",
+    "physmorph/pipeline/grid_smooth.py",
+    "physmorph/pipeline/render_loss.py",
+    "physmorph/pipeline/runner.py",
+    "physmorph/pipeline/settlement.py",
+    "physmorph/render/covariance.py",
+    "physmorph/render/knn_gpu.py",
+    "physmorph/render/studio.py",
+    "physmorph/viewer/server.py",
+    "scripts/probes/running_braking_repair.py",
+    "scripts/probes/braking_compensation.py"
+  ],
+  "checked_sidecar_hashes": {
+    "baseline/shared.json": "d1f1f7b3aa83b41764f10aa26b7d44a1e8e588558dc971cb213fdf56ee907fdf",
+    "origin/linearization1.npz": "3902004d3268a0cb967f5875cfa7a6e109cb856df9553cce7d7a193f672b97a3",
+    "origin/support_selection.npz": "59e4166e5e1203256dcf190362e3bbde1f2d3a9f8b8d1ecfd8e746eb40874594",
+    "origin/shared.json": "13f0b371ff720f6aa407650dbcc29fb2d931e13ed10b62043f6c7afb2f2d2a38",
+    "silhouette/linearization1.npz": "fcdf8f56c7b6a527e85dfa16586d4414b8d4229802f2587e1da859e1c8099cbd",
+    "silhouette/update1_half0_correction0_endpoint.npz": "2d1fae68c56d6a870cb82cd6dc6312caa65eec335088d80e975694e6fe7ef577",
+    "silhouette/update1_half0_correction1_endpoint.npz": "c6a156f0d3f9e980ceeedf861e48c43de89f9e1f85bb97854a25bf5dda9e12c8",
+    "silhouette/update1_half0_correction2_endpoint.npz": "b3328d9d7d6362ccbe25d5dece82b4f5914fa03a0f99d4b364d68ba60ab88ecf",
+    "silhouette/update1_half1_correction0_endpoint.npz": "6265177eeab68452d02fac464648c5784cea86eb7c93bc282fcdda25ae04bbd1",
+    "silhouette/update1_half1_correction1_endpoint.npz": "be35ceaa43aeeded0203c751dcd91875c6ddc7e44e029f8406b0b93693516841",
+    "silhouette/update1_half1_correction2_endpoint.npz": "a611f8562e6b3e490c4b85239dfaf98d31ca6c0b8f0f8e0b7f0ce4c7394e6afb",
+    "silhouette/update1_half2_correction0_endpoint.npz": "65494bba0a4da46f196d60d17b01951dd847c1bb96ca03ad6def5f6251fc2b7e",
+    "silhouette/update1_half2_correction1_endpoint.npz": "a1b9900271215ae59973464b1cadecf8a9eaa0e7be1da5dcf8811865673bac33",
+    "silhouette/update1_half2_correction2_endpoint.npz": "0d92dfa829797c5a3f75ffe82854663a5ebff14cba63a9c8e266b96420540039",
+    "silhouette/update1_half3_correction0_endpoint.npz": "92f18771330c7ef8cb49ff982ea8221aeb5939df2a80321d09793c16e507af8b",
+    "silhouette/update1_half3_correction1_endpoint.npz": "83ad0d94319e02cb097b35bbffcacf12257a9fe3bcb34ee1176d1309e5b940fd",
+    "silhouette/update1_half3_correction2_endpoint.npz": "4a817011780daba439e7ad8db0a7a1e5e87673d1f414bf076853268550445da7",
+    "silhouette/update1_half4_correction0_endpoint.npz": "e3c4c5fe6103907934f4282ec5f3e425a24e2e53141ecad7efe90acf1e942bff",
+    "silhouette/update1_half4_correction1_endpoint.npz": "ae61cab1032d0fb8a3bc496845ac30312d58e89f3729349e292082efed2c05fe",
+    "silhouette/update1_half4_correction2_endpoint.npz": "8c4b1380d036b182408a30f621876f38d207548d5b3ecf9a10c723192db35647",
+    "silhouette/update1_half5_correction0_endpoint.npz": "093beb8e42a8db0b076c0af4c957f306187da5879d41b0798452c8025930818e",
+    "silhouette/update1_half5_correction1_endpoint.npz": "02a2e8ef40fd715b91c093ccae9f917764982c6ec4d51d72ad6e3c4d05b5c875",
+    "silhouette/update1_half5_correction2_endpoint.npz": "ffc52bcdf4b585901f9528debea76b49f0c8dc63ff9b5f843504f12deb7cf1c5",
+    "silhouette/update1_half6_correction0_endpoint.npz": "90d8c353e0953d050d771a7d0e2635a21c2587a7f99e20ae38fae9b9f35497e7",
+    "silhouette/update1_half6_correction1_endpoint.npz": "041f67ed353e6b43315d08e76ecba9c7211da04432486bfb07a94cf779aaca02",
+    "silhouette/update1_half7_correction0_endpoint.npz": "1b75942df65e35aaee712f8a50f85321f3e4fad07a3b43c789d4f13e8e309b47",
+    "silhouette/update1_half8_correction0_endpoint.npz": "74a962e1d08fb8cbc08b232859243c20beaf37ca69cb10dd937dc3c81105fd23",
+    "silhouette/arm_result.json": "341b2005795b8af142c7fb371334585e397c0942d748985c98b59b3697c5bf17",
+    "support/linearization1.npz": "3902004d3268a0cb967f5875cfa7a6e109cb856df9553cce7d7a193f672b97a3",
+    "support/update1_half0_correction0_endpoint.npz": "d2c0f9e5d013e6c1b80656a11eafd8be50695dceabc6155c681d23c8e36759e9",
+    "support/update1_half0_correction1_endpoint.npz": "5cd6640fed017d8f25a221d206ffd65ddbe1638879cdf6010bb8114aab48494b",
+    "support/update1_half0_correction2_endpoint.npz": "6191b9cd0c53368a3d91d499e0b03d7b5b780f9d11024cbc0cfb36b4e97e4935",
+    "support/update1_half1_correction0_endpoint.npz": "22d889e94ff94df8a4a1509951ef4cd64915d98a6ac0b16527151d40e6c34706",
+    "support/update1_half1_correction1_endpoint.npz": "2a144705484eb9320e8a05430ed4187b9fd995f3af3a449529ffa69fa385ee1a",
+    "support/update1_half1_correction2_endpoint.npz": "9dba31fa1d58530d791c5c8f883588d7dddf3e61378eccfe4996fe04d0b8e625",
+    "support/update1_half2_correction0_endpoint.npz": "496c661d1266eefee0ad57f0756a2bce1d59210798253a9b8b543a7d9df446ae",
+    "support/update1_half2_correction1_endpoint.npz": "b13fb2ac4a107a0b50ac432919361bd524d1c9743a52fe1547f7e82ef93f2351",
+    "support/update1_half2_correction2_endpoint.npz": "a62e273dec5ba36e816b329b9e94856ade6977dc49b2a71e71c76fb1e3efbd80",
+    "support/update1_half3_correction0_endpoint.npz": "e02b7f5045fb4eafdafc1bbd57c18bda77fd75ef74799f43b85819c917b3aaf5",
+    "support/update1_half3_correction1_endpoint.npz": "2e35c72e9112361cedcf294de03107762c1c7512b63630d633cc1cd040d3503f",
+    "support/update1_half3_correction2_endpoint.npz": "395e6f991994df745a1bec0172ad3e796798d5a331da791d077806d1a2370aad",
+    "support/update1_half4_correction0_endpoint.npz": "467e3f2e5704c58a61b613272b718bc84a5ee6396e5c4b411cc469021fb7ed4b",
+    "support/update1_half4_correction1_endpoint.npz": "80a24d1bb070bda678da467fa6d3219544398e7c9998dbe9d8b917fbc1edc4fc",
+    "support/update1_half4_correction2_endpoint.npz": "1d57a52391d7c3bf45fe05af79a49c9d7beeb7cebdad46a7a08e820d49f01efc",
+    "support/update1_half5_correction0_endpoint.npz": "0a5f28f6e5496c87dd7ab999e1561f47353480648be6d34a8b7fbcc9c1290365",
+    "support/update1_half5_correction1_endpoint.npz": "d226fd1defd165c1cb979687db531989f175fcdaf410f0de8c7ad1432e83f47f",
+    "support/update1_half5_correction2_endpoint.npz": "d197b3bbdd9b9fa1287c5a17519377c773bee73c1c091ee5bebacf959ca001e0",
+    "support/update1_half6_correction0_endpoint.npz": "b2366450d0153db16aa205a207ee53f407cfa3db71568db1c16bb37fadaa6fcf",
+    "support/update1_half6_correction1_endpoint.npz": "16a46a3437492acd7d75a7467917509b5389fd88eb628d6eab95bab0d484b737",
+    "support/update1_half6_correction2_endpoint.npz": "dbc1d73a6d23734c35095b35a8e9a19ddacea193bf20c14e3c0869ea7c7d7715",
+    "support/update1_half7_correction0_endpoint.npz": "660d08e9c92b3058c05ff32ffa58e2206e9d2643f67f2af3a6eeda5647550851",
+    "support/update1_half7_correction1_endpoint.npz": "8bab34acdde3b372bb8555e33505be62f2ec203ee4f8684df3efb67876b630d2",
+    "support/update1_half7_correction2_endpoint.npz": "c65a5cea68d360dd69b8d2dafa672fc7ae900003faee56fe4906c7daa43e0279",
+    "support/update1_half8_correction0_endpoint.npz": "6d44cdabb6dcfba2b6bcee0dee3fd91d656a8afe19f7f2d5ec3ca847d3e6e835",
+    "support/update1_half8_correction1_endpoint.npz": "35bacee389eaf531425043e9dd0a675b2bc81d40e420c6326479285c38cfc710",
+    "support/arm_result.json": "77ce8220b587363bb89636cd41b1002e4e4bc45aa8ff4a5384d6675ae05e5982"
+  },
+  "sidecars_not_locally_checked": [
+    "baseline/repeat_0.npz",
+    "baseline/repeat_1.npz",
+    "baseline/repeat_2.npz",
+    "origin/terminal05_0.npz",
+    "origin/terminal05_origin_2.npz",
+    "silhouette/update1_half4_correction2_first_restored_16.npz",
+    "support/update1_half4_correction2_first_restored_16.npz",
+    "live_window.npz"
+  ],
+  "checked_valid_endpoints": 48,
+  "status": "ready",
+  "support_targets": [
+    53946
+  ],
+  "witness_ids": [
+    250580
+  ],
+  "arms": {
+    "silhouette": {
+      "records": 24,
+      "valid_forwards": 22,
+      "accepted": 0,
+      "repeated_feasible": false,
+      "original_P306_pass": [],
+      "data_restored": [
+        {
+          "label": "update1_half4_correction2",
+          "failed": [
+            "sil_iou",
+            "upper_target_near_frac",
+            "target_near_frac"
+          ],
+          "support_pass": true,
+          "silhouette_pass": true
+        },
+        {
+          "label": "update1_half6_correction1",
+          "failed": [
+            "sil_iou",
+            "upper_target_near_frac",
+            "target_near_frac",
+            "fixed_source_upper_density"
+          ],
+          "support_pass": false,
+          "silhouette_pass": true
+        },
+        {
+          "label": "update1_half7_correction0",
+          "failed": [
+            "sil_iou"
+          ],
+          "support_pass": false,
+          "silhouette_pass": true
+        },
+        {
+          "label": "update1_half8_correction0",
+          "failed": [
+            "sil_iou"
+          ],
+          "support_pass": false,
+          "silhouette_pass": true
+        }
+      ]
+    },
+    "support": {
+      "records": 28,
+      "valid_forwards": 26,
+      "accepted": 0,
+      "repeated_feasible": false,
+      "original_P306_pass": [],
+      "data_restored": [
+        {
+          "label": "update1_half3_correction2",
+          "failed": [
+            "sil_iou",
+            "upper_target_near_frac"
+          ],
+          "support_pass": true,
+          "silhouette_pass": false
+        },
+        {
+          "label": "update1_half4_correction2",
+          "failed": [
+            "sil_iou",
+            "upper_target_near_frac",
+            "target_near_frac"
+          ],
+          "support_pass": true,
+          "silhouette_pass": true
+        },
+        {
+          "label": "update1_half6_correction0",
+          "failed": [
+            "sil_iou",
+            "upper_target_near_frac",
+            "target_near_frac",
+            "fixed_source_upper_density"
+          ],
+          "support_pass": false,
+          "silhouette_pass": true
+        },
+        {
+          "label": "update1_half6_correction2",
+          "failed": [
+            "sil_iou",
+            "upper_target_near_frac",
+            "target_near_frac",
+            "fixed_source_upper_density"
+          ],
+          "support_pass": false,
+          "silhouette_pass": true
+        },
+        {
+          "label": "update1_half8_correction1",
+          "failed": [
+            "sil_iou"
+          ],
+          "support_pass": true,
+          "silhouette_pass": true
+        }
+      ]
+    }
+  },
+  "scope": "Independent recorded-scalar/mask/source and saved endpoint witness audit; no all-target distance recomputation or new forward",
+  "auditor_sha256": "6e3a921e6c8dc5c8d42843079b45a961bf90a5180dc3193a6070922d04748b54"
+}

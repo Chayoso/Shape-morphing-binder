@@ -100,7 +100,13 @@ class FrozenBodyWindow:
         self.adjoint = None
         self.closed = True
 
-    def evaluate(self, terminal, displacement=None):
+    def evaluate(self, terminal, displacement=None, *, retain_full_state=False):
+        """Optionally own detached post-step F snapshots for exact frame export.
+
+        Capture happens before any subsequent rollout can overwrite the private
+        trajectory. It grants neither archive admission nor candidate adoption.
+        Differentiable terminal F remains the existing ``F`` output.
+        """
         if self.closed:
             raise RuntimeError('Frozen body window expired')
         if str(self.spec.device).startswith('cuda') and not is_cuda_execution():
@@ -136,5 +142,13 @@ class FrozenBodyWindow:
             start = wp.to_torch(tr.x[0])
             pins_exact = torch.equal(X[:,pinned],start[pinned][None].expand(self.spec.T,-1,-1))
             C = wp.to_torch(tr.C[self.spec.T]).clone()
+            full = {}
+            if retain_full_state:
+                F_sequence = torch.stack([wp.to_torch(tr.F[t]).reshape(n,3,3)
+                                          for t in range(1,self.spec.T+1)])
+                F_initial = wp.to_torch(tr.F[0]).reshape(n,3,3).clone()
+                full = dict(F_sequence=F_sequence,F_initial=F_initial)
+                valid &= (bool(torch.isfinite(F_sequence).all() and torch.isfinite(F_initial).all())
+                          and torch.equal(F_sequence[-1].reshape_as(F),F))
         return dict(x=x,F=F,C=C,v=v,V=V,positions=X,body_energy=(field/self.spec.prm.dx).square().sum(1).mean(),
-                    valid=bool(valid and pins_exact),pins_exact=pins_exact,min_det=float(torch.minimum(j,je)))
+                    valid=bool(valid and pins_exact),pins_exact=pins_exact,min_det=float(torch.minimum(j,je)),**full)

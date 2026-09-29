@@ -1,0 +1,256 @@
+"""Read-only P314 recorded-scalar, set, source and small-array audit; no rollout.
+
+All-target coverage is checked for recorded-mask consistency, not remeasured.
+"""
+import argparse
+import hashlib
+import json
+import math
+from pathlib import Path
+import subprocess
+
+import numpy as np
+
+
+def digest(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def file_sha(path):
+    h=hashlib.sha256()
+    with open(path,'rb') as f:
+        for b in iter(lambda:f.read(8<<20),b''): h.update(b)
+    return h.hexdigest()
+
+
+def read_json(path):
+    data=path.read_bytes();value=json.loads(data)
+    json.dumps(value,allow_nan=False)
+    return value,digest(data)
+
+
+def original_failures(row,base):
+    if not row.get('valid'): return ['invalid']
+    failed=[]
+    for k in ('volume','render'):
+        if row['data'][k]>max(r['data'][k] for r in base): failed.append(k)
+    for k in ('sil_iou','upper_target_near_frac','target_near_frac','tip_n','fixed_source_upper_density'):
+        if row['geometry'][k]<min(r['geometry'][k] for r in base): failed.append(k)
+    if row['geometry']['chamfer']>max(r['geometry']['chamfer'] for r in base): failed.append('chamfer')
+    for group in ('start_free','start_arrived_free'):
+        for k in ('net_rms_sp','step_rms_sp','path_mean_sp'):
+            if row['motion'][group][k]>max(r['motion'][group][k] for r in base): failed.append(group+'_'+k)
+    for k in ('physical_terminal_rms_wu_s','geometric_terminal_rms_wu_s'):
+        speed=[r['motion']['start_arrived_free'][k] for r in base]
+        threshold=10*max(max(speed)-min(speed),32*2**-23*max(speed))
+        if min(speed)-row['motion']['start_arrived_free'][k]<=threshold: failed.append(k)
+    return failed
+
+
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument('result',type=Path)
+    ap.add_argument('--protocol',type=Path,required=True)
+    ap.add_argument('--sidecars',type=Path,required=True)
+    ap.add_argument('--repo',type=Path,default=Path('C:/dev/Shape-morphing-binder'))
+    ap.add_argument('--out',type=Path,required=True)
+    a=ap.parse_args()
+    r,rsha=read_json(a.result);p,psha=read_json(a.protocol)
+    assert r['protocol_sha256']==psha
+    e=r['extension'];base=e['baseline']['rows'];origin=e['origin']
+    assert len(base)==3 and all(row['valid'] for row in base)
+    assert not any(r['guards'].values()) and e['production_state_after_callback_exact'] is True
+    assert r['N']==300000 and r['T']==20 and r['mpm']['dt']==1/240
+    commit='db241d029356dd4593ecc2551450d8372b579549'
+    source_checked=[];source_unavailable=[];newline_only=[]
+    for group in ('code','helpers'):
+        for path,expected in p[group].items():
+            blob=subprocess.run(['git','show',commit+':'+path],cwd=a.repo,capture_output=True)
+            if blob.returncode:
+                source_unavailable.append(dict(path=path,sha256=expected))
+            else:
+                if digest(blob.stdout)!=expected:
+                    # Existing mixed CRLF/LF deploy bytes can differ from Git's normalized blob.
+                    # Still require the exact recorded byte hash, plus byte equality after newline normalization only.
+                    local=(a.repo/path).read_bytes()
+                    assert digest(local)==expected and local.replace(b'\r\n',b'\n')==blob.stdout.replace(b'\r\n',b'\n'),(path,'frozen source mismatch')
+                    newline_only.append(path)
+                source_checked.append(path)
+    assert all(item['path']=='physmorph/volumetric.py' and item['sha256']=='aca76c8ae15ef14a7cd9e9d0c5a314cfeb4b3c8edb6132d372588956a5eb5c84'
+               for item in source_unavailable),source_unavailable
+    ceilings={k:max(row['data'][k] for row in base) for k in ('volume','render')}
+    assert e['baseline']['ceilings']==ceilings
+    sil=max(row['data']['silhouette'] for row in base)
+    merit=max(row['original_merit']['merit'] for row in base)
+    assert e['baseline']['silhouette_ceiling']==sil and e['baseline']['merit_ceiling']==merit
+    assert origin['baseline_sha256']==e['baseline']['package_sha256']
+    assert origin['context_sha256']==e['baseline']['context_sha256']
+    assert origin['noise']==max(origin['running_repeats'])-min(origin['running_repeats'])
+    assert len(origin['running_repeats'])==3
+    assert origin['threshold']==10*max(origin['noise'],32*2**-23*origin['running'])
+    assert origin['trust']==r['original_history']['body_update_modes_rms'][0]>0
+    paths={name:a.sidecars/name for name in e['sidecars']}
+    checked_files={};missing=[]
+    for name,path in paths.items():
+        if path.exists():
+            assert file_sha(path)==e['sidecars'][name],name
+            checked_files[name]=e['sidecars'][name]
+        else: missing.append(name)
+    def archive(name):
+        assert name in checked_files,('Required sidecar missing',name)
+        with np.load(paths[name],allow_pickle=False) as f:
+            out={k:f[k] for k in f.files}
+        assert all(not v.dtype.hasobject and np.isfinite(v).all() for v in out.values())
+        return out
+    selection=archive('origin/support_selection.npz')
+    meta=origin['support_metadata'];status=meta['status'];k=meta['count'];radius=meta['radius']
+    assert radius==float(selection['radius']) and radius>0
+    for key in origin['support_array_keys']:
+        value=selection[key];info=origin['arrays']['support_'+key]
+        assert info['shape']==list(value.shape) and info['dtype']==str(value.dtype)
+        assert info['sha256']==digest(np.ascontiguousarray(value).tobytes())
+    B=selection['baseline_covered'];O=selection['origin_covered'];ids=selection['target_ids']
+    assert B.shape==(3,300000) and O.shape==(300000,) and B.dtype==O.dtype==bool
+    np.testing.assert_array_equal(np.flatnonzero(B.all(0)&~O),ids)
+    assert len(ids)==k
+    np.testing.assert_array_equal(selection['endpoint_distances']<=radius,np.concatenate((B,O[None])))
+    np.testing.assert_array_equal(selection['witnesses'],selection['endpoint_nearest'][0,ids])
+    certified=bool((selection['witness_values'][:3]<=0).all())
+    if status=='ready': assert 1<=k<=5 and certified
+    elif status=='over_budget': assert k>5
+    elif status=='no_intervention': assert k==0
+    else: assert status=='uncertified_witness' and k>0
+    assert e['search_status']==status
+    assert e['arm_order']==(['silhouette','support'] if status=='ready' else [])
+    assert set(e['arms'])==set(e['arm_order'])
+    for index,row in enumerate(base):
+        assert row['geometry']['target_near_frac']==float(B[index].sum())/B.shape[1]
+        ratio=abs(row['original_merit']['merit']-r['original_history']['loss'])/(32*2**-23*max(abs(r['original_history']['loss']),1e-12))
+        assert ratio<=1 and ratio==row['accepted_closure']['original_merit']
+    assert origin['terminal_record']['geometry']['target_near_frac']==float(O.sum())/len(O)
+    linear=archive('origin/linearization1.npz')
+    expected_keys=['volume','render','silhouette']+(['support_'+str(i) for i in range(k)] if status in ('ready','no_intervention') else [])
+    assert origin['keys']==expected_keys
+    bound_values=[ceilings['volume'],ceilings['render'],sil]+[0.]*(len(expected_keys)-3)
+    np.testing.assert_array_equal(linear['bounds'],np.array(bound_values)-linear['origin_data'])
+    for i,key in enumerate(expected_keys):
+        value=linear['data_gradients'][i];info=origin['arrays']['gradient_'+key]
+        assert digest(value.tobytes())==info['sha256']
+    def set_check(row):
+        s=row['support'];v=s['values']
+        assert len(v)==k and len(s['witness_within_radius'])==len(s['protected_raw_covered'])==k
+        assert s['scalar_radius_agreement']==(s['witness_within_radius']==[x<=0 for x in v])
+        assert s['passed']==(s['scalar_radius_agreement'] and all(x<=0 for x in v)
+                              and all(s['witness_within_radius']) and all(s['protected_raw_covered']))
+        def mask(values):
+            assert values==sorted(set(values)) and all(0<=i<len(O) for i in values)
+            out=np.zeros(len(O),bool);out[values]=True;return out
+        lost=[mask(x) for x in s['lost_ids']];gained=[mask(x) for x in s['gained_ids']]
+        assert len(lost)==len(gained)==3
+        covered=(B[0]&~lost[0])|gained[0]
+        for i in range(3):
+            np.testing.assert_array_equal(lost[i],B[i]&~covered)
+            np.testing.assert_array_equal(gained[i],~B[i]&covered)
+        np.testing.assert_array_equal(covered[ids],s['protected_raw_covered'])
+        assert s['stable_lost_ids']==np.flatnonzero(B.all(0)&~covered).tolist()
+        assert s['stable_gained_ids']==np.flatnonzero((~B).all(0)&covered).tolist()
+        assert s['baseline_ambiguous_ids']==np.flatnonzero(~(B.all(0)|(~B).all(0))).tolist()
+        assert row['geometry']['target_near_frac']==float(covered.sum())/len(covered)
+    set_check(origin['terminal_record'])
+    summary={}
+    endpoint_count=0
+    for label,arm in e['arms'].items():
+        protect=label=='support';m=3+k if protect else 3
+        assert arm['protect_silhouette'] and arm['protect_support']==protect
+        assert arm['shared_baseline_sha256']==e['baseline']['package_sha256'] and arm['shared_origin_sha256']==origin['package_sha256']
+        assert arm['shared_context_before_after_exact'] and arm['data_ceilings']==ceilings
+        assert arm['original_merit_ceiling']==merit and arm['silhouette_ceiling']==sil
+        assert arm['rows'][:3]==base and arm['running_replay_noise']==origin['noise']
+        own=archive(label+'/linearization1.npz')
+        for key in ('displacement','terminal','running_gradient'): np.testing.assert_array_equal(own[key],linear[key])
+        for key in ('data_gradients','origin_data','bounds'): np.testing.assert_array_equal(own[key],linear[key][:m])
+        valid=[t for t in arm['trials'] if t.get('valid')]
+        assert len(arm['trials'])<=33 and len(valid)<=33
+        previous=None;chosen=[]
+        for t in arm['trials']:
+            h,c=t['halvings'],t['correction'];assert t['iteration']==1 and 0<=h<=10 and 0<=c<=2
+            if previous is None: assert (h,c)==(0,0)
+            elif h==previous['halvings']:
+                assert c==previous['correction']+1 and previous.get('valid') and not previous['data_constraints_restored']
+            else: assert h==previous['halvings']+1 and c==0
+            assert t['model_remainder_used']==([0.]*m if c==0 else previous['observed_model_remainder'])
+            np.testing.assert_array_equal(t['shifted_bounds'],own['bounds']-t['model_remainder_used'])
+            if t['linear']['status']=='linear_candidate':
+                rad=origin['trust']*.5**h*math.sqrt(len(own['displacement']))
+                assert t['linear']['radius']==rad
+                for key in ('projected_affine','original_projected_affine'):
+                    check=t[key];assert check['passed']==all(x<=y for x,y in zip(check['residual'],check['tolerance']))
+                assert t['trust_pass']==(t['projected_step_norm']<=rad+t['trust_roundoff'])
+            if 'valid' in t:
+                assert t['projected_affine']['passed'] and t['trust_pass'] and t['terminal_coefficients_exact']
+            if t.get('valid'):
+                assert t['pins_exact'];set_check(t)
+                resolved=origin['running']-t['running']>origin['threshold']
+                assert t['running_origin']==origin['running'] and t['reduction_threshold']==origin['threshold']
+                assert t['running_improvement']==origin['running']-t['running']
+                dpass=all(t['data'][key]<=ceilings[key] for key in ceilings)
+                components=t['data']['silhouette']<=sil and (not protect or t['support']['passed'])
+                assert t['data_restored']==dpass and t['data_constraints_restored']==(dpass and components)
+                full=not original_failures(t,base) and resolved and components
+                assert t['full_search_passed']==full and t['running_update_accepted']==full
+                if full: chosen.append(t)
+                name=label+'/'+t['label']+'_endpoint.npz';f=archive(name);endpoint_count+=1
+                assert f['x'].shape==(300000,3) and f['x'].dtype==np.float32
+                assert f['displacement'].shape==own['displacement'].shape and f['displacement'].dtype==own['displacement'].dtype
+                np.testing.assert_array_equal(f['terminal'],own['terminal'])
+                np.testing.assert_array_equal(f['witness_positions'],f['x'][selection['witnesses']])
+                np.testing.assert_array_equal(f['support_values'],t['support']['values'])
+                direct=((f['witness_positions'].astype(np.float64)-selection['targets'].astype(np.float64))**2).sum(-1)
+                numeric=(direct-radius*radius)/(radius*radius)
+                assert np.all(np.abs(numeric-f['support_values'])<=64*np.finfo(np.float64).eps*np.maximum(1,np.abs(numeric)))
+                # Reconstruct the observed affine remainder from the saved actual projected controls.
+                delta=(f['displacement'].astype(np.float64)-own['displacement'].astype(np.float64)).ravel()
+                gg=own['data_gradients'].astype(np.float64).reshape(m,-1)
+                actual=np.array([t['data'][key] for key in ('volume','render','silhouette')]+(t['support']['values'] if protect else []))
+                linear_change=gg@delta
+                remainder=actual-own['origin_data']-linear_change
+                arithmetic_scale=np.linalg.norm(gg,axis=1)*np.linalg.norm(delta)+np.abs(actual)+np.abs(own['origin_data'])
+                assert np.all(np.abs(remainder-t['observed_model_remainder'])<=64*np.finfo(np.float64).eps*np.maximum(arithmetic_scale,np.finfo(np.float64).tiny))
+                assert abs(np.linalg.norm(delta)-t['projected_step_norm'])<=64*np.finfo(np.float64).eps*max(np.linalg.norm(delta),np.finfo(np.float64).tiny)
+            previous=t
+        assert len(chosen)==arm['accepted_running_updates']<=1
+        replay=arm['fixed_candidate_replays'];assert len(replay)==(3 if chosen else 0)
+        if chosen: assert arm['trials'][-1]['label']==chosen[0]['label']
+        else: assert arm['trials'][-1]['halvings']==10
+        repeat_pass=[]
+        for row in arm['rows']+valid+replay:
+            if row.get('valid'):
+                mm=row['original_merit'];assert mm['lambda_render']==r['lambda_render']
+                assert mm['merit']==mm['physical']+mm['lambda_render']*mm['render']
+                if 'original_merit_nonincrease' in row: assert row['original_merit_nonincrease']==(mm['merit']<=merit)
+                if 'support' in row: set_check(row)
+                if 'feasible' in row: assert row['feasible']==(not original_failures(row,base))
+                if 'support_constraints_passed' in row: assert row['support_constraints_passed']==row['support']['passed']
+                if 'silhouette_ceiling_passed' in row: assert row['silhouette_ceiling_passed']==(row['data']['silhouette']<=sil)
+        for row in replay:
+            resolved=row.get('running') is not None and origin['running']-row['running']>origin['threshold']
+            assert row['running_decrease_resolved']==resolved
+            full=not original_failures(row,base) and resolved and row['data']['silhouette']<=sil and (not protect or row['support']['passed'])
+            assert row['full_search_passed']==full;repeat_pass.append(full)
+        assert arm['repeated_feasible']==(len(replay)==3 and all(repeat_pass))
+        summary[label]=dict(records=len(arm['trials']),valid_forwards=len(valid),accepted=len(chosen),
+            repeated_feasible=arm['repeated_feasible'],original_P306_pass=[t['label'] for t in valid if not original_failures(t,base)],
+            data_restored=[dict(label=t['label'],failed=original_failures(t,base),
+                               support_pass=t['support']['passed'],silhouette_pass=t['silhouette_ceiling_passed']) for t in valid if t['data_restored']])
+    output=dict(passed=True,result_sha256=rsha,protocol_sha256=psha,commit=commit,
+                checked_sources=len(source_checked),source_unavailable=source_unavailable,exact_local_bytes_newline_only_vs_git=newline_only,
+                checked_sidecar_hashes=checked_files,sidecars_not_locally_checked=missing,
+                checked_valid_endpoints=endpoint_count,status=status,support_targets=ids.tolist(),
+                witness_ids=selection['witnesses'].tolist(),arms=summary,
+                scope='Independent recorded-scalar/mask/source and saved endpoint witness audit; no all-target distance recomputation or new forward',
+                auditor_sha256=file_sha(Path(__file__)))
+    with open(a.out,'x') as f:json.dump(output,f,indent=2,allow_nan=False)
+    print(json.dumps({k:output[k] for k in ('passed','status','checked_sources','checked_valid_endpoints','arms')},indent=2))
+
+
+if __name__=='__main__':main()

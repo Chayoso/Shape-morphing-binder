@@ -1,7 +1,8 @@
-# P314 draft: preserve identified material support while braking
+# P314: preserve identified material support while braking
 
-Status: design and implementation independently reviewed;62 distinct focused
-CPU cases independently pass. No CUDA launch yet. The eight-row
+Status: CUDA comparison completed and independently audited. All48 valid
+forwards fail original raw IoU; no repair is adopted. Design and implementation
+were independently reviewed;62 distinct focused CPU cases independently pass. The eight-row
 operator and explicit original-row metadata mapping pass33 independently
 reviewed CPU cases. P313 localizes a support
 change in the saved terminal05 origin, not the unsaved P312 repair candidates.
@@ -68,7 +69,7 @@ report-only original-merit decisions remain separately reported. A failure
 does not move the origin or start another strength/weight search.
 
 Persist every valid search endpoint (X_T and fixed witness positions/scalars),
-plus the full X/V/F/C trajectory evidence for the first candidate in each arm
+plus full X/V trajectories and terminal F/C for the first candidate in each arm
 that restores that arm's prepared constraints and for any selected candidate
 and its repeats. This removes P312's inability to localize rejected endpoint
 support. Keep arrays from the actual evaluated forward; never regenerate
@@ -115,3 +116,70 @@ unrelated component strictly inside its original ceiling. The final test fails
 support alone while passing the unchanged original gates. No production
 tolerance, cutoff or objective was relaxed. Independent review reran all62
 distinct cases, including the final uncertified-witness orchestration case.
+
+## Completed CUDA comparison: support restores locally, raw silhouette still fails
+
+Frozen `db241d029356dd4593ecc2551450d8372b579549`, W20,N300000,T20,
+dt1/240,dx.3062907543956724wu,loss36^3,budget8,raw/no-PIC/no-shift.
+Twenty ordinary commits/160 inner accepts; all recorded physical guards zero
+and production callback state remains exact. Fixed free54,716/arrived-free54,529
+IDs. Original-merit closure passes all three original repeats. The common
+origin selects exactly target53946, witness250580 at radius.0698616982373597wu;
+no cap/uncertified/no-intervention abort. The three baseline coverage bitsets
+are identical. The original target coverage is297798/300000; the common origin
+loses one target and gains three. A positive net count does not preserve all IDs.
+
+| Arm | Search records / valid forwards | Prepared constraints restored | Raw P306 pass | Accepted / repeats |
+|---|---:|---:|---:|---:|
+| Volume/render/silhouette |24 /22|4|0|0 /0|
+| Same + fixed material support |28 /26|2|0|0 /0|
+
+All48 valid forwards fail raw silIoU. Treatment h4/c2 restores its prepared
+constraints but loses six original-covered targets, gains five and fails upper
+coverage. The selected witness remains covered; preserving one witness does
+not prevent deficits elsewhere.
+
+Treatment h8/c1 is the nearest measured joint candidate: no original-covered
+target IDs are lost and three are gained (61596,187210,188522). It passes all
+original gates except raw silIoU, .9606576095811922 -> .960616020068067
+(delta-4.1589513125162014e-5). Stored/geometric terminal RMS decrease30.3650%/
+30.0497%, saved-step RMS1.5984%, net1.5643%, path2.9942%, all on the same fixed
+arrived-free cohort. Original merit decreases1.0090932054543714e-6 relative to
+baseline0. These are one-window reductions, not final rest.
+
+Its support scalar is-2.428727167001314e-6, only about8.48e-8wu inside the
+unchanged radius. The raw quality rejection prevents fixed-control repeats;
+there is no repeated or robust support certificate. Control h8/c0 loses53946
+while retaining the same three gains and has identical raw IoU. This saved pair
+shares a radius but uses different correction counts; it is not a matched
+single-update direction ablation. Both remain rejected.
+
+Rendering at this W20 prefix uses18 views at64pixels. At lambda.022316043302899786,
+treatment h8/c1 improves prepared silhouette6.845220923423767e-8 but worsens PBR
+6.82193785905838e-8. Combined render decreases only2.3283064365386963e-10;
+weighted render decreases5.1958587240119765e-12. Thus better combined image loss
+does not certify raw silhouette preservation. The160 ordinary accepted updates
+have median nominal render-direction share.4905880; the20 lambda values have
+median.0616080. These are direction/weight telemetry, not causal displacement
+shares and not4K appearance evidence.
+
+The independent result audit checks every decision, common row/bound identity,
+all48 saved endpoint controls/witnesses and reconstructed projected-step norms
+and affine remainders. A separate read-only server audit matches64 sidecars,
+79 source/helper files and3 inputs (146 stable file identities/hashes). The
+inherited unused server-only volumetric.py matches its previously retained
+bytes; CRLF/LF differences versus Git are explicitly recorded, not ignored.
+No MPM rerollout is used to manufacture rejected-state evidence.
+
+Persistence limitation: P314's full-state sidecars contain complete X/V histories
+but only terminal F/C. They do not contain the full per-step F sequence required
+for consistent export/adoption. The later optional full-F capture is separately
+CPU-reviewed and was absent from this frozen run; no state is eligible for
+production adoption on the P314 archive alone.
+
+Evidence is in [evidence/p314/result.json](evidence/p314/result.json), its bound
+protocol, independent audit and remote hash receipt. Full arrays remain under
+the server's `work/p303/support_repair1`. [P315](silhouette_pixels_p315.md)
+localizes saved raw mask/supplier changes before another repair formulation.
+Eventual stopping-window analysis, coupled continuation, gallery/all-frame
+hole/rest QA and4K appearance remain open. No physical/default policy changes.

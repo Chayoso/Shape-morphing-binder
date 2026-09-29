@@ -9308,3 +9308,24 @@ The inherited terminal-origin render losses improve while raw coverage falls:
 silhouette-3.66708e-8, PBR-1.21596e-7, weighted render-2.62079e-9 at lambda
 .01655326075; there is no rendering intervention or4K evidence. No promotion.
 [Evidence and exact phase qualifications](coverage_paths_p313.md).
+
+## 2026-09-28 - P314: local support restoration still fails raw silhouette
+
+W20,N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8,raw/no-PIC/no-shift;
+frozen `db241d0`.20 commits/160 inner accepts, guards0, exact callback isolation.
+Fixed54,529 arrived-free IDs. Common origin loses target53946, gains three;
+repeat0 witness250580 covers53946 in all3originals. Matched arms share the
+original baseline and common origin/gradients. Silhouette arm22 validforwards,
+support arm26; all48 fail raw IoU.0 repairs,0 repeats,0 adoptions.
+
+Support h8/c1 restores prepared data/silhouette/support and loses no original
+target IDs, retaining all three gains, but raw IoU falls4.15895e-5. Fixed-cohort
+terminal stored/geometric RMS decreases30.3650%/30.0497%, step1.5984%, path2.9942%.
+The support witness is only8.48e-8wu inside the radius, unrepeated. Rendering:
+silhouette-6.84522e-8, PBR+6.82194e-8, weighted combined-5.19586e-12 at lambda
+.0223160. Ordinary median nominal render direction share.490588 is not causal
+motion share. W20 uses18views/64pixels, not4K. Independent62-case CPU gate and
+full result/source/control/remainder audit pass; physical quality does not.
+The optional same-forward full-F export snapshot is implemented/CPU-reviewed
+separately and absent from this frozen run. No adoption path is enabled.
+[Result, evidence and limits](support_repair_p314.md).

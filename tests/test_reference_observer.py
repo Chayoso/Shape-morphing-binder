@@ -169,6 +169,17 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
                 assert shifted['valid']
                 samples.append(float(support_values(shifted['x'],support_q,witness_ids,1.)[0].detach()))
             assert (samples[1]-samples[0])/.006==pytest.approx(float(support_grad.norm()),rel=.04,abs=1e-6)
+            complete = restored.evaluate(fixed_terminal,displacement,retain_full_state=True)
+            saved_f = complete['F_sequence'].clone()
+            saved_initial = complete['F_initial'].clone()
+            assert complete['valid'] and saved_f.shape==(cfg.T,len(source),3,3)
+            assert not complete['F_sequence'].requires_grad
+            assert torch.equal(saved_f[-1].reshape_as(complete['F']),complete['F'])
+            other = restored.evaluate(fixed_terminal,displacement+.02*direction,retain_full_state=True)
+            assert other['valid'] and not torch.equal(other['F_sequence'],saved_f)
+            assert torch.equal(complete['F_sequence'],saved_f) and torch.equal(complete['F_initial'],saved_initial)
+            ordinary = restored.evaluate(fixed_terminal,displacement)
+            assert 'F_sequence' not in ordinary and 'F_initial' not in ordinary
             restored.close()
             # The paired component diagnostic must linearize a real MPM window
             # only once, with a live original-merit evaluator and exact ownership.

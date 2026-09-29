@@ -39,13 +39,23 @@ unchanged accepted-buffer `E_final=E_accept` shortcut.
 ## Preserve the actual accepted trajectory
 
 Keep `on_checkpoint` read-only. A future commit hook needs a separate explicit
-contract and complete owned selected state. The current private model returns
+contract and complete owned selected state. The default private model returns
 full X/V but terminal F/C only; frame export also requires the candidate's
 complete F sequence (and geometric F if enabled). Retain the actual selected
 terminal C; an extra rollout cannot be represented as exact original C after
 the documented failed C-repeat gate. Do not replace only x or add a final
 position correction absent from the evaluated trajectory.
 All X/V/F/C and component losses must describe the same selected forward.
+
+The separate preparatory `FrozenBodyWindow.evaluate(..., retain_full_state=True)`
+option now captures owned, detached `F_sequence` (post-step1..T) and `F_initial`
+directly from that same live trajectory before another rollout. It checks finite
+values and exact F_sequence[-1]/terminal-F identity. Default behavior/returns are
+unchanged. This is evidence/export ownership only; the snapshots are not an
+added differentiable loss channel. The existing detached terminal C and owned
+X/V must accompany them. Geometric-F sequence capture and a production adoption
+hook remain absent; the currently supported raw recipe has geometric F off.
+P314's already frozen `db241d0` run does not contain this later capture option.
 
 The outer runner must receive consistent frames, end-state x/v/C/F, control
 metadata and merit history. Its ordinary containment/orientation guards must

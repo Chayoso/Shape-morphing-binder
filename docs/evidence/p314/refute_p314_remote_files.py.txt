@@ -1,0 +1,32 @@
+"""Read-only hash/identity audit of frozen P314 inputs, code and every sidecar."""
+import hashlib,json,os
+from datetime import datetime,timezone
+from pathlib import Path
+
+base=Path('/data/relcfd/chayo/physmorph_v2')
+run=base/'work/p303/support_repair1'
+code=base/'work/p303/code_support_repair1'
+def sha(path):
+    h=hashlib.sha256()
+    with path.open('rb') as f:
+        for data in iter(lambda:f.read(8<<20),b''):h.update(data)
+    return h.hexdigest()
+def identity(path):
+    s=path.stat();return dict(dev=s.st_dev,ino=s.st_ino,size=s.st_size,mtime_ns=s.st_mtime_ns)
+rb=(run/'result.json').read_bytes();pb=(run/'protocol.json').read_bytes()
+r=json.loads(rb);p=json.loads(pb)
+assert hashlib.sha256(rb).hexdigest()=='6108b1950b13c831baf2dd0391d2200e702a4fb586e72a5af0c1782209d2a24e'
+assert hashlib.sha256(pb).hexdigest()==r['protocol_sha256']=='5ad732eb513c11c97c08ee78ae0aa3d0aaa4eea4c1bb0c2730e9fc75a2c28f98'
+items={str(run/'support_repair'/k):v for k,v in r['extension']['sidecars'].items()}
+items.update({str(code/k):v for group in ('code','helpers') for k,v in p[group].items()})
+items.update(p['inputs'])
+rows=[]
+for name,expected in items.items():
+    path=Path(name);assert path.resolve().is_relative_to(base)
+    before=identity(path);actual=sha(path);after=identity(path)
+    assert before==after and actual==expected,(name,expected,actual)
+    rows.append(dict(path=name,sha256=actual,**after))
+print(json.dumps(dict(passed=True,read_only=True,no_forward=True,utc=datetime.now(timezone.utc).isoformat(),
+                     result_sha256=hashlib.sha256(rb).hexdigest(),protocol_sha256=hashlib.sha256(pb).hexdigest(),
+                     sidecar_count=len(r['extension']['sidecars']),source_count=sum(len(p[g]) for g in ('code','helpers')),
+                     input_count=len(p['inputs']),checked_count=len(rows),rows=rows),indent=2))
