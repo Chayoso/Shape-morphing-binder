@@ -94,6 +94,8 @@ independent population variance and F/J-volume sensitivity, invalid inputs,
 render-error recovery, lease expiration even inside a later checkpoint, and
 exact production/Adam isolation. Ten body-control and two prepared-reference
 cases also pass. These14 distinct cases are not a full-suite or CUDA-quality
-claim. No GPU probe invokes the new evaluator yet; P310 uses frozen b5809b5
-from before this addition. Original-merit CUDA closure and coupled continuation
-remain outstanding.
+claim. P310 uses frozen b5809b5 from before this addition. P311 subsequently
+closes all three original baseline merits on CUDA under the recorded raw300k
+recipe (maximum allowance ratio.0292933), verifies exact physical+lambda*render
+arithmetic and production-state isolation. Both terminal-strength arms still
+fail raw IoU; no candidate is adopted. Coupled continuation remains outstanding.

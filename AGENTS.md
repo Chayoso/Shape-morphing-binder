@@ -202,3 +202,12 @@ These are the leading candidates for the unresolved problems, and they are ports
   triplet/ceilings/cohorts/lambda. Both arms must be retained. The read-only
   original-merit API is implemented/CPU-tested but has no GPU closure yet.
   No candidate adoption, persistent-rest or4K promotion has occurred.
+- **P311 status:** both strengths now compared in one fresh callback with one
+  immutable baseline. All60 forward trials fail P306; the six data-restored
+  candidates lower original merit but fail raw IoU alone. Original-merit CUDA
+  closure passes all3original repeats, exact scalar recombination and callback
+  isolation pass. No fixed-candidate repeat or adoption. See
+  `docs/paired_braking_p311.md`. `docs/silhouette_repair_p312.md` proposes a
+  matched two-plane versus extra-silhouette constraint test. Its reviewed design
+  also shares one owned terminal05 origin/linearization/noise threshold across
+  both arms; no implementation or launch yet. No quality promotion follows.

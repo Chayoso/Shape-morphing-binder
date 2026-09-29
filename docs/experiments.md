@@ -9248,3 +9248,20 @@ Four independent CPU regression cases pass. A separate original-merit evaluator
 is implemented and passes14 CPU cases (2 independently repeated), but is absent
 from this frozen run; CUDA-merit closure and real continuation remain open.
 [P310 result](quality_repair_p310.md); [merit/commit contract](candidate_commit_contract.md).
+
+## 2026-09-28 - P311: paired braking closes original merit, both strengths fail IoU
+
+Same N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8;20 ordinary commits,
+160 accepted inner updates, guards0 and exact observer isolation. Both arms share
+one immutable baseline and39,649 arrived-free IDs. Original-merit CUDA closure
+passes all3repeats (maximum32eps allowance ratio.0292933). Terminal05 evaluates29
+trials and025 evaluates31; each also has one no-step result.0 accepted repairs,
+no fixed-candidate repeats. All60 fail P306, including retrospective checks.
+The4/2data-restored candidates lower original merit but fail only raw silIoU.
+Representative05 half6/c1 reduces step RMS1.7025%, terminal speeds26.2408%/26.2425%
+and merit9.64847e-7, improves upper/overall coverage and local density, but lowers
+binary IoU2.18477e-6. Its silhouette+2.01049e-7 offsets PBR-2.00933e-7; weighted
+combined+3.48660e-12 remains within the shared repeat ceiling at lambda.01497485.
+Ordinary median render-direction share.4903952 is not causal motion attribution.
+36 focused CPU cases pass; original pipeline defaults and retained deliverables
+are unchanged. [Protocol, evidence and limits](paired_braking_p311.md).

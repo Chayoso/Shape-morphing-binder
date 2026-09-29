@@ -1,0 +1,106 @@
+"""Scalar-only audit of P311 evidence; no simulation or image metric calculation."""
+import hashlib
+import json
+import math
+from pathlib import Path
+import sys
+
+p = Path(sys.argv[1])
+report = json.loads(p.read_text(encoding='utf-8'))
+json.dumps(report,allow_nan=False)
+protocol = p.with_name(p.stem+'_protocol.json')
+assert hashlib.sha256(protocol.read_bytes()).hexdigest()==report['protocol_sha256']
+ext = report['extension']
+base = ext['baseline']['rows']
+assert len(base)==3 and all(r['valid'] for r in base)
+reference = base[0]
+assert ext['arm_order']==['terminal05','terminal025']
+assert set(ext['arms'])==set(ext['arm_order'])
+assert not any(report['guards'].values()) and ext['production_state_after_callback_exact'] is True
+assert ext['baseline']['ceilings']=={k:max(r['data'][k] for r in base) for k in ('volume','render')}
+assert ext['baseline']['merit_ceiling']==max(r['original_merit']['merit'] for r in base)
+for row in base:
+    expected = report['original_history']['loss']
+    ratio = abs(row['original_merit']['merit']-expected)/(32*2**-23*max(abs(expected),1e-12))
+    assert ratio<=1 and ratio==row['accepted_closure']['original_merit']
+print(json.dumps(dict(N=report['N'],T=report['T'],dt=report['mpm']['dt'],
+    dx=report['mpm']['dx'],loss_res=report['loss_res'],lambda_render=report['lambda_render'],
+    guards=report['guards'],isolation=ext['production_state_after_callback_exact'],
+    cohorts=reference['motion'],merit_ceiling=ext['baseline']['merit_ceiling'],
+    baseline_closures=[r['accepted_closure'] for r in base],
+    render_direction=report['render_influence']['step_nominal_share'],
+    adaptive_lambda=report['render_influence']['adaptive_lambda']),indent=2))
+
+def assess(row):
+    if not row.get('valid'): return ['invalid']
+    failed = []
+    for k in ('volume','render'):
+        if row['data'][k]>max(r['data'][k] for r in base): failed.append(k)
+    for k in ('sil_iou','upper_target_near_frac','target_near_frac','tip_n','fixed_source_upper_density'):
+        if row['geometry'][k]<min(r['geometry'][k] for r in base): failed.append(k)
+    if row['geometry']['chamfer']>max(r['geometry']['chamfer'] for r in base): failed.append('chamfer')
+    for cohort in ('start_free','start_arrived_free'):
+        for k in ('net_rms_sp','step_rms_sp','path_mean_sp'):
+            if row['motion'][cohort][k]>max(r['motion'][cohort][k] for r in base): failed.append(cohort+'_'+k)
+    for k in ('physical_terminal_rms_wu_s','geometric_terminal_rms_wu_s'):
+        speeds = [r['motion']['start_arrived_free'][k] for r in base]
+        threshold = 10*max(max(speeds)-min(speeds),32*2**-23*max(speeds))
+        if min(speeds)-row['motion']['start_arrived_free'][k]<=threshold: failed.append(k)
+    return failed
+
+def detail(row):
+    def percent(value,original):
+        return 100*(value/original-1) if original else None
+    return dict(label=row['label'],failed=assess(row),merit_nonincrease=row.get('original_merit_nonincrease'),
+        merit_delta=row['original_merit']['merit']-reference['original_merit']['merit'],
+        merit_history_delta=row.get('accepted_history_merit_delta'),
+        original_merit=row['original_merit'],
+        data_delta={k:row['data'][k]-reference['data'][k] for k in reference['data']},
+        geometry_delta={k:row['geometry'][k]-reference['geometry'][k] for k in reference['geometry']},
+        arrived_motion_percent={k:percent(v,reference['motion']['start_arrived_free'][k])
+            for k,v in row['motion']['start_arrived_free'].items() if k!='particles'},
+        running_percent=percent(row['running'],reference['running']))
+
+for label,arm in ext['arms'].items():
+    assert arm['rows'][:3]==base
+    assert arm['data_ceilings']==ext['baseline']['ceilings']
+    assert arm['original_merit_ceiling']==ext['baseline']['merit_ceiling']
+    assert arm['shared_baseline_sha256']==ext['baseline']['package_sha256']
+    assert arm['shared_context_before_after_exact']
+    valid = [r for r in arm['trials'] if r.get('valid')]
+    allgate = [r['label'] for r in valid if not assess(r)]
+    fullsearch = [r['label'] for r in valid if not assess(r) and r['running_improvement']>r['reduction_threshold']]
+    chosen = [r for r in valid if r['running_update_accepted']]
+    assert len(chosen)==arm['accepted_running_updates']<=1
+    assert [r['label'] for r in chosen]==fullsearch
+    replay = arm['fixed_candidate_replays']
+    assert len(replay)==(3 if chosen else 0)
+    replay_passed = []
+    if chosen:
+        # Reconstruct the one frozen linearization scalar; no gate tolerance added.
+        current = chosen[0]['running']+chosen[0]['running_improvement']
+        threshold = chosen[0]['reduction_threshold']
+        expected = 10*max(arm['running_replay_noise'],32*2**-23*current)
+        assert math.isclose(threshold,expected,rel_tol=1e-14,abs_tol=0)
+        for row in replay:
+            resolved = row['running'] is not None and current-row['running']>threshold
+            assert row['running_decrease_resolved']==resolved
+            replay_passed.append(not assess(row) and resolved)
+    assert arm['repeated_feasible']==(len(replay)==3 and all(replay_passed))
+    records = arm['rows']+valid+arm['fixed_candidate_replays']
+    for row in records:
+        if not row.get('valid'): continue
+        m = row['original_merit']
+        assert m['lambda_render']==report['lambda_render']
+        assert m['merit']==m['physical']+m['lambda_render']*m['render']
+        if 'original_merit_nonincrease' in row:
+            assert row['original_merit_nonincrease']==(m['merit']<=arm['original_merit_ceiling'])
+        if 'feasible' in row: assert row['feasible']==(not assess(row))
+    print(json.dumps(dict(arm=label,search_records=len(arm['trials']),valid_forwards=len(valid),
+        accepted=arm['accepted_running_updates'],noise=arm['running_replay_noise'],
+        retrospectively_P306_passing=allgate,full_search_feasible=fullsearch,
+        repeated_feasible=arm['repeated_feasible'],
+        merit_passing_trials=sum(r['original_merit_nonincrease'] for r in valid),
+        selected=[detail(r) for r in arm['rows'][3:] if r.get('valid')],
+        data_restored=[detail(r) for r in valid if r.get('data_restored')],
+        repeats=[detail(r) for r in arm['fixed_candidate_replays'] if r.get('valid')]),indent=2))
