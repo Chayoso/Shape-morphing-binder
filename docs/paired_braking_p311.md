@@ -19,6 +19,9 @@ lambda, source-upper and window-start cohorts, raw metrics and original-merit
 reference. Neither arm may independently recalibrate or expand those ceilings.
 Explicitly verify these identities before/after each arm. Observe each arm's
 own three terminal-running repeats and report its noise/floor separately.
+The shared baseline is an owned immutable package, not one mutable rows list.
+Deep-copy only arm-local result lists; verify shared package hashes/values and
+the actual original displacement/selected terminal roles before/after each arm.
 
 Run terminal05 then terminal025, both beginning at the original displacement.
 Each arm uses the unchanged P310 search: one origin,11 radii, up to two replaced
@@ -40,6 +43,11 @@ merit, prepared channels, stored kinetic/variance, body energy, actual wu and
 lambda. Report original-merit nonincrease against the same original baseline
 separately; do not relabel it as part of the unchanged P306 gate or as an
 Armijo/outer-acceptance certificate. No new production policy follows.
+Check all three baseline closures individually, not their mean. The report-only
+nonincrease label uses the fixed maximum of those three original replay merits,
+with accepted-history delta also reported. Do not add the32eps closure allowance
+to this ceiling. Report-only merit failure does not alter the P306 search-stop
+rule or prevent running the other arm.
 
 Retain original-only and each arm's selected X/V/F/C/control evidence, input
 and source hashes, actual render components and exact post-callback production
