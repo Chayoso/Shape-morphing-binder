@@ -146,13 +146,21 @@ These are the leading candidates for the unresolved problems, and they are ports
 - Python: numpy / torch / warp; scripts are argparse CLIs; terse comments that state constraints.
 - Compile-check before pushing: `python -m py_compile <file>`.
 - Korean is the user's working language; code and docs are English.
+- **P334 joint handoff derivative:** `docs/post_assimilation_adjoint_p334.md`
+  connects independent coast Fp and direct x/v/C/F/Fg covectors through P333.
+  42 CPU and9 actual CUDA cases pass; captured Fp/C omission controls fail the
+  unchanged finite-difference gate as intended. N27,T20,dt.002,dx.5,grid16^3 only.
+  Actual prepared successor fields/pins are owned and frozen; their continuous
+  preparation derivatives and a production adapter remain pending. No default,
+  candidate or rest/hole/4K promotion. Physical F health does not certify visual
+  Gaussian footprint quality; retain the separate P323 appearance gates.
 - **P333 assimilation derivative:** `docs/assimilation_adjoint_p333.md` records
   the opt-in stable spectral F/Fp primitive and frozen old/new-pin composition.
   46 CPU and23 actual CUDA cases pass, including N20000 FP32 graph replay.
   Typed cuSOLVER calls preserve converged forward values and reject nonconvergence;
   smaller actual new-pin subsets have explicitly bounded backend parity.
-  No runner/default uses this yet. Connect gradient-bearing coast Fp and the
-  complete x/v/C/F/Fg boundary before another candidate search; frozen successor
+  No runner/default uses this yet. P334 connects gradient-bearing coast Fp and
+  the complete x/v/C/F/Fg boundary in a separate opt-in bridge; frozen successor
   preparation remains a partial derivative. No rest/hole/4K remedy is adopted.
 - **P332 status:** opt-in owned whole-window selection passes CPU/CUDA integration
   and the N300k original-result W20 to actual controlled W21 capability. It keeps
@@ -160,8 +168,8 @@ These are the leading candidates for the unresolved problems, and they are ports
   the final merit lease before promotion. Auto loss is validated after ordinary
   resolution. No rejected P331 candidate was adopted; identity does not certify
   natural rest, holes or4K quality. See `docs/window_selection_p332.md` and the
-  design-only `docs/post_assimilation_adjoint_plan.md` before extending handoff
-  derivatives; current withdrawal still freezes Fp/preparation.
+  `docs/post_assimilation_adjoint_plan.md` before extending handoff derivatives;
+  the older withdrawal API still freezes Fp/preparation.
 - **Render influence reporting (user 2026-09-28):** report rendering-loss influence
   with future runs. Keep adaptive lambda/direction norms, actual accepted updates,
   image-loss changes and independent raw-state evidence distinct; norm share is

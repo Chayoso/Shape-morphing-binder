@@ -7,7 +7,7 @@ for the actual plastic-state update, before another candidate quality search.
 P333 implements the stable assimilation primitive and frozen pin composition;
 see `assimilation_adjoint_p333.md` for its distinct CPU/CUDA gates. The joint
 trajectory bridge is now implemented in `post_assimilation_adjoint_p334.md`,
-with CPU verification and pending actual CUDA gates. The complete successor
+with CPU verification and nine passing actual CUDA gates. The complete successor
 preparation derivative below remains pending.
 
 This first scope excludes `w_grow > 0` and `assim_consensus`, and has no pin

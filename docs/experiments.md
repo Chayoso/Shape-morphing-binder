@@ -1,5 +1,23 @@
 # Experiments — gates, metrics, result log
 
+## 2026-09-29: P334 post-assimilation joint derivative
+
+Frozen c4a7c82 connects the P333 assimilation derivative to two Warp windows,
+including carried x/v/C/F/Fg and independent gradient-bearing coast Fp. The
+fixed-policy fixture is N27,T20 per window,dt.002,dx.5,grid16^3. Root42CPU cases
+and9 actual hyde06 CUDA cases pass (5.754s,0skips). Captured/plain forwards and
+control derivatives agree; deliberately omitting Fp or C breaks independent
+finite differences at unchanged tolerances. Independent production assimilation
+with the actual new-pin subset and a fresh coast gives the same forward.
+
+This is an opt-in operator capability. Actual successor policy preparation and
+admission derivatives, a production adapter and N300k quality validation remain
+pending. No control candidate, stopping policy or 4K renderer is promoted.
+Rendering influence is unchanged because there is no optimization/render loss
+in this test. Physical F health remains separate from Gaussian tangent radius,
+normal thickness and projected appearance. See `post_assimilation_adjoint_p334.md`
+and `gaussian_footprint_followup.md`; artifacts are in `evidence/p334`.
+
 ## Gates (what "done" means)
 
 | gate | test | threshold |

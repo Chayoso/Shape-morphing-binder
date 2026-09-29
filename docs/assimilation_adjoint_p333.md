@@ -60,11 +60,12 @@ bands, skipped increments, singular floor, old/new/free pin composition and
 repeated backward calls. The CUDA gate additionally checks both subset backend
 sizes, actual GPU graph replay and absence of explicit numerical host copies.
 
-Next: connect a gradient-bearing coast Fp and v/C pin projection to the actual
-controlled-head boundary, preserving direct x/v/C/F/Fg paths. Validate tiny
-head-assimilation-coast finite differences with detached-Fp/C negative controls
-before any production candidate search. A conditional derivative with frozen
-successor preparation is not a complete derivative of preparation policies.
+P334 now connects gradient-bearing coast Fp and v/C pin projection to the
+controlled-head boundary, preserving direct x/v/C/F/Fg paths. Its tiny CPU/CUDA
+head-assimilation-coast finite differences and detached-Fp/C negative controls
+pass; see `post_assimilation_adjoint_p334.md`. The production adapter remains
+pending. A conditional derivative with frozen successor preparation is not a
+complete derivative of preparation policies.
 
 Rendering influence: unchanged; these are algebra/derivative tests without a
 morph, render objective or candidate adoption. No new render influence number,

@@ -1,0 +1,40 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_post_assimilation1
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 9 items
+
+tests/test_post_assimilation_adjoint_cuda.py Module physmorph.mpm.kernels c651c54 load on device 'cpu' took 1.26 ms  (cached)
+Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 11.50 ms  (cached)
+{'channel': 0, 'epsilon': 0.001, 'analytical': 0.0003148035917452099, 'finite_difference': 0.0003157512554192825}
+{'channel': 0, 'epsilon': 0.0005, 'analytical': 0.0003148035917452099, 'finite_difference': 0.00031428371052031126}
+.{'channel': 1, 'epsilon': 0.001, 'analytical': 0.003121503778636431, 'finite_difference': 0.003163659604337658}
+{'channel': 1, 'epsilon': 0.0005, 'analytical': 0.003121503778636431, 'finite_difference': 0.0031578115470345947}
+.{'channel': 2, 'epsilon': 0.001, 'analytical': -0.007118143820685929, 'finite_difference': -0.007144299020319354}
+{'channel': 2, 'epsilon': 0.0005, 'analytical': -0.007118143820685929, 'finite_difference': -0.007137416155840633}
+...{'drop': 'Fp', 'channel': 0, 'epsilon': 0.0005, 'full': 0.004106654235066176, 'omitted': 0.0040648911333200834, 'fd': 0.004133939672633022, 'allowance': 8.267879345266044e-05}
+{'drop': 'Fp', 'channel': 1, 'epsilon': 0.0005, 'full': -0.018308968311115753, 'omitted': -0.010490869991410731, 'fd': -0.018214592536433018, 'allowance': 0.00036429185072866035}
+{'drop': 'Fp', 'channel': 2, 'epsilon': 0.0005, 'full': -27.936828157998043, 'omitted': -27.936826804056345, 'fd': -27.93691887658648, 'allowance': 0.5587383775317296}
+.{'drop': 'C', 'channel': 0, 'epsilon': 0.0005, 'full': 0.0003148035917452099, 'omitted': 0.00031489621278734547, 'fd': 0.00031428371052031126, 'allowance': 6.285674210406225e-06}
+{'drop': 'C', 'channel': 1, 'epsilon': 0.0005, 'full': 0.003121503778636431, 'omitted': 0.0031080797249447532, 'fd': 0.0031578115470345947, 'allowance': 6.315623094069189e-05}
+{'drop': 'C', 'channel': 2, 'epsilon': 0.0005, 'full': -0.007118143820685929, 'omitted': -0.006126062046649572, 'fd': -0.007137416155840633, 'allowance': 0.00014274832311681265}
+...
+
+=============================== warnings summary ===============================
+tests/test_post_assimilation_adjoint_cuda.py::test_changed_controls_owned_policies_stale_generation_and_context_stream
+  /data/relcfd/chayo/physmorph_v2/work/p303/code_post_assimilation1/tests/test_post_assimilation_adjoint_cuda.py:241: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+  Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+    assert float((actual.coast_X-snapshot[6]).abs().max()) > 1e-6
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p334_cuda1.xml -
+========================= 9 passed, 1 warning in 5.75s =========================
