@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="20" time="2.024" timestamp="2026-09-29T03:18:40.613196-05:00" hostname="hyde06"><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_actual_production_n20000_float32_forward_is_exact[0.35-False]" time="0.234" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_actual_production_n20000_float32_forward_is_exact[0.35-True]" time="0.025" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_actual_production_n20000_float32_forward_is_exact[1.0-False]" time="0.010" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_actual_production_n20000_float32_forward_is_exact[1.0-True]" time="0.013" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_repeated_spectra_finite_repeated_vjp_and_identity_linear_oracle[dtype0-False]" time="0.029" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_repeated_spectra_finite_repeated_vjp_and_identity_linear_oracle[dtype0-True]" time="0.008" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_repeated_spectra_finite_repeated_vjp_and_identity_linear_oracle[dtype1-False]" time="0.027" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_repeated_spectra_finite_repeated_vjp_and_identity_linear_oracle[dtype1-True]" time="0.008" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_float64_joint_F_Fp_directional_finite_differences[noncommuting-False]" time="0.006" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_float64_joint_F_Fp_directional_finite_differences[noncommuting-True]" time="0.012" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_float64_joint_F_Fp_directional_finite_differences[cumulative_clamps-False]" time="0.006" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_float64_joint_F_Fp_directional_finite_differences[cumulative_clamps-True]" time="0.012" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_float64_joint_F_Fp_directional_finite_differences[singular_value_floor-False]" time="0.005" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_float64_joint_F_Fp_directional_finite_differences[singular_value_floor-True]" time="0.012" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_actual_runner_subset_handoff_dispatch_numerical_parity[False-128]" time="0.017" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_actual_runner_subset_handoff_dispatch_numerical_parity[False-20000]" time="0.015" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_actual_runner_subset_handoff_dispatch_numerical_parity[True-128]" time="0.060" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_actual_runner_subset_handoff_dispatch_numerical_parity[True-20000]" time="0.027" /><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed[False]" time="0.117"><failure message="NotImplementedError: calling cuSOLVER API during stream capture is currently unsupported">tests/test_assimilation_adjoint_cuda.py:203: in test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed
+    captured, captured_gradients = evaluate()
+tests/test_assimilation_adjoint_cuda.py:194: in evaluate
+    out = assimilate(F, P, eta=.37, isochoric=iso)
+physmorph/plasticity/assimilation_adjoint.py:151: in assimilate_elastic_differentiable
+    increment = _ElasticIncrement.apply(Fe, eta, bool(isochoric))
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:576: in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+physmorph/plasticity/assimilation_adjoint.py:42: in forward
+    U, s, Vh = svd3(Fe)
+physmorph/plasticity/cuda_svd.py:28: in svd3
+    cusolver.setStream(handle, stream)
+cupy_backends/cuda/libs/cusolver.pyx:1156: in cupy_backends.cuda.libs.cusolver.setStream
+    ???
+cupy_backends/cuda/libs/cusolver.pyx:1160: in cupy_backends.cuda.libs.cusolver.setStream
+    ???
+E   NotImplementedError: calling cuSOLVER API during stream capture is currently unsupported</failure></testcase><testcase classname="tests.test_assimilation_adjoint_cuda" name="test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed[True]" time="0.107"><failure message="NotImplementedError: calling cuSOLVER API during stream capture is currently unsupported">tests/test_assimilation_adjoint_cuda.py:203: in test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed
+    captured, captured_gradients = evaluate()
+tests/test_assimilation_adjoint_cuda.py:194: in evaluate
+    out = assimilate(F, P, eta=.37, isochoric=iso)
+physmorph/plasticity/assimilation_adjoint.py:151: in assimilate_elastic_differentiable
+    increment = _ElasticIncrement.apply(Fe, eta, bool(isochoric))
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:576: in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+physmorph/plasticity/assimilation_adjoint.py:42: in forward
+    U, s, Vh = svd3(Fe)
+physmorph/plasticity/cuda_svd.py:28: in svd3
+    cusolver.setStream(handle, stream)
+cupy_backends/cuda/libs/cusolver.pyx:1156: in cupy_backends.cuda.libs.cusolver.setStream
+    ???
+cupy_backends/cuda/libs/cusolver.pyx:1160: in cupy_backends.cuda.libs.cusolver.setStream
+    ???
+E   NotImplementedError: calling cuSOLVER API during stream capture is currently unsupported</failure></testcase></testsuite></testsuites>

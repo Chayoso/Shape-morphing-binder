@@ -1,0 +1,91 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 20 items
+
+tests/test_assimilation_adjoint_cuda.py ........{'case': 'noncommuting', 'isochoric': False, 'epsilon': 2e-06, 'ad': -1.9888676019488623, 'fd': -1.9888676003000259}
+{'case': 'noncommuting', 'isochoric': False, 'epsilon': 1e-06, 'ad': -1.9888676019488623, 'fd': -1.9888676017413713}
+.{'case': 'noncommuting', 'isochoric': True, 'epsilon': 2e-06, 'ad': -2.0755093362090395, 'fd': -2.075509335366355}
+{'case': 'noncommuting', 'isochoric': True, 'epsilon': 1e-06, 'ad': -2.0755093362090395, 'fd': -2.075509332717626}
+.{'case': 'cumulative_clamps', 'isochoric': False, 'epsilon': 1e-07, 'ad': -14.746860511067593, 'fd': -14.746860520244553}
+{'case': 'cumulative_clamps', 'isochoric': False, 'epsilon': 5e-08, 'ad': -14.746860511067593, 'fd': -14.746860547119173}
+.{'case': 'cumulative_clamps', 'isochoric': True, 'epsilon': 1e-07, 'ad': 2.257323739058645, 'fd': 2.257323773960663}
+{'case': 'cumulative_clamps', 'isochoric': True, 'epsilon': 5e-08, 'ad': 2.257323739058645, 'fd': 2.257323723489396}
+.{'case': 'singular_value_floor', 'isochoric': False, 'epsilon': 1e-09, 'ad': -8.601973298748126, 'fd': -8.60197442151197}
+{'case': 'singular_value_floor', 'isochoric': False, 'epsilon': 5e-10, 'ad': -8.601973298748126, 'fd': -8.601974301154982}
+.{'case': 'singular_value_floor', 'isochoric': True, 'epsilon': 1e-09, 'ad': -10.75118615786485, 'fd': -10.751188832977144}
+{'case': 'singular_value_floor', 'isochoric': True, 'epsilon': 5e-10, 'ad': -10.75118615786485, 'fd': -10.751180130598847}
+...{'new_count': 128, 'max_absolute_error': 1.7285346984863281e-06, 'max_tolerance_ratio': 0.12685750424861908}
+.{'new_count': 20000, 'max_absolute_error': 0.0, 'max_tolerance_ratio': 0.0}
+.FF
+
+=================================== FAILURES ===================================
+_ test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed[False] _
+tests/test_assimilation_adjoint_cuda.py:203: in test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed
+    captured, captured_gradients = evaluate()
+tests/test_assimilation_adjoint_cuda.py:194: in evaluate
+    out = assimilate(F, P, eta=.37, isochoric=iso)
+physmorph/plasticity/assimilation_adjoint.py:150: in assimilate_elastic_differentiable
+    increment = _ElasticIncrement.apply(Fe, eta, bool(isochoric))
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:576: in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+physmorph/plasticity/assimilation_adjoint.py:41: in forward
+    U, s, Vh = torch.linalg.svd(Fe)
+E   torch.AcceleratorError: CUDA error: operation not permitted when stream is capturing
+E   CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E   For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+E   Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+During handling of the above exception, another exception occurred:
+tests/test_assimilation_adjoint_cuda.py:202: in test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed
+    with torch.cuda.graph(graph, stream=torch.cuda.current_stream()):
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/cuda/graphs.py:222: in __exit__
+    self.cuda_graph.capture_end()
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/cuda/graphs.py:104: in capture_end
+    super().capture_end()
+E   torch.AcceleratorError: CUDA error: operation failed due to a previous error during capture
+E   CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E   For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+E   Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+_ test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed[True] _
+tests/test_assimilation_adjoint_cuda.py:203: in test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed
+    captured, captured_gradients = evaluate()
+tests/test_assimilation_adjoint_cuda.py:194: in evaluate
+    out = assimilate(F, P, eta=.37, isochoric=iso)
+physmorph/plasticity/assimilation_adjoint.py:150: in assimilate_elastic_differentiable
+    increment = _ElasticIncrement.apply(Fe, eta, bool(isochoric))
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:576: in apply
+    return super().apply(*args, **kwargs)  # type: ignore[misc]
+physmorph/plasticity/assimilation_adjoint.py:41: in forward
+    U, s, Vh = torch.linalg.svd(Fe)
+E   torch.AcceleratorError: CUDA error: operation not permitted when stream is capturing
+E   CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E   For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+E   Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+
+During handling of the above exception, another exception occurred:
+tests/test_assimilation_adjoint_cuda.py:202: in test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed
+    with torch.cuda.graph(graph, stream=torch.cuda.current_stream()):
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/cuda/graphs.py:222: in __exit__
+    self.cuda_graph.capture_end()
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/cuda/graphs.py:104: in capture_end
+    super().capture_end()
+E   torch.AcceleratorError: CUDA error: operation failed due to a previous error during capture
+E   CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+E   For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+E   Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda2.xml -
+=========================== short test summary info ============================
+FAILED tests/test_assimilation_adjoint_cuda.py::test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed[False]
+FAILED tests/test_assimilation_adjoint_cuda.py::test_torch_cuda_graph_forward_backward_replays_changed_inputs_and_seed[True]
+========================= 2 failed, 18 passed in 2.06s =========================

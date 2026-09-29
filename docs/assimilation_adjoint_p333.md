@@ -1,18 +1,8 @@
 # P333: derivative of actual elastic assimilation
 
 Status: opt-in primitive and frozen old/new-pin composition implemented; 46 CPU
-checks and all 20 CUDA tests pass. The fourth run uses frozen `137d897` and
-takes 2.14s. Production-size FP32 graph and composed-map capture are the final
-additional scope checks before recording closure. Initial CUDA run passes
-18 parity/derivative/subset cases but fails
-both graph-capture cases at the host-synchronizing inverse. Capture correction
-uses the same inverse through inv_ex with a device status assertion, and uses
-torch.where for the skipped-row increment. The second CUDA run again passes 18
-cases but exposes linalg.svd's separate host convergence check. The next change
-calls the same cuSOLVER Jacobi routine with device status checking. That third
-run keeps all 18 numerical cases passing, but CuPy's wrapper refuses calls
-during capture. A typed C ABI call to the same installed solver removes that
-wrapper restriction; fourth run passes. Test criteria remain unchanged.
+checks and all 23 CUDA tests pass. Frozen `1457340acac8d98f0602ba65fc41dd2b72262385`
+passes the extended production-size FP32 graph and composed-map gates in 2.73s.
 No optimizer, runner or existing withdrawal default uses this derivative yet.
 
 The next coast must respond to the plastic state the runner really commits.
@@ -79,3 +69,38 @@ successor preparation is not a complete derivative of preparation policies.
 Rendering influence: unchanged; these are algebra/derivative tests without a
 morph, render objective or candidate adoption. No new render influence number,
 natural-rest, hole-removal or 4K appearance claim follows.
+
+## Recorded verification
+
+These are matrix-map tests, without an MPM grid or time step. The final hyde06
+run is `work/p303/p333_cuda5`, code `work/p303/code_assimilation5`, Torch2.8.0+cu128,
+CuPy14.0.0, CUDA12.8 libraries, RTX6000 Ada. All 23 tests pass, no skips. CPU
+reference/derivative checks pass 46/46 (37 new plus 9 legacy). Independent review
+checked the spectral formulas, branches, typed ABI, stream and buffer ownership.
+
+- N20000 float32 ordinary forwards equal production bit-for-bit for eta .35/1
+  with isochoric off/on. The original inputs remain unchanged.
+- Actual N24000 runner-style composition preserves old pins and calls production
+  on only the newly pinned subset. N128 new pins has maximum absolute difference
+  1.728535e-6 (0.126858 of the registered 64-FP32-epsilon scaled allowance);
+  N20000 new pins is exact. Smaller subsets take the production CuPy SVD branch.
+- Float64 directional differences cover noncommuting F/Fp, cumulative clamps and
+  the singular floor at two radii. Repeated spectra and the independent identity
+  derivative include both F and Fp paths.
+- CUDA graph forward/backward replays changed F, Fp and cotangent seeds at N1
+  float64 and N20000 float32. The composed N20000 case includes 1024 old and 1024
+  new pins, verifies their distinct forward/gradient behavior and a nonzero
+  second-call effect. These are Torch graph gates, not a Warp joint-rollout gate.
+
+Three initial attempts each pass 18 numerical gates but expose, in order,
+the inverse's host check, SVD's host convergence check, and CuPy's capture wrapper
+restriction. Their failures are retained. The fourth passes the original 20
+gates; the fifth passes all 23 extended gates. No gate threshold was relaxed.
+The final test warning is a scalar conversion in a post-replay test assertion,
+outside numerical capture; it does not signal a failed check.
+
+The monitor sampled 718MiB process peak in the final test (not an exact peak).
+Project usage after collection is 77355478828 bytes, below 100GB. No result
+cleanup or retained before/corrected video change was needed. Source/output
+hashes and complete test reports are in `evidence/p333/source_receipt.json`.
+That receipt binds artifacts; it is not an independent rerun of GPU calculations.

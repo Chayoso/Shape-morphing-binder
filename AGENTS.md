@@ -146,6 +146,14 @@ These are the leading candidates for the unresolved problems, and they are ports
 - Python: numpy / torch / warp; scripts are argparse CLIs; terse comments that state constraints.
 - Compile-check before pushing: `python -m py_compile <file>`.
 - Korean is the user's working language; code and docs are English.
+- **P333 assimilation derivative:** `docs/assimilation_adjoint_p333.md` records
+  the opt-in stable spectral F/Fp primitive and frozen old/new-pin composition.
+  46 CPU and23 actual CUDA cases pass, including N20000 FP32 graph replay.
+  Typed cuSOLVER calls preserve converged forward values and reject nonconvergence;
+  smaller actual new-pin subsets have explicitly bounded backend parity.
+  No runner/default uses this yet. Connect gradient-bearing coast Fp and the
+  complete x/v/C/F/Fg boundary before another candidate search; frozen successor
+  preparation remains a partial derivative. No rest/hole/4K remedy is adopted.
 - **P332 status:** opt-in owned whole-window selection passes CPU/CUDA integration
   and the N300k original-result W20 to actual controlled W21 capability. It keeps
   donor Adam/render telemetry separate, uses normal outer rollback, and closes

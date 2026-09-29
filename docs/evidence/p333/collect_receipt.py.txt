@@ -1,0 +1,35 @@
+"""Read-only source/test binding collector, run on hyde06; emits JSON to stdout."""
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import xml.etree.ElementTree as ET
+
+base = Path('/data/relcfd/chayo/physmorph_v2')
+work = base/'work/p303'
+sources = ['physmorph/plasticity/assimilation.py',
+           'physmorph/plasticity/assimilation_adjoint.py',
+           'physmorph/plasticity/cuda_svd.py', 'physmorph/compute.py',
+           'tests/test_assimilation_adjoint.py', 'tests/test_assimilation_adjoint_cuda.py',
+           'scripts/ops/run_p303_probe.sh', 'scripts/ops/gpu_env.sh',
+           'scripts/ops/cuda_python.py']
+def binding(path):
+    b = path.read_bytes()
+    return {'path': str(path), 'bytes': len(b), 'sha256': hashlib.sha256(b).hexdigest()}
+rows = []
+for i in range(1, 6):
+    code, tag = work/f'code_assimilation{i}', f'p333_cuda{i}'
+    suite = ET.parse(work/f'{tag}.xml').getroot().find('testsuite')
+    memory = json.loads((work/f'{tag}.memory.json').read_text())
+    rows.append({'code': str(code), 'commit': (code/'VERSION').read_text().strip(),
+                 'source_bindings': {s: binding(code/s) for s in sources if (code/s).exists()},
+                 'artifacts': {s: binding(work/f'{tag}.{s}') for s in ('log', 'xml', 'memory.json', 'exit')},
+                 'exit_code': int((work/f'{tag}.exit').read_text()),
+                 'pytest': dict(suite.attrib),
+                 'memory_scope': memory['scope'],
+                 'sampled_process_peak_MiB': memory['sampled_process_peak_MiB'],
+                 'sampled_device_peak_MiB': memory['sampled_device_peak_MiB'],
+                 'monitor_errors': memory['errors']})
+print(json.dumps({'schema': 'p333_source_test_receipt_v1', 'runs': rows,
+                  'project_bytes': int(subprocess.check_output(['du', '-sb', str(base)]).split()[0]),
+                  'scope': 'Read-only source and completed test metadata binding; not independent rerun of GPU calculations'}, indent=2))

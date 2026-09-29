@@ -1,0 +1,70 @@
+{
+  "pid": 742448,
+  "proc_starttime": "209700552",
+  "gpu": 0,
+  "samples": [
+    {
+      "utc": "2026-09-29T08:20:24.334558+00:00",
+      "elapsed_s": 2.7070054784417152e-05,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T08:20:24.903107+00:00",
+      "elapsed_s": 0.5685960550326854,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T08:20:25.475214+00:00",
+      "elapsed_s": 1.1406979481689632,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T08:20:26.046544+00:00",
+      "elapsed_s": 1.7120202200021595,
+      "device_used_MiB": 116,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T08:20:26.655581+00:00",
+      "elapsed_s": 2.3210696789901704,
+      "device_used_MiB": 656,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 632,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T08:20:27.224808+00:00",
+      "elapsed_s": 2.8903091931715608,
+      "device_used_MiB": 674,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 650,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T08:20:27.794204+00:00",
+      "elapsed_s": 3.459691818105057,
+      "device_used_MiB": 674,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 650,
+      "process_seen": true
+    }
+  ],
+  "errors": [],
+  "sleep_between_queries_s": 0.5,
+  "ended_utc": "2026-09-29T08:20:28.364566+00:00",
+  "script_sha256": "e904394951a3113adb71ce65ccd2f43a064425e7ac35b112ea49d4b560dfdca6",
+  "sampled_process_peak_MiB": 650,
+  "sampled_device_peak_MiB": 674,
+  "scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark"
+}

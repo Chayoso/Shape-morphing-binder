@@ -1,0 +1,437 @@
+{
+  "schema": "p333_source_test_receipt_v1",
+  "runs": [
+    {
+      "code": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1",
+      "commit": "9648f13ec07452f173e21b84be4fb4de858b0053",
+      "source_bindings": {
+        "physmorph/plasticity/assimilation.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1/physmorph/plasticity/assimilation.py",
+          "bytes": 13724,
+          "sha256": "ce4907bb21ee53b0f6007feed37b985ccb6dd0abb54472ec2d5ee469899a6fd6"
+        },
+        "physmorph/plasticity/assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1/physmorph/plasticity/assimilation_adjoint.py",
+          "bytes": 8016,
+          "sha256": "a739a9b44fc9e73317e6acde3a136a6edd681c772b0e1e78a7ebb82f05f93f63"
+        },
+        "physmorph/compute.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1/physmorph/compute.py",
+          "bytes": 12411,
+          "sha256": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce"
+        },
+        "tests/test_assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1/tests/test_assimilation_adjoint.py",
+          "bytes": 9531,
+          "sha256": "e68cc0bc27e548041b273bcb63b3caf84adaf3af05f96fdc9d836094383d4c89"
+        },
+        "tests/test_assimilation_adjoint_cuda.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1/tests/test_assimilation_adjoint_cuda.py",
+          "bytes": 11367,
+          "sha256": "48105b66ca2ae416d83c7bb3e0cf45cb5943c475391d6907ff7dacc21a108349"
+        },
+        "scripts/ops/run_p303_probe.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1/scripts/ops/run_p303_probe.sh",
+          "bytes": 15907,
+          "sha256": "0d47c2bc2bff4975a1cc32df0f3c02cffe457451b1369afc0552179dd5b63a34"
+        },
+        "scripts/ops/gpu_env.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1/scripts/ops/gpu_env.sh",
+          "bytes": 558,
+          "sha256": "0a35c4153b0ca6d92bb4e774938fbefc469ca8f30bd2a6982c5ca142ec7b6a09"
+        },
+        "scripts/ops/cuda_python.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation1/scripts/ops/cuda_python.py",
+          "bytes": 606,
+          "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc"
+        }
+      },
+      "artifacts": {
+        "log": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda1.log",
+          "bytes": 6434,
+          "sha256": "77eb94e3ce1120ed3f1f6fca6f5dd38a5be47290f47150a67250a3444484c068"
+        },
+        "xml": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda1.xml",
+          "bytes": 7393,
+          "sha256": "174d72d6cc3d3f57adb02cb1b2544939d1fecb4834253c8d9f9d90a0c467d76e"
+        },
+        "memory.json": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda1.memory.json",
+          "bytes": 2013,
+          "sha256": "47bc68418c8b2559b22473ecbb648cd069863b565dabc6a5c0d0b185aa4981d2"
+        },
+        "exit": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda1.exit",
+          "bytes": 2,
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        }
+      },
+      "exit_code": 1,
+      "pytest": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "2",
+        "skipped": "0",
+        "tests": "20",
+        "time": "2.099",
+        "timestamp": "2026-09-29T03:13:36.173681-05:00",
+        "hostname": "hyde06"
+      },
+      "memory_scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark",
+      "sampled_process_peak_MiB": 648,
+      "sampled_device_peak_MiB": 672,
+      "monitor_errors": []
+    },
+    {
+      "code": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2",
+      "commit": "8b6856f7f4747f683052ef06571f03e6be99e2d7",
+      "source_bindings": {
+        "physmorph/plasticity/assimilation.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2/physmorph/plasticity/assimilation.py",
+          "bytes": 13724,
+          "sha256": "ce4907bb21ee53b0f6007feed37b985ccb6dd0abb54472ec2d5ee469899a6fd6"
+        },
+        "physmorph/plasticity/assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2/physmorph/plasticity/assimilation_adjoint.py",
+          "bytes": 8340,
+          "sha256": "7de624ccca0875e49ff5521ba7cacad820d6965cb5ef9ba0b96dda3ece93e4d9"
+        },
+        "physmorph/compute.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2/physmorph/compute.py",
+          "bytes": 12411,
+          "sha256": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce"
+        },
+        "tests/test_assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2/tests/test_assimilation_adjoint.py",
+          "bytes": 9531,
+          "sha256": "e68cc0bc27e548041b273bcb63b3caf84adaf3af05f96fdc9d836094383d4c89"
+        },
+        "tests/test_assimilation_adjoint_cuda.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2/tests/test_assimilation_adjoint_cuda.py",
+          "bytes": 11367,
+          "sha256": "48105b66ca2ae416d83c7bb3e0cf45cb5943c475391d6907ff7dacc21a108349"
+        },
+        "scripts/ops/run_p303_probe.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2/scripts/ops/run_p303_probe.sh",
+          "bytes": 15907,
+          "sha256": "0d47c2bc2bff4975a1cc32df0f3c02cffe457451b1369afc0552179dd5b63a34"
+        },
+        "scripts/ops/gpu_env.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2/scripts/ops/gpu_env.sh",
+          "bytes": 558,
+          "sha256": "0a35c4153b0ca6d92bb4e774938fbefc469ca8f30bd2a6982c5ca142ec7b6a09"
+        },
+        "scripts/ops/cuda_python.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation2/scripts/ops/cuda_python.py",
+          "bytes": 606,
+          "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc"
+        }
+      },
+      "artifacts": {
+        "log": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda2.log",
+          "bytes": 7044,
+          "sha256": "7baddffbdd8b36fff0a2a7e0f1944f21dfcca22c9d6d765d047781aaed0c1651"
+        },
+        "xml": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda2.xml",
+          "bytes": 8003,
+          "sha256": "9e0eced8df58154ad1c943ee841bef14f7646eb2b35751250b47af150097e9fd"
+        },
+        "memory.json": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda2.memory.json",
+          "bytes": 2014,
+          "sha256": "2e8966adb66f30893eae65ba10549e39cdc5006eda7dbdb4f4999625d209ea4b"
+        },
+        "exit": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda2.exit",
+          "bytes": 2,
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        }
+      },
+      "exit_code": 1,
+      "pytest": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "2",
+        "skipped": "0",
+        "tests": "20",
+        "time": "2.059",
+        "timestamp": "2026-09-29T03:15:09.863146-05:00",
+        "hostname": "hyde06"
+      },
+      "memory_scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark",
+      "sampled_process_peak_MiB": 648,
+      "sampled_device_peak_MiB": 672,
+      "monitor_errors": []
+    },
+    {
+      "code": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3",
+      "commit": "6ce7fe222e6eaf37ed1b067fe28a8e4faf922b8d",
+      "source_bindings": {
+        "physmorph/plasticity/assimilation.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/physmorph/plasticity/assimilation.py",
+          "bytes": 13724,
+          "sha256": "ce4907bb21ee53b0f6007feed37b985ccb6dd0abb54472ec2d5ee469899a6fd6"
+        },
+        "physmorph/plasticity/assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/physmorph/plasticity/assimilation_adjoint.py",
+          "bytes": 8343,
+          "sha256": "f89986202d115ac15f53c8f2271c62560eb53702465397eaad5c2efb09f3b4e2"
+        },
+        "physmorph/plasticity/cuda_svd.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/physmorph/plasticity/cuda_svd.py",
+          "bytes": 2591,
+          "sha256": "6bd005e0e8be0fb88b08a07684a9f97e06071547b6e2de4c7ad21c019636e1d3"
+        },
+        "physmorph/compute.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/physmorph/compute.py",
+          "bytes": 12411,
+          "sha256": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce"
+        },
+        "tests/test_assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/tests/test_assimilation_adjoint.py",
+          "bytes": 9531,
+          "sha256": "e68cc0bc27e548041b273bcb63b3caf84adaf3af05f96fdc9d836094383d4c89"
+        },
+        "tests/test_assimilation_adjoint_cuda.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/tests/test_assimilation_adjoint_cuda.py",
+          "bytes": 11367,
+          "sha256": "48105b66ca2ae416d83c7bb3e0cf45cb5943c475391d6907ff7dacc21a108349"
+        },
+        "scripts/ops/run_p303_probe.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/scripts/ops/run_p303_probe.sh",
+          "bytes": 15907,
+          "sha256": "0d47c2bc2bff4975a1cc32df0f3c02cffe457451b1369afc0552179dd5b63a34"
+        },
+        "scripts/ops/gpu_env.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/scripts/ops/gpu_env.sh",
+          "bytes": 558,
+          "sha256": "0a35c4153b0ca6d92bb4e774938fbefc469ca8f30bd2a6982c5ca142ec7b6a09"
+        },
+        "scripts/ops/cuda_python.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation3/scripts/ops/cuda_python.py",
+          "bytes": 606,
+          "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc"
+        }
+      },
+      "artifacts": {
+        "log": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda3.log",
+          "bytes": 5294,
+          "sha256": "e33fa555c5c59f011e9e32459d853b4034091d26ce37c66e3cbe0924ae01cd12"
+        },
+        "xml": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda3.xml",
+          "bytes": 5739,
+          "sha256": "68b5e6d195890cb14d24737925d5c5e867f368961778e0f708390bdcba36db0b"
+        },
+        "memory.json": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda3.memory.json",
+          "bytes": 2011,
+          "sha256": "7c5df84bb5113f7775e8a8e0cd5d6d7b89b8caa74b0a5861c7eefdcdcc557296"
+        },
+        "exit": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda3.exit",
+          "bytes": 2,
+          "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+        }
+      },
+      "exit_code": 1,
+      "pytest": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "2",
+        "skipped": "0",
+        "tests": "20",
+        "time": "2.024",
+        "timestamp": "2026-09-29T03:18:40.613196-05:00",
+        "hostname": "hyde06"
+      },
+      "memory_scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark",
+      "sampled_process_peak_MiB": 646,
+      "sampled_device_peak_MiB": 670,
+      "monitor_errors": []
+    },
+    {
+      "code": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4",
+      "commit": "137d897b2aaff7ac6728030bb8b01fd68ec71b81",
+      "source_bindings": {
+        "physmorph/plasticity/assimilation.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/physmorph/plasticity/assimilation.py",
+          "bytes": 13724,
+          "sha256": "ce4907bb21ee53b0f6007feed37b985ccb6dd0abb54472ec2d5ee469899a6fd6"
+        },
+        "physmorph/plasticity/assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/physmorph/plasticity/assimilation_adjoint.py",
+          "bytes": 8343,
+          "sha256": "f89986202d115ac15f53c8f2271c62560eb53702465397eaad5c2efb09f3b4e2"
+        },
+        "physmorph/plasticity/cuda_svd.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/physmorph/plasticity/cuda_svd.py",
+          "bytes": 4128,
+          "sha256": "e3880a92de61933164e14cd0a7b5a5f6641b24ceeefb7718501e50da7cd1d93e"
+        },
+        "physmorph/compute.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/physmorph/compute.py",
+          "bytes": 12411,
+          "sha256": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce"
+        },
+        "tests/test_assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/tests/test_assimilation_adjoint.py",
+          "bytes": 9531,
+          "sha256": "e68cc0bc27e548041b273bcb63b3caf84adaf3af05f96fdc9d836094383d4c89"
+        },
+        "tests/test_assimilation_adjoint_cuda.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/tests/test_assimilation_adjoint_cuda.py",
+          "bytes": 11367,
+          "sha256": "48105b66ca2ae416d83c7bb3e0cf45cb5943c475391d6907ff7dacc21a108349"
+        },
+        "scripts/ops/run_p303_probe.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/scripts/ops/run_p303_probe.sh",
+          "bytes": 15907,
+          "sha256": "0d47c2bc2bff4975a1cc32df0f3c02cffe457451b1369afc0552179dd5b63a34"
+        },
+        "scripts/ops/gpu_env.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/scripts/ops/gpu_env.sh",
+          "bytes": 558,
+          "sha256": "0a35c4153b0ca6d92bb4e774938fbefc469ca8f30bd2a6982c5ca142ec7b6a09"
+        },
+        "scripts/ops/cuda_python.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4/scripts/ops/cuda_python.py",
+          "bytes": 606,
+          "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc"
+        }
+      },
+      "artifacts": {
+        "log": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda4.log",
+          "bytes": 2602,
+          "sha256": "f05ec553978f56cb3cba0a513ebd940ed3fd1af73076547db2ab80e7025c3991"
+        },
+        "xml": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda4.xml",
+          "bytes": 3371,
+          "sha256": "3a5a3798bc0c44fc09080a08623057c8f11cb93d07b8b2727cab1707747d6917"
+        },
+        "memory.json": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda4.memory.json",
+          "bytes": 2015,
+          "sha256": "67a6e39eba3d9a4bcf703f9d2b86549f522b5eaa6782737493c7a3eb0ccd00de"
+        },
+        "exit": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda4.exit",
+          "bytes": 2,
+          "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        }
+      },
+      "exit_code": 0,
+      "pytest": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "20",
+        "time": "2.141",
+        "timestamp": "2026-09-29T03:20:25.006620-05:00",
+        "hostname": "hyde06"
+      },
+      "memory_scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark",
+      "sampled_process_peak_MiB": 650,
+      "sampled_device_peak_MiB": 674,
+      "monitor_errors": []
+    },
+    {
+      "code": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5",
+      "commit": "1457340acac8d98f0602ba65fc41dd2b72262385",
+      "source_bindings": {
+        "physmorph/plasticity/assimilation.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/physmorph/plasticity/assimilation.py",
+          "bytes": 13724,
+          "sha256": "ce4907bb21ee53b0f6007feed37b985ccb6dd0abb54472ec2d5ee469899a6fd6"
+        },
+        "physmorph/plasticity/assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/physmorph/plasticity/assimilation_adjoint.py",
+          "bytes": 8343,
+          "sha256": "f89986202d115ac15f53c8f2271c62560eb53702465397eaad5c2efb09f3b4e2"
+        },
+        "physmorph/plasticity/cuda_svd.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/physmorph/plasticity/cuda_svd.py",
+          "bytes": 4128,
+          "sha256": "e3880a92de61933164e14cd0a7b5a5f6641b24ceeefb7718501e50da7cd1d93e"
+        },
+        "physmorph/compute.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/physmorph/compute.py",
+          "bytes": 12411,
+          "sha256": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce"
+        },
+        "tests/test_assimilation_adjoint.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/tests/test_assimilation_adjoint.py",
+          "bytes": 9531,
+          "sha256": "e68cc0bc27e548041b273bcb63b3caf84adaf3af05f96fdc9d836094383d4c89"
+        },
+        "tests/test_assimilation_adjoint_cuda.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/tests/test_assimilation_adjoint_cuda.py",
+          "bytes": 13150,
+          "sha256": "a54ff4026116e806cd3221984004b90c7ff72110257bb896ed45115ea3243f6d"
+        },
+        "scripts/ops/run_p303_probe.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/scripts/ops/run_p303_probe.sh",
+          "bytes": 15907,
+          "sha256": "0d47c2bc2bff4975a1cc32df0f3c02cffe457451b1369afc0552179dd5b63a34"
+        },
+        "scripts/ops/gpu_env.sh": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/scripts/ops/gpu_env.sh",
+          "bytes": 558,
+          "sha256": "0a35c4153b0ca6d92bb4e774938fbefc469ca8f30bd2a6982c5ca142ec7b6a09"
+        },
+        "scripts/ops/cuda_python.py": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation5/scripts/ops/cuda_python.py",
+          "bytes": 606,
+          "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc"
+        }
+      },
+      "artifacts": {
+        "log": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda5.log",
+          "bytes": 3290,
+          "sha256": "fd985a1ccc8b1f1e4cd636772355e44062ba7597d7c712ed030519850bdd1bec"
+        },
+        "xml": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda5.xml",
+          "bytes": 3879,
+          "sha256": "366d4cf0ef757e1410534e170b4395a7f07a5af7edac151a455d9500223fe241"
+        },
+        "memory.json": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda5.memory.json",
+          "bytes": 2232,
+          "sha256": "ae83924bad25e3ff3d4015bc93262f1450d9cad4e4f37460fe451dd35d153f88"
+        },
+        "exit": {
+          "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda5.exit",
+          "bytes": 2,
+          "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+        }
+      },
+      "exit_code": 0,
+      "pytest": {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "23",
+        "time": "2.727",
+        "timestamp": "2026-09-29T03:22:17.715527-05:00",
+        "hostname": "hyde06"
+      },
+      "memory_scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark",
+      "sampled_process_peak_MiB": 718,
+      "sampled_device_peak_MiB": 742,
+      "monitor_errors": []
+    }
+  ],
+  "project_bytes": 77355478828,
+  "scope": "Read-only source and completed test metadata binding; not independent rerun of GPU calculations"
+}

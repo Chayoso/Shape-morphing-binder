@@ -1,0 +1,78 @@
+{
+  "pid": 746316,
+  "proc_starttime": "209711816",
+  "gpu": 0,
+  "samples": [
+    {
+      "utc": "2026-09-29T08:22:16.971834+00:00",
+      "elapsed_s": 2.6450026780366898e-05,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T08:22:17.539359+00:00",
+      "elapsed_s": 0.56757055898197,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T08:22:18.111706+00:00",
+      "elapsed_s": 1.139912178972736,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T08:22:18.682905+00:00",
+      "elapsed_s": 1.7111055459827185,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T08:22:19.327318+00:00",
+      "elapsed_s": 2.3555272489320487,
+      "device_used_MiB": 646,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 630,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T08:22:19.896305+00:00",
+      "elapsed_s": 2.924508419819176,
+      "device_used_MiB": 696,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 672,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T08:22:20.466825+00:00",
+      "elapsed_s": 3.4950301728677005,
+      "device_used_MiB": 742,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 718,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T08:22:21.038270+00:00",
+      "elapsed_s": 4.066476378822699,
+      "device_used_MiB": 742,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 718,
+      "process_seen": true
+    }
+  ],
+  "errors": [],
+  "sleep_between_queries_s": 0.5,
+  "ended_utc": "2026-09-29T08:22:21.611074+00:00",
+  "script_sha256": "e904394951a3113adb71ce65ccd2f43a064425e7ac35b112ea49d4b560dfdca6",
+  "sampled_process_peak_MiB": 718,
+  "sampled_device_peak_MiB": 742,
+  "scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark"
+}

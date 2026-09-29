@@ -1,0 +1,28 @@
+{
+  "schema": "p333_independent_review_v1",
+  "implementation_commit": "1457340acac8d98f0602ba65fc41dd2b72262385",
+  "reviewer": "/root/mixed60_photoreal",
+  "abi_and_cuda_test_reviewer": "/root/refute_merit_terms",
+  "status": "Code, CPU and final source/receipt/documentation gates closed",
+  "source_receipt_sha256": "d113419936a5d3644cf3219d357fcdcf90128bbabfcc6ee6fdfd92706585f531",
+  "matched_final_source_files": 9,
+  "matched_cuda_artifacts": 15,
+  "cpu": {"passed": 46, "seconds": 2.742},
+  "cuda": {"passed": 23, "skipped": 0, "seconds": 2.727},
+  "sampled_process_peak_MiB": 718,
+  "sampled_device_peak_MiB": 742,
+  "project_bytes_at_collection": 77355478828,
+  "resolved_findings": [
+    "settle_pin_assim controls both old-pin exclusion and new-pin assimilation",
+    "Actual new-pin subset backend parity is separately tested and bounded",
+    "Graph coverage includes production-size FP32 and composed pin map"
+  ],
+  "scope": "Final artifact review recomputed bindings and metadata; no independent GPU rerun. CPU cases were independently run during implementation review.",
+  "not_certified": [
+    "Warp controlled-head to post-assimilation coast adjoint",
+    "Complete successor preparation derivative",
+    "No morphing holes or residual flow",
+    "Individual natural rest or no arrival oscillation",
+    "4K appearance improvement or full-pipeline host-free execution"
+  ]
+}

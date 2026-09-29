@@ -1,0 +1,33 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_assimilation4
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 20 items
+
+tests/test_assimilation_adjoint_cuda.py ........{'case': 'noncommuting', 'isochoric': False, 'epsilon': 2e-06, 'ad': -1.9888676019488623, 'fd': -1.9888676003000259}
+{'case': 'noncommuting', 'isochoric': False, 'epsilon': 1e-06, 'ad': -1.9888676019488623, 'fd': -1.9888676017413713}
+.{'case': 'noncommuting', 'isochoric': True, 'epsilon': 2e-06, 'ad': -2.0755093362090395, 'fd': -2.075509335366355}
+{'case': 'noncommuting', 'isochoric': True, 'epsilon': 1e-06, 'ad': -2.0755093362090395, 'fd': -2.075509332717626}
+.{'case': 'cumulative_clamps', 'isochoric': False, 'epsilon': 1e-07, 'ad': -14.746860511067593, 'fd': -14.746860520244553}
+{'case': 'cumulative_clamps', 'isochoric': False, 'epsilon': 5e-08, 'ad': -14.746860511067593, 'fd': -14.746860547119173}
+.{'case': 'cumulative_clamps', 'isochoric': True, 'epsilon': 1e-07, 'ad': 2.257323739058645, 'fd': 2.257323773960663}
+{'case': 'cumulative_clamps', 'isochoric': True, 'epsilon': 5e-08, 'ad': 2.257323739058645, 'fd': 2.257323723489396}
+.{'case': 'singular_value_floor', 'isochoric': False, 'epsilon': 1e-09, 'ad': -8.601973298748126, 'fd': -8.60197442151197}
+{'case': 'singular_value_floor', 'isochoric': False, 'epsilon': 5e-10, 'ad': -8.601973298748126, 'fd': -8.601974301154982}
+.{'case': 'singular_value_floor', 'isochoric': True, 'epsilon': 1e-09, 'ad': -10.75118615786485, 'fd': -10.751188832977144}
+{'case': 'singular_value_floor', 'isochoric': True, 'epsilon': 5e-10, 'ad': -10.75118615786485, 'fd': -10.751180130598847}
+...{'new_count': 128, 'max_absolute_error': 1.7285346984863281e-06, 'max_tolerance_ratio': 0.12685750424861908}
+.{'new_count': 20000, 'max_absolute_error': 0.0, 'max_tolerance_ratio': 0.0}
+...
+
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p333_cuda4.xml -
+============================== 20 passed in 2.14s ==============================
