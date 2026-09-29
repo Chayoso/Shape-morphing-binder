@@ -102,6 +102,18 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
                     samples.append(float(shifted['x'][:,0].mean()))
             assert (samples[1]-samples[0])/.02 == pytest.approx(float(jacobian.norm()),rel=.03,abs=1e-5)
             assert torch.equal(fixed_terminal,restored_terminal.detach())
+            from physmorph.pipeline.affine_braking import geometric_running
+            selected = ~packet['pins']
+            moving = restored.evaluate(fixed_terminal,displacement)
+            running = geometric_running(moving['positions'],packet['x0'],packet['dt'],selected)
+            running_grad, = torch.autograd.grad(running,displacement)
+            direction = running_grad/running_grad.norm()
+            values = []
+            with torch.no_grad():
+                for sign in (-1,1):
+                    shifted = restored.evaluate(fixed_terminal,displacement+sign*.001*direction)
+                    values.append(float(geometric_running(shifted['positions'],packet['x0'],packet['dt'],selected)))
+            assert (values[1]-values[0])/.002 == pytest.approx(float(running_grad.norm()),rel=.03,abs=1e-5)
             restored.close()
         model.coefficients.fill_(0.)
         models.append(model)

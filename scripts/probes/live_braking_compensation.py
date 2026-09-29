@@ -57,21 +57,26 @@ def identity_evidence(base):
 
 
 class LiveCompensation(Capture):
+    operation = staticmethod(compensate)
+    artifact_subdir = 'compensation'
+    scope = 'Fresh live callback; same-window feasibility only, no archive reuse or commit'
+    rendering_role = 'Prepared CIC/PBR guides the original solve and screens candidates. Compensation minimizes same-ID endpoint error only. Weighted render changes are not causal motion shares or 4K quality.'
+
     def observe(self,index,packet):
         super().observe(index,packet)
         self.packet = packet
         with np.load(self.out/'trial05.npz',allow_pickle=False) as archive:
             brake = torch.tensor(archive['terminal'],device=packet['x0'].device)
         local = dict(packet,trial05_terminal=brake)
-        folder = self.out/'compensation'
+        folder = self.out/self.artifact_subdir
         folder.mkdir(exist_ok=False)
         evidence = {k:v for k,v in local.items() if k not in ('rollout','reference')}
         evidence.update(reference=asdict(packet['reference']),source=self.source,target=self.target)
         packet['rollout'].save(folder/'live_window.npz',evidence)
-        self.extra = compensate(packet['rollout'],local,self.source,self.target,folder)
+        self.extra = self.operation(packet['rollout'],local,self.source,self.target,folder)
         self.extra['sidecars']['live_window.npz'] = sha(folder/'live_window.npz')
-        self.extra.update(scope='Fresh live callback; same-window feasibility only, no archive reuse or commit',
-            rendering_role='Prepared CIC/PBR guides the original solve and screens candidates. Compensation minimizes same-ID endpoint error only. Weighted render changes are not causal motion shares or 4K quality.')
+        self.extra.update(scope=self.scope,rendering_role=self.rendering_role,
+                          artifact_subdir=self.artifact_subdir)
 
     def wrap(self,original):
         wrapped = super().wrap(original)
