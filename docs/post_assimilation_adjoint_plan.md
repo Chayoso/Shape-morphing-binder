@@ -10,8 +10,9 @@ trajectory bridge is now implemented in `post_assimilation_adjoint_p334.md`,
 with CPU verification and nine passing actual CUDA gates. P335 adds an adapter
 for actual prepared successor policies and an unchanged21-window native probe;
 see `post_assimilation_window_p335.md` for the retained failed gates and passing
-revised small CUDA verification. Native boundary closure passes, but full coast
-velocity/C closure fails and is being isolated without widening tolerances. The
+revised small CUDA verification. The original FP32 native coast failed. The
+opt-in FP64 assimilation recipe now passes fresh native and independent actual-
+coast closure with unchanged tolerances; a conditional candidate search is next. The
 complete successor preparation derivative below remains pending.
 
 This first scope excludes `w_grow > 0` and `assim_consensus`, and has no pin

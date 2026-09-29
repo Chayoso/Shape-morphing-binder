@@ -1,0 +1,129 @@
+{
+  "definitions": "Observational optimizer telemetry, not causal attribution. Norm shares exclude post-combination transforms and transport addends. Compare matched raw trajectories with render disabled for causal evidence. Image losses do not certify physical holes/rest. Direction/work statistics, accepted-update image-loss deltas and optimizer endpoint changes describe recorded Adam updates. In selected windows these are DONOR optimization evidence, not measurements of the fresh private forward. Selection is not an additional Adam step or causal motion attribution.",
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "loss_res": 36,
+    "render_res": 64,
+    "iters": 8
+  },
+  "render": {
+    "lambda_auto": 0.5,
+    "surface_gs_loss": false,
+    "surface_gs_weight": 1.0,
+    "detail_height": 2160
+  },
+  "windows": 21,
+  "raw_history_rows": 21,
+  "committed_windows": 21,
+  "inner_accepted_steps": 168,
+  "recorded_inner_steps": 168,
+  "recorded_committed_steps": 168,
+  "steps_in_committed_windows": 168,
+  "step_nominal_share": {
+    "count": 168,
+    "minimum": 0.3288163131389828,
+    "median": 0.4942820745071663,
+    "maximum": 0.700702670452457
+  },
+  "first_iteration_nominal_share": {
+    "count": 21,
+    "minimum": 0.3329416231580608,
+    "median": 0.4307399990313339,
+    "maximum": 0.5389844396364355
+  },
+  "adaptive_lambda": {
+    "count": 21,
+    "minimum": 0.02176859571069298,
+    "median": 0.06412654830815502,
+    "maximum": 0.3086395931945325
+  },
+  "observed_render_loss_change": {
+    "count": 168,
+    "minimum": -0.023134753108024597,
+    "median": -0.00015301024541258812,
+    "maximum": 0.00131884403526783
+  },
+  "endpoint_optimizer_change_rms_wu": {
+    "count": 168,
+    "minimum": 0.0010669947369024158,
+    "median": 0.006031920667737722,
+    "maximum": 0.1697629690170288
+  },
+  "channels": {
+    "body": {
+      "nominal_share": {
+        "count": 168,
+        "minimum": 0.16182174377003555,
+        "median": 0.3533720122261057,
+        "maximum": 0.5548314777299301
+      },
+      "control_delta_norm": {
+        "count": 168,
+        "minimum": 1.1993937492370605,
+        "median": 5.511123418807983,
+        "maximum": 51.7142219543457
+      }
+    },
+    "stress": {
+      "nominal_share": {
+        "count": 168,
+        "minimum": 0.28074569217094253,
+        "median": 0.5616554435873695,
+        "maximum": 0.7712530207596002
+      },
+      "control_delta_norm": {
+        "count": 168,
+        "minimum": 0.18921637535095215,
+        "median": 1.4083340167999268,
+        "maximum": 46.58988952636719
+      }
+    },
+    "surface_u": {
+      "nominal_share": {
+        "count": 168,
+        "minimum": 0.5521011574157385,
+        "median": 0.7538982599021427,
+        "maximum": 0.950002939573422
+      },
+      "control_delta_norm": {
+        "count": 168,
+        "minimum": 0.05804317072033882,
+        "median": 0.15377383679151535,
+        "maximum": 0.7136688232421875
+      }
+    }
+  },
+  "last_committed_surface_components": null,
+  "causal_render_ablation": "not measured by this report",
+  "window_selection": {
+    "selection_windows": 1,
+    "selected_private_forwards": 0,
+    "outer_committed_selected_forwards": 0,
+    "outer_uncommitted_selected_forwards": 0,
+    "original_result_retained_windows": 1,
+    "added_adam_steps": 0,
+    "optimizer_observation_scope": "Direction/work statistics, accepted-update image-loss deltas and optimizer endpoint changes describe recorded Adam updates. In selected windows these are DONOR optimization evidence, not measurements of the fresh private forward. Selection is not an additional Adam step or causal motion attribution.",
+    "selected_observation_scope": "Fresh private head-forward values, separate from donor update deltas; not an assertion of outer acceptance, delivered retention or causality.",
+    "observations": [
+      {
+        "animation": 19,
+        "selected": false,
+        "outer_committed": true,
+        "requested_label": "original",
+        "selected_label": "original",
+        "donor_history_scope": "Unchanged Adam history, accepted/rejected counts, render_influence_steps and body update telemetry describe donor optimization only",
+        "selected_work_scope": "No gradient/work or Adam-step claim for the selected private forward",
+        "donor_observation": {
+          "loss": 0.0021391192928935997,
+          "d_render": 0.001399505592416972,
+          "d_sil": 0.001399505534209311,
+          "lambda": 0.02533901336293972
+        },
+        "selected_forward_observation": null
+      }
+    ]
+  }
+}

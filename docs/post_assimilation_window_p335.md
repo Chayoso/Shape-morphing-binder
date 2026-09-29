@@ -289,3 +289,40 @@ The separate native auditor now requires an externally supplied
 precision override versus raw24a; a producer declaration cannot select its own
 audit contract. The legacy missing flag means False, and all other config/MPM
 fields remain exact. All54 CPU contract cases and independent review pass.
+
+## Fresh FP64 native recipe: scoped closure passes
+
+`p335_native2` completes456.72s on frozen504ea6a: N300000,T20,dt1/240,
+dx.3062907543956724wu,grid/loss36^3,iters8,21 committed windows/168 updates,
+all guards zero. It preserves its own original W20 result exactly; no altered
+control candidate is selected. Actual W21 has259425 pinned IDs (4250 new) and
+40575 surviving free IDs. All live head-merit, head-state, actual handoff and
+20-step coast gates pass with the original32-epsilon rule. Producer maximum
+allowance ratios x/v/C/F are .262413/.357871/.556107/.140433.
+
+The independent audit performs a NEW actual-W21 CUDA coast, checks3577 items
+in11.36s and passes. Its separate maxima are .288337/.269700/.773799/.140433;
+these need not be bit-identical to the producer replay. Eight NPZ archives
+total1,325,025,410 bytes. Independent source/scalar review checks90 Git-exact
+source files,93 producer/112 audit bindings,197 tolerance decisions, history,
+pin counts and rendering arithmetic. It does not independently repeat a native
+finite difference or claim the 300k derivative is validated merely because
+the archived covectors are finite and nonzero.
+
+For these40575 free IDs, geometric/stored mean squared coast speeds are
+.04410128/.04367651 wu^2/s^2. Their body displacement/terminal gradient norms
+are .02748634/.04589953 and .02745823/.04594720 respectively. These establish
+usable conditional gradient signals, not natural rest or an improved candidate.
+The new prefix is not a matched quality or timing ablation of native1.
+
+Rendering still uses18 views at64px, shared GS off. Median nominal direction
+share .49428207 (body .35337201, stress .56165544, surface-u .75389826), median
+lambda .06412655, median observed image-loss change -.0001530102 across168
+updates. These are optimizer-history observations, not rendering-caused motion
+fractions or supervision of the exact exported4K covariance.
+
+The precision flag remains opt-in. The failed native1 and diagnostic differences
+remain retained. A search using this conditional successor model may now be
+tested against the CURRENT live head merit and raw all-phase quality gates;
+actual candidate admission/preparation and ordinary continuation are additional
+requirements. Physical rest, intermediate holes, gallery and4K gates remain open.

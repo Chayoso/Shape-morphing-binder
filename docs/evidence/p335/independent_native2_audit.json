@@ -1,0 +1,214 @@
+{
+  "schema": "p335_native2_independent_receipt_v1",
+  "status": "PASS_SCOPED_SOURCE_SCALAR_ARTIFACT_CONSISTENCY",
+  "reviewed_utc": "2026-09-29T09:57:38.807786+00:00",
+  "reviewer": "mixed60_photoreal",
+  "method": "Local JSON/Git/hash arithmetic review; no GPU or physics rerun, no local NPZ payload loading.",
+  "producer_commit": "504ea6af236424be766a98ca9742dbe24bee64ab",
+  "producer_bound_files": 93,
+  "git_exact_source_files": 90,
+  "git_exact_physmorph_files": 83,
+  "auditor_bound_files": 112,
+  "audit_reported_checks": 3577,
+  "audit_all_reported_checks_pass": true,
+  "auditor_source": {
+    "executed_sha256": "94da12f50773827ae355bd0da1571cf7c275159268edfe26d3b7ed1d58074c2c",
+    "git_9c5a8b8_sha256": "83d4e1cd40567e794be54cff2d8d7f68d14bc21601f899b76d1ca1e1986cd4c3",
+    "difference": "CRLF/LF only; exact executed mixed-ending bytes preserved in .py.txt"
+  },
+  "local_audit_bound_payload_hashes_checked": [
+    "p335_native2.protocol.json",
+    "p335_native2.result.json",
+    "p335_native2.render_influence.json",
+    "p335_native2.log",
+    "p335_native2.start"
+  ],
+  "npz_manifest_entries_agree": 8,
+  "archived_npz_bytes": 1325025410,
+  "stored_elementwise_decision_rows_checked": 197,
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "loss_res": 36,
+    "render_res": 64,
+    "iters": 8
+  },
+  "scope": {
+    "accepted_windows": 21,
+    "accepted_updates": 168,
+    "manual_stop": 21,
+    "precision": "FP64 assimilation arithmetic with FP32 storage after each call",
+    "recipe_comparison": "Native1 recipe preserved except explicit assim_fp64=true; matching input identities and MPM."
+  },
+  "producer_elapsed_seconds": 456.7188448552042,
+  "audit_elapsed_seconds": 11.361232619266957,
+  "coast_maxima": {
+    "producer": {
+      "x": {
+        "max_tolerance_ratio": 0.2624131441116333,
+        "max_abs": 9.5367431640625e-07,
+        "failed_phases": []
+      },
+      "v": {
+        "max_tolerance_ratio": 0.3578711152076721,
+        "max_abs": 5.543231964111328e-06,
+        "failed_phases": []
+      },
+      "C": {
+        "max_tolerance_ratio": 0.5561074018478394,
+        "max_abs": 2.5987625122070312e-05,
+        "failed_phases": []
+      },
+      "F": {
+        "max_tolerance_ratio": 0.1404326856136322,
+        "max_abs": 1.0728836059570312e-06,
+        "failed_phases": []
+      }
+    },
+    "audit_fresh": {
+      "x": {
+        "max_tolerance_ratio": 0.28833726048469543,
+        "max_abs": 7.152557373046875e-07,
+        "failed_phases": []
+      },
+      "v": {
+        "max_tolerance_ratio": 0.2696996033191681,
+        "max_abs": 3.874301910400391e-06,
+        "failed_phases": []
+      },
+      "C": {
+        "max_tolerance_ratio": 0.7737987637519836,
+        "max_abs": 3.707408905029297e-05,
+        "failed_phases": []
+      },
+      "F": {
+        "max_tolerance_ratio": 0.1404326856136322,
+        "max_abs": 1.0728836059570312e-06,
+        "failed_phases": []
+      }
+    }
+  },
+  "cohort_counts": {
+    "new_pins": 4250,
+    "surviving_free": 40575,
+    "Fp_changed_particles": 44825,
+    "old_pins": 255175,
+    "next_pins": 259425,
+    "Fp_changed_new_pins": 4250,
+    "Fp_changed_free": 40575,
+    "checks": {
+      "x": true,
+      "F": true,
+      "v_free": true,
+      "C_free": true,
+      "v_pinned_zero": true,
+      "C_pinned_zero": true,
+      "old_pins_retained": true
+    }
+  },
+  "original_merit": {
+    "recombined": 0.0021391192928935997,
+    "accepted_lambda": 0.02533901336293972,
+    "scope": "Scalar arithmetic and recorded live callback closure; no complete auxiliary-loss recomputation."
+  },
+  "gradient_receipts": {
+    "geometric_step_mean_square": {
+      "displacement": {
+        "finite": true,
+        "norm": 0.02748634258031514,
+        "nonzero": true
+      },
+      "terminal": {
+        "finite": true,
+        "norm": 0.04589953428503607,
+        "nonzero": true
+      }
+    },
+    "stored_speed_mean_square": {
+      "displacement": {
+        "finite": true,
+        "norm": 0.02745823472152382,
+        "nonzero": true
+      },
+      "terminal": {
+        "finite": true,
+        "norm": 0.045947203897482886,
+        "nonzero": true
+      }
+    }
+  },
+  "fresh_actual_coast": {
+    "executed": true,
+    "phases": 21,
+    "fields": [
+      "x",
+      "v",
+      "C",
+      "F"
+    ],
+    "scope": "New no-grad T20 zero-control rollout from actual archived W21 using bound producer physics; independent state initialization and comparison, shared MPM/OwnedWithdrawal kernels; no optimization or gradient replay."
+  },
+  "sampled_memory": {
+    "pid": 878631,
+    "process_peak_MiB": 21996,
+    "device_peak_MiB": 22020,
+    "scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark"
+  },
+  "files": {
+    "p335_native2.protocol.json": {
+      "bytes": 33598,
+      "sha256": "617e40a0df7f6ce59c6a28b3928e338a0e5540e8c526ca1ce7020a413ffceea3"
+    },
+    "p335_native2.result.json": {
+      "bytes": 1032757,
+      "sha256": "c2c51b1f954ce093135eb14fdbb27405638890ed8e3060f235fd33611f871ff4"
+    },
+    "p335_native2.render_influence.json": {
+      "bytes": 4624,
+      "sha256": "2a9c1c92092f34dc8e9eeaef441a8a7fea3f887469d5a2e0ac66e85448d4e518"
+    },
+    "p335_native2.log": {
+      "bytes": 20061,
+      "sha256": "a94815e4aff4b786c021b83499387dde8d67732781033a910576a64f5de941fa"
+    },
+    "p335_native2.exit": {
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "p335_native2.start": {
+      "bytes": 11,
+      "sha256": "0e57800e74b5d4f7185d323929621d473ca94ffb9f02655ecf1ed6cb07bde4f0"
+    },
+    "p335_native2.memory.json": {
+      "bytes": 188045,
+      "sha256": "f39ba481c68acbe5d20ab078954aa1b4e087abd730bdcfefeda5d362ed764aca"
+    },
+    "p335_independent_audit3.json": {
+      "bytes": 407730,
+      "sha256": "4aca1a33195fd1ff2f27464ffa645cccd7a7e4f3715d890ef7b395a91c2d0504"
+    },
+    "p335_independent_audit3.log": {
+      "bytes": 695,
+      "sha256": "d5895d654b942146de3133184416cc5ba3a3f52eb0392e0232878d27a0dd4c70"
+    },
+    "audit_post_assimilation_window_v3.py.txt": {
+      "bytes": 44606,
+      "sha256": "94da12f50773827ae355bd0da1571cf7c275159268edfe26d3b7ed1d58074c2c"
+    },
+    "launch_p335_audit3.sh": {
+      "bytes": 1731,
+      "sha256": "69b3fcc25f895e59b953842d41655148b0cc98916140c0ad1d091fc47520b76d"
+    }
+  },
+  "limitations": [
+    "This review checks JSON arithmetic, Git/source and artifact bindings. The independent CUDA auditor performed archived array hashing/comparisons; large NPZ payloads were not independently downloaded or rehashed by this reviewer.",
+    "Fresh audit coast is a new actual-W21 initialization using shared bound MPM/OwnedWithdrawal kernels, not an independent physics implementation or a byte reproduction of the producer coast.",
+    "Joint head and private full-F closure, original-prefix isolation and complete auxiliary-loss evaluation remain qualified producer receipts where underlying inputs/arrays are unavailable.",
+    "Finite nonzero archived covector norms are not a native N300k finite-difference or derivative-correctness gate.",
+    "One fresh precision realization passing closure does not identify the cause of all prior FP32 discrepancies; CUDA1/2 and native1 failures remain retained.",
+    "No admission/preparation derivative, candidate repair/adoption, per-particle natural rest, holes/watertightness or 4K rendering claim.",
+    "Memory is sampled telemetry, not an exact high-water mark; no additional shared-library payload audit was performed."
+  ]
+}

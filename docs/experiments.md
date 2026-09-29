@@ -9607,3 +9607,19 @@ iters2. Both complete-merit FD pairs retain the original3%/1e-6 gate and resolve
 AD floor50e-6. Independent source/receipt audit passes with the explicit83-file
 inventory qualification (82matching files plus one unreferenced remote legacy
 module). No production control proposal, post-handoff or rest/quality promotion.
+
+P335 fresh FP64-internal/FP32-stored native2 on504ea6a closes the actual
+post-assimilation boundary and all20 passive coast steps: N300000,T20,
+dt1/240,dx.3062907543956724wu,grid/loss36^3,iters8;21commits/168updates,
+guards0,456.72s. Its original W20 remains unchanged;4250 newly pinned and
+40575 surviving-free IDs at actual W21. Independent new CUDA coast audit
+passes3577checks in11.36s, worst unchanged allowance ratioC.773799.
+13small CUDA adapter cases also pass on both precision recipes. The prior
+native1 FP32 failure is retained; these are different prefixes, not a matched
+quality/timing ablation. Native finite differences remain unverified.
+Rendering18views64px: median nominal share.494282,body.353372,stress.561655,
+surface-u.753898,lambda.06412655,observed image-lossdelta-.0001530102.
+Norm fractions are not causal motion fractions or exact4K Gaussian supervision.
+No candidate/rest/hole/artifact adoption follows. Source, raw archive bindings,
+independent scalar audit and numerical scope: `docs/post_assimilation_window_p335.md`
+and `docs/evidence/p335/independent_native2_audit.json`.

@@ -153,9 +153,12 @@ This seam alone does not fix holes, natural rest or the exported4K covariance.
 
 ## Candidate integration after P335
 
-P335's small CUDA gates pass; its first native boundary closure passes but full
-coast velocity/C closure fails. No candidate run is authorized by that failed
-gate. It owns a real prepared successor but measures only after the
+P335's first FP32 native full-coast velocity/C gate failed and remains retained.
+The separately labelled FP64-arithmetic/FP32-state recipe on frozen504ea6a now
+passes fresh21-window native closure and an independent3577-check actual-coast
+audit at N300k/T20/dt1/240/dx.3062907544/grid36^3. That scoped capability permits
+an experimental conditional-model search; it is not a quality pass or adoption.
+P335 owns a real prepared successor but measures only after the
 ordinary run returns. Its saved owner is not a saved complete-merit evaluator.
 The original live selection occurs before assimilation/admission, and the next
 layer geometry and OT-u gate are prepared inside the next optimizer. Extending

@@ -147,6 +147,13 @@ These are the leading candidates for the unresolved problems, and they are ports
 - Compile-check before pushing: `python -m py_compile <file>`.
 - Korean is the user's working language; code and docs are English.
 - **P335 prepared-successor adapter:** `docs/post_assimilation_window_p335.md`
+  additionally records fresh FP64-internal/FP32-state native2 on504ea6a:
+  N300k/T20/dt1/240/dx.3062907544/grid36^3,iters8,21commits/168updates,
+  guards0; head/merit/actual-boundary/full-coast closure passes unchanged.
+  Independent actual CUDA coast audit3577checks passes (worst C ratio.773799).
+  Precision remains opt-in. Median nominal render share.494282 at18views64px
+  is not causal motion or exact4K supervision. No altered candidate/rest/hole
+  improvement follows. The earlier FP32 failure below remains retained.
   owns actual next pins/layer/bonds/eta for P334.49 CPU and7 actual CUDA gates
   pass; original wide-radius slip and FP32 anchor FD failures remain recorded.
   The small boundary derivative is independently checked by a GPU-FP64 collider

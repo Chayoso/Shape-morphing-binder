@@ -1,0 +1,11 @@
+launch_utc=2026-09-29T09:53:03Z gpu=1 project_bytes=79966233813
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 12.29 ms  (cached)
+{"passed": true, "checks": 3577, "out": "/data/relcfd/chayo/physmorph_v2/work/p303/p335_independent_audit3.json"}
