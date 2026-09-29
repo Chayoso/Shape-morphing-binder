@@ -1,0 +1,73 @@
+{
+  "passed": true,
+  "utc": "2026-09-29T06:06:10.982106+00:00",
+  "script_sha256": "d7008d672e20ef7f505957afdc3da319929a164d42db6ee0f6b55a3d134ceed9",
+  "quality_sha256": "d4d882a75241c391738bc1beacf5bf26a8db7fed002d38abd8ddd0bc0e301da0",
+  "phase_sha256": "11357b9d0792bc2e287b2cb470ab79521ebfdcd101a1fb39c0f25252a753d172",
+  "source_audit_sha256": {
+    "legacy": "03ba4e2b31bd5253c3ad0952cddd8ec6d26df79125aa0b033d424b92f7ecf571",
+    "retained": "cab26ce3b72354043b85cf084f7379cb20269d722825643687a18092b89c1846"
+  },
+  "checked_bound_files": 172,
+  "large_hash_receipts_reused": [
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1.npz",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_render_full_dt_iso_nn.npz",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1.npz",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_render_full_dt_iso_nn.npz"
+  ],
+  "arms": {
+    "legacy": {
+      "attempts": 31,
+      "own_commits": 30,
+      "own_final_free": 20803,
+      "common_free_raw_rms_sp": 0.014087737511672437,
+      "common_free_raw_reversal_fraction": 0.0016626506622064614,
+      "common_endpoint": {
+        "sil_iou": 0.9643920400562774,
+        "target_near_frac": 0.9929233333333334,
+        "top_target_near_frac": 0.9408307210031348,
+        "tip_n": 83,
+        "pinned_frac": 0.9306566666666667
+      },
+      "fixed_source_density": 0.9843005065554231,
+      "fixed_source_raw_rms_sp": 0.005657223372297577,
+      "first19_rms_sp": 0.01391414104696051,
+      "final_phase_rms_sp": 0.017053558772666323
+    },
+    "retained": {
+      "attempts": 33,
+      "own_commits": 33,
+      "own_final_free": 28429,
+      "common_free_raw_rms_sp": 0.01366174440041897,
+      "common_free_raw_reversal_fraction": 0.0012159623597610759,
+      "common_endpoint": {
+        "sil_iou": 0.96370622642194,
+        "target_near_frac": 0.9928666666666667,
+        "top_target_near_frac": 0.9394592476489029,
+        "tip_n": 77,
+        "pinned_frac": 0.8968633333333333
+      },
+      "fixed_source_density": 0.9657330154946365,
+      "fixed_source_raw_rms_sp": 0.00598901395133929,
+      "first19_rms_sp": 0.013465119499886507,
+      "final_phase_rms_sp": 0.01697014396816743
+    }
+  },
+  "common_free_ids": {
+    "eligible_count": 2025,
+    "sampled_count": 2025,
+    "ids_sha256": "20ba30396026bafc1df591f0eecf0339712dd0dca5422372a49a0a87cc103786"
+  },
+  "accepted_interval": [
+    20,
+    30
+  ],
+  "audited_windows": [
+    21,
+    30
+  ],
+  "scope": "Metadata and scalar partitions only; no independent pair geometry recomputation",
+  "sole_causal_fragment_effect_established": false,
+  "natural_rest_established": false,
+  "quality_promotion": false
+}

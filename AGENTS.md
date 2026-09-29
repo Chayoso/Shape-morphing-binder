@@ -320,4 +320,8 @@ These are the leading candidates for the unresolved problems, and they are ports
   raw legacy shared-mask versus retained-mask adjoints. The runtime wrapper is
   explicitly bound by fragment protocol/activity sidecars; equal code/config
   hashes alone cannot identify the arm.3 CPU and2 actual CUDA observer cases
-  pass. Full pair/shape/motion/render-influence outcomes pending; no new loss.
+  pass. The completed pair has mixed raw quality/motion and diverges before
+  recorded mask exposure; do not attribute the whole difference to this fix.
+  Both full-phase projection observers retain openings; independent bounded
+  source/motion/shape/metadata audits pass. This is an adjoint correctness fix,
+  not a rest/hole/4K remedy. No new loss. Evidence: `docs/evidence/p327`.

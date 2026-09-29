@@ -1,0 +1,10 @@
+{
+  "completed_utc": "2026-09-29T06:03:10.379642+00:00",
+  "protocol_sha256": "ad031a7f1a5e682783cedea460aa0068d5648497f9764e6e13bb84287b20a559",
+  "output_sha256": "74c3e6374669cc90e96bf3603f257383cbb5dcd7d9ba4fb54fe17ca1289d727a",
+  "passed": true,
+  "error": null,
+  "mode": "motion",
+  "elapsed_s": 3.2639122649561614,
+  "no_mpm_forward": true
+}

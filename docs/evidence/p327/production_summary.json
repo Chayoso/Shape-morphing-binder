@@ -1,0 +1,902 @@
+{
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "mpm": {
+      "dx": 0.3062907543956724,
+      "dt": 0.004166666666666667,
+      "drag": 0.9,
+      "smoothing": 0.955,
+      "v_max": 0.0,
+      "eta_sym": 0,
+      "eta_mode": 0,
+      "gate_r_lo": 0.0,
+      "gate_r_hi": 0.0,
+      "gate_n0": 0.0,
+      "f_ext": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "grid_min": [
+        -5.513233579122103,
+        -5.513233579122103,
+        -5.513233579122103
+      ],
+      "nx": 36,
+      "ny": 36,
+      "nz": 36,
+      "floor_y": -1000000000.0,
+      "floor_friction": 0.0
+    },
+    "loss_res": 36,
+    "source_spacing_wu": 0.03498853660707278
+  },
+  "scope": "Descriptive pair; pre-exposure trajectory nonidentity prevents sole-causal attribution",
+  "accepted_interval": [
+    20,
+    30
+  ],
+  "arms": {
+    "legacy": {
+      "attempts": 31,
+      "commits": 30,
+      "seconds": 441.6457544241566,
+      "min_accepted_detF": 0.8257045149803162,
+      "guards": {
+        "clamped": 0,
+        "nan_x": 0,
+        "nan_state": 0,
+        "F_reset": 0,
+        "F_flip": 0,
+        "F_invert_steps": 0
+      },
+      "termination": {
+        "reason": "outer_rejection_patience",
+        "attempt_index": 30,
+        "attempt_number": 31,
+        "optimizer_attempts": 31,
+        "optimization_stopped": true,
+        "stopping_rule_triggered": true,
+        "individual_rest": "not_evaluated",
+        "configured_windows": 300,
+        "manual_window_cap": 300,
+        "effective_window_limit": 300,
+        "triggers": [
+          {
+            "reason": "outer_rejection_patience",
+            "attempt_index": 30,
+            "attempt_number": 31,
+            "evidence": {
+              "stale": 5,
+              "patience": 5
+            }
+          }
+        ],
+        "scope": "Optimization termination only; copied holds, pin admission and delivery truncation do not certify natural rest."
+      },
+      "actual_frames": 602,
+      "held_rows": 1,
+      "own_endpoint": {
+        "commit": 30,
+        "frame": 600,
+        "sil_iou": 0.9643920400562774,
+        "target_near_frac": 0.9929233333333334,
+        "top_target_near_frac": 0.9408307210031348,
+        "top_density": 1.130305373018941,
+        "top_under_half": 0.10166215693853885,
+        "tip_n": 83,
+        "pinned_frac": 0.9306566666666667
+      },
+      "common_endpoint": {
+        "commit": 30,
+        "frame": 600,
+        "sil_iou": 0.9643920400562774,
+        "target_near_frac": 0.9929233333333334,
+        "top_target_near_frac": 0.9408307210031348,
+        "top_density": 1.130305373018941,
+        "top_under_half": 0.10166215693853885,
+        "tip_n": 83,
+        "pinned_frac": 0.9306566666666667
+      },
+      "activity": {
+        "models": 31,
+        "forwards": 248,
+        "changed_forwards": 22,
+        "attempts_zero_based": [
+          12,
+          13,
+          14
+        ],
+        "max_particle_time_differences": 26
+      },
+      "own_last_window_final_free": {
+        "particles": 20803,
+        "step_rms_wu": 0.00038239125715739693,
+        "terminal_geometric_rms_wu_s": 0.08301021219825715,
+        "terminal_stored_rms_wu_s": 0.08331105949091996,
+        "endpoint_correction_rms_wu": 0.0
+      },
+      "shape": {
+        "samples": 631,
+        "resolutions": {
+          "128": {
+            "max_extra_projected_hole_pixels": 77,
+            "kind": "archive",
+            "archive_frame": 236,
+            "view": 10,
+            "nonzero_view_samples": 2289,
+            "total_view_samples": 15144
+          },
+          "256": {
+            "max_extra_projected_hole_pixels": 275,
+            "kind": "archive",
+            "archive_frame": 167,
+            "view": 2,
+            "nonzero_view_samples": 4352,
+            "total_view_samples": 15144
+          }
+        },
+        "scope": "All sampled archive and raw endpoint projections; not 3D watertightness or 4K rendering"
+      },
+      "rendering": {
+        "definitions": "Observational optimizer telemetry, not causal attribution. Norm shares exclude post-combination transforms and transport addends. Compare matched raw trajectories with render disabled for causal evidence. Image losses do not certify physical holes/rest.",
+        "discretization": {
+          "N": 300000,
+          "T": 20,
+          "dt": 0.004166666666666667,
+          "dx_wu": 0.3062907543956724,
+          "loss_res": 36,
+          "render_res": 64,
+          "iters": 8
+        },
+        "render": {
+          "lambda_auto": 0.5,
+          "surface_gs_loss": false,
+          "surface_gs_weight": null,
+          "detail_height": null
+        },
+        "windows": 31,
+        "raw_history_rows": 32,
+        "committed_windows": 30,
+        "inner_accepted_steps": 248,
+        "recorded_inner_steps": 248,
+        "recorded_committed_steps": 240,
+        "steps_in_committed_windows": 240,
+        "step_nominal_share": {
+          "count": 240,
+          "minimum": 0.2720453293495956,
+          "median": 0.4455736779211956,
+          "maximum": 0.6665707345559643
+        },
+        "first_iteration_nominal_share": {
+          "count": 30,
+          "minimum": 0.3265711780907084,
+          "median": 0.4139853165706076,
+          "maximum": 0.5529972485218689
+        },
+        "adaptive_lambda": {
+          "count": 30,
+          "minimum": 0.013965321756035636,
+          "median": 0.039905784142082026,
+          "maximum": 0.3086395159373932
+        },
+        "observed_render_loss_change": {
+          "count": 240,
+          "minimum": -0.023134693503379822,
+          "median": -1.8548918887972832e-05,
+          "maximum": 0.001943342387676239
+        },
+        "endpoint_optimizer_change_rms_wu": {
+          "count": 240,
+          "minimum": 0.00018178162281401455,
+          "median": 0.003912511980161071,
+          "maximum": 0.16976220905780792
+        },
+        "channels": {
+          "body": {
+            "nominal_share": {
+              "count": 240,
+              "minimum": 0.05169370254374042,
+              "median": 0.305606127409659,
+              "maximum": 0.5149616391088804
+            },
+            "control_delta_norm": {
+              "count": 240,
+              "minimum": 0.4071507453918457,
+              "median": 3.513811469078064,
+              "maximum": 51.71421813964844
+            }
+          },
+          "stress": {
+            "nominal_share": {
+              "count": 240,
+              "minimum": 0.15684083803169915,
+              "median": 0.4388343701067859,
+              "maximum": 0.7889243297937155
+            },
+            "control_delta_norm": {
+              "count": 240,
+              "minimum": 0.035491351038217545,
+              "median": 0.9203477501869202,
+              "maximum": 46.58987808227539
+            }
+          },
+          "surface_u": {
+            "nominal_share": {
+              "count": 240,
+              "minimum": 0.36699620351825335,
+              "median": 0.6564418756968509,
+              "maximum": 0.9499752150589067
+            },
+            "control_delta_norm": {
+              "count": 240,
+              "minimum": 0.017387989908456802,
+              "median": 0.12012297660112381,
+              "maximum": 0.713687002658844
+            }
+          }
+        },
+        "last_committed_surface_components": null,
+        "causal_render_ablation": "not measured by this report"
+      },
+      "phase": {
+        "final_phase": {
+          "displacement_sp": {
+            "mean": 0.014255343936383724,
+            "p05": 0.003553675953298807,
+            "median": 0.011803863570094109,
+            "p95": 0.03360692039132118,
+            "max": 0.07986528426408768,
+            "rms": 0.017053558772666323
+          },
+          "signed_normal_sp": {
+            "mean": -0.00014618283603340387,
+            "p05": -0.013704901561141014,
+            "median": -0.00038839978515170515,
+            "p95": 0.014415218494832516,
+            "max": 0.07775378972291946,
+            "rms": 0.008698449007313728
+          },
+          "absolute_normal_sp": {
+            "mean": 0.006332873832434416,
+            "p05": 0.00040210256702266634,
+            "median": 0.004658388439565897,
+            "p95": 0.018168089911341667,
+            "max": 0.07775378972291946,
+            "rms": 0.008698449007313728
+          },
+          "tangent_length_sp": {
+            "mean": 0.011761767789721489,
+            "p05": 0.0021644465159624815,
+            "median": 0.009394630789756775,
+            "p95": 0.03009023517370224,
+            "max": 0.07587677985429764,
+            "rms": 0.01466836236594482
+          },
+          "signed_tangent1_sp": {
+            "mean": 0.0011358036426827312,
+            "p05": -0.013831696473062038,
+            "median": 0.0009883856400847435,
+            "p95": 0.01699603535234928,
+            "max": 0.06117488071322441,
+            "rms": 0.009463326053219425
+          },
+          "signed_tangent2_sp": {
+            "mean": 0.005509486421942711,
+            "p05": -0.007967342622578144,
+            "median": 0.004522581584751606,
+            "p95": 0.02410670928657055,
+            "max": 0.05452478677034378,
+            "rms": 0.01120742230286094
+          }
+        },
+        "reversal_groups": {
+          "into_final_phase": {
+            "reversed_pairs": 25,
+            "eligible_pairs": 20250,
+            "fraction": 0.0012345679012345679
+          },
+          "from_final_to_next_phase1": {
+            "reversed_pairs": 168,
+            "eligible_pairs": 18225,
+            "fraction": 0.009218106995884774
+          },
+          "interior_phases": {
+            "reversed_pairs": 477,
+            "eligible_pairs": 364496,
+            "fraction": 0.0013086563364207015
+          }
+        }
+      }
+    },
+    "retained": {
+      "attempts": 33,
+      "commits": 33,
+      "seconds": 459.34699573903345,
+      "min_accepted_detF": 0.8266235589981079,
+      "guards": {
+        "clamped": 0,
+        "nan_x": 0,
+        "nan_state": 0,
+        "F_reset": 0,
+        "F_flip": 0,
+        "F_invert_steps": 0
+      },
+      "termination": {
+        "reason": "accepted_track_plateau",
+        "attempt_index": 32,
+        "attempt_number": 33,
+        "optimizer_attempts": 33,
+        "optimization_stopped": true,
+        "stopping_rule_triggered": true,
+        "individual_rest": "not_evaluated",
+        "configured_windows": 300,
+        "manual_window_cap": 300,
+        "effective_window_limit": 300,
+        "triggers": [
+          {
+            "reason": "accepted_track_plateau",
+            "attempt_index": 32,
+            "attempt_number": 33,
+            "evidence": {
+              "stale": 5,
+              "patience": 5,
+              "tolerance": 0.003
+            }
+          }
+        ],
+        "scope": "Optimization termination only; copied holds, pin admission and delivery truncation do not certify natural rest."
+      },
+      "actual_frames": 662,
+      "held_rows": 1,
+      "own_endpoint": {
+        "commit": 33,
+        "frame": 660,
+        "sil_iou": 0.9637933319993889,
+        "target_near_frac": 0.99293,
+        "top_target_near_frac": 0.9406347962382445,
+        "top_density": 1.1467474246470812,
+        "top_under_half": 0.09332315909958032,
+        "tip_n": 76,
+        "pinned_frac": 0.9052366666666667
+      },
+      "common_endpoint": {
+        "commit": 30,
+        "frame": 600,
+        "sil_iou": 0.96370622642194,
+        "target_near_frac": 0.9928666666666667,
+        "top_target_near_frac": 0.9394592476489029,
+        "top_density": 1.139545107033639,
+        "top_under_half": 0.09166666666666666,
+        "tip_n": 77,
+        "pinned_frac": 0.8968633333333333
+      },
+      "activity": {
+        "models": 33,
+        "forwards": 264,
+        "changed_forwards": 2,
+        "attempts_zero_based": [
+          15
+        ],
+        "max_particle_time_differences": 5
+      },
+      "own_last_window_final_free": {
+        "particles": 28429,
+        "step_rms_wu": 0.00035982254288369556,
+        "terminal_geometric_rms_wu_s": 0.07135363611949373,
+        "terminal_stored_rms_wu_s": 0.07194880270117454,
+        "endpoint_correction_rms_wu": 0.0
+      },
+      "shape": {
+        "samples": 694,
+        "resolutions": {
+          "128": {
+            "max_extra_projected_hole_pixels": 54,
+            "kind": "archive",
+            "archive_frame": 203,
+            "view": 10,
+            "nonzero_view_samples": 1811,
+            "total_view_samples": 16656
+          },
+          "256": {
+            "max_extra_projected_hole_pixels": 279,
+            "kind": "archive",
+            "archive_frame": 168,
+            "view": 2,
+            "nonzero_view_samples": 4172,
+            "total_view_samples": 16656
+          }
+        },
+        "scope": "All sampled archive and raw endpoint projections; not 3D watertightness or 4K rendering"
+      },
+      "rendering": {
+        "definitions": "Observational optimizer telemetry, not causal attribution. Norm shares exclude post-combination transforms and transport addends. Compare matched raw trajectories with render disabled for causal evidence. Image losses do not certify physical holes/rest.",
+        "discretization": {
+          "N": 300000,
+          "T": 20,
+          "dt": 0.004166666666666667,
+          "dx_wu": 0.3062907543956724,
+          "loss_res": 36,
+          "render_res": 64,
+          "iters": 8
+        },
+        "render": {
+          "lambda_auto": 0.5,
+          "surface_gs_loss": false,
+          "surface_gs_weight": null,
+          "detail_height": null
+        },
+        "windows": 33,
+        "raw_history_rows": 34,
+        "committed_windows": 33,
+        "inner_accepted_steps": 264,
+        "recorded_inner_steps": 264,
+        "recorded_committed_steps": 264,
+        "steps_in_committed_windows": 264,
+        "step_nominal_share": {
+          "count": 264,
+          "minimum": 0.2809510929305265,
+          "median": 0.4472201704386545,
+          "maximum": 0.7042784203755572
+        },
+        "first_iteration_nominal_share": {
+          "count": 33,
+          "minimum": 0.30739581970828544,
+          "median": 0.38949757805886304,
+          "maximum": 0.6397075357820362
+        },
+        "adaptive_lambda": {
+          "count": 33,
+          "minimum": 0.01112627668859922,
+          "median": 0.026260131901666407,
+          "maximum": 0.3086392841662074
+        },
+        "observed_render_loss_change": {
+          "count": 264,
+          "minimum": -0.023134665563702583,
+          "median": -1.3317447155714035e-05,
+          "maximum": 0.002252485603094101
+        },
+        "endpoint_optimizer_change_rms_wu": {
+          "count": 264,
+          "minimum": 0.00016167137073352933,
+          "median": 0.0023345527006313205,
+          "maximum": 0.16976213455200195
+        },
+        "channels": {
+          "body": {
+            "nominal_share": {
+              "count": 264,
+              "minimum": 0.09485866135454839,
+              "median": 0.30893537549758354,
+              "maximum": 0.5337166236390708
+            },
+            "control_delta_norm": {
+              "count": 264,
+              "minimum": 0.3218686580657959,
+              "median": 2.260119318962097,
+              "maximum": 51.71421813964844
+            }
+          },
+          "stress": {
+            "nominal_share": {
+              "count": 264,
+              "minimum": 0.16404211527560883,
+              "median": 0.4582430512784358,
+              "maximum": 0.7951543636522274
+            },
+            "control_delta_norm": {
+              "count": 264,
+              "minimum": 0.02866017445921898,
+              "median": 0.42515361309051514,
+              "maximum": 46.589881896972656
+            }
+          },
+          "surface_u": {
+            "nominal_share": {
+              "count": 264,
+              "minimum": 0.33407014706952853,
+              "median": 0.6225580753198059,
+              "maximum": 0.9499744697982925
+            },
+            "control_delta_norm": {
+              "count": 264,
+              "minimum": 0.015020592138171196,
+              "median": 0.07767567411065102,
+              "maximum": 0.7136458158493042
+            }
+          }
+        },
+        "last_committed_surface_components": null,
+        "causal_render_ablation": "not measured by this report"
+      },
+      "phase": {
+        "final_phase": {
+          "displacement_sp": {
+            "mean": 0.014565344899892807,
+            "p05": 0.004050813615322113,
+            "median": 0.012619148939847946,
+            "p95": 0.03161676973104477,
+            "max": 0.0649484172463417,
+            "rms": 0.01697014396816743
+          },
+          "signed_normal_sp": {
+            "mean": 0.00029441254446282983,
+            "p05": -0.01372582372277975,
+            "median": -2.7215928639634512e-06,
+            "p95": 0.015553213655948639,
+            "max": 0.05705897510051727,
+            "rms": 0.008904595931294194
+          },
+          "absolute_normal_sp": {
+            "mean": 0.00659002922475338,
+            "p05": 0.00042421379475854337,
+            "median": 0.004910210147500038,
+            "p95": 0.018674157559871674,
+            "max": 0.05705897510051727,
+            "rms": 0.008904595931294194
+          },
+          "tangent_length_sp": {
+            "mean": 0.011912484653294086,
+            "p05": 0.0024269819259643555,
+            "median": 0.010079236701130867,
+            "p95": 0.027871228754520416,
+            "max": 0.06436621397733688,
+            "rms": 0.014446243850890494
+          },
+          "signed_tangent1_sp": {
+            "mean": 0.0015126692596822977,
+            "p05": -0.013897066004574299,
+            "median": 0.0015592402778565884,
+            "p95": 0.016679702326655388,
+            "max": 0.048868924379348755,
+            "rms": 0.009811897385574541
+          },
+          "signed_tangent2_sp": {
+            "mean": 0.0036482298746705055,
+            "p05": -0.010764392092823982,
+            "median": 0.0026195719838142395,
+            "p95": 0.021748870611190796,
+            "max": 0.05625096708536148,
+            "rms": 0.010602859529077288
+          }
+        },
+        "reversal_groups": {
+          "into_final_phase": {
+            "reversed_pairs": 16,
+            "eligible_pairs": 20250,
+            "fraction": 0.0007901234567901234
+          },
+          "from_final_to_next_phase1": {
+            "reversed_pairs": 87,
+            "eligible_pairs": 18225,
+            "fraction": 0.004773662551440329
+          },
+          "interior_phases": {
+            "reversed_pairs": 387,
+            "eligible_pairs": 364498,
+            "fraction": 0.0010617342207639
+          }
+        }
+      }
+    }
+  },
+  "cohorts": {
+    "source_upper_surface": {
+      "eligible_count": 6712,
+      "sampled_count": 6712,
+      "ids_sha256": "5388295dbac4ef4d869e4afc6585c1273d740d9e9ebe3eee730aca18e7a41da1",
+      "arms": {
+        "baseline": {
+          "commit_range": [
+            20,
+            30
+          ],
+          "frame_range": [
+            400,
+            600
+          ],
+          "raw_physical_states": 201,
+          "excluded_interior_hold_frames": 0,
+          "pinned_frac_start": 0.8014004767580453,
+          "pinned_frac_end": 0.9271454112038141,
+          "step_sp": {
+            "median": 0.0,
+            "p95": 0.20412950217723846,
+            "max": 2.5400807857513428,
+            "rms": 0.10270618056278734
+          },
+          "normal_sp_per_commit": {
+            "median": 0.0,
+            "p95": 0.0910290852189064,
+            "max": 1.8465608358383179,
+            "rms": 0.05497502884214633
+          },
+          "tangent_sp_per_commit": {
+            "median": 0.0,
+            "p95": 0.16812263429164886,
+            "max": 2.3385348320007324,
+            "rms": 0.08675428385611589
+          },
+          "reversal_fraction": 0.1631599328772428,
+          "reversed_pairs": 1264,
+          "moving_pairs": 7747,
+          "moving_material_points": 1333,
+          "net_over_path": {
+            "median": 0.7489432096481323,
+            "p95": 1.0,
+            "max": 1.0,
+            "rms": 0.7486255744674403
+          },
+          "normal_basis": "arm-specific frozen 33NN centroid-offset normal at common interval endpoint",
+          "normal_valid_points": 6712,
+          "raw_step_sp": {
+            "median": 0.0,
+            "p95": 0.011545713059604168,
+            "max": 0.158486008644104,
+            "rms": 0.005657223372297577
+          },
+          "normal_sp_per_raw_step": {
+            "median": 0.0,
+            "p95": 0.0052559212781488895,
+            "max": 0.13188499212265015,
+            "rms": 0.0030486495780373845
+          },
+          "tangent_sp_per_raw_step": {
+            "median": 0.0,
+            "p95": 0.009339695796370506,
+            "max": 0.14469178020954132,
+            "rms": 0.004765491822175879
+          },
+          "raw_reversal_fraction": 0.002318782694558627,
+          "raw_reversed_pairs": 418,
+          "raw_moving_pairs": 180267
+        },
+        "candidate": {
+          "commit_range": [
+            20,
+            30
+          ],
+          "frame_range": [
+            400,
+            600
+          ],
+          "raw_physical_states": 201,
+          "excluded_interior_hold_frames": 0,
+          "pinned_frac_start": 0.785756853396901,
+          "pinned_frac_end": 0.8733611442193087,
+          "step_sp": {
+            "median": 0.0,
+            "p95": 0.22546827793121338,
+            "max": 1.9561372995376587,
+            "rms": 0.10634143291947926
+          },
+          "normal_sp_per_commit": {
+            "median": 0.0,
+            "p95": 0.104784294962883,
+            "max": 1.329042911529541,
+            "rms": 0.05363186249036787
+          },
+          "tangent_sp_per_commit": {
+            "median": 0.0,
+            "p95": 0.18907670676708221,
+            "max": 1.9553511142730713,
+            "rms": 0.0918265957607499
+          },
+          "reversal_fraction": 0.09839605181986429,
+          "reversed_pairs": 957,
+          "moving_pairs": 9726,
+          "moving_material_points": 1438,
+          "net_over_path": {
+            "median": 0.7944787740707397,
+            "p95": 0.9906870722770691,
+            "max": 1.0,
+            "rms": 0.7692087578906578
+          },
+          "normal_basis": "arm-specific frozen 33NN centroid-offset normal at common interval endpoint",
+          "normal_valid_points": 6712,
+          "raw_step_sp": {
+            "median": 0.0,
+            "p95": 0.01329114567488432,
+            "max": 0.13094545900821686,
+            "rms": 0.00598901395133929
+          },
+          "normal_sp_per_raw_step": {
+            "median": 0.0,
+            "p95": 0.006253884639590979,
+            "max": 0.11270348727703094,
+            "rms": 0.0030818534932686653
+          },
+          "tangent_sp_per_raw_step": {
+            "median": 0.0,
+            "p95": 0.010948970913887024,
+            "max": 0.130700021982193,
+            "rms": 0.005135218353102118
+          },
+          "raw_reversal_fraction": 0.0025829193750507118,
+          "raw_reversed_pairs": 573,
+          "raw_moving_pairs": 221842
+        }
+      }
+    },
+    "common_endpoint_free_both": {
+      "eligible_count": 2025,
+      "sampled_count": 2025,
+      "ids_sha256": "20ba30396026bafc1df591f0eecf0339712dd0dca5422372a49a0a87cc103786",
+      "arms": {
+        "baseline": {
+          "commit_range": [
+            20,
+            30
+          ],
+          "frame_range": [
+            400,
+            600
+          ],
+          "raw_physical_states": 201,
+          "excluded_interior_hold_frames": 0,
+          "pinned_frac_start": 0.0,
+          "pinned_frac_end": 0.0,
+          "step_sp": {
+            "median": 0.1780601441860199,
+            "p95": 0.46963611245155334,
+            "max": 2.036574602127075,
+            "rms": 0.2531185800463059
+          },
+          "normal_sp_per_commit": {
+            "median": 0.06891018152236938,
+            "p95": 0.25573065876960754,
+            "max": 2.000359296798706,
+            "rms": 0.13698782582042243
+          },
+          "tangent_sp_per_commit": {
+            "median": 0.1430821716785431,
+            "p95": 0.41121047735214233,
+            "max": 1.681496024131775,
+            "rms": 0.21284583896966244
+          },
+          "reversal_fraction": 0.060027434842249656,
+          "reversed_pairs": 1094,
+          "moving_pairs": 18225,
+          "moving_material_points": 2025,
+          "net_over_path": {
+            "median": 0.7908490896224976,
+            "p95": 0.9455179572105408,
+            "max": 0.992836058139801,
+            "rms": 0.7700633080040148
+          },
+          "normal_basis": "arm-specific frozen 33NN centroid-offset normal at common interval endpoint",
+          "normal_valid_points": 2025,
+          "raw_step_sp": {
+            "median": 0.009757102467119694,
+            "p95": 0.026353834196925163,
+            "max": 0.15083138644695282,
+            "rms": 0.014087737511672437
+          },
+          "normal_sp_per_raw_step": {
+            "median": 0.0039204806089401245,
+            "p95": 0.014635425060987473,
+            "max": 0.14595907926559448,
+            "rms": 0.0076807279918959985
+          },
+          "tangent_sp_per_raw_step": {
+            "median": 0.0077360812574625015,
+            "p95": 0.02333727292716503,
+            "max": 0.09170004725456238,
+            "rms": 0.011809774263506906
+          },
+          "raw_reversal_fraction": 0.0016626506622064614,
+          "raw_reversed_pairs": 670,
+          "raw_moving_pairs": 402971
+        },
+        "candidate": {
+          "commit_range": [
+            20,
+            30
+          ],
+          "frame_range": [
+            400,
+            600
+          ],
+          "raw_physical_states": 201,
+          "excluded_interior_hold_frames": 0,
+          "pinned_frac_start": 0.0,
+          "pinned_frac_end": 0.0,
+          "step_sp": {
+            "median": 0.17219224572181702,
+            "p95": 0.4479910135269165,
+            "max": 1.5165879726409912,
+            "rms": 0.24464413078971534
+          },
+          "normal_sp_per_commit": {
+            "median": 0.066510409116745,
+            "p95": 0.2451619803905487,
+            "max": 1.4119288921356201,
+            "rms": 0.12455156690157786
+          },
+          "tangent_sp_per_commit": {
+            "median": 0.1373429000377655,
+            "p95": 0.40041598677635193,
+            "max": 1.1060959100723267,
+            "rms": 0.21056509149049396
+          },
+          "reversal_fraction": 0.030123456790123456,
+          "reversed_pairs": 549,
+          "moving_pairs": 18225,
+          "moving_material_points": 2025,
+          "net_over_path": {
+            "median": 0.8715508580207825,
+            "p95": 0.9629337191581726,
+            "max": 0.9811099767684937,
+            "rms": 0.8453418680351846
+          },
+          "normal_basis": "arm-specific frozen 33NN centroid-offset normal at common interval endpoint",
+          "normal_valid_points": 2025,
+          "raw_step_sp": {
+            "median": 0.009786788374185562,
+            "p95": 0.025190066546201706,
+            "max": 0.1072954311966896,
+            "rms": 0.01366174440041897
+          },
+          "normal_sp_per_raw_step": {
+            "median": 0.0038302282337099314,
+            "p95": 0.014240427874028683,
+            "max": 0.09876375645399094,
+            "rms": 0.0071302522479685815
+          },
+          "tangent_sp_per_raw_step": {
+            "median": 0.007704341784119606,
+            "p95": 0.022438568994402885,
+            "max": 0.06813962757587433,
+            "rms": 0.011653444347152925
+          },
+          "raw_reversal_fraction": 0.0012159623597610759,
+          "raw_reversed_pairs": 490,
+          "raw_moving_pairs": 402973
+        }
+      }
+    }
+  },
+  "pre_exposure_position_difference_sp": [
+    {
+      "commit": 1,
+      "median": 0.00044591320329345763,
+      "p95": 0.004987860564142466,
+      "max": 0.026686204597353935
+    },
+    {
+      "commit": 3,
+      "median": 0.05361510440707207,
+      "p95": 0.1708945631980896,
+      "max": 2.248573064804077
+    },
+    {
+      "commit": 6,
+      "median": 0.756556510925293,
+      "p95": 1.516632318496704,
+      "max": 5.927590847015381
+    },
+    {
+      "commit": 10,
+      "median": 1.0000765323638916,
+      "p95": 2.328071117401123,
+      "max": 30.884384155273438
+    }
+  ],
+  "input_sha256": {
+    "p327_quality1.json": "d4d882a75241c391738bc1beacf5bf26a8db7fed002d38abd8ddd0bc0e301da0",
+    "p327_phase1.json": "11357b9d0792bc2e287b2cb470ab79521ebfdcd101a1fb39c0f25252a753d172",
+    "p327_legacy1.fragment_activity.json": "f652192236013ada44d70180185dca6c7d6a03ea9ffa55586c94139eefcecf8c",
+    "p327_legacy1.rest_trace.json": "c9dc8096a155791e8a8b4a222eae3b9f7d371fa290a91e29dd13500a659c196e",
+    "p327_legacy1.render_influence.json": "306f51affa54647d7f7e18e7ca34af0b2f6e467bc6074fa76c6dd0e25804bb38",
+    "legacy_motion.json": "fbdab4d8e796c469c5c266c82c57761be16ed16ef86cbb119c2ece9ebb1ab8d5",
+    "legacy_shape.json": "ce0bd181c4ce2c49e5c7da4e3dd20cb6f0c7f3c2b0285032669d9d1c3b7fa22a",
+    "p327_retained1.fragment_activity.json": "a8d496e6cc700fc30115edb37f2ddebf642755586e7df880f15d9ae8820976f1",
+    "p327_retained1.rest_trace.json": "bbf449ebf915be3f2b909b773a136939eb6f82f72ada876b0c2adaf969cefef4",
+    "p327_retained1.render_influence.json": "8344751c160f3dba17b60b127260cafc36c85de29d6fc3d4b6841eecf7534ccf",
+    "retained_motion.json": "d0923a3def32624e1b2ceecba36fa34681e230ece5782bad72ec12ee2ee46fb3",
+    "retained_shape.json": "f837be54e125b0ee5e181ceb70e72ca6b5ae1d96a7f53d9ba8dcff4c161b159c"
+  },
+  "summary_script_sha256": "781ea74bf1876fed131b3ccf95a6a7a98289e05838a0ea1524ef8ad17dd30010"
+}

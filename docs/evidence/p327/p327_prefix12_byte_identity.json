@@ -1,0 +1,2172 @@
+{
+  "created_utc": "2026-09-29T05:55:50.690730+00:00",
+  "script_sha256": "3e9ef612d999507a45d8e8c6728589e8bb9c3abef1afa68edf0420e6bfae596f",
+  "script": "/data/relcfd/chayo/physmorph_v2/work/p303/compare_prefix_bytes.py",
+  "numpy_version": "1.26.4",
+  "attempts_zero_based": [
+    0,
+    11
+  ],
+  "operation": "NPZ decoding and canonical C-order array-byte identity; no numerical deltas, geometry, simulation or GPU work",
+  "scope": "First12 completed attempted optimizer endpoints, not accepted-commit matching; candidate run may still be active",
+  "interpretation": "A byte difference before legacy bug exposure disproves exact pre-exposure trajectory identity, but does not apportion causality. Equal bytes do not establish gradient identity.",
+  "declared_protocol_equal": {
+    "inputs": true,
+    "code": true,
+    "source_config": true,
+    "mpm": true,
+    "wrapper_code": true
+  },
+  "protocol_input_hashes": {
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source.json": "0accf3fc9a93ecf4baf9450dc86ac304f784ee88bbc8559e8d8a84edf793b48d",
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source_render_full_dt_iso_nn.npz": "e7df5e9b4b52bd8848846d06354990220808b57099494ca1b04abad927ce4ac0",
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/target_reference.npz": "9c1f205945b4b68b330b902f59570b3f9ccb9d8eca8e0ebc553e035f642620a7"
+  },
+  "protocol_code_hashes": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/__init__.py": "0e4acbe277745c4fce5402209f50def6b4592c9aaf76939270697d0c6de209bc",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/compute.py": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/input_assets.py": "ed4f1625fc357ddf386e2fa8bcc6e6ab0c40c20b892ec02a08a39a964d72642e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/losses/__init__.py": "63c7e6ca9dd9422acdfeedaea43299ccac42cabe0da3a49ee468687ec77f1438",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/losses/ot.py": "0c9b25296e50bc22de7b9d95cf8e6c258d7cc9dcadd0a2ee4ccd1cbd8e115601",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/losses/projection.py": "ec9f707e11fec1fc43e9dbe843338202de71cc82a3b9eae3101dc4f8bece52bb",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/losses/silhouette.py": "d39dc2545ac0d9485a8d3a5bcc3e098adbd3cba43fb79b335d3cb5b53c962a7f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/losses/volumetric.py": "53d064c6da77eca9b06fe5f72ccd18342fa8505319f5e02b5027a5fd9d97c9c1",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/metric_splat.py": "3a85ff21ca6990f0657415c546430220e66764a050958764136bc44457f81de6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/metrics.py": "2f6f9413809a20b9e7d04da946ed3f2362caf694bd701dc7d3339fd4605cc335",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/__init__.py": "8fd3a6e6eedd7fa7ca252af80778646ad7357148a187ea7e12a0732bdc644976",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/conditioning.py": "50555fa643d14cf22d6c1f94a7dcb56d1fa35b2e538b95bb4af0200cd697edb7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/constitutive.py": "166080b825e19fe79a19ee613f35cedac750d5ef465a371fa8a1c80435c7bd2b",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/discretisation.py": "f47bfeed1cbf5c742a9164cd542c16e7e5d1af115fae181649cdf2c1c90980be",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/endpoint_filter.py": "4df03df4441bd076e65d2b9cf84899054d15dd35017948b34f52e299d69b2c8e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/function.py": "6c899967f168eea87f05014edf36780ab54ed67c0dde380bffbd94008abe1011",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/gridfilter.py": "d63203b0409e0681652afe5ab55eb35b2117c1e0de6e47b7871a0affbf353716",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/kernels.py": "31a8bee46b3683ce842e44ea2dc226790b34e27956a80f0d243737ae1b310516",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/shifting.py": "36e044a178e4f2a6321967ca805eb863c6fd7575a82a2624779d180ddc7140fb",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/state.py": "3e0b4fbd6ad384f84351becfdf8102aae950ecf3a41779ad97570139d4da115e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/step.py": "83b3a53868801977228ac8e451fbc48375f470c7cea5e82bc9eeb7c9f6129695",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/traj.py": "db431738017c1ed3a19503658722b41dfbe4ffbb6918233ab475622525261997",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/withdrawal.py": "25a60cf7e895baf43961e705550f3a4953887cbd4dae447c6e149a8fd0d5c301",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/mpm/withdrawal_adjoint.py": "dea174a239330dc1d3db1b3fe75d5f335bdd10699fee540f94a2e0cc8be807e9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/__init__.py": "0239098d830c28cbaff7790e150a7c64c665241d794324dc9c8d0497aef130fd",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/affine_braking.py": "7638d4ea7e09030840344031ea7fcdbbc8ee6843b6af6d00ac4f88a363218340",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/body_control.py": "43474bc19177a0c3d49938d777eb1e1dc0d865cb071752de1d12c9cf9f3c065f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/braking_direction.py": "9d76f1de23a5cb97ac9dc54251b9c81c8c9eb0ae40f2755709b23a1dbae4cb9e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/config.py": "fac3a6f6ace0f092ed7c297ba6f87a2d33dc9deba8b151bbb44534106b17602c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/control_basis.py": "d6c91a81fac0977af3d9539e488c50c967cb6cdbae7bc4343392669f0114da3f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/control_proposal.py": "1e5b6c6c7e870b152b52bdf5fc7c81ac1e9ca5e670fa311ed2df9c84350cbd93",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/diagnostic_binding.py": "44460deb9a44fc7532d69fc521b8c5b74ea46604366f1c0fc11360a9c780b76a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/dressing.py": "d7d9569a7c78d4beed48427c12d0d401a6f2989d0874a64549d4ad58b3b535fa",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/endpoint_contract.py": "edd9717aaca896ed8155346c5eb261c460ee9b6d2ecbe801e37ea29e9ccfa987",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/frozen_body_window.py": "22084ec20c4616198b44a1746ec1bd7f68bcabf2f26af37ee11b5948e17f20f9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/gauss_loss.py": "6f66fd7d2c5a04e4e689523f7145bc600329595acb636fbf864dcab55506e5e9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/geometric_rest.py": "2d249e77db564cfee58629ebad5429d424e24113276efa4dc35ca9f474317033",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/geometric_variance.py": "54c7323681e29f42dcaba78199d9d2a99c4dc6f5d0e87568be4e4617829a9440",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/grad_combine.py": "4f5b2972da7908387cbd4db6a8b247041d9776973dbd38bd232b2a0269868fdc",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/gradient_reporting.py": "737a3682dfcd2d1f6307488d7dc228388d37a80c20e3e9b7c90954444b5aed7f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/grid_smooth.py": "ced9706e4bf52697476e803e10f0ea731c9210f3636923616c7d703c61296233",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/motion_accounting.py": "f898ccf5fd84d35a0468db6d655d07bc1fe5c20dbf325f0c97e849d696b7ee8e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/optimizer.py": "cd6f39e351751b9dde996c7de5e9a400b1aa5af7b43a9c28318f7cf723692896",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/outer_merit.py": "11b4eb5f671d2541c2807d432191bdccd3b4bc4f21c6488700e607e55cd3c57a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/prepared_reference.py": "f340c4d18a486a475c42a5cc2843b0d6178069dd086bf47db457821b9a71d688",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/render_loss.py": "5c8cff5d12a87c025062072615bdad85e4c9bc68dae9b4aeba68e904fc22f6b8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/render_reporting.py": "f5e0a10521e305485196206083f8b63536a0a9769f21dc2c1002ae2d816e07ea",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/runner.py": "e9d644605975389ac152c08fb4386e75679ba8e917b5a25ebf3ed17259c4c2ea",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/settlement.py": "b2bdbfc09ccad15ced005c29da928a4392150138b06921dcf2b960517cd3c5be",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/support_braking.py": "9a03ef0a9b0205774f742334ad1736fbebddd1751e428b1564cabbe8bd7fe7c7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/surface_local.py": "96cb5175a960f1c31ef8bc8b06733e77d21277a56d02b604071d51b8118847a3",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/surface_render_loss.py": "d5977ba8af2be1b14ec103c730efab502300778f3ae0e277a27f81fa4069d89e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/pipeline/trajectory_reporting.py": "3edd454bb21beeb5c0774b301c407ff7d86a0a189e588f59e3c3d7b39b5ae14a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/plasticity/__init__.py": "d1c2ab002337f5ce4003192d328ffdd6fa5b7776829d845efcd6af8b153aad0c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/plasticity/assimilation.py": "ce4907bb21ee53b0f6007feed37b985ccb6dd0abb54472ec2d5ee469899a6fd6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/__init__.py": "8469816316bf8d0a16e660800e5fd8e1b5015b97febe3c6edc2fd94582207caf",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/children.py": "8242b10f119f1832fb3b62e15585366bfe188ea702241a24d8aaafaac9fa2d08",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/covariance.py": "b898d4ea3a1e63a992f5d8f7202f4714c124004bda2cfaf694fee19c70eca90e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/covariance_torch.py": "30ef0c11fa2841389aaac4207f3e1b5ac36ba2e07231279e9fcefab0745bc764",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/footprint_diagnostics.py": "0ca65862b8c1846f8625a70baf0584860ce7b4703a67281b532867c80c13f889",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/footprint_policy.py": "7c33a54473a50681bdb88d87ec24bd6036ba5444d174341b3043743cfa07e0d2",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/knn_gpu.py": "189d2ced4556916187b0e542c90d365111be58bef36186d3975352bd91dba0da",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/photoreal.py": "62267c1e6024a05c02ea0270b03bdc95169ce14cee0ac12371736e6c4a87d6b0",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/poisson_worker.py": "fb4aa3be480f79bfa36fd5e9016063d7f1ec991c0fa0678fc5e9037ef0118042",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/settled.py": "084eb5d05baceeea674c41c61f4537cda097213c015772ab75508c450b7fd357",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/stream_adapter.py": "ff4e83f7f6490c3b155ebee0efa526a55ccdf3b9e8f312162bb57602b8ed40dd",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/studio.py": "a160bd1b0362e4e7ea3e87a97abfd54872c637a4fa6d2507ad4304cd5acc8a12",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/support.py": "3ce6654ba46fb4cd31ff55397e374d159b0ba06241b1b2305f380d540b02fb45",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/surface_gaussians.py": "c63de551421c73a996d9e51149f214aca06ad00be3102429920aee5aee1cefef",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/render/surface_recon.py": "27609bb12830059a5f5754024b2c00a8eb814ffb8b44ce9939f97d1dd449b891",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/sampling/__init__.py": "51f23d85697aa6bf783df5597d004b48074513fffd602f08d45862b0c4814705",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/sampling/mesh.py": "92c3e9fe32a13ab88b16dc6a995b151c34ec4fa69fcfa1fa24fcfde0366cf2f8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/sampling/orientation.py": "205e4a8557486277242700e348989743711916e7f249aaf07e03c23a9ffc4b5c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/viewer/__init__.py": "b81cefa5eae3bc2f0e1d30aecfc6608146df9efc987a9865d76bf409e7d3ae22",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/viewer/export_ply.py": "926ec7ef3bf5ac1592dd34b7b62a4893837d7209214d6faf15d96745abc837db",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/viewer/filehub.py": "780e89cf2cbb3b5346d267bb00afe4c5f291d85e18616a0cc319ac37998a0133",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/physmorph/viewer/server.py": "72d0dc7469fc5938a50d60d2c006c50a281bdba0fb1a95569dda1895afd883d6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/scripts/probes/full_horizon.py": "0e07406438c0a4d243832d2db859558d68e972c06430e620a81e77f9d0944b11",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/scripts/probes/gpu_pipeline.py": "19f86c125cc7cccc2593d9becfe50a179ebdda8327b7744b51a921892041ec1c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/scripts/probes/coverage_paths.py": "e0d6f696337268a9714366d46163db732dd583fd1a9b63965204f6824407b36e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/scripts/ops/run_p303_probe.sh": "57cf2e885474d75ed75586c0fb03d073a648e0544440765ed552213c9cd898d7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/scripts/ops/cuda_python.py": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/docs/full_horizon_p316.md": "d75f617c9d4bd2773142d68daf0646ecfc2f8ea616fcd28dba91ef77ec20af84"
+  },
+  "wrapper_code_hashes": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/scripts/probes/fragment_adjoint_compare.py": "1e8b3086e8cb58ebd136baa8f40bc3113c2f23d7ce2f772c2fc0c8bdb8b5c347",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1/docs/fragment_adjoint_p327.md": "e34a92d67108748b183a728fc675d521d6148ba829075f91389db633d36d152c"
+  },
+  "source_bindings": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1.fragment_protocol.json": {
+      "sha256": "db4bade83c2e8cccacd8f8a8c8b9456419c205f8f96603bfeed0260031e73471",
+      "stat": {
+        "size": 737,
+        "mtime_ns": 1790660422945610155,
+        "inode": 10547028,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1.protocol.json": {
+      "sha256": "ffb42760eb87b27bb0f992ae7306b4a73c412831068d3b4059a61ca3af3d8e36",
+      "stat": {
+        "size": 21998,
+        "mtime_ns": 1790660422965610135,
+        "inode": 10547030,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1.fragment_protocol.json": {
+      "sha256": "409f58bb484a05a7f393773b31531bc32259316ea195ba06155d6f29e34df46e",
+      "stat": {
+        "size": 739,
+        "mtime_ns": 1790660868989025980,
+        "inode": 10381481,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1.protocol.json": {
+      "sha256": "1bda0e1db00d068c09c44b755bdf1841c5ecfc9d87f97260d3e0ccef98b03f0d",
+      "stat": {
+        "size": 22000,
+        "mtime_ns": 1790660869005025960,
+        "inode": 10381482,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_000.npz": {
+      "sha256": "f080f73cd478e931b5fbd16f253bf7304d6ba9847dcb99ae2d816a647ace4fd8",
+      "stat": {
+        "size": 8975397,
+        "mtime_ns": 1790660436621596493,
+        "inode": 10547050,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_000.npz": {
+      "sha256": "75a97bf216776c7f56f43ad8eb8887e497b04ae096f1e175348a963bf7e544ab",
+      "stat": {
+        "size": 8975485,
+        "mtime_ns": 1790660882757008501,
+        "inode": 10511607,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_001.npz": {
+      "sha256": "c42cd188913cdc1a4e2e4b43c8707ebe315bbed460d331eed834f4b182a7985a",
+      "stat": {
+        "size": 8990035,
+        "mtime_ns": 1790660448189584939,
+        "inode": 10515890,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_001.npz": {
+      "sha256": "4fe563e48ce38e9fd635dededf843fffcce76d1cf9515437342a48a25499e3db",
+      "stat": {
+        "size": 8990314,
+        "mtime_ns": 1790660894336993857,
+        "inode": 10551408,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_002.npz": {
+      "sha256": "c9fa3cbbe26ccb6c2968122bb9bbfd22625f18263904c1fc8ca78be67880883d",
+      "stat": {
+        "size": 8991578,
+        "mtime_ns": 1790660463289569861,
+        "inode": 10515891,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_002.npz": {
+      "sha256": "7993527ee2a620f00d08c56a67afeae9759fd9b0bdff352fddeaa1683eecb0a1",
+      "stat": {
+        "size": 8991758,
+        "mtime_ns": 1790660909472974804,
+        "inode": 10586633,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_003.npz": {
+      "sha256": "4b09bc58f607b8aa45664c931f9e910a2a3206a1770aa68f2973954196a8f370",
+      "stat": {
+        "size": 8989220,
+        "mtime_ns": 1790660478813554363,
+        "inode": 10515892,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_003.npz": {
+      "sha256": "f95b6faafaec5aa01a283d02377ab980c6c6b3999125b6a5df7c83a5b8054aea",
+      "stat": {
+        "size": 8989598,
+        "mtime_ns": 1790660924972955388,
+        "inode": 10599168,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_004.npz": {
+      "sha256": "3e20ad49374677e7d3cf399d9dcc57b15680459aef9f0c624d7ccf570a88343b",
+      "stat": {
+        "size": 8971130,
+        "mtime_ns": 1790660500617532601,
+        "inode": 10491291,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_004.npz": {
+      "sha256": "fea5b0838965bf42b8aee1b859815f83f2450913fab2dcd4b14f54a43c9d4ca1",
+      "stat": {
+        "size": 8977632,
+        "mtime_ns": 1790660946636928410,
+        "inode": 10546481,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_005.npz": {
+      "sha256": "6e54057b0dbdb0e22d16a5e82a229d8dc8643e117931ed9c4fd243c2ab619eef",
+      "stat": {
+        "size": 8938985,
+        "mtime_ns": 1790660522533500407,
+        "inode": 10593821,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_005.npz": {
+      "sha256": "87075672877692d6608db6556028b43300caaf19025008187127ff0b1ebb6296",
+      "stat": {
+        "size": 8946618,
+        "mtime_ns": 1790660968336901563,
+        "inode": 10599169,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_006.npz": {
+      "sha256": "7cecbbff7672970033f37bea992a817913953e50540eeca99a73189e4888a6ab",
+      "stat": {
+        "size": 8783141,
+        "mtime_ns": 1790660545305466691,
+        "inode": 10599041,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_006.npz": {
+      "sha256": "237bcd6f1eb1aeaaa903eac41668f23fa070e569ae72e762f83af65c1445ded6",
+      "stat": {
+        "size": 8812691,
+        "mtime_ns": 1790660991520873068,
+        "inode": 10586530,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_007.npz": {
+      "sha256": "aa19f5720a4d97cf32bd4b43d7b00d36141ebc0fbb3e57936c3e1b180d939218",
+      "stat": {
+        "size": 8540910,
+        "mtime_ns": 1790660568401432932,
+        "inode": 10493669,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_007.npz": {
+      "sha256": "a325e053da635d1beab83c0905d186e10291db3dac90ae36b5e7ba252260000f",
+      "stat": {
+        "size": 8444085,
+        "mtime_ns": 1790661014564844931,
+        "inode": 10466028,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_008.npz": {
+      "sha256": "36f86098f652e1bcd55bcc211a98bddc9059199d90cd52bf11ebb4497b764ddf",
+      "stat": {
+        "size": 8226366,
+        "mtime_ns": 1790660591169400067,
+        "inode": 10493670,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_008.npz": {
+      "sha256": "26bde3f754b581b10845957eaff183920af14d972f68e57f119b2ce817624242",
+      "stat": {
+        "size": 8144760,
+        "mtime_ns": 1790661037328817302,
+        "inode": 10599042,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_009.npz": {
+      "sha256": "f49e7ff89a4167f5e19f01cc4434ab15f6fb598419713d5eb4f750f8be540a25",
+      "stat": {
+        "size": 7986376,
+        "mtime_ns": 1790660607405376869,
+        "inode": 10493671,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_009.npz": {
+      "sha256": "d38ee1b129298d213f56a1c60df94531007b24dfef896f69a54d943856358266",
+      "stat": {
+        "size": 7931033,
+        "mtime_ns": 1790661053608797647,
+        "inode": 10586634,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_010.npz": {
+      "sha256": "94edde713995421ffc979ad463557d4346e46becc5c4b6defee8eaea05a16784",
+      "stat": {
+        "size": 7800937,
+        "mtime_ns": 1790660623425354172,
+        "inode": 10515893,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_010.npz": {
+      "sha256": "dc6ff823a38c5790d40f0aa4a2cfbedeb9c4797e3dcee8dae3cc77d315c8b5c1",
+      "stat": {
+        "size": 7790556,
+        "mtime_ns": 1790661069696778303,
+        "inode": 10586635,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_legacy1_cohorts/attempt_011.npz": {
+      "sha256": "5b649086afcbf9f2f98d3deb25bade7589aa3d2e4487b981bc72a84dbc3d14db",
+      "stat": {
+        "size": 7689558,
+        "mtime_ns": 1790660639257331917,
+        "inode": 10551402,
+        "device": 38
+      }
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p327_retained1_cohorts/attempt_011.npz": {
+      "sha256": "7df6d6723216f65d16416a92a4e821b887306711627ba2b1f719dcfaa5915689",
+      "stat": {
+        "size": 7688605,
+        "mtime_ns": 1790661085612759243,
+        "inode": 10586636,
+        "device": 38
+      }
+    }
+  },
+  "source_identities_unchanged": true,
+  "rows": [
+    {
+      "attempt_zero_based": 0,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "57e899a0d87f94b85c2cdb4419d81d28371f15dd3905898bd10709cc597e1a9c"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "2750635e4434087ba7b3591d9cd15478856ef1704967cde37d4fa343c16c2905"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "ed22da50dfd974475975ea14bc68f985e92ce21d03c7985def5029e90db59d09"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "6a4d78b80caaee928640871014262f41d0cfbb3eb0c7023e8b25c4ce60e94b97"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "886715e4051e827f4fe215df3053af3f85ad0d352db2c829c7487af6d78efe30"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "886715e4051e827f4fe215df3053af3f85ad0d352db2c829c7487af6d78efe30"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "d432ba93889f94cb27aa88d8b6fd543994edf7c872e32cd34e9ca9500eb95838"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "d432ba93889f94cb27aa88d8b6fd543994edf7c872e32cd34e9ca9500eb95838"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "2fdd9de358511973d9407f957d8c3d0066eeb3bcb8d9063084a37ca2bb24a782"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "2fdd9de358511973d9407f957d8c3d0066eeb3bcb8d9063084a37ca2bb24a782"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 1,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "2f3e655880c20c991c22de6929c3055df534423ec48be7ef41b86c974ac89ca6"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "1451a26878c93145bc43248b66a259e016076fc8a694e5afda10c28d7775e0e7"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "f68c709caafdc41fa3015d3bff2249c732607b27f56e96642457e8d837562938"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "477ef36d6ebab46b929bf2b6f1cff3f837588b8b18cf02fbc8a8981279212c56"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "886715e4051e827f4fe215df3053af3f85ad0d352db2c829c7487af6d78efe30"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "886715e4051e827f4fe215df3053af3f85ad0d352db2c829c7487af6d78efe30"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "0ba9cf6233a2a6791169b5a01a204c1f55c0406b92c77d91039d77f5c2b1157c"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "b0c03f1e33a06a1759fb6aeb9d7b5ace1ae3d45c1523b2c4763e8a605878398c"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "bf05c7fc2e443b8fc8fb98da676a9dc44ac2a08721f529216dd957c8a8fa6598"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "29cbe723bd2fedde978d8f41bedb5e611ca2b62fea85ccc19497fa5405f48a66"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 2,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "8974cfa8d87163c4bcc228dd4a6523bb22757866e40e4b81eee091b1203a31f3"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "13c0955b7faabd93beb2a2dea7ecf2a039cde99be4a8a0752da47aa0890b9f78"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "a66395961d4a5483226f74e50210545e98def5e9bd8063459ead22dee1ff6ede"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "d0154c60746422f7e15ec861dbfbb4837db3ede5596d77936e2bf842410ed579"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "886715e4051e827f4fe215df3053af3f85ad0d352db2c829c7487af6d78efe30"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "886715e4051e827f4fe215df3053af3f85ad0d352db2c829c7487af6d78efe30"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "b963be00f7b750a17567c0adfd6835190533458d33bf2b0f005b961846c97450"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "be5bb239d6e550c21bbb48fa905fc5d7538cdef127129f2f4b630f5d71210bfc"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "426cc61f9e21a9cf4c5537569dc058f23f3da84b1e0ecae4c923ffa7a4ecd74a"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "7e2f792ea76b34357efdf8784d311e7bdb891488e3d4cedd68adc516983e95fb"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 3,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "8999374103c5ccbffeacfb576e5a7c5edb073a7751aa08ac81aff4a3360f322f"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "926a56252b8d8ca5919546898d94b2b304c0939a448ac87670bfec78ac208e96"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "5842fd0cb8180700f6da2297bd92957ea72c847ab601884c4fb034715f3d2385"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "ae780f98240b457aad265f496848e447022e207f3683c3f53a0e77789f31934f"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "020e12ad4dd97c80a9e198633db4c584137fa803b03632d2e15a75c3df3dc262"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "e3dbfff85c463dd3ebe0783b6726f061901271a7f9b8de73b219e09dfbfd517d"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "8da953f96cd5ce4bcc06483050eeedbe9f5c420b2d29e4fac3af2b3e34fd9895"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "0fb5a1c6e753fc43dc85b8f02c9318cb1329d2725093560d31ac502ffba43725"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "b898b9371bd858dc22e7e46434f6339f7e730f79cd92e25957d9c3704b13e19b"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "2e758cbed881db771bb86be9f2ae38c8c0f9a22c3c873133038264e2f110a837"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 4,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "d357173f142721349eb389ac0fb3f29e6f7f772937178d79572532a0e4e03d58"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "313109e169f6bdfd730cd3b4f0836a78e6ba0f74c5477a2bfe6af6c0936d9b77"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "a474964ae76b07346d918801f67a5c4ce9be27c02d5a666dfe83ca65588765d4"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "47ce9f46f9023c20fbfe8c0a69426f22107a0f2bfd1756cc563266e8db7ac00b"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "a1ae8e2066749477be722fb5d65581220839894b281ce332bad735db36d13b86"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "eb3e6564ed3170e3575a772ff5c290386190d6b2a70c48f27fd37c30aab56095"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "06fa0a013bf9affe76987c2f3b020cfa43fbef3b6c0502705fce3296ea3aefce"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "fe0867637428292a7c78693c5a658fceb970e6854311db46ba6e173d98da0744"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "97150863e669d3f8f0a27988a19ea2fc04f4f65648cf0858662a5d89318164f7"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "0912589ca88464999729f859f162bce9b3cde5f9df4141d6d8dd76c56ea46333"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 5,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "82f8f45f499631b7a14e2f633088bad94e493f86df7f5ae648c34c589bde8728"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "c3d21d877691f4f1cb57e19b7744602c16d44962fd6995e76c23ab123a431d31"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "b4e3f1279ce9987194d1583ba934ffbcf712c2326b4a2b0091970c379636a0ee"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "34445f7e42abc10aff61e23dc63f866c5cef0e79a8046fdd3c6a660211934fc3"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "495f19bfdad09688e532e1deb5445956b59acd2eb286b227d33a2f6fce42f03d"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "29d7ce6c7b9fbe9dbc9f6bf7f5324b69ae75eda22f416acee11ef6ae184e98ea"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "a2ab3af8e272b9acdadfbbd4c0e05e039cae99ce0419175a098b2e50c2a7be6e"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "46c41e51072f4d175a9de1bcd87bc088a446d6ff1990da2bdd144ad19a75ed18"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "bdacb9d5372f3572e70d9292cd8c909b9d8dfdecaf79b4be40725bddca8ca9f5"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "77072aea229725d71fec4a135dda7ef372f01fcc36c01f6a596e8f09119fe51d"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 6,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "12245b3ca6b20e5756e5ba2e1c5f74ad8ae9ae1bfddc856fd41988af0f0e4b35"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "a014468124b04d28ce5c464e3a10601983f97e62ea83f57d751fd6f4243277ac"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "20946fa7dca93c115d2f83c0ea14fb5f3508dc1abdbdbe8984055d0e2a9c86c6"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "10c6f69a6dfac1b3a1cfa7ad260a2a578dfe1cf762ca8961afc7b1853a5715ef"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "6a3c11ceccabd9296f730cbea3f878321f9e5c2481df06f5b03f5baa6c40da05"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "66e6f7028481933e371644587c0e10f916be426490dc429738e81c51eae493c1"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "33cd274998250a81f8ab771a172a6cca9a89ed34677be83f7e5744fd668902d8"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "aedd2069668f4b25f6bbcc3bcc53d3eeeaa2676bfd8a1a35debd7e82196cd6e3"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "7bccdb0f77c5c0746e9285645221093d67d2b567a725f2d332bd13a1eb8d6773"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "f49ac7c20ea752c23c3f38056f12f507cb06874b36a98974d98bc842b7253534"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 7,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "619a894c6e48ccad422437974d7c9600e8a3a96bbe854be3479c924ffd7bb236"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "3c3b6404a312de2b743e777c62a95095f8a392795bbacd42fe43c4316e997b10"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "75c53ca699f7086936f296e2c3a76425ff39e75d8bdac6ca051149eefdb5dd71"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "c20fef0a08e8a2e8793b326add233b8b801fd2622a565ad81cc8097b2ee3d70f"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "39def6df39d2ffeb803f653c9e594b67d137bda490ea7600ae08f01a85997569"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "95e377deca5df4d71c9ee02117a94985f7e1a5dce8053350af0b386a2a434cac"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "6f97ba381532b4ef5bf67abd1bb52e4e544b5dfa1f2b500f916b040ba6f1f427"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "8db5e2e60d4c50cfeb6c36c87734331ebb98a544e15fd55012b80b2f1d91b405"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "93b019cdc196dc8b34e47d32cad2e1774f62cf07d5761f621decfc494206b4a8"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "127a78d7830b21b364a5ee03ba3ccc9b4e6d97d890ba9b7ce58ae17a61e1bf36"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 8,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "eb35186adbb216e91cf2d96f40a93d8fcf2dff7bcce6f533deb90dbf21ad3687"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "77218cbee054db1a0c3f9342ff8bb72da1db1c5e65a5370b20611cc4e3a5ffcc"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "006e80c6cc97b45cc4031ec933ae522f50ab92cd505dc175dd1fff86cdc51b9c"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "f7df114530fdb1fee9cce4d60fd32416145441c37d444db38c0d73f8aff6aaea"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "3ad0a7dfce760ba70322d22d5af352730b19ca9101cf33af0ffc377e86737afd"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "e5d9a3d4f7e7089b806447ce226cf3434a62b0325b879d46691e5d6ba7f49de8"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "b89a6ce5cde3768a0f0ef0327ade6302750da3ed55dcc395b24e953f84a433ee"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "101e4d1f8905d22576efe08e7b9b01643a56ed49efe22db8fa3756ee32f708e3"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "60a9bf79f577d9017f41e1cc75ba57a18c66d3435998dc13db28c0e147131ae8"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "ec827db76d529dd448547345bf71afd77ec1260c93f6baaeaccbd72bb64b6f85"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 9,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "6c89995c52451e39fcd53c2f4185fb6afcd61799ad5c1ae0d42c93fb3a0e8118"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "6bf7499267d2cc3a680e49bf5ba15779a6a35a785020b05f03a08c0153060752"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "64f462b86760d08138851f6c36816ab79a902597a8607f05c5df3b60f15c44ac"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "7e81d8dd23e2fb475318333492999967a45925d556a6ec55d21caadb16c047ba"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "cb707cf092f006ebdced37a456522eee4e2cb0a96e892ab333d0d48630797a02"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "18e9476ea828d04535959910d8f56d0d0c1bf50cad95f7c642298c96ff70d0bc"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "1db438f03e0d2a99e4e957682bed89f850f991165da7da96fdf16b8e99817040"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "0767cb8b006fbe3282888f37f9c298f57fbcb48ea837297f073558827559d593"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "15b405d3df16af17ead241bc70cf3fd6fc3eda95da54eb62919a4fb47cb441a2"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "1861b909c0eef4e641c3b396c7fbf4778c3dc92d6d6f85723728277266e07f13"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 10,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "fda3bccab5def4ed299025f256d01620cdfb09e0d7e9b8d0f9b39e57e51d1ff4"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "8c67ea61b90cc4592656bb34dabe3bce2b6203ec7c891051a3fd36d501107120"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "9fa9a841ae88d5628d2fd9549ea88d90190e1847c7aefc658fcd4b784b2f37c6"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "88fe70c27a06db1e3f644f2f86bd81fa00128cf4b045a0720215baba912edc19"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "52e00c0c5a88f4ded4c833d209bf0d84777960dc69fded043d36eb0073b4834b"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "b7cf831a16f0d7fa1671537494f03c19340878341c3c6684ee4fea2a25732409"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "998bd36b24b082193fc350946cc46559e43f6a35f300e91199ca611968b24557"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "77663688f8e4b8405a59b65baeb90affc57fb8a8e1ecadd10a7b7312a0ebb1e6"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "cd406eaaa11c259aadd420188b2d603b581f2a76ec9ffd1fff36737cabbf088d"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "a916a093018799c021106a799f90d2e1c09f76850ab86c0c4c04b19967aa9052"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    },
+    {
+      "attempt_zero_based": 11,
+      "arrays": {
+        "optimizer_raw_endpoint": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "5cdaac738ad997f42dbb3655086831a7fc15de2d8d213bba9e722548dbc87890"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "5d138537ddfcf36d9f5c01eb981a1c4b765d67412f3e3da319d4a53ddb948c6a"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "optimizer_terminal_speed_squared": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "b4ccd79aff2517b74986554372fd16f399300a016849a6a655765606c62d9360"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 2400000,
+            "array_sha256": "4b34edc57c2f9c07a845bd23957cfa95a4a28b6611b71e37801e579c3312d0d3"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "pin_before": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "e4f8a51a0b46a4d1316c6017bb2e7c35547460d111672bba32b97eefbefad11b"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "9acc1673d4d2f87a25f3306ac5c9896555f1d4a06c86ed47977af328fceb13b4"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "plan": {
+          "legacy": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "211848d71d6bb11fe8b172d3debb8cd3ccd64f85dcd8b5c5ed6fb615ca083051"
+          },
+          "retained": {
+            "shape": [
+              300000,
+              3
+            ],
+            "dtype": "<f4",
+            "c_contiguous": true,
+            "fortran_contiguous": false,
+            "canonical_bytes": 3600000,
+            "array_sha256": "ed02dec90a6d695ccf6977bc66bc8b4ecdc249f27190531d66243d98c467f69e"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        },
+        "radius": {
+          "legacy": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "retained": {
+            "shape": [],
+            "dtype": "<f8",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 8,
+            "array_sha256": "4249e1b9fb872bc9b307cacfef6234bb2fa48175a1fc1a7cc7eaf3f9eefff3c9"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": true
+        },
+        "start_arrived": {
+          "legacy": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "cbc2ca7dcbedee7b0d02bf578e7c95da78699255fba723b63b3687c5dfb06479"
+          },
+          "retained": {
+            "shape": [
+              300000
+            ],
+            "dtype": "|b1",
+            "c_contiguous": true,
+            "fortran_contiguous": true,
+            "canonical_bytes": 300000,
+            "array_sha256": "d30af92f22cedc0dbb045f55730b4e5d9faf69aba513570f80809746fb8fbabd"
+          },
+          "same_shape_dtype": true,
+          "canonical_bytes_equal": false
+        }
+      },
+      "raw_endpoint_bytes_equal": false
+    }
+  ],
+  "first_raw_endpoint_difference": 0
+}

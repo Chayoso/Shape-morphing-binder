@@ -1,0 +1,22 @@
+{
+  "scope": "Both P327 arms; independent full-hash/clock/activity consistency, bounded motion/shape CUDA audits, pair metadata/scalar binding only",
+  "artifacts_sha256": {
+    "p327_legacy_motion_audit1.execution.json": "17ba7ea52bdf66363472d6937069088799bbca156a53b8a1933184057f3f8e6c",
+    "p327_legacy_motion_audit1.json": "b339a24579023a97205a3bb04b5a03dcd3e14338518515f929fa5284573d8ff0",
+    "p327_legacy_motion_audit1.protocol.json": "670915c6418a2426d622de23f634f27e71f50641e657db27a57b427efd8108c3",
+    "p327_legacy_shape_audit1.execution.json": "3a351ddd69d087f5a9d98ba4b81c2e40eb3f72f8e241db8da82a538f77382637",
+    "p327_legacy_shape_audit1.json": "c481dcab9e6383803fdd2fd1d048e37ad80a2abe64ae52797361dea586bcd900",
+    "p327_legacy_shape_audit1.protocol.json": "c82c088bcdf837094f8380e9be0371b618fbb4c57a5f20e745410582f5bb1a14",
+    "p327_legacy_source_audit1.json": "03ba4e2b31bd5253c3ad0952cddd8ec6d26df79125aa0b033d424b92f7ecf571",
+    "p327_pair_metadata_audit1.json": "493fdf186eb8ccbe74902c17fcfed33d7cbfd50b6c1279e5021ffab8655ce32d",
+    "p327_retained_motion_audit1.execution.json": "df834c60a058113763fa1277e11ab7e772927b23f3ef4cfff1af77c1629d4a7d",
+    "p327_retained_motion_audit1.json": "74c3e6374669cc90e96bf3603f257383cbb5dcd7d9ba4fb54fe17ca1289d727a",
+    "p327_retained_motion_audit1.protocol.json": "ad031a7f1a5e682783cedea460aa0068d5648497f9764e6e13bb84287b20a559",
+    "p327_retained_shape_audit1.execution.json": "6440db4821d388c9c7b5e7553583debe5986167e4c093fad4de536be5d0d427c",
+    "p327_retained_shape_audit1.json": "770d4789e8a154efc84445b77b1860b96c7f5937336f6bd168a7bb8caf7816f0",
+    "p327_retained_shape_audit1.protocol.json": "6c08ac100a86f218d394ebfe23798cdf9d16e57b2d1dd1a3a9e3b797cf7453fd",
+    "p327_retained_source_audit1.json": "cab26ce3b72354043b85cf084f7379cb20269d722825643687a18092b89c1846"
+  },
+  "no_mpm_or_renderer_runs": true,
+  "no_quality_or_natural_rest_claim": true
+}

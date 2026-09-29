@@ -1,0 +1,2 @@
+launch_utc=2026-09-29T06:03:06Z gpu=3 project_bytes=64486649905 mode=motion
+{"passed": true, "interval": [640, 660], "final_free": {"raw_last_rms_wu": 0.0002973068171645572, "correction_rms_wu": 0.0, "saved_last_rms_wu": 0.0002973068171645572, "raw_correction_mean_dot_wu2": 0.0, "raw_last_geometric_speed_rms_wu_s": 0.07135363611949373, "saved_last_geometric_speed_rms_wu_s": 0.07135363611949373, "squared_norm_identity_residual": 0.0}, "newly_pinned_last_commit": 866}

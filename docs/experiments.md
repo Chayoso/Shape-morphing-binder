@@ -9489,3 +9489,15 @@ The mode-aware full-raw comparison extends existing P320 scopes/metrics, with
 40 final independent metadata rejection/parity tests and full before/after
 provenance checks. Physical quality/rest interpretation waits for completed pair
 and raw-state analysis; no renderer or deliverable promotion.
+
+P327 completed: N300k,T20,dt1/240,dx.3062907544wu,loss36^3,iters8;
+legacy30/31accepted, retained33/33, allguards0. Stops are rejection patience
+and accepted-track plateau, not rest. The pair diverges fromattempt0, before
+either observed time-varying mask (firstat12/15 zero-based), preventing sole-causal
+quality attribution. Same2025 common-free IDs overcommits20->30 move3.0%less
+perrawstep, but fixed6712 source-upper IDs move5.9%more with differentpinsets.
+Commonendpoint IoU.964392->.963706 and uppertargetsupport.940831->.939459;
+jointremedy not established. Allphase128/256px rawprojections retainopenings.
+Median nominal rendershare.445574/.447220,lambda.0399058/.0262601,reference-local
+image-lossdelta-1.85489e-5/-1.33174e-5; notcausalmovement fractions.
+Full scopes and provenance: `docs/fragment_adjoint_p327.md`, `docs/evidence/p327`.

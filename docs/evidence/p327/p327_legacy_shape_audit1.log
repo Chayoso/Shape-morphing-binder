@@ -1,0 +1,36 @@
+launch_utc=2026-09-29T06:01:12Z gpu=3 project_bytes=64474159919 mode=shape
+/data/relcfd/chayo/physmorph_v2/work/p303/run_p327_legacy_audit.py:105: DeprecationWarning: ExternalStream is deprecated. Use Stream.from_external() instead to interoperate with external streams that implement the CUDA stream protocol.
+  audit.main(WORK / 'p327_legacy_shape1', output)
+{"verified_through_sample": 19, "violations": 0}
+{"verified_through_sample": 39, "violations": 0}
+{"verified_through_sample": 59, "violations": 0}
+{"verified_through_sample": 79, "violations": 0}
+{"verified_through_sample": 99, "violations": 0}
+{"verified_through_sample": 119, "violations": 0}
+{"verified_through_sample": 139, "violations": 0}
+{"verified_through_sample": 159, "violations": 0}
+{"verified_through_sample": 179, "violations": 0}
+{"verified_through_sample": 199, "violations": 0}
+{"verified_through_sample": 219, "violations": 0}
+{"verified_through_sample": 239, "violations": 0}
+{"verified_through_sample": 259, "violations": 0}
+{"verified_through_sample": 279, "violations": 0}
+{"verified_through_sample": 299, "violations": 0}
+{"verified_through_sample": 319, "violations": 0}
+{"verified_through_sample": 339, "violations": 0}
+{"verified_through_sample": 359, "violations": 0}
+{"verified_through_sample": 379, "violations": 0}
+{"verified_through_sample": 399, "violations": 0}
+{"verified_through_sample": 419, "violations": 0}
+{"verified_through_sample": 439, "violations": 0}
+{"verified_through_sample": 459, "violations": 0}
+{"verified_through_sample": 479, "violations": 0}
+{"verified_through_sample": 499, "violations": 0}
+{"verified_through_sample": 519, "violations": 0}
+{"verified_through_sample": 539, "violations": 0}
+{"verified_through_sample": 559, "violations": 0}
+{"verified_through_sample": 579, "violations": 0}
+{"verified_through_sample": 599, "violations": 0}
+{"verified_through_sample": 619, "violations": 0}
+{"verified_through_sample": 630, "violations": 0}
+{"passed": true, "samples": 631, "selected_samples": 7, "reduction_checks": 9876, "violations": 0}
