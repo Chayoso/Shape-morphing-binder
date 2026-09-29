@@ -43,6 +43,7 @@ from .config import PipelineConfig, disc_ref_factor
 from .control_basis import ControlBasis
 from .control_proposal import apply_proposal, required_decrease
 from .grad_combine import combine as combine_grads, pcgrad as _pcgrad_impl
+from .gradient_reporting import raw_direction_observations
 from .grid_smooth import chebyshev_rho, smooth_particle_field
 from .render_loss import LambdaBalancer, d_pbr, d_render
 
@@ -2502,8 +2503,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     if close_trial_audit is not None:
                         close_trial_audit()
                 del gradient_audit
-            np_raw, nr_raw = _norm(gp), _norm(gr_raw)
-            dot_raw = float(sum((a * b).sum() for a, b in zip(gp, gr_raw)))
+            np_raw, nr_raw, dot_raw = raw_direction_observations(gp, gr_raw)
             mode = cfg.grad_project_mode if cfg.grad_project else "off"
             if mode == "render":                      # legacy one-sided PCGrad: the
                 gr, _conf = _pcgrad(gp, gr)           # balancer sees the PROJECTED grad

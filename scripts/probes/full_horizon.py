@@ -1,4 +1,4 @@
-"""Observe ordinary stopping at the configured horizon; no new solve or policy."""
+"""Full-horizon policy comparisons with a read-only ordinary-stopping observer."""
 import argparse
 from datetime import datetime, timezone
 from hashlib import sha256
@@ -17,6 +17,17 @@ from scripts.probes.coverage_paths import require, sha
 def array_digest(value):
     """Archive identity only; no CPU simulation or metric computation."""
     return sha256(host_np.ascontiguousarray(value).tobytes()).hexdigest()
+
+
+def arm_arguments(arm):
+    """Explicit interventions; no change to ordinary stopping or admission."""
+    if arm == 'baseline':
+        return ['--commit-pic-objective']
+    if arm == 'raw':
+        return ['--no-commit-pic']
+    if arm == 'raw-no-layer':
+        return ['--no-commit-pic', '--no-layer-projection']
+    raise ValueError('Unknown full-horizon arm: ' + str(arm))
 
 
 class RestTrace:
@@ -104,7 +115,7 @@ class RestTrace:
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('--root',type=Path,default=Path('/data/relcfd/chayo/physmorph_v2'))
-    parser.add_argument('--arm',choices=('baseline','raw'),required=True)
+    parser.add_argument('--arm',choices=('baseline','raw','raw-no-layer'),required=True)
     parser.add_argument('--out',type=Path,required=True);args=parser.parse_args()
     require(args.out.resolve().is_relative_to(args.root.resolve()),'Output outside project data')
     from physmorph.pipeline import runner
@@ -113,6 +124,9 @@ def main():
     source_bytes=source.read_bytes();metadata=json.loads(source_bytes)
     config=metadata['arms']['render_full_dt_iso_nn']['config']
     require(config['animations']==300 and config['T']==20 and config['archive_stride']==1,'Unexpected horizon')
+    if args.arm == 'raw-no-layer':
+        require(config.get('layer_ctrl') and config.get('layer_relax'),
+                'P320 requires both original layer paths to be active')
     require(not any(config.get(k,False) for k in ('settle_pin_follow','settle_pin_yield','settle_pin_kkt',
                                                   'surface_gs_loss','render_F_geom','local_dress_iters')),
             'Uncovered release/render policy')
@@ -122,6 +136,9 @@ def main():
                  'scripts/probes/coverage_paths.py','scripts/ops/run_p303_probe.sh',
                  'scripts/ops/cuda_python.py','docs/full_horizon_p316.md'):
         code[str(code_root/name)]=sha(code_root/name)
+    if args.arm == 'raw-no-layer':
+        contract=code_root/'docs/layer_ablation_p320.md'
+        code[str(contract)]=sha(contract)
     inputs={str(source):sha256(source_bytes).hexdigest()}
     for name in ('source_render_full_dt_iso_nn.npz','target_reference.npz'):
         path=source.parent/name;inputs[str(path)]=sha(path)
@@ -130,7 +147,7 @@ def main():
     require(all(sha(Path(k))==v for k,v in inputs.items()),'Input changed before launch')
     cli=['gpu_pipeline.py','--root',str(args.root),'--windows','300','--iters','8',
          '--archive','--motion-accounting','--outer-render-committed','--no-shift-sub',
-         '--commit-pic-objective' if args.arm=='baseline' else '--no-commit-pic','--out',str(args.out)]
+         *arm_arguments(args.arm),'--out',str(args.out)]
     protocol=dict(start_utc=datetime.now(timezone.utc).isoformat(),arm=args.arm,inputs=inputs,code=code,
                   cli=cli,source_config=config,mpm=metadata['provenance']['mpm'],
                   scope='Ordinary configured-horizon stopping diagnostic; no repaired-state adoption',

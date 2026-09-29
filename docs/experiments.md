@@ -9389,5 +9389,17 @@ cases and1 actual CUDA case (632e1f6), including odd width and clipping. Both
 completed P316 archives are being observed at every accepted phase with separate
 same-time raw/promoted endpoints:841/589 observations,24views,128/256pixels,
 target2-native-spacing coverage and retained packed masks. These finite-view
-observations are not a3D watertightness or4K certificate. Full results pending;
-`docs/horizon_shape_p319.md` records the fixed scope and storage headroom.
+observations are not a3D watertightness or4K certificate.
+
+Both full observers subsequently completed. Independent CUDA verification passes
+13026 baseline/9246 raw checks, including all stored bit reductions and direct
+source reprojection at7 selected states per arm (all exact). Bound FP64 brute
+coverage checks also pass; every nearest-distance query is not regenerated.
+N300k,T20,dt1/240,dx.3062907543956724wu,loss36^3,iters8. At256pixels,728/801
+baseline and419/561 raw archived positions contain projected holes; own peak
+single-view counts209/307 are at frames177/176. Different run lengths preclude
+a paired aggregate comparison. Same-time baseline raw/promoted endpoint coverage
+increases106..755 target IDs (median140.5), but projected holes can increase or
+decrease. Removal of PIC remains insufficient. No physical or4K promotion.
+`docs/horizon_shape_p319.md` and `docs/evidence/p319` retain results/audit limits.
+Project data observed44.17GB, below100GB; no cleanup performed.

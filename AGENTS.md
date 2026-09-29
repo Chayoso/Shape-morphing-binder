@@ -272,3 +272,7 @@ These are the leading candidates for the unresolved problems, and they are ports
   P319 (`docs/horizon_shape_p319.md`) observes all accepted archived phases and
   separate same-time raw xT,24-view128/256 masks and target coverage. It is not
   a3D watertightness/4K certificate or a renderer/physics policy change.
+  Both full observers and bounded independent CUDA audits now pass (841/589
+  labelled samples,13026/9246 checks,7 source states reprojected per arm).
+  Intermediate projected holes remain; PIC improves same-endpoint coverage but
+  can either add or remove projected holes. See retained P319 evidence and limits.

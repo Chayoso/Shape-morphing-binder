@@ -42,6 +42,8 @@ def main():
     parser.add_argument('--geometric-rest', action='store_true', help='Arrived-free terminal geometric-rest diagnostic')
     parser.add_argument('--geometric-variance', action='store_true', help='Saved positional-path temporal variance diagnostic')
     parser.add_argument('--no-shift-sub', action='store_true', help='Disable the external subgrid position shift')
+    parser.add_argument('--no-layer-projection', action='store_true',
+                        help='P320: disable both layer u and layer relaxation; retain stress/body/bonds')
     parser.add_argument('--out', required=True)
     parser.add_argument('--trace_seconds', type=int, default=0)
     parser.add_argument('--surface-gs-weight', type=float, default=None,
@@ -105,6 +107,11 @@ def main():
     config['geometric_variance'] = args.geometric_variance
     if args.no_shift_sub:
         config['shift_sub'] = False
+    if args.no_layer_projection:
+        if not args.no_commit_pic or not args.no_shift_sub:
+            parser.error('--no-layer-projection requires --no-commit-pic and --no-shift-sub')
+        config['layer_ctrl'] = False
+        config['layer_relax'] = False
     if args.taper_sp is not None:
         if not np.isfinite(args.taper_sp) or args.taper_sp < 0:
             parser.error('--taper-sp must be finite and nonnegative')

@@ -243,7 +243,7 @@ def analyze(prefix):
                 previous_position_hash = array_digest(positions_host[-1])
             values = window_motion(x, obs['optimizer_raw_endpoint'], obs['plan'], radius,
                 obs['start_arrived'], pin_before, obs['optimizer_terminal_speed_squared'], record['mpm']['dt'], spacing)
-            if protocol['arm'] == 'raw':
+            if protocol['arm'] in ('raw', 'raw-no-layer'):
                 require(bool((values['endpoint_correction_wu'] == 0).all()), 'Raw path externally corrected')
             for name in ('path_wu', 'endpoint_correction_wu', 'adjacent_step_reversed_count', 'adjacent_step_eligible_count'):
                 totals[name] += values[name]
