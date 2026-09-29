@@ -9265,3 +9265,24 @@ combined+3.48660e-12 remains within the shared repeat ceiling at lambda.01497485
 Ordinary median render-direction share.4903952 is not causal motion attribution.
 36 focused CPU cases pass; original pipeline defaults and retained deliverables
 are unchanged. [Protocol, evidence and limits](paired_braking_p311.md).
+
+## 2026-09-28 - P312: component protection changes the render tradeoff, coverage still fails
+
+Same W20,N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8. Frozen `fb5f422`,
+20 ordinary commits/160 inner accepts, guards0, exact callback isolation.
+43,026 fixed arrived-free IDs. One original baseline triplet and one owned
+terminal05 forward/four gradients/noise threshold shared by both arms.
+Aggregate26 forwards:4 restore volume/render, none protect silhouette.
+Treatment30 forwards:5 jointly restore volume/render/silhouette. All56 fail
+original P306 raw gates;0 accepted repairs/repeats/adoptions.
+
+Treatment h9/c2 lowers stored/geometric terminal RMS29.03593%/28.72541%, step
+RMS.98667%, and original merit6.29629e-7, but loses net2/300,000 overall coverage.
+Other raw shape/supply gates pass. Silhouette/PBR decrease8.14907e-10/1.29046e-7;
+weighted render decreases2.15059e-9 at lambda.01655326075. Ordinary median
+direction share.5092476 is not causal displacement share. Render resolution
+is64 in this W20 prefix;96 is the configured later transition. Not4K evidence.
+34 focused CPU cases and independent implementation/result review pass; the
+raw quality gate remains failed. [Evidence and limits](silhouette_repair_p312.md).
+Next [archive-only localization](coverage_paths_p313.md) uses saved baseline and
+common-origin paths; unsaved rejected candidate IDs cannot be inferred from it.

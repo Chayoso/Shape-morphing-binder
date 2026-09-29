@@ -5,7 +5,7 @@ base=/data/relcfd/chayo/physmorph_v2
 mode=${1:?baseline or raw or raw-off or raster or continuous or quality or phase or render-compare}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|frozen-replay-noise|frozen-state-identity) ;; *) exit 2;; esac
+case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|frozen-replay-noise|frozen-state-identity) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -36,6 +36,9 @@ set +o noclobber
 printf '%s\n' "$now" > "$base/maintenance/last_gpu_launch_epoch"
 flock -u 9
 cd "$REPO"
+if [[ "$mode" == coverage-paths ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/coverage_paths.py --out "$out"
+fi
 if [[ "$mode" == silhouette-braking-repair ]]; then
     exec "$PY" scripts/ops/cuda_python.py scripts/probes/silhouette_braking_repair.py --out "$out"
 fi

@@ -207,7 +207,15 @@ These are the leading candidates for the unresolved problems, and they are ports
   candidates lower original merit but fail raw IoU alone. Original-merit CUDA
   closure passes all3original repeats, exact scalar recombination and callback
   isolation pass. No fixed-candidate repeat or adoption. See
-  `docs/paired_braking_p311.md`. `docs/silhouette_repair_p312.md` proposes a
-  matched two-plane versus extra-silhouette constraint test. Its reviewed design
-  also shares one owned terminal05 origin/linearization/noise threshold across
-  both arms; no implementation or launch yet. No quality promotion follows.
+  `docs/paired_braking_p311.md`. No quality promotion follows.
+- **P312 status:** matched aggregate/silhouette repair is implemented and tested
+  (34 CPU cases, independent code/result review). It shares one immutable
+  original baseline and terminal05 origin/linearization/noise threshold.
+  All56 forwards fail original raw gates;4 aggregate and5 treatment candidates
+  restore their full prepared constraints. No accepted repair or candidate
+  replay. Treatment h9/c2 fails overall coverage by net2/300000 despite improved
+  silhouette/PBR/merit. Rejected candidate arrays are not saved; do not claim
+  their exact lost target IDs from another forward. `docs/coverage_paths_p313.md`
+  preregisters archive-only CUDA localization of the SAVED baseline triplet and
+  actual common terminal05 origin. Net deficits are not lost-ID counts. W20
+  rendering used18 views at64 pixels;96 is only the later configured C2F size.

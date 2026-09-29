@@ -1,7 +1,8 @@
 # P312: matched test of an additional prepared-silhouette constraint
 
-Status: diagnostic implemented;34 focused CPU cases and independent
-implementation review pass. Not launched. P311 rejects both terminal strengths; no candidate
+Status: completed and rejected on CUDA (`silhouette_repair1`, frozen `fb5f422`).
+The 34 focused CPU cases and independent implementation/result reviews pass;
+neither arm passes the unchanged raw quality gates. P311 rejects both terminal strengths; no candidate
 is committed. Its six data-restored candidates all lower running motion and
 original merit, but fail raw silIoU while prepared silhouette worsens and PBR
 improves. This motivates testing the component tradeoff, not declaring it causal.
@@ -99,3 +100,49 @@ control space was unaffected, and the added regression passes. The initial
 small-cloud observer fixture correctly rejected an empty bunny-specific upper
 cohort (NaN); its explicitly scoped quality-only test stub was then independently
 retested. Production finite-data rejection was never loosened.
+
+## CUDA result
+
+The discretisation above is unchanged. The ordinary prefix commits20 windows
+with160 accepted inner updates; all guards are zero and exact post-callback
+production isolation passes. The fixed cohorts contain43,315 free particles,
+of which43,026 were coarsely arrived at window start. All three original-merit
+closures pass (largest ratio.0285203 against the existing32-epsilon allowance).
+
+The aggregate arm evaluates26 forwards, restores original volume/combined-render
+data in4, but passes the extra silhouette ceiling in0. The silhouette arm
+evaluates30 forwards, restores original data in10 and passes the silhouette
+ceiling in10; their intersection is5, not10. Every evaluated candidate fails
+an original P306 raw gate. Both arms accept0 updates and execute0 fixed-candidate
+repeats. No state, renderer, pin or stopping policy is promoted.
+
+At the shared h7/c1 search index, aggregate silhouette increases1.45053e-7 while
+PBR decreases1.46625e-7; combined render decreases1.62981e-9. The treatment
+keeps silhouette unchanged and decreases PBR1.59664e-7 and combined
+render1.59722e-7. Both still lose net3/15,312 upper target coverage and
+net5/300,000 overall coverage. Thus protecting the prepared component changes
+this tradeoff without restoring those raw coverage gates.
+
+Treatment h9/c2 passes all three prepared constraints and fails only overall
+target coverage: net loss2/300,000 relative to original repeat0. Its stored and
+geometric terminal RMS decrease29.03593% and28.72541%; saved-step RMS decreases
+.98667%, net RMS .89112%, and path mean2.54346%. Original merit decreases
+6.29629e-7. Raw IoU, upper coverage and tip count match repeat0; fixed source
+upper density increases1.86234e-5. These numbers do not identify which target
+IDs lose or gain support. Rejected trial arrays were not saved; do not claim to
+recover this candidate's exact lost IDs from a rerollout.
+
+At lambda.01655326075, h9/c2 silhouette decreases8.14907e-10, PBR1.29046e-7,
+combined render1.29919e-7, and weighted render2.15059e-9. The ordinary run's
+median render direction share is.5092476 and median lambda.0674917. Direction
+norm share is not causal displacement share. Prepared rendering uses18 views
+at64 pixels in this prefix (96 is configured for the later C2F transition),
+not the4K export raster; no4K appearance claim follows.
+
+Evidence is in `evidence/p312/`: complete scalar report/protocol, all three
+linearization NPZs, reproducible scalar audit and checksums. Independent review
+matches70 core and7 helper source hashes, exact shared row identities/bounds,
+all trial transitions and separate raw/component/merit decisions. This is a
+failure-report gate, not raw-position remeasurement or production acceptance.
+The saved baseline triplet and actual shared terminal05 origin permit the
+archive-only geometry localization in `coverage_paths_p313.md`.

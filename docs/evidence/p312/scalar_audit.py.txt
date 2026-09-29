@@ -1,0 +1,192 @@
+"""P312 scalar and common-linearization audit; no simulation or image metrics."""
+import hashlib
+import json
+import math
+from pathlib import Path
+import sys
+import numpy as np
+
+p = Path(sys.argv[1])
+report = json.loads(p.read_text(encoding='utf-8'))
+json.dumps(report,allow_nan=False)
+protocol = p.with_name(p.stem+'_protocol.json')
+assert hashlib.sha256(protocol.read_bytes()).hexdigest()==report['protocol_sha256']
+ext = report['extension']
+base = ext['baseline']['rows']
+assert len(base)==3 and all(r['valid'] for r in base)
+reference = base[0]
+assert ext['arm_order']==['aggregate','silhouette']
+assert set(ext['arms'])==set(ext['arm_order'])
+assert not any(report['guards'].values()) and ext['production_state_after_callback_exact'] is True
+assert ext['baseline']['ceilings']=={k:max(r['data'][k] for r in base) for k in ('volume','render')}
+assert ext['baseline']['merit_ceiling']==max(r['original_merit']['merit'] for r in base)
+sil_ceiling = max(r['data']['silhouette'] for r in base)
+assert ext['baseline']['silhouette_ceiling']==sil_ceiling
+origin = ext['origin']
+assert origin['baseline_sha256']==ext['baseline']['package_sha256']
+assert origin['context_sha256']==ext['baseline']['context_sha256']
+assert origin['keys']==['volume','render','silhouette'] and len(origin['running_repeats'])==3
+assert origin['noise']==max(origin['running_repeats'])-min(origin['running_repeats'])
+assert origin['threshold']==10*max(origin['noise'],32*2**-23*origin['running'])
+folder = p.parent/(p.stem+'_linearization')
+for name in ('origin','aggregate','silhouette'):
+    assert hashlib.sha256((folder/(name+'.npz')).read_bytes()).hexdigest()==ext['sidecars'][name+'/linearization1.npz']
+with np.load(folder/'origin.npz',allow_pickle=False) as archive:
+    original = {k:archive[k] for k in archive.files}
+for key,array in dict(displacement=original['displacement'],terminal=original['terminal'],
+        data=original['origin_data'],gradient_running=original['running_gradient'],
+        **{'gradient_'+k:original['data_gradients'][i] for i,k in enumerate(origin['keys'])}).items():
+    meta = origin['arrays'][key]
+    assert np.isfinite(array).all()
+    assert list(array.shape)==meta['shape'] and str(array.dtype)==meta['dtype']
+    assert hashlib.sha256(np.ascontiguousarray(array).tobytes()).hexdigest()==meta['sha256']
+ceilings3 = np.array([ext['baseline']['ceilings'][k] for k in ('volume','render')]+[sil_ceiling])
+np.testing.assert_array_equal(original['bounds'],ceilings3-original['origin_data'])
+np.testing.assert_array_equal(original['origin_data'],[origin['terminal_record']['data'][k] for k in origin['keys']])
+assert origin['terminal_record']['running']==origin['running']
+assert origin['trust']==report['original_history']['body_update_modes_rms'][0]>0
+for row in base:
+    expected = report['original_history']['loss']
+    ratio = abs(row['original_merit']['merit']-expected)/(32*2**-23*max(abs(expected),1e-12))
+    assert ratio<=1 and ratio==row['accepted_closure']['original_merit']
+print(json.dumps(dict(N=report['N'],T=report['T'],dt=report['mpm']['dt'],
+    dx=report['mpm']['dx'],loss_res=report['loss_res'],lambda_render=report['lambda_render'],
+    guards=report['guards'],isolation=ext['production_state_after_callback_exact'],
+    cohorts=reference['motion'],merit_ceiling=ext['baseline']['merit_ceiling'],
+    baseline_closures=[r['accepted_closure'] for r in base],
+    render_direction=report['render_influence']['step_nominal_share'],
+    adaptive_lambda=report['render_influence']['adaptive_lambda'],
+    origin={k:origin[k] for k in ('running','noise','threshold','trust')}),indent=2))
+
+def assess(row):
+    if not row.get('valid'): return ['invalid']
+    failed = []
+    for k in ('volume','render'):
+        if row['data'][k]>max(r['data'][k] for r in base): failed.append(k)
+    for k in ('sil_iou','upper_target_near_frac','target_near_frac','tip_n','fixed_source_upper_density'):
+        if row['geometry'][k]<min(r['geometry'][k] for r in base): failed.append(k)
+    if row['geometry']['chamfer']>max(r['geometry']['chamfer'] for r in base): failed.append('chamfer')
+    for cohort in ('start_free','start_arrived_free'):
+        for k in ('net_rms_sp','step_rms_sp','path_mean_sp'):
+            if row['motion'][cohort][k]>max(r['motion'][cohort][k] for r in base): failed.append(cohort+'_'+k)
+    for k in ('physical_terminal_rms_wu_s','geometric_terminal_rms_wu_s'):
+        speeds = [r['motion']['start_arrived_free'][k] for r in base]
+        threshold = 10*max(max(speeds)-min(speeds),32*2**-23*max(speeds))
+        if min(speeds)-row['motion']['start_arrived_free'][k]<=threshold: failed.append(k)
+    return failed
+
+def detail(row):
+    def percent(value,original):
+        return 100*(value/original-1) if original else None
+    return dict(label=row['label'],failed=assess(row),merit_nonincrease=row.get('original_merit_nonincrease'),
+        merit_delta=row['original_merit']['merit']-reference['original_merit']['merit'],
+        merit_history_delta=row.get('accepted_history_merit_delta'),
+        original_merit=row['original_merit'],
+        data_delta={k:row['data'][k]-reference['data'][k] for k in reference['data']},
+        geometry_delta={k:row['geometry'][k]-reference['geometry'][k] for k in reference['geometry']},
+        arrived_motion_percent={k:percent(v,reference['motion']['start_arrived_free'][k])
+            for k,v in row['motion']['start_arrived_free'].items() if k!='particles'},
+        running_percent=percent(row['running'],reference['running']))
+
+for label,arm in ext['arms'].items():
+    protect = label=='silhouette'
+    assert arm['protect_silhouette']==protect and arm['silhouette_ceiling']==sil_ceiling
+    assert arm['shared_origin_sha256']==origin['package_sha256']
+    assert arm['running_replay_noise']==origin['noise']
+    expected_terminal = dict(origin['terminal_record'],
+        silhouette_ceiling_passed=origin['terminal_record']['data']['silhouette']<=sil_ceiling)
+    assert arm['rows'][3]==dict(expected_terminal,**{k:v for k,v in arm['rows'][3].items()
+        if k in ('checks','nominal_feasible','resolved_braking','feasible')})
+    count = 3 if protect else 2
+    with np.load(folder/(label+'.npz'),allow_pickle=False) as archive:
+        for k in ('displacement','terminal','running_gradient'):
+            np.testing.assert_array_equal(archive[k],original[k])
+        np.testing.assert_array_equal(archive['data_gradients'],original['data_gradients'][:count])
+        np.testing.assert_array_equal(archive['origin_data'],original['origin_data'][:count])
+        np.testing.assert_array_equal(archive['bounds'],original['bounds'][:count])
+    assert arm['rows'][:3]==base
+    assert arm['data_ceilings']==ext['baseline']['ceilings']
+    assert arm['original_merit_ceiling']==ext['baseline']['merit_ceiling']
+    assert arm['shared_baseline_sha256']==ext['baseline']['package_sha256']
+    assert arm['shared_context_before_after_exact']
+    valid = [r for r in arm['trials'] if r.get('valid')]
+    assert len(valid)<=33 and len(arm['trials'])<=33
+    previous = None
+    for row in arm['trials']:
+        h,c = row['halvings'],row['correction']
+        assert row['iteration']==1 and 0<=h<=10 and 0<=c<=2
+        if previous is None: assert (h,c)==(0,0)
+        elif h==previous['halvings']:
+            assert c==previous['correction']+1 and previous.get('valid') and not previous['data_constraints_restored']
+        else:
+            assert h==previous['halvings']+1 and c==0
+        remainder = row['model_remainder_used']
+        assert remainder==([0.]*count if c==0 else previous['observed_model_remainder'])
+        np.testing.assert_array_equal(row['shifted_bounds'],original['bounds'][:count]-remainder)
+        if row['linear']['status']=='linear_candidate':
+            radius = origin['trust']*(.5**h)*math.sqrt(len(original['displacement']))
+            assert row['linear']['radius']==radius
+            for key in ('projected_affine','original_projected_affine'):
+                check = row[key]
+                assert check['passed']==all(a<=b for a,b in zip(check['residual'],check['tolerance']))
+            assert row['trust_pass']==(row['projected_step_norm']<=radius+row['trust_roundoff'])
+            assert row['trust_roundoff']>=0
+        if 'valid' in row:
+            assert row['projected_affine']['passed'] and row['trust_pass']
+            assert row['terminal_coefficients_exact']
+            if row['valid']: assert row['pins_exact']
+        previous = row
+    allgate = [r['label'] for r in valid if not assess(r)]
+    fullsearch = [r['label'] for r in valid if not assess(r) and r['running_improvement']>r['reduction_threshold']
+        and (not protect or r['data']['silhouette']<=sil_ceiling)]
+    for row in valid:
+        assert row['running_origin']==origin['running'] and row['reduction_threshold']==origin['threshold']
+        assert row['running_improvement']==origin['running']-row['running']
+        data_pass = all(row['data'][k]<=arm['data_ceilings'][k] for k in ('volume','render'))
+        assert row['data_restored']==data_pass
+        assert row['data_constraints_restored']==(data_pass and (not protect or row['data']['silhouette']<=sil_ceiling))
+    chosen = [r for r in valid if r['running_update_accepted']]
+    assert len(chosen)==arm['accepted_running_updates']<=1
+    assert [r['label'] for r in chosen]==fullsearch
+    if chosen:
+        assert arm['trials'][-1]['label']==chosen[0]['label'] and len(arm['rows'])==5
+        def selected_fields(row):
+            return {k:v for k,v in row.items() if k not in ('label','fixed_candidate_replay_checked')}
+        assert selected_fields(arm['rows'][-1])==selected_fields(chosen[0])
+    else:
+        assert arm['trials'][-1]['halvings']==10 and len(arm['rows'])==4
+    replay = arm['fixed_candidate_replays']
+    assert len(replay)==(3 if chosen else 0)
+    replay_passed = []
+    if chosen:
+        current = origin['running'];threshold = origin['threshold']
+        for row in replay:
+            resolved = row['running'] is not None and current-row['running']>threshold
+            assert row['running_decrease_resolved']==resolved
+            replay_passed.append(not assess(row) and resolved and
+                (not protect or row['valid'] and row['data']['silhouette']<=sil_ceiling))
+    assert arm['repeated_feasible']==(len(replay)==3 and all(replay_passed))
+    records = arm['rows']+valid+arm['fixed_candidate_replays']
+    for row in records:
+        if 'silhouette_ceiling_passed' in row:
+            assert row['silhouette_ceiling_passed']==bool(row.get('valid') and row['data']['silhouette']<=sil_ceiling)
+        if 'full_search_passed' in row:
+            resolved = row.get('running') is not None and origin['running']-row['running']>origin['threshold']
+            assert row['full_search_passed']==(not assess(row) and resolved and
+                (not protect or row['valid'] and row['data']['silhouette']<=sil_ceiling))
+        if not row.get('valid'): continue
+        m = row['original_merit']
+        assert m['lambda_render']==report['lambda_render']
+        assert m['merit']==m['physical']+m['lambda_render']*m['render']
+        if 'original_merit_nonincrease' in row:
+            assert row['original_merit_nonincrease']==(m['merit']<=arm['original_merit_ceiling'])
+        if 'feasible' in row: assert row['feasible']==(not assess(row))
+    print(json.dumps(dict(arm=label,search_records=len(arm['trials']),valid_forwards=len(valid),
+        accepted=arm['accepted_running_updates'],noise=arm['running_replay_noise'],
+        retrospectively_P306_passing=allgate,full_search_feasible=fullsearch,
+        repeated_feasible=arm['repeated_feasible'],
+        merit_passing_trials=sum(r['original_merit_nonincrease'] for r in valid),
+        silhouette_passing_trials=sum(r['silhouette_ceiling_passed'] for r in valid),
+        selected=[detail(r) for r in arm['rows'][3:] if r.get('valid')],
+        data_restored=[detail(r) for r in valid if r.get('data_restored')],
+        repeats=[detail(r) for r in arm['fixed_candidate_replays'] if r.get('valid')]),indent=2))
