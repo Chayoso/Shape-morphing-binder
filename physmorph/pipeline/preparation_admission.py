@@ -126,7 +126,7 @@ def preview_active_admission(history, x_start, x_accepted, plan_img, pace_r,
             or state['reversals'].dtype != np.dtype(np.int32) or state['settled_at'].dtype != np.dtype(np.int32)
             or (state['reversals'] < 0).any()):
         raise ValueError('Current history dtype or numerical values invalid')
-    if (not np.isin(state['pins'], [0, 1]).all()
+    if (not ((state['pins'] == 0) | (state['pins'] == 1)).all()
             or not np.array_equal(state['settled'], state['pins'] > .5)
             or state['frozen'].any()):
         raise ValueError('Current settled/pin state is inconsistent or contains frozen particles')

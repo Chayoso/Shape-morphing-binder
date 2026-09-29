@@ -154,6 +154,15 @@ These are the leading candidates for the unresolved problems, and they are ports
   reuse. Use shared CURRENT runner/preparation state and verify original-head
   identity against the actual next window before further candidate claims.
   No changed candidate, natural-rest/hole or4K improvement has been adopted.
+- **P337 current preparation:** `docs/current_successor_preparation_p337.md`
+  shares ordinary layer/bond/reversal/ray preparation and owns current runner
+  history. The opt-in original-head preview never borrows successor material or
+  pin IDs.87 independent CPU cases and26 diagnostic-driver cases pass. CUDA1
+  exposes a constant-topology download and a CuPy list-argument incompatibility;
+  fixes retain the same download guards and require a fresh CUDA gate. Native
+  comparison is original-only, both actual commits/full passive coasts required.
+  The neutralized u gate is valid only for zero-u, layer_F-off passive scope;
+  this is neither next-control preparation nor natural-rest/quality adoption.
 - **P335 prepared-successor adapter:** `docs/post_assimilation_window_p335.md`
   additionally records fresh FP64-internal/FP32-state native2 on504ea6a:
   N300k/T20/dt1/240/dx.3062907544/grid36^3,iters8,21commits/168updates,

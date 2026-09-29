@@ -9,6 +9,9 @@ from ..mpm.state import MPMParams
 from .config import disc_ref_factor
 
 
+_CONNECTIVITY_26 = (((1, 1, 1),) * 3,) * 3  # Fixed topology, not device state.
+
+
 def fragment_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
     """True where the particle's occupied grid cell belongs to a connected component
     (26-connectivity) of occupied cells that is NOT the largest one: material that has
@@ -25,7 +28,9 @@ def fragment_mask(x: np.ndarray, prm: MPMParams) -> np.ndarray:
     # occupancy dilated by one cell (a thin feature with a one-cell occupancy gap is still one
     # body; v4 on the raw occupancy flagged a 732-particle dragon spine as a fragment)
     occ_d = ndimage.binary_dilation(occ, structure=np.ones((3, 3, 3), bool))
-    lab, n = ndimage.label(occ_d, structure=np.ones((3, 3, 3), int))
+    # CuPy label parses topology on the host; a device-created constant would
+    # cause an unnecessary array download. Occupancy and labels stay on device.
+    lab, n = ndimage.label(occ_d, structure=_CONNECTIVITY_26)
     if n <= 1:
         return np.zeros(len(x), bool)
     sizes = np.bincount(lab.ravel())

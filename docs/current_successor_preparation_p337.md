@@ -31,12 +31,28 @@ the declared2e-7 Fp comparison; u gates are separately excluded. This small test
 does not replace the planned native or CUDA gates. The N54/T20/dt.002/dx.5/grid16^3
 component test also exercises one newly admitted pin and post-close ownership.
 
+Frozen7710fdc actual hyde06 CUDA1 runs all six bounded cases: four pass and two
+fail in5.37s. The download guard catches a device-created constant26-connectivity
+structure copied to CPU inside CuPy label; the occupancy itself is not downloaded.
+The second failure is CuPy isin's incompatibility with a Python test-value list.
+Use an immutable host topology tuple and explicit binary comparisons, respectively;
+the same array-download guards remain in force.37 CPU cases pass after these
+corrections. Retain CUDA1 as failed evidence; a fresh CUDA run is still required.
+
 For the initial identity experiment, return the original head unchanged and
 let the ordinary runner commit and prepare the next window. Compare predicted
 pin IDs/history, fixed materials, boundary x/v/C/F/Fp, layer geometry, refreshed
 bonds and the complete passive coast against the actual successor. Report
 newly imposed pins separately from surviving-free motion. The current merit
 lease is never retained or revived after selection.
+
+The original-only native driver passes26 independent CPU cases. It saves the
+live W20 preview, actual W21 prepared inputs and current history, then compares
+both complete passive coasts after the ordinary runner returns. Both original
+archive paths and outer commits must pass independently; no control is changed.
+The driver owns current discretization in incremental rendering receipts and
+preserves available observations on failure. Output is bounded to8GB within
+the existing100GB project limit.
 
 Passive control is zero. With layer_F disabled, the u gate has no numerical
 effect; any omitted next-window OT gate must be explicitly identified and
