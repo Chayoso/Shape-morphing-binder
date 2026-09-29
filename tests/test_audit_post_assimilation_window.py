@@ -48,6 +48,71 @@ def test_exact_protocol_accepts_and_failure_can_remain_partial(tmp_path):
     assert audit.checks[-2]['passed'] is False and audit.checks[-1]['passed'] is True
 
 
+@pytest.mark.parametrize('declared,expected',[(True,False),(False,True),
+    ('missing',True),(None,False),(0,False),(1,True),('true',True)])
+def test_precision_must_match_explicit_auditor_expectation(tmp_path,declared,expected):
+    protocol,result,code,root=protocol_fixture(tmp_path)
+    if declared!='missing':protocol['effective_config']['assim_fp64']=declared
+    with pytest.raises(AssertionError,match='expected_assimilation_precision'):
+        audit.validate_protocol(protocol,result,code,root,expected_assim_fp64=expected)
+
+
+@pytest.mark.parametrize('expected',[False,True])
+def test_explicit_precision_contract_accepts_only_matching_boolean(tmp_path,expected):
+    protocol,result,code,root=protocol_fixture(tmp_path)
+    protocol['effective_config']['assim_fp64']=expected
+    before=deepcopy(protocol)
+    audit.validate_protocol(protocol,result,code,root,expected_assim_fp64=expected)
+    expanded=dict(protocol['effective_config'],stop_after_windows=300,assim_fp64=False)
+    audit.validate_recipe_override(expanded,protocol['mpm'],protocol['effective_config'],
+        protocol['mpm'],expected_assim_fp64=expected)
+    assert protocol==before and expanded['stop_after_windows']==300 and expanded['assim_fp64'] is False
+
+
+def test_actual_legacy_protocol_survives_current_default_expansion():
+    from dataclasses import asdict
+    from physmorph.pipeline.config import PipelineConfig
+    path=Path(__file__).resolve().parents[1]/'docs/evidence/p335/p335_native1.protocol.json'
+    protocol=json.loads(path.read_bytes())
+    cfg=protocol['effective_config'];before=deepcopy(cfg)
+    assert 'assim_fp64' not in cfg
+    expanded=json.loads(json.dumps(asdict(PipelineConfig(**cfg))))
+    assert expanded['assim_fp64'] is False
+    audit.validate_recipe_override(expanded,protocol['mpm'],cfg,protocol['mpm'])
+    assert cfg==before
+
+
+@pytest.mark.parametrize('change',['other_value','missing_other','extra','mpm','source_precision'])
+def test_precision_override_does_not_relax_other_recipe_fields(tmp_path,change):
+    protocol,_,_,_=protocol_fixture(tmp_path)
+    cfg=dict(protocol['effective_config'],assim_fp64=True)
+    expanded=dict(cfg,stop_after_windows=300,assim_fp64=False);prm=dict(protocol['mpm'])
+    if change=='other_value':cfg['lambda_auto']=.75
+    elif change=='missing_other':del cfg['body_terminal_ctrl']
+    elif change=='extra':cfg['unregistered']=False
+    elif change=='mpm':prm['dt']*=2
+    else:expanded['assim_fp64']=True
+    with pytest.raises(AssertionError):
+        audit.validate_recipe_override(expanded,protocol['mpm'],cfg,prm,expected_assim_fp64=True)
+
+
+@pytest.mark.parametrize('enabled',[False,True])
+def test_cli_precision_expectation_is_external_and_recorded(tmp_path,monkeypatch,enabled):
+    import sys
+    monkeypatch.setattr(audit,'BASE',tmp_path)
+    out=tmp_path/'audit.json';seen=[]
+    def metadata_only(args):
+        seen.append(args.expected_assim_fp64)
+        return {'passed':True}
+    monkeypatch.setattr(audit,'audit',metadata_only)
+    argv=['audit','--source',str(tmp_path/'code'),'--run',str(tmp_path/'run'),
+          '--expected-version','test','--out',str(out)]
+    if enabled:argv.append('--expected-assim-fp64')
+    monkeypatch.setattr(sys,'argv',argv)
+    audit.main()
+    assert seen==[enabled] and json.loads(out.read_bytes())['expected_assim_fp64'] is enabled
+
+
 @pytest.mark.parametrize('device',['cuda','cuda:0'])
 def test_declared_logical_cuda_aliases_accept_same_actual_device(tmp_path,device):
     protocol,result,code,root=protocol_fixture(tmp_path)

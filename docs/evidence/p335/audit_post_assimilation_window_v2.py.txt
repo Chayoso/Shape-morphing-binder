@@ -167,13 +167,9 @@ def cuda_zero_alias(device):
     return isinstance(device,str) and device in ('cuda','cuda:0')
 
 
-def validate_protocol(protocol, result, code, root=BASE, *, expected_assim_fp64=False):
+def validate_protocol(protocol, result, code, root=BASE):
     """Metadata-only contract; no production validator or optimizer is imported."""
     cfg, prm = protocol['effective_config'], protocol['mpm']
-    check('expected_assimilation_precision', type(expected_assim_fp64) is bool and
-          cfg.get('assim_fp64', False) is expected_assim_fp64,
-          expected=expected_assim_fp64, declared=cfg.get('assim_fp64'),
-          legacy_default_used='assim_fp64' not in cfg)
     required = {str(p) for p in (code/'physmorph').rglob('*.py')}
     required.update(str(code/p) for p in EXTRAS)
     required.update((str(root/'work/p303/raw24a.json'),
@@ -194,20 +190,6 @@ def validate_protocol(protocol, result, code, root=BASE, *, expected_assim_fp64=
                                   'use_gauss_loss', 'surface_gs_loss', 'continuity', 'settle_pin_kkt')))
     check('declared_archives_only', set(result.get('files', {})) <= set(ARCHIVES))
     return cfg, prm
-
-
-def validate_recipe_override(expanded, source_mpm, cfg, prm, *, expected_assim_fp64=False):
-    """Only cap21 and the caller-requested precision may differ from raw24a."""
-    source, actual = dict(expanded), dict(cfg)
-    # The historical recipe/protocol predates this field. Normalize only its
-    # explicit False default, without expanding away other missing fields.
-    source.setdefault('assim_fp64', False)
-    actual.setdefault('assim_fp64', False)
-    check('raw_recipe_default_precision', source['assim_fp64'] is False)
-    check('recipe_precision_contract', type(expected_assim_fp64) is bool and
-          actual['assim_fp64'] is expected_assim_fp64)
-    expected = dict(source, stop_after_windows=21, assim_fp64=expected_assim_fp64)
-    check('sole_registered_recipe_overrides', actual == expected and source_mpm == prm)
 
 
 def decode_owner(archive, upload):
@@ -586,7 +568,7 @@ def audit(args):
     for name in sorted(existing):bind(run/name)
     protocol=read_json(run/'protocol.json')
     result=read_json(run/'result.json') if 'result.json' in existing else read_json(run/'failure.json')
-    cfg,prm=validate_protocol(protocol,result,code,expected_assim_fp64=args.expected_assim_fp64)
+    cfg,prm=validate_protocol(protocol,result,code)
     for path,value in protocol['bindings'].items():bind(path,value)
     for name in ('hyde06_env.sh','gpu_env.sh','cuda_python.py'):bind(code/'scripts/ops'/name)
     for suffix in ('.log','.start'):bind(run.with_suffix(suffix))
@@ -603,8 +585,7 @@ def audit(args):
     check('imported_producer_source',Path(physmorph.__file__).resolve().parent.parent==code)
     metadata=read_json(BASE/'work/p303/raw24a.json')
     expanded=json.loads(json.dumps(asdict(PipelineConfig(**metadata['config']))))
-    validate_recipe_override(expanded,metadata['mpm'],cfg,prm,
-                             expected_assim_fp64=args.expected_assim_fp64)
+    check('sole_cap_override',dict(expanded,stop_after_windows=21)==cfg and metadata['mpm']==prm)
     log_path=run.with_suffix('.log');log_bytes=log_path.read_bytes()
     check('parsed_log_bytes',hashlib.sha256(log_bytes).hexdigest()==bindings[str(log_path)]['sha256'])
     resolver=[line for line in log_bytes.decode('utf-8').splitlines() if line.startswith('[v2] phys_loss auto:')]
@@ -665,8 +646,6 @@ def main():
     parser.add_argument('--source','--code',dest='code',type=Path,required=True)
     parser.add_argument('--run',type=Path,required=True)
     parser.add_argument('--expected-version',required=True)
-    parser.add_argument('--expected-assim-fp64',action='store_true',
-                        help='Require the explicit FP64-arithmetic assimilation recipe; default requires legacy precision.')
     parser.add_argument('--out',type=Path,required=True)
     parser.add_argument('--launcher',type=Path)
     args=parser.parse_args()
@@ -684,7 +663,6 @@ def main():
         report.update(passed=False,binding_error=dict(type=type(exc).__name__,message=str(exc)))
     report['passed']=bool(report['passed'] and all(row['passed'] for row in checks))
     report.update(completed_utc=datetime.now(timezone.utc).isoformat(),elapsed_seconds=time.perf_counter()-started,
-        expected_assim_fp64=args.expected_assim_fp64,
         checks=checks,check_count=len(checks),bindings=bindings,observations=observations,
         environment={k:os.environ.get(k) for k in ('CUDA_VISIBLE_DEVICES','WARP_CACHE_PATH','CUPY_CACHE_DIR',
                                                   'CUDA_CACHE_PATH','PHYSMORPH_RUN_REPO')})
@@ -695,3 +673,4 @@ def main():
 
 
 if __name__=='__main__':main()
+

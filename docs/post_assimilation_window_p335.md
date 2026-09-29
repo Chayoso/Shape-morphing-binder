@@ -274,3 +274,18 @@ The head replay's few-ulp difference is consistent with FP32 atomic reduction
 ordering in separate trajectory allocations, but the first divergent reduction
 and equality of all discrete masks have not been measured. No visible jitter,
 hole, natural-rest or Gaussian footprint improvement follows from this test.
+
+Frozen504ea6a passes87 core CPU cases and81 integrated CPU cases. The actual
+hyde06 `p335_cuda4` gate passes13 cases,0skips,9.620s at N27/T20/dt.002/dx.5,
+grid16^3: six adapter cases in each precision mode plus the existing conditional
+pin-collider reference. Sampled process/device peaks are1422/1446MiB. Independent
+audit matches all97 bound source files to Git blobs exactly and verifies the
+five result artifacts, launcher,16 body-control FD rows and two collider rows.
+The fresh21-window `p335_native2` experiment uses this same frozen source with
+`--assim-fp64`; no native/quality pass follows from the small CUDA gate.
+
+The separate native auditor now requires an externally supplied
+`--expected-assim-fp64` for that recipe. It permits only cap21 and that requested
+precision override versus raw24a; a producer declaration cannot select its own
+audit contract. The legacy missing flag means False, and all other config/MPM
+fields remain exact. All54 CPU contract cases and independent review pass.

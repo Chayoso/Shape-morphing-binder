@@ -1,0 +1,119 @@
+{
+  "schema": "p335_cuda4_independent_source_artifact_audit_v1",
+  "status": "PASS_SCOPED_SMALL_CUDA_GATE",
+  "completed_utc": "2026-09-29T09:46:13.676701+00:00",
+  "source_receipt": {
+    "path": "docs/evidence/p335/p335_fp64_source_receipt.json",
+    "sha256": "8e647302d700f61356eaaef4c7c6311f98428ab86832af787f76bfc6e7cb2fd5"
+  },
+  "source": {
+    "commit": "504ea6af236424be766a98ca9742dbe24bee64ab",
+    "authoritative": "Git blob bytes from frozen commit, not workspace bytes",
+    "bound_files": 97,
+    "physmorph_files": 83,
+    "exact_git_blob_matches": 97,
+    "newline_exceptions": 0,
+    "reported_build_archive_sha256": "7243ea0026fb3ca597f2c80ed1800123c63063fca6bb9e770c864ce2dd01813c",
+    "build_archive_hash_scope": "Parent-reported; archive payload not independently inspected. Every scoped remote Python/wrapper byte hash was compared directly with authoritative Git blobs."
+  },
+  "artifacts": {
+    "log": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p335_cuda4.log",
+      "bytes": 3463,
+      "sha256": "f5c320581f52a2afd1e5ebdb0fb3e1bd63220d8dc6ca14a0287a9da7f96dc322"
+    },
+    "xml": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p335_cuda4.xml",
+      "bytes": 2231,
+      "sha256": "92342c88922b020df3f1264d331b5b94538a79d343942e36499ee9568591faf0"
+    },
+    "memory.json": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p335_cuda4.memory.json",
+      "bytes": 5136,
+      "sha256": "aafcddc7a322cc81bb17afc79fafe1de3362f9a69a95abfe501eb5c94df17156"
+    },
+    "exit": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p335_cuda4.exit",
+      "bytes": 2,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "launch.log": {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p335_cuda4.launch.log",
+      "bytes": 53,
+      "sha256": "d967e5999181ecdef05a7c4bf155142386e698293a4299c0b0606f3e78337755"
+    }
+  },
+  "launcher": {
+    "path": "/data/relcfd/chayo/physmorph_v2/work/p303/run_p335_v4.sh",
+    "bytes": 1272,
+    "sha256": "41f73257dbca3440cf6e39a1a95a481f17e4a24319bf161f3f5ab853b68729d9",
+    "independently_matched_local_path": "C:\\dev\\physmorph_runtime\\p303\\run_p335_v4.sh"
+  },
+  "pytest": {
+    "tests": 13,
+    "passed": 13,
+    "skipped": 0,
+    "failed": 0,
+    "errors": 0,
+    "seconds": 9.62,
+    "exit_code": 0,
+    "case_attributes_equal_receipt": true
+  },
+  "test_scope": {
+    "N": 27,
+    "T_per_window": 20,
+    "dt": 0.002,
+    "dx": 0.5,
+    "grid": [
+      16,
+      16,
+      16
+    ],
+    "precision_modes": "6 cases with assim_fp64=False and 6 with assim_fp64=True; one additional existing conditional pin-collider negative uses the ordinary assimilation fixture and an FP64 reference.",
+    "coverage": "Both body modes and slip/no-slip captured-vs-plain controls/FD; actual subset handoff and independent coast; aligned side stream and expired owner. Conditional collider-path negative retained.",
+    "FD_radii": {
+      "no_slip": [
+        0.001,
+        0.0005
+      ],
+      "slip": [
+        0.0001,
+        5e-05
+      ],
+      "conditional_collider": [
+        0.0001,
+        5e-05
+      ]
+    },
+    "FD_tolerance": {
+      "relative": 0.02,
+      "absolute": 5e-06
+    }
+  },
+  "numeric_receipt_checks": {
+    "full_control_FD_rows": 16,
+    "all_logged_control_FD_pass": true,
+    "largest_error_divided_by_allowed_tolerance": 0.8113425897348056,
+    "conditional_collider_rows": 2,
+    "full_and_FP64_reference_pass": true,
+    "detached_pin_mass_negative_fails_both": true,
+    "XML_has_no_failure_error_or_skip_children": true
+  },
+  "memory": {
+    "pid": 876969,
+    "sampled_process_peak_MiB": 1422,
+    "sampled_device_peak_MiB": 1446,
+    "record_equals_local_artifact": true,
+    "maxima_recomputed_from_samples": true,
+    "scope": "Sampling telemetry, not exhaustive allocator or peak-memory certification"
+  },
+  "reported_project_bytes": 78629308811,
+  "limitations": [
+    "Read-only local source/hash/XML/log arithmetic review; no independent GPU rerun.",
+    "Small fixed-policy derivative/capture gate only. Fresh N300k precision-native execution remains separate and is not reviewed here.",
+    "Per-call FP64 arithmetic changes the opt-in map while storing FP32; default arithmetic is separately retained. These tests do not establish old/new production trajectory identity.",
+    "Earlier failed large-radius slip and full-FP32 isolated-anchor receipts remain retained; the conditional FP64 reference is not a complete FP64 MPM verification.",
+    "Not all shared-library bytes or remote live filesystem state were independently checked.",
+    "No candidate adoption, physical rest, hole removal, rendering or 4K quality claim."
+  ]
+}
