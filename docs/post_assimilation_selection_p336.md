@@ -70,6 +70,45 @@ need full-morph, per-particle rest, gallery and4K validation. The driver passes
 late reporting failures, evidence reservations and original fallback are tested.
 Native execution remains a separate gate.
 
+## Native1 rejects the borrowed policy before search
+
+Frozen d57f672 native1 stops after354.53s at W20's live selection constructor:
+`Successor fixed material differs from head: vol`. No search baseline or candidate
+forward ran, no changed head was selected, and no full pipeline result/history
+was returned. The original failure receipt's `original_result_retained` string
+is misleading in this case; `completed=false` and exit1 take precedence. The
+current driver labels this incomplete outcome explicitly. Frozen evidence is
+unchanged, including the original string.
+
+Saved-array CUDA comparison, at the registered N300k/T20/dt1/240/dx.3062907544
+discretization, finds m/lambda/mu/eta bit-exact but213946 rest-volume entries
+different: maximum absolute1.74623e-10wu^3, RMS3.02340e-11wu^3, maximum relative
+7.28433e-7. This does not establish the generating reduction or cause of prefix
+divergence. More consequentially, the current old-pin set has246072 IDs; the
+borrowed next-pin set has259425 and excludes9046 current old pins while adding
+22399 other IDs. It cannot represent this run's admissible successor policy.
+
+Do not copy material values, union pin sets, relax exact compatibility, or rerun
+until a borrowed set happens to fit. The separate-prefix reuse route is rejected.
+Construct the next preparation from CURRENT state/history through shared ordinary
+runner/preparation functions, then verify original-head identity against the real
+next window before another changed-candidate experiment. This is preparation
+work, not evidence that the body-control search itself failed.
+
+Independent failure audit rechecks185 bindings,177 current/estimate source blobs
+and all four saved arrays; source/result comparison arithmetic is consistent.
+See `evidence/p336/native1_failure_audit.json`. No new render-loss influence number
+is available from this aborted run because full history was not returned; do not
+substitute native2's numbers. Incremental reporting now saves scalar-only histories
+and render-update receipts immediately after each ordinary optimizer returns,
+before selection or outer acceptance. Its summary explicitly leaves outer
+acceptance unknown and distinguishes observed returns from the last finalized
+artifact when writing fails. Atomic replacement and POSIX directory fsync preserve
+the last completed receipt within the same evidence budget. This does not recover
+telemetry missing from the frozen native1 failure.37 CPU cases pass, including a
+failure after20 returns preserving all160 inner-update observations, array-free
+capture, budget failure and directory-sync failure.
+
 No changes to default loss, rendering covariance, production recipe or deliverable
 are authorized by a small capability pass. Report donor optimizer rendering
 norms and lambda separately from selected-forward observations; those norms are

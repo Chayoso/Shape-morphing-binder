@@ -1,0 +1,71 @@
+{
+  "scope": "Saved-array comparison only; no simulation, tolerance change or candidate",
+  "inputs": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p336_native1/window_20_prepared.npz": {
+      "bytes": 184406345,
+      "sha256": "00e947c3baa42563ca683643d26cfdbfeceffde70c9f86a9d556df2bdc74fb42"
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p335_native2/window_21_prepared.npz": {
+      "bytes": 182253773,
+      "sha256": "19d319f670df9d46436785b160601b7b42acb9121707a3b6f2da577156cf6ff7"
+    }
+  },
+  "fields": {
+    "m": {
+      "N": 300000,
+      "different": 0,
+      "max_abs": 0.0,
+      "rms": 0.0,
+      "max_relative": 0.0,
+      "current_min": 0.13333334028720856,
+      "estimate_min": 0.13333334028720856
+    },
+    "lam": {
+      "N": 300000,
+      "different": 0,
+      "max_abs": 0.0,
+      "rms": 0.0,
+      "max_relative": 0.0,
+      "current_min": 38888.890625,
+      "estimate_min": 38888.890625
+    },
+    "mu": {
+      "N": 300000,
+      "different": 0,
+      "max_abs": 0.0,
+      "rms": 0.0,
+      "max_relative": 0.0,
+      "current_min": 58333.33203125,
+      "estimate_min": 58333.33203125
+    },
+    "vol": {
+      "N": 300000,
+      "different": 213946,
+      "max_abs": 1.7462298274040222e-10,
+      "rms": 3.0234033486340515e-11,
+      "max_relative": 7.28433187561712e-07,
+      "current_min": 0.00015846590395085514,
+      "estimate_min": 0.00015846587484702468
+    },
+    "eta": {
+      "N": 300000,
+      "different": 0,
+      "max_abs": 0.0,
+      "rms": 0.0,
+      "max_relative": 0.0,
+      "current_min": 0.0,
+      "estimate_min": 0.0
+    }
+  },
+  "pins": {
+    "current_old": 246072,
+    "estimated_next": 259425,
+    "estimated_new": 22399,
+    "would_release_current_old": 9046
+  },
+  "inputs_unchanged": true,
+  "source": {
+    "bytes": 1480,
+    "sha256": "eef96bbab6b95e1c8159568ec4077cda66a6dc5599040e02efa95f00fcca5917"
+  }
+}

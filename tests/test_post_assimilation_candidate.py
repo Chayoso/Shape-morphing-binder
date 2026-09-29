@@ -203,3 +203,192 @@ def test_individual_worsening_is_reported_despite_aggregate_improvement():
     row = probe.energy_comparison(after, before, {'common': torch.tensor([True, True])})['common']
     assert row['geometric']['mean_change'] < 0
     assert row['geometric']['worsened_ids'] == row['stored']['worsened_beyond_roundoff_ids'] == 1
+
+
+class NoArrayRead:
+    """Numerical return/lease sentinels must never be copied for scalar reporting."""
+    def __array__(self, *args, **kwargs):
+        raise AssertionError('Unexpected numerical array download')
+    def __deepcopy__(self, memo):
+        raise AssertionError('Unexpected numerical state/lease ownership')
+    def __float__(self):
+        raise AssertionError('Unexpected scalar extraction')
+
+
+def optimizer_result(index, steps=8):
+    history, influence = [], []
+    for iteration in range(steps):
+        weight = 1.+index/10
+        step = dict(iteration=iteration, lambda_render=weight, nominal_render_share=(iteration+1)/10,
+            direction_statistics_available=True, render_loss_before=2.+index,
+            render_loss_after=2.+index-(iteration+1)/100,
+            observed_render_loss_change=-(iteration+1)/100,
+            optimization_endpoint_change_rms_wu=.001*(iteration+1),
+            channels={'stress': dict(nominal_render_share=.25, accepted_control_delta_norm=.125,
+                optimizer_render_direction_dot_delta=-.01, weighted_optimizer_render_direction_dot_delta=-weight*.01)})
+        influence.append(step)
+        history.append(dict(iter=iteration, loss=3.-iteration/100, d_vol=2., d_render=step['render_loss_after'],
+                            **{'lambda': weight}, render_influence=step))
+    state = NoArrayRead()
+    stats = dict(accepted=steps, rejected=2, g_share=.4, render_influence_steps=influence,
+                 render_channels={'stress': {'share': .2}}, dfc=state, _window_selection=state)
+    return (state, state, state, state, history, stats)
+
+
+def test_failure_after_twentieth_optimizer_return_retains_exact_inner_telemetry(tmp_path):
+    cfg, prm, _ = recipe()
+    capture = probe.CandidateCapture(tmp_path, np.zeros((2, 3)), None, None,
+                                     config=asdict(cfg), mpm=asdict(prm))
+    results = [optimizer_result(index) for index in range(20)]
+    original_histories = deepcopy([result[4] for result in results])
+    calls = []
+    def original(*args, **kwargs):
+        calls.append(kwargs['win_index'])
+        return results[kwargs['win_index']]
+    wrapped = capture.wrap(original)
+    for index in range(19):
+        assert wrapped(win_index=index) is results[index]
+    # Actual parent wrapper's post-return preparation check fails before selection:
+    # this fake optimizer deliberately did not instantiate a prepared Trajectory.
+    with pytest.raises(ValueError, match='Expected one ordinary prepared trajectory'):
+        wrapped(win_index=19)
+    assert calls == list(range(20))
+    saved = json.loads((tmp_path/'optimizer_progress.json').read_text())
+    assert len(saved['optimizer_returns']) == 20
+    assert saved['summary']['inner_accepted_updates_reported'] == 20*8
+    assert saved['summary']['recorded_inner_render_steps'] == 20*8
+    assert saved['summary']['recorded_inner_history_rows'] == 20*8
+    assert saved['discretization']['N'] == 2
+    assert saved['discretization']['T'] == cfg.T and saved['discretization']['dt'] == prm.dt
+    assert saved['summary']['outer_acceptance'] == 'unknown'
+    assert not any('committed' in key for key in saved['summary'])
+    for index, row in enumerate(saved['optimizer_returns']):
+        assert row['win_index'] == index and row['optimizer_return_ordinal'] == index+1
+        assert row['outer_acceptance'] == 'unknown'
+        assert row['history'] == original_histories[index] == results[index][4]
+        assert row['accepted_render_steps'] == results[index][5]['render_influence_steps']
+        assert row['omitted_non_scalar_paths'] == []
+        assert 'dfc' not in row['statistics'] and '_window_selection' not in row['statistics']
+    # Same raw inner observations as the standard complete-report arithmetic,
+    # without assigning its outer-commit scope to this partial receipt.
+    from physmorph.pipeline.render_reporting import summarize_render_influence
+    complete = summarize_render_influence([dict(animation=i, outer_accepted=True,
+        **result[5], **{'lambda': result[4][-1]['lambda']}) for i, result in enumerate(results)], {}, {})
+    for name in ('step_nominal_share', 'first_iteration_nominal_share', 'observed_render_loss_change',
+                 'endpoint_optimizer_change_rms_wu', 'channels'):
+        assert saved['summary'][name] == complete[name]
+    assert saved['summary']['adaptive_lambda']['count'] == 160  # Per-update, not per-window.
+    assert capture.files['optimizer_progress.json'] == probe.identity(tmp_path/'optimizer_progress.json')
+    assert capture.optimizer_progress_receipt()['binding'] == capture.files['optimizer_progress.json']
+    assert capture.optimizer_progress_receipt()['observed_returns_persisted']
+
+
+def test_progress_owns_only_scalar_containers_and_never_downloads_arrays(tmp_path):
+    capture = probe.CandidateCapture(tmp_path, None, None, None)
+    result = optimizer_result(0, steps=1)
+    result[4][0]['optional_array'] = NoArrayRead()
+    result[4][0]['cpu_scalar'] = np.float64(3.)
+    capture.record_optimizer_return(0, result)
+    before = json.loads((tmp_path/'optimizer_progress.json').read_text())
+    result[4][0]['loss'] = 999.
+    result[5]['render_influence_steps'][0]['channels']['stress']['nominal_render_share'] = 999.
+    assert capture.optimizer_returns[0] == before['optimizer_returns'][0]
+    assert before['optimizer_returns'][0]['omitted_non_scalar_paths'] == ['.history[0].optional_array']
+    assert before['optimizer_returns'][0]['history'][0]['optional_array'] is None
+    assert before['optimizer_returns'][0]['history'][0]['cpu_scalar'] == 3.
+
+
+def test_optimizer_exception_does_not_invent_a_return_or_outer_acceptance(tmp_path):
+    capture = probe.CandidateCapture(tmp_path, None, None, None)
+    def original(*args, **kwargs):
+        raise RuntimeError('ordinary solve did not return')
+    with pytest.raises(RuntimeError, match='did not return'):
+        capture.wrap(original)(win_index=0)
+    assert not (tmp_path/'optimizer_progress.json').exists()
+    receipt = capture.optimizer_progress_receipt()
+    assert receipt['artifact'] is None and receipt['summary']['optimizer_returns'] == 0
+    assert receipt['summary']['adaptive_lambda'] is None
+    assert receipt['summary']['outer_acceptance'] == 'unknown'
+
+
+def test_progress_write_failure_preserves_last_durable_receipt_and_reserve(tmp_path, monkeypatch):
+    capture = probe.CandidateCapture(tmp_path, None, None, None)
+    capture.record_optimizer_return(0, optimizer_result(0, steps=1))
+    path = tmp_path/'optimizer_progress.json'
+    previous = path.read_bytes()
+    bound = dict(capture.files[path.name])
+    # Even the temporary replacement must fit alongside the old receipt.
+    monkeypatch.setattr(probe, 'LIMIT', path.stat().st_size+probe.RESERVE)
+    with pytest.raises(ValueError, match='reserved12GB'):
+        capture.record_optimizer_return(1, optimizer_result(1, steps=1))
+    assert path.read_bytes() == previous and capture.files[path.name] == bound
+    assert not (tmp_path/'optimizer_progress.json.tmp').exists()
+    receipt = capture.optimizer_progress_receipt()
+    assert receipt['summary']['optimizer_returns'] == 2 and receipt['persisted_optimizer_returns'] == 1
+    assert not receipt['observed_returns_persisted']
+
+
+def test_inner_zero_update_and_unavailable_directions_stay_explicit(tmp_path):
+    capture = probe.CandidateCapture(tmp_path, None, None, None)
+    capture.record_optimizer_return(0, optimizer_result(0, steps=0))
+    result = optimizer_result(1, steps=1)
+    step = result[5]['render_influence_steps'][0]
+    step.update(direction_statistics_available=False, nominal_render_share=None,
+                observed_render_loss_change=None, render_loss_before=None, render_loss_after=None)
+    step['channels'] = {'stress': dict(accepted_control_delta_norm=.125, direction_statistics=None)}
+    result[4][0]['lambda'] = None
+    capture.record_optimizer_return(1, result)
+    saved = json.loads((tmp_path/'optimizer_progress.json').read_text())
+    summary = saved['summary']
+    assert summary['optimizer_returns'] == 2 and summary['inner_accepted_updates_reported'] == 1
+    assert summary['recorded_inner_render_steps'] == 1
+    assert summary['step_nominal_share'] is summary['adaptive_lambda'] is summary['observed_render_loss_change'] is None
+    assert summary['channels']['stress']['nominal_share'] is None
+    assert summary['channels']['stress']['control_delta_norm']['median'] == .125
+
+
+def test_replacement_directory_sync_precedes_binding_and_failure_stays_explicit(tmp_path, monkeypatch):
+    capture = probe.CandidateCapture(tmp_path, None, None, None)
+    capture.record_optimizer_return(0, optimizer_result(0, steps=1))
+    old_binding = dict(capture.files['optimizer_progress.json'])
+    def failed_directory_sync(directory):
+        assert directory == tmp_path
+        # New bytes have been atomically installed, but metadata is not advanced.
+        saved = json.loads((tmp_path/'optimizer_progress.json').read_text())
+        assert saved['summary']['optimizer_returns'] == 2
+        assert capture.persisted_optimizer_returns == 1
+        assert capture.files['optimizer_progress.json'] == old_binding
+        assert capture.progress_write_stage == 'replacement_installed_directory_sync_pending'
+        raise OSError('directory fsync failed')
+    monkeypatch.setattr(probe, 'sync_progress_directory', failed_directory_sync)
+    with pytest.raises(OSError, match='directory fsync failed'):
+        capture.record_optimizer_return(1, optimizer_result(1, steps=1))
+    receipt = capture.optimizer_progress_receipt()
+    assert not receipt['observed_returns_persisted'] and receipt['persisted_optimizer_returns'] == 1
+    assert receipt['last_write_stage'] == 'replacement_installed_directory_sync_pending'
+    assert probe.identity(tmp_path/'optimizer_progress.json') != receipt['binding']
+
+
+@pytest.mark.parametrize('fail', [False, True])
+def test_posix_directory_sync_closes_descriptor_even_on_failure(monkeypatch, fail):
+    events = []
+    def opened(path, flags):
+        events.append(('open', path, flags))
+        return 123
+    def synced(descriptor):
+        events.append(('fsync', descriptor))
+        if fail:
+            raise OSError('directory error')
+    # Only the isolated helper sees the POSIX mock; no Windows Path construction.
+    with monkeypatch.context() as scoped:
+        scoped.setattr(probe.os, 'name', 'posix')
+        scoped.setattr(probe.os, 'O_DIRECTORY', 0x10000, raising=False)
+        scoped.setattr(probe.os, 'open', opened)
+        scoped.setattr(probe.os, 'fsync', synced)
+        scoped.setattr(probe.os, 'close', lambda descriptor: events.append(('close', descriptor)))
+        if fail:
+            with pytest.raises(OSError, match='directory error'):
+                probe.sync_progress_directory('/data/evidence')
+        else:
+            probe.sync_progress_directory('/data/evidence')
+    assert events == [('open', '/data/evidence', probe.os.O_RDONLY | 0x10000), ('fsync', 123), ('close', 123)]

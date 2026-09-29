@@ -1,0 +1,111 @@
+{
+  "scope": "Conditional fixed-estimate search and one actual controlled successor; disposable branch, no default/deliverable adoption or matched-prefix causal claim",
+  "completed": false,
+  "failure": {
+    "type": "ValueError",
+    "message": "Successor fixed material differs from head: vol"
+  },
+  "elapsed_seconds": 354.53494713129476,
+  "protocol_sha256": "da2a2c2d4cd51dcadcb2abd37d790887cc4c54dff4acc31f1f39872d53ade623",
+  "bindings_unchanged": true,
+  "candidate_selected": false,
+  "candidate_outer_committed": false,
+  "successor_outer_committed": false,
+  "archive_exact": false,
+  "receipt": {
+    "window_20_prepared_metadata": {
+      "schema": "owned_withdrawal_v1",
+      "N": 300000,
+      "T": 20,
+      "step": 0,
+      "device": "cuda:0",
+      "captured_device": "cuda:0",
+      "prm": {
+        "dx": 0.3062907543956724,
+        "dt": 0.004166666666666667,
+        "drag": 0.9,
+        "smoothing": 0.955,
+        "v_max": 0.0,
+        "eta_sym": 0,
+        "eta_mode": 0,
+        "gate_r_lo": 0.0,
+        "gate_r_hi": 0.0,
+        "gate_n0": 0.0,
+        "f_ext": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "grid_min": [
+          -5.513233579122103,
+          -5.513233579122103,
+          -5.513233579122103
+        ],
+        "nx": 36,
+        "ny": 36,
+        "nz": 36,
+        "floor_y": -1000000000.0,
+        "floor_friction": 0.0
+      },
+      "pin_mode": 1,
+      "gate": false,
+      "gate_n0": null,
+      "track_geom": false,
+      "layer_present": true,
+      "layer_F": false,
+      "bonds_present": true,
+      "source_body_control": true,
+      "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+      "layer_K": 180,
+      "layer_frac": 0.05,
+      "layer_frac_u": 0.05,
+      "bond_K": 60,
+      "frag_thr": 7.499999999999999
+    },
+    "original_identity_exact": true
+  },
+  "search": {
+    "status": "error",
+    "candidate_found": false
+  },
+  "actual_check": null,
+  "files": {
+    "window_20_controlled.npz": {
+      "bytes": 335384187,
+      "mtime_ns": 1790677352823383279,
+      "inode": 10641377,
+      "sha256": "d92411bd5f8e4d13b4a8ddabaa46c03b142d4282fb4c83d2009290d9c92e4cbb"
+    },
+    "window_20_prepared.npz": {
+      "bytes": 184406345,
+      "mtime_ns": 1790677361455389037,
+      "inode": 10641378,
+      "sha256": "00e947c3baa42563ca683643d26cfdbfeceffde70c9f86a9d556df2bdc74fb42"
+    },
+    "current_cohorts.npz": {
+      "bytes": 3372151,
+      "mtime_ns": 1790677361695389198,
+      "inode": 10641379,
+      "sha256": "bfd261ab5f16c83bf0a5c18b92a72dfb182b83ad63dea11aa90a91c8186c90b6"
+    },
+    "raw_baseline_envelope.npz": {
+      "bytes": 41230,
+      "mtime_ns": 1790677362051389436,
+      "inode": 10641383,
+      "sha256": "46b196c18e7281be59a7f9ad128b8b227b304b7f1b70b7915602e421d762fd68"
+    }
+  },
+  "candidate_branch_gate_passed": false,
+  "experimental_branch_rejected": false,
+  "disposition": "original_result_retained",
+  "deliverable_promoted": false,
+  "matched_prefix_causal_comparison": false,
+  "missing_actual_checks": [
+    "health_passed",
+    "predicted_closure_passed",
+    "passive_raw_passed",
+    "controlled_raw_passed",
+    "prepared_constraints_passed",
+    "common_motion_passed"
+  ]
+}

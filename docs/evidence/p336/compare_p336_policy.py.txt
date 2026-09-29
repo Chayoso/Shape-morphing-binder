@@ -1,0 +1,18 @@
+from pathlib import Path
+import json,hashlib
+import numpy as np
+import torch
+root=Path('/data/relcfd/chayo/physmorph_v2/work/p303')
+paths=[root/'p336_native1/window_20_prepared.npz',root/'p335_native2/window_21_prepared.npz']
+identity=lambda p: {'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
+report={'scope':'Saved-array comparison only; no simulation, tolerance change or candidate','inputs':{str(p):identity(p) for p in paths},'fields':{}}
+with np.load(paths[0],allow_pickle=False) as a, np.load(paths[1],allow_pickle=False) as b:
+    for key in ('m','lam','mu','vol','eta'):
+        x=torch.as_tensor(a[key],device='cuda:0');y=torch.as_tensor(b[key],device='cuda:0')
+        diff=x.double()-y.double()
+        report['fields'][key]={'N':x.numel(),'different':int((x!=y).sum()),'max_abs':float(diff.abs().max()),'rms':float(diff.square().mean().sqrt()),'max_relative':float((diff.abs()/y.double().abs().clamp_min(1e-30)).max()),'current_min':float(x.min()),'estimate_min':float(y.min())}
+    old=torch.as_tensor(a['pin'],device='cuda:0').bool();future=torch.as_tensor(b['pin'],device='cuda:0').bool()
+    report['pins']={'current_old':int(old.sum()),'estimated_next':int(future.sum()),'estimated_new':int((future&~old).sum()),'would_release_current_old':int((old&~future).sum())}
+report['inputs_unchanged']=all(identity(Path(p))==v for p,v in report['inputs'].items())
+report['source']=identity(Path(__file__))
+print(json.dumps(report,indent=2))

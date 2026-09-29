@@ -10,8 +10,10 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 import gc
 import json
+import math
 import os
 from pathlib import Path
+import statistics
 import sys
 import time
 from unittest.mock import patch
@@ -37,6 +39,58 @@ RESERVE = 65_536
 ESTIMATE_REVISION = '504ea6a'
 SCOPE = ('Conditional fixed-estimate search and one actual controlled successor; '
          'disposable branch, no default/deliverable adoption or matched-prefix causal claim')
+PROGRESS_SCOPE = ('Partial ordinary optimizer-return telemetry, captured before selection/outer acceptance. '
+    'Inner accepted updates are donor optimization evidence; outer acceptance and delivered retention '
+    'are unknown. Norm shares, direction-dot-update values and image-loss changes are not causal '
+    'particle motion, physical work, or a rest/hole certificate. A completed runner render report '
+    'is separate and authoritative for outer-commit bookkeeping.')
+
+
+def scalar_telemetry(value, omitted, path=''):
+    """Own scalar containers without inspecting/downloading any numerical array."""
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    if isinstance(value, host_np.generic):
+        return scalar_telemetry(value.item(), omitted, path)
+    if isinstance(value, dict):
+        return {key: scalar_telemetry(item, omitted, path+'.'+str(key)) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [scalar_telemetry(item, omitted, path+f'[{i}]') for i, item in enumerate(value)]
+    omitted.append(path)
+    return None
+
+
+def summarize_optimizer_progress(rows):
+    """Summarize existing inner-step receipts; never fabricate outer acceptance."""
+    def span(values):
+        values = [float(v) for v in values if v is not None and math.isfinite(float(v))]
+        return (dict(count=len(values), minimum=min(values), median=statistics.median(values), maximum=max(values))
+                if values else None)
+    steps = [step for row in rows for step in row['accepted_render_steps']]
+    history = [item for row in rows for item in row['history']]
+    channels = sorted({name for step in steps for name in step.get('channels', {})})
+    return dict(scope=PROGRESS_SCOPE, outer_acceptance='unknown', optimizer_returns=len(rows),
+        inner_accepted_updates_reported=sum(int(row['statistics'].get('accepted') or 0) for row in rows),
+        recorded_inner_history_rows=len(history), recorded_inner_render_steps=len(steps),
+        step_nominal_share=span(step.get('nominal_render_share') for step in steps),
+        first_iteration_nominal_share=span(row['statistics'].get('g_share') for row in rows),
+        adaptive_lambda=span(item.get('lambda') for item in history),
+        observed_render_loss_change=span(step.get('observed_render_loss_change') for step in steps),
+        endpoint_optimizer_change_rms_wu=span(step.get('optimization_endpoint_change_rms_wu') for step in steps),
+        channels={name: dict(
+            nominal_share=span(step.get('channels', {}).get(name, {}).get('nominal_render_share') for step in steps),
+            control_delta_norm=span(step.get('channels', {}).get(name, {}).get('accepted_control_delta_norm') for step in steps))
+            for name in channels}, causal_render_ablation='not measured')
+
+
+def sync_progress_directory(path):
+    """Persist the renamed receipt's directory entry on the Linux run host."""
+    if os.name == 'posix':
+        descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
 
 
 def compatible_recipe(current, prm, protocol):
@@ -107,12 +161,17 @@ def fail_report(report, error):
 
 
 class CandidateCapture(IdentityCapture):
-    def __init__(self, out, source, target, estimate, *, enabled=False):
+    def __init__(self, out, source, target, estimate, *, enabled=False, config=None, mpm=None):
         super().__init__(out)
         self.source, self.target, self.estimate, self.enabled = source, target, estimate, bool(enabled)
         self.quality = self.reference = self.search = None
         self.forward_records = []
         self.old_pins = self.arrived = None
+        self.optimizer_returns = []
+        self.persisted_optimizer_returns = 0
+        self.progress_write_stage = 'not_started'
+        self.progress_config = deepcopy(config or {})
+        self.progress_mpm = deepcopy(mpm or {})
 
     def reserve(self, size):
         used = sum(path.stat().st_size for path in self.out.iterdir() if path.is_file())
@@ -139,6 +198,56 @@ class CandidateCapture(IdentityCapture):
             return False
         return report['completed']
 
+    def record_optimizer_return(self, index, result):
+        # Do not retain end/state, warm-start tensors or the live selection lease.
+        history, stats = result[4], result[5]
+        fields = ('accepted', 'rejected', 'grad_converged', 'ls_exhausted', 'L_start',
+            'g_share', 'g_cos', 'g_raw_cos', 'g_phys_norm', 'g_rend_norm', 'render_channels',
+            'render_target_kind', 'lambda_capped', 'render_work', 'render_work_x', 'render_work_F',
+            'phys_work', 'phys_work_x', 'phys_work_F', 'phys_work_v', 'step_norm',
+            'predicted_decrease', 'render_cos', 'phys_cos', 'body_update_modes_rms', 'body_accepted_alphas')
+        omitted = []
+        row = scalar_telemetry(dict(optimizer_return_ordinal=len(self.optimizer_returns)+1,
+            win_index=int(index), outer_acceptance='unknown', history=history,
+            statistics={key: stats[key] for key in fields if key in stats},
+            accepted_render_steps=stats.get('render_influence_steps') or []), omitted)
+        row['omitted_non_scalar_paths'] = omitted
+        self.optimizer_returns.append(row)
+        cfg, prm = self.progress_config, self.progress_mpm
+        report = dict(schema='p336_optimizer_progress_v1', scope=PROGRESS_SCOPE,
+            discretization=dict(N=None if self.source is None else len(self.source),
+                T=cfg.get('T'), dt=prm.get('dt'), dx_wu=prm.get('dx'), loss_res=cfg.get('loss_res'),
+                render_res=cfg.get('render_res'), iters=cfg.get('iters')),
+            summary=summarize_optimizer_progress(self.optimizer_returns), optimizer_returns=self.optimizer_returns)
+        data = json.dumps(safe_json(report), indent=2, allow_nan=False).encode()
+        # Count the temporary file as well as the previous receipt against the cap.
+        # A failure before replacement leaves the previous receipt intact.
+        self.progress_write_stage = 'reserving_replacement'
+        self.reserve(len(data))
+        path = self.out/'optimizer_progress.json'
+        temporary = self.out/'optimizer_progress.json.tmp'
+        self.progress_write_stage = 'writing_temporary'
+        with temporary.open('xb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        self.progress_write_stage = 'replacement_installed_directory_sync_pending'
+        sync_progress_directory(self.out)
+        self.progress_write_stage = 'directory_synced_binding_pending'
+        self.files[path.name] = identity(path)
+        self.persisted_optimizer_returns = len(self.optimizer_returns)
+        self.progress_write_stage = 'complete'
+
+    def optimizer_progress_receipt(self):
+        name = 'optimizer_progress.json'
+        return dict(scope=PROGRESS_SCOPE, artifact=name if name in self.files else None,
+            binding=self.files.get(name), persisted_optimizer_returns=self.persisted_optimizer_returns,
+            observed_returns_persisted=self.persisted_optimizer_returns == len(self.optimizer_returns),
+            last_write_stage=self.progress_write_stage,
+            binding_scope='Last fully finalized receipt; replacement-before-failure may invalidate that binding.',
+            summary=summarize_optimizer_progress(self.optimizer_returns))
+
     def wrap(self, original):
         def witnessed(*args, **kwargs):
             index = kwargs['win_index']
@@ -150,7 +259,9 @@ class CandidateCapture(IdentityCapture):
                               for key, name in (('X', 'x'), ('V', 'v'), ('F_sequence', 'F'), ('C_sequence', 'C'))}
                     self.save(f'window_{index+1}_controlled.npz', arrays)
                 kwargs['on_rollout'] = observe
-            return original(*args, **kwargs)
+            result = original(*args, **kwargs)
+            self.record_optimizer_return(index, result)
+            return result
         return super().wrap(witnessed)
 
     def record(self, label, values, info):
@@ -366,7 +477,8 @@ def main():
     with cuda_execution(cfg.device):
         with host_np.load(estimate_path/'window_21_prepared.npz', allow_pickle=False) as archive:
             estimate = OwnedWithdrawal.from_arrays(dict(archive), estimate_result['receipt']['window_21_prepared_metadata'], device=cfg.device)
-    capture = CandidateCapture(args.out, source, target, estimate, enabled=args.enable_candidate_search)
+    capture = CandidateCapture(args.out, source, target, estimate, enabled=args.enable_candidate_search,
+                               config=asdict(cfg), mpm=asdict(prm))
     capture.write_json('protocol.json', dict(schema='post_assimilation_candidate_p336_v1', scope=SCOPE,
         start_utc=datetime.now(timezone.utc).isoformat(), bindings=bindings, effective_config=asdict(cfg), mpm=asdict(prm),
         estimate_revision=ESTIMATE_REVISION, estimate=str(estimate_path), candidate_search=args.enable_candidate_search,
@@ -413,6 +525,7 @@ def main():
         bindings_unchanged=stable, candidate_selected=selected, candidate_outer_committed=bool(windows.get(19, {}).get('outer_accepted') and selected),
         successor_outer_committed=bool(windows.get(20, {}).get('outer_accepted')), archive_exact=archive_exact,
         receipt=capture.receipt, search=capture.search, actual_check=actual_check, files=capture.files,
+        optimizer_progress=capture.optimizer_progress_receipt(),
         **branch_decision(selected=selected, outer_committed=bool(windows.get(19, {}).get('outer_accepted')),
             successor_committed=bool(windows.get(20, {}).get('outer_accepted')), archive_exact=archive_exact,
             guards_clear=guards_clear and stable and failure is None, actual_check=actual_check))
@@ -423,6 +536,8 @@ def main():
                                                             len(source), reserve_bytes=capture.reserve)
         except Exception as error:
             fail_report(report, error)
+    if not report['completed'] and not selected:
+        report['disposition'] = 'driver_incomplete_no_candidate_adoption'
     require(capture.finish(report), 'P336 driver incomplete; branch evidence retained, no rollback or adoption')
 
 

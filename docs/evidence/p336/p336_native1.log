@@ -1,0 +1,207 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+[target] denoised shading target: spacing 0.1327, normal grid 73^3 at 0.1531 wu (1.15 spacings), blur 1.30 cells
+/data/relcfd/chayo/physmorph_v2/work/p303/code_post_candidate1/physmorph/pipeline/runner.py:305: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+  if float(L_den) <= 0 or float(g_den) <= 0:
+[v2] phys_loss auto: 1.3% of the source particles sit in target-empty cells -> ot_pace + cell-wise hand-off
+[v2] density units: D_vol legacy(22^3)/density = 3.3e+04 (weights), gradient ratio = 6.81e+04 (eps/target_norm), n_support=3205 m_ref=93.6
+Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 11.93 ms  (cached)
+[v2] N=300000 T=20 iters=8 animations=300 render=on(a=0.5) material=off assim=0.5 w_kin=5.0 w_box=10.0
+[v2] render-controls-physics contract: control_grid=0 tknots=0 render_F_geom=False w_kin_running=0.0 grad_mode=render gs_cheb=False loss_units=density
+[v2] anim 1: fragments 0 particles
+Module physmorph.render.knn_gpu 9d6aaef load on device 'cuda:0' took 0.58 ms  (cached)
+[win] OT plan: sqrt(eps)=0.2271 wu = 0.741 loss cells, tol 0.01 (cap 400 sweeps), 8192 target samples
+[win] OT leash: displacement denoised over k=64 material neighbours (blur radius 0.2271 wu / spacing 0.06837)
+[win] coherent pace: 0.0 % of the particles ahead of their neighbourhood (held share of the step 0.000)
+[win] paced render target: paced-vs-target 1.258e-01, morph-vs-paced 4.453e-02
+[win] OT pace: target cells with mass beyond one cell of the body: 514 (cell-wise hand-off: 1684 deficit cells on the fixed target)
+[win] OT pace: 17.7% of particles within one blur radius of their image, mean |d|=0.575 wu, max |d|=2.73 wu
+[layer] u transport gate: 4.1 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 60 sweeps err=0.0063, self 52 sweeps err=0.00395, 1.16s
+[win] body control: 2832 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.17832911 EB=0.17832911 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+[v2] control basis: {'control_grid': 0, 'control_tknots': 20, 'n_nodes': 300000, 'n_dof': 54000000, 'n_dof_per_particle': 54000000, 'cell': 0.0, 'empty_nodes': 0}
+[v2] anim 1/300  L=0.1000  D_vol=0.073  D_r=0.02194  lam=0.309  kin=2.2893  |v|max=3.938  move=0.1709  Jmin=0.973  acc/rej=8/0
+[win] coherent pace: 0.0 % of the particles ahead of their neighbourhood (held share of the step 0.000)
+[win] paced render target: paced-vs-target 9.778e-02, morph-vs-paced 3.656e-02
+[win] OT pace: target cells with mass beyond one cell of the body: 384 (cell-wise hand-off: 1643 deficit cells on the fixed target)
+[win] OT pace: 32.4% of particles within one blur radius of their image, mean |d|=0.458 wu, max |d|=2.77 wu
+[layer] u transport gate: 20.4 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 64 sweeps err=0.00864, self 52 sweeps err=0.00391, 1.06s
+[win] body control: 2836 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.061965919 EB=0.061965919 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+[win] coherent pace: 0.0 % of the particles ahead of their neighbourhood (held share of the step 0.000)
+[win] paced render target: paced-vs-target 6.684e-02, morph-vs-paced 2.826e-02
+[win] OT pace: target cells with mass beyond one cell of the body: 221 (cell-wise hand-off: 1719 deficit cells on the fixed target)
+[win] OT pace: 73.2% of particles within one blur radius of their image, mean |d|=0.317 wu, max |d|=2.66 wu
+[layer] u transport gate: 65.5 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 68 sweeps err=0.00835, self 52 sweeps err=0.00396, 1.10s
+[win] body control: 2874 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.0390258257 EB=0.0390258257 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+[win] coherent pace: 0.0 % of the particles ahead of their neighbourhood (held share of the step 0.000)
+[win] paced render target: paced-vs-target 5.397e-02, morph-vs-paced 1.748e-02
+[win] OT pace: target cells with mass beyond one cell of the body: 189 (cell-wise hand-off: 1574 deficit cells on the fixed target)
+[win] OT pace: 82.4% of particles within one blur radius of their image, mean |d|=0.216 wu, max |d|=2.46 wu
+[layer] u transport gate: 75.9 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 72 sweeps err=0.00818, self 48 sweeps err=0.00399, 1.12s
+[win] body control: 2944 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.0318086743 EB=0.0318086725 unit_ratio=33003.3594 abs_noise=1.86264515e-09 relative_noise=5.85577736e-08
+[win] coherent pace: 0.1 % of the particles ahead of their neighbourhood (held share of the step 0.000)
+[win] paced render target: paced-vs-target 4.917e-02, morph-vs-paced 1.108e-02
+[win] OT pace: target cells with mass beyond one cell of the body: 134 (cell-wise hand-off: 1559 deficit cells on the fixed target)
+[win] OT pace: 86.8% of particles within one blur radius of their image, mean |d|=0.174 wu, max |d|=2.38 wu
+[layer] u transport gate: 80.1 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 72 sweeps err=0.00821, self 48 sweeps err=0.00402, 1.12s
+[win] body control: 3015 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.0265461262 EB=0.0265461262 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+[v2] anim 5: control step reversals 15 % of the moving particles, step scale median 1.000, below 0.1: 0 %, below 0.01: 0 %
+[v2] anim 5: pinned 2.5 % of the particles
+[win] coherent pace: 0.1 % of the particles ahead of their neighbourhood (held share of the step 0.000)
+[win] paced render target: paced-vs-target 4.368e-02, morph-vs-paced 1.006e-02
+[win] OT pace: target cells with mass beyond one cell of the body: 122 (cell-wise hand-off: 1603 deficit cells on the fixed target)
+[win] OT pace: 92.0% of particles within one blur radius of their image, mean |d|=0.147 wu, max |d|=2.25 wu
+[layer] u transport gate: 83.3 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 72 sweeps err=0.00834, self 48 sweeps err=0.00407, 1.12s
+[win] body control: 3031 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.0154440652 EB=0.0154440652 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+[win] coherent pace: 0.1 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 3.787e-02, morph-vs-paced 9.660e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 89 (cell-wise hand-off: 1648 deficit cells on the fixed target)
+[win] OT pace: 94.7% of particles within one blur radius of their image, mean |d|=0.131 wu, max |d|=1.98 wu
+[layer] u transport gate: 85.1 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 68 sweeps err=0.00991, self 48 sweeps err=0.00412, 1.09s
+[win] body control: 3058 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.0112959055 EB=0.0112959055 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 3.183e-02, morph-vs-paced 8.880e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 46 (cell-wise hand-off: 1751 deficit cells on the fixed target)
+[win] OT pace: 95.5% of particles within one blur radius of their image, mean |d|=0.12 wu, max |d|=1.79 wu
+[layer] u transport gate: 84.6 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 72 sweeps err=0.00975, self 48 sweeps err=0.00415, 1.12s
+[win] body control: 3083 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.009583384 EB=0.00958338389 unit_ratio=33003.3594 abs_noise=1.10311312e-10 relative_noise=1.15106848e-08
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 2.445e-02, morph-vs-paced 8.858e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 25 (cell-wise hand-off: 1801 deficit cells on the fixed target)
+[win] OT pace: 95.8% of particles within one blur radius of their image, mean |d|=0.11 wu, max |d|=1.72 wu
+[layer] u transport gate: 84.4 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 76 sweeps err=0.00858, self 48 sweeps err=0.00417, 1.15s
+[win] body control: 3105 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00819286896 EB=0.00819286905 unit_ratio=33003.3594 abs_noise=9.17540193e-11 relative_noise=1.11992539e-08
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 1.855e-02, morph-vs-paced 8.173e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 1855 deficit cells on the fixed target)
+[win] OT pace: 96.2% of particles within one blur radius of their image, mean |d|=0.102 wu, max |d|=1.64 wu
+[layer] u transport gate: 84.6 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 76 sweeps err=0.00882, self 48 sweeps err=0.00418, 1.15s
+[win] body control: 3135 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00716359396 EB=0.00716359358 unit_ratio=33003.3594 abs_noise=3.88205472e-10 relative_noise=5.41914399e-08
+[v2] anim 10: u sign flips 23 % of the layer, u bound scale median 0.60, at the floor 2 %
+[v2] anim 10: control step reversals 23 % of the moving particles, step scale median 0.833, below 0.1: 7 %, below 0.01: 0 %
+[v2] anim 10: pinned 52.2 % of the particles
+[v2] anim 11: fragments 0 particles
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 1.648e-02, morph-vs-paced 5.949e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 1888 deficit cells on the fixed target)
+[win] OT pace: 96.5% of particles within one blur radius of their image, mean |d|=0.0945 wu, max |d|=1.59 wu
+[layer] u transport gate: 84.9 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 76 sweeps err=0.0089, self 48 sweeps err=0.0042, 1.15s
+[win] body control: 3146 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00613183945 EB=0.00613183945 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 1.490e-02, morph-vs-paced 5.920e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 1925 deficit cells on the fixed target)
+[win] OT pace: 96.8% of particles within one blur radius of their image, mean |d|=0.0881 wu, max |d|=1.5 wu
+[layer] u transport gate: 85.4 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 76 sweeps err=0.00948, self 48 sweeps err=0.0042, 1.16s
+[win] body control: 3138 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00537193196 EB=0.00537193196 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 1.323e-02, morph-vs-paced 6.463e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 1947 deficit cells on the fixed target)
+[win] OT pace: 97.0% of particles within one blur radius of their image, mean |d|=0.0849 wu, max |d|=1.42 wu
+[layer] u transport gate: 86.0 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 80 sweeps err=0.00867, self 48 sweeps err=0.00421, 1.19s
+[win] body control: 3151 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00437503196 EB=0.00437503238 unit_ratio=33003.3594 abs_noise=4.181587e-10 relative_noise=9.55784334e-08
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 1.215e-02, morph-vs-paced 5.814e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 1966 deficit cells on the fixed target)
+[win] OT pace: 97.4% of particles within one blur radius of their image, mean |d|=0.0804 wu, max |d|=1.27 wu
+[layer] u transport gate: 87.8 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 80 sweeps err=0.00903, self 48 sweeps err=0.00423, 1.19s
+[win] body control: 3138 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00365902887 EB=0.00365902889 unit_ratio=33003.3594 abs_noise=2.07116945e-11 relative_noise=5.66043484e-09
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 1.131e-02, morph-vs-paced 4.968e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 1989 deficit cells on the fixed target)
+[win] OT pace: 98.2% of particles within one blur radius of their image, mean |d|=0.0773 wu, max |d|=1.12 wu
+[layer] u transport gate: 92.0 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 80 sweeps err=0.0093, self 48 sweeps err=0.00423, 1.19s
+[win] body control: 3140 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00316775092 EB=0.00316775067 unit_ratio=33003.3594 abs_noise=2.51569425e-10 relative_noise=7.94157845e-08
+[v2] anim 15: control step reversals 17 % of the moving particles, step scale median 0.751, below 0.1: 7 %, below 0.01: 0 %
+[v2] anim 15: pinned 74.1 % of the particles
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 1.071e-02, morph-vs-paced 4.380e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 2006 deficit cells on the fixed target)
+[win] OT pace: 99.0% of particles within one blur radius of their image, mean |d|=0.0745 wu, max |d|=0.909 wu
+[layer] u transport gate: 96.2 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 80 sweeps err=0.01, self 48 sweeps err=0.00424, 1.19s
+[win] body control: 3136 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00281342341 EB=0.00281342342 unit_ratio=33003.3594 abs_noise=1.45222467e-11 relative_noise=5.16177076e-09
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 1.028e-02, morph-vs-paced 3.860e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 2006 deficit cells on the fixed target)
+[win] OT pace: 99.4% of particles within one blur radius of their image, mean |d|=0.0721 wu, max |d|=0.506 wu
+[layer] u transport gate: 98.2 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 84 sweeps err=0.00911, self 48 sweeps err=0.00425, 1.22s
+[win] body control: 3143 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00256153621 EB=0.00256153602 unit_ratio=33003.3594 abs_noise=1.86230841e-10 relative_noise=7.27027945e-08
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 9.000e-03, morph-vs-paced 1.584e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 2020 deficit cells on the fixed target)
+[win] OT pace: 99.7% of particles within one blur radius of their image, mean |d|=0.07 wu, max |d|=0.397 wu
+[layer] u transport gate: 99.2 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 84 sweeps err=0.00925, self 48 sweeps err=0.00425, 1.22s
+[win] body control: 3126 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.0023462329 EB=0.00234623266 unit_ratio=33003.3594 abs_noise=2.32830644e-10 relative_noise=9.92359471e-08
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 8.843e-03, morph-vs-paced 1.445e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 2025 deficit cells on the fixed target)
+[win] OT pace: 99.8% of particles within one blur radius of their image, mean |d|=0.0685 wu, max |d|=0.38 wu
+[layer] u transport gate: 99.6 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 84 sweeps err=0.0092, self 48 sweeps err=0.00426, 1.21s
+[win] body control: 3128 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00227453355 EB=0.00227453353 unit_ratio=33003.3594 abs_noise=1.7685214e-11 relative_noise=7.77531463e-09
+[win] coherent pace: 0.2 % of the particles ahead of their neighbourhood (held share of the step 0.001)
+[win] paced render target: paced-vs-target 8.962e-03, morph-vs-paced 1.328e-03
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 2015 deficit cells on the fixed target)
+[win] OT pace: 99.9% of particles within one blur radius of their image, mean |d|=0.0677 wu, max |d|=0.359 wu
+[layer] u transport gate: 99.8 % of the layer within 1 cell(s) of its OT image
+[win] OT plan solved: 84 sweeps err=0.00908, self 48 sweeps err=0.00427, 1.21s
+[win] body control: 3136 grid nodes, 2 temporal mode(s), joint nominal coefficient bound 0.3063 wu
+[win] replay calibration: EA=0.00219760408 EB=0.00219760408 unit_ratio=33003.3594 abs_noise=0 relative_noise=0
+Traceback (most recent call last):
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/code_post_candidate1/scripts/ops/cuda_python.py", line 16, in <module>
+    runpy.run_path(sys.argv[0], run_name='__main__')
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 289, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 96, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "scripts/probes/post_assimilation_candidate.py", line 430, in <module>
+    main()
+  File "scripts/probes/post_assimilation_candidate.py", line 426, in main
+    require(capture.finish(report), 'P336 driver incomplete; branch evidence retained, no rollback or adoption')
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/code_post_candidate1/scripts/probes/reference_swap.py", line 27, in require
+    raise ValueError(message)
+ValueError: P336 driver incomplete; branch evidence retained, no rollback or adoption

@@ -1,0 +1,110 @@
+{
+  "schema": "p336_native1_preflight_audit_v1",
+  "status": "PASS_PREFLIGHT_ONLY_RUN_IN_PROGRESS",
+  "reviewer": "mixed60_photoreal",
+  "reviewed_utc": "2026-09-29T10:19:31.700161+00:00",
+  "method": "Read-only remote protocol/bound-input/source hashes, process metadata and project du; local exact Git bytes and prior native2 receipt comparison. No GPU/test/simulation run or waiting for completion.",
+  "current_commit": "d57f6726faf20371d4b7b74b398c4b6f0dcfb984",
+  "estimate_commit": "504ea6af236424be766a98ca9742dbe24bee64ab",
+  "source_checks": {
+    "total_runtime_bindings_rehashed": 185,
+    "current_git_exact": 94,
+    "estimate_physmorph_git_exact": 83,
+    "current_context_files": {
+      "physmorph/pipeline/window_selection.py": "aa913a0f23ff74c4ddbb06a49976160fc6a4a240dd762389bb246cc8c31471e0",
+      "physmorph/pipeline/post_assimilation_selection.py": "b94ce377722f2911d1a4322dbc9dc838e46fe4c5fef9296106237cb1ba87d175",
+      "scripts/probes/post_assimilation_candidate.py": "8dbaeb4d82eab4409b292fe7387e487bf28c6c52b9ce61d1c2468429aa6f1803",
+      "scripts/probes/withdrawal_search_core.py": "28a0ce399881b14601f435a296da168f36ea0a1ae77f5b6840efda0eda8b3717"
+    },
+    "newline_exceptions": 0
+  },
+  "recipe": {
+    "effective_config_exact_prior_native2": true,
+    "mpm_exact_prior_native2": true,
+    "candidate_search_enabled": true,
+    "assim_fp64": true,
+    "stop_after_windows": 21,
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx": 0.3062907543956724,
+    "grid": [
+      36,
+      36,
+      36
+    ],
+    "loss_res": 36,
+    "iters": 8,
+    "prior_estimate_scope": "Separately run identity branch; no exact prefix equality or actual successor claim"
+  },
+  "assets": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw24a.json": {
+      "bytes": 2361090,
+      "mtime_ns": 1790634494908190594,
+      "inode": 10378289,
+      "sha256": "3860aed6a1e01574f4000e6bae6bc898cbd85c86661cf7e68c285a0f5a28781e"
+    },
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source_render_full_dt_iso_nn.npz": {
+      "bytes": 7200498,
+      "mtime_ns": 1790627366937790919,
+      "inode": 9598241,
+      "sha256": "e7df5e9b4b52bd8848846d06354990220808b57099494ca1b04abad927ce4ac0"
+    },
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/target_reference.npz": {
+      "bytes": 3046902,
+      "mtime_ns": 1790457981213281670,
+      "inode": 10374040,
+      "sha256": "9c1f205945b4b68b330b902f59570b3f9ccb9d8eca8e0ebc553e035f642620a7"
+    }
+  },
+  "estimate_prepared_state": {
+    "bytes": 182253773,
+    "mtime_ns": 1790675519050088961,
+    "inode": 10650595,
+    "sha256": "19d319f670df9d46436785b160601b7b42acb9121707a3b6f2da577156cf6ff7"
+  },
+  "ownership_review": {
+    "live_context": "post_assimilation_selection.search builds controls, state, accepted V, history, full merit evaluator and reference from the CURRENT live context. The prior archive supplies fixed successor policy only.",
+    "registration": "confirm_2 state is owned, then registration occurs only after run_search returns with confirmed and unchanged binding; no extra candidate replay.",
+    "remaining_gate": "Actual successor preparation may differ from the prior estimate. Branch acceptance requires later actual health, closure, raw supply/shape, prepared constraints and common-cohort motion checks; none evaluated by this preflight."
+  },
+  "runtime": {
+    "pid": 933164,
+    "exists_at_collection": true,
+    "cmdline": "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/python scripts/ops/cuda_python.py scripts/probes/post_assimilation_candidate.py --out /data/relcfd/chayo/physmorph_v2/work/p303/p336_native1 --enable-candidate-search ",
+    "environment": {
+      "CUDA_CACHE_PATH": "/data/relcfd/chayo/physmorph_v2/cache/cuda",
+      "CUPY_CACHE_DIR": "/data/relcfd/chayo/physmorph_v2/cache/cupy",
+      "CUDA_VISIBLE_DEVICES": "0",
+      "OMP_NUM_THREADS": "8",
+      "PHYSMORPH_RUN_REPO": "/data/relcfd/chayo/physmorph_v2/work/p303/code_post_candidate1",
+      "WARP_CACHE_PATH": "/data/relcfd/chayo/physmorph_v2/cache/warp"
+    },
+    "collection_utc": "2026-09-29T10:18:14.018311+00:00"
+  },
+  "budget": {
+    "project_apparent_bytes": 80153039753,
+    "output_cap_bytes": 12000000000,
+    "conservative_current_plus_full_cap_bytes": 92153039753,
+    "user_project_limit_bytes": 100000000000,
+    "remaining_after_full_cap_bytes": 7846960247,
+    "scope": "Point-in-time conservative budget includes another full12GB even though current output is already counted. Not a guarantee against unrelated future writes; root remains runtime monitor.",
+    "enforcement": "Bound ops mode checks project used+12GB<100GB before launch; capture prewrite reserves65,536 failure bytes within12GB."
+  },
+  "files": {
+    "p336_native1.protocol.json": {
+      "bytes": 59461,
+      "sha256": "da2a2c2d4cd51dcadcb2abd37d790887cc4c54dff4acc31f1f39872d53ade623"
+    },
+    "p336_native1.preflight_proof.json": {
+      "bytes": 52707,
+      "sha256": "e2ded9cede26c2dec3434e546ec8f5b61ad9f4da855948f2a1b5c4550b94e4a9"
+    }
+  },
+  "limitations": [
+    "Preflight only: no candidate search success, outer commit, actual successor fidelity, later quality, per-particle rest, holes or4K conclusion.",
+    "Identical config and assets do not imply the separately run estimate has the same prefix or actual successor; the protocol explicitly treats it as an estimate.",
+    "Live process/source identity was checked at collection only; final run bindings and output artifacts remain to be audited.",
+    "No native finite-difference, external binary/library hash, or independent GPU replay performed."
+  ]
+}

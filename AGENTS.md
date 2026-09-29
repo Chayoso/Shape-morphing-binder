@@ -146,6 +146,14 @@ These are the leading candidates for the unresolved problems, and they are ports
 - Python: numpy / torch / warp; scripts are argparse CLIs; terse comments that state constraints.
 - Compile-check before pushing: `python -m py_compile <file>`.
 - Korean is the user's working language; code and docs are English.
+- **P336 live candidate selection:** `docs/post_assimilation_selection_p336.md`
+  records passing CPU and small actual CUDA state-delivery gates. Native1 on
+  d57f672 rejects the borrowed native2 successor before any search: current
+  rest-volume arrays differ and the borrowed pin set would release9046 current
+  old pins. Do not patch materials/union masks or soften compatibility to force
+  reuse. Use shared CURRENT runner/preparation state and verify original-head
+  identity against the actual next window before further candidate claims.
+  No changed candidate, natural-rest/hole or4K improvement has been adopted.
 - **P335 prepared-successor adapter:** `docs/post_assimilation_window_p335.md`
   additionally records fresh FP64-internal/FP32-state native2 on504ea6a:
   N300k/T20/dt1/240/dx.3062907544/grid36^3,iters8,21commits/168updates,

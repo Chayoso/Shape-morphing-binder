@@ -38,6 +38,14 @@ Renderer-dependent footprint/appearance diagnostics are not raw simulation
 quality metrics. Retain independent material supply/holes metrics. Shrinking
 splats can reveal missing coverage; opacity/size must not hide physical holes.
 Changing physical F merely to obtain smaller splats is not a justified remedy.
+There is also a control/kinematics distinction in this engine: for unpinned
+particles, `k_g2p` forms the intermediate `F_new = (I + dt*Cnew) @ (F + dFc)`;
+`k_update` then blends it with the incoming F. Thus physical F contains injected
+deformation control and is not automatically the local Jacobian of exported
+particle positions. The optional Fg integrates C but does not include the full
+spatial derivative of subsequent bond/layer position corrections. Neither F's
+nor Fg's singular values alone establish visible surface stretch. Position-based
+material deformation and the actual covariance need separate observations.
 P323 now measures the active covariance and compares fixed-reference normal
 thickness at identical archived poses (footprint_thickness_p323.md). Some
 positive-support splats reach4x reference normal thickness, but decoupling that
