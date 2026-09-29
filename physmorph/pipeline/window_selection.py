@@ -17,7 +17,7 @@ from .frozen_withdrawal_window import FrozenWithdrawalWindow
 from .prepared_reference import PreparedReference
 
 
-def validate_config(cfg):
+def validate_config(cfg, *, allow_auto=False):
     unsupported = [name for name in (
         'commit_pic', 'commit_pic_objective', 'shift_sub', 'reattach', 'rest_commit',
         'rest_commit_reversal', 'settle_commit', 'settle_pin_follow', 'settle_pin_yield',
@@ -25,7 +25,8 @@ def validate_config(cfg):
         'surface_gs_loss', 'continuity', 'settle_pin_kkt', 'opt_material', 'grad_dump',
         'lg_sweeps', 'local_dress_iters') if getattr(cfg, name, False)]
     if (not cfg.body_ctrl or not cfg.body_terminal_ctrl or cfg.T < 2 or cfg.mom_carry != 0
-            or cfg.phys_loss != 'ot_pace' or cfg.loss_units != 'density'):
+            or cfg.phys_loss not in (('ot_pace', 'auto') if allow_auto else ('ot_pace',))
+            or cfg.loss_units != 'density'):
         unsupported.append('raw fixed-material density ot_pace two-mode body / mom_carry=0')
     if unsupported:
         raise ValueError('Prepared window selection does not support '+', '.join(unsupported))

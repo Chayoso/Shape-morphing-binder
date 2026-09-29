@@ -353,7 +353,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         if not callable(select_window):
             raise ValueError('select_window requires a callable')
         from .window_selection import validate_config
-        validate_config(cfg)
+        validate_config(cfg, allow_auto=True)
     if cfg.settle_pin and (cfg.reattach or cfg.settle_commit):
         raise ValueError("settle_pin cannot be combined with reattach/settle_commit: those commit operators do not preserve pins")
     if cfg.settle_pin_confirm and not (cfg.settle_pin and cfg.ctrl_rprop):
@@ -407,6 +407,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             cfg.ot_debias = True
         log(f"[v2] phys_loss auto: {empty * 100:.1f}% of the source particles sit in target-empty "
             f"cells -> {cfg.phys_loss}" + (" + cell-wise hand-off" if cfg.phys_loss == "ot_pace" else ""))
+    if select_window is not None:
+        validate_config(cfg)  # Validate the ordinary resolved loss before any solve.
     if cfg.settle_pin_confirm and cfg.phys_loss not in ("ot_pace", "ot_shape"):
         raise ValueError("settle_pin_confirm requires an ot_pace/ot_shape full-plan arrival contract")
     if cfg.render_paced_arrived and cfg.phys_loss not in ("ot_pace", "ot_shape"):

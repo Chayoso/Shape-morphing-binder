@@ -214,3 +214,15 @@ def test_cuda_selector_exception_expires_context_and_final_merit_lease(monkeypat
     assert len(contexts) == 1 and contexts[0].closed
     with pytest.raises(RuntimeError, match='expired'): contexts[0].original()
     with pytest.raises(RuntimeError, match='expired'): evaluators[0]({})
+
+
+def test_cuda_auto_loss_resolves_before_context_validation(monkeypatch):
+    source, target, prm, cfg = fixture()
+    cfg.phys_loss = 'auto'
+    seen = []
+    def select(ctx, *_):
+        assert ctx._cfg.phys_loss == 'ot_pace' and ctx._cfg.ot_handoff and ctx._cfg.ot_debias
+        seen.append(ctx)
+        return ctx.original()
+    result = run_cuda(monkeypatch, source, target, prm, cfg, select)
+    assert len(seen) == 1 and seen[0].closed and not any(result['guards'].values())

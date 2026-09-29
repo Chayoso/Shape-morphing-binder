@@ -1,6 +1,11 @@
 # P332: whole-window selection and actual handoff
 
-Status: implementation and CPU integration; CUDA gates pending. This adds an
+Status: implementation, CPU integration and three small CUDA gates passed.
+Production attempt1 stopped before MPM: validation rejected `phys_loss=auto`
+before the existing resolver ran. The follow-up preserves that resolver and
+validates its resolved mode before any solve; overlapping and non-overlapping
+CPU regressions pass. A fourth CUDA auto-resolution case and production rerun
+are pending. This adds an
 opt-in capability, not a rest, hole or visual-quality remedy. P331 provided no
 admissible candidate and none of its rejected controls may be continued here.
 

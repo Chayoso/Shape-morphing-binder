@@ -241,3 +241,27 @@ def test_outer_rejection_of_selected_forward_rolls_back_and_cold_restarts(monkey
     assert controls[1][0] is not None and controls[2] == (None, None)
     assert len(result['frames']) == cfg.T+1
     assert not np.array_equal(result['frames'][-1], chosen[0]['values']['x'].numpy())
+
+
+def test_auto_overlap_uses_ordinary_resolver_before_selection_validation(monkeypatch):
+    _, _, _, cfg = fixture()
+    cfg.phys_loss = 'auto'
+    expected, prepared0, _, _ = observed_run(monkeypatch, cfg=cfg)
+    contexts = []
+    def select(ctx):
+        contexts.append(ctx)
+        assert ctx._cfg.phys_loss == 'ot_pace' and ctx._cfg.ot_handoff and ctx._cfg.ot_debias
+    result, prepared, _, _ = observed_run(monkeypatch, select, cfg)
+    assert contexts and all(ctx.closed for ctx in contexts)
+    equal(prepared, prepared0)
+    for key in ('frames', 'F_frames', 'Fp', 'guards'):
+        equal(result[key], expected[key])
+
+
+def test_auto_nonoverlap_rejected_before_any_optimizer_solve(monkeypatch):
+    source, target, prm, cfg = fixture()
+    cfg.phys_loss = 'auto'
+    monkeypatch.setattr(runner, 'optimize_window', lambda *_a, **_kw: pytest.fail('Unsupported resolved loss'))
+    with pytest.raises(ValueError, match='does not support'):
+        runner.run_pipeline(source, target+6., prm, cfg, log=lambda *_: None, select_window=lambda _: None)
+    assert cfg.phys_loss == 'ot'
