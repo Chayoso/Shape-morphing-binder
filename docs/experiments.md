@@ -9349,3 +9349,8 @@ Thirteen independent CPU cases and saved-array/source audit pass; an additional
 dispatcher CPU case passes for subsequent metric integration. No physical
 repair promoted. Rendering is inherited P314 telemetry only.
 [Evidence and scope](silhouette_pixels_p315.md).
+
+P315 integration follow-up, frozen `e16713c`: actual CUDA dispatcher and full
+metric-summary CPU/CUDA checks both pass (2 tests,0 skipped,4.91s). Fixed counts
+now serve only the CUDA raw metric branch; CPU behavior and physical decisions
+are unchanged. Receipt/XML/log in evidence/p315/metric_verify1*.

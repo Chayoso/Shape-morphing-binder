@@ -309,5 +309,34 @@
         []
       ]
     }
+  ],
+  "changed_pixel_counts_exact_from_all_localized_supplier_taps": true,
+  "internal_holes_128_per_state": [
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    0
+  ],
+  "internal_holes_128_locations": [
+    {
+      "view": 14,
+      "pixels": [
+        [
+          66,
+          83
+        ],
+        [
+          69,
+          82
+        ],
+        [
+          70,
+          82
+        ]
+      ]
+    }
   ]
 }

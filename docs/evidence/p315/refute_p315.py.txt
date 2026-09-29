@@ -73,6 +73,12 @@ for n,(v,x,y) in enumerate(P):
         assert np.array_equal(got,np.unique(got))
         np.testing.assert_array_equal(got,want)
         assert bool(len(got))==bool(M[v,arm,x,y])
+        tap_count=0
+        good=(ij>=0).all(1)&(ij<128).all(1)
+        for oi in (-1,0,1):
+            for oj in (-1,0,1):
+                tap_count+=int((good&(np.clip(ij[:,0]+oi,0,127)==x)&(np.clip(ij[:,1]+oj,0,127)==y)).sum())
+        assert tap_count==C[v,arm,x,y]
         suppliers.append(got.tolist())
     records.append(dict(view=int(v),pixel=[int(x),int(y)],target=bool(M[v,-1,x,y]),suppliers=suppliers))
 np.testing.assert_allclose(np.mean(ious,0),r['raw_iou'],rtol=0,atol=2*np.finfo(float).eps)
@@ -84,5 +90,8 @@ assert r['rendering']['evidence']==rr['render_influence'] and r['rendering']['la
 assert r['histogram_gate']['graph_capture_replay_exact'] and r['histogram_gate']['edge_empty_checks']
 times={k:statistics.median(v) for k,v in r['histogram_gate']['wall_seconds'].items()}
 out=dict(passed=True,result_sha256=sha(rb),protocol_sha256=sha(pb),pixels_sha256=r['sidecars']['pixels.npz'],code=git_rows,input_bindings_checked=len(p['inputs']),masks_counts=True,intersection_union=True,CSR_consistency=True,localized_small_position_projection=True,full_cloud_projection_recomputed=False,baseline_masks_identical=bool((M[:,:3]==M[:,:1]).all()),three_candidate_masks_identical=bool((M[:,3:6]==M[:,3:4]).all()),changed_view_pixels=len(P),changed_views=len(np.unique(P[:,0])),material_count=len(mat),all_suppliers_start_arrived_free=bool((a['material_cohorts']==1).all()),transitions=totals,internal_holes_128=int(sum((binary_fill_holes(m)&~m).sum() for m in M.reshape(-1,128,128))),raw_iou=r['raw_iou'],reported_two_view160_holes=r['endpoint_hole_frac_160'],timing_medians_s=times,timing_ratio=times['legacy']/times['fixed'],records=records)
+out['changed_pixel_counts_exact_from_all_localized_supplier_taps']=True
+out['internal_holes_128_per_state']=[int(sum((binary_fill_holes(M[v,s])&~M[v,s]).sum() for v in range(24))) for s in range(7)]
+out['internal_holes_128_locations']=[dict(view=v,pixels=np.argwhere(binary_fill_holes(M[v,0])&~M[v,0]).tolist()) for v in range(24) if (binary_fill_holes(M[v,0])&~M[v,0]).any()]
 (base/'independent_audit.json').write_text(json.dumps(out,indent=2,allow_nan=False))
 print(json.dumps({k:v for k,v in out.items() if k not in ('code','records')},indent=2))

@@ -1,0 +1,19 @@
+{
+  "frozen_commit": "e16713c5cbb8afb7a495b4afe9f5d859df80cee1",
+  "server": "hyde06",
+  "gpu": 1,
+  "tests": 2,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "files": {
+    "metric_verify1.xml": "77cd697cf76e1097530bdcfe887ee0243ba10a61f78125eb1a2333b1ad3c6db0",
+    "metric_verify1.log.txt": "758d24737a4ad25663776b0862cdf1e62927c5eb522019864c7b38e0986bb68a"
+  },
+  "source_sha256": {
+    "physmorph/metrics.py": "2f6f9413809a20b9e7d04da946ed3f2362caf694bd701dc7d3339fd4605cc335",
+    "physmorph/metric_splat.py": "3a85ff21ca6990f0657415c546430220e66764a050958764136bc44457f81de6",
+    "tests/test_compute_cuda.py": "65a3653320c5a13b2703fb3b770b58bdac90cda071d40a024cd1e5ee4b6cdf7b"
+  },
+  "scope": "Actual CUDA dispatch with bincount forbidden; full metric-summary CPU/CUDA parity; no physical-quality promotion"
+}

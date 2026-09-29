@@ -88,6 +88,12 @@ or simulate new paths. The final CPU gate has13 cases before integration and
 one extra dispatcher case afterward. The optional full-F capture is a separate
 change and does not retroactively add per-step F to P314.
 
+The subsequent production metric integration (`e16713c`) passes both targeted
+CUDA tests on hyde06: actual CUDA dispatch with CuPy bincount forbidden,
+duplicate/clipped-border/empty masks, and complete metric-summary CPU/CUDA
+comparison.2 passed,0 skipped in4.91s. XML/log and exact source hashes are
+retained in evidence/p315/metric_verify1*. The CPU metric branch is unchanged.
+
 Rendering evidence remains inherited: treatment h8/c1 silhouette-6.84522e-8,
 PBR+6.82194e-8, weighted combined-5.19586e-12 at lambda.0223160,18views/64pixels.
 Neither these image changes nor the median nominal direction share.490588

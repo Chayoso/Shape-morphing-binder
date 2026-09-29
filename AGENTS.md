@@ -244,3 +244,10 @@ These are the leading candidates for the unresolved problems, and they are ports
   pass168 CUDA cloud/view comparisons and helper graph capture. Its1.896x warm
   helper speedup is not an end-to-end or host-free runtime claim. See
   `docs/silhouette_pixels_p315.md`; no physical candidate is promoted.
+- **P316 preparation:** `docs/full_horizon_p316.md` defines a serial full-horizon
+  baseline/raw stopping comparison with unchanged ordinary policies and30GB
+  reserved per arm. The read-only trace owns pre-solve pins, full plans/arrival
+  masks, raw endpoints and per-ID stored terminal speed-squared, adds no solve,
+  and maps actual/promoted/delivery/held scopes.4 independent CPU cases pass,
+  including real C2F/PIC/raw parity. A global stop or pin-imposed zero motion is
+  not natural rest; no P314 candidate is adopted by this driver.
