@@ -53,6 +53,18 @@ directional derivatives are displacement AD.005865249972 versus centered FD
 gate is3% relative or1e-6 absolute error and |AD|>50e-6. This is a small smooth
 fixture, not a finite-difference result for P329's production checkpoint.
 
+Frozen cfe940b1a45722dc08f68485be8b4974c35f4e75 passes both actual CUDA cases
+on hyde06 GPU0 in8.06s, zero skips. Captured joint graphs give displacement
+AD.005865249633 versus FD.005864963587/.005865402638 and terminal
+AD.000139331985 versus FD.000138611678/.000140248145 at the same two radii and
+unchanged gates. Callback expiration and direct body-energy leaf ownership also
+pass. Source/receipt files are in `evidence/p330`; independent actual-receipt
+audit confirms both named cases, all four FD gates and the reviewed source bytes.
+The83 post-run source inventory includes82 matching worktree files and one
+unreferenced remote-only legacy module, explicitly qualified in the evidence.
+Before/after attestation covers the three reviewed files only. No production-size
+objective or control step was run.
+
 ## Next control experiment
 
 Start at the original accepted pair of displacement and terminal body modes;

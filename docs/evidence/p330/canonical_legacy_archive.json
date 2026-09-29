@@ -1,0 +1,7 @@
+{
+  "source": "/data/relcfd/chayo/physmorph_v2/repo/physmorph/volumetric.py",
+  "archive": "/data/relcfd/chayo/physmorph_v2/maintenance/archived_sources/physmorph_volumetric_aca76c8ae15ef14a7cd9e9d0c5a314cfeb4b3c8edb6132d372588956a5eb5c84.py",
+  "bytes": 19150,
+  "sha256": "aca76c8ae15ef14a7cd9e9d0c5a314cfeb4b3c8edb6132d372588956a5eb5c84",
+  "scope": "Canonical stale module only; all frozen producer/audit source trees remain unchanged"
+}

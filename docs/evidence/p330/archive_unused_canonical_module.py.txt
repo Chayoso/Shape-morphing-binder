@@ -1,0 +1,25 @@
+"""Archive one verified unreferenced stale deployed source; keep frozen runs intact."""
+from pathlib import Path
+import hashlib
+import json
+
+base = Path('/data/relcfd/chayo/physmorph_v2').resolve()
+repo = base/'repo'
+source = repo/'physmorph/volumetric.py'
+expected = 'aca76c8ae15ef14a7cd9e9d0c5a314cfeb4b3c8edb6132d372588956a5eb5c84'
+assert source.resolve().parent == (repo/'physmorph').resolve()
+assert source.resolve().is_relative_to(repo.resolve()) and not source.is_symlink()
+raw = source.read_bytes()
+assert hashlib.sha256(raw).hexdigest() == expected
+folder = base/'maintenance/archived_sources'
+folder.mkdir(exist_ok=True)
+destination = folder/('physmorph_volumetric_'+expected+'.py')
+with destination.open('xb') as stream:
+    stream.write(raw)
+assert destination.read_bytes() == raw and source.read_bytes() == raw
+source.unlink()
+report = dict(source=str(source), archive=str(destination), bytes=len(raw), sha256=expected,
+    scope='Canonical stale module only; all frozen producer/audit source trees remain unchanged')
+with (folder/'p330_unused_module.json').open('x') as stream:
+    json.dump(report, stream, indent=2)
+print(json.dumps(report))

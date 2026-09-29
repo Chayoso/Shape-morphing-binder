@@ -1,0 +1,23 @@
+launch_utc=2026-09-29T06:37:57Z gpu=1 project_bytes=65729005375
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+Traceback (most recent call last):
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/code_production_withdrawal1/scripts/ops/cuda_python.py", line 16, in <module>
+    runpy.run_path(sys.argv[0], run_name='__main__')
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 289, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 96, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p329.py", line 55, in <module>
+    check('sole_recipe_override',dict(protocol['source_config'],stop_after_windows=20)==protocol['effective_config'])
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p329.py", line 36, in check
+    assert condition,name
+AssertionError: sole_recipe_override

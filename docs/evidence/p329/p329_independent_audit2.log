@@ -1,0 +1,36 @@
+launch_utc=2026-09-29T06:39:05Z gpu=1 project_bytes=65729025538
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+Traceback (most recent call last):
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/code_production_withdrawal1/scripts/ops/cuda_python.py", line 16, in <module>
+    runpy.run_path(sys.argv[0], run_name='__main__')
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 289, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 96, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p329_v2.py", line 151, in <module>
+    count=st.query_ball_point(source,2*s,return_length=True);ids=cp.flatnonzero((source[:,1]>=(source[:,1].min()+source[:,1].max())/2)&(count<.6*cp.median(count)))
+  File "/data/relcfd/chayo/physmorph_v2/deps/gpu_pipeline/cupyx/scipy/spatial/_kdtree.py", line 354, in query_ball_point
+    return find_nodes_in_radius(
+  File "/data/relcfd/chayo/physmorph_v2/deps/gpu_pipeline/cupyx/scipy/spatial/_kdtree_utils.py", line 878, in find_nodes_in_radius
+    nodes = cupy.full((n_points, tree_length), tree.shape[0], dtype=cupy.int64)
+  File "/data/relcfd/chayo/physmorph_v2/deps/gpu_pipeline/cupy/_creation/basic.py", line 328, in full
+    a = cupy.ndarray(shape, dtype, order=order)
+  File "cupy/_core/core.pyx", line 175, in cupy._core.core.ndarray.__new__
+  File "cupy/_core/core.pyx", line 277, in cupy._core.core._ndarray_base._init
+  File "cupy/cuda/memory.pyx", line 877, in cupy.cuda.memory.alloc
+  File "cupy/cuda/memory.pyx", line 1622, in cupy.cuda.memory.MemoryPool.malloc
+  File "cupy/cuda/memory.pyx", line 1643, in cupy.cuda.memory.MemoryPool.malloc
+  File "cupy/cuda/memory.pyx", line 1290, in cupy.cuda.memory.SingleDeviceMemoryPool.malloc
+  File "cupy/cuda/memory.pyx", line 1311, in cupy.cuda.memory.SingleDeviceMemoryPool._malloc
+  File "cupy/cuda/memory.pyx", line 1566, in cupy.cuda.memory.SingleDeviceMemoryPool._try_malloc
+  File "cupy/cuda/memory.pyx", line 1569, in cupy.cuda.memory.SingleDeviceMemoryPool._try_malloc
+cupy.cuda.memory.OutOfMemoryError: Out of memory allocating 720,000,000,000 bytes (allocated so far: 1,679,842,816 bytes).

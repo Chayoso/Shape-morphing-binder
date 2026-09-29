@@ -1,0 +1,27 @@
+launch_utc=2026-09-29T06:41:01Z gpu=1 project_bytes=65729146590
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+Traceback (most recent call last):
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/code_production_withdrawal1/scripts/ops/cuda_python.py", line 16, in <module>
+    runpy.run_path(sys.argv[0], run_name='__main__')
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 289, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 96, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p329_v3.py", line 176, in <module>
+    body,cl=project(x,res,az,el);targetmask,_=project(target,res,az,el);h=int((binary_fill_holes(body)&~body).sum());th=int((binary_fill_holes(targetmask)&~targetmask).sum());u=(body|targetmask).sum();ious.append((body&targetmask).sum()/cp.maximum(u,1));holes.append(h);extra.append(max(0,h-th));clipped.append(cl)
+  File "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p329_v3.py", line 159, in project
+    for oy in (-1,0,1):cp.add.at(buf,cp.clip(ij[:,0]+ox,0,res-1)*res+cp.clip(ij[:,1]+oy,0,res-1),1)
+  File "cupy/_core/_kernel.pyx", line 1436, in cupy._core._kernel.ufunc.at
+  File "cupy/_core/core.pyx", line 1852, in cupy._core.core._ndarray_base._scatter_op
+  File "cupy/_core/_routines_indexing.pyx", line 1055, in cupy._core._routines_indexing._scatter_op
+  File "cupy/_core/_routines_indexing.pyx", line 932, in cupy._core._routines_indexing._scatter_op_single
+TypeError: cupy.add.at only supports int32, float16, float32, float64, uint32, uint64, as data type

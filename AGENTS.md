@@ -345,6 +345,8 @@ These are the leading candidates for the unresolved problems, and they are ports
 - **P330 merit covector:** `docs/checkpoint_merit_terms_p330.md` exposes
   `evaluate_merit.terms(values)` inside the opt-in read-only checkpoint. Shared
   validation/caches/physical terms preserve the exact old Python-float scalar
-  acceptance path; tensor merit is for differentiation only.39 CPU cases pass;
- 2 server-only CUDA cases are registered, pending. No objective, adoption or
- 4K promotion; same callback/mode restrictions remain.
+  acceptance path; tensor merit is for differentiation only.39 CPU cases and2
+  actual CUDA cases pass (frozen cfe940b,8.06s), independently reviewed. Both
+  complete-merit body-mode finite differences and callback lifetime pass on the
+  small fixture only. No objective, adoption or4K promotion; same callback/mode
+  restrictions remain. Source receipt qualifies one unreferenced legacy file.

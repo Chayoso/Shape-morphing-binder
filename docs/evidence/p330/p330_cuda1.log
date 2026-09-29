@@ -1,0 +1,39 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_checkpoint_merit1
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 2 items
+
+tests/test_checkpoint_merit_terms_cuda.py Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 10.76 ms  (cached)
+[win] OT plan: sqrt(eps)=1.436 wu = 0.539 loss cells, tol 0.01 (cap 20 sweeps), 128 target samples
+[win] OT leash: displacement denoised over k=5 material neighbours (blur radius 1.436 wu / spacing 1.333)
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.57 wu, max |d|=0.953 wu
+[win] OT plan solved: 20 sweeps err=0.00111, 0.03s
+{'mode': 0, 'epsilon': 0.003, 'ad': 0.005865249633492377, 'fd': 0.0058649635869938615}
+{'mode': 0, 'epsilon': 0.0015, 'ad': 0.005865249633492377, 'fd': 0.005865402637804616}
+.[win] OT plan: sqrt(eps)=1.436 wu = 0.539 loss cells, tol 0.01 (cap 20 sweeps), 128 target samples
+[win] OT leash: displacement denoised over k=5 material neighbours (blur radius 1.436 wu / spacing 1.333)
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.57 wu, max |d|=0.953 wu
+[win] OT plan solved: 20 sweeps err=0.00111, 0.01s
+{'mode': 1, 'epsilon': 0.003, 'ad': 0.00013933198521357869, 'fd': 0.00013861167773299155}
+{'mode': 1, 'epsilon': 0.0015, 'ad': 0.00013933198521357869, 'fd': 0.00014024814485915268}
+.
+
+=============================== warnings summary ===============================
+tests/test_checkpoint_merit_terms_cuda.py::test_captured_complete_head_merit_fd_and_callback_lease[displacement]
+  /data/relcfd/chayo/physmorph_v2/work/p303/code_checkpoint_merit1/physmorph/pipeline/runner.py:305: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+  Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+    if float(L_den) <= 0 or float(g_den) <= 0:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p330_cuda1.xml -
+========================= 2 passed, 1 warning in 8.06s =========================

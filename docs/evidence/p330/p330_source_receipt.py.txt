@@ -1,0 +1,31 @@
+"""Post-run source binding for the bounded P330 CUDA test, no numerical work."""
+from pathlib import Path
+import hashlib
+import json
+base = Path('/data/relcfd/chayo/physmorph_v2/work/p303')
+code = base/'code_checkpoint_merit1'
+commit = 'cfe940b1a45722dc08f68485be8b4974c35f4e75'
+assert (code/'VERSION').read_text().strip() == commit
+pre = {
+    'physmorph/pipeline/optimizer.py': '03a6a1220ad9aeae4c5ecfc775288a1d6c28e1b4f142f302f7496d247531cdc9',
+    'tests/test_checkpoint_merit_terms.py': 'a9fbb8f2abc72917d1d4163a9c568f1e8f2b26d9783c820e8f2c7d17613e5112',
+    'tests/test_checkpoint_merit_terms_cuda.py': 'd8212d887939f56d037a3f48a52162b2f18991e7d41de3f438ba3c138ad870f9'}
+def sha(path):
+    before = path.stat()
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    after = path.stat()
+    assert (before.st_size, before.st_mtime_ns, before.st_ino) == (after.st_size, after.st_mtime_ns, after.st_ino)
+    return digest
+paths = sorted((code/'physmorph').rglob('*.py')) + [code/k for k in (
+    'tests/test_checkpoint_merit_terms.py', 'tests/test_checkpoint_merit_terms_cuda.py',
+    'scripts/ops/run_p303_probe.sh', 'scripts/ops/cuda_python.py')]
+post = {p.relative_to(code).as_posix(): sha(p) for p in paths}
+assert all(post[k] == v for k,v in pre.items())
+report = dict(commit=commit, code=str(code),
+    scope='Three reviewed files hashed before launch and after; remaining source hashes are post-run only',
+    pre_launch_sha256=pre, post_run_sha256=post,
+    receipts={name: sha(base/name) for name in ('p330_cuda1.log', 'p330_cuda1.xml')},
+    receipt_script_sha256=sha(Path(__file__)))
+with (base/'p330_source_sha256.json').open('x') as stream:
+    json.dump(report, stream, indent=2)
+print(json.dumps(dict(source_files=len(post), receipts=report['receipts'])))

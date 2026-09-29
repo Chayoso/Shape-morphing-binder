@@ -9546,3 +9546,12 @@ the existing evaluator; rounded Python-float scalar acceptance is unchanged.
 finite differences, F/energy/fullV analytic partials, activePBR/layer isolation,
 cache recovery and callback-expired gradients.2opt-in actualCUDA cases pending.
 No default loss or candidate adoption change. See `docs/checkpoint_merit_terms_p330.md`.
+
+P329 independent GPU archive audit passes335checks/110before-after filebindings;
+all saved closure/cohort/covector reductions and selected0/10/20raw coast phases
+agree. Failed auditor schema/backend attempts are preserved. P330 actualCUDA
+frozen cfe940b passes2/2,0skip,8.06s at N160,T3,dt1/240,dx1,grid32^3,loss12^3,
+iters2. Both complete-merit FD pairs retain the original3%/1e-6 gate and resolved
+AD floor50e-6. Independent source/receipt audit passes with the explicit83-file
+inventory qualification (82matching files plus one unreferenced remote legacy
+module). No production control proposal, post-handoff or rest/quality promotion.

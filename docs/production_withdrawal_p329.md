@@ -137,7 +137,9 @@ Mean path and RMS net length are different aggregation statistics.
 The archive-only CUDA analysis reads all21 coast positions. It uses fixed
 target extent,24 binary-splat views at128/256px and independent nearest-neighbor
 geometry; it never evaluates the renderer or an optimization loss. Selected
-boundary/end observations at the same discretization are:
+boundary/end observations at the same discretization are below. Coast0 is the
+joint head endpoint, precision-close but not bit-identical to the accepted head;
+these are within-coast changes, not an accepted-vs-candidate comparison.
 
 | Raw observation | Coast0 | Coast20 |
 |---|---:|---:|
@@ -170,3 +172,11 @@ lambda is.02719505. Median per-update reference-local render-loss change is
 movement. Coast dynamics receive no rendering feedback; diagnostic prepared
 image terms are observed only afterward. No4K appearance or physical candidate
 is promoted. Full evidence and audit scope: `evidence/p329/README.md`.
+
+Independent GPU1 audit4 passes335 checks across110 bound file identities/hashes,
+including all13 saved state-closure fields, complete coast finite/pin/boundary
+checks, both fixed-cohort reductions and all8 saved gradient arrays. Raw geometry
+is independently checked at phases0,10,20 only (all24views128/256px), with64
+blocked brute target and64 supplier checks per phase. Remaining18 raw phases
+are bound by source/artifact hashes. Three auditor schema/backend compatibility
+failures are preserved; no producer values or numerical gate were changed.

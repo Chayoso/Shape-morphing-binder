@@ -1,0 +1,112 @@
+{
+  "passed": true,
+  "final_audit": "p329_independent_audit4.json",
+  "final_audit_sha256": "7170a6435d6de7498264b79e778c5d287bca2ca422658b45156fabd528929006",
+  "checks": 335,
+  "bindings": 110,
+  "closure_fields": 13,
+  "max_state_closure_ratio": 0.3510720431804657,
+  "raw_geometry_phases": [
+    0,
+    10,
+    20
+  ],
+  "scope": "Archive reductions only. All full X/V+terminal F/C closure arrays, private Fg, full coast finite/pins/F determinants, masks/control identity, cohort motion/loss and saved gradient reductions. Raw geometry independently reconstructed only phases0/10/20, all24views128/256 and full target/support cohorts. No MPM/loss/renderer/FD or full head F/C sequence audit. Original return and optimizer isolation are corroborated metadata, not independently replayed. Full KD queries reuse frozen bounded physmorph.compute.KDTree and CuPy fill; independent blocked FP64 brute checks64 target plus64 supplier queries per selected phase. Memory is a sampled process peak, not exact high-water mark.",
+  "preserved_auditor_failures": [
+    {
+      "attempt": 1,
+      "reason": "Metadata preflight compared incomplete historical config without frozen dataclass defaults; no numerical work."
+    },
+    {
+      "attempt": 2,
+      "reason": "Direct cupyx KDTree radius query attempted N*N buffer despite return_length; auditor OOM before geometry, producer unaffected."
+    },
+    {
+      "attempt": 3,
+      "reason": "Independent cp.add.at histogram destination int64 unsupported; changed only to exact int32 with9*N<2^31 guard."
+    }
+  ],
+  "final_histogram": "int32 exact count; no gate/tolerance changes",
+  "files": [
+    {
+      "file": "p329_independent_audit1.launch.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "p329_independent_audit1.log",
+      "bytes": 1503,
+      "sha256": "0a733abacdfb9b79700274227ebd80cfa5ad6c9c99499fc3bbeeeeb50f25de81"
+    },
+    {
+      "file": "p329_independent_audit1.start",
+      "bytes": 11,
+      "sha256": "8266ced4a2ee81ea71bb6aa1eee2c350a393d98eaa29d462270c296ba561e46b"
+    },
+    {
+      "file": "p329_independent_audit2.launch.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "p329_independent_audit2.log",
+      "bytes": 2803,
+      "sha256": "4c9d443488d9bb8e400a8f5415ed1066495614c8f574215013a04d3e4a6b1da5"
+    },
+    {
+      "file": "p329_independent_audit2.protocol.json",
+      "bytes": 31530,
+      "sha256": "07d4b04ae614162950f99f53d6e13d7604aabef09d5eb4c4244e4d07c42e2b90"
+    },
+    {
+      "file": "p329_independent_audit2.start",
+      "bytes": 11,
+      "sha256": "8889a35eaf640e42aecee87041e0e04355cd002c00f1d7edc6d66506591f113b"
+    },
+    {
+      "file": "p329_independent_audit3.launch.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "p329_independent_audit3.log",
+      "bytes": 2214,
+      "sha256": "afe5aa5645aa66076d9f69a592c8c28c541f6d7c829652b80c74eebc16bd623d"
+    },
+    {
+      "file": "p329_independent_audit3.protocol.json",
+      "bytes": 31530,
+      "sha256": "4d892607b7b93f68167ecde37b3b802dd26c7ac5a7020eb1eb3632ca2b8504b2"
+    },
+    {
+      "file": "p329_independent_audit3.start",
+      "bytes": 11,
+      "sha256": "10a2a1b44fc63b0bbc1d910a94d87ed7fe3ac989b108e8db154e2571ce921e3c"
+    },
+    {
+      "file": "p329_independent_audit4.json",
+      "bytes": 67757,
+      "sha256": "7170a6435d6de7498264b79e778c5d287bca2ca422658b45156fabd528929006"
+    },
+    {
+      "file": "p329_independent_audit4.launch.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "p329_independent_audit4.log",
+      "bytes": 644,
+      "sha256": "1ee172a7e3b171cd46e2982cf4fa2ab8eab3d36c36d43704d2ed69c7de3702ac"
+    },
+    {
+      "file": "p329_independent_audit4.protocol.json",
+      "bytes": 31530,
+      "sha256": "58b06df0c8b47c316a4b37c72eb35425b3a284bc5714394432bf7a2e1d97fee1"
+    },
+    {
+      "file": "p329_independent_audit4.start",
+      "bytes": 11,
+      "sha256": "f483f189a9932937b2aae0c99919440461fb90b3c1b4950ef65d7363fcd923fe"
+    }
+  ]
+}

@@ -27,5 +27,25 @@ no coefficient proposal, adoption, rest claim or new rendered deliverable.
 Implementation gates:24 CPU cases passed, independently refuted, including
 deliberate owned-C corruption that preserves failed evidence without changing
 ordinary pipeline frames. The original source run's capability gate passes.
-Independent actual-output/provenance and bounded CUDA archive audit is pending;
-this status will be replaced only after its receipt arrives.
+Independent actual-output/provenance and bounded CUDA archive audit passes335
+checks across110 before/after file identities/hashes. All13 full saved state
+closures, complete coast finite/pin/boundary state, fixed cohort identities,
+two-cohort motion/cost reductions and all8 saved gradient norms agree. Original
+optimizer return/isolation is corroborated metadata and CPU observer coverage,
+not a second optimizer replay.
+
+Raw geometry is independently checked only at phases0,10,20, all24views at
+128/256px, with independent `add.at` binary histograms. Exact bounded KDTree
+and hole-fill primitives are shared;64 target and64 supplier queries per phase
+also receive an independent blocked brute-distance check. Remaining18 phases
+are source/provenance-bound, not independently reprojected. Phase0 is the joint
+head, close to but not bit-identical to accepted head. These are changes within
+one joint coast, not an accepted-vs-candidate quality comparison.
+
+The final receipt is `p329_independent_audit4.json`; artifact mapping and hashes
+are in `independent_audit_index.json`. Failed auditor1 omitted dataclass defaults
+in metadata comparison; auditor2's direct CuPy radius API requested a dense
+300k-squared array; auditor3 used an unsupported int64 add.at destination.
+Their exact scripts/logs are retained. Audit4 expands the frozen config defaults,
+uses the existing bounded CUDA query wrapper and guarded int32 histogram counts.
+No producer output or comparison tolerance was changed to obtain this pass.
