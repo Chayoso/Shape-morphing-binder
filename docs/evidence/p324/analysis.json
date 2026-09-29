@@ -1,0 +1,1391 @@
+{
+  "capture_sha256": "2ac6fb36d17a8df922698fea8e9dd142f226ff5cebd52b650783ad8df4a72719",
+  "config_sha256": "a13e90ca1526d27bde881933f46d28ddc9567a6364dec45e250d583cb745911b",
+  "input_sha256": "e7df5e9b4b52bd8848846d06354990220808b57099494ca1b04abad927ce4ac0",
+  "pairs": [
+    {
+      "source_attempt": 5,
+      "next_attempt": 6,
+      "end_frame": 120,
+      "successor_committed": true,
+      "state_policy_deltas": {
+        "C0": {
+          "rms": 0.1829266449333418,
+          "max_abs": 3.500781774520874
+        },
+        "F0": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "Fp": {
+          "rms": 0.002776481423314299,
+          "max_abs": 0.044940948486328125
+        },
+        "bond_frag": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "bond_nbr": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "bond_rest": {
+          "rms": 0.011706475011022666,
+          "max_abs": 0.4046679139137268
+        },
+        "eta": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "lam": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "layer_mask": {
+          "rms": 0.0845182426067493,
+          "max_abs": 1.0
+        },
+        "layer_nbr": {
+          "rms": 37535.051971955705,
+          "max_abs": 299996.0
+        },
+        "layer_nrm": {
+          "rms": 0.32076053123978016,
+          "max_abs": 1.9774937629699707
+        },
+        "layer_ug": {
+          "rms": 0.09421606374003674,
+          "max_abs": 1.0
+        },
+        "layer_w": {
+          "rms": 0.0006706413146371733,
+          "max_abs": 0.13814356923103333
+        },
+        "m": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "mu": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "pin": {
+          "rms": 0.2828544973421258,
+          "max_abs": 1.0
+        },
+        "v0": {
+          "rms": 0.0850657042266825,
+          "max_abs": 1.5306328535079956
+        },
+        "vol": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "x0": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        }
+      },
+      "metadata_before": {
+        "schema": "owned_withdrawal_v1",
+        "N": 300000,
+        "T": 20,
+        "step": 20,
+        "device": "cuda:0",
+        "captured_device": "cuda:0",
+        "prm": {
+          "dx": 0.3062907543956724,
+          "dt": 0.004166666666666667,
+          "drag": 0.9,
+          "smoothing": 0.955,
+          "v_max": 0.0,
+          "eta_sym": 0,
+          "eta_mode": 0,
+          "gate_r_lo": 0.0,
+          "gate_r_hi": 0.0,
+          "gate_n0": 0.0,
+          "f_ext": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "grid_min": [
+            -5.513233579122103,
+            -5.513233579122103,
+            -5.513233579122103
+          ],
+          "nx": 36,
+          "ny": 36,
+          "nz": 36,
+          "floor_y": -1000000000.0,
+          "floor_friction": 0.0
+        },
+        "pin_mode": 1,
+        "gate": false,
+        "gate_n0": null,
+        "track_geom": false,
+        "layer_present": true,
+        "layer_F": false,
+        "bonds_present": true,
+        "source_body_control": true,
+        "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+        "layer_K": 180,
+        "layer_frac": 0.05,
+        "layer_frac_u": 0.05,
+        "bond_K": 60,
+        "frag_thr": 7.499999999999999
+      },
+      "metadata_after": {
+        "schema": "owned_withdrawal_v1",
+        "N": 300000,
+        "T": 20,
+        "step": 0,
+        "device": "cuda:0",
+        "captured_device": "cuda:0",
+        "prm": {
+          "dx": 0.3062907543956724,
+          "dt": 0.004166666666666667,
+          "drag": 0.9,
+          "smoothing": 0.955,
+          "v_max": 0.0,
+          "eta_sym": 0,
+          "eta_mode": 0,
+          "gate_r_lo": 0.0,
+          "gate_r_hi": 0.0,
+          "gate_n0": 0.0,
+          "f_ext": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "grid_min": [
+            -5.513233579122103,
+            -5.513233579122103,
+            -5.513233579122103
+          ],
+          "nx": 36,
+          "ny": 36,
+          "nz": 36,
+          "floor_y": -1000000000.0,
+          "floor_friction": 0.0
+        },
+        "pin_mode": 1,
+        "gate": false,
+        "gate_n0": null,
+        "track_geom": false,
+        "layer_present": true,
+        "layer_F": false,
+        "bonds_present": true,
+        "source_body_control": true,
+        "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+        "layer_K": 180,
+        "layer_frac": 0.05,
+        "layer_frac_u": 0.05,
+        "bond_K": 60,
+        "frag_thr": 7.499999999999999
+      },
+      "start": {
+        "sil_iou": 0.8876918418139903,
+        "target_coverage_2sp": 0.9756933333333333
+      },
+      "pre": {
+        "health": {
+          "nonfinite_x": 0.0,
+          "nonfinite_v": 0.0,
+          "nonzero_pinned_v": 0.0,
+          "nonfinite_C": 0.0,
+          "nonzero_pinned_C": 0.0,
+          "nonfinite_F": 0.0,
+          "nonpositive_detF": 0.0,
+          "min_detF": 0.8876871843881052,
+          "pinned_position_changes": 0.0,
+          "outside_runner_bounds": 0.0,
+          "valid": true
+        },
+        "cohorts": {
+          "common_free": {
+            "count": 267575,
+            "values": {
+              "net_rms_sp": 1.5352331104591097,
+              "step_rms_sp": 0.07860403471851064,
+              "last_step_rms_sp": 0.06886503985802157,
+              "stored_speed_rms_wu_s": 0.5783045443735088,
+              "geometric_speed_rms_wu_s": 0.5782768723247792,
+              "reversals": 266.0,
+              "reversal_pairs": 5351500.0,
+              "boundary_reversal": 118.0,
+              "boundary_pairs": 267575.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 8.068995280652718
+            }
+          },
+          "newly_pinned": {
+            "count": 24002,
+            "values": {
+              "net_rms_sp": 0.7492521876404351,
+              "step_rms_sp": 0.040035660695954906,
+              "last_step_rms_sp": 0.033093726586094746,
+              "stored_speed_rms_wu_s": 0.27868401873550536,
+              "geometric_speed_rms_wu_s": 0.2778962553892881,
+              "reversals": 39.0,
+              "reversal_pairs": 480040.0,
+              "boundary_reversal": 27.0,
+              "boundary_pairs": 24002.0,
+              "min_detF": 0.9230786065006729,
+              "max_displacement_sp": 2.7271957767536503
+            }
+          },
+          "old_pins": {
+            "count": 8423,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.9432229201911264,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "initially_free": {
+            "count": 291577,
+            "values": {
+              "net_rms_sp": 1.4863155319639592,
+              "step_rms_sp": 0.07617039486257103,
+              "last_step_rms_sp": 0.06664956138847765,
+              "stored_speed_rms_wu_s": 0.55973142860872,
+              "geometric_speed_rms_wu_s": 0.5596729484366627,
+              "reversals": 305.0,
+              "reversal_pairs": 5831540.0,
+              "boundary_reversal": 145.0,
+              "boundary_pairs": 291577.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 8.068995280652718
+            }
+          },
+          "arrived_common_free": {
+            "count": 251167,
+            "values": {
+              "net_rms_sp": 1.4393460571190562,
+              "step_rms_sp": 0.07377773325369949,
+              "last_step_rms_sp": 0.06358410225373796,
+              "stored_speed_rms_wu_s": 0.5339293353394131,
+              "geometric_speed_rms_wu_s": 0.5339315254398648,
+              "reversals": 255.0,
+              "reversal_pairs": 5023340.0,
+              "boundary_reversal": 111.0,
+              "boundary_pairs": 251167.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 5.284604120139984
+            }
+          },
+          "transit_common_free": {
+            "count": 16408,
+            "values": {
+              "net_rms_sp": 2.5928802922231515,
+              "step_rms_sp": 0.13204702365914708,
+              "last_step_rms_sp": 0.12429552206614604,
+              "stored_speed_rms_wu_s": 1.0440075633612496,
+              "geometric_speed_rms_wu_s": 1.0437404217375776,
+              "reversals": 11.0,
+              "reversal_pairs": 328160.0,
+              "boundary_reversal": 7.0,
+              "boundary_pairs": 16408.0,
+              "min_detF": 0.9282222991244862,
+              "max_displacement_sp": 8.068995280652718
+            }
+          }
+        },
+        "sil_iou": 0.8875809518703472,
+        "target_coverage_2sp": 0.9774233333333333,
+        "path": "attempt_005_pre.npz",
+        "sha256": "37ba15abefa7c8eb3fce31fb0784b48fa5d81babdf0edd25a17daa0dc2c91f2b"
+      },
+      "post": {
+        "health": {
+          "nonfinite_x": 0.0,
+          "nonfinite_v": 0.0,
+          "nonzero_pinned_v": 0.0,
+          "nonfinite_C": 0.0,
+          "nonzero_pinned_C": 0.0,
+          "nonfinite_F": 0.0,
+          "nonpositive_detF": 0.0,
+          "min_detF": 0.8876871843881052,
+          "pinned_position_changes": 0.0,
+          "outside_runner_bounds": 0.0,
+          "valid": true
+        },
+        "cohorts": {
+          "common_free": {
+            "count": 267575,
+            "values": {
+              "net_rms_sp": 1.508384876264859,
+              "step_rms_sp": 0.07716341140637303,
+              "last_step_rms_sp": 0.06898785767521379,
+              "stored_speed_rms_wu_s": 0.5794192599933863,
+              "geometric_speed_rms_wu_s": 0.5793082040910588,
+              "reversals": 665.0,
+              "reversal_pairs": 5351498.0,
+              "boundary_reversal": 392.0,
+              "boundary_pairs": 267575.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 8.404701211946906
+            }
+          },
+          "newly_pinned": {
+            "count": 24002,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.9230786065006729,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "old_pins": {
+            "count": 8423,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.9432229201911264,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "initially_free": {
+            "count": 291577,
+            "values": {
+              "net_rms_sp": 1.4449682507422381,
+              "step_rms_sp": 0.07391925055445353,
+              "last_step_rms_sp": 0.06608741946170528,
+              "stored_speed_rms_wu_s": 0.5550588896331476,
+              "geometric_speed_rms_wu_s": 0.5549525028246839,
+              "reversals": 665.0,
+              "reversal_pairs": 5351498.0,
+              "boundary_reversal": 392.0,
+              "boundary_pairs": 267575.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 8.404701211946906
+            }
+          },
+          "arrived_common_free": {
+            "count": 251167,
+            "values": {
+              "net_rms_sp": 1.4046009453703694,
+              "step_rms_sp": 0.07194114073389793,
+              "last_step_rms_sp": 0.06347284898978807,
+              "stored_speed_rms_wu_s": 0.5332503085781476,
+              "geometric_speed_rms_wu_s": 0.5329973041042566,
+              "reversals": 618.0,
+              "reversal_pairs": 5023338.0,
+              "boundary_reversal": 362.0,
+              "boundary_pairs": 251167.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 5.492168944250272
+            }
+          },
+          "transit_common_free": {
+            "count": 16408,
+            "values": {
+              "net_rms_sp": 2.6273625258210465,
+              "step_rms_sp": 0.1336924432072529,
+              "last_step_rms_sp": 0.12626106995395475,
+              "stored_speed_rms_wu_s": 1.0592874143548734,
+              "geometric_speed_rms_wu_s": 1.0602456163517093,
+              "reversals": 47.0,
+              "reversal_pairs": 328160.0,
+              "boundary_reversal": 30.0,
+              "boundary_pairs": 16408.0,
+              "min_detF": 0.9282222991244862,
+              "max_displacement_sp": 8.404701211946906
+            }
+          }
+        },
+        "sil_iou": 0.8899084118554347,
+        "target_coverage_2sp": 0.9779533333333333,
+        "path": "attempt_005_post.npz",
+        "sha256": "8a077c31f098a692fec324afdfc172ef80a21642724e640ba3dfa2a1f9666ba1"
+      }
+    },
+    {
+      "source_attempt": 19,
+      "next_attempt": 20,
+      "end_frame": 400,
+      "successor_committed": true,
+      "state_policy_deltas": {
+        "C0": {
+          "rms": 0.026572924037607096,
+          "max_abs": 1.6019634008407593
+        },
+        "F0": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "Fp": {
+          "rms": 0.0010235700741038599,
+          "max_abs": 0.060416579246520996
+        },
+        "bond_frag": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "bond_nbr": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "bond_rest": {
+          "rms": 0.00354980160604136,
+          "max_abs": 0.126096922904253
+        },
+        "eta": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "lam": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "layer_mask": {
+          "rms": 0.03890158522905376,
+          "max_abs": 1.0
+        },
+        "layer_nbr": {
+          "rms": 24472.87633659091,
+          "max_abs": 299996.0
+        },
+        "layer_nrm": {
+          "rms": 0.07162238256366465,
+          "max_abs": 1.9483436346054077
+        },
+        "layer_ug": {
+          "rms": 0.039200340134578765,
+          "max_abs": 1.0
+        },
+        "layer_w": {
+          "rms": 0.00042818370670155134,
+          "max_abs": 0.050628263503313065
+        },
+        "m": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "mu": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "pin": {
+          "rms": 0.12803645314258488,
+          "max_abs": 1.0
+        },
+        "v0": {
+          "rms": 0.012602968305909623,
+          "max_abs": 0.5711715817451477
+        },
+        "vol": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "x0": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        }
+      },
+      "metadata_before": {
+        "schema": "owned_withdrawal_v1",
+        "N": 300000,
+        "T": 20,
+        "step": 20,
+        "device": "cuda:0",
+        "captured_device": "cuda:0",
+        "prm": {
+          "dx": 0.3062907543956724,
+          "dt": 0.004166666666666667,
+          "drag": 0.9,
+          "smoothing": 0.955,
+          "v_max": 0.0,
+          "eta_sym": 0,
+          "eta_mode": 0,
+          "gate_r_lo": 0.0,
+          "gate_r_hi": 0.0,
+          "gate_n0": 0.0,
+          "f_ext": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "grid_min": [
+            -5.513233579122103,
+            -5.513233579122103,
+            -5.513233579122103
+          ],
+          "nx": 36,
+          "ny": 36,
+          "nz": 36,
+          "floor_y": -1000000000.0,
+          "floor_friction": 0.0
+        },
+        "pin_mode": 1,
+        "gate": false,
+        "gate_n0": null,
+        "track_geom": false,
+        "layer_present": true,
+        "layer_F": false,
+        "bonds_present": true,
+        "source_body_control": true,
+        "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+        "layer_K": 180,
+        "layer_frac": 0.05,
+        "layer_frac_u": 0.05,
+        "bond_K": 60,
+        "frag_thr": 7.499999999999999
+      },
+      "metadata_after": {
+        "schema": "owned_withdrawal_v1",
+        "N": 300000,
+        "T": 20,
+        "step": 0,
+        "device": "cuda:0",
+        "captured_device": "cuda:0",
+        "prm": {
+          "dx": 0.3062907543956724,
+          "dt": 0.004166666666666667,
+          "drag": 0.9,
+          "smoothing": 0.955,
+          "v_max": 0.0,
+          "eta_sym": 0,
+          "eta_mode": 0,
+          "gate_r_lo": 0.0,
+          "gate_r_hi": 0.0,
+          "gate_n0": 0.0,
+          "f_ext": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "grid_min": [
+            -5.513233579122103,
+            -5.513233579122103,
+            -5.513233579122103
+          ],
+          "nx": 36,
+          "ny": 36,
+          "nz": 36,
+          "floor_y": -1000000000.0,
+          "floor_friction": 0.0
+        },
+        "pin_mode": 1,
+        "gate": false,
+        "gate_n0": null,
+        "track_geom": false,
+        "layer_present": true,
+        "layer_F": false,
+        "bonds_present": true,
+        "source_body_control": true,
+        "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+        "layer_K": 180,
+        "layer_frac": 0.05,
+        "layer_frac_u": 0.05,
+        "bond_K": 60,
+        "frag_thr": 7.499999999999999
+      },
+      "start": {
+        "sil_iou": 0.9623160734904715,
+        "target_coverage_2sp": 0.9925733333333333
+      },
+      "pre": {
+        "health": {
+          "nonfinite_x": 0.0,
+          "nonfinite_v": 0.0,
+          "nonzero_pinned_v": 0.0,
+          "nonfinite_C": 0.0,
+          "nonzero_pinned_C": 0.0,
+          "nonfinite_F": 0.0,
+          "nonpositive_detF": 0.0,
+          "min_detF": 0.8145657211117222,
+          "pinned_position_changes": 0.0,
+          "outside_runner_bounds": 0.0,
+          "valid": true
+        },
+        "cohorts": {
+          "common_free": {
+            "count": 40021,
+            "values": {
+              "net_rms_sp": 0.4306430304403117,
+              "step_rms_sp": 0.022807010530039463,
+              "last_step_rms_sp": 0.024713906308443077,
+              "stored_speed_rms_wu_s": 0.20727690725153958,
+              "geometric_speed_rms_wu_s": 0.2075288197384146,
+              "reversals": 406.0,
+              "reversal_pairs": 800420.0,
+              "boundary_reversal": 63.0,
+              "boundary_pairs": 40021.0,
+              "min_detF": 0.8145657211117222,
+              "max_displacement_sp": 1.4529830035197566
+            }
+          },
+          "newly_pinned": {
+            "count": 4918,
+            "values": {
+              "net_rms_sp": 0.34471933655153353,
+              "step_rms_sp": 0.018460678960873552,
+              "last_step_rms_sp": 0.021804837569827255,
+              "stored_speed_rms_wu_s": 0.18405856660509148,
+              "geometric_speed_rms_wu_s": 0.18310064580556243,
+              "reversals": 41.0,
+              "reversal_pairs": 98360.0,
+              "boundary_reversal": 35.0,
+              "boundary_pairs": 4918.0,
+              "min_detF": 0.8326520852325764,
+              "max_displacement_sp": 1.7710199292159454
+            }
+          },
+          "old_pins": {
+            "count": 255061,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.8755127045239453,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "initially_free": {
+            "count": 44939,
+            "values": {
+              "net_rms_sp": 0.42209298999025224,
+              "step_rms_sp": 0.022372544142495468,
+              "last_step_rms_sp": 0.024412444306157913,
+              "stored_speed_rms_wu_s": 0.20486422820007893,
+              "geometric_speed_rms_wu_s": 0.20499736830579157,
+              "reversals": 447.0,
+              "reversal_pairs": 898780.0,
+              "boundary_reversal": 98.0,
+              "boundary_pairs": 44939.0,
+              "min_detF": 0.8145657211117222,
+              "max_displacement_sp": 1.7710199292159454
+            }
+          },
+          "arrived_common_free": {
+            "count": 39860,
+            "values": {
+              "net_rms_sp": 0.4296888420598446,
+              "step_rms_sp": 0.022765997187824256,
+              "last_step_rms_sp": 0.02467735397478625,
+              "stored_speed_rms_wu_s": 0.20697072111679993,
+              "geometric_speed_rms_wu_s": 0.20722188069900038,
+              "reversals": 406.0,
+              "reversal_pairs": 797200.0,
+              "boundary_reversal": 63.0,
+              "boundary_pairs": 39860.0,
+              "min_detF": 0.8145657211117222,
+              "max_displacement_sp": 1.4529830035197566
+            }
+          },
+          "transit_common_free": {
+            "count": 161,
+            "values": {
+              "net_rms_sp": 0.6234537095245651,
+              "step_rms_sp": 0.03135135456095338,
+              "last_step_rms_sp": 0.032522997632654524,
+              "stored_speed_rms_wu_s": 0.2727007365263775,
+              "geometric_speed_rms_wu_s": 0.2731037023780498,
+              "reversals": 0.0,
+              "reversal_pairs": 3220.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 161.0,
+              "min_detF": 0.9127127904041707,
+              "max_displacement_sp": 0.8866797445943572
+            }
+          }
+        },
+        "sil_iou": 0.9630039205059591,
+        "target_coverage_2sp": 0.9929133333333333,
+        "path": "attempt_019_pre.npz",
+        "sha256": "0f00fcd6e1db284ea6182fef644b0b53a1b102f9c934ba532de9c02dd55c8eab"
+      },
+      "post": {
+        "health": {
+          "nonfinite_x": 0.0,
+          "nonfinite_v": 0.0,
+          "nonzero_pinned_v": 0.0,
+          "nonfinite_C": 0.0,
+          "nonzero_pinned_C": 0.0,
+          "nonfinite_F": 0.0,
+          "nonpositive_detF": 0.0,
+          "min_detF": 0.8150576209325046,
+          "pinned_position_changes": 0.0,
+          "outside_runner_bounds": 0.0,
+          "valid": true
+        },
+        "cohorts": {
+          "common_free": {
+            "count": 40021,
+            "values": {
+              "net_rms_sp": 0.4631028898443767,
+              "step_rms_sp": 0.024257558374962792,
+              "last_step_rms_sp": 0.026493303858316244,
+              "stored_speed_rms_wu_s": 0.2221061156040299,
+              "geometric_speed_rms_wu_s": 0.22247086365336008,
+              "reversals": 314.0,
+              "reversal_pairs": 800420.0,
+              "boundary_reversal": 67.0,
+              "boundary_pairs": 40021.0,
+              "min_detF": 0.8150576209325046,
+              "max_displacement_sp": 1.5895490173831384
+            }
+          },
+          "newly_pinned": {
+            "count": 4918,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.8334828120725329,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "old_pins": {
+            "count": 255061,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.8755127045239453,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "initially_free": {
+            "count": 44939,
+            "values": {
+              "net_rms_sp": 0.4370284974605939,
+              "step_rms_sp": 0.022891768808083073,
+              "last_step_rms_sp": 0.025001633615064977,
+              "stored_speed_rms_wu_s": 0.20960072611910696,
+              "geometric_speed_rms_wu_s": 0.20994493751455737,
+              "reversals": 314.0,
+              "reversal_pairs": 800420.0,
+              "boundary_reversal": 67.0,
+              "boundary_pairs": 40021.0,
+              "min_detF": 0.8150576209325046,
+              "max_displacement_sp": 1.5895490173831384
+            }
+          },
+          "arrived_common_free": {
+            "count": 39860,
+            "values": {
+              "net_rms_sp": 0.4622567189675431,
+              "step_rms_sp": 0.024220430092145237,
+              "last_step_rms_sp": 0.02646445057705745,
+              "stored_speed_rms_wu_s": 0.22187077670544564,
+              "geometric_speed_rms_wu_s": 0.2222285754723463,
+              "reversals": 314.0,
+              "reversal_pairs": 797200.0,
+              "boundary_reversal": 67.0,
+              "boundary_pairs": 39860.0,
+              "min_detF": 0.8150576209325046,
+              "max_displacement_sp": 1.5895490173831384
+            }
+          },
+          "transit_common_free": {
+            "count": 161,
+            "values": {
+              "net_rms_sp": 0.6389997155565943,
+              "step_rms_sp": 0.03215657378893041,
+              "last_step_rms_sp": 0.03286632040078339,
+              "stored_speed_rms_wu_s": 0.27422487926309963,
+              "geometric_speed_rms_wu_s": 0.27598666907582226,
+              "reversals": 0.0,
+              "reversal_pairs": 3220.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 161.0,
+              "min_detF": 0.9127127904041707,
+              "max_displacement_sp": 1.1693407794661164
+            }
+          }
+        },
+        "sil_iou": 0.9632289197437093,
+        "target_coverage_2sp": 0.99293,
+        "path": "attempt_019_post.npz",
+        "sha256": "aa0e57d1579cc7c4aa73cbc23bd16b3dd4243573e1253d5b33993e7c8de72bef"
+      }
+    },
+    {
+      "source_attempt": 27,
+      "next_attempt": 28,
+      "end_frame": 560,
+      "successor_committed": true,
+      "state_policy_deltas": {
+        "C0": {
+          "rms": 0.007571182610657331,
+          "max_abs": 1.118532419204712
+        },
+        "F0": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "Fp": {
+          "rms": 0.00041854012698167833,
+          "max_abs": 0.0802883505821228
+        },
+        "bond_frag": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "bond_nbr": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "bond_rest": {
+          "rms": 0.0021129068376718606,
+          "max_abs": 0.12296921014785767
+        },
+        "eta": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "lam": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "layer_mask": {
+          "rms": 0.02503331114069145,
+          "max_abs": 1.0
+        },
+        "layer_nbr": {
+          "rms": 20089.092546084983,
+          "max_abs": 299901.0
+        },
+        "layer_nrm": {
+          "rms": 0.04483669418855015,
+          "max_abs": 1.9149092435836792
+        },
+        "layer_ug": {
+          "rms": 0.02503331114069145,
+          "max_abs": 1.0
+        },
+        "layer_w": {
+          "rms": 0.0003356874365108662,
+          "max_abs": 0.045421235263347626
+        },
+        "m": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "mu": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "pin": {
+          "rms": 0.05208966628164682,
+          "max_abs": 1.0
+        },
+        "v0": {
+          "rms": 0.002826175867143347,
+          "max_abs": 0.31460294127464294
+        },
+        "vol": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        },
+        "x0": {
+          "rms": 0.0,
+          "max_abs": 0.0
+        }
+      },
+      "metadata_before": {
+        "schema": "owned_withdrawal_v1",
+        "N": 300000,
+        "T": 20,
+        "step": 20,
+        "device": "cuda:0",
+        "captured_device": "cuda:0",
+        "prm": {
+          "dx": 0.3062907543956724,
+          "dt": 0.004166666666666667,
+          "drag": 0.9,
+          "smoothing": 0.955,
+          "v_max": 0.0,
+          "eta_sym": 0,
+          "eta_mode": 0,
+          "gate_r_lo": 0.0,
+          "gate_r_hi": 0.0,
+          "gate_n0": 0.0,
+          "f_ext": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "grid_min": [
+            -5.513233579122103,
+            -5.513233579122103,
+            -5.513233579122103
+          ],
+          "nx": 36,
+          "ny": 36,
+          "nz": 36,
+          "floor_y": -1000000000.0,
+          "floor_friction": 0.0
+        },
+        "pin_mode": 1,
+        "gate": false,
+        "gate_n0": null,
+        "track_geom": false,
+        "layer_present": true,
+        "layer_F": false,
+        "bonds_present": true,
+        "source_body_control": true,
+        "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+        "layer_K": 180,
+        "layer_frac": 0.05,
+        "layer_frac_u": 0.05,
+        "bond_K": 60,
+        "frag_thr": 7.499999999999999
+      },
+      "metadata_after": {
+        "schema": "owned_withdrawal_v1",
+        "N": 300000,
+        "T": 20,
+        "step": 0,
+        "device": "cuda:0",
+        "captured_device": "cuda:0",
+        "prm": {
+          "dx": 0.3062907543956724,
+          "dt": 0.004166666666666667,
+          "drag": 0.9,
+          "smoothing": 0.955,
+          "v_max": 0.0,
+          "eta_sym": 0,
+          "eta_mode": 0,
+          "gate_r_lo": 0.0,
+          "gate_r_hi": 0.0,
+          "gate_n0": 0.0,
+          "f_ext": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "grid_min": [
+            -5.513233579122103,
+            -5.513233579122103,
+            -5.513233579122103
+          ],
+          "nx": 36,
+          "ny": 36,
+          "nz": 36,
+          "floor_y": -1000000000.0,
+          "floor_friction": 0.0
+        },
+        "pin_mode": 1,
+        "gate": false,
+        "gate_n0": null,
+        "track_geom": false,
+        "layer_present": true,
+        "layer_F": false,
+        "bonds_present": true,
+        "source_body_control": true,
+        "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+        "layer_K": 180,
+        "layer_frac": 0.05,
+        "layer_frac_u": 0.05,
+        "bond_K": 60,
+        "frag_thr": 7.499999999999999
+      },
+      "start": {
+        "sil_iou": 0.9629685648354477,
+        "target_coverage_2sp": 0.9928266666666666
+      },
+      "pre": {
+        "health": {
+          "nonfinite_x": 0.0,
+          "nonfinite_v": 0.0,
+          "nonzero_pinned_v": 0.0,
+          "nonfinite_C": 0.0,
+          "nonzero_pinned_C": 0.0,
+          "nonfinite_F": 0.0,
+          "nonpositive_detF": 0.0,
+          "min_detF": 0.7947258490382904,
+          "pinned_position_changes": 0.0,
+          "outside_runner_bounds": 0.0,
+          "valid": true
+        },
+        "cohorts": {
+          "common_free": {
+            "count": 22511,
+            "values": {
+              "net_rms_sp": 0.30040006870402997,
+              "step_rms_sp": 0.015811256885894173,
+              "last_step_rms_sp": 0.017808296485548183,
+              "stored_speed_rms_wu_s": 0.14929017777676468,
+              "geometric_speed_rms_wu_s": 0.14954069603860995,
+              "reversals": 251.0,
+              "reversal_pairs": 450218.0,
+              "boundary_reversal": 53.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7959167766170618,
+              "max_displacement_sp": 1.8501040375627413
+            }
+          },
+          "newly_pinned": {
+            "count": 814,
+            "values": {
+              "net_rms_sp": 0.2732826892911519,
+              "step_rms_sp": 0.014744943524076357,
+              "last_step_rms_sp": 0.01936664409163412,
+              "stored_speed_rms_wu_s": 0.16279112591813744,
+              "geometric_speed_rms_wu_s": 0.16262652858150964,
+              "reversals": 110.0,
+              "reversal_pairs": 16280.0,
+              "boundary_reversal": 27.0,
+              "boundary_pairs": 814.0,
+              "min_detF": 0.7947258490382904,
+              "max_displacement_sp": 0.6809104668084853
+            }
+          },
+          "old_pins": {
+            "count": 276675,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.8334828120725329,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "initially_free": {
+            "count": 23325,
+            "values": {
+              "net_rms_sp": 0.29949507215473503,
+              "step_rms_sp": 0.015775258316764962,
+              "last_step_rms_sp": 0.017864969263936364,
+              "stored_speed_rms_wu_s": 0.14978183112957608,
+              "geometric_speed_rms_wu_s": 0.1500165914581122,
+              "reversals": 361.0,
+              "reversal_pairs": 466498.0,
+              "boundary_reversal": 80.0,
+              "boundary_pairs": 23325.0,
+              "min_detF": 0.7947258490382904,
+              "max_displacement_sp": 1.8501040375627413
+            }
+          },
+          "arrived_common_free": {
+            "count": 22511,
+            "values": {
+              "net_rms_sp": 0.30040006870402997,
+              "step_rms_sp": 0.015811256885894173,
+              "last_step_rms_sp": 0.017808296485548183,
+              "stored_speed_rms_wu_s": 0.14929017777676468,
+              "geometric_speed_rms_wu_s": 0.14954069603860995,
+              "reversals": 251.0,
+              "reversal_pairs": 450218.0,
+              "boundary_reversal": 53.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7959167766170618,
+              "max_displacement_sp": 1.8501040375627413
+            }
+          },
+          "transit_common_free": {
+            "count": 0,
+            "values": null
+          }
+        },
+        "sil_iou": 0.9627560941447667,
+        "target_coverage_2sp": 0.99288,
+        "path": "attempt_027_pre.npz",
+        "sha256": "f0be6751905202d195a2d37389f629e163ed88127b59e51332ca877731c3d6cc"
+      },
+      "post": {
+        "health": {
+          "nonfinite_x": 0.0,
+          "nonfinite_v": 0.0,
+          "nonzero_pinned_v": 0.0,
+          "nonfinite_C": 0.0,
+          "nonzero_pinned_C": 0.0,
+          "nonfinite_F": 0.0,
+          "nonpositive_detF": 0.0,
+          "min_detF": 0.7947258490382904,
+          "pinned_position_changes": 0.0,
+          "outside_runner_bounds": 0.0,
+          "valid": true
+        },
+        "cohorts": {
+          "common_free": {
+            "count": 22511,
+            "values": {
+              "net_rms_sp": 0.3036325401084454,
+              "step_rms_sp": 0.015920687268738985,
+              "last_step_rms_sp": 0.017680265230604418,
+              "stored_speed_rms_wu_s": 0.14823715736532733,
+              "geometric_speed_rms_wu_s": 0.1484655857385021,
+              "reversals": 175.0,
+              "reversal_pairs": 450220.0,
+              "boundary_reversal": 58.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7959167766170618,
+              "max_displacement_sp": 1.7952368238391538
+            }
+          },
+          "newly_pinned": {
+            "count": 814,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.7947258490382904,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "old_pins": {
+            "count": 276675,
+            "values": {
+              "net_rms_sp": 0.0,
+              "step_rms_sp": 0.0,
+              "last_step_rms_sp": 0.0,
+              "stored_speed_rms_wu_s": 0.0,
+              "geometric_speed_rms_wu_s": 0.0,
+              "reversals": 0.0,
+              "reversal_pairs": 0.0,
+              "boundary_reversal": 0.0,
+              "boundary_pairs": 0.0,
+              "min_detF": 0.8334828120725329,
+              "max_displacement_sp": 0.0
+            }
+          },
+          "initially_free": {
+            "count": 23325,
+            "values": {
+              "net_rms_sp": 0.29828738070466576,
+              "step_rms_sp": 0.01564041885205762,
+              "last_step_rms_sp": 0.017369021132969394,
+              "stored_speed_rms_wu_s": 0.14562758450664148,
+              "geometric_speed_rms_wu_s": 0.1458519916175809,
+              "reversals": 175.0,
+              "reversal_pairs": 450220.0,
+              "boundary_reversal": 58.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7947258490382904,
+              "max_displacement_sp": 1.7952368238391538
+            }
+          },
+          "arrived_common_free": {
+            "count": 22511,
+            "values": {
+              "net_rms_sp": 0.3036325401084454,
+              "step_rms_sp": 0.015920687268738985,
+              "last_step_rms_sp": 0.017680265230604418,
+              "stored_speed_rms_wu_s": 0.14823715736532733,
+              "geometric_speed_rms_wu_s": 0.1484655857385021,
+              "reversals": 175.0,
+              "reversal_pairs": 450220.0,
+              "boundary_reversal": 58.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7959167766170618,
+              "max_displacement_sp": 1.7952368238391538
+            }
+          },
+          "transit_common_free": {
+            "count": 0,
+            "values": null
+          }
+        },
+        "sil_iou": 0.9627684519727066,
+        "target_coverage_2sp": 0.9928766666666666,
+        "path": "attempt_027_post.npz",
+        "sha256": "130e7c337a507ee326d293296bcd25421ae1377d52a9e95d6d51c3ddf3218fd9"
+      }
+    }
+  ],
+  "missing": [],
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "mpm": {
+      "dx": 0.3062907543956724,
+      "dt": 0.004166666666666667,
+      "drag": 0.9,
+      "smoothing": 0.955,
+      "v_max": 0.0,
+      "eta_sym": 0,
+      "eta_mode": 0,
+      "gate_r_lo": 0.0,
+      "gate_r_hi": 0.0,
+      "gate_n0": 0.0,
+      "f_ext": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "grid_min": [
+        -5.513233579122103,
+        -5.513233579122103,
+        -5.513233579122103
+      ],
+      "nx": 36,
+      "ny": 36,
+      "nz": 36,
+      "floor_y": -1000000000.0,
+      "floor_friction": 0.0
+    },
+    "loss_res": 36,
+    "iters": 8
+  },
+  "scope": "One T-step passive window; no optimized controls, no adoption, no natural-rest certificate",
+  "control_policy": "Zero future dFc and u; no body force control. Existing relaxation/bonds/pins remain.",
+  "arrival_policy": "accepted_arrivals at the source endpoint with its own frozen full plan/radius; not rest",
+  "rendering_influence": "No rendering loss in passive replay; originating optimization report is retained",
+  "render_report_sha256": "dc7edc45f7f5b09bc599ee820227cc651e3ad59b6d1fd45394c8c3f6ec84ce8a",
+  "reducer_units": "net/step/max displacement RMS or maximum in source spacing; speed RMS wu/s; negative-dot counts; min detF",
+  "reversals": "Both step lengths exceed 1e-4 source spacing, as P317; negative dots are not an oscillation certificate",
+  "source_spacing": 0.03498853660707278,
+  "target_spacing": 0.03493084911867985,
+  "consumed_hashes": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.withdrawal_capture.json": "2ac6fb36d17a8df922698fea8e9dd142f226ff5cebd52b650783ad8df4a72719",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.protocol.json": "b9594a056f871745abe882cb7bf77bfefaac0dfdd93d1554c47c83305a793710",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.rest_trace.json": "92f517b4476481051e9092b6c4a3a225228bd810eee99029d625fdd57a082aad",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/control_withdrawal.py": "cb1a3d0956a633f6a047accbbdf55db86e5e26420225860dfbd236846032fcd0",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/docs/control_withdrawal_p324.md": "a76daaa2acb8befb7ffbb8d3951fee2c801d398832eff36cbdb4e480ea41ff9c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/__init__.py": "0e4acbe277745c4fce5402209f50def6b4592c9aaf76939270697d0c6de209bc",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/compute.py": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/input_assets.py": "ed4f1625fc357ddf386e2fa8bcc6e6ab0c40c20b892ec02a08a39a964d72642e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/__init__.py": "63c7e6ca9dd9422acdfeedaea43299ccac42cabe0da3a49ee468687ec77f1438",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/ot.py": "0c9b25296e50bc22de7b9d95cf8e6c258d7cc9dcadd0a2ee4ccd1cbd8e115601",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/projection.py": "ec9f707e11fec1fc43e9dbe843338202de71cc82a3b9eae3101dc4f8bece52bb",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/silhouette.py": "d39dc2545ac0d9485a8d3a5bcc3e098adbd3cba43fb79b335d3cb5b53c962a7f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/volumetric.py": "53d064c6da77eca9b06fe5f72ccd18342fa8505319f5e02b5027a5fd9d97c9c1",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/metric_splat.py": "3a85ff21ca6990f0657415c546430220e66764a050958764136bc44457f81de6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/metrics.py": "2f6f9413809a20b9e7d04da946ed3f2362caf694bd701dc7d3339fd4605cc335",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/__init__.py": "8fd3a6e6eedd7fa7ca252af80778646ad7357148a187ea7e12a0732bdc644976",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/conditioning.py": "50555fa643d14cf22d6c1f94a7dcb56d1fa35b2e538b95bb4af0200cd697edb7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/constitutive.py": "166080b825e19fe79a19ee613f35cedac750d5ef465a371fa8a1c80435c7bd2b",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/discretisation.py": "f47bfeed1cbf5c742a9164cd542c16e7e5d1af115fae181649cdf2c1c90980be",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/endpoint_filter.py": "4df03df4441bd076e65d2b9cf84899054d15dd35017948b34f52e299d69b2c8e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/function.py": "6c899967f168eea87f05014edf36780ab54ed67c0dde380bffbd94008abe1011",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/gridfilter.py": "d63203b0409e0681652afe5ab55eb35b2117c1e0de6e47b7871a0affbf353716",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/kernels.py": "31a8bee46b3683ce842e44ea2dc226790b34e27956a80f0d243737ae1b310516",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/shifting.py": "36e044a178e4f2a6321967ca805eb863c6fd7575a82a2624779d180ddc7140fb",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/state.py": "3e0b4fbd6ad384f84351becfdf8102aae950ecf3a41779ad97570139d4da115e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/step.py": "83b3a53868801977228ac8e451fbc48375f470c7cea5e82bc9eeb7c9f6129695",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/traj.py": "fa4e7c8b1ce626542e861aa939d724ce4e93ead3aff64aac3554cac3c389827d",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/withdrawal.py": "25a60cf7e895baf43961e705550f3a4953887cbd4dae447c6e149a8fd0d5c301",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/__init__.py": "0239098d830c28cbaff7790e150a7c64c665241d794324dc9c8d0497aef130fd",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/affine_braking.py": "7638d4ea7e09030840344031ea7fcdbbc8ee6843b6af6d00ac4f88a363218340",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/body_control.py": "43474bc19177a0c3d49938d777eb1e1dc0d865cb071752de1d12c9cf9f3c065f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/braking_direction.py": "9d76f1de23a5cb97ac9dc54251b9c81c8c9eb0ae40f2755709b23a1dbae4cb9e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/config.py": "fac3a6f6ace0f092ed7c297ba6f87a2d33dc9deba8b151bbb44534106b17602c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/control_basis.py": "d6c91a81fac0977af3d9539e488c50c967cb6cdbae7bc4343392669f0114da3f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/control_proposal.py": "1e5b6c6c7e870b152b52bdf5fc7c81ac1e9ca5e670fa311ed2df9c84350cbd93",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/diagnostic_binding.py": "44460deb9a44fc7532d69fc521b8c5b74ea46604366f1c0fc11360a9c780b76a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/dressing.py": "d7d9569a7c78d4beed48427c12d0d401a6f2989d0874a64549d4ad58b3b535fa",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/endpoint_contract.py": "edd9717aaca896ed8155346c5eb261c460ee9b6d2ecbe801e37ea29e9ccfa987",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/frozen_body_window.py": "22084ec20c4616198b44a1746ec1bd7f68bcabf2f26af37ee11b5948e17f20f9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/gauss_loss.py": "6f66fd7d2c5a04e4e689523f7145bc600329595acb636fbf864dcab55506e5e9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/geometric_rest.py": "2d249e77db564cfee58629ebad5429d424e24113276efa4dc35ca9f474317033",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/geometric_variance.py": "54c7323681e29f42dcaba78199d9d2a99c4dc6f5d0e87568be4e4617829a9440",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/grad_combine.py": "4f5b2972da7908387cbd4db6a8b247041d9776973dbd38bd232b2a0269868fdc",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/gradient_reporting.py": "737a3682dfcd2d1f6307488d7dc228388d37a80c20e3e9b7c90954444b5aed7f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/grid_smooth.py": "ced9706e4bf52697476e803e10f0ea731c9210f3636923616c7d703c61296233",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/motion_accounting.py": "f898ccf5fd84d35a0468db6d655d07bc1fe5c20dbf325f0c97e849d696b7ee8e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/optimizer.py": "ba8aed6aa762a3d6c871570b168ddb64b5e4756fe1b00d8612a87612d1467a6a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/outer_merit.py": "11b4eb5f671d2541c2807d432191bdccd3b4bc4f21c6488700e607e55cd3c57a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/prepared_reference.py": "f340c4d18a486a475c42a5cc2843b0d6178069dd086bf47db457821b9a71d688",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/render_loss.py": "5c8cff5d12a87c025062072615bdad85e4c9bc68dae9b4aeba68e904fc22f6b8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/render_reporting.py": "f5e0a10521e305485196206083f8b63536a0a9769f21dc2c1002ae2d816e07ea",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/runner.py": "e9d644605975389ac152c08fb4386e75679ba8e917b5a25ebf3ed17259c4c2ea",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/settlement.py": "b2bdbfc09ccad15ced005c29da928a4392150138b06921dcf2b960517cd3c5be",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/support_braking.py": "9a03ef0a9b0205774f742334ad1736fbebddd1751e428b1564cabbe8bd7fe7c7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/surface_local.py": "96cb5175a960f1c31ef8bc8b06733e77d21277a56d02b604071d51b8118847a3",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/surface_render_loss.py": "d5977ba8af2be1b14ec103c730efab502300778f3ae0e277a27f81fa4069d89e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/plasticity/__init__.py": "d1c2ab002337f5ce4003192d328ffdd6fa5b7776829d845efcd6af8b153aad0c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/plasticity/assimilation.py": "ce4907bb21ee53b0f6007feed37b985ccb6dd0abb54472ec2d5ee469899a6fd6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/__init__.py": "8469816316bf8d0a16e660800e5fd8e1b5015b97febe3c6edc2fd94582207caf",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/children.py": "8242b10f119f1832fb3b62e15585366bfe188ea702241a24d8aaafaac9fa2d08",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/covariance.py": "b898d4ea3a1e63a992f5d8f7202f4714c124004bda2cfaf694fee19c70eca90e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/covariance_torch.py": "30ef0c11fa2841389aaac4207f3e1b5ac36ba2e07231279e9fcefab0745bc764",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/footprint_diagnostics.py": "0ca65862b8c1846f8625a70baf0584860ce7b4703a67281b532867c80c13f889",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/footprint_policy.py": "7c33a54473a50681bdb88d87ec24bd6036ba5444d174341b3043743cfa07e0d2",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/knn_gpu.py": "189d2ced4556916187b0e542c90d365111be58bef36186d3975352bd91dba0da",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/photoreal.py": "62267c1e6024a05c02ea0270b03bdc95169ce14cee0ac12371736e6c4a87d6b0",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/poisson_worker.py": "fb4aa3be480f79bfa36fd5e9016063d7f1ec991c0fa0678fc5e9037ef0118042",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/settled.py": "084eb5d05baceeea674c41c61f4537cda097213c015772ab75508c450b7fd357",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/stream_adapter.py": "ff4e83f7f6490c3b155ebee0efa526a55ccdf3b9e8f312162bb57602b8ed40dd",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/studio.py": "a160bd1b0362e4e7ea3e87a97abfd54872c637a4fa6d2507ad4304cd5acc8a12",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/support.py": "3ce6654ba46fb4cd31ff55397e374d159b0ba06241b1b2305f380d540b02fb45",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/surface_gaussians.py": "c63de551421c73a996d9e51149f214aca06ad00be3102429920aee5aee1cefef",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/surface_recon.py": "27609bb12830059a5f5754024b2c00a8eb814ffb8b44ce9939f97d1dd449b891",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/sampling/__init__.py": "51f23d85697aa6bf783df5597d004b48074513fffd602f08d45862b0c4814705",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/sampling/mesh.py": "92c3e9fe32a13ab88b16dc6a995b151c34ec4fa69fcfa1fa24fcfde0366cf2f8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/sampling/orientation.py": "205e4a8557486277242700e348989743711916e7f249aaf07e03c23a9ffc4b5c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/viewer/__init__.py": "b81cefa5eae3bc2f0e1d30aecfc6608146df9efc987a9865d76bf409e7d3ae22",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/viewer/export_ply.py": "926ec7ef3bf5ac1592dd34b7b62a4893837d7209214d6faf15d96745abc837db",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/viewer/filehub.py": "780e89cf2cbb3b5346d267bb00afe4c5f291d85e18616a0cc319ac37998a0133",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/viewer/server.py": "72d0dc7469fc5938a50d60d2c006c50a281bdba0fb1a95569dda1895afd883d6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/full_horizon.py": "0e07406438c0a4d243832d2db859558d68e972c06430e620a81e77f9d0944b11",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/gpu_pipeline.py": "19f86c125cc7cccc2593d9becfe50a179ebdda8327b7744b51a921892041ec1c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/coverage_paths.py": "e0d6f696337268a9714366d46163db732dd583fd1a9b63965204f6824407b36e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/ops/run_p303_probe.sh": "55c2e5a74608263c0712c14dd21b9e333627a2a6319a4a12cb70663edf7ff192",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/ops/cuda_python.py": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/docs/full_horizon_p316.md": "d75f617c9d4bd2773142d68daf0646ecfc2f8ea616fcd28dba91ef77ec20af84",
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source.json": "0accf3fc9a93ecf4baf9450dc86ac304f784ee88bbc8559e8d8a84edf793b48d",
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source_render_full_dt_iso_nn.npz": "e7df5e9b4b52bd8848846d06354990220808b57099494ca1b04abad927ce4ac0",
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/target_reference.npz": "9c1f205945b4b68b330b902f59570b3f9ccb9d8eca8e0ebc553e035f642620a7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.json": "a13e90ca1526d27bde881933f46d28ddc9567a6364dec45e250d583cb745911b",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.npz": "778bcd23f9a7ec1febc622a5bc35274ff3a7a8235273d5f727a2afeba079e6c4",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_render_full_dt_iso_nn.npz": "546aeb8ddf87131522fccadfcc92bf4538691ad1ab0223f7875a48ba336e9181",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.render_influence.json": "dc7edc45f7f5b09bc599ee820227cc651e3ad59b6d1fd45394c8c3f6ec84ce8a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.render_influence.md": "5569937b5ec9932007d3f1d1fc04d6ca26323c8dc1de0156d832d68cadbb5473",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_005_pre.npz": "d6349ddd6c7972f9c4bf170ecaab813b8c2d2fdd92188fb4d37d2bbfb48eb3cd",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_006_post.npz": "b8e0b93cfdeba9a4e931dc1bcd8469475b61c725469062c9e226963810655f39",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_005.npz": "d60c8d113a56850509e68a8be51ae250c57abef3dec27431d1703701ea0f5522",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_019_pre.npz": "f98622df6ebd844c1cad06034fd013432c24f36d1313a209049e3a0a2f2e8ab9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_020_post.npz": "f7c3277da1388851142419d53a4ad0bd9c396c4bfe0d25b22f6a07f03eeeceb9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_019.npz": "248b882e603ec2d2616249ab79a86ea78c7674a131a1373e7d3f011241724fb0",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_027_pre.npz": "96296bbb8bf712b02c00653f42ea1f020ba2ffa344cbb56d216fa789f2fcded8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_028_post.npz": "46939868d0ad393a946feb9fb9bea318cfd1d3ccca63cd2b76a87aa658d39aac",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_027.npz": "4776d81cdce829f384e85452208e9d9f9d5ce029977e011a77878bfc7cad02b6"
+  }
+}

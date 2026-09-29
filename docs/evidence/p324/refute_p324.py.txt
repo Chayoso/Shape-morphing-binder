@@ -1,0 +1,400 @@
+"""Independent P324 archival audit. CUDA reductions only; never constructs MPM.
+
+Valid tails retain positions and per-ID summaries, not full v/C/F/Fg sequences.
+Position-derived quantities are recomputed; stored-speed and detF summaries are
+only re-reduced from their saved per-ID fields. Invalid tails retain full state.
+"""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import math
+from pathlib import Path
+import sys
+import time
+import zipfile
+
+import numpy as host
+
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for block in iter(lambda: stream.read(8 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def identity(path):
+    s = Path(path).stat()
+    return dict(dev=s.st_dev, ino=s.st_ino, size=s.st_size, mtime_ns=s.st_mtime_ns)
+
+
+def bound_json(path):
+    b = Path(path).read_bytes()
+    value = json.loads(b)
+    json.dumps(value, allow_nan=False)
+    return value, hashlib.sha256(b).hexdigest()
+
+
+def array_sha(value):
+    return hashlib.sha256(host.ascontiguousarray(value).tobytes()).hexdigest()
+
+
+class Rows:
+    """Decode only selected C-order rows of the bound raw archive."""
+    def __init__(self, path, member='frames'):
+        self.archive = zipfile.ZipFile(path)
+        info = self.archive.getinfo(member + '.npy')
+        require(info.compress_type == zipfile.ZIP_STORED, 'Raw frame member must support bounded seeks')
+        self.stream = self.archive.open(info)
+        version = host.lib.format.read_magic(self.stream)
+        self.shape, fortran, self.dtype = host.lib.format._read_array_header(self.stream, version)
+        require(not fortran and not self.dtype.hasobject, 'Unsupported NPY layout')
+        self.offset = self.stream.tell()
+        self.stride = math.prod(self.shape[1:]) * self.dtype.itemsize
+        self.read = set()
+
+    def row(self, index):
+        require(type(index) is int and 0 <= index < self.shape[0], 'Bad raw frame index')
+        self.stream.seek(self.offset + index * self.stride)
+        data = self.stream.read(self.stride)
+        require(len(data) == self.stride, 'Short raw frame read')
+        self.read.add(index)
+        return host.frombuffer(data, dtype=self.dtype).reshape(self.shape[1:])
+
+    def close(self):
+        self.stream.close()
+        self.archive.close()
+
+
+def history_map(record, trace):
+    require('trace_error' not in trace and trace['inputs_code_unchanged'] is True, 'Incomplete trace')
+    cursor, seen, accepted, held = 0, [], [], 0
+    rows = trace['attempts']
+    for item in record['history']:
+        if 'c2f_render_res' in item:
+            require(not item.get('held'), 'Conflicting metadata event')
+            continue
+        if item.get('held'):
+            cursor += 1
+            held += 1
+            continue
+        a = item['animation']
+        require(a == len(seen) and a < len(rows), 'Attempt order mismatch')
+        meta = rows[a]
+        require(meta['animation'] == a and meta['start_frame'] == cursor, 'Trace start mismatch')
+        committed = bool(item.get('frame_end') and not item.get('null_commit')
+                         and not item.get('outer_rejected') and item.get('outer_accepted', 1))
+        require(meta['committed'] is committed, 'False commit lineage')
+        require(meta['outer_rejected'] == bool(item.get('outer_rejected'))
+                and meta['null_commit'] == bool(item.get('null_commit')),
+                'Rejected/null lineage mismatch')
+        if committed:
+            cursor = int(item['frame_end']) - 1
+            require(cursor - meta['start_frame'] == 20 and meta['inner_accepted'] > 0,
+                    'Incomplete accepted physical window')
+            accepted.append(a)
+        elif item.get('null_commit') and not item.get('outer_rejected'):
+            cursor += 1
+        require(meta['end_frame'] == cursor, 'Trace endpoint mismatch')
+        seen.append(a)
+    require(len(seen) == len(rows) and accepted == trace['accepted_attempts'], 'Incomplete attempt map')
+    require(trace['actual_last_accepted'] == (accepted[-1] if accepted else None), 'Wrong last accepted attempt')
+    require(cursor + 1 == trace['actual_archive_frames'] and held == trace['held_archive_rows'], 'Wrong actual archive clock')
+    return rows
+
+
+def run(args, receipt):
+    import torch
+    require(torch.cuda.is_available(), 'CUDA is mandatory; no CPU numerical fallback')
+    base = Path('/data/relcfd/chayo/physmorph_v2').resolve()
+    for path in (args.prefix, args.analysis, args.out):
+        require(path.resolve().is_relative_to(base), 'All server paths must remain under /data project')
+    prefix, analysis = args.prefix, args.analysis
+    capture_path = prefix.with_suffix('.withdrawal_capture.json')
+    capture, csha = bound_json(capture_path)
+    trace, tsha = bound_json(capture['trace'])
+    protocol_path = prefix.with_suffix('.protocol.json')
+    protocol, psha = bound_json(protocol_path)
+    config_path = prefix.with_suffix('.json')
+    record, rsha = bound_json(config_path)
+    report_path = analysis / 'report.json'
+    report, asha = bound_json(report_path)
+    require(csha == report['capture_sha256'] and tsha == capture['trace_sha256'], 'Capture/trace binding mismatch')
+    require(psha == trace['protocol_sha256'] and rsha == trace['result_sha256'] == report['config_sha256'], 'Producer binding mismatch')
+    require(protocol['arm'] == 'raw' and record['config']['T'] == 20
+            and record['config']['archive_stride'] == 1 and record['config']['iters'] == 8,
+            'Unexpected physical recipe')
+    require(not any(record['config'].get(k, False) for k in
+                    ('commit_pic', 'commit_pic_objective', 'shift_sub', 'opt_material',
+                     'settle_pin_yield', 'settle_pin_follow', 'settle_pin_kkt')), 'Unsupported physical policy')
+    require(record['mpm'] == protocol['mpm'] == report['discretization']['mpm'], 'MPM mismatch')
+    require(record['mpm']['dt'] == 1/240 and report['discretization']['N'] == 300000, 'Wrong N/dt')
+    require(report['discretization'] == dict(N=300000, T=record['config']['T'], mpm=record['mpm'],
+            loss_res=record['config']['loss_res'], iters=record['config']['iters']), 'Reported discretization changed')
+    require(not any(record['guards'].values()), 'Production guard fired')
+    require(capture['requested_source_attempts'] == [5, 19, 27], 'Selection changed')
+    require(report['missing'] == capture['missing'], 'Missing cases were omitted/reclassified')
+    rows = history_map(record, trace)
+    selected = [p['source_attempt'] for p in capture['pairs']]
+    absent = [p['source_attempt'] for p in capture['missing']]
+    require(sorted(selected + absent) == [5,19,27] and len(set(selected+absent)) == 3, 'Selection partition changed')
+    for missing in capture['missing']:
+        a = missing['source_attempt']
+        actual_commit = a < len(rows) and rows[a]['committed']
+        require(missing['head_committed'] == actual_commit, 'Missing head commit status changed')
+        require(not actual_commit or a+1 >= len(rows), 'An observable accepted head was omitted')
+    require([p['source_attempt'] for p in report['pairs']] == [p['source_attempt'] for p in capture['pairs']],
+            'Analyzed pair membership/order changed')
+    root = Path(capture['code_root']).resolve()
+    require(root.is_relative_to(base), 'Frozen code root outside data')
+    physical = sorted(str(p) for p in (root / 'physmorph').rglob('*.py'))
+    expected_physical = sorted(k for k in protocol['code'] if Path(k).is_relative_to(root / 'physmorph'))
+    require(physical == expected_physical, 'Frozen physical module membership changed')
+    digest = hashlib.sha256()
+    for path in physical:
+        p = Path(path)
+        digest.update(p.relative_to(root).as_posix().encode() + b'\0' + p.read_bytes())
+    require(digest.hexdigest() == record['code_sha256'], 'Physical aggregate mismatch')
+    state_folder = prefix.with_name(prefix.name + '_withdrawal')
+    cohort_folder = prefix.with_name(prefix.name + '_cohorts')
+    expected = {str(capture_path): csha, str(protocol_path): psha, str(capture['trace']): tsha,
+                **capture['code'], **protocol['code'], **protocol['inputs'], **trace['output_sha256']}
+    for pair in capture['pairs']:
+        a = pair['source_attempt']
+        require(pair['next_attempt'] == a + 1 and rows[a]['committed'], 'Bad source/successor selection')
+        require(rows[a]['end_frame'] == rows[a+1]['start_frame'] == pair['end_frame'], 'Nonadjacent handoff')
+        require(pair['successor_committed'] == rows[a+1]['committed'], 'Successor acceptance changed')
+        require(pair['arrival_sidecar'] == rows[a]['sidecar'] and pair['arrival_sha256'] == rows[a]['sha256'],
+                'Wrong source arrival reference')
+        for role in ('pre', 'post'):
+            rec = pair[role]
+            require(rec['attempt'] == a + (role == 'post') and rec['role'] == role, 'Wrong snapshot role')
+            expected[str(state_folder / rec['path'])] = rec['sha256']
+        expected[str(cohort_folder / pair['arrival_sidecar'])] = pair['arrival_sha256']
+    require(report['consumed_hashes'] == expected, 'Replay did not bind exactly its declared inputs')
+    # Additional auditor-only sidecars verify the successor's actual incoming pins.
+    for pair in capture['pairs']:
+        successor = rows[pair['next_attempt']]
+        expected[str(cohort_folder / successor['sidecar'])] = successor['sha256']
+    expected[str(report_path)] = asha
+    for pair in report['pairs']:
+        for role in ('pre', 'post'):
+            expected[str(analysis / pair[role]['path'])] = pair[role]['sha256']
+    before = {path: identity(path) for path in expected}
+    for path, wanted in expected.items():
+        require(sha(path) == wanted, 'Full hash mismatch: ' + path)
+    sys.path.insert(0, str(root))
+    import physmorph
+    from physmorph.compute import cuda_execution, to_array, KDTree
+    require(Path(physmorph.__file__).resolve().is_relative_to(root), 'Imported package is not frozen producer')
+    source_path = next(Path(p) for p in protocol['inputs'] if p.endswith('/source_render_full_dt_iso_nn.npz'))
+    require(protocol['inputs'][str(source_path)] == report['input_sha256'], 'Wrong geometry source')
+    checks, max_ratio = 0, 0.
+
+    def close(got, want, label, exact=False):
+        nonlocal checks, max_ratio
+        g = got if isinstance(got, torch.Tensor) else torch.as_tensor(got, device='cuda:0', dtype=torch.float64)
+        w = want if isinstance(want, torch.Tensor) else torch.as_tensor(want, device='cuda:0', dtype=torch.float64)
+        require(g.shape == w.shape, 'Shape mismatch: ' + label)
+        require(bool(torch.isfinite(g).all() & torch.isfinite(w).all()), 'Nonfinite comparison: ' + label)
+        if exact:
+            require(torch.equal(g, w), 'Exact mismatch: ' + label)
+        else:
+            allowance = 128 * torch.finfo(torch.float64).eps * torch.maximum(torch.ones_like(w), w.abs())
+            ratio = float(((g.double() - w.double()).abs() / allowance).max()) if g.numel() else 0.
+            max_ratio = max(max_ratio, ratio)
+            require(ratio <= 1., f'{label}: float64 reduction ratio {ratio}')
+        checks += 1
+
+    def upload(a):
+        return torch.as_tensor(host.ascontiguousarray(a), device='cuda:0')
+
+    raw_path = prefix.with_name(prefix.name + '_render_full_dt_iso_nn.npz')
+    raw = Rows(raw_path)
+    require(raw.shape == (trace['actual_archive_frames'], 300000, 3) and raw.dtype == host.float32,
+            'Raw archive frame layout changed')
+    summaries = []
+    torch.cuda.reset_peak_memory_stats()
+    with cuda_execution('cuda:0'):
+        import cupy as cp
+        with host.load(source_path, allow_pickle=False) as z:
+            src, tgt = to_array(z['src']), to_array(z['tgt'])
+        spacing = float(cp.median(KDTree(src).query(src, k=2)[0][:, 1]))
+        target_spacing = float(cp.median(KDTree(tgt).query(tgt, k=2)[0][:, 1]))
+        close(spacing, report['source_spacing'], 'source spacing')
+        close(target_spacing, report['target_spacing'], 'target spacing')
+        for pair, item in zip(capture['pairs'], report['pairs']):
+            a = pair['source_attempt']
+            state = {}
+            for role in ('pre', 'post'):
+                with host.load(state_folder / pair[role]['path'], allow_pickle=False) as z:
+                    state[role] = {k: z[k] for k in z.files}
+                require(array_sha(state[role]['x0']) == pair[role]['x0_sha256'] == rows[a+1]['x0_sha256'],
+                        'Snapshot initial position identity mismatch')
+                require(pair[role]['metadata'] == item['metadata_before' if role == 'pre' else 'metadata_after'],
+                        'Reported reconstruction metadata changed')
+                require(pair[role]['metadata']['T'] == 20 and pair[role]['metadata']['N'] == 300000,
+                        'Wrong snapshot layout')
+                require(pair[role]['metadata']['prm'] == record['mpm'], 'Snapshot MPM differs from producer')
+            pre, post = state['pre'], state['post']
+            end = pair['end_frame']
+            close(upload(pre['x0']), upload(raw.row(end)), 'head/archive endpoint', True)
+            close(upload(pre['head_start']), upload(raw.row(rows[a]['start_frame'])), 'head/archive start', True)
+            close(upload(pre['head_last_step']), upload(raw.row(end)) - upload(raw.row(end-1)), 'head last raw step', True)
+            close(upload(pre['x0']), upload(post['x0']), 'handoff position identity', True)
+            oldpin, newpin = upload(pre['pin']) > .5, upload(post['pin']) > .5
+            require(not bool((oldpin & ~newpin).any()), 'Unexpected pin release')
+            with host.load(cohort_folder / pair['arrival_sidecar'], allow_pickle=False) as z:
+                plan, radius = to_array(z['plan']), float(z['radius'])
+                close(oldpin, upload(z['pin_before']), 'head pin lineage', True)
+            with host.load(cohort_folder / rows[a+1]['sidecar'], allow_pickle=False) as z:
+                close(newpin, upload(z['pin_before']), 'successor pin lineage', True)
+            require(math.isfinite(radius) and radius > 0 and plan.shape == (300000, 3), 'Invalid source arrival reference')
+            # Independent expression with the production native float32/CuPy arithmetic.
+            start = to_array(pre['x0'])
+            arrived_cp = cp.isfinite(start).all(1) & cp.isfinite(plan).all(1) & (cp.linalg.norm(start-plan, axis=1) <= radius)
+            arrived = torch.as_tensor(arrived_cp, device='cuda:0')
+            cohorts = dict(common_free=~oldpin & ~newpin, newly_pinned=~oldpin & newpin,
+                           old_pins=oldpin, initially_free=~oldpin)
+            cohorts.update(arrived_common_free=cohorts['common_free'] & arrived,
+                           transit_common_free=cohorts['common_free'] & ~arrived)
+            common_names = sorted(set(pre) & set(post))
+            require(set(item['state_policy_deltas']) == set(common_names), 'Missing state/policy delta')
+            for name in common_names:
+                difference = upload(post[name]).double() - upload(pre[name]).double()
+                delta = item['state_policy_deltas'][name]
+                close(difference.square().mean().sqrt(), delta['rms'], name+' handoff rms')
+                close(difference.abs().max(), delta['max_abs'], name+' handoff maximum')
+            summary = dict(source_attempt=a, next_attempt=a+1, end_frame=end,
+                           common_free=int(cohorts['common_free'].sum()), newly_pinned=int(cohorts['newly_pinned'].sum()),
+                           arrived_common_free=int(cohorts['arrived_common_free'].sum()), tails={})
+            for role, pin in (('pre', oldpin), ('post', newpin)):
+                tail = item[role]
+                with host.load(analysis / tail['path'], allow_pickle=False) as z:
+                    saved = {k: upload(z[k]) for k in z.files}
+                if not tail['health']['valid']:
+                    require(tail.get('metrics') is None and 'cohorts' not in tail, 'Invalid tail has ordinary metrics')
+                    require({'x','v','C','F'} <= set(saved), 'Missing invalid-tail evidence')
+                    nonfinite = {k: int((~torch.isfinite(v)).sum()) for k,v in saved.items()}
+                    for name, count in nonfinite.items():
+                        close(count, tail['health']['nonfinite_'+name], 'invalid '+name+' finiteness', True)
+                    x_invalid = saved['x']
+                    close(x_invalid[0], upload(state[role]['x0']), role+' invalid coast initial state', True)
+                    changed = ((x_invalid != x_invalid[0]).any(-1) & pin[None]).sum()
+                    close(changed, tail['health']['pinned_position_changes'], 'invalid pinned path count', True)
+                    for name in ('v','C'):
+                        count = ((saved[name][1:] != 0).reshape(20,300000,-1).any(-1) & pin[None]).sum()
+                        close(count, tail['health']['nonzero_pinned_'+name], 'invalid pinned '+name, True)
+                    summary['tails'][role] = dict(valid=False, nonfinite=nonfinite,
+                        scope='Invalid full-state finiteness verified; no ordinary motion summary accepted')
+                    del saved
+                    continue
+                require(saved['positions'].dtype == torch.float32 and saved['positions'].shape == (21, 300000, 3),
+                        'Wrong passive position archive')
+                x = saved['positions'].double()
+                close(x[0], upload(state[role]['x0']).double(), role+' coast initial state', True)
+                require(bool(torch.isfinite(x).all()), 'Nonfinite valid-tail positions')
+                require(torch.equal(x[:, pin], x[0:1, pin].expand(21,-1,-1)), 'Pinned passive path moved')
+                prm = record['mpm']
+                grid_min = cp.asarray(prm['grid_min'], cp.float32)
+                grid_max = grid_min + prm['dx']*cp.array([prm['nx'],prm['ny'],prm['nz']], cp.float32)
+                lower = torch.as_tensor(grid_min+2*prm['dx'], device='cuda:0').double()
+                upper = torch.as_tensor(grid_max-2*prm['dx'], device='cuda:0').double()
+                outside = ((x < lower) | (x > upper)).any(-1).sum()
+                close(outside, tail['health']['outside_runner_bounds'], 'valid coast bounds count', True)
+                require(int(outside) == 0 and tail['health']['pinned_position_changes'] == 0,
+                        'Invalid path reported healthy')
+                d = x[1:] - x[:-1]
+                d2 = torch.sum(d*d, dim=2)
+                prev = torch.cat((upload(pre['head_last_step']).double()[None], d[:-1]), dim=0)
+                eligible = (d2 > (spacing*1e-4)**2) & (torch.sum(prev*prev, dim=2) > (spacing*1e-4)**2)
+                reversed_ = (torch.sum(d*prev, dim=2) < 0) & eligible
+                derived = dict(net_squared=torch.sum((x[-1]-x[0])**2, dim=1)/spacing**2,
+                    step_squared_mean=d2.mean(0)/spacing**2, last_step_squared=d2[-1]/spacing**2,
+                    geometric_speed_squared=d2[-1]/record['mpm']['dt']**2,
+                    reversals=reversed_.sum(0), reversal_pairs=eligible.sum(0),
+                    boundary_reversal=reversed_[0], boundary_pairs=eligible[0],
+                    max_displacement_squared=torch.sum((x-x[0])**2,dim=2).max(0).values/spacing**2)
+                for name, value in derived.items():
+                    close(value, saved[name], role+' per-ID '+name, exact=name in
+                          ('reversals','reversal_pairs','boundary_reversal','boundary_pairs'))
+                for name in ('stored_speed_squared', 'min_detF'):
+                    require(saved[name].shape == (300000,) and bool(torch.isfinite(saved[name]).all()),
+                            'Invalid recorded state summary: '+name)
+                require(bool((saved['stored_speed_squared'] >= 0).all() & (saved['min_detF'] > 0).all()), 'Invalid speed/determinant summary')
+                all_fields = {**derived, **{k:saved[k] for k in ('stored_speed_squared','min_detF')}}
+                require(set(saved) == {'positions', *all_fields, *('cohort_'+k for k in cohorts)},
+                        'Unexpected valid-tail archive membership')
+                labels = dict(net_squared='net_rms_sp',step_squared_mean='step_rms_sp',last_step_squared='last_step_rms_sp',
+                    stored_speed_squared='stored_speed_rms_wu_s',geometric_speed_squared='geometric_speed_rms_wu_s',
+                    max_displacement_squared='max_displacement_sp')
+                require(set(tail['cohorts']) == set(cohorts), 'Cohort membership set changed')
+                for name, mask in cohorts.items():
+                    close(mask, saved['cohort_'+name], role+' cohort '+name, True)
+                    count = int(mask.sum())
+                    published = tail['cohorts'][name]
+                    require(published['count'] == count, 'Cohort denominator mismatch')
+                    if count == 0:
+                        require(published['values'] is None, 'Empty cohort is not null')
+                        continue
+                    require(set(published['values']) == {labels.get(k,k) for k in all_fields}, 'Summary field set mismatch')
+                    for field, value in all_fields.items():
+                        subset = value[mask].double()
+                        if field == 'min_detF': got = subset.min()
+                        elif field == 'max_displacement_squared': got = subset.max().sqrt()
+                        elif field.endswith('squared') or field.endswith('squared_mean'): got = subset.mean().sqrt()
+                        else: got = subset.sum()
+                        close(got, published['values'][labels.get(field,field)], role+' '+name+' '+field)
+                close(saved['min_detF'].min(), tail['health']['min_detF'], 'recorded full-tail detF minimum')
+                summary['tails'][role] = dict(valid=True, all_positions_recomputed=True,
+                    common_free=tail['cohorts']['common_free'], arrived_common_free=tail['cohorts']['arrived_common_free'])
+                del saved, x, d, d2, derived, all_fields
+            summaries.append(summary)
+        receipt['torch_peak_allocated_bytes'] = torch.cuda.max_memory_allocated()
+    receipt.update(pairs=summaries, checks=checks, max_float64_reduction_tolerance_ratio=max_ratio,
+                   source_spacing=spacing,target_spacing=target_spacing,
+                   raw_frame_rows_recomputed=sorted(raw.read), source_code_root=str(root),
+                   producer_protocol_sha256=psha, analysis_report_sha256=asha)
+    raw.close()
+    for path, wanted in expected.items():
+        require(identity(path) == before[path] and sha(path) == wanted, 'Consumed artifact changed: '+path)
+    receipt['full_hash_bindings'] = [{**before[p], 'path':p, 'sha256':h} for p,h in expected.items()]
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--prefix', type=Path, required=True)
+    parser.add_argument('--analysis', type=Path, required=True)
+    parser.add_argument('--out', type=Path, required=True)
+    args = parser.parse_args()
+    require(not args.out.exists(), 'Audit output already exists')
+    start = time.monotonic()
+    receipt = dict(audit_version=1, utc=datetime.now(timezone.utc).isoformat(),
+                   script_sha256=sha(Path(__file__).resolve()), passed=False,
+                   scope='No MPM rollout. All saved valid-tail positions and cohorts independently reduced on CUDA.',
+                   limitations=['Valid-tail full v/C/F/Fg health cannot be reconstructed from the published archive.',
+                     'Stored terminal speed and min-detF cohort values are re-reduced from saved per-ID evidence only.',
+                     'Silhouette IoU and target coverage are source-bound but not independently remeasured.',
+                     'Input SHA checks and selected head frames do not constitute a new full physical archive audit.',
+                     'No rest, gradient, repair or actual future optimized-window certificate.'])
+    try:
+        run(args, receipt)
+        receipt['passed'] = True
+    except Exception as error:
+        receipt['failure'] = dict(type=type(error).__name__, message=str(error))
+        raise
+    finally:
+        receipt['elapsed_seconds_including_hashes'] = time.monotonic()-start
+        with args.out.open('x', encoding='utf-8') as stream:
+            json.dump(receipt, stream, indent=2, allow_nan=False)
+
+
+if __name__ == '__main__':
+    main()

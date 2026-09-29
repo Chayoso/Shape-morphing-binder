@@ -158,3 +158,73 @@ motion metrics. All21 positions of valid tails and per-ID reductions are retaine
 Raw endpoint IoU/target coverage are renderer independent. There is no rendering
 loss in passive replay; the originating run still writes its rendering-influence
 report. No post-commit differentiable map or tail penalty is implemented here.
+
+## Completed observation, frozen73fdb63
+
+Independent27 CPU tests pass, including exact observed/unobserved two-window
+position/F/Fp/history equality and full-state snapshot ownership/oracle tests.
+The actual CUDA reconstruction/ordinary/captured-forward gate passes1 test with
+no skip in21.59s. This is a forward capability, not an adjoint test.
+
+The source run uses N300000,T20,dt1/240,dx.3062907543956724wu,loss36^3,iters8,
+source spacing.03498853660707278wu. It accepts36 of38 attempts and archives721
+physical positions plusone held row. All guards are zero. It stops on
+`outer_rejection_patience`, with individual rest explicitly not evaluated.
+568.35s includes observation/archive overhead and is not a timing comparison.
+Allthree requested source attempts commit and have real prepared successors.
+
+Both coasts use the SAME free-ID cohort within each row. Numbers are RMS net
+displacement over20 steps, in source spacings; cohorts differ between rows.
+
+| Source attempt (1-based) | Common-free IDs | Pre-handoff coast | Actual post-handoff coast | Newly pinned |
+| --- | ---: | ---: | ---: | ---: |
+| 6 | 267575 | 1.535233 | 1.508385 | 24002 |
+| 20 | 40021 | .430643 | .463103 | 4918 |
+| 28 | 22511 | .300400 | .303633 | 814 |
+
+At attempt28 all22511 common-free IDs satisfy the source plan's coarse arrival
+predicate. Their post-handoff coast still moves; its last-step geometric speed
+RMS is.148466wu/s, versus stored speed.148237wu/s. The814 new pins have zero
+post-coast displacement by construction. Similar RMS magnitudes do not establish
+per-ID position/velocity consistency. This is an intermediate/late-state
+observation, not proof that these IDs had reached individual optima or a test
+of the ordinary final commit after attempt36. Retained layer relaxation remains
+part of the forward model; this does not isolate pure elastodynamics from it.
+
+Every coast passes complete-state finiteness, positive detF, containment and
+exact pin-path guards. Across each captured handoff x and F are unchanged; Fp,
+new-pin v/C, layer data and bond-rest data change. The difference between columns
+is their combined effect, not an assimilation-only ablation. Neighbor-ID numeric
+differences in the archival report are identity differences, not physical lengths.
+
+Raw24-view128px IoU at source20 is.962316, versus.963004/pre and.963229/post
+coast. At source28 it is.962969, versus.962756/pre and.962768/post. Two-target-
+spacing coverage at source28 is.992827, versus.992880/pre and.992877/post.
+Quality changes are mixed; no passive tail is adopted or exported. There is no
+new physical-hole or4K appearance certification from this comparison. In
+particular, penalizing all withdrawal motion could suppress useful fitting at
+source20; the coarse arrival mask does not justify a blanket rest penalty.
+
+The independent CUDA artifact audit passes in20.97s, rehashing provenance,
+validating actual attempt/archive/pin lineage and recomputing all six saved
+position paths, cohorts and position-derived reductions. Full valid-tail v/C/F
+sequences were not saved, so their health cannot be independently reconstructed;
+stored-speed/min-detF summaries were checked against per-ID evidence. IoU and
+coverage are source-bound, not independently recomputed by that audit. Exact
+scope, source hashes, reports and auditor are retained in `docs/evidence/p324`.
+
+Interpretation: real commit processing does not remove the observed residual
+motion. A frozen pre-assimilation coast matches the order of the observed cohort
+RMS at these three heads, not exact magnitude, reversals or a gradient through
+changed controls. The
+next capability remains a joint head-plus-withdrawal derivative with all full-
+state paths connected, followed by actual post-commit continuation validation.
+Do not introduce a detached Fp handoff and call it an exact post-commit gradient.
+
+Rendering influence in the originating optimization:18 views,64pixels,GSoff;
+288 accepted inner updates in committed windows (304 including rejected outer
+attempts). Median nominal render-direction share.456425, adaptive lambda.0259867,
+and within-reference render-loss change-1.43735e-5. These are observations, not
+causal displacement shares. The passive comparisons optimize nothing and invoke
+no rendering loss. Residual positions therefore move without a renderer call,
+while their starting states were obtained with rendering guidance.

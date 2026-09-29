@@ -1,0 +1,405 @@
+{
+  "pairs": [
+    {
+      "source_attempt": 5,
+      "next_attempt": 6,
+      "end_frame": 120,
+      "successor_committed": true,
+      "arrival_sidecar": "attempt_005.npz",
+      "arrival_sha256": "d60c8d113a56850509e68a8be51ae250c57abef3dec27431d1703701ea0f5522",
+      "pre": {
+        "attempt": 5,
+        "role": "pre",
+        "metadata": {
+          "schema": "owned_withdrawal_v1",
+          "N": 300000,
+          "T": 20,
+          "step": 20,
+          "device": "cuda:0",
+          "captured_device": "cuda:0",
+          "prm": {
+            "dx": 0.3062907543956724,
+            "dt": 0.004166666666666667,
+            "drag": 0.9,
+            "smoothing": 0.955,
+            "v_max": 0.0,
+            "eta_sym": 0,
+            "eta_mode": 0,
+            "gate_r_lo": 0.0,
+            "gate_r_hi": 0.0,
+            "gate_n0": 0.0,
+            "f_ext": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grid_min": [
+              -5.513233579122103,
+              -5.513233579122103,
+              -5.513233579122103
+            ],
+            "nx": 36,
+            "ny": 36,
+            "nz": 36,
+            "floor_y": -1000000000.0,
+            "floor_friction": 0.0
+          },
+          "pin_mode": 1,
+          "gate": false,
+          "gate_n0": null,
+          "track_geom": false,
+          "layer_present": true,
+          "layer_F": false,
+          "bonds_present": true,
+          "source_body_control": true,
+          "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+          "layer_K": 180,
+          "layer_frac": 0.05,
+          "layer_frac_u": 0.05,
+          "bond_K": 60,
+          "frag_thr": 7.499999999999999
+        },
+        "path": "attempt_005_pre.npz",
+        "sha256": "d6349ddd6c7972f9c4bf170ecaab813b8c2d2fdd92188fb4d37d2bbfb48eb3cd",
+        "x0_sha256": "380c827e911f703134f2d3acdcc070d28e8e39295f6679061646ed59876d7c4d"
+      },
+      "post": {
+        "attempt": 6,
+        "role": "post",
+        "metadata": {
+          "schema": "owned_withdrawal_v1",
+          "N": 300000,
+          "T": 20,
+          "step": 0,
+          "device": "cuda:0",
+          "captured_device": "cuda:0",
+          "prm": {
+            "dx": 0.3062907543956724,
+            "dt": 0.004166666666666667,
+            "drag": 0.9,
+            "smoothing": 0.955,
+            "v_max": 0.0,
+            "eta_sym": 0,
+            "eta_mode": 0,
+            "gate_r_lo": 0.0,
+            "gate_r_hi": 0.0,
+            "gate_n0": 0.0,
+            "f_ext": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grid_min": [
+              -5.513233579122103,
+              -5.513233579122103,
+              -5.513233579122103
+            ],
+            "nx": 36,
+            "ny": 36,
+            "nz": 36,
+            "floor_y": -1000000000.0,
+            "floor_friction": 0.0
+          },
+          "pin_mode": 1,
+          "gate": false,
+          "gate_n0": null,
+          "track_geom": false,
+          "layer_present": true,
+          "layer_F": false,
+          "bonds_present": true,
+          "source_body_control": true,
+          "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+          "layer_K": 180,
+          "layer_frac": 0.05,
+          "layer_frac_u": 0.05,
+          "bond_K": 60,
+          "frag_thr": 7.499999999999999
+        },
+        "path": "attempt_006_post.npz",
+        "sha256": "b8e0b93cfdeba9a4e931dc1bcd8469475b61c725469062c9e226963810655f39",
+        "x0_sha256": "380c827e911f703134f2d3acdcc070d28e8e39295f6679061646ed59876d7c4d"
+      }
+    },
+    {
+      "source_attempt": 19,
+      "next_attempt": 20,
+      "end_frame": 400,
+      "successor_committed": true,
+      "arrival_sidecar": "attempt_019.npz",
+      "arrival_sha256": "248b882e603ec2d2616249ab79a86ea78c7674a131a1373e7d3f011241724fb0",
+      "pre": {
+        "attempt": 19,
+        "role": "pre",
+        "metadata": {
+          "schema": "owned_withdrawal_v1",
+          "N": 300000,
+          "T": 20,
+          "step": 20,
+          "device": "cuda:0",
+          "captured_device": "cuda:0",
+          "prm": {
+            "dx": 0.3062907543956724,
+            "dt": 0.004166666666666667,
+            "drag": 0.9,
+            "smoothing": 0.955,
+            "v_max": 0.0,
+            "eta_sym": 0,
+            "eta_mode": 0,
+            "gate_r_lo": 0.0,
+            "gate_r_hi": 0.0,
+            "gate_n0": 0.0,
+            "f_ext": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grid_min": [
+              -5.513233579122103,
+              -5.513233579122103,
+              -5.513233579122103
+            ],
+            "nx": 36,
+            "ny": 36,
+            "nz": 36,
+            "floor_y": -1000000000.0,
+            "floor_friction": 0.0
+          },
+          "pin_mode": 1,
+          "gate": false,
+          "gate_n0": null,
+          "track_geom": false,
+          "layer_present": true,
+          "layer_F": false,
+          "bonds_present": true,
+          "source_body_control": true,
+          "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+          "layer_K": 180,
+          "layer_frac": 0.05,
+          "layer_frac_u": 0.05,
+          "bond_K": 60,
+          "frag_thr": 7.499999999999999
+        },
+        "path": "attempt_019_pre.npz",
+        "sha256": "f98622df6ebd844c1cad06034fd013432c24f36d1313a209049e3a0a2f2e8ab9",
+        "x0_sha256": "8bc502fda2f60abd24a19375aaf6be23da346528dadbcc962e98398bd5538bd6"
+      },
+      "post": {
+        "attempt": 20,
+        "role": "post",
+        "metadata": {
+          "schema": "owned_withdrawal_v1",
+          "N": 300000,
+          "T": 20,
+          "step": 0,
+          "device": "cuda:0",
+          "captured_device": "cuda:0",
+          "prm": {
+            "dx": 0.3062907543956724,
+            "dt": 0.004166666666666667,
+            "drag": 0.9,
+            "smoothing": 0.955,
+            "v_max": 0.0,
+            "eta_sym": 0,
+            "eta_mode": 0,
+            "gate_r_lo": 0.0,
+            "gate_r_hi": 0.0,
+            "gate_n0": 0.0,
+            "f_ext": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grid_min": [
+              -5.513233579122103,
+              -5.513233579122103,
+              -5.513233579122103
+            ],
+            "nx": 36,
+            "ny": 36,
+            "nz": 36,
+            "floor_y": -1000000000.0,
+            "floor_friction": 0.0
+          },
+          "pin_mode": 1,
+          "gate": false,
+          "gate_n0": null,
+          "track_geom": false,
+          "layer_present": true,
+          "layer_F": false,
+          "bonds_present": true,
+          "source_body_control": true,
+          "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+          "layer_K": 180,
+          "layer_frac": 0.05,
+          "layer_frac_u": 0.05,
+          "bond_K": 60,
+          "frag_thr": 7.499999999999999
+        },
+        "path": "attempt_020_post.npz",
+        "sha256": "f7c3277da1388851142419d53a4ad0bd9c396c4bfe0d25b22f6a07f03eeeceb9",
+        "x0_sha256": "8bc502fda2f60abd24a19375aaf6be23da346528dadbcc962e98398bd5538bd6"
+      }
+    },
+    {
+      "source_attempt": 27,
+      "next_attempt": 28,
+      "end_frame": 560,
+      "successor_committed": true,
+      "arrival_sidecar": "attempt_027.npz",
+      "arrival_sha256": "4776d81cdce829f384e85452208e9d9f9d5ce029977e011a77878bfc7cad02b6",
+      "pre": {
+        "attempt": 27,
+        "role": "pre",
+        "metadata": {
+          "schema": "owned_withdrawal_v1",
+          "N": 300000,
+          "T": 20,
+          "step": 20,
+          "device": "cuda:0",
+          "captured_device": "cuda:0",
+          "prm": {
+            "dx": 0.3062907543956724,
+            "dt": 0.004166666666666667,
+            "drag": 0.9,
+            "smoothing": 0.955,
+            "v_max": 0.0,
+            "eta_sym": 0,
+            "eta_mode": 0,
+            "gate_r_lo": 0.0,
+            "gate_r_hi": 0.0,
+            "gate_n0": 0.0,
+            "f_ext": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grid_min": [
+              -5.513233579122103,
+              -5.513233579122103,
+              -5.513233579122103
+            ],
+            "nx": 36,
+            "ny": 36,
+            "nz": 36,
+            "floor_y": -1000000000.0,
+            "floor_friction": 0.0
+          },
+          "pin_mode": 1,
+          "gate": false,
+          "gate_n0": null,
+          "track_geom": false,
+          "layer_present": true,
+          "layer_F": false,
+          "bonds_present": true,
+          "source_body_control": true,
+          "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+          "layer_K": 180,
+          "layer_frac": 0.05,
+          "layer_frac_u": 0.05,
+          "bond_K": 60,
+          "frag_thr": 7.499999999999999
+        },
+        "path": "attempt_027_pre.npz",
+        "sha256": "96296bbb8bf712b02c00653f42ea1f020ba2ffa344cbb56d216fa789f2fcded8",
+        "x0_sha256": "895ac711220c2aa160bb7cf9559706dcc7568a4c4344a617e28ec027d605a516"
+      },
+      "post": {
+        "attempt": 28,
+        "role": "post",
+        "metadata": {
+          "schema": "owned_withdrawal_v1",
+          "N": 300000,
+          "T": 20,
+          "step": 0,
+          "device": "cuda:0",
+          "captured_device": "cuda:0",
+          "prm": {
+            "dx": 0.3062907543956724,
+            "dt": 0.004166666666666667,
+            "drag": 0.9,
+            "smoothing": 0.955,
+            "v_max": 0.0,
+            "eta_sym": 0,
+            "eta_mode": 0,
+            "gate_r_lo": 0.0,
+            "gate_r_hi": 0.0,
+            "gate_n0": 0.0,
+            "f_ext": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "grid_min": [
+              -5.513233579122103,
+              -5.513233579122103,
+              -5.513233579122103
+            ],
+            "nx": 36,
+            "ny": 36,
+            "nz": 36,
+            "floor_y": -1000000000.0,
+            "floor_friction": 0.0
+          },
+          "pin_mode": 1,
+          "gate": false,
+          "gate_n0": null,
+          "track_geom": false,
+          "layer_present": true,
+          "layer_F": false,
+          "bonds_present": true,
+          "source_body_control": true,
+          "scope": "Detached frozen-state withdrawal; no commit or preparation map is applied",
+          "layer_K": 180,
+          "layer_frac": 0.05,
+          "layer_frac_u": 0.05,
+          "bond_K": 60,
+          "frag_thr": 7.499999999999999
+        },
+        "path": "attempt_028_post.npz",
+        "sha256": "46939868d0ad393a946feb9fb9bea318cfd1d3ccca63cd2b76a87aa658d39aac",
+        "x0_sha256": "895ac711220c2aa160bb7cf9559706dcc7568a4c4344a617e28ec027d605a516"
+      }
+    }
+  ],
+  "missing": [],
+  "requested_source_attempts": [
+    5,
+    19,
+    27
+  ],
+  "index_units": "zero-based optimizer attempts, not accepted ordinals",
+  "last_accepted_attempt": 35,
+  "termination": {
+    "reason": "outer_rejection_patience",
+    "attempt_index": 37,
+    "attempt_number": 38,
+    "optimizer_attempts": 38,
+    "optimization_stopped": true,
+    "stopping_rule_triggered": true,
+    "individual_rest": "not_evaluated",
+    "configured_windows": 300,
+    "manual_window_cap": 300,
+    "effective_window_limit": 300,
+    "triggers": [
+      {
+        "reason": "outer_rejection_patience",
+        "attempt_index": 37,
+        "attempt_number": 38,
+        "evidence": {
+          "stale": 5,
+          "patience": 5
+        }
+      }
+    ],
+    "scope": "Optimization termination only; copied holds, pin admission and delivery truncation do not certify natural rest."
+  },
+  "scope": "Actual next prepared handoff; final commit without a successor is not observed",
+  "trace": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.rest_trace.json",
+  "trace_sha256": "92f517b4476481051e9092b6c4a3a225228bd810eee99029d625fdd57a082aad",
+  "code": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/control_withdrawal.py": "cb1a3d0956a633f6a047accbbdf55db86e5e26420225860dfbd236846032fcd0",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/docs/control_withdrawal_p324.md": "a76daaa2acb8befb7ffbb8d3951fee2c801d398832eff36cbdb4e480ea41ff9c"
+  },
+  "code_root": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1",
+  "utc": "2026-09-29T05:11:34.804231+00:00"
+}

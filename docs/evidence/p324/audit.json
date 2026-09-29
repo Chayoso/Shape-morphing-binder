@@ -1,0 +1,1188 @@
+{
+  "audit_version": 1,
+  "utc": "2026-09-29T05:12:51.830584+00:00",
+  "script_sha256": "6b7fba98c50d550a6afc67971fdc8960a4abf5d3c9d2b35a18e085e7a423166c",
+  "passed": true,
+  "scope": "No MPM rollout. All saved valid-tail positions and cohorts independently reduced on CUDA.",
+  "limitations": [
+    "Valid-tail full v/C/F/Fg health cannot be reconstructed from the published archive.",
+    "Stored terminal speed and min-detF cohort values are re-reduced from saved per-ID evidence only.",
+    "Silhouette IoU and target coverage are source-bound but not independently remeasured.",
+    "Input SHA checks and selected head frames do not constitute a new full physical archive audit.",
+    "No rest, gradient, repair or actual future optimized-window certificate."
+  ],
+  "torch_peak_allocated_bytes": 1460378112,
+  "pairs": [
+    {
+      "source_attempt": 5,
+      "next_attempt": 6,
+      "end_frame": 120,
+      "common_free": 267575,
+      "newly_pinned": 24002,
+      "arrived_common_free": 251167,
+      "tails": {
+        "pre": {
+          "valid": true,
+          "all_positions_recomputed": true,
+          "common_free": {
+            "count": 267575,
+            "values": {
+              "net_rms_sp": 1.5352331104591097,
+              "step_rms_sp": 0.07860403471851064,
+              "last_step_rms_sp": 0.06886503985802157,
+              "stored_speed_rms_wu_s": 0.5783045443735088,
+              "geometric_speed_rms_wu_s": 0.5782768723247792,
+              "reversals": 266.0,
+              "reversal_pairs": 5351500.0,
+              "boundary_reversal": 118.0,
+              "boundary_pairs": 267575.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 8.068995280652718
+            }
+          },
+          "arrived_common_free": {
+            "count": 251167,
+            "values": {
+              "net_rms_sp": 1.4393460571190562,
+              "step_rms_sp": 0.07377773325369949,
+              "last_step_rms_sp": 0.06358410225373796,
+              "stored_speed_rms_wu_s": 0.5339293353394131,
+              "geometric_speed_rms_wu_s": 0.5339315254398648,
+              "reversals": 255.0,
+              "reversal_pairs": 5023340.0,
+              "boundary_reversal": 111.0,
+              "boundary_pairs": 251167.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 5.284604120139984
+            }
+          }
+        },
+        "post": {
+          "valid": true,
+          "all_positions_recomputed": true,
+          "common_free": {
+            "count": 267575,
+            "values": {
+              "net_rms_sp": 1.508384876264859,
+              "step_rms_sp": 0.07716341140637303,
+              "last_step_rms_sp": 0.06898785767521379,
+              "stored_speed_rms_wu_s": 0.5794192599933863,
+              "geometric_speed_rms_wu_s": 0.5793082040910588,
+              "reversals": 665.0,
+              "reversal_pairs": 5351498.0,
+              "boundary_reversal": 392.0,
+              "boundary_pairs": 267575.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 8.404701211946906
+            }
+          },
+          "arrived_common_free": {
+            "count": 251167,
+            "values": {
+              "net_rms_sp": 1.4046009453703694,
+              "step_rms_sp": 0.07194114073389793,
+              "last_step_rms_sp": 0.06347284898978807,
+              "stored_speed_rms_wu_s": 0.5332503085781476,
+              "geometric_speed_rms_wu_s": 0.5329973041042566,
+              "reversals": 618.0,
+              "reversal_pairs": 5023338.0,
+              "boundary_reversal": 362.0,
+              "boundary_pairs": 251167.0,
+              "min_detF": 0.8876871843881052,
+              "max_displacement_sp": 5.492168944250272
+            }
+          }
+        }
+      }
+    },
+    {
+      "source_attempt": 19,
+      "next_attempt": 20,
+      "end_frame": 400,
+      "common_free": 40021,
+      "newly_pinned": 4918,
+      "arrived_common_free": 39860,
+      "tails": {
+        "pre": {
+          "valid": true,
+          "all_positions_recomputed": true,
+          "common_free": {
+            "count": 40021,
+            "values": {
+              "net_rms_sp": 0.4306430304403117,
+              "step_rms_sp": 0.022807010530039463,
+              "last_step_rms_sp": 0.024713906308443077,
+              "stored_speed_rms_wu_s": 0.20727690725153958,
+              "geometric_speed_rms_wu_s": 0.2075288197384146,
+              "reversals": 406.0,
+              "reversal_pairs": 800420.0,
+              "boundary_reversal": 63.0,
+              "boundary_pairs": 40021.0,
+              "min_detF": 0.8145657211117222,
+              "max_displacement_sp": 1.4529830035197566
+            }
+          },
+          "arrived_common_free": {
+            "count": 39860,
+            "values": {
+              "net_rms_sp": 0.4296888420598446,
+              "step_rms_sp": 0.022765997187824256,
+              "last_step_rms_sp": 0.02467735397478625,
+              "stored_speed_rms_wu_s": 0.20697072111679993,
+              "geometric_speed_rms_wu_s": 0.20722188069900038,
+              "reversals": 406.0,
+              "reversal_pairs": 797200.0,
+              "boundary_reversal": 63.0,
+              "boundary_pairs": 39860.0,
+              "min_detF": 0.8145657211117222,
+              "max_displacement_sp": 1.4529830035197566
+            }
+          }
+        },
+        "post": {
+          "valid": true,
+          "all_positions_recomputed": true,
+          "common_free": {
+            "count": 40021,
+            "values": {
+              "net_rms_sp": 0.4631028898443767,
+              "step_rms_sp": 0.024257558374962792,
+              "last_step_rms_sp": 0.026493303858316244,
+              "stored_speed_rms_wu_s": 0.2221061156040299,
+              "geometric_speed_rms_wu_s": 0.22247086365336008,
+              "reversals": 314.0,
+              "reversal_pairs": 800420.0,
+              "boundary_reversal": 67.0,
+              "boundary_pairs": 40021.0,
+              "min_detF": 0.8150576209325046,
+              "max_displacement_sp": 1.5895490173831384
+            }
+          },
+          "arrived_common_free": {
+            "count": 39860,
+            "values": {
+              "net_rms_sp": 0.4622567189675431,
+              "step_rms_sp": 0.024220430092145237,
+              "last_step_rms_sp": 0.02646445057705745,
+              "stored_speed_rms_wu_s": 0.22187077670544564,
+              "geometric_speed_rms_wu_s": 0.2222285754723463,
+              "reversals": 314.0,
+              "reversal_pairs": 797200.0,
+              "boundary_reversal": 67.0,
+              "boundary_pairs": 39860.0,
+              "min_detF": 0.8150576209325046,
+              "max_displacement_sp": 1.5895490173831384
+            }
+          }
+        }
+      }
+    },
+    {
+      "source_attempt": 27,
+      "next_attempt": 28,
+      "end_frame": 560,
+      "common_free": 22511,
+      "newly_pinned": 814,
+      "arrived_common_free": 22511,
+      "tails": {
+        "pre": {
+          "valid": true,
+          "all_positions_recomputed": true,
+          "common_free": {
+            "count": 22511,
+            "values": {
+              "net_rms_sp": 0.30040006870402997,
+              "step_rms_sp": 0.015811256885894173,
+              "last_step_rms_sp": 0.017808296485548183,
+              "stored_speed_rms_wu_s": 0.14929017777676468,
+              "geometric_speed_rms_wu_s": 0.14954069603860995,
+              "reversals": 251.0,
+              "reversal_pairs": 450218.0,
+              "boundary_reversal": 53.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7959167766170618,
+              "max_displacement_sp": 1.8501040375627413
+            }
+          },
+          "arrived_common_free": {
+            "count": 22511,
+            "values": {
+              "net_rms_sp": 0.30040006870402997,
+              "step_rms_sp": 0.015811256885894173,
+              "last_step_rms_sp": 0.017808296485548183,
+              "stored_speed_rms_wu_s": 0.14929017777676468,
+              "geometric_speed_rms_wu_s": 0.14954069603860995,
+              "reversals": 251.0,
+              "reversal_pairs": 450218.0,
+              "boundary_reversal": 53.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7959167766170618,
+              "max_displacement_sp": 1.8501040375627413
+            }
+          }
+        },
+        "post": {
+          "valid": true,
+          "all_positions_recomputed": true,
+          "common_free": {
+            "count": 22511,
+            "values": {
+              "net_rms_sp": 0.3036325401084454,
+              "step_rms_sp": 0.015920687268738985,
+              "last_step_rms_sp": 0.017680265230604418,
+              "stored_speed_rms_wu_s": 0.14823715736532733,
+              "geometric_speed_rms_wu_s": 0.1484655857385021,
+              "reversals": 175.0,
+              "reversal_pairs": 450220.0,
+              "boundary_reversal": 58.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7959167766170618,
+              "max_displacement_sp": 1.7952368238391538
+            }
+          },
+          "arrived_common_free": {
+            "count": 22511,
+            "values": {
+              "net_rms_sp": 0.3036325401084454,
+              "step_rms_sp": 0.015920687268738985,
+              "last_step_rms_sp": 0.017680265230604418,
+              "stored_speed_rms_wu_s": 0.14823715736532733,
+              "geometric_speed_rms_wu_s": 0.1484655857385021,
+              "reversals": 175.0,
+              "reversal_pairs": 450220.0,
+              "boundary_reversal": 58.0,
+              "boundary_pairs": 22511.0,
+              "min_detF": 0.7959167766170618,
+              "max_displacement_sp": 1.7952368238391538
+            }
+          }
+        }
+      }
+    }
+  ],
+  "checks": 616,
+  "max_float64_reduction_tolerance_ratio": 0.005088803743728326,
+  "source_spacing": 0.03498853660707278,
+  "target_spacing": 0.03493084911867985,
+  "raw_frame_rows_recomputed": [
+    100,
+    119,
+    120,
+    380,
+    399,
+    400,
+    540,
+    559,
+    560
+  ],
+  "source_code_root": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1",
+  "producer_protocol_sha256": "b9594a056f871745abe882cb7bf77bfefaac0dfdd93d1554c47c83305a793710",
+  "analysis_report_sha256": "3545dd5eb1f654b7f08a96e2d93771b00f8334e0b9ab1c9f6b99564cdf60d855",
+  "full_hash_bindings": [
+    {
+      "dev": 38,
+      "ino": 9594181,
+      "size": 12564,
+      "mtime_ns": 1790658694799441395,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.withdrawal_capture.json",
+      "sha256": "2ac6fb36d17a8df922698fea8e9dd142f226ff5cebd52b650783ad8df4a72719"
+    },
+    {
+      "dev": 38,
+      "ino": 10593164,
+      "size": 21154,
+      "mtime_ns": 1790658122808053846,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.protocol.json",
+      "sha256": "b9594a056f871745abe882cb7bf77bfefaac0dfdd93d1554c47c83305a793710"
+    },
+    {
+      "dev": 38,
+      "ino": 9594180,
+      "size": 23484,
+      "mtime_ns": 1790658694799441395,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.rest_trace.json",
+      "sha256": "92f517b4476481051e9092b6c4a3a225228bd810eee99029d625fdd57a082aad"
+    },
+    {
+      "dev": 38,
+      "ino": 10592785,
+      "size": 20955,
+      "mtime_ns": 1790658013000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/control_withdrawal.py",
+      "sha256": "cb1a3d0956a633f6a047accbbdf55db86e5e26420225860dfbd236846032fcd0"
+    },
+    {
+      "dev": 38,
+      "ino": 10362623,
+      "size": 10431,
+      "mtime_ns": 1790657957000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/docs/control_withdrawal_p324.md",
+      "sha256": "a76daaa2acb8befb7ffbb8d3951fee2c801d398832eff36cbdb4e480ea41ff9c"
+    },
+    {
+      "dev": 38,
+      "ino": 10592639,
+      "size": 949,
+      "mtime_ns": 1790617858000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/__init__.py",
+      "sha256": "0e4acbe277745c4fce5402209f50def6b4592c9aaf76939270697d0c6de209bc"
+    },
+    {
+      "dev": 38,
+      "ino": 10592640,
+      "size": 12411,
+      "mtime_ns": 1790460860000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/compute.py",
+      "sha256": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce"
+    },
+    {
+      "dev": 38,
+      "ino": 10592641,
+      "size": 3906,
+      "mtime_ns": 1790461370000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/input_assets.py",
+      "sha256": "ed4f1625fc357ddf386e2fa8bcc6e6ab0c40c20b892ec02a08a39a964d72642e"
+    },
+    {
+      "dev": 38,
+      "ino": 10592643,
+      "size": 204,
+      "mtime_ns": 1780458090000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/__init__.py",
+      "sha256": "63c7e6ca9dd9422acdfeedaea43299ccac42cabe0da3a49ee468687ec77f1438"
+    },
+    {
+      "dev": 38,
+      "ino": 10592644,
+      "size": 22640,
+      "mtime_ns": 1790139339000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/ot.py",
+      "sha256": "0c9b25296e50bc22de7b9d95cf8e6c258d7cc9dcadd0a2ee4ccd1cbd8e115601"
+    },
+    {
+      "dev": 38,
+      "ino": 10592645,
+      "size": 8780,
+      "mtime_ns": 1790230543000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/projection.py",
+      "sha256": "ec9f707e11fec1fc43e9dbe843338202de71cc82a3b9eae3101dc4f8bece52bb"
+    },
+    {
+      "dev": 38,
+      "ino": 10592646,
+      "size": 5402,
+      "mtime_ns": 1790005133000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/silhouette.py",
+      "sha256": "d39dc2545ac0d9485a8d3a5bcc3e098adbd3cba43fb79b335d3cb5b53c962a7f"
+    },
+    {
+      "dev": 38,
+      "ino": 10592647,
+      "size": 34323,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/losses/volumetric.py",
+      "sha256": "53d064c6da77eca9b06fe5f72ccd18342fa8505319f5e02b5027a5fd9d97c9c1"
+    },
+    {
+      "dev": 38,
+      "ino": 10592648,
+      "size": 1303,
+      "mtime_ns": 1790651088000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/metric_splat.py",
+      "sha256": "3a85ff21ca6990f0657415c546430220e66764a050958764136bc44457f81de6"
+    },
+    {
+      "dev": 38,
+      "ino": 10592649,
+      "size": 15333,
+      "mtime_ns": 1790651242000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/metrics.py",
+      "sha256": "2f6f9413809a20b9e7d04da946ed3f2362caf694bd701dc7d3339fd4605cc335"
+    },
+    {
+      "dev": 38,
+      "ino": 10592651,
+      "size": 271,
+      "mtime_ns": 1780456723000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/__init__.py",
+      "sha256": "8fd3a6e6eedd7fa7ca252af80778646ad7357148a187ea7e12a0732bdc644976"
+    },
+    {
+      "dev": 38,
+      "ino": 10592652,
+      "size": 4388,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/conditioning.py",
+      "sha256": "50555fa643d14cf22d6c1f94a7dcb56d1fa35b2e538b95bb4af0200cd697edb7"
+    },
+    {
+      "dev": 38,
+      "ino": 10592653,
+      "size": 4476,
+      "mtime_ns": 1790617892000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/constitutive.py",
+      "sha256": "166080b825e19fe79a19ee613f35cedac750d5ef465a371fa8a1c80435c7bd2b"
+    },
+    {
+      "dev": 38,
+      "ino": 10592654,
+      "size": 5768,
+      "mtime_ns": 1789413080000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/discretisation.py",
+      "sha256": "f47bfeed1cbf5c742a9164cd542c16e7e5d1af115fae181649cdf2c1c90980be"
+    },
+    {
+      "dev": 38,
+      "ino": 10592655,
+      "size": 9379,
+      "mtime_ns": 1790468298000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/endpoint_filter.py",
+      "sha256": "4df03df4441bd076e65d2b9cf84899054d15dd35017948b34f52e299d69b2c8e"
+    },
+    {
+      "dev": 38,
+      "ino": 10592656,
+      "size": 26993,
+      "mtime_ns": 1790610714000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/function.py",
+      "sha256": "6c899967f168eea87f05014edf36780ab54ed67c0dde380bffbd94008abe1011"
+    },
+    {
+      "dev": 38,
+      "ino": 10592657,
+      "size": 4810,
+      "mtime_ns": 1790467015000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/gridfilter.py",
+      "sha256": "d63203b0409e0681652afe5ab55eb35b2117c1e0de6e47b7871a0affbf353716"
+    },
+    {
+      "dev": 38,
+      "ino": 10592658,
+      "size": 28174,
+      "mtime_ns": 1790445734000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/kernels.py",
+      "sha256": "31a8bee46b3683ce842e44ea2dc226790b34e27956a80f0d243737ae1b310516"
+    },
+    {
+      "dev": 38,
+      "ino": 10592659,
+      "size": 6524,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/shifting.py",
+      "sha256": "36e044a178e4f2a6321967ca805eb863c6fd7575a82a2624779d180ddc7140fb"
+    },
+    {
+      "dev": 38,
+      "ino": 10592660,
+      "size": 4918,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/state.py",
+      "sha256": "3e0b4fbd6ad384f84351becfdf8102aae950ecf3a41779ad97570139d4da115e"
+    },
+    {
+      "dev": 38,
+      "ino": 10592661,
+      "size": 6109,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/step.py",
+      "sha256": "83b3a53868801977228ac8e451fbc48375f470c7cea5e82bc9eeb7c9f6129695"
+    },
+    {
+      "dev": 38,
+      "ino": 10592662,
+      "size": 22857,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/traj.py",
+      "sha256": "fa4e7c8b1ce626542e861aa939d724ce4e93ead3aff64aac3554cac3c389827d"
+    },
+    {
+      "dev": 38,
+      "ino": 10592663,
+      "size": 10200,
+      "mtime_ns": 1790657890000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/mpm/withdrawal.py",
+      "sha256": "25a60cf7e895baf43961e705550f3a4953887cbd4dae447c6e149a8fd0d5c301"
+    },
+    {
+      "dev": 38,
+      "ino": 10592665,
+      "size": 430,
+      "mtime_ns": 1788280707000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/__init__.py",
+      "sha256": "0239098d830c28cbaff7790e150a7c64c665241d794324dc9c8d0497aef130fd"
+    },
+    {
+      "dev": 38,
+      "ino": 10592666,
+      "size": 5357,
+      "mtime_ns": 1790649191000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/affine_braking.py",
+      "sha256": "7638d4ea7e09030840344031ea7fcdbbc8ee6843b6af6d00ac4f88a363218340"
+    },
+    {
+      "dev": 38,
+      "ino": 10592667,
+      "size": 5372,
+      "mtime_ns": 1790462401000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/body_control.py",
+      "sha256": "43474bc19177a0c3d49938d777eb1e1dc0d865cb071752de1d12c9cf9f3c065f"
+    },
+    {
+      "dev": 38,
+      "ino": 10592668,
+      "size": 900,
+      "mtime_ns": 1790638175000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/braking_direction.py",
+      "sha256": "9d76f1de23a5cb97ac9dc54251b9c81c8c9eb0ae40f2755709b23a1dbae4cb9e"
+    },
+    {
+      "dev": 38,
+      "ino": 10592669,
+      "size": 72301,
+      "mtime_ns": 1790634616000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/config.py",
+      "sha256": "fac3a6f6ace0f092ed7c297ba6f87a2d33dc9deba8b151bbb44534106b17602c"
+    },
+    {
+      "dev": 38,
+      "ino": 10592670,
+      "size": 9274,
+      "mtime_ns": 1790457157000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/control_basis.py",
+      "sha256": "d6c91a81fac0977af3d9539e488c50c967cb6cdbae7bc4343392669f0114da3f"
+    },
+    {
+      "dev": 38,
+      "ino": 10592671,
+      "size": 3305,
+      "mtime_ns": 1790616090000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/control_proposal.py",
+      "sha256": "1e5b6c6c7e870b152b52bdf5fc7c81ac1e9ca5e670fa311ed2df9c84350cbd93"
+    },
+    {
+      "dev": 38,
+      "ino": 10592672,
+      "size": 1755,
+      "mtime_ns": 1790645237000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/diagnostic_binding.py",
+      "sha256": "44460deb9a44fc7532d69fc521b8c5b74ea46604366f1c0fc11360a9c780b76a"
+    },
+    {
+      "dev": 38,
+      "ino": 10592673,
+      "size": 6960,
+      "mtime_ns": 1788398955000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/dressing.py",
+      "sha256": "d7d9569a7c78d4beed48427c12d0d401a6f2989d0874a64549d4ad58b3b535fa"
+    },
+    {
+      "dev": 38,
+      "ino": 10592674,
+      "size": 5767,
+      "mtime_ns": 1790634616000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/endpoint_contract.py",
+      "sha256": "edd9717aaca896ed8155346c5eb261c460ee9b6d2ecbe801e37ea29e9ccfa987"
+    },
+    {
+      "dev": 38,
+      "ino": 10592675,
+      "size": 8714,
+      "mtime_ns": 1790650357000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/frozen_body_window.py",
+      "sha256": "22084ec20c4616198b44a1746ec1bd7f68bcabf2f26af37ee11b5948e17f20f9"
+    },
+    {
+      "dev": 38,
+      "ino": 10592676,
+      "size": 13522,
+      "mtime_ns": 1789487989000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/gauss_loss.py",
+      "sha256": "6f66fd7d2c5a04e4e689523f7145bc600329595acb636fbf864dcab55506e5e9"
+    },
+    {
+      "dev": 38,
+      "ino": 10592677,
+      "size": 1591,
+      "mtime_ns": 1790469521000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/geometric_rest.py",
+      "sha256": "2d249e77db564cfee58629ebad5429d424e24113276efa4dc35ca9f474317033"
+    },
+    {
+      "dev": 38,
+      "ino": 10592678,
+      "size": 2636,
+      "mtime_ns": 1790610535000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/geometric_variance.py",
+      "sha256": "54c7323681e29f42dcaba78199d9d2a99c4dc6f5d0e87568be4e4617829a9440"
+    },
+    {
+      "dev": 38,
+      "ino": 10592679,
+      "size": 5953,
+      "mtime_ns": 1789480273000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/grad_combine.py",
+      "sha256": "4f5b2972da7908387cbd4db6a8b247041d9776973dbd38bd232b2a0269868fdc"
+    },
+    {
+      "dev": 38,
+      "ino": 10592680,
+      "size": 767,
+      "mtime_ns": 1790654959000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/gradient_reporting.py",
+      "sha256": "737a3682dfcd2d1f6307488d7dc228388d37a80c20e3e9b7c90954444b5aed7f"
+    },
+    {
+      "dev": 38,
+      "ino": 10592681,
+      "size": 8815,
+      "mtime_ns": 1789480273000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/grid_smooth.py",
+      "sha256": "ced9706e4bf52697476e803e10f0ea731c9210f3636923616c7d703c61296233"
+    },
+    {
+      "dev": 38,
+      "ino": 10592682,
+      "size": 5171,
+      "mtime_ns": 1790465131000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/motion_accounting.py",
+      "sha256": "f898ccf5fd84d35a0468db6d655d07bc1fe5c20dbf325f0c97e849d696b7ee8e"
+    },
+    {
+      "dev": 38,
+      "ino": 10592683,
+      "size": 226623,
+      "mtime_ns": 1790654959000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/optimizer.py",
+      "sha256": "ba8aed6aa762a3d6c871570b168ddb64b5e4756fe1b00d8612a87612d1467a6a"
+    },
+    {
+      "dev": 38,
+      "ino": 10592684,
+      "size": 1898,
+      "mtime_ns": 1790464727000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/outer_merit.py",
+      "sha256": "11b4eb5f671d2541c2807d432191bdccd3b4bc4f21c6488700e607e55cd3c57a"
+    },
+    {
+      "dev": 38,
+      "ino": 10592685,
+      "size": 2632,
+      "mtime_ns": 1790636022000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/prepared_reference.py",
+      "sha256": "f340c4d18a486a475c42a5cc2843b0d6178069dd086bf47db457821b9a71d688"
+    },
+    {
+      "dev": 38,
+      "ino": 10592686,
+      "size": 12566,
+      "mtime_ns": 1790005092000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/render_loss.py",
+      "sha256": "5c8cff5d12a87c025062072615bdad85e4c9bc68dae9b4aeba68e904fc22f6b8"
+    },
+    {
+      "dev": 38,
+      "ino": 10592687,
+      "size": 9021,
+      "mtime_ns": 1790653363000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/render_reporting.py",
+      "sha256": "f5e0a10521e305485196206083f8b63536a0a9769f21dc2c1002ae2d816e07ea"
+    },
+    {
+      "dev": 38,
+      "ino": 10592688,
+      "size": 139051,
+      "mtime_ns": 1790655523000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/runner.py",
+      "sha256": "e9d644605975389ac152c08fb4386e75679ba8e917b5a25ebf3ed17259c4c2ea"
+    },
+    {
+      "dev": 38,
+      "ino": 10592689,
+      "size": 2370,
+      "mtime_ns": 1790457157000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/settlement.py",
+      "sha256": "b2bdbfc09ccad15ced005c29da928a4392150138b06921dcf2b960517cd3c5be"
+    },
+    {
+      "dev": 38,
+      "ino": 10592690,
+      "size": 5550,
+      "mtime_ns": 1790649447000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/support_braking.py",
+      "sha256": "9a03ef0a9b0205774f742334ad1736fbebddd1751e428b1564cabbe8bd7fe7c7"
+    },
+    {
+      "dev": 38,
+      "ino": 10592691,
+      "size": 12022,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/surface_local.py",
+      "sha256": "96cb5175a960f1c31ef8bc8b06733e77d21277a56d02b604071d51b8118847a3"
+    },
+    {
+      "dev": 38,
+      "ino": 10592692,
+      "size": 6325,
+      "mtime_ns": 1790634665000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/pipeline/surface_render_loss.py",
+      "sha256": "d5977ba8af2be1b14ec103c730efab502300778f3ae0e277a27f81fa4069d89e"
+    },
+    {
+      "dev": 38,
+      "ino": 10592694,
+      "size": 168,
+      "mtime_ns": 1788284663000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/plasticity/__init__.py",
+      "sha256": "d1c2ab002337f5ce4003192d328ffdd6fa5b7776829d845efcd6af8b153aad0c"
+    },
+    {
+      "dev": 38,
+      "ino": 10592695,
+      "size": 13724,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/plasticity/assimilation.py",
+      "sha256": "ce4907bb21ee53b0f6007feed37b985ccb6dd0abb54472ec2d5ee469899a6fd6"
+    },
+    {
+      "dev": 38,
+      "ino": 10592697,
+      "size": 171,
+      "mtime_ns": 1780458815000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/__init__.py",
+      "sha256": "8469816316bf8d0a16e660800e5fd8e1b5015b97febe3c6edc2fd94582207caf"
+    },
+    {
+      "dev": 38,
+      "ino": 10592698,
+      "size": 8095,
+      "mtime_ns": 1788398279000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/children.py",
+      "sha256": "8242b10f119f1832fb3b62e15585366bfe188ea702241a24d8aaafaac9fa2d08"
+    },
+    {
+      "dev": 38,
+      "ino": 10592699,
+      "size": 3371,
+      "mtime_ns": 1789487922000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/covariance.py",
+      "sha256": "b898d4ea3a1e63a992f5d8f7202f4714c124004bda2cfaf694fee19c70eca90e"
+    },
+    {
+      "dev": 38,
+      "ino": 10592700,
+      "size": 2849,
+      "mtime_ns": 1790457129000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/covariance_torch.py",
+      "sha256": "30ef0c11fa2841389aaac4207f3e1b5ac36ba2e07231279e9fcefab0745bc764"
+    },
+    {
+      "dev": 38,
+      "ino": 10592701,
+      "size": 11053,
+      "mtime_ns": 1790656596000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/footprint_diagnostics.py",
+      "sha256": "0ca65862b8c1846f8625a70baf0584860ce7b4703a67281b532867c80c13f889"
+    },
+    {
+      "dev": 38,
+      "ino": 10592702,
+      "size": 1267,
+      "mtime_ns": 1790656450000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/footprint_policy.py",
+      "sha256": "7c33a54473a50681bdb88d87ec24bd6036ba5444d174341b3043743cfa07e0d2"
+    },
+    {
+      "dev": 38,
+      "ino": 10592703,
+      "size": 9943,
+      "mtime_ns": 1790457478000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/knn_gpu.py",
+      "sha256": "189d2ced4556916187b0e542c90d365111be58bef36186d3975352bd91dba0da"
+    },
+    {
+      "dev": 38,
+      "ino": 10592704,
+      "size": 9766,
+      "mtime_ns": 1790456707000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/photoreal.py",
+      "sha256": "62267c1e6024a05c02ea0270b03bdc95169ce14cee0ac12371736e6c4a87d6b0"
+    },
+    {
+      "dev": 38,
+      "ino": 10592705,
+      "size": 3538,
+      "mtime_ns": 1790443824000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/poisson_worker.py",
+      "sha256": "fb4aa3be480f79bfa36fd5e9016063d7f1ec991c0fa0678fc5e9037ef0118042"
+    },
+    {
+      "dev": 38,
+      "ino": 10592706,
+      "size": 3445,
+      "mtime_ns": 1790458080000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/settled.py",
+      "sha256": "084eb5d05baceeea674c41c61f4537cda097213c015772ab75508c450b7fd357"
+    },
+    {
+      "dev": 38,
+      "ino": 10592707,
+      "size": 2765,
+      "mtime_ns": 1790634405000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/stream_adapter.py",
+      "sha256": "ff4e83f7f6490c3b155ebee0efa526a55ccdf3b9e8f312162bb57602b8ed40dd"
+    },
+    {
+      "dev": 38,
+      "ino": 10592708,
+      "size": 10087,
+      "mtime_ns": 1790634665000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/studio.py",
+      "sha256": "a160bd1b0362e4e7ea3e87a97abfd54872c637a4fa6d2507ad4304cd5acc8a12"
+    },
+    {
+      "dev": 38,
+      "ino": 10592709,
+      "size": 8862,
+      "mtime_ns": 1790463250000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/support.py",
+      "sha256": "3ce6654ba46fb4cd31ff55397e374d159b0ba06241b1b2305f380d540b02fb45"
+    },
+    {
+      "dev": 38,
+      "ino": 10592710,
+      "size": 4780,
+      "mtime_ns": 1790632012000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/surface_gaussians.py",
+      "sha256": "c63de551421c73a996d9e51149f214aca06ad00be3102429920aee5aee1cefef"
+    },
+    {
+      "dev": 38,
+      "ino": 10592711,
+      "size": 35491,
+      "mtime_ns": 1790459878000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/render/surface_recon.py",
+      "sha256": "27609bb12830059a5f5754024b2c00a8eb814ffb8b44ce9939f97d1dd449b891"
+    },
+    {
+      "dev": 38,
+      "ino": 10592713,
+      "size": 168,
+      "mtime_ns": 1788283652000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/sampling/__init__.py",
+      "sha256": "51f23d85697aa6bf783df5597d004b48074513fffd602f08d45862b0c4814705"
+    },
+    {
+      "dev": 38,
+      "ino": 10592714,
+      "size": 20588,
+      "mtime_ns": 1790197109000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/sampling/mesh.py",
+      "sha256": "92c3e9fe32a13ab88b16dc6a995b151c34ec4fa69fcfa1fa24fcfde0366cf2f8"
+    },
+    {
+      "dev": 38,
+      "ino": 10592716,
+      "size": 3103,
+      "mtime_ns": 1789743784000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/sampling/orientation.py",
+      "sha256": "205e4a8557486277242700e348989743711916e7f249aaf07e03c23a9ffc4b5c"
+    },
+    {
+      "dev": 38,
+      "ino": 10592718,
+      "size": 190,
+      "mtime_ns": 1780458857000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/viewer/__init__.py",
+      "sha256": "b81cefa5eae3bc2f0e1d30aecfc6608146df9efc987a9865d76bf409e7d3ae22"
+    },
+    {
+      "dev": 38,
+      "ino": 10592720,
+      "size": 2423,
+      "mtime_ns": 1780458872000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/viewer/export_ply.py",
+      "sha256": "926ec7ef3bf5ac1592dd34b7b62a4893837d7209214d6faf15d96745abc837db"
+    },
+    {
+      "dev": 38,
+      "ino": 10592721,
+      "size": 7772,
+      "mtime_ns": 1789413799000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/viewer/filehub.py",
+      "sha256": "780e89cf2cbb3b5346d267bb00afe4c5f291d85e18616a0cc319ac37998a0133"
+    },
+    {
+      "dev": 38,
+      "ino": 10592724,
+      "size": 27771,
+      "mtime_ns": 1789578338000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/physmorph/viewer/server.py",
+      "sha256": "72d0dc7469fc5938a50d60d2c006c50a281bdba0fb1a95569dda1895afd883d6"
+    },
+    {
+      "dev": 38,
+      "ino": 10592794,
+      "size": 11092,
+      "mtime_ns": 1790655673000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/full_horizon.py",
+      "sha256": "0e07406438c0a4d243832d2db859558d68e972c06430e620a81e77f9d0944b11"
+    },
+    {
+      "dev": 38,
+      "ino": 10592799,
+      "size": 10149,
+      "mtime_ns": 1790655673000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/gpu_pipeline.py",
+      "sha256": "19f86c125cc7cccc2593d9becfe50a179ebdda8327b7744b51a921892041ec1c"
+    },
+    {
+      "dev": 38,
+      "ino": 10592787,
+      "size": 14998,
+      "mtime_ns": 1790648449000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/probes/coverage_paths.py",
+      "sha256": "e0d6f696337268a9714366d46163db732dd583fd1a9b63965204f6824407b36e"
+    },
+    {
+      "dev": 38,
+      "ino": 10592759,
+      "size": 11532,
+      "mtime_ns": 1790658013000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/ops/run_p303_probe.sh",
+      "sha256": "55c2e5a74608263c0712c14dd21b9e333627a2a6319a4a12cb70663edf7ff192"
+    },
+    {
+      "dev": 38,
+      "ino": 10592742,
+      "size": 606,
+      "mtime_ns": 1790457824000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/scripts/ops/cuda_python.py",
+      "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc"
+    },
+    {
+      "dev": 38,
+      "ino": 10592552,
+      "size": 7965,
+      "mtime_ns": 1790654008000000000,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal1/docs/full_horizon_p316.md",
+      "sha256": "d75f617c9d4bd2773142d68daf0646ecfc2f8ea616fcd28dba91ef77ec20af84"
+    },
+    {
+      "dev": 38,
+      "ino": 10359335,
+      "size": 126781,
+      "mtime_ns": 1790449161478905310,
+      "path": "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source.json",
+      "sha256": "0accf3fc9a93ecf4baf9450dc86ac304f784ee88bbc8559e8d8a84edf793b48d"
+    },
+    {
+      "dev": 38,
+      "ino": 9598241,
+      "size": 7200498,
+      "mtime_ns": 1790627366937790919,
+      "path": "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source_render_full_dt_iso_nn.npz",
+      "sha256": "e7df5e9b4b52bd8848846d06354990220808b57099494ca1b04abad927ce4ac0"
+    },
+    {
+      "dev": 38,
+      "ino": 10374040,
+      "size": 3046902,
+      "mtime_ns": 1790457981213281670,
+      "path": "/data/relcfd/chayo/physmorph_v2/repro/current_pair/target_reference.npz",
+      "sha256": "9c1f205945b4b68b330b902f59570b3f9ccb9d8eca8e0ebc553e035f642620a7"
+    },
+    {
+      "dev": 38,
+      "ino": 10359133,
+      "size": 3580930,
+      "mtime_ns": 1790658693067443528,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.json",
+      "sha256": "a13e90ca1526d27bde881933f46d28ddc9567a6364dec45e250d583cb745911b"
+    },
+    {
+      "dev": 38,
+      "ino": 10593819,
+      "size": 133194769,
+      "mtime_ns": 1790658691159445881,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.npz",
+      "sha256": "778bcd23f9a7ec1febc622a5bc35274ff3a7a8235273d5f727a2afeba079e6c4"
+    },
+    {
+      "dev": 38,
+      "ino": 10593820,
+      "size": 3029102708,
+      "mtime_ns": 1790658692999443613,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_render_full_dt_iso_nn.npz",
+      "sha256": "546aeb8ddf87131522fccadfcc92bf4538691ad1ab0223f7875a48ba336e9181"
+    },
+    {
+      "dev": 38,
+      "ino": 10359131,
+      "size": 2840,
+      "mtime_ns": 1790658693003443607,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.render_influence.json",
+      "sha256": "dc7edc45f7f5b09bc599ee820227cc651e3ad59b6d1fd45394c8c3f6ec84ce8a"
+    },
+    {
+      "dev": 38,
+      "ino": 10359132,
+      "size": 1423,
+      "mtime_ns": 1790658693007443602,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1.render_influence.md",
+      "sha256": "5569937b5ec9932007d3f1d1fc04d6ca26323c8dc1de0156d832d68cadbb5473"
+    },
+    {
+      "dev": 38,
+      "ino": 10526379,
+      "size": 196974957,
+      "mtime_ns": 1790658230327956826,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_005_pre.npz",
+      "sha256": "d6349ddd6c7972f9c4bf170ecaab813b8c2d2fdd92188fb4d37d2bbfb48eb3cd"
+    },
+    {
+      "dev": 38,
+      "ino": 10503816,
+      "size": 190575911,
+      "mtime_ns": 1790658262003928178,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_006_post.npz",
+      "sha256": "b8e0b93cfdeba9a4e931dc1bcd8469475b61c725469062c9e226963810655f39"
+    },
+    {
+      "dev": 38,
+      "ino": 10503815,
+      "size": 8929370,
+      "mtime_ns": 1790658230771956425,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_005.npz",
+      "sha256": "d60c8d113a56850509e68a8be51ae250c57abef3dec27431d1703701ea0f5522"
+    },
+    {
+      "dev": 38,
+      "ino": 9454770,
+      "size": 186720855,
+      "mtime_ns": 1790658490879703700,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_019_pre.npz",
+      "sha256": "f98622df6ebd844c1cad06034fd013432c24f36d1313a209049e3a0a2f2e8ab9"
+    },
+    {
+      "dev": 38,
+      "ino": 10515887,
+      "size": 182766505,
+      "mtime_ns": 1790658509143679176,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_020_post.npz",
+      "sha256": "f7c3277da1388851142419d53a4ad0bd9c396c4bfe0d25b22f6a07f03eeeceb9"
+    },
+    {
+      "dev": 38,
+      "ino": 10515886,
+      "size": 7116979,
+      "mtime_ns": 1790658491291703145,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_019.npz",
+      "sha256": "248b882e603ec2d2616249ab79a86ea78c7674a131a1373e7d3f011241724fb0"
+    },
+    {
+      "dev": 38,
+      "ino": 10551395,
+      "size": 185767902,
+      "mtime_ns": 1790658584815579880,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_027_pre.npz",
+      "sha256": "96296bbb8bf712b02c00653f42ea1f020ba2ffa344cbb56d216fa789f2fcded8"
+    },
+    {
+      "dev": 38,
+      "ino": 10551396,
+      "size": 182128032,
+      "mtime_ns": 1790658602775556823,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_withdrawal/attempt_028_post.npz",
+      "sha256": "46939868d0ad393a946feb9fb9bea318cfd1d3ccca63cd2b76a87aa658d39aac"
+    },
+    {
+      "dev": 38,
+      "ino": 10511598,
+      "size": 6917330,
+      "mtime_ns": 1790658585207579375,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_027.npz",
+      "sha256": "4776d81cdce829f384e85452208e9d9f9d5ce029977e011a77878bfc7cad02b6"
+    },
+    {
+      "dev": 38,
+      "ino": 10526380,
+      "size": 8785146,
+      "mtime_ns": 1790658262367927848,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_006.npz",
+      "sha256": "efab1a815c2c76c8e658ac404c40982e2e61a684e5dc32be5dcb37a23419218c"
+    },
+    {
+      "dev": 38,
+      "ino": 10551391,
+      "size": 7072063,
+      "mtime_ns": 1790658509463678748,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_020.npz",
+      "sha256": "5cec482a6d372717b4db2b3aa272434b4bdbe8f63f15dbf6a9997fe530d67faf"
+    },
+    {
+      "dev": 38,
+      "ino": 10551397,
+      "size": 6909666,
+      "mtime_ns": 1790658603083556429,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_capture1_cohorts/attempt_028.npz",
+      "sha256": "4a20bdc084ce7772d18cdae6c6a25e76cdbbe39d43ad1c6bd91f4f57336c70b4"
+    },
+    {
+      "dev": 38,
+      "ino": 10477683,
+      "size": 57707,
+      "mtime_ns": 1790658749983374137,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_analysis1/report.json",
+      "sha256": "3545dd5eb1f654b7f08a96e2d93771b00f8334e0b9ab1c9f6b99564cdf60d855"
+    },
+    {
+      "dev": 38,
+      "ino": 10477677,
+      "size": 85420767,
+      "mtime_ns": 1790658730319397949,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_analysis1/attempt_005_pre.npz",
+      "sha256": "37ba15abefa7c8eb3fce31fb0784b48fa5d81babdf0edd25a17daa0dc2c91f2b"
+    },
+    {
+      "dev": 38,
+      "ino": 10477678,
+      "size": 84583775,
+      "mtime_ns": 1790658732963394738,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_analysis1/attempt_005_post.npz",
+      "sha256": "8a077c31f098a692fec324afdfc172ef80a21642724e640ba3dfa2a1f9666ba1"
+    },
+    {
+      "dev": 38,
+      "ino": 10477679,
+      "size": 74807076,
+      "mtime_ns": 1790658738279388290,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_analysis1/attempt_019_pre.npz",
+      "sha256": "0f00fcd6e1db284ea6182fef644b0b53a1b102f9c934ba532de9c02dd55c8eab"
+    },
+    {
+      "dev": 38,
+      "ino": 10477680,
+      "size": 74558152,
+      "mtime_ns": 1790658740563385523,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_analysis1/attempt_019_post.npz",
+      "sha256": "aa0e57d1579cc7c4aa73cbc23bd16b3dd4243573e1253d5b33993e7c8de72bef"
+    },
+    {
+      "dev": 38,
+      "ino": 10477681,
+      "size": 73636965,
+      "mtime_ns": 1790658745803379186,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_analysis1/attempt_027_pre.npz",
+      "sha256": "f0be6751905202d195a2d37389f629e163ed88127b59e51332ca877731c3d6cc"
+    },
+    {
+      "dev": 38,
+      "ino": 10477682,
+      "size": 73593013,
+      "mtime_ns": 1790658748027376498,
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/p324_analysis1/attempt_027_post.npz",
+      "sha256": "130e7c337a507ee326d293296bcd25421ae1377d52a9e95d6d51c3ddf3218fd9"
+    }
+  ],
+  "elapsed_seconds_including_hashes": 20.96712178294547
+}

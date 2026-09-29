@@ -293,6 +293,16 @@ These are the leading candidates for the unresolved problems, and they are ports
   to reference spacing/4.29 CPU and2 actual CUDA cases pass;41 image pairs have
   scoped visual QA. Fringes/streaks remain, so no default or deliverable promotion.
   Rendering loss is unchanged in this appearance-only comparison.
-  `docs/control_withdrawal_p324.md` is a design note, not an implemented rest fix:
-  a pre-assimilation coast is not the real postcommit handoff; complete state and
-  assimilation/admission dependencies must be respected by any future adjoint.
+  `docs/control_withdrawal_p324.md` now includes actual full-state handoff capture
+  and passive replay (27 CPU/1 actual CUDA test; independent six-tail CUDA audit).
+  At N300k,T20,dt1/240,dx.3062907544wu,loss36,iters8, source attempt28's22511
+  common-free arrived IDs move.303633sp RMS overthe post-handoff coast. This is
+  neither final convergence nor pure MPM without retained layer relaxation.
+  No rest/quality promotion. A pre-assimilation coast is not the real postcommit
+  map; complete state and assimilation/admission dependencies remain necessary
+  for any claimed exact postcommit adjoint.
+- **P325 GPU reporting:** final F health keeps native determinant/OR/Python-min
+  semantics while packing T+1 explicit scalar reads intoone host transfer.
+  16 CPU cases,39 pipeline cases and4 actual CUDA cases pass. It removes no
+  determinant-library internal synchronization or remaining host policy work;
+  no end-to-end timing claim. See `docs/trajectory_reporting_p325.md`.

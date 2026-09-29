@@ -16,4 +16,8 @@ remaining balancer/line-search host decisions is claimed.
 CPU tests compare with the original expressions, including mixed dtypes,
 noncontiguous/flattened matrices, inversion unions, nonfinite values and signed
 zero. CUDA tests additionally require exact parity on a side stream, one FP64
-packet transfer and no individual scalar extraction. Server validation is pending.
+packet transfer and no individual scalar extraction. Independent verification:
+16 CPU cases pass, plus39 existing CPU pipeline cases. Frozen d349d58 on hyde06:
+all4 actual CUDA cases pass (no skips) in1.38s. These small input cases validate
+parity and transfer behavior, not full-run performance. Logs/XML and executed
+source hashes are retained in `docs/evidence/p325`.

@@ -1,0 +1,101 @@
+{
+  "definitions": "Observational optimizer telemetry, not causal attribution. Norm shares exclude post-combination transforms and transport addends. Compare matched raw trajectories with render disabled for causal evidence. Image losses do not certify physical holes/rest.",
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "loss_res": 36,
+    "render_res": 64,
+    "iters": 8
+  },
+  "render": {
+    "lambda_auto": 0.5,
+    "surface_gs_loss": false,
+    "surface_gs_weight": null,
+    "detail_height": null
+  },
+  "windows": 38,
+  "raw_history_rows": 39,
+  "committed_windows": 36,
+  "inner_accepted_steps": 304,
+  "recorded_inner_steps": 304,
+  "recorded_committed_steps": 288,
+  "steps_in_committed_windows": 288,
+  "step_nominal_share": {
+    "count": 288,
+    "minimum": 0.2632380538655346,
+    "median": 0.45642507034987345,
+    "maximum": 0.6559579448776598
+  },
+  "first_iteration_nominal_share": {
+    "count": 36,
+    "minimum": 0.29045644566163015,
+    "median": 0.3836762103206137,
+    "maximum": 0.5247279939338535
+  },
+  "adaptive_lambda": {
+    "count": 36,
+    "minimum": 0.011418772554015764,
+    "median": 0.02598673853864013,
+    "maximum": 0.30863994883553275
+  },
+  "observed_render_loss_change": {
+    "count": 288,
+    "minimum": -0.02313470095396042,
+    "median": -1.437345054000616e-05,
+    "maximum": 0.0020038066431879997
+  },
+  "endpoint_optimizer_change_rms_wu": {
+    "count": 288,
+    "minimum": 0.00014834344619885087,
+    "median": 0.0025944842491298914,
+    "maximum": 0.16976241767406464
+  },
+  "channels": {
+    "body": {
+      "nominal_share": {
+        "count": 288,
+        "minimum": 0.07078991292243718,
+        "median": 0.29031594264644434,
+        "maximum": 0.49459921590506944
+      },
+      "control_delta_norm": {
+        "count": 288,
+        "minimum": 0.31845536828041077,
+        "median": 2.578141212463379,
+        "maximum": 51.71421813964844
+      }
+    },
+    "stress": {
+      "nominal_share": {
+        "count": 288,
+        "minimum": 0.19021972887092353,
+        "median": 0.4161824409777217,
+        "maximum": 0.7770890949752695
+      },
+      "control_delta_norm": {
+        "count": 288,
+        "minimum": 0.02658855728805065,
+        "median": 0.5703649520874023,
+        "maximum": 46.58974838256836
+      }
+    },
+    "surface_u": {
+      "nominal_share": {
+        "count": 288,
+        "minimum": 0.35057930467446474,
+        "median": 0.5997550712665214,
+        "maximum": 0.9499970061426508
+      },
+      "control_delta_norm": {
+        "count": 288,
+        "minimum": 0.017190808430314064,
+        "median": 0.07842433080077171,
+        "maximum": 0.7159854173660278
+      }
+    }
+  },
+  "last_committed_surface_components": null,
+  "causal_render_ablation": "not measured by this report"
+}

@@ -9430,8 +9430,32 @@ crop pairs finds persistent ear fringe and more distinct sparse streaks; no
 general artifact-fix/default promotion. No new simulation or render-loss changes.
 `docs/footprint_thickness_p323.md`, `docs/evidence/p323` record limits and hashes.
 
-P324 is a design inspection only (`docs/control_withdrawal_p324.md`). TwoT20
-segments onone tape can differentiate a pre-assimilation coast; it is not the
-actual constitutive/pin/neighborhood handoff. Measure real post-assimilation
-control withdrawal before introducing a continuation objective; never detach
-Fp/state handoff and label the resulting control gradient exact.
+P324 initially preregistered real post-assimilation withdrawal before a joint
+objective. Its completed observation is recorded below; the distinction between
+pre-assimilation and actual constitutive/pin/neighborhood handoff still applies.
+
+### 2026-09-29: P324 real handoff withdrawal; P325 GPU reporting
+
+Frozen73fdb63, N300k,T20,dt1/240,dx.3062907544wu,loss36^3,iters8. Read-only full
+capture:36accepted/38attempts,721physicalpositions+oneheld, allguards0, ordinary
+outer_rejection_patience,568.35s including observation I/O. Actual source attempts
+6/20/28 are paired with their immediately following prepared states. Their same-
+within-pair free-ID passive net RMS(sp) is1.535233/1.508385,.430643/.463103,
+.300400/.303633 before/after handoff. At28 all22511 such IDs are coarsely arrived;
+814newpins have zero post-coast motion by construction. All six tails pass full
+state/pin/bounds health, and independent CUDA provenance/position/cohort audit.
+27CPU/1actualCUDA capability tests pass. This is neither a final-convergence
+test nor a fix; layer relaxation remains active. Actual positions still move
+without renderer calls. No new frames were promoted or rendered.
+
+Source optimization render guidance:18views64px,GSoff,288accepted inner updates
+in committed windows. Median nominal render-direction share.456425,lambda
+.0259867,per-update reference-local image-loss change-1.43735e-5. Not causal
+movement fractions. Passive replay adds no rendering loss. Evidence and limits:
+`docs/control_withdrawal_p324.md`, `docs/evidence/p324`.
+
+P325 frozend349d58 preserves final-health math and packs T+1 explicit scalar
+reads intoone transfer.16CPU+39pipeline cases and4actualCUDA cases(1.38s) pass.
+Remaining host decisions/internal library synchronization and total runtime
+remain unmeasured; no claim of a fully host-free pipeline. Evidence:
+`docs/trajectory_reporting_p325.md`, `docs/evidence/p325`.
