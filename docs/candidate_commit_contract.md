@@ -69,3 +69,31 @@ A same-window decrease does not establish fewer holes or rest across the morph.
 Coupled continuation, full-horizon/gallery gates and all-frame raw/visual QA,
 including4K appearance, remain necessary. Report actual render components,
 lambda/direction norms and matched causal evidence as separate quantities.
+
+## Read-only merit API implementation
+
+`optimize_window(..., checkpoint_merit=True)` now provides
+`packet['evaluate_merit']` only with the private raw terminal-body checkpoint
+rollout. Default is off. Geometric F, Gaussian/GS, continuity and endpoint-KKT
+modes are rejected, in addition to the checkpoint's existing fixed-material,
+raw/no-shift/no-geometric-rest restrictions. There is no adoption API.
+
+The evaluator validates field layout/dtype/device/finiteness, nonnegative scalar
+body energy and x/X[-1], v/V[-1] equality, while requiring the caller's valid
+trajectory/exact-pin evidence. It uses stored-V population variance, shared
+`losses_of`/`phys_total`, candidate body energy and fixed stress/lambda. Like
+production `scalars`, it combines separately converted physical/render Python
+floats; independent review caught and removed a different FP32 rounding path.
+Each checkpoint owns a distinct expiring lease, so an older callback cannot
+become active during a later checkpoint. All mutable caches restore in finally,
+and archive evidence excludes the callable.
+
+The two real CPU MPM observer cases (layer control off/on) verify accepted-merit
+closure, exact scalar recombination, body-energy sensitivity with density wu!=1,
+independent population variance and F/J-volume sensitivity, invalid inputs,
+render-error recovery, lease expiration even inside a later checkpoint, and
+exact production/Adam isolation. Ten body-control and two prepared-reference
+cases also pass. These14 distinct cases are not a full-suite or CUDA-quality
+claim. No GPU probe invokes the new evaluator yet; P310 uses frozen b5809b5
+from before this addition. Original-merit CUDA closure and coupled continuation
+remain outstanding.

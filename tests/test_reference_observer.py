@@ -16,7 +16,7 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
     cfg = PipelineConfig(T=3,iters=2,animations=2,loss_res=12,render_views=2,
         render_elevs=(0.,.5),render_res=24,device='cpu',patience=5,
         outer_render_committed=True,body_ctrl=True,body_terminal_ctrl=True,
-        lambda_auto=.3,w_kin=.2,w_kin_var=0.,w_ctrl=0.,w_box=0.,max_ls_iters=1,
+        lambda_auto=.3,w_kin=.2,w_kin_var=.3,w_ctrl=.001,w_jvol=.5,w_box=0.,max_ls_iters=1,
         adaptive_alpha=False,alpha=1e-4,replay_calibrate=False,phys_loss='ot_pace',
         loss_units='density',ot_samples=128,ot_iters=20,render_paced=True,
         layer_ctrl=layer,layer_relax=layer)
@@ -57,6 +57,7 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
     checkpoints = []
     models = []
     callback_packets = []
+    merit_evaluators = []
 
     def checkpoint(index,packet):
         assert packet['optimizer_state_exact']
@@ -71,6 +72,44 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
         assert values['valid']
         torch.testing.assert_close(values['positions'],packet['positions'],rtol=1e-6,atol=2e-7)
         torch.testing.assert_close(values['V'],packet['V'],rtol=1e-5,atol=2e-7)
+        for expired in merit_evaluators:
+            with pytest.raises(RuntimeError,match='expired'):
+                expired(values)
+        evaluate = packet['evaluate_merit']
+        merit_evaluators.append(evaluate)
+        base_merit = evaluate(values)
+        assert base_merit['merit']==base_merit['physical']+base_merit['lambda_render']*base_merit['render']
+        assert base_merit['merit']==pytest.approx(packet['history']['loss'],rel=3e-6,abs=1e-8)
+        assert base_merit['unit_weight']!=1.
+        shifted_energy = values['body_energy']+5.
+        changed = evaluate(dict(values,body_energy=shifted_energy))
+        expected = base_merit['unit_weight']*cfg.w_ctrl*float(shifted_energy-values['body_energy'])
+        assert changed['merit']-base_merit['merit']==pytest.approx(expected,rel=.003,abs=2e-9)
+        population = values['V'].var(dim=0,correction=0).sum(-1).mean()
+        assert base_merit['stored_variance']==pytest.approx(float(population),rel=3e-5,abs=1e-10)
+        shifted_v = values['V'].detach().clone();shifted_v[0,:,0]+=.3
+        varied = evaluate(dict(values,V=shifted_v))
+        expected = base_merit['unit_weight']*cfg.w_kin_var*float(
+            shifted_v.var(dim=0,correction=0).sum(-1).mean()-population)
+        assert varied['merit']-base_merit['merit']==pytest.approx(expected,rel=.003,abs=2e-9)
+        shifted_f = values['F']*1.05
+        distorted = evaluate(dict(values,F=shifted_f))
+        j0,j1 = [torch.linalg.det(f.reshape(-1,3,3)) for f in (values['F'],shifted_f)]
+        expected = base_merit['unit_weight']*cfg.w_jvol*float(((j1-1)*j1.log()-(j0-1)*j0.log()).mean())
+        assert distorted['merit']-base_merit['merit']==pytest.approx(expected,rel=.003,abs=2e-9)
+        with pytest.raises(ValueError,match='Inconsistent'):
+            evaluate(dict(values,v=values['v']+.1))
+        with pytest.raises(ValueError,match='body_energy'):
+            evaluate(dict(values,body_energy=values['body_energy']*float('nan')))
+        # Fail after losses_of clears its mutable render cache, then recover.
+        import physmorph.pipeline.optimizer as optimizer_module
+        def failed_render(*args,**kwargs):
+            raise RuntimeError('injected render failure')
+        with monkeypatch.context() as nested:
+            nested.setattr(optimizer_module,'d_render',failed_render)
+            with pytest.raises(RuntimeError,match='injected'):
+                evaluate(values)
+        assert evaluate(values)==base_merit
         speed = values['v'].square().mean()+((values['positions'][-1]-values['positions'][-2])/packet['dt']).square().mean()
         derivative, = torch.autograd.grad(speed,terminal)
         assert bool(torch.isfinite(derivative).all()) and float(derivative.norm()) > 0
@@ -126,12 +165,16 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
         packet['history']['render_influence'].clear()
 
     def with_checkpoints(*args,**kwargs):
-        return original(*args,on_checkpoint=checkpoint,checkpoint_iterations=(1,2),checkpoint_rollout=True,**kwargs)
+        return original(*args,on_checkpoint=checkpoint,checkpoint_iterations=(1,2),
+                        checkpoint_rollout=True,checkpoint_merit=True,**kwargs)
 
     monkeypatch.setattr(runner,'optimize_window',with_checkpoints)
     checkpointed = runner.run_pipeline(source,target,prm,deepcopy(cfg),log=lambda *_:None)
     assert checkpoints == [(0,1),(0,2),(1,1),(1,2)]
     assert all(p['optimizer_state_after_callback_exact'] for p in callback_packets)
+    for evaluate in merit_evaluators:
+        with pytest.raises(RuntimeError,match='expired'):
+            evaluate({})
     for model in models:
         with pytest.raises(RuntimeError,match='expired'):
             model.evaluate(torch.zeros_like(model.coefficients[:,3:]))

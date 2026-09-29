@@ -70,7 +70,7 @@ class LiveCompensation(Capture):
         local = dict(packet,trial05_terminal=brake)
         folder = self.out/self.artifact_subdir
         folder.mkdir(exist_ok=False)
-        evidence = {k:v for k,v in local.items() if k not in ('rollout','reference')}
+        evidence = {k:v for k,v in local.items() if k not in ('rollout','reference','evaluate_merit')}
         evidence.update(reference=asdict(packet['reference']),source=self.source,target=self.target)
         packet['rollout'].save(folder/'live_window.npz',evidence)
         self.extra = self.operation(packet['rollout'],local,self.source,self.target,folder)

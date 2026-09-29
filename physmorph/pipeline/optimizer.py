@@ -272,7 +272,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     body_scale_init=None,
                     win_index=None, on_rollout=None, on_objective=None,
                     on_gradient_audit=None, audit_proposals=False, on_reference=None,
-                    on_checkpoint=None, checkpoint_iterations=(), checkpoint_rollout=False):
+                    on_checkpoint=None, checkpoint_iterations=(), checkpoint_rollout=False,
+                    checkpoint_merit=False):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -305,6 +306,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     true scalar/control gradient at the same controls without changing Adam,
     lambda, targets or the accepted evaluation trajectory. Re-evaluation may
     have CUDA atomic noise; this is not a constrained stationarity certificate.
+    checkpoint_merit adds a value-only evaluator for owned same-forward candidate
+    state/body energy, valid only during that callback; it cannot adopt a state.
 
     u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
     bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
@@ -326,6 +329,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             raise ValueError('Inner checkpoints require a read-only raw fixed-material observer')
     if checkpoint_rollout and (not checkpoint_iterations or not cfg.body_terminal_ctrl):
         raise ValueError('Private checkpoint rollout requires checkpoints and terminal body mode')
+    if checkpoint_merit and (not checkpoint_rollout or cfg.render_F_geom or cfg.use_gauss_loss
+            or cfg.surface_gs_loss or cfg.continuity or cfg.settle_pin_kkt):
+        raise ValueError('Checkpoint merit requires private raw fixed-material CIC/PBR rollout without geometric F/continuity/KKT')
     if on_gradient_audit is not None:
         mode = cfg.grad_project_mode if cfg.grad_project else 'off'
         if (cfg.geometric_variance or cfg.geometric_rest or cfg.settle_pin_kkt
@@ -1903,7 +1909,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             cont_state["rejects"] += 1
         return viol == 0
 
-    def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None):
+    def phys_core(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None, body_energy=None):
         """Physics objective WITHOUT the W1 term — the lambda balancer's numerator and
         PCGrad's reference direction (Codex finding 9: folding the W1 term into gp let
         w_dt inflate the balanced silhouette weight and project render components off a
@@ -1916,7 +1922,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # This also changes the physics norm used by the render lambda balancer.
             L = L + wu * cfg.w_kin * geom['total']
         if body_coeff is not None:
-            L = L + wu * cfg.w_ctrl * (body_field().reshape(body_modes, N, 3) / float(prm.dx)).square().sum((0, 2)).mean()
+            energy = ((body_field().reshape(body_modes, N, 3) / float(prm.dx)).square().sum((0, 2)).mean()
+                      if body_energy is None else body_energy)
+            L = L + wu * cfg.w_ctrl * energy
         if cfg.w_kin_running > 0 and lk_run is not None:
             # RUNNING kinetic (docs/oscillation_triage.md driver C): penalise motion at
             # every step, not only the endpoint, so a window cannot sprint-then-brake
@@ -2022,8 +2030,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         from ..losses.volumetric import d_fill_pairs
         return d_fill_pairs(xT, fill_pairs[0], fill_pairs[1], 0.5 * tgt.dtdx)
 
-    def phys_total(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None):
-        L = phys_core(lv, lk, dfc, xT, fT, lk_run, fR, lk_var, vT, geom)
+    def phys_total(lv, lk, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None, body_energy=None):
+        L = phys_core(lv, lk, dfc, xT, fT, lk_run, fR, lk_var, vT, geom, body_energy)
         if cfg.w_h1 > 0 and tgt.h1_scale is not None and getattr(cfg, "h1_outside", False):
             # config.h1_outside (2026-09-26): the H^-1 term OUTSIDE the core, the W1 precedent — inside it, its
             # gradient inflates the physics norm the lambda balancer scales the render channel against (the
@@ -2040,15 +2048,62 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + fill_lam * fill_raw(xT)
         return L
 
-    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None):
+    def scalars(lv, lk, lr, lam_r, dfc, xT, fT=None, lk_run=None, fR=None, lk_var=None, vT=None, geom=None, body_energy=None):
         with torch.no_grad():    # scalar only — never build a second autograd graph
             L = float(phys_total(lv, lk, dfc.detach(), xT.detach(),
                                  fT.detach() if fT is not None else None,
                                  lk_run.detach() if lk_run is not None else None,
                                  fR.detach() if fR is not None else None,
                                  lk_var.detach() if lk_var is not None else None,
-                                 vT.detach() if vT is not None else None, geom))
+                                 vT.detach() if vT is not None else None, geom, body_energy))
         return L if lr is None else L + lam_r * float(lr.detach())
+
+    def make_checkpoint_merit(stress, fixed_lambda):
+        # Separate lease for every inner checkpoint; an older callback never revives.
+        lease = [True]
+        stress = stress.detach().clone()
+
+        @torch.no_grad()
+        def evaluate(values):
+            if not lease[0]:
+                raise RuntimeError('Candidate merit evaluator expired')
+            if not values.get('valid') or not values.get('pins_exact'):
+                raise ValueError('Candidate merit requires a valid exact-pin trajectory')
+            shapes = dict(x=(N,3),v=(N,3),F=(N,9),C=(N,3,3),V=(T,N,3),
+                          positions=(T,N,3),body_energy=())
+            for key,shape in shapes.items():
+                value = values.get(key)
+                if (not torch.is_tensor(value) or tuple(value.shape)!=shape
+                        or value.device!=x0_t.device or value.dtype!=x0_t.dtype
+                        or not bool(torch.isfinite(value).all())):
+                    raise ValueError('Invalid candidate merit field: '+key)
+            if (float(values['body_energy'])<0 or not torch.equal(values['x'],values['positions'][-1])
+                    or not torch.equal(values['v'],values['V'][-1])):
+                raise ValueError('Inconsistent candidate merit state/body energy')
+            x,F,v,V = (values[k] for k in ('x','F','v','V'))
+            saved = dict(sil_gauss),dict(surface_last),tgt.gauss_scale,gx_box[0]
+            try:
+                lv,lk,lr,lpbr = losses_of(x,F,v)
+                running = V.square().sum(2).mean()
+                variance = (V.square().sum(2).mean(0)-V.mean(0).square().sum(1)).mean()
+                physical = phys_total(lv,lk,stress,x,F,running,None,variance,v,
+                                      body_energy=values['body_energy'])
+                render = x.sum()*0 if lr is None else lr
+                # Match scalars(): combine the two separately rounded Python floats.
+                merit = float(physical)+fixed_lambda*float(render)
+                result = dict(merit=merit,physical=physical,volume=lv,render=render,
+                    silhouette=sil_gauss['sil'] or 0.,pbr=lpbr if lpbr is not None else 0.,
+                    stored_terminal=lk,stored_running=running,stored_variance=variance,
+                    body_energy=values['body_energy'],unit_weight=wu,lambda_render=fixed_lambda)
+                result = {k:float(v) for k,v in result.items()}
+                if not all(math.isfinite(v) for v in result.values()):
+                    raise ValueError('Nonfinite candidate merit')
+                return result
+            finally:
+                sil_gauss.clear();sil_gauss.update(saved[0])
+                surface_last.clear();surface_last.update(saved[1])
+                tgt.gauss_scale,gx_box[0] = saved[2:]
+        return evaluate,lease
 
     def proposal_observer(audit, state, lv, lk, lr, extra, physical, render, transport):
         """Private first-trial scratch, with a callback-lifetime evaluation lease."""
@@ -2758,12 +2813,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     raise ValueError('Checkpoint gradient replay changed accepted buffers or optimizer state')
                 packet['optimizer_state_exact'] = True
                 model = None
+                merit_lease = None
                 try:
                     if checkpoint_rollout:
                         from .frozen_body_window import FrozenBodyWindow
                         model = FrozenBodyWindow(spec,body_basis,body_gate,body_coeff,
                                                  expand(dFc).detach(),u)
                         packet['rollout'] = model
+                    if checkpoint_merit:
+                        packet['evaluate_merit'],merit_lease = make_checkpoint_merit(expand(dFc),float(lam_r))
                     # Callback payloads are owned and may be mutated by the observer.
                     accepted_buffers = {k:packet[k].clone() for k in ('positions','V','F','C')}
                     on_checkpoint(win_index,packet)
@@ -2778,6 +2836,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     packet['optimizer_state_after_callback_exact'] = True
                     del accepted_buffers
                 finally:
+                    if merit_lease is not None:
+                        merit_lease[0] = False
                     if model is not None:
                         model.close()
             finally:
