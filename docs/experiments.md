@@ -9707,3 +9707,13 @@ for mj300, random-like as the target's 0.035), so outer-layer-to-outer-layer dis
 arrangement and are not used. `mj300p` (the settled run with reject_stop 20 and patience 20, through a
 launcher since reject_stop has no CLI flag in the branch) is running: does the settled end state reach the
 current code's surface fit with more windows?
+
+**2026-09-29 10:45 CDT — B1: the settled run with a longer budget (`mj300p`, reject_stop 20, patience 20).** It
+ran to window 68 (the delivery-merit plateau; 18 rejected candidates), 13 min: silIoU 0.9850, chamfer 0.0580,
+det F 0.948, 1 stray particle, ear tip **12.1** reference particles (mj300 11.1, ours300 8.8, gate 13), target
+under-fill max 0.146 wu (0.166 / 0.140), late motion 0.003 / 0.004 sp per frame on all surface particles;
+target surface → nearest particle beyond 1.5 spacings **10.4 %** (mj300 11.7 %, ours300 7.8 %): ears 11.2 %
+(14.3 % ours300), upper 9.8 % (7.2 %), lower 10.3 % (6.7 %). Reading: 37 more windows buy little on the
+silhouette and chamfer; they sharpen the ears past the current code and close a quarter of the body-surface
+gap, not all of it. The head and body relief is a limit of the settled objective's resolution (the Sinkhorn
+blur is one loss cell), not of an early stop — a finishing stage is still needed for it.
