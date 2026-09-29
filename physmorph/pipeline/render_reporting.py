@@ -1,6 +1,7 @@
 """Accepted-step render influence, with explicit non-causal interpretations."""
 import json
 import math
+import os
 from pathlib import Path
 import statistics
 
@@ -75,7 +76,7 @@ def summarize_render_influence(history, config, mpm):
     all_steps = [s for r in attempts for s in (r.get('render_influence_steps') or [])]
     steps = [s for r in committed for s in (r.get('render_influence_steps') or [])]
     channels = sorted({k for s in steps for k in s.get('channels', {})})
-    return dict(
+    report = dict(
         definitions='Observational optimizer telemetry, not causal attribution. Norm shares exclude '
                     'post-combination transforms and transport addends. Compare matched raw trajectories '
                     'with render disabled for causal evidence. Image losses do not certify physical holes/rest.',
@@ -99,14 +100,45 @@ def summarize_render_influence(history, config, mpm):
                   for k in channels},
         last_committed_surface_components=committed[-1].get('surface_render') if committed else None,
         causal_render_ablation='not measured by this report')
+    selections = [r for r in attempts if r.get('window_selection') is not None]
+    if selections:
+        selected = [r for r in selections if r['window_selection'].get('selected') is True]
+        committed_ids = {id(r) for r in committed}
+        scope = ('Direction/work statistics, accepted-update image-loss deltas and optimizer endpoint '
+                 'changes describe recorded Adam updates. In selected windows these are DONOR '
+                 'optimization evidence, not measurements of the fresh private forward. '
+                 'Selection is not an additional Adam step or causal motion attribution.')
+        report['definitions'] += ' ' + scope
+        observations = []
+        for r in selections:
+            selection = r['window_selection']
+            donor = selection.get('donor_observation') or {}
+            observations.append(dict(animation=r['animation'], selected=selection.get('selected') is True,
+                outer_committed=id(r) in committed_ids,
+                requested_label=selection.get('requested_label'), selected_label=selection.get('selected_label'),
+                donor_history_scope=selection.get('donor_history_scope'),
+                selected_work_scope=selection.get('selected_work_scope'),
+                donor_observation={k: donor.get(k) for k in ('loss', 'd_render', 'd_sil', 'lambda')},
+                selected_forward_observation=({k: r.get(k) for k in ('loss', 'd_render', 'd_sil', 'lambda')}
+                                              if selection.get('selected') is True else None)))
+        report['window_selection'] = dict(
+            selection_windows=len(selections), selected_private_forwards=len(selected),
+            outer_committed_selected_forwards=sum(id(r) in committed_ids for r in selected),
+            outer_uncommitted_selected_forwards=sum(id(r) not in committed_ids for r in selected),
+            original_result_retained_windows=len(selections)-len(selected),
+            added_adam_steps=0, optimizer_observation_scope=scope,
+            selected_observation_scope='Fresh private head-forward values, separate from donor update deltas; '
+                                       'not an assertion of outer acceptance, delivered retention or causality.',
+            observations=observations)
+    return report
 
 
-def write_render_report(prefix, history, config, mpm, particle_count):
+def write_render_report(prefix, history, config, mpm, particle_count, *, reserve_bytes=None):
     """I/O boundary; no feedback into the numerical pipeline."""
     report = summarize_render_influence(history, dict(config, _particle_count=particle_count), mpm)
     base = Path(str(prefix)+'.render_influence')
     base.parent.mkdir(parents=True, exist_ok=True)
-    base.with_suffix(base.suffix+'.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
+    json_payload = json.dumps(report, indent=2).replace('\n', os.linesep).encode('utf-8')
     def fmt(value):
         return ('unavailable' if value is None else
                 f"{value['median']:.6g} [{value['minimum']:.6g}, {value['maximum']:.6g}], n={value['count']}")
@@ -122,13 +154,38 @@ def write_render_report(prefix, history, config, mpm, particle_count):
             f"| Observed render loss change per accepted update | {fmt(report['observed_render_loss_change'])} |",
             f"| Optimizer endpoint update RMS (wu; not velocity) | {fmt(report['endpoint_optimizer_change_rms_wu'])} |", '',
             'Matched render-off causal ablation: not measured by this report.', '']
+    if 'window_selection' in report:
+        selection = report['window_selection']
+        rows += [f"Selected private forwards: {selection['selected_private_forwards']}; "
+                 f"outer committed: {selection['outer_committed_selected_forwards']}; "
+                 f"outer uncommitted: {selection['outer_uncommitted_selected_forwards']}. "
+                 f"Original result retained: {selection['original_result_retained_windows']}. "
+                 'Added Adam steps: 0.', '', selection['optimizer_observation_scope'], '',
+                 'Fresh selected-head observations and donor observations (not accepted-update deltas):', '',
+                 '| Attempt (zero-based) | Selected | Outer committed | Donor loss | Selected loss | Donor render | Selected render |',
+                 '|---|---|---|---|---|---|---|']
+        for observation in selection['observations']:
+            donor = observation['donor_observation']
+            fresh = observation['selected_forward_observation'] or {}
+            rows.append(f"| {observation['animation']} | {observation['selected']} | "
+                        f"{observation['outer_committed']} | {donor.get('loss')} | {fresh.get('loss')} | "
+                        f"{donor.get('d_render')} | {fresh.get('d_render')} |")
+        rows += ['', selection['selected_observation_scope'], '']
     for name, row in report['channels'].items():
         rows.append(f"- {name}: nominal share {fmt(row['nominal_share'])}; control delta norm {fmt(row['control_delta_norm'])}.")
     components = report['last_committed_surface_components']
     if components:
-        rows += ['', 'Last committed window, last inner accepted image observations:', '',
+        component_scope = ('Last committed window, last inner accepted image observations '
+                           '(donor evidence if that window selected a private forward):'
+                           if 'window_selection' in report else
+                           'Last committed window, last inner accepted image observations:')
+        rows += ['', component_scope, '',
                  '| Component | Value |', '|---|---|']
         rows += [f'| {key} | {value:.8g} |' for key, value in components.items()]
         rows += ['', 'Component scales/targets differ across policies; image errors do not certify physical coverage/rest.']
-    base.with_suffix(base.suffix+'.md').write_text('\n'.join(rows)+'\n', encoding='utf-8')
+    markdown_payload = ('\n'.join(rows)+'\n').replace('\n', os.linesep).encode('utf-8')
+    if reserve_bytes is not None:
+        reserve_bytes(len(json_payload)+len(markdown_payload))
+    base.with_suffix(base.suffix+'.json').write_bytes(json_payload)
+    base.with_suffix(base.suffix+'.md').write_bytes(markdown_payload)
     return report

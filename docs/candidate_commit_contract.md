@@ -1,6 +1,8 @@
 # Candidate merit and coupled continuation: implementation prerequisites
 
-This is a design audit, not an implemented promotion path. P309 remains a
+This began as a design audit. P332 implements the opt-in whole-result selection
+boundary described in `window_selection_p332.md`; no physical-quality candidate
+is promoted by that capability. P309 remains a
 noncommitting fresh-window diagnostic. Its prepared-data/raw-quality gates
 alone cannot authorize a production commit or persistent-rest claim.
 
@@ -110,7 +112,7 @@ recipe (maximum allowance ratio.0292933), verifies exact physical+lambda*render
 arithmetic and production-state isolation. Both terminal-strength arms still
 fail raw IoU; no candidate is adopted. Coupled continuation remains outstanding.
 
-## Next actual-forward seam after P331 (design, not implemented)
+## Actual-forward seam after P331 (implemented in P332; capability gates separate)
 
 P331 finds no admissible candidate; do not select its least-bad rejected arm.
 First validate an original-result identity control through an opt-in,

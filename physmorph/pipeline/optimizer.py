@@ -275,7 +275,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     win_index=None, on_rollout=None, on_objective=None,
                     on_gradient_audit=None, audit_proposals=False, on_reference=None,
                     on_checkpoint=None, checkpoint_iterations=(), checkpoint_rollout=False,
-                    checkpoint_merit=False):
+                    checkpoint_merit=False, prepare_selection=False):
     """Optimise dFc[0..T-1] (+ material s) over one horizon. Returns
     (frames, F_seq, end_state, s_out, hist, stats).
 
@@ -323,6 +323,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     step's velocity; grid smoothing may be Chebyshev-accelerated and covers the F
     covector; the physics/render composite follows cfg.grad_project_mode."""
     dev = cfg.device
+    if prepare_selection:
+        from .window_selection import validate_config
+        validate_config(cfg)
     from .endpoint_contract import validate_endpoint_config
     validate_endpoint_config(cfg)
     if checkpoint_iterations:
@@ -3249,4 +3252,41 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
              "cont_ratio": cont_state["ratio"] if cont_lim is not None else None,
              "cont_rejects": cont_state["rejects"] if cont_lim is not None else None,
              "cont_ref_ratio": cont_state["ref_ratio"] if cont_lim is not None else None}
+    if prepare_selection and hist and accepted > 0:
+        # Select only from the exact accepted buffer at its recorded merit
+        # weight. Lambda is currently fixed at the first inner iteration; keep
+        # its equality explicit if that policy changes. Replayed donors have a
+        # separately observed state and remain outside this first boundary.
+        accepted_lambda = hist[-1]['lambda'] or 0.0
+        skip = ('donor_pace_bound' if pace_bound else
+                'donor_replayed' if not commit_from_accepted else
+                'donor_lambda_changed' if float(lam_r) != float(accepted_lambda) else None)
+        if skip is not None:
+            stats['window_selection'] = dict(window=win_index, selected=False,
+                selected_label='original', skipped=skip,
+                donor_history_scope='Unchanged original optimizer result; no selection context created')
+            return frames, F_seq, end, s_out, hist, stats
+        # The runner consumes this lease immediately, before any promotion. It
+        # starts at the validated FINAL donor, never an earlier inner checkpoint.
+        from .frozen_body_window import FrozenBodyWindow
+        from .prepared_reference import PreparedReference
+        from .window_selection import PreparedWindowSelection
+        owner = None
+        merit_lease = None
+        try:
+            owner = FrozenBodyWindow(spec, body_basis, body_gate, body_coeff,
+                                     expand(dFc).detach(), u)
+            reference = PreparedReference.capture(cfg, tgt, pace_grid, sils_eff,
+                                                  shade_eff, pbr_grid_eff, render_target_kind)
+            evaluate, merit_lease = make_checkpoint_merit(expand(dFc), float(lam_r))
+            stats['_window_selection'] = PreparedWindowSelection(
+                (frames, F_seq, end, s_out, hist, stats), owner=owner,
+                reference=reference, evaluate_merit=evaluate, merit_lease=merit_lease,
+                cfg=cfg, prm=prm, win_index=win_index)
+        except Exception:
+            if merit_lease is not None:
+                merit_lease[0] = False
+            if owner is not None:
+                owner.close()
+            raise
     return frames, F_seq, end, s_out, hist, stats

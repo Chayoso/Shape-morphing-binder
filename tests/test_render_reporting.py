@@ -137,3 +137,104 @@ def test_zero_directions_and_empty_channels_keep_legacy_semantics(weight):
     actual = accepted_render_step(**case)
     assert actual == legacy_accepted_render_step(**case)
     assert actual['channels'] == {} and actual['direction_statistics_available']
+
+
+def selection_record(selected=True, **fields):
+    return dict(animation=19, accepted=1, rejected=2, loss=.6, d_render=.04,
+        d_sil=.03, **{'lambda': .5}, render_influence_steps=[make_step()],
+        window_selection=dict(selected=selected, requested_label='candidate' if selected else 'original',
+            selected_label='candidate' if selected else 'original',
+            donor_history_scope='Donor Adam optimization only',
+            selected_work_scope='No work or Adam-step claim for selected forward',
+            donor_observation=dict(loss=2., d_render=1.5, d_sil=1., **{'lambda': .5})), **fields)
+
+
+def test_selected_forward_is_separate_from_donor_adam_image_delta(tmp_path):
+    row = selection_record()
+    result = write_render_report(tmp_path/'selected', [row], {}, {}, 300000)
+    selection = result['window_selection']
+    assert selection['selected_private_forwards'] == 1
+    assert selection['outer_committed_selected_forwards'] == 1
+    assert selection['outer_uncommitted_selected_forwards'] == 0
+    assert selection['added_adam_steps'] == 0
+    assert result['inner_accepted_steps'] == result['recorded_inner_steps'] == 1
+    # The -0.5 donor Adam image change is neither the selected absolute error .04
+    # nor the selected-minus-donor difference (.04-1.5).
+    assert result['observed_render_loss_change']['median'] == -.5
+    observation = selection['observations'][0]
+    assert observation['donor_observation']['d_render'] == 1.5
+    assert observation['selected_forward_observation']['d_render'] == .04
+    assert observation['selected_forward_observation']['loss'] == .6
+    assert observation['outer_committed'] is True
+    assert 'DONOR' in result['definitions']
+    markdown = (tmp_path/'selected.render_influence.md').read_text(encoding='utf-8')
+    assert 'Added Adam steps: 0.' in markdown and 'not accepted-update deltas' in markdown
+    assert '| 19 | True | True | 2.0 | 0.6 | 1.5 | 0.04 |' in markdown
+    assert 'not an assertion of outer acceptance, delivered retention or causality' in markdown
+
+
+def test_selection_counts_respect_outer_rejection_null_and_nonattempt_rows():
+    rows = [selection_record(), selection_record(outer_rejected=1),
+            selection_record(null_commit=1), selection_record(held=1),
+            selection_record(c2f_render_res=96)]
+    result = summarize_render_influence(rows, {}, {})
+    selection = result['window_selection']
+    assert selection['selection_windows'] == selection['selected_private_forwards'] == 3
+    assert selection['outer_committed_selected_forwards'] == 1
+    assert selection['outer_uncommitted_selected_forwards'] == 2
+    assert [r['outer_committed'] for r in selection['observations']] == [True, False, False]
+    assert result['inner_accepted_steps'] == 3 and result['steps_in_committed_windows'] == 1
+    assert result['recorded_inner_steps'] == 3 and result['recorded_committed_steps'] == 1
+
+
+def test_original_retention_is_not_counted_as_a_selected_forward():
+    row = selection_record(False)
+    # A refused candidate also retains the original; do not label every false
+    # selection as an identity request or count its trial as a selected forward.
+    refused = selection_record(False)
+    refused['window_selection'].update(requested_label='failed_candidate', failures=['raw_quality'])
+    result = summarize_render_influence([row, refused], {}, {})
+    selection = result['window_selection']
+    assert selection['selected_private_forwards'] == selection['outer_committed_selected_forwards'] == 0
+    assert selection['original_result_retained_windows'] == 2
+    assert all(o['selected_forward_observation'] is None for o in selection['observations'])
+    assert result['recorded_inner_steps'] == 2
+
+
+def test_selection_extension_preserves_existing_statistics_and_history():
+    from copy import deepcopy
+    history = [selection_record(), selection_record(False)]
+    before = deepcopy(history)
+    plain = deepcopy(history)
+    for row in plain:
+        row.pop('window_selection')
+    legacy = summarize_render_influence(plain, {}, {})
+    result = summarize_render_influence(history, {}, {})
+    assert {k: v for k, v in result.items() if k not in ('window_selection', 'definitions')} == {
+        k: v for k, v in legacy.items() if k != 'definitions'}
+    assert result['definitions'].startswith(legacy['definitions'])
+    assert history == before
+    assert 'window_selection' not in legacy
+
+
+def test_missing_donor_observations_are_not_fabricated_from_selected_values():
+    row = selection_record()
+    row['window_selection'].pop('donor_observation')
+    result = summarize_render_influence([row], {}, {})
+    observation = result['window_selection']['observations'][0]
+    assert all(v is None for v in observation['donor_observation'].values())
+    assert observation['selected_forward_observation']['loss'] == .6
+
+
+def test_default_empty_report_payload_is_unchanged():
+    assert summarize_render_influence([], {}, {}) == dict(
+        definitions='Observational optimizer telemetry, not causal attribution. Norm shares exclude '
+                    'post-combination transforms and transport addends. Compare matched raw trajectories '
+                    'with render disabled for causal evidence. Image losses do not certify physical holes/rest.',
+        discretization=dict(N=None, T=None, dt=None, dx_wu=None, loss_res=None, render_res=None, iters=None),
+        render=dict(lambda_auto=None, surface_gs_loss=False, surface_gs_weight=None, detail_height=None),
+        windows=0, raw_history_rows=0, committed_windows=0, inner_accepted_steps=0,
+        recorded_inner_steps=0, recorded_committed_steps=0, steps_in_committed_windows=0,
+        step_nominal_share=None, first_iteration_nominal_share=None, adaptive_lambda=None,
+        observed_render_loss_change=None, endpoint_optimizer_change_rms_wu=None, channels={},
+        last_committed_surface_components=None, causal_render_ablation='not measured by this report')

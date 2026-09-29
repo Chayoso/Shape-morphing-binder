@@ -310,10 +310,11 @@ def calibrate_units(tgt: TargetPack, source_x, target_x, cfg: PipelineConfig) ->
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
-                 on_commit=None, on_iter=None, w_src=None, w_tgt=None):
+                 on_commit=None, on_iter=None, w_src=None, w_tgt=None, select_window=None):
     """Select the explicit numerical backend; host copies are archive/viewer outputs."""
     if cfg.compute_backend == 'legacy':
-        return _run_pipeline(source_x, target_x, prm, cfg, log, on_commit, on_iter, w_src, w_tgt)
+        return _run_pipeline(source_x, target_x, prm, cfg, log, on_commit, on_iter, w_src, w_tgt,
+                             select_window=select_window)
     if cfg.compute_backend != 'cuda':
         raise ValueError('compute_backend must be legacy or cuda')
     unsupported = [name for name in ('reattach', 'pace_front_geo', 'local_dress_iters', 'use_gauss_loss', 'assim_consensus')
@@ -332,18 +333,27 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
 
     with cuda_execution(cfg.device, input_sizes=(len(source_x), len(target_x)), target_reference=reference):
         result = _run_pipeline(source_x, target_x, prm, cfg, log,
-                               host_callback(on_commit), host_callback(on_iter), w_src, w_tgt)
+                               host_callback(on_commit), host_callback(on_iter), w_src, w_tgt,
+                               select_window=select_window)
         return to_host(result, copy_host=False)
 
 
 def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
-                 on_commit=None, on_iter=None, w_src=None, w_tgt=None):
+                 on_commit=None, on_iter=None, w_src=None, w_tgt=None, select_window=None):
     """Morph source -> target. Returns a result dict (frames, F_frames, history, guards, s,
     n_held, converged, termination). `converged` retains the legacy global-freeze
     flag; `termination` explains optimization stopping, not individual rest.
     frames/F_frames archive the PROMOTED per-step states.
     on_commit(a, x, F, v, rec) fires after each promoted commit; on_iter(it, xT, FT, tele)
-    streams each accepted optimisation iteration (live viewer hooks)."""
+    streams each accepted optimisation iteration (live viewer hooks).
+    select_window(context) is opt-in and runs on the active numerical backend.
+    It selects an owned whole result before the ordinary handoff/outer gate;
+    unlike viewer callbacks, it is never converted to host arrays."""
+    if select_window is not None:
+        if not callable(select_window):
+            raise ValueError('select_window requires a callable')
+        from .window_selection import validate_config
+        validate_config(cfg)
     if cfg.settle_pin and (cfg.reattach or cfg.settle_commit):
         raise ValueError("settle_pin cannot be combined with reattach/settle_commit: those commit operators do not preserve pins")
     if cfg.settle_pin_confirm and not (cfg.settle_pin and cfg.ctrl_rprop):
@@ -658,7 +668,17 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             u_scale_init=(u_scale if getattr(cfg, "u_rprop", False) else None),
             ctrl_scale_init=(ctrl_scale_apply if (getattr(cfg, "ctrl_rprop", False) or getattr(cfg, "freeze_arrived", False)) else None),
             body_scale_init=(ctrl_scale if cfg.body_rprop else None),
-            eta_init=settle_eta_arr, pin_init=settle_pin_arr, stick_init=stick_arr, win_index=a)
+            eta_init=settle_eta_arr, pin_init=settle_pin_arr, stick_init=stick_arr, win_index=a,
+            **({'prepare_selection': True} if select_window is not None else {}))
+        selection_context = stats.pop('_window_selection', None)
+        if selection_context is not None:
+            try:
+                selected, selection_report = selection_context.resolve(select_window(selection_context))
+                fr, F_seq, end, s, whist, stats = selected
+                stats['window_selection'] = selection_report
+            finally:
+                selection_context.close()
+                selection_context = None
         if a == 0 and stats.get("basis"):
             log(f"[v2] control basis: {stats['basis']}")
         if stats.get("cont_ratio") is not None and (stats.get("cont_rejects") or stats["cont_ratio"] > 1.0):
@@ -954,7 +974,9 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
         if Fg_p is not None:
             Fg_commits.append((len(frames), to_host(Fg_p)))
 
-        w = whist[-1]
+        # Optimizer history remains the donor's actual Adam history. Alternate
+        # whole-state observations are separate, with no fabricated inner step.
+        w = stats.get('selected_observation', whist[-1])
         if getattr(cfg, "phys_loss", "density") != "density":
             # the optimiser's d_vol under a transport recipe is the loss against the PACED
             # (or transport) target — near zero by construction and hypersensitive in
@@ -1017,6 +1039,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                 d_fill = coverage_shortfall(xt, tgt.m, tgt.tmass3, tgt.dtgmin,
                                             tgt.dtdx, tgt.dtdims, cfg.fill_sigma)
         rec = {"animation": a, "iters": len(whist), "loss": w["loss"], "d_vol": w["d_vol"],
+               **({'window_selection': stats['window_selection']} if 'window_selection' in stats else {}),
                "endpoint_contract": endpoint_telemetry,
                "geometric_rest": stats.get('geometric_rest'),
                "geometric_variance": stats.get('geometric_variance'),
@@ -1091,7 +1114,7 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             from .outer_merit import fixed_outer_render
             outer_render = fixed_outer_render(
                 torch.as_tensor(x, device=cfg.device), cfg, tgt,
-                whist[-1].get("d_sil"), whist[-1].get("d_render"))
+                w.get("d_sil"), w.get("d_render"))
             rec["outer_render"] = None if outer_render is None else float(outer_render)
             rec["outer_track_version"] = "committed_fixed_v1"
 
