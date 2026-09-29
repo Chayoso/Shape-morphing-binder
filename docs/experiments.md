@@ -9501,3 +9501,11 @@ jointremedy not established. Allphase128/256px rawprojections retainopenings.
 Median nominal rendershare.445574/.447220,lambda.0399058/.0262601,reference-local
 image-lossdelta-1.85489e-5/-1.33174e-5; notcausalmovement fractions.
 Full scopes and provenance: `docs/fragment_adjoint_p327.md`, `docs/evidence/p327`.
+
+P328 implements the private prepared two-mode body adapter to the P326 joint
+head/coast derivative.26 CPU cases pass independently, including real original-
+merit closure, exact head/basis/energy parity, same-forward C/F/Fg ownership,
+future finite differences, expiration and pinned-state/context negatives.
+Four CUDA cases are registered but pending. Pre-assimilation only; no objective,
+default, committed-state or render-deliverable change. See
+`docs/prepared_withdrawal_p328.md` for the actual-handoff and full-size memory gaps.

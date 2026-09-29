@@ -325,3 +325,9 @@ These are the leading candidates for the unresolved problems, and they are ports
   Both full-phase projection observers retain openings; independent bounded
   source/motion/shape/metadata audits pass. This is an adjoint correctness fix,
   not a rest/hole/4K remedy. No new loss. Evidence: `docs/evidence/p327`.
+- **P328 prepared withdrawal:** `docs/prepared_withdrawal_p328.md` connects the
+  private reduced two-mode body basis to P326's pre-assimilation derivative.
+  Owned same-forward head/coast state, original body energy/merit, stream and
+  callback lifetime checks pass26 CPU cases with independent review. Actual
+  CUDA and full-size VRAM gates remain pending. No loss/default/adoption change;
+  the real assimilation/admission/preparation handoff remains a separate gap.
