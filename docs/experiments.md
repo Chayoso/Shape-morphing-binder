@@ -9623,3 +9623,23 @@ Norm fractions are not causal motion fractions or exact4K Gaussian supervision.
 No candidate/rest/hole/artifact adoption follows. Source, raw archive bindings,
 independent scalar audit and numerical scope: `docs/post_assimilation_window_p335.md`
 and `docs/evidence/p335/independent_native2_audit.json`.
+
+**2026-09-29 09:50 CDT — B1 pre-registered: `michael/settled-transport` (835af64) at 300k against the current
+code, paired.** The user's request after the branch comparison. The branch (unrelated history: the public
+release at 680622e + one commit) is run AS IS from a separate checkout (`/data/relcfd/chayo/physmorph_v2/repo_mj`,
+a `git archive`; nothing in `repo/` or the existing outputs is touched), outputs under `$OUT/mj/`. Three runs,
+sphere → bunny, N = 300000, `--seed 97`, the README recipe (= `$RECIPE`), default `--mass_ref_n 40000`:
+`mj300` = the branch with `--solver_mode settled_transport --ot_iters 1600 --support_weight 8
+--nn_sampling_berth` (GPU 0); `mjb300` = the branch in legacy mode, its own paired baseline (GPU 1);
+`ours300` = the current v3-grid-gs code (adb7492) with the 300k form of bm300 (GPU 3; the reference
+archives of 09-26 were removed in a later cleanup, so the reference is re-run). Readings, the same probes
+for all three: wall and windows; silIoU / chamfer / det F min; the transit region's density at fixed
+frames (`hollow_frames`); progress by source depth and the late surface motion (`strip_probe`); the ear tip
+and stray pieces (`end_probe`); the ear's fill per slab over time, i.e. its onset (`ear_slab`); the GPU
+splat render and its flicker tail. Gates for the branch to be taken as the base (the eye-corrected gates of
+09-26 included): transit density at the ear's growth ≥ 0.2 and above both baselines; ear tip ≥ 13 reference
+particles; the ear's onset not later than ours300's; silIoU ≥ ours300 − 0.003; the late unpinned surface
+motion and the splat tail not above ours300's; no stall; wall ≤ 3× ours300. Known caveats before the read:
+the branch's validation was at 100k with unit masses, `--support_weight 8` and `--ot_iters 1600` are its
+validation values, not derived constants, and settled mode rolls 2T steps per window, so frames per window
+double and comparisons are made at equal physical frames and at equal progress, both stated.
