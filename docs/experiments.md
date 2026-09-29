@@ -9643,3 +9643,20 @@ motion and the splat tail not above ours300's; no stall; wall ≤ 3× ours300. K
 the branch's validation was at 100k with unit masses, `--support_weight 8` and `--ot_iters 1600` are its
 validation values, not derived constants, and settled mode rolls 2T steps per window, so frames per window
 double and comparisons are made at equal physical frames and at equal progress, both stated.
+
+**2026-09-29 10:00 CDT — B1 interim: `mj300` (the branch's settled transport at 300k) finished; the two
+baselines are still running.** mj300: 31 windows (early stop at three rejections), wall **7 min**, silIoU
+**0.9851**, chamfer 0.0581, det F min **0.934**, 0 stray pieces, jitter 0; no pins exist in this mode and the
+late motion (t 0.9–1.0) of ALL 18,595 surface particles is 0.007 / 0.009 spacings per frame (normal /
+tangential), the interior 0.004 / 0.006; progress toward the end position by source depth is uniform —
+0.16 / 0.13 / 0.13 at t = 0.10, 0.30 / 0.28 / 0.29 at 0.14, 0.52 / 0.49 / 0.52 at 0.20 (d0–2 / d2–5 / d5–10) —
+i.e. the bulk moves with the skin; the top region's density over the target's at frames 76 / 114 / 152 / 190 /
+380 = 0.36 / 0.23 / 0.22 / 0.33 / 0.92 (1082 frames in all: 2T steps per window, so ≈ 35 frames per window);
+the ear's fill per slab at t = 0.20 is 1.16 / 0.71 / 0.58 / 0.37 / 0.15 / 0.10 from the base up and 0.73–1.33 in
+every slab by t = 0.40 — a tongue growing from the base; the ear tip 11.1 reference particles (gate ≥ 13 ✗),
+the target under-fill max 0.166 wu; the GPU splat render's tail D1 0.0003 / ALT 0.0002 (whole 0.0008). For
+orientation only, against the 09-26 record of bm300 (not the paired run): silIoU 0.9733, det F 0.72, 15 stray
+particles, the unpinned surface 0.179 / 0.131, progress at t = 0.10 0.02 / −0.05 / −0.08, the top region 0.17 /
+0.09 / 0.25 / 0.54, tail 0.0008, tip 13.3, 12–20 min. Stills inspected (frames 96 / 240 / 720): a solid dome
+at 96, both ears growing as thick columns with hazy ends at 240, a clean bunny at 720. The verdict waits for
+`mjb300` and `ours300` (same seed) and their renders.
