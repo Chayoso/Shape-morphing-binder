@@ -2,10 +2,10 @@
 # Isolated current-adjoint/no-shift physics and raster cutoff experiments.
 set -euo pipefail
 base=/data/relcfd/chayo/physmorph_v2
-mode=${1:?baseline or raw or raw-off or raster or continuous or quality or phase or render-compare}
+mode=${1:?probe mode}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|gradient-reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|full-raw-no-layer|support-braking-repair|frozen-replay-noise|frozen-state-identity) ;; *) exit 2;; esac
+case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|gradient-reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|full-raw-no-layer|support-braking-repair|frozen-replay-noise|frozen-state-identity|withdrawal-capture|withdrawal-analyze|withdrawal-verify) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -29,11 +29,14 @@ out="$base/work/p303/$tag"
 for suffix in '' .start .json .log .npz _render_full_dt_iso_nn.npz; do test ! -e "$out$suffix"; done
 used=$(du -sb "$base" | cut -f1)
 (( used < 100000000000 )) || { echo 'Project exceeds 100GB; clean obsolete results first' >&2; exit 76; }
-if [[ "$mode" == full-baseline || "$mode" == full-raw || "$mode" == full-raw-no-layer ]]; then
+if [[ "$mode" == full-baseline || "$mode" == full-raw || "$mode" == full-raw-no-layer || "$mode" == withdrawal-capture ]]; then
     (( used + 30000000000 < 100000000000 )) || { echo 'Full-horizon30GB reservation exceeds100GB; clean verified obsolete results first' >&2; exit 76; }
 fi
 if [[ "$mode" == baseline-shape || "$mode" == raw-shape ]]; then
     (( used + 2000000000 < 100000000000 )) || { echo 'Phase-shape2GB reservation exceeds100GB' >&2; exit 76; }
+fi
+if [[ "$mode" == withdrawal-analyze ]]; then
+    (( used + 6000000000 < 100000000000 )) || { echo 'Withdrawal6GB reservation exceeds100GB' >&2; exit 76; }
 fi
 (set -o noclobber; printf '%s\n' "$now" > "$out.start")
 set -o noclobber
@@ -42,6 +45,19 @@ set +o noclobber
 printf '%s\n' "$now" > "$base/maintenance/last_gpu_launch_epoch"
 flock -u 9
 cd "$REPO"
+if [[ "$mode" == withdrawal-capture ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/control_withdrawal.py capture --out "$out"
+fi
+if [[ "$mode" == withdrawal-analyze ]]; then
+    source_tag=${4:?captured run tag}
+    [[ "$source_tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/control_withdrawal.py analyze \
+        --source "$base/work/p303/$source_tag" --out "$out"
+fi
+if [[ "$mode" == withdrawal-verify ]]; then
+    exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \
+        tests/test_withdrawal_cuda.py -q --junitxml="$out.xml"
+fi
 if [[ "$mode" == full-baseline || "$mode" == full-raw || "$mode" == full-raw-no-layer ]]; then
     exec "$PY" scripts/ops/cuda_python.py scripts/probes/full_horizon.py --arm "${mode#full-}" --out "$out"
 fi

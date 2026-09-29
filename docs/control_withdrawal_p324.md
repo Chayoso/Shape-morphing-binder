@@ -123,3 +123,38 @@ and forward equality to the runner on the declared branch.
 Independent design refutation agrees that the two-segment tape is the smallest
 pre-assimilation capability, subject to these gates. It has not established a
 quality fix, natural rest, hole prevention or actual next-window invariance.
+
+## Implemented read-only handoff observation
+
+`scripts/probes/control_withdrawal.py capture` wraps the ordinary full-horizon
+raw arm without changing its controls, losses, acceptance or stopping. Requested
+source attempts are 6,20,28 (one-based attempts, not accepted-window ordinals).
+It captures a validated source endpoint before commit, then the step-zero input
+of the immediately following optimizer attempt after preparation finishes. Only
+source attempts actually accepted by the runner qualify. The successor need not
+be accepted; missing successors, including an ordinary final stop, are reported
+as missing. Full-horizon trace binds actual archive rows and raw x equality.
+
+`OwnedWithdrawal` owns full x/v/C/F/Fp/Fg, source volumes, mass/material/viscosity,
+pin/collider, permanent bonds, prepared layer data and resolved support count.
+It reconstructs an independent forward-only T20 trajectory. Future dFc and u are
+zero, body control is absent; accumulated F and APIC C are retained. It performs
+no assimilation or new preparation. Archival I/O is explicit; numerical replay
+and reductions execute on the GPU. This is detached observation, not a gradient
+capability or optimizer change.
+
+The separate `analyze` process replays both snapshots only after capture has
+finished. It verifies the frozen producer code, input, configuration, trace,
+render report and captured-state hashes. Pre/post differences include the whole
+handoff: assimilation, pin admission/zeroing, bond rebase and layer re-preparation.
+Report common-free, newly pinned, old-pinned and initially-free cohorts, plus
+endpoint-arrived/transit common-free cohorts using the source's actual frozen
+plan and arrival radius. Pins are imposed rest, not natural rest. Reversal
+eligibility uses the existing P317 length floor, 1e-4 source spacing.
+
+Full v/C/F/Fg finiteness, positive detF, runner containment and pinned paths are
+checked without repair. Invalid tails are archived and flagged, without ordinary
+motion metrics. All21 positions of valid tails and per-ID reductions are retained.
+Raw endpoint IoU/target coverage are renderer independent. There is no rendering
+loss in passive replay; the originating run still writes its rendering-influence
+report. No post-commit differentiable map or tail penalty is implemented here.
