@@ -72,7 +72,20 @@ The registered CUDA suite has four cases: both reduced-mode finite differences
 with ordinary/captured parity and no numerical array download; side-stream
 autograd/lease behavior; early stream mismatch rejection before cloning or
 finite checks. State parity is1e-5 relative/absolute, gradient parity2e-4/2e-5,
-with unchanged CPU finite-difference gates. Actual GPU execution is still pending.
+with unchanged CPU finite-difference gates.
+
+Frozen4ab8510 passes allfour actual CUDA cases, zero skips, in2.17s on hyde06
+GPU0 (`code_prepared_withdrawal1`, `p328_cuda1`). Displacement AD is
+-.002922626595 versus FD-.002917099631/-.002921826004; terminal AD is
+-.000342438531 versus FD-.000337917595/-.000341950670. Both original radii and
+tolerances remain unchanged. The stream-preflight sentinel, no numerical array
+download, captured/ordinary parity, worker-thread lifetime and owned-snapshot
+checks pass. Full receipts are in `docs/evidence/p328`; no performance claim
+for a production morph follows from this small numerical fixture.
+Independent review matches allfour named XML cases, all source/receipt manifest
+hashes and imported fixture bytes to the frozen server checkout, and recomputes
+the four finite-difference comparisons. The receipt gate is closed; no additional
+MPM or rendering run was used for that audit.
 
 The complete returned FP32 state payload alone is about1.70GB at N300k,T20,
 before trajectory/gradient storage and temporary stacks. No full-size runtime

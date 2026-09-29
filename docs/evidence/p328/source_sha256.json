@@ -1,0 +1,14 @@
+{
+    "commit":  "4ab8510",
+    "source_scope":  "Actual working-file bytes deployed and frozen before CUDA execution",
+    "files":  {
+                  "physmorph/pipeline/frozen_withdrawal_window.py":  "5e20ab06044dc91c3e83cfc0f6acba9de230576f12707e5e3579c6a09301ca0c",
+                  "tests/test_frozen_withdrawal_window.py":  "d7e8d0dfb54bd7bcfc84be7b2cac415434bc2c00a8fbf97d68ac0495ed56a1da",
+                  "tests/test_frozen_withdrawal_window_cuda.py":  "4a88db7055659a0f816426c3d747767a49886c2a551f5051681532f086d4a48e",
+                  "scripts/ops/run_p303_probe.sh":  "5b04e13ae94d18857a674c65530c9521349a82d1c17727698ee5485f8a008aaf",
+                  "physmorph/mpm/withdrawal_adjoint.py":  "dea174a239330dc1d3db1b3fe75d5f335bdd10699fee540f94a2e0cc8be807e9",
+                  "physmorph/pipeline/frozen_body_window.py":  "22084ec20c4616198b44a1746ec1bd7f68bcabf2f26af37ee11b5948e17f20f9",
+                  "docs/evidence/p328/p328_cuda1.log":  "b7fbbf511810189e8090955252118e0bb7e24ce2325ef30caf70ff23d8e4b737",
+                  "docs/evidence/p328/p328_cuda1.xml":  "d25913c74378eedd37e528266fcf9f74f6e8f02f46253a51848482cbc431538e"
+              }
+}

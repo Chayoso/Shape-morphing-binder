@@ -1,0 +1,25 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_prepared_withdrawal1
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 4 items
+
+tests/test_frozen_withdrawal_window_cuda.py Module physmorph.mpm.kernels c651c54 load on device 'cpu' took 1.22 ms  (cached)
+Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 10.97 ms  (cached)
+{'mode': 0, 'epsilon': 0.001, 'analytical': -0.002922626595026106, 'finite_difference': -0.0029170996306722013}
+{'mode': 0, 'epsilon': 0.0005, 'analytical': -0.002922626595026106, 'finite_difference': -0.002921826004131597}
+.{'mode': 1, 'epsilon': 0.001, 'analytical': -0.00034243853064456695, 'finite_difference': -0.0003379175954638388}
+{'mode': 1, 'epsilon': 0.0005, 'analytical': -0.00034243853064456695, 'finite_difference': -0.0003419506699109593}
+...
+
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p328_cuda1.xml -
+============================== 4 passed in 2.17s ===============================

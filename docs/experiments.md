@@ -9509,3 +9509,9 @@ future finite differences, expiration and pinned-state/context negatives.
 Four CUDA cases are registered but pending. Pre-assimilation only; no objective,
 default, committed-state or render-deliverable change. See
 `docs/prepared_withdrawal_p328.md` for the actual-handoff and full-size memory gaps.
+
+P328 actual CUDA frozen4ab8510:4 passed,0 skipped,2.17s. Both reduced-mode
+future derivatives pass unchanged two-radius finite differences; stream ordering,
+captured/ordinary parity, no numerical array download and callback expiration
+also pass. This closes the small-fixture capability gate only; no N300k lookahead,
+new objective, actual-handoff derivative or physical/4K quality promotion.
