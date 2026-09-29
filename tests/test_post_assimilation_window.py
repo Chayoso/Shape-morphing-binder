@@ -13,6 +13,7 @@ from physmorph.pipeline.post_assimilation_window import PostAssimilationWindow
 from physmorph.plasticity.assimilation import assimilate_elastic
 from test_frozen_withdrawal_window import make_owner, coast_observable
 from test_withdrawal_adjoint_fd import direction_like
+from pin_collider_reference import first_step_pin_velocity
 
 
 def make_case(*, pin_slip=False):
@@ -309,17 +310,50 @@ def test_new_pin_collider_anchor_derivative_and_detached_mass_negative_control()
     ad = float((full.double()*direction.double()).sum())
     bad = float((missing.double()*direction.double()).sum())
     assert abs(ad) > 5e-5 and bad == 0.
-    initial_x = wp.to_torch(independent.x[0]).clone()
-    initial_v = wp.to_torch(independent.v[0]).clone()
-    epsilon, losses = 1e-4, []
-    for sign in (-1, 1):
-        wp.to_torch(independent.x[0]).copy_(initial_x+sign*epsilon*direction)
-        independent.step(0)
-        acceleration_fd = (wp.to_torch(independent.v[1]).double()-initial_v.double())/owner.spec.prm.dt
-        losses.append(float((acceleration_fd*weights).mean()))
-    fd = (losses[1]-losses[0])/(2*epsilon)
-    allowance = max(.02*abs(fd), 5e-6)
-    print(dict(scope='fixed_successor_new_pin_anchor', epsilon=epsilon,
-               full=ad, detached_gmpin=bad, fd=fd, allowance=allowance))
-    assert abs(ad-fd) <= allowance
-    assert abs(bad-fd) > allowance
+    initial_x = wp.to_torch(independent.x[0]).clone().double()
+    initial_v = wp.to_torch(independent.v[0]).clone().double()
+    independent.step(0)
+    mass = wp.to_torch(independent.m).clone()
+    grid_mass = wp.to_torch(independent.gm[0]).clone()
+    grid_momentum = wp.to_torch(independent.gmom[0]).clone()
+    pins = actual['coast_pins']
+    def reference(x):
+        return first_step_pin_velocity(x, pins, mass, grid_mass, grid_momentum, owner.spec.prm)
+    def reference_loss(value):
+        return ((value['velocity']-initial_v)*weights).mean()/owner.spec.prm.dt
+    base_x = initial_x.clone().requires_grad_()
+    base = reference(base_x)
+    # The FP64 reference must first reconstruct the actual unshifted collider
+    # and first-step free velocity before it supplies a derivative oracle.
+    for key, source in (('pin_mass', independent.gmpin), ('grid_velocity', independent.gvel[0]),
+                        ('velocity', independent.v[1])):
+        torch.testing.assert_close(base[key], wp.to_torch(source).double(), rtol=2e-5, atol=3e-6)
+    reference_gradient, = torch.autograd.grad(reference_loss(base), base_x)
+    reference_ad = float((reference_gradient*direction.double()).sum())
+    assert ad == pytest.approx(reference_ad, rel=.02, abs=5e-6)
+    differences = []
+    # Raw FP32 first-step differences failed at 5e-5 on CPU and at 1e-4 on
+    # CUDA. Keep those receipts; this independent local map uses FP64 at all
+    # both registered radii, with stable reference branches and FD convergence.
+    radii = (1e-4, 5e-5)
+    for epsilon in radii:
+        losses = []
+        for sign in (-1, 1):
+            x = initial_x+sign*epsilon*direction.double()
+            value = reference(x)
+            for key, branch in base['branches'].items():
+                assert torch.equal(value['branches'][key], branch), (epsilon, sign, key)
+            losses.append(float(reference_loss(value)))
+            # New slip anchors cannot change the fixed P2G inputs used here.
+            wp.to_torch(independent.x[0]).copy_(x.float())
+            independent.step(0)
+            assert torch.equal(wp.to_torch(independent.gm[0]), grid_mass)
+            assert torch.equal(wp.to_torch(independent.gmom[0]), grid_momentum)
+        fd = (losses[1]-losses[0])/(2*epsilon)
+        allowance = max(.02*abs(fd), 5e-6)
+        print(dict(scope='fp64_fixed_successor_new_pin_anchor', epsilon=epsilon,
+                   full=ad, reference_ad=reference_ad, detached_gmpin=bad, fd=fd))
+        assert abs(ad-fd) <= allowance and abs(bad-fd) > allowance
+        differences.append(fd)
+    rounding_floor = 64*torch.finfo(torch.float64).eps*max(1., abs(float(reference_loss(base).detach())))/min(radii)
+    assert abs(differences[-1]-differences[-2]) <= max(1e-6*abs(differences[-1]), rounding_floor)

@@ -14,3 +14,6 @@
 
 # Generated reports embed base64 payloads -- diffing them is noise.
 docs/*.html linguist-documentation -diff
+
+# Exact frozen Python witnesses include original mixed line endings.
+docs/evidence/p335/*.py.txt -text

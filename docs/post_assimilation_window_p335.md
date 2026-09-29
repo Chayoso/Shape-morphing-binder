@@ -120,3 +120,33 @@ not the source of the larger reduced-control discrepancy or production motion.
 The updated adapter suite passes49 CPU cases in8.84s; ten P334 regressions also
 pass. Seven actual CUDA cases are registered for the second run, including this
 captured boundary negative and the separately refined local slip gates.
+
+## Second actual CUDA attempt: isolated anchor FD fails
+
+Frozen91f8bb9, `p335_cuda2`, passes6 of7 gates in5.72s. Both refined slip
+control directions pass at1e-4 and5e-5, with the original2%/5e-6 bound. The
+isolated anchor has AD .000453369836, detached AD0 and full-FP32 finite difference
+.000494115164 at1e-4; their .0000407453 difference exceeds .0000098823 allowance.
+All preceding actual-boundary/first-step primal, repeat and zero-seed checks
+pass. This failed numerical witness still blocks the gate. CPU agreement at
+one radius does not validate the CUDA finite difference or explain its error.
+
+Next isolate the first-step collider path in an independent FP64 reference:
+slip-mode pinned particles do not participate in the free P2G mass/momentum.
+Hold those actual grids and all free particle states fixed, vary only the new
+anchor, then recompute pin mass, collider normals/projection and free G2P.
+Bind its unperturbed mass/grid/particle velocities to actual Warp values before
+testing FD convergence at multiple radii. Keep the failed complete FP32 witness
+and distinguish this path derivative from a complete full-precision simulator.
+
+The test-only FP64 reference now matches actual unperturbed pin mass, grid
+velocity and first-step particle velocity. At N27/T20/dt.002/dx.5/grid16^3 on
+CPU, the same anchor direction gives Warp AD .000453370168, reference analytic
+AD .000453370059 and FD .000453369904 at1e-4 / .000453370021 at5e-5. Detached
+gmpin gives zero. Both unchanged2%/5e-6 comparisons pass; the two FD values also
+agree within1e-6 relative or the explicit FP64 rounding bound. Contact, support,
+cell, normal, wall and floor branch masks stay fixed across both brackets.
+Free P2G mass/momentum is independently unchanged under the pin-only shifts.
+All49 CPU adapter cases pass in9.62s. The same-device reference is now frozen
+for a third actual CUDA gate; it is not a complete FP64 simulator or a repaired
+full-FP32 FD witness, and does not establish the cause of the earlier mismatch.
