@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_shape2
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+collected 1 item
+
+tests/test_horizon_shape_cuda.py .                                       [100%]
+
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/shape_verify2.xml -
+============================== 1 passed in 5.95s ===============================

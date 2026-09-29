@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="5.949" timestamp="2026-09-28T22:57:01.630664-05:00" hostname="hyde06"><testcase classname="tests.test_horizon_shape_cuda" name="test_cuda_all_phase_holes_coverage_bits_and_clipping_match_cpu" time="4.814" /></testsuite></testsuites>

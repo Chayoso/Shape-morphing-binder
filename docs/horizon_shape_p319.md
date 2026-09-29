@@ -54,6 +54,14 @@ buffer after padding each row to a byte boundary; it preserves independent row
 tail bits. An odd17-pixel test exercises padding in addition to aligned rows.
 The failed gate is retained and is not counted as a successful shape audit.
 
+The corrected gate, frozen632e1f6, passes1 actual CUDA case (0 skips,5.95s) and
+5 independent CPU cases. It includes odd-width packing, a transient hole,
+axis-box ejecta and rotated-view-only clipping. Complete observation rows and
+packed bytes match the CPU reference. Gate XML/log and source hashes are in
+`docs/evidence/p319/shape_verify2.*`. The full baseline/raw observers are now
+launched as `work/p303/baseline_shape1` and `raw_shape1` from the same frozen
+`code_horizon_shape2`; no full-archive result is implied by the gate.
+
 This is a finite-view/discrete-support diagnostic: projected openings can be
 genuine topology, and finer masks can expose sampling sparsity. Even zero holes
 would not prove3D watertightness or4K Gaussian quality. Source shape/target topology,

@@ -9354,3 +9354,40 @@ P315 integration follow-up, frozen `e16713c`: actual CUDA dispatcher and full
 metric-summary CPU/CUDA checks both pass (2 tests,0 skipped,4.91s). Fixed counts
 now serve only the CUDA raw metric branch; CPU behavior and physical decisions
 are unchanged. Receipt/XML/log in evidence/p315/metric_verify1*.
+
+## 2026-09-28 - P316/P317: actual ordinary stopping and terminal position jump
+
+N300k,T20,dt1/240,dx.3062907544wu,loss36^3,iters8,18render views/64pixels;
+configured300 windows, frozen9cab095. Shared-PIC baseline accepts40 of43 attempts;
+raw accepts28 of30. Both freeze on rejection/plateau, not demonstrated rest.
+Full-hash input/history/pin/delivery audits pass. No C2F event, guards0.
+
+P317(frozen1c852b0) tracks all accepted paths with separate raw xT/promotion,
+fixed material cohorts, same-plan arrival and explicit follow-up denominators.
+Independent CUDA last-window verification confirms the baseline's same27136
+final-free IDs: raw last RMS.000375124wu, PIC.00856031wu, saved last.00822943wu.
+Raw's different own-endpoint26607 free IDs have raw=saved.000445532wu, correction0.
+The cross-arm ratio is not a matched causal measurement. Pins impose zero motion;
+536/789 newly pinned IDs at the final commits have no subsequent accepted step.
+No physical policy adopted; all-phase coverage/holes remain open.
+
+Rendering median nominal direction shares.365489/.486167 and lambda.0301579/
+.0462864 describe each own run, not causal displacement shares. Accepted image
+loss changes median-3.55800e-6/-7.09023e-5; no4K claim. Evidence and bounded audit
+scope in `docs/full_horizon_p316.md` and `docs/horizon_motion_p317.md`.
+
+## 2026-09-28 - P318 GPU report batching; P319 every-phase shape observer
+
+P318 batches observational render scalars intoone CUDA-to-CPU vector copy,
+preserving original reductions and Python report arithmetic.53 independent CPU
+cases and4 actual CUDA cases pass (88cea71). No end-to-end timing or host-free
+pipeline claim; no physical/loss policy change. `docs/gpu_scalar_reporting_p318.md`.
+
+P319's first actual CUDA gate failed on unsupported CuPy packbits axis support
+(accee2d). Fixed flat packing with per-row byte padding passes5 independent CPU
+cases and1 actual CUDA case (632e1f6), including odd width and clipping. Both
+completed P316 archives are being observed at every accepted phase with separate
+same-time raw/promoted endpoints:841/589 observations,24views,128/256pixels,
+target2-native-spacing coverage and retained packed masks. These finite-view
+observations are not a3D watertightness or4K certificate. Full results pending;
+`docs/horizon_shape_p319.md` records the fixed scope and storage headroom.
