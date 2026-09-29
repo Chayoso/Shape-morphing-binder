@@ -9717,3 +9717,45 @@ target surface → nearest particle beyond 1.5 spacings **10.4 %** (mj300 11.7 %
 silhouette and chamfer; they sharpen the ears past the current code and close a quarter of the body-surface
 gap, not all of it. The head and body relief is a limit of the settled objective's resolution (the Sinkhorn
 blur is one loss cell), not of an early stop — a finishing stage is still needed for it.
+
+**2026-09-29 11:15 CDT — B2: michael/settled-transport — gradient verification, render influence, momentum.**
+Diagnostic copy `repo_mj_dbg*` (a hook at the first inner iteration of window W; `MJ_LAMBDA_SCALE` scales the render
+weight for a render-off twin; the branch checkout itself untouched), 300k bunny, seed 97, the settled recipe.
+(1) Gradients. The branch's own tests (ot_loss, transport_support, persistent_traj, plastic_stress_chain,
+material_bonds, traj_alloc, render_target_consistency, render_controls_physics): 157 passed, 2 skipped, exit 0. The
+graph path and the line-search path give the same values to 7 digits (physics 0.1845672, render 0.1899659, cleanup
+0.1062654 at W 1), replay noise ≤ 1.5e-8. Central finite differences through the line-search rollout against
+autograd along −g_phys, −g_render, −g_cleanup, h = 0.1 / 0.03 / 0.01 of the leaf scale: ratio 0.97–1.03 at h 0.01
+for all three terms at W 1 and W 20 (render 0.89–0.96 at h 0.1: curvature); random directions give derivatives of
+~1e-7, at the resolution floor. The released half of the expanded control is exactly zero. (2) Render influence,
+gradient level (λ 0.165, fixed after W 1): render share of the control update 0.33 at W 1 (dFc 0.29; u 0.97, the
+physics gradient on u is 8.7e-6 against 1.5e-3), 0.90 at W 20 (dFc 0.84, u 0.96); cos(physics, render) +0.14 to
++0.26, PCGrad never projects. Current code, same seed (history telemetry): share held at 0.33–0.38 by the
+per-window balancer, λ 0.134 → 0.004, raw cos −0.14 at W 20. Causal, render-off twins and a second seed:
+
+| | render on | render off | seed 98 (spread) |
+|---|---|---|---|
+| settled: silIoU | 0.9851 | 0.9672 | 0.9828 |
+| settled: target surface beyond 1.5 sp | 11.7 % | 23.5 % | 11.7 % |
+| settled: ear tip / under-fill max | 11.1 / 0.166 | 9.7 / 0.232 | 10.4 / 0.174 |
+| settled: late surface motion (sp/frame) | 0.007 / 0.009 | 0.013 / 0.018 | 0.005 / 0.005 |
+| current code: silIoU | 0.9769 | 0.9716 | 0.9777 |
+| current code: surface beyond 1.5 sp | 7.8 % | 8.7 % | 8.9 % |
+| current code: ear tip / strays | 8.8 / 30 | 8.0 / 23 | 8.7 / 36 |
+
+The render's effect on the settled outcome (+0.018 silIoU, surface error halved, tip +1.4) is 8× the seed spread;
+on the current code it is +0.005 silIoU against a spread of 0.001 and within spread on surface fit and tip.
+(3) Momentum. In the MLS-MPM step the stress term enters P2G as G·(x_i − x_p) with Σ_i w_ip (x_i − x_p) = 0, so
+no control stress changes total linear momentum; the Kirchkoff stress Pe·Feᵀ is symmetric, so angular momentum is
+kept too; drag multiplies momentum by (1 − 0.9 dt) per step (decay, never creation); fragments take their
+neighbours' mean velocity; the layer relaxation and u move positions without velocity. Measured on the 40-step
+rollout: a clip-sized dFc step keeps |P|/Σm|v| at 3e-6 (W 1) / 2e-4 (W 20) and |L|/Σm|r||v| at 3e-4 / 8e-3; the
+interior's position edits are ≤ 6e-7 wu (its motion is all velocity); the outer layer (4 % of particles) moves by
+position edits 0.0020–0.0086 wu median per window (11–22 % of its motion), almost all of it the passive layer
+relaxation (present at zero control), u adding a little (p95 7.5e-3 → 9.0e-3 wu, COM 2.2e-6 → 1.1e-5 wu at W 20).
+Whole-morph centre-of-mass displacement (source and target are both centred; momentum conservation means it stays
+put): settled 0.0001–0.0006 wu (≤ 0.02 spacings) in all four settled runs, release legacy 0.0012 wu; current code
+0.022–0.029 wu (0.6–0.8 spacings) mid-run in all three runs including render off, largest single-frame step
+3–5e-4 wu against 2–14e-6 — the current code moves the body outside momentum, not through the render but through
+its position-level machinery (the commit's PIC null-space projection removes 13–85 % of a window's displacement,
+`pic_null_share`; pins; assimilation).
