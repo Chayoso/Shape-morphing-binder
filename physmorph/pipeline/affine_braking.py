@@ -96,3 +96,15 @@ def projected_affine_check(step,constraints,bounds,input_dtype):
         raise ValueError('Nonfinite projected affine check')
     return dict(passed=bool((residual<=tolerance).all()),
                 residual=[float(v) for v in residual],tolerance=[float(v) for v in tolerance])
+
+
+@torch.no_grad()
+def observed_remainder(actual,origin,constraints,projected_step):
+    """Actual minus the frozen affine model; not a curvature/noise certificate."""
+    delta,G,f0 = _linear_arrays(projected_step,constraints,origin)
+    if actual.shape!=origin.shape or actual.device!=origin.device:
+        raise ValueError('Invalid observed-data layout')
+    remainder = actual.detach().double()-f0-G@delta
+    if not bool(torch.isfinite(actual).all() & torch.isfinite(remainder).all()):
+        raise ValueError('Nonfinite observed remainder')
+    return remainder

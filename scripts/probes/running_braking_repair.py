@@ -9,7 +9,7 @@ import torch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from physmorph.compute import to_host,cuda_execution
-from physmorph.pipeline.affine_braking import affine_ball_step,projected_affine_check,geometric_running
+from physmorph.pipeline.affine_braking import affine_ball_step,projected_affine_check,geometric_running,observed_remainder
 from physmorph.pipeline.frozen_body_window import project_terminal
 from scripts.probes.inner_budget import summarize
 from scripts.probes.reference_swap import require,sha
@@ -17,9 +17,10 @@ from scripts.probes.terminal_braking import main,assess_candidates,finite_scalar
 from scripts.probes.live_braking_compensation import LiveCompensation,identity_evidence
 
 
-def repair(model,packet,source,target,out):
+def repair(model,packet,source,target,out,*,correction_rounds=0):
     """Use the caller-owned live model; never load, close or commit it here."""
     reference = packet['reference']
+    require(correction_rounds in (0,2),'Unregistered correction budget')
     rows,trials,sidecars = [],[],{}
     d0 = model.coefficients[:,:3].detach().clone()
     b0 = model.coefficients[:,3:].detach().clone()
@@ -93,6 +94,8 @@ def repair(model,packet,source,target,out):
     trust = packet['history']['body_update_modes_rms'][0]
     require(trust>0,'No original displacement trust step')
     accepted = 0
+    fixed_candidate_replays = []
+    replay_checked = False
     for iteration in range(4):
         with torch.enable_grad():
             leaf = displacement.detach().clone().requires_grad_()
@@ -104,50 +107,85 @@ def repair(model,packet,source,target,out):
                          for i,v in enumerate((objective,terms['volume'],terms['render']))]
             require(all(bool(torch.isfinite(g).all()) for g in gradients),'Nonfinite repair gradient')
             G = torch.stack(gradients[1:])
+            origin_data = torch.stack([terms[k].detach().double() for k in ('volume','render')])
             bounds = torch.tensor([ceilings[k]-float(terms[k].detach()) for k in ('volume','render')],
                                   device=leaf.device,dtype=torch.float64)
             current = float(objective.detach())
         del values,objective,terms
         path = out/f'linearization{iteration+1}.npz'
         np.savez_compressed(path,displacement=to_host(displacement),terminal=to_host(brake),
-                            running_gradient=to_host(gradients[0]),data_gradients=to_host(G),bounds=to_host(bounds))
+                            running_gradient=to_host(gradients[0]),data_gradients=to_host(G),
+                            bounds=to_host(bounds),origin_data=to_host(origin_data))
         sidecars[path.name] = sha(path)
         threshold = 10*max(measured_noise,32*torch.finfo(displacement.dtype).eps*current)
         found = False
         for halving in range(11):
             radius = trust*(.5**halving)*math.sqrt(len(displacement))
-            step,linear = affine_ball_step(gradients[0],G,bounds,radius)
-            record = dict(label=f'update{iteration+1}_half{halving}',iteration=iteration+1,
-                          halvings=halving,linear=linear,running_update_accepted=False)
-            if step is not None:
-                candidate = project_terminal((displacement.double()+step).to(displacement.dtype),brake)
-                actual_step = candidate.double()-displacement.double()
-                check = projected_affine_check(actual_step,G,bounds,displacement.dtype)
-                norm = float(actual_step.norm())
-                radius_tolerance = 32*torch.finfo(displacement.dtype).eps*(radius+float(displacement.norm()))
-                record.update(projected_affine=check,projected_step_norm=norm,
-                              trust_pass=norm<=radius+radius_tolerance,trust_roundoff=radius_tolerance)
-                if check['passed'] and record['trust_pass']:
-                    with torch.no_grad():
-                        values = model.evaluate(brake,candidate)
-                        record.update(measure(values,record['label'],candidate,brake,False))
-                        data_pass = record['valid'] and all(record['data'][k]<=ceilings[k] for k in ceilings)
-                        improvement = current-record['running'] if record['running'] is not None else None
-                        take = bool(data_pass and improvement>threshold)
-                        record.update(data_restored=bool(data_pass),running_improvement=improvement,
-                                      reduction_threshold=threshold,running_update_accepted=take)
-                        if take:
-                            displacement = candidate.detach().clone()
-                            rows.append(measure(values,f'repair{iteration+1}',displacement,brake,True))
-                            accepted+=1;found=True
-            trials.append(record)
-            print(json.dumps(record,allow_nan=False),flush=True)
+            remainder = torch.zeros_like(bounds)
+            for correction in range(correction_rounds+1):
+                shifted_bounds = bounds-remainder
+                step,linear = affine_ball_step(gradients[0],G,shifted_bounds,radius)
+                label = f'update{iteration+1}_half{halving}'
+                if correction_rounds: label += f'_correction{correction}'
+                record = dict(label=label,iteration=iteration+1,correction=correction,
+                              halvings=halving,linear=linear,running_update_accepted=False,
+                              model_remainder_used=to_host(remainder).tolist(),
+                              shifted_bounds=to_host(shifted_bounds).tolist())
+                retry = False
+                if step is not None:
+                    candidate = project_terminal((displacement.double()+step).to(displacement.dtype),brake)
+                    actual_step = candidate.double()-displacement.double()
+                    check = projected_affine_check(actual_step,G,shifted_bounds,displacement.dtype)
+                    norm = float(actual_step.norm())
+                    radius_tolerance = 32*torch.finfo(displacement.dtype).eps*(radius+float(displacement.norm()))
+                    record.update(projected_affine=check,
+                                  original_projected_affine=projected_affine_check(actual_step,G,bounds,displacement.dtype),
+                                  projected_step_norm=norm,trust_pass=norm<=radius+radius_tolerance,
+                                  trust_roundoff=radius_tolerance)
+                    if check['passed'] and record['trust_pass']:
+                        with torch.no_grad():
+                            values = model.evaluate(brake,candidate)
+                            record.update(measure(values,record['label'],candidate,brake,False))
+                            data_pass = record['valid'] and all(record['data'][k]<=ceilings[k] for k in ceilings)
+                            improvement = current-record['running'] if record['running'] is not None else None
+                            take = bool(data_pass and improvement>threshold)
+                            record.update(data_restored=bool(data_pass),running_improvement=improvement,
+                                          reduction_threshold=threshold,running_update_accepted=take)
+                            if record['valid']:
+                                actual_data = torch.tensor([record['data'][k] for k in ('volume','render')],
+                                                           device=G.device,dtype=torch.float64)
+                                # Replace the estimate. All rounds retain the same origin and Jacobian.
+                                remainder = observed_remainder(actual_data,origin_data,G,actual_step)
+                                record['observed_model_remainder'] = to_host(remainder).tolist()
+                                retry = not data_pass
+                            if take:
+                                displacement = candidate.detach().clone()
+                                rows.append(measure(values,f'repair{iteration+1}',displacement,brake,True))
+                                accepted+=1;found=True
+                                assess_candidates(rows,displacement.dtype)
+                                if correction_rounds and rows[-1]['feasible']:
+                                    replay_checked = True
+                                    for repeat in range(3):
+                                        repeated = model.evaluate(brake,displacement)
+                                        witness = measure(repeated,f'fixed_replay{repeat}',displacement,brake,True)
+                                        assess_candidates(rows[:3]+[witness],displacement.dtype)
+                                        witness['running_decrease_resolved'] = (
+                                            witness['running'] is not None and current-witness['running']>threshold)
+                                        fixed_candidate_replays.append(witness)
+                                    # Stop after the first all-gate candidate even if its repeats fail.
+                                    record['fixed_candidate_replay_checked'] = True
+                trials.append(record)
+                print(json.dumps(record,allow_nan=False),flush=True)
+                if found or not retry: break
             if found: break
-        if not found: break
+        if not found or replay_checked: break
     assess_candidates(rows,displacement.dtype)
     require(torch.equal(brake,packet['trial05_terminal']),'Terminal coefficient changed')
     return dict(rows=rows,trials=trials,accepted_running_updates=accepted,sidecars=sidecars,
-                running_replay_noise=measured_noise,data_ceilings=ceilings,lambda_render=packet['lambda_render'])
+                running_replay_noise=measured_noise,data_ceilings=ceilings,lambda_render=packet['lambda_render'],
+                correction_rounds=correction_rounds,fixed_candidate_replays=fixed_candidate_replays,
+                repeated_feasible=replay_checked and all(r['feasible'] and r['running_decrease_resolved']
+                                                         for r in fixed_candidate_replays))
 
 
 class RunningRepair(LiveCompensation):
