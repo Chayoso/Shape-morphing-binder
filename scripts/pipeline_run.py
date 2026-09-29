@@ -173,6 +173,8 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           grad_project_mode=args.grad_project_mode,
                           solver_mode=args.solver_mode,
                           support_weight=args.support_weight,
+                          render_weight_scale=args.render_weight_scale,
+                          reject_stop=args.reject_stop,
                           cagrad_c=args.cagrad_c,
                           render_gs_cheb=args.render_gs_cheb,
                           gauss_robust_eps=args.gauss_robust_eps,
@@ -564,6 +566,11 @@ def main():
     ap.add_argument("--outer_merit", dest="outer_merit", action="store_true", default=True)
     ap.add_argument("--no_outer_merit", dest="outer_merit", action="store_false")  # gate v3 brake is a safety net (r5: 0 rejects)
     ap.add_argument("--patience", type=int, default=5)
+    ap.add_argument("--reject_stop", type=int, default=3,
+                    help="consecutive rejected candidates that end the run at the best commit (config.reject_stop)")
+    ap.add_argument("--render_weight_scale", type=float, default=1.0,
+                    help="multiplies the render weight lambda wherever it is set (config.render_weight_scale); "
+                         "0 = the render-off twin, which settled_transport cannot run through --lambda_auto 0")
     ap.add_argument("--tol", type=float, default=0.003)  # plateau-track relative improvement threshold
     ap.add_argument("--reversal_always", action="store_true")  # v4: reversal reject without latch
     ap.add_argument("--anneal_rev", type=float, default=0.0)  # v6: alpha x this on commit reversal

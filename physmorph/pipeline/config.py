@@ -313,6 +313,7 @@ class PipelineConfig:
     cagrad_c: float = 0.5
     solver_mode: str = "legacy"  # settled_transport: T driven + T released steps
     support_weight: float = 0.0  # bounded local particle support in settled mode
+    render_weight_scale: float = 1.0  # multiplies the render weight lambda everywhere; 0 = the render-off twin
     pbr_target_mode: str = "surface"  # settled mode uses the matched forward target
     ot_grid: bool = False  # fixed-target grid transport, enabled by settled mode
     render_gs_cheb: bool = False    # Chebyshev-accelerated grid sweeps (Wang 2015) for
@@ -556,6 +557,8 @@ class PipelineConfig:
         import math
         if not math.isfinite(self.support_weight) or self.support_weight < 0:
             raise ValueError('support_weight must be finite and nonnegative')
+        if not math.isfinite(self.render_weight_scale) or self.render_weight_scale < 0:
+            raise ValueError('render_weight_scale must be finite and nonnegative')
         if self.support_weight > 0 and self.solver_mode != 'settled_transport':
             raise ValueError('support_weight requires settled_transport')
         if self.solver_mode == 'settled_transport':

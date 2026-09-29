@@ -1229,7 +1229,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # Calibration is not candidate state: restore it before even the cold/warm
         # comparison when the runner has rolled back a rejected first window.
         balancer.lam, balancer.capped = tgt.settled_scale
-    lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
+    # config.render_weight_scale (default 1): multiplies the render weight wherever it is set, so a
+    # render-off twin (0) keeps every other term, the settled checks and the render telemetry
+    lam_r = ((balancer.lam or 0.0) if balancer.active else 0.0) * float(cfg.render_weight_scale)
     grad_converged = False
 
     # v3 SAFEGUARDED warm start: decayed previous solution, kept only if it (a) yields a
@@ -1410,6 +1412,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                     lam_r = balancer.update(_norm(gp), _norm(gr))
                     if use_settled and np.isfinite(lam_r) and lam_r > 0:
                         tgt.settled_scale = (float(lam_r), bool(balancer.capped))
+                lam_r = lam_r * float(cfg.render_weight_scale)
                 lam_capped = int(bool(getattr(balancer, "capped", False)))
                 # render-influence telemetry (standing request): how much does the
                 # render channel actually steer the update this window?
