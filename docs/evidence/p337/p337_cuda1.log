@@ -1,0 +1,52 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_current_preparation1
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 6 items
+
+tests/test_preparation_geometry_cuda.py F...Module physmorph.mpm.kernels c651c54 load on device 'cpu' took 1.47 ms  (cached)
+Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 11.43 ms  (cached)
+.
+tests/test_current_successor_cuda.py F
+
+=================================== FAILURES ===================================
+_________ test_cuda_bond_history_is_retained_until_actual_reconnection _________
+tests/test_preparation_geometry_cuda.py:67: in test_cuda_bond_history_is_retained_until_actual_reconnection
+    rest, fragmented = prepare_bonds(x, nbr, history, prm)
+physmorph/pipeline/preparation_geometry.py:42: in prepare_bonds
+    fragmented = fragment_mask(x, prm)
+physmorph/pipeline/preparation_geometry.py:28: in fragment_mask
+    lab, n = ndimage.label(occ_d, structure=np.ones((3, 3, 3), int))
+../../../deps/gpu_pipeline/cupyx/scipy/ndimage/_measurements.py:44: in label
+    structure = cupy.asnumpy(structure)
+tests/test_preparation_geometry_cuda.py:38: in forbidden
+    raise AssertionError('Preparation downloaded a numerical array or used CPU neighbors')
+E   AssertionError: Preparation downloaded a numerical array or used CPU neighbors
+__ test_cuda_current_original_preview_owns_material_history_and_zero_controls __
+tests/test_current_successor_cuda.py:57: in test_cuda_current_original_preview_owns_material_history_and_zero_controls
+    state, admission, report = ctx.preview_current_successor()
+physmorph/pipeline/window_selection.py:319: in preview_current_successor
+    return prepare_original_successor(self, self._admission_history)
+physmorph/pipeline/current_successor.py:35: in prepare_original_successor
+    predicted = preview_active_admission(history, start, x, stats.get('plan_img'),
+physmorph/pipeline/preparation_admission.py:129: in preview_active_admission
+    if (not np.isin(state['pins'], [0, 1]).all()
+../../../deps/gpu_pipeline/cupy/_logic/truth.py:222: in isin
+    return in1d(element, test_elements, assume_unique=assume_unique,
+../../../deps/gpu_pipeline/cupy/_logic/truth.py:120: in in1d
+    ar2 = ar2.ravel()
+E   AttributeError: 'list' object has no attribute 'ravel'
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p337_cuda1.xml -
+=========================== short test summary info ============================
+FAILED tests/test_preparation_geometry_cuda.py::test_cuda_bond_history_is_retained_until_actual_reconnection
+FAILED tests/test_current_successor_cuda.py::test_cuda_current_original_preview_owns_material_history_and_zero_controls
+========================= 2 failed, 4 passed in 5.37s ==========================

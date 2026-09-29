@@ -1,0 +1,118 @@
+{
+  "pid": 979729,
+  "proc_starttime": "210569995",
+  "gpu": 0,
+  "samples": [
+    {
+      "utc": "2026-09-29T10:45:18.770170+00:00",
+      "elapsed_s": 2.6899855583906174e-05,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T10:45:19.340429+00:00",
+      "elapsed_s": 0.5702928090468049,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T10:45:19.911145+00:00",
+      "elapsed_s": 1.1410240577533841,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T10:45:20.483419+00:00",
+      "elapsed_s": 1.7132916990667582,
+      "device_used_MiB": 16,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T10:45:21.056616+00:00",
+      "elapsed_s": 2.2864948520436883,
+      "device_used_MiB": 18,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 0,
+      "process_seen": false
+    },
+    {
+      "utc": "2026-09-29T10:45:21.630767+00:00",
+      "elapsed_s": 2.8606419758871198,
+      "device_used_MiB": 454,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 430,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T10:45:22.203116+00:00",
+      "elapsed_s": 3.4329940378665924,
+      "device_used_MiB": 454,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 430,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T10:45:22.775025+00:00",
+      "elapsed_s": 4.00489519815892,
+      "device_used_MiB": 454,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 430,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T10:45:23.346731+00:00",
+      "elapsed_s": 4.576601578854024,
+      "device_used_MiB": 454,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 430,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T10:45:23.914435+00:00",
+      "elapsed_s": 5.144308033864945,
+      "device_used_MiB": 454,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 430,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T10:45:24.482479+00:00",
+      "elapsed_s": 5.712345888838172,
+      "device_used_MiB": 524,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 500,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T10:45:25.053150+00:00",
+      "elapsed_s": 6.283026918768883,
+      "device_used_MiB": 1218,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 1194,
+      "process_seen": true
+    },
+    {
+      "utc": "2026-09-29T10:45:25.623618+00:00",
+      "elapsed_s": 6.853490338195115,
+      "device_used_MiB": 1218,
+      "device_total_MiB": 49140,
+      "process_used_MiB": 1194,
+      "process_seen": true
+    }
+  ],
+  "errors": [],
+  "sleep_between_queries_s": 0.5,
+  "ended_utc": "2026-09-29T10:45:26.196090+00:00",
+  "script_sha256": "e904394951a3113adb71ce65ccd2f43a064425e7ac35b112ea49d4b560dfdca6",
+  "sampled_process_peak_MiB": 1194,
+  "sampled_device_peak_MiB": 1218,
+  "scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark"
+}

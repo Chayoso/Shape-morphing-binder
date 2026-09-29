@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="6" time="5.376" timestamp="2026-09-29T05:45:19.618556-05:00" hostname="hyde06"><testcase classname="tests.test_preparation_geometry_cuda" name="test_cuda_bond_history_is_retained_until_actual_reconnection" time="0.272"><failure message="AssertionError: Preparation downloaded a numerical array or used CPU neighbors">tests/test_preparation_geometry_cuda.py:67: in test_cuda_bond_history_is_retained_until_actual_reconnection
+    rest, fragmented = prepare_bonds(x, nbr, history, prm)
+physmorph/pipeline/preparation_geometry.py:42: in prepare_bonds
+    fragmented = fragment_mask(x, prm)
+physmorph/pipeline/preparation_geometry.py:28: in fragment_mask
+    lab, n = ndimage.label(occ_d, structure=np.ones((3, 3, 3), int))
+../../../deps/gpu_pipeline/cupyx/scipy/ndimage/_measurements.py:44: in label
+    structure = cupy.asnumpy(structure)
+tests/test_preparation_geometry_cuda.py:38: in forbidden
+    raise AssertionError('Preparation downloaded a numerical array or used CPU neighbors')
+E   AssertionError: Preparation downloaded a numerical array or used CPU neighbors</failure></testcase><testcase classname="tests.test_preparation_geometry_cuda" name="test_cuda_layer_reference_count_and_translation[True-False-0.0]" time="3.049" /><testcase classname="tests.test_preparation_geometry_cuda" name="test_cuda_layer_reference_count_and_translation[False-True-0.0]" time="0.015" /><testcase classname="tests.test_preparation_geometry_cuda" name="test_cuda_layer_reference_count_and_translation[True-True-0.2]" time="0.012" /><testcase classname="tests.test_preparation_geometry_cuda" name="test_cuda_zero_control_passive_path_is_exactly_independent_of_layer_u_gate" time="0.088" /><testcase classname="tests.test_current_successor_cuda" name="test_cuda_current_original_preview_owns_material_history_and_zero_controls" time="0.186"><failure message="AttributeError: 'list' object has no attribute 'ravel'">tests/test_current_successor_cuda.py:57: in test_cuda_current_original_preview_owns_material_history_and_zero_controls
+    state, admission, report = ctx.preview_current_successor()
+physmorph/pipeline/window_selection.py:319: in preview_current_successor
+    return prepare_original_successor(self, self._admission_history)
+physmorph/pipeline/current_successor.py:35: in prepare_original_successor
+    predicted = preview_active_admission(history, start, x, stats.get('plan_img'),
+physmorph/pipeline/preparation_admission.py:129: in preview_active_admission
+    if (not np.isin(state['pins'], [0, 1]).all()
+../../../deps/gpu_pipeline/cupy/_logic/truth.py:222: in isin
+    return in1d(element, test_elements, assume_unique=assume_unique,
+../../../deps/gpu_pipeline/cupy/_logic/truth.py:120: in in1d
+    ar2 = ar2.ravel()
+E   AttributeError: 'list' object has no attribute 'ravel'</failure></testcase></testsuite></testsuites>

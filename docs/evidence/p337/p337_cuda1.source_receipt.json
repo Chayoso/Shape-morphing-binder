@@ -1,0 +1,773 @@
+{
+  "collected_utc": "2026-09-29T10:48:58.497991+00:00",
+  "code": "/data/relcfd/chayo/physmorph_v2/work/p303/code_current_preparation1",
+  "version": "7710fdc09bc380a8231fa9b93a0fb997f916f903",
+  "version_binding": {
+    "bytes": 41,
+    "inode": 10640318,
+    "mtime_ns": 1790678718672365550,
+    "sha256": "9ef0e201b03cc7a75ff6cc1bb31890a52433ded0247a574c59b66ef7cf6c003d"
+  },
+  "sources": {
+    "physmorph/__init__.py": {
+      "bytes": 949,
+      "inode": 10667644,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "0e4acbe277745c4fce5402209f50def6b4592c9aaf76939270697d0c6de209bc"
+    },
+    "physmorph/compute.py": {
+      "bytes": 12259,
+      "inode": 10667645,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "f205923c6373a3b774a858f81d31d3d6be06bf4c9d4b8bbd29f29e4002e9a1d3"
+    },
+    "physmorph/input_assets.py": {
+      "bytes": 3906,
+      "inode": 10667646,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "ed4f1625fc357ddf386e2fa8bcc6e6ab0c40c20b892ec02a08a39a964d72642e"
+    },
+    "physmorph/losses/__init__.py": {
+      "bytes": 204,
+      "inode": 10667648,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "63c7e6ca9dd9422acdfeedaea43299ccac42cabe0da3a49ee468687ec77f1438"
+    },
+    "physmorph/losses/ot.py": {
+      "bytes": 22242,
+      "inode": 10667649,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "a781eca657ca05503d632935d225d48c72ed9f57e910d393b607af873eb40443"
+    },
+    "physmorph/losses/projection.py": {
+      "bytes": 8780,
+      "inode": 10667650,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "ec9f707e11fec1fc43e9dbe843338202de71cc82a3b9eae3101dc4f8bece52bb"
+    },
+    "physmorph/losses/silhouette.py": {
+      "bytes": 5402,
+      "inode": 10667651,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "d39dc2545ac0d9485a8d3a5bcc3e098adbd3cba43fb79b335d3cb5b53c962a7f"
+    },
+    "physmorph/losses/volumetric.py": {
+      "bytes": 34323,
+      "inode": 10667652,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "53d064c6da77eca9b06fe5f72ccd18342fa8505319f5e02b5027a5fd9d97c9c1"
+    },
+    "physmorph/metric_splat.py": {
+      "bytes": 1303,
+      "inode": 10667653,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "3a85ff21ca6990f0657415c546430220e66764a050958764136bc44457f81de6"
+    },
+    "physmorph/metrics.py": {
+      "bytes": 15099,
+      "inode": 10667654,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "b49b91c10f941fb410850696d1efcfa69c5c5fed2c7640e116e7f71f5cc0f826"
+    },
+    "physmorph/mpm/__init__.py": {
+      "bytes": 271,
+      "inode": 10667656,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "8fd3a6e6eedd7fa7ca252af80778646ad7357148a187ea7e12a0732bdc644976"
+    },
+    "physmorph/mpm/conditioning.py": {
+      "bytes": 4388,
+      "inode": 10667657,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "50555fa643d14cf22d6c1f94a7dcb56d1fa35b2e538b95bb4af0200cd697edb7"
+    },
+    "physmorph/mpm/constitutive.py": {
+      "bytes": 4476,
+      "inode": 10667658,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "166080b825e19fe79a19ee613f35cedac750d5ef465a371fa8a1c80435c7bd2b"
+    },
+    "physmorph/mpm/discretisation.py": {
+      "bytes": 5768,
+      "inode": 10667659,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "f47bfeed1cbf5c742a9164cd542c16e7e5d1af115fae181649cdf2c1c90980be"
+    },
+    "physmorph/mpm/endpoint_filter.py": {
+      "bytes": 9379,
+      "inode": 10667660,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "4df03df4441bd076e65d2b9cf84899054d15dd35017948b34f52e299d69b2c8e"
+    },
+    "physmorph/mpm/function.py": {
+      "bytes": 26726,
+      "inode": 10667661,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "5476887b47797d28c9820fce82a4417d340a3735bf46a0301875e0cd9928cc6e"
+    },
+    "physmorph/mpm/gridfilter.py": {
+      "bytes": 4735,
+      "inode": 10667662,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "c2aac4e6a39013b0366b21d3b5548bba0a31664318c4e44b53a4ef8d2195803d"
+    },
+    "physmorph/mpm/kernels.py": {
+      "bytes": 27634,
+      "inode": 10667663,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "53d871d60d843ca32e1df9c6e35a47f2b6a3473f4a954b9f3bbeeb5de6986aa2"
+    },
+    "physmorph/mpm/post_assimilation_adjoint.py": {
+      "bytes": 10992,
+      "inode": 10667664,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "cbbc92121871f6168d58b64a9d4f086d4dfaa10d219753600b9042823a89c1f5"
+    },
+    "physmorph/mpm/shifting.py": {
+      "bytes": 6524,
+      "inode": 10667665,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "36e044a178e4f2a6321967ca805eb863c6fd7575a82a2624779d180ddc7140fb"
+    },
+    "physmorph/mpm/state.py": {
+      "bytes": 4918,
+      "inode": 10667666,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "3e0b4fbd6ad384f84351becfdf8102aae950ecf3a41779ad97570139d4da115e"
+    },
+    "physmorph/mpm/step.py": {
+      "bytes": 6109,
+      "inode": 10667667,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "83b3a53868801977228ac8e451fbc48375f470c7cea5e82bc9eeb7c9f6129695"
+    },
+    "physmorph/mpm/traj.py": {
+      "bytes": 23339,
+      "inode": 10667668,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "db431738017c1ed3a19503658722b41dfbe4ffbb6918233ab475622525261997"
+    },
+    "physmorph/mpm/withdrawal.py": {
+      "bytes": 10200,
+      "inode": 10667669,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "25a60cf7e895baf43961e705550f3a4953887cbd4dae447c6e149a8fd0d5c301"
+    },
+    "physmorph/mpm/withdrawal_adjoint.py": {
+      "bytes": 14214,
+      "inode": 10667670,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "dea174a239330dc1d3db1b3fe75d5f335bdd10699fee540f94a2e0cc8be807e9"
+    },
+    "physmorph/pipeline/__init__.py": {
+      "bytes": 430,
+      "inode": 10667672,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "0239098d830c28cbaff7790e150a7c64c665241d794324dc9c8d0497aef130fd"
+    },
+    "physmorph/pipeline/affine_braking.py": {
+      "bytes": 5357,
+      "inode": 10667673,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "7638d4ea7e09030840344031ea7fcdbbc8ee6843b6af6d00ac4f88a363218340"
+    },
+    "physmorph/pipeline/body_control.py": {
+      "bytes": 5326,
+      "inode": 10667674,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "aea483fbe1eb29d6c8e04dea4c22f1d0b4e5f7b9f1a98b2d9f69cb781cfc8a8b"
+    },
+    "physmorph/pipeline/braking_direction.py": {
+      "bytes": 900,
+      "inode": 10667675,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "9d76f1de23a5cb97ac9dc54251b9c81c8c9eb0ae40f2755709b23a1dbae4cb9e"
+    },
+    "physmorph/pipeline/config.py": {
+      "bytes": 71651,
+      "inode": 10667676,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "2a87d4e5cbf43ef8b9daba5d9d7c3d643efa3b01617e20374605d384dfa75b86"
+    },
+    "physmorph/pipeline/control_basis.py": {
+      "bytes": 9093,
+      "inode": 10667677,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "83d507301b4a2d270a8e61371f32a42ca2cc47d5e7d9e1a2a9276b9b464c3d09"
+    },
+    "physmorph/pipeline/control_proposal.py": {
+      "bytes": 3305,
+      "inode": 10667678,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "1e5b6c6c7e870b152b52bdf5fc7c81ac1e9ca5e670fa311ed2df9c84350cbd93"
+    },
+    "physmorph/pipeline/current_successor.py": {
+      "bytes": 4253,
+      "inode": 10667679,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "c94baa78de6537a2a9fce208a09e8d5d5797e31ee5248202577d7da24f6c4ed2"
+    },
+    "physmorph/pipeline/diagnostic_binding.py": {
+      "bytes": 1755,
+      "inode": 10667680,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "44460deb9a44fc7532d69fc521b8c5b74ea46604366f1c0fc11360a9c780b76a"
+    },
+    "physmorph/pipeline/dressing.py": {
+      "bytes": 6960,
+      "inode": 10667681,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "d7d9569a7c78d4beed48427c12d0d401a6f2989d0874a64549d4ad58b3b535fa"
+    },
+    "physmorph/pipeline/endpoint_contract.py": {
+      "bytes": 5767,
+      "inode": 10667682,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "edd9717aaca896ed8155346c5eb261c460ee9b6d2ecbe801e37ea29e9ccfa987"
+    },
+    "physmorph/pipeline/frozen_body_window.py": {
+      "bytes": 8714,
+      "inode": 10667683,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "22084ec20c4616198b44a1746ec1bd7f68bcabf2f26af37ee11b5948e17f20f9"
+    },
+    "physmorph/pipeline/frozen_withdrawal_window.py": {
+      "bytes": 10443,
+      "inode": 10667684,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "64803e8afa3430b6496211524e4a692e2ac08eab68388230ab693690388bede3"
+    },
+    "physmorph/pipeline/gauss_loss.py": {
+      "bytes": 13268,
+      "inode": 10667685,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "bb370785993d8e0b2ffdd912cfd72ed1794f7f66389baf559c549f57a045d67a"
+    },
+    "physmorph/pipeline/geometric_rest.py": {
+      "bytes": 1591,
+      "inode": 10667686,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "2d249e77db564cfee58629ebad5429d424e24113276efa4dc35ca9f474317033"
+    },
+    "physmorph/pipeline/geometric_variance.py": {
+      "bytes": 2636,
+      "inode": 10667687,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "54c7323681e29f42dcaba78199d9d2a99c4dc6f5d0e87568be4e4617829a9440"
+    },
+    "physmorph/pipeline/grad_combine.py": {
+      "bytes": 5832,
+      "inode": 10667688,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "3b8c3a65fe2d3a84ac61855a42e7e30309bf5dcb3960b7ea1d947c30c65824cf"
+    },
+    "physmorph/pipeline/gradient_reporting.py": {
+      "bytes": 767,
+      "inode": 10667689,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "737a3682dfcd2d1f6307488d7dc228388d37a80c20e3e9b7c90954444b5aed7f"
+    },
+    "physmorph/pipeline/grid_smooth.py": {
+      "bytes": 8635,
+      "inode": 10667690,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "6ee19b19945d4ad1be346babe35466035c007ee998fff5fd9ae445ae143df1fa"
+    },
+    "physmorph/pipeline/motion_accounting.py": {
+      "bytes": 5171,
+      "inode": 10667691,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "f898ccf5fd84d35a0468db6d655d07bc1fe5c20dbf325f0c97e849d696b7ee8e"
+    },
+    "physmorph/pipeline/optimizer.py": {
+      "bytes": 229563,
+      "inode": 10667692,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "b150d26627bbaa47bf37fa2b34ce4dc37f320701b284c625d76af2d43ac9a76a"
+    },
+    "physmorph/pipeline/outer_merit.py": {
+      "bytes": 1898,
+      "inode": 10667693,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "11b4eb5f671d2541c2807d432191bdccd3b4bc4f21c6488700e607e55cd3c57a"
+    },
+    "physmorph/pipeline/post_assimilation_selection.py": {
+      "bytes": 5423,
+      "inode": 10667694,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "b94ce377722f2911d1a4322dbc9dc838e46fe4c5fef9296106237cb1ba87d175"
+    },
+    "physmorph/pipeline/post_assimilation_window.py": {
+      "bytes": 6469,
+      "inode": 10667695,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "52bb75eaa165e1b394dc920ca9916da2db40095d96dfbc0f19d2b8d6b56d4afe"
+    },
+    "physmorph/pipeline/preparation_admission.py": {
+      "bytes": 8650,
+      "inode": 10667696,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "ff1a37fbed2b0adad4f4405c963a47179dabe115f8661b9095087cac40979ce1"
+    },
+    "physmorph/pipeline/preparation_geometry.py": {
+      "bytes": 3211,
+      "inode": 10667697,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "a799d2d5ec599118914f8aaaa17a2ad3c40f54eb89188b2a9b77dcc1d659503e"
+    },
+    "physmorph/pipeline/prepared_reference.py": {
+      "bytes": 2632,
+      "inode": 10667698,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "f340c4d18a486a475c42a5cc2843b0d6178069dd086bf47db457821b9a71d688"
+    },
+    "physmorph/pipeline/render_loss.py": {
+      "bytes": 12336,
+      "inode": 10667699,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "1bd27137ee4458670e1a7356900b0040f893a7962cf4041d679ff942d65f6358"
+    },
+    "physmorph/pipeline/render_reporting.py": {
+      "bytes": 13231,
+      "inode": 10667700,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "380e5326a4b9f4f9da26365e7074bfd0d9cfafcb492d64db8d195a80e964b651"
+    },
+    "physmorph/pipeline/runner.py": {
+      "bytes": 135584,
+      "inode": 10667701,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "3fb723606071f10f07a6372562c8995fd4a9febfb72d002f9eb28088b715647d"
+    },
+    "physmorph/pipeline/settlement.py": {
+      "bytes": 2316,
+      "inode": 10667702,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "804c1ba656f8fe66cd278405a4ffe30ba9153fa3efeec0a201b64ca498e9d905"
+    },
+    "physmorph/pipeline/support_braking.py": {
+      "bytes": 5550,
+      "inode": 10667703,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "9a03ef0a9b0205774f742334ad1736fbebddd1751e428b1564cabbe8bd7fe7c7"
+    },
+    "physmorph/pipeline/surface_local.py": {
+      "bytes": 12022,
+      "inode": 10667704,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "96cb5175a960f1c31ef8bc8b06733e77d21277a56d02b604071d51b8118847a3"
+    },
+    "physmorph/pipeline/surface_render_loss.py": {
+      "bytes": 6325,
+      "inode": 10667705,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "d5977ba8af2be1b14ec103c730efab502300778f3ae0e277a27f81fa4069d89e"
+    },
+    "physmorph/pipeline/trajectory_reporting.py": {
+      "bytes": 1242,
+      "inode": 10667706,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "3edd454bb21beeb5c0774b301c407ff7d86a0a189e588f59e3c3d7b39b5ae14a"
+    },
+    "physmorph/pipeline/window_selection.py": {
+      "bytes": 20386,
+      "inode": 10667707,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "f4b5f80a4b416332c172d9f9b03a751a4240377d8c65de2437663d31717c44e9"
+    },
+    "physmorph/plasticity/__init__.py": {
+      "bytes": 168,
+      "inode": 10667709,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "d1c2ab002337f5ce4003192d328ffdd6fa5b7776829d845efcd6af8b153aad0c"
+    },
+    "physmorph/plasticity/assimilation.py": {
+      "bytes": 15009,
+      "inode": 10667710,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "45fd6488b56347646910145dd230f7f773ade4a7c85bba1e6abe91bf0a0ad83f"
+    },
+    "physmorph/plasticity/assimilation_adjoint.py": {
+      "bytes": 9023,
+      "inode": 10667711,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "403590465d555483cb38324ca08418944bec6360d7c9799f805d74a51dac80f7"
+    },
+    "physmorph/plasticity/cuda_svd.py": {
+      "bytes": 4128,
+      "inode": 10667712,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "e3880a92de61933164e14cd0a7b5a5f6641b24ceeefb7718501e50da7cd1d93e"
+    },
+    "physmorph/render/__init__.py": {
+      "bytes": 171,
+      "inode": 10667714,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "8469816316bf8d0a16e660800e5fd8e1b5015b97febe3c6edc2fd94582207caf"
+    },
+    "physmorph/render/children.py": {
+      "bytes": 8095,
+      "inode": 10667715,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "8242b10f119f1832fb3b62e15585366bfe188ea702241a24d8aaafaac9fa2d08"
+    },
+    "physmorph/render/covariance.py": {
+      "bytes": 3299,
+      "inode": 10667716,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "0d521f3372573d602d089d8329130075d5f8b2b8eb022bb32d16e9a123ce0265"
+    },
+    "physmorph/render/covariance_torch.py": {
+      "bytes": 2849,
+      "inode": 10667717,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "30ef0c11fa2841389aaac4207f3e1b5ac36ba2e07231279e9fcefab0745bc764"
+    },
+    "physmorph/render/footprint_diagnostics.py": {
+      "bytes": 11053,
+      "inode": 10667718,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "0ca65862b8c1846f8625a70baf0584860ce7b4703a67281b532867c80c13f889"
+    },
+    "physmorph/render/footprint_policy.py": {
+      "bytes": 1267,
+      "inode": 10667719,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "7c33a54473a50681bdb88d87ec24bd6036ba5444d174341b3043743cfa07e0d2"
+    },
+    "physmorph/render/knn_gpu.py": {
+      "bytes": 9720,
+      "inode": 10667720,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "bc5e3b8bb974ddda98c7fe1793ad5445091390c0fbbb0ed72ddd3cf52306d9f8"
+    },
+    "physmorph/render/photoreal.py": {
+      "bytes": 9766,
+      "inode": 10667721,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "62267c1e6024a05c02ea0270b03bdc95169ce14cee0ac12371736e6c4a87d6b0"
+    },
+    "physmorph/render/poisson_worker.py": {
+      "bytes": 3538,
+      "inode": 10667722,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "fb4aa3be480f79bfa36fd5e9016063d7f1ec991c0fa0678fc5e9037ef0118042"
+    },
+    "physmorph/render/settled.py": {
+      "bytes": 3445,
+      "inode": 10667723,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "084eb5d05baceeea674c41c61f4537cda097213c015772ab75508c450b7fd357"
+    },
+    "physmorph/render/stream_adapter.py": {
+      "bytes": 2765,
+      "inode": 10667724,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "ff4e83f7f6490c3b155ebee0efa526a55ccdf3b9e8f312162bb57602b8ed40dd"
+    },
+    "physmorph/render/studio.py": {
+      "bytes": 9974,
+      "inode": 10667725,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "a53af0f7c6563015f2fb809b91e442c662846c61c4814912609eca04d01888c5"
+    },
+    "physmorph/render/support.py": {
+      "bytes": 8862,
+      "inode": 10667726,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "3ce6654ba46fb4cd31ff55397e374d159b0ba06241b1b2305f380d540b02fb45"
+    },
+    "physmorph/render/surface_gaussians.py": {
+      "bytes": 4780,
+      "inode": 10667727,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "c63de551421c73a996d9e51149f214aca06ad00be3102429920aee5aee1cefef"
+    },
+    "physmorph/render/surface_recon.py": {
+      "bytes": 35491,
+      "inode": 10667728,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "27609bb12830059a5f5754024b2c00a8eb814ffb8b44ce9939f97d1dd449b891"
+    },
+    "physmorph/sampling/__init__.py": {
+      "bytes": 168,
+      "inode": 10667730,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "51f23d85697aa6bf783df5597d004b48074513fffd602f08d45862b0c4814705"
+    },
+    "physmorph/sampling/mesh.py": {
+      "bytes": 20588,
+      "inode": 10667731,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "92c3e9fe32a13ab88b16dc6a995b151c34ec4fa69fcfa1fa24fcfde0366cf2f8"
+    },
+    "physmorph/sampling/orientation.json": {
+      "bytes": 524,
+      "inode": 10667732,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "11c500f13036dbd82c48a12d0b76ce8fd7f7c91015778ee3c05548bd81694a49"
+    },
+    "physmorph/sampling/orientation.py": {
+      "bytes": 3103,
+      "inode": 10667733,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "205e4a8557486277242700e348989743711916e7f249aaf07e03c23a9ffc4b5c"
+    },
+    "physmorph/viewer/__init__.py": {
+      "bytes": 190,
+      "inode": 10667735,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "b81cefa5eae3bc2f0e1d30aecfc6608146df9efc987a9865d76bf409e7d3ae22"
+    },
+    "physmorph/viewer/compare.html": {
+      "bytes": 4330,
+      "inode": 10667736,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "df95c5403071ba8cd90fa7b91b4703d9c2c32d7c3ca0e0ab800b979da685d434"
+    },
+    "physmorph/viewer/export_ply.py": {
+      "bytes": 2423,
+      "inode": 10667737,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "926ec7ef3bf5ac1592dd34b7b62a4893837d7209214d6faf15d96745abc837db"
+    },
+    "physmorph/viewer/filehub.py": {
+      "bytes": 7772,
+      "inode": 10667738,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "780e89cf2cbb3b5346d267bb00afe4c5f291d85e18616a0cc319ac37998a0133"
+    },
+    "physmorph/viewer/live.html": {
+      "bytes": 24818,
+      "inode": 10667739,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "8f1e8c1e4cb71acf88a38efceeb777171a4ffadba43b8c7f1a64ac0fb77fbe00"
+    },
+    "physmorph/viewer/quad.html": {
+      "bytes": 4375,
+      "inode": 10667740,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "57907bc333363ee1f349861a3d12958f87117ee6c3f0aedd9c6cefadab79312e"
+    },
+    "physmorph/viewer/server.py": {
+      "bytes": 27232,
+      "inode": 10667741,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "a6bcf9ddcec35a0b1210ed819c463c219c9a7089aa8978273500062e1ca23800"
+    },
+    "physmorph/viewer/template.html": {
+      "bytes": 3675,
+      "inode": 10667742,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "7be3163332df7a912ac2b6b4b82dba1aa37307fddb934f3cd71f7135b8ae23ad"
+    },
+    "pytest.ini": {
+      "bytes": 99,
+      "inode": 10667744,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "6ac2684b68851e617ac034a1172b86d5d32448533835f0b8fd7685a4930aa0b4"
+    },
+    "scripts/ops/cuda_python.py": {
+      "bytes": 606,
+      "inode": 10667759,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc"
+    },
+    "scripts/ops/gpu_env.sh": {
+      "bytes": 558,
+      "inode": 10667764,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "0a35c4153b0ca6d92bb4e774938fbefc469ca8f30bd2a6982c5ca142ec7b6a09"
+    },
+    "scripts/ops/hyde06_env.sh": {
+      "bytes": 2866,
+      "inode": 10667767,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "0bac048990c9b2053ad076cf61185c12bcfe2168e8faf176dd5c982ee4cd1fc9"
+    },
+    "scripts/ops/run_p303_probe.sh": {
+      "bytes": 17899,
+      "inode": 10667776,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "5bbeaf4aa72e12bdd6c38863a25fbf64b058c2077bb132dc75378e6a659f59f7"
+    },
+    "scripts/probes/boundary_packet.py": {
+      "bytes": 6599,
+      "inode": 10667797,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "565969ad8b955e18ed250e2a4c500194180dac6390c35648a83232c5ab90fed2"
+    },
+    "tests/pin_collider_reference.py": {
+      "bytes": 4105,
+      "inode": 10667900,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "ba684e42bd26480cca1cefce5316790775c8d2e583fe261ae2bfae78a5267877"
+    },
+    "tests/test_boundary_packet.py": {
+      "bytes": 9368,
+      "inode": 10667913,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "ed0a6a42cfe4d998d71358cff9a7ce8f8e2a671ed3d93e1a220cc52cb24c424e"
+    },
+    "tests/test_checkpoint_merit_terms.py": {
+      "bytes": 11215,
+      "inode": 10667918,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "a9fbb8f2abc72917d1d4163a9c568f1e8f2b26d9783c820e8f2c7d17613e5112"
+    },
+    "tests/test_current_successor.py": {
+      "bytes": 6765,
+      "inode": 10667929,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "94314be1d6de9bb694e11ec540fb2fda75297ad6d419d5ffe00fdbc7afabbb3c"
+    },
+    "tests/test_current_successor_cuda.py": {
+      "bytes": 5889,
+      "inode": 10667930,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "7aaf9b0fef5166eb04e0c4319d2c1774df4fefdf028ff9a29cff43d066653eaa"
+    },
+    "tests/test_frozen_withdrawal_window.py": {
+      "bytes": 13963,
+      "inode": 10667948,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "d7e8d0dfb54bd7bcfc84be7b2cac415434bc2c00a8fbf97d68ac0495ed56a1da"
+    },
+    "tests/test_frozen_withdrawal_window_cuda.py": {
+      "bytes": 7106,
+      "inode": 10667949,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "4a88db7055659a0f816426c3d747767a49886c2a551f5051681532f086d4a48e"
+    },
+    "tests/test_post_assimilation_window.py": {
+      "bytes": 19741,
+      "inode": 10667998,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "36476f914da4e9b2967ae077991e56ae3420a5c1096f822778b78a5e5f071670"
+    },
+    "tests/test_post_selection_real.py": {
+      "bytes": 4860,
+      "inode": 10668001,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "5c130c28831ab83aedee5e3184ff5caa5c884bbd6836ca3908c56b04f9e7387b"
+    },
+    "tests/test_preparation_geometry_cuda.py": {
+      "bytes": 10359,
+      "inode": 10668004,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "4d27b03e1718f45c6a463fca5116011f4f06879c7c9d549ecb68ce5614c90f0a"
+    },
+    "tests/test_window_selection.py": {
+      "bytes": 15274,
+      "inode": 10668051,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "b18d8f5143de1a00d6bd9c009b2c582e593e45809b738dc17b58841d11ba20ce"
+    },
+    "tests/test_window_selection_pipeline.py": {
+      "bytes": 12357,
+      "inode": 10668053,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "3fd7f535c25a07fcbf69b39443a2d5266e9863567af4a56c89bf4b0385dc4627"
+    },
+    "tests/test_withdrawal_adjoint_fd.py": {
+      "bytes": 7161,
+      "inode": 10668058,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "d96a987598914a54124a4d17e558812899326b43ceaf94a87033e471998e1525"
+    },
+    "tests/test_withdrawal_cuda.py": {
+      "bytes": 5518,
+      "inode": 10668059,
+      "mtime_ns": 1790678663000000000,
+      "sha256": "2365241354419f1813c83cc803b7cc5a2938a22dd36076e7f697d06f73b7f2b6"
+    }
+  },
+  "artifacts": {
+    "p337_cuda1.log": {
+      "bytes": 3363,
+      "inode": 10659327,
+      "mtime_ns": 1790678725492370610,
+      "sha256": "6405f5dabc2db60627d55a017e64bf087b0e7429bca03d89c4ca5effdcdc32f8"
+    },
+    "p337_cuda1.xml": {
+      "bytes": 2965,
+      "inode": 10381795,
+      "mtime_ns": 1790678724992370238,
+      "sha256": "96c8411d7b77d44ef657e2fe9818070208c814df473149db6fa670593365ba3b"
+    },
+    "p337_cuda1.start": {
+      "bytes": 11,
+      "inode": 10653071,
+      "mtime_ns": 1790678719136365895,
+      "sha256": "d2251a2527777e56a9e1857828b441d22021a7e7c5f408d8ad06da12855572f5"
+    },
+    "p337_cuda1.launch.log": {
+      "bytes": 53,
+      "inode": 10617554,
+      "mtime_ns": 1790678726208371140,
+      "sha256": "b96b129db1ab673aea1c39d080621a94ab16da0c6f50e70f49345e64190f3799"
+    },
+    "p337_cuda1.memory.json": {
+      "bytes": 3344,
+      "inode": 10600855,
+      "mtime_ns": 1790678726196371132,
+      "sha256": "90313f9968428f6d58b9cd1c1eddec2d0b324bf0a4571a010797bf40d6ca1834"
+    },
+    "p337_cuda1.memory.log": {
+      "bytes": 413,
+      "inode": 10662877,
+      "mtime_ns": 1790678726196371132,
+      "sha256": "dcc34508bb503f543fc3d823f9f6e8f4f691e79ab49b1c5799f86004112959aa"
+    },
+    "p337_cuda1.memory.stop": {
+      "bytes": 2,
+      "inode": 10653072,
+      "mtime_ns": 1790678726144371093,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    "p337_cuda1.exit": {
+      "bytes": 2,
+      "inode": 10653073,
+      "mtime_ns": 1790678726208371140,
+      "sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+    },
+    "run_p337_v1.sh": {
+      "bytes": 1248,
+      "inode": 10510753,
+      "mtime_ns": 1790678683288339310,
+      "sha256": "62b0e819ea9cb195a84a3c3ddc1395bbdc89ae7e65305a2fa183cc1eb513333c"
+    },
+    "launch_p337_cuda1.sh": {
+      "bytes": 575,
+      "inode": 10585488,
+      "mtime_ns": 1790678717308364538,
+      "sha256": "04c393bf61185789b821ccb67b384bf2a354d03daee04bd1dcd023fae8c6c15a"
+    },
+    "sample_device_memory.py": {
+      "bytes": 2962,
+      "inode": 10359140,
+      "mtime_ns": 1790663183358804700,
+      "sha256": "e904394951a3113adb71ce65ccd2f43a064425e7ac35b112ea49d4b560dfdca6"
+    }
+  },
+  "source_tar": {
+    "bytes": 155729920,
+    "inode": 10510752,
+    "mtime_ns": 1790678682924339040,
+    "sha256": "6b3a6de0da5e052d1817833c61e86a7e180981d49881206d59a95c9d7059fcb8"
+  },
+  "installed_library": {
+    "path": "/data/relcfd/chayo/physmorph_v2/deps/gpu_pipeline/cupyx/scipy/ndimage/_measurements.py",
+    "bytes": 57549,
+    "inode": 10373434,
+    "mtime_ns": 1790457023470570898,
+    "sha256": "4c243911d080210f6c2b16c0c1ffad96a7f610f98a0865436cc904aaaf125bb2"
+  },
+  "project_apparent_bytes": 81294879566,
+  "independent_git_source_comparison": {
+    "commit": "7710fdc09bc380a8231fa9b93a0fb997f916f903",
+    "files": 112,
+    "exact_byte_matches": 112,
+    "source": "Git blobs, not mutable working tree"
+  }
+}

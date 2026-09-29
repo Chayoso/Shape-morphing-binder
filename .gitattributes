@@ -17,3 +17,6 @@ docs/*.html linguist-documentation -diff
 
 # Exact frozen Python witnesses include original mixed line endings.
 docs/evidence/p335/*.py.txt -text -whitespace
+
+# Archived P337 receipts/scripts are byte-bound, including original line endings.
+docs/evidence/p337/** -text -whitespace

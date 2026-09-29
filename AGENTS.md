@@ -159,7 +159,8 @@ These are the leading candidates for the unresolved problems, and they are ports
   history. The opt-in original-head preview never borrows successor material or
   pin IDs.87 independent CPU cases and26 diagnostic-driver cases pass. CUDA1
   exposes a constant-topology download and a CuPy list-argument incompatibility;
-  fixes retain the same download guards and require a fresh CUDA gate. Native
+  fixes retain the same download guards; frozen995f1f1 CUDA2 passes6 cases,
+  0skips,5.485s with independent112-file source/artifact review. Native
   comparison is original-only, both actual commits/full passive coasts required.
   The neutralized u gate is valid only for zero-u, layer_F-off passive scope;
   this is neither next-control preparation nor natural-rest/quality adoption.

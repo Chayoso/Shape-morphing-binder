@@ -39,6 +39,15 @@ Use an immutable host topology tuple and explicit binary comparisons, respective
 the same array-download guards remain in force.37 CPU cases pass after these
 corrections. Retain CUDA1 as failed evidence; a fresh CUDA run is still required.
 
+Frozen995f1f1 actual CUDA2 now passes all six cases,0skips,5.485s. The two test
+files are byte-identical to CUDA1; only the helper fixes and dispatcher differ
+within the112 independently bound files. The separate N54 CUDA preview exercises
+one new pin and sequential ordinary FP64 assimilation; the N27 zero-control
+coasts are exactly invariant to three distinct finite u gates. Numerical arrays
+remain on CUDA under the unchanged public download guards. Independent receipts
+are in `evidence/p337/independent_cuda1_audit.json` and `independent_cuda2_audit.json`.
+These tests do not establish a fully host-free pipeline or native shape/rest quality.
+
 For the initial identity experiment, return the original head unchanged and
 let the ordinary runner commit and prepare the next window. Compare predicted
 pin IDs/history, fixed materials, boundary x/v/C/F/Fp, layer geometry, refreshed
@@ -53,6 +62,12 @@ archive paths and outer commits must pass independently; no control is changed.
 The driver owns current discretization in incremental rendering receipts and
 preserves available observations on failure. Output is bounded to8GB within
 the existing100GB project limit.
+
+Native1 is running on the same frozen995f1f1 source. The producer preflight
+checks193 source/doc/ops/test files against Git, binds the assets and runtime,
+and verifies only cap24-to21 and FP64 assimilation override the raw recipe.
+The81.295GB project permits the8GB reservation. Native identity/closure remains
+pending until both ordinary windows and their complete passive comparisons finish.
 
 Passive control is zero. With layer_F disabled, the u gate has no numerical
 effect; any omitted next-window OT gate must be explicitly identified and

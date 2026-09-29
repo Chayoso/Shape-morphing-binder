@@ -153,6 +153,16 @@ This seam alone does not fix holes, natural rest or the exported4K covariance.
 
 ## Candidate integration after P335
 
+**The prior-prefix estimate route described below was rejected by P336 native1.**
+Its rest volumes differed and its proposed pin set would release9046 current
+old pins, before any candidate search could run. Do not repair those borrowed
+arrays. P337 instead shares CURRENT runner admission/history and geometry,
+and first checks an unchanged original head against its actual successor.
+Its native gate is pending. A later conditional search may freeze that current
+original-head preview; actual candidate admission/preparation and continuation
+remain separate required gates. The remainder records the earlier design and
+its still-applicable lifetime, ownership and actual-policy constraints.
+
 P335's first FP32 native full-coast velocity/C gate failed and remains retained.
 The separately labelled FP64-arithmetic/FP32-state recipe on frozen504ea6a now
 passes fresh21-window native closure and an independent3577-check actual-coast

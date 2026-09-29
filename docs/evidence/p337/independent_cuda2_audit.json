@@ -1,0 +1,190 @@
+{
+  "schema": "p337_cuda2_independent_evidence_review_v1",
+  "reviewed_utc": "2026-09-29T10:52:05.985914+00:00",
+  "reviewer": "mixed60_photoreal",
+  "evidence_consistency_passed": true,
+  "small_cuda_gate_passed": true,
+  "native_preparation_gate_measured": false,
+  "scope": "Independent source/artifact/assertion-scope review; no GPU or numerical rerun by reviewer",
+  "frozen_commit": "995f1f1ac57f8ec3c7c46b969a787dd4c24ccb35",
+  "code": "/data/relcfd/chayo/physmorph_v2/work/p303/code_current_preparation2",
+  "source_bindings": {
+    "files": 112,
+    "exact_git_matches": 112,
+    "method": "Remote full SHA and stable stat; exact Git blob comparison; local artifact byte/hash verification",
+    "scope": "Entire tracked physmorph tree plus static local test/probe dependency closure and launch configuration; not complete dynamic/shared-library attestation"
+  },
+  "source_receipt": {
+    "path": "p337_cuda2.source_receipt.json",
+    "sha256": "82c36c78e385965bf5f6232076d098ab021baa26180e027f85628f2eb5ad1573"
+  },
+  "artifacts": {
+    "p337_cuda2.log": {
+      "bytes": 1180,
+      "inode": 10645300,
+      "mtime_ns": 1790678932860524651,
+      "sha256": "8aa7183fc1ff780d31ce8b0b3fba781defdcfea527f8f231aba6a004019b5a66"
+    },
+    "p337_cuda2.xml": {
+      "bytes": 1127,
+      "inode": 10650602,
+      "mtime_ns": 1790678932240524190,
+      "sha256": "276c6f40ad752b2437749c39805ab11d6abf063f036ce7119847a851727ba782"
+    },
+    "p337_cuda2.start": {
+      "bytes": 11,
+      "inode": 10661155,
+      "mtime_ns": 1790678926372519826,
+      "sha256": "a353e3f960ee8f002dc5626cc68e61ae72d29b096d8ebce1876b5a168a4e645b"
+    },
+    "p337_cuda2.launch.log": {
+      "bytes": 53,
+      "inode": 10651244,
+      "mtime_ns": 1790678934176525630,
+      "sha256": "11c584c4c6b2b5b91cb9e8629dec0f672c5c4b9b5de8676ac1550e77367977ce"
+    },
+    "p337_cuda2.memory.json": {
+      "bytes": 3565,
+      "inode": 10576572,
+      "mtime_ns": 1790678934164525621,
+      "sha256": "ad07b782ba5e82f0b1f7757d35e0a4eecbfdc7e8fd9ff79054387ec210909b2b"
+    },
+    "p337_cuda2.memory.log": {
+      "bytes": 413,
+      "inode": 10659386,
+      "mtime_ns": 1790678934164525621,
+      "sha256": "40bd9b74340c50ff4c15c531a60b832b3452a93c0bdb0b0a302bac5cba25df95"
+    },
+    "p337_cuda2.memory.stop": {
+      "bytes": 2,
+      "inode": 10655233,
+      "mtime_ns": 1790678933596525198,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "p337_cuda2.exit": {
+      "bytes": 2,
+      "inode": 10655234,
+      "mtime_ns": 1790678934176525630,
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    },
+    "run_p337_v2.sh": {
+      "bytes": 1248,
+      "inode": 10655642,
+      "mtime_ns": 1790678915860512009,
+      "sha256": "d2288702e0282d3b202a8b5bc44bcf5c2cad7a829012435f620267a824bf2450"
+    },
+    "launch_p337_cuda2.sh": {
+      "bytes": 612,
+      "inode": 10655643,
+      "mtime_ns": 1790678916376512393,
+      "sha256": "745dfb6213eb07199e65584673b52c375fe83e3317752bee8e48e2de4b1d444e"
+    },
+    "sample_device_memory.py": {
+      "bytes": 2962,
+      "inode": 10359140,
+      "mtime_ns": 1790663183358804700,
+      "sha256": "e904394951a3113adb71ce65ccd2f43a064425e7ac35b112ea49d4b560dfdca6"
+    }
+  },
+  "source_tar": {
+    "bytes": 155760640,
+    "inode": 10585489,
+    "mtime_ns": 1790678915496511739,
+    "sha256": "1814b9facea68d2fefb4b55251897cc1a3c48043d624392266189111defad3a1"
+  },
+  "source_tar_scope": "Full hash at collection; launcher accepts commit/archive hash arguments. Original shell argument history was not independently retained; scoped extracted source is independently exact-Git bound.",
+  "run": {
+    "pid": 987108,
+    "gpu": 0,
+    "exit": 0,
+    "tests": 6,
+    "passed": 6,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pytest_seconds": 5.485,
+    "cases": [
+      {
+        "classname": "tests.test_preparation_geometry_cuda",
+        "name": "test_cuda_bond_history_is_retained_until_actual_reconnection",
+        "seconds": 0.514,
+        "status": "passed"
+      },
+      {
+        "classname": "tests.test_preparation_geometry_cuda",
+        "name": "test_cuda_layer_reference_count_and_translation[True-False-0.0]",
+        "seconds": 2.993,
+        "status": "passed"
+      },
+      {
+        "classname": "tests.test_preparation_geometry_cuda",
+        "name": "test_cuda_layer_reference_count_and_translation[False-True-0.0]",
+        "seconds": 0.014,
+        "status": "passed"
+      },
+      {
+        "classname": "tests.test_preparation_geometry_cuda",
+        "name": "test_cuda_layer_reference_count_and_translation[True-True-0.2]",
+        "seconds": 0.012,
+        "status": "passed"
+      },
+      {
+        "classname": "tests.test_preparation_geometry_cuda",
+        "name": "test_cuda_zero_control_passive_path_is_exactly_independent_of_layer_u_gate",
+        "seconds": 0.091,
+        "status": "passed"
+      },
+      {
+        "classname": "tests.test_current_successor_cuda",
+        "name": "test_cuda_current_original_preview_owns_material_history_and_zero_controls",
+        "seconds": 0.435,
+        "status": "passed"
+      }
+    ]
+  },
+  "prior_failed_gate": {
+    "commit": "7710fdc09bc380a8231fa9b93a0fb997f916f903",
+    "exit": 1,
+    "passed": 4,
+    "failed": 2,
+    "retained_receipt": "independent_cuda1_audit.json",
+    "changed_bound_files": [
+      "physmorph/pipeline/preparation_admission.py",
+      "physmorph/pipeline/preparation_geometry.py",
+      "scripts/ops/run_p303_probe.sh"
+    ],
+    "tests_byte_unchanged": true,
+    "numerical_thresholds_relaxed": false,
+    "fixes": "Same immutable 26-neighbor topology without CUDA constant download; equivalent binary membership predicate without unsupported CuPy list input."
+  },
+  "memory": {
+    "sampled_process_peak_MiB": 1270,
+    "sampled_device_peak_MiB": 1294,
+    "sample_count": 14,
+    "errors": [],
+    "scope": "Sampled device/process memory, including non-Torch ownership; sequential queries, not an exact high-water mark"
+  },
+  "storage": {
+    "project_apparent_bytes": 81294879566,
+    "scope": "Read-only collection-time du -sb, not launch/peak storage"
+  },
+  "discretization": {
+    "bonds": "N38 dx0.5 grid24x16x16",
+    "layer": "N128 T20 referenceN64",
+    "passive": "N27 T20 dt0.002 dx0.5 grid16^3",
+    "current_preview": "N54 T20 dt0.002 dx0.5 grid16^3"
+  },
+  "verified_test_scope": [
+    "Known bond detachment/reconnection and retained rest history.",
+    "Three layer policies: independent dense double-distance spacing, reference neighbor count, translation and device ownership.",
+    "All X/V/F/C steps exactly equal for three explicitly distinct finite ug fields with zero dFc/u, no body, layer_F off, nonzero incoming state and active layer projection.",
+    "Current N54 actual GPU head preview: current history/material/pins, per-call FP64/FP32 ordinary assimilation, v/C masking, detached zero-control successor and post-close ownership. Data merit and reversal history are synthetic."
+  ],
+  "limitations": [
+    "This closes only the six small-fixture CUDA assertions; native N300000 preparation/coast remains a separate required gate.",
+    "No runtime improvement, complete graph/adjoint gate, candidate adoption, natural rest, holes or appearance result.",
+    "Public array-download/CPU-KNN guards passed; scalar host decisions/synchronizations remain allowed.",
+    "No raw test arrays are retained; reviewer did not independently recompute test numerical results or rerun GPU.",
+    "Shared-library binaries and all installed dependencies are not independently hashed."
+  ]
+}
