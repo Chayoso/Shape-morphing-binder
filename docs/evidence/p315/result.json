@@ -1,0 +1,2852 @@
+{
+  "N": 300000,
+  "resolution": 128,
+  "extent": 5.627029657363892,
+  "views": [
+    {
+      "view": 0,
+      "theta": 0.0,
+      "phi": 0.0,
+      "intersection": [
+        2620,
+        2620,
+        2620,
+        2620,
+        2620,
+        2620
+      ],
+      "union": [
+        2731,
+        2731,
+        2731,
+        2731,
+        2731,
+        2731
+      ],
+      "iou": [
+        0.959355547418528,
+        0.959355547418528,
+        0.959355547418528,
+        0.959355547418528,
+        0.959355547418528,
+        0.959355547418528
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 1,
+      "theta": 0.7853981633974483,
+      "phi": 0.0,
+      "intersection": [
+        2886,
+        2886,
+        2886,
+        2886,
+        2886,
+        2886
+      ],
+      "union": [
+        3006,
+        3006,
+        3006,
+        3006,
+        3006,
+        3006
+      ],
+      "iou": [
+        0.9600798403193613,
+        0.9600798403193613,
+        0.9600798403193613,
+        0.9600798403193613,
+        0.9600798403193613,
+        0.9600798403193613
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 2,
+      "theta": 1.5707963267948966,
+      "phi": 0.0,
+      "intersection": [
+        3380,
+        3380,
+        3380,
+        3380,
+        3380,
+        3380
+      ],
+      "union": [
+        3485,
+        3485,
+        3485,
+        3485,
+        3485,
+        3485
+      ],
+      "iou": [
+        0.96987087517934,
+        0.96987087517934,
+        0.96987087517934,
+        0.96987087517934,
+        0.96987087517934,
+        0.96987087517934
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 3,
+      "theta": 2.356194490192345,
+      "phi": 0.0,
+      "intersection": [
+        3068,
+        3068,
+        3068,
+        3068,
+        3068,
+        3068
+      ],
+      "union": [
+        3181,
+        3181,
+        3181,
+        3181,
+        3181,
+        3181
+      ],
+      "iou": [
+        0.9644765796919208,
+        0.9644765796919208,
+        0.9644765796919208,
+        0.9644765796919208,
+        0.9644765796919208,
+        0.9644765796919208
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 4,
+      "theta": 3.141592653589793,
+      "phi": 0.0,
+      "intersection": [
+        2620,
+        2620,
+        2620,
+        2620,
+        2620,
+        2620
+      ],
+      "union": [
+        2731,
+        2731,
+        2731,
+        2731,
+        2731,
+        2731
+      ],
+      "iou": [
+        0.959355547418528,
+        0.959355547418528,
+        0.959355547418528,
+        0.959355547418528,
+        0.959355547418528,
+        0.959355547418528
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 5,
+      "theta": 3.9269908169872414,
+      "phi": 0.0,
+      "intersection": [
+        2886,
+        2886,
+        2886,
+        2886,
+        2886,
+        2886
+      ],
+      "union": [
+        3006,
+        3006,
+        3006,
+        3006,
+        3006,
+        3006
+      ],
+      "iou": [
+        0.9600798403193613,
+        0.9600798403193613,
+        0.9600798403193613,
+        0.9600798403193613,
+        0.9600798403193613,
+        0.9600798403193613
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 6,
+      "theta": 4.71238898038469,
+      "phi": 0.0,
+      "intersection": [
+        3380,
+        3380,
+        3380,
+        3380,
+        3380,
+        3380
+      ],
+      "union": [
+        3485,
+        3485,
+        3485,
+        3485,
+        3485,
+        3485
+      ],
+      "iou": [
+        0.96987087517934,
+        0.96987087517934,
+        0.96987087517934,
+        0.96987087517934,
+        0.96987087517934,
+        0.96987087517934
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 7,
+      "theta": 5.497787143782138,
+      "phi": 0.0,
+      "intersection": [
+        3068,
+        3068,
+        3068,
+        3068,
+        3068,
+        3068
+      ],
+      "union": [
+        3181,
+        3181,
+        3181,
+        3181,
+        3181,
+        3181
+      ],
+      "iou": [
+        0.9644765796919208,
+        0.9644765796919208,
+        0.9644765796919208,
+        0.9644765796919208,
+        0.9644765796919208,
+        0.9644765796919208
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 8,
+      "theta": 0.2617993877991494,
+      "phi": 0.5,
+      "intersection": [
+        2657,
+        2657,
+        2657,
+        2656,
+        2656,
+        2656
+      ],
+      "union": [
+        2792,
+        2792,
+        2792,
+        2792,
+        2792,
+        2792
+      ],
+      "iou": [
+        0.951647564469914,
+        0.951647564469914,
+        0.951647564469914,
+        0.9512893982808023,
+        0.9512893982808023,
+        0.9512893982808023
+      ],
+      "changed_pixels": 1,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 9,
+      "theta": 1.0471975511965976,
+      "phi": 0.5,
+      "intersection": [
+        3295,
+        3295,
+        3295,
+        3294,
+        3294,
+        3294
+      ],
+      "union": [
+        3465,
+        3465,
+        3465,
+        3465,
+        3465,
+        3465
+      ],
+      "iou": [
+        0.950937950937951,
+        0.950937950937951,
+        0.950937950937951,
+        0.9506493506493506,
+        0.9506493506493506,
+        0.9506493506493506
+      ],
+      "changed_pixels": 1,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 10,
+      "theta": 1.832595714594046,
+      "phi": 0.5,
+      "intersection": [
+        3680,
+        3680,
+        3680,
+        3679,
+        3679,
+        3679
+      ],
+      "union": [
+        3865,
+        3865,
+        3865,
+        3866,
+        3866,
+        3866
+      ],
+      "iou": [
+        0.9521345407503234,
+        0.9521345407503234,
+        0.9521345407503234,
+        0.9516295913088464,
+        0.9516295913088464,
+        0.9516295913088464
+      ],
+      "changed_pixels": 2,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 1,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 11,
+      "theta": 2.6179938779914944,
+      "phi": 0.5,
+      "intersection": [
+        3263,
+        3263,
+        3263,
+        3263,
+        3263,
+        3263
+      ],
+      "union": [
+        3394,
+        3394,
+        3394,
+        3394,
+        3394,
+        3394
+      ],
+      "iou": [
+        0.9614024749558043,
+        0.9614024749558043,
+        0.9614024749558043,
+        0.9614024749558043,
+        0.9614024749558043,
+        0.9614024749558043
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 12,
+      "theta": 3.4033920413889427,
+      "phi": 0.5,
+      "intersection": [
+        2900,
+        2900,
+        2900,
+        2900,
+        2900,
+        2900
+      ],
+      "union": [
+        2999,
+        2999,
+        2999,
+        2999,
+        2999,
+        2999
+      ],
+      "iou": [
+        0.9669889963321107,
+        0.9669889963321107,
+        0.9669889963321107,
+        0.9669889963321107,
+        0.9669889963321107,
+        0.9669889963321107
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 13,
+      "theta": 4.1887902047863905,
+      "phi": 0.5,
+      "intersection": [
+        3115,
+        3115,
+        3115,
+        3114,
+        3114,
+        3114
+      ],
+      "union": [
+        3238,
+        3238,
+        3238,
+        3238,
+        3238,
+        3238
+      ],
+      "iou": [
+        0.9620135886349599,
+        0.9620135886349599,
+        0.9620135886349599,
+        0.9617047560222359,
+        0.9617047560222359,
+        0.9617047560222359
+      ],
+      "changed_pixels": 1,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 14,
+      "theta": 4.974188368183839,
+      "phi": 0.5,
+      "intersection": [
+        3346,
+        3346,
+        3346,
+        3347,
+        3347,
+        3347
+      ],
+      "union": [
+        3458,
+        3458,
+        3458,
+        3458,
+        3458,
+        3458
+      ],
+      "iou": [
+        0.9676113360323887,
+        0.9676113360323887,
+        0.9676113360323887,
+        0.9679005205320995,
+        0.9679005205320995,
+        0.9679005205320995
+      ],
+      "changed_pixels": 1,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 1,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 15,
+      "theta": 5.759586531581287,
+      "phi": 0.5,
+      "intersection": [
+        2763,
+        2763,
+        2763,
+        2763,
+        2763,
+        2763
+      ],
+      "union": [
+        2877,
+        2877,
+        2877,
+        2877,
+        2877,
+        2877
+      ],
+      "iou": [
+        0.9603753910323254,
+        0.9603753910323254,
+        0.9603753910323254,
+        0.9603753910323254,
+        0.9603753910323254,
+        0.9603753910323254
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 16,
+      "theta": 0.5235987755982988,
+      "phi": -0.5,
+      "intersection": [
+        2931,
+        2931,
+        2931,
+        2931,
+        2931,
+        2931
+      ],
+      "union": [
+        3032,
+        3032,
+        3032,
+        3032,
+        3032,
+        3032
+      ],
+      "iou": [
+        0.966688654353562,
+        0.966688654353562,
+        0.966688654353562,
+        0.966688654353562,
+        0.966688654353562,
+        0.966688654353562
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 17,
+      "theta": 1.308996938995747,
+      "phi": -0.5,
+      "intersection": [
+        3240,
+        3240,
+        3240,
+        3240,
+        3240,
+        3240
+      ],
+      "union": [
+        3356,
+        3356,
+        3356,
+        3356,
+        3356,
+        3356
+      ],
+      "iou": [
+        0.965435041716329,
+        0.965435041716329,
+        0.965435041716329,
+        0.965435041716329,
+        0.965435041716329,
+        0.965435041716329
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 18,
+      "theta": 2.0943951023931953,
+      "phi": -0.5,
+      "intersection": [
+        3224,
+        3224,
+        3224,
+        3224,
+        3224,
+        3224
+      ],
+      "union": [
+        3342,
+        3342,
+        3342,
+        3342,
+        3342,
+        3342
+      ],
+      "iou": [
+        0.964691801316577,
+        0.964691801316577,
+        0.964691801316577,
+        0.964691801316577,
+        0.964691801316577,
+        0.964691801316577
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 19,
+      "theta": 2.8797932657906435,
+      "phi": -0.5,
+      "intersection": [
+        2567,
+        2567,
+        2567,
+        2567,
+        2567,
+        2567
+      ],
+      "union": [
+        2701,
+        2701,
+        2701,
+        2701,
+        2701,
+        2701
+      ],
+      "iou": [
+        0.9503887449092928,
+        0.9503887449092928,
+        0.9503887449092928,
+        0.9503887449092928,
+        0.9503887449092928,
+        0.9503887449092928
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 20,
+      "theta": 3.665191429188092,
+      "phi": -0.5,
+      "intersection": [
+        2814,
+        2814,
+        2814,
+        2813,
+        2813,
+        2813
+      ],
+      "union": [
+        2938,
+        2938,
+        2938,
+        2938,
+        2938,
+        2938
+      ],
+      "iou": [
+        0.9577944179714091,
+        0.9577944179714091,
+        0.9577944179714091,
+        0.9574540503744043,
+        0.9574540503744043,
+        0.9574540503744043
+      ],
+      "changed_pixels": 1,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 1,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 21,
+      "theta": 4.4505895925855405,
+      "phi": -0.5,
+      "intersection": [
+        3498,
+        3498,
+        3498,
+        3498,
+        3498,
+        3498
+      ],
+      "union": [
+        3656,
+        3656,
+        3656,
+        3655,
+        3655,
+        3655
+      ],
+      "iou": [
+        0.9567833698030634,
+        0.9567833698030634,
+        0.9567833698030634,
+        0.9570451436388508,
+        0.9570451436388508,
+        0.9570451436388508
+      ],
+      "changed_pixels": 1,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 22,
+      "theta": 5.235987755982989,
+      "phi": -0.5,
+      "intersection": [
+        3639,
+        3639,
+        3639,
+        3639,
+        3639,
+        3639
+      ],
+      "union": [
+        3802,
+        3802,
+        3802,
+        3801,
+        3801,
+        3801
+      ],
+      "iou": [
+        0.957127827459232,
+        0.957127827459232,
+        0.957127827459232,
+        0.9573796369376479,
+        0.9573796369376479,
+        0.9573796369376479
+      ],
+      "changed_pixels": 1,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 1,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    },
+    {
+      "view": 23,
+      "theta": 6.021385919380437,
+      "phi": -0.5,
+      "intersection": [
+        3056,
+        3056,
+        3056,
+        3056,
+        3056,
+        3056
+      ],
+      "union": [
+        3196,
+        3196,
+        3196,
+        3196,
+        3196,
+        3196
+      ],
+      "iou": [
+        0.9561952440550688,
+        0.9561952440550688,
+        0.9561952440550688,
+        0.9561952440550688,
+        0.9561952440550688,
+        0.9561952440550688
+      ],
+      "changed_pixels": 0,
+      "baseline_ambiguous_pixels": 0,
+      "comparisons": {
+        "3": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "4": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ],
+        "5": [
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          },
+          {
+            "lost_tp": 0,
+            "gained_tp": 0,
+            "gained_fp": 0,
+            "removed_fp": 0,
+            "new_internal_hole_pixels": 0,
+            "removed_internal_hole_pixels": 0
+          }
+        ]
+      }
+    }
+  ],
+  "raw_iou": [
+    0.9606576095811921,
+    0.9606576095811921,
+    0.9606576095811921,
+    0.9606160200680671,
+    0.9606160200680671,
+    0.9606160200680671
+  ],
+  "changed_view_pixels": 9,
+  "material_ids": [
+    22157,
+    25616,
+    28960,
+    39005,
+    56235,
+    69280,
+    254638,
+    290940,
+    292549
+  ],
+  "material_cohorts": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "cohort_labels": [
+    "start_pinned",
+    "start_arrived_free",
+    "remaining_free"
+  ],
+  "endpoint_hole_frac_160": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "baseline_masks_identical": true,
+  "exact_count_mask_parity": true,
+  "recorded_iou_closure": true,
+  "histogram_gate": {
+    "graph_capture_replay_exact": true,
+    "edge_empty_checks": true,
+    "wall_seconds": {
+      "legacy": [
+        0.0012746481224894524,
+        0.001072349026799202,
+        0.0010634390637278557,
+        0.0010719981510192156,
+        0.0010445090010762215,
+        0.0010607289150357246
+      ],
+      "fixed": [
+        0.0005749599076807499,
+        0.0005528188776224852,
+        0.0005665291100740433,
+        0.0005511501803994179,
+        0.0005692499689757824,
+        0.0005597490817308426
+      ]
+    },
+    "scope": "Warmed histogram helper only; projection, I/O, MPM and raster extension excluded"
+  },
+  "protocol_sha256": "04f7b05b54cb8aecb0a7acd14fc245da8294cfcc788e4c0fae59222e1313d8e3",
+  "sidecars": {
+    "pixels.npz": "a4e3406891d5aba9ca4cfe78900be13f637090a83fd8ef85202a032081bebf8d"
+  },
+  "inputs_code_unchanged": true,
+  "scope": "Post-hoc saved endpoint mask/supplier localization; not all-phase or visible-hole certification",
+  "rendering": {
+    "role": "Inherited P314 only; no rendering intervention",
+    "lambda_render": 0.022316043302899786,
+    "evidence": {
+      "definitions": "Observational optimizer telemetry, not causal attribution. Norm shares exclude post-combination transforms and transport addends. Compare matched raw trajectories with render disabled for causal evidence. Image losses do not certify physical holes/rest.",
+      "discretization": {
+        "N": 300000,
+        "T": 20,
+        "dt": 0.004166666666666667,
+        "dx_wu": 0.3062907543956724,
+        "loss_res": 36,
+        "render_res": 64,
+        "iters": 8
+      },
+      "render": {
+        "lambda_auto": 0.5,
+        "surface_gs_loss": false,
+        "surface_gs_weight": null,
+        "detail_height": null
+      },
+      "windows": 20,
+      "raw_history_rows": 20,
+      "committed_windows": 20,
+      "inner_accepted_steps": 160,
+      "recorded_inner_steps": 160,
+      "recorded_committed_steps": 160,
+      "steps_in_committed_windows": 160,
+      "step_nominal_share": {
+        "count": 160,
+        "minimum": 0.3212886336687813,
+        "median": 0.49058803756967617,
+        "maximum": 0.6549316588959669
+      },
+      "first_iteration_nominal_share": {
+        "count": 20,
+        "minimum": 0.3212886342857898,
+        "median": 0.439488999838471,
+        "maximum": 0.5620769621651812
+      },
+      "adaptive_lambda": {
+        "count": 20,
+        "minimum": 0.022316043302899786,
+        "median": 0.06160799478709707,
+        "maximum": 0.30863987157822065
+      },
+      "observed_render_loss_change": {
+        "count": 160,
+        "minimum": -0.02313474379479885,
+        "median": -0.00012965057976543903,
+        "maximum": 0.0015367399901151657
+      },
+      "endpoint_optimizer_change_rms_wu": {
+        "count": 160,
+        "minimum": 0.0011690413812175393,
+        "median": 0.005344913573935628,
+        "maximum": 0.16976302862167358
+      },
+      "channels": {
+        "body": {
+          "nominal_share": {
+            "count": 160,
+            "minimum": 0.19005245019465844,
+            "median": 0.3597391126968137,
+            "maximum": 0.4893757719918438
+          },
+          "control_delta_norm": {
+            "count": 160,
+            "minimum": 1.3739337921142578,
+            "median": 4.427515506744385,
+            "maximum": 51.71421813964844
+          }
+        },
+        "stress": {
+          "nominal_share": {
+            "count": 160,
+            "minimum": 0.18689604928006442,
+            "median": 0.5495684572131356,
+            "maximum": 0.7782184355915268
+          },
+          "control_delta_norm": {
+            "count": 160,
+            "minimum": 0.24383488297462463,
+            "median": 1.3786203861236572,
+            "maximum": 46.589725494384766
+          }
+        },
+        "surface_u": {
+          "nominal_share": {
+            "count": 160,
+            "minimum": 0.4524097405610082,
+            "median": 0.7273925647616277,
+            "maximum": 0.9499977491335755
+          },
+          "control_delta_norm": {
+            "count": 160,
+            "minimum": 0.06735965609550476,
+            "median": 0.15064366161823273,
+            "maximum": 0.7188281416893005
+          }
+        }
+      },
+      "last_committed_surface_components": null,
+      "causal_render_ablation": "not measured by this report"
+    }
+  }
+}

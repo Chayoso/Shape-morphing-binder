@@ -1,0 +1,40 @@
+"""Read-only P315 input/source hashes and localized position ownership."""
+import hashlib,json,os
+from pathlib import Path
+from datetime import datetime,timezone
+import numpy as np
+base=Path('/data/relcfd/chayo/physmorph_v2');os.chdir(base)
+run=base/'work/p303/silhouette_pixels1'
+def sha(path):
+    h=hashlib.sha256()
+    with path.open('rb') as f:
+        for b in iter(lambda:f.read(8<<20),b''):h.update(b)
+    return h.hexdigest()
+def stat(p):
+    s=p.stat();return dict(dev=s.st_dev,ino=s.st_ino,size=s.st_size,mtime_ns=s.st_mtime_ns)
+rb=(run/'result.json').read_bytes();pb=(run/'protocol.json').read_bytes()
+r=json.loads(rb);p=json.loads(pb)
+assert hashlib.sha256(rb).hexdigest()=='84ce8c4c5f08cf93e0ee80cbbd8314839599a44b9744ff19581812b974247728'
+assert hashlib.sha256(pb).hexdigest()==r['protocol_sha256']=='04f7b05b54cb8aecb0a7acd14fc245da8294cfcc788e4c0fae59222e1313d8e3'
+items={**p['inputs'],**p['code'],str(run/'result.json'):hashlib.sha256(rb).hexdigest(),str(run/'protocol.json'):r['protocol_sha256'],str(run/'pixels.npz'):r['sidecars']['pixels.npz']}
+rows=[]
+for name,want in items.items():
+    path=Path(name);assert path.resolve().is_relative_to(base)
+    before=stat(path);actual=sha(path);assert before==stat(path) and actual==want,name
+    rows.append(dict(path=name,sha256=actual,**before))
+folder=base/'work/p303/support_repair1/support_repair'
+with np.load(run/'pixels.npz',allow_pickle=False) as z:
+    ids=z['material_ids'];pos=z['material_positions'];cohort=z['material_cohorts'];target=z['target']
+for i,name in enumerate(p['endpoint_order']):
+    with np.load(folder/name,allow_pickle=False) as z:
+        raw=z['x'] if 'x' in z else z['positions'][-1]
+        assert np.array_equal(raw[ids],pos[i]),name
+with np.load(folder/'live_window.npz',allow_pickle=False) as z:
+    manifest=json.loads(z['manifest'].tobytes())['items']['observations']['items']
+    pins=z[manifest['pins']['key']];arr=z[manifest['start_arrived']['key']]
+    assert np.array_equal(np.where(pins[ids],0,np.where(arr[ids],1,2)),cohort)
+    assert np.array_equal(z[manifest['target']['key']],target)
+for row in rows:
+    assert stat(Path(row['path']))=={k:row[k] for k in ('dev','ino','size','mtime_ns')}
+out=dict(passed=True,read_only=True,no_forward=True,no_gpu=True,utc=datetime.now(timezone.utc).isoformat(),result_sha256=hashlib.sha256(rb).hexdigest(),protocol_sha256=hashlib.sha256(pb).hexdigest(),source_count=len(p['code']),input_count=len(p['inputs']),file_count=len(rows),localized_material_count=len(ids),all_six_source_positions_exact=True,cohort_and_full_target_exact=True,rows=rows)
+print(json.dumps(out,indent=2,allow_nan=False))

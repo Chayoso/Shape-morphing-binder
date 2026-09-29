@@ -1,0 +1,313 @@
+{
+  "passed": true,
+  "result_sha256": "84ce8c4c5f08cf93e0ee80cbbd8314839599a44b9744ff19581812b974247728",
+  "protocol_sha256": "04f7b05b54cb8aecb0a7acd14fc245da8294cfcc788e4c0fae59222e1313d8e3",
+  "pixels_sha256": "a4e3406891d5aba9ca4cfe78900be13f637090a83fd8ef85202a032081bebf8d",
+  "code": [
+    {
+      "path": "scripts/probes/silhouette_pixels.py",
+      "sha256": "47bffe95ba425d3adbc72fa50355e0969ab8a589be74d4df5e68ffc76782decc",
+      "verification": "exact Git blob"
+    },
+    {
+      "path": "scripts/probes/coverage_paths.py",
+      "sha256": "e0d6f696337268a9714366d46163db732dd583fd1a9b63965204f6824407b36e",
+      "verification": "exact Git blob"
+    },
+    {
+      "path": "physmorph/metric_splat.py",
+      "sha256": "3a85ff21ca6990f0657415c546430220e66764a050958764136bc44457f81de6",
+      "verification": "exact Git blob"
+    },
+    {
+      "path": "physmorph/metrics.py",
+      "sha256": "c5820db406fe8a8e22446c4954cc6e618a0c3545da40c81c2d2beeda59c5c809",
+      "verification": "exact local executed hash, Git newline-only equivalent"
+    },
+    {
+      "path": "physmorph/compute.py",
+      "sha256": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+      "verification": "exact local executed hash, Git newline-only equivalent"
+    },
+    {
+      "path": "physmorph/pipeline/render_loss.py",
+      "sha256": "5c8cff5d12a87c025062072615bdad85e4c9bc68dae9b4aeba68e904fc22f6b8",
+      "verification": "exact local executed hash, Git newline-only equivalent"
+    },
+    {
+      "path": "docs/silhouette_pixels_p315.md",
+      "sha256": "8bcba504aaeaa7da4029a363920b5de954005c703b36758ceb8d94ab90729cb9",
+      "verification": "exact Git blob"
+    },
+    {
+      "path": "scripts/ops/run_p303_probe.sh",
+      "sha256": "a1cca6914241c10ad432db71a5e38bff72a12daedce0a31468dbabfb2a4243cc",
+      "verification": "exact Git blob"
+    },
+    {
+      "path": "scripts/ops/cuda_python.py",
+      "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc",
+      "verification": "exact Git blob"
+    }
+  ],
+  "input_bindings_checked": 9,
+  "masks_counts": true,
+  "intersection_union": true,
+  "CSR_consistency": true,
+  "localized_small_position_projection": true,
+  "full_cloud_projection_recomputed": false,
+  "baseline_masks_identical": true,
+  "three_candidate_masks_identical": true,
+  "changed_view_pixels": 9,
+  "changed_views": 8,
+  "material_count": 9,
+  "all_suppliers_start_arrived_free": true,
+  "transitions": {
+    "3": {
+      "lost_tp": 5,
+      "gained_tp": 1,
+      "gained_fp": 1,
+      "removed_fp": 2,
+      "new_internal_hole_pixels": 0,
+      "removed_internal_hole_pixels": 0
+    },
+    "4": {
+      "lost_tp": 5,
+      "gained_tp": 1,
+      "gained_fp": 1,
+      "removed_fp": 2,
+      "new_internal_hole_pixels": 0,
+      "removed_internal_hole_pixels": 0
+    },
+    "5": {
+      "lost_tp": 5,
+      "gained_tp": 1,
+      "gained_fp": 1,
+      "removed_fp": 2,
+      "new_internal_hole_pixels": 0,
+      "removed_internal_hole_pixels": 0
+    }
+  },
+  "internal_holes_128": 18,
+  "raw_iou": [
+    0.9606576095811921,
+    0.9606576095811921,
+    0.9606576095811921,
+    0.9606160200680671,
+    0.9606160200680671,
+    0.9606160200680671
+  ],
+  "reported_two_view160_holes": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "timing_medians_s": {
+    "legacy": 0.0010677186073735356,
+    "fixed": 0.0005631390959024429
+  },
+  "timing_ratio": 1.8960122199693714,
+  "records": [
+    {
+      "view": 8,
+      "pixel": [
+        34,
+        80
+      ],
+      "target": true,
+      "suppliers": [
+        [
+          28960
+        ],
+        [
+          28960
+        ],
+        [
+          28960
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "view": 9,
+      "pixel": [
+        35,
+        86
+      ],
+      "target": true,
+      "suppliers": [
+        [
+          39005
+        ],
+        [
+          39005
+        ],
+        [
+          39005
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "view": 10,
+      "pixel": [
+        56,
+        85
+      ],
+      "target": true,
+      "suppliers": [
+        [
+          292549
+        ],
+        [
+          292549
+        ],
+        [
+          292549
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "view": 10,
+      "pixel": [
+        66,
+        83
+      ],
+      "target": false,
+      "suppliers": [
+        [],
+        [],
+        [],
+        [
+          69280
+        ],
+        [
+          69280
+        ],
+        [
+          69280
+        ]
+      ]
+    },
+    {
+      "view": 13,
+      "pixel": [
+        65,
+        86
+      ],
+      "target": true,
+      "suppliers": [
+        [
+          290940
+        ],
+        [
+          290940
+        ],
+        [
+          290940
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "view": 14,
+      "pixel": [
+        75,
+        92
+      ],
+      "target": true,
+      "suppliers": [
+        [],
+        [],
+        [],
+        [
+          25616
+        ],
+        [
+          25616
+        ],
+        [
+          25616
+        ]
+      ]
+    },
+    {
+      "view": 20,
+      "pixel": [
+        95,
+        97
+      ],
+      "target": true,
+      "suppliers": [
+        [
+          254638
+        ],
+        [
+          254638
+        ],
+        [
+          254638
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "view": 21,
+      "pixel": [
+        92,
+        88
+      ],
+      "target": false,
+      "suppliers": [
+        [
+          56235
+        ],
+        [
+          56235
+        ],
+        [
+          56235
+        ],
+        [],
+        [],
+        []
+      ]
+    },
+    {
+      "view": 22,
+      "pixel": [
+        70,
+        88
+      ],
+      "target": false,
+      "suppliers": [
+        [
+          22157
+        ],
+        [
+          22157
+        ],
+        [
+          22157
+        ],
+        [],
+        [],
+        []
+      ]
+    }
+  ]
+}

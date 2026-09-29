@@ -44,6 +44,9 @@ def _splat_body(x, res, theta, phi, extent):
     rel = (p + extent) / (2 * extent) * res
     ij = np.floor(rel).astype(np.int64)
     ok = (ij >= 0).all(1) & (ij < res).all(1)
+    if is_cuda_execution():
+        from .metric_splat import fixed_footprint_counts
+        return fixed_footprint_counts(ij, ok, res) > 0
     ij = ij[ok]
     flat = np.zeros(res * res, np.float64)
     for ox in (-1, 0, 1):

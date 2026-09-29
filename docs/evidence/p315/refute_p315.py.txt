@@ -1,0 +1,88 @@
+"""Independent saved-array/report audit; no rollout or full-cloud projection."""
+from pathlib import Path
+import hashlib,json,subprocess,statistics
+import numpy as np
+from scipy.ndimage import binary_fill_holes
+
+base=Path('C:/dev/physmorph_runtime/p303/silhouette_pixels1')
+repo=Path('C:/dev/Shape-morphing-binder')
+sha=lambda b:hashlib.sha256(b).hexdigest()
+rb=(base/'result.json').read_bytes();pb=(base/'protocol.json').read_bytes()
+r=json.loads(rb);p=json.loads(pb)
+assert sha(pb)==r['protocol_sha256']
+assert sha((base/'pixels.npz').read_bytes())==r['sidecars']['pixels.npz']
+oldroot=base.parent/'support_repair1'
+rr=json.loads((oldroot/'result.json').read_bytes())
+remote=json.loads((oldroot/'remote_file_audit.json').read_bytes())
+prior={x['path']:x['sha256'] for x in remote['rows']}
+for path,h in p['inputs'].items():
+    if path.endswith('/result.json'):assert h==sha((oldroot/'result.json').read_bytes())
+    elif path.endswith('/protocol.json'):assert h==sha((oldroot/'protocol.json').read_bytes())
+    else:assert prior[path]==h
+git_rows=[]
+for path,h in p['code'].items():
+    rel=path.split('/code_silhouette_pixels1/',1)[1]
+    blob=subprocess.check_output(['git','show','fbbd709:'+rel],cwd=repo)
+    if sha(blob)!=h:
+        current=((base/'frozen_metrics.py.txt') if rel=='physmorph/metrics.py' else (repo/rel)).read_bytes()
+        assert sha(current)==h and current.replace(b'\r\n',b'\n')==blob.replace(b'\r\n',b'\n'),rel
+        mode='exact local executed hash, Git newline-only equivalent'
+    else:mode='exact Git blob'
+    git_rows.append(dict(path=rel,sha256=h,verification=mode))
+with np.load(base/'pixels.npz',allow_pickle=False) as z:a={k:z[k] for k in z.files}
+M,C,P,ptr,ids=a['masks'],a['counts'],a['pixels'],a['supplier_ptr'],a['supplier_ids']
+assert M.shape==C.shape==(24,7,128,128) and M.dtype==bool and C.dtype==np.float64
+assert np.isfinite(C).all() and (C>=0).all() and np.equal(C,np.floor(C)).all()
+assert np.array_equal(M,C>0) and (C.sum((2,3))%9==0).all()
+expected_pixels=[];ious=[];totals={str(i):dict(lost_tp=0,gained_tp=0,gained_fp=0,removed_fp=0,new_internal_hole_pixels=0,removed_internal_hole_pixels=0) for i in range(3,6)}
+for v,row in enumerate(r['views']):
+    T=M[v,-1];inter=(M[v,:6]&T).sum((1,2));union=(M[v,:6]|T).sum((1,2))
+    val=inter/union
+    np.testing.assert_array_equal(inter,row['intersection']);np.testing.assert_array_equal(union,row['union'])
+    np.testing.assert_array_equal(val,row['iou']);ious.append(val)
+    changed=np.argwhere((M[v,:6]!=M[v,0]).any(0))
+    assert len(changed)==row['changed_pixels']
+    expected_pixels.extend([v,int(x),int(y)] for x,y in changed)
+    ambiguity=int((M[v,:3]!=M[v,0]).any(0).sum())
+    assert ambiguity==row['baseline_ambiguous_pixels']
+    holes=[binary_fill_holes(m)&~m for m in M[v]]
+    for ci in range(3,6):
+        for bi in range(3):
+            B,Q=M[v,bi],M[v,ci]
+            d=dict(lost_tp=int((B&~Q&T).sum()),gained_tp=int((~B&Q&T).sum()),gained_fp=int((~B&Q&~T).sum()),removed_fp=int((B&~Q&~T).sum()),new_internal_hole_pixels=int((holes[ci]&~holes[bi]).sum()),removed_internal_hole_pixels=int((holes[bi]&~holes[ci]).sum()))
+            assert d==row['comparisons'][str(ci)][bi]
+            if bi==0:
+                for k in d:totals[str(ci)][k]+=d[k]
+np.testing.assert_array_equal(P,expected_pixels)
+assert ptr.shape==(len(P)*6+1,) and ptr[0]==0 and ptr[-1]==len(ids) and (np.diff(ptr)>=0).all()
+mat=a['material_ids'];np.testing.assert_array_equal(np.unique(ids),mat)
+np.testing.assert_array_equal(mat,r['material_ids']);np.testing.assert_array_equal(a['material_cohorts'],r['material_cohorts'])
+assert a['material_positions'].shape==(6,len(mat),3)
+records=[]
+for n,(v,x,y) in enumerate(P):
+    th,ph=a['views'][v]
+    right=np.asarray([np.cos(th),0.,-np.sin(th)],np.float32)
+    up=np.asarray([-np.sin(ph)*np.sin(th),np.cos(ph),-np.sin(ph)*np.cos(th)],np.float32)
+    suppliers=[]
+    for arm in range(6):
+        q=a['material_positions'][arm]
+        rel=(np.stack([q@right,q@up],1)+a['extent'])/(2*a['extent'])*128
+        ij=np.floor(rel).astype(np.int64)
+        want=mat[(ij>=0).all(1)&(ij<128).all(1)&(np.abs(ij-[x,y]).max(1)<=1)]
+        got=ids[ptr[n*6+arm]:ptr[n*6+arm+1]]
+        assert np.array_equal(got,np.unique(got))
+        np.testing.assert_array_equal(got,want)
+        assert bool(len(got))==bool(M[v,arm,x,y])
+        suppliers.append(got.tolist())
+    records.append(dict(view=int(v),pixel=[int(x),int(y)],target=bool(M[v,-1,x,y]),suppliers=suppliers))
+np.testing.assert_allclose(np.mean(ious,0),r['raw_iou'],rtol=0,atol=2*np.finfo(float).eps)
+expected_rows=rr['extension']['baseline']['rows']+[rr['extension']['origin']['terminal_record']]
+for arm,label in [('silhouette','update1_half8_correction0'),('support','update1_half8_correction1')]:
+    expected_rows.append(next(t for t in rr['extension']['arms'][arm]['trials'] if t['label']==label))
+np.testing.assert_allclose(r['raw_iou'],[x['geometry']['sil_iou'] for x in expected_rows],rtol=0,atol=2*np.finfo(float).eps)
+assert r['rendering']['evidence']==rr['render_influence'] and r['rendering']['lambda_render']==rr['lambda_render']
+assert r['histogram_gate']['graph_capture_replay_exact'] and r['histogram_gate']['edge_empty_checks']
+times={k:statistics.median(v) for k,v in r['histogram_gate']['wall_seconds'].items()}
+out=dict(passed=True,result_sha256=sha(rb),protocol_sha256=sha(pb),pixels_sha256=r['sidecars']['pixels.npz'],code=git_rows,input_bindings_checked=len(p['inputs']),masks_counts=True,intersection_union=True,CSR_consistency=True,localized_small_position_projection=True,full_cloud_projection_recomputed=False,baseline_masks_identical=bool((M[:,:3]==M[:,:1]).all()),three_candidate_masks_identical=bool((M[:,3:6]==M[:,3:4]).all()),changed_view_pixels=len(P),changed_views=len(np.unique(P[:,0])),material_count=len(mat),all_suppliers_start_arrived_free=bool((a['material_cohorts']==1).all()),transitions=totals,internal_holes_128=int(sum((binary_fill_holes(m)&~m).sum() for m in M.reshape(-1,128,128))),raw_iou=r['raw_iou'],reported_two_view160_holes=r['endpoint_hole_frac_160'],timing_medians_s=times,timing_ratio=times['legacy']/times['fixed'],records=records)
+(base/'independent_audit.json').write_text(json.dumps(out,indent=2,allow_nan=False))
+print(json.dumps({k:v for k,v in out.items() if k not in ('code','records')},indent=2))

@@ -237,3 +237,10 @@ These are the leading candidates for the unresolved problems, and they are ports
   scalar, saved-control/remainder and endpoint audit passes. See
   `docs/support_repair_p314.md`. P315 localizes archived raw mask changes with
   unchanged metrics; W20 is still not a convergence or full-morph rest test.
+- **P315 status:** archived raw silhouettes differ at9 view-pixels/8views,
+  supplied by9 arrived-free IDs. Origin/control/support masks are identical.
+  No new holes does NOT mean no holes:3 existing internal-hole pixels persist
+  in view14 while the two-view160 metric is0. Fixed-size histogram counts/masks
+  pass168 CUDA cloud/view comparisons and helper graph capture. Its1.896x warm
+  helper speedup is not an end-to-end or host-free runtime claim. See
+  `docs/silhouette_pixels_p315.md`; no physical candidate is promoted.

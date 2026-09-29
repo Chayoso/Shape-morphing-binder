@@ -6,6 +6,22 @@ import torch
 pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason='hyde06 CUDA checks')
 
 
+def test_fixed_metric_footprint_avoids_dynamic_histogram(monkeypatch):
+    from physmorph import metrics
+    from physmorph.compute import cuda_execution, cuda_module, to_array, to_host
+    x = np.random.default_rng(87).uniform(-1.2, 1.2, (400, 3)).astype(np.float32)
+    x[:20] = [-1., -1., 0.]; x[20:40] = [1., 1., 0.]
+    cases = [(x, 16, 0., 0., 1.), (x, 128, .7, -.5, 1.), (x[:0], 8, 0., 0., 1.)]
+    expected = [metrics._splat_body(*args) for args in cases]
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Dynamic CUDA histogram used')
+    with cuda_execution('cuda:0'):
+        monkeypatch.setattr(cuda_module(), 'bincount', forbidden)
+        for (cloud, *args), want in zip(cases, expected):
+            actual = metrics._splat_body(to_array(cloud), *args)
+            np.testing.assert_array_equal(to_host(actual), want)
+
+
 def test_metric_summary_matches_cpu_without_cpu_neighbors(monkeypatch):
     from physmorph import metrics
     import physmorph.compute as compute

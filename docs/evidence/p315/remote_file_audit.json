@@ -1,0 +1,185 @@
+{
+  "passed": true,
+  "read_only": true,
+  "no_forward": true,
+  "no_gpu": true,
+  "utc": "2026-09-29T03:10:56.355194+00:00",
+  "result_sha256": "84ce8c4c5f08cf93e0ee80cbbd8314839599a44b9744ff19581812b974247728",
+  "protocol_sha256": "04f7b05b54cb8aecb0a7acd14fc245da8294cfcc788e4c0fae59222e1313d8e3",
+  "source_count": 9,
+  "input_count": 9,
+  "file_count": 21,
+  "localized_material_count": 9,
+  "all_six_source_positions_exact": true,
+  "cohort_and_full_target_exact": true,
+  "rows": [
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/support_repair/baseline/repeat_0.npz",
+      "sha256": "63617c5c2325bcf67f5f6dcf8544838c1bcf85319e650bd2d6c18bf332ae0f8a",
+      "dev": 38,
+      "ino": 10551302,
+      "size": 93108004,
+      "mtime_ns": 1790650433152947407
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/support_repair/baseline/repeat_1.npz",
+      "sha256": "b4e661a587d1395ee2406239face0ad622d9df3f1b0b6ce5bb2d9b7b509e99f7",
+      "dev": 38,
+      "ino": 10551303,
+      "size": 93107849,
+      "mtime_ns": 1790650436280935732
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/support_repair/baseline/repeat_2.npz",
+      "sha256": "704205e8686db7fd88654c20745b631fb49695f4303ff815a6c60e28f07f0ad1",
+      "dev": 38,
+      "ino": 10551304,
+      "size": 93108006,
+      "mtime_ns": 1790650439400924138
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/support_repair/origin/terminal05_origin_2.npz",
+      "sha256": "c7f26c7f14ba3f9e95d2835da0a142f5bd05db39c9ba4ef1de5b07af2732ec80",
+      "dev": 38,
+      "ino": 10493664,
+      "size": 93122669,
+      "mtime_ns": 1790650449548886790
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/support_repair/silhouette/update1_half8_correction0_endpoint.npz",
+      "sha256": "74a962e1d08fb8cbc08b232859243c20beaf37ca69cb10dd937dc3c81105fd23",
+      "dev": 38,
+      "ino": 10551436,
+      "size": 3382148,
+      "mtime_ns": 1790650469576814665
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/support_repair/support/update1_half8_correction1_endpoint.npz",
+      "sha256": "35bacee389eaf531425043e9dd0a675b2bc81d40e420c6326479285c38cfc710",
+      "dev": 38,
+      "ino": 10551334,
+      "size": 3382164,
+      "mtime_ns": 1790650493720730415
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/support_repair/live_window.npz",
+      "sha256": "f87dde1a3b7a1420d4cb29a69a1f30425dc93f29d53497a7f67eb0453f5285c5",
+      "dev": 38,
+      "ino": 10517155,
+      "size": 382912055,
+      "mtime_ns": 1790650428892963395
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/result.json",
+      "sha256": "6108b1950b13c831baf2dd0391d2200e702a4fb586e72a5af0c1782209d2a24e",
+      "dev": 38,
+      "ino": 10352878,
+      "size": 1578765,
+      "mtime_ns": 1790650499560710466
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/support_repair1/protocol.json",
+      "sha256": "5ad732eb513c11c97c08ee78ae0aa3d0aaa4eea4c1bb0c2730e9fc75a2c28f98",
+      "dev": 38,
+      "ino": 9594168,
+      "size": 32148,
+      "mtime_ns": 1790650058117736566
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/scripts/probes/silhouette_pixels.py",
+      "sha256": "47bffe95ba425d3adbc72fa50355e0969ab8a589be74d4df5e68ffc76782decc",
+      "dev": 38,
+      "ino": 10555782,
+      "size": 12559,
+      "mtime_ns": 1790651088000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/scripts/probes/coverage_paths.py",
+      "sha256": "e0d6f696337268a9714366d46163db732dd583fd1a9b63965204f6824407b36e",
+      "dev": 38,
+      "ino": 10555774,
+      "size": 14998,
+      "mtime_ns": 1790648449000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/physmorph/metric_splat.py",
+      "sha256": "3a85ff21ca6990f0657415c546430220e66764a050958764136bc44457f81de6",
+      "dev": 38,
+      "ino": 10555702,
+      "size": 1303,
+      "mtime_ns": 1790651088000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/physmorph/metrics.py",
+      "sha256": "c5820db406fe8a8e22446c4954cc6e618a0c3545da40c81c2d2beeda59c5c809",
+      "dev": 38,
+      "ino": 10555706,
+      "size": 15196,
+      "mtime_ns": 1790459845000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/physmorph/compute.py",
+      "sha256": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+      "dev": 38,
+      "ino": 10555704,
+      "size": 12411,
+      "mtime_ns": 1790460860000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/physmorph/pipeline/render_loss.py",
+      "sha256": "5c8cff5d12a87c025062072615bdad85e4c9bc68dae9b4aeba68e904fc22f6b8",
+      "dev": 38,
+      "ino": 10555641,
+      "size": 12566,
+      "mtime_ns": 1790005092000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/docs/silhouette_pixels_p315.md",
+      "sha256": "8bcba504aaeaa7da4029a363920b5de954005c703b36758ceb8d94ab90729cb9",
+      "dev": 38,
+      "ino": 10552206,
+      "size": 3375,
+      "mtime_ns": 1790650897000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/scripts/ops/run_p303_probe.sh",
+      "sha256": "a1cca6914241c10ad432db71a5e38bff72a12daedce0a31468dbabfb2a4243cc",
+      "dev": 38,
+      "ino": 10555731,
+      "size": 8198,
+      "mtime_ns": 1790651050000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/code_silhouette_pixels1/scripts/ops/cuda_python.py",
+      "sha256": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc",
+      "dev": 38,
+      "ino": 10555737,
+      "size": 606,
+      "mtime_ns": 1790457824000000000
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_pixels1/result.json",
+      "sha256": "84ce8c4c5f08cf93e0ee80cbbd8314839599a44b9744ff19581812b974247728",
+      "dev": 38,
+      "ino": 10544815,
+      "size": 69725,
+      "mtime_ns": 1790651178735142202
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_pixels1/protocol.json",
+      "sha256": "04f7b05b54cb8aecb0a7acd14fc245da8294cfcc788e4c0fae59222e1313d8e3",
+      "dev": 38,
+      "ino": 10544664,
+      "size": 10535,
+      "mtime_ns": 1790651173931149918
+    },
+    {
+      "path": "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_pixels1/pixels.npz",
+      "sha256": "a4e3406891d5aba9ca4cfe78900be13f637090a83fd8ef85202a032081bebf8d",
+      "dev": 38,
+      "ino": 10544814,
+      "size": 4630779,
+      "mtime_ns": 1790651178391142754
+    }
+  ]
+}

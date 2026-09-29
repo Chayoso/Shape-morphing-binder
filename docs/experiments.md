@@ -9329,3 +9329,23 @@ full result/source/control/remainder audit pass; physical quality does not.
 The optional same-forward full-F export snapshot is implemented/CPU-reviewed
 separately and absent from this frozen run. No adoption path is enabled.
 [Result, evidence and limits](support_repair_p314.md).
+
+## 2026-09-28 - P315: raw silhouette changes localized; GPU histogram gate passes
+
+Archive-only P314 W20,N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8;
+frozen `fbbd709`.24views/res128:168 cloud/view fixed-histogram counts/masks
+exactly match legacy. The three originals have identical masks, and common
+origin/control/support masks are also identical.9 changed pixels across8views
+(TP loss5/gain1, FP gain1/removal2), supplied by9 arrived-free IDs, explain
+the raw IoU failure. No new interior holes, but3 EXISTING internal-hole pixels
+persist at view14 in every endpoint; target0. Two-view160 hole_frac0 does not
+certify the24-view masks or intermediate paths.
+
+The fixed-size scatter helper avoids dynamic histogram/compaction sizes, passes
+CUDA graph capture/replay, and gives1.067719ms ->.563139ms median warmed helper
+wall time (six interleaved measurements), with duplicate/border/empty checks.
+This is not end-to-end acceleration or removal of raster-extension D2H.
+Thirteen independent CPU cases and saved-array/source audit pass; an additional
+dispatcher CPU case passes for subsequent metric integration. No physical
+repair promoted. Rendering is inherited P314 telemetry only.
+[Evidence and scope](silhouette_pixels_p315.md).

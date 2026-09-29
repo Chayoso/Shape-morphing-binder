@@ -43,3 +43,17 @@ def test_invalid_layout_is_rejected():
 def test_offset_unsafe_index_dtypes_are_rejected(dtype):
     with pytest.raises(ValueError):
         fixed_footprint_counts(np.array([[127,127]],dtype=dtype), np.ones(1,bool), 128)
+
+
+def test_metric_dispatch_preserves_masks_without_dynamic_histogram(monkeypatch):
+    from physmorph import metrics
+    rng=np.random.default_rng(87)
+    x=rng.uniform(-1.2,1.2,(400,3)).astype(np.float32)
+    x[:20]=[-1.,-1.,0.];x[20:40]=[1.,1.,0.]  # duplicated border/outside centers
+    cases=[(x,16,0.,0.,1.),(x,128,.7,-.5,1.),(x[:0],8,0.,0.,1.)]
+    expected=[metrics._splat_body(*args) for args in cases]
+    monkeypatch.setattr(metrics,'is_cuda_execution',lambda:True)  # dispatch only; CPU oracle arithmetic
+    def forbidden(*args,**kwargs): raise AssertionError('Dynamic histogram used')
+    monkeypatch.setattr(np,'bincount',forbidden)
+    for args,want in zip(cases,expected):
+        np.testing.assert_array_equal(metrics._splat_body(*args),want)
