@@ -9746,7 +9746,7 @@ per-window balancer, λ 0.134 → 0.004, raw cos −0.14 at W 20. Causal, render
 The render's effect on the settled outcome (+0.018 silIoU, surface error halved, tip +1.4) is 8× the seed spread;
 on the current code it is +0.005 silIoU against a spread of 0.001 and within spread on surface fit and tip.
 (3) Momentum. In the MLS-MPM step the stress term enters P2G as G·(x_i − x_p) with Σ_i w_ip (x_i − x_p) = 0, so
-no control stress changes total linear momentum; the Kirchkoff stress Pe·Feᵀ is symmetric, so angular momentum is
+no control stress changes total linear momentum; the Kirchhoff stress Pe·Feᵀ is symmetric, so angular momentum is
 kept too; drag multiplies momentum by (1 − 0.9 dt) per step (decay, never creation); fragments take their
 neighbours' mean velocity; the layer relaxation and u move positions without velocity. Measured on the 40-step
 rollout: a clip-sized dFc step keeps |P|/Σm|v| at 3e-6 (W 1) / 2e-4 (W 20) and |L|/Σm|r||v| at 3e-4 / 8e-3; the
