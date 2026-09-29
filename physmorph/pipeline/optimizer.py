@@ -2103,6 +2103,21 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 sil_gauss.clear();sil_gauss.update(saved[0])
                 surface_last.clear();surface_last.update(saved[1])
                 tgt.gauss_scale,gx_box[0] = saved[2:]
+        def binding_digest():
+            if not lease[0]:
+                raise RuntimeError('Candidate merit evaluator expired')
+            from .diagnostic_binding import content_digest
+            from dataclasses import fields
+            # The completed OT solver is scratch; its frozen plan/pace target is bound below.
+            target_inputs = {f.name:getattr(tgt,f.name) for f in fields(tgt) if f.name!='ot_pull'}
+            return content_digest(dict(config=cfg,target=target_inputs,unit_weight=wu,lambda_render=fixed_lambda,
+                render_active=bool(balancer.active),target_ot_knn=getattr(tgt,'ot_knn',None),
+                stress=stress,initial_positions=x0_t,pace_grid=pace_grid,
+                silhouettes=sils_eff,shade=shade_eff,pbr_grid=pbr_grid_eff,
+                knn=knn_t,coherence=coh_t,coherence_spacing_squared=coh_sp2,bonds=bond_t,
+                dt_mass=m_dt,dt_indices=dt_idx,nn_indices=nn_idx,nn_eligible=nn_elig,
+                kde_neighbors=kde_nbr,fill_pairs=fill_pairs,fill_lambda=fill_lam,corr_target=corr_chat))
+        evaluate.binding_digest = binding_digest
         return evaluate,lease
 
     def proposal_observer(audit, state, lv, lk, lr, extra, physical, render, transport):

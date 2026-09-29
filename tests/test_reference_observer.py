@@ -76,6 +76,7 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
             with pytest.raises(RuntimeError,match='expired'):
                 expired(values)
         evaluate = packet['evaluate_merit']
+        binding = evaluate.binding_digest()
         merit_evaluators.append(evaluate)
         base_merit = evaluate(values)
         assert base_merit['merit']==base_merit['physical']+base_merit['lambda_render']*base_merit['render']
@@ -110,6 +111,7 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
             with pytest.raises(RuntimeError,match='injected'):
                 evaluate(values)
         assert evaluate(values)==base_merit
+        assert evaluate.binding_digest()==binding
         speed = values['v'].square().mean()+((values['positions'][-1]-values['positions'][-2])/packet['dt']).square().mean()
         derivative, = torch.autograd.grad(speed,terminal)
         assert bool(torch.isfinite(derivative).all()) and float(derivative.norm()) > 0

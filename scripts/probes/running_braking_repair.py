@@ -3,6 +3,8 @@ import math
 import json
 from pathlib import Path
 import sys
+from dataclasses import dataclass
+from hashlib import sha256
 
 import numpy as np
 import torch
@@ -11,13 +13,58 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from physmorph.compute import to_host,cuda_execution
 from physmorph.pipeline.affine_braking import affine_ball_step,projected_affine_check,geometric_running,observed_remainder
 from physmorph.pipeline.frozen_body_window import project_terminal
+from physmorph.pipeline.diagnostic_binding import content_digest
 from scripts.probes.inner_budget import summarize
 from scripts.probes.reference_swap import require,sha
 from scripts.probes.terminal_braking import main,assess_candidates,finite_scalar
 from scripts.probes.live_braking_compensation import LiveCompensation,identity_evidence
 
 
-def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtracking=False):
+def repair_context(model,packet,source,target):
+    evaluator = packet.get('evaluate_merit')
+    return content_digest(dict(model={k:getattr(model,k,None) for k in
+        ('spec','idx','weights','gate','coefficients','stress','surface_u')},
+        observation={k:packet.get(k) for k in ('reference','x0','positions','V','F','pins','plan',
+            'start_arrived','arrival_radius','lambda_render','dt','history','controls')},
+        source=source,target=target,merit_binding=None if evaluator is None else evaluator.binding_digest()))
+
+
+@dataclass(frozen=True)
+class SharedRepairBaseline:
+    """Only immutable bytes/tuples; each arm receives independently decoded copies."""
+    payload: bytes
+    arrays: tuple
+    context: str
+
+    @classmethod
+    def capture(cls,rows,base_C,coefficients,sidecars,context):
+        arrays = []
+        for key,value in (('C',base_C),('coefficients',coefficients)):
+            array = np.ascontiguousarray(to_host(value))
+            arrays.append((key,str(array.dtype),tuple(array.shape),array.tobytes()))
+        data = dict(rows=rows,sidecars=sidecars,
+            ceilings={k:max(r['data'][k] for r in rows) for k in ('volume','render')},
+            merit_ceiling=max(r['original_merit']['merit'] for r in rows))
+        return cls(json.dumps(data,sort_keys=True,allow_nan=False).encode(),tuple(arrays),context)
+
+    def decode(self):
+        return json.loads(self.payload)
+
+    def tensor(self,key,device):
+        for name,dtype,shape,data in self.arrays:
+            if name==key:
+                return torch.tensor(np.frombuffer(data,dtype=dtype).reshape(shape).copy(),device=device)
+        raise KeyError(key)
+
+    def digest(self):
+        digest = sha256(self.payload+self.context.encode())
+        for key,dtype,shape,data in self.arrays:
+            digest.update(json.dumps([key,dtype,shape]).encode());digest.update(data)
+        return digest.hexdigest()
+
+
+def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtracking=False,
+           shared_baseline=None,baseline_only=False,selected_terminal=None,terminal_label='terminal05'):
     """Use the caller-owned live model; never load, close or commit it here."""
     reference = packet['reference']
     require(correction_rounds in (0,2),'Unregistered correction budget')
@@ -25,12 +72,24 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
     rows,trials,sidecars = [],[],{}
     d0 = model.coefficients[:,:3].detach().clone()
     b0 = model.coefficients[:,3:].detach().clone()
-    brake = packet['trial05_terminal'].detach().clone()
+    selected_terminal = packet['trial05_terminal'] if selected_terminal is None else selected_terminal
+    brake = selected_terminal.detach().clone()
     target_x = packet['positions'][-1].detach().clone()
     dx = model.spec.prm.dx
     base_C = None
     arrived = packet['start_arrived'] & ~packet['pins']
     require(bool(arrived.any()),'No start-arrived-free cohort')
+    require(not baseline_only or (shared_baseline is None and 'evaluate_merit' in packet),
+            'Shared baseline construction requires the original-merit evaluator')
+    context = repair_context(model,packet,source,target) if baseline_only or shared_baseline is not None else None
+    if shared_baseline is not None:
+        require(context==shared_baseline.context,'Shared baseline context changed')
+        require(torch.equal(model.coefficients,shared_baseline.tensor('coefficients',d0.device)),
+                'Original coefficients changed between paired arms')
+        shared = shared_baseline.decode()
+        rows = shared['rows']
+        base_C = shared_baseline.tensor('C',d0.device)
+        shared_digest = shared_baseline.digest()
 
     def running(values):
         return geometric_running(values['positions'],packet['x0'],packet['dt'],arrived)
@@ -48,6 +107,18 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
             data = reference.terms(values['x'])
             record['data'] = {k:float(v) for k,v in data.items()}
             record['data']['weighted_render'] = packet['lambda_render']*record['data']['render']
+            if 'evaluate_merit' in packet:
+                merit = packet['evaluate_merit'](values)
+                require(merit['merit']==merit['physical']+merit['lambda_render']*merit['render'],
+                        'Original scalar recombination changed')
+                eps = 32*torch.finfo(d0.dtype).eps
+                for key in ('volume','render'):
+                    require(abs(merit[key]-record['data'][key])<=eps*max(abs(record['data'][key]),1e-12),
+                            'Original/prepared data disagree: '+key)
+                record['original_merit'] = merit
+                record['accepted_history_merit_delta'] = merit['merit']-packet['history']['loss']
+                if shared_baseline is not None:
+                    record['original_merit_nonincrease'] = merit['merit']<=shared['merit_ceiling']
             synthetic = dict(packet,positions=values['positions'],V=values['V'],F=values['F'])
             summary = summarize(type('One',(),{'packets':{8:synthetic}})(),source,target)
             record.update(motion=summary['rows'][0]['motion'],geometry=summary['rows'][0]['geometry'],
@@ -61,8 +132,21 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
             sidecars[path.name] = sha(path)
         return record
 
+    def invalid_arm(values,label):
+        rows.append(measure(values,label,d0,brake,True))
+        assess_candidates(rows,d0.dtype)
+        require(shared_baseline.digest()==shared_digest and repair_context(model,packet,source,target)==context,
+                'Shared baseline/context changed during invalid arm')
+        return dict(rows=rows,trials=trials,accepted_running_updates=0,sidecars=sidecars,
+                    invalid_selected_terminal=True,invalid_phase=label,
+                    data_ceilings=shared['ceilings'],lambda_render=packet['lambda_render'],
+                    running_replay_noise=None,correction_rounds=correction_rounds,
+                    quality_backtracking=quality_backtracking,terminal_label=terminal_label,
+                    shared_baseline_sha256=shared_digest,original_merit_ceiling=shared['merit_ceiling'],
+                    fixed_candidate_replays=[],repeated_feasible=False)
+
     with torch.no_grad():
-        for i in range(3):
+        for i in range(3 if shared_baseline is None else 0):
             values = model.evaluate(b0,d0)
             eps = 32*torch.finfo(d0.dtype).eps
             accepted_closure = {}
@@ -80,17 +164,28 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                 require(ratio<=1.,'Standalone baseline data differs: '+key)
             if base_C is None: base_C = values['C'].clone()
             record = measure(values,'repeat',d0,b0,True)
+            if 'original_merit' in record:
+                expected = packet['history']['loss']
+                ratio = abs(record['original_merit']['merit']-expected)/(eps*max(abs(expected),1e-12))
+                accepted_closure['original_merit'] = ratio
+                require(ratio<=1.,'Original merit baseline does not close accepted scalar')
             record['accepted_closure'] = accepted_closure
             require(record['valid'],'Invalid loaded baseline')
             rows.append(record)
+        if baseline_only:
+            require(repair_context(model,packet,source,target)==context,'Context changed while preparing baseline')
+            return SharedRepairBaseline.capture(rows,base_C,model.coefficients,sidecars,context)
         brake_errors = []
         for i in range(3):
             values = model.evaluate(brake,d0)
+            if not values['valid'] and shared_baseline is not None:
+                return invalid_arm(values,terminal_label+'_invalid_repeat'+str(i))
             require(values['valid'],'Invalid selected terminal brake')
             brake_errors.append(float(running(values)))
-        rows.append(measure(values,'terminal05',d0,brake,True))
+        rows.append(measure(values,terminal_label,d0,brake,True))
     measured_noise = max(brake_errors)-min(brake_errors)
-    ceilings = {k:max(r['data'][k] for r in rows[:3]) for k in ('volume','render')}
+    ceilings = (shared['ceilings'] if shared_baseline is not None else
+                {k:max(r['data'][k] for r in rows[:3]) for k in ('volume','render')})
     displacement = d0.clone()
     trust = packet['history']['body_update_modes_rms'][0]
     require(trust>0,'No original displacement trust step')
@@ -101,6 +196,8 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
         with torch.enable_grad():
             leaf = displacement.detach().clone().requires_grad_()
             values = model.evaluate(brake,leaf)
+            if not values['valid'] and shared_baseline is not None:
+                return invalid_arm(values,terminal_label+'_invalid_linearization')
             require(values['valid'],'Invalid current running-repair state')
             objective = running(values)
             terms = reference.terms(values['x'])
@@ -187,10 +284,16 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
             if found: break
         if not found or replay_checked: break
     assess_candidates(rows,displacement.dtype)
-    require(torch.equal(brake,packet['trial05_terminal']),'Terminal coefficient changed')
+    require(torch.equal(brake,selected_terminal),'Terminal coefficient changed')
+    if shared_baseline is not None:
+        require(shared_baseline.digest()==shared_digest and repair_context(model,packet,source,target)==context,
+                'Shared baseline/context changed during paired arm')
     return dict(rows=rows,trials=trials,accepted_running_updates=accepted,sidecars=sidecars,
                 running_replay_noise=measured_noise,data_ceilings=ceilings,lambda_render=packet['lambda_render'],
                 correction_rounds=correction_rounds,quality_backtracking=quality_backtracking,
+                terminal_label=terminal_label,
+                shared_baseline_sha256=None if shared_baseline is None else shared_digest,
+                original_merit_ceiling=None if shared_baseline is None else shared['merit_ceiling'],
                 fixed_candidate_replays=fixed_candidate_replays,
                 repeated_feasible=replay_checked and all(r['feasible'] and r['running_decrease_resolved']
                                                          for r in fixed_candidate_replays))

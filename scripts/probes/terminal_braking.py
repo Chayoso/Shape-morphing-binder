@@ -118,6 +118,8 @@ class Capture:
                               rejection_reason=None if values['valid'] else 'Raw finite/bounds/orientation/pin gate failed',
                               coefficient_delta_rms=float((candidate-base).square().sum(-1).mean().sqrt()))
                 if values['valid']:
+                    if 'evaluate_merit' in packet:
+                        record['original_merit'] = packet['evaluate_merit'](values)
                     terms = packet['reference'].terms(values['x'])
                     record['data'] = {key:float(v) for key,v in terms.items()}
                     record['data']['weighted_render'] = packet['lambda_render']*record['data']['render']
@@ -140,7 +142,8 @@ class Capture:
     def wrap(self,original):
         def wrapped(*args,**kwargs):
             if kwargs['win_index']==19:
-                return original(*args,on_checkpoint=self.observe,checkpoint_iterations=(8,),checkpoint_rollout=True,**kwargs)
+                return original(*args,on_checkpoint=self.observe,checkpoint_iterations=(8,),checkpoint_rollout=True,
+                                checkpoint_merit=getattr(self,'record_candidate_merit',False),**kwargs)
             return original(*args,**kwargs)
         return wrapped
 

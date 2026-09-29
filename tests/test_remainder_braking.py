@@ -1,5 +1,6 @@
 """Analytic curved-data callback checks, without a simulation or renderer."""
 from types import SimpleNamespace
+from dataclasses import dataclass
 
 import numpy as np
 import pytest
@@ -20,8 +21,9 @@ def test_remainder_uses_actual_projected_step_and_frozen_origin():
         observed_remainder(actual*float('inf'),origin,G,delta)
 
 
+@dataclass
 class CurvedReference:
-    pbr_weight = 0.
+    pbr_weight: float = 0.
 
     def terms(self,x):
         a,b,c = x[0]

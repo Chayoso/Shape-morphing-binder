@@ -1,6 +1,7 @@
 # P311: paired terminal-strength comparison with original-merit reporting
 
-Status: preregistered design; driver not implemented or launched yet.
+Status: driver implemented; CPU checks and independent implementation review
+passed; fresh CUDA run pending. No candidate has been adopted.
 P310 exhausts its same-origin displacement schedule without a joint feasible
 candidate. Its fixed terminal05 already introduces a prepared-volume deficit.
 The existing preliminary terminal025 has a smaller deficit but is not uniformly
@@ -59,3 +60,33 @@ Do not add separate silhouette/PBR constraints in this experiment. Their
 opposing changes are informative, but P309 also shows increased prepared
 silhouette with improved raw IoU. The existing evidence does not isolate
 component compensation as the cause of raw quality loss.
+
+Implementation: `scripts/probes/paired_braking_repair.py` builds one
+`SharedRepairBaseline` whose records and original coefficients/C are owned
+bytes. Each arm decodes independent records and tensors. Content hashes bind
+the numerical spec, fixed controls/basis/gate, actual accepted history/state,
+cohort masks, references, source/target and the original objective's prepared
+inputs, lambda and unit weight before/after both arms. Finished OT solver
+scratch and mutable adjoints are excluded; the actual frozen plan/pace target
+is included. Hashing copies data to the host for evidence I/O only.
+
+An invalid selected-terminal forward is retained as a failed arm; the other
+arm still runs. Baseline failure or context mutation aborts the comparison.
+Both successful and failed arms preserve their own artifacts and report-only
+merit labels. Preliminary terminal candidates also report original merit.
+
+Local validation: four paired diagnostic cases plus four existing remainder
+cases pass, including immutable package ownership, actual context changes,
+both-arm execution after first-arm success/invalidity and deliberate original
+merit worsening that cannot alter the P306 selection. Two actual Warp-CPU
+observer cases (layer off/on) pass merit closure, callback isolation, expired
+lease rejection, injected evaluation failure and stable numerical bindings.
+The related ten body-control, two prepared-reference and fourteen affine
+operator cases also pass (36 focused cases total). Compile and whitespace
+checks pass. These checks do not substitute for CUDA baseline closure or
+physical quality.
+
+Independent review reran the eight paired/remainder cases and found no blocker
+for the recorded raw recipe. Its completeness note is addressed by binding the
+actual render-balancer active flag and dynamic target OT neighbors in addition
+to the config/prepared inputs. Review approval covers diagnostic execution only.
