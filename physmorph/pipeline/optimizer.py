@@ -30,7 +30,7 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_density, d_w1,
+from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_nn_band_current, d_vol, d_vol_density, d_w1,
                                  deficit_field, gather_cic, isolation_gate, kde_assign,
                                  nn_band_assign, rasterize_mass, w1_budget)
 from ..mpm.constitutive import lame
@@ -91,6 +91,9 @@ class TargetPack:
     unit_grad_ratio: float = 1.0        #   |grad D_vol(legacy)|/|grad D_vol(density)| at
                                         #   the source — converts the gradient-magnitude
                                         #   constants (Adam eps, target_norm, noise floor)
+    settled_scale: tuple[float, bool] | None = None  # effective lambda and cap status, per target resolution
+    settled_step: float | None = None  # accepted step before outer annealing; reset with the target
+    support: object | None = None  # fixed-target, opt-in local particle-support objective
 
 
 # ---- per-window timing (PHYSMORPH_TIMING=1): device syncs at the section boundaries ----
@@ -124,6 +127,17 @@ def _norm(gs) -> float:
 
 def _finite(tensors) -> bool:
     return all(bool(torch.isfinite(t).all()) for t in tensors)
+
+
+def _velocity_variance(V, split=None):
+    """Legacy variance, or active fluctuations plus released kinetic cost."""
+    if split is None:
+        # Preserve the legacy arithmetic exactly.
+        return (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()
+    # Driven motion may have a nonzero mean. Released motion should approach
+    # zero, not its own mean: centering both phases hides coherent free drift.
+    return ((V[:split] - V[:split].mean(0)).square().sum()
+            + V[split:].square().sum()) / (V.shape[0] * V.shape[1])
 
 
 def _pcgrad(gp, gr):
@@ -209,12 +223,23 @@ def _state_ok(state) -> bool:
     a pulled particle compresses through zero for one step and recovers by T)."""
     if not _finite(state[:3]):
         return False
+    if len(state) > 4 and not state[4]:
+        return False
     FT = state[1]
     if not bool((torch.linalg.det(FT.view(-1, 3, 3)) > 0).all()):
         return False
     if len(state) > 3 and state[3] is not None:
         return state[3] > 1e-4      # margin above the float32 det noise floor
     return True                     # dets like 1e-12 with exploding F^-T
+
+
+def _positions_in_domain(x: torch.Tensor, prm: MPMParams) -> bool:
+    """Every physical frame must fit the runner's two-cell safety margin."""
+    origin = np.asarray(prm.grid_min, np.float32)
+    far = origin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
+    lo = x.new_tensor(origin + 2 * prm.dx)
+    hi = x.new_tensor(far - 2 * prm.dx)
+    return bool((torch.isfinite(x) & (x >= lo) & (x <= hi)).all())
 
 
 def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
@@ -233,8 +258,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     step's velocity; grid smoothing may be Chebyshev-accelerated and covers the F
     covector; the physics/render composite follows cfg.grad_project_mode."""
     dev = cfg.device
+    if cfg.ot_grid and (cfg.phys_loss != 'ot_pace' or not cfg.ot_debias):
+        raise ValueError('ot_grid requires debiased ot_pace transport')
+    if cfg.solver_mode not in ("legacy", "settled_transport"):
+        raise ValueError(f"unknown solver_mode {cfg.solver_mode!r}")
+    use_settled = cfg.solver_mode == 'settled_transport'
     x0 = np.ascontiguousarray(x0, np.float32)
-    N, T = x0.shape[0], cfg.T
+    N, T = x0.shape[0], (2 * cfg.T if use_settled else cfg.T)
     lam0, mu0 = lame(cfg.young, cfg.poisson)
     bond_nbr = None
     if cfg.bonds and coh_nbr is not None:
@@ -280,7 +310,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 return (_lw_t * v[_lnbr_t]).sum(1)
         else:
             W_apply = None
-        lfrac = (cfg.layer_frac if cfg.layer_frac > 0 else 1.0 / float(T)) if cfg.layer_relax else 0.0
+        lfrac = (cfg.layer_frac if cfg.layer_frac > 0 else 1.0 / float(cfg.T)) if cfg.layer_relax else 0.0
         layer = (lmask, lnrm, lnbr, lw, float(lfrac))
         if cfg.layer_ctrl and cfg.layer_F:
             # P3 (docs/final_plan.md 2): the u channel through F — the least-squares tangential gradient
@@ -313,10 +343,16 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                   f"{cfg.layer_gate_geom_cells:g} cell(s) of the target surface", flush=True)
     spec = RolloutSpec(x0=x0, m=m_np, lam=lam0, mu=mu0, prm=prm, T=T,
                        F0=F0, Fp=Fp, v0=v0, C0=C0, device=dev, vol0=vol0, Fg0=Fg0,
-                       bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer)
+                       bond_nbr=bond_nbr, bond_rest=bond_rest, bond_frag=bond_frag, layer=layer,
+                       bond_history=cfg.ot_grid, control_steps=cfg.T if use_settled else None,
+                       polar_adjoint=use_settled)
 
-    basis = ControlBasis(x0, T, cfg.control_grid, cfg.control_tknots, device=dev)
+    basis = ControlBasis(x0, cfg.T, cfg.control_grid, cfg.control_tknots, device=dev)
     expand = basis.expand                       # leaf -> (T,N,3,3) control field
+    if use_settled:
+        def expand(leaf):
+            active = basis.expand(leaf)
+            return torch.cat((active, torch.zeros_like(active)), dim=0)
     dFc = basis.zeros()                         # the LEAF (per-particle when grid=0)
     leaves = [dFc]
     use_geom = bool(cfg.render_F_geom)
@@ -332,7 +368,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                          dFc=seq_eval, device=dev, requires_grad=False, vol0=vol0,
                          Fg0=Fg0, track_geom=use_geom, persistent=True,
                          bonds=((bond_nbr, bond_rest, bond_frag) if bond_nbr is not None else None),
-                         layer=layer)
+                         layer=layer, bond_history=cfg.ot_grid,
+                         control_steps=cfg.T if use_settled else None, polar_adjoint=use_settled)
     tr_eval.capture()
     adj_box = [None]                 # PersistentAdjoint, built at the first gradient rollout
 
@@ -354,6 +391,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     unit_grad_ratio = float(tgt.unit_grad_ratio) if cfg.loss_units == "density" else 1.0
     eps_eff = cfg.eps / unit_grad_ratio
     target_norm_eff = cfg.target_norm / unit_grad_ratio
+    loss_floor_eff = 1.0 / unit_ratio
     # every FIXED weight that is added to D_vol is a legacy-unit number: in density mode
     # it is converted by the same ratio, so the objective's relative weighting at the
     # calibration cell is unchanged (the calibrated terms h1/jdens/kde follow dvol()
@@ -448,7 +486,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         # evaluation (warm-started), the differentiated value is the transport cost under
         # the detached plan; rescaled ONCE by gradient-norm parity with D_vol at the source.
         from ..losses.ot import SinkhornPull, target_samples
-        if getattr(tgt, "ot_pull", None) is None:
+        if not cfg.ot_grid and getattr(tgt, "ot_pull", None) is None:
             # blur radius of the plan: the spacing of the SAMPLE sets the plan is computed on
             # (ot_samples particles / ot_samples target points): particle spacing x
             # (N / ot_samples)^(1/3) — the resolution of the estimator, derived from the
@@ -491,11 +529,19 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             tgt.ot_pull.f = None
             tgt.ot_pull.f_cold = True
             tgt.ot_pull._self_pull = None
-        if getattr(cfg, "ot_debias", False):
+        # Spatial resolution sets the new metric; particle subsampling does not.
+        map_eps = ((max(1., cfg.ot_eps_cells) * float(tgt.ldx)) ** 2
+                   if cfg.ot_grid else tgt.ot_pull.eps)
+        if cfg.ot_grid:
+            from ..losses.ot import grid_transport_displacement
+            ot_T = x0_ot + grid_transport_displacement(
+                x0_ot, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims,
+                eps=map_eps, iters=cfg.ot_iters, tol=cfg.ot_tol)
+        elif getattr(cfg, "ot_debias", False):
             ot_T = x0_ot + tgt.ot_pull.debiased_map_displacement(x0_ot, cfg.ot_samples)
         else:
             ot_T = tgt.ot_pull.entropic_map(x0_ot, cfg.ot_samples)
-        leash_r = float(tgt.ot_pull.eps) ** 0.5           # the plan's own resolution
+        leash_r = float(map_eps) ** 0.5                 # the pacing map's own resolution
         # The hole regime (`ot`, e.g. C) uses the debiased map image as it is. The
         # material-kNN smoothing below belongs to the cell-sum regimes: on a target with a
         # hole the map is genuinely discontinuous where the material splits between the
@@ -508,7 +554,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # oscillation, gate stop at ~25 windows). Projected, both terms want the same
             # support; the plan still decides WHICH region a particle belongs to.
             from scipy.spatial import cKDTree
-            if getattr(tgt, "ot_kd", None) is None:
+            if not cfg.ot_grid and getattr(tgt, "ot_kd", None) is None:
                 tgt.ot_kd = cKDTree(np.ascontiguousarray(tgt.points.detach().cpu().numpy(), np.float32))
                 # material neighbourhood for denoising the sampled map: the k particles
                 # inside one blur radius of a particle at the source (k from the blur
@@ -525,7 +571,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # the real bunny); the map of the continuum is smooth, so the displacement is
             # averaged over the material neighbourhood before projection
             disp = (ot_T - x0_ot)
-            disp = disp[tgt.ot_knn].mean(dim=1)
+            if not cfg.ot_grid:
+                disp = disp[tgt.ot_knn].mean(dim=1)
             ot_T = x0_ot + disp
             # Per-particle target variants tried on the 150k C and FALSIFIED (2026-09-17
             # night): (i) a PACED target — each window's target bounded to one pace =
@@ -557,55 +604,58 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # grid except at the ends, the cell sum is blind to the shift, and the transport
             # divergence stalls at 5 % arrived)
             pace_r = max(leash_r, float(tgt.ldx))
-            step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)
-            x_int = (x0_ot + step * disp).detach()
-            # an ARRIVED particle (within one blur radius of its image) contributes its
-            # image projected onto the target point set: the entropic image sits inside
-            # the target (blur), which left the end state fuzzy (150k bunny chamfer 0.098
-            # vs 0.076); on the target support the end target is the target. (Snapping
-            # every paced position that lies on the support instead — d4db68a — killed the
-            # tangential transport where the source overlaps the target: 150k cow silIoU
-            # 0.920 vs 0.944, 104 re-attachments vs 83.)
-            arrived = dn.squeeze(1) <= pace_r
-            if bool(arrived.any()):
-                _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
-                x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
-            pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
-            frac_arrived = float(arrived.float().mean())
-            frac_sup = float("nan")
-            # HAND-OFF to the fixed target: when every target cell that still lacks mass is
-            # within one cell of an occupied cell, the cell sum's gradient (CIC reach: one
-            # cell) already touches every deficit from the body — no far cell can reward a
-            # lone particle — and the fixed target fills the thin features at full strength
-            # (the paced target left them sparse at 150k). Re-evaluated every window.
-            # (FALSIFIED 2026-09-17 oh40_bunny: after the switch the gate rejected 14
-            # candidates and the run stopped at 136 windows with chamfer 0.1279 — changing
-            # the inner objective mid-run reads as a merit regression. Kept opt-in.)
-            if getattr(cfg, "ot_handoff", False):
-                # CELL-WISE hand-off (v2, 2026-09-17 evening): every target cell within one cell
-                # of the occupied set carries the FIXED target mass — the CIC gradient reaches
-                # it from the body, so it is ordinary fill, never a far-cell reward — and every
-                # cell beyond that carries the paced mass (coherent transport toward it). The
-                # global switch (v1: fixed target only once NO deficit cell is far) never
-                # fired on C, whose arm tips stay beyond reach (19 cells) while the arms
-                # under-fill (hole 8 %).
-                m_t = torch.as_tensor(tgt.m, device=dev) if not torch.is_tensor(tgt.m) else tgt.m
-                occ = (rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims) > 0).float()
-                nx_, ny_, nz_ = tgt.ldims
-                occ3 = occ.reshape(1, 1, nx_, ny_, nz_)
-                near = torch.nn.functional.max_pool3d(occ3, 3, stride=1, padding=1).reshape(-1) > 0
-                far_deficit = int(((grid_eff > 0) & ~near).sum())
-                # only DEFICIT cells hand off (target mass above the current occupancy: fill
-                # from the fixed target); EXCESS cells keep the paced mass — on C the cells
-                # around the body are the hole (m_t = 0) and the fixed target there is the
-                # outward runaway push (cd7: silIoU 0.72 again); the pace evacuates them
-                cur_grid = rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims)
-                near_def = near & (grid_eff > cur_grid)
-                pace_grid = torch.where(near_def, grid_eff, pace_grid)
-                print(f"[win] OT pace: target cells with mass beyond one cell of the body: {far_deficit} "
-                      f"(cell-wise hand-off: {int(near_def.sum())} deficit cells on the fixed target)", flush=True)
-            print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
-                  f"of their image, mean |d|={float(dn.mean()):.3g} wu, max |d|={float(dn.max()):.3g} wu", flush=True)
+            if not cfg.ot_grid:
+                step = torch.clamp(pace_r / dn.clamp_min(1e-9), max=1.0)
+                x_int = (x0_ot + step * disp).detach()
+                # an ARRIVED particle (within one blur radius of its image) contributes its
+                # image projected onto the target point set: the entropic image sits inside
+                # the target (blur), which left the end state fuzzy (150k bunny chamfer 0.098
+                # vs 0.076); on the target support the end target is the target. (Snapping
+                # every paced position that lies on the support instead — d4db68a — killed the
+                # tangential transport where the source overlaps the target: 150k cow silIoU
+                # 0.920 vs 0.944, 104 re-attachments vs 83.)
+                arrived = dn.squeeze(1) <= pace_r
+                if bool(arrived.any()):
+                    _, nn_a = tgt.ot_kd.query(x_int[arrived].cpu().numpy(), workers=-1)
+                    x_int[arrived] = tgt.points[torch.as_tensor(nn_a, device=dev)].to(x_int.dtype)
+                pace_grid = rasterize_mass(x_int, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims).detach()
+                frac_arrived = float(arrived.float().mean())
+                frac_sup = float("nan")
+                # HAND-OFF to the fixed target: when every target cell that still lacks mass is
+                # within one cell of an occupied cell, the cell sum's gradient (CIC reach: one
+                # cell) already touches every deficit from the body — no far cell can reward a
+                # lone particle — and the fixed target fills the thin features at full strength
+                # (the paced target left them sparse at 150k). Re-evaluated every window.
+                # (FALSIFIED 2026-09-17 oh40_bunny: after the switch the gate rejected 14
+                # candidates and the run stopped at 136 windows with chamfer 0.1279 — changing
+                # the inner objective mid-run reads as a merit regression. Kept opt-in.)
+                if getattr(cfg, "ot_handoff", False):
+                    # CELL-WISE hand-off (v2, 2026-09-17 evening): every target cell within one cell
+                    # of the occupied set carries the FIXED target mass — the CIC gradient reaches
+                    # it from the body, so it is ordinary fill, never a far-cell reward — and every
+                    # cell beyond that carries the paced mass (coherent transport toward it). The
+                    # global switch (v1: fixed target only once NO deficit cell is far) never
+                    # fired on C, whose arm tips stay beyond reach (19 cells) while the arms
+                    # under-fill (hole 8 %).
+                    m_t = torch.as_tensor(tgt.m, device=dev) if not torch.is_tensor(tgt.m) else tgt.m
+                    occ = (rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims) > 0).float()
+                    nx_, ny_, nz_ = tgt.ldims
+                    occ3 = occ.reshape(1, 1, nx_, ny_, nz_)
+                    near = torch.nn.functional.max_pool3d(occ3, 3, stride=1, padding=1).reshape(-1) > 0
+                    far_deficit = int(((grid_eff > 0) & ~near).sum())
+                    # only DEFICIT cells hand off (target mass above the current occupancy: fill
+                    # from the fixed target); EXCESS cells keep the paced mass — on C the cells
+                    # around the body are the hole (m_t = 0) and the fixed target there is the
+                    # outward runaway push (cd7: silIoU 0.72 again); the pace evacuates them
+                    cur_grid = rasterize_mass(x0_ot, m_t, tgt.lgmin, tgt.ldx, tgt.ldims)
+                    near_def = near & (grid_eff > cur_grid)
+                    pace_grid = torch.where(near_def, grid_eff, pace_grid)
+                    print(f"[win] OT pace: target cells with mass beyond one cell of the body: {far_deficit} "
+                          f"(cell-wise hand-off: {int(near_def.sum())} deficit cells on the fixed target)", flush=True)
+                print(f"[win] OT pace: {frac_arrived * 100:.1f}% of particles within one blur radius "
+                      f"of their image, mean |d|={float(dn.mean()):.3g} wu, max |d|={float(dn.max()):.3g} wu", flush=True)
+            else:
+                print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu", flush=True)
             if cfg.layer_ctrl and cfg.layer_gate_ot and layer is not None:
                 # the transport gate (docs/surface_gradient.md 15c): u may act only on layer particles
                 # whose remaining transport |x - T(x)| (the plan's image, material-kNN averaged like the
@@ -632,9 +682,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if torch.cuda.is_available():
             torch.cuda.synchronize()
         _sp = getattr(tgt.ot_pull, "_self_pull", None)
-        print(f"[win] OT plan solved: {tgt.ot_pull.last_sweeps} sweeps err={tgt.ot_pull.last_err:.3g}"
-              + (f", self {_sp.last_sweeps} sweeps err={_sp.last_err:.3g}" if _sp is not None else "")
-              + f", {time.perf_counter() - _t_ot:.2f}s", flush=True)
+        if cfg.ot_grid:
+            print(f"[win] OT spatial quadrature: {time.perf_counter() - _t_ot:.2f}s", flush=True)
+        else:
+            print(f"[win] OT plan solved: {tgt.ot_pull.last_sweeps} sweeps err={tgt.ot_pull.last_err:.3g}"
+                  + (f", self {_sp.last_sweeps} sweeps err={_sp.last_err:.3g}" if _sp is not None else "")
+                  + f", {time.perf_counter() - _t_ot:.2f}s", flush=True)
 
         def ot_loss(xT):
             if cfg.phys_loss == "ot_leash":
@@ -648,6 +701,26 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 lin = leash_r ** 2 + 2.0 * leash_r * (e - leash_r)
                 return torch.where(e <= leash_r, quad, lin).mean()
             return (xT - ot_T).pow(2).sum(1).mean()
+        if cfg.ot_grid:
+            from ..losses.ot import GridSinkhornLoss
+            if getattr(tgt, 'grid_ot', None) is None:
+                tgt.grid_ot = GridSinkhornLoss(tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims,
+                                               eps=map_eps, iters=cfg.ot_iters,
+                                               tol=min(cfg.ot_tol, 1e-3),
+                                               mass_total=float(tgt.m.sum()),
+                                               cuda_blocks=use_settled,
+                                               support=tgt.support)
+
+            def fixed_transport(xT, vT=None):
+                if vT is None:
+                    vT = torch.zeros_like(xT)
+                return tgt.grid_ot.state_energy(xT, tgt.m, vT, cfg.T * prm.dt)
+
+            if tgt.ot_scale is None:
+                xg = torch.as_tensor(x0, device=dev).clone().requires_grad_(True)
+                gd = torch.autograd.grad(dvol_density(xg), xg)[0].norm()
+                gt = torch.autograd.grad(fixed_transport(xg), xg)[0].norm()
+                tgt.ot_scale = float(gd / gt.clamp_min(1e-30))
         if tgt.ot_scale is None and cfg.phys_loss in ("ot_pace", "ot_shape"):
             tgt.ot_scale = 1.0                                # no extra term to calibrate
         if tgt.ot_scale is None:
@@ -668,7 +741,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 tgt.ot_scale = float(gv / go.clamp_min(1e-30))
                 print(f"[win] OT calibration: |g_vol|={float(gv):.3g} |g_ot|={float(go):.3g} scale={tgt.ot_scale:.3g}", flush=True)
 
-        if cfg.phys_loss == "ot_leash":
+        if cfg.ot_grid:
+            def dvol(xT, vT=None):
+                return tgt.ot_scale * fixed_transport(xT, vT)
+        elif cfg.phys_loss == "ot_leash":
             def dvol(xT):
                 return dvol_density(xT) + tgt.ot_scale * ot_loss(xT)
         elif cfg.phys_loss in ("ot_pace", "ot_shape"):
@@ -800,10 +876,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             log(f"[win] kde calibration: |g_vol|={float(gv):.3g} |g_kde|={float(gk):.3g} "
                 f"scale={tgt.kde_scale:.3g}")
     nn_idx = nn_elig = None
+    nn_tree = None
     if cfg.w_nn > 0 and tgt.pts is not None:
         nn_idx, nn_elig = nn_band_assign(x0_t, tgt.pts, tgt.nn_spacing,
                                          cfg.nn_berth_k, cfg.nn_far_k,
                                          cfg.nn_tail_frac)
+        if use_settled:
+            from scipy.spatial import cKDTree
+            nn_tree = cKDTree(tgt.pts.detach().cpu().numpy())
 
     # HOLE-side W1 (deficit fill v2), frozen per window: support-ANDed mask (F1),
     # budget on DEFICIT MASS not in-range particles (F2), SMOOTH locality ramp (F12 —
@@ -831,7 +911,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     def losses_of(xT, FT, vT, FgT=None):
         """FgT: geometric deformation (render kinematics). With cfg.render_F_geom the
         Gaussian covariance rides it instead of the controlled, smoothed FT."""
-        lv = dvol(xT)
+        lv = dvol(xT, vT) if cfg.ot_grid else dvol(xT)
         lk = vT.pow(2).sum(1).mean()
         lr = lpbr = None
         FR = FgT if (use_geom and FgT is not None) else FT
@@ -895,7 +975,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             xT, FT, vT, FgT, V = warp_mpm_ext(dfc, spec, lam_t, mu_t, u_t=u)
         lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
         extra = {"dfc": dfc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
-                 "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
+                 "lk_var": _velocity_variance(V, cfg.T if use_settled else None)}
         return (xT, FT, vT), lv, lk, lr, lpbr, extra
 
     def eval_terms(leaf):
@@ -922,7 +1002,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             t0 = _tick()
             lv, lk, lr, lpbr = losses_of(xT, FT, vT, FgT)
             extra = {"dfc": dc, "Fg": FgT, "V": V, "lk_run": V.pow(2).sum(2).mean(),
-                     "lk_var": (V.pow(2).sum(2).mean(0) - V.mean(0).pow(2).sum(1)).mean()}
+                     "lk_var": _velocity_variance(V, cfg.T if use_settled else None)}
             _tm_add("eval_loss", t0)
             t0 = _tick()
             # whole-trajectory orientation check for _state_ok. Stack-review fixes:
@@ -936,8 +1016,12 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                                  for t in range(T)])
             j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
             jt = float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
+            if use_settled:
+                valid_positions = _positions_in_domain(
+                    torch.stack([wp.to_torch(p) for p in tr.x]), prm)
             _tm_add("eval_det", t0)
-        return (xT, FT, vT, jt), lv, lk, lr, lpbr, extra
+        state = (xT, FT, vT, jt, valid_positions) if use_settled else (xT, FT, vT, jt)
+        return state, lv, lk, lr, lpbr, extra
 
     def _vT(extra):
         v = extra.get("V") if isinstance(extra, dict) else None
@@ -984,7 +1068,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         PCGrad's reference direction (Codex finding 9: folding the W1 term into gp let
         w_dt inflate the balanced silhouette weight and project render components off a
         direction that was never 'the physics')."""
-        L = lv + wu * cfg.w_kin * lk + wu * cfg.w_ctrl * dfc.pow(2).sum() / (T * N)
+        # Keep terminal settling pressure even in constrained mode: a bounded
+        # speed is not a guarantee of a stationary deliverable (pilot G3 failure).
+        # The released tail adds physical observation time, not additional controls
+        # or a discount on their regularization.
+        dfc_time = dfc[:cfg.T + 1] if use_settled else dfc
+        dfc = dfc[:cfg.T] if use_settled else dfc
+        L = lv + wu * cfg.w_kin * lk + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
         if cfg.w_kin_running > 0 and lk_run is not None:
             # RUNNING kinetic (docs/oscillation_triage.md driver C): penalise motion at
             # every step, not only the endpoint, so a window cannot sprint-then-brake
@@ -992,6 +1082,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         if cfg.w_kin_var > 0 and lk_var is not None:
             # velocity VARIANCE over the window: the measured limit cycle (speed V-shape,
             # period T) is a reversal inside the window; constant-velocity progress is free
+            # In settled mode only driven progress is free; the released phase targets rest.
             L = L + wu * cfg.w_kin_var * lk_var
         if coh_t is not None and cfg.w_esc > 0 and vT is not None:
             # escape-velocity hinge: a particle whose window-end velocity differs from its
@@ -1011,7 +1102,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             d = (xT[coh_t] - xT[:, None, :]).norm(dim=2)
             L = L + wu * cfg.w_bond * (w_b * torch.relu(d - lmax).pow(2)).sum(1).mean() / coh_sp2
         if cfg.w_tctrl > 0 and T > 1:
-            L = L + wu * cfg.w_tctrl * (dfc[1:] - dfc[:-1]).pow(2).mean()
+            L = L + wu * cfg.w_tctrl * (dfc_time[1:] - dfc_time[:-1]).pow(2).mean()
         if cfg.w_box > 0:      # far-field leash: differentiable everywhere, zero inside box
             L = L + wu * cfg.w_box * torch.clamp(xT.abs() - tgt.extent, min=0).pow(2).sum(1).mean()
         if knn_t is not None and cfg.w_creg > 0:  # control smoothness: a lone particle
@@ -1053,7 +1144,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             L = L + wu * cfg.w_mat * s.pow(2).mean()
         return L
 
-    def dt_term(xT):
+    def dt_term(xT, common_geometry=False):
         """Fixed-weight one-signed cleanup terms (spray DT-W1 + near-band) — NOT
         lambda-scaled (lambda->cap x constant gradient = documented mass-ejection
         mode) and NOT part of phys_core (finding 9). The fill term is separate:
@@ -1064,7 +1155,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             # all but the isolated particles; the gather and its backward ran over every particle
             # (1.0 s of a 6 s window at 300k). Evaluating it on the gate's support is the same
             # sum and the same gradient (a zero-weight particle contributes nothing to either).
-            if dt_idx is not None and dt_idx.numel() > 0:
+            if common_geometry:
+                L = wu * cfg.w_dt * d_w1(xT, tgt.m, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
+            elif dt_idx is not None and dt_idx.numel() > 0:
                 L = wu * cfg.w_dt * d_w1(xT.index_select(0, dt_idx), m_dt.index_select(0, dt_idx),
                                          tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
             elif dt_idx is not None:
@@ -1072,11 +1165,17 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             else:
                 L = wu * cfg.w_dt * d_w1(xT, m_dt, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims)
         if nn_idx is not None:
-            Ln = wu * cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
-                                      cfg.nn_berth_k * tgt.nn_spacing)
+            if common_geometry:
+                Ln = wu * cfg.w_nn * d_nn_band_current(
+                    xT, tgt.m, tgt.pts, torch.ones_like(tgt.m),
+                    cfg.nn_berth_k * tgt.nn_spacing, nn_tree)
+            else:
+                Ln = wu * cfg.w_nn * d_nn_band(xT, tgt.m, tgt.pts, nn_idx, nn_elig,
+                                          cfg.nn_berth_k * tgt.nn_spacing)
             L = Ln if L is None else L + Ln
         if kde_nbr is not None:
-            Lk = cfg.w_kde * tgt.kde_scale * d_kde(xT, tgt.pts, kde_nbr,
+            nbr = kde_assign(xT, tgt.pts, cfg.kde_k) if common_geometry else kde_nbr
+            Lk = cfg.w_kde * tgt.kde_scale * d_kde(xT, tgt.pts, nbr,
                                                    tgt.kde_h, tgt.kde_rho_ref)
             L = Lk if L is None else L + Lk
         return L
@@ -1122,6 +1221,14 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     step_norm = predicted_decrease = None
     render_cos = phys_cos = None
     alpha, g0_norm, L_start = cfg.alpha * alpha_scale, None, None
+    if use_settled and tgt.settled_step is not None:
+        # Warm-start the search, not its acceptance rule. Reuse the existing
+        # growth factor and ceiling; every trial still runs the full checks.
+        alpha = min(alpha, 1.1 * (tgt.settled_step * alpha_scale))
+    if use_settled and tgt.settled_scale is not None:
+        # Calibration is not candidate state: restore it before even the cold/warm
+        # comparison when the runner has rolled back a rejected first window.
+        balancer.lam, balancer.capped = tgt.settled_scale
     lam_r = (balancer.lam or 0.0) if balancer.active else 0.0
     grad_converged = False
 
@@ -1166,7 +1273,10 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         EB = scalars(lvB, lkB, lrB, lam_r, exB["dfc"], stB[0], stB[1], exB["lk_run"], exB["Fg"],
                      exB["lk_var"], _vT(exB))
         if np.isfinite(EA) and np.isfinite(EB):
-            replay_rel = abs(EA - EB) / max(abs(EA), 1.0)
+            # Match the units of the final replay check. A literal 1.0 here
+            # suppresses measured noise in density units and rejects valid GPU
+            # replays. Preserve the production baseline's calibration unchanged.
+            replay_rel = abs(EA - EB) / max(abs(EA), loss_floor_eff if use_settled else 1.0)
 
     grad_dump_leaf0 = dFc.detach().clone() if cfg.grad_dump else None   # the window's start control
     grad_dump_state = {}
@@ -1293,7 +1403,13 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 # λ from the PROJECTED render grad — estimating it from the raw one and
                 # then projecting silently de-weighted the channel by ~33% at cos=-0.74
                 # (adversarial finding), breaking the balancer contract.
-                lam_r = balancer.update(_norm(gp), _norm(gr))
+                if use_settled and tgt.settled_scale is not None:
+                    balancer.lam, balancer.capped = tgt.settled_scale
+                    lam_r = balancer.lam
+                else:
+                    lam_r = balancer.update(_norm(gp), _norm(gr))
+                    if use_settled and np.isfinite(lam_r) and lam_r > 0:
+                        tgt.settled_scale = (float(lam_r), bool(balancer.capped))
                 lam_capped = int(bool(getattr(balancer, "capped", False)))
                 # render-influence telemetry (standing request): how much does the
                 # render channel actually steer the update this window?
@@ -1537,6 +1653,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 break
 
     # ---- final rollout: every intermediate state + FULL end state ----
+    selection_merit = None
     with torch.no_grad():
         lam_t, mu_t = material()
         _set_material(lam_t, mu_t)
@@ -1564,22 +1681,41 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         lv_f, lk_f, lr_f, _ = losses_of(x_final, F_final, v_final, Fg_final)
         E_final = scalars(lv_f, lk_f, lr_f, lam_r, dc, x_final, F_final,
                           V_final.pow(2).sum(2).mean(), Fg_final,
-                          (V_final.pow(2).sum(2).mean(0) - V_final.mean(0).pow(2).sum(1)).mean(), V_final[-1])
+                          _velocity_variance(V_final, cfg.T if use_settled else None), V_final[-1])
         E_accept = hist[-1]["loss"] if hist else None
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
-                      * max(abs(E_accept or 0.0), 1.0 / unit_ratio))
+                      * max(abs(E_accept or 0.0), loss_floor_eff))
         replay_bad = E_accept is not None and E_final > E_accept + replay_tol
+        if use_settled and not _state_ok((x_final, F_final, v_final, jt_final,
+                _positions_in_domain(torch.stack([wp.to_torch(p) for p in tr.x]), prm))):
+            replay_bad = True
+            grad_converged = False
+            hist, accepted = [], 0
         if ((not np.isfinite(jt_final) or jt_final <= 1e-4 or replay_bad)
                 and accepted > 0):
             log(f"[win] commit rollout failed trajectory check (jt={jt_final:.3g}) — "
                 "discarding window (replay/accepted-candidate mismatch)")
             hist, accepted = [], 0
+        if use_settled and accepted > 0:
+            # Compare committed windows with current geometry, rather than
+            # window-frozen cleanup masks or nearest-neighbor assignments.
+            old_cleanup = dt_term(x_final)
+            cleanup = dt_term(x_final, common_geometry=True)
+            selection_merit = (E_final - (float(old_cleanup) if old_cleanup is not None else 0.)
+                               + (float(cleanup) if cleanup is not None else 0.))
+            if not np.isfinite(selection_merit):
+                hist, accepted, grad_converged = [], 0, False
         # 2026-09-23 (speed): wp.array.numpy() already returns a fresh host copy — the extra
         # .copy() doubled 300 MB of traffic a window; and the whole-window F health (any step
         # with det F <= 0, per particle) is counted on the device instead of stacking T x N
         # matrices on the host for a numpy determinant (4 s a window at 300k)
-        frames = [tr.x[t].numpy() for t in range(T + 1)]
-        F_seq = [tr.F[t].numpy() for t in range(T + 1)]
+        # CUDA .numpy() owns its host copy; CPU .numpy() aliases the trajectory.
+        def snapshot(array):
+            values = array.numpy()
+            return values.copy() if array.device.is_cpu else values
+
+        frames = [snapshot(tr.x[t]) for t in range(T + 1)]
+        F_seq = [snapshot(tr.F[t]) for t in range(T + 1)]
         with torch.no_grad():
             inv_any = None
             jmin_traj = float("inf")
@@ -1590,9 +1726,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 inv_any = bad if inv_any is None else (inv_any | bad)
                 jmin_traj = min(jmin_traj, float(det_t.min().item()))   # numpy min propagates NaN; torch min too
             n_inv_steps = int(inv_any.sum().item()) if inv_any is not None else 0
-        end = {"F": tr.F[T].numpy(), "v": tr.v[T].numpy(),
-               "C": tr.C[T].numpy(),
-               "Fg": tr.Fg[T].numpy() if use_geom else None,
+        end = {"F": snapshot(tr.F[T]), "v": snapshot(tr.v[T]),
+               "C": snapshot(tr.C[T]),
+               "Fg": snapshot(tr.Fg[T]) if use_geom else None,
                "n_inv_steps": n_inv_steps, "Jmin_traj": jmin_traj}
         _tm_add("final", t0)
         if cfg.grad_dump and grad_dump_state.get("gx_phys") is not None:
@@ -1688,8 +1824,15 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
              "fill_lam": fill_lam if fill_on else None,
              "basis": basis.describe(),
              "lambda_capped": lam_capped,
-             "dfc": dc.cpu().numpy() if cfg.warm_start else None,
+              "dfc": dc[:cfg.T].cpu().numpy() if cfg.warm_start else None,
              "cont_ratio": cont_state["ratio"] if cont_lim is not None else None,
              "cont_rejects": cont_state["rejects"] if cont_lim is not None else None,
              "cont_ref_ratio": cont_state["ref_ratio"] if cont_lim is not None else None}
+    if use_settled and accepted > 0:
+        stats['selection_merit'] = selection_merit
+    elif selection_merit is not None and not np.isfinite(selection_merit):
+        stats['invalid_selection'] = True
+    if use_settled:
+        tgt.settled_step = (hist[-1]['alpha'] / alpha_scale
+                            if accepted > 0 and alpha_scale > 0 else None)
     return frames, F_seq, end, s_out, hist, stats

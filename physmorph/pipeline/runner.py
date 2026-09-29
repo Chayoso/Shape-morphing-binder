@@ -150,6 +150,18 @@ def _iso_count(x: np.ndarray, radius: float) -> int:
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_src=None) -> TargetPack:
     dev = cfg.device
+    support = None
+    if cfg.support_weight > 0:
+        for weights in (w_src, w_tgt):
+            if weights is not None:
+                weights = np.asarray(weights)
+                if (not np.isfinite(weights).all() or not (weights > 0).all()
+                        or not np.allclose(weights, weights.flat[0], rtol=1e-6, atol=0)):
+                    raise ValueError('support_weight requires uniform particle masses')
+        from ..losses.support import TransportSupport
+        support = TransportSupport(target_x, cfg.support_weight)
+    if cfg.pbr_target_mode not in ("surface", "matched"):
+        raise ValueError(f"unknown pbr_target_mode {cfg.pbr_target_mode!r}")
     from ..losses.silhouette import set_kernel
     set_kernel(getattr(cfg, "sil_kernel", "cic"))     # every rasteriser (targets and morph) alike
     N = target_x.shape[0]
@@ -176,17 +188,26 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
             # surface (no shot noise), the morph's normals on a render-pixel grid over the loss
             # box, blurred by the renderer's 1.5 spacings
             from scipy.spatial import cKDTree as _KD
-            from ..render.surface_recon import target_surface_normals
             sub = target_x[np.random.default_rng(0).choice(N, min(N, 20000), replace=False)]
             sp_t = float(np.median(_KD(sub).query(sub, k=9, workers=-1)[0][:, -1])) * (min(N, 20000) / N) ** (1.0 / 3.0)
-            n_t, sw_t = target_surface_normals(np.asarray(target_x, np.float32), sp_t)
-            shade = shade_targets(tgt_t, views, cfg.render_res, extent, lgmin, ldx, ldims,
-                                  cfg.sil_k, cfg.pbr_ambient,
-                                  normals=(torch.as_tensor(n_t, device=dev), torch.as_tensor(sw_t, device=dev)))
+            if cfg.pbr_target_mode == "surface":
+                from ..render.surface_recon import target_surface_normals
+                n_t, sw_t = target_surface_normals(np.asarray(target_x, np.float32), sp_t)
+                shade = shade_targets(tgt_t, views, cfg.render_res, extent, lgmin, ldx, ldims,
+                                      cfg.sil_k, cfg.pbr_ambient,
+                                      normals=(torch.as_tensor(n_t, device=dev), torch.as_tensor(sw_t, device=dev)))
             pdx = 2.0 * extent / cfg.render_res                       # the render pixel
             pdims = tuple(int(np.ceil((dmax - dmin).max() / pdx)) for _ in range(3))
             pgmin = lgmin
             pblur = 1.5 * sp_t / pdx
+            if cfg.pbr_target_mode == "matched":
+                # Calibrate the surrogate at the known desired geometry: comparing
+                # I_model(x)+[I_ref(x*)-I_model(x*)] to I_ref(x*) is equivalent to
+                # comparing I_model(x) to I_model(x*). Keep the same smooth forward
+                # normals; do not ask geometry to absorb a target/operator bias.
+                shade = shade_targets(tgt_t, views, cfg.render_res, extent,
+                                      pgmin, pdx, pdims, cfg.sil_k, cfg.pbr_ambient,
+                                      blur_cells=pblur)
             print(f"[target] denoised shading target: spacing {sp_t:.4f}, normal grid {pdims[0]}^3 at {pdx:.4f} wu "
                   f"({pdx / sp_t:.2f} spacings), blur {pblur:.2f} cells", flush=True)
         elif cfg.w_pbr > 0:
@@ -250,7 +271,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
                       pts=pts, nn_spacing=nn_sp, gauss=gauss,
                       kde_h=kde_h, kde_rho_ref=kde_rho,
                       m_ref=m_ref, n_support=n_support,
-                      pgmin=pgmin, pdx=pdx, pdims=pdims, pblur=pblur)
+                      pgmin=pgmin, pdx=pdx, pdims=pdims, pblur=pblur, support=support)
 
 
 def calibrate_units(tgt: TargetPack, source_x, target_x, cfg: PipelineConfig) -> None:
@@ -295,6 +316,22 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     n_held, converged). frames/F_frames archive the PROMOTED per-step states.
     on_commit(a, x, F, v, rec) fires after each promoted commit; on_iter(it, xT, FT, tele)
     streams each accepted optimisation iteration (live viewer hooks)."""
+    if cfg.solver_mode == 'settled_transport':
+        if (not cfg.grad_project or cfg.grad_project_mode != 'render'
+                or cfg.lambda_auto <= 0 or cfg.pace != 0 or cfg.pace_budget > 0
+                or cfg.layer_u_render_only):
+            raise ValueError('settled_transport requires active render PCGrad, legacy objective units, '
+                             'pace=0 and no independent weighting/fusion overrides')
+        if cfg.lg_sweeps > 0 or cfg.local_dress_iters > 0 or cfg.reattach or cfg.render_until > 0:
+            raise ValueError('settled_transport does not support post-rollout position edits or render handoff')
+        if cfg.w_fill > 0 or cfg.w_jdens > 0:
+            raise ValueError('settled_transport fixed delivery merit requires w_fill=0 and w_jdens=0 '
+                             '(window-dependent targets or delayed calibration)')
+        # One recipe, with a fresh target/calibration owned by this run. The old
+        # defaults and other solver modes are untouched.
+        cfg = dataclasses.replace(cfg)
+        log(f'[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; '
+            'fixed initial render weight per resolution')
     src = np.ascontiguousarray(source_x, np.float32)
     N = src.shape[0]
     assert target_x.shape[0] == N, ("D_vol compares unit-mass clouds: source and target need "
@@ -332,7 +369,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             cfg.ot_handoff = True
             cfg.ot_debias = True
         log(f"[v2] phys_loss auto: {empty * 100:.1f}% of the source particles sit in target-empty "
-            f"cells -> {cfg.phys_loss}" + (" + cell-wise hand-off" if cfg.phys_loss == "ot_pace" else ""))
+            f"cells -> {cfg.phys_loss}" + (" + inertial fixed-target transport" if cfg.ot_grid else
+                                        " + cell-wise hand-off" if cfg.phys_loss == "ot_pace" else ""))
     if cfg.loss_units == "density":
         calibrate_units(tgt, src, target_x, cfg)
         log(f"[v2] density units: D_vol legacy({cfg.unit_ref_res}^3)/density = "
@@ -419,6 +457,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     # trust gate active.  Without this latch, one accepted large-motion candidate
     # disables the gate again and the optimizer can re-enter a long limit cycle.
     outer_gate_latched = False
+    selection_epoch = 0
+    selection_best, selection_last = float('inf'), None
+    selection_lambda = None
 
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render={'on(a=%g)' % cfg.lambda_auto if cfg.lambda_auto > 0 else 'OFF'} "
@@ -433,6 +474,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             f"gs_cheb={cfg.render_gs_cheb} loss_units={cfg.loss_units}")
 
     for a in range(cfg.animations):
+        c2f_now = (cfg.c2f_at > 0 and cfg.lambda_auto > 0
+                   and a == int(cfg.c2f_at * cfg.animations))
+        if cfg.solver_mode == 'settled_transport' and c2f_now:
+            frozen = False  # A scheduled new cost epoch gets its own convergence test.
+        # Reuse the existing tolerance/patience, but track the delivery objective.
+        # A scheduled target rebuild gets its own scale and a fresh patience span.
+        if (cfg.solver_mode == 'settled_transport' and not c2f_now
+                and selection_last is not None and a - selection_last > cfg.patience):
+            log(f'[v2] delivery merit plateau at anim {a + 1}')
+            frozen = True
         if cfg.render_until > 0 and a == cfg.render_until and balancer.active:
             # INTERVENTION (2026-09-17): the render channel is switched off from here on;
             # everything else (merit, gate, targets) is unchanged, so any divergence of the
@@ -451,11 +502,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 continue
             break
         # coarse-to-fine: sharpen the render targets late in the run (thin features)
-        if (cfg.c2f_at > 0 and cfg.lambda_auto > 0
-                and a == int(cfg.c2f_at * cfg.animations)):
+        if c2f_now:
             cfg.render_res = cfg.render_res_hi
             keep = (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0, tgt.gauss_scale,
                     tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio)
+            transport_keep = (tgt.ot_scale, getattr(tgt, 'grid_ot', None)) if cfg.ot_grid else None
             tgt = build_target(target_x, prm, cfg, w_tgt=w_tgt, w_src=w_src)
             # EVERY one-shot calibration survives the rebuild (REFUTE 2026-09-04 F1: a
             # fresh TargetPack has h1_scale=None, so the next window silently RE-
@@ -464,7 +515,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # hybrid render weight stepped at the c2f boundary of every gauss arm)
             (tgt.h1_scale, tgt.jd_scale, tgt.jd_rho0, tgt.gauss_scale,
              tgt.kde_scale, tgt.unit_ratio, tgt.unit_grad_ratio) = keep
+            if transport_keep is not None:
+                tgt.ot_scale, tgt.grid_ot = transport_keep
             best_rend, stale = None, 0              # rescaled track must not inherit a
+            selection_epoch += 1
+            selection_best, selection_last = float('inf'), None
+            selection_lambda = None
             outer_scales = outer_prev = outer_prev_phys = prev_disp = None
             outer_gate_latched = False              # render track rescaled: re-earn the latch
             if tgt.gauss is not None and cfg.gauss_children > 1:
@@ -520,6 +576,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if cfg.warm_start:
             dfc_prev = stats.get("dfc")
         if not whist:
+            if stats.get('invalid_selection'):
+                s, dfc_prev = rollback['s'], rollback['dfc']
             if stats.get("grad_converged"):
                 frozen = True                       # zero gradient at the start: at the optimum
                 hist.append({"animation": a, "grad_converged": 1})
@@ -529,10 +587,16 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # stop here bypassed patience — hero7_base truncated at anim 106). Null
             # commit: hold the state, let the patience counter decide the freeze.
             log(f"[v2] anim {a + 1}: no accepted step — null commit (stale {stale + 1})")
-            frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
+            null_rec = {"animation": a, "null_commit": 1}
+            if cfg.solver_mode == 'settled_transport':
+                # No simulation step elapsed. A duplicate frame would introduce
+                # an artificial stop/restart into an otherwise continuous path.
+                null_rec['no_simulated_time'] = 1
+            else:
+                frames.append(x.copy()); F_frames.append(F_frames[-1].copy())
             if dress is not None:
                 dress.cover_frames(len(frames))
-            hist.append({"animation": a, "null_commit": 1})
+            hist.append(null_rec)
             stale += 1
             mom_prev = None
             reject_streak, last_reject_score = 0, None   # lineage changed: no replay across
@@ -763,6 +827,19 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                "Jmin_traj": jmin_traj,
                "clamped": n_out, "nan_x": n_nan, "nan_state": n_ns,
                "F_reset": n_bad, "F_flip": n_flip, "F_invert_steps": n_inv}
+        if cfg.solver_mode == 'settled_transport':
+            rec['selection_merit'] = stats['selection_merit']
+            # Zero-gradient calibration can remain pending past the first
+            # commit. Never compare costs across a changed render weight.
+            current_lambda = float(w['lambda'] or 0.)
+            if np.isfinite(rec['selection_merit']):
+                if selection_lambda is not None and current_lambda != selection_lambda:
+                    selection_epoch += 1
+                    selection_best, selection_last = float('inf'), None
+                    outer_scales = outer_prev = outer_prev_phys = prev_disp = None
+                    outer_gate_latched, stale = False, 0
+                selection_lambda = current_lambda
+            rec['selection_epoch'] = selection_epoch
         if tgt.gauss is not None:
             from .gauss_loss import gaussian_shape_diagnostics
             rec.update(gaussian_shape_diagnostics(          # on the RENDERED F (F7)
@@ -786,14 +863,25 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         # a kinetic merit punishes it. Terminal velocity is a transient, not a
         # shape quality; the brake still catches real regressions (d_vol 62->215).
         components = {"phys": rec["d_vol"]}
-        if getattr(cfg, "phys_loss", "density").startswith("ot") and getattr(tgt, "ot_pull", None) is not None:
+        if getattr(cfg, "phys_loss", "density").startswith("ot") and (cfg.ot_grid or getattr(tgt, "ot_pull", None) is not None):
             # transport recipes: the merit's physics component is the Sinkhorn divergence
             # to the fixed target (what the recipe descends; monotone along a transport
             # path where the cell sum plateaus — C forensic 2026-09-17), the cell sum stays
             # in the record for the tracker and the report
             with torch.no_grad():
-                rec["ot_div"] = float(tgt.ot_pull.divergence(torch.as_tensor(x, device=cfg.device), cfg.ot_samples))
+                if cfg.ot_grid:
+                    from ..losses.volumetric import rasterize_mass as _rasterize_mass
+                    xt = torch.as_tensor(x, device=cfg.device)
+                    rec["ot_div"] = float(tgt.grid_ot(_rasterize_mass(xt, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims)))
+                    rec["transport_energy"] = float(tgt.grid_ot.state_energy(
+                        xt, tgt.m, torch.as_tensor(v_p, device=cfg.device), cfg.T * prm.dt))
+                else:
+                    rec["ot_div"] = float(tgt.ot_pull.divergence(torch.as_tensor(x, device=cfg.device), cfg.ot_samples))
             components["phys"] = rec["ot_div"]
+            if cfg.ot_grid:
+                components["phys"] = rec["transport_energy"]
+                phys_track = tgt.ot_scale * rec["transport_energy"] + cfg.w_kin * rec["kin"] / (
+                    tgt.unit_ratio if cfg.loss_units == 'density' else 1.)
         rend_gate = (rec["d_sil"] if rec.get("d_sil") is not None
                      else rec["d_render"])
         if rend_gate is not None:
@@ -864,14 +952,28 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                         regressed = True
             if not regressed:
                 improved = True
+        if cfg.solver_mode == 'settled_transport':
+            # Progress, acceptance and final selection must use the same window
+            # cost. A single raw track can rise while braking improves that cost.
+            q = rec['selection_merit']
+            improved = np.isfinite(q) and (selection_last is None
+                or q < selection_best - cfg.tol * abs(selection_best))
         prev_tracks = {"phys": phys_track, "rend": rend_track, "dt": d_dt}
 
-        outer_reject = False
-        outer_gain = None
-        if cfg.outer_merit:
-            if outer_scales is None:
+        invalid_transport = cfg.ot_grid and not np.isfinite(rec['transport_energy'])
+        if cfg.solver_mode == 'settled_transport':
+            invalid_transport = invalid_transport or not np.isfinite(rec['selection_merit'])
+        outer_reject = brake_reject = invalid_transport
+        outer_gain = -float('inf') if invalid_transport else None
+        if cfg.outer_merit or invalid_transport or (cfg.solver_mode == 'settled_transport' and eject_reject):
+            if outer_scales is None and not invalid_transport:
                 outer_scales = {k: max(abs(v), 1e-8) for k, v in components.items()}
-            score = float(sum(v / outer_scales[k] for k, v in components.items()))
+            score = (float('inf') if invalid_transport else
+                     float(sum(v / outer_scales[k] for k, v in components.items())))
+            if cfg.solver_mode == 'settled_transport' and not invalid_transport:
+                # Calibrated control/motion + common-geometry cleanup + render
+                # cost, not a separately normalized sum of selected raw tracks.
+                score = float(rec['selection_merit'])
             # the PHYSICS part of the merit (every component but the render term): what the
             # catastrophe brake below watches (docs/surface_gradient.md 15d, 2026-09-22: under the
             # transport gate of u the arriving front regressed nefertiti's silhouette term by 25 %
@@ -884,9 +986,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # while the divergence improves 10 % — under u off the same spill is accepted at
             # -1 % a window and the run recovers to 0.961; rejecting it three times froze the run
             # at anim 16 (the candidate cannot avoid the state the transport passes through)
-            score_phys = float(components["phys"] / outer_scales["phys"])
-            phys_gain = None
-            if outer_prev is not None:
+            score_phys = float('inf') if invalid_transport else float(components["phys"] / outer_scales["phys"])
+            phys_gain = -float('inf') if invalid_transport else None
+            if outer_prev is not None and not invalid_transport:
                 outer_gain = (outer_prev - score) / max(abs(outer_prev), 1e-8)
                 phys_gain = ((outer_prev_phys - score_phys) / max(abs(outer_prev_phys), 1e-8)
                              if outer_prev_phys is not None else outer_gain)
@@ -913,7 +1015,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # never a legitimate trade.
                 # 2026-09-23 09:40: the primary-objective brake (15f) is the recipe again — the user chose
                 # g41 once the video wipes were traced to the surface tracking, not the gate
-                brake_reject = phys_gain < -max(cfg.pace, 0.05)
+                brake_gain = outer_gain if cfg.solver_mode == 'settled_transport' else phys_gain
+                brake_reject = brake_gain < -max(cfg.pace, 0.05)
                 if eject_reject:
                     # the window launched a particle: discard it like an insane
                     # candidate (shrink the step, cold restart), never commit it
@@ -926,6 +1029,11 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                         and reversal_cos < cfg.outer_reversal_cos
                         and outer_gain < cfg.outer_reversal_gain):
                     outer_reject = True
+            if cfg.solver_mode == 'settled_transport' and eject_reject:
+                # Safety does not require a comparable previous cost (first
+                # commit, resolution rebuild, or newly available calibration).
+                outer_reject = brake_reject = True
+                rec['eject_reject'] = 1
             rec.update({"outer_merit": score, "outer_gain": outer_gain,
                         "outer_merit_phys": score_phys, "phys_gain": phys_gain,
                         "reversal_cos": reversal_cos,
@@ -945,6 +1053,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 # the identical bad candidate to 2 decimals, 8 rejects, frozen).
                 # Cold restart gives the next window a genuinely different path.
                 dfc_prev, mom_prev = None, None
+                if cfg.solver_mode == 'settled_transport':
+                    tgt.settled_step = None
                 del frames[rollback["frames"]:]
                 del F_frames[rollback["F_frames"]:]
                 del Fg_commits[rollback["Fg_commits"]:]
@@ -984,7 +1094,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     v_hold = np.zeros_like(x) if st["v"] is None else st["v"]
                     on_commit(a, x, F_hold, v_hold, rec)
                 log(f"[v2] anim {a + 1}: outer merit rejected candidate "
-                    f"(gain={outer_gain:.3g}, physics gain={phys_gain:.3g}, reversal={reversal_cos}"
+                    f"(gain={format(outer_gain, '.3g') if outer_gain is not None else 'n/a'}, "
+                    f"physics gain={format(phys_gain, '.3g') if phys_gain is not None else 'n/a'}, reversal={reversal_cos}"
                     f"{', EJECTION ' + str(rec.get('iso_start')) + '->' + str(rec.get('iso_count')) if eject_reject else ''})")
                 if stale >= cfg.patience:
                     frozen = True
@@ -1009,6 +1120,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             rec.update(solve_dressing(dress, x, Fc, cfg.local_dress_iters,
                                       cfg.ls_noise_rel))
             dress.commit_snapshot(len(frames))
+        if cfg.solver_mode == 'settled_transport':
+            q = rec['selection_merit']
+            if selection_last is None or q < selection_best - cfg.tol * abs(selection_best):
+                selection_best, selection_last = q, a
         hist.append(rec)
         if on_commit is not None:
             # the viewer renders the GEOMETRIC F when it exists (Sigma = s0^2 Fg Fg^T,
@@ -1063,7 +1178,14 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     if cfg.best_truncate:
         acc = [r for r in hist if r.get("frame_end") and not r.get("null_commit")
                and r.get("d_vol") is not None]
-        if len(acc) >= 2:
+        if cfg.solver_mode == 'settled_transport':
+            # Fixed render calibration is comparable only within its resolution
+            # epoch. Rejected windows cannot establish a newer eligible epoch.
+            acc = [r for r in acc if np.isfinite(r.get('selection_merit', float('nan')))]
+            if acc:
+                epoch = max(r['selection_epoch'] for r in acc)
+                acc = [r for r in acc if r['selection_epoch'] == epoch]
+        if len(acc) >= 2 or (cfg.solver_mode == 'settled_transport' and acc):
             # RESOLUTION-INVARIANT shape merit only: d_vol + d_dt (fixed grids).
             # d_sil is excluded - the c2f rebuild changes render_res mid-run and
             # r3's truncation picked a150 over the genuinely better a217 because
@@ -1071,7 +1193,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             r0 = acc[0]
 
             def merit(r):
-                m = r["d_vol"] / max(abs(r0["d_vol"]), 1e-8)
+                if cfg.solver_mode == 'settled_transport':
+                    return r['selection_merit']
+                key = "transport_energy" if cfg.ot_grid else "d_vol"
+                m = r[key] / max(abs(r0[key]), 1e-8)
                 if r.get("d_dt") is not None and r0.get("d_dt"):
                     m += r["d_dt"] / max(abs(r0["d_dt"]), 1e-8)
                 if r.get("d_kde") is not None and r0.get("d_kde"):
@@ -1080,7 +1205,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                     m += r["d_h1"] / max(abs(r0["d_h1"]), 1e-8)
                 return m
             best = min(acc, key=merit)
-            if best is not acc[-1] and merit(acc[-1]) > merit(best) * (1 + cfg.tol):
+            # Settled mode delivers the exact best physical commit: a small
+            # scalar difference can hide large residual motion. Exclude padding.
+            if ((cfg.solver_mode == 'settled_transport' and best['frame_end'] < len(frames))
+                    or (best is not acc[-1] and merit(acc[-1]) > merit(best) * (1 + cfg.tol))):
                 deliver_n = int(best["frame_end"])
                 trunc = {"best_animation": int(best["animation"]) + 1,
                          "frames_kept": deliver_n, "frames_dropped": len(frames) - deliver_n}

@@ -27,6 +27,10 @@ try:  # warp is a hard dependency of the MPM; the kernel is compiled on first us
     def _k_knn(grid: wp.uint64, pts: wp.array(dtype=wp.vec3), radius: float, k: int,
                out_i: wp.array2d(dtype=int), out_d: wp.array2d(dtype=float), cnt: wp.array(dtype=int)):
         i = wp.tid()
+        # A row with k points inside its previous radius already has its exact
+        # k nearest neighbors. Only unfinished rows need the larger radius.
+        if cnt[i] >= k:
+            return
         p = pts[i]
         r2 = radius * radius
         n = int(0)
@@ -108,12 +112,11 @@ def knn_self_torch(x_t, k: int):
     R = 1.5 * pitch * (3.0 * k / (4.0 * np.pi)) ** (1.0 / 3.0)
     dim = int(min(256, max(32, 2 * int(np.ceil(N ** (1.0 / 3.0))))))
     grid = wp.HashGrid(dim, dim, dim, device=device)
-    out_i = out_d = cnt = None
+    out_i = wp.zeros((N, k), dtype=int, device=device)
+    out_d = wp.zeros((N, k), dtype=float, device=device)
+    cnt = wp.zeros(N, dtype=int, device=device)
     c = None
     for _ in range(6):
-        out_i = wp.zeros((N, k), dtype=int, device=device)
-        out_d = wp.zeros((N, k), dtype=float, device=device)
-        cnt = wp.zeros(N, dtype=int, device=device)
         grid.build(points=pts, radius=float(R))
         wp.launch(kern, dim=N, inputs=[grid.id, pts, float(R), int(k), out_i, out_d, cnt], device=device)
         c = cnt.numpy()

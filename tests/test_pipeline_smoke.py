@@ -12,6 +12,59 @@ from physmorph.pipeline import PipelineConfig, run_pipeline
 DEV = "cpu"
 
 
+@pytest.mark.parametrize("solver_mode,compression", [
+    ("legacy", 8),
+    ("settled_transport", 0),
+])
+def test_run_archive_preserves_arrays_and_legacy_compression(tmp_path, solver_mode, compression):
+    import zipfile
+    from scripts import pipeline_run
+
+    arrays = dict(frames=np.arange(18, dtype=np.float32).reshape(2, 3, 3),
+                  deliver_n=np.int64(2), render_mask=np.array([True, False, True]),
+                  orient=np.str_("y-up"), truncation=np.str_('{"reason": null}'),
+                  Fg_commits=np.zeros((0, 0, 3, 3), np.float32))
+    path = tmp_path / "run.npz"
+    pipeline_run._save_run_archive(path, solver_mode, **arrays)
+    with zipfile.ZipFile(path) as archive:
+        assert all(member.compress_type == compression for member in archive.infolist())
+    with np.load(path, allow_pickle=False) as archive:
+        assert set(archive.files) == set(arrays)
+        for key, value in arrays.items():
+            assert archive[key].dtype == np.asarray(value).dtype
+            np.testing.assert_array_equal(archive[key], value)
+
+
+@pytest.mark.parametrize('n,compression', [(99999, 8), (100000, 0)])
+def test_run_archive_preserves_upstream_particle_threshold(tmp_path, n, compression):
+    import zipfile
+    from scripts.pipeline_run import _save_run_archive
+
+    path = tmp_path / 'run.npz'
+    source = np.zeros((n, 3), np.float32)
+    _save_run_archive(path, 'legacy', src=source)
+    with zipfile.ZipFile(path) as archive:
+        assert archive.getinfo('src.npy').compress_type == compression
+    with np.load(path) as archive:
+        np.testing.assert_array_equal(archive['src'], source)
+
+
+@pytest.mark.parametrize('velocity,rejected_velocity', [(.04, 0.), (.01, 99.)])
+def test_rest_gate_uses_delivered_commit_not_rejected_trials(velocity, rejected_velocity):
+    from types import SimpleNamespace
+    from scripts.pipeline_run import eval_gates
+    res = dict(guards={}, deliver_n_used=2, history=[
+        dict(frame_end=2, v_mean=velocity),
+        dict(frame_end=3, v_mean=99.),
+        dict(null_commit=1, outer_rejected=1, v_mean=rejected_velocity),
+    ])
+    met = dict(jitter_rel=0., bbox_diag=1., hole_frac=0., hole_frac_tgt=0.,
+               outside_max=0., stray_max=0.)
+    gates = eval_gates('test', res, met, SimpleNamespace(dt=.1), T=1)
+    assert gates['drift_rel'] == pytest.approx(.1 * velocity)
+    assert gates['G3_rest'] == (velocity < .03)
+
+
 @pytest.fixture(scope="module")
 def prm():
     return MPMParams(dx=1.0, nx=32, ny=32, nz=32)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import warp as wp
 
-from .constitutive import weight, pk1_fixed_corotated
+from .constitutive import weight, pk1_fixed_corotated, pk1_fixed_corotated_polar
 
 
 @wp.func
@@ -46,6 +46,17 @@ def k_stress(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
     P[p] = Pe @ wp.transpose(Fpi)
 
 
+@wp.kernel
+def k_stress_polar(F: wp.array(dtype=wp.mat33), dFc: wp.array(dtype=wp.mat33),
+                   Fp: wp.array(dtype=wp.mat33), lam: wp.array(dtype=float),
+                   mu: wp.array(dtype=float), P: wp.array(dtype=wp.mat33)):
+    p = wp.tid()
+    Fpi = wp.inverse(Fp[p])
+    Fe = (F[p] + dFc[p]) @ Fpi
+    Pe = pk1_fixed_corotated_polar(Fe, lam[p], mu[p])
+    P[p] = Pe @ wp.transpose(Fpi)
+
+
 # ── guidance velocity injection (distributed over substeps) ─────────────────
 # Adds a small per-particle velocity each substep so elasticity can resist
 # overshoot, instead of a single large velocity override (anti-ejection).
@@ -67,6 +78,16 @@ def k_zero_vec(a: wp.array(dtype=wp.vec3)):
 
 
 # ── P2G — eq (4)(5), oracle SingleParticle_to_grid ──────────────────────────
+@wp.func
+def bond_velocity(v: wp.array(dtype=wp.vec3), nbr: wp.array(dtype=int), p: int, K: int):
+    # A function call replays the dynamic sum before differentiating w(x) * vp.
+    # Inlining this loop in k_p2g leaves its accumulator at zero in Warp's replay.
+    vs = wp.vec3(0.0, 0.0, 0.0)
+    for a in range(K):
+        vs = vs + v[nbr[p * K + a]]
+    return vs / float(K)
+
+
 @wp.kernel
 def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           C: wp.array(dtype=wp.mat33), F: wp.array(dtype=wp.mat33),
@@ -75,7 +96,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
           nbr: wp.array(dtype=int), frag: wp.array(dtype=float), bond_K: int,
           grid_m: wp.array(dtype=float), grid_v: wp.array(dtype=wp.vec3),
           gmin: wp.vec3, dx: float, inv_dx: float, dt: float, drag: float,
-          nx: int, ny: int, nz: int):
+          nx: int, ny: int, nz: int, replay_bonds: int):
     p = wp.tid()
     xp = x[p]
     if not valid_pos(xp):
@@ -89,10 +110,14 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
         # FRAGMENT (its occupied-cell component is not the body's): the grid cannot couple
         # it to the body; use the material transfer — the mean velocity of its frozen
         # source neighbours (material PIC; k_update does the position projection)
-        vs = wp.vec3(0.0, 0.0, 0.0)
-        for a in range(bond_K):
-            vs = vs + v[nbr[p * bond_K + a]]
-        vp = vs / float(bond_K)
+        if replay_bonds != 0:
+            vp = bond_velocity(v, nbr, p, bond_K)
+        else:
+            # Kept operation-for-operation for the README production ablation.
+            vs = wp.vec3(0.0, 0.0, 0.0)
+            for a in range(bond_K):
+                vs = vs + v[nbr[p * bond_K + a]]
+            vp = vs / float(bond_K)
     mv = m[p] * vp * (1.0 - dt * drag)
     b = base_node(xp, gmin, inv_dx)
     for oi in range(4):

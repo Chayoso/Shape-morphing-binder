@@ -80,6 +80,42 @@ def pk1_fixed_corotated(F: wp.mat33, lam: float, mu: float) -> wp.mat33:
 
 
 @wp.func
+def polar_R(F: wp.mat33) -> wp.mat33:
+    """Same forward rotation; a polar-factor VJP for nonsingular det(F)>0."""
+    return corotated_R(F)
+
+
+@wp.func_grad(polar_R)
+def adj_polar_R(F: wp.mat33, adj_R: wp.mat33):
+    R = corotated_R(F)
+    S0 = wp.transpose(R) @ F
+    S = 0.5 * (S0 + wp.transpose(S0))
+    H = wp.transpose(R) @ adj_R - wp.transpose(adj_R) @ R
+    # S*Omega + Omega*S = H. In 3D its axial form is a 3x3
+    # solve with eigenvalues sigma_i + sigma_j, never their differences.
+    tr = wp.trace(S)
+    A = wp.mat33(tr, 0.0, 0.0, 0.0, tr, 0.0, 0.0, 0.0, tr) - S
+    w = wp.inverse(A) @ wp.vec3(H[2, 1], H[0, 2], H[1, 0])
+    Omega = wp.mat33(0.0, -w[2], w[1], w[2], 0.0, -w[0], -w[1], w[0], 0.0)
+    wp.adjoint[F] += R @ Omega
+
+
+@wp.func
+def pk1_fixed_corotated_polar(F: wp.mat33, lam: float, mu: float) -> wp.mat33:
+    # Inverted trials retain the signed-SVD branch and are rejected by the
+    # trajectory guard; the positive-definite polar derivative is not used there.
+    R = wp.mat33()
+    J = wp.determinant(F)
+    if J > 0.0:
+        R = polar_R(F)
+    else:
+        R = corotated_R(F)
+    Jc = wp.max(J, 1.0e-6)
+    Fit = wp.transpose(wp.inverse(F))
+    return 2.0 * mu * (F - R) + lam * (Jc - 1.0) * Jc * Fit
+
+
+@wp.func
 def psi_fixed_corotated(F: wp.mat33, lam: float, mu: float) -> float:
     """Elastic energy density — eq (2). mu*sum(sig-1)^2 + 0.5 lam (J-1)^2."""
     U = wp.mat33()

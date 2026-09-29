@@ -41,6 +41,39 @@ python scripts/render_photoreal.py --npz output/bunny_render_full_dt_iso_nn.npz 
 per-particle control field for a coarse trilinear basis, `--lambda_auto 0` switches the
 render channel off (the physics-only twin).
 
+### Settled transport with local particle support
+
+The opt-in method evaluates transport and rendering after a controlled phase of
+`T` steps followed by `T` steps with `dFc` and `u` withdrawn. The physical simulation,
+passive layer relaxation and material terms remain active during release. It uses
+fixed-target grid transport, a matched shading target, rendering weights calibrated
+once per loss resolution, and a released-phase motion penalty. A bounded local
+density penalty discourages particle separation without overwhelming the remaining
+transport objective. Delivery selects a valid state using the complete calibrated
+merit; the local support penalty is not a topology or whole-trajectory guarantee.
+
+Use the Run command above with a separate output directory and append:
+
+```bash
+--solver_mode settled_transport --ot_iters 1600 --support_weight 8 --nn_sampling_berth
+```
+
+`--nn_sampling_berth` calibrates the near-target cleanup radius from the target
+particle spacing. Solver mode defaults to `legacy`; the local support penalty defaults
+to off. The original PCGrad path remains available.
+
+For paired 100k runs, use the same target, seed and base command on both sides
+(`--n 100000 --seed 97` for the Bunny pair), then add the flags above only to the
+new-method run. The reported pairs use Bunny / 97, Teapot / 101, Fandisk / 103,
+Spot / 107 and Nefertiti / 109, with their corresponding meshes in `assets/`.
+
+**Upstream compatibility:** this branch is based on `origin/main` at `680622e`.
+That update changes dynamics mass to `40000/N`; the historical 100k comparisons
+used unit masses. Pass `--mass_ref_n 0` to **both** arms when reproducing those
+settings. The default `--mass_ref_n 40000` preserves the latest upstream behavior.
+Previously measured quality gains are not validation of the new mass setting.
+GPU neighbor queries and floating-point reductions can also affect exact replay.
+
 ## Layout
 
 ```

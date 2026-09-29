@@ -135,7 +135,8 @@ def test_adjoint_matches_finite_differences_with_force():
 
     def L(d):
         xT, FT, vT, FgT, V = warp_mpm_ext(d, spec)
-        return (xT * wvec).sum() + 0.1 * (vT * wvec).sum()
+        # Keep float32 dynamics; avoid cancellation in the scalar FD reduction.
+        return (xT.double() * wvec.double()).sum() + 0.1 * (vT.double() * wvec.double()).sum()
 
     loss = L(dfc)
     g, = torch.autograd.grad(loss, dfc)

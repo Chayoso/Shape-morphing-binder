@@ -41,6 +41,38 @@ from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
 from physmorph.sampling import load_normalized as load  # noqa: E402
 
 
+def _save_run_archive(path, solver_mode, **arrays):
+    """Keep the upstream 100k threshold and fast storage for settled trajectories."""
+    uncompressed = solver_mode == "settled_transport" or len(arrays.get("src", ())) >= 100000
+    save = np.savez if uncompressed else np.savez_compressed
+    save(path, **arrays)
+
+
+def _resolve_nn_berth(args, target):
+    """Resolve the opt-in sampling radius once; the optimizer still receives a number."""
+    if not args.nn_sampling_berth:
+        return args.nn_berth_k
+    if (args.solver_mode != 'settled_transport'
+            or not np.isfinite(args.support_weight) or args.support_weight <= 0
+            or not np.isfinite(args.w_nn) or args.w_nn <= 0
+            or args.arms.strip() != 'render_full_dt_iso_nn' or args.nn_berth_k != 1.):
+        raise ValueError('nn_sampling_berth requires render_full_dt_iso_nn, settled_transport, '
+                         'positive support_weight and w_nn, and the default nn_berth_k')
+    target = np.asarray(target)
+    if (target.ndim != 2 or target.shape[1] != 3 or len(target) < 9
+            or not np.isfinite(target).all()):
+        raise ValueError('nn_sampling_berth requires at least nine finite target points')
+    from scipy.spatial import cKDTree
+    distances = cKDTree(target).query(target, k=9, workers=4)[0]
+    spacing = float(np.median(distances[:, 1]))
+    if not spacing > 0:
+        raise ValueError('nn_sampling_berth requires positive target nearest-neighbor spacing')
+    ratio = float(np.median(distances[:, 8]) / spacing)
+    if not np.isfinite(ratio) or not np.isfinite(args.nn_far_k) or not 0 < ratio < args.nn_far_k:
+        raise ValueError('nn_sampling_berth radius must be finite and smaller than nn_far_k')
+    return ratio
+
+
 def gate1_plumbing(src, prm, T=6, device="cuda"):
     """G1a: a constant dFc sequence must equal the shared control (atomic-add ULP tolerance)."""
     N = len(src)
@@ -96,6 +128,7 @@ def gate1_channels(src, prm, young=1.4e5, poisson=0.2, device="cuda"):
 
 def arm_config(arm: str, args) -> PipelineConfig:
     cfg = PipelineConfig(T=args.T, iters=args.iters, animations=args.animations,
+                         mass_ref_n=args.mass_ref_n,
                          alpha=args.alpha, w_kin=args.w_kin, w_ctrl=args.w_ctrl,
                          w_box=args.w_box, assim=args.assim, assim_consensus=args.assim_consensus,
                          young=args.young, poisson=args.poisson, render_until=args.render_until,
@@ -138,6 +171,8 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           vol_frontier=args.vol_frontier,
                           warm_start=args.warm_start,
                           grad_project_mode=args.grad_project_mode,
+                          solver_mode=args.solver_mode,
+                          support_weight=args.support_weight,
                           cagrad_c=args.cagrad_c,
                           render_gs_cheb=args.render_gs_cheb,
                           gauss_robust_eps=args.gauss_robust_eps,
@@ -450,7 +485,8 @@ def eval_gates(tag, res, met, prm, T, rel_tol=0.003, hole_tol=0.02):
     # terminal velocity was being read before)
     dn = res.get("deliver_n_used")
     recs = [h for h in res["history"] if "v_mean" in h
-            and (dn is None or (h.get("frame_end") or 0) <= dn)]
+            and h.get("frame_end") is not None and not h.get("null_commit")
+            and (dn is None or h["frame_end"] <= dn)]
     v_mean = recs[-1]["v_mean"] if recs else 0.0
     drift_rel = v_mean * prm.dt * T / max(met["bbox_diag"], 1e-9)
     gates = {
@@ -480,6 +516,9 @@ def main():
     ap.add_argument("--src", default="assets/isosphere.obj")
     ap.add_argument("--tgt", default="assets/bunny.obj")
     ap.add_argument("--n", type=int, default=20000)
+    ap.add_argument("--mass_ref_n", type=int, default=40000,
+                    help="dynamics mass per particle is mass_ref_n/N (upstream default: 40000); "
+                         "0 reproduces the unit masses used in the earlier 100k validation")
     ap.add_argument("--T", type=int, default=20)
     ap.add_argument("--iters", type=int, default=8)
     ap.add_argument("--animations", type=int, default=30)
@@ -583,6 +622,17 @@ def main():
                          "measured window-locked limit cycle")
     ap.add_argument("--grad_project_mode", default="render",
                     choices=["render", "phys", "cagrad", "blend"])
+    ap.add_argument("--solver_mode", default="legacy",
+                    choices=["legacy", "settled_transport"],
+                    help="settled_transport: fixed-grid transport, matched shading, T controlled + T released "
+                         "physical steps, and initial render-scale calibration")
+    ap.add_argument("--support_weight", type=float, default=0.,
+                    help="opt-in transport-bounded particle support (settled_transport, uniform masses); "
+                         "0 preserves the existing solver; 8 is the validation candidate")
+    ap.add_argument("--nn_sampling_berth", action="store_true",
+                    help="use the target median eighth-neighbor radius for NN cleanup; requires "
+                         "render_full_dt_iso_nn, settled_transport and positive support_weight; "
+                         "off preserves the manual nn_berth_k (quality/time tradeoff, not a path guarantee)")
     ap.add_argument("--cagrad_c", type=float, default=0.5)
     ap.add_argument("--render_gs_cheb", action="store_true")
     ap.add_argument("--gauss_robust_eps", type=float, default=0.0)
@@ -724,6 +774,9 @@ def main():
         prm = dataclasses.replace(prm, gate_r_lo=args.gate_lo, gate_r_hi=args.gate_hi)
         print(f"[v2run] support-gated APIC on: r_lo={args.gate_lo} r_hi={args.gate_hi} "
               f"(n0 = source median 3^3-cell count, set by the runner)", flush=True)
+    if args.nn_sampling_berth:
+        args.nn_berth_k = _resolve_nn_berth(args, tgt)
+        print(f"[v2run] sampling-scale NN berth: nn_berth_k={args.nn_berth_k:.17g}", flush=True)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={args.T}  iters={args.iters}  "
           f"anims={args.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}",
@@ -737,10 +790,15 @@ def main():
     live_dir = Path(args.live_dir) if args.live_dir else None
 
     tracked = [Path("physmorph/pipeline/config.py"),
+               Path("physmorph/pipeline/control_basis.py"),
+               Path("physmorph/pipeline/render_loss.py"),
+               Path("physmorph/pipeline/grad_combine.py"),
                Path("physmorph/pipeline/optimizer.py"),
                Path("physmorph/pipeline/runner.py"),
                Path("physmorph/pipeline/gauss_loss.py"),
+               Path("physmorph/render/poisson_worker.py"),
                Path("physmorph/losses/volumetric.py"),
+               Path("physmorph/losses/ot.py"),
                Path("physmorph/mpm/kernels.py"),
                Path("physmorph/mpm/traj.py")]
     code_hash = hashlib.sha256(b"".join(p.read_bytes() for p in tracked)).hexdigest()[:16]
@@ -818,12 +876,8 @@ def main():
                     cfg.gauss_child_sigma_scale if cfg.gauss_children > 1 else 1.0),
             }
         from physmorph.sampling.orientation import orient_name as _orient_name
-        # 2026-09-23 (speed): zlib on a 300k x 1000-frame stack is minutes of single-thread CPU at
-        # the end of the run (17 s for 100 frames); above 100k particles the archive is written
-        # uncompressed (float32 positions compress poorly anyway; disk is not the constraint)
-        _saver = np.savez if len(src) >= 100000 else np.savez_compressed
-        _saver(
-            f"{args.out}_{arm}.npz", src=src, tgt=tgt,
+        _save_run_archive(
+            f"{args.out}_{arm}.npz", cfg.solver_mode, src=src, tgt=tgt,
             orient=np.str_(_orient_name(args.tgt)),        # the loader already rotated the asset to y-up
             frames=np.stack(res["frames"]), deliver_n=np.int64(dn),
             truncation=json.dumps(res.get("truncation")),

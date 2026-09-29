@@ -3,6 +3,7 @@ host->device copies. Results must be bit-identical to the reference saved from t
 implementation (scratch reference regenerated here from the same seeds on CPU; the CUDA
 reference is compared when a GPU is present)."""
 import os
+from contextlib import nullcontext
 
 import numpy as np
 import pytest
@@ -13,6 +14,27 @@ from physmorph.mpm.state import MPMParams
 from physmorph.mpm.traj import Trajectory, compute_rest_volumes
 
 REF = os.environ.get("PHYSMORPH_TRAJ_REF", "")
+
+
+@pytest.mark.parametrize("device,free,idle,capturing,release", [
+    ("cpu", 0, 8, False, False),
+    ("cuda:0", 8, 2, False, False),
+    ("cuda:0", 2, 8, False, True),
+    ("cuda:0", 0, 0, False, False),
+    ("cuda:0", 2, 8, True, False),
+])
+def test_idle_cache_is_released_only_for_cuda_pressure_outside_capture(
+        monkeypatch, device, free, idle, capturing, release):
+    from physmorph.mpm.traj import _release_idle_cuda_cache
+    calls = []
+    monkeypatch.setattr(torch.cuda, 'device', lambda d: nullcontext())
+    monkeypatch.setattr(torch.cuda, 'is_current_stream_capturing', lambda: capturing)
+    monkeypatch.setattr(torch.cuda, 'mem_get_info', lambda d: (free, 16))
+    monkeypatch.setattr(torch.cuda, 'memory_allocated', lambda d: 3)
+    monkeypatch.setattr(torch.cuda, 'memory_reserved', lambda d: 3 + idle)
+    monkeypatch.setattr(torch.cuda, 'empty_cache', lambda: calls.append('release'))
+    _release_idle_cuda_cache(device)
+    assert calls == (['release'] if release else [])
 
 
 def _case(dev):

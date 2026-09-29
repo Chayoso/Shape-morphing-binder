@@ -38,6 +38,617 @@ def _recs(res):
     return [h for h in res["history"] if "d_vol" in h]
 
 
+def test_phase_velocity_cost_allows_progress_but_penalizes_released_drift():
+    from physmorph.pipeline.optimizer import _velocity_variance
+    v = torch.tensor([[[1., 0., 0.]], [[3., 0., 0.]],
+                      [[0., 0., 0.]], [[0., 0., 0.]]], requires_grad=True)
+    value = _velocity_variance(v, 2)
+    assert float(value) == pytest.approx(.5)
+    expected_grad = torch.tensor([[[-.5, 0., 0.]], [[.5, 0., 0.]],
+                                  [[0., 0., 0.]], [[0., 0., 0.]]])
+    torch.testing.assert_close(torch.autograd.grad(value, v)[0], expected_grad)
+    assert float(_velocity_variance(v)) == pytest.approx(1.5)
+    constant_phases = torch.cat((torch.ones(20, 2, 3), torch.zeros(20, 2, 3)))
+    assert float(_velocity_variance(constant_phases, 20)) == 0.
+    assert float(_velocity_variance(constant_phases)) == pytest.approx(.75)
+    # A constant released velocity is drift, not rest, even with zero variance.
+    drift = torch.ones(4, 1, 3, requires_grad=True)
+    cost = _velocity_variance(drift, 2)
+    assert float(cost) == pytest.approx(1.5)
+    grad, = torch.autograd.grad(cost, drift)
+    torch.testing.assert_close(grad[:2], torch.zeros(2, 1, 3))
+    torch.testing.assert_close(grad[2:], torch.full((2, 1, 3), .5))
+    assert float(_velocity_variance(drift)) == 0.
+
+
+def test_settled_phase_objective_agrees_between_gradient_search_and_replay(prm, clouds, monkeypatch):
+    import physmorph.pipeline.runner as runner
+    optimize, windows = runner.optimize_window, []
+    def checked(*args, **kwargs):
+        logs = []
+        kwargs['log'] = lambda msg: logs.append(msg)
+        result = optimize(*args, **kwargs)
+        assert not any('commit rollout failed' in msg for msg in logs)
+        windows.append(result)
+        return result
+    monkeypatch.setattr(runner, 'optimize_window', checked)
+    # This tiny fixture needs one more backtrack with the released kinetic cost.
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               pace=0., layer_ctrl=True, warm_start=True, loss_units='density',
+               w_kin_var=200., ot_iters=1600, max_ls_iters=12)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert len(windows) == 2
+    assert all(w[-1]['accepted'] > 0 for w in windows)
+    assert all(v == 0 for v in res['guards'].values())
+
+
+@pytest.mark.parametrize('kde_weight', [0., .1])
+def test_settled_delivery_merit_uses_current_geometry(prm, clouds, monkeypatch,
+                                                    kde_weight):
+    import physmorph.pipeline.runner as runner
+    import physmorph.pipeline.optimizer as opt
+    from scipy.spatial import cKDTree
+    optimize, checked = runner.optimize_window, []
+
+    def check(x, params, cfg, pack, bal, **kw):
+        result = optimize(x, params, cfg, pack, bal, **kw)
+        frames, _, end, _, _, stats = result
+        assert stats['accepted'] > 0
+        assert 'selection_merit' in stats
+        xt = torch.as_tensor(frames[-1])
+        vt = torch.as_tensor(end['v'])
+        # All control/motion priors are disabled in this fixture. Independently
+        # evaluate the final physical state, full DT and current nearest target.
+        expected = pack.ot_scale * float(pack.grid_ot.state_energy(xt, pack.m, vt, cfg.T * params.dt))
+        expected += bal.lam * float(opt.d_render(xt, pack.sils, pack.views,
+            cfg.render_res, pack.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray))
+        expected += cfg.w_dt / pack.unit_ratio * float(opt.d_w1(
+            xt, pack.m, pack.dt3, pack.dtgmin, pack.dtdx, pack.dtdims))
+        distance = cKDTree(pack.pts.numpy()).query(frames[-1])[0]
+        expected += cfg.w_nn / pack.unit_ratio * float(np.sum(
+            pack.m.numpy() * np.maximum(distance - cfg.nn_berth_k * pack.nn_spacing, 0.)))
+        if cfg.w_kde:
+            nbr = opt.kde_assign(xt, pack.pts, cfg.kde_k)
+            expected += cfg.w_kde * pack.kde_scale * float(opt.d_kde(
+                xt, pack.pts, nbr, pack.kde_h, pack.kde_rho_ref))
+        assert stats['selection_merit'] == pytest.approx(expected, rel=2e-5, abs=1e-8)
+        checked.append(stats['selection_merit'])
+        return result
+
+    monkeypatch.setattr(runner, 'optimize_window', check)
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               animations=1, pace=0., loss_units='density', w_kin=0., w_ctrl=0., w_box=0.,
+               w_dt=.2, dt_res=16, w_nn=.2, nn_far_k=1000.,
+               w_kde=kde_weight)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert _recs(res)[0]['selection_merit'] == checked[0]
+
+
+@pytest.mark.parametrize('solver_mode', ['legacy', 'settled_transport'])
+def test_accepted_step_memory_is_scaled_and_only_used_in_settled_mode(prm, clouds, monkeypatch,
+                                                                    solver_mode):
+    import physmorph.pipeline.runner as runner
+    optimize, first_steps = runner.optimize_window, []
+
+    def checked(*args, **kw):
+        pack = args[3]
+        pack.settled_step = 1e-4
+        kw['alpha_scale'] = .5
+        result = optimize(*args, **kw)
+        assert result[-2]
+        first_steps.append(result[-2][0]['alpha'])
+        if solver_mode == 'settled_transport':
+            assert pack.settled_step == pytest.approx(result[-2][-1]['alpha'] / .5)
+        else:
+            assert pack.settled_step == 1e-4
+        return result
+
+    monkeypatch.setattr(runner, 'optimize_window', checked)
+    cfg = _cfg(solver_mode=solver_mode, lambda_auto=.5, grad_project=True,
+               animations=1, iters=1, pace=0., loss_units='density', adaptive_alpha=False)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert all(v == 0 for v in res['guards'].values())
+    if solver_mode == 'settled_transport':
+        assert 0 < first_steps[0] <= 5.5e-5 * (1 + 1e-12)
+    else:
+        assert first_steps[0] > 1e-3
+
+
+@pytest.mark.parametrize('solver_mode', ['legacy', 'settled_transport'])
+def test_replay_noise_floor_uses_loss_units_only_in_settled_mode(prm, clouds, monkeypatch,
+                                                               solver_mode):
+    import physmorph.pipeline.optimizer as opt
+    import physmorph.pipeline.runner as runner
+    variance, optimize = opt._velocity_variance, runner.optimize_window
+    calls, noise, ratios = 0, [], []
+
+    def noisy_variance(*args, **kw):
+        nonlocal calls
+        calls += 1
+        value = variance(*args, **kw)
+        # Reproduce a small mismatch between the two calibration rollouts on
+        # deterministic CPU hardware. Physical noise is identical in both units.
+        return value + 1e-6 if calls == 2 else value
+
+    def measured(*args, **kw):
+        # Isolate the replay floor from OT's separate gradient calibration.
+        # The zero-control reference now has zero loss in either unit system.
+        args[3].ot_scale = 0.
+        ratios.append(args[3].unit_ratio)
+        result = optimize(*args, **kw)
+        noise.append(result[-1]['replay_rel'])
+        return result
+
+    monkeypatch.setattr(opt, '_velocity_variance', noisy_variance)
+    monkeypatch.setattr(runner, 'optimize_window', measured)
+    for units in ['legacy', 'density']:
+        calls = 0
+        cfg = _cfg(solver_mode=solver_mode, lambda_auto=.5, grad_project=True,
+                   animations=1, iters=1, pace=0., loss_units=units,
+                   phys_loss='ot_pace', ot_grid=True, ot_debias=True,
+                   w_kin_var=200., w_box=0., w_ctrl=0., replay_calibrate=True)
+        run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    # 200 * 1e-6 in physical loss units, independent of density conversion.
+    # Legacy's existing literal-floor calibration intentionally stays unchanged.
+    assert ratios[1] > 1.
+    density_noise = 2e-4 if solver_mode == 'settled_transport' else 2e-4 / ratios[1]
+    assert noise == pytest.approx([2e-4, density_noise], rel=2e-4)
+
+
+@pytest.mark.parametrize('replay_noise,expect_commit', [(2e-6, True), (1., False)])
+def test_settled_replay_calibration_distinguishes_noise_from_regression(prm, clouds, monkeypatch,
+                                                                      replay_noise, expect_commit):
+    import physmorph.pipeline.optimizer as opt
+    import physmorph.pipeline.runner as runner
+    variance = opt._velocity_variance
+    optimize, packs = runner.optimize_window, []
+    committed_step = False
+    calls = 0
+
+    def cached_window(*args, **kw):
+        pack = args[3]
+        pack.settled_step = .02  # Does not constrain the normal initial step.
+        packs.append(pack)
+        return optimize(*args, **kw)
+
+    def accepted(*args):
+        nonlocal committed_step
+        committed_step = True
+
+    def corrupt_final_replay(*args, **kw):
+        nonlocal calls
+        calls += 1
+        value = variance(*args, **kw)
+        if committed_step:
+            return value + replay_noise
+        return value + 1e-6 if calls == 2 else value
+
+    monkeypatch.setattr(opt, '_velocity_variance', corrupt_final_replay)
+    monkeypatch.setattr(runner, 'optimize_window', cached_window)
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               animations=1, iters=1, pace=0., loss_units='density',
+               w_kin_var=200., replay_calibrate=True, max_ls_iters=12)
+    res = run_pipeline(*clouds, prm, cfg, on_iter=accepted, log=lambda *_: None)
+    assert committed_step
+    assert any(r.get('frame_end') for r in res['history']) == expect_commit
+    assert any(r.get('null_commit') for r in res['history']) != expect_commit
+    assert (packs[0].settled_step is not None) == expect_commit
+    if not expect_commit:
+        assert all(np.array_equal(frame, clouds[0]) for frame in res['frames'])
+
+
+@pytest.mark.parametrize('c2f', [False, True])
+def test_settled_delivers_best_merit_even_inside_legacy_tolerance(prm, clouds, monkeypatch, c2f):
+    import physmorph.pipeline.runner as runner
+    optimize, windows = runner.optimize_window, []
+
+    def scored(*args, **kw):
+        result = optimize(*args, **kw)
+        assert result[-1]['accepted'] > 0
+        # Resolution changes make the first score incomparable. The last two
+        # differ by less than legacy tol, but the earlier one is still better.
+        result[-1]['selection_merit'] = ([1e-6, .999, 1.001] if c2f
+                                        else [1., .999, 1.001])[len(windows)]
+        windows.append(result)
+        return result
+
+    monkeypatch.setattr(runner, 'optimize_window', scored)
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               animations=3, patience=10, pace=0., loss_units='density',
+               best_truncate=True, c2f_at=1/3 if c2f else 0., render_res_hi=28)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert len(windows) == 3
+    assert res['truncation']['best_animation'] == 2
+    np.testing.assert_array_equal(res['frames'][res['deliver_n'] - 1], windows[1][0][-1])
+
+
+@pytest.mark.parametrize('solver_mode', ['legacy', 'settled_transport'])
+@pytest.mark.parametrize('c2f', [False, True])
+def test_delivery_merit_plateau_respects_mode_and_resolution(prm, clouds, monkeypatch,
+                                                             solver_mode, c2f):
+    import physmorph.pipeline.runner as runner
+    optimize, windows = runner.optimize_window, []
+
+    def scored(*args, **kw):
+        result = optimize(*args, **kw)
+        assert result[-1]['accepted'] > 0
+        i = len(windows)
+        # Raw render keeps improving, but the fixed-weight objective plateaus.
+        # A resolution rebuild starts a new, incomparable score scale.
+        result[-2][-1]['d_render'] = result[-2][-1]['d_sil'] = 1. / (i + 1)
+        result[-1]['selection_merit'] = 10. if c2f and i >= 2 else 1.
+        windows.append(result)
+        return result
+
+    monkeypatch.setattr(runner, 'optimize_window', scored)
+    cfg = _cfg(solver_mode=solver_mode, lambda_auto=.5, grad_project=True,
+               animations=4, patience=1, pace=0., loss_units='density',
+               c2f_at=.5 if c2f else 0., render_res_hi=28)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    expected = 2 if solver_mode == 'settled_transport' and not c2f else 4
+    assert len(windows) == len(_recs(res)) == expected
+    if c2f:
+        assert any('c2f_render_res' in r for r in res['history'])
+
+
+def test_settled_nonfinite_delivery_merit_cannot_commit(prm, clouds, monkeypatch):
+    import physmorph.pipeline.optimizer as opt
+    import physmorph.pipeline.runner as runner
+    optimize, seeds = runner.optimize_window, []
+
+    def tracked(*args, **kw):
+        seeds.append((kw['s_init'], kw['dfc_init']))
+        return optimize(*args, **kw)
+
+    monkeypatch.setattr(runner, 'optimize_window', tracked)
+    monkeypatch.setattr(opt, 'd_nn_band_current',
+                        lambda x, *args, **kw: x.new_tensor(float('nan')))
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               animations=2, patience=3, pace=0., loss_units='density', w_nn=.2,
+               opt_material=True, warm_start=True)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert any(r.get('null_commit') for r in res['history'])
+    assert all(np.array_equal(frame, clouds[0]) for frame in res['frames'])
+    assert len(seeds) == 2 and all(s is None and dc is None for s, dc in seeds)
+
+
+@pytest.mark.parametrize('solver_mode', ['legacy', 'settled_transport'])
+def test_delivery_merit_excludes_null_padding_only_in_settled_mode(prm, clouds, monkeypatch, solver_mode):
+    import physmorph.pipeline.runner as runner
+    optimize, windows = runner.optimize_window, []
+
+    def one_commit(*args, **kw):
+        if not windows:
+            result = optimize(*args, **kw)
+            assert result[-1]['accepted'] > 0
+            windows.append(result)
+            return result
+        fr, fs, end, s, _, stats = windows[0]
+        return fr, fs, end, s, [], dict(stats, accepted=0, grad_converged=False)
+
+    monkeypatch.setattr(runner, 'optimize_window', one_commit)
+    cfg = _cfg(solver_mode=solver_mode, lambda_auto=.5, grad_project=True,
+               animations=3, patience=10, pace=0., loss_units='density')
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    accepted = next(r for r in res['history'] if r.get('frame_end'))
+    padding = 0 if solver_mode == 'settled_transport' else 2
+    assert len(res['frames']) == accepted['frame_end'] + padding
+    expected = accepted['frame_end'] if solver_mode == 'settled_transport' else len(res['frames'])
+    assert res['deliver_n'] == expected
+
+
+@pytest.mark.parametrize('solver_mode', ['legacy', 'settled_transport'])
+def test_null_retry_does_not_insert_simulation_time_in_settled_motion(prm, clouds, monkeypatch,
+                                                                     solver_mode):
+    import physmorph.pipeline.runner as runner
+    optimize, windows = runner.optimize_window, []
+    calls = 0
+
+    def retry_once(*args, **kw):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            fr, fs, end, s, _, stats = windows[-1]
+            return fr, fs, end, s, [], dict(stats, accepted=0, grad_converged=False)
+        result = optimize(*args, **kw)
+        assert result[-1]['accepted'] > 0
+        windows.append(result)
+        return result
+
+    monkeypatch.setattr(runner, 'optimize_window', retry_once)
+    cfg = _cfg(solver_mode=solver_mode, lambda_auto=.5, grad_project=True,
+               animations=3, patience=10, pace=0., loss_units='density')
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    expected = list(windows[0][0])
+    if solver_mode == 'legacy':
+        expected.append(expected[-1])
+    expected.extend(windows[1][0][1:])
+    np.testing.assert_array_equal(np.stack(res['frames']), np.stack(expected))
+    assert len(res['frames']) == len(res['F_frames'])
+    null = next(r for r in res['history'] if r.get('null_commit'))
+    assert bool(null.get('no_simulated_time')) == (solver_mode == 'settled_transport')
+
+
+@pytest.mark.parametrize('term', ['w_fill', 'w_jdens'])
+def test_settled_delivery_merit_rejects_changing_optional_targets(prm, clouds, term):
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               pace=0., dt_res=16, jdens_res=16, **{term: .1})
+    with pytest.raises(ValueError, match='fixed delivery merit'):
+        run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+
+
+def test_spatial_transport_quadrature_runs_actual_control_optimization(prm, clouds, monkeypatch):
+    import physmorph.losses.ot as ot
+
+    original, blurs = ot.grid_transport_displacement, []
+    loss_call, values = ot.GridSinkhornLoss.__call__, []
+
+    def checked(x, mass, target, origin, dx, dims, **kw):
+        blurs.append((kw['eps'], dx))
+        return original(x, mass, target, origin, dx, dims, **kw)
+
+    monkeypatch.setattr(ot, 'grid_transport_displacement', checked)
+    def checked_loss(self, current):
+        out = loss_call(self, current)
+        values.append(float(out.detach()))
+        return out
+
+    monkeypatch.setattr(ot.GridSinkhornLoss, '__call__', checked_loss)
+    src, tgt = clouds
+    cfg = _cfg(lambda_auto=.5, solver_mode='settled_transport', grad_project=True, pace=0.,
+               ot_debias=True, ot_handoff=True, ot_samples=128, ot_iters=400,
+               loss_units='density', layer_ctrl=True, layer_gate_ot=True, dfc_clip=.02)
+    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
+    assert blurs and all(eps >= dx ** 2 for eps, dx in blurs)
+    assert len(values) > cfg.animations * cfg.iters
+    assert np.isfinite(values).all()
+    assert any(h.get('accepted', 0) > 0 for h in res['history'])
+    assert np.max(np.abs(res['frames'][-1] - src)) > 1e-5
+    assert all(v == 0 for v in res['guards'].values())
+
+
+def test_settled_transport_delivers_release_tail_and_keeps_calibration(prm, clouds, monkeypatch):
+    import physmorph.pipeline.runner as runner
+    from physmorph.mpm.traj import Trajectory
+    from physmorph.losses.ot import GridSinkhornLoss
+    optimize, run, energy = runner.optimize_window, Trajectory.run, GridSinkhornLoss.state_energy
+    windows, cached, steps = [], [], []
+    outer = False
+    active_bal = None
+
+    def checked_run(tr):
+        if active_bal is not None and len(windows) > 0:
+            # A rejected first window rolls back the balancer, not the calibration.
+            assert active_bal.lam == cached[0]
+        return run(tr)
+
+    def checked_window(x, params, cfg, pack, bal, **kw):
+        nonlocal outer, active_bal
+        outer, active_bal = False, bal
+        steps.append(getattr(pack, 'settled_step', None))
+        assert cfg.ot_grid and cfg.pbr_target_mode == 'matched'
+        if windows:
+            kw['dfc_init'] = np.full((cfg.T, len(x), 3, 3), 1e-4, np.float32)
+        result = optimize(x, params, cfg, pack, bal, **kw)
+        assert len(result[0]) == 2 * cfg.T + 1
+        assert result[-1]['dfc'].shape == (cfg.T, len(x), 3, 3)
+        cached.append(bal.lam)
+        windows.append(result)
+        outer, active_bal = True, None
+        return result
+
+    def reject_first_outer(self, x, *args, **kw):
+        if outer and len(windows) == 1:
+            return x.new_tensor(float('inf'))
+        return energy(self, x, *args, **kw)
+
+    monkeypatch.setattr(Trajectory, 'run', checked_run)
+    monkeypatch.setattr(runner, 'optimize_window', checked_window)
+    monkeypatch.setattr(GridSinkhornLoss, 'state_energy', reject_first_outer)
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               pace=0., layer_ctrl=True, warm_start=True, loss_units='density',
+               outer_merit=True, animations=3, reject_stop=4, patience=4)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert len(windows) >= 2 and cached[0] > 0
+    assert all(v == cached[0] for v in cached)
+    assert any(r.get('outer_rejected') for r in res['history'])
+    assert any(r.get('accepted', 0) > 0 for r in res['history'])
+    assert all(v == 0 for v in res['guards'].values())
+    assert steps[:2] == [None, None]  # Rejected first window cannot donate a step.
+    assert len(steps) >= 3 and steps[2] is not None and steps[2] > 0
+
+
+def test_settled_recipe_reports_effective_options_without_changing_defaults():
+    import dataclasses
+    cfg = PipelineConfig(solver_mode='settled_transport')
+    reported = dataclasses.asdict(cfg)
+    assert reported['ot_grid'] and reported['ot_debias']
+    assert reported['phys_loss'] == 'ot_pace'
+    assert reported['pbr_target_mode'] == 'matched'
+    baseline = PipelineConfig()
+    assert not baseline.ot_grid and baseline.pbr_target_mode == 'surface'
+
+
+@pytest.mark.parametrize('solver_mode', ['legacy', 'settled_transport'])
+@pytest.mark.parametrize('transport,merit', [(2., .8), (.8, 2.)])
+def test_outer_brake_uses_delivery_cost_only_for_settled_mode(
+        prm, clouds, monkeypatch, solver_mode, transport, merit):
+    import physmorph.pipeline.runner as runner
+    from physmorph.losses.ot import GridSinkhornLoss
+    optimize, energy = runner.optimize_window, GridSinkhornLoss.state_energy
+    windows, outer = [], False
+
+    def scored(*args, **kwargs):
+        nonlocal outer
+        outer = False
+        result = optimize(*args, **kwargs)
+        assert result[-1]['accepted'] > 0
+        result[-1]['selection_merit'] = merit if windows else 1.
+        windows.append(result)
+        outer = True
+        return result
+
+    def primary(self, x, *args, **kwargs):
+        if outer:
+            return x.new_tensor(transport if len(windows) == 2 else 1.)
+        return energy(self, x, *args, **kwargs)
+
+    monkeypatch.setattr(runner, 'optimize_window', scored)
+    monkeypatch.setattr(GridSinkhornLoss, 'state_energy', primary)
+    cfg = _cfg(solver_mode=solver_mode, lambda_auto=.5, grad_project=True,
+               pace=0., loss_units='density', outer_merit=True,
+               phys_loss='ot_pace', ot_grid=True, ot_debias=True)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    accepted = [h for h in res['history'] if 'frame_end' in h]
+    should_accept = merit < 1. if solver_mode == 'settled_transport' else transport < 1.
+    assert len(accepted) == (2 if should_accept else 1)
+    assert bool(_recs(res)[-1].get('brake_reject')) != should_accept
+    assert all(v == 0 for v in res['guards'].values())
+
+
+def test_settled_delivery_progress_cannot_freeze_on_stalled_raw_tracks(prm, clouds, monkeypatch):
+    import physmorph.pipeline.runner as runner
+    from physmorph.losses.ot import GridSinkhornLoss
+    optimize, energy = runner.optimize_window, GridSinkhornLoss.state_energy
+    windows, outer = [], False
+
+    def scored(*args, **kwargs):
+        nonlocal outer
+        outer = False
+        result = optimize(*args, **kwargs)
+        assert result[-1]['accepted'] > 0
+        result[-1]['selection_merit'] = .8 ** len(windows)
+        result[-2][-1].update(d_sil=1., d_render=1., kin=1.)
+        windows.append(result)
+        outer = True
+        return result
+
+    def primary(self, x, *args, **kwargs):
+        return x.new_tensor(1.) if outer else energy(self, x, *args, **kwargs)
+
+    monkeypatch.setattr(runner, 'optimize_window', scored)
+    monkeypatch.setattr(GridSinkhornLoss, 'state_energy', primary)
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               animations=4, patience=1, pace=0., loss_units='density', outer_merit=True)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert len(windows) == 4
+    assert len([h for h in res['history'] if 'frame_end' in h]) == 4
+
+
+@pytest.mark.parametrize('change', ['resolution', 'render_weight'])
+@pytest.mark.parametrize('eject', [False, True])
+def test_settled_outer_cost_starts_new_epoch_when_calibration_changes(prm, clouds, monkeypatch, change, eject):
+    import physmorph.pipeline.runner as runner
+    optimize, windows = runner.optimize_window, []
+
+    def scored(*args, **kwargs):
+        result = optimize(*args, **kwargs)
+        assert result[-1]['accepted'] > 0
+        result[-1]['selection_merit'] = 10. if windows else 1e-6
+        if change == 'render_weight':
+            # An initially zero render gradient leaves calibration pending;
+            # a later positive calibration changes the objective's scale.
+            result[-2][-1]['lambda'] = .5 if windows else 0.
+        windows.append(result)
+        return result
+
+    monkeypatch.setattr(runner, 'optimize_window', scored)
+    if eject:
+        counts = iter([0, 0, 1, 0])  # candidate/start at each window
+        monkeypatch.setattr(runner, '_iso_count', lambda *args: next(counts))
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               pace=0., loss_units='density', outer_merit=True,
+               eject_veto=eject,
+               c2f_at=.5 if change == 'resolution' else 0., render_res_hi=28)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    accepted = [h for h in res['history'] if 'frame_end' in h]
+    if eject:
+        assert len(accepted) == 1
+        assert _recs(res)[-1]['eject_reject'] == 1
+        return
+    assert len(accepted) == 2
+    assert [h['selection_epoch'] for h in accepted] == [0, 1]
+    assert accepted[1]['outer_gain'] is None
+    assert res['deliver_n'] == accepted[1]['frame_end']
+
+
+@pytest.mark.parametrize('bad,outer_merit', [(float('nan'), True), (float('inf'), False)])
+def test_settled_runner_rejects_nonfinite_window_cost(prm, clouds, monkeypatch, bad, outer_merit):
+    import physmorph.pipeline.runner as runner
+    optimize = runner.optimize_window
+
+    def corrupted(*args, **kwargs):
+        result = optimize(*args, **kwargs)
+        assert result[-1]['accepted'] > 0
+        result[-1]['selection_merit'] = bad
+        return result
+
+    monkeypatch.setattr(runner, 'optimize_window', corrupted)
+    cfg = _cfg(solver_mode='settled_transport', lambda_auto=.5, grad_project=True,
+               animations=1, pace=0., loss_units='density', outer_merit=outer_merit)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert not any('frame_end' in h for h in res['history'])
+    assert all(np.array_equal(x, clouds[0]) for x in res['frames'])
+
+
+@pytest.mark.parametrize('bad', [float('nan'), 31.])
+def test_settled_trajectory_rejects_midpoint_escape_even_with_safe_endpoint(prm, bad):
+    from physmorph.pipeline.optimizer import _positions_in_domain
+    x = torch.zeros(9, 3, 3)
+    assert _positions_in_domain(x, prm)
+    x[4, 0, 0] = bad
+    assert not _positions_in_domain(x, prm)
+
+
+def test_transport_calibration_survives_render_resolution_change(prm, clouds, monkeypatch):
+    import physmorph.pipeline.runner as runner
+    build, packs = runner.build_target, []
+    optimize, starts = runner.optimize_window, []
+    def tracked(*args, **kw):
+        pack = build(*args, **kw)
+        packs.append(pack)
+        return pack
+    def checked_window(*args, **kw):
+        starts.append(getattr(args[3], 'settled_step', None))
+        return optimize(*args, **kw)
+    monkeypatch.setattr(runner, 'build_target', tracked)
+    monkeypatch.setattr(runner, 'optimize_window', checked_window)
+    cfg = _cfg(lambda_auto=.5, solver_mode='settled_transport',
+               ot_samples=128, loss_units='density', c2f_at=.5, render_res_hi=28,
+               grad_project=True, pace=0.)
+    run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert len(packs) == 2
+    assert packs[0].ot_scale == packs[1].ot_scale
+    assert packs[0].grid_ot is packs[1].grid_ot
+    assert all(p.settled_scale is not None for p in packs)
+    assert packs[0].settled_scale is not packs[1].settled_scale
+    assert all(getattr(p, 'settled_step', None) is not None for p in packs)
+    assert starts == [None, None]  # A new render resolution needs a fresh search.
+
+
+@pytest.mark.parametrize('outer_merit', [True, False])
+def test_unsolved_transport_cannot_initialize_an_accepted_commit(prm, clouds, monkeypatch, outer_merit):
+    import physmorph.pipeline.runner as runner
+    from physmorph.losses.ot import GridSinkhornLoss
+    optimize, energy = runner.optimize_window, GridSinkhornLoss.state_energy
+    outer = False
+    def checked_window(*args, **kwargs):
+        nonlocal outer
+        outer = False
+        result = optimize(*args, **kwargs)
+        outer = True
+        return result
+    def failed_outer_energy(self, x, *args, **kwargs):
+        return x.new_tensor(float('inf')) if outer else energy(self, x, *args, **kwargs)
+    monkeypatch.setattr(runner, 'optimize_window', checked_window)
+    monkeypatch.setattr(GridSinkhornLoss, 'state_energy', failed_outer_energy)
+    cfg = _cfg(animations=1, lambda_auto=.5, solver_mode='settled_transport',
+               grad_project=True, pace=0., loss_units='density', outer_merit=outer_merit)
+    res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    assert any(h.get('outer_rejected') for h in res['history'])
+    assert all(np.array_equal(frame, clouds[0]) for frame in res['frames'])
+
+
 def test_control_grid_basis_runs_and_moves(prm, clouds):
     src, tgt = clouds
     cfg = _cfg(lambda_auto=0.5, control_grid=4, control_tknots=2)

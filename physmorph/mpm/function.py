@@ -24,7 +24,7 @@ import torch
 import warp as wp
 
 from .state import MPMParams
-from .traj import Trajectory
+from .traj import Trajectory, _release_idle_cuda_cache
 
 
 @dataclass
@@ -46,6 +46,9 @@ class RolloutSpec:
     bond_rest: np.ndarray | None = None  # (N,K) rest lengths (runner state)
     bond_frag: np.ndarray | None = None  # (N,) 1.0 where the particle is in a fragment
     layer: tuple | None = None           # (mask, nrm, nbr, w, frac[, g, depth]): outer-layer relaxation / u channel [P3 through F] (traj.Trajectory)
+    bond_history: bool = False          # preserve legacy baseline; opt in to time-correct fracture adjoint
+    control_steps: int | None = None    # release controls after this step; None controls the whole rollout
+    polar_adjoint: bool = False         # stable rotation VJP; original signed-SVD forward is unchanged
 
 
 def _leaf_f32(t: torch.Tensor):
@@ -73,7 +76,8 @@ class _WarpMPM(torch.autograd.Function):
         mu_wp = _leaf_f32(mu_t) if mu_t is not None else spec.mu
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
-                          device=spec.device, requires_grad=True, vol0=spec.vol0, layer=spec.layer)
+                          device=spec.device, requires_grad=True, vol0=spec.vol0, layer=spec.layer,
+                          control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint)
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
@@ -148,7 +152,8 @@ class _WarpMPMExt(torch.autograd.Function):
                           device=spec.device, requires_grad=True, vol0=spec.vol0,
                           Fg0=spec.Fg0, track_geom=True,
                           bonds=((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None),
-                          layer=spec.layer, layer_u=u_wp)
+                          layer=spec.layer, layer_u=u_wp, bond_history=spec.bond_history,
+                          control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint)
         ctx.u_wp = u_wp if (u_t is not None and u_t.requires_grad) else None
         ctx.tape = wp.Tape()
         with ctx.tape:
@@ -219,6 +224,7 @@ class PersistentAdjoint:
 
     def __init__(self, spec: RolloutSpec):
         N, T, dev = spec.x0.shape[0], spec.T, spec.device
+        _release_idle_cuda_cache(dev)
         self.N, self.T, self.dev = N, T, dev
         self.cuda = str(dev).startswith("cuda")
         self.dc = torch.zeros(T, N, 3, 3, device=dev)
@@ -231,7 +237,8 @@ class PersistentAdjoint:
                                Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=self.dc_wp,
                                device=dev, requires_grad=True, vol0=spec.vol0,
                                Fg0=spec.Fg0, track_geom=True, bonds=bonds, persistent=True,
-                               layer=spec.layer, layer_u=self.u_wp)
+                               layer=spec.layer, layer_u=self.u_wp, bond_history=spec.bond_history,
+                               control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint)
         tr = self.traj
         self.sx = torch.zeros(N, 3, device=dev)
         self.sF = torch.zeros(N, 3, 3, device=dev)
@@ -280,12 +287,14 @@ class PersistentAdjoint:
             self.traj.rollout()
 
     def forward(self):
+        _release_idle_cuda_cache(self.dev)
         if self.g_fwd is not None:
             wp.capture_launch(self.g_fwd)
         else:
             self._record_forward()
 
     def backward(self):
+        _release_idle_cuda_cache(self.dev)
         if self.g_bwd is not None:
             wp.capture_launch(self.g_bwd)
         else:

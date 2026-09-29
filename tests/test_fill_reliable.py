@@ -25,6 +25,7 @@ def test_box_with_a_bottom_hole_is_filled_above_the_hole():
     # remove the bottom faces near the centre: a hole of ~1.6 x 1.6 in a 4 x 4 bottom (y = -1)
     hole = (np.abs(cen[:, 1] + 1.0) < 1e-6) & (np.abs(cen[:, 0]) < 0.8) & (np.abs(cen[:, 2]) < 0.8)
     open_box = trimesh.Trimesh(vertices=V, faces=F[~hole], process=False)
+    open_box.remove_unreferenced_vertices()  # Deleted-face vertices must not voxelize the hole shut.
     assert not open_box.is_watertight
     pitch = 0.2
     vg = open_box.voxelized(pitch=pitch)

@@ -1,5 +1,7 @@
 """Plastic stress-chain and angular-momentum regressions on the Warp CPU device."""
 import numpy as np
+import pytest
+import torch
 import warp as wp
 
 from physmorph.mpm import kernels as K
@@ -74,6 +76,52 @@ def test_fp_identity_preserves_legacy_stress():
                      [0.01, -0.05, 1.07]])
     got = _kernel_total_pk1(Fbar, np.eye(3))
     assert np.allclose(got, _pk1_elastic(Fbar), rtol=2e-5, atol=2e-5)
+
+
+@pytest.mark.parametrize('dev', ['cpu', 'cuda'])
+def test_polar_stress_adjoint_at_repeated_stretches(dev):
+    if dev == 'cuda' and not torch.cuda.is_available():
+        pytest.skip('no CUDA')
+    rng = np.random.default_rng(77)
+    a, b = (rng.normal(size=(1, 3, 3)).astype(np.float32) for _ in range(2))
+    kernel = getattr(K, 'k_stress_polar', K.k_stress)
+    left = np.array([[.8, -.6, 0.], [.6, .8, 0.], [0., 0., 1.]])
+    right = np.array([[1., 0., 0.], [0., .8, -.6], [0., .6, .8]])
+    states = [np.eye(3), np.diag([1.1, 1.1, .9]), np.diag([1.1, 1., .9]),
+              left @ np.diag([1.1, 1.1, .9]) @ right.T]
+    for index, Fe in enumerate(states):
+        Fp = np.eye(3) if index == 0 else np.array(
+            [[1., .2, 0.], [0., 1., .1], [0., 0., 1.]])
+        Fbar = (Fe @ Fp).astype(np.float32)
+        array = lambda x: wp.array(np.asarray(x, np.float32), dtype=wp.mat33, device=dev)
+        dc = wp.zeros(1, dtype=wp.mat33, device=dev, requires_grad=True)
+        out = wp.zeros_like(dc)
+        args = [array(Fbar[None]), dc, array(Fp[None]),
+                wp.array([LAM], dtype=float, device=dev), wp.array([MU], dtype=float, device=dev)]
+        tape = wp.Tape()
+        with tape:
+            wp.launch(kernel, dim=1, inputs=args + [out], device=dev)
+
+        def grad(seed):
+            tape.zero()
+            tape.backward(grads={out: array(seed)})
+            return dc.grad.numpy().copy()
+
+        ga, gb, gab = grad(a), grad(b), grad(a + b)
+        assert np.linalg.norm(ga + gb - gab) <= 2e-5 * (np.linalg.norm(ga) + np.linalg.norm(gb))
+        fd = np.empty((1, 3, 3))
+        inv = np.linalg.inv(Fp)
+        for i in range(3):
+            for j in range(3):
+                e = np.zeros((3, 3)); e[i, j] = 1e-5
+                delta = (_pk1_elastic((Fbar.astype(float) + e) @ inv)
+                         - _pk1_elastic((Fbar.astype(float) - e) @ inv)) @ inv.T
+                fd[0, i, j] = np.sum(delta * a[0]) / 2e-5
+        np.testing.assert_allclose(ga, fd, rtol=2e-4, atol=2e-5)
+        # Only backward changes: even the signed-SVD forward stays identical.
+        legacy = wp.zeros_like(out)
+        wp.launch(K.k_stress, dim=1, inputs=args + [legacy], device=dev)
+        np.testing.assert_array_equal(out.numpy(), legacy.numpy())
 
 
 def test_total_pk1_matches_elastoplastic_energy_directional_derivative():

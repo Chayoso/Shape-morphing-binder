@@ -54,8 +54,11 @@ def poisson_isolated(points: np.ndarray, normals: np.ndarray, depth: int, n_thre
             except subprocess.TimeoutExpired:
                 code, err = "timeout", []
             if code == 0 and os.path.exists(fout):
-                z = np.load(fout)
-                return z["v"], z["f"]
+                # Close the archive before TemporaryDirectory removes it.  On Windows
+                # an open NpzFile keeps out.npz locked and turns every pbr_denoised run
+                # into a cleanup exception even though reconstruction succeeded.
+                with np.load(fout) as z:
+                    return z["v"].copy(), z["f"].copy()
             print(f"[poisson_worker] attempt {attempt + 1} failed (exit {code}, threads {nt}) {err}", flush=True)
     return None
 

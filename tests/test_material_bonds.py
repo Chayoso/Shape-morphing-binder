@@ -107,3 +107,100 @@ def test_fragment_mask_tolerates_a_one_cell_gap_in_a_thin_feature():
     x = np.concatenate([body, gap_tip]).astype(np.float32)
     frag = fragment_mask(x, prm)
     assert not frag.any()                                    # still one body under stencil connectivity
+
+
+@pytest.mark.parametrize("dev", ["cpu", "cuda"])
+def test_position_control_adjoint_preserves_mid_rollout_bond_switch(dev):
+    """A late fracture must not retroactively change earlier P2G adjoints."""
+    from dataclasses import replace
+    from physmorph.mpm.function import PersistentAdjoint
+
+    if dev == "cuda" and not torch.cuda.is_available():
+        pytest.skip("CUDA unavailable")
+    x = np.array([[0.25, 0.2, 0.2], [0.9, 0.2, 0.2], [1.1, 0.25, 0.2]], np.float32)
+    prm = MPMParams(dx=0.5, dt=1 / 120, drag=0., smoothing=1.,
+                    grid_min=(-4., -4., -4.), nx=16, ny=16, nz=16)
+    nbr, rest = _bonds(x, K=2)
+    layer = (np.array([1., 0., 0.], np.float32),
+             np.tile(np.array([-1., 0., 0.], np.float32), (3, 1)),
+             nbr, np.full((3, 2), 0.5, np.float32), 0.)
+    spec = RolloutSpec(x, 1., 0., 0., prm, 4, device=dev,
+                       v0=np.array([[0.1, 0., 0.], [0.7, 0., 0.], [0.3, 0., 0.]], np.float32),
+                       vol0=np.ones(3, np.float32), layer=layer,
+                       bond_nbr=nbr, bond_rest=rest, bond_frag=np.zeros(3, np.float32),
+                       bond_history=True)
+    adj = PersistentAdjoint(spec)
+    dfc = torch.zeros(4, 3, 3, 3, device=dev)
+
+    def loss(u):
+        xt, _, vt, _, _ = adj.apply(dfc, u)
+        return xt[0, 0].double() + vt.double().square().sum()
+
+    u = torch.tensor([1., 0., 0.], device=dev, requires_grad=True)
+    old = warp_mpm_ext(dfc, replace(spec, bond_history=False), u_t=u.detach())
+    new = adj.apply(dfc, u.detach())
+    if dev == "cpu":
+        assert all(torch.equal(a, b) for a, b in zip(old, new))
+    else:
+        # CUDA P2G atomics need not accumulate in bit-identical order.
+        for a, b in zip(old, new):
+            torch.testing.assert_close(a, b, rtol=1e-6, atol=1e-6)
+    grad, = torch.autograd.grad(loss(u), u)
+    masks = [f.numpy().copy() for f in adj.traj.frag_history]
+    assert [int(f[0]) for f in masks] == [0, 0, 1, 1]
+    h = 1e-3
+    delta = torch.tensor([h, 0., 0.], device=dev)
+    lp = loss(u.detach() + delta)
+    assert all(np.array_equal(f.numpy(), m) for f, m in zip(adj.traj.frag_history, masks))
+    lm = loss(u.detach() - delta)
+    assert all(np.array_equal(f.numpy(), m) for f, m in zip(adj.traj.frag_history, masks))
+    fd = (lp - lm) / (2 * h)
+    assert float(grad[0]) == pytest.approx(float(fd), rel=0.01, abs=1e-4)
+
+
+@pytest.mark.parametrize("dev", ["cpu", "cuda"])
+def test_fragment_p2g_replays_neighbor_velocity_without_changing_forward(dev):
+    import warp as wp
+    from physmorph.mpm.kernels import k_p2g
+
+    if dev == "cuda" and not torch.cuda.is_available():
+        pytest.skip("CUDA unavailable")
+
+    def array(data, dtype, grad=False):
+        return wp.array(data, dtype=dtype, device=dev, requires_grad=grad)
+
+    x0 = np.array([[.25, .2, .2], [.9, .2, .2]], np.float32)
+    v = array(np.array([[.1, 0., 0.], [.7, 0., 0.]], np.float32), wp.vec3)
+    zero = array(np.zeros((2, 3, 3), np.float32), wp.mat33)
+    eye = array(np.tile(np.eye(3, dtype=np.float32), (2, 1, 1)), wp.mat33)
+    one = array(np.ones(2, np.float32), wp.float32)
+    nbr = array(np.array([1, 0], np.int32), wp.int32)
+    frag = array(np.array([1., 0.], np.float32), wp.float32)
+    q = np.zeros((16 ** 3, 3), np.float32)
+    q[:, 0] = -4 + .5 * (np.arange(16 ** 3) // 16 ** 2)
+
+    def run(xx, replay, backward=False):
+        x = array(xx, wp.vec3, backward)
+        gm = wp.zeros(16 ** 3, dtype=wp.float32, device=dev, requires_grad=backward)
+        gv = wp.zeros(16 ** 3, dtype=wp.vec3, device=dev, requires_grad=backward)
+        with wp.Tape() as tape:
+            wp.launch(k_p2g, dim=2, inputs=[
+                x, v, zero, eye, zero, zero, one, one, one, nbr, frag, 1,
+                gm, gv, wp.vec3(-4., -4., -4.), .5, 2., 1 / 120, 0.,
+                16, 16, 16, replay], device=dev)
+        mass, momentum = gm.numpy().copy(), gv.numpy().copy()
+        value = np.sum(momentum.astype(np.float64) * q)
+        if backward:
+            tape.backward(grads={gv: array(q, wp.vec3)})
+        return value, mass, momentum, x.grad.numpy().copy() if backward else None
+
+    old, fixed = run(x0, 0, True), run(x0, 1, True)
+    assert np.array_equal(old[1], fixed[1]) and np.array_equal(old[2], fixed[2])
+    xp, xm = x0.copy(), x0.copy()
+    xp[0, 0] += 1e-3
+    xm[0, 0] -= 1e-3
+    fd = (run(xp, 1)[0] - run(xm, 1)[0]) / 2e-3
+    # Linear reproduction: momentum first moment = m * neighbor_velocity * x.
+    assert fd == pytest.approx(.7, rel=1e-4)
+    assert fixed[3][0, 0] == pytest.approx(fd, rel=1e-4)
+    assert old[3][0, 0] == 0.0  # Historical baseline remains reproducible.

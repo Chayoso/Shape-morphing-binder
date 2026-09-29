@@ -252,6 +252,31 @@ def d_nn_band(x: torch.Tensor, m: torch.Tensor, tgt_pts: torch.Tensor,
     return (m * elig * torch.clamp(d - berth, min=0.0)).sum()
 
 
+def d_nn_band_current(x: torch.Tensor, m: torch.Tensor, tgt_pts: torch.Tensor,
+                      elig: torch.Tensor, berth: float, tree=None) -> torch.Tensor:
+    """Same frozen eligible particles, but distance to their CURRENT closest target.
+
+    This is the minimum-distance objective (continuous across nearest-neighbor
+    switches), not an ICP surrogate tied to the window's old assignments. Query
+    every evaluation, including line-search trials, so value and gradient agree.
+    The selected index is detached; away from ties its derivative is the exact
+    derivative of the minimum. Keep the eligibility policy fixed for a clean
+    ablation; do not silently add a discontinuous live far-band cutoff.
+    """
+    import numpy as np
+    from scipy.spatial import cKDTree
+    if tree is None:
+        tree = cKDTree(tgt_pts.detach().cpu().numpy())
+    points = x.detach().cpu().numpy()
+    if not np.isfinite(points).all():
+        # A bad trial must be rejected by the existing finite-state/merit gate,
+        # not escape that gate as a KD-tree exception. Retain a zero derivative.
+        return (torch.nan_to_num(x) * 0).sum() + x.new_tensor(float('inf'))
+    _, idx = tree.query(points, workers=-1)
+    assigned = torch.as_tensor(np.asarray(idx, dtype=np.int64), device=x.device)
+    return d_nn_band(x, m, tgt_pts, assigned, elig, berth)
+
+
 def growth_demand(x: torch.Tensor, m: torch.Tensor, tmass_fine: torch.Tensor,
                   grid_min: torch.Tensor, dx: float, dims,
                   sigma: float = 2.0) -> "np.ndarray":

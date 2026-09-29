@@ -311,6 +311,10 @@ class PipelineConfig:
                                     # "phys" (render-first: physics component removed),
                                     # "cagrad" (Liu et al. 2021 two-task CAGrad, c=cagrad_c).
     cagrad_c: float = 0.5
+    solver_mode: str = "legacy"  # settled_transport: T driven + T released steps
+    support_weight: float = 0.0  # bounded local particle support in settled mode
+    pbr_target_mode: str = "surface"  # settled mode uses the matched forward target
+    ot_grid: bool = False  # fixed-target grid transport, enabled by settled mode
     render_gs_cheb: bool = False    # Chebyshev-accelerated grid sweeps (Wang 2015) for
                                     # render_gs_iters; both x AND F covectors are smoothed.
     gauss_cov_sat: float = 0.0      # >0: STATELESS stretch saturation in the render forward
@@ -548,3 +552,15 @@ class PipelineConfig:
     device: str = "cuda"
 
     history: list = field(default_factory=list)
+    def __post_init__(self):
+        import math
+        if not math.isfinite(self.support_weight) or self.support_weight < 0:
+            raise ValueError('support_weight must be finite and nonnegative')
+        if self.support_weight > 0 and self.solver_mode != 'settled_transport':
+            raise ValueError('support_weight requires settled_transport')
+        if self.solver_mode == 'settled_transport':
+            self.ot_grid = True
+            self.pbr_target_mode = 'matched'
+            self.phys_loss = 'ot_pace'
+            self.ot_debias = True
+            self.ot_handoff = True

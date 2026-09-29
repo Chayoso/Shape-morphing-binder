@@ -68,11 +68,31 @@ def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda") -> np.ndarray:
 _WARMED: set = set()          # devices whose kernels were launched once outside a capture
 
 
+def _release_idle_cuda_cache(device):
+    """Leave headroom for Warp, whose allocations PyTorch cannot reclaim for.
+
+    Only release unused cache under pressure; live tensors and captured graph
+    pools stay intact. Never release during an enclosing CUDA capture.
+    """
+    device = str(device)
+    if not device.startswith("cuda"):
+        return
+    import torch
+    with torch.cuda.device(device):
+        if torch.cuda.is_current_stream_capturing():
+            return
+        free, _ = torch.cuda.mem_get_info(device)
+        idle = torch.cuda.memory_reserved(device) - torch.cuda.memory_allocated(device)
+        if idle > free:
+            torch.cuda.empty_cache()
+
+
 class Trajectory:
     def __init__(self, x0, m, lam, mu, prm: MPMParams, T: int,
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
-                 Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None):
+                 Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None,
+                 bond_history=False, control_steps=None, polar_adjoint=False):
         x0 = np.ascontiguousarray(x0, np.float32)
         # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
         # accumulated grid arrays are re-zeroed per step and the rollout can be recorded as
@@ -81,6 +101,10 @@ class Trajectory:
         self.graph = None
         N = x0.shape[0]
         self.N, self.T, self.prm, self.device = N, T, prm, device
+        if control_steps is not None and (int(control_steps) != control_steps or not 1 <= control_steps <= T):
+            raise ValueError("control_steps must be an integer between 1 and T")
+        self.control_steps = T if control_steps is None else int(control_steps)
+        self.stress_kernel = K.k_stress_polar if polar_adjoint else K.k_stress
         rg = requires_grad
 
         def A(a, dt, g=False):
@@ -91,6 +115,14 @@ class Trajectory:
 
         def ID(g=False):                       # device-side identity clone
             return wp.clone(_id_dev(N, device), requires_grad=g)
+
+        def scratch(make, count):
+            # Share only fully overwritten forward intermediates. C/Fraw must
+            # retain per-step buffers: G2P skips invalid rows without writing.
+            # Never alias adjoint history.
+            if persistent and not rg:
+                return [make()] * count
+            return [make() for _ in range(count)]
 
         # CONTROL FIELD. Two modes, matching the two formulations:
         #   * a single array  -> ONE dFc shared by every step (the greedy/per-frame scheme)
@@ -107,6 +139,7 @@ class Trajectory:
         else:
             self.dFc = dFc
             self.dFc_seq = None
+        self.release_dFc = Z(wp.mat33) if self.control_steps < T else None
         # shared, non-differentiated
         m_a = np.broadcast_to(m, (N,)).astype(np.float32)
         self.m = A(m_a, wp.float32)
@@ -157,7 +190,7 @@ class Trajectory:
             self.Fg = [A(Fg0a, wp.mat33, rg) if t == 0 else ID(rg) for t in range(T + 1)]
         else:
             self.Fg = None
-        self.P = [Z(wp.mat33, rg) for t in range(T)]
+        self.P = scratch(lambda: Z(wp.mat33, rg), T)
         # GRID ARRAYS: the adjoint needs every step's grid (k_grid_op / k_g2p read them in
         # the backward pass), a forward-only rollout does not — step t+1 never reads step
         # t's grid, so a no-grad trajectory shares ONE set and re-zeroes it per step
@@ -181,6 +214,7 @@ class Trajectory:
         # the 3^3-cell count of the support-gate kernels (outside the tape, piecewise const).
         self.bonds = None
         self.bond_K = 0
+        self.bond_history = bool(bond_history)
         self.nbr0 = wp.zeros(1, dtype=wp.int32, device=device)
         self.rest0 = wp.zeros(1, dtype=wp.float32, device=device)
         self.ncount0 = wp.zeros(N, dtype=wp.float32, device=device)
@@ -198,6 +232,10 @@ class Trajectory:
             self.ncount_b = wp.zeros(N, dtype=wp.float32, device=device)
             self.omega_b = wp.array(np.ones(N, np.float32), dtype=wp.float32, device=device)
             self.frag_step = wp.zeros(N, dtype=wp.float32, device=device)
+            # The adjoint reads the branch taken at EACH step, not the final
+            # fracture mask. Forward-only rollouts may still reuse one buffer.
+            self.frag_history = ([wp.zeros(N, dtype=wp.float32, device=device) for _ in range(T)]
+                                 if rg and bond_history else None)
         # OUTER-LAYER RELAXATION (kernels.k_layer_resid / k_layer_project; docs/surface_gradient.md
         # §6): layer = (mask (N,), nrm (N,3), nbr (N,K), w (N,K), frac) frozen for this rollout.
         # k_update writes the advected positions into xu[t+1]; the projection writes x[t+1].
@@ -218,18 +256,19 @@ class Trajectory:
             self.layer_nbr = wp.array(np.ascontiguousarray(lnbr, np.int32).reshape(-1), dtype=wp.int32, device=device)
             self.layer_w = wp.array(np.ascontiguousarray(lw, np.float32).reshape(-1), dtype=wp.float32, device=device)
             self.layer_frac = float(lfrac)
-            self.xu = [wp.zeros(N, dtype=wp.vec3, device=device, requires_grad=rg) for t in range(T + 1)]
-            self.ld = [wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg) for t in range(T + 1)]
+            self.xu = scratch(lambda: Z(wp.vec3, rg), T + 1)
+            self.ld = scratch(lambda: Z(wp.float32, rg), T + 1)
             # the position-mode control leaf u (N,): a warp view of the caller's tensor when
             # given (layer_u), else a zero buffer the eval path assigns into
             self.layer_u = layer_u if layer_u is not None else wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg)
-            self.layer_frac_u = 1.0 / float(T)
+            self.layer_frac_u = 1.0 / float(self.control_steps)
+            self.release_u = Z(wp.float32) if self.control_steps < T else None
             self.layer = True
             if lg is not None:
                 self.layer_F = True
                 self.layer_g = wp.array(np.ascontiguousarray(lg, np.float32).reshape(-1, 3), dtype=wp.vec3, device=device)
                 self.layer_inv_depth = (1.0 / float(ldepth)) if ldepth > 0 else 0.0   # 0: no normal term
-                self.Fu = [ID(rg) for t in range(T + 1)]
+                self.Fu = scratch(lambda: ID(rg), T + 1)
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
             self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
@@ -251,7 +290,7 @@ class Trajectory:
         C0 = wp.zeros(N, dtype=wp.mat33, device=dev)
         wp.launch(K.k_stress, dim=N, inputs=[self.F[0], self.dFc, self.Fp, self.lam, self.mu, P0], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[0], v0, C0, self.F[0], self.dFc, P0, self.m, self.vol,
-                  self.omega1, self.nbr0, self.ncount0, 0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz], device=dev)
+                  self.omega1, self.nbr0, self.ncount0, 0, gm, gv, gmin, prm.dx, inv_dx, 0.0, 0.0, prm.nx, prm.ny, prm.nz, 0], device=dev)
         wp.launch(K.k_volume, dim=N, inputs=[self.x[0], self.m, gm, self.vol, gmin, prm.dx, inv_dx,
                   prm.nx, prm.ny, prm.nz], device=dev)
 
@@ -270,12 +309,15 @@ class Trajectory:
         if not self.bonds:
             return self.nbr0, self.rest0, self.ncount0, 0
         gate_omega(self.x[t], self.prm, 1.0, self.omega_b, self.ncount_b, self.cnt_b)
-        wp.launch(K.k_frag_step, dim=self.N, inputs=[self.ncount_b, self.bond_frag, self.frag_step],
+        frag = self.frag_step if self.frag_history is None else self.frag_history[t]
+        wp.launch(K.k_frag_step, dim=self.N, inputs=[self.ncount_b, self.bond_frag, frag],
                   device=self.device)
-        return self.bond_nbr, self.bond_rest, self.frag_step, self.bond_K
+        return self.bond_nbr, self.bond_rest, frag, self.bond_K
 
     def _dfc(self, t: int):
         """Control at step t: dFc[t] for a sequence, the shared field otherwise."""
+        if t >= self.control_steps:
+            return self.release_dFc
         return self.dFc if self.dFc_seq is None else self.dFc_seq[t]
 
     def step(self, t: int):
@@ -286,11 +328,11 @@ class Trajectory:
         if self.share_grid or self.persistent:       # P2G accumulates: fresh grid per step
             self.gm[t].zero_()
             self.gmom[t].zero_()
-        wp.launch(K.k_stress, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
+        wp.launch(self.stress_kernel, dim=N, inputs=[self.F[t], dfc, self.Fp, self.lam, self.mu, self.P[t]], device=dev)
         wp.launch(K.k_p2g, dim=N, inputs=[self.x[t], self.v[t], self.C[t], self.F[t], dfc, self.P[t],
                   self.m, self.vol, self._omega(t), bnb, bnc, bK, self.gm[t], self.gmom[t], gmin, prm.dx, inv_dx,
                   prm.dt, prm.drag,
-                  prm.nx, prm.ny, prm.nz], device=dev)
+                  prm.nx, prm.ny, prm.nz, int(self.bond_history)], device=dev)
         wp.launch(K.k_grid_op, dim=prm.ngrid, inputs=[self.gm[t], self.gmom[t], self.gvel[t], prm.dt, fext,
                   prm.grid_min[1], prm.dx, prm.nx, prm.ny, prm.nz, prm.floor_y, prm.floor_friction,
                   K.WALL_NODES], device=dev)
@@ -301,15 +343,16 @@ class Trajectory:
         F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], F_next, prm.dt, prm.smoothing,
-                  bnb, brest, bnc, bK, 1.0 / float(self.T)], device=dev)
+                  bnb, brest, bnc, bK, 1.0 / float(self.control_steps)], device=dev)
         if self.layer:
+            layer_u = self.layer_u if t < self.control_steps else self.release_u
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ld[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac,
-                      self.layer_u, self.layer_frac_u, self.layer_ug, self.x[t + 1]], device=dev)
+                      layer_u, self.layer_frac_u, self.layer_ug, self.x[t + 1]], device=dev)
             if self.layer_F:
-                wp.launch(K.k_layer_F, dim=N, inputs=[self.layer_u, self.layer_ug, self.layer_mask, self.layer_nrm,
+                wp.launch(K.k_layer_F, dim=N, inputs=[layer_u, self.layer_ug, self.layer_mask, self.layer_nrm,
                           self.layer_nbr, self.layer_g, self.layer_K, self.layer_frac_u, self.layer_inv_depth,
                           self.Fu[t + 1], self.F[t + 1]], device=dev)
         if self.track_geom:
@@ -341,6 +384,7 @@ class Trajectory:
 
     def run(self):
         """Roll out: replay the captured graph when there is one, else launch the kernels."""
+        _release_idle_cuda_cache(self.device)
         if self.graph is not None:
             wp.capture_launch(self.graph)
         else:
