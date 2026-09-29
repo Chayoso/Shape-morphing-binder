@@ -10,7 +10,7 @@ from physmorph.pipeline import PipelineConfig, runner
 
 
 @pytest.mark.parametrize('layer', [False,True])
-def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatch,layer):
+def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatch,layer,tmp_path):
     source = np.random.default_rng(27).uniform(-1.5, 1.5, (160,3)).astype(np.float32)
     target = (source*[1.2,.85,1.05]+[.1,0,0]).astype(np.float32)
     cfg = PipelineConfig(T=3,iters=2,animations=2,loss_res=12,render_views=2,
@@ -73,6 +73,35 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
         speed = values['v'].square().mean()+((values['positions'][-1]-values['positions'][-2])/packet['dt']).square().mean()
         derivative, = torch.autograd.grad(speed,terminal)
         assert bool(torch.isfinite(derivative).all()) and float(derivative.norm()) > 0
+        if index==0 and packet['iteration']==1:
+            from physmorph.pipeline.frozen_body_window import FrozenBodyWindow
+            from dataclasses import asdict
+            path = tmp_path/'window.npz'
+            model.save(path,dict(reference=asdict(packet['reference']),positions=packet['positions']))
+            restored,observations = FrozenBodyWindow.load(path,'cpu')
+            restored_terminal = terminal.detach().clone().requires_grad_()
+            replay = restored.evaluate(restored_terminal)
+            torch.testing.assert_close(replay['positions'],packet['positions'],rtol=0,atol=0)
+            assert torch.equal(observations['positions'],packet['positions'])
+            from physmorph.pipeline.prepared_reference import PreparedReference
+            restored_ref = PreparedReference(**observations['reference'])
+            for key,value in packet['reference'].terms(packet['positions'][-1]).items():
+                torch.testing.assert_close(restored_ref.terms(replay['x'])[key],value,rtol=0,atol=0)
+            displacement = restored.coefficients[:,:3].detach().clone().requires_grad_()
+            fixed_terminal = restored_terminal.detach().clone()
+            explicit = restored.evaluate(fixed_terminal,displacement)
+            jacobian, = torch.autograd.grad(explicit['x'][:,0].mean(),displacement)
+            assert float(jacobian.norm())>0
+            direction = jacobian/jacobian.norm()
+            samples = []
+            with torch.no_grad():
+                for sign in (-1,1):
+                    shifted = restored.evaluate(fixed_terminal,displacement+sign*.01*direction)
+                    assert shifted['valid']
+                    samples.append(float(shifted['x'][:,0].mean()))
+            assert (samples[1]-samples[0])/.02 == pytest.approx(float(jacobian.norm()),rel=.03,abs=1e-5)
+            assert torch.equal(fixed_terminal,restored_terminal.detach())
+            restored.close()
         model.coefficients.fill_(0.)
         models.append(model)
         checkpoints.append((index,packet['iteration']))

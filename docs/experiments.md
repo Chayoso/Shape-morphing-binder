@@ -9154,3 +9154,20 @@ source/sidecar verification and CPU observer parity pass. Budget extension is
 rejected as a rest remedy for this window, not a claim about final convergence.
 [P305 evidence and limits](inner_budget_p305.md). Next preregistered experiment:
 [noncommitting terminal-body braking](terminal_braking_p306.md).
+
+## 2026-09-28 — P306: resolved braking, but density/coverage gates fail
+
+Fresh W20 at N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8, same raw
+recipe. Three private repeats close to accepted X/V/F/data; all five bounded
+terminal-only candidates valid, no state guards. Trial .5 reduces stored and
+geometric terminal speeds by25.84%/25.77% on50,957 fixed arrived-free IDs and
+reduces both cohorts' net/step/path motion, but density rises3.5623e-8, upper
+coverage loses4/15,312 and total coverage loses3/300,000. All five candidates
+fail unchanged gates; no promotion. Combined render improves9.5228e-8 because
+PBR improves1.8545e-7 while silhouette worsens9.0338e-8. Independent silIoU
+rises only1.581e-6. [Evidence/scope](terminal_braking_p306.md).
+
+Next bounded test is displacement-mode compensation inside actual MPM with
+the chosen terminal coefficients fixed. A fresh complete owned-window capture
+and GPU array/data/derivative roundtrip are prerequisites; old P306 sidecars
+cannot reconstruct its exact initial state. [P307 protocol](braking_compensation_p307.md).

@@ -1,14 +1,20 @@
-"""Private diagnostic rollout with only terminal body coefficients variable.
+"""Private diagnostic body-control rollout with owned initial state.
 
 No production state is committed. The displacement mode is never rescaled to
 accommodate a brake: terminal coefficients use its remaining joint radius.
+An explicit displacement override supports separately preregistered compensation.
 """
 from copy import deepcopy
+from dataclasses import asdict, fields
+import json
 
+import numpy as np
 import torch
 import warp as wp
 
-from ..mpm.function import PersistentAdjoint
+from ..compute import to_host, is_cuda_execution
+from ..mpm.function import PersistentAdjoint, RolloutSpec
+from ..mpm.state import MPMParams
 from .endpoint_contract import endpoint_bounds, valid_endpoint
 
 
@@ -32,14 +38,78 @@ class FrozenBodyWindow:
         self.adjoint = None
         self.closed = False
 
+    def save(self, path, observations):
+        """Archive I/O only: numeric NPZ members and an explicit JSON tree, no pickle."""
+        if self.closed:
+            raise RuntimeError('Frozen body window expired')
+        arrays = {}
+        def encode(value):
+            if torch.is_tensor(value) or isinstance(value,np.ndarray) or hasattr(value,'__cuda_array_interface__'):
+                key = 'array_'+str(len(arrays))
+                arrays[key] = to_host(value)
+                if arrays[key].dtype.hasobject:
+                    raise ValueError('Object arrays are forbidden in frozen-window archives')
+                return dict(type='tensor',key=key,shape=list(arrays[key].shape),dtype=str(arrays[key].dtype))
+            if isinstance(value,np.generic): return value.item()
+            if isinstance(value,dict): return dict(type='dict',items={k:encode(v) for k,v in value.items()})
+            if isinstance(value,(tuple,list)): return dict(type=type(value).__name__,items=[encode(v) for v in value])
+            if value is None or type(value) in (bool,int,float,str): return value
+            raise TypeError('Unsupported frozen-window archive value: '+str(type(value)))
+        spec = {f.name:getattr(self.spec,f.name) for f in fields(self.spec)}
+        spec['prm'] = asdict(self.spec.prm)
+        data = dict(version=1,spec=spec,observations=observations,
+                    model={k:getattr(self,k) for k in ('idx','weights','gate','coefficients','stress','surface_u')})
+        manifest = json.dumps(encode(data),allow_nan=False).encode('utf-8')
+        arrays['manifest'] = np.frombuffer(manifest,dtype=np.uint8)
+        with open(path,'xb') as stream:
+            np.savez_compressed(stream,**arrays)
+
+    @classmethod
+    def load(cls,path,device):
+        if str(device).startswith('cuda') and not is_cuda_execution():
+            raise ValueError('CUDA frozen-window loading requires cuda_execution context')
+        with np.load(path,allow_pickle=False) as archive:
+            def decode(value):
+                if not isinstance(value,dict): return value
+                kind = value['type']
+                if kind=='tensor':
+                    array = archive[value['key']]
+                    if list(array.shape)!=value['shape'] or str(array.dtype)!=value['dtype']:
+                        raise ValueError('Frozen-window array schema mismatch')
+                    tensor = torch.tensor(array,device=device)
+                    if not bool(torch.isfinite(tensor).all()):
+                        raise ValueError('Nonfinite frozen-window array')
+                    return tensor
+                if kind=='dict': return {k:decode(v) for k,v in value['items'].items()}
+                if kind in ('list','tuple'):
+                    items = [decode(v) for v in value['items']]
+                    return tuple(items) if kind=='tuple' else items
+                raise ValueError('Unknown frozen-window tree type')
+            data = decode(json.loads(archive['manifest'].tobytes()))
+        if data['version'] != 1:
+            raise ValueError('Unsupported frozen-window version')
+        spec = data['spec'];spec['device'] = device
+        spec['prm'] = MPMParams(**spec['prm'])
+        result = cls.__new__(cls)
+        result.spec = RolloutSpec(**spec)
+        for key,value in data['model'].items(): setattr(result,key,value)
+        result.adjoint = None;result.closed = False
+        return result,data['observations']
+
     def close(self):
         self.adjoint = None
         self.closed = True
 
-    def evaluate(self, terminal):
+    def evaluate(self, terminal, displacement=None):
         if self.closed:
             raise RuntimeError('Frozen body window expired')
-        displacement = self.coefficients[:, :3]
+        if str(self.spec.device).startswith('cuda') and not is_cuda_execution():
+            raise ValueError('CUDA frozen-window evaluation requires cuda_execution context')
+        displacement = self.coefficients[:, :3] if displacement is None else displacement
+        if (displacement.shape != self.coefficients[:,:3].shape
+                or displacement.device != self.coefficients.device
+                or not bool(torch.isfinite(displacement).all())):
+            raise ValueError('Invalid displacement coefficients')
         if (terminal.shape != displacement.shape or terminal.device != displacement.device
                 or not bool(torch.isfinite(terminal).all())):
             raise ValueError('Invalid terminal coefficients')
@@ -65,5 +135,6 @@ class FrozenBodyWindow:
             pinned = wp.to_torch(tr.pin) > .5
             start = wp.to_torch(tr.x[0])
             pins_exact = torch.equal(X[:,pinned],start[pinned][None].expand(self.spec.T,-1,-1))
-        return dict(x=x,F=F,v=v,V=V,positions=X,body_energy=(field/self.spec.prm.dx).square().sum(1).mean(),
+            C = wp.to_torch(tr.C[self.spec.T]).clone()
+        return dict(x=x,F=F,C=C,v=v,V=V,positions=X,body_energy=(field/self.spec.prm.dx).square().sum(1).mean(),
                     valid=bool(valid and pins_exact),pins_exact=pins_exact,min_det=float(torch.minimum(j,je)))

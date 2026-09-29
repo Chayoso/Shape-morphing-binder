@@ -170,3 +170,9 @@ These are the leading candidates for the unresolved problems, and they are ports
   private, noncommitting terminal-body feasibility probe. Its displacement
   coefficients must remain fixed; only the remaining joint radius is available.
   No additional kinetic weight or stopping policy is promoted by these probes.
+- **P306/P307 status:** terminal-only braking reduces speeds but fails strict
+  density/coverage gates (`docs/terminal_braking_p306.md`). P307 compensation
+  is implemented only as a noncommitting diagnostic and has NOT run: the fresh
+  owned-window capture failed its C round-trip gate. Keep that failure and
+  later replay-noise evidence distinct (`docs/braking_compensation_p307.md`).
+  Do not lower the gate or promote a stopping policy from those records.

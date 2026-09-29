@@ -36,3 +36,59 @@ complete-morph rest policy. Original total merit is not reconstructed from an
 old body-control closure; report candidate data terms and body energy
 separately. Rendering terms, lambda and accepted production update influence
 remain distinct. No visual/full-morph promotion follows this diagnostic.
+
+## Conditional integration gate
+
+Only a resolved positive example warrants an opt-in post-solve terminal-control
+polish. It must recompute the existing total merit with the candidate body
+energy and promote the complete physical rollout through ordinary state gates.
+Require existing-merit nonincrease initially; a different lexicographic policy
+would need its own explicit formulation and evidence.
+
+Track the same preselected IDs through subsequent coupled windows with actual
+assimilation, plan refresh and neighbors. New pin admission is a separate
+outcome: the current pin policy explicitly zeros v/C and may assimilate Fp.
+Do not credit that as natural rest, or silently remove these IDs from the
+cohort. Stored/geometric speeds, all raw phases, F/Fp/C changes, plan relabels
+and fixed-target fit/supply all remain observable. An isolated zero-control
+hold may diagnose recoil but cannot replace the coupled continuation.
+
+The300-window recipe's cap24 is only2seconds at this T/dt. Its stale-fit stop
+and best/delivered endpoint do not certify complete-morph rest. A matched full
+horizon, raw-state geometry and all-frame visual QA remain required after the
+local continuation passes; held presentation frames cannot dilute motion.
+
+## Completed result: no candidate passes all gates
+
+`work/p303/terminal_braking3` uses frozen `code_terminal_braking3`. All three
+replays and five candidates have valid raw states and exact start pins. The
+production W20 is accepted (8inner accepts,0rejects, frame_end401), all guards0.
+Same50,957 start-arrived-free IDs, with the declared discretization above:
+
+| Observation | Baseline | Trial .5 |
+| --- | ---: | ---: |
+| Stored terminal RMS (wu/s) | .203410 | .150848 |
+| Geometric terminal RMS (wu/s) | .203083 | .150757 |
+| Net RMS (sp) | .430451 | .424593 |
+| Step RMS (sp) | .023152 | .022866 |
+| Path mean (sp) | .364004 | .353720 |
+| Fixed-target silIoU | .96250233 | .96250392 |
+
+The ~26% speed reductions clear the repeat/roundoff threshold, and both
+preselected cohorts' raw motion improves. However, density rises3.5623e-8,
+upper coverage loses4of15,312 target points and overall coverage loses3of300,000.
+Trial .5 and every other tested scale therefore fail the preregistered gates.
+No terminal-only feasibility or production-quality promotion follows.
+
+Rendering lambda is .01889300448. Combined rendering decreases9.5228e-8
+(weighted1.7992e-9), while its silhouette component worsens9.0338e-8 and PBR
+improves1.8545e-7. Independent silIoU improves only1.581e-6. These are separate
+observations: shading improvement does not certify preserved physical supply.
+The full accepted-step render influence report is retained with the run.
+
+Private/accepted maximum X/V/F differences are4.77e-7wu,3.25e-6wu/s,5.96e-7;
+all closure gates pass. The independent review checked protocol and67numerical
+source/3helper hashes,16,669 finite JSON floats and every gate result. Evidence
+is in `docs/evidence/p306`; trajectories remain on hyde06. A failed earlier
+launch stopped before physics due a relative helper path; it is not a numerical
+run. Next: [bounded endpoint compensation](braking_compensation_p307.md).

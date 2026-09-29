@@ -26,6 +26,35 @@ def finite_scalar(value):
     return value if math.isfinite(value) else None
 
 
+def assess_candidates(rows,dtype):
+    # Observed repeat range is numerical evidence, not a statistical confidence bound.
+    repeat = rows[:3]
+    require(all(row['valid'] for row in repeat),'Invalid repeat')
+    for row in rows[3:]:
+        if not row['valid']:
+            row['feasible'] = False
+            continue
+        checks = {}
+        for key in ('volume','render'):
+            checks['data_'+key] = row['data'][key] <= max(r['data'][key] for r in repeat)
+        for key in ('sil_iou','upper_target_near_frac','target_near_frac','tip_n','fixed_source_upper_density'):
+            checks[key] = row['geometry'][key] >= min(r['geometry'][key] for r in repeat)
+        checks['chamfer'] = row['geometry']['chamfer'] <= max(r['geometry']['chamfer'] for r in repeat)
+        for cohort in ('start_free','start_arrived_free'):
+            for key in ('net_rms_sp','step_rms_sp','path_mean_sp'):
+                checks[cohort+'_'+key] = row['motion'][cohort][key] <= max(r['motion'][cohort][key] for r in repeat)
+        for key in ('physical_terminal_rms_wu_s','geometric_terminal_rms_wu_s'):
+            checks[key] = row['motion']['start_arrived_free'][key] < min(r['motion']['start_arrived_free'][key] for r in repeat)
+        resolved = {}
+        for key in ('physical_terminal_rms_wu_s','geometric_terminal_rms_wu_s'):
+            speeds = [r['motion']['start_arrived_free'][key] for r in repeat]
+            threshold = 10*max(max(speeds)-min(speeds),32*torch.finfo(dtype).eps*max(speeds))
+            improvement = min(speeds)-row['motion']['start_arrived_free'][key]
+            resolved[key] = dict(threshold=threshold,improvement=improvement,passed=improvement>threshold)
+        row.update(checks=checks,nominal_feasible=all(checks.values()),resolved_braking=resolved,
+                   feasible=all(checks.values()) and all(v['passed'] for v in resolved.values()))
+
+
 class Capture:
     def __init__(self, source, target, out):
         self.source,self.target,self.out = source,target,out
@@ -104,32 +133,7 @@ class Capture:
                 self.rows.append(record)
                 print(json.dumps(record,allow_nan=False),flush=True)
             del values
-        # Observed repeat range is numerical evidence, not a statistical confidence bound.
-        repeat = self.rows[:3]
-        require(all(row['valid'] for row in repeat),'Invalid repeat')
-        for row in self.rows[3:]:
-            if not row['valid']:
-                row['feasible'] = False
-                continue
-            checks = {}
-            for key in ('volume','render'):
-                checks['data_'+key] = row['data'][key] <= max(r['data'][key] for r in repeat)
-            for key in ('sil_iou','upper_target_near_frac','target_near_frac','tip_n','fixed_source_upper_density'):
-                checks[key] = row['geometry'][key] >= min(r['geometry'][key] for r in repeat)
-            checks['chamfer'] = row['geometry']['chamfer'] <= max(r['geometry']['chamfer'] for r in repeat)
-            for cohort in ('start_free','start_arrived_free'):
-                for key in ('net_rms_sp','step_rms_sp','path_mean_sp'):
-                    checks[cohort+'_'+key] = row['motion'][cohort][key] <= max(r['motion'][cohort][key] for r in repeat)
-            for key in ('physical_terminal_rms_wu_s','geometric_terminal_rms_wu_s'):
-                checks[key] = row['motion']['start_arrived_free'][key] < min(r['motion']['start_arrived_free'][key] for r in repeat)
-            resolved = {}
-            for key in ('physical_terminal_rms_wu_s','geometric_terminal_rms_wu_s'):
-                speeds = [r['motion']['start_arrived_free'][key] for r in repeat]
-                threshold = 10*max(max(speeds)-min(speeds),32*torch.finfo(terminal.dtype).eps*max(speeds))
-                improvement = min(speeds)-row['motion']['start_arrived_free'][key]
-                resolved[key] = dict(threshold=threshold,improvement=improvement,passed=improvement>threshold)
-            row.update(checks=checks,nominal_feasible=all(checks.values()),resolved_braking=resolved,
-                       feasible=all(checks.values()) and all(v['passed'] for v in resolved.values()))
+        assess_candidates(self.rows,terminal.dtype)
         self.lambda_render = packet['lambda_render']
         self.original_history = deepcopy(packet['history'])
 
@@ -141,7 +145,7 @@ class Capture:
         return wrapped
 
 
-def main():
+def main(capture_type=Capture, extra_protocol=None, extra_helpers=()):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,default=Path('/data/relcfd/chayo/physmorph_v2'))
     parser.add_argument('--out',type=Path,required=True)
@@ -159,15 +163,16 @@ def main():
     require(inputs[str(metadata_path)]==sha256(metadata_bytes).hexdigest(),'Parsed metadata bytes changed')
     root = Path(__file__).resolve().parents[2]
     code = {str(p.relative_to(root)):sha(p) for p in sorted((root/'physmorph').rglob('*.py'))}
-    helpers = {str(p.relative_to(root)):sha(p) for p in (Path(__file__).resolve(),root/'scripts/probes/inner_budget.py',root/'scripts/probes/reference_swap.py')}
+    helpers = {str(p.relative_to(root)):sha(p) for p in (Path(__file__).resolve(),root/'scripts/probes/inner_budget.py',root/'scripts/probes/reference_swap.py',*extra_helpers)}
     protocol = dict(start_utc=datetime.now(timezone.utc).isoformat(),inputs=inputs,code=code,helpers=helpers,
         config=metadata['config'],mpm=metadata['mpm'],window=20,checkpoint=8,
         overrides=dict(stop_after_windows=20),scales=[4,2,1,.5,.25],repeats=3,
         direction='negative equal stored/geometric terminal mean square, projected into two data halfspaces',
         scope='Noncommitting positive feasibility in terminal body subspace; frozen displacement/stress/u/ref/pins; no full rest claim')
+    if extra_protocol is not None: protocol['extension'] = extra_protocol
     (args.out/'protocol.json').write_text(json.dumps(protocol,indent=2))
     with host_np.load(source_path,allow_pickle=False) as archive: source,target=archive['src'],archive['tgt']
-    capture = Capture(source,target,args.out)
+    capture = capture_type(source,target,args.out)
     with patch.object(runner,'optimize_window',capture.wrap(runner.optimize_window)):
         result = runner.run_pipeline(source,target,MPMParams(**metadata['mpm']),cfg)
     require(not any(result['guards'].values()),'Outer state guard fired')
@@ -179,7 +184,7 @@ def main():
     report = dict(protocol_sha256=sha(args.out/'protocol.json'),rows=capture.rows,direction=capture.direction,
         sidecars=capture.sidecars,lambda_render=capture.lambda_render,original_history=capture.original_history,
         history=result['history'],guards=result['guards'],render_influence=influence,N=len(source),T=cfg.T,
-        mpm=metadata['mpm'],loss_res=cfg.loss_res,scope=protocol['scope'])
+        mpm=metadata['mpm'],loss_res=cfg.loss_res,scope=protocol['scope'],extension=getattr(capture,'extra',None))
     (args.out/'result.json').write_text(json.dumps(report,indent=2,allow_nan=False))
     print(json.dumps(dict(out=str(args.out),feasible=[r['label'] for r in capture.rows if r.get('feasible')])),flush=True)
 
