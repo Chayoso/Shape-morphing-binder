@@ -187,3 +187,11 @@ These are the leading candidates for the unresolved problems, and they are ports
   gates, beyond the observed scalar repeat ranges. Do not promote it or widen
   ceilings. See `docs/running_repair_p308.md` for observed-model remainders and
   the bounded correction direction; persistence and4K quality remain untested.
+- **P309 status:** model-remainder correction restores prepared data and reduces
+  running motion in4 accepted repairs, but all fail raw coverage/shape gates.
+  All68 evaluated trials also fail the final gate; no held-out replay or commit.
+  `docs/remainder_repair_p309.md` records the result. P310 filters raw quality
+  before moving the origin, keeping thresholds fixed. These metrics then serve
+  candidate selection, not independent post-selection validation. Total-merit
+  and actual coupled continuation requirements are in
+  `docs/candidate_commit_contract.md`; `on_checkpoint` remains read-only.

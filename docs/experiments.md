@@ -9205,7 +9205,7 @@ Fresh W20, N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8. Original20
 windows/160 accepted updates, guards0, exact callback isolation. Fixed61,734
 arrived-free IDs. Affine volume/render restoration with a bounded running-motion
 step finds8 linear-feasible forward trials; all exceed the unchanged actual
-loss ceilings. The next3 smaller balls have no feasible linear step.0 repairs
+loss ceilings. In the next3 smaller balls the active-set solver finds no feasible linear step.0 repairs
 accepted or committed. H5 alone fails only data gates: step RMS-3.0822%, terminal
 speeds-30.0870%/-29.8140%, all raw shape/supply and both-cohort motion checks
 pass, but volume/render exceed ceilings3.37604e-9/1.02445e-8 (9.67x/44x observed
@@ -9214,3 +9214,21 @@ increases2.68654e-10 at lambda.0256414. No full-morph or4K-quality promotion.
 CPU19 checks and independent code/result review pass. The measured model
 remainder motivates a bounded correction with fixed ceilings, not a looser gate.
 [P308 evidence and limits](running_repair_p308.md).
+
+## 2026-09-28 - P309: data restoration passes, raw coverage still rejects
+
+Fresh W20 at N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8;20 ordinary
+commits/160 accepted updates, guards0 and exact observer isolation. Bounded
+observed-model corrections accept4 running/data updates from68 trials. All
+four fail final raw quality, so no state is promoted or held-out replay claimed.
+Repair1 reduces fixed47,738 arrived-free step RMS2.1926% and stored/geometric
+terminal speeds25.8909%/25.7996%, improves source-upper density and overall
+coverage, but loses one upper reference point. Repair4 reduces step RMS5.9205%
+but loses7 upper/7 overall reference points and one tip particle. All68 trials
+also fail the final gate retrospectively. Prepared rendering remains near its
+baseline ceiling: repair1 silhouette+8.83592e-8, PBR-8.84756e-8, weighted
+combined-4.88522e-12 at lambda.0209818792. Median ordinary direction share.50730
+is not causal motion share.22 CPU cases and independent pre-run review pass;
+full-morph rest/holes and4K quality remain open. Next candidate selection must
+retain the same origin when raw quality fails, then try smaller radii.
+[Protocol and result](remainder_repair_p309.md).
