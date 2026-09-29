@@ -1,4 +1,4 @@
-# Next derivative boundary after P332 (joint bridge still a design)
+# Derivative boundary after P332
 
 P332 selects a complete same-forward result before the ordinary runner handoff.
 It does not differentiate that handoff, and no rejected P331 control is an
@@ -6,7 +6,9 @@ admissible starting candidate. The next bounded task is forward/adjoint parity
 for the actual plastic-state update, before another candidate quality search.
 P333 implements the stable assimilation primitive and frozen pin composition;
 see `assimilation_adjoint_p333.md` for its distinct CPU/CUDA gates. The joint
-trajectory bridge and successor preparation derivative below remain pending.
+trajectory bridge is now implemented in `post_assimilation_adjoint_p334.md`,
+with CPU verification and pending actual CUDA gates. The complete successor
+preparation derivative below remains pending.
 
 This first scope excludes `w_grow > 0` and `assim_consensus`, and has no pin
 follow, yield, KKT or release branch. Those policies have different handoff maps

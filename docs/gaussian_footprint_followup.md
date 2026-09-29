@@ -6,6 +6,9 @@ tangent support or normal thickness. For isotropic Sigma0=s0^2 I, standard
 deviation axes equal s0 times F's singular values; covariance eigenvalues scale
 with their squares. For anisotropic surface splats, orientation relative to the
 material tangent/normal also matters. Good detF alone does not bound anisotropy.
+For example, diag(4,1,1/4) preserves volume while stretching one isotropic
+Gaussian standard-deviation axis by four. Elastic Fp assimilation improving
+stress likewise does not certify either geometric F or visible covariance.
 
 The code contains a smooth stretch saturation in pipeline/gauss_loss.py and
 render/covariance.py, but that is not the active covariance path in the retained
@@ -40,3 +43,10 @@ thickness at identical archived poses (footprint_thickness_p323.md). Some
 positive-support splats reach4x reference normal thickness, but decoupling that
 thickness alone leaves streaks/fringe and is not promoted. That comparison is
 not an F-covariance causal experiment or a completed visual-quality fix.
+
+The user's renewed concern does not change this acceptance distinction. A
+future rendering-loss comparison must use the actual candidate footprint rule
+and matched cameras/resolutions, and distinguish gradient magnitude/alignment
+from the effect of enabling that loss in a matched optimization. More cameras
+alone do not repair a footprint or resolution mismatch. Continue to reject
+apparent sharpness gained at the expense of missing material coverage.
