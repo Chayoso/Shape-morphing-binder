@@ -39,3 +39,48 @@ Four CPU callback/operator regression cases pass, including the new required
 data-pass/raw-fail case: the first candidate is rejected without changing the
 origin, a smaller-radius candidate is evaluated and passes three fixed replays.
 The preserved P309 fixtures still reject one deliberately perturbed repeat.
+
+## Completed quality_repair1: no joint feasible candidate
+
+Frozen b5809b5 ran on hyde06 GPU1;20 ordinary windows/160 accepted updates,
+all guards0 and exact post-callback production isolation. N300000,T20,
+dt1/240,dx.3062907543956724wu,loss36^3,budget8 remain unchanged. Fixed cohorts
+are53,447 start-free and53,287 start-arrived-free IDs. This is another fresh
+realization, so comparisons are against its own baseline only.
+
+There are27 search records:24 full forward evaluations at halves0..7 with up
+to two correction rounds, and3 smaller radii at which the active-set solver
+finds no feasible step. No repair is accepted and no fixed-candidate repeat
+branch runs. The origin stays fixed. No production state changes.
+
+Only h6/correction2 passes the actual data ceilings and resolved running
+decrease. Against its own baseline0, arrived-free running mean-square falls
+3.9988%, net RMS1.7322%, saved-step RMS2.0198%, path mean3.6347%, and
+stored/geometric terminal RMS27.0523%/27.0217%. But raw silIoU falls2.29483e-5,
+upper coverage loses one reference target point (1/15312), and fixed-source
+upper density falls1.86234e-5. Overall coverage/tip count equal baseline and
+Chamfer improves8.97664e-7wu. These discrete failures do not alone establish a
+substantial new visible hole, but they correctly reject the candidate.
+
+The new acceptance policy then tries half7 at the unchanged origin; all three
+correction attempts fail data and raw silIoU. A retrospective application of
+all unchanged gates to all24 evaluated trials finds no feasible candidate.
+This rejects this finite search, not all body/displacement control formulations.
+
+At h6/correction2 prepared silhouette increases1.34460e-7 while PBR decreases
+1.34693e-7; combined render changes-2.32831e-10 and weighted render-5.95445e-12
+at lambda.0255741819. The combined channel can offset silhouette worsening with
+PBR improvement; here raw silIoU also worsens. This is an observed tradeoff,
+not an isolated cause of every failed gate. Median ordinary render-direction
+share.5010839 and median lambda.0668287 are not causal motion shares. Exported
+4K appearance is unmeasured.
+
+Evidence is retained in `docs/evidence/p310`; full state/control sidecars remain
+on the server. The candidate original-merit API was added later in85e4b5d and
+did not participate in this frozen run. No adopted state, persistent rest,
+full-morph no-hole or4K-quality result follows from this diagnostic.
+
+Independent review verifies the result/protocol binding,69 numerical source and
+8 helper hashes, every trial's gate arithmetic and rendering recombination.
+The unchanged server-only volumetric source is retained in P309's evidence.
+This is not an independent remeasurement of the raw-array sidecars.

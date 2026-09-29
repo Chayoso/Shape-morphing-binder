@@ -195,3 +195,10 @@ These are the leading candidates for the unresolved problems, and they are ports
   candidate selection, not independent post-selection validation. Total-merit
   and actual coupled continuation requirements are in
   `docs/candidate_commit_contract.md`; `on_checkpoint` remains read-only.
+- **P310 / next diagnostic:** same-origin quality filtering accepts0 repairs
+  (24 forwards,3 no-step results); only h6/c2 restores data and still fails raw
+  IoU/upper coverage/source density. `docs/paired_braking_p311.md` preregisters
+  .5/.25 terminal strengths within one fresh callback, sharing ONE baseline
+  triplet/ceilings/cohorts/lambda. Both arms must be retained. The read-only
+  original-merit API is implemented/CPU-tested but has no GPU closure yet.
+  No candidate adoption, persistent-rest or4K promotion has occurred.

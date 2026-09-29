@@ -9232,3 +9232,19 @@ is not causal motion share.22 CPU cases and independent pre-run review pass;
 full-morph rest/holes and4K quality remain open. Next candidate selection must
 retain the same origin when raw quality fails, then try smaller radii.
 [Protocol and result](remainder_repair_p309.md).
+
+## 2026-09-28 - P310: quality-filtered backtracking remains infeasible in its search
+
+Same N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8;20 ordinary commits,
+160 accepted updates, guards0, exact callback isolation. Fixed53,287 arrived-free
+IDs. Of27 records/24 forward trials, only h6/correction2 passes prepared data
+and running decrease. Step RMS falls2.0198%, terminal speeds27.0523%/27.0217%,
+but raw silIoU-2.29483e-5, uppercoverage-1/15312 and sourceupperdensity-1.86234e-5
+reject it. The origin stays fixed; h7 then fails data and IoU, and h8..10 return
+no feasible active-set step.0 accepted repairs, no repeated-candidate or commit.
+Render silhouette+1.34460e-7 offsets PBR-1.34693e-7; weighted combined change
+-5.95445e-12 at lambda.0255742. Every evaluated trial fails retrospective gates.
+Four independent CPU regression cases pass. A separate original-merit evaluator
+is implemented and passes14 CPU cases (2 independently repeated), but is absent
+from this frozen run; CUDA-merit closure and real continuation remain open.
+[P310 result](quality_repair_p310.md); [merit/commit contract](candidate_commit_contract.md).
