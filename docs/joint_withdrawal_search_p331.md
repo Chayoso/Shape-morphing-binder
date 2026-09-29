@@ -130,3 +130,72 @@ gates from hole-mask inclusion; reserve actual UTF-8 JSON growth, keep rendering
 summary inside guarded result serialization, and let only small failure records
 consume the emergency reserve while still enforcing the absolute12GB cap.
 The authoritative merit remains the original Python-float callback.
+
+## Production result: no admissible candidate
+
+Frozen a14fa74, work/p303/p331_search1, completed734.63s including evidence I/O.
+The native discretization remains N300000,T20,dt1/240,dx.3062907543956724wu,
+loss36^3,iters8.20 original windows/160 inner updates commit, all guards zero,
+and the original callback state/returned state/outer endpoint checks pass.
+This is a fresh run, not a bit-identical replay of P329's earlier optimized
+prefix. Its fixed start-free and coarse-arrived-free cohorts contain41631 and
+41429 IDs respectively. Neither label certifies individual rest.
+
+All three original repeats pass. Ten candidate forwards(h00..h09) lower mean
+coast geometric speed squared, but none passes the complete raw gates. The
+last proposed h10 step fails its post-projection affine silhouette check before
+forward: residual5.22075e-12 exceeds precision allowance3.17680e-12. No candidate
+is selected, confirmed or adopted. The bounded one-origin search is not a proof
+that no feasible joint-body solution exists.
+
+G below averages all20 coast steps and the same41631 free IDs, in(wu/s)^2.
+Percentages refer to G, not speed or net displacement. The maximum lost-ID count
+is per phase relative to target IDs covered in all three baseline repeats.
+
+| Candidate | G | G reduction | All8 nonlinear gates | Max lost stable target IDs |
+| --- | ---: | ---: | --- | ---: |
+| Original minimum | .0410806673 | -- | reference | 0 |
+| h00 | .0146659586 | 64.30% | fail | 72 |
+| h04 | .0369920341 | 9.95% | pass | 14 |
+| h09 | .0409461128 | .328% | pass | 1 |
+
+h04..h07 and h09 satisfy all eight nonlinear constraints, including complete
+head merit and head/coast rendering terms, yet fail independent raw supply/
+projection gates. h00..h05 also increase enclosed-hole counts in some phase/view
+comparisons; later candidates still fail other raw gates. Reported gate
+occurrences are not counts of distinct3D holes. The smallest one-ID violation
+is not by itself a demonstrated visible artifact; it fails the preregistered
+no-loss-of-covered-ID criterion. No threshold was widened after observing it.
+
+Output is10.267GB, below the12GB reservation. The external process monitor
+observes32906MiB process/32930MiB device peak, with no query errors; sampled peaks
+are not exact high-water marks. No new video or quality promotion follows.
+
+Rendering influence in the same discretization:18views64px, shared GS loss off.
+Across160 accepted inner updates, nominal render-direction share median is
+.50188177(body .36551093, stress .55989686, surface-u .75637753); adaptive lambda
+median over20 window records .06813912, frozen checkpoint lambda .02161115,
+median observed image-loss
+change per update -.0001483256. These are optimizer observations, not causal
+movement fractions. Search constraints reuse the fixed prepared reference and
+lambda; passive coasts invoke no control optimization/render feedback. These
+image terms do not supervise the exact exported4K covariance. F/footprint
+limitations remain in gaussian_footprint_followup.md.
+
+Independent archive audit passes6269 checks. It reconstructs all41 raw phases
+for all13 produced forwards, coast/per-ID energies, full health/pins, original
+closure and candidate decision arithmetic. Source/input/output identities are
+bound before/after. Raw projections use a separately written binary scatter;
+bounded KDTree/fill libraries are shared, with additional blocked FP64 samples.
+Prepared image/density replay reuses frozen loss primitives. Complete physical
+merit is not independently reconstructed because NN/DT/control-neighbor
+auxiliary bindings were not archived; rounded recombination and available
+kinetic/body terms are checked. Optimizer/outer isolation is corroborated
+metadata plus the separate CPU identity tests, not a second optimizer replay.
+There is no full-size finite-difference, individual-rest or watertightness claim.
+
+The next prerequisite is an original-result identity gate for a runner-owned,
+whole-trajectory experimental selection seam, before any candidate-specific
+actual handoff/normal successor. Do not continue a least-bad failed candidate.
+See candidate_commit_contract.md; actual Fp/pin/layer/bond changes cannot be
+replaced by this frozen pre-assimilation coast.

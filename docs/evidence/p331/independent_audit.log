@@ -1,0 +1,23 @@
+launch_utc=2026-09-29T07:18:20Z gpu=1 project_bytes=76328029169
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+{"completed": "baseline_0", "elapsed_s": 20.79852116899565}
+{"completed": "baseline_1", "elapsed_s": 29.255817407974973}
+{"completed": "baseline_2", "elapsed_s": 37.93663038313389}
+{"completed": "candidate_h00", "elapsed_s": 47.65124262007885}
+{"completed": "candidate_h01", "elapsed_s": 56.19038724899292}
+{"completed": "candidate_h02", "elapsed_s": 64.73747553303838}
+{"completed": "candidate_h03", "elapsed_s": 73.19391750404611}
+{"completed": "candidate_h04", "elapsed_s": 81.64404328307137}
+{"completed": "candidate_h05", "elapsed_s": 90.02633873396553}
+{"completed": "candidate_h06", "elapsed_s": 98.42081743804738}
+{"completed": "candidate_h07", "elapsed_s": 107.01428103400394}
+{"completed": "candidate_h08", "elapsed_s": 115.54160540201701}
+{"completed": "candidate_h09", "elapsed_s": 124.04705090099014}
+{"passed": true, "checks": 6269, "out": "/data/relcfd/chayo/physmorph_v2/work/p303/p331_independent_audit1.json"}

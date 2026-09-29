@@ -109,3 +109,42 @@ closes all three original baseline merits on CUDA under the recorded raw300k
 recipe (maximum allowance ratio.0292933), verifies exact physical+lambda*render
 arithmetic and production-state isolation. Both terminal-strength arms still
 fail raw IoU; no candidate is adopted. Coupled continuation remains outstanding.
+
+## Next actual-forward seam after P331 (design, not implemented)
+
+P331 finds no admissible candidate; do not select its least-bad rejected arm.
+First validate an original-result identity control through an opt-in,
+runner-owned whole-window selection seam immediately after optimize_window
+returns and before warm starts or state promotion. A proposed WindowCandidate
+must own the same-forward X/V/F/Fg sequences, terminal C, controls and fresh
+component metrics. Capture those while the merit lease is live and verify the
+donor checkpoint still matches the original final accepted optimizer state.
+No endpoint-only overwrite, borrowed original metrics or invented Adam history.
+
+The selected whole result must pass the existing runner guards, assimilation,
+outer acceptance/rollback, arrival/pin admission and v/C zeroing. Continue one
+ordinary successor with its actual bond rebase, layer geometry and refreshed
+plan. Reuse P324's canonical step-zero observation after preparation; on_commit
+precedes pin admission and cannot stand in for the successor's prepared state.
+An optional zero-control replay of that actual state is additional withdrawal
+evidence, not a replacement for the normal controlled successor.
+
+Use a disposable diagnostic run for the first forward capability. An exact
+same-prefix two-arm fork would additionally require an owned resumable runner
+state including reversal/still/pin history, sticky plan, balancer and outer/
+stopping history; the current rollback dictionary is not that checkpoint.
+Do not duplicate the large post-solve commit block inside a probe.
+
+Forward diagnosis needs no new assimilation derivative. Optimizing through the
+actual handoff additionally needs a connected F-to-Fp VJP through elastic
+stretch/power, volume normalization/clamp and old/new-pin exceptions, gradient-
+bearing coast Fp, and a declared treatment of discrete pin/neighbor/fragment
+branches and continuous layer/bond dependencies. Freezing the branches yields
+a conditional derivative, not a derivative of the entire preparation policy.
+The existing withdrawal adjoint does not supply these capabilities.
+
+Before any candidate continuation, verify original-result state/policy identity,
+rejection isolation and archive clocks. Track new pins separately from common
+surviving free material IDs. Report successor render influence and fixed-target
+outer-render acceptance separately from the donor's prepared render reference.
+This seam alone does not fix holes, natural rest or the exported4K covariance.

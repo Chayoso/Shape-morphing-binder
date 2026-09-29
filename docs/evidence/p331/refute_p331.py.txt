@@ -1,0 +1,339 @@
+"""P331 archive-only audit. No rollout, gradient, adoption, or FD."""
+from pathlib import Path
+import argparse, hashlib, json, math, os, sys, time
+from datetime import datetime, timezone
+import numpy as host
+
+BASE = Path('/data/relcfd/chayo/physmorph_v2')
+COMMIT = 'a14fa74bdad6591fab8d8bda641e4b9e92cee54c'
+EPS = 2.**-23
+KEYS = ('head_volume','head_render','head_silhouette','head_merit',
+        'coast_volume','coast_render','coast_silhouette','coast_stored')
+LOW = ('target_covered','upper_target_covered','tip_count','fixed_source_density','iou')
+HIGH = ('under_half_count','hole_pixels','clipped_centers')
+VIEWS = [(j*2*math.pi/8, e) for e in (0.,.5,-.5) for j in range(8)]
+checks, bindings, observations = [], {}, []
+
+def identity(path):
+    path=Path(path); before=path.stat(); digest=hashlib.sha256()
+    with path.open('rb') as stream:
+        for block in iter(lambda:stream.read(8<<20),b''): digest.update(block)
+    after=path.stat()
+    assert (before.st_size,before.st_mtime_ns,before.st_ino)==(after.st_size,after.st_mtime_ns,after.st_ino)
+    return dict(bytes=after.st_size,mtime_ns=after.st_mtime_ns,inode=after.st_ino,sha256=digest.hexdigest())
+
+def bind(path, expected=None):
+    value=identity(path)
+    if expected is not None: assert value==expected,('bound file changed',str(path))
+    bindings[str(path)]=value; return value
+
+def read_json(path):
+    value=bind(path); raw=Path(path).read_bytes()
+    assert hashlib.sha256(raw).hexdigest()==value['sha256']
+    return json.loads(raw)
+
+def check(name, passed, **details):
+    checks.append(dict(name=name,passed=bool(passed),**details))
+    assert passed,name
+
+def near(name, actual, expected, rel=3e-11, atol=1e-13):
+    actual,expected=float(actual),float(expected)
+    check(name,math.isfinite(actual) and math.isfinite(expected) and
+          math.isclose(actual,expected,rel_tol=rel,abs_tol=atol),actual=actual,expected=expected)
+
+def allowance(x): return 32*EPS*max(abs(x),1e-12)
+
+def finite_json(value):
+    if isinstance(value,dict): return {k:finite_json(v) for k,v in value.items()}
+    if isinstance(value,(list,tuple)): return [finite_json(v) for v in value]
+    return None if isinstance(value,float) and not math.isfinite(value) else value
+
+def decode(tree, archive, convert):
+    if not isinstance(tree,dict): return tree
+    kind=tree['type']
+    if kind=='tensor':
+        x=archive[tree['key']]
+        assert list(x.shape)==tree['shape'] and str(x.dtype)==tree['dtype']
+        return convert(x)
+    if kind=='dict': return {k:decode(v,archive,convert) for k,v in tree['items'].items()}
+    values=[decode(v,archive,convert) for v in tree['items']]
+    assert kind in ('tuple','list')
+    return tuple(values) if kind=='tuple' else values
+
+def audit(args):
+    code,run=args.code.resolve(),args.run.resolve()
+    assert os.environ.get('CUDA_VISIBLE_DEVICES')=='1'
+    assert all(p.resolve().is_relative_to(BASE) for p in (code,run,args.out))
+    assert Path.cwd().resolve()==code and (code/'VERSION').read_text().strip()==COMMIT
+    for key in ('WARP_CACHE_PATH','CUPY_CACHE_DIR','CUDA_CACHE_PATH'):
+        assert Path(os.environ[key]).resolve().is_relative_to('/data')
+    sys.path.insert(0,str(code))
+    import torch, physmorph
+    from physmorph.compute import cuda_execution,cuda_module,KDTree
+    from physmorph.pipeline.config import PipelineConfig
+    from physmorph.pipeline.prepared_reference import PreparedReference
+    from dataclasses import asdict
+    assert Path(physmorph.__file__).resolve().parent.parent==code
+    protocol=read_json(run/'protocol.json'); result=read_json(run/'result.json')
+    search=read_json(run/'search.json'); checkpoint=result['checkpoint']
+    bind(run/'checkpoint.json'); bind(run/'search_progress.json'); bind(Path(__file__)); bind(code/'VERSION')
+    for path,value in protocol['bindings'].items(): bind(path,value)
+    for name,value in checkpoint['sidecars'].items(): bind(run/name,value)
+    check('protocol_sha',result['protocol_sha256']==bindings[str(run/'protocol.json')]['sha256'])
+    check('source_module_membership',{str(p) for p in (code/'physmorph').rglob('*.py')}==
+          {p for p in protocol['bindings'] if Path(p).is_relative_to(code/'physmorph')})
+    cfg=protocol['effective_config']; prm=protocol['mpm']
+    expanded=json.loads(json.dumps(asdict(PipelineConfig(**protocol['source_config']))))
+    check('sole_config_override',dict(expanded,stop_after_windows=20)==cfg)
+    check('native_scope',protocol['N']==300000 and cfg['T']==20 and cfg['iters']==8 and
+          cfg['loss_res']==36 and prm['dt']==1/240 and prm['dx']==.3062907543956724)
+    check('search_result_binding',result['search']==search)
+    check('no_adoption',not result['candidate_adopted'] and not search['adopted'])
+    check('isolation_metadata',result['original_capability_and_isolation_passed'] and result['failure'] is None and
+          result['bindings_unchanged'] and result['outer_accepted'] and checkpoint['measurement_passed'] and
+          checkpoint['optimizer_state_after_callback_exact'] and checkpoint['merit_binding_unchanged'] and
+          all(checkpoint['original_return_preserved'].values()) and all(checkpoint['committed_original_endpoint'].values()))
+    check('output_budget',sum(p.stat().st_size for p in run.iterdir() if p.is_file())<=12_000_000_000)
+    baselines=search['baselines']; rows=baselines+search['proposals']+search['confirmations']
+    check('three_originals',[r['label'] for r in baselines]==['baseline_0','baseline_1','baseline_2'])
+    check('bounded_forward_count',len(search['proposals'])<=11 and len(search['confirmations'])<=3)
+    records={r['label']:r for r in search['forward_records']}
+    check('forward_membership',set(records)=={r['label'] for r in rows} and len(records)==len(rows))
+    for row in rows:
+        rec=records[row['label']]
+        check(row['label']+'.record_link',all(rec[k]==v for k,v in row.items()))
+        check(row['label']+'.archive_link',rec['archive']==row['label']+'.npz' and
+              rec['binding']==checkpoint['sidecars'][rec['archive']])
+    ceilings={key:max(r['constraints'][key] for r in baselines) for key in KEYS}
+    for key,value in ceilings.items(): near('maximum.'+key,value,search['baseline_maxima'][key],0,0)
+    ceilings={key:value+allowance(value) for key,value in ceilings.items()}
+    ceilings['head_merit']=min(ceilings['head_merit'],checkpoint['history']['loss']+allowance(checkpoint['history']['loss']))
+    check('nonlinear_ceilings',ceilings==search['ceilings'])
+    minimum=min(r['objective'] for r in baselines); floor=allowance(minimum)
+    near('objective_floor',floor,search['objective_roundoff_floor'],0,0)
+    phases={0,10,20,30,40}
+    for row in rows:
+        phases.update(f['phase'] for f in row.get('raw',{}).get('failing_gates',[]) if 'phase' in f)
+    # A successful candidate requires all-phase independent confirmation. Its
+    # three baselines must be reconstructed at those same phases as well.
+    if search['selected'] is not None: phases=set(range(41))
+    phases=sorted(phases)
+    with cuda_execution('cuda:0'),torch.no_grad():
+        cp=cuda_module()
+        from cupyx.scipy.ndimage import binary_fill_holes
+        def load(name):
+            with host.load(run/name,allow_pickle=False) as z: return {k:cp.asarray(z[k]) for k in z.files}
+        accepted=load('accepted_head.npz'); envelope=load('raw_baseline_envelope.npz')
+        with host.load(run/'prepared_owner.npz',allow_pickle=False) as z:
+            owner=decode(json.loads(z['manifest'].tobytes()),z,lambda x:torch.as_tensor(x,device='cuda'))
+        reference=PreparedReference(**owner['observations']['reference'])
+        model=owner['model']; pins=accepted['pins']; free=~pins; arrived=free&accepted['start_arrived']
+        c0=cp.from_dlpack(model['coefficients']); N=len(pins); T=20; dt=prm['dt']; dx=prm['dx']
+        check('owned_start',bool(cp.array_equal(cp.from_dlpack(owner['spec']['x0']),accepted['x0'])))
+        check('fixed_masks',bool(cp.array_equal(cp.flatnonzero(free),accepted['start_free_ids']) and
+              cp.array_equal(cp.flatnonzero(arrived),accepted['start_arrived_free_ids'])))
+        near('trust_radius',math.sqrt(len(c0))*math.hypot(*checkpoint['history']['body_update_modes_rms']),search['initial_radius'])
+        with host.load(BASE/'repro/current_pair/source_render_full_dt_iso_nn.npz',allow_pickle=False) as z:
+            source,target=cp.asarray(z['src']),cp.asarray(z['tgt'])
+        st,tt=KDTree(source),KDTree(target)
+        sp=float(cp.median(st.query(source,k=2)[0][:,1])); td=tt.query(target,k=9)[0]
+        ts=float(cp.median(td[:,1])); radius=float(cp.median(td[:,8]))
+        extent=1.15*float(cp.linalg.norm(target,axis=1).max()); top=target[:,1]>2.3; tip=target[target[:,1].argmax()]
+        sc=st.query_ball_point(source,2*sp,return_length=True)
+        ids=cp.flatnonzero((source[:,1]>=(source[:,1].min()+source[:,1].max())*.5)&(sc<.6*cp.median(sc)))
+        check('fixed_source_ids',bool(cp.array_equal(ids,envelope['source_ids'])))
+        check('fixed_target_ids',bool(cp.array_equal(cp.flatnonzero(top),envelope['upper_target_ids'])))
+        for key,value in dict(source_spacing=sp,target_spacing=ts,density_radius=radius,extent=extent).items():
+            near('raw_reference.'+key,value,float(envelope[key]),0,0)
+        def project(x,res,az,el):
+            right=cp.asarray([math.cos(az),0.,-math.sin(az)],cp.float32)
+            up=cp.asarray([-math.sin(el)*math.sin(az),math.cos(el),-math.sin(el)*math.cos(az)],cp.float32)
+            ij=cp.floor((cp.stack((x@right,x@up),1)+extent)/(2*extent)*res).astype(cp.int64)
+            valid=(ij>=0).all(1)&(ij<res).all(1); clipped=int((~valid).sum()); ij=ij[valid]
+            buf=cp.zeros(res*res,cp.int32)
+            for ox in (-1,0,1):
+                for oy in (-1,0,1): cp.add.at(buf,cp.clip(ij[:,0]+ox,0,res-1)*res+cp.clip(ij[:,1]+oy,0,res-1),1)
+            return buf.reshape(res,res)>0,clipped
+        target_masks={(res,v):project(target,res,*view)[0] for res in (128,256) for v,view in enumerate(VIEWS)}
+        target_holes={k:binary_fill_holes(m)&~m for k,m in target_masks.items()}
+        def raw_phase(x):
+            tree=KDTree(x); distances=tree.query(target)[0]; covered=distances<=2*ts
+            counts=tree.query_ball_point(x[ids],radius,return_length=True)-1
+            r=dict(covered=covered,target_covered=covered.sum(dtype=cp.int64),upper_target_covered=covered[top].sum(dtype=cp.int64),
+                tip_count=(cp.linalg.norm(x-tip,axis=1)<.25).sum(dtype=cp.int64),
+                fixed_source_density=counts.mean(dtype=cp.float64)/8,under_half_count=(counts<4).sum(dtype=cp.int64))
+            for key in ('iou','hole_pixels','clipped_centers','extra_hole_pixels'): r[key]=[]
+            for res in (128,256):
+                maps={k:[] for k in ('iou','hole_pixels','clipped_centers','extra_hole_pixels')}
+                for v,view in enumerate(VIEWS):
+                    body,clipped=project(x,res,*view); tgt=target_masks[res,v]; holes=binary_fill_holes(body)&~body
+                    maps['iou'].append((body&tgt).sum(dtype=cp.int64).astype(cp.float64)/cp.maximum((body|tgt).sum(),1))
+                    maps['hole_pixels'].append(holes.sum(dtype=cp.int64)); maps['clipped_centers'].append(cp.asarray(clipped,cp.int64))
+                    maps['extra_hole_pixels'].append((holes&~target_holes[res,v]).sum(dtype=cp.int64))
+                for k,values in maps.items(): r[k].append(cp.stack(values))
+            for k in maps: r[k]=cp.stack(r[k])
+            return r,distances,counts
+        base_raw={}; energy_origin=None; selected_controls=None; gradient=jacobian=None
+        lower=cp.asarray(prm['grid_min'],cp.float32)+2*dx
+        upper=cp.asarray(prm['grid_min'],cp.float32)+dx*cp.asarray([prm['nx'],prm['ny'],prm['nz']],cp.float32)-2*dx
+        for index,row in enumerate(rows):
+            label=row['label']; z=load(label+'.npz')
+            finite=all(bool(cp.isfinite(value).all()) for value in z.values())
+            check(label+'.finite_flag',finite==row['all_fields_finite'])
+            if not finite:
+                check(label+'.nonfinite_rejected',not row['valid'] and not row['passed'] and not row['raw']['measured'])
+                observations.append(dict(label=label,raw_phases=[],scope='Nonfinite archived state; producer rejected before raw/scalar observation'))
+                del z
+                continue
+            X,V=z['coast_X'],z['coast_V']
+            check(label+'.layout',X.shape==V.shape==(T+1,N,3) and z['positions'].shape==(T,N,3))
+            check(label+'.boundary',bool(cp.array_equal(X[0],z['x']) and cp.array_equal(V[0],z['v']) and
+                cp.array_equal(z['positions'][-1],z['x']) and cp.array_equal(z['V'][-1],z['v']) and
+                cp.array_equal(z['coast_C'][0],z['C']) and cp.array_equal(z['coast_F'][0],z['F']) and cp.array_equal(z['coast_Fg'][0],z['Fg']) and
+                cp.array_equal(z['F_sequence'][-1].reshape(N,9),z['F']) and cp.array_equal(z['Fg_sequence'][-1].reshape(N,9),z['Fg']) and
+                cp.array_equal(z['C_sequence'][-1],z['C'])))
+            pinned=bool((z['positions'][:,pins]==accepted['x0'][pins][None]).all() and
+                (X[:,pins]==accepted['x0'][pins][None]).all() and (z['V'][:,pins]==0).all() and
+                (V[1:,pins]==0).all() and (z['C_sequence'][:,pins]==0).all() and (z['coast_C'][1:,pins]==0).all())
+            determinant_ok=all(bool((cp.linalg.det(z[key].reshape(-1,3,3).astype(cp.float64))>0).all()) for key in ('F_sequence','coast_F'))
+            stress=cp.from_dlpack(model['stress']).reshape(T,N,3,3)
+            elastic=cp.concatenate((z['F_initial'][None],z['F_sequence'][:-1]),axis=0)+stress
+            determinant_ok &= bool((cp.linalg.det(elastic.astype(cp.float64))>0).all())
+            inside=bool(((z['positions']>=lower)&(z['positions']<=upper)).all() and ((X>=lower)&(X<=upper)).all())
+            healthy=pinned and determinant_ok and inside
+            check(label+'.health_decision',healthy==row['valid'],pins=pinned,positive_determinants=determinant_ok,inside_grid=inside)
+            if not healthy:
+                check(label+'.unhealthy_rejected',not row['passed'] and not row['raw']['measured'])
+                observations.append(dict(label=label,raw_phases=[],scope='Invalid archived state; producer rejected before raw/scalar observation'))
+                del z,X,V
+                continue
+            coeff=z['coefficients']; check(label+'.coefficient_ball',bool((cp.sum(coeff*coeff,axis=1)<=1+1e-6).all()))
+            if index<3:
+                check(label+'.original_control',bool(cp.array_equal(coeff,c0)))
+                for key,unit in (('positions',dx),('V',dx/(T*dt)),('F',1.),('C',1/(T*dt))):
+                    actual=z[key]; ref=accepted[key].reshape(actual.shape)
+                    error=cp.abs(actual-ref); tol=cp.float32(32*EPS)*(cp.float32(unit)+cp.abs(ref))
+                    check(label+'.closure.'+key,bool((error<=tol).all()))
+                    near(label+'.closure_max.'+key,error.max(),row['head_closure'][key]['max_abs'],0,0)
+                scalar=row['scalar_closure']; tol=allowance(checkpoint['history']['loss'])
+                check(label+'.baseline_merit_gate',scalar['passed'] and abs(row['original_merit']['merit']-checkpoint['history']['loss'])<=tol)
+            if index==2:
+                gradient=z['objective_gradient'].astype(cp.float64).copy()
+                jacobian=z['constraint_gradients'].astype(cp.float64).copy()
+            elif label.startswith('candidate_'):
+                delta=coeff.astype(cp.float64)-c0.astype(cp.float64); lin=row['linear_trial']
+                norm=float(cp.linalg.norm(delta)); directional=float((gradient*delta).sum())
+                near(label+'.projected_norm',norm,lin['projected_norm'])
+                near(label+'.prediction',-directional,lin['predicted_decrease'])
+                check(label+'.resolved_trust',norm<=row['radius']+lin['radius_tolerance'] and -directional>floor)
+                b=cp.asarray([ceilings[k]-baselines[2]['constraints'][k] for k in KEYS],cp.float64)
+                lhs=(jacobian*delta[None]).reshape(8,-1).sum(1)
+                tol=32*EPS*(cp.linalg.norm(jacobian.reshape(8,-1),axis=1)*norm+cp.abs(b))
+                check(label+'.projected_affine',bool((lhs-b<=tol).all()))
+            if label==search['selected']: selected_controls=coeff.copy()
+            if label.startswith('confirm_'): check(label+'.same_candidate',bool(cp.array_equal(coeff,selected_controls)))
+            e=((cp.diff(X.astype(cp.float64),axis=0)/dt)**2).sum(-1).mean(0)
+            ev=(V[1:].astype(cp.float64)**2).sum(-1).mean(0)
+            near(label+'.G',e[free].mean(),row['objective'])
+            near(label+'.stored_coast',ev[free].mean(),row['constraints']['coast_stored'])
+            for key,a in (('geometric',e),('stored',ev)):
+                check(label+'.per_id_'+key,bool(cp.allclose(a,z[key+'_coast_energy_per_id'],rtol=3e-11,atol=1e-13)))
+            if index==2: energy_origin={'geometric':e.copy(),'stored':ev.copy()}
+            if index>=3:
+                for name,mask in (('start_free',free),('start_arrived_free',arrived)):
+                    entry=row['per_id_energy_change'][name]; check(label+'.'+name+'.count',int(mask.sum())==entry['particles'])
+                    if not entry['particles']: continue
+                    for key,a in (('geometric',e),('stored',ev)):
+                        before=energy_origin[key][mask]; delta=a[mask]-before; stats=entry[key]
+                        near(label+'.'+name+'.'+key+'.delta',delta.mean(),stats['mean_change'])
+                        check(label+'.'+name+'.'+key+'.worsened',int((delta>0).sum())==stats['worsened_ids'] and
+                            int((delta>32*EPS*cp.maximum(cp.abs(before),1e-12)).sum())==stats['worsened_beyond_roundoff_ids'])
+            # Same frozen loss primitives, independently evaluated on the archive:
+            # this is scalar consistency, never raw quality/independent loss design.
+            for name,pos in (('head',z['x']),('coast_end',X[-1])):
+                terms=reference.terms(torch.as_tensor(pos,device='cuda'))
+                for key in ('volume','render','silhouette','pbr'):
+                    actual=float(terms[key]); expected=row['prepared_'+name][key]
+                    near(label+'.prepared_'+name+'.'+key,actual,expected,32*EPS,32*EPS*1e-12)
+            merit=row['original_merit']
+            check(label+'.rounded_merit',merit['merit']==merit['physical']+merit['lambda_render']*merit['render'] and
+                  merit['merit']==row['constraints']['head_merit'] and merit['lambda_render']==search['lambda_render'])
+            tv=torch.as_tensor(z['V'],device='cuda'); tc=torch.as_tensor(coeff,device='cuda')
+            field=dx*(tc[model['idx']]*model['weights'][...,None]).sum(1)*model['gate']
+            body=(field/dx).square().sum(1).mean()
+            for key,value in dict(body_energy=float(body),stored_terminal=float(tv[-1].square().sum(1).mean()),
+                stored_running=float(tv.square().sum(2).mean()),
+                stored_variance=float((tv.square().sum(2).mean(0)-tv.mean(0).square().sum(1)).mean())).items():
+                near(label+'.merit_component.'+key,value,merit[key],32*EPS,32*EPS*1e-12)
+            actual_bad=[]
+            for phase in phases:
+                pos=accepted['x0'] if phase==0 else z['positions'][phase-1] if phase<=T else X[phase-T]
+                metric,distances,counts=raw_phase(pos); reported=row['raw']['phases'][phase]
+                for key in (*LOW,*HIGH,'extra_hole_pixels'):
+                    value=cp.asarray(metric[key]); expected=cp.asarray(reported[key],dtype=value.dtype)
+                    tol=64*cp.finfo(cp.float64).eps*(1+cp.abs(expected)) if value.dtype.kind=='f' else 0
+                    check(label+'.raw.'+str(phase)+'.'+key,bool((cp.abs(value-expected)<=tol).all()))
+                if index<3: base_raw.setdefault(phase,[]).append(metric)
+                else:
+                    bases=base_raw[phase]; stable=bases[0]['covered']&bases[1]['covered']&bases[2]['covered']
+                    lost=int((stable&~metric['covered']).sum())
+                    check(label+'.lost.'+str(phase),lost==reported['lost_stable_target_ids'])
+                    if lost: actual_bad.append(phase)
+                    for key in LOW+HIGH:
+                        stack=cp.stack([r[key] for r in bases]); bound=stack.min(0) if key in LOW else stack.max(0)
+                        tol=64*cp.finfo(cp.float64).eps*(1+cp.abs(bound)) if bound.dtype.kind=='f' else 0
+                        bad=metric[key]<bound-tol if key in LOW else metric[key]>bound+tol
+                        if bool(bad.any()): actual_bad.append(phase)
+                if index==2:
+                    bases=base_raw[phase]; stable=bases[0]['covered']&bases[1]['covered']&bases[2]['covered']
+                    check('stable_envelope.'+str(phase),bool(cp.array_equal(stable,envelope['stable_covered'][phase])))
+                    for key in LOW+HIGH:
+                        stack=cp.stack([r[key] for r in bases]); actual=stack.min(0) if key in LOW else stack.max(0)
+                        expected=envelope[('minimum_' if key in LOW else 'maximum_')+key][phase]
+                        check('envelope.'+str(phase)+'.'+key,bool(cp.array_equal(actual,expected)))
+                    if phase in (0,20,40):
+                        picks=cp.asarray(host.linspace(0,N-1,16,dtype=host.int64))
+                        suppliers=cp.asarray(host.linspace(0,len(ids)-1,16,dtype=host.int64))
+                        for begin in range(0,16,4):
+                            direct=cp.linalg.norm(target[picks[begin:begin+4],None].astype(cp.float64)-pos[None].astype(cp.float64),axis=-1).min(1)
+                            check('direct_target.'+str(phase)+'.'+str(begin),bool(cp.allclose(direct,distances[picks[begin:begin+4]],rtol=2e-12,atol=1e-14)))
+                            d=cp.linalg.norm(pos[ids[suppliers[begin:begin+4]],None].astype(cp.float64)-pos[None].astype(cp.float64),axis=-1)
+                            check('direct_counts.'+str(phase)+'.'+str(begin),bool(cp.array_equal((d<=radius).sum(1)-1,counts[suppliers[begin:begin+4]])))
+            if index>=3:
+                # All reported bad phases were deliberately sampled. Missing bad
+                # phases outside the sample cannot be excluded for rejected arms.
+                if row['raw']['passed']: check(label+'.sampled_raw_pass',not actual_bad)
+                else: check(label+'.raw_failure_witness',bool(actual_bad))
+                actual_constraints={key:row['constraints'][key]<=ceilings[key] for key in KEYS}
+                actual_decrease=minimum-row['objective']>floor
+                check(label+'.constraint_decisions',actual_constraints==row['nonlinear_constraints'])
+                check(label+'.objective_decision',actual_decrease==row['objective_decrease']['passed'])
+                check(label+'.combined_decision',row['passed']==(row['valid'] and all(actual_constraints.values()) and actual_decrease and row['raw']['passed']))
+            observations.append(dict(label=label,raw_phases=phases,objective=float(e[free].mean()),raw_failing_phases=sorted(set(actual_bad))))
+            print(json.dumps(dict(completed=label,elapsed_s=time.perf_counter()-START)),flush=True)
+            del z, X, V
+        first=next((r['label'] for r in search['proposals'] if r['passed']),None)
+        check('first_feasible_selection',search['selected']==first)
+        found=first is not None and len(search['confirmations'])==3 and all(r['passed'] for r in search['confirmations'])
+        check('no_false_candidate_found',search['candidate_found']==found and search['confirmed']==found and result['candidate_found']==found)
+        cp.cuda.get_current_stream().synchronize()
+    for path,value in bindings.items(): check('unchanged:'+path,identity(path)==value)
+    return dict(passed=True,producer_commit=COMMIT,discretization=dict(N=N,T=T,dt=dt,dx=dx,loss_res=36,iters=8),
+        raw_phases=phases,forwards=observations,candidate_found=found,
+        scope='Archive-only. G/per-ID energies/health/control and decision arithmetic independently reduced. Raw binary projections independently scattered; bounded frozen KDTree/fill libraries shared, blocked FP64 samples independent. Prepared image/density scalars reuse frozen loss primitives, not raw-quality evidence. Complete physical merit is NOT independently reconstructed: frozen NN/DT/control-neighbor auxiliary bindings were not archived; separately rounded scalar recombination and available kinetic/body components checked only. Optimizer/outer isolation is corroborated metadata, not an independent optimizer replay. No gradients, FD, simulation, adoption, rest or watertightness certificate.')
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--code',type=Path,default=BASE/'work/p303/code_joint_withdrawal1')
+    parser.add_argument('--run',type=Path,default=BASE/'work/p303/p331_search1')
+    parser.add_argument('--out',type=Path,required=True)
+    args=parser.parse_args(); assert not args.out.exists()
+    START=time.perf_counter(); failure=None
+    try: report=audit(args)
+    except Exception as exc:
+        report=dict(passed=False,error=dict(type=type(exc).__name__,message=str(exc))); failure=exc
+    report.update(completed_utc=datetime.now(timezone.utc).isoformat(),elapsed_s=time.perf_counter()-START,
+                  checks=checks,check_count=len(checks),bindings=bindings,observations=observations)
+    with args.out.open('x') as stream: json.dump(finite_json(report),stream,indent=2,allow_nan=False)
+    print(json.dumps(dict(passed=report['passed'],checks=len(checks),out=str(args.out))),flush=True)
+    if failure is not None: raise failure

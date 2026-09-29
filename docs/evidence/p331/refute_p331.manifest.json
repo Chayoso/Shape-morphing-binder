@@ -1,0 +1,21 @@
+﻿{
+    "script":  "C:/dev/physmorph_runtime/p303/refute_p331.py",
+    "script_sha256":  "c8407d10f279c0e16a4b375180ee0e0cfd26cc886a870c69f87f12e90c4437ab",
+    "producer_commit":  "a14fa74bdad6591fab8d8bda641e4b9e92cee54c",
+    "frozen_code":  "/data/relcfd/chayo/physmorph_v2/work/p303/code_joint_withdrawal1",
+    "producer_run":  "/data/relcfd/chayo/physmorph_v2/work/p303/p331_search1",
+    "required_physical_gpu":  1,
+    "execution":  "Parent only, after producer completion; no launch performed by audit author",
+    "all_trajectory_reductions":  "All archived forwards, full coast geometric/stored energies, pins, health, available scalar components",
+    "raw_phases":  "0/10/20/30/40 plus union of reported failing phases; all41 when a candidate is selected",
+    "raw_implementation":  "Independent binary scatter; bounded frozen compute.KDTree and CuPy fill;16 blocked FP64 target/supplier queries at baseline2 phases0/20/40",
+    "original_merit_limit":  "Rounded physical+lambda*render recombination only, available kinetic/body components and PreparedReference replay; NN/DT/control-neighbor auxiliary bindings absent, so full physical merit not independently reconstructed",
+    "no_claims":  [
+                      "no MPM replay",
+                      "no finite differences",
+                      "no adoption",
+                      "no independent optimizer-state replay",
+                      "no rest or watertightness certificate"
+                  ],
+    "validation":  "py_compile only; GPU evidence pending"
+}

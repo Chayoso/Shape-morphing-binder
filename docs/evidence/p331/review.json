@@ -1,0 +1,22 @@
+{
+  "reviewer": "/root/mixed60_photoreal",
+  "code_design_gate": "passed before production launch",
+  "independent_cpu_cases": 47,
+  "groups": {"search_core": 21, "raw_quality": 22, "driver_and_budget": 4},
+  "reviewed_driver_sha256": "2eab9ac1e6751552fb1e3f527ea02fdf8d51e0cedfbe1fee825e63a070de6696",
+  "reviewed_core_sha256": "f79c2ca4c53b094e699991e636571319eaa15f757d38949e2285f781ef5c51c5",
+  "reviewed_raw_sha256": "cf47e112f0bdd8e35380f450f89b8fd8cc19e209193191553c0bb9f454d3628d",
+  "resolved_findings": [
+    "Recheck projected actual coefficient delta against both affine constraints and trust radius; no factor3 in node-vector RMS radius.",
+    "Require predicted decrease above the same preregistered objective precision floor.",
+    "Align24 raw views to unstaggered P329; distinguish bitmap excess reporting from count gates and hole-mask inclusion.",
+    "Reserve actual UTF8 JSON growth; keep rendering summary in guarded serialization; small failure fallback can consume reserve without exceeding absolute limit.",
+    "Failed raw-envelope archive rejects search and preserves original continuation; recheck merit binding and measurement pass after search."
+  ],
+  "completed_receipt_gate": "passed",
+  "independent_cuda_archive_checks": 6269,
+  "bound_files": 115,
+  "raw_scope": "All41 phases of13 archived forwards; independent binary scatter, shared bounded KDTree/fill libraries with blocked FP64 samples.",
+  "decision": "All10 actual candidate forwards rejected; h10 projected step rejected before forward; no candidate adopted.",
+  "limits": "No complete independent physical-merit reconstruction, production finite differences, second optimizer replay, causal rendering attribution, individual-rest, watertightness or4K remedy certificate."
+}

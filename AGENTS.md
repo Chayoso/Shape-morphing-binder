@@ -350,3 +350,14 @@ These are the leading candidates for the unresolved problems, and they are ports
   complete-merit body-mode finite differences and callback lifetime pass on the
   small fixture only. No objective, adoption or4K promotion; same callback/mode
   restrictions remain. Source receipt qualifies one unreferenced legacy file.
+- **P331 joint search:** `docs/joint_withdrawal_search_p331.md` implements a
+  read-only frozen-origin joint displacement/terminal-body search.47 CPU cases
+  pass independently. Frozen a14fa74 N300k W20/inner8 runs3 originals and10
+  candidates: all lower coast mean squared geometric speed, none passes all raw
+  supply/shape gates; h10 is rejected after coefficient projection before forward.
+  All original states/outer disposition remain preserved, guards0. Independent
+  archive audit6269checks/115bindings reconstructs all41 raw phases of13 forwards,
+  with explicit shared-library/full-merit limits. No candidate adopted or remedy
+  claimed. Original18view64px nominal render share median.50188 is not causal
+  movement attribution. Next actual-forward seam is design only in
+  `docs/candidate_commit_contract.md`; do not continue a least-bad failed arm.
