@@ -279,9 +279,20 @@ These are the leading candidates for the unresolved problems, and they are ports
 - **P320/P321/P322 continuation:** `docs/layer_ablation_p320.md` tests the combined
   layer_ctrl/layer_relax removal from raw, with a fresh raw repeat, unchanged
   ordinary policies and full-horizon tracing. Comparator code has104 CPU tests;
-  physical/shape conclusions are pending. P321 batches three raw-gradient report
+  the complete pair rejects layer removal: common31-window shape/supply worsen,
+  same1778 free-ID step RMS does not improve and phase20 RMS increases15.94%.
+  All-phase observers/independent bounded CUDA audits pass; projected openings
+  remain and are not automatically3D material holes. P321 batches three raw-gradient report
   scalars intoone host copy (64 CPU/4 actual CUDA tests); no policy or speed claim.
   P322 adds explicit optimization termination reasons while retaining legacy
   converged=frozen. Individual rest is not evaluated by those stopping rules.
   `docs/gaussian_footprint_followup.md` separates physical F stretch from the active
   photoreal8NN covariance rule; pin normals/sigma latch but support remains live.
+- **P323/P324 continuation:** `docs/footprint_thickness_p323.md` records an opt-in
+  fixed-archive4K comparison preserving tangent size while fixing normal thickness
+  to reference spacing/4.29 CPU and2 actual CUDA cases pass;41 image pairs have
+  scoped visual QA. Fringes/streaks remain, so no default or deliverable promotion.
+  Rendering loss is unchanged in this appearance-only comparison.
+  `docs/control_withdrawal_p324.md` is a design note, not an implemented rest fix:
+  a pre-assimilation coast is not the real postcommit handoff; complete state and
+  assimilation/admission dependencies must be respected by any future adjoint.

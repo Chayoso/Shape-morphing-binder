@@ -53,4 +53,58 @@ analysis, and reports the same source cohort at actual/delivered endpoints.
 Zero common path gives an undefined (null) fraction rather than an invented0.
 Only the probe files may be overlaid onto a clone of the frozen producer core;
 the comparator rejects a different physical source aggregate. Actual CUDA
-comparison results remain pending.
+comparison results are recorded below.
+
+## Completed pair, 2026-09-29 UTC
+
+Frozen producer1ff004d, analysis-probe overlay0ce63ea. Fresh raw accepted31/31
+attempts in435.99s. No-layer accepted61/65 attempts in576.81s; its last accepted
+state is attempt62. Both have one copied held row and no delivery truncation;
+622/1222 archive frames contain621/1221 actual physical positions. Guards are0.
+Raw ends on accepted-track plateau; no-layer ends after3 consecutive rejections.
+Neither stopping rule certifies individual rest.
+
+At the same31 accepted windows, under the discretization above:
+
+| Raw-state observation | Raw with layers | No layers |
+| --- | ---: | ---: |
+| silhouette IoU | .9618841 | .9594799 |
+| target support within2 target spacings | .9927100 | .9909933 |
+| upper-target support | .9354754 | .9254180 |
+| fixed6712-ID upper source density | .9702771 | .7785496 |
+| tip particles | 75 | 33 |
+| same1778 free IDs, W22–31 step RMS(sp) | .01643544 | .01658742 |
+| same IDs, phase20 RMS(sp) | .01703085 | .01974626 |
+
+First19-phase RMS is essentially unchanged(.01640350/.01640433sp), while the
+last phase worsens15.94%. Window-boundary reversals remain exactly91/16002 in
+both arms; interior reversals increase210/320040 to663/320038. These are negative
+dot products, not independently certified oscillations. The common cohort is
+selected from both outcomes, not a full-population causal estimator.
+
+No-layer's own endpoint has99.6093% pins versus93.8303% at raw's earlier endpoint.
+Its remaining1172 free IDs still have terminal geometric speed RMS.133116wu/s;
+raw's distinct18509 free IDs have.074350wu/s. Final312/353 new pin admissions have
+only copied-held follow-up. Lower whole-cloud mean motion at a later endpoint
+cannot establish natural rest.
+
+P319 all-phase observers and bounded independent CUDA audits pass:652/1282
+labelled observations,10191/19589 reduction checks and7/6 selected source-state
+reprojections. In the common621 physical positions,128-pixel projected openings
+occur in509/504 positions;256-pixel openings occur in477/576. Summed24-view hole
+pixels increase18626→46268 at128 and114798→277469 at256. These are projected
+interior-mask openings, which can include legitimate silhouette concavities or
+sampling artifacts; they are not proven3D cavities. No all-frame hole remedy is
+established.
+
+Rendering influence remains active: own accepted-update nominal direction-share
+medians.449727/.366573, adaptive-lambda medians.0356187/.0401626,248/488 accepted
+inner updates. These unequal-duration summaries are not rendering's causal
+movement share. Both use18views64pixels,GSoff. See evidence/p320 for receipts,
+image-loss changes and exact source/report hashes.
+
+Decision: reject combined layer removal as the requested joint remedy. Retain
+the experiment and original policy. Independent refutation checked physical
+source/input identity, artifact receipts, clock/cohort definitions and phase
+scalar aggregation; it did not independently regenerate every raw geometry
+query. No stopping, admission or quality threshold is relaxed.

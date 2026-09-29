@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_footprint1
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+collected 2 items
+
+tests/test_footprint_diagnostics_cuda.py ..                              [100%]
+
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p323_thickness1/cuda_tests.xml -
+============================== 2 passed in 1.50s ===============================

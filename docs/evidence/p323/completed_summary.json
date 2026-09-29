@@ -1,0 +1,4474 @@
+{
+  "commit": "2261405",
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "loss_res": 36,
+    "iters": 8,
+    "optimized_windows": 24
+  },
+  "render": {
+    "width": 3840,
+    "height": 2160,
+    "raw_frame_indices": [
+      0,
+      12,
+      24,
+      36,
+      48,
+      60,
+      72,
+      84,
+      96,
+      108,
+      120,
+      132,
+      144,
+      156,
+      168,
+      180,
+      192,
+      204,
+      216,
+      228,
+      240,
+      252,
+      264,
+      276,
+      288,
+      300,
+      312,
+      324,
+      336,
+      348,
+      360,
+      372,
+      384,
+      396,
+      408,
+      420,
+      432,
+      444,
+      456,
+      468,
+      480
+    ],
+    "seconds": 42.88470294885337,
+    "all_observations_valid": true,
+    "reference_spacing_wu": 0.03493081033229828,
+    "raster": {
+      "python": {
+        "path": "/home/chayo/Shape-morphing-binder-surfmorph/third_party/diff-gaussian-rasterization/diff_gauss/__init__.py",
+        "sha256": "fcd44b4bde69c86642472961426fce5ba90ec08d198be1e26ed2418968cd3d03"
+      },
+      "binary": {
+        "path": "/home/chayo/Shape-morphing-binder-surfmorph/third_party/diff-gaussian-rasterization/diff_gauss/_C.cpython-310-x86_64-linux-gnu.so",
+        "sha256": "a3ca3de9204f1e3d5090ae0a276bc8e94da52d6e7d7db99178c0351057f12258"
+      }
+    }
+  },
+  "source_files": {
+    "pair.json": "993dea997599d27f21f4127ddc0b1ac0f2cd90c13a6d12f9b36f7254f1e29c33",
+    "pair.comparison.json": "025dd327f436edf43d32d8642041b11648089e60af694075a7b3ac0683d03d19",
+    "pair.footprints.json": "c88df358e6f3268ad11b7df17d36c53aadc5056d67bad81edb4d13c4c4fa1797",
+    "artifacts.json": "52f219883ae21f43df31993f178f4d3f0b3e5aa47070ccf2990ebbf5871e92b3"
+  },
+  "max_alpha_half_loss": {
+    "raw": 72,
+    "baseline_half_lost_pixels": 5719,
+    "baseline_half_pixels": 997559,
+    "coverage_decrease_max": 0.4895303249359131
+  },
+  "selected_footprints": [
+    {
+      "raw": 0,
+      "variant": "baseline",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 112,
+            "zero_opacity_count": 112,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.009025830552853203,
+              "rms": 0.00903906236574322,
+              "minimum": 0.008732696324161772,
+              "maximum": 0.014977874893288091
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.03610332148269829,
+              "rms": 0.03615624873441327,
+              "minimum": 0.03493080355723029,
+              "maximum": 0.05991150488890551
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.036103322940297056,
+              "rms": 0.036156250192123096,
+              "minimum": 0.034930805478396665,
+              "maximum": 0.0599115064781027
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.8167745213017754e-11,
+              "rms": 3.374538831752419e-11,
+              "minimum": 1.6945984072951496e-14,
+              "maximum": 1.7226262519686135e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9918358333333334,
+              "rms": 0.9936914552985415,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9124889830085137,
+              "rms": 0.9141961552992686,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000404231824,
+              "rms": 1.0000000404231828,
+              "minimum": 1.0000000000080609,
+              "maximum": 1.0000002258349439
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299888,
+            "valid_count": 299888,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299888,
+              "mean": 0.009024594332651573,
+              "rms": 0.009037590849626343,
+              "minimum": 0.008732696324161772,
+              "maximum": 0.014977874893288091
+            },
+            "tangent_minor_std_wu": {
+              "count": 299888,
+              "mean": 0.0360983766020114,
+              "rms": 0.03615036267006977,
+              "minimum": 0.03493080355723029,
+              "maximum": 0.05991150488890551
+            },
+            "tangent_major_std_wu": {
+              "count": 299888,
+              "mean": 0.036098378059539735,
+              "rms": 0.036150364127717265,
+              "minimum": 0.034930805478396665,
+              "maximum": 0.0599115064781027
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299888,
+              "mean": 2.8158180442922056e-11,
+              "rms": 3.373008564255897e-11,
+              "minimum": 1.6945984072951496e-14,
+              "maximum": 1.7226262519686135e-10
+            },
+            "support": {
+              "count": 299888,
+              "mean": 0.9922062570026143,
+              "rms": 0.9938769963233007,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299888,
+              "mean": 0.9128297727903554,
+              "rms": 0.9143668530451139,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299888,
+              "mean": 1.0000000404258325,
+              "rms": 1.000000040425833,
+              "minimum": 1.0000000000080609,
+              "maximum": 1.0000002258349439
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 112,
+            "valid_count": 112,
+            "invalid_count": 0,
+            "zero_support_count": 112,
+            "zero_opacity_count": 112,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 112,
+              "mean": 0.012335898444159919,
+              "rms": 0.01236641743529024,
+              "minimum": 0.009971586506404827,
+              "maximum": 0.014418722210504368
+            },
+            "tangent_minor_std_wu": {
+              "count": 112,
+              "mean": 0.0493435927276032,
+              "rms": 0.0494656687338359,
+              "minimum": 0.039886324771515116,
+              "maximum": 0.05767489343955089
+            },
+            "tangent_major_std_wu": {
+              "count": 112,
+              "mean": 0.04934359437380414,
+              "rms": 0.049465670385746674,
+              "minimum": 0.03988632675282326,
+              "maximum": 0.05767489661079517
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 112,
+              "mean": 5.37781003421153e-11,
+              "rms": 6.247792936849e-11,
+              "minimum": 3.977331907720703e-12,
+              "maximum": 1.5567532437119522e-10
+            },
+            "support": {
+              "count": 112,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 112,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 112,
+              "mean": 1.0000000333271928,
+              "rms": 1.000000033327193,
+              "minimum": 1.0000000016231074,
+              "maximum": 1.00000013330365
+            }
+          },
+          "active_pinned": {
+            "selected_count": 0,
+            "valid_count": 0,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": null,
+            "tangent_minor_std_wu": null,
+            "tangent_major_std_wu": null,
+            "normal_tangent_covariance_wu2": null,
+            "support": null,
+            "opacity": null,
+            "tangent_anisotropy": null
+          },
+          "free": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 112,
+            "zero_opacity_count": 112,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.009025830552853203,
+              "rms": 0.00903906236574322,
+              "minimum": 0.008732696324161772,
+              "maximum": 0.014977874893288091
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.03610332148269829,
+              "rms": 0.03615624873441327,
+              "minimum": 0.03493080355723029,
+              "maximum": 0.05991150488890551
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.036103322940297056,
+              "rms": 0.036156250192123096,
+              "minimum": 0.034930805478396665,
+              "maximum": 0.0599115064781027
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.8167745213017754e-11,
+              "rms": 3.374538831752419e-11,
+              "minimum": 1.6945984072951496e-14,
+              "maximum": 1.7226262519686135e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9918358333333334,
+              "rms": 0.9936914552985415,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9124889830085137,
+              "rms": 0.9141961552992686,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000404231824,
+              "rms": 1.0000000404231828,
+              "minimum": 1.0000000000080609,
+              "maximum": 1.0000002258349439
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 8,
+            "zero_opacity_count": 8,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.009063537056572164,
+              "rms": 0.009079775619620424,
+              "minimum": 0.008732697518597206,
+              "maximum": 0.01370652689260605
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.03625414755118094,
+              "rms": 0.036319101804832415,
+              "minimum": 0.03493080355723029,
+              "maximum": 0.05482610446438581
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.03625414899546047,
+              "rms": 0.036319103248452625,
+              "minimum": 0.03493080715546977,
+              "maximum": 0.054826105631719406
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 2.777275617443079e-11,
+              "rms": 3.335945808409687e-11,
+              "minimum": 8.817589226336008e-14,
+              "maximum": 1.5567532437119522e-10
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.9888268156424581,
+              "rms": 0.9913653221399111,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.9097206866086671,
+              "rms": 0.9120561126981321,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.000000039914668,
+              "rms": 1.0000000399146685,
+              "minimum": 1.0000000001613647,
+              "maximum": 1.0000001749861822
+            }
+          },
+          "sparse_support": {
+            "selected_count": 6618,
+            "valid_count": 6618,
+            "invalid_count": 0,
+            "zero_support_count": 112,
+            "zero_opacity_count": 112,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 6618,
+              "mean": 0.010641276404005135,
+              "rms": 0.010691636193535047,
+              "minimum": 0.008920334469199815,
+              "maximum": 0.014977874893288091
+            },
+            "tangent_minor_std_wu": {
+              "count": 6618,
+              "mean": 0.04256510478883427,
+              "rms": 0.042766543944920674,
+              "minimum": 0.035681337520930785,
+              "maximum": 0.05991150488890551
+            },
+            "tangent_major_std_wu": {
+              "count": 6618,
+              "mean": 0.04256510637721218,
+              "rms": 0.04276654553983133,
+              "minimum": 0.03568133801828321,
+              "maximum": 0.0599115064781027
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 6618,
+              "mean": 3.861042283740065e-11,
+              "rms": 4.687703229820347e-11,
+              "minimum": 2.1421998678724715e-13,
+              "maximum": 1.7226262519686135e-10
+            },
+            "support": {
+              "count": 6618,
+              "mean": 0.6299108491991539,
+              "rms": 0.6556369818115881,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 6618,
+              "mean": 0.5795179822021432,
+              "rms": 0.603186023257011,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 6618,
+              "mean": 1.0000000373450793,
+              "rms": 1.0000000373450797,
+              "minimum": 1.0000000000478433,
+              "maximum": 1.0000001848903504
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 0,
+      "variant": "reference_thickness",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 112,
+            "zero_opacity_count": 112,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.008732702767646698,
+              "rms": 0.008732702767646792,
+              "minimum": 0.008732693154929744,
+              "maximum": 0.008732712049689426
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.03610332148347104,
+              "rms": 0.036156248735195934,
+              "minimum": 0.03493080355723029,
+              "maximum": 0.059911505228226414
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.03610332294264642,
+              "rms": 0.03615625019463652,
+              "minimum": 0.034930805478396665,
+              "maximum": 0.05991150772509821
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.8161989402577683e-11,
+              "rms": 3.373955133990868e-11,
+              "minimum": 1.9353181168763644e-14,
+              "maximum": 1.809207247411151e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9918358333333334,
+              "rms": 0.9936914552985415,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9124889830085137,
+              "rms": 0.9141961552992686,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000404635843,
+              "rms": 1.0000000404635845,
+              "minimum": 1.0000000000080609,
+              "maximum": 1.0000002195103288
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299888,
+            "valid_count": 299888,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299888,
+              "mean": 0.008732702767638491,
+              "rms": 0.008732702767638587,
+              "minimum": 0.008732693265880014,
+              "maximum": 0.008732712049689426
+            },
+            "tangent_minor_std_wu": {
+              "count": 299888,
+              "mean": 0.036098376602806195,
+              "rms": 0.03615036267088324,
+              "minimum": 0.03493080355723029,
+              "maximum": 0.059911505228226414
+            },
+            "tangent_major_std_wu": {
+              "count": 299888,
+              "mean": 0.03609837806186869,
+              "rms": 0.036150364130204046,
+              "minimum": 0.034930805478396665,
+              "maximum": 0.05991150772509821
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299888,
+              "mean": 2.815219683812019e-11,
+              "rms": 3.372475542995968e-11,
+              "minimum": 1.9353181168763644e-14,
+              "maximum": 1.809207247411151e-10
+            },
+            "support": {
+              "count": 299888,
+              "mean": 0.9922062570026143,
+              "rms": 0.9938769963233007,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299888,
+              "mean": 0.9128297727903554,
+              "rms": 0.9143668530451139,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299888,
+              "mean": 1.0000000404653677,
+              "rms": 1.0000000404653682,
+              "minimum": 1.0000000000080609,
+              "maximum": 1.0000002195103288
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 112,
+            "valid_count": 112,
+            "invalid_count": 0,
+            "zero_support_count": 112,
+            "zero_opacity_count": 112,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 112,
+              "mean": 0.008732702789619556,
+              "rms": 0.008732702789619972,
+              "minimum": 0.008732693154929744,
+              "maximum": 0.008732711365142648
+            },
+            "tangent_minor_std_wu": {
+              "count": 112,
+              "mean": 0.049343592669372306,
+              "rms": 0.049465668674394836,
+              "minimum": 0.03988632504370439,
+              "maximum": 0.05767489384687078
+            },
+            "tangent_major_std_wu": {
+              "count": 112,
+              "mean": 0.04934359443077694,
+              "rms": 0.04946567044052553,
+              "minimum": 0.039886326656532856,
+              "maximum": 0.05767489714046071
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 112,
+              "mean": 5.4382280206401436e-11,
+              "rms": 6.173409025440945e-11,
+              "minimum": 4.28721418647732e-12,
+              "maximum": 1.5900980529187266e-10
+            },
+            "support": {
+              "count": 112,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 112,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 112,
+              "mean": 1.0000000356878032,
+              "rms": 1.0000000356878036,
+              "minimum": 1.0000000013998576,
+              "maximum": 1.0000001368284868
+            }
+          },
+          "active_pinned": {
+            "selected_count": 0,
+            "valid_count": 0,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": null,
+            "tangent_minor_std_wu": null,
+            "tangent_major_std_wu": null,
+            "normal_tangent_covariance_wu2": null,
+            "support": null,
+            "opacity": null,
+            "tangent_anisotropy": null
+          },
+          "free": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 112,
+            "zero_opacity_count": 112,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.008732702767646698,
+              "rms": 0.008732702767646792,
+              "minimum": 0.008732693154929744,
+              "maximum": 0.008732712049689426
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.03610332148347104,
+              "rms": 0.036156248735195934,
+              "minimum": 0.03493080355723029,
+              "maximum": 0.059911505228226414
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.03610332294264642,
+              "rms": 0.03615625019463652,
+              "minimum": 0.034930805478396665,
+              "maximum": 0.05991150772509821
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.8161989402577683e-11,
+              "rms": 3.373955133990868e-11,
+              "minimum": 1.9353181168763644e-14,
+              "maximum": 1.809207247411151e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9918358333333334,
+              "rms": 0.9936914552985415,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9124889830085137,
+              "rms": 0.9141961552992686,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000404635843,
+              "rms": 1.0000000404635845,
+              "minimum": 1.0000000000080609,
+              "maximum": 1.0000002195103288
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 8,
+            "zero_opacity_count": 8,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.00873270276514129,
+              "rms": 0.008732702765141402,
+              "minimum": 0.008732693154929744,
+              "maximum": 0.008732711097443282
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.03625414755425134,
+              "rms": 0.03631910180815869,
+              "minimum": 0.03493080355723029,
+              "maximum": 0.05482610487347563
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.03625414899949801,
+              "rms": 0.036319103253020804,
+              "minimum": 0.03493080715546977,
+              "maximum": 0.05482610607031102
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 2.7906424005308135e-11,
+              "rms": 3.345314041906593e-11,
+              "minimum": 8.514888157258616e-14,
+              "maximum": 1.3453452169037173e-10
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.9888268156424581,
+              "rms": 0.9913653221399111,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.9097206866086671,
+              "rms": 0.9120561126981321,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000399352897,
+              "rms": 1.0000000399352902,
+              "minimum": 1.0000000001672176,
+              "maximum": 1.0000001749861822
+            }
+          },
+          "sparse_support": {
+            "selected_count": 6618,
+            "valid_count": 6618,
+            "invalid_count": 0,
+            "zero_support_count": 112,
+            "zero_opacity_count": 112,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 6618,
+              "mean": 0.008732702783331499,
+              "rms": 0.00873270278333168,
+              "minimum": 0.008732693154929744,
+              "maximum": 0.008732712049689426
+            },
+            "tangent_minor_std_wu": {
+              "count": 6618,
+              "mean": 0.042565104777635296,
+              "rms": 0.042766543933516206,
+              "minimum": 0.0356813379063471,
+              "maximum": 0.059911505228226414
+            },
+            "tangent_major_std_wu": {
+              "count": 6618,
+              "mean": 0.042565106393950676,
+              "rms": 0.04276654555804751,
+              "minimum": 0.03568133807319905,
+              "maximum": 0.05991150772509821
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 6618,
+              "mean": 3.8812981860441327e-11,
+              "rms": 4.6971414705454235e-11,
+              "minimum": 1.857896589293255e-13,
+              "maximum": 1.809207247411151e-10
+            },
+            "support": {
+              "count": 6618,
+              "mean": 0.6299108491991539,
+              "rms": 0.6556369818115881,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 6618,
+              "mean": 0.5795179822021432,
+              "rms": 0.603186023257011,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 6618,
+              "mean": 1.0000000379658598,
+              "rms": 1.00000003796586,
+              "minimum": 1.0000000000331792,
+              "maximum": 1.0000001826688771
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 36,
+      "variant": "baseline",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 235,
+            "zero_opacity_count": 235,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.009165697467750124,
+              "rms": 0.009194278346398774,
+              "minimum": 0.008732696090712302,
+              "maximum": 0.01740782052112559
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.036662789166186024,
+              "rms": 0.036777112680403914,
+              "minimum": 0.034930803715412816,
+              "maximum": 0.0696312828786809
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.03666279059011297,
+              "rms": 0.03677711410576724,
+              "minimum": 0.03493080524074888,
+              "maximum": 0.06963128924367706
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.7948786735754897e-11,
+              "rms": 3.408570460547108e-11,
+              "minimum": 1.3843977377069796e-14,
+              "maximum": 2.548443781826639e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9799041666666667,
+              "rms": 0.984423371827386,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9015118491943679,
+              "rms": 0.9056695181350229,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.000000038913047,
+              "rms": 1.0000000389130475,
+              "minimum": 1.0000000000210776,
+              "maximum": 1.0000002194051556
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299765,
+            "valid_count": 299765,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299765,
+              "mean": 0.009163238153543701,
+              "rms": 0.009191367664833826,
+              "minimum": 0.008732696090712302,
+              "maximum": 0.01740782052112559
+            },
+            "tangent_minor_std_wu": {
+              "count": 299765,
+              "mean": 0.036652951909267144,
+              "rms": 0.03676546995395344,
+              "minimum": 0.034930803715412816,
+              "maximum": 0.0696312828786809
+            },
+            "tangent_major_std_wu": {
+              "count": 299765,
+              "mean": 0.036652953332984066,
+              "rms": 0.03676547137911418,
+              "minimum": 0.03493080524074888,
+              "maximum": 0.06963128924367706
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299765,
+              "mean": 2.7927623248672434e-11,
+              "rms": 3.4047689073627765e-11,
+              "minimum": 1.3843977377069796e-14,
+              "maximum": 2.3118968883604257e-10
+            },
+            "support": {
+              "count": 299765,
+              "mean": 0.9806723600153453,
+              "rms": 0.9848091643159067,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299765,
+              "mean": 0.9022185870875864,
+              "rms": 0.9060244472307534,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299765,
+              "mean": 1.0000000389163117,
+              "rms": 1.0000000389163122,
+              "minimum": 1.0000000000210776,
+              "maximum": 1.0000002194051556
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 235,
+            "valid_count": 235,
+            "invalid_count": 0,
+            "zero_support_count": 235,
+            "zero_opacity_count": 235,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 235,
+              "mean": 0.012302788204297112,
+              "rms": 0.012361147017916147,
+              "minimum": 0.00977148441129964,
+              "maximum": 0.015699957514777152
+            },
+            "tangent_minor_std_wu": {
+              "count": 235,
+              "mean": 0.04921115223123062,
+              "rms": 0.049444587516185294,
+              "minimum": 0.03908593847205561,
+              "maximum": 0.06279981870752643
+            },
+            "tangent_major_std_wu": {
+              "count": 235,
+              "mean": 0.049211153923058665,
+              "rms": 0.04944458919665643,
+              "minimum": 0.039085940908954536,
+              "maximum": 0.06279981906888236
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 235,
+              "mean": 5.494484080075039e-11,
+              "rms": 6.68265702331655e-11,
+              "minimum": 1.608428637574617e-12,
+              "maximum": 2.548443781826639e-10
+            },
+            "support": {
+              "count": 235,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 235,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 235,
+              "mean": 1.0000000347486324,
+              "rms": 1.0000000347486329,
+              "minimum": 1.000000000634446,
+              "maximum": 1.0000001346365737
+            }
+          },
+          "active_pinned": {
+            "selected_count": 0,
+            "valid_count": 0,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": null,
+            "tangent_minor_std_wu": null,
+            "tangent_major_std_wu": null,
+            "normal_tangent_covariance_wu2": null,
+            "support": null,
+            "opacity": null,
+            "tangent_anisotropy": null
+          },
+          "free": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 235,
+            "zero_opacity_count": 235,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.009165697467750124,
+              "rms": 0.009194278346398774,
+              "minimum": 0.008732696090712302,
+              "maximum": 0.01740782052112559
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.036662789166186024,
+              "rms": 0.036777112680403914,
+              "minimum": 0.034930803715412816,
+              "maximum": 0.0696312828786809
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.03666279059011297,
+              "rms": 0.03677711410576724,
+              "minimum": 0.03493080524074888,
+              "maximum": 0.06963128924367706
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.7948786735754897e-11,
+              "rms": 3.408570460547108e-11,
+              "minimum": 1.3843977377069796e-14,
+              "maximum": 2.548443781826639e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9799041666666667,
+              "rms": 0.984423371827386,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9015118491943679,
+              "rms": 0.9056695181350229,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.000000038913047,
+              "rms": 1.0000000389130475,
+              "minimum": 1.0000000000210776,
+              "maximum": 1.0000002194051556
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 103,
+            "zero_opacity_count": 103,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.010290347250965306,
+              "rms": 0.010386711755437728,
+              "minimum": 0.00873269771479418,
+              "maximum": 0.01740782052112559
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.04116138834944564,
+              "rms": 0.04154684636774102,
+              "minimum": 0.034930805383969636,
+              "maximum": 0.0696312828786809
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.041161389866307005,
+              "rms": 0.04154684789664968,
+              "minimum": 0.034930807415442036,
+              "maximum": 0.06963128924367706
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 3.366478461814101e-11,
+              "rms": 4.284941570733874e-11,
+              "minimum": 2.549997030317333e-14,
+              "maximum": 2.548443781826639e-10
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.8632200750984522,
+              "rms": 0.8935461734977903,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.7941624811334547,
+              "rms": 0.8220624925466838,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000369217241,
+              "rms": 1.0000000369217246,
+              "minimum": 1.0000000000488223,
+              "maximum": 1.000000171570149
+            }
+          },
+          "sparse_support": {
+            "selected_count": 16057,
+            "valid_count": 16057,
+            "invalid_count": 0,
+            "zero_support_count": 235,
+            "zero_opacity_count": 235,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 16057,
+              "mean": 0.010922173088563318,
+              "rms": 0.010977655646148693,
+              "minimum": 0.008864652778693685,
+              "maximum": 0.01740782052112559
+            },
+            "tangent_minor_std_wu": {
+              "count": 16057,
+              "mean": 0.04368869157354456,
+              "rms": 0.04391062180376572,
+              "minimum": 0.035458620028381856,
+              "maximum": 0.0696312828786809
+            },
+            "tangent_major_std_wu": {
+              "count": 16057,
+              "mean": 0.0436886931874857,
+              "rms": 0.04391062342750592,
+              "minimum": 0.03545862033920078,
+              "maximum": 0.06963128924367706
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 16057,
+              "mean": 3.816372358101566e-11,
+              "rms": 4.728850044162308e-11,
+              "minimum": 7.971475913508265e-14,
+              "maximum": 2.548443781826639e-10
+            },
+            "support": {
+              "count": 16057,
+              "mean": 0.624540698760665,
+              "rms": 0.6499870651819006,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 16057,
+              "mean": 0.5745774440742514,
+              "rms": 0.5979881001895344,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 16057,
+              "mean": 1.0000000369081419,
+              "rms": 1.000000036908142,
+              "minimum": 1.0000000000701958,
+              "maximum": 1.0000001646348449
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 36,
+      "variant": "reference_thickness",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 235,
+            "zero_opacity_count": 235,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.008732702764037696,
+              "rms": 0.008732702764037788,
+              "minimum": 0.008732691987057962,
+              "maximum": 0.008732714228098267
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.036662789164669404,
+              "rms": 0.036777112678797116,
+              "minimum": 0.034930803715412816,
+              "maximum": 0.06963128263546806
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.03666279058923445,
+              "rms": 0.03677711410484336,
+              "minimum": 0.03493080524074888,
+              "maximum": 0.06963129054381902
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.797921288145798e-11,
+              "rms": 3.4117972035020326e-11,
+              "minimum": 1.3843977377069796e-14,
+              "maximum": 2.552826373549559e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9799041666666667,
+              "rms": 0.984423371827386,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9015118491943679,
+              "rms": 0.9056695181350229,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000389292074,
+              "rms": 1.0000000389292079,
+              "minimum": 1.000000000015619,
+              "maximum": 1.0000002194051556
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299765,
+            "valid_count": 299765,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299765,
+              "mean": 0.008732702764259866,
+              "rms": 0.008732702764259958,
+              "minimum": 0.008732691987057962,
+              "maximum": 0.008732714228098267
+            },
+            "tangent_minor_std_wu": {
+              "count": 299765,
+              "mean": 0.036652951907765144,
+              "rms": 0.03676546995236854,
+              "minimum": 0.034930803715412816,
+              "maximum": 0.06963128263546806
+            },
+            "tangent_major_std_wu": {
+              "count": 299765,
+              "mean": 0.03665295333208853,
+              "rms": 0.03676547137816744,
+              "minimum": 0.03493080524074888,
+              "maximum": 0.06963129054381902
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299765,
+              "mean": 2.795910260725489e-11,
+              "rms": 3.408135664266579e-11,
+              "minimum": 1.3843977377069796e-14,
+              "maximum": 2.552826373549559e-10
+            },
+            "support": {
+              "count": 299765,
+              "mean": 0.9806723600153453,
+              "rms": 0.9848091643159067,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299765,
+              "mean": 0.9022185870875864,
+              "rms": 0.9060244472307534,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299765,
+              "mean": 1.000000038931873,
+              "rms": 1.0000000389318735,
+              "minimum": 1.000000000015619,
+              "maximum": 1.0000002194051556
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 235,
+            "valid_count": 235,
+            "invalid_count": 0,
+            "zero_support_count": 235,
+            "zero_opacity_count": 235,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 235,
+              "mean": 0.008732702480640002,
+              "rms": 0.008732702480640285,
+              "minimum": 0.008732695183655161,
+              "maximum": 0.008732709557094945
+            },
+            "tangent_minor_std_wu": {
+              "count": 235,
+              "mean": 0.049211152211080196,
+              "rms": 0.049444587493743364,
+              "minimum": 0.03908593862463955,
+              "maximum": 0.06279981861030054
+            },
+            "tangent_major_std_wu": {
+              "count": 235,
+              "mean": 0.04921115394388825,
+              "rms": 0.049444589217378314,
+              "minimum": 0.039085941204532994,
+              "maximum": 0.06279981916073013
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 235,
+              "mean": 5.363179307928274e-11,
+              "rms": 6.594985806275232e-11,
+              "minimum": 1.388608848571333e-12,
+              "maximum": 1.9909690023489167e-10
+            },
+            "support": {
+              "count": 235,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 235,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 235,
+              "mean": 1.0000000355290781,
+              "rms": 1.0000000355290786,
+              "minimum": 1.0000000001957845,
+              "maximum": 1.0000001532897769
+            }
+          },
+          "active_pinned": {
+            "selected_count": 0,
+            "valid_count": 0,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": null,
+            "tangent_minor_std_wu": null,
+            "tangent_major_std_wu": null,
+            "normal_tangent_covariance_wu2": null,
+            "support": null,
+            "opacity": null,
+            "tangent_anisotropy": null
+          },
+          "free": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 235,
+            "zero_opacity_count": 235,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.008732702764037696,
+              "rms": 0.008732702764037788,
+              "minimum": 0.008732691987057962,
+              "maximum": 0.008732714228098267
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.036662789164669404,
+              "rms": 0.036777112678797116,
+              "minimum": 0.034930803715412816,
+              "maximum": 0.06963128263546806
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.03666279058923445,
+              "rms": 0.03677711410484336,
+              "minimum": 0.03493080524074888,
+              "maximum": 0.06963129054381902
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.797921288145798e-11,
+              "rms": 3.4117972035020326e-11,
+              "minimum": 1.3843977377069796e-14,
+              "maximum": 2.552826373549559e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9799041666666667,
+              "rms": 0.984423371827386,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9015118491943679,
+              "rms": 0.9056695181350229,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000389292074,
+              "rms": 1.0000000389292079,
+              "minimum": 1.000000000015619,
+              "maximum": 1.0000002194051556
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 103,
+            "zero_opacity_count": 103,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.008732702741322956,
+              "rms": 0.00873270274132311,
+              "minimum": 0.008732691987057962,
+              "maximum": 0.008732714228098267
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.04116138834229881,
+              "rms": 0.04154684636020462,
+              "minimum": 0.034930805383969636,
+              "maximum": 0.06963128263546806
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.04116138985922792,
+              "rms": 0.041546847888815686,
+              "minimum": 0.034930807415442036,
+              "maximum": 0.06963129054381902
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 3.3671772878643086e-11,
+              "rms": 4.2555363376086323e-11,
+              "minimum": 2.3444199133024024e-14,
+              "maximum": 2.552826373549559e-10
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.8632200750984522,
+              "rms": 0.8935461734977903,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.7941624811334547,
+              "rms": 0.8220624925466838,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000369264115,
+              "rms": 1.000000036926412,
+              "minimum": 1.0000000000488223,
+              "maximum": 1.000000171570149
+            }
+          },
+          "sparse_support": {
+            "selected_count": 16057,
+            "valid_count": 16057,
+            "invalid_count": 0,
+            "zero_support_count": 235,
+            "zero_opacity_count": 235,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 16057,
+              "mean": 0.008732702750617537,
+              "rms": 0.00873270275061772,
+              "minimum": 0.008732691987057962,
+              "maximum": 0.008732714228098267
+            },
+            "tangent_minor_std_wu": {
+              "count": 16057,
+              "mean": 0.043688691571491856,
+              "rms": 0.04391062180176058,
+              "minimum": 0.03545861945700186,
+              "maximum": 0.06963128263546806
+            },
+            "tangent_major_std_wu": {
+              "count": 16057,
+              "mean": 0.04368869318983161,
+              "rms": 0.043910623429251505,
+              "minimum": 0.035458620224901156,
+              "maximum": 0.06963129054381902
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 16057,
+              "mean": 3.82478859108418e-11,
+              "rms": 4.731702605738312e-11,
+              "minimum": 9.96193505061611e-14,
+              "maximum": 2.552826373549559e-10
+            },
+            "support": {
+              "count": 16057,
+              "mean": 0.624540698760665,
+              "rms": 0.6499870651819006,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 16057,
+              "mean": 0.5745774440742514,
+              "rms": 0.5979881001895344,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 16057,
+              "mean": 1.0000000370231976,
+              "rms": 1.000000037023198,
+              "minimum": 1.000000000182163,
+              "maximum": 1.0000001662601876
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 108,
+      "variant": "baseline",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 470,
+            "zero_opacity_count": 470,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.009101097925471357,
+              "rms": 0.009135433990191722,
+              "minimum": 0.008732696790108642,
+              "maximum": 0.034930811211723894
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.036404391000016786,
+              "rms": 0.036541735258155704,
+              "minimum": 0.034930803429702055,
+              "maximum": 0.13972324201389957
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.03640439243081526,
+              "rms": 0.036541736692377855,
+              "minimum": 0.03493080609974434,
+              "maximum": 0.13972326517726527
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.7968958335076362e-11,
+              "rms": 3.437669547158312e-11,
+              "minimum": 4.154505619460379e-16,
+              "maximum": 1.1600673487721293e-09
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9849933333333334,
+              "rms": 0.9887020110562468,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9061938827617964,
+              "rms": 0.9096058664117561,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000393523691,
+              "rms": 1.0000000393523694,
+              "minimum": 1.0000000000033211,
+              "maximum": 1.0000002270347725
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299530,
+            "valid_count": 299530,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299530,
+              "mean": 0.009088210773829703,
+              "rms": 0.009114304759617792,
+              "minimum": 0.008732696790108642,
+              "maximum": 0.034930811211723894
+            },
+            "tangent_minor_std_wu": {
+              "count": 299530,
+              "mean": 0.03635284239425628,
+              "rms": 0.03645721833655866,
+              "minimum": 0.034930803429702055,
+              "maximum": 0.13972323988285482
+            },
+            "tangent_major_std_wu": {
+              "count": 299530,
+              "mean": 0.03635284382312783,
+              "rms": 0.036457219767681265,
+              "minimum": 0.03493080609974434,
+              "maximum": 0.13972326517726527
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299530,
+              "mean": 2.7853719975367652e-11,
+              "rms": 3.392775715451749e-11,
+              "minimum": 4.154505619460379e-16,
+              "maximum": 1.1600673487721293e-09
+            },
+            "support": {
+              "count": 299530,
+              "mean": 0.9865389109605048,
+              "rms": 0.9894774055057599,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299530,
+              "mean": 0.9076158142040495,
+              "rms": 0.9103192293180445,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299530,
+              "mean": 1.0000000393535933,
+              "rms": 1.0000000393535937,
+              "minimum": 1.0000000000033211,
+              "maximum": 1.0000002270347725
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 470,
+            "valid_count": 470,
+            "invalid_count": 0,
+            "zero_support_count": 470,
+            "zero_opacity_count": 470,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 470,
+              "mean": 0.0173140522472271,
+              "rms": 0.01814387186127744,
+              "minimum": 0.010104303877887917,
+              "maximum": 0.0349308083817121
+            },
+            "tangent_minor_std_wu": {
+              "count": 470,
+              "mean": 0.06925620777330624,
+              "rms": 0.07257548634622481,
+              "minimum": 0.04041721941801159,
+              "maximum": 0.13972324201389957
+            },
+            "tangent_major_std_wu": {
+              "count": 470,
+              "mean": 0.06925621043212363,
+              "rms": 0.07257548912505117,
+              "minimum": 0.04041721954393757,
+              "maximum": 0.13972324542365344
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 470,
+              "mean": 1.0141011978944048e-10,
+              "rms": 1.4395891386838077e-10,
+              "minimum": 1.7628843722543843e-12,
+              "maximum": 7.368642787261273e-10
+            },
+            "support": {
+              "count": 470,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 470,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 470,
+              "mean": 1.000000038572062,
+              "rms": 1.0000000385720622,
+              "minimum": 1.0000000003749718,
+              "maximum": 1.0000001830537915
+            }
+          },
+          "active_pinned": {
+            "selected_count": 5583,
+            "valid_count": 5583,
+            "invalid_count": 0,
+            "zero_support_count": 2,
+            "zero_opacity_count": 2,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 5583,
+              "mean": 0.009209066412192888,
+              "rms": 0.00923508103483145,
+              "minimum": 0.008732697432618534,
+              "maximum": 0.014199292186906852
+            },
+            "tangent_minor_std_wu": {
+              "count": 5583,
+              "mean": 0.036836264911131476,
+              "rms": 0.03694032340492173,
+              "minimum": 0.03493080510532855,
+              "maximum": 0.056797166652066376
+            },
+            "tangent_major_std_wu": {
+              "count": 5583,
+              "mean": 0.036836266323505625,
+              "rms": 0.03694032481829902,
+              "minimum": 0.034930807936886986,
+              "maximum": 0.05679716933725241
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 5583,
+              "mean": 2.4422871073911962e-11,
+              "rms": 3.0708883769830434e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 1.2607307656454855e-10
+            },
+            "support": {
+              "count": 5583,
+              "mean": 0.9785957370589289,
+              "rms": 0.9833833476960457,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 5583,
+              "mean": 0.9003080939085023,
+              "rms": 0.9047126958974374,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 5583,
+              "mean": 1.0000000384193792,
+              "rms": 1.0000000384193795,
+              "minimum": 1.0000000001589848,
+              "maximum": 1.0000001750824616
+            }
+          },
+          "free": {
+            "selected_count": 294417,
+            "valid_count": 294417,
+            "invalid_count": 0,
+            "zero_support_count": 468,
+            "zero_opacity_count": 468,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 294417,
+              "mean": 0.009099050529901924,
+              "rms": 0.009133533890062778,
+              "minimum": 0.008732696790108642,
+              "maximum": 0.034930811211723894
+            },
+            "tangent_minor_std_wu": {
+              "count": 294417,
+              "mean": 0.03639620141841737,
+              "rms": 0.03653413485824871,
+              "minimum": 0.034930803429702055,
+              "maximum": 0.13972324201389957
+            },
+            "tangent_major_std_wu": {
+              "count": 294417,
+              "mean": 0.036396202849565226,
+              "rms": 0.03653413629287217,
+              "minimum": 0.03493080609974434,
+              "maximum": 0.13972326517726527
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 294417,
+              "mean": 2.8036202431643752e-11,
+              "rms": 3.444247444946316e-11,
+              "minimum": 4.154505619460379e-16,
+              "maximum": 1.1600673487721293e-09
+            },
+            "support": {
+              "count": 294417,
+              "mean": 0.9851146503089155,
+              "rms": 0.988802591941434,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 294417,
+              "mean": 0.9063054943846576,
+              "rms": 0.9096984008303373,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 294417,
+              "mean": 1.0000000393700614,
+              "rms": 1.0000000393700614,
+              "minimum": 1.0000000000033211,
+              "maximum": 1.0000002270347725
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 323,
+            "zero_opacity_count": 323,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.010438862992861984,
+              "rms": 0.010698534949808311,
+              "minimum": 0.008732698195081339,
+              "maximum": 0.034930811211723894
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.04175545126840305,
+              "rms": 0.04279413906164728,
+              "minimum": 0.03493080511857911,
+              "maximum": 0.13972324201389957
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.041755452864394034,
+              "rms": 0.04279414070344726,
+              "minimum": 0.03493080718859771,
+              "maximum": 0.13972326517726527
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 3.69793809725236e-11,
+              "rms": 5.3896057689067075e-11,
+              "minimum": 1.6625115548956125e-13,
+              "maximum": 1.1600673487721293e-09
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.8621668650975364,
+              "rms": 0.9005333157470634,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.7931935286042082,
+              "rms": 0.8284906641219899,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000381619194,
+              "rms": 1.0000000381619196,
+              "minimum": 1.000000000016513,
+              "maximum": 1.0000001810322354
+            }
+          },
+          "sparse_support": {
+            "selected_count": 11434,
+            "valid_count": 11434,
+            "invalid_count": 0,
+            "zero_support_count": 470,
+            "zero_opacity_count": 470,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 11434,
+              "mean": 0.011271779035236894,
+              "rms": 0.011511724165856578,
+              "minimum": 0.008834323561482752,
+              "maximum": 0.034930811211723894
+            },
+            "tangent_minor_std_wu": {
+              "count": 11434,
+              "mean": 0.04508711528831447,
+              "rms": 0.046046895804538746,
+              "minimum": 0.03533729211736413,
+              "maximum": 0.13972324201389957
+            },
+            "tangent_major_std_wu": {
+              "count": 11434,
+              "mean": 0.04508711699248291,
+              "rms": 0.04604689754980594,
+              "minimum": 0.035337293253746106,
+              "maximum": 0.13972326517726527
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 11434,
+              "mean": 4.140903817360189e-11,
+              "rms": 5.873887818742719e-11,
+              "minimum": 4.875997588271657e-14,
+              "maximum": 1.1600673487721293e-09
+            },
+            "support": {
+              "count": 11434,
+              "mean": 0.6062620255378695,
+              "rms": 0.6406920235356567,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 11434,
+              "mean": 0.5577610645945598,
+              "rms": 0.5894366617885194,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 11434,
+              "mean": 1.000000037735406,
+              "rms": 1.0000000377354061,
+              "minimum": 1.000000000016513,
+              "maximum": 1.0000001830537915
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 108,
+      "variant": "reference_thickness",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 470,
+            "zero_opacity_count": 470,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.008732702763223214,
+              "rms": 0.008732702763223306,
+              "minimum": 0.008732667409931932,
+              "maximum": 0.008732729535300961
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.03640439099928501,
+              "rms": 0.03654173525712284,
+              "minimum": 0.034930803429702055,
+              "maximum": 0.13972323998928168
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.03640439243118787,
+              "rms": 0.0365417366926374,
+              "minimum": 0.03493080609974434,
+              "maximum": 0.13972326392337323
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.795739865480035e-11,
+              "rms": 3.4339751155561085e-11,
+              "minimum": 7.730359197312457e-15,
+              "maximum": 1.0659581201652027e-09
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9849933333333334,
+              "rms": 0.9887020110562468,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9061938827617964,
+              "rms": 0.9096058664117561,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000393802022,
+              "rms": 1.0000000393802027,
+              "minimum": 1.0000000000033211,
+              "maximum": 1.0000002270347725
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299530,
+            "valid_count": 299530,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299530,
+              "mean": 0.0087327027637668,
+              "rms": 0.00873270276376689,
+              "minimum": 0.008732684307796529,
+              "maximum": 0.008732725545319907
+            },
+            "tangent_minor_std_wu": {
+              "count": 299530,
+              "mean": 0.03635284239360826,
+              "rms": 0.03645721833579434,
+              "minimum": 0.034930803429702055,
+              "maximum": 0.13972323998928168
+            },
+            "tangent_major_std_wu": {
+              "count": 299530,
+              "mean": 0.03635284382342843,
+              "rms": 0.036457219767914384,
+              "minimum": 0.03493080609974434,
+              "maximum": 0.13972326392337323
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299530,
+              "mean": 2.784647250420372e-11,
+              "rms": 3.3897378907922383e-11,
+              "minimum": 7.730359197312457e-15,
+              "maximum": 1.0659581201652027e-09
+            },
+            "support": {
+              "count": 299530,
+              "mean": 0.9865389109605048,
+              "rms": 0.9894774055057599,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299530,
+              "mean": 0.9076158142040495,
+              "rms": 0.9103192293180445,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299530,
+              "mean": 1.0000000393790245,
+              "rms": 1.0000000393790247,
+              "minimum": 1.0000000000033211,
+              "maximum": 1.0000002270347725
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 470,
+            "valid_count": 470,
+            "invalid_count": 0,
+            "zero_support_count": 470,
+            "zero_opacity_count": 470,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 470,
+              "mean": 0.008732702416796611,
+              "rms": 0.008732702416798237,
+              "minimum": 0.008732667409931932,
+              "maximum": 0.008732729535300961
+            },
+            "tangent_minor_std_wu": {
+              "count": 470,
+              "mean": 0.06925620771918549,
+              "rms": 0.07257548625896673,
+              "minimum": 0.04041721910366392,
+              "maximum": 0.1397232393762168
+            },
+            "tangent_major_std_wu": {
+              "count": 470,
+              "mean": 0.0692562104783922,
+              "rms": 0.07257548913383592,
+              "minimum": 0.040417220008807875,
+              "maximum": 0.13972324217765936
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 470,
+              "mean": 9.865039841694667e-11,
+              "rms": 1.42887464714466e-10,
+              "minimum": 1.2860384730115313e-12,
+              "maximum": 8.762584839044535e-10
+            },
+            "support": {
+              "count": 470,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 470,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 470,
+              "mean": 1.0000000401308176,
+              "rms": 1.0000000401308178,
+              "minimum": 1.0000000008952297,
+              "maximum": 1.000000148914996
+            }
+          },
+          "active_pinned": {
+            "selected_count": 5583,
+            "valid_count": 5583,
+            "invalid_count": 0,
+            "zero_support_count": 2,
+            "zero_opacity_count": 2,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 5583,
+              "mean": 0.008732702773552066,
+              "rms": 0.00873270277355213,
+              "minimum": 0.008732697432618534,
+              "maximum": 0.008732708172818737
+            },
+            "tangent_minor_std_wu": {
+              "count": 5583,
+              "mean": 0.03683626491998082,
+              "rms": 0.03694032341365653,
+              "minimum": 0.03493080510532855,
+              "maximum": 0.05679716583236064
+            },
+            "tangent_major_std_wu": {
+              "count": 5583,
+              "mean": 0.03683626633388436,
+              "rms": 0.036940324828434686,
+              "minimum": 0.034930807936886986,
+              "maximum": 0.056797169089407414
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 5583,
+              "mean": 2.460835609351422e-11,
+              "rms": 3.092727135679882e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 1.3889845146897762e-10
+            },
+            "support": {
+              "count": 5583,
+              "mean": 0.9785957370589289,
+              "rms": 0.9833833476960457,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 5583,
+              "mean": 0.9003080939085023,
+              "rms": 0.9047126958974374,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 5583,
+              "mean": 1.0000000384647012,
+              "rms": 1.0000000384647014,
+              "minimum": 1.0000000000867675,
+              "maximum": 1.0000001750824616
+            }
+          },
+          "free": {
+            "selected_count": 294417,
+            "valid_count": 294417,
+            "invalid_count": 0,
+            "zero_support_count": 468,
+            "zero_opacity_count": 468,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 294417,
+              "mean": 0.008732702763027348,
+              "rms": 0.008732702763027442,
+              "minimum": 0.008732667409931932,
+              "maximum": 0.008732729535300961
+            },
+            "tangent_minor_std_wu": {
+              "count": 294417,
+              "mean": 0.036396201417503916,
+              "rms": 0.036534134857028555,
+              "minimum": 0.034930803429702055,
+              "maximum": 0.13972323998928168
+            },
+            "tangent_major_std_wu": {
+              "count": 294417,
+              "mean": 0.0363962028497481,
+              "rms": 0.03653413629294235,
+              "minimum": 0.03493080609974434,
+              "maximum": 0.13972326392337323
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 294417,
+              "mean": 2.8020906212514955e-11,
+              "rms": 3.4401191430650856e-11,
+              "minimum": 7.730359197312457e-15,
+              "maximum": 1.0659581201652027e-09
+            },
+            "support": {
+              "count": 294417,
+              "mean": 0.9851146503089155,
+              "rms": 0.988802591941434,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 294417,
+              "mean": 0.9063054943846576,
+              "rms": 0.9096984008303373,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 294417,
+              "mean": 1.0000000393975628,
+              "rms": 1.0000000393975632,
+              "minimum": 1.0000000000033211,
+              "maximum": 1.0000002270347725
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 323,
+            "zero_opacity_count": 323,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.008732702747930601,
+              "rms": 0.008732702747930806,
+              "minimum": 0.008732667409931932,
+              "maximum": 0.008732729535300961
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.04175545126542885,
+              "rms": 0.042794139054966866,
+              "minimum": 0.03493080511857911,
+              "maximum": 0.13972323998928168
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.04175545286276271,
+              "rms": 0.04279414069903914,
+              "minimum": 0.03493080718859771,
+              "maximum": 0.13972326392337323
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 3.682682342648455e-11,
+              "rms": 5.3347973562250044e-11,
+              "minimum": 1.3243500066017876e-13,
+              "maximum": 1.0659581201652027e-09
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.8621668650975364,
+              "rms": 0.9005333157470634,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.7931935286042082,
+              "rms": 0.8284906641219899,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000381681473,
+              "rms": 1.0000000381681478,
+              "minimum": 1.0000000001221065,
+              "maximum": 1.0000001840902484
+            }
+          },
+          "sparse_support": {
+            "selected_count": 11434,
+            "valid_count": 11434,
+            "invalid_count": 0,
+            "zero_support_count": 470,
+            "zero_opacity_count": 470,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 11434,
+              "mean": 0.008732702753955084,
+              "rms": 0.008732702753955329,
+              "minimum": 0.008732667409931932,
+              "maximum": 0.008732729535300961
+            },
+            "tangent_minor_std_wu": {
+              "count": 11434,
+              "mean": 0.04508711528393894,
+              "rms": 0.0460468957957902,
+              "minimum": 0.03533729321147839,
+              "maximum": 0.13972323998928168
+            },
+            "tangent_major_std_wu": {
+              "count": 11434,
+              "mean": 0.045087116989808676,
+              "rms": 0.0460468975457484,
+              "minimum": 0.035337294027975176,
+              "maximum": 0.13972326392337323
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 11434,
+              "mean": 4.1329525696916046e-11,
+              "rms": 5.842119021177824e-11,
+              "minimum": 1.8381101001401116e-13,
+              "maximum": 1.0659581201652027e-09
+            },
+            "support": {
+              "count": 11434,
+              "mean": 0.6062620255378695,
+              "rms": 0.6406920235356567,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 11434,
+              "mean": 0.5577610645945598,
+              "rms": 0.5894366617885194,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 11434,
+              "mean": 1.0000000377360663,
+              "rms": 1.0000000377360667,
+              "minimum": 1.000000000056067,
+              "maximum": 1.0000001840902484
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 420,
+      "variant": "baseline",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 230,
+            "zero_opacity_count": 230,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.009085452378960487,
+              "rms": 0.009106920808204147,
+              "minimum": 0.008732695706111534,
+              "maximum": 0.024907183330126936
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.036341808816487166,
+              "rms": 0.03642768253351788,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.09962872760566144
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.036341810250260675,
+              "rms": 0.03642768396879682,
+              "minimum": 0.034930805805041126,
+              "maximum": 0.09962872854029635
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.7801117816918606e-11,
+              "rms": 3.368118372890026e-11,
+              "minimum": 7.185924906102663e-15,
+              "maximum": 3.080498685075701e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9853425,
+              "rms": 0.9886702980940276,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9065151160736383,
+              "rms": 0.9095766904652529,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000395000745,
+              "rms": 1.0000000395000748,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002363253728
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299770,
+            "valid_count": 299770,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299770,
+              "mean": 0.0090822030246164,
+              "rms": 0.009102709711106752,
+              "minimum": 0.008732695706111534,
+              "maximum": 0.019859619195976393
+            },
+            "tangent_minor_std_wu": {
+              "count": 299770,
+              "mean": 0.03632881139905821,
+              "rms": 0.03641083814499606,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.07943846864542557
+            },
+            "tangent_major_std_wu": {
+              "count": 299770,
+              "mean": 0.03632881283233733,
+              "rms": 0.03641083957965427,
+              "minimum": 0.034930805805041126,
+              "maximum": 0.07943847092003183
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299770,
+              "mean": 2.7775909919866194e-11,
+              "rms": 3.3624010545402794e-11,
+              "minimum": 7.185924906102663e-15,
+              "maximum": 3.080498685075701e-10
+            },
+            "support": {
+              "count": 299770,
+              "mean": 0.9860985088567902,
+              "rms": 0.9890495064336948,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299770,
+              "mean": 0.9072106442342178,
+              "rms": 0.9099255621439677,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299770,
+              "mean": 1.0000000395003177,
+              "rms": 1.0000000395003181,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002363253728
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 230,
+            "valid_count": 230,
+            "invalid_count": 0,
+            "zero_support_count": 230,
+            "zero_opacity_count": 230,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 230,
+              "mean": 0.013320491299513891,
+              "rms": 0.013523313397501563,
+              "minimum": 0.009442139797600358,
+              "maximum": 0.024907183330126936
+            },
+            "tangent_minor_std_wu": {
+              "count": 230,
+              "mean": 0.053281964567263924,
+              "rms": 0.054093252951286884,
+              "minimum": 0.03776856243331188,
+              "maximum": 0.09962872760566144
+            },
+            "tangent_major_std_wu": {
+              "count": 230,
+              "mean": 0.053281966645387854,
+              "rms": 0.05409325504492458,
+              "minimum": 0.037768565092615274,
+              "maximum": 0.09962872854029635
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 230,
+              "mean": 6.065577564040408e-11,
+              "rms": 7.84204860756767e-11,
+              "minimum": 2.956133632301733e-12,
+              "maximum": 2.9751459151923607e-10
+            },
+            "support": {
+              "count": 230,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 230,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 230,
+              "mean": 1.0000000391830477,
+              "rms": 1.0000000391830481,
+              "minimum": 1.0000000006692296,
+              "maximum": 1.000000145029294
+            }
+          },
+          "active_pinned": {
+            "selected_count": 226986,
+            "valid_count": 226986,
+            "invalid_count": 0,
+            "zero_support_count": 94,
+            "zero_opacity_count": 94,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 226986,
+              "mean": 0.009062296722503005,
+              "rms": 0.009080340109392885,
+              "minimum": 0.008732695706111534,
+              "maximum": 0.022194526371711425
+            },
+            "tangent_minor_std_wu": {
+              "count": 226986,
+              "mean": 0.036249186188767886,
+              "rms": 0.03632135973648269,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.08877811571839023
+            },
+            "tangent_major_std_wu": {
+              "count": 226986,
+              "mean": 0.03624918761634195,
+              "rms": 0.03632136116511137,
+              "minimum": 0.034930805805041126,
+              "maximum": 0.08877811978840898
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 226986,
+              "mean": 2.7443850664136345e-11,
+              "rms": 3.3200704409925455e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 2.7584035240723797e-10
+            },
+            "support": {
+              "count": 226986,
+              "mean": 0.9874089150872741,
+              "rms": 0.9901516161281753,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 226986,
+              "mean": 0.9084162180191374,
+              "rms": 0.9109395031050813,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 226986,
+              "mean": 1.000000039427996,
+              "rms": 1.0000000394279964,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002189869537
+            }
+          },
+          "free": {
+            "selected_count": 73014,
+            "valid_count": 73014,
+            "invalid_count": 0,
+            "zero_support_count": 136,
+            "zero_opacity_count": 136,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 73014,
+              "mean": 0.009157438708111863,
+              "rms": 0.009189063860086224,
+              "minimum": 0.008732697095658645,
+              "maximum": 0.024907183330126936
+            },
+            "tangent_minor_std_wu": {
+              "count": 73014,
+              "mean": 0.03662975413896628,
+              "rms": 0.03675625474650817,
+              "minimum": 0.034930803959405864,
+              "maximum": 0.09962872760566144
+            },
+            "tangent_major_std_wu": {
+              "count": 73014,
+              "mean": 0.036629755592012585,
+              "rms": 0.03675625620229352,
+              "minimum": 0.03493080626201808,
+              "maximum": 0.09962872854029635
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 73014,
+              "mean": 2.891179031728066e-11,
+              "rms": 3.513295591016976e-11,
+              "minimum": 7.185924906102663e-15,
+              "maximum": 3.080498685075701e-10
+            },
+            "support": {
+              "count": 73014,
+              "mean": 0.9789184266031172,
+              "rms": 0.9840509335899221,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 73014,
+              "mean": 0.9006049683457903,
+              "rms": 0.9053268749702731,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 73014,
+              "mean": 1.0000000397241515,
+              "rms": 1.0000000397241517,
+              "minimum": 1.0000000000315639,
+              "maximum": 1.0000002363253728
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 97,
+            "zero_opacity_count": 97,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.009638262308529247,
+              "rms": 0.009726844754405863,
+              "minimum": 0.008732697095658645,
+              "maximum": 0.019870476347753952
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.0385530485632715,
+              "rms": 0.038907378346034145,
+              "minimum": 0.03493080462947183,
+              "maximum": 0.0794819267888272
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.03855305006966345,
+              "rms": 0.038907379864780725,
+              "minimum": 0.034930806786956654,
+              "maximum": 0.07948192751429645
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 3.172161823053964e-11,
+              "rms": 4.0133924178600254e-11,
+              "minimum": 2.7123671838604452e-14,
+              "maximum": 3.080498685075701e-10
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.9344949171169521,
+              "rms": 0.951717565643828,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.8597353383105845,
+              "rms": 0.8755801754617063,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000391206174,
+              "rms": 1.000000039120618,
+              "minimum": 1.0000000000511249,
+              "maximum": 1.0000001770095486
+            }
+          },
+          "sparse_support": {
+            "selected_count": 11797,
+            "valid_count": 11797,
+            "invalid_count": 0,
+            "zero_support_count": 230,
+            "zero_opacity_count": 230,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 11797,
+              "mean": 0.010719740312636372,
+              "rms": 0.010787562025204287,
+              "minimum": 0.008732700032785277,
+              "maximum": 0.024907183330126936
+            },
+            "tangent_minor_std_wu": {
+              "count": 11797,
+              "mean": 0.04287896051174888,
+              "rms": 0.04315024736393211,
+              "minimum": 0.03493080712763056,
+              "maximum": 0.09962872760566144
+            },
+            "tangent_major_std_wu": {
+              "count": 11797,
+              "mean": 0.04287896213665663,
+              "rms": 0.0431502490012099,
+              "minimum": 0.03493080889272684,
+              "maximum": 0.09962872854029635
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 11797,
+              "mean": 3.775098276766134e-11,
+              "rms": 4.717195139314947e-11,
+              "minimum": 4.875997588271657e-14,
+              "maximum": 3.080498685075701e-10
+            },
+            "support": {
+              "count": 11797,
+              "mean": 0.6272569297278969,
+              "rms": 0.6534762709962063,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 11797,
+              "mean": 0.5770763763825529,
+              "rms": 0.601198169393267,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 11797,
+              "mean": 1.0000000378572014,
+              "rms": 1.0000000378572016,
+              "minimum": 1.0000000000445057,
+              "maximum": 1.0000001770095486
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 420,
+      "variant": "reference_thickness",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 230,
+            "zero_opacity_count": 230,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.008732702758656088,
+              "rms": 0.00873270275865618,
+              "minimum": 0.00873269092148504,
+              "maximum": 0.00873271420496193
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.036341808816361405,
+              "rms": 0.03642768253335712,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.09962872861792778
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.036341810251044555,
+              "rms": 0.03642768396969297,
+              "minimum": 0.034930805805041126,
+              "maximum": 0.09962872879866434
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.7806369474394605e-11,
+              "rms": 3.3680340333143854e-11,
+              "minimum": 7.185924906102663e-15,
+              "maximum": 3.046891761492757e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9853425,
+              "rms": 0.9886702980940276,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9065151160736383,
+              "rms": 0.9095766904652529,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000395215296,
+              "rms": 1.00000003952153,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002363253728
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299770,
+            "valid_count": 299770,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299770,
+              "mean": 0.008732702758783961,
+              "rms": 0.008732702758784053,
+              "minimum": 0.00873269092148504,
+              "maximum": 0.00873271420496193
+            },
+            "tangent_minor_std_wu": {
+              "count": 299770,
+              "mean": 0.03632881139892771,
+              "rms": 0.03641083814481281,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.07943846890797883
+            },
+            "tangent_major_std_wu": {
+              "count": 299770,
+              "mean": 0.0363288128330961,
+              "rms": 0.0364108395805121,
+              "minimum": 0.034930805805041126,
+              "maximum": 0.07943846983201852
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299770,
+              "mean": 2.7780741773562686e-11,
+              "rms": 3.36228809181818e-11,
+              "minimum": 7.185924906102663e-15,
+              "maximum": 2.49589070019835e-10
+            },
+            "support": {
+              "count": 299770,
+              "mean": 0.9860985088567902,
+              "rms": 0.9890495064336948,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299770,
+              "mean": 0.9072106442342178,
+              "rms": 0.9099255621439677,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299770,
+              "mean": 1.0000000395212796,
+              "rms": 1.00000003952128,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002363253728
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 230,
+            "valid_count": 230,
+            "invalid_count": 0,
+            "zero_support_count": 230,
+            "zero_opacity_count": 230,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 230,
+              "mean": 0.008732702591991917,
+              "rms": 0.00873270259199233,
+              "minimum": 0.008732691726067493,
+              "maximum": 0.008732711913156489
+            },
+            "tangent_minor_std_wu": {
+              "count": 230,
+              "mean": 0.05328196457331427,
+              "rms": 0.054093252970843685,
+              "minimum": 0.03776856281914074,
+              "maximum": 0.09962872861792778
+            },
+            "tangent_major_std_wu": {
+              "count": 230,
+              "mean": 0.053281966678913335,
+              "rms": 0.0540932550795037,
+              "minimum": 0.03776856549677678,
+              "maximum": 0.09962872879866434
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 230,
+              "mean": 6.120817764128481e-11,
+              "rms": 7.8579112263115e-11,
+              "minimum": 1.1100039437768876e-12,
+              "maximum": 3.046891761492757e-10
+            },
+            "support": {
+              "count": 230,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 230,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 230,
+              "mean": 1.0000000398474744,
+              "rms": 1.0000000398474749,
+              "minimum": 1.000000000327386,
+              "maximum": 1.0000001310266586
+            }
+          },
+          "active_pinned": {
+            "selected_count": 226986,
+            "valid_count": 226986,
+            "invalid_count": 0,
+            "zero_support_count": 94,
+            "zero_opacity_count": 94,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 226986,
+              "mean": 0.008732702761215669,
+              "rms": 0.008732702761215757,
+              "minimum": 0.0087326946874198,
+              "maximum": 0.00873271420496193
+            },
+            "tangent_minor_std_wu": {
+              "count": 226986,
+              "mean": 0.03624918618807191,
+              "rms": 0.03632135973570688,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.08877811711216102
+            },
+            "tangent_major_std_wu": {
+              "count": 226986,
+              "mean": 0.03624918761679969,
+              "rms": 0.03632136116561669,
+              "minimum": 0.034930805805041126,
+              "maximum": 0.08877811737538074
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 226986,
+              "mean": 2.74732382524498e-11,
+              "rms": 3.323367865009392e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 2.036481172473198e-10
+            },
+            "support": {
+              "count": 226986,
+              "mean": 0.9874089150872741,
+              "rms": 0.9901516161281753,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 226986,
+              "mean": 0.9084162180191374,
+              "rms": 0.9109395031050813,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 226986,
+              "mean": 1.0000000394564539,
+              "rms": 1.0000000394564543,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002189869537
+            }
+          },
+          "free": {
+            "selected_count": 73014,
+            "valid_count": 73014,
+            "invalid_count": 0,
+            "zero_support_count": 136,
+            "zero_opacity_count": 136,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 73014,
+              "mean": 0.008732702750698861,
+              "rms": 0.00873270275069896,
+              "minimum": 0.00873269092148504,
+              "maximum": 0.00873271286156145
+            },
+            "tangent_minor_std_wu": {
+              "count": 73014,
+              "mean": 0.03662975414061319,
+              "rms": 0.03675625474823681,
+              "minimum": 0.034930803959405864,
+              "maximum": 0.09962872861792778
+            },
+            "tangent_major_std_wu": {
+              "count": 73014,
+              "mean": 0.03662975559381042,
+              "rms": 0.03675625620439035,
+              "minimum": 0.03493080626201808,
+              "maximum": 0.09962872879866434
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 73014,
+              "mean": 2.8842008167581716e-11,
+              "rms": 3.503256981743446e-11,
+              "minimum": 7.185924906102663e-15,
+              "maximum": 3.046891761492757e-10
+            },
+            "support": {
+              "count": 73014,
+              "mean": 0.9789184266031172,
+              "rms": 0.9840509335899221,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 73014,
+              "mean": 0.9006049683457903,
+              "rms": 0.9053268749702731,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 73014,
+              "mean": 1.0000000397238362,
+              "rms": 1.0000000397238367,
+              "minimum": 1.0000000000315639,
+              "maximum": 1.0000002363253728
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 97,
+            "zero_opacity_count": 97,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.008732702737460407,
+              "rms": 0.008732702737460534,
+              "minimum": 0.008732691726067493,
+              "maximum": 0.00873271420496193
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.03855304856878417,
+              "rms": 0.038907378352219926,
+              "minimum": 0.03493080462947183,
+              "maximum": 0.0794819270032677
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.0385530500718659,
+              "rms": 0.0389073798685244,
+              "minimum": 0.034930806786956654,
+              "maximum": 0.07948192738819321
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 3.1539925933183863e-11,
+              "rms": 3.982855342326932e-11,
+              "minimum": 2.7123671838604452e-14,
+              "maximum": 3.046891761492757e-10
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.9344949171169521,
+              "rms": 0.951717565643828,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.8597353383105845,
+              "rms": 0.8755801754617063,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000390188721,
+              "rms": 1.0000000390188726,
+              "minimum": 1.0000000001452591,
+              "maximum": 1.0000001719975151
+            }
+          },
+          "sparse_support": {
+            "selected_count": 11797,
+            "valid_count": 11797,
+            "invalid_count": 0,
+            "zero_support_count": 230,
+            "zero_opacity_count": 230,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 11797,
+              "mean": 0.008732702749629284,
+              "rms": 0.008732702749629442,
+              "minimum": 0.00873269092148504,
+              "maximum": 0.00873271286156145
+            },
+            "tangent_minor_std_wu": {
+              "count": 11797,
+              "mean": 0.042878960511296,
+              "rms": 0.0431502473638056,
+              "minimum": 0.03493080712763056,
+              "maximum": 0.09962872861792778
+            },
+            "tangent_major_std_wu": {
+              "count": 11797,
+              "mean": 0.04287896214758804,
+              "rms": 0.04315024901257777,
+              "minimum": 0.03493080889272684,
+              "maximum": 0.09962872879866434
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 11797,
+              "mean": 3.75656658414074e-11,
+              "rms": 4.694058722002535e-11,
+              "minimum": 8.45226174855668e-14,
+              "maximum": 3.046891761492757e-10
+            },
+            "support": {
+              "count": 11797,
+              "mean": 0.6272569297278969,
+              "rms": 0.6534762709962063,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 11797,
+              "mean": 0.5770763763825529,
+              "rms": 0.601198169393267,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 11797,
+              "mean": 1.0000000381189236,
+              "rms": 1.000000038118924,
+              "minimum": 1.0000000000883695,
+              "maximum": 1.0000002066652396
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 480,
+      "variant": "baseline",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 214,
+            "zero_opacity_count": 214,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.009083593658378622,
+              "rms": 0.009104663991925917,
+              "minimum": 0.008732695706111534,
+              "maximum": 0.024339284878566785
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.03633437392656696,
+              "rms": 0.036418655259944845,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.09735713845812266
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.036334375359710507,
+              "rms": 0.03641865669457185,
+              "minimum": 0.03493080577185421,
+              "maximum": 0.0973571400849462
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.7764362378118508e-11,
+              "rms": 3.3601596233552193e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 2.7584035240723797e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9854816666666667,
+              "rms": 0.9887584807895876,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9066431494083502,
+              "rms": 0.9096578185459492,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.0000000394904098,
+              "rms": 1.0000000394904103,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002189869537
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299786,
+            "valid_count": 299786,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299786,
+              "mean": 0.00908083951898569,
+              "rms": 0.009101183045118368,
+              "minimum": 0.008732695706111534,
+              "maximum": 0.018530287411485533
+            },
+            "tangent_minor_std_wu": {
+              "count": 299786,
+              "mean": 0.036323357369595785,
+              "rms": 0.03640473147355617,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.07412116596263661
+            },
+            "tangent_major_std_wu": {
+              "count": 299786,
+              "mean": 0.03632335880225554,
+              "rms": 0.036404732907556164,
+              "minimum": 0.03493080577185421,
+              "maximum": 0.0741211682255094
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299786,
+              "mean": 2.7745988835364817e-11,
+              "rms": 3.3567182491014885e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 2.7584035240723797e-10
+            },
+            "support": {
+              "count": 299786,
+              "mean": 0.9861851454037214,
+              "rms": 0.9891113267648916,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299786,
+              "mean": 0.9072903498579157,
+              "rms": 0.9099824368490168,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299786,
+              "mean": 1.000000039489594,
+              "rms": 1.0000000394895945,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002189869537
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 214,
+            "valid_count": 214,
+            "invalid_count": 0,
+            "zero_support_count": 214,
+            "zero_opacity_count": 214,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 214,
+              "mean": 0.012941782593187684,
+              "rms": 0.013102404637748937,
+              "minimum": 0.008732704339701372,
+              "maximum": 0.024339284878566785
+            },
+            "tangent_minor_std_wu": {
+              "count": 214,
+              "mean": 0.0517671288245138,
+              "rms": 0.052409616976912834,
+              "minimum": 0.03493081089540257,
+              "maximum": 0.09735713845812266
+            },
+            "tangent_major_std_wu": {
+              "count": 214,
+              "mean": 0.05176713093538592,
+              "rms": 0.05240961911786716,
+              "minimum": 0.03493081206928746,
+              "maximum": 0.0973571400849462
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 214,
+              "mean": 5.35032917611e-11,
+              "rms": 6.608492291019976e-11,
+              "minimum": 3.099703751077602e-12,
+              "maximum": 2.2849307947069483e-10
+            },
+            "support": {
+              "count": 214,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 214,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 214,
+              "mean": 1.0000000406331528,
+              "rms": 1.000000040633153,
+              "minimum": 1.0000000006692296,
+              "maximum": 1.000000145029294
+            }
+          },
+          "active_pinned": {
+            "selected_count": 239910,
+            "valid_count": 239910,
+            "invalid_count": 0,
+            "zero_support_count": 109,
+            "zero_opacity_count": 109,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 239910,
+              "mean": 0.009065071218262732,
+              "rms": 0.009083323867132493,
+              "minimum": 0.008732695706111534,
+              "maximum": 0.022194526371711425
+            },
+            "tangent_minor_std_wu": {
+              "count": 239910,
+              "mean": 0.03626028416805311,
+              "rms": 0.03633329476378104,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.08877811571839023
+            },
+            "tangent_major_std_wu": {
+              "count": 239910,
+              "mean": 0.03626028559719778,
+              "rms": 0.036333296194004376,
+              "minimum": 0.034930805805041126,
+              "maximum": 0.08877811978840898
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 239910,
+              "mean": 2.7477128243850856e-11,
+              "rms": 3.3240050309041155e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 2.7584035240723797e-10
+            },
+            "support": {
+              "count": 239910,
+              "mean": 0.9872275019799092,
+              "rms": 0.9900203072807702,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 239910,
+              "mean": 0.9082493179529965,
+              "rms": 0.9108186989599569,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 239910,
+              "mean": 1.000000039459674,
+              "rms": 1.0000000394596744,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002189869537
+            }
+          },
+          "free": {
+            "selected_count": 60090,
+            "valid_count": 60090,
+            "invalid_count": 0,
+            "zero_support_count": 105,
+            "zero_opacity_count": 105,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 60090,
+              "mean": 0.009157544708606656,
+              "rms": 0.009189370788251692,
+              "minimum": 0.00873269689278491,
+              "maximum": 0.024339284878566785
+            },
+            "tangent_minor_std_wu": {
+              "count": 60090,
+              "mean": 0.03663017811969492,
+              "rms": 0.03675748243333156,
+              "minimum": 0.03493080400264754,
+              "maximum": 0.09735713845812266
+            },
+            "tangent_major_std_wu": {
+              "count": 60090,
+              "mean": 0.03663017956880401,
+              "rms": 0.03675748388541449,
+              "minimum": 0.03493080577185421,
+              "maximum": 0.0973571400849462
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 60090,
+              "mean": 2.8911147885726337e-11,
+              "rms": 3.500787901387688e-11,
+              "minimum": 7.52458719354438e-14,
+              "maximum": 2.2849307947069483e-10
+            },
+            "support": {
+              "count": 60090,
+              "mean": 0.9785113995673157,
+              "rms": 0.9837044931644151,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 60090,
+              "mean": 0.9002305034515186,
+              "rms": 0.9050081497618129,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 60090,
+              "mean": 1.0000000396131234,
+              "rms": 1.000000039613124,
+              "minimum": 1.000000000080284,
+              "maximum": 1.0000002189730701
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 85,
+            "zero_opacity_count": 85,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.009587847164364055,
+              "rms": 0.00966812320914542,
+              "minimum": 0.00873269689278491,
+              "maximum": 0.018530287411485533
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.038351387973245,
+              "rms": 0.03867249213521664,
+              "minimum": 0.034930804421995705,
+              "maximum": 0.07412116596263661
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.03835138946819189,
+              "rms": 0.038672493642815324,
+              "minimum": 0.03493080650461724,
+              "maximum": 0.0741211682255094
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 3.099787966638939e-11,
+              "rms": 3.836249250906644e-11,
+              "minimum": 2.7123671838604452e-14,
+              "maximum": 2.7584035240723797e-10
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.9395091125560949,
+              "rms": 0.9551965258350267,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.864348398207832,
+              "rms": 0.8787808189061362,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000389960706,
+              "rms": 1.000000038996071,
+              "minimum": 1.0000000000846987,
+              "maximum": 1.0000002074469296
+            }
+          },
+          "sparse_support": {
+            "selected_count": 11742,
+            "valid_count": 11742,
+            "invalid_count": 0,
+            "zero_support_count": 214,
+            "zero_opacity_count": 214,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 11742,
+              "mean": 0.010695883247555738,
+              "rms": 0.01075965749143724,
+              "minimum": 0.008732700032785277,
+              "maximum": 0.024339284878566785
+            },
+            "tangent_minor_std_wu": {
+              "count": 11742,
+              "mean": 0.04278353217357911,
+              "rms": 0.04303862913971005,
+              "minimum": 0.03493080712763056,
+              "maximum": 0.09735713845812266
+            },
+            "tangent_major_std_wu": {
+              "count": 11742,
+              "mean": 0.042783533790556064,
+              "rms": 0.043038630769615185,
+              "minimum": 0.03493080812602272,
+              "maximum": 0.0973571400849462
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 11742,
+              "mean": 3.6982196132951046e-11,
+              "rms": 4.586914446518421e-11,
+              "minimum": 4.875997588271657e-14,
+              "maximum": 2.7584035240723797e-10
+            },
+            "support": {
+              "count": 11742,
+              "mean": 0.6290665985351728,
+              "rms": 0.6548301985986624,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 11742,
+              "mean": 0.5787412716471404,
+              "rms": 0.6024437827542771,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 11742,
+              "mean": 1.000000037730298,
+              "rms": 1.0000000377302982,
+              "minimum": 1.0000000000445057,
+              "maximum": 1.0000001752776866
+            }
+          }
+        }
+      }
+    },
+    {
+      "raw": 480,
+      "variant": "reference_thickness",
+      "observation": {
+        "schema": "world_gaussian_footprint_v1",
+        "input_count": 300000,
+        "valid": true,
+        "invalid_count": 0,
+        "validation_counts": {
+          "nonfinite_covariance": 0,
+          "nonfinite_normal": 0,
+          "asymmetric_covariance": 0,
+          "nonunit_normal": 0,
+          "non_psd_covariance": 0,
+          "negative_observed_variance": 0,
+          "invalid_support": 0,
+          "invalid_opacity": 0,
+          "nonfinite_observable": 0
+        },
+        "roundoff_clamped_rows": 0,
+        "numerics": {
+          "arithmetic": "float64",
+          "normal_squared_norm_tolerance": 7.62939453125e-06,
+          "relative_symmetry_tolerance": 7.62939453125e-06,
+          "arithmetic_error_factor": 1.4210854715202004e-14,
+          "psd": "all principal minors, normalized by maximum covariance entry; 64 float64 eps times each absolute-product sum",
+          "roundoff": "Only tolerance-sized negative observed variances are clamped for square roots; invalid rows are excluded, input covariance is never repaired",
+          "reductions": "Nonnegative means/RMS are normalized by the selected maximum to avoid overflow"
+        },
+        "definitions": {
+          "normal": "sqrt(n^T Sigma n), along the supplied unit-normal direction",
+          "tangent": "principal standard deviations of Sigma restricted to the plane perpendicular to n",
+          "coupling": "norm of tangent components of Sigma n, covariance units wu^2; nonzero coupling identifies an ellipsoid tilted relative to the supplied normal",
+          "basis": "supplied normal is normalized to form an orthonormal diagnostic frame after unit validation",
+          "populations": "all includes zero-opacity/support rows; positive_support_and_opacity is a proxy, not camera visibility; user masks are supplied, not inferred",
+          "validity": "All statistics exclude rows invalid in any required input; validation categories may overlap",
+          "scope": "World-space diagnostic only; not raster-exact, not projected pixel radii, not a physical supply/hole/rest metric or a footprint intervention"
+        },
+        "populations": {
+          "all": {
+            "selected_count": 300000,
+            "valid_count": 300000,
+            "invalid_count": 0,
+            "zero_support_count": 214,
+            "zero_opacity_count": 214,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 300000,
+              "mean": 0.008732702764157807,
+              "rms": 0.008732702764157897,
+              "minimum": 0.008732693291995792,
+              "maximum": 0.00873271420496193
+            },
+            "tangent_minor_std_wu": {
+              "count": 300000,
+              "mean": 0.03633437392606978,
+              "rms": 0.03641865525936585,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.09735713462885125
+            },
+            "tangent_major_std_wu": {
+              "count": 300000,
+              "mean": 0.036334375359992135,
+              "rms": 0.03641865669489812,
+              "minimum": 0.03493080577185421,
+              "maximum": 0.09735714049145801
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 300000,
+              "mean": 2.777838114715474e-11,
+              "rms": 3.3629412552872136e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 2.3525296058414925e-10
+            },
+            "support": {
+              "count": 300000,
+              "mean": 0.9854816666666667,
+              "rms": 0.9887584807895876,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 300000,
+              "mean": 0.9066431494083502,
+              "rms": 0.9096578185459492,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 300000,
+              "mean": 1.00000003950879,
+              "rms": 1.0000000395087905,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002189869537
+            }
+          },
+          "positive_support_and_opacity": {
+            "selected_count": 299786,
+            "valid_count": 299786,
+            "invalid_count": 0,
+            "zero_support_count": 0,
+            "zero_opacity_count": 0,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 299786,
+              "mean": 0.00873270276403964,
+              "rms": 0.008732702764039733,
+              "minimum": 0.008732693291995792,
+              "maximum": 0.00873271420496193
+            },
+            "tangent_minor_std_wu": {
+              "count": 299786,
+              "mean": 0.03632335736907498,
+              "rms": 0.036404731472942514,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.07412116796998196
+            },
+            "tangent_major_std_wu": {
+              "count": 299786,
+              "mean": 0.036323358802504195,
+              "rms": 0.03640473290783267,
+              "minimum": 0.03493080577185421,
+              "maximum": 0.07412116933530433
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 299786,
+              "mean": 2.7760070336912655e-11,
+              "rms": 3.3596380467451645e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 2.3525296058414925e-10
+            },
+            "support": {
+              "count": 299786,
+              "mean": 0.9861851454037214,
+              "rms": 0.9891113267648916,
+              "minimum": 0.25,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 299786,
+              "mean": 0.9072903498579157,
+              "rms": 0.9099824368490168,
+              "minimum": 0.23000000417232513,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 299786,
+              "mean": 1.0000000395077728,
+              "rms": 1.0000000395077733,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002189869537
+            }
+          },
+          "zero_opacity": {
+            "selected_count": 214,
+            "valid_count": 214,
+            "invalid_count": 0,
+            "zero_support_count": 214,
+            "zero_opacity_count": 214,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 214,
+              "mean": 0.008732702929691449,
+              "rms": 0.008732702929691789,
+              "minimum": 0.008732695005387576,
+              "maximum": 0.008732712885998138
+            },
+            "tangent_minor_std_wu": {
+              "count": 214,
+              "mean": 0.051767128857121904,
+              "rms": 0.05240961701002442,
+              "minimum": 0.03493081089540257,
+              "maximum": 0.09735713462885125
+            },
+            "tangent_major_std_wu": {
+              "count": 214,
+              "mean": 0.05176713098186277,
+              "rms": 0.052409619166642205,
+              "minimum": 0.03493081206928746,
+              "maximum": 0.09735714049145801
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 214,
+              "mean": 5.342943048936063e-11,
+              "rms": 6.512847950351998e-11,
+              "minimum": 1.1100039437768876e-12,
+              "maximum": 1.958323368095995e-10
+            },
+            "support": {
+              "count": 214,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "opacity": {
+              "count": 214,
+              "mean": 0.0,
+              "rms": 0.0,
+              "minimum": 0.0,
+              "maximum": 0.0
+            },
+            "tangent_anisotropy": {
+              "count": 214,
+              "mean": 1.0000000409338932,
+              "rms": 1.0000000409338936,
+              "minimum": 1.000000000327386,
+              "maximum": 1.0000001377172323
+            }
+          },
+          "active_pinned": {
+            "selected_count": 239910,
+            "valid_count": 239910,
+            "invalid_count": 0,
+            "zero_support_count": 109,
+            "zero_opacity_count": 109,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 239910,
+              "mean": 0.008732702762325198,
+              "rms": 0.008732702762325288,
+              "minimum": 0.0087326946874198,
+              "maximum": 0.00873271420496193
+            },
+            "tangent_minor_std_wu": {
+              "count": 239910,
+              "mean": 0.03626028416706341,
+              "rms": 0.03633329476272357,
+              "minimum": 0.03493080316072238,
+              "maximum": 0.08877811711216102
+            },
+            "tangent_major_std_wu": {
+              "count": 239910,
+              "mean": 0.036260285597671756,
+              "rms": 0.03633329619453981,
+              "minimum": 0.034930805805041126,
+              "maximum": 0.08877811737538074
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 239910,
+              "mean": 2.7505108554852034e-11,
+              "rms": 3.3275178840867255e-11,
+              "minimum": 2.1560459532013598e-14,
+              "maximum": 2.036481172473198e-10
+            },
+            "support": {
+              "count": 239910,
+              "mean": 0.9872275019799092,
+              "rms": 0.9900203072807702,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 239910,
+              "mean": 0.9082493179529965,
+              "rms": 0.9108186989599569,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 239910,
+              "mean": 1.0000000394966688,
+              "rms": 1.000000039496669,
+              "minimum": 1.0000000000055151,
+              "maximum": 1.0000002189869537
+            }
+          },
+          "free": {
+            "selected_count": 60090,
+            "valid_count": 60090,
+            "invalid_count": 0,
+            "zero_support_count": 105,
+            "zero_opacity_count": 105,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 60090,
+              "mean": 0.008732702771474516,
+              "rms": 0.008732702771474612,
+              "minimum": 0.008732693291995792,
+              "maximum": 0.008732712885998138
+            },
+            "tangent_minor_std_wu": {
+              "count": 60090,
+              "mean": 0.03663017812116411,
+              "rms": 0.03675748243464084,
+              "minimum": 0.03493080400264754,
+              "maximum": 0.09735713462885125
+            },
+            "tangent_major_std_wu": {
+              "count": 60090,
+              "mean": 0.036630179568317676,
+              "rms": 0.036757483884915336,
+              "minimum": 0.03493080577185421,
+              "maximum": 0.09735714049145801
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 60090,
+              "mean": 2.886942504163539e-11,
+              "rms": 3.500798984446954e-11,
+              "minimum": 5.5565315834489057e-14,
+              "maximum": 2.3525296058414925e-10
+            },
+            "support": {
+              "count": 60090,
+              "mean": 0.9785113995673157,
+              "rms": 0.9837044931644151,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 60090,
+              "mean": 0.9002305034515186,
+              "rms": 0.9050081497618129,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 60090,
+              "mean": 1.0000000395571846,
+              "rms": 1.000000039557185,
+              "minimum": 1.0000000000167546,
+              "maximum": 1.0000002086158688
+            }
+          },
+          "upper_cohort": {
+            "selected_count": 10919,
+            "valid_count": 10919,
+            "invalid_count": 0,
+            "zero_support_count": 85,
+            "zero_opacity_count": 85,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 10919,
+              "mean": 0.008732702764136964,
+              "rms": 0.00873270276413708,
+              "minimum": 0.008732694976581813,
+              "maximum": 0.00873271420496193
+            },
+            "tangent_minor_std_wu": {
+              "count": 10919,
+              "mean": 0.03835138797198232,
+              "rms": 0.03867249213464777,
+              "minimum": 0.034930804421995705,
+              "maximum": 0.07412116796998196
+            },
+            "tangent_major_std_wu": {
+              "count": 10919,
+              "mean": 0.03835138946571772,
+              "rms": 0.0386724936412984,
+              "minimum": 0.03493080650461724,
+              "maximum": 0.07412116933530433
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 10919,
+              "mean": 3.093273634346472e-11,
+              "rms": 3.8355676949202615e-11,
+              "minimum": 2.7123671838604452e-14,
+              "maximum": 2.3525296058414925e-10
+            },
+            "support": {
+              "count": 10919,
+              "mean": 0.9395091125560949,
+              "rms": 0.9551965258350267,
+              "minimum": 0.0,
+              "maximum": 1.0
+            },
+            "opacity": {
+              "count": 10919,
+              "mean": 0.864348398207832,
+              "rms": 0.8787808189061362,
+              "minimum": 0.0,
+              "maximum": 0.9200000166893005
+            },
+            "tangent_anisotropy": {
+              "count": 10919,
+              "mean": 1.0000000389547214,
+              "rms": 1.000000038954722,
+              "minimum": 1.0000000002379013,
+              "maximum": 1.000000198625026
+            }
+          },
+          "sparse_support": {
+            "selected_count": 11742,
+            "valid_count": 11742,
+            "invalid_count": 0,
+            "zero_support_count": 214,
+            "zero_opacity_count": 214,
+            "anisotropy_unbounded_count": 0,
+            "anisotropy_undefined_count": 0,
+            "anisotropy_overflow_count": 0,
+            "normal_std_wu": {
+              "count": 11742,
+              "mean": 0.008732702780764514,
+              "rms": 0.008732702780764665,
+              "minimum": 0.008732693291995792,
+              "maximum": 0.008732712885998138
+            },
+            "tangent_minor_std_wu": {
+              "count": 11742,
+              "mean": 0.042783532169707435,
+              "rms": 0.043038629135463705,
+              "minimum": 0.03493080712763056,
+              "maximum": 0.09735713462885125
+            },
+            "tangent_major_std_wu": {
+              "count": 11742,
+              "mean": 0.042783533800069294,
+              "rms": 0.04303863077850938,
+              "minimum": 0.03493080812602272,
+              "maximum": 0.09735714049145801
+            },
+            "normal_tangent_covariance_wu2": {
+              "count": 11742,
+              "mean": 3.6948220565938434e-11,
+              "rms": 4.58401972742947e-11,
+              "minimum": 8.45226174855668e-14,
+              "maximum": 2.3525296058414925e-10
+            },
+            "support": {
+              "count": 11742,
+              "mean": 0.6290665985351728,
+              "rms": 0.6548301985986624,
+              "minimum": 0.0,
+              "maximum": 0.75
+            },
+            "opacity": {
+              "count": 11742,
+              "mean": 0.5787412716471404,
+              "rms": 0.6024437827542771,
+              "minimum": 0.0,
+              "maximum": 0.6899999976158142
+            },
+            "tangent_anisotropy": {
+              "count": 11742,
+              "mean": 1.0000000380498397,
+              "rms": 1.0000000380498402,
+              "minimum": 1.0000000000883695,
+              "maximum": 1.0000002066652396
+            }
+          }
+        }
+      }
+    }
+  ],
+  "decision": "not promoted: normal thickness alone does not remove ear fringes and can expose stronger streaks",
+  "render_loss": {
+    "new_optimization": false,
+    "loss_weights_changed": false,
+    "scope": "fixed archived positions; paired appearance effect only"
+  }
+}

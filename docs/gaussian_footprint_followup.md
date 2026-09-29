@@ -35,5 +35,8 @@ Renderer-dependent footprint/appearance diagnostics are not raw simulation
 quality metrics. Retain independent material supply/holes metrics. Shrinking
 splats can reveal missing coverage; opacity/size must not hide physical holes.
 Changing physical F merely to obtain smaller splats is not a justified remedy.
-This document records the required follow-up, not a completed footprint
-measurement or implemented visual-quality fix.
+P323 now measures the active covariance and compares fixed-reference normal
+thickness at identical archived poses (footprint_thickness_p323.md). Some
+positive-support splats reach4x reference normal thickness, but decoupling that
+thickness alone leaves streaks/fringe and is not promoted. That comparison is
+not an F-covariance causal experiment or a completed visual-quality fix.

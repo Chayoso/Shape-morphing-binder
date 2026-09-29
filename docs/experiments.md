@@ -9403,3 +9403,35 @@ increases106..755 target IDs (median140.5), but projected holes can increase or
 decrease. Removal of PIC remains insufficient. No physical or4K promotion.
 `docs/horizon_shape_p319.md` and `docs/evidence/p319` retain results/audit limits.
 Project data observed44.17GB, below100GB; no cleanup performed.
+
+### 2026-09-29 UTC — P320 completed; P323 appearance comparison
+
+P320 frozen1ff004d, N300k,T20,dt1/240,dx.3062907543956724wu,loss36^3,iters8.
+Fresh raw accepts31 windows; disabling layer_ctrl/layer_relax accepts61 of65
+attempts, last accepted attempt62, then stops after3 consecutive rejections.
+Neither is verified rest. At common31, IoU.961884→.959480, upper-target support
+.935475→.925418 and fixed6712-ID source density.970277→.778550. Same1778 free
+IDs W22–31 have step RMS.0164354→.0165874sp and phase20 RMS+15.94%. No adoption.
+Own final free cohorts differ(18509/1172); final312/353 pin admissions lack later
+physical follow-up. P317/P319 independent archive/CUDA gates pass; all-phase
+projected openings remain, with mixed peak/count behavior, not a3D-hole proof.
+Rendering:18views64pixels,GSoff; own accepted-update norm-share medians
+.449727/.366573 and lambda.0356187/.0401626 are observational, not causal shares.
+`docs/layer_ablation_p320.md`, `docs/evidence/p320` contain full scopes/receipts.
+
+P323 frozen2261405: fixed retained P300 corrected24-window archive, same N/T/dt/dx/
+loss/iters above,3840x2160,41frames at stride12. Opt-in covariance comparison
+keeps tangent sigma and live opacity, sets normal sigma to reference spacing/4.
+29CPU and2actualCUDA tests pass; both videos render in42.88s. Some positive-support
+splats reach4x reference normal thickness, but this does not establish visibility
+or physical-F causality. Pixel coverage drops(max5719/997559 baseline alpha>=.5
+pixels at raw72). All-frame PNG overview QA plus independent all41 native upper
+crop pairs finds persistent ear fringe and more distinct sparse streaks; no
+general artifact-fix/default promotion. No new simulation or render-loss changes.
+`docs/footprint_thickness_p323.md`, `docs/evidence/p323` record limits and hashes.
+
+P324 is a design inspection only (`docs/control_withdrawal_p324.md`). TwoT20
+segments onone tape can differentiate a pre-assimilation coast; it is not the
+actual constitutive/pin/neighborhood handoff. Measure real post-assimilation
+control withdrawal before introducing a continuation objective; never detach
+Fp/state handoff and label the resulting control gradient exact.
