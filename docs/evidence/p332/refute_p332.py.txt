@@ -1,0 +1,358 @@
+"""Independent P332 CUDA archive audit; no rollout, renderer or assimilation replay.
+
+JSON scalars are metadata. All array comparisons/reductions run on CUDA; NumPy
+only decodes archived bytes. Producer-only in-memory assertions remain labelled.
+"""
+import argparse
+from dataclasses import asdict
+from datetime import datetime, timezone
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import sys
+import time
+
+import numpy as host
+
+BASE = Path('/data/relcfd/chayo/physmorph_v2')
+N, T, DT, DX = 300000, 20, 1/240, .3062907543956724
+ARCHIVES = ('window_20_prepared.npz', 'window_20_identity.npz', 'window_21_prepared.npz')
+OUTPUTS = {*ARCHIVES, 'protocol.json', 'result.json', 'run.render_influence.json', 'run.render_influence.md'}
+checks, bindings, observations = [], {}, {}
+
+
+def check(name, passed, **detail):
+    checks.append(dict(name=name, passed=bool(passed), **detail))
+    if not passed:
+        raise AssertionError(name)
+
+
+def identity(path):
+    path = Path(path)
+    before = path.stat()
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(8 << 20), b''):
+            digest.update(chunk)
+    after = path.stat()
+    if (before.st_size, before.st_mtime_ns, before.st_ino) != (after.st_size, after.st_mtime_ns, after.st_ino):
+        raise AssertionError('File changed while hashing: '+str(path))
+    return dict(bytes=after.st_size, mtime_ns=after.st_mtime_ns, inode=after.st_ino, sha256=digest.hexdigest())
+
+
+def bind(path, expected=None):
+    path = Path(path).resolve()
+    check('bound_path_under_data:'+str(path), path.is_relative_to(BASE))
+    value = identity(path)
+    if expected is not None:
+        check('bound_identity:'+str(path), value == expected)
+    if str(path) in bindings:
+        check('binding_still_identical:'+str(path), value == bindings[str(path)])
+    bindings[str(path)] = value
+    return value
+
+
+def read_json(path):
+    value = bind(path)
+    data = Path(path).read_bytes()
+    check('parsed_bytes:'+str(path), hashlib.sha256(data).hexdigest() == value['sha256'])
+    result = json.loads(data)
+    json.dumps(result, allow_nan=False)
+    return result
+
+
+def span(values):
+    values = sorted(float(v) for v in values if v is not None and math.isfinite(float(v)))
+    if not values:
+        return None
+    middle = len(values)//2
+    median = values[middle] if len(values) % 2 else (values[middle-1]+values[middle])/2
+    return dict(count=len(values), minimum=values[0], median=median, maximum=values[-1])
+
+
+def render_audit(history, report, cfg, prm):
+    """Independent scalar bookkeeping; never imports the production summarizer."""
+    attempts = [r for r in history if 'animation' in r and not r.get('held') and 'c2f_render_res' not in r]
+    committed = [r for r in attempts if r.get('accepted', 0) > 0 and r.get('outer_accepted', 1)
+                 and not r.get('null_commit') and not r.get('outer_rejected')]
+    all_steps = [s for r in attempts for s in (r.get('render_influence_steps') or [])]
+    steps = [s for r in committed for s in (r.get('render_influence_steps') or [])]
+    expected = dict(windows=len(attempts), raw_history_rows=len(history), committed_windows=len(committed),
+        inner_accepted_steps=sum(int(r.get('accepted', 0)) for r in attempts),
+        recorded_inner_steps=len(all_steps), recorded_committed_steps=len(steps),
+        steps_in_committed_windows=sum(int(r.get('accepted', 0)) for r in committed),
+        step_nominal_share=span(s.get('nominal_render_share') for s in steps),
+        first_iteration_nominal_share=span(r.get('g_share') for r in committed),
+        adaptive_lambda=span(r.get('lambda') for r in committed),
+        observed_render_loss_change=span(s.get('observed_render_loss_change') for s in steps),
+        endpoint_optimizer_change_rms_wu=span(s.get('optimization_endpoint_change_rms_wu') for s in steps),
+        channels={k: dict(nominal_share=span(s['channels'].get(k, {}).get('nominal_render_share') for s in steps),
+                         control_delta_norm=span(s['channels'].get(k, {}).get('accepted_control_delta_norm') for s in steps))
+                  for k in sorted({k for s in steps for k in s.get('channels', {})})})
+    for key, value in expected.items():
+        check('render_summary.'+key, report[key] == value)
+    for index, step in enumerate(all_steps):
+        before, after = step.get('render_loss_before'), step.get('render_loss_after')
+        check('render_delta.'+str(index), step.get('observed_render_loss_change') ==
+              (None if before is None or after is None else after-before))
+        if step.get('direction_statistics_available'):
+            pn2 = rn2 = 0.
+            weight = step['lambda_render']
+            for name, channel in step['channels'].items():
+                pn, rn = channel['physics_direction_norm'], channel['render_direction_norm']
+                check('direction_norms.'+str(index)+'.'+name, min(pn, rn, weight) >= 0 and
+                      all(math.isfinite(v) for v in (pn, rn, weight)))
+                pn2 += pn*pn; rn2 += rn*rn
+                check('channel_share.'+str(index)+'.'+name,
+                      channel['nominal_render_share'] == weight*rn/max(pn+weight*rn, 1e-30))
+                check('weighted_direction_dot.'+str(index)+'.'+name,
+                      channel['weighted_optimizer_render_direction_dot_delta'] ==
+                      weight*channel['optimizer_render_direction_dot_delta'])
+            check('joint_direction_share.'+str(index), step['nominal_render_share'] ==
+                  weight*rn2**.5/max(pn2**.5+weight*rn2**.5, 1e-30))
+    check('render_discretization', report['discretization'] == dict(N=N, T=T, dt=DT, dx_wu=DX,
+          loss_res=36, render_res=64, iters=8))
+    selections = [r for r in attempts if r.get('window_selection') is not None]
+    check('identity_selection_only', len(selections) == 1 and selections[0]['animation'] == 19 and
+          selections[0]['window_selection']['selected'] is False)
+    selection = report['window_selection']
+    check('selection_summary_counts', all(selection[k] == v for k, v in dict(selection_windows=1,
+          selected_private_forwards=0, outer_committed_selected_forwards=0,
+          outer_uncommitted_selected_forwards=0, original_result_retained_windows=1, added_adam_steps=0).items()))
+    check('selection_observation', len(selection['observations']) == 1 and
+          selection['observations'][0]['selected'] is False and
+          selection['observations'][0]['selected_forward_observation'] is None and
+          selection['observations'][0]['outer_committed'] is True)
+    donor = selections[0]['window_selection']['donor_observation']
+    check('selection_donor_values', selection['observations'][0]['donor_observation'] ==
+          {key: donor.get(key) for key in ('loss', 'd_render', 'd_sil', 'lambda')})
+    check('render_noncausal_scope', 'DONOR' in report['definitions'] and
+          report['causal_render_ablation'] == 'not measured by this report')
+    return dict(**expected, scope='History-only scalar reconstruction. Stored direction norms/dots are not '
+                'independent gradients; no rendering ablation, motion percentage, hole or rest inference.')
+
+
+def prepared_layout(meta):
+    layout = {k: ((N, 3), 'float32') for k in ('x0', 'v0')}
+    layout.update({k: ((N, 3, 3), 'float32') for k in ('F0', 'C0', 'Fp')})
+    layout.update({k: ((N,), 'float32') for k in ('m', 'lam', 'mu', 'eta', 'pin', 'vol', 'layer_mask')})
+    if meta['track_geom']:
+        layout['Fg0'] = ((N, 3, 3), 'float32')
+    if meta['layer_present']:
+        k = meta['layer_K']
+        layout.update(layer_nrm=((N, 3), 'float32'), layer_ug=((N,), 'float32'),
+                      layer_nbr=((N, k), 'int32'), layer_w=((N, k), 'float32'))
+        if meta['layer_F']:
+            layout['layer_g'] = ((N, k, 3), 'float32')
+    if meta['bonds_present']:
+        layout.update(bond_nbr=((N, meta['bond_K']), 'int32'),
+                      bond_rest=((N, meta['bond_K']), 'float32'), bond_frag=((N,), 'float32'))
+    return layout
+
+
+def audit(args):
+    code, run = args.code.resolve(), args.run.resolve()
+    check('gpu1_only', os.environ.get('CUDA_VISIBLE_DEVICES') == '1')
+    check('data_paths_and_cwd', all(p.is_relative_to(BASE) for p in (code, run, args.out.resolve())) and
+          Path.cwd().resolve() == code)
+    check('expected_commit_argument', len(args.expected_commit) == 40 and
+          all(c in '0123456789abcdef' for c in args.expected_commit))
+    for key in ('WARP_CACHE_PATH', 'CUPY_CACHE_DIR', 'CUDA_CACHE_PATH'):
+        check('cache_under_data.'+key, key in os.environ and Path(os.environ[key]).resolve().is_relative_to('/data'))
+    bind(Path(__file__))
+    if args.launcher is not None:
+        bind(args.launcher)
+    bind(code/'VERSION')
+    check('producer_version', (code/'VERSION').read_text().strip() == args.expected_commit)
+    check('exact_output_members', {p.name for p in run.iterdir()} == OUTPUTS)
+    protocol, result = read_json(run/'protocol.json'), read_json(run/'result.json')
+    for path, value in protocol['bindings'].items():
+        bind(path, value)
+    check('protocol_link', result['protocol_sha256'] == bindings[str(run/'protocol.json')]['sha256'])
+    cfg, prm = protocol['effective_config'], protocol['mpm']
+    required = {str(p) for p in (code/'physmorph').rglob('*.py')}
+    required.update(str(code/p) for p in ('scripts/probes/window_selection.py',
+        'scripts/probes/prepared_withdrawal.py', 'scripts/probes/reference_swap.py',
+        'scripts/ops/run_p303_probe.sh', 'scripts/ops/cuda_python.py', 'docs/window_selection_p332.md'))
+    metadata_path = BASE/'work/p303/raw24a.json'
+    source_path = BASE/'repro/current_pair/source_render_full_dt_iso_nn.npz'
+    required.update((str(metadata_path), str(source_path), str(Path(cfg['target_reference']))))
+    check('exact_producer_binding_membership', set(protocol['bindings']) == required)
+    for name in ('hyde06_env.sh', 'gpu_env.sh', 'cuda_python.py'):
+        bind(code/'scripts/ops'/name)
+    for suffix in ('.log', '.start'):
+        bind(run.with_suffix(suffix))
+    check('archive_manifest', set(result['files']) == set(ARCHIVES))
+    for name in ARCHIVES:
+        bind(run/name, result['files'][name])
+    render = read_json(run/'run.render_influence.json')
+    bind(run/'run.render_influence.md')
+    check('render_result_link', render == result['render_influence'])
+    check('producer_schema', protocol['schema'] == 'window_selection_p332_v1' and
+          protocol['window'] == 20 and protocol['successor'] == 21 and protocol['N'] == N)
+    check('registered_discretization', cfg['T'] == T and cfg['iters'] == 8 and cfg['loss_res'] == 36 and
+          cfg['render_res'] == 64 and prm['dt'] == DT and prm['dx'] == DX and cfg['stop_after_windows'] == 21)
+    sys.path.insert(0, str(code))
+    import torch
+    import physmorph
+    from physmorph.compute import cuda_execution, cuda_module
+    from physmorph.pipeline.config import PipelineConfig
+    check('imported_source', Path(physmorph.__file__).resolve().parent.parent == code)
+    metadata = read_json(metadata_path)
+    expanded = json.loads(json.dumps(asdict(PipelineConfig(**metadata['config']))))
+    check('sole_cap_override', dict(expanded, stop_after_windows=21) == cfg and metadata['mpm'] == prm)
+    log_path = run.with_suffix('.log')
+    log_bytes = log_path.read_bytes()
+    check('parsed_log_bytes', hashlib.sha256(log_bytes).hexdigest() == bindings[str(log_path)]['sha256'])
+    resolver = [line for line in log_bytes.decode('utf-8').splitlines() if line.startswith('[v2] phys_loss auto:')]
+    if cfg['phys_loss'] == 'auto':
+        check('ordinary_auto_resolution', len(resolver) == 1 and resolver[0].endswith(' -> ot_pace + cell-wise hand-off'))
+    else:
+        check('explicit_ot_pace', cfg['phys_loss'] == 'ot_pace' and not resolver)
+    observations['resolution'] = dict(protocol_phys_loss=cfg['phys_loss'], resolved_phys_loss='ot_pace',
+        resolver_lines=resolver, scope='Protocol is pre-resolution. The ordinary resolver sets ot_pace, '
+        'ot_handoff and ot_debias before strict selection validation; no alternate resolution is introduced.')
+    check('producer_pass_receipts', result['passed'] is True and result['failure'] is None and
+          result['bindings_unchanged'] is True and result['context_closed'] is True and
+          result['archived_identity_exact'] is True and not any(result['guards'].values()))
+    receipt = result['receipt']
+    check('producer_identity_receipts', receipt['identity_exact'] is True and
+          receipt['inspection_mutation_isolated'] is True and receipt['identity_replay_count'] == 0)
+    history = result['history']
+    attempts = [r for r in history if 'animation' in r and not r.get('held') and 'c2f_render_res' not in r]
+    check('attempt_clock', [r['animation'] for r in attempts] == list(range(21)))
+    head_row, next_row = attempts[19:21]
+    check('identity_source_outer_acceptance', head_row.get('outer_accepted') == 1 and
+          head_row.get('accepted', 0) > 0 and not head_row.get('outer_rejected') and not head_row.get('null_commit') and
+          result['donor_outer_committed'] is True)
+    check('successor_disposition', result['successor_outer_committed'] == bool(next_row.get('outer_accepted', 0)) and
+          receipt['successor_inner_accepted'] == next_row.get('accepted', 0))
+    check('selection_receipt_matches_history', head_row['window_selection'] == receipt['selection_report'])
+    check('original_choice_only', receipt['selection_report']['selected_label'] == 'original' and
+          receipt['selection_report']['requested_label'] == 'original' and
+          not receipt['selection_report']['failures'])
+    observations['render'] = render_audit(history, render, cfg, prm)
+    observations['termination'] = result['termination']
+    check('output_budget', sum(bindings[str(run/name)]['bytes'] for name in OUTPUTS) <= protocol['max_output_bytes'] == 3_000_000_000)
+    host_arrays = {}
+    for name in ARCHIVES:
+        with host.load(run/name, allow_pickle=False) as archive:
+            check('no_duplicate_members.'+name, len(archive.files) == len(set(archive.files)))
+            host_arrays[name] = {key: archive[key] for key in archive.files}
+    with cuda_execution('cuda:0'):
+        cp = cuda_module()
+        arrays = {name: {key: cp.asarray(value) for key, value in values.items()}
+                  for name, values in host_arrays.items()}
+        for name, values in arrays.items():
+            for key, value in values.items():
+                check('finite.'+name+'.'+key, bool(cp.isfinite(value).all()))
+        a, h, b = (arrays[name] for name in ARCHIVES)
+        for window, values in ((20, a), (21, b)):
+            meta = receipt[f'window_{window}_prepared_metadata']
+            check('prepared_metadata.'+str(window), meta['schema'] == 'owned_withdrawal_v1' and
+                  meta['N'] == N and meta['T'] == T and meta['step'] == 0 and meta['prm'] == prm and
+                  meta['device'] == meta['captured_device'] == 'cuda:0' and meta['source_body_control'] is True)
+            layout = prepared_layout(meta)
+            check('prepared_members.'+str(window), set(values) == set(layout))
+            for key, (shape, dtype) in layout.items():
+                check('layout.'+str(window)+'.'+key, values[key].shape == shape and str(values[key].dtype) == dtype)
+            for key in ('layer_nbr', 'bond_nbr'):
+                if key in values:
+                    check('neighbor_bounds.'+str(window)+'.'+key, bool(((values[key] >= 0) & (values[key] < N)).all()))
+        layout = dict(X=(T+1, N, 3), F_sequence=(T+1, N, 3, 3), x=(N, 3), F=(N, 3, 3), v=(N, 3), C=(N, 3, 3))
+        check('head_members', set(h) == set(layout))
+        for key, shape in layout.items():
+            check('head_layout.'+key, h[key].shape == shape and h[key].dtype == cp.float32)
+        equalities = dict(initial_x=(h['X'][0], a['x0']), initial_F=(h['F_sequence'][0], a['F0']),
+            terminal_x=(h['X'][-1], h['x']), terminal_F=(h['F_sequence'][-1], h['F']),
+            handoff_x=(b['x0'], h['x']), handoff_F=(b['F0'], h['F']))
+        for key, (actual, expected) in equalities.items():
+            check(key+'_exact', bool(cp.array_equal(actual, expected)))
+        old, nxt = a['pin'] > .5, b['pin'] > .5
+        new, free = nxt & ~old, ~nxt
+        handoff = dict(x=True, F=True,
+            v_free=bool(cp.array_equal(b['v0'][free], h['v'][free])),
+            C_free=bool(cp.array_equal(b['C0'][free], h['C'][free])),
+            v_pinned_zero=bool((b['v0'][nxt] == 0).all()), C_pinned_zero=bool((b['C0'][nxt] == 0).all()),
+            old_pins_retained=bool(nxt[old].all()))
+        check('handoff_checks', all(handoff.values()) and handoff == receipt['handoff']['checks'])
+        check('old_pin_head_paths', bool((h['X'][:, old] == a['x0'][old][None]).all() and
+              (h['v'][old] == 0).all() and (h['C'][old] == 0).all()))
+        changed = (b['Fp'] != a['Fp']).any(axis=(1, 2))
+        counts = dict(new_pins=int(new.sum()), surviving_free=int(free.sum()), Fp_changed_particles=int(changed.sum()))
+        check('handoff_report_counts', all(receipt['handoff'][key] == value for key, value in counts.items()))
+        check('nonvacuous_new_pins', counts['new_pins'] > 0 and counts['surviving_free'] > 0)
+        if cfg['settle_pin_assim']:
+            check('old_pinned_Fp_preserved', bool(cp.array_equal(b['Fp'][old], a['Fp'][old])))
+        for key in ('m', 'lam', 'mu', 'vol'):
+            check('material_identity.'+key, bool(cp.array_equal(a[key], b[key])))
+        origin = cp.asarray(prm['grid_min'], dtype=cp.float32)
+        dimensions = cp.asarray([prm[k] for k in ('nx', 'ny', 'nz')], dtype=cp.float32)
+        low, high = origin+2*prm['dx'], origin+prm['dx']*dimensions-2*prm['dx']
+        check('head_full_path_bounds', bool(((h['X'] >= low) & (h['X'] <= high)).all()))
+        # Independent FP64 cofactor polynomial; no production health helper.
+        per_step_minimum, inverted = [], cp.zeros(N, dtype=cp.bool_)
+        for step in range(T+1):
+            f = h['F_sequence'][step].astype(cp.float64)
+            d = (f[:, 0, 0]*(f[:, 1, 1]*f[:, 2, 2]-f[:, 1, 2]*f[:, 2, 1])
+                 -f[:, 0, 1]*(f[:, 1, 0]*f[:, 2, 2]-f[:, 1, 2]*f[:, 2, 0])
+                 +f[:, 0, 2]*(f[:, 1, 0]*f[:, 2, 1]-f[:, 1, 1]*f[:, 2, 0]))
+            check('head_F_positive.'+str(step), bool(cp.isfinite(d).all() and (d > 0).all()))
+            per_step_minimum.append(float(d.min()))
+            if step:
+                inverted |= d <= 0
+        check('head_inversion_count', int(inverted.sum()) == head_row['F_invert_steps'] == 0)
+        observed_min = min(per_step_minimum[1:])
+        # FP64 oracle versus reported FP32 determinant, not a relaxed state gate.
+        allowance = 64*2**-23*(1+abs(float(head_row['Jmin_traj'])))
+        check('head_reported_Jmin', abs(observed_min-head_row['Jmin_traj']) <= allowance,
+              fp64_minimum=observed_min, reported_fp32=head_row['Jmin_traj'], roundoff_allowance=allowance)
+        observations['handoff'] = dict(**counts, old_pins=int(old.sum()), next_pins=int(nxt.sum()),
+            Fp_changed_old_pins=int(changed[old].sum()), Fp_changed_new_pins=int(changed[new].sum()),
+            Fp_changed_surviving_free=int(changed[free].sum()), checks=handoff)
+        observations['head_health'] = dict(post_step_F_minimum=observed_min,
+            initial_and_post_step_F_minima=per_step_minimum, inverted_particles=int(inverted.sum()),
+            scope='All archived head X/F and terminal v/C; full V/C history and effective F+dFc not archived here.')
+    return dict(passed=True, producer_commit=args.expected_commit,
+        discretization=dict(N=N, T=T, dt=DT, dx_wu=DX, loss_res=36, render_res=64, iters=8),
+        scope='Independent saved-array identities, health and handoff/pin/Fp-change reductions on CUDA; '
+              'history scalar render bookkeeping. No full prefix or Adam rerun, no complete Fp-assimilation '
+              'formula reproduction, no gradient/loss/renderer execution. In-memory donor six-tuple identity, '
+              'inspection-mutation isolation and equality to the unexported final prefix archive are producer '
+              'receipts corroborated by hashes/history, not independently replayed. No changed candidate, '
+              'quality promotion, natural-rest or hole certificate.')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', '--code', dest='code', type=Path, required=True)
+    parser.add_argument('--run', type=Path, required=True)
+    parser.add_argument('--expected-version', '--expected-commit', dest='expected_commit', required=True)
+    parser.add_argument('--out', type=Path, required=True)
+    parser.add_argument('--launcher', type=Path)
+    args = parser.parse_args()
+    if not args.out.resolve().is_relative_to(BASE) or args.out.exists():
+        raise ValueError('Fresh output under /data project required')
+    started, failure = time.perf_counter(), None
+    try:
+        report = audit(args)
+    except Exception as exc:
+        failure = exc
+        report = dict(passed=False, error=dict(type=type(exc).__name__, message=str(exc)))
+    try:
+        for path, value in bindings.items():
+            check('unchanged:'+path, identity(path) == value)
+    except Exception as exc:
+        failure = failure or exc
+        report.update(passed=False, binding_error=dict(type=type(exc).__name__, message=str(exc)))
+    report.update(completed_utc=datetime.now(timezone.utc).isoformat(), elapsed_seconds=time.perf_counter()-started,
+        checks=checks, check_count=len(checks), bindings=bindings, observations=observations,
+        environment={k: os.environ.get(k) for k in ('CUDA_VISIBLE_DEVICES', 'WARP_CACHE_PATH', 'CUPY_CACHE_DIR',
+                                                  'CUDA_CACHE_PATH', 'PHYSMORPH_RUN_REPO')})
+    with args.out.open('x') as stream:
+        json.dump(report, stream, indent=2, allow_nan=False)
+    print(json.dumps(dict(passed=report['passed'], checks=len(checks), out=str(args.out))), flush=True)
+    if failure is not None:
+        raise failure

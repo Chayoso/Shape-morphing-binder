@@ -1,0 +1,50 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_window_selection2
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 4 items
+
+tests/test_window_selection_cuda.py Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 11.54 ms  (cached)
+[win] OT plan: sqrt(eps)=1.436 wu = 0.539 loss cells, tol 0.01 (cap 20 sweeps), 128 target samples
+[win] OT leash: displacement denoised over k=5 material neighbours (blur radius 1.436 wu / spacing 1.333)
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.57 wu, max |d|=0.953 wu
+[win] OT plan solved: 20 sweeps err=0.00111, 0.05s
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.482 wu, max |d|=1.09 wu
+[win] OT plan solved: 20 sweeps err=0.000991, 0.02s
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.478 wu, max |d|=1.09 wu
+[win] OT plan solved: 20 sweeps err=0.000938, 0.02s
+.[win] OT plan: sqrt(eps)=1.436 wu = 0.539 loss cells, tol 0.01 (cap 20 sweeps), 128 target samples
+[win] OT leash: displacement denoised over k=5 material neighbours (blur radius 1.436 wu / spacing 1.333)
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.57 wu, max |d|=0.953 wu
+[win] OT plan solved: 20 sweeps err=0.00111, 0.01s
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.569 wu, max |d|=0.901 wu
+[win] OT plan solved: 20 sweeps err=0.000991, 0.01s
+.[win] OT plan: sqrt(eps)=1.436 wu = 0.539 loss cells, tol 0.01 (cap 20 sweeps), 128 target samples
+[win] OT leash: displacement denoised over k=5 material neighbours (blur radius 1.436 wu / spacing 1.333)
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.57 wu, max |d|=0.953 wu
+[win] OT plan solved: 20 sweeps err=0.00111, 0.01s
+.[win] OT plan: sqrt(eps)=1.436 wu = 0.539 loss cells, tol 0.01 (cap 20 sweeps), 128 target samples
+[win] OT leash: displacement denoised over k=5 material neighbours (blur radius 1.436 wu / spacing 1.333)
+[win] OT pace: target cells with mass beyond one cell of the body: 0 (cell-wise hand-off: 14 deficit cells on the fixed target)
+[win] OT pace: 100.0% of particles within one blur radius of their image, mean |d|=0.19 wu, max |d|=0.342 wu
+[win] OT plan solved: 20 sweeps err=0.00111, self 20 sweeps err=0.00979, 0.01s
+.
+
+=============================== warnings summary ===============================
+tests/test_window_selection_cuda.py::test_identity_owned_inspection_preserves_actual_successor_and_new_pin_lineage
+  /data/relcfd/chayo/physmorph_v2/work/p303/code_window_selection2/physmorph/pipeline/runner.py:305: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+  Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+    if float(L_den) <= 0 or float(g_den) <= 0:
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p332_cuda2.xml -
+========================= 4 passed, 1 warning in 5.63s =========================

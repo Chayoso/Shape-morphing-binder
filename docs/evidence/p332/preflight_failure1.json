@@ -1,0 +1,14 @@
+{
+  "scope": "Original-result identity through the real handoff and controlled successor; not a candidate remedy, resumable fork, handoff derivative, rest or 4K quality gate",
+  "protocol_sha256": "ee6be9b6034be4fa4b7471a5011c1bc552b30f55c020db3fd503c0c0b871f9d2",
+  "failure": {
+    "type": "ValueError",
+    "message": "Prepared window selection does not support raw fixed-material density ot_pace two-mode body / mom_carry=0"
+  },
+  "bindings_unchanged": true,
+  "elapsed_seconds": 0.14136649505235255,
+  "receipt": {},
+  "files": {},
+  "context_closed": false,
+  "passed": false
+}

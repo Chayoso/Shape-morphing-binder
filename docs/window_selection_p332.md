@@ -1,11 +1,12 @@
 # P332: whole-window selection and actual handoff
 
-Status: implementation, CPU integration and three small CUDA gates passed.
+Status: implementation, CPU integration, four small CUDA gates and the registered
+N300k identity/actual-successor capability passed; no quality candidate adopted.
 Production attempt1 stopped before MPM: validation rejected `phys_loss=auto`
 before the existing resolver ran. The follow-up preserves that resolver and
 validates its resolved mode before any solve; overlapping and non-overlapping
-CPU regressions pass. A fourth CUDA auto-resolution case and production rerun
-are pending. This adds an
+CPU regressions pass. The corrected CUDA test and production rerun also pass.
+This adds an
 opt-in capability, not a rest, hole or visual-quality remedy. P331 provided no
 admissible candidate and none of its rejected controls may be continued here.
 
@@ -78,3 +79,53 @@ An exact same-prefix two-arm fork still requires a complete resumable runner
 state. Optimization through actual handoff still needs the F-to-Fp VJP and a
 declared treatment of discrete admission/preparation branches. Those are not
 provided by this callback API.
+
+## Recorded capability result
+
+Frozen `40d4bc95067629ecf82c53e6c4da5e7bbf77cd2f`, server
+`work/p303/code_window_selection2`, run `work/p303/p332_identity2`.
+All numbers below use the registered N300000/T20/dt1/240/dx0.3062907543956724wu,
+loss36-cubed, eight-iteration, 18-view/64px CIC/PBR setting. Shared GS loss is off.
+
+The run completes 21 ordinary accepted windows/168 accepted updates in
+354.242s including evidence I/O. W20 original selection is exactly identical
+to its donor six-tuple; inspection mutation is isolated and no replay occurs.
+Its X/F path equals the final raw archive segment exactly. The ordinary W21
+controlled solve also passes the outer gate. All six guard counters are zero.
+
+The actual W20-to-W21 handoff retains 241225 old pins and admits 4380 new pins,
+leaving 54395 free particles. X and physical F are unchanged; surviving-free
+v/C are unchanged; next-pinned v/C are zero. Actual Fp changes for all 4380 new
+pins and 54395 surviving-free particles, and for none of the old pins. These
+are imposed handoff/pin policies, not a natural-rest or no-holes certificate.
+
+Independent archive audit passes 2335 checks in 6.002s: source/evidence bindings,
+CUDA raw-array identities/health and handoff counts, plus separately recomputed
+render-report scalar bookkeeping. It does not rerun the complete prefix/Adam,
+reconstruct the full assimilation formula, or independently reproduce the
+unexported original six-tuple/final-prefix comparison; those are producer
+receipts supported by the real CPU/CUDA integration tests. See
+`evidence/p332/independent_audit2.json` and `evidence/p332/summary.json`.
+
+Render influence: median lambda over 21 windows is 0.0644935. Median nominal
+render direction share over 168 actual donor Adam updates is 0.503282; by channel,
+body 0.361819, stress 0.563319, surface-u 0.755468. Median observed prepared image
+loss change per accepted update is -8.69115e-5. These norm/direction observations
+are not causal displacement percentages. There is no added optimizer step or
+selected changed forward; 64px feedback does not supervise the exact exported
+4K covariance/footprint.
+
+The seven output files total 663391784 bytes (directory `du -sb`: 663391793).
+The external monitor sampled a 20428 MiB process peak
+(20452 MiB device); these are not exact peaks. Project usage after the run/audit
+was 77062183753 bytes, below 100 GB. Before/corrected videos remain unchanged.
+
+The explicit CUDA suite passes 4/4 in 5.63s. Independent focused CPU review covers
+116 initial distinct cases plus 2 automatic-resolution regressions; root's
+broader 84-case regression scope passes and overlaps some of those cases.
+Do not sum these as disjoint totals. Initial pre-MPM validation failure is
+retained in `evidence/p332/preflight_failure1.json`.
+
+The next derivative boundary is recorded in `post_assimilation_adjoint_plan.md`.
+It remains a design: candidate quality, complete preparation derivatives,
+natural rest, full gallery and 4K artifact removal are still open.
