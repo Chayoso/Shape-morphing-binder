@@ -44,7 +44,7 @@ class _ElasticIncrement(torch.autograd.Function):
         values = powered / normalizer if isochoric else powered
         out = Vh.transpose(1, 2) @ torch.diag_embed(values) @ Vh
         ok = torch.linalg.det(Fe) > 1e-6
-        out[~ok] = torch.eye(3, dtype=Fe.dtype, device=Fe.device)
+        out = torch.where(ok[:, None, None], out, torch.eye(3, dtype=Fe.dtype, device=Fe.device))
         ctx.save_for_backward(U, s, Vh, powered, normalizer, values, ok)
         ctx.eta, ctx.isochoric = eta, isochoric
         return out
@@ -142,7 +142,11 @@ def assimilate_elastic_differentiable(F, Fp, eta=0.5, smin=0.2, smax=5.0, isocho
     _validate(F, Fp, eta, smin, smax)
     if eta <= 0:
         return Fp.clone()
-    Fe = F @ torch.linalg.inv(Fp)
+    # inv() synchronizes its status to the host and cannot be graph-captured.
+    # inv_ex uses the same inverse; the status assertion remains on the device.
+    inverse, info = torch.linalg.inv_ex(Fp, check_errors=False)
+    torch._assert_async((info == 0).all(), 'Assimilation requires nonsingular Fp')
+    Fe = F @ inverse
     increment = _ElasticIncrement.apply(Fe, eta, bool(isochoric))
     return _CumulativeBand.apply(increment @ Fp, smin, smax, bool(isochoric))
 

@@ -1,7 +1,10 @@
 # P333: derivative of actual elastic assimilation
 
-Status: opt-in primitive and frozen old/new-pin composition implemented; CPU
-directional and forward checks pass. Actual CUDA parity/capture gates pending.
+Status: opt-in primitive and frozen old/new-pin composition implemented; 46 CPU
+checks pass. Initial CUDA run passes 18 parity/derivative/subset cases but fails
+both graph-capture cases at the host-synchronizing inverse. Capture correction
+uses the same inverse through inv_ex with a device status assertion, and uses
+torch.where for the skipped-row increment. CUDA rerun pending.
 No optimizer, runner or existing withdrawal default uses this derivative yet.
 
 The next coast must respond to the plastic state the runner really commits.
