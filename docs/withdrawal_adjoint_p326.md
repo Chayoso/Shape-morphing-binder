@@ -93,6 +93,13 @@ require each tested derivative magnitude>5e-5, and retain2% relative tolerance
 and both radii. The earlier pass is not presented as a zero-gradient-discriminating
 stress test. This stricter gate requires a fresh run; no numerical code changes.
 
+That final gate passed in frozen6a525c3: all6 withdrawal/fragment CUDA tests and
+the2 P327 captured-observer tests passed,0 skipped,2.21s. The stricter stress
+FD differences are approximately1.63e-7 and2.65e-6, below the unchanged2%
+relative tolerance and now5e-6 absolute floor. Full receipts are retained in
+`docs/evidence/p327/p327_cuda1.{log,xml}`; the earlier failures/passes remain in
+`docs/evidence/p326`. No production withdrawal objective is enabled.
+
 ## Correcting overwritten fragment activity
 
 The original `Trajectory.frag_step` was one scratch array overwritten at every

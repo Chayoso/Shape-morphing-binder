@@ -1,0 +1,67 @@
+{
+  "p326_cuda1": {
+    "commit": "9b74f6e8892ff120c3f510acf8c2f734bcae035b",
+    "code_root": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal_adjoint1",
+    "code_sha256": {
+      "physmorph/mpm/withdrawal_adjoint.py": "d5e6b8ba4223765b4ca87bf239e6e78a9dd03c5340ab68560e60d4c54bafa7f6",
+      "physmorph/mpm/traj.py": "db431738017c1ed3a19503658722b41dfbe4ffbb6918233ab475622525261997",
+      "physmorph/mpm/function.py": "6c899967f168eea87f05014edf36780ab54ed67c0dde380bffbd94008abe1011",
+      "physmorph/mpm/kernels.py": "31a8bee46b3683ce842e44ea2dc226790b34e27956a80f0d243737ae1b310516",
+      "physmorph/compute.py": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+      "tests/test_withdrawal_adjoint_cuda.py": "1264ad14b78e375b8fb410350c07928d9b2d07437e4348c23a30b0c0df50d1c4",
+      "tests/test_withdrawal_adjoint_fd.py": "fc053c59e009496efcf6f0cb4834448ec9ace9406e0a20b4e064853c7a9797d7",
+      "tests/test_fragment_activity_adjoint.py": "2a4c66796b54be324b8b54f0975a081d7108a923feb2644ea94c12d5ac2f5568",
+      "tests/test_boundary_packet.py": "ed0a6a42cfe4d998d71358cff9a7ce8f8e2a671ed3d93e1a220cc52cb24c424e",
+      "tests/test_withdrawal_cuda.py": "2365241354419f1813c83cc803b7cc5a2938a22dd36076e7f697d06f73b7f2b6",
+      "scripts/ops/run_p303_probe.sh": "38799f686f57ea7ba71c37eb54e8b4dbc8084c652c73295089df15f650ea333a"
+    },
+    "evidence_sha256": {
+      ".log": "11e651f4f158aa4f8d8e0d5fbad284fadc10d9e634b0ad7ece6095cd18b79499",
+      ".xml": "2305d53e11b043ba028236d1215127168314d75e6be611e3eaac7d1f18fdcf7a"
+    }
+  },
+  "p326_cuda2": {
+    "commit": "4d9ea894ddd7e5d0003324ad94d3377e781838a9",
+    "code_root": "/data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal_adjoint2",
+    "code_sha256": {
+      "physmorph/mpm/withdrawal_adjoint.py": "dea174a239330dc1d3db1b3fe75d5f335bdd10699fee540f94a2e0cc8be807e9",
+      "physmorph/mpm/traj.py": "db431738017c1ed3a19503658722b41dfbe4ffbb6918233ab475622525261997",
+      "physmorph/mpm/function.py": "6c899967f168eea87f05014edf36780ab54ed67c0dde380bffbd94008abe1011",
+      "physmorph/mpm/kernels.py": "31a8bee46b3683ce842e44ea2dc226790b34e27956a80f0d243737ae1b310516",
+      "physmorph/compute.py": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+      "tests/test_withdrawal_adjoint_cuda.py": "1264ad14b78e375b8fb410350c07928d9b2d07437e4348c23a30b0c0df50d1c4",
+      "tests/test_withdrawal_adjoint_fd.py": "fc053c59e009496efcf6f0cb4834448ec9ace9406e0a20b4e064853c7a9797d7",
+      "tests/test_fragment_activity_adjoint.py": "2a4c66796b54be324b8b54f0975a081d7108a923feb2644ea94c12d5ac2f5568",
+      "tests/test_boundary_packet.py": "ed0a6a42cfe4d998d71358cff9a7ce8f8e2a671ed3d93e1a220cc52cb24c424e",
+      "tests/test_withdrawal_cuda.py": "2365241354419f1813c83cc803b7cc5a2938a22dd36076e7f697d06f73b7f2b6",
+      "scripts/ops/run_p303_probe.sh": "38799f686f57ea7ba71c37eb54e8b4dbc8084c652c73295089df15f650ea333a"
+    },
+    "evidence_sha256": {
+      ".log": "57dd154328a597b227681d27e638a9b0d1fc52c548576b9a8ad427f6e4ce69be",
+      ".xml": "6ef636e08df63947498570d4afbffa56848ec12bcbf8bf6feaadba004f720123"
+    }
+  },
+  "p327_cuda1": {
+    "commit": "6a525c326b7a69b6664954475066e5548522b66a",
+    "code_root": "/data/relcfd/chayo/physmorph_v2/work/p303/code_fragment_adjoint1",
+    "code_sha256": {
+      "physmorph/mpm/withdrawal_adjoint.py": "dea174a239330dc1d3db1b3fe75d5f335bdd10699fee540f94a2e0cc8be807e9",
+      "physmorph/mpm/traj.py": "db431738017c1ed3a19503658722b41dfbe4ffbb6918233ab475622525261997",
+      "physmorph/mpm/function.py": "6c899967f168eea87f05014edf36780ab54ed67c0dde380bffbd94008abe1011",
+      "physmorph/mpm/kernels.py": "31a8bee46b3683ce842e44ea2dc226790b34e27956a80f0d243737ae1b310516",
+      "physmorph/compute.py": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+      "tests/test_withdrawal_adjoint_cuda.py": "f5b4a06815bc54ef033034d59209ec420fb01af833a74c3f6553f6ba7dff870c",
+      "tests/test_withdrawal_adjoint_fd.py": "d96a987598914a54124a4d17e558812899326b43ceaf94a87033e471998e1525",
+      "tests/test_fragment_activity_adjoint.py": "2a4c66796b54be324b8b54f0975a081d7108a923feb2644ea94c12d5ac2f5568",
+      "tests/test_boundary_packet.py": "ed0a6a42cfe4d998d71358cff9a7ce8f8e2a671ed3d93e1a220cc52cb24c424e",
+      "tests/test_withdrawal_cuda.py": "2365241354419f1813c83cc803b7cc5a2938a22dd36076e7f697d06f73b7f2b6",
+      "scripts/ops/run_p303_probe.sh": "57cf2e885474d75ed75586c0fb03d073a648e0544440765ed552213c9cd898d7",
+      "scripts/probes/fragment_adjoint_compare.py": "1e8b3086e8cb58ebd136baa8f40bc3113c2f23d7ce2f772c2fc0c8bdb8b5c347",
+      "tests/test_fragment_adjoint_observer_cuda.py": "6657680652cd32fc23321d3dedc6416575e70b05451bde9da90d037b17006e26"
+    },
+    "evidence_sha256": {
+      ".log": "40366d0cfba98d12a6e7f3ca2243b4703ccdb3311010f55459b21db22ed45fa7",
+      ".xml": "b33522f46518ca63a761e6d5c144e60bb534a52921c63982496ea15e283ba4f5"
+    }
+  }
+}

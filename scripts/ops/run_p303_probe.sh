@@ -5,7 +5,7 @@ base=/data/relcfd/chayo/physmorph_v2
 mode=${1:?probe mode}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in trajectory-reporting-verify|withdrawal-adjoint-verify|fragment-adjoint-verify|full-fragment-legacy|full-fragment-retained) ;; baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|gradient-reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|full-raw-no-layer|support-braking-repair|frozen-replay-noise|frozen-state-identity|withdrawal-capture|withdrawal-analyze|withdrawal-verify) ;; *) exit 2;; esac
+case "$mode" in trajectory-reporting-verify|withdrawal-adjoint-verify|fragment-adjoint-verify|full-fragment-legacy|full-fragment-retained|fragment-motion|fragment-shape|fragment-quality|fragment-phase) ;; baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|gradient-reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|full-raw-no-layer|support-braking-repair|frozen-replay-noise|frozen-state-identity|withdrawal-capture|withdrawal-analyze|withdrawal-verify) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -32,7 +32,7 @@ used=$(du -sb "$base" | cut -f1)
 if [[ "$mode" == full-baseline || "$mode" == full-raw || "$mode" == full-raw-no-layer || "$mode" == withdrawal-capture || "$mode" == full-fragment-* ]]; then
     (( used + 30000000000 < 100000000000 )) || { echo 'Full-horizon30GB reservation exceeds100GB; clean verified obsolete results first' >&2; exit 76; }
 fi
-if [[ "$mode" == baseline-shape || "$mode" == raw-shape ]]; then
+if [[ "$mode" == baseline-shape || "$mode" == raw-shape || "$mode" == fragment-shape ]]; then
     (( used + 2000000000 < 100000000000 )) || { echo 'Phase-shape2GB reservation exceeds100GB' >&2; exit 76; }
 fi
 if [[ "$mode" == withdrawal-analyze ]]; then
@@ -69,6 +69,28 @@ fi
 if [[ "$mode" == full-fragment-legacy || "$mode" == full-fragment-retained ]]; then
     exec "$PY" scripts/ops/cuda_python.py scripts/probes/fragment_adjoint_compare.py \
         --mode "${mode#full-fragment-}" --out "$out"
+fi
+if [[ "$mode" == fragment-motion || "$mode" == fragment-shape ]]; then
+    source_tag=${4:?source or motion tag}
+    [[ "$source_tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
+    if [[ "$mode" == fragment-motion ]]; then
+        exec "$PY" scripts/ops/cuda_python.py scripts/probes/horizon_motion.py \
+            --prefix "$base/work/p303/$source_tag" --out "$out"
+    fi
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/horizon_shape.py \
+        --motion "$base/work/p303/$source_tag" --out "$out"
+fi
+if [[ "$mode" == fragment-quality ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/quality_compare.py \
+        --baseline "$base/work/p303/p327_legacy1" --candidate "$base/work/p303/p327_retained1" \
+        --intervention fragment_adjoint_retained_full --out "$out.json"
+fi
+if [[ "$mode" == fragment-phase ]]; then
+    source_tag=${4:?quality reference tag}
+    [[ "$source_tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/raw_phase.py \
+        --baseline "$base/work/p303/p327_legacy1" --candidate "$base/work/p303/p327_retained1" \
+        --reference "$base/work/p303/$source_tag.json" --out "$out.json"
 fi
 if [[ "$mode" == full-baseline || "$mode" == full-raw || "$mode" == full-raw-no-layer ]]; then
     exec "$PY" scripts/ops/cuda_python.py scripts/probes/full_horizon.py --arm "${mode#full-}" --out "$out"

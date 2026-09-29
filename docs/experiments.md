@@ -9474,3 +9474,18 @@ scratch reproduction gives+.002087397 with identical forward outputs. This can
 affect gradients from both physics and rendering, so production paths may change;
 actual morph symptom/quality benefit remains unmeasured. No new renders or loss
 weights. See `docs/withdrawal_adjoint_p326.md` for FD refinements and scope.
+
+P326 CUDA: initial9b74f6e failed4/6 because the autograd worker lacked forward
+ContextVars;4d9ea89 restored the owned execution context and passed6/6. Final
+6a525c3 strengthens the FD absolute floor5e-4->5e-6 and requires a resolved
+nonzero directional derivative:6 P326 plus2 P327 captured-observer tests pass,
+0 skipped,2.21s. Full failed/passed receipts and source hashes remain in
+`docs/evidence/p326` and `docs/evidence/p327`. No withdrawal objective enabled.
+
+P327 serial production pair uses frozen6a525c3, same original raw recipe with
+only shared versus retained reverse-mask lifetime changed by the bound wrapper.
+Actual masks are observed before overwrite in both arms, with equal allocations.
+The mode-aware full-raw comparison extends existing P320 scopes/metrics, with
+40 final independent metadata rejection/parity tests and full before/after
+provenance checks. Physical quality/rest interpretation waits for completed pair
+and raw-state analysis; no renderer or deliverable promotion.

@@ -313,5 +313,11 @@ These are the leading candidates for the unresolved problems, and they are ports
   gradient-enabled rollouts retain the actual activity at every step; no-grad
   forward still shares scratch. Fixed-control primal is unchanged, but gradients
   and learned production paths can change.72 CPU cases pass, including a real
-  changing-mask opposite-sign regression. Actual CUDA/quality gates pending;
-  no natural-rest/hole/4K promotion.
+  changing-mask opposite-sign regression. After a CUDA worker ContextVar fix,
+  frozen6a525c3 passes6 actual CUDA gates with strengthened finite differences;
+  no natural-rest/hole/4K promotion. Earlier failed logs are retained.
+- **P327 production comparison:** `docs/fragment_adjoint_p327.md` runs same-code
+  raw legacy shared-mask versus retained-mask adjoints. The runtime wrapper is
+  explicitly bound by fragment protocol/activity sidecars; equal code/config
+  hashes alone cannot identify the arm.3 CPU and2 actual CUDA observer cases
+  pass. Full pair/shape/motion/render-influence outcomes pending; no new loss.

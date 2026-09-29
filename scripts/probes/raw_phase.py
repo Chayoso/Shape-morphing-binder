@@ -13,7 +13,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from physmorph.compute import array_api as np, cuda_execution, KDTree, to_array
 from scripts.probes.quality_compare import (checked_runs, admitted_mask, bounded_ids,
-                                            VARIANCE_INTERVENTIONS, LAYER_FULL,
+                                            VARIANCE_INTERVENTIONS, LAYER_FULL, FULL_RAW_SCOPE,
                                             artifact_stat, bind_layer_artifact, verify_layer_artifacts)
 
 
@@ -59,7 +59,7 @@ def motion_summary(moves, normals, tangent1, tangent2, spacing, include_rms=Fals
 def phase_path_share(numerator, denominator, intervention):
     # A nonempty stationary cohort has zero motion but no defined share of its
     # zero path. Keep the original tensor division/dtype for nonzero paths.
-    if intervention == LAYER_FULL and bool(denominator == 0):
+    if intervention in FULL_RAW_SCOPE and bool(denominator == 0):
         return None
     return float(numerator/denominator)
 
@@ -72,17 +72,17 @@ def phase_audit(baseline, candidate, reference, out):
     report = json.loads(reference_bytes)
     intervention = report['intervention']
     reference_binding = dict(sha256=hashlib.sha256(reference_bytes).hexdigest(), stat=reference_stat)
-    if intervention == LAYER_FULL and artifact_stat(reference) != reference_stat:
-        raise ValueError('P320 quality reference changed while reading')
+    if intervention in FULL_RAW_SCOPE and artifact_stat(reference) != reference_stat:
+        raise ValueError('P320/P327 quality reference changed while reading')
     def verify_inputs():
-        if intervention == LAYER_FULL:
+        if intervention in FULL_RAW_SCOPE:
             verify_layer_artifacts(runs)
             if bind_layer_artifact(reference) != reference_binding:
-                raise ValueError('P320 quality reference changed during phase analysis')
+                raise ValueError('P320/P327 quality reference changed during phase analysis')
     if intervention not in ('body_rprop', 'commit_pic_off', 'commit_pic_off_full',
                            'render_arrival_handoff', 'commit_pic_objective_prefix',
                            'geometric_rest_prefix', 'geometric_rest_full', 'shared_pic_off_prefix',
-                           LAYER_FULL, *VARIANCE_INTERVENTIONS):
+                           *FULL_RAW_SCOPE, *VARIANCE_INTERVENTIONS):
         raise ValueError('Phase diagnostic permits only explicitly reviewed interventions')
     runs, changes = checked_runs(baseline, candidate, intervention)
     quality_file = Path(sys.modules['scripts.probes.quality_compare'].__file__)
@@ -93,10 +93,10 @@ def phase_audit(baseline, candidate, reference, out):
     for name, run in zip(('baseline', 'candidate'), runs):
         if Path(report[name]['prefix']) != Path(run['prefix']):
             raise ValueError('Reference names different simulation artifacts')
-        if intervention == LAYER_FULL and report[name].get('artifact_hashes') != run['artifact_hashes']:
-            raise ValueError('P320 simulation artifacts changed since the quality comparison')
+        if intervention in FULL_RAW_SCOPE and report[name].get('artifact_hashes') != run['artifact_hashes']:
+            raise ValueError('P320/P327 simulation artifacts changed since the quality comparison')
     previous_cohort = report['cohorts']['common_endpoint_free_both']
-    if (intervention in VARIANCE_INTERVENTIONS or intervention == LAYER_FULL) and any(previous_cohort['arms'][name] is None
+    if (intervention in VARIANCE_INTERVENTIONS or intervention in FULL_RAW_SCOPE) and any(previous_cohort['arms'][name] is None
                                               for name in ('baseline', 'candidate')):
         reason = ('empty_common_free_cohort' if not previous_cohort['sampled_count'] else
                   'fewer_than_three_common_commits')
@@ -150,15 +150,18 @@ def phase_audit(baseline, candidate, reference, out):
             result['definitions']['interval'] = (
                 f'starts at accepted commit{first_commit}; windows{first_commit+1}..{last_commit}; '
                 'at most the last10 common windows; W1 excluded; each arm full endpoint is separate')
-    if intervention == LAYER_FULL:
+    if intervention in FULL_RAW_SCOPE:
         result.update(status='available_descriptive', audited_windows=[first_commit+1, last_commit],
                       window1_excluded=True)
         result['definitions'].update(
             interval=f'delivery-retained accepted commit{first_commit} through{last_commit}; '
                      'at most10 common windows, independent of own actual/delivered endpoints',
             phase='1..T within accepted raw rollouts; PIC and shift are disabled in both arms',
-            attribution='whole layer-control/relaxation policy comparison with adaptive optimization and pins; '
-                        'not a same-state layer-kernel ablation and not a natural-rest certificate')
+            attribution=('whole layer-control/relaxation policy comparison with adaptive optimization and pins; '
+                         'not a same-state layer-kernel ablation and not a natural-rest certificate'
+                         if intervention == LAYER_FULL else
+                         'same-code legacy/retained reverse fragment-mask comparison; adaptive optimization, '
+                         'pin trajectories and GPU variation remain; paired scalars do not isolate every causal contribution'))
     with cuda_execution('cuda'):
         n = len(runs[0]['source'])
         boundary, free = np.zeros(n, bool), np.ones(n, bool)
@@ -194,7 +197,7 @@ def phase_audit(baseline, candidate, reference, out):
             tangent2 = np.cross(normal, tangent1)
             summarize_motion = lambda values: motion_summary(values, normal, tangent1, tangent2, spacing,
                                                               include_rms=(intervention in VARIANCE_INTERVENTIONS
-                                                                           or intervention == LAYER_FULL))
+                                                                           or intervention in FULL_RAW_SCOPE))
             phases = [dict(phase=p+1, **summarize_motion(moves[:, p]))
                       for p in range(steps)]
             total_path = lengths.sum((0, 1))
