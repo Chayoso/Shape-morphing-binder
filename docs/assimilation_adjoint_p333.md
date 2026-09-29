@@ -6,7 +6,10 @@ both graph-capture cases at the host-synchronizing inverse. Capture correction
 uses the same inverse through inv_ex with a device status assertion, and uses
 torch.where for the skipped-row increment. The second CUDA run again passes 18
 cases but exposes linalg.svd's separate host convergence check. The next change
-calls the same cuSOLVER Jacobi routine with device status checking; rerun pending.
+calls the same cuSOLVER Jacobi routine with device status checking. That third
+run keeps all 18 numerical cases passing, but CuPy's wrapper refuses calls
+during capture. A typed C ABI call to the same installed solver removes that
+wrapper restriction; fourth run pending. Test criteria remain unchanged.
 No optimizer, runner or existing withdrawal default uses this derivative yet.
 
 The next coast must respond to the plastic state the runner really commits.
@@ -41,7 +44,10 @@ Only first derivatives are supported.
 `cuda_svd.py` uses the installed PyTorch 2.8 small-matrix settings: scalar-type
 epsilon tolerance, 400 sweeps, sorted singular values, packed column-major
 inputs and owned Torch buffers. The existing linalg.svd checks convergence on
-the host. This helper requires aligned Torch/CuPy streams and checks info on
+the host. CuPy14 also prohibits cuSOLVER calls during capture in its wrappers;
+the helper invokes the installed Linux CUDA12 solver through typed C pointers,
+with owned Torch buffers and explicit API status checks. It requires aligned
+Torch/CuPy streams and checks info on
 the device. A nonconverging matrix fails explicitly; it does not silently take
 PyTorch's host-directed fallback. Thus parity is scoped to converged inputs.
 See [PyTorch's cuSOLVER implementation](https://github.com/pytorch/pytorch/blob/v2.8.0/aten/src/ATen/native/cuda/linalg/BatchLinearAlgebraLib.cpp),
