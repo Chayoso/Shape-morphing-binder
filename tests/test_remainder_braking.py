@@ -61,8 +61,7 @@ def synthetic_summary(capture,source,target):
                 source_upper_ids_sha256='synthetic')
 
 
-@pytest.mark.parametrize('fail_replay',[False,True])
-def test_curved_callback_replaces_model_error_and_preserves_origin(monkeypatch,tmp_path,fail_replay):
+def make_case(fail_replay=False):
     model = CurvedModel(fail_replay)
     before = model.coefficients.clone()
     reference = CurvedReference()
@@ -74,6 +73,12 @@ def test_curved_callback_replaces_model_error_and_preserves_origin(monkeypatch,t
         trial05_terminal=torch.tensor([[.15,0.,0.]]),
         history=dict(d_vol=float(data['volume']),d_render=float(data['render']),d_pbr=0.,
                      body_update_modes_rms=[.3,.05]))
+    return model,packet,before
+
+
+@pytest.mark.parametrize('fail_replay',[False,True])
+def test_curved_callback_replaces_model_error_and_preserves_origin(monkeypatch,tmp_path,fail_replay):
+    model,packet,before = make_case(fail_replay)
     monkeypatch.setattr(probe,'summarize',synthetic_summary)
     result = probe.repair(model,packet,None,None,tmp_path,correction_rounds=2)
     assert torch.equal(model.coefficients,before)
@@ -104,3 +109,27 @@ def test_curved_callback_replaces_model_error_and_preserves_origin(monkeypatch,t
     assert result['fixed_candidate_replays'][2]['feasible']
     assert result['repeated_feasible'] is (not fail_replay)
     assert result['fixed_candidate_replays'][1]['feasible'] is (not fail_replay)
+
+
+def test_raw_quality_rejection_keeps_origin_and_backtracks(monkeypatch,tmp_path):
+    model,packet,before = make_case()
+    def quality_summary(capture,source,target):
+        result = synthetic_summary(capture,source,target)
+        # The longest proposed correction moves past this independent quality boundary.
+        if float(capture.packets[8]['positions'][-1].norm())<.625:
+            result['rows'][0]['geometry']['upper_target_near_frac'] = .9
+        return result
+    monkeypatch.setattr(probe,'summarize',quality_summary)
+    result = probe.repair(model,packet,None,None,tmp_path,correction_rounds=2,quality_backtracking=True)
+    assert torch.equal(model.coefficients,before)
+    rejected = [r for r in result['trials'] if r.get('quality_backtracking_rejected')]
+    assert rejected and all(r['data_restored'] and r['data_running_passed'] for r in rejected)
+    assert all(not r['running_update_accepted'] for r in rejected)
+    assert result['accepted_running_updates']==1 and result['repeated_feasible']
+    accepted = [r for r in result['trials'] if r['running_update_accepted']]
+    assert len(accepted)==1 and accepted[0]['halvings']>rejected[0]['halvings']
+    assert all(r['iteration']==1 for r in result['trials'])
+    assert len(list(tmp_path.glob('linearization*.npz')))==1
+    assert len(result['fixed_candidate_replays'])==3
+    with np.load(tmp_path/'linearization1.npz') as archive:
+        np.testing.assert_array_equal(archive['displacement'],before[:,:3].numpy())

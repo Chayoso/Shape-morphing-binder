@@ -17,10 +17,11 @@ from scripts.probes.terminal_braking import main,assess_candidates,finite_scalar
 from scripts.probes.live_braking_compensation import LiveCompensation,identity_evidence
 
 
-def repair(model,packet,source,target,out,*,correction_rounds=0):
+def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtracking=False):
     """Use the caller-owned live model; never load, close or commit it here."""
     reference = packet['reference']
     require(correction_rounds in (0,2),'Unregistered correction budget')
+    require(not quality_backtracking or correction_rounds==2,'Quality filtering requires the corrected model')
     rows,trials,sidecars = [],[],{}
     d0 = model.coefficients[:,:3].detach().clone()
     b0 = model.coefficients[:,3:].detach().clone()
@@ -96,7 +97,7 @@ def repair(model,packet,source,target,out,*,correction_rounds=0):
     accepted = 0
     fixed_candidate_replays = []
     replay_checked = False
-    for iteration in range(4):
+    for iteration in range(1 if quality_backtracking else 4):
         with torch.enable_grad():
             leaf = displacement.detach().clone().requires_grad_()
             values = model.evaluate(brake,leaf)
@@ -151,6 +152,12 @@ def repair(model,packet,source,target,out,*,correction_rounds=0):
                             take = bool(data_pass and improvement>threshold)
                             record.update(data_restored=bool(data_pass),running_improvement=improvement,
                                           reduction_threshold=threshold,running_update_accepted=take)
+                            if take and quality_backtracking:
+                                assess_candidates(rows[:3]+[record],displacement.dtype)
+                                record['data_running_passed'] = True
+                                take = record['feasible']
+                                record['running_update_accepted'] = take
+                                record['quality_backtracking_rejected'] = not take
                             if record['valid']:
                                 actual_data = torch.tensor([record['data'][k] for k in ('volume','render')],
                                                            device=G.device,dtype=torch.float64)
@@ -183,7 +190,8 @@ def repair(model,packet,source,target,out,*,correction_rounds=0):
     require(torch.equal(brake,packet['trial05_terminal']),'Terminal coefficient changed')
     return dict(rows=rows,trials=trials,accepted_running_updates=accepted,sidecars=sidecars,
                 running_replay_noise=measured_noise,data_ceilings=ceilings,lambda_render=packet['lambda_render'],
-                correction_rounds=correction_rounds,fixed_candidate_replays=fixed_candidate_replays,
+                correction_rounds=correction_rounds,quality_backtracking=quality_backtracking,
+                fixed_candidate_replays=fixed_candidate_replays,
                 repeated_feasible=replay_checked and all(r['feasible'] and r['running_decrease_resolved']
                                                          for r in fixed_candidate_replays))
 
