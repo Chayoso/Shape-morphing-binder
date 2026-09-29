@@ -1,0 +1,101 @@
+{
+  "definitions": "Observational optimizer telemetry, not causal attribution. Norm shares exclude post-combination transforms and transport addends. Compare matched raw trajectories with render disabled for causal evidence. Image losses do not certify physical holes/rest.",
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "loss_res": 36,
+    "render_res": 64,
+    "iters": 8
+  },
+  "render": {
+    "lambda_auto": 0.5,
+    "surface_gs_loss": false,
+    "surface_gs_weight": 1.0,
+    "detail_height": 2160
+  },
+  "windows": 20,
+  "raw_history_rows": 20,
+  "committed_windows": 20,
+  "inner_accepted_steps": 160,
+  "recorded_inner_steps": 160,
+  "recorded_committed_steps": 160,
+  "steps_in_committed_windows": 160,
+  "step_nominal_share": {
+    "count": 160,
+    "minimum": 0.33333334641965623,
+    "median": 0.49503839126331417,
+    "maximum": 0.6603660276148634
+  },
+  "first_iteration_nominal_share": {
+    "count": 20,
+    "minimum": 0.3333333333333333,
+    "median": 0.4161854181083974,
+    "maximum": 0.574031259184582
+  },
+  "adaptive_lambda": {
+    "count": 20,
+    "minimum": 0.02719504874947557,
+    "median": 0.06120909868805752,
+    "maximum": 0.3086393099185442
+  },
+  "observed_render_loss_change": {
+    "count": 160,
+    "minimum": -0.02313457615673542,
+    "median": -0.00013897661119699478,
+    "maximum": 0.0024972157552838326
+  },
+  "endpoint_optimizer_change_rms_wu": {
+    "count": 160,
+    "minimum": 0.0010371976532042027,
+    "median": 0.005616087932139635,
+    "maximum": 0.16976013779640198
+  },
+  "channels": {
+    "body": {
+      "nominal_share": {
+        "count": 160,
+        "minimum": 0.19348347015393474,
+        "median": 0.3504829940958277,
+        "maximum": 0.5099717756475735
+      },
+      "control_delta_norm": {
+        "count": 160,
+        "minimum": 1.2654114961624146,
+        "median": 4.913001775741577,
+        "maximum": 51.7142219543457
+      }
+    },
+    "stress": {
+      "nominal_share": {
+        "count": 160,
+        "minimum": 0.2796873705571289,
+        "median": 0.5423914935852137,
+        "maximum": 0.788543568745783
+      },
+      "control_delta_norm": {
+        "count": 160,
+        "minimum": 0.22405873239040375,
+        "median": 1.4471321105957031,
+        "maximum": 46.589935302734375
+      }
+    },
+    "surface_u": {
+      "nominal_share": {
+        "count": 160,
+        "minimum": 0.5371075683774356,
+        "median": 0.7346222823579818,
+        "maximum": 0.9499880238097419
+      },
+      "control_delta_norm": {
+        "count": 160,
+        "minimum": 0.06827261298894882,
+        "median": 0.15379250049591064,
+        "maximum": 0.7165005207061768
+      }
+    }
+  },
+  "last_committed_surface_components": null,
+  "causal_render_ablation": "not measured by this report"
+}

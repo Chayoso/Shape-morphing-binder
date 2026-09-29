@@ -9525,3 +9525,24 @@ outer acceptance remain unchanged. Production CUDA/memory is pending. Coast
 prepared image-loss observations are finite diagnostics only; independent raw
 coast quality and actual handoff validation remain required before adoption.
 See `docs/production_withdrawal_p329.md`; no objective/default/render change.
+
+P329 completed frozen19e725e: N300k,T20,dt1/240,dx.3062907544wu,loss36^3,iters8,
+20/20 accepted, manual cap, allguards0,364.10s including archive I/O. All head/
+original-merit/private replay closures pass within preregistered precision;
+callback/outer states remain exact. Sampled process peak29094MiB, no allocation
+failure. All eight future coefficient covectors are finite/nonzero. Fixed
+56145 coarse-arrived-free IDs still drift.447400sp RMS over20 passive steps.
+Archive-only24-view128/256px raw observation over21coast states finds some
+better fitting (IoU128 .963889->.964036, upper support.936129->.940243), tip
+73->70 and nonzero projected holes. Mean motion alone is not a rest/shape gate.
+Prepared render worsens.00169313->.00185310 while these raw metrics are mixed.
+Originating160accepted inner updates: median nominal rendershare.495038,
+body/stress/u .350483/.542391/.734622, lambda.0612091, reference-local image
+delta-.000138977. No causal render-off attribution or4K/physical promotion.
+
+P330 adds the read-only complete head-merit covector via shared components in
+the existing evaluator; rounded Python-float scalar acceptance is unchanged.
+39 CPU cases pass (11new,26adapter,2original observer), including actual control
+finite differences, F/energy/fullV analytic partials, activePBR/layer isolation,
+cache recovery and callback-expired gradients.2opt-in actualCUDA cases pending.
+No default loss or candidate adoption change. See `docs/checkpoint_merit_terms_p330.md`.

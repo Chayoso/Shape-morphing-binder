@@ -308,8 +308,9 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     true scalar/control gradient at the same controls without changing Adam,
     lambda, targets or the accepted evaluation trajectory. Re-evaluation may
     have CUDA atomic noise; this is not a constrained stationarity certificate.
-    checkpoint_merit adds a value-only evaluator for owned same-forward candidate
-    state/body energy, valid only during that callback; it cannot adopt a state.
+    checkpoint_merit adds a scalar evaluator and its differentiable .terms for
+    owned same-forward candidate state/body energy. Both expire with the callback
+    and cannot adopt state; only the scalar evaluator defines acceptance rounding.
 
     u_scale_init (N,) in [0, 1] or None: the per-particle multiplier of the u channel's one-spacing
     bound (config.u_rprop, docs/method.md 10.19; the runner updates it from the sign history of the
@@ -2065,8 +2066,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
         lease = [True]
         stress = stress.detach().clone()
 
-        @torch.no_grad()
-        def evaluate(values):
+        def components(values):
+            """Same candidate terms; caller chooses grad mode, never live controls."""
             if not lease[0]:
                 raise RuntimeError('Candidate merit evaluator expired')
             if not values.get('valid') or not values.get('pins_exact'):
@@ -2091,20 +2092,53 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 physical = phys_total(lv,lk,stress,x,F,running,None,variance,v,
                                       body_energy=values['body_energy'])
                 render = x.sum()*0 if lr is None else lr
-                # Match scalars(): combine the two separately rounded Python floats.
-                merit = float(physical)+fixed_lambda*float(render)
-                result = dict(merit=merit,physical=physical,volume=lv,render=render,
+                return dict(physical=physical,volume=lv,render=render,
                     silhouette=sil_gauss['sil'] or 0.,pbr=lpbr if lpbr is not None else 0.,
                     stored_terminal=lk,stored_running=running,stored_variance=variance,
                     body_energy=values['body_energy'],unit_weight=wu,lambda_render=fixed_lambda)
-                result = {k:float(v) for k,v in result.items()}
-                if not all(math.isfinite(v) for v in result.values()):
-                    raise ValueError('Nonfinite candidate merit')
-                return result
             finally:
                 sil_gauss.clear();sil_gauss.update(saved[0])
                 surface_last.clear();surface_last.update(saved[1])
                 tgt.gauss_scale,gx_box[0] = saved[2:]
+
+        @torch.no_grad()
+        def evaluate(values):
+            result = components(values)
+            # Match scalars(): combine the two separately rounded Python floats.
+            merit = float(result['physical'])+fixed_lambda*float(result['render'])
+            result = {k:float(v) for k,v in dict(merit=merit,**result).items()}
+            if not all(math.isfinite(v) for v in result.values()):
+                raise ValueError('Nonfinite candidate merit')
+            return result
+
+        def gradient_lease(gradient):
+            if not lease[0]:
+                raise RuntimeError('Candidate merit gradient expired')
+            return gradient
+
+        def differentiable_terms(values):
+            """Complete head covector, not the rounded scalar acceptance value.
+
+            Physical/render, kinetic terms and candidate body energy retain their
+            input graph. Silhouette remains the existing scalar telemetry; use
+            PreparedReference for its separate covector. No PCGrad or lambda
+            update occurs. Returned tensors own their values and expire for
+            backward with this callback, without installing hooks on inputs.
+            """
+            result = components(values)
+            result = dict(merit=result['physical']+fixed_lambda*result['render'],**result)
+            for key,value in result.items():
+                if torch.is_tensor(value):
+                    if not bool(torch.isfinite(value).all()):
+                        raise ValueError('Nonfinite candidate merit term: '+key)
+                elif not math.isfinite(value):
+                    raise ValueError('Nonfinite candidate merit term: '+key)
+            for key,value in result.items():
+                if torch.is_tensor(value):
+                    result[key] = value.clone()
+                    if result[key].requires_grad:
+                        result[key].register_hook(gradient_lease)
+            return result
         def binding_digest():
             if not lease[0]:
                 raise RuntimeError('Candidate merit evaluator expired')
@@ -2120,6 +2154,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                 dt_mass=m_dt,dt_indices=dt_idx,nn_indices=nn_idx,nn_eligible=nn_elig,
                 kde_neighbors=kde_nbr,fill_pairs=fill_pairs,fill_lambda=fill_lam,corr_target=corr_chat))
         evaluate.binding_digest = binding_digest
+        evaluate.terms = differentiable_terms
         return evaluate,lease
 
     def proposal_observer(audit, state, lv, lk, lr, extra, physical, render, transport):

@@ -1,0 +1,524 @@
+{
+  "scope": "Read-only original-control pre-assimilation withdrawal; no proposal, new objective, postcommit derivative, rest/shape certificate or adopted state",
+  "window": 20,
+  "iteration": 8,
+  "N": 300000,
+  "T": 20,
+  "dt": 0.004166666666666667,
+  "dx": 0.3062907543956724,
+  "spacing": 0.03498853660707278,
+  "lambda_render": 0.02719504874947557,
+  "pbr_weight": 1.0,
+  "reference_kind": "paced",
+  "history": {
+    "iter": 7,
+    "loss": 0.0020917426816345255,
+    "render_influence": {
+      "iteration": 7,
+      "backtracks": 0,
+      "accepted_alpha": 0.00125,
+      "lambda_render": 0.02719504874947557,
+      "direction_statistics_available": true,
+      "nominal_render_share": 0.5560068942451626,
+      "render_loss_before": 0.0016937630716711283,
+      "render_loss_after": 0.0016931274440139532,
+      "observed_render_loss_change": -6.356276571750641e-07,
+      "components_before": {},
+      "components_after": {},
+      "channels": {
+        "stress": {
+          "physics_direction_norm": 5.450405751616927e-06,
+          "render_direction_norm": 0.00019142276141792536,
+          "nominal_render_share": 0.4885205134807341,
+          "accepted_control_delta_norm": 0.22405873239040375,
+          "optimizer_render_direction_dot_delta": -2.559486802056199e-06,
+          "weighted_optimizer_render_direction_dot_delta": -6.960536835555766e-08,
+          "physics_render_cosine": -0.25116438750161746
+        },
+        "body": {
+          "physics_direction_norm": 1.4666494280390907e-05,
+          "render_direction_norm": 0.0003599946794565767,
+          "nominal_render_share": 0.4003044581942247,
+          "accepted_control_delta_norm": 1.2654114961624146,
+          "optimizer_render_direction_dot_delta": -3.5140827094437554e-05,
+          "weighted_optimizer_render_direction_dot_delta": -9.556565059301213e-07,
+          "physics_render_cosine": -0.04670341727845459
+        },
+        "surface_u": {
+          "physics_direction_norm": 1.791800605133176e-05,
+          "render_direction_norm": 0.0010166888823732734,
+          "nominal_render_share": 0.6067759226691533,
+          "accepted_control_delta_norm": 0.06951183080673218,
+          "optimizer_render_direction_dot_delta": -2.7549849619390443e-05,
+          "weighted_optimizer_render_direction_dot_delta": -7.492195034400441e-07,
+          "physics_render_cosine": 0.027920878343644637
+        }
+      },
+      "optimization_endpoint_change_rms_wu": 0.0010714154923334718,
+      "interpretation": "Norm share is not displacement/causal share. Direction dot delta may include gradient transforms; not physical work or an exact loss derivative. Endpoint delta is an optimizer update, not physical velocity."
+    },
+    "surface_render": null,
+    "geometric_variance": null,
+    "geometric_rest": null,
+    "endpoint_space": "raw_rollout",
+    "body_update_modes_rms": [
+      0.012818491086363792,
+      0.018591495230793953
+    ],
+    "d_vol": 0.0019169909646734595,
+    "kin": 0.008215019479393959,
+    "kin_run": 0.006599008571356535,
+    "kin_var": 0.0008121292339637876,
+    "d_sil": 0.0010908690746873617,
+    "d_gauss": null,
+    "d_render": 0.0010908690164797008,
+    "d_pbr": 0.0006022584275342524,
+    "lambda": 0.02719504874947557,
+    "grad_norm": 4.8356145271100104e-05,
+    "alpha": 0.00125,
+    "predicted_decrease": 5.905532816541381e-06,
+    "render_work": 3.0854446322337026e-06,
+    "render_work_x": 3.0854446322337026e-06,
+    "render_work_F": 0.0,
+    "phys_work": 2.901396440102566e-06,
+    "phys_work_x": 3.0475816856778692e-06,
+    "phys_work_F": 5.624777310586637e-10,
+    "phys_work_v": -1.4674772330636188e-07,
+    "step_norm": 0.22405873239040375,
+    "render_cos": 0.001976515405199253,
+    "phys_cos": 0.0005804101247675757,
+    "dfc_absmax": 0.008532478474080563,
+    "s_absmax": null
+  },
+  "stages": {
+    "owned_input_archive": {
+      "elapsed_seconds": 13.177296146051958,
+      "memory": {
+        "device": "cuda:0",
+        "free_bytes": 29697507328,
+        "total_bytes": 50867404800,
+        "torch_allocated": 6926593024,
+        "torch_reserved": 11351883776,
+        "torch_peak_allocated": 9536444928,
+        "torch_peak_reserved": 11351883776,
+        "scope": "Torch peaks are process-lifetime allocator peaks; device free includes other allocations/users",
+        "cupy_pool_used": 2384325120,
+        "cupy_pool_total": 2949628416,
+        "process_device_peak_scope": "External root-owned nvidia-smi sampled receipt; stage values are not peaks"
+      }
+    },
+    "private_original_released": {
+      "elapsed_seconds": 2.8457681429572403,
+      "memory": {
+        "device": "cuda:0",
+        "free_bytes": 26035879936,
+        "total_bytes": 50867404800,
+        "torch_allocated": 6926593024,
+        "torch_reserved": 11351883776,
+        "torch_peak_allocated": 9536444928,
+        "torch_peak_reserved": 11351883776,
+        "scope": "Torch peaks are process-lifetime allocator peaks; device free includes other allocations/users",
+        "cupy_pool_used": 2384325120,
+        "cupy_pool_total": 2949628416,
+        "process_device_peak_scope": "External root-owned nvidia-smi sampled receipt; stage values are not peaks"
+      }
+    },
+    "joint_forward_and_state_archive": {
+      "elapsed_seconds": 14.195573898032308,
+      "memory": {
+        "device": "cuda:0",
+        "free_bytes": 22072262656,
+        "total_bytes": 50867404800,
+        "torch_allocated": 9844364800,
+        "torch_reserved": 11351883776,
+        "torch_peak_allocated": 10673645568,
+        "torch_peak_reserved": 11351883776,
+        "scope": "Torch peaks are process-lifetime allocator peaks; device free includes other allocations/users",
+        "cupy_pool_used": 3010727424,
+        "cupy_pool_total": 3957628416,
+        "process_device_peak_scope": "External root-owned nvidia-smi sampled receipt; stage values are not peaks"
+      }
+    },
+    "future_only_backward": {
+      "elapsed_seconds": 0.9629074279218912,
+      "memory": {
+        "device": "cuda:0",
+        "free_bytes": 20335820800,
+        "total_bytes": 50867404800,
+        "torch_allocated": 9927024128,
+        "torch_reserved": 13079937024,
+        "torch_peak_allocated": 11979268608,
+        "torch_peak_reserved": 13079937024,
+        "scope": "Torch peaks are process-lifetime allocator peaks; device free includes other allocations/users",
+        "cupy_pool_used": 3010727424,
+        "cupy_pool_total": 3957628416,
+        "process_device_peak_scope": "External root-owned nvidia-smi sampled receipt; stage values are not peaks"
+      }
+    }
+  },
+  "errors": [],
+  "accepted_F_C_scope": "Accepted X/V sequence; terminal F/C only; no accepted Fg available",
+  "coast_policy": "Original Fp, fixed start pins/layer/bonds; learned controls withdrawn, passive projections remain",
+  "gradient_scope": "Original coefficients only; no direction normalization, projection, proposal or lambda update",
+  "merit_binding_before": "bd04e770b97f2cdd5288b71682788d07399ab9d4d6a96ad4b75e66b8ee774e55",
+  "original_closure": {
+    "positions": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 0.3062907543956724,
+      "max_abs": 4.76837158203125e-07,
+      "max_tolerance_ratio": 0.11882230639457703,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "V": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 3.675489052748069,
+      "max_abs": 2.5015324354171753e-06,
+      "max_tolerance_ratio": 0.17716562747955322,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "F": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 1.0,
+      "max_abs": 5.960464477539062e-07,
+      "max_tolerance_ratio": 0.07750494033098221,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "C": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 12.0,
+      "max_abs": 1.1138617992401123e-05,
+      "max_tolerance_ratio": 0.24227969348430634,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    }
+  },
+  "original_health": {
+    "valid": true,
+    "pins_exact": true,
+    "min_det": 0.8391053080558777
+  },
+  "original_merit": {
+    "merit": 0.0020917426879663663,
+    "physical": 0.0020456979982554913,
+    "volume": 0.0019169908482581377,
+    "render": 0.0016931276768445969,
+    "silhouette": 0.0010908693075180054,
+    "pbr": 0.0006022584275342524,
+    "stored_terminal": 0.00821501761674881,
+    "stored_running": 0.006599007174372673,
+    "stored_variance": 0.0008121290011331439,
+    "body_energy": 0.010122478008270264,
+    "unit_weight": 3.0299945791503233e-05,
+    "lambda_render": 0.02719504874947557
+  },
+  "original_scalar_closure": {
+    "merit": {
+      "passed": true,
+      "actual": 0.0020917426879663663,
+      "expected": 0.0020917426816345255,
+      "absolute_difference": 6.3318408675960836e-12,
+      "tolerance": 7.97936508802233e-09
+    },
+    "volume": {
+      "passed": true,
+      "actual": 0.0019169908482581377,
+      "expected": 0.0019169909646734595,
+      "absolute_difference": 1.1641532182693481e-10,
+      "tolerance": 7.312740191167677e-09
+    },
+    "render": {
+      "passed": true,
+      "actual": 0.0016931276768445969,
+      "expected": 0.0016931274440139532,
+      "absolute_difference": 2.3283064365386963e-10,
+      "tolerance": 6.4587686310346726e-09
+    }
+  },
+  "joint_closure": {
+    "positions": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 0.3062907543956724,
+      "max_abs": 5.960464477539062e-07,
+      "max_tolerance_ratio": 0.12219414114952087,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "V": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 3.675489052748069,
+      "max_abs": 2.980697900056839e-06,
+      "max_tolerance_ratio": 0.21230804920196533,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "F": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 1.0,
+      "max_abs": 5.960464477539062e-07,
+      "max_tolerance_ratio": 0.07786539196968079,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "C": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 12.0,
+      "max_abs": 1.1902302503585815e-05,
+      "max_tolerance_ratio": 0.25901442766189575,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    }
+  },
+  "private_joint_closure": {
+    "positions": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 0.3062907543956724,
+      "max_abs": 5.960464477539062e-07,
+      "max_tolerance_ratio": 0.2224508374929428,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "V": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 3.675489052748069,
+      "max_abs": 4.956498742103577e-06,
+      "max_tolerance_ratio": 0.3510720431804657,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "F": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 1.0,
+      "max_abs": 5.960464477539062e-07,
+      "max_tolerance_ratio": 0.07786539196968079,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "C": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 12.0,
+      "max_abs": 8.702278137207031e-06,
+      "max_tolerance_ratio": 0.1882999837398529,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    },
+    "Fg": {
+      "passed": true,
+      "finite": true,
+      "native_scale": 1.0,
+      "max_abs": 7.152557373046875e-07,
+      "max_tolerance_ratio": 0.11908509582281113,
+      "rule": "32*FP32_eps*(native_scale+abs(reference)); elementwise"
+    }
+  },
+  "joint_health": {
+    "head_valid": true,
+    "coast_valid": true,
+    "head_finite": true,
+    "coast_finite": true,
+    "head_pins_exact": true,
+    "coast_pins_exact": true,
+    "pin_state_scope": "zero post-step V/C; incoming boundary v0/C0 excluded",
+    "coast_min_det": 0.8457863330841064,
+    "same_forward": true,
+    "valid": true,
+    "pins_exact": true,
+    "min_det": 0.8391053080558777
+  },
+  "cohorts": {
+    "start_free": {
+      "particles": 56313,
+      "losses": {
+        "geometric_step_mean_square": 0.03825468303231586,
+        "stored_speed_mean_square": 0.038027726618081036
+      },
+      "gradients": {
+        "geometric_step_mean_square": {
+          "displacement": {
+            "finite": true,
+            "norm": 0.025564786396762355,
+            "rms": 0.00026340057397163466,
+            "absmax": 0.003503878600895405,
+            "nonzero": true
+          },
+          "terminal": {
+            "finite": true,
+            "norm": 0.04214462588226075,
+            "rms": 0.00043422692741970897,
+            "absmax": 0.005155314225703478,
+            "nonzero": true
+          }
+        },
+        "stored_speed_mean_square": {
+          "displacement": {
+            "finite": true,
+            "norm": 0.025558586345331907,
+            "rms": 0.0002633366932460112,
+            "absmax": 0.003562618512660265,
+            "nonzero": true
+          },
+          "terminal": {
+            "finite": true,
+            "norm": 0.04216512457377278,
+            "rms": 0.0004344381307141993,
+            "absmax": 0.005165832117199898,
+            "nonzero": true
+          }
+        }
+      },
+      "net_rms_sp": 0.44823091668494053,
+      "path_mean_sp": 0.42197613052698185
+    },
+    "start_arrived_free": {
+      "particles": 56145,
+      "losses": {
+        "geometric_step_mean_square": 0.03812855903704687,
+        "stored_speed_mean_square": 0.037898559279474296
+      },
+      "gradients": {
+        "geometric_step_mean_square": {
+          "displacement": {
+            "finite": true,
+            "norm": 0.025573134454767932,
+            "rms": 0.0002634865861618439,
+            "absmax": 0.003514376701787114,
+            "nonzero": true
+          },
+          "terminal": {
+            "finite": true,
+            "norm": 0.042071031458005136,
+            "rms": 0.00043346866512527046,
+            "absmax": 0.005170755088329315,
+            "nonzero": true
+          }
+        },
+        "stored_speed_mean_square": {
+          "displacement": {
+            "finite": true,
+            "norm": 0.025566509753601356,
+            "rms": 0.0002634183301606951,
+            "absmax": 0.003573295660316944,
+            "nonzero": true
+          },
+          "terminal": {
+            "finite": true,
+            "norm": 0.04209106584735811,
+            "rms": 0.00043367508459511646,
+            "absmax": 0.005181313958019018,
+            "nonzero": true
+          }
+        }
+      },
+      "net_rms_sp": 0.44740028933617526,
+      "path_mean_sp": 0.4212647978687548
+    }
+  },
+  "joint_merit": {
+    "merit": 0.0020917426879663663,
+    "physical": 0.0020456979982554913,
+    "volume": 0.0019169909646734595,
+    "render": 0.0016931276768445969,
+    "silhouette": 0.0010908693075180054,
+    "pbr": 0.0006022584275342524,
+    "stored_terminal": 0.008215019479393959,
+    "stored_running": 0.00659900764003396,
+    "stored_variance": 0.0008121290011331439,
+    "body_energy": 0.010122478008270264,
+    "unit_weight": 3.0299945791503233e-05,
+    "lambda_render": 0.02719504874947557
+  },
+  "prepared_head": {
+    "volume": 0.0019169908482581377,
+    "silhouette": 0.0010908693075180054,
+    "pbr": 0.0006022584275342524,
+    "render": 0.0016931276768445969,
+    "weighted_render": 4.604468971087513e-05
+  },
+  "scalar_closure": {
+    "merit": {
+      "passed": true,
+      "actual": 0.0020917426879663663,
+      "expected": 0.0020917426816345255,
+      "absolute_difference": 6.3318408675960836e-12,
+      "tolerance": 7.97936508802233e-09
+    },
+    "volume": {
+      "passed": true,
+      "actual": 0.0019169908482581377,
+      "expected": 0.0019169909646734595,
+      "absolute_difference": 1.1641532182693481e-10,
+      "tolerance": 7.312740191167677e-09
+    },
+    "render": {
+      "passed": true,
+      "actual": 0.0016931276768445969,
+      "expected": 0.0016931274440139532,
+      "absolute_difference": 2.3283064365386963e-10,
+      "tolerance": 6.4587686310346726e-09
+    }
+  },
+  "coast_prepared_observations": [
+    {
+      "phase": 0,
+      "volume": 0.0019169910810887814,
+      "silhouette": 0.0010908691911026835,
+      "pbr": 0.0006022584275342524,
+      "render": 0.0016931276768445969,
+      "weighted_render": 4.604468971087513e-05
+    },
+    {
+      "phase": 10,
+      "volume": 0.001920762239024043,
+      "silhouette": 0.0011675910791382194,
+      "pbr": 0.0006094793207012117,
+      "render": 0.0017770703416317701,
+      "weighted_render": 4.83275145719232e-05
+    },
+    {
+      "phase": 20,
+      "volume": 0.0019412485416978598,
+      "silhouette": 0.00123682024423033,
+      "pbr": 0.0006162829813547432,
+      "render": 0.0018531032837927341,
+      "weighted_render": 5.039523414055667e-05
+    }
+  ],
+  "coast_observation_scope": "Frozen paced reference at boundary/mid/end; not independent raw coverage or all-phase quality",
+  "merit_binding_after": "bd04e770b97f2cdd5288b71682788d07399ab9d4d6a96ad4b75e66b8ee774e55",
+  "merit_binding_unchanged": true,
+  "sidecars": {
+    "accepted_head.npz": {
+      "bytes": 97092260,
+      "mtime_ns": 1790663520014532750,
+      "inode": 10606137,
+      "sha256": "4552b2c751c9ef6b0e29b58645e12dcaa331d5fe15c0d309ca66e47ee56e8f45"
+    },
+    "prepared_owner.npz": {
+      "bytes": 237293489,
+      "mtime_ns": 1790663529986524242,
+      "inode": 10606138,
+      "sha256": "01a5060ca7085c4659fd8e466df276283fd7f55cc0ffc5bae310d7155056a340"
+    },
+    "private_head.npz": {
+      "bytes": 95507416,
+      "mtime_ns": 1790663532786521848,
+      "inode": 10606139,
+      "sha256": "a77253f881bb6f512ca4e73c8cf4987e6b72a29284d78c03e251b2b90ca68b4c"
+    },
+    "joint_state.npz": {
+      "bytes": 479477863,
+      "mtime_ns": 1790663546918509747,
+      "inode": 10606140,
+      "sha256": "6ac92c3a2a3f8d00a3d70d335a30b263b648a939c3d23571732cb440ca771958"
+    },
+    "coast_gradients.npz": {
+      "bytes": 193152,
+      "mtime_ns": 1790663548178508668,
+      "inode": 10606141,
+      "sha256": "d8e5dac54fe0df4836916f3b7a661d61d34a3a7609d2387929a7f6f6dd40a910"
+    }
+  },
+  "measurement_passed": true
+}

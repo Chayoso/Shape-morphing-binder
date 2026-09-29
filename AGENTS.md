@@ -336,5 +336,15 @@ These are the leading candidates for the unresolved problems, and they are ports
   one read-only N300k W20/inner8 joint withdrawal measurement. Accepted full X/V
   and terminal F/C, private replay, original merit and original outer disposition
   are separately bound.24 CPU cases pass, including a failed-C witness with
-  unchanged production frames. Full-size CUDA/memory is pending. Prepared coast
-  image terms are diagnostics, not raw quality; no proposal or adoption API.
+  unchanged production frames. Frozen19e725e passes N300k closure/health with
+  sampled process peak29094MiB and all original outer states preserved. Its
+  arrived-free cohort still drifts.4474sp RMS over20 passive steps; raw fitting
+  partly improves while tip supply worsens. Prepared coast image terms are
+  diagnostics, not raw quality; no proposal or adoption API. See P329 evidence
+  for the bounded independent archive audit and unchanged native discretization.
+- **P330 merit covector:** `docs/checkpoint_merit_terms_p330.md` exposes
+  `evaluate_merit.terms(values)` inside the opt-in read-only checkpoint. Shared
+  validation/caches/physical terms preserve the exact old Python-float scalar
+  acceptance path; tensor merit is for differentiation only.39 CPU cases pass;
+ 2 server-only CUDA cases are registered, pending. No objective, adoption or
+ 4K promotion; same callback/mode restrictions remain.

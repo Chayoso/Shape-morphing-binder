@@ -1,0 +1,164 @@
+"""Archive-only raw coast geometry; no simulation, renderer or loss evaluation."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import math
+from pathlib import Path
+import sys
+
+import numpy as host_np
+
+p = argparse.ArgumentParser()
+p.add_argument('--code', type=Path, required=True)
+p.add_argument('--run', type=Path, required=True)
+p.add_argument('--out', type=Path, required=True)
+a = p.parse_args()
+base = Path('/data/relcfd/chayo/physmorph_v2').resolve()
+assert all(path.resolve().is_relative_to(base) for path in (a.code, a.run, a.out))
+assert not a.out.exists()
+sys.path.insert(0, str(a.code))
+from physmorph.compute import array_api as np, cuda_execution, to_array, to_host, ndimage, KDTree
+from physmorph.metrics import _splat_body, target_extent
+import physmorph
+assert Path(physmorph.__file__).resolve().parent.parent == a.code.resolve()
+
+
+def bind(path):
+    h = hashlib.sha256()
+    before = path.stat()
+    with path.open('rb') as stream:
+        for block in iter(lambda: stream.read(8 << 20), b''):
+            h.update(block)
+    after = path.stat()
+    assert (before.st_size, before.st_mtime_ns, before.st_ino) == (after.st_size, after.st_mtime_ns, after.st_ino)
+    return dict(bytes=after.st_size, mtime_ns=after.st_mtime_ns, inode=after.st_ino, sha256=h.hexdigest())
+
+
+paths = [a.run/'protocol.json', a.run/'result.json', a.run/'checkpoint.json',
+         a.run/'accepted_head.npz', a.run/'joint_state.npz', Path(__file__),
+         *sorted((a.code/'physmorph').rglob('*.py'))]
+bindings = {str(path): bind(path) for path in paths}
+def bound_json(path):
+    raw = path.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == bindings[str(path)]['sha256']
+    return json.loads(raw)
+
+protocol = bound_json(a.run/'protocol.json')
+result = bound_json(a.run/'result.json')
+assert bindings[str(a.run/'protocol.json')]['sha256'] == result['protocol_sha256']
+source_path = base/'repro/current_pair/source_render_full_dt_iso_nn.npz'
+bindings[str(source_path)] = bind(source_path)
+assert bindings[str(source_path)] == protocol['bindings'][str(source_path)]
+module_paths = sorted((a.code/'physmorph').rglob('*.py'))
+assert {str(path) for path in module_paths} == {
+    path for path in protocol['bindings'] if Path(path).is_relative_to(a.code/'physmorph')}
+for path in module_paths:
+    assert bindings[str(path)] == protocol['bindings'][str(path)]
+for name in ('accepted_head.npz', 'joint_state.npz'):
+    assert bindings[str(a.run/name)] == result['checkpoint']['sidecars'][name]
+with host_np.load(source_path, allow_pickle=False) as archive:
+    source_host, target_host = archive['src'], archive['tgt']
+with host_np.load(a.run/'accepted_head.npz', allow_pickle=False) as archive:
+    pins_host, arrived_host = archive['pins'], archive['start_arrived']
+with host_np.load(a.run/'joint_state.npz', allow_pickle=False) as archive:
+    coast_host = archive['coast_X']
+    head_endpoint_host = archive['x']
+T, N = protocol['effective_config']['T'], protocol['N']
+assert T == 20 and N == 300000 and coast_host.shape == (T+1, N, 3)
+assert coast_host.dtype == head_endpoint_host.dtype == host_np.float32
+assert all(host_np.issubdtype(v.dtype, host_np.floating) for v in (source_host, target_host))
+report = dict(scope='Archived pre-assimilation passive coast only; no candidate, actual handoff, full-morph or watertightness claim',
+    start_utc=datetime.now(timezone.utc).isoformat(), original_capability_passed=result['passed'],
+    producer_status=dict(failure=result['failure'], outer_accepted=result['outer_accepted'],
+        joint_health=result['checkpoint'].get('joint_health'),
+        closures={key: result['checkpoint'].get(key) for key in
+                  ('original_closure', 'joint_closure', 'private_joint_closure', 'scalar_closure', 'original_scalar_closure')}),
+    discretization=dict(N=N, T=T, dt=protocol['mpm']['dt'], dx=protocol['mpm']['dx'],
+                        loss_res=protocol['effective_config']['loss_res'], iters=protocol['effective_config']['iters']),
+    definitions=dict(projection='Binary fixed 3x3 point footprint, 24 views, fixed target extent, resolutions128/256',
+        holes='Per-view enclosed empty pixels minus same-view target enclosed empty pixels, clipped below at0; not3D watertightness',
+        target_support='Nearest source particle within2 target-native median spacings',
+        source_supply='Fixed original source IDs including pinned IDs: y>=source bbox midpoint and2sp neighbor count<0.6source median; self-excluded count at target median8NN radius /8',
+        reversal='Negative adjacent displacement dot product when both exceed1e-4 source spacing; not an oscillation certificate'),
+    rendering='No renderer or loss operator evaluated; source optimization influence remains in bound result.json', rows=[])
+with cuda_execution('cuda:0'):
+    source, target, coast = map(to_array, (source_host, target_host, coast_host))
+    pins, arrived = map(to_array, (pins_host, arrived_host))
+    assert source.shape == target.shape == (N, 3) and pins.shape == arrived.shape == (N,)
+    assert pins.dtype == arrived.dtype == np.bool_
+    assert bool(np.isfinite(coast).all()) and bool(np.isfinite(source).all()) and bool(np.isfinite(target).all())
+    assert bool(np.array_equal(coast[0], to_array(head_endpoint_host)))
+    assert bool(np.array_equal(coast[:, pins], np.broadcast_to(coast[0, pins], coast[:, pins].shape)))
+    source_tree, target_tree = KDTree(source), KDTree(target)
+    spacing = float(np.median(source_tree.query(source, k=2)[0][:, 1]))
+    target_nn = target_tree.query(target, k=9)[0]
+    target_spacing = float(np.median(target_nn[:, 1]))
+    radius = float(np.median(target_nn[:, 8]))
+    assert all(math.isfinite(v) and v > 0 for v in (spacing, target_spacing, radius))
+    source_count = source_tree.query_ball_point(source, 2*spacing, return_length=True)
+    source_ids = np.flatnonzero((source[:, 1] >= (source[:, 1].min()+source[:, 1].max())/2)
+                               & (source_count < .6*np.median(source_count)))
+    assert len(source_ids) > 0
+    top_target = target[:, 1] > 2.3
+    assert bool(top_target.any())
+    tip = target[target[:, 1].argmax()]
+    extent = target_extent(target)
+    views = [(2*math.pi*i/8, elev) for elev in (0., .5, -.5) for i in range(8)]
+    projection_bases = [(np.asarray([math.cos(az), 0., -math.sin(az)], np.float32),
+        np.asarray([-math.sin(el)*math.sin(az), math.cos(el), -math.sin(el)*math.cos(az)], np.float32))
+        for az, el in views]
+    target_projections = {}
+    for res in (128, 256):
+        masks = [_splat_body(target, res, az, el, extent) for az, el in views]
+        holes = [int((ndimage.binary_fill_holes(body) & ~body).sum()) for body in masks]
+        target_projections[res] = (masks, holes)
+    report.update(source_spacing=spacing, target_spacing=target_spacing, supply_radius=radius,
+                  fixed_source_ids_count=len(source_ids), extent=extent,
+                  fixed_source_ids_sha256=hashlib.sha256(to_host(source_ids.astype(np.int64)).tobytes()).hexdigest(),
+                  fixed_source_ids_hash_encoding='little-endian int64, ascending material IDs',
+                  fixed_source_ids_pinned_count=int(pins[source_ids].sum()),
+                  target_holes={str(r): data[1] for r, data in target_projections.items()})
+    for phase in range(T+1):
+        x = coast[phase]
+        tree = KDTree(x)
+        distances = tree.query(target)[0]
+        counts = tree.query_ball_point(x[source_ids], radius, return_length=True)-1
+        row = dict(phase=phase, target_support=float((distances <= 2*target_spacing).mean()),
+            upper_target_support=float((distances[top_target] <= 2*target_spacing).mean()),
+            target_gap_p95_sp=float(np.percentile(distances/target_spacing, 95)),
+            fixed_source_supply=float(counts.mean()/8), source_supply_under_half=float((counts < 4).mean()),
+            tip_count=int((np.linalg.norm(x-tip, axis=1) < .25).sum()), projections={})
+        for res, (targets, target_holes) in target_projections.items():
+            ious, body_holes, clipped_centers = [], [], []
+            for (az, el), (right, up), target_mask, target_hole in zip(views, projection_bases, targets, target_holes):
+                body = _splat_body(x, res, az, el, extent)
+                ij = np.floor((np.stack([x @ right, x @ up], 1)+extent)/(2*extent)*res).astype(np.int64)
+                clipped_centers.append(int((~((ij >= 0).all(1) & (ij < res).all(1))).sum()))
+                union = (body | target_mask).sum()
+                ious.append(np.where(union > 0, (body & target_mask).sum()/np.maximum(union, 1), 1.))
+                body_holes.append((ndimage.binary_fill_holes(body) & ~body).sum())
+            body_holes = np.stack(body_holes)
+            extra_holes = np.maximum(0, body_holes-np.asarray(target_holes))
+            row['projections'][str(res)] = dict(mean_iou=float(np.stack(ious).mean()),
+                max_extra_hole_pixels=int(extra_holes.max()), per_view_extra_hole_pixels=to_host(extra_holes).tolist(),
+                per_view_body_hole_pixels=to_host(body_holes).tolist(),
+                per_view_clipped_particle_centers=clipped_centers)
+        report['rows'].append(row)
+    report['motion'] = {}
+    for name, mask in (('start_free', ~pins), ('start_arrived_free', ~pins & arrived)):
+        X = coast[:, mask].astype(np.float64)
+        d = np.diff(X, axis=0)
+        lengths = np.linalg.norm(d, axis=-1)
+        active = (lengths[1:] > 1e-4*spacing) & (lengths[:-1] > 1e-4*spacing)
+        reversals = active & ((d[1:]*d[:-1]).sum(-1) < 0)
+        report['motion'][name] = dict(particles=int(mask.sum()),
+            net_rms_sp=float(np.sqrt(np.mean(np.sum((X[-1]-X[0])**2, axis=-1))))/spacing,
+            path_mean_sp=float(lengths.sum(0).mean())/spacing,
+            geometric_mean_speed_square=float(np.mean(np.sum((d/protocol['mpm']['dt'])**2, axis=-1))),
+            adjacent_active_pairs=int(active.sum()), reversed_pairs=int(reversals.sum())) if len(X[0]) else None
+assert all(bind(Path(path)) == value for path, value in bindings.items())
+report['bindings'] = bindings
+with a.out.open('x') as stream:
+    json.dump(report, stream, indent=2, allow_nan=False)
+print(json.dumps(dict(output=str(a.out), rows=len(report['rows']), start=report['rows'][0], end=report['rows'][-1])), flush=True)
