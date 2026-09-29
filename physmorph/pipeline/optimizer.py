@@ -44,6 +44,7 @@ from .control_basis import ControlBasis
 from .control_proposal import apply_proposal, required_decrease
 from .grad_combine import combine as combine_grads, pcgrad as _pcgrad_impl
 from .gradient_reporting import raw_direction_observations
+from .trajectory_reporting import trajectory_health
 from .grid_smooth import chebyshev_rho, smooth_particle_field
 from .render_loss import LambdaBalancer, d_pbr, d_render
 
@@ -2986,15 +2987,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
                      x_step1=np.asarray(frames[1], np.float32) if len(frames) > 1 else np.asarray(frames[0], np.float32))
             print(f"[replay] delivered end positions saved to {_rp_out}", flush=True)
         with torch.no_grad():
-            inv_any = None
-            jmin_traj = float("inf")
-            for t in range(1, T + 1):
-                Ft = wp.to_torch(tr.F[t]).reshape(-1, 3, 3).float()
-                det_t = torch.linalg.det(Ft)
-                bad = det_t <= 0.0                            # NaN rows compare False, as the numpy path did
-                inv_any = bad if inv_any is None else (inv_any | bad)
-                jmin_traj = min(jmin_traj, float(det_t.min().item()))   # numpy min propagates NaN; torch min too
-            n_inv_steps = int(inv_any.sum().item()) if inv_any is not None else 0
+            n_inv_steps, jmin_traj = trajectory_health(wp.to_torch(tr.F[t]) for t in range(1, T + 1))
         end = {"F": to_array(tr.F[T], copy=True), "v": to_array(tr.v[T], copy=True),
                "C": to_array(tr.C[T], copy=True),
                "Fg": to_array(tr.Fg[T], copy=True) if use_geom else None,
