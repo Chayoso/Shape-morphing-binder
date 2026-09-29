@@ -40,6 +40,15 @@ def sample_schedule(windows):
     return result
 
 
+def pack_mask_rows(masks):
+    """CuPy packbits has no axis option; zero-pad rows then pack the flat buffer."""
+    rows = masks.reshape(len(masks), -1)
+    pad = (-rows.shape[1]) % 8
+    if pad:
+        rows = np.pad(rows, ((0, 0), (0, pad)), mode='constant', constant_values=False)
+    return np.packbits(rows).reshape(len(rows), rows.shape[1]//8)
+
+
 class ShapeObserver:
     def __init__(self, target, resolutions=(128, 256), views=None):
         self.target = target
@@ -84,7 +93,7 @@ class ShapeObserver:
                 values.update(new_hole_pixels=(holes & ~self.previous_holes[res]).sum((1, 2)),
                               removed_hole_pixels=(~holes & self.previous_holes[res]).sum((1, 2)))
             row['views'][str(res)] = {k: to_host(v).tolist() for k, v in values.items()}
-            packed[f'body_{res}_bits'] = np.packbits(bodies.reshape(len(self.views), -1), axis=1)
+            packed[f'body_{res}_bits'] = pack_mask_rows(bodies)
             holes_now[res] = holes
         self.previous_holes = holes_now
         return row, packed
@@ -132,7 +141,7 @@ def main():
             target = to_array(z['tgt'])
             require(target.shape == (300000, 3), 'P316 target size exceeds the reserved scope')
             observer = ShapeObserver(target)
-        target_bits = {f'target_{res}_bits': to_host(np.packbits(mask.reshape(len(observer.views), -1), axis=1))
+        target_bits = {f'target_{res}_bits': to_host(pack_mask_rows(mask))
                        for res, mask in observer.targets.items()}
         with (args.out/'target_masks.npz').open('xb') as stream:
             host_np.savez_compressed(stream, **target_bits)

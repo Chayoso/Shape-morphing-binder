@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from scripts.probes.horizon_shape import ShapeObserver, physical_frame_indices, sample_schedule
+from scripts.probes.horizon_shape import ShapeObserver, physical_frame_indices, sample_schedule, pack_mask_rows
 
 
 def test_frame_selection_excludes_null_holds_and_checks_overlap():
@@ -55,3 +55,9 @@ def test_raw_terminal_sample_is_separate_at_same_time_not_an_archive_frame():
     assert [s['paired_archive_frame'] for s in samples]==[0,1,2,2,4,5,5]
     assert samples[2]['kind']=='optimizer_raw_endpoint'
     assert samples[3]['kind']=='promoted_endpoint'
+
+
+def test_packed_mask_rows_preserve_independent_zero_padded_tail_bits():
+    masks=np.array([[[True,False,True],[False,False,True],[True,False,True]],
+                    [[False,True,False],[True,True,False],[False,True,False]]])
+    np.testing.assert_array_equal(pack_mask_rows(masks),np.packbits(masks.reshape(2,-1),axis=1))

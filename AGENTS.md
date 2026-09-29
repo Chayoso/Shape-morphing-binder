@@ -264,6 +264,7 @@ These are the leading candidates for the unresolved problems, and they are ports
   Independent input/history and bounded last-path CUDA audits pass. Baseline's
   SAME final-free IDs have a raw last-step RMS.000375wu plus a PIC correction
   RMS.00856wu yielding a saved step RMS.00823wu; RMS magnitudes are not additive.
+  Discretization:N300k,T20,dt1/240,dx.3062907544wu,loss36^3,iters8.
   The raw arm's distinct own-end cohort has no endpoint correction but still
   moves. See `docs/horizon_motion_p317.md`; no physical adoption.
   P318 batches render-report observations intoone host copy (53 CPU/4 actual

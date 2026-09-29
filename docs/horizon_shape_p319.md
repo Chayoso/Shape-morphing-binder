@@ -48,6 +48,12 @@ fixed extent under ejecta, excluded hold rows, and separate raw/promoted termina
 labels. The CUDA gate compares complete observation rows and all packed bits to
 CPU on changing shapes and views. Independent review precedes archive execution.
 
+The first actual CUDA gate (accee2d) failed before archive execution because the
+installed CuPy does not support `packbits(axis=...)`. The follow-up packs a flat
+buffer after padding each row to a byte boundary; it preserves independent row
+tail bits. An odd17-pixel test exercises padding in addition to aligned rows.
+The failed gate is retained and is not counted as a successful shape audit.
+
 This is a finite-view/discrete-support diagnostic: projected openings can be
 genuine topology, and finer masks can expose sampling sparsity. Even zero holes
 would not prove3D watertightness or4K Gaussian quality. Source shape/target topology,

@@ -11,7 +11,7 @@ pytestmark = pytest.mark.skipif(not torch.cuda.is_available(), reason='hyde06 CU
 
 def test_cuda_all_phase_holes_coverage_bits_and_clipping_match_cpu():
     target,middle=hole_fixture()
-    cpu=ShapeObserver(target,resolutions=(16,32),views=[(0.,0.),(.7,.3)])
+    cpu=ShapeObserver(target,resolutions=(16,17,32),views=[(0.,0.),(.7,.3)])
     ejecta=target.copy();ejecta[0]=100.
     rotated=target.copy();rotated[0]=[.9*cpu.extent,0.,-.9*cpu.extent]
     frames=(target,middle,target,ejecta,rotated)
@@ -20,7 +20,7 @@ def test_cuda_all_phase_holes_coverage_bits_and_clipping_match_cpu():
     assert reference[4][0]['source_outside_extent_box']==0
     assert reference[4][0]['views']['16']['projected_outside_centers']==[0,1]
     with cuda_execution('cuda:0'):
-        gpu=ShapeObserver(to_array(target),resolutions=(16,32),views=[(0.,0.),(.7,.3)])
+        gpu=ShapeObserver(to_array(target),resolutions=(16,17,32),views=[(0.,0.),(.7,.3)])
         assert hasattr(gpu.target,'__cuda_array_interface__')
         actual=[gpu.frame(to_array(x)) for x in frames]
         for (row,bits),(want,want_bits) in zip(actual,reference):

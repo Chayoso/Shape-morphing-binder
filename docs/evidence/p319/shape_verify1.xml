@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="5.208" timestamp="2026-09-28T22:53:56.645363-05:00" hostname="hyde06"><testcase classname="tests.test_horizon_shape_cuda" name="test_cuda_all_phase_holes_coverage_bits_and_clipping_match_cpu" time="4.056"><failure message="NotImplementedError: axis option is not supported yet">tests/test_horizon_shape_cuda.py:25: in test_cuda_all_phase_holes_coverage_bits_and_clipping_match_cpu
+    actual=[gpu.frame(to_array(x)) for x in frames]
+tests/test_horizon_shape_cuda.py:25: in &lt;listcomp&gt;
+    actual=[gpu.frame(to_array(x)) for x in frames]
+scripts/probes/horizon_shape.py:87: in frame
+    packed[f'body_{res}_bits'] = np.packbits(bodies.reshape(len(self.views), -1), axis=1)
+../../../deps/gpu_pipeline/cupy/_binary/packing.py:56: in packbits
+    raise NotImplementedError('axis option is not supported yet')
+E   NotImplementedError: axis option is not supported yet</failure></testcase></testsuite></testsuites>

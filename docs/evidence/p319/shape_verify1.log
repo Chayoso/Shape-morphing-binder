@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_shape1
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+collected 1 item
+
+tests/test_horizon_shape_cuda.py F                                       [100%]
+
+=================================== FAILURES ===================================
+________ test_cuda_all_phase_holes_coverage_bits_and_clipping_match_cpu ________
+tests/test_horizon_shape_cuda.py:25: in test_cuda_all_phase_holes_coverage_bits_and_clipping_match_cpu
+    actual=[gpu.frame(to_array(x)) for x in frames]
+tests/test_horizon_shape_cuda.py:25: in <listcomp>
+    actual=[gpu.frame(to_array(x)) for x in frames]
+scripts/probes/horizon_shape.py:87: in frame
+    packed[f'body_{res}_bits'] = np.packbits(bodies.reshape(len(self.views), -1), axis=1)
+../../../deps/gpu_pipeline/cupy/_binary/packing.py:56: in packbits
+    raise NotImplementedError('axis option is not supported yet')
+E   NotImplementedError: axis option is not supported yet
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/shape_verify1.xml -
+=========================== short test summary info ============================
+FAILED tests/test_horizon_shape_cuda.py::test_cuda_all_phase_holes_coverage_bits_and_clipping_match_cpu
+============================== 1 failed in 5.21s ===============================
