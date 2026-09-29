@@ -26,3 +26,9 @@ capacity/sentinel implementation would require overflow rejection, exact
 image/gradient parity, stream/lifetime tests and realistic4K memory gates.
 It is not implemented or promoted by this telemetry change. The P316 frozen
 physical and P317 motion runs precede this change and remain untouched.
+
+Actual server CUDA gate, frozen88cea71:4 cases pass,0 skipped,1.39s. All complete
+payloads match the legacy reference exactly; the dispatcher audit observes one
+batched CUDA-to-CPU copy and no per-scalar extraction. This is a transfer-count
+and equivalence result, not an end-to-end timing result. XML/log are retained in
+`docs/evidence/p318/reporting_verify1.*`.

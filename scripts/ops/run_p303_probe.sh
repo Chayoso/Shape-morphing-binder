@@ -5,7 +5,7 @@ base=/data/relcfd/chayo/physmorph_v2
 mode=${1:?baseline or raw or raw-off or raster or continuous or quality or phase or render-compare}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|baseline-motion|raw-motion|full-baseline|full-raw|support-braking-repair|frozen-replay-noise|frozen-state-identity) ;; *) exit 2;; esac
+case "$mode" in baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|support-braking-repair|frozen-replay-noise|frozen-state-identity) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -32,6 +32,9 @@ used=$(du -sb "$base" | cut -f1)
 if [[ "$mode" == full-baseline || "$mode" == full-raw ]]; then
     (( used + 30000000000 < 100000000000 )) || { echo 'Full-horizon30GB reservation exceeds100GB; clean verified obsolete results first' >&2; exit 76; }
 fi
+if [[ "$mode" == baseline-shape || "$mode" == raw-shape ]]; then
+    (( used + 2000000000 < 100000000000 )) || { echo 'Phase-shape2GB reservation exceeds100GB' >&2; exit 76; }
+fi
 (set -o noclobber; printf '%s\n' "$now" > "$out.start")
 set -o noclobber
 exec > "$out.log" 2>&1
@@ -54,6 +57,14 @@ fi
 if [[ "$mode" == reporting-verify ]]; then
     exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \
         tests/test_render_reporting_cuda.py -q --junitxml="$out.xml"
+fi
+if [[ "$mode" == shape-verify ]]; then
+    exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \
+        tests/test_horizon_shape_cuda.py -q --junitxml="$out.xml"
+fi
+if [[ "$mode" == baseline-shape || "$mode" == raw-shape ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/horizon_shape.py \
+        --motion "$base/work/p303/${mode%-shape}_motion1" --out "$out"
 fi
 if [[ "$mode" == metric-verify ]]; then
     exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \

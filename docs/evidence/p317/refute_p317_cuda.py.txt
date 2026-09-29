@@ -1,0 +1,248 @@
+"""Independent bounded P317 audit: last accepted path and saved aggregate reductions.
+
+Torch CUDA owns numerical work. NumPy/zipfile only decode archive bytes.
+No physmorph imports, MPM forward, arrival recomputation or earlier-path replay.
+"""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import math
+from pathlib import Path
+import time
+import zipfile
+
+import numpy as np
+import torch
+
+
+def require(ok, message):
+    if not ok:
+        raise ValueError(message)
+
+
+def sha(path):
+    h = hashlib.sha256()
+    with Path(path).open('rb') as stream:
+        for chunk in iter(lambda: stream.read(8 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def identity(path):
+    s = Path(path).stat()
+    return [s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns]
+
+
+def json_read(path):
+    b = Path(path).read_bytes()
+    v = json.loads(b)
+    json.dumps(v, allow_nan=False)
+    return v, hashlib.sha256(b).hexdigest()
+
+
+def decode(path):
+    with np.load(path, allow_pickle=False) as z:
+        return {k: torch.as_tensor(z[k].copy(), device='cuda:0') for k in z.files}
+
+
+def read_frames(path, start, end):
+    with zipfile.ZipFile(path) as z, z.open('frames.npy') as stream:
+        version = np.lib.format.read_magic(stream)
+        shape, fortran, dtype = np.lib.format._read_array_header(stream, version)
+        require(not fortran and dtype == np.float32 and len(shape) == 3 and shape[2] == 3,
+                'Unsupported frame layout')
+        require(0 <= start <= end < shape[0], 'Invalid frame range')
+        row = math.prod(shape[1:]) * dtype.itemsize
+        stream.seek(stream.tell() + start * row)
+        b = stream.read((end-start+1)*row)
+        require(len(b) == (end-start+1)*row, 'Short frame read')
+        a = np.frombuffer(b, dtype).reshape(end-start+1, *shape[1:]).copy()
+        return torch.as_tensor(a, device='cuda:0')
+
+
+def stats(v, mask):
+    v = v[mask].double()
+    return dict(mean=v.mean().item(), rms=v.square().mean().sqrt().item(),
+                p95=torch.quantile(v, .95).item(), maximum=v.max().item())
+
+
+def distributions(values, mask):
+    out = dict(particles=int(mask.sum().item()))
+    if out['particles']:
+        out.update({k: stats(v, mask) for k, v in values.items()
+                    if v.ndim == 1 and v.dtype != torch.bool})
+    return out
+
+
+def same(got, want, label):
+    """Reduction parity only; this tolerance is not a physical acceptance gate."""
+    if isinstance(want, dict):
+        require(isinstance(got, dict) and got.keys() == want.keys(), label+' keys')
+        for k, v in want.items():
+            same(got[k], v, label+'/'+k)
+    elif isinstance(want, (list, tuple)):
+        require(len(got) == len(want), label+' length')
+        for k, (a, b) in enumerate(zip(got, want)):
+            same(a, b, label+'/'+str(k))
+    elif want is None or isinstance(want, (str, bool, int)):
+        require(got == want, label+' exact')
+    else:
+        require(math.isfinite(got) and math.isfinite(want) and
+                abs(got-want) <= 5e-14+2e-12*abs(want), label+' scalar reduction')
+
+
+def check_array(got, want, label, checks):
+    require(got.shape == want.shape, label+' shape')
+    if want.dtype == torch.bool or not want.dtype.is_floating_point:
+        require(torch.equal(got, want), label+' exact values')
+        checks[label] = dict(exact=True)
+    else:
+        error = (got.double()-want.double()).abs()
+        tolerance = 5e-14+2e-12*want.double().abs()
+        require(bool((error <= tolerance).all()), label+' numerical mismatch')
+        checks[label] = dict(max_abs_error=error.max().item(),
+                             max_tolerance_ratio=(error/tolerance).max().item())
+
+
+def run(report_path, output):
+    t0 = time.perf_counter()
+    require(torch.cuda.is_available(), 'CUDA required')
+    torch.cuda.set_device(0)
+    base = Path('/data/relcfd/chayo/physmorph_v2').resolve()
+    report_path, output = report_path.resolve(), output.resolve()
+    require(report_path.is_relative_to(base) and output.is_relative_to(base), 'Outside /data project')
+    require(not output.exists(), 'Output already exists')
+    report, report_hash = json_read(report_path)
+    particle_path = report_path.with_name('particles.npz')
+    require(sha(particle_path) == report['particles_sha256'], 'Particle output binding')
+    analyzer_paths = [Path(p) for p in report['code'] if Path(p).name == 'horizon_motion.py']
+    require(len(analyzer_paths) == 1 and analyzer_paths[0].is_absolute(), 'Analyzer root')
+    code_root = analyzer_paths[0].parents[2]
+    code = {str(Path(p) if Path(p).is_absolute() else code_root/p): h for p, h in report['code'].items()}
+    paths = {**report['bindings'], **code, str(report_path): report_hash,
+             str(particle_path): report['particles_sha256'], str(Path(__file__).resolve()): sha(__file__)}
+    before = {p: identity(p) for p in paths}
+    for p, h in paths.items():
+        require(sha(p) == h, 'Source/input/output SHA: '+p)
+    trace_paths = [p for p in report['bindings'] if p.endswith('.rest_trace.json')]
+    raw_paths = [p for p in report['bindings'] if p.endswith('_render_full_dt_iso_nn.npz')]
+    require(len(trace_paths) == len(raw_paths) == 1, 'Unique archive/trace')
+    trace, _ = json_read(trace_paths[0])
+    raw = Path(raw_paths[0])
+    attempts = [a for a in trace['attempts'] if a['committed']]
+    require([a['animation'] for a in attempts] == trace['accepted_attempts'], 'Accepted attempt list')
+    require(len(attempts) == report['physical_accepted_windows'], 'Accepted count')
+    last = attempts[-1]
+    row = report['windows'][-1]
+    require(last['animation'] == row['animation'] == report['actual_last_accepted'], 'Last accepted')
+    folder = Path(trace_paths[0].removesuffix('.rest_trace.json')+'_cohorts')
+    obs = decode(folder/last['sidecar'])
+    obs0 = decode(folder/attempts[0]['sidecar'])
+    p = decode(particle_path)
+    n, T, dt = (report['discretization'][k] for k in ('N', 'T', 'dt'))
+    spacing = report['discretization']['source_spacing_wu']
+    require(T > 0 and dt > 0 and spacing > 0, 'Invalid discretization')
+    for k, v in p.items():
+        require(v.shape == (n,) and bool(torch.isfinite(v).all()), 'Particle layout/finite: '+k)
+    x32 = read_frames(raw, last['start_frame'], last['end_frame'])
+    require(x32.shape == (T+1, n, 3), 'Last interval size')
+    x = x32.double()
+    rawend = obs['optimizer_raw_endpoint'].double()
+    pins, pinat = p['final_pinned'], p['pinned_at']
+    pin_before = obs['pin_before']
+    require(torch.equal(pin_before, pins & (pinat <= last['animation'])), 'Last pin chronology')
+    require(bool((x[:, pin_before] == x[:1, pin_before]).all()) and
+            bool((rawend[pin_before] == x[0, pin_before]).all()), 'Pinned path movement')
+    steps = x[1:]-x[:-1]
+    step2 = steps.square().sum(-1)
+    raw_step = rawend-x[-2]
+    correction = x[-1]-rawend
+    saved_step = steps[-1]
+    closure = (raw_step+correction-saved_step).abs().max().item()
+    require(closure == 0, 'FP64 raw-step plus correction algebra')
+    lengths = step2.sqrt()
+    eligible = (lengths[:-1] > 1e-4*spacing) & (lengths[1:] > 1e-4*spacing)
+    reversed_ = eligible & ((steps[:-1]*steps[1:]).sum(-1) < 0)
+    actual = dict(path_wu=lengths.sum(0), step_rms_wu=step2.mean(0).sqrt(),
+        net_wu=(x[-1]-x[0]).square().sum(-1).sqrt(),
+        adjacent_step_reversed_count=reversed_.sum(0), adjacent_step_eligible_count=eligible.sum(0),
+        raw_terminal_geometric_speed_wu_s=raw_step.square().sum(-1).sqrt()/dt,
+        promoted_terminal_geometric_speed_wu_s=saved_step.square().sum(-1).sqrt()/dt,
+        optimizer_terminal_stored_speed_wu_s=obs['optimizer_terminal_speed_squared'].double().sqrt(),
+        endpoint_correction_wu=correction.square().sum(-1).sqrt(),
+        correction_opposes_raw_step=(correction*raw_step).sum(-1) < 0)
+    checks = {}
+    for k, v in actual.items():
+        check_array(v, p['last_'+k], 'last_'+k, checks)
+    masks = dict(final_free=~pins, eventually_pinned=pins, initial_free=~obs0['pin_before'],
+                 first_accepted_start_arrived=obs0['start_arrived'])
+    totals = {k: v for k, v in p.items() if k in report['full_path_cohorts']['initial_free'] and k != 'particles'}
+    for k, mask in masks.items():
+        same(distributions(actual, mask), row['cohorts'][k], 'last cohort '+k)
+        same(step2[:, mask].mean(1).sqrt().tolist() if bool(mask.any()) else None,
+             row['step_rms_wu'][k], 'last phase '+k)
+        same(distributions(totals, mask), report['full_path_cohorts'][k], 'whole path reductions '+k)
+    first = p['first_accepted_endpoint_arrival']
+    require(bool(((first == -1) | torch.isin(first, torch.tensor(trace['accepted_attempts'], device='cuda:0'))).all()),
+            'Invalid first accepted endpoint index')
+    followup = {}
+    for scope in ('free', 'pinned'):
+        fields = {k.removeprefix('after_endpoint_arrival_'+scope+'_'): v for k, v in p.items()
+                  if k.startswith('after_endpoint_arrival_'+scope+'_')}
+        count = torch.zeros(n, dtype=torch.int64, device='cuda:0')
+        for a in trace['accepted_attempts']:
+            admitted = pins & (pinat <= a)
+            mask = (first >= 0) & (first < a) & (admitted if scope == 'pinned' else ~admitted)
+            count += mask
+        check_array(count, fields['observed_windows'], scope+' observed windows', checks)
+        check_array(count*T, fields['observed_steps'], scope+' observed steps', checks)
+        observed = count > 0
+        nw, ns = int(count.sum().item()), int((count*T).sum().item())
+        normalized = dict(step_rms_wu=(fields['step_squared_wu2_sum']/(count*T).clamp_min(1)).sqrt(),
+                          optimizer_terminal_stored_speed_rms_wu_s=(fields['terminal_stored_speed_squared_sum']/count.clamp_min(1)).sqrt(),
+                          mean_step_length_wu=fields['path_wu_sum']/(count*T).clamp_min(1))
+        result = dict(observed_particle_windows=nw, observed_particle_steps=ns,
+            pooled_step_rms_wu=(fields['step_squared_wu2_sum'].sum()/ns).sqrt().item() if ns else None,
+            pooled_optimizer_terminal_stored_speed_rms_wu_s=(fields['terminal_stored_speed_squared_sum'].sum()/nw).sqrt().item() if nw else None,
+            per_id_normalized=distributions(normalized, observed),
+            per_id_accumulated_sums_and_denominators=distributions(fields, observed))
+        same(result, report['after_endpoint_arrival'][scope], 'followup '+scope)
+        followup[scope] = result
+    require(all(identity(p) == before[p] for p in paths), 'Bound file identity changed')
+    # Last-window array and scalar reductions verified; earlier saved sums are
+    # reduced independently but not regenerated from all earlier trajectories.
+    ff = ~pins
+    def rms(v):
+        return v[ff].square().sum(-1).mean().sqrt().item()
+    cross = (raw_step[ff]*correction[ff]).sum(-1).mean().item()
+    summary = dict(raw_last_rms_wu=rms(raw_step), correction_rms_wu=rms(correction),
+                   saved_last_rms_wu=rms(saved_step), raw_correction_mean_dot_wu2=cross,
+                   raw_last_geometric_speed_rms_wu_s=rms(raw_step)/dt,
+                   saved_last_geometric_speed_rms_wu_s=rms(saved_step)/dt)
+    summary['squared_norm_identity_residual'] = (summary['saved_last_rms_wu']**2 -
+        summary['raw_last_rms_wu']**2-summary['correction_rms_wu']**2-2*cross)
+    torch.cuda.synchronize()
+    result = dict(passed=True, no_mpm_forward=True, created_utc=datetime.now(timezone.utc).isoformat(),
+        report_sha256=report_hash, input_hashes=paths, stable_file_identities=before,
+        discretization=report['discretization'], last_animation=last['animation'],
+        interval=[last['start_frame'], last['end_frame']], last_array_checks=checks,
+        raw_plus_correction_max_error_wu=closure, final_free=summary,
+        free_at_start=int((~pin_before).sum().item()), final_free_count=int(ff.sum().item()),
+        newly_pinned_last_commit=int((pins & ~pin_before).sum().item()),
+        followup=followup, full_path_summary_reductions_verified=True,
+        earlier_raw_path_sums_recomputed=False, arrival_predicates_recomputed=False,
+        source_spacing_independently_recomputed=False,
+        natural_rest_established=False, quality_established=False,
+        torch_peak_bytes=torch.cuda.max_memory_allocated(), main_elapsed_s=time.perf_counter()-t0)
+    with output.open('x') as stream:
+        json.dump(result, stream, indent=2, allow_nan=False)
+    print(json.dumps({k: result[k] for k in ('passed', 'interval', 'final_free', 'newly_pinned_last_commit')}))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--report', type=Path, required=True)
+    parser.add_argument('--out', type=Path, required=True)
+    args = parser.parse_args()
+    run(args.report, args.out)

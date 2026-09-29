@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="4.826" timestamp="2026-09-28T22:38:00.671968-05:00" hostname="hyde06"><testcase classname="tests.test_compute_cuda" name="test_horizon_motion_archive_matches_cpu_with_device_geometry" time="4.067" /></testsuite></testsuites>

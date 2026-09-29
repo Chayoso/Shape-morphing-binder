@@ -259,3 +259,15 @@ These are the leading candidates for the unresolved problems, and they are ports
   same-plan arrivals, actual/PIC displacement separation, fixed-ID follow-up
   denominators, pin timing, accepted-reference relabels and delivery scope.
   No physical policy or rest/hole/4K quality promotion follows from analysis.
+- **P316/P317 completed / P318/P319:** full-horizon ordinary baseline/raw stop
+  after40/28 accepted windows, by rejection/plateau rather than verified rest.
+  Independent input/history and bounded last-path CUDA audits pass. Baseline's
+  SAME final-free IDs have a raw last-step RMS.000375wu plus a PIC correction
+  RMS.00856wu yielding a saved step RMS.00823wu; RMS magnitudes are not additive.
+  The raw arm's distinct own-end cohort has no endpoint correction but still
+  moves. See `docs/horizon_motion_p317.md`; no physical adoption.
+  P318 batches render-report observations intoone host copy (53 CPU/4 actual
+  CUDA cases pass); remaining raster/optimizer host decisions still exist.
+  P319 (`docs/horizon_shape_p319.md`) observes all accepted archived phases and
+  separate same-time raw xT,24-view128/256 masks and target coverage. It is not
+  a3D watertightness/4K certificate or a renderer/physics policy change.

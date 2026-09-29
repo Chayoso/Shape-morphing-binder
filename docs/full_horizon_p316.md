@@ -82,7 +82,7 @@ matches exactly. Output raw/compact archives and rendering reports are bound
 by final hashes, in addition to source/input and per-attempt telemetry bindings.
 No CUDA horizon result is implied by this preparation.
 
-## Baseline result (frozen9cab095; raw comparison still running)
+## Baseline result (frozen9cab095)
 
 N300k,T20,dt1/240,dx.3062907543956724wu,loss36^3,iters8; configured300 windows.
 The ordinary baseline stops after43 attempts, with40 accepted windows/320 inner
@@ -104,3 +104,19 @@ adaptive lambda median.0301579, observed image-loss change median-3.55800e-6.
 These are observational optimizer quantities, not a36.5% displacement share or
 a render-on/off causal estimate. Full report and independent audit are retained
 in `docs/evidence/p316/full_baseline1.*`; physical-motion analysis is P317.
+
+## Raw alternative completed (same frozen9cab095)
+
+Same N300k,T20,dt1/240,dx.3062907543956724wu,loss36^3,iters8.30 attempted
+windows,28 actual commits/224 inner updates,562 raw/delivered frames including
+one held row. No C2F, no guards. Last accepted attempt28 has stale3; the next
+two non-brake outer rejections consume patience5 and freeze the runner. This
+is a plateau/rejection stop, not evidence of natural rest. Final273393 pins,
+26607 free IDs. Independent full-hash mapping/chronology audit passes.
+
+Rendering uses18 views/64pixels. Nominal render-direction share median.486167,
+lambda.0462864, recorded accepted image-loss change median-7.09023e-5. These
+own-duration observations do not provide a matched causal rendering fraction.
+Audit/protocol/trace/render report retained in `docs/evidence/p316/full_raw1.*`.
+No full-horizon physical policy is adopted; P317 motion and P319 all-phase
+shape observations precede any change to acceptance or rest behavior.

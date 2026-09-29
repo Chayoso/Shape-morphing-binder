@@ -1,0 +1,523 @@
+{
+  "passed": true,
+  "no_mpm_forward": true,
+  "created_utc": "2026-09-29T03:48:33.833236+00:00",
+  "report_sha256": "9807392a15528eb093a6cf0cc5cd8017e09ac4158b19dce988cbffcf9aae6e5b",
+  "input_hashes": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1.rest_trace.json": "bf48160f8f891387778ef05923248ac4da3897dfe49008ea9b3ff3f0ec1d3539",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1.json": "9cc4f7819cfcc4e132d2f66790a737a4af59e18e30b09b745e87eef912372b17",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1.protocol.json": "faea81972a8f6a57961c245f657bd9d0bab97c7d5e837bb4657969e5f51ee6e9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_render_full_dt_iso_nn.npz": "1d06172ef680103e7b85ab00fdd30685f5cf56eaca45e597d6b64ff07d54c726",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1.render_influence.json": "b5067388fa1df7f873b16575fd8f37c2adf8ec02f8871997254742166c293270",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/physmorph/compute.py": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/physmorph/pipeline/settlement.py": "b2bdbfc09ccad15ced005c29da928a4392150138b06921dcf2b960517cd3c5be",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_000.npz": "09b9927c4d74f8d180c0198e030e591dabe99f99511dd865ebeac6984a66cff7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_001.npz": "689499643e1e7e2c755b3cad1f5a49bd254d05388c784e303a26ed186c7879a0",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_002.npz": "d9313f0ee667e4838695fd30891876749e65e48336dba9a304928b25ee71ba68",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_003.npz": "57d3a55da2c287bdb87f42069a8c78516655ca39be19355d01a8d8f6040a2800",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_004.npz": "22393afd5ba7ee62242b100ff5d4abbef95c0d094655906655479485ec491520",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_005.npz": "d49323ac7497b3e9893b9d5bc159f1b2c88d067b31ad54b85173218e74bda6ca",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_006.npz": "f859826bb5de1e6837bcd95efb4f30190c47851717d89e9769265cbb3b554ae4",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_007.npz": "b50381dbbb314ef64d4f7decc65a5ab4d8a34eec9d1607de5331fd34636ba4aa",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_008.npz": "7e71ced644b77e0625ae0ab6810d27bcff599aaa071b96c41ae11ad59edfe966",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_009.npz": "6a63ef4bb123072dff83b5d768f1e1e4d9bda33b71057f73178a12cf23ee9779",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_010.npz": "ad189e9b82c781197f49151b8dbefa1598b370538e2a039925d2494afe9f2cdf",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_011.npz": "8caf22a8f8ddb38bb8c78fdad11e031270c70e81288789542b0ddc6f9f2adabd",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_012.npz": "b2fa414e361b2c6da0d089f4c4d2437ba5f6813964f5ed1a63ee3381c70f20b3",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_013.npz": "f92b056f40db5526874bc71d156682b8bdb1103db22796abb078e156a6a43522",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_014.npz": "da08805d0eadd21cfb3d6c48007fccbf62b638d04ef507d9df1a8dab7fc86bde",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_015.npz": "0864d4d66df0cc2121c773178392875e1ae967aca51b18b8349f42a54b3e4038",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_016.npz": "b8cf57cfeec74c95a7f55514f8f1e868647783d83962cfe8800daeee7dbd65bf",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_017.npz": "7054579757d396aa5c5138de5b41ce1a048b9f2b9135bf27e3f2c3d50a4cb28c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_018.npz": "77809dfaa225e9d759b68ef00c844049631d221f8713fc5bd2f38f268bfcea67",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_019.npz": "1bbb4bab1b502125fbff0eea8baa1f7f8a6a854ff32d8f9f2770d03f62b650eb",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_020.npz": "120fe867ae7b3ef720f299bd5e4eee033e0ef6b4e87f3db56932a069518d8e1c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_021.npz": "d57117128125392a7390d2b11b79363c0d148fb972d80b7faf17362541ba51ca",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_022.npz": "bd9418ecb551c161f5200c4dc70e5ac9a6285f0c0093d210f68f09e54ca19ea8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_023.npz": "33c5316900bf3048663bd694a5fc2f086df80740006320ee8ae8b694894d6d6c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_024.npz": "90e6e06d7f99bcdc48cb1a3ffabd035e5617956168e9cb96fd163478c4008cfb",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_025.npz": "a5f761640709ed6d429823e49c10de920bd7af082c4376ed6cccb562efccdb3f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_026.npz": "b75a1bda825ef8c954edf9ebac58fc0a8dda87721b1e2ab0b9a68ab96b987218",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_027.npz": "69c3fa57b50a8a4ff096a8668b43bfb3522fd8c92bf6c95e1ffc977f43692576",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_028.npz": "2358346b90fa9e674823ae4f195d616f3049ef788ec548ddaf9663f51c7c21c1",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_029.npz": "5fc03cb9c36c3af04cba9434ea8922face8765169a94ebd0d79b4eb4d878b846",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/horizon_motion.py": "b36c172b5891e3f3956d50aeea2eef8b5f1f5d9afc97d37ab258fd6bbad3a43f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/coverage_paths.py": "e0d6f696337268a9714366d46163db732dd583fd1a9b63965204f6824407b36e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/full_horizon.py": "4dfd85b1b9d55d8289edaeebbc533bdd79d0b917ef630895d7fc18bdc89146c9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw_motion1/result.json": "9807392a15528eb093a6cf0cc5cd8017e09ac4158b19dce988cbffcf9aae6e5b",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw_motion1/particles.npz": "edcb8a5b6f43f42aa08748205e8c0afde92fe6a7f6d874dd6dc7c4fe1f35892b",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p317_cuda.py": "4874a0ac1ffa0cb5bcdc7b6511007714ff5d333de7204082839d9d65a8980091"
+  },
+  "stable_file_identities": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1.rest_trace.json": [
+      38,
+      10362595,
+      18327,
+      1790653416548007582
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1.json": [
+      38,
+      10362594,
+      2934130,
+      1790653415304009124
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1.protocol.json": [
+      38,
+      10544740,
+      20780,
+      1790652961060610260
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_render_full_dt_iso_nn.npz": [
+      38,
+      10362591,
+      2366702564,
+      1790653415252009188
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1.render_influence.json": [
+      38,
+      10362592,
+      2833,
+      1790653415256009184
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/physmorph/compute.py": [
+      38,
+      10570293,
+      12411,
+      1790460860000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/physmorph/pipeline/settlement.py": [
+      38,
+      10570233,
+      2370,
+      1790457157000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_000.npz": [
+      38,
+      10517164,
+      8975548,
+      1790652974748590670
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_001.npz": [
+      38,
+      10517165,
+      8989971,
+      1790652986264574280
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_002.npz": [
+      38,
+      10517166,
+      8991611,
+      1790653001284553027
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_003.npz": [
+      38,
+      10517167,
+      8989777,
+      1790653016716531333
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_004.npz": [
+      38,
+      9590174,
+      8973049,
+      1790653038340501165
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_005.npz": [
+      38,
+      10489711,
+      8936428,
+      1790653060088471089
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_006.npz": [
+      38,
+      10482151,
+      8828526,
+      1790653083172439442
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_007.npz": [
+      38,
+      10551342,
+      8566179,
+      1790653106112408264
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_008.npz": [
+      38,
+      10544890,
+      8190388,
+      1790653128712377800
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_009.npz": [
+      38,
+      10362221,
+      7959358,
+      1790653151028347953
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_010.npz": [
+      38,
+      10362222,
+      7783499,
+      1790653166988326745
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_011.npz": [
+      38,
+      10489712,
+      7665571,
+      1790653189092297554
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_012.npz": [
+      38,
+      10489713,
+      7564612,
+      1790653204836276887
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_013.npz": [
+      38,
+      10466025,
+      7481998,
+      1790653220356256612
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_014.npz": [
+      38,
+      10521967,
+      7409439,
+      1790653235752236593
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_015.npz": [
+      38,
+      10544891,
+      7351062,
+      1790653251132216685
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_016.npz": [
+      38,
+      10362588,
+      7308417,
+      1790653265520198140
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_017.npz": [
+      38,
+      10544892,
+      7277434,
+      1790653280744178597
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_018.npz": [
+      38,
+      10551343,
+      7218521,
+      1790653295028160335
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_019.npz": [
+      38,
+      10551344,
+      7186727,
+      1790653308888142681
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_020.npz": [
+      38,
+      10551345,
+      7156162,
+      1790653322688125167
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_021.npz": [
+      38,
+      10521968,
+      7124294,
+      1790653332584112645
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_022.npz": [
+      38,
+      10521969,
+      7077303,
+      1790653342500100129
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_023.npz": [
+      38,
+      10544893,
+      7039346,
+      1790653352348087727
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_024.npz": [
+      38,
+      10544894,
+      7010288,
+      1790653362140075427
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_025.npz": [
+      38,
+      10544895,
+      6987507,
+      1790653371900063194
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_026.npz": [
+      38,
+      10570752,
+      6958940,
+      1790653381604051060
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_027.npz": [
+      38,
+      10570753,
+      6953678,
+      1790653391232039046
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_028.npz": [
+      38,
+      10570754,
+      6946851,
+      1790653400880027034
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_raw1_cohorts/attempt_029.npz": [
+      38,
+      10362589,
+      6947050,
+      1790653410332015291
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/horizon_motion.py": [
+      38,
+      10570364,
+      22236,
+      1790652986000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/coverage_paths.py": [
+      38,
+      10570363,
+      14998,
+      1790648449000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/full_horizon.py": [
+      38,
+      10570443,
+      10379,
+      1790652000000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw_motion1/result.json": [
+      38,
+      10570887,
+      499556,
+      1790653550707843505
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw_motion1/particles.npz": [
+      38,
+      10570886,
+      13606859,
+      1790653550691843525
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p317_cuda.py": [
+      38,
+      9590175,
+      12874,
+      1790653441539976688
+    ]
+  },
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "loss_res": 36,
+    "iters": 8,
+    "source_spacing_wu": 0.03498853660707278
+  },
+  "last_animation": 27,
+  "interval": [
+    540,
+    560
+  ],
+  "last_array_checks": {
+    "last_path_wu": {
+      "max_abs_error": 1.3877787807814457e-17,
+      "max_tolerance_ratio": 9.664124104443895e-05
+    },
+    "last_step_rms_wu": {
+      "max_abs_error": 8.673617379884035e-19,
+      "max_tolerance_ratio": 1.4454837707842061e-05
+    },
+    "last_net_wu": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "last_adjacent_step_reversed_count": {
+      "exact": true
+    },
+    "last_adjacent_step_eligible_count": {
+      "exact": true
+    },
+    "last_raw_terminal_geometric_speed_wu_s": {
+      "max_abs_error": 1.1102230246251565e-16,
+      "max_tolerance_ratio": 9.944807933113121e-05
+    },
+    "last_promoted_terminal_geometric_speed_wu_s": {
+      "max_abs_error": 1.1102230246251565e-16,
+      "max_tolerance_ratio": 9.944807933113121e-05
+    },
+    "last_optimizer_terminal_stored_speed_wu_s": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "last_endpoint_correction_wu": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "last_correction_opposes_raw_step": {
+      "exact": true
+    },
+    "free observed windows": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "free observed steps": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "pinned observed windows": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "pinned observed steps": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    }
+  },
+  "raw_plus_correction_max_error_wu": 0.0,
+  "final_free": {
+    "raw_last_rms_wu": 0.00044553153741687065,
+    "correction_rms_wu": 0.0,
+    "saved_last_rms_wu": 0.00044553153741687065,
+    "raw_correction_mean_dot_wu2": 0.0,
+    "raw_last_geometric_speed_rms_wu_s": 0.10692756898004896,
+    "saved_last_geometric_speed_rms_wu_s": 0.10692756898004896,
+    "squared_norm_identity_residual": 0.0
+  },
+  "free_at_start": 27396,
+  "final_free_count": 26607,
+  "newly_pinned_last_commit": 789,
+  "followup": {
+    "free": {
+      "observed_particle_windows": 2971133,
+      "observed_particle_steps": 59422660,
+      "pooled_step_rms_wu": 0.0038826952501323227,
+      "pooled_optimizer_terminal_stored_speed_rms_wu_s": 0.918164756098937,
+      "per_id_normalized": {
+        "particles": 300000,
+        "step_rms_wu": {
+          "mean": 0.0036372715799568253,
+          "rms": 0.003969538208877124,
+          "p95": 0.006441822097561133,
+          "maximum": 0.01041771696274609
+        },
+        "optimizer_terminal_stored_speed_rms_wu_s": {
+          "mean": 0.9068550780719538,
+          "rms": 0.9703998918862485,
+          "p95": 1.4896948301088238,
+          "maximum": 2.4822817113928632
+        },
+        "mean_step_length_wu": {
+          "mean": 0.0027021565298458016,
+          "rms": 0.002928470967147166,
+          "p95": 0.004731972881952541,
+          "maximum": 0.00806392448255629
+        }
+      },
+      "per_id_accumulated_sums_and_denominators": {
+        "particles": 300000,
+        "observed_windows": {
+          "mean": 9.903776666666667,
+          "rms": 11.733704871011543,
+          "p95": 25.0,
+          "maximum": 27.0
+        },
+        "observed_steps": {
+          "mean": 198.07553333333334,
+          "rms": 234.67409742023085,
+          "p95": 500.0,
+          "maximum": 540.0
+        },
+        "path_wu_sum": {
+          "mean": 0.49496812411967783,
+          "rms": 0.600993653603017,
+          "p95": 1.1358123487967648,
+          "maximum": 2.5932132579075504
+        },
+        "step_squared_wu2_sum": {
+          "mean": 0.002986052525621574,
+          "rms": 0.004676781563110418,
+          "p95": 0.008089386853198885,
+          "maximum": 0.03547827023711808
+        },
+        "terminal_stored_speed_squared_sum": {
+          "mean": 8.349146371642698,
+          "rms": 11.263807265574528,
+          "p95": 21.18680453082901,
+          "maximum": 69.81260415447284
+        }
+      }
+    },
+    "pinned": {
+      "observed_particle_windows": 4675778,
+      "observed_particle_steps": 93515560,
+      "pooled_step_rms_wu": 0.0,
+      "pooled_optimizer_terminal_stored_speed_rms_wu_s": 0.0,
+      "per_id_normalized": {
+        "particles": 272604,
+        "step_rms_wu": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        },
+        "optimizer_terminal_stored_speed_rms_wu_s": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        },
+        "mean_step_length_wu": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        }
+      },
+      "per_id_accumulated_sums_and_denominators": {
+        "particles": 272604,
+        "observed_windows": {
+          "mean": 17.152272160349813,
+          "rms": 17.863348944728205,
+          "p95": 22.0,
+          "maximum": 25.0
+        },
+        "observed_steps": {
+          "mean": 343.04544320699625,
+          "rms": 357.2669788945641,
+          "p95": 440.0,
+          "maximum": 500.0
+        },
+        "path_wu_sum": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        },
+        "step_squared_wu2_sum": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        },
+        "terminal_stored_speed_squared_sum": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        }
+      }
+    }
+  },
+  "full_path_summary_reductions_verified": true,
+  "earlier_raw_path_sums_recomputed": false,
+  "arrival_predicates_recomputed": false,
+  "source_spacing_independently_recomputed": false,
+  "natural_rest_established": false,
+  "quality_established": false,
+  "torch_peak_bytes": 780836352,
+  "main_elapsed_s": 2.2293647918850183
+}

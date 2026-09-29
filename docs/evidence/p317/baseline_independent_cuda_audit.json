@@ -1,0 +1,614 @@
+{
+  "passed": true,
+  "no_mpm_forward": true,
+  "created_utc": "2026-09-29T03:44:09.723932+00:00",
+  "report_sha256": "30ab1e945b0ae0e65a4c3fe736f549d48ace1684659ac2b195fd629457abd4a8",
+  "input_hashes": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1.rest_trace.json": "70948e07f0d2ee52964d8623620acc19dc5c0aae6aad3f89416205ecca3aa760",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1.json": "31d3f15de8f3a13ddafccf8dabe343169c4e288d9f70581c284b72835c1e7acf",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1.protocol.json": "8af20a4e7c00536aed54da2058f6619766651ab1687f494b739ba42b259d7db8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_render_full_dt_iso_nn.npz": "3351224354abab3baadcc6111f111996ab74935d3a9c31f8d0341402223a0354",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1.render_influence.json": "2e4267a661d99524daad562c4d6338ffec309e8bae410bd7858c2c48caabf37c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/physmorph/compute.py": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/physmorph/pipeline/settlement.py": "b2bdbfc09ccad15ced005c29da928a4392150138b06921dcf2b960517cd3c5be",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_000.npz": "446dae0a2bde5ed82ce986543303ab85f2fbe690fa6c1b5c025d5725e2f4d60f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_001.npz": "2367ab2a6a6a38faeba06d62caf48fb7b10892f1331a816feab0731a9b5105c8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_002.npz": "9a79484b6c6d96e6e08d2788025639b29094c5b31e065c4d408f9d08dbfb5041",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_003.npz": "0965c31c9a3a2d721a1071f8fece50c69a7acdb67d50664b4bf2f8ca45114710",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_004.npz": "86d6c246225ebed3fbc7267de69b2a043337871b9cce00b52cafab9268f3c3b5",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_005.npz": "20aebca7739790afe32539ffce1176bde9408acbc2be73fea83eeadde43802c4",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_006.npz": "81653188bb36430f387a40b60af9d5c7b2110426720ef116362b9c992cd152a6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_007.npz": "f7b15ce67ccb6ec72f4ba2cc29549c5533cdd318bfc63c33dbe3435f244a715f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_008.npz": "70fa6d159b04f21d4a25cf7f446d9a05f8dcf07d160dc44ddeaf0e3a88828591",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_009.npz": "97ece5251e830b1192664febe4e8c5e9196ae486d0fcc0272587985b723b6837",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_010.npz": "bd6c0477acd4f09c0545309fddc30add295478f6c3263f4caadf050b27acc497",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_011.npz": "af31ea7486b7a8c85f6777e91efdb9354e971369af96ccc943d4a474cbfa38cf",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_012.npz": "38ba1b72ce2490a4cf4e9f851c2539d876647068198729c800d6345f0a4af52c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_013.npz": "754046a8646af0930f7e433731ae75693178eb064347bbe892e779c075e0c032",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_014.npz": "34342042365af925f27406bb697972b900a3b0d978ffe5c3ec2a593ace3b7c73",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_015.npz": "0432c895ad4c9216cb7f2a90fdd4a1d2c7a0097150a236b7c42b8d34457554e8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_016.npz": "d82184ba57f6809fcaebaae1078acaeb27a5b302db13b40d5d028a798ad272f6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_017.npz": "87f586abf152521e891926403b84216a4dd434b730bfd31b6cbd445ab7ddd42c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_018.npz": "d9adbc8290758548ba00573a6bd5d58baeb187d27452f6ff3d8b5f250b5aa1ed",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_019.npz": "b394a8909953858024964a218a4ed23dafb1bb7e9e96dafcb8395de9af66bd9a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_020.npz": "1a97f0c9c59a34b25d0cc84b4f5ef114b2479bcb4e99e0fff0b4f065e733b737",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_021.npz": "a5edfd5700c6d063e4ea851e160276ae512b3af6b15de5f97a77d790187dac38",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_022.npz": "21435b95237ea73c74c923f5a3f74db10de43e9a4e0089573482ed2808a6707d",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_023.npz": "5c71a90df255c5c21fc1386fbac312bf13a46f96f91d12ffb6aa47b1884d2426",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_024.npz": "0aceafa67e97a623905962114c02fece540a66b570275efc1dadbcf1ae7face8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_025.npz": "5f935d85ecaee043493b7396785259ec6f15e0183e46829c38a52ba59636f786",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_026.npz": "d41581ec5ba68ab8ee37b0c91a577fb33cd613eb34411a4c6ceaff892baf2d1a",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_027.npz": "dc6870c59ff4cadf9d4c2276cc3c7746ca5cf37e40ee5b98d6f0e63bcf119ced",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_028.npz": "c814241eb473d0853b0a1a3647cc87177166c709e7b54cc35278b3c0c0f68d8c",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_029.npz": "b4e5c8f2828d4cce308a789f077b8c7a3b47b5a0f840d723e43e784d55342ad6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_030.npz": "0320836a0f870be204fc637265ec86f4b26544241675af7e72e9d602fcf9fd70",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_031.npz": "bf8b498b78ea5a7e5305c89f2926d55269cabf3be0415584fa4bd668f003ce10",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_032.npz": "482ed6c3efc25d1677d59ef6bd8767536df58fa5622c2ac5a6d0e980c92fbb76",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_033.npz": "3f5c52349516b7494a2fa87d018df88c4f5eb488aab18904902c051804a09cf7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_034.npz": "89bfbaca3a0f71bbea93e0786b45426ff8c9136111f603c09444d303f008d0bb",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_035.npz": "c3f96a7059e4ef8369796035454c6560aca6078a72184bc14431004c58cc6720",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_036.npz": "544ea421087625e019d4178f9a33bce3567f76bf980f07f4e92775196844ef29",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_037.npz": "b9437d03cf759dffe9fa5d14b867ea4ac4c167942881baef357297c5f8fbab3f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_038.npz": "abe0e766609784ffe9b07bbbff61e807c9d8686104c473742e46241ea9b58247",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_039.npz": "fd5375b01d5409727683ac3591d02bdba21bee4edfd16413976d0d7a5f92a869",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_040.npz": "9fe5ea5f3b224f9aca1ba3686ff3b4489519802dec6b8c99265ef60b879cffe3",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_041.npz": "197241b28bd19bbd152e7f05471bb8ad1d804f85e17e68208b423ab8a29854c6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_042.npz": "149dd58194070a7c6c4b4e1c27d19bd1619d22dd0e7f8ed4120c061ca9f7bf49",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/horizon_motion.py": "b36c172b5891e3f3956d50aeea2eef8b5f1f5d9afc97d37ab258fd6bbad3a43f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/coverage_paths.py": "e0d6f696337268a9714366d46163db732dd583fd1a9b63965204f6824407b36e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/full_horizon.py": "4dfd85b1b9d55d8289edaeebbc533bdd79d0b917ef630895d7fc18bdc89146c9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/baseline_motion1/result.json": "30ab1e945b0ae0e65a4c3fe736f549d48ace1684659ac2b195fd629457abd4a8",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/baseline_motion1/particles.npz": "95b09df5a7f6bb1f8a5133812387dbdc739f97f810ba6eb57eecae61d73a1ce2",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p317_cuda.py": "4874a0ac1ffa0cb5bcdc7b6511007714ff5d333de7204082839d9d65a8980091"
+  },
+  "stable_file_identities": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1.rest_trace.json": [
+      38,
+      10551341,
+      25631,
+      1790652732424958357
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1.json": [
+      38,
+      10362220,
+      4249099,
+      1790652730476961521
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1.protocol.json": [
+      38,
+      10544723,
+      20797,
+      1790652024086067260
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_render_full_dt_iso_nn.npz": [
+      38,
+      10565765,
+      3360302740,
+      1790652730388961663
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1.render_influence.json": [
+      38,
+      10362218,
+      2844,
+      1790652730396961652
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/physmorph/compute.py": [
+      38,
+      10570293,
+      12411,
+      1790460860000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/physmorph/pipeline/settlement.py": [
+      38,
+      10570233,
+      2370,
+      1790457157000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_000.npz": [
+      38,
+      10515873,
+      8975510,
+      1790652038334051918
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_001.npz": [
+      38,
+      10521956,
+      8988849,
+      1790652050374038992
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_002.npz": [
+      38,
+      10544816,
+      8991872,
+      1790652066382021856
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_003.npz": [
+      38,
+      10517157,
+      8991761,
+      1790652082682004467
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_004.npz": [
+      38,
+      10551335,
+      8974156,
+      1790652106105979578
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_005.npz": [
+      38,
+      10551336,
+      8943156,
+      1790652129741954579
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_006.npz": [
+      38,
+      10551337,
+      8796038,
+      1790652153641929414
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_007.npz": [
+      38,
+      10551338,
+      8593209,
+      1790652177221904690
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_008.npz": [
+      38,
+      10545282,
+      8411643,
+      1790652200573880305
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_009.npz": [
+      38,
+      10521957,
+      8211926,
+      1790652223973855963
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_010.npz": [
+      38,
+      10521958,
+      8063875,
+      1790652241077838229
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_011.npz": [
+      38,
+      10521959,
+      7924791,
+      1790652258025820700
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_012.npz": [
+      38,
+      10521960,
+      7850876,
+      1790652274705803494
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_013.npz": [
+      38,
+      10352879,
+      7765764,
+      1790652291281786435
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_014.npz": [
+      38,
+      10521961,
+      7703492,
+      1790652307865769408
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_015.npz": [
+      38,
+      10521962,
+      7619563,
+      1790652324413733092
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_016.npz": [
+      38,
+      10515876,
+      7562078,
+      1790652339885698422
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_017.npz": [
+      38,
+      10515877,
+      7429926,
+      1790652355257664498
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_018.npz": [
+      38,
+      10511590,
+      7310082,
+      1790652370413631541
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_019.npz": [
+      38,
+      10511591,
+      7280316,
+      1790652385529599146
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_020.npz": [
+      38,
+      10511592,
+      7214964,
+      1790652400521567467
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_021.npz": [
+      38,
+      10521963,
+      7161283,
+      1790652415465536325
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_022.npz": [
+      38,
+      10521964,
+      7138823,
+      1790652430361505703
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_023.npz": [
+      38,
+      10521965,
+      7114397,
+      1790652445173475657
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_024.npz": [
+      38,
+      10517158,
+      7103541,
+      1790652459997445980
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_025.npz": [
+      38,
+      10517159,
+      7087039,
+      1790652474777416768
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_026.npz": [
+      38,
+      10517160,
+      7068522,
+      1790652489541387957
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_027.npz": [
+      38,
+      10517161,
+      7049732,
+      1790652504353359410
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_028.npz": [
+      38,
+      10517162,
+      7031752,
+      1790652519173331195
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_029.npz": [
+      38,
+      10551339,
+      7023376,
+      1790652533909303478
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_030.npz": [
+      38,
+      10551340,
+      7021499,
+      1790652548641276094
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_031.npz": [
+      38,
+      10489709,
+      7011214,
+      1790652563337249091
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_032.npz": [
+      38,
+      10489710,
+      6998736,
+      1790652578001222451
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_033.npz": [
+      38,
+      10466022,
+      6987959,
+      1790652592673196093
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_034.npz": [
+      38,
+      10466023,
+      6980945,
+      1790652607249170193
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_035.npz": [
+      38,
+      10466024,
+      6975003,
+      1790652621817144583
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_036.npz": [
+      38,
+      10521364,
+      6973180,
+      1790652636389119234
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_037.npz": [
+      38,
+      10511593,
+      6968016,
+      1790652650877094288
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_038.npz": [
+      38,
+      10517163,
+      6964578,
+      1790652665349069622
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_039.npz": [
+      38,
+      10565760,
+      6959962,
+      1790652679817045203
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_040.npz": [
+      38,
+      10565761,
+      6955485,
+      1790652694369020882
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_041.npz": [
+      38,
+      10565762,
+      6955061,
+      1790652708596997328
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/full_baseline1_cohorts/attempt_042.npz": [
+      38,
+      10565763,
+      6954934,
+      1790652722748974111
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/horizon_motion.py": [
+      38,
+      10570364,
+      22236,
+      1790652986000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/coverage_paths.py": [
+      38,
+      10570363,
+      14998,
+      1790648449000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_horizon_motion1/scripts/probes/full_horizon.py": [
+      38,
+      10570443,
+      10379,
+      1790652000000000000
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/baseline_motion1/result.json": [
+      38,
+      10528482,
+      722362,
+      1790653163396331508
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/baseline_motion1/particles.npz": [
+      38,
+      10528481,
+      16856627,
+      1790653163372331540
+    ],
+    "/data/relcfd/chayo/physmorph_v2/work/p303/refute_p317_cuda.py": [
+      38,
+      9590175,
+      12874,
+      1790653441539976688
+    ]
+  },
+  "discretization": {
+    "N": 300000,
+    "T": 20,
+    "dt": 0.004166666666666667,
+    "dx_wu": 0.3062907543956724,
+    "loss_res": 36,
+    "iters": 8,
+    "source_spacing_wu": 0.03498853660707278
+  },
+  "last_animation": 39,
+  "interval": [
+    780,
+    800
+  ],
+  "last_array_checks": {
+    "last_path_wu": {
+      "max_abs_error": 2.7755575615628914e-17,
+      "max_tolerance_ratio": 0.00014043135945104187
+    },
+    "last_step_rms_wu": {
+      "max_abs_error": 1.734723475976807e-18,
+      "max_tolerance_ratio": 2.6406218076034255e-05
+    },
+    "last_net_wu": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "last_adjacent_step_reversed_count": {
+      "exact": true
+    },
+    "last_adjacent_step_eligible_count": {
+      "exact": true
+    },
+    "last_raw_terminal_geometric_speed_wu_s": {
+      "max_abs_error": 1.1102230246251565e-16,
+      "max_tolerance_ratio": 0.00010570271395489222
+    },
+    "last_promoted_terminal_geometric_speed_wu_s": {
+      "max_abs_error": 1.7763568394002505e-15,
+      "max_tolerance_ratio": 0.0001102857153190179
+    },
+    "last_optimizer_terminal_stored_speed_wu_s": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "last_endpoint_correction_wu": {
+      "max_abs_error": 1.0842021724855044e-19,
+      "max_tolerance_ratio": 2.0977678732878784e-06
+    },
+    "last_correction_opposes_raw_step": {
+      "exact": true
+    },
+    "free observed windows": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "free observed steps": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "pinned observed windows": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    },
+    "pinned observed steps": {
+      "max_abs_error": 0.0,
+      "max_tolerance_ratio": 0.0
+    }
+  },
+  "raw_plus_correction_max_error_wu": 0.0,
+  "final_free": {
+    "raw_last_rms_wu": 0.00037512358667662253,
+    "correction_rms_wu": 0.008560310709407357,
+    "saved_last_rms_wu": 0.008229425201510477,
+    "raw_correction_mean_dot_wu2": -2.848098999809843e-06,
+    "raw_last_geometric_speed_rms_wu_s": 0.0900296608023894,
+    "saved_last_geometric_speed_rms_wu_s": 1.9750620483625145,
+    "squared_norm_identity_residual": 7.623296525288703e-21
+  },
+  "free_at_start": 27672,
+  "final_free_count": 27136,
+  "newly_pinned_last_commit": 536,
+  "followup": {
+    "free": {
+      "observed_particle_windows": 3742489,
+      "observed_particle_steps": 74849780,
+      "pooled_step_rms_wu": 0.0037216337838161776,
+      "pooled_optimizer_terminal_stored_speed_rms_wu_s": 0.7364121621928188,
+      "per_id_normalized": {
+        "particles": 299975,
+        "step_rms_wu": {
+          "mean": 0.0036660597304296557,
+          "rms": 0.003982834142948439,
+          "p95": 0.006426321183017996,
+          "maximum": 0.02766536088506605
+        },
+        "optimizer_terminal_stored_speed_rms_wu_s": {
+          "mean": 0.7650017689155848,
+          "rms": 0.8314743344117791,
+          "p95": 1.3100204447794705,
+          "maximum": 2.4967608979752467
+        },
+        "mean_step_length_wu": {
+          "mean": 0.002596293420590679,
+          "rms": 0.002828784031004407,
+          "p95": 0.004697230169481108,
+          "maximum": 0.012715846057186814
+        }
+      },
+      "per_id_accumulated_sums_and_denominators": {
+        "particles": 299975,
+        "observed_windows": {
+          "mean": 12.47600300025002,
+          "rms": 15.552838783735037,
+          "p95": 37.0,
+          "maximum": 39.0
+        },
+        "observed_steps": {
+          "mean": 249.52006000500043,
+          "rms": 311.05677567470076,
+          "p95": 740.0,
+          "maximum": 780.0
+        },
+        "path_wu_sum": {
+          "mean": 0.5542901548126663,
+          "rms": 0.6627376931760777,
+          "p95": 1.2188284127690967,
+          "maximum": 5.878965710556249
+        },
+        "step_squared_wu2_sum": {
+          "mean": 0.0034559920684632157,
+          "rms": 0.005512320408472286,
+          "p95": 0.00918200835891056,
+          "maximum": 0.3673786525924525
+        },
+        "terminal_stored_speed_squared_sum": {
+          "mean": 6.765772265919974,
+          "rms": 9.162562387340719,
+          "p95": 16.679149269432088,
+          "maximum": 67.98492679771796
+        }
+      }
+    },
+    "pinned": {
+      "observed_particle_windows": 7487651,
+      "observed_particle_steps": 149753020,
+      "pooled_step_rms_wu": 0.0,
+      "pooled_optimizer_terminal_stored_speed_rms_wu_s": 0.0,
+      "per_id_normalized": {
+        "particles": 272328,
+        "step_rms_wu": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        },
+        "optimizer_terminal_stored_speed_rms_wu_s": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        },
+        "mean_step_length_wu": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        }
+      },
+      "per_id_accumulated_sums_and_denominators": {
+        "particles": 272328,
+        "observed_windows": {
+          "mean": 27.49497297376693,
+          "rms": 28.221638667429275,
+          "p95": 34.0,
+          "maximum": 37.0
+        },
+        "observed_steps": {
+          "mean": 549.8994594753386,
+          "rms": 564.4327733485854,
+          "p95": 680.0,
+          "maximum": 740.0
+        },
+        "path_wu_sum": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        },
+        "step_squared_wu2_sum": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        },
+        "terminal_stored_speed_squared_sum": {
+          "mean": 0.0,
+          "rms": 0.0,
+          "p95": 0.0,
+          "maximum": 0.0
+        }
+      }
+    }
+  },
+  "full_path_summary_reductions_verified": true,
+  "earlier_raw_path_sums_recomputed": false,
+  "arrival_predicates_recomputed": false,
+  "source_spacing_independently_recomputed": false,
+  "natural_rest_established": false,
+  "quality_established": false,
+  "torch_peak_bytes": 780836352,
+  "main_elapsed_s": 2.936070495052263
+}
