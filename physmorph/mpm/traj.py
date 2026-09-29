@@ -221,7 +221,12 @@ class Trajectory:
             self.cnt_b = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
             self.ncount_b = wp.zeros(N, dtype=wp.float32, device=device)
             self.omega_b = warp_array(np.ones(N, np.float32), dtype=wp.float32, device=device)
-            self.frag_step = wp.zeros(N, dtype=wp.float32, device=device)
+            # Reverse P2G/update read the actual branch taken at their own t.
+            # One overwritten scratch mask silently substitutes the final
+            # activity into earlier adjoints. No-grad evaluation may share it.
+            frag_buffers = [wp.zeros(N, dtype=wp.float32, device=device) for _ in range(T if rg else 1)]
+            self.frag_steps = [frag_buffers[t if rg else 0] for t in range(T)]
+            self.frag_step = self.frag_steps[0]  # Most recently evaluated mask for diagnostics.
         # OUTER-LAYER RELAXATION (kernels.k_layer_resid / k_layer_project; docs/surface_gradient.md
         # §6): layer = (mask (N,), nrm (N,3), nbr (N,K), w (N,K), frac) frozen for this rollout.
         # k_update writes the advected positions into xu[t+1]; the projection writes x[t+1].
@@ -294,6 +299,7 @@ class Trajectory:
         particle that clears the fracture gap mid-window is bonded at once, not a window later."""
         if not self.bonds:
             return self.nbr0, self.rest0, self.ncount0, 0
+        self.frag_step = self.frag_steps[t]
         gate_omega(self.x[t], self.prm, 1.0, self.omega_b, self.ncount_b, self.cnt_b)
         wp.launch(K.k_frag_step, dim=self.N, inputs=[self.ncount_b, self.bond_frag, self.frag_step, self.frag_thr],
                   device=self.device)

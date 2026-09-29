@@ -9459,3 +9459,18 @@ reads intoone transfer.16CPU+39pipeline cases and4actualCUDA cases(1.38s) pass.
 Remaining host decisions/internal library synchronization and total runtime
 remain unmeasured; no claim of a fully host-free pipeline. Evidence:
 `docs/trajectory_reporting_p325.md`, `docs/evidence/p325`.
+
+### 2026-09-29: P326 joint withdrawal derivative and fragment-mask lifetime
+
+No new optimizer objective. Two original-T trajectories connect x/v/C/F/Fg
+through one tape, with future controls zero and original Fp/prepared policies
+frozen. This is pre-assimilation only.72 CPU cases pass; independent refutation
+closed source/CPU gates, actual CUDA tests pending. Review found the inherited
+single fragment-activity scratch was reused during reverse. Differentiable
+trajectories now retain per-step masks; same-control forward kernels are unchanged.
+N24,T8,dt.005,dx.5,16^3 numerical witness has activity1,1,1,0,0,0,0,0 and
+corrected body AD-.003190334 versus centered FD-.003187978/-.003187565. Old
+scratch reproduction gives+.002087397 with identical forward outputs. This can
+affect gradients from both physics and rendering, so production paths may change;
+actual morph symptom/quality benefit remains unmeasured. No new renders or loss
+weights. See `docs/withdrawal_adjoint_p326.md` for FD refinements and scope.

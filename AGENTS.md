@@ -306,3 +306,12 @@ These are the leading candidates for the unresolved problems, and they are ports
   16 CPU cases,39 pipeline cases and4 actual CUDA cases pass. It removes no
   determinant-library internal synchronization or remaining host policy work;
   no end-to-end timing claim. See `docs/trajectory_reporting_p325.md`.
+- **P326 adjoint:** `docs/withdrawal_adjoint_p326.md` adds a joint controlled-head/
+  frozen pre-assimilation withdrawal derivative, not a postcommit/rest objective.
+  Full x/v/C/F/Fg boundary paths are connected; CUDA requires aligned
+  Torch/CuPy/Warp streams. Review also fixed overwritten `Trajectory.frag_step`:
+  gradient-enabled rollouts retain the actual activity at every step; no-grad
+  forward still shares scratch. Fixed-control primal is unchanged, but gradients
+  and learned production paths can change.72 CPU cases pass, including a real
+  changing-mask opposite-sign regression. Actual CUDA/quality gates pending;
+  no natural-rest/hole/4K promotion.
