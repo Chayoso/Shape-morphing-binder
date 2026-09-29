@@ -13,7 +13,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from physmorph.compute import array_api as np, cuda_execution, KDTree, to_array
 from scripts.probes.quality_compare import (checked_runs, admitted_mask, bounded_ids,
-                                            VARIANCE_INTERVENTIONS)
+                                            VARIANCE_INTERVENTIONS, LAYER_FULL,
+                                            artifact_stat, bind_layer_artifact, verify_layer_artifacts)
 
 
 def phase_frame_indices(records, first_commit, last_commit, steps):
@@ -55,14 +56,33 @@ def motion_summary(moves, normals, tangent1, tangent2, spacing, include_rms=Fals
                 signed_tangent2_sp=summarize(((moves*tangent2).sum(-1)/spacing).ravel()))
 
 
+def phase_path_share(numerator, denominator, intervention):
+    # A nonempty stationary cohort has zero motion but no defined share of its
+    # zero path. Keep the original tensor division/dtype for nonzero paths.
+    if intervention == LAYER_FULL and bool(denominator == 0):
+        return None
+    return float(numerator/denominator)
+
+
 def phase_audit(baseline, candidate, reference, out):
     if out.exists():
         raise FileExistsError('Use a new output path to preserve evidence')
-    report = json.loads(reference.read_text())
+    reference_stat = artifact_stat(reference)
+    reference_bytes = reference.read_bytes()
+    report = json.loads(reference_bytes)
     intervention = report['intervention']
+    reference_binding = dict(sha256=hashlib.sha256(reference_bytes).hexdigest(), stat=reference_stat)
+    if intervention == LAYER_FULL and artifact_stat(reference) != reference_stat:
+        raise ValueError('P320 quality reference changed while reading')
+    def verify_inputs():
+        if intervention == LAYER_FULL:
+            verify_layer_artifacts(runs)
+            if bind_layer_artifact(reference) != reference_binding:
+                raise ValueError('P320 quality reference changed during phase analysis')
     if intervention not in ('body_rprop', 'commit_pic_off', 'commit_pic_off_full',
                            'render_arrival_handoff', 'commit_pic_objective_prefix',
-                           'geometric_rest_prefix', 'geometric_rest_full', 'shared_pic_off_prefix', *VARIANCE_INTERVENTIONS):
+                           'geometric_rest_prefix', 'geometric_rest_full', 'shared_pic_off_prefix',
+                           LAYER_FULL, *VARIANCE_INTERVENTIONS):
         raise ValueError('Phase diagnostic permits only explicitly reviewed interventions')
     runs, changes = checked_runs(baseline, candidate, intervention)
     quality_file = Path(sys.modules['scripts.probes.quality_compare'].__file__)
@@ -73,20 +93,23 @@ def phase_audit(baseline, candidate, reference, out):
     for name, run in zip(('baseline', 'candidate'), runs):
         if Path(report[name]['prefix']) != Path(run['prefix']):
             raise ValueError('Reference names different simulation artifacts')
+        if intervention == LAYER_FULL and report[name].get('artifact_hashes') != run['artifact_hashes']:
+            raise ValueError('P320 simulation artifacts changed since the quality comparison')
     previous_cohort = report['cohorts']['common_endpoint_free_both']
-    if intervention in VARIANCE_INTERVENTIONS and any(previous_cohort['arms'][name] is None
+    if (intervention in VARIANCE_INTERVENTIONS or intervention == LAYER_FULL) and any(previous_cohort['arms'][name] is None
                                               for name in ('baseline', 'candidate')):
         reason = ('empty_common_free_cohort' if not previous_cohort['sampled_count'] else
                   'fewer_than_three_common_commits')
         result = dict(status='inconclusive', reason=reason, intervention=intervention,
                       probe_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                      quality_json_sha256=hashlib.sha256(reference.read_bytes()).hexdigest(),
+                      quality_json_sha256=reference_binding['sha256'],
                       quality_probe_sha256=report['probe_sha256'], code_hash=report['code_hash'],
                       analysis_scope=report['analysis_scope'], cohort=previous_cohort,
                       mpm=report['mpm'], n=report['n'], T=report['T'],
                       native_spacing_wu=report['native_spacing'],
                       baseline=None, candidate=None,
                       scope='No matched phase motion measured; W1 excluded; no rest or repair conclusion')
+        verify_inputs()
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(result, indent=2))
         print(json.dumps({'out': str(out), 'status': 'inconclusive', 'reason': reason}), flush=True)
@@ -101,7 +124,7 @@ def phase_audit(baseline, candidate, reference, out):
     spacing = float(report['native_spacing'])
     dt = float(report['mpm']['dt'])
     result = dict(probe_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                  quality_json_sha256=hashlib.sha256(reference.read_bytes()).hexdigest(),
+                  quality_json_sha256=reference_binding['sha256'],
                   quality_probe_sha256=report['probe_sha256'], code_hash=report['code_hash'],
                   mpm=report['mpm'], n=report['n'], T=steps, native_spacing_wu=spacing,
                   config_changes=changes, intervention=intervention,
@@ -127,6 +150,15 @@ def phase_audit(baseline, candidate, reference, out):
             result['definitions']['interval'] = (
                 f'starts at accepted commit{first_commit}; windows{first_commit+1}..{last_commit}; '
                 'at most the last10 common windows; W1 excluded; each arm full endpoint is separate')
+    if intervention == LAYER_FULL:
+        result.update(status='available_descriptive', audited_windows=[first_commit+1, last_commit],
+                      window1_excluded=True)
+        result['definitions'].update(
+            interval=f'delivery-retained accepted commit{first_commit} through{last_commit}; '
+                     'at most10 common windows, independent of own actual/delivered endpoints',
+            phase='1..T within accepted raw rollouts; PIC and shift are disabled in both arms',
+            attribution='whole layer-control/relaxation policy comparison with adaptive optimization and pins; '
+                        'not a same-state layer-kernel ablation and not a natural-rest certificate')
     with cuda_execution('cuda'):
         n = len(runs[0]['source'])
         boundary, free = np.zeros(n, bool), np.ones(n, bool)
@@ -161,7 +193,8 @@ def phase_audit(baseline, candidate, reference, out):
             tangent1 /= np.linalg.norm(tangent1, axis=1)[:, None]
             tangent2 = np.cross(normal, tangent1)
             summarize_motion = lambda values: motion_summary(values, normal, tangent1, tangent2, spacing,
-                                                              include_rms=intervention in VARIANCE_INTERVENTIONS)
+                                                              include_rms=(intervention in VARIANCE_INTERVENTIONS
+                                                                           or intervention == LAYER_FULL))
             phases = [dict(phase=p+1, **summarize_motion(moves[:, p]))
                       for p in range(steps)]
             total_path = lengths.sum((0, 1))
@@ -191,20 +224,21 @@ def phase_audit(baseline, candidate, reference, out):
                 geometric_speed = np.linalg.norm(xb-xa, axis=1)/dt
                 per_window.append(dict(commit=ordinal, attempt=int(record['animation'])+1,
                                        frame_indices=window,
-                                       final_path_fraction=float(lengths[j, -1].sum()/lengths[j].sum()),
+                                       final_path_fraction=phase_path_share(lengths[j, -1].sum(), lengths[j].sum(), intervention),
                                        final_geometric_mean_speed_all_particles_wu_s=float(geometric_speed.mean()),
                                        recorded_terminal_mean_speed_wu_s=record.get('v_mean'),
                                        final_phase=summarize_motion(moves[j, -1])))
             result[name] = dict(phases=phases, per_window=per_window,
                                 first_19_phases=summarize_motion(moves[:, :-1]),
                                 final_phase=summarize_motion(moves[:, -1]),
-                                final_phase_total_path_share=float(last_path.sum()/total_path.sum()),
+                                final_phase_total_path_share=phase_path_share(last_path.sum(), total_path.sum(), intervention),
                                 per_particle_final_path_share=distribution(last_path[moving]/total_path[moving]),
                                 per_particle_raw_net_over_path=distribution(
                                     np.linalg.norm(positions[-1, -1]-positions[0, 0], axis=1)[moving]/total_path[moving]),
                                 reversal_groups=reversal_groups)
             print(json.dumps({'arm': name, 'final_path_share': result[name]['final_phase_total_path_share'],
                               'reversal_groups': reversal_groups}), flush=True)
+    verify_inputs()
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2))
     print(json.dumps({'out': str(out), 'cohort': cohort}), flush=True)

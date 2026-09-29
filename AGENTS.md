@@ -276,3 +276,12 @@ These are the leading candidates for the unresolved problems, and they are ports
   labelled samples,13026/9246 checks,7 source states reprojected per arm).
   Intermediate projected holes remain; PIC improves same-endpoint coverage but
   can either add or remove projected holes. See retained P319 evidence and limits.
+- **P320/P321/P322 continuation:** `docs/layer_ablation_p320.md` tests the combined
+  layer_ctrl/layer_relax removal from raw, with a fresh raw repeat, unchanged
+  ordinary policies and full-horizon tracing. Comparator code has104 CPU tests;
+  physical/shape conclusions are pending. P321 batches three raw-gradient report
+  scalars intoone host copy (64 CPU/4 actual CUDA tests); no policy or speed claim.
+  P322 adds explicit optimization termination reasons while retaining legacy
+  converged=frozen. Individual rest is not evaluated by those stopping rules.
+  `docs/gaussian_footprint_followup.md` separates physical F stretch from the active
+  photoreal8NN covariance rule; pin normals/sigma latch but support remains live.

@@ -339,7 +339,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
 def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
                  on_commit=None, on_iter=None, w_src=None, w_tgt=None):
     """Morph source -> target. Returns a result dict (frames, F_frames, history, guards, s,
-    n_held, converged). frames/F_frames archive the PROMOTED per-step states.
+    n_held, converged, termination). `converged` retains the legacy global-freeze
+    flag; `termination` explains optimization stopping, not individual rest.
+    frames/F_frames archive the PROMOTED per-step states.
     on_commit(a, x, F, v, rec) fires after each promoted commit; on_iter(it, xT, FT, tele)
     streams each accepted optimisation iteration (live viewer hooks)."""
     if cfg.settle_pin and (cfg.reattach or cfg.settle_commit):
@@ -511,6 +513,15 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
     best_h1 = None
     reject_streak, last_reject_score = 0, None
     stale, frozen, n_held = 0, False, 0
+    termination_events = []
+    optimizer_attempts, last_optimizer_attempt = 0, None
+
+    def record_termination(reason, attempt, **evidence):
+        # Reporting only: retain simultaneous triggers without changing precedence
+        # or any stopping decision. Held/dressing iterations are not attempts.
+        termination_events.append(dict(reason=reason, attempt_index=attempt,
+                                       attempt_number=attempt + 1, evidence=evidence))
+
     anneal = 1.0                     # plateau-scheduled step scale (zigzag forensic)
     prev_tracks = None               # last ACCEPTED commit's lambda-free tracks
     mom_prev = None                  # cross-window Adam moments (mom_carry)
@@ -636,6 +647,8 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             # otherwise never see the final outline (g41rp: -0.005..-0.008 at 40k; bf300: -0.004 at 300k).
             cfg.render_paced = False
             log(f"[v2] anim {a + 1}: the render target is the target's own images from the pin's onset (config.render_paced_onset)")
+        optimizer_attempts += 1
+        last_optimizer_attempt = a
         fr, F_seq, end, s, whist, stats = optimize_window(
             x_start, prm, cfg, tgt, balancer, F0=st["F"], Fp=Fp, v0=st["v"], C0=st["C"],
             s_init=s, dfc_init=dfc_prev, on_iter=on_iter, log=log if cfg.body_ctrl else (lambda *_: None),
@@ -655,10 +668,12 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             dfc_prev = stats.get("dfc")
         if not whist:
             if stats.get("grad_converged"):
-                frozen = True                       # zero gradient at the start: at the optimum
+                frozen = True                       # optimizer's gradient stopping rule
+                record_termination("window_start_gradient_stop", a)
                 hist.append({"animation": a, "grad_converged": 1,
                              "render_target_kind": stats.get("render_target_kind")})
-                log(f"[v2] anim {a + 1}: gradient converged at window start; holding still")
+                log(f"[v2] anim {a + 1}: optimization stopped by window-start gradient rule; "
+                    "individual-particle rest not evaluated")
                 continue
             # line-search exhaustion is NOT convergence (Codex stack-review f6: a hard
             # stop here bypassed patience — hero7_base truncated at anim 106). Null
@@ -681,7 +696,9 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                 anneal = max(0.05, anneal * cfg.anneal_stale)
             if stale >= cfg.patience:
                 frozen = True
-                log(f"[v2] frozen after {cfg.patience} stale/null commits")
+                record_termination("null_commit_patience", a, stale=stale, patience=cfg.patience)
+                log(f"[v2] anim {a + 1}: optimization stopped by stale/null-commit patience; "
+                    "individual-particle rest not evaluated")
             continue
 
         if cfg.mom_carry > 0:            # only a committed window donates its moments
@@ -1328,12 +1345,16 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                     f"{', EJECTION ' + str(rec.get('iso_start')) + '->' + str(rec.get('iso_count')) if eject_reject else ''})")
                 if stale >= cfg.patience:
                     frozen = True
+                    record_termination("outer_rejection_patience", a,
+                                       stale=stale, patience=cfg.patience)
                 if getattr(cfg, "reject_stop", 0) > 0 and reject_streak >= cfg.reject_stop:
                     # early stop: three consecutive rejected candidates of any kind are the
                     # plateau (v7: all terminal streaks; the C replayed a rejected step 12x)
                     log(f"[v2] anim {a + 1}: {reject_streak} consecutive rejected candidates -> "
-                        f"early stop at the best commit")
+                        "optimization stopped; individual-particle rest not evaluated")
                     frozen = True
+                    record_termination("outer_rejection_streak", a,
+                                       reject_streak=reject_streak, reject_stop=cfg.reject_stop)
                 continue
             outer_prev = score
             outer_prev_phys = score_phys
@@ -1413,7 +1434,10 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                     "pace_bound": int(bool(stats.get("pace_bound")))})  # freeze forensics
         if stale >= cfg.patience:
             frozen = True
-            log(f"[v2] converged at anim {a + 1} (phys={phys_track:.4f}); holding still")
+            record_termination("accepted_track_plateau", a, stale=stale,
+                               patience=cfg.patience, tolerance=cfg.tol)
+            log(f"[v2] anim {a + 1}: optimization stopped by accepted-track plateau "
+                f"(phys={phys_track:.4f}); individual-particle rest not evaluated")
         # ---- net displacement against summed displacement over the last `patience` windows (config
         # stop_on_cycle; docs/oscillation.md Addendum 9): the outer layer's window-to-window breathing
         # has a net/summed ratio near 0, honest descent near 1, a random walk 1/sqrt(k). Logged every
@@ -1436,9 +1460,13 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
             rec["cyc_stale"] = cyc_stale
             if getattr(cfg, "stop_on_cycle", False) and not frozen and cyc_stale >= k_cyc:
                 frozen = True
-                log(f"[v2] converged at anim {a + 1}: net / summed displacement over {k_cyc} windows "
+                record_termination("displacement_cycle", a, net_ratio=net_ratio,
+                                   threshold=k_cyc ** -0.5, cycle_windows=k_cyc,
+                                   cycle_stale=cyc_stale)
+                log(f"[v2] anim {a + 1}: optimization stopped by displacement-cycle rule: "
+                    f"net / summed displacement over {k_cyc} windows "
                     f"{net_ratio:.3f} <= random walk {1.0 / np.sqrt(k_cyc):.3f} for {cyc_stale} windows "
-                    f"(the tail breathes without progress); holding still")
+                    "(individual-particle rest not evaluated)")
         # ---- sign-history damping of the u channel (config.u_rprop; docs/method.md 10.19): after an
         # ACCEPTED window, a particle whose u flipped sign against the previous accepted window has
         # its bound halved (Rprop eta- = 0.5), one that kept its sign has it raised x1.2 up to the full
@@ -1900,7 +1928,22 @@ def _run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=p
                     f" (deliver {deliver_n} of {len(frames)} frames; all frames archived)")
     if dress is not None:                        # close the archive over any tail
         dress.cover_frames(len(frames))
+    termination_reason = (termination_events[0]["reason"] if termination_events else
+                          "manual_window_cap" if 0 < cfg.stop_after_windows < cfg.animations else
+                          "configured_window_budget")
+    termination_attempt = (termination_events[0]["attempt_index"] if termination_events
+                           else last_optimizer_attempt)
+    termination = dict(reason=termination_reason, attempt_index=termination_attempt,
+        attempt_number=None if termination_attempt is None else termination_attempt + 1,
+        optimizer_attempts=optimizer_attempts, optimization_stopped=True,
+        stopping_rule_triggered=bool(frozen), individual_rest="not_evaluated",
+        configured_windows=cfg.animations, manual_window_cap=cfg.stop_after_windows,
+        effective_window_limit=max(0, window_limit), triggers=termination_events,
+        scope="Optimization termination only; copied holds, pin admission and delivery truncation do not certify natural rest.")
+    log(f"[v2] optimization stopped: {termination_reason}; optimizer attempts={optimizer_attempts}; "
+        "individual-particle rest not evaluated")
     return {"truncation": trunc, "deliver_n": deliver_n,   # frames are NEVER dropped
+            "termination": termination,
             "input_assets": {"target_reference": getattr(tgt, "target_reference_provenance", None)},
             "dressing": dress.export() if dress is not None else None,
             "frames": frames, "F_frames": F_frames, "history": hist, "guards": guards,

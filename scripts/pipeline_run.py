@@ -1073,6 +1073,7 @@ def main():
                             "gates": {k: (bool(v) if isinstance(v, (bool, np.bool_)) else v)
                                       for k, v in gates.items()},
                             "guards": res["guards"], "converged": res["converged"],
+                            "termination": res.get("termination"),
                             "balancer": res.get("balancer"), "deliver_n": int(dn),
                             "truncation": res.get("truncation"),
                             "n_held": res["n_held"], "seconds": dt, "history": res["history"]}

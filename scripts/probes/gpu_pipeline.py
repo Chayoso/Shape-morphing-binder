@@ -146,6 +146,7 @@ def main():
                         commits=np.stack(commits))
     record = dict(code_sha256=digest, memory=memory, seconds=time.monotonic()-start, config=config, mpm=dataclasses.asdict(prm),
                   history=result['history'], guards=result['guards'],
+                  termination=result.get('termination'),
                   torch_peak_bytes=torch.cuda.max_memory_allocated())
     if args.archive:
         ids = sorted({0, len(result['frames'])-1} | {int(r['frame_end'])-1 for r in result['history'] if r.get('frame_end')})
@@ -164,6 +165,7 @@ def main():
                                     compute_backend=args.backend)
         record['arms'] = {'render_full_dt_iso_nn': dict(config=config, history=result['history'],
                           guards=result['guards'], metrics={}, deliver_n=result['deliver_n'],
+                          termination=result.get('termination'),
                           converged=result['converged'], truncation=result['truncation'], n_held=result['n_held'])}
     from physmorph.pipeline.render_reporting import write_render_report
     record['render_influence'] = write_render_report(out, result['history'], config, dataclasses.asdict(prm), len(src))

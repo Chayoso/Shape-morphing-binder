@@ -18,4 +18,7 @@ They exercise mixed dtypes, order-sensitive cancellation/norm accumulation,
 FP64 precision, ownership and zero/nonfinite semantics. The four server CUDA
 cases additionally require exact legacy parity on a side stream, no individual
 CUDA scalar extraction, and exactly one three-element device-to-host copy.
-Those actual CUDA results are pending; local CUDA cases are deliberately skipped.
+Actual server verification, frozen1ff004d:4 passed,0 skipped,1.38s. Exact legacy
+payloads and the single-copy/side-stream conditions pass. Local CUDA cases are
+deliberately skipped. Logs, XML and executed source hashes are retained in
+`docs/evidence/p321`; no end-to-end performance measurement is implied.

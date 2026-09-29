@@ -1,0 +1,18 @@
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_layer_ablation1
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+collected 4 items
+
+tests/test_gradient_reporting_cuda.py ....                               [100%]
+
+=============================== warnings summary ===============================
+tests/test_gradient_reporting_cuda.py::test_raw_observations_have_one_host_copy_and_exact_side_stream_parity[dtypes0]
+  /data/relcfd/chayo/physmorph_v2/work/p303/code_layer_ablation1/tests/test_gradient_reporting.py:13: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+  Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:835.)
+    return norm(physics), norm(render), float(sum((a*b).sum() for a, b in zip(physics, render)))
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/gradient_reporting_verify1.xml -
+========================= 4 passed, 1 warning in 1.38s =========================

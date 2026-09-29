@@ -44,3 +44,13 @@ Report rendering's lambda, raw and combined direction norms, accepted control
 updates, image-loss changes and independent raw evidence. Direction-norm share
 is not a fraction of displacement. This pair is not render-on/off causality and
 does not supervise the exported4K appearance.
+
+The comparator's explicit `layer_projection_off_full` mode and phase report pass
+104 CPU contract/regression cases and independent refutation. It validates the
+full actual and delivery-retained accepted clocks separately, forbids compressed
+raw frames for bounded mmap access, hash-binds artifacts before and after
+analysis, and reports the same source cohort at actual/delivered endpoints.
+Zero common path gives an undefined (null) fraction rather than an invented0.
+Only the probe files may be overlaid onto a clone of the frozen producer core;
+the comparator rejects a different physical source aggregate. Actual CUDA
+comparison results remain pending.

@@ -8,6 +8,8 @@ The geometric-rest prefix additionally fixes T=20, dt=1/240 and a positive kinet
 The geometric-variance prefix compares the whole adaptive policy at cap8 with
 positive temporal variance weight and matched read-only motion accounting.
 Its full mode uses the same policy guard at cap60 and audits each delivered endpoint.
+P320 layer_projection_off_full requires cap300 and separates the complete archive
+clock, each delivery-retained endpoint and the common retained accepted interval.
 Numerical geometry, cohorts and motion use CUDA;
 archive/hash/JSON I/O use the host. No renderer or optimization-loss operator is read.
 """
@@ -18,6 +20,7 @@ import os
 from pathlib import Path
 import re
 import sys
+import zipfile
 
 import numpy as host_np
 import warp as wp
@@ -30,7 +33,7 @@ from scripts.probes.render_influence import load_run, channel_summary, count_opt
 
 wp.config.kernel_cache_dir = os.environ['WARP_CACHE_PATH']
 FULL_INTERVENTIONS = ('body_rprop', 'commit_pic_off_full', 'render_arrival_handoff',
-                      'geometric_rest_full', 'geometric_variance_full')
+                      'geometric_rest_full', 'geometric_variance_full', 'layer_projection_off_full')
 PREFIX_INTERVENTIONS = ('stress_taper', 'commit_pic_off', 'commit_pic_objective_prefix',
                         'geometric_rest_prefix', 'geometric_variance_prefix', 'shared_pic_off_prefix',
                         'pin_admission_off_prefix')
@@ -38,6 +41,8 @@ P303_INTERVENTIONS = ('shared_pic_off_prefix', 'pin_admission_off_prefix')
 GEOMETRIC_INTERVENTIONS = ('geometric_rest_prefix', 'geometric_rest_full')
 VARIANCE_PREFIX = 'geometric_variance_prefix'
 VARIANCE_INTERVENTIONS = (VARIANCE_PREFIX, 'geometric_variance_full')
+LAYER_FULL = 'layer_projection_off_full'
+RAW_ENDPOINT_INTERVENTIONS = (*P303_INTERVENTIONS, LAYER_FULL)
 
 
 def stats(values, include_rms=False):
@@ -56,6 +61,27 @@ def file_digest(path):
         for block in iter(lambda: stream.read(4*1024*1024), b''):
             digest.update(block)
     return digest.hexdigest()
+
+
+def artifact_stat(path):
+    value = Path(path).stat()
+    return dict(size=value.st_size, mtime_ns=value.st_mtime_ns,
+                inode=value.st_ino, device=value.st_dev)
+
+
+def bind_layer_artifact(path):
+    before = artifact_stat(path)
+    digest = file_digest(path)
+    if artifact_stat(path) != before:
+        raise ValueError('P320 artifact changed while hashing: '+str(path))
+    return dict(sha256=digest, stat=before)
+
+
+def verify_layer_artifacts(runs):
+    for run in runs:
+        for suffix, binding in run['artifact_bindings'].items():
+            if bind_layer_artifact(run['prefix']+suffix) != binding:
+                raise ValueError('P320 artifact changed during analysis: '+run['prefix']+suffix)
 
 
 def accepted_raw_indices(records, steps):
@@ -95,6 +121,22 @@ def checked_config_changes(ca, cb, intervention):
                  and all(c.get('stop_after_windows') == 60 and c.get('commit_pic') is False
                          and c.get('outer_render_committed') is True and c.get('render_paced') is True
                          and c.get('lambda_auto', 0.) > 0 for c in (ca, cb)))
+    elif intervention == LAYER_FULL:
+        valid = (set(changes) == {'layer_ctrl', 'layer_relax'}
+                 and all(ca.get(k) is True and cb.get(k) is False for k in changes)
+                 and all(c.get('stop_after_windows') == 300 and c.get('animations') == 300
+                         and c.get('T') == 20 and c.get('iters') == 8 and c.get('loss_res') == 36
+                         and c.get('commit_pic') is False and c.get('commit_pic_objective') is False
+                         and c.get('shift_sub') is False and c.get('outer_render_committed') is True
+                         and c.get('body_ctrl') is True and c.get('motion_accounting') is True
+                         and c.get('lambda_auto', 0.) > 0 and host_np.isfinite(c['lambda_auto'])
+                         and (c.get('render_until', 0) <= 0 or c.get('render_until', 0) >= 300)
+                         and not any(c.get(k, False) for k in ('surface_gs_loss', 'render_F_geom',
+                             'geometric_rest', 'geometric_variance', 'reattach', 'settle_commit',
+                             'assim_consensus', 'settle_pin_yield', 'settle_pin_follow', 'settle_pin_kkt'))
+                         and c.get('lg_sweeps', 0) == 0 and c.get('w_grow', 0) == 0
+                         and c.get('local_dress_iters', 0) == 0
+                         for c in (ca, cb)))
     elif intervention == 'commit_pic_objective_prefix':
         valid = (set(changes) == {'commit_pic_objective'}
                  and not ca.get('commit_pic_objective', False) and cb.get('commit_pic_objective') is True
@@ -171,8 +213,105 @@ def checked_mpm_parameters(baseline, candidate, intervention):
     if baseline != candidate:
         raise ValueError('MPM discretisation mismatch')
     if (intervention in GEOMETRIC_INTERVENTIONS or intervention in VARIANCE_INTERVENTIONS
-            or intervention in P303_INTERVENTIONS) and baseline.get('dt') != 1/240:
+            or intervention in RAW_ENDPOINT_INTERVENTIONS) and baseline.get('dt') != 1/240:
         raise ValueError(f'{intervention} requires dt=1/240')
+
+
+def checked_layer_archive(prefix):
+    """Check the bounded-I/O contract before the legacy loader can decompress frames."""
+    path = Path(str(prefix)+'_render_full_dt_iso_nn.npz')
+    with zipfile.ZipFile(path) as archive:
+        entries = [entry for entry in archive.infolist() if entry.filename == 'frames.npy']
+        if len(entries) != 1 or entries[0].compress_type != zipfile.ZIP_STORED:
+            raise ValueError('P320 requires one uncompressed frames.npy member for bounded mmap I/O')
+    with host_np.load(path, allow_pickle=False) as data:
+        value = data['deliver_n']
+        if value.shape != () or value.dtype.kind not in 'iu':
+            raise ValueError('P320 archive delivery count must be an integer scalar')
+        return int(value)
+
+
+def checked_layer_delivery(run, declared_delivery):
+    """Reconstruct the complete clock before selecting delivery-retained commits.
+
+    Only metadata is interpreted here. Frame equality, geometry and pin membership
+    are validated on CUDA in checked_runs; no full trajectory/F array is loaded.
+    """
+    arm, frames = run['arm'], run['frames']
+    if run['source'].shape != (300000, 3) or run['target'].shape != (300000, 3):
+        raise ValueError('P320 requires the original N300k source and target layouts')
+    if frames.ndim != 3 or frames.shape[1:] != run['source'].shape or frames.dtype != host_np.float32:
+        raise ValueError('P320 raw frame layout differs from material IDs')
+    if (not 1 <= declared_delivery <= len(frames) or arm.get('deliver_n') != declared_delivery
+            or run['delivered'] != declared_delivery):
+        raise ValueError('P320 delivery count mismatch; silent clamping is forbidden')
+    cursor, next_animation, held = 0, 0, 0
+    actual, holds, events, attempt_rows = [], [], [], []
+    for row in arm['history']:
+        if row.get('animation') != next_animation:
+            raise ValueError('P320 history lacks a contiguous attempt/held clock')
+        if 'c2f_render_res' in row:
+            if row.get('frame_end') or row.get('held') or row.get('null_commit'):
+                raise ValueError('P320 C2F event cannot contain a physical frame span')
+            events.append(dict(row))
+            continue
+        next_animation += 1
+        end = row.get('frame_end')
+        null, rejected = bool(row.get('null_commit')), bool(row.get('outer_rejected'))
+        if row.get('held'):
+            if end or null or rejected:
+                raise ValueError('P320 held suffix cannot be an accepted/rejected/null solve')
+            held += 1
+            holds.append((cursor, cursor+1))
+            cursor += 1
+            continue
+        if held:
+            raise ValueError('P320 optimizer attempt appears after the held suffix')
+        committed = bool(end and not null and not rejected and row.get('outer_accepted', 1))
+        if end and not committed:
+            raise ValueError('P320 rejected/null row claims an accepted frame endpoint')
+        if committed:
+            if end != cursor+20+1 or row.get('accepted', 0) <= 0:
+                raise ValueError('P320 accepted frame span differs from T20 or lacks an inner acceptance')
+            cursor = int(end)-1
+            actual.append(row)
+        elif null and not rejected:
+            holds.append((cursor, cursor+1))
+            cursor += 1
+        elif not (rejected or row.get('grad_converged')):
+            raise ValueError('P320 noncommitted solve has no recorded disposition')
+        attempt_rows.append(dict(attempt=int(row['animation'])+1, committed=committed,
+                                 outer_rejected=rejected, null_commit=null,
+                                 grad_converged=bool(row.get('grad_converged'))))
+    if cursor != len(frames)-1 or held != arm.get('n_held') or next_animation > 300:
+        raise ValueError('P320 archive clock, held count or configured horizon differs')
+    retained = [row for row in actual if int(row['frame_end']) <= declared_delivery]
+    if not retained:
+        raise ValueError('P320 has no delivery-retained accepted commit')
+    truncation = arm.get('truncation')
+    if truncation is None:
+        if declared_delivery != len(frames):
+            raise ValueError('P320 delivery truncation is not recorded')
+    elif (truncation.get('frames_kept') != declared_delivery
+          or truncation.get('frames_dropped') != len(frames)-declared_delivery
+          or truncation.get('best_animation') != int(retained[-1]['animation'])+1
+          or int(retained[-1]['frame_end']) != declared_delivery):
+        raise ValueError('P320 best-state truncation does not end at its recorded accepted commit')
+    if run['records'] != retained:
+        raise ValueError('P320 loaded accepted rows differ from the validated delivery clock')
+    run['actual_records'], run['hold_pairs'] = actual, holds
+    run['delivery_scope'] = dict(
+        actual_archive_frames=len(frames), deliver_n=declared_delivery,
+        actual_accepted_commits=len(actual), delivery_retained_accepted_commits=len(retained),
+        actual_last_accepted_attempt=int(actual[-1]['animation'])+1,
+        actual_last_accepted_frame=int(actual[-1]['frame_end'])-1,
+        delivered_last_accepted_attempt=int(retained[-1]['animation'])+1,
+        delivered_last_accepted_frame=int(retained[-1]['frame_end'])-1,
+        delivery_rows_after_last_accepted=declared_delivery-int(retained[-1]['frame_end']),
+        held_suffix_rows=held, null_hold_rows=len(holds)-held,
+        truncation=truncation, c2f_events=events, attempts=attempt_rows,
+        interpretation='Common clock counts only delivery-retained accepted rollouts; '
+                       'null/rejected/C2F/held rows are not motion steps; ordinary stopping is not rest')
 
 
 def checked_arrival_evidence(run):
@@ -211,6 +350,11 @@ def checked_arrival_modes(runs):
 
 
 def checked_runs(baseline, candidate, intervention):
+    bindings = ([{suffix: bind_layer_artifact(str(prefix)+suffix)
+                  for suffix in ('.json', '.npz', '_render_full_dt_iso_nn.npz')}
+                 for prefix in (baseline, candidate)] if intervention == LAYER_FULL else None)
+    deliveries = ([checked_layer_archive(prefix) for prefix in (baseline, candidate)]
+                  if intervention == LAYER_FULL else None)
     runs = [load_run(baseline), load_run(candidate)]
     a, b = runs
     if not (host_np.array_equal(a['source'], b['source']) and host_np.array_equal(a['target'], b['target'])):
@@ -227,8 +371,12 @@ def checked_runs(baseline, candidate, intervention):
     if audit_hash != hashes[0]:
         raise ValueError('Audit numerical source must match the simulation snapshot')
     checked_mpm_parameters(a['meta']['provenance']['mpm'], b['meta']['provenance']['mpm'], intervention)
-    for run, config in zip(runs, configs):
-        if intervention in P303_INTERVENTIONS:
+    for index, (run, config) in enumerate(zip(runs, configs)):
+        if intervention == LAYER_FULL:
+            checked_layer_delivery(run, deliveries[index])
+            run['artifact_bindings'] = bindings[index]
+            run['artifact_hashes'] = {suffix: binding['sha256'] for suffix, binding in bindings[index].items()}
+        if intervention in RAW_ENDPOINT_INTERVENTIONS:
             receipt_path = Path(run['prefix']+'.pin_schema.json')
             if receipt_path.exists():
                 receipt = json.loads(receipt_path.read_text())
@@ -242,7 +390,7 @@ def checked_runs(baseline, candidate, intervention):
                     or run['meta']['config'] != config or run['meta']['history'] != run['arm']['history']):
                 raise ValueError('Invalid raw-endpoint run metadata or a physical guard fired')
             if not config['commit_pic']:
-                for row in run['records']:
+                for row in run.get('actual_records', run['records']):
                     components = row['motion_accounting']['cohorts']['all']['window_component_rms_wu']
                     if any(components[name] != 0. for name in ('commit_other', 'commit_pic', 'commit_shift')):
                         raise ValueError('Raw-endpoint candidate has an external position correction')
@@ -258,12 +406,14 @@ def checked_runs(baseline, candidate, intervention):
             raise ValueError('Material particle IDs must be preserved')
         run['physical_indices'] = accepted_raw_indices(run['records'], config['T'])
         run['interior_hold_frames'] = run['physical_indices'][-1]+1-len(run['physical_indices'])
-        if intervention in P303_INTERVENTIONS:
+        if intervention in RAW_ENDPOINT_INTERVENTIONS:
             prm = run['meta']['provenance']['mpm']
             with cuda_execution('cuda'):
                 lo = to_array(prm['grid_min']) + 2*prm['dx']
                 hi = to_array(prm['grid_min']) + prm['dx']*to_array([prm['nx'], prm['ny'], prm['nz']]) - 2*prm['dx']
-                for index in run['physical_indices']:
+                validation_indices = (accepted_raw_indices(run['actual_records'], config['T'])
+                                      if intervention == LAYER_FULL else run['physical_indices'])
+                for index in validation_indices:
                     state = to_array(run['frames'][index])
                     if not bool((np.isfinite(state) & (state >= lo) & (state <= hi)).all()):
                         raise ValueError(f'Invalid raw position at frame {index}')
@@ -275,8 +425,18 @@ def checked_runs(baseline, candidate, intervention):
                         raise ValueError('Invalid compact final deformation state')
                 if not bool(np.array_equal(to_array(run['source']), to_array(run['frames'][0]))):
                     raise ValueError('Raw archive does not begin at the exact source')
+                if intervention == LAYER_FULL:
+                    pins, when = to_array(run['pins']), to_array(run['pin_at'])
+                    if (pins.shape != (len(run['source']),) or when.shape != pins.shape
+                            or not bool(np.array_equal(pins, when >= 0))
+                            or not bool(np.isin(when[pins], np.asarray([
+                                int(row['animation'])+1 for row in run['actual_records']])).all())):
+                        raise ValueError('P320 pin admission does not belong to actual accepted commits')
+                    for before, after in run['hold_pairs']:
+                        if not bool(np.array_equal(to_array(run['frames'][before]), to_array(run['frames'][after]))):
+                            raise ValueError('P320 null/held archive row changed positions')
     if (intervention in GEOMETRIC_INTERVENTIONS or intervention in VARIANCE_INTERVENTIONS
-            or intervention == 'shared_pic_off_prefix'):
+            or intervention in ('shared_pic_off_prefix', LAYER_FULL)):
         for run, evidence in zip(runs, checked_arrival_modes(runs)):
             run['arrival_mode_evidence'] = evidence
     return runs, changes
@@ -284,9 +444,16 @@ def checked_runs(baseline, candidate, intervention):
 
 def scoped_runs(runs, intervention):
     if intervention in FULL_INTERVENTIONS:
-        return runs, dict(kind='full runs', endpoint_claim=(
+        scope = dict(kind='full runs', endpoint_claim=(
             'last accepted states retained in each arm delivery; later accepted states '
             'can be omitted by best-state truncation'))
+        if intervention == LAYER_FULL:
+            scope.update(common_clock='delivery-retained accepted commits only',
+                         configured_windows=300, common_accepted_commits=min(len(r['records']) for r in runs),
+                         delivery_clock_validated=all('delivery_scope' in r for r in runs),
+                         arm_delivery_scopes=[r.get('delivery_scope') for r in runs],
+                         endpoints='own delivered endpoint and actual last accepted endpoint reported separately')
+        return runs, scope
     requested = 24 if intervention in P303_INTERVENTIONS else 8
     common = min(requested, *(len(run['records']) for run in runs))
     scoped = []
@@ -315,6 +482,8 @@ def render_reference_history(run, intervention):
         if intervention not in FULL_INTERVENTIONS and attempt > last_attempt:
             continue
         accepted = bool(record.get('frame_end') and not record.get('null_commit'))
+        if intervention == LAYER_FULL:
+            accepted = accepted and not record.get('outer_rejected') and bool(record.get('outer_accepted', 1))
         result.append(dict(attempt=attempt, accepted=accepted,
                            delivered=bool(accepted and int(record['frame_end']) <= run['delivered']),
                            null_commit=bool(record.get('null_commit')),
@@ -335,10 +504,10 @@ def fixed_material_density(x, tree, ids, radius):
 
 
 def geometry_curve(run, target, target_tree, extent, target_spacing, radius, tip,
-                   fixed_source_ids=None):
+                   fixed_source_ids=None, *, records=None):
     top_target = target[:, 1] > 2.3
     curve = []
-    for ordinal, record in enumerate(run['records'], 1):
+    for ordinal, record in enumerate(run['records'] if records is None else records, 1):
         frame = int(record['frame_end'])-1
         x = to_array(run['frames'][frame])
         tree = KDTree(x)
@@ -533,8 +702,17 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
         endpoint_union = np.zeros(len(source), dtype=bool)
         for name, run in zip(names, runs):
             run['curve'] = geometry_curve(run, target, target_tree, target_extent(target), target_spacing, radius, tip,
-                                          source_ids if intervention in VARIANCE_INTERVENTIONS
-                                          or intervention in P303_INTERVENTIONS else None)
+                                           source_ids if intervention in VARIANCE_INTERVENTIONS
+                                           or intervention in RAW_ENDPOINT_INTERVENTIONS else None)
+            if intervention == LAYER_FULL:
+                if run['actual_records'][-1] == run['records'][-1]:
+                    run['actual_endpoint'] = dict(run['curve'][-1])
+                else:
+                    actual_view = dict(run, records=run['actual_records'])
+                    run['actual_endpoint'] = geometry_curve(actual_view, target, target_tree,
+                        target_extent(target), target_spacing, radius, tip, source_ids,
+                        records=run['actual_records'][-1:])[0]
+                    run['actual_endpoint']['commit'] = len(run['actual_records'])
             run['tip_history'] = tip_history(run, tip)
             final = to_array(run['frames'][run['delivered']-1])
             counts = KDTree(final).query_ball_point(final, 2*spacing, return_length=True)
@@ -569,8 +747,8 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                     ('endpoint_free_union', endpoint_ids, endpoint_meta),
                                     ('common_endpoint_free_both', free_ids, free_meta)):
             cohorts[name] = dict(**metadata, arms={arm: cohort_motion(run, ids, common, spacing,
-                                                                     include_rms=(intervention in VARIANCE_INTERVENTIONS
-                                                                                  or intervention in P303_INTERVENTIONS))
+                                                                      include_rms=(intervention in VARIANCE_INTERVENTIONS
+                                                                                   or intervention in RAW_ENDPOINT_INTERVENTIONS))
                                                   for arm, run in zip(names, runs)})
         handoff_bands = None
         if intervention == 'render_arrival_handoff':
@@ -604,11 +782,12 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                                    caveats='No renderer consumed; coverage counts do not prove watertightness, direction changes do not prove periodic oscillation'),
                   equal_accepted_commits=pairs, first_chamfer_threshold_crossings=progress, cohorts=cohorts,
                   handoff_common_material_bands=handoff_bands)
-    if intervention in VARIANCE_INTERVENTIONS:
+    if intervention in VARIANCE_INTERVENTIONS or intervention == LAYER_FULL:
         result['matched_free_motion_status'] = (
             'available_descriptive' if free_meta['sampled_count'] and common >= 3 else
             'inconclusive_empty_common_free_cohort' if not free_meta['sampled_count'] else
             'inconclusive_fewer_than_three_common_commits')
+    if intervention in VARIANCE_INTERVENTIONS:
         result['definitions'].update(
             comparison='whole adaptive-lambda policy; no fixed-lambda causal inference or primitive-gate promotion',
             source_upper_density='same pre-treatment source_upper_surface sampled IDs at each accepted endpoint; target median r8, self excluded, count/8; includes IDs below y=2.3 and pinned IDs',
@@ -627,7 +806,17 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
             result['definitions']['endpoints'] = (
                 'each arm uses its delivered accepted endpoint and delivery-scoped raw audit; '
                 'later accepted states may be excluded by truncation; matched phase motion '
-                'ends at the common delivered accepted count, not necessarily either endpoint')
+                 'ends at the common delivered accepted count, not necessarily either endpoint')
+    if intervention == LAYER_FULL:
+        first = max(1, common-10)
+        result['definitions'].update(
+            comparison='whole adaptive/stopping policy with both layer_ctrl and layer_relax disabled; '
+                       'not an isolated layer-kernel causal effect or a fixed-lambda comparison',
+            endpoints='own delivery-retained accepted endpoint, actual last accepted endpoint and '
+                      'common delivery-retained accepted endpoint are distinct; held rows are not rest evidence',
+            phase_scope=f'accepted commit{first} through{common}, at most10 common retained windows; W1 excluded',
+            final_phase='raw final rollout step; PIC and shift are disabled in both arms',
+            ordinary_stop='rejection/plateau or a configured cap does not certify natural rest or absence of holes')
     result['dependencies'] = {
         name: hashlib.sha256(Path(sys.modules[name].__file__).read_bytes()).hexdigest()
         for name in ('scripts.probes.render_influence', 'scripts.probes.morph_raw_qa')}
@@ -657,9 +846,16 @@ def compare(baseline, candidate, out, intervention='body_rprop'):
                            scoped_pin_motion=prefix_pin,
                            raw_audit=audit(Path(run['prefix']), compute_backend='cuda') if intervention in FULL_INTERVENTIONS else None)
         result[name]['render_reference_history'] = render_reference_history(run, intervention)
+        if intervention == LAYER_FULL:
+            result[name].update(delivery_scope=run['delivery_scope'],
+                                artifact_hashes=run['artifact_hashes'],
+                                artifact_bindings=run['artifact_bindings'],
+                                delivered_endpoint=run['curve'][-1], actual_endpoint=run['actual_endpoint'])
         if run['interior_hold_frames'] and result[name]['raw_audit'] and result[name]['raw_audit']['tail_unpinned_surface']:
             result[name]['raw_audit']['tail_unpinned_surface']['time_basis_warning'] = (
                 'Legacy audit includes interior null holds; use corrected common-cohort raw-step motion for this comparison')
+    if intervention == LAYER_FULL:
+        verify_layer_artifacts(runs)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2))
     print(json.dumps({'out': str(out), 'config_changes': changes, 'source_cohort_n': source_meta['sampled_count']}), flush=True)

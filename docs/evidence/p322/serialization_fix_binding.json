@@ -1,0 +1,7 @@
+{
+  "current_runner_sha256": "e9d644605975389ac152c08fb4386e75679ba8e917b5a25ebf3ed17259c4c2ea",
+  "reconstructed_tested_runner_sha256": "90181d1cf30452d295a3bb006b044550dfa2faae73ea3c9d4bd8a878a6c2b026",
+  "only_source_delta": "cycle termination evidence threshold: 1.0 / np.sqrt(k_cyc) -> k_cyc ** -0.5",
+  "physical_rule_changed": false,
+  "scope": "Historical real CPU parity receipt predates the final JSON-only type fix. Final dedicated/native-scalar tests run after that fix; no retrospective claim that historical parity executed current bytes."
+}

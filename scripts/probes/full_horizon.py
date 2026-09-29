@@ -105,6 +105,7 @@ class RestTrace:
             actual_archive_frames=len(result['frames']),deliver_n=int(result['deliver_n']),
             truncation=result['truncation'],held_archive_rows=int(result['n_held']),
             reported_converged=bool(result['converged']),
+            termination=result.get('termination'),
             final_pin_sha256=(None if result['pinned'] is None else array_digest(result['pinned'])),
             stored_velocity_scope='Per-ID optimizer terminal speed squared before outer operations; accepted attempts only for committed-path claims',
             arrival_scope='Start masks and frozen full plan/radius per attempt; endpoint arrival must use promoted archive position',

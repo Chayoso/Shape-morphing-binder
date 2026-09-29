@@ -1,0 +1,53 @@
+{
+  "passed": true,
+  "no_gpu": true,
+  "N": 160,
+  "T": 3,
+  "iters": 2,
+  "windows": 2,
+  "layer_ctrl": true,
+  "layer_relax": true,
+  "before_runner_sha256": "f72e9eba12b9a1462fb2463344457fdb93387afa30b7b122af7a350aae9341f8",
+  "after_runner_sha256": "90181d1cf30452d295a3bb006b044550dfa2faae73ea3c9d4bd8a878a6c2b026",
+  "arms": [
+    {
+      "pic": false,
+      "exact_fields": 450,
+      "termination": {
+        "reason": "configured_window_budget",
+        "attempt_index": 1,
+        "attempt_number": 2,
+        "optimizer_attempts": 2,
+        "optimization_stopped": true,
+        "stopping_rule_triggered": false,
+        "individual_rest": "not_evaluated",
+        "configured_windows": 2,
+        "manual_window_cap": 0,
+        "effective_window_limit": 2,
+        "triggers": [],
+        "scope": "Optimization termination only; copied holds, pin admission and delivery truncation do not certify natural rest."
+      },
+      "frames": 7
+    },
+    {
+      "pic": true,
+      "exact_fields": 456,
+      "termination": {
+        "reason": "configured_window_budget",
+        "attempt_index": 1,
+        "attempt_number": 2,
+        "optimizer_attempts": 2,
+        "optimization_stopped": true,
+        "stopping_rule_triggered": false,
+        "individual_rest": "not_evaluated",
+        "configured_windows": 2,
+        "manual_window_cap": 0,
+        "effective_window_limit": 2,
+        "triggers": [],
+        "scope": "Optimization termination only; copied holds, pin admission and delivery truncation do not certify natural rest."
+      },
+      "frames": 7
+    }
+  ],
+  "scope": "Every old result field recursively exact, arrays byte-exact. New termination field excluded; logs deliberately changed."
+}
