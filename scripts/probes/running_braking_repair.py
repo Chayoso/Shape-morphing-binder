@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import sys
 from dataclasses import dataclass
+from copy import deepcopy
 from hashlib import sha256
 
 import numpy as np
@@ -30,21 +31,18 @@ def repair_context(model,packet,source,target):
 
 
 @dataclass(frozen=True)
-class SharedRepairBaseline:
+class OwnedRepairEvidence:
     """Only immutable bytes/tuples; each arm receives independently decoded copies."""
     payload: bytes
     arrays: tuple
     context: str
 
     @classmethod
-    def capture(cls,rows,base_C,coefficients,sidecars,context):
+    def pack(cls,data,values,context):
         arrays = []
-        for key,value in (('C',base_C),('coefficients',coefficients)):
+        for key,value in values.items():
             array = np.ascontiguousarray(to_host(value))
             arrays.append((key,str(array.dtype),tuple(array.shape),array.tobytes()))
-        data = dict(rows=rows,sidecars=sidecars,
-            ceilings={k:max(r['data'][k] for r in rows) for k in ('volume','render')},
-            merit_ceiling=max(r['original_merit']['merit'] for r in rows))
         return cls(json.dumps(data,sort_keys=True,allow_nan=False).encode(),tuple(arrays),context)
 
     def decode(self):
@@ -63,12 +61,34 @@ class SharedRepairBaseline:
         return digest.hexdigest()
 
 
+@dataclass(frozen=True)
+class SharedRepairBaseline(OwnedRepairEvidence):
+    @classmethod
+    def capture(cls,rows,base_C,coefficients,sidecars,context):
+        data = dict(rows=rows,sidecars=sidecars,
+            ceilings={k:max(r['data'][k] for r in rows) for k in ('volume','render')},
+            silhouette_ceiling=max(r['data']['silhouette'] for r in rows),
+            merit_ceiling=max(r['original_merit']['merit'] for r in rows))
+        return cls.pack(data,dict(C=base_C,coefficients=coefficients),context)
+
+
+@dataclass(frozen=True)
+class SharedRepairOrigin(OwnedRepairEvidence):
+    """One terminal-forward linearization and running noise reference for both arms."""
+
+
 def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtracking=False,
-           shared_baseline=None,baseline_only=False,selected_terminal=None,terminal_label='terminal05'):
+           shared_baseline=None,baseline_only=False,selected_terminal=None,terminal_label='terminal05',
+           shared_origin=None,origin_only=False,protect_silhouette=False):
     """Use the caller-owned live model; never load, close or commit it here."""
     reference = packet['reference']
     require(correction_rounds in (0,2),'Unregistered correction budget')
     require(not quality_backtracking or correction_rounds==2,'Quality filtering requires the corrected model')
+    require(not origin_only or (shared_baseline is not None and shared_origin is None and not baseline_only),
+            'Shared origin requires a prepared baseline')
+    require(shared_origin is None or (shared_baseline is not None and quality_backtracking),
+            'Shared origin requires fixed-origin quality backtracking')
+    require(not protect_silhouette or shared_origin is not None,'Silhouette protection requires a shared origin')
     rows,trials,sidecars = [],[],{}
     d0 = model.coefficients[:,:3].detach().clone()
     b0 = model.coefficients[:,3:].detach().clone()
@@ -90,6 +110,21 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
         rows = shared['rows']
         base_C = shared_baseline.tensor('C',d0.device)
         shared_digest = shared_baseline.digest()
+    if shared_origin is not None:
+        require(shared_origin.context==context,'Shared origin context changed')
+        origin = shared_origin.decode()
+        require(origin['baseline_sha256']==shared_digest,'Origin baseline binding changed')
+        require(torch.equal(brake,shared_origin.tensor('terminal',d0.device)) and
+                torch.equal(d0,shared_origin.tensor('displacement',d0.device)),
+                'Origin coefficients changed')
+        origin_digest = shared_origin.digest()
+    data_keys = ('volume','render','silhouette') if protect_silhouette else ('volume','render')
+
+    def component_check(record):
+        if shared_origin is not None:
+            record['silhouette_ceiling_passed'] = bool(record['valid'] and
+                record['data']['silhouette']<=shared['silhouette_ceiling'])
+        return record.get('silhouette_ceiling_passed',True) if protect_silhouette else True
 
     def running(values):
         return geometric_running(values['positions'],packet['x0'],packet['dt'],arrived)
@@ -97,14 +132,20 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
     def error(values):
         return (values['x']-target_x).square().sum(-1).mean()/(dx*dx)
 
-    def measure(values,label,d,b,save):
+    def save_state(values,label,d,b):
+        path = out/(label+'_'+str(len(sidecars))+'.npz')
+        np.savez_compressed(path,displacement=to_host(d),terminal=to_host(b),
+            positions=to_host(values['positions']),V=to_host(values['V']),F=to_host(values['F']),C=to_host(values['C']))
+        sidecars[path.name] = sha(path)
+
+    def measure(values,label,d,b,save,prepared=None):
         record = dict(label=label,valid=values['valid'],pins_exact=values['pins_exact'],
             min_det=finite_scalar(values['min_det']),endpoint_mse=finite_scalar(error(values)),
             running=finite_scalar(running(values)),body_energy=finite_scalar(values['body_energy']),
             coefficient_delta_rms=float((d-d0).square().sum(-1).mean().sqrt()),
             terminal_coefficients_exact=torch.equal(b,brake) if label!='repeat' else torch.equal(b,b0))
         if values['valid']:
-            data = reference.terms(values['x'])
+            data = reference.terms(values['x']) if prepared is None else prepared
             record['data'] = {k:float(v) for k,v in data.items()}
             record['data']['weighted_render'] = packet['lambda_render']*record['data']['render']
             if 'evaluate_merit' in packet:
@@ -125,11 +166,8 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                 source_upper_ids_sha256=summary['source_upper_ids_sha256'],
                 F_change_rms=float((values['F']-packet['F'].reshape_as(values['F'])).square().mean().sqrt()),
                 C_change_rms=float((values['C']-base_C).square().mean().sqrt()))
-        if save:
-            path = out/(label+'_'+str(len(sidecars))+'.npz')
-            np.savez_compressed(path,displacement=to_host(d),terminal=to_host(b),
-                positions=to_host(values['positions']),V=to_host(values['V']),F=to_host(values['F']),C=to_host(values['C']))
-            sidecars[path.name] = sha(path)
+        component_check(record)
+        if save: save_state(values,label,d,b)
         return record
 
     def invalid_arm(values,label):
@@ -175,17 +213,24 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
         if baseline_only:
             require(repair_context(model,packet,source,target)==context,'Context changed while preparing baseline')
             return SharedRepairBaseline.capture(rows,base_C,model.coefficients,sidecars,context)
-        brake_errors = []
-        for i in range(3):
-            values = model.evaluate(brake,d0)
-            if not values['valid'] and shared_baseline is not None:
-                return invalid_arm(values,terminal_label+'_invalid_repeat'+str(i))
-            require(values['valid'],'Invalid selected terminal brake')
-            brake_errors.append(float(running(values)))
-        rows.append(measure(values,terminal_label,d0,brake,True))
+        if shared_origin is not None:
+            brake_errors = origin['running_repeats']
+            rows.append(origin['terminal_record'])
+            component_check(rows[-1])
+        else:
+            brake_errors = []
+            for i in range(3):
+                values = model.evaluate(brake,d0)
+                if not values['valid'] and shared_baseline is not None and not origin_only:
+                    return invalid_arm(values,terminal_label+'_invalid_repeat'+str(i))
+                require(values['valid'],'Invalid selected terminal brake')
+                brake_errors.append(float(running(values)))
+            rows.append(measure(values,terminal_label,d0,brake,True))
     measured_noise = max(brake_errors)-min(brake_errors)
     ceilings = (shared['ceilings'] if shared_baseline is not None else
                 {k:max(r['data'][k] for r in rows[:3]) for k in ('volume','render')})
+    affine_ceilings = dict(ceilings)
+    if protect_silhouette or origin_only: affine_ceilings['silhouette'] = shared['silhouette_ceiling']
     displacement = d0.clone()
     trust = packet['history']['body_update_modes_rms'][0]
     require(trust>0,'No original displacement trust step')
@@ -193,29 +238,50 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
     fixed_candidate_replays = []
     replay_checked = False
     for iteration in range(1 if quality_backtracking else 4):
-        with torch.enable_grad():
-            leaf = displacement.detach().clone().requires_grad_()
-            values = model.evaluate(brake,leaf)
-            if not values['valid'] and shared_baseline is not None:
-                return invalid_arm(values,terminal_label+'_invalid_linearization')
-            require(values['valid'],'Invalid current running-repair state')
-            objective = running(values)
-            terms = reference.terms(values['x'])
-            gradients = [torch.autograd.grad(v,leaf,retain_graph=i<2)[0].detach()
-                         for i,v in enumerate((objective,terms['volume'],terms['render']))]
-            require(all(bool(torch.isfinite(g).all()) for g in gradients),'Nonfinite repair gradient')
-            G = torch.stack(gradients[1:])
-            origin_data = torch.stack([terms[k].detach().double() for k in ('volume','render')])
-            bounds = torch.tensor([ceilings[k]-float(terms[k].detach()) for k in ('volume','render')],
-                                  device=leaf.device,dtype=torch.float64)
-            current = float(objective.detach())
-        del values,objective,terms
+        linear_keys = ('volume','render','silhouette') if origin_only else data_keys
+        if shared_origin is not None:
+            gradients = [shared_origin.tensor('gradient_'+k,d0.device) for k in ('running',*linear_keys)]
+            all_origin = shared_origin.tensor('data',d0.device)
+            origin_data = all_origin[:len(linear_keys)].clone()
+            current = origin['running']
+            require(trust==origin['trust'],'Shared origin trust changed')
+        else:
+            with torch.enable_grad():
+                leaf = displacement.detach().clone().requires_grad_()
+                values = model.evaluate(brake,leaf)
+                if not values['valid'] and shared_baseline is not None and not origin_only:
+                    return invalid_arm(values,terminal_label+'_invalid_linearization')
+                require(values['valid'],'Invalid current running-repair state')
+                objective = running(values)
+                terms = reference.terms(values['x'])
+                targets = (objective,*(terms[k] for k in linear_keys))
+                gradients = [torch.autograd.grad(v,leaf,retain_graph=i<len(targets)-1)[0].detach()
+                             for i,v in enumerate(targets)]
+                require(all(bool(torch.isfinite(g).all()) for g in gradients),'Nonfinite repair gradient')
+                origin_data = torch.stack([terms[k].detach().double() for k in linear_keys])
+                current = float(objective.detach())
+            if origin_only:
+                terminal_record = measure(values,terminal_label+'_origin',d0,brake,True,prepared=terms)
+            del values,objective,terms,targets
+        G = torch.stack(gradients[1:])
+        bounds = torch.tensor([affine_ceilings[k]-float(origin_data[i]) for i,k in enumerate(linear_keys)],
+                              device=d0.device,dtype=torch.float64)
         path = out/f'linearization{iteration+1}.npz'
         np.savez_compressed(path,displacement=to_host(displacement),terminal=to_host(brake),
                             running_gradient=to_host(gradients[0]),data_gradients=to_host(G),
                             bounds=to_host(bounds),origin_data=to_host(origin_data))
         sidecars[path.name] = sha(path)
         threshold = 10*max(measured_noise,32*torch.finfo(displacement.dtype).eps*current)
+        if origin_only:
+            require(shared_baseline.digest()==shared_digest and repair_context(model,packet,source,target)==context,
+                    'Context/baseline changed while preparing common origin')
+            return SharedRepairOrigin.pack(dict(terminal_record=terminal_record,running_repeats=brake_errors,
+                noise=measured_noise,running=current,threshold=threshold,trust=trust,keys=list(linear_keys),
+                sidecars=sidecars,baseline_sha256=shared_digest),
+                dict(displacement=d0,terminal=brake,data=origin_data,
+                     **{'gradient_'+k:g for k,g in zip(('running',*linear_keys),gradients)}),context)
+        if shared_origin is not None:
+            require(threshold==origin['threshold'] and measured_noise==origin['noise'],'Shared running threshold changed')
         found = False
         for halving in range(11):
             radius = trust*(.5**halving)*math.sqrt(len(displacement))
@@ -245,10 +311,17 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                             values = model.evaluate(brake,candidate)
                             record.update(measure(values,record['label'],candidate,brake,False))
                             data_pass = record['valid'] and all(record['data'][k]<=ceilings[k] for k in ceilings)
+                            constraints_pass = data_pass and component_check(record)
                             improvement = current-record['running'] if record['running'] is not None else None
-                            take = bool(data_pass and improvement>threshold)
+                            take = bool(constraints_pass and improvement>threshold)
                             record.update(data_restored=bool(data_pass),running_improvement=improvement,
-                                          reduction_threshold=threshold,running_update_accepted=take)
+                                          data_constraints_restored=bool(constraints_pass),
+                                          reduction_threshold=threshold,running_origin=current,running_update_accepted=take)
+                            if shared_origin is not None:
+                                assess_candidates(rows[:3]+[record],displacement.dtype)
+                                record['running_decrease_resolved'] = improvement is not None and improvement>threshold
+                                record['full_search_passed'] = (record['feasible'] and
+                                    record['running_decrease_resolved'] and component_check(record))
                             if take and quality_backtracking:
                                 assess_candidates(rows[:3]+[record],displacement.dtype)
                                 record['data_running_passed'] = True
@@ -256,15 +329,18 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                                 record['running_update_accepted'] = take
                                 record['quality_backtracking_rejected'] = not take
                             if record['valid']:
-                                actual_data = torch.tensor([record['data'][k] for k in ('volume','render')],
+                                actual_data = torch.tensor([record['data'][k] for k in data_keys],
                                                            device=G.device,dtype=torch.float64)
                                 # Replace the estimate. All rounds retain the same origin and Jacobian.
                                 remainder = observed_remainder(actual_data,origin_data,G,actual_step)
                                 record['observed_model_remainder'] = to_host(remainder).tolist()
-                                retry = not data_pass
+                                retry = not constraints_pass
                             if take:
                                 displacement = candidate.detach().clone()
-                                rows.append(measure(values,f'repair{iteration+1}',displacement,brake,True))
+                                selected = deepcopy(record)
+                                selected['label'] = f'repair{iteration+1}'
+                                save_state(values,selected['label'],displacement,brake)
+                                rows.append(selected)
                                 accepted+=1;found=True
                                 assess_candidates(rows,displacement.dtype)
                                 if correction_rounds and rows[-1]['feasible']:
@@ -275,6 +351,8 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                                         assess_candidates(rows[:3]+[witness],displacement.dtype)
                                         witness['running_decrease_resolved'] = (
                                             witness['running'] is not None and current-witness['running']>threshold)
+                                        witness['full_search_passed'] = (witness['feasible'] and
+                                            witness['running_decrease_resolved'] and component_check(witness))
                                         fixed_candidate_replays.append(witness)
                                     # Stop after the first all-gate candidate even if its repeats fail.
                                     record['fixed_candidate_replay_checked'] = True
@@ -288,14 +366,19 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
     if shared_baseline is not None:
         require(shared_baseline.digest()==shared_digest and repair_context(model,packet,source,target)==context,
                 'Shared baseline/context changed during paired arm')
+    if shared_origin is not None:
+        require(shared_origin.digest()==origin_digest,'Shared origin changed during arm')
     return dict(rows=rows,trials=trials,accepted_running_updates=accepted,sidecars=sidecars,
                 running_replay_noise=measured_noise,data_ceilings=ceilings,lambda_render=packet['lambda_render'],
                 correction_rounds=correction_rounds,quality_backtracking=quality_backtracking,
                 terminal_label=terminal_label,
                 shared_baseline_sha256=None if shared_baseline is None else shared_digest,
+                shared_origin_sha256=None if shared_origin is None else origin_digest,
+                protect_silhouette=protect_silhouette,
+                silhouette_ceiling=None if shared_baseline is None else shared['silhouette_ceiling'],
                 original_merit_ceiling=None if shared_baseline is None else shared['merit_ceiling'],
                 fixed_candidate_replays=fixed_candidate_replays,
-                repeated_feasible=replay_checked and all(r['feasible'] and r['running_decrease_resolved']
+                repeated_feasible=replay_checked and all(r['feasible'] and r['running_decrease_resolved'] and component_check(r)
                                                          for r in fixed_candidate_replays))
 
 

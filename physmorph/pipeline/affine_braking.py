@@ -1,4 +1,4 @@
-"""Diagnostic linear descent over a trust ball and up to two affine halfspaces."""
+"""Diagnostic linear descent over a trust ball and up to three affine halfspaces."""
 import itertools
 import math
 
@@ -28,12 +28,12 @@ def affine_ball_step(gradient, constraints, bounds, radius):
     """Return a float64 step; callers must recheck after coefficient projection.
 
     Minimize gradient.dot(step), with G @ step <= b and ||step|| <= radius.
-    Enumerating active planes is exact in real arithmetic for these two rows.
+    Enumerating active planes is exact in real arithmetic for up to three rows.
     A failed numerical active-set search is not a global nonlinear certificate.
     """
     shape = gradient.shape
     g,G,b = _linear_arrays(gradient,constraints,bounds)
-    if len(b)>2 or not math.isfinite(radius) or radius<0:
+    if len(b)>3 or not math.isfinite(radius) or radius<0:
         raise ValueError('Invalid affine trust-ball problem')
     norms = G.norm(dim=1)
     if not bool(torch.isfinite(norms).all() & torch.isfinite(g.norm())):
@@ -52,7 +52,7 @@ def affine_ball_step(gradient, constraints, bounds, radius):
                 A = G[list(active)]; rhs = b[list(active)]
                 U,s,Vh = torch.linalg.svd(A,full_matrices=False)
                 keep = s>max(A.shape)*eps*s.max()
-                if bool(keep.all()):
+                if len(s)==A.shape[0] and bool(keep.all()):
                     # Avoid forming the squared-condition normal equations.
                     Q,R = torch.linalg.qr(A.T,mode='reduced')
                     p = Q@torch.linalg.solve_triangular(R.T,rhs[:,None],upper=False).flatten()

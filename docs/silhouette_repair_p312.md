@@ -1,7 +1,7 @@
 # P312: matched test of an additional prepared-silhouette constraint
 
-Status: bounded diagnostic design reviewed; shared-origin hardening incorporated.
-Not implemented or launched. P311 rejects both terminal strengths; no candidate
+Status: diagnostic implemented;34 focused CPU cases and independent
+implementation review pass. Not launched. P311 rejects both terminal strengths; no candidate
 is committed. Its six data-restored candidates all lower running motion and
 original merit, but fail raw silIoU while prepared silhouette worsens and PBR
 improves. This motivates testing the component tradeoff, not declaring it causal.
@@ -69,3 +69,33 @@ separate P311/P312 W20 realizations cannot establish causal differences. A pass
 still does not prove pixel-perfect4K appearance, full-morph no-holes or rest.
 Original-merit/adoption and coupled-continuation requirements remain in
 `candidate_commit_contract.md`; the callback remains read-only.
+
+Implementation uses byte-owned `SharedRepairBaseline` and `SharedRepairOrigin`.
+The original baseline includes one fixed silhouette ceiling; the terminal origin
+contains the common data values, four gradients, actual terminal-forward report,
+three running repeats and the one resolved-decrease threshold. Both arms decode
+private copies and save their selected gradient rows for verification. Accepted
+records now preserve the scalar measurements that selected the exact saved
+forward, instead of redundantly remeasuring its losses before deciding to replay.
+This removes a possible atomic-rounding change at that branch.
+
+Validation:22 affine operator cases include analytic three-plane intersections,
+scaled nearly dependent/opposing rows and random two/three-plane comparisons to
+independent SLSQP. Eight existing paired/remainder cases still pass. Two new
+component tests verify one common gradient forward, both-arm execution after
+first-arm success, report-only merit, immutable owned gradients, and a repeated
+candidate that passes P306 but fails the added silhouette gate. Two actual
+Warp-CPU observer cases verify shared-origin construction, silhouette derivative
+finite differences, original-merit closure and exact production isolation.
+Only the bunny-specific raw quality report is stubbed in those small-cloud CPU
+cases; their physical forward, losses and gradients are real. No CUDA quality
+or production acceptance follows from these checks.
+
+Independent review reran all34 cases and found no launch blocker. Its generic
+three-row/two-dimensional edge case exposed an incomplete full-row-rank check;
+the QR branch now requires as many retained singular values as active rows,
+otherwise using the existing pseudoinverse/residual path. The actual large
+control space was unaffected, and the added regression passes. The initial
+small-cloud observer fixture correctly rejected an empty bunny-specific upper
+cohort (NaN); its explicitly scoped quality-only test stub was then independently
+retested. Production finite-data rejection was never loosened.

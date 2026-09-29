@@ -156,6 +156,30 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
                     values.append(float(geometric_running(shifted['positions'],packet['x0'],packet['dt'],selected)))
             assert (values[1]-values[0])/.002 == pytest.approx(float(running_grad.norm()),rel=.03,abs=1e-5)
             restored.close()
+            # The paired component diagnostic must linearize a real MPM window
+            # only once, with a live original-merit evaluator and exact ownership.
+            from scripts.probes.running_braking_repair import repair
+            local = dict(packet,trial05_terminal=model.coefficients[:,3:].detach().clone()*.5)
+            base_dir = tmp_path/'shared_base';base_dir.mkdir()
+            origin_dir = tmp_path/'shared_origin';origin_dir.mkdir()
+            # Bunny-specific upper-y quality cohorts do not exist in this toy cloud.
+            # Stub only that report; forward, losses, all gradients and merit stay real.
+            from test_remainder_braking import synthetic_summary
+            with monkeypatch.context() as quality:
+                quality.setattr('scripts.probes.running_braking_repair.summarize',synthetic_summary)
+                common = repair(model,local,source,target,base_dir,baseline_only=True)
+                origin = repair(model,local,source,target,origin_dir,shared_baseline=common,origin_only=True)
+            assert origin.decode()['baseline_sha256']==common.digest()
+            assert len(origin.decode()['running_repeats'])==3
+            g_sil = origin.tensor('gradient_silhouette','cpu')
+            assert bool(torch.isfinite(g_sil).all()) and float(g_sil.norm())>0
+            direction = g_sil/g_sil.norm()
+            samples = []
+            for sign in (-1,1):
+                perturbed = model.evaluate(local['trial05_terminal'],model.coefficients[:,:3]+sign*.003*direction)
+                assert perturbed['valid']
+                samples.append(float(packet['reference'].terms(perturbed['x'])['silhouette']))
+            assert (samples[1]-samples[0])/.006==pytest.approx(float(g_sil.norm()),rel=.04,abs=1e-6)
         model.coefficients.fill_(0.)
         models.append(model)
         callback_packets.append(packet)

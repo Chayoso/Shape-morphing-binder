@@ -68,12 +68,13 @@ def test_malformed_constraint_layout_is_rejected():
         projected_affine_check(torch.zeros(3),torch.ones(2,3),torch.zeros(2,1),torch.float32)
 
 
-def test_random_feasible_problems_against_independent_slsqp():
+@pytest.mark.parametrize('planes',[2,3])
+def test_random_feasible_problems_against_independent_slsqp(planes):
     rng = np.random.default_rng(512)
     for _ in range(12):
-        g,G = rng.normal(size=7),rng.normal(size=(2,7))
+        g,G = rng.normal(size=7),rng.normal(size=(planes,7))
         interior = rng.normal(size=7); interior *= .4/np.linalg.norm(interior)
-        b = G@interior+rng.uniform(.05,.4,size=2)
+        b = G@interior+rng.uniform(.05,.4,size=planes)
         expected = minimize(lambda x:g@x,interior,jac=lambda x:g,method='SLSQP',
             constraints=[{'type':'ineq','fun':lambda x:b-G@x,'jac':lambda x:-G},
                          {'type':'ineq','fun':lambda x:1-x@x,'jac':lambda x:-2*x}],
@@ -84,3 +85,37 @@ def test_random_feasible_problems_against_independent_slsqp():
         a = actual.numpy()
         assert np.linalg.norm(a)<=1+1e-10 and np.all(G@a<=b+1e-10)
         assert g@a == pytest.approx(expected.fun,rel=0,abs=2e-8)
+
+
+def test_three_active_planes_leave_only_tangent_ball_descent():
+    G = np.eye(4)[:3]
+    b = np.array([-.2,-.3,-.4])
+    expected = np.r_[b,-np.sqrt(1-b@b)]
+    step,info = solve([0.,0.,0.,1.],G,b,1.)
+    np.testing.assert_allclose(step.numpy(),expected,rtol=0,atol=1e-12)
+    assert info['active']==[0,1,2]
+
+
+@pytest.mark.parametrize('angle',[1e-4,1e-6,1e-8])
+def test_scaled_nearly_dependent_three_planes(angle):
+    # An almost opposing combination retains a narrow restorative intersection.
+    G = np.array([[1.,0.,0.,0.],[0.,1.,0.,0.],[-1.,-1.,angle,0.]])
+    b = np.array([-.2,-.3,.5-.4*angle])
+    scale = np.array([1e-5,1e3,1e-2]); G*=scale[:,None]; b*=scale
+    step,info = solve([0.,0.,0.,1.],G,b,1.)
+    assert step is not None,info
+    np.testing.assert_allclose(step.numpy(),[-.2,-.3,-.4,-np.sqrt(.71)],rtol=0,atol=3e-8)
+
+
+@pytest.mark.parametrize('contradictory',[False,True])
+def test_three_dependent_planes(contradictory):
+    G = [[1.,0.,0.],[2.,0.,0.],[-3.,0.,0.]]
+    b = [-.6,-1.2,1.5 if contradictory else 1.8]
+    step,_ = solve([0.,1.,0.],G,b,1.)
+    if contradictory: assert step is None
+    else: np.testing.assert_allclose(step.numpy(),[-.6,-.8,0.],rtol=0,atol=1e-12)
+
+
+def test_more_constraint_rows_than_displacement_dimensions():
+    step,_ = solve([-1.,-1.],[[1.,0.],[0.,1.],[1.,1.]],[-.2,-.3,-.5],1.)
+    np.testing.assert_allclose(step.numpy(),[-.2,-.3],rtol=0,atol=1e-12)
