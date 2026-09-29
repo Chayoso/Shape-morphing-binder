@@ -9690,3 +9690,20 @@ outlines, a smoother head with less facial relief and a finely pebbled ear surfa
 facial relief, blurred ear edges and dimples on the body. Verdict so far: the branch passes every paired
 gate except the ear tip, which the current code misses by more; `mjb300` (its legacy baseline) is still
 running. Page: https://claude.ai/artifact/TZEZd3xnsfGQr5y4T4fRMc (private).
+
+**2026-09-29 10:35 CDT — B1 baselines complete; end-state accuracy by region.** `mjb300` (the branch in legacy
+mode = the public release's method, same seed): 183 windows, 28 min, silIoU 0.9646, chamfer 0.0594, det F
+0.581, 40 stray particles, ear tip 4.3 reference particles, the ear's upper slabs 0.26–0.49 filled at the end;
+progress by depth at t = 0.10 0.30 / 0.20 / 0.13 (skin ahead of bulk). So the current code improved the
+release's legacy method (ours300: 0.9769, tip 8.8, 12 min), and the settled method on the release base
+(mj300: 0.9851, tip 11.1, 7 min) goes past both — the gain is the method's, not the base's.
+`scratch/region_error.py` (end cloud vs target; one surface classifier radius, the target spacing; distances
+in target spacings, 0.035 wu): target surface → nearest end particle of any depth, median / p95 / share beyond
+1.5 spacings — ours300 0.85 / 1.67 / **7.8 %** (ears 14.3 %, upper 7.2 %, lower 6.7 %), mj300 0.92 / 1.91 /
+**11.7 %** (ears 13.3 %, upper 10.0 %, lower 11.7 %): the current code sits closer to the target surface on the
+head and body (the relief seen in the 4K frames), the ears are even. The end clouds' arrangement differs
+(median nearest-neighbour 0.0516 wu for ours300, lattice-like after `--disc_ref`/`--commit_pic`, against 0.0334
+for mj300, random-like as the target's 0.035), so outer-layer-to-outer-layer distances are confounded by the
+arrangement and are not used. `mj300p` (the settled run with reject_stop 20 and patience 20, through a
+launcher since reject_stop has no CLI flag in the branch) is running: does the settled end state reach the
+current code's surface fit with more windows?
