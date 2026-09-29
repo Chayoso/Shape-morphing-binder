@@ -50,6 +50,7 @@ def test_captured_joint_derivative_matches_uncaptured_and_finite_difference(chan
             assert torch.isfinite(got).all() and got.norm() > 1e-7
         direction = direction_like(controls[channel], channel)
         analytical = (gradients[channel].double() * direction.double()).sum().item()
+        assert abs(analytical) > 5e-5
         radii = (1e-4, 5e-5) if channel == 2 else (1e-3, 5e-4)
         for epsilon in radii:
             losses = []
@@ -59,7 +60,7 @@ def test_captured_joint_derivative_matches_uncaptured_and_finite_difference(chan
                 losses.append(mixed_coast_loss(graph.apply(*shifted)).item())
             observed = (losses[1]-losses[0])/(2*epsilon)
             print(dict(channel=channel, epsilon=epsilon, analytical=analytical, finite_difference=observed))
-            assert analytical == pytest.approx(observed, rel=.02, abs=5e-4)
+            assert analytical == pytest.approx(observed, rel=.02, abs=5e-6)
 
 
 def test_captured_seeds_reuse_and_torch_side_stream_binding():

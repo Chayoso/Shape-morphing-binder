@@ -64,6 +64,7 @@ def test_future_state_directional_derivative_crosses_every_control_channel(chann
     assert all(torch.isfinite(g).all() and g.norm() > 1e-7 for g in derivatives)
     direction = direction_like(controls[channel], channel)
     analytical = (derivatives[channel].double() * direction.double()).sum().item()
+    assert abs(analytical) > 5e-5  # Resolve at least 10 times the absolute FD floor.
     # Contact body-control bracket was refined after the initial 1e-3/5e-4
     # finite-radius discrepancy (active-set changes are not measured). Both radii pass the same
     # tolerance; preserve the large-stencil no-slip control below (P326 log).
@@ -75,7 +76,7 @@ def test_future_state_directional_derivative_crosses_every_control_channel(chann
             perturbed[channel].add_(direction, alpha=sign * epsilon)
             losses.append(mixed_coast_loss(model.apply(*perturbed)).item())
         observed = (losses[1] - losses[0]) / (2 * epsilon)
-        assert analytical == pytest.approx(observed, rel=.02, abs=5e-4), (channel, epsilon, analytical, observed)
+        assert analytical == pytest.approx(observed, rel=.02, abs=5e-6), (channel, epsilon, analytical, observed)
 
 
 def test_body_large_stencil_without_pinned_separating_collider():
@@ -86,13 +87,14 @@ def test_body_large_stencil_without_pinned_separating_collider():
     derivative, = torch.autograd.grad(mixed_coast_loss(model.apply(*controls)), controls[2])
     direction = direction_like(controls[2], 2)
     analytical = (derivative.double() * direction.double()).sum().item()
+    assert abs(analytical) > 5e-5
     for epsilon in (1e-3, 5e-4):
         losses = []
         for sign in (-1., 1.):
             perturbed = [value.detach().clone() for value in controls]
             perturbed[2].add_(direction, alpha=sign * epsilon)
             losses.append(mixed_coast_loss(model.apply(*perturbed)).item())
-        assert analytical == pytest.approx((losses[1] - losses[0]) / (2*epsilon), rel=.02, abs=5e-4)
+        assert analytical == pytest.approx((losses[1] - losses[0]) / (2*epsilon), rel=.02, abs=5e-6)
 
 
 def test_head_only_derivative_is_unchanged_by_attaching_coast():

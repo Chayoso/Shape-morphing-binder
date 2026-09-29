@@ -86,6 +86,13 @@ CPU test verifies empty-worker-context restoration and repeated-callback isolati
 it does not substitute for the required fresh CUDA run. The original failed log
 is retained, and numerical tolerances are unchanged.
 
+Frozen4d9ea89 then passed all6 actual CUDA cases (0 skipped) in2.16s. The observed
+stress directional derivative was only.000316313, below the original5e-4 absolute
+FD floor. Before the final gate, strengthen that floor to5e-6 for all channels,
+require each tested derivative magnitude>5e-5, and retain2% relative tolerance
+and both radii. The earlier pass is not presented as a zero-gradient-discriminating
+stress test. This stricter gate requires a fresh run; no numerical code changes.
+
 ## Correcting overwritten fragment activity
 
 The original `Trajectory.frag_step` was one scratch array overwritten at every

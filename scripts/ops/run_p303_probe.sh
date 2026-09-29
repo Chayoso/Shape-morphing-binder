@@ -5,7 +5,7 @@ base=/data/relcfd/chayo/physmorph_v2
 mode=${1:?probe mode}
 gpu=${2:?GPU index}
 tag=${3:?unique tag}
-case "$mode" in trajectory-reporting-verify|withdrawal-adjoint-verify) ;; baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|gradient-reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|full-raw-no-layer|support-braking-repair|frozen-replay-noise|frozen-state-identity|withdrawal-capture|withdrawal-analyze|withdrawal-verify) ;; *) exit 2;; esac
+case "$mode" in trajectory-reporting-verify|withdrawal-adjoint-verify|fragment-adjoint-verify|full-fragment-legacy|full-fragment-retained) ;; baseline|raw|raw-off|raw-no-pin|raster|continuous|live-continuous|quality|phase|render-compare|gs-zero|gs-one|gs-compare|pin-quality|pin-prefix|reference-swap|reference-verify|inner-budget|inner-verify|terminal-braking|braking-capture|braking-compensation|live-braking-compensation|running-braking-repair|remainder-braking-repair|quality-braking-repair|paired-braking-repair|silhouette-braking-repair|coverage-paths|silhouette-pixels|metric-verify|horizon-verify|reporting-verify|gradient-reporting-verify|shape-verify|baseline-shape|raw-shape|baseline-motion|raw-motion|full-baseline|full-raw|full-raw-no-layer|support-braking-repair|frozen-replay-noise|frozen-state-identity|withdrawal-capture|withdrawal-analyze|withdrawal-verify) ;; *) exit 2;; esac
 [[ "$gpu" =~ ^[0-3]$ && "$tag" =~ ^[a-zA-Z0-9_-]+$ ]] || exit 2
 export PHYSMORPH_RUN_REPO=$(cd "$(dirname "$0")/../.." && pwd)
 case "$PHYSMORPH_RUN_REPO" in "$base"/work/p303/code*) ;; *) exit 2;; esac
@@ -29,7 +29,7 @@ out="$base/work/p303/$tag"
 for suffix in '' .start .json .log .npz _render_full_dt_iso_nn.npz; do test ! -e "$out$suffix"; done
 used=$(du -sb "$base" | cut -f1)
 (( used < 100000000000 )) || { echo 'Project exceeds 100GB; clean obsolete results first' >&2; exit 76; }
-if [[ "$mode" == full-baseline || "$mode" == full-raw || "$mode" == full-raw-no-layer || "$mode" == withdrawal-capture ]]; then
+if [[ "$mode" == full-baseline || "$mode" == full-raw || "$mode" == full-raw-no-layer || "$mode" == withdrawal-capture || "$mode" == full-fragment-* ]]; then
     (( used + 30000000000 < 100000000000 )) || { echo 'Full-horizon30GB reservation exceeds100GB; clean verified obsolete results first' >&2; exit 76; }
 fi
 if [[ "$mode" == baseline-shape || "$mode" == raw-shape ]]; then
@@ -61,6 +61,14 @@ fi
 if [[ "$mode" == withdrawal-adjoint-verify ]]; then
     exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \
         tests/test_withdrawal_adjoint_cuda.py -q -s --junitxml="$out.xml"
+fi
+if [[ "$mode" == fragment-adjoint-verify ]]; then
+    exec "$PY" scripts/ops/cuda_python.py /home/chayo/miniforge3/envs/diffmpm_v2.3.0/bin/pytest \
+        tests/test_withdrawal_adjoint_cuda.py tests/test_fragment_adjoint_observer_cuda.py -q -s --junitxml="$out.xml"
+fi
+if [[ "$mode" == full-fragment-legacy || "$mode" == full-fragment-retained ]]; then
+    exec "$PY" scripts/ops/cuda_python.py scripts/probes/fragment_adjoint_compare.py \
+        --mode "${mode#full-fragment-}" --out "$out"
 fi
 if [[ "$mode" == full-baseline || "$mode" == full-raw || "$mode" == full-raw-no-layer ]]; then
     exec "$PY" scripts/ops/cuda_python.py scripts/probes/full_horizon.py --arm "${mode#full-}" --out "$out"

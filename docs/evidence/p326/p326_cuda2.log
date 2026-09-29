@@ -1,0 +1,29 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal_adjoint2
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 6 items
+
+tests/test_withdrawal_adjoint_cuda.py Module physmorph.mpm.kernels c651c54 load on device 'cpu' took 1.20 ms  (cached)
+Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 10.94 ms  (cached)
+{'channel': 0, 'epsilon': 0.001, 'analytical': 0.0003163132055760292, 'finite_difference': 0.00031647665157106576}
+{'channel': 0, 'epsilon': 0.0005, 'analytical': 0.0003163132055760292, 'finite_difference': 0.0003136602785031462}
+.{'channel': 1, 'epsilon': 0.001, 'analytical': 0.0057151254736017894, 'finite_difference': 0.005731258384790157}
+{'channel': 1, 'epsilon': 0.0005, 'analytical': 0.0057151254736017894, 'finite_difference': 0.0057140181554970505}
+.{'channel': 2, 'epsilon': 0.0001, 'analytical': -0.01662637370608548, 'finite_difference': -0.01676510741957884}
+{'channel': 2, 'epsilon': 5e-05, 'analytical': -0.01662637370608548, 'finite_difference': -0.0166104077835706}
+...{'kind': 'changing_fragment', 'epsilon': 0.001, 'analytical': -0.0031903349821653226, 'finite_difference': -0.003187983442051734}
+{'kind': 'changing_fragment', 'epsilon': 0.0005, 'analytical': -0.0031903349821653226, 'finite_difference': -0.0031875650929880095}
+.
+
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p326_cuda2.xml -
+============================== 6 passed in 2.16s ===============================

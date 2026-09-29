@@ -1,0 +1,93 @@
+Warp UserWarning: Kernel cache artifacts from a previous Warp version were found in '/data/relcfd/chayo/physmorph_v2/cache/warp'. These will be ignored. You can safely delete them.
+============================= test session starts ==============================
+platform linux -- Python 3.10.20, pytest-9.0.3, pluggy-1.6.0
+rootdir: /data/relcfd/chayo/physmorph_v2/work/p303/code_withdrawal_adjoint1
+configfile: pytest.ini (WARNING: ignoring pytest config in pyproject.toml!)
+plugins: dash-4.1.0
+Warp 1.16.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.1
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA RTX 6000 Ada Generation" (47 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     /data/relcfd/chayo/physmorph_v2/cache/warp/1.16.0
+collected 6 items
+
+tests/test_withdrawal_adjoint_cuda.py Module physmorph.mpm.kernels c651c54 load on device 'cpu' took 1.21 ms  (cached)
+Module physmorph.mpm.kernels 8863527 load on device 'cuda:0' took 11.10 ms  (cached)
+FFFF.{'kind': 'changing_fragment', 'epsilon': 0.001, 'analytical': -0.0031903349821653226, 'finite_difference': -0.003187983442051734}
+{'kind': 'changing_fragment', 'epsilon': 0.0005, 'analytical': -0.0031903349821653226, 'finite_difference': -0.0031875650929880095}
+.
+
+=================================== FAILURES ===================================
+_ test_captured_joint_derivative_matches_uncaptured_and_finite_difference[stress] _
+tests/test_withdrawal_adjoint_cuda.py:42: in test_captured_joint_derivative_matches_uncaptured_and_finite_difference
+    reference = torch.autograd.grad(mixed_coast_loss(expected), controls)
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/__init__.py:503: in grad
+    result = _engine_run_backward(
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/graph.py:829: in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:311: in apply
+    return user_fn(self, *args)
+physmorph/mpm/withdrawal_adjoint.py:247: in backward
+    with adj._scope(), torch.no_grad():
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/contextlib.py:135: in __enter__
+    return next(self.gen)
+physmorph/mpm/withdrawal_adjoint.py:162: in _scope
+    raise RuntimeError('WithdrawalAdjoint device requires matching cuda_execution context')
+E   RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context
+_ test_captured_joint_derivative_matches_uncaptured_and_finite_difference[surface_u] _
+tests/test_withdrawal_adjoint_cuda.py:42: in test_captured_joint_derivative_matches_uncaptured_and_finite_difference
+    reference = torch.autograd.grad(mixed_coast_loss(expected), controls)
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/__init__.py:503: in grad
+    result = _engine_run_backward(
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/graph.py:829: in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:311: in apply
+    return user_fn(self, *args)
+physmorph/mpm/withdrawal_adjoint.py:247: in backward
+    with adj._scope(), torch.no_grad():
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/contextlib.py:135: in __enter__
+    return next(self.gen)
+physmorph/mpm/withdrawal_adjoint.py:162: in _scope
+    raise RuntimeError('WithdrawalAdjoint device requires matching cuda_execution context')
+E   RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context
+_ test_captured_joint_derivative_matches_uncaptured_and_finite_difference[body] _
+tests/test_withdrawal_adjoint_cuda.py:42: in test_captured_joint_derivative_matches_uncaptured_and_finite_difference
+    reference = torch.autograd.grad(mixed_coast_loss(expected), controls)
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/__init__.py:503: in grad
+    result = _engine_run_backward(
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/graph.py:829: in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:311: in apply
+    return user_fn(self, *args)
+physmorph/mpm/withdrawal_adjoint.py:247: in backward
+    with adj._scope(), torch.no_grad():
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/contextlib.py:135: in __enter__
+    return next(self.gen)
+physmorph/mpm/withdrawal_adjoint.py:162: in _scope
+    raise RuntimeError('WithdrawalAdjoint device requires matching cuda_execution context')
+E   RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context
+___________ test_captured_seeds_reuse_and_torch_side_stream_binding ____________
+tests/test_withdrawal_adjoint_cuda.py:81: in test_captured_seeds_reuse_and_torch_side_stream_binding
+    a = torch.autograd.grad(multi, controls, retain_graph=True)
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/__init__.py:503: in grad
+    result = _engine_run_backward(
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/graph.py:829: in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:311: in apply
+    return user_fn(self, *args)
+physmorph/mpm/withdrawal_adjoint.py:247: in backward
+    with adj._scope(), torch.no_grad():
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/contextlib.py:135: in __enter__
+    return next(self.gen)
+physmorph/mpm/withdrawal_adjoint.py:162: in _scope
+    raise RuntimeError('WithdrawalAdjoint device requires matching cuda_execution context')
+E   RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context
+- generated xml file: /data/relcfd/chayo/physmorph_v2/work/p303/p326_cuda1.xml -
+=========================== short test summary info ============================
+FAILED tests/test_withdrawal_adjoint_cuda.py::test_captured_joint_derivative_matches_uncaptured_and_finite_difference[stress]
+FAILED tests/test_withdrawal_adjoint_cuda.py::test_captured_joint_derivative_matches_uncaptured_and_finite_difference[surface_u]
+FAILED tests/test_withdrawal_adjoint_cuda.py::test_captured_joint_derivative_matches_uncaptured_and_finite_difference[body]
+FAILED tests/test_withdrawal_adjoint_cuda.py::test_captured_seeds_reuse_and_torch_side_stream_binding
+========================= 4 failed, 2 passed in 2.09s ==========================

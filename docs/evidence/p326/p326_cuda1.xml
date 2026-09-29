@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="6" time="2.086" timestamp="2026-09-29T00:32:28.340610-05:00" hostname="hyde06"><testcase classname="tests.test_withdrawal_adjoint_cuda" name="test_captured_joint_derivative_matches_uncaptured_and_finite_difference[stress]" time="0.341"><failure message="RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context">tests/test_withdrawal_adjoint_cuda.py:42: in test_captured_joint_derivative_matches_uncaptured_and_finite_difference
+    reference = torch.autograd.grad(mixed_coast_loss(expected), controls)
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/__init__.py:503: in grad
+    result = _engine_run_backward(
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/graph.py:829: in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:311: in apply
+    return user_fn(self, *args)
+physmorph/mpm/withdrawal_adjoint.py:247: in backward
+    with adj._scope(), torch.no_grad():
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/contextlib.py:135: in __enter__
+    return next(self.gen)
+physmorph/mpm/withdrawal_adjoint.py:162: in _scope
+    raise RuntimeError('WithdrawalAdjoint device requires matching cuda_execution context')
+E   RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context</failure></testcase><testcase classname="tests.test_withdrawal_adjoint_cuda" name="test_captured_joint_derivative_matches_uncaptured_and_finite_difference[surface_u]" time="0.108"><failure message="RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context">tests/test_withdrawal_adjoint_cuda.py:42: in test_captured_joint_derivative_matches_uncaptured_and_finite_difference
+    reference = torch.autograd.grad(mixed_coast_loss(expected), controls)
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/__init__.py:503: in grad
+    result = _engine_run_backward(
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/graph.py:829: in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:311: in apply
+    return user_fn(self, *args)
+physmorph/mpm/withdrawal_adjoint.py:247: in backward
+    with adj._scope(), torch.no_grad():
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/contextlib.py:135: in __enter__
+    return next(self.gen)
+physmorph/mpm/withdrawal_adjoint.py:162: in _scope
+    raise RuntimeError('WithdrawalAdjoint device requires matching cuda_execution context')
+E   RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context</failure></testcase><testcase classname="tests.test_withdrawal_adjoint_cuda" name="test_captured_joint_derivative_matches_uncaptured_and_finite_difference[body]" time="0.106"><failure message="RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context">tests/test_withdrawal_adjoint_cuda.py:42: in test_captured_joint_derivative_matches_uncaptured_and_finite_difference
+    reference = torch.autograd.grad(mixed_coast_loss(expected), controls)
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/__init__.py:503: in grad
+    result = _engine_run_backward(
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/graph.py:829: in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:311: in apply
+    return user_fn(self, *args)
+physmorph/mpm/withdrawal_adjoint.py:247: in backward
+    with adj._scope(), torch.no_grad():
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/contextlib.py:135: in __enter__
+    return next(self.gen)
+physmorph/mpm/withdrawal_adjoint.py:162: in _scope
+    raise RuntimeError('WithdrawalAdjoint device requires matching cuda_execution context')
+E   RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context</failure></testcase><testcase classname="tests.test_withdrawal_adjoint_cuda" name="test_captured_seeds_reuse_and_torch_side_stream_binding" time="0.079"><failure message="RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context">tests/test_withdrawal_adjoint_cuda.py:81: in test_captured_seeds_reuse_and_torch_side_stream_binding
+    a = torch.autograd.grad(multi, controls, retain_graph=True)
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/__init__.py:503: in grad
+    result = _engine_run_backward(
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/graph.py:829: in _engine_run_backward
+    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/site-packages/torch/autograd/function.py:311: in apply
+    return user_fn(self, *args)
+physmorph/mpm/withdrawal_adjoint.py:247: in backward
+    with adj._scope(), torch.no_grad():
+/home/chayo/miniforge3/envs/diffmpm_v2.3.0/lib/python3.10/contextlib.py:135: in __enter__
+    return next(self.gen)
+physmorph/mpm/withdrawal_adjoint.py:162: in _scope
+    raise RuntimeError('WithdrawalAdjoint device requires matching cuda_execution context')
+E   RuntimeError: WithdrawalAdjoint device requires matching cuda_execution context</failure></testcase><testcase classname="tests.test_withdrawal_adjoint_cuda" name="test_constructor_rejects_unaligned_library_streams" time="0.005" /><testcase classname="tests.test_withdrawal_adjoint_cuda" name="test_changing_fragment_activity_in_production_captured_adjoint" time="0.047" /></testsuite></testsuites>
