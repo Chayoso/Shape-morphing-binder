@@ -155,6 +155,20 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
                     shifted = restored.evaluate(fixed_terminal,displacement+sign*.001*direction)
                     values.append(float(geometric_running(shifted['positions'],packet['x0'],packet['dt'],selected)))
             assert (values[1]-values[0])/.002 == pytest.approx(float(running_grad.norm()),rel=.03,abs=1e-5)
+            from physmorph.pipeline.support_braking import support_values
+            support_forward = restored.evaluate(fixed_terminal,displacement)
+            witness_ids = torch.nonzero(selected).flatten()[:1]
+            support_q = support_forward['x'][witness_ids].detach().clone()+torch.tensor([[.1,.15,.2]])
+            support_value = support_values(support_forward['x'],support_q,witness_ids,1.)[0]
+            support_grad, = torch.autograd.grad(support_value,displacement)
+            assert float(support_grad.norm())>1e-6
+            direction = support_grad/support_grad.norm()
+            samples = []
+            for sign in (-1,1):
+                shifted = restored.evaluate(fixed_terminal,displacement+sign*.003*direction)
+                assert shifted['valid']
+                samples.append(float(support_values(shifted['x'],support_q,witness_ids,1.)[0].detach()))
+            assert (samples[1]-samples[0])/.006==pytest.approx(float(support_grad.norm()),rel=.04,abs=1e-6)
             restored.close()
             # The paired component diagnostic must linearize a real MPM window
             # only once, with a live original-merit evaluator and exact ownership.
@@ -167,9 +181,14 @@ def test_reference_observer_preserves_actual_cpu_pipeline_and_expires(monkeypatc
             from test_remainder_braking import synthetic_summary
             with monkeypatch.context() as quality:
                 quality.setattr('scripts.probes.running_braking_repair.summarize',synthetic_summary)
-                common = repair(model,local,source,target,base_dir,baseline_only=True)
-                origin = repair(model,local,source,target,origin_dir,shared_baseline=common,origin_only=True)
+                common = repair(model,local,source,target,base_dir,baseline_only=True,prepare_support=True)
+                origin = repair(model,local,source,target,origin_dir,shared_baseline=common,origin_only=True,prepare_support=True)
             assert origin.decode()['baseline_sha256']==common.digest()
+            assert common.tensor('endpoints','cpu').shape==(3,len(source),3)
+            # This sparse toy target needs no new support row; do not claim
+            # combined support-row MPM coverage from this common-origin check.
+            assert origin.decode()['support_metadata']['status']=='no_intervention'
+            assert origin.decode()['support_metadata']['count']==0
             assert len(origin.decode()['running_repeats'])==3
             g_sil = origin.tensor('gradient_silhouette','cpu')
             assert bool(torch.isfinite(g_sil).all()) and float(g_sil.norm())>0

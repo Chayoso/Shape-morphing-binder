@@ -1,0 +1,10 @@
+{
+  "coverage_brute1.json": "389115d12000c4d481db9158fad05a66564fdb6167f8ca6ebdb50a5a0aec7b09",
+  "coverage_brute1_protocol.json": "0a47b6fc0e2b308785f03476672b51b66071531cc8e51239dff7ef3a7f280807",
+  "coverage_brute_audit.py.txt": "6204cefa812b6ef048387b1f06c0e70751781984f5bb05fdf9c85a2551f1a19d",
+  "coverage_paths1.json": "54d01d7131d3409e1653f8193a71a78ec2d97f9d98bd7b60a1977b83f42f4ba6",
+  "coverage_paths1_protocol.json": "9e429313f9a78a86ec1449a37e2b542355c3a294f5961bedd4ad6395ec9a7b5e",
+  "direct_distances.npz": "c84bacc4e5156fb8a5269bf696aa84ca066fc233565b633ca085fae8e7a005a4",
+  "paths.npz": "a0bf9e1da5ed957c48a54445c7f39a5bcbbf2b0bd3bf0251ee99fa5f38e5fd5f",
+  "run_coverage_brute.sh.txt": "f5e3ce615827fe3c06ecf7fd2466ef893ee4fac3548f73dd8b8bf2de364dca68"
+}

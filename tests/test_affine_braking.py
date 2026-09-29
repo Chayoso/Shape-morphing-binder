@@ -68,7 +68,7 @@ def test_malformed_constraint_layout_is_rejected():
         projected_affine_check(torch.zeros(3),torch.ones(2,3),torch.zeros(2,1),torch.float32)
 
 
-@pytest.mark.parametrize('planes',[2,3])
+@pytest.mark.parametrize('planes',[2,3,4,8])
 def test_random_feasible_problems_against_independent_slsqp(planes):
     rng = np.random.default_rng(512)
     for _ in range(12):
@@ -119,3 +119,46 @@ def test_three_dependent_planes(contradictory):
 def test_more_constraint_rows_than_displacement_dimensions():
     step,_ = solve([-1.,-1.],[[1.,0.],[0.,1.],[1.,1.]],[-.2,-.3,-.5],1.)
     np.testing.assert_allclose(step.numpy(),[-.2,-.3],rtol=0,atol=1e-12)
+
+
+@pytest.mark.parametrize('planes',[4,8])
+def test_all_support_planes_active_with_remaining_tangent_direction(planes):
+    G = np.eye(planes+1)[:planes]
+    b = np.linspace(-.1,-.2,planes)
+    g = np.r_[np.zeros(planes),1.]
+    step,info = solve(g,G,b,1.)
+    np.testing.assert_allclose(step.numpy(),np.r_[b,-np.sqrt(1-b@b)],rtol=0,atol=1e-12)
+    assert info['active']==list(range(planes))
+
+
+@pytest.mark.parametrize('angle',[1e-4,1e-6,1e-8])
+def test_eight_scaled_rows_with_nearly_opposing_intersection(angle):
+    G = np.eye(9)[:8]
+    G[2] = [-1.,-1.,angle,0.,0.,0.,0.,0.,0.]
+    b = np.array([-.2,-.3,.5-.2*angle,-.1,-.1,-.1,-.1,-.1])
+    scale = np.logspace(-5,3,8)
+    g = np.r_[np.zeros(8),1.]
+    step,info = solve(g,G*scale[:,None],b*scale,1.)
+    assert step is not None,info
+    expected = np.array([-.2,-.3,-.2,-.1,-.1,-.1,-.1,-.1])
+    np.testing.assert_allclose(step.numpy(),np.r_[expected,-np.sqrt(1-expected@expected)],rtol=0,atol=4e-8)
+
+
+@pytest.mark.parametrize('contradictory',[False,True])
+def test_eight_dependent_rows_in_small_control_space(contradictory):
+    G = np.array([[1.,0.],[2.,0.],[3.,0.],[4.,0.],[-1.,0.],[-2.,0.],[-3.,0.],[-4.,0.]])
+    b = np.r_[-.6*np.arange(1,5),(.5 if contradictory else .6)*np.arange(1,5)]
+    step,_ = solve([0.,1.],G,b,1.)
+    if contradictory: assert step is None
+    else: np.testing.assert_allclose(step.numpy(),[-.6,-.8],rtol=0,atol=1e-12)
+
+
+def test_declared_eight_row_budget_rejects_larger_problem():
+    with pytest.raises(ValueError,match='Invalid affine trust-ball'):
+        solve([1.,1.],np.ones((9,2)),np.ones(9),1.)
+
+
+def test_active_metadata_maps_past_zero_rows():
+    step,info = solve([0.,1.],[[0.,0.],[1.,0.],[0.,0.]], [0.,-.6,1.],1.)
+    np.testing.assert_allclose(step.numpy(),[-.6,-.8],rtol=0,atol=1e-12)
+    assert info['active']==[0] and info['active_input_rows']==[1]

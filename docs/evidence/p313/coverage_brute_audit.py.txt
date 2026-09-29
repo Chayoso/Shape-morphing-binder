@@ -1,0 +1,225 @@
+"""Independent selected-target CUDA distance audit; no physics or KD-tree imports."""
+import argparse
+from datetime import datetime, timezone
+from hashlib import sha256
+import json
+import os
+from pathlib import Path
+import time
+
+import numpy as np
+import torch
+
+EXPECTED = {
+    'result.json': '54d01d7131d3409e1653f8193a71a78ec2d97f9d98bd7b60a1977b83f42f4ba6',
+    'protocol.json': '9e429313f9a78a86ec1449a37e2b542355c3a294f5961bedd4ad6395ec9a7b5e',
+    'endpoints.npz': '34f302c35d17fc26598fe8470a10ea4511336e30d3fbdf84846341830e457a55',
+    'paths.npz': 'a0bf9e1da5ed957c48a54445c7f39a5bcbbf2b0bd3bf0251ee99fa5f38e5fd5f',
+}
+
+
+def require(ok, why):
+    if not bool(ok):
+        raise RuntimeError(why)
+
+
+def sha(path):
+    h = sha256()
+    with open(path, 'rb') as stream:
+        for block in iter(lambda: stream.read(8 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
+
+
+def identity(path):
+    s = Path(path).stat()
+    return dict(dev=s.st_dev, ino=s.st_ino, size=s.st_size, mtime_ns=s.st_mtime_ns)
+
+
+def json_bytes(path, expected=None):
+    b = Path(path).read_bytes()
+    digest = sha256(b).hexdigest()
+    require(expected is None or digest == expected, 'JSON hash mismatch: ' + str(path))
+    return json.loads(b), digest
+
+
+def dump(path, data):
+    with open(path, 'x') as stream:
+        json.dump(data, stream, indent=2, allow_nan=False)
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def cpu(t):
+    return t.detach().cpu().numpy()
+
+
+def close64(actual, expected, name):
+    # FP64 arithmetic certificate, unrelated to any physical or coverage tolerance.
+    err = torch.abs(actual - expected)
+    tol = 16 * torch.finfo(torch.float64).eps * torch.maximum(torch.ones_like(expected), torch.abs(expected))
+    require(torch.isfinite(actual).all() and (err <= tol).all(), name)
+    return float(err.max()) if err.numel() else 0.0
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--base', type=Path, required=True)
+    parser.add_argument('--code', type=Path, required=True)
+    parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--out', type=Path, required=True)
+    args = parser.parse_args()
+    start = datetime.now(timezone.utc).isoformat()
+    t0 = time.perf_counter()
+    require(str(args.base.resolve()).startswith('/data/'), 'Base outside /data')
+    for p in (args.code, args.source, args.out, Path(__file__).resolve()):
+        require(p.resolve().is_relative_to(args.base.resolve()), 'Path outside project /data')
+    require(torch.cuda.is_available() and os.environ.get('CUDA_VISIBLE_DEVICES') == '1', 'Expected physical GPU1')
+    require(not args.out.exists(), 'Output exists')
+    args.out.mkdir()
+    result, _ = json_bytes(args.source/'result.json', EXPECTED['result.json'])
+    protocol, _ = json_bytes(args.source/'protocol.json', EXPECTED['protocol.json'])
+    require(result['protocol_sha256'] == EXPECTED['protocol.json'], 'Protocol binding')
+    require(result['sidecars'] == {k:v for k,v in EXPECTED.items() if k.endswith('.npz')}, 'Sidecar binding')
+    bindings = {str(args.source/k):v for k,v in EXPECTED.items()}
+    bindings.update(protocol['inputs'])
+    bindings.update(protocol['code'])
+    code_paths = [Path(__file__).resolve(), Path(__file__).resolve().with_name('run_coverage_brute.sh'),
+                  args.code/'scripts/ops/hyde06_env.sh', args.code/'scripts/ops/gpu_env.sh',
+                  args.code/'scripts/ops/cuda_python.py']
+    bindings.update({str(p):sha(p) for p in code_paths})
+    before = {k:identity(k) for k in bindings}
+    for k,v in bindings.items():
+        require(sha(k) == v and identity(k) == before[k], 'Pre-audit input/code mismatch: ' + k)
+    require(all(Path(k).is_relative_to(args.code) for k in protocol['code']), 'Unexpected frozen code root')
+    spec = dict(start_utc=start, inputs_code=bindings, identities_before=before,
+                frozen_commit='42c01a03a039a7882f299dc83c1686ad05aa115d',
+                scope='Independent Torch CUDA FP64 distances for six selected targets only; no model construction or rollout',
+                numpy_role='Archive decode/encode only', torch_version=torch.__version__,
+                cuda=torch.version.cuda, device=torch.cuda.get_device_name(0),
+                physical_gpu=os.environ['CUDA_VISIBLE_DEVICES'],
+                environment={k:os.environ.get(k) for k in ('WARP_CACHE_PATH','CUPY_CACHE_DIR','CUDA_CACHE_PATH','XDG_CACHE_HOME','TMPDIR')},
+                tolerance='16*eps64*max(1,abs(reference_distance)) for arithmetic only; coverage and counts exact with original radius')
+    dump(args.out/'protocol.json', spec)
+    with np.load(args.source/'paths.npz', allow_pickle=False) as f:
+        saved = {k:torch.as_tensor(f[k].copy(), device='cuda') for k in f.files}
+    with np.load(args.source/'endpoints.npz', allow_pickle=False) as f:
+        endpoint = {k:torch.as_tensor(f[k].copy(), device='cuda') for k in
+                    ('target','distance','nearest_ids','selected')}
+    require(torch.equal(saved['target_ids'], endpoint['selected']), 'Selected target IDs differ')
+    require(saved['target_ids'].numel() == 6 and saved['material_ids'].numel() == 24, 'Unexpected scope')
+    require(torch.equal(saved['targets'], endpoint['target'][saved['target_ids']]), 'Target identity')
+    paths_root = args.base/'work/p303/silhouette_repair1/silhouette_repair'
+    with np.load(paths_root/'live_window.npz', allow_pickle=False) as f:
+        manifest = json.loads(f['manifest'].tobytes())['items']
+        require(manifest['version'] == 1, 'Unknown observation version')
+        fields = manifest['observations']['items']
+        obs = {}
+        for key in ('x0','pins','start_arrived','source','target','plan'):
+            node = fields[key]
+            require(node['type'] == 'tensor', 'Bad observation node')
+            value = f[node['key']]
+            require(not value.dtype.hasobject and list(value.shape) == node['shape'] and str(value.dtype) == node['dtype'], 'Bad observation shape')
+            obs[key] = torch.as_tensor(value.copy(), device='cuda')
+        dt = fields['dt']
+    require(dt == result['dt'] == protocol['mpm']['dt'], 'Time step mismatch')
+    require(torch.equal(obs['target'], endpoint['target']), 'Target archive mismatch')
+    ids = saved['material_ids'].long()
+    fixed = saved['fixed_ids'].long()
+    q = saved['targets'].double()
+    cutoff = result['cutoff']
+    require(cutoff == 2*result['target_spacing'], 'Coverage radius changed')
+    require(obs['x0'].shape == (300000,3) and result['T'] == 20, 'Discretisation mismatch')
+    expected_cohort = torch.where(obs['pins'][ids], 0, torch.where(obs['start_arrived'][ids], 1, 2))
+    require(torch.equal(expected_cohort, saved['cohort']), 'Cohort mapping mismatch')
+    require(torch.equal(obs['plan'][ids], saved['plan']) and torch.equal(obs['source'][ids], saved['source']), 'Witness plan/source mismatch')
+    distances=[]; nearest=[]; counts=[]; knn4_d=[]; knn4_i=[]; suppliers=[]; supplier_v=[]
+    max_error=dict(nearest=0.0, fixed=0.0, endpoint_rank4=0.0, geometric_velocity=0.0)
+    tie_counts=[]
+    for run, name in enumerate(protocol['trajectory_order']):
+        print('Reading and auditing '+name, flush=True)
+        with np.load(paths_root/name, allow_pickle=False) as f:
+            X = torch.as_tensor(f['positions'].copy(), device='cuda')
+            V = torch.as_tensor(f['V'].copy(), device='cuda')
+        require(X.shape == V.shape == (20,300000,3), 'Unexpected trajectory layout')
+        require(torch.isfinite(X).all() and torch.isfinite(V).all(), 'Nonfinite trajectory')
+        require(torch.equal(X[:,obs['pins']].view(torch.int32), obs['x0'][obs['pins']].expand(20,-1,-1).contiguous().view(torch.int32)), 'Pinned trajectory changed')
+        require(torch.equal(V[:,ids].contiguous().view(torch.int32), saved['V'][run].contiguous().view(torch.int32)), 'Stored V witness differs from original')
+        expected_X = torch.cat((obs['x0'][ids][None], X[:,ids]), dim=0)
+        require(torch.equal(expected_X.contiguous().view(torch.int32), saved['positions'][run].contiguous().view(torch.int32)), 'Stored position witness differs from original')
+        max_error['geometric_velocity'] = max(max_error['geometric_velocity'], close64(torch.diff(expected_X.double(),dim=0)/dt, saved['geometric_V'][run], 'Geometric velocity mismatch'))
+        rd=[]; ri=[]; rn=[]; rx=[]; rv=[]; rt=[]
+        for phase in range(21):
+            positions = obs['x0'] if phase == 0 else X[phase-1]
+            delta = positions.double()[None] - q[:,None]
+            d2 = (delta*delta).sum(-1)
+            d = torch.sqrt(d2)
+            near_d, near_i = d.min(-1)
+            count = (d <= cutoff).sum(-1)
+            require(torch.equal(count, saved['occupancy'][run,phase]), 'Occupancy differs at run/phase '+str((run,phase)))
+            require(torch.equal(near_d <= cutoff, saved['phase_covered'][run,phase]), 'Coverage bit mismatch')
+            kd_i = saved['nearest_ids'][run,phase].long()
+            kd_d = saved['nearest_distance'][run,phase]
+            max_error['nearest'] = max(max_error['nearest'], close64(near_d,kd_d,'Nearest distance differs'))
+            # IDs may differ only if the recorded ID is also a minimum within FP64 arithmetic error.
+            close64(d.gather(1,kd_i[:,None]).squeeze(1),near_d,'Recorded nearest ID is not a distance tie')
+            fixed_d = d.gather(1,fixed)
+            max_error['fixed'] = max(max_error['fixed'], close64(fixed_d,saved['fixed_distance'][run,phase],'Fixed supplier distance differs'))
+            if phase == 20:
+                rank_d, rank_i = d.topk(4,largest=False,sorted=True)
+                ref_d = endpoint['distance'][run,saved['target_ids']]
+                ref_i = endpoint['nearest_ids'][run,saved['target_ids']].long()
+                max_error['endpoint_rank4'] = max(max_error['endpoint_rank4'],close64(rank_d,ref_d,'Endpoint 4NN distance differs'))
+                close64(d.gather(1,ref_i),ref_d,'Endpoint 4NN ID distance mismatch')
+                require(all(torch.unique(row).numel()==4 for row in ref_i), 'Duplicate endpoint 4NN IDs')
+                knn4_d.append(rank_d);knn4_i.append(rank_i)
+            rd.append(near_d);ri.append(near_i);rn.append(count)
+            rx.append(positions[kd_i]);rt.append((torch.abs(d-near_d[:,None]) <= 16*torch.finfo(torch.float64).eps*torch.maximum(torch.ones_like(near_d),near_d)[:,None]).sum(1))
+            if phase:
+                rv.append(V[phase-1,kd_i])
+        distances.append(torch.stack(rd));nearest.append(torch.stack(ri));counts.append(torch.stack(rn));suppliers.append(torch.stack(rx));supplier_v.append(torch.stack(rv));tie_counts.append(torch.stack(rt))
+        del X,V,delta,d2,d
+    D=torch.stack(distances); I=torch.stack(nearest); C=torch.stack(counts)
+    covered=D<=cutoff
+    require(torch.equal(covered,saved['phase_covered']), 'Final phase coverage mismatch')
+    sidecar=args.out/'direct_distances.npz'
+    np.savez_compressed(sidecar, nearest_distance=cpu(D), nearest_ids=cpu(I), occupancy=cpu(C),
+                        endpoint_knn4_distance=cpu(torch.stack(knn4_d)), endpoint_knn4_ids=cpu(torch.stack(knn4_i)),
+                        supplier_positions_for_recorded_nearest=cpu(torch.stack(suppliers)),
+                        supplier_stored_V_for_recorded_nearest=cpu(torch.stack(supplier_v)),
+                        minimum_tie_counts=cpu(torch.stack(tie_counts)), target_ids=cpu(saved['target_ids']))
+    tables=[]
+    for j,target in enumerate(cpu(saved['target_ids']).tolist()):
+        arms=[]
+        for r in range(4):
+            arms.append(dict(label=protocol['trajectory_order'][r], covered_phases=cpu(torch.nonzero(covered[r,:,j]).flatten()).tolist(),
+                             occupancy=cpu(C[r,:,j]).tolist(), nearest_ids=cpu(saved['nearest_ids'][r,:,j]).tolist(),
+                             margins_wu=cpu(cutoff-D[r,:,j]).tolist(), margins_source_sp=cpu((cutoff-D[r,:,j])/result['spacing']).tolist(),
+                             phase_time_seconds=[p*dt for p in range(21)]))
+        tables.append(dict(target_id=target, upper=bool(q[j,1]>2.3), arms=arms,
+                           lost_phases_vs_baselines=[cpu(torch.nonzero(covered[r,:,j]&~covered[3,:,j]).flatten()).tolist() for r in range(3)],
+                           gained_phases_vs_baselines=[cpu(torch.nonzero(~covered[r,:,j]&covered[3,:,j]).flatten()).tolist() for r in range(3)]))
+    torch.cuda.synchronize()
+    for k,v in bindings.items():
+        require(identity(k)==before[k] and sha(k)==v and identity(k)==before[k], 'Post-audit input/code mismatch: '+k)
+    output=dict(passed=True, no_forward=True, no_adoption=True, start_utc=start,
+                end_utc=datetime.now(timezone.utc).isoformat(), elapsed_seconds=time.perf_counter()-t0,
+                protocol_sha256=sha(args.out/'protocol.json'), sidecars={'direct_distances.npz':sha(sidecar)},
+                input_code_hashes_and_identities_unchanged=True, mpm=protocol['mpm'],
+                N=300000,T=20, dt=dt, source_spacing=result['spacing'],target_spacing=result['target_spacing'],cutoff=cutoff,
+                checked_target_count=6,checked_saved_states=84,checked_target_state_pairs=504,
+                witness_positions_and_V_bitwise_exact=True,pinned_original_trajectories_bitwise_exact=True,
+                coverage_and_occupancy_exact=True,endpoint_4NN_distance_and_tie_membership_passed=True,
+                maximum_absolute_errors=max_error,
+                nearest_id_differences=int((I!=saved['nearest_ids']).sum()),
+                scopes=['Six endpoint-changed targets only; no all-target raw geometry remeasurement',
+                        'No physical v0; saved V is post-step 1..20',
+                        'Nearest trajectories may change material ID across phases; fixed witness paths are separately validated',
+                        'Coverage uses unchanged inclusive 2*target_spacing; no physical gate tolerance added'],
+                tables=tables, peak_torch_allocated_bytes=torch.cuda.max_memory_allocated())
+    dump(args.out/'result.json',output)
+    print(json.dumps({k:output[k] for k in ('passed','elapsed_seconds','maximum_absolute_errors','nearest_id_differences')}),flush=True)
+
+
+if __name__=='__main__':
+    main()

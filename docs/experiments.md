@@ -9286,3 +9286,25 @@ is64 in this W20 prefix;96 is the configured later transition. Not4K evidence.
 raw quality gate remains failed. [Evidence and limits](silhouette_repair_p312.md).
 Next [archive-only localization](coverage_paths_p313.md) uses saved baseline and
 common-origin paths; unsaved rejected candidate IDs cannot be inferred from it.
+
+## 2026-09-28 - P313: locate support changes without rerunning physics
+
+Saved P312 W20,N300k,T20,dt1/240,dx.3062907544wu,loss36^3,budget8; frozen
+`42c01a0` analysis performs no new forward. All four endpoint coverage fractions
+close exactly. Original baseline coverage bits agree across3 repeats. Four
+target IDs lose coverage and two gain it; upper losses/gains cancel2/2. At the
+existing cutoff.06986169824wu, the four final deficits are5.44e-5..4.996e-4wu.
+Three losses appear relative to baseline only at phase20;287243 differs at8
+and20, with both paths uncovered at9..19.24591 is a missed final coverage entry.
+Endpoint gains also coexist with earlier relative losses. These observations
+do not establish persistent visible holes or prove a movement necessary.
+
+The24 endpoint witnesses include22 arrived-free and2 pinned farther neighbors;
+all six endpoint-nearest suppliers are arrived-free and retain their endpoint
+identity. Four CPU cases and independent CUDA direct FP64 audit pass:504
+target/phase observations, exact coverage/occupancy/nearest IDs, maximum distance
+difference1.38778e-17wu, exact witness paths/velocities and pinned trajectories.
+The inherited terminal-origin render losses improve while raw coverage falls:
+silhouette-3.66708e-8, PBR-1.21596e-7, weighted render-2.62079e-9 at lambda
+.01655326075; there is no rendering intervention or4K evidence. No promotion.
+[Evidence and exact phase qualifications](coverage_paths_p313.md).

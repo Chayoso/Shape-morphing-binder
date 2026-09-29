@@ -1,4 +1,4 @@
-"""Diagnostic linear descent over a trust ball and up to three affine halfspaces."""
+"""Diagnostic linear descent over a trust ball and up to eight affine halfspaces."""
 import itertools
 import math
 
@@ -28,12 +28,12 @@ def affine_ball_step(gradient, constraints, bounds, radius):
     """Return a float64 step; callers must recheck after coefficient projection.
 
     Minimize gradient.dot(step), with G @ step <= b and ||step|| <= radius.
-    Enumerating active planes is exact in real arithmetic for up to three rows.
+    Enumerating active planes is exact in real arithmetic for up to eight rows.
     A failed numerical active-set search is not a global nonlinear certificate.
     """
     shape = gradient.shape
     g,G,b = _linear_arrays(gradient,constraints,bounds)
-    if len(b)>3 or not math.isfinite(radius) or radius<0:
+    if len(b)>8 or not math.isfinite(radius) or radius<0:
         raise ValueError('Invalid affine trust-ball problem')
     norms = G.norm(dim=1)
     if not bool(torch.isfinite(norms).all() & torch.isfinite(g.norm())):
@@ -41,6 +41,7 @@ def affine_ball_step(gradient, constraints, bounds, radius):
     zero = norms==0
     if bool((zero & (b<0)).any()):
         return None,dict(status='zero_gradient_cannot_restore')
+    retained_rows = torch.nonzero(~zero).flatten()
     G,b = G[~zero]/norms[~zero,None],b[~zero]/norms[~zero]
     eps = torch.finfo(g.dtype).eps
     feasible = []
@@ -82,6 +83,7 @@ def affine_ball_step(gradient, constraints, bounds, radius):
     chosen = int(scores.argmin())
     step,active = feasible[chosen]
     return step.reshape(shape),dict(status='linear_candidate',active=list(active),
+        active_input_rows=[int(retained_rows[i]) for i in active],
         norm=float(step.norm()),radius=radius,linear_objective=float(scores[chosen]),
         feasible_active_sets=len(feasible))
 

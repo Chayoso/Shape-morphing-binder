@@ -219,3 +219,13 @@ These are the leading candidates for the unresolved problems, and they are ports
   preregisters archive-only CUDA localization of the SAVED baseline triplet and
   actual common terminal05 origin. Net deficits are not lost-ID counts. W20
   rendering used18 views at64 pixels;96 is only the later configured C2F size.
+- **P313 status:** saved original3 versus common terminal05 support localization
+  closes on CUDA and independent direct FP64 distances. Four endpoint target
+  losses and two gains give net2; original coverage bits agree across repeats.
+  These are relative phase-dependent changes, not persistent visible holes:
+  287243 differs at8 and20 only, and24591 misses a final entry. All six nearest
+  suppliers are coarsely arrived-free, not certified at rest. See
+  `docs/coverage_paths_p313.md` and its complete bounded audit. P314's separate
+  opt-in support repair is implemented/reviewed (62 CPU cases); it keeps fixed material
+  witnesses and records all-target losses/gains without changing coverage radii.
+  No physical state or renderer is promoted.

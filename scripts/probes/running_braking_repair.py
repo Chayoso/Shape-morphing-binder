@@ -11,10 +11,11 @@ import numpy as np
 import torch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
-from physmorph.compute import to_host,cuda_execution
+from physmorph.compute import to_host,to_array,KDTree,cuda_execution,array_api
 from physmorph.pipeline.affine_braking import affine_ball_step,projected_affine_check,geometric_running,observed_remainder
 from physmorph.pipeline.frozen_body_window import project_terminal
 from physmorph.pipeline.diagnostic_binding import content_digest
+from physmorph.pipeline.support_braking import select_support,support_values,support_report
 from scripts.probes.inner_budget import summarize
 from scripts.probes.reference_swap import require,sha
 from scripts.probes.terminal_braking import main,assess_candidates,finite_scalar
@@ -64,12 +65,14 @@ class OwnedRepairEvidence:
 @dataclass(frozen=True)
 class SharedRepairBaseline(OwnedRepairEvidence):
     @classmethod
-    def capture(cls,rows,base_C,coefficients,sidecars,context):
+    def capture(cls,rows,base_C,coefficients,sidecars,context,endpoints=None):
         data = dict(rows=rows,sidecars=sidecars,
             ceilings={k:max(r['data'][k] for r in rows) for k in ('volume','render')},
             silhouette_ceiling=max(r['data']['silhouette'] for r in rows),
             merit_ceiling=max(r['original_merit']['merit'] for r in rows))
-        return cls.pack(data,dict(C=base_C,coefficients=coefficients),context)
+        arrays = dict(C=base_C,coefficients=coefficients)
+        if endpoints is not None: arrays['endpoints'] = endpoints
+        return cls.pack(data,arrays,context)
 
 
 @dataclass(frozen=True)
@@ -79,7 +82,8 @@ class SharedRepairOrigin(OwnedRepairEvidence):
 
 def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtracking=False,
            shared_baseline=None,baseline_only=False,selected_terminal=None,terminal_label='terminal05',
-           shared_origin=None,origin_only=False,protect_silhouette=False):
+           shared_origin=None,origin_only=False,protect_silhouette=False,
+           prepare_support=False,protect_support=False,save_search_endpoints=False):
     """Use the caller-owned live model; never load, close or commit it here."""
     reference = packet['reference']
     require(correction_rounds in (0,2),'Unregistered correction budget')
@@ -89,7 +93,13 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
     require(shared_origin is None or (shared_baseline is not None and quality_backtracking),
             'Shared origin requires fixed-origin quality backtracking')
     require(not protect_silhouette or shared_origin is not None,'Silhouette protection requires a shared origin')
+    require(not prepare_support or baseline_only or origin_only,'Support preparation requires a common package')
+    require(not protect_support or (shared_origin is not None and protect_silhouette),
+            'Support protection requires shared origin and silhouette protection')
     rows,trials,sidecars = [],[],{}
+    baseline_endpoints,selection = [],None
+    support_target = None
+    saved_first_restored = False
     d0 = model.coefficients[:,:3].detach().clone()
     b0 = model.coefficients[:,3:].detach().clone()
     selected_terminal = packet['trial05_terminal'] if selected_terminal is None else selected_terminal
@@ -118,13 +128,28 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                 torch.equal(d0,shared_origin.tensor('displacement',d0.device)),
                 'Origin coefficients changed')
         origin_digest = shared_origin.digest()
+        if 'support_metadata' in origin:
+            selection = dict(origin['support_metadata'])
+            selection.update({k:shared_origin.tensor('support_'+k,d0.device) for k in origin['support_array_keys']})
+            require(selection['status'] in ('ready','no_intervention'),'Common support experiment was aborted')
+            support_target = torch.as_tensor(to_array(target),device=d0.device).clone()
+    require(not protect_support or selection is not None,'Support witnesses missing')
+    require(not save_search_endpoints or selection is not None,'Endpoint witness saving requires support selection')
     data_keys = ('volume','render','silhouette') if protect_silhouette else ('volume','render')
+    if protect_support: data_keys += tuple('support_'+str(i) for i in range(selection['count']))
+
+    def scalar(record,key):
+        return (record['support']['values'][int(key.split('_')[1])] if key.startswith('support_')
+                else record['data'][key])
 
     def component_check(record):
         if shared_origin is not None:
             record['silhouette_ceiling_passed'] = bool(record['valid'] and
                 record['data']['silhouette']<=shared['silhouette_ceiling'])
-        return record.get('silhouette_ceiling_passed',True) if protect_silhouette else True
+        if selection is not None:
+            record['support_constraints_passed'] = bool(record['valid'] and record['support']['passed'])
+        return ((not protect_silhouette or record.get('silhouette_ceiling_passed',True)) and
+                (not protect_support or record['support_constraints_passed']))
 
     def running(values):
         return geometric_running(values['positions'],packet['x0'],packet['dt'],arrived)
@@ -146,7 +171,7 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
             terminal_coefficients_exact=torch.equal(b,brake) if label!='repeat' else torch.equal(b,b0))
         if values['valid']:
             data = reference.terms(values['x']) if prepared is None else prepared
-            record['data'] = {k:float(v) for k,v in data.items()}
+            record['data'] = {k:float(v) for k,v in data.items() if not k.startswith('support_')}
             record['data']['weighted_render'] = packet['lambda_render']*record['data']['render']
             if 'evaluate_merit' in packet:
                 merit = packet['evaluate_merit'](values)
@@ -166,6 +191,8 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                 source_upper_ids_sha256=summary['source_upper_ids_sha256'],
                 F_change_rms=float((values['F']-packet['F'].reshape_as(values['F'])).square().mean().sqrt()),
                 C_change_rms=float((values['C']-base_C).square().mean().sqrt()))
+            if selection is not None:
+                record['support'] = support_report(values['x'],support_target,selection)
         component_check(record)
         if save: save_state(values,label,d,b)
         return record
@@ -210,9 +237,11 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
             record['accepted_closure'] = accepted_closure
             require(record['valid'],'Invalid loaded baseline')
             rows.append(record)
+            if prepare_support: baseline_endpoints.append(values['x'].detach().clone())
         if baseline_only:
             require(repair_context(model,packet,source,target)==context,'Context changed while preparing baseline')
-            return SharedRepairBaseline.capture(rows,base_C,model.coefficients,sidecars,context)
+            return SharedRepairBaseline.capture(rows,base_C,model.coefficients,sidecars,context,
+                torch.stack(baseline_endpoints) if prepare_support else None)
         if shared_origin is not None:
             brake_errors = origin['running_repeats']
             rows.append(origin['terminal_record'])
@@ -231,6 +260,8 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                 {k:max(r['data'][k] for r in rows[:3]) for k in ('volume','render')})
     affine_ceilings = dict(ceilings)
     if protect_silhouette or origin_only: affine_ceilings['silhouette'] = shared['silhouette_ceiling']
+    if protect_support:
+        affine_ceilings.update({k:0. for k in data_keys if k.startswith('support_')})
     displacement = d0.clone()
     trust = packet['history']['body_update_modes_rms'][0]
     require(trust>0,'No original displacement trust step')
@@ -254,6 +285,23 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                 require(values['valid'],'Invalid current running-repair state')
                 objective = running(values)
                 terms = reference.terms(values['x'])
+                if prepare_support:
+                    support_target = torch.as_tensor(to_array(target),device=d0.device).clone()
+                    neighbors = KDTree(to_array(support_target)).query(to_array(support_target),k=2)[0][:,1]
+                    # Match the raw metric: average the middle pair for even populations.
+                    spacing = float(array_api.median(neighbors))
+                    selection = select_support(shared_baseline.tensor('endpoints',d0.device),
+                                               values['x'].detach(),support_target,2*spacing)
+                    support_keys = tuple('support_'+str(i) for i in range(selection['count']))
+                    if selection['status'] in ('ready','no_intervention'):
+                        signed = support_values(values['x'],selection['targets'],selection['witnesses'],selection['radius'])
+                        terms = dict(terms,**dict(zip(support_keys,signed.unbind())))
+                        linear_keys += support_keys
+                        affine_ceilings.update({k:0. for k in support_keys})
+                    path = out/'support_selection.npz'
+                    np.savez_compressed(path,radius=selection['radius'],
+                        **{k:to_host(v) for k,v in selection.items() if torch.is_tensor(v)})
+                    sidecars[path.name] = sha(path)
                 targets = (objective,*(terms[k] for k in linear_keys))
                 gradients = [torch.autograd.grad(v,leaf,retain_graph=i<len(targets)-1)[0].detach()
                              for i,v in enumerate(targets)]
@@ -275,11 +323,16 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
         if origin_only:
             require(shared_baseline.digest()==shared_digest and repair_context(model,packet,source,target)==context,
                     'Context/baseline changed while preparing common origin')
-            return SharedRepairOrigin.pack(dict(terminal_record=terminal_record,running_repeats=brake_errors,
+            metadata = dict(terminal_record=terminal_record,running_repeats=brake_errors,
                 noise=measured_noise,running=current,threshold=threshold,trust=trust,keys=list(linear_keys),
-                sidecars=sidecars,baseline_sha256=shared_digest),
-                dict(displacement=d0,terminal=brake,data=origin_data,
-                     **{'gradient_'+k:g for k,g in zip(('running',*linear_keys),gradients)}),context)
+                sidecars=sidecars,baseline_sha256=shared_digest)
+            arrays = dict(displacement=d0,terminal=brake,data=origin_data,
+                          **{'gradient_'+k:g for k,g in zip(('running',*linear_keys),gradients)})
+            if selection is not None:
+                metadata['support_metadata'] = {k:v for k,v in selection.items() if not torch.is_tensor(v)}
+                metadata['support_array_keys'] = [k for k,v in selection.items() if torch.is_tensor(v)]
+                arrays.update({'support_'+k:v for k,v in selection.items() if torch.is_tensor(v)})
+            return SharedRepairOrigin.pack(metadata,arrays,context)
         if shared_origin is not None:
             require(threshold==origin['threshold'] and measured_noise==origin['noise'],'Shared running threshold changed')
         found = False
@@ -310,8 +363,17 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                         with torch.no_grad():
                             values = model.evaluate(brake,candidate)
                             record.update(measure(values,record['label'],candidate,brake,False))
+                            if save_search_endpoints and record['valid']:
+                                path = out/(record['label']+'_endpoint.npz')
+                                np.savez_compressed(path,x=to_host(values['x']),displacement=to_host(candidate),
+                                    terminal=to_host(brake),witness_positions=to_host(values['x'][selection['witnesses']]),
+                                    support_values=np.asarray(record['support']['values'],dtype=np.float64))
+                                sidecars[path.name] = sha(path)
                             data_pass = record['valid'] and all(record['data'][k]<=ceilings[k] for k in ceilings)
                             constraints_pass = data_pass and component_check(record)
+                            if save_search_endpoints and constraints_pass and not saved_first_restored:
+                                save_state(values,record['label']+'_first_restored',candidate,brake)
+                                saved_first_restored = True
                             improvement = current-record['running'] if record['running'] is not None else None
                             take = bool(constraints_pass and improvement>threshold)
                             record.update(data_restored=bool(data_pass),running_improvement=improvement,
@@ -329,7 +391,7 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                                 record['running_update_accepted'] = take
                                 record['quality_backtracking_rejected'] = not take
                             if record['valid']:
-                                actual_data = torch.tensor([record['data'][k] for k in data_keys],
+                                actual_data = torch.tensor([scalar(record,k) for k in data_keys],
                                                            device=G.device,dtype=torch.float64)
                                 # Replace the estimate. All rounds retain the same origin and Jacobian.
                                 remainder = observed_remainder(actual_data,origin_data,G,actual_step)
@@ -375,6 +437,7 @@ def repair(model,packet,source,target,out,*,correction_rounds=0,quality_backtrac
                 shared_baseline_sha256=None if shared_baseline is None else shared_digest,
                 shared_origin_sha256=None if shared_origin is None else origin_digest,
                 protect_silhouette=protect_silhouette,
+                protect_support=protect_support,
                 silhouette_ceiling=None if shared_baseline is None else shared['silhouette_ceiling'],
                 original_merit_ceiling=None if shared_baseline is None else shared['merit_ceiling'],
                 fixed_candidate_replays=fixed_candidate_replays,

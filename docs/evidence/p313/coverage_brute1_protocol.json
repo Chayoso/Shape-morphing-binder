@@ -1,0 +1,190 @@
+{
+  "start_utc": "2026-09-29T02:29:51.028933+00:00",
+  "inputs_code": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_paths1/result.json": "54d01d7131d3409e1653f8193a71a78ec2d97f9d98bd7b60a1977b83f42f4ba6",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_paths1/protocol.json": "9e429313f9a78a86ec1449a37e2b542355c3a294f5961bedd4ad6395ec9a7b5e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_paths1/endpoints.npz": "34f302c35d17fc26598fe8470a10ea4511336e30d3fbdf84846341830e457a55",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_paths1/paths.npz": "a0bf9e1da5ed957c48a54445c7f39a5bcbbf2b0bd3bf0251ee99fa5f38e5fd5f",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/baseline/repeat_0.npz": "dc76be0d7107ba9c51cb68f586e1e6c3d09ef1b806a96df142150c6b1b9d9c24",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/baseline/repeat_1.npz": "fd1502fc4f6f0fbea9e8dfd8d1405e0deda61f92ae664d2175c12f84f78a98f5",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/baseline/repeat_2.npz": "b13fddd9b7868195738b0da2e53259bee0523e915bc7382409704349fd3f035e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/origin/terminal05_origin_1.npz": "3930389da8b5e1e4e4b70c3560fc15627ae09a5f03547ea9779e75a487854c59",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/live_window.npz": "f80a324edbaaf7f8ed3b52521a941249579ee2012a0f27dc6808fea992c40440",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw24a.json": "3860aed6a1e01574f4000e6bae6bc898cbd85c86661cf7e68c285a0f5a28781e",
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source_render_full_dt_iso_nn.npz": "e7df5e9b4b52bd8848846d06354990220808b57099494ca1b04abad927ce4ac0",
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/target_reference.npz": "9c1f205945b4b68b330b902f59570b3f9ccb9d8eca8e0ebc553e035f642620a7",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/result.json": "66bf10d244604da395206a4891f7ef6471b48ec5469999ff24e53d3e8b1880a3",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/protocol.json": "3f8eff6441af1eab122b720723c5a8ade88aee993e8a392115c5c656d0e3bcb0",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/probes/coverage_paths.py": "e0d6f696337268a9714366d46163db732dd583fd1a9b63965204f6824407b36e",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/physmorph/compute.py": "a7af51153329da3700453feae6dcbffeefcc1c9b9ee285b55bfc5d0ad618b2ce",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/probes/inner_budget.py": "f6321c17fca95ba1ecba68ff7f31c9575ac974985c184f240268341fdb93da91",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/docs/coverage_paths_p313.md": "bc050ffcaa88268979ae7d8df0291bc42ebff59e92bc37b077fa9bf74d2312ff",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/ops/cuda_python.py": "be52f69e391deae923875363558b3b1bff1654032c854cbfa5a998cf01092adc",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/ops/run_p303_probe.sh": "6e87a5c76aa1c5bcbe34ca7e318cfee7dca0c8a432f5a7f788e0b98ab8701783",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_brute_audit1/coverage_brute_audit.py": "6204cefa812b6ef048387b1f06c0e70751781984f5bb05fdf9c85a2551f1a19d",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_brute_audit1/run_coverage_brute.sh": "f5e3ce615827fe3c06ecf7fd2466ef893ee4fac3548f73dd8b8bf2de364dca68",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/ops/hyde06_env.sh": "0bac048990c9b2053ad076cf61185c12bcfe2168e8faf176dd5c982ee4cd1fc9",
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/ops/gpu_env.sh": "0a35c4153b0ca6d92bb4e774938fbefc469ca8f30bd2a6982c5ca142ec7b6a09"
+  },
+  "identities_before": {
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_paths1/result.json": {
+      "dev": 38,
+      "ino": 10481790,
+      "size": 10944,
+      "mtime_ns": 1790648596946491832
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_paths1/protocol.json": {
+      "dev": 38,
+      "ino": 10463445,
+      "size": 9944,
+      "mtime_ns": 1790648584078506301
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_paths1/endpoints.npz": {
+      "dev": 38,
+      "ino": 10544812,
+      "size": 72585925,
+      "mtime_ns": 1790648596550492274
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_paths1/paths.npz": {
+      "dev": 38,
+      "ino": 10481789,
+      "size": 53577,
+      "mtime_ns": 1790648596586492233
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/baseline/repeat_0.npz": {
+      "dev": 38,
+      "ino": 10481788,
+      "size": 89908862,
+      "mtime_ns": 1790647633615103006
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/baseline/repeat_1.npz": {
+      "dev": 38,
+      "ino": 10515858,
+      "size": 89908913,
+      "mtime_ns": 1790647636611102857
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/baseline/repeat_2.npz": {
+      "dev": 38,
+      "ino": 10515859,
+      "size": 89908663,
+      "mtime_ns": 1790647639603102710
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/origin/terminal05_origin_1.npz": {
+      "dev": 38,
+      "ino": 10489702,
+      "size": 89914091,
+      "mtime_ns": 1790647648551102273
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/silhouette_repair/live_window.npz": {
+      "dev": 38,
+      "ino": 10515857,
+      "size": 362610289,
+      "mtime_ns": 1790647629463103214
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/raw24a.json": {
+      "dev": 38,
+      "ino": 10378289,
+      "size": 2361090,
+      "mtime_ns": 1790634494908190594
+    },
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/source_render_full_dt_iso_nn.npz": {
+      "dev": 38,
+      "ino": 9598241,
+      "size": 7200498,
+      "mtime_ns": 1790627366937790919
+    },
+    "/data/relcfd/chayo/physmorph_v2/repro/current_pair/target_reference.npz": {
+      "dev": 38,
+      "ino": 10374040,
+      "size": 3046902,
+      "mtime_ns": 1790457981213281670
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/result.json": {
+      "dev": 38,
+      "ino": 10485976,
+      "size": 1359708,
+      "mtime_ns": 1790647688423100448
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/silhouette_repair1/protocol.json": {
+      "dev": 38,
+      "ino": 10376163,
+      "size": 32018,
+      "mtime_ns": 1790647277287130680
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/probes/coverage_paths.py": {
+      "dev": 38,
+      "ino": 10544282,
+      "size": 14998,
+      "mtime_ns": 1790648449000000000
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/physmorph/compute.py": {
+      "dev": 38,
+      "ino": 10544212,
+      "size": 12411,
+      "mtime_ns": 1790460860000000000
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/probes/inner_budget.py": {
+      "dev": 38,
+      "ino": 10544280,
+      "size": 11617,
+      "mtime_ns": 1790637899000000000
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/docs/coverage_paths_p313.md": {
+      "dev": 38,
+      "ino": 10540634,
+      "size": 4057,
+      "mtime_ns": 1790648529000000000
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/ops/cuda_python.py": {
+      "dev": 38,
+      "ino": 10544245,
+      "size": 606,
+      "mtime_ns": 1790457824000000000
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/ops/run_p303_probe.sh": {
+      "dev": 38,
+      "ino": 10544239,
+      "size": 7871,
+      "mtime_ns": 1790648336000000000
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_brute_audit1/coverage_brute_audit.py": {
+      "dev": 38,
+      "ino": 10323069,
+      "size": 14323,
+      "mtime_ns": 1790648982586164754
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/coverage_brute_audit1/run_coverage_brute.sh": {
+      "dev": 38,
+      "ino": 10323070,
+      "size": 1380,
+      "mtime_ns": 1790648982922164538
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/ops/hyde06_env.sh": {
+      "dev": 38,
+      "ino": 10544253,
+      "size": 2866,
+      "mtime_ns": 1790444802000000000
+    },
+    "/data/relcfd/chayo/physmorph_v2/work/p303/code_coverage_paths1/scripts/ops/gpu_env.sh": {
+      "dev": 38,
+      "ino": 10544250,
+      "size": 558,
+      "mtime_ns": 1790458536000000000
+    }
+  },
+  "frozen_commit": "42c01a03a039a7882f299dc83c1686ad05aa115d",
+  "scope": "Independent Torch CUDA FP64 distances for six selected targets only; no model construction or rollout",
+  "numpy_role": "Archive decode/encode only",
+  "torch_version": "2.8.0+cu128",
+  "cuda": "12.8",
+  "device": "NVIDIA RTX 6000 Ada Generation",
+  "physical_gpu": "1",
+  "environment": {
+    "WARP_CACHE_PATH": "/data/relcfd/chayo/physmorph_v2/cache/warp",
+    "CUPY_CACHE_DIR": "/data/relcfd/chayo/physmorph_v2/cache/cupy",
+    "CUDA_CACHE_PATH": "/data/relcfd/chayo/physmorph_v2/cache/cuda",
+    "XDG_CACHE_HOME": "/data/relcfd/chayo/physmorph_v2/cache",
+    "TMPDIR": "/data/relcfd/chayo/physmorph_v2/tmp"
+  },
+  "tolerance": "16*eps64*max(1,abs(reference_distance)) for arithmetic only; coverage and counts exact with original radius"
+}

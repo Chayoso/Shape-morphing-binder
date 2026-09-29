@@ -1,7 +1,8 @@
 # P313: locate support changes in saved P312 trajectories
 
-Status: read-only diagnostic implemented, four focused CPU tests independently
-pass and implementation review is closed. No new forward simulation or policy.
+Status: archive-only CUDA analysis completed (`coverage_paths1`, frozen `42c01a0`).
+Four focused CPU tests independently pass; independent brute-distance CUDA
+verification and result review pass. No new forward simulation or policy.
 Use only `silhouette_repair1`'s saved original baseline triplet and its actual
 shared `terminal05_origin_1.npz`. Do not analyze the unsaved h9/c2 candidate by
 rerunning it or claim the origin's target IDs are that candidate's IDs.
@@ -58,3 +59,60 @@ origin already fails coverage; no promotion is possible from this analysis.
 Report P312 render influence as inherited evidence, with no fresh render-loss
 evaluation or claimed rendering intervention. Independent refutation of the
 tool and results is required before using the diagnosis to choose a repair.
+
+## Observed support changes
+
+At the stated W20 discretisation, the saved endpoint coverage counts reproduce
+all four original records exactly:297701/300000 in every baseline,297699 in the
+terminal origin; upper coverage is14241/15312 throughout. The three baseline
+coverage bitsets are identical (no ambiguous target ID). The fixed cutoff is
+.0698616982373597wu, twice target spacing.03493084911867985wu; source native
+spacing is.03498853660707278wu. Four targets lose coverage and two gain it.
+
+| Target ID | Endpoint change | Original margin (wu) | Terminal margin (wu) | Phases with less coverage than original |
+|---|---|---:|---:|---|
+|24591|lost|+1.32629e-4|-5.44419e-5|20|
+|241029|lost|+2.93170e-4|-4.54429e-4|20|
+|282449|lost|+1.03281e-4|-5.44937e-5|20|
+|287243|lost|+2.96007e-5|-4.99621e-4|8,20|
+|58264|gained|-5.36804e-5|+1.55122e-5|11|
+|194769|gained|-1.35695e-4|+1.38848e-5|none|
+
+Margins use original repeat0 and cutoff minus actual nearest distance. A phase
+comparison concerns relative coverage, not uninterrupted supply loss. Target
+24591 is covered by the original only at its final phase: this is a missed final
+entry. At287243 both trajectories are uncovered at9..19. Targets241029 and282449
+retain coverage longer earlier in the modified trajectory, despite losing it
+at the endpoint. Target58264's endpoint gain also coexists with an earlier
+relative loss. Thus the endpoint count alone cannot identify a persistent hole
+or decide which motion should stop. Tiny margins do not invalidate the failure.
+
+Every selected target has the same endpoint-nearest material ID in all four
+arrays. All six endpoint-nearest suppliers are start-arrived-free. The full
+endpoint4-NN witness union contains24 material IDs:22 start-arrived-free and
+2 pinned farther witnesses. No phase-nearest ID lies outside its own target's
+endpoint witness set, or the global union, in these observed trajectories.
+These cohorts are coarse transport labels, not convergence/rest certificates.
+
+P313 performs no new rendering. It inherits P312's original lambda.01655326075;
+at this terminal05 origin, prepared silhouette decreases3.66708e-8, PBR1.21596e-7,
+combined render1.58325e-7 and weighted render2.62079e-9 versus original repeat0.
+This improvement accompanies the raw coverage loss. It cannot establish rendering
+causality or4K visual quality; the prefix uses18 views at64 pixels.
+
+No policy is adopted. `support_repair_p314.md` describes a separate opt-in
+diagnostic to test whether fixed material support constraints can prevent an
+identified endpoint deficit while reducing running motion through actual MPM.
+
+Independent `coverage_brute1` checks all84 saved states against all300k particles
+for the six selected targets (504 target/phase observations), using direct
+Torch FP64 distances on CUDA instead of KDTree. Coverage bits, occupancy and
+nearest IDs are exact. Maximum nearest/4NN distance difference is1.38778e-17wu;
+fixed-witness distances/geometric velocities match exactly, and saved witness
+X/V and all original pinned trajectories are bitwise exact. All input/code
+checksums and file identities match before/after. The audit reports2.538s elapsed
+inside its main function, including archive decode/hash checks, and450.3MB peak
+Torch allocation. Imports and launcher overhead are outside that timing; this
+is not a full-pipeline performance benchmark. Evidence and the independent audit
+source/launcher are retained in `evidence/p313/`. The full endpoint table is
+retained under the checksum-bound server/local runtime paths in its protocol.

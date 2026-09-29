@@ -1,0 +1,504 @@
+{
+  "N": 300000,
+  "T": 20,
+  "target_N": 300000,
+  "dt": 0.004166666666666667,
+  "spacing": 0.03498853660707278,
+  "target_spacing": 0.03493084911867985,
+  "cutoff": 0.0698616982373597,
+  "upper_N": 15312,
+  "covered": [
+    297701,
+    297701,
+    297701,
+    297699
+  ],
+  "upper_covered": [
+    14241,
+    14241,
+    14241,
+    14241
+  ],
+  "lost_ids": [
+    [
+      24591,
+      241029,
+      282449,
+      287243
+    ],
+    [
+      24591,
+      241029,
+      282449,
+      287243
+    ],
+    [
+      24591,
+      241029,
+      282449,
+      287243
+    ]
+  ],
+  "gained_ids": [
+    [
+      58264,
+      194769
+    ],
+    [
+      58264,
+      194769
+    ],
+    [
+      58264,
+      194769
+    ]
+  ],
+  "stable_covered": 297701,
+  "stable_uncovered": 2299,
+  "ambiguous_ids": [],
+  "stable_lost_ids": [
+    24591,
+    241029,
+    282449,
+    287243
+  ],
+  "stable_gained_ids": [
+    58264,
+    194769
+  ],
+  "material_ids": [
+    6059,
+    62437,
+    69228,
+    77446,
+    104380,
+    133923,
+    149385,
+    152594,
+    174255,
+    177699,
+    188033,
+    190423,
+    197044,
+    200175,
+    206727,
+    237143,
+    239054,
+    240278,
+    241524,
+    247803,
+    253915,
+    258738,
+    269419,
+    285380
+  ],
+  "material_cohorts": [
+    1,
+    1,
+    0,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    1,
+    1
+  ],
+  "phase_nearest_outside_global_endpoint_union": 0,
+  "phase_nearest_outside_target_endpoint_set": 0,
+  "outside_global_material_ids": [],
+  "outside_target_material_ids": [],
+  "cohort_labels": [
+    "start_pinned",
+    "start_arrived_free",
+    "remaining_free"
+  ],
+  "targets": [
+    {
+      "target_id": 24591,
+      "position": [
+        -1.6338499784469604,
+        3.2657456398010254,
+        1.8723509311676025
+      ],
+      "endpoint_margins_wu": [
+        0.00013262878187948746,
+        0.00013262878187948746,
+        0.00013262878187948746,
+        -5.444190191361553e-05
+      ],
+      "endpoint_margins_sp": [
+        0.0037906352977528394,
+        0.0037906352977528394,
+        0.0037906352977528394,
+        -0.001555992539070935
+      ],
+      "baseline_repeat_spread_wu": 0.0,
+      "endpoint_nearest_ids": [
+        149385,
+        149385,
+        149385,
+        149385
+      ],
+      "endpoint_covered": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "first_lost_phase_vs_baselines": [
+        20,
+        20,
+        20
+      ],
+      "first_gained_phase_vs_baselines": [
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "target_id": 58264,
+      "position": [
+        -0.4596177041530609,
+        3.1870408058166504,
+        0.9603017568588257
+      ],
+      "endpoint_margins_wu": [
+        -5.3680412348711126e-05,
+        -5.3680412348711126e-05,
+        -5.3680412348711126e-05,
+        1.5512159075511955e-05
+      ],
+      "endpoint_margins_sp": [
+        -0.0015342285661029864,
+        -0.0015342285661029864,
+        -0.0015342285661029864,
+        0.0004433497533696862
+      ],
+      "baseline_repeat_spread_wu": 0.0,
+      "endpoint_nearest_ids": [
+        269419,
+        269419,
+        269419,
+        269419
+      ],
+      "endpoint_covered": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "first_lost_phase_vs_baselines": [
+        11,
+        11,
+        11
+      ],
+      "first_gained_phase_vs_baselines": [
+        20,
+        20,
+        20
+      ]
+    },
+    {
+      "target_id": 194769,
+      "position": [
+        -0.9771141409873962,
+        2.910731077194214,
+        2.1101911067962646
+      ],
+      "endpoint_margins_wu": [
+        -0.0001356948744725972,
+        -0.000135776827618575,
+        -0.000135776827618575,
+        1.3884779661132995e-05
+      ],
+      "endpoint_margins_sp": [
+        -0.0038782666447720786,
+        -0.0038806089303868832,
+        -0.0038806089303868832,
+        0.0003968379648757944
+      ],
+      "baseline_repeat_spread_wu": 8.19531459778089e-08,
+      "endpoint_nearest_ids": [
+        237143,
+        237143,
+        237143,
+        237143
+      ],
+      "endpoint_covered": [
+        false,
+        false,
+        false,
+        true
+      ],
+      "first_lost_phase_vs_baselines": [
+        null,
+        null,
+        null
+      ],
+      "first_gained_phase_vs_baselines": [
+        9,
+        9,
+        9
+      ]
+    },
+    {
+      "target_id": 241029,
+      "position": [
+        0.7278507947921753,
+        1.7240902185440063,
+        1.1196074485778809
+      ],
+      "endpoint_margins_wu": [
+        0.0002931702587551793,
+        0.0002931702587551793,
+        0.00029321339190793716,
+        -0.000454429239011539
+      ],
+      "endpoint_margins_sp": [
+        0.008379037455825352,
+        0.008379037455825352,
+        0.008380270235385191,
+        -0.012987946426992835
+      ],
+      "baseline_repeat_spread_wu": 4.3133152757834914e-08,
+      "endpoint_nearest_ids": [
+        62437,
+        62437,
+        62437,
+        62437
+      ],
+      "endpoint_covered": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "first_lost_phase_vs_baselines": [
+        20,
+        20,
+        20
+      ],
+      "first_gained_phase_vs_baselines": [
+        8,
+        8,
+        8
+      ]
+    },
+    {
+      "target_id": 282449,
+      "position": [
+        -1.657073974609375,
+        3.2758991718292236,
+        1.9584026336669922
+      ],
+      "endpoint_margins_wu": [
+        0.0001032807204410513,
+        0.0001032807204410513,
+        0.0001032807204410513,
+        -5.449374470233026e-05
+      ],
+      "endpoint_margins_sp": [
+        0.0029518445312792406,
+        0.0029518445312792406,
+        0.0029518445312792406,
+        -0.001557474246902758
+      ],
+      "baseline_repeat_spread_wu": 0.0,
+      "endpoint_nearest_ids": [
+        133923,
+        133923,
+        133923,
+        133923
+      ],
+      "endpoint_covered": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "first_lost_phase_vs_baselines": [
+        20,
+        20,
+        20
+      ],
+      "first_gained_phase_vs_baselines": [
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "target_id": 287243,
+      "position": [
+        -0.010070809163153172,
+        2.1738486289978027,
+        2.6293046474456787
+      ],
+      "endpoint_margins_wu": [
+        2.9600672122417904e-05,
+        2.9599701331761707e-05,
+        2.9599701331761707e-05,
+        -0.0004996208364989041
+      ],
+      "endpoint_margins_sp": [
+        0.0008460105792602442,
+        0.000845982833296842,
+        0.000845982833296842,
+        -0.014279557962361532
+      ],
+      "baseline_repeat_spread_wu": 9.707906561962076e-10,
+      "endpoint_nearest_ids": [
+        206727,
+        206727,
+        206727,
+        206727
+      ],
+      "endpoint_covered": [
+        true,
+        true,
+        true,
+        false
+      ],
+      "first_lost_phase_vs_baselines": [
+        8,
+        8,
+        8
+      ],
+      "first_gained_phase_vs_baselines": [
+        null,
+        null,
+        null
+      ]
+    }
+  ],
+  "endpoint_closure": true,
+  "pins_exact": true,
+  "protocol_sha256": "9e429313f9a78a86ec1449a37e2b542355c3a294f5961bedd4ad6395ec9a7b5e",
+  "sidecars": {
+    "endpoints.npz": "34f302c35d17fc26598fe8470a10ea4511336e30d3fbdf84846341830e457a55",
+    "paths.npz": "a0bf9e1da5ed957c48a54445c7f39a5bcbbf2b0bd3bf0251ee99fa5f38e5fd5f"
+  },
+  "inputs_code_unchanged": true,
+  "rendering": {
+    "role": "Inherited P312 only; no fresh rendering or rendering intervention",
+    "lambda_render": 0.016553260751529943,
+    "evidence": {
+      "definitions": "Observational optimizer telemetry, not causal attribution. Norm shares exclude post-combination transforms and transport addends. Compare matched raw trajectories with render disabled for causal evidence. Image losses do not certify physical holes/rest.",
+      "discretization": {
+        "N": 300000,
+        "T": 20,
+        "dt": 0.004166666666666667,
+        "dx_wu": 0.3062907543956724,
+        "loss_res": 36,
+        "render_res": 64,
+        "iters": 8
+      },
+      "render": {
+        "lambda_auto": 0.5,
+        "surface_gs_loss": false,
+        "surface_gs_weight": null,
+        "detail_height": null
+      },
+      "windows": 20,
+      "raw_history_rows": 20,
+      "committed_windows": 20,
+      "inner_accepted_steps": 160,
+      "recorded_inner_steps": 160,
+      "recorded_committed_steps": 160,
+      "steps_in_committed_windows": 160,
+      "step_nominal_share": {
+        "count": 160,
+        "minimum": 0.31920580607845755,
+        "median": 0.5092476352217529,
+        "maximum": 0.7244942053579253
+      },
+      "first_iteration_nominal_share": {
+        "count": 20,
+        "minimum": 0.3333333333333333,
+        "median": 0.42998675516798757,
+        "maximum": 0.5773532703564883
+      },
+      "adaptive_lambda": {
+        "count": 20,
+        "minimum": 0.016553260751529943,
+        "median": 0.06749170442112779,
+        "maximum": 0.30863976856853137
+      },
+      "observed_render_loss_change": {
+        "count": 160,
+        "minimum": -0.023134712129831314,
+        "median": -0.00010593712795525789,
+        "maximum": 0.0020439419895410538
+      },
+      "endpoint_optimizer_change_rms_wu": {
+        "count": 160,
+        "minimum": 0.0007613855414092541,
+        "median": 0.005758248968049884,
+        "maximum": 0.16976280510425568
+      },
+      "channels": {
+        "body": {
+          "nominal_share": {
+            "count": 160,
+            "minimum": 0.19515726313936033,
+            "median": 0.36221104420947015,
+            "maximum": 0.5668841415425837
+          },
+          "control_delta_norm": {
+            "count": 160,
+            "minimum": 0.9478685855865479,
+            "median": 4.989576816558838,
+            "maximum": 51.71421813964844
+          }
+        },
+        "stress": {
+          "nominal_share": {
+            "count": 160,
+            "minimum": 0.2520355122815436,
+            "median": 0.5629778065341416,
+            "maximum": 0.7843738609977098
+          },
+          "control_delta_norm": {
+            "count": 160,
+            "minimum": 0.21224957704544067,
+            "median": 1.4093953967094421,
+            "maximum": 46.58978271484375
+          }
+        },
+        "surface_u": {
+          "nominal_share": {
+            "count": 160,
+            "minimum": 0.4486759498399286,
+            "median": 0.7600323059867049,
+            "maximum": 0.9499787114715255
+          },
+          "control_delta_norm": {
+            "count": 160,
+            "minimum": 0.03475445136427879,
+            "median": 0.15084391087293625,
+            "maximum": 0.714586615562439
+          }
+        }
+      },
+      "last_committed_surface_components": null,
+      "causal_render_ablation": "not measured by this report"
+    }
+  },
+  "scope": "Saved original triplet versus saved shared terminal05 origin only"
+}
