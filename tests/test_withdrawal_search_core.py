@@ -34,10 +34,12 @@ class Model:
     corruption = None
     def __init__(self, owner):
         self.owner, self.calls, self.closed = owner, 0, False
+        self.generation = 0
         self.instances.append(self)
     def evaluate(self, terminal, displacement):
         q = terminal[:, 0].sum()+displacement[:, 0].sum()
         self.calls += 1
+        self.generation += 1
         values = fake_values(q)
         if self.corruption == 'nonfinite' and self.calls == 1:
             values['coast_C'][1, 0, 0, 0] = float('nan')
@@ -45,6 +47,7 @@ class Model:
         if self.corruption == 'closure' and self.calls == 2:
             values['positions'] = values['positions']+.001
             values['x'] = values['positions'][-1]
+        self.last_values = values
         return values
     def close(self):
         self.closed = True
@@ -72,7 +75,7 @@ def packet(kind='constant', *, tensor_offset=0.):
     evaluator = Merit(kind, tensor_offset)
     coefficients = torch.zeros(1, 6)
     owner = SimpleNamespace(coefficients=coefficients, spec=SimpleNamespace(T=2,
-                            prm=SimpleNamespace(dx=1., dt=.1)), closed=False)
+                            prm=SimpleNamespace(dx=1., dt=.1), pin=torch.zeros(2)), closed=False)
     return dict(rollout=owner, controls=dict(body=coefficients.clone()), reference=Reference(),
         evaluate_merit=evaluator, x0=torch.ones(2, 3)*.5,
         pins=torch.zeros(2, dtype=torch.bool), start_arrived=torch.ones(2, dtype=torch.bool),
@@ -253,3 +256,188 @@ def test_real_joint_search_is_observational_to_original_cpu_solver(monkeypatch):
     for a, b in zip(actual['history'], baseline['history']):
         for key in ('loss', 'lambda', 'd_vol', 'd_sil', 'frame_end', 'render_influence_steps'):
             assert a.get(key) == b.get(key)
+
+
+def tiny_successor(pins=(1., 0.)):
+    from dataclasses import asdict
+    from physmorph.mpm.state import MPMParams
+    from physmorph.mpm.withdrawal import OwnedWithdrawal
+    arrays = {key: np.zeros((2, 3), np.float32) for key in ('x0', 'v0')}
+    arrays.update({key: np.tile(np.eye(3, dtype=np.float32), (2, 1, 1)) for key in ('F0', 'Fp')})
+    arrays['C0'] = np.zeros((2, 3, 3), np.float32)
+    arrays.update({key: np.ones(2, np.float32) for key in ('m', 'lam', 'mu', 'eta', 'vol')})
+    arrays.update(pin=np.array(pins, np.float32), layer_mask=np.zeros(2, np.float32))
+    metadata = dict(schema='owned_withdrawal_v1', N=2, T=2, step=0, device='cpu',
+        captured_device='cpu', prm=asdict(MPMParams()), pin_mode=0, gate=False, gate_n0=None,
+        track_geom=False, layer_present=False, layer_F=False, bonds_present=False,
+        source_body_control=False)
+    return OwnedWithdrawal.from_arrays(arrays, metadata)
+
+
+class PostModel(Model):
+    def __init__(self, owner, successor, cfg):
+        super().__init__(owner)
+        self.pins = torch.as_tensor(successor.arrays()['pin']).bool().clone()
+    def evaluate(self, terminal, displacement):
+        values = super().evaluate(terminal, displacement)
+        values['coast_X'] = torch.where(self.pins[None, :, None], values['x'][None], values['coast_X'])
+        values['coast_V'] = torch.where(self.pins[None, :, None], 0., values['coast_V'])
+        values['coast_pins'] = self.pins.clone()
+        values['coast_Fp'] = torch.eye(3).repeat(2, 1, 1)
+        return values
+
+
+def test_post_search_excludes_new_pin_zeros_from_objective_and_stored_constraint(fake, monkeypatch):
+    monkeypatch.setattr(core, 'PostAssimilationWindow', PostModel)
+    data, callbacks = packet(), Callbacks()
+    report = core.run_search(data, record=callbacks.record, raw_observe=callbacks.raw,
+                            successor=tiny_successor(), cfg=core.PipelineConfig(T=2))
+    assert report['confirmed'] and report['primary_cohort'] == 'surviving_free'
+    assert report['cohorts'] == dict(old_start_free=2, newly_pinned=1, surviving_free=1,
+                                    start_arrived_surviving_free=1)
+    assert report['baselines'][0]['objective'] == pytest.approx(1.)
+    assert report['baselines'][0]['constraints']['coast_stored'] == pytest.approx(1.)
+    gradient = callbacks.rows[2][2]['arrays']['objective_gradient']
+    torch.testing.assert_close(gradient, torch.tensor([[-2., 0., 0., -2., 0., 0.]]))
+    arrays = callbacks.rows[-1][2]['arrays']
+    assert arrays['surviving_free_ids'].tolist() == [1]
+    assert arrays['newly_pinned_ids'].tolist() == [0]
+    assert report['proposals'][0]['per_id_energy_change']['newly_pinned']['geometric']['mean'] == 0
+    assert fake.instances[-1].closed and not data['rollout'].closed
+
+
+def test_post_search_owns_pin_cohorts_and_closes_empty_primary(fake, monkeypatch):
+    monkeypatch.setattr(core, 'PostAssimilationWindow', PostModel)
+    successor, callbacks = tiny_successor(), Callbacks()
+    def raw(label, values, baseline):
+        successor._arrays['pin'][:] = 0  # Deliberately corrupt caller-owned input after construction.
+        return callbacks.raw(label, values, baseline)
+    report = core.run_search(packet(), record=callbacks.record, raw_observe=raw,
+                            successor=successor, cfg=core.PipelineConfig(T=2))
+    assert report['cohorts']['surviving_free'] == 1 and report['confirmed']
+    assert all(row[2]['arrays']['surviving_free_ids'].tolist() == [1] for row in callbacks.rows)
+    callbacks = Callbacks()
+    report = core.run_search(packet(), record=callbacks.record, raw_observe=callbacks.raw,
+                            successor=tiny_successor((1., 1.)), cfg=core.PipelineConfig(T=2))
+    assert report['status'] == 'inconclusive_empty_surviving_free'
+    assert not callbacks.rows and fake.instances[-1].closed
+
+
+@pytest.mark.parametrize('kind', ['missing_cfg', 'missing_successor', 'wrong_successor', 'release', 'head_pins'])
+def test_bad_post_arguments_fail_before_any_forward(fake, monkeypatch, kind):
+    monkeypatch.setattr(core, 'PostAssimilationWindow', PostModel)
+    successor, cfg, data = tiny_successor(), core.PipelineConfig(T=2), packet()
+    if kind == 'missing_cfg': cfg = None
+    if kind == 'missing_successor': successor = None
+    if kind == 'wrong_successor': successor = object()
+    if kind == 'release':
+        data['pins'][1] = True; data['rollout'].spec.pin[1] = 1
+    if kind == 'head_pins': data['pins'][0] = True
+    callbacks = Callbacks()
+    with pytest.raises(core.SearchFailure):
+        core.run_search(data, record=callbacks.record, raw_observe=callbacks.raw, successor=successor, cfg=cfg)
+    assert not callbacks.rows and not fake.instances
+
+
+def test_confirmed_callback_owns_last_forward_without_replay_or_live_graph(fake):
+    callbacks, received = Callbacks(), []
+    def confirmed(coefficients, values, info):
+        model = fake.instances[-1]
+        assert model.calls == model.generation == info['generation'] == 7
+        assert info['label'] == 'confirm_2' and info['candidate_label'] == 'candidate_h00'
+        assert info['report']['confirmed'] and info['report']['candidate_found']
+        assert info['report']['merit_binding_unchanged'] and not model.closed
+        assert all(not value.requires_grad for value in values.values() if torch.is_tensor(value))
+        assert torch.equal(coefficients, callbacks.rows[-1][2]['arrays']['coefficients'])
+        assert torch.equal(values['positions'], callbacks.rows[-1][1]['positions'])
+        values['positions'].fill_(99); values['health']['head_valid'] = False
+        coefficients.fill_(99); info['report']['status'] = 'corrupted'
+        assert not torch.equal(values['positions'], model.last_values['positions'])
+        assert model.last_values['health']['head_valid']
+        received.append(info)
+    report = core.run_search(packet(), record=callbacks.record, raw_observe=callbacks.raw, on_confirmed=confirmed)
+    assert len(received) == 1 and fake.instances[-1].calls == 7 and fake.instances[-1].closed
+    assert report['status'] == 'confirmed_candidate_no_adoption' and report['confirmed_callback']['completed']
+
+
+def test_confirmation_failure_never_calls_confirmation_callback(fake):
+    callbacks = Callbacks(fail_confirmation=True)
+    def forbidden(*args): raise AssertionError('Failed confirmation exposed a candidate')
+    report = core.run_search(packet(), record=callbacks.record, raw_observe=callbacks.raw, on_confirmed=forbidden)
+    assert not report['confirmed'] and fake.instances[-1].closed
+
+
+def test_confirmation_callback_exception_closes_model_and_keeps_evidence(fake):
+    callbacks = Callbacks()
+    def broken(*args): raise RuntimeError('injected confirmation callback failure')
+    with pytest.raises(core.SearchFailure, match='confirmation callback failure') as caught:
+        core.run_search(packet(), record=callbacks.record, raw_observe=callbacks.raw, on_confirmed=broken)
+    assert fake.instances[-1].closed and len(callbacks.rows) == 7
+    assert caught.value.report['status'] == 'error'
+    assert caught.value.report['confirmed_callback']['invoked']
+    assert not caught.value.report['confirmed_callback']['completed']
+
+
+def test_last_confirmed_snapshot_precedes_archival_callback_mutation(fake):
+    callbacks, received = Callbacks(), []
+    def record(label, values, info):
+        callbacks.record(label, values, info)
+        if label == 'confirm_2': values['positions'].fill_(99)
+    core.run_search(packet(), record=record, raw_observe=callbacks.raw,
+                    on_confirmed=lambda c, v, i: received.append(v))
+    assert torch.equal(received[0]['positions'], callbacks.rows[-1][1]['positions'])
+
+
+@pytest.mark.parametrize('fault', ['stale_generation', 'changed_binding'])
+def test_stale_or_rebound_confirmation_cannot_reach_callback(fake, fault):
+    data, callbacks, invoked = packet(), Callbacks(), []
+    def record(label, values, info):
+        callbacks.record(label, values, info)
+        if label == 'confirm_2':
+            if fault == 'stale_generation': fake.instances[-1].generation += 1
+            else: data['evaluate_merit'].binding_digest = lambda: 'changed'
+    with pytest.raises(core.SearchFailure):
+        core.run_search(data, record=record, raw_observe=callbacks.raw,
+                        on_confirmed=lambda *args: invoked.append(args))
+    assert not invoked and fake.instances[-1].closed and len(callbacks.rows) == 7
+
+
+def test_noncallable_confirmation_callback_rejected_before_model(fake):
+    callbacks = Callbacks()
+    with pytest.raises(core.SearchFailure, match='on_confirmed must be callable'):
+        core.run_search(packet(), record=callbacks.record, raw_observe=callbacks.raw, on_confirmed=True)
+    assert not fake.instances and not callbacks.rows
+
+
+def test_real_post_search_observes_actual_new_pin_boundary_projection(monkeypatch):
+    from test_post_assimilation_window import make_case
+    owner, successor, cfg = make_case()
+    original = owner.evaluate(owner.coefficients[:, 3:])
+    class LiveMerit:
+        def __call__(self, values): return dict(merit=1., lambda_render=.3)
+        def terms(self, values): return dict(merit=1+values['positions'].sum()*0)
+        def binding_digest(self): return 'live-test-head-only-merit'
+    pins = torch.as_tensor(owner.spec.pin).bool()
+    next_pins = torch.as_tensor(successor.arrays()['pin']).bool()
+    new = next_pins & ~pins
+    assert bool((original['v'][new] != 0).any())
+    data = dict(rollout=owner, controls=dict(body=owner.coefficients.clone()), reference=Reference(),
+        evaluate_merit=LiveMerit(), x0=torch.as_tensor(owner.spec.x0), pins=pins,
+        start_arrived=torch.ones(len(pins), dtype=torch.bool), dt=owner.spec.prm.dt,
+        lambda_render=.3, history=dict(loss=1., body_update_modes_rms=[.01, .01]),
+        **{k: original[k] for k in ('positions', 'V', 'F', 'C')})
+    monkeypatch.setattr(core, 'affine_ball_step', lambda *a: (None, dict(status='no-step test')))
+    callbacks = Callbacks()
+    try:
+        report = core.run_search(data, record=callbacks.record, raw_observe=callbacks.raw,
+                                successor=successor, cfg=cfg)
+        assert len(report['baselines']) == 3 and all(row['passed'] for row in report['baselines'])
+        for _, values, info in callbacks.rows:
+            assert bool((values['coast_V'][0, new] == 0).all())
+            assert bool((values['coast_C'][0, new] == 0).all())
+            assert torch.equal(values['coast_X'][:, new], values['x'][new][None].expand(cfg.T+1, -1, -1))
+            assert torch.equal(values['coast_pins'], next_pins)
+            assert info['arrays']['surviving_free_ids'].tolist() == torch.nonzero(~next_pins).flatten().tolist()
+        assert not owner.closed
+    finally:
+        owner.close()

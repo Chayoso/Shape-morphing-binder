@@ -4,8 +4,12 @@ import math
 
 import torch
 
+from physmorph.compute import to_array
+from physmorph.mpm.withdrawal import OwnedWithdrawal
 from physmorph.pipeline.affine_braking import affine_ball_step, projected_affine_check
+from physmorph.pipeline.config import PipelineConfig
 from physmorph.pipeline.frozen_withdrawal_window import FrozenWithdrawalWindow
+from physmorph.pipeline.post_assimilation_window import PostAssimilationWindow
 from scripts.probes.prepared_withdrawal import head_closure, scalar_closure
 
 
@@ -71,7 +75,17 @@ def energy_comparison(current, origin, masks):
     return result
 
 
-def run_search(packet, *, record, raw_observe):
+def _owned_snapshot(value):
+    if torch.is_tensor(value):
+        return value.detach().clone()
+    if isinstance(value, dict):
+        return {key: _owned_snapshot(item) for key, item in value.items()}
+    if isinstance(value, (tuple, list)):
+        return type(value)(_owned_snapshot(item) for item in value)
+    return deepcopy(value)
+
+
+def run_search(packet, *, record, raw_observe, successor=None, cfg=None, on_confirmed=None):
     """At most 3 originals + 11 trials + 3 confirmations on one private model.
 
     record(label, values, info) must persist the given same-forward witness
@@ -80,6 +94,11 @@ def run_search(packet, *, record, raw_observe):
     Empty secondary arrived-free cohorts remain null; empty primary free cohorts
     stop inconclusively. Ordinary failed gates return a report. Unexpected errors
     preserve the current forward through record, then raise SearchFailure.
+    successor/cfg together select the fixed prepared post-assimilation model.
+    on_confirmed(coefficients, values, info) receives owned detached confirm_2
+    state after all three confirmations pass, without another model forward.
+    This trusted internal callback is a snapshot delivery hook, not an adoption
+    API; its generation identifies this search model's last confirmed forward.
     """
     report = dict(scope='pre_assimilation_frozen_policy_joint_body_search_no_adoption',
         status='preparing', constraint_order=list(CONSTRAINTS), baselines=[], proposals=[],
@@ -93,6 +112,11 @@ def run_search(packet, *, record, raw_observe):
     binding = None
     evaluator = packet.get('evaluate_merit')
     try:
+        post = successor is not None or cfg is not None
+        if post and (not isinstance(successor, OwnedWithdrawal) or not isinstance(cfg, PipelineConfig)):
+            raise ValueError('Post-assimilation search requires both OwnedWithdrawal successor and PipelineConfig cfg')
+        if on_confirmed is not None and not callable(on_confirmed):
+            raise ValueError('on_confirmed must be callable')
         if not callable(record) or not callable(raw_observe) or not callable(evaluator) or not callable(getattr(evaluator, 'terms', None)):
             raise ValueError('Missing callback/complete-merit capability')
         owner = packet['rollout']
@@ -110,14 +134,43 @@ def run_search(packet, *, record, raw_observe):
             if not torch.is_tensor(value) or value.shape != (N,) or value.dtype != torch.bool or value.device != c0.device:
                 raise ValueError('Invalid fixed cohort: '+name)
         masks = dict(start_free=~packet['pins'], start_arrived_free=~packet['pins'] & packet['start_arrived'])
+        primary = 'start_free'
+        if post:
+            metadata = successor.metadata()
+            if (metadata['N'] != N or metadata['T'] != T or metadata['step'] != 0
+                    or metadata['device'] != str(c0.device)):
+                raise ValueError('Successor cohort layout/device differs from the live head')
+            arrays = successor.arrays()
+            next_pin_values = torch.as_tensor(to_array(arrays['pin']), device=c0.device).detach().clone()
+            del arrays
+            if not bool(((next_pin_values == 0) | (next_pin_values == 1)).all()):
+                raise ValueError('Successor pins must be binary')
+            next_pins = next_pin_values.bool()
+            old_values = (torch.as_tensor(to_array(owner.spec.pin), device=c0.device)
+                          if owner.spec.pin is not None else torch.zeros_like(next_pin_values))
+            if not torch.equal(packet['pins'], old_values > .5):
+                raise ValueError('Live packet pins differ from the head owner')
+            if bool((packet['pins'] & ~next_pins).any()):
+                raise ValueError('Post-assimilation search cannot release old pins')
+            masks = dict(old_start_free=~packet['pins'], newly_pinned=next_pins & ~packet['pins'],
+                surviving_free=~next_pins, start_arrived_surviving_free=~next_pins & packet['start_arrived'])
+            primary = 'surviving_free'
+            report.update(scope='post_assimilation_fixed_successor_joint_body_search_no_adoption',
+                objective='mean over fixed surviving-free IDs and all coast steps of |dx/dt|^2',
+                coast_policy='Assimilation and next-pin projection; owned fixed successor layer/bonds/eta; no preparation derivative',
+                primary_cohort=primary, assimilation_fp64=cfg.assim_fp64,
+                cohort_scope='Newly pinned IDs are reported separately; pin-imposed zero motion is not rest')
+            # Validate and own policies even when the search will be inconclusive.
+            # Construction creates no forward; finally closes every early return.
+            model = PostAssimilationWindow(owner, successor, cfg)
         report['cohorts'] = {name: int(mask.sum()) for name, mask in masks.items()}
         report.update(N=N, T=T, dt=dt, dx=float(owner.spec.prm.dx), nodes=len(c0),
                       lambda_render=float(packet['lambda_render']))
         radius = joint_trust_radius(packet['history'], len(c0))
         report['initial_radius'] = radius
         report['radius_rule'] = 'sqrt(node_count)*hypot(displacement_update_RMS,terminal_update_RMS); no factor 3'
-        if not report['cohorts']['start_free']:
-            report['status'] = 'inconclusive_empty_start_free'
+        if not report['cohorts'][primary]:
+            report['status'] = 'inconclusive_empty_'+primary
             return report
         if radius == 0:
             report['status'] = 'inconclusive_zero_original_update'
@@ -125,13 +178,16 @@ def run_search(packet, *, record, raw_observe):
         accepted = {k: packet[k].detach().clone() for k in ('positions', 'V', 'F', 'C')}
         binding = evaluator.binding_digest()
         report['merit_binding_before'] = binding
-        model = FrozenWithdrawalWindow(owner)
+        if not post:
+            model = FrozenWithdrawalWindow(owner)
         reference = packet['reference']
         baseline_rows, original_energy = [], None
         grad, jacobian, origin_constraint = None, None, None
+        confirmed_snapshot = None
 
         def forward(label, coefficients, *, baseline=False, gradient=False, extra=None):
             """Exactly one forward, with an archival finally before any replacement."""
+            nonlocal confirmed_snapshot
             values = None
             row = dict(label=label, baseline=baseline, valid=False, passed=False,
                        raw=dict(measured=False), **(extra or {}))
@@ -156,8 +212,8 @@ def run_search(packet, *, record, raw_observe):
                         coast = reference.terms(values['coast_X'][-1])
                         exact = evaluator(values)
                         current_energy = energies(values, dt)
-                        objective = current_energy['geometric'][masks['start_free']].mean()
-                        stored = current_energy['stored'][masks['start_free']].mean()
+                        objective = current_energy['geometric'][masks[primary]].mean()
+                        stored = current_energy['stored'][masks[primary]].mean()
                         tensors = (head['volume'], head['render'], head['silhouette'], None,
                                    coast['volume'], coast['render'], coast['silhouette'], stored)
                         scalars = [float(v.detach()) if v is not None else exact['merit'] for v in tensors]
@@ -203,6 +259,12 @@ def run_search(packet, *, record, raw_observe):
                                 decrease=baseline_min-row['objective'], passed=baseline_min-row['objective'] > objective_floor)
                             row['per_id_energy_change'] = energy_comparison(current_energy, original_energy, masks)
                             row['passed'] = bool(all(row['nonlinear_constraints'].values()) and row['objective_decrease']['passed'] and raw['passed'])
+                        if label == 'confirm_2' and row['passed'] and on_confirmed is not None:
+                            generation = getattr(model, 'generation', None)
+                            if type(generation) is not int or generation < 1:
+                                raise ValueError('Confirmed forward has no valid generation')
+                            # Own before the archival callback can touch these buffers.
+                            confirmed_snapshot = (coefficients.detach().clone(), _owned_snapshot(values), generation)
             except Exception as exc:
                 row['error'] = dict(type=type(exc).__name__, message=str(exc))
                 raise
@@ -278,6 +340,19 @@ def run_search(packet, *, record, raw_observe):
             report['candidate_found'] = report['confirmed']
             report['status'] = ('confirmed_candidate_no_adoption' if report['confirmed']
                                 else 'confirmation_failed_no_adoption')
+            if report['confirmed'] and on_confirmed is not None:
+                if confirmed_snapshot is None or model.generation != confirmed_snapshot[2]:
+                    raise ValueError('Confirmed forward snapshot is missing or stale')
+                report['merit_binding_after'] = evaluator.binding_digest()
+                report['merit_binding_unchanged'] = report['merit_binding_after'] == binding
+                if not report['merit_binding_unchanged']:
+                    raise ValueError('Prepared merit binding changed before confirmation callback')
+                coefficients, values, generation = confirmed_snapshot
+                report['confirmed_callback'] = dict(invoked=True, completed=False,
+                    label='confirm_2', candidate_label=report['selected'], generation=generation)
+                on_confirmed(coefficients, values, dict(label='confirm_2',
+                    candidate_label=report['selected'], generation=generation, report=deepcopy(report)))
+                report['confirmed_callback']['completed'] = True
             return report
         report['status'] = 'no_candidate_passed'
         return report

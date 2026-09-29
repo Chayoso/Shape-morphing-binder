@@ -45,11 +45,23 @@ def _own(value):
 class PreparedWindowSelection:
     """Opaque choices live only until close; exposed inspections own their data."""
 
-    def __init__(self, original, owner, reference, evaluate_merit, merit_lease, cfg, prm, win_index):
+    def __init__(self, original, owner, reference, evaluate_merit, merit_lease, cfg, prm, win_index,
+                 *, accepted_velocity=None):
         self._closed, self._model, self._choices = False, None, {}
         self._owner, self._lease = owner, merit_lease
         try:
             self._initialize(original, owner, reference, evaluate_merit, merit_lease, cfg, prm, win_index)
+            self._accepted_velocity = None
+            self._post_pins = None
+            if accepted_velocity is not None:
+                if (not torch.is_tensor(accepted_velocity)
+                        or accepted_velocity.shape != (cfg.T, len(self._start), 3)
+                        or accepted_velocity.dtype != self._start.dtype
+                        or accepted_velocity.device != self._start.device
+                        or not bool(torch.isfinite(accepted_velocity).all())
+                        or not torch.equal(accepted_velocity[-1], self._choices[self._identity]['values']['v'])):
+                    raise ValueError('Selection requires the actual accepted velocity sequence')
+                self._accepted_velocity = accepted_velocity.detach().clone()
         except Exception:
             self.close()
             raise
@@ -112,6 +124,16 @@ class PreparedWindowSelection:
     def closed(self):
         return self._closed
 
+    def search_post_assimilation(self, successor, *, record, raw_observe):
+        """Experimental fixed-policy search; return choice/report, never commit.
+
+        The supplied successor is an estimate from a separately validated branch.
+        Actual admission/preparation and ordinary continuation still need a gate.
+        No endpoint arrays or saved merit callback can be supplied by the caller.
+        """
+        from .post_assimilation_selection import search
+        return search(self, successor, record=record, raw_observe=raw_observe)
+
     def evaluate(self, coefficients, label):
         self._live()
         if not isinstance(label, str) or not label or label == 'original' or label in self._labels:
@@ -173,10 +195,22 @@ class PreparedWindowSelection:
         if not valid_endpoint(v['positions'], bounds) or not valid_endpoint(v['coast_X'], bounds):
             failures.append('all_step_bounds')
         initial_F = torch.as_tensor(self._original[1][0], device=self._start.device).reshape(n, 3, 3)
+        coast_pins = self._pins if self._post_pins is None else self._post_pins
+        boundary_v, boundary_C = v['v'], v['C']
+        if self._post_pins is not None:
+            Fp, pins = v.get('coast_Fp'), v.get('coast_pins')
+            if (not torch.is_tensor(Fp) or Fp.shape != (n, 3, 3)
+                    or Fp.device != self._start.device or Fp.dtype != self._start.dtype
+                    or not torch.is_tensor(pins) or pins.dtype != torch.bool
+                    or pins.device != self._start.device or not torch.equal(pins, coast_pins)
+                    or not bool(torch.isfinite(Fp).all()) or float(torch.linalg.det(Fp).min()) <= 0):
+                return ['invalid_post_assimilation_boundary'], None
+            boundary_v = torch.where(coast_pins[:, None], torch.zeros_like(v['v']), v['v'])
+            boundary_C = torch.where(coast_pins[:, None, None], torch.zeros_like(v['C']), v['C'])
         equalities = ((v['x'], v['positions'][-1]), (v['v'], v['V'][-1]),
             (v['F'], v['F_sequence'][-1].reshape(n, 9)), (v['C'], v['C_sequence'][-1]),
-            (v['F_initial'], initial_F), (v['coast_X'][0], v['x']), (v['coast_V'][0], v['v']),
-            (v['coast_F'][0], v['F']), (v['coast_C'][0], v['C']))
+            (v['F_initial'], initial_F), (v['coast_X'][0], v['x']), (v['coast_V'][0], boundary_v),
+            (v['coast_F'][0], v['F']), (v['coast_C'][0], boundary_C))
         if not all(torch.equal(a, b) for a, b in equalities):
             failures.append('same_forward_boundary')
         pinned = self._pins
@@ -185,6 +219,11 @@ class PreparedWindowSelection:
                 and all(bool((a == 0).all()) for a in (v['V'][:, pinned], v['C_sequence'][:, pinned],
                                                        v['coast_V'][1:, pinned], v['coast_C'][1:, pinned]))):
             failures.append('exact_pins')
+        if self._post_pins is not None and not (
+                torch.equal(v['coast_X'][:, coast_pins], v['x'][coast_pins][None].expand(T+1, -1, -1))
+                and bool((v['coast_V'][:, coast_pins] == 0).all())
+                and bool((v['coast_C'][:, coast_pins] == 0).all())):
+            failures.append('exact_next_pins')
         return failures, post
 
     def _candidate_result(self, entry, post_det):
@@ -267,5 +306,5 @@ class PreparedWindowSelection:
                 self._owner.close()
             self._choices.clear()
             for name in ('_original', '_model', '_owner', '_evaluate_merit', '_reference',
-                         '_cfg', '_prm', '_start', '_pins', '_lease'):
+                         '_cfg', '_prm', '_start', '_pins', '_lease', '_post_pins', '_accepted_velocity'):
                 setattr(self, name, None)

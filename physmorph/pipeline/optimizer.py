@@ -3282,7 +3282,7 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
             stats['_window_selection'] = PreparedWindowSelection(
                 (frames, F_seq, end, s_out, hist, stats), owner=owner,
                 reference=reference, evaluate_merit=evaluate, merit_lease=merit_lease,
-                cfg=cfg, prm=prm, win_index=win_index)
+                cfg=cfg, prm=prm, win_index=win_index, accepted_velocity=V_final)
         except Exception:
             if merit_lease is not None:
                 merit_lease[0] = False
