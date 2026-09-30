@@ -173,7 +173,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
 - **R10, the geometry ablation: coarse transport + surface proximity against the fine transport (pre-registered
-  2026-09-30 15:56 CDT, before launch; repo_r17).** Three arms: CR = the loss grid following N (85³ at 300k) with
+  2026-09-30 15:55 CDT, launched 15:55; repo_r17).** Three arms: CR = the loss grid following N (85³ at 300k) with
   the ratio support (C_R); PX85 = the same grid with the surface proximity; PX43 = the MPM-cell grid (43³ at 300k)
   with the surface proximity. At 40k every arm's grid is the MPM cell, so the 40k gallery tests only the proximity
   against the support, on the 15 meshes R9 did not run (A, armadilo, beast, bimba, bob, cheburashka, cow, fandisk,
