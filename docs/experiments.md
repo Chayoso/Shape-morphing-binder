@@ -337,6 +337,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 
 ## Results so far
 
+**R7, 2026-09-30 14:25 CDT — the continued floor: the 40k gallery passes every criterion; the 300k dragon fails the
+silhouette threshold by stopping early (pre-registered 12:03, launched 12:10).** `tmp/r7_eval.py`, `tmp/r7_300k.py`.
+- 40k gallery against the two C_R runs (crv, r4): silhouette IoU median 0.9758 against 0.9746 / 0.9755 (pass), worst
+  mesh −0.0001 (A; pass); thin median 13.5 % against the band 13.6–15.5 (pass); null windows 20 against 26 / 15
+  (pass); wall 52 against 51 / 50 min (pass); `sup_B` at the end lower on 19 of 19, median 5.0e-6 against 1.7e-5
+  (3.4×, as predicted 3–5×), so the support's effective weight rose from 2.1 to 6.1; roughness 1.207 against 1.199.
+  Beast froze again (window 12, 0.8647), as it did in one C_R run: the domain trap of D6 (c) is independent of the
+  floor. Geometry moved within the run-to-run spread, as predicted; thin did not move.
+- 300k dragon: silhouette IoU 0.9811 (fails ≥ 0.983; C_R 0.9833–0.9838), chamfer 0.0598 (pass), converged, 138
+  windows in 83 min, thin 28.2 % at the own threshold and 2.0 % at the world distance (the comparator from here on),
+  `sup_B` 7.5e-6 against 1.2e-5. The run tracked the two C_R runs window for window: d_sil at window 100 2.65e-4
+  against 2.64e-4 / 2.19e-4, at window 138 2.48e-4 against 2.41e-4 / 1.92e-4, E alike. It then stopped at window 139
+  on three consecutive outer-merit rejections (the late window-to-window merit alternation of ±1–2 %, which the C_R
+  runs show as well, in their case never three in a row), and so never reached the coarse-to-fine switch at window
+  150 that gave the C_R runs their last 20 windows at 96 px and their final silhouette. The threshold is therefore
+  confounded by the window-150 schedule (fix 3's subject), but the criterion stands as registered: fail until a second
+  300k run shows whether the early stop recurs (running, 14:22).
+- Replay-difference telemetry (D6 (b)'s open question, 512 windows): the two replays of one control differ in the
+  positions in every window, max 5.3e-6 spacings (p90 7.5e-6, never zero), rms 3.7e-7 spacings; relative term
+  differences median 2.2e-7 (transport), 1.3e-7 (kinetic), 1.0e-7 (render), p90 4.7e-6 / 9e-7 / 3.3e-7. The noise
+  enters the rollout (the transfers' atomics), and the transport term amplifies it most.
+
 **D6, 2026-09-30 12:00 CDT — the three measurements (pre-registered 11:43).** C_R + `--ls_probe`, 40k: bunny (25
 windows), cheburashka (35), homer (40), beast ×3 (38, 43, 28); `tmp/d6_eval.py`.
 - (a) H_sign refuted. The Adam direction is a sign step only at the first iteration of a window (cos(d, sign g)
