@@ -54,9 +54,6 @@ class PipelineConfig:
 
     # ---- physics objective (legacy units) ----
     w_ctrl: float = 1e-3            # control magnitude
-    diag_w_kin: float = 0.0         # R11c diagnostics, off by default: the three velocity terms R11 removed,
-    diag_w_kin_drv: float = 0.0     #   put back one at a time with their legacy weights (end kinetic 5; driven
-    diag_w_kin_rel: float = 0.0     #   fluctuation 200; released motion 200) to see which keeps a run sound
     w_creg: float = 100.0           # control smoothness over the source kNN graph
     creg_k: int = 8
     w_box: float = 10.0             # far-field leash beyond the target extent

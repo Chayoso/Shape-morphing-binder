@@ -1,9 +1,9 @@
 """The window objective, evaluated on the released end state of a rollout.
 
-Physics: the transport energy (grid Sinkhorn divergence to the fixed target + residual
-drift, bounded local support), scaled once to D_vol's gradient norm at the source; end
-kinetic energy; velocity variance (driven phase) and all motion (released phase); control
-magnitude and smoothness; the far-field box leash; the (J-1) log J volume prior.
+Physics: the transport energy (grid Sinkhorn divergence to the fixed target + the surface
+proximity), scaled once to D_vol's gradient norm at the source; the stability term (the
+released motion, (T dt)^2 mean |v|^2 over the released steps, unscaled); control magnitude
+and smoothness; the far-field box leash; the (J-1) log J volume prior.
 Render: silhouette + matched shading, weighted by lambda outside this module.
 Cleanup (fixed weights, outside the render balance): the isolation-gated W1 pull and the
 near-band pull. Frozen per window: the transport gate of u, the isolation gate, the
@@ -31,15 +31,14 @@ def velocity_variance(V: torch.Tensor, split: int) -> torch.Tensor:
 
 
 def released_motion(V: torch.Tensor, split: int, horizon: float) -> torch.Tensor:
-    """A record: horizon^2 x the mean over the released steps (from `split`) and the particles of |v|^2. R11's
-    stability term (2026-09-30), failed and kept as a measurement of how quiet the release is."""
+    """The stability term: horizon^2 x the mean over the released steps (from `split`) and the particles of |v|^2,
+    in length^2. Invariant under v -> 2v with horizon -> horizon / 2."""
     return horizon ** 2 * V[split:].square().sum(2).mean()
 
 
 def end_drift(vT: torch.Tensor, horizon: float) -> torch.Tensor:
-    """The stability term: horizon^2 x the mean over the particles of |v_T|^2 at the released end, in length^2
-    (the displacement the residual velocity would add over one more driven duration). Invariant under v -> 2v
-    with horizon -> horizon / 2."""
+    """A record: horizon^2 x the mean over the particles of |v_T|^2 at the released end (the residual drift,
+    R11b's stability term, which alone did not keep the push quasi-static)."""
     return horizon ** 2 * vT.square().sum(1).mean()
 
 
@@ -97,24 +96,27 @@ class Objective:
         """The geometry energy of the released end state: the transport divergence plus the fine term."""
         return self.tgt.grid_ot.state_energy(xT, self.tgt.m)
 
-    def stability(self, vT):
-        """The residual drift of the released end: (T dt)^2 mean over the particles of |v_T|^2, length^2 like
-        the geometry energy (the horizon converts velocity to length, no weight). Zero for a body at rest after
-        the release. It is the one stability term (2026-09-30): the end kinetic energy w_kin |v_T|^2 and the
-        velocity variance w_kin_var (driven fluctuation and released motion) are gone, and the drift moved here
-        from inside the transport energy. R11 tried the mean over the whole release instead and failed: the
-        elastic settling after a push is motion that must happen, and charging it fought the transport early in
-        the morph (the merit rose 18 % when a window traded transport for a quieter release, the brake rejected
-        it three times, and runs stopped at 8-11 windows still moving)."""
-        return end_drift(vT, self.horizon)
+    def stability(self, V):
+        """The one stability term (R11d, 2026-09-30): the released motion (T dt)^2 x the mean over the released
+        steps and particles of |v|^2, in the objective's own length^2 units, outside the transport's ot_scale.
+        Zero for a body at rest after the release; a release that oscillates and comes to rest only at its end
+        pays as a constant one of the same speed. It replaces the residual drift inside the transport energy,
+        the end kinetic energy w_kin |v_T|^2 (5) and the velocity variance w_kin_var (200). R11c found that of the
+        three the released motion is what keeps a run sound: without it the transport pushes as hard as the
+        control clip allows, the body carries momentum into the release, and the brake stops the run once a window
+        trades transport for calm. Its magnitude matters: inside ot_scale (R11) the same expression was 3-6x weaker
+        than the legacy 100 wu and runs lost; outside it the coefficient (T dt)^2 = 6.96e-3 (dt = 0.00417 at every N)
+        matches the legacy 100 wu = 6.5e-3 to 7.0e-3 at 40k (unit_ratio 1.43e4 to 1.55e4) without a constant, and is
+        2.2x it at 300k (unit_ratio 3.13e4)."""
+        return released_motion(V, self.cfg.T, self.horizon)
 
     def losses(self, xT, FT, vT, V):
-        """(lv, lk, lr, lpbr, d_sil, lstab): the scaled geometry with the stability term, the end kinetic
-        energy (a record), render (silhouette + w_pbr shading), shading, the silhouette alone (a tensor, for
-        the record) and the stability term alone."""
+        """(lv, lk, lr, lpbr, d_sil, lstab): the scaled geometry, the end kinetic energy (a record), render
+        (silhouette + w_pbr shading), shading, the silhouette alone (a tensor, for the record) and the stability
+        term (added in phys_core)."""
         cfg, t = self.cfg, self.tgt
-        lstab = self.stability(vT)
-        lv = t.ot_scale * (self.transport(xT) + lstab)
+        lstab = self.stability(V)
+        lv = t.ot_scale * self.transport(xT)
         lk = vT.pow(2).sum(1).mean()
         lsil = d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
                         cfg.w_spray)
@@ -127,18 +129,11 @@ class Objective:
         direction PCGrad protects. Only the driven half of the control is costed."""
         cfg, wu, N = self.cfg, self.win.wu, self.win.N
         dfc, xT, FT = e.dfc[:cfg.T], e.xT, e.FT
-        L = e.lv + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
+        L = e.lv + e.lstab + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
         L = L + wu * cfg.w_box * torch.clamp(xT.abs() - self.tgt.extent, min=0).pow(2).sum(1).mean()
         L = L + wu * cfg.w_creg * (dfc - dfc[:, self.knn_creg].mean(2)).pow(2).mean()
         J = torch.linalg.det(FT.view(-1, 3, 3))
         L = L + wu * cfg.w_jvol * ((J - 1.0) * torch.log(J.clamp_min(1e-6))).mean()
-        # R11c diagnostic pieces (off by default): the three velocity terms R11/R11b removed, one at a time
-        if cfg.diag_w_kin > 0:
-            L = L + wu * cfg.diag_w_kin * e.lk
-        if cfg.diag_w_kin_drv > 0:
-            L = L + wu * cfg.diag_w_kin_drv * e.lk_drv
-        if cfg.diag_w_kin_rel > 0:
-            L = L + wu * cfg.diag_w_kin_rel * e.lk_rel
         return L
 
     def cleanup(self, xT, common_geometry=False):

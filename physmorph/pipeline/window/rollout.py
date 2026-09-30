@@ -30,9 +30,9 @@ class Eval:
     V: torch.Tensor                   # velocities of steps 1..2T
     lk_run: torch.Tensor
     lk_var: torch.Tensor
-    lstab: torch.Tensor | None = None # the stability term (the end drift) alone
-    lk_drv: torch.Tensor | None = None  # the driven phase's velocity fluctuation about its mean (record / R11c)
-    lk_rel: torch.Tensor | None = None  # the released phase's motion, same normalisation (record / R11c)
+    lstab: torch.Tensor | None = None # the stability term (the released motion) alone
+    lk_drv: torch.Tensor | None = None  # record: the driven phase's velocity fluctuation about its mean
+    lk_rel: torch.Tensor | None = None  # record: the released phase's motion, same normalisation
     jt: float | None = None           # whole-trajectory min det (no-grad path)
     in_domain: bool = True
 

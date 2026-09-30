@@ -187,7 +187,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         _notify(on_commit, a, x, F, v, rec)
         if converged:
             frozen = True
-            phys_track = tgt.ot_scale * (rec["transport_energy"] + rec["stab"])
+            phys_track = tgt.ot_scale * rec["transport_energy"] + rec["stab"]
             log(f"[v2] converged at anim {a + 1} (phys={phys_track:.4f}); holding still")
         any_guard = any(counts[k] for k in GUARDS)
         if a % max(1, cfg.animations // 10) == 0 or a == cfg.animations - 1 or any_guard:
@@ -231,7 +231,7 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) 
     rec = {"animation": a, "iters": len(res.hist), "loss": w["loss"], "d_vol": d_vol,
            "grad_norm": w["grad_norm"], "d_pbr": w["d_pbr"], "d_dt": d_dt, "d_sil": w["d_sil"],
            **{k: stats.get(k) for k in _STAT_FIELDS},
-           "kin": w["kin"], "kin_run": w["kin_run"], "kin_var": w["kin_var"], "stab": w["stab"], "stab_release": w["stab_release"],
+           "kin": w["kin"], "kin_run": w["kin_run"], "kin_var": w["kin_var"], "stab": w["stab"], "stab_end": w["stab_end"],
            "alpha_last": w["alpha"],
            "d_render": w["d_render"], "lambda": w["lambda"], "lambda_capped": stats.get("lambda_capped"),
            "u_gate": stats.get("u_gate"), "dfc_absmax": w["dfc_absmax"],

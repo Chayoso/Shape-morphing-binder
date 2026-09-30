@@ -126,21 +126,24 @@ def test_grid_sinkhorn_value_avoids_float32_self_energy_cancellation(requires_gr
     assert float(loss(current)) == pytest.approx(float(reference), rel=1e-5, abs=1e-12)
 
 
-def test_end_drift_charges_the_released_end_and_the_released_motion_is_a_record():
-    """The stability term is the residual drift at the released end: (T dt)^2 x the mean |v_T|^2; zero at rest;
-    invariant under v -> 2v with the horizon halved; the driven phase is not costed. The released-motion record
-    sees an oscillating release that ends at rest, which the drift does not (R11: charging it fought the transport)."""
+def test_released_motion_is_the_stability_term_and_the_end_drift_a_record():
+    """The stability term is the released motion: (T dt)^2 x the mean over the released steps and particles of
+    |v|^2; a constant released velocity costs its drift; zero at rest; invariant under v -> 2v with the horizon
+    halved; the driven phase is not costed (no gradient reaches it). An oscillating release that ends at rest
+    is charged by it and not by the end drift, which is a record (R11b: the drift alone lost six meshes)."""
     from physmorph.pipeline.window.objective import end_drift, released_motion
     T, dt = 4, .5
-    vT = torch.zeros(3, 3); vT[:, 0] = .2
-    value = end_drift(vT, T * dt)
+    V = torch.zeros(2 * T, 3, 3); V[:T, :, 1] = 1.; V[T:, :, 0] = .2      # a driven push, then a constant release
+    value = released_motion(V, T, T * dt)
     assert float(value) == pytest.approx((T * dt * .2) ** 2)
-    assert float(end_drift(2 * vT, T * dt / 2)) == pytest.approx(float(value))
-    assert float(end_drift(torch.zeros(3, 3), T * dt)) == 0.
-    leaf = vT.clone().requires_grad_(True)
-    assert float(torch.autograd.grad(end_drift(leaf, T * dt), leaf)[0][:, 0].min()) > 0.
+    assert float(released_motion(2 * V, T, T * dt / 2)) == pytest.approx(float(value))
+    assert float(released_motion(torch.zeros(2 * T, 3, 3), T, T * dt)) == 0.
+    leaf = V.clone().requires_grad_(True)
+    g = torch.autograd.grad(released_motion(leaf, T, T * dt), leaf)[0]
+    assert float(g[:T].abs().max()) == 0. and float(g[T:, :, 0].min()) > 0.
     osc = torch.zeros(2 * T, 3, 3); osc[T:, :, 0] = torch.tensor([.2, -.2, .2, 0.])[:, None]
-    assert float(end_drift(osc[-1], T * dt)) == 0. and float(released_motion(osc, T, T * dt)) > 0.
+    assert float(released_motion(osc, T, T * dt)) > 0. and float(end_drift(osc[-1], T * dt)) == 0.
+    assert float(end_drift(V[-1], T * dt)) == pytest.approx(float(value))       # the drift of a constant release
 
 
 @pytest.mark.parametrize('device', ['cpu', 'cuda'])

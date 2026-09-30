@@ -172,6 +172,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R11d, the stability term = the released motion outside the transport's scale (pre-registered 2026-09-30 18:35
+  CDT, before launch; repo_r21 = repo_r20 with the term moved out of ot_scale, the drift a record `stab_end`, the
+  R11c switches removed).** L_stab = (T dt)² · mean over the released steps and particles of |v|², added to the
+  physics objective unscaled (R11 had it inside ot_scale, 3–6× weaker); the residual drift is no longer costed
+  (R11c-R carried it inside ot_scale beside the legacy piece, 15–33 % of the piece's size; the released motion
+  contains the end step). The coefficient equals the legacy 100 wu at 40k within 7 % and is 2.2× it at 300k. No
+  weight. Runs: the 40k gallery (19 meshes, seed 97) and the 300k dragon at 35 windows, proximity and the grid
+  following N as R10 adopted; against R10's PX85 and, on R11c's eight meshes, R11c-R (`tmp/r11d_eval.py`). Pass, as
+  R11: `thin_uncovered` median within ±1 point of PX85 and no mesh worse by more than 3 (homer's ±4 spread noted);
+  silhouette median within ±0.002 and none below by more than 0.004; `kin` and `kin_var` medians not higher; no run
+  stopping before 15 windows with the body still moving (`kin` > 0.05); wall ≤ 1.2×; no freeze PX85 did not show;
+  the 300k dragon at 35 windows within ±0.002 silhouette and ±1 point world-thin of PX85's, `kin` not higher.
+  Predictions: the six R11b meshes sound (R11c-R at the same magnitude was); the gallery within spread of PX85;
+  `kin` at the median not higher; at 300k the stronger coefficient lowers `kin` and costs at most 1 point of
+  world-thin at the budget. Render influence: the render channel is unchanged; g_share reported.
 - **R11c, which removed velocity piece keeps a run sound (diagnostic, pre-registered 2026-09-30 17:58 CDT, before
   launch; repo_r20 = repo_r19 + the three pieces as switches, off by default).** R11b's code (proximity, the end
   drift as the stability term) with one removed piece put back at its legacy weight: K = the end kinetic energy
@@ -478,6 +493,24 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R11c, 2026-09-30 18:26 CDT — the released-motion piece is what keeps a run sound (pre-registered 17:58).**
+On the six meshes R11b lost, the released motion at its legacy weight (R) keeps every one sound: bimba 10.2 /
+0.9770 / 50 windows, cheburashka 10.1 / 0.9774 / 85, cow 9.9 / 0.9708 / 70, homer 12.6 / 0.9767 / 59, nefertiti
+8.0 / 0.9783 / 60, spot 7.7 / 0.9771 / 40 (thin / silhouette / windows; PX85: 10.7 / 0.9769 / 69, 10.0 / 0.9776 /
+52, 10.7 / 0.9719 / 65, 16.1 / 0.9754 / 65, 8.0 / 0.9785 / 47, 9.9 / 0.9775 / 44), end `kin` 4e-5 to 1.3e-3, every
+thin within 3 points and every silhouette within 0.004 of PX85 (homer −3.5 thin, inside its ±4 run-to-run spread).
+The end kinetic energy (K) and the driven fluctuation (D) each leave five of the six stopping at 8–14 windows with
+the body still moving (`kin` 0.14–0.57); cow alone survives under both (K 9.6 / 0.9720 / 61, D 9.1 / 0.9725 / 27).
+bunny and dragon are sound under all three (R: 9.1 / 0.9756 / 41 and 13.6 / 0.9734 / 94; the dragon's silhouette
+0.0017 below PX85, thin +0.4). The prediction (D keeps the runs sound, R partly) was wrong: the driven phase's
+fluctuation about its mean is not what the push needs; what keeps the release settled is charging its motion at
+every released step, at a magnitude the drift and the end kinetic energy did not reach. Magnitude: the legacy
+piece is 200 wu |v|² / (2 T N) = 100 wu · mean_release |v|², 6.5e-3 to 7.0e-3 per unit of mean |v|² at 40k
+(unit_ratio 1.43e4–1.55e4); R11's released motion sat inside ot_scale (0.15–0.33, measured on bunny, cow and spot)
+at (T dt)² ot_scale = 1.0e-3 to 2.3e-3, three to six times weaker: R11 failed on magnitude, not on form. Outside
+ot_scale the same expression has the coefficient (T dt)² = 6.96e-3 (dt = 0.00417 at every N): the legacy magnitude
+at 40k without a constant, 2.2× it at 300k (unit_ratio 3.13e4). That definition is R11d.
 
 **R11b, 2026-09-30 18:00 CDT — the end drift alone: fails on six meshes the same way (pre-registered 17:27).**
 Against PX85: bimba, cheburashka, cow, homer, nefertiti and spot stop at 8–11 windows with the body still moving
