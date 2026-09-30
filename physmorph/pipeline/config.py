@@ -66,7 +66,10 @@ class PipelineConfig:
     support_target_ref: bool = False  # support floor: half the target density at the nearest target point
                                       #   (False: half the target median density, one global floor)
     support_form: str = "log"       # per-particle deficit penalty: "log" relu(log f - log s)^2 or "ratio"
-                                    #   relu(1 - s/f)^2 (the missing fraction of the local mass, at most 1)
+                                    #   relu(1 - s/f)^2 (the missing fraction of the local mass, at most 1); or
+                                    #   "coverage": the target-surface coverage in place of the support (the
+                                    #   body's kernel sum at every outer target point against the target's own,
+                                    #   radius^2 mean relu(1 - s_b/f_t)^2, no bound, no weight)
     loss_follows_n: bool = False    # loss cell = MPM cell x min(1, (mass_ref_n / N)^(1/3)): the transport grid
                                     #   and blur follow the particle spacing above the reference N
 
@@ -117,8 +120,8 @@ class PipelineConfig:
 
     def __post_init__(self):
         import math
-        if self.support_form not in ("log", "ratio"):
-            raise ValueError("support_form must be \"log\" or \"ratio\"")
+        if self.support_form not in ("log", "ratio", "coverage"):
+            raise ValueError("support_form must be \"log\", \"ratio\" or \"coverage\"")
         for name in ("support_weight", "render_weight_scale"):
             v = getattr(self, name)
             if not math.isfinite(v) or v < 0:

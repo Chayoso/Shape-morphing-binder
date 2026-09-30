@@ -132,15 +132,22 @@ def support_record(tgt, horizon: float, x: torch.Tensor, v: torch.Tensor) -> dic
     sup, ot = tgt.support, tgt.grid_ot
     if sup is None or ot is None:
         return {}
-    with torch.no_grad():
-        saved, ot.support = ot.support, None
-        try:
+    saved, ot.support = ot.support, None
+    try:
+        with torch.no_grad():
             E = float(ot.state_energy(x, tgt.m, v, horizon))
-        finally:
-            ot.support = saved
+        # the fine term's position gradient against the transport's at this state (the balance of the two
+        # parts of the geometry objective, which the coverage form leaves to the units alone)
+        xg = x.detach().clone().requires_grad_(True)
+        g_pen = torch.autograd.grad(sup.penalty(xg), xg, allow_unused=True)[0]
+        g_e = torch.autograd.grad(ot.state_energy(xg, tgt.m, v.detach(), horizon), xg)[0]
+        ratio = (float(g_pen.norm()) / max(float(g_e.norm()), 1e-30)) if g_pen is not None else 0.0
+    finally:
+        ot.support = saved
+    with torch.no_grad():
         pen = sup.penalty_per_point(x).double()
         q = torch.quantile(pen, torch.tensor([.99, .5], dtype=pen.dtype, device=pen.device))
     B, w = float(pen.mean()), sup.weight
-    w_eff = w * (E / (E + w * B)) ** 2 if np.isfinite(E) and E + w * B > 0 else None
+    w_eff = (w * (E / (E + w * B)) ** 2 if w is not None and np.isfinite(E) and E + w * B > 0 else None)
     return {"sup_E": E, "sup_B": B, "sup_w_eff": w_eff, "sup_pen_max": float(pen.max()),
-            "sup_pen_p99": float(q[0]), "sup_pen_med": float(q[1])}
+            "sup_pen_p99": float(q[0]), "sup_pen_med": float(q[1]), "sup_grad_ratio": ratio}

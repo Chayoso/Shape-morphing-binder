@@ -332,3 +332,32 @@ def test_thin_set_finds_the_sheet_and_measures_its_coverage():
     m = thin_metrics(target[:216], ts)                                  # the block alone
     assert m["thin_uncovered"] >= on_sheet.mean() - 1e-9 and m["thin_gap_median_sp"] > 1.5
 
+
+
+def test_target_coverage_charges_the_missing_sheet_at_the_surface_and_spares_the_target():
+    """The coverage reads the target's outer points only; the target itself pays nothing; with the sheet missing the
+    sheet's points pay about radius^2 each and the block's outer points nearly nothing; descent moves the block's
+    top layer up toward the sheet; the gradient is true (finite differences); adding it to an energy is plain."""
+    from physmorph.losses.support import TargetCoverage
+    target = sheet_on_block(z=.9)                # four spacings up: a sheet two spacings up sits on the census
+    cov = TargetCoverage(target)                  # outer test's 2-spacing threshold and 23 of its points count as inner
+    assert 0 < len(cov.y) < len(target) and cov.weight is None
+    on_sheet = torch.isclose(cov.y[:, 2].cpu(), torch.tensor(.9, dtype=cov.y.dtype))
+    assert int(on_sheet.sum()) >= 60                                   # most of the lattice sheet is outer (the census
+                                                                       # test counts 2-spacing neighbours, borderline on a lattice)
+    assert float(cov.penalty(torch.tensor(target))) == 0.
+    jitter = np.random.default_rng(11).uniform(-.005, .005, (216, 3))
+    block = torch.tensor(target[:216] + jitter, requires_grad=True)
+    per = cov.penalty_per_point(block)
+    assert float(per[on_sheet].min()) > .5 * cov.radius ** 2 and float(per[~on_sheet].max()) < .1 * cov.radius ** 2
+    g = torch.autograd.grad(cov.penalty(block), block)[0]
+    top = block.detach()[:, 2] > .45
+    assert float(g[top, 2].sum()) < 0.                                 # descent moves the top layer up
+    energy = lambda q: cov((q - .1).square().mean(), q)
+    gE = torch.autograd.grad(energy(block), block)[0]
+    direction = torch.tensor(np.random.default_rng(41).normal(size=block.shape))
+    direction /= direction.norm()
+    eps = 1e-6
+    fd = (energy(block.detach() + eps * direction) - energy(block.detach() - eps * direction)) / (2 * eps)
+    assert float((gE * direction).sum()) == pytest.approx(float(fd), rel=1e-3, abs=1e-9)
+    assert float(energy(block.detach())) == pytest.approx(float((block.detach() - .1).square().mean() + cov.penalty(block.detach())))

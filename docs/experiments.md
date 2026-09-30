@@ -172,6 +172,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **D8, the target-surface coverage in place of the support (pre-registered 2026-09-30 15:25 CDT, before launch;
+  repo_r16 = repo_r15 + `TargetCoverage`, the phase timers and the gradient-ratio telemetry).** The first step of
+  the loss reformulation (four terms: transport, rendering, stability, cleanup). The support asks each body
+  particle for enough body around it and cannot see a target patch with no particle at it. `--support_form
+  coverage` replaces it: at every outer target point y (the census outer set of the target's volume sample, a
+  shell about one spacing thick), the body's kernel sum over its 32 nearest particles against half the target's
+  own leave-one-out kernel sum there, the estimator, h and k of the support; penalty radius² mean_y relu(1 −
+  s_b/f_t)², length² like the transport, no bound to E and no weight (a target-side deficit is not the uniform
+  pressure the bound guarded against). The hard uncovered share stays the metric. Runs: bunny, dragon, C and
+  teapot at 40k, seed 97, C_R's flags otherwise (the 85³ loss grid stays; the grid is the next ablation's
+  question), against the two C_R runs' band (r7 primary, crv). Archives kept for the mechanism probe.
+  Readings. (a) The question is whether the coverage gives the controls a more accurate sub-cell signal than the
+  support, not whether it closes the gaps (D3a/c: a strong fine objective left nine tenths of them): prediction
+  `thin_uncovered` −1 to −3 points against the band on at least three of four meshes; less than one point on all
+  four means the observer alone changes nothing under these controls. (b) Silhouette within ±0.003 of the band;
+  no freeze C_R did not show; wall ≤ 1.5× (the extra neighbour query). (c) `sup_grad_ratio`, the position-gradient
+  norm of the coverage against the transport's at every committed state, recorded for the scale question (both
+  length²; expected of order one early and falling as the surface is covered). (d) Mechanism, on the archives: at
+  uncovered outer points the coverage gradient on the body particles within 2h points into the gap (median cosine
+  with the gap direction above 0.5), the transport gradient on the bulk behind a thin region points toward it, and
+  the churn (gaps closed against gaps opened per window, `thin_time.py`) is not above C_R's. Filling and not
+  relocation is the pass on (d).
 - **R8, coarse-to-fine at the coarse resolution's stop event (pre-registered 2026-09-30 14:27 CDT, before launch;
   repo_r15 = repo_r14 + the trigger).** Fix 3 of the agreed order. The switch to 96 px render targets fired at
   window 150, half the window budget: never reached by C_R's 40k runs (15–50 windows), reached by the 300k dragon
@@ -374,6 +396,26 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**D7, 2026-09-30 15:16 CDT — two measurements for the loss reformulation (no algorithm change).**
+- PCGrad's actual effect, from the records of finished runs (`tmp/pcgrad_stats.py` on the tarball; `g_raw_cos`
+  is cos(g_phys, g_render) before the projection, and the removed fraction of the render gradient is |cos| when
+  negative). 40k, 39 C_R and R7 runs, 1201 windows: the raw render gradient conflicts with the physics gradient in
+  27 % of the early windows, 38 % of the middle and 78 % of the late ones (raw cos median +0.19 → +0.08 → −0.23),
+  and when it conflicts the projection removes a median 19 / 18 / 32 % of it (p90 43 / 42 / 63 %). 300k dragon,
+  3 runs, 478 windows: conflicts 7 / 33 / 53 %, removed 3 / 3 / 4 % (p90 6 / 8 / 10 %). So PCGrad is nearly inert
+  at 300k and material at 40k late; its removal (one adjoint per iteration instead of two) has to be tested at
+  40k, not assumed.
+- Where a 300k window's time goes: phase timers (`t_start`, `t_grad`, `t_ls`, `t_commit`, wall seconds per window)
+  added to the telemetry; the 300k dragon for 5 windows with the 85³ loss grid (`--loss_follows_n`, the C_R form)
+  and with the 43³ grid (the MPM cell), launched 15:16 on repo_r15 (`output/gpu/timing`, `tmp/timing_eval.py`).
+  Result (15:22 CDT, the first five windows, the two runs side by side on GPUs 1 and 2): 85³ window 47.3 s = start
+  5.4 (warm start and two replays) + gradients 15.5 (8 iterations: tape rollout and two adjoints each) + line
+  search 23.5 (15 candidate rollouts) + commit 3.5; 43³ window 35.4 s = 5.0 + 14.8 + 12.7 (11 candidates) + 2.7.
+  So the gradient phase does not depend on the loss grid (the adjoint is the cost), a candidate evaluation costs
+  about 1.15 s at 43³ and 1.55 s at 85³, and a window is 20–25 rollouts of 40 MPM steps at 300k. The finer grid
+  costs about 25 % per window here, not the 2× R2 recorded per run. A 300k run of 15 minutes therefore needs about
+  30–40 windows at either grid, or fewer rollouts per window; the grid choice alone cannot deliver it.
 
 **Stopped and cleared, 2026-09-30 14:59 CDT (at the user's request).** R8 (the event c2f; 6 of 19 gallery runs and
 the 300k dragon in progress) and R7's second 300k dragon were killed unread, and every result folder on hyde06 was

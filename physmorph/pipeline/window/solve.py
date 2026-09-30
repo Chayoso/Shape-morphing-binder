@@ -52,6 +52,28 @@ def _dot(a, b):
     return sum((x * y).sum() for x, y in zip(a, b))
 
 
+_TIME_KEYS = ("t_start", "t_grad", "t_ls", "t_commit")
+
+
+class _Clock:
+    """Wall seconds of a window's phases, accumulated into the telemetry: the start (warm start and replay noise),
+    the gradients (tape rollout, two adjoints), the line search (candidate rollouts) and the commit."""
+
+    def __init__(self, tele: dict):
+        import time
+        self.time, self.tele = time, tele
+        for k in _TIME_KEYS:
+            tele[k] = 0.0
+        torch.cuda.synchronize()
+        self.t = time.perf_counter()
+
+    def lap(self, key: str):
+        torch.cuda.synchronize()
+        now = self.time.perf_counter()
+        self.tele[key] += now - self.t
+        self.t = now
+
+
 def direction_stats(ds, gs) -> list:
     """Diagnostic, per leaf: cos(d, sign g), cos(d, g), the rms of the Adam direction d per coordinate (1 = a
     pure sign step) and the share of the gradient's squared norm carried by its largest 1 % of coordinates."""
@@ -346,9 +368,11 @@ class WindowOptimizer:
     # ---- the window ----
     def run(self, dfc_init=None) -> WindowResult:
         cfg, log = self.cfg, self.log
+        clock = _Clock(self.tele)                            # where a window's time goes (measurement)
         if dfc_init is not None and cfg.warm_decay > 0:
             self.warm_start(dfc_init)
         replay_rel = self.replay_noise() if cfg.replay_calibrate else 0.0
+        clock.lap("t_start")
         leaf0 = self.dFc.detach().clone() if cfg.grad_dump else None
         hist, grad_converged, ls_exhausted = [], False, False
         g0_norm = L_start = None
@@ -358,6 +382,7 @@ class WindowOptimizer:
             e = graph_terms(self.win, self.obj, self.dFc, self.u)
             g, diag = self.gradient(e, it)
             cur = self.scalar(e)
+            clock.lap("t_grad")
             if not np.isfinite(cur):
                 log(f"[win] iter {it}: non-finite loss, aborting window")
                 self.tele["null_reason"] = "nonfinite_loss"
@@ -370,6 +395,7 @@ class WindowOptimizer:
                 log(f"[win] converged at iter {it} (||g||={gn:.4g})")
                 break
             found = self.line_search(g, gn, cur, e)
+            clock.lap("t_ls")
             if found is None:
                 self.tele["null_reason"] = "ls_exhausted" if not hist else None
                 # an exhausted search leaves point, moments and gradient unchanged: the next
@@ -385,7 +411,10 @@ class WindowOptimizer:
             if self.on_iter is not None:
                 self._stream(it, e_n, rec, diag)
             hist.append(rec)
-        return self.commit(hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0)
+        result = self.commit(hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0)
+        clock.lap("t_commit")
+        result.stats.update({k: self.tele.get(k) for k in _TIME_KEYS})
+        return result
 
     def _stream(self, it, e_n, rec, diag):
         host = lambda t: None if t is None else t.detach().cpu().numpy().astype(np.float32)  # noqa: E731
