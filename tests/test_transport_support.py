@@ -1,4 +1,5 @@
 """Contracts for the opt-in, transport-bounded particle-support penalty."""
+import math
 import numpy as np
 import pytest
 import torch
@@ -334,30 +335,36 @@ def test_thin_set_finds_the_sheet_and_measures_its_coverage():
 
 
 
-def test_target_coverage_charges_the_missing_sheet_at_the_surface_and_spares_the_target():
-    """The coverage reads the target's outer points only; the target itself pays nothing; with the sheet missing the
-    sheet's points pay about radius^2 each and the block's outer points nearly nothing; descent moves the block's
-    top layer up toward the sheet; the gradient is true (finite differences); adding it to an energy is plain."""
-    from physmorph.losses.support import TargetCoverage
-    target = sheet_on_block(z=.9)                # four spacings up: a sheet two spacings up sits on the census
-    cov = TargetCoverage(target)                  # outer test's 2-spacing threshold and 23 of its points count as inner
-    assert 0 < len(cov.y) < len(target) and cov.weight is None
-    on_sheet = torch.isclose(cov.y[:, 2].cpu(), torch.tensor(.9, dtype=cov.y.dtype))
-    assert int(on_sheet.sum()) >= 60                                   # most of the lattice sheet is outer (the census
-                                                                       # test counts 2-spacing neighbours, borderline on a lattice)
-    assert float(cov.penalty(torch.tensor(target))) == 0.
+def test_surface_proximity_charges_the_missing_sheet_and_spares_the_target():
+    """The proximity reads the target's outer points; its threshold is about 1.5 spacings (sqrt(sp^2 + 2 h^2 ln 2));
+    the target itself pays nothing; with the sheet missing the sheet's points pay about radius^2 each and the block's
+    outer points nothing; a body particle within one spacing of a sheet point clears it and one at two spacings does
+    not; descent moves the nearest block particles up toward the sheet; the gradient is true (finite differences)."""
+    from physmorph.losses.support import SurfaceProximity
+    target = sheet_on_block(z=.9)
+    prox = SurfaceProximity(target)
+    assert 0 < len(prox.y) < len(target) and prox.weight is None
+    thr = math.sqrt(prox.spacing ** 2 + 2 * prox.h ** 2 * math.log(2))
+    assert 1.3 * prox.spacing < thr < 1.8 * prox.spacing
+    on_sheet = torch.isclose(prox.y[:, 2].cpu(), torch.tensor(.9, dtype=prox.y.dtype))
+    assert int(on_sheet.sum()) >= 60
+    assert float(prox.penalty(torch.tensor(target))) == 0.
     jitter = np.random.default_rng(11).uniform(-.005, .005, (216, 3))
     block = torch.tensor(target[:216] + jitter, requires_grad=True)
-    per = cov.penalty_per_point(block)
-    assert float(per[on_sheet].min()) > .5 * cov.radius ** 2 and float(per[~on_sheet].max()) < .1 * cov.radius ** 2
-    g = torch.autograd.grad(cov.penalty(block), block)[0]
+    per = prox.penalty_per_point(block)
+    assert float(per[on_sheet].min()) > .9 * prox.radius ** 2 and float(per[~on_sheet].max()) == 0.
+    one = torch.tensor(np.concatenate([target[:216] + jitter, [[.45, .45, .9 - 1.0 * prox.spacing]]]))
+    two = torch.tensor(np.concatenate([target[:216] + jitter, [[.45, .45, .9 - 2.0 * prox.spacing]]]))
+    j = int(torch.nonzero(on_sheet & torch.isclose(prox.y[:, 0].cpu(), torch.tensor(.4, dtype=prox.y.dtype))
+                          & torch.isclose(prox.y[:, 1].cpu(), torch.tensor(.4, dtype=prox.y.dtype)))[0])
+    assert float(prox.penalty_per_point(one)[j]) == 0. and float(prox.penalty_per_point(two)[j]) > .1 * prox.radius ** 2
+    g = torch.autograd.grad(prox.penalty(block), block)[0]
     top = block.detach()[:, 2] > .45
-    assert float(g[top, 2].sum()) < 0.                                 # descent moves the top layer up
-    energy = lambda q: cov((q - .1).square().mean(), q)
+    assert float(g[top, 2].sum()) < 0. and float(g[~top].abs().sum()) == 0.   # only the nearest particles move, up
+    energy = lambda q: prox((q - .1).square().mean(), q)
     gE = torch.autograd.grad(energy(block), block)[0]
     direction = torch.tensor(np.random.default_rng(41).normal(size=block.shape))
     direction /= direction.norm()
     eps = 1e-6
     fd = (energy(block.detach() + eps * direction) - energy(block.detach() - eps * direction)) / (2 * eps)
     assert float((gE * direction).sum()) == pytest.approx(float(fd), rel=1e-3, abs=1e-9)
-    assert float(energy(block.detach())) == pytest.approx(float((block.detach() - .1).square().mean() + cov.penalty(block.detach())))

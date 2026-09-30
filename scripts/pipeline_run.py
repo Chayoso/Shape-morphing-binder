@@ -55,7 +55,7 @@ def parse_args():
     ap.add_argument("--support_weight", type=float, default=8.0, help="local support bound weight")
     ap.add_argument("--support_target_ref", action="store_true",
                     help="support floor from the target density at the nearest target point")
-    ap.add_argument("--support_form", choices=("log", "ratio", "coverage"), default="log",
+    ap.add_argument("--support_form", choices=("log", "ratio", "proximity"), default="log",
                     help="per-particle support penalty: log deficit squared, or missing mass fraction squared")
     ap.add_argument("--loss_follows_n", action="store_true",
                     help="transport grid and blur follow the particle spacing above mass_ref_n")

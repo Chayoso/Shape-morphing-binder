@@ -1,0 +1,23 @@
+# A synthetic thin plate, 6 x 4 x 0.3 (the loader scales the target to the source's volume: about 11 x 7.5 x 0.56 wu,
+# 1.8 MPM cells thick at cell_diag 26, so every outer point of it is in the thin set). A controlled thin feature for
+# the surface-proximity experiments (R9, 2026-09-30).
+v -3.0 -2.0 -0.15
+v  3.0 -2.0 -0.15
+v  3.0  2.0 -0.15
+v -3.0  2.0 -0.15
+v -3.0 -2.0  0.15
+v  3.0 -2.0  0.15
+v  3.0  2.0  0.15
+v -3.0  2.0  0.15
+f 1 3 2
+f 1 4 3
+f 5 6 7
+f 5 7 8
+f 1 2 6
+f 1 6 5
+f 2 3 7
+f 2 7 6
+f 3 4 8
+f 3 8 7
+f 4 1 5
+f 4 5 8

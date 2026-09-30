@@ -15,7 +15,7 @@ import torch
 
 from .. import gpu
 from ..losses.silhouette import set_kernel
-from ..losses.support import TargetCoverage, TransportSupport
+from ..losses.support import SurfaceProximity, TransportSupport
 from ..losses.volumetric import (d_vol, d_vol_density, density_units, target_dt_grid,
                                  target_mass_grid)
 from ..mpm.state import MPMParams
@@ -64,8 +64,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     m = torch.ones(N, device=gpu.DEVICE)
     if cfg.support_weight <= 0:
         support = None
-    elif cfg.support_form == "coverage":                     # the fine geometry read from the target surface
-        support = TargetCoverage(tgt_t)
+    elif cfg.support_form == "proximity":                    # the fine geometry read from the target surface
+        support = SurfaceProximity(tgt_t)
     else:
         support = TransportSupport(tgt_t, cfg.support_weight, cfg.support_target_ref, cfg.support_form)
     # the loss grid covers the MPM domain (scalar geometry, float32 like the grid itself)

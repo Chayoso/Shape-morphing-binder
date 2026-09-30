@@ -172,6 +172,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R9, surface proximity in place of the density coverage (pre-registered 2026-09-30 15:42 CDT, before launch;
+  repo_r17 = repo_r16 with the fine term's definition replaced).** D8 showed the density ratio blind to the 1.6–2
+  spacing gaps. The fine part of the geometry objective is now the target-to-body surface proximity: at every outer
+  target point y the kernel of the body's NEAREST particle, K(d_min(y)) = exp(−d_min²/2h²), against half the kernel
+  at one sampling pitch, K(sp)/2, with the support's h = r8/2 and sp the target's median nearest-neighbour spacing;
+  penalty radius² mean_y relu(1 − K(d_min)/(K(sp)/2))², length² like the transport, no bound, no weight. Its
+  threshold sqrt(sp² + 2h² ln 2) = 1.53 sp is the hard metric's 1.5 spacings without a constant of its own; d_min
+  is continuous in x whichever particle is nearest. The transport supplies mass; this term places the surface.
+  Static check on the same-code C_R end states (d8CR): it charges 87–93 % of the thin points the metric calls
+  uncovered (the 1.50–1.53 band holds the rest) and 0.0 % of the covered ones, the penalty at charged points 0.03–
+  0.10 R² (most gaps sit just past the threshold).
+  Runs: bunny, dragon, C and teapot at 40k, seed 97, C_R's flags otherwise, against the same-code C_R runs (d8CR);
+  and the synthetic plate `assets/plate.obj` (about 11 × 7.5 × 0.56 wu after normalisation, 1.8 cells thick, every
+  outer point thin), with its own C_R run, reported and not in the pass. Archives kept.
+  Pass: (A) at the end states the term charges ≥ 85 % of the metric-uncovered thin points and ≤ 1 % of the
+  covered ones, and its charged count is within 15 % of the metric's (the loss and the metric ask one question);
+  (B) `thin_uncovered` at or below C_R − 2 points on at least 3 of the 4 gallery meshes; silhouette within ±0.003;
+  wall ≤ 1.5×; no freeze C_R did not show; churn in the second half with closed ≥ opened (filling, not
+  relocation). Predictions: thin −2 to −4 points on the four; the plate's uncovered share falls by more; the
+  gradient ratio of order one mid-run as in D8. Render influence: the render channel is unchanged; g_share reported.
 - **D8, the target-surface coverage in place of the support (pre-registered 2026-09-30 15:25 CDT, before launch;
   repo_r16 = repo_r15 + `TargetCoverage`, the phase timers and the gradient-ratio telemetry).** The first step of
   the loss reformulation (four terms: transport, rendering, stability, cleanup). The support asks each body
@@ -396,6 +416,28 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**D8, 2026-09-30 15:40 CDT — the density coverage in place of the support: it gives a surface-side signal, and it
+is blind to the gaps that matter (pre-registered 15:25).** Against the same-code C_R runs (d8CR, repo_r16 with the
+ratio support), `tmp/d8_eval.py`, `tmp/d8_mech.py`.
+- (a) `thin_uncovered` bunny 11.2 → 10.8 (−0.5), dragon 15.5 → 13.5 (−2.1), C 11.9 → 10.7 (−1.3), teapot 15.3 →
+  14.0 (−1.3): lower on 4 of 4, at least a point on 3 of 4, inside the registered −1 to −3. (b) Silhouette within
+  ±0.001 (median +0.0002); nulls 0–3; wall 0.92× (the coverage's neighbour query is cheaper than the support's);
+  the c2f switch fired in every run; no freeze. (c) The gradient ratio ‖∇L_cov‖/‖∇S_ε‖ is 0.04–0.22 in the first
+  window, 0.9–1.6 mid-run and 0.5–1.1 at the end: the two parts of the geometry objective are of one size without
+  a weight. (d) On the rim particles (within 2h of an uncovered thin point) the coverage descent points into the
+  gap (cosine median +1.00, by the kernel's construction) and the transport descent partly so (+0.35 to +0.52);
+  behind the rim the transport points toward the gap weakly (+0.34 to +0.40); the coverage gradient reaches 1–6 %
+  of the particles; the churn per window is net closing early (C: 313 closed against 106 opened) and near
+  equilibrium late (3–26 against 2–14): filling, with no relocation loop.
+- Why only 1–2 points: at the thin points the metric calls uncovered (no body particle within 1.5 spacings; gaps
+  1.64–1.69 spacings at the median, 1.89 at p90) the body's kernel sum is 3.3–4.4× the target's own density
+  (p10 1.3–1.4), so the floor of half the target density charges 0 % of them. The target's density at a thin tip is
+  a fraction of a unit (few target neighbours) and the tails of body material 2–3 spacings away exceed half of it.
+  Halving the kernel width charges them (recall 100 %) but also 72–78 % of the covered ones; a floor from the
+  target's local nearest-sample distance puts the threshold at 2.1 spacings (thin tips have sparser neighbours) and
+  charges 10–15 %. Every floor taken from the target's LOCAL value collapses where the feature is thin. The metric
+  does not: it uses the sampling pitch. The definition changes accordingly (R9).
 
 **D7, 2026-09-30 15:16 CDT — two measurements for the loss reformulation (no algorithm change).**
 - PCGrad's actual effect, from the records of finished runs (`tmp/pcgrad_stats.py` on the tarball; `g_raw_cos`

@@ -32,7 +32,7 @@ import torch
 
 from .. import gpu
 
-FORMS = ("log", "ratio")                          # TransportSupport; "coverage" selects TargetCoverage
+FORMS = ("log", "ratio")                          # TransportSupport; "proximity" selects SurfaceProximity
 
 
 def deficit_penalty(t: torch.Tensor, form: str) -> torch.Tensor:
@@ -132,52 +132,52 @@ class TransportSupport:
         return energy + (e * (numerator / denominator)).to(energy.dtype)
 
 
-class TargetCoverage:
+class SurfaceProximity:
     """The fine part of the geometry objective read from the TARGET SURFACE, in place of the current-particle
-    support. At every outer target point y (the census outer set of the target's volume sample: fewer than 0.6 of
-    the median count of target points within two spacings, a shell about one spacing thick, area-uniform up to
-    sampling noise) the body's kernel sum s_b(y) over its k nearest body particles is held to the floor
-    f_t(y) = 1/2 the target's own leave-one-out kernel sum there, with the estimator, h and k of TransportSupport.
-    Penalty radius^2 mean_y relu(1 - s_b / f_t)^2: length^2 like the transport, at most radius^2, zero where the
-    body covers a patch as the target covers itself, largest at a patch with no body. The support asks "is there
-    enough body around this particle" and cannot see a target patch with no particle at it; this asks "is there
-    enough body at this target patch". No bound to the transport energy and no weight: a target-side deficit is
-    not the uniform pressure the support's bound guarded against. The hard counterpart is physmorph.thin's
-    uncovered share (a metric, not a loss)."""
+    support: at every outer target point y (the census outer set of the target's volume sample, a shell about one
+    spacing thick, area-uniform up to sampling noise), the kernel of the body's NEAREST particle K(d_min(y)) against
+    half the kernel at one sampling pitch, K(sp)/2, with the support's kernel and h (h = r8/2) and sp the target's
+    median nearest-neighbour spacing. Penalty radius^2 mean_y relu(1 - K(d_min) / (K(sp)/2))^2: length^2 like the
+    transport, at most radius^2, zero where a body particle sits within about 1.5 spacings of y (the threshold
+    sqrt(sp^2 + 2 h^2 ln 2) = 1.53 sp at h = sp, the hard metric's 1.5 spacings without a constant of its own) and
+    largest at a gap several spacings wide. It asks the metric's question, "is there body material at this target
+    sample", made differentiable: d_min is continuous in x (the nearest particle may change, its distance does not).
+    A density ratio against the target's own density (D8) cannot see the 1.6-2 spacing gaps of thin features,
+    because the target's density there is a fraction of a unit and the tails of body material 2-3 spacings away
+    exceed half of it. The sampling pitch does not collapse at thin features. Mass supply is the transport's part;
+    this term places the surface. No bound and no weight."""
 
     def __init__(self, target: torch.Tensor):
         from ..thin import outer_mask
         target = gpu.tensor(target, torch.float64)
         if target.ndim != 2 or target.shape[1] != 3 or len(target) < 2 or not bool(torch.isfinite(target).all()):
-            raise ValueError('coverage target must be finite (N,3), N >= 2')
+            raise ValueError('proximity target must be finite (N,3), N >= 2')
         self.k = k = min(32, len(target) - 1)
-        tree = gpu.KNN(target)
-        d = tree.query(target, k + 1)[0][:, 1:]
+        d = gpu.KNN(target).query(target, k + 1)[0][:, 1:]
         self.radius = gpu.median(d[:, min(7, k - 1)])
         if not self.radius > 0:
-            raise ValueError('coverage target must have positive neighbor spacing')
+            raise ValueError('proximity target must have positive neighbor spacing')
         self.h = .5 * self.radius
-        rho = torch.exp(-d * d / (2 * self.h * self.h)).sum(1)
-        outer = outer_mask(target.float(), gpu.median(d[:, 0]))
-        self.y = target[outer]                               # (M, 3) float64
-        self.floor_y = .5 * rho[outer]                       # (M,) float64, the target's own density there
-        self.weight = None                                   # no weight, no bound
+        self.spacing = gpu.median(d[:, 0])
+        self.floor = .5 * math.exp(-self.spacing ** 2 / (2 * self.h * self.h))   # K(sp) / 2
+        self.y = target[outer_mask(target.float(), self.spacing)]                # (M, 3) float64
+        self.weight = None                                                       # no weight, no bound
 
-    def body_sum(self, x):
-        """s_b(y): the body's kernel sum at every outer target point over its k nearest body particles
-        (indices detached, the kernel differentiable in x)."""
+    def nearest_kernel(self, x):
+        """K(d_min(y)) at every outer target point, over its k nearest body particles (indices detached, the
+        distance differentiable in x)."""
         k = min(self.k, len(x))
         idx = gpu.KNN(x.detach()).query(self.y, k)[1].to(x.device)
         y = self.y.to(device=x.device, dtype=x.dtype)
-        return torch.exp(-(x[idx] - y[:, None]).square().sum(2) / (2 * self.h * self.h)).sum(1)
+        d2 = (x[idx] - y[:, None]).square().sum(2).min(1).values
+        return torch.exp(-d2 / (2 * self.h * self.h))
 
     def penalty_per_point(self, x):
-        f = self.floor_y.to(device=x.device, dtype=x.dtype)
-        return self.radius ** 2 * torch.relu(1.0 - self.body_sum(x) / f).square()
+        return self.radius ** 2 * torch.relu(1.0 - self.nearest_kernel(x) / self.floor).square()
 
     def penalty(self, x):
         if x.ndim != 2 or x.shape[1] != 3 or len(x) < 2:
-            raise ValueError('coverage positions must have shape (N,3), N >= 2')
+            raise ValueError('proximity positions must have shape (N,3), N >= 2')
         return self.penalty_per_point(x).mean()
 
     def __call__(self, energy, x):
