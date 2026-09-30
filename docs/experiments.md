@@ -188,6 +188,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the thick body's coverage against PX85 (R2's fine-grid gain), the fine grid stays. Predictions: the gallery passes
   (R9's four gave −2.3 to −5.9); at 300k PX43 ≈ PX85 within spread and 25 % cheaper per window; the proximity's
   gradient ratio at 300k smaller than at 40k. Render influence: the render channel is unchanged; g_share reported.
+  Amended 16:03 CDT, launched 16:04 (before any 300k result was read): the six converged 300k runs would have taken about 2.5
+  hours, against the user's target of a 300k run in 15 minutes. They were killed at 7 minutes and replaced by the
+  dragon's three arms under a 35-window budget (about 15 minutes at the measured window cost), one per GPU beside
+  the gallery streams (`tmp/r10b.sh`). The 300k question becomes: at equal budget, which geometry gets furthest.
+  Pass at 300k, restated: PX43 within PX85's silhouette by 0.002 and its `thin_uncovered_world` by 1 point at the
+  budget, and at least 20 % cheaper per window; PX85 against CR as at 40k. The converged comparison waits.
 - **R9, surface proximity in place of the density coverage (pre-registered 2026-09-30 15:42 CDT, before launch;
   repo_r17 = repo_r16 with the fine term's definition replaced).** D8 showed the density ratio blind to the 1.6–2
   spacing gaps. The fine part of the geometry objective is now the target-to-body surface proximity: at every outer
