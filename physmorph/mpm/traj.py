@@ -2,7 +2,8 @@
 
 Each timestep reads state t and writes state t+1, so the tape retains every
 intermediate for the reverse pass. Fresh Trajectory per forward => clean tape.
-See docs/SPEC.md §4.2.
+Inputs may be CUDA torch tensors (the pipeline: copied on the device, no host round
+trip) or numpy arrays (tests).
 """
 from __future__ import annotations
 
@@ -10,16 +11,45 @@ import numpy as np
 import warp as wp
 
 from . import kernels as K
-from .state import MPMParams, make_state
+from .state import MPMParams, MPMState
 from .step import gate_omega, nominal_support
+
+
+def _is_tensor(a) -> bool:
+    return type(a).__module__.startswith("torch") and hasattr(a, "is_cuda")
+
+
+def to_wp(a, dtype, device="cuda", requires_grad=False):
+    """A Warp array owning a copy of `a` (CUDA tensor: device-to-device; numpy: upload)."""
+    if _is_tensor(a):
+        src = wp.from_torch(a.detach().float().contiguous(), dtype=dtype)
+        return wp.clone(src, requires_grad=requires_grad)
+    return wp.array(np.ascontiguousarray(a), dtype=dtype, device=device, requires_grad=requires_grad)
+
+
+def to_wp_int(a, device="cuda"):
+    if _is_tensor(a):
+        return wp.clone(wp.from_torch(a.detach().int().contiguous().reshape(-1), dtype=wp.int32))
+    return wp.array(np.ascontiguousarray(a, np.int32).reshape(-1), dtype=wp.int32, device=device)
+
+
+def scalar_or_array(val, N, device, requires_grad=False):
+    """A per-particle float array from a scalar (filled on the device) or an array."""
+    if isinstance(val, wp.array):
+        return val
+    if np.isscalar(val):
+        return wp.full(N, float(val), dtype=wp.float32, device=device, requires_grad=requires_grad)
+    if _is_tensor(val):
+        return to_wp(val.reshape(-1), wp.float32, device, requires_grad)
+    return wp.array(np.ascontiguousarray(np.broadcast_to(val, (N,)), np.float32), dtype=wp.float32,
+                    device=device, requires_grad=requires_grad)
 
 
 _ID_HOST: dict = {}
 
 
 def _id(N):
-    """(N,3,3) float32 identities. A fresh copy of a cached array (2026-09-23 speed pass: np.tile
-    took 0.13 s per call at 300k and ran 17 times a window; a memcpy is 5 ms)."""
+    """(N,3,3) float32 host identities (a fresh copy of a cached array)."""
     a = _ID_HOST.get(N)
     if a is None:
         a = np.tile(np.eye(3, dtype=np.float32), (N, 1, 1))
@@ -31,38 +61,39 @@ _ID_CACHE: dict = {}
 
 
 def _id_dev(N: int, device: str):
-    """Cached device identity (N,3,3): per-step F arrays are cloned from it on the device
-    instead of being copied from a fresh numpy identity each time (2026-09-16 profile:
-    host->device array construction was 40 % of a window)."""
+    """Cached device identity (N,3,3); per-step F arrays are cloned from it on the device."""
     key = (N, str(device))
     a = _ID_CACHE.get(key)
     if a is None:
-        a = wp.array(_id(N), dtype=wp.mat33, device=device)
+        a = wp.array(_id(N), dtype=wp.mat33, device=device)      # one upload per N and process
         _ID_CACHE[key] = a
     return a
 
 
-def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda") -> np.ndarray:
-    """Compute the reference particle volumes once, at the sampled source state.
-
-    ``V_p0`` is material data, not rollout state: callers should keep this returned
-    array and pass it to every subsequent :class:`Trajectory`.  The compatibility
-    fallback in ``Trajectory(vol0=None)`` still computes from that trajectory's
-    ``x0``, but the pipeline must not use the fallback after the source is deformed.
-    """
-    x0 = np.ascontiguousarray(x0, np.float32)
-    if x0.ndim != 2 or x0.shape[1] != 3:
-        raise ValueError(f"x0 must have shape (N,3), got {x0.shape}")
-    # Reuse the canonical one-time estimator rather than duplicating its P2G
-    # discretisation here.  Zero Lamé parameters are sufficient: dt=0 makes the
-    # volume pass mass-only.
+def compute_rest_volumes(x0, m, prm: MPMParams, device="cuda"):
+    """Reference particle volumes Vp0, once at the sampled source state (material data, not
+    rollout state: pass the result to every later Trajectory). x0: CUDA tensor -> returns a
+    CUDA tensor; numpy -> numpy."""
     from .step import compute_volumes
-    state = make_state(x0, m, 0.0, 0.0, prm, device=device, requires_grad=False)
+    N = int(x0.shape[0])
+    if len(x0.shape) != 2 or x0.shape[1] != 3:
+        raise ValueError(f"x0 must have shape (N,3), got {tuple(x0.shape)}")
+
+    def z(dt):
+        return wp.zeros(N, dtype=dt, device=device)
+
+    state = MPMState(x=to_wp(x0, wp.vec3, device), v=z(wp.vec3), C=z(wp.mat33),
+                     F=wp.clone(_id_dev(N, device)), Fp=wp.clone(_id_dev(N, device)), dFc=z(wp.mat33),
+                     P=z(wp.mat33), F_new=wp.clone(_id_dev(N, device)),
+                     m=scalar_or_array(m, N, device), vol=z(wp.float32),
+                     lam=z(wp.float32), mu=z(wp.float32), eta=z(wp.float32),
+                     grid_m=wp.zeros(prm.ngrid, dtype=wp.float32, device=device),
+                     grid_v=wp.zeros(prm.ngrid, dtype=wp.vec3, device=device), N=N, device=device)
     compute_volumes(state, prm)
-    vol0 = np.ascontiguousarray(state.vol.numpy(), np.float32)
-    if not np.isfinite(vol0).all() or (vol0 < 0.0).any():
+    vol = wp.to_torch(state.vol).clone()
+    if not bool(vol.isfinite().all()) or bool((vol < 0.0).any()):
         raise RuntimeError("rest-volume estimation produced invalid Vp0")
-    return vol0
+    return vol if _is_tensor(x0) else vol.cpu().numpy()
 
 
 _WARMED: set = set()          # devices whose kernels were launched once outside a capture
@@ -93,13 +124,14 @@ class Trajectory:
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
                  Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None,
                  bond_history=False, control_steps=None, polar_adjoint=False):
-        x0 = np.ascontiguousarray(x0, np.float32)
+        if not _is_tensor(x0):
+            x0 = np.ascontiguousarray(x0, np.float32)
         # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
         # accumulated grid arrays are re-zeroed per step and the rollout can be recorded as
         # a CUDA graph (capture/run) — the same kernels with no Python launch overhead.
         self.persistent = bool(persistent)
         self.graph = None
-        N = x0.shape[0]
+        N = int(x0.shape[0])
         self.N, self.T, self.prm, self.device = N, T, prm, device
         if control_steps is not None and (int(control_steps) != control_steps or not 1 <= control_steps <= T):
             raise ValueError("control_steps must be an integer between 1 and T")
@@ -108,13 +140,16 @@ class Trajectory:
         rg = requires_grad
 
         def A(a, dt, g=False):
-            return wp.array(np.ascontiguousarray(a), dtype=dt, device=device, requires_grad=g)
+            return to_wp(a, dt, device, g)
 
         def Z(dt, g=False):                    # device-side zeros: no host copy
             return wp.zeros(N, dtype=dt, device=device, requires_grad=g)
 
         def ID(g=False):                       # device-side identity clone
             return wp.clone(_id_dev(N, device), requires_grad=g)
+
+        def AZ(a, dt, g=False):                # the given state, or zeros
+            return Z(dt, g) if a is None else A(a, dt, g)
 
         def scratch(make, count):
             # Share only fully overwritten forward intermediates. C/Fraw must
@@ -124,13 +159,10 @@ class Trajectory:
                 return [make()] * count
             return [make() for _ in range(count)]
 
-        # CONTROL FIELD. Two modes, matching the two formulations:
-        #   * a single array  -> ONE dFc shared by every step (the greedy/per-frame scheme)
-        #   * a list of T arrays -> dFc[t], a control SEQUENCE, which is what the C++
-        #     CompGraph optimises (one dFc per layer, never reset between layers).
-        # `_dfc(t)` hides the difference from step().
+        # CONTROL FIELD: a single array (one dFc shared by every step) or a list of T arrays
+        # (a control SEQUENCE, dFc[t], the CompGraph formulation). `_dfc(t)` hides the difference.
         if dFc is None:
-            self.dFc = A(np.zeros((N, 3, 3), np.float32), wp.mat33, rg)
+            self.dFc = Z(wp.mat33, rg)
             self.dFc_seq = None
         elif isinstance(dFc, (list, tuple)):
             assert len(dFc) == T, f"dFc sequence must have T={T} entries, got {len(dFc)}"
@@ -140,54 +172,44 @@ class Trajectory:
             self.dFc = dFc
             self.dFc_seq = None
         self.release_dFc = Z(wp.mat33) if self.control_steps < T else None
-        # shared, non-differentiated
-        m_a = np.broadcast_to(m, (N,)).astype(np.float32)
-        self.m = A(m_a, wp.float32)
-
-        # material: scalar / numpy -> constant array; a wp.array passes through UNCHANGED so the
-        # torch bridge can hand in from_torch leaves (dL/d(lam,mu) flows back through the tape).
-        def M(val, default):
-            if isinstance(val, wp.array):
-                return val
-            if val is None:
-                val = default
-            a = np.full(N, float(val), np.float32) if np.isscalar(val) else val
-            return A(a, wp.float32, mat_grad)
-
-        self.lam = M(lam, 0.0)
-        self.mu = M(mu, 0.0)
-        self.eta = M(eta, 0.0)
-        self.Fp = A(_id(N) if Fp is None else Fp, wp.mat33)
+        # shared, non-differentiated; material: a wp.array passes through UNCHANGED so the
+        # torch bridge can hand in from_torch leaves (dL/d(lam,mu) flows back through the tape)
+        self.m = scalar_or_array(m, N, device)
+        self.lam = scalar_or_array(0.0 if lam is None else lam, N, device, mat_grad)
+        self.mu = scalar_or_array(0.0 if mu is None else mu, N, device, mat_grad)
+        self.eta = scalar_or_array(0.0 if eta is None else eta, N, device, mat_grad)
+        self.Fp = ID() if Fp is None else A(Fp, wp.mat33)
         if vol0 is None:
-            vol_a = np.zeros(N, np.float32)
+            self.vol = Z(wp.float32)
         else:
-            vol_a = np.ascontiguousarray(vol0, np.float32)
-            if vol_a.shape != (N,):
-                raise ValueError(f"vol0 must have shape ({N},), got {vol_a.shape}")
-            if not np.isfinite(vol_a).all() or (vol_a < 0.0).any():
+            if tuple(vol0.shape) != (N,):
+                raise ValueError(f"vol0 must have shape ({N},), got {tuple(vol0.shape)}")
+            if _is_tensor(vol0):
+                vol_ok = bool(vol0.isfinite().all()) and not bool((vol0 < 0).any())
+            else:
+                vol_ok = bool(np.isfinite(vol0).all()) and not bool((np.asarray(vol0) < 0.0).any())
+            if not vol_ok:
                 raise ValueError("vol0 must be finite and non-negative")
-        self.vol = A(vol_a, wp.float32)
+            self.vol = A(vol0, wp.float32)
         # per-step trajectory
-        F0a = _id(N) if F0 is None else F0
-        v0a = np.zeros((N, 3), np.float32) if v0 is None else v0
         self.x = [A(x0, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
-        self.v = [A(v0a, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
+        self.v = [AZ(v0, wp.vec3, rg) if t == 0 else Z(wp.vec3, rg) for t in range(T + 1)]
         # C[0] must be settable: the APIC affine field is part of the state. Dropping it when a
         # trajectory is restarted from a promoted state silently discards momentum content and
         # leaves an elastically loaded body frozen -> stored energy is re-released every restart.
-        C0a = np.zeros((N, 3, 3), np.float32) if C0 is None else C0
-        self.C = [A(C0a, wp.mat33, rg) if t == 0 else Z(wp.mat33, rg) for t in range(T + 1)]
-        self.F = [A(F0a, wp.mat33, rg) if t == 0 else ID(rg) for t in range(T + 1)]
+        self.C = [AZ(C0, wp.mat33, rg) if t == 0 else Z(wp.mat33, rg) for t in range(T + 1)]
+        self.F = [(ID(rg) if F0 is None else A(F0, wp.mat33, rg)) if t == 0 else ID(rg)
+                  for t in range(T + 1)]
         self.Fraw = [ID(rg) for t in range(T + 1)]
         # GEOMETRIC deformation gradient (render kinematics; kernels.k_geom_update):
         # transported by the velocity gradient only, no control, no smoothing. Optional
         # so the physics-only paths pay nothing for it.
         self.track_geom = bool(track_geom)
         if self.track_geom:
-            Fg0a = _id(N) if Fg0 is None else np.ascontiguousarray(Fg0, np.float32)
-            if Fg0a.shape != (N, 3, 3):
-                raise ValueError(f"Fg0 must have shape ({N},3,3), got {Fg0a.shape}")
-            self.Fg = [A(Fg0a, wp.mat33, rg) if t == 0 else ID(rg) for t in range(T + 1)]
+            if Fg0 is not None and tuple(Fg0.shape) != (N, 3, 3):
+                raise ValueError(f"Fg0 must have shape ({N},3,3), got {tuple(Fg0.shape)}")
+            self.Fg = [(ID(rg) if Fg0 is None else A(Fg0, wp.mat33, rg)) if t == 0 else ID(rg)
+                       for t in range(T + 1)]
         else:
             self.Fg = None
         self.P = scratch(lambda: Z(wp.mat33, rg), T)
@@ -203,15 +225,12 @@ class Trajectory:
         self.gm = [gm_l[t % n_grid] for t in range(T)]
         self.gmom = [gmom_l[t % n_grid] for t in range(T)]
         self.gvel = [gvel_l[t % n_grid] for t in range(T)]
-        # SUPPORT-GATED APIC (kernels.k_support_gate; docs/thin_feature_transport.md §3):
-        # omega_t[p] scales the affine term m*C in P2G at step t. Piecewise constant in x,
-        # so it is computed OUTSIDE the tape per step and read by the adjoint as a constant.
-        # n0 (nominal 3^3 count) is fixed by the caller (prm.gate_n0) so every window uses
-        # the same gate; the fallback measures it on this trajectory's x0.
-        self.omega1 = A(np.ones(N, np.float32), wp.float32)
+        # SUPPORT-GATED APIC (kernels.k_support_gate): omega_t[p] scales the affine term m*C in
+        # P2G at step t; computed outside the tape per step, read by the adjoint as a constant.
+        self.omega1 = wp.ones(N, dtype=wp.float32, device=device)
         # MATERIAL RE-COUPLING of decoupled particles (kernels.k_p2g / k_update): bonds =
-        # (nbr (N,K) int, rest (N,K) float) frozen for this rollout; the decoupling test is
-        # the 3^3-cell count of the support-gate kernels (outside the tape, piecewise const).
+        # (nbr (N,K) int, rest (N,K) float, frag (N,)) frozen for this rollout; the decoupling
+        # test is the 3^3-cell count of the support-gate kernels (outside the tape).
         self.bonds = None
         self.bond_K = 0
         self.bond_history = bool(bond_history)
@@ -220,61 +239,61 @@ class Trajectory:
         self.ncount0 = wp.zeros(N, dtype=wp.float32, device=device)
         if bonds is not None:
             nbr, rest, frag = bonds                  # frag: (N,) 1.0 = fragment particle
-            nbr = np.ascontiguousarray(nbr, np.int32)
             self.bond_K = int(nbr.shape[1])
-            self.bond_nbr = wp.array(nbr.reshape(-1), dtype=wp.int32, device=device)
-            self.bond_rest = wp.array(np.ascontiguousarray(rest, np.float32).reshape(-1), dtype=wp.float32, device=device)
-            self.bond_frag = wp.array(np.ascontiguousarray(frag, np.float32), dtype=wp.float32, device=device)
+            self.bond_nbr = to_wp_int(nbr, device)
+            self.bond_rest = A(rest.reshape(-1), wp.float32)
+            self.bond_frag = A(frag, wp.float32)
             self.bonds = True
-            # per-step decoupling test (docs/method.md 10.7): the 3^3-cell count of the current
-            # state, outside the tape (piecewise constant), OR-ed with the commit-time mask
+            # per-step decoupling test (the 3^3-cell count of the current state, outside the
+            # tape, piecewise constant), OR-ed with the commit-time fragment mask
             self.cnt_b = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
             self.ncount_b = wp.zeros(N, dtype=wp.float32, device=device)
-            self.omega_b = wp.array(np.ones(N, np.float32), dtype=wp.float32, device=device)
+            self.omega_b = wp.ones(N, dtype=wp.float32, device=device)
             self.frag_step = wp.zeros(N, dtype=wp.float32, device=device)
             # The adjoint reads the branch taken at EACH step, not the final
             # fracture mask. Forward-only rollouts may still reuse one buffer.
             self.frag_history = ([wp.zeros(N, dtype=wp.float32, device=device) for _ in range(T)]
                                  if rg and bond_history else None)
-        # OUTER-LAYER RELAXATION (kernels.k_layer_resid / k_layer_project; docs/surface_gradient.md
-        # §6): layer = (mask (N,), nrm (N,3), nbr (N,K), w (N,K), frac) frozen for this rollout.
+        # OUTER-LAYER RELAXATION (kernels.k_layer_resid / k_layer_project): layer = (mask (N,),
+        # nrm (N,3), nbr (N,K), w (N,K), frac[, g, depth[, ug]]) frozen for this rollout.
         # k_update writes the advected positions into xu[t+1]; the projection writes x[t+1].
         self.layer = None
         self.layer_F = False
         if layer is not None:
             lmask, lnrm, lnbr, lw, lfrac = layer[:5]
-            # P3 (kernels.k_layer_F; docs/final_plan.md 2): optional (g (N,K,3), depth) — the u channel
-            # through F: k_update writes Fu[t+1], k_layer_F writes F[t+1] = (I + grad delta) Fu[t+1]
+            # P3 (kernels.k_layer_F): optional (g (N,K,3), depth), the u channel through F
             lg = layer[5] if len(layer) > 5 else None
             ldepth = float(layer[6]) if len(layer) > 6 else 0.0
-            # P2 (surface_recon.layer_u_gate): optional per-particle gate on u (1 where u may act)
+            # optional per-particle gate on u (1 where u may act)
             lug = layer[7] if len(layer) > 7 else None
-            self.layer_ug = A(np.ones(N, np.float32) if lug is None else np.ascontiguousarray(lug, np.float32), wp.float32)
-            self.layer_K = int(np.asarray(lnbr).shape[1])
-            self.layer_mask = A(np.ascontiguousarray(lmask, np.float32), wp.float32)
-            self.layer_nrm = wp.array(np.ascontiguousarray(lnrm, np.float32), dtype=wp.vec3, device=device)
-            self.layer_nbr = wp.array(np.ascontiguousarray(lnbr, np.int32).reshape(-1), dtype=wp.int32, device=device)
-            self.layer_w = wp.array(np.ascontiguousarray(lw, np.float32).reshape(-1), dtype=wp.float32, device=device)
+            self.layer_ug = wp.ones(N, dtype=wp.float32, device=device) if lug is None else A(lug, wp.float32)
+            self.layer_K = int(lnbr.shape[1])
+            self.layer_mask = A(lmask, wp.float32)
+            self.layer_nrm = A(lnrm, wp.vec3)
+            self.layer_nbr = to_wp_int(lnbr, device)
+            self.layer_w = A(lw.reshape(-1), wp.float32)
             self.layer_frac = float(lfrac)
             self.xu = scratch(lambda: Z(wp.vec3, rg), T + 1)
             self.ld = scratch(lambda: Z(wp.float32, rg), T + 1)
             # the position-mode control leaf u (N,): a warp view of the caller's tensor when
             # given (layer_u), else a zero buffer the eval path assigns into
-            self.layer_u = layer_u if layer_u is not None else wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg)
+            self.layer_u = (layer_u if layer_u is not None
+                            else wp.zeros(N, dtype=wp.float32, device=device, requires_grad=rg))
             self.layer_frac_u = 1.0 / float(self.control_steps)
             self.release_u = Z(wp.float32) if self.control_steps < T else None
             self.layer = True
             if lg is not None:
                 self.layer_F = True
-                self.layer_g = wp.array(np.ascontiguousarray(lg, np.float32).reshape(-1, 3), dtype=wp.vec3, device=device)
+                self.layer_g = A(lg.reshape(-1, 3), wp.vec3)
                 self.layer_inv_depth = (1.0 / float(ldepth)) if ldepth > 0 else 0.0   # 0: no normal term
                 self.Fu = scratch(lambda: ID(rg), T + 1)
         self.gate = bool(prm.gate_r_hi > prm.gate_r_lo)
         if self.gate:
             self.cnt = wp.zeros(prm.ngrid, dtype=wp.int32, device=device)
-            self.ncount = A(np.zeros(N, np.float32), wp.float32)
-            self.omega = [A(np.ones(N, np.float32), wp.float32) for t in range(T)]
-            self.gate_n0 = float(prm.gate_n0) if prm.gate_n0 > 0 else nominal_support(x0, prm, device)
+            self.ncount = wp.zeros(N, dtype=wp.float32, device=device)
+            self.omega = [wp.ones(N, dtype=wp.float32, device=device) for t in range(T)]
+            x0h = x0.detach().cpu().numpy() if _is_tensor(x0) else x0
+            self.gate_n0 = float(prm.gate_n0) if prm.gate_n0 > 0 else nominal_support(x0h, prm, device)
         if vol0 is None:
             # Backward-compatible single-rollout fallback.  Production callers
             # must compute Vp0 at source initialisation and reuse it explicitly.

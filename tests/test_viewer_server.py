@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 
 from physmorph.viewer.server import Hub, LiveServer, grid_fields, pack_state, particle_fields
-from physmorph.pipeline.optimizer import _linearized_work
+from physmorph.pipeline.window.telemetry import linearized_work as _linearized_work
 
 
 def _decode(blob):

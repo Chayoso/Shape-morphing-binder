@@ -1,4 +1,5 @@
-"""One-sided-W1 cleanup term (fringe tranche, rationale.md §7) — 3D loss-grid DT.
+"""One-sided W1 cleanup term on the target's 3-D distance transform, the isolation gate, the
+near-band pull and the candidate validity check.
 
 The 2D multi-view variant was falsified by forensics (visual hull hides interior
 concavities); these tests pin the 3D mechanism's claims, including the Codex round's
@@ -100,49 +101,6 @@ def test_subcell_fringe_regime_has_gradient():
         assert float(x.grad.norm()) > 0.1, f"dead zone at {off} world units"
 
 
-def test_w1_budget_self_annealing():
-    """§7.5: one scalar caps total pull mass. Early bulk-outside windows scale down
-    (dose-response protection); late floater windows run at full per-particle pull."""
-    from physmorph.losses.volumetric import w1_budget
-    rng = np.random.default_rng(9)
-    t = torch.tensor(rng.uniform(-0.5, 0.5, (2000, 3)).astype(np.float32))
-    grid = target_mass_grid(t, torch.ones(len(t)), GMIN, DX, DIMS)
-    dt3 = target_dt_grid(grid, DX, DIMS, clamp=6.0)
-    # early: a third of the body far outside support
-    outside = torch.tensor(rng.uniform(1.5, 2.5, (1000, 3)).astype(np.float32))
-    x_early = torch.cat([t, outside])
-    s_early = w1_budget(x_early, dt3, GMIN, DX, DIMS, budget_frac=0.01)
-    assert s_early < 0.05                        # ~30/1000: heavily scaled down
-    # late: a handful of floaters
-    x_late = torch.cat([t, outside[:12]])
-    s_late = w1_budget(x_late, dt3, GMIN, DX, DIMS, budget_frac=0.01)
-    assert s_late == 1.0                         # full pull on the residue
-
-
-def test_deficit_field_marks_underfill_and_saturates():
-    """Hole-side W1 (§7.5): the deficit field must be nonzero near an under-covered
-    target region, pull toward it, and vanish (None) once the body covers the target."""
-    from physmorph.losses.volumetric import deficit_field
-    rng = np.random.default_rng(11)
-    t = torch.tensor(rng.uniform(-0.5, 0.5, (3000, 3)).astype(np.float32))
-    body_half = t[t[:, 0] < 0.1]                 # body covers only the left part
-    tm = target_mass_grid(t, torch.ones(len(t)), GMIN, DX, DIMS)
-    df = deficit_field(body_half, torch.ones(len(body_half)), tm, GMIN, DX, DIMS)
-    assert df is not None
-    ddt, dmass = df
-    assert dmass > 0
-    # Opus F1 regression: EVERY deficit cell must lie in TRUE target support
-    occ = (tm.reshape(DIMS) > 1e-6).numpy()
-    dt_grid = ddt.reshape(DIMS).numpy()
-    assert not ((dt_grid == 0) & ~occ).any(), "deficit mask leaked outside support"
-    # a particle left of the deficit is pulled +x toward it
-    x = torch.tensor([[-0.2, 0.0, 0.0]], requires_grad=True)
-    d_w1(x, torch.ones(1), ddt, GMIN, DX, DIMS).backward()
-    assert -x.grad[0][0] > 0                     # descent moves toward +x (the deficit)
-    # full coverage -> no deficit
-    assert deficit_field(t, torch.ones(len(t)), tm, GMIN, DX, DIMS) is None
-
-
 def test_knn_gate_selectivity():
     """§7.6: the restored kNN gate silences dense mass (bulk AND dense off-target
     clumps) while a lone stray keeps the full pull."""
@@ -159,12 +117,16 @@ def test_knn_gate_selectivity():
 def test_state_ok_rejects_trajectory_inversion():
     """Guard v2: a candidate whose rollout inverted at ANY step is rejected even when
     the terminal state recovered (hero7/hero9: F_invert_steps=1 slipped through)."""
-    from physmorph.pipeline.optimizer import _state_ok
+    from types import SimpleNamespace
+    from physmorph.pipeline.window.rollout import state_ok
     xT = torch.zeros(4, 3); FT = torch.eye(3).repeat(4, 1).reshape(4, 9)
     vT = torch.zeros(4, 3)
-    assert _state_ok((xT, FT, vT, 0.5))
-    assert not _state_ok((xT, FT, vT, -0.01))       # mid-trajectory inversion
-    assert _state_ok((xT, FT, vT))                  # legacy 3-tuple still works
+
+    def e(jt, in_domain=True):
+        return SimpleNamespace(xT=xT, FT=FT, vT=vT, jt=jt, in_domain=in_domain)
+    assert state_ok(e(0.5))
+    assert not state_ok(e(-0.01))                   # mid-trajectory inversion
+    assert not state_ok(e(0.5, in_domain=False))    # a frame outside the domain
 
 
 def test_nn_band_pull_and_berth():
@@ -177,49 +139,11 @@ def test_nn_band_pull_and_berth():
     x0 = torch.tensor([[0.75, 0.0, 0.0],         # 0.25 off the face: in band
                        [0.60, 0.0, 0.0],         # 0.10 < berth 0.15: rim
                        [1.20, 0.0, 0.0]])        # 0.70 > far 0.45: DT-W1's job
-    idx, elig = nn_band_assign(x0, t, spacing, berth_k=1.5, far_k=4.5)
+    from physmorph import gpu
+    idx, elig = nn_band_assign(x0, gpu.KNN(t), spacing, berth_k=1.5, far_k=4.5)
     assert float(elig[0]) == 1.0 and float(elig[1]) == 0.0 and float(elig[2]) == 0.0
     x = x0.clone().requires_grad_(True)
     d_nn_band(x, torch.ones(3), t, idx, elig, 1.5 * spacing).backward()
     g_ = x.grad
     assert float(g_[1].norm()) == 0.0 and float(g_[2].norm()) == 0.0
     assert -g_[0][0] < 0                         # descent pulls toward -x (the face)
-
-
-def test_nn_band_far_tail_is_capacity_bounded_and_targets_worst_points():
-    """Clustered far floaters are visible to a bounded tail, never all activated."""
-    from physmorph.losses.volumetric import nn_band_assign
-    g = torch.linspace(-0.5, 0.5, 11)
-    t = torch.stack(torch.meshgrid(g, g, g, indexing="ij"), -1).reshape(-1, 3)
-    x0 = torch.tensor([[0.55, 0.0, 0.0],          # inside berth
-                       [0.75, 0.0, 0.0],          # ordinary near-band point
-                       [1.10, 0.0, 0.0],          # far, but not worst
-                       [1.30, 0.0, 0.0],          # second-worst far
-                       [1.50, 0.0, 0.0]])         # worst far
-    _, elig = nn_band_assign(x0, t, 0.1, berth_k=1.5, far_k=4.5,
-                             tail_frac=0.2)        # ceil(.2 * 5) = one far point
-    assert elig.tolist() == [0.0, 1.0, 0.0, 0.0, 1.0]
-
-
-def test_fill_v4_assignment_targets_deficit_cells():
-    """Fill v4 (§7.13): pairs anchor on under-covered TRUE-support cells; matched
-    donors are pulled toward the cell center; pair count respects the cap."""
-    from physmorph.losses.volumetric import deficit_assign, d_fill_pairs
-    rng = np.random.default_rng(7)
-    t = torch.tensor(rng.uniform(-0.5, 0.5, (3000, 3)).astype(np.float32))
-    body = t[t[:, 0] < 0.1].clone()              # right part of the target uncovered
-    tm = target_mass_grid(t, torch.ones(len(t)), GMIN, DX, DIMS)
-    pr = deficit_assign(body, torch.ones(len(body)), tm, GMIN, DX, DIMS,
-                        cap_frac=0.05)
-    assert pr is not None
-    pidx, centers = pr
-    assert len(pidx) <= int(0.05 * len(body)) + 1          # capacity cap
-    assert float(centers[:, 0].min()) > 0.0                # anchors in the uncovered half
-    x = body.clone().requires_grad_(True)
-    d_fill_pairs(x, pidx, centers, 0.5 * DX).backward()
-    g = x.grad[pidx]
-    to_center = centers - body[pidx]
-    cos = ((-g) * to_center).sum(1) / (g.norm(dim=1) * to_center.norm(dim=1) + 1e-9)
-    assert float(cos.mean()) > 0.9                         # descent pulls INTO the cells
-    # full coverage -> no pairs
-    assert deficit_assign(t, torch.ones(len(t)), tm, GMIN, DX, DIMS) is None

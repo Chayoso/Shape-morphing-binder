@@ -96,10 +96,14 @@ def knn_self_torch(x_t, k: int):
     `cKDTree(x).query(x, k)`, without a host round-trip."""
     import torch
     N = int(x_t.shape[0])
-    if not gpu_available() or not x_t.is_cuda or N < 4096 or N <= k:
+    if not x_t.is_cuda:
         d, i = _cpu_knn(x_t.detach().cpu().numpy().astype(np.float32), k)
         return (torch.as_tensor(np.asarray(d, np.float32), device=x_t.device),
                 torch.as_tensor(np.asarray(i, np.int64), device=x_t.device))
+    if not gpu_available() or N < 4096 or N <= k:
+        from ..gpu import knn as _device_knn       # small clouds: the device KD-tree, no host copy
+        d, i = _device_knn(x_t.detach().float(), k)
+        return d.float(), i
     kern = _state["kernel"]
     device = str(x_t.device)
     xt = x_t.detach().contiguous().float()
@@ -115,11 +119,10 @@ def knn_self_torch(x_t, k: int):
     out_i = wp.zeros((N, k), dtype=int, device=device)
     out_d = wp.zeros((N, k), dtype=float, device=device)
     cnt = wp.zeros(N, dtype=int, device=device)
-    c = None
+    c = wp.to_torch(cnt)                         # counts stay on the device
     for _ in range(6):
         grid.build(points=pts, radius=float(R))
         wp.launch(kern, dim=N, inputs=[grid.id, pts, float(R), int(k), out_i, out_d, cnt], device=device)
-        c = cnt.numpy()
         if int(c.min()) >= k:
             break
         R *= 2.0
@@ -128,13 +131,12 @@ def knn_self_torch(x_t, k: int):
     d = torch.sqrt(wp.to_torch(out_d).clone())
     idx = wp.to_torch(out_i).clone().long()
     short = c < k
-    if short.any():
-        from scipy.spatial import cKDTree
-        xn = xt.cpu().numpy()
-        dd, ii = cKDTree(xn).query(xn[short], k=k, workers=-1)
-        sel = torch.as_tensor(np.where(short)[0], device=x_t.device)
-        d[sel] = torch.as_tensor(np.asarray(dd, np.float32), device=x_t.device)
-        idx[sel] = torch.as_tensor(np.asarray(ii, np.int64), device=x_t.device)
+    if bool(short.any()):
+        from ..gpu import knn as _device_knn        # rows still short: the device KD-tree
+        sel = torch.nonzero(short).squeeze(1)
+        dd, ii = _device_knn(xt, k, queries=xt[sel])
+        d[sel] = dd.float()
+        idx[sel] = ii
     return d, idx
 
 

@@ -10,60 +10,34 @@ def cloud():
     return np.random.default_rng(13).normal(0, .2, (48, 3))
 
 
-def _berth_args(**overrides):
-    from argparse import Namespace
-    options = dict(nn_sampling_berth=True, nn_berth_k=1., nn_far_k=1000., w_nn=.2,
-                   solver_mode='settled_transport', support_weight=8.,
-                   arms='render_full_dt_iso_nn')
-    options.update(overrides)
-    return Namespace(**options)
-
-
-def test_sampling_berth_disabled_does_not_inspect_target_or_change_manual_value():
-    from scripts import pipeline_run
-    assert pipeline_run._resolve_nn_berth(
-        _berth_args(nn_sampling_berth=False, nn_berth_k=1.25, solver_mode='legacy'), None) == 1.25
-
-
 def test_sampling_berth_uses_target_spacing_and_is_rigid_scale_invariant():
-    from scripts import pipeline_run
+    from physmorph.prepare import sampling_berth
     # Cube corners + centre: median NN=sqrt(3)/2, median eighth NN=sqrt(3).
     target = np.array([[x, y, z] for x in (0., 1.) for y in (0., 1.)
                        for z in (0., 1.)] + [[.5, .5, .5]])
-    assert pipeline_run._resolve_nn_berth(_berth_args(), target) == pytest.approx(2.)
+    assert sampling_berth(target, 1000.) == pytest.approx(2.)
     transformed = 3 * target[:, [1, 2, 0]] + 2
-    assert pipeline_run._resolve_nn_berth(_berth_args(), transformed) == pytest.approx(2.)
-
-
-@pytest.mark.parametrize('override', [dict(solver_mode='legacy'), dict(support_weight=0.),
-    dict(support_weight=float('nan')), dict(nn_berth_k=1.5), dict(nn_far_k=.5),
-    dict(w_nn=0.), dict(w_nn=-1.), dict(w_nn=float('nan')),
-    dict(arms='phys')])
-def test_sampling_berth_rejects_incompatible_options(override):
-    from scripts import pipeline_run
-    with pytest.raises(ValueError, match='nn_sampling_berth'):
-        pipeline_run._resolve_nn_berth(_berth_args(**override), cloud())
+    assert sampling_berth(transformed, 1000.) == pytest.approx(2.)
 
 
 @pytest.mark.parametrize('target', [np.zeros((9, 3)), np.zeros((8, 3)),
                                     np.full((9, 3), np.nan)])
 def test_sampling_berth_rejects_undefined_spacing(target):
-    from scripts import pipeline_run
-    with pytest.raises(ValueError, match='nn_sampling_berth'):
-        pipeline_run._resolve_nn_berth(_berth_args(), target)
+    from physmorph.prepare import sampling_berth
+    with pytest.raises(ValueError, match='sampling berth'):
+        sampling_berth(target, 1000.)
 
 
-def test_support_is_opt_in_and_requires_settled_transport():
-    assert getattr(PipelineConfig(), 'support_weight', None) == 0.
-    with pytest.raises(ValueError, match='settled_transport'):
-        PipelineConfig(support_weight=8.)
-    assert PipelineConfig(solver_mode='settled_transport', support_weight=8.).support_weight == 8.
+def test_sampling_berth_must_stay_inside_the_far_band():
+    from physmorph.prepare import sampling_berth
+    with pytest.raises(ValueError, match='nn_far_k'):
+        sampling_berth(cloud(), .5)
 
 
 @pytest.mark.parametrize('weight', [-1., float('nan'), float('inf')])
 def test_support_rejects_invalid_weights(weight):
     with pytest.raises(ValueError, match='support_weight'):
-        PipelineConfig(solver_mode='settled_transport', support_weight=weight)
+        PipelineConfig(support_weight=weight)
 
 
 def test_support_matches_brute_force_neighbors_and_has_true_gradient():
@@ -143,7 +117,7 @@ def test_support_preserves_rigid_motion_and_length_squared_units():
 
 
 def test_shared_transport_energy_preserves_disabled_path_and_trial_values():
-    from physmorph.losses.ot import GridSinkhornLoss
+    from physmorph.losses.grid_ot import GridSinkhornLoss
     from physmorph.losses.support import TransportSupport
     from physmorph.losses.volumetric import rasterize_mass
     target = torch.tensor(cloud() + 1.5)
@@ -168,19 +142,16 @@ def test_shared_transport_energy_preserves_disabled_path_and_trial_values():
         torch.testing.assert_close(enabled.state_energy(x, mass, v, .1), got.detach())
 
 
-def test_target_build_attaches_support_and_rejects_nonuniform_particle_masses():
-    from physmorph.pipeline.runner import build_target
+def test_target_build_attaches_support():
+    from physmorph.pipeline.target import build_target
     from physmorph.mpm.state import MPMParams
     target = cloud().astype(np.float32)
-    cfg = PipelineConfig(device='cpu', solver_mode='settled_transport', support_weight=8., loss_res=8)
-    prm = MPMParams(dx=1., nx=16, ny=16, nz=16)
+    cfg = PipelineConfig(loss_res=8, render_res=16, dt_res=16)
+    prm = MPMParams(dx=.25, nx=16, ny=16, nz=16, grid_min=(-2., -2., -2.))
     pack = build_target(target, prm, cfg)
-    assert pack.support is not None
-    with pytest.raises(ValueError, match='uniform'):
-        build_target(target, prm, cfg, w_src=np.linspace(.5, 1.5, len(target)))
-    with pytest.raises(ValueError, match='uniform'):
-        build_target(target, prm, cfg, w_tgt=np.linspace(.5, 1.5, len(target)))
-
+    assert pack.support is not None and pack.support.weight == cfg.support_weight
+    assert build_target(target, prm, PipelineConfig(loss_res=8, render_res=16, dt_res=16,
+                                                    support_weight=0.)).support is None
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA required')
 def test_gpu_neighbors_match_exact_distances_including_duplicates():

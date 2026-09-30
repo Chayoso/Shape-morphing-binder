@@ -8,38 +8,35 @@ not a whole-trajectory guarantee or a post-simulation particle correction.
 from __future__ import annotations
 
 import math
-import numpy as np
+
 import torch
-from scipy.spatial import cKDTree
+
+from .. import gpu
 
 
 class TransportSupport:
-    def __init__(self, target, weight: float):
-        target = np.asarray(target)
-        if target.ndim != 2 or target.shape[1] != 3 or len(target) < 2 or not np.isfinite(target).all():
+    def __init__(self, target: torch.Tensor, weight: float):
+        target = gpu.tensor(target, torch.float64)          # scalar geometry in float64, like cKDTree
+        if target.ndim != 2 or target.shape[1] != 3 or len(target) < 2 or not bool(torch.isfinite(target).all()):
             raise ValueError('support target must be finite (N,3), N >= 2')
         if not math.isfinite(weight) or weight < 0:
             raise ValueError('support weight must be finite and nonnegative')
         self.weight = float(weight)
         k = min(32, len(target) - 1)
-        d = cKDTree(target).query(target, k=k + 1, workers=4)[0][:, 1:]
-        self.radius = float(np.median(d[:, min(7, k - 1)]))
+        d = gpu.knn(target, k + 1)[0][:, 1:]                       # float64, like cKDTree
+        self.radius = gpu.median(d[:, min(7, k - 1)])
         if not self.radius > 0:
             raise ValueError('support target must have positive neighbor spacing')
         self.h = .5 * self.radius
-        rho = np.exp(-d * d / (2 * self.h * self.h)).sum(1)
-        self.log_floor = float(np.log(.5 * np.median(rho)))
+        rho = torch.exp(-d * d / (2 * self.h * self.h)).sum(1)
+        self.log_floor = float(math.log(.5 * gpu.median(rho)))
 
     def penalty(self, x):
         if x.ndim != 2 or x.shape[1] != 3 or len(x) < 2:
             raise ValueError('support positions must have shape (N,3), N >= 2')
+        from ..render.knn_gpu import knn_self_torch
         k = min(32, len(x) - 1)
-        if x.is_cuda and x.dtype == torch.float32:
-            from ..render.knn_gpu import knn_self_torch
-            _, indices = knn_self_torch(x, k + 1)
-        else:
-            indices = torch.as_tensor(cKDTree(x.detach().cpu().numpy()).query(
-                x.detach().cpu().numpy(), k=k + 1, workers=4)[1], device=x.device)
+        _, indices = knn_self_torch(x, k + 1)
         # Exclude identity, not column zero: duplicate positions can tie with self.
         is_self = indices == torch.arange(len(x), device=x.device)[:, None]
         order = torch.argsort(is_self.to(torch.int8), dim=1, stable=True)

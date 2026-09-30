@@ -88,7 +88,10 @@ def test_recoupled_adjoint_matches_finite_difference(kind):
 
 
 def test_fragment_mask_flags_only_broken_off_material():
-    from physmorph.pipeline.runner import fragment_mask
+    from physmorph.pipeline.run.state import fragment_mask as _fm
+
+    def fragment_mask(x, prm):
+        return _fm(torch.as_tensor(x, device="cuda"), prm).cpu().numpy()
     prm = _prm()
     body = _cloud(600)                                      # a blob in [-1,1]^3
     tip = body[:40].copy(); tip[:, 0] += 1.4                # a thin feature sticking out (contiguous cells)
@@ -100,7 +103,10 @@ def test_fragment_mask_flags_only_broken_off_material():
 
 
 def test_fragment_mask_tolerates_a_one_cell_gap_in_a_thin_feature():
-    from physmorph.pipeline.runner import fragment_mask
+    from physmorph.pipeline.run.state import fragment_mask as _fm
+
+    def fragment_mask(x, prm):
+        return _fm(torch.as_tensor(x, device="cuda"), prm).cpu().numpy()
     prm = _prm()                                            # dx 0.5
     body = _cloud(600)
     gap_tip = body[:40].copy(); gap_tip[:, 0] += 1.7        # starts ~0.7 wu past the body: a one-cell gap

@@ -16,7 +16,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from physmorph.pipeline.runner import _surface_weights  # noqa: E402
+from physmorph.render.surface_weights import surface_weights as _surface_weights  # noqa: E402
 from physmorph.render.covariance import sigma0_from_nn  # noqa: E402
 from physmorph.render.photoreal import render_3dgs  # noqa: E402
 from physmorph.sampling import load_normalized  # noqa: E402

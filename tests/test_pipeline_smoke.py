@@ -1,68 +1,15 @@
-"""End-to-end smoke of the blessed path on the warp CPU device: tiny clouds, tiny
-horizons — catches integration breakage (shapes, device wiring, bookkeeping) that
-py_compile cannot. Physics quality is NOT asserted here; that is the GPU gate run.
-"""
+"""End-to-end smoke tests of the settled-transport pipeline on a small cloud (CUDA), and unit
+tests of its pieces: PCGrad, the frame store, window acceptance and the rest gate."""
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
+import torch
 
-from physmorph import metrics
 from physmorph.mpm.state import MPMParams
 from physmorph.pipeline import PipelineConfig, run_pipeline
 
-DEV = "cpu"
-
-
-@pytest.mark.parametrize("solver_mode,compression", [
-    ("legacy", 8),
-    ("settled_transport", 0),
-])
-def test_run_archive_preserves_arrays_and_legacy_compression(tmp_path, solver_mode, compression):
-    import zipfile
-    from scripts import pipeline_run
-
-    arrays = dict(frames=np.arange(18, dtype=np.float32).reshape(2, 3, 3),
-                  deliver_n=np.int64(2), render_mask=np.array([True, False, True]),
-                  orient=np.str_("y-up"), truncation=np.str_('{"reason": null}'),
-                  Fg_commits=np.zeros((0, 0, 3, 3), np.float32))
-    path = tmp_path / "run.npz"
-    pipeline_run._save_run_archive(path, solver_mode, **arrays)
-    with zipfile.ZipFile(path) as archive:
-        assert all(member.compress_type == compression for member in archive.infolist())
-    with np.load(path, allow_pickle=False) as archive:
-        assert set(archive.files) == set(arrays)
-        for key, value in arrays.items():
-            assert archive[key].dtype == np.asarray(value).dtype
-            np.testing.assert_array_equal(archive[key], value)
-
-
-@pytest.mark.parametrize('n,compression', [(99999, 8), (100000, 0)])
-def test_run_archive_preserves_upstream_particle_threshold(tmp_path, n, compression):
-    import zipfile
-    from scripts.pipeline_run import _save_run_archive
-
-    path = tmp_path / 'run.npz'
-    source = np.zeros((n, 3), np.float32)
-    _save_run_archive(path, 'legacy', src=source)
-    with zipfile.ZipFile(path) as archive:
-        assert archive.getinfo('src.npy').compress_type == compression
-    with np.load(path) as archive:
-        np.testing.assert_array_equal(archive['src'], source)
-
-
-@pytest.mark.parametrize('velocity,rejected_velocity', [(.04, 0.), (.01, 99.)])
-def test_rest_gate_uses_delivered_commit_not_rejected_trials(velocity, rejected_velocity):
-    from types import SimpleNamespace
-    from scripts.pipeline_run import eval_gates
-    res = dict(guards={}, deliver_n_used=2, history=[
-        dict(frame_end=2, v_mean=velocity),
-        dict(frame_end=3, v_mean=99.),
-        dict(null_commit=1, outer_rejected=1, v_mean=rejected_velocity),
-    ])
-    met = dict(jitter_rel=0., bbox_diag=1., hole_frac=0., hole_frac_tgt=0.,
-               outside_max=0., stray_max=0.)
-    gates = eval_gates('test', res, met, SimpleNamespace(dt=.1), T=1)
-    assert gates['drift_rel'] == pytest.approx(.1 * velocity)
-    assert gates['G3_rest'] == (velocity < .03)
+GUARDS = {"clamped", "nan_x", "nan_state", "F_reset", "F_flip", "F_invert_steps"}
 
 
 @pytest.fixture(scope="module")
@@ -79,196 +26,98 @@ def clouds():
 
 
 def _cfg(**kw):
-    base = dict(T=3, iters=2, animations=2, loss_res=12, render_views=2,
-                render_elevs=(0.0, 0.5), render_res=24, device=DEV, patience=2)
+    base = dict(T=3, iters=2, animations=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
+                render_res=24, dt_res=32, patience=2, c2f_at=0.0)
     base.update(kw)
     return PipelineConfig(**base)
 
 
-def _check_result(res, cfg, n):
-    assert len(res["frames"]) == len(res["F_frames"])
-    for fr in (res["frames"][0], res["frames"][-1]):
-        assert fr.shape == (n, 3) and np.isfinite(fr).all()
-    assert set(res["guards"]) == {"clamped", "nan_x", "nan_state", "F_reset", "F_flip",
-                                  "F_invert_steps"}
-    recs = [h for h in res["history"] if "d_vol" in h]
-    assert recs, "no optimisation window produced a record"
-    for k in ("loss", "d_vol", "kin", "v_mean", "move", "Jmin_traj", "accepted"):
-        assert k in recs[-1]
+def _windows(res):
+    return [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")]
 
 
-def test_phys_arm_runs(prm, clouds):
+def test_render_run_is_live_and_frames_are_promoted_states(prm, clouds):
     src, tgt = clouds
-    res = run_pipeline(src, tgt, prm, _cfg(), log=lambda *_: None)
-    _check_result(res, _cfg(), len(src))
-    assert all(h["d_render"] is None for h in res["history"] if "d_vol" in h)
-    met = metrics.summarize(res["frames"], tgt, F_frames=res["F_frames"],
-                            n_held=res["n_held"])
-    assert np.isfinite(met["chamfer"]) and 0 <= met["sil_iou"] <= 1
-
-
-def test_render_arm_runs_and_lambda_is_live(prm, clouds):
-    src, tgt = clouds
-    cfg = _cfg(lambda_auto=0.5)
+    cfg = _cfg()
     seen = []
     res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None,
                        on_iter=lambda _i, _x, _F, tele: seen.append(tele))
-    _check_result(res, cfg, len(src))
-    recs = [h for h in res["history"] if "d_vol" in h]
-    assert all(r["d_render"] is not None for r in recs)
-    assert all(r["lambda"] > 0 for r in recs)
-    assert seen and seen[-1]["_grad_phys"].shape == (len(src), 3)
-    assert seen[-1]["_grad_render"].shape == (len(src), 3)
-    assert np.isfinite(seen[-1]["_grad_render"]).all()
+    assert set(res["guards"]) == GUARDS and all(v == 0 for v in res["guards"].values())
+    wins = _windows(res)
+    assert wins, "no window was accepted"
+    for r in wins:
+        assert r["lambda"] > 0 and r["d_render"] is not None and np.isfinite(r["selection_merit"])
+        for k in ("loss", "d_vol", "kin", "v_mean", "move", "Jmin_traj", "transport_energy", "g_share"):
+            assert k in r
+        # the archived window end IS the promoted state, and each window adds 2T frames
+        assert np.isfinite(res["frames"].x[r["frame_end"] - 1]).all()
+    assert wins[0]["frame_end"] == 1 + 2 * cfg.T
+    assert seen and seen[-1]["_grad_render"].shape == (len(src), 3)
     assert np.abs(seen[-1]["_grad_render"]).sum() > 0
+    assert 1 <= res["deliver_n"] <= len(res["frames"])
 
 
-def test_material_arm_returns_bounded_s(prm, clouds):
+def test_render_off_twin_keeps_the_render_telemetry(prm, clouds):
     src, tgt = clouds
-    cfg = _cfg(lambda_auto=0.5, opt_material=True, mat_clamp=1.0)
-    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
-    _check_result(res, cfg, len(src))
-    assert res["s"] is not None and res["s"].shape == (2, len(src))
-    assert np.abs(res["s"]).max() <= 1.0 + 1e-6
-    assert np.isfinite(res["s"]).all()
+    res = run_pipeline(src, tgt, prm, _cfg(render_weight_scale=0.0, animations=1),
+                       log=lambda *_: None)
+    wins = _windows(res)
+    assert wins and all(r["lambda"] == 0.0 and r["g_share"] == 0.0 for r in wins)
+    assert all(r["d_render"] is not None for r in wins)
 
 
 def test_pcgrad_projection_math():
-    from physmorph.pipeline.optimizer import _pcgrad
-    import torch
+    from physmorph.pipeline.window.solve import pcgrad
     gp = [torch.tensor([1.0, 0.0, 0.0])]
-    gr_conf = [torch.tensor([-2.0, 1.0, 0.0])]      # cos < 0 vs gp
-    out, conflicted = _pcgrad(gp, gr_conf)
-    assert conflicted
-    assert abs(float((out[0] * gp[0]).sum())) < 1e-6    # conflicting component removed
+    out = pcgrad(gp, [torch.tensor([-2.0, 1.0, 0.0])])          # cos < 0 vs gp
+    assert abs(float((out[0] * gp[0]).sum())) < 1e-6            # conflicting component removed
     assert torch.allclose(out[0], torch.tensor([0.0, 1.0, 0.0]), atol=1e-6)
-    out2, c2 = _pcgrad(gp, [torch.tensor([0.5, 3.0, 0.0])])   # cos > 0: untouched
-    assert not c2 and torch.allclose(out2[0], torch.tensor([0.5, 3.0, 0.0]))
+    out2 = pcgrad(gp, [torch.tensor([0.5, 3.0, 0.0])])           # cos > 0: untouched
+    assert torch.allclose(out2[0], torch.tensor([0.5, 3.0, 0.0]))
 
 
-def test_control_h1_spreads_surface_signal_without_rescaling():
-    import torch
-    from physmorph.pipeline.optimizer import _control_h1
-    # Chain topology: an impulse at particle 0 must reach neighbours, while the
-    # preconditioner preserves the joint gradient norm used by lambda balancing.
-    knn = torch.tensor([[1], [0], [1], [2]])
-    g = torch.zeros(1, 4, 3, 3)
-    g[0, 0, 0, 0] = 1.0
-    out = _control_h1(g, knn, iters=3, kappa=2.0)
-    assert out[0, 1:].abs().sum() > 0
-    assert torch.allclose(out.norm(), g.norm(), rtol=1e-5, atol=1e-6)
+def test_frame_store_keeps_F_at_the_stride_and_window_ends():
+    from physmorph.pipeline.run.state import FrameStore
+    x0 = torch.zeros(5, 3, device="cuda")
+    store = FrameStore(x0, stride=4)
+    xs = [x0 + k for k in range(1, 6)]                            # steps 1..5 of a 6-step window
+    Fs = [torch.eye(3, device="cuda").repeat(5, 1, 1) * (1 + k) for k in range(1, 6)]
+    store.add_window(xs, Fs, x0 + 6, Fs[-1] * 10)
+    assert len(store) == 7 and set(store.F) == {0, 4, 6}
+    store.hold()
+    idx, F = store.archive_F()
+    assert idx == [0, 4, 7] and np.allclose(F[-1], store.F[6])
+    store.truncate(1)
+    assert len(store) == 1 and set(store.F) == {0}
 
 
-def test_surface_weights_are_bounded_and_nonuniform(clouds):
-    from physmorph.pipeline.runner import _surface_weights
-    w = _surface_weights(clouds[0], k=8, fraction=0.35, floor=0.05)
-    assert w.shape == (len(clouds[0]),)
-    assert np.isfinite(w).all() and w.min() >= 0.05 and w.max() <= 1.0
-    assert float(w.std()) > 0.05
+def test_selection_rejects_a_merit_runaway_and_stops_on_repeated_rejects():
+    from physmorph.pipeline.run.selection import Selection
+    sel = Selection(PipelineConfig(reject_stop=3, patience=10))
+    disp = torch.ones(6)
+    rec = {"selection_merit": 1.0, "transport_energy": 1.0}
+    reject, brake, improved = sel.judge(rec, {"phys": 1.0}, disp)
+    assert not reject and improved
+    assert not sel.accepted(rec, 0, disp, improved)
+    stops = []
+    for _ in range(3):
+        rec = {"selection_merit": 1.2, "transport_energy": 1.0}   # +20 %: beyond the 5 % brake
+        reject, brake, _ = sel.judge(rec, {"phys": 1.0}, disp)
+        assert reject and brake
+        stops.append(sel.rejected(rec, brake, replay_rel=0.0))
+    assert stops == [False, False, True]                           # reject_stop
+    assert rec["replay"] == 1                                      # the same merit again
 
 
-def test_surface_only_render_covector_is_zero_on_frozen_interior(prm, clouds):
-    """The render channel can observe a material skin without dropping MPM mass."""
-    from physmorph.pipeline.runner import _surface_weights
-    src, tgt = clouds
-    cfg = _cfg(lambda_auto=0.5, surface_grad_frac=0.35,
-               render_surface_only=True, iters=1, animations=1)
-    seen = []
-    run_pipeline(src, tgt, prm, cfg, log=lambda *_: None,
-                 on_iter=lambda _i, _x, _F, tele: seen.append(tele))
-    mask = _surface_weights(src, cfg.surface_grad_k, cfg.surface_grad_frac,
-                            cfg.surface_grad_floor) > 0.5
-    assert seen and mask.any() and (~mask).any()
-    gr = seen[-1]["_grad_render"]
-    assert np.abs(gr[mask]).sum() > 0.0
-    assert np.abs(gr[~mask]).sum() == 0.0
-
-
-def test_pace_is_an_upper_bound_per_window(prm, clouds):
-    """The window may not cut more than `pace` of its starting loss (adversarial finding:
-    the old break-after-accept form allowed a single step to snap the morph)."""
-    from physmorph.pipeline.optimizer import optimize_window
-    from physmorph.pipeline.render_loss import LambdaBalancer
-    from physmorph.pipeline.runner import build_target
-    src, tgt_x = clouds
-    cfg = _cfg(pace=0.15, iters=6)
-    pack = build_target(tgt_x, prm, cfg)
-    bal = LambdaBalancer(0.0)
-    fr, F_seq, end, s, whist, stats = optimize_window(
-        src, prm, cfg, pack, bal, log=lambda *_: None)
-    assert whist and stats["L_start"] is not None
-    floor = (1 - cfg.pace) * stats["L_start"]
-    assert whist[-1]["loss"] >= floor * 0.999       # never below the pace floor
-
-
-def test_render_lg_end_to_end(prm, clouds):
-    """The local-global runner path itself (adversarial finding: it had zero e2e
-    coverage — findings about guard counting and telemetry lived in unexecuted code)."""
-    src, tgt_x = clouds
-    cfg = _cfg(lambda_auto=0.5, lg_sweeps=3)
-    res = run_pipeline(src, tgt_x, prm, cfg, log=lambda *_: None)
-    recs = [h for h in res["history"] if "d_vol" in h]
-    assert recs
-    lg_recs = [r for r in recs if "lg_move" in r]
-    assert lg_recs, "local pass never ran"
-    for r in lg_recs:
-        assert r["lg_lam"] > 0 and r["lg_nodes"] > 0
-        assert np.isfinite(r["lg_gnorm"])
-    assert np.isfinite(res["frames"][-1]).all()
-    assert set(res["guards"]) == {"clamped", "nan_x", "nan_state", "F_reset", "F_flip",
-                                  "F_invert_steps"}
-
-
-def test_frames_are_promoted_states(prm, clouds):
-    """The archived last frame of each window must BE the promoted state (adversarial
-    finding: raw rollout was archived while the clamped state was simulated)."""
-    src, tgt = clouds
-    cfg = _cfg()
-    res = run_pipeline(src, tgt, prm, cfg, log=lambda *_: None)
-    recs = [h for h in res["history"] if "d_vol" in h]
-    n_windows = len(recs)
-    # frame index of the k-th commit boundary is (k+1)*T
-    for k in range(n_windows):
-        b = (k + 1) * cfg.T
-        assert np.isfinite(res["frames"][b]).all()
-
-
-def test_render_dt_end_to_end(prm, clouds):
-    """Pointwise-W1 spray wiring: DT maps built in build_target, term active in
-    phys_total, run finishes with finite state (fringe tranche, rationale.md §7)."""
-    src, tgt_x = clouds
-    cfg = _cfg(lambda_auto=0.5, w_dt=0.5, w_creg=50.0)
-    res = run_pipeline(src, tgt_x, prm, cfg, log=lambda *_: None)
-    _check_result(res, cfg, len(src))
-    recs = [h for h in res["history"] if "d_vol" in h]
-    assert recs and all(r["d_render"] is not None for r in recs)
-    # causal wiring (Codex finding 14): the W1 scalar is computed on every archived
-    # state and feeds the freeze track
-    assert all(r["d_dt"] is not None and np.isfinite(r["d_dt"]) for r in recs)
-    assert recs[-1]["d_dt"] <= recs[0]["d_dt"] * 1.5   # the term acts, never explodes
-
-
-def test_w1_independent_of_render_channel(prm, clouds):
-    """Codex finding 12: w_dt>0 with lambda_auto=0 must still build and apply the term."""
-    src, tgt_x = clouds
-    res = run_pipeline(src, tgt_x, prm, _cfg(w_dt=0.5), log=lambda *_: None)
-    recs = [h for h in res["history"] if "d_vol" in h]
-    assert recs and all(r["d_dt"] is not None for r in recs)
-    assert all(r["d_render"] is None for r in recs)
-
-
-def test_lg_with_w1_is_rejected(prm, clouds):
-    """Codex finding 7: the local pass's quadratic energy excludes the W1 term."""
-    import pytest as _pytest
-    src, tgt_x = clouds
-    with _pytest.raises(ValueError):
-        run_pipeline(src, tgt_x, prm, _cfg(lambda_auto=0.5, lg_sweeps=2, w_dt=0.5),
-                     log=lambda *_: None)
-
-
-def test_fill_arm_end_to_end(prm, clouds):
-    """Hole-side W1 wiring: deficit field built per window, run finishes finite."""
-    src, tgt_x = clouds
-    cfg = _cfg(lambda_auto=0.5, w_dt=0.5, w_fill=0.5, assim_iso=True)
-    res = run_pipeline(src, tgt_x, prm, cfg, log=lambda *_: None)
-    _check_result(res, cfg, len(src))
+@pytest.mark.parametrize('velocity,rejected_velocity', [(.04, 0.), (.01, 99.)])
+def test_rest_gate_uses_delivered_commit_not_rejected_trials(velocity, rejected_velocity):
+    from scripts.pipeline_run import eval_gates
+    res = dict(guards={}, deliver_n=2, history=[
+        dict(frame_end=2, v_mean=velocity),
+        dict(frame_end=3, v_mean=99.),
+        dict(null_commit=1, outer_rejected=1, v_mean=rejected_velocity),
+    ])
+    met = dict(jitter_rel=0., bbox_diag=1., hole_frac=0., hole_frac_tgt=0., outside_max=0., stray_max=0.)
+    gates = eval_gates(res, met, SimpleNamespace(dt=.1), T=1)
+    assert gates['drift_rel'] == pytest.approx(.1 * velocity)
+    assert gates['G3_rest'] == (velocity < .03)

@@ -70,20 +70,22 @@ def derive(N: int, volume: float, extent: float, dt: float, young: float, poisso
                           kernel_support_ratio=float(2.0 * dx / spacing))
 
 
-def measure_ppc(x: np.ndarray, dx: float, grid_min: float) -> dict:
-    """Occupancy statistics of a cloud on a dx grid: mean/median particles per
-    OCCUPIED cell, the fraction of occupied cells below 4 ppc (hole risk) and the
-    max nearest-neighbour spacing over the kernel support (2 dx)."""
-    from scipy.spatial import cKDTree
-    x = np.ascontiguousarray(x, np.float32)
-    cell = np.floor((x - grid_min) / dx).astype(np.int64)
-    _, counts = np.unique(cell, axis=0, return_counts=True)
-    nn = cKDTree(x).query(x, k=2, workers=-1)[0][:, 1] if len(x) > 1 else np.zeros(1)
-    return {"ppc_mean": float(counts.mean()), "ppc_median": float(np.median(counts)),
+def measure_ppc(x, dx: float, grid_min: float) -> dict:
+    """Occupancy statistics of a cloud on a dx grid (on the device): mean/median particles
+    per OCCUPIED cell, the fraction of occupied cells below 4 ppc (hole risk) and the max
+    nearest-neighbour spacing over the kernel support (2 dx)."""
+    import torch
+    from .. import gpu
+    xt = gpu.tensor(x)
+    cell = torch.floor((xt - grid_min) / dx).long()
+    _, counts = torch.unique(cell, dim=0, return_counts=True)
+    counts = counts.double()
+    nn = gpu.knn(xt, 2)[0][:, 1] if len(xt) > 1 else torch.zeros(1, dtype=torch.float64)
+    return {"ppc_mean": float(counts.mean()), "ppc_median": gpu.median(counts),
             "occupied_cells": int(len(counts)),
-            "frac_cells_below_4ppc": float((counts < 4).mean()),
+            "frac_cells_below_4ppc": float((counts < 4).double().mean()),
             "nn_max_over_support": float(nn.max() / (2.0 * dx)),
-            "nn_median": float(np.median(nn))}
+            "nn_median": gpu.median(nn)}
 
 
 def report(d: Discretisation, x: np.ndarray | None = None) -> str:

@@ -4,13 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "physmorph"
-version = "2.0.0"
-description = "Differentiable elastoplastic MPM morphing (Warp + torch + 3DGS)"
+version = "3.0.0"
+description = "Render-guided differentiable MPM shape morphing, settled transport (Warp + torch + CuPy, CUDA only)"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
   "warp-lang>=1.9",
   "torch>=2.5",
+  "cupy-cuda12x>=13",   # the run stage: device KD-tree and ndimage (CUDA 12 NVRTC)
   "numpy",
   "scipy",
   "trimesh",

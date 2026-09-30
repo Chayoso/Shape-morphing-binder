@@ -27,7 +27,7 @@ import threading
 import time
 from pathlib import Path
 
-from .server import _json_value
+from .packets import _json_value
 
 HISTORY_CAP = 800
 

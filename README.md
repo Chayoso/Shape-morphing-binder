@@ -59,7 +59,8 @@ spacing.
 
 **Verification.** The test suite passes on the GPU server. The gradient path and the line-search path agree to
 seven digits, and finite differences agree with autograd within 3 % for every loss term at windows 1 and 20 of a 300k
-run.
+run. `scripts/probes/settled/gradcheck.py` repeats the check per channel (physics, render, cleanup) and control leaf
+(`dFc`, `u`); the `u` channel is strongly nonlinear, so its check needs steps that change the loss by 1e-5 of itself.
 
 **Rendering.** `scripts/render_splat_photoreal.py` renders the 4K deliverable: each particle is a disc-shaped
 Gaussian whose normal comes from the smoothed density gradient and whose radius is the target spacing scaled by the
@@ -68,15 +69,17 @@ renders a quick two-view video with the same splats.
 
 ## Run (on the GPU server)
 
-All experiments run on hyde06. The pipeline needs a CUDA GPU.
+All experiments run on hyde06. The run stage is GPU-only: particle states stay on the device between windows, and
+neighbour queries and grid morphology use CuPy (device KD-tree, `cupyx.scipy.ndimage`) through DLPack, with no CPU
+fallback. The only CPU work is the prepare stage (mesh loading and volume sampling with trimesh), which is cached.
+`scripts/ops/hyde06_env.sh` puts the isolated CuPy folder on `PYTHONPATH`.
 
 ```bash
 ssh hyde06j
-source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, RECIPE, SETTLED
+source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, CuPy
 
-# sphere -> bunny, 300k particles
-$PY scripts/pipeline_run.py --arms render_full_dt_iso_nn --tgt assets/bunny.obj --n 300000 --seed 97 \
-    $RECIPE $SETTLED --out $OUT/bunny
+# sphere -> bunny, 300k particles (the recipe is the default)
+$PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --out $OUT/bunny
 
 # the 4K video
 PYTHONPATH=$REPO $PY scripts/render_splat_photoreal.py $OUT/bunny_render_full_dt_iso_nn.npz $OUT/bunny_4k.mp4 \
@@ -84,7 +87,9 @@ PYTHONPATH=$REPO $PY scripts/render_splat_photoreal.py $OUT/bunny_render_full_dt
 ```
 
 `--render_weight_scale 0` is the render-off twin. `--reject_stop` and `--patience` set how long a converged run keeps
-trying. Deploy code with `git archive` into `REPO`. All four GPUs may be used when free; never stop other users' jobs.
+trying; `--ot_iters` and `--support_weight` are the two validation constants. Deploy code with `git archive` into
+`REPO`. All four GPUs may be used when free; never stop other users' jobs. Import `physmorph` before `torch` in new
+scripts: the server's torch loads a CUDA 11 NVRTC that CuPy must not bind to (`physmorph/__init__.py`).
 
 ## Working rules
 
@@ -98,14 +103,22 @@ trying. Deploy code with `git archive` into `REPO`. All four GPUs may be used wh
 ## Layout
 
 ```
-physmorph/mpm/        Warp MLS-MPM kernels, trajectory rollout and adjoint, outer-layer relaxation
-physmorph/pipeline/   window optimiser, runner, config, render losses
-physmorph/losses/     transport (grid Sinkhorn), local support, volumetric terms
-physmorph/render/     splat renderers and their support, surface reconstruction, covariance
-physmorph/sampling/   mesh loading and volume sampling
-scripts/              pipeline_run.py, renderers, ops/ (server environment), probes/ (measurements)
-tests/                pytest suite (run on the GPU server)
-assets/               source and target meshes
+physmorph/gpu.py          device helpers of the run stage (CuPy KD-tree and ndimage through DLPack)
+physmorph/prepare.py      the prepare stage: sampling (cached), the discretisation, the near-band berth
+physmorph/pipeline/       config, target (grids, images, calibrations), render losses,
+    window/               one window: setup, objective, rollouts, solve (Adam + line search), telemetry, layer
+    run/                  the window loop: device state and archive, acceptance and stopping, runner
+physmorph/losses/         grid Sinkhorn transport, local support, rasterisation and cleanup terms, silhouette
+physmorph/mpm/            Warp MLS-MPM kernels, trajectory rollout and adjoint, F repair
+physmorph/render/         splat renderers and their support, surface reconstruction, covariance
+physmorph/sampling/       mesh loading and volume sampling
+physmorph/viewer/         live and file-backed viewer
+scripts/                  pipeline_run.py, renderers, ops/ (server environment), probes/settled/ (measurements)
+tests/                    pytest suite (run on the GPU server)
+assets/                   source and target meshes
 ```
+
+Every source file is under 500 lines. The earlier pipelines' code, options and probes are at the tags
+`v3-grid-gs-final` and `settled-base-prerefactor`.
 
 Credits: settled transport by Michael Jin (2026-09-29), on the PhysMorph code release.

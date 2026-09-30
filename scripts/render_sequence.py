@@ -78,7 +78,7 @@ def load_render_archive(path: str | Path, surface_frac: float = 0.50,
             and np.isfinite(frames[indices]).all() and np.isfinite(Fs).all()):
         raise ValueError("render archive contains non-finite selected state")
 
-    from physmorph.pipeline.runner import _surface_weights
+    from physmorph.render.surface_weights import surface_weights as _surface_weights
     source_mask = (out["render_mask"].astype(bool) if out["render_mask"] is not None
                    else (_surface_weights(source, 24, surface_frac, 0.05) > 0.5))
     target_mask = (out["target_render_mask"].astype(bool)

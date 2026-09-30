@@ -1,7 +1,7 @@
 """Persistent trajectories (speed pass 2026-09-16): a buffer set rolled out many times with
 different controls must give the rollout a fresh Trajectory gives (the grid accumulators are
 re-zeroed per step), on the CPU bit-identically and on CUDA as a captured graph; the material
-re-coupling bonds ride along; the torch assimilation equals the numpy one."""
+re-coupling bonds ride along."""
 import numpy as np
 import pytest
 import torch
@@ -133,34 +133,6 @@ def test_forward_scratch_reuse_preserves_all_states_and_replays(dev, layer_mode)
         arrays = getattr(adj, name)
         assert len({a.ptr for a in arrays}) == len(arrays)
 
-
-def test_torch_assimilation_matches_numpy():
-    if not torch.cuda.is_available():
-        pytest.skip("no CUDA")
-    from physmorph.plasticity import assimilation as A
-    rng = np.random.default_rng(9)
-    N = 25000                                               # above the GPU threshold
-    F = (np.eye(3, dtype=np.float32) + 0.3 * rng.standard_normal((N, 3, 3))).astype(np.float32)
-    Fp = (np.eye(3, dtype=np.float32) + 0.1 * rng.standard_normal((N, 3, 3))).astype(np.float32)
-    # numpy reference: the same call with the GPU branch switched off
-    got = A.assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=True)
-    saved = A._torch_cuda
-    try:
-        A._torch_cuda = lambda: False
-        ref = A.assimilate_elastic(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=True)
-    finally:
-        A._torch_cuda = saved
-    assert np.allclose(got, ref, atol=2e-4), float(np.abs(got - ref).max())
-    grow = 1.0 + 0.2 * rng.uniform(0, 1, N).astype(np.float32)
-    got_g = A.assimilate_growth(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=True,
-                                grow=grow, grow_band=1.5)
-    try:
-        A._torch_cuda = lambda: False
-        ref_g = A.assimilate_growth(F, Fp, eta=0.5, smin=0.2, smax=5.0, isochoric=True,
-                                    grow=grow, grow_band=1.5)
-    finally:
-        A._torch_cuda = saved
-    assert np.allclose(got_g, ref_g, atol=2e-4), float(np.abs(got_g - ref_g).max())
 
 
 def test_shared_grid_rollout_equals_per_step_grid_rollout():
