@@ -194,10 +194,12 @@ def test_line_search_probe_is_diagnostic_only(prm, clouds, monkeypatch):
 def test_committed_windows_record_the_support_split(prm, clouds):
     """Each committed window records E, B, the support-gradient weight w (E / (E + w B))^2 and
     the per-particle penalty's quantiles; the ratio form keeps every particle at most radius^2."""
-    for form in ("log", "ratio"):
-        cfg = _cfg(animations=1, support_form=form)
-        res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+    from physmorph.thin import thin_set
+    for form, two in (("log", False), ("ratio", False), ("ratio", True)):
+        cfg = _cfg(animations=1, support_form=form, support_two_sided=two)
+        res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None, thin=thin_set(clouds[1], prm.dx, 300))
         rec = next(r for r in res["history"] if r.get("frame_end"))
         E, B, w = rec["sup_E"], rec["sup_B"], cfg.support_weight
         assert E > 0 and B >= 0 and rec["sup_w_eff"] == pytest.approx(w * (E / (E + w * B)) ** 2)
         assert rec["sup_pen_med"] <= rec["sup_pen_p99"] <= rec["sup_pen_max"]
+        assert (rec["sup_B_target"] is not None) == two and 0. <= rec["thin_uncovered"] <= 1.

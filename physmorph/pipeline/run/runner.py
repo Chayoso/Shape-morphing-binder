@@ -18,6 +18,7 @@ from ...losses.volumetric import d_vol_density, d_w1, rasterize_mass
 from ...mpm.state import MPMParams
 from ...mpm.traj import compute_rest_volumes
 from ...plasticity import assimilate_elastic
+from ...thin import thin_metrics
 from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer
 from ..target import build_target, calibrate_units, rebuild_for_resolution
@@ -31,7 +32,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "render_work_x", "render_work_F", "phys_work", "phys_work_x", "phys_work_F",
                 "phys_work_v", "step_norm", "render_cos", "phys_cos", "predicted_decrease",
                 "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_probe",
-                "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med")
+                "sup_E", "sup_B", "sup_B_target", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med")
 
 
 def _host(t):
@@ -39,11 +40,12 @@ def _host(t):
 
 
 def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=print,
-                 on_commit=None, on_iter=None, F_stride: int | None = None):
+                 on_commit=None, on_iter=None, F_stride: int | None = None, thin=None):
     """Morph source -> target. Returns a dict with the archived frames (FrameStore), the
     per-window history, the guard counts and the delivered slice. on_commit(a, x, F, v, rec)
     fires after every judged window and on_iter(it, x, F, tele) after every accepted
-    iteration (live viewer hooks, host arrays)."""
+    iteration (live viewer hooks, host arrays). thin: a physmorph.thin.ThinSet whose coverage
+    every committed window records (measurement only)."""
     gpu.require_cuda()
     cfg = dataclasses.replace(cfg)                      # c2f edits render_res on this copy
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
@@ -131,7 +133,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
                                     isochoric=True)
         frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F)
-        rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm)
+        rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin)
         res.commit = commit = None          # release the window's buffers before the next one
         sel.check_lambda(rec, float(res.hist[-1]["lambda"] or 0.0))
         components = {"phys": rec["transport_energy"], "render": rec["d_sil"], "dt": rec["d_dt"]}
@@ -183,7 +185,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             "balancer": {"cap": balancer.cap, "cap_rel": balancer.cap_rel, "alpha_lam": balancer.alpha_lam}}
 
 
-def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm) -> dict:
+def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) -> dict:
     """The window's history record, measured on the PROMOTED state."""
     w, stats = res.hist[-1], res.stats
     with torch.no_grad():
@@ -204,6 +206,9 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm) -> dict:
            "move": float((x - x_start).norm(dim=1).mean()), "Jmin": jmin,
            "Jmin_traj": commit.jmin_traj, **counts,
            "selection_merit": stats["selection_merit"], "ot_div": ot_div, "transport_energy": energy}
+    if thin is not None:
+        m = thin_metrics(x, thin)
+        rec.update(thin_uncovered=m.get("thin_uncovered"), thin_uncovered_world=m.get("thin_uncovered_world"))
     return rec
 
 

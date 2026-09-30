@@ -67,6 +67,8 @@ class PipelineConfig:
                                       #   (False: half the target median density, one global floor)
     support_form: str = "log"       # per-particle deficit penalty: "log" relu(log f - log s)^2 or "ratio"
                                     #   relu(1 - s/f)^2 (the missing fraction of the local mass, at most 1)
+    support_two_sided: bool = False # the support also at every target point (body density there vs the floor):
+                                    #   a symmetric local density match; needs the ratio form
     loss_follows_n: bool = False    # loss cell = MPM cell x min(1, (mass_ref_n / N)^(1/3)): the transport grid
                                     #   and blur follow the particle spacing above the reference N
 

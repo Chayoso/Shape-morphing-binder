@@ -191,13 +191,13 @@ def test_gpu_neighbor_radius_expansion_reuses_completed_rows(monkeypatch):
     assert allocations == [(N, k), (N, k), N]
 
 
-def sheet_on_block():
-    """A thick block of lattice points with a one-layer sheet standing on it: the sheet is
+def sheet_on_block(z=.7):
+    """A thick block of lattice points with a one-layer sheet above it at height z: the sheet is
     sampled at the block's spacing but has fewer neighbours, so its kernel density is lower."""
     g = np.arange(6) * .1
     block = np.array([[x, y, z] for x in g for y in g for z in g])
     s = np.arange(10) * .1
-    sheet = np.array([[x, y, .7] for x in s for y in s])
+    sheet = np.array([[x, y, z] for x in s for y in s])
     return np.concatenate([block, sheet])
 
 
@@ -299,3 +299,46 @@ def test_ratio_form_has_true_gradient_and_spares_the_target_with_its_own_floor()
     sheet = sheet_on_block()
     ref = TransportSupport(sheet, weight=8., target_ref=True, form="ratio")
     assert float(ref.penalty(torch.tensor(sheet))) == 0.
+
+
+def test_two_sided_support_sees_a_missing_thin_sheet_the_one_sided_one_cannot():
+    """The body is the block without the sheet: every body particle has the target's density around it, so
+    the one-sided support is zero; the two-sided one charges the sheet's target points (no body near them)
+    and pulls the block's top layer toward the sheet. The target itself pays nothing either way."""
+    from physmorph.losses.support import TransportSupport
+    target = sheet_on_block()
+    block = torch.tensor(target[:216].copy())
+    one = TransportSupport(target, weight=8., target_ref=True, form="ratio")
+    two = TransportSupport(target, weight=8., target_ref=True, form="ratio", two_sided=True)
+    assert float(one.penalty(block)) == 0.
+    assert float(two.penalty(block)) > 0.
+    assert float(two.penalty(torch.tensor(target))) == 0.
+    per = two.target_penalty_per_point(block)
+    assert float(per[216:].min()) > 0. and float(per[:216].max()) < float(per[216:].min())
+    assert float(per.max()) <= two.radius ** 2                        # bounded per target point
+    x = block.clone().requires_grad_(True)
+    g = torch.autograd.grad(two.penalty(x), x)[0]
+    top = x.detach()[:, 2] > .45
+    assert float(g[top, 2].sum()) < 0.                                 # descent moves the top layer up
+    energy = lambda q: two((q - .1).square().mean(), q)
+    gE = torch.autograd.grad(energy(x), x)[0]
+    direction = torch.tensor(np.random.default_rng(41).normal(size=x.shape))
+    direction /= direction.norm()
+    eps = 1e-6
+    fd = (energy(x.detach() + eps * direction) - energy(x.detach() - eps * direction)) / (2 * eps)
+    assert float((gE * direction).sum()) == pytest.approx(float(fd), rel=1e-3, abs=1e-9)
+    with pytest.raises(ValueError, match="ratio form"):
+        TransportSupport(target, weight=8., form="log", two_sided=True)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA required')
+def test_thin_set_finds_the_sheet_and_measures_its_coverage():
+    from physmorph.thin import thin_metrics, thin_set
+    target = sheet_on_block(z=.9)                  # four spacings above: a separate feature (at two the
+    ts = thin_set(target, cell=.15, ref_n=len(target))   # sampling's covering radius bridges the gap)
+    pts = ts.points.cpu().numpy()
+    on_sheet = np.isclose(pts[:, 2], .9, atol=1e-6)
+    assert on_sheet.sum() == 100                                        # the one-layer sheet is thin
+    assert thin_metrics(target, ts)["thin_uncovered"] == 0.
+    m = thin_metrics(target[:216], ts)                                  # the block alone
+    assert m["thin_uncovered"] >= on_sheet.mean() - 1e-9 and m["thin_gap_median_sp"] > 1.5

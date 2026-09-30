@@ -101,6 +101,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   resolution → the render sees them but does not fix them, and the limit is elsewhere (gate, weighting).
   Prediction: at 300k mostly the resolution case (a pixel is 2.7 spacings and the alpha saturates at a few particles
   per pixel); at 40k a mix of resolution and occlusion.
+- **R4, the support made two-sided (pre-registered 2026-09-29 20:35 CDT, before launch).** The support is one-sided.
+  It asks each body particle for enough body around it, so it cannot see target material with no body near it
+  (T2: no term sees an empty thin region in 3D at the particle scale). `--support_two_sided` applies the same
+  estimator (32 nearest, h = r8 / 2), the same floor and the same ratio form at every target point as well, with the
+  body's kernel density there against the floor there, and averages the two sides. Weight, bound and channels are
+  unchanged, and there is no new constant. A new measurement, not in the objective (`physmorph/thin.py`), is
+  recorded in every run: the thin set is the outer target points thinner than two MPM cells, with its uncovered
+  share (`thin_uncovered`, 1.5 target spacings; `thin_uncovered_world`) at the end and after every committed window.
+  Stage 1: the 40k gallery (19 meshes, seed 97) with C_R and with C_R + `--support_two_sided`. Pass: (primary,
+  thin) `thin_uncovered` lower under two-sided on at least 14 of 19 meshes (one-sided sign test p ≈ 0.03) with a lower
+  median; (secondary) silhouette IoU median difference ≥ −0.0005, no mesh below C_R by more than 0.004, median surface
+  gap not above C_R's, no collapsed window. Stage 2, if stage 1 passes: the 300k dragon and bunny.
+  Prediction: the thin share falls on most meshes by several points (the 40k gaps are 1.6–2.6 spacings, inside the
+  kernel's reach); the thick bins and the silhouette change little.
 - **D1, why the line search collapses late (diagnostic, pre-registered 2026-09-29 14:50 CDT).** At 300k the dragon
   stops unfinished (R1d). In r2B_dragon_1 the accepted step fell from 4.6e-3 to 1.2e-6 inside window 20, and the
   fresh 0.02 starts after rejections collapsed again (windows 23–25) until three rejections stopped the run. Ruled
@@ -192,6 +206,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 7. **Scaling.** Wall time and memory at 40k, 100k, 300k and 1M particles on one GPU.
 
 ## Results so far
+
+**R4 stage 1, 2026-09-29 21:15 CDT — the two-sided support averaged over all target points: fails.** 40k gallery,
+C_R against C_R + `--support_two_sided` (target side averaged over every target point).
+- Primary: `thin_uncovered` lower on 11 of 19 meshes (sign test p = 0.32; the pass needed 14). Median 13.6 % in both
+  arms (A, the log-form baseline: 14.3 %); median difference −1.0 point.
+- Secondary: silhouette IoU median +0.0004, but beast collapsed. Its step fell to 6e-6 at window 6, then five null
+  windows froze it at window 13 (0.8192, thin 54.6 %). C_R's beast: 0.9643. Collapsed windows elsewhere: 0–2 per run
+  in both arms. Wall time 74 against 50 minutes for the gallery.
+- Why it does little (from the recorded windows): the support is not switched off late (w_eff median 2.1 under C_R
+  and 2.8 two-sided, range 1.2–7.1). The target side's share is diluted: at the end its B is 5.5e-6 against the body
+  side's 1.9e-5. The mean runs over all target points (40k, mostly interior), and the uncovered thin surface points
+  are under 1 % of them, so they barely move the mean. Averaging over the volume re-introduces the mass weighting that
+  hides thin features. Surface measures (Chamfer on surface samples, varifolds) average over the surface.
+- Beast's collapse is one case; it was not probed.
 
 **T2, 2026-09-29 20:05 CDT — the training render does not see the thin gaps (pre-registered 19:58).**
 `scripts/probes/settled/thin_visibility.py`; uncovered outer target points of the thin bins, classified per point.

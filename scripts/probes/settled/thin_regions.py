@@ -34,6 +34,7 @@ from physmorph.pipeline import PipelineConfig
 from physmorph.pipeline.render_loss import d_pbr, d_render, make_views
 from physmorph.pipeline.target import build_target, calibrate_units
 from physmorph.render.knn_gpu import knn_self_torch
+from physmorph.thin import local_thickness, outer_mask  # noqa: F401  (re-exported for the other probes)
 
 BINS = (0.0, 1.0, 2.0, 4.0, math.inf)
 
@@ -55,40 +56,6 @@ def npz_member(path, name):
     return np.memmap(path, dtype=dtype, mode="r", shape=shape, offset=offset, order="F" if fortran else "C")
 
 
-def local_thickness(tgt, sp):
-    """h at every target point: max-ball thickness on a voxel grid of the target spacing."""
-    lo = tgt.min(0).values - 3 * sp
-    dims = [int(math.ceil(float(v))) for v in ((tgt.max(0).values + 3 * sp - lo) / sp)]
-    axes = [lo[i] + sp * (torch.arange(dims[i], device=tgt.device) + 0.5) for i in range(3)]
-    centers = torch.stack(torch.meshgrid(*axes, indexing="ij"), -1).reshape(-1, 3)
-    tree = gpu.KNN(tgt)
-    d = torch.cat([tree.query(c, 1)[0][:, 0] for c in centers.split(2_000_000)])
-    # inside the sampled volume: within the sampling's covering radius of a target point (0.75 x the median
-    # 8th-neighbour distance, about 1.06 fill pitches on a jittered lattice; the median nearest-neighbour
-    # distance is shorter than the pitch and leaves the volume full of holes)
-    r_cover = 0.75 * gpu.median(knn_self_torch(tgt, 9)[0][:, 8])
-    occ = (d <= r_cover).reshape(dims)
-    # interior voxels the jittered sampling happens to miss are enclosed: fill them, or the inside distance
-    # (and so h) is capped by the distance to the nearest such hole, a fixed number of voxels at every N
-    occ = gpu.fill_holes(occ)
-    D = gpu.edt(occ)                                           # voxels to the outside
-    thick = torch.zeros(dims, dtype=torch.float64, device=tgt.device)
-    for r in range(1, int(D.max()) + 1):                       # balls of radius r cover thickness >= 2r
-        core = D >= r
-        if not bool(core.any()):
-            break
-        thick[(gpu.edt(~core) <= r) & occ] = 2.0 * r * sp
-    ijk = ((tgt - lo) / sp).long()
-    for i in range(3):
-        ijk[:, i] = ijk[:, i].clamp(0, dims[i] - 1)
-    h = thick[ijk[:, 0], ijk[:, 1], ijk[:, 2]]
-    return torch.where(h > 0, h, torch.full_like(h, 2 * sp))  # a point off the closed volume: thinnest
-
-
-def outer_mask(P, sp):
-    d, _ = knn_self_torch(P, 41)
-    c = (d[:, 1:] < 2.0 * sp).sum(1).float()
-    return c < 0.6 * c.median()
 
 
 def per_point_support(sup, x):

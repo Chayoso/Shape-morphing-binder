@@ -62,7 +62,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     tgt_t = gpu.tensor(target_x)
     N = tgt_t.shape[0]
     m = torch.ones(N, device=gpu.DEVICE)
-    support = (TransportSupport(tgt_t, cfg.support_weight, cfg.support_target_ref, cfg.support_form)
+    support = (TransportSupport(tgt_t, cfg.support_weight, cfg.support_target_ref, cfg.support_form,
+                                cfg.support_two_sided)
                if cfg.support_weight > 0 else None)
     # the loss grid covers the MPM domain (scalar geometry, float32 like the grid itself)
     dmin = np.asarray(prm.grid_min, np.float32)

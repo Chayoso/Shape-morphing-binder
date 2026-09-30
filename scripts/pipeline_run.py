@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from physmorph import gpu, metrics  # noqa: E402
 from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
+from physmorph.thin import thin_metrics, thin_set  # noqa: E402
 from physmorph.prepare import prepare  # noqa: E402
 from physmorph.sampling.orientation import orient_name  # noqa: E402
 
@@ -55,6 +56,8 @@ def parse_args():
                     help="support floor from the target density at the nearest target point")
     ap.add_argument("--support_form", choices=("log", "ratio"), default="log",
                     help="per-particle support penalty: log deficit squared, or missing mass fraction squared")
+    ap.add_argument("--support_two_sided", action="store_true",
+                    help="the support also at every target point (needs --support_form ratio)")
     ap.add_argument("--loss_follows_n", action="store_true",
                     help="transport grid and blur follow the particle spacing above mass_ref_n")
     ap.add_argument("--cell_diag", type=float, default=26.0,
@@ -116,7 +119,7 @@ def main():
     args = parse_args()
     gpu.require_cuda()
     cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
-                          loss_follows_n=args.loss_follows_n)
+                          support_two_sided=args.support_two_sided, loss_follows_n=args.loss_follows_n)
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    cfg0.nn_far_k, log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0)
@@ -133,17 +136,22 @@ def main():
     out = {"provenance": {**provenance(args, prm), "ppc": prep.ppc}, "arms": {}}
     cfg_dump = dataclasses.asdict(cfg)                 # before the run: c2f edits render_res
     print(f"\n[v2run] ===== ARM {ARM} =====", flush=True)
+    t_thin = time.time()
+    ts = thin_set(tgt, prm.dx, cfg.mass_ref_n)                 # the thin part of the target (measurement)
+    print(f"[v2run] thin set: {len(ts.points)} of {ts.n_outer} outer target points below two MPM cells "
+          f"({time.time() - t_thin:.1f} s)", flush=True)
     on_commit, on_iter = live_hooks(args, src, tgt, prm, cfg)
     t0 = time.time()
     stride = args.save_F_stride if args.save_F_stride > 0 else cfg.T
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
-                       on_iter=on_iter, F_stride=stride)
+                       on_iter=on_iter, F_stride=stride, thin=ts)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")
                  and h["frame_end"] <= dn]
     detF_min = min([1.0] + [h["Jmin_traj"] for h in delivered])
     met = metrics.summarize(frames.x[:dn], tgt, n_held=res["n_held"], detF_min=detF_min)
+    met.update(thin_metrics(frames.x[dn - 1], ts))
     mv = [h["move"] for h in res["history"] if "move" in h]
     met["move_cv"] = float(np.std(mv) / max(np.mean(mv), 1e-9)) if len(mv) > 2 else float("inf")
     met["move_first_frac"] = float(sum(mv[:3]) / max(sum(mv), 1e-9)) if mv else 1.0
@@ -163,6 +171,9 @@ def main():
           f"hole={met['hole_frac'] * 100:.2f}%  jitter_rel={met['jitter_rel']:.5f}  "
           f"detFmin={met['detF_min']:.4f}  move_cv={met['move_cv']:.2f}  "
           f"first3={met['move_first_frac'] * 100:.0f}%  ({seconds / 60:.1f} min)", flush=True)
+    print(f"[v2run] thin: uncovered {met.get('thin_uncovered', float('nan')) * 100:.1f}% (world "
+          f"{met.get('thin_uncovered_world', float('nan')) * 100:.1f}%) of {met.get('thin_n', 0)} thin outer points",
+          flush=True)
     Path(f"{args.out}.json").write_text(json.dumps(out))
     print(f"\nsaved {args.out}.json", flush=True)
 
