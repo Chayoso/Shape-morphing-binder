@@ -186,7 +186,11 @@ def test_line_search_probe_is_diagnostic_only(prm, clouds, monkeypatch):
     assert off["ls_fail_state"] == on["ls_fail_state"] == 1 and off["ls_probe"] is None
     assert on["ls_trials"] == off["ls_trials"] and len(on["ls_probe"]) == on["ls_fail_state"] + on["ls_fail_merit"]
     row = on["ls_probe"][0]
-    assert len(row) == 32 and row[6] == 0       # step, |du|max, 3 x (rel, d_vol, kin, render, ok), 3 x parts, cur parts
+    assert len(row) == 36 and row[6] == 0       # step, |du|max, 3 x (rel, d_vol, kin, render, ok), 3 x parts, cur parts,
+    assert all(s >= 0. for s in row[32:])       # and the spread of three repeated evaluations of the current point
+    assert on["iter_probe"] and all(len(r) == 14 for r in on["iter_probe"])   # one Adam-direction row per iteration
+    assert on["start_ok"] == 1 and on["start_reason"] is None and on["commit_reason"] is None
+    assert on["ls_fail_state_reason"] == {} or sum(on["ls_fail_state_reason"].values()) == on["ls_fail_state"]
     assert on["loss"] == pytest.approx(off["loss"], rel=1e-4)
     assert on["selection_merit"] == pytest.approx(off["selection_merit"], rel=1e-4)
 
@@ -203,3 +207,17 @@ def test_committed_windows_record_the_support_split(prm, clouds):
         assert E > 0 and B >= 0 and rec["sup_w_eff"] == pytest.approx(w * (E / (E + w * B)) ** 2)
         assert rec["sup_pen_med"] <= rec["sup_pen_p99"] <= rec["sup_pen_max"]
         assert 0. <= rec["thin_uncovered"] <= 1.
+
+
+def test_state_reason_names_the_failing_check():
+    from physmorph.pipeline.window.rollout import Eval, state_ok, state_reason
+    I = torch.eye(3).repeat(4, 1, 1).reshape(4, 9)
+    z = torch.zeros(4, 3)
+    e = Eval(z, I, z, *([None] * 9), jt=1.0)
+    assert state_reason(e) is None and state_ok(e)
+    assert state_reason(Eval(z, I, z, *([None] * 9), jt=1e-5)) == "jt"
+    assert state_reason(Eval(z, I, z, *([None] * 9), jt=1.0, in_domain=False)) == "domain"
+    F = I.clone(); F[0, 0] = -1.
+    assert state_reason(Eval(z, F, z, *([None] * 9), jt=1.0)) == "det"
+    xn = z.clone(); xn[0, 0] = float("nan")
+    assert state_reason(Eval(xn, I, z, *([None] * 9), jt=1.0)) == "nonfinite"

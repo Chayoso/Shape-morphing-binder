@@ -31,8 +31,12 @@ GUARDS = ("clamped", "nan_x", "nan_state", "F_reset", "F_flip", "F_invert_steps"
 _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "render_work",
                 "render_work_x", "render_work_F", "phys_work", "phys_work_x", "phys_work_F",
                 "phys_work_v", "step_norm", "render_cos", "phys_cos", "predicted_decrease",
-                "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_probe",
+                "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
+                "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason",
                 "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med")
+_NULL_FIELDS = ("null_reason", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe",
+                "iter_probe", "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
+                "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason")
 
 
 def _host(t):
@@ -69,6 +73,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     F = v = C = None
     Fp = torch.eye(3, device=gpu.DEVICE).repeat(N, 1, 1)
     dfc_prev = None
+    Fp_pre = None                                   # the last commit's plastic state before its assimilation
     frames = FrameStore(src, F_stride or cfg.T)
     hist, guards = [], {k: 0 for k in GUARDS}
     sel = Selection(cfg)
@@ -120,10 +125,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] anim {a + 1}: gradient converged at window start; holding still")
                 continue
             log(f"[v2] anim {a + 1}: no accepted step - null commit (stale {sel.stale + 1})")
-            hist.append({"animation": a, "null_commit": 1, "no_simulated_time": 1,
-                         **{k: stats.get(k) for k in ("null_reason", "ls_trials", "ls_fail_merit", "ls_fail_state",
-                                                      "ls_probe", "E_accept", "commit_E_final", "commit_jt",
-                                                      "replay_rel")}})
+            rec = {"animation": a, "null_commit": 1, "no_simulated_time": 1, **{k: stats.get(k) for k in _NULL_FIELDS}}
+            if cfg.ls_probe and stats.get("start_ok") == 0 and Fp_pre is not None:
+                # diagnostic: is the dead start state made by the last commit's plastic assimilation? The free
+                # rollout is re-run from the same state with the assimilation undone (Fp as the committing
+                # window had it) and, for reference, as it is
+                bonds = (coh_nbr, bond_rest, frag.float())
+                rec["dead_free"] = _free_probe(StartState(x=x_start, Fp=Fp, F=F, v=v, C=C), prm, cfg, tgt, vol0, bonds)
+                rec["dead_free_noassim"] = _free_probe(StartState(x=x_start, Fp=Fp_pre, F=F, v=v, C=C), prm, cfg,
+                                                       tgt, vol0, bonds)
+                log(f"[v2] anim {a + 1}: dead start state; free rollout {rec['dead_free']}, "
+                    f"without the last assimilation {rec['dead_free_noassim']}")
+            hist.append(rec)
             if sel.null():
                 frozen = True
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
@@ -132,6 +145,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         x, F, v, C, counts = promote(commit, lo, hi)
         for k in GUARDS:
             guards[k] += counts[k]
+        Fp_pre = Fp                                     # the plastic state the committing window ran with
         if cfg.assim > 0:
             Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
                                     isochoric=True)
@@ -147,7 +161,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             # rejected lineage is not retried: cold restart, no warm start or step memory
             x, F, v, C, Fp = x_start, rollback["F"], rollback["v"], rollback["C"], rollback["Fp"]
             balancer.lam = rollback["lam"]
-            dfc_prev = None
+            dfc_prev = Fp_pre = None
             tgt.settled_step = None
             frames.truncate(rollback["frames"])
             guards = rollback["guards"]
@@ -186,6 +200,18 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     return {"truncation": trunc, "deliver_n": deliver_n, "frames": frames, "history": hist,
             "guards": guards, "Fp": _host(Fp), "n_held": 0, "converged": frozen,
             "balancer": {"cap": balancer.cap, "cap_rel": balancer.cap_rel, "alpha_lam": balancer.alpha_lam}}
+
+
+def _free_probe(start: StartState, prm, cfg, tgt, vol0, bonds) -> dict:
+    """Diagnostic: the zero-control rollout from a start state (rollout.free_rollout_probe on a throwaway window)."""
+    from ..window.objective import Objective
+    from ..window.rollout import free_rollout_probe
+    from ..window.setup import Window
+    win = Window(start, prm, cfg, tgt, vol0, bonds)
+    try:
+        return free_rollout_probe(win, Objective(win))
+    finally:
+        del win
 
 
 def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) -> dict:

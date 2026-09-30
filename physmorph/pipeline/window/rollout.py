@@ -37,17 +37,23 @@ class Eval:
         return (self.xT, self.FT, self.vT)
 
 
+def state_reason(e: Eval) -> str | None:
+    """Why a state fails the check (None: it passes): 'nonfinite', 'domain' (a frame outside the two-cell
+    margin), 'det' (an end-state det F <= 0) or 'jt' (a det at or below the float32 floor along the trajectory)."""
+    if not all(bool(torch.isfinite(t).all()) for t in (e.xT, e.FT, e.vT)):
+        return "nonfinite"
+    if not e.in_domain:
+        return "domain"
+    if not bool((torch.linalg.det(e.FT.view(-1, 3, 3)) > 0).all()):
+        return "det"
+    if e.jt is not None and not e.jt > 1e-4:            # margin above the float32 det noise floor
+        return "jt"
+    return None
+
+
 def state_ok(e: Eval) -> bool:
     """Finite and orientation-preserving over the whole trajectory, inside the domain."""
-    if not all(bool(torch.isfinite(t).all()) for t in (e.xT, e.FT, e.vT)):
-        return False
-    if not e.in_domain:
-        return False
-    if not bool((torch.linalg.det(e.FT.view(-1, 3, 3)) > 0).all()):
-        return False
-    if e.jt is not None:
-        return e.jt > 1e-4          # margin above the float32 det noise floor
-    return True
+    return state_reason(e) is None
 
 
 def _evaluate(obj: Objective, xT, FT, vT, dfc, V, **kw) -> Eval:
@@ -105,6 +111,7 @@ class Commit:
     jt_final: float
     valid: bool                       # finite, oriented, inside the domain
     owner: object = None              # the window whose buffers x and F view (kept alive)
+    reason: str | None = None         # state_reason of the rollout (None when valid)
 
 
 def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit:
@@ -125,4 +132,21 @@ def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit
                       end_F=wp.to_torch(tr.F[T]).reshape(N, 3, 3).clone(),
                       end_v=wp.to_torch(tr.v[T]).clone(), end_C=wp.to_torch(tr.C[T]).reshape(N, 3, 3).clone(),
                       n_inv_steps=int(inv_any.sum()), jmin_traj=jmin, E_final=E_final,
-                      jt_final=e.jt, valid=state_ok(e), owner=win)
+                      jt_final=e.jt, valid=state_ok(e), owner=win, reason=state_reason(e))
+
+
+def free_rollout_probe(win: Window, obj: Objective) -> dict:
+    """Diagnostic: the zero-control rollout from the window's start state. Its validity and reason, the
+    trajectory's min det, and the first step at which any particle's det F drops to the float32 floor with the
+    count of such particles there."""
+    with torch.no_grad():
+        leaf = torch.zeros(win.Tc, win.N, 3, 3, device=win.x0.device)
+        e = eval_terms(win, obj, leaf, torch.zeros(win.N, device=win.x0.device))
+        first, n_bad = None, 0
+        for t in range(1, win.T + 1):
+            det_t = torch.linalg.det(wp.to_torch(win.tr.F[t]).reshape(-1, 3, 3).float())
+            bad = int((det_t <= 1e-4).sum())
+            if bad and first is None:
+                first, n_bad = t, bad
+        return {"ok": int(state_ok(e)), "reason": state_reason(e), "jt": float(e.jt),
+                "first_bad_step": first, "n_bad": n_bad, "in_domain": int(e.in_domain)}

@@ -172,6 +172,34 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **D6, three measurements before any fix (pre-registered 2026-09-30 11:43 CDT, before launch; repo_r13 = C_R +
+  telemetry, no algorithm change).** Working order from now on (user, 2026-09-30): measure which part of the current
+  code misbehaves, find the root problem, and only then change that definition; never an extra algorithm to block a
+  problem. Runs: C_R + `--ls_probe` at 40k, seed 97, on bunny, cheburashka and homer (D5's tails) and beast three
+  times (its C_R freeze is intermittent: one of three C_R runs so far). Archives kept for the floor pre-check.
+  Recorded (new telemetry): per iteration the Adam direction's cosine with sign(g) and with g, its per-coordinate rms
+  (1 = a sign step), the share of the gradient's energy in its largest 1 % of coordinates, the accepted step, the
+  dFc step's rms and max and the u step in spacings; at every failed trial the spread of three repeated evaluations
+  of the current point (objective, transport without support, B, render); every window's start-state validity with
+  its reason, the commit rollout's reason and the state-check failure reasons; at a dead start state the free
+  rollout as it is and with the last plastic assimilation undone.
+  Readings. (a) H_sign, Adam acts as sign descent on dFc: supported if the median cos(d, sign g) ≥ 0.9 and the rms
+  ≥ 0.8 at every iteration index while the top 1 % of coordinates carry ≥ 50 % of the gradient energy (a sign step
+  then moves the 99 % that carry little); refuted if cos < 0.7 or the top 1 % carry < 20 %. The reset pattern is
+  present if the iteration-1 accepted step is at most half the iteration-8 median. (b) Noise against jumps: at
+  tiny-step failed trials (a < 1e-6), the step's change above 10× the repeat spread in ≥ 70 % of them means
+  deterministic non-smoothness, which no tolerance may cover; within 2× the spread in ≥ 70 % means evaluation noise,
+  and the line search's floor must then be measured where it is used; a mixed result is reported by term. (c) Dead
+  state: at a beast freeze, the free rollout valid with the assimilation undone and invalid as it is means the
+  assimilation makes the dead state and the acceptance must check the post-assimilation state; both invalid means
+  the committed end state is unviable beyond the horizon (reason and first bad step recorded); both valid means the
+  search's own trials fail (reasons recorded).
+  Predictions: (a) supported, cos ≥ 0.95 and the top 1 % above 60 %, with a weak reset pattern (Adam's direction is
+  sign-like at every iteration of a window, not only the first); (b) non-smoothness dominates, the repeat spread at
+  or below 1e-7 in most trials and exactly zero in a good share; (c) the assimilation (low confidence).
+  Side note (11:42 CDT): the suite on repo_r13 failed `test_a_nonfinite_window_cost_cannot_commit` once and passed it
+  four times after: the first window of the tiny test cloud was a `commit_replay` null (commit E 1.8e-6 relative above
+  the accepted value, tolerance 10 × replay noise = 1.4e-6). The same fragility as D4's and R5's null windows.
 - **R6, a step length per control block (pre-registered 2026-09-30 10:33 CDT, before launch; repo_r12).**
   `--block_steps` gives each control block its own step length, as D5 and its literature pass indicate. The Adam
   moments take the gradient once. From the current point, dFc and then u each run their own backtracking search

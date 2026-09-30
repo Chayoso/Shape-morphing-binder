@@ -21,7 +21,7 @@ from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer
 from ..target import TargetPack
 from .objective import Objective
-from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok
+from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok, state_reason
 from .setup import StartState, Window
 from .telemetry import collect_grad_dump, support_record, work_record, write_grad_dump
 
@@ -29,8 +29,10 @@ _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phy
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
 _STAT_KEYS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm",
               "predicted_decrease") + _TELE_KEYS
-# line-search diagnostics: trials, failure reasons, and (cfg.ls_probe) each failed trial split by channel
-_LS_KEYS = ("ls_trials", "ls_fail_merit", "ls_fail_state", "ls_probe")
+# line-search diagnostics: trials, failure reasons (by state check), the start state's validity, and with
+# cfg.ls_probe each failed trial split by channel plus the Adam direction of every iteration
+_LS_KEYS = ("ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
+            "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason")
 
 
 @dataclass
@@ -47,6 +49,20 @@ def _norm(gs) -> float:
 
 def _dot(a, b):
     return sum((x * y).sum() for x, y in zip(a, b))
+
+
+def direction_stats(ds, gs) -> list:
+    """Diagnostic, per leaf: cos(d, sign g), cos(d, g), the rms of the Adam direction d per coordinate (1 = a
+    pure sign step) and the share of the gradient's squared norm carried by its largest 1 % of coordinates."""
+    out = []
+    for d, g in zip(ds, gs):
+        d, g = d.flatten(), g.detach().flatten()
+        dn, gn = d.norm().clamp_min(1e-30), g.norm().clamp_min(1e-30)
+        s = torch.sign(g)
+        top = torch.topk(g.abs(), max(1, g.numel() // 100)).values.square().sum()
+        out += [float((d * s).sum() / (dn * s.norm().clamp_min(1e-30))), float((d * g).sum() / (dn * gn)),
+                float(dn / g.numel() ** 0.5), float(top / gn.square())]
+    return out
 
 
 def pcgrad(g_keep, g_strip):
@@ -83,8 +99,9 @@ class WindowOptimizer:
         # keeps every other term, the checks and the render telemetry
         self.lam_r = (balancer.lam or 0.0) * float(cfg.render_weight_scale)
         self.lam_capped = None
-        self.tele, self.dump = {"ls_trials": 0, "ls_fail_merit": 0, "ls_fail_state": 0}, {}
+        self.tele, self.dump = {"ls_trials": 0, "ls_fail_merit": 0, "ls_fail_state": 0, "ls_fail_state_reason": {}}, {}
         self.accepted = self.rejected = 0
+        self._it = 0
 
     def scalar(self, e: Eval) -> float:
         return self.obj.scalar(e.lv, e.lk, e.lr, self.lam_r, e.dfc, e.xT, e.FT, e.lk_var)
@@ -97,12 +114,16 @@ class WindowOptimizer:
         """Decayed previous controls, kept only if they give a valid state that beats the
         zero start (dFc is an absolute control: verbatim reuse double-applies it)."""
         e0 = self.eval()
-        E0 = self.scalar(e0) if state_ok(e0) else np.inf
+        r0 = state_reason(e0)
+        self.tele.update(zero_ok=int(r0 is None), zero_reason=r0)
+        E0 = self.scalar(e0) if r0 is None else np.inf
         with torch.no_grad():
             self.dFc.copy_(dfc_init * self.cfg.warm_decay)
         ew = self.eval()
+        rw = state_reason(ew)
+        self.tele.update(warm_ok=int(rw is None), warm_reason=rw)
         Ew = self.scalar(ew)
-        if not (state_ok(ew) and np.isfinite(Ew) and Ew < E0):
+        if not (rw is None and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
                 self.dFc.zero_()
             for b in self.mom + self.vel:
@@ -113,6 +134,8 @@ class WindowOptimizer:
         """CUDA atomics make two rollouts of one control differ: the relative difference at
         the start control (10x it floors the commit-rollout tolerance)."""
         ea, eb = self.eval(), self.eval()
+        ra = state_reason(ea)                               # the control the search starts from
+        self.tele.update(start_ok=int(ra is None), start_reason=ra)
         EA, EB = self.scalar(ea), self.scalar(eb)
         if np.isfinite(EA) and np.isfinite(EB):
             return abs(EA - EB) / max(abs(EA), self.win.loss_floor_eff)
@@ -172,15 +195,22 @@ class WindowOptimizer:
         bak = [p.detach().clone() for p in self.leaves]
         bak_m, bak_v = [m.clone() for m in self.mom], [v.clone() for v in self.vel]
         new, e_n, required = cur, None, 0.0
+        dstats = None                                       # cfg.ls_probe: the Adam direction, once per iteration
         for _ in range(cfg.max_ls_iters):
             t_ = self.adam_t + 1
             with torch.no_grad():
+                ds = []
                 for p, gi, m_, v_ in zip(self.leaves, g, self.mom, self.vel):
                     m_.mul_(cfg.beta1).add_(gi, alpha=1 - cfg.beta1)
                     v_.mul_(cfg.beta2).addcmul_(gi, gi, value=1 - cfg.beta2)
                     mh = m_ / (1 - cfg.beta1 ** t_)
                     vh = v_ / (1 - cfg.beta2 ** t_)
-                    p -= a_try * (mh / (vh.sqrt() + win.eps_eff))
+                    d = mh / (vh.sqrt() + win.eps_eff)
+                    p -= a_try * d
+                    if cfg.ls_probe and dstats is None:
+                        ds.append(d)
+                if cfg.ls_probe and dstats is None:         # moments are restored on rejection: same d each trial
+                    dstats = direction_stats(ds, g)
                 if cfg.dfc_clip > 0:
                     n = self.dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
                     self.dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
@@ -200,9 +230,14 @@ class WindowOptimizer:
                 self.adam_t = t_
                 self.alpha = min(a_try * 1.1, cfg.alpha * self.alpha_scale)
                 self.accepted += 1
+                if dstats is not None:
+                    self._iter_row(dstats, a_try, bak, g)
                 return e_n, a_try, new, bak
             self.tele["ls_fail_merit"] += int(not merit_ok)
             self.tele["ls_fail_state"] += int(not st_ok)
+            if not st_ok:
+                r = state_reason(e_n)
+                self.tele["ls_fail_state_reason"][r] = self.tele["ls_fail_state_reason"].get(r, 0) + 1
             if cfg.ls_probe:
                 self._probe(bak, cur, e, e_n, a_try, st_ok)
             with torch.no_grad():                             # reject: restore and shrink
@@ -214,17 +249,36 @@ class WindowOptimizer:
                     v_.copy_(b)
             a_try *= 0.5
         self.rejected += 1
+        if dstats is not None:
+            self._iter_row(dstats, -1.0, bak, g)            # no accepted step: the direction alone
         self.log(f"[win] line search exhausted (cur={cur:.6g} last_new={new:.6g} required={required:.3g} "
                  f"||g||={gn:.3g} a_try={a_try:.3g} state_ok={state_ok(e_n)}; last-attempt deltas "
                  f"d_vol={float(e_n.lv - e.lv.detach()):.3g} kin={float(e_n.lk - e.lk.detach()):.3g} "
                  f"render={float(e_n.lr - e.lr.detach()):.3g} lam={self.lam_r:.3g})")
         return None
 
+    def _iter_row(self, dstats, a_acc, bak, g):
+        """Diagnostic (cfg.ls_probe), one row per iteration: [iteration, accepted step (-1: none), direction stats
+        of dFc and u (direction_stats), the accepted dFc step's rms and max entry, the u step's rms over the
+        particles u can move and its max, both in spacings]."""
+        with torch.no_grad():
+            dd = (self.dFc.detach() - bak[0]) if a_acc > 0 else torch.zeros(1, device=bak[0].device)
+            du = (self.u.detach() - bak[1]) if a_acc > 0 else torch.zeros(1, device=bak[1].device)
+            live = g[1].detach() != 0
+            du_live = du[live] if a_acc > 0 and bool(live.any()) else du.new_zeros(1)
+            row = [float(self._it), float(a_acc)] + list(dstats) + [
+                float(dd.square().mean().sqrt()), float(dd.abs().max()),
+                float(du_live.square().mean().sqrt() / self.win.sp0), float(du.abs().max() / self.win.sp0)]
+        self.tele.setdefault("iter_probe", []).append(row)
+
     def _probe(self, bak, cur, e: Eval, e_n: Eval, a_try, st_ok):
         """Diagnostic (cfg.ls_probe): a failed trial split by channel. The same step is
         evaluated on dFc alone and on u alone; per variant, the objective change relative to
         the current value, the changes of the transport, kinetic and render terms, and the
-        state check. The caller restores the backup afterwards."""
+        state check. Then the current point is evaluated three more times and the spread
+        (max - min) of the objective, the transport without support, B and the render term is
+        recorded: the evaluation's own noise, against which a step's change is judged. The
+        caller restores the backup afterwards."""
         parts_n = self._parts(e_n)                          # before the next rollout rewrites the flags
         with torch.no_grad():
             d_t, u_t = self.dFc.detach().clone(), self.u.detach().clone()
@@ -237,15 +291,24 @@ class WindowOptimizer:
         e_b = self.eval()
         parts_b = self._parts(e_b)
         with torch.no_grad():
+            self.u.copy_(bak[1])                            # the current point, three more times
+        reps = []
+        for _ in range(3):
+            er = self.eval()
+            reps.append([self.scalar(er)] + self._parts(er)[:2] + [float(er.lr)])
+        with torch.no_grad():
             self.dFc.copy_(d_t)
+            self.u.copy_(u_t)
         scale = max(abs(cur), 1e-30)
+        spread = [max(r[i] for r in reps) - min(r[i] for r in reps) for i in range(4)]
+        spread[0] /= scale
 
         def row(ev, ok):
             return [(self.scalar(ev) - cur) / scale, float(ev.lv - e.lv.detach()), float(ev.lk - e.lk.detach()),
                     float(ev.lr - e.lr.detach()), int(ok)]
         self.tele.setdefault("ls_probe", []).append(
             [float(a_try), float((u_t - bak[1]).abs().max())] + row(e_n, st_ok) + row(e_a, state_ok(e_a))
-            + row(e_b, state_ok(e_b)) + parts_n + parts_a + parts_b + self._parts(e)[:3])
+            + row(e_b, state_ok(e_b)) + parts_n + parts_a + parts_b + self._parts(e)[:3] + spread)
 
     def _parts(self, ev: Eval) -> list:
         """The transport term taken apart (diagnostic): the transport without the support bound,
@@ -285,6 +348,7 @@ class WindowOptimizer:
         g0_norm = L_start = None
         self.tele["null_reason"] = None
         for it in range(cfg.iters):
+            self._it = it
             e = graph_terms(self.win, self.obj, self.dFc, self.u)
             g, diag = self.gradient(e, it)
             cur = self.scalar(e)
@@ -332,6 +396,7 @@ class WindowOptimizer:
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
                       * max(abs(E_accept or 0.0), win.loss_floor_eff))
         replay_bad = E_accept is not None and commit.E_final > E_accept + replay_tol
+        self.tele["commit_reason"] = commit.reason
         if not commit.valid:
             replay_bad, grad_converged = True, False
             self.tele["null_reason"] = "commit_invalid"
