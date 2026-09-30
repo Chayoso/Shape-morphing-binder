@@ -173,7 +173,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
 - **R11d, the stability term = the released motion outside the transport's scale (pre-registered 2026-09-30 18:35
-  CDT, before launch; repo_r21 = repo_r20 with the term moved out of ot_scale, the drift a record `stab_end`, the
+  CDT, launched 18:36 after the suite passed on repo_r21 (269 passed); repo_r21 = repo_r20 with the term moved out of ot_scale, the drift a record `stab_end`, the
   R11c switches removed).** L_stab = (T dt)² · mean over the released steps and particles of |v|², added to the
   physics objective unscaled (R11 had it inside ot_scale, 3–6× weaker); the residual drift is no longer costed
   (R11c-R carried it inside ot_scale beside the legacy piece, 15–33 % of the piece's size; the released motion
