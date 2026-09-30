@@ -31,9 +31,16 @@ def velocity_variance(V: torch.Tensor, split: int) -> torch.Tensor:
 
 
 def released_motion(V: torch.Tensor, split: int, horizon: float) -> torch.Tensor:
-    """The stability term: horizon^2 x the mean over the released steps (from `split`) and the particles of
-    |v|^2, in length^2. Invariant under v -> 2v with horizon -> horizon / 2, as the residual drift it replaces."""
+    """A record: horizon^2 x the mean over the released steps (from `split`) and the particles of |v|^2. R11's
+    stability term (2026-09-30), failed and kept as a measurement of how quiet the release is."""
     return horizon ** 2 * V[split:].square().sum(2).mean()
+
+
+def end_drift(vT: torch.Tensor, horizon: float) -> torch.Tensor:
+    """The stability term: horizon^2 x the mean over the particles of |v_T|^2 at the released end, in length^2
+    (the displacement the residual velocity would add over one more driven duration). Invariant under v -> 2v
+    with horizon -> horizon / 2."""
+    return horizon ** 2 * vT.square().sum(1).mean()
 
 
 class Objective:
@@ -90,20 +97,23 @@ class Objective:
         """The geometry energy of the released end state: the transport divergence plus the fine term."""
         return self.tgt.grid_ot.state_energy(xT, self.tgt.m)
 
-    def stability(self, V):
-        """The released motion: (T dt)^2 mean over the released steps and particles of |v|^2, length^2 like the
-        geometry energy. Zero for a body at rest after the release, the residual drift's value for a constant
-        released velocity, and larger for a release that oscillates and comes to rest only at its end. It
-        replaces three terms (2026-09-30): the residual drift |T dt v_T|^2 inside the transport energy, the end
-        kinetic energy w_kin |v_T|^2 and w_kin_var (the driven fluctuation and the released motion)."""
-        return released_motion(V, self.cfg.T, self.horizon)
+    def stability(self, vT):
+        """The residual drift of the released end: (T dt)^2 mean over the particles of |v_T|^2, length^2 like
+        the geometry energy (the horizon converts velocity to length, no weight). Zero for a body at rest after
+        the release. It is the one stability term (2026-09-30): the end kinetic energy w_kin |v_T|^2 and the
+        velocity variance w_kin_var (driven fluctuation and released motion) are gone, and the drift moved here
+        from inside the transport energy. R11 tried the mean over the whole release instead and failed: the
+        elastic settling after a push is motion that must happen, and charging it fought the transport early in
+        the morph (the merit rose 18 % when a window traded transport for a quieter release, the brake rejected
+        it three times, and runs stopped at 8-11 windows still moving)."""
+        return end_drift(vT, self.horizon)
 
     def losses(self, xT, FT, vT, V):
         """(lv, lk, lr, lpbr, d_sil, lstab): the scaled geometry with the stability term, the end kinetic
         energy (a record), render (silhouette + w_pbr shading), shading, the silhouette alone (a tensor, for
         the record) and the stability term alone."""
         cfg, t = self.cfg, self.tgt
-        lstab = self.stability(V)
+        lstab = self.stability(vT)
         lv = t.ot_scale * (self.transport(xT) + lstab)
         lk = vT.pow(2).sum(1).mean()
         lsil = d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,

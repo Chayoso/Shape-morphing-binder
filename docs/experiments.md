@@ -172,6 +172,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R11b, the stability term as the end drift alone (pre-registered 2026-09-30 17:27 CDT, launched 17:29; repo_r19 =
+  repo_r18 with the term changed).** After R11's failure the stability term is the residual drift of the released
+  end, (T dt)² mean_i |v_T,i|², length², inside the geometry's scale, no weight: MJ's drift, now the only velocity
+  term, with w_kin (5) and w_kin_var (200) gone and the drift moved out of the transport energy. A release that
+  oscillates and ends at rest costs nothing under it; the released integral is recorded (`stab_release`) to see how
+  often that happens. Runs and pass criteria as R11 (against R10's PX85: thin median within ±1 point, no mesh
+  worse by more than 3; silhouette median within ±0.002, none below by more than 0.004; `kin` and `kin_var`
+  medians not higher; wall ≤ 1.2×; no freeze PX85 did not show; the 300k dragon at 35 windows within ±0.002
+  silhouette and ±1 point world-thin, `kin` not higher). Prediction: geometry and the end velocities within spread
+  of PX85, since the two removed terms were small (w_kin |v_T|² ≈ 3e-5 and the variance term of that order against
+  a transport energy of 1e-4 to 1e-3 late) and the drift they duplicated stays.
 - **R11, the stability term: three velocity terms replaced by the released motion (pre-registered 2026-09-30 16:51
   CDT, before launch; repo_r18 = repo_r17 with the change).** The objective penalised the released end's velocity
   three times with three constants: the residual drift |T dt v_T|² inside the transport energy, the end kinetic
@@ -456,6 +467,17 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R11, 2026-09-30 17:27 CDT — the released-motion integral as the stability term: fails (pre-registered 16:51).**
+Against R10's PX85 on the 40k gallery: `thin_uncovered` median 10.9 against 9.3 (+1.8; cow +14.2, spot +12.8,
+bimba +11.8, cheburashka +9.3, A +5.6), silhouette median −0.0014 (cow −0.026, spot −0.016), the end kinetic
+energy 100× higher (median 1.1e-2 against 9.9e-5), runs of 8–11 windows on six meshes, wall 0.69×; the 300k dragon
+0.9789 against 0.9813 with `kin` 5× higher. Every criterion fails. Mechanism (cow, spot): from window 9 a window
+that lowered the release's motion (stab 6.3e-3 → 2.6e-3) raised the transport energy (1.6e-2 → 2.3e-2) and the
+merit by 18 %; the outer brake (a rise above 5 %) rejected it three times and the run stopped at window 8 with the
+body still moving at 0.7 wu/s. The mean over the release charges the elastic settling after a push, motion that
+must happen early in a morph, so the term fights the transport where the body has to move fast; the drift charged
+only what remained at the release's end. The released integral stays as a record (`stab_release`).
 
 **R10, 2026-09-30 16:51 CDT — the geometry ablation: the proximity replaces the support on the whole gallery; the
 coarse grid does not replace the fine one (pre-registered 15:55, the 300k part restated 16:03).** `tmp/r10_eval.py`.

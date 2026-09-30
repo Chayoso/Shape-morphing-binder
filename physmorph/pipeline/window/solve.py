@@ -20,7 +20,7 @@ import warp as wp
 from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer
 from ..target import TargetPack
-from .objective import Objective
+from .objective import Objective, released_motion
 from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok, state_reason
 from .setup import StartState, Window
 from .telemetry import collect_grad_dump, support_record, work_record, write_grad_dump
@@ -359,6 +359,7 @@ class WindowOptimizer:
         lpbr = float(e_n.lpbr)
         return {"iter": it, "loss": new, "d_vol": float(e_n.lv), "kin": float(e_n.lk),
                 "kin_run": float(e_n.lk_run), "kin_var": float(e_n.lk_var), "stab": float(e_n.lstab),
+                "stab_release": float(released_motion(e_n.V, self.cfg.T, self.obj.horizon)),
                 "d_sil": float(e_n.d_sil), "d_render": float(e_n.lr) - self.cfg.w_pbr * lpbr,
                 "d_pbr": lpbr, "lambda": self.lam_r, "grad_norm": gn, "alpha": a_try,
                 "predicted_decrease": self.tele.get("predicted_decrease"),
