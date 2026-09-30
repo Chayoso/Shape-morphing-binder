@@ -154,6 +154,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   −3.0); collapsed windows summed ≤ half of D3c's (163); gallery wall ≤ 120 min (D3c 170); no mesh frozen by null
   windows. Prediction: R5a keeps most of D3b's silhouette gain with far fewer collapses; R5b keeps D3c's thin gain
   (−2 to −3 points) at lower cost.
+  Restarted 2026-09-30 02:33 CDT on 04665e0: the first launch (00:23) ran 25× slower per gradient because the
+  preconditioner's gather used index 0 for every off-layer row, which serialised its backward on one address. The
+  fix runs the preconditioner on compact layer indices. The mathematics is unchanged, and the four runs finished
+  before the fix are kept aside (`output/gpu/r5_aborted_slow`) and not used.
 - **D1, why the line search collapses late (diagnostic, pre-registered 2026-09-29 14:50 CDT).** At 300k the dragon
   stops unfinished (R1d). In r2B_dragon_1 the accepted step fell from 4.6e-3 to 1.2e-6 inside window 20, and the
   fresh 0.02 starts after rejections collapsed again (windows 23–25) until three rejections stopped the run. Ruled
