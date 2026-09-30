@@ -196,10 +196,18 @@ def test_committed_windows_record_the_support_split(prm, clouds):
     the per-particle penalty's quantiles; the ratio form keeps every particle at most radius^2."""
     from physmorph.thin import thin_set
     for form, two in (("log", False), ("ratio", False), ("ratio", True)):
-        cfg = _cfg(animations=1, support_form=form, support_two_sided=two)
+        cfg = _cfg(animations=3, support_form=form, support_two_sided=two)   # >1: a tiny cloud can null a window
         res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None, thin=thin_set(clouds[1], prm.dx, 300))
         rec = next(r for r in res["history"] if r.get("frame_end"))
         E, B, w = rec["sup_E"], rec["sup_B"], cfg.support_weight
         assert E > 0 and B >= 0 and rec["sup_w_eff"] == pytest.approx(w * (E / (E + w * B)) ** 2)
         assert rec["sup_pen_med"] <= rec["sup_pen_p99"] <= rec["sup_pen_max"]
         assert (rec["sup_B_target"] is not None) == two and 0. <= rec["thin_uncovered"] <= 1.
+
+
+def test_diagnostic_switches_run_and_leave_the_defaults_alone(prm, clouds):
+    """D3a/D3b: the relaxation can be switched off and the thin-coverage diagnostic added; both are off by default."""
+    cfg0 = PipelineConfig()
+    assert cfg0.layer_relax and cfg0.diag_coverage == 0.
+    res = run_pipeline(*clouds, prm, _cfg(animations=1, layer_relax=False, diag_coverage=1.), log=lambda *_: None)
+    assert any(r.get("frame_end") for r in res["history"])

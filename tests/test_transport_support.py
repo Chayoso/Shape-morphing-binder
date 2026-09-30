@@ -342,3 +342,21 @@ def test_thin_set_finds_the_sheet_and_measures_its_coverage():
     assert thin_metrics(target, ts)["thin_uncovered"] == 0.
     m = thin_metrics(target[:216], ts)                                  # the block alone
     assert m["thin_uncovered"] >= on_sheet.mean() - 1e-9 and m["thin_gap_median_sp"] > 1.5
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA required')
+def test_thin_coverage_diagnostic_is_bounded_and_charges_the_missing_sheet():
+    from physmorph.thin import ThinCoverage, thin_set
+    target = sheet_on_block(z=.9)
+    cov = ThinCoverage(thin_set(target, cell=.15, ref_n=len(target)), target)
+    assert float(cov(torch.tensor(target, dtype=torch.float64))) == 0.
+    jitter = np.random.default_rng(47).uniform(-.01, .01, (216, 3))           # break the lattice's neighbour ties
+    block = torch.tensor(target[:216] + np.array([0., 0., .25]) + jitter, requires_grad=True)   # 1.5 sp below
+    value = cov(block)
+    assert 0. < float(value) <= cov.radius ** 2
+    g = torch.autograd.grad(value, block)[0]
+    direction = torch.tensor(np.random.default_rng(43).normal(size=block.shape))
+    direction /= direction.norm()
+    eps = 1e-6
+    fd = (cov(block.detach() + eps * direction) - cov(block.detach() - eps * direction)) / (2 * eps)
+    assert float((g * direction).sum()) == pytest.approx(float(fd), rel=1e-3, abs=1e-12)

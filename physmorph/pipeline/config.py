@@ -71,6 +71,10 @@ class PipelineConfig:
                                     #   a symmetric local density match; needs the ratio form
     loss_follows_n: bool = False    # loss cell = MPM cell x min(1, (mass_ref_n / N)^(1/3)): the transport grid
                                     #   and blur follow the particle spacing above the reference N
+    # ---- diagnostics (off by default; never part of an adopted recipe) ----
+    layer_relax: bool = True        # D3b: False switches the outer-layer relaxation off (u stays)
+    diag_coverage: float = 0.0      # D3a: > 0 adds this x the thin set's missing-mass fraction (physmorph.thin) to
+                                    #   the transport energy
 
     # ---- cleanup (fixed weights, outside the render balance) ----
     w_dt: float = 0.2               # W1 pull of isolated particles down the target DT

@@ -49,7 +49,7 @@ class Window:
         self.sp0 = layer_spacing(start.x)
         self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
                                                            h_sp=cfg.layer_h_sp)
-        layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T))
+        layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T) if cfg.layer_relax else 0.0)
         nbr, rest, frag = bonds
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
