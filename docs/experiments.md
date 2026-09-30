@@ -353,6 +353,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 
 ## Results so far
 
+**Stopped and cleared, 2026-09-30 14:59 CDT (at the user's request).** R8 (the event c2f; 6 of 19 gallery runs and
+the 300k dragon in progress) and R7's second 300k dragon were killed unread, and every result folder on hyde06 was
+deleted (`output/gpu`, `before`, `corrected`, `settled`, `mj`, `scratch`). The small files (JSON, logs, videos, texts)
+of everything up to that point are in `/data/relcfd/chayo/results_before_clean_2026-09-30.tgz` (723 MB); the
+archives are gone. R8 has no verdict. What runs now: sphere → bunny at 40k and 300k on repo_r15 (C_R + the continued
+floor + the event c2f), with the two-view splat render (`output/gpu/show/`).
+
 **R7, 2026-09-30 14:25 CDT — the continued floor: the 40k gallery passes every criterion; the 300k dragon fails the
 silhouette threshold by stopping early (pre-registered 12:03, launched 12:10).** `tmp/r7_eval.py`, `tmp/r7_300k.py`.
 - 40k gallery against the two C_R runs (crv, r4): silhouette IoU median 0.9758 against 0.9746 / 0.9755 (pass), worst
