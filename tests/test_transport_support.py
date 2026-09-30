@@ -212,15 +212,30 @@ def test_target_referenced_floor_never_penalises_the_target():
     assert ref.floor(x).shape == (len(target),)
 
 
-def test_target_referenced_floor_still_penalises_spray_with_true_gradient():
+def test_target_referenced_floor_is_the_target_density_at_the_particle_and_continuous():
+    """A'': at every target point the floor is half the point's own leave-one-out density (the per-point floor);
+    between the block's top face and the sheet the nearest target point switches, where the per-point floors differ
+    by more than 10 %, and the floor is continuous there; far off the target it is at or below zero (no penalty, no
+    gradient: the W1 cleanup's job); a body that is the target stretched by 1.5 pays, with a true gradient that
+    includes the floor's own dependence on the position."""
     from physmorph.losses.support import TransportSupport
     target = sheet_on_block()
-    ref = TransportSupport(target, weight=8., target_ref=True)
-    x = torch.tensor(target.copy())
-    x[0] = torch.tensor([-1.5, -1.5, -1.5], dtype=x.dtype)   # one particle far off the target
-    per_point = ref.penalty_per_point(x)
-    assert float(per_point[0]) > 0 and float(per_point[1:].max()) < float(per_point[0])
+    ref = TransportSupport(target, weight=8., target_ref=True, form="ratio")
+    y = torch.tensor(target)
+    torch.testing.assert_close(ref.floor(y), ref.log_floor_pt.to(device=y.device, dtype=y.dtype), atol=1e-9, rtol=1e-9)
+    below, above = torch.tensor([[.25, .25, .6 - 1e-4]]), torch.tensor([[.25, .25, .6 + 1e-4]])
+    i_lo, i_hi = ref.tree.query(below, 1)[1][0, 0], ref.tree.query(above, 1)[1][0, 0]
+    assert abs(float(ref.log_floor_pt[i_lo] - ref.log_floor_pt[i_hi])) > .1     # the old floor stepped here
+    assert abs(float(ref.floor(below) - ref.floor(above))) < 1e-3                # the new one does not
+    far = torch.tensor([[-1.5, -1.5, -1.5]], requires_grad=True)
+    assert float(ref.penalty_per_point(torch.cat([far, y[1:]]))[0]) == 0.
+    g_far = torch.autograd.grad(ref.penalty(torch.cat([far, y[1:]])), far)[0]
+    assert float(g_far.abs().max()) == 0.
+    jitter = torch.tensor(np.random.default_rng(47).uniform(-.005, .005, (216, 3)))     # no lattice ties: a tie at
+    x = (torch.tensor(target[:216]) - .25) * 1.5 + .25 + jitter                   # the k-th neighbour would swap
     x = x.requires_grad_(True)
+    per = ref.penalty_per_point(x)
+    assert float(per.max()) > .1 * ref.radius ** 2 and float(per.min()) >= 0.
     energy = lambda q: ref((q - .1).square().mean(), q)
     g = torch.autograd.grad(energy(x), x)[0]
     direction = torch.tensor(np.random.default_rng(23).normal(size=x.shape))

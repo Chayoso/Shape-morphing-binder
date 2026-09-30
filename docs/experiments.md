@@ -172,6 +172,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R7, the support floor continued to the particle's position (pre-registered 2026-09-30 12:03 CDT, before
+  launch; repo_r14 = repo_r13 + the floor).** Fix 1 of the agreed order. Under `--support_target_ref` the floor of a
+  particle at x was the leave-one-out density of its nearest target point, piecewise constant in x with steps of about
+  13 % at the Voronoi boundaries (D6 pre-check: 59–61 % of particles sit next to such a step; D5: step-independent
+  objective jumps). It is now f(x) = 1/2 (t(x) − K(0)), t the target's kernel sum at x over its 33 nearest target
+  points, with the same kernel, h and k as the body density and the gradient of f kept (Kelsall & Diggle 1995;
+  Monaghan 2005). It equals the old floor at every target point (1e-15), is continuous, and is at or below zero
+  (no floor, no penalty, no gradient) only where the target's kernel sum is below one unit, about 1.4 spacings outside
+  the target, where the old floor carried the nearest point's density outward and charged spray that the W1 cleanup
+  handles. No new constant (K(0) = 1). The global floor and every other term are unchanged.
+  Runs: the 40k gallery (19 meshes, seed 97) with C_R's flags, and the 300k dragon. Against the two C_R gallery runs
+  (r4, crv). Pass, no regression plus the property: silhouette IoU median at or above the lower C_R median − 0.0005 and
+  no mesh below the lower of its two C_R values by more than 0.004; `thin_uncovered` median within one point of the
+  C_R band; null windows summed at or below the larger C_R sum; wall at or below 1.2× the larger C_R wall; at the end
+  `sup_B` below C_R's (crv) on at least 15 of 19 meshes; 300k dragon converged with silhouette IoU ≥ 0.983 and chamfer
+  ≤ 0.060, its thin metrics recorded as the comparator for what follows.
+  Predictions: geometry within the run-to-run spread (thin ±1 point, silhouette ±0.002), `sup_B` 3–5× lower at the
+  end, wall and null counts unchanged (the noise nulls of D6 (b) remain). Render influence: the change is in the
+  physics objective's support term; g_share is reported from the runs; no render-off twin in this experiment.
 - **D6, three measurements before any fix (pre-registered 2026-09-30 11:43 CDT, before launch; repo_r13 = C_R +
   telemetry, no algorithm change).** Working order from now on (user, 2026-09-30): measure which part of the current
   code misbehaves, find the root problem, and only then change that definition; never an extra algorithm to block a
@@ -313,6 +332,38 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 7. **Scaling.** Wall time and memory at 40k, 100k, 300k and 1M particles on one GPU.
 
 ## Results so far
+
+**D6, 2026-09-30 12:00 CDT — the three measurements (pre-registered 11:43).** C_R + `--ls_probe`, 40k: bunny (25
+windows), cheburashka (35), homer (40), beast ×3 (38, 43, 28); `tmp/d6_eval.py`.
+- (a) H_sign refuted. The Adam direction is a sign step only at the first iteration of a window (cos(d, sign g)
+  0.80–0.91, rms 0.36–0.65). From the second iteration on, cos(d, sign g) is 0.34–0.54 and the rms per coordinate
+  falls to 0.09–0.16 by the eighth; cos(d, g) is 0.27–0.43. The gradient's energy is concentrated: its largest 1 % of
+  coordinates carry 50–80 %. There is no reset pattern: the first iteration's accepted step is 0.65–0.95× the
+  eighth's, and the rise is the 1.1× growth rule. The line search is not binding under C_R: 0–4 % of iterations fail,
+  and the accepted step is 4e-4–1.5e-3 (D5's 1.5e-4 was the preconditioner arm). What the measurement shows instead:
+  after one accepted step most coordinates' gradient signs have changed, so the momentum built inside a window is
+  weakly aligned with the current gradient. Not a defect established here; recorded.
+- (b) Evaluation noise, not jumps, under C_R. Three repeated evaluations of the same point differ by a median
+  2e-8–7e-7 relative (p90 2e-7–1.8e-6), exactly zero in 6–36 % of the trials; per term, the transport without support
+  by ~1e-9, B by ~5e-12, the render by ~1e-10 (absolute). Tiny-step failed trials (a < 1e-6) were rare (11, all on the
+  bunny) and their changes sat at the noise level (64 % within 2× the spread, none above 10×). So the reading is
+  evaluation noise: the objective is not a deterministic function of the control at the 1e-6 level (the transfers'
+  atomics), while the line search's floor (1e-7) and the commit tolerance (10× a two-evaluation estimate that reads
+  zero in a third of the windows) assume a finer resolution. Each run lost one window to a `commit_replay` null
+  (windows 10, 26, 31, 32). The D5 non-smoothness (step-independent support jumps) was measured on the preconditioner
+  arm; under C_R at 40k it is not the dominant term. Root: nondeterministic evaluation. A tolerance is not the fix;
+  the source (where the two replays differ: positions or the loss side) is now recorded at every window start
+  (`replay_dx_max`, `replay_dx_rms` in spacings, `replay_dlv/dlk/dlr`).
+- (c) Beast did not freeze in three full runs (start state valid in 100 % of windows; no state-check failure in any
+  of the ~420 failed trials of the five runs). The freeze is one in five C_R runs so far (crv). Six further beast
+  runs with a 20-window budget (a diagnostic control) are running with the dead-state probe armed.
+- Floor pre-check for fix 1 (`scripts/probes/settled/floor_probe.py` on the four D6 end states): A'' equals the
+  current floor at every target point (max difference 1e-15); it is at or below zero for 0.4–0.7 % of particles, all
+  at least 1.4 spacings off the target (0–1 of ~29 700 particles within one spacing), mostly outer; within one
+  spacing its ratio to the current floor is 0.95 (p10 0.78, p90 1.10), between one and two spacings 0.77; the end
+  state's support penalty falls 3–5× (bunny mean 5.8e-4 → 1.1e-4, paying particles 1.5 → 0.5 %); under the current
+  floor 59–61 % of particles have a second-nearest target point whose floor differs by more than 10 % (median 13 %),
+  the step a Voronoi crossing takes. The pre-check passes: fix 1 goes ahead as R7.
 
 **Rollback to C_R, 2026-09-30 10:52 CDT (at the user's request).** R4 to R6 stacked layers onto the u channel, each
 covering the side effect of the one before: the two-sided support, the thin-coverage term, the preconditioner in place

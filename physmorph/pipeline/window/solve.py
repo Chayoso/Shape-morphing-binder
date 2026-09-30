@@ -32,7 +32,8 @@ _STAT_KEYS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm",
 # line-search diagnostics: trials, failure reasons (by state check), the start state's validity, and with
 # cfg.ls_probe each failed trial split by channel plus the Adam direction of every iteration
 _LS_KEYS = ("ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
-            "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason")
+            "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason",
+            "replay_dx_max", "replay_dx_rms", "replay_dlv", "replay_dlk", "replay_dlr")
 
 
 @dataclass
@@ -136,6 +137,11 @@ class WindowOptimizer:
         ea, eb = self.eval(), self.eval()
         ra = state_reason(ea)                               # the control the search starts from
         self.tele.update(start_ok=int(ra is None), start_reason=ra)
+        with torch.no_grad():                               # where the two replays differ (measurement)
+            dx = (ea.xT - eb.xT).norm(dim=1) / self.win.sp0
+            rel = lambda a, b: float(abs(a - b) / max(abs(float(a)), 1e-30))  # noqa: E731
+            self.tele.update(replay_dx_max=float(dx.max()), replay_dx_rms=float(dx.square().mean().sqrt()),
+                             replay_dlv=rel(ea.lv, eb.lv), replay_dlk=rel(ea.lk, eb.lk), replay_dlr=rel(ea.lr, eb.lr))
         EA, EB = self.scalar(ea), self.scalar(eb)
         if np.isfinite(EA) and np.isfinite(EB):
             return abs(EA - EB) / max(abs(EA), self.win.loss_floor_eff)

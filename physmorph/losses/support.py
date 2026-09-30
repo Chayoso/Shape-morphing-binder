@@ -6,11 +6,17 @@ and removes that pressure as E tends to zero. This is a terminal objective,
 not a whole-trajectory guarantee or a post-simulation particle correction.
 
 The floor is half the target's kernel density: its median (one global floor), or with
-target_ref the target's own density at each particle's nearest target point. The global
-floor asks thin target features to be denser than the target samples them; the
-target-referenced floor holds every particle to the density the target has there, so the
-target itself never pays the penalty, and a particle off the target still compares with
-the nearest target density.
+target_ref the target's own leave-one-out density continued to the particle's position,
+f(x) = 1/2 (t(x) - K(0)), t the target's kernel sum at x over its k + 1 nearest target points
+(Kelsall & Diggle 1995: both densities read at the same point with the same kernel, so a free
+surface lowers both alike; Monaghan 2005: the kernel sum continues the leave-one-out sum with
+an exponentially small error). At every target point it equals half the point's own
+leave-one-out density, so the target itself never pays; it is continuous in x, where the
+earlier form (the floor of the nearest target point) stepped by about 13 % for a typical
+particle at a Voronoi boundary; and it falls to zero, no floor and no penalty, about 1.4
+spacings outside the target, where the earlier form carried the nearest point's floor outward
+and charged spray that the W1 cleanup handles. The global floor asks thin target features to
+be denser than the target samples them.
 
 The per-particle penalty of a log-density deficit t = log f - log s is the log form
 relu(t)^2, or the ratio form relu(1 - s/f)^2: the missing fraction of the floor's local mass,
@@ -59,15 +65,20 @@ class TransportSupport:
         rho = torch.exp(-d * d / (2 * self.h * self.h)).sum(1)
         self.log_floor = float(math.log(.5 * gpu.median(rho)))
         if self.target_ref:
-            self.tree = tree
-            self.log_floor_pt = math.log(.5) + torch.log(rho)     # per target point, float64
+            self.tree, self.k, self.target_pts = tree, k, target
+            self.log_floor_pt = math.log(.5) + torch.log(rho)     # per target point, float64 (the floor there)
 
     def floor(self, x):
-        """The log-density floor of every particle: a scalar, or (N,) with target_ref."""
+        """The log-density floor of every particle: a scalar, or with target_ref (N,) the log of
+        1/2 (t(x) - K(0)), t the target's kernel sum at x over its k + 1 nearest target points
+        (neighbour indices detached, the kernel differentiable in x). Where t(x) <= K(0) the
+        floor is at or below zero: no floor, no penalty, and no gradient."""
         if not self.target_ref:
             return self.log_floor
-        idx = self.tree.query(x.detach(), 1)[1][:, 0].to(self.log_floor_pt.device)
-        return self.log_floor_pt[idx].to(device=x.device, dtype=x.dtype)
+        idx = self.tree.query(x.detach(), self.k + 1)[1].to(x.device)
+        y = self.target_pts.to(device=x.device, dtype=x.dtype)
+        t = torch.exp(-(x[:, None] - y[idx]).square().sum(2) / (2 * self.h * self.h)).sum(1)
+        return torch.log((.5 * (t - 1.0)).clamp_min(torch.finfo(x.dtype).tiny))
 
     def log_density(self, x):
         from ..render.knn_gpu import knn_self_torch
