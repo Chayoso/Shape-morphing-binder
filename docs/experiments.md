@@ -158,6 +158,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   preconditioner's gather used index 0 for every off-layer row, which serialised its backward on one address. The
   fix runs the preconditioner on compact layer indices. The mathematics is unchanged, and the four runs finished
   before the fix are kept aside (`output/gpu/r5_aborted_slow`) and not used.
+- **D5, what makes the sub-cell tail slow (diagnostic, pre-registered 2026-09-30 10:12 CDT, before launch).** Without
+  the forward relaxation (R5a) the runs keep improving by about 1 % of the merit per window for a hundred windows and
+  more, and collapse late on merit. Both controls share one Adam step length and one backtracking search. dFc is a
+  dimensionless deformation increment that acts through the grid on the whole body; u is a normal offset in world
+  units. In R5a's tails the accepted step is about 1.5e-4, so u moves 0.2 % of a spacing (0.07 wu) per iteration, and a
+  1.6–2 spacing thin gap would take about a hundred windows. At 300k (D1) the dFc-only step raised the objective in
+  87–96 % of failed trials, while the u-only step mostly lowered it. H_block: the dFc block sets the shared step, and
+  the sub-cell block is carried along at a step far below its own scale. Run: C_R + `--u_precond --ls_probe` on bunny,
+  cheburashka and homer (40k, seed 97). The tail is the committed windows after a run first reaches C_R's end
+  silhouette loss. Over the failed trials in the tail, H_block is supported if the u-only step lowers the objective
+  while the dFc-only step raises it in ≥ 70 % of them. It is refuted if the u-only step raises the objective in at least
+  half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
+  relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
+  control block), designed after a literature pass. No step constant changes.
 - **D1, why the line search collapses late (diagnostic, pre-registered 2026-09-29 14:50 CDT).** At 300k the dragon
   stops unfinished (R1d). In r2B_dragon_1 the accepted step fell from 4.6e-3 to 1.2e-6 inside window 20, and the
   fresh 0.02 starts after rejections collapsed again (windows 23–25) until three rejections stopped the run. Ruled
@@ -249,6 +263,39 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 7. **Scaling.** Wall time and memory at 40k, 100k, 300k and 1M particles on one GPU.
 
 ## Results so far
+
+**R5, 2026-09-30 10:12 CDT — the relaxation moved onto u as a preconditioner: both arms fail (pre-registered 00:23,
+restarted 02:33).** 40k gallery, seed 97, against C_R.
+- R5a (C_R + `--u_precond`): silhouette IoU median +0.0059, higher on 18 of 19 (worst C −0.0012): passes. Thin share
+  median 13.6 → 11.8 %, lower on 13 of 19 (median −1.9 points): passes (it is not above C_R + 0.5). Gallery 182
+  against 50 minutes: fails (needed ≤ 100). Collapsed windows 139 against D3b's 216: fails (needed ≤ 108).
+- R5b (+ `--diag_coverage 1`): thin lower on 12 of 19 (median −0.9 points): fails. Also 141 collapsed windows (needed
+  ≤ 81), 175 minutes (≤ 120), and beast frozen at window 10 (0.7313). Fails.
+- Predictions: R5a kept D3b's silhouette gain, as predicted, but the collapses did not fall much (139 against 216).
+  R5b did not keep D3c's thin gain.
+- Beast's freeze now has a record. In windows 10–14 all ten trials failed the state check and none failed the
+  merit. The commit rollout of the unchanged start was invalid too (`commit_invalid`, E 0.0955 each time). So the state
+  that window 9 committed becomes invalid under any nearby control (inverted, J ≤ 1e-4 within 2T steps, or out of the
+  domain). It is not a merit trap. Acceptance checks only the committed window's own 2T steps.
+- Post-hoc (`tmp/r5_post.py`, not a verdict):
+  - The cost is run length, not the preconditioner. Every arm takes about 5 s per window, but PC runs a median of
+    112 windows against C_R's 28.
+  - The long runs make steady progress, not churn. Cheburashka under PC lowers its merit by about 1 % per window from
+    window 20 to 240. Its d_sil falls from 4.5e-4 to 1.1e-4 at 64 px, and its thin share from 17.2 to 10.9 % by window
+    140, then to 8.7 % after the switch to 96 px at window 150. C_R stops at window 39 with d_sil 7.8e-4 and thin
+    12.4 %. PC reaches C_R's end silhouette loss in a median 15 windows, and C_R's end thin share in a median 54 (16 of
+    19 reach it).
+  - The collapsed windows sit late (median at 90 % of the run) and fail on merit only (1799 merit and 0 state
+    failures). The largest per-particle support penalty is lower in them than in other windows, so this is not D1b's
+    single-particle trap.
+  - End jitter (`jitter_rel`) is 25× lower without the forward relaxation (median 2.0e-7 under PC and 1.6e-7 under
+    NOREL, against 5.0e-6 under C_R): the relaxation keeps moving the surface at the end. Chamfer 0.1142 against
+    0.1157.
+  - The coarse-to-fine switch comes at a fixed window, 150 (half the 300-window budget). It never fires under C_R,
+    whose runs stop at 15–50 windows. It fired in 6 PC runs.
+- Reading: without the forward relaxation, sub-cell shape (thin coverage, outline) keeps improving, but only by about
+  1 % per window. The open question is now why the sub-cell modes converge so slowly, not whether the controls can
+  reach them (D5).
 
 **D4, 2026-09-30 00:23 CDT — beast's freeze under target-side coverage is intermittent (pre-registered 00:04).**
 - Run 2 froze again in both variants: coverage without relaxation at window 11 (0.8719), two-sided support at window
