@@ -50,3 +50,8 @@ for path in sys.argv[1:]:
     print(f"   whole run: negative-corr windows {int(neg.sum())}/{int(valid.sum())} ({100 * neg.sum() / max(valid.sum(), 1):.0f} %), "
           f"second half {int((neg & half).sum())}/{int((valid & half).sum())}, longest negative streak {longest}; "
           f"end-window step {R[-1, 1]:.4f} sp")
+    rev2 = neg & half
+    if rev2.any():
+        s_rev, s_first = float(np.median(R[rev2, 1])), float(np.median(R[~half, 1]))
+        print(f"   second-half reversing windows: median step {s_rev:.3f} sp = {s_rev / s_first:.2f} x the first "
+              f"half's median step ({s_first:.3f} sp)")

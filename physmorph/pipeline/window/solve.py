@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 import torch
+import warp as wp
 
 from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer
@@ -22,12 +23,14 @@ from ..target import TargetPack
 from .objective import Objective
 from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok
 from .setup import StartState, Window
-from .telemetry import collect_grad_dump, work_record, write_grad_dump
+from .telemetry import collect_grad_dump, support_record, work_record, write_grad_dump
 
 _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phys_work_x",
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
 _STAT_KEYS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm",
               "predicted_decrease") + _TELE_KEYS
+# line-search diagnostics: trials, failure reasons, and (cfg.ls_probe) each failed trial split by channel
+_LS_KEYS = ("ls_trials", "ls_fail_merit", "ls_fail_state", "ls_probe")
 
 
 @dataclass
@@ -80,7 +83,7 @@ class WindowOptimizer:
         # keeps every other term, the checks and the render telemetry
         self.lam_r = (balancer.lam or 0.0) * float(cfg.render_weight_scale)
         self.lam_capped = None
-        self.tele, self.dump = {}, {}
+        self.tele, self.dump = {"ls_trials": 0, "ls_fail_merit": 0, "ls_fail_state": 0}, {}
         self.accepted = self.rejected = 0
 
     def scalar(self, e: Eval) -> float:
@@ -191,11 +194,17 @@ class WindowOptimizer:
                 # noise floor (a stale moment can point against a fresh gradient)
                 noise_floor = cfg.ls_noise_rel * max(abs(cur), 1.0 / self.tgt.unit_ratio)
                 required = max(cfg.armijo_c1 * pred, noise_floor) if pred > 0.0 else noise_floor
-            if np.isfinite(new) and new <= cur - required and state_ok(e_n):
+            merit_ok, st_ok = bool(np.isfinite(new) and new <= cur - required), state_ok(e_n)
+            self.tele["ls_trials"] += 1
+            if merit_ok and st_ok:
                 self.adam_t = t_
                 self.alpha = min(a_try * 1.1, cfg.alpha * self.alpha_scale)
                 self.accepted += 1
                 return e_n, a_try, new, bak
+            self.tele["ls_fail_merit"] += int(not merit_ok)
+            self.tele["ls_fail_state"] += int(not st_ok)
+            if cfg.ls_probe:
+                self._probe(bak, cur, e, e_n, a_try, st_ok)
             with torch.no_grad():                             # reject: restore and shrink
                 for p, b in zip(self.leaves, bak):
                     p.copy_(b)
@@ -210,6 +219,50 @@ class WindowOptimizer:
                  f"d_vol={float(e_n.lv - e.lv.detach()):.3g} kin={float(e_n.lk - e.lk.detach()):.3g} "
                  f"render={float(e_n.lr - e.lr.detach()):.3g} lam={self.lam_r:.3g})")
         return None
+
+    def _probe(self, bak, cur, e: Eval, e_n: Eval, a_try, st_ok):
+        """Diagnostic (cfg.ls_probe): a failed trial split by channel. The same step is
+        evaluated on dFc alone and on u alone; per variant, the objective change relative to
+        the current value, the changes of the transport, kinetic and render terms, and the
+        state check. The caller restores the backup afterwards."""
+        parts_n = self._parts(e_n)                          # before the next rollout rewrites the flags
+        with torch.no_grad():
+            d_t, u_t = self.dFc.detach().clone(), self.u.detach().clone()
+            self.u.copy_(bak[1])
+        e_a = self.eval()
+        parts_a = self._parts(e_a)
+        with torch.no_grad():
+            self.dFc.copy_(bak[0])
+            self.u.copy_(u_t)
+        e_b = self.eval()
+        parts_b = self._parts(e_b)
+        with torch.no_grad():
+            self.dFc.copy_(d_t)
+        scale = max(abs(cur), 1e-30)
+
+        def row(ev, ok):
+            return [(self.scalar(ev) - cur) / scale, float(ev.lv - e.lv.detach()), float(ev.lk - e.lk.detach()),
+                    float(ev.lr - e.lr.detach()), int(ok)]
+        self.tele.setdefault("ls_probe", []).append(
+            [float(a_try), float((u_t - bak[1]).abs().max())] + row(e_n, st_ok) + row(e_a, state_ok(e_a))
+            + row(e_b, state_ok(e_b)) + parts_n + parts_a + parts_b + self._parts(e)[:3])
+
+    def _parts(self, ev: Eval) -> list:
+        """The transport term taken apart (diagnostic): the transport without the support bound,
+        the support penalty B, its largest per-particle value, and the particles flagged decoupled
+        at the last step of the latest eval rollout."""
+        tgt, sup = self.tgt, self.tgt.support
+        with torch.no_grad():
+            xT, vT = ev.xT.detach(), ev.vT.detach()
+            saved, tgt.grid_ot.support = tgt.grid_ot.support, None
+            try:
+                base = float(tgt.grid_ot.state_energy(xT, tgt.m, vT, self.obj.horizon))
+            finally:
+                tgt.grid_ot.support = saved
+            b = sup.penalty_per_point(xT) if sup is not None else xT.new_zeros(1)
+            tr = self.win.tr
+            nfrag = float(wp.to_torch(tr.frag_step).sum()) if getattr(tr, "bonds", None) else 0.0
+        return [base, float(b.mean()), float(b.max()), nfrag]
 
     def record(self, it, e_n: Eval, new, a_try, gn) -> dict:
         lpbr = float(e_n.lpbr)
@@ -302,9 +355,10 @@ class WindowOptimizer:
                  "grad_converged": grad_converged, "ls_exhausted": ls_exhausted, "L_start": L_start,
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
                  "dfc": self.dFc.detach()[:cfg.T].clone(),
-                 **{k: self.tele.get(k) for k in _STAT_KEYS}}
+                 **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
         if self.accepted > 0:
             stats["selection_merit"] = selection_merit
+            stats.update(support_record(self.tgt, self.obj.horizon, commit.x[-1], commit.end_v))
         elif selection_merit is not None and not np.isfinite(selection_merit):
             stats["invalid_selection"] = True
         self.tgt.settled_step = (hist[-1]["alpha"] / self.alpha_scale

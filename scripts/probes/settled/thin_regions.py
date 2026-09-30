@@ -2,8 +2,10 @@
 
 The target's local thickness h (twice the radius of the largest ball inside the target that contains the point,
 Hildebrand & Ruegsegger 1997) is measured on a voxel grid at the target spacing; every body particle takes the h of
-its nearest target point. Per thickness bin, in loss cells (<1, 1-2, 2-4, >=4; the loss cell is the run's grid cell):
-  target side   outer target points farther than 1.5 target spacings from the body (uncovered share);
+its nearest target point. Per thickness bin, in MPM cells (<1, 1-2, 2-4, >=4; the loss cell of a run whose loss
+grid is the MPM grid, so runs with a finer loss grid bin the same features):
+  target side   outer target points farther than 1.5 target spacings from the body (uncovered share), and farther
+                than 1.5 spacings of a 40k sampling (uncovered_40k: one world distance for every N);
   body side     sparsity (8th-neighbour distance / the target's median), stretch (largest singular value of F),
                 anisotropy (largest / smallest), det F;
   render        silhouette pixels of the bin's target points not covered by the body (24 views, 256 px);
@@ -90,12 +92,7 @@ def outer_mask(P, sp):
 
 
 def per_point_support(sup, x):
-    k = min(32, len(x) - 1)
-    _, idx = knn_self_torch(x, k + 1)
-    is_self = idx == torch.arange(len(x), device=x.device)[:, None]
-    nb = idx.gather(1, torch.argsort(is_self.to(torch.int8), dim=1, stable=True))[:, :k]
-    logd = torch.logsumexp(-(x[nb] - x[:, None]).square().sum(2) / (2 * sup.h ** 2), 1)
-    return sup.radius ** 2 * torch.relu(sup.log_floor - logd) ** 2
+    return sup.penalty_per_point(x)
 
 
 def analyse(label, path):
@@ -106,7 +103,9 @@ def analyse(label, path):
                        if k in MPMParams.__dataclass_fields__})
     cfg0 = arm["config"]
     cfg = PipelineConfig(loss_res=int(cfg0["loss_res"]), unit_ref_res=int(cfg0.get("unit_ref_res", 64)),
-                         nn_berth_k=float(cfg0.get("nn_berth_k", 1.0)))
+                         nn_berth_k=float(cfg0.get("nn_berth_k", 1.0)),
+                         support_target_ref=bool(cfg0.get("support_target_ref", False)),
+                         support_form=str(cfg0.get("support_form", "log")))
     z = np.load(path, allow_pickle=True)
     dn = int(z["deliver_n"]) if "deliver_n" in z.files else None
     frames = npz_member(path, "frames")
@@ -117,12 +116,14 @@ def analyse(label, path):
     idx = list(z["F_sample_idx"]); F = gpu.tensor(z["F_samples"][idx.index(dn - 1)] if dn - 1 in idx else z["F_samples"][-1])
     ldx = prm.dx * prm.nx / cfg.loss_res
     sp_t = gpu.median(gpu.knn(tgt, 2)[0][:, 1])
-    h_t = local_thickness(tgt, sp_t) / ldx                    # in loss cells
+    h_t = local_thickness(tgt, sp_t) / prm.dx                # in MPM cells (the loss cell of a D/26 run)
     tree_t = gpu.KNN(tgt)
     h_x = h_t[tree_t.query(x, 1)[1][:, 0]]
     # target side: uncovered outer points
     out_t = outer_mask(tgt, sp_t)
-    far = gpu.KNN(x).query(tgt, 1)[0][:, 0] > 1.5 * sp_t
+    d_body = gpu.KNN(x).query(tgt, 1)[0][:, 0]
+    far = d_body > 1.5 * sp_t
+    far40 = d_body > 1.5 * sp_t * (len(tgt) / 40000.0) ** (1.0 / 3.0)
     # body side
     d8 = knn_self_torch(x, 9)[0][:, 8].double() / gpu.median(knn_self_torch(tgt, 9)[0][:, 8])
     sv = torch.linalg.svdvals(F.reshape(-1, 3, 3).double())
@@ -178,7 +179,8 @@ def analyse(label, path):
                 mask_holes.append(float((tm & ~bm).sum()) / float(tm.sum()))
         f = lambda v, sel: float(v[sel].double().mean()) if bool(sel.any()) else float("nan")  # noqa: E731
         rows.append(dict(bin=f"{lo:g}-{hi:g}", n_tgt=int(bt.sum()), n_body=int(bx.sum()),
-                         uncovered=f(far.float(), bto), holes=float(np.mean(mask_holes)) if mask_holes else float("nan"),
+                         uncovered=f(far.float(), bto), uncovered_40k=f(far40.float(), bto),
+                         holes=float(np.mean(mask_holes)) if mask_holes else float("nan"),
                          sparsity=f(d8, bx), sparse_frac=f((d8 > 1.5).float(), bx), stretch_p90=(
                              float(torch.quantile(sv[bx, 0], 0.9)) if bool(bx.any()) else float("nan")),
                          aniso_p90=(float(torch.quantile(sv[bx, 0] / sv[bx, 2].clamp_min(1e-9), 0.9))
@@ -190,7 +192,7 @@ def analyse(label, path):
                 E=Ev, B=Bv, support_coef=c_sup / ot_scale, lam=lam, ot_scale=ot_scale)
     print(f"\n== {label}: loss cell {ldx:.4f} wu = {ldx / sp_t:.2f} target spacings; E {Ev:.3e}, wB {w * Bv:.3e}, "
           f"support gradient weight w(E/(E+wB))^2 = {c_sup / ot_scale:.3e}, lambda {lam:.3g}")
-    cols = ("bin", "n_tgt", "n_body", "uncovered", "holes", "sparsity", "sparse_frac", "stretch_p90", "aniso_p90", "J",
+    cols = ("bin", "n_tgt", "n_body", "uncovered", "uncovered_40k", "holes", "sparsity", "sparse_frac", "stretch_p90", "aniso_p90", "J",
             "g_transport", "g_support", "g_render", "g_cleanup", "B_body", "B_target", "B_target_pos")
     print(" ".join(f"{c:>11s}" for c in cols))
     for r in rows:
@@ -198,10 +200,11 @@ def analyse(label, path):
     return dict(head=head, rows=rows)
 
 
-ap = argparse.ArgumentParser()
-ap.add_argument("runs", nargs="+", help="LABEL=ARCHIVE.npz")
-ap.add_argument("--json", default="")
-a = ap.parse_args()
-out = [analyse(*r.split("=", 1)) for r in a.runs]
-if a.json:
-    json.dump(out, open(a.json, "w"), indent=1)
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("runs", nargs="+", help="LABEL=ARCHIVE.npz")
+    ap.add_argument("--json", default="")
+    a = ap.parse_args()
+    out = [analyse(*r.split("=", 1)) for r in a.runs]
+    if a.json:
+        json.dump(out, open(a.json, "w"), indent=1)

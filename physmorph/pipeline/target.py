@@ -54,6 +54,7 @@ class TargetPack:
     ot_scale: float | None = None       # transport scale: equal gradient norm with D_vol
     settled_scale: tuple | None = None  # (lambda, capped), calibrated once per resolution
     settled_step: float | None = None   # last accepted step (warm start of the search)
+    gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
@@ -61,7 +62,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     tgt_t = gpu.tensor(target_x)
     N = tgt_t.shape[0]
     m = torch.ones(N, device=gpu.DEVICE)
-    support = TransportSupport(tgt_t, cfg.support_weight) if cfg.support_weight > 0 else None
+    support = (TransportSupport(tgt_t, cfg.support_weight, cfg.support_target_ref, cfg.support_form)
+               if cfg.support_weight > 0 else None)
     # the loss grid covers the MPM domain (scalar geometry, float32 like the grid itself)
     dmin = np.asarray(prm.grid_min, np.float32)
     dmax = dmin + prm.dx * np.array([prm.nx, prm.ny, prm.nz], np.float32)
@@ -69,6 +71,12 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     ldims = (cfg.loss_res,) * 3
     lgmin = torch.tensor(dmin, device=gpu.DEVICE)
     grid = target_mass_grid(tgt_t, m, lgmin, ldx, ldims)
+    # the u transport gate measures its radius in MPM cells, so its transport map is solved on the
+    # MPM-cell grid; that is the loss grid itself unless the loss grid refines with N
+    gate = (grid, ldx, ldims)
+    if cfg.loss_follows_n and cfg.loss_res != prm.nx:
+        gdx, gdims = float((dmax - dmin).max() / prm.nx), (prm.nx,) * 3
+        gate = (target_mass_grid(tgt_t, m, lgmin, gdx, gdims), gdx, gdims)
     views = make_views(cfg.render_views, cfg.render_elevs)
     extent = float(tgt_t.abs().max()) * 1.25
     sils = target_silhouettes(tgt_t, views, cfg.render_res, extent, cfg.sil_k)
@@ -95,7 +103,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m, views=views, sils=sils,
                       extent=extent, shade=shade, pgmin=lgmin, pdx=pdx, pdims=pdims, pblur=pblur,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, pts=tgt_t, knn=knn,
-                      nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support)
+                      nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate)
 
 
 def rebuild_for_resolution(tgt: TargetPack, target_x, prm: MPMParams,

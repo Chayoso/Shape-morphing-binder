@@ -51,7 +51,7 @@ def sampling_berth(target: np.ndarray, far_k: float) -> float:
 
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
-            poisson: float, far_k: float, log=print) -> Prepared:
+            poisson: float, far_k: float, log=print, loss_ref_n: int = 0) -> Prepared:
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified")
     tgt, v_tgt = load_normalized(tgt_path, n, seed + 1, match_volume=v_src, sample="stratified",
                                  return_volume=True)
@@ -68,7 +68,11 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     dx0 = float((v_src * ppc / n) ** (1.0 / 3.0))
     leash = 1.25 * float(max(np.abs(src).max(), np.abs(tgt).max()))
     domain_half = leash + 2.0 * dx0
-    disc = derive(n, v_src, diag_src, prm.dt, young, poisson, ppc=ppc, domain_half=domain_half)
+    # the loss grid: the MPM cell, or (loss_ref_n > 0) refined with the particle spacing above
+    # loss_ref_n particles, so the transport resolves what the sampling resolves
+    per_dx = max(1.0, (n / loss_ref_n) ** (1.0 / 3.0)) if loss_ref_n > 0 else 1.0
+    disc = derive(n, v_src, diag_src, prm.dt, young, poisson, ppc=ppc, domain_half=domain_half,
+                  loss_cells_per_dx=per_dx)
     prm = dataclasses.replace(prm, dx=disc.dx, nx=disc.grid_n, ny=disc.grid_n, nz=disc.grid_n,
                               grid_min=(disc.grid_min,) * 3)
     # the unit calibration measures the legacy ratio on a 0.5 wu reference cell (the grid
@@ -79,7 +83,8 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
         "(0.5 wu reference cell)")
     log(report(disc, src))
     log(report(disc, tgt).splitlines()[-1].replace("[disc] measured", "[disc] TARGET measured"))
-    log(f"[disc] loss_res follows dx: {disc.loss_res}")
+    log(f"[disc] loss_res {disc.loss_res} (" + (f"{per_dx:.3f} loss cells per dx, following N above {loss_ref_n}"
+                                                if per_dx > 1.0 else "the MPM cell") + ")")
     berth = sampling_berth(tgt, far_k)
     log(f"[v2run] sampling-scale NN berth: nn_berth_k={berth:.17g}")
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,

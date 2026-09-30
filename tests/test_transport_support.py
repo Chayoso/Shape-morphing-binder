@@ -189,3 +189,113 @@ def test_gpu_neighbor_radius_expansion_reuses_completed_rows(monkeypatch):
     np.testing.assert_allclose(actual, expected, atol=2e-6, rtol=2e-6)
     # Three result buffers per query, not three new buffers per doubled radius.
     assert allocations == [(N, k), (N, k), N]
+
+
+def sheet_on_block():
+    """A thick block of lattice points with a one-layer sheet standing on it: the sheet is
+    sampled at the block's spacing but has fewer neighbours, so its kernel density is lower."""
+    g = np.arange(6) * .1
+    block = np.array([[x, y, z] for x in g for y in g for z in g])
+    s = np.arange(10) * .1
+    sheet = np.array([[x, y, .7] for x in s for y in s])
+    return np.concatenate([block, sheet])
+
+
+def test_target_referenced_floor_never_penalises_the_target():
+    from physmorph.losses.support import TransportSupport
+    target = sheet_on_block()
+    x = torch.tensor(target)
+    # the global floor (half the median density) asks the sheet to be denser than it is
+    assert float(TransportSupport(target, weight=8.).penalty(x)) > 0
+    ref = TransportSupport(target, weight=8., target_ref=True)
+    assert float(ref.penalty(x)) == 0.
+    assert ref.floor(x).shape == (len(target),)
+
+
+def test_target_referenced_floor_still_penalises_spray_with_true_gradient():
+    from physmorph.losses.support import TransportSupport
+    target = sheet_on_block()
+    ref = TransportSupport(target, weight=8., target_ref=True)
+    x = torch.tensor(target.copy())
+    x[0] = torch.tensor([-1.5, -1.5, -1.5], dtype=x.dtype)   # one particle far off the target
+    per_point = ref.penalty_per_point(x)
+    assert float(per_point[0]) > 0 and float(per_point[1:].max()) < float(per_point[0])
+    x = x.requires_grad_(True)
+    energy = lambda q: ref((q - .1).square().mean(), q)
+    g = torch.autograd.grad(energy(x), x)[0]
+    direction = torch.tensor(np.random.default_rng(23).normal(size=x.shape))
+    direction /= direction.norm()
+    eps = 1e-6
+    fd = (energy(x.detach() + eps * direction) - energy(x.detach() - eps * direction)) / (2 * eps)
+    assert float((g * direction).sum()) == pytest.approx(float(fd), rel=1e-3, abs=1e-9)
+
+
+def test_loss_grid_follows_the_particle_count_above_the_reference():
+    from physmorph.prepare import prepare
+    kw = dict(seed=3, cell_diag=26., young=1.4e5, poisson=.2, far_k=1000., log=lambda s: None)
+    base = prepare("assets/isosphere.obj", "assets/bunny.obj", 4000, **kw)
+    same = prepare("assets/isosphere.obj", "assets/bunny.obj", 4000, loss_ref_n=4000, **kw)
+    fine = prepare("assets/isosphere.obj", "assets/bunny.obj", 4000, loss_ref_n=500, **kw)
+    assert base.loss_res == base.prm.nx == same.loss_res            # at or below the reference: the MPM cell
+    assert fine.prm.nx == base.prm.nx                                # the MPM grid never changes
+    assert fine.loss_res == int(np.ceil(base.prm.nx * 2.0))          # (4000 / 500)^(1/3) = 2
+
+
+def test_transport_gate_stays_on_the_mpm_cell_grid():
+    from physmorph.pipeline.target import build_target
+    from physmorph.mpm.state import MPMParams
+    target = cloud().astype(np.float32)
+    prm = MPMParams(dx=.25, nx=16, ny=16, nz=16, grid_min=(-2., -2., -2.))
+    same = build_target(target, prm, PipelineConfig(loss_res=16, render_res=16, dt_res=16))
+    assert same.gate[0] is same.grid and same.gate[1] == same.ldx
+    fine = build_target(target, prm, PipelineConfig(loss_res=32, render_res=16, dt_res=16, loss_follows_n=True))
+    assert fine.ldims == (32,) * 3 and fine.gate[2] == (16,) * 3
+    assert fine.gate[1] == pytest.approx(.25) and float(fine.gate[0].sum()) == pytest.approx(float(fine.grid.sum()))
+
+
+def test_ratio_form_is_bounded_and_agrees_with_the_log_form_near_the_floor():
+    from physmorph.losses.support import deficit_penalty
+    t = torch.tensor([-1., 0., .01, .1, 5., 50.], dtype=torch.float64)      # log f - log s
+    lg, rt = deficit_penalty(t, "log"), deficit_penalty(t, "ratio")
+    assert float(lg[0]) == float(rt[0]) == float(rt[1]) == 0.               # above the floor: free
+    assert float(rt[2] / lg[2]) == pytest.approx(1., abs=.011)             # s -> f: the same penalty
+    assert float(rt.max()) <= 1. and float(lg[-1]) == 2500.                  # bounded against unbounded
+    with pytest.raises(ValueError, match="support form"):
+        from physmorph.losses.support import TransportSupport
+        TransportSupport(cloud(), weight=8., form="cap")
+    with pytest.raises(ValueError, match="support_form"):
+        PipelineConfig(support_form="cap")
+
+
+def test_ratio_form_bounds_an_isolated_particle_and_leaves_it_no_gradient():
+    from physmorph.losses.support import TransportSupport
+    target = cloud()
+    x = torch.tensor(target.copy())
+    x[0] = torch.tensor([4., 4., 4.], dtype=x.dtype)                        # far off the body
+    x.requires_grad_(True)
+    ratio = TransportSupport(target, weight=8., form="ratio")
+    per = ratio.penalty_per_point(x)
+    assert float(per[0]) == pytest.approx(ratio.radius ** 2) and float(per.max()) <= ratio.radius ** 2
+    g = torch.autograd.grad(per[0], x)[0]
+    assert float(g.abs().max()) < 1e-12                                      # left to the W1 cleanup
+    log = TransportSupport(target, weight=8., form="log")
+    assert float(log.penalty_per_point(x.detach())[0]) > 1e3 * log.radius ** 2
+    assert torch.equal(log.penalty(x.detach()), TransportSupport(target, weight=8.).penalty(x.detach()))
+
+
+def test_ratio_form_has_true_gradient_and_spares_the_target_with_its_own_floor():
+    from physmorph.losses.support import TransportSupport
+    target = cloud()
+    support = TransportSupport(target, weight=8., form="ratio")
+    x = torch.tensor(target * 1.7, requires_grad=True)
+    assert float(support.penalty(x)) > 0
+    energy = lambda q: support((q - .1).square().mean(), q)
+    g = torch.autograd.grad(energy(x), x)[0]
+    direction = torch.tensor(np.random.default_rng(37).normal(size=x.shape))
+    direction /= direction.norm()
+    eps = 1e-5
+    fd = (energy(x.detach() + eps * direction) - energy(x.detach() - eps * direction)) / (2 * eps)
+    assert float((g * direction).sum()) == pytest.approx(float(fd), rel=3e-4, abs=1e-8)
+    sheet = sheet_on_block()
+    ref = TransportSupport(sheet, weight=8., target_ref=True, form="ratio")
+    assert float(ref.penalty(torch.tensor(sheet))) == 0.

@@ -164,3 +164,40 @@ def test_delivery_is_the_best_merit_window_of_the_last_epoch():
     n, trunc = best_window(hist, 26, tol=0.003)
     assert n == 17 and trunc["best_animation"] == 2 and trunc["frames_dropped"] == 9
     assert best_window(hist[:1], 9, tol=0.003) == (9, None)
+
+
+def test_line_search_probe_is_diagnostic_only(prm, clouds, monkeypatch):
+    """The first trial of the run fails its state check. With the probe on, that trial is re-run on
+    dFc alone and on u alone and recorded; the accepted steps and losses equal the probe-off run."""
+    import physmorph.pipeline.window.solve as solve_mod
+    real = solve_mod.state_ok
+
+    def run(probe):
+        calls = []
+
+        def first_trial_fails(e):
+            calls.append(1)
+            return False if len(calls) == 1 else real(e)
+        monkeypatch.setattr(solve_mod, "state_ok", first_trial_fails)
+        res = run_pipeline(*clouds, prm, _cfg(animations=1, ls_probe=probe), log=lambda *_: None)
+        return next(r for r in res["history"] if r.get("frame_end"))
+
+    off, on = run(False), run(True)
+    assert off["ls_fail_state"] == on["ls_fail_state"] == 1 and off["ls_probe"] is None
+    assert on["ls_trials"] == off["ls_trials"] and len(on["ls_probe"]) == on["ls_fail_state"] + on["ls_fail_merit"]
+    row = on["ls_probe"][0]
+    assert len(row) == 32 and row[6] == 0       # step, |du|max, 3 x (rel, d_vol, kin, render, ok), 3 x parts, cur parts
+    assert on["loss"] == pytest.approx(off["loss"], rel=1e-4)
+    assert on["selection_merit"] == pytest.approx(off["selection_merit"], rel=1e-4)
+
+
+def test_committed_windows_record_the_support_split(prm, clouds):
+    """Each committed window records E, B, the support-gradient weight w (E / (E + w B))^2 and
+    the per-particle penalty's quantiles; the ratio form keeps every particle at most radius^2."""
+    for form in ("log", "ratio"):
+        cfg = _cfg(animations=1, support_form=form)
+        res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None)
+        rec = next(r for r in res["history"] if r.get("frame_end"))
+        E, B, w = rec["sup_E"], rec["sup_B"], cfg.support_weight
+        assert E > 0 and B >= 0 and rec["sup_w_eff"] == pytest.approx(w * (E / (E + w * B)) ** 2)
+        assert rec["sup_pen_med"] <= rec["sup_pen_p99"] <= rec["sup_pen_max"]

@@ -123,3 +123,24 @@ def write_grad_dump(directory, dump, win, leaf0, leaf_final, u_final, commit_dc,
         gx_sil=gpu.host(dump["gx_sil"]), gx_pbr=gpu.host(dump["gx_pbr"]), lam_r=dump["lam_r"],
         g_share=dump["g_share"], step_norm=step, leaf0_norm=float(leaf0.norm()),
         leaf_final_norm=float(leaf_final.norm()), **red, **resp, **u_red)
+
+
+def support_record(tgt, horizon: float, x: torch.Tensor, v: torch.Tensor) -> dict:
+    """The transport term taken apart at a committed state: the transport without the support
+    bound E, the support penalty B, the support-gradient weight w (E / (E + w B))^2 that every
+    particle feels through the bound, and the per-particle penalty's max, p99 and median."""
+    sup, ot = tgt.support, tgt.grid_ot
+    if sup is None or ot is None:
+        return {}
+    with torch.no_grad():
+        saved, ot.support = ot.support, None
+        try:
+            E = float(ot.state_energy(x, tgt.m, v, horizon))
+        finally:
+            ot.support = saved
+        pen = sup.penalty_per_point(x).double()
+        q = torch.quantile(pen, torch.tensor([.99, .5], dtype=pen.dtype, device=pen.device))
+    B, w = float(pen.mean()), sup.weight
+    w_eff = w * (E / (E + w * B)) ** 2 if np.isfinite(E) and E + w * B > 0 else None
+    return {"sup_E": E, "sup_B": B, "sup_w_eff": w_eff, "sup_pen_max": float(pen.max()),
+            "sup_pen_p99": float(q[0]), "sup_pen_med": float(q[1])}

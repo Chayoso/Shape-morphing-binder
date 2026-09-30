@@ -63,6 +63,12 @@ class PipelineConfig:
     ot_iters: int = 1600            # Sinkhorn sweep budget per solve
     ot_tol: float = 0.01            # marginal error of a converged solve
     support_weight: float = 8.0     # local support bound, E + E wB / (E + wB)
+    support_target_ref: bool = False  # support floor: half the target density at the nearest target point
+                                      #   (False: half the target median density, one global floor)
+    support_form: str = "log"       # per-particle deficit penalty: "log" relu(log f - log s)^2 or "ratio"
+                                    #   relu(1 - s/f)^2 (the missing fraction of the local mass, at most 1)
+    loss_follows_n: bool = False    # loss cell = MPM cell x min(1, (mass_ref_n / N)^(1/3)): the transport grid
+                                    #   and blur follow the particle spacing above the reference N
 
     # ---- cleanup (fixed weights, outside the render balance) ----
     w_dt: float = 0.2               # W1 pull of isolated particles down the target DT
@@ -102,11 +108,14 @@ class PipelineConfig:
 
     # ---- output ----
     grad_dump: str = ""             # directory of per-window gradient dumps (visualisation)
+    ls_probe: bool = False          # diagnostic: every failed line-search trial re-run on dFc alone and u alone
     work_telemetry: bool = True     # first/last-iteration steering telemetry
     device: str = "cuda"
 
     def __post_init__(self):
         import math
+        if self.support_form not in ("log", "ratio"):
+            raise ValueError("support_form must be \"log\" or \"ratio\"")
         for name in ("support_weight", "render_weight_scale"):
             v = getattr(self, name)
             if not math.isfinite(v) or v < 0:

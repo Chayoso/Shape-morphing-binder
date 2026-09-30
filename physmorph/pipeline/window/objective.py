@@ -41,8 +41,9 @@ class Objective:
         # layer_gate_ot_cells MPM cells; farther off, u's per-particle step rides a moving
         # surface. Recomputed at every window start.
         t0 = time.perf_counter()
-        disp = grid_transport_displacement(x0, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims,
-                                           eps=eps, iters=cfg.ot_iters, tol=cfg.ot_tol)
+        g_grid, g_dx, g_dims = tgt.gate if tgt.gate is not None else (tgt.grid, tgt.ldx, tgt.ldims)
+        disp = grid_transport_displacement(x0, tgt.m, g_grid, tgt.lgmin, g_dx, g_dims,
+                                           eps=float(g_dx) ** 2, iters=cfg.ot_iters, tol=cfg.ot_tol)
         dn = disp.norm(dim=1)
         print(f"[win] fixed grid transport: mean |d|={float(dn.mean()):.3g} wu", flush=True)
         gate = (dn <= float(cfg.layer_gate_ot_cells) * float(prm.dx)).float() * (win.lmask > 0.5).float()

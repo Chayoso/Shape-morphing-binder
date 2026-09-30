@@ -51,11 +51,19 @@ def parse_args():
                     help="multiplies the render weight; 0 = the render-off twin")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
     ap.add_argument("--support_weight", type=float, default=8.0, help="local support bound weight")
+    ap.add_argument("--support_target_ref", action="store_true",
+                    help="support floor from the target density at the nearest target point")
+    ap.add_argument("--support_form", choices=("log", "ratio"), default="log",
+                    help="per-particle support penalty: log deficit squared, or missing mass fraction squared")
+    ap.add_argument("--loss_follows_n", action="store_true",
+                    help="transport grid and blur follow the particle spacing above mass_ref_n")
     ap.add_argument("--cell_diag", type=float, default=26.0,
                     help="the MPM cell from the shape: dx = source bbox diagonal / cell_diag")
     ap.add_argument("--save_F_stride", type=int, default=0,
                     help="archive every k-th frame's F (0 = every T frames)")
     ap.add_argument("--grad_dump", default="", help="directory of per-window gradient dumps")
+    ap.add_argument("--ls_probe", action="store_true",
+                    help="diagnostic: split every failed line-search trial by control channel")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
     ap.add_argument("--live_dir", default="", help="file-backed viewer sink (scripts/viewer_serve.py)")
     return ap.parse_args()
@@ -107,15 +115,17 @@ def live_hooks(args, src, tgt, prm, cfg):
 def main():
     args = parse_args()
     gpu.require_cuda()
-    cfg0 = PipelineConfig()
+    cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
+                          loss_follows_n=args.loss_follows_n)
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
-                   cfg0.nn_far_k, log=lambda s: print(s, flush=True))
+                   cfg0.nn_far_k, log=lambda s: print(s, flush=True),
+                   loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
-                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump)
+                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)
