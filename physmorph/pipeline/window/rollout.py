@@ -59,7 +59,7 @@ def _evaluate(obj: Objective, xT, FT, vT, dfc, V, **kw) -> Eval:
 def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:
     """Differentiable rollout (the persistent tape; forward and adjoint as CUDA graphs)."""
     dfc = win.expand(leaf)
-    xT, FT, vT, _, V = win.adjoint().apply(dfc, win.smooth_u(u))
+    xT, FT, vT, _, V = win.adjoint().apply(dfc, u)
     return _evaluate(obj, xT, FT, vT, dfc, V)
 
 
@@ -77,7 +77,7 @@ def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor)
     """No-grad rollout of a candidate on the persistent trajectory (no tape, no adjoint
     buffers). The outputs are copies: the next candidate rewrites the buffers."""
     with torch.no_grad():
-        dc = win.load(leaf, win.smooth_u(u))
+        dc = win.load(leaf, u)
         tr, T, N = win.tr, win.T, win.N
         tr.run()
         xT = wp.to_torch(tr.x[T]).clone()

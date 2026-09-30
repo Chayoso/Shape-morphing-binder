@@ -17,12 +17,6 @@ relu(t)^2, or the ratio form relu(1 - s/f)^2: the missing fraction of the floor'
 which is at most 1. The two agree as s -> f. The log form grows as the square of the distance
 to the neighbours for an isolated particle, so one stray particle can carry B; under the ratio
 form a particle adds at most radius^2 / N, and isolated particles are left to the W1 cleanup.
-
-The support is one-sided unless two_sided: it asks each BODY particle for enough body around it, and so cannot
-see target material with no body near it (a thin feature left uncovered). two_sided applies the same estimator
-and floor in the other direction as well, at every target point (the body's kernel density there against the
-floor there), and averages the two sides, as a symmetric Chamfer does. It needs the ratio form: under the log
-form a target point far from the body would be unbounded.
 """
 from __future__ import annotations
 
@@ -44,7 +38,7 @@ def deficit_penalty(t: torch.Tensor, form: str) -> torch.Tensor:
 
 class TransportSupport:
     def __init__(self, target: torch.Tensor, weight: float, target_ref: bool = False,
-                 form: str = "log", two_sided: bool = False):
+                 form: str = "log"):
         target = gpu.tensor(target, torch.float64)          # scalar geometry in float64, like cKDTree
         if target.ndim != 2 or target.shape[1] != 3 or len(target) < 2 or not bool(torch.isfinite(target).all()):
             raise ValueError('support target must be finite (N,3), N >= 2')
@@ -52,13 +46,9 @@ class TransportSupport:
             raise ValueError('support weight must be finite and nonnegative')
         if form not in FORMS:
             raise ValueError(f"support form must be one of {FORMS}")
-        if two_sided and form != "ratio":
-            raise ValueError("a two-sided support needs the ratio form: target points far from the body "
-                             "would make the log form unbounded")
         self.weight = float(weight)
         self.target_ref = bool(target_ref)
         self.form = form
-        self.two_sided = bool(two_sided)
         k = min(32, len(target) - 1)
         tree = gpu.KNN(target)
         d = tree.query(target, k + 1)[0][:, 1:]                   # float64, like cKDTree
@@ -71,10 +61,6 @@ class TransportSupport:
         if self.target_ref:
             self.tree = tree
             self.log_floor_pt = math.log(.5) + torch.log(rho)     # per target point, float64
-        if self.two_sided:
-            self.target_pts = target
-            self.target_log_floor = (math.log(.5) + torch.log(rho) if self.target_ref
-                                     else torch.full_like(rho, self.log_floor))
 
     def floor(self, x):
         """The log-density floor of every particle: a scalar, or (N,) with target_ref."""
@@ -94,28 +80,13 @@ class TransportSupport:
         return torch.logsumexp(
             -(x[neighbors] - x[:, None]).square().sum(2) / (2 * self.h * self.h), dim=1)
 
-    def target_deficit(self, x):
-        """Per target point: floor minus the log kernel density of the BODY there (its k nearest particles),
-        the same estimator the body side uses. Neighbour indices are detached; the kernel is differentiable."""
-        k = min(32, len(x))
-        idx = gpu.KNN(x.detach()).query(self.target_pts, k)[1].to(x.device)
-        y = self.target_pts.to(device=x.device, dtype=x.dtype)
-        log_s = torch.logsumexp(-(x[idx] - y[:, None]).square().sum(2) / (2 * self.h * self.h), dim=1)
-        return self.target_log_floor.to(device=x.device, dtype=x.dtype) - log_s
-
     def penalty_per_point(self, x):
         return self.radius ** 2 * deficit_penalty(self.floor(x) - self.log_density(x), self.form)
-
-    def target_penalty_per_point(self, x):
-        return self.radius ** 2 * deficit_penalty(self.target_deficit(x), self.form)
 
     def penalty(self, x):
         if x.ndim != 2 or x.shape[1] != 3 or len(x) < 2:
             raise ValueError('support positions must have shape (N,3), N >= 2')
-        body = deficit_penalty(self.floor(x) - self.log_density(x), self.form).mean()
-        if self.two_sided:
-            body = .5 * (body + deficit_penalty(self.target_deficit(x), self.form).mean())
-        return self.radius ** 2 * body
+        return self.radius ** 2 * deficit_penalty(self.floor(x) - self.log_density(x), self.form).mean()
 
     def __call__(self, energy, x):
         # Keep containment/failed-solve sentinels intact and avoid inf/inf.

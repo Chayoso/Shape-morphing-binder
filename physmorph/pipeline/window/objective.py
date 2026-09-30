@@ -83,10 +83,7 @@ class Objective:
     def transport(self, xT, vT=None):
         if vT is None:
             vT = torch.zeros_like(xT)
-        E = self.tgt.grid_ot.state_energy(xT, self.tgt.m, vT, self.horizon)
-        if self.tgt.coverage is not None:                  # D3a diagnostic (config.diag_coverage)
-            E = E + self.cfg.diag_coverage * self.tgt.coverage(xT)
-        return E
+        return self.tgt.grid_ot.state_energy(xT, self.tgt.m, vT, self.horizon)
 
     def losses(self, xT, FT, vT):
         """(lv, lk, lr, lpbr, d_sil): scaled transport, end kinetic, render (silhouette +

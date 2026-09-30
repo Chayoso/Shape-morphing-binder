@@ -38,13 +38,6 @@ class PipelineConfig:
     eps: float = 1e-3               # legacy-unit Adam epsilon
     armijo_c1: float = 1e-4
     ls_noise_rel: float = 1e-7      # improvements below this relative size are noise
-    block_steps: bool = False       # one step length per control block (dFc, u): each found by its own Armijo search
-                                    #   from the same point with the same gradient, then one Armijo check of the
-                                    #   combined step (Tseng & Yun 2009; Richtarik & Takac 2016). D5: under one shared
-                                    #   step the dFc block sets the step and u moves 0.3 % of a spacing per iteration
-    u_uniform_adam: bool = False    # the u block's Adam step with one second-moment scalar for the tensor (its largest
-                                    #   entry), as Nicolet et al. 2021 do for a preconditioned parameter: per-coordinate
-                                    #   normalisation distorts the smooth direction (use with u_precond)
     replay_calibrate: bool = True   # measure the rollout replay noise at every window start
     dfc_clip: float = 0.02          # per-particle, per-step |dFc| cap
     warm_decay: float = 0.5         # warm start = previous window's control x this
@@ -74,17 +67,8 @@ class PipelineConfig:
                                       #   (False: half the target median density, one global floor)
     support_form: str = "log"       # per-particle deficit penalty: "log" relu(log f - log s)^2 or "ratio"
                                     #   relu(1 - s/f)^2 (the missing fraction of the local mass, at most 1)
-    support_two_sided: bool = False # the support also at every target point (body density there vs the floor):
-                                    #   a symmetric local density match; needs the ratio form
     loss_follows_n: bool = False    # loss cell = MPM cell x min(1, (mass_ref_n / N)^(1/3)): the transport grid
                                     #   and blur follow the particle spacing above the reference N
-    # ---- diagnostics (off by default; never part of an adopted recipe) ----
-    layer_relax: bool = True        # D3b: False switches the outer-layer relaxation off (u stays)
-    u_precond: bool = False         # the relaxation's smoothing moved from the forward model onto the u control:
-                                    #   u = (I + 2 (I - W))^-1 v on the layer graph (2 = the relaxation's strength
-                                    #   over one window, 2T steps of 1/T); the forward model then has no relaxation
-    diag_coverage: float = 0.0      # D3a: > 0 adds this x the thin set's missing-mass fraction (physmorph.thin) to
-                                    #   the transport energy
 
     # ---- cleanup (fixed weights, outside the render balance) ----
     w_dt: float = 0.2               # W1 pull of isolated particles down the target DT

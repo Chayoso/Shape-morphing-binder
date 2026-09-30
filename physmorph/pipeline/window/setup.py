@@ -8,7 +8,6 @@ the controls at zero while the physics keeps running. The control leaf is the dr
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import torch
@@ -50,9 +49,7 @@ class Window:
         self.sp0 = layer_spacing(start.x)
         self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
                                                            h_sp=cfg.layer_h_sp)
-        relax = 1.0 / float(cfg.T) if cfg.layer_relax and not cfg.u_precond else 0.0
-        layer = (self.lmask, self.lnrm, lnbr, lw, relax)
-        self.lidx, self.lnbr_c, self.lw_c = layer_graph(self.lmask, lnbr, lw)
+        layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T))
         nbr, rest, frag = bonds
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
@@ -92,21 +89,6 @@ class Window:
         self.spec.layer = self.spec.layer[:5] + (None, 0.0, gate)
         wp.to_torch(self.tr.layer_ug).copy_(gate)
 
-    def smooth_u(self, v: torch.Tensor | None) -> torch.Tensor | None:
-        """The applied u: v itself, or with cfg.u_precond S v, S = (I + c (I - W))^-1 on the layer graph (W: the
-        relaxation's same-side weights, rows summing to 1; c = 2, the relaxation's strength over one window).
-        A constant field passes unchanged; the particle-scale alternation is damped. Jacobi to 1e-3 (the
-        iteration contracts by c / (1 + c)); differentiable. The minimiser of the objective is not changed:
-        only the parameterisation of the step (Nicolet et al. 2021)."""
-        if v is None or not self.cfg.u_precond:
-            return v
-        c = 2.0
-        b = v[self.lidx]
-        x = b
-        for _ in range(int(math.ceil(math.log(1e-3) / math.log(c / (1.0 + c))))):
-            x = (b + c * (self.lw_c.to(v.dtype) * x[self.lnbr_c]).sum(1)) / (1.0 + c)
-        return torch.zeros_like(v).index_copy(0, self.lidx, x)
-
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:
         """Copy a candidate into the eval trajectory's buffers; returns the expanded control."""
         dc = self.expand(leaf.detach()).detach().contiguous()
@@ -119,19 +101,6 @@ class Window:
         """Every frame of the last eval rollout inside the runner's two-cell safety margin."""
         x = torch.stack([wp.to_torch(p) for p in self.tr.x])
         return positions_in_domain(x, self.prm)
-
-
-def layer_graph(lmask: torch.Tensor, lnbr: torch.Tensor, lw: torch.Tensor):
-    """(idx, nbr, w): the layer particles and their same-side neighbour rows in compact layer indices, rows
-    renormalised over layer neighbours. Rows off the layer hold index 0, which would serialise the gather's
-    backward on one address; the compact graph has no such rows."""
-    idx = torch.nonzero(lmask > 0.5).squeeze(1)
-    gmap = torch.zeros(len(lmask), dtype=torch.long, device=lmask.device)
-    gmap[idx] = torch.arange(len(idx), device=lmask.device)
-    rows = lnbr[idx]
-    w = lw[idx] * (lmask[rows] > 0.5).to(lw.dtype)
-    s = w.sum(1, keepdim=True)
-    return idx, gmap[rows], torch.where(s > 0, w / s.clamp_min(1e-30), w)
 
 
 def domain_bounds(prm: MPMParams, device="cuda"):

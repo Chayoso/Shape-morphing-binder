@@ -29,9 +29,8 @@ _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phy
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
 _STAT_KEYS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm",
               "predicted_decrease") + _TELE_KEYS
-# line-search diagnostics: trials, failure reasons, and (cfg.ls_probe) each failed trial split by channel;
-# with block_steps the u block's last applied step and the iterations that took the combined step
-_LS_KEYS = ("ls_trials", "ls_fail_merit", "ls_fail_state", "ls_probe", "alpha_u", "ls_combined")
+# line-search diagnostics: trials, failure reasons, and (cfg.ls_probe) each failed trial split by channel
+_LS_KEYS = ("ls_trials", "ls_fail_merit", "ls_fail_state", "ls_probe")
 
 
 @dataclass
@@ -74,11 +73,7 @@ class WindowOptimizer:
         self.adam_t = 0
         self.alpha_scale = alpha_scale
         self.alpha = cfg.alpha * alpha_scale
-        # block_steps: the start and last accepted step length of each block (dFc, u)
-        steps = tgt.settled_step if isinstance(tgt.settled_step, tuple) else (None, None)
-        self.alphas = [self.alpha if s is None else min(self.alpha, 1.1 * s * alpha_scale) for s in steps]
-        self.last_acc = [None, None]
-        if tgt.settled_step is not None and not isinstance(tgt.settled_step, tuple):
+        if tgt.settled_step is not None:
             # warm-start the step search, not its acceptance: every trial runs the checks
             self.alpha = min(self.alpha, 1.1 * (tgt.settled_step * alpha_scale))
         if tgt.settled_scale is not None:
@@ -88,7 +83,7 @@ class WindowOptimizer:
         # keeps every other term, the checks and the render telemetry
         self.lam_r = (balancer.lam or 0.0) * float(cfg.render_weight_scale)
         self.lam_capped = None
-        self.tele, self.dump = {"ls_trials": 0, "ls_fail_merit": 0, "ls_fail_state": 0, "ls_combined": 0}, {}
+        self.tele, self.dump = {"ls_trials": 0, "ls_fail_merit": 0, "ls_fail_state": 0}, {}
         self.accepted = self.rejected = 0
 
     def scalar(self, e: Eval) -> float:
@@ -225,107 +220,6 @@ class WindowOptimizer:
                  f"render={float(e_n.lr - e.lr.detach()):.3g} lam={self.lam_r:.3g})")
         return None
 
-    def block_search(self, g, gn: float, cur: float, e: Eval):
-        """cfg.block_steps: one step length per control block (D5). The Adam moments take the gradient once. From the
-        current point each block (dFc, then u) runs its own backtracking search with the other block held, starting
-        from its own step memory, under line_search's acceptance test. When both blocks find a step, their sum is tried
-        at full length and at half: for two coupled blocks whose steps each descend, the halved sum descends
-        (Richtarik & Takac 2016, Thm 13; Nesterov 2012). The lowest accepted candidate is taken. Returns as
-        line_search; the step it reports is the dFc block's (the u block's is in tele["alpha_u"])."""
-        cfg, win = self.cfg, self.win
-        scale = (max(cfg.min_alpha_scale, min(1.0, win.target_norm_eff / max(gn, 1e-30)))
-                 if cfg.adaptive_alpha else 1.0)
-        bak = [p.detach().clone() for p in self.leaves]
-        bak_m, bak_v = [m.clone() for m in self.mom], [v.clone() for v in self.vel]
-        t_ = self.adam_t + 1
-        dirs = []
-        with torch.no_grad():
-            for i, (gi, m_, v_) in enumerate(zip(g, self.mom, self.vel)):
-                m_.mul_(cfg.beta1).add_(gi, alpha=1 - cfg.beta1)
-                v_.mul_(cfg.beta2).addcmul_(gi, gi, value=1 - cfg.beta2)
-                vh = v_ / (1 - cfg.beta2 ** t_)
-                if i == 1 and cfg.u_uniform_adam:
-                    vh = vh.max()                           # one scalar for the tensor (Nicolet et al. 2021)
-                dirs.append((m_ / (1 - cfg.beta1 ** t_)) / (vh.sqrt() + win.eps_eff))
-        noise_floor = cfg.ls_noise_rel * max(abs(cur), 1.0 / self.tgt.unit_ratio)
-
-        def delta(b, a):
-            """Block b's step at length a, projected as line_search projects it."""
-            with torch.no_grad():
-                x = bak[b] - a * dirs[b]
-                if b == 0 and cfg.dfc_clip > 0:
-                    n = x.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
-                    x = x * (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
-                elif b == 1:
-                    x = x.clamp(-win.sp0, win.sp0)          # one spacing per window
-                return x - bak[b]
-
-        def trial(steps):
-            with torch.no_grad():
-                for p, b, s in zip(self.leaves, bak, steps):
-                    p.copy_(b if s is None else b + s)
-            e_n = self.eval()
-            new = self.scalar(e_n)
-            with torch.no_grad():
-                pred = -float(sum((gi.detach() * s).sum() for gi, s in zip(g, steps) if s is not None))
-            self.tele["predicted_decrease"] = pred
-            required = max(cfg.armijo_c1 * pred, noise_floor) if pred > 0.0 else noise_floor
-            merit_ok, st_ok = bool(np.isfinite(new) and new <= cur - required), state_ok(e_n)
-            self.tele["ls_trials"] += 1
-            self.tele["ls_fail_merit"] += int(not merit_ok)
-            self.tele["ls_fail_state"] += int(not st_ok)
-            return (new, e_n) if merit_ok and st_ok else None
-
-        nb = len(self.leaves)
-        found = [None] * nb                                 # (length, step) per block
-        cands = []                                          # (value, eval, lengths, steps)
-        for b in range(nb):
-            if not bool((g[b] != 0).any()):
-                continue                                    # nothing to move (u gated off everywhere)
-            a = self.alphas[b] * scale
-            for _ in range(cfg.max_ls_iters):
-                s = delta(b, a)
-                steps = [s if i == b else None for i in range(nb)]
-                got = trial(steps)
-                if got is not None:
-                    found[b] = (a, s)
-                    cands.append(got + ([a if i == b else 0.0 for i in range(nb)], steps))
-                    break
-                a *= 0.5
-            if found[b] is None:
-                self.alphas[b] *= 0.5
-            else:
-                self.last_acc[b] = found[b][0]
-                self.alphas[b] = min(found[b][0] * 1.1, cfg.alpha * self.alpha_scale)
-        if all(f is not None for f in found):
-            for theta in (1.0, 0.5):
-                steps = [theta * f[1] for f in found]
-                got = trial(steps)
-                if got is not None:
-                    cands.append(got + ([theta * f[0] for f in found], steps))
-                    break
-        if not cands:
-            with torch.no_grad():
-                for p, b in zip(self.leaves, bak):
-                    p.copy_(b)
-                for m_, b in zip(self.mom, bak_m):
-                    m_.copy_(b)
-                for v_, b in zip(self.vel, bak_v):
-                    v_.copy_(b)
-            self.rejected += 1
-            self.log(f"[win] block searches exhausted (cur={cur:.6g} ||g||={gn:.3g} "
-                     f"steps={[f'{a:.3g}' for a in self.alphas]} lam={self.lam_r:.3g})")
-            return None
-        new, e_n, lengths, steps = min(cands, key=lambda c: c[0])
-        with torch.no_grad():
-            for p, b, s in zip(self.leaves, bak, steps):
-                p.copy_(b if s is None else b + s)
-        self.tele["ls_combined"] += int(all(s is not None for s in steps))
-        self.tele["alpha_u"] = lengths[1]
-        self.adam_t = t_
-        self.accepted += 1
-        return e_n, lengths[0], new, bak
-
     def _probe(self, bak, cur, e: Eval, e_n: Eval, a_try, st_ok):
         """Diagnostic (cfg.ls_probe): a failed trial split by channel. The same step is
         evaluated on dFc alone and on u alone; per variant, the objective change relative to
@@ -405,16 +299,13 @@ class WindowOptimizer:
                 grad_converged = True
                 log(f"[win] converged at iter {it} (||g||={gn:.4g})")
                 break
-            found = (self.block_search if cfg.block_steps else self.line_search)(g, gn, cur, e)
+            found = self.line_search(g, gn, cur, e)
             if found is None:
                 self.tele["null_reason"] = "ls_exhausted" if not hist else None
                 # an exhausted search leaves point, moments and gradient unchanged: the next
                 # iteration would re-test rejected steps, so the window ends here
-                if cfg.block_steps:                             # each failed block halved its own step
-                    ls_exhausted = max(self.alphas) >= 1e-8
-                else:
-                    self.alpha *= 0.5
-                    ls_exhausted = self.alpha >= 1e-8
+                self.alpha *= 0.5
+                ls_exhausted = self.alpha >= 1e-8
                 break
             e_n, a_try, new, bak = found
             if diag is not None:
@@ -478,12 +369,8 @@ class WindowOptimizer:
             stats.update(support_record(self.tgt, self.obj.horizon, commit.x[-1], commit.end_v))
         elif selection_merit is not None and not np.isfinite(selection_merit):
             stats["invalid_selection"] = True
-        if cfg.block_steps:                                     # each block's last accepted search length
-            self.tgt.settled_step = (tuple(None if a is None else a / self.alpha_scale for a in self.last_acc)
-                                     if self.accepted > 0 and self.alpha_scale > 0 else None)
-        else:
-            self.tgt.settled_step = (hist[-1]["alpha"] / self.alpha_scale
-                                     if self.accepted > 0 and self.alpha_scale > 0 else None)
+        self.tgt.settled_step = (hist[-1]["alpha"] / self.alpha_scale
+                                 if self.accepted > 0 and self.alpha_scale > 0 else None)
         return WindowResult(commit=commit if self.accepted > 0 else None, hist=hist, stats=stats)
 
 

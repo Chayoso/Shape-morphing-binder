@@ -31,8 +31,8 @@ GUARDS = ("clamped", "nan_x", "nan_state", "F_reset", "F_flip", "F_invert_steps"
 _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "render_work",
                 "render_work_x", "render_work_F", "phys_work", "phys_work_x", "phys_work_F",
                 "phys_work_v", "step_norm", "render_cos", "phys_cos", "predicted_decrease",
-                "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_probe", "alpha_u", "ls_combined",
-                "sup_E", "sup_B", "sup_B_target", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med")
+                "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_probe",
+                "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med")
 
 
 def _host(t):

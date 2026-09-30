@@ -141,11 +141,6 @@ def support_record(tgt, horizon: float, x: torch.Tensor, v: torch.Tensor) -> dic
         pen = sup.penalty_per_point(x).double()
         q = torch.quantile(pen, torch.tensor([.99, .5], dtype=pen.dtype, device=pen.device))
     B, w = float(pen.mean()), sup.weight
-    B_t = None
-    if sup.two_sided:
-        with torch.no_grad():
-            B_t = float(sup.target_penalty_per_point(x).double().mean())
-        B = .5 * (B + B_t)                                       # the bound sees the mean of the two sides
     w_eff = w * (E / (E + w * B)) ** 2 if np.isfinite(E) and E + w * B > 0 else None
-    return {"sup_E": E, "sup_B": B, "sup_B_target": B_t, "sup_w_eff": w_eff, "sup_pen_max": float(pen.max()),
+    return {"sup_E": E, "sup_B": B, "sup_w_eff": w_eff, "sup_pen_max": float(pen.max()),
             "sup_pen_p99": float(q[0]), "sup_pen_med": float(q[1])}

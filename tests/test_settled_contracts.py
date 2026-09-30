@@ -195,57 +195,11 @@ def test_committed_windows_record_the_support_split(prm, clouds):
     """Each committed window records E, B, the support-gradient weight w (E / (E + w B))^2 and
     the per-particle penalty's quantiles; the ratio form keeps every particle at most radius^2."""
     from physmorph.thin import thin_set
-    for form, two in (("log", False), ("ratio", False), ("ratio", True)):
-        cfg = _cfg(animations=3, support_form=form, support_two_sided=two)   # >1: a tiny cloud can null a window
+    for form in ("log", "ratio"):
+        cfg = _cfg(animations=3, support_form=form)             # >1: a tiny cloud can null a window
         res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None, thin=thin_set(clouds[1], prm.dx, 300))
         rec = next(r for r in res["history"] if r.get("frame_end"))
         E, B, w = rec["sup_E"], rec["sup_B"], cfg.support_weight
         assert E > 0 and B >= 0 and rec["sup_w_eff"] == pytest.approx(w * (E / (E + w * B)) ** 2)
         assert rec["sup_pen_med"] <= rec["sup_pen_p99"] <= rec["sup_pen_max"]
-        assert (rec["sup_B_target"] is not None) == two and 0. <= rec["thin_uncovered"] <= 1.
-
-
-def test_diagnostic_switches_run_and_leave_the_defaults_alone(prm, clouds):
-    """D3a/D3b: the relaxation can be switched off and the thin-coverage diagnostic added; both are off by default."""
-    cfg0 = PipelineConfig()
-    assert cfg0.layer_relax and cfg0.diag_coverage == 0.
-    res = run_pipeline(*clouds, prm, _cfg(animations=1, layer_relax=False, diag_coverage=1.), log=lambda *_: None)
-    assert any(r.get("frame_end") for r in res["history"])
-
-
-def test_u_preconditioner_keeps_smooth_fields_and_damps_the_particle_alternation():
-    """u = (I + 2 (I - W))^-1 v on a ring of 12 layer particles (two neighbours, weights 1/2): a constant passes
-    unchanged, the +-1 alternation (W alt = -alt) is damped to 1/5, particles off the layer get nothing."""
-    from types import SimpleNamespace
-    from physmorph.pipeline.window.setup import Window, layer_graph
-    n = 12
-    idx = torch.arange(n)
-    lmask = torch.ones(n + 1)
-    lmask[n] = 0.
-    lnbr = torch.cat([torch.stack([(idx - 1) % n, (idx + 1) % n], 1), torch.zeros(1, 2).long()])
-    lw = torch.cat([torch.full((n, 2), .5), torch.zeros(1, 2)])
-    lidx, lnbr_c, lw_c = layer_graph(lmask, lnbr, lw)
-    assert len(lidx) == n                                   # the off-layer row is not in the graph
-    fake = SimpleNamespace(cfg=SimpleNamespace(u_precond=True), lidx=lidx, lnbr_c=lnbr_c, lw_c=lw_c)
-    const = torch.ones(n + 1)
-    alt = torch.cat([(-1.) ** idx.float(), torch.ones(1)])
-    torch.testing.assert_close(Window.smooth_u(fake, const)[:n], torch.ones(n), atol=2e-3, rtol=0)
-    torch.testing.assert_close(Window.smooth_u(fake, alt)[:n], alt[:n] / 5, atol=2e-3, rtol=0)
-    assert float(Window.smooth_u(fake, const)[n]) == 0.
-    fake.cfg.u_precond = False
-    assert Window.smooth_u(fake, alt) is alt
-
-
-def test_u_preconditioned_run_commits(prm, clouds):
-    res = run_pipeline(*clouds, prm, _cfg(animations=3, u_precond=True), log=lambda *_: None)
-    assert any(r.get("frame_end") for r in res["history"])
-
-
-def test_block_steps_run_commits_and_records_each_blocks_step(prm, clouds):
-    """block_steps: each control block searches its own step; a committed window records the u block's step, and
-    the uniform-second-moment u step runs with the preconditioner."""
-    res = run_pipeline(*clouds, prm, _cfg(animations=3, u_precond=True, block_steps=True, u_uniform_adam=True),
-                       log=lambda *_: None)
-    com = [r for r in res["history"] if r.get("frame_end") and not r.get("null_commit")]
-    assert com
-    assert all(r.get("alpha_u") is not None and r["ls_trials"] >= 1 for r in com)
+        assert 0. <= rec["thin_uncovered"] <= 1.

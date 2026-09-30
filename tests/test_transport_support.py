@@ -301,36 +301,6 @@ def test_ratio_form_has_true_gradient_and_spares_the_target_with_its_own_floor()
     assert float(ref.penalty(torch.tensor(sheet))) == 0.
 
 
-def test_two_sided_support_sees_a_missing_thin_sheet_the_one_sided_one_cannot():
-    """The body is the block without the sheet: every body particle has the target's density around it, so
-    the one-sided support is zero; the two-sided one charges the sheet's target points (no body near them)
-    and pulls the block's top layer toward the sheet. The target itself pays nothing either way."""
-    from physmorph.losses.support import TransportSupport
-    target = sheet_on_block()
-    block = torch.tensor(target[:216].copy())
-    one = TransportSupport(target, weight=8., target_ref=True, form="ratio")
-    two = TransportSupport(target, weight=8., target_ref=True, form="ratio", two_sided=True)
-    assert float(one.penalty(block)) == 0.
-    assert float(two.penalty(block)) > 0.
-    assert float(two.penalty(torch.tensor(target))) == 0.
-    per = two.target_penalty_per_point(block)
-    assert float(per[216:].min()) > 0. and float(per[:216].max()) < float(per[216:].min())
-    assert float(per.max()) <= two.radius ** 2                        # bounded per target point
-    x = block.clone().requires_grad_(True)
-    g = torch.autograd.grad(two.penalty(x), x)[0]
-    top = x.detach()[:, 2] > .45
-    assert float(g[top, 2].sum()) < 0.                                 # descent moves the top layer up
-    energy = lambda q: two((q - .1).square().mean(), q)
-    gE = torch.autograd.grad(energy(x), x)[0]
-    direction = torch.tensor(np.random.default_rng(41).normal(size=x.shape))
-    direction /= direction.norm()
-    eps = 1e-6
-    fd = (energy(x.detach() + eps * direction) - energy(x.detach() - eps * direction)) / (2 * eps)
-    assert float((gE * direction).sum()) == pytest.approx(float(fd), rel=1e-3, abs=1e-9)
-    with pytest.raises(ValueError, match="ratio form"):
-        TransportSupport(target, weight=8., form="log", two_sided=True)
-
-
 @pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA required')
 def test_thin_set_finds_the_sheet_and_measures_its_coverage():
     from physmorph.thin import thin_metrics, thin_set
@@ -343,20 +313,3 @@ def test_thin_set_finds_the_sheet_and_measures_its_coverage():
     m = thin_metrics(target[:216], ts)                                  # the block alone
     assert m["thin_uncovered"] >= on_sheet.mean() - 1e-9 and m["thin_gap_median_sp"] > 1.5
 
-
-@pytest.mark.skipif(not torch.cuda.is_available(), reason='CUDA required')
-def test_thin_coverage_diagnostic_is_bounded_and_charges_the_missing_sheet():
-    from physmorph.thin import ThinCoverage, thin_set
-    target = sheet_on_block(z=.9)
-    cov = ThinCoverage(thin_set(target, cell=.15, ref_n=len(target)), target)
-    assert float(cov(torch.tensor(target, dtype=torch.float64))) == 0.
-    jitter = np.random.default_rng(47).uniform(-.01, .01, (216, 3))           # break the lattice's neighbour ties
-    block = torch.tensor(target[:216] + np.array([0., 0., .25]) + jitter, requires_grad=True)   # 1.5 sp below
-    value = cov(block)
-    assert 0. < float(value) <= cov.radius ** 2
-    g = torch.autograd.grad(value, block)[0]
-    direction = torch.tensor(np.random.default_rng(43).normal(size=block.shape))
-    direction /= direction.norm()
-    eps = 1e-6
-    fd = (cov(block.detach() + eps * direction) - cov(block.detach() - eps * direction)) / (2 * eps)
-    assert float((g * direction).sum()) == pytest.approx(float(fd), rel=1e-3, abs=1e-12)

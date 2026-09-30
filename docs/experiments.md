@@ -286,6 +286,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 
 ## Results so far
 
+**Rollback to C_R, 2026-09-30 10:52 CDT (at the user's request).** R4 to R6 stacked layers onto the u channel, each
+covering the side effect of the one before: the two-sided support, the thin-coverage term, the preconditioner in place
+of the relaxation, per-block step lengths and the uniform second moment. The code is back at C_R (1c6218d: ratio
+support, target floor, loss grid following N). The switches are removed: `--support_two_sided`, `--diag_coverage`
+(`ThinCoverage`), `--no_layer_relax`, `--u_precond`, `--block_steps` and `--u_uniform_adam`. What stays is
+measurement: the thin-set metrics (`physmorph/thin.py`), the surface roughness (`physmorph/surface.py`), the
+null-window reasons and the line-search probe. R6 was stopped after 7 of 57 runs and is not judged. Still open, as
+defects of existing definitions rather than new layers:
+- The target floor is read at the nearest target point, so it jumps (D5). A literature pass (Kelsall & Diggle 1995;
+  Davies et al. 2018; Monaghan 2005) supports evaluating the body and target kernel sums at the same point, with the
+  self term treated alike on both sides.
+- The line search's noise floor is below the measured evaluation noise.
+- The coarse-to-fine switch is tied to half the window budget, so it never fires under C_R.
+- The dFc step fails at about 1.5e-4 in the tail. A candidate cause is that Adam restarts every window, so its 8
+  iterations are near-sign steps. Not yet measured.
+
+V2 (visual check, 10:47 CDT): C_R on the 40k gallery and on the 300k dragon and bunny, seed 97, with quick two-view
+splat renders (`output/gpu/crv/`, `tmp/crv.sh`). Each archive is removed after its render.
+
 **D5, 2026-09-30 10:28 CDT — the dFc block sets the shared step; u is carried along (pre-registered 10:12).** C_R +
 `--u_precond --ls_probe`, bunny, cheburashka, homer at 40k (114, 209 and 246 windows). `tmp/d5_eval.py`,
 `tmp/d5_parts.py`.

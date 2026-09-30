@@ -92,30 +92,3 @@ def thin_metrics(x, ts: ThinSet) -> dict:
         q = torch.quantile(g, torch.tensor([.5, .9], dtype=g.dtype, device=g.device))
         out.update(thin_gap_median_sp=float(q[0]), thin_gap_p90_sp=float(q[1]))
     return out
-
-
-class ThinCoverage:
-    """DIAGNOSTIC only (D3a, docs/experiments.md): the missing-mass fraction of the thin set. Per thin point y, the
-    body's kernel density there (its 32 nearest particles, h = r8 / 2, the support estimator) against half the
-    target's own density there, as relu(1 - s_body / f)^2; the mean over the thin set, times r8^2 so that it is in the
-    transport energy's length^2 units. Neighbour indices are detached; the kernel is differentiable."""
-
-    def __init__(self, ts: ThinSet, target):
-        tgt = gpu.tensor(target, torch.float64)
-        k = min(32, len(tgt) - 1)
-        d = gpu.knn(tgt, k + 1)[0][:, 1:]
-        self.radius = gpu.median(d[:, min(7, k - 1)])
-        self.h = .5 * self.radius
-        dq = gpu.KNN(tgt).query(ts.points.double(), k + 1)[0][:, 1:]    # thin points are target points: drop self
-        self.log_f = math.log(.5) + torch.log(torch.exp(-dq * dq / (2 * self.h * self.h)).sum(1))
-        self.y = ts.points
-
-    def __call__(self, x: torch.Tensor) -> torch.Tensor:
-        if not len(self.y):
-            return x.sum() * 0.0
-        k = min(32, len(x))
-        idx = gpu.KNN(x.detach()).query(self.y, k)[1].to(x.device)
-        y = self.y.to(device=x.device, dtype=x.dtype)
-        log_s = torch.logsumexp(-(x[idx] - y[:, None]).square().sum(2) / (2 * self.h * self.h), dim=1)
-        t = self.log_f.to(device=x.device, dtype=x.dtype) - log_s
-        return self.radius ** 2 * torch.relu(-torch.expm1(-t)).square().mean()

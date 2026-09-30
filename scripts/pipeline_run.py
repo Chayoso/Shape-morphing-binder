@@ -57,8 +57,6 @@ def parse_args():
                     help="support floor from the target density at the nearest target point")
     ap.add_argument("--support_form", choices=("log", "ratio"), default="log",
                     help="per-particle support penalty: log deficit squared, or missing mass fraction squared")
-    ap.add_argument("--support_two_sided", action="store_true",
-                    help="the support also at every target point (needs --support_form ratio)")
     ap.add_argument("--loss_follows_n", action="store_true",
                     help="transport grid and blur follow the particle spacing above mass_ref_n")
     ap.add_argument("--cell_diag", type=float, default=26.0,
@@ -68,15 +66,6 @@ def parse_args():
     ap.add_argument("--grad_dump", default="", help="directory of per-window gradient dumps")
     ap.add_argument("--ls_probe", action="store_true",
                     help="diagnostic: split every failed line-search trial by control channel")
-    ap.add_argument("--no_layer_relax", action="store_true", help="diagnostic D3b: no outer-layer relaxation")
-    ap.add_argument("--u_precond", action="store_true",
-                    help="the relaxation moved onto the u control as a preconditioner (no forward relaxation)")
-    ap.add_argument("--diag_coverage", type=float, default=0.0,
-                    help="diagnostic D3a: weight of the thin set's missing-mass fraction in the transport energy")
-    ap.add_argument("--block_steps", action="store_true",
-                    help="one step length per control block (dFc, u), each from its own Armijo search")
-    ap.add_argument("--u_uniform_adam", action="store_true",
-                    help="the u block's Adam step with one second-moment scalar (Nicolet et al. 2021)")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
     ap.add_argument("--live_dir", default="", help="file-backed viewer sink (scripts/viewer_serve.py)")
     return ap.parse_args()
@@ -129,7 +118,7 @@ def main():
     args = parse_args()
     gpu.require_cuda()
     cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
-                          support_two_sided=args.support_two_sided, loss_follows_n=args.loss_follows_n)
+                          loss_follows_n=args.loss_follows_n)
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    cfg0.nn_far_k, log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0)
@@ -138,10 +127,7 @@ def main():
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
-                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
-                              layer_relax=not args.no_layer_relax, diag_coverage=args.diag_coverage,
-                              u_precond=args.u_precond, block_steps=args.block_steps,
-                              u_uniform_adam=args.u_uniform_adam)
+                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)

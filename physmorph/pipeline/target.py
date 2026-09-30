@@ -53,9 +53,8 @@ class TargetPack:
     grid_ot: object = None              # GridSinkhornLoss, built at the first window
     ot_scale: float | None = None       # transport scale: equal gradient norm with D_vol
     settled_scale: tuple | None = None  # (lambda, capped), calibrated once per resolution
-    settled_step: float | tuple | None = None   # last accepted step (warm start of the search); per block with block_steps
+    settled_step: float | None = None   # last accepted step (warm start of the search)
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
-    coverage: object = None             # D3a diagnostic: physmorph.thin.ThinCoverage when diag_coverage > 0
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
@@ -63,8 +62,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     tgt_t = gpu.tensor(target_x)
     N = tgt_t.shape[0]
     m = torch.ones(N, device=gpu.DEVICE)
-    support = (TransportSupport(tgt_t, cfg.support_weight, cfg.support_target_ref, cfg.support_form,
-                                cfg.support_two_sided)
+    support = (TransportSupport(tgt_t, cfg.support_weight, cfg.support_target_ref, cfg.support_form)
                if cfg.support_weight > 0 else None)
     # the loss grid covers the MPM domain (scalar geometry, float32 like the grid itself)
     dmin = np.asarray(prm.grid_min, np.float32)
@@ -102,15 +100,10 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     knn = gpu.KNN(tgt_t)
     nn_sp = gpu.median(knn.query(tgt_t, 2)[0][:, 1])
     m_ref, n_support = density_units(grid)
-    coverage = None
-    if cfg.diag_coverage > 0:
-        from ..thin import ThinCoverage, thin_set
-        coverage = ThinCoverage(thin_set(target_x, prm.dx, cfg.mass_ref_n), target_x)
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m, views=views, sils=sils,
                       extent=extent, shade=shade, pgmin=lgmin, pdx=pdx, pdims=pdims, pblur=pblur,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, pts=tgt_t, knn=knn,
-                      nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate,
-                      coverage=coverage)
+                      nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate)
 
 
 def rebuild_for_resolution(tgt: TargetPack, target_x, prm: MPMParams,
@@ -121,7 +114,6 @@ def rebuild_for_resolution(tgt: TargetPack, target_x, prm: MPMParams,
     new = build_target(target_x, prm, cfg)
     new.unit_ratio, new.unit_grad_ratio = tgt.unit_ratio, tgt.unit_grad_ratio
     new.ot_scale, new.grid_ot = tgt.ot_scale, tgt.grid_ot
-    new.coverage = tgt.coverage
     return new
 
 
