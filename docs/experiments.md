@@ -475,6 +475,15 @@ coarse grid does not replace the fine one (pre-registered 15:55, the 300k part r
   gain at equal time): the fine transport grid still places the surface beyond the thin set, as R2 found. The
   gradient ratio ‖∇L_surf‖/‖∇S_ε‖ at 300k: 0.56–0.66 mid-run, about 1.0 at the end (40k: 1.5–4): radius² falls
   with N and the two parts stay within one order of magnitude without a weight; the N dependence is recorded.
+- Homer's +4.6 (17:20 CDT, `output/gpu/homer`, `tmp/gap_hist.py`): a rerun of both arms with the same code and
+  seed gave CR 15.9 % and PX 12.0 % (−3.9), the opposite sign of the gallery's 11.5 / 16.1. Homer's thin share
+  swings about ±4 points between runs of one arm (the parked nondeterminism of the rollout), so single-run
+  per-mesh differences of that size are noise; the 19-mesh sign test is the statement, not any one mesh. The gap
+  distribution at the rerun's end states shows what the proximity does: gaps wider than 2 spacings 1.7 % → 0.0 %,
+  wider than 1.75 spacings 5.9 → 1.3 %, wider than 1.6 spacings 11.1 → 5.9 %, wider than 1.5 spacings 15.9 → 12.0
+  %, while the band 1.5–1.6 spacings holds 6.1 % under the proximity against 4.8 % under the support: the term
+  removes the real gaps and parks the residue just past its threshold. `thin_uncovered_2sp` (gaps wider than two
+  spacings) joins the record from the next deployment, as the measure a threshold near 1.5 cannot park points at.
 - Verdict: the geometry objective is S_ε(ρ_b, ρ_t) on the grid following N plus the surface proximity, no support,
   no bound, no support weight. "300k in 15 minutes" with today's window cost is PX85 at about 24 windows (silhouette
   near 0.981, thin 26.6 %); more needs fewer rollouts per window and fewer windows, the runtime items after the loss.

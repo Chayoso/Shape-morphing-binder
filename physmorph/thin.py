@@ -83,7 +83,8 @@ def thin_metrics(x, ts: ThinSet) -> dict:
     far = d > 1.5 * ts.spacing
     out = {"thin_n": int(len(ts.points)), "thin_share_of_outer": len(ts.points) / max(ts.n_outer, 1),
            "thin_uncovered": float(far.double().mean()),
-           "thin_uncovered_world": float((d > ts.world).double().mean())}
+           "thin_uncovered_2sp": float((d > 2.0 * ts.spacing).double().mean()),   # gaps a soft threshold near 1.5
+           "thin_uncovered_world": float((d > ts.world).double().mean())}         # spacings cannot park points at
     for name, lo, hi in (("lt1", 0.0, 1.0), ("1to2", 1.0, 2.0)):
         b = (ts.thickness >= lo) & (ts.thickness < hi)
         out[f"thin_uncovered_{name}"] = float(far[b].double().mean()) if bool(b.any()) else None
