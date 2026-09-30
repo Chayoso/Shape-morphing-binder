@@ -351,6 +351,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
    end state is unaffected.
 7. **Scaling.** Wall time and memory at 40k, 100k, 300k and 1M particles on one GPU.
 
+## Parked, 2026-09-30 15:05 CDT (user directive: only the loss reformulation from here)
+
+The objective is to be rebuilt as four terms (transport: where to go; rendering: how it should look; stability:
+settled after the release; cleanup: pathological strays), the current-particle support replaced by a target-surface
+coverage, and a 300k run brought to about 15 minutes. Everything else measured today waits, with its evidence:
+- Evaluation nondeterminism (D6 b, R7): two rollouts of one control differ in the positions in every window, max
+  5e-6 spacings, never zero, from the transfers' atomics; the line search's 1e-7 floor and the commit tolerance
+  assume finer resolution (one `commit_replay` null per run). Not a tolerance fix.
+- Beast's freeze (D6 c): the head of an ejected filament coasts past the target's tip into the two-cell margin at
+  windows 10–12; the global trajectory check vetoes every candidate; the fragment detectors are right (the stream is
+  grid-coupled); the root is ejection plus mass-averaged terms that cannot see a flung handful.
+- The late merit alternation at 300k (±1–2 % per window) and `reject_stop = 3` (R7's 300k stopped at 139).
+- The u channel and the forward relaxation (D3b/c, R5, R6): revisit only once the objective sees sub-cell.
+- Adam per window (D6 a): not sign descent; the direction's cosine with the gradient 0.3–0.4 after the first
+  iteration; not established as a defect.
+- R8 (event c2f): unjudged (killed at 6 of 19; the JSONs are in the tarball); the trigger is in repo_r15 and worked
+  on the bunny (the switch at the rejection streak, six windows at 96 px).
+- The loss's redundancy (three end-velocity terms, four pull-to-target terms, a dead `w_ctrl`): superseded by the
+  reformulation.
+- The surface roughness metric measures the outer band's depth scatter (baseline 1.2 spacings); redefine on the
+  outermost layer before it gates anything.
+
 ## Results so far
 
 **Stopped and cleared, 2026-09-30 14:59 CDT (at the user's request).** R8 (the event c2f; 6 of 19 gallery runs and
