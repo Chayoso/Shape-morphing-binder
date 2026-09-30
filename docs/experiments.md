@@ -172,6 +172,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R10, the geometry ablation: coarse transport + surface proximity against the fine transport (pre-registered
+  2026-09-30 15:56 CDT, before launch; repo_r17).** Three arms: CR = the loss grid following N (85³ at 300k) with
+  the ratio support (C_R); PX85 = the same grid with the surface proximity; PX43 = the MPM-cell grid (43³ at 300k)
+  with the surface proximity. At 40k every arm's grid is the MPM cell, so the 40k gallery tests only the proximity
+  against the support, on the 15 meshes R9 did not run (A, armadilo, beast, bimba, bob, cheburashka, cow, fandisk,
+  heart, homer, maxplanck, nefertiti, ogre, spot, V; the R9 four join them), CR and PX85 on each. The 300k dragon
+  and bunny run all three arms. Timing is read from the phase timers.
+  Pass, 40k gallery (19 meshes with R9's four): `thin_uncovered` lower under the proximity on ≥ 14 of 19 with a
+  median drop ≥ 2 points; silhouette IoU median within ±0.002 and no mesh below C_R by more than 0.004; wall ≤
+  1.2×; no freeze C_R did not show. Pass, 300k: PX43's silhouette IoU and `thin_uncovered_world` within the two C_R
+  runs' spread of PX85 on both meshes (the coarse grid loses nothing once the proximity places the surface) and
+  its window at least 20 % cheaper; PX85 against CR as at 40k (thin lower by ≥ 2 points, silhouette within ±0.003).
+  The gradient ratio at 300k is reported (the scale question: radius² shrinks with N). If PX43 loses silhouette or
+  the thick body's coverage against PX85 (R2's fine-grid gain), the fine grid stays. Predictions: the gallery passes
+  (R9's four gave −2.3 to −5.9); at 300k PX43 ≈ PX85 within spread and 25 % cheaper per window; the proximity's
+  gradient ratio at 300k smaller than at 40k. Render influence: the render channel is unchanged; g_share reported.
 - **R9, surface proximity in place of the density coverage (pre-registered 2026-09-30 15:42 CDT, before launch;
   repo_r17 = repo_r16 with the fine term's definition replaced).** D8 showed the density ratio blind to the 1.6–2
   spacing gaps. The fine part of the geometry objective is now the target-to-body surface proximity: at every outer
@@ -416,6 +432,32 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R9, 2026-09-30 15:55 CDT — surface proximity in place of the density coverage: the geometry passes, the
+detection criterion at the optimised end states was mis-specified (pre-registered 15:42).** Against the same-code
+C_R runs (d8CR); `tmp/r9_eval.py`, `tmp/r9_detect.py`, `tmp/r9_churn.py`.
+- (B) `thin_uncovered`: bunny 11.2 → 7.5 (−3.7), dragon 15.5 → 13.2 (−2.3), C 11.9 → 9.0 (−2.9), teapot 15.3 →
+  9.3 (−5.9): at or below C_R − 2 on 4 of 4 (pass; the prediction was −2 to −4). Silhouette +0.0011 / +0.0013 /
+  +0.0001 / +0.0008 (pass). Wall 0.65× (pass; the term's neighbour query runs over the outer target points, not
+  the body). Nulls 0–3, the c2f switch fired in every run, no freeze (pass). The plate: 6.1 → 7.0 (+0.8), reported;
+  an already easy thin slab gains nothing from the term.
+- (A) False positives 0.0 % at every end state (pass). Recall at the optimised end states 60 / 86 / 84 / 86 % on
+  the thin points (registered ≥ 85 %: bunny and C below) and the charged count 18–31 % below the metric's
+  (registered ±15 %: fail). The cause is the two thresholds: the term's 1.53 spacings against the metric's 1.50.
+  The optimiser closes gaps until they sit just under its own threshold, so the residual gaps pile up in the
+  0.03-spacing band the metric still counts (penalty at charged points 0.00–0.03 R², i.e. gaps barely past the
+  threshold). At C_R's states, where the criterion was meant to test whether the loss sees what the metric sees,
+  recall was 87–93 %. The literal criterion fails; the loss and the metric ask one question up to a 2 % threshold
+  difference. The metric stays at 1.5 spacings for comparability with every earlier number.
+- Churn in the second half: closed / opened per window 12/13 (bunny), 26/28 (dragon), 49/34 (C), 10/11 (teapot),
+  34/26 (plate): the registered closed ≥ opened holds on 2 of 5 strictly; on the other three the two are equal
+  within two per window and the charged count is flat or falling (118 → 104, 321 → 297; teapot 58 → 66). An
+  equilibrium at the threshold, not a relocation loop.
+- The gradient ratio ‖∇L_surf‖/‖∇S_ε‖: 0.06–0.39 in the first window, 1.5–3.8 mid-run, 1.9–4.1 at the end: the
+  proximity's gradient is a few times the transport's late, larger than D8's coverage (about 1). Still one order of
+  magnitude with no weight; to be read at 300k in the next ablation before it is called scale-free.
+- Verdict: the reformulation's fine term is adopted for the geometry ablation (R10). The support (ratio, target
+  floor, bound, weight 8) is out of the geometry objective.
 
 **D8, 2026-09-30 15:40 CDT — the density coverage in place of the support: it gives a surface-side signal, and it
 is blind to the gaps that matter (pre-registered 15:25).** Against the same-code C_R runs (d8CR, repo_r16 with the
