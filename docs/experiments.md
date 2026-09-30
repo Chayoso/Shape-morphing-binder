@@ -264,6 +264,37 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 
 ## Results so far
 
+**D5, 2026-09-30 10:28 CDT — the dFc block sets the shared step; u is carried along (pre-registered 10:12).** C_R +
+`--u_precond --ls_probe`, bunny, cheburashka, homer at 40k (114, 209 and 246 windows). `tmp/d5_eval.py`,
+`tmp/d5_parts.py`.
+- H_block is supported on all three meshes. In the tail (from windows 13, 15 and 24), the u-only step lowers the
+  objective while the dFc-only step raises it in 85, 82 and 82 % of the failed trials (needed ≥ 70 %). The u-only step
+  raises it in only 12–16 %. The accepted step is 1.5–1.8e-4 in the tail, and u moves by exactly that (max |Δu| ≈ a):
+  0.28 % of a spacing per iteration.
+- Most dFc failures are ordinary curvature. Only 2–9 % of the failed trials rise through a jump of the support penalty.
+- The discontinuity reading applies in part: the joint change at steps below 1e-5 stays above 1e-7 relative in 90–97
+  % of those trials, in two ways:
+  - Down to steps of about 5e-7, one particle's support penalty jumps and holds its size whatever the step. On the
+    bunny, B's largest per-particle value goes from 0.00098 to 0.00368, or from 0.00578 to 0.00664, while the transport
+    without support changes in proportion to the step. The target-referenced floor reads the target density at the
+    particle's nearest target point, so it is piecewise constant in position and jumps where the nearest target point
+    changes. This is the mechanism of D1b, which the ratio form bounded in size but did not remove.
+  - Below that, the changes are evaluation noise of 1–8e-6 relative (render 1e-9, transport 4e-10 absolute). This is
+    above the line search's noise floor of 1e-7, so the backtracking keeps halving steps whose decrease it cannot
+    resolve. The commit replay's differences in R5 (2e-7 to 6e-6 relative) are of the same size.
+- Literature pass (8 primary sources: Tseng & Yun 2009; Wright 2015; Nesterov 2012; Beck & Tetruashvili 2013;
+  Richtárik & Takáč 2016; Kerbl et al. 2023; Nicolet et al. 2021; Kingma & Ba 2015):
+  - With one adjoint giving both block gradients, the best-supported scheme is a step length per block, each found by
+    its own Armijo search from the same point with the same gradient, followed by one Armijo check of the combined
+    step. With two coupled blocks, halving the combined step descends (the ω = 2 bound of Richtárik & Takáč, γ ≤ 2 in
+    Nesterov). Tseng & Yun give convergence for nonconvex objectives under box constraints.
+  - A cyclic update would need a second adjoint per iteration, because the second block's gradient is stale after
+    the first block moves.
+  - Nicolet et al. use one second-moment scalar per tensor for the preconditioned parameter (their "uniform Adam").
+    Per-coordinate normalisation distorts the smooth direction, and R5's `--u_precond` used it.
+- Open defects, not fixed yet: the floor's discontinuity (a continuous floor must keep "the target itself never
+  pays" at thin tips), and a noise floor set below the measured evaluation noise.
+
 **R5, 2026-09-30 10:12 CDT — the relaxation moved onto u as a preconditioner: both arms fail (pre-registered 00:23,
 restarted 02:33).** 40k gallery, seed 97, against C_R.
 - R5a (C_R + `--u_precond`): silhouette IoU median +0.0059, higher on 18 of 19 (worst C −0.0012): passes. Thin share

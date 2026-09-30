@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from physmorph import gpu, metrics  # noqa: E402
 from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
+from physmorph.surface import surface_roughness  # noqa: E402
 from physmorph.thin import thin_metrics, thin_set  # noqa: E402
 from physmorph.prepare import prepare  # noqa: E402
 from physmorph.sampling.orientation import orient_name  # noqa: E402
@@ -159,6 +160,7 @@ def main():
     detF_min = min([1.0] + [h["Jmin_traj"] for h in delivered])
     met = metrics.summarize(frames.x[:dn], tgt, n_held=res["n_held"], detF_min=detF_min)
     met.update(thin_metrics(frames.x[dn - 1], ts))
+    met.update(surface_roughness(frames.x[dn - 1], tgt))
     mv = [h["move"] for h in res["history"] if "move" in h]
     met["move_cv"] = float(np.std(mv) / max(np.mean(mv), 1e-9)) if len(mv) > 2 else float("inf")
     met["move_first_frac"] = float(sum(mv[:3]) / max(sum(mv), 1e-9)) if mv else 1.0
