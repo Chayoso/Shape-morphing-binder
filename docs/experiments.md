@@ -172,6 +172,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R6, a step length per control block (pre-registered 2026-09-30 10:34 CDT, before launch; repo_r12).**
+  `--block_steps` gives each control block its own step length, as D5 and its literature pass indicate. The Adam
+  moments take the gradient once. From the current point, dFc and then u each run their own backtracking search
+  (the other block held), starting from their own step memory, under the same acceptance test. When both blocks
+  find a step, their sum is tried at full and at half length (for two coupled blocks, the halved sum of descending
+  block steps descends). The lowest accepted candidate is taken. No new constant.
+  `--u_uniform_adam` gives the u block one second-moment scalar, as Nicolet et al. prescribe for a preconditioned
+  parameter.
+  Arms on the 40k gallery (19 meshes, seed 97), with `surf_rough` (`physmorph/surface.py`) recorded in every run:
+  - CR2: C_R again, for the roughness baseline and a second C_R sample.
+  - PCB: C_R + `--u_precond --block_steps`.
+  - PCBU: PCB + `--u_uniform_adam`.
+  A candidate passes against CR2 if all of these hold:
+  - `thin_uncovered` is lower on ≥ 14 of 19 meshes, with a median drop ≥ 2 points.
+  - Silhouette IoU median ≥ CR2 + 0.003.
+  - `surf_rough` median is not above CR2's.
+  - The gallery's summed run time is ≤ 2× CR2's.
+  - No mesh is frozen by null windows.
+  Mechanism check: the u block's tail step (median `alpha_u` after a run reaches CR2's end silhouette loss) is ≥ 10×
+  R5a's shared tail step (1.5e-4).
+  Predictions: the tail shortens (PCB reaches CR2's end thin share in a median ≤ 25 windows, against R5a's 54), thin
+  drops by 2–3 points, and PCBU is smoother than PCB.
 - **D1, why the line search collapses late (diagnostic, pre-registered 2026-09-29 14:50 CDT).** At 300k the dragon
   stops unfinished (R1d). In r2B_dragon_1 the accepted step fell from 4.6e-3 to 1.2e-6 inside window 20, and the
   fresh 0.02 starts after rejections collapsed again (windows 23–25) until three rejections stopped the run. Ruled

@@ -53,7 +53,7 @@ class TargetPack:
     grid_ot: object = None              # GridSinkhornLoss, built at the first window
     ot_scale: float | None = None       # transport scale: equal gradient norm with D_vol
     settled_scale: tuple | None = None  # (lambda, capped), calibrated once per resolution
-    settled_step: float | None = None   # last accepted step (warm start of the search)
+    settled_step: float | tuple | None = None   # last accepted step (warm start of the search); per block with block_steps
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
     coverage: object = None             # D3a diagnostic: physmorph.thin.ThinCoverage when diag_coverage > 0
 

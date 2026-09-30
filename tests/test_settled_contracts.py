@@ -239,3 +239,13 @@ def test_u_preconditioner_keeps_smooth_fields_and_damps_the_particle_alternation
 def test_u_preconditioned_run_commits(prm, clouds):
     res = run_pipeline(*clouds, prm, _cfg(animations=3, u_precond=True), log=lambda *_: None)
     assert any(r.get("frame_end") for r in res["history"])
+
+
+def test_block_steps_run_commits_and_records_each_blocks_step(prm, clouds):
+    """block_steps: each control block searches its own step; a committed window records the u block's step, and
+    the uniform-second-moment u step runs with the preconditioner."""
+    res = run_pipeline(*clouds, prm, _cfg(animations=3, u_precond=True, block_steps=True, u_uniform_adam=True),
+                       log=lambda *_: None)
+    com = [r for r in res["history"] if r.get("frame_end") and not r.get("null_commit")]
+    assert com
+    assert all(r.get("alpha_u") is not None and r["ls_trials"] >= 1 for r in com)

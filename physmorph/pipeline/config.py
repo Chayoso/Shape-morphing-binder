@@ -38,6 +38,13 @@ class PipelineConfig:
     eps: float = 1e-3               # legacy-unit Adam epsilon
     armijo_c1: float = 1e-4
     ls_noise_rel: float = 1e-7      # improvements below this relative size are noise
+    block_steps: bool = False       # one step length per control block (dFc, u): each found by its own Armijo search
+                                    #   from the same point with the same gradient, then one Armijo check of the
+                                    #   combined step (Tseng & Yun 2009; Richtarik & Takac 2016). D5: under one shared
+                                    #   step the dFc block sets the step and u moves 0.3 % of a spacing per iteration
+    u_uniform_adam: bool = False    # the u block's Adam step with one second-moment scalar for the tensor (its largest
+                                    #   entry), as Nicolet et al. 2021 do for a preconditioned parameter: per-coordinate
+                                    #   normalisation distorts the smooth direction (use with u_precond)
     replay_calibrate: bool = True   # measure the rollout replay noise at every window start
     dfc_clip: float = 0.02          # per-particle, per-step |dFc| cap
     warm_decay: float = 0.5         # warm start = previous window's control x this

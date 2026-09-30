@@ -73,6 +73,10 @@ def parse_args():
                     help="the relaxation moved onto the u control as a preconditioner (no forward relaxation)")
     ap.add_argument("--diag_coverage", type=float, default=0.0,
                     help="diagnostic D3a: weight of the thin set's missing-mass fraction in the transport energy")
+    ap.add_argument("--block_steps", action="store_true",
+                    help="one step length per control block (dFc, u), each from its own Armijo search")
+    ap.add_argument("--u_uniform_adam", action="store_true",
+                    help="the u block's Adam step with one second-moment scalar (Nicolet et al. 2021)")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
     ap.add_argument("--live_dir", default="", help="file-backed viewer sink (scripts/viewer_serve.py)")
     return ap.parse_args()
@@ -136,7 +140,8 @@ def main():
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
                               layer_relax=not args.no_layer_relax, diag_coverage=args.diag_coverage,
-                              u_precond=args.u_precond)
+                              u_precond=args.u_precond, block_steps=args.block_steps,
+                              u_uniform_adam=args.u_uniform_adam)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)
