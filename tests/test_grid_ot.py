@@ -126,40 +126,25 @@ def test_grid_sinkhorn_value_avoids_float32_self_energy_cancellation(requires_gr
     assert float(loss(current)) == pytest.approx(float(reference), rel=1e-5, abs=1e-12)
 
 
-def test_transport_state_energy_brakes_at_target_and_respects_time_units():
-    from physmorph.losses.grid_ot import GridSinkhornLoss
-    from physmorph.losses.volumetric import rasterize_mass
-    origin, dims = torch.zeros(3, dtype=torch.float64), (4, 4, 4)
-    x = torch.tensor([[1.2, 1.1, 1.3], [1.7, 1.8, 1.4]], dtype=torch.float64)
-    mass = torch.ones(2, dtype=torch.float64)
-    target = rasterize_mass(x, mass, origin, 1., dims)
-    loss = GridSinkhornLoss(target, origin, 1., dims, eps=1., iters=2000, tol=1e-9)
-    v = torch.zeros_like(x); v[:, 0] = .2; v.requires_grad_(True)
-    value = loss.state_energy(x, mass, v, .5)
-    gv = torch.autograd.grad(value, v)[0]
-    assert float(value) > .009
-    assert bool((gv[:, 0] > 0).all())
-    assert float(loss.state_energy(x, mass, torch.zeros_like(v), .5)) == pytest.approx(0., abs=1e-9)
-    assert float(loss.state_energy(x, mass, 2 * v, .25)) == pytest.approx(float(value), abs=1e-9)
-
-
-def test_released_state_energy_does_not_reward_a_second_ballistic_forecast():
-    from physmorph.losses.grid_ot import GridSinkhornLoss
-    from physmorph.losses.volumetric import rasterize_mass
-    origin, dims = torch.zeros(3, dtype=torch.float64), (4, 4, 4)
-    x = torch.tensor([[1.2, 1.1, 1.3], [1.7, 1.8, 1.4]], dtype=torch.float64)
-    mass = torch.tensor([1., 3.], dtype=torch.float64)
-    target = rasterize_mass(x, mass, origin, 1., dims)
-    loss = GridSinkhornLoss(target, origin, 1., dims, eps=1., iters=2000,
-                            tol=1e-9, mass_total=4.)
-    v = torch.tensor([[.2, 0., 0.], [.4, 0., 0.]], dtype=torch.float64,
-                     requires_grad=True)
-    value = loss.state_energy(x, mass, v, .5)
-    # Geometry is already at the target; only mass-weighted residual motion remains.
-    assert float(value) == pytest.approx(.0325, abs=1e-9)
-    expected_grad = torch.tensor([[.025, 0., 0.], [.15, 0., 0.]], dtype=torch.float64)
-    torch.testing.assert_close(torch.autograd.grad(value, v)[0], expected_grad)
-    assert float(loss.state_energy(x, mass, 2 * v, .25)) == pytest.approx(.0325, abs=1e-9)
+def test_released_motion_is_the_residual_drift_for_a_constant_release_and_more_for_an_oscillation():
+    """The stability term: (T dt)^2 x the mean released |v|^2. Zero at rest; for a constant released velocity the
+    residual drift |T dt v|^2 it replaces; invariant under v -> 2v with the horizon halved; an oscillating release
+    that ends at rest pays as much as a constant one of the same speed, where the drift alone paid nothing."""
+    from physmorph.pipeline.window.objective import released_motion
+    T, dt = 4, .5
+    rest = torch.zeros(2 * T, 3, 3)
+    assert float(released_motion(rest, T, T * dt)) == 0.
+    v = torch.zeros(2 * T, 3, 3); v[T:, :, 0] = .2
+    value = released_motion(v, T, T * dt)
+    assert float(value) == pytest.approx((T * dt * .2) ** 2)
+    assert float(released_motion(2 * v, T, T * dt / 2)) == pytest.approx(float(value))
+    osc = torch.zeros(2 * T, 3, 3); osc[T:, :, 0] = torch.tensor([.2, -.2, .2, 0.])[:, None]
+    assert float(released_motion(osc, T, T * dt)) == pytest.approx(3 / 4 * float(value))
+    driven = torch.zeros(2 * T, 3, 3); driven[:T, :, 0] = 1.
+    assert float(released_motion(driven, T, T * dt)) == 0.                     # the driven half is not costed
+    leaf = v.clone().requires_grad_(True)
+    g = torch.autograd.grad(released_motion(leaf, T, T * dt), leaf)[0]
+    assert float(g[:T].abs().sum()) == 0. and float(g[T:, :, 0].min()) > 0.
 
 
 @pytest.mark.parametrize('device', ['cpu', 'cuda'])
@@ -241,7 +226,7 @@ def test_grid_transform_cuda_uses_volume_sized_workspace(temperature):
     torch.testing.assert_close(ga, ge, atol=0., rtol=0.)
 
 
-def test_transport_state_energy_cannot_hide_escaped_mass_with_inward_velocity():
+def test_transport_state_energy_cannot_hide_escaped_mass():
     from physmorph.losses.grid_ot import GridSinkhornLoss
     from physmorph.losses.volumetric import rasterize_mass
     origin, dims = torch.zeros(3, dtype=torch.float64), (4, 4, 4)
@@ -250,10 +235,9 @@ def test_transport_state_energy_cannot_hide_escaped_mass_with_inward_velocity():
                             mass, origin, 1., dims)
     loss = GridSinkhornLoss(target, origin, 1., dims, eps=1., mass_total=1.)
     x = torch.tensor([[-1., 1., 1.]], dtype=torch.float64, requires_grad=True)
-    velocity = torch.tensor([[2., 0., 0.]], dtype=torch.float64, requires_grad=True)
-    value = loss.state_energy(x, mass, velocity, 1.)
+    value = loss.state_energy(x, mass)
     assert bool(torch.isinf(value))
-    assert all(bool(torch.isfinite(g).all()) for g in torch.autograd.grad(value, (x, velocity)))
+    assert bool(torch.isfinite(torch.autograd.grad(value, x)[0]).all())
 
 
 def test_grid_transport_must_actually_solve_at_requested_blur():

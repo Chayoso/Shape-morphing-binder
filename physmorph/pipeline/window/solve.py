@@ -127,7 +127,7 @@ class WindowOptimizer:
         self._it = 0
 
     def scalar(self, e: Eval) -> float:
-        return self.obj.scalar(e.lv, e.lk, e.lr, self.lam_r, e.dfc, e.xT, e.FT, e.lk_var)
+        return self.obj.scalar(e.lv, e.lr, self.lam_r, e.dfc, e.xT, e.FT)
 
     def eval(self) -> Eval:
         return eval_terms(self.win, self.obj, self.dFc, self.u)
@@ -174,7 +174,7 @@ class WindowOptimizer:
         """(g, diag): the composite control gradient and, on the first and last iteration,
         the endpoint position-space gradients of both channels (telemetry only)."""
         cfg, obj, leaves = self.cfg, self.obj, self.leaves
-        Lp_core = obj.phys_core(e.lv, e.lk, e.dfc, e.xT, e.FT, e.lk_var)
+        Lp_core = obj.phys_core(e.lv, e.dfc, e.xT, e.FT)
         Ldt = obj.cleanup(e.xT)
         diag = None
         if (self.on_iter is not None or cfg.work_telemetry) and it in (0, cfg.iters - 1):
@@ -347,7 +347,7 @@ class WindowOptimizer:
             xT, vT = ev.xT.detach(), ev.vT.detach()
             saved, tgt.grid_ot.support = tgt.grid_ot.support, None
             try:
-                base = float(tgt.grid_ot.state_energy(xT, tgt.m, vT, self.obj.horizon))
+                base = float(tgt.grid_ot.state_energy(xT, tgt.m))
             finally:
                 tgt.grid_ot.support = saved
             b = sup.penalty_per_point(xT) if sup is not None else xT.new_zeros(1)
@@ -358,7 +358,7 @@ class WindowOptimizer:
     def record(self, it, e_n: Eval, new, a_try, gn) -> dict:
         lpbr = float(e_n.lpbr)
         return {"iter": it, "loss": new, "d_vol": float(e_n.lv), "kin": float(e_n.lk),
-                "kin_run": float(e_n.lk_run), "kin_var": float(e_n.lk_var),
+                "kin_run": float(e_n.lk_run), "kin_var": float(e_n.lk_var), "stab": float(e_n.lstab),
                 "d_sil": float(e_n.d_sil), "d_render": float(e_n.lr) - self.cfg.w_pbr * lpbr,
                 "d_pbr": lpbr, "lambda": self.lam_r, "grad_norm": gn, "alpha": a_try,
                 "predicted_decrease": self.tele.get("predicted_decrease"),
@@ -466,7 +466,7 @@ class WindowOptimizer:
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.accepted > 0:
             stats["selection_merit"] = selection_merit
-            stats.update(support_record(self.tgt, self.obj.horizon, commit.x[-1], commit.end_v))
+            stats.update(support_record(self.tgt, commit.x[-1]))
         elif selection_merit is not None and not np.isfinite(selection_merit):
             stats["invalid_selection"] = True
         self.tgt.settled_step = (hist[-1]["alpha"] / self.alpha_scale

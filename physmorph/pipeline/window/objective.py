@@ -24,10 +24,16 @@ from .setup import Window
 
 
 def velocity_variance(V: torch.Tensor, split: int) -> torch.Tensor:
-    """Driven phase: fluctuation about its mean (steady progress is free); released
-    phase: all motion (the body should come to rest, not drift coherently)."""
+    """A record (2026-09-30: no longer in the objective). Driven phase: fluctuation about its mean;
+    released phase: all motion."""
     return ((V[:split] - V[:split].mean(0)).square().sum()
             + V[split:].square().sum()) / (V.shape[0] * V.shape[1])
+
+
+def released_motion(V: torch.Tensor, split: int, horizon: float) -> torch.Tensor:
+    """The stability term: horizon^2 x the mean over the released steps (from `split`) and the particles of
+    |v|^2, in length^2. Invariant under v -> 2v with horizon -> horizon / 2, as the residual drift it replaces."""
+    return horizon ** 2 * V[split:].square().sum(2).mean()
 
 
 class Objective:
@@ -80,30 +86,38 @@ class Objective:
         t = self.tgt
         return d_vol_density(xT, t.m, t.grid, t.lgmin, t.ldx, t.ldims, t.m_ref, t.n_support)
 
-    def transport(self, xT, vT=None):
-        if vT is None:
-            vT = torch.zeros_like(xT)
-        return self.tgt.grid_ot.state_energy(xT, self.tgt.m, vT, self.horizon)
+    def transport(self, xT):
+        """The geometry energy of the released end state: the transport divergence plus the fine term."""
+        return self.tgt.grid_ot.state_energy(xT, self.tgt.m)
 
-    def losses(self, xT, FT, vT):
-        """(lv, lk, lr, lpbr, d_sil): scaled transport, end kinetic, render (silhouette +
-        w_pbr shading), shading, and the silhouette alone (a tensor, for the record)."""
+    def stability(self, V):
+        """The released motion: (T dt)^2 mean over the released steps and particles of |v|^2, length^2 like the
+        geometry energy. Zero for a body at rest after the release, the residual drift's value for a constant
+        released velocity, and larger for a release that oscillates and comes to rest only at its end. It
+        replaces three terms (2026-09-30): the residual drift |T dt v_T|^2 inside the transport energy, the end
+        kinetic energy w_kin |v_T|^2 and w_kin_var (the driven fluctuation and the released motion)."""
+        return released_motion(V, self.cfg.T, self.horizon)
+
+    def losses(self, xT, FT, vT, V):
+        """(lv, lk, lr, lpbr, d_sil, lstab): the scaled geometry with the stability term, the end kinetic
+        energy (a record), render (silhouette + w_pbr shading), shading, the silhouette alone (a tensor, for
+        the record) and the stability term alone."""
         cfg, t = self.cfg, self.tgt
-        lv = t.ot_scale * self.transport(xT, vT)
+        lstab = self.stability(V)
+        lv = t.ot_scale * (self.transport(xT) + lstab)
         lk = vT.pow(2).sum(1).mean()
         lsil = d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
                         cfg.w_spray)
         lpbr = d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
                      cfg.sil_k, cfg.pbr_ambient, t.pblur)
-        return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach()
+        return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab
 
-    def phys_core(self, lv, lk, dfc, xT, FT, lk_var):
+    def phys_core(self, lv, dfc, xT, FT):
         """The physics objective without the cleanup terms: lambda's reference and the
         direction PCGrad protects. dfc: the expanded control; only the driven half is costed."""
         cfg, wu, N = self.cfg, self.win.wu, self.win.N
         dfc = dfc[:cfg.T]
-        L = lv + wu * cfg.w_kin * lk + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
-        L = L + wu * cfg.w_kin_var * lk_var
+        L = lv + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
         L = L + wu * cfg.w_box * torch.clamp(xT.abs() - self.tgt.extent, min=0).pow(2).sum(1).mean()
         L = L + wu * cfg.w_creg * (dfc - dfc[:, self.knn_creg].mean(2)).pow(2).mean()
         J = torch.linalg.det(FT.view(-1, 3, 3))
@@ -128,9 +142,8 @@ class Objective:
             L = xT.sum() * 0.0                          # an empty gate: zero, still on the graph
         return L + wu * cfg.w_nn * d_nn_band(xT, t.m, t.pts, self.nn_idx, self.nn_elig, self.berth)
 
-    def scalar(self, lv, lk, lr, lam_r, dfc, xT, FT, lk_var) -> float:
+    def scalar(self, lv, lr, lam_r, dfc, xT, FT) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""
         with torch.no_grad():
-            L = float(self.phys_core(lv, lk, dfc.detach(), xT.detach(), FT.detach(), lk_var.detach())
-                      + self.cleanup(xT.detach()))
+            L = float(self.phys_core(lv, dfc.detach(), xT.detach(), FT.detach()) + self.cleanup(xT.detach()))
         return L + lam_r * float(lr.detach())

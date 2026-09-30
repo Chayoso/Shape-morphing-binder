@@ -125,7 +125,7 @@ def write_grad_dump(directory, dump, win, leaf0, leaf_final, u_final, commit_dc,
         leaf_final_norm=float(leaf_final.norm()), **red, **resp, **u_red)
 
 
-def support_record(tgt, horizon: float, x: torch.Tensor, v: torch.Tensor) -> dict:
+def support_record(tgt, x: torch.Tensor) -> dict:
     """The transport term taken apart at a committed state: the transport without the support
     bound E, the support penalty B, the support-gradient weight w (E / (E + w B))^2 that every
     particle feels through the bound, and the per-particle penalty's max, p99 and median."""
@@ -135,12 +135,12 @@ def support_record(tgt, horizon: float, x: torch.Tensor, v: torch.Tensor) -> dic
     saved, ot.support = ot.support, None
     try:
         with torch.no_grad():
-            E = float(ot.state_energy(x, tgt.m, v, horizon))
+            E = float(ot.state_energy(x, tgt.m))
         # the fine term's position gradient against the transport's at this state (the balance of the two
-        # parts of the geometry objective, which the coverage form leaves to the units alone)
+        # parts of the geometry objective, which the proximity form leaves to the units alone)
         xg = x.detach().clone().requires_grad_(True)
         g_pen = torch.autograd.grad(sup.penalty(xg), xg, allow_unused=True)[0]
-        g_e = torch.autograd.grad(ot.state_energy(xg, tgt.m, v.detach(), horizon), xg)[0]
+        g_e = torch.autograd.grad(ot.state_energy(xg, tgt.m), xg)[0]
         ratio = (float(g_pen.norm()) / max(float(g_e.norm()), 1e-30)) if g_pen is not None else 0.0
     finally:
         ot.support = saved

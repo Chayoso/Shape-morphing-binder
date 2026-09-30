@@ -30,6 +30,7 @@ class Eval:
     V: torch.Tensor                   # velocities of steps 1..2T
     lk_run: torch.Tensor
     lk_var: torch.Tensor
+    lstab: torch.Tensor | None = None # the stability term (released motion) alone
     jt: float | None = None           # whole-trajectory min det (no-grad path)
     in_domain: bool = True
 
@@ -57,9 +58,9 @@ def state_ok(e: Eval) -> bool:
 
 
 def _evaluate(obj: Objective, xT, FT, vT, dfc, V, **kw) -> Eval:
-    lv, lk, lr, lpbr, d_sil = obj.losses(xT, FT, vT)
+    lv, lk, lr, lpbr, d_sil, lstab = obj.losses(xT, FT, vT, V)
     return Eval(xT, FT, vT, lv, lk, lr, lpbr, d_sil, dfc, V, V.pow(2).sum(2).mean(),
-                velocity_variance(V, obj.cfg.T), **kw)
+                velocity_variance(V, obj.cfg.T), lstab=lstab, **kw)
 
 
 def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:
@@ -119,7 +120,7 @@ def commit_rollout(win: Window, obj: Objective, leaf, u, lam_r: float) -> Commit
     atomics make a replay differ from the accepted candidate by noise)."""
     with torch.no_grad():
         e = eval_terms(win, obj, leaf, u)
-        E_final = obj.scalar(e.lv, e.lk, e.lr, lam_r, e.dfc, e.xT, e.FT, e.lk_var)
+        E_final = obj.scalar(e.lv, e.lr, lam_r, e.dfc, e.xT, e.FT)
         tr, T, N = win.tr, win.T, win.N
         inv_any, jmin = None, float("inf")
         for t in range(1, T + 1):

@@ -53,8 +53,6 @@ class PipelineConfig:
     assim_smax: float = 5.0
 
     # ---- physics objective (legacy units) ----
-    w_kin: float = 5.0              # end kinetic energy
-    w_kin_var: float = 200.0        # velocity variance (driven) and all motion (released)
     w_ctrl: float = 1e-3            # control magnitude
     w_creg: float = 100.0           # control smoothness over the source kNN graph
     creg_k: int = 8

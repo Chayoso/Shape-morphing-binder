@@ -82,7 +82,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     frozen = False
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim} "
-        f"w_kin={cfg.w_kin} w_box={cfg.w_box}")
+        f"w_box={cfg.w_box}")
     c2f_pending = cfg.c2f_event and cfg.render_res_hi > cfg.render_res
     for a in range(cfg.animations):
         if not frozen and sel.plateau(a):
@@ -187,7 +187,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         _notify(on_commit, a, x, F, v, rec)
         if converged:
             frozen = True
-            phys_track = tgt.ot_scale * rec["transport_energy"] + cfg.w_kin * rec["kin"] / tgt.unit_ratio
+            phys_track = tgt.ot_scale * (rec["transport_energy"] + rec["stab"])
             log(f"[v2] converged at anim {a + 1} (phys={phys_track:.4f}); holding still")
         any_guard = any(counts[k] for k in GUARDS)
         if a % max(1, cfg.animations // 10) == 0 or a == cfg.animations - 1 or any_guard:
@@ -226,12 +226,12 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) 
                                     tgt.n_support))
         d_dt = float(d_w1(x, tgt.m, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims))
         ot_div = float(tgt.grid_ot(rasterize_mass(x, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims)))
-        energy = float(tgt.grid_ot.state_energy(x, tgt.m, v, cfg.T * prm.dt))
+        energy = float(tgt.grid_ot.state_energy(x, tgt.m))
         jmin = float(torch.linalg.det(F).min())
     rec = {"animation": a, "iters": len(res.hist), "loss": w["loss"], "d_vol": d_vol,
            "grad_norm": w["grad_norm"], "d_pbr": w["d_pbr"], "d_dt": d_dt, "d_sil": w["d_sil"],
            **{k: stats.get(k) for k in _STAT_FIELDS},
-           "kin": w["kin"], "kin_run": w["kin_run"], "kin_var": w["kin_var"], "alpha_last": w["alpha"],
+           "kin": w["kin"], "kin_run": w["kin_run"], "kin_var": w["kin_var"], "stab": w["stab"], "alpha_last": w["alpha"],
            "d_render": w["d_render"], "lambda": w["lambda"], "lambda_capped": stats.get("lambda_capped"),
            "u_gate": stats.get("u_gate"), "dfc_absmax": w["dfc_absmax"],
            "accepted": stats["accepted"], "rejected": stats["rejected"],

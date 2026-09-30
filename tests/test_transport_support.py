@@ -132,15 +132,15 @@ def test_shared_transport_energy_preserves_disabled_path_and_trial_values():
     enabled = GridSinkhornLoss(grid, origin, 1., dims, support=support, **kw)
     x = (target * 1.25).requires_grad_(True)
     v = torch.zeros_like(x)
-    base = plain.state_energy(x, mass, v, .1)
-    assert torch.equal(disabled.state_energy(x, mass, v, .1), base)
-    got = enabled.state_energy(x, mass, v, .1)
+    base = plain.state_energy(x, mass)
+    assert torch.equal(disabled.state_energy(x, mass), base)
+    got = enabled.state_energy(x, mass)
     expected = support(base, x)
     torch.testing.assert_close(got, expected)
     torch.testing.assert_close(torch.autograd.grad(got, x, retain_graph=True)[0],
                                torch.autograd.grad(expected, x)[0])
     with torch.no_grad():
-        torch.testing.assert_close(enabled.state_energy(x, mass, v, .1), got.detach())
+        torch.testing.assert_close(enabled.state_energy(x, mass), got.detach())
 
 
 def test_target_build_attaches_support():

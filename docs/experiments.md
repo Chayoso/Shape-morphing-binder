@@ -172,6 +172,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R11, the stability term: three velocity terms replaced by the released motion (pre-registered 2026-09-30 16:51
+  CDT, before launch; repo_r18 = repo_r17 with the change).** The objective penalised the released end's velocity
+  three times with three constants: the residual drift |T dt v_T|² inside the transport energy, the end kinetic
+  energy w_kin |v_T|² (w_kin = 5) and w_kin_var (200) times the driven fluctuation plus the released motion. All
+  three are removed. The stability term is L_stab = (T dt)² · mean over the released steps and particles of |v|²,
+  length² like the geometry, inside the same scale (ot_scale), so that a body at rest after the release costs
+  nothing, a constant released velocity costs what the drift did, and a release that oscillates and comes to rest
+  only at its end costs as much as a constant one of the same speed (the drift alone charged nothing). No weight:
+  the horizon converts velocity to length as before. The driven phase is not costed by it (the transport and the
+  control terms already are). The window record keeps `kin` and `kin_var` as measurements and adds `stab`.
+  Runs: the 40k gallery (19 meshes, seed 97) and the 300k dragon at 35 windows, proximity and the grid following
+  N as R10 adopted; against R10's PX85 arm (the same code with the three old terms). Pass: `thin_uncovered`
+  median within ±1 point of PX85 and no mesh worse by more than 3 points; silhouette median within ±0.002 and no
+  mesh below by more than 0.004; the end kinetic energy `kin` and `kin_var` (both measured in both arms) not
+  higher at the median; wall ≤ 1.2×; no freeze PX85 did not show; the 300k dragon at 35 windows within ±0.002
+  silhouette and ±1 point world-thin of PX85's, `kin` not higher. Predictions: geometry within spread; the
+  released motion lower (the term sees the whole release, the drift saw its end); wall unchanged. Render influence:
+  the render channel is unchanged; g_share reported.
 - **R10, the geometry ablation: coarse transport + surface proximity against the fine transport (pre-registered
   2026-09-30 15:55 CDT, launched 15:55; repo_r17).** Three arms: CR = the loss grid following N (85³ at 300k) with
   the ratio support (C_R); PX85 = the same grid with the surface proximity; PX43 = the MPM-cell grid (43³ at 300k)
@@ -438,6 +456,28 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R10, 2026-09-30 16:51 CDT — the geometry ablation: the proximity replaces the support on the whole gallery; the
+coarse grid does not replace the fine one (pre-registered 15:55, the 300k part restated 16:03).** `tmp/r10_eval.py`.
+- 40k gallery, proximity (PX) against the ratio support (CR), same code, 19 meshes (R9's four included):
+  `thin_uncovered` lower on 17 of 19 (sign test p < 0.001), median −2.8 points (pass: ≥ 14 and ≥ 2). Largest
+  gains maxplanck −7.3, teapot −5.9, bob −3.9, armadilo / bunny / V −3.7, fandisk −3.6; unchanged cheburashka
+  (0.0), nefertiti −0.7; one regression, homer +4.6 (11.5 → 16.1), to be looked at. Silhouette IoU median 0.9769
+  against 0.9758 (+0.0005 at the median, worst −0.0012 fandisk; pass). Wall 0.89× (pass). No freeze in either arm
+  (beast ran 62 and 66 windows). The proximity runs go longer on most meshes (median 47 against 37 windows).
+- 300k dragon at a 35-window budget, on GPUs shared with the gallery streams: CR (85³ + support) silhouette 0.9808,
+  chamfer 0.0614, thin 30.4 % own / 4.5 % world, 45 s per window, 33 min; PX85 (85³ + proximity) 0.9813, 0.0613,
+  22.6 / 2.4 %, 34 s, 23 min; PX43 (43³ + proximity) 0.9797, 0.0643, 27.3 / 4.9 %, 21 s, 15 min. At equal wall
+  time of 15 minutes PX85 (24 windows, d_sil 1.02e-3, thin 26.6 %) matches PX43 (35 windows, 1.06e-3, 27.3 %) and
+  both are far ahead of CR (15 windows, 3.7e-3, 41.6 %); at 20 minutes PX85 (33 windows, 8.7e-4, 23.2 %) leads
+  and PX43 has stopped. PX85 against CR passes (thin −7.8 / −2.1, silhouette +0.0005, 25 % cheaper per window).
+  PX43 against PX85 fails the restated criterion (`thin_uncovered_world` +2.5 against ≤ 1; chamfer worse; no
+  gain at equal time): the fine transport grid still places the surface beyond the thin set, as R2 found. The
+  gradient ratio ‖∇L_surf‖/‖∇S_ε‖ at 300k: 0.56–0.66 mid-run, about 1.0 at the end (40k: 1.5–4): radius² falls
+  with N and the two parts stay within one order of magnitude without a weight; the N dependence is recorded.
+- Verdict: the geometry objective is S_ε(ρ_b, ρ_t) on the grid following N plus the surface proximity, no support,
+  no bound, no support weight. "300k in 15 minutes" with today's window cost is PX85 at about 24 windows (silhouette
+  near 0.981, thin 26.6 %); more needs fewer rollouts per window and fewer windows, the runtime items after the loss.
 
 **R9, 2026-09-30 15:55 CDT — surface proximity in place of the density coverage: the geometry passes, the
 detection criterion at the optimised end states was mis-specified (pre-registered 15:42).** Against the same-code
