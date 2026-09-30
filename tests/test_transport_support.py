@@ -215,7 +215,7 @@ def test_target_referenced_floor_never_penalises_the_target():
 def test_target_referenced_floor_is_the_target_density_at_the_particle_and_continuous():
     """A'': at every target point the floor is half the point's own leave-one-out density (the per-point floor);
     between the block's top face and the sheet the nearest target point switches, where the per-point floors differ
-    by more than 10 %, and the floor is continuous there; far off the target it is at or below zero (no penalty, no
+    by more than 10 %, and the floor is continuous there; three spacings off the target it is below zero (no penalty, no
     gradient: the W1 cleanup's job); a body that is the target stretched by 1.5 pays, with a true gradient that
     includes the floor's own dependence on the position."""
     from physmorph.losses.support import TransportSupport
@@ -227,10 +227,14 @@ def test_target_referenced_floor_is_the_target_density_at_the_particle_and_conti
     i_lo, i_hi = ref.tree.query(below, 1)[1][0, 0], ref.tree.query(above, 1)[1][0, 0]
     assert abs(float(ref.log_floor_pt[i_lo] - ref.log_floor_pt[i_hi])) > .1     # the old floor stepped here
     assert abs(float(ref.floor(below) - ref.floor(above))) < 1e-3                # the new one does not
-    far = torch.tensor([[-1.5, -1.5, -1.5]], requires_grad=True)
+    far = torch.tensor([[.25, .25, -.3]], requires_grad=True)                       # three spacings off the block
     assert float(ref.penalty_per_point(torch.cat([far, y[1:]]))[0]) == 0.
     g_far = torch.autograd.grad(ref.penalty(torch.cat([far, y[1:]])), far)[0]
     assert float(g_far.abs().max()) == 0.
+    far32 = far.detach().float().requires_grad_(True)                              # float32, as the pipeline runs:
+    x32 = torch.cat([far32, y[1:].float()])                                         # the zero-penalty region must
+    g32 = torch.autograd.grad(ref.penalty(x32), far32)[0]                           # keep a finite gradient
+    assert float(ref.penalty_per_point(x32)[0]) == 0. and bool(torch.isfinite(g32).all()) and float(g32.abs().max()) == 0.
     jitter = torch.tensor(np.random.default_rng(47).uniform(-.005, .005, (216, 3)))     # no lattice ties: a tie at
     x = (torch.tensor(target[:216]) - .25) * 1.5 + .25 + jitter                   # the k-th neighbour would swap
     x = x.requires_grad_(True)

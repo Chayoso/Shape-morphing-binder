@@ -191,6 +191,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Predictions: geometry within the run-to-run spread (thin ±1 point, silhouette ±0.002), `sup_B` 3–5× lower at the
   end, wall and null counts unchanged (the noise nulls of D6 (b) remain). Render influence: the change is in the
   physics objective's support term; g_share is reported from the runs; no render-off twin in this experiment.
+  Relaunched 12:10 CDT: the 12:04 launch froze every run at window 1. Where the floor is at or below zero the
+  deficit log f − log s was about −100, whose ratio-form gradient exp(−t) overflows float32 (0 × inf = NaN in the
+  backward pass; the unit tests ran in float64). The deficit is now exactly zero on safe inputs wherever f ≤ s, the
+  penalty there being zero anyway. The definition is unchanged; the suite passes with a float32 case added.
 - **D6, three measurements before any fix (pre-registered 2026-09-30 11:43 CDT, before launch; repo_r13 = C_R +
   telemetry, no algorithm change).** Working order from now on (user, 2026-09-30): measure which part of the current
   code misbehaves, find the root problem, and only then change that definition; never an extra algorithm to block a
@@ -355,8 +359,17 @@ windows), cheburashka (35), homer (40), beast ×3 (38, 43, 28); `tmp/d6_eval.py`
   the source (where the two replays differ: positions or the loss side) is now recorded at every window start
   (`replay_dx_max`, `replay_dx_rms` in spacings, `replay_dlv/dlk/dlr`).
 - (c) Beast did not freeze in three full runs (start state valid in 100 % of windows; no state-check failure in any
-  of the ~420 failed trials of the five runs). The freeze is one in five C_R runs so far (crv). Six further beast
-  runs with a 20-window budget (a diagnostic control) are running with the dead-state probe armed.
+  of the ~420 failed trials of the five runs). Of six further runs with a 20-window budget (a diagnostic control),
+  one froze (run 7, window 11), and the probe fired: the start state fails the check for the reason **domain**, not
+  inversion. The free rollout from the committed state leaves the two-cell safety margin (det F stays 0.95, no
+  particle near inversion), with the last plastic assimilation undone as well. All ten trials, the warm start and
+  the commit rollout fail for the same reason, so no control can be accepted: the exit happens in the first steps,
+  before a control acts. Window 10 had committed normally (its own 2T frames inside, `clamped` 0, v_max 2.8 wu/s).
+  So the committed end state carries momentum that crosses the margin box within the next window even at zero
+  control, and the check is global: one particle suffices. The margin box is the leash, 1.25× the larger cloud's
+  extent (7.78 wu for beast; the target reaches 6.2), and beast's ejection gate fails (0.4 % stray at the end), so
+  ejected particles are the likely carriers. Which particles, and their velocity, is the next measurement (an
+  archive kept at a freeze); the fix follows from that, not from a larger box or a softer check.
 - Floor pre-check for fix 1 (`scripts/probes/settled/floor_probe.py` on the four D6 end states): A'' equals the
   current floor at every target point (max difference 1e-15); it is at or below zero for 0.4–0.7 % of particles, all
   at least 1.4 spacings off the target (0–1 of ~29 700 particles within one spacing), mostly outer; within one

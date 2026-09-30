@@ -68,17 +68,32 @@ class TransportSupport:
             self.tree, self.k, self.target_pts = tree, k, target
             self.log_floor_pt = math.log(.5) + torch.log(rho)     # per target point, float64 (the floor there)
 
-    def floor(self, x):
-        """The log-density floor of every particle: a scalar, or with target_ref (N,) the log of
-        1/2 (t(x) - K(0)), t the target's kernel sum at x over its k + 1 nearest target points
-        (neighbour indices detached, the kernel differentiable in x). Where t(x) <= K(0) the
-        floor is at or below zero: no floor, no penalty, and no gradient."""
-        if not self.target_ref:
-            return self.log_floor
+    def target_sum(self, x):
+        """t(x): the target's kernel sum at every particle over its k + 1 nearest target points
+        (neighbour indices detached, the kernel differentiable in x)."""
         idx = self.tree.query(x.detach(), self.k + 1)[1].to(x.device)
         y = self.target_pts.to(device=x.device, dtype=x.dtype)
-        t = torch.exp(-(x[:, None] - y[idx]).square().sum(2) / (2 * self.h * self.h)).sum(1)
-        return torch.log((.5 * (t - 1.0)).clamp_min(torch.finfo(x.dtype).tiny))
+        return torch.exp(-(x[:, None] - y[idx]).square().sum(2) / (2 * self.h * self.h)).sum(1)
+
+    def floor(self, x):
+        """The log-density floor of every particle: a scalar, or with target_ref (N,) the log of
+        1/2 (t(x) - K(0)); where t(x) <= K(0) the floor is at or below zero (no floor), and its log
+        is that of the smallest positive number."""
+        if not self.target_ref:
+            return self.log_floor
+        return torch.log((.5 * (self.target_sum(x) - 1.0)).clamp_min(torch.finfo(x.dtype).tiny))
+
+    def deficit(self, x):
+        """The log-density deficit log f - log s of every particle. With target_ref the floor f
+        may be at or below zero, and wherever it is at or below the body density s the deficit
+        is exactly zero, on safe inputs: the penalty is zero there and its gradient finite (the
+        penalty of a deficit near -100 is zero too, but its ratio form's gradient overflows)."""
+        log_s = self.log_density(x)
+        if not self.target_ref:
+            return self.log_floor - log_s
+        f = .5 * (self.target_sum(x) - 1.0)
+        above = f > log_s.exp()
+        return torch.where(above, torch.log(torch.where(above, f, torch.ones_like(f))) - log_s, torch.zeros_like(f))
 
     def log_density(self, x):
         from ..render.knn_gpu import knn_self_torch
@@ -92,12 +107,12 @@ class TransportSupport:
             -(x[neighbors] - x[:, None]).square().sum(2) / (2 * self.h * self.h), dim=1)
 
     def penalty_per_point(self, x):
-        return self.radius ** 2 * deficit_penalty(self.floor(x) - self.log_density(x), self.form)
+        return self.radius ** 2 * deficit_penalty(self.deficit(x), self.form)
 
     def penalty(self, x):
         if x.ndim != 2 or x.shape[1] != 3 or len(x) < 2:
             raise ValueError('support positions must have shape (N,3), N >= 2')
-        return self.radius ** 2 * deficit_penalty(self.floor(x) - self.log_density(x), self.form).mean()
+        return self.radius ** 2 * deficit_penalty(self.deficit(x), self.form).mean()
 
     def __call__(self, energy, x):
         # Keep containment/failed-solve sentinels intact and avoid inf/inf.
