@@ -408,6 +408,27 @@ windows), cheburashka (35), homer (40), beast ×3 (38, 43, 28); `tmp/d6_eval.py`
   extent (7.78 wu for beast; the target reaches 6.2), and beast's ejection gate fails (0.4 % stray at the end), so
   ejected particles are the likely carriers. Which particles, and their velocity, is the next measurement (an
   archive kept at a freeze); the fix follows from that, not from a larger box or a softer check.
+  **Particle level (14:50 CDT, run 15 of twelve short runs; `tmp/beast_dead_probe.py`, `beast_clump.py`,
+  `beast_frag.py`).** The six particles nearest the box are the head of a stream: a clump of about 17 (each with 5
+  neighbours within a cell), 3.3–3.6 cells from the dense body, all moving outward along one axis at 0.010–0.011
+  wu per step, 0.8–1.1 cells from the box, 22–33 steps from crossing it (the next window has 40). They accelerated
+  inside the body from window 1 to 5 (0.002 → 0.015 wu per step, a filament pulled toward the target's far
+  extremity at |x| = 6.2), left the dense body at window 6, passed the target's tip at window 9 and coasted with
+  the drag's slow decay (0.021 → 0.012) to the box at window 11; every C_R freeze of beast so far sits at windows
+  10–12, the travel time. Behind the head a continuous stream of 113 particles trails from the target's tip
+  outward (49, 37, 21 per cell, then one empty cell, then the head). Neither fragment detector flags any of them
+  in any window, and both are right by their definitions: no particle is alone in its 3³ cells, and the stream's
+  occupancy, dilated by one cell, is one component with the body. So the bond pull-back never applies, and it
+  should not: the stream is grid-coupled. What is wrong is upstream: the objective cannot see it. The end kinetic
+  term, the velocity variance and the box term are means over 40 000 particles, and the transport energy is
+  mass-weighted, so 17 particles at ten times the body's speed change none of them measurably; the support is
+  per-particle but one-sided; nothing asks the optimiser to bring the head back, and once it is within a window of
+  the box the global trajectory check (`positions_in_domain`: one particle in the two-cell margin at any frame
+  vetoes the candidate) leaves no admissible control. The freeze is therefore the ejection defect (the
+  thin-feature droplet family: a filament overshooting a far extremity) meeting a hard constraint, and its root is
+  the same blindness as the thin problem's: mass-averaged terms do not see small sets, in space (sub-cell gaps) or
+  in count (a flung handful). Not a fix for the veto or the box, which are downstream; folded into the objective
+  question.
 - Floor pre-check for fix 1 (`scripts/probes/settled/floor_probe.py` on the four D6 end states): A'' equals the
   current floor at every target point (max difference 1e-15); it is at or below zero for 0.4–0.7 % of particles, all
   at least 1.4 spacings off the target (0–1 of ~29 700 particles within one spacing), mostly outer; within one
