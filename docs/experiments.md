@@ -172,6 +172,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R11c, which removed velocity piece keeps a run sound (diagnostic, pre-registered 2026-09-30 17:58 CDT, before
+  launch; repo_r20 = repo_r19 + the three pieces as switches, off by default).** R11b's code (proximity, the end
+  drift as the stability term) with one removed piece put back at its legacy weight: K = the end kinetic energy
+  (5), D = the driven phase's velocity fluctuation about its mean (200, the driven part of the old variance term),
+  R = the released motion (200, its released part). On the six meshes R11b lost (bimba, cheburashka, cow, homer,
+  nefertiti, spot) and two it kept (bunny, dragon), 40k, seed 97. Reading: a piece "keeps a run sound" if none of
+  the six stops before 15 windows with the body still moving (`kin` > 0.05 at the end) and their thin and
+  silhouette are within R11b's sound meshes' spread of PX85 (thin ±3, silhouette ±0.004). Predictions: D keeps
+  them sound (it is the only term that sees the driven phase's velocity field; the transport alone pushes as hard
+  as the control clip allows), R partly (it damps the release but not the push), K not (the end kinetic energy
+  duplicates the drift). The surviving piece is then given a definition without its legacy weight.
 - **R11b, the stability term as the end drift alone (pre-registered 2026-09-30 17:27 CDT, launched 17:29; repo_r19 =
   repo_r18 with the term changed).** After R11's failure the stability term is the residual drift of the released
   end, (T dt)² mean_i |v_T,i|², length², inside the geometry's scale, no weight: MJ's drift, now the only velocity
@@ -467,6 +478,19 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R11b, 2026-09-30 18:00 CDT — the end drift alone: fails on six meshes the same way (pre-registered 17:27).**
+Against PX85: bimba, cheburashka, cow, homer, nefertiti and spot stop at 8–11 windows with the body still moving
+(`kin` 0.29–0.54; thin +7 to +10, silhouette −0.006 to −0.025); the other thirteen are within spread (thin
+−2.9 to +3.0, silhouette within ±0.0015). Medians: thin +0.8, silhouette −0.0007, `kin` 15× higher, windows 28
+against 47; 300k dragon 0.9799 against 0.9813 with `kin` 4× higher. The prediction (the removed terms were small)
+was wrong: their values are 0.1–0.3 % of the merit early in a run, but they are the only terms that see the
+driven phase's velocity field (the variance about the mean flow) and the release's motion before its end, so
+without them the transport pushes as hard as the control clip allows, the body carries momentum into the
+release, the released end is not at rest, and the outer brake stops the run when a window tries to calm it. The
+stability of a settled morph is therefore two things: the end at rest (the drift) and a push that stays
+quasi-static (the driven-phase regularity). Which of the two removed pieces does the work is the next
+measurement (R11c, leave-one-out on the six failing meshes and two sound ones).
 
 **R11, 2026-09-30 17:27 CDT — the released-motion integral as the stability term: fails (pre-registered 16:51).**
 Against R10's PX85 on the 40k gallery: `thin_uncovered` median 10.9 against 9.3 (+1.8; cow +14.2, spot +12.8,

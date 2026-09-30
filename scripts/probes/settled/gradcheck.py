@@ -42,7 +42,7 @@ u = torch.zeros(N, device="cuda", requires_grad=True)
 
 
 def channels(e):
-    return {"physics": obj.phys_core(e.lv, e.lk, e.dfc, e.xT, e.FT, e.lk_var), "render": e.lr,
+    return {"physics": obj.phys_core(e), "render": e.lr,
             "cleanup": obj.cleanup(e.xT)}
 
 

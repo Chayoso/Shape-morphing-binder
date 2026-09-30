@@ -127,7 +127,7 @@ class WindowOptimizer:
         self._it = 0
 
     def scalar(self, e: Eval) -> float:
-        return self.obj.scalar(e.lv, e.lr, self.lam_r, e.dfc, e.xT, e.FT)
+        return self.obj.scalar(e, self.lam_r)
 
     def eval(self) -> Eval:
         return eval_terms(self.win, self.obj, self.dFc, self.u)
@@ -174,7 +174,7 @@ class WindowOptimizer:
         """(g, diag): the composite control gradient and, on the first and last iteration,
         the endpoint position-space gradients of both channels (telemetry only)."""
         cfg, obj, leaves = self.cfg, self.obj, self.leaves
-        Lp_core = obj.phys_core(e.lv, e.dfc, e.xT, e.FT)
+        Lp_core = obj.phys_core(e)
         Ldt = obj.cleanup(e.xT)
         diag = None
         if (self.on_iter is not None or cfg.work_telemetry) and it in (0, cfg.iters - 1):

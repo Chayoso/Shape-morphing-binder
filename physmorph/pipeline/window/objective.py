@@ -122,16 +122,23 @@ class Objective:
                      cfg.sil_k, cfg.pbr_ambient, t.pblur)
         return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab
 
-    def phys_core(self, lv, dfc, xT, FT):
-        """The physics objective without the cleanup terms: lambda's reference and the
-        direction PCGrad protects. dfc: the expanded control; only the driven half is costed."""
+    def phys_core(self, e):
+        """The physics objective without the cleanup terms, from an Eval: lambda's reference and the
+        direction PCGrad protects. Only the driven half of the control is costed."""
         cfg, wu, N = self.cfg, self.win.wu, self.win.N
-        dfc = dfc[:cfg.T]
-        L = lv + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
+        dfc, xT, FT = e.dfc[:cfg.T], e.xT, e.FT
+        L = e.lv + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
         L = L + wu * cfg.w_box * torch.clamp(xT.abs() - self.tgt.extent, min=0).pow(2).sum(1).mean()
         L = L + wu * cfg.w_creg * (dfc - dfc[:, self.knn_creg].mean(2)).pow(2).mean()
         J = torch.linalg.det(FT.view(-1, 3, 3))
         L = L + wu * cfg.w_jvol * ((J - 1.0) * torch.log(J.clamp_min(1e-6))).mean()
+        # R11c diagnostic pieces (off by default): the three velocity terms R11/R11b removed, one at a time
+        if cfg.diag_w_kin > 0:
+            L = L + wu * cfg.diag_w_kin * e.lk
+        if cfg.diag_w_kin_drv > 0:
+            L = L + wu * cfg.diag_w_kin_drv * e.lk_drv
+        if cfg.diag_w_kin_rel > 0:
+            L = L + wu * cfg.diag_w_kin_rel * e.lk_rel
         return L
 
     def cleanup(self, xT, common_geometry=False):
@@ -152,8 +159,8 @@ class Objective:
             L = xT.sum() * 0.0                          # an empty gate: zero, still on the graph
         return L + wu * cfg.w_nn * d_nn_band(xT, t.m, t.pts, self.nn_idx, self.nn_elig, self.berth)
 
-    def scalar(self, lv, lr, lam_r, dfc, xT, FT) -> float:
+    def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""
         with torch.no_grad():
-            L = float(self.phys_core(lv, dfc.detach(), xT.detach(), FT.detach()) + self.cleanup(xT.detach()))
-        return L + lam_r * float(lr.detach())
+            L = float(self.phys_core(e) + self.cleanup(e.xT.detach()))
+        return L + lam_r * float(e.lr.detach())
