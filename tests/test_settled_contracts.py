@@ -29,7 +29,7 @@ def clouds():
 
 def _cfg(**kw):
     base = dict(T=4, iters=2, animations=2, loss_res=12, render_views=2, render_elevs=(0.0, 0.5),
-                render_res=24, dt_res=32, patience=2, c2f_at=0.0)
+                render_res=24, dt_res=32, patience=2, c2f_event=False)
     base.update(kw)
     return PipelineConfig(**base)
 
@@ -133,7 +133,12 @@ def test_transport_calibration_survives_the_render_resolution_change(prm, clouds
     monkeypatch.setattr(target_mod, "build_target", tracked)
     monkeypatch.setattr(runner_mod, "build_target", tracked)
     monkeypatch.setattr(runner_mod, "optimize_window", window)
-    run_pipeline(*clouds, prm, _cfg(c2f_at=.5, render_res_hi=28), log=lambda *_: None)
+    # patience 0: the first committed window is the coarse epoch's stop event, which is what fires the switch
+    res = run_pipeline(*clouds, prm, _cfg(c2f_event=True, render_res_hi=28, animations=3, patience=0), log=lambda *_: None)
+    h = res["history"]
+    switch = next(i for i, r in enumerate(h) if r.get("c2f_render_res") == 28)
+    assert any(r.get("frame_end") for r in h[:switch])               # a stop event came first ...
+    assert any("animation" in r for r in h[switch + 1:])              # ... and the run went on at 28 px
     assert len(packs) == 2
     assert packs[0].ot_scale == packs[1].ot_scale and packs[0].grid_ot is packs[1].grid_ot
     assert packs[0].unit_ratio == packs[1].unit_ratio

@@ -82,25 +82,27 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim} "
         f"w_kin={cfg.w_kin} w_box={cfg.w_box}")
+    c2f_pending = cfg.c2f_event and cfg.render_res_hi > cfg.render_res
     for a in range(cfg.animations):
-        c2f_now = cfg.c2f_at > 0 and a == int(cfg.c2f_at * cfg.animations)
-        if c2f_now:
-            frozen = False              # a new cost epoch gets its own convergence test
-        elif sel.plateau(a):
+        if not frozen and sel.plateau(a):
             log(f"[v2] delivery merit plateau at anim {a + 1}")
             frozen = True
-        if frozen:
-            if cfg.hold_after_converge:
-                frames.hold()
-            break
-        if c2f_now:
-            # coarse-to-fine: sharper render targets late in the run (thin features)
+        if frozen and c2f_pending:
+            # coarse-to-fine: the run at the coarse resolution has stopped (plateau, patience or the
+            # rejection streak); the render targets are rebuilt at the fine resolution and the run goes
+            # on to its own stop there, a new cost epoch with its own render weight and convergence test
+            c2f_pending, frozen = False, False
             cfg.render_res = cfg.render_res_hi
             tgt = rebuild_for_resolution(tgt, target_x, prm, cfg)
             sel.new_epoch()
             sel.stale, sel.lam = 0, None
+            sel.reject_streak, sel.last_reject_score = 0, None
             hist.append({"animation": a, "c2f_render_res": cfg.render_res})
             log(f"[v2] c2f at anim {a + 1}: render targets rebuilt at {cfg.render_res}px")
+        if frozen:
+            if cfg.hold_after_converge:
+                frames.hold()
+            break
         x_start = x.clone()
         rollback = {"F": F, "v": v, "C": C, "Fp": Fp, "dfc": dfc_prev, "lam": balancer.lam,
                     "frames": len(frames), "guards": dict(guards)}

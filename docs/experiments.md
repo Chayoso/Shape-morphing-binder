@@ -172,6 +172,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R8, coarse-to-fine at the coarse resolution's stop event (pre-registered 2026-09-30 14:27 CDT, before launch;
+  repo_r15 = repo_r14 + the trigger).** Fix 3 of the agreed order. The switch to 96 px render targets fired at
+  window 150, half the window budget: never reached by C_R's 40k runs (15–50 windows), reached by the 300k dragon
+  only through its run length, and missed by R7's 300k run by eleven windows, which cost it the last 20 windows at
+  96 px and 0.002 of silhouette. Now (`c2f_event`) the switch fires when the run at 64 px would stop, by the plateau,
+  the patience or the rejection streak, and the run goes on at 96 px to its own stop; the fine epoch starts with a
+  fresh render weight, convergence count and rejection streak, and the delivered slice is the best window of the
+  last epoch, as before. No new constant: the existing tol, patience and reject_stop define the event.
+  Runs: the 40k gallery (19 meshes, seed 97) and the 300k dragon, R7's code otherwise. Against R7. Pass: every run
+  not frozen by null windows has a 96 px epoch; silhouette IoU median ≥ R7 + 0.001 and no mesh below R7 by more
+  than 0.004; `thin_uncovered` median ≤ R7 + 1 point; null windows summed ≤ 1.5× R7's; wall ≤ 2.5× R7's (two
+  epochs); the 300k dragon converged with silhouette ≥ 0.983 and chamfer ≤ 0.060.
+  Predictions: silhouette +0.002 to +0.005 at the median (in R5's long runs the 96 px epoch cut d_sil threefold);
+  thin −1 point or unchanged (T2: 96 px sees few of the thin gaps); wall 1.5–2×; the 300k dragon at or above 0.983
+  once the switch is reached. Render influence: this change is the render channel's schedule alone; the physics
+  objective is unchanged; each run records the coarse epoch's end and the fine epoch's end, and g_share at 96 px.
 - **R7, the support floor continued to the particle's position (pre-registered 2026-09-30 12:03 CDT, before
   launch; repo_r14 = repo_r13 + the floor).** Fix 1 of the agreed order. Under `--support_target_ref` the floor of a
   particle at x was the leave-one-out density of its nearest target point, piecewise constant in x with steps of about

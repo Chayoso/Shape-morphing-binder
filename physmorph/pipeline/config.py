@@ -88,7 +88,10 @@ class PipelineConfig:
     render_elevs: tuple = (0.0, 0.5, -0.5)
     render_res: int = 64
     render_res_hi: int = 96         # coarse-to-fine: targets rebuilt at this resolution ...
-    c2f_at: float = 0.5             # ... at this fraction of the window budget
+    c2f_event: bool = True          # ... when the run at the coarse resolution would stop (the plateau, the
+                                    #   patience or the rejection streak); it then goes on at the fine resolution
+                                    #   to its own stop (before 2026-09-30: at half the window budget, a schedule
+                                    #   that C_R's 40k runs never reached and the 300k dragon reached by run length)
     sil_k: float = 1.5              # alpha = 1 - exp(-k w)
     w_hole: float = 2.0             # silhouette deficit inside the target
     w_spray: float = 1.0            # silhouette excess outside it
