@@ -504,8 +504,10 @@ The end kinetic energy (K) and the driven fluctuation (D) each leave five of the
 the body still moving (`kin` 0.14–0.57); cow alone survives under both (K 9.6 / 0.9720 / 61, D 9.1 / 0.9725 / 27).
 bunny and dragon are sound under all three (R: 9.1 / 0.9756 / 41 and 13.6 / 0.9734 / 94; the dragon's silhouette
 0.0017 below PX85, thin +0.4). The prediction (D keeps the runs sound, R partly) was wrong: the driven phase's
-fluctuation about its mean is not what the push needs; what keeps the release settled is charging its motion at
-every released step, at a magnitude the drift and the end kinetic energy did not reach. Magnitude: the legacy
+fluctuation about its mean is not what the push needs, and R11b's reading (the end at rest plus a quasi-static
+push) is corrected: what a settled morph needs is little motion over the whole relaxation after the control is
+removed, so the term must charge every released step, at a magnitude the drift and the end kinetic energy did not
+reach. Magnitude: the legacy
 piece is 200 wu |v|² / (2 T N) = 100 wu · mean_release |v|², 6.5e-3 to 7.0e-3 per unit of mean |v|² at 40k
 (unit_ratio 1.43e4–1.55e4); R11's released motion sat inside ot_scale (0.15–0.33, measured on bunny, cow and spot)
 at (T dt)² ot_scale = 1.0e-3 to 2.3e-3, three to six times weaker: R11 failed on magnitude, not on form. Outside

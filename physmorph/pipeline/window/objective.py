@@ -102,9 +102,9 @@ class Objective:
         Zero for a body at rest after the release; a release that oscillates and comes to rest only at its end
         pays as a constant one of the same speed. It replaces the residual drift inside the transport energy,
         the end kinetic energy w_kin |v_T|^2 (5) and the velocity variance w_kin_var (200). R11c found that of the
-        three the released motion is what keeps a run sound: without it the transport pushes as hard as the
-        control clip allows, the body carries momentum into the release, and the brake stops the run once a window
-        trades transport for calm. Its magnitude matters: inside ot_scale (R11) the same expression was 3-6x weaker
+        three the released motion is what keeps a run sound, and neither the end at rest (K, the drift) nor a
+        regular driven phase (D) does: what a settled morph needs is little motion over the whole relaxation after
+        the control is removed, so the term charges every released step. Its magnitude matters: inside ot_scale (R11) the same expression was 3-6x weaker
         than the legacy 100 wu and runs lost; outside it the coefficient (T dt)^2 = 6.96e-3 (dt = 0.00417 at every N)
         matches the legacy 100 wu = 6.5e-3 to 7.0e-3 at 40k (unit_ratio 1.43e4 to 1.55e4) without a constant, and is
         2.2x it at 300k (unit_ratio 3.13e4)."""
