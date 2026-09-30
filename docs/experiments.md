@@ -115,6 +115,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   gap not above C_R's, no collapsed window. Stage 2, if stage 1 passes: the 300k dragon and bunny.
   Prediction: the thin share falls on most meshes by several points (the 40k gaps are 1.6–2.6 spacings, inside the
   kernel's reach); the thick bins and the silhouette change little.
+- **D3, what limits thin features: the objective, the controls, or an eroder (diagnostics, pre-registered
+  2026-09-29 21:26 CDT, before launch).** Both on the 40k gallery (19 meshes, seed 97), against R4's C_R run
+  (`thin_uncovered` recorded). Neither is a recipe candidate.
+  D3a, capacity: C_R + `--diag_coverage 1`. It adds the thin set's missing-mass fraction (the support estimator at
+  every thin target point, times r8², in the transport's length² units) outside the support's bound. If
+  `thin_uncovered` falls on ≥ 14 of 19 meshes with a median drop ≥ 3 points, the controls can cover thin features when
+  an objective asks for them at the particle scale, and the limit is the objective. If ≤ 11 of 19, or a median drop
+  < 1 point, the controls or the dynamics are the limit.
+  D3b, erosion: C_R + `--no_layer_relax`. The relaxation projects each outer particle's normal offset toward its
+  neighbours' mean every step, which can round thin tips. If `thin_uncovered` falls on ≥ 14 of 19 meshes, the
+  relaxation erodes thin features. Otherwise it is not the limit.
+  Prediction: D3a lowers the thin share clearly; D3b changes it little.
+- **D3c, both at once (diagnostic, pre-registered 2026-09-29 22:26 CDT, before launch).** D3a gave a consistent but
+  small thin gain, and the partial D3b (13 of 19) none, though its silhouette IoU rose on nearly every mesh. The
+  per-particle control u can place material below the MPM cell only if something asks for it and nothing undoes it.
+  C_R + `--diag_coverage 1 --no_layer_relax` on the 40k gallery. If `thin_uncovered` falls on ≥ 14 of 19 meshes with a
+  median drop ≥ 3 points, u can close thin gaps, and the relaxation is what blocks a particle-scale objective. If the
+  drop stays ≤ 1.5 points (about D3a's), the limit is the dynamics' resolution (the MPM cell), not the controls' reach.
+  Prediction: the drop stays small (≤ 2 points).
 - **D1, why the line search collapses late (diagnostic, pre-registered 2026-09-29 14:50 CDT).** At 300k the dragon
   stops unfinished (R1d). In r2B_dragon_1 the accepted step fell from 4.6e-3 to 1.2e-6 inside window 20, and the
   fresh 0.02 starts after rejections collapsed again (windows 23–25) until three rejections stopped the run. Ruled
@@ -206,6 +225,36 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 7. **Scaling.** Wall time and memory at 40k, 100k, 300k and 1M particles on one GPU.
 
 ## Results so far
+
+**D3c, 2026-09-30 00:02 CDT — asked for and not smoothed away, u closes thin gaps (pre-registered 2026-09-29 22:26).**
+C_R + `--diag_coverage 1 --no_layer_relax` against C_R, 40k gallery. `thin_uncovered` is lower on 14 of 19 meshes
+(p = 0.032), median 13.6 → 11.3 %, median change −3.0 points. The largest falls: teapot −6.4, C −6.1, dragon −6.1,
+fandisk −5.2, A −5.0, maxplanck −4.5. Silhouette IoU median +0.0065. This meets the registered reading "u can close
+thin gaps, and the relaxation is what blocks a particle-scale objective". My prediction (a drop ≤ 2 points) is
+refuted. Each change alone gave about −1 point (D3a −1.1, D3b −1.3); the two together give −3.0. Costs: the gallery
+takes 170 against 50 minutes (dragon 210 windows, C 195), with up to 22 collapsed windows per run. Beast collapsed
+again (null windows from window 13, silIoU 0.8965), as under R4's two-sided support; with coverage alone (D3a) it
+did not. Not a recipe: both switches are diagnostics. The design questions are how a particle-scale target coverage
+belongs in the objective, and what should replace the relaxation's smoothing so that it stops undoing the sub-cell
+shape the objective asks for.
+
+**D3b, 2026-09-29 22:30 CDT — the layer relaxation is not what keeps thin features uncovered, but it costs
+silhouette (pre-registered 21:26).** C_R + `--no_layer_relax` against C_R, 40k gallery. `thin_uncovered` is lower on
+12 of 19 meshes (p = 0.18; the reading needed 14), median 13.6 → 13.2 %, median change −1.3 points. So the relaxation
+is not the limit, as predicted. Side finding: silhouette IoU rises on 18 of 19 meshes (median +0.0069, worst C
+−0.0037). The runs go much longer (44–138 windows against 15–50; the gallery takes 155 against 50 minutes) and have
+many collapsed windows (2–39 per run; homer 39). The relaxation holds back the render's outline fit and keeps the
+line search smooth.
+
+**D3a, 2026-09-29 22:25 CDT — an explicit particle-scale thin-coverage signal helps only a little (pre-registered
+21:26).** C_R + `--diag_coverage 1` against C_R (R4 run), 40k gallery. `thin_uncovered` is lower on 16 of 19 meshes
+(sign test p = 0.002), and the median falls from 13.6 to 12.0 %. The median per-mesh change is −1.1 points (largest:
+teapot −4.2, A −3.4, C −2.8); beast +2.0 and bob +1.7 rise. Silhouette IoU median change 0.0000 (worst −0.0023,
+teapot +0.0035); no collapse; the gallery takes 65 against 50 minutes. The result lies between the two registered
+readings: consistent (≥ 14 of 19), but the median drop is 1.1 points, not ≥ 3. Late in a run the coverage term is
+about twenty times the transport energy, yet about nine tenths of the thin gap remains. So the controls or the
+dynamics, not only the objective, limit thin features: dFc acts through the grid (one MPM cell is 4.4 spacings
+here), and u's per-particle normal offsets are what the layer relaxation removes (D3b).
 
 **R4 stage 1, 2026-09-29 21:15 CDT — the two-sided support averaged over all target points: fails.** 40k gallery,
 C_R against C_R + `--support_two_sided` (target side averaged over every target point).
