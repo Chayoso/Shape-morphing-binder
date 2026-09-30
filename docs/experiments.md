@@ -172,7 +172,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
-- **R6, a step length per control block (pre-registered 2026-09-30 10:34 CDT, before launch; repo_r12).**
+- **R6, a step length per control block (pre-registered 2026-09-30 10:33 CDT, before launch; repo_r12).**
   `--block_steps` gives each control block its own step length, as D5 and its literature pass indicate. The Adam
   moments take the gradient once. From the current point, dFc and then u each run their own backtracking search
   (the other block held), starting from their own step memory, under the same acceptance test. When both blocks
