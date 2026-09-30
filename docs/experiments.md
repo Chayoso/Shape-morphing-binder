@@ -139,6 +139,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   D3a. Reruns of both with `--ls_probe` (run 2). If the freeze recurs, the probe shows where the failed trials'
   objective change sits (transport with coverage, support B, kinetic, render) and whether it shrinks with the step. If
   it does not recur, the freeze is trap timing (as S3b was).
+- **R5, the relaxation moved onto u as a preconditioner (pre-registered 2026-09-30 00:23 CDT, before launch).**
+  Literature (7 primary sources): the relaxation is Taubin's averaging step without the un-shrinking step. Its
+  2-spacing stencil is the size of the thin gaps, so no linear smoother in the forward model can tell u's roughness
+  from the target's thin shape. Nicolet, Jacobson & Jakob 2021 move smoothing into the step's parameterisation,
+  which leaves the objective's minimiser unchanged and keeps large steps stable. `--u_precond`: u = S v with
+  S = (I + 2 (I − W))⁻¹ on the layer graph, where W holds the relaxation's own weights and 2 is its strength over a
+  window (2T steps of 1/T). The forward relaxation is then off. No new constant.
+  R5a: C_R + `--u_precond`. R5b: C_R + `--u_precond --diag_coverage 1` (D3c's coverage signal, still a
+  diagnostic). 40k gallery, seed 97, against C_R, D3b and D3c.
+  Pass R5a: silhouette IoU median ≥ C_R + 0.003 (D3b gave +0.0069); gallery wall ≤ 2× C_R (≤ 100 min, D3b took 155);
+  collapsed windows summed over the gallery ≤ half of D3b's; thin share median not above C_R's + 0.5 point.
+  Pass R5b: `thin_uncovered` lower than C_R on ≥ 14 of 19 meshes with a median drop ≥ 2.5 points (D3c: 14 of 19,
+  −3.0); collapsed windows summed ≤ half of D3c's (163); gallery wall ≤ 120 min (D3c 170); no mesh frozen by null
+  windows. Prediction: R5a keeps most of D3b's silhouette gain with far fewer collapses; R5b keeps D3c's thin gain
+  (−2 to −3 points) at lower cost.
 - **D1, why the line search collapses late (diagnostic, pre-registered 2026-09-29 14:50 CDT).** At 300k the dragon
   stops unfinished (R1d). In r2B_dragon_1 the accepted step fell from 4.6e-3 to 1.2e-6 inside window 20, and the
   fresh 0.02 starts after rejections collapsed again (windows 23–25) until three rejections stopped the run. Ruled
@@ -230,6 +245,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 7. **Scaling.** Wall time and memory at 40k, 100k, 300k and 1M particles on one GPU.
 
 ## Results so far
+
+**D4, 2026-09-30 00:23 CDT — beast's freeze under target-side coverage is intermittent (pre-registered 00:04).**
+- Run 2 froze again in both variants: coverage without relaxation at window 11 (0.8719), two-sided support at window
+  11 (0.8174). Their probed failed trials before the freeze are ordinary. Small steps change the objective by about
+  +1e-7 relative: the kinetic term rises by 1e-5 while transport and render fall.
+- The null windows themselves carried no record, and the window log is muted in the runner. They now record
+  `null_reason`, the line-search counts, and the commit rollout's E against the accepted E.
+- Run 3 (with that record) froze in neither: 0.9688 (96 windows) and 0.9679 (40 windows). So beast freezes in about
+  four of six target-coverage runs and in neither C_R run. It is trap timing, as in S3b.
+- One null window in run 3 was a commit whose replay differed from the accepted candidate by less than the float32
+  rounding of E (both 9.74e-4). It was rejected because the window-start replay noise measured exactly zero, which
+  sets the tolerance to 1e-7 relative. That acceptance rule is fragile.
 
 **D3c, 2026-09-30 00:02 CDT — asked for and not smoothed away, u closes thin gaps (pre-registered 2026-09-29 22:26).**
 C_R + `--diag_coverage 1 --no_layer_relax` against C_R, 40k gallery. `thin_uncovered` is lower on 14 of 19 meshes

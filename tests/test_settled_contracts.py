@@ -217,13 +217,16 @@ def test_u_preconditioner_keeps_smooth_fields_and_damps_the_particle_alternation
     """u = (I + 2 (I - W))^-1 v on a ring of 12 layer particles (two neighbours, weights 1/2): a constant passes
     unchanged, the +-1 alternation (W alt = -alt) is damped to 1/5, particles off the layer get nothing."""
     from types import SimpleNamespace
-    from physmorph.pipeline.window.setup import Window
+    from physmorph.pipeline.window.setup import Window, layer_graph
     n = 12
     idx = torch.arange(n)
-    fake = SimpleNamespace(cfg=SimpleNamespace(u_precond=True), lmask=torch.ones(n + 1),
-                           lnbr=torch.cat([torch.stack([(idx - 1) % n, (idx + 1) % n], 1), torch.zeros(1, 2).long()]),
-                           lw=torch.cat([torch.full((n, 2), .5), torch.zeros(1, 2)]))
-    fake.lmask[n] = 0.
+    lmask = torch.ones(n + 1)
+    lmask[n] = 0.
+    lnbr = torch.cat([torch.stack([(idx - 1) % n, (idx + 1) % n], 1), torch.zeros(1, 2).long()])
+    lw = torch.cat([torch.full((n, 2), .5), torch.zeros(1, 2)])
+    lidx, lnbr_c, lw_c = layer_graph(lmask, lnbr, lw)
+    assert len(lidx) == n                                   # the off-layer row is not in the graph
+    fake = SimpleNamespace(cfg=SimpleNamespace(u_precond=True), lidx=lidx, lnbr_c=lnbr_c, lw_c=lw_c)
     const = torch.ones(n + 1)
     alt = torch.cat([(-1.) ** idx.float(), torch.ones(1)])
     torch.testing.assert_close(Window.smooth_u(fake, const)[:n], torch.ones(n), atol=2e-3, rtol=0)

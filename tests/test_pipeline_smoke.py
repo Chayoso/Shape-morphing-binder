@@ -59,7 +59,7 @@ def test_render_run_is_live_and_frames_are_promoted_states(prm, clouds):
 
 def test_render_off_twin_keeps_the_render_telemetry(prm, clouds):
     src, tgt = clouds
-    res = run_pipeline(src, tgt, prm, _cfg(render_weight_scale=0.0, animations=1),
+    res = run_pipeline(src, tgt, prm, _cfg(render_weight_scale=0.0, animations=3),   # >1: a tiny cloud can null a window
                        log=lambda *_: None)
     wins = _windows(res)
     assert wins and all(r["lambda"] == 0.0 and r["g_share"] == 0.0 for r in wins)

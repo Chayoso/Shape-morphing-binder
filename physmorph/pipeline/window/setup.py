@@ -52,7 +52,7 @@ class Window:
                                                            h_sp=cfg.layer_h_sp)
         relax = 1.0 / float(cfg.T) if cfg.layer_relax and not cfg.u_precond else 0.0
         layer = (self.lmask, self.lnrm, lnbr, lw, relax)
-        self.lnbr, self.lw = lnbr, lw
+        self.lidx, self.lnbr_c, self.lw_c = layer_graph(self.lmask, lnbr, lw)
         nbr, rest, frag = bonds
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
@@ -101,12 +101,11 @@ class Window:
         if v is None or not self.cfg.u_precond:
             return v
         c = 2.0
-        m = self.lmask.to(v.dtype)
-        b = v * m
+        b = v[self.lidx]
         x = b
         for _ in range(int(math.ceil(math.log(1e-3) / math.log(c / (1.0 + c))))):
-            x = (b + c * (self.lw * x[self.lnbr]).sum(1)) / (1.0 + c) * m
-        return x
+            x = (b + c * (self.lw_c.to(v.dtype) * x[self.lnbr_c]).sum(1)) / (1.0 + c)
+        return torch.zeros_like(v).index_copy(0, self.lidx, x)
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:
         """Copy a candidate into the eval trajectory's buffers; returns the expanded control."""
@@ -120,6 +119,19 @@ class Window:
         """Every frame of the last eval rollout inside the runner's two-cell safety margin."""
         x = torch.stack([wp.to_torch(p) for p in self.tr.x])
         return positions_in_domain(x, self.prm)
+
+
+def layer_graph(lmask: torch.Tensor, lnbr: torch.Tensor, lw: torch.Tensor):
+    """(idx, nbr, w): the layer particles and their same-side neighbour rows in compact layer indices, rows
+    renormalised over layer neighbours. Rows off the layer hold index 0, which would serialise the gather's
+    backward on one address; the compact graph has no such rows."""
+    idx = torch.nonzero(lmask > 0.5).squeeze(1)
+    gmap = torch.zeros(len(lmask), dtype=torch.long, device=lmask.device)
+    gmap[idx] = torch.arange(len(idx), device=lmask.device)
+    rows = lnbr[idx]
+    w = lw[idx] * (lmask[rows] > 0.5).to(lw.dtype)
+    s = w.sum(1, keepdim=True)
+    return idx, gmap[rows], torch.where(s > 0, w / s.clamp_min(1e-30), w)
 
 
 def domain_bounds(prm: MPMParams, device="cuda"):
