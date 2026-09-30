@@ -211,3 +211,28 @@ def test_diagnostic_switches_run_and_leave_the_defaults_alone(prm, clouds):
     assert cfg0.layer_relax and cfg0.diag_coverage == 0.
     res = run_pipeline(*clouds, prm, _cfg(animations=1, layer_relax=False, diag_coverage=1.), log=lambda *_: None)
     assert any(r.get("frame_end") for r in res["history"])
+
+
+def test_u_preconditioner_keeps_smooth_fields_and_damps_the_particle_alternation():
+    """u = (I + 2 (I - W))^-1 v on a ring of 12 layer particles (two neighbours, weights 1/2): a constant passes
+    unchanged, the +-1 alternation (W alt = -alt) is damped to 1/5, particles off the layer get nothing."""
+    from types import SimpleNamespace
+    from physmorph.pipeline.window.setup import Window
+    n = 12
+    idx = torch.arange(n)
+    fake = SimpleNamespace(cfg=SimpleNamespace(u_precond=True), lmask=torch.ones(n + 1),
+                           lnbr=torch.cat([torch.stack([(idx - 1) % n, (idx + 1) % n], 1), torch.zeros(1, 2).long()]),
+                           lw=torch.cat([torch.full((n, 2), .5), torch.zeros(1, 2)]))
+    fake.lmask[n] = 0.
+    const = torch.ones(n + 1)
+    alt = torch.cat([(-1.) ** idx.float(), torch.ones(1)])
+    torch.testing.assert_close(Window.smooth_u(fake, const)[:n], torch.ones(n), atol=2e-3, rtol=0)
+    torch.testing.assert_close(Window.smooth_u(fake, alt)[:n], alt[:n] / 5, atol=2e-3, rtol=0)
+    assert float(Window.smooth_u(fake, const)[n]) == 0.
+    fake.cfg.u_precond = False
+    assert Window.smooth_u(fake, alt) is alt
+
+
+def test_u_preconditioned_run_commits(prm, clouds):
+    res = run_pipeline(*clouds, prm, _cfg(animations=3, u_precond=True), log=lambda *_: None)
+    assert any(r.get("frame_end") for r in res["history"])

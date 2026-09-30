@@ -73,6 +73,9 @@ class PipelineConfig:
                                     #   and blur follow the particle spacing above the reference N
     # ---- diagnostics (off by default; never part of an adopted recipe) ----
     layer_relax: bool = True        # D3b: False switches the outer-layer relaxation off (u stays)
+    u_precond: bool = False         # the relaxation's smoothing moved from the forward model onto the u control:
+                                    #   u = (I + 2 (I - W))^-1 v on the layer graph (2 = the relaxation's strength
+                                    #   over one window, 2T steps of 1/T); the forward model then has no relaxation
     diag_coverage: float = 0.0      # D3a: > 0 adds this x the thin set's missing-mass fraction (physmorph.thin) to
                                     #   the transport energy
 

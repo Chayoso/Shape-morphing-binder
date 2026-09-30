@@ -8,6 +8,7 @@ the controls at zero while the physics keeps running. The control leaf is the dr
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import torch
@@ -49,7 +50,9 @@ class Window:
         self.sp0 = layer_spacing(start.x)
         self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
                                                            h_sp=cfg.layer_h_sp)
-        layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T) if cfg.layer_relax else 0.0)
+        relax = 1.0 / float(cfg.T) if cfg.layer_relax and not cfg.u_precond else 0.0
+        layer = (self.lmask, self.lnrm, lnbr, lw, relax)
+        self.lnbr, self.lw = lnbr, lw
         nbr, rest, frag = bonds
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
@@ -88,6 +91,22 @@ class Window:
         """Per-particle gate of u (1 where u may act), in the spec and the eval trajectory."""
         self.spec.layer = self.spec.layer[:5] + (None, 0.0, gate)
         wp.to_torch(self.tr.layer_ug).copy_(gate)
+
+    def smooth_u(self, v: torch.Tensor | None) -> torch.Tensor | None:
+        """The applied u: v itself, or with cfg.u_precond S v, S = (I + c (I - W))^-1 on the layer graph (W: the
+        relaxation's same-side weights, rows summing to 1; c = 2, the relaxation's strength over one window).
+        A constant field passes unchanged; the particle-scale alternation is damped. Jacobi to 1e-3 (the
+        iteration contracts by c / (1 + c)); differentiable. The minimiser of the objective is not changed:
+        only the parameterisation of the step (Nicolet et al. 2021)."""
+        if v is None or not self.cfg.u_precond:
+            return v
+        c = 2.0
+        m = self.lmask.to(v.dtype)
+        b = v * m
+        x = b
+        for _ in range(int(math.ceil(math.log(1e-3) / math.log(c / (1.0 + c))))):
+            x = (b + c * (self.lw * x[self.lnbr]).sum(1)) / (1.0 + c) * m
+        return x
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:
         """Copy a candidate into the eval trajectory's buffers; returns the expanded control."""

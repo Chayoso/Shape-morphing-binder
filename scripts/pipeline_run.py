@@ -68,6 +68,8 @@ def parse_args():
     ap.add_argument("--ls_probe", action="store_true",
                     help="diagnostic: split every failed line-search trial by control channel")
     ap.add_argument("--no_layer_relax", action="store_true", help="diagnostic D3b: no outer-layer relaxation")
+    ap.add_argument("--u_precond", action="store_true",
+                    help="the relaxation moved onto the u control as a preconditioner (no forward relaxation)")
     ap.add_argument("--diag_coverage", type=float, default=0.0,
                     help="diagnostic D3a: weight of the thin set's missing-mass fraction in the transport energy")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
@@ -132,7 +134,8 @@ def main():
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
-                              layer_relax=not args.no_layer_relax, diag_coverage=args.diag_coverage)
+                              layer_relax=not args.no_layer_relax, diag_coverage=args.diag_coverage,
+                              u_precond=args.u_precond)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)

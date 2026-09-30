@@ -283,12 +283,14 @@ class WindowOptimizer:
         leaf0 = self.dFc.detach().clone() if cfg.grad_dump else None
         hist, grad_converged, ls_exhausted = [], False, False
         g0_norm = L_start = None
+        self.tele["null_reason"] = None
         for it in range(cfg.iters):
             e = graph_terms(self.win, self.obj, self.dFc, self.u)
             g, diag = self.gradient(e, it)
             cur = self.scalar(e)
             if not np.isfinite(cur):
                 log(f"[win] iter {it}: non-finite loss, aborting window")
+                self.tele["null_reason"] = "nonfinite_loss"
                 break
             L_start = cur if L_start is None else L_start
             gn = _norm(g)
@@ -299,6 +301,7 @@ class WindowOptimizer:
                 break
             found = self.line_search(g, gn, cur, e)
             if found is None:
+                self.tele["null_reason"] = "ls_exhausted" if not hist else None
                 # an exhausted search leaves point, moments and gradient unchanged: the next
                 # iteration would re-test rejected steps, so the window ends here
                 self.alpha *= 0.5
@@ -331,10 +334,12 @@ class WindowOptimizer:
         replay_bad = E_accept is not None and commit.E_final > E_accept + replay_tol
         if not commit.valid:
             replay_bad, grad_converged = True, False
+            self.tele["null_reason"] = "commit_invalid"
             hist, self.accepted = [], 0
         if (not np.isfinite(commit.jt_final) or commit.jt_final <= 1e-4 or replay_bad) and self.accepted > 0:
             self.log(f"[win] commit rollout failed trajectory check (jt={commit.jt_final:.3g}) - "
                      "discarding window (replay/accepted-candidate mismatch)")
+            self.tele["null_reason"] = "commit_replay" if replay_bad else "commit_jt"
             hist, self.accepted = [], 0
         selection_merit = None
         if self.accepted > 0:
@@ -344,6 +349,7 @@ class WindowOptimizer:
                 selection_merit = (commit.E_final - float(self.obj.cleanup(xf))
                                    + float(self.obj.cleanup(xf, common_geometry=True)))
             if not np.isfinite(selection_merit):
+                self.tele["null_reason"] = "merit_nonfinite"
                 hist, self.accepted, grad_converged = [], 0, False
         if cfg.grad_dump and self.dump.get("gx_phys") is not None:
             commit.x = [t.clone() for t in commit.x]        # the dump's rollouts reuse the buffers
@@ -356,6 +362,8 @@ class WindowOptimizer:
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
                  "dfc": self.dFc.detach()[:cfg.T].clone(),
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
+        stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
+                     commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.accepted > 0:
             stats["selection_merit"] = selection_merit
             stats.update(support_record(self.tgt, self.obj.horizon, commit.x[-1], commit.end_v))

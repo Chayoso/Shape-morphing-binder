@@ -134,6 +134,11 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   median drop ≥ 3 points, u can close thin gaps, and the relaxation is what blocks a particle-scale objective. If the
   drop stays ≤ 1.5 points (about D3a's), the limit is the dynamics' resolution (the MPM cell), not the controls' reach.
   Prediction: the drop stays small (≤ 2 points).
+- **D4, beast's collapse under target-side coverage (diagnostic, pre-registered 2026-09-30 00:04 CDT, launched
+  00:04).** Beast froze at window 13 twice (R4 two-sided, D3c coverage without relaxation) and never under C_R or
+  D3a. Reruns of both with `--ls_probe` (run 2). If the freeze recurs, the probe shows where the failed trials'
+  objective change sits (transport with coverage, support B, kinetic, render) and whether it shrinks with the step. If
+  it does not recur, the freeze is trap timing (as S3b was).
 - **D1, why the line search collapses late (diagnostic, pre-registered 2026-09-29 14:50 CDT).** At 300k the dragon
   stops unfinished (R1d). In r2B_dragon_1 the accepted step fell from 4.6e-3 to 1.2e-6 inside window 20, and the
   fresh 0.02 starts after rejections collapsed again (windows 23–25) until three rejections stopped the run. Ruled

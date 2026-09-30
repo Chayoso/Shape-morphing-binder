@@ -120,7 +120,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] anim {a + 1}: gradient converged at window start; holding still")
                 continue
             log(f"[v2] anim {a + 1}: no accepted step - null commit (stale {sel.stale + 1})")
-            hist.append({"animation": a, "null_commit": 1, "no_simulated_time": 1})
+            hist.append({"animation": a, "null_commit": 1, "no_simulated_time": 1,
+                         **{k: stats.get(k) for k in ("null_reason", "ls_trials", "ls_fail_merit", "ls_fail_state",
+                                                      "ls_probe", "E_accept", "commit_E_final", "commit_jt",
+                                                      "replay_rel")}})
             if sel.null():
                 frozen = True
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
