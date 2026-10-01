@@ -182,8 +182,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   survive R14 get one final validation (the 40k gallery, the 300k bunny and dragon, the PBR renders and video, the
   gradient analysis); unless a new catastrophic failure appears there, the formulation is frozen. A ratio that
   looks odd is recorded, not turned into a new experiment.
-- **R14, leave-one-out of the remaining legacy terms (pre-registered 2026-10-01 15:59 CDT, before launch; no
-  change of behaviour in the base code: repo_r29 = repo_r28 with records of det F and anisotropy quantiles of the
+- **R14, leave-one-out of the remaining legacy terms (pre-registered 2026-10-01 15:59 CDT, launched 16:00 after the suite passed on
+  repo_r29 (269 passed); no change of behaviour in the base code: repo_r29 = repo_r28 with records of det F and anisotropy quantiles of the
   stored F and of the two control regularisers' raw values; each arm is a copy of repo_r29 with one default set to
   zero).** Arms: C, the control magnitude off (w_ctrl 1e-3 → 0); G, the control smoothness off (w_creg 100 → 0); J,
   the volume prior off (w_jvol 50 → 0); S, the spray cleanup off (w_dt 0.2 → 0). B is repo_r29 itself, run once for
