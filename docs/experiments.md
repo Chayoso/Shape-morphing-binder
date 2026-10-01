@@ -172,6 +172,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R12d-s, the spread on the three meshes that rose (pre-registered 2026-10-01 10:41 CDT, launched 10:41; no code
+  change).** spot, bimba and teapot at 40k, seed 97, four more runs each of R12d (repo_r24) and of R11f (repo_r22),
+  six per code and mesh with the two each has (`output/gpu/r12ds`, `tmp/r12ds_eval.py`). Reading, on the six-run
+  means: a mesh's thin loss is the definition's if the difference of the means exceeds 3 points, or exceeds 2
+  points with the two codes' six values not overlapping; otherwise it is spread. R12d passes the thin criterion if
+  no mesh's loss is the definition's. Prediction: spot's difference falls below 2 (R12c's arm with the same band
+  gave 8.0, 7.7); bimba and teapot stay between +1 and +2.5.
 - **R12d, the cleanup as the W1 pull plus a near band that ends at one loss cell (pre-registered 2026-10-01 09:47
   CDT, launched 09:47 after the suite passed on repo_r24 (269 passed); repo_r24 = repo_r22 with the box leash removed and the near band's far bound set to the loss
   cell).** Two changes to R11f, each measured alone first: the box leash is removed (R12b: inert) and the near
@@ -610,6 +617,29 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R12d, 2026-10-01 10:39 CDT — the near band ending at one loss cell, the box removed: the 300k dragon is four to
+five times further at window 34 with fewer strays, the 40k gallery holds except spot's thin and C's early stop
+(pre-registered 09:47).** Two runs against R11f's two. 300k dragon at 35 windows: silhouette 0.9820, 0.9831
+against 0.9802, 0.9820; world-thin 1.7, 0.8 against 3.1, 4.0; transport energy at window 34 2.03e-3, 1.43e-3
+against 8.0e-3, 8.3e-3 (the first run misses the 2e-3 line by 1.5 %); `kin` 1.4e-4, 5.9e-4 against 7.9e-3,
+6.8e-3; `out_nn_frac` 0.84, 0.60 against 1.21, 1.25 and `out_nn_far_frac` 0.030, 0.014 against 0.117, 0.111;
+`stray_final` 0.002, 0.004 against 0.013, 0.021; window 23 s and 15 minutes, as every arm with the near band on.
+40k gallery: silhouette difference median +0.0000, worst −0.0023 (C); `thin_uncovered` median +0.24, higher on 11
+of 19; spot +3.3 (11.6, 9.9 against 8.2, 6.8) fails the limit of 3 beyond its spread (1.7), although R12c's arm
+with the bound at 4.5 spacings gave spot 8.0, 7.7 and the loss cell is 4.39 spacings on spot; bimba +2.2 (12.0,
+11.5 against 9.5, 9.7) and teapot +2.1 (11.4, 11.4 against 9.3, 9.3) are higher in both runs, A −2.1 (5.6, 7.9
+against 9.0, 8.6: the watch-list item is gone) and homer −1.4 lower; heart 7.1, 8.3 against 6.5, 7.7 (kept).
+`kin` medians 8.1e-5, 9.2e-5 against 8.7e-5, 9.0e-5 (passes). C stops at 18 and 20 windows with `kin` 1.4e-2 and
+8.9e-3, as announced; it alone carries the stray maxima over the limits (`stray_final` and `out_nn_far_frac`
+0.025 %, `out_dt_frac` 0.026 %, ten particles, against 0–0.005 %); without C the largest two-run `stray_max` is 0.17
+against 0.34 (homer). `outside_max` 0 in every run; the G4 gate passed by 17 + 17 runs against 16 + 16; beast sound in both
+runs (R11f frozen in 4 of 6). Window time at 40k unchanged (2.16–2.20 s). Render influence: λ at the first window
+identical on every mesh; g_share at the end 0.89 against 0.89 at 40k, 0.92 against 0.92–0.93 at 300k. By the
+user's rule for this experiment (heart and spot keep their thin, the 300k run speeds up; C's early stop is the
+parked merit alternation and does not count) heart and the 300k run hold and spot does not: spot has ranged
+6.8–9.9 across codes with the whole near band (PX85 9.9, 9.4), so whether +3.3 is the definition or the spread is
+measured before the verdict (R12d-s).
 
 **R12c, 2026-10-01 09:43 CDT — the near part of the near band covers the thin points, the far part costs the 300k
 run and is what keeps C running (diagnostic, pre-registered 09:26).** With the far bound at 4.5 spacings: heart's
