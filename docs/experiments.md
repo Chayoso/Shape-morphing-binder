@@ -172,8 +172,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
-- **R12, the cleanup reduced to the W1 pull (pre-registered 2026-09-30 23:50 CDT, before launch; repo_r23 = repo_r22
-  with the near-band pull and the box leash removed).** The cleanup was three terms with three constants: the
+- **R12, the cleanup reduced to the W1 pull (pre-registered 2026-09-30 23:50 CDT, launched 23:52 after the suite passed on
+  repo_r23 (269 passed); repo_r23 = repo_r22 with the near-band pull and the box leash removed).** The cleanup was three terms with three constants: the
   isolation-gated W1 (w_dt 0.2), the near-band pull to the nearest target point (w_nn 0.2, with its berth and
   far bound) and, in the physics objective, the box leash beyond the target extent (w_box 10). R12 keeps the W1
   alone, with its weight unchanged (its scale is a later step): the surface proximity places the surface, the
