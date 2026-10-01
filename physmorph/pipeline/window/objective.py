@@ -1,9 +1,10 @@
 """The window objective, evaluated on the released end state of a rollout.
 
 Physics: the transport energy (grid Sinkhorn divergence to the fixed target + the surface
-proximity), scaled once to D_vol's gradient norm at the source; the stability term (the
-released motion, (T dt)^2 mean |v|^2 over the released steps, unscaled); control magnitude
-and smoothness; the far-field box leash; the (J-1) log J volume prior.
+proximity + the residual drift of the released end), scaled once to D_vol's gradient norm at
+the source; the stability term (the released motion, (T dt)^2 mean |v|^2 over the released
+steps, unscaled); control magnitude and smoothness; the far-field box leash; the (J-1) log J
+volume prior.
 Render: silhouette + matched shading, weighted by lambda outside this module.
 Cleanup (fixed weights, outside the render balance): the isolation-gated W1 pull and the
 near-band pull. Frozen per window: the transport gate of u, the isolation gate, the
@@ -37,8 +38,9 @@ def released_motion(V: torch.Tensor, split: int, horizon: float) -> torch.Tensor
 
 
 def end_drift(vT: torch.Tensor, horizon: float) -> torch.Tensor:
-    """A record: horizon^2 x the mean over the particles of |v_T|^2 at the released end (the residual drift,
-    R11b's stability term, which alone did not keep the push quasi-static)."""
+    """The residual drift of the released end: horizon^2 x the mean over the particles of |v_T|^2, the squared
+    displacement the end velocity would add over one more horizon. Part of the geometry energy (alone it does not
+    keep a run sound, R11b; without it the released end stays faster, R11d-s)."""
     return horizon ** 2 * vT.square().sum(1).mean()
 
 
@@ -97,26 +99,28 @@ class Objective:
         return self.tgt.grid_ot.state_energy(xT, self.tgt.m)
 
     def stability(self, V):
-        """The one stability term (R11d, 2026-09-30): the released motion (T dt)^2 x the mean over the released
-        steps and particles of |v|^2, in the objective's own length^2 units, outside the transport's ot_scale.
-        Zero for a body at rest after the release; a release that oscillates and comes to rest only at its end
-        pays as a constant one of the same speed. It replaces the residual drift inside the transport energy,
-        the end kinetic energy w_kin |v_T|^2 (5) and the velocity variance w_kin_var (200). R11c found that of the
-        three the released motion is what keeps a run sound, and neither the end at rest (K, the drift) nor a
-        regular driven phase (D) does: what a settled morph needs is little motion over the whole relaxation after
-        the control is removed, so the term charges every released step. Its magnitude matters: inside ot_scale (R11) the same expression was 3-6x weaker
-        than the legacy 100 wu and runs lost; outside it the coefficient (T dt)^2 = 6.96e-3 (dt = 0.00417 at every N)
-        matches the legacy 100 wu = 6.5e-3 to 7.0e-3 at 40k (unit_ratio 1.43e4 to 1.55e4) without a constant, and is
-        2.2x it at 300k (unit_ratio 3.13e4)."""
+        """The stability term: the released motion (T dt)^2 x the mean over the released steps and particles of
+        |v|^2, length^2, outside the transport's ot_scale. Zero for a body at rest after the release; a release
+        that oscillates and comes to rest only at its end pays as a constant one of the same speed. With the
+        residual drift of the released end (inside the geometry energy, see losses) it replaces the end kinetic
+        energy w_kin |v_T|^2 (5) and the velocity variance w_kin_var (200). What each piece does was measured:
+        without the released motion six gallery meshes stop at 8-11 windows still moving (R11b; R11c: neither the
+        end kinetic energy nor the driven fluctuation prevents it); without the drift the runs are sound but the
+        released end is 1.4x faster at 40k and 1.6-2.9x at 300k and small meshes lose thin coverage (R11d, R11d-s,
+        R11e). Magnitude: inside ot_scale (R11) the released motion was 3-6x weaker than the legacy 100 wu and runs
+        lost; outside, (T dt)^2 = 6.96e-3 (dt = 0.00417 at every N) equals the legacy 100 wu = 6.5e-3 to 7.0e-3 at
+        40k (unit_ratio 1.43e4 to 1.55e4) without a constant, and is 2.2x it at 300k (unit_ratio 3.13e4)."""
         return released_motion(V, self.cfg.T, self.horizon)
 
     def losses(self, xT, FT, vT, V):
-        """(lv, lk, lr, lpbr, d_sil, lstab): the scaled geometry, the end kinetic energy (a record), render
-        (silhouette + w_pbr shading), shading, the silhouette alone (a tensor, for the record) and the stability
-        term (added in phys_core)."""
+        """(lv, lk, lr, lpbr, d_sil, lstab): the scaled geometry of the released end (the transport energy plus
+        its residual drift, (T dt)^2 mean |v_T|^2: the squared displacement the end velocity would add over one
+        more horizon, length^2 like the transport), the end kinetic energy (a record), render (silhouette + w_pbr
+        shading), shading, the silhouette alone (a tensor, for the record) and the stability term (added in
+        phys_core)."""
         cfg, t = self.cfg, self.tgt
         lstab = self.stability(V)
-        lv = t.ot_scale * self.transport(xT)
+        lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
         lk = vT.pow(2).sum(1).mean()
         lsil = d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
                         cfg.w_spray)

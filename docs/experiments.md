@@ -172,6 +172,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R11f, the released motion as the stability term with the residual drift back inside the geometry energy
+  (pre-registered 2026-09-30 22:35 CDT, before launch; repo_r22 = repo_r21 with the drift restored).** Physics
+  objective: ot_scale · (S_ε + proximity + (T dt)² mean_i |v_T,i|²) + (T dt)² mean over the released steps and
+  particles of |v|² + the regularisers. It is R11c's arm R with the legacy 200 wu replaced by (T dt)² (equal within
+  7 % at 40k, 2.2× at 300k); no weight is added, w_kin (5) and w_kin_var (200) stay removed; the outer merit reads
+  the transport energy without the drift, as in R11c. Runs: the 40k gallery twice (19 meshes, seed 97) and the
+  300k dragon at 35 windows twice (`output/gpu/r11f`, `tmp/r11f_eval.py`), against PX85's two runs. Pass, on the
+  two-run means as in R11d-s: silhouette difference median within ±0.002 and no mesh below by more than 0.004;
+  `thin_uncovered` difference median within ±1 point and no mesh worse by more than 3 beyond the arms' own
+  run-to-run difference on that mesh; `kin` and `kin_var` medians not above PX85's by more than PX85's own
+  run-to-run difference of medians; no run stopping before 15 windows with the body moving; no freeze PX85 did not
+  show; 300k: silhouette within ±0.002 and world-thin within ±1 point of PX85's two runs, `kin` at window 34 not
+  above PX85's higher value (8.6e-3). Predictions: all pass; the 300k `kin` at or below PX85's range (the drift as
+  in PX85 and a released coefficient 2.2× the legacy one). Render influence: the render channel is unchanged; λ
+  and g_share reported.
 - **R11e, does the end drift account for what R11d lost (diagnostic, pre-registered 2026-09-30 22:13 CDT, launched
   22:13; no code change: repo_r20 with `--diag_w_kin_rel 200`, R11c's arm R).** R11c-R is the one staged code that
   differs from R11d by the end drift (inside ot_scale) alone, its released-motion coefficient equal within 7 % at
@@ -519,6 +534,19 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R11e, 2026-09-30 22:32 CDT — the end drift accounts for what R11d lost (diagnostic, pre-registered 22:13).**
+R11c's arm R (the released motion plus the end drift inside ot_scale), two runs: thin on bob 12.7, 8.3 (mean 10.5
+against PX85's 9.15 and R11d's 13.75), heart 7.7, 7.7 (against 6.85 and 11.3), teapot 11.9, 8.5 (10.2 against 9.75
+and 12.7), A 7.7, 5.8 (6.75 against 6.1 and 7.45): all three within 3 points of PX85's mean (+1.35, +0.85, +0.45),
+though one run each of bob and teapot sits at R11d's level (the spread on these meshes is 3–4 points). End `kin`
+1.8e-5 to 8.8e-5 on the eight runs, at PX85's level (1.1e-5 to 1.4e-4; R11d 1.5e-5 to 3.1e-4). 300k dragon at 35
+windows: `kin` at window 34 5.7e-3, inside PX85's 4.9e-3 to 8.6e-3 (R11d 1.38e-2, 1.42e-2), silhouette 0.9805,
+world-thin 2.6, E 6.4e-3, λ 0.396, g_share 0.94, 15 minutes. Both predictions hold. At 300k this arm's released
+coefficient is 0.46× R11d's and its end velocity is still lower, so the drift, not the released coefficient, sets
+the end velocity. Reading: stability is two measured functions, the released motion (a run stays sound) and the
+residual drift of the released end (the end is at rest); neither replaces the other. The drift goes back where MJ
+had it, inside the geometry energy (R11f).
 
 **R11d-s, 2026-09-30 22:11 CDT — the spread of both arms: R11d's geometry is PX85's, its end velocity is higher, and
 two small meshes lose thin beyond their spread (pre-registered 21:18).**

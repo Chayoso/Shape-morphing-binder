@@ -126,11 +126,12 @@ def test_grid_sinkhorn_value_avoids_float32_self_energy_cancellation(requires_gr
     assert float(loss(current)) == pytest.approx(float(reference), rel=1e-5, abs=1e-12)
 
 
-def test_released_motion_is_the_stability_term_and_the_end_drift_a_record():
+def test_released_motion_is_the_stability_term_and_the_end_drift_sees_only_the_end():
     """The stability term is the released motion: (T dt)^2 x the mean over the released steps and particles of
     |v|^2; a constant released velocity costs its drift; zero at rest; invariant under v -> 2v with the horizon
     halved; the driven phase is not costed (no gradient reaches it). An oscillating release that ends at rest
-    is charged by it and not by the end drift, which is a record (R11b: the drift alone lost six meshes)."""
+    is charged by it and not by the end drift (the geometry energy's velocity part; R11b: the drift alone lost six
+    meshes, R11d-s: the released motion alone leaves the end faster)."""
     from physmorph.pipeline.window.objective import end_drift, released_motion
     T, dt = 4, .5
     V = torch.zeros(2 * T, 3, 3); V[:T, :, 1] = 1.; V[T:, :, 0] = .2      # a driven push, then a constant release
