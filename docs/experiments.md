@@ -172,6 +172,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R11f-b, how often each code meets the beast freeze (pre-registered 2026-09-30 23:29 CDT, launched 23:29; no code
+  change).** beast at 40k, seed 97, four more runs each of PX85 (repo_r17), R11d (repo_r21) and R11f (repo_r22),
+  six per code with the two each has (`output/gpu/r11fb`, `tmp/r11fb_eval.py`). A run is frozen if it commits
+  fewer than 15 windows with `kin` > 0.05. Reading: the drift exposes the freeze if R11d freezes in at most 1 of 6
+  and each code that carries the drift in at least 3 of 6; R11f is worse than PX85 only if its count exceeds
+  PX85's by 3 or more. Prediction: R11d 0–1 of 6, PX85 and R11f 3–5 of 6 each, no difference between those two
+  beyond 2. The freeze itself stays parked (the ejected filament and the domain margin); this only says whether
+  R11f changes its rate.
 - **R11f, the released motion as the stability term with the residual drift back inside the geometry energy
   (pre-registered 2026-09-30 22:34 CDT, launched 22:35 after the suite passed on repo_r22 (269 passed); repo_r22 =
   repo_r21 with the drift restored).** Physics
@@ -535,6 +543,31 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R11f, 2026-09-30 23:27 CDT — the released motion plus the drift: PX85's geometry and end velocity on 18 of 19
+meshes; beast freezes in both runs; the 300k run is 4–5 windows behind at the budget (pre-registered 22:34).**
+Two runs against PX85's two. Silhouette: difference of the means, median +0.0000; without beast the worst is
+−0.0009. `thin_uncovered`: median +0.07, higher on 11 of 19, own run-to-run difference median 1.1 in both arms;
+without beast no mesh is worse by more than 3 (A +2.7, both runs: 9.0, 8.6 against 5.8, 6.4); bob 9.6, 7.4, heart
+6.5, 7.7 and teapot 9.3, 9.3 are back at PX85's level (R11d: 11.8, 15.7; 9.5, 13.1; 12.7, 12.7). `kin` medians
+8.7e-5, 9.0e-5 against 9.9e-5, 7.3e-5 and `kin_var` 6.3e-5, 5.8e-5 against 6.7e-5, 6.2e-5: within PX85's own
+spread, passes. beast stops at 12 windows still moving in both runs (silhouette 0.8505, 0.8983; reason `domain`,
+the parked ejection: a frame outside the two-cell margin, every later window null); PX85 froze the same way in one
+of its two runs, R11d in neither. The criterion "no run stopping before 15 windows with the body moving" fails on
+beast. 300k dragon at 35 windows: silhouette 0.9802, 0.9820 against 0.9813, 0.9806 (passes); `kin` at window 34
+7.9e-3, 6.8e-3 against 8.6e-3, 4.9e-3 (passes; R11d 1.4e-2); world-thin 3.1, 4.0 against 2.4, 2.9 (means +0.9; the
+second run is 1.1 above PX85's higher value, a miss by 0.1); the transport energy at window 34 is 8.0e-3, 8.3e-3
+against 6.4e-3 to 6.9e-3 in the five runs of the other codes (PX85, R11d, R11e), where PX85 stood at windows
+29–30: reproducibly 4–5 windows behind. 15 minutes per run. ot_scale from the records is 0.21 on the 40k dragon
+and 0.19–0.20 on the 300k dragon, so the transport's scale does not change with N: the legacy stability weights
+(× wu = 1 / unit_ratio) were 2.2× weaker against the transport at 300k than at 40k, and R11f keeps the 40k balance
+at 300k. At 40k R11f is behind R11d in the same phase too (E at window 10 8.3e-3–8.5e-3 against 6.0e-3) and
+converges to the same end. Render influence: λ at the first window identical in the four runs of every mesh
+(median 0.248; 0.396 at 300k), g_share at the end 0.89 against 0.88 (300k 0.92–0.93 against 0.93–0.94); no
+render-off twin. Reading: with the drift restored the definition matches PX85 where PX85 is sound; open are the
+beast freeze (2 of 2 against 1 of 2 and 0 of 2: counts too small to rank the codes, measured next) and whether
+the 300k budget should pay 4–5 windows for a stability balance that does not weaken with N (a decision, not a
+defect).
 
 **R11e, 2026-09-30 22:32 CDT — the end drift accounts for what R11d lost (diagnostic, pre-registered 22:13).**
 R11c's arm R (the released motion plus the end drift inside ot_scale), two runs: thin on bob 12.7, 8.3 (mean 10.5
