@@ -172,7 +172,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
-- **R14b, the three regularisers off together (pre-registered 2026-10-01 18:44 CDT, before launch; no code change:
+- **R14b, the three regularisers off together (pre-registered 2026-10-01 18:44 CDT, launched 18:44; no code change:
   `repo_r29x` = repo_r29 with the defaults w_ctrl, w_creg and w_jvol at zero).** Arm X against the current
   formulation, whose range now has four gallery runs: R13 a, b, B a and a second B run started with it. Runs: the
   40k gallery twice (19 meshes, seed 97) and the 300k dragon and bunny at 35 windows (`output/gpu/r14`, tags
