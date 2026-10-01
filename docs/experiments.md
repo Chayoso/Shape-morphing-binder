@@ -173,7 +173,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
 - **R13b, the 300k confirmation of the selection without the dense distance (sanity check, pre-registered 2026-10-01
-  15:04 CDT, before launch; no code change).** The user decided to delete the dense distance (R13: different window
+  15:04 CDT, launched 15:05; no code change).** The user decided to delete the dense distance (R13: different window
   decisions, the same outcome at 40k; the one `kin` bound 3 % over in one run read as spread). One 300k dragon run
   per ruler to its own stop (no window budget), seed 97: the legacy merit (repo_r26, `output/gpu/r12f/
   r12fW1300000_dragon_stop`) and the state merit (repo_r27, `output/gpu/r13/r13MS300000_dragon_stop`). Single
