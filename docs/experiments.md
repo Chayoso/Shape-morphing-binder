@@ -172,8 +172,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
-- **R12f, the two W1 rulers measured (pre-registered 2026-10-01 12:40 CDT, before launch; repo_r26 = repo_r25 with
-  records only, and the far-bound plumbing swept out).** The objective's W1 runs over the particles the isolation
+- **R12f, the two W1 rulers measured (pre-registered 2026-10-01 12:40 CDT, launched 12:43 after the suite passed on
+  repo_r26 (269 passed on the second run; the first run failed the known unstable
+  test_line_search_probe_is_diagnostic_only, which passed three reruns on this code and on repo_r25); repo_r26 =
+  repo_r25 with records only, and the far-bound plumbing swept out).** The objective's W1 runs over the particles the isolation
   gate marked at the window start; the selection merit's common form runs over every particle, so that windows
   with different gates are compared with one ruler. No behaviour changes. Recorded per committed window:
   `merit_w1_gap` = the merit's W1 (all particles) minus the objective's (gated), at the committed state, and the
