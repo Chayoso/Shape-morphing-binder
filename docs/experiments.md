@@ -172,8 +172,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
-- **R12e, the selection merit reads the same near band as the objective (pre-registered 2026-10-01 10:59 CDT, before
-  launch; repo_r25 = repo_r24 with the common form's near band bounded at one loss cell).** In R12d the objective's
+- **R12e, the selection merit reads the same near band as the objective (pre-registered 2026-10-01 10:59 CDT, launched
+  10:59 after the suite passed on repo_r25 (270 passed); repo_r25 = repo_r24 with the common form's near band bounded
+  at one loss cell).** In R12d the objective's
   near band ends at one loss cell but the selection merit's common form (the ruler that ranks and accepts windows)
   still counted every particle beyond the berth. R12e gives the common form the same band, read at the current
   state; the objective is unchanged. This is not a new term: the objective and its ruler now measure one thing.
