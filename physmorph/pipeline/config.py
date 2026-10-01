@@ -77,8 +77,9 @@ class PipelineConfig:
     dt_iso_hi: float = 1.8
     dt_res: int = 160               # the target DT's own fine grid
     dt_clamp_frac: float = 2.0      # DT clamp, in target extents
-    nn_berth_k: float = 1.0         # the sampling berth in target spacings (the prepare stage resolves it)
-    nn_far_k: float = 1000.0        #   and its upper bound; the metrics' scale, no loss term reads them
+    w_nn: float = 0.2               # near-band pull to the nearest target point, between the berth and one loss cell
+    nn_berth_k: float = 1.0         # berth in target spacings (the prepare stage resolves it)
+    nn_far_k: float = 1000.0        # the prepare stage's upper bound on the berth; the objective's far bound is the loss cell
 
     # ---- render objective ----
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration

@@ -172,6 +172,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R12d, the cleanup as the W1 pull plus a near band that ends at one loss cell (pre-registered 2026-10-01 09:47
+  CDT, before launch; repo_r24 = repo_r22 with the box leash removed and the near band's far bound set to the loss
+  cell).** Two changes to R11f, each measured alone first: the box leash is removed (R12b: inert) and the near
+  band's eligibility becomes berth < distance to the nearest target point < one loss cell (tgt.ldx, the Sinkhorn
+  blur length; R12c tested 4.5 spacings, the loss cell is 4.24–4.48). w_box and the far bound's 1000 leave the
+  objective; w_dt and w_nn are unchanged (their scale is a later step). The selection merit's common form keeps
+  the near band without a far bound, as in the arm R12c tested; aligning it is a separate change. Runs: the 40k
+  gallery twice (19 meshes, seed 97) and the 300k dragon at 35 windows twice (`output/gpu/r12d`,
+  `tmp/r12d_eval.py`), against R11f's two runs. Pass, on the two-run means, as R12: silhouette difference median
+  within ±0.002 and no mesh but beast below by more than 0.004; `thin_uncovered` difference median within ±1 point
+  and no mesh worse by more than 3 beyond the arms' own run-to-run difference; the stray measures (`stray_max`,
+  `stray_final`, `out_nn_far_frac`, `out_dt_frac`) not above R11f's larger run by more than R11f's own difference,
+  medians and the largest value without beast, and `outside_max` 0; `kin` median within R11f's spread; the G4 gate
+  passed by as many runs; 300k: silhouette not below R11f's lower run by more than 0.002, world-thin not above
+  R11f's by more than 1 point, the transport energy at window 34 at or below 2e-3, `out_nn_far_frac` and
+  `stray_final` not above R11f's. Known in advance and reported, not hidden in a median: C stops near 20 windows
+  still moving (R12c), the parked merit alternation. Predictions: all pass but C's end velocity; heart and spot keep
+  R11f's thin; the 300k dragon reaches R11f's window-34 energy by about window 12. Render influence: the render
+  channel is unchanged; λ and g_share reported.
 - **R12c, which part of the near band the 40k meshes need (diagnostic, pre-registered 2026-10-01 09:26 CDT, launched
   09:26; no code change: `repo_r22f` = repo_r22 with the default nn_far_k = 4.5 instead of 1000).** The near
   band's eligibility is berth < distance to the nearest target point < nn_far_k spacings, frozen per window. With
@@ -591,6 +610,25 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R12c, 2026-10-01 09:43 CDT — the near part of the near band covers the thin points, the far part costs the 300k
+run and is what keeps C running (diagnostic, pre-registered 09:26).** With the far bound at 4.5 spacings: heart's
+two-run mean thin 8.0 (7.7, 8.3; R11f 7.1, near band off 10.4) and spot's 7.8 (R11f 7.5, off 10.5): the thin
+points are the near part's work, as predicted. 300k dragon at 35 windows: transport energy 3.1e-2 at window 8 and
+1.6e-3 at window 34 (R11f 2e-1 and 8e-3, off 7.5e-3 and 1.2e-3), world-thin 1.0, silhouette 0.9821, `kin` 1.2e-3,
+`out_nn_frac` 0.68 % and `out_nn_far_frac` 0.011 % (the lowest of the arms: R11f 1.2 % and 0.11 %, off 2.5 % and
+0.20 %): the 300k cost is the far part's, as predicted. C stops at 19 and 19 windows with `kin` 1.1e-2–1.6e-2,
+as with the near band off: the prediction that C's settling is near-surface work was wrong; C needs the far pull
+to keep running (its silhouette at the stop is 0.9746–0.9766 against R11f's 0.9767–0.9770 after 52–63 windows,
+its thin 9.7 against 9.2: the same shape, not at rest; the stop is three rejected candidates with the transport
+energy rising, the parked merit alternation). A and the 40k dragon do not separate the arms. Timing: every arm
+with w_nn > 0 costs 23 s per 300k window (0.73–0.76 s per line-search trial) against 15.5 s with it at zero (0.44
+s), at equal trial counts, although the term is computed in both; the cause is not identified (noted for the
+runtime phase). The far bound that was tested is a derived length: one loss cell (the transport's blur length) is
+4.24–4.40 target spacings on the 40k gallery and 4.48 on the 300k dragon (the loss grid follows N), so "4.5
+spacings" is one loss cell within 5 %. That gives the near band a definition without the number: it acts between
+the sampling berth and one loss cell from the target, where the transport's blur no longer resolves a position;
+farther out the transport owns the particle (R12d).
 
 **R12b, 2026-10-01 09:24 CDT — all three effects belong to the near band; the box changes nothing (pre-registered
 08:55).** (a) 300k dragon at 35 windows: with the near band off the transport energy is 7.5e-3 at window 8 and
