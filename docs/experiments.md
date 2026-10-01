@@ -172,8 +172,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
-- **R13, the selection merit without the dense body-to-target distance (pre-registered 2026-10-01 13:51 CDT, before
-  launch; repo_r27 = repo_r26 with the merit's common form changed).** Names from here on: the objective's term on
+- **R13, the selection merit without the dense body-to-target distance (pre-registered 2026-10-01 13:51 CDT, launched
+  13:52 after the suite passed on repo_r27 (269 passed); repo_r27 = repo_r26 with the merit's common form changed).** Names from here on: the objective's term on
   isolated particles is the spray cleanup; the distance field summed over every particle, which only the selection
   merit carried, is the dense distance (41 % of the merit at 40k, R12f). Arm M_state: the merit is the objective
   read at the committed state alone: the isolation gate and the near band are taken at the state itself (not from
@@ -196,7 +196,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   still stops near 18 windows. Render influence: the render channel and λ are unchanged; g_share reported; the
   merit's render share rises by construction (the dense distance no longer dilutes it).
 - **D9, the size of the local terms against the transport as N grows (diagnostic, pre-registered 2026-10-01 13:51
-  CDT, before launch; repo_r27, records only).** The spray cleanup and the near band are sums with a constant pull
+  CDT, launched 13:52; repo_r27, records only).** The spray cleanup and the near band are sums with a constant pull
   per particle; the transport's gradient per particle falls with N. Recorded at every committed state: the
   position-space gradient norms of the scaled transport (ot_scale |∇S_ε|), the surface proximity, the spray
   cleanup and the near band, and the number of particles the two local terms act on. Runs: dragon and bunny at 40k
