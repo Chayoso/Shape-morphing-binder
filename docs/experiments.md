@@ -721,6 +721,42 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
 
 ## Results so far
 
+**D9b, 2026-10-01 15:49 CDT — on its own particles the near band does not dominate, the render term is its equal, and
+early in a run it opposes the transport, more strongly at 300k; the spray cleanup agrees with the transport and is
+the smaller term (pre-registered 15:22).** Both predictions for the near band were wrong. On the band's active set
+(0.3–3.4 % of the particles on bunny, 0.6–10.7 % on the dragon; the share is the same at every N at matched
+progress): (1) the local pull over the sum of transport, surface and render is 0.4–3.5, not ≥ 3: the λ-weighted
+render gradient is as large as the near pull on these particles (local / render 0.4–2.5), while the surface term
+is small there (local / surface 4–140) and the transport smaller than the pull (local / transport 2.3–34). (2)
+The pull is not aligned with the others. Against the transport its cosine is −0.34 to −0.76 while the transport
+energy is above about 1e-2 (bunny at E 4e-2: −0.49, −0.58, −0.61 at 40k, 100k, 300k; dragon at E 0.1: −0.58,
+−0.61, −0.76), and the pull opposes the sum of the others on 67–94 % of the band's particles there (dragon 84 %,
+87 %, 94 %); from E ≈ 3e-3 down the cosine is between −0.15 and +0.27 and the opposed share 23–52 %. Against the
+render and the surface term the cosine is about zero throughout (−0.05 to +0.25): the near band is a direction of
+its own. With N: local / transport on the set grows (bunny 2.3 → 3.5 → 6.6 at E 4e-2, 6.1 → 7.3 → 12.2 at 2.5e-3;
+dragon 2.7 → 4.5 → 7.1 at 0.1, 11.2 → 12.9 → 21.8 at 3e-3) while local / render does not (late: 1.9, 1.5, 1.4 and
+2.5, 1.8, 2.5). So early in a run the near band overrides a transport that points the other way on its particles,
+2.3–2.7× at 40k and 6.6–7.1× at 300k: the user's case 2 for the near band against the transport in the early
+phase (this is the remainder of what R12 removed at long range; R12c's arm with this band was at E 3.1e-2 at
+window 8 of the 300k dragon against 7.5e-3 without a near band); late in a run the relation is the same at every
+N (orthogonal, the render its equal). Spray cleanup, on its set (0.5–10 %, shrinking with N late): its gradient
+is 0.2–0.7 of the others' sum (the render is larger), aligned with the transport (cosine +0.2 to +0.5 on bunny,
+−0.09 to +0.23 on the dragon) and with the near band (+0.04 to +0.38), opposed to the sum on 12–49 % of its
+particles; nothing in it changes sign with N. Reading: wu is not the lever (removing its N-dependence would make
+the near pull 2.1× stronger at 300k, where it already overrides the transport most); the defect is the near band
+acting against the transport while the transport still moves mass through the band, and that it does so more at
+larger N because its pull per particle falls only with wu while the transport's falls as about 1/N^0.8. What to
+do is not decided here.
+
+**R13b, 2026-10-01 15:50 CDT — the 300k dragon to its own stop under each ruler: no gross difference
+(pre-registered 15:04).** Legacy merit: silhouette 0.9840, world-thin 0.87 %, 95 committed windows, 3 rejected, end
+`kin` 2.3e-5, E 7.4e-4, tail jitter 1.3e-6, 40 minutes. State merit (no dense distance): 0.9846, 0.66 %, 98
+windows, 6 rejected, `kin` 2.1e-5, E 6.6e-4, jitter 1.4e-6, 38 minutes. Differences 0.0006, 0.21 points and 3
+windows, far inside the limits (0.003, 1.5 points, a third); neither froze. Along the legacy run the state ruler
+would have judged 3 of 98 windows differently; along the state run the legacy ruler none of 104. The dense
+distance stays deleted from the selection. A 300k dragon run to its own stop is now about 100 windows and 40
+minutes and ends at silhouette 0.984 and 0.7–0.9 % world-thin.
+
 **R13, 2026-10-01 14:44 CDT — the selection without the dense distance: geometry and stability inside the legacy
 runs' range, one bound missed by 3 % in one run (pre-registered 13:51).** Two runs against the legacy merit's four
 (R12f a, b; R12e a, b). Silhouette: difference of the means against R12f, median +0.0001, worst −0.0007; medians
