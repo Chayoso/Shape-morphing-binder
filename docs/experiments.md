@@ -658,6 +658,17 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
 
 ## Results so far
 
+**R12f addendum, 2026-10-01 14:10 CDT — offline replay: the flips are the dense distance's variation, not a dilution
+of the tolerances.** The selection rule replayed on the recorded windows (`tmp/r12f_replay.py`) reproduces every
+recorded verdict of the actual and of the shadow selection (0 mismatches in 1977 windows). Hypothesis tested: a
+large near-constant term makes the relative tolerances lenient (brake at 5 % of the merit, "improved" at 0.3 %),
+so the flips would vanish if the isolated merit carried a constant of the same size. They do not: with the run's
+median gap added as a constant the disagreements with the actual verdicts are 108 accept/reject (5.5 %), 176
+"improved" (8.9 %) and 58 stops, against 95, 177 and 45 without it. The hypothesis is refuted; the decisions turn
+on how the dense distance changes from window to window. The 17 delivered-window flips are choices between near
+ties: the two windows are 1 apart at the median (5 at most) and differ by 0.5 % of the merit at the median (1.4 %
+and 1.7 % at most, under either ruler), against the 0.3 % tolerance of "improved".
+
 **R12f, 2026-10-01 13:34 CDT — the all-particle W1 is two fifths of the selection merit and it decides windows: not
 to be aligned with the objective's W1 (pre-registered 12:40).** 38 gallery runs, 1977 judged windows, and two 300k
 dragon runs. The gap (the merit's W1 over all particles minus the objective's over the isolated ones) is 41 % of
