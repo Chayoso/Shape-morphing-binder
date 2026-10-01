@@ -255,6 +255,15 @@ class Objective:
             out[name] = rec
         return {"active_set": out}
 
+    def control_record(self, dfc) -> dict:
+        """A record: the two control regularisers' raw values (without their weights) for an expanded control: the
+        mean squared increment of the driven half and its mean squared difference from the neighbours' mean."""
+        cfg, N = self.cfg, self.win.N
+        with torch.no_grad():
+            d = dfc[:cfg.T]
+            return {"ctrl_mag": float(d.pow(2).sum() / (cfg.T * N)),
+                    "ctrl_rough": float((d - d[:, self.knn_creg].mean(2)).pow(2).mean())}
+
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""
         with torch.no_grad():

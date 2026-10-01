@@ -172,6 +172,40 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **Decisions, 2026-10-01 15:59 CDT (the user).** (1) The dense distance is deleted from the selection (R13, R13b);
+  closed. (2) The near band keeps its definition and its scale; no normalisation by N and no gate on the transport's
+  progress is added. D9b's finding is recorded as a known interaction, not a defect to fix: the near band's pull
+  relative to the transport grows with the particle count and opposes the transport on the band's particles early
+  in a run (more at 300k), which costs early windows; no degradation of the converged geometry was found at 40k,
+  100k or 300k (the 300k dragon to its own stop: silhouette 0.984–0.985, world-thin 0.7–0.9 %). The method is not
+  claimed to be resolution-invariant in its local correction. (3) Next is R14. (4) Stop rule: the terms that
+  survive R14 get one final validation (the 40k gallery, the 300k bunny and dragon, the PBR renders and video, the
+  gradient analysis); unless a new catastrophic failure appears there, the formulation is frozen. A ratio that
+  looks odd is recorded, not turned into a new experiment.
+- **R14, leave-one-out of the remaining legacy terms (pre-registered 2026-10-01 15:59 CDT, before launch; no
+  change of behaviour in the base code: repo_r29 = repo_r28 with records of det F and anisotropy quantiles of the
+  stored F and of the two control regularisers' raw values; each arm is a copy of repo_r29 with one default set to
+  zero).** Arms: C, the control magnitude off (w_ctrl 1e-3 → 0); G, the control smoothness off (w_creg 100 → 0); J,
+  the volume prior off (w_jvol 50 → 0); S, the spray cleanup off (w_dt 0.2 → 0). B is repo_r29 itself, run once for
+  the new records. Runs per arm: the 40k gallery twice (19 meshes, seed 97) and the 300k dragon and bunny at 35
+  windows (`output/gpu/r14`, `tmp/r14_eval.py`); against the current formulation (R13's two gallery runs and B;
+  D9b's and B's 300k runs). A term is removable if, on the two-run means: silhouette difference median within
+  ±0.002 and no mesh but beast below by more than 0.004; `thin_uncovered` median within ±1 point and no mesh worse
+  by more than 3 beyond the arms' own run-to-run difference; end `kin`, tail jitter, rejected windows, committed
+  windows and delivered frames (medians, totals) not beyond the three current runs' range by more than that range's
+  width; no run stopping before 15 windows moving and no guard counts that the current runs do not show; what the
+  term exists for does not degrade: for C and G the median |dFc| maximum, the control roughness and the surface
+  roughness, for J the minimum det F and the 1 % and 99 % quantiles of det F and the anisotropy p90 and p99, for S
+  `stray_max`, `stray_final`, `out_dt_frac` (each not beyond the current range by more than its width; det F
+  minimum not below 0.5 of the current minimum); 300k: silhouette within ±0.002 and world-thin within ±1 point of
+  the current runs, the transport energy at window 34 not above the current larger value by more than 30 %. A term
+  that misses any of these stays. If two or more are removable, one combined arm (all of them off) is run before
+  anything is deleted. Predictions: C removable (its value is 1e-3 wu times a squared increment bounded by the clip,
+  far below every other term); G not removable (the controls roughen, the surface roughness and the tail jitter
+  rise); J not removable (det F quantiles spread, at 300k most); S removable in geometry and thin (D9b: it agrees
+  with the transport and is the smaller term on its particles) but `stray_max` rises, so it stays. Render
+  influence: the render channel and λ's rule are unchanged; λ is calibrated on the physics gradient, which loses a
+  term in each arm: the first-window λ and g_share are reported per arm.
 - **D9b, which term sets the direction of the particles the local terms act on (diagnostic, pre-registered 2026-10-01
   15:22 CDT, launched 15:23 after the suite passed on repo_r28 (269 passed); repo_r28 = repo_r27 with one more record).** D9 read per particle: the unit masses are 1
   at every N; the near band's active share is constant in N at matched progress (0.3–3 %) and its pull per active

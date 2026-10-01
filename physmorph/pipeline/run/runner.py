@@ -36,7 +36,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "replay_dx_max", "replay_dx_rms", "replay_dlv", "replay_dlk", "replay_dlr",
                 "t_start", "t_grad", "t_ls", "t_commit", "merit_far", "merit_w1_gap",
                 "g_transport", "g_surf", "g_spray", "g_near", "n_spray", "n_near", "n_near_active", "ot_scale",
-                "active_set",
+                "active_set", "ctrl_mag", "ctrl_rough",
                 "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio")
 _NULL_FIELDS = ("null_reason", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe",
                 "iter_probe", "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
@@ -236,7 +236,12 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) 
         d_dt = float(d_w1(x, tgt.m, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims))
         ot_div = float(tgt.grid_ot(rasterize_mass(x, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims)))
         energy = float(tgt.grid_ot.state_energy(x, tgt.m))
-        jmin = float(torch.linalg.det(F).min())
+        detF = torch.linalg.det(F)
+        jmin = float(detF.min())
+        sv = torch.linalg.svdvals(F)
+        aniso = sv[:, 0] / sv[:, -1].clamp_min(1e-9)
+        qs = torch.tensor([.01, .5, .9, .99], device=F.device, dtype=detF.dtype)
+        jq, aq = torch.quantile(detF, qs), torch.quantile(aniso.to(detF.dtype), qs)
     rec = {"animation": a, "iters": len(res.hist), "loss": w["loss"], "d_vol": d_vol,
            "grad_norm": w["grad_norm"], "d_pbr": w["d_pbr"], "d_dt": d_dt, "d_sil": w["d_sil"],
            **{k: stats.get(k) for k in _STAT_FIELDS},
@@ -248,7 +253,9 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) 
            "v_absmax": float(v.abs().max()), "v_mean": float(v.norm(dim=1).mean()),
            "move": float((x - x_start).norm(dim=1).mean()), "Jmin": jmin,
            "Jmin_traj": commit.jmin_traj, **counts,
-           "selection_merit": stats["selection_merit"], "ot_div": ot_div, "transport_energy": energy}
+           "selection_merit": stats["selection_merit"], "ot_div": ot_div, "transport_energy": energy,
+           "J_p01": float(jq[0]), "J_p50": float(jq[1]), "J_p99": float(jq[3]),
+           "aniso_p50": float(aq[1]), "aniso_p90": float(aq[2]), "aniso_p99": float(aq[3])}
     if thin is not None:
         m = thin_metrics(x, thin)
         rec.update(thin_uncovered=m.get("thin_uncovered"), thin_uncovered_world=m.get("thin_uncovered_world"))
