@@ -172,6 +172,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **D9b, which term sets the direction of the particles the local terms act on (diagnostic, pre-registered 2026-10-01
+  15:22 CDT, before launch; repo_r28 = repo_r27 with one more record).** D9 read per particle: the unit masses are 1
+  at every N; the near band's active share is constant in N at matched progress (0.3–3 %) and its pull per active
+  particle is exactly 0.200 wu, so it halves from 40k to 300k through wu alone; the transport's rms gradient per
+  particle falls about 5×, so the near pull is 16× the average transport gradient at 40k and 37× at 300k (bunny, E
+  2.4e-3; dragon 23× and 59×). The scale of a loss gradient means nothing by itself (Adam normalises per element);
+  what moves a particle is the balance and the alignment of the terms on that particle. Recorded at every committed
+  state, on each local term's active set (near band: eligible and beyond the berth; spray cleanup: non-zero
+  gradient): the rms position gradient of the local term, the scaled transport, the surface term, the λ-weighted
+  render term, the other local term and the sum of the three non-local ones; the cosines of the local pull with
+  each; the share of the set's particles where the local pull opposes that sum. Runs: bunny and dragon at 40k (to
+  the stop), 100k and 300k (35 windows), seed 97 (`output/gpu/d9b`, `tmp/d9b_eval.py`), read at matched transport
+  energy. Reading (the user's rule): case 1, at every N the local term dominates the sum of the others on its set
+  and the pattern of the cosines is the same → the scale is left alone, whatever wu does, and the next step is the
+  regularisers (R14); case 2, the competition changes with N (a term comparable and opposed at 40k that is
+  overwhelmed at 300k) → a real scaling defect: the local terms are separated from wu by a new definition, validated
+  at 300k (removing wu's N-dependence alone would make them 2.1× stronger there). Predictions: near band: the local
+  pull is at least 3× the sum of the others at every N, growing with N, all cosines non-negative (the band's
+  particles sit outside the surface; the transport, the surface term and the silhouette's spray penalty all pull
+  them inward); spray cleanup: ratio 2–8 with the same signs; case 1.
 - **R13b, the 300k confirmation of the selection without the dense distance (sanity check, pre-registered 2026-10-01
   15:04 CDT, launched 15:05; no code change).** The user decided to delete the dense distance (R13: different window
   decisions, the same outcome at 40k; the one `kin` bound 3 % over in one run read as spread). One 300k dragon run

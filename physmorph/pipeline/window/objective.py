@@ -204,6 +204,57 @@ class Objective:
         out["g_near"] = 0.0 if g is None else float(g.norm())
         return out
 
+    def active_set_record(self, xT, lam_r) -> dict:
+        """A record: on the particles each local term acts on at a committed state (the near band's: eligible
+        and beyond the berth; the spray cleanup's: a non-zero gradient), the rms position gradient of that term,
+        of the scaled transport, of the surface term, of the weighted render term, of the other local term and
+        of the sum of the three non-local ones; the cosines between the local pull and each of them over the set;
+        the share of the set's particles on which the local pull opposes that sum. Which term sets the direction
+        of those particles, and whether the terms agree, at every N (D9b)."""
+        cfg, t, wu = self.cfg, self.tgt, self.win.wu
+        x = xT.detach().clone().requires_grad_(True)
+
+        def grad(L):
+            g = torch.autograd.grad(L, x, allow_unused=True)[0]
+            return torch.zeros_like(x) if g is None else g.detach()
+
+        ot, sup = t.grid_ot, t.support
+        saved, ot.support = ot.support, None
+        try:
+            g_ot = float(t.ot_scale) * grad(ot.state_energy(x, t.m))
+        finally:
+            ot.support = saved
+        g_surf = float(t.ot_scale) * grad(sup.penalty(x)) if sup is not None else torch.zeros_like(x)
+        g_near = grad(wu * cfg.w_nn * d_nn_band(x, t.m, t.pts, self.nn_idx, self.nn_elig, self.berth))
+        if self.dt_idx.numel() > 0:
+            g_spray = grad(wu * cfg.w_dt * d_w1(x.index_select(0, self.dt_idx), self.m_dt.index_select(0, self.dt_idx),
+                                                t.dt3, t.dtgmin, t.dtdx, t.dtdims))
+        else:
+            g_spray = torch.zeros_like(x)
+        lr = (d_render(x, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray)
+              + cfg.w_pbr * d_pbr(x, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
+                                  cfg.sil_k, cfg.pbr_ambient, t.pblur))
+        g_rend = float(lam_r) * grad(lr)
+        others = g_ot + g_surf + g_rend
+        out, N = {}, x.shape[0]
+
+        def cos(a, b):
+            na, nb = float(a.norm()), float(b.norm())
+            return float((a * b).sum()) / (na * nb) if na > 0 and nb > 0 else None
+
+        for name, loc, xloc in (("near", g_near, g_spray), ("spray", g_spray, g_near)):
+            S = loc.norm(dim=1) > 0
+            n = int(S.sum())
+            rec = {"n": n, "frac": n / N}
+            if n > 0:
+                rms = lambda g: float(g[S].pow(2).sum(1).mean().sqrt())
+                rec.update(local=rms(loc), ot=rms(g_ot), surf=rms(g_surf), rend=rms(g_rend), xlocal=rms(xloc), others=rms(others),
+                           cos_ot=cos(loc[S], g_ot[S]), cos_surf=cos(loc[S], g_surf[S]), cos_rend=cos(loc[S], g_rend[S]),
+                           cos_xlocal=cos(loc[S], xloc[S]), cos_others=cos(loc[S], others[S]),
+                           opp=float(((loc[S] * others[S]).sum(1) < 0).float().mean()))
+            out[name] = rec
+        return {"active_set": out}
+
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""
         with torch.no_grad():
