@@ -173,7 +173,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
 - **D9b, which term sets the direction of the particles the local terms act on (diagnostic, pre-registered 2026-10-01
-  15:22 CDT, before launch; repo_r28 = repo_r27 with one more record).** D9 read per particle: the unit masses are 1
+  15:22 CDT, launched 15:23 after the suite passed on repo_r28 (269 passed); repo_r28 = repo_r27 with one more record).** D9 read per particle: the unit masses are 1
   at every N; the near band's active share is constant in N at matched progress (0.3–3 %) and its pull per active
   particle is exactly 0.200 wu, so it halves from 40k to 300k through wu alone; the transport's rms gradient per
   particle falls about 5×, so the near pull is 16× the average transport gradient at 40k and 37× at 300k (bunny, E
