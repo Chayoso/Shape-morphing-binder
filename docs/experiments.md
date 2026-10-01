@@ -172,6 +172,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R11d-s, the run-to-run spread of both arms (pre-registered 2026-09-30 21:18 CDT, launched 21:18; no code
+  change).** A second run of R11d (repo_r21) and of PX85 (repo_r17), seed 97 as before (the rollout's atomics make
+  two runs of one code differ), on the 19-mesh 40k gallery, and of both on the 300k dragon at 35 windows; outputs
+  `output/gpu/r11ds`, read with `tmp/r11ds_eval.py`. It decides the three criteria R11d missed. Reading, on the
+  two-run means per mesh and arm: (thin) R11d passes if the paired difference of the means has a median within ±1
+  point and no mesh is worse by more than 3; a mesh beyond 3 whose difference is smaller than the larger of the two
+  arms' own run-to-run differences on that mesh counts as spread; (kin, kin_var) passes if the difference between
+  the arms' medians is no larger than the difference between PX85's two runs' medians; (300k) `kin` at window 34
+  passes if the two R11d values and the two PX85 values overlap, silhouette within ±0.002 and world-thin within ±1
+  point as before. Predictions: the thin shift is spread (teapot's +3.4 does not repeat; the median of the mean
+  differences within ±0.5); the 40k `kin` medians are within spread; at 300k `kin` is higher under R11d in both
+  runs. If the end velocity is reproducibly higher, that is a property of the definition (the end step carries 1/T
+  of the term) to be decided as such, not tuned. Render influence: the render channel is unchanged; λ and g_share
+  reported for all four runs per mesh.
 - **R11d, the stability term = the released motion outside the transport's scale (pre-registered 2026-09-30 18:35
   CDT, launched 18:36 after the suite passed on repo_r21 (269 passed); repo_r21 = repo_r20 with the term moved out of ot_scale, the drift a record `stab_end`, the
   R11c switches removed).** L_stab = (T dt)² · mean over the released steps and particles of |v|², added to the
@@ -493,6 +507,29 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R11d, 2026-09-30 21:17 CDT — the released motion outside ot_scale: the runs are sound and the geometry is kept,
+three criteria are missed narrowly (pre-registered 18:35; read 21:17, the runs ended 19:07).**
+Against PX85 on the 40k gallery: no run stops before 15 windows with the body moving (0 of 19; the six meshes R11
+and R11b lost run 38–73 windows: bimba 11.0 / 0.9774, cheburashka 10.4 / 0.9772, cow 11.3 / 0.9740, homer 12.9 /
+0.9779, nefertiti 8.2 / 0.9787, spot 9.4 / 0.9767), no freeze, windows median 46 against 47. Silhouette: median
+−0.0002, worst −0.0017 (V); passes. `thin_uncovered`: paired difference median +0.6 (medians 10.4 against 9.3),
+14 of 19 meshes higher, worst teapot +3.4 (limit 3; maxplanck +2.6, bob +2.2, heart +1.8; homer −3.3, ogre −2.5):
+the per-mesh limit is missed by 0.4 on one mesh. `kin` median 1.06e-4 against 9.91e-5 and `kin_var` 6.72e-5
+against 6.66e-5: "not higher" is missed by 7 % and 1 %. Wall is not comparable (both rounds shared GPUs
+differently; 0.83× as measured). 300k dragon at 35 windows: silhouette 0.9812 against 0.9813, chamfer 0.0614
+against 0.0613, world-thin 2.5 % against 2.4 % (34 committed windows against 35, one null commit), 23 minutes
+both; the transport energy runs level (8.9e-2 / 1.6e-2 / 6.6e-3 at windows 10 / 20 / 34 against 9.6e-2 / 1.5e-2 /
+6.3e-3 at 10 / 20 / 35): the 2.2× coefficient does not hold the geometry back. But `kin` is not lower as
+predicted, it is higher from window 20 on (4.2e-2 / 2.0e-2 / 1.4e-2 at 20 / 25 / 34 against 3.0e-2 / 1.4e-2 /
+7.9e-3): that criterion fails, and the prediction with it. Render influence: unchanged. λ is calibrated at a
+window start at rest, where the stability term has no gradient: the first-window λ is identical on every mesh
+(median 0.248 in both arms; 0.396 at 300k in both), the last-window λ within 0.004, g_share at the end 0.89
+against 0.89 (300k 0.92 against 0.93); no render-off twin in this round. Reading: the definition restores what
+R11 and R11b lost and matches PX85's silhouette and 300k geometry; whether the thin shift (+0.6) and teapot's
++3.4 are the definition or the run-to-run spread (homer: ±4 between two runs of one code) is not known, and the
+end velocity may really be higher (a hypothesis, not measured: the term charges the end step with 1/T of its
+weight, where the drift charged it alone). Not adopted on this reading; the spread is measured next (R11d-s).
 
 **R11c, 2026-09-30 18:26 CDT — the released-motion piece is what keeps a run sound (pre-registered 17:58).**
 On the six meshes R11b lost, the released motion at its legacy weight (R) keeps every one sound: bimba 10.2 /
