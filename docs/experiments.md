@@ -638,6 +638,29 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
 
 ## Results so far
 
+**R12e, 2026-10-01 11:57 CDT — the selection merit reading the same band: nothing moves beyond spread; every
+criterion passes (pre-registered 10:59).** Two runs against R12d's two. 40k gallery: silhouette difference median
+−0.0002, worst −0.0021 (beast); `thin_uncovered` median −0.27, higher on 7 of 19, worst bob +2.6 inside its own
+run-to-run difference (8.3, 13.5 against 9.2, 7.4); spot 9.4, 9.7 (R12d's six runs 8.5–11.6; R11f's mean 7.2);
+`kin` medians 8.4e-5, 8.0e-5 against 8.1e-5, 9.2e-5; strays not above R12d's (`stray_final` and
+`out_nn_far_frac` largest 0.013–0.015 against 0.025); `outside_max` 0; no run stops before 15 windows moving; the
+G4 gate passed by 16 + 17 runs against 17 + 17; windows median 47, 47 against 46, 55; rejected windows 130 + 131
+against 129 + 134 over the gallery. C stops at 18 and 18 windows with `kin` 1.3e-2 and 1.4e-2 (R12d 18 and 20):
+the agreeing ruler does not let it run on, as predicted; its alternation is not in the near band. beast sound in
+both runs (87 and 111 windows). 300k dragon at 35 windows: silhouette 0.9835, 0.9825 against 0.9820, 0.9831;
+world-thin 1.0, 1.0 against 1.7, 0.8; transport energy at window 34 1.55e-3, 1.45e-3 against 2.03e-3, 1.43e-3;
+`out_nn_far_frac` 0.007, 0.011 against 0.030, 0.014; `kin` at window 34 8.6e-4, 3.9e-3 against 1.4e-4, 5.9e-4
+(the second run higher; not a criterion, noted); 14–16 minutes. What the old ruler counted and this one does not
+(`merit_far` over the merit): at 40k 3–35 % in the first window and zero from the median window on (C 4 % at the
+median, beast 11–14 %); on the 300k dragon 42 % in the first window, 10–13 % at the median, 2 % at the end. So the
+two rulers differed by a tenth of the merit through most of a 300k run and the outcome is the same within spread:
+the alignment is a consistency fix without a measurable effect on these runs. Render influence: λ at the first
+window identical on every mesh (median 0.248; 0.396 at 300k); g_share at the end 0.88 against 0.89, 0.94–0.96
+against 0.92 at 300k. The cleanup candidate is therefore: the isolation-gated W1 and the near band between the
+sampling berth and one loss cell, in the objective and in the selection merit; no box leash. Against R11f it buys
+a 300k dragon four to five times further at window 34 with fewer strays, and costs a real 2–3 thin points on spot
+(1–2 on bimba and teapot) and C's settling (parked). Adoption is the user's decision.
+
 **R12d-s, 2026-10-01 10:56 CDT — six runs per code: the three meshes shift by +0.6 to +2.8, none past the limit
 (pre-registered 10:41).** spot: R11f 8.2, 6.8, 6.5, 6.2, 6.0, 9.4 (mean 7.20) against R12d 11.6, 9.9, 11.4, 8.8,
 9.9, 8.5 (mean 10.04), +2.84, the two sets overlapping in one value; bimba 10.02 against 11.38, +1.36; teapot
