@@ -34,7 +34,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason",
                 "replay_dx_max", "replay_dx_rms", "replay_dlv", "replay_dlk", "replay_dlr",
-                "t_start", "t_grad", "t_ls", "t_commit",
+                "t_start", "t_grad", "t_ls", "t_commit", "merit_far",
                 "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio")
 _NULL_FIELDS = ("null_reason", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe",
                 "iter_probe", "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",

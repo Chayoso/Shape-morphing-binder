@@ -5,6 +5,7 @@ The 2D multi-view variant was falsified by forensics (visual hull hides interior
 concavities); these tests pin the 3D mechanism's claims, including the Codex round's
 counterexamples (target self-force, fixed-N sparsity invariance, clamp handoff)."""
 import numpy as np
+import pytest
 import torch
 
 from physmorph.losses.volumetric import d_w1, target_dt_grid, target_mass_grid
@@ -147,3 +148,21 @@ def test_nn_band_pull_and_berth():
     g_ = x.grad
     assert float(g_[1].norm()) == 0.0 and float(g_[2].norm()) == 0.0
     assert -g_[0][0] < 0                         # descent pulls toward -x (the face)
+
+
+def test_nn_band_current_form_shares_the_band():
+    """The selection merit's form of the near band (current nearest target points) counts the same band as the
+    frozen assignment: inside the berth nothing, in the band the distance beyond the berth, at or beyond the far
+    edge nothing; without a far edge every particle beyond the berth counts."""
+    from physmorph import gpu
+    from physmorph.losses.volumetric import d_nn_band_current
+    g = torch.linspace(-0.5, 0.5, 11)
+    t = torch.stack(torch.meshgrid(g, g, g, indexing="ij"), -1).reshape(-1, 3)
+    x = torch.tensor([[0.75, 0.0, 0.0],          # 0.25 off the face: in the band
+                      [0.60, 0.0, 0.0],          # 0.10 < berth 0.15
+                      [1.20, 0.0, 0.0]])         # 0.70 beyond the far edge 0.45
+    knn, ones, berth = gpu.KNN(t), torch.ones(3), 0.15
+    banded = float(d_nn_band_current(x, ones, t, ones, berth, knn, far=0.45))
+    whole = float(d_nn_band_current(x, ones, t, ones, berth, knn))
+    assert banded == pytest.approx(0.25 - berth, abs=1e-6)
+    assert whole == pytest.approx((0.25 - berth) + (0.70 - berth), abs=1e-6)

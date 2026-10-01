@@ -116,13 +116,18 @@ def d_nn_band(x: torch.Tensor, m: torch.Tensor, tgt_pts: torch.Tensor,
 
 
 def d_nn_band_current(x: torch.Tensor, m: torch.Tensor, tgt_pts: torch.Tensor,
-                      elig: torch.Tensor, berth: float, target_knn: gpu.KNN) -> torch.Tensor:
+                      elig: torch.Tensor, berth: float, target_knn: gpu.KNN,
+                      far: float | None = None) -> torch.Tensor:
     """d_nn_band against each particle's CURRENT nearest target point (queried at every
-    evaluation, so value and gradient agree; continuous across nearest-point switches)."""
+    evaluation, so value and gradient agree; continuous across nearest-point switches).
+    far: the band's outer edge, a length; particles at or beyond it are not counted (the same
+    band as the frozen assignment's, read at the current state)."""
     if not bool(torch.isfinite(x).all()):
         # A bad trial is rejected by the finite-state and merit checks; keep a zero derivative.
         return (torch.nan_to_num(x) * 0).sum() + x.new_tensor(float('inf'))
-    _, idx = target_knn.query(x.detach(), 1)
+    dist, idx = target_knn.query(x.detach(), 1)
+    if far is not None:
+        elig = elig * (dist[:, 0] < far).to(elig.dtype)
     return d_nn_band(x, m, tgt_pts, idx[:, 0], elig, berth)
 
 

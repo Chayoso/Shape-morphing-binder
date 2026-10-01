@@ -144,13 +144,14 @@ class Objective:
     def cleanup(self, xT, common_geometry=False):
         """Fixed-weight one-signed cleanup (not lambda-scaled, not in phys_core). The W1 sum
         runs on the isolation gate's support (the same sum and gradient). common_geometry:
-        the ungated W1 and the near band against the CURRENT nearest target points, the
-        form every window's selection merit is compared in."""
+        the ungated W1 and the near band against the CURRENT nearest target points with the same
+        band (berth to one loss cell, read at the current state), the form every window's
+        selection merit is compared in: the objective and the ruler that accepts a window agree."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         if common_geometry:
             L = wu * cfg.w_dt * d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
             return L + wu * cfg.w_nn * d_nn_band_current(xT, t.m, t.pts, torch.ones_like(t.m),
-                                                         self.berth, t.knn)
+                                                         self.berth, t.knn, far=float(t.ldx))
         if self.dt_idx.numel() > 0:
             L = wu * cfg.w_dt * d_w1(xT.index_select(0, self.dt_idx),
                                      self.m_dt.index_select(0, self.dt_idx),
@@ -158,6 +159,16 @@ class Objective:
         else:
             L = xT.sum() * 0.0                          # an empty gate: zero, still on the graph
         return L + wu * cfg.w_nn * d_nn_band(xT, t.m, t.pts, self.nn_idx, self.nn_elig, self.berth)
+
+    def near_band_far(self, xT) -> float:
+        """A record: the near band's value beyond the loss cell at the current state, in the merit's units (what a
+        ruler without the band's outer edge would add to the selection merit)."""
+        cfg, t, wu = self.cfg, self.tgt, self.win.wu
+        ones = torch.ones_like(t.m)
+        with torch.no_grad():
+            whole = d_nn_band_current(xT, t.m, t.pts, ones, self.berth, t.knn)
+            band = d_nn_band_current(xT, t.m, t.pts, ones, self.berth, t.knn, far=float(t.ldx))
+        return float(wu * cfg.w_nn * (whole - band))
 
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""

@@ -467,6 +467,7 @@ class WindowOptimizer:
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.accepted > 0:
             stats["selection_merit"] = selection_merit
+            stats["merit_far"] = self.obj.near_band_far(commit.x[-1])
             stats.update(support_record(self.tgt, commit.x[-1]))
         elif selection_merit is not None and not np.isfinite(selection_merit):
             stats["invalid_selection"] = True

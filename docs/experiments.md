@@ -172,6 +172,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R12e, the selection merit reads the same near band as the objective (pre-registered 2026-10-01 10:59 CDT, before
+  launch; repo_r25 = repo_r24 with the common form's near band bounded at one loss cell).** In R12d the objective's
+  near band ends at one loss cell but the selection merit's common form (the ruler that ranks and accepts windows)
+  still counted every particle beyond the berth. R12e gives the common form the same band, read at the current
+  state; the objective is unchanged. This is not a new term: the objective and its ruler now measure one thing.
+  Because the band is read at the current state, the merit steps when a particle crosses the outer edge; the
+  record `merit_far` keeps what the old ruler would have added, per window. The common form's W1 stays ungated
+  (the objective's is isolation-gated at the window start): the same kind of mismatch, noted and not changed
+  here. Runs: the 40k gallery twice (19 meshes, seed 97) and the 300k dragon at 35 windows twice
+  (`output/gpu/r12e`, `tmp/r12e_eval.py`), against R12d's two runs. Pass, on the two-run means: silhouette
+  difference median within ±0.002 and no mesh below by more than 0.004; `thin_uncovered` difference median within
+  ±1 point and no mesh worse by more than 3 beyond the arms' own run-to-run difference; `kin` median within R12d's
+  spread; the stray measures not above R12d's larger run by more than its own difference; 300k: silhouette within
+  ±0.002, world-thin within ±1 point, the transport energy at window 34 not above R12d's larger value (2.0e-3) by
+  more than the two R12d runs differ (0.6e-3). Reported: C's window count and end `kin` (does the agreeing ruler
+  let C run on), `merit_far` against the merit, the windows' accept/reject counts. Predictions: the gallery and the
+  300k run are unchanged within spread (late in a run little mass lies beyond the loss cell, early every window
+  improves under either ruler); C still stops near 20 windows (its alternation is in the transport energy, not in
+  the near band). Render influence: unchanged channel; λ and g_share reported.
 - **R12d-s, the spread on the three meshes that rose (pre-registered 2026-10-01 10:41 CDT, launched 10:41; no code
   change).** spot, bimba and teapot at 40k, seed 97, four more runs each of R12d (repo_r24) and of R11f (repo_r22),
   six per code and mesh with the two each has (`output/gpu/r12ds`, `tmp/r12ds_eval.py`). Reading, on the six-run
@@ -617,6 +636,17 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R12d-s, 2026-10-01 10:56 CDT — six runs per code: the three meshes shift by +0.6 to +2.8, none past the limit
+(pre-registered 10:41).** spot: R11f 8.2, 6.8, 6.5, 6.2, 6.0, 9.4 (mean 7.20) against R12d 11.6, 9.9, 11.4, 8.8,
+9.9, 8.5 (mean 10.04), +2.84, the two sets overlapping in one value; bimba 10.02 against 11.38, +1.36; teapot
+10.10 against 10.73, +0.64 by the means and +1.9 by the medians (9.5 against 11.4; one outlier in each set).
+Silhouette means equal within 0.0006. By the pre-registered reading all three are spread and R12d passes the thin
+criterion. Read plainly, spot's shift is real, not spread (five of R11f's six values lie below all six of R12d's;
+rank test one-sided p ≈ 0.01), and stays under the 3-point limit; the prediction that it would fall below 2 was
+wrong. The far part of the near band was worth about 1.4 to 2.8 thin points on these three meshes, against a 300k
+dragon that is four to five times further at window 34. R12d stands as the adoption candidate; before the final
+adoption the selection merit is given the same band (R12e, the user's condition).
 
 **R12d, 2026-10-01 10:39 CDT — the near band ending at one loss cell, the box removed: the 300k dragon is four to
 five times further at window 34 with fewer strays, the 40k gallery holds except spot's thin and C's early stop
