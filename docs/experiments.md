@@ -172,6 +172,40 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R13, the selection merit without the dense body-to-target distance (pre-registered 2026-10-01 13:51 CDT, before
+  launch; repo_r27 = repo_r26 with the merit's common form changed).** Names from here on: the objective's term on
+  isolated particles is the spray cleanup; the distance field summed over every particle, which only the selection
+  merit carried, is the dense distance (41 % of the merit at 40k, R12f). Arm M_state: the merit is the objective
+  read at the committed state alone: the isolation gate and the near band are taken at the state itself (not from
+  the window's start, so the merit is a function of the state), and the dense distance is removed. The objective
+  and its gradient are unchanged. The shadow selection now reads the legacy merit (with the dense distance) on the
+  same trajectory. Runs: the 40k gallery twice (19 meshes, seed 97; `output/gpu/r13`, `tmp/r13_eval.py`) against
+  the legacy merit's runs (R12f's two; R12e's two as a second legacy pair). No 300k run: at 35 windows the two
+  rulers did not differ there (0 flips, the dense distance 8–9 % of the merit); if M_state survives, one 300k run
+  per ruler to its own stop follows. Decision, on the two-run means (the user's rule): (1) geometry and stability
+  within spread → the dense distance is deleted from the selection; (2) geometry within spread but more
+  rejections, earlier stops, more reversals or tail jitter → it stabilised the selection: kept, its mechanism
+  measured and an N-independent scale defined (its share is 41 % at 40k and 8–9 % at 300k); (3) results worse →
+  kept and redefined. "Within spread": silhouette difference median within ±0.002 and no mesh but beast below by
+  more than 0.004; `thin_uncovered` median within ±1 point and no mesh worse by more than 3 beyond the arms' own
+  run-to-run difference; and each of the end `kin` median, the tail jitter median, the share of late windows with
+  reversal cosine below −0.5, the rejected-window total, the committed-window median and the delivered frames
+  median not beyond the legacy runs' range (four runs) by more than that range's width; no run stopping before 15
+  windows moving that the legacy runs do not show. Predictions: case (1); the shadow's 17 delivered-window flips
+  were near ties (0.5 % of the merit, one window apart), so the delivered states do not differ beyond spread; C
+  still stops near 18 windows. Render influence: the render channel and λ are unchanged; g_share reported; the
+  merit's render share rises by construction (the dense distance no longer dilutes it).
+- **D9, the size of the local terms against the transport as N grows (diagnostic, pre-registered 2026-10-01 13:51
+  CDT, before launch; repo_r27, records only).** The spray cleanup and the near band are sums with a constant pull
+  per particle; the transport's gradient per particle falls with N. Recorded at every committed state: the
+  position-space gradient norms of the scaled transport (ot_scale |∇S_ε|), the surface proximity, the spray
+  cleanup and the near band, and the number of particles the two local terms act on. Runs: dragon and bunny at 40k
+  (to the stop), 100k and 300k (35 windows), seed 97 (`output/gpu/d9`, `tmp/d9_eval.py`). Read at matched progress
+  (the window whose transport energy is nearest to 3e-1, 1e-1, 3e-2, 1e-2, 3e-3, 1e-3): the ratios |∇spray| /
+  |∇transport| and |∇near| / |∇transport| against N. No pass criterion: the result is the exponent with which each
+  ratio grows from 40k to 300k, which decides what normalisation gives the two terms the same role at every N.
+  Prediction: both ratios grow with N, the near band's by about (300/40)^(1/2) ≈ 2.7 at equal progress if its active
+  count grows as N and the transport's norm falls as N^(−1/2); the spray's stays small (few isolated particles).
 - **R12f, the two W1 rulers measured (pre-registered 2026-10-01 12:40 CDT, launched 12:43 after the suite passed on
   repo_r26 (269 passed on the second run; the first run failed the known unstable
   test_line_search_probe_is_diagnostic_only, which passed three reruns on this code and on repo_r25); repo_r26 =
@@ -658,7 +692,7 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
 
 ## Results so far
 
-**R12f addendum, 2026-10-01 14:10 CDT — offline replay: the flips are the dense distance's variation, not a dilution
+**R12f addendum, 2026-10-01 13:45 CDT — offline replay: the flips are the dense distance's variation, not a dilution
 of the tolerances.** The selection rule replayed on the recorded windows (`tmp/r12f_replay.py`) reproduces every
 recorded verdict of the actual and of the shadow selection (0 mismatches in 1977 windows). Hypothesis tested: a
 large near-constant term makes the relative tolerances lenient (brake at 5 % of the merit, "improved" at 0.3 %),

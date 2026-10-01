@@ -35,6 +35,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason",
                 "replay_dx_max", "replay_dx_rms", "replay_dlv", "replay_dlk", "replay_dlr",
                 "t_start", "t_grad", "t_ls", "t_commit", "merit_far", "merit_w1_gap",
+                "g_transport", "g_surf", "g_spray", "g_near", "n_spray", "n_near", "n_near_active", "ot_scale",
                 "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio")
 _NULL_FIELDS = ("null_reason", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe",
                 "iter_probe", "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
@@ -79,7 +80,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     frames = FrameStore(src, F_stride or cfg.T)
     hist, guards = [], {k: 0 for k in GUARDS}
     sel = Selection(cfg)
-    shadow = Selection(cfg)            # a record: the same rule read with the objective's W1 (isolation-gated)
+    shadow = Selection(cfg)            # a record: the same rule read with the dense distance added (the merit until R13)
     frozen = False
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim}")
@@ -265,11 +266,11 @@ def _fmt(v):
 
 
 def _shadow_judge(shadow, rec, components, disp, lam, improved) -> dict:
-    """A record, no effect on the run: the selection rule judged with the merit whose W1 is the objective's
-    (isolation-gated) instead of the common form's (every particle), on the same trajectory. Writes the shadow's
-    verdicts beside the actual ones into rec and returns the shadow's copy of the record."""
+    """A record, no effect on the run: the selection rule judged with the merit that also carries the dense
+    body-to-target distance (the merit until R13), on the same trajectory. Writes the shadow's verdicts beside the
+    actual ones into rec and returns the shadow's copy of the record."""
     alt = dict(rec)
-    alt["selection_merit"] = rec["selection_merit"] - (rec.get("merit_w1_gap") or 0.0)
+    alt["selection_merit"] = rec["selection_merit"] + (rec.get("merit_w1_gap") or 0.0)
     shadow.check_lambda(alt, lam)
     s_reject, s_brake, s_improved = shadow.judge(alt, components, disp)
     rec.update({"shadow_merit": alt["selection_merit"], "shadow_reject": int(s_reject), "shadow_brake": int(s_brake),

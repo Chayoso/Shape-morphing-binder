@@ -150,4 +150,5 @@ def support_record(tgt, x: torch.Tensor) -> dict:
     B, w = float(pen.mean()), sup.weight
     w_eff = (w * (E / (E + w * B)) ** 2 if w is not None and np.isfinite(E) and E + w * B > 0 else None)
     return {"sup_E": E, "sup_B": B, "sup_w_eff": w_eff, "sup_pen_max": float(pen.max()),
-            "sup_pen_p99": float(q[0]), "sup_pen_med": float(q[1]), "sup_grad_ratio": ratio}
+            "sup_pen_p99": float(q[0]), "sup_pen_med": float(q[1]), "sup_grad_ratio": ratio,
+            "g_transport": float(g_e.norm()), "g_surf": 0.0 if g_pen is None else float(g_pen.norm())}

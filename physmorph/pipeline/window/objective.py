@@ -144,14 +144,17 @@ class Objective:
         return L
 
     def cleanup(self, xT, common_geometry=False):
-        """Fixed-weight one-signed cleanup (not lambda-scaled, not in phys_core). The W1 sum
-        runs on the isolation gate's support (the same sum and gradient). common_geometry:
-        the ungated W1 and the near band against the CURRENT nearest target points with the same
-        band (berth to one loss cell, read at the current state), the form every window's
-        selection merit is compared in: the objective and the ruler that accepts a window agree."""
+        """Fixed-weight one-signed cleanup (not lambda-scaled, not in phys_core): the spray cleanup (the W1 pull of
+        isolated particles down the target's distance field, summed on the isolation gate's support) and the near
+        band. common_geometry: the form the selection merit reads, a function of the committed state alone: the
+        isolation gate and the near band's nearest target points and band are taken at the state itself, not from
+        the window's start. Until R13 this form summed the distance over EVERY particle, a dense body-to-target
+        distance that made up two fifths of the merit (R12f); it is a different quantity from the spray cleanup
+        and is no longer part of the merit (recorded as `merit_w1_gap`)."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         if common_geometry:
-            L = wu * cfg.w_dt * d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
+            m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi)
+            L = wu * cfg.w_dt * d_w1(xT, m_cur, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
             return L + wu * cfg.w_nn * d_nn_band_current(xT, t.m, t.pts, torch.ones_like(t.m),
                                                          self.berth, t.knn, far=float(t.ldx))
         if self.dt_idx.numel() > 0:
@@ -173,13 +176,33 @@ class Objective:
         return float(wu * cfg.w_nn * (whole - band))
 
     def w1_merit_gap(self, xT) -> float:
-        """A record: the selection merit's W1 (every particle) minus the objective's (the window's isolation gate),
-        both at the current state, in the merit's units."""
+        """A record: the dense body-to-target distance (the distance field summed over every particle) minus the
+        spray cleanup read at the current state, in the merit's units: what the selection merit carried until R13."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         with torch.no_grad():
             whole = d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
-            gated = d_w1(xT, self.m_dt, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
+            gated = d_w1(xT, t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi), t.dt3, t.dtgmin, t.dtdx, t.dtdims)
         return float(wu * cfg.w_dt * (whole - gated))
+
+    def scale_record(self, xT) -> dict:
+        """A record: the position-space gradient norms of the two local terms at a committed state, in the
+        objective's units, with the number of particles each acts on (the transport's and the surface term's
+        norms come from support_record; ot_scale converts them)."""
+        cfg, t, wu = self.cfg, self.tgt, self.win.wu
+        x = xT.detach().clone().requires_grad_(True)
+        out = {"ot_scale": float(t.ot_scale), "n_spray": int(self.dt_idx.numel()), "n_near": int(self.nn_elig.sum())}
+        if self.dt_idx.numel() > 0:
+            spray = wu * cfg.w_dt * d_w1(x.index_select(0, self.dt_idx), self.m_dt.index_select(0, self.dt_idx),
+                                         t.dt3, t.dtgmin, t.dtdx, t.dtdims)
+            out["g_spray"] = float(torch.autograd.grad(spray, x)[0].norm())
+        else:
+            out["g_spray"] = 0.0
+        d = (x.detach() - t.pts[self.nn_idx]).norm(dim=1)
+        out["n_near_active"] = int(((d > self.berth) & (self.nn_elig > 0)).sum())
+        near = wu * cfg.w_nn * d_nn_band(x, t.m, t.pts, self.nn_idx, self.nn_elig, self.berth)
+        g = torch.autograd.grad(near, x, allow_unused=True)[0]
+        out["g_near"] = 0.0 if g is None else float(g.norm())
+        return out
 
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""
