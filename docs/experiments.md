@@ -658,6 +658,34 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
 
 ## Results so far
 
+**R12f, 2026-10-01 13:34 CDT — the all-particle W1 is two fifths of the selection merit and it decides windows: not
+to be aligned with the objective's W1 (pre-registered 12:40).** 38 gallery runs, 1977 judged windows, and two 300k
+dragon runs. The gap (the merit's W1 over all particles minus the objective's over the isolated ones) is 41 % of
+the merit at the per-run median window (8–85 % across runs; heart 85 %, V 64 %, armadilo 21 %) and 40 % at the last
+window; on the 300k dragon 40 % in the first window and 8–9 % from the median window on. A shadow selection that
+follows the same trajectory with the isolated W1 disagrees on accept/reject in 95 windows (4.8 %), on "improved"
+in 177 (9.0 %), on the stop in 45, and delivers a different best window in 17 of the 38 runs (1–5 windows apart);
+on the 300k dragon in none. By the user's rule this is the third case: the two are not unified. The prediction
+(accept/reject flips under 5 % and rare, "improved" more often) held in numbers and was wrong in weight: 17
+delivered windows differ. What the all-particle W1 measures: across the second half of a run its rank correlation
+with the Sinkhorn energy is +0.82 and with the density D_vol +0.81 (surface proximity +0.65), with the silhouette
+loss −0.29 and with thin +0.24; window to window its changes follow the silhouette loss (+0.71) and the Sinkhorn
+energy (+0.59). It is a dense body-to-target distance, largely the transport's information again and not the
+silhouette's or the thin measure's. What it does to the choice: in the 17 runs the window the isolated ruler
+would deliver has the lower silhouette loss in 13 and the lower thin in 10 (higher in 3, equal in 4), by 0.1–1.2
+points; the all-particle ruler's window has the lower W1 in 17 and the lower transport energy in 8. Of the 46
+windows only the all-particle ruler rejects, 41 raised the W1 while 25 raised the silhouette loss and 20 thin; of
+the 49 only it accepts, 45 raised the silhouette loss and 26 thin while 9 raised the transport energy. So in the
+merit the dense distance outweighs the render term: it carries windows that trade silhouette for distance and
+stops windows that trade distance for silhouette. Per-window Chamfer and IoU are not recorded (the silhouette loss
+stands in). Not measured: what a run does when it is actually steered by the isolated ruler (the shadow follows
+the real trajectory). Check on the sweep: against R12e the gallery's silhouette difference median is +0.0000 and
+thin +0.19 (beast froze in one run: 10 windows, silhouette 0.8212, the parked ejection); 300k dragon silhouette
+0.9807, 0.9827, world-thin 1.6, 1.5, E at window 34 1.8e-3, 1.9e-3 (R12e 1.5e-3): within what two runs show.
+Render influence: unchanged code path; the finding is itself about the render's weight in the selection. Naming:
+the objective's term is a cleanup of isolated particles; the merit's is a state-quality distance; they should not
+share the name W1.
+
 **R12e adopted, 2026-10-01 12:40 CDT (the user's decision).** The cleanup is the isolation-gated W1 and the near
 band between the sampling berth and one loss cell, in the objective and in the selection merit; the box leash and
 the far bound of 1000 spacings are gone. Roles by distance to the target: inside the berth nothing acts; between
