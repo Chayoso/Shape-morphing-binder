@@ -172,6 +172,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R14b, the three regularisers off together (pre-registered 2026-10-01 18:44 CDT, before launch; no code change:
+  `repo_r29x` = repo_r29 with the defaults w_ctrl, w_creg and w_jvol at zero).** Arm X against the current
+  formulation, whose range now has four gallery runs: R13 a, b, B a and a second B run started with it. Runs: the
+  40k gallery twice (19 meshes, seed 97) and the 300k dragon and bunny at 35 windows (`output/gpu/r14`, tags
+  `r14X…`, `tmp/r14_eval.py`). Criteria as R14 for the three terms together (geometry, stability, det F minimum and
+  quantiles, anisotropy, control size and roughness, surface roughness, 300k). Read against the measured noise of
+  the criteria: arms C and G differ from the current code by 1e-10 and 1e-8 of the merit and still showed one
+  jitter median 3 % over its bound, bob's thin at +5.2 and one beast freeze; a miss by X of that kind and size is
+  noise, a miss beyond it (a mesh other than bob or beast outside its limit in both runs, det F minimum below half
+  the current one, a guard firing, a 300k silhouette or world-thin outside its limit) keeps the terms. Prediction:
+  X is inside the noise on every criterion; the three terms and their constants (w_ctrl, w_creg with creg_k, w_jvol)
+  are then deleted. Render influence: unchanged channel; first-window λ and g_share reported.
 - **Decisions, 2026-10-01 15:59 CDT (the user).** (1) The dense distance is deleted from the selection (R13, R13b);
   closed. (2) The near band keeps its definition and its scale; no normalisation by N and no gate on the transport's
   progress is added. D9b's finding is recorded as a known interaction, not a defect to fix: the near band's pull
@@ -754,6 +766,35 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R14, 2026-10-01 18:42 CDT — the two control regularisers are dead terms, the volume prior changes nothing that was
+measured, the spray cleanup misses its stray criterion by a hair and stays (pre-registered 15:59).** Current
+formulation: R13 a, b and B (three gallery runs). Sizes first: at the middle and the end of a run the control
+magnitude term is 1e-11 to 1e-9 of the merit and the control smoothness term 6e-9 to 8e-8 (bunny, dragon, heart,
+homer); arms C and G are therefore reruns of the current code, and what they miss measures the noise of the
+criteria. C (w_ctrl 0): thin difference median −0.11, silhouette −0.0001; misses by the letter: bob thin +5.2 (bob
+ranges 8.3–15.7 over every arm), the tail-jitter median 4.54e-6 in one run against a bound of 4.41e-6, and one beast
+freeze (10 windows, the parked ejection). G (w_creg 0): thin 0.00 (worst +1.6), silhouette +0.0001 (worst −0.0009),
+jitter 4.03e-6 and 4.26e-6, control roughness 1.7e-9 and 1.4e-9 against 2.4e-9 with the term on, surface roughness
+1.197 and 1.167 against 1.201–1.206: every criterion passes; the prediction that the controls and the surface would
+roughen was wrong. J (w_jvol 0): thin −0.05 (worst +2.1), silhouette −0.0001 (worst −0.0009), det F minimum 0.897
+and 0.896 against 0.890–0.894, the 1 % and 99 % quantiles of det F 0.987–0.988 and 1.013–1.014 against 0.988 and
+1.013, anisotropy p90 1.068 and 1.064 against 1.063; the one miss is the jitter median 4.60e-6 in one run, the same
+size as the dead-term arm's; the prediction that det F would spread was wrong. S (spray cleanup off): thin +0.11
+(worst +2.4), silhouette 0.0000 (worst −0.0011), but the median `stray_max` is 0.010 % in both runs against
+0.005–0.0075 % (bound 0.009), the median `out_nn_frac` 0.10 % against 0.05–0.07 %, and the runs are longer (windows
+median 48 and 52 against 38–44, delivered frames 1841 and 2081 against a bound of 1921); its largest `stray_max`
+without beast is lower (0.25 against 0.37–0.39) and `stray_final` and `out_dt_frac` are inside the range. 300k at
+35 windows (dragon, bunny; current: silhouette 0.9824–0.9827 and 0.9866–0.9867, world-thin 1.2–1.4 and 0.0): C
+0.9834 / 0.9864, G 0.9825 / 0.9873, J 0.9827 / 0.9865 with world-thin 1.1–1.5 and 0.0–0.1, det F minimum 0.892–0.900
+and 0.944–0.948, anisotropy p90 1.078–1.087 (current 1.083): inside the limits; under J the end velocity at window
+34 is higher (3.2e-3 on the dragon, 4.6e-4 on bunny; not a criterion; the current code's 300k runs range from 1e-4 to
+3.9e-3 on the dragon). S 0.9813 / 0.9853: inside ±0.002 but lower on both meshes by 0.0013. No guard fired in any
+run. Render influence: the first-window λ is identical in every arm (median 0.248; 0.396 and 0.249 at 300k) and
+g_share at the end 0.87–0.89. Verdict: G and J are removable; C is a term of 1e-10 of the merit whose arm shows only
+the criteria's noise, removable on that reading; S stays (its own criterion, narrowly, in both runs). Three are
+removable, so the combined arm runs before anything is deleted (R14b). What keeps the controls smooth and det F
+within 0.98–1.02 without these terms was not measured (the increment clip and the released phase are candidates).
 
 **D9b, 2026-10-01 15:49 CDT — on its own particles the near band does not dominate, the render term is its equal, and
 early in a run it opposes the transport, more strongly at 300k; the spray cleanup agrees with the transport and is
