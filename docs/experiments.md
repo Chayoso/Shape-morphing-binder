@@ -692,6 +692,47 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
 
 ## Results so far
 
+**R13, 2026-10-01 14:44 CDT — the selection without the dense distance: geometry and stability inside the legacy
+runs' range, one bound missed by 3 % in one run (pre-registered 13:51).** Two runs against the legacy merit's four
+(R12f a, b; R12e a, b). Silhouette: difference of the means against R12f, median +0.0001, worst −0.0007; medians
+0.9767, 0.9768 against 0.9764–0.9771. `thin_uncovered`: difference median −0.34, higher on 7 of 19, worst +1.1
+(bunny); medians 9.17, 10.09 against 9.32–11.03; bob 9.2, 9.6 against 14.8, 14.0 and 8.3, 13.5 under the legacy
+merit (inside what bob shows). Stability, each against the four legacy runs' range widened by its own width:
+rejected windows 103, 96 (legacy 98–101, bound 95–104: inside); committed windows median 44, 44 (41–48: inside);
+delivered frames median 1681, 1681 (1561–1841: inside); tail jitter median 3.99e-6, 4.15e-6 (3.29e-6–4.53e-6:
+inside); late windows with reversal cosine below −0.5: median share 0 in every run; end `kin` median 7.2e-5 and
+1.08e-4 (legacy 8.0e-5–9.3e-5, bound 6.8e-5–1.05e-4): the second run is 3 % over the bound, the first below the
+legacy minimum. No run stops before 15 windows moving (the legacy runs: beast froze once); C stops at 18 and 18
+windows with `kin` 1.8e-2, 1.9e-2 as under the legacy merit; beast sound in both runs (79 and 96 windows). The
+shadow reading the legacy merit on R13's trajectories disagrees on accept/reject in 98 of 1977 windows (5.0 %),
+as the reverse shadow did in R12f (4.8 %): the two rulers still judge windows differently, and the runs end in the
+same place. Render influence: λ at the first window identical (median 0.248), g_share at the end 0.88 against
+0.88; the render's share of the merit is larger by construction. By the user's rule this is case (1), geometry and
+stability within spread, with the one `kin` bound read as spread (one run 3 % over, the other under the legacy
+minimum; the two-run mean 9.0e-5 inside the legacy range); the prediction held, including C. The dense distance
+has no measurable function in the selection at 40k. Deleting it is the user's decision; the 300k confirmation (one
+run per ruler to its own stop) follows it.
+
+**D9, 2026-10-01 14:17 CDT — both local terms exceed the transport's gradient late in a run at every N, and the near
+band's ratio grows from 40k to 300k by 1.7 to 2.6 (pre-registered 13:51).** Position-space gradient norms at
+committed states of matched transport energy E. Near band over transport, 40k → 100k → 300k: bunny 0.85 → 1.31 →
+2.25 at E 1.3e-2, 1.24 → 1.86 → 3.10 at 2.4e-3, 1.69 → 2.18 → 4.00 at 1e-3 (×2.4–2.6, about N^0.45); dragon 0.70 →
+1.15 → 1.64 at 0.3, 2.72 → 3.13 → 4.53 near 8e-3, 2.93 → 3.55 → 5.75 at 3e-3, 3.95 → 5.03 → 7.02 near 1e-3
+(×1.7–2.4, N^0.26–0.42). The prediction (×2.7) is the upper end. Why: the band's active count grows as N (bunny
+at E 2.4e-3: 239, 744, 2069) and its pull per particle is constant up to the unit conversion (1.38e-5, 9.5e-6,
+6.6e-6: wu falls 2.1×), so its norm grows as wu √N (×1.4), while the transport's norm falls (×0.56 on bunny,
+about N^−0.3). Spray cleanup over transport: bunny 0.66 → 0.91 → 1.43 at 1.3e-2, 1.04 → 1.24 → 1.56 at 2.4e-3, 1.35
+→ 1.26 → 1.71 at 1e-3; dragon 1.42 → 1.64 → 2.25 near 8e-3, 1.63 → 1.52 → 1.62 at 3e-3, 2.66 → 2.17 → 1.01 near
+1e-3: no consistent growth late. The prediction that the spray term stays small was wrong: the isolation gate is
+non-zero on about 14 % of the particles at every N (5.6k of 40k, 13k of 100k, 41k of 300k on the dragon; a ramp
+from 1.2 to 1.8 median neighbour distances), and its gradient is 1–2.7× the transport's from E ≈ 1e-2 down. So is
+the surface proximity's (ot_scale |∇| 1.7e-4 against the transport's 5.8e-5 on the 40k dragon at E 1e-3). Late in
+a run the transport is the smallest of the four position gradients; the "cleanup" terms and the surface term
+carry the end of the morph. For the scale step: a plain mean (÷N) with wu kept would turn the near band's N^+0.15
+into about N^−0.85 and reverse the imbalance; with wu dropped it gives N^−0.5 against the transport's N^−0.3. What
+has to be invariant (the ratio at matched progress, or the pull per particle against the transport's per
+particle) is the definition to choose. A 300k run of 35 windows took 8 minutes on bunny.
+
 **R12f addendum, 2026-10-01 13:45 CDT — offline replay: the flips are the dense distance's variation, not a dilution
 of the tolerances.** The selection rule replayed on the recorded windows (`tmp/r12f_replay.py`) reproduces every
 recorded verdict of the actual and of the shadow selection (0 mismatches in 1977 windows). Hypothesis tested: a
