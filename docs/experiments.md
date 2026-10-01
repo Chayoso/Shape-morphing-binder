@@ -172,6 +172,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R13b, the 300k confirmation of the selection without the dense distance (sanity check, pre-registered 2026-10-01
+  15:04 CDT, before launch; no code change).** The user decided to delete the dense distance (R13: different window
+  decisions, the same outcome at 40k; the one `kin` bound 3 % over in one run read as spread). One 300k dragon run
+  per ruler to its own stop (no window budget), seed 97: the legacy merit (repo_r26, `output/gpu/r12f/
+  r12fW1300000_dragon_stop`) and the state merit (repo_r27, `output/gpu/r13/r13MS300000_dragon_stop`). Single
+  runs, so only a gross difference counts: silhouette apart by more than 0.003, world-thin by more than 1.5 points,
+  the stop window by more than a third, or a freeze in one arm only. Prediction: no gross difference; the state
+  merit's run stops within a third of the legacy run's window count. Reported: windows, minutes, rejections, end
+  `kin`, tail jitter, the shadow's disagreements along the long tail (the 35-window runs showed none).
 - **R13, the selection merit without the dense body-to-target distance (pre-registered 2026-10-01 13:51 CDT, launched
   13:52 after the suite passed on repo_r27 (269 passed); repo_r27 = repo_r26 with the merit's common form changed).** Names from here on: the objective's term on
   isolated particles is the spray cleanup; the distance field summed over every particle, which only the selection
