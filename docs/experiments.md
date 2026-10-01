@@ -172,6 +172,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R12b, which removed term does what (leave-one-out, pre-registered 2026-10-01 08:55 CDT, launched 08:55; no code
+  change: two copies of repo_r22 with one default set to zero, `repo_r22n` w_nn = 0 and `repo_r22b` w_box = 0).**
+  Arms NB (near band off, box kept) and BX (box off, near band kept) between R11f (both on) and R12 (both off).
+  Runs: the 300k dragon at 35 windows, one per arm; heart, C, spot, A and dragon at 40k, two runs per arm, seed 97
+  (`output/gpu/r12b`, `tmp/r12b_eval.py`). Reading, per effect: (a) the 300k speed-up belongs to an arm if its
+  transport energy at window 34 is at or below 2e-3 (R12 0.8e-3–1.1e-3, R11f 8e-3); (b) heart's thin loss belongs
+  to an arm if its two-run mean is at or above 10 (R12 11.6, R11f 7.1); (c) C's early stop belongs to an arm if
+  both runs stop before 30 windows with `kin` above 5e-3. Predictions: all three belong to NB; BX equals R11f on
+  everything (no delivered frame leaves the target extent). If the 300k gain and heart's loss are both the near
+  band's, the term is a nearest-point pull that helps where the target is thin and close (40k) and fights the
+  transport where its per-particle size outgrows the transport's (300k): the question becomes what the near band
+  did for heart that the surface proximity does not, not which weight to give it. Render influence: unchanged
+  channel; λ and g_share reported.
 - **R12, the cleanup reduced to the W1 pull (pre-registered 2026-09-30 23:50 CDT, launched 23:52 after the suite passed on
   repo_r23 (269 passed); repo_r23 = repo_r22 with the near-band pull and the box leash removed).** The cleanup was three terms with three constants: the
   isolation-gated W1 (w_dt 0.2), the near-band pull to the nearest target point (w_nn 0.2, with its berth and
@@ -564,6 +577,35 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R12, 2026-10-01 08:52 CDT (the runs ended 00:44) — the W1 alone: the 300k dragon gets about four times further
+in the same 35 windows and each window is a third cheaper; at 40k the geometry holds but heart loses thin and C
+stops early (pre-registered 2026-09-30 23:50).**
+300k dragon at 35 windows, two runs against R11f's two: silhouette 0.9824, 0.9827 against 0.9802, 0.9820;
+world-thin 0.3, 0.9 against 3.1, 4.0; transport energy at window 34 8.0e-4, 1.1e-3 against 8.0e-3, 8.3e-3 (R12
+is at 8e-3 by window 8); `kin` at window 34 1.5e-4, 1.0e-4 against 7.9e-3, 6.8e-3; `stray_final` 0.001, 0.002
+against 0.013, 0.021; `out_nn_far_frac` 0.106, 0.189 against 0.117, 0.111 (the second run exceeds the limit, as
+the prediction allowed); window 15.4 s against 22.9 s (gradient 8 s against 11, line search 3.3 s against 6.5),
+10 minutes against 15. None of this was predicted ("the box changes nothing, the near band is 1.2 % of the
+particles"): the prediction read the end state, where few particles are beyond the berth, and missed the early
+windows, where almost every particle is. The near band is SUM_p m_p relu(|x_p − nearest target point| − berth)
+over every particle beyond one berth (far bound 1000 spacings), assigned once per window: a nearest-point pull on
+the whole body, of constant size per particle whatever N, against a transport whose gradient per particle falls
+as 1/N. It competes with the transport's assignment, and its share grows with N. Which of the two removed terms
+does it is measured next (R12b).
+40k gallery, two runs against R11f's two: silhouette difference median −0.0004, worst −0.0012 (passes);
+`thin_uncovered` median +0.37, higher on 12 of 19; heart +4.5 (11.9, 11.3 against 6.5, 7.7) fails the limit of 3
+beyond its spread; spot +2.1, dragon +1.5, homer +1.5. `kin` medians 1.04e-4, 1.04e-4 against 8.7e-5, 9.0e-5:
+outside R11f's own spread, fails; C stops at 20 and 17 windows on three rejected candidates with `kin` 9e-3 and
+2e-2 and the transport energy rising (R11f: 63 and 52 windows, `kin` 1e-4), silhouette unchanged (0.9763, 0.9761
+against 0.9770, 0.9767). Strays: `stray_max` median 0.005 against 0.0075 and its largest value without beast 0.33–
+0.42 against 1.38–1.41 (lower); `stray_final` and `out_nn_far_frac` largest 0.005 against 0.0025 (at the limit);
+`out_dt_frac` largest 0.0125 against 0.005 (5 particles of 40k, over the limit by 0.005); `outside_max` 0 in every
+run; the G4 gate passed by 17 + 17 runs against 16 + 16. beast frozen in 2 of 6 (R11f 4 of 6), the sound runs
+79–113 windows. Window time unchanged at 40k (2.14–2.18 s). Render influence: λ at the first window identical on
+every mesh; g_share at the end 0.88 against 0.89 at 40k and 0.95–0.96 against 0.92–0.93 at 300k (the render's
+share is larger once the transport has settled). Verdict: not adopted as it stands (heart, C, `kin`); the 300k
+result is the largest effect of the whole reformulation and decides the next measurement.
 
 **R11f adopted, 2026-09-30 23:50 CDT (the user's decision).** Settling is two complementary conditions, both
 without a constant: the released motion (T dt)² mean over the released steps and particles of |v|² (trajectory
