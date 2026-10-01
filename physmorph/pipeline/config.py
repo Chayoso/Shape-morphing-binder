@@ -56,7 +56,6 @@ class PipelineConfig:
     w_ctrl: float = 1e-3            # control magnitude
     w_creg: float = 100.0           # control smoothness over the source kNN graph
     creg_k: int = 8
-    w_box: float = 10.0             # far-field leash beyond the target extent
     w_jvol: float = 50.0            # volume prior (J - 1) log J on the stored F
     ot_iters: int = 1600            # Sinkhorn sweep budget per solve
     ot_tol: float = 0.01            # marginal error of a converged solve
@@ -78,9 +77,8 @@ class PipelineConfig:
     dt_iso_hi: float = 1.8
     dt_res: int = 160               # the target DT's own fine grid
     dt_clamp_frac: float = 2.0      # DT clamp, in target extents
-    w_nn: float = 0.2               # near-band pull to the nearest target point
-    nn_berth_k: float = 1.0         # berth in target spacings (the prepare stage resolves it)
-    nn_far_k: float = 1000.0
+    nn_berth_k: float = 1.0         # the sampling berth in target spacings (the prepare stage resolves it)
+    nn_far_k: float = 1000.0        #   and its upper bound; the metrics' scale, no loss term reads them
 
     # ---- render objective ----
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration

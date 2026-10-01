@@ -172,6 +172,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R12, the cleanup reduced to the W1 pull (pre-registered 2026-09-30 23:50 CDT, before launch; repo_r23 = repo_r22
+  with the near-band pull and the box leash removed).** The cleanup was three terms with three constants: the
+  isolation-gated W1 (w_dt 0.2), the near-band pull to the nearest target point (w_nn 0.2, with its berth and
+  far bound) and, in the physics objective, the box leash beyond the target extent (w_box 10). R12 keeps the W1
+  alone, with its weight unchanged (its scale is a later step): the surface proximity places the surface, the
+  transport moves the mass, the W1 pulls isolated strays, and the domain box stays a validity constraint of the
+  rollout. The selection merit's common form becomes the ungated W1. Measured before the change, on R11f's 40
+  runs: `outside_max` is 0 in every run (no delivered frame leaves the target extent, so the leash is zero on the
+  delivered path); the near band's population at the end is 0.00–0.27 % of the particles at 40k and 1.2 % on the
+  300k dragon. Runs: the 40k gallery twice (19 meshes, seed 97), the 300k dragon at 35 windows twice, and beast four
+  more times (`output/gpu/r12`, `tmp/r12_eval.py`), against R11f's two runs (and its six beast runs). Pass, on the
+  two-run means: silhouette difference median within ±0.002 and no mesh but beast below by more than 0.004;
+  `thin_uncovered` difference median within ±1 point and no mesh worse by more than 3 beyond the arms' own
+  run-to-run difference; the stray measures (`stray_max`, `stray_final`, `out_nn_far_frac`, `out_dt_frac`): the
+  medians and the largest value over the meshes without beast not above R11f's larger run by more than R11f's own
+  difference between its two runs, and `outside_max` still 0; `kin` median within R11f's spread; the G4 ejection
+  gate passed by as many runs; beast frozen in at most 5 of 6 (R11f: 4 of 6); 300k: silhouette within ±0.002,
+  world-thin within ±1 point, `out_nn_far_frac` and `stray_final` not above R11f's larger run by more than its own
+  difference. Predictions: all pass; the box changes nothing; `out_nn_far_frac` on the 300k dragon is the one
+  number that may rise (0.11–0.12 % under R11f); the window gets slightly cheaper (the near-band assignment is no
+  longer built). Render influence: the render channel is unchanged; λ and g_share reported.
 - **R11f-b, how often each code meets the beast freeze (pre-registered 2026-09-30 23:29 CDT, launched 23:29; no code
   change).** beast at 40k, seed 97, four more runs each of PX85 (repo_r17), R11d (repo_r21) and R11f (repo_r22),
   six per code with the two each has (`output/gpu/r11fb`, `tmp/r11fb_eval.py`). A run is frozen if it commits
@@ -543,6 +564,17 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R11f adopted, 2026-09-30 23:50 CDT (the user's decision).** Settling is two complementary conditions, both
+without a constant: the released motion (T dt)² mean over the released steps and particles of |v|² (trajectory
+relaxation: without it six meshes stop still moving) and the residual drift (T dt)² mean_i |v_T,i|² inside the
+geometry energy (terminal rest: without it the end is faster and small meshes lose thin). w_kin (5) and w_kin_var
+(200) are deleted. Accepted with it: the 300k dragon is 4–5 windows (about 2 minutes) behind PX85 at the 35-window
+budget, because the 40k balance is kept where the legacy unit conversion weakened the velocity terms 2.2×; the
+runtime is taken back elsewhere (line search, the second adjoint, the tail). Parked, not a stability question:
+the beast freeze (the `domain` ejection; 2 of 6 under PX85, 4 of 6 under R11f, 0 of 6 without the drift), a
+forward/viability defect. Watch list: A's thin is +2.7 points in both runs (9.0, 8.6 against 5.8, 6.4), inside
+the limit and reproducible; looked at again after the cleanup pruning. Stability is frozen here.
 
 **R11f-b, 2026-09-30 23:45 CDT — beast freezes in 2 of 6 runs under PX85, 0 of 6 under R11d, 4 of 6 under R11f
 (pre-registered 23:29).** Every frozen run stops at 11–12 windows with reason `domain` and |v|max 2.8–3.8 in its

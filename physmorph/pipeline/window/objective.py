@@ -3,12 +3,12 @@
 Physics: the transport energy (grid Sinkhorn divergence to the fixed target + the surface
 proximity + the residual drift of the released end), scaled once to D_vol's gradient norm at
 the source; the stability term (the released motion, (T dt)^2 mean |v|^2 over the released
-steps, unscaled); control magnitude and smoothness; the far-field box leash; the (J-1) log J
-volume prior.
+steps, unscaled); control magnitude and smoothness; the (J-1) log J volume prior. The domain
+box is a validity constraint of the rollout, not a term.
 Render: silhouette + matched shading, weighted by lambda outside this module.
-Cleanup (fixed weights, outside the render balance): the isolation-gated W1 pull and the
-near-band pull. Frozen per window: the transport gate of u, the isolation gate, the
-near-band assignment and the control-smoothness neighbours.
+Cleanup (fixed weight, outside the render balance): the isolation-gated W1 pull of stray
+particles. Frozen per window: the transport gate of u, the isolation gate and the
+control-smoothness neighbours.
 """
 from __future__ import annotations
 
@@ -18,8 +18,7 @@ import torch
 
 from ... import gpu
 from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
-from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_w1,
-                                  isolation_gate, nn_band_assign)
+from ...losses.volumetric import d_vol_density, d_w1, isolation_gate
 from ..render_loss import d_pbr, d_render
 from .setup import Window
 
@@ -85,9 +84,6 @@ class Objective:
         m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi)
         self.dt_idx = torch.nonzero(m_dt > 0).squeeze(1)
         self.m_dt = m_dt
-        self.nn_idx, self.nn_elig = nn_band_assign(x0, tgt.knn, tgt.nn_spacing, cfg.nn_berth_k,
-                                                   cfg.nn_far_k)
-        self.berth = cfg.nn_berth_k * tgt.nn_spacing
 
     # ---- terms ----
     def dvol_density(self, xT):
@@ -134,29 +130,25 @@ class Objective:
         cfg, wu, N = self.cfg, self.win.wu, self.win.N
         dfc, xT, FT = e.dfc[:cfg.T], e.xT, e.FT
         L = e.lv + e.lstab + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
-        L = L + wu * cfg.w_box * torch.clamp(xT.abs() - self.tgt.extent, min=0).pow(2).sum(1).mean()
         L = L + wu * cfg.w_creg * (dfc - dfc[:, self.knn_creg].mean(2)).pow(2).mean()
         J = torch.linalg.det(FT.view(-1, 3, 3))
         L = L + wu * cfg.w_jvol * ((J - 1.0) * torch.log(J.clamp_min(1e-6))).mean()
         return L
 
     def cleanup(self, xT, common_geometry=False):
-        """Fixed-weight one-signed cleanup (not lambda-scaled, not in phys_core). The W1 sum
-        runs on the isolation gate's support (the same sum and gradient). common_geometry:
-        the ungated W1 and the near band against the CURRENT nearest target points, the
-        form every window's selection merit is compared in."""
+        """The cleanup term (fixed weight, not lambda-scaled, not in phys_core): the W1 pull of isolated particles
+        down the target's distance field, summed on the isolation gate's support (the same sum and gradient).
+        common_geometry: the ungated W1, the form every window's selection merit is compared in. The near-band
+        pull and the box leash are gone (R12): the surface proximity places the surface, the transport moves the
+        mass, and the domain box is a validity constraint of the rollout."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         if common_geometry:
-            L = wu * cfg.w_dt * d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
-            return L + wu * cfg.w_nn * d_nn_band_current(xT, t.m, t.pts, torch.ones_like(t.m),
-                                                         self.berth, t.knn)
+            return wu * cfg.w_dt * d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
         if self.dt_idx.numel() > 0:
-            L = wu * cfg.w_dt * d_w1(xT.index_select(0, self.dt_idx),
-                                     self.m_dt.index_select(0, self.dt_idx),
-                                     t.dt3, t.dtgmin, t.dtdx, t.dtdims)
-        else:
-            L = xT.sum() * 0.0                          # an empty gate: zero, still on the graph
-        return L + wu * cfg.w_nn * d_nn_band(xT, t.m, t.pts, self.nn_idx, self.nn_elig, self.berth)
+            return wu * cfg.w_dt * d_w1(xT.index_select(0, self.dt_idx),
+                                        self.m_dt.index_select(0, self.dt_idx),
+                                        t.dt3, t.dtgmin, t.dtdx, t.dtdims)
+        return xT.sum() * 0.0                           # an empty gate: zero, still on the graph
 
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""

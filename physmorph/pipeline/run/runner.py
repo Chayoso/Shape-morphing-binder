@@ -81,8 +81,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     sel = Selection(cfg)
     frozen = False
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
-        f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim} "
-        f"w_box={cfg.w_box}")
+        f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim}")
     c2f_pending = cfg.c2f_event and cfg.render_res_hi > cfg.render_res
     for a in range(cfg.animations):
         if not frozen and sel.plateau(a):
