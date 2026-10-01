@@ -172,6 +172,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R12f, the two W1 rulers measured (pre-registered 2026-10-01 12:40 CDT, before launch; repo_r26 = repo_r25 with
+  records only, and the far-bound plumbing swept out).** The objective's W1 runs over the particles the isolation
+  gate marked at the window start; the selection merit's common form runs over every particle, so that windows
+  with different gates are compared with one ruler. No behaviour changes. Recorded per committed window:
+  `merit_w1_gap` = the merit's W1 (all particles) minus the objective's (gated), at the committed state, and the
+  verdicts of a shadow selection that follows the same trajectory but reads the merit with the gated W1
+  (`shadow_reject`, `shadow_improved`, `shadow_stop`, `shadow_merit`) beside the actual ones. Also swept, no
+  effect on a run: nn_far_k leaves the config, the prepare stage and the probes; an empty near band (berth at or
+  beyond the loss cell) raises. Runs: the 40k gallery twice (19 meshes, seed 97) and the 300k dragon at 35 windows
+  twice (`output/gpu/r12f`, `tmp/r12f_eval.py`). Two numbers decide (the user's rule): (1) the gap as a share of
+  the merit; (2) how often the two rulers disagree on a window's accept/reject, on "improved" (which drives the
+  plateau count and the stop), on the stop itself and on the delivered best window. If the gap is sizable and no
+  verdict flips, the merit's W1 can be aligned for consistency as the near band was; if verdicts flip often, why
+  the selection needs the all-particle W1 is looked at before anything is changed. Check on the sweep: the gallery
+  within spread of R12e's two runs (silhouette median within ±0.002, thin median within ±1). Predictions: the gap
+  is a large share of the late merit (tens of per cent: the all-particle W1 does not go to zero at the end, d_dt
+  stays at 8–170 in legacy units); accept/reject flips are rare (under 5 % of the windows) but "improved" flips
+  are not, because a near-constant offset changes the relative tolerance; the gallery is unchanged.
 - **R12e, the selection merit reads the same near band as the objective (pre-registered 2026-10-01 10:59 CDT, launched
   10:59 after the suite passed on repo_r25 (270 passed); repo_r25 = repo_r24 with the common form's near band bounded
   at one loss cell).** In R12d the objective's
@@ -637,6 +655,17 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R12e adopted, 2026-10-01 12:40 CDT (the user's decision).** The cleanup is the isolation-gated W1 and the near
+band between the sampling berth and one loss cell, in the objective and in the selection merit; the box leash and
+the far bound of 1000 spacings are gone. Roles by distance to the target: inside the berth nothing acts; between
+the berth and one loss cell, where the transport's blur cannot tell positions apart, the near band; beyond it the
+transport and, for isolated particles, the W1. Recorded as a real trade, not as "geometry preserved": against R11f
+spot loses about 2.8 thin points (six runs each), bimba and teapot 1–2; the 300k dragon is four to five times
+further at window 34 with fewer strays. C's early stop is confirmed not to be a near-band mismatch (R12d and R12e
+both stop at 18 windows) and is parked with the merit alternation. The near band is frozen here. Next, in this
+order: the selection merit's W1 is measured before any change (R12f); then the scale of the W1 and the near band
+against N (both are sums with a constant pull per particle).
 
 **R12e, 2026-10-01 11:57 CDT — the selection merit reading the same band: nothing moves beyond spread; every
 criterion passes (pre-registered 10:59).** Two runs against R12d's two. 40k gallery: silhouette difference median

@@ -130,7 +130,7 @@ def analyse(label, path):
     q4 = x.clone().requires_grad_(True)
     wu = 1.0 / pack.unit_ratio
     m_dt = pack.m * isolation_gate(x, cfg.dt_iso_lo, cfg.dt_iso_hi)
-    nn_idx, nn_el = nn_band_assign(x, pack.knn, pack.nn_spacing, cfg.nn_berth_k, cfg.nn_far_k)
+    nn_idx, nn_el = nn_band_assign(x, pack.knn, pack.nn_spacing, cfg.nn_berth_k, float(pack.ldx) / float(pack.nn_spacing))
     Lc = wu * (cfg.w_dt * d_w1(q4, m_dt, pack.dt3, pack.dtgmin, pack.dtdx, pack.dtdims)
                + cfg.w_nn * d_nn_band(q4, pack.m, pack.pts, nn_idx, nn_el, cfg.nn_berth_k * pack.nn_spacing))
     gC = torch.autograd.grad(Lc, q4)[0]

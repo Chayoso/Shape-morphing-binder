@@ -34,7 +34,7 @@ class Prepared:
     ppc: float
 
 
-def sampling_berth(target: np.ndarray, far_k: float) -> float:
+def sampling_berth(target: np.ndarray) -> float:
     """The near-band berth in target spacings: median 8th-neighbour distance / median
     nearest-neighbour distance (the sampling's own scale)."""
     target = np.asarray(target)
@@ -45,13 +45,13 @@ def sampling_berth(target: np.ndarray, far_k: float) -> float:
     if not spacing > 0:
         raise ValueError("the sampling berth needs a positive target nearest-neighbour spacing")
     ratio = gpu.median(d[:, 8]) / spacing
-    if not np.isfinite(ratio) or not 0 < ratio < far_k:
-        raise ValueError("the sampling berth must be finite and smaller than nn_far_k")
+    if not np.isfinite(ratio) or not ratio > 0:
+        raise ValueError("the sampling berth must be finite and positive")
     return float(ratio)
 
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
-            poisson: float, far_k: float, log=print, loss_ref_n: int = 0) -> Prepared:
+            poisson: float, log=print, loss_ref_n: int = 0) -> Prepared:
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified")
     tgt, v_tgt = load_normalized(tgt_path, n, seed + 1, match_volume=v_src, sample="stratified",
                                  return_volume=True)
@@ -85,7 +85,7 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     log(report(disc, tgt).splitlines()[-1].replace("[disc] measured", "[disc] TARGET measured"))
     log(f"[disc] loss_res {disc.loss_res} (" + (f"{per_dx:.3f} loss cells per dx, following N above {loss_ref_n}"
                                                 if per_dx > 1.0 else "the MPM cell") + ")")
-    berth = sampling_berth(tgt, far_k)
+    berth = sampling_berth(tgt)
     log(f"[v2run] sampling-scale NN berth: nn_berth_k={berth:.17g}")
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
                     loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc)

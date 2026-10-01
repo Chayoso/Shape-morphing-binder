@@ -26,7 +26,7 @@ ap.add_argument("--scales", default="1e-3,3e-3", help="steps: relative change of
 ap.add_argument("--leaves", default="dFc,u")
 a = ap.parse_args()
 cfg0 = PipelineConfig()
-prep = prepare(a.src, a.tgt, a.n, a.seed, 26.0, cfg0.young, cfg0.poisson, cfg0.nn_far_k, log=lambda s: None)
+prep = prepare(a.src, a.tgt, a.n, a.seed, 26.0, cfg0.young, cfg0.poisson, log=lambda s: None)
 cfg = PipelineConfig(loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res, nn_berth_k=prep.nn_berth_k)
 prm, x = prep.prm, gpu.tensor(prep.src)
 tgt = build_target(prep.tgt, prm, cfg)

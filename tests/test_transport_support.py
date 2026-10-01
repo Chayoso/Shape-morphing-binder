@@ -16,9 +16,9 @@ def test_sampling_berth_uses_target_spacing_and_is_rigid_scale_invariant():
     # Cube corners + centre: median NN=sqrt(3)/2, median eighth NN=sqrt(3).
     target = np.array([[x, y, z] for x in (0., 1.) for y in (0., 1.)
                        for z in (0., 1.)] + [[.5, .5, .5]])
-    assert sampling_berth(target, 1000.) == pytest.approx(2.)
+    assert sampling_berth(target) == pytest.approx(2.)
     transformed = 3 * target[:, [1, 2, 0]] + 2
-    assert sampling_berth(transformed, 1000.) == pytest.approx(2.)
+    assert sampling_berth(transformed) == pytest.approx(2.)
 
 
 @pytest.mark.parametrize('target', [np.zeros((9, 3)), np.zeros((8, 3)),
@@ -26,13 +26,7 @@ def test_sampling_berth_uses_target_spacing_and_is_rigid_scale_invariant():
 def test_sampling_berth_rejects_undefined_spacing(target):
     from physmorph.prepare import sampling_berth
     with pytest.raises(ValueError, match='sampling berth'):
-        sampling_berth(target, 1000.)
-
-
-def test_sampling_berth_must_stay_inside_the_far_band():
-    from physmorph.prepare import sampling_berth
-    with pytest.raises(ValueError, match='nn_far_k'):
-        sampling_berth(cloud(), .5)
+        sampling_berth(target)
 
 
 @pytest.mark.parametrize('weight', [-1., float('nan'), float('inf')])
@@ -252,7 +246,7 @@ def test_target_referenced_floor_is_the_target_density_at_the_particle_and_conti
 
 def test_loss_grid_follows_the_particle_count_above_the_reference():
     from physmorph.prepare import prepare
-    kw = dict(seed=3, cell_diag=26., young=1.4e5, poisson=.2, far_k=1000., log=lambda s: None)
+    kw = dict(seed=3, cell_diag=26., young=1.4e5, poisson=.2, log=lambda s: None)
     base = prepare("assets/isosphere.obj", "assets/bunny.obj", 4000, **kw)
     same = prepare("assets/isosphere.obj", "assets/bunny.obj", 4000, loss_ref_n=4000, **kw)
     fine = prepare("assets/isosphere.obj", "assets/bunny.obj", 4000, loss_ref_n=500, **kw)

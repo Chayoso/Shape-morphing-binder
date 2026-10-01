@@ -90,6 +90,8 @@ class Objective:
         self.nn_idx, self.nn_elig = nn_band_assign(x0, tgt.knn, tgt.nn_spacing, cfg.nn_berth_k,
                                                    float(tgt.ldx) / float(tgt.nn_spacing))
         self.berth = cfg.nn_berth_k * tgt.nn_spacing
+        if not self.berth < float(tgt.ldx):
+            raise ValueError("the near band is empty: the sampling berth reaches the loss cell")
 
     # ---- terms ----
     def dvol_density(self, xT):
@@ -169,6 +171,15 @@ class Objective:
             whole = d_nn_band_current(xT, t.m, t.pts, ones, self.berth, t.knn)
             band = d_nn_band_current(xT, t.m, t.pts, ones, self.berth, t.knn, far=float(t.ldx))
         return float(wu * cfg.w_nn * (whole - band))
+
+    def w1_merit_gap(self, xT) -> float:
+        """A record: the selection merit's W1 (every particle) minus the objective's (the window's isolation gate),
+        both at the current state, in the merit's units."""
+        cfg, t, wu = self.cfg, self.tgt, self.win.wu
+        with torch.no_grad():
+            whole = d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
+            gated = d_w1(xT, self.m_dt, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
+        return float(wu * cfg.w_dt * (whole - gated))
 
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""

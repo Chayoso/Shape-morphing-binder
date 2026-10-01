@@ -120,7 +120,7 @@ def main():
     cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
                           loss_follows_n=args.loss_follows_n)
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
-                   cfg0.nn_far_k, log=lambda s: print(s, flush=True),
+                   log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,

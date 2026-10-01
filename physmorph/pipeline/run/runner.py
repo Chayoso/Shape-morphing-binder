@@ -34,7 +34,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason",
                 "replay_dx_max", "replay_dx_rms", "replay_dlv", "replay_dlk", "replay_dlr",
-                "t_start", "t_grad", "t_ls", "t_commit", "merit_far",
+                "t_start", "t_grad", "t_ls", "t_commit", "merit_far", "merit_w1_gap",
                 "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio")
 _NULL_FIELDS = ("null_reason", "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe",
                 "iter_probe", "E_accept", "commit_E_final", "commit_jt", "commit_reason", "replay_rel",
@@ -79,6 +79,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     frames = FrameStore(src, F_stride or cfg.T)
     hist, guards = [], {k: 0 for k in GUARDS}
     sel = Selection(cfg)
+    shadow = Selection(cfg)            # a record: the same rule read with the objective's W1 (isolation-gated)
     frozen = False
     log(f"[v2] N={N} T={cfg.T} iters={cfg.iters} animations={cfg.animations} "
         f"render=on(a={cfg.lambda_auto:g}) x{cfg.render_weight_scale:g} assim={cfg.assim}")
@@ -94,9 +95,10 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             c2f_pending, frozen = False, False
             cfg.render_res = cfg.render_res_hi
             tgt = rebuild_for_resolution(tgt, target_x, prm, cfg)
-            sel.new_epoch()
-            sel.stale, sel.lam = 0, None
-            sel.reject_streak, sel.last_reject_score = 0, None
+            for s_ in (sel, shadow):
+                s_.new_epoch()
+                s_.stale, s_.lam = 0, None
+                s_.reject_streak, s_.last_reject_score = 0, None
             hist.append({"animation": a, "c2f_render_res": cfg.render_res})
             log(f"[v2] c2f at anim {a + 1}: render targets rebuilt at {cfg.render_res}px")
         if frozen:
@@ -140,6 +142,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] anim {a + 1}: dead start state; free rollout {rec['dead_free']}, "
                     f"without the last assimilation {rec['dead_free_noassim']}")
             hist.append(rec)
+            shadow.null()
             if sel.null():
                 frozen = True
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
@@ -159,6 +162,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         components = {"phys": rec["transport_energy"], "render": rec["d_sil"], "dt": rec["d_dt"]}
         disp = (x - x_start).reshape(-1)
         outer_reject, brake_reject, improved = sel.judge(rec, components, disp)
+        alt = _shadow_judge(shadow, rec, components, disp, float(res.hist[-1]["lambda"] or 0.0), improved)
         if outer_reject:
             # undo every mutation made after the window start (plasticity, lambda); a
             # rejected lineage is not retried: cold restart, no warm start or step memory
@@ -171,6 +175,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             rec.update({"null_commit": 1, "outer_rejected": 1, "brake_reject": int(brake_reject)})
             hist.append(rec)
             stop = sel.rejected(rec, brake_reject, stats.get("replay_rel", 0.0))
+            rec["shadow_stop"] = int(shadow.rejected(alt, brake_reject, stats.get("replay_rel", 0.0)))
+            rec["actual_stop"] = int(stop)
             _notify(on_commit, a, x, F, v, rec)
             log(f"[v2] anim {a + 1}: outer merit rejected candidate (gain={_fmt(rec['outer_gain'])}, "
                 f"physics gain={_fmt(rec['phys_gain'])}, reversal={rec['reversal_cos']})")
@@ -182,6 +188,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             continue
         rec["frame_end"] = len(frames)
         converged = sel.accepted(rec, a, disp, improved)
+        rec["shadow_stop"] = int(shadow.accepted(alt, a, disp, bool(rec["shadow_improved"])))
+        rec["actual_stop"] = int(converged)
         hist.append(rec)
         _notify(on_commit, a, x, F, v, rec)
         if converged:
@@ -254,3 +262,16 @@ def _notify(on_commit, a, x, F, v, rec):
 
 def _fmt(v):
     return "n/a" if v is None else format(v, ".3g")
+
+
+def _shadow_judge(shadow, rec, components, disp, lam, improved) -> dict:
+    """A record, no effect on the run: the selection rule judged with the merit whose W1 is the objective's
+    (isolation-gated) instead of the common form's (every particle), on the same trajectory. Writes the shadow's
+    verdicts beside the actual ones into rec and returns the shadow's copy of the record."""
+    alt = dict(rec)
+    alt["selection_merit"] = rec["selection_merit"] - (rec.get("merit_w1_gap") or 0.0)
+    shadow.check_lambda(alt, lam)
+    s_reject, s_brake, s_improved = shadow.judge(alt, components, disp)
+    rec.update({"shadow_merit": alt["selection_merit"], "shadow_reject": int(s_reject), "shadow_brake": int(s_brake),
+                "shadow_improved": int(s_improved), "judge_improved": int(improved)})
+    return alt
