@@ -172,6 +172,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **R12c, which part of the near band the 40k meshes need (diagnostic, pre-registered 2026-10-01 09:26 CDT, launched
+  09:26; no code change: `repo_r22f` = repo_r22 with the default nn_far_k = 4.5 instead of 1000).** The near
+  band's eligibility is berth < distance to the nearest target point < nn_far_k spacings, frozen per window. With
+  the far bound at 4.5 spacings (the bound its unit test and the `out_nn_far_frac` metric use) only particles in
+  a band next to the target are pulled; the far pull on the rest of the body is off. Arm NEAR between R11f (the
+  whole pull) and NB (none). Runs: the 300k dragon at 35 windows; heart, C, spot, A and dragon at 40k, two runs,
+  seed 97 (`output/gpu/r12c`, `tmp/r12c_eval.py`). Reading: the 40k benefit is the near part's if heart's two-run
+  mean thin is at or below 8.5 (R11f 7.1, NB 10.4) and C runs at least 40 windows in both runs; the 300k cost is
+  the far part's if the transport energy at window 34 is at or below 2e-3 (NB 1.2e-3, R11f 8e-3). Predictions:
+  both hold (the thin points and C's settling are near-surface work; the fight with the transport is the pull on
+  particles far from the target). If both hold, the term's defect is its missing far bound, and what remains to
+  define without a tuned number is the band's width and the size of the pull against a transport that falls with
+  N; if heart needs the far pull, the near band is doing transport's work at 40k and the question goes back to
+  the geometry energy. This is a measurement, not an adoption candidate: 4.5 is a number.
 - **R12b, which removed term does what (leave-one-out, pre-registered 2026-10-01 08:55 CDT, launched 08:55; no code
   change: two copies of repo_r22 with one default set to zero, `repo_r22n` w_nn = 0 and `repo_r22b` w_box = 0).**
   Arms NB (near band off, box kept) and BX (box off, near band kept) between R11f (both on) and R12 (both off).
@@ -577,6 +591,21 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R12b, 2026-10-01 09:24 CDT — all three effects belong to the near band; the box changes nothing (pre-registered
+08:55).** (a) 300k dragon at 35 windows: with the near band off the transport energy is 7.5e-3 at window 8 and
+1.2e-3 at window 34 (world-thin 0.6, silhouette 0.9808, window 15.5 s, 10 minutes), as R12; with the box off it is
+1.9e-1 and 7.1e-3 (world-thin 2.7, 22.4 s, 15 minutes), as R11f. (b) heart's thin, two-run means: 10.4 with the
+near band off (10.7, 10.1) against 7.1 with the box off (6.5, 7.7, R11f's two values to the digit) and 7.1 under
+R11f; spot goes the same way (10.5 against 7.8 and 7.5). (c) C stops at 20 and 19 windows with `kin` 1e-2 when
+the near band is off and runs 49 and 65 windows with the box off. A and the 40k dragon do not separate the arms
+(A 7.4 / 7.6 against 8.8; dragon 14.0 / 14.0 against 12.7, within the 12–14 the dragon shows across codes). The
+three predictions hold. Reading: the box leash is inert and can go. The near band is one term doing two things:
+late in a 40k run it pulls body mass that sits outside the surface onto it (heart, spot: thin points covered; C:
+the run settles), and early in a 300k run it pulls the whole body to its nearest target points against the
+transport's assignment. Its definition has no band: every particle farther than one berth from its nearest target
+point is eligible up to 1000 spacings, and the pull per particle does not fall with N while the transport's does.
+What part of it the 40k meshes need is measured next (R12c).
 
 **R12, 2026-10-01 08:52 CDT (the runs ended 00:44) — the W1 alone: the 300k dragon gets about four times further
 in the same 35 windows and each window is a third cheaper; at 40k the geometry holds but heart loses thin and C
