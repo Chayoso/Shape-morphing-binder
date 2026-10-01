@@ -544,6 +544,20 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
 
 ## Results so far
 
+**R11f-b, 2026-09-30 23:45 CDT — beast freezes in 2 of 6 runs under PX85, 0 of 6 under R11d, 4 of 6 under R11f
+(pre-registered 23:29).** Every frozen run stops at 11–12 windows with reason `domain` and |v|max 2.8–3.8 in its
+last windows (0.06–0.8 in the sound ones); the sound runs of the three codes agree (silhouette 0.9678–0.9709,
+thin 11.2–15.0). By the pre-registered reading R11f is not worse than PX85 (4 against 2, the threshold was a
+difference of 3), and "the drift exposes the freeze" is not established as written (PX85 has 2 of 6, the reading
+asked for at least 3); the prediction for PX85 (3–5) was wrong, the others held. Pooled, the two codes that carry
+the drift freeze in 6 of 12 runs and the one without it in 0 of 6 (one-sided exact p = 0.05): the drift is
+associated with the ejection, which stays parked; this is evidence for that dossier, not a reason to drop the
+drift (without it the released end is faster and small meshes lose thin, R11d-s). With R11f and R11f-b the
+stability question stands as: R11f reproduces PX85 on the gallery (geometry, end velocity, the beast freeze within
+counts) without w_kin and w_kin_var, and is 4–5 windows behind PX85 on the 300k dragon at 35 windows because it
+keeps the 40k balance where the legacy unit conversion weakened the velocity terms 2.2×. Adoption is the user's
+decision.
+
 **R11f, 2026-09-30 23:27 CDT — the released motion plus the drift: PX85's geometry and end velocity on 18 of 19
 meshes; beast freezes in both runs; the 300k run is 4–5 windows behind at the budget (pre-registered 22:34).**
 Two runs against PX85's two. Silhouette: difference of the means, median +0.0000; without beast the worst is
