@@ -173,7 +173,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
 - **R11f, the released motion as the stability term with the residual drift back inside the geometry energy
-  (pre-registered 2026-09-30 22:35 CDT, before launch; repo_r22 = repo_r21 with the drift restored).** Physics
+  (pre-registered 2026-09-30 22:34 CDT, launched 22:35 after the suite passed on repo_r22 (269 passed); repo_r22 =
+  repo_r21 with the drift restored).** Physics
   objective: ot_scale · (S_ε + proximity + (T dt)² mean_i |v_T,i|²) + (T dt)² mean over the released steps and
   particles of |v|² + the regularisers. It is R11c's arm R with the legacy 200 wu replaced by (T dt)² (equal within
   7 % at 40k, 2.2× at 300k); no weight is added, w_kin (5) and w_kin_var (200) stay removed; the outer merit reads
