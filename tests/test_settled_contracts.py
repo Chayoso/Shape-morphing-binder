@@ -231,6 +231,6 @@ def test_state_reason_names_the_failing_check():
 def test_proximity_form_runs_and_records_the_gradient_ratio(prm, clouds):
     """support_form proximity: the target-surface proximity replaces the support; committed windows record its mean
     and its position-gradient norm against the transport's, and no bound weight."""
-    res = run_pipeline(*clouds, prm, _cfg(animations=3, support_form="proximity"), log=lambda *_: None)
+    res = run_pipeline(*clouds, prm, _cfg(animations=3, support_form="proximity", work_telemetry=True), log=lambda *_: None)
     rec = next(r for r in res["history"] if r.get("frame_end"))
     assert rec["sup_B"] >= 0. and rec["sup_w_eff"] is None and rec["sup_grad_ratio"] >= 0.
