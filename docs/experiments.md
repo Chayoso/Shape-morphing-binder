@@ -427,6 +427,38 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   sample's; silhouette higher on at least 15 meshes; three to five times the windows); OFF's 4–11-spacing offset
   lower than ON's on at least 12 of 19 (the features the relaxation erases); beast or one other mesh freezes in
   one arm.
+  **Result (2026-10-02 16:30 CDT; 38 runs, no guard; `output/gpu/d16`, `python3 tmp/d16_eval.py`).** Readings A and
+  C hold; B does not.
+  Geometry, OFF against ON: silhouette IoU higher on 17 of 19 (median +0.0052; bunny 0.9757 → 0.9849, dragon
+  0.9752 → 0.9804, A 0.9787 → 0.9871, maxplanck 0.9769 → 0.9857), thin share lower on 15 of 19 (median −1.9 points;
+  dragon 14.2 → 9.9, maxplanck 9.2 → 3.8, spot 9.7 → 4.8), chamfer median −0.0016. The two exceptions: beast froze
+  under OFF at window 9 (0.7900, ten null windows, the parked ejection), and C stops at 19–20 windows in both arms
+  (0.9760, 0.9750).
+  Roughness of the outermost layer, in spacings (medians over the 19 meshes). The ≤ 4-spacing offset from the
+  target mesh: target sample 0.20, ON 0.12, OFF 0.19; OFF over the target sample's 0.96, at most 1.1 times it on
+  17 of 19 (the other two are beast, frozen, and C, 1.24), above 1.5 times on none; OFF over ON 1.63. The plane
+  residual the relaxation removes: source sample 0.286, target sample 0.292, ON 0.061, OFF 0.316; OFF at or below
+  the source sample's on 2 of 19 (it sits about a tenth above it). The 4–11-spacing offset: target sample about
+  0.19, ON about the same, OFF over ON 1.14, lower than ON on none.
+  The run, OFF against ON: committed windows median 289 against 46 (OFF runs to the 300-window budget on 15
+  meshes); minutes summed 333 against 89; null windows 156 against 30; rejected windows 7 against 97; the accepted
+  step of the last ten windows about 1e-4 against 6e-4 (maxplanck and nefertiti end at a zero step); end jitter
+  1e-7–5e-7 against 3e-6–9e-6. OFF reaches ON's final merit at window 6–26 (bunny 10 against ON's 46 windows,
+  dragon 26 against 65, fandisk 8 against 25): to ON's own quality OFF is the faster arm, and then it goes on
+  improving and does not stop. Render: λ of the first window 0.248 and 0.249, median g_share 0.88 and 0.81.
+  Predictions: A and C confirmed (the ≤ 4-spacing offset 0.17–0.24 under OFF, the removable residual 0.28–0.34,
+  silhouette higher on 17); the windows rose by 6.2, more than the predicted three to five, bounded by the budget;
+  beast froze under OFF as predicted. Refuted: OFF's 4–11-spacing offset is not lower than ON's on any mesh (in
+  this band both arms sit at the target sample's own level, so at 40k the gallery's lost relief does not show
+  there; the silhouette and the thin share show it). The origin reading is not met by the letter: OFF's
+  removable residual is a tenth above the source sample's on 17 of 19.
+  Reading: with the relaxation off the surface is as rough as a perfect sample of the target, no rougher (0.96 of
+  it at 4 spacings and less); with it on the surface is smoother than a sample of the target can be (0.6 of it),
+  which is the over-smoothing D14 and D15 measured as lost relief. The relaxation is not needed for smoothness.
+  What it does provide is the stop: with it the run ends after 20–80 windows; without it the same recipe reaches
+  that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
+  open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
+  the surface.
 - **D15, the closed loop on ridged targets, with the layer relaxation on and off (diagnostic, pre-registered
   2026-10-02 12:36 CDT, before launch [first written as 12:37, a minute ahead of the server clock at the launch:
   corrected]; `make_ridge_slab.py`, `ridge_closed_loop.py`, `tmp/d15.sh`).** D14, open
