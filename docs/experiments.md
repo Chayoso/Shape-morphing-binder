@@ -231,6 +231,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   least two meshes. (3) Assimilation: at 0 not reached on at least three meshes (the body keeps the sphere as its
   rest shape and springs back in the released half); 0.25 and 1 reached. (4) Drag: reached at both; at 0 more
   windows than the base on at least three meshes.
+- **F1, the frozen recipe under external forces (feasibility, pre-registered 2026-10-01 23:57 CDT, before launch;
+  repo_r34 = repo_r33 with the centre of mass and its velocity in the window record).** Nothing in the objective
+  changes: the target, the cameras and the domain stay fixed in the world. The simulator already carries a uniform
+  acceleration on the grid, a separating floor with friction and separating domain walls. 40k, seed 97, bunny and
+  dragon (`output/gpu/f1`, `tmp/m1_eval.py f1`): (a) the floor alone (at the source's lowest point, the target moved
+  to stand on it); (b) the floor with gravity at G = ρ g H / E = 0.02, 0.1 and 0.5 (g = 0.65, 3.2, 16 wu/s²; G is
+  the strain the body's own weight makes); (c) G = 0.1 with floor friction 0.5; (d) no floor, a sideways
+  acceleration of 3.2 wu/s² (the body's centre of mass must move: internal stress cannot change it, and the drag
+  0.9 /s gives a terminal speed of 3.6 wu/s, which reaches the wall at 5.5 wu in about two seconds, 12 windows).
+  Predictions: (a) reached on both (within 0.01 of M1's lower base run); (b) reached at 0.02; at 0.1 reached on the
+  bunny with world-thin worse than both base runs (thin parts sag in the released half); at 0.5 not reached (each
+  commit makes half the supporting elastic strain permanent, so the body creeps like a fluid and the released
+  motion never falls); (c) as (b) at 0.1; (d) not reached: the selection merit worsens as the body drifts off the
+  world-fixed target, the brake rejects, and the run stops within 10 windows with a silhouette IoU below 0.9; the
+  released-motion and end-drift terms carry the centre-of-mass velocity, which no control can change. If (d) fails
+  as predicted, the moving case needs the objective written in the body's frame (the target and the cameras carried
+  by the centre of mass, the settling terms on the velocity relative to it): a change of definition for the user to
+  decide, not made here.
 - **FV, the final validation of the formulation (pre-registered 2026-10-01 19:36 CDT, launched 19:37 after the suite passed
   on repo_r30 (269 passed); repo_r30 = repo_r29 with the three regularisers deleted from the code).** The objective is now eight terms: the Sinkhorn
   transport, the surface proximity and the residual drift of the released end (geometry, one scale ot_scale); the
