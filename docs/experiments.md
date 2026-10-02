@@ -272,6 +272,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   loses less than 1 %. (3) At 2.4M with the rule unchanged the normal error and the edge width fall about with the
   spacing: the rule is written in spacings, so at a fixed N its widths, not N, are the limit. (4) The best 300k
   variant still stays above the 2.4M sample in normal error: features below a lattice step are not in the sample.
+  **Result (2026-10-02 11:59 CDT; `output/gpu/render/d12_dragon`, sheets of the head crop per object).** At 4K one
+  pixel is 0.0045 wu: the 300k sample's nearest-neighbour spacing is 7.7 px, its lattice step 13.8 px, the
+  normals' density blur 23 px. The mesh reference shows horns, teeth, brow ridges and scales; the 300k sample shows
+  none of the teeth or scales under any variant. Mean normal error against the reference (degrees) / silhouette
+  edge width (px) / shading detail (share of the reference's):
+  the number of particles, rule unchanged, all resampled from the fitted mesh: 300k 18.5 / 9.3 / 0.40; 1.2M 13.3 /
+  5.0 / 0.50; 2.4M 10.9 / 3.7 / 0.56 (with blur 1.5 and no averaging: 14.3, 10.6, 9.2);
+  the rule's parts on the run's 300k target: as it is 19.3 / 9.5 / 0.42; disc × 0.7 18.8 / 8.0 / 0.47; disc × 0.5
+  19.5 / 6.8 / 0.73 (the lattice rows show); blur 1.5 18.0 / 8.8 / 0.47; no averaging 16.9 / 8.0 / 0.43; blur 1.5
+  without averaging 15.4 / 7.8 / 0.59; blur 0.75 without averaging 28.7 / 10.4 / 1.61 (lattice noise); no image
+  filter: no change;
+  the same on the morph's last frame: as it is 21.3 / 7.0 / 0.42; no averaging 19.8 / 5.9 / 0.45; blur 1.5 without
+  averaging 23.6 / 7.3 / 0.84; on raw frame 480: 27.2 → 29.1 with blur 1.5 without averaging.
+  (1) Refuted in size: blur 1.5 without averaging lowers the 300k target's normal error by 20 %, not a third, and
+  raises the detail by 40 %; on the morph frames it raises the error (the morphed particles are rougher below
+  the blur than the target's lattice, and the blur hides that); the image filter does nothing. (2) Partly: the
+  edge narrows less than the disc (× 0.84 at × 0.7, × 0.72 at × 0.5); × 0.5 loses 4.8 % of the covered pixels on
+  raw frame 480 as predicted; × 0.7 loses 2.0 % on the target, more than predicted, but that loss is the outline
+  moving in toward the mesh's (IoU with the reference 0.951 → 0.957). (3) Confirmed: from 300k to 2.4M (spacing
+  × 0.5) the normal error falls × 0.59 and the edge × 0.40. (4) Confirmed: the best 300k variant (14.3–15.4) stays
+  above 2.4M with the rule unchanged (10.9).
+  Reading: the largest part of the blur is not a filter but the sample. 300k particles fill the volume, the
+  surface gets one particle per 13.8 px at 4K, and the dragon's teeth and scales are smaller than that step, so
+  they are absent from the target sample and from any morph toward it. The rule's own widths add a smaller part,
+  and narrowing them trades blur for lattice and arrangement noise on the morph frames. The morph itself adds 2
+  degrees at the end (21.3 against 19.3). The mesh was fitted to the sample by bounding box (per-axis ratios
+  within 1.5 %); the run's target and its resample from the fitted mesh agree (19.3 and 18.5).
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time

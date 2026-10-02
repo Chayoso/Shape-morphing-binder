@@ -173,7 +173,7 @@ for raw in raws:
     raw = min(raw, n_del - 1)
     study(torch.as_tensor(np.asarray(frames[raw], np.float32), device=dev), f"morph frame {raw}", sp_t, cov_t, VARIANTS)
 del frames, z
-for n in (1_200_000, 2_400_000):
+for n in (300_000, 1_200_000, 2_400_000):       # the same mesh frame for every density (the run's own target is fitted by bounding box only)
     xd = torch.as_tensor(sample_volume_stratified(mesh, n, seed=98).astype(np.float32), device=dev)
     sp_d, cov_d = scales(xd)
-    study(xd, f"target {n // 1000}k", sp_d, cov_d, VARIANTS[:1] + [VARIANTS[4]])
+    study(xd, f"resampled {n // 1000}k", sp_d, cov_d, VARIANTS[:1] + [VARIANTS[4]])
