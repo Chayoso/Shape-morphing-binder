@@ -402,6 +402,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   cells (0.3–0.6 wu); the dragon's teeth (about 0.06 wu, one spacing) are below even the sample. So the dense
   surface samples of the resampling proposal would not add relief: the relief is taken out in the forward model,
   at a scale set by the particle spacing. Measured on a slab at rest; a moving body adds stress and the bonds.
+- **D15, the closed loop on ridged targets, with the layer relaxation on and off (diagnostic, pre-registered
+  2026-10-02 12:37 CDT, before launch; `make_ridge_slab.py`, `ridge_closed_loop.py`, `tmp/d15.sh`).** D14, open
+  loop: the rollout can carry relief down to the particles' sampling limit, and the outer-layer relaxation removes
+  relief of 6 spacings and less. The question now: does the objective, window after window, rebuild what the
+  relaxation removes? Targets: a box of the gallery body's volume (4.454 × 2.4 × 4.454 wu) whose top face carries
+  ridges y = A sin(2πx/λ), A = λ/8, with λ = 22, 11 and 5.6 particle spacings; at 300k (λ = 1.19, 0.60, 0.30 wu =
+  3.9, 2.0, 1.0 cells) and at 40k (2.33, 1.17, 0.59 wu). Two arms, the frozen recipe from the sphere, seed 97: ON
+  = repo_r34; OFF = repo_r34x, a copy with the relaxation's rate set to zero in `window/setup.py` (the u channel
+  stays; a diagnostic arm only, never a candidate; its suite was not run, the relaxation tests would fail by
+  construction). Per committed window, at the end of the controlled half and at the window's end: the share of
+  the target sample's relief the body's top layer carries in phase (a least-squares sinusoid at λ with a
+  quadratic surface), its amplitude whatever the phase, and the rms height error; the target sample's own relief
+  against the mesh's; silhouette IoU, λ of the first window and g_share. Archives deleted after the probe.
+  Reading agreed before the run: ON holds the 5.6-spacing ridge → the relaxation is not a hard limit in closed
+  loop; ON fails and OFF succeeds → the relaxation is the cause; both fail → the objective, the control or the
+  target sample is. Predictions (in-phase share at the window's end, mean of the last ten windows): 22 spacings:
+  at least 0.8 in both arms; 11 spacings: 0.3–0.6 ON and at least 0.15 more OFF, with ON's share at the end of the
+  controlled half above its share at the window's end; 5.6 spacings: under 0.3 in both arms, because the objective
+  hardly sees it (the relief is 0.7 spacings, inside the proximity threshold of 1.53 and the berth of 1.97; at
+  300k a loss cell holds half a wavelength; the 96-pixel render has four to five pixels a wavelength). The same
+  in spacings at 40k.
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
