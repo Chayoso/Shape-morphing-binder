@@ -348,6 +348,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   an interpolation of archived particle displacements over 4–20 frames, not the simulation's grid velocity at
   every step; that the surface changes its material is measured on the particles alone (D12's addendum), not only
   through this interpolation.
+- **D14, what surface relief a window's rollout can hold and make, by wavelength (open loop: no objective, no
+  optimiser; pre-registered 2026-10-02 12:28 CDT, before the run; `scripts/probes/settled/subcell_response.py`).**
+  Whether a feature below a cell is missing because the physics cannot make it or because the objective cannot
+  see it is settled in two steps: this one asks the rollout alone. A slab of 8 × 3 × 4 cells at rest (dx 0.3024,
+  the run's material, time step, 20 controlled + 20 released steps, outer layer, relaxation, bonds and
+  assimilation, built as `window/setup.py` builds a window), sampled as the pipeline samples (one jittered
+  particle per voxel) at the particle spacing of a 300k run (0.054 wu = 0.18 cells; 17k particles) and of a 2.4M
+  run (0.027 wu; 133k). Relief y = A sin(2πx/λ) with λ = 4, 2, 1, 0.5, 0.25 cells, measured as the amplitude of the
+  least-squares sinusoid at λ through the top layer's heights. A0 hold: the relief (A = λ/8) is in the sample, no
+  control, four windows. A1: a flat slab, u = 0.5 spacings × sin on the outer layer for one window, then two free
+  windows. A2: a flat slab, dFc_yy = 0.02 sin on every particle for the controlled half of one window. Three limits
+  are in play: the grid (cubic B-splines, nodes dx apart), the particles (no wavelength below about two spacings:
+  0.36 cells at 300k, 0.18 at 2.4M), and the layer relaxation (every step each outer-layer particle moves 1/20 of
+  the way toward what its 24 layer neighbours within 2 spacings share). Already on record (kernels.py, 2026-09-19,
+  40k bunny): the control stress acts at the grid's correlation length and a force on one particle moves it 2.4 %
+  in a window. Predictions, from the relaxation read as a Gaussian filter of width 2 spacings applied 40 times at
+  1/20: A0, relief left after one window: at 300k spacing 0.8, 0.45, 0.17 for 4, 2, 1 cells (± 0.15) and the 0.5
+  and 0.25-cell relief not in the sample at the start (under half of what was asked); at 2.4M spacing 0.94, 0.8,
+  0.45, 0.17 for 4, 2, 1, 0.5 cells. A1: u makes at least 0.8 of its command at 4 cells and at most 0.5 at 1 cell
+  (300k), and what it makes then decays as in A0. A2: relief per wavelength, against the 4-cell row: at least 0.5
+  at 2 cells, at most 0.2 at 1 cell, at most 0.05 at 0.5 and 0.25 cells, the same at both spacings (the grid, not
+  the particles, sets it). The closed-loop step (the frozen recipe on a target with the same ridges) follows for
+  the wavelengths that pass here.
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
