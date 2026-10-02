@@ -197,7 +197,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   launch; repo_r32 = repo_r31 with `--term_dump`, off by default: at every committed state, each term's position
   gradient per particle: transport, surface, near band, spray cleanup, weighted render; the suite passes, 269).**
   The 4K frames of the frozen code's 300k bunny were read frame by frame (`scripts/probes/settled/frame_forensics.py`,
-  `frame_sheets.py`, `tmp/web_probe.py`). Three groups of particles make the visible defects at the ears: a web
+  `frame_sheets.py`, `web_probe.py`). Three groups of particles make the visible defects at the ears: a web
   between the ears in raw frames 80–320 (1526 particles more than 3 target spacings from the target at frame 240;
   from the top cap of the sphere, 8.8 spacings a window upward and away from the target in windows 1–2, thinned to
   1.58 coverage radii with 78 % of them partly supported, which the 4K renderer draws enlarged and translucent); a
@@ -214,6 +214,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   band's gradient points at the target (cosine above 0.9) and the sum of the other terms does not oppose it (cosine
   above −0.5): they stay because the accepted step has collapsed (2e-4–4e-4 from window 16, anneal 0.05), not
   because the terms balance.
+  **Result (2026-10-02 00:10 CDT; run: silhouette IoU 0.9877, 60 committed windows, 12.2 min; render: g_share 0.33 →
+  0.84 by window 6, λ 0.249; `scripts/probes/settled/term_probe.py`, `flux_probe.py`, `web_terms.py`, `web_probe.py`,
+  `compare_ref.py`, outputs in `output/gpu/render/forensics_bunny_t`).**
+  (a) First part confirmed, second refuted. At the end 3237 particles (1.1 %) lie 1.5–3 spacings from the target
+  sample; 84.2 % of them are inside the near band's berth (near band on for 0.1 % of those, spray cleanup for
+  13.3 %), and both local terms are zero on 73.6 % of the set (74.8 % of the 444 above the ear base). The summed
+  gradient on the set is still 3.0e-6 per particle against 3.2e-7 on the surface particles: the 513 beyond the
+  berth carry the near band's pull of constant size (6.6e-6, 13 times the all-particle rms of the sum), and the
+  render term is 1.4e-6 on the set with no inward direction (cosine +0.02). The set is fixed late in the run: 2439
+  of the 3322 particles there at window 40 are still there at window 59; the rest cross the 1.5 edge both ways by a
+  jitter of ±0.01 spacings a window.
+  (b) Confirmed. On the 33 particles more than 3 spacings out at the end the near band is on for all, its descent
+  direction points at the nearest target point (cosine +0.92), and the other four terms do not oppose it (+0.32).
+  The inward motion delivered to them is 0.6 spacings a window at window 6, 0.05 at 12, 0.02 at 20, 0.005 at 45
+  and 0.0003 at 58; they are 3–4 spacings out. The objective asks for the right motion; the step that is accepted
+  for the whole body no longer delivers it.
+  The web. In windows 0–3 the particles above the ear base and more than 3 spacings out (994–4176 of them) move
+  9–10.6 spacings a window along the transport's descent direction (cosine 0.94, 0.92, 0.89, 0.78), which points
+  upward (0.66–0.74): the cap of the sphere rises as one ridge and the notch between the ears is cut afterwards.
+  The render term is three times larger per particle there (1.2–1.5e-5 against 3.7–4.9e-6) but the motion does not
+  follow it (cosine 0.09–0.14). From window 3 the motion follows the spray cleanup (0.58–0.63), 6 → 2.2 spacings a
+  window by window 7, then 1.4, 1.0, 0.5 as the step falls: what is left at windows 10–18 is the tuft at the notch.
+  The picture. The run's own target sample drawn by the 4K renderer has the same soft, feathered ear edges as the
+  morph's last frame (10–90 % width of the ear's silhouette edge: 28.5 px median for the target sample, 22 px for
+  the morph): at the end the softness of the 4K picture is the splat rule's on a 300k volume sample, not the
+  particle arrangement's. No oscillation in either run (first run: path over net motion 1.00–1.2 in every window,
+  largest excursion from the chord 0.04 spacings after window 24).
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
