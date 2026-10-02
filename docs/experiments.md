@@ -784,6 +784,28 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
 
 ## Results so far
 
+**FV, 2026-10-01 20:51 CDT — the final validation of the eight-term objective: no catastrophic failure
+(pre-registered 19:36).** 40k gallery, two runs, against the four runs of the eleven-term code (R13 a, b; B a, b):
+no mesh trips a flag (silhouette below its lowest current value by more than 0.004 in both runs, thin above its
+highest by more than 3 in both runs, a new freeze, a guard, det F below 0.5). Medians: thin 9.65, 9.73 (9.17–10.09);
+silhouette 0.9769, 0.9766 (0.9766–0.9773); chamfer 0.1156, 0.1158 (0.1157–0.1159); end `kin` 7.0e-5, 1.04e-4
+(7.2e-5–1.46e-4); committed windows 49, 39 (38–44); delivered frames 1881, 1521 (1441–1681); tail jitter 3.78e-6,
+4.49e-6 (3.89e-6–4.57e-6); `stray_max` 0.005, 0.007; surface roughness 1.213, 1.201 (1.177–1.206); det F minimum
+0.897, 0.898 (0.890–0.895), its 1 % and 99 % quantiles 0.988 and 1.013 (the same); anisotropy p90 1.070, 1.061
+(1.063); control roughness 1.6e-9, 2.1e-9 (2.2e-9–2.4e-9); no guard. beast sound in both runs (108 and 99 windows);
+C stops at 19 windows in one run (`kin` 1.4e-2, the parked alternation) and runs 46 in the other. Recorded and not
+acted on: homer's thin 15.9 and 14.4 against a highest current value of 13.5; A's silhouette 0.9769 in one run
+against a lowest current value of 0.9781. 300k to the run's own stop: dragon silhouette 0.9848, world-thin 0.70 %,
+chamfer 0.0591, 118 windows, 42 minutes, det F minimum 0.901, anisotropy p90 1.089 (the eleven-term code: 0.9846,
+0.66 %, 0.0591, 98 windows, 38 minutes); bunny 0.9876, 0.02 %, chamfer 0.0580, 51 windows, 11 minutes, det F minimum
+0.939. Render influence: first-window λ 0.248 at the gallery median, 0.396 and 0.249 at 300k, as before; g_share at
+the end 0.89–0.90 (0.91 and 0.82 at 300k); no render-off twin in this run. By the stop rule the formulation is
+frozen here, subject to the user's confirmation: Sinkhorn transport, surface proximity, residual drift; released
+motion; near band (berth to one loss cell), spray cleanup; silhouette, shading. Open and outside the formulation:
+the config defaults (proximity and the N-following grid are still flags), the PBR renders and video from the
+frozen code, the runtime items (near band on: 23 s per 300k window against 15.5 s), the parked defects (C's early
+stop, the beast ejection, the rollout's nondeterminism).
+
 **R14b, 2026-10-01 19:34 CDT — the three regularisers off together: inside the noise on every criterion
 (pre-registered 18:44).** Arm X against the current formulation's four gallery runs (R13 a, b; B a, b). Medians:
 thin 9.69, 9.38 (current 9.17–10.09); silhouette 0.9769, 0.9763 (0.9766–0.9773; per mesh the difference median

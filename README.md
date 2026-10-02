@@ -29,16 +29,32 @@ is evaluated on the released end state, so a control is scored by where the body
 The outer layer is also relaxed toward the plane of its neighbours every step, and bonds keep detached fragments
 moving with their source neighbours.
 
-**Objective.**
-- Transport: a debiased Sinkhorn divergence between the body's mass on the loss grid and the fixed target's, blur
-  one loss cell, plus the residual drift `mean |T·dt·v|²`. The Sinkhorn cost is separable by axis, so each sweep is
-  three one-dimensional log-sum-exp passes on the GPU.
-- Local support: a kernel log-density floor at half the target's median density. It enters as
-  `E + E·wB / (E + wB)`, so it never exceeds the remaining transport energy `E` and vanishes as transport completes.
+**Objective.** Eight terms, all evaluated on the released end state. Which terms are needed was measured by
+switching terms off on the 19-mesh gallery (`docs/experiments.md`, R9–R14b and FV). The geometry and settling terms
+carry no weight of their own; the two local terms keep their original weight (0.2 in the legacy unit) and the
+render term its calibration and internal constants.
+- Geometry, on one scale measured once at the source:
+  - Transport: a debiased Sinkhorn divergence between the body's mass on the loss grid and the fixed target's, blur
+    one loss cell. The loss grid follows the particle count above 40k (`--loss_follows_n`). The Sinkhorn cost is
+    separable by axis, so each sweep is three one-dimensional log-sum-exp passes on the GPU.
+  - Surface proximity (`--support_form proximity`): at every outer target point, the kernel of the body's nearest
+    particle against half the kernel at one sampling pitch. It charges a target point that has no particle within
+    1.53 spacings; no weight, no bound.
+  - Residual drift of the released end, `(T·dt)² mean |v_T|²`: the end is at rest.
+- Settling: the released motion, `(T·dt)²` times the mean of `|v|²` over the released steps and particles. Without
+  it runs stop while the body is still moving.
+- Local:
+  - Near band: a pull to the nearest target point for particles between the sampling berth (about two target
+    spacings) and one loss cell from the target, where the transport's blur cannot tell positions apart. Early in a
+    run it opposes the transport on those particles, more at larger `N`; the converged geometry is not degraded.
+  - Spray cleanup: a pull down the target's distance field on the particles an isolation gate marks.
 - Rendering: a multi-view silhouette loss (particles splatted with opacity `1 − e^{−kw}`) and a shading loss against a
   target rendered by the same operator.
-- Cleanup and regularisers: a pull of stray particles back into the target band, end kinetic energy, velocity
-  variance (released phase: all motion), and control magnitude and smoothness.
+
+There is no regulariser of the control or of the volume. The earlier code's control magnitude, control smoothness
+and volume prior were removed: the first two were 1e-10 and 1e-8 of the merit, and removing all three changed
+nothing that was measured (det F, anisotropy, control roughness, surface roughness; R14, R14b). The domain box is a
+validity check of the rollout, not a term.
 
 **Gradients.** The physics and render losses are differentiated separately through the same `2T`-step adjoint (Warp
 tape, captured as CUDA graphs) back to `dFc` and `u`. The Sinkhorn term uses the envelope theorem: its gradient is
@@ -47,8 +63,8 @@ component that opposes the physics gradient and is weighted by `λ`, set once so
 and then held. A backtracking line search accepts a step only when the full objective decreases and the state stays
 valid.
 
-**Acceptance and delivery.** Each window's result is scored by one merit. A result that raises the merit by more than
-5 % is rejected and the state is kept. The run ends at the best state after 3 consecutive rejections, or when the
+**Acceptance and delivery.** Each window's result is scored by one merit, the objective read at the committed state.
+A result that raises the merit by more than 5 % is rejected and the state is kept. The run ends at the best state after 3 consecutive rejections, or when the
 merit stops improving for 5 windows.
 
 **What it conserves.** Stress cannot change total momentum: it enters the grid transfer as `G·(x_i − x_p)`, and the
@@ -78,8 +94,8 @@ fallback. The only CPU work is the prepare stage (mesh loading and volume sampli
 ssh hyde06j
 source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, CuPy
 
-# sphere -> bunny, 300k particles (the recipe is the default)
-$PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --out $OUT/bunny
+# sphere -> bunny, 300k particles (the validated recipe; the two flags are not yet the defaults)
+$PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --support_form proximity --loss_follows_n \n    --out $OUT/bunny
 
 # the 4K video
 PYTHONPATH=$REPO $PY scripts/render_splat_photoreal.py $OUT/bunny_render_full_dt_iso_nn.npz $OUT/bunny_4k.mp4 \
@@ -87,7 +103,7 @@ PYTHONPATH=$REPO $PY scripts/render_splat_photoreal.py $OUT/bunny_render_full_dt
 ```
 
 `--render_weight_scale 0` is the render-off twin. `--reject_stop` and `--patience` set how long a converged run keeps
-trying; `--ot_iters` and `--support_weight` are the two validation constants. Deploy code with `git archive` into
+trying; `--ot_iters` is the Sinkhorn sweep budget. Deploy code with `git archive` into
 `REPO`. All four GPUs may be used when free; never stop other users' jobs. Import `physmorph` before `torch` in new
 scripts: the server's torch loads a CUDA 11 NVRTC that CuPy must not bind to (`physmorph/__init__.py`).
 
