@@ -269,6 +269,34 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   least two meshes. (3) Assimilation: at 0 not reached on at least three meshes (the body keeps the sphere as its
   rest shape and springs back in the released half); 0.25 and 1 reached. (4) Drag: reached at both; at 0 more
   windows than the base on at least three meshes.
+  **Result (2026-10-02 00:55 CDT, 56 runs, no guard in any).** 47 of the 48 non-base runs reached the target.
+  Silhouette IoU, in the order bunny / dragon / armadilo / bob; base runs 0.9751, 0.9753 / 0.9752, 0.9758 / 0.9728,
+  0.9717 / 0.9831, 0.9826 (world-thin 9.2, 9.4 / 14.4, 13.8 / 10.3, 9.2 / 11.8, 10.5 %; windows 41, 41 / 60, 74 /
+  68, 83 / 44, 31):
+  E × 0.1: 0.9779 / 0.9746 / 0.9684 / 0.9834 (thin 12.0 / 14.0 / 14.6 / 18.3; windows 47 / 62 / 59 / 68; det F
+  minimum 0.83 / 0.58 / 0.76 / 0.72 against 0.92–0.96 at the base);
+  E × 0.3: 0.9761 / 0.9752 / **0.7775** / 0.9832 (thin 11.3 / 12.9 / 49 / 8.7); the armadilo froze after 13
+  windows on the parked `domain` ejection (commit_invalid, start state dead, stray 0.38 %), the beast's failure;
+  E × 3: 0.9757 / 0.9755 / 0.9719 / 0.9832 (thin 9.8 / 14.1 / 10.1 / 7.4);
+  E × 7 (CFL 0.48–0.49): 0.9753 / 0.9758 / 0.9728 / 0.9829 (thin 8.9 / 11.8 / 7.9 / 6.1; windows 53 / 116 / 47 / 63);
+  ν 0: 0.9762 / 0.9750 / 0.9709 / 0.9823 (thin 7.8 / 11.6 / 10.8 / 7.0); ν 0.4: 0.9749 / 0.9745 / 0.9718 / 0.9825
+  (thin 8.1 / 15.3 / 13.2 / 10.5); ν 0.45: 0.9756 / 0.9747 / 0.9710 / 0.9826 (thin 9.5 / 14.4 / 11.6 / 9.6; windows
+  62 / 103 / 108 / 65);
+  assimilation 0: 0.9757 / 0.9761 / 0.9728 / 0.9838 (thin 8.8 / 10.9 / 9.3 / 9.6; windows 57 / 48 / 61 / 37); 0.25:
+  0.9761 / 0.9755 / 0.9718 / 0.9831; 1: 0.9749 / 0.9743 / 0.9717 / 0.9833;
+  drag 0: 0.9749 / 0.9757 / 0.9729 / 0.9834 (windows 45 / 71 / 74 / 41); drag 3: 0.9756 / 0.9760 / 0.9727 / 0.9828.
+  Predictions: (1) E × 0.3 reached on three of four (the armadilo's ejection); E × 0.1 reached on all four, but
+  with 1.5 times the windows only on bob: refuted; E × 7 neither fires a guard nor worsens the thin parts, it has
+  the lowest world-thin of every mesh: refuted. World-thin falls as E rises on bunny, armadilo and bob (12.0 → 8.9,
+  14.6 → 7.9, 18.3 → 6.1) and on the dragon from the base up (14.1 → 11.8). (2) Reached at every ν: confirmed;
+  ν 0.45 is worse than both base runs on three meshes by 0.1–1.3 points, inside the run-to-run spread (±1.1): no
+  finding; it costs windows (62 / 103 / 108 / 65). (3) Refuted: with no assimilation the morph reaches the target
+  on all four, with world-thin at or below the base. The body's rest shape staying the sphere does not stop the
+  control. (4) Reached at both drags: confirmed; more windows at drag 0 only on the bunny: refuted.
+  The render's influence under each material: λ of the first window follows the stiffness (bunny 0.095, 0.18, 0.24,
+  0.39, 0.61 for E × 0.1, 0.3, 1, 3, 7; dragon 0.27 → 0.95; armadilo 0.42 → 1.26; bob 0.28 → 1.01), because it is
+  calibrated on the physics gradient; the median g_share stays 0.78–0.92 at every level. No render-off twin was run.
+  The kinetic record's peak follows E (0.18–0.35 at × 0.1, 3.1–5.3 at × 7).
 - **F1, the frozen recipe under external forces (feasibility, pre-registered 2026-10-01 23:57 CDT, before launch;
   repo_r34 = repo_r33 with the centre of mass and its velocity in the window record).** Nothing in the objective
   changes: the target, the cameras and the domain stay fixed in the world. The simulator already carries a uniform
