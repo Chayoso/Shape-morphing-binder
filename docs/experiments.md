@@ -185,6 +185,35 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Runs: the 300k dragon at 35 windows in each arm (`output/gpu/prof`, `tmp/prof_eval.py`). No criterion: the
   result is which part holds the 0.3–0.45 s per evaluation. Prediction: the Sinkhorn solves (more sweeps to
   converge in the near-band-on states; every solve starts from zero duals).
+  **Result (2026-10-01 23:37 CDT): the Sinkhorn solves, as predicted.** 35 windows took 14.9 min with the near band
+  on and 10.4 min with it off (silhouette IoU 0.9824 and 0.9818). Per window, windows 11–20: Sinkhorn 13.5 s on
+  against 5.0 s off, at the same number of solves (44 a window): 92 blocks of four sweeps per solve against 39;
+  windows 21–35: 12.2 s against 4.1 s (84 blocks against 33). Every other part is the same in both arms, per
+  window: the three adjoints 1.7 s each (0.21 s a call), the surface term 1.0 s (5.5–5.8 s in windows 1–5), the MPM
+  rollouts 1.9–2.1 s (tape and evaluation together), the render 0.3 s, the cleanup 0.02 s. With the near band on
+  the Sinkhorn solves are 55–60 % of a window's timed work; they are 35–45 % with it off. The near band's own
+  computation costs nothing; the states it produces take 2.4 times the sweeps to converge from zero duals.
+- **D11, which term holds a floating particle where it is (diagnostic, pre-registered 2026-10-01 23:47 CDT, before
+  launch; repo_r32 = repo_r31 with `--term_dump`, off by default: at every committed state, each term's position
+  gradient per particle: transport, surface, near band, spray cleanup, weighted render; the suite passes, 269).**
+  The 4K frames of the frozen code's 300k bunny were read frame by frame (`scripts/probes/settled/frame_forensics.py`,
+  `frame_sheets.py`, `tmp/web_probe.py`). Three groups of particles make the visible defects at the ears: a web
+  between the ears in raw frames 80–320 (1526 particles more than 3 target spacings from the target at frame 240;
+  from the top cap of the sphere, 8.8 spacings a window upward and away from the target in windows 1–2, thinned to
+  1.58 coverage radii with 78 % of them partly supported, which the 4K renderer draws enlarged and translucent); a
+  tuft at the notch in frames 400–700 (90 particles, 61 of them from the web, still 5 spacings out when the accepted
+  step has fallen from 0.02 to 0.001); and a fringe on the ears at the end (374 particles 1.5–2.1 spacings outside
+  the target, 40 % of them from the sphere's outer two spacings against 6 % of all particles, moving outward from
+  1.0 to 1.66 spacings after window 8). 38 more particles sit 3.2 spacings outside the body near the feet from
+  window 5 to the end. No oscillation: path over net motion 1.00–1.2 in every window, largest excursion from the
+  chord 0.04 spacings (half a 4K pixel) after window 24. Run: the 300k bunny again with the dump, its archive and 4K
+  frames replacing the first run's (`output/gpu/render/terms_bunny`). No criterion. Predictions: (a) on the end
+  fringe both local terms are exactly zero on at least 60 % of the particles (they lie inside the near band's berth
+  of 1.97 spacings and below the spray gate's isolation of 1.2), and the remaining gradient on them is no larger
+  than on surface particles within one spacing; (b) on the particles more than 3 spacings out at the end the near
+  band's gradient points at the target (cosine above 0.9) and the sum of the other terms does not oppose it (cosine
+  above −0.5): they stay because the accepted step has collapsed (2e-4–4e-4 from window 16, anneal 0.05), not
+  because the terms balance.
 - **FV, the final validation of the formulation (pre-registered 2026-10-01 19:36 CDT, launched 19:37 after the suite passed
   on repo_r30 (269 passed); repo_r30 = repo_r29 with the three regularisers deleted from the code).** The objective is now eight terms: the Sinkhorn
   transport, the surface proximity and the residual drift of the released end (geometry, one scale ot_scale); the
