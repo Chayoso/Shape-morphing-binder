@@ -402,6 +402,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   cells (0.3–0.6 wu); the dragon's teeth (about 0.06 wu, one spacing) are below even the sample. So the dense
   surface samples of the resampling proposal would not add relief: the relief is taken out in the forward model,
   at a scale set by the particle spacing. Measured on a slab at rest; a moving body adds stress and the bonds.
+- **D16, is the layer relaxation needed for a smooth surface: the 40k gallery with it on and off (the last
+  diagnostic on this question, pre-registered 2026-10-02 15:10 CDT, before launch; `layer_roughness.py`,
+  `tmp/d16.sh`, `tmp/d16_eval.py`).** D15: the relaxation is what removes relief of 11 spacings and less. What it
+  was put in for, particle-scale roughness, was never measured with it off (D3b on 2026-09-29 read the silhouette,
+  the thin share and the run length, on the earlier objective). 19 meshes, 40k, seed 97, the frozen recipe: ON =
+  repo_r34, OFF = repo_r34x (the relaxation's rate zero, nothing else; a diagnostic arm, not a candidate). Both
+  arms in this batch, because no earlier run kept its final state. Measured: (1) silhouette IoU, thin share,
+  chamfer; (2) the outermost layer only: the plane residual the relaxation removes (d − d̄ over 24 layer
+  neighbours), for the source sample, the target sample and the end state; (3) the end state's signed offset from
+  the target MESH, split by scale over the layer: at most about 4 spacings, 4–11 spacings, larger (the target's own
+  relief is in the mesh, so it is not counted as roughness; the target sample's own value is the level of a
+  perfect sample); (4) committed, rejected and null windows, minutes, the accepted step of the last ten windows,
+  the end jitter, the window at which OFF reaches ON's final merit. One bunny ON run for the probe's check gave:
+  the removable residual 0.285 spacings in the source sample, 0.308 in the target sample, 0.055 at ON's end; the
+  ≤ 4-spacing offset 0.223 in the target sample, 0.137 at ON's end.
+  Readings fixed before the run. A, the relaxation is not needed for smoothness: OFF's ≤ 4-spacing offset is at
+  most 1.1 times the target sample's own on at least 14 of 19 meshes. B, it is needed but its definition is wrong:
+  OFF's ≤ 4-spacing offset is above 1.5 times the target sample's on at least 10 of 19. C, the cost is the
+  optimiser's: OFF's silhouette IoU is higher on at least 14 of 19 and its median window count is at least twice
+  ON's. Origin: OFF's removable residual at or below the source sample's on at least 14 of 19 means the roughness
+  left is the sampling's, not added by the morph. Predictions: A and C hold (OFF's ≤ 4-spacing offset about the
+  target sample's, 0.2–0.3 spacings, against ON's 0.14; OFF's removable residual 0.25–0.40, near the source
+  sample's; silhouette higher on at least 15 meshes; three to five times the windows); OFF's 4–11-spacing offset
+  lower than ON's on at least 12 of 19 (the features the relaxation erases); beast or one other mesh freezes in
+  one arm.
 - **D15, the closed loop on ridged targets, with the layer relaxation on and off (diagnostic, pre-registered
   2026-10-02 12:36 CDT, before launch [first written as 12:37, a minute ahead of the server clock at the launch:
   corrected]; `make_ridge_slab.py`, `ridge_closed_loop.py`, `tmp/d15.sh`).** D14, open
