@@ -214,6 +214,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   band's gradient points at the target (cosine above 0.9) and the sum of the other terms does not oppose it (cosine
   above −0.5): they stay because the accepted step has collapsed (2e-4–4e-4 from window 16, anneal 0.05), not
   because the terms balance.
+- **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
+  launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
+  defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
+  around the frozen material (E 1.4e5, ν 0.2, assimilation 0.5, drag 0.9) at 40k, seed 97, on bunny, dragon,
+  armadilo and bob; the base twice for the spread: E × 0.1, 0.3, 3, 7 (CFL 0.06, 0.10, 0.33, 0.48; the time step is
+  fixed, so 7 is the stiffest the step carries); ν 0, 0.4, 0.45; assimilation 0, 0.25, 1; drag 0, 3
+  (`output/gpu/m1`, `tmp/m1_eval.py`). "Reached" = silhouette IoU not more than 0.01 below the lower base run, no
+  guard. Recorded: world-thin, committed windows, minutes, the kinetic record's peak and end, the released motion at
+  the end, λ of the first window and the median g_share (the render's influence under each material). Predictions:
+  (1) E: reached at 0.3, 1 and 3; at 0.1 reached with at least 1.5 times the windows (a unit of control makes a
+  tenth of the stress, and a wave crosses 0.85 cells a window instead of 2.7); at 7 a guard fires or world-thin
+  worsens on at least two meshes. (2) ν: reached at every level; at 0.45 world-thin worse than both base runs on at
+  least two meshes. (3) Assimilation: at 0 not reached on at least three meshes (the body keeps the sphere as its
+  rest shape and springs back in the released half); 0.25 and 1 reached. (4) Drag: reached at both; at 0 more
+  windows than the base on at least three meshes.
 - **FV, the final validation of the formulation (pre-registered 2026-10-01 19:36 CDT, launched 19:37 after the suite passed
   on repo_r30 (269 passed); repo_r30 = repo_r29 with the three regularisers deleted from the code).** The objective is now eight terms: the Sinkhorn
   transport, the surface proximity and the residual drift of the released end (geometry, one scale ot_scale); the
