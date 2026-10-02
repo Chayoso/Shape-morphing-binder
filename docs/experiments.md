@@ -172,6 +172,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **FV, the final validation of the formulation (pre-registered 2026-10-01 19:36 CDT, before launch; repo_r30 =
+  repo_r29 with the three regularisers deleted from the code).** The objective is now eight terms: the Sinkhorn
+  transport, the surface proximity and the residual drift of the released end (geometry, one scale ot_scale); the
+  released motion (settling); the near band between the berth and one loss cell and the spray cleanup (local); the
+  silhouette and the shading (render, weight λ calibrated once). Constants left: w_nn, w_dt with its isolation
+  ramp, λ's calibration target, and the render's own (sil_k, w_hole, w_spray, w_pbr, the ambient). Runs: the 40k
+  gallery twice (19 meshes, seed 97) and the 300k dragon and bunny to their own stop (`output/gpu/fv`,
+  `tmp/fv_eval.py`). By the stop rule this is the last experiment on the formulation: it is frozen unless a new
+  catastrophic failure appears, defined before the launch as any of: a mesh other than beast and C (their known
+  defects) whose silhouette is below its lowest current value by more than 0.004 in both runs, or whose thin is
+  above its highest current value by more than 3 points in both runs; a freeze or a stop while moving on a mesh
+  the current runs do not show; a guard firing; a det F minimum below 0.5; the 300k dragon ending below silhouette
+  0.981 or above 2.4 % world-thin (R13b: 0.9840–0.9846, 0.66–0.87 %), or the 300k bunny below 0.983. Anything
+  smaller is recorded and not acted on. Predictions: no catastrophic failure; the gallery inside the current
+  runs' range. Not part of this run: the PBR renders and the video (archives are not kept here; they are made from
+  the frozen code on the meshes the user picks) and the gradient analysis beyond the records every run carries
+  (the active-set and scale records of D9, D9b).
 - **R14b, the three regularisers off together (pre-registered 2026-10-01 18:44 CDT, launched 18:44; no code change:
   `repo_r29x` = repo_r29 with the defaults w_ctrl, w_creg and w_jvol at zero).** Arm X against the current
   formulation, whose range now has four gallery runs: R13 a, b, B a and a second B run started with it. Runs: the
@@ -766,6 +783,22 @@ coverage, and a 300k run brought to about 15 minutes. Everything else measured t
   outermost layer before it gates anything.
 
 ## Results so far
+
+**R14b, 2026-10-01 19:34 CDT — the three regularisers off together: inside the noise on every criterion
+(pre-registered 18:44).** Arm X against the current formulation's four gallery runs (R13 a, b; B a, b). Medians:
+thin 9.69, 9.38 (current 9.17–10.09); silhouette 0.9769, 0.9763 (0.9766–0.9773; per mesh the difference median
+−0.0001, worst −0.0010); end `kin` 8.6e-5, 1.09e-4 (7.2e-5–1.46e-4); committed windows 38, 38 (38–44); rejected 5, 5;
+delivered frames 1481, 1441 (1441–1681); `stray_max` 0.007, 0.005; surface roughness 1.211, 1.194 (1.177–1.206);
+det F minimum 0.897, 0.899 (0.890–0.895), its 1 % and 99 % quantiles 0.987 and 1.014–1.015 (0.988 and 1.013);
+anisotropy p90 1.063, 1.060 (1.063); control roughness 1.9e-9, 2.2e-9 (2.2e-9–2.4e-9); |dFc| maximum 0.0037, 0.0039
+(0.0035–0.0040); no guard, no run stopping while moving. The one flag is bob's thin (+3.7, the mesh the dead-term
+arms flagged too). The tail-jitter median is 4.76e-6 and 5.13e-6, inside the bound (5.25e-6) but above all four
+current runs (3.89e-6–4.57e-6): noted, not a miss. 300k at 35 windows: dragon silhouette 0.9808, world-thin 1.5,
+E at window 34 1.91e-3, det F minimum 0.896 (this arm's current runs 0.9824, 0.9827; the current code's 300k
+dragon runs since R12d range 0.9807–0.9835); bunny 0.9857, world-thin 0.0, det F minimum 0.946 (0.9866, 0.9867):
+inside the limits, both below the two reference runs. First-window λ identical (0.248; 0.396 and 0.249 at 300k).
+The prediction held. The control magnitude, the control smoothness and the volume prior are deleted with their
+constants (w_ctrl, w_creg, creg_k, w_jvol).
 
 **R14, 2026-10-01 18:42 CDT — the two control regularisers are dead terms, the volume prior changes nothing that was
 measured, the spray cleanup misses its stray criterion by a hair and stays (pre-registered 15:59).** Current

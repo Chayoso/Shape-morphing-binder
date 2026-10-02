@@ -52,11 +52,7 @@ class PipelineConfig:
     assim_smin: float = 0.2         # singular-value band of the plastic deformation
     assim_smax: float = 5.0
 
-    # ---- physics objective (legacy units) ----
-    w_ctrl: float = 1e-3            # control magnitude
-    w_creg: float = 100.0           # control smoothness over the source kNN graph
-    creg_k: int = 8
-    w_jvol: float = 50.0            # volume prior (J - 1) log J on the stored F
+    # ---- physics objective ----
     ot_iters: int = 1600            # Sinkhorn sweep budget per solve
     ot_tol: float = 0.01            # marginal error of a converged solve
     support_weight: float = 8.0     # local support bound, E + E wB / (E + wB)

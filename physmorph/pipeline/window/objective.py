@@ -3,12 +3,13 @@
 Physics: the transport energy (grid Sinkhorn divergence to the fixed target + the surface
 proximity + the residual drift of the released end), scaled once to D_vol's gradient norm at
 the source; the stability term (the released motion, (T dt)^2 mean |v|^2 over the released
-steps, unscaled); control magnitude and smoothness; the (J-1) log J volume prior. The domain
-box is a validity constraint of the rollout, not a term.
+steps, unscaled). No regulariser of the control or of the volume: the increment clip, the
+released phase and the domain box (a validity constraint of the rollout) bound them.
 Render: silhouette + matched shading, weighted by lambda outside this module.
-Cleanup (fixed weights, outside the render balance): the isolation-gated W1 pull and the
-near-band pull (particles between the sampling berth and one loss cell from the target). Frozen per window: the transport gate of u, the isolation gate, the
-near-band assignment and the control-smoothness neighbours.
+Cleanup (fixed weights, outside the render balance): the spray cleanup (the isolation-gated
+W1 pull) and the near-band pull (particles between the sampling berth and one loss cell from
+the target). Frozen per window: the transport gate of u, the isolation gate and the
+near-band assignment.
 """
 from __future__ import annotations
 
@@ -81,7 +82,7 @@ class Objective:
             gt = torch.autograd.grad(self.transport(xg), xg)[0].norm()
             tgt.ot_scale = float(gd / gt.clamp_min(1e-30))
         # frozen per window
-        self.knn_creg = gpu.knn(x0, cfg.creg_k + 1)[1][:, 1:]
+        self.knn_ctrl = gpu.knn(x0, 9)[1][:, 1:]      # eight neighbours, for the control-roughness record only
         m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi)
         self.dt_idx = torch.nonzero(m_dt > 0).squeeze(1)
         self.m_dt = m_dt
@@ -133,15 +134,12 @@ class Objective:
         return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab
 
     def phys_core(self, e):
-        """The physics objective without the cleanup terms, from an Eval: lambda's reference and the
-        direction PCGrad protects. Only the driven half of the control is costed."""
-        cfg, wu, N = self.cfg, self.win.wu, self.win.N
-        dfc, xT, FT = e.dfc[:cfg.T], e.xT, e.FT
-        L = e.lv + e.lstab + wu * cfg.w_ctrl * dfc.pow(2).sum() / (cfg.T * N)
-        L = L + wu * cfg.w_creg * (dfc - dfc[:, self.knn_creg].mean(2)).pow(2).mean()
-        J = torch.linalg.det(FT.view(-1, 3, 3))
-        L = L + wu * cfg.w_jvol * ((J - 1.0) * torch.log(J.clamp_min(1e-6))).mean()
-        return L
+        """The physics objective without the cleanup terms, from an Eval: lambda's reference and the direction
+        PCGrad protects: the scaled geometry of the released end (transport, surface proximity, residual drift)
+        and the released motion. The three legacy regularisers are gone (R14, R14b): the control magnitude and
+        the control smoothness were 1e-10 and 1e-8 of the merit, and without the volume prior det F stays where
+        it was (minimum 0.90, quantiles 0.987 to 1.015)."""
+        return e.lv + e.lstab
 
     def cleanup(self, xT, common_geometry=False):
         """Fixed-weight one-signed cleanup (not lambda-scaled, not in phys_core): the spray cleanup (the W1 pull of
@@ -256,13 +254,14 @@ class Objective:
         return {"active_set": out}
 
     def control_record(self, dfc) -> dict:
-        """A record: the two control regularisers' raw values (without their weights) for an expanded control: the
-        mean squared increment of the driven half and its mean squared difference from the neighbours' mean."""
+        """A record: the size and the roughness of an expanded control: the mean squared increment of the driven
+        half and its mean squared difference from the mean of the eight nearest neighbours (what the removed
+        control regularisers charged)."""
         cfg, N = self.cfg, self.win.N
         with torch.no_grad():
             d = dfc[:cfg.T]
             return {"ctrl_mag": float(d.pow(2).sum() / (cfg.T * N)),
-                    "ctrl_rough": float((d - d[:, self.knn_creg].mean(2)).pow(2).mean())}
+                    "ctrl_rough": float((d - d[:, self.knn_ctrl].mean(2)).pow(2).mean())}
 
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""
