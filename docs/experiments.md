@@ -459,6 +459,25 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D17 and D18, the runtime: the records out of the production path, and the fine render from the start
+  (pre-registered 2026-10-02 18:09 CDT, before launch; repo_r35 = HEAD with the per-window diagnostic records and
+  the steering telemetry behind the existing `work_telemetry` flag, now off by default and exposed as
+  `--telemetry`; the suite passes, 269 (one flaky contract test passed 3 of 3 alone and in the second full run);
+  repo_r35b = repo_r35 with `render_res` 96, so there is no coarse stage and no c2f event).** The formulation is
+  untouched. Three 300k dragon runs to their own stop, seed 97, archives deleted (`output/gpu/d18`): (a) repo_r35
+  with `--telemetry`, the schedule as it is (64 px, then 96 px after the coarse stop) — the reference with the
+  per-window records (world-thin, E, the accepted step, λ per window); (b) repo_r35b with `--telemetry`, 96 px
+  from the start; (c) repo_r35 without `--telemetry`, the schedule as it is — the production path. D17 reads (c)
+  against (a): seconds per window attempt and the end state. D18 reads (b) against (a): world-thin, E, the
+  accepted step and λ by window and by wall time. Predictions. D17: (c) is 1.5–2.5 s a window faster (8–12 %)
+  and its end state lies within the run-to-run spread of (a) (silhouette ± 0.002, windows within 20 %). D18: the
+  gain after the c2f event in the earlier run (world-thin 1.3 → 0.6 % after window 104) came with the epoch
+  reset, which restored the accepted step four- to fivefold; so (b), with one epoch, reaches about 1.2 % by
+  window 40 as (a) does, then settles as the step anneals and stops between windows 60 and 110 at a world-thin of
+  0.8–1.2 %, above (a)'s 0.6, in at most 35 minutes. If instead (b) reaches 0.7 % or better by 25 minutes, the
+  coarse stage is unnecessary at 300k and can go. Either way, "96 px from the start is faster" would not by itself
+  mean the resolution is the cause (λ's calibration and the path change too); if the reading is unclear, a
+  control with the schedule as it is but the epoch reset alone follows.
 - **D16b, the same comparison read frame by frame at 300k (diagnostic, pre-registered 2026-10-02 17:01 CDT, before
   launch).** D16's bunny and dragon were run again at 40k with 4K renders and read frame by frame at equal raw
   frames (`output/gpu/d16r`, `tmp/pair_sheets.py`). With the relaxation off the bunny's upright ear has a ragged
