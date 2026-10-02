@@ -109,6 +109,7 @@ class PipelineConfig:
     grad_dump: str = ""             # directory of per-window gradient dumps (visualisation)
     ls_probe: bool = False          # diagnostic: every failed line-search trial re-run on dFc alone and u alone
     work_telemetry: bool = True     # first/last-iteration steering telemetry
+    profile: bool = False           # diagnostic: wall-clock split of a window (synchronises the GPU around each part)
     device: str = "cuda"
 
     def __post_init__(self):

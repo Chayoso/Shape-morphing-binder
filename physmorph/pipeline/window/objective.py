@@ -18,6 +18,7 @@ import time
 import torch
 
 from ... import gpu
+from ...prof import timed
 from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_w1,
                                   isolation_gate, nn_band_assign)
@@ -125,12 +126,14 @@ class Objective:
         phys_core)."""
         cfg, t = self.cfg, self.tgt
         lstab = self.stability(V)
-        lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
+        with timed("geom"):
+            lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
         lk = vT.pow(2).sum(1).mean()
-        lsil = d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
-                        cfg.w_spray)
-        lpbr = d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
-                     cfg.sil_k, cfg.pbr_ambient, t.pblur)
+        with timed("render"):
+            lsil = d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
+                            cfg.w_spray)
+            lpbr = d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
+                         cfg.sil_k, cfg.pbr_ambient, t.pblur)
         return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab
 
     def phys_core(self, e):
@@ -265,6 +268,6 @@ class Objective:
 
     def scalar(self, e, lam_r) -> float:
         """The full objective as a float: phys_core + cleanup + lambda render."""
-        with torch.no_grad():
+        with torch.no_grad(), timed("cleanup"):
             L = float(self.phys_core(e) + self.cleanup(e.xT.detach()))
         return L + lam_r * float(e.lr.detach())

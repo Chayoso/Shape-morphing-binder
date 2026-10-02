@@ -20,6 +20,7 @@ import warp as wp
 from ..config import PipelineConfig
 from ..render_loss import LambdaBalancer
 from ..target import TargetPack
+from ...prof import STATE as PROF_STATE, take as prof_take, timed
 from .objective import Objective, end_drift
 from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok, state_reason
 from .setup import StartState, Window
@@ -101,6 +102,8 @@ class WindowOptimizer:
     def __init__(self, start: StartState, prm, cfg: PipelineConfig, tgt: TargetPack,
                  balancer: LambdaBalancer, vol0, bonds, alpha_scale=1.0, on_iter=None, log=print):
         self.cfg, self.tgt, self.balancer, self.log, self.on_iter = cfg, tgt, balancer, log, on_iter
+        PROF_STATE["on"] = bool(cfg.profile)
+        prof_take()                                    # a window's profile starts empty
         self.win = Window(start, prm, cfg, tgt, vol0, bonds)
         self.obj = Objective(self.win)
         N = self.win.N
@@ -175,17 +178,21 @@ class WindowOptimizer:
         the endpoint position-space gradients of both channels (telemetry only)."""
         cfg, obj, leaves = self.cfg, self.obj, self.leaves
         Lp_core = obj.phys_core(e)
-        Ldt = obj.cleanup(e.xT)
+        with timed("cleanup"):
+            Ldt = obj.cleanup(e.xT)
         diag = None
         if (self.on_iter is not None or cfg.work_telemetry) and it in (0, cfg.iters - 1):
             gp_x = torch.autograd.grad(Lp_core + Ldt, e.state(), retain_graph=True, allow_unused=True)
             gr_x = torch.autograd.grad(e.lr, (e.xT, e.FT), retain_graph=True, allow_unused=True)
             diag = (gp_x, gr_x)
-        gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
-        gdt = torch.autograd.grad(Ldt, leaves, retain_graph=True)
+        with timed("adj_phys"):
+            gp = torch.autograd.grad(Lp_core, leaves, retain_graph=True)
+        with timed("adj_cleanup"):
+            gdt = torch.autograd.grad(Ldt, leaves, retain_graph=True)
         if cfg.grad_dump and it == 0:
             self.dump.update(collect_grad_dump(e, Lp_core, gp, leaves, self.u, cfg.w_pbr))
-        gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
+        with timed("adj_render"):
+            gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
         gr = pcgrad(gp, gr_raw)
         if it == 0:
             self._calibrate_lambda(gp, gr, gr_raw)
@@ -463,6 +470,8 @@ class WindowOptimizer:
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
                  "dfc": self.dFc.detach()[:cfg.T].clone(),
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
+        if cfg.profile:
+            stats["prof"] = prof_take()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
         if self.accepted > 0:

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 import torch
 import warp as wp
 
+from ...prof import timed
 from .objective import Objective, velocity_variance
 from .setup import Window
 
@@ -71,7 +72,8 @@ def _evaluate(obj: Objective, xT, FT, vT, dfc, V, **kw) -> Eval:
 def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:
     """Differentiable rollout (the persistent tape; forward and adjoint as CUDA graphs)."""
     dfc = win.expand(leaf)
-    xT, FT, vT, _, V = win.adjoint().apply(dfc, u)
+    with timed("mpm_tape"):
+        xT, FT, vT, _, V = win.adjoint().apply(dfc, u)
     return _evaluate(obj, xT, FT, vT, dfc, V)
 
 
@@ -91,7 +93,8 @@ def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor)
     with torch.no_grad():
         dc = win.load(leaf, u)
         tr, T, N = win.tr, win.T, win.N
-        tr.run()
+        with timed("mpm_eval"):
+            tr.run()
         xT = wp.to_torch(tr.x[T]).clone()
         FT = wp.to_torch(tr.F[T]).reshape(N, 9).clone()
         vT = wp.to_torch(tr.v[T]).clone()

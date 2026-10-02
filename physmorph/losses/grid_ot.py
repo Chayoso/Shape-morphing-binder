@@ -15,6 +15,7 @@ from __future__ import annotations
 import torch
 import warp as wp
 
+from ..prof import count, timed
 from .volumetric import rasterize_mass
 
 def _grid_measure(grid, grid_min, dx, dims):
@@ -218,6 +219,8 @@ class GridSinkhornLoss:
                 if level == 0:
                     break
                 level -= 1
+        count("ot_blocks", iteration // 4 + 1)
+        count("ot_solves")
         if level != 0 or temperature != self.eps or not residual <= self.tol:
             raise _GridTransportNotConverged(f'grid transport did not converge: marginal error {residual:g}')
         # The next cross/self solve rewrites the capture buffers.
@@ -233,8 +236,9 @@ class GridSinkhornLoss:
         a = current / total
         needs_gradient = torch.is_grad_enabled() and current.requires_grad
         try:
-            f, g = self.solve(a, self.b)
-            fs, gs = self.solve(a, a)
+            with timed("ot_solve"):
+                f, g = self.solve(a, self.b)
+                fs, gs = self.solve(a, a)
         except _GridTransportNotConverged:
             if needs_gradient:
                 raise
@@ -265,7 +269,10 @@ class GridSinkhornLoss:
                 return actual.sum() * 0. + float('inf')       # escaped mass is never concealed
         current = rasterize_mass(x, mass, self.grid_min, self.dx, self.dims)
         value = self(current)
-        return value if self.support is None else self.support(value, x)
+        if self.support is None:
+            return value
+        with timed("surf"):
+            return self.support(value, x)
 
 
 @torch.no_grad()

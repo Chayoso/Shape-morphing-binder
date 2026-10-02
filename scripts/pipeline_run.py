@@ -66,6 +66,8 @@ def parse_args():
     ap.add_argument("--grad_dump", default="", help="directory of per-window gradient dumps")
     ap.add_argument("--ls_probe", action="store_true",
                     help="diagnostic: split every failed line-search trial by control channel")
+    ap.add_argument("--profile", action="store_true",
+                    help="diagnostic: record the wall-clock split of every window (slows the run)")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
     ap.add_argument("--live_dir", default="", help="file-backed viewer sink (scripts/viewer_serve.py)")
     return ap.parse_args()
@@ -127,7 +129,8 @@ def main():
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
-                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe)
+                              nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
+                              profile=args.profile)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)
