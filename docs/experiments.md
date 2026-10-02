@@ -241,6 +241,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the morph): at the end the softness of the 4K picture is the splat rule's on a 300k volume sample, not the
   particle arrangement's. No oscillation in either run (first run: path over net motion 1.00–1.2 in every window,
   largest excursion from the chord 0.04 spacings after window 24).
+  The 300k dragon, the same reading (frozen code, to its own stop: silhouette IoU 0.9840, world-thin 0.6 %, 147
+  committed windows, 54.1 min; `output/gpu/render/forensics_dragon`). The target sample drawn by the 4K renderer
+  has the same blur as the morph's last frame: horns as feathered, banded blobs, no teeth or scales, soft jaw
+  edges (`ref_vs_end.jpg`, `pair_end.jpg`). The dragon's blur at the end is therefore the renderer's and the
+  sampling's: 300k particles fill the volume, about 87k of them are front-most, each is drawn as a disc of one
+  spacing with normals averaged twice over 32 neighbours, and a horn is a few spacings thick. What the morph adds
+  is transient: particles more than 3 spacings out 46 862 at raw frame 240, 2905 at 480, 652 at 960, 267 at 1920,
+  77 at the end; they sit in the concave gaps (the mouth, behind the neck, between the neck and the body, the tail
+  folds), as the bunny's web sits between the ears. Outer target points with no particle within 2 spacings: 21.1 %,
+  11.1 %, 5.9 %, 5.1 %, 2.75 % at the same frames (the crown between the horns, the mouth, the tail fold); partly
+  supported particles 18.7 % → 6.7 %.
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
