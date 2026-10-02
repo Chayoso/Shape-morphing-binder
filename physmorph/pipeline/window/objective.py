@@ -254,6 +254,9 @@ class Objective:
                            cos_xlocal=cos(loc[S], xloc[S]), cos_others=cos(loc[S], others[S]),
                            opp=float(((loc[S] * others[S]).sum(1) < 0).float().mean()))
             out[name] = rec
+        if cfg.term_dump:                   # the same gradients per particle, for the runner's dump
+            return {"active_set": out, "term_grads": {"ot": g_ot, "surf": g_surf, "near": g_near,
+                                                      "spray": g_spray, "rend": g_rend}}
         return {"active_set": out}
 
     def control_record(self, dfc) -> dict:

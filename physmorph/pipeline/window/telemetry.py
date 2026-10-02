@@ -125,6 +125,14 @@ def write_grad_dump(directory, dump, win, leaf0, leaf_final, u_final, commit_dc,
         leaf_final_norm=float(leaf_final.norm()), **red, **resp, **u_red)
 
 
+def write_term_dump(directory, animation, x, grads) -> None:
+    """Each objective term's position gradient at a window's committed state, per particle (transport, surface,
+    near band, spray cleanup, weighted render), with the state itself: which term pulls a given particle where."""
+    os.makedirs(directory, exist_ok=True)
+    np.savez(os.path.join(directory, f"terms_{animation:04d}.npz"), x=gpu.host(x),
+             **{"g_" + k: gpu.host(g) for k, g in grads.items()})
+
+
 def support_record(tgt, x: torch.Tensor) -> dict:
     """The transport term taken apart at a committed state: the transport without the support
     bound E, the support penalty B, the support-gradient weight w (E / (E + w B))^2 that every

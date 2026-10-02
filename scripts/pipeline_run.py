@@ -68,6 +68,8 @@ def parse_args():
                     help="diagnostic: split every failed line-search trial by control channel")
     ap.add_argument("--profile", action="store_true",
                     help="diagnostic: record the wall-clock split of every window (slows the run)")
+    ap.add_argument("--term_dump", default="",
+                    help="diagnostic: directory of each term's per-particle position gradient at every committed window")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
     ap.add_argument("--live_dir", default="", help="file-backed viewer sink (scripts/viewer_serve.py)")
     return ap.parse_args()
@@ -130,7 +132,7 @@ def main():
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
-                              profile=args.profile)
+                              profile=args.profile, term_dump=args.term_dump)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)

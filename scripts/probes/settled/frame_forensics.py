@@ -14,11 +14,10 @@ particle index can be followed through other frames (trace mode: frame_forensics
 import json, math, sys
 from pathlib import Path
 
-import numpy as np
-import torch
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
-from physmorph import gpu                                      # noqa: E402
+from physmorph import gpu                                      # noqa: E402  (before torch: CuPy binds its CUDA 12 compiler first)
+import numpy as np                                             # noqa: E402
+import torch                                                   # noqa: E402
 from physmorph.render.covariance_torch import world_to_view_torch  # noqa: E402
 from physmorph.render.knn_gpu import knn_self_torch            # noqa: E402
 from physmorph.render.support import live_support              # noqa: E402
@@ -82,19 +81,21 @@ def overlay(raw, px, py, floaters, inflated, holes_px):
     else:
         raw_r = raw
     img = Image.open(Path(sys.argv[5]) / f"{raws.index(raw_r):04d}.png").convert("RGB")
-    s = 1920 / img.width
-    img = img.resize((1920, int(img.height * s)), Image.LANCZOS)
+    s = 1.0                                             # markers at the native 4K pixels
     dr = ImageDraw.Draw(img)
-    for i in inflated[:: max(1, len(inflated) // 4000)]:
+    for i in inflated[:: max(1, len(inflated) // 60000)]:
         u, v = float(px[i]) * s, float(py[i]) * s
-        dr.point((u, v), fill=(255, 220, 0))
+        dr.ellipse((u - 1, v - 1, u + 1, v + 1), fill=(255, 220, 0))
     for u, v in holes_px[:: max(1, len(holes_px) // 2000)]:
-        dr.ellipse((u * s - 1.5, v * s - 1.5, u * s + 1.5, v * s + 1.5), outline=(0, 255, 255))
-    for i in floaters[:400]:
+        dr.ellipse((u * s - 3, v * s - 3, u * s + 3, v * s + 3), outline=(0, 255, 255), width=2)
+    for i in floaters[:2000]:
         u, v = float(px[i]) * s, float(py[i]) * s
-        dr.ellipse((u - 6, v - 6, u + 6, v + 6), outline=(255, 40, 40), width=2)
-    out = out_dir / f"overlay_{raw:05d}.png"
-    img.save(out)
+        dr.ellipse((u - 7, v - 7, u + 7, v + 7), outline=(255, 40, 40), width=2)
+    out = out_dir / f"overlay_{raw:05d}.jpg"
+    if len(sys.argv) > 6:                               # a crop box x0,y0,x1,y1 in 4K pixels
+        box = [int(v) for v in sys.argv[6].split(",")]
+        img.crop(box).save(out_dir / f"overlay_{raw:05d}_crop.jpg", quality=93)
+    img.resize((1920, 1080), Image.LANCZOS).save(out, quality=90)
     return out
 
 
