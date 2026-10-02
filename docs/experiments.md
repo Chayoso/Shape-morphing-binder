@@ -252,6 +252,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   folds), as the bunny's web sits between the ears. Outer target points with no particle within 2 spacings: 21.1 %,
   11.1 %, 5.9 %, 5.1 %, 2.75 % at the same frames (the crown between the horns, the mouth, the tail fold); partly
   supported particles 18.7 % → 6.7 %.
+- **D12, which part of the 4K display renderer blurs the picture (diagnostic, no simulation; pre-registered
+  2026-10-02 11:55 CDT, before the run; `scripts/probes/settled/render_axes.py`).** D11 found the run's own target
+  sample as blurred as the morph's last frame. The display rule (`scripts/render_splat_photoreal.py`): a disc of
+  radius = the target's nearest-neighbour spacing × clamp(8th-neighbour distance / coverage radius, 1, 4), a quarter
+  as thick; normals = the gradient of a density field blurred over 3 spacings, replaced by a neighbour's where
+  weak, then averaged twice over 32 neighbours; a 3-pixel filter on the normal buffer. The reference is the dragon
+  mesh itself: three million surface samples with the mesh's face normals, the same rasteriser, camera and
+  material. Drawn against it: the 300k target sample with one part of the rule changed at a time (disc × 0.7 and
+  × 0.5; density blur 1.5 and 0.75 spacings; no neighbour averaging; no image filter; a combination); the morph
+  frames at raw 480 and at the end with the same changes; volume samples of the same mesh at 1.2M and 2.4M with the
+  rule unchanged. Measured per picture: the angle between its pixel normals and the reference's, the width of
+  the silhouette edge, the interior shading detail as a share of the reference's, the silhouette's IoU with the
+  reference, and the covered pixels lost against the unchanged rule on the same particles. No criterion.
+  Predictions: (1) the density blur is the largest part: blur 1.5 spacings without averaging cuts the mean normal
+  error on the 300k target by at least a third and raises the detail by at least half; dropping the averaging or
+  the image filter alone changes less. (2) The edge width follows the disc (× 0.7 gives about × 0.7); at × 0.5 the
+  morph frame at raw 480 loses more than 1 % of its covered pixels (the stretched sheets open), at × 0.7 the target
+  loses less than 1 %. (3) At 2.4M with the rule unchanged the normal error and the edge width fall about with the
+  spacing: the rule is written in spacings, so at a fixed N its widths, not N, are the limit. (4) The best 300k
+  variant still stays above the 2.4M sample in normal error: features below a lattice step are not in the sample.
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
