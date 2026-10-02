@@ -306,7 +306,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   from deeper than eight; of the source's outer layer, 80 % ends within two steps of the final surface and 99 %
   within four. The surface material mostly stays surface material.
 - **D13, the source's surface carried by the archived motion (display-only diagnostic, no simulation;
-  pre-registered 2026-10-02 12:14 CDT, before the run; `scripts/probes/settled/surface_tracers.py`).** D12: nine
+  pre-registered 2026-10-02 12:12 CDT, before the run [the stamp first read 12:14, two minutes ahead of the
+  server clock at the launch: corrected]; `scripts/probes/settled/surface_tracers.py`).** D12: nine
   tenths of the particles are interior and the 300k sample puts one particle per 13.8 px on the surface. The source
   mesh (the 80-face sphere), fitted to the source sample and subdivided to 164k and 655k vertices, is moved through
   the delivered frames of the frozen 300k dragon run as massless tracers: over each stretch of frames (4 frames
@@ -322,6 +323,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   scales, because the motion has none below a lattice step. (3) 164k and 655k tracers agree within 1 degree and
   0.5 px: past about 100k the tracer count is not the limit, the motion's own resolution is. (4) The triangles'
   area grows by a median of 1.2–2 and by more than 10 on at least 1 % of the faces (horns, limbs).
+  **Result (2026-10-02 12:19 CDT; the first attempt at 12:12 failed at raw frame 1200: the source mesh was not
+  welded, and the weights of a tracer more than about 14 lattice steps from every particle underflowed; fixed by
+  welding, a weight width never narrower than the neighbourhood, and no extrapolation of the fit beyond the
+  neighbourhood; faces with a vertex more than two lattice steps from every particle are not drawn;
+  `output/gpu/render/d13_dragon`).** The source's surface carried through the whole run is not the body's surface
+  at the end. At the last frame (164k / 655k tracers): mean normal error 33.7 / 34.5 degrees against the particles'
+  21.3; silhouette IoU with the reference 0.935 / 0.937 against 0.947; edge 1.7 / 1.8 px; "detail" 2.7 / 3.5 times
+  the reference's, which is crumpling, not relief. The carried mesh: total area 3.7 / 4.6 times the start; 5.1 /
+  5.9 % of the neighbouring faces meet at more than 90 degrees (p99 158–160); triangle area median × 1.16–1.20, p99
+  × 42, largest × 2354 / 5999; 18 / 25 % of the carried area spans gaps the material has left (the open mouth is
+  crossed by stretched faces whose ends still sit on material); and 12.8 / 9.6 % of the particles' own outer layer
+  is more than two lattice steps from any tracer: that surface was made from interior material (D12's addendum:
+  11 % of the final outer layer came from deeper than eight steps). At raw frame 480 it is already so (32–33
+  degrees, 2.3 % folds, 5–6 % of the area over gaps).
+  (1) Half: the median tracer is 0.61 lattice steps from its nearest particle, but the 99th percentile is 2.4,
+  not 2. (2) Refuted, except the edge width: the picture is worse than the particles' in normal error and in
+  silhouette. (3) Confirmed: 164k and 655k agree within 1 degree and 0.1 px. (4) Confirmed (median 1.16–1.20; p99
+  42).
+  Reading: over a whole run the particle motion is not a smooth deformation of the source's boundary. The body
+  opens gaps and brings interior material to the surface, so a surface fixed at the start folds, stretches over
+  the gaps and misses a tenth of the final surface. A dense surface has to be taken again from the current body
+  (per window, or per frame), and then it holds no more than the particles do at that moment. The tracers follow
+  an interpolation of archived particle displacements over 4–20 frames, not the simulation's grid velocity at
+  every step; that the surface changes its material is measured on the particles alone (D12's addendum), not only
+  through this interpolation.
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time

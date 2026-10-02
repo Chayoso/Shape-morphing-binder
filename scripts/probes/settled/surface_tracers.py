@@ -50,6 +50,7 @@ def X(raw):
 def fitted(path, cloud):
     """The mesh in the sample's frame: the sample's bounding box is the mesh's, inset by half a lattice step a side."""
     mesh = load_mesh(path)
+    mesh.merge_vertices()                                      # one vertex per corner, so the subdivided mesh is closed
     o = orient_name(path)
     if o != "id":
         mesh.vertices = np.asarray(mesh.vertices, np.float64) @ rotation(o).T
@@ -144,7 +145,9 @@ for i in range(1, len(stops)):
     xb = X(stops[i])
     d, idx = gpu.KNN(xa).query(T, K)
     P, D = xa[idx], (xb - xa)[idx]                              # (M, K, 3)
-    w = torch.exp(-(d.float() / HW) ** 2)[..., None]
+    d = d.float()
+    h = torch.maximum(d[:, -1:], d.new_tensor(HW))             # never narrower than the neighbourhood itself
+    w = torch.exp(-(d / h) ** 2)[..., None]
     w = w / w.sum(1, keepdim=True)
     pc, dc = (w * P).sum(1), (w * D).sum(1)
     Pc, Dc = P - pc[:, None], D - dc[:, None]
@@ -152,7 +155,11 @@ for i in range(1, len(stops)):
     B = (w * Dc).transpose(1, 2) @ Pc
     M = M + 1e-3 * (M.diagonal(dim1=1, dim2=2).sum(1) / 3)[:, None, None] * torch.eye(3, device=dev)
     A = B @ torch.linalg.inv(M)
-    T = T + dc + (A @ (T - pc)[..., None])[..., 0]
+    # the fit holds inside the neighbourhood: a tracer beyond it takes the fit at the neighbourhood's edge
+    off = T - pc
+    reach = Pc.norm(dim=2).max(1).values
+    off = off * (reach / off.norm(dim=1).clamp_min(1e-12)).clamp(max=1.)[:, None]
+    T = T + dc + (A @ off[..., None])[..., 0]
     xa = xb
     if stops[i] in raws:
         saved[stops[i]] = T.clone()
@@ -188,7 +195,11 @@ for raw in raws:
         ratio = torch.as_tensor(mesh.area_faces / a0)
         fold = np.degrees(mesh.face_adjacency_angles)
         edge = np.linalg.norm(mesh.vertices[mesh.edges_unique[:, 0]] - mesh.vertices[mesh.edges_unique[:, 1]], axis=1) / px
-        pic = draw_mesh(mesh)
+        # a face with a vertex more than two lattice steps from every particle spans a gap the material has left:
+        # it is not drawn (the particle display's support rule does the same to a particle without neighbours)
+        has = (dn[torch.as_tensor(f, device=dev)] <= 2).all(1).cpu().numpy()
+        pic = draw_mesh(trimesh.Trimesh(mesh.vertices, f[has], process=False))
+        print(f"   faces not drawn (a vertex beyond two lattice steps of every particle): {100 * (1 - has.mean()):.2f} %, {100 * mesh.area_faces[~has].sum() / mesh.area:.1f} % of the carried area")
         print(f"   tracers {n}: to the nearest particle (lattice steps) median {float(dn.median()):.2f}, p99 {float(torch.quantile(dn[::4], .99)):.2f}, max {float(dn.max()):.1f} | "
               f"particles' outer layer to the nearest tracer median {float(dp.median()):.2f}, p99 {float(torch.quantile(dp, .99)):.2f}, beyond 2 steps {100 * float((dp > 2).float().mean()):.1f} %")
         print(f"      triangle area against the start: median {float(ratio.median()):.2f}, p90 {float(torch.quantile(ratio[::4].float(), .9)):.1f}, p99 {float(torch.quantile(ratio[::4].float(), .99)):.1f}, max {float(ratio.max()):.0f}; total area x {mesh.area / float(np.sum(a0)):.2f} | "
