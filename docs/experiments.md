@@ -451,6 +451,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   control or the grid. With it off the same recipe also reaches a better silhouette and thin coverage on this
   box, and takes 5–10 times the windows or does not stop. One target family, one seed, one run an arm; what the
   relaxation was introduced for (the lumps of the u channel on the gallery's shapes) was not measured here.
+  Second run of the six 300k arms, with pictures (launched 13:59, done 14:33; OFF with the 80-window budget;
+  `output/gpu/d15r`: 4K frames and videos of every arm and of the three target samples, camera elevation 35):
+  in-phase share ON / OFF 0.89 / 1.01 (22 spacings), 0.18 / 0.66 (11), 0.02 / 0.58 (5.6), against the first run's
+  0.91 / 1.00, 0.18 / 0.66, 0.04 / 0.70. In the 4K pictures the 22-spacing ridges are plain in the target sample
+  and in both arms; the 11-spacing ridges show as a scalloped edge and faint streaks in the target sample and in
+  OFF, and as fewer, rounder scallops in ON; the 5.6-spacing ridges are hardly visible in any of the three,
+  target sample included (the display rule's normals are blurred over 3 spacings, D12). ON rounds the box's
+  edges and corners more than OFF.
+  The relaxation's definition against the literature (two passes, 2026-09-30 for R5 and 2026-10-02): it is a
+  point-set fairing step (the Adamson–Alexa plane residual moved along the normal, Taubin's averaging without a
+  pass band), not a particle regularisation. Every particle method read leaves the free surface's normal
+  direction alone: SPH shifting is tangential or switched off at the surface (Lind et al. 2012; Khayyer et al.
+  2017; Sun et al. 2017), MPM resampling stays away from it (Yue et al. 2015; Gao et al. 2017), and position-based
+  fluids call their normal effect an artefact (Macklin & Müller 2013). The noise (2–4 spacings) and the features
+  wanted (5–11 spacings) are adjacent bands, so no linear filter separates them sharply; a narrower stencil shifts
+  the cut-off, Taubin's λ|μ amplifies the pass band at this scale, and a bilateral weight needs a live
+  normalisation that broke the adjoint before. On record from 2026-09-29/30 on the earlier objective (D3b, D3c,
+  R5): without the forward relaxation the 40k gallery's silhouette IoU rose on 18 of 19 meshes (+0.006–0.007) at
+  three times the run length, with a tail that improves about 1 % a window (D5: the two controls share one step
+  length).
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
