@@ -500,12 +500,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   OFF's ≤ 4-spacing offset about the target sample's: bunny 0.214 and dragon 0.218 against the samples' 0.387
   and 0.203 (the 300k fit of the mesh is coarser; read with care); ragged ear edges early: confirmed; a local
   bump of two spacings or more: refuted, the defect is a fringe of one spacing, not a bump.
-  Reading: at 300k the relaxation's cost and benefit are both small on the bunny (a smooth target: it cleans a
-  one-spacing fringe that u leaves at the ears) and the benefit of switching it off shows on the dragon (+0.0044
-  silhouette, world-thin 0.55 → 0.01 %, the mouth and horns nearer the sample). What the relaxation really
-  removes is u's per-particle normal offset, the thing it was introduced for; a redefinition therefore belongs
-  on u's side (what u may inject), not on the state, which is R5's direction (2026-09-30), and the slow tail
-  without the relaxation (D5) stays the open cost.
+  Reading, corrected after the user looked (18:10 CDT; the first reading called OFF "nearer the target" on the
+  dragon from the silhouette IoU and the open mouth). Looked at properly, region by region at native resolution
+  (`sheets_dragon_regions`, `tmp/triple_sheet.py`: head, tail and paw, feet), OFF is the blurrier picture on the
+  dragon as on the bunny: feathered outlines on the horns, jaw, tail and claws, mottled shading where the
+  first layer is uneven, and fewer sharp pixels than the target sample's own render (share of object pixels with
+  a strong luminance gradient, head: ON 4.6 %, target sample 3.8 %, OFF 3.5 %). ON is the crispest of the three
+  (a regular first layer: plane residual 0.21 spacings against the sample's 0.35 and OFF's 0.44), at the cost of
+  rounder forms (the mouth closed into a hump, the horns as knobs). So the two rulers disagree: the silhouette
+  IoU and the thin share favour OFF (+0.0044, 0.55 → 0.01 %), the picture favours ON, because the display rule
+  turns an uneven or fringed first layer into enlarged translucent discs. What the relaxation really removes is
+  u's per-particle normal offset and the layer's unevenness, the things it was introduced for; the relief it
+  erases (11 spacings and less, 0.6 wu at 300k) is below what the sample and the display show anyway (D12). For
+  the current paper (300k, this renderer) the relaxation stays; a redefinition, if ever, belongs on u's side
+  (what u may inject), R5's direction (2026-09-30), with the slow tail (D5) as its open cost.
 - **D15, the closed loop on ridged targets, with the layer relaxation on and off (diagnostic, pre-registered
   2026-10-02 12:36 CDT, before launch [first written as 12:37, a minute ahead of the server clock at the launch:
   corrected]; `make_ridge_slab.py`, `ridge_closed_loop.py`, `tmp/d15.sh`).** D14, open
