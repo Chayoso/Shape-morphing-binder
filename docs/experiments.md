@@ -305,6 +305,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the last frame's outer layer, 65 % was within two steps of the source's surface, 78 % within four, and 11 % came
   from deeper than eight; of the source's outer layer, 80 % ends within two steps of the final surface and 99 %
   within four. The surface material mostly stays surface material.
+- **D13, the source's surface carried by the archived motion (display-only diagnostic, no simulation;
+  pre-registered 2026-10-02 12:14 CDT, before the run; `scripts/probes/settled/surface_tracers.py`).** D12: nine
+  tenths of the particles are interior and the 300k sample puts one particle per 13.8 px on the surface. The source
+  mesh (the 80-face sphere), fitted to the source sample and subdivided to 164k and 655k vertices, is moved through
+  the delivered frames of the frozen 300k dragon run as massless tracers: over each stretch of frames (4 frames
+  while the body moves fast, 8, then 20) a tracer takes the displacement of the particles around it (an affine
+  least-squares fit over its 24 nearest particles). The archive holds no grid velocities; the particles'
+  displacements are the simulation's motion sampled at 300k points, and they include the outer layer's own
+  offset (the u control), which a grid velocity would not. The carried mesh is drawn as D12's reference and
+  measured against the target mesh. Nothing in the physics or the objective changes; a tracer picture does not
+  show stray particles, so it is read beside the particle picture, not instead of it. Predictions: (1) the tracers
+  stay on the body: at the end the median tracer is within one lattice step of its nearest particle and 99 %
+  within two. (2) The picture: silhouette edge at most 3 px (particles 7.0), silhouette IoU with the reference
+  above the particles' 0.947, mean normal error 13–17 degrees (particles 21.3; the 2.4M sample 10.9); no teeth or
+  scales, because the motion has none below a lattice step. (3) 164k and 655k tracers agree within 1 degree and
+  0.5 px: past about 100k the tracer count is not the limit, the motion's own resolution is. (4) The triangles'
+  area grows by a median of 1.2–2 and by more than 10 on at least 1 % of the faces (horns, limbs).
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
