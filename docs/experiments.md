@@ -299,6 +299,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   and narrowing them trades blur for lattice and arrangement noise on the morph frames. The morph itself adds 2
   degrees at the end (21.3 against 19.3). The mesh was fitted to the sample by bounding box (per-axis ratios
   within 1.5 %); the run's target and its resample from the fitted mesh agree (19.3 and 18.5).
+  Addendum (12:10 CDT, `scripts/probes/settled/surface_origin.py`, the 300k dragon run): where the particle budget
+  is and who makes the final surface. Within one lattice step of the surface: 4.5 % of the particles in the source
+  and 6.0 % in the last frame (within two steps 14.9 % and 20.4 %): nine tenths of the particles are interior. Of
+  the last frame's outer layer, 65 % was within two steps of the source's surface, 78 % within four, and 11 % came
+  from deeper than eight; of the source's outer layer, 80 % ends within two steps of the final surface and 99 %
+  within four. The surface material mostly stays surface material.
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
