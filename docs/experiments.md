@@ -371,6 +371,37 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   at 2 cells, at most 0.2 at 1 cell, at most 0.05 at 0.5 and 0.25 cells, the same at both spacings (the grid, not
   the particles, sets it). The closed-loop step (the frozen recipe on a target with the same ridges) follows for
   the wavelengths that pass here.
+  **Result (2026-10-02 12:30 CDT; `output/gpu/d14/d14.log`, and `d14_norelax.log`: the same with the layer
+  relaxation switched off, a control arm added after the first reading).** The limit is counted in particle
+  spacings, not in cells, and the part that sets it is the layer relaxation.
+  A0, relief left after windows 1 and 4, by wavelength in spacings (300k spacing / 2.4M spacing agree at equal
+  spacings): 45 spacings 1.00, 1.00; 22 spacings 0.99, 0.95 and 0.98, 0.95; 11 spacings 0.84, 0.55 and 0.84, 0.56;
+  5.6 spacings 0.33, 0.11 and 0.45, 0.20; 2.8 spacings 0.31, 0.20 and 0.23, 0.05. The sample itself carries 0.97–0.99
+  of the asked relief at 22 spacings and more, 0.93 at 11, 0.75 at 5.6, 0.40–0.56 at 2.8. In cells: at 300k
+  spacing 11 spacings are 2 cells and 5.6 are 1 cell; at 2.4M they are 1 cell and half a cell. With the
+  relaxation off, 1.00 at every wavelength and window: at rest the rollout moves nothing else.
+  A1, the u channel, share of the commanded 0.5 spacings (end of the controlled half / window's end / after two
+  free windows): 22 spacings 0.97 / 0.96 / 0.87–0.89; 11 spacings 0.92 / 0.79 / 0.52; 5.6 spacings 0.65 / 0.28 /
+  0.04; 2.8 spacings 0.60–0.63 / 0.22–0.25 / 0.05–0.09. With the relaxation off: 0.97–0.98 at every wavelength,
+  kept through the release and the two free windows.
+  A2, the dFc channel at its clip for one window, relief at the window's end with the relaxation off (wu; 300k /
+  2.4M spacing): 4 cells 0.0165 / 0.0150; 2 cells 0.0051 / 0.0020; 1 cell 0.0040 / 0.0026; half a cell 0.0007 /
+  0.0006; a quarter cell 0.0001 / 0.0004. A ridge of A = λ/8 is 0.15, 0.076, 0.038, 0.019 and 0.009 wu: the stress
+  channel makes about a tenth of it per window at one cell and above, a thirtieth at half a cell, and nothing
+  measurable at a quarter. With the relaxation on, the rows below one cell are at the fit's noise (0.001 wu).
+  Predictions: A0 refuted in size at long wavelengths (0.99 and 0.84 at 22 and 11 spacings against 0.8 and 0.45:
+  the relaxation removes only what the neighbourhood does not share, so it is milder than a plain filter there)
+  and at the edge of the band at 5.6 spacings (0.33 against 0.17 ± 0.15); the sample lacking the 2.8-spacing
+  relief: confirmed (0.40). A1: 0.97 at 4 cells confirmed; at 1 cell 0.65 in the controlled half (predicted at
+  most 0.5) and 0.28 at the window's end; the decay follows A0. A2: mostly refuted: per wavelength the 1-cell
+  relief is 0.7–0.97 of the 4-cell relief at the window's end, not under 0.2; the fall comes at half a cell.
+  Reading: the rollout can carry relief down to what the particles can sample, and the u channel can make it; the
+  stress channel works down to about one cell. What removes relief of 6 spacings and less within a window or two,
+  and half of the 11-spacing relief in four windows, is the outer-layer relaxation, which counts anything
+  narrower than its neighbourhood (24 layer neighbours, 2 spacings) as sampling roughness. At 300k that is 1–2
+  cells (0.3–0.6 wu); the dragon's teeth (about 0.06 wu, one spacing) are below even the sample. So the dense
+  surface samples of the resampling proposal would not add relief: the relief is taken out in the forward model,
+  at a scale set by the particle spacing. Measured on a slab at rest; a moving body adds stress and the bonds.
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time

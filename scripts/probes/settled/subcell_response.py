@@ -1,4 +1,4 @@
-"""subcell_response.py [DX=0.3024] — D14: what surface relief the window's rollout can hold and make, by wavelength.
+"""subcell_response.py [DX=0.3024] [norelax] — D14: what surface relief the window's rollout can hold and make, by wavelength.
 
 A slab (8 x 3 x 4 cells, free on every side, at rest, the run's material and time step) is sampled as the pipeline
 samples a body (one jittered particle per voxel) at the particle spacing of a 300k run and of a 2.4M run. Its top
@@ -29,6 +29,7 @@ from physmorph.plasticity import assimilate_elastic            # noqa: E402
 
 dev = "cuda"
 DX = float(sys.argv[1]) if len(sys.argv) > 1 else 0.3024
+RELAX = not (len(sys.argv) > 2 and sys.argv[2] == "norelax")   # the control arm: the layer relaxation switched off
 cfg = PipelineConfig()
 Tc, T = cfg.T, 2 * cfg.T
 LX, D, LZ = 8 * DX, 3 * DX, 4 * DX
@@ -94,7 +95,8 @@ class Body:
         rest = (x[self.nbr] - x[:, None, :]).norm(dim=2)
         tr = Trajectory(x, self.m, lam0, mu0, self.prm, T, F0=self.F, Fp=self.Fp, v0=self.v, C0=self.C, dFc=seq, device=dev,
                         requires_grad=False, vol0=self.vol0, persistent=True, bonds=(self.nbr, rest, torch.zeros(N, device=dev)),
-                        layer=(lmask, lnrm, lnbr, lw, 1.0 / float(Tc)), bond_history=True, control_steps=Tc, polar_adjoint=True)
+                        layer=(lmask, lnrm, lnbr, lw, (1.0 / float(Tc)) if RELAX else 0.0), bond_history=True, control_steps=Tc,
+                        polar_adjoint=True)
         if u is not None:
             wp.to_torch(tr.layer_u).copy_((u * lmask).clamp(-sp0, sp0))
         tr.run()
@@ -107,7 +109,7 @@ class Body:
 
 
 print(f"cell {DX} wu; slab {LX:.2f} x {D:.2f} x {LZ:.2f} wu; window {Tc} controlled + {Tc} released steps; layer neighbours {cfg.layer_k}, weight width {cfg.layer_h_sp} spacings; "
-      f"relaxation {1 / Tc:.3f} a step")
+      f"relaxation {(1 / Tc) if RELAX else 0:.3f} a step")
 for label, n_body in (("300k", 300_000), ("2.4M", 2_400_000)):
     a = (V_BODY / n_body) ** (1 / 3)
     print(f"\n######## particle spacing of a {label} run: a = {a:.4f} wu = {a / DX:.3f} cells")
