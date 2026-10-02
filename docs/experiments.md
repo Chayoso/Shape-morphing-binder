@@ -459,6 +459,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D16b, the same comparison read frame by frame at 300k (diagnostic, pre-registered 2026-10-02 17:01 CDT, before
+  launch).** D16's bunny and dragon were run again at 40k with 4K renders and read frame by frame at equal raw
+  frames (`output/gpu/d16r`, `tmp/pair_sheets.py`). With the relaxation off the bunny's upright ear has a ragged
+  edge in raw frames 264–936 and a lump on its left side from raw frame 408 to the end (11 600), which neither the
+  target sample's render nor the ON arm shows; the layer's rms roughness of D16 does not see a local lump. At 40k
+  every picture is a blob (spacing 0.106 wu; the user: the 40k pictures carry little), so the question is asked
+  again at 300k: bunny and dragon, the frozen recipe, ON to its own stop and OFF with a window budget (80 for the
+  bunny, 150 for the dragon: OFF does not stop), each with the 4K render, the target sample's render and the layer
+  roughness; the bunny's archives are kept and OFF's term gradients dumped, so that a lump can be traced to its
+  particles (`lump_probe.py`: the motion a particle does not share with its neighbours, along the normal, is the
+  position channels'). `output/gpu/d17`. Predictions: silhouette IoU OFF at or above ON on both; the ≤ 4-spacing
+  offset under OFF about the target sample's; in the pictures OFF shows ragged ear edges in the early windows and
+  at least one local bump of two spacings or more on the bunny's ears at the end, as at 40k.
 - **D15, the closed loop on ridged targets, with the layer relaxation on and off (diagnostic, pre-registered
   2026-10-02 12:36 CDT, before launch [first written as 12:37, a minute ahead of the server clock at the launch:
   corrected]; `make_ridge_slab.py`, `ridge_closed_loop.py`, `tmp/d15.sh`).** D14, open
