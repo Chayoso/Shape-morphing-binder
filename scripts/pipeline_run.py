@@ -68,6 +68,16 @@ def parse_args():
                     help="diagnostic: split every failed line-search trial by control channel")
     ap.add_argument("--profile", action="store_true",
                     help="diagnostic: record the wall-clock split of every window (slows the run)")
+    ap.add_argument("--young", type=float, default=None, help="material: Young's modulus (default: the config's)")
+    ap.add_argument("--poisson", type=float, default=None, help="material: Poisson's ratio")
+    ap.add_argument("--assim", type=float, default=None,
+                    help="material: the share of the elastic strain made permanent at every commit")
+    ap.add_argument("--drag", type=float, default=None, help="material: momentum drag rate (1/s)")
+    ap.add_argument("--f_ext", type=float, nargs=3, default=None, metavar=("X", "Y", "Z"),
+                    help="external force: a uniform acceleration (wu/s^2) on every grid node")
+    ap.add_argument("--floor", action="store_true",
+                    help="external force: a separating floor at the source's lowest point; the target stands on it")
+    ap.add_argument("--floor_friction", type=float, default=0.0, help="Coulomb friction of the floor")
     ap.add_argument("--term_dump", default="",
                     help="diagnostic: directory of each term's per-particle position gradient at every committed window")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
@@ -121,12 +131,19 @@ def live_hooks(args, src, tgt, prm, cfg):
 def main():
     args = parse_args()
     gpu.require_cuda()
+    material = {k: getattr(args, k) for k in ("young", "poisson", "assim") if getattr(args, k) is not None}
     cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
-                          loss_follows_n=args.loss_follows_n)
+                          loss_follows_n=args.loss_follows_n, **material)
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
-                   loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0)
+                   loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
+    if args.drag is not None:
+        prm = dataclasses.replace(prm, drag=args.drag)
+    if args.f_ext is not None:
+        prm = dataclasses.replace(prm, f_ext=tuple(args.f_ext))
+    if args.floor:
+        prm = dataclasses.replace(prm, floor_friction=args.floor_friction)
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,

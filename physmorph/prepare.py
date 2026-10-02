@@ -51,10 +51,16 @@ def sampling_berth(target: np.ndarray) -> float:
 
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
-            poisson: float, log=print, loss_ref_n: int = 0) -> Prepared:
+            poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False) -> Prepared:
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified")
     tgt, v_tgt = load_normalized(tgt_path, n, seed + 1, match_volume=v_src, sample="stratified",
                                  return_volume=True)
+    floor_y = None
+    if floor:                                 # both shapes stand on one floor, at the source's lowest point
+        floor_y = float(src[:, 1].min())
+        tgt = tgt.copy()
+        tgt[:, 1] += floor_y - float(tgt[:, 1].min())
+        log(f"[v2run] floor at y = {floor_y:.3f} wu; the target stands on it")
     log(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
         f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})")
     prm = MPMParams()
@@ -75,6 +81,8 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
                   loss_cells_per_dx=per_dx)
     prm = dataclasses.replace(prm, dx=disc.dx, nx=disc.grid_n, ny=disc.grid_n, nz=disc.grid_n,
                               grid_min=(disc.grid_min,) * 3)
+    if floor_y is not None:
+        prm = dataclasses.replace(prm, floor_y=floor_y)
     # the unit calibration measures the legacy ratio on a 0.5 wu reference cell (the grid
     # every legacy weight was tuned on)
     unit_ref_res = int(round(2.0 * domain_half / 0.5))
