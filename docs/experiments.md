@@ -472,6 +472,40 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   position channels'). `output/gpu/d17`. Predictions: silhouette IoU OFF at or above ON on both; the ≤ 4-spacing
   offset under OFF about the target sample's; in the pictures OFF shows ragged ear edges in the early windows and
   at least one local bump of two spacings or more on the bunny's ears at the end, as at 40k.
+  **Result (2026-10-02 17:55 CDT; `output/gpu/d17`, sheets in `sheets_bunny`, `sheets_dragon`, forensics in
+  `forensics_bunny_*`, `lump_bunny_off.txt`).** Bunny: ON 0.9877 (58 windows, 12.1 min), OFF 0.9875 (78 of 80,
+  15.7 min); thin share 12.8 against 14.2 %, world-thin 0.02 against 0.00 %; outer target points with no particle
+  within two spacings 0.90 against 0.48 %; front particles drawn with an enlarged disc 0.9 against 2.7 %; the
+  residual the relaxation removes 0.111 against 0.351 spacings; λ 0.249 / 0.209, g_share 0.88 / 0.87. Dragon: ON
+  0.9838 (122 windows, 45 min), OFF 0.9882 (129 of 150, 47 min); thin 18.8 against 17.4 %, world-thin 0.55
+  against 0.01 %, holes 0.05 against 0.01 %; λ 0.396 / 0.497, g_share 0.94 / 0.96.
+  Frame by frame, at equal raw frames. Bunny: both arms carry the web between the ears (raw 204) and the tuft at
+  the notch (raw 396); from raw 600 to the end OFF keeps a translucent fuzz on the upright ear's left edge and
+  tip and along the slanted ear's upper edge, where ON's edges are clean and like the target sample's; ON has
+  ripples on the slanted ear's underside that OFF has less of; no lump at 300k (the 40k "lump" was particles
+  within one spacing of the target, 37 px at 40k, and not meaningful). Dragon: OFF's head is nearer the target
+  sample's (the mouth open, the horns banded and feathered as in the sample); ON's is doughier with the mouth
+  closed into a hump; OFF's horns carry fuzz. No oscillation in any tail.
+  The fuzz, traced (bunny OFF, the upright ear's left edge, 4K box 2000–2090 × 300–520): 746 particles project
+  there, 53 of them more than one spacing from the target sample (median 1.17, at most 1.6; none beyond 3), from
+  the source's surface (depth 1.9 spacings). They are pushed out in windows 6–12 (raw 240–520), when the u gate
+  opens (u_gate 0.92 → 1.0): their motion along the normal that their 24 neighbours do not share is +0.02 to
+  +0.05 spacings a window (90th percentile +0.15 to +0.33) against +0.02 for the whole layer; the grid moves a
+  neighbourhood together, so this is the position channel, u. From window 12 they sit at 1.1–1.2 spacings:
+  inside the near band's berth (the band is on for 9–28 % of them), with no other term pulling (transport,
+  surface and render within ±0.1 of the all-particle rms, the render slightly outward). With the relaxation on
+  the same offsets are removed inside the window. The fuzz in the picture is the display rule drawing the
+  resulting sparse front particles enlarged and translucent (2.7 % of front particles against 0.9 %).
+  Predictions: silhouette OFF at or above ON on both: confirmed (equal on the bunny, +0.0044 on the dragon);
+  OFF's ≤ 4-spacing offset about the target sample's: bunny 0.214 and dragon 0.218 against the samples' 0.387
+  and 0.203 (the 300k fit of the mesh is coarser; read with care); ragged ear edges early: confirmed; a local
+  bump of two spacings or more: refuted, the defect is a fringe of one spacing, not a bump.
+  Reading: at 300k the relaxation's cost and benefit are both small on the bunny (a smooth target: it cleans a
+  one-spacing fringe that u leaves at the ears) and the benefit of switching it off shows on the dragon (+0.0044
+  silhouette, world-thin 0.55 → 0.01 %, the mouth and horns nearer the sample). What the relaxation really
+  removes is u's per-particle normal offset, the thing it was introduced for; a redefinition therefore belongs
+  on u's side (what u may inject), not on the state, which is R5's direction (2026-09-30), and the slow tail
+  without the relaxation (D5) stays the open cost.
 - **D15, the closed loop on ridged targets, with the layer relaxation on and off (diagnostic, pre-registered
   2026-10-02 12:36 CDT, before launch [first written as 12:37, a minute ahead of the server clock at the launch:
   corrected]; `make_ridge_slab.py`, `ridge_closed_loop.py`, `tmp/d15.sh`).** D14, open
