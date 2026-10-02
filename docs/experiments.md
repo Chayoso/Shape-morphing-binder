@@ -276,6 +276,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   as predicted, the moving case needs the objective written in the body's frame (the target and the cameras carried
   by the centre of mass, the settling terms on the velocity relative to it): a change of definition for the user to
   decide, not made here.
+  **Result (2026-10-02 00:17 CDT, launched 00:01 after the suite passed on repo_r34; the first full run failed one
+  test, `test_an_unsolved_transport_cannot_initialize_an_accepted_commit`, with three other jobs on the GPU; it
+  passed 3 of 3 alone on repo_r34 and repo_r33 and the second full run passed, 269: recorded as the known
+  nondeterminism).** Silhouette IoU / world-thin / committed windows, bunny then dragon (M1's base: bunny 0.9751,
+  0.9753 / 9.2, 9.4 % / 41; dragon 0.9752, 0.9758 / 14.4, 13.8 % / 60, 74):
+  floor alone 0.9732 / 11.6 % / 17 and 0.9742 / 13.7 % / 16; G 0.02: 0.9768 / 10.0 % / 19 and 0.9754 / 13.3 % / 33;
+  G 0.1: 0.8724 / 41 % / 5 and 0.8611 / 48 % / 7; G 0.5: 0.7196 / 2 and 0.6079 / 2; G 0.1 with friction 0.5:
+  0.8720 / 5 and 0.8599 / 7; sideways acceleration: 0.8728 / 4 and 0.7955 / 5. No guard in any run. λ of the first
+  window 0.18–0.25 (bunny) and 0.33–0.37 (dragon), as without forces; g_share falls with the force (0.73–0.83 at
+  the floor and G 0.02, 0.55–0.66 at G 0.1, 0.32–0.36 at G 0.5).
+  (a) Confirmed as registered (within 0.01), with a cause not predicted: the floor-standing target's centre of
+  mass is 0.21 wu below the source's, and without an external force the centre of mass stays where it is (+0.01):
+  the run stops at a merit of 0.0136 (bunny), seven times the G 0.02 run's 0.0018–0.0023, where gravity carries the
+  centre of mass down to −0.21 and the floor holds it there. (b) 0.02 confirmed. 0.1 refuted on the bunny, 0.5
+  confirmed, both by a mechanism other than the predicted creep: the centre of mass falls past the target's
+  (−0.70 after four windows at G 0.1, velocity −1.06 wu/s; −0.78 after one at G 0.5, −4.15 wu/s; near free fall
+  under the drag), the merit turns upward at window 3 (0.105 → 0.109 → 0.162), the brake rejects, and three
+  rejections stop the run. A sphere standing on a point is not held up until it has flattened. (c) Confirmed:
+  friction changes nothing (0.8720 against 0.8724). (d) Confirmed: the centre of mass moves +0.59 (bunny) and +0.88
+  (dragon) in four to five windows at 1.6–1.9 wu/s, the merit turns upward and the run stops.
+  Reading: the frozen recipe morphs under a weak body force with a support (G 0.02) and stops within a few windows
+  whenever the centre of mass moves faster than the morph proceeds, because the target, the cameras and the
+  settling terms are fixed in the world.
 - **FV, the final validation of the formulation (pre-registered 2026-10-01 19:36 CDT, launched 19:37 after the suite passed
   on repo_r30 (269 passed); repo_r30 = repo_r29 with the three regularisers deleted from the code).** The objective is now eight terms: the Sinkhorn
   transport, the surface proximity and the residual drift of the released end (geometry, one scale ot_scale); the
