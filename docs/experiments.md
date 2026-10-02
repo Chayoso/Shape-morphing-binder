@@ -172,6 +172,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
+- **D10, where a 300k dragon window's time goes, with the near band on and off (diagnostic, pre-registered 2026-10-01
+  23:18 CDT, before launch; repo_r31 = repo_r30 with a profile switched on by `--profile`, off by default; the
+  near-band-off arm is a copy with the default w_nn = 0).** The user's target is a 300k dragon in about 15 minutes;
+  the frozen code's run to its own stop takes 42 minutes (125 window attempts of 20 s: gradients 9.3 s, line search
+  4.9 s, start 2.0 s, commit 2.0 s, records 2.0 s), and at window 40 (13 minutes) it is at 0.94 % world-thin against
+  0.70 % at the end. From the phase timers: with the near band on a line-search trial costs 0.75–0.86 s in windows
+  11–35 against 0.42 s with it off (the same trial count), a gradient iteration 1.5 s against 1.07 s; late in the
+  run (windows 61–125) the near-band-on run is at 0.40 s and 1.04 s too. The term's own computation is in both
+  arms. Recorded per window: seconds and calls of the MPM rollouts (evaluation and tape), the Sinkhorn solves and
+  their sweep count, the surface term, the render, the cleanup, and the three adjoints (physics, cleanup, render).
+  Runs: the 300k dragon at 35 windows in each arm (`output/gpu/prof`, `tmp/prof_eval.py`). No criterion: the
+  result is which part holds the 0.3–0.45 s per evaluation. Prediction: the Sinkhorn solves (more sweeps to
+  converge in the near-band-on states; every solve starts from zero duals).
 - **FV, the final validation of the formulation (pre-registered 2026-10-01 19:36 CDT, launched 19:37 after the suite passed
   on repo_r30 (269 passed); repo_r30 = repo_r29 with the three regularisers deleted from the code).** The objective is now eight terms: the Sinkhorn
   transport, the surface proximity and the residual drift of the released end (geometry, one scale ot_scale); the
