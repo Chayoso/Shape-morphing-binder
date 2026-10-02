@@ -172,8 +172,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   half of them. A discontinuity (as in D1b) is indicated if, at steps below 1e-5, the joint change stays above 1e-7
   relative whatever the step. Prediction: H_block supported. If it is, the fix is structural (a step length per
   control block), designed after a literature pass. No step constant changes.
-- **FV, the final validation of the formulation (pre-registered 2026-10-01 19:36 CDT, before launch; repo_r30 =
-  repo_r29 with the three regularisers deleted from the code).** The objective is now eight terms: the Sinkhorn
+- **FV, the final validation of the formulation (pre-registered 2026-10-01 19:36 CDT, launched 19:37 after the suite passed
+  on repo_r30 (269 passed); repo_r30 = repo_r29 with the three regularisers deleted from the code).** The objective is now eight terms: the Sinkhorn
   transport, the surface proximity and the residual drift of the released end (geometry, one scale ot_scale); the
   released motion (settling); the near band between the berth and one loss cell and the spray cleanup (local); the
   silhouette and the shading (render, weight λ calibrated once). Constants left: w_nn, w_dt with its isolation
