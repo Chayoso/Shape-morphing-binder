@@ -224,7 +224,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   guard. Recorded: world-thin, committed windows, minutes, the kinetic record's peak and end, the released motion at
   the end, λ of the first window and the median g_share (the render's influence under each material). Predictions:
   (1) E: reached at 0.3, 1 and 3; at 0.1 reached with at least 1.5 times the windows (a unit of control makes a
-  tenth of the stress, and a wave crosses 0.85 cells a window instead of 2.7); at 7 a guard fires or world-thin
+  tenth of the stress, and a wave crosses 2.3 cells a window instead of 7.3 [figures corrected 23:55 from the
+  run's own log, c = 13.4 wu/s at the dynamics mass; the registered text said 0.85 and 2.7, from the 300k report's
+  unit-mass sound speed; the prediction is unchanged]); at 7 a guard fires or world-thin
   worsens on at least two meshes. (2) ν: reached at every level; at 0.45 world-thin worse than both base runs on at
   least two meshes. (3) Assimilation: at 0 not reached on at least three meshes (the body keeps the sphere as its
   rest shape and springs back in the released half); 0.25 and 1 reached. (4) Drag: reached at both; at 0 more

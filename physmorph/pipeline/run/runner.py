@@ -254,6 +254,7 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) 
            "u_gate": stats.get("u_gate"), "dfc_absmax": w["dfc_absmax"],
            "accepted": stats["accepted"], "rejected": stats["rejected"],
            "v_absmax": float(v.abs().max()), "v_mean": float(v.norm(dim=1).mean()),
+           "com": x.mean(0).tolist(), "v_com": v.mean(0).tolist(),
            "move": float((x - x_start).norm(dim=1).mean()), "Jmin": jmin,
            "Jmin_traj": commit.jmin_traj, **counts,
            "selection_merit": stats["selection_merit"], "ot_div": ot_div, "transport_energy": energy,
