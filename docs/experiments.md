@@ -403,7 +403,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   surface samples of the resampling proposal would not add relief: the relief is taken out in the forward model,
   at a scale set by the particle spacing. Measured on a slab at rest; a moving body adds stress and the bonds.
 - **D15, the closed loop on ridged targets, with the layer relaxation on and off (diagnostic, pre-registered
-  2026-10-02 12:37 CDT, before launch; `make_ridge_slab.py`, `ridge_closed_loop.py`, `tmp/d15.sh`).** D14, open
+  2026-10-02 12:36 CDT, before launch [first written as 12:37, a minute ahead of the server clock at the launch:
+  corrected]; `make_ridge_slab.py`, `ridge_closed_loop.py`, `tmp/d15.sh`).** D14, open
   loop: the rollout can carry relief down to the particles' sampling limit, and the outer-layer relaxation removes
   relief of 6 spacings and less. The question now: does the objective, window after window, rebuild what the
   relaxation removes? Targets: a box of the gallery body's volume (4.454 × 2.4 × 4.454 wu) whose top face carries
