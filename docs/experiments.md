@@ -424,6 +424,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   hardly sees it (the relief is 0.7 spacings, inside the proximity threshold of 1.53 and the berth of 1.97; at
   300k a loss cell holds half a wavelength; the 96-pixel render has four to five pixels a wavelength). The same
   in spacings at 40k.
+  **Result (2026-10-02 13:57 CDT; `output/gpu/d15/*.ridge.txt`).** Two failures on the way, recorded: the 12:36
+  launch hung for twenty minutes in the sampler (the first ridge mesh had sliver triangles 0.006 × 2.4 wu, which
+  the voxeliser subdivides without end); the meshes were rebuilt with uniform triangles and the runs restarted at
+  12:58. The 300k OFF runs at 22 and 11 spacings did not stop by themselves (240 and 180 windows and going, an
+  archive of 43 GB each at the 300-window budget): stopped at 13:41 and run again with an 80-window budget.
+  In-phase share of the target sample's relief at the window's end, mean of the last ten windows (ON / OFF):
+  40k: 22 spacings 0.98 / 0.98; 11 spacings 0.54 / 0.97; 5.6 spacings 0.00 / 0.69.
+  300k: 22 spacings 0.91 / 1.00; 11 spacings 0.18 / 0.66 (window 76, still rising: 0.52, 0.58, 0.63 at windows 20,
+  40, 60); 5.6 spacings 0.04 / 0.70 (31 windows: 0.42, 0.58, 0.65, 0.71 at windows 10, 15, 20, 25).
+  The target sample carries 0.90–0.99 of the mesh's relief at 22 spacings, 0.99 (40k) and 0.69 (300k) at 11, and
+  0.53–0.61 at 5.6. ON, end of the controlled half against the window's end: 0.56 / 0.54 (40k, 11 spacings), 0.20 /
+  0.18 (300k, 11 spacings; 0.26 / 0.21 at window 10): the relief is not built and then lost in the release, it
+  sits at a low balance. OFF the two are equal.
+  The whole shape, OFF against ON: at 40k silhouette IoU 0.9895–0.9902 against 0.9740–0.9766 and world-thin
+  2.1–3.2 % against 7.7–9.3 %; at 300k silhouette IoU 0.9900, 0.9873, 0.9875 against 0.9894, 0.9874, 0.9845
+  (world-thin 0 in every 300k run). Windows: ON 20–30 at 40k and 46–57 at 300k; OFF 119, 251, 222 at 40k and 31
+  (5.6 spacings) or no stop within 180–240 windows at 300k. No guard in any run. λ of the first window 0.075–0.103,
+  median g_share 0.79–0.92 in both arms.
+  Predictions: 22 spacings confirmed. 11 spacings: ON inside the band at 40k (0.54), below it at 300k (0.18); OFF
+  more than 0.15 above ON: confirmed; ON's share at the end of the controlled half above the window's end:
+  confirmed, by 0.02. 5.6 spacings: ON under 0.3 confirmed; OFF under 0.3 refuted (0.69 and 0.70): the objective
+  does see a 5.6-spacing ridge of 0.4 spacings' height and the control does make it.
+  Reading, by the table agreed before the run: ON fails and OFF succeeds at 5.6 spacings at both N and at 11
+  spacings, so the limit on fine relief in the closed loop is the outer-layer relaxation, not the objective, the
+  control or the grid. With it off the same recipe also reaches a better silhouette and thin coverage on this
+  box, and takes 5–10 times the windows or does not stop. One target family, one seed, one run an arm; what the
+  relaxation was introduced for (the lumps of the u channel on the gallery's shapes) was not measured here.
 - **M1, the frozen recipe under other materials (characterisation, pre-registered 2026-10-01 23:52 CDT, before
   launch; repo_r33 = repo_r32 with run flags `--young --poisson --assim --drag --f_ext --floor --floor_friction`, all
   defaulting to the frozen recipe; the suite passes, 269).** Nothing in the objective changes. One factor at a time
