@@ -78,6 +78,8 @@ def parse_args():
     ap.add_argument("--floor", action="store_true",
                     help="external force: a separating floor at the source's lowest point; the target stands on it")
     ap.add_argument("--floor_friction", type=float, default=0.0, help="Coulomb friction of the floor")
+    ap.add_argument("--telemetry", action="store_true",
+                    help="diagnostic: the per-iteration steering telemetry and the per-window records (support split, active sets, scale, control, thin, OT divergence)")
     ap.add_argument("--term_dump", default="",
                     help="diagnostic: directory of each term's per-particle position gradient at every committed window")
     ap.add_argument("--live_port", type=int, default=0, help=">0: stream to the live viewer")
@@ -149,7 +151,7 @@ def main():
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
-                              profile=args.profile, term_dump=args.term_dump)
+                              profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)

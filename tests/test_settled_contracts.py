@@ -205,7 +205,7 @@ def test_committed_windows_record_the_support_split(prm, clouds):
     the per-particle penalty's quantiles; the ratio form keeps every particle at most radius^2."""
     from physmorph.thin import thin_set
     for form in ("log", "ratio"):
-        cfg = _cfg(animations=3, support_form=form)             # >1: a tiny cloud can null a window
+        cfg = _cfg(animations=3, support_form=form, work_telemetry=True)   # >1: a tiny cloud can null a window
         res = run_pipeline(*clouds, prm, cfg, log=lambda *_: None, thin=thin_set(clouds[1], prm.dx, 300))
         rec = next(r for r in res["history"] if r.get("frame_end"))
         E, B, w = rec["sup_E"], rec["sup_B"], cfg.support_weight

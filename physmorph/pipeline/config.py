@@ -108,7 +108,9 @@ class PipelineConfig:
     # ---- output ----
     grad_dump: str = ""             # directory of per-window gradient dumps (visualisation)
     ls_probe: bool = False          # diagnostic: every failed line-search trial re-run on dFc alone and u alone
-    work_telemetry: bool = True     # first/last-iteration steering telemetry
+    work_telemetry: bool = False    # diagnostic records: the first/last-iteration steering telemetry, and per window the
+                                    # support split, the active sets, the scale and control records, the OT divergence, the
+                                    # det F quantiles and the thin metrics (about 2 s a window at 300k); off in production
     profile: bool = False           # diagnostic: wall-clock split of a window (synchronises the GPU around each part)
     term_dump: str = ""             # diagnostic: directory of each term's per-particle position gradient per window
     device: str = "cuda"

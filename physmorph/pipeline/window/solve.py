@@ -478,10 +478,12 @@ class WindowOptimizer:
             stats["selection_merit"] = selection_merit
             stats["merit_far"] = self.obj.near_band_far(commit.x[-1])
             stats["merit_w1_gap"] = self.obj.w1_merit_gap(commit.x[-1])
-            stats.update(self.obj.scale_record(commit.x[-1]))
-            stats.update(self.obj.active_set_record(commit.x[-1], self.lam_r))
-            stats.update(self.obj.control_record(win.expand(self.dFc.detach())))
-            stats.update(support_record(self.tgt, commit.x[-1]))
+            if cfg.work_telemetry:                      # diagnostic records, not read by the run
+                stats.update(self.obj.scale_record(commit.x[-1]))
+                stats.update(self.obj.control_record(win.expand(self.dFc.detach())))
+                stats.update(support_record(self.tgt, commit.x[-1]))
+            if cfg.work_telemetry or cfg.term_dump:
+                stats.update(self.obj.active_set_record(commit.x[-1], self.lam_r))
         elif selection_merit is not None and not np.isfinite(selection_merit):
             stats["invalid_selection"] = True
         self.tgt.settled_step = (hist[-1]["alpha"] / self.alpha_scale
