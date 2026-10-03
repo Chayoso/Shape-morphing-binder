@@ -459,6 +459,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D35, the display's measure of sparsity taken on the surface (display only, no simulation; pre-registered
+  2026-10-03 10:51 CDT, before the run; `scripts/probes/settled/disc_rule_probe.py`; `output/gpu/d35`).** D34: the
+  rule sigma = spacing × clamp(S / S_ref, 1, 4) takes S as the 8th-neighbour distance in space and S_ref as its
+  median over all target particles, so it inflates the surface of a perfect sample. The user's plan of
+  2026-10-03 (A, then B, then C): A is this entry. Candidates, each with S_ref = the median of the same S over
+  the target's surface particles (neighbourhood asymmetry of half a coverage radius or more): R1, the
+  8th-neighbour distance in space (only the reference moves); R2, the 8th smallest distance among the 32
+  nearest neighbours measured in the particle's tangent plane, |(I − n nᵀ)(x_j − x_i)|, with the display's own
+  normal; R2s, R2 over same-sheet neighbours only (n_i · n_j > 0). No new constant: the 8th neighbour, the 32
+  neighbours of the normals and the clamp are the rule's own. Drawn with R0 (the rule as it is), each candidate
+  and no inflation: the target sample; the morph's end (d32, raw 1560, head box); the horns alone (thin
+  features); raw 192 (the stretched surface and the beads) and raw 480.
+  What counts as success (the user's criteria): on the target the inflated share falls to almost nothing while
+  the coverage holds; the morph's end has a narrower edge; the thin and stretched places stay closed. In
+  numbers, for the candidate to adopt: target particles inflated by 1.1 times or more under 3 % (R0: 12.4 %);
+  covered pixels lost against R0 at most 0.3 % of the frame on the target and on the morph's end (no inflation:
+  1.3 and 1.4 %) and at most 2 % at raw 192 (no inflation: 7.7 %); the silhouette edge narrower than R0's on the
+  target and at the end (9.5 and 9.3 px). Expectations, not targets: the end's edge about 7–8 px; R1 and R2 close
+  on ordinary surface, apart on the one-particle sheets of raw 192 (R2 inflates them more) and on thin
+  features (R2 may read the opposite face as a neighbour: R2s is there to measure whether that matters; if R2
+  and R2s agree the filter is not needed). If no candidate holds the coverage, the measure is recorded as it is
+  and the rule stays.
 - **D34, what the display's disc inflation costs and what it closes (read-only on d32's archive, 2026-10-03 10:15
   CDT, written after the reading, no prediction; `scripts/probes/settled/inflation_probe.py`;
   `output/gpu/d32/inflation_probe.txt`, `inflation/`).** The user's question: a disc grown where the particles are
