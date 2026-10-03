@@ -459,6 +459,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D33, three crops the user asked about: what is drawn there (read-only, 2026-10-03 10:06 CDT, written after
+  the reading; `scripts/probes/settled/box_probe.py`; `output/gpu/d32/box_probe.txt`, `box_probe_beads.txt`,
+  `boxes/`).** Located by template matching against the rendered frames: two crops are frame 16 of the new video
+  (D30; raw 192, window 4.8, 0.8 s in), 4K boxes (1014, 363)–(1732, 1446), the body's left edge with a row of
+  beads, and (1873, 99)–(2869, 663), the top of the head with a blurred fringe (scores 0.994, 0.998); the third
+  is frame 14 of the bunny video made by the code before D20 (D17's run, raw 168; score 0.974), not analysed
+  further (its archive is gone). The same beads and the same fringe are at the same pixels in d32 (the same
+  code) and in d20 (the code before the layer and solver changes). On d32's archive: each bead is 7–8 rendered
+  particles (15 in a larger one), all of them members of detached groups 3–8 layer spacings from the body, drawn
+  with discs inflated 2.2–2.6 times; all of them are within the berth of the target at the end, 0–25 % still
+  detached there. In the whole boxes: 3223 and 2138 rendered particles in detached groups (disc inflation 1.7,
+  90th percentile 2.1–2.2; 95–97 % within the berth at the end) and 3515 and 1856 attached particles with a disc
+  inflated 1.5 times or more (96–98 %). So: material in transit during the bulk morph (D21: 96–97 % of what is
+  detached at window 4 arrives), a handful of particles a bead, enlarged by the display's disc rule; not the
+  end state's leftover of D32, and not changed by D26 or D29 (the peak of rendered detached particles at a
+  window end is 20 283–20 452 with them, 20 307 before).
 - **D32, what holds the detached material that is left near the surface (diagnostic, pre-registered 2026-10-03
   03:53 CDT, launched 03:53; repo_r46 = repo_r43 with u and its gate added to the channel record; `tmp/d32.sh`;
   `scripts/probes/settled/near_band_probe.py`; `output/gpu/d32`).** After D30 the far clumps are gone and
