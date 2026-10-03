@@ -459,6 +459,79 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D38, why the 45-minute video looks best: the same code run to its own stop (pre-registered 2026-10-03 11:00
+  CDT at launch; this entry written 11:06, before any result of the run; repo_r44 = the committed tree;
+  `tmp/d38.sh`; `output/gpu/d38`).** The user, comparing the videos: the 45-minute one (D17's run of the code
+  before D19: 64 px then 96 px, the layer as it was, the old solve, to its own stop) looks best. Its record: 2704
+  s, 122 commits of 129 attempts, silhouette IoU 0.9838, world-thin 0.55 %, chamfer 0.0589, last kinetic record
+  1.5e-4; the 40-attempt runs of the committed code: 0.9833–0.9846, 0.33–0.42 %, 0.0593–0.0595, 0.75e-3–1.6e-3.
+  By the numbers the short runs are as good or better; in the 4K frames the user is right: at the end the old
+  run's horns are solid rounded tubes with a clean outline, the new run's are feathered, with wisps at the snout
+  and the right foot and a rough tail fin. And at the same window (40) the old run's horns are already solid
+  blobs (with a strand still across the mouth), where the new code's are feathered. The thin share counts a
+  target point as covered when any particle is within reach; it does not see whether the cover is a solid
+  surface or a few beads, so it rewarded what the eye rejects. Candidates for the difference: the window budget
+  (40 against 122); 96 px from the start (thin features are covered early, by sparse particles: world-thin 0.5 %
+  by window 30–40 against 1.5–2 %); the layer as the body's (detached sets are no longer made regular).
+  The run: the committed code, the 300k dragon, no window budget, alone on GPU 1; then the census, the far count
+  and the 4K render. Expectation: it stops after 60–130 windows in 15–30 minutes; if the horns are solid at its
+  end as in the old run's, the 40-window budget is the cause and the 15-minute run trades that for time; if
+  they stay feathered, the cause is in 96 px from the start or the layer change, and those two are then
+  separated at 40 windows (64 → 96 px with the new layer; 96 px with the old layer is d20).
+- **D36 and D37, the bulk morph's sparse surface and where its beads come from (B1 and B2 of the plan; read-only
+  on d32's archive, its archived F and its term dump; pre-registered 2026-10-03 10:58 CDT, before the run;
+  `scripts/probes/settled/midmorph_probe.py`; `output/gpu/d32/midmorph_probe.txt`).** d32 is the committed recipe:
+  the outer-layer relaxation on (D16b: it stays), the layer as the body's, the new solve. If the relaxation is
+  ever taken out, the stretch statistic is to be read again on that trajectory before a design rests on it.
+  D36 (B1): on the surface particles connected to the body, at raw 80–480 and the end, by the display's sparsity
+  S / S_ref (D35's measure): the two lengths l1 ≥ l2 of the in-plane arrangement of the 8 nearest in-plane
+  neighbours (from the covariance of their tangent-plane offsets), each against the same on the target's
+  surface; and from the archived F the material's stretches s1 ≥ s2 in the tangent plane and det F. One
+  direction stretched: l1 up with l2 as the target's (then a disc drawn longer along that direction covers it,
+  display only). The area diluted: both up (then the surface holds too few particles and no disc shape gives
+  them back). Expectation, uncertain: at windows 3–6 the sparse class (S ≥ 1.5) is mostly diluted in both
+  directions (l2 ≥ 1.2 on more than half), because the sphere's surface has to grow into the dragon's in every
+  direction; and the material's in-plane area stretch s1 s2 is above 1.5 there and follows S (correlation
+  above 0.3).
+  D37 (B2): the rendered particles in detached groups at least two layer spacings from the body at window 5's
+  start, traced back to window 0: detached, on the layer, depth in the source, S, det F, the stretch of their
+  eight source bonds, the window of first detachment, and what moves them apart from their source neighbours
+  per window, by channel. Expectations: most first detach in windows 2–4; the separating displacement is the
+  MPM advection's (u's gate is closed for the layer until window 5–6, so u cannot be it); they come from the
+  source's outer four lattice steps no more often than the body's surface does (78 % in D12's addendum). If u or
+  the rest carries a third or more of the separation, the control is breaking the neighbourhoods and the
+  reading changes.
+  **Result (2026-10-03 10:59 CDT).** The target's surface: S_ref 1.57 spacings, l1 1.34, l2 0.95, l1 / l2 1.39.
+  D36. Surface particles connected to the body, the sparse class S ≥ 1.5 (and all of them), at windows 2, 3, 4,
+  5, 6, 8, 12 and the end: particles 1491, 1965, 1762, 1220, 676, 255, 156, 178 (of 11 600–19 200); l1 and l2
+  against the target's 1.56 and 1.56, 1.59 and 1.56, 1.60 and 1.59, 1.58 and 1.57, 1.58 and 1.57, 1.58 and 1.50,
+  1.55 and 1.46, 1.51 and 1.41 (all of them: 1.30 and 1.30 at window 2, 1.16 and 1.13 at 5, 1.04 and 1.00 at 8,
+  1.05 and 0.99 at the end); l1 / l2 1.39–1.51 (the target's own 1.39); stretched in one direction only 7–15 %,
+  diluted in both 74–90 %. The surface is diluted, not stretched along a line: a disc drawn longer in one
+  direction would cover a tenth of it. The dilution is transient on the body: the whole surface is at 1.30 of
+  the target's spacing at window 2 and back at 1.0 by window 8.
+  The material measure failed: in every class and frame the archived F gives in-plane stretches 1.00–1.02 and
+  0.97–1.00 and det F 1.00–1.01, with no correlation to S (−0.08 to +0.07; −0.33 once on 156 particles). The
+  stored F stays at the identity (it is smoothed every step and its strain is assimilated every window), so it
+  does not record how far the surface has been pulled apart; the expectation "s1 s2 above 1.5, following S" is
+  refuted, and F cannot be used for this. The source bonds can (D37).
+  D37. 2893 rendered particles are in detached groups at least two layer spacings from the body at window 5's
+  start (of 8736 rendered in detached groups). Their depth in the source: median 2.5 lattice steps, 24 % within
+  2, 91 % within 4, 2 % deeper than 8; the body's surface at that moment: 2.5, 21 %, 91 %, 1 %: the same
+  material. First detached in window 0–1: 3 %, window 2: 17 %, 3: 27 %, 4: 31 %, 5: 22 %. Per window 0–5: the
+  mean stretch of their eight source bonds 1.00, 1.19, 1.51, 1.91, 2.38, 2.74 (the longest bond 1.00 … 4.65); S
+  0.95, 1.10, 1.26, 1.39, 1.53, 1.59; on the layer 37 … 67 %; moved apart from the source neighbours along the
+  bonds by the MPM advection +0.32, +0.54, +0.71, +0.83, +0.58, +0.21 spacings a bond a window, by u 0.00 (its
+  gate open on 0–10 % of them), by the rest −0.01 to −0.03.
+  Predictions: the dilution in both directions confirmed (expected on more than half: 74–90 %); the onset in
+  windows 2–4 confirmed (75 %, another 22 % in window 5); the separation is the advection's, u and the rest
+  carry none; the beads are the surface's own material. Refuted: the material stretch from F.
+  Reading: in windows 1–5 the flow that makes the dragon out of the sphere pulls the surface's own material
+  apart (source bonds at 2.7 times their length, up to 4.7), evenly in the plane. The body's surface thins to
+  1.3 of the target's spacing and recovers by window 8; the strands that are pulled thinnest come off as groups
+  of a few particles and travel on their own (D33's beads; 96–97 % arrive, D21). Neither the control u nor the
+  relaxation makes them. What the plan called for next is the literature, then a design: the surface's
+  particle count under a growing area, not a display shape.
 - **D35, the display's measure of sparsity taken on the surface (display only, no simulation; pre-registered
   2026-10-03 10:51 CDT, before the run; `scripts/probes/settled/disc_rule_probe.py`; `output/gpu/d35`).** D34: the
   rule sigma = spacing × clamp(S / S_ref, 1, 4) takes S as the 8th-neighbour distance in space and S_ref as its
