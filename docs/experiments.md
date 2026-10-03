@@ -483,6 +483,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   for blur on particles that are sparser than the target sample (a fifth of the rendered particles at the end,
   half at window 5), and neither choice of cap removes the cause, which is that spacing. Part of the detail
   gained at cap 1 is the arrangement showing through (D12: narrower discs show the lattice), not relief.
+  Addendum (10:39 CDT, `inflation_probe_target.txt`): the same on the target sample itself (the one-frame
+  archive `output/gpu/render/target_dragon300k`). Inflated by 1.1 / 1.5 times or more: 12.4 / 0.1 % of its
+  particles (the morph's end: 20.5 / 1.0 %); the inflation adds 8 % of the disc area; silhouette edge 9.5 px
+  with the rule and 7.8 px without; without it 1.3 % of the covered pixels are lost (2.0 % of the head). So
+  three fifths of the end frame's inflated particles are inflated on a perfect sample too: the rule compares a
+  particle's 8th-neighbour distance with the median over all particles, nine tenths of which are interior, and
+  a surface particle has half its neighbourhood empty. At the end the rule reads "on the surface" as "sparse";
+  what the morph adds is the 1.5-times class (1.0 against 0.1 %). And even the perfect sample opens by 1.3 %
+  without the inflation: the thin features hold too few particles at 300k (D12).
 - **D33, three crops the user asked about: what is drawn there (read-only, 2026-10-03 10:06 CDT, written after
   the reading; `scripts/probes/settled/box_probe.py`; `output/gpu/d32/box_probe.txt`, `box_probe_beads.txt`,
   `boxes/`).** Located by template matching against the rendered frames: two crops are frame 16 of the new video
