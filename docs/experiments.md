@@ -459,6 +459,45 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D32, what holds the detached material that is left near the surface (diagnostic, pre-registered 2026-10-03
+  03:53 CDT, launched 03:53; repo_r46 = repo_r43 with u and its gate added to the channel record; `tmp/d32.sh`;
+  `scripts/probes/settled/near_band_probe.py`; `output/gpu/d32`).** After D30 the far clumps are gone and
+  90–154 rendered detached particles stay 2–5 spacings from the target in sets of one to eight; one of them
+  draws a small disc at the notch under the tail. The 300k dragon again with both changes and the term dump,
+  GPU 2. For the end state's rendered detached particles beyond the berth, at four window starts of the last
+  twenty: the share that is off the layer (the asymmetry under its threshold: material on both sides), on it as
+  a single particle (relaxed against its neighbours) and on it as a member of a group (not relaxed); per class
+  the asymmetry against the threshold, the share inside u's gate, the size of u, the displacement toward the
+  target per window by advection, u and the rest, and the two local terms' pull.
+  Predictions from D21's numbers: u moves them 0.03–0.06 spacings a window toward the target and advection
+  nothing (within ± 0.05); at least a third are off the layer or in a group; the near band's pull is on for more
+  than half of them. If so the leftover is set by u's step (the accepted step, one for every coordinate) and by
+  the layer test in a gap, and no definition of the neighbourhood removes it. If instead single particles on the
+  layer stay with a relaxation residual of a spacing or more, the relaxation itself is not doing what D21 read.
+  **Result (2026-10-03 04:10 CDT).** The run: 676 s, 39 commits, silhouette 0.9846, world-thin 0.41 %, last
+  kinetic record 1.5e-3; λ 0.463, g_share 0.93. Rendered particles by distance from the target, whatever they
+  are connected to (d20, the code before, in brackets): beyond 3 spacings 3170 at raw 480 (3349), 594 at 960
+  (791), 284 at the end (341–346); beyond one loss cell 24 at the end; beyond 6 spacings 22 at raw 960, 2 at
+  1280, none at the end (the clump of 38 at 6.6–7.5). The far material is gone; the population between 3
+  spacings and one loss cell is a sixth smaller.
+  The end's 229 rendered detached particles beyond the berth (median 2.3 spacings out, at most 5.7; three
+  windows before the end, per class at the window's start):
+  off the layer, 39: asymmetry 0.81 of the threshold (material on both sides), so no u and no relaxation;
+  advection +0.01 spacings a window toward the target; the near band on for 90 % with a pull of 5.0 (units of
+  the all-particle rms gradient); 2.7 spacings out, where they were 18 windows earlier.
+  On the layer as single particles, 17: inside u's gate, |u| 0.08 layer spacings; u +0.08 a window, the rest
+  (the relaxation) −0.06, advection +0.02; the near band on for 76 %, pull 4.2; 2.1–2.2 spacings out.
+  On the layer in groups, 173 (88 of them 18 windows earlier): inside the gate, |u| 0.075; u +0.05, advection
+  +0.04, no relaxation; the near band on for 57 %, pull 3.1; 2.3 spacings out.
+  Predictions: u's 0.03–0.06 a window confirmed for the groups (0.05) and a little above for single particles
+  (0.08); advection within ± 0.05 confirmed; a third off the layer or in a group confirmed (93 %); the near band
+  on for more than half confirmed. The alternative (single particles on the layer with a large relaxation
+  residual) is not what is there: the relaxation acts on them, against u.
+  Reading. What is left sits at the berth's edge, pulled three to five times as hard as an average particle, and
+  has no channel that can follow the pull: a particle with material on both sides is not a layer particle; a
+  single one's u is undone by the relaxation (D14, D15: the relaxation removes u's per-particle offsets); a
+  group's u brings it 0.05 spacings a window, bounded by the accepted step (0.65e-3–3.2e-3 for every
+  coordinate). These are the parked items (u against the relaxation, the step), not the layer's neighbourhood.
 - **D31, both changes on the gallery (pre-registered 2026-10-03 03:48 CDT, launched 03:48; repo_r43; `tmp/d31.sh`,
   `tmp/d31.queue`, `tmp/d31b.queue`, `tmp/d29_eval.py`; `output/gpu/d31`).** The 40k gallery (19 meshes, seed 97,
   each to its own stop, GPUs 1 and 3, the census of detached material after each run) and the 300k bunny to its
@@ -469,6 +508,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (the two runs before differ by a median 0.9); no frozen run, no guard, no collapsed detached set; the bunny
   within ± 0.002 of 0.9856–0.9868. Fail: five or more meshes lower by more than 0.003; a frozen run; a guard; a
   collapsed set.
+  **Result (2026-10-03 04:08 CDT, 20 runs, no guard, no frozen run; `python3 tmp/d29_eval.py`, `tmp/d31_census.py`).**
+  Silhouette IoU within 0.002 of the mean of the two runs before on 18 of 19, median change +0.0001, lower by
+  more than 0.003 on none (C −0.0029 at its 16-window stop, V −0.0015), inside the two runs' range widened by
+  0.002 on all 19; thin share median −0.8 point (bimba, cheburashka, nefertiti, armadilo lower by 1–3; A and
+  teapot higher by 1.5–2); chamfer unchanged; committed windows median 32 → 32; windows without a commit summed
+  57 and 72 → 76; last kinetic record above 5e-3 on C only. The census (18 meshes read; D27's old arm → both
+  changes): rendered detached particles beyond the berth lower or equal on 15, summed 99 → 73; beyond one loss
+  cell 3 → 0; within the berth 2824 → 2372; not rendered 556 → 533; the densest detached set at 0.60 of the
+  coverage radius. The 300k bunny to its own stop: 0.9873 (0.9856 before, 0.9868 with the layer alone),
+  world-thin 0.02 %, thin 12.8 %, chamfer 0.0580, 65 commits, 15.2 minutes alone on a GPU. Every prediction
+  holds. With D27, D29 and D30 the two changes pass, each alone and together: the gallery, the 300k dragon five
+  times (twice the layer alone, three times both) and the 300k bunny twice.
 - **D30, both changes together: the layer as the body's and the new solve (pre-registered 2026-10-03 03:18 CDT,
   launched 03:18; repo_r43 = repo_r35b + `window/layer.py` (D26) + `losses/grid_ot.py` and its two restated
   tests (D29) + the diagnostic channel record; the suite 269 passed, exit 0; `tmp/d30.sh`; `output/gpu/d30`).** The
@@ -1668,6 +1719,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
 
 ## To run next, in order
 
+0. **Open after D20–D32 (2026-10-03).** (a) The near-surface leftover of the 300k dragon: about 280 rendered
+   particles between 3 target spacings and one loss cell at the end (D32), one of them a visible disc at the
+   notch under the tail. Its cause is measured and lies in the parked items: a particle with material on both
+   sides is not a layer particle and has no position channel; the relaxation undoes a single particle's u; a
+   group's u is bounded by the accepted step. A change there is the user's decision. (b) With `render_res` equal
+   to `render_res_hi` (96, D19) the coarse-to-fine stage and its event are inert: remove the code and its test.
+   (c) With the layer as the body's the dragon's head is softer in the 4K picture (strong-gradient share 3.7 %
+   against 4.7 %): the detached sets on thin features are no longer made regular.
 1. **The gallery at 300k.** The 19 meshes at the delivery resolution, with 4K renders. Same measurements as S2.
 2. **Render influence across meshes.** Render-off twins (`--render_weight_scale 0`) and a second seed on five meshes
    (bunny, dragon, C, V, nefertiti) at 300k: the render's effect against the seed spread, per mesh.

@@ -129,8 +129,8 @@ def channel_record(win, u: torch.Tensor) -> dict:
     """What moved each particle over the committed window, per channel, read from the eval trajectory right after
     the commit rollout: the MPM advection (the sum of dt v over the steps), the u control (its gated normal offset)
     and the rest (the relaxation on the layer, the bond projection on decoupled particles); with the window's start
-    state, the layer mask and normal, the decoupling flag of the last step, the mean control increment per driven
-    step and det F at the window's two ends."""
+    state, the layer mask and normal, u's transport gate, the decoupling flag of the last step, the mean control
+    increment per driven step and det F at the window's two ends."""
     tr, T, N = win.tr, win.T, win.N
     with torch.no_grad():
         adv = torch.zeros_like(win.x0)
@@ -141,7 +141,8 @@ def channel_record(win, u: torch.Tensor) -> dict:
         frag = wp.to_torch(tr.frag_step) if getattr(tr, "bonds", None) else torch.zeros(N, device=win.x0.device)
         return {"x0": win.x0.clone(), "d_adv": adv, "d_u": du,
                 "d_rest": wp.to_torch(tr.x[T]) - wp.to_torch(tr.x[0]) - adv - du,
-                "lmask": win.lmask.clone(), "lnrm": win.lnrm.clone(), "frag": frag.clone(),
+                "lmask": win.lmask.clone(), "lnrm": win.lnrm.clone(), "ug": wp.to_torch(tr.layer_ug).clone(),
+                "u": u.clone(), "frag": frag.clone(),
                 "dfc": win.dc_buf[:win.Tc].flatten(2).norm(dim=2).mean(0), "J0": det(0), "J1": det(T)}
 
 
