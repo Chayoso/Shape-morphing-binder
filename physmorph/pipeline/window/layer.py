@@ -26,20 +26,27 @@ def layer_relax_data(x0: torch.Tensor, spacing: float, k: int = 24, h_sp: float 
     """(mask (N,) float, nrm (N,3), nbr (N,k) int, w (N,k)): the layer by neighbourhood
     asymmetry; each layer particle's k nearest layer particles weighted by a Gaussian of
     h_sp spacings times the normal agreement (same side only), rows normalised to 1. Rows of
-    particles off the layer hold zeros."""
+    particles off the layer hold zeros. A layer particle with no same-side neighbour within the
+    weight's reach has no plane to be relaxed onto: its row is itself (residual zero)."""
     N = x0.shape[0]
     mask, nrm = layer_by_asymmetry(x0, spacing, thr_sp=thr_sp)
     idx = torch.nonzero(mask).squeeze(1)
     nbr = torch.zeros(N, k, dtype=torch.long, device=x0.device)
     w = torch.zeros(N, k, device=x0.device)
+    # a layer particle's row is itself until it has neighbours to be measured against: the kernels read
+    # the row's weighted centroid, and a row without weight reads the world's origin (D39: 100 such rows in
+    # a 300k run, each carried 31 target spacings toward the plane through the origin)
+    nbr[idx] = idx[:, None]
+    w[idx, 0] = 1.0
     if len(idx) > k:
         P, R = x0[idx].contiguous(), nrm[idx]
         d, nb = knn_self_torch(P, k + 1)
         d, nb = d[:, 1:], nb[:, 1:]
         ww = torch.exp(-(d / (h_sp * spacing)) ** 2) * torch.clamp((R[nb] * R[:, None, :]).sum(-1), min=0.0)
-        ww = ww / torch.clamp(ww.sum(1, keepdim=True), min=1e-12)
-        nbr[idx] = idx[nb]
-        w[idx] = ww.float()
+        total = ww.sum(1, keepdim=True)
+        relaxed = torch.nonzero(total[:, 0] > 1e-12).squeeze(1)
+        nbr[idx[relaxed]] = idx[nb[relaxed]]
+        w[idx[relaxed]] = (ww[relaxed] / total[relaxed]).float()
     return mask.float(), nrm.float(), nbr, w
 
 

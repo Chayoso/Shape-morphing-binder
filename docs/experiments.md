@@ -459,6 +459,48 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D56, the zero-row fix alone on the restored code: the 300k dragon and bunny (pre-registered 2026-10-03 17:24
+  CDT at launch; the user: "그것만 되돌린 코드에 올리고 bunny랑 dragon 실험 해서 보여줄래?"; repo_r63 = the restored tree,
+  repo_r64 = repo_r63 with `window/layer.py` and its test; `tmp/d56.sh`; `output/gpu/d56`; the restored code's
+  own dragon is the rollback's confirmation run, `output/gpu/d55`).** The fix as in D39, written onto the layer
+  code of 617a8ec: a layer particle whose weight row has no weight keeps its place (its row is itself) instead
+  of being carried to the plane through the world's origin. The test
+  `test_a_layer_particle_without_neighbours_is_not_relaxed` fails on repo_r63 (exit 1) and passes on repo_r64;
+  suite 270 passed, exit 0. Runs, the default recipe (64 → 96 px, to their own stop), each alone on a GPU:
+  `dragon_fix` (GPU 0) and `bunny_fix` (GPU 2) with the fix; without it `d55/dragon` (GPU 1, since 17:20) and
+  `bunny_rollback` (GPU 3); the 45-minute video's run (d17, one code step earlier) as the dragon's second
+  baseline, D16b's 300k bunny (0.9868–0.9876 in the earlier 300k runs) as the bunny's. Shown to the user: the
+  4K videos and the same crops side by side.
+  Expectation, from D39 on today's code: no visible change (the horns as the 45-minute video's with and
+  without the fix); silhouette within the same code's run-to-run spread (0.002); the same windows and time
+  within the stops' draw (the dragon's two baselines: 129 attempts, and d55's). One run an arm: a difference
+  inside that spread is not the fix's.
+  **Result (2026-10-03 18:10 CDT; sheets and videos in `output/video_2026-10-03/zero_row_fix/` locally,
+  `output/gpu/d55`, `output/gpu/d56` on the server).** Simulation seconds, commits of attempts (the event's
+  window), silhouette IoU, world-thin, thin, chamfer, last kinetic record; rendered particles beyond 3, 4.4, 6
+  target spacings at the end:
+  dragon, the 45-minute video's run (d17): 2704 s, 122 of 129 (105), 0.9838, 0.55 %, 18.8 %, 0.0589, 1.5e-4.
+  dragon, the restored code (d55): 2572 s, 120 of 126 (98), 0.9843, 0.91 %, 20.4 %, 0.0590, 4.8e-5; 125, 0, 0.
+  dragon, with the fix: 2306 s, 104 of 111 (58), 0.9845, 0.63 %, 17.7 %, 0.0589, 5.1e-4; 96, 0, 0; census 1474
+  within the berth, 88 near band, none beyond a loss cell.
+  bunny, D16b's run (d17): 726 s, 58 of 63, 0.9877, 0.02 %, 12.8 %, 0.0580, 8.6e-6.
+  bunny, the restored code: 1031 s, 81 of 91 (57), 0.9866, 0.05 %, 13.6 %, 0.0579, 5.0e-6; 24, 0, 0; census 1099
+  / 88 / 0.
+  bunny, with the fix: 872 s, 71 of 78 (39), 0.9873, 0.02 %, 13.5 %, 0.0580, 5.2e-6; 22, 0, 0; census 1177 / 83
+  / 0.
+  Render: λ of the first window 0.396 (dragon) and 0.249 (bunny) in every run, median g_share 0.92–0.94 and
+  0.86–0.88.
+  The pictures (the restored renderer, the same crops): the dragon's horns are the 45-minute video's solid
+  rounded tubes in both runs, with and without the fix; the whole bodies alike; the bunny's three runs alike,
+  ears and body. Expectations met: no visible change from the fix, silhouettes within 0.002 of the same code's
+  other runs (the bunny's two runs differ by 0.0007, the dragon's by 0.0002), windows and time inside the
+  stops' draw (the event came at window 39–58 with the fix and 57–98 without: two runs each, not read as the
+  fix's). The rollback's confirmation is d55: the restored code gives the 45-minute video's result (0.9843
+  against 0.9838, the horns alike), in 43 minutes.
+  What the user points at next (a crop of the bunny's ears, 17:50): tufts of loose material at the ear. In
+  the fix run's frames the fuzz on the left ear's edge is there from window 18 and unchanged to the end at
+  window 69 (`q_bunny_fix_ears_time.jpg`): a long run does not remove it.
+  The fix is committed on the restored code.
 - **ROLLBACK, 2026-10-03 17:19 CDT (the user: "일단 오늘 수정 다시 돌릴 수 있을까? dragon300K_current_schedule_45min_4k
   결과가 나왔었을 때로").** The code is back at 617a8ec, the last commit of 2026-10-02 (23:33): every file under
   `physmorph/`, `scripts/` and `tests/` and the README as they were then; only this log keeps today's entries
