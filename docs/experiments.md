@@ -459,6 +459,80 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D52, the code as a whole: the arrived-scope layer with the three runtime steps (pre-registered 2026-10-03
+  14:58 CDT at launch; repo_r58 = the working tree, file for file (checksums compared), suite 273 passed, exit 0;
+  repo_r59 = the same at `render_res` 64; `tmp/d52.sh`, `tmp/d52run.sh`; `output/gpu/d52`).** Four things at
+  once, one a GPU: the 40k gallery at 96 px (`d52_96_40k_*`, GPU 0) against D48's and D39's; the 40k gallery on
+  the 64 → 96 schedule (`d52_64_40k_*`, GPU 3) against D19's as-is arm (the same schedule before D19;
+  `d19_asis_40k_*`) and against the 96-px gallery; the 300k dragon on the 64 → 96 schedule to its own stop,
+  alone on GPU 1 (`dragon_full`), against `berth_full` (the same without the runtime steps: 2003 s, 127
+  attempts); the 300k bunny the same on GPU 2 (`bunny_full`).
+  Criteria: both galleries' silhouette within 0.002 of the earlier runs' mean on at least 15 of 19, none lower
+  by more than 0.003 but the known stops (beast's freeze; C's, V's and bob's rejection stops), no dense set
+  beyond a loss cell on any mesh; the dragon's quality as `berth_full`'s (silhouette within 0.002, no rendered
+  particle beyond 6 spacings at its end, horns solid by the same crop) at 15 % or more less time an attempt;
+  the bunny within 0.002 of its earlier 300k runs (0.9868–0.9876) with no dense far set. What the 64 → 96
+  gallery decides: whether the schedule of the 45-minute video goes back to being the default (`render_res` 64)
+  now that the user asks for its result; expectation: silhouette as the 96-px gallery's, about twice the
+  windows.
+- **D51, the notch trap: what holds a set at the notch under the dragon's tail (diagnostic, pre-registered
+  2026-10-03 14:40 CDT at launch; repo_r54, 96 px, 40 attempts with the term dump, the archive kept; `tmp/d51.sh`,
+  GPU 2; `output/gpu/d51`).** Six of nine 40-window runs of today end with 30–60 rendered particles 6–8 target
+  spacings from the target at (1.2, −1.9, −0.4), dense (8th neighbour at 0.3–0.45 coverage radii), detached or
+  linked by a strand: the floater that is left. It is there with either layer, with and without the zero-row
+  fix and the runtime changes, and gone at the end of a 160-window run. If this run has it: per window, the
+  set's particles traced back (when they arrive, by which channel), each term's position gradient on them
+  against the same on the body's surface, whether they are layer particles, detached, arrived, inside the spray
+  gate or the near band. Expectation: they arrive by advection in the first ten windows, are beyond the near
+  band (one loss cell) and denser than the spray gate, so only the transport acts, with a gradient small
+  against the surface's; and the notch is where the transport's pull toward the tail and toward the body
+  cancel. If the run does not have it (three of nine), it is repeated.
+  **Result (2026-10-03 14:54 CDT; `tmp/trap_probe.py`, `output/gpu/d51/trap_probe.txt`).** The run (689 s, 39
+  commits of 40, silhouette 0.9842, world-thin 0.45 %; λ of the first window 0.462, g_share 0.94) ends with 2
+  particles there, and its dump shows the place emptying, which answers more than an occupied end would. The
+  notch's centre is 6.6 target spacings from the nearest target point and lies inside the source sphere: at
+  window 0 there are 325 particles within 12 spacings of it and beyond a loss cell from the target. Windows
+  1–6: 370–570 (the sphere's material leaving through it), moved toward the target by the advection at 0.7–1.6
+  spacings a window. Then 349, 256, 192, 142, 92, 64, 53, 48 (windows 7–14), and from window 15 a remnant of
+  43 that goes 41, 38, 38, 38, 36, 36, 34, 33, 28, 27, 25, 24, 19, 17, 16, 16, 13, 8, 3 (windows 16–34): one or
+  two particles a window. In those windows the remnant moves toward the target by 0.03–0.3 spacings a window
+  from the advection and 0.0–0.2 from u; it is 6–7 spacings out, its 8th neighbour goes from 1.2 to 0.44
+  coverage radii (it is drawn together as it shrinks), it is linked to the body by a strand until window 25
+  and detached after. The gradients on it against their rms on the arrived layer: transport 6–7 times, spray
+  3–19 times, render 2–4 times, the near band none (beyond a loss cell), the proximity none (a target-side
+  term).
+  Expectations: arrival by advection, refuted in its premise: nothing arrives, the material is the source's own
+  and has to leave; beyond the near band, confirmed; "only the transport acts, with a small gradient" and "the
+  pulls cancel", refuted: the transport's gradient on it is six times the surface's and the spray's larger
+  still. The objective sees the remnant and pushes it; it moves 0.1–0.3 spacings a window against the 6–7 it
+  has to go. A set in the air has no handle but u: its own dFc gives internal stress and no net force, and the
+  grid couples it to the body only within two cells. u's step is the optimiser's common step (0.5e-3–1.5e-3
+  world units an iteration, eight iterations: 0.1–0.35 spacings a window, a tenth of u's clamp of one layer
+  spacing). So the remnant is not trapped; it is being walked out at u's pace, and whether a run has 2 or 60
+  particles there at window 39 is how far that walk has got (six of nine runs: not far enough; at 160 windows:
+  done). This is D32's parked item (u bounded by the accepted step) seen at its largest instance.
+- **D50, runtime: the replay pair takes the warm start's evaluation as its first (pre-registered 2026-10-03
+  14:40 CDT at launch; repo_r57 = repo_r56 with `window/solve.py`; `tmp/d50.sh`, alone on GPU 0;
+  `output/gpu/d50`).** A window's start evaluates the zero control and the warm control, keeps one, and then
+  evaluates the kept control twice more to measure how two rollouts of one control differ. The first of those
+  two is a rollout the warm start already has: `warm_start` returns the kept evaluation and `replay_noise`
+  rolls out one more against it. The measure is the same (two independent rollouts of the start control); the
+  window's first evaluation with the tape still follows a solved evaluation at its point (D47). Suite 272
+  passed, exit 0. Predictions: evaluations without the tape 14 → 13 a window, the window's start 1.4 → about 1.1
+  s, the 40-attempt run 566 → about 555 s; quality inside the earlier runs' spread; the record `replay_rel` of
+  the same size as before (median over windows within a factor of two of D49's). Fail: a quality number
+  outside, or the replay record off by more than that.
+  **Result (2026-10-03 14:56 CDT).** The 40-attempt run: 549 s of simulation (596 s of process) against 566;
+  39 commits of 40; the window's start 1.50 → 1.12 s (median over the committed windows), the window by its own
+  clocks 12.12 → 11.49 s; silhouette IoU 0.9836, world-thin 0.50 %, thin 18.9 %, chamfer 0.0595, holes 0.01 %,
+  last kinetic record 1.1e-3; render: λ of the first window 0.463, median g_share 0.93. Beyond 4.4 and 6
+  spacings at the end 71 and 31 (the notch remnant). The replay record where it is kept (the windows without a
+  commit): 1.3e-7 against 1.0e-7. Predictions met. Kept.
+  The three runtime steps together: the 40-attempt 300k dragon 664–669 s → 549 s (−18 %), the window by its
+  clocks 14.1 → 11.5 s. A run's seconds an attempt are about 2.2 s more than its windows' clocks (549 s / 40 =
+  13.7 s against 11.5): the window's construction (layer data, the captured graphs, the gate's transport
+  solve), the record on the promoted state (one more Sinkhorn solve at the commit rollout's own end state),
+  the frames copied to the host. That part has no clock yet; it is the next thing to measure.
 - **D49, runtime: the proximity term asks for one neighbour, the trajectory's min det is taken step by step
   (pre-registered 2026-10-03 14:23 CDT at launch; repo_r56 = repo_r53 with `losses/support.py` and
   `window/rollout.py`; `tmp/d49.sh`, alone on GPU 0; `output/gpu/d49`; the parts timed by
@@ -472,6 +546,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Predictions: the proximity term 47 → about 20 ms a call (1.0 → 0.45 s a window); the line search 3.5 → about
   3.2 s; the window 12.1 → about 11.2 s; the 40-attempt run 590 → about 550 s; quality inside the earlier runs'
   spread. Fail: a quality number outside, or less than 0.6 s a window gained.
+  **Result (2026-10-03 14:38 CDT).** With `--profile`, windows 4–13: the proximity term 46.6 → 25.9 ms a call
+  (1.03 → 0.57 s a window), the line search 3.48 → 3.24 s; the window 12.10 → 11.82 s, because the three adjoint
+  sweeps, which this step does not touch, read 217 ms in this run against 208 in D47's (219 in D44's): the
+  parts changed gained 0.70 s, the total 0.28 s. The 40-attempt run: 566 s of simulation (613 s of process)
+  against 588 and 591: 0.58 s a window; 38 commits of 40; silhouette IoU 0.9844, world-thin 0.46 %, thin 19.3 %,
+  chamfer 0.0593, holes 0.02 %, last kinetic record 8.3e-4; render: λ of the first window 0.463, median g_share
+  0.94. Beyond 4.4 and 6 spacings at the end: 44 and 20, of them 35 at the notch under the tail (the trap, D47;
+  six of nine 40-window runs now). By the letter the gain is at the criterion's edge (0.58 s a window by the
+  run, 0.28 by the profile's total, 0.70 by the parts); the values are the same by construction (the same
+  nearest particle, the same minimum), and world-thin (0.46 %) is the highest of the five runs since the
+  zero-row fix (0.16–0.32), inside the 0.2-point allowance. Kept.
   Also from the audits, not in this step: the window's start evaluates the start control twice (0.3 s a
   window); in each adjoint sweep, 443 MB of geometric-F gradients zeroed and a dead kernel swept, the control's
   gradient cloned and stacked over 40 steps of which 20 carry it (single-digit per cent of a sweep); the three
@@ -525,6 +610,44 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   more than 0.003 except C at its early stop and beast and V at theirs (D39: 35–45 % and 1 in 3 of either
   code); the detached census beyond a loss cell with no dense set on any mesh; the full run's horns at its end
   against the 45-minute video's, both disc rules; `berth96b` inside the three 96-px runs' spread.
+  **`berth96b` (14:38 CDT; `d46/q_berth_96b.jpg`).** 683 s, 40 commits of 40, silhouette 0.9835, world-thin
+  0.49 %, thin 17.8 %; beyond 3, 4.4, 6 spacings at window 39: 307, 19, 6; census 1831 / 106 / 11, none dense;
+  the thin class 0.956, 14.5 % under half density. Its horns are solid and rounded with a clean outline, the
+  best of the 96-px runs. Inside the spread.
+  **The 40k gallery (14:49 CDT; `tmp/d48_eval.py`, `output/gpu/d48/eval.txt`).** Against the three earlier arms
+  (D27's old arm, D31, D39): silhouette within 0.002 of their mean on 18 of 19 (median −0.0004; against D39
+  alone −0.0005, within 0.002 on 17); beast frozen (`domain`, its 35–45 %); none else lower by more than 0.003
+  (teapot −0.0012 against the mean and −0.0030 against D39's own 0.9782, which was that mesh's high draw; bob
+  −0.0015). bob stops at window 13 on three consecutive rejections with 10 commits (29–37 before) and a last
+  kinetic record of 2.8e-2: the rejection rule's stop, as C's and V's; three repeats an arm are running
+  (`tmp/d48bob.queue`, launched 14:49) with V's reading (D39): if a run without the change also stops before
+  window 20, or none of three with it does, it is the rule's draw. Thin: median +0.8 points. Committed
+  windows, median: 25 → 31. Detached census at the end, D39 → D48: beyond a loss cell no dense set on any mesh
+  (0 → 0); beyond the berth 81 → 121 without beast; within the berth 1990 → 3067 without beast: more loose
+  material is left at the surface by the census's count, where at 300k the horns are more solid: the count is
+  of sets not linked within a spacing, which u draws together without linking them to the body. Render: λ of
+  the first window median 0.263, g_share median 0.86. The gallery's criteria are met.
+  bob's repeats (14:57 CDT): with the change 38, 28 and 32 commits, without it 31, 27 and 24; none stops early
+  (silhouette 0.9824–0.9833 in all six): the gallery's stop at window 13 was the rejection rule's draw.
+  **The full run (`berth_full`, 14:56 CDT; `d46/q_full_end_old_discs.jpg`, `q_full_end_new_discs.jpg`,
+  `q_full_whole.jpg`).** 64 px to window 97 (the event, after three rejections at 96), then 96 px to its own stop
+  at window 126 (three rejections; the best commit 121): 2003 s of simulation (2105 s of process), 117 commits
+  of 127 attempts; silhouette IoU 0.9842, world-thin 0.73 %, thin 19.5 %, chamfer 0.0591, holes 0.02 %, last
+  kinetic record 1.5e-5. Render: λ of the first window 0.391, median g_share 0.92. At the end, rendered
+  particles beyond 3, 4.4 and 6 spacings: 98, 1, 0; census 1739 within the berth, 120 in the near band, 1
+  beyond a loss cell, none dense. The old 45-minute run: 2704 s, 122 commits of 129, 0.9838, 0.55 %, 0.0589,
+  1.5e-4. D40 (D26's layer on the same schedule): 2790 s, 161 of 169, 0.9846, 0.33 %, 0.0589, 1.0e-3.
+  The horns at the end: drawn with the old disc rule they are the old video's (solid rounded tubes, the small
+  horns solid; the second horn's top a little ragged); with the committed rule they are solid with a clean
+  outline, where D40's end has the wispy small horn and the fringe. The whole body is the old video's, with one
+  small bead at the tail fin's edge. So the 45-minute video's result is back, on the current code, in 33
+  minutes, without the far sets (1 particle beyond a loss cell). World-thin is 0.73 % against 0.33 % with D26's
+  layer on the same schedule: the thin share again reads the feathered cover as the better one.
+  **Verdict.** The arrived-scope layer meets what was pre-registered (horns as the old layer's in five 300k
+  runs, no dense far set in any 300k run or on any gallery mesh, the gallery's silhouette criteria, the full
+  run against the 45-minute video) except the far count's line, which was the notch remnant's (D51: material
+  being walked out at u's pace, with either layer). Adopted; committed after D52's validation of the code as a
+  whole.
 - **D47, runtime: the gradient's point is not solved a second time (pre-registered 2026-10-03 13:44 CDT, before
   its runs; repo_r53 = repo_r47 with `losses/grid_ot.py`, `window/solve.py` and a test;
   `output/gpu/d47`).** D44's first item. Every gradient is taken at a point that has just been evaluated without
