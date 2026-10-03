@@ -459,6 +459,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D34, what the display's disc inflation costs and what it closes (read-only on d32's archive, 2026-10-03 10:15
+  CDT, written after the reading, no prediction; `scripts/probes/settled/inflation_probe.py`;
+  `output/gpu/d32/inflation_probe.txt`, `inflation/`).** The user's question: a disc grown where the particles are
+  sparse must blur. The rule is sigma = target spacing × clamp(8th-neighbour distance / coverage radius, 1, 4);
+  D12 varied the base disc, not this factor. Three frames drawn with the cap at 4 (the rule), 2, 1.5 and 1 (no
+  inflation), everything else unchanged.
+  Rendered particles with a disc inflated by 1.1 / 1.5 / 2 times or more, and the share of the summed disc area
+  the inflation adds: raw 192 (window 4.8) 53.7 / 6.2 / 0.49 %, 29 %; raw 480 21.0 / 2.3 / 0.14 %, 14 %; the end
+  (raw 1560) 20.5 / 1.0 / 0.05 %, 12 %.
+  Cap 4 → 2 → 1.5 → 1, silhouette edge width (px): raw 192 24.7, 24.5, 21.1, 16.4; raw 480 12.0, 11.6, 10.4, 9.1;
+  the end 9.3, 9.0, 7.9, 6.7. Shading detail inside against the rule as it is: 1.49, 1.17, 1.11 at cap 1 (1.00–
+  1.06 at the caps between). Strong-gradient share of the box's object pixels: raw 192 (the bead box) 0.3 → 6.4 %;
+  raw 480 (head) 2.1 → 4.1 %; the end (head) 2.8 → 3.9 %. Covered pixels lost against the rule as it is, whole
+  frame and box: raw 192 1.0, 3.5, 7.7 % and 6.1, 17.4, 34.9 %; raw 480 0.07, 0.5, 2.1 % and 0.2, 1.4, 4.7 %; the
+  end 0.07, 0.35, 1.4 % and 0.2, 1.0, 3.0 %.
+  In the pictures: without the inflation the end frame's outline is sharper and the horns are torn into separate
+  flecks; at raw 192 the beads shrink to dots and the stretched surface beside them opens into a scale pattern
+  with dark gaps.
+  Reading: yes. At the end the inflation widens the silhouette edge by 2.6 px of 9.3 (28 %) and lowers the
+  inside detail by a tenth, to keep 1.4 % of the covered pixels (3 % of the head) closed; in the bulk morph it
+  is half again as much blur and what it closes is 8 % of the picture. It is a display rule: it trades holes
+  for blur on particles that are sparser than the target sample (a fifth of the rendered particles at the end,
+  half at window 5), and neither choice of cap removes the cause, which is that spacing. Part of the detail
+  gained at cap 1 is the arrangement showing through (D12: narrower discs show the lattice), not relief.
 - **D33, three crops the user asked about: what is drawn there (read-only, 2026-10-03 10:06 CDT, written after
   the reading; `scripts/probes/settled/box_probe.py`; `output/gpu/d32/box_probe.txt`, `box_probe_beads.txt`,
   `boxes/`).** Located by template matching against the rendered frames: two crops are frame 16 of the new video
