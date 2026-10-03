@@ -479,6 +479,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Predictions: silhouette within ± 0.002 on at least 15 of 19 (median change within ± 0.001); thin lower on at
   least 12; fewer committed windows on at least 12 (one epoch instead of two); gallery time at most 1.2 times;
   the 300k bunny within ± 0.002 with no more windows.
+  **Result (2026-10-02 23:32 CDT, 42 runs, no guard, no frozen run; `python3 tmp/d19_eval.py`).**
+  (1) The 300k dragon, 96 px from the start, records off, 40 window attempts, alone on GPU 0: 16.4 minutes of
+  simulation (17.1 for the process), 39 commits and one null window; silhouette IoU 0.9841, world-thin 0.53 %,
+  thin share 17.7 %, chamfer 0.0593, holes 0.02 %, last kinetic record 8.9e-4, end jitter 8.3e-6; λ 0.468,
+  g_share 0.94. Against the schedule as it is run to its own stop (45–54 min): 0.9836–0.9854, world-thin
+  0.66–1.04 %, chamfer 0.0589–0.0591. In the 4K picture it is as crisp as the 45-minute run (share of head pixels
+  with a strong gradient 4.8 against 4.6 %), with the horn tips a little more ragged and the mouth nearer the
+  sample. Predictions: world-thin confirmed; the time missed (13–15 predicted): a window costs 24.6 s here against
+  the whole-run mean of 19.8 s, because the first forty windows are the expensive ones (D10: the Sinkhorn sweeps
+  peak in windows 11–35); the silhouette is better than predicted (0.979–0.983).
+  (2) The 40k gallery, 96 px from the start against the schedule as it is: silhouette IoU higher on 13 of 19,
+  median +0.0007, within ± 0.002 on 18 (beast +0.0027), lower by more than 0.003 on none (the largest falls:
+  armadilo −0.0013, nefertiti −0.0007); thin share lower on 12, median −0.3 points; chamfer median unchanged;
+  committed windows fewer on 18 of 19 (armadilo 50 → 67), median 48 → 33; minutes summed 90 → 67. The last
+  kinetic record is higher under 96 px on most meshes (beast 3.2e-3 against 1.1e-4, cow 1.4e-3 against 1.1e-4,
+  spot 1.9e-3 against 2.5e-4): the single epoch stops with a little more residual motion; end jitter the same
+  order (3e-6 to 1.3e-5). The 300k bunny: 0.9856 against 0.9874, world-thin 0.00 both, 40 against 69 windows, 8.7
+  against 14.0 minutes. Every prediction of (2) confirmed (the bunny at the edge of its band, −0.0018).
+  By the rule fixed before the run (the gallery the same or better, fewer windows), 96 px from the start replaces
+  the coarse stage and its event. One run an arm; the run-to-run spread is about ± 0.002 in silhouette and ± 1 point
+  in thin.
 - **D17 and D18, the runtime: the records out of the production path, and the fine render from the start
   (pre-registered 2026-10-02 18:09 CDT, before launch; repo_r35 = HEAD with the per-window diagnostic records and
   the steering telemetry behind the existing `work_telemetry` flag, now off by default and exposed as
