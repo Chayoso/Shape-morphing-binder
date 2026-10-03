@@ -651,6 +651,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   without it under 30 %), the fix changes beast's freeze rate through the optimiser's coupling (one step
   length for all particles) and that is reported as such; if they meet, the gallery's beast was the parked
   defect at its own rate.
+  **V's early stop, three runs an arm (pre-registered 12:46 CDT at launch; `tmp/d39V.queue`, GPU 1).** The
+  gallery's V with the fix stopped at window 16 on three consecutive outer rejections (best commit 11, last
+  kinetic record 7.5e-3, silhouette 0.9765 inside its range, 25 rendered particles beyond the berth against 2);
+  the three earlier runs took 31–37 windows. C stops this way in three of four runs of any code. If one of the
+  three runs without the fix also stops before window 20, or none of the three with it does, V's stop is the
+  rejection rule's draw (the parked `reject_stop` item); if two or three with the fix stop early and none
+  without, the fix is the cause and is held back.
+  **Verdict (2026-10-03 13:09 CDT; `tmp/beast_tally.py`, `tmp/beast_pre.py`, `tmp/zero_row_where.py`).** beast,
+  40k, seed 97, all runs: with the fix 8 frozen of 19 (10 of 22 with the three dumped runs), without it 7 of 20;
+  one-sided exact p = 0.45. The first six had read 5 of 6 against 1 of 6; the rates met as the runs came in.
+  Every freeze is `domain` with the first refused window 10 or 11. Three runs with the fix and the term dump,
+  read with the layer code as it was: the particles nearest the margin are the same ten in every run (25211,
+  38521, 30390, 18115, …), none of them would have had a zero row; the old code's zero rows on those states are
+  one to three particles within 1.1 spacings of the target, 16–22 cells inside, from window 8 or 9. In two of
+  the three the head is 1.5 and 2.0 cells from the margin at the start of window 9, before any zero row exists.
+  Seven of the 17 freezes follow a collapse of the line search's step in windows 5–7 (the step of window 7 under
+  5e-4 in 12 of the 42 runs: 7 with the fix, 6 of them frozen; 5 without, 1 frozen), which is where the two
+  codes are the same code: the first six runs' imbalance was drawn there.
+  So: the bug neither held the filament's head back nor did the fix release it; the gallery's beast met the
+  parked freeze, which this recipe has in 35–45 % of its runs, and the three earlier galleries' sound beast
+  runs were three draws from that. One difference with the fix on beast: its sound runs commit 87–126 windows
+  (median 114) against 49–100 (median 71) without it, at the same silhouette (median 0.9703 and 0.9697); the
+  gallery as a whole goes the other way (median 32 → 25 committed windows), one run a mesh.
+  V: without the fix 31, 29 and 13 commits (the third stops at window 16 on three outer rejections, last
+  kinetic record 1.1e-2), with it 14, 32 and 35: the early stop occurs in both codes (1 of 6 before and without
+  the fix, 2 of 4 with it): the rejection rule's draw, the parked `reject_stop` item, as C's.
+  By the letter the gallery criterion was missed on beast; by the pre-registered follow-up the miss is the
+  parked defect at its own rate, in both codes. The fix is adopted: a layer particle with no same-side
+  neighbour within the weight's reach keeps its place instead of being carried toward the world's origin. What
+  it buys at 300k (two runs against five): world-thin 0.16–0.21 % against 0.32–0.42 %, rendered particles beyond
+  one loss cell 7–16 against 63 (d38 at the same window), the same 11 minutes and silhouette. What it does not change: the feathered
+  horns (D40, D41), beast's freeze, the early stops. Render: λ of the first window and g_share unchanged (0.463
+  and 0.94 on the 300k dragon; gallery medians 0.263 and 0.85).
+  To the record of 2026-09-30 ("three clean galleries") add: beast's freeze rate has to be read from repeats;
+  one gallery run of beast says nothing about a change.
 - **D38, why the 45-minute video looks best: the same code run to its own stop (pre-registered 2026-10-03 11:00
   CDT at launch; this entry written 11:02, before any result of the run; repo_r44 = the committed tree;
   `tmp/d38.sh`; `output/gpu/d38`).** The user, comparing the videos: the 45-minute one (D17's run of the code
@@ -2110,6 +2145,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
    to `render_res_hi` (96, D19) the coarse-to-fine stage and its event are inert: remove the code and its test.
    (c) With the layer as the body's the dragon's head is softer in the 4K picture (strong-gradient share 3.7 %
    against 4.7 %): the detached sets on thin features are no longer made regular.
+   **After D33–D41 (2026-10-03 13:10).** (d) The feathered thin features (the horns): the 45-minute video's solid
+   horns are the old disc rule on a long run of the code before the layer change, not the 64 → 96 px schedule
+   (D38, D40). The thin class (below two MPM cells) has 14–15 % of its points under half of the target's local
+   density at 40 windows and 10 % at 160 (D41; the thick class 2–3 %); the thin share does not see it. The loose
+   material is within the berth, where no term acts, and what would move it in is (a)'s parked items; the
+   decision is the user's. (e) The mid-morph dilution (D36, D37): the surface's material is pulled apart evenly
+   in the plane in windows 1–5 and strands come off as beads; next is the literature (4–5 primary sources on
+   the particle count of a growing surface), then a design. (f) beast's `domain` freeze in 35–45 % of 40k runs
+   and the three-rejection stop on C and V (D39): parked defects, to be read from repeats. (g) `thin_fill_probe`
+   as the measure for thin features in place of the thin share: not yet in the run's record.
 1. **The gallery at 300k.** The 19 meshes at the delivery resolution, with 4K renders. Same measurements as S2.
 2. **Render influence across meshes.** Render-off twins (`--render_weight_scale 0`) and a second seed on five meshes
    (bunny, dragon, C, V, nefertiti) at 300k: the render's effect against the seed spread, per mesh.

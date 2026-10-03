@@ -30,7 +30,8 @@ The outer layer is also relaxed toward the plane of its neighbours every step, a
 moving with their source neighbours. The layer is the body's: a set of particles that is not connected to the body
 within one layer spacing is not relaxed (it has no surface of its own), and `u` moves its members along the
 direction away from the material around them. Relaxed against itself such a set contracted into a floating clump
-(`docs/experiments.md`, D20–D27).
+(`docs/experiments.md`, D20–D27). A layer particle with no same-side neighbour in reach is not relaxed either: it
+has no plane to be relaxed onto (D39).
 
 **Objective.** Eight terms, all evaluated on the released end state. Which terms are needed was measured by
 switching terms off on the 19-mesh gallery (`docs/experiments.md`, R9–R14b and FV). The geometry and settling terms
