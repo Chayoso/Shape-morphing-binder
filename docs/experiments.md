@@ -459,6 +459,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D19, the 15-minute dragon and whether 96 px from the start holds beyond it (pre-registered 2026-10-02 22:48
+  CDT, before launch; `tmp/d19c.sh`, `tmp/d19.sh`, `tmp/d19_eval.py`; `output/gpu/d19`).** D18: with the render at
+  96 px from the start the 300k dragon is at 0.5 % world-thin by window 30–40, and the share rises afterwards
+  while the merit falls. Two things at once, the formulation untouched, the records off (repo_r35 = the schedule
+  as it is, repo_r35b = `render_res` 96, no coarse stage).
+  (1) Confirmation, alone on GPU 0: the 300k dragon, repo_r35b, `--animations 40`. The window budget bounds the
+  loop and the log interval only (checked in the code: nothing else reads it; with one resolution there is no
+  c2f event), so 40 is forty window attempts, at most forty commits. Read: wall time of the run, silhouette IoU,
+  world-thin, chamfer, the last window's kinetic record, and a 4K render with the target sample's. Prediction:
+  13–15 minutes; world-thin 0.4–0.7 %; silhouette IoU 0.979–0.983, below the full run's 0.9837 (the silhouette
+  loss at window 40 was 6.0e-4 against 3.4e-4 at the end).
+  (2) Generalisation: the 40k gallery (19 meshes, seed 97) and the 300k bunny, repo_r35 against repo_r35b, each
+  to its own stop; silhouette IoU, thin, chamfer, the last kinetic record and the end jitter, committed windows,
+  minutes. Decision rule fixed before the run: the gallery the same or better with fewer windows → 96 px becomes
+  the default and the coarse stage and its event go; the same quality at a little more time → still one
+  resolution, 96; a regression at 40k (silhouette lower by more than 0.003 on five or more meshes, or the median
+  thin share up by more than two points) → the event stays and the dependence on N has to be explained from data.
+  Predictions: silhouette within ± 0.002 on at least 15 of 19 (median change within ± 0.001); thin lower on at
+  least 12; fewer committed windows on at least 12 (one epoch instead of two); gallery time at most 1.2 times;
+  the 300k bunny within ± 0.002 with no more windows.
 - **D17 and D18, the runtime: the records out of the production path, and the fine render from the start
   (pre-registered 2026-10-02 18:09 CDT, before launch; repo_r35 = HEAD with the per-window diagnostic records and
   the steering telemetry behind the existing `work_telemetry` flag, now off by default and exposed as
