@@ -125,35 +125,12 @@ def write_grad_dump(directory, dump, win, leaf0, leaf_final, u_final, commit_dc,
         leaf_final_norm=float(leaf_final.norm()), **red, **resp, **u_red)
 
 
-def channel_record(win, u: torch.Tensor) -> dict:
-    """What moved each particle over the committed window, per channel, read from the eval trajectory right after
-    the commit rollout: the MPM advection (the sum of dt v over the steps), the u control (its gated normal offset)
-    and the rest (the relaxation on the layer, the bond projection on decoupled particles); with the window's start
-    state, the layer mask and normal, u's transport gate, the decoupling flag of the last step, the mean control
-    increment per driven step and det F at the window's two ends."""
-    tr, T, N = win.tr, win.T, win.N
-    with torch.no_grad():
-        adv = torch.zeros_like(win.x0)
-        for t in range(1, T + 1):
-            adv += float(win.prm.dt) * wp.to_torch(tr.v[t])
-        du = (wp.to_torch(tr.layer_ug) * u * win.lmask)[:, None] * win.lnrm
-        det = lambda t: torch.linalg.det(wp.to_torch(tr.F[t]).reshape(N, 3, 3).float())  # noqa: E731
-        frag = wp.to_torch(tr.frag_step) if getattr(tr, "bonds", None) else torch.zeros(N, device=win.x0.device)
-        return {"x0": win.x0.clone(), "d_adv": adv, "d_u": du,
-                "d_rest": wp.to_torch(tr.x[T]) - wp.to_torch(tr.x[0]) - adv - du,
-                "lmask": win.lmask.clone(), "lnrm": win.lnrm.clone(), "ug": wp.to_torch(tr.layer_ug).clone(),
-                "u": u.clone(), "frag": frag.clone(),
-                "dfc": win.dc_buf[:win.Tc].flatten(2).norm(dim=2).mean(0), "J0": det(0), "J1": det(T)}
-
-
-def write_term_dump(directory, animation, x, grads, channels=None) -> None:
+def write_term_dump(directory, animation, x, grads) -> None:
     """Each objective term's position gradient at a window's committed state, per particle (transport, surface,
-    near band, spray cleanup, weighted render), with the state itself: which term pulls a given particle where;
-    and the window's displacement per channel (channel_record): what moved it."""
+    near band, spray cleanup, weighted render), with the state itself: which term pulls a given particle where."""
     os.makedirs(directory, exist_ok=True)
     np.savez(os.path.join(directory, f"terms_{animation:04d}.npz"), x=gpu.host(x),
-             **{"g_" + k: gpu.host(g) for k, g in grads.items()},
-             **{"c_" + k: gpu.host(c) for k, c in (channels or {}).items()})
+             **{"g_" + k: gpu.host(g) for k, g in grads.items()})
 
 
 def support_record(tgt, x: torch.Tensor) -> dict:

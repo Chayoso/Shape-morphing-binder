@@ -1,10 +1,8 @@
 """Render saved MPM particles as native-resolution Gaussian splats with studio lighting.
 
 CUDA owns neighbourhoods, density normals, covariance, rasterisation and shading.
-Archive decoding and image/video I/O are explicit host boundaries. Surface support and
-opacity follow render_splat_gpu.py; no mesh or hole filling is used. A disc's radius is the
-target spacing times the particle's spacing on the surface (the 8th-neighbour distance in its
-tangent plane) over the same on the target's surface, clamped to 1-4 (D35).
+Archive decoding and image/video I/O are explicit host boundaries. Surface support,
+opacity and splat radii follow render_splat_gpu.py; no mesh or hole filling is used.
 """
 from __future__ import annotations
 
@@ -32,7 +30,7 @@ from physmorph.render.covariance_torch import decompose_cov_torch, world_to_view
 from physmorph.render.knn_gpu import knn_self_torch
 from physmorph.render.settled import SettledAppearance, pin_start_frames
 from physmorph.render.support import (live_support, normal_filter_size, filter_normal_buffer,
-                                      MaterialShadingNormals, surface_particles, surface_spacing)
+                                      MaterialShadingNormals)
 
 
 from physmorph.render.studio import DensityNormals, StudioRaster
@@ -145,27 +143,9 @@ def main():
     target = torch.as_tensor(np.asarray(archive['tgt'], np.float32), device=device)
     center = target.mean(0)
     radius = float((target - center).norm(dim=1).max())
-    target_d, target_neighbors = knn_self_torch(target, 33)
+    target_d, _ = knn_self_torch(target, 9)
     spacing, coverage_radius = float(target_d[:, 1].median()), float(target_d[:, 8].median())
     normals_from_density = DensityNormals(center, radius, spacing)
-
-    def density_normals(x, neighbors):
-        """(normals, strong): the density gradient, a strong neighbour's where it is weak, averaged twice."""
-        normals, magnitude = normals_from_density(x)
-        strong = magnitude >= torch.quantile(magnitude[::max(1, len(x) // 100000)], .6)
-        nearest = neighbors[:, 1:33]
-        strong_neighbors = strong[nearest]
-        chosen = nearest[torch.arange(len(x), device=device), strong_neighbors.float().argmax(1)]
-        normals = torch.where((~strong & strong_neighbors.any(1))[:, None], normals[chosen], normals)
-        for _ in range(2):
-            normals = nnf.normalize(normals[neighbors].mean(1), dim=1, eps=1e-9)
-        return normals, strong
-
-    # the disc's reference: the tangent-plane spacing of the target's own surface (D35)
-    with torch.inference_mode():
-        on_surface = surface_particles(target, target_neighbors, coverage_radius)
-        surface_reference = float(surface_spacing(
-            target, target_neighbors, density_normals(target, target_neighbors)[0])[on_surface].median())
     common = None
     if args.surface_common:
         from physmorph.render.surface_gaussians import SurfaceGaussians
@@ -195,8 +175,15 @@ def main():
                 distances, neighbors = knn_self_torch(x, 33)
                 support = live_support(distances, coverage_radius, spacing)
                 compact_support = live_support(distances, coverage_radius, spacing, smooth=True)
-                normals, strong = density_normals(x, neighbors)
-                sigma = spacing * (surface_spacing(x, neighbors, normals) / surface_reference).clamp(1., 4.)
+                sigma = spacing * (distances[:, 8] / coverage_radius).clamp(1., 4.)
+                normals, magnitude = normals_from_density(x)
+                strong = magnitude >= torch.quantile(magnitude[::max(1, len(x) // 100000)], .6)
+                nearest = neighbors[:, 1:33]
+                strong_neighbors = strong[nearest]
+                chosen = nearest[torch.arange(len(x), device=device), strong_neighbors.float().argmax(1)]
+                normals = torch.where((~strong & strong_neighbors.any(1))[:, None], normals[chosen], normals)
+                for _ in range(2):
+                    normals = nnf.normalize(normals[neighbors].mean(1), dim=1, eps=1e-9)
                 normals, sigma, support = settled.apply(raw_index, x, normals, sigma, support)
                 reference = torch.where(normals[:, :1].abs() < .9,
                                         x.new_tensor((1., 0., 0.)), x.new_tensor((0., 1., 0.))).expand_as(x)
@@ -286,9 +273,7 @@ def main():
                     support='live 8NN density support; optional compact smoothstep inside existing radius',
                     spacing_wu=spacing, coverage_radius_wu=coverage_radius,
                     support_transition_wu=spacing, support_transition_sp=1., opacity=.92,
-                    sigma_rule='spacing * clamp(tangent-plane 8th-neighbour distance / its median on the target surface, '
-                               '1, 4); pin values frozen',
-                    surface_reference_wu=surface_reference,
+                    sigma_rule='spacing * clamp(current r8 / target median r8, 1, 4); pin values frozen',
                     normal_filter_reference_height=1080,
                     material_shading=dict(degree=32, rest_rank_ratio=1e-4, relative_det_min=1e-4,
                                           residual_limit=.5, invalid='current refit; reanchor exposed valid graph',

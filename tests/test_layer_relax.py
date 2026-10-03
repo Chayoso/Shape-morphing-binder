@@ -44,47 +44,6 @@ def test_layer_data_shapes():
     assert np.all(w[mask < 0.5] == 0)
 
 
-def test_a_layer_particle_without_neighbours_is_not_relaxed():
-    """A layer particle whose row has no weight (every layer neighbour beyond the Gaussian's reach, or on the
-    other side) has no plane to be relaxed onto. Its row is itself, every layer row sums to one, and the
-    projection leaves it where it is. Before D39 its row was zero, the kernels read the row's centroid as the
-    world's origin and carried the particle to the plane through it: here 20 spacings in one window."""
-    x, sp = _slab()
-    far = np.array([[0.3, 20 * sp, -0.2]], np.float32)             # one particle 20 spacings above the slab
-    x = np.concatenate([x, far])
-    p = len(x) - 1
-    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
-    assert mask[p] > 0.5 and nrm[p, 1] > 0.9
-    on = mask > 0.5
-    assert np.allclose(w[on].sum(1), 1.0, atol=1e-6)
-    assert np.all(nbr[p] == p) and w[p, 0] == 1.0 and np.all(w[p, 1:] == 0)
-    prm, T = _params(), 30
-    vol0 = compute_rest_volumes(x, 1.0, prm, DEV)
-    tr = Trajectory(x, 1.0, 0.0, 0.0, prm, T, device=DEV, requires_grad=False, vol0=vol0,
-                    layer=(mask, nrm, nbr, w, 1.0 / T))             # no elasticity: the projection alone
-    tr.rollout()
-    assert np.linalg.norm(tr.x[T].numpy()[p] - x[p]) < 1e-6
-
-
-def test_a_detached_group_is_relaxed_only_where_it_has_arrived():
-    """A group of particles not linked to the body within a spacing. In the air it has no surface of its own:
-    its members' rows are themselves (D26). Where its particles have arrived (within the objective's berth of
-    the target) they are layer particles like any other, measured against their neighbours (D46)."""
-    x, sp = _slab()
-    rng = np.random.default_rng(1)
-    above = np.array([0.0, x[:, 1].max() + 4 * sp, 0.0], np.float32)
-    x = np.concatenate([x, above + rng.uniform(-0.2, 0.2, (6, 3)).astype(np.float32) * sp])
-    ids = np.arange(len(x) - 6, len(x))
-    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
-    assert np.all(mask[ids] > 0.5) and np.all(nrm[ids, 1] > 0.9)            # away from the body below
-    assert np.all(nbr[ids] == ids[:, None]) and np.all(w[ids, 0] == 1.0)   # in the air: not relaxed
-    arrived = torch.zeros(len(x), dtype=torch.bool)
-    arrived[torch.as_tensor(ids)] = True
-    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0, arrived=arrived)
-    assert np.all(mask[ids] > 0.5) and np.allclose(w[ids].sum(1), 1.0, atol=1e-6)
-    assert not np.any(np.all(nbr[ids] == ids[:, None], axis=1))            # arrived: its neighbours' plane
-
-
 def test_projection_relaxes_the_rough_residual_over_one_window():
     x, sp = _slab(n_side=12, layers=4)
     prm = _params()

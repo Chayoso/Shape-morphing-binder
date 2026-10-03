@@ -10,7 +10,6 @@ deliverable ends at the best window.
 from __future__ import annotations
 
 import dataclasses
-import time
 
 import torch
 
@@ -36,7 +35,7 @@ _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "
                 "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
                 "zero_ok", "zero_reason", "warm_ok", "warm_reason", "start_ok", "start_reason", "commit_reason",
                 "replay_dx_max", "replay_dx_rms", "replay_dlv", "replay_dlk", "replay_dlr",
-                "t_setup", "t_start", "t_grad", "t_ls", "t_commit", "merit_far", "merit_w1_gap",
+                "t_start", "t_grad", "t_ls", "t_commit", "merit_far", "merit_w1_gap",
                 "g_transport", "g_surf", "g_spray", "g_near", "n_spray", "n_near", "n_near_active", "ot_scale",
                 "active_set", "ctrl_mag", "ctrl_rough", "prof",
                 "sup_E", "sup_B", "sup_w_eff", "sup_pen_max", "sup_pen_p99", "sup_pen_med", "sup_grad_ratio")
@@ -109,8 +108,6 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             if cfg.hold_after_converge:
                 frames.hold()
             break
-        torch.cuda.synchronize()
-        t_loop = time.perf_counter()                    # where a window's time goes outside the optimiser (measurement)
         x_start = x.clone()
         rollback = {"F": F, "v": v, "C": C, "Fp": Fp, "dfc": dfc_prev, "lam": balancer.lam,
                     "frames": len(frames), "guards": dict(guards)}
@@ -154,8 +151,6 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 log(f"[v2] frozen after {cfg.patience} stale/null commits")
             continue
         commit = res.commit
-        torch.cuda.synchronize()
-        t_post = time.perf_counter()
         x, F, v, C, counts = promote(commit, lo, hi)
         for k in GUARDS:
             guards[k] += counts[k]
@@ -164,15 +159,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
             Fp = assimilate_elastic(F, Fp, eta=cfg.assim, smin=cfg.assim_smin, smax=cfg.assim_smax,
                                     isochoric=True)
         frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F)
-        # the promoted positions are the commit rollout's own end state unless a guard repaired them: the
-        # record's transport energy takes the potentials the commit solved there
-        tgt.grid_ot.repeat = not (counts["clamped"] or counts["nan_x"])
         rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin)
-        torch.cuda.synchronize()
-        # t_record: promotion, assimilation, the frames and the record; t_total: the loop's turn up to here
-        rec.update(t_record=time.perf_counter() - t_post, t_total=time.perf_counter() - t_loop)
         if cfg.term_dump and stats.get("term_grads") is not None:
-            write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"), stats.pop("term_channels", None))
+            write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
         res.commit = commit = None          # release the window's buffers before the next one
         sel.check_lambda(rec, float(res.hist[-1]["lambda"] or 0.0))
         components = {"phys": rec["transport_energy"], "render": rec["d_sil"], "dt": rec["d_dt"]}

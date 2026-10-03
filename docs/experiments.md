@@ -459,6 +459,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **ROLLBACK, 2026-10-03 17:19 CDT (the user: "일단 오늘 수정 다시 돌릴 수 있을까? dragon300K_current_schedule_45min_4k
+  결과가 나왔었을 때로").** The code is back at 617a8ec, the last commit of 2026-10-02 (23:33): every file under
+  `physmorph/`, `scripts/` and `tests/` and the README as they were then; only this log keeps today's entries
+  (D20–D53 below), which now describe code that is not in the tree. Today's code is kept whole at the tag
+  `settled-2026-10-03-d53` (commit 3d5a02b). What went out: the layer as the body's (D26) and its arrived scope
+  (D48), the zero-row fix (D39: the bug is back in the tree, see its entry), the alternating Sinkhorn solve
+  (D29), the runtime reuses (D47, D49, D50, D53) and their clocks, the display's surface-spacing disc rule
+  (D35), the term dump's channel record, `--render_res`, and the probes of D20–D53. `render_res` is 64 again
+  (the 64 → 96 schedule of the 45-minute video).
+  The 45-minute run itself (d17's `dragon_on`, 2026-10-02 17:03–17:49) ran one code step earlier, f2720ad,
+  before the diagnostic records were taken out of the production path (9ec502a, 18:05: 19.8 against 23.6 s a
+  window, the run reading none of them). 617a8ec is that code with the records off.
+  Checked after the rollback: the suite on the restored tree, and the 300k dragon run again with the default
+  recipe to its own stop (results under this entry).
 - **D52, the code as a whole: the arrived-scope layer with the three runtime steps (pre-registered 2026-10-03
   14:58 CDT at launch; repo_r58 = the working tree, file for file (checksums compared), suite 273 passed, exit 0;
   repo_r59 = the same at `render_res` 64; `tmp/d52.sh`, `tmp/d52run.sh`; `output/gpu/d52`).** Four things at
