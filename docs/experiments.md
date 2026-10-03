@@ -460,7 +460,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
 - **D38, why the 45-minute video looks best: the same code run to its own stop (pre-registered 2026-10-03 11:00
-  CDT at launch; this entry written 11:06, before any result of the run; repo_r44 = the committed tree;
+  CDT at launch; this entry written 11:02, before any result of the run; repo_r44 = the committed tree;
   `tmp/d38.sh`; `output/gpu/d38`).** The user, comparing the videos: the 45-minute one (D17's run of the code
   before D19: 64 px then 96 px, the layer as it was, the old solve, to its own stop) looks best. Its record: 2704
   s, 122 commits of 129 attempts, silhouette IoU 0.9838, world-thin 0.55 %, chamfer 0.0589, last kinetic record
