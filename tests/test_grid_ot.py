@@ -87,7 +87,11 @@ def test_grid_sinkhorn_separable_transform_matches_dense_cost():
     assert torch.allclose(loss.transform(dual, log_weights, .3), dense, atol=1e-10)
 
 
-def test_grid_sinkhorn_self_solve_reuses_identical_dual_transforms(monkeypatch):
+def test_grid_sinkhorn_self_solve_is_symmetric_and_agrees_with_the_cross_solve(monkeypatch):
+    """The self problem takes the symmetric averaged sweep at the blur: its two potentials are equal and it costs
+    one transform a sweep. The cross solve of two equal measures (alternating sweeps down the ladder) reaches the
+    same solution: its potentials are the self potential shifted by a constant up and down, so their mean is the
+    self potential. The self solve is the cheaper of the two by more than the transforms it shares (D29)."""
     from physmorph.losses.grid_ot import GridSinkhornLoss
     mass = torch.tensor([.2, .3, .5], dtype=torch.float64)
     loss = GridSinkhornLoss(mass, torch.zeros(3), 1., (3, 1, 1),
@@ -97,12 +101,15 @@ def test_grid_sinkhorn_self_solve_reuses_identical_dual_transforms(monkeypatch):
         calls.append(1)
         return transform(*args)
     monkeypatch.setattr(loss, 'transform', counted)
-    reference = loss.solve(mass, mass.clone())
+    fc, gc = loss.solve(mass, mass.clone())
     count = len(calls)
     calls.clear()
-    result = loss.solve(mass, mass)
-    assert all(torch.equal(a, b) for a, b in zip(reference, result))
-    assert len(calls) * 2 == count
+    f, g = loss.solve(mass, mass)
+    assert torch.equal(f, g)
+    assert len(calls) * 2 <= count
+    torch.testing.assert_close(.5 * (fc + gc), f, atol=1e-8, rtol=0.)
+    shift = fc - gc
+    assert float(shift.max() - shift.min()) < 1e-6
 
 
 @pytest.mark.parametrize('requires_grad', [False, True])
@@ -172,8 +179,11 @@ def test_grid_sinkhorn_cuda_blocks_preserve_values_gradients_and_history_indepen
             torch.testing.assert_close(a, e, atol=1e-7, rtol=1e-3)
     for before, after in zip(first, evaluate(graph, shifted)):
         torch.testing.assert_close(before, after, atol=0., rtol=0.)
+    # At the target the cross potentials (alternating sweeps) and the self potentials (averaged sweep) agree
+    # to the tolerance, not bit for bit: the gradient there is of the tolerance's order against the gradient a
+    # shift away (measured 2 x tol), and exactly zero in the limit (the equilibrium test, at 1e-9).
     _, at_target = evaluate(graph, target)
-    assert float(at_target.abs().max()) < 1e-7
+    assert float(at_target.abs().max()) < 10. * kw['tol'] * float(first[1].abs().max())
     # Cached graphs must not silently bypass a changed convergence budget.
     graph.iters = 4
     assert bool(torch.isinf(graph(shifted)))

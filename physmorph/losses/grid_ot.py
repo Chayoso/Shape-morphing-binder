@@ -1,8 +1,9 @@
 """Fixed-target Sinkhorn divergence on the loss grid (settled transport).
 
 The body's mass and the target's are both measured on the loss grid; the debiased
-Sinkhorn divergence between them is solved in the log domain with epsilon scaling from the
-squared grid diameter down to the blur (one loss cell squared). The squared Euclidean cost
+Sinkhorn divergence between them is solved in the log domain: the cross problem with
+alternating sweeps and epsilon scaling from the squared grid diameter down to the blur (one
+loss cell squared), the self problem with the symmetric averaged sweep at the blur. The squared Euclidean cost
 is separable by axis, so every sweep is three one-dimensional log-sum-exp passes (a Warp
 kernel inside a captured CUDA graph during no-grad evaluations). The gradient uses the
 envelope theorem: the converged potentials, differentiated through the rasterisation
@@ -147,18 +148,21 @@ class GridSinkhornLoss:
                 return self._solve_cuda_blocks(a, b)
         la, lb = a.log(), b.log()
         f, g = torch.zeros_like(a), torch.zeros_like(b)
-        level = max(0, int(torch.ceil(torch.log2(a.new_tensor(max(self.diameter2, self.eps) / self.eps)))))
+        level = self._start_level(a, a is b)
         for iteration in range(self.iters):
             temperature = self.eps * 2. ** level
             fn = self.transform(g, lb, temperature)
-            # Identical measures keep f == g exactly under the parallel update.
-            gn = fn if a is b else self.transform(f, la, temperature)
             check = iteration % 4 == 3 or iteration == self.iters - 1
             if check:
-                ea = (torch.exp(la + (f - fn) / temperature) - a).abs().sum()
-                eb = (torch.exp(lb + (g - gn) / temperature) - b).abs().sum()
-                error = float(torch.maximum(ea, eb))
-            f, g = .5 * (f + fn), .5 * (g + gn)
+                error = float((torch.exp(la + (f - fn) / temperature) - a).abs().sum())
+            if a is b:
+                # The self problem: the parallel averaged update keeps f == g exactly.
+                f = g = .5 * (f + fn)
+            else:
+                # The cross problem: alternating sweeps. g is the transform of f after each, so the
+                # b marginal holds and the a marginal's error (taken above) is the whole residual.
+                f = fn
+                g = self.transform(f, la, temperature)
             if check and error < self.tol:
                 if level == 0:
                     break
@@ -167,9 +171,22 @@ class GridSinkhornLoss:
             raise _GridTransportNotConverged(f'grid transport did not converge: marginal error {error:g}')
         return f, g
 
-    def _solve_cuda_blocks(self, a, b):
-        """Capture four unchanged sweeps; keep the original residual/blur schedule.
+    def _start_level(self, a, same):
+        """The blur level a solve starts at. The cross problem: the top of the epsilon ladder. The self
+        problem: the blur itself; its plan is local, the ladder has no long-range transport to resolve
+        (2 four-sweep blocks against 25-27 down the ladder, the same potentials; D29)."""
+        if same:
+            return 0
+        return max(0, int(torch.ceil(torch.log2(a.new_tensor(max(self.diameter2, self.eps) / self.eps)))))
 
+    def _solve_cuda_blocks(self, a, b):
+        """solve() with four sweeps captured as a CUDA graph: the same sweeps, residual and blur schedule.
+
+        The self problem takes the parallel averaged update f <- (f + T(f)) / 2, which keeps its two
+        potentials equal. The cross problem takes alternating sweeps, f <- T(g) then g <- T(f): averaged
+        in parallel like the self problem it needed 1.2-2.6 times the sweeps and stopped farther from the
+        converged potentials (late in a 300k run the value low by 1.4-3.4 % against 0.4-0.8 %, the
+        gradient off by 15-22 % against 8-10 %, at the same tolerance; D29).
         Every call starts from zero duals. Graphs own their buffers, not a temporal
         warm start: line-search values must not depend on previous trials.
         Like the owning optimizer, a loss instance is used serially.
@@ -179,18 +196,19 @@ class GridSinkhornLoss:
             la, lb = a.log().clone(), b.log().clone()
             f, g = torch.zeros_like(a), torch.zeros_like(b)
             temp, error = a.new_tensor(self.eps), a.new_zeros(())
-            abuf, bbuf = a.clone(), b.clone()
+            abuf = a.clone()
 
             def block():
                 for i in range(4):
                     fn = self.transform(g, lb, temp)
-                    gn = fn if same else self.transform(f, la, temp)
                     if i == 3:
-                        ea = (torch.exp(la + (f - fn) / temp) - abuf).abs().sum()
-                        eb = (torch.exp(lb + (g - gn) / temp) - bbuf).abs().sum()
-                        error.copy_(torch.maximum(ea, eb))
-                    f.copy_(.5 * (f + fn))
-                    g.copy_(.5 * (g + gn))
+                        error.copy_((torch.exp(la + (f - fn) / temp) - abuf).abs().sum())
+                    if same:
+                        f.copy_(.5 * (f + fn))
+                        g.copy_(f)
+                    else:
+                        f.copy_(fn)
+                        g.copy_(self.transform(f, la, temp))
 
             stream = torch.cuda.Stream(device=a.device)
             stream.wait_stream(torch.cuda.current_stream())
@@ -201,15 +219,14 @@ class GridSinkhornLoss:
             graph = torch.cuda.CUDAGraph()
             with torch.cuda.graph(graph, stream=stream):
                 block()
-            self._solve_graphs[same] = (graph, la, lb, f, g, temp, error, abuf, bbuf)
-        graph, la, lb, f, g, temp, error, abuf, bbuf = self._solve_graphs[same]
+            self._solve_graphs[same] = (graph, la, lb, f, g, temp, error, abuf)
+        graph, la, lb, f, g, temp, error, abuf = self._solve_graphs[same]
         la.copy_(a.log())
         lb.copy_(b.log())
         abuf.copy_(a)
-        bbuf.copy_(b)
         f.zero_()
         g.zero_()
-        level = max(0, int(torch.ceil(torch.log2(a.new_tensor(max(self.diameter2, self.eps) / self.eps)))))
+        level = self._start_level(a, same)
         for iteration in range(0, self.iters, 4):
             temperature = self.eps * 2. ** level
             temp.fill_(temperature)

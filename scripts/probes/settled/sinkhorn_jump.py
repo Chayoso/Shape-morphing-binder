@@ -31,10 +31,10 @@ class Recording(GridSinkhornLoss):
         same = a is b
         if same not in self._solve_graphs:
             super()._solve_cuda_blocks(a, b)                   # builds the graph
-        graph, la, lb, f, g, temp, error, abuf, bbuf = self._solve_graphs[same]
-        la.copy_(a.log()); lb.copy_(b.log()); abuf.copy_(a); bbuf.copy_(b)
+        graph, la, lb, f, g, temp, error, abuf = self._solve_graphs[same]
+        la.copy_(a.log()); lb.copy_(b.log()); abuf.copy_(a)
         f.zero_(); g.zero_()
-        level = max(0, int(torch.ceil(torch.log2(a.new_tensor(max(self.diameter2, self.eps) / self.eps)))))
+        level = self._start_level(a, same)
         plan = None if self.schedule is None else list(self.schedule[same])
         used, count = [], 0
         for _ in range(0, self.iters, 4):
