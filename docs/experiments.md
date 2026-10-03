@@ -459,6 +459,244 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D49, runtime: the proximity term asks for one neighbour, the trajectory's min det is taken step by step
+  (pre-registered 2026-10-03 14:23 CDT at launch; repo_r56 = repo_r53 with `losses/support.py` and
+  `window/rollout.py`; `tmp/d49.sh`, alone on GPU 0; `output/gpu/d49`; the parts timed by
+  `tmp/bench_eval_parts.py` on D43's kept state, on a GPU shared with a running cell).** From the two code
+  audits (agents, read-only). The surface proximity term built a KD-tree of the body and asked for each outer
+  target point's 32 nearest particles, then took the minimum of the 32 distances: the nearest alone gives the
+  same d_min on all 19 030 points (0 differ), the query 50 → 5 ms of the term's 66. The trajectory's min det
+  stacked the 41 deformation gradients twice and added the control to all 40 steps; the control is zero in the
+  released half, where det(F + dFc) before a step is det F after the step before: step by step on the
+  trajectory's own buffers, the same minimum (0.808378041 both), 30 → 17 ms. Suite 272 passed, exit 0.
+  Predictions: the proximity term 47 → about 20 ms a call (1.0 → 0.45 s a window); the line search 3.5 → about
+  3.2 s; the window 12.1 → about 11.2 s; the 40-attempt run 590 → about 550 s; quality inside the earlier runs'
+  spread. Fail: a quality number outside, or less than 0.6 s a window gained.
+  Also from the audits, not in this step: the window's start evaluates the start control twice (0.3 s a
+  window); in each adjoint sweep, 443 MB of geometric-F gradients zeroed and a dead kernel swept, the control's
+  gradient cloned and stacked over 40 steps of which 20 carry it (single-digit per cent of a sweep); the three
+  sweeps themselves (5.0 s a window, P2G, G2P and the stress adjoint) have no exact reduction short of
+  carrying three adjoints through one sweep. Merging the cleanup's gradient with the transport's would save a
+  sweep in eight but is not the same arithmetic: the render gradient's projection is active at the first
+  iteration of 269 of 871 windows (`tmp/pc_active.py`: the two dragons' windows 1–3, a third to a half of the
+  windows of most 40k meshes), so it would change the result wherever it is active. The Sinkhorn ladder with a
+  fixed number of blocks a level was tried in D25–D29 and costs more.
+- **D48, a detached set is in the air only beyond the berth: an arrived particle is a layer particle like any
+  other (pre-registered 2026-10-03 13:58 CDT at launch; repo_r54 = repo_r47 with `window/layer.py`,
+  `window/setup.py` and a test, repo_r55 the same at `render_res` 64; `tmp/d46.sh`, tags `berth64`, `berth64b`
+  (48 attempts, GPUs 1 and 3), `berth96` (40 attempts, GPU 2); `output/gpu/d46`).** D46 (below): the old layer
+  makes the horns solid and brings the far dense sets back in one of its two 64-px runs and at 96 px; D26's
+  normal with the relaxation given back keeps the far sets away and leaves the horns feathered. So what makes a
+  thin feature solid is u drawing a set together along its own normals, the same motion that clumps a set in
+  the air. The two differ in where the set is: 91–99 % of the loose material is within the berth of the
+  target (D45), the floaters are beyond a loss cell. The definition: D26's membership (not relaxed, u along the
+  direction away from the non-members) holds for the particles of a detached set that are beyond the
+  objective's berth (`nn_berth_k` target spacings, the near band's inner edge: no new constant); a particle
+  within it is at the surface it is to form and is treated as every layer particle. Precedent: Adams et al.
+  2007 project the particles nearer to the surface than their support radius; none of the nine papers
+  withholds the smoothing from near-surface material (D45). Tests: a group four spacings above a slab has
+  self rows, and ordinary rows when marked arrived; suite 271 passed, exit 0.
+  Predictions at window 39/40: the horns solid as the old layer's (D43) in both 64-px runs, and at 96 px as
+  `old96`'s; rendered particles beyond 4.4 spacings at most 16 and no dense set beyond a loss cell in all
+  three (D26's level; the old layer had 40–53 and 4–14 dense in two of three runs); silhouette within 0.002 of
+  the same-schedule runs. Fail: horns feathered as D40's, or a dense far set. If it holds: the 40k gallery, a
+  second 300k run at 96 px, and the full 64 → 96 run to its own stop against the 45-minute video.
+  **Result of the three cells (2026-10-03 14:16 CDT; `d46/q_berth_64.jpg`, `q_berth_96.jpg`).** At window 39
+  (`berth96`: 37 commits of 40, read at its end), rendered particles beyond 3, 4.4, 6 spacings; census at the
+  end; silhouette, world-thin; the thin class's fill and under-half share:
+  `berth64`: 302, 22, 5; 2112 / 155 / 14, none dense; 0.9836, 1.23 % (47 commits of 48); 0.936, 14.9 %.
+  `berth64b`: 308, 43, 13; 1914 / 204 / 17, none dense; 0.9824, 1.33 % (46 of 48); 0.938, 14.8 %.
+  `berth96`: 303, 72, 44; 2432 / 119 / 10, none dense; 0.9841, 0.73 %; (window 20: 0.906, 20.3 %).
+  The horns, committed disc rule: in both 64-px runs the large horns are solid and rounded as the old layer's,
+  with a feathered small horn in one and a rough patch on a large horn in the other (the old layer's second
+  sample shows the same); at 96 px fuller than D26's, with a rough patch on the first horn. D26's feathering of
+  every horn is gone in all three.
+  Predictions: the horns as the old layer's (met, within the two samples' spread); no dense set beyond a loss
+  cell (met in all three; the old layer had 4 and 14 dense particles there in two of three runs); "at most 16
+  rendered particles beyond 4.4 spacings" missed (22, 43, 72): these are not detached sets (the census has 10–17
+  detached there) but material linked to the body, as in D47's run (54, 31 beyond 6); what it is, is being
+  located (`tmp/far_where.py`). Silhouette within 0.002 of the same-schedule runs (0.9822–0.9841 at 64 px,
+  0.9840–0.9846 at 96 px). Render: λ of the first window 0.391 (64 px) and 0.462 (96 px), median g_share
+  0.93–0.94.
+  **Next, launched 14:16 CDT:** the full 64 → 96 run to its own stop (`berth_full`, repo_r55, GPU 1); a second
+  96-px run (`berth96b`, GPU 2); the 40k gallery of repo_r54 (`tmp/d48.sh`, `tmp/d48.queue`, three workers on
+  GPU 3; `output/gpu/d48`) against D39's (the same code without the change) and the three earlier arms.
+  Criteria: the gallery's silhouette within 0.002 of the earlier runs' mean on at least 15 of 19, none lower by
+  more than 0.003 except C at its early stop and beast and V at theirs (D39: 35–45 % and 1 in 3 of either
+  code); the detached census beyond a loss cell with no dense set on any mesh; the full run's horns at its end
+  against the 45-minute video's, both disc rules; `berth96b` inside the three 96-px runs' spread.
+- **D47, runtime: the gradient's point is not solved a second time (pre-registered 2026-10-03 13:44 CDT, before
+  its runs; repo_r53 = repo_r47 with `losses/grid_ot.py`, `window/solve.py` and a test;
+  `output/gpu/d47`).** D44's first item. Every gradient is taken at a point that has just been evaluated without
+  the tape (the replay pair at the window's start, then each accepted candidate); the two rollouts of one
+  control differ by the transfers' atomics only (5e-6 spacings). `GridSinkhornLoss` keeps the potentials of its
+  latest solved call, and a caller that sets `repeat` gets them back for one call, with no sweep taken from
+  them (not a warm start: a call without the flag starts from zero duals as before). The optimiser sets it
+  before each taped evaluation. Test: the repeated call solves nothing and returns the solved call's value and
+  gradient bit for bit at the same measure and within 1e-3 under a 1e-6 perturbation; the flag lasts one call;
+  suite 272 passed, exit 0. Runs when a GPU is free: the 300k dragon with `--profile`, 14 attempts, against D44;
+  then 40 attempts alone on a GPU against D39's two runs. Predictions: Sinkhorn evaluations a window 22 → 14,
+  the window 14.1 → about 12.4 s, the 40-window run 11.1 → about 9.9 minutes of simulation; silhouette and
+  world-thin inside D39's two runs give or take the run-to-run 0.002 and 0.2 point; the merit of windows 0–2
+  equal to D44's to four digits (the runs are the same until the atomics' noise has grown). Fail: a quality
+  number outside, or less than 1 s a window gained.
+  **Result (2026-10-03 14:10 CDT).** With `--profile`, windows 4–13: the window 14.08 → 12.10 s; Sinkhorn
+  evaluations 22 → 14 a window (blocks 1379 → 871, 4.64 → 2.95 s), the gradients 8.33 → 6.35 s, everything else
+  unchanged. The 40-attempt run: 588 s of simulation (636 s of process) against 664 and 669 s; 39 commits of 40;
+  silhouette IoU 0.9838 (0.9844, 0.9846), world-thin 0.24 % (0.21, 0.16), thin 17.8 %, chamfer 0.0593, holes
+  0.01 %, last kinetic record 3.3e-3 (0.9e-3, 1.1e-3); render: λ of the first window 0.463, median g_share 0.93.
+  The merit of windows 0–3: 0.68633, 0.56888, 0.41853, 0.27390 (D44: 0.68633, 0.56887, 0.41853, 0.27388).
+  Predictions met (2.0 s a window gained; silhouette and world-thin inside the allowance). Not in the
+  criteria and outside D39's two runs: rendered particles beyond 3, 4.4 and 6 spacings at the end 235, 54, 31
+  against 156–192, 7–16, 0–2 (census: 7 detached beyond a loss cell, none dense, so the 31 are linked to the
+  body). The reuse has no path to it (the potentials are those of the same point), and before the zero-row fix
+  one run had 63 and 35 there; a second sample with the far particles located is running (`tmp/d47b.sh`,
+  `tmp/far_where.py`) before this is called a draw.
+  **Second sample (14:21 CDT).** 591 s of simulation (638 s of process), 40 commits of 40, silhouette 0.9842,
+  world-thin 0.32 %, thin 18.5 %, last kinetic record 3.3e-3. Beyond 4.4 and 6 spacings at the end: 69 and 65,
+  of them one detached set of 62 particles, dense (8th neighbour at 0.32 coverage radii), 7.8 spacings from the
+  target at (1.2, −1.91, −0.42): the notch under the tail, the recurring trap of D32. Whether a run ends with
+  material in that trap, by the far part of its merit at window 39: D30's two runs (before the zero-row fix)
+  4e-5 and 8e-5, D39's two 1e-5 and 0, D47's two 5e-5 and 9e-5, `relax96` 0, `berth96` 7e-5. So it is there
+  in five of eight 40-window runs, with and without the fix, with and without this change, with either layer;
+  D39's two runs were the two without it, and my "7–16 against 63" for the zero-row fix (D39's verdict) read a
+  draw as the fix's effect: the fix's world-thin (0.16–0.32 % in four runs against 0.32–0.42 %) stands, its far
+  count does not. The trap is empty at the end of the long run (D40: 1 particle beyond 4.4 spacings at window
+  159). It is a set that D26 leaves alone and nothing else sees: denser than the spray gate, beyond the near
+  band, 2e-4 of the mass for the transport.
+  The reuse is adopted: the same potentials at the same point, 2.0 s a window.
+- **D46, the layer's treatment of detached sets, four cells on the 300k dragon (pre-registered 2026-10-03 13:38
+  CDT at launch; `tmp/d46.sh`, one cell a GPU; `output/gpu/d46`).** D43: with the layer as before D26 the 64-px
+  stage's horns are solid again and no far dense set came back. D26 has two parts: a detached set is not relaxed,
+  and u moves its members along the direction away from the non-members. D20's clump was u contracting a set
+  along its own radial normals; the relaxation only kept the set regular. The literature (below) relaxes with
+  whatever lies inside the kernel's support and nowhere withholds the smoothing from material that is not linked
+  to the largest body. Cells: `old96` (repo_r50: no set detached, 96 px, 40 attempts): do the far dense sets of
+  D20 return now that the zero rows are gone, and are the horns less feathered than D39's; `relax96` and
+  `relax64` (repo_r51 and r52: D26's normal kept for a detached set, its relaxation given back; 96 px 40
+  attempts, 64 px 48 attempts): does the normal alone keep the far sets from clumping while the horns come
+  back; `old64b` (repo_r49 again, 48 attempts): D43's second sample. Read at window 39/40: the horn crop with
+  both disc rules, far counts (beyond 4.4 and 6 spacings), dense sets beyond a loss cell, the thin class's
+  fill, silhouette and world-thin. Expectations: `old64b` solid as D43; `relax64` solid as D43 with no dense far
+  set; `relax96` less feathered than D39's runs, no dense far set; `old96`: uncertain whether the clump of D20
+  returns (it was one set of 38 at 6.6 spacings). Adoption is not decided by these four: the candidate that
+  holds goes to the 40k gallery and a second 300k run.
+  **Result (2026-10-03 13:56 CDT; `d46/q_64_new_discs.jpg`, `q_96_new_discs.jpg`).** At window 39, rendered
+  particles beyond 3, 4.4 and 6 target spacings; detached census at the end (within the berth / near band /
+  beyond a loss cell, of them dense); silhouette, world-thin; the thin class's fill and under-half share:
+  `old96`: 348, 40, 6; 2584 / 124 / 25, 4 dense; 0.9843, 0.54 %; 0.947, 15.5 %.
+  `relax96`: 180, 0, 0; 2814 / 89 / 0; 0.9840, 0.61 %; 0.971, 15.3 %.
+  D26 at 96 px (D39's two runs): 156–192, 7–16, 0–2; 2515–2836 / 116–146 / 4–6, none dense; 0.9844–0.9846,
+  0.16–0.21 %; 0.966, 14.0 %.
+  `old64b`: 380, 53, 6; 2072 / 194 / 31, 14 dense; 0.9841, 1.6 % (45 commits of 49); 0.932, 16.0 %.
+  D43 (the same code, first sample): 253, 6, 2; 2142 / 184 / 2, none dense; 0.9822, 0.88 %; 0.947, 14.0 %.
+  `relax64`: 189, 8, 0; 3280 / 100 / 0; 0.9833, 0.90 %; 0.965, 15.2 %.
+  D26 at 64 px (D40 at window 39): 338, 77, 25.
+  The horns at window 39, drawn with the committed disc rule: the old layer solid in D43, mostly solid with one
+  feathered small horn in `old64b`, fairly solid at 96 px (`old96`); with the relaxation given back and D26's
+  normal kept (`relax64`, `relax96`) feathered small horns and blotched large ones, no better than D26; D26
+  feathered. Render: λ of the first window 0.468 (96 px) and 0.397 (64 px), median g_share 0.92–0.95.
+  Expectations: `old64b` is solid less cleanly than D43 and has the far dense sets back (14 dense particles
+  beyond a loss cell): D43's "no far set" was one draw, D26's reason stands. `relax64` and `relax96` keep the
+  far sets away as expected (the best far counts of all: none beyond 4.4 spacings at 96 px) and do not bring
+  the horns back: refuted. So it is not the relaxation that makes a thin feature solid but u acting along the
+  set's own normals, which draws the set together: at the target that is the feature filling in, in the air it
+  is the clump of D20. World-thin is 0.5–0.6 % in both cells without D26's exclusion against 0.2 % with it.
+- **D45, what tells a set at the surface from a set in the air (read-only on kept states; pre-registered
+  2026-10-03 13:26 CDT, before the probe's first run; `scripts/probes/settled/set_reach_probe.py`;
+  `output/gpu/d45`).** The user, 13:15: the fringe is to be fixed. D42 left the question which sets are the
+  body's. D20's pathology was a set measured against itself (its relaxation neighbourhood is its own
+  members); D26 withholds the relaxation from every set not linked within one layer spacing, which also takes
+  the sets that sit one spacing from the target on a sparse thin feature. Three readings of "measured against
+  what", on the rendered detached particles of five states (the old layer at 96 px, d20's windows 20 and 39,
+  where the far dense sets are; d32's end; D40 at window 40 and at its end), by distance to the target: the
+  set's gap to the body in layer spacings (the relaxation's weight is a Gaussian of two layer spacings); the
+  share of a member's ordinary relaxation row that lies on its own set; dense or not. A reading is usable as
+  the definition if it puts the sets within the berth on the body's side and the far dense sets (the floaters
+  of D20) on the other, with few in between. Expectation: the gap does (within the berth nearly all sets are
+  within two layer spacings of the body, the far dense ones beyond); the own weight is the mechanism itself and
+  should separate at least as well; the literature check (running) says which of the two established methods
+  use.
+  **Result (2026-10-03 13:30 CDT; `output/gpu/d45/set_reach_probe.txt`; D43's window 40 added at 13:37).** The
+  layer spacing is 1.9 target spacings. Rendered detached particles within the berth, to one loss cell, beyond:
+  d20 window 20 (old layer, 96 px) 7124, 590, 154; d20 window 39: 5546, 250, 39; d32's end (D26, 96 px) 4785,
+  222, 10; D40 window 40 (D26, 64 px) 6087, 266, 47; D40's end 2951, 85, 0; D43 window 40 (old layer, 64 px)
+  5337, 234, 2. The old layer does not have fewer loose sets at the surface than D26 (5546 against 4785 at 96
+  px, 5337 against 6087 at 64 px): what differs between solid and feathered horns is not their number.
+  The gap to the body: within the berth 91–97 % of them are in sets within 1.5 layer spacings of the body and
+  93–99 % within 2; the rest are islands at the target, up to more than 4 layer spacings from the body (369
+  particles at d20's window 39, 183 of them dense, 98 at d32's end): pieces of thin features assembled apart
+  from the body. D20's floater is there at d20's window 39: 38 of the 39 particles beyond a loss cell are one
+  dense set of 24 or more, 3–4 layer spacings from the body, with its members' ordinary rows wholly on
+  themselves (own weight 1.00). The own weight elsewhere: median 0.38–0.41 within the berth with 28–37 % of the
+  particles above one half; beyond a loss cell 0.43–1.00.
+  Expectations: the gap separates the floater from the near sets (confirmed) but would leave the islands at the
+  target on the wrong side; the own weight does not separate (a third of the near particles are above one
+  half): refuted as a criterion. The distance to the target is the only one of the three that puts the
+  islands with the surface.
+  **The literature (agent, nine papers opened in full, 13:36 CDT).** Smoothing or projection takes whatever lies
+  inside the kernel's support: Zhu and Bridson 2005 (R twice the particle spacing; "exactly reconstruct the
+  signed distance field of an isolated particle"), Adams et al. 2007 (projection for particles nearer to the
+  surface than their support radius), Alexa et al. 2003 (a point at most h/2 from its projection; beyond a
+  neglect distance nothing contributes), Akinci et al. 2013 (cohesion to the support h), Yu and Turk 2010/2013
+  (position smoothing with a kernel of about four spacings; a particle with 25 neighbours or fewer in it only
+  gets a spherical kernel). Explicit connectivity appears once, Yu and Turk 2013 §4.3: two particles are
+  connected within the average spacing and a component is smoothed against its own members only, "the
+  relocation step pulls particles together even when they are further apart than r_a"; every component is
+  still smoothed. Covariance eigenvalues detect thin sheets (Ando et al. 2012) or bound the projection's domain
+  (Amenta and Kil 2004), never label material as detached. None of the nine withholds the smoothing from
+  near-surface material because it is not linked to the largest body: that part of D26 has no precedent; its
+  other part (what a detached set is measured against) is Yu and Turk's concern.
+- **D44, where a 300k window's time goes now (pre-registered 2026-10-03 13:19 CDT at launch; `tmp/d44.sh`, the
+  committed code with `--profile`, 14 attempts, alone on GPU 0; `output/gpu/d44`).** The user, 13:15: the long
+  run's result is the one wanted, so the run may stay long and each operation is to be made faster. By the
+  records' own clocks a 300k window is 14.3–15.1 s in every run of today: the window's start 1.6–1.8 s, eight
+  gradients 8.4–8.6 s (1.05 s each), nine line-search trials 3.8–4.3 s (0.43 s each), the commit 0.55 s. The
+  45-minute look took 120–160 windows; 160 windows in 15 minutes is 5.6 s a window, 2.6 times faster than now.
+  This run splits the gradient and the trial into their parts (rollout, tape, adjoint, transport solve, render,
+  the other terms). No expectation is set on the split; what follows is one change at a time on the largest
+  part, each checked to return the same values.
+  **Result (2026-10-03 13:29 CDT; windows 4–13, `tmp/prof_mean.py`).** A window is 14.1 s: start 1.5, gradients
+  8.3, line search 3.5, commit 0.8. By part, seconds a window (calls, milliseconds a call): the Sinkhorn solves
+  4.64 (22 evaluations, 210; 1379 blocks in 44 solves, 31 blocks a solve); the three adjoint sweeps 5.30 (8 of
+  each; the transport and stability terms 219, the cleanup 217, the render 226); the rollout 1.88 (14 without
+  the tape at 79, 8 with it at 95); the surface proximity 1.05 (22 at 48); the render 0.29 (22 at 13); the
+  cleanup's value 0.02. The parts sum to 13.2 s.
+  What each could give, in the order to be tried, each to return the same values: (1) every iteration evaluates
+  its point twice, once as the accepted line-search trial and once more with the tape for the gradient: the
+  second Sinkhorn solve is at the same point as the first and can take its duals (8 solves of 22: about 1.7 s);
+  (2) the window's start runs four evaluations (zero control, warm start, two for the replay noise), of which
+  the replay pair can reuse one (0.3 s); (3) the proximity term's neighbour search, 48 ms a call; (4) the
+  adjoint: the three sweeps are three vector-Jacobian products through one tape, needed apart because the
+  render gradient is projected against the transport gradient alone before the cleanup's is added; taking the
+  cleanup's with the transport's would save a sweep in eight (1.7 s) but changes what the render gradient is
+  projected against: not the same values, a change to be validated on the gallery if wanted. Without (4) the
+  window comes to about 11.5 s, with it under 10 s: 1.2 to 1.5 times faster, not the 2.6 that 160 windows in 15
+  minutes ask for. The rest of the factor has to come from the number of windows (the coarse stage runs to
+  window 105–125 before its event) or from the solve's ladder (31 blocks a solve).
+- **D43, which change took the solid horns of the 64-px stage: the layer as it was before D26 on the code as it
+  is (pre-registered 2026-10-03 13:19 CDT at launch; repo_r49 = repo_r47 with `layer_relax_data`'s
+  `group_query` 1, so no set is detached, and `render_res` 64; `tmp/d43.sh`; 48 attempts, alone on GPU 1;
+  `output/gpu/d43`).** Of the four cells of D40 only the old code at 64 px has solid horns at window 40, and D42
+  shows the fringe to be the sets D26 leaves unrelaxed. The old code differs from this one in the layer, the
+  solve (D29) and the zero-row fix. One run with the layer alone put back: if its horns at window 40 are solid
+  as the old run's (the same crop, drawn with both disc rules), D26's reach is what took them and the solve is
+  cleared; the far material is then expected back as before D26 (dense sets beyond a loss cell). If they are
+  feathered as D40's, the layer is not it and the solve is next. Expectation: solid, with the far sets back.
+  **Result (2026-10-03 13:37 CDT).** 810 s of simulation (884 s of process), 48 commits of 48; silhouette IoU
+  0.9822, world-thin 0.88 %, thin 21.4 %, chamfer 0.0593, holes 0.07 %, last kinetic record 4.0e-5; render: λ of
+  the first window 0.397, median g_share 0.92 (all at 64 px: the coarse stage's numbers). At window 40 the horns
+  are solid with both disc rules (`d43/q_w40_old_discs.jpg`, `q_w40_new_discs.jpg`): rounded as the old run's
+  with the old rule, and with the committed rule solid where D40's and the 96-px run's are feathered; the second
+  horn's top is a little rough. Rendered particles beyond 3, 4.4 and 6 target spacings at window 40: 253, 6, 2
+  (D40, D26 at 64 px: 338, 77, 25); at the end 236, 4, 1. Census at the end: 2328 rendered detached, 2142 within
+  the berth, 184 near band, 2 beyond a loss cell, none dense. The thin class's fill at window 40: 0.947, median
+  0.87, 14.0 % under half density: as every other run's, so D41's measure does not see what the eye sees here
+  either (the material is there in both; it is regular in one and loose in the other).
+  The layer is what took the solid horns; the solve is cleared. The second expectation is refuted: no dense set
+  beyond a loss cell came back, and the far counts are lower than with D26 on the same schedule. D20's clump
+  was measured with the zero rows still in the code and at 96 px; whether it returns there is D46's first cell.
+  The archive is deleted; four frames kept (`d43/dragon_keyframes.npz`).
 - **D42, is the feathered fringe on thin features the detached sets (display-only diagnostic on kept frames, no
   simulation; pre-registered 2026-10-03 13:11 CDT, before the probe's first run;
   `scripts/probes/settled/fringe_probe.py`; `output/gpu/d42`).** D40 left the fringe on the horns as loose
