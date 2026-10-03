@@ -93,8 +93,30 @@ def grad_mag(f):
 
 
 lum = lambda img: img @ img.new_tensor((.2126, .7152, .0722))  # noqa: E731
+mesh_mask = None
 for arg in sys.argv[3:]:
     name, rest = arg.split("=", 1)
+    if name == "mesh":
+        # the target mesh's own silhouette (render_axes.py's reference: the mesh fitted to the sample by bounding box,
+        # three million surface samples as small discs): which outline is nearer the shape
+        from physmorph.sampling.mesh import load_mesh
+        from physmorph.sampling.orientation import orient_name, rotation
+        mesh = load_mesh(rest)
+        if orient_name(rest) != "id":
+            mesh.vertices = np.asarray(mesh.vertices, np.float64) @ rotation(orient_name(rest)).T
+        t_np, vb = tgt.cpu().numpy().astype(np.float64), np.asarray(mesh.bounds, np.float64)
+        lattice = float(knn_self_torch(tgt, 7)[0][:, 6].median())
+        s_fit = float(np.mean((t_np.max(0) - t_np.min(0) + lattice) / (vb[1] - vb[0])))
+        mesh.vertices = (np.asarray(mesh.vertices, np.float64) - vb.mean(0)) * s_fit + 0.5 * (t_np.max(0) + t_np.min(0))
+        pts, face = mesh.sample(3_000_000, return_index=True)
+        rx = torch.as_tensor(np.asarray(pts, np.float32), device=dev)
+        rn = nnf.normalize(torch.as_tensor(np.asarray(mesh.face_normals[face], np.float32), device=dev), dim=1)
+        r_sp = float(knn_self_torch(rx[::10], 2)[0][:, 1].median()) / 10 ** .5
+        with torch.inference_mode():
+            mesh_mask = studio(rx, rn, discs(rn, torch.full((len(rx),), 2.0 * r_sp, device=dev)), torch.full((len(rx),), .92, device=dev),
+                               normal_kernel=1, return_buffers=True)[1] >= .5
+        print(f"mesh reference: {rest}, fitted by bounding box (scale {s_fit:.4f}); the last two columns are the silhouette's IoU with it and the share of the lost pixels that lie outside it")
+        continue
     path, raw, b = rest.rsplit(":", 2)
     raw, (x0, y0, x1, y1) = int(raw), [int(v) for v in b.split(",")]
     with torch.inference_mode():
@@ -103,7 +125,8 @@ for arg in sys.argv[3:]:
         S = measures_S(x, d, nb, normals)
         ren = support > 0
         print(f"\n== {name} (raw {raw}, {int(ren.sum())} rendered particles), box {x0},{y0},{x1},{y1}")
-        print("   rule | inflated 1.1x / 1.5x or more % | covered pixels lost against R0 % (whole frame, box) | silhouette edge width px | shading detail against R0 | box: strong-gradient share %")
+        print("   rule | inflated 1.1x / 1.5x or more % | covered pixels lost against R0 % (whole frame, box) | of them holes: more than 10 px inside R0's outline, % of the covered pixels (whole frame, box) | "
+              "silhouette edge width px | shading detail against R0 | box: strong-gradient share %")
         base, tiles = None, []
         for rule in ("R0", "R1", "R2", "R2s", "none"):
             infl = torch.ones_like(d[:, 8]) if rule == "none" else (S[rule] / REF[rule]).clamp(1., 4.)
@@ -112,12 +135,17 @@ for arg in sys.argv[3:]:
             edge = (cov > .4) & (cov < .6) & (gc > 1e-4)
             det = float(grad_mag(lum(img))[cov > .99].mean())
             if base is None:
-                base = (cov >= .5, det)
+                inner = -nnf.max_pool2d(-(cov >= .5).float()[None, None], 21, 1, 10)[0, 0] > .5   # R0's mask eroded by 10 px
+                base = (cov >= .5, det, inner)
+            lost = base[0] & ~(cov >= .5)
             cb, bb = cov[y0:y1, x0:x1] >= .5, base[0][y0:y1, x0:x1]
             strong = float((grad_mag(255 * lum(img[y0:y1, x0:x1]))[cb] > 4).float().mean()) if bool(cb.any()) else 0.0
             print(f"   {rule:4s} | {100 * float((infl[ren] >= 1.1).float().mean()):5.1f} / {100 * float((infl[ren] >= 1.5).float().mean()):4.1f} | "
-                  f"{100 * float((base[0] & ~(cov >= .5)).sum() / base[0].sum()):5.2f}, {100 * float((bb & ~cb).sum() / bb.sum().clamp_min(1)):5.2f} | "
-                  f"{float((0.8 / gc[edge]).median()):.1f} | {det / base[1]:.2f} | {100 * strong:.1f}")
+                  f"{100 * float(lost.sum() / base[0].sum()):5.2f}, {100 * float((bb & ~cb).sum() / bb.sum().clamp_min(1)):5.2f} | "
+                  f"{100 * float((lost & base[2]).sum() / base[0].sum()):5.3f}, {100 * float((lost & base[2])[y0:y1, x0:x1].sum() / bb.sum().clamp_min(1)):5.3f} | "
+                  f"{float((0.8 / gc[edge]).median()):.1f} | {det / base[1]:.2f} | {100 * strong:.1f}"
+                  + ("" if mesh_mask is None else f" | {float(((cov >= .5) & mesh_mask).sum() / ((cov >= .5) | mesh_mask).sum()):.4f} | "
+                                                  f"{100 * float((lost & ~mesh_mask).sum() / lost.sum().clamp_min(1)):3.0f} %"))
             t = Image.fromarray((img[y0:y1, x0:x1].clamp(0, 1) * 255).byte().cpu().numpy())
             ImageDraw.Draw(t).text((8, 6), f"{name}: {rule}", fill=(255, 255, 0))
             tiles.append(t)

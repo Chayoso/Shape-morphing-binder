@@ -84,9 +84,11 @@ run. `scripts/probes/settled/gradcheck.py` repeats the check per channel (physic
 (`dFc`, `u`); the `u` channel is strongly nonlinear, so its check needs steps that change the loss by 1e-5 of itself.
 
 **Rendering.** `scripts/render_splat_photoreal.py` renders the 4K deliverable: each particle is a disc-shaped
-Gaussian whose normal comes from the smoothed density gradient and whose radius is the target spacing scaled by the
-local 8th-neighbour distance (1–4×), shaded per pixel as a uniform ceramic material. `scripts/render_splat_gpu.py`
-renders a quick two-view video with the same splats.
+Gaussian whose normal comes from the smoothed density gradient and whose radius is the target spacing scaled (1–4×)
+by the particle's spacing on the surface, the 8th-neighbour distance measured in its tangent plane, against the same
+on the target's own surface (D35: measured in space against all particles, the surface of a perfect sample read as
+sparse and was drawn 9.5 px wide at the outline instead of 8.0), shaded per pixel as a uniform ceramic material.
+`scripts/render_splat_gpu.py` renders a quick two-view video with its own, earlier splat rule.
 
 ## Run (on the GPU server)
 

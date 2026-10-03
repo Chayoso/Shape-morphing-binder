@@ -92,6 +92,25 @@ def live_support(distances, radius, spacing, *, k=8, smooth=False):
     return (contribution.sum(1) / (0.5*k)).clamp(0, 1)
 
 
+def surface_spacing(x, neighbors, normals, k=8):
+    """The particle spacing on the surface at each particle: the k-th smallest distance, among its listed
+    neighbours (self first), measured in its tangent plane, |(I - n n^T)(x_j - x_i)|.
+
+    What the display's disc has to cover is the surface. A surface particle's neighbourhood in space is half
+    empty, so its k-th neighbour in space is farther than an interior particle's at the same sampling: read
+    against the median over all particles, 12 % of a perfect sample's particles looked sparse (D34). In the
+    tangent plane the surface of a perfect sample has one spacing; only a surface that is really sparser has
+    more. A same-sheet filter on the neighbours changes nothing that was measured (D35)."""
+    offsets = x[neighbors[:, 1:]] - x[:, None, :]
+    planar = (offsets - (offsets * normals[:, None, :]).sum(-1, keepdim=True) * normals[:, None, :]).norm(dim=-1)
+    return planar.kthvalue(k, dim=1).values
+
+
+def surface_particles(x, neighbors, radius):
+    """Particles on the surface: the offset from the centroid of the listed neighbours is half `radius` or more."""
+    return (x - x[neighbors[:, 1:]].mean(1)).norm(dim=1) >= .5 * radius
+
+
 def normal_filter_size(height, scaled=False):
     """Old 3px footprint, or nearest odd radius scaled from radius1 at height1080."""
     if height < 1:

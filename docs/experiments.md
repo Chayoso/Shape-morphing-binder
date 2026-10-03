@@ -481,6 +481,36 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   features (R2 may read the opposite face as a neighbour: R2s is there to measure whether that matters; if R2
   and R2s agree the filter is not needed). If no candidate holds the coverage, the measure is recorded as it is
   and the rule stays.
+  **Result (2026-10-03 10:57 CDT; `output/gpu/d35/disc_rule_probe*.txt`, sheets per object): R2 adopted in the
+  display renderer; my coverage criterion was the wrong measure and is missed by the letter.** The target: 8.3 %
+  of its particles are on the surface; references in target spacings R0 1.97, R1 2.33, R2 1.57.
+  Inflated by 1.1 times or more (R0 / R1 / R2 / none): target 12.4 / 1.4 / 2.7 / 0 %; the end 20.5 / 5.1 / 7.2 /
+  0; raw 480 21.0 / 6.8 / 7.2 / 0; raw 192 53.7 / 18.3 / 20.0 / 0. Silhouette edge width (px): target 9.5 / 8.7 /
+  8.0 / 7.8; the end 9.3 / 8.1 / 7.5 / 6.7; raw 480 12.0 / 11.1 / 10.1 / 9.1; raw 192 24.7 / 25.3 / 25.2 / 16.4.
+  Covered pixels lost against R0, whole frame (R1 / R2 / none): target 0.88 / 1.10 / 1.31 %; the end 0.77 / 0.80 /
+  1.43; raw 480 0.94 / 1.07 / 2.08; raw 192 2.09 / 2.30 / 7.70. The criterion (at most 0.3 % on the target and
+  at the end, 2 % at raw 192) is missed by every candidate. What those pixels are, measured afterwards: of the
+  lost pixels, those more than 10 px inside R0's outline (holes) are 0.010 / 0.011 / 0.024 % of the covered
+  pixels on the target, 0.014 / 0.025 / 0.108 at the end (head 0.05 / 0.10 / 0.37; horns 0.06 / 0.06 / 1.04), 0.033
+  / 0.033 / 0.30 at raw 480 and 0.25 / 0.29 / 3.46 at raw 192 (the bead box 1.1 / 1.8 / 12.9); the rest is the
+  outline moving in. Against the mesh's own silhouette (three million surface samples of the fitted mesh, as in
+  D12): 71–74 % of the lost pixels lie outside it, and the silhouette's IoU with it rises, target 0.9509 →
+  0.9547 (R1), 0.9553 (R2), 0.9560 (none); the end 0.9459 → 0.9493, 0.9490, 0.9508. R0's "coverage" on those
+  pixels was the inflated surface discs drawn beyond the shape. The criterion counted that as coverage; the
+  user's criteria (the target's inflation almost gone, the holes kept closed, the end's edge narrower) hold.
+  R2s equals R2 to the last digit on every object: the same-sheet filter is not needed. R2 against R1: the
+  narrower edge everywhere (8.0 / 7.5 / 10.1 against 8.7 / 8.1 / 11.1 px) for 0.01 point more holes at the end.
+  Expectations: the end's edge 7.5 px (7–8 expected); R1 and R2 apart on the sheets of raw 192 as expected, by
+  little (18.3 and 20.0 % inflated).
+  In the code: `render/support.py` `surface_spacing` and `surface_particles`; `scripts/render_splat_photoreal.py`
+  takes sigma = spacing × clamp(surface spacing / its median on the target's surface, 1, 4); suite 269 passed,
+  exit 0. d32 drawn again (`output/gpu/d35/frames_dragon`, 51 s): share of head pixels with a strong gradient
+  3.9 → 4.8 % at the end, 4.0 → 4.9 at raw 960, 1.5 → 2.1 at raw 192 (d20 before the layer change, old rule:
+  4.6–4.7); the mid-morph beads are smaller and still there (they are particles, D33). Video:
+  `output/video_2026-10-03/dragon300k_11min_surface_spacing_discs_4k.mp4` (local). The probes that print a "disc
+  inflation" (frame_forensics, box_probe, inflation_probe) still compute the rule before D35.
+  Not touched: the opacity's live support (the same 8th-neighbour test against the all-particle median), the
+  two-view `render_splat_gpu.py`, the `--surface-common` path.
 - **D34, what the display's disc inflation costs and what it closes (read-only on d32's archive, 2026-10-03 10:15
   CDT, written after the reading, no prediction; `scripts/probes/settled/inflation_probe.py`;
   `output/gpu/d32/inflation_probe.txt`, `inflation/`).** The user's question: a disc grown where the particles are
