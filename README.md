@@ -27,7 +27,10 @@ is evaluated on the released end state, so a control is scored by where the body
   remaining transport is within one cell.
 
 The outer layer is also relaxed toward the plane of its neighbours every step, and bonds keep detached fragments
-moving with their source neighbours.
+moving with their source neighbours. The layer is the body's: a set of particles that is not connected to the body
+within one layer spacing is not relaxed (it has no surface of its own), and `u` moves its members along the
+direction away from the material around them. Relaxed against itself such a set contracted into a floating clump
+(`docs/experiments.md`, D20–D27).
 
 **Objective.** Eight terms, all evaluated on the released end state. Which terms are needed was measured by
 switching terms off on the 19-mesh gallery (`docs/experiments.md`, R9–R14b and FV). The geometry and settling terms
@@ -36,7 +39,9 @@ render term its calibration and internal constants.
 - Geometry, on one scale measured once at the source:
   - Transport: a debiased Sinkhorn divergence between the body's mass on the loss grid and the fixed target's, blur
     one loss cell. The loss grid follows the particle count above 40k (`--loss_follows_n`). The Sinkhorn cost is
-    separable by axis, so each sweep is three one-dimensional log-sum-exp passes on the GPU.
+    separable by axis, so each sweep is three one-dimensional log-sum-exp passes on the GPU. The cross problem
+    (body against target) is solved with alternating sweeps down an ε ladder, the self problem with the symmetric
+    averaged sweep at the blur itself; every solve starts from zero duals (D29).
   - Surface proximity (`--support_form proximity`): at every outer target point, the kernel of the body's nearest
     particle against half the kernel at one sampling pitch. It charges a target point that has no particle within
     1.53 spacings; no weight, no bound.
@@ -95,7 +100,12 @@ ssh hyde06j
 source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, CuPy
 
 # sphere -> bunny, 300k particles (the validated recipe; the two flags are not yet the defaults)
-$PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --support_form proximity --loss_follows_n \n    --out $OUT/bunny
+$PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --support_form proximity --loss_follows_n \
+    --out $OUT/bunny
+
+# sphere -> dragon, 300k particles, 40 window attempts: about 11 minutes on one GPU (docs/experiments.md, D30)
+$PY scripts/pipeline_run.py --tgt assets/dragon.obj --n 300000 --seed 97 --support_form proximity --loss_follows_n \
+    --animations 40 --out $OUT/dragon
 
 # the 4K video
 PYTHONPATH=$REPO $PY scripts/render_splat_photoreal.py $OUT/bunny_render_full_dt_iso_nn.npz $OUT/bunny_4k.mp4 \

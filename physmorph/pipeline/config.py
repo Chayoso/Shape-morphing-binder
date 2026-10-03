@@ -82,8 +82,10 @@ class PipelineConfig:
     render_weight_scale: float = 1.0  # x lambda wherever it is set; 0 = the render-off twin
     render_views: int = 6           # azimuths per elevation ring
     render_elevs: tuple = (0.0, 0.5, -0.5)
-    render_res: int = 64
-    render_res_hi: int = 96         # coarse-to-fine: targets rebuilt at this resolution ...
+    render_res: int = 96            # the fine resolution from the start (D18, D19: at 300k world-thin 0.5 % by
+                                    #   window 30-40 against 1.5-2 %; the 40k gallery the same or better in a
+                                    #   third fewer windows). Equal to render_res_hi: no coarse stage, no event
+    render_res_hi: int = 96         # coarse-to-fine (a lower render_res): targets rebuilt at this resolution ...
     c2f_event: bool = True          # ... when the run at the coarse resolution would stop (the plateau, the
                                     #   patience or the rejection streak); it then goes on at the fine resolution
                                     #   to its own stop (before 2026-09-30: at half the window budget, a schedule
