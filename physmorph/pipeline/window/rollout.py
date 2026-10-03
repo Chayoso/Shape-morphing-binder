@@ -81,10 +81,16 @@ def _trajectory_min_det(win: Window, dc: torch.Tensor) -> float:
     """min over the window of det F after each step and det(F + dFc) before it: the stored F
     is smoothed, so an inversion of the EFFECTIVE deformation could hide in it."""
     tr, T, N = win.tr, win.T, win.N
-    F_post = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(1, T + 1)])
-    F_pre = torch.stack([wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T)])
-    j_eff = torch.linalg.det(F_pre + dc.view(T, N, 3, 3)).min()
-    return float(torch.minimum(torch.linalg.det(F_post).min(), j_eff))
+    F = [wp.to_torch(tr.F[t]).reshape(N, 3, 3) for t in range(T + 1)]
+    dc = dc.view(T, N, 3, 3)
+    # step by step on the trajectory's own buffers; the control is zero in the released half, where
+    # det(F + dFc) before a step is det F after the step before it
+    low = torch.linalg.det(F[0] + dc[0]).min()
+    for t in range(1, T + 1):
+        low = torch.minimum(low, torch.linalg.det(F[t]).min())
+        if t < win.Tc:
+            low = torch.minimum(low, torch.linalg.det(F[t] + dc[t]).min())
+    return float(low)
 
 
 def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor) -> Eval:

@@ -164,12 +164,12 @@ class SurfaceProximity:
         self.weight = None                                                       # no weight, no bound
 
     def nearest_kernel(self, x):
-        """K(d_min(y)) at every outer target point, over its k nearest body particles (indices detached, the
-        distance differentiable in x)."""
-        k = min(self.k, len(x))
-        idx = gpu.KNN(x.detach()).query(self.y, k)[1].to(x.device)
+        """K(d_min(y)) at every outer target point: its nearest body particle (the index detached, the distance
+        differentiable in x). One neighbour is asked for: the minimum over 32 was the same particle on every
+        point (D49) at ten times the query."""
+        idx = gpu.KNN(x.detach()).query(self.y, 1)[1][:, 0].to(x.device)
         y = self.y.to(device=x.device, dtype=x.dtype)
-        d2 = (x[idx] - y[:, None]).square().sum(2).min(1).values
+        d2 = (x[idx] - y).square().sum(1)
         return torch.exp(-d2 / (2 * self.h * self.h))
 
     def penalty_per_point(self, x):

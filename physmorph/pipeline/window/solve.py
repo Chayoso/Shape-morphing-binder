@@ -136,9 +136,10 @@ class WindowOptimizer:
         return eval_terms(self.win, self.obj, self.dFc, self.u)
 
     # ---- window start ----
-    def warm_start(self, dfc_init):
+    def warm_start(self, dfc_init) -> Eval:
         """Decayed previous controls, kept only if they give a valid state that beats the
-        zero start (dFc is an absolute control: verbatim reuse double-applies it)."""
+        zero start (dFc is an absolute control: verbatim reuse double-applies it). Returns the
+        evaluation of the control that is kept."""
         e0 = self.eval()
         r0 = state_reason(e0)
         self.tele.update(zero_ok=int(r0 is None), zero_reason=r0)
@@ -155,11 +156,15 @@ class WindowOptimizer:
             for b in self.mom + self.vel:
                 b.zero_()
             self.adam_t = 0
+            return e0
+        return ew
 
-    def replay_noise(self) -> float:
+    def replay_noise(self, ea: Eval | None = None) -> float:
         """CUDA atomics make two rollouts of one control differ: the relative difference at
-        the start control (10x it floors the commit-rollout tolerance)."""
-        ea, eb = self.eval(), self.eval()
+        the start control (10x it floors the commit-rollout tolerance). ea: an evaluation of the
+        start control already taken (the warm start's); one more is rolled out against it."""
+        ea = self.eval() if ea is None else ea
+        eb = self.eval()
         ra = state_reason(ea)                               # the control the search starts from
         self.tele.update(start_ok=int(ra is None), start_reason=ra)
         with torch.no_grad():                               # where the two replays differ (measurement)
@@ -377,17 +382,23 @@ class WindowOptimizer:
     def run(self, dfc_init=None) -> WindowResult:
         cfg, log = self.cfg, self.log
         clock = _Clock(self.tele)                            # where a window's time goes (measurement)
+        start = None
         if dfc_init is not None and cfg.warm_decay > 0:
-            self.warm_start(dfc_init)
-        replay_rel = self.replay_noise() if cfg.replay_calibrate else 0.0
+            start = self.warm_start(dfc_init)
+        replay_rel = self.replay_noise(start) if cfg.replay_calibrate else 0.0
         clock.lap("t_start")
         leaf0 = self.dFc.detach().clone() if cfg.grad_dump else None
         hist, grad_converged, ls_exhausted = [], False, False
         g0_norm = L_start = None
         self.tele["null_reason"] = None
+        # the point of every gradient has just been evaluated without the tape (the replay pair at the start,
+        # then the accepted candidate): its transport potentials are taken, not solved a second time
+        same_point = bool(cfg.replay_calibrate)
         for it in range(cfg.iters):
             self._it = it
+            self.tgt.grid_ot.repeat = same_point
             e = graph_terms(self.win, self.obj, self.dFc, self.u)
+            same_point = True
             g, diag = self.gradient(e, it)
             cur = self.scalar(e)
             clock.lap("t_grad")
@@ -496,5 +507,12 @@ class WindowOptimizer:
 def optimize_window(start: StartState, prm, cfg: PipelineConfig, tgt: TargetPack,
                     balancer: LambdaBalancer, vol0, bonds, dfc_init=None, alpha_scale=1.0,
                     on_iter=None, log=print) -> WindowResult:
+    import time
+    torch.cuda.synchronize()
+    t0 = time.perf_counter()
     opt = WindowOptimizer(start, prm, cfg, tgt, balancer, vol0, bonds, alpha_scale, on_iter, log)
-    return opt.run(dfc_init)
+    torch.cuda.synchronize()
+    t_setup = time.perf_counter() - t0               # the window's construction: layer data, trajectories, the objective
+    result = opt.run(dfc_init)
+    result.stats["t_setup"] = t_setup
+    return result

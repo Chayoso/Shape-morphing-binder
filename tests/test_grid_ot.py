@@ -155,6 +155,49 @@ def test_released_motion_is_the_stability_term_and_the_end_drift_sees_only_the_e
 
 
 @pytest.mark.parametrize('device', ['cpu', 'cuda'])
+def test_grid_sinkhorn_repeated_point_takes_the_potentials_just_solved(device, monkeypatch):
+    """A caller that evaluates the point of the latest solved call once more (the optimiser's gradient at an
+    accepted candidate) sets `repeat`: that one call solves nothing and returns the value and the gradient of
+    the solved call, also when the measure differs by a rollout's replay noise. The flag lasts one call, a call
+    without it solves as ever, and a call that solved nothing leaves no potentials to repeat."""
+    from physmorph.losses.grid_ot import GridSinkhornLoss
+    if device == 'cuda' and not torch.cuda.is_available():
+        pytest.skip('CUDA graph execution')
+    gen = torch.Generator().manual_seed(19)
+    target = (torch.rand(120, generator=gen) + .1).to(device)
+    target /= target.sum()
+    loss = GridSinkhornLoss(target, torch.zeros(3, device=device), .25, (6, 5, 4), eps=.15, iters=1600, tol=1e-3,
+                            cuda_blocks=device == 'cuda', mass_total=1.)
+    solves = []
+    solve = loss.solve
+    monkeypatch.setattr(loss, 'solve', lambda a, b: (solves.append(1), solve(a, b))[1])
+
+    def evaluate(current, repeat=False):
+        leaf = current.detach().clone().requires_grad_(True)
+        loss.repeat = repeat
+        value = loss(leaf)
+        return value.detach(), torch.autograd.grad(value, leaf)[0]
+    shifted = target.roll(13)
+    first = evaluate(shifted)
+    assert len(solves) == 2                                              # the cross and the self problem
+    again = evaluate(shifted, repeat=True)
+    assert len(solves) == 2 and loss.repeat is False
+    for a, b in zip(first, again):
+        torch.testing.assert_close(a, b, atol=0., rtol=0.)
+    noise = 1e-6 * target.roll(5)
+    noise -= noise.mean()                                                # the same total mass
+    near = evaluate(shifted + noise, repeat=True)
+    assert len(solves) == 2
+    torch.testing.assert_close(near[0], first[0], atol=1e-7, rtol=1e-3)
+    torch.testing.assert_close(near[1], first[1], atol=1e-7, rtol=1e-3)
+    evaluate(target.flip(0))                                             # no flag: solved
+    assert len(solves) == 4
+    assert bool(torch.isinf(loss(.5 * shifted)))                         # missing mass: nothing solved
+    evaluate(shifted, repeat=True)                                       # nothing to repeat: solved
+    assert len(solves) == 6
+
+
+@pytest.mark.parametrize('device', ['cpu', 'cuda'])
 @pytest.mark.parametrize('iters', [1600, 1601])
 def test_grid_sinkhorn_cuda_blocks_preserve_values_gradients_and_history_independence(iters, device):
     from physmorph.losses.grid_ot import GridSinkhornLoss

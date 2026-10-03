@@ -47,8 +47,10 @@ class Window:
         # the outer layer: relaxed toward its neighbours' plane over one window (fraction
         # 1/T per driven step) and carrying the u control
         self.sp0 = layer_spacing(start.x)
+        # arrived: within the objective's berth of the target (the near band's inner edge)
+        arrived = tgt.knn.query(start.x, 1)[0][:, 0] <= cfg.nn_berth_k * tgt.nn_spacing
         self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
-                                                           h_sp=cfg.layer_h_sp)
+                                                           h_sp=cfg.layer_h_sp, arrived=arrived)
         layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T))
         nbr, rest, frag = bonds
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,

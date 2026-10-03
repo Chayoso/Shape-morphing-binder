@@ -51,6 +51,9 @@ def parse_args():
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
+    ap.add_argument("--render_res", type=int, default=None,
+                    help="render resolution of the first stage (default: the config's coarse stage; 96 = the "
+                         "fine resolution from the start, no coarse stage)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
     ap.add_argument("--support_weight", type=float, default=8.0, help="local support bound weight")
     ap.add_argument("--support_target_ref", action="store_true",
@@ -133,9 +136,10 @@ def live_hooks(args, src, tgt, prm, cfg):
 def main():
     args = parse_args()
     gpu.require_cuda()
-    material = {k: getattr(args, k) for k in ("young", "poisson", "assim") if getattr(args, k) is not None}
+    given = {k: getattr(args, k) for k in ("young", "poisson", "assim", "render_res")
+             if getattr(args, k) is not None}                # only what the command line sets; else the config's
     cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
-                          loss_follows_n=args.loss_follows_n, **material)
+                          loss_follows_n=args.loss_follows_n, **given)
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor)

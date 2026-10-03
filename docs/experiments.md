@@ -475,6 +475,48 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   gallery decides: whether the schedule of the 45-minute video goes back to being the default (`render_res` 64)
   now that the user asks for its result; expectation: silhouette as the 96-px gallery's, about twice the
   windows.
+  **Result (2026-10-03 15:37 CDT; `tmp/d52_96_eval.py`, `tmp/d52_64_eval.py`, `output/gpu/d52/eval_96.txt`,
+  `eval_64.txt`).** The gallery at 96 px against D31, D39 and D48: silhouette within 0.002 of their mean on 18 of
+  19, median −0.0004; beast frozen (`domain`); C and V at their rejection stops (15 and 14 commits, −0.0013 and
+  −0.0010); thin median +0.3 points; committed windows median 30; no dense set beyond a loss cell on a finished
+  mesh (one dense particle in beast's frozen state); λ of the first window median 0.263, g_share 0.86.
+  The gallery on 64 → 96 against D19's as-is arm and the two 96-px galleries of the new layer: within 0.002 on
+  18 of 19, median −0.0001, inside the three runs' range on all but beast (frozen again, 15 commits); no early
+  rejection stop on C, V or bob (22, 41, 40 commits); thin median +0.3 points; committed windows median 30 → 43,
+  the minutes summed 69 → 104; no dense set beyond a loss cell; λ of the first window median 0.248, g_share
+  0.88.
+  The 300k dragon, 64 → 96 to its own stop: the event at window 117, stop at 137; 1799 s of simulation (1931 s
+  of process), 127 commits of 137 attempts; silhouette IoU 0.9839, world-thin 0.83 %, thin 19.3 %, chamfer
+  0.0591, holes 0.01 %, last kinetic record 2.2e-5; at the end 113, 0, 0 rendered particles beyond 3, 4.4, 6
+  spacings; census 1713 / 110 / 0. Against `berth_full` (2003 s, 127 attempts, 0.9842): 13.1 s an attempt
+  against 15.8 (−17 %), ten attempts more by the draw of its stops; render λ 0.391, g_share 0.91.
+  The 300k bunny, the same: the event at window 62, converged at 83; 929 s (1013 s of process), 76 commits of
+  84; silhouette IoU 0.9876 (0.9868–0.9876 before), world-thin 0 %, thin 12.3 %, chamfer 0.058, no hole, last
+  kinetic record 2.1e-5; nothing beyond 4.4 spacings; census 1081 / 46 / 0; render λ 0.250, g_share 0.90.
+  All criteria met. beast froze in both galleries (four of the last five gallery runs; D39: 35–45 % of runs of
+  any code): the parked defect, now the one mesh the gallery loses in most runs.
+  **Adopted and committed:** the arrived-scope layer (`window/layer.py`, `window/setup.py`), the three runtime
+  steps and the record's reuse below (`losses/grid_ot.py`, `losses/support.py`, `window/rollout.py`,
+  `window/solve.py`, `run/runner.py`), `render_res` 64 as the default again with `--render_res 96` for the
+  short run (`pipeline/config.py`, `scripts/pipeline_run.py`; a two-window run of each on the 40k bunny reads
+  64/96 and 96/96 in its config), the README. Suite 273 passed, exit 0, on the tree as committed (repo_r62,
+  file for file).
+- **D53, the clocks outside the optimiser, and the record's transport energy taken from the commit (2026-10-03
+  15:20 and 15:25 CDT at their launches; repo_r60 = repo_r58 with `t_setup`, `t_record`, `t_total` in the
+  record; repo_r61 = repo_r60 with one line in `run/runner.py`; `tmp/d53.sh`, 14 attempts of the 300k dragon at
+  96 px, alone on GPU 2; `tmp/clock_mean.py`).** A window's turn of the loop, windows 4–13: construction 0.99 s
+  (layer data, the trajectories and their captured graphs, the objective with the gate's transport solve),
+  start 1.15, gradients 6.41, line search 3.55, commit 0.84, record 0.42 (promotion, assimilation, the frames,
+  the record), 13.49 s in all with 0.12 s unaccounted: the earlier "2.2 s outside the clocks" was the
+  construction and the record plus the slower first windows. The record evaluated the transport energy at the
+  promoted state, which is the commit rollout's own end state unless a guard repaired it: it now takes the
+  commit's potentials (`repeat`, set when nothing was clamped): the same measure, the same value; record 0.42 →
+  0.17 s. Not yet tried, from the audits: the commit's forty per-step determinants with a host read each; the
+  gate's transport solve at every construction (0.28 s); the graphs captured anew for every window.
+  Where a 300k window stands: 14.1 s before today, about 12.7 s now by these clocks (D47, D49, D50, D53), of
+  which the three adjoint sweeps are about 5.1 s and the Sinkhorn solves 3.0 s. Those two are untouched; the
+  ways into them that change the arithmetic (the cleanup's gradient taken with the transport's: one sweep in
+  three; a looser solve) are the user's to decide.
 - **D51, the notch trap: what holds a set at the notch under the dragon's tail (diagnostic, pre-registered
   2026-10-03 14:40 CDT at launch; repo_r54, 96 px, 40 attempts with the term dump, the archive kept; `tmp/d51.sh`,
   GPU 2; `output/gpu/d51`).** Six of nine 40-window runs of today end with 30–60 rendered particles 6–8 target
@@ -2545,6 +2587,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
    to `render_res_hi` (96, D19) the coarse-to-fine stage and its event are inert: remove the code and its test.
    (c) With the layer as the body's the dragon's head is softer in the 4K picture (strong-gradient share 3.7 %
    against 4.7 %): the detached sets on thin features are no longer made regular.
+   **After D42–D53 (2026-10-03 15:40).** (d) is closed: the feathering was D26's reach (D43, D46); a detached
+   set is in the air only beyond the berth (D48), and the 64 → 96 schedule is the default again (D52): the 300k
+   dragon in 30 minutes with the 45-minute video's horns and nothing beyond a loss cell, the bunny in 16. Open:
+   (h) the time. A window is 12.7 s (14.1 before), 130–140 windows: 15 minutes would need 6.5 s. What is left
+   is the three adjoint sweeps (5.1 s) and the Sinkhorn solves (3.0 s); the exact items still listed in D53 are
+   worth about 0.5 s. (i) The notch remnant (D51): material in the air has no handle but u, whose step is the
+   optimiser's common step, a tenth of its clamp; the long run walks it out, the 40-window run leaves it in two
+   runs of three. The parked u/step item. (j) beast's freeze, now in four of five gallery runs. (k) The thin
+   share and world-thin read the feathered cover as the better one (0.3 % against 0.7–0.8 % for the solid
+   horns): neither is a measure of thin features; `thin_fill_probe` does not separate them either (D43). A
+   measure of how regular the material of a thin feature is, is missing.
    **After D33–D41 (2026-10-03 13:10).** (d) The feathered thin features (the horns): the 45-minute video's solid
    horns are the old disc rule on a long run of the code before the layer change, not the 64 → 96 px schedule
    (D38, D40). The thin class (below two MPM cells) has 14–15 % of its points under half of the target's local

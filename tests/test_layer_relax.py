@@ -66,6 +66,25 @@ def test_a_layer_particle_without_neighbours_is_not_relaxed():
     assert np.linalg.norm(tr.x[T].numpy()[p] - x[p]) < 1e-6
 
 
+def test_a_detached_group_is_relaxed_only_where_it_has_arrived():
+    """A group of particles not linked to the body within a spacing. In the air it has no surface of its own:
+    its members' rows are themselves (D26). Where its particles have arrived (within the objective's berth of
+    the target) they are layer particles like any other, measured against their neighbours (D46)."""
+    x, sp = _slab()
+    rng = np.random.default_rng(1)
+    above = np.array([0.0, x[:, 1].max() + 4 * sp, 0.0], np.float32)
+    x = np.concatenate([x, above + rng.uniform(-0.2, 0.2, (6, 3)).astype(np.float32) * sp])
+    ids = np.arange(len(x) - 6, len(x))
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
+    assert np.all(mask[ids] > 0.5) and np.all(nrm[ids, 1] > 0.9)            # away from the body below
+    assert np.all(nbr[ids] == ids[:, None]) and np.all(w[ids, 0] == 1.0)   # in the air: not relaxed
+    arrived = torch.zeros(len(x), dtype=torch.bool)
+    arrived[torch.as_tensor(ids)] = True
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0, arrived=arrived)
+    assert np.all(mask[ids] > 0.5) and np.allclose(w[ids].sum(1), 1.0, atol=1e-6)
+    assert not np.any(np.all(nbr[ids] == ids[:, None], axis=1))            # arrived: its neighbours' plane
+
+
 def test_projection_relaxes_the_rough_residual_over_one_window():
     x, sp = _slab(n_side=12, layers=4)
     prm = _params()

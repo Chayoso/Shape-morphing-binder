@@ -30,8 +30,11 @@ The outer layer is also relaxed toward the plane of its neighbours every step, a
 moving with their source neighbours. The layer is the body's: a set of particles that is not connected to the body
 within one layer spacing is not relaxed (it has no surface of its own), and `u` moves its members along the
 direction away from the material around them. Relaxed against itself such a set contracted into a floating clump
-(`docs/experiments.md`, D20–D27). A layer particle with no same-side neighbour in reach is not relaxed either: it
-has no plane to be relaxed onto (D39).
+(`docs/experiments.md`, D20–D27). That holds for a set in the air. A particle within the objective's berth of the
+target (about two target spacings) has arrived at the surface it is to form and is a layer particle like any
+other: on a thin feature the material arrives sparse, as many small sets, and `u` drawing each together along its
+own normals is what makes the feature solid (D42–D48). A layer particle with no same-side neighbour in reach is
+not relaxed: it has no plane to be relaxed onto (D39).
 
 **Objective.** Eight terms, all evaluated on the released end state. Which terms are needed was measured by
 switching terms off on the 19-mesh gallery (`docs/experiments.md`, R9–R14b and FV). The geometry and settling terms
@@ -42,7 +45,8 @@ render term its calibration and internal constants.
     one loss cell. The loss grid follows the particle count above 40k (`--loss_follows_n`). The Sinkhorn cost is
     separable by axis, so each sweep is three one-dimensional log-sum-exp passes on the GPU. The cross problem
     (body against target) is solved with alternating sweeps down an ε ladder, the self problem with the symmetric
-    averaged sweep at the blur itself; every solve starts from zero duals (D29).
+    averaged sweep at the blur itself; every solve starts from zero duals (D29). A point that has just been solved
+    is not solved a second time: the gradient at an accepted candidate takes that candidate's potentials (D47).
   - Surface proximity (`--support_form proximity`): at every outer target point, the kernel of the body's nearest
     particle against half the kernel at one sampling pitch. It charges a target point that has no particle within
     1.53 spacings; no weight, no bound.
@@ -71,7 +75,9 @@ valid.
 
 **Acceptance and delivery.** Each window's result is scored by one merit, the objective read at the committed state.
 A result that raises the merit by more than 5 % is rejected and the state is kept. The run ends at the best state after 3 consecutive rejections, or when the
-merit stops improving for 5 windows.
+merit stops improving for 5 windows. The render targets are 64 px until the run would stop, then 96 px to its own
+stop: the coarse stage gathers the thin features as solid material before the fine stage sharpens them
+(`--render_res 96` skips it: a third of the windows, the thin features less finished; D19, D52).
 
 **What it conserves.** Stress cannot change total momentum: it enters the grid transfer as `G·(x_i − x_p)`, and the
 B-spline weights satisfy `Σ w_ip (x_i − x_p) = 0`. The Kirchhoff stress is symmetric, so angular momentum is kept too.
@@ -102,13 +108,19 @@ fallback. The only CPU work is the prepare stage (mesh loading and volume sampli
 ssh hyde06j
 source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, CuPy
 
-# sphere -> bunny, 300k particles (the validated recipe; the two flags are not yet the defaults)
+# sphere -> bunny, 300k particles (the validated recipe; the two flags are not yet the defaults): 84 windows,
+# about 16 minutes on one GPU (docs/experiments.md, D52)
 $PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --support_form proximity --loss_follows_n \
     --out $OUT/bunny
 
-# sphere -> dragon, 300k particles, 40 window attempts: about 11 minutes on one GPU (docs/experiments.md, D30)
+# sphere -> dragon, 300k particles, to its own stop: 130-140 windows, about 30 minutes on one GPU (D52)
 $PY scripts/pipeline_run.py --tgt assets/dragon.obj --n 300000 --seed 97 --support_form proximity --loss_follows_n \
-    --animations 40 --out $OUT/dragon
+    --out $OUT/dragon
+
+# the short run: the fine render from the start, 40 window attempts, about 9 minutes; thin features less finished
+# and, in two runs of three, 30-60 particles still on their way out of the notch under the tail (D50, D51)
+$PY scripts/pipeline_run.py --tgt assets/dragon.obj --n 300000 --seed 97 --support_form proximity --loss_follows_n \
+    --render_res 96 --animations 40 --out $OUT/dragon_short
 
 # the 4K video
 PYTHONPATH=$REPO $PY scripts/render_splat_photoreal.py $OUT/bunny_render_full_dt_iso_nn.npz $OUT/bunny_4k.mp4 \

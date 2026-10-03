@@ -59,7 +59,8 @@ def outside_neighbours(x: torch.Tensor, pool: torch.Tensor, q: torch.Tensor, gro
 
 
 def layer_relax_data(x0: torch.Tensor, spacing: float, k: int = 24, h_sp: float = 2.0,
-                     thr_sp: float = 0.5, k_asym: int = 32, group_query: int = 512):
+                     thr_sp: float = 0.5, k_asym: int = 32, group_query: int = 512,
+                     arrived: torch.Tensor | None = None):
     """(mask (N,) float, nrm (N,3), nbr (N,k) int, w (N,k)): the layer by neighbourhood
     asymmetry; each layer particle's k nearest layer particles weighted by a Gaussian of
     h_sp spacings times the normal agreement (same side only), rows normalised to 1. Rows of
@@ -73,12 +74,20 @@ def layer_relax_data(x0: torch.Tensor, spacing: float, k: int = 24, h_sp: float 
     itself a group is its own plane and its normals radiate from its own centre: the relaxation
     then holds it where it is and u contracts it into a clump (D20, D21); relaxed against the
     material around it, it is dragged whatever the objective holds it for (D24). Groups of more
-    than group_query members keep their own neighbourhoods (the neighbour query's reach)."""
+    than group_query members keep their own neighbourhoods (the neighbour query's reach).
+
+    That is a group in the air. A particle that has arrived (arrived (N,) bool: within the
+    objective's berth of the target) is at the surface it is to form, whatever it is linked to:
+    on a thin feature the material arrives sparse, as many small sets one spacing from the target,
+    and drawing each together along its own normals is what makes the feature solid (D42, D43,
+    D46). An arrived particle is a layer particle like any other."""
     N = x0.shape[0]
     d_a, nb_a = knn_self_torch(x0, k_asym + 1)
     off = x0 - x0[nb_a[:, 1:]].mean(1)
     group, size = detached_groups(d_a, nb_a, spacing)
     member = (group > 0) & (size > 1) & (size <= group_query)
+    if arrived is not None:
+        member &= ~arrived
     q = torch.nonzero(member).squeeze(1)
     if len(q):
         nb_o, _, ok = outside_neighbours(x0, torch.arange(N, device=x0.device), q, group, size, k_asym)

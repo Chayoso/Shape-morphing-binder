@@ -110,6 +110,8 @@ class GridSinkhornLoss:
         self._solve_graphs = {}
         self.target_potential, _ = self.solve(self.b, self.b)
         self.cuda_blocks = cuda_blocks
+        self._solved = None             # the potentials of the latest solved call
+        self.repeat = False             # set by the caller: the next call is at the point of the latest solved one
 
     def transform(self, dual, log_weights, temperature):
         # Squared Euclidean cost is additive by axis. Log-domain separability
@@ -244,23 +246,34 @@ class GridSinkhornLoss:
         return f.clone(), g.clone()
 
     def __call__(self, current):
+        repeat, self.repeat = self.repeat and self._solved is not None, False
         total = current.sum()
         if self.mass_total is not None and abs(float(total.detach()) - self.mass_total) > 1e-6 * self.mass_total:
             # Never reward disappearance beyond the raster boundary.
+            self._solved = None
             return total * 0. + float('inf')
         if not float(total.detach()) > 0:
             raise ValueError('grid transport requires nonempty measures')
         a = current / total
         needs_gradient = torch.is_grad_enabled() and current.requires_grad
-        try:
-            with timed("ot_solve"):
-                f, g = self.solve(a, self.b)
-                fs, gs = self.solve(a, a)
-        except _GridTransportNotConverged:
-            if needs_gradient:
-                raise
-            # An unsolved trial is inadmissible, never an approximate descent step.
-            return total * 0. + float('inf')
+        if repeat:
+            # The caller evaluates the point of the latest solved call once more (an accepted candidate, again
+            # with the tape): two rollouts of one control differ by the transfers' atomics only, so the
+            # potentials are those just solved. Not a warm start: no sweep is taken from them.
+            f, g, fs, gs = self._solved
+            count("ot_repeats")
+        else:
+            self._solved = None
+            try:
+                with timed("ot_solve"):
+                    f, g = self.solve(a, self.b)
+                    fs, gs = self.solve(a, a)
+            except _GridTransportNotConverged:
+                if needs_gradient:
+                    raise
+                # An unsolved trial is inadmissible, never an approximate descent step.
+                return total * 0. + float('inf')
+            self._solved = (f, g, fs, gs)
         # Self solves are symmetric (f == g). Subtract potentials before reducing
         # so tiny divergences do not lose precision against O(1) self-energies.
         value = ((a.double() * (f.double() - fs.double())).sum()
