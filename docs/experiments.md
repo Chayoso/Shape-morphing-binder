@@ -459,6 +459,198 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D41, how much material the thin part of the target holds (read-only on d32's archive, then on D40's;
+  pre-registered 2026-10-03 11:25 CDT, before the probe's first run; `scripts/probes/settled/thin_fill_probe.py`;
+  `output/gpu/d32/thin_fill_probe.txt`).** D38: the thin share passed runs whose horns the eye rejects. It counts
+  a thin target point as covered when one particle is within 1.5 target spacings, so a horn drawn by a few
+  beads counts as much as a solid one. The body has as many particles as the target sample has points, each the
+  same mass: a part of the target that holds M sample points is full when M particles sit in it. Per frame, by
+  the target's local feature thickness (below 2 MPM cells, 2 to 4, 4 and more): the fill (particles whose
+  nearest target point is of the class and within 2 target spacings, over the class's points), and at each of
+  the class's points the local fill (particles within 2.5 target spacings over the other target points within
+  2.5; 1 for an independent sample of the target): its median, the share of points below 0.5 and at 0.
+  Expectation, uncertain: at d32's end (96 px from the start, 40 windows) the class below 2 cells is under-filled
+  where the thick one is full (fill 0.7–0.9 against about 1.0), with 10–30 % of its points below half of the
+  target's local count, while fewer than 1 % have no particle within 1.5 spacings: the cover is there, the
+  material is not. If the thin class is as full as the thick one, the feathered look is the arrangement of
+  material that has arrived, not missing material, and this measure does not see it either. Then the same on
+  D40's archive, by window: if its horns are solid, the thin class's fill is to be higher there at the same
+  window and at the end.
+  **Result on d32 (2026-10-03 11:26 CDT).** The MPM cell is 8.8 target spacings. Target points below 2 cells:
+  34 611 (11.5 %), 2 to 4 cells: 59 746, 4 cells and more: 205 643; their other target points within 2.5
+  spacings: 14, 16, 17. Thin, middle, thick class at windows 5, 10, 20, 30 and the end (39): fill 0.60, 0.53,
+  0.72; 0.85, 0.94, 0.98; 0.92, 0.97, 1.01; 0.95, 0.98, 1.01; 0.96, 0.97, 1.01. Local fill, median: 0.33, 0.43,
+  0.75; 0.72, 0.89, 1.04; 0.82, 0.94, 1.05; 0.88, 0.94, 1.06; 0.88, 0.95, 1.06. Points with a local fill below
+  0.5: 62, 54, 20 %; 31, 16, 5.6 %; 19, 11, 4.1 %; 16, 8.9, 3.6 %; 14.0, 8.2, 3.3 %. With no particle within 2.5
+  spacings: 19, 15, 1.1 %; 2.7, 1.4, 0.08 %; 0.9, 0.16, 0.03 %; 0.5, 0.06, 0 %; 0.44, 0.05, 0 %. With none within
+  1.5 spacings at the end: 12.2, 5.9, 2.5 %.
+  Expectations: the thin class is fuller than expected by count (0.96, not 0.7–0.9: about 1400 particles short of
+  34 611), and unevenly so: one thin point in seven has less than half of the target's local count around it
+  (one in thirty in the thick class), and the class's median is 0.88 where the thick one's is 1.06. My "fewer
+  than 1 % with no particle within 1.5 spacings" was the world threshold's number (2.9 spacings at 300k), not
+  this one: wrong by my own confusion, 12 %. The thin class fills last (0.60 → 0.85 → 0.92 → 0.96) and after
+  window 20 gains about 0.01 in five windows. So the measure sees the feathered cover (14 % of thin points at
+  under half density) where world-thin read 0.3 %. Whether it separates solid horns from feathered ones is
+  D40's reading.
+  **On D39's second dragon and on D40 (12:19 CDT).** The fix's second 300k run at the end (window 40): fill
+  0.966, 0.977, 1.004; local fill median 0.89, 0.95, 1.06; under half density 14.0, 7.9, 3.6 %: as d32. D40 (64
+  px to window 125, then 96 px, 160 windows), the thin class at windows 5, 10, 20, 40, 60, 80, 100, 125, 140,
+  159: fill 0.36, 0.62, 0.92, 0.954, 0.965, 0.972, 0.971, 0.974, 0.979, 0.985; local fill median 0.00, 0.36,
+  0.80, 0.87, 0.89, 0.90, 0.91, 0.91, 0.92, 0.93; under half density 71, 59, 23.5, 14.9, 13.0, 12.4, 12.0, 11.4,
+  10.8, 10.2 %; the thick class at the end 1.002, 1.06, 2.2 %. At window 40 the two schedules are level (14.9
+  against 14.0 %; the coarse stage fills the thin class later in the first ten windows and has caught up by
+  20); the under-filled share then falls by about 0.04 points a window, with no step at the event. The measure
+  follows the picture in its order (40 windows 14–15 %, 160 windows 10 %) but slowly: it would take a run of
+  several hundred windows to bring the thin class to the thick one's 2–3 %. No archive of the old code is left
+  to read its horns with this measure.
+- **D40, the 45-minute run's schedule with the code as it is now (launched 2026-10-03 11:20 CDT; this entry
+  written at 11:23, before any result of the run; repo_r48 = repo_r47 with `render_res` 64; `tmp/d40.sh`;
+  `output/gpu/d40`).** D38 left two candidates for the old run's solid horns: its schedule (the render at 64 px
+  until the run would stop, then 96 px to its own stop) or the layer as it was. One run: the 300k dragon with
+  the code as it is now (the layer as the body's, the new solve) and `render_res` 64, so the coarse stage and
+  its event are back as in D17's run; no window budget; alone on GPU 1; then the census, the far count and the
+  4K render. One thing rides along: repo_r48 also has D39's zero-row fix (one to nine particles a window); D39's
+  own dragon run (96 px, 40 attempts) shows what the fix alone does to the horns.
+  Read at window 40 and at the end, on the same horn crop as D38. If the schedule is the cause: the horns are
+  solid blobs at window 40 and solid tubes at the end, as in the old run; world-thin stays at 1.5–2 % through
+  the coarse stage; the run takes 100 windows or more and 35–45 minutes. If the horns are feathered as in D38:
+  the layer change (or the solve) is the cause, and the old layer is then rerun on the new solve. Expectation,
+  uncertain: the schedule, because of d20 against the old run at window 40. What this decides: whether D19's
+  default (96 px from the start) buys its 11 minutes with the horns' solidity, which the thin share did not see.
+  **Result (2026-10-03 12:19 CDT).** The run: 2790 s of simulation (2942 s of process), the event at window 125
+  (the old run's at 105), stop at window 168 on three consecutive rejections, 161 commits of 169 attempts, the
+  best commit window 163; silhouette IoU 0.9846, world-thin 0.33 %, thin 18.6 %, chamfer 0.0589, holes 0.02 %,
+  last kinetic record 1.0e-3. Render: λ of the first window 0.392 (64 px; 0.277 after the event), median
+  g_share 0.92. Rendered particles farther than 3, 4.4 and 6 target spacings from the target: 338, 77, 25 at
+  window 39 and 40, 1, 0 at the end; census at the end 1866 rendered detached, 1812 within the berth, 54 in the
+  near band, none beyond a loss cell. The 23 GB archive is deleted; five frames kept
+  (`d40/dragon_keyframes.npz`: raw 0, 1600, 3200, 5000, 6360).
+  The horns (the same crop; `d40/q_horns_w40.jpg`, `q_horns_end.jpg`, `q_discs_w40.jpg`, `q_discs_end.jpg`,
+  `q_2x2_w40_old_discs.jpg`). At window 40 this run's horns are feathered, as feathered as the 96-px run's at
+  the same window: the schedule alone does not make them solid; the prediction is refuted. At its end (160
+  windows, 46 minutes) they are fuller than any shorter run's, with a wispy fringe left on the small left horn
+  and on the right horn's edge; still not the old run's rounded tubes.
+  Three things are in the old video's look, separated as far as single runs allow:
+  the display: the old video is drawn with the old disc rule. D40's own frames drawn with it (the renderer of
+  repo_r43 on the kept frames) are rounder and softer than with D35's rule, at window 40 and at the end: the
+  old rule's inflated discs fill the fringe in (and blur the rest, D34);
+  the length: from window 40 to 160 the far material goes 338 → 40 (beyond 3 spacings), the detached material
+  within the berth to 1812 (2515–3251 at 40 windows in the five 96-px runs), the thin class's under-filled
+  points 14.9 → 10.2 % (D41);
+  the code: with the same schedule and the same (old) disc rule, at window 40, the old code's horns are solid
+  and this code's are feathered; and at 96 px the old code's are feathered too (d20). All four cells of old or
+  new code by 64 or 96 px, drawn alike: only old code with 64 px is solid. One run a cell, so the cell is one
+  observation. What is counted: the detached material left within the berth at 40 windows is 2122 with the old
+  layer (d20) and 2515–3251 with the layer as the body's (five runs); a detached set is no longer made regular
+  or drawn together, which removed the far clumps (D26) and leaves more loose material at the surface (D32).
+  Reading: the 45-minute video looks best because it is the old disc rule on a long run of the code before the
+  layer change. The schedule is not what the short run lacks. What the short run lacks is in D32's parked
+  items (what moves near-surface detached material in: off-layer particles have no position channel, u is
+  bounded by the accepted step) and in the run's length.
+- **D39, a layer particle without neighbours was relaxed toward the world's origin (bug; found on the user's
+  question of 2026-10-03 "a zero-neighbour smoothing bug?"; measured 11:13 CDT on d32's term dump, fix
+  pre-registered 11:17 CDT before its runs; `scripts/probes/settled/zero_row_probe.py`; repo_r47 = repo_r44 +
+  `window/layer.py` and a test; `output/gpu/d32/zero_row_probe.txt`, `output/gpu/d39`).** `layer_relax_data`
+  weights a layer particle's 24 nearest layer particles by a Gaussian of the distance times the normal agreement
+  clamped at zero, and divides the row by its sum clamped at 1e-12. A row whose weights are all zero (every
+  neighbour on the other side, or all beyond about ten layer spacings) stays zero; `k_layer_resid` then takes
+  the row's centroid as (0, 0, 0), the residual as n · x, and `k_layer_project` moves the particle by −(1/T) of
+  it every step: 87 % of the way to the plane through the world's origin in one window. In the code since the
+  relaxation exists (2026-09-19); D24's probe had shown such rows and I had left them.
+  Measured on d32 (the committed recipe, 39 windows): 100 such rows on 98 particles, none before window 3 and
+  one to nine a window after; 97 of the 100 on particles connected to the body; their recorded relaxation
+  displacement 31 target spacings a row (median 20–30 a window, up to 97) against 0.05–0.10 for the other layer
+  particles, equal to the origin plane's prediction (cosine +1.000). At the end of the run the 98 particles are
+  0.9 spacings from the target in the median, 60 % within one, one beyond 3: they are carried inside the body
+  and back, and are not the end's far material (298 particles beyond 3 spacings).
+  The fix, in the definition: a layer particle with no same-side neighbour within the weight's reach has no
+  plane to be relaxed onto; its row is itself, as a detached group member's is (D26). Every layer row then sums
+  to one (also when there are fewer layer particles than neighbours, where every row used to be zero). A test
+  (`test_a_layer_particle_without_neighbours_is_not_relaxed`): fails on repo_r44 (exit 1), passes with the fix;
+  the suite 270 passed, exit 0; on d32's states the fixed layer data has no zero row.
+  Runs: the 300k dragon, 40 attempts, alone on GPU 0, with the term dump; the 40k gallery (19 meshes) on GPU 3,
+  against D31 (the same code without the fix) and the two older arms. Predictions: no zero row in the dragon's
+  dump; the dragon inside the three D30 runs' range (silhouette 0.9833–0.9846, world-thin 0.33–0.42 %) give or
+  take the run-to-run 0.002 and 0.2 point, 11–12 minutes; the gallery within 0.002 of the earlier arms' mean on
+  at least 15 of 19, none lower by more than 0.003 except C at its early stop. One to nine particles of 300 000
+  a window: no visible change is expected; the fix is for correctness. Fail: any quality criterion missed.
+  **Result, the 300k dragon (2026-10-03 11:31 CDT).** No zero row in any of the 40 windows (11 392 layer
+  particles in window 0). 669 s of simulation (741 s of process with the term dump), 40 commits of 40; silhouette
+  IoU 0.9844, world-thin 0.21 %, thin 16.8 %, chamfer 0.0592, holes 0.03 %, last kinetic record 9.3e-4; render: λ
+  of the first window 0.463, median g_share 0.94. The five runs without the fix: 0.9833–0.9846, 0.32–0.42 %,
+  18.4–19.2 %, 0.0593–0.0595. Rendered particles farther than 3, 4.4 and 6 target spacings from the target at
+  the end: 192, 16, 2 (without the fix at window 39: 281, 63, 35 in d38; 194, 36, 3 only at d38's own stop after
+  55 windows). Census at the end: 2667 rendered particles in detached sets, 2515 within the berth, 146 in the
+  near band, 6 beyond a loss cell, none dense. Silhouette and time inside the predicted range; world-thin, thin
+  and the far counts below every earlier run's, which the prediction "no visible change" did not expect: one
+  run, so a second one (`tmp/d39d.sh`, no term dump, with the 4K frames) is running on GPU 0 since 11:32.
+  **The gallery so far (11:33 CDT, 9 of 19): beast fails.** Eight of the nine are within 0.002 of the three
+  earlier runs' mean (C at −0.0020, the same early stop as in two of them). beast: silhouette 0.8354 against
+  0.9706, 0.9695, 0.9716; 10 commits, then five windows without a commit, every candidate (the zero control
+  included) refused as `domain`: a particle inside the two-cell margin of the MPM domain. Its record equals
+  d31's to five digits through window 2, the first difference is in window 3 (where the zero rows begin), |v|
+  max 3.4 and 3.0 in windows 8 and 9. This is the parked beast freeze (2026-09-30: the head of a flung filament
+  coasts into the domain margin at window 10–12; 6 of 12 runs of the codes carrying the end drift, 0 of 6
+  without), which the three earlier arms of this recipe happened not to show. By the letter D39's gallery
+  criterion is missed. Open: whether the fix raises the freeze's rate (the bug carried a layer particle with no
+  neighbour in reach back toward the origin's plane, which is what the head of a flung filament is), or the run
+  met the known rate.
+  **Pre-registered 11:34 CDT, at launch: beast's freeze rate with and without the fix.** beast, 40k, seed 97,
+  six runs of repo_r47 (the fix) and six of repo_r44 (without), three workers on GPU 2 (`tmp/d39beast.queue`);
+  and one run of repo_r44 with the term dump for 16 windows (`tmp/d39e.sh`, launched 11:35): which particles
+  have zero rows in windows 3–12, how far they are from the body, and where the bug carries them. Readings: the
+  same rate in both arms (a difference of two runs or fewer of six): the fix is neutral and beast's freeze is
+  the parked defect at its rate. Four or more freezes with the fix against one or none without: the bug was
+  hiding the flung filament by carrying its head back, the fix is still the correct definition (a particle is
+  not to be relaxed toward the world's origin), and what it uncovers is the parked ejection, not a new defect;
+  adoption is then the user's decision, with the rate stated. Expectation, uncertain: the second, because the
+  three earlier arms of this recipe did not freeze; against it, the bug was already in the code on 2026-09-30,
+  when 6 of 12 froze.
+  **Result, the second dragon and the whole gallery (2026-10-03 11:56 CDT).** The second 300k dragon with the fix
+  (no term dump): 11.1 minutes of simulation, 11.9 of process, 40 commits of 40, silhouette IoU 0.9846,
+  world-thin 0.16 %, thin 17.5 %, chamfer 0.0593, holes 0.01 %; far counts at the end 156, 7, 0 (beyond 3, 4.4, 6
+  spacings); census 2956 rendered detached, 2836 within the berth, 116 near band, 4 beyond a loss cell, none
+  dense. Both runs with the fix are below all five without it on world-thin (0.21, 0.16 against 0.32–0.42 %),
+  on thin (16.8, 17.5 against 18.4–19.2 %) and on the far counts (beyond 4.4 spacings 16, 7 against 63; beyond
+  6: 2, 0 against 35): the carried particles were not themselves the end's far material (measured above), but
+  a particle put 31 spacings inside the body in one window displaces what is there, and the far material falls
+  when that stops. The prediction "no visible change" was too modest. In the horn crop of the 4K frames the fix
+  changes nothing (`output/gpu/d39/q_horns_fix.jpg`: feathered as without it at 40 windows), and the thin class's
+  fill is the same (D41's measure: 0.966, median 0.89, 14.0 % of thin points under half density; d32: 0.960,
+  0.88, 14.0 %).
+  The 40k gallery, 19 meshes, against the three earlier runs (D19's arm, D27's old arm, D31): silhouette within
+  0.002 of their mean on 16 (criterion: 15), median +0.0001; teapot +0.0025 (25 windows against 13–17); C −0.0020
+  at its 16-window stop as in two of the three; V stops after 13 windows (31–37 before) at 0.9765, inside its
+  range, with 25 rendered particles beyond the berth (2 before); beast −0.135 (the freeze above). Thin: median
+  −0.4 points. Committed windows, median: 32 → 25. Render: λ of the first window median 0.263, g_share median
+  0.85. Census without beast: beyond the berth 78 → 81, beyond a loss cell 0 → 3 (C), none dense. The criterion
+  "none lower by more than 0.003 except C" is missed on beast.
+  beast's zero rows (repo_r44 with the term dump, 16 windows, `beast_base_dump.zero_row.txt`, `.where.txt`):
+  none before window 9, then 2, 2, 5, 0, 1, 1, 2 a window; all 13 are within 1.3 target spacings of the target
+  and 20 MPM cells or more inside the domain, each carried 2–26 spacings toward the origin's plane. The
+  filament's head is ten other particles (25211, 38521, …), 11–16 spacings from the target, layer particles
+  with a row of their own (relaxation 0.0): at the starts of windows 9, 10, 11, 12 they are 2.7, 1.9, 1.6, 1.7
+  cells inside the two-cell margin box, then they turn back (4.7 cells at window 15). So the reading "the bug
+  carried the head back" is refuted: the zero rows are not the head, and nothing differs between the two codes
+  before window 9. In this run the head misses the margin by 1.6 cells (7 target spacings); whether it crosses
+  is decided in windows 9–11, which is where the two codes begin to differ. Also corrected: beast's record
+  differs from d31's from window 3 in the fifth digit by the evaluation's own noise (the atomics), not by the
+  fix.
+  **beast's freeze rate so far, and twelve more runs an arm (2026-10-03 12:10 CDT, at their launch).** Finished:
+  with the fix 5 frozen of 6 (the gallery's run, fix_1, 2, 4, 5; fix_3 runs 115 windows to 0.9698); without it 1
+  frozen of 5 (base_5; base_1, 2, 3 and the dump run are sound) and none in the three earlier arms. Every freeze
+  is `domain` with the first refused window 10 or 11. The two codes give the same layer data, row for row, on
+  the dump run's states of windows 0–8 (`tmp/layer_out.py`, `tmp/layer_cmp.py`: no row with other neighbours
+  or weights; 2, 2, 5 rows from window 9), and the runs of both arms branch alike on the line search's halvings
+  from window 3 (base_5, the gallery's run and fix_5 share the branch "five accepted iterations, then the
+  search exhausted" in window 5, and all three freeze). So the fix cannot act before the first zero row, and
+  the freeze is decided by the end of window 9: the only difference the fix makes there is two particles on
+  the body's surface that are not carried inside. No path from that to the head, 100 spacings away, has been
+  measured; 5 of 6 against 1 of 5 is one-sided p = 0.04 and may be the draw. Twelve more runs an arm
+  (`tmp/d39beast2.queue`, six workers on GPUs 0 and 3): if the rates stay apart (with the fix above 60 %,
+  without it under 30 %), the fix changes beast's freeze rate through the optimiser's coupling (one step
+  length for all particles) and that is reported as such; if they meet, the gallery's beast was the parked
+  defect at its own rate.
 - **D38, why the 45-minute video looks best: the same code run to its own stop (pre-registered 2026-10-03 11:00
   CDT at launch; this entry written 11:02, before any result of the run; repo_r44 = the committed tree;
   `tmp/d38.sh`; `output/gpu/d38`).** The user, comparing the videos: the 45-minute one (D17's run of the code
@@ -478,6 +670,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   end as in the old run's, the 40-window budget is the cause and the 15-minute run trades that for time; if
   they stay feathered, the cause is in 96 px from the start or the layer change, and those two are then
   separated at 40 windows (64 → 96 px with the new layer; 96 px with the old layer is d20).
+  **Result (2026-10-03 11:23 CDT).** The run stopped by itself at window 60 on three consecutive rejections (the
+  best commit is window 55; 2081 frames delivered): 958 s of simulation (1037 s of process), 54 commits of 60
+  attempts; silhouette IoU 0.9839, world-thin 0.32 %, thin 18.4 %, chamfer 0.0593, holes 0.03 %, last kinetic
+  record 7.3e-4. Render: λ of the first window 0.463, median g_share 0.94. Rendered particles farther than 3
+  target spacings from the target: 281 at window 39, 194 at the end; farther than 4.4: 63, 36; farther than 6:
+  35, 3. Census at the end: 2666 rendered particles in detached sets, 2546 within the berth, 115 in the near
+  band, 5 beyond a loss cell, no dense far set.
+  The horns in the 4K frames (the same crop; `q45/q_horns.jpg`): the old run's end, solid rounded tubes; this
+  run's end, more consolidated than at window 40 but the right horn still feathered; the share of strong-gradient
+  pixels in the crop 6.1 % (old end), 6.6 % (this end), 6.4 % (the committed code at 40 windows). The whole body
+  is comparable, with a slightly rougher tail fin.
+  Expectation: the stop at the low edge of the expected range (60 windows, 16 minutes; the old code ran 129).
+  The horns stay partly feathered at the run's own end, so the 40-window budget alone is not the cause: the
+  committed code does not go on to 122 windows when it is allowed to, and the 15 further windows it takes remove
+  far material (35 → 3 beyond 6 spacings) more than they consolidate the horns. What remains is 96 px from the
+  start or the layer change; with the old layer, 96 px from the start (d20) is already feathered at window 40
+  where 64 px (the old run) is solid, which points at the schedule. D40 separates it with the code as it is now.
 - **D36 and D37, the bulk morph's sparse surface and where its beads come from (B1 and B2 of the plan; read-only
   on d32's archive, its archived F and its term dump; pre-registered 2026-10-03 10:58 CDT, before the run;
   `scripts/probes/settled/midmorph_probe.py`; `output/gpu/d32/midmorph_probe.txt`).** d32 is the committed recipe:
