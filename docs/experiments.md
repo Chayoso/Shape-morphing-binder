@@ -459,6 +459,45 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D42, is the feathered fringe on thin features the detached sets (display-only diagnostic on kept frames, no
+  simulation; pre-registered 2026-10-03 13:11 CDT, before the probe's first run;
+  `scripts/probes/settled/fringe_probe.py`; `output/gpu/d42`).** D40 left the fringe on the horns as loose
+  material within the berth, by a count (2515–3251 rendered detached particles at 40 windows, 1812 at 160) and
+  not by which particles draw it. Three frames: d32's end (96 px, 39 windows), D40 at window 40 and at its end
+  (64 → 96 px, 160 windows). For each: the particles not connected to the body within one layer spacing, by
+  distance to the target and by the thickness of the nearest target point; and the frame drawn twice with the
+  committed renderer, as it is and with every detached particle put deep inside the body, on the horn crop and
+  the whole body. Expectation: the detached sets sit at the thin class far above its share (more than half of
+  them on the class below 2 cells, which holds about a fifth of the surface), and without them the horns' wisps
+  are gone while the outline stays where it is: then the fringe is these 2–3 thousand particles and the open
+  question is what brings a set within the berth onto the surface. If the horns are as feathered without them,
+  the fringe is the body's own outer layer and the detached count was the wrong reading.
+  **Result (2026-10-03 13:14 CDT; `output/gpu/d42/fringe_probe.txt`, `q_fringe_horns_40.jpg`,
+  `q_fringe_horns_end.jpg`, `q_fringe_whole.jpg`).** Particles not connected to the body within one layer
+  spacing (singles included, which the census of D20–D40 leaves out): d32 at window 39, 5573 in 1891 sets, 5017
+  rendered, of them 4785 within the berth, 222 to one loss cell, 10 beyond; D40 at window 40, 7042 in 2183 sets,
+  6400 rendered, 6087, 266, 47; D40 at window 159, 3527 in 1352 sets, 3036 rendered, 2951, 85, 0. Their distance
+  to the target: median 1.0 spacing, 90 % within 1.7–1.8, in all three frames. By the thickness of the nearest
+  target point (below 2 cells, 2 to 4, 4 and more): 44, 28, 27 % (d32), 42, 31, 26 %, 47, 32, 21 %, where the
+  classes hold 48, 30, 22 % of the target's surface points: they are spread as the surface is, not gathered on
+  the thin class (my "a fifth of the surface" was wrong: the thin class is half of the surface); per 1000
+  particles of the class 65, 24, 7 (d32).
+  Drawn without them: at 40 windows the wisps around the head, the whiskers and the foot are gone and the
+  outline is clean; and the tips of the small horns are gone with them, in D40's frame most of one large horn:
+  those parts of the thin features are themselves detached sets. At 160 windows the horns stay (they are
+  connected by then) and only the wisps go.
+  Expectation: the wisps are the detached sets (confirmed); "the outline stays where it is" is refuted on the
+  thin features at 40 windows: material that has reached a thin feature sits there as many small sets, one
+  spacing from the target, not linked to the body or to each other within a layer spacing, because the thin
+  class is under-filled (D41). Since D26 a set of 2–512 is not relaxed, so these stay as they arrived; the
+  code before D26 relaxed them as a surface of their own, which is what clumped the far sets (D20) and
+  smoothed the near ones.
+  Reading: one definition serves two kinds of set. A set in the air has no surface of its own (D26 holds for
+  it). A set within the berth of the target is at its place on the surface and is counted as detached only
+  because the material around it is sparse. Which criterion tells the two apart (the distance to the target
+  that the objective already uses, the berth; or what the set's neighbourhood is made of) is a design question
+  with two failed neighbours (D24: relaxed against the surroundings, a pile-up on a horn; before D26: relaxed
+  against itself, far clumps): not decided here.
 - **D41, how much material the thin part of the target holds (read-only on d32's archive, then on D40's;
   pre-registered 2026-10-03 11:25 CDT, before the probe's first run; `scripts/probes/settled/thin_fill_probe.py`;
   `output/gpu/d32/thin_fill_probe.txt`).** D38: the thin share passed runs whose horns the eye rejects. It counts
@@ -2150,7 +2189,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
    (D38, D40). The thin class (below two MPM cells) has 14–15 % of its points under half of the target's local
    density at 40 windows and 10 % at 160 (D41; the thick class 2–3 %); the thin share does not see it. The loose
    material is within the berth, where no term acts, and what would move it in is (a)'s parked items; the
-   decision is the user's. (e) The mid-morph dilution (D36, D37): the surface's material is pulled apart evenly
+   decision is the user's. D42: the wisps, and at 40 windows parts of the thin features themselves, are sets
+   not linked to the body within a layer spacing (5000–6400 rendered particles, one spacing from the target),
+   which D26 leaves unrelaxed like the sets in the air; whether a set within the berth is the body's is the
+   design question, after the literature. (e) The mid-morph dilution (D36, D37): the surface's material is pulled apart evenly
    in the plane in windows 1–5 and strands come off as beads; next is the literature (4–5 primary sources on
    the particle count of a growing surface), then a design. (f) beast's `domain` freeze in 35–45 % of 40k runs
    and the three-rejection stop on C and V (D39): parked defects, to be read from repeats. (g) `thin_fill_probe`
