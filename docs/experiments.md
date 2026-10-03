@@ -513,9 +513,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   more than 0.003 on none (C −0.0029 at its 16-window stop, V −0.0015), inside the two runs' range widened by
   0.002 on all 19; thin share median −0.8 point (bimba, cheburashka, nefertiti, armadilo lower by 1–3; A and
   teapot higher by 1.5–2); chamfer unchanged; committed windows median 32 → 32; windows without a commit summed
-  57 and 72 → 76; last kinetic record above 5e-3 on C only. The census (18 meshes read; D27's old arm → both
-  changes): rendered detached particles beyond the berth lower or equal on 15, summed 99 → 73; beyond one loss
-  cell 3 → 0; within the berth 2824 → 2372; not rendered 556 → 533; the densest detached set at 0.60 of the
+  57 and 72 → 76; last kinetic record above 5e-3 on C only. The census (19 meshes; D27's old arm → both
+  changes): rendered detached particles beyond the berth lower or equal on 16, summed 110 → 78; beyond one loss
+  cell 3 → 0; within the berth 3106 → 2469; not rendered 602 → 574; the densest detached set at 0.60 of the
   coverage radius. The 300k bunny to its own stop: 0.9873 (0.9856 before, 0.9868 with the layer alone),
   world-thin 0.02 %, thin 12.8 %, chamfer 0.0580, 65 commits, 15.2 minutes alone on a GPU. Every prediction
   holds. With D27, D29 and D30 the two changes pass, each alone and together: the gallery, the 300k dragon five
