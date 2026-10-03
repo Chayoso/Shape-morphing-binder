@@ -161,7 +161,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         frames.add_window(commit.x[1:-1], commit.F[1:-1], x, F)
         rec = _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin)
         if cfg.term_dump and stats.get("term_grads") is not None:
-            write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
+            write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"), stats.pop("term_channels", None))
         res.commit = commit = None          # release the window's buffers before the next one
         sel.check_lambda(rec, float(res.hist[-1]["lambda"] or 0.0))
         components = {"phys": rec["transport_energy"], "render": rec["d_sil"], "dt": rec["d_dt"]}

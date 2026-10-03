@@ -459,6 +459,390 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D31, both changes on the gallery (pre-registered 2026-10-03 03:48 CDT, launched 03:48; repo_r43; `tmp/d31.sh`,
+  `tmp/d31.queue`, `tmp/d31b.queue`, `tmp/d29_eval.py`; `output/gpu/d31`).** The 40k gallery (19 meshes, seed 97,
+  each to its own stop, GPUs 1 and 3, the census of detached material after each run) and the 300k bunny to its
+  own stop (GPU 0), against the two runs of the code before (D19's 96-px arm and D27's old arm). Each change has
+  its gallery (D27, D29); this is the pair. Predictions: silhouette IoU within 0.002 of the mean of the two runs
+  before on at least 15 of 19, median change within ± 0.001; lower by more than 0.003 only where a run stops
+  early while moving (C does in three of four runs of any code tonight); thin median change within ± 1 point
+  (the two runs before differ by a median 0.9); no frozen run, no guard, no collapsed detached set; the bunny
+  within ± 0.002 of 0.9856–0.9868. Fail: five or more meshes lower by more than 0.003; a frozen run; a guard; a
+  collapsed set.
+- **D30, both changes together: the layer as the body's and the new solve (pre-registered 2026-10-03 03:18 CDT,
+  launched 03:18; repo_r43 = repo_r35b + `window/layer.py` (D26) + `losses/grid_ot.py` and its two restated
+  tests (D29) + the diagnostic channel record; the suite 269 passed, exit 0; `tmp/d30.sh`; `output/gpu/d30`).** The
+  300k dragon, 40 attempts, alone on GPU 2, then the census of detached material and the 4K render outside the
+  timed run. Predictions, from D26, D27 and D29 each alone: at most 12 minutes of simulation and 13 of process;
+  silhouette IoU at least 0.982; world-thin at most 0.8 %; no rendered detached component of five or more
+  beyond one loss cell and at most 5 rendered particles beyond one loss cell and dense at the end; at most three
+  windows without a commit. Fail: any of these missed. Then repeats, and the gallery with both changes.
+  **Result (2026-10-03 03:33 CDT, one run): every criterion met; floaters fewer, not none.** 666 s of simulation
+  (11.1 minutes; the process 735 s, 12.3 minutes), 39 commits and one null window (37), no guard; silhouette IoU
+  0.9839, world-thin 0.33 %, thin 19.2 %, chamfer 0.0593, holes 0.02 %, last kinetic record 7.5e-4; λ 0.463,
+  g_share 0.94 (no λ = 0 twin). Rendered detached particles beyond one loss cell: 400 at raw 480, 78 at 960, 26
+  at 1280, 10 at the end, none of them dense from raw 1280; in the near band 154 at the end (d20: 141). The
+  components whose median distance is beyond the berth: 41, 119 particles, the largest of 8 (2.0 spacings out)
+  and none above 4.8 spacings; the largest detached sets overall sit on the target (302 particles on a horn at
+  0.9 spacings, density ratio 1.12; one of 42 at 1.7 spacings is dense, 0.41).
+  The 4K frames beside d20's: the mouth empty at raw 960 and at the end; at the notch under the tail base,
+  pixel (1640, 1500), the place where d21, d22 and d23 held clumps of 30–62, four particles 3.5 spacings out
+  draw one small disc; the head softer (strong-gradient share 3.7 % against 4.7 % at the end, 3.6 against 4.2 at
+  raw 960), as in D26. Video: `output/video_2026-10-03/dragon300k_no_floaters_11min_4k.mp4` (local, not in git).
+  What is left is the near band's population (90–154 rendered particles in sets of one to eight within 2–5
+  spacings), which the change does not reduce; two repeats launched 03:34 and 03:35 on GPUs 0 and 2.
+  **The repeats (03:47 CDT), each alone on its GPU.** Three runs: 11.1, 10.8, 11.0 minutes of simulation (12.2,
+  11.6, 11.8 of process); silhouette IoU 0.9839, 0.9833, 0.9835; world-thin 0.33, 0.41, 0.42 %; chamfer 0.0593,
+  0.0595, 0.0594; 39, 40, 39 commits (one, none, one null window); last kinetic record 0.75e-3, 1.6e-3, 1.2e-3;
+  no guard; λ 0.463, g_share 0.93–0.94. The code before (D19, d20): 16.4 minutes, 0.9841 and 0.9835, 0.53 and
+  0.77 %. The 15-minute criterion holds in three of three with three minutes to spare; the silhouette is inside
+  the earlier runs' range less 0.0002; world-thin is lower in all three. D29's three null windows did not recur.
+- **D29, the cross Sinkhorn problem with alternating sweeps, the self problem at the blur (runtime; the
+  formulation untouched; pre-registered 2026-10-03 03:03 CDT, launched 03:03; repo_r42 = repo_r35b +
+  `losses/grid_ot.py`; `scripts/probes/settled/ot_ladder_probe.py`; `tmp/d29.sh`; `output/gpu/d29`,
+  `output/gpu/d23/ot_alternating_probe.txt`).** Where the solve's sweeps go (D25's addendum): the cross problem
+  takes 81–189 of a value call's blocks, most of them at the last four blur levels. Both problems are iterated
+  with the parallel averaged update f, g ← (f + T(g)) / 2, (g + T(f)) / 2, which is what keeps the two potentials
+  of the self problem equal; on the cross problem it converges the slow modes at half a step a sweep where
+  alternating sweeps (f ← T(g), then g ← T(f)) take two. And the self problem is sent down the whole ladder
+  although its plan is local. The change: the cross problem alternates; the self problem starts at the blur.
+  No seed, no mode: a value is a function of its state alone, as before (the seeded solver of D22–D28 is dropped).
+  Measured on a 300k dragon's states (seven windows; each variant against a solve converged to 1e-5; tolerance
+  1e-3), as it is → changed: blocks per value call 113, 109, 140, 186, 213, 189, 155 → 56, 68, 59, 63, 80, 73, 70;
+  seconds 0.35–0.74 → 0.21–0.29; the value's error −2.6e-6, −2.5e-5, −1.5e-3, −5.4e-3, −1.4e-2, −2.8e-2, −3.4e-2 →
+  −8e-7, −1.2e-5, −3.7e-4, −1.3e-3, −4.1e-3, −8.1e-3, −7.7e-3; the gradient's 0.3, 0.7, 5.0, 9.5, 14.7, 20.1,
+  22.3 % → 0.2, 0.5, 2.4, 4.6, 7.8, 10.5, 10.3 %; the error in the difference of two candidates at most 8e-5 →
+  at most 3e-5 of the value. The self problem at the blur alone: 2 blocks against 25–27, value and gradient
+  unchanged to every printed digit. Faster and nearer the converged solution at the same tolerance.
+  The suite on repo_r42: 264 passed, 5 failed (exit 1), all in `tests/test_grid_ot.py`, two contracts of the
+  old iteration: the self solve equal bit for bit to the cross solve of two equal measures at half the
+  transforms; and a gradient of exactly zero at the target at tolerance 1e-3 (the parallel update keeps the cross
+  potentials of equal measures equal at every sweep, so the debiased value cancels exactly whatever the
+  tolerance; alternating, the gradient at the target is 1.6e-4 in that test's units and vanishes with the
+  tolerance: at 1e-9 the equilibrium test passes). A property that changes, to be restated in the tests and
+  measured at 300k against the gradient of a run's end state before adoption.
+  The run: the 300k dragon, 40 attempts, alone on GPU 2. Predictions: 10.5–12 minutes of simulation (a window
+  15–17 s against 24.6); silhouette IoU at least 0.982; world-thin at most 0.8 %; at most two windows without a
+  commit. Then two repeats, the 40k gallery and the 300k bunny against D19's 96-px arm (silhouette within ± 0.002
+  on at least 15 of 19, none lower by more than 0.003, thin median within ± 0.5 point, no early stop while
+  moving). Fail: above 13 minutes; a quality criterion missed; C or V stopping as in D25.
+  **Result of the dragon (2026-10-03 03:16 CDT, one run).** 682 s of simulation (11.4 minutes; the process 750 s,
+  12.5 minutes; the suite ran on the same GPU for a minute of it, my mistake), 37 commits of 40 attempts: three
+  windows without an accepted step (20, 25, 28; the cold runs had none or one), no guard; silhouette IoU 0.9837,
+  world-thin 0.58 %, thin 18.8 %, chamfer 0.0593, holes 0.02 %, last kinetic record 1.4e-3; λ 0.468, g_share
+  0.93 (no λ = 0 twin). A window: start 1.7 s, gradients 8.5 s, line search 3.9 s, commit 0.6 s (cold: 3, 11, 7,
+  1.7). At its end state the cross solve takes 70 blocks (1–4 at the eleven upper levels, then 7, 9, 9, 9, 9,
+  11) and the self solve 2; over perturbations of 1e-10 to 1e-4 the block schedule does not change and the
+  value moves by 1e-10–1.4e-8 on 1.1e-3. The tests restated for the two contracts (the self solve symmetric,
+  cheaper than the cross solve of equal measures and equal to the mean of its potentials; the gradient at the
+  target under ten tolerances of the gradient a shift away: measured two): 269 passed, exit 0.
+  Predictions: time, silhouette, world-thin confirmed; "at most two windows without a commit" refuted (three).
+  Whether three is this solver or chance needs the repeats (D30's three runs on the same solver: one, none, one).
+  **Result of the gallery (2026-10-03 03:47 CDT, 19 runs, no guard, no frozen run; `python3 tmp/d29_eval.py`),**
+  against the two runs of the solver before (D19's 96-px arm, D27's old arm), which differ from each other by a
+  median 0.0005 in silhouette (at most 0.0022) and 0.9 point in thin share. Silhouette IoU within 0.002 of
+  their mean on 18 of 19, median change +0.0001, inside their range widened by 0.002 on 18; lower by more than
+  0.003 on one, C (0.9737 against 0.9787 and 0.9765): C stops after 16 windows with the last kinetic record at
+  3.1e-2, exactly as the old solver's second run does (16 windows, 3.1e-2, 0.9765) and as both arms of D27 do.
+  Thin share median +0.7 point (teapot +2.7, A +2.3, V +1.7; spot −2.6, ogre −1.8). Committed windows median
+  32 → 32; windows without a commit summed 57 and 72 → 79; chamfer unchanged. By the letter two predictions miss:
+  "none lower by more than 0.003" (C, at its own early stop) and "thin median within ± 0.5" (+0.7, inside the
+  0.9 by which the two old runs differ); and the fail line "C stopping as in D25" is met by a stop that the old
+  code shows as well. No mesh is outside what two runs of the old solver span, apart from C's 0.0028 below the
+  lower of them. The 300k bunny is run with both changes (D31).
+  The equilibrium property at 300k (`ot_ladder_probe.py` on D30's archive, production code against the solver
+  before): at the target sample itself the solver before gives value +9e-10 and a gradient of rms 2e-13 (zero by
+  construction); the new one gives value −7.8e-6 (0.6 % of the end state's 1.29e-3) and a gradient of rms 1.8e-8,
+  8.7 % of the gradient at the run's end state (2.1e-7). At the end state and through the run the new solver's
+  gradient is off by 9–10 % from the converged one and the old by 17–21 %; its value by 0.6–0.7 % against
+  1.8–3.3 %. The new error is the same size everywhere; the old one was twice it everywhere except exactly at
+  the target, where it vanished.
+- **D28, the seeded solve only where its trial is seen to converge (pre-registered 2026-10-03 02:49 CDT, before
+  launch; repo_r41 = repo_r38 + `losses/grid_ot.py`; `tests/test_transport_support.py` 26 passed, exit 0;
+  `tmp/d28.sh`, `tmp/d28.queue`; `output/gpu/d28`).** D25's failure is the trial of `seed()` passing with the old
+  potentials unchanged. One change: the trial counts only if its residual was above the tolerance at a check and
+  below at a later one; a first check already below is not a solve, and the window is solved cold. The log
+  names each window's mode. (1) The four 40k meshes that failed or moved under repo_r38, each to its own stop,
+  GPU 2: C, V, bob, bimba. Predictions: C and V do not stop while moving (at least 25 committed windows, last
+  kinetic record under 2e-3, silhouette within 0.002 of the cold 0.9787 and 0.9773), their late windows cold in
+  the log; bob and bimba thin within 2 points of the cold 10.9 and 8.2. (2) When a GPU is free, the 300k dragon,
+  40 attempts, alone: the windows seeded from about window 12 as before, at most 13 minutes of process,
+  silhouette at least 0.982, world-thin at most 0.8 %. Fail: C or V stop on rejections with the physics worse by
+  more than a tenth; the dragon above 15 minutes. Then the whole gallery.
+  **Result of (1) (2026-10-03 02:54 CDT): fails; (2) not run; the seeded solver is dropped.** The log's modes
+  (c cold, S seeded): C cSccccccccSSccccccccc, V cSScccccSSSSSSSS, bob cS, nine c, eleven S, then c to the end,
+  bimba ten c, fifteen S, nine c. C: 18 commits of 21 attempts, stopped on three rejections (physics 30 % worse
+  than the commit before, reversal +0.48) in cold windows, last kinetic record 1.6e-2, silhouette 0.9762 (cold
+  0.9787). V: 16 commits, stopped as converged with the kinetic record at 3.4e-3 (cold: 31 commits, 1.8e-4),
+  silhouette 0.9776 (0.9773). bob: 42 commits (33), 0.9826 (0.9837), thin 11.4 (10.9). bimba: 32 commits (37),
+  0.9780 (0.9785), thin 11.8 against 8.2 (D25: 12.5). The fully stale windows are gone, the runs still end
+  sooner and bimba's thin share is up by 3.6 points twice: a solve started from the window's reference reports
+  less change than there is (D22: by 10–20 % of a candidate difference at 300k), whatever the guard. A run of the
+  cold code on C is not there to say how often C stops early by itself. Predictions refuted for C, V and bimba;
+  bob within its band.
+- **D27, the layer as the body's beyond one dragon run (pre-registered 2026-10-03 02:46 CDT, launched 02:46;
+  `tmp/d27.sh`, `tmp/d27c.sh`, `tmp/d27.queue`; `output/gpu/d27`).** D26 passed on one 300k dragon. The same change
+  (repo_r40) against the layer as it was (repo_r35b), the cold solver in both: the 40k gallery (19 meshes, seed
+  97, each to its own stop, the two arms interleaved in one queue on GPUs 1 and 3), each run followed by the
+  census of detached material on its archive (`detached_probe.py`, parts A and B); and on GPU 0 the 300k dragon
+  again (40 attempts, census, 4K render), then the 300k bunny to its own stop (against D19's 0.9856, 40 windows).
+  Predictions: silhouette IoU within ± 0.002 on at least 15 of 19, median change within ± 0.001, none lower by
+  more than 0.003; thin share median change within ± 0.5 point; committed windows median within ± 20 %; windows
+  without a commit (null and rejected, summed over the gallery) not up by more than a fifth; rendered detached
+  particles beyond the berth at the end lower or equal on at least 15 of 19 and no mesh with a new dense detached
+  set (8th-neighbour distance under 0.1 of the coverage radius). The dragon: no rendered detached component of
+  five or more beyond one loss cell, at most 5 rendered particles beyond one loss cell and dense, silhouette
+  0.9815–0.9865, world-thin at most 0.8 %, 40 attempts with at most two windows without a commit. The bunny within
+  ± 0.002 of 0.9856. Fail: silhouette lower by more than 0.003 on five or more meshes; a frozen run; a guard; a
+  collapsed set; a dragon clump. A mesh that fails alone is examined frame by frame before any decision.
+  **Result (2026-10-03 03:21 CDT; 38 gallery runs and the dragon, no guard, no frozen run; `python3
+  tmp/d27_eval.py`; the bunny still running).** The 40k gallery, new against old: silhouette IoU within ± 0.002
+  on 17 of 19, median change +0.0001, lower by more than 0.003 on none (C −0.0025, teapot +0.0028); thin share
+  median −0.3 points, lower on 11 (spot 8.8 → 4.3, maxplanck 8.5 → 5.9, bimba 14.3 → 11.3, dragon 14.4 → 12.0;
+  bob 10.0 → 13.1, fandisk 6.0 → 7.6); chamfer median −0.0001; committed windows median 34 → 29; windows
+  without a commit summed 72 → 73. The census at each run's end: rendered detached particles beyond the berth
+  lower or equal on 16 of 19, summed 110 → 64 (dragon 24 → 9, fandisk 18 → 13, ogre 11 → 8; higher on beast 2 →
+  3, C 3 → 6, cheburashka 2 → 5); beyond one loss cell 3 → 2; none dense and far in either arm; within the berth
+  3106 → 2262; not rendered 602 → 553; the densest detached set at 0.52 (old) and 0.83 (new) of the coverage
+  radius: no collapse. At 40k a loss cell is an MPM cell and there are few floaters to begin with.
+  The 300k dragon again: 951 s, 39 commits and one null window, silhouette 0.9843, world-thin 0.37 %, chamfer
+  0.0594, last kinetic record 1.2e-3; λ 0.463, g_share 0.93; rendered detached particles beyond one loss cell
+  92 at raw 960, 16 at 1280, 7 at the end, none of them dense from raw 960 on; the largest detached sets all
+  within 1.1 spacings of the target. With D26 two runs of two without a clump.
+  Every prediction made for the gallery and the dragon holds. Two things the old arm shows about single runs at
+  40k: C stops after 16 windows while moving in both arms here (last kinetic record 3.1e-2 and 2.4e-2; D19's
+  cold C ran 67), and nefertiti's old run stops after 16 with 1.0e-2; bimba's thin share is 14.3 in this cold
+  run and 8.2 in D19's. D25 and D28 read C's stop and bimba's thin share as effects of the seeded solver; one
+  run a mesh cannot carry that (V's two early stops under it remain: 16 and 13 windows against 31 and 34 cold).
+  The 300k bunny to its own stop (03:26 CDT): silhouette IoU 0.9868 (D19: 0.9856; within ± 0.002), world-thin
+  0.05 %, thin 13.5 %, chamfer 0.0580, 98 commits and three windows without one (D19: 40; D25's seeded run 80),
+  19.5 minutes on a GPU it had to itself, last kinetic record 4.0e-6, converged; λ 0.341, g_share 0.89; at the
+  end 57 rendered detached particles beyond the berth, none beyond one loss cell, no dense set. Prediction
+  confirmed.
+- **D26, the layer is the body's: a detached group is not relaxed and u moves it along the direction away from
+  the material around it (pre-registered 2026-10-03 02:11 CDT, launched 02:11 after `tests/test_layer_relax.py`
+  passed, exit 0; repo_r40 = repo_r36 + `window/layer.py`; `tmp/d26.sh`; `output/gpu/d26`).** D24 kept the part of
+  D21's cause that the relaxation acts on and failed there. The other part reads the objective: u. One change
+  to the layer's definition for the members of a detached set of 2–512 particles (connected at one layer
+  spacing, the body = the largest set): their row of the relaxation is themselves (residual zero: a detached
+  group has no surface of its own to be made regular), and their normal is the asymmetry against the 32 nearest
+  particles that are not members of the set. Single detached particles and the body's rows are as before; the
+  objective, the solver (cold) and the schedule are untouched; 40 attempts, term dump with the channel record.
+  On d21's states: the members' normals have cosine −0.70 to −0.74 with the direction to the target (−0.39 to
+  −0.65 before), 82–90 % are on the layer, residual zero.
+  What it can and cannot do, from D21's numbers: u brought single particles (whose normal is already this one)
+  0.04–0.05 spacings a window, so a group 6 spacings out will not arrive in 40 windows; but nothing contracts it
+  any more (u's normals are parallel across the group, the relaxation is off), so it stays sparse: the isolation
+  gate keeps the spray cleanup on it, and the display, which draws by live support, does not draw it.
+  Predictions. No collapsed set (no detached component with the 8th-neighbour distance under 0.1 of the coverage
+  radius); at the end at most 5 rendered detached particles that are beyond one loss cell and dense (d20, d21,
+  d22: 38–47; d23: 13) and no rendered component of five or more beyond one loss cell; detached particles that
+  are not rendered up from 405–511 to at most 900; the contraction of the largest far group by u and by the rest
+  under 0.03 spacings a window (0.04–0.15 before); the run to its 40 attempts with at most two windows without a
+  commit; silhouette IoU within 0.002 of 0.9835–0.9844, world-thin 0.5–0.8 %, last kinetic record under 5e-3.
+  Fail: a rendered clump of five or more beyond one loss cell; an early stop; a collapsed set; silhouette below
+  0.981 or world-thin above 1.0 %. If the groups stay sparse but rendered (8th-neighbour ratio 1.1–1.3), that is
+  recorded as not solved, with the count.
+  **Result (2026-10-03 02:30 CDT, one run): passes.** 978 s, 40 commits of 40 attempts, no null window, no
+  rejection, no guard; silhouette IoU 0.9842, world-thin 0.28 %, thin 18.5 %, chamfer 0.0593, holes 0.02 %, last
+  kinetic record 2.7e-3; λ 0.463, g_share 0.94 (no λ = 0 twin). Rendered detached particles at the window ends
+  (d20 in brackets): raw 160 20 283 (20 307), 480 5104 (4384), 960 3583 (2844), 1600 2838 (2301); of them beyond
+  one loss cell 8753, 560, 38, 2 (8718, 615, 86, 38); beyond one loss cell and dense 0 from raw 1280 (37–47); in
+  the near band 90 at the end (141); not rendered 385 (439). At the end 92 rendered detached particles lie
+  beyond the berth, in 60 components, the largest of five particles at 2.1 spacings (d20: 179, with the clump of
+  38 at 6.6; d21: 234, clumps of 62 and 31); the smallest 8th-neighbour ratio among the large detached sets is
+  0.84 (no collapse). The far groups do not only stay sparse, they go (7 rendered particles beyond one loss cell
+  at raw 1280 against 60). A reading, not measured on the particles that arrived: sparse, their members are
+  farther apart than one layer spacing, so they are single particles to the layer and are relaxed against the
+  body, which is what already cleaned single particles. In the 4K frames the mouth is empty at raw 960 and at the end where
+  d20 shows the pale blob; the head is a little softer (share of head pixels with a strong gradient 3.8 % against
+  4.6 % at the end, 3.8 against 4.2 at raw 960, 2.9 against 3.3 at raw 480; D19's two cold runs differed by 0.2)
+  and there is a little more wisp at the snout tip and the right foot: more particles sit on thin target
+  features (2746 detached within the berth against 2122; world-thin 0.28 % against 0.53–0.77 %) and their groups
+  are no longer made regular.
+  Predictions: no collapse, no dense far particles, no far component, the 40 commits, the silhouette and the
+  kinetic record confirmed; not-rendered particles did not rise (385; predicted up to 900); world-thin better
+  than its band (0.28 against 0.5–0.8); the contraction by u on what remains is 0.00–0.06 spacings a window on
+  a five-particle set, above the 0.03 predicted, on a set that is no clump. One run: D27 for the repeat, the
+  gallery and the bunny.
+- **D25, the seeded Sinkhorn solve beyond the dragon (pre-registered 2026-10-03 01:52 CDT, launched 01:52;
+  `tmp/d25.sh`, `tmp/d25.queue`; `output/gpu/d25`).** repo_r38 (D23's second form) on the 40k gallery (19 meshes,
+  seed 97) and the 300k bunny, each to its own stop, three workers on GPU 3; against D19's 96-px arm, which is
+  the same code with the cold solver (repo_r35b; `output/gpu/d19/d19_96_*`). At 40k the loss grid is the MPM
+  grid, so a solve is cheaper and the seed saves less. Predictions: silhouette IoU within ± 0.002 on at least 15
+  of 19, median change within ± 0.001, none lower by more than 0.003; thin share median within ± 0.5 point;
+  committed windows within ± 20 % in the median; minutes summed lower (67 → at most 60); the 300k bunny within
+  ± 0.002 of 0.9856 in at most 8.7 minutes. Adoption of the solver needs this and D23's dragon (with two repeats
+  for the spread). Fail: a frozen run, a guard, or five or more meshes lower by more than 0.003.
+  **Result (2026-10-03 02:44 CDT, 20 runs, no guard, no frozen run; `python3 tmp/d25_eval.py`): not adoptable as
+  it is.** The 40k gallery, seeded against cold: silhouette IoU within ± 0.002 on 17 of 19, median change
+  −0.0002, lower by more than 0.003 on one (C −0.0031; beast −0.0022); thin share median unchanged (bimba +4.3
+  and bob +4.8 points, nefertiti and ogre −1.0 and −1.4); chamfer unchanged; committed windows median 33 → 31.
+  Minutes summed 67 → 95 with three workers on one GPU (D19 ran otherwise, so the times do not compare; at 40k
+  the loss grid is the MPM grid, a solve is cheap and the seed has nothing to save). The 300k bunny: 0.9872
+  against 0.9856, world-thin 0.02 %, 80 windows against 40 (to its own stop; 14.7 min on the shared GPU). The 300k
+  dragon, three runs alone on a GPU: 12.1, 11.0, 11.8 min of simulation (13.2, 11.8, 12.6 of process), silhouette
+  0.9844, 0.9838, 0.9845, world-thin 0.73, 0.42, 0.40 %, 40 commits each, last kinetic record 0.7e-3–3.5e-3; cold:
+  16.4 min, 0.9835–0.9842, 0.53–0.77 %.
+  What is wrong: C stops after 16 windows and V after 13 (cold: 67 and 31) on three consecutive rejected
+  candidates, still moving (last kinetic record 3.6e-2 and 9.2e-3 against 2.5e-4 and 1.8e-4), with the rejected
+  windows' physics 49 % (C) and 4–5 % (V) worse than the commit before them at a positive reversal cosine: not a
+  reversal, a commit whose merit was too low. On a coarse loss grid one window's motion changes the rasterised
+  mass by less than the tolerance, so the seeded solve passes the marginal test in its first block with the
+  reference's potentials: its value is then the linearisation of the transport about the window's start, lower
+  than the true value by the curvature term; the window is optimised on that, its commit is scored on it, and the
+  next windows, seeded where it ended, are scored against it and rejected. The same mechanism, weaker, is the
+  error measured on the 300k dragon (the difference between two candidates off by up to 2e-4 of the value, 10–20 %
+  of the difference). Predictions: silhouette band, median, thin, windows and the bunny's silhouette confirmed;
+  "none lower by more than 0.003" refuted by C (by 0.0001, for the reason above); both time predictions refuted.
+  Also measured for the cost (`ot_ladder_probe.py` on d21): of a cold value call's 110–216 blocks the cross
+  problem takes 81–189 and the self problem 25–27; at the end state the cross ladder spends 1–3 blocks at each of
+  the twelve upper levels and 16, 34, 42, 27 at the last four. A fixed one or two blocks a level instead of
+  convergence costs more in total (199–411) and usually fails the budget. The self problem started at the blur
+  from zero duals takes 2 blocks with the same value and gradient to every printed digit (its plan is local);
+  the cross problem started there does not converge.
+- **D24, a detached group measured against the material around it (pre-registered 2026-10-03 01:52 CDT, launched
+  01:51 after `tests/test_layer_relax.py` passed, exit 0; repo_r39 = repo_r36 + `window/layer.py`; `tmp/d24.sh`;
+  `scripts/probes/settled/layer_groups_probe.py`; `output/gpu/d24`).** D21's reading (3): the layer's normal and
+  the relaxation's plane are taken from a particle's 24–32 nearest neighbours, and for the members of a detached
+  group those are the group. One change to that definition, nothing else (the cold Sinkhorn solver, 96 px from
+  the start, 40 attempts, term dump with the channel record): particles are connected when nearer than one layer
+  spacing; the body is the largest connected set; for a member of any other set of 2–512 particles the asymmetry's
+  32 neighbours and the relaxation's 24 layer neighbours are the nearest particles that are not members of its
+  own set, as they already are for a detached single particle. No term, weight, switch or schedule is added; the
+  objective is untouched.
+  On d21's states the definition gives (members beyond 2 spacings of the target, windows 20–38): on the layer
+  82–89 % (was 54–66 %); the normal's cosine with the direction to the target −0.70 to −0.74 (was −0.39 to
+  −0.65); the relaxation residual along the normal +0.4 to +0.7 spacings in the median and +2.5 to +5.4 at the
+  90th percentile (was 0.0 and +0.2 to +0.4); no row without weight; 0.16–0.24 s a window against 0.07. On the
+  4600–7500 group members within 2 spacings of the target (the sparse cover of thin features) the residual
+  becomes +0.2 in the median and +1.1 to +1.9 at the 90th percentile (was +0.02 and +0.1 to +0.3): the change
+  also pulls beads that sit beyond the connected material of a thin feature back toward it.
+  Predictions. At the end no detached component of five or more rendered particles beyond one loss cell (d20: one
+  of 38; d21: 62 and 31); detached rendered particles beyond the berth under 100 (179, 234); the peak of
+  detached rendered particles at a window end under 12 000 (20 307). The cost, from the bead figures above:
+  world-thin up by at most 0.5 point (0.5–0.8 % → at most 1.3 %); silhouette IoU within 0.002 of the cold runs'
+  0.9835–0.9842. Fail: a clump of five or more beyond one loss cell remains; or world-thin above 1.5 %, silhouette
+  below 0.980, a guard, more than three null windows, end kinetic record above 1e-2 (tips retracting and
+  regrowing). Then the 4K frames of the mouth and the horn tips beside d20's, before anything is adopted.
+  **Result (2026-10-03 02:10 CDT, one run): the clumps are gone, the change fails.** 854 s; 29 commits of 33
+  attempts: one null window (16) and three consecutive rejected candidates (31–33: selection merit up 9–13 % with
+  the physics down 4–6 %, the silhouette loss 1.0e-3 → 1.5e-3 in one window, reversal −0.31), so the run stops at
+  window 33 and delivers 1120 frames; silhouette IoU 0.9824, world-thin 0.70 %, thin 18.9 %, chamfer 0.0594, holes
+  0.02 %, last kinetic record 6.5e-3; λ 0.467, g_share 0.92; no guard. Detached rendered particles at the window
+  ends (d20 in brackets): raw 160 20 452 (20 307), 480 4532 (4384), 960 1761 (2844), 1120 1714 (2506); beyond one
+  loss cell 8387, 447, 16, 4 (8718, 615, 86, 54); beyond one loss cell and dense 0 from raw 800 on (25–47); in
+  the near band 83 at the end (168); the near band's far record 1.5e-5–2.6e-5 against 1.1e-4. In the 4K frames
+  the mouth is empty at raw 480 and at the end (d20: the ring at 480, the pale blob at the end).
+  What fails: (1) four windows without a commit (the criterion was at most three) and the early stop; (2) a new
+  defect: 277 detached particles within 1.1 spacings of the target at the top of the head collapsed onto a curve
+  (8th-neighbour distance 0.01 of the coverage radius; pixel (2056, 200)), drawn as a bright line on a horn, and
+  the horn tips blunter than d20's feathered ones. Measured against a small convex neighbourhood (the connected
+  tip of a thin feature), every member of a bead group is projected onto planes through the same few neighbours,
+  window after window. Predictions: the clumps and the count beyond the berth confirmed (87 < 100); world-thin and
+  silhouette inside their bands; the mid-morph peak refuted (unchanged: the change does not act on the transit
+  webs); the stop and the collapse not predicted.
+  Reading: the cause named in D21 is the cause (with the neighbourhood corrected no clump forms or survives
+  beyond a loss cell), but the relaxation is the wrong channel for the correction: it does not read the
+  objective, so it also drags the beads that the objective holds on thin features, and the two fight until the
+  selection rejects. The part of the change that reads the objective is u's direction.
+- **D22 and D23, the Sinkhorn solve started from the window's own reference (runtime; the formulation untouched;
+  entry written 2026-10-03 01:47 CDT, after D22 was read and before D23's result; the solver and its probe
+  `ot_seed_probe.py` are kept on the server in repo_r38 and repo_r41, not in the repository (dropped in D28);
+  `tmp/d22.sh`, `tmp/d23.sh`; `output/gpu/d20/ot_seed_*.txt`, `output/gpu/d22`, `d23`).** A
+  window attempt of the 300k dragon costs 24.6 s: start 3 s, eight gradients 11 s, line search 7 s, commit 1.7 s
+  (d20). Every evaluation solves two entropic problems from zero duals down a 15-level ε ladder, each level to the
+  tolerance.
+  Measured on d20's states (the seed = a window's start state, the evaluated state = its committed end, a second
+  candidate two steps before it), 85³ loss grid, tolerance 1e-3: a cold value call takes 109–200 four-sweep blocks
+  (0.34–0.67 s); started at the blur from the window start's potentials it takes 11–41 blocks from window 16
+  (0.04–0.14 s) and more than the cold solve before window 12 (213–497 blocks, the far windows not converging in
+  the sweep budget). Against a solve converged to 1e-6 (3800–8000 blocks): the cold solver's value is low by 0.1 %
+  (window 8), 1.3 % (window 20), 2.9 % (window 39) and its gradient off by 4 %, 14 %, 21 %; the seeded one's by
+  0.05 %, 1.0 %, 2.7 % and 2.5 %, 12 %, 20.5 %: at the production tolerance both are the same class, the seeded
+  slightly nearer. The difference between the two candidates (what a line search compares; true size 1e-3–2e-3
+  of the value): cold errs by at most 5.5e-5 of the value, seeded by up to 2.1e-4, always toward a smaller gain
+  for the state farther from the seed.
+  D22, first form (repo_r37 as it was at 01:29 CDT: each solve tries the seed for as many sweeps as the reference's
+  cold solve took, then restarts cold), the 300k dragon alone on GPU 3, launched 01:29 CDT without an entry (my
+  estimate before the run was 11.6 min): 821.7 s of simulation (13.7 min; process 889 s), 39 commits and one null
+  window, silhouette IoU 0.9818, world-thin 0.73 %, thin 19.5 %, chamfer 0.0595, holes 0.007 %, last kinetic
+  record 2.3e-3, no guard; λ 0.468, g_share 0.93. The cold runs of the same recipe: 981 s, 0.9835, 0.77 % (d20);
+  1015 s with the term dump, 0.9842, 0.57 % (d21); 16.4 min, 0.9841, 0.53 % (D19). The estimate missed by two
+  minutes: before window 12 every solve pays the failed attempt (1.5–1.7 times cold); and in the windows between,
+  values from the two paths (they differ by 1e-3–3e-3 of the value) are compared inside one line search. Not kept.
+  D23, second form (repo_r38, `GridSinkhornLoss.seed`): one mode per window. At a window's start its state is
+  solved cold (the reference); the previous window's reference potentials are then tried on this state at the
+  blur, with the attempt given up as soon as the residual's decay predicts more sweeps than the cold solve took;
+  if that converges, a state one window away is within reach of level 0 and every solve of the window starts from
+  the window's reference, else every solve is cold. A value depends on its own state and the window's start,
+  never on earlier trials. On d20's states: windows 1–11 cold with identical values, 12–39 seeded; value-call
+  seconds over the run 0.34 of cold; the two seed calls 0.4–1.1 s a window. Launched 01:45 CDT, the 300k dragon
+  alone on GPU 1. Prediction: 10.5–12 minutes of simulation; silhouette IoU ≥ 0.9815 (the cold runs' 0.9835–0.9842
+  less the run-to-run 0.002), world-thin 0.5–0.8 %. For the 15-minute goal: process wall time ≤ 15 min with
+  silhouette ≥ 0.982 and world-thin ≤ 0.8 %; before adoption three repeats, the 40k gallery and the 300k bunny
+  against the cold solver (silhouette within ± 0.002 on at least 15 of 19, none lower by more than 0.003).
+  **D23 result (2026-10-03 01:59 CDT, one run).** 724 s of simulation (12.1 minutes; the process 791 s, 13.2
+  minutes), 40 commits of 40 attempts, no null window, no guard; silhouette IoU 0.9844, world-thin 0.73 %, thin
+  18.8 %, chamfer 0.0592, holes 0.02 %, last kinetic record 7.0e-4; λ 0.468, g_share 0.93. A window costs
+  10.7 s from window 20 on (gradients 6.7 s, line search 2.4 s, start 1.1 s, commit 0.35 s) against 24.6 s cold;
+  the first twelve windows are solved cold and cost what they did. Detached rendered particles at the end 2439
+  (163 in the near band, 13 beyond one loss cell; d20: 2301, 141, 38). Predictions: the time at the edge (12.1
+  against 10.5–12); silhouette and world-thin confirmed. The 15-minute criterion is met on this run (13.2 minutes
+  of process, 0.9844, 0.73 %); two repeats launched 01:59 on GPU 1 (`dragon_b`, `dragon_c`), D25 for the gallery.
+- **D20 and D21, the floating Gaussians of the 300k dragon traced to particles and to what moves them
+  (diagnostics; entry written 2026-10-03 01:47 CDT after the runs: d20 launched about 00:34, d21 01:08 CDT;
+  `tmp/d20.sh`, `tmp/d21.sh`; `scripts/probes/settled/clump_probe.py`, `detached_probe.py`,
+  `floater_channels.py`, `floater_fate.py`; `output/gpu/d20`, `d21`).** The 16-minute dragon again (repo_r35b, 96 px
+  from the start, 40 attempts) with the archive and every term's per-particle gradient kept (d20), then on
+  repo_r36, whose dump also holds each window's displacement per channel (MPM advection = the sum of dt v; the u
+  control; the rest = relaxation on the layer or bond projection), the layer mask and normal, the control size and
+  det F (d21; `telemetry.channel_record`, diagnostic only). d20: 981 s, silhouette 0.9835, world-thin 0.77 %;
+  d21: 1015 s, 0.9842, 0.57 %, 39 commits and one null window; λ 0.468 and g_share 0.93–0.94 in both (no λ = 0
+  twin here).
+  Counting (connectivity: single linkage at 2 target spacings, the body = the largest component; rendered =
+  live support above zero). d20, detached rendered particles at each window end: 20 307 at raw frame 160 (the
+  peak), 10 719 at 240, 4384 at 480, 2844 at 960, 2301 at 1600. Of the last 2301: 2122 lie within the sampling
+  berth of the target (1.97 spacings: a sparse cover of thin target features, not in mid-air), 141 in the near
+  band, 38 beyond one loss cell. The 38 are one clump in the open mouth: 4K pixel (2319, 697), world (0.66, 2.46,
+  3.41), 6.6 spacings from the target (1.49 loss cells; the opposite jaw at 10.2), 6.3 particle spacings from the
+  body, 8th-neighbour distance 0.26 of the coverage radius. d21 ends with 234 beyond the berth in 53 components
+  (90 beyond one loss cell): 62 particles at pixel (1653, 1524), 7.2 spacings out, density ratio 0.34; 31 at
+  (2049, 379), 6.5 out, 0.25; the mouth holds four. The place changes from run to run, the kind does not.
+  The mouth clump's history (d20): material from the source interior, in the gap from window 4. Windows 4–12:
+  isolated (density ratio 2.0), the spray cleanup on for 95–100 % of it with an inward pull of 0.5–1.1 (units of
+  the all-particle rms gradient), distance 5.8–6.7 spacings throughout. Windows 12–24: its rms radius falls
+  4.2 → 1.8 spacings and the density ratio 1.74 → 0.30; the isolation gate closes (spray on 61 % at window 14,
+  3 % at 28, then none); the near band is on for at most 16 % and for none from window 32 (beyond one loss cell);
+  the transport pulls coherently at 0.15–0.26; 88–100 % of the members' relaxation weights are on fellow members
+  and the layer normal's cosine with the direction to the target is −0.2 to +0.2. It ends where it was at window 6.
+  Which channel does what (d21). Detached material beyond the berth at a window's start, by the size of its
+  component then, to the end of the run (share within the berth at the end; displacement toward the target by
+  advection, u, rest, in target spacings):
+  window 4 (14 044 particles): 96–97 % arrive in every size class; advection +11.2 to +12.7, u +0.3–0.4, rest
+  +0.02–0.13. Window 12 (1881): singles 86 %, +1.6, +1.15, +1.09; groups of 2–4: 87 %, +1.8, +1.1, +0.41; 5–23:
+  90 %, +1.8, +1.1, +0.09; 24 or more: 96 %, +1.8, +0.7, −0.04. Window 24 (328): singles 59 %, +0.07, +0.77,
+  +0.51; 2–4: 47 %, +0.30, +0.78, −0.05; 5–23: 51 %, +0.21, +0.90, −0.05; 24 or more: 26 %, +0.09, +0.38, −0.16.
+  The share of a particle's 32 nearest neighbours that are members of its own component: 0, 6, 23, 46–67 %.
+  On the two large clumps of d21 from window 8: the contraction comes from u (0.04–0.15 spacings a window; the
+  62-particle clump's radius 3.7 → 1.8) and from the rest (0.05–0.15 on the 31-particle one), not from advection
+  (± 0.03); advection moves their centres away from the target by 0.1–0.5 a window in the last third while the
+  control on them is 2–11 times the all-particle median; det F stays 0.98–1.01; the decoupling flag is never set
+  (the fragment test is occupancy dilated by one MPM cell, 26-connected: it needs three empty cells, 0.9 wu = 26
+  target spacings). The accepted step is 0.65e-3 to 3.2e-3 from window 2 on (0.02 at window 0): u can move a
+  particle by at most eight steps a window, about 0.35 spacings.
+  Reading. (1) Detached material is a by-product of the bulk morph and 96–97 % of it is carried in by advection
+  while the body still flows (to window 8). (2) Once the body has settled, advection delivers nothing to what is
+  left: it rides the body's grid velocity, and the control spent on it does not bring it in. (3) What still moves
+  it is the position channel, and that channel is defined against a particle's 24–32 nearest neighbours: a single
+  particle's neighbours are the body's surface (the relaxation brings it +1.1 spacings, u +1.2), a group's
+  neighbours are the group itself: the relaxation holds it where it is and u, along normals that radiate from
+  the group's own centre, contracts it. (4) The contraction makes the group dense: the isolation gate shuts the
+  spray cleanup, beyond one loss cell the near band is not defined, and the display draws it at full opacity (it
+  drew nothing while the group was sparse). What the video shows is step (4); the defect is step (3).
+  Not decided here: which definition changes. Any re-coupling that does not read the objective (the relaxation
+  measured against the body instead of the group; the bond projection with a particle-scale detachment test)
+  also acts on the 2122 detached particles that sit on thin target features.
 - **D19, the 15-minute dragon and whether 96 px from the start holds beyond it (pre-registered 2026-10-02 22:48
   CDT, before launch; `tmp/d19c.sh`, `tmp/d19.sh`, `tmp/d19_eval.py`; `output/gpu/d19`).** D18: with the render at
   96 px from the start the 300k dragon is at 0.5 % world-thin by window 30–40, and the share rises afterwards

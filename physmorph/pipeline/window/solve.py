@@ -24,7 +24,7 @@ from ...prof import STATE as PROF_STATE, take as prof_take, timed
 from .objective import Objective, end_drift
 from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok, state_reason
 from .setup import StartState, Window
-from .telemetry import collect_grad_dump, support_record, work_record, write_grad_dump
+from .telemetry import channel_record, collect_grad_dump, support_record, work_record, write_grad_dump
 
 _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phys_work_x",
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
@@ -482,6 +482,8 @@ class WindowOptimizer:
                 stats.update(self.obj.scale_record(commit.x[-1]))
                 stats.update(self.obj.control_record(win.expand(self.dFc.detach())))
                 stats.update(support_record(self.tgt, commit.x[-1]))
+            if cfg.term_dump:                           # before any other rollout rewrites the buffers
+                stats["term_channels"] = channel_record(win, self.u.detach())
             if cfg.work_telemetry or cfg.term_dump:
                 stats.update(self.obj.active_set_record(commit.x[-1], self.lam_r))
         elif selection_merit is not None and not np.isfinite(selection_merit):
