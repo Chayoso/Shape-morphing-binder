@@ -478,6 +478,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   coarse stage is unnecessary at 300k and can go. Either way, "96 px from the start is faster" would not by itself
   mean the resolution is the cause (λ's calibration and the path change too); if the reading is unclear, a
   control with the schedule as it is but the epoch reset alone follows.
+  **Result (runs done 18:56–19:05 CDT, read 2026-10-02 22:45; `python3 tmp/d18_eval.py`).**
+  D17, the records: a window attempt costs 19.8 s without them against 23.6 s with them (−3.8 s, 16 %: the commit
+  phase 2.5 → 0.8 s, the untimed remainder 2.1 → 1.5 s, the line search 6.2 → 5.4 s, the start 2.6 → 2.2 s). The
+  end state is inside the spread: silhouette IoU 0.9854 against 0.9836, 138 against 133 committed windows, the
+  c2f event at attempt 88 against 89; 46.5 against 53.6 minutes. Prediction confirmed, the saving larger than
+  predicted (1.5–2.5 s).
+  D18, 96 px from the start (b) against the schedule as it is (a), both with the records. World-thin by committed
+  window, a / b: window 10 (4 min) 3.27 / 2.89 %; 20 (9 min) 1.99 / 0.79; 30 (14 min) 1.68 / 0.51; 40 (18 min)
+  1.54 / 0.48; 60 (26 min) 1.57 / 0.69; 80 (34 min) 1.83 / 0.88; at the end 1.03 (133 windows, 53.6 min) / 0.74
+  (110 windows, 44.9 min; the end metric 0.69). (b) passes 1.0 % at 9.2 min and 0.7 % at 10.2 min; (a) passes 1.2 %
+  only at 43.6 min, after its c2f event (attempt 89, 37.6 min), and never passes 1.0 %. Silhouette IoU at the end
+  0.9836 (a) and 0.9837 (b). The accepted step under (b) is two to three times (a)'s through window 30 (2.6e-3
+  against 1.2e-3 at window 20); λ of the first window 0.468 (b) against 0.396, 0.281 after (a)'s event. (b) has
+  no second epoch and stops on three rejected candidates at attempt 118.
+  My prediction is refuted: without the epoch reset (b) does not settle at 0.8–1.2 %, it is at 0.5 % by window 30
+  and better than (a)'s end at a quarter of (a)'s time. The registered alternative holds (0.7 % by 25 minutes: at
+  10 minutes), so the 64-px stage is not needed for the 300k dragon; it holds the thin parts at about 1.5 % for
+  thirty minutes. Not shown: that the resolution alone is the cause (λ and the path differ too).
+  In both runs the world-thin share is lowest about window 40 and then rises while the merit and the transport
+  energy go on falling ((b): 0.48 % at window 40, 0.88–0.90 % at windows 80–90, with E 1.26e-3 → 6.7e-4): the long
+  tail buys merit, not thin coverage.
 - **D16b, the same comparison read frame by frame at 300k (diagnostic, pre-registered 2026-10-02 17:01 CDT, before
   launch).** D16's bunny and dragon were run again at 40k with 4K renders and read frame by frame at equal raw
   frames (`output/gpu/d16r`, `tmp/pair_sheets.py`). With the relaxation off the bunny's upright ear has a ragged
