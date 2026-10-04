@@ -17,7 +17,8 @@ discs, twice). The discs of connected sets other than the largest are tinted red
 
 STATE: `target` or a raw frame index kept in FRAMES_NPZ (default: target and every kept frame). `ref=NPZ` among the
 states: the states are read against that file's target sample (drawn with its own pitch and from its camera) in place
-of the run's own, so that runs of different N share one reference (D63); `target` then draws that sample.
+of the run's own, so that runs of different N share one reference (D63); `target` then draws that sample and `own`
+the run's own target sample as a state (what a perfect run at that N would show).
 `poisson` writes OUT_DIR/STATE.jpg (the crop: base display | exterior, field normals | exterior, display normals),
 STATE_whole.jpg and the layer's points (STATE_layer.npz); `lattice` writes OUT_DIR/crop/NNNN.jpg and whole/NNNN.jpg in
 the order of the states (target.jpg for the target). Per state a line of numbers: the layer's count, spacing, roughness
@@ -244,7 +245,8 @@ with torch.no_grad():                                          # the field's gra
             (out / d).mkdir(exist_ok=True)
     solid, order, ref = [], 0, None                             # the solid regions of the last frames (base, exterior); the target's drawings
     for name in states:
-        x = reference if name == "target" else torch.as_tensor(np.asarray(frames[raws.index(int(name))], np.float32), device=dev)
+        x = (reference if name == "target" else target if name == "own" else                    # `own`: the run's own target sample
+             torch.as_tensor(np.asarray(frames[raws.index(int(name))], np.float32), device=dev))
         if drawn:
             (base, base_cover), reach = base_drawing(x)
         else:
@@ -270,7 +272,7 @@ with torch.no_grad():                                          # the field's gra
         video = kind == "lattice" and name != "target"
         if drawn:
             ext, _, seen = discs(pts, normals, sigma, opacity, apart)
-            label = "target sample" if name == "target" else f"raw {name} (window {int(name) / 40:.0f})"
+            label = "target sample" if name in ("target", "own") else f"raw {name} (window {int(name) / 40:.0f})"
             labels = (f"{label}: base display, {len(x)} particles", f"{label}: exterior, {len(pts)} discs, the field's normals", "exterior, the base display's normal treatment")
             pictures = (base, tint(ext, seen), tint(ext_shown, seen))
             sheet(pictures, labels, out / (f"crop/{order:04d}.jpg" if video else f"{name}.jpg"), True)

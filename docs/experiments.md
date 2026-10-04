@@ -459,6 +459,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D64, the fine render picture at the field's resolution (pre-registered 2026-10-04 02:15 CDT;
+  `--render_exterior --render_res_hi 192`; `output/gpu/d64`).** Why: on the display (4K, against the target,
+  every kept frame) the render on the exterior is ahead of the physics-only twin on the bunny but not on the
+  dragon at 300k, whose horn crop it leaves behind the twin (IoU 0.966 against 0.973 at the end, 0.950 against
+  0.970 at window 20), although its own terms at 96 px are 2 to 2.6 times lower. At 96 px a pixel of the
+  dragon's picture is 2.5 pitches at 300k (0.122 wu) and a horn is one to two pixels thick: the term cannot
+  place what it does not resolve, and it holds nine tenths of the gradient. The particle cloud bounded the
+  picture's resolution (a pixel must hold particles); the exterior's bound is the field's lattice, 0.92
+  pitches, which a pixel of 192 px reaches at 300k (1.27 pitches on the dragon, about one on the bunny). One
+  value changes: the fine level of the coarse-to-fine event, 96 → 192 (the lattice follows as defined, half a
+  pixel and no coarser than 0.92 pitches).
+  Runs: dragon 300k and bunny 300k, one each first; read against D62's P, La and Lb on the yardstick at 96
+  and at 192 px and on the display.
+  Criterion: the dragon's horn crop on the display ends at the physics-only twin's or better (IoU 0.973,
+  difference 0.0160) with the front picture no worse than La's; on the bunny nothing is lost against La.
+  Expectation: the horn crop gains; a window costs more (about twice the discs, four times the pixels); the
+  transport energy stays above the twin's.
 - **D63, stage 3: fewer interior particles under the exterior (pre-registered 2026-10-04 00:28 CDT, while D62's
   dragon runs are still out; the user: "이게 증명되면 3단계 … 그 후 입자수를 줄이면서 확인 … 항상 '모든 프레임'에서
   검증"; `output/gpu/d63`).** The interior at N = 100 000, 50 000 and 30 000 on the bunny and the dragon (300 000
@@ -476,6 +493,44 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   is 0.8 pitches, so the thinnest drawn sheet is 1.44 times as thick at 100k as at 300k, 1.8 at 50k, 2.15 at
   30k), so the thin crop is what gives way first, between 100k and 50k; sheets in concavities grow the same
   way; run time falls about with N (dragon 100k: 8 min against 54 at 300k).
+  **Result (2026-10-04 03:32 CDT; every kept frame; `output/video_2026-10-04/d63_fewer_particles/twin_*.png`;
+  the display is read with `surface_layer_probe.py … measure ref=<300k frames>`): the render keeps its effect
+  on its own terms at every N; the displayed result does not hold below 300k, and what bounds it is the sample,
+  not the run.**
+  The render at each N (yardstick, each N's own target, last frame): the exterior's silhouette is 3.5–4.9
+  times below the physics-only twin's on the bunny at 100k (0.00050, 0.00070 against 0.00245), 4.0–4.3 at 50k,
+  3.3–3.7 at 30k, and 2.4–3.1 on the dragon at 50k, 3.7–4.2 at 30k; the shading 12–26 % below, beyond the
+  two runs' difference at every N; the transport energy 3 to 4.5 times the twin's.
+  The display against the 300k reference (mean of the last 20 kept frames; IoU of the solid regions / the
+  pictures' difference), with, in the last column, the same reading of that N's own target sample, what a
+  perfect run at that N would show:
+
+  | mesh, N | run time (s): P, La, Lb | front: P | front: La | thin crop: P | thin crop: La | front and thin crop of the N's own target sample |
+  |---|---|---|---|---|---|---|
+  | bunny 300k | 975, 955, 798 | 0.9868 / 0.0099 | 0.9910 / 0.0092 (Lb 0.9909 / 0.0092) | 0.9705 / 0.0116 | 0.9779 / 0.0098 (Lb 0.9777 / 0.0106) | the reference |
+  | bunny 100k | 232, 342, 273 | 0.9815 / 0.0155 | 0.9831 / 0.0153 | 0.9492 / 0.0185 | 0.9589 / 0.0163 | 0.9825 / 0.0111, 0.9607 / 0.0136 |
+  | bunny 50k | 124, 168, 169 | 0.9723 / 0.0204 | 0.9671 / 0.0227 | 0.9390 / 0.0224 | 0.9355 / 0.0240 | 0.9698 / 0.0174, 0.9404 / 0.0208 |
+  | bunny 30k | 124, 137, 108 | 0.9653 / 0.0248 | 0.9666 / 0.0256 | 0.9071 / 0.0307 | 0.9033 / 0.0299 | 0.9672 / 0.0214, 0.9059 / 0.0270 |
+  | dragon 300k | 1 684, 2 259, 2 245 | 0.9875 / 0.0118 | 0.9876 / 0.0135 | 0.9717 / 0.0160 | 0.9686 / 0.0194 | the reference |
+  | dragon 100k | 460, 464, 457 | being drawn | 0.9752 / 0.0217 | being drawn | 0.9341 / 0.0352 | 0.9791 / 0.0171, 0.9498 / 0.0267 |
+  | dragon 50k | 218, 242, 221 | 0.9615 / 0.0258 | 0.9570 / 0.0271 | 0.9355 / 0.0375 | 0.9196 / 0.0429 | 0.9619 / 0.0221, 0.9387 / 0.0318 |
+  | dragon 30k | 165, 166, 130 | 0.9515 / 0.0330 | 0.9505 / 0.0331 | 0.8676 / 0.0592 | 0.8723 / 0.0564 | 0.9560 / 0.0291, 0.8896 / 0.0509 |
+
+  The two 300k runs of the bunny agree to 0.0002 in the IoUs and 0.0008 in the crop's difference; against
+  that, every lower N is outside: at 100k the whole picture is 0.008–0.012 lower in IoU and the thin crop
+  0.019–0.035, at 50k 0.024–0.031 and 0.042–0.049, at 30k 0.024–0.037 and 0.075–0.096. The question had no N
+  below 300k for an answer.
+  Why: each N's own target sample, drawn by the same exterior, is already that far from the 300k reference
+  (bunny 100k: 0.9825 and 0.9607; the runs: 0.9815–0.9831 and 0.9492–0.9589). The runs sit at their sample's
+  level, the render moves them by a few thousandths either way, and the physics-only twin is as close. The
+  exterior takes the fuzz off at any N; it does not add resolution: where the drawn surface lies is set by the
+  field's pitch, which is the interior's (kernel 3 pitches, offset 0.8). The expectation that the whole
+  picture would hold to 50k was wrong; the thin crop does give way first, already at 100k.
+  What a lower N buys: a run of 4.5–5.7 min at 100k, 2.8–4 at 50k, 1.8–2.8 at 30k against 13–16 (bunny) and
+  37 (dragon) at 300k. Fewer interior particles under this exterior is therefore a trade of thin-part accuracy
+  for time, not a free saving; a finer drawn surface from fewer particles would need the interior itself to
+  be finer where the surface is (the variable-mass shell of the proposal's fourth stage), which is the user's
+  decision.
 - **D62, stage 2: the render terms read on the exterior (pre-registered 2026-10-03 23:46 CDT; the user: "2단계
   구현 후에는. 그래프를 그려가면서 Physics-only, w/ render 를 비교해가면서 실험 … 이게 증명되면 3단계"; code
   `--render_exterior`: `physmorph/render/exterior.py` (Tracked), `render_loss.py` (shaded_discs, d_exterior),
@@ -568,8 +623,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   0.5 to 1.06 of R's time. Render influence: λ at the first window 0.203 / 0.323 / 0.321 (R: 0.249 / 0.42 /
   0.396), g_share median 0.91–0.94; the path is the gradient of the two terms through the discs' positions and
   normals to the particles within the kernel of each disc; the λ = 0 twin is P.
-  The display's own reading (the exterior at 4K against the target's, every kept frame) is being drawn and is
-  added below.
+  **The display's own reading (2026-10-04 03:25 CDT; the exterior at 4K against the target sample's: front
+  camera, its thin crop, a camera on the far side; every kept frame of P, R and La; the same plots, display
+  panels; mean after window 10 over the frames all three have / last frame): met on the bunny, in the solid
+  regions on the dragon at 100k, not on the dragon at 300k.**
+
+  | run | front: IoU | front: pictures' difference | thin crop: IoU | thin crop: difference | far side: IoU | far side: difference | field's roughness, last |
+  |---|---|---|---|---|---|---|---|
+  | bunny 300k P | 0.9855 / 0.9870 | 0.0108 / 0.0099 | 0.9656 / 0.9703 | 0.0130 / 0.0116 | 0.9868 / 0.9887 | 0.0094 / 0.0087 | 11.4° |
+  | bunny 300k R | 0.9847 / 0.9869 | 0.0125 / 0.0125 | 0.9609 / 0.9698 | 0.0144 / 0.0126 | 0.9873 / 0.9899 | 0.0110 / 0.0106 | 15.0° |
+  | bunny 300k La | 0.9883 / 0.9909 | 0.0104 / 0.0092 | 0.9675 / 0.9771 | 0.0133 / 0.0102 | 0.9911 / 0.9922 | 0.0091 / 0.0080 | 11.4° |
+  | dragon 100k P | 0.9772 / 0.9799 | 0.0143 / 0.0127 | 0.9555 / 0.9618 | 0.0184 / 0.0156 | 0.9799 / 0.9813 | 0.0157 / 0.0144 | 13.9° |
+  | dragon 100k R | 0.9786 / 0.9809 | 0.0167 / 0.0140 | 0.9540 / 0.9643 | 0.0204 / 0.0176 | 0.9808 / 0.9838 | 0.0178 / 0.0147 | 15.8° |
+  | dragon 100k La | 0.9846 / 0.9863 | 0.0149 / 0.0125 | 0.9630 / 0.9641 | 0.0192 / 0.0181 | 0.9833 / 0.9858 | 0.0160 / 0.0138 | 13.6° |
+  | dragon 300k P | 0.9802 / 0.9874 | 0.0155 / 0.0119 | 0.9569 / 0.9730 | 0.0215 / 0.0160 | 0.9800 / 0.9874 | 0.0169 / 0.0132 | 22.6° |
+  | dragon 300k R | 0.9811 / 0.9853 | 0.0178 / 0.0148 | 0.9571 / 0.9718 | 0.0242 / 0.0186 | 0.9800 / 0.9852 | 0.0196 / 0.0169 | 23.3° |
+  | dragon 300k La | 0.9838 / 0.9871 | 0.0158 / 0.0137 | 0.9572 / 0.9664 | 0.0234 / 0.0201 | 0.9825 / 0.9862 | 0.0173 / 0.0147 | 21.3° |
+
+  R, the render on the particle cloud, is behind the physics-only twin in the pictures' difference on all
+  three, front and far side (10–27 % more at the end), and leaves a rougher surface (15.0° against 11.4° on the
+  bunny): on the display it does not help, at any of the three.
+  La on the bunny is ahead of P on every measure at the end (IoU +0.004 front, +0.007 thin crop, +0.003 far
+  side; differences −7 %, −12 %, −8 %). On the dragon at 100k it is ahead in the solid regions (front +0.006,
+  far side +0.005, crop +0.002) and level in the differences except the crop (+16 %). On the dragon at 300k
+  it is level with P in the solid regions at the end (front 0.9871 against 0.9874) and behind in the horn crop
+  (0.9664 against 0.9730) and in the differences (+15 % front, +26 % crop, +11 % far side). Earlier it is far
+  ahead (window 10: front IoU 0.966 against 0.897; window 20: level, with the crop at 0.950 against 0.970): the
+  render brings the body in sooner and leaves the horns behind the twin, which goes on to 102 commits where La
+  stops at 61 with seven times the transport energy.
+  So what is shown: the render on the exterior acts on the drawn surface at every mesh and N by its own terms
+  (96 px, 18 views), reproducibly; on the 4K picture that gain shows where a 96 px pixel resolves the target's
+  parts (the bunny; the dragon's body), and it is a loss on the dragon's horns at 300k, which are one to two
+  such pixels thick (D64 takes the picture's resolution).
+  Also on La's frames: the last frame of the dragon at 300k shows no set apart from the main one (R's: 3 733
+  pixels, the blob under the tail), and the base display's own soft pixels in the horn crop are 10 680
+  against R's 14 473. Lb's frames are being drawn for the spread of this reading.
 - **D61, the exterior's field: Solenthaler's factor on the offset (stage 1c; display only; pre-registered
   2026-10-03 23:33 CDT; the user: "OK. 들어가 줘" to the field first, then stages 2 and 3; code
   `physmorph/render/exterior.py`, `surface_layer_probe.py … FIELD`).** D59's webs between the ears, sheets in
