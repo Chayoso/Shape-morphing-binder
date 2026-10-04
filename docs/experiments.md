@@ -459,6 +459,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D71, the minimum spacing lets no material out through the free surface (pre-registered 2026-10-04 13:26
+  CDT at launch; code: `kernels.k_update`; server `repo_r67`; `output/gpu/d71`, `tmp/d71.sh`).** The cause is
+  D70's last paragraph: the rule's move has a mean of zero inside the body and an outward mean in the outermost
+  layer (+0.26 and +0.46 pitches summed over a run), because a layer particle has no neighbour outside. The
+  rule is meant to redistribute material inside the body, and its definition has no condition at the body's
+  boundary. The change is that condition and nothing else: a particle of the outermost layer (the relaxation's
+  mask and normal, frozen at the window's start) keeps only the part of its move along the surface. Its
+  coordinate along the normal stays with the two rules that already own it, the relaxation and u. Two lines in
+  the kernel; r, the neighbour rows and every particle under the layer are as in D70. Not done: the half a
+  layer particle declines is not given to its partner (a pair across the layer's boundary closes at half the
+  rate along the normal).
+  Runs: D70's four again (bunny and dragon 300k; physics-only PB, render on the exterior at 192 px LB), read
+  as D70 on every kept frame, with `spacing_flux_probe.py` on each.
+  Criteria: the mean offset within 0.05 pitches of the runs without the rule on all four (D70 failed three);
+  the outward move under the layer (to 4 pitches) summed over the run at most half of D70's; D70's gains kept:
+  the band below 4 pitches at or under a sample's, the 4–11 band's excess at most half of that without the
+  rule, the density's spread at or under 0.21 (dragon with render 0.24), the pictures' difference within 0.0005
+  of D70's, no solid region's IoU lower than D70's by more than 0.0008; the thin share uncovered read against
+  D70's and the runs without the rule, which separates fattening from the swelling. The render's effect is
+  read as before (LB against PB on the yardstick and the display, every frame), and where the render arm
+  stops.
+  Expectation: the bunny's mean offset returns to within 0.03 of the runs without the rule; the dragon keeps
+  part of it (its outward move is also under the layer), within 0.08; the bands hold; the thin share uncovered
+  rises part of the way back (to 7–10 %). Risks: particles pile under the layer (the density just under the
+  surface rises), particles from under the layer pass between the layer's particles and become the layer.
 - **D70, a minimum spacing in the position update (pre-registered 2026-10-04 11:55 CDT; the user: "A를 진행 해
   보자", "원인을 감추지만 말아 줘. overengineering도 금지 … 항상 '알고리즘' core를 수정", "'항상' 랜더 Gradient가
   영향을 끼치는지 확인"; code: `kernels.k_update`, `--min_spacing 0.9`; server `repo_r66`; `output/gpu/d70`).**
@@ -492,6 +517,111 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pictures' difference by a fifth to a third of the gap; a window costs under 5 % more. Risks: thin sheets
   fatten (a sheet one or two particles thick is pushed to r), the body swells where clumps were, the transport
   slows because the projection works against a control that presses material together.
+  Primary sources (one agent; received 12:06 CDT, after the runs were started; five of ten papers read in full,
+  the others through their authors' theses or later papers, as marked in its report): the rule is of the kind
+  hybrid particle-grid methods use, Ando and Tsuruno 2011 (Eq. 7) and Ando, Thuerey and Tsuruno 2012 (Eq. 18):
+  every step a particle is pushed away from each neighbour within a distance d, along the unit vector, weighted
+  1 − r²/d², with no rule for the free surface; they re-sample the velocity afterwards and name the fault of
+  the isotropic form, it "can lead to a thickening of thin surfaces, or a smearing out of sharp features". In
+  MPM, Baumgarten and Kamrin 2023 shift material points and leave "material and state properties unchanged",
+  as here (F, C and the velocity are not touched); their grid-based correction is a node quantity and cannot
+  order particles below a cell, and of the rules they compare the neighbour-based one of Xu, Stansby and
+  Laurence 2009 (δr = C α Σ (r̄²/r²) n over a fixed list of neighbours) gave the evenest arrangement. The
+  concentration-gradient shifting of SPH (Lind 2012, Khayyer 2017, Sun 2017–2019) needs a free-surface rule
+  (tangential projection, eigenvalue thresholds, a step limit) to keep the surface in place, which is what
+  D69's first candidate lacked. What differs here from Ando's form: the push is the overlap below r (zero
+  beyond it), not a kernel of the distance, so a pair at r or farther is left alone.
+  **Result (2026-10-04 13:27 CDT; the four runs to their own stop; every reading on all kept frames, the tables
+  the mean of the last 20; `output/gpu/d70`: `t_`, `a_`, `o_`, `e_`, `f_` logs, `twin_{bunny,dragon}300k.png`,
+  local `output/video_2026-10-04/d70_min_spacing/`).** P and L192 are D60's and D64's runs without the rule, PA
+  and LA the same two with it.
+
+  | run | seconds | commits | silhouette IoU | thin uncovered | chamfer | transport energy at the end |
+  |---|---|---|---|---|---|---|
+  | bunny P | 975 | 79 | 0.9846 | 13.2 % | 0.0577 | 3.8e-5 |
+  | bunny L192 | 1258 | 63 | 0.9859 | 13.4 % | 0.0578 | 1.9e-4 |
+  | bunny PA | 1156 | 87 | 0.9849 | 4.8 % | 0.0550 | 2.1e-5 |
+  | bunny LA | 821 | 47 | 0.9862 | 6.7 % | 0.0553 | 1.6e-4 |
+  | dragon P | 1684 | 102 | 0.9823 | 16.5 % | 0.0583 | 1.4e-4 |
+  | dragon L192 | 4820 | 69 | 0.9836 | 18.3 % | 0.0588 | 1.0e-3 |
+  | dragon PA | 1781 | 97 | 0.9819 | 5.3 % | 0.0545 | 6.8e-5 |
+  | dragon LA | 2582 | 89 | 0.9832 | 8.1 % | 0.0552 | 5.5e-4 |
+
+  Under the surface (end frame, 1.5–4 pitches under the outer layer): the density's spread is 0.168 (bunny PA),
+  0.197 (LA), 0.198 (dragon PA), 0.238 (LA), against 0.29 and 0.43 without the rule and a sample's 0.21; every
+  particle's nearest neighbour is at r (median 1.07–1.08 display pitches, 5th percentile 1.05–1.07; a sample's
+  0.71 and 0.36). That is not a jammed packing (the packing fraction is about 0.41): a pair that was pressed is
+  moved to r and left there, and in a random sample nearly every particle has such a neighbour.
+  The surface against the mesh, in pitches (D66's probe; a sample: bunny 0.103 / 0.132 / +0.202 / 11.5°, dragon
+  0.121 / 0.153 / +0.562 / 12.6°):
+
+  | run | below 4 pitches | 4–11 | mean offset | field normal's error, median |
+  |---|---|---|---|---|
+  | bunny P | 0.118 | 0.176 | +0.269 | 13.1° |
+  | bunny L192 | 0.118 | 0.169 | +0.283 | 12.9° |
+  | bunny PA | 0.085 | 0.142 | +0.308 | 9.3° |
+  | bunny LA | 0.087 | 0.145 | +0.382 | 9.7° |
+  | dragon P | 0.164 | 0.257 | +0.568 | 16.9° |
+  | dragon L192 | 0.161 | 0.228 | +0.594 | 16.6° |
+  | dragon PA | 0.109 | 0.166 | +0.701 | 11.3° |
+  | dragon LA | 0.115 | 0.168 | +0.741 | 11.1° |
+
+  The display against the target (IoU / mean picture difference; the floor is D65's second sample):
+
+  | run | front | thin crop | far side | field roughness |
+  |---|---|---|---|---|
+  | bunny floor | 0.9906 / 0.0063 | 0.9795 / 0.0071 | 0.9904 / 0.0059 | 9.8° |
+  | bunny P | 0.9868 / 0.0099 | 0.9705 / 0.0116 | 0.9883 / 0.0086 | 11.2° |
+  | bunny L192 | 0.9912 / 0.0096 | 0.9794 / 0.0100 | 0.9926 / 0.0079 | 11.2° |
+  | bunny PA | 0.9900 / 0.0075 | 0.9784 / 0.0086 | 0.9907 / 0.0068 | 3.2° |
+  | bunny LA | 0.9923 / 0.0084 | 0.9796 / 0.0094 | 0.9926 / 0.0068 | 4.5° |
+  | dragon floor | 0.9912 / 0.0074 | 0.9793 / 0.0112 | 0.9918 / 0.0072 | 13.6° |
+  | dragon P | 0.9875 / 0.0118 | 0.9717 / 0.0160 | 0.9871 / 0.0130 | 22.2° |
+  | dragon L192 | 0.9898 / 0.0127 | 0.9726 / 0.0182 | 0.9901 / 0.0137 | 20.9° |
+  | dragon PA | 0.9881 / 0.0102 | 0.9784 / 0.0139 | 0.9890 / 0.0108 | 5.0° |
+  | dragon LA | 0.9897 / 0.0106 | 0.9724 / 0.0162 | 0.9888 / 0.0115 | 6.9° |
+
+  Criteria. Met: no pressed pairs and the density's spread at or under a sample's (dragon LA 0.03 above it); the
+  band below 4 pitches under a sample's on both meshes (0.085–0.087 against 0.103, 0.109–0.115 against 0.121);
+  the 4–11 band's excess over a sample cut from 0.037–0.044 to 0.010–0.013 (bunny) and from 0.075–0.104 to
+  0.013–0.015 (dragon), more than the half asked; the pictures' difference a third of the way to the floor or
+  more (bunny front 0.0099 → 0.0075 physics-only, 0.0096 → 0.0084 with render; dragon 0.0118 → 0.0102, 0.0127 →
+  0.0106); the transport energy lower, not higher (end value −45 % and −52 % physics-only, −12 % and −45 % with
+  render); the physics-only runs 6–19 % longer. Not met: the body is further out, by 0.04 (bunny PA), 0.10
+  (bunny LA), 0.13 (dragon PA) and 0.15 pitches (dragon LA) against the 0.05 allowed; the dragon's far side with
+  render is 0.0013 lower in IoU than without the rule (allowed 0.0008); the render arm's silhouette on the
+  yardstick is 1.8 times below its twin's on both meshes, not twice. The expectation held for the bands and was
+  low for the pictures (the physics-only bunny closed two thirds of the gap to the floor); the risk "the body
+  swells" came true, "thin sheets fatten" is not separable from it here (the thin share uncovered falls from
+  13–18 % to 5–8 %, part of which is the surface standing further out), "the transport slows" did not.
+  The render's influence under the rule (first-window λ 0.206 bunny, 0.336 dragon; median g_share 0.94 on both;
+  the λ = 0 twin is PA; path as D62, the exterior's silhouette term through u and dFc). On the yardstick the
+  exterior's silhouette term ends at 0.000438 against the twin's 0.000787 (bunny) and 0.000577 against 0.001051
+  (dragon), 1.8 times below; without the rule the ratio was 2.5 and 2.4 (0.000510 against 0.001259, 0.000542
+  against 0.001291). The render arm's own level did not move; the twin came down, because the rule alone lowers
+  the exterior's silhouette term by 37 % and 19 %. Shading: no effect (0.000537 against 0.000568, 0.000678
+  against 0.000685). On the display the render arm is ahead in IoU on the bunny (+0.0023 front, +0.0012 crop,
+  +0.0019 far side) and on the dragon's front (+0.0016), behind on the dragon's horn crop (−0.0060) and behind
+  in the pictures' difference on both (0 to +0.0023). It does not change what the rule gives: the bands and
+  the roughness are the same in both arms within 0.006 pitches and 2° (the density's spread is 0.03–0.04
+  higher with render). Part of the
+  difference is the stop: at window 40 the bunny's render arm is ahead in front IoU (0.9918 against 0.9891) and
+  level in difference (0.0084 against 0.0086); its fine stage begins there and ends at window 55, three
+  candidates rejected by the outer merit while the physics gain is positive (+0.003 to +0.005, reversal −0.45
+  to −0.51), 47 commits against the twin's 87, and the twin lowers its difference from 0.0086 to 0.0075 in the
+  windows the render arm does not run. That is the merit alternation parked on 2026-09-30, now the thing that
+  ends the render arm; recorded, not changed here.
+  Why the body is further out (measured, `scripts/probes/settled/spacing_flux_probe.py`, every kept frame of
+  PA): the rule's own move is
+  split along the outward normal by depth under the outermost layer. Deeper than 4 pitches its mean is zero on
+  every frame (within 0.0001 pitches a window): there the rule only redistributes. In the outermost layer it is
+  outward: +0.039 pitches a window on the first frame (+0.038 on the target sample itself), +0.004 (bunny) and
+  +0.008 (dragon) at window 20, +0.0005 and +0.0011 at the end, where it is half of the layer's whole move;
+  summed over the run +0.26 pitches (bunny) and +0.46 (dragon); under the layer to 1.5 pitches +0.04 and +0.21,
+  from 1.5 to 4 pitches +0.03 and +0.13. A layer particle has neighbours under it and none outside, so half of
+  every overlap is an outward move nothing balances: the rule as written carries material out through the free
+  surface, and the objective holds only part of it back. The rule is missing its condition at the free surface
+  (the same fault as D69's first candidate, at a smaller size; Ando's form shares it). D71 is that condition.
 - **D69, what is uneven under the surface, and whether evening it evens the surface (measurements on kept
   frames, no code of the run changes; pre-registered 2026-10-04 11:43 CDT; the user: "A를 진행 해 보자 … 원인을
   감추지만 말아 줘. overengineering도 금지 … 항상 '알고리즘' core를 수정"; `tmp/arrangement.py`,

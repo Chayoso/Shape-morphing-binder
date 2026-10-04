@@ -332,7 +332,8 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              dt: float, s: float,
              nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
              frag: wp.array(dtype=float), bond_K: int, bond_frac: float,
-             snbr: wp.array(dtype=int), space_K: int, space_r: float):
+             snbr: wp.array(dtype=int), space_K: int, space_r: float,
+             lmask: wp.array(dtype=float), lnrm: wp.array(dtype=wp.vec3)):
     p = wp.tid()
     F_out[p] = (1.0 - s) * F_new[p] + s * F_in[p]   # blend new with OLD F
     xp = x_in[p] + dt * v[p]
@@ -353,13 +354,18 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
         # MINIMUM SPACING (D70): the grid holds about 200 particles a cell and cannot see two of them pressed
         # together, so where the material is stretched and torn the arrangement under the surface ends uneven
         # (D68, D69). A particle is moved away from each of its frozen neighbours (the nearest at the window's
-        # start) that is nearer than space_r, by half the overlap, over one window like the bonds
+        # start) that is nearer than space_r, by half the overlap, over one window like the bonds. The rule
+        # redistributes material inside the body: a particle of the outermost layer has no neighbour outside to
+        # balance the ones under it, so it keeps only the part of its move along the surface (D71; with the whole
+        # move the layer was carried outward by 0.26 pitch over a run and the body swelled, D70)
         push = wp.vec3(0.0, 0.0, 0.0)
         for a in range(space_K):
             d = x_in[p] - x_in[snbr[p * space_K + a]]
             L = wp.length(d)
             if L < space_r and L > 1.0e-9:
                 push = push + (space_r - L) * d / L
+        if lmask[p] > 0.5:
+            push = push - wp.dot(push, lnrm[p]) * lnrm[p]
         xp = xp + bond_frac * 0.5 * push
     x_out[p] = xp
 
