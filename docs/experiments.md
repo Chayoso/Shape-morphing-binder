@@ -459,6 +459,47 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D77 and D78, the render's share of the step is bounded by the rule that calibrates it (pre-registered
+  2026-10-04 16:17 CDT at launch of the first run; the user: "A, B 둘다 봐야", "Render gradient가 유의미한 결과를
+  낼 때까지 계속 진행"; code: `window/solve.py`; servers `repo_r69` (D77, this change alone) and `repo_r70`
+  (D78, with D74's pictures); `output/gpu/d77`, `output/gpu/d78`; `tmp/d77.sh`).** D73's first cause: the
+  weight λ is set once so that λ|g_render| = 0.5 |g_phys|, and held; the physics gradient then decays 30-fold
+  and the render gradient 1.4-fold, and from window 10 on the step is 91–96 % render. The change: the same
+  rule with the same constant holds at every gradient as a bound on the step, the render gradient enters at
+  min(λ, 0.5 |g_phys| / |g_render|), so its share of the step is at most a third. The merit does not change: E
+  = L_phys + λ L_render with the one λ is what the line search and the outer acceptance compare, and the line
+  search's slope is taken on E's own gradient. Five lines; no new constant. This is not the earlier balancer
+  (which moved the merit's own weight every iteration and was a source of oscillation): the function being
+  minimised stays one function.
+  Primary sources (one agent, received 16:10 CDT; method and theory sections read from the arXiv sources, not
+  cover to cover; Désidéri 2012 only through Sener and Koltun): PCGrad (Yu 2020) acts only on a negative
+  cosine, "the original gradient remains unaltered" otherwise, and names the regime here, a dominating
+  gradient whose improvement "may be significantly overestimated". Rules driven by loss ratios (GradNorm,
+  Chen 2018) put "more weight on tasks whose losses are dropping more slowly", which is the term at its floor.
+  MGDA's min-norm point (Sener and Koltun 2018) takes the physics gradient alone whenever the cosine exceeds
+  the ratio of the norms (0.05 here), dropping the render from the step. The rules that bound an auxiliary
+  gradient by the main one's norm are MetaBalance (He 2022: the auxiliary gradient is scaled to the target's
+  norm when it exceeds it), MTAdam (Malkiel and Wolf 2020, anchored on the first term) and the gradient-
+  statistics weights of physics-informed networks (Wang, Teng and Perdikaris 2021), none with a line search
+  on a fixed merit. For that part: a direction d = −(g_p + β g_r) is a descent direction of E for any β ≥ 0
+  when the cosine of the two gradients is not negative, which the projection guarantees, and backtracking on
+  a descent direction keeps Zoutendijk's condition (Nocedal and Wright, Thm 3.2); through Adam's diagonal
+  scaling that is not automatic, so the slope is computed on E's gradient as the code already does. Reported
+  cautions: equalising norms lifts a noisy gradient to parity (MetaBalance: exact equality "might not be
+  optimal for the target task"); Kurin 2022 and Xin 2022 find such methods land on the scalarisation front,
+  the question being which weight, not which method.
+  Runs: bunny and dragon 300k with D70's rule and the render on the exterior, 64 then 192 px (LD, D77) and
+  126 then 192 px (LE, D78), against PA (the physics-only twin), LA (D70), LC (D74) and LW (D75). Read as D74,
+  every kept frame, momentum included.
+  Criteria: D74's list (the render arm at least as good as its twin on every measure, at the end and at
+  every window from 20 on). What the cause predicts, for D77 alone: the render's share at most 0.34 in every
+  window; the physics gain per window and the transport energy within a factor of two of the twin's from
+  window 20 on; the kinetic energy at the end within a factor of ten of the twin's (it was 50–100 times).
+  Expectation: the transport energy and the rest at the end come to the twin's level; the early lead of the
+  render arm (windows 2–10, share 0.5–0.9 until now) shrinks; with 64 px (D77) the display ends level with
+  the twin, not ahead, because the coarse picture has little to add; with 126 px (D78) the yardstick
+  silhouette is below the twin's throughout and the display ahead at the end. Risk: at 40k, where the large
+  share helps, the bound takes that help away (the gallery has to be read before this is a default).
 - **D75, the render weight at a tenth (a probe with an existing flag, not a candidate; pre-registered
   2026-10-04 15:59 CDT at launch; `--render_weight_scale 0.1`, server `repo_r66`; `output/gpu/d75`).** D73's
   first cause: the weight is set once, and the render's share of the step grows to 0.91–0.96 while the physics

@@ -196,8 +196,16 @@ class WindowOptimizer:
         gr = pcgrad(gp, gr_raw)
         if it == 0:
             self._calibrate_lambda(gp, gr, gr_raw)
-        g = [a + self.lam_r * b for a, b in zip(gp, gr)]
-        return [gi + di for gi, di in zip(g, gdt)], diag
+        # the calibration's rule holds at every gradient, not only at the first: the render gradient enters the
+        # step at no more than lambda_auto of the physics gradient's size. Held at lambda alone it was 10-25 times
+        # the physics gradient from window 10 on, and the physics objective got a few per cent of the step (D73).
+        # The merit keeps lambda: E is one function, and the line search's slope is taken on its gradient
+        np_, nr_ = _norm(gp), _norm(gr)
+        beta = min(self.lam_r, cfg.lambda_auto * float(cfg.render_weight_scale) * np_ / max(nr_, 1e-30))
+        if it == 0:
+            self.tele["g_share"] = beta * nr_ / max(np_ + beta * nr_, 1e-30)
+        self.g_merit = [a + self.lam_r * b + di for a, b, di in zip(gp, gr, gdt)]
+        return [a + beta * b + di for a, b, di in zip(gp, gr, gdt)], diag
 
     def _calibrate_lambda(self, gp, gr, gr_raw):
         """lambda from the PROJECTED render gradient, once per target resolution; the
@@ -253,7 +261,7 @@ class WindowOptimizer:
             e_n = self.eval()
             with torch.no_grad():
                 new = self.scalar(e_n)
-                pred = -float(sum((gi.detach() * (p - b)).sum() for gi, p, b in zip(g, self.leaves, bak)))
+                pred = -float(sum((gi.detach() * (p - b)).sum() for gi, p, b in zip(self.g_merit, self.leaves, bak)))
                 self.tele["predicted_decrease"] = pred
                 # the Armijo slope counts only when the model predicts descent; else the
                 # noise floor (a stale moment can point against a fresh gradient)
