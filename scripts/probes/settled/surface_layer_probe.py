@@ -10,11 +10,14 @@ of about M points (no two nearer than r; parallel random-priority selection), si
 The discs, KIND `lattice` (stage 1b, every frame of a video): one disc for each cell of a lattice fixed in space that
 the zero set crosses, the cell's centre projected onto it and kept where it stays in its cell; the lattice's pitch h
 is set once so that the target sample's surface takes M discs; sigma h. Nothing is carried from frame to frame.
+KIND `measure`: the lattice's discs and their numbers against the reference only (no base display, no sheets).
 Two drawings of the discs (opacity 0.92): with the field's gradient as the normal, and with the base display's
 treatment of its normals (the mean over the neighbours within the reach of its 32 nearest particles, at most 256
 discs, twice). The discs of connected sets other than the largest are tinted red where they are seen.
 
-STATE: `target` or a raw frame index kept in FRAMES_NPZ (default: target and every kept frame).
+STATE: `target` or a raw frame index kept in FRAMES_NPZ (default: target and every kept frame). `ref=NPZ` among the
+states: the states are read against that file's target sample (drawn with its own pitch and from its camera) in place
+of the run's own, so that runs of different N share one reference (D63); `target` then draws that sample.
 `poisson` writes OUT_DIR/STATE.jpg (the crop: base display | exterior, field normals | exterior, display normals),
 STATE_whole.jpg and the layer's points (STATE_layer.npz); `lattice` writes OUT_DIR/crop/NNNN.jpg and whole/NNNN.jpg in
 the order of the states (target.jpg for the target). Per state a line of numbers: the layer's count, spacing, roughness
@@ -47,14 +50,18 @@ kind = sys.argv[4]
 M = 300000                                                     # the discs' budget
 z = np.load(sys.argv[1], allow_pickle=True)
 raws, frames = [int(v) for v in z["raws"]], z["frames"]
-states = sys.argv[5:] or ["target"] + [str(r) for r in raws]
+ref = next((s[4:] for s in sys.argv[5:] if s.startswith("ref=")), None)
+states = [s for s in sys.argv[5:] if not s.startswith("ref=")] or ["target"] + [str(r) for r in raws]
 W, H = 3840, 2160
 target = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
-center = target.mean(0)
-radius = float((target - center).norm(dim=1).max())
+# the sample the states are read against: the run's own target, or (ref=NPZ) another file's, drawn with its own pitch
+reference = target if ref is None else torch.as_tensor(np.asarray(np.load(ref, allow_pickle=True)["tgt"], np.float32), device=dev)
+center = reference.mean(0)
+radius = float((reference - center).norm(dim=1).max())
 td = knn_self_torch(target, 9)[0]
 sp, cov_r = float(td[:, 1].median()), float(td[:, 8].median())
 a = .708 * cov_r                                               # the volume sample's pitch
+a_ref = .708 * float(knn_self_torch(reference, 9)[0][:, 8].median())
 density_normals = DensityNormals(center, radius, sp)
 studio = StudioRaster(center, radius, W, H, 35., 18.)
 back = StudioRaster(center, radius, W, H, 215., 18.)           # the far side, for the measures against the target only
@@ -63,8 +70,8 @@ gen = torch.Generator(device=dev).manual_seed(0)
 lat = Lattice(center, 2.8 * radius)
 
 
-def field_of(x):
-    return ZhuBridson(x, a)
+def field_of(x, pitch=a):
+    return ZhuBridson(x, pitch)
 
 
 def poisson_disk(p, r, k=64):
@@ -87,6 +94,13 @@ def poisson_disk(p, r, k=64):
         accepted |= win
         undecided &= ~win & ~(near & win[nb]).any(1)
     return keep[accepted], p[accepted]
+
+
+def normal_reach(x, cov):
+    """The reach of the neighbourhood the base display averages its normals over at the surface (base_drawing's),
+    for a sample whose 8th-neighbour distance is cov."""
+    d, nb = knn_self_torch(x, 33)
+    return float(d[(x - x[nb[:, 1:]].mean(1)).norm(dim=1) >= .5 * cov, 32].median())
 
 
 def base_drawing(x):
@@ -218,50 +232,56 @@ def against(image, cover_, ref):
 
 print(f"N {len(target)}; target spacing {sp:.4f} wu, pitch a {a:.4f} wu = {a / sp:.2f} spacings; M {M}; {kind}")
 tint = lambda image, seen: image * (1. - .6 * seen[..., None]) + .6 * seen[..., None] * image.new_tensor((1., .1, .1))  # noqa: E731
+drawn = kind != "measure"                                      # `measure`: the lattice's numbers against the reference, no sheets
 with torch.no_grad():                                          # the field's gradient re-enables autograd where it needs it
-    if kind == "lattice":
+    if kind != "poisson":                                       # the pitch at which a sample's surface takes M discs
         h = .4 * a
-        h *= (len(lattice(field_of(target), h)[0]) / M) ** .5            # the pitch at which the target sample's surface takes M discs
-        print(f"lattice pitch {h / a:.3f} a")
-        for d in ("crop", "whole"):
+        h *= (len(lattice(field_of(target), h)[0]) / M) ** .5
+        h_ref = .4 * a_ref
+        h_ref *= (len(lattice(field_of(reference, a_ref), h_ref)[0]) / M) ** .5
+        print(f"lattice pitch {h / a:.3f} a" + ("" if ref is None else f"; reference {ref}: N {len(reference)}, pitch {a_ref:.4f} wu, lattice {h_ref / a_ref:.3f} of it"))
+        for d in ("crop", "whole") if drawn else ():
             (out / d).mkdir(exist_ok=True)
     solid, order, ref = [], 0, None                             # the solid regions of the last frames (base, exterior); the target's drawings
     for name in states:
-        x = target if name == "target" else torch.as_tensor(np.asarray(frames[raws.index(int(name))], np.float32), device=dev)
-        (base, base_cover), reach = base_drawing(x)
+        x = reference if name == "target" else torch.as_tensor(np.asarray(frames[raws.index(int(name))], np.float32), device=dev)
+        if drawn:
+            (base, base_cover), reach = base_drawing(x)
+        else:
+            reach = normal_reach(x, a_ref / .708 if name == "target" else cov_r)
         t0 = time.time()
-        field = field_of(x)
-        pts, normals, r, built = poisson(field) if kind == "poisson" else lattice(field, h)
+        field = field_of(x, a_ref if name == "target" else a)
+        pts, normals, r, built = poisson(field) if kind == "poisson" else lattice(field, h_ref if name == "target" else h)
         built["seconds"] = time.time() - t0
         spacing = float(knn_self_torch(pts, 2)[0][:, 1].median())
         if kind == "poisson":
             built.update(cover(pts, (r, .65 * spacing), field))
-        elif name == "target" or order % 40 == 0:
+        elif drawn and (name == "target" or order % 40 == 0):
             built.update(cover(pts, (r,), field))
         sigma = torch.full((len(pts),), r, device=dev)          # the set's covering radius
         opacity = torch.full((len(pts),), .92, device=dev)
         shown = display_normals(pts, normals, reach, spacing)
         n_sets, apart = connected_sets(pts, r)
-        ext, ext_cover, seen = discs(pts, normals, sigma, opacity, apart)
-        ext_shown = discs(pts, shown, sigma, opacity)[0]
+        ext_shown, ext_cover = discs(pts, shown, sigma, opacity)
         behind = discs(pts, shown, sigma, opacity, cam=back)
-        sb, se = stats(base_cover), stats(ext_cover)
-        both = ((base_cover >= .5) & (ext_cover >= .5)).sum()
-        either = ((base_cover >= .5) | (ext_cover >= .5)).sum()
-        label = "target sample" if name == "target" else f"raw {name} (window {int(name) / 40:.0f})"
-        labels = (f"{label}: base display, {len(x)} particles", f"{label}: exterior, {len(pts)} discs, the field's normals", "exterior, the base display's normal treatment")
-        video = kind == "lattice" and name != "target"
-        pictures = (base, tint(ext, seen), tint(ext_shown, seen))
-        sheet(pictures, labels, out / (f"crop/{order:04d}.jpg" if video else f"{name}.jpg"), True)
-        sheet(pictures, labels, out / (f"whole/{order:04d}.jpg" if video else f"{name}_whole.jpg"), False)
         row = dict(state=name, **built, discs=len(pts), r_over_a=r / a, spacing_median_over_a=spacing / a,
-                   sigma_over_base=r / sp, normal_reach_over_a=reach / a,
-                   field_normals=roughness(pts, normals), display_normals=roughness(pts, shown),
-                   sets=n_sets, apart=int(apart.sum()), apart_seen_pixels=dict(whole=int((seen >= .5).sum()), crop=int((in_box(seen) >= .5).sum())),
-                   base=sb, exterior=se, iou_solid=float(both) / float(either))
+                   sigma_over_base=r / sp, normal_reach_over_a=reach / a, field_normals=roughness(pts, normals),
+                   sets=n_sets, apart=int(apart.sum()), exterior=stats(ext_cover))
+        video = kind == "lattice" and name != "target"
+        if drawn:
+            ext, _, seen = discs(pts, normals, sigma, opacity, apart)
+            label = "target sample" if name == "target" else f"raw {name} (window {int(name) / 40:.0f})"
+            labels = (f"{label}: base display, {len(x)} particles", f"{label}: exterior, {len(pts)} discs, the field's normals", "exterior, the base display's normal treatment")
+            pictures = (base, tint(ext, seen), tint(ext_shown, seen))
+            sheet(pictures, labels, out / (f"crop/{order:04d}.jpg" if video else f"{name}.jpg"), True)
+            sheet(pictures, labels, out / (f"whole/{order:04d}.jpg" if video else f"{name}_whole.jpg"), False)
+            both = ((base_cover >= .5) & (ext_cover >= .5)).sum()
+            either = ((base_cover >= .5) | (ext_cover >= .5)).sum()
+            row.update(display_normals=roughness(pts, shown), base=stats(base_cover), iou_solid=float(both) / float(either),
+                       apart_seen_pixels=dict(whole=int((seen >= .5).sum()), crop=int((in_box(seen) >= .5).sum())))
         if name == "target":
             ref = ((ext_shown, ext_cover), behind)
-        elif ref is not None:                                   # the state against the target sample, as the exterior draws both
+        elif ref is not None:                                   # the state against the reference, as the exterior draws both
             views = dict(front=against(ext_shown, ext_cover, ref[0]), crop=against(in_box(ext_shown), in_box(ext_cover), [in_box(v) for v in ref[0]]),
                          back=against(*behind, ref[1]))
             row["to_target"] = {k: dict(iou=v[0], difference=v[1]) for k, v in views.items()}
@@ -271,6 +291,6 @@ with torch.no_grad():                                          # the field's gra
                 blip = [(s0 == s2) & (s1 != s0) for s0, s1, s2 in zip(*solid)]
                 row["blips_before"] = dict(base=int(blip[0].sum()), exterior=int(blip[1].sum()), base_crop=int(in_box(blip[0]).sum()), exterior_crop=int(in_box(blip[1]).sum()))
             order += 1
-        else:
+        elif drawn:
             np.savez(out / f"{name}_layer.npz", points=pts.cpu().numpy(), normals=normals.cpu().numpy(), shown=shown.cpu().numpy(), apart=apart.cpu().numpy(), sigma=r)
         print(json.dumps(row), flush=True)

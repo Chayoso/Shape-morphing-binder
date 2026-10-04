@@ -459,6 +459,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D63, stage 3: fewer interior particles under the exterior (pre-registered 2026-10-04 00:28 CDT, while D62's
+  dragon runs are still out; the user: "이게 증명되면 3단계 … 그 후 입자수를 줄이면서 확인 … 항상 '모든 프레임'에서
+  검증"; `output/gpu/d63`).** The interior at N = 100 000, 50 000 and 30 000 on the bunny and the dragon (300 000
+  is D62), each with one physics-only twin, run once and kept (`repo_r64`, `--render_weight_scale 0`), and two
+  runs with the render on the exterior (`repo_r65`, `--render_exterior`). The display stays the exterior of
+  300 000 discs.
+  Read at each N on every kept frame: the render terms on the yardstick against that N's own target sample
+  (physics-only against with-render, D62's criterion, so that the render's effect is shown at every N and not
+  assumed from 300k); the display against one reference for every N, the exterior drawing of the 300k target
+  sample from the same camera (front, thin crop, far side: IoU of the solid regions, the pictures'
+  difference); the run's seconds.
+  What is asked: down to which N the displayed result stays within the two 300k runs' own spread of the 300k
+  result on the whole picture and on the thin crop, and what a run costs there.
+  Expectation: the whole picture holds to 50k or lower; thin parts thicken with the field's pitch (its offset
+  is 0.8 pitches, so the thinnest drawn sheet is 1.44 times as thick at 100k as at 300k, 1.8 at 50k, 2.15 at
+  30k), so the thin crop is what gives way first, between 100k and 50k; sheets in concavities grow the same
+  way; run time falls about with N (dragon 100k: 8 min against 54 at 300k).
 - **D62, stage 2: the render terms read on the exterior (pre-registered 2026-10-03 23:46 CDT; the user: "2단계
   구현 후에는. 그래프를 그려가면서 Physics-only, w/ render 를 비교해가면서 실험 … 이게 증명되면 3단계"; code
   `--render_exterior`: `physmorph/render/exterior.py` (Tracked), `render_loss.py` (shaded_discs, d_exterior),
@@ -509,6 +526,50 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   14–28 s a window against 7 (the gather of the discs' particles had a sorting backward; `index_select` has
   not); a six-window check of the new rule at 300k follows the base (merit 0.0102 at window 5, gradient time
   7.1–9.0 s, 7–12 searches a window early).
+  **Result on the yardstick (2026-10-04 01:25 CDT; every kept frame of every run, `render_terms_probe.py` at
+  96 px; plots `output/video_2026-10-04/d62_render_twins/twin_*.png`; P = D60's twin, R = D59's base run, La and
+  Lb = the two runs with the render on the exterior): read on the exterior, the silhouette of L is 2 to 5.6
+  times below the physics-only twin's at the end on all three, by far more than the two L runs differ; the
+  render on the particle cloud (R) leaves the exterior's silhouette where the physics-only twin has it.**
+
+  | run | exterior silhouette, mean after window 10 / last | exterior shading | particle-cloud silhouette | particle-cloud shading | transport energy, last window | seconds, commits |
+  |---|---|---|---|---|---|---|
+  | bunny 300k P | 0.00150 / 0.00128 | 0.00093 / 0.00078 | 0.00131 / 0.00129 | 0.00054 / 0.00028 | 3.8e-5 | 975, 79 |
+  | bunny 300k R | 0.00140 / 0.00118 | 0.00103 / 0.00092 | 0.00088 / 0.00031 | 0.00058 / 0.00033 | 1.37e-4 | 904, 73 |
+  | bunny 300k La | 0.00108 / 0.00034 | 0.00082 / 0.00059 | 0.00147 / 0.00107 | 0.00080 / 0.00060 | 1.78e-4 | 955, 56 |
+  | bunny 300k Lb | 0.00073 / 0.00023 | 0.00070 / 0.00057 | 0.00127 / 0.00111 | 0.00072 / 0.00060 | 1.82e-4 | 798, 48 |
+  | dragon 100k P | 0.00261 / 0.00227 | 0.00162 / 0.00136 | 0.00279 / 0.00258 | 0.00064 / 0.00045 | 1.5e-4 | 460, 75 |
+  | dragon 100k R | 0.00221 / 0.00137 | 0.00187 / 0.00134 | 0.00220 / 0.00063 | 0.00071 / 0.00037 | 4.1e-4 | 917, 107 |
+  | dragon 100k La | 0.00147 / 0.00081 | 0.00154 / 0.00113 | 0.00257 / 0.00202 | 0.00085 / 0.00065 | 6.4e-4 | 464, 52 |
+  | dragon 100k Lb | 0.00195 / 0.00115 | 0.00178 / 0.00128 | 0.00297 / 0.00258 | 0.00093 / 0.00073 | 8.2e-4 | 457, 50 |
+  | dragon 300k P | 0.00317 / 0.00134 | 0.00164 / 0.00086 | 0.00310 / 0.00148 | 0.00085 / 0.00032 | 1.4e-4 | 1 684, 102 |
+  | dragon 300k R | 0.00245 / 0.00123 | 0.00181 / 0.00110 | 0.00214 / 0.00049 | 0.00093 / 0.00045 | 6.9e-4 | 3 237, 151 |
+  | dragon 300k La | 0.00162 / 0.00063 | 0.00128 / 0.00080 | 0.00252 / 0.00166 | 0.00098 / 0.00072 | 9.8e-4 | 2 259, 61 |
+  | dragon 300k Lb | 0.00175 / 0.00051 | 0.00135 / 0.00071 | 0.00274 / 0.00157 | 0.00108 / 0.00071 | 8.4e-4 | 2 245, 69 |
+
+  The render on the particle cloud (R against P, the reading the user asked for): it lowers its own silhouette
+  term 2.6 to 4.1 times by the end and takes nine tenths of the gradient (g_share 0.87–0.91), but the
+  silhouette of the drawn surface is 8 % below P's on the two 300k meshes (40 % at the dragon's 100k), the
+  drawn surface's shading is worse than P's at 300k (+18 %, +28 %), and the transport energy ends 2.8 to 4.9
+  times P's. At 300k the term's work goes into the cloud's own picture, which a few particles in a pixel can
+  satisfy, and not into the surface that is displayed.
+  The render on the exterior (L against P): the exterior's silhouette ends 3.8–5.6 times below P's on the
+  bunny, 2.0–2.8 on the dragon at 100k and 2.1–2.6 at 300k; the two L runs differ by 0.0001–0.0003 where the
+  effect is 0.0007–0.0015. The shading ends 25 % below P's on the bunny; on the dragon it is 6–18 % below, which
+  is within the two runs' difference at the end (beyond it in the mean at 300k). Silhouette plus shading, the
+  registered criterion: met at the end on all three; in the mean after window 10 on the bunny and on the dragon
+  at 300k, and by one of the two runs at 100k. Most of the gain comes at the fine resolution: within a few
+  windows of the switch to 96 px the exterior's silhouette falls three to four times (the plots).
+  What L does not do: the particle cloud's own terms stay at P's (silhouette) or above (shading); the run's
+  particle-silhouette IoU is 0.986 / 0.982 / 0.975–0.978 against R's 0.987 / 0.985 / 0.981.
+  Cost: the transport energy ends 4.3 to 7 times P's (R: 2.8 to 4.9); a window attempt takes 1.2 times R's on
+  the bunny, 1.0 on the dragon at 100k and 1.38 at 300k (28.2 s against 20.5; the criterion was 1.3), with 3 to
+  7 searches a window early and one late; the runs stop after 48–69 commits where R takes 73–151, so a run is
+  0.5 to 1.06 of R's time. Render influence: λ at the first window 0.203 / 0.323 / 0.321 (R: 0.249 / 0.42 /
+  0.396), g_share median 0.91–0.94; the path is the gradient of the two terms through the discs' positions and
+  normals to the particles within the kernel of each disc; the λ = 0 twin is P.
+  The display's own reading (the exterior at 4K against the target's, every kept frame) is being drawn and is
+  added below.
 - **D61, the exterior's field: Solenthaler's factor on the offset (stage 1c; display only; pre-registered
   2026-10-03 23:33 CDT; the user: "OK. 들어가 줘" to the field first, then stages 2 and 3; code
   `physmorph/render/exterior.py`, `surface_layer_probe.py … FIELD`).** D59's webs between the ears, sheets in
