@@ -459,6 +459,40 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D81, the render weight is calibrated at every window, and the selection rescores its references
+  (pre-registered 2026-10-04 17:51 CDT at launch; the user: "계속 진행 해 줘 지금 10 ~ 20% 이상 나와야 의미 있는
+  결과인 거니까"; code: `window/solve.py`, `run/selection.py`, `run/runner.py`, `target.py`; server `repo_r71`,
+  with D74's pictures; `output/gpu/d81`; `tmp/d81.sh`).** What D77 left: the render arm stops at about 50
+  commits where its twin runs to 87–97. Measured on the records of D77's and D78's runs (`tmp/rescore.py`: the
+  merit is the physics part plus λ times the render term, so each window's merit can be scored again with
+  another weight): with λ held from the first window the render term is 63–88 % of the merit's value; the
+  weight the calibration rule gives at those windows is 0.6–1.6 % of λ; the render term moves by ±3–7 % from
+  one window to the next at its floor, so the merit moves by ±2–6 % with it. The windows whose rejection ends
+  the coarse stage have a positive physics gain (+3.4, +1.6, +2.8, +0.8 %) and a merit that is worse as
+  recorded (−1.3, −2.1, −1.6, −6.0 %) and better with the rule's weight (+3.2, +1.5, +2.6, +0.6 %). D77 bounded
+  the step and left the merit with the first window's weight, so the line search and the acceptance still
+  judged by a function that is mostly the render term.
+  The change is to the weight's definition, and takes D77's bound back out: the calibration is made at every
+  window's first gradient (the balancer's own rule and moving average, which were there and were held after
+  the first window), and held for that window. The step is again the gradient of the function the line search
+  and the acceptance read. Because the merit is linear in the weight, the selection rescores its two
+  references (the last accepted window and the best one) with the judged window's weight from their own
+  render terms, in place of opening a new cost epoch when the weight moves; the delivered slice is chosen with
+  every window scored at the last weight. An epoch remains what it was at a change of the render pictures. The
+  solver loses six lines net; the selection gains about ten.
+  Runs: bunny and dragon 300k, D70's rule, render on the exterior, 126 then 192 px (LF), against the twins
+  PA, D77's and D78's LD and LE, and D75's LW. Read as D74.
+  Criteria: the user's bar, the render arm ahead of its physics-only twin by 10–20 % or more on each measure
+  (as a relative change of the error: 1 − IoU, the pictures' difference, the yardstick's terms), and not
+  behind on the rest (transport energy, kinetic energy at the end, momentum, bands, arrangement, thin share,
+  chamfer, holes). What the cause predicts: the render term's share of the merit's value falls from 63–88 % to
+  under a fifth by window 30; the coarse stage does not end before the twin's would (commits within a fifth of
+  the twin's); the render's share of the step is a third at each window's first gradient once the average has
+  caught up, above it during the first 20 windows (the average lags the falling rule).
+  Expectation: display at LD's and LE's level or better with 30–40 more windows; transport energy and kinetic
+  energy at the end within 1.5 times the twin's. Risks: the weight keeps moving and the rescored references
+  never let the gate latch, so the run goes to the window budget; a weight that small lets the render terms
+  drift up late in the run.
 - **D80, the bounded share on the 40k gallery (pre-registered 2026-10-04 17:38 CDT at launch; `tmp/d80.sh`,
   `tmp/d80.queue`; server `repo_r70`; outputs beside D72's in `output/gpu/d72`).** D77's stated risk: at 40k
   the unbounded share (0.82–0.92) is what gives the render arm its lead over the physics-only twin

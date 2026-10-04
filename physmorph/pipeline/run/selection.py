@@ -5,7 +5,9 @@ merit (the full objective at the committed end state, cleanup in common geometry
 window that raises it by more than 5 % is rejected and the state restored; after a
 sustained plateau the gate latches and also rejects low-gain windows and low-gain
 reversals. The run stops at the best window after `reject_stop` consecutive rejections,
-after `patience` windows without a merit improvement, or at the window budget.
+after `patience` windows without a merit improvement, or at the window budget. The render
+weight is calibrated at every window; the merit is linear in it, so the references are
+rescored with the judged window's weight and every comparison is made under one weight.
 """
 from __future__ import annotations
 
@@ -18,7 +20,8 @@ class Selection:
     def __init__(self, cfg: PipelineConfig):
         self.cfg = cfg
         self.epoch = 0
-        self.lam = None                  # the render weight the current epoch was scored with
+        self.lam = None                  # the render weight the references are scored with
+        self._render = 0.0               # the judged window's render term
         self.stale = 0
         self.anneal = 1.0                # the next window's step scale
         self.reject_streak = 0
@@ -26,23 +29,28 @@ class Selection:
         self.new_epoch(count=False)
 
     def new_epoch(self, count=True):
-        """Costs are comparable only within one render calibration: reset the references."""
+        """Costs are comparable only within one set of render images: reset the references."""
         if count:
             self.epoch += 1
         self.best, self.last = float("inf"), None
         self.scales = self.prev = self.prev_phys = self.prev_disp = None
+        self.best_render = self.prev_render = 0.0
         self.latched = False
 
     def plateau(self, a: int) -> bool:
         return self.last is not None and a - self.last > self.cfg.patience
 
-    def check_lambda(self, rec: dict, lam: float):
-        """A changed render weight (a pending calibration) opens a new epoch."""
+    def check_lambda(self, rec: dict, lam: float, render: float = 0.0):
+        """The merit is linear in the render weight: when the weight moves, the references (the last accepted
+        window's merit and the best one) are rescored with it from their own render terms, and the window is
+        judged against them as before. `render` is this window's render term (silhouette plus shading)."""
         if np.isfinite(rec["selection_merit"]):
             if self.lam is not None and lam != self.lam:
-                self.new_epoch()
-                self.stale = 0
-            self.lam = lam
+                if self.prev is not None:
+                    self.prev += (lam - self.lam) * self.prev_render
+                if np.isfinite(self.best):
+                    self.best += (lam - self.lam) * self.best_render
+            self.lam, self._render = lam, render
         rec["selection_epoch"] = self.epoch
 
     def judge(self, rec: dict, components: dict, disp) -> tuple[bool, bool, bool]:
@@ -103,8 +111,9 @@ class Selection:
         """Book an accepted window; True when the run has converged (patience spent)."""
         cfg, q = self.cfg, rec["selection_merit"]
         self.prev, self.prev_phys, self.prev_disp = self._score, self._score_phys, disp.clone()
+        self.prev_render = self._render
         if self.last is None or q < self.best - cfg.tol * abs(self.best):
-            self.best, self.last = q, a
+            self.best, self.last, self.best_render = q, a, self._render
         self.reject_streak, self.last_reject_score = 0, None
         self.stale = 0 if improved else self.stale + 1
         self.anneal = min(1.0, self.anneal * 1.15) if improved else max(0.05, self.anneal * cfg.anneal_stale)
@@ -119,8 +128,9 @@ class Selection:
         return self.stale >= self.cfg.patience
 
 
-def best_window(hist: list, n_frames: int, tol: float):
-    """The delivered slice: up to the best-merit accepted window of the last epoch.
+def best_window(hist: list, n_frames: int, tol: float, w_pbr: float = 1.0):
+    """The delivered slice: up to the best-merit accepted window of the last epoch, every window's merit
+    scored with the render weight of the last one (the merit is linear in it).
     Returns (deliver_n, truncation record or None)."""
     acc = [r for r in hist if r.get("frame_end") and not r.get("null_commit")
            and r.get("d_vol") is not None and np.isfinite(r.get("selection_merit", float("nan")))]
@@ -128,9 +138,11 @@ def best_window(hist: list, n_frames: int, tol: float):
         return n_frames, None
     epoch = max(r["selection_epoch"] for r in acc)
     acc = [r for r in acc if r["selection_epoch"] == epoch]
-    best = min(acc, key=lambda r: r["selection_merit"])
-    if best["frame_end"] < n_frames or (best is not acc[-1] and acc[-1]["selection_merit"]
-                                        > best["selection_merit"] * (1 + tol)):
+    lam = acc[-1].get("lambda") or 0.0
+    merit = lambda r: (r["selection_merit"] + (lam - (r.get("lambda") or 0.0))  # noqa: E731
+                       * ((r.get("d_render") or 0.0) + w_pbr * (r.get("d_pbr") or 0.0)))
+    best = min(acc, key=merit)
+    if best["frame_end"] < n_frames or (best is not acc[-1] and merit(acc[-1]) > merit(best) * (1 + tol)):
         n = int(best["frame_end"])
         return n, {"best_animation": int(best["animation"]) + 1, "frames_kept": n,
                    "frames_dropped": n_frames - n}

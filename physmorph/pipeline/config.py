@@ -4,7 +4,7 @@ The formulation is fixed (README.md): each window runs T driven and T released s
 scored at the released end; the physics objective is the debiased grid Sinkhorn divergence
 to the fixed target plus the residual drift and the transport-bounded local support; the
 render objective is the multi-view silhouette plus the matched shading term, weighted by a
-lambda calibrated once and held; the controls are a per-particle stress increment dFc and
+lambda calibrated at every window; the controls are a per-particle stress increment dFc and
 the normal offset u of the outer layer. The fields below are its numbers. Weights are in
 the legacy cell-sum unit and converted by the unit ratio measured at the source.
 """

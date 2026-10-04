@@ -142,22 +142,33 @@ def test_transport_calibration_survives_the_render_resolution_change(prm, clouds
     assert len(packs) == 2
     assert packs[0].ot_scale == packs[1].ot_scale and packs[0].grid_ot is packs[1].grid_ot
     assert packs[0].unit_ratio == packs[1].unit_ratio
-    assert all(p.settled_scale is not None for p in packs)
-    assert packs[0].settled_scale is not packs[1].settled_scale   # the render weight: recalibrated
     assert starts == [None, None]                                 # a new resolution: a fresh search
 
 
-def test_a_changed_render_weight_opens_a_new_cost_epoch():
+def test_the_render_weight_is_calibrated_at_every_window(prm, clouds, monkeypatch):
+    import physmorph.pipeline.render_loss as render_mod
+    calls, update = [], render_mod.LambdaBalancer.update
+    monkeypatch.setattr(render_mod.LambdaBalancer, "update",
+                        lambda self, p, r: calls.append((p, r)) or update(self, p, r))
+    res = run_pipeline(*clouds, prm, _cfg(animations=3), log=lambda *_: None)
+    windows = [r for r in res["history"] if "animation" in r]
+    assert 2 <= len(calls) <= len(windows)                        # held from the first window it was one call
+    assert all(r["lambda"] > 0 for r in res["history"] if r.get("lambda") is not None)
+
+
+def test_a_changed_render_weight_rescores_the_references():
     sel = Selection(PipelineConfig())
     rec = {"selection_merit": 1.0}
-    sel.check_lambda(rec, 0.2)
-    sel.best, sel.last, sel.stale = 1.0, 0, 3
+    sel.check_lambda(rec, 0.2, 2.0)
+    sel.best, sel.last, sel.stale, sel.prev = 1.0, 0, 3, 1.0     # as an accepted window scored at 0.2 leaves them,
+    sel.best_render = sel.prev_render = 2.0                      #   with a render term of 2.0
     rec2 = {"selection_merit": 0.9}
-    sel.check_lambda(rec2, 0.3)
-    assert rec2["selection_epoch"] == 1 and sel.last is None and sel.stale == 0
-    rec3 = {"selection_merit": float("nan")}                     # no finite cost: no new epoch
-    sel.check_lambda(rec3, 0.4)
-    assert rec3["selection_epoch"] == 1 and sel.lam == 0.3
+    sel.check_lambda(rec2, 0.3, 1.5)                             # the merit is linear in the weight: 1.2 at 0.3
+    assert rec2["selection_epoch"] == 0 and sel.last == 0 and sel.stale == 3
+    assert sel.best == pytest.approx(1.2) and sel.prev == pytest.approx(1.2) and sel.lam == 0.3
+    rec3 = {"selection_merit": float("nan")}                     # no finite cost: nothing moves
+    sel.check_lambda(rec3, 0.4, 1.0)
+    assert sel.lam == 0.3 and sel.best == pytest.approx(1.2)
 
 
 def test_delivery_is_the_best_merit_window_of_the_last_epoch():
@@ -169,6 +180,14 @@ def test_delivery_is_the_best_merit_window_of_the_last_epoch():
     n, trunc = best_window(hist, 26, tol=0.003)
     assert n == 17 and trunc["best_animation"] == 2 and trunc["frames_dropped"] == 9
     assert best_window(hist[:1], 9, tol=0.003) == (9, None)
+    # windows scored with different render weights are compared at the last one's: 1.0 at weight 0.5 with a render
+    # term of 1.0 is 0.6 at weight 0.1, under the later window's 0.7
+    moved = [{"animation": 0, "frame_end": 9, "d_vol": 1., "selection_merit": 1.0, "selection_epoch": 0,
+              "lambda": 0.5, "d_render": 0.6, "d_pbr": 0.4},
+             {"animation": 1, "frame_end": 17, "d_vol": 1., "selection_merit": 0.7, "selection_epoch": 0,
+              "lambda": 0.1, "d_render": 0.6, "d_pbr": 0.4}]
+    n, trunc = best_window(moved, 17, tol=0.003)
+    assert n == 9 and trunc["best_animation"] == 1
 
 
 def test_line_search_probe_is_diagnostic_only(prm, clouds, monkeypatch):

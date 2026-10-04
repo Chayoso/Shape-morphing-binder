@@ -65,7 +65,6 @@ class TargetPack:
     unit_grad_ratio: float = 1.0        # |grad D_vol(legacy)| / |grad D_vol(density)|
     grid_ot: object = None              # GridSinkhornLoss, built at the first window
     ot_scale: float | None = None       # transport scale: equal gradient norm with D_vol
-    settled_scale: tuple | None = None  # (lambda, capped), calibrated once per resolution
     settled_step: float | None = None   # last accepted step (warm start of the search)
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
     ext: Exterior | None = None         # the render terms' exterior, when they are read on it

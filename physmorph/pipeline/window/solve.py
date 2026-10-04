@@ -3,9 +3,9 @@
 Leaves: the driven controls dFc (T, N, 3, 3) and the outer-layer offset u (N,). Each
 iteration differentiates the physics and render objectives separately through the same
 2T-step adjoint; the render gradient loses any component that opposes the physics
-gradient (one-sided PCGrad) and is weighted by lambda, calibrated once so that
-lambda |g_render| = lambda_auto |g_physics| and then held; the cleanup gradient joins
-after. Step control: persistent Adam moments and a backtracking line search that accepts a
+gradient (one-sided PCGrad) and is weighted by lambda, calibrated at every window so that lambda
+|g_render| = lambda_auto |g_physics| (a moving average) and held for the window; the cleanup gradient
+joins after. Step control: persistent Adam moments and a backtracking line search that accepts a
 step only when the full objective decreases by the Armijo amount (or the replay-noise
 floor) and the whole trajectory stays valid; rejected trials restore leaves and moments.
 """
@@ -118,9 +118,6 @@ class WindowOptimizer:
         if tgt.settled_step is not None:
             # warm-start the step search, not its acceptance: every trial runs the checks
             self.alpha = min(self.alpha, 1.1 * (tgt.settled_step * alpha_scale))
-        if tgt.settled_scale is not None:
-            # the calibration is not candidate state: restore it before any comparison
-            balancer.lam, balancer.capped = tgt.settled_scale
         # render_weight_scale multiplies lambda wherever it is set: the render-off twin (0)
         # keeps every other term, the checks and the render telemetry
         self.lam_r = (balancer.lam or 0.0) * float(cfg.render_weight_scale)
@@ -196,28 +193,17 @@ class WindowOptimizer:
         gr = pcgrad(gp, gr_raw)
         if it == 0:
             self._calibrate_lambda(gp, gr, gr_raw)
-        # the calibration's rule holds at every gradient, not only at the first: the render gradient enters the
-        # step at no more than lambda_auto of the physics gradient's size. Held at lambda alone it was 10-25 times
-        # the physics gradient from window 10 on, and the physics objective got a few per cent of the step (D73).
-        # The merit keeps lambda: E is one function, and the line search's slope is taken on its gradient
-        np_, nr_ = _norm(gp), _norm(gr)
-        beta = min(self.lam_r, cfg.lambda_auto * float(cfg.render_weight_scale) * np_ / max(nr_, 1e-30))
-        if it == 0:
-            self.tele["g_share"] = beta * nr_ / max(np_ + beta * nr_, 1e-30)
-        self.g_merit = [a + self.lam_r * b + di for a, b, di in zip(gp, gr, gdt)]
-        return [a + beta * b + di for a, b, di in zip(gp, gr, gdt)], diag
+        g = [a + self.lam_r * b for a, b in zip(gp, gr)]
+        return [gi + di for gi, di in zip(g, gdt)], diag
 
     def _calibrate_lambda(self, gp, gr, gr_raw):
-        """lambda from the PROJECTED render gradient, once per target resolution; the
-        render-influence telemetry of this window."""
-        tgt, bal = self.tgt, self.balancer
-        if tgt.settled_scale is not None:
-            bal.lam, bal.capped = tgt.settled_scale
-            lam = bal.lam
-        else:
-            lam = bal.update(_norm(gp), _norm(gr))
-            if np.isfinite(lam) and lam > 0:
-                tgt.settled_scale = (float(lam), bool(bal.capped))
+        """lambda from the PROJECTED render gradient at the window's first gradient, every window (the balancer's
+        moving average), and held for the window; the render-influence telemetry of this window. Held from the
+        first window on, it was 60-170 times what the rule gives once the body has arrived: the physics gradient
+        decays 30-fold, the render gradient hardly, and the render term was nine tenths of the step and two
+        thirds of the merit (D73, D81). The selection rescales its references when the weight moves."""
+        bal = self.balancer
+        lam = bal.update(_norm(gp), _norm(gr))
         self.lam_r = lam * float(self.cfg.render_weight_scale)
         self.lam_capped = int(bool(bal.capped))
         np_, nr_ = _norm(gp), _norm(gr)
@@ -261,7 +247,7 @@ class WindowOptimizer:
             e_n = self.eval()
             with torch.no_grad():
                 new = self.scalar(e_n)
-                pred = -float(sum((gi.detach() * (p - b)).sum() for gi, p, b in zip(self.g_merit, self.leaves, bak)))
+                pred = -float(sum((gi.detach() * (p - b)).sum() for gi, p, b in zip(g, self.leaves, bak)))
                 self.tele["predicted_decrease"] = pred
                 # the Armijo slope counts only when the model predicts descent; else the
                 # noise floor (a stale moment can point against a fresh gradient)

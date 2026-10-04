@@ -164,11 +164,12 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if cfg.term_dump and stats.get("term_grads") is not None:
             write_term_dump(cfg.term_dump, a, x, stats.pop("term_grads"))
         res.commit = commit = None          # release the window's buffers before the next one
-        sel.check_lambda(rec, float(res.hist[-1]["lambda"] or 0.0))
+        lam, render = float(res.hist[-1]["lambda"] or 0.0), rec["d_render"] + cfg.w_pbr * rec["d_pbr"]
+        sel.check_lambda(rec, lam, render)
         components = {"phys": rec["transport_energy"], "render": rec["d_sil"], "dt": rec["d_dt"]}
         disp = (x - x_start).reshape(-1)
         outer_reject, brake_reject, improved = sel.judge(rec, components, disp)
-        alt = _shadow_judge(shadow, rec, components, disp, float(res.hist[-1]["lambda"] or 0.0), improved)
+        alt = _shadow_judge(shadow, rec, components, disp, lam, render, improved)
         if outer_reject:
             # undo every mutation made after the window start (plasticity, lambda); a
             # rejected lineage is not retried: cold restart, no warm start or step memory
@@ -209,7 +210,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
                 f"  |v|max={rec['v_absmax']:.3f}  move={rec['move']:.4f}  Jmin={rec['Jmin_traj']:.3f}"
                 f"  acc/rej={rec['accepted']}/{rec['rejected']}"
                 + (f"  GUARD {counts}" if any_guard else ""))
-    deliver_n, trunc = (best_window(hist, len(frames), cfg.tol) if cfg.best_truncate
+    deliver_n, trunc = (best_window(hist, len(frames), cfg.tol, cfg.w_pbr) if cfg.best_truncate
                         else (len(frames), None))
     if trunc is not None:
         log(f"[v2] deliverable ends at best commit anim {trunc['best_animation']} "
@@ -280,13 +281,13 @@ def _fmt(v):
     return "n/a" if v is None else format(v, ".3g")
 
 
-def _shadow_judge(shadow, rec, components, disp, lam, improved) -> dict:
+def _shadow_judge(shadow, rec, components, disp, lam, render, improved) -> dict:
     """A record, no effect on the run: the selection rule judged with the merit that also carries the dense
     body-to-target distance (the merit until R13), on the same trajectory. Writes the shadow's verdicts beside the
     actual ones into rec and returns the shadow's copy of the record."""
     alt = dict(rec)
     alt["selection_merit"] = rec["selection_merit"] + (rec.get("merit_w1_gap") or 0.0)
-    shadow.check_lambda(alt, lam)
+    shadow.check_lambda(alt, lam, render)
     s_reject, s_brake, s_improved = shadow.judge(alt, components, disp)
     rec.update({"shadow_merit": alt["selection_merit"], "shadow_reject": int(s_reject), "shadow_brake": int(s_brake),
                 "shadow_improved": int(s_improved), "judge_improved": int(improved)})
