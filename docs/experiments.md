@@ -459,6 +459,57 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D69, what is uneven under the surface, and whether evening it evens the surface (measurements on kept
+  frames, no code of the run changes; pre-registered 2026-10-04 11:43 CDT; the user: "A를 진행 해 보자 … 원인을
+  감추지만 말아 줘. overengineering도 금지 … 항상 '알고리즘' core를 수정"; `tmp/arrangement.py`,
+  `tmp/shift_test.py`; `output/gpu/d69`).** Before anything is put into the rollout, two things are read on
+  the end frames of the physics-only twins.
+  First, which property of the arrangement is uneven, on the particles between 1.5 and 4 pitches under the
+  outermost layer, against the target sample and by D68's fifths: the spread of the number of particles
+  within 1.5 pitches (density), the distance to the nearest particle (clumping), the ratio of the largest to
+  the smallest principal spacing of the 16 nearest (anisotropy).
+  Second, on those frames only (nothing is simulated): the particles under the outermost layer are shifted down
+  the gradient of their own concentration, the particle shifting of incompressible SPH (Xu 2009, Lind 2012;
+  the formulas are being checked against the papers by an agent), tangentially within two smoothing lengths of
+  the layer, the layer itself untouched, 1, 3 and 10 times; the surface of each result is read against the
+  mesh in D66's bands, and a target sample shifted 10 times is the control.
+  The question: does an even arrangement under the surface give an even surface, and how far must particles
+  move for it. If the bands fall to the sample's level with shifts of a fraction of a pitch, the rule belongs
+  in the rollout's position update, next to the outer layer's relaxation; if the arrangement evens and the
+  bands stay, the unevenness is in the body's shape and not in its arrangement, and shifting is not the change.
+  Expectation: the density's spread and the clumping return to the sample's within 3 shifts; the band below 4
+  pitches falls to the sample's and the 4–11 band by half of its excess; particles move 0.2–0.4 pitches rms.
+  **Result (2026-10-04 11:45 CDT): the density under the surface is what is uneven, and evening it evens the
+  surface, most of the fine band and a third to a half of the band above; shifted this crudely the body swells,
+  so the free-surface rule is what the rollout's version has to get right.**
+  The arrangement under the surface (1.5 to 4 pitches deep): the spread of the number of particles within 1.5
+  pitches is 0.21 of its mean on a target sample and 0.29 on the bunny's end frame, 0.43 on the dragon's; the
+  nearest particle's 5th percentile 0.36 pitches on a sample, 0.30 and 0.23 on the end frames (pairs pressed
+  together); the anisotropy 1.43 (median) against 1.52 and 1.61. By D68's fifths the density's spread runs from
+  0.37 (neighbours kept 0.38) to 0.23 (kept 1.00) on the bunny and 0.52 to 0.32 on the dragon. The density's
+  unevenness is the large change (+36 %, +105 %), the anisotropy the small one (+6 %, +13 %).
+  Shifting, on the end frames (bands in pitches: below 4 / 4–11; a sample: bunny 0.103 / 0.132, dragon 0.121 /
+  0.153):
+
+  | | as it is | 1 shift | 3 shifts | 10 shifts | the target sample after 10 |
+  |---|---|---|---|---|---|
+  | bunny: surface bands | 0.118 / 0.177 | 0.108 / 0.164 | 0.106 / 0.166 | 0.122 / 0.185 | 0.089 / 0.123 |
+  | bunny: density's spread, nearest 5th percentile | 0.289, 0.30 | 0.234, 0.43 | 0.208, 0.71 | 0.220, 0.91 | 0.140, 0.92 |
+  | bunny: mean offset from the mesh, discs farther than 2 pitches | +0.27, 1.8 % | +0.32, 2.5 % | +0.36, 3.1 % | +0.42, 6.3 % | +0.25, 2.5 % |
+  | dragon: surface bands | 0.165 / 0.257 | 0.148 / 0.197 | 0.143 / 0.196 | 0.156 / 0.212 | 0.110 / 0.146 |
+  | dragon: density's spread, nearest 5th percentile | 0.430, 0.23 | 0.303, 0.36 | 0.259, 0.64 | 0.271, 0.91 | 0.142, 0.91 |
+  | dragon: mean offset, discs farther than 2 pitches | +0.57, 7.9 % | +0.70, 11.0 % | +0.75, 13.4 % | +0.80, 21.6 % | +0.61, 3.8 % |
+
+  One to three shifts take the band below 4 pitches from an excess of 0.015 to 0.003–0.005 on the bunny (a
+  sample's level) and from 0.044 to 0.022–0.027 on the dragon, and the 4–11 band from 0.045 to 0.032–0.034
+  and from 0.104 to 0.043–0.044: the arrangement under the surface does make a good part of the unevenness,
+  and the rest of the 4–11 band is in what this test did not move (the outer layer and the body's shape).
+  What the crude rule gets wrong: one shift moves a particle 0.48–0.63 pitches rms (a few by 6–13), the body
+  swells (the mean offset grows by 0.05–0.13 pitches a shift) and by ten shifts material stands outside the
+  surface (6 % and 22 % of the discs farther than two pitches from the mesh) and the bands are back up. That is
+  the shifting's known fault at a free surface; the papers' free-surface rule and step limit are being read
+  before a line goes into the rollout. The expectation held for the bunny's fine band and the density, not for
+  the size of the moves.
 - **D67, how deep the runs' unevenness sits (a measurement, no code of the run changes; pre-registered
   2026-10-04 11:24 CDT; `exterior_offset_probe.py … peel=K`; `output/gpu/d67`).** D66: the runs add unevenness
   of their own at 4 to 11 pitches and below, and three causes are ruled out. Two kinds of cause are left and
