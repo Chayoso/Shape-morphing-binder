@@ -459,6 +459,65 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D66, where the drawn surface departs from the target mesh, by scale (a measurement, no code of the run
+  changes; pre-registered 2026-10-04 10:27 CDT; `scripts/probes/settled/exterior_offset_probe.py`;
+  `output/gpu/d66`).** D65: at 300k what is left is the pictures' difference, and it is in the simulated
+  surface with or without a render term. For the exterior's discs (a lattice of 0.92 pitches) of every kept
+  frame of the physics-only twin, the base run and the runs with the render on the exterior at 96 and 192 px,
+  and of the two target samples (seeds 97 and 98): the signed distance to the target mesh (three million
+  surface samples with normals, point to plane), split by Gaussian means over the discs into the part below
+  about 4 pitches, between 4 and 11, and larger; and the angle of the field's normal and of the displayed
+  (averaged) normal to the mesh's.
+  The three bands name three different parts of the code: below 4 pitches is the particles' arrangement at and
+  under the surface (the sampler, MPM, the outer layer's offset and its relaxation); 4 to 11 pitches is the
+  band the relaxation erases and the stress control works in; larger is the shape the transport places.
+  Expectation: the runs exceed the samples mostly below 4 pitches (the field reading an interior that is less
+  even than a fresh sample), on the dragon also between 4 and 11; the displayed normal's error of the runs
+  exceeds the samples' by about the ratio of the pictures' differences (1.3–1.9). Whatever band holds the
+  excess is the part to look into next; nothing is changed by this entry.
+  **Result (2026-10-04 11:16 CDT; every kept frame of the eight runs, the two samples of each mesh; mean of the
+  last 20 kept frames; offsets in pitches; an MPM cell is 6.25 pitches): the runs place the shape as well as a
+  sample; what they add is unevenness of their own at one to two cells and below, which is neither erased
+  relief nor the grid's imprint; the dragon also keeps material where the target has no surface.**
+
+  | | below 4 pitches | 4–11 pitches | larger | normal against the mesh's, median: field / displayed | discs farther than 2 pitches from the mesh |
+  |---|---|---|---|---|---|
+  | bunny, samples (seeds 97, 98) | 0.103 | 0.132–0.138 | 0.50–0.52 | 11.5–11.7° / 7.7–7.8° | 2.9–3.1 % |
+  | bunny P | 0.118 | 0.176 | 0.496 | 13.1° / 8.9° | 1.7 % |
+  | bunny R | 0.142 | 0.198 | 0.514 | 14.4° / 9.9° | 3.4 % |
+  | bunny La | 0.119 | 0.172 | 0.508 | 13.2° / 9.2° | 2.1 % |
+  | bunny L192 | 0.118 | 0.169 | 0.515 | 12.9° / 9.2° | 2.1 % |
+  | dragon, samples | 0.121–0.122 | 0.153–0.156 | 0.53–0.54 | 12.6–12.8° / 9.7–9.8° | 3.3–3.4 % |
+  | dragon P | 0.164 | 0.257 | 0.538 | 16.9° / 11.4° | 7.7 % |
+  | dragon R | 0.173 | 0.258 | 0.513 | 18.5° / 12.3° | 11.1 % |
+  | dragon La | 0.164 | 0.230 | 0.522 | 17.0° / 11.5° | 9.8 % |
+  | dragon L192 | 0.161 | 0.228 | 0.523 | 16.6° / 11.5° | 9.3 % |
+
+  Above 11 pitches the runs are at the samples' level (the half pitch there is common to all: the field's own
+  bias and the mesh fitted by its bounding box). The excess is in the two finer bands and largest between 4 and
+  11 pitches: +28 to +33 % on the bunny (P, L; R +47 %), +47 to +68 % on the dragon; below 4 pitches +15 %
+  and +33 to +43 %. It is there by window 20 and does not shrink afterwards (bunny P 0.179 → 0.176, the
+  dragon's L runs 0.235–0.243 → 0.228–0.230): it is not a matter of running longer. The expectation put the
+  excess mostly below 4 pitches; it is larger in the band above.
+  It is not erased relief (`mesh_relief`: the least-squares slope of a disc's offset on the mesh's own relief
+  of the band at that place; −1 would be a surface that lost it): on the dragon the samples have −0.16 below 4
+  pitches and −0.06 between 4 and 11, the runs −0.15…−0.16 and −0.05…−0.07; on the bunny the samples −0.22
+  and −0.08, the runs −0.38 and −0.16…−0.18, a further sixth and a tenth of a relief of 0.08 and 0.27
+  pitches, that is 0.013 and 0.027 pitches against excesses of 0.06 and 0.11. The target's detail at these
+  scales is drawn as a sample of the same N draws it.
+  It is not the MPM grid's imprint (`tmp/grid_phase.py` on the end frames' discs): where in a cell a disc lies
+  explains 0.4–1.1 % of the offsets' variance in either band; a rotated lattice of the same pitch 0.3–0.7 %.
+  The render: on the exterior it lowers the 4–11 band a little against P (dragon 0.228–0.230 against 0.257,
+  bunny 0.169–0.172 against 0.176); on the particle cloud it raises both bands on the bunny.
+  The dragon: 8 to 11 % of a run's drawn surface is farther than two pitches from the mesh where a sample has
+  3.4 %, and four fifths to nine tenths of it lies on the mesh's outer side: material in the mouth and between
+  the coils, 5 to 8 % of the surface. The bunny has none of it (1.7–2.1 % against the samples' 3 %). The runs'
+  surface also sits 0.07–0.19 pitches further out than a sample's on the bunny.
+  So "complete at 300k" is smoothness, not detail: the runs' own unevenness at one to two cells and below, and
+  on the dragon the material in the concavities. What makes the unevenness is not found yet; ruled out are
+  the render term (the physics-only twin has it), the loss of the target's relief, and the grid's phase. Left
+  to measure: the outer layer's own offsets (the u channel), the unevenness of the particles under the surface
+  that the field reads, and the stress control.
 - **D65, the floor at 300k: an independent sample of the target against the reference sample (a measurement,
   no run is judged; pre-registered 2026-10-04 10:23 CDT; the user: "M 단위로는 일단 뒤로 … 먼저 알고리즘 쪽을
   완벽하게 한 다음 최후의 수단으로 1.5M"; `output/gpu/d65`).** What the algorithm can still gain at a fixed N is
