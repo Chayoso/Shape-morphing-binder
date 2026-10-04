@@ -575,6 +575,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (80–88 % on the thin part). The fuzz that is left at the end is what a volume sample of this N looks like
   at a thin feature under this display: the user's reading ("the N that has to cover the surface is short")
   holds, and it holds for the target sample itself. The 300k dragon follows.
+  **Result, the dragon at 300k (2026-10-03 19:56 CDT).** The run: 3168 s of simulation (3301 s of process), 162
+  commits of 174 attempts (the event at window 111, stop at 173), silhouette IoU 0.9846, world-thin 0.44 %,
+  chamfer 0.0589, last kinetic record 9.1e-4; render λ of the first window 0.396, g_share 0.92. Census on 6401
+  simulated frames, drawings on 535.
+  The target's own sample: 24 572 surface particles of 299 765 rendered (8.2 %), 11 650 of them on the thin
+  part; its horns have a spiky fringe in all three drawings; 1.31 % of its solid pixels are solid only by the
+  enlargement (3.5 % in the horns' crop).
+  The run (windows 8, 16, 24, 32, 48, 64, 80, 96, 112, 128, 144, 160): surface particles against the target
+  sample's 0.71, 0.77, 0.81, 0.82, 0.82, 0.81, 0.80, 0.80, 0.79, 0.79, 0.78, 0.79; thin part 0.67, 0.69, 0.75, 0.75,
+  0.77, 0.75, 0.73, 0.73, 0.73, 0.73, 0.72, 0.74; spacing above 1.5 on 1.7, 0.8, 1.1, 1.1, 0.9, 1.0, 1.0, 1.1, 1.1,
+  1.0, 1.0, 1.0 % (thin 1.1–2.0 %); rendered detached particles 7624, 8801, 6543, 6145, 5604, 5529, 5463, 5007,
+  4501, 4155, 4211, 3739 (93–96 % within the berth from window 24); solid only by the enlargement 4.0, 2.1, 1.6,
+  1.45, 1.3, 1.2, 1.15, 1.1, 1.1, 1.15, 1.1, 1.1 % (crop 12.8, 11.0, 8.0, 6.8, 5.3, 4.8, 4.3, 4.0, 4.0, 4.3, 4.0, 3.7
+  %); solid only by the detached particles, in the crop: 37 659, 20 148, 26 152, 21 916, 15 590, 10 751, 16 455,
+  10 265, 9038, 9320, 11 734, 11 342 pixels: 6–8 % of the crop's solid pixels from window 64 to the end.
+  Corrected reading for this mesh: at 300k the dragon's horn tips are still detached sets at window 160. Drawn
+  without them the tips of both large horns and the top of the small left horn are missing. So here the
+  particles' part does not die out with the run as it does on the bunny (under 1 %) and on the dragon at 100k
+  (1–3 %); the enlargement's part ends at the target sample's own level (3.7–4.3 against 3.5 % in the crop),
+  and the surface holds 79 % of a perfect sample's surface particles (74 % on the thin part), the lowest of
+  the three and slowly falling from window 48. With the base display the run's horns at the end are smoother
+  than the target sample's own (the relaxed layer against a raw volume sample).
+  Reading over the three runs. Early and mid-morph: the particles (thin parts arrive as detached sets). At the
+  end: the sample's own limit under this display on all three (the target's own sample is fuzzy), plus, on the
+  dragon at 300k, thin tips that remain sets apart from the body. In every case the surface carries only 5–12 %
+  of the particles, and 73–88 % of what a perfect sample puts on the thin part.
 - **D56, the zero-row fix alone on the restored code: the 300k dragon and bunny (pre-registered 2026-10-03 17:24
   CDT at launch; the user: "그것만 되돌린 코드에 올리고 bunny랑 dragon 실험 해서 보여줄래?"; repo_r63 = the restored tree,
   repo_r64 = repo_r63 with `window/layer.py` and its test; `tmp/d56.sh`; `output/gpu/d56`; the restored code's
