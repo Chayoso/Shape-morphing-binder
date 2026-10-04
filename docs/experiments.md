@@ -459,6 +459,40 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D65, the floor at 300k: an independent sample of the target against the reference sample (a measurement,
+  no run is judged; pre-registered 2026-10-04 10:23 CDT; the user: "M 단위로는 일단 뒤로 … 먼저 알고리즘 쪽을
+  완벽하게 한 다음 최후의 수단으로 1.5M"; `output/gpu/d65`).** What the algorithm can still gain at a fixed N is
+  the distance between a run's end and what a perfect run would show, which is another sample of the same
+  target, not the reference sample itself. The bunny's and the dragon's targets are sampled again at 300k with
+  seed 98 (a one-window run whose target sample alone is used) and read as a state against the seed-97
+  reference by the display probe (`measure ref=… target own`): front, thin crop, far side.
+  Expectation: IoU 0.994–0.997 and a pictures' difference of 0.005–0.008; the best runs so far (bunny 0.9912 /
+  0.0096, crop 0.9794 / 0.0100; dragon 0.9898 / 0.0127, crop 0.9726 / 0.0182) would then be 0.004–0.007 in IoU
+  and a third to a half in the difference above the floor on the bunny, and further on the dragon's crop. The
+  number says what "complete at 300k" means for every later experiment; nothing is adopted by it.
+  **Result (2026-10-04 10:25 CDT): the solid regions of the bunny are at the floor already; what is left at
+  300k is the pictures' difference, on both meshes and with or without a render term, and the dragon's horn
+  crop.**
+
+  | against the seed-97 reference | front: IoU / difference | thin crop | far side | field's roughness |
+  |---|---|---|---|---|
+  | bunny, the seed-98 sample (the floor) | 0.9906 / 0.0063 | 0.9795 / 0.0071 | 0.9904 / 0.0059 | 9.8° |
+  | bunny, render on the exterior at 192 px | 0.9912 / 0.0096 | 0.9794 / 0.0100 | 0.9926 / 0.0079 | 11.2° |
+  | bunny, physics-only | 0.9868 / 0.0099 | 0.9705 / 0.0116 | 0.9883 / 0.0086 | 11.2° |
+  | dragon, the seed-98 sample (the floor) | 0.9912 / 0.0074 | 0.9793 / 0.0112 | 0.9918 / 0.0072 | 13.6° |
+  | dragon, render on the exterior at 192 px | 0.9898 / 0.0127 | 0.9726 / 0.0182 | 0.9901 / 0.0137 | 20.9° |
+  | dragon, physics-only | 0.9875 / 0.0118 | 0.9717 / 0.0160 | 0.9871 / 0.0130 | 22.2° |
+
+  The floor's IoU is lower than expected (0.991, 0.979 in the crops): two samples of one mesh differ that much
+  at 300k. Against it: the bunny's run with the render on the exterior is at the floor in every solid region
+  (the physics-only twin is 0.004 and 0.009 below); the dragon's is 0.0014 below in the front and 0.0067 in
+  the horn crop. The pictures' difference is above the floor everywhere: by 34–52 % on the bunny and 63–90 % on
+  the dragon with the render, and as much or more without it (bunny 0.0099 against 0.0063). So that gap is not
+  the render's: it is in the simulated surface itself, which the field reads as rougher than a sample of the
+  same N (bunny 11.2° against 9.8°, dragon 21–22° against 13.6°). "Complete at 300k" is therefore: the solid
+  regions at 0.991 / 0.979 (reached on the bunny), and the difference down to 0.006–0.007 (bunny), 0.007 /
+  0.011 (dragon), where the runs are at 0.008–0.010 and 0.013–0.018. Finer than that is the sample's own
+  limit (D12), which only N moves.
 - **D64, the fine render picture at the field's resolution (pre-registered 2026-10-04 02:15 CDT;
   `--render_exterior --render_res_hi 192`; `output/gpu/d64`).** Why: on the display (4K, against the target,
   every kept frame) the render on the exterior is ahead of the physics-only twin on the bunny but not on the
