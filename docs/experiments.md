@@ -459,6 +459,58 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D73, why the render arm is behind its physics-only twin at 300k: what the step is made of (a reading of
+  kept records and logs, no run; 2026-10-04 15:50 CDT; the user: "왜 physics가 render를 섞은 것 보다 좋은지 분석해서
+  말해 줘"; `tmp/why_rows.py` on each run's record with its yardstick and display logs).** Per committed window:
+  the sizes of the two gradients as the optimiser adds them, the physics objective's gain, the transport
+  energy, the run's own 64-px silhouette term, and of the same window the yardstick's exterior silhouette at 96
+  px and the display's horn crop. Dragon 300k, both arms with D70's rule (PA physics-only, LA render on the
+  exterior, 64 px to animation 83):
+
+  | window | \|g_phys\| PA / LA | λ\|g_rend\| LA | render's share | physics gain PA / LA | transport PA / LA | own silhouette, 64 px, PA / LA | yardstick, 96 px, PA / LA | crop IoU PA / LA |
+  |---|---|---|---|---|---|---|---|---|
+  | 2 | 9.3e-4 / 9.4e-4 | 9.9e-4 | 0.51 | +0.17 / +0.19 | 1.34 / 1.32 | 2.0e-1 / 1.6e-1 | 1.8e-1 / 1.2e-1 | 0.145 / 0.363 |
+  | 10 | 1.8e-4 / 1.6e-4 | 1.9e-3 | 0.92 | +0.44 / +0.35 | 3.4e-2 / 1.2e-2 | 2.2e-2 / 3.1e-3 | 1.7e-2 / 4.4e-3 | 0.831 / 0.931 |
+  | 20 | 3.4e-5 / 6.3e-5 | 6.4e-4 | 0.91 | +0.140 / +0.023 | 1.5e-3 / 3.4e-3 | 2.3e-3 / 8.2e-4 | 2.5e-3 / 2.5e-3 | 0.956 / 0.953 |
+  | 30 | 1.1e-5 / 4.9e-5 | 7.3e-4 | 0.94 | +0.091 / +0.001 | 4.5e-4 / 2.3e-3 | 1.4e-3 / 8.8e-4 | 1.5e-3 / 1.9e-3 | 0.970 / 0.962 |
+  | 40 | 1.0e-5 / 4.2e-5 | 7.7e-4 | 0.95 | +0.073 / +0.032 | 2.4e-4 / 1.7e-3 | 1.1e-3 / 3.7e-4 | 1.3e-3 / 1.4e-3 | 0.970 / 0.965 |
+  | 60 | 7.7e-6 / 3.3e-5 | 8.2e-4 | 0.96 | +0.051 / +0.013 | 1.1e-4 / 8.4e-4 | 1.0e-3 / 3.8e-4 | 1.05e-3 / 1.23e-3 | 0.979 / 0.962 |
+  | 80 | 7.0e-6 / 3.0e-5 | 5.1e-4 | 0.94 | +0.024 / +0.003 | 7.6e-5 / 6.4e-4 | 9.7e-4 / fine stage | 1.03e-3 / 5.7e-4 | 0.978 / 0.973 |
+
+  1. The weight is set once, at the first window (at window 2 the two gradients are equal, share 0.51). The
+  physics gradient then falls 30-fold by window 30, as the body arrives; the render gradient falls 1.4-fold.
+  From window 10 on the render gradient is 10 to 25 times the physics gradient and the step is 91–96 % render.
+  The cosine between the two is +0.1 to +0.25: they do not oppose each other, one is simply larger.
+  2. The physics objective is starved of the step: its gain per window is 6 times smaller than the twin's at
+  window 20, 100 times at window 30, 2 to 7 times after; the transport energy is 2 to 8 times the twin's at the
+  same window and 8 times at the end. The same without the rule (D64's run against D60's: share 0.90–0.93,
+  transport 3 to 5 times the twin's at windows 20–60), so this is not the rule's doing. Until window 10 the
+  render arm is ahead on everything (crop 0.931 against 0.831): while the body is far from its target the
+  coarse picture is a good guide.
+  3. What that share buys after window 20: the run's own 64-px silhouette term 3 times below the twin's (3.7e-4
+  against 1.1e-3 at window 40), and on the 96-px yardstick an exterior silhouette that is not lower but higher
+  than the twin's from window 30 to the end of the stage (1.9e-3 against 1.5e-3, 1.4e-3 against 1.3e-3, 1.23e-3
+  against 1.05e-3). A 64-px pixel is 3.8 pitches on the dragon: the term is fitted at its own resolution in a
+  way that does not hold one resolution finer, and the horn crop is behind from window 20. The fine stage,
+  whose picture does see the difference (5.7e-4 at window 80), comes at animation 79–84 and lasts 11–22
+  windows.
+  4. Bunny 300k, the same composition (share 0.95, transport 4 to 5 times the twin's), but there the 64-px fit
+  carries over: the yardstick is 1.35 times below the twin's at window 20 (9.3e-4 against 1.26e-3) and twice
+  below once the fine stage runs (4.3e-4 against 8.7e-4 at window 40); the IoU is ahead.
+  5. 40k (D72's dragon, both arms with the rule), the same share (0.82–0.92) and two to three times the twin's
+  transport energy; there the twin's own 64-px silhouette term stalls at 3.1e-3 to 4.5e-3 with a physics gain
+  near zero from window 40 (+0.006, −0.010) and 13 % of the thin target uncovered, an error a 64-px picture
+  sees (a pixel is 1.9 pitches at 40k), and the render arm removes it (9.8e-4 at window 20): silhouette IoU
+  +0.009 to +0.013 on the six meshes read so far.
+  Conclusion: at 300k the render arm is behind for two reasons that act together. Its weight is fixed at the
+  first window while the physics gradient decays, so after window 10 the step is a render step and the physics
+  objective gets a few per cent of it. And at 300k that step is taken on a picture whose pixel is 3 to 4
+  pitches, in which the physics-only arm (which with the rule already stands at the floor on the dragon's
+  crop) has no error left to see; the stage whose picture is fine enough comes late and is short. At 40k the
+  second reason is reversed: the picture is finer against the particles and the physics-only arm leaves more.
+  Not measured: whether a bounded share, or a fine picture from the window where the coarse term stops
+  falling, would put the 300k render arm ahead. Those are two definitions (the weight's calibration, the
+  stage's trigger), one experiment each.
 - **D72, the minimum spacing on the 40k gallery (pre-registered 2026-10-04 14:32 CDT at launch; the user's rule
   of 2026-09-24: a change holds on the whole gallery before it is adopted; `tmp/d72.sh`, `tmp/d72.queue`; server
   `repo_r66`, D70's rule as it is, D71's change not in it; `output/gpu/d72`).** 19 meshes at 40k, the default
