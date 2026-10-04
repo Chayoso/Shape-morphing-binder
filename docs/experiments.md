@@ -459,6 +459,75 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D67, how deep the runs' unevenness sits (a measurement, no code of the run changes; pre-registered
+  2026-10-04 11:24 CDT; `exterior_offset_probe.py … peel=K`; `output/gpu/d67`).** D66: the runs add unevenness
+  of their own at 4 to 11 pitches and below, and three causes are ruled out. Two kinds of cause are left and
+  they differ in depth: the outer layer's own normal offsets (the u channel and its relaxation act on that
+  layer alone), or the material under it (the stress control and MPM move the body, and the field reads every
+  particle within three pitches). The outermost particle layer (the pipeline's layer rule) is taken off, once
+  and twice, and the surface of what is left is read against the mesh in the same bands, on the two samples
+  and on the end frames of the physics-only twins and of the 192 px runs of both meshes. A sample peeled the
+  same way is the reference at each depth.
+  Expectation: if the outer layer carries it, the runs' excess over the samples falls to a third or less after
+  one layer is off; if the body carries it, the excess stays within a fifth of what it is with the layer on. I
+  expect the first for the band below 4 pitches and the second for 4 to 11 pitches (an MPM cell is 6.25
+  pitches, and the stress control works at about a cell).
+  **Result (2026-10-04 11:25 CDT): the body under the outer layer carries it, in both bands; the outer layer
+  is the evenest part of a run and hides about half.** Offsets in pitches with 0 / 1 / 2 layers off (the two
+  samples of a mesh agree to 0.006):
+
+  | | below 4 pitches | 4–11 pitches | field's normal against the mesh's, median |
+  |---|---|---|---|
+  | bunny, samples | 0.103 / 0.098 / 0.103 | 0.135 / 0.146 / 0.158 | 11.6° / 11.7° / 12.7° |
+  | bunny P, end | 0.118 / 0.137 / 0.146 | 0.177 / 0.233 / 0.253 | 13.2° / 16.9° / 18.8° |
+  | bunny L192, end | 0.120 / 0.139 / 0.141 | 0.171 / 0.237 / 0.247 | 13.0° / 17.5° / 18.4° |
+  | dragon, samples | 0.121 / 0.122 / 0.128 | 0.155 / 0.176 / 0.195 | 12.7° / 13.1° / 14.2° |
+  | dragon P, end | 0.165 / 0.185 / 0.192 | 0.257 / 0.289 / 0.313 | 17.1° / 20.9° / 23.4° |
+  | dragon L192, end | 0.161 / 0.194 / 0.197 | 0.229 / 0.301 / 0.316 | 16.6° / 24.0° / 25.2° |
+
+  With the layer on, the bunny's runs exceed a sample by 15 % below 4 pitches and 27–31 % between 4 and 11;
+  with one layer off by 40 % and 60 %, with two by 40 % and 57–60 %. The dragon's: 33–36 % and 48–66 % with
+  the layer, 52–59 % and 64–71 % without. The excess grows when the layer is taken off, where the first
+  reading would have had it fall to a third: the outer layer, the one the relaxation keeps regular, is not
+  where the unevenness is; the particles under it are, and the field, which reads three pitches deep, shows
+  them through it. My expectation for the band below 4 pitches was wrong.
+- **D68, whether the unevenness sits where the material was stretched (a measurement on kept frames;
+  pre-registered 2026-10-04 11:26 CDT, after D67's reading that the body under the outer layer carries the
+  unevenness; `tmp/stretch.py`).** A fixed set of particles carried through a large deformation ends with an
+  uneven arrangement where the material was stretched or torn (a sphere's shell becomes ears and horns). Per
+  particle, the deformation from the first frame to the end frame is fitted over its 16 nearest neighbours of
+  the first frame (largest and smallest stretch), with the share of those neighbours still among its 32
+  nearest at the end; the end frame's discs take the mean over the particles within 1.5 pitches and are put
+  into five equal groups by each measure. Expectation: the offsets' rms in both finer bands rises with the
+  stretch and falls with the neighbours kept, the most stretched fifth having at least 1.5 times the rms of
+  the least stretched. If there is no such trend, the stretch is not the cause and what is left is the
+  rollout's own handling of the particles under the surface (sub-cell arrangement, the stress control).
+  **Result (2026-10-04 11:27 CDT; end frames of the physics-only twins and the 192 px runs): the unevenness
+  sits where the material lost its neighbourhood; where it kept it, the surface is as even as a sample's.**
+  Fifths of the end frame's discs by the share of the first frame's neighbours still near (the fifth's median),
+  with the offsets' rms below 4 pitches and between 4 and 11:
+
+  | | fewest kept | | | | most kept | a sample |
+  |---|---|---|---|---|---|---|
+  | bunny P | 0.28: 0.140, 0.221 | 0.54: 0.127, 0.190 | 0.72: 0.116, 0.173 | 0.85: 0.110, 0.156 | 0.97: 0.092, 0.129 | 0.103, 0.135 |
+  | bunny L192 | 0.29: 0.136, 0.188 | 0.59: 0.135, 0.199 | 0.76: 0.121, 0.176 | 0.89: 0.108, 0.155 | 0.98: 0.093, 0.129 | 0.103, 0.135 |
+  | dragon P | 0.17: 0.189, 0.267 | 0.28: 0.169, 0.280 | 0.38: 0.173, 0.288 | 0.50: 0.158, 0.250 | 0.69: 0.132, 0.188 | 0.121, 0.155 |
+  | dragon L192 | 0.17: 0.184, 0.247 | 0.29: 0.169, 0.234 | 0.40: 0.164, 0.238 | 0.54: 0.152, 0.223 | 0.73: 0.132, 0.199 | 0.121, 0.155 |
+
+  On the bunny the fifth of the surface whose material kept 0.97 of its neighbours is at a sample's level in
+  both bands, and the fifth that kept 0.28 has 1.5 and 1.7 times as much. By the largest stretch the same
+  order (1.4 → 6.8 times: 0.095 → 0.136 and 0.132 → 0.221). The dragon needs more of the material: the median
+  largest stretch is 2.3–2.4 against the bunny's 1.6, the median share of neighbours kept 0.56–0.62 against
+  0.88, and even its best fifth (0.69–0.73 kept) is above a sample. The expectation holds (1.4–1.7 between the
+  outer fifths).
+  So the cause is not a term of the objective and not the outer layer's rule: a fixed set of particles carried
+  through the morph ends unevenly arranged where the sphere's material was stretched and torn into the
+  target's parts, the field reads that arrangement three pitches deep, and neither the transport, the surface
+  proximity nor the render term sees an arrangement at that scale. That is also why it is there by window 20
+  and stays. What could move it, each a change of a definition and none decided: how the body's particles are
+  arranged after being stretched (a redistribution of the near-surface particles; the relaxation regularises
+  one layer only); how much the morph has to stretch the material (the transport's map); or how the display
+  reads an uneven arrangement (a field less sensitive to it, which changes the picture and not the body).
 - **D66, where the drawn surface departs from the target mesh, by scale (a measurement, no code of the run
   changes; pre-registered 2026-10-04 10:27 CDT; `scripts/probes/settled/exterior_offset_probe.py`;
   `output/gpu/d66`).** D65: at 300k what is left is the pictures' difference, and it is in the simulated

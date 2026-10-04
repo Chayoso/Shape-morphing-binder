@@ -12,7 +12,9 @@ normal (the base display's treatment: the mean over the discs within the reach o
 Also the mesh's own relief in the two finer bands at each disc, and the least-squares slope and the correlation of the
 disc's offset on it: a surface that lost the mesh's relief of a band has slope -1 there, one that only carries lumps 0.
 STATE: `target` (the file's target sample) or a raw frame index kept in FRAMES_NPZ (default: target and every kept
-frame); `save=DIR` among them keeps each state's discs with their offsets there. One JSON line per state."""
+frame); `save=DIR` among them keeps each state's discs with their offsets there; `peel=K` takes the K outermost particle
+layers (the pipeline's layer rule) off every state before its surface is taken: what the offsets are without them (D67).
+One JSON line per state."""
 import json, sys
 from pathlib import Path
 
@@ -22,6 +24,7 @@ import numpy as np                                             # noqa: E402
 import torch                                                   # noqa: E402
 import torch.nn.functional as nnf                              # noqa: E402
 import trimesh                                                 # noqa: E402
+from physmorph.pipeline.window.layer import layer_by_asymmetry, layer_spacing  # noqa: E402
 from physmorph.render.exterior import Lattice, ZhuBridson      # noqa: E402
 from physmorph.render.knn_gpu import knn_self_torch            # noqa: E402
 from physmorph.sampling.mesh import load_mesh                  # noqa: E402
@@ -31,7 +34,8 @@ dev = torch.device("cuda")
 z = np.load(sys.argv[1], allow_pickle=True)
 raws, frames = [int(v) for v in z["raws"]], z["frames"]
 keep = next((s[5:] for s in sys.argv[3:] if s.startswith("save=")), None)      # save=DIR: the discs of each state, for a closer look
-states = [s for s in sys.argv[3:] if not s.startswith("save=")] or ["target"] + [str(r) for r in raws]
+peel = int(next((s[5:] for s in sys.argv[3:] if s.startswith("peel=")), 0))      # peel=K: the K outermost particle layers are taken off first
+states = [s for s in sys.argv[3:] if not s.startswith(("save=", "peel="))] or ["target"] + [str(r) for r in raws]
 tgt = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
 td = knn_self_torch(tgt, 9)[0]
 cov_r = float(td[:, 8].median())
@@ -89,6 +93,8 @@ print(f"N {len(tgt)}; pitch a {a:.4f} wu; lattice {h / a:.2f} a; mesh {len(mesh.
 with torch.no_grad():
     for name in states:
         x = tgt if name == "target" else torch.as_tensor(np.asarray(frames[raws.index(int(name))], np.float32), device=dev)
+        for _ in range(peel):                                   # the pipeline's layer rule, applied to what is left
+            x = x[~layer_by_asymmetry(x, layer_spacing(x))[0]]
         P, g, _, _ = lattice.discs(ZhuBridson(x, a), h, refine=False)
         n = nnf.normalize(g, dim=1)
         at = surface_tree.query(P, 1)[1].reshape(-1)
@@ -110,7 +116,7 @@ with torch.no_grad():
         shown = n
         for _ in range(2):
             shown = nnf.normalize((shown[nbn] * w).sum(1), dim=1, eps=1e-9)
-        row = dict(state=name, discs=len(P), apart=apart, apart_outside=outside,     # the share of those on the mesh's outer side
+        row = dict(state=name, peeled=peel, particles=len(x), discs=len(P), apart=apart, apart_outside=outside,     # the share of those on the mesh's outer side
                    offset=dict(mean=float(s.mean()), rms=rms(s - s.mean()), high=rms(s - g1), mid=rms(g1 - g25), low=rms(g25 - g25.mean())),
                    mesh_relief=dict(high=rms(r_high), mid=rms(r_mid), high_fit=fit(s - g1, r_high), mid_fit=fit(g1 - g25, r_mid)),
                    normal_error=dict(field=rms(angle(n, m)), shown=rms(angle(shown, m)),
