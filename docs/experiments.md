@@ -459,6 +459,62 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D61, the exterior's field: Solenthaler's factor on the offset (stage 1c; display only; pre-registered
+  2026-10-03 23:33 CDT; the user: "OK. 들어가 줘" to the field first, then stages 2 and 3; code
+  `physmorph/render/exterior.py`, `surface_layer_probe.py … FIELD`).** D59's webs between the ears, sheets in
+  concavities and bridged sparse particles are one fault: between near but separate bodies the particles' mean
+  x̄(q) moves faster than q and |q − x̄| stays below the offset where there is no body.
+  Primary sources (one agent, the papers' own text; copies in the session's scratch directory): Zhu and Bridson
+  2005 name the fault ("spurious blobs of surface can appear, since x̄ may erroneously end up outside the surface
+  in concavities") and smooth it away on a grid; Solenthaler, Schläfli and Pajarola 2007 (Eq. 23–26) remove it at
+  its cause, "in concave regions or between near but separated particles", by multiplying the offset with
+  f = γ³ − 3γ² + 3γ, γ = (t_high − EV_max)/(t_high − t_low), EV_max the largest eigenvalue of ∂x̄/∂q, t_low 0.4,
+  t_high 2.0 (f = 1 below t_low; 0 above t_high, implied); Yu and Turk 2013 (anisotropic kernels) address
+  bumpiness, make no claim on gaps, and their centre smoothing itself pulls components within four spacings
+  together (they add component labels against it); Adams 2007 needs distances carried from step to step;
+  Bhattacharya 2015 has "difficulty generating very thin surfaces". So the change is Solenthaler's factor with
+  the paper's constants on the field as it is (kernel radius 3 pitches); the eigenvalue is the largest real part,
+  from the characteristic cubic in closed form; the offset is set once more so that the target samples keep the
+  base display's solid area (the factor is about 0.947 on a flat surface, so 0.845 pitches first, then corrected
+  by the measured ratio).
+  Runs: the twelve key states of D59 stage 1a (Poisson-disk build) and every frame of D59's three runs (lattice
+  build), each against its `zb` rows.
+  Criteria: on the target samples the pixels seen of sets apart from the main one (8 362 at the dragon's 100k,
+  2 933 at 300k) fall below a fifth; the web between the bunny's ears at windows 5–8 is gone on the crop
+  sheets; thin parts kept (the crop's solid pixels at 0.95 of the base's or more on every key state, as now);
+  the fringe still gone on every frame; the field's roughness within 1.2 of `zb`'s.
+  Expectation: sheets and webs gone; sparse spray drawn as small separate blobs or not at all; the dragon's
+  detached horn tips at 300k drawn apart instead of bridged, if their gap is wider than the lattice resolves;
+  roughness slightly up, since the factor varies with the eigenvalue. If thin parts erode or the surface breaks
+  up, that is recorded and `zb` stays.
+  **Result (2026-10-03 23:38 CDT; lattice build; the three target samples, the bunny's windows 5, 8, 12 and end,
+  the dragon's window 15 and end at 300k and end at 100k; `output/gpu/d61`): the factor removes the sheets on
+  the target samples and roughens every simulated state; `zb` stays.**
+  Target samples: sets apart from the main one 0 discs on both dragons (zb: 1 194 discs seen on 7 457 pixels at
+  100k, 2 933 pixels at 300k), the mouth is open, roughness 10.5–14.0° (zb 9.7–14.3°); the offset of 0.845
+  pitches keeps the solid area (0.993–1.007 of the base display's).
+  Simulated states: the field's normal departs 24–28° from its neighbours' mean on the bunny (zb 12–15°) and
+  37–38° on the dragon at 300k (zb 22–24°), heights 0.18–0.30 pitches (zb 0.10–0.22): 1.6–2 times zb's, against
+  the criterion of 1.2. The surface there is a foam of lumps: where the outer particles sit in clumps the
+  eigenvalue is above 1 between them and the offset drops. 10–40 % more discs (pockets: 8 000–18 000 discs in
+  80–330 sets apart, 2 600–9 200 pixels of them seen), 9–19 s a frame against 2.5–4.
+  The web between the bunny's ears at windows 5–8 is still there: it is material, a spray dense enough to be a
+  body under either field, not a sheet of the field (the expectation was wrong). What the factor does draw
+  apart are the detached pieces zb joins to the body: a horn tip and a blob at the snout of the dragon at
+  100k, the tail tip and the blob under the tail at 300k.
+  Criteria: sheets on the target samples, met; web gone, not met; thin parts kept, met (the crops' solid pixels
+  0.99–1.02 of the base's); fringe gone, met (crop's soft pixels 5 100–6 100 against the base's 14 100–27 300);
+  roughness, not met. `zb` stays as the exterior's field, and with it the two known faults: sheets in
+  concavities (0.2 % of the picture at 300k, 0.6 % at 100k) and detached pieces drawn as joined. The `gaps`
+  branch is in this commit only as the record and goes out with the next one.
+- **D60, the physics-only twins of D59's three base runs, run once and kept (pre-registered 2026-10-03 23:23
+  CDT; the user: "Physics는 계속 돌리지마. 한 번 돌리면 그냥 그 값가지고 재사용해 … '모든 프레임'에서 검증이 완료 되어야
+  해"; `tmp/run12.sh`; `output/gpu/d60`).** The base (`repo_r64`) with `--render_weight_scale 0` on the bunny at
+  300k and the dragon at 300k and 100k, D59's commands otherwise (seed 97, own stop). Kept of each run: its JSON
+  (every window's record: transport, silhouette, shading, the render weight and its share, all read at scale 0
+  as well), every 12th simulated frame, and the per-frame table of the display measures; the full archive is
+  deleted. These three are the reference of every later render experiment at the same mesh and N and are not
+  run again. Nothing is tested by them alone; what is compared with them is registered with each experiment.
 - **D59, a displayed exterior apart from the simulated interior, stage 1a: the layer built on single states
   (display only, no simulation; pre-registered 2026-10-03 20:06 CDT, before the probe exists; the user approved
   the stage: "OK. 들어가 줘"; `scripts/probes/settled/surface_layer_probe.py`; D57's kept key frames and target
