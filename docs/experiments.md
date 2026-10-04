@@ -459,6 +459,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D83, the fine render picture from the first window (a diagnostic on a server copy, no committed code;
+  pre-registered 2026-10-04 18:28 CDT, queued behind the evaluations then running; `repo_r73` = D81's code
+  with the starting resolution set to the fine one; `output/gpu/d83`).** What the runs so far show: the render
+  arm's lead over its twin is made in the fine stage. In D75's dragon run the horn crop is 0.002–0.004 ahead
+  of the twin through the 64-px stage (0.9784–0.9817 against 0.9743–0.9787 at windows 50–90) and 0.9876 after
+  ten windows at 192 px, the front difference 0.0098 before them and 0.0084 after. Under D81's weight the fine
+  stage comes after the body has converged and lasts three commits (bunny, animations 76–78). The coarse
+  stage was made for the cost of the particle-cloud picture; on the exterior a 192-px window costs 30 % more
+  than a 96-px one and a 64-px window no less (D76), and 96 px from the start was the better schedule once
+  before (D18, D19). The diagnostic: one resolution, 192 px, from the first window, no switch; everything else
+  D81's. Bunny and dragon 300k (LG), against LF (D81), LE, the twins.
+  Criteria: the user's bar (10–20 % or more ahead of the twin on each error measure, not behind on the rest);
+  for this change, ahead of LF on the display's crop IoU and difference and on the yardstick's silhouette, a
+  run no longer than 1.5 times LF's.
+  Expectation: the yardstick's silhouette below LF's from window 20 on; the crop's difference 5–10 % below
+  LF's at the end; the first ten windows slower to arrive than with a coarse picture. Risk: a fine picture
+  while the body is far from its target gives a poor early guide (the silhouette's reach is a pixel).
+- **D82, the outer layer's relaxation switched off under the minimum spacing (a diagnostic on a server copy, no
+  committed code; pre-registered 2026-10-04 18:12 CDT; `repo_r72` = D81's code with the relaxation's fraction
+  set to zero, u kept; `output/gpu/d82`).** The question is the user's "detail": D76 measured that a run carries
+  0.14–0.22 of the mesh's relief at 5.4 pitches and 0.73–0.77 at 10.8, a 300k sample 0.60–0.66 and 0.86–0.87;
+  the runs with the bounded share carry what their twins carry (bunny LD, LE 0.22, 0.21 against PA's 0.18 at
+  5.4 pitches and 0.75, 0.74 against 0.73 at 10.8; dragon LW 0.19 against 0.14 and 0.77 against 0.76; the
+  unbounded arms lost it, 0.56 at 10.8), and D71's form of the spacing rule does not differ from D70's (0.17,
+  0.72). So the render term does not write relief below a cell, and what erases it is on the physics side:
+  the relaxation (D14: it halves relief at 11 spacings and removes it below 6) and the spacing rule (the
+  dragon's 0.44 → 0.14 at 5.4 pitches). The relaxation was kept after D16 because without it the surface was
+  as rough as a sample and the run did not stop; the spacing rule now gives the evenness. Bunny 300k,
+  physics-only, the rule on, the relaxation off (PR), against PA; the dragon if the bunny answers.
+  Criteria: the carried share at 5.4 pitches at least 0.10 above PA's and at 10.8 not under it; the field's
+  roughness at most 1.3 times PA's (3.2° → 4.2°; a sample's is 9.8°); the pictures' difference and the IoUs
+  not behind PA's; where the run stops.
+  Expectation: 0.30–0.40 at 5.4 pitches, 0.80 at 10.8; roughness 4–6°; the run longer than PA's.
+  First launch (18:12) failed: it was put on a GPU whose evaluation then grew to 34 GB, and the run ran out of
+  memory in its first window; queued again behind that evaluation.
 - **D81, the render weight is calibrated at every window, and the selection rescores its references
   (pre-registered 2026-10-04 17:51 CDT at launch; the user: "계속 진행 해 줘 지금 10 ~ 20% 이상 나와야 의미 있는
   결과인 거니까"; code: `window/solve.py`, `run/selection.py`, `run/runner.py`, `target.py`; server `repo_r71`,
