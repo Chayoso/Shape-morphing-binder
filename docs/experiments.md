@@ -476,6 +476,41 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   difference 0.0160) with the front picture no worse than La's; on the bunny nothing is lost against La.
   Expectation: the horn crop gains; a window costs more (about twice the discs, four times the pixels); the
   transport energy stays above the twin's.
+  **Result (2026-10-04 04:26 CDT; one run each; every kept frame; `output/video_2026-10-04/d64_fine_picture`):
+  the dragon's horn crop reaches the physics-only twin's in the solid region and the whole picture passes it;
+  the pictures' difference in the crop stays above the twin's; the bunny loses nothing.**
+  The display against the target, mean of the last 20 kept frames (IoU of the solid regions / the pictures'
+  difference):
+
+  | run | front | thin crop | far side |
+  |---|---|---|---|
+  | dragon 300k P | 0.9875 / 0.0118 | 0.9717 / 0.0160 | 0.9871 / 0.0130 |
+  | dragon 300k R | 0.9852 / 0.0149 | 0.9702 / 0.0191 | 0.9850 / 0.0171 |
+  | dragon 300k La, Lb (96 px) | 0.9876 / 0.0135, 0.9884 / 0.0124 | 0.9686 / 0.0194, 0.9691 / 0.0185 | 0.9865 / 0.0145, 0.9881 / 0.0137 |
+  | dragon 300k L192 | 0.9898 / 0.0127 | 0.9726 / 0.0182 | 0.9901 / 0.0137 |
+  | bunny 300k P | 0.9868 / 0.0099 | 0.9705 / 0.0116 | 0.9883 / 0.0086 |
+  | bunny 300k La, Lb (96 px) | 0.9910 / 0.0092, 0.9909 / 0.0092 | 0.9779 / 0.0098, 0.9777 / 0.0106 | 0.9922 / 0.0081, 0.9921 / 0.0075 |
+  | bunny 300k L192 | 0.9912 / 0.0096 | 0.9794 / 0.0100 | 0.9926 / 0.0079 |
+
+  Dragon: the horn crop's IoU goes from 0.9686–0.9691 at 96 px to 0.9726, the twin's level (0.9717; its last
+  frame 0.9730), seven times the two 96 px runs' difference; the front and the far side pass the twin by 0.002
+  and 0.003, where the 96 px runs were level with it. The pictures' difference stays above the twin's: +8 % in
+  the front, +14 % in the crop (the 96 px runs: +5 to +14 % and +16 to +21 %). The criterion is met in the
+  solid regions and not in the crop's difference.
+  Bunny: the IoUs are 0.0002–0.0017 above the 96 px runs' (the crop's by eight times their difference), the
+  differences inside their range.
+  On the yardstick the run moves its effort to the picture it is given: at 192 px the bunny's exterior
+  silhouette ends at 0.00079 against 0.00117–0.00125 for the 96 px runs and 0.00213 for the twin; at 96 px it
+  ends at 0.00051 against their 0.00025–0.00031 (the twin 0.00126). The transport energy ends where the 96 px
+  runs' does (bunny 1.9e-4, dragon 1.0e-3).
+  Cost: the bunny's run, alone on its GPU, 1 258 s for 84 window attempts, 15.0 s each against 13.6 at 96 px
+  (173 000 discs against 57 000 in the fine stage, one search a window; the gradient time is unchanged at
+  7.8 s); the dragon's run shared its GPU and its time (4 820 s) says nothing.
+  Rendering influence: λ at the first window as at 96 px (0.203, 0.321), recalibrated at the switch; g_share
+  median 0.91 and 0.93; the path is D62's.
+  What this leaves: the difference of the pictures in the horn crop (shading and edge position at 4K) is still
+  better without any render term; one run per mesh, so the spread at 192 px is not measured; the event rule
+  still switches once, from 64 px, whatever the fine level.
 - **D63, stage 3: fewer interior particles under the exterior (pre-registered 2026-10-04 00:28 CDT, while D62's
   dragon runs are still out; the user: "이게 증명되면 3단계 … 그 후 입자수를 줄이면서 확인 … 항상 '모든 프레임'에서
   검증"; `output/gpu/d63`).** The interior at N = 100 000, 50 000 and 30 000 on the bunny and the dragon (300 000
@@ -512,7 +547,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   | bunny 50k | 124, 168, 169 | 0.9723 / 0.0204 | 0.9671 / 0.0227 | 0.9390 / 0.0224 | 0.9355 / 0.0240 | 0.9698 / 0.0174, 0.9404 / 0.0208 |
   | bunny 30k | 124, 137, 108 | 0.9653 / 0.0248 | 0.9666 / 0.0256 | 0.9071 / 0.0307 | 0.9033 / 0.0299 | 0.9672 / 0.0214, 0.9059 / 0.0270 |
   | dragon 300k | 1 684, 2 259, 2 245 | 0.9875 / 0.0118 | 0.9876 / 0.0135 | 0.9717 / 0.0160 | 0.9686 / 0.0194 | the reference |
-  | dragon 100k | 460, 464, 457 | being drawn | 0.9752 / 0.0217 | being drawn | 0.9341 / 0.0352 | 0.9791 / 0.0171, 0.9498 / 0.0267 |
+  | dragon 100k | 460, 464, 457 | 0.9750 / 0.0205 | 0.9752 / 0.0217 | 0.9495 / 0.0315 | 0.9341 / 0.0352 | 0.9791 / 0.0171, 0.9498 / 0.0267 |
   | dragon 50k | 218, 242, 221 | 0.9615 / 0.0258 | 0.9570 / 0.0271 | 0.9355 / 0.0375 | 0.9196 / 0.0429 | 0.9619 / 0.0221, 0.9387 / 0.0318 |
   | dragon 30k | 165, 166, 130 | 0.9515 / 0.0330 | 0.9505 / 0.0331 | 0.8676 / 0.0592 | 0.8723 / 0.0564 | 0.9560 / 0.0291, 0.8896 / 0.0509 |
 
@@ -657,7 +692,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   such pixels thick (D64 takes the picture's resolution).
   Also on La's frames: the last frame of the dragon at 300k shows no set apart from the main one (R's: 3 733
   pixels, the blob under the tail), and the base display's own soft pixels in the horn crop are 10 680
-  against R's 14 473. Lb's frames are being drawn for the spread of this reading.
+  against R's 14 473.
+  The spread of this reading (04:26 CDT; Lb's frames, mean of the last 20): the two L runs agree to 0.0001–0.0002
+  in the front and crop IoU on the bunny (0.9910 / 0.9909, 0.9779 / 0.9777) and on the dragon at 100k (0.9869 /
+  0.9868, 0.9674 / 0.9676), and to 0.0008 and 0.0005 on the dragon at 300k (0.9876 / 0.9884, 0.9686 / 0.9691); the
+  pictures' differences vary more between the two (0.0123 against 0.0148 on the dragon at 100k). Against that
+  spread: L is ahead of P in the solid regions on the bunny (+0.004, +0.007) and on the dragon at 100k (+0.007,
+  +0.006), level in the front and behind in the horn crop (−0.003) on the dragon at 300k.
 - **D61, the exterior's field: Solenthaler's factor on the offset (stage 1c; display only; pre-registered
   2026-10-03 23:33 CDT; the user: "OK. 들어가 줘" to the field first, then stages 2 and 3; code
   `physmorph/render/exterior.py`, `surface_layer_probe.py … FIELD`).** D59's webs between the ears, sheets in
