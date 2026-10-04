@@ -544,6 +544,76 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   fault for the other, so the remedy is the field's definition (as pre-registered), not R.
   Cost as built: 60–100 s a state (about 25 million field evaluations at 129 neighbours each), too slow for
   every frame. Rendering influence: none, no run was changed; the drawings are of archived states.
+  **Stage 1b, the exterior on every frame of the video (pre-registered 2026-10-03 21:04 CDT, before the code).**
+  Three fresh runs of the base (`repo_r64`, D57's commands: bunny 300k started 20:58, the dragon at 300k and
+  100k 20:59), of which every 12th simulated frame is kept (the video's frames; `tmp/d59run.sh`).
+  The layer is built on each frame from that frame's particles alone, with nothing carried: one disc for each
+  cell of a lattice fixed in space that the zero set crosses (the cell's centre projected onto f = 0 and kept
+  where it stays in its cell), the lattice's pitch h set once per run so that the target sample's surface takes
+  M = 300 000 discs, sigma = h. This comes before the carried layer the proposal named for three reasons: the
+  carried layer needs this extraction as its insertion step in any case; a lattice fixed in space gives the same
+  discs for the same surface, so no random choice can flicker; and it costs one projection per disc (about four
+  million field evaluations a frame, against 25 million for the Poisson-disk pool).
+  Measured per frame, for the base display and the exterior: soft pixels of the crop and of the picture; the
+  pixels that change their solid state for one frame only (blips: solid in frames k − 1 and k + 1 and not in k,
+  or the reverse); the sets apart from the main one and the pixels they are seen on; the discs; seconds. On every
+  40th frame the share of the zero set that lets more than a fifth through.
+  Criteria: the fringe is gone on every frame (the crop's soft pixels below the base's on each); no flicker that
+  the base does not have (the exterior's blips not above the base's, none visible in the crop video); thin parts
+  drawn without holes as they grow (0 % of the zero set uncovered); under 15 s a frame.
+  Expectation: clean edges over the whole morph; a disc count that grows with the surface from the sphere to
+  the target; blips of the lattice's scale possible at edges. If it flickers, the discs are carried (moved with
+  the kernel-weighted displacement of their particles, reprojected, thinned, the gaps filled from this
+  extraction).
+  **Result (2026-10-03 22:38 CDT; videos `output/video_2026-10-03/d59_exterior_layer/video`, panels: base display
+  | exterior with the field's normals | exterior with the base display's normal treatment): the fringe is gone on
+  every frame of the three runs and the exterior flickers less than the base display; early in the morph it
+  draws spray as webs, and it does not find the smallest closed sets.**
+  The runs (base code, own stop): bunny 300k 73 windows, 904 s, silhouette 0.9872, λ first window 0.249, g_share
+  0.87; dragon 100k 107 windows, 917 s, 0.9809, 0.42, 0.91; dragon 300k 151 commits, 3 237 s, 0.9848, 0.396, 0.91.
+  Rendering influence of this stage: none, the layer is drawn after the run.
+  Cost: the field read through a neighbour tree took 16 s a frame (129 neighbours a point); with the particles
+  binned in cells of the kernel's radius the same layer (299 995 against 300 019 discs on the bunny's target
+  sample, the same IoU to four places) takes 2.4–4.0 s a frame at 300k.
+
+  | run (frames) | lattice pitch, discs: sphere → most → end | crop's soft pixels, base → exterior (exterior / base, median and worst frame) | blips over the run, whole picture: base → exterior (frames where the exterior has more) | the same in the crop | IoU of the solid regions, median (least) | sets apart, pixels seen: median (most) |
+  |---|---|---|---|---|---|---|
+  | bunny 300k (245) | 0.398 a, 213 651 → 367 707 → 304 778 | 14 289 → 4 531 (0.31, 0.35) | 98 910 → 83 931 (94 of 243) | 50 965 → 37 169 (75) | 0.9844 (0.9836) | 0 (1 010) |
+  | dragon 100k (358) | 0.340 a, 141 221 → 379 146 → 298 890 | 17 000 → 3 578 (0.21, 0.29) | 227 565 → 157 630 (42 of 356) | 73 490 → 39 674 (48) | 0.9814 (0.9582) | 1 031 (5 324) |
+  | dragon 300k (491) | 0.498 a, 140 910 → 395 026 → 310 967 | 13 815 → 4 876 (0.36, 0.68) | 222 934 → 136 691 (85 of 487) | 58 190 → 28 766 (106) | 0.9825 (0.9681) | 547 (7 990) |
+
+  The fringe: on no frame of any run does the exterior have more soft pixels than the base, in the crop or in the
+  whole picture (the worst ratio, 0.68, is the dragon's first frames, when the crop is nearly empty).
+  The flicker: the blips follow the particles (a sawtooth with the windows in both drawings, the breathing of D1);
+  over a run the exterior has 15–39 % fewer of them than the base in the whole picture and 27–51 % fewer in the
+  crop, more than the base on 12–39 % of the frames. Nothing was carried from frame to frame, so the carried
+  layer, its insertion and deletion are not needed for display.
+  What the layer draws that the base does not: early in the morph (windows 3–10) the spray between the bunny's
+  ears, a faint fuzz in the base drawing, is a web joining the ears in the exterior, and the dragon's solid
+  region is up to 4 % larger than the base's at windows 4–6 (IoU 0.958): the field joins sparse particles within
+  its radius into solid material, the same property that bridges the detached horn tips. By window 12 the ears
+  are apart and clean.
+  What it does not draw: 0.2–0.35 % of the zero set on the bunny's frames, 0.4–0.8 % on the dragon's at 100k and
+  1.0–2.3 % at 300k has no disc within 1.5 sigma (the target samples: 0.03–0.04 %). Every such point lies in a
+  cell the search never reached: closed sets that hold no node of the search's coarse lattice (two pitches).
+  82–84 % of them at the dragons' end frames have 57 or more particles within R (the open surface has 32, the
+  deep interior 113): pockets under the surface, unseen. 34–99 points a frame at the ends (0.01–0.02 % of the
+  zero set), and 755 at the dragon's window 15, lie in the open with 20 particles or fewer: small sets around
+  sparse particles, among them the field's own blobs between two distant particles. Widening the search to the
+  nodes that are outside by less than their cube's half diagonal did not find them (88 against 89 on the bunny)
+  and is not kept. The Poisson-disk build of stage 1a drew all of these; the per-frame layer therefore hides the
+  smallest floaters, while a set large enough to hold a coarse node is drawn apart (the blob under the dragon's
+  tail in the last frame).
+  The discs: at a fixed budget the lattice's sigma is its pitch (0.34–0.50 a), wider than the Poisson-disk set's
+  r (0.24–0.34 a), so the edge is softer than stage 1a's (the bunny's end frame: 4 678 soft pixels in the crop
+  against 2 965, the base 14 567).
+  Against the criteria: fringe gone on every frame, yes; no flicker beyond the base's, yes by the run's totals
+  and not on every frame; thin parts without holes, yes in the drawings, with the 0 % of the pre-registration
+  not met (the closed sets above); under 15 s a frame, yes after the binning.
+  Open, in the order they would be taken: the webs and the sheets in concavities are the field's (stage 1a's
+  finding; the remedy is its definition); the sets the search misses; the lumpy surface under the field's own
+  normal (hidden by the base's normal averaging in both drawings). Stages 2–4 (the render loss on this layer, a
+  smaller interior, a variable-mass shell) are the user's decision.
 - **D58, literature: resampling, and a simulated interior apart from a displayed surface (three agents, 2026-10-03
   18:45–19:00 CDT; the user: "resample/3DGS 에서의 resample 방법들 … Surface를 덮어야 하는 N 이 모자라서 … 내부와 외부를
   이제는 진짜 나눠야 할 거 같으니"; papers opened in full unless marked; extracted texts in the session's
