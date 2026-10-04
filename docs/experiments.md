@@ -459,6 +459,69 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D80, the bounded share on the 40k gallery (pre-registered 2026-10-04 17:38 CDT at launch; `tmp/d80.sh`,
+  `tmp/d80.queue`; server `repo_r70`; outputs beside D72's in `output/gpu/d72`).** D77's stated risk: at 40k
+  the unbounded share (0.82–0.92) is what gives the render arm its lead over the physics-only twin
+  (silhouette IoU +0.009 to +0.013 with the rule). One arm is added to D72's five on the 19 meshes: SA, the
+  minimum spacing with the bounded share (D74's change does nothing at 40k). D72's 43 runs paused at 16:17 for
+  the 300k experiments are queued behind it.
+  Criteria per mesh, SA against S (the same recipe with the unbounded share) and against the pair B1, B2: the
+  run's silhouette IoU not under S's by more than the pair's own difference; the thin share uncovered not over
+  S's by more than the pair's difference; no new flag; SA still ahead of its twin SP in silhouette IoU and on
+  the yardstick; the transport energy at the end not over S's.
+  Expectation: the transport energy and the kinetic energy at the end fall towards the twin's; the yardstick's
+  silhouette is at S's level or lower (as at 300k); the run's silhouette IoU within the pair's spread of S's
+  on most meshes. Risk: thin targets (bob, V, fandisk), where the render term carries the thin parts at 40k.
+- **D79, whether the exterior's render terms carry the disc lattice's phase (a measurement, no run;
+  2026-10-04 16:56 CDT; `tmp/ext_noise.py`; `output/gpu/d79/noise.log`).** A candidate for the short fine
+  stage: the run reads its render terms on discs found on a lattice fixed in space, and the set of crossed
+  cells changes as the body moves. The end frame of D70's LA runs is read 12 times with the lattice shifted by
+  a random part of one cell. The spread of the terms over the shifts, relative: at 192 px silhouette 0.4 %
+  (bunny and dragon), shading 0.1 %; at 126 px (the dragon) 0.4 % and 0.1 %; at 64 px 2.1 % and 1.3 %, shading 0.3 % and
+  0.2 %. The same terms on the last four kept frames (12 steps apart) differ by ±9 % (silhouette) and ±3 %
+  (shading). So the lattice is not what moves the terms from window to window: the state is. Refuted as the
+  cause of the fine stage's end.
+- **D76, the relation between N and the render resolution, and how fine the 300k surface is (one agent, at the
+  user's request "N 과 px 간의 관계 조사하고, 현재 surface가 어디까지 detail 하게 갔는지도 조사"; received 2026-10-04
+  17:37 CDT; `output/gpu/d76`: `twins.log`, `cost.log`, `bands_*.log`, `calib_*.log`; scripts `tmp/ag2_*`).**
+  N and px. A pixel is 2 × extent / res; in pitches, at 64 / 96 / 126 / 192 px: 40k 1.6–1.9 / 1.1–1.3 / 0.8–1.0
+  / 0.5–0.6; 100k 2.2–2.6 / 1.5–1.7 / 1.1–1.3 / 0.7–0.9; 300k 3.2–3.9 / 2.1–2.6 / 1.6–2.0 / 1.1–1.3; 1.5M
+  5.4–6.6 / 3.6–4.4 / 2.8–3.4 / 1.8–2.2 (bunny–dragon; the cube law checked on samples of 1.2M and 2.4M). A
+  4K display pixel is 0.09 pitches at 300k. Over every pair of a render run and its physics-only twin in the
+  records (exterior path, 30k to 300k, 20 pairs): at the end of the 64-px stage the render arm is ahead on
+  the yardstick in all 15 pairs with a pixel of 3.2 pitches or less and in none of the five at 3.9 (the
+  dragon at 300k, so the bracket has one mesh on each side). Cost on the bunny: a window at 192 px is 3–4 s
+  (30 %) dearer than at 96 px, the 64-px stage is not cheaper than 96 px (early windows find the discs 3–5
+  times). Literature (ar5iv text): Mip-Splatting (Yu 2024) bounds a primitive from below by the sampling
+  rate, ν̂ ≥ 2ν with a 3D filter Σ + (0.2 / ν̂) I; 3DGS (Kerbl 2023) uses a quarter resolution only as a warm-up of
+  the first 500 iterations; none runs its main stage with a pixel of 3–4 primitive spacings.
+  Detail. The share of the mesh's own relief the displayed surface carries, per octave band (end frames; the
+  high-pass applied twice, so that smooth curvature does not leak into the fine bands; calibrated on the mesh
+  blurred by a known Gaussian; nominal wavelength 2.7 / 5.4 / 10.8 / 21.6 pitches = 30 / 60 / 120 / 240 4K
+  pixels = 2 / 4 / 9 / 17 % of the bunny):
+
+  | carried share | 2.7 | 5.4 | 10.8 | 21.6 pitches |
+  |---|---|---|---|---|
+  | bunny: 300k sample (the ceiling at this N) | 0.36 | 0.66 | 0.86 | 0.95 |
+  | bunny: P / L192 (no spacing rule) | 0.13 / 0.13 | 0.24 / 0.23 | 0.73 / 0.62 | 0.94 / 0.92 |
+  | bunny: PA / LA (D70) | 0.03 / 0.04 | 0.18 / 0.18 | 0.73 / 0.61 | 0.92 / 0.90 |
+  | bunny: samples of 1.2M / 2.4M | 0.58 / 0.66 | 0.83 / 0.87 | 0.95 / 0.96 | 0.98 / 0.98 |
+  | dragon: 300k sample | 0.27 | 0.60 | 0.87 | 0.95 |
+  | dragon: P / L192 | 0.21 / 0.22 | 0.44 / 0.32 | 0.83 / 0.74 | 0.95 / 0.95 |
+  | dragon: PA / LA (D70) | −0.06 / −0.05 | 0.14 / 0.12 | 0.76 / 0.70 | 0.94 / 0.94 |
+  | dragon: samples of 1.2M / 2.4M | 0.54 / 0.63 | 0.80 / 0.86 | 0.94 / 0.96 | 0.97 / 0.98 |
+
+  The mesh's own relief in these bands is 0.024–0.036, 0.08–0.11, 0.24–0.31 and 0.7–0.9 pitches rms. A run
+  carries more than half of the relief only above a wavelength of 9 to 13 pitches (7–10 % of the bunny, 95–145
+  display pixels), a 300k sample above 6.5 to 7.5. Read against the calibration a sample's displayed surface
+  is the mesh blurred by 1.2–1.4 pitches (the field's kernel alone is 0.9), a run by 1.6 (dragon P) to 2.5
+  (LA). Each finer band costs eight times the particles: the 5.4-pitch band needs 2.4M at today's distance of
+  a run from its sample, or no more particles if the run reached its own sample. The minimum spacing (D70)
+  costs relief at 5.4 pitches (dragon 0.44 → 0.14, bunny 0.24 → 0.18) and below; the unbounded render arms
+  carry 0.06–0.12 less than their twins at 10.8 pitches. D66's "not erased relief" is corrected by this: its
+  slopes are reproduced, and against a known blur they mean a blur of 2 pitches against a sample's 1.2. The
+  "2.4M" of D12 (300k × 8, half the spacing) agrees with the samples' cube law. Not done: the two faces of a
+  thin part are averaged together above 2 pitches; one end frame per run; nothing at 256 or 384 px.
 - **D77 and D78, the render's share of the step is bounded by the rule that calibrates it (pre-registered
   2026-10-04 16:17 CDT at launch of the first run; the user: "A, B 둘다 봐야", "Render gradient가 유의미한 결과를
   낼 때까지 계속 진행"; code: `window/solve.py`; servers `repo_r69` (D77, this change alone) and `repo_r70`
@@ -500,6 +563,46 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the twin, not ahead, because the coarse picture has little to add; with 126 px (D78) the yardstick
   silhouette is below the twin's throughout and the display ahead at the end. Risk: at 40k, where the large
   share helps, the bound takes that help away (the gallery has to be read before this is a default).
+  **Result, the bunny (2026-10-04 17:40 CDT; the dragon's two runs are under way): with the share bounded the
+  render arm is ahead of its physics-only twin on every display measure, at every window from 20 on and at
+  the end.** Last 20 kept frames (LD: the bound alone, 64 then 192 px; LE: the bound with D74's 126 px; PA the
+  twin; LA and LC the unbounded runs of D70 and D74; the floor is D65's second sample):
+
+  | run | front IoU / difference | thin crop | far side | field roughness | yardstick: exterior silhouette / shading | commits, seconds |
+  |---|---|---|---|---|---|---|
+  | floor | 0.9906 / 0.0063 | 0.9795 / 0.0071 | 0.9904 / 0.0059 | 9.8° | | |
+  | PA (twin) | 0.9900 / 0.0075 | 0.9784 / 0.0086 | 0.9907 / 0.0068 | 3.2° | 0.000787 / 0.000568 | 87, 1156 |
+  | LA | 0.9923 / 0.0084 | 0.9796 / 0.0094 | 0.9926 / 0.0068 | 4.5° | 0.000438 / 0.000537 | 47, 821 |
+  | LC (D74) | 0.9927 / 0.0087 | 0.9822 / 0.0092 | 0.9933 / 0.0074 | 4.5° | 0.000414 / 0.000573 | 68, 1829 |
+  | LD (D77) | 0.9937 / 0.0070 | 0.9858 / 0.0069 | 0.9936 / 0.0056 | 3.4° | 0.000326 / 0.000460 | 52, 1959 |
+  | LE (D78) | 0.9938 / 0.0068 | 0.9881 / 0.0062 | 0.9936 / 0.0057 | 3.4° | 0.000315 / 0.000449 | 49, 823 |
+
+  (LC's, LD's seconds were taken on GPUs shared with the gallery.) Against the twin, LD and LE: front IoU
+  +0.0037 and +0.0038, difference −7 % and −9 %; thin crop IoU +0.0074 and +0.0097, difference −20 % and −28 %;
+  far side IoU +0.0029, difference −18 % and −16 %. Both pass the floor in every IoU and in the crop's and the
+  far side's difference. By window, LD against PA: crop IoU 0.9796 against 0.9708 at window 20 and 0.9814
+  against 0.9751 at 30; front difference 0.0082 against 0.0099 and 0.0080 against 0.0092. At window 10 the
+  bounded arm is behind (crop 0.9095 against 0.9257): the early lead of the unbounded arm is gone, as expected.
+  What the cause predicted holds: the share is 0.33 in every window; the transport energy is 1.2 to 1.4 times
+  the twin's at equal windows (1.03e-4 against 8.5e-5 at window 20, 4.8e-5 against 3.4e-5 at 40; it was 4 to 5
+  times); the kinetic energy at the end 7.6e-6 and 6.9e-6 against the twin's 3.9e-6 (LA 1.9e-4). And the render
+  terms themselves are lower than with the unbounded share: the yardstick's exterior silhouette 2.4 and 2.5
+  times below the twin's (LA 1.8), below it at every window from 20 on (6.9e-4, 5.4e-4, 5.0e-4, 3.2e-4 at
+  windows 20–50 against 1.26e-3, 9.3e-4, 8.7e-4, 7.9e-4), and the shading term 19 % and 21 % below the twin's,
+  the first time a render arm lowers it on the bunny. The run's own 64-px silhouette term reaches 9e-5 where
+  the unbounded arm stayed at 2.8e-4: with the physics objective not starved the render term is fitted
+  better, not worse.
+  The other measures against the twin (LD / LE / PA): run's silhouette IoU 0.9863 / 0.9864 / 0.9849; thin
+  share uncovered 4.2 / 3.9 / 4.8 %; chamfer 0.0551 / 0.0551 / 0.0550; holes none; bands 0.086, 0.141 / 0.085,
+  0.141 / 0.085, 0.142; the field normal's median error 9.5° / 9.5° / 9.3°; density's spread 0.175 / 0.176 /
+  0.168; centre of mass's largest displacement 0.0045 / 0.0047 / 0.0077 pitches; net rotation 0.012° / 0.011° /
+  0.011°; still moving at the end 0.0033 / 0.0037 / 0.0030 pitches a pair. Not yet at the twin's level:
+  transport energy at the end 3.7e-5 against 2.1e-5 and the kinetic energy at the end twice the twin's, the
+  roughness and the density's spread by a few per cent. Part of that is run length: the render arm stops at 52
+  and 49 commits (the coarse stage ends at animation 47 and 43 with three rejections, LD's fine stage after 7
+  commits), the twin at 87; the rejected windows have a positive physics gain (+2 to +3 %) and a merit
+  raised by the render terms (the silhouette term up 9–28 % in the candidate). The stop is the outer merit's,
+  not the lattice's (D79).
 - **D75, the render weight at a tenth (a probe with an existing flag, not a candidate; pre-registered
   2026-10-04 15:59 CDT at launch; `--render_weight_scale 0.1`, server `repo_r66`; `output/gpu/d75`).** D73's
   first cause: the weight is set once, and the render's share of the step grows to 0.91–0.96 while the physics
@@ -511,6 +614,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   0.93 against 0.83 at window 10) is smaller; the coarse stage's yardstick silhouette is not above the twin's.
   If the transport energy does not come down, the share is not what starves the physics objective and A is
   not the weight's definition.
+  **Result (2026-10-04 17:40 CDT): the share is the cause; with a tenth of the weight the render arm passes
+  its twin on the dragon in every display measure.** LW: 103 commits (the twin 97; the coarse stage runs to
+  animation 98, not cut short), share 0.48–0.83.
+
+  | dragon 300k | front IoU / difference | horn crop | far side | roughness | yardstick: exterior silhouette / shading | thin uncovered | transport energy, kinetic energy at the end |
+  |---|---|---|---|---|---|---|---|
+  | floor | 0.9912 / 0.0074 | 0.9793 / 0.0112 | 0.9918 / 0.0072 | 13.6° | | | |
+  | PA (twin) | 0.9881 / 0.0102 | 0.9784 / 0.0139 | 0.9890 / 0.0108 | 5.0° | 0.001051 / 0.000685 | 5.3 % | 6.8e-5, 1.7e-5 |
+  | LA | 0.9897 / 0.0106 | 0.9724 / 0.0162 | 0.9888 / 0.0115 | 6.9° | 0.000577 / 0.000678 | 8.1 % | 5.5e-4, 1.7e-3 |
+  | LW | 0.9928 / 0.0086 | 0.9863 / 0.0106 | 0.9923 / 0.0089 | 4.9° | 0.000390 / 0.000494 | 4.4 % | 1.5e-4, 4.2e-5 |
+
+  Against the twin: front IoU +0.0047, difference −16 %; horn crop IoU +0.0079, difference −24 %; far side IoU
+  +0.0033, difference −18 %; the yardstick's exterior silhouette 2.7 times below and its shading 28 % below
+  (the first fall of the shading term on the dragon); the run's silhouette IoU 0.9846 against 0.9819; bands
+  0.108, 0.160 against 0.109, 0.166; the field normal's error 10.9° against 11.3°; discs apart 7.6 % in both;
+  the centre of mass 0.019 against 0.026 pitches; still moving at the end 0.0067 against 0.0065 pitches a
+  pair. By window the arm is level at 20 (crop 0.9544 against 0.9562) and ahead from 30 on (0.9761 against
+  0.9701, front difference 0.0113 against 0.0120). On the yardstick its exterior silhouette is 1.3 to 1.7
+  times below the twin's through the whole 64-px stage (9.5e-4, 7.8e-4, 7.0e-4, 6.8e-4 at windows 30, 40, 60,
+  80 against 1.46e-3, 1.29e-3, 1.05e-3, 1.03e-3): with less weight the coarse picture's fit does carry over.
+  Behind the twin: the transport energy at the end (2.2 times), the kinetic energy at the end (2.5 times), the
+  hole share (0.049 against 0.037 %), the density's spread (0.213 against 0.198), chamfer by 0.0002. The
+  expectations held except one: the early lead did not shrink to nothing (crop 0.917 against 0.831 at window
+  10). A tenth is a number put in by hand; D77 is the definition that should give this without one.
 - **D74, the render pictures follow N (pre-registered 2026-10-04 15:59 CDT at launch; the user: "300K + 에서
   무조건 'render gradient'를 먹인 게 'physics only'보다 좋아야 해. 모든 metric과 momentum 보존까지 전부. A, B 둘다
   봐야 할 거 같네"; code: `scripts/pipeline_run.py`; server `repo_r68`; `output/gpu/d74`).** D73's second
@@ -556,6 +683,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   as far per pair (0.013 against 0.0065 pitches on the dragon, 0.0074 against 0.0030 on the bunny) and its
   kinetic energy is 50 to 100 times the twin's. The end-at-rest terms are part of the physics objective that
   D73 found starved.
+  **Result (2026-10-04 17:40 CDT): what the cause predicts holds, and by itself it is not enough.** LC, 126
+  then 192 px, the share unbounded (0.93–0.95):
+
+  | run | front IoU / difference | thin crop | far side | roughness | yardstick: exterior silhouette / shading | commits |
+  |---|---|---|---|---|---|---|
+  | bunny PA / LA / LC | 0.9900 / 0.0075, 0.9923 / 0.0084, 0.9927 / 0.0087 | 0.9784 / 0.0086, 0.9796 / 0.0094, 0.9822 / 0.0092 | 0.9907 / 0.0068, 0.9926 / 0.0068, 0.9933 / 0.0074 | 3.2°, 4.5°, 4.5° | 0.000787 / 0.000568, 0.000438 / 0.000537, 0.000414 / 0.000573 | 87, 47, 68 |
+  | dragon PA / LA / LC | 0.9881 / 0.0102, 0.9897 / 0.0106, 0.9892 / 0.0109 | 0.9784 / 0.0139, 0.9724 / 0.0162, 0.9701 / 0.0177 | 0.9890 / 0.0108, 0.9888 / 0.0115, 0.9890 / 0.0117 | 5.0°, 6.9°, 7.6° | 0.001051 / 0.000685, 0.000577 / 0.000678, 0.000700 / 0.000671 | 97, 89, 60 |
+
+  The coarse stage's yardstick silhouette is below the twin's at every window from 20 on, on both meshes
+  (dragon 1.47e-3, 1.28e-3, 8.8e-4, 8.5e-4 at windows 20–50 against 2.47e-3, 1.46e-3, 1.29e-3, 1.26e-3; bunny
+  5.6e-4, 5.5e-4, 5.7e-4, 5.4e-4 against 1.26e-3, 9.3e-4, 8.7e-4, 7.9e-4): the criterion of D74 alone is met.
+  The bunny's crop IoU is ahead of the twin from window 20 to the end (0.9775, 0.9800, 0.9817, 0.9823 against
+  0.9708, 0.9751, 0.9757, 0.9772). The dragon's horn crop is ahead at window 20 (0.9624 against 0.9562), level
+  at 40 and behind at 30 and 50 (0.9646 against 0.9701, 0.9659 against 0.9743) and at the end (0.9701 against
+  0.9784): outside the 0.003 allowed. The pictures' difference stays behind on both (the bunny's front stops
+  at 0.0083–0.0088 from window 20 while the twin goes on to 0.0075). The physics objective is as starved as
+  before, as expected: transport energy at the end 1.7e-4 (bunny) and 8.7e-4 (dragon) against the twins'
+  2.1e-5 and 6.8e-5, particles still moving 0.005 and 0.027 pitches a pair at the end against 0.003 and 0.007.
+  So the finer coarse picture removes the misfit of the coarse stage and leaves the starvation; it is kept
+  as part of D78.
 - **D73, why the render arm is behind its physics-only twin at 300k: what the step is made of (a reading of
   kept records and logs, no run; 2026-10-04 15:50 CDT; the user: "왜 physics가 render를 섞은 것 보다 좋은지 분석해서
   말해 줘"; `tmp/why_rows.py` on each run's record with its yardstick and display logs).** Per committed window:
