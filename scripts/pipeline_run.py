@@ -152,10 +152,14 @@ def main():
         prm = dataclasses.replace(prm, f_ext=tuple(args.f_ext))
     if args.floor:
         prm = dataclasses.replace(prm, floor_friction=args.floor_friction)
+    # the render pictures follow the particle spacing as the transport grid does (prepare.py): above mass_ref_n
+    # particles a pixel keeps its size in pitches (D74: at 300k a 64-px pixel was 3.8 pitches, 1.9 at 40k)
+    per_dx = max(1.0, (args.n / cfg0.mass_ref_n) ** (1.0 / 3.0)) if cfg0.loss_follows_n else 1.0
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               render_exterior=args.render_exterior,
-                              render_res_hi=args.render_res_hi or cfg0.render_res_hi,
+                              render_res=int(np.ceil(cfg0.render_res * per_dx)),
+                              render_res_hi=args.render_res_hi or int(np.ceil(cfg0.render_res_hi * per_dx)),
                               min_spacing=args.min_spacing,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,

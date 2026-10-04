@@ -459,6 +459,62 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D75, the render weight at a tenth (a probe with an existing flag, not a candidate; pre-registered
+  2026-10-04 15:59 CDT at launch; `--render_weight_scale 0.1`, server `repo_r66`; `output/gpu/d75`).** D73's
+  first cause: the weight is set once, and the render's share of the step grows to 0.91–0.96 while the physics
+  objective's gain falls 2 to 100 times below the twin's. The probe asks only whether that share is what
+  starves it: with a tenth of the weight the share is about 0.05 in the first windows and 0.6–0.7 late. Dragon
+  300k, D70's rule, render on the exterior (64 then 192 px), one run (LW), against LA and PA.
+  Expectation: from window 20 on the transport energy and the physics gain lie between the twin's and LA's,
+  nearer the twin's; the kinetic energy at the end is an order below LA's; the render arm's early lead (crop
+  0.93 against 0.83 at window 10) is smaller; the coarse stage's yardstick silhouette is not above the twin's.
+  If the transport energy does not come down, the share is not what starves the physics objective and A is
+  not the weight's definition.
+- **D74, the render pictures follow N (pre-registered 2026-10-04 15:59 CDT at launch; the user: "300K + 에서
+  무조건 'render gradient'를 먹인 게 'physics only'보다 좋아야 해. 모든 metric과 momentum 보존까지 전부. A, B 둘다
+  봐야 할 거 같네"; code: `scripts/pipeline_run.py`; server `repo_r68`; `output/gpu/d74`).** D73's second
+  cause: at 300k the coarse picture's pixel is 3.2–3.8 pitches, where at 40k, the N at which the two
+  resolutions were chosen, it is 1.9 (64 px) and 1.3 (96 px). Under `--loss_follows_n` the transport grid
+  already follows the particle spacing above 40k particles; the render pictures did not. The change: they
+  follow by the same factor, (N / 40000)^(1/3): at 300k 64 → 126 px and 96 → 188 px (a fine resolution given
+  on the command line is taken as given: 192 here, as in D70). Three lines; nothing changes at 40k. On the
+  exterior the discs' lattice is bounded by 0.92 pitches, so the coarse stage holds the same 89 460 discs on
+  the dragon and 75 347 against 58 134 on the bunny; the pictures have four times the pixels.
+  Runs: bunny and dragon 300k with D70's rule, render on the exterior, 126 then 192 px (LC), against D70's LA
+  (64 then 192) and the physics-only twin PA (kept; the twin does not depend on the picture). Read as D70 on
+  every kept frame, with the run's momentum.
+  Criteria. The requirement is the user's: the render arm at least as good as its physics-only twin on every
+  measure, at the end and at every window from 20 on: the display's IoU and difference (front, crop, far
+  side), the yardstick's exterior silhouette and shading, the bands and normals, the density's spread, the
+  thin share uncovered, chamfer, holes, the transport energy, the kinetic energy at the end, the centre of
+  mass's displacement and the net angular move. D74 alone is judged on what its cause predicts: during the
+  coarse stage the yardstick's exterior silhouette at or below the twin's at every window from 20 on, and the
+  horn crop not behind the twin's by more than a run's spread (0.003).
+  Expectation: the coarse stage's yardstick silhouette falls below the twin's, as at 40k and on the bunny; the
+  horn crop comes within 0.003 of the twin's during the coarse stage; the transport energy stays several times
+  the twin's and the kinetic energy at the end 50–100 times (D73's first cause, which this does not touch).
+  Momentum as it is read (`scripts/probes/settled/momentum_probe.py`, every kept frame, uniform mass, a start
+  at rest): the centre of mass's displacement; per pair of kept frames the net over the gross linear move and
+  the net over the gross angular move about the centre of mass; the net rotation summed over the run; the mean
+  particle move per pair over the last 20 pairs. The runs so far:
+
+  | run | centre of mass, largest / end (pitches) | net / gross linear, mean | net / gross angular, mean | net rotation | still moving at the end (pitches a pair) | kinetic energy at the end |
+  |---|---|---|---|---|---|---|
+  | dragon P | 0.011 / 0.007 | 4.7e-3 | 7.3e-3 | 0.059° | 0.0065 | 1.4e-5 |
+  | dragon L192 | 0.007 / 0.007 | 1.8e-3 | 3.4e-3 | 0.021° | 0.0143 | 1.6e-3 |
+  | dragon PA | 0.026 / 0.023 | 6.2e-3 | 9.6e-3 | 0.108° | 0.0065 | 1.7e-5 |
+  | dragon LA | 0.009 / 0.009 | 2.3e-3 | 3.9e-3 | 0.024° | 0.0132 | 1.7e-3 |
+  | bunny P | 0.006 / 0.003 | 9.2e-3 | 8.4e-3 | 0.010° | 0.0028 | 3.1e-6 |
+  | bunny L192 | 0.004 / 0.004 | 2.1e-3 | 8.0e-3 | 0.008° | 0.0071 | 5.1e-4 |
+  | bunny PA | 0.008 / 0.003 | 1.08e-2 | 1.01e-2 | 0.011° | 0.0030 | 3.9e-6 |
+  | bunny LA | 0.005 / 0.004 | 2.2e-3 | 5.6e-3 | 0.008° | 0.0074 | 1.9e-4 |
+
+  In drift the render arm is not behind: the centre of mass moves by at most 0.03 pitches and the body turns
+  by at most 0.11° in any run, and the render arm's net-to-gross ratios are 2 to 4 times lower (in part
+  because its gross motion is larger). Where it is behind is rest: at the end its particles still move twice
+  as far per pair (0.013 against 0.0065 pitches on the dragon, 0.0074 against 0.0030 on the bunny) and its
+  kinetic energy is 50 to 100 times the twin's. The end-at-rest terms are part of the physics objective that
+  D73 found starved.
 - **D73, why the render arm is behind its physics-only twin at 300k: what the step is made of (a reading of
   kept records and logs, no run; 2026-10-04 15:50 CDT; the user: "왜 physics가 render를 섞은 것 보다 좋은지 분석해서
   말해 줘"; `tmp/why_rows.py` on each run's record with its yardstick and display logs).** Per committed window:
