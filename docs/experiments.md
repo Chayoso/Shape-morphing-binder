@@ -459,6 +459,91 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D59, a displayed exterior apart from the simulated interior, stage 1a: the layer built on single states
+  (display only, no simulation; pre-registered 2026-10-03 20:06 CDT, before the probe exists; the user approved
+  the stage: "OK. 들어가 줘"; `scripts/probes/settled/surface_layer_probe.py`; D57's kept key frames and target
+  samples of the bunny at 300k and the dragon at 300k and 100k; `output/gpu/d59`).** The interior stays what it
+  is: the MPM particles. The exterior is a set of M = 300 000 surface discs with no mass, defined from the
+  particles of one state:
+  the surface is the zero set of Zhu and Bridson's field f(q) = |q − x̄(q)| − r̄, x̄ the kernel-weighted mean
+  of the particles within R = 2 pitches of q (the pitch a = (V/N)^(1/3) of the volume sample), r̄ a particle
+  radius: a thin sheet of particles keeps its thickness and an isolated particle is a sphere, where a density
+  level would erode whatever is thinner than the kernel;
+  the discs are a Poisson-disk set on that surface (a dense pool of points projected onto f = 0 by Newton
+  steps, then the largest set with no two points nearer than r, r chosen so that the count is M; Bowers 2010,
+  Corsini 2012), each drawn as a disc with the field's gradient as normal, a tangential sigma of 0.65 of the
+  set's median neighbour distance (the ratio the base display has on a target sample) and full opacity; no
+  enlargement rule, no density normals, no live support.
+  Drawn with the base renderer's rasteriser and camera, beside the base display of the same particles: the
+  target's own samples (the level no morph can beat today), each run's end frame, and its frames at windows 20
+  and 39 (thin parts still partly detached sets).
+  Criteria, on the target samples first: the ears and horns have a clean edge in the exterior drawing (the
+  fringe the base drawing shows is gone, judged on the same crops; soft pixels of the crop lower than the
+  base's); the exterior's solid region agrees with the base's (intersection over union 0.97 or more, after
+  r̄ is set so that the two areas match); the thin parts keep their thickness (no ear or horn eroded). Then
+  what the layer does with the dragon's detached horn tips at 300k: bridged, separate blobs, or dropped, to be
+  recorded as found. Expectation: the target samples come out clean with the thin parts kept; mid-morph frames
+  show detached sets as beads rather than fur; r̄ near 0.6–0.9 pitches. If the thin parts are eroded or
+  spurious blobs appear in concavities (the field's known weakness), the field is the thing to change next
+  (Adams 2007's carried distance, Yu and Turk's anisotropic kernels), not the sampling. Stage 1b, the same
+  layer carried from frame to frame with insertion and deletion by neighbour count, follows only if 1a holds.
+  **Result (2026-10-03 21:02 CDT; twelve states: target sample, end frame, windows 20 and 39 of the three runs;
+  sheets in `output/video_2026-10-03/d59_exterior_layer`): the criteria hold on every state; the field's known
+  weakness shows in the concavities, most at 100k.**
+  The field settled first, on the bunny: R = 2 pitches is bumpy at the particles' scale; R = 3 with r̄ = 0.8
+  pitches keeps the base display's solid area (0.995–1.008 of it; 1.015 and 1.034 at r̄ = 1.0 and 1.2);
+  smoothing the particle centres (Yu and Turk's Eq. 6 alone, without their kernels) made worms and is dropped.
+  Three faults of the probe itself were found by measurement and are not the field's:
+  the dark pits of the first drawings were surface without discs (1.1 % of the zero set on the target sample
+  and 4.4 % on the end frame farther than 1.5 r from a disc), 1.85–2.0 pitches from the nearest seed where the
+  covered surface is 0.8–0.87 from one: the pool was seeded from the base display's surface mask (5 % of the
+  particles), which does not cover the zero set; seeded from the grid nodes within a cell of the zero set, 0.00 %
+  is uncovered;
+  the fine dark specks were the far side seen through one layer of discs: at the pre-registered sigma (0.65 of
+  the neighbour distance) 10–16 % of the surface lets more than a fifth through, at sigma = r (the set's
+  covering radius) 0.0 %;
+  one build never ended: two equal random priorities in the Poisson-disk selection; priorities are a permutation.
+
+  | state | discs | IoU of the solid regions | crop's soft pixels, base → exterior | crop's solid pixels, exterior / base | field's roughness: normal against its 48 neighbours' mean, height above their plane | sets apart from the main one: discs, pixels seen (crop) |
+  |---|---|---|---|---|---|---|
+  | bunny 300k, target sample | 307 668 | 0.9918 | 20 114 → 2 853 | 0.988 | 9.7°, 0.084 a | 4 301, 78 (8) |
+  | bunny 300k, end (window 55) | 294 919 | 0.9881 | 14 567 → 2 965 | 1.010 | 12.8°, 0.106 a | 424, 79 (0) |
+  | bunny 300k, window 20 | 292 312 | 0.9879 | 16 076 → 2 863 | 1.005 | 11.3°, 0.101 a | 322, 0 |
+  | bunny 300k, window 39 | 293 488 | 0.9880 | 14 117 → 3 001 | 1.011 | 12.4°, 0.106 a | 417, 299 (0) |
+  | dragon 300k, target sample | 301 264 | 0.9878 | 17 701 → 3 257 | 0.970 | 14.3°, 0.132 a | 343, 2 933 (45) |
+  | dragon 300k, end (window 160) | 304 109 | 0.9871 | 13 718 → 3 194 | 0.986 | 24.1°, 0.221 a | 6 634, 748 (101) |
+  | dragon 300k, window 20 | 304 284 | 0.9866 | 16 477 → 2 888 | 0.989 | 22.4°, 0.197 a | 2 025, 689 (148) |
+  | dragon 300k, window 39 | 304 209 | 0.9878 | 13 430 → 2 874 | 0.983 | 21.8°, 0.200 a | 2 501, 265 (0) |
+  | dragon 100k, target sample | 292 263 | 0.9791 | 21 715 → 2 901 | 0.950 | 14.3°, 0.095 a | 1 309, 8 362 (2 270) |
+  | dragon 100k, end (window 96) | 298 279 | 0.9822 | 17 425 → 2 078 | 0.981 | 16.1°, 0.111 a | 2 428, 1 564 (49) |
+  | dragon 100k, window 20 | 297 671 | 0.9811 | 16 340 → 1 769 | 0.972 | 13.5°, 0.093 a | 197, 0 |
+  | dragon 100k, window 39 | 297 880 | 0.9827 | 15 864 → 1 874 | 0.977 | 13.8°, 0.104 a | 2 249, 4 989 (0) |
+
+  The edges: the fringe of the base drawing is gone on all twelve (the crop's soft pixels fall to 11–22 % of the
+  base's; over the whole picture 41 069 → 6 384 on the bunny's target sample, 91 166 → 11 362 on the dragon's
+  at 100k), the solid regions agree (IoU 0.979–0.992), ears and horns keep their width. The exterior's discs are
+  a quarter to a third of a pitch apart with a sigma of 0.26–0.47 of the base's, so the edge is as sharp as
+  that; an interior of 100 000 particles under 300 000 discs draws as clean an edge as one of 300 000.
+  The dragon's horn tips at 300k, detached sets to window 160 under the base display (D57): bridged. The field
+  joins what lies within about its radius, the horns are drawn as solid tongues at windows 20, 39 and 160, and
+  the sets apart from the main one cover 101–148 pixels of the horn crop. What the layer therefore does not
+  show is whether the particles there are connected: it draws the same horn over a detached set and over an
+  attached one.
+  The surface under its own normal is lumpy: the field's gradient departs 10–14° from its neighbours' mean on the
+  target samples and 13–24° on the runs' frames, with heights of 0.08–0.22 pitches (the dragon's end frame at
+  300k is 1.7 times as rough as its target sample, the bunny's 1.3 times: a reading of the particles that
+  neither drawing shows once the normals are averaged). Drawn with the base display's own treatment of its
+  normals (the mean over the neighbours within the reach of its 32 nearest particles, 2.7–2.9 pitches, twice;
+  256 discs at most) the same discs give a smooth surface (0.9–3.1°); both drawings are on every sheet.
+  The known weakness: in gaps narrower than about the kernel (between the horns, in the mouth, between the
+  coils) the field puts sheets that belong to no surface, seen as sets apart from the main one: 8 362 pixels
+  (0.58 % of the solid picture) on the dragon's target sample at 100k, 2 933 at 300k, and the mouth is partly
+  closed. At R = 2 pitches they shrink (3 505 and 520 pixels) and the mouth opens, but the surface is twice as
+  rough (height 0.29 pitches on the 300k target sample, 0.48 on its end frame), 4.5 % of the discs go to
+  pockets inside the body (2 244 sets) and 60 836 discs face against their neighbours: the radius trades one
+  fault for the other, so the remedy is the field's definition (as pre-registered), not R.
+  Cost as built: 60–100 s a state (about 25 million field evaluations at 129 neighbours each), too slow for
+  every frame. Rendering influence: none, no run was changed; the drawings are of archived states.
 - **D58, literature: resampling, and a simulated interior apart from a displayed surface (three agents, 2026-10-03
   18:45–19:00 CDT; the user: "resample/3DGS 에서의 resample 방법들 … Surface를 덮어야 하는 N 이 모자라서 … 내부와 외부를
   이제는 진짜 나눠야 할 거 같으니"; papers opened in full unless marked; extracted texts in the session's
