@@ -459,6 +459,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D72, the minimum spacing on the 40k gallery (pre-registered 2026-10-04 14:32 CDT at launch; the user's rule
+  of 2026-09-24: a change holds on the whole gallery before it is adopted; `tmp/d72.sh`, `tmp/d72.queue`; server
+  `repo_r66`, D70's rule as it is, D71's change not in it; `output/gpu/d72`).** 19 meshes at 40k, the default
+  recipe, five arms: two repeats without the rule (B1, B2; a single run's spread, 2026-10-03), with the rule
+  (S), and the physics-only twins of both (BP, SP), 95 runs. Read: every window of each run's record; the
+  render yardstick on every kept frame of all five; the offset probe on every kept frame and the arrangement
+  at the end for B1, S and SP. The kept frames are deleted after the probes.
+  Criteria, per mesh, S against the pair B1, B2: the silhouette IoU not under the pair's lower value by more
+  than the pair's own difference; the thin share uncovered not over the pair's higher value; no guard, hole or
+  ejection flag the pair does not have; the two finer bands and the density's spread not over B1's; commits
+  and seconds within a quarter of the pair's range. The render's effect: S against SP on the yardstick, beside
+  B1 against BP.
+  Expectation: at 40k a cell holds 24 particles, not 184, so there is less unevenness under the surface to
+  remove; the bands fall by a tenth to a fifth, the run's own metrics stay inside the pair's spread, the thin
+  share uncovered falls on most meshes; beast (ejection) and C (early stop) stay inside their own spread.
+  Risk: sheets a few particles thick at 40k (bob's ring, V, fandisk's edges) fatten.
 - **D71, the minimum spacing lets no material out through the free surface (pre-registered 2026-10-04 13:26
   CDT at launch; code: `kernels.k_update`; server `repo_r67`; `output/gpu/d71`, `tmp/d71.sh`).** The cause is
   D70's last paragraph: the rule's move has a mean of zero inside the body and an outward mean in the outermost
@@ -484,6 +500,73 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   part of it (its outward move is also under the layer), within 0.08; the bands hold; the thin share uncovered
   rises part of the way back (to 7–10 %). Risks: particles pile under the layer (the density just under the
   surface rises), particles from under the layer pass between the layer's particles and become the layer.
+  **Result (2026-10-04 14:55 CDT): the premise is refuted, the change does nothing, and it is taken out of the
+  code (the kernel, the trajectory and the test are D70's again).** PB and LB are the runs with the change, PA
+  and LA D70's (last 20 kept frames; `output/gpu/d71`, `twin_{bunny,dragon}300k.png`):
+
+  | run | mean offset | below 4 / 4–11 | front | thin crop | far side | commits |
+  |---|---|---|---|---|---|---|
+  | bunny PA | +0.308 | 0.085 / 0.142 | 0.9900 / 0.0075 | 0.9784 / 0.0086 | 0.9907 / 0.0068 | 87 |
+  | bunny PB | +0.303 | 0.086 / 0.144 | 0.9899 / 0.0080 | 0.9777 / 0.0092 | 0.9897 / 0.0069 | 71 |
+  | bunny LA | +0.382 | 0.087 / 0.145 | 0.9923 / 0.0084 | 0.9796 / 0.0094 | 0.9926 / 0.0068 | 47 |
+  | bunny LB | +0.385 | 0.089 / 0.149 | 0.9926 / 0.0087 | 0.9826 / 0.0089 | 0.9932 / 0.0071 | 36 |
+  | dragon PA | +0.701 | 0.109 / 0.166 | 0.9881 / 0.0102 | 0.9784 / 0.0139 | 0.9890 / 0.0108 | 97 |
+  | dragon PB | +0.695 | 0.111 / 0.166 | 0.9888 / 0.0097 | 0.9793 / 0.0143 | 0.9896 / 0.0106 | 102 |
+  | dragon LA | +0.741 | 0.115 / 0.168 | 0.9897 / 0.0106 | 0.9724 / 0.0162 | 0.9888 / 0.0115 | 89 |
+  | dragon LB | +0.749 | 0.114 / 0.170 | 0.9886 / 0.0114 | 0.9675 / 0.0195 | 0.9870 / 0.0118 | 74 |
+
+  The mean offset did not move (−0.005, +0.003, −0.006, +0.008 pitches against the 0.04–0.15 to be removed);
+  the bands, the arrangement (spread 0.168, 0.204, 0.194, 0.245) and the thin share uncovered (4.7, 6.2, 5.5,
+  7.9 %) are D70's; the physics-only pictures are D70's within a run's spread. Both expectations were wrong.
+  What was wrong in the premise (`scripts/probes/settled/particle_depth_probe.py`, the particles' own signed
+  distance to the mesh on the end frames; the mesh is fitted by its bounding box, so the values are read
+  against each other, not against zero):
+
+  | bunny | outermost layer's mean | particles outside the mesh | beyond +0.5 pitches | the display's mean offset |
+  |---|---|---|---|---|
+  | target sample | −0.155 | 2.73 % | 1.04 % | +0.202 |
+  | P | −0.107 | 3.38 % | 1.37 % | +0.269 |
+  | PA / PB | −0.160 / −0.163 | 3.09 / 3.11 % | 1.16 / 1.19 % | +0.308 / +0.303 |
+  | L192 | −0.118 | 3.38 % | 1.39 % | +0.283 |
+  | LA / LB | −0.091 / −0.102 | 3.33 / 3.39 % | 1.40 / 1.40 % | +0.382 / +0.385 |
+
+  | dragon | outermost layer's mean | particles outside the mesh | beyond +0.5 pitches | the display's mean offset |
+  |---|---|---|---|---|
+  | target sample | +0.243 | 9.24 % | 4.62 % | +0.562 |
+  | P | +0.374 | 11.01 % | 6.07 % | +0.568 |
+  | PA / PB | +0.296 / +0.294 | 10.49 / 10.43 % | 5.59 / 5.54 % | +0.701 / +0.695 |
+  | L192 | +0.291 | 10.74 % | 6.18 % | +0.594 |
+  | LA / LB | +0.324 / +0.328 | 10.75 / 11.04 % | 6.08 / 6.29 % | +0.741 / +0.749 |
+
+  With the rule the particles do not stand further out than without it: physics-only they stand further in
+  (the layer by 0.05 and 0.08 pitches, fewer particles outside the mesh, the bunny's layer where a sample's
+  is). The body did not swell. What is further out is the display's zero set over particles that are not: the
+  field |q − x̄(q)| = 0.8 a reads an even arrangement 0.04–0.15 pitches further out than an uneven one with the
+  same or a more inward standing (the layer holds 5.9 % of the bunny's particles with the rule and 4.1 %
+  without; a rough surface dips into its gaps and its mean offset is lower for it). So D70's criterion "the
+  body not further out" measured the display's reading of the arrangement, and its failure says nothing
+  against the rule; D70's paragraph "why the body is further out" drew a conclusion its measurement did not
+  carry: the rule's move on a layer particle does have an outward mean (that part stands), but the objective
+  holds the layer where it is, and removing that move changes nothing that was read. The thin share uncovered
+  (13–18 % → 5–8 %) is therefore the rule's and not a swelling's.
+  Left open by this: the display draws a run with the rule 0.10–0.18 pitches further out than it draws the
+  target sample (+0.31–0.38 against +0.20 on the bunny), because the target's picture is drawn from a random
+  sample, rougher (9.8°, 13.6°) than the runs now are (3–7°). The reference picture and the floor of D65 are a
+  random sample's; a run that is more even than a random sample is no longer measured against something
+  better than itself. That is a matter of the yardstick, not of the run.
+  The render's effect, D70 and D71 together (two runs per mesh with render, two without): on the bunny the
+  render arm is ahead in IoU in both pairs (front +0.0023 and +0.0027, crop +0.0012 and +0.0049, far side
+  +0.0019 and +0.0035) and not in the pictures' difference (−0.0003 to +0.0009); on the dragon it is not ahead:
+  front +0.0016 and −0.0002, horn crop −0.0060 and −0.0118, difference worse by 0.0004–0.0052, and its
+  yardstick silhouette is 1.8 times below the twin's in one run (0.000577 against 0.001051) and not below in
+  the other (0.000978 against 0.000936). Where it loses, read on every frame: during the 64-px stage (to window
+  79–84 on the dragon) the render arm's horn crop is behind the twin's at every window from 20 on (LA 0.9508,
+  0.9592, 0.9662, 0.9694, 0.9598, 0.9717 at windows 20, 30, 40, 50, 60, 80 against PA's 0.9543, 0.9695, 0.9686,
+  0.9752, 0.9765, 0.9792), having been ahead at window 10 (0.9278 against 0.7820); the fine stage then lasts
+  11 or 22 windows before the outer merit ends it. A 64-px pixel is 3.8 pitches on the dragon at 300k (3.2 on
+  the bunny; 1.3 and 1.1 at 192 px). With the rule in place the physics-only arm is the better picture on the
+  dragon, and the render arm's gain is the bunny's IoU. Recorded; the stage's trigger and the merit's stop are
+  not changed here.
 - **D70, a minimum spacing in the position update (pre-registered 2026-10-04 11:55 CDT; the user: "A를 진행 해
   보자", "원인을 감추지만 말아 줘. overengineering도 금지 … 항상 '알고리즘' core를 수정", "'항상' 랜더 Gradient가
   영향을 끼치는지 확인"; code: `kernels.k_update`, `--min_spacing 0.9`; server `repo_r66`; `output/gpu/d70`).**
@@ -590,7 +673,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   render); the physics-only runs 6–19 % longer. Not met: the body is further out, by 0.04 (bunny PA), 0.10
   (bunny LA), 0.13 (dragon PA) and 0.15 pitches (dragon LA) against the 0.05 allowed; the dragon's far side with
   render is 0.0013 lower in IoU than without the rule (allowed 0.0008); the render arm's silhouette on the
-  yardstick is 1.8 times below its twin's on both meshes, not twice. The expectation held for the bands and was
+  yardstick is 1.8 times below its twin's on both meshes, not twice. (The first of these is withdrawn by D71:
+  the particles are not further out, the display's zero set is; see there.) The expectation held for the bands and was
   low for the pictures (the physics-only bunny closed two thirds of the gap to the floor); the risk "the body
   swells" came true, "thin sheets fatten" is not separable from it here (the thin share uncovered falls from
   13–18 % to 5–8 %, part of which is the surface standing further out), "the transport slows" did not.
@@ -622,6 +706,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   every overlap is an outward move nothing balances: the rule as written carries material out through the free
   surface, and the objective holds only part of it back. The rule is missing its condition at the free surface
   (the same fault as D69's first candidate, at a smaller size; Ando's form shares it). D71 is that condition.
+  (Corrected by D71, 14:55 CDT: the outward mean of the rule's move on the layer is measured and stands; "the
+  objective holds only part of it back" was inferred, not measured, and is wrong: the particles end no further
+  out than without the rule, and taking the layer's outward move away changes nothing.)
 - **D69, what is uneven under the surface, and whether evening it evens the surface (measurements on kept
   frames, no code of the run changes; pre-registered 2026-10-04 11:43 CDT; the user: "A를 진행 해 보자 … 원인을
   감추지만 말아 줘. overengineering도 금지 … 항상 '알고리즘' core를 수정"; `tmp/arrangement.py`,

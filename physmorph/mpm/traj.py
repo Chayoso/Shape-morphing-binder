@@ -367,8 +367,7 @@ class Trajectory:
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], F_next, prm.dt, prm.smoothing,
                   bnb, brest, bnc, bK, 1.0 / float(self.control_steps),
-                  self.space_nbr if self.space_K > 0 else self.nbr0, self.space_K, self.space_r,
-                  self.layer_mask if self.layer else self.ncount0, self.layer_nrm if self.layer else self.x[t]], device=dev)
+                  self.space_nbr if self.space_K > 0 else self.nbr0, self.space_K, self.space_r], device=dev)
         if self.layer:
             layer_u = self.layer_u if t < self.control_steps else self.release_u
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
