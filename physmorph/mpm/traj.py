@@ -123,7 +123,7 @@ class Trajectory:
                  Fp=None, v0=None, F0=None, C0=None, dFc=None, eta=None,
                  device="cuda", requires_grad=True, mat_grad=False, vol0=None,
                  Fg0=None, track_geom=False, bonds=None, persistent=False, layer=None, layer_u=None,
-                 bond_history=False, control_steps=None, polar_adjoint=False):
+                 bond_history=False, control_steps=None, polar_adjoint=False, spacing=None):
         if not _is_tensor(x0):
             x0 = np.ascontiguousarray(x0, np.float32)
         # PERSISTENT: the buffers are rolled out many times (line-search candidates); the
@@ -231,6 +231,10 @@ class Trajectory:
         # MATERIAL RE-COUPLING of decoupled particles (kernels.k_p2g / k_update): bonds =
         # (nbr (N,K) int, rest (N,K) float, frag (N,)) frozen for this rollout; the decoupling
         # test is the 3^3-cell count of the support-gate kernels (outside the tape).
+        # MINIMUM SPACING (kernels.k_update): (nbr (N,K) int, r) frozen for this rollout
+        self.space_K = 0 if spacing is None else int(spacing[0].shape[1])
+        self.space_r = 0.0 if spacing is None else float(spacing[1])
+        self.space_nbr = None if spacing is None else to_wp_int(spacing[0], device)
         self.bonds = None
         self.bond_K = 0
         self.bond_history = bool(bond_history)
@@ -362,7 +366,8 @@ class Trajectory:
         F_next = self.Fu[t + 1] if self.layer_F else self.F[t + 1]
         wp.launch(K.k_update, dim=N, inputs=[self.x[t], x_next, self.v[t + 1], self.F[t],
                   self.Fraw[t + 1], F_next, prm.dt, prm.smoothing,
-                  bnb, brest, bnc, bK, 1.0 / float(self.control_steps)], device=dev)
+                  bnb, brest, bnc, bK, 1.0 / float(self.control_steps),
+                  self.space_nbr if self.space_K > 0 else self.nbr0, self.space_K, self.space_r], device=dev)
         if self.layer:
             layer_u = self.layer_u if t < self.control_steps else self.release_u
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,

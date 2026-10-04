@@ -76,6 +76,9 @@ class PipelineConfig:
     w_nn: float = 0.2               # near-band pull to the nearest target point, between the berth and one loss cell
     nn_berth_k: float = 1.0         # berth in target spacings (the prepare stage resolves it)
 
+    min_spacing: float = 0.0        # the position update keeps particles this far apart, in pitches of the rest
+                                    #   volume (0: off; 0.9 is the spacing of a Poisson-disk sample of that density, D70)
+
     # ---- render objective ----
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration
     lambda_ema: float = 0.3

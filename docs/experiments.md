@@ -459,6 +459,39 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D70, a minimum spacing in the position update (pre-registered 2026-10-04 11:55 CDT; the user: "A를 진행 해
+  보자", "원인을 감추지만 말아 줘. overengineering도 금지 … 항상 '알고리즘' core를 수정", "'항상' 랜더 Gradient가
+  영향을 끼치는지 확인"; code: `kernels.k_update`, `--min_spacing 0.9`; server `repo_r66`; `output/gpu/d70`).**
+  The cause (D66–D69): the grid holds about 200 particles a cell and cannot see two of them pressed together;
+  where the material is stretched and torn the density under the surface ends uneven, and the drawn surface
+  with it. The position update already holds the two rules that act below the grid (the bonds' re-joining and
+  the outer layer's relaxation), and its comment left compression to the grid. One rule is added there: a
+  particle is moved away from each of its 16 nearest (frozen at the window's start) that is nearer than r, by
+  half the overlap, over one window (the bonds' fraction per step); r is 0.9 of the pitch the rest volume
+  gives, the spacing of a Poisson-disk sample of the body's density (random sequential packing stops at a
+  packing fraction of 0.38). Twelve lines in the kernel, the neighbour rows in the window's setup; no surface
+  rule, no kernel sums. On kept frames (D69) ten such projections brought the band below 4 pitches to a
+  sample's level on the bunny and removed half of its excess on the dragon, a quarter to two fifths of the
+  4–11 band's, with no material leaving the surface; the body's surface moved out by 0.006–0.01 pitches a
+  projection, which in a run the objective has to hold.
+  Runs, 300k, bunny and dragon, each with the minimum spacing: the physics-only twin (kept, as D60's) and the
+  render on the exterior at 192 px (D64's setting); against D60's and D64's runs without it. Read on every kept
+  frame: the surface's offset from the mesh by band and the normals (D66's probe), the density's spread and the
+  nearest particle under the surface, the display against the target and against D65's floor, the render terms
+  on the yardstick, and the render's effect under the new rule (with-render against its own physics-only twin,
+  as D62).
+  Criteria: under the surface the density's spread and the nearest particle's 5th percentile at a sample's
+  level (0.21; 0.36 pitches) at the end; the band below 4 pitches within 5 % of a sample's and the 4–11 band's
+  excess at most half of what it is without the rule (bunny 0.039–0.045, dragon 0.075–0.104); the display's
+  difference against the target a third of the way from the present runs to the floor or better (bunny front
+  0.0096 → 0.0085, dragon 0.0127 → 0.0109), with no solid region's IoU lower than without the rule by more than
+  the runs' spread (0.0008); the body not further out (mean offset within 0.05 pitches of the run without the
+  rule); the transport energy and the run's length within a quarter of the run without it; the render's effect
+  on its own terms kept (silhouette at least twice below the twin's at the end).
+  Expectation: the fine band reaches a sample's; the 4–11 band's excess falls by a third to a half; the
+  pictures' difference by a fifth to a third of the gap; a window costs under 5 % more. Risks: thin sheets
+  fatten (a sheet one or two particles thick is pushed to r), the body swells where clumps were, the transport
+  slows because the projection works against a control that presses material together.
 - **D69, what is uneven under the surface, and whether evening it evens the surface (measurements on kept
   frames, no code of the run changes; pre-registered 2026-10-04 11:43 CDT; the user: "A를 진행 해 보자 … 원인을
   감추지만 말아 줘. overengineering도 금지 … 항상 '알고리즘' core를 수정"; `tmp/arrangement.py`,

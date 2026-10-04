@@ -45,6 +45,7 @@ class RolloutSpec:
     bond_nbr: np.ndarray | None = None   # (N,K) frozen material neighbours (material bonds)
     bond_rest: np.ndarray | None = None  # (N,K) rest lengths (runner state)
     bond_frag: np.ndarray | None = None  # (N,) 1.0 where the particle is in a fragment
+    spacing: tuple | None = None         # (nbr (N,K), r): the minimum spacing of the position update (traj.Trajectory)
     layer: tuple | None = None           # (mask, nrm, nbr, w, frac[, g, depth]): outer-layer relaxation / u channel [P3 through F] (traj.Trajectory)
     bond_history: bool = False          # preserve legacy baseline; opt in to time-correct fracture adjoint
     control_steps: int | None = None    # release controls after this step; None controls the whole rollout
@@ -77,7 +78,7 @@ class _WarpMPM(torch.autograd.Function):
         traj = Trajectory(spec.x0, spec.m, lam_wp, mu_wp, spec.prm, T,
                           Fp=spec.Fp, v0=spec.v0, F0=spec.F0, C0=spec.C0, dFc=dFc_wp,
                           device=spec.device, requires_grad=True, vol0=spec.vol0, layer=spec.layer,
-                          control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint)
+                          control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint, spacing=spec.spacing)
         ctx.tape = wp.Tape()
         with ctx.tape:
             xT, FT = traj.rollout()
@@ -153,7 +154,7 @@ class _WarpMPMExt(torch.autograd.Function):
                           Fg0=spec.Fg0, track_geom=True,
                           bonds=((spec.bond_nbr, spec.bond_rest, spec.bond_frag) if spec.bond_nbr is not None else None),
                           layer=spec.layer, layer_u=u_wp, bond_history=spec.bond_history,
-                          control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint)
+                          control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint, spacing=spec.spacing)
         ctx.u_wp = u_wp if (u_t is not None and u_t.requires_grad) else None
         ctx.tape = wp.Tape()
         with ctx.tape:
@@ -238,7 +239,7 @@ class PersistentAdjoint:
                                device=dev, requires_grad=True, vol0=spec.vol0,
                                Fg0=spec.Fg0, track_geom=True, bonds=bonds, persistent=True,
                                layer=spec.layer, layer_u=self.u_wp, bond_history=spec.bond_history,
-                               control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint)
+                               control_steps=spec.control_steps, polar_adjoint=spec.polar_adjoint, spacing=spec.spacing)
         tr = self.traj
         self.sx = torch.zeros(N, 3, device=dev)
         self.sF = torch.zeros(N, 3, 3, device=dev)

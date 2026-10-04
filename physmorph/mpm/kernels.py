@@ -331,7 +331,8 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
              F_new: wp.array(dtype=wp.mat33), F_out: wp.array(dtype=wp.mat33),
              dt: float, s: float,
              nbr: wp.array(dtype=int), rest: wp.array(dtype=float),
-             frag: wp.array(dtype=float), bond_K: int, bond_frac: float):
+             frag: wp.array(dtype=float), bond_K: int, bond_frac: float,
+             snbr: wp.array(dtype=int), space_K: int, space_r: float):
     p = wp.tid()
     F_out[p] = (1.0 - s) * F_new[p] + s * F_in[p]   # blend new with OLD F
     xp = x_in[p] + dt * v[p]
@@ -348,6 +349,18 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
             if L > r and L > 1.0e-9:
                 acc = acc + (L - r) * d / L
         xp = xp + bond_frac * acc / float(bond_K)      # bond_frac = 1/T: re-join over one window
+    if space_K > 0:
+        # MINIMUM SPACING (D70): the grid holds about 200 particles a cell and cannot see two of them pressed
+        # together, so where the material is stretched and torn the arrangement under the surface ends uneven
+        # (D68, D69). A particle is moved away from each of its frozen neighbours (the nearest at the window's
+        # start) that is nearer than space_r, by half the overlap, over one window like the bonds
+        push = wp.vec3(0.0, 0.0, 0.0)
+        for a in range(space_K):
+            d = x_in[p] - x_in[snbr[p * space_K + a]]
+            L = wp.length(d)
+            if L < space_r and L > 1.0e-9:
+                push = push + (space_r - L) * d / L
+        xp = xp + bond_frac * 0.5 * push
     x_out[p] = xp
 
 

@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import torch
 import warp as wp
 
+from ... import gpu
 from ...mpm.constitutive import lame
 from ...mpm.function import PersistentAdjoint, RolloutSpec
 from ...mpm.state import MPMParams
@@ -50,11 +51,16 @@ class Window:
         self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
                                                            h_sp=cfg.layer_h_sp)
         layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T))
+        # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
+        # rest volume gives, among each particle's 16 nearest at the window's start
+        spacing = None
+        if cfg.min_spacing > 0:
+            spacing = (gpu.knn(start.x, 17)[1][:, 1:], cfg.min_spacing * float(torch.as_tensor(vol0).mean()) ** (1.0 / 3.0))
         nbr, rest, frag = bonds
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
                                 bond_nbr=nbr, bond_rest=rest, bond_frag=frag, layer=layer,
-                                bond_history=True, control_steps=cfg.T, polar_adjoint=True)
+                                bond_history=True, control_steps=cfg.T, polar_adjoint=True, spacing=spacing)
         # the persistent no-grad trajectory: allocated once, rolled out as a CUDA graph for
         # every candidate, the warm-start comparison and the commit rollout; the control is
         # copied into dc_buf, which its dFc sequence views
@@ -63,7 +69,7 @@ class Window:
         self.tr = Trajectory(start.x, m, lam0, mu0, prm, T, F0=start.F, Fp=start.Fp, v0=start.v,
                              C0=start.C, dFc=seq, device=cfg.device, requires_grad=False, vol0=vol0,
                              persistent=True, bonds=bonds, layer=layer, bond_history=True,
-                             control_steps=cfg.T, polar_adjoint=True)
+                             control_steps=cfg.T, polar_adjoint=True, spacing=spacing)
         self.tr.capture()
         self._adj = None
         # unit constants: every fixed weight and gradient-magnitude constant is a legacy-unit
