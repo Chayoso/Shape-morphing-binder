@@ -459,6 +459,122 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D58, literature: resampling, and a simulated interior apart from a displayed surface (three agents, 2026-10-03
+  18:45–19:00 CDT; the user: "resample/3DGS 에서의 resample 방법들 … Surface를 덮어야 하는 N 이 모자라서 … 내부와 외부를
+  이제는 진짜 나눠야 할 거 같으니"; papers opened in full unless marked; extracted texts in the session's
+  scratchpad).** No design is fixed by this entry.
+  *How 3D Gaussian splatting adds, removes and moves primitives.* 3DGS (Kerbl, SIGGRAPH 2023): clone a small
+  Gaussian and split a large one where the view-space position gradient exceeds 0.0002, prune low opacity,
+  reset opacity. The later criteria change what triggers it, not where primitives go: per-Gaussian error
+  (Rota Bulò, ECCV 2024), absolute or pixel-weighted gradients (AbsGS, ACM MM 2024; Pixel-GS, ECCV 2024; GOF,
+  SIGGRAPH Asia 2024), the area on which a Gaussian is the largest contributor (Mini-Splatting, ECCV 2024), a
+  saddle of the loss (SteepGS, CVPR 2025), a score under a budget (Taming 3DGS, SIGGRAPH Asia 2024). Only
+  3DGS-MCMC (Kheradmand, NeurIPS 2024) works at a fixed count by moving: a dead Gaussian (opacity under 0.005)
+  is put on a live one drawn in proportion to opacity, and the co-located copies get opacity 1 − (1 − o)^(1/N)
+  and a shrunk covariance so the picture is unchanged. Mip-Splatting (CVPR 2024) floors a primitive's size at
+  the sampling interval. None of these criteria measures how many primitives cover a piece of surface.
+  *Primitives held on a surface.* 2DGS (Huang, SIGGRAPH 2024): oriented discs with normal and depth losses,
+  3DGS's densification, no even sampling. SuGaR (CVPR 2024), Gaussian Frosting (ECCV 2024), GaussianAvatars
+  (CVPR 2024): Gaussians bound to mesh triangles by barycentric coordinates, sampled once (Frosting: a fixed
+  budget in a layer around the mesh); they follow the mesh and are as even as it is. DG-Mesh (ICLR 2025): one
+  Gaussian per face, merged where several share a face and created at empty faces: the only explicit evenness
+  rule found.
+  *Physics with Gaussians.* PhysGaussian (CVPR 2024): one set, every Gaussian an MPM particle, the interior
+  filled once before the simulation, no resampling; its anisotropy loss is the only measure against "plush"
+  artefacts. Two sets, the simulated one driving the displayed one by an interpolation fixed at t = 0:
+  Gaussian Splashing (arXiv 2401.15318; PBD particles, GMLS), VR-GS (SIGGRAPH 2024; a tetrahedral cage), GIC
+  (NeurIPS 2024; Gaussians "for rendering only"), PhysDreamer and Spring-Gaus (ECCV 2024), PhysSplat (ICCV
+  2025). None resamples the displayed set during deformation, and none moves interior primitives to the
+  surface: a fixed embedding stretches with the material.
+  *Resampling in particle simulation.* By distance to the surface: Adams (SIGGRAPH 2007; split when distance
+  plus local feature size is under 2 radii, merge above 3), Winchenbach (SIGGRAPH 2017; mass linear in the
+  surface distance, split, merge and share with exact mass), Ando 2013 (SIGGRAPH; a sizing function, new
+  particles snapped onto the surface). In thinning sheets: Ando 2012 (TVCG; neighbour covariance σ3 ≤ 0.2 σ1
+  at density under 0.7, a particle inserted between a separating pair). In MPM both known schemes leave the
+  outermost layer alone: Yue (TOG 2015) inserts only deeper than 2.2 radii ("popping" nearer the surface), Gao
+  (SIGGRAPH Asia 2017) splits below the visible layer and merges deep inside. Narrow-band FLIP (Ferstl 2016,
+  Sato 2018) keeps particles only near the surface and the interior on the grid, without exact mass.
+  *A displayed surface apart from the simulated points, resampled as it deforms.* Müller et al. (SCA 2004) and
+  Keiser et al. (2005): mass-carrying phyxels and a separate set of massless surfels that follow the phyxels'
+  displacement field; a surfel with too few surfel neighbours is split, with too many deleted (6 and 9 in a
+  radius), then tangential repulsion and projection onto an implicit coat of the phyxels. Pauly et al.
+  (SIGGRAPH 2003): each sample carries two tangent vectors deformed with the surface; when their stretch is
+  too large the sample is replaced by two along the major axis; deletion deferred. Witkin and Heckbert
+  (SIGGRAPH 1994), Meyer et al. (2005, 2007): particles on an implicit surface with repulsion, tangential
+  motion and reprojection, fission and death by energy against the six-neighbour ideal with a hysteresis gap
+  (0.35 and 1.75) against insert/delete cycles. Blue-noise selection (Bowers 2010, Corsini 2012, Yuksel 2015)
+  resamples from scratch, with no coherence between frames. Learned upsampling (PU-Net, PU-GAN, Grad-PU):
+  repulsion or uniformity losses, farthest-point selection.
+  *Synthesis.* The standard rule for a stretching surface is to insert where the local count (or a carried
+  stretch) falls under a fraction of the hexagonal ideal and to delete above an upper one, with a gap between
+  the two; samples move only in the tangent plane and are reprojected. What a separate surface set needs from
+  the volume particles is a smooth displacement field with its gradient and a scalar field whose level set is
+  the surface. The combination the user describes (a simulated interior, a displayed exterior resampled as
+  the area grows, with Gaussians) has its parts in the literature and no instance: the Gaussian-splatting
+  papers fix the embedding at t = 0, the point-based papers of 2003–2005 resample but predate splatting.
+  pre-registered 2026-10-03 18:38 CDT at the runs' launch; the user: "particle 문제인지 render 문제인지 시작해서, 모든
+  frame에서 조사 들어가자. 그리고 나서 수정을 들어가야 할 거 같아. 40K 갤러리는 현재 이걸 보지 못하니까, bunny 300K와
+  dragon 300K/100K를 기준으로"; the base e9a210f = repo_r64; `tmp/d57.sh`, archives kept; `tmp/fuzz_probe.py`;
+  `output/gpu/d57`).** Three runs of the base with the default recipe: the bunny at 300k (GPU 0), the dragon at
+  300k (GPU 1) and at 100k (GPU 3). No change to the algorithm or to the display; the probe reads the archive
+  and draws with the base renderer's own primitives.
+  The particles, on every simulated frame: the rendered particles that are not linked to the body within one
+  layer spacing (single linkage; the body is the largest set), how many sets, how far from the body; the
+  particles the display rule draws enlarged (8th-neighbour distance over the target's, the rule's own factor,
+  above 1.5) and how many of those are detached; from the frames near the end also their distance to the target.
+  The display, on every frame of the video (every 12th simulated frame), three drawings of the same particles
+  with the renderer's own coverage buffer: as the base draws it; with every disc at the target spacing (no
+  enlargement); with the detached particles left out. Per drawing the solid pixels (coverage 0.5 and more) and
+  the soft pixels (0.02 to 0.5), whole picture and the thin part's crop (the bunny's ears, the dragon's horns);
+  the same three drawings of the target's own sample as the level a finished surface has. The crops of every
+  frame are kept side by side as a video.
+  Readings. The display's part: the soft pixels the enlargement adds, base minus no-enlargement, against the
+  same difference on the target's sample (what the rule adds to a perfect surface). The particles' part: the
+  soft pixels the detached particles draw, base minus without-them. If the soft pixels above the target's
+  level go with the enlargement and stay when the detached particles are left out, it is the display; if they
+  go with the detached particles in both drawings, it is the particles, and the display only decides whether
+  they read as fur or as beads. Expectation, uncertain (D34, D42 on today's other code): both, the particles
+  first: most of the tuft's soft pixels go when the detached particles are left out, the enlargement makes
+  what is left of them wider, and the target's own sample has a soft rim under the base rule that the
+  no-enlargement drawing does not. 100k against 300k: the same share of particles detached, drawn wider at
+  100k (the discs follow the spacing).
+  Added to the probe after its first test (18:44, before any run's result): the surface's own sampling. The
+  body's surface particles (neighbourhood asymmetry, not detached) counted against the target sample's own,
+  whole and on the thin part (nearest target point below 2 MPM cells); their spacing on the surface against
+  the target's (above 1.5: too few particles for that piece of surface); and per drawn frame the pixels that
+  are solid only by the enlargement and only by the detached particles. The soft-pixel count alone did not see
+  the tuft: on the test frames the target's own sample has more soft pixels in the ears' crop than the run.
+  **Result, the bunny at 300k and the dragon at 100k (2026-10-03 19:00 CDT; `output/gpu/d57/probe_*`, locally
+  `output/video_2026-10-03/d57_particle_or_render/`: curves, tables, the crops of every drawn frame as a video,
+  the target sample's drawings).** Runs: bunny 728 s, 57 commits of 65, silhouette IoU 0.9879; dragon at 100k
+  600 s, 96 of 106, 0.9799, world-thin 2.05 %; render λ of the first window 0.249 and 0.420, g_share 0.88 and
+  0.91. Census on every simulated frame (2201 and 3841), drawings on every 12th (185 and 321).
+  The target's own sample, drawn by the base renderer, has the fuzz. Bunny at 300k: the left ear's edge is
+  fuzzy in the base drawing and hairy without the enlargement; 1.05 % of the solid pixels are solid only by
+  the enlargement (2.6 % in the ears' crop). Dragon at 100k: the horns of the perfect sample are feathers in
+  all three drawings; 1.76 % (4.0 % in the horns' crop). A finished morph cannot look better than this under
+  this display with these particles.
+  The run against that level, bunny (windows 3, 5, 8, 11, 17, 28, 39, 55): surface particles against the
+  target sample's 15 583: 0.67, 0.78, 0.81, 0.83, 0.85, 0.86, 0.86, 0.85; on the thin part (6019): 0.62, 0.70,
+  0.73, 0.80, 0.80, 0.83, 0.82, 0.81; surface particles with spacing above 1.5: 1.6, 0.7, 0.3, 0.4, 0.4, 0.2,
+  0.2, 0.3 %; rendered detached particles 9959, 4281, 2791, 2233, 1698, 1356, 1376, 1528 (84–99 % within the
+  berth from window 8); pixels solid only by the enlargement 2.4, 2.6, 1.6, 1.2, 1.0, 0.83, 0.77, 0.79 % (crop
+  6.4, 9.3, 5.2, 3.8, 2.8, 2.1, 1.9, 2.0 %); only by the detached particles, in the crop: 102 353, 47 764, 16 145,
+  5431, 1861, 486, 556, 834 pixels (60 % of the crop's solid pixels at window 3, under 1 % from window 17).
+  Dragon at 100k (windows 5, 10, 14, 19, 29, 38, 58, 77, 96): surface count 0.57, 0.88, 0.97, 0.99, 1.02, 1.01,
+  1.00, 0.98, 0.98; thin part 0.72, 0.73, 0.82, 0.81, 0.88, 0.88, 0.86, 0.85, 0.85; spacing above 1.5: 11.6, 0.9,
+  0.8, 0.5, 0.7, 0.8, 0.7, 0.8, 0.8 %; detached 2632, 2468, 1720, 1572, 1099, 1070, 1038, 1101, 936; only by the
+  enlargement 7.5, 2.6, 2.0, 1.7, 1.45, 1.3, 1.3, 1.2, 1.2 % (horns' crop 19.8, 9.5, 8.4, 6.3, 5.3, 4.7, 5.0, 3.8,
+  4.3 %); only by the detached, crop: 27 870, 34 624, 18 136, 27 556, 12 880, 12 448, 12 117, 4618, 2171 pixels (a
+  fifth of the crop's solid pixels until window 20, 7–8 % until window 67, 1–3 % at the end).
+  Reading so far. Early and mid-morph it is the particles: the thin parts are first drawn by detached sets (the
+  bunny's ears to window 10, the dragon's horns at 100k to window 70). At the end it is neither loose
+  particles nor the enlargement in excess of a perfect sample: the end frames sit at or under the target
+  sample's own level on the enlargement (0.8 against 1.05 %, 1.2 against 1.76 %), the detached particles draw
+  under 1–3 % of the thin crop, and the surface carries 85–98 % of the particles a perfect sample puts there
+  (80–88 % on the thin part). The fuzz that is left at the end is what a volume sample of this N looks like
+  at a thin feature under this display: the user's reading ("the N that has to cover the surface is short")
+  holds, and it holds for the target sample itself. The 300k dragon follows.
 - **D56, the zero-row fix alone on the restored code: the 300k dragon and bunny (pre-registered 2026-10-03 17:24
   CDT at launch; the user: "그것만 되돌린 코드에 올리고 bunny랑 dragon 실험 해서 보여줄래?"; repo_r63 = the restored tree,
   repo_r64 = repo_r63 with `window/layer.py` and its test; `tmp/d56.sh`; `output/gpu/d56`; the restored code's
