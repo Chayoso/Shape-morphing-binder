@@ -22,7 +22,8 @@ from ...prof import timed
 from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
 from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_w1,
                                   isolation_gate, nn_band_assign)
-from ..render_loss import d_pbr, d_render
+from ...render.exterior import Tracked, ZhuBridson
+from ..render_loss import d_exterior, d_pbr, d_render
 from .setup import Window
 
 
@@ -50,6 +51,7 @@ class Objective:
     def __init__(self, win: Window):
         cfg, tgt, prm = win.cfg, win.tgt, win.prm
         self.win, self.cfg, self.tgt = win, cfg, tgt
+        self.discs, self.ext_builds = None, 0         # the exterior's discs and how often this window looked for them
         x0 = win.x0
         eps = float(tgt.ldx) ** 2                     # blur: one loss cell
         # the transport gate of u: u acts only on layer particles whose remaining transport
@@ -130,11 +132,34 @@ class Objective:
             lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
         lk = vT.pow(2).sum(1).mean()
         with timed("render"):
-            lsil = d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
-                            cfg.w_spray)
-            lpbr = d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
-                         cfg.sil_k, cfg.pbr_ambient, t.pblur)
+            lsil, lpbr = self.render_terms(xT)
         return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab
+
+    def render_terms(self, xT):
+        """(silhouette, shading) of a state: on the particle cloud, or (cfg.render_exterior, D62) on the exterior.
+        There the discs follow the particles from the state they were found at (render/exterior.py, Tracked), by
+        one Newton step of the field; once a tenth of them has moved more than half a lattice pitch they have left
+        their cells and are found again at the state being read (the lattice is fixed in space, so the same surface
+        gives the same discs). Found once per window only, they stay behind a surface that the control moves more
+        than the field's range, about 1.8 pitches (D62's first run: stopped at 9 windows). `ext_builds` counts the
+        searches of the window (a record)."""
+        cfg, t = self.cfg, self.tgt
+        if t.ext is None:
+            return (d_render(xT, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray),
+                    d_pbr(xT, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
+                          cfg.sil_k, cfg.pbr_ambient, t.pblur))
+        e = t.ext
+        if self.discs is not None:
+            p, n, move = self.discs.read(xT)
+            if float(torch.quantile(move.detach().abs()[::max(1, len(move) // 50000)], .9)) > .5 * e.h:
+                self.discs = None
+        if self.discs is None:
+            with torch.no_grad(), timed("exterior"):
+                self.discs = Tracked(ZhuBridson(xT.detach(), e.pitch), e.lattice, e.h, e.skin)
+            self.ext_builds += 1
+            p, n, move = self.discs.read(xT)
+        return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,
+                          cfg.w_spray, cfg.pbr_ambient)
 
     def phys_core(self, e):
         """The physics objective without the cleanup terms, from an Eval: lambda's reference and the direction
@@ -232,10 +257,8 @@ class Objective:
                                                 t.dt3, t.dtgmin, t.dtdx, t.dtdims))
         else:
             g_spray = torch.zeros_like(x)
-        lr = (d_render(x, t.sils, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole, cfg.w_spray)
-              + cfg.w_pbr * d_pbr(x, t.shade, t.views, cfg.render_res, t.extent, t.pgmin, t.pdx, t.pdims,
-                                  cfg.sil_k, cfg.pbr_ambient, t.pblur))
-        g_rend = float(lam_r) * grad(lr)
+        lsil, lpbr = self.render_terms(x)
+        g_rend = float(lam_r) * grad(lsil + cfg.w_pbr * lpbr)
         others = g_ot + g_surf + g_rend
         out, N = {}, x.shape[0]
 

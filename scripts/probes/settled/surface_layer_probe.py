@@ -1,11 +1,9 @@
-"""surface_layer_probe.py FRAMES_NPZ OUT_DIR x0,y0,x1,y1 KIND FIELD [STATE ...] — D59, D61: a displayed exterior
+"""surface_layer_probe.py FRAMES_NPZ OUT_DIR x0,y0,x1,y1 KIND [STATE ...] — D59: a displayed exterior
 (surface discs without mass, physmorph/render/exterior.py) built from the particles of one state, beside the base
 display of the same particles. Display only.
 
 The surface: the zero set of Zhu and Bridson's field of the particles, kernel radius 3 pitches (the volume sample's
-pitch a = (V / N)^(1/3), 0.708 of the target's median 8th-neighbour distance); FIELD `zb`: offset 0.8 a; `gaps`: the
-offset times Solenthaler's factor (no surface where the particles' mean moves faster than the point: between near
-but separate bodies, in concavities).
+pitch a = (V / N)^(1/3), 0.708 of the target's median 8th-neighbour distance), offset 0.8 a.
 The discs, KIND `poisson` (stage 1a): the nodes of a grid of half a pitch that lie within a cell of the zero set (they
 cover it wherever it is), copied with a jitter of one cell, projected onto the zero set, thinned to a Poisson-disk set
 of about M points (no two nearer than r; parallel random-priority selection), sigma r (the set's covering radius).
@@ -45,12 +43,11 @@ from physmorph.render.support import live_support, normal_filter_size  # noqa: E
 dev = torch.device("cuda")
 out = Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
 box = [int(v) for v in sys.argv[3].split(",")]
-kind, gaps = sys.argv[4], dict(zb=False, gaps=True)[sys.argv[5]]
-M, RFAC = 300000, 3.                                           # the discs' budget; the field's kernel radius in pitches (D59, stage 1a)
-RBAR = .845 if gaps else .8                                    # the field's offset in pitches: the base display's solid area on the target samples
+kind = sys.argv[4]
+M = 300000                                                     # the discs' budget
 z = np.load(sys.argv[1], allow_pickle=True)
 raws, frames = [int(v) for v in z["raws"]], z["frames"]
-states = sys.argv[6:] or ["target"] + [str(r) for r in raws]
+states = sys.argv[5:] or ["target"] + [str(r) for r in raws]
 W, H = 3840, 2160
 target = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
 center = target.mean(0)
@@ -67,7 +64,7 @@ lat = Lattice(center, 2.8 * radius)
 
 
 def field_of(x):
-    return ZhuBridson(x, a, RFAC, RBAR, gaps)
+    return ZhuBridson(x, a)
 
 
 def poisson_disk(p, r, k=64):
@@ -141,20 +138,20 @@ def poisson(field):
     copies = max(2, int(12 * M / max(len(seeds), 1)))
     q = seeds.repeat_interleave(copies, 0)
     q = q + h * (torch.rand(q.shape, device=dev, generator=gen) - .5)
-    pool, normals = field.project(q)
+    pool, g = field.project(q)
     r = .27 * a
     for _ in range(4):
         keep, pts = poisson_disk(pool, r)
         if abs(len(pts) - M) <= .03 * M:
             break
         r *= (len(pts) / M) ** .5
-    return pts, normals[keep], r, dict(seeds=len(seeds), pool=len(pool))
+    return pts, nnf.normalize(g[keep], dim=1), r, dict(seeds=len(seeds), pool=len(pool))
 
 
 def lattice(field, h):
     """One disc for each lattice cell of pitch h that the zero set crosses."""
-    pts, normals, cells, nodes = lat.discs(field, h)
-    return pts, normals, h, dict(nodes=nodes, crossed=cells)
+    pts, g, cells, nodes = lat.discs(field, h)
+    return pts, nnf.normalize(g, dim=1), h, dict(nodes=nodes, crossed=cells)
 
 
 def display_normals(pts, normals, reach, spacing):
@@ -219,7 +216,7 @@ def against(image, cover_, ref):
     return float((a & b).sum()) / float((a | b).sum()), float((image - ref[0]).abs().mean(-1)[a | b].mean())
 
 
-print(f"N {len(target)}; target spacing {sp:.4f} wu, pitch a {a:.4f} wu = {a / sp:.2f} spacings; R {RFAC:.1f} a, offset {RBAR:.3f} a, gaps {gaps}; M {M}; {kind}")
+print(f"N {len(target)}; target spacing {sp:.4f} wu, pitch a {a:.4f} wu = {a / sp:.2f} spacings; M {M}; {kind}")
 tint = lambda image, seen: image * (1. - .6 * seen[..., None]) + .6 * seen[..., None] * image.new_tensor((1., .1, .1))  # noqa: E731
 with torch.no_grad():                                          # the field's gradient re-enables autograd where it needs it
     if kind == "lattice":

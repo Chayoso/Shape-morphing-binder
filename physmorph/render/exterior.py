@@ -6,8 +6,6 @@ the same surface gives the same discs. Nothing here has mass or acts on the simu
 """
 from __future__ import annotations
 
-import math
-
 import torch
 import torch.nn.functional as nnf
 
@@ -48,66 +46,37 @@ class Bins:
         return torch.where((self.cells[at] == cell)[..., None], self.table[at], -1).reshape(len(q), -1)
 
 
-def largest_eigenvalue(J):
-    """The largest real part among the eigenvalues of real 3x3 matrices (the characteristic cubic in closed form)."""
-    a = -(J[:, 0, 0] + J[:, 1, 1] + J[:, 2, 2])
-    b = (J[:, 0, 0] * J[:, 1, 1] - J[:, 0, 1] * J[:, 1, 0] + J[:, 0, 0] * J[:, 2, 2] - J[:, 0, 2] * J[:, 2, 0]
-         + J[:, 1, 1] * J[:, 2, 2] - J[:, 1, 2] * J[:, 2, 1])
-    c = -torch.linalg.det(J)
-    Q = (a * a - 3. * b) / 9.
-    T = (2. * a ** 3 - 9. * a * b + 27. * c) / 54.
-    root = Q.clamp_min(1e-20).sqrt()
-    theta = torch.acos((T / root ** 3).clamp(-1. + 1e-6, 1. - 1e-6))
-    three = -2. * root * torch.cos((theta + 2. * math.pi) / 3.) - a / 3.           # three real roots: the largest
-    A = -torch.sign(T) * (T.abs() + (T * T - Q ** 3).clamp_min(0.).sqrt()).clamp_min(1e-20) ** (1. / 3.)
-    AB = A + torch.where(A.abs() > 1e-12, Q / torch.where(A.abs() > 1e-12, A, torch.ones_like(A)), torch.zeros_like(A))
-    one = torch.maximum(AB - a / 3., -.5 * AB - a / 3.)                           # one real root, a complex pair
-    return torch.where(T * T < Q ** 3, three, one)
-
-
 class ZhuBridson:
     """f(q) = |q - xbar(q)| - offset (Zhu and Bridson 2005): xbar the mean of the particles within `radius` of q
     weighted by (1 - (d / radius)^2)^3. A thin sheet of particles keeps a thickness of two offsets and a particle
-    alone is a sphere. D59: radius 3 pitches, offset 0.8 pitches (pitch: the volume sample's, (V / N)^(1/3)).
+    alone is a sphere. D59: radius 3 pitches, offset 0.8 pitches (pitch: the volume sample's, (V / N)^(1/3));
+    D61: Solenthaler's factor on the offset was tried and not kept."""
 
-    gaps: the offset is multiplied by Solenthaler, Schlaefli and Pajarola's factor (2007, Eq. 23-26): where xbar
-    moves faster than q, between near but separate bodies and in concavities, the field would put surface that
-    belongs to none; the factor is 1 while the largest eigenvalue of d xbar / d q is below 0.4 and falls to 0 at 2
-    (gamma^3 - 3 gamma^2 + 3 gamma, gamma = (2 - eigenvalue) / 1.6)."""
-
-    def __init__(self, x, pitch, radius=3., offset=.8, gaps=False):
-        self.x, self.pitch, self.radius, self.offset, self.gaps = x, pitch, radius * pitch, offset * pitch, gaps
+    def __init__(self, x, pitch, radius=3., offset=.8):
+        self.x, self.pitch, self.radius, self.offset = x, pitch, radius * pitch, offset * pitch
         self.bins = Bins(x, self.radius)
 
     def __call__(self, q):
         """f(q), its gradient in q, and the summed weight (zero where no particle is within the radius)."""
         x, R = self.x, self.radius
         f, g, s = [], [], []
-        for qc in q.split(max(2048, int((6e5 if self.gaps else 2e6) / self.bins.width))):
+        for qc in q.split(max(4096, int(2e6 / self.bins.width))):
             idx = self.bins.around(qc)
             p = x[idx.clamp_min(0)]
             qc = qc.detach().requires_grad_(True)
             with torch.enable_grad():
-                u = qc[:, None, :] - p
-                t = (1. - u.square().sum(-1) / (R * R)).clamp_min(0.) * (idx >= 0)
-                w = t ** 3
+                w = (1. - (qc[:, None, :] - p).square().sum(-1) / (R * R)).clamp_min(0.) ** 3 * (idx >= 0)
                 sw = w.sum(1)
                 xbar = (w[..., None] * p).sum(1) / sw.clamp_min(1e-12)[:, None]
-                offset = self.offset
-                if self.gaps:
-                    dw = (-6. / (R * R)) * (t * t)[..., None] * u                 # the weights' gradients in q
-                    J = (torch.einsum("nsa,nsb->nab", p, dw) - xbar[:, :, None] * dw.sum(1)[:, None, :]) / sw.clamp_min(1e-12)[:, None, None]
-                    gamma = ((2. - largest_eigenvalue(J)) / 1.6).clamp(0., 1.)
-                    offset = offset * (1. - (1. - gamma) ** 3)
-                fc = (qc - xbar).norm(dim=1) - offset
+                fc = (qc - xbar).norm(dim=1) - self.offset
                 gc, = torch.autograd.grad(fc.sum(), qc)
-            f.append(fc.detach()); g.append(torch.nan_to_num(gc)); s.append(sw.detach())
+            f.append(fc.detach()); g.append(gc); s.append(sw.detach())
         f, g, s = torch.cat(f), torch.cat(g), torch.cat(s)
         return torch.where(s > 1e-6, f, f.new_full((), float("inf"))), g, s
 
     def project(self, q, steps=6, stay=None):
         """Newton steps onto the zero set, a step no longer than half a pitch: the points that end on it (and, with
-        `stay`, no farther than that from where they started along any axis) and the unit gradient there."""
+        `stay`, no farther than that from where they started along any axis) and the gradient there."""
         start = q
         for _ in range(steps):
             f, g, _ = self(q)
@@ -118,7 +87,51 @@ class ZhuBridson:
         ok = (f.abs() < .02 * self.pitch) & torch.isfinite(q).all(1)
         if stay is not None:
             ok &= (q - start).abs().max(1).values <= stay
-        return q[ok], nnf.normalize(g[ok], dim=1)
+        return q[ok], g[ok]
+
+    def neighbours(self, q, skin, most=256):
+        """For each point the particles within the radius plus `skin` (the nearest `most` of them), -1 padded."""
+        reach = self.radius + skin
+        bins, out = Bins(self.x, reach), []
+        for qc in q.split(max(1024, int(4e5 / bins.width))):
+            idx = bins.around(qc)
+            d = torch.where(idx >= 0, (qc[:, None, :] - self.x[idx.clamp_min(0)]).norm(dim=-1), qc.new_full((), float("inf")))
+            d, at = d.topk(min(most, d.shape[1]), dim=1, largest=False)
+            out.append(torch.where(d < reach, idx.gather(1, at), -1))
+        idx = torch.cat(out)
+        return idx[:, :int((idx >= 0).sum(1).max())]
+
+
+class Tracked:
+    """Discs of a field's zero set that follow the particles within one window: found at one state (points p0, unit
+    normals n0, the field's slope there, each disc's particles), read at another. A disc moves along n0 by the
+    field's value at p0 over that slope (one Newton step, the surface's displacement to first order) and takes the
+    field's gradient at p0 as its normal; both are functions of the particles, so a loss on the discs reaches them."""
+
+    def __init__(self, field, lattice, h, skin):
+        pts, g, _, _ = lattice.discs(field, h, refine=False)
+        self.p0, self.n0, self.slope = pts, nnf.normalize(g, dim=1), g.norm(dim=1).clamp_min(1e-6)
+        self.idx = field.neighbours(pts, skin)
+        self.radius, self.offset, self.h = field.radius, field.offset, h
+
+    def read(self, x):
+        """(points, unit normals, displacement along n0) of the discs at the particles x."""
+        R, p0 = self.radius, self.p0
+        valid = self.idx >= 0
+        p = x.index_select(0, self.idx.clamp_min(0).reshape(-1)).view(*self.idx.shape, 3)   # its backward adds, without a sort
+        u = p0[:, None, :] - p
+        t = (1. - u.square().sum(-1) / (R * R)).clamp_min(0.) * valid
+        w = t ** 3
+        sw = w.sum(1).clamp_min(1e-12)
+        xbar = (w[..., None] * p).sum(1) / sw[:, None]
+        d = p0 - xbar
+        dist = d.norm(dim=1).clamp_min(1e-12)
+        dw = (-6. / (R * R)) * (t * t)[..., None] * u                             # the weights' gradients in q
+        J = (torch.einsum("nsa,nsb->nab", p, dw) - xbar[:, :, None] * dw.sum(1)[:, None, :]) / sw[:, None, None]
+        dhat = d / dist[:, None]
+        normal = nnf.normalize(dhat - torch.einsum("nab,na->nb", J, dhat), dim=1)     # the field's gradient in q
+        move = -(dist - self.offset) / self.slope
+        return p0 + move[:, None] * self.n0, normal, move
 
 
 class Lattice:
@@ -154,20 +167,24 @@ class Lattice:
         v = torch.where(nodes[at] == corner, f[at], f.new_full((), float("inf")))
         return cells[(v.min(1).values < 0.) & (v.max(1).values > 0.)]
 
-    def crossed_cells(self, field, h):
-        """The cells of pitch h that the zero set crosses, and the number of nodes the field was read at. They are
-        looked for inside the cells of two pitches that the zero set crosses and the ring around those (a bump may
-        enter a cell through a face without reaching a corner); a closed set that holds no node of two pitches is
-        not found (D59: 0.2-2 % of the zero set, pockets under the surface for the most part)."""
-        coarse = self.near_nodes(field.x, 2 * h, 2)
-        big = self.crossed(coarse, key(coarse), field(self.at(coarse, 2 * h))[0])
+    def crossed_cells(self, field, h, refine=True):
+        """The cells of pitch h that the zero set crosses, and the number of nodes the field was read at.
+        refine: they are looked for inside the cells of two pitches that the zero set crosses and the ring around
+        those (a bump may enter a cell through a face without reaching a corner); without it they are the cells of
+        pitch h with corners on both sides. Either way a closed set that holds no node of the first lattice is not
+        found (D59: 0.2-2 % of the zero set, pockets under the surface for the most part)."""
+        first = 2 * h if refine else h
+        coarse = self.near_nodes(field.x, first, 2)
+        big = self.crossed(coarse, key(coarse), field(self.at(coarse, first))[0])
+        if not refine:
+            return big, len(coarse)
         big = unkey(torch.unique(key(big[:, None, :] + cube(-1, 2, big.device)[None])))
         fine = torch.unique(key(2 * big[:, None, :] + cube(0, 3, big.device)[None]))
         f = field(self.at(unkey(fine), h))[0]
         return self.crossed((2 * big[:, None, :] + cube(0, 2, big.device)[None]).reshape(-1, 3), fine, f), len(coarse) + len(fine)
 
-    def discs(self, field, h):
-        """One disc for each crossed cell of pitch h: (points, unit normals, cells crossed, nodes read)."""
-        cells, nodes = self.crossed_cells(field, h)
-        pts, normals = field.project(self.at(cells.float() + .5, h), steps=4, stay=.5 * h)
-        return pts, normals, len(cells), nodes
+    def discs(self, field, h, refine=True):
+        """One disc for each crossed cell of pitch h: (points, the field's gradient there, cells crossed, nodes read)."""
+        cells, nodes = self.crossed_cells(field, h, refine)
+        pts, g = field.project(self.at(cells.float() + .5, h), steps=4, stay=.5 * h)
+        return pts, g, len(cells), nodes

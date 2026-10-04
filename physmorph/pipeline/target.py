@@ -20,7 +20,20 @@ from ..losses.volumetric import (d_vol, d_vol_density, density_units, target_dt_
                                  target_mass_grid)
 from ..mpm.state import MPMParams
 from .config import PipelineConfig
-from .render_loss import make_views, shade_targets, target_silhouettes
+from ..render.exterior import Lattice, ZhuBridson
+from .render_loss import exterior_targets, make_views, shade_targets, target_silhouettes
+
+
+@dataclass
+class Exterior:
+    """What the render terms need when they are read on the exterior (render/exterior.py): the field's pitch, the
+    lattice and its pitch, the skin of the discs' particle lists, and the target's images from its own discs."""
+    pitch: float
+    lattice: Lattice
+    h: float
+    skin: float
+    sils: list
+    shade: list
 
 
 @dataclass
@@ -55,6 +68,7 @@ class TargetPack:
     settled_scale: tuple | None = None  # (lambda, capped), calibrated once per resolution
     settled_step: float | None = None   # last accepted step (warm start of the search)
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
+    ext: Exterior | None = None         # the render terms' exterior, when they are read on it
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
@@ -95,6 +109,22 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
                           cfg.sil_k, cfg.pbr_ambient, blur_cells=pblur)
     print(f"[target] shading target: spacing {sp_t:.4f}, normal grid {pdims[0]}^3 at {pdx:.4f} wu "
           f"({pdx / sp_t:.2f} spacings), blur {pblur:.2f} cells", flush=True)
+    ext = None
+    if cfg.render_exterior:
+        # the field's pitch is the volume sample's (0.708 of the 8th-neighbour distance); the discs sit on a lattice
+        # of half a render pixel, no coarser than the field resolves (its smallest body, a sphere of 0.8 pitches,
+        # holds a node of any lattice up to 0.92 pitches); the discs' particle lists reach one pitch past the kernel
+        pitch = 0.708 * sp_t
+        center = tgt_t.mean(0)
+        lattice = Lattice(center, 2.8 * float((tgt_t - center).norm(dim=1).max()))
+        h = min(extent / cfg.render_res, 0.92 * pitch)
+        with torch.no_grad():
+            p_t, g_t, _, _ = lattice.discs(ZhuBridson(tgt_t, pitch), h, refine=False)
+        e_sils, e_shade = exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
+                                           extent, cfg.sil_k, cfg.pbr_ambient)
+        ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade)
+        print(f"[target] exterior: pitch {pitch:.4f} wu, lattice {h / pitch:.2f} pitches = "
+              f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target", flush=True)
     # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range)
     dtdims = (cfg.dt_res,) * 3
     dtdx = 3.0 * extent / cfg.dt_res
@@ -107,7 +137,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m, views=views, sils=sils,
                       extent=extent, shade=shade, pgmin=lgmin, pdx=pdx, pdims=pdims, pblur=pblur,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, pts=tgt_t, knn=knn,
-                      nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate)
+                      nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate, ext=ext)
 
 
 def rebuild_for_resolution(tgt: TargetPack, target_x, prm: MPMParams,

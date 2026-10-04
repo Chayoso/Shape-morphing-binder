@@ -474,6 +474,8 @@ class WindowOptimizer:
             stats["prof"] = prof_take()
         stats.update(null_reason=self.tele.get("null_reason") if self.accepted == 0 else None, E_accept=E_accept,
                      commit_E_final=float(commit.E_final), commit_jt=float(commit.jt_final))
+        if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)
+            stats.update(ext_discs=len(self.obj.discs.p0), ext_builds=self.obj.ext_builds)
         if self.accepted > 0:
             stats["selection_merit"] = selection_merit
             stats["merit_far"] = self.obj.near_band_far(commit.x[-1])

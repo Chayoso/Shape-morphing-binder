@@ -80,6 +80,8 @@ class PipelineConfig:
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration
     lambda_ema: float = 0.3
     render_weight_scale: float = 1.0  # x lambda wherever it is set; 0 = the render-off twin
+    render_exterior: bool = False   # the render terms read on the exterior (surface discs on the particles' zero set,
+                                    #   render/exterior.py) in place of the particle cloud (D62)
     render_views: int = 6           # azimuths per elevation ring
     render_elevs: tuple = (0.0, 0.5, -0.5)
     render_res: int = 64

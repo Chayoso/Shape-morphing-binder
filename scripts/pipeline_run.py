@@ -51,6 +51,8 @@ def parse_args():
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
+    ap.add_argument("--render_exterior", action="store_true",
+                    help="read the render terms on the exterior (surface discs) in place of the particle cloud")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
     ap.add_argument("--support_weight", type=float, default=8.0, help="local support bound weight")
     ap.add_argument("--support_target_ref", action="store_true",
@@ -148,6 +150,7 @@ def main():
         prm = dataclasses.replace(prm, floor_friction=args.floor_friction)
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
+                              render_exterior=args.render_exterior,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,

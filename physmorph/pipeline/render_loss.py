@@ -228,3 +228,53 @@ class LambdaBalancer:
             target = min(target, self.cap)
         self.lam = target if self.lam is None else (1 - self.ema) * self.lam + self.ema * target
         return self.lam
+
+
+# ---- the render terms read on the exterior (D62): surface discs in place of the particle cloud ----
+
+def shaded_discs(p: torch.Tensor, n: torch.Tensor, views, res: int, extent: float, k: float = 1.5,
+                 ambient: float = 0.25, beta: float = 3.0):
+    """All views of the shaded image of surface discs: (V,res,res) shade*alpha and alpha.
+
+    A disc is drawn where it faces the camera: its splat weight is CIC x its facing cosine max(n.l, 0) (its
+    projected area) x the soft front bias of shaded_view; its shade is ambient + (1-ambient) max(n.l, 0). The
+    alpha is the coverage of all the discs, the silhouette's."""
+    from ..losses.silhouette import _view_basis
+    right, up = _view_basis(p, views)
+    V = right.shape[0]
+    l_dir = torch.linalg.cross(right, up)                         # (V,3) toward the camera
+    facing = (n @ l_dir.T).clamp(min=0)                           # (M,V)
+    b = ambient + (1 - ambient) * facing
+    z = p @ l_dir.T
+    zr = (z - z.min(0).values) / (z.max(0).values - z.min(0).values).clamp_min(1e-6)
+    pw = facing * torch.exp(beta * (zr - 1.0))
+    rel = (torch.stack([p @ right.T, p @ up.T], -1) + extent) / (2 * extent) * res
+    voff = (torch.arange(V, device=p.device) * (res * res)).view(1, V)
+    num = p.new_zeros(V * res * res)
+    den = p.new_zeros(V * res * res)
+    cov = p.new_zeros(V * res * res)
+    for ii, jj, w0 in splat_terms(rel):
+        valid = (ii >= 0) & (ii < res) & (jj >= 0) & (jj < res)
+        idx = (voff + ii * res + jj).clamp(0, V * res * res - 1).reshape(-1)
+        w = torch.where(valid, w0, torch.zeros_like(w0))
+        num = num.index_add(0, idx, (w * pw * b).reshape(-1))
+        den = den.index_add(0, idx, (w * pw).reshape(-1))
+        cov = cov.index_add(0, idx, w.reshape(-1))
+    alpha = 1.0 - torch.exp(-k * cov)
+    return (num / den.clamp_min(1e-6) * alpha).reshape(V, res, res), alpha.reshape(V, res, res)
+
+
+def exterior_targets(p_t: torch.Tensor, n_t: torch.Tensor, views, res: int, extent: float, k=1.5, ambient=0.25):
+    """The target's silhouettes and shaded images, drawn by the same operators from the target's own discs."""
+    from ..losses.silhouette import soft_silhouette_multi
+    with torch.no_grad():
+        return (list(soft_silhouette_multi(p_t, views, res, extent, k)),
+                list(shaded_discs(p_t, n_t, views, res, extent, k, ambient)[0]))
+
+
+def d_exterior(p: torch.Tensor, n: torch.Tensor, sils, shade, views, res: int, extent: float, k: float = 1.5,
+               w_hole: float = 2.0, w_spray: float = 1.0, ambient: float = 0.25):
+    """(silhouette, shading) of the discs against the target's: d_render and d_pbr's measures on the exterior."""
+    s, _ = shaded_discs(p, n, views, res, extent, k, ambient)
+    return (d_render(p, sils, views, res, extent, k, w_hole, w_spray),
+            (s - torch.stack(list(shade), 0)).pow(2).mean(dim=(1, 2)).mean())

@@ -459,6 +459,56 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D62, stage 2: the render terms read on the exterior (pre-registered 2026-10-03 23:46 CDT; the user: "2단계
+  구현 후에는. 그래프를 그려가면서 Physics-only, w/ render 를 비교해가면서 실험 … 이게 증명되면 3단계"; code
+  `--render_exterior`: `physmorph/render/exterior.py` (Tracked), `render_loss.py` (shaded_discs, d_exterior),
+  `window/objective.py` (render_terms); server `repo_r65`; `output/gpu/d62`).** One definition changes: what the
+  silhouette and the shading terms are read on. The weights, views, resolutions, the calibration of λ and the
+  projection against the physics gradient stay.
+  The discs: the zero set of the field (kernel 3 pitches, offset 0.8) of the released end state, one disc for
+  each cell it crosses of a lattice of half a render pixel (no coarser than 0.92 pitches, the largest lattice
+  that puts a node in the field's smallest body). They are found once per window, at the first state it
+  evaluates; from then on a disc moves along its normal by one Newton step of the field of the current
+  particles and takes that field's gradient as its normal. Both are functions of the particles within the
+  kernel radius plus one pitch of the disc (lists frozen for the window), so the terms' gradients reach them.
+  The silhouette: the same operator (the splat, 1 − exp(−k w), the asymmetric penalty) on the discs, against
+  the target sample's own discs. The shading: a disc is drawn where it faces the camera, with its facing cosine
+  times the existing front bias as weight and ambient + (1 − ambient) cosine as shade; matched target.
+  Why it could matter: the gradient lands on the particles that make the drawn surface, with that surface's
+  normals and without its back faces; on the particle cloud it lands on whichever particles fall in unsaturated
+  pixels, and the shading reads a blurred density's normals on every particle.
+  Runs: bunny 300k, dragon 100k, dragon 300k with `--render_exterior` (L), two each for the spread; against
+  D60's physics-only twins (P, one each, not rerun) and D59's base runs (R: render on the particle cloud).
+  Read on every frame and every window (`render_twin_plot.py`): the exterior display against the target (IoU of
+  the solid regions and the pictures' difference: front, thin crop, far side), the crop's soft pixels, the
+  field's roughness; each run's own silhouette and shading terms (P and R share the particle definition), the
+  transport energy, g_share, λ; and both definitions of the render terms evaluated by one tool on every kept
+  frame of every run (`render_terms_probe.py`), so that P, R and L are read on one yardstick.
+  The render term "has its effect" if, on that yardstick, the exterior-defined silhouette + shading of L is
+  below P's at the end and in the mean over the frames both have after window 10, by more than the two L runs
+  differ, and the display's difference against the target likewise; the transport energy is recorded beside it
+  (what the render costs). The same reading is recorded for R with the particle definition.
+  Cost: the window time, against 1.3 of the base's.
+  Expectation: L lowers its own terms and the display's difference against P; against R a similar silhouette
+  and a lower shading difference on thin parts; 10–30 % more time; in early windows the discs move one to two
+  lattice pitches from where they were found (the 40k smoke: 1.3–2.0), less later. If L shows no effect beyond
+  the spread, the term does not act at 96 pixels, and the resolution is what to look at next (the exterior
+  allows a finer picture than the particle cloud).
+  **First run, failed (bunny 300k, 23:46–23:54 CDT, kept as `bunny300k_L0`): stopped at 9 windows, silhouette
+  0.848.** The selection merit rose from window 5 (0.068 → 0.079; the base is at 0.011 there) and three
+  candidates in a row were rejected, twice. Read from the run's own record: in the windows with long line
+  searches the discs' displacement was 2.0 lattice pitches at the 90th percentile (1.86–2.65), which is the
+  bound of the Newton step, offset over slope, about 1.8 pitches: a disc whose point the body has moved over
+  reads a field that no longer changes there, stays behind and has no defined normal. The control moves the
+  surface 1.0–1.4 pitches a window at 300k (`move` 0.05–0.07 wu), so discs found once per window, at its first
+  (uncontrolled) state, are behind the surface for most of the search; the silhouette term stalled at 0.06
+  (base: 0.008 at window 5). The definition above ("found once per window") was wrong; the rule that replaced
+  it at 00:05 CDT: the discs are found again, at the state being read, once a tenth of them has moved more
+  than half a lattice pitch from where they were found (they have left their cells; the lattice is fixed in
+  space, so the same surface gives the same discs). Two more things from this run: the gradient time was
+  14–28 s a window against 7 (the gather of the discs' particles had a sorting backward; `index_select` has
+  not); a six-window check of the new rule at 300k follows the base (merit 0.0102 at window 5, gradient time
+  7.1–9.0 s, 7–12 searches a window early).
 - **D61, the exterior's field: Solenthaler's factor on the offset (stage 1c; display only; pre-registered
   2026-10-03 23:33 CDT; the user: "OK. 들어가 줘" to the field first, then stages 2 and 3; code
   `physmorph/render/exterior.py`, `surface_layer_probe.py … FIELD`).** D59's webs between the ears, sheets in
