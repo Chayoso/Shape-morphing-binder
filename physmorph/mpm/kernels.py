@@ -385,13 +385,22 @@ def k_update(x_in: wp.array(dtype=wp.vec3), x_out: wp.array(dtype=wp.vec3),
 # noise; curvature and features, which the neighbours share, cancel in d - dbar) is removed
 # over one window, as the bonds re-join over one window. Both kernels are on the tape; the
 # frozen arrays are constants.
+@wp.func
+def layer_has_neighbors(w: wp.array(dtype=float), p: int, K: int):
+    # Keep the weight query in a function so Warp replays the branch correctly in the adjoint.
+    for a in range(K):
+        if w[p * K + a] > 0.0:
+            return True
+    return False
+
+
 @wp.kernel
 def k_layer_resid(x: wp.array(dtype=wp.vec3),
                   mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
                   nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
                   d: wp.array(dtype=float)):
     p = wp.tid()
-    if mask[p] < 0.5:
+    if mask[p] < 0.5 or not layer_has_neighbors(w, p, K):
         d[p] = 0.0
         return
     # w rows are normalised on the host (layer rows sum to 1): a division by a loop-accumulated
@@ -416,6 +425,10 @@ def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
     p = wp.tid()
     if mask[p] < 0.5:
         x_out[p] = x_in[p]
+        return
+    if not layer_has_neighbors(w, p, K):
+        # No smoothing plane; the independent gated u control remains active.
+        x_out[p] = x_in[p] + (frac_u * ug[p] * u[p]) * nrm[p]
         return
     dbar = float(0.0)
     for a in range(K):
