@@ -459,6 +459,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D85, D81's and D84's weights at 40k (pre-registered 2026-10-04 18:49 CDT at launch; `tmp/d85.sh`,
+  `tmp/d85.queue`; `repo_r71` (arm SF) and `repo_r74` (arm SH); outputs beside the gallery's in
+  `output/gpu/d72`).** D80's first six meshes (below) show that D77's form fails at 40k. The two weights that
+  replaced it are read on the same six meshes (bunny, dragon, A, armadilo, beast, bimba), each with the
+  minimum spacing, against S (the weight held from the first window), the pair B1, B2 and the twin SP.
+  Criteria per mesh: the run's silhouette IoU not under S's by more than the pair's difference, the thin share
+  uncovered not over S's by more than the pair's difference, still ahead of the twin on both and on the
+  yardstick; commits within a quarter of S's.
+  Expectation: SF (the gradient-norm rule at every window) loses part of S's lead at 40k, where the heavy
+  weight is what carries the thin parts (silhouette IoU −0.002 to −0.004); SH (a third of the merit by value)
+  keeps it within the pair's difference.
 - **D84, the render weight calibrated by the terms' values (a diagnostic on a server copy, no committed code;
   pre-registered 2026-10-04 18:39 CDT, queued behind an evaluation; `repo_r74` = D81's code with the
   balancer fed the objective without its render term and the render term in place of the two gradients'
@@ -548,6 +559,39 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   energy at the end within 1.5 times the twin's. Risks: the weight keeps moving and the rescored references
   never let the gate latch, so the run goes to the window budget; a weight that small lets the render terms
   drift up late in the run.
+  **Result, the bunny (2026-10-04 18:50 CDT; the dragon's run is finished and being read): the render arm is
+  12 to 41 % ahead of its twin on every display measure and level with it or ahead on the physics measures.**
+  LF, 71 commits (the twin 87; LE 49), 1494 s on a shared GPU:
+
+  | bunny 300k | front IoU / difference | thin crop | far side | roughness | yardstick: exterior silhouette / shading | thin uncovered | transport, kinetic energy at the end |
+  |---|---|---|---|---|---|---|---|
+  | PA (twin) | 0.9900 / 0.0075 | 0.9784 / 0.0086 | 0.9907 / 0.0068 | 3.2° | 0.000787 / 0.000568 | 4.8 % | 2.1e-5, 3.9e-6 |
+  | LE (D78) | 0.9938 / 0.0068 | 0.9881 / 0.0062 | 0.9936 / 0.0057 | 3.4° | 0.000315 / 0.000449 | 3.9 % | 3.7e-5, 6.9e-6 |
+  | LF (D81) | 0.9935 / 0.0066 | 0.9873 / 0.0058 | 0.9938 / 0.0056 | 3.3° | 0.000374 / 0.000446 | 4.0 % | 2.6e-5, 3.2e-6 |
+
+  Against the twin, as relative changes of the error: front 1 − IoU −35 %, difference −12 %; crop −41 %, −33 %;
+  far side −33 %, −18 %; the yardstick's silhouette 2.1 times below and its shading 21 % below; thin share
+  uncovered −17 %; kinetic energy at the end −18 %; the centre of mass's displacement 0.0049 against 0.0077
+  pitches; still moving at the end 0.0029 against 0.0030 pitches a pair. Level with the twin: the bands
+  (0.084, 0.140 against 0.085, 0.142), the field normal's error (9.2° against 9.3°), the density's spread
+  (0.170 against 0.168), chamfer (0.0551 against 0.0550), the roughness. Behind it: the transport energy at
+  the end, 2.6e-5 against 2.1e-5 (1.1 times the twin's at equal windows: 9.6e-5, 3.8e-5, 2.75e-5 at windows
+  20, 40, 60 against 8.5e-5, 3.4e-5, 2.5e-5; the twin runs 16 windows longer), and the net rotation, 0.014°
+  against 0.011°.
+  What the cause predicted: the weight falls from 0.257 to 0.033 by window 8, 0.0086 by 15, 0.0034 by 22 and
+  stays at 0.0018–0.0021 from window 35 on; the render's share of the step is 0.52–0.64 in the first ten
+  windows and 0.32–0.39 from window 20; the render term is 5–7 % of the merit's value late in the run; the
+  coarse stage runs to animation 76 (D78's ended at 43) and ends on patience, not on a streak of rejections.
+  The first risk did not come true (the gate latches, the run stops). The fine stage is weak: three commits,
+  in which the physics part rises by 2.5 % and 1.7 % and the 192-px silhouette term goes from 6.0e-4 to 5.5e-4
+  (D77's fine stage took it from 7.3e-4 to 4.9e-4 in seven commits): with the physics gradient at its floor a
+  third of the step is a third of very little, and a merit that is 94 % physics accepts no step that buys
+  render at a cost in physics. The display is nonetheless at LE's level or ahead of it in the differences;
+  D83 and D84 are the two readings of that weakness.
+  Windows discarded at the commit check: six of 83 (animations 5, 6, 12, 18, 30, 75). That is the base rate:
+  the twin has seven, D70's render run two; the accepted candidate and its replay differ by 1e-7 to 1e-6 of
+  the objective against a tolerance of 1e-7, with the replay noise measured at the start control at zero to
+  5e-8. A guess that the moving weight caused them was checked on the records before any change and is wrong.
 - **D80, the bounded share on the 40k gallery (pre-registered 2026-10-04 17:38 CDT at launch; `tmp/d80.sh`,
   `tmp/d80.queue`; server `repo_r70`; outputs beside D72's in `output/gpu/d72`).** D77's stated risk: at 40k
   the unbounded share (0.82–0.92) is what gives the render arm its lead over the physics-only twin
@@ -561,6 +605,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Expectation: the transport energy and the kinetic energy at the end fall towards the twin's; the yardstick's
   silhouette is at S's level or lower (as at 300k); the run's silhouette IoU within the pair's spread of S's
   on most meshes. Risk: thin targets (bob, V, fandisk), where the render term carries the thin parts at 40k.
+  **Result on the first six meshes (2026-10-04 18:48 CDT; the arm was stopped there, the definition having
+  been replaced by D81's): D77's form fails at 40k.** SA against S (`tmp/d80_table.py`): the run's silhouette
+  IoU is lower on all six (−0.0059 bunny, −0.0057 dragon, −0.0081 A, −0.0074 armadilo, −0.0039 beast, −0.0082
+  bimba; the pair's own difference is 0.0000–0.0006, beast's 0.0063); the thin share uncovered is higher on
+  all six (+0.8 to +8.4 points); the runs stop at 17–34 commits where S's run 37–124; the transport energy at
+  the end is 1.2 to 3.4 times S's; on the yardstick the exterior's silhouette is 1.03 to 1.74 times S's. SA is
+  still ahead of its physics-only twin (silhouette IoU +0.004 to +0.006, thin −1.6 to −4.6 points). The
+  expectation was wrong: the step is bounded, the merit keeps the first window's weight, and at 40k the runs
+  end three times earlier, the early stop that D81's entry explains. D77's form is not a candidate at any N.
 - **D79, whether the exterior's render terms carry the disc lattice's phase (a measurement, no run;
   2026-10-04 16:56 CDT; `tmp/ext_noise.py`; `output/gpu/d79/noise.log`).** A candidate for the short fine
   stage: the run reads its render terms on discs found on a lattice fixed in space, and the set of crossed
