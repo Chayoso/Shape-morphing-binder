@@ -459,6 +459,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D84, the render weight calibrated by the terms' values (a diagnostic on a server copy, no committed code;
+  pre-registered 2026-10-04 18:39 CDT, queued behind an evaluation; `repo_r74` = D81's code with the
+  balancer fed the objective without its render term and the render term in place of the two gradients'
+  norms; `output/gpu/d84`).** Three weights have now been run, read as the render term's share of the merit's
+  value and of the step late in the run: held from the first window (D70, D74, D77's merit) 63–88 % and 0.94;
+  a tenth of that (D75) 14 % in the coarse stage, 33 % in the fine one, 0.76; the gradient-norm rule at every
+  window (D81) 5–7 % and 0.33. D75's is the best run so far and D81's first run has a fine stage of three
+  commits in which neither part falls: with the physics gradient at its floor a third of the step is a third
+  of very little, and a merit that is 95 % physics accepts no step that buys render at any cost in physics.
+  The norm of a gradient at its floor says little about what the term still has to give; the terms' values
+  do not have that fault. The diagnostic keeps the rule's form and constant and changes what it balances: λ ×
+  (render term) = 0.5 × (the rest of the objective) at each window's first evaluation, through the same moving
+  average, so the render term is a third of the merit's value at every window. Bunny 300k first (LH), against
+  LF, LE and the twin.
+  Criteria: the user's bar; the render term's share of the merit 0.30–0.36 at every window from 10 on; a fine
+  stage of more than five commits with the render terms falling; commits within a fifth of the twin's;
+  transport and kinetic energy at the end within twice the twin's.
+  Expectation: a share of the step of 0.6–0.8 late; the coarse stage as long as LF's; the display between
+  LE's and better. Risk: at a third of the merit the render term's 3–7 % movement is 1–2 % of the merit, the
+  size of the physics gain of a late window, and the early stops of D77 come back in a milder form.
 - **D83, the fine render picture from the first window (a diagnostic on a server copy, no committed code;
   pre-registered 2026-10-04 18:28 CDT, queued behind the evaluations then running; `repo_r73` = D81's code
   with the starting resolution set to the fine one; `output/gpu/d83`).** What the runs so far show: the render
@@ -672,6 +692,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   commits), the twin at 87; the rejected windows have a positive physics gain (+2 to +3 %) and a merit
   raised by the render terms (the silhouette term up 9–28 % in the candidate). The stop is the outer merit's,
   not the lattice's (D79).
+  **Result, the dragon (2026-10-04 18:40 CDT): ahead of the twin on every display measure, by less than the
+  hand-set weight of D75.** Last 20 kept frames:
+
+  | dragon 300k | front IoU / difference | horn crop | far side | roughness | yardstick: exterior silhouette / shading | thin uncovered | commits |
+  |---|---|---|---|---|---|---|---|
+  | PA (twin) | 0.9881 / 0.0102 | 0.9784 / 0.0139 | 0.9890 / 0.0108 | 5.0° | 0.001051 / 0.000685 | 5.3 % | 97 |
+  | LD (D77) | 0.9918 / 0.0092 | 0.9847 / 0.0115 | 0.9919 / 0.0094 | 4.9° | 0.000426 / 0.000502 | 3.6 % | 65 |
+  | LE (D78) | 0.9917 / 0.0094 | 0.9827 / 0.0124 | 0.9915 / 0.0099 | 4.9° | 0.000468 / 0.000550 | 4.6 % | 66 |
+  | LW (D75) | 0.9928 / 0.0086 | 0.9863 / 0.0106 | 0.9923 / 0.0089 | 4.9° | 0.000390 / 0.000494 | 4.4 % | 103 |
+
+  As relative changes of the error against the twin (1 − IoU, then the pictures' difference): LD front −31 %,
+  −10 %; crop −29 %, −17 %; far side −26 %, −13 %. LE front −30 %, −8 %; crop −20 %, −11 %; far side −23 %,
+  −8 %. LW −39 %, −16 %; −37 %, −24 %; −30 %, −18 %. The bunny's, for comparison: LD −37 %, −7 %; −34 %, −20 %;
+  −31 %, −18 %; LE −38 %, −9 %; −45 %, −28 %; −31 %, −16 %. The yardstick's silhouette is 2.5 and 2.2 times
+  below the twin's and its shading 27 % and 20 % below. The other measures (LD / LE / PA): run's silhouette
+  IoU 0.9862 / 0.9840 / 0.9819; chamfer 0.0548 / 0.0548 / 0.0545; holes 0.021 / 0.044 / 0.037 %; bands 0.107,
+  0.159 / 0.109, 0.162 / 0.109, 0.166; the field normal's error 11.0° / 11.1° / 11.3°; discs apart 8.1 / 8.0 /
+  7.6 %; density's spread 0.213 / 0.217 / 0.198; centre of mass 0.017 / 0.017 / 0.026 pitches; net rotation
+  0.083° / 0.088° / 0.108°; still moving at the end 0.010 / 0.007 / 0.0065 pitches a pair; transport energy at
+  the end 1.4e-4 / 1.5e-4 / 6.8e-5; kinetic energy at the end 5.8e-5 / 3.0e-5 / 1.7e-5. The 126-px coarse
+  picture adds nothing here once the share is bounded (LE is not ahead of LD). What separates LW from both is
+  its length and its fine stage: 103 commits against 65, and ten commits at 192 px in which the horn crop
+  goes from 0.9816 to 0.9876 and the front difference from 0.0098 to 0.0084; LD and LE end their coarse stage
+  at about animation 60–65 and their fine stage after five to eight commits. The relief the surface carries is the
+  twin's in these runs (D82's entry).
 - **D75, the render weight at a tenth (a probe with an existing flag, not a candidate; pre-registered
   2026-10-04 15:59 CDT at launch; `--render_weight_scale 0.1`, server `repo_r66`; `output/gpu/d75`).** D73's
   first cause: the weight is set once, and the render's share of the step grows to 0.91–0.96 while the physics
