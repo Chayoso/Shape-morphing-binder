@@ -4,7 +4,8 @@ discs, slate blue); each camera a triangle, its apex at the camera and its base 
 body are drawn under it. Written to OUT_DIR:
   cameras_8.png             eight cameras evenly on one ring at 15 degrees up (an illustration);
   cameras_render_views.png  the render loss's own views (render_loss.make_views: six azimuths on each of the rings at
-                            0 and +-0.5 rad, every ring turned by its share of a step), orthographic in the loss.
+                            0 and +-0.5 rad, every ring turned by its share of a step), orthographic in the loss;
+  cameras_8_square.png      a square schematic: eight cameras on a circle around the body, each a spotlight on it.
 The ring's radius is drawn at 1.8 times the body's radius (the loss's cameras are orthographic: their distance does
 not matter). Screen positions follow the rasteriser's own projection; the axes' orientation is taken from the body's
 discs landing on the body's own pixels."""
@@ -149,3 +150,64 @@ for th, ph in views:
     rings.setdefault(ph, []).append(th)
 figure([(np.array(v), ph) for ph, v in rings.items()], "cameras_render_views.png",
        "the render loss's 18 views (6 azimuths x 3 rings at 0, +-28.6 degrees)")
+
+
+def schematic(n, name, see_through=.18):
+    """A square schematic: n cameras evenly on a circle in the picture's plane around the body (drawn from the display
+    camera), each casting a spotlight's beam on it (warm light, fading along the beam and across its edge); the body
+    a little transparent over the beams; each camera a triangle, apex out, the beam leaving its base."""
+    S = 2400
+    sq = StudioRaster(center, 1.75 * radius, S, S, AZ, 18.)
+    sq.background = torch.zeros_like(sq.background)
+    sq.albedo = torch.tensor((.08, .17, .40), device=dev)
+    with torch.no_grad():
+        img, cvr, _ = sq(pts, normals, cov, torch.full((len(pts),), .92, device=dev),
+                         normal_kernel=normal_filter_size(S, False), return_buffers=True)
+    img, cvr = img.cpu().numpy(), cvr.clamp(0, 1).cpu().numpy()
+    ys, xs = np.nonzero(cvr > .5)
+    cy, cx = (ys.min() + ys.max()) / 2, (xs.min() + xs.max()) / 2
+    R = .43 * S
+    yy, xx = np.mgrid[0:S, 0:S].astype(np.float32)
+    keep = np.ones((S, S), np.float32)                           # what the beams leave of the white
+    size = .034 * S
+    tris = []
+    for kk in range(n):
+        phi = math.pi / 2 + (kk + .5) * 2 * math.pi / n
+        px, py = cx + R * math.cos(phi), cy - R * math.sin(phi)
+        dx, dy = (cx - px) / R, (cy - py) / R
+        bx, by = px + 1.3 * size * dx, py + 1.3 * size * dy        # the triangle's base: the beam starts there
+        tris.append([(px, py), (bx - .75 * size * dy, by + .75 * size * dx), (bx + .75 * size * dy, by - .75 * size * dx)])
+        t = (xx - bx) * dx + (yy - by) * dy                        # along the beam
+        perp = np.abs(-(xx - bx) * dy + (yy - by) * dx)            # across it
+        L = R - 1.3 * size
+        width = .75 * size + t * math.tan(math.radians(13))
+        along = np.clip(1 - t / L, 0, 1) ** .8 * (t > 0)
+        across = np.exp(-2.2 * (perp / np.maximum(width, 1)) ** 2)
+        keep *= 1 - .55 * along * across
+    beam = 1 - keep
+    light = np.array((250, 196, 92), np.float32) / 255
+    canvas = (1 - beam)[..., None] * 1. + beam[..., None] * light
+    pic = Image.fromarray((canvas * 255).round().astype(np.uint8))
+    dr = ImageDraw.Draw(pic)
+    for i in range(0, 180, 2):                                      # the circle, dashed
+        a0, a1 = 2 * math.pi * i / 180, 2 * math.pi * (i + 1) / 180
+        dr.line([(cx + R * math.cos(a0), cy - R * math.sin(a0)), (cx + R * math.cos(a1), cy - R * math.sin(a1))],
+                fill=(130, 138, 150), width=5)
+    canvas = np.asarray(pic, np.float32) / 255
+    o = (1 - see_through) * cvr[..., None]
+    body_col = img / np.maximum(cvr[..., None], 1e-3)               # the body's colour where it covers
+    canvas = canvas * (1 - o) + np.clip(body_col, 0, 1) * o
+    pic = Image.fromarray((np.clip(canvas, 0, 1) * 255).round().astype(np.uint8))
+    dr = ImageDraw.Draw(pic)
+    for tri in tris:
+        dr.polygon(tri, fill=(43, 47, 54), outline=(20, 22, 26), width=4)
+    m = int(.04 * S)
+    lo_x, hi_x = int(max(0, cx - R - 2 * size - m)), int(min(S, cx + R + 2 * size + m))
+    lo_y, hi_y = int(max(0, cy - R - 2 * size - m)), int(min(S, cy + R + 2 * size + m))
+    side = min(hi_x - lo_x, hi_y - lo_y)
+    pic = pic.crop((lo_x, lo_y, lo_x + side, lo_y + side))
+    pic.save(out / name)
+    print("wrote", out / name, pic.size, flush=True)
+
+
+schematic(8, "cameras_8_square.png")
