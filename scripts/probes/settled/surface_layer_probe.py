@@ -18,7 +18,9 @@ discs, twice). The discs of connected sets other than the largest are tinted red
 STATE: `target` or a raw frame index kept in FRAMES_NPZ (default: target and every kept frame). `ref=NPZ` among the
 states: the states are read against that file's target sample (drawn with its own pitch and from its camera) in place
 of the run's own, so that runs of different N share one reference (D63); `target` then draws that sample and `own`
-the run's own target sample as a state (what a perfect run at that N would show).
+the run's own target sample as a state (what a perfect run at that N would show). `refpitch=run` draws the reference
+with the run's pitch (its field's radius and offset) instead of its own: a denser sample of the mesh drawn so is the
+run's own operator without the sampling noise (D90).
 `poisson` writes OUT_DIR/STATE.jpg (the crop: base display | exterior, field normals | exterior, display normals),
 STATE_whole.jpg and the layer's points (STATE_layer.npz); `lattice` writes OUT_DIR/crop/NNNN.jpg and whole/NNNN.jpg in
 the order of the states (target.jpg for the target). Per state a line of numbers: the layer's count, spacing, roughness
@@ -52,7 +54,8 @@ M = 300000                                                     # the discs' budg
 z = np.load(sys.argv[1], allow_pickle=True)
 raws, frames = [int(v) for v in z["raws"]], z["frames"]
 ref = next((s[4:] for s in sys.argv[5:] if s.startswith("ref=")), None)
-states = [s for s in sys.argv[5:] if not s.startswith("ref=")] or ["target"] + [str(r) for r in raws]
+ref_at_run_pitch = "refpitch=run" in sys.argv[5:]               # draw the reference with the run's pitch, not its own
+states = [s for s in sys.argv[5:] if not s.startswith(("ref=", "refpitch="))] or ["target"] + [str(r) for r in raws]
 W, H = 3840, 2160
 target = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
 # the sample the states are read against: the run's own target, or (ref=NPZ) another file's, drawn with its own pitch
@@ -62,7 +65,7 @@ radius = float((reference - center).norm(dim=1).max())
 td = knn_self_torch(target, 9)[0]
 sp, cov_r = float(td[:, 1].median()), float(td[:, 8].median())
 a = .708 * cov_r                                               # the volume sample's pitch
-a_ref = .708 * float(knn_self_torch(reference, 9)[0][:, 8].median())
+a_ref = a if ref_at_run_pitch else .708 * float(knn_self_torch(reference, 9)[0][:, 8].median())
 density_normals = DensityNormals(center, radius, sp)
 studio = StudioRaster(center, radius, W, H, 35., 18.)
 back = StudioRaster(center, radius, W, H, 215., 18.)           # the far side, for the measures against the target only

@@ -459,6 +459,46 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D90, the display against an independent sample of the mesh: the render arm's lead is half what its own
+  target sample showed (a measurement; 2026-10-05 00:28 CDT; `tmp/dense_ref.py`, `tmp/collect_ends.py`,
+  `tmp/d90.sh`, `tmp/d90_rows.py`; `surface_layer_probe.py refpitch=run`; `output/gpu/d90`).** Every display
+  number since D62 reads a run against its own target sample, the 300k sample whose exterior pictures are also
+  the render term's targets. A render arm can fit that one sample, its sampling noise included, beyond what
+  the mesh would allow: LG's front IoU against it, 0.9940, is above the floor that an independent sample of
+  the mesh reaches against it (D65: 0.9906). So the end frames (the last five kept, averaged) are read here
+  against a second 300k sample of the mesh drawn in the exact frame of the pipeline's target (seed 99, the
+  prepare stage's frame from `load_normalized(frame=)`; the pipeline's own target is reproduced to 0 wu), drawn
+  by the same operator at the same density. A 2.4M sample drawn with the run's pitch was tried first and is not
+  usable: its outer particles sit nearer the surface (a finer fill), its exterior is larger, and every 300k
+  state, its own target included, reads 0.97 against it.
+
+  | against an independent sample | bunny front | thin crop | far side | dragon front | horn crop | far side |
+  |---|---|---|---|---|---|---|
+  | the pipeline's target sample (the floor) | 0.9907 / 0.0062 | 0.9794 / 0.0069 | 0.9904 / 0.0059 | 0.9909 / 0.0075 | 0.9791 / 0.0114 | 0.9918 / 0.0072 |
+  | P (no spacing rule, physics-only) | 0.9858 / 0.0099 | 0.9669 / 0.0122 | 0.9876 / 0.0092 | | | |
+  | PA (physics-only, D70) | 0.9887 / 0.0083 | 0.9728 / 0.0102 | 0.9895 / 0.0075 | 0.9866 / 0.0112 | 0.9724 / 0.0163 | 0.9876 / 0.0116 |
+  | PN (physics-only, D89's code) | | | | 0.9869 / 0.0108 | 0.9714 / 0.0158 | 0.9868 / 0.0114 |
+  | LF (D81) | 0.9907 / 0.0079 | 0.9801 / 0.0082 | 0.9899 / 0.0072 | 0.9894 / 0.0098 | 0.9767 / 0.0144 | 0.9900 / 0.0101 |
+  | LG (D81, one resolution) | 0.9907 / 0.0078 | 0.9800 / 0.0079 | 0.9899 / 0.0069 | 0.9897 / 0.0096 | 0.9765 / 0.0141 | 0.9899 / 0.0101 |
+  | PT (physics-only, relief reference) | 0.9867 / 0.0090 | 0.9721 / 0.0115 | 0.9874 / 0.0082 | 0.9830 / 0.0123 | 0.9635 / 0.0180 | 0.9828 / 0.0133 |
+  | LR (D81, relief reference) | 0.9902 / 0.0082 | 0.9791 / 0.0095 | 0.9895 / 0.0073 | 0.9877 / 0.0110 | 0.9719 / 0.0160 | 0.9878 / 0.0111 |
+
+  LG against its physics-only twin, as relative changes of 1 − IoU and of the pictures' difference: bunny
+  (against PA) front −18 %, −6 %; crop −26 %, −23 %; far side −4 %, −8 %. Dragon (against PN, the twin of the
+  same code) front −21 %, −11 %; crop −18 %, −11 %; far side −23 %, −11 %. Against its own target sample the
+  same runs read −40/−13, −38/−31, −33/−19 and −43/−22, −40/−25, −35/−18 % (D83): about half of that lead was
+  the fit of the one sample. What stays is real and on the dragon above the 10 % bar on every display measure;
+  on the bunny it is above it in the crop and in the front's IoU, and under it in the front's and far side's
+  difference and the far side's IoU. The render arm reaches the floor in IoU on the bunny (front 0.9907, crop
+  0.9800 against 0.9907, 0.9794); what is left there is the pictures' difference (0.0078 against 0.0062),
+  which the runs, smoother than any sample (3.2° against 9.7°), cannot make against a noisy reference.
+  The relief reference (D88) is behind on every measure here: PT behind PA, LR behind LF, by 0.002–0.009 in
+  IoU and 4–16 % in difference.
+  Consequences: (1) from now on the display and the yardstick are read against the independent sample (the
+  probes take `ref=`; `d90/{bunny,dragon}_ind300k.npz`); (2) the render term's own target is one sample of the
+  mesh, and the render arm spends part of its effort fitting that sample's noise. Its target pictures should be
+  what the operator draws of the mesh in expectation, not one draw: that is a definition of the render target,
+  D91.
 - **D89, one render resolution, the fine one, from the first window (adopted from D83; pre-registered
   2026-10-04 23:04 CDT at launch; the user: "그 다음은 Opus로 진행하는데, 계속 goal 까지 작업 지속 해 줘"; code:
   `scripts/pipeline_run.py`, `render_res = render_res_hi = the fine resolution following N`; server `repo_r76`
