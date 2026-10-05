@@ -664,6 +664,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (0.028 %, 0.037 %), and rest (D86: kinetic energy over the last ten windows 4.3e-5 against LF's 2.1e-5 and
   the twin's 3.4e-5; 0.0077 pitches a pair still moving against 0.0056 and 0.0065). The criteria of this change
   are met on the dragon; the early windows were not slower.
+  **Result, bunny 300k (2026-10-04 22:40 CDT): level with D81's run on the display, ahead of it on the
+  yardstick and on the run's length, and level with the twin on the physics measures.** LG: 86 commits (LF 71,
+  the twin 87), 2864 s on a GPU shared with gallery runs. Display: front 0.9940 / 0.0065, thin crop 0.9867 /
+  0.0059, far side 0.9938 / 0.0055, roughness 3.2° (LF 0.9935 / 0.0066, 0.9873 / 0.0058, 0.9938 / 0.0056, 3.3°);
+  against the twin 1 − IoU −40 %, −38 %, −33 % and the pictures' difference −13 %, −31 %, −19 %. Yardstick:
+  exterior silhouette 0.000289 and shading 0.000432 (LF 0.000374, 0.000446; the twin 0.000787, 0.000568), the
+  particle cloud's shading under the twin's (0.000151 against 0.000158). The run's own measures: silhouette
+  IoU 0.9863, thin share uncovered 3.5 % (LF 4.0 %, the twin 4.8 %), chamfer 0.0550, transport energy at the
+  end 2.15e-5 (the twin 2.10e-5; LF 2.6e-5, the difference having been LF's shorter run), kinetic energy over
+  the last ten windows 5.2e-6 (the twin 4.5e-6), bands 0.084, 0.140, field normal's error 9.2°, density's
+  spread 0.166, discs apart 1.6 %, the centre of mass's largest displacement 0.0042 pitches (0.0077), net
+  rotation 0.013° (0.011°). So with one resolution from the first window the bunny's render arm is ahead of
+  its twin by 13 to 40 % on the display and by 24 to 63 % on the yardstick, 27 % on the thin share, and is
+  the twin's on transport energy; what is left behind it is 16 % in kinetic energy over the last ten windows
+  and 0.002° of rotation. At 40k the same change with D81's weight equals D81's alone (D85's SG against SF:
+  0.9721 against 0.9719, 0.9720 against 0.9723, 0.9743 against 0.9720, 0.9668 against 0.9659) in fewer
+  windows. The diagnostic is a candidate for the code: the coarse stage has no use left on the exterior.
 - **D82, the outer layer's relaxation switched off under the minimum spacing (a diagnostic on a server copy, no
   committed code; pre-registered 2026-10-04 18:12 CDT; `repo_r72` = D81's code with the relaxation's fraction
   set to zero, u kept; `output/gpu/d82`).** The question is the user's "detail": D76 measured that a run carries
