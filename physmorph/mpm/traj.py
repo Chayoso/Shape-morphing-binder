@@ -259,7 +259,7 @@ class Trajectory:
             self.frag_history = ([wp.zeros(N, dtype=wp.float32, device=device) for _ in range(T)]
                                  if rg and bond_history else None)
         # OUTER-LAYER RELAXATION (kernels.k_layer_resid / k_layer_project): layer = (mask (N,),
-        # nrm (N,3), nbr (N,K), w (N,K), frac[, g, depth[, ug]]) frozen for this rollout.
+        # nrm (N,3), nbr (N,K), w (N,K), frac[, g, depth[, ug[, ref]]]) frozen for this rollout.
         # k_update writes the advected positions into xu[t+1]; the projection writes x[t+1].
         self.layer = None
         self.layer_F = False
@@ -271,6 +271,9 @@ class Trajectory:
             # optional per-particle gate on u (1 where u may act)
             lug = layer[7] if len(layer) > 7 else None
             self.layer_ug = wp.ones(N, dtype=wp.float32, device=device) if lug is None else A(lug, wp.float32)
+            # optional per-particle reference of the relaxation (the target's own rough residual; zero without)
+            lref = layer[8] if len(layer) > 8 else None
+            self.layer_ref = wp.zeros(N, dtype=wp.float32, device=device) if lref is None else A(lref, wp.float32)
             self.layer_K = int(lnbr.shape[1])
             self.layer_mask = A(lmask, wp.float32)
             self.layer_nrm = A(lnrm, wp.vec3)
@@ -374,7 +377,7 @@ class Trajectory:
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
             wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ld[t + 1], self.layer_mask,
                       self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac,
-                      layer_u, self.layer_frac_u, self.layer_ug, self.x[t + 1]], device=dev)
+                      layer_u, self.layer_frac_u, self.layer_ug, self.layer_ref, self.x[t + 1]], device=dev)
             if self.layer_F:
                 wp.launch(K.k_layer_F, dim=N, inputs=[layer_u, self.layer_ug, self.layer_mask, self.layer_nrm,
                           self.layer_nbr, self.layer_g, self.layer_K, self.layer_frac_u, self.layer_inv_depth,

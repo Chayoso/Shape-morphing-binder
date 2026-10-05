@@ -459,6 +459,72 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D88, the relaxation's reference is the target's own relief (pre-registered 2026-10-04 21:31 CDT, launched
+  again 21:36; code: `kernels.k_layer_project`, `mpm/traj.py`, `window/layer.py` (TargetRelief),
+  `window/setup.py`, `pipeline/target.py`, `prepare.py`, `sampling/mesh.py`, `--layer_relief`, off by default;
+  server `repo_r75` = D81's code with D74's pictures and this; `output/gpu/d88`; `tmp/d88.sh`).** The cause is
+  D82's: the relaxation takes out of the layer whatever its neighbourhood's mean does not explain, the target's
+  relief below a cell with the sampling noise, because it relaxes the rough residual d − d̄ towards zero. The
+  change gives it the reference it lacks: the same quantity measured on the target mesh's own surface (n / 4
+  points of the mesh in the target's frame, the layer's weights cut at the distance of the layer's 24th
+  neighbour in the target sample's layer, 3.0 spacings), read at the layer particle's nearest surface point;
+  zero for a particle farther than one spacing from the surface. The mesh's surface has the relief and none
+  of the sampling noise, so the noise still goes. One term in the kernel; the rest is carrying the mesh's
+  surface from the prepare stage to the window. D87 is the check made before it.
+  Runs: bunny and dragon 300k with D70's rule, each as the physics-only twin (PT) and with the render on the
+  exterior, 126 then 192 px (LR); against PA and LF (the same two without the reference). Read as D81, with
+  the octave bands of the end frames (D76's) and the momentum (D86's).
+  Criteria: the carried share at 5.4 pitches at least 0.10 above PA's and LF's (0.18, 0.20 bunny; 0.14 dragon)
+  and at 10.8 not under theirs; the roughness at most 1.3 times theirs; against the mesh, the bands and the
+  field normal's error not above theirs; the display's IoUs within a run's spread of theirs (the target
+  picture is drawn from a random sample, which does not carry the mesh's relief either, so the pictures'
+  difference is read but does not decide); thin share, holes, transport and kinetic energy, momentum not
+  behind. The render's effect as before: LR against PT on every measure.
+  Expectation: 0.30–0.40 at 5.4 pitches on the bunny (D87's 0.39–0.41 after one window on a finished run),
+  0.25–0.35 on the dragon; bands −5 %, normal error −5 %; roughness 3.5–4°. Risks: the reference is read at
+  the nearest surface point, which jumps across a thin part's two faces; the minimum spacing presses the
+  layer back where the relief asks it inward (the dragon's 0.44 → 0.14 came from that rule, not from the
+  relaxation).
+  First launch (21:31) withdrawn after three minutes: the reference was wrong. A check of each face normal
+  against the sample (does it point away from the eight nearest particles) turned 12.6 % (bunny) and 15.4 %
+  (dragon) of a sound mesh's normals, the turned points lost their same-side neighbours, and a point without
+  weight read the world's origin as its centroid (D39's fault again): values up to 38 and 82 pitches, rms
+  0.21 and 0.59 where the mesh's own is 0.088 and 0.137. Found from the size printed at the target's build,
+  measured (`tmp/relief_check.py`: the surface is registered to the sample, median distance 0.6 pitches; the
+  fault is the turning), and corrected: the normals are the mesh's, turned all at once only if as a whole
+  they point inward, and a point without weight has a zero value. Largest values now 0.93 and 1.48 pitches (the
+  meshes' sharp creases). Tests on hyde06 in `repo_r75`: 277 passed, 2 skipped, exit 0, before the
+  correction; the layer, contract and smoke tests again after it (28 passed), the full suite running.
+- **D87, whether a relaxation towards the target's relief keeps the relief and the smoothness (a feasibility
+  check on kept end frames, no simulation; 2026-10-04 21:00 CDT; `tmp/relief_relax_test.py`, `tmp/d87.sh`;
+  `output/gpu/d87`).** The run's own projection (the pipeline's layer data, 1/20 a step over 40 steps) is
+  applied once to the end frames of PR (no relaxation), PA and LF, towards zero as the run does and towards
+  r*, the rough residual of the mesh's surface at the particle's nearest surface point. The mesh's r* is 0.088
+  pitches rms; PA's layer has 0.046 with a correlation of +0.13 to it, PR's 0.36 with +0.12: what a finished
+  run's layer has at this scale is not the target's.
+
+  | bunny 300k end frame | carried share at 2.7 / 5.4 / 10.8 / 21.6 pitches | bands below 4 / 4–11 | field normal's error | roughness | front IoU / difference |
+  |---|---|---|---|---|---|
+  | 300k sample | 0.36 / 0.66 / 0.86 / 0.95 | 0.103 / 0.132 | 11.5° | 9.8° | |
+  | PA as it is | 0.03 / 0.18 / 0.73 / 0.92 | 0.085 / 0.142 | 9.2° | 3.2° | 0.9899 / 0.0077 |
+  | PA, one window towards zero | 0.02 / 0.15 / 0.67 / 0.91 | 0.086 / 0.145 | 9.4° | 3.5° | 0.9894 / 0.0083 |
+  | PA, one window towards the mesh's relief | 0.19 / 0.39 / 0.73 / 0.91 | 0.080 / 0.132 | 8.6° | 3.7° | 0.9894 / 0.0081 |
+  | LF as it is | 0.05 / 0.20 / 0.72 / 0.93 | 0.084 / 0.140 | 9.2° | 3.3° | 0.9934 / 0.0069 |
+  | LF, towards zero | 0.05 / 0.16 / 0.67 / 0.92 | 0.086 / 0.143 | 9.4° | 3.7° | 0.9925 / 0.0076 |
+  | LF, towards the mesh's relief | 0.23 / 0.41 / 0.73 / 0.92 | 0.080 / 0.129 | 8.5° | 3.8° | 0.9926 / 0.0074 |
+  | PR as it is | 0.24 / 0.53 / 0.97 / 0.95 | 0.132 / 0.190 | 14.9° | 9.2° | 0.9743 / 0.0136 |
+  | PR, towards zero | 0.12 / 0.36 / 0.86 / 0.93 | 0.101 / 0.156 | 11.4° | 6.3° | 0.9838 / 0.0105 |
+  | PR, towards the mesh's relief | 0.30 / 0.61 / 0.92 / 0.94 | 0.098 / 0.150 | 10.9° | 6.6° | 0.9817 / 0.0112 |
+
+  One window of the projection towards the mesh's relief doubles the share carried at 5.4 pitches on the
+  finished runs (0.18 → 0.39, 0.20 → 0.41) and brings 2.7 pitches from nothing to 0.19–0.23, lowers the offset
+  from the mesh in both bands by 6–8 % (the 4–11 band to a sample's 0.132) and the field normal's error by
+  7 %, where one more window of the present relaxation lowers the carried share and leaves the offsets. On PR
+  it takes the noise down as the plain relaxation does (roughness 9.2° → 6.6°, 6.3° towards zero) and keeps
+  the relief (0.61 at 5.4 pitches against 0.36). Against the target picture, which is a random sample's, both
+  projections cost the same 0.0004–0.0007 in the front difference (the layer is moved, nothing else adapts).
+  So the reference does what D82 asked for on a still frame; in a run the objective and the spacing rule act
+  on the same layer, which is D88.
 - **D86, the momentum of every 300k run of D70–D84 (a record, at the user's request "momentum 쪽도 잘 기록 해
   줘"; 2026-10-04 20:46 CDT; `scripts/probes/settled/momentum_probe.py`, now with a row per pair of kept
   frames; `tmp/momentum_rows.py`, `tmp/momentum_plot.py`; `output/gpu/d86`: `m_*.log`,

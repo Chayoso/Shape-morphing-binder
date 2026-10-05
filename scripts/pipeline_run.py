@@ -55,6 +55,8 @@ def parse_args():
                     help="read the render terms on the exterior (surface discs) in place of the particle cloud")
     ap.add_argument("--min_spacing", type=float, default=0.0,
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
+    ap.add_argument("--layer_relief", action="store_true",
+                    help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
     ap.add_argument("--render_res_hi", type=int, default=None,
                     help="the fine render resolution of the coarse-to-fine event (default: the config's)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
@@ -144,7 +146,8 @@ def main():
                           loss_follows_n=args.loss_follows_n, **material)
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
-                   loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor)
+                   loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
+                   surface=args.n // 4 if args.layer_relief else 0)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
@@ -180,7 +183,7 @@ def main():
     t0 = time.time()
     stride = args.save_F_stride if args.save_F_stride > 0 else cfg.T
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
-                       on_iter=on_iter, F_stride=stride, thin=ts)
+                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")

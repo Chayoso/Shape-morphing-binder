@@ -68,6 +68,27 @@ class TargetPack:
     settled_step: float | None = None   # last accepted step (warm start of the search)
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
     ext: Exterior | None = None         # the render terms' exterior, when they are read on it
+    relief: object = None               # window/layer.TargetRelief: the relaxation's reference, from the target's surface
+
+
+def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
+    """The relaxation's reference (window/layer.TargetRelief) from points of the target mesh's surface and their
+    normals: the layer's own weights, cut at the distance of the layer's k-th neighbour in the target sample's
+    own layer. The mesh's normals are taken as they are, all turned at once if as a whole they point into the
+    sample (point by point the sample cannot tell: its eight nearest particles put 12-15 % of a sound mesh's
+    normals on the wrong side, and turning those gave residuals of tens of pitches, D88)."""
+    from .window.layer import TargetRelief, layer_relax_data, layer_spacing
+    pts, nrm = (gpu.tensor(np.asarray(v, np.float32)) for v in surface)
+    inside = tgt_t[gpu.KNN(tgt_t).query(pts, 8)[1]].mean(1)
+    if float(((pts - inside) * nrm).sum(1).sign().mean()) < 0:
+        nrm = -nrm
+    sp = layer_spacing(tgt_t)
+    on = layer_relax_data(tgt_t, sp, k=cfg.layer_k, h_sp=cfg.layer_h_sp)[0] > 0.5
+    cut = float(gpu.KNN(tgt_t[on]).query(tgt_t[on], cfg.layer_k + 1)[0][:, cfg.layer_k].float().median())
+    relief = TargetRelief(pts, nrm, sp, cfg.layer_h_sp, cut)
+    print(f"[target] relief: {len(pts)} surface points, the layer's weights cut at {cut / sp:.2f} spacings; the target's "
+          f"rough residual rms {float(relief.value.square().mean().sqrt()) / sp:.4f} spacings", flush=True)
+    return relief
 
 
 def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
@@ -146,7 +167,7 @@ def rebuild_for_resolution(tgt: TargetPack, target_x, prm: MPMParams,
     and the step warm start are recalibrated for the new images."""
     new = build_target(target_x, prm, cfg)
     new.unit_ratio, new.unit_grad_ratio = tgt.unit_ratio, tgt.unit_grad_ratio
-    new.ot_scale, new.grid_ot = tgt.ot_scale, tgt.grid_ot
+    new.ot_scale, new.grid_ot, new.relief = tgt.ot_scale, tgt.grid_ot, tgt.relief
     return new
 
 

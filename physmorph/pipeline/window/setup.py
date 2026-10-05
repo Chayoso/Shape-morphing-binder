@@ -50,7 +50,9 @@ class Window:
         self.sp0 = layer_spacing(start.x)
         self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
                                                            h_sp=cfg.layer_h_sp)
-        layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T))
+        # the relaxation's reference: the target's own rough residual where the particle stands (target.relief)
+        ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask)
+        layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T), None, 0.0, None, ref)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
         # rest volume gives, among each particle's 16 nearest at the window's start
         spacing = None
@@ -92,7 +94,7 @@ class Window:
 
     def set_u_gate(self, gate: torch.Tensor) -> None:
         """Per-particle gate of u (1 where u may act), in the spec and the eval trajectory."""
-        self.spec.layer = self.spec.layer[:5] + (None, 0.0, gate)
+        self.spec.layer = self.spec.layer[:5] + (None, 0.0, gate) + self.spec.layer[8:]
         wp.to_torch(self.tr.layer_ug).copy_(gate)
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:

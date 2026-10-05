@@ -19,6 +19,7 @@ from . import gpu
 from .mpm.discretisation import derive, report
 from .mpm.state import MPMParams
 from .sampling import load_normalized
+from .sampling.mesh import surface_in_frame
 
 
 @dataclass
@@ -32,6 +33,7 @@ class Prepared:
     unit_ref_res: int
     nn_berth_k: float
     ppc: float
+    tgt_surface: tuple | None = None    # (points, normals) of the target mesh's surface in the target's frame
 
 
 def sampling_berth(target: np.ndarray) -> float:
@@ -51,15 +53,21 @@ def sampling_berth(target: np.ndarray) -> float:
 
 
 def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, young: float,
-            poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False) -> Prepared:
+            poisson: float, log=print, loss_ref_n: int = 0, floor: bool = False, surface: int = 0) -> Prepared:
     src, v_src = load_normalized(src_path, n, seed, return_volume=True, sample="stratified")
+    frame = {}
     tgt, v_tgt = load_normalized(tgt_path, n, seed + 1, match_volume=v_src, sample="stratified",
-                                 return_volume=True)
+                                 return_volume=True, frame=frame)
+    # surface > 0: that many points of the target mesh's own surface, for the relaxation's reference
+    tgt_surface = surface_in_frame(tgt_path, frame, surface) if surface > 0 else None
     floor_y = None
     if floor:                                 # both shapes stand on one floor, at the source's lowest point
         floor_y = float(src[:, 1].min())
         tgt = tgt.copy()
-        tgt[:, 1] += floor_y - float(tgt[:, 1].min())
+        lift = floor_y - float(tgt[:, 1].min())
+        tgt[:, 1] += lift
+        if tgt_surface is not None:
+            tgt_surface[0][:, 1] += lift
         log(f"[v2run] floor at y = {floor_y:.3f} wu; the target stands on it")
     log(f"[v2run] volumes: source {v_src:.2f} target(matched) {v_tgt:.2f} wu^3 "
         f"(target bbox diag now {float(np.linalg.norm(tgt.max(0) - tgt.min(0))):.2f})")
@@ -96,4 +104,5 @@ def prepare(src_path: str, tgt_path: str, n: int, seed: int, cell_diag: float, y
     berth = sampling_berth(tgt)
     log(f"[v2run] sampling-scale NN berth: nn_berth_k={berth:.17g}")
     return Prepared(src=src, tgt=tgt, v_src=float(v_src), v_tgt=float(v_tgt), prm=prm,
-                    loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc)
+                    loss_res=int(disc.loss_res), unit_ref_res=unit_ref_res, nn_berth_k=berth, ppc=ppc,
+                    tgt_surface=tgt_surface)

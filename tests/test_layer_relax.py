@@ -97,6 +97,32 @@ def test_projection_relaxes_the_rough_residual_over_one_window():
     assert np.linalg.norm(xT[interior] - xb[interior], axis=1).max() < 1e-6
 
 
+def test_a_residual_the_reference_has_is_kept():
+    """The relaxation's reference (D88): a layer whose rough residual equals the reference everywhere is at rest
+    under the projection (the bump stays), and with the reference of a flat layer on a bumped one the bump goes."""
+    x, sp = _slab(n_side=12, layers=4)
+    prm = _params()
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
+    T = 30
+    top = np.where((mask > 0.5) & (nrm[:, 1] > 0.8) & (np.abs(x[:, 0]) < 0.3) & (np.abs(x[:, 2]) < 0.3))[0]
+    p = top[len(top) // 2]
+    xb = x.copy(); xb[p] += 0.5 * sp * nrm[p]
+    res = lambda y: ((nrm * (y - (w[..., None] * y[nbr]).sum(1))).sum(1)) * (mask > 0.5)   # noqa: E731
+    rough = lambda y: res(y) - (w * res(y)[nbr]).sum(1)                                     # noqa: E731
+    vol0 = compute_rest_volumes(xb, 1.0, prm, DEV)
+
+    def end(ref):
+        tr = Trajectory(xb, 1.0, 0.0, 0.0, prm, T, device=DEV, requires_grad=False, vol0=vol0,
+                        layer=(mask, nrm, nbr, w, 1.0 / T, None, 0.0, None, ref))
+        tr.rollout()
+        return tr.x[T].numpy()
+
+    kept = end(rough(xb).astype(np.float32))                     # the bumped layer's own residual as the reference
+    assert np.abs(kept - xb).max() < 1e-5 * sp                   # nothing to relax: the bump stays
+    gone = end(rough(x).astype(np.float32))                      # the unbumped layer's: the bump is the rough part
+    assert (xb[p] - gone[p]) @ nrm[p] > 0.25 * sp                # and is taken down, as towards zero
+
+
 def test_position_channel_gradient_matches_finite_differences():
     """The position-mode control leaf u (docs/surface_gradient.md §7): dL/du through the extended
     bridge vs directional central differences, and u = 0 reproduces the plain rollout."""

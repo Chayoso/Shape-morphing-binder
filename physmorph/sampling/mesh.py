@@ -143,7 +143,7 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
                     match_volume: float | None = None,
                     return_volume: bool = False,
                     shell: tuple[float, float] | None = None,
-                    sample: str = "replacement"):
+                    sample: str = "replacement", frame: dict | None = None):
     """Sample n particles from a mesh, centred at the origin and scaled so the bbox
     diagonal is `size` — the normalisation every runner script used to duplicate.
 
@@ -208,17 +208,34 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
                 except Exception:
                     pass
         w = None
+    offset = x.mean(0).astype(np.float64)
     x -= x.mean(0)
     s = size / (np.linalg.norm(x.max(0) - x.min(0)) + 1e-9)
     x = (x * s).astype(np.float32)
     vol = (vol_mesh if w is None and shell is None else filled_volume(mesh)) * float(s) ** 3
+    k = 1.0
     if match_volume is not None and vol > 0:
         k = float((match_volume / vol) ** (1.0 / 3.0))
         x = (x * k).astype(np.float32)
         vol = vol * k ** 3
+    if frame is not None:                    # where the cloud was put: world = (mesh - offset) * scale
+        frame.update(offset=offset, scale=float(s) * k)
     if shell is not None:
         return (x, vol, w) if return_volume else (x, w)
     return (x, vol) if return_volume else x
+
+
+def surface_in_frame(path: str, frame: dict, n: int, seed: int = 0):
+    """(points (n,3), normals (n,3)): n points of the mesh's surface and their faces' normals, in the frame
+    load_normalized put the mesh's cloud in (`frame`, as it filled it)."""
+    mesh = load_mesh(path)
+    from .orientation import orient_name, rotation
+    o = orient_name(path)
+    if o != "id":
+        mesh.vertices = np.asarray(mesh.vertices, np.float64) @ rotation(o).T
+    pts, face = trimesh.sample.sample_surface(mesh, n, seed=seed)
+    return (((np.asarray(pts, np.float64) - frame["offset"]) * frame["scale"]).astype(np.float32),
+            np.asarray(mesh.face_normals[face], np.float32))
 
 
 STREAK_REPORT = {"stripped": 0, "method": None}   # last fill's streak count (tests, logs)
