@@ -471,6 +471,13 @@ class WindowOptimizer:
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)
             stats.update(ext_discs=len(self.obj.discs.p0), ext_builds=self.obj.ext_builds)
         if self.accepted > 0:
+            # a record (D93): u moves the layer by u n over the window, a position update outside the grid's momentum
+            # balance; its net translation (world units) and net rotation (radians) of the body
+            with torch.no_grad():
+                du = (wp.to_torch(win.tr.layer_ug) * self.u.detach() * win.lmask)[:, None] * win.lnrm
+                r = win.x0 - win.x0.mean(0)
+                stats.update(u_com=float(du.sum(0).norm()) / win.N,
+                             u_rot=float(torch.linalg.cross(r, du, dim=1).sum(0).norm() / r.square().sum()))
             stats["selection_merit"] = selection_merit
             stats["merit_far"] = self.obj.near_band_far(commit.x[-1])
             stats["merit_w1_gap"] = self.obj.w1_merit_gap(commit.x[-1])
