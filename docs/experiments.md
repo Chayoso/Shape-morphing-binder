@@ -459,6 +459,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D98, the relaxation moves the body neither along nor about any axis (pre-registered 2026-10-05 14:26 CDT, queued
+  behind D97's bunny readings; code: `mpm/kernels.py` k_layer_relax / k_layer_project, `mpm/traj.py`; server
+  `repo_r83` = HEAD with this; `tmp/d98.sh`, `output/gpu/d98`).** D97's cause (bunny, both arms): the layer's
+  relaxation carries 94 % of the body's net translation (L 2.82e-4 of 3.00e-4 wu, P 3.21e-4 of 3.42e-4) and a
+  quarter of its net rotation (24–27 %; the grid's advection carries the rest of the rotation, 73–76 %, and 6 % of
+  the translation; the minimum spacing and u nothing). The definition changes as u's did in D94: at every step
+  the relaxation's normal displacements s = −frac (d − d̄ − ref) lose their part along the six rigid modes of the
+  layer (n and r × n, r about the window's starting centre of mass; the inverse Gram matrix of the modes frozen
+  per window): on the tape, one kernel sums s onto the modes (atomic adds), the projection kernel subtracts it.
+  A position constraint below the grid then moves no mass as a whole and turns none. No constant. Tests: the
+  relaxation alone leaves a rough slab's centre of mass and orientation (net/gross below 1e-4 and 1e-3); the
+  adjoint against finite differences with the layer on; 282 passed, 2 skipped.
+  Runs: the defaults, L and P, bunny then dragon 300k on GPUs 0 and 1, read with `runeval3.sh`, against D97's
+  runs (the code before) and their record.
+  Criteria: the body's net translation over the run (the record's body vectors summed) falls at least five times
+  in both arms on both meshes and the relaxation's part to the record's noise; the net rotation falls by about
+  its relaxation share; the render arm at or ahead of its twin on every momentum measure (centre of mass
+  largest and final, its velocity, net rotation, what still moves at the end, kinetic energy at matched
+  windows); the display and yardstick at least 10 % ahead of the twin over the common range after window 10;
+  neither arm's display behind D97's by more than the repeat spread (0.0013 IoU) and the field's roughness not
+  above D97's.
+  Expectation: the translation falls to the grid's 6 %; the rotation by a quarter, the grid's part remaining
+  (D99 would measure where the grid's rotation comes from: the support gate on the APIC term, the walls and
+  the velocity clamp, or the position updates' change of r × v); the surface is as smooth (the rigid part of the
+  relaxation's displacement is its mean over the layer, not its rough part).
 - **D97, where the remaining drift comes from (a measurement; pre-registered 2026-10-05 13:52 CDT at launch, the bunny
   relaunched 13:55 with the vectors in the record (`*_vcom`, `*_vrot`: summed over windows they attribute the net drift); code:
   the record `grid_*`, `spacing_*`, `relax_*`, `body_*` beside `u_*` (`window/telemetry.py` below_grid_record);

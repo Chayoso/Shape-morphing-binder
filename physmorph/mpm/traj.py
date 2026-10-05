@@ -8,6 +8,7 @@ trip) or numpy arrays (tests).
 from __future__ import annotations
 
 import numpy as np
+import torch
 import warp as wp
 
 from . import kernels as K
@@ -280,8 +281,20 @@ class Trajectory:
             self.layer_nbr = to_wp_int(lnbr, device)
             self.layer_w = A(lw.reshape(-1), wp.float32)
             self.layer_frac = float(lfrac)
+            # the six rigid modes of the layer's normal displacements, n and r x n (r about the starting centre of
+            # mass), and the inverse of their Gram matrix in 3x3 blocks: the relaxation loses its part along them
+            # (k_layer_project, D98)
+            xt = torch.as_tensor(x0, device=str(device)).double()
+            mt, nt = torch.as_tensor(lmask, device=xt.device).double(), torch.as_tensor(lnrm, device=xt.device).double()
+            rn = torch.linalg.cross(xt - xt.mean(0), nt, dim=1) * mt[:, None]
+            modes = torch.cat((nt * mt[:, None], rn), 1)
+            Minv = torch.linalg.pinv(modes.T @ modes).cpu().numpy()
+            self.layer_rn = A(rn.float(), wp.vec3)
+            self.layer_M = tuple(wp.mat33(*Minv[i:i + 3, j:j + 3].ravel().tolist()) for i in (0, 3) for j in (0, 3))
             self.xu = scratch(lambda: Z(wp.vec3, rg), T + 1)
             self.ld = scratch(lambda: Z(wp.float32, rg), T + 1)
+            self.ls = scratch(lambda: Z(wp.float32, rg), T + 1)
+            self.lb = scratch(lambda: wp.zeros(2, dtype=wp.vec3, device=device, requires_grad=rg), T + 1)
             # the position-mode control leaf u (N,): a warp view of the caller's tensor when
             # given (layer_u), else a zero buffer the eval path assigns into
             self.layer_u = (layer_u if layer_u is not None
@@ -375,9 +388,13 @@ class Trajectory:
             layer_u = self.layer_u if t < self.control_steps else self.release_u
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
-            wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ld[t + 1], self.layer_mask,
-                      self.layer_nrm, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac,
-                      layer_u, self.layer_frac_u, self.layer_ug, self.layer_ref, self.x[t + 1]], device=dev)
+            self.lb[t + 1].zero_()
+            wp.launch(K.k_layer_relax, dim=N, inputs=[self.ld[t + 1], self.layer_mask, self.layer_nrm, self.layer_rn,
+                      self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac, self.layer_ref,
+                      self.ls[t + 1], self.lb[t + 1]], device=dev)
+            wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
+                      self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u, self.layer_ug,
+                      self.x[t + 1]], device=dev)
             if self.layer_F:
                 wp.launch(K.k_layer_F, dim=N, inputs=[layer_u, self.layer_ug, self.layer_mask, self.layer_nrm,
                           self.layer_nbr, self.layer_g, self.layer_K, self.layer_frac_u, self.layer_inv_depth,

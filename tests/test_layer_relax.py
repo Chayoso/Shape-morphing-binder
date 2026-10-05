@@ -63,7 +63,28 @@ def test_a_layer_particle_without_neighbours_is_not_relaxed():
     tr = Trajectory(x, 1.0, 0.0, 0.0, prm, T, device=DEV, requires_grad=False, vol0=vol0,
                     layer=(mask, nrm, nbr, w, 1.0 / T))             # no elasticity: the projection alone
     tr.rollout()
-    assert np.linalg.norm(tr.x[T].numpy()[p] - x[p]) < 1e-6
+    # it moves only with the layer's rigid correction (D98), a small fraction of a spacing
+    assert np.linalg.norm(tr.x[T].numpy()[p] - x[p]) < 0.01 * sp
+
+
+def test_the_relaxation_moves_the_body_neither_along_nor_about_any_axis():
+    """D98: over a window the relaxation alone (no elasticity, no velocity) relaxes a rough layer and leaves the
+    body's centre of mass where it was and turns it about no axis (its displacements lose their part along the six
+    rigid modes of the layer at every step; before, it carried 94 % of the 300k bunny's net drift, D97)."""
+    x, sp = _slab(n_side=12, layers=4, seed=3)
+    x[:, 1] += np.where(x[:, 1] > x[:, 1].max() - 0.5 * sp, 0.3 * sp * np.sin(9. * x[:, 0]), 0.).astype(np.float32)
+    prm, T = _params(), 30
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
+    vol0 = compute_rest_volumes(x, 1.0, prm, DEV)
+    tr = Trajectory(x, 1.0, 0.0, 0.0, prm, T, device=DEV, requires_grad=False, vol0=vol0,
+                    layer=(mask, nrm, nbr, w, 1.0 / T))
+    tr.rollout()
+    dx = tr.x[T].numpy().astype(np.float64) - x
+    gross = np.linalg.norm(dx, axis=1).sum()
+    assert gross > 1e-3 * sp * len(x) * 0.01                      # it relaxed something
+    r = x - x.mean(0)
+    assert np.linalg.norm(dx.sum(0)) < 1e-4 * gross
+    assert np.linalg.norm(np.cross(r, dx).sum(0)) < 1e-3 * (np.linalg.norm(r, axis=1) * np.linalg.norm(dx, axis=1)).sum()
 
 
 def test_projection_relaxes_the_rough_residual_over_one_window():

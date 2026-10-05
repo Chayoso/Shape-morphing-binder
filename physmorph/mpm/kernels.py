@@ -404,26 +404,50 @@ def k_layer_resid(x: wp.array(dtype=wp.vec3),
 
 
 @wp.kernel
-def k_layer_project(x_in: wp.array(dtype=wp.vec3), d: wp.array(dtype=float),
-                    mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
-                    nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
-                    frac: float, u: wp.array(dtype=float), frac_u: float, ug: wp.array(dtype=float),
-                    ref: wp.array(dtype=float), x_out: wp.array(dtype=wp.vec3)):
-    """Outer-layer position update: the relaxation (frac) and the POSITION-MODE CONTROL
-    CHANNEL u (docs/surface_gradient.md §7): u[p] is a per-window normal displacement leaf
-    of the optimiser, applied frac_u = 1/T per step, so the render covector reaches it
-    without the grid's low-pass (its adjoint is the identity times the physics response).
-    The rough residual d - dbar is relaxed towards ref[p], the same quantity on the target's
-    own surface where the particle stands (zero where none is given): relaxed towards zero,
-    the target's relief below a cell went with the sampling noise (D82, D88)."""
+def k_layer_relax(d: wp.array(dtype=float), mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
+                  rn: wp.array(dtype=wp.vec3), nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
+                  frac: float, ref: wp.array(dtype=float),
+                  s: wp.array(dtype=float), b: wp.array(dtype=wp.vec3)):
+    """The relaxation's normal displacement of this step, s = -frac (d - dbar - ref), and its
+    moments on the six rigid modes of the layer: b[0] += s n, b[1] += s (r x n). The rough
+    residual d - dbar is relaxed towards ref[p], the same quantity on the target's own surface
+    where the particle stands (zero where none is given): relaxed towards zero, the target's
+    relief below a cell went with the sampling noise (D82, D88)."""
     p = wp.tid()
     if mask[p] < 0.5:
-        x_out[p] = x_in[p]
+        s[p] = 0.0
         return
     dbar = float(0.0)
     for a in range(K):
         dbar = dbar + w[p * K + a] * d[nbr[p * K + a]]
-    x_out[p] = x_in[p] + (frac_u * ug[p] * u[p] - frac * (d[p] - dbar - ref[p])) * nrm[p]
+    sp = -frac * (d[p] - dbar - ref[p])
+    s[p] = sp
+    wp.atomic_add(b, 0, sp * nrm[p])
+    wp.atomic_add(b, 1, sp * rn[p])
+
+
+@wp.kernel
+def k_layer_project(x_in: wp.array(dtype=wp.vec3), s: wp.array(dtype=float), b: wp.array(dtype=wp.vec3),
+                    mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3), rn: wp.array(dtype=wp.vec3),
+                    M11: wp.mat33, M12: wp.mat33, M21: wp.mat33, M22: wp.mat33,
+                    u: wp.array(dtype=float), frac_u: float, ug: wp.array(dtype=float),
+                    x_out: wp.array(dtype=wp.vec3)):
+    """Outer-layer position update: the relaxation and the POSITION-MODE CONTROL CHANNEL u
+    (docs/surface_gradient.md §7): u[p] is a per-window normal displacement leaf of the
+    optimiser, applied frac_u = 1/T per step, so the render covector reaches it without the
+    grid's low-pass (its adjoint is the identity times the physics response). The relaxation
+    loses its part along the six rigid modes of the layer (M = the inverse Gram matrix of the
+    modes n and r x n, r about the window's starting centre of mass): a position constraint
+    below the grid moves no mass as a whole and turns none (D97: it carried 94 % of the body's
+    net drift; u has been made so in D94)."""
+    p = wp.tid()
+    if mask[p] < 0.5:
+        x_out[p] = x_in[p]
+        return
+    ct = M11 @ b[0] + M12 @ b[1]
+    cr = M21 @ b[0] + M22 @ b[1]
+    sp = s[p] - wp.dot(nrm[p], ct) - wp.dot(rn[p], cr)
+    x_out[p] = x_in[p] + (frac_u * ug[p] * u[p] + sp) * nrm[p]
 
 
 # ── geometric deformation gradient — the RENDER kinematics ───────────────────
