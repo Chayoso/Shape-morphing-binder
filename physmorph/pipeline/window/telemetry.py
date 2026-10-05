@@ -142,7 +142,8 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
     (D93, D97). *_com and *_rot are the sizes, *_vcom and *_vrot the vectors (summed over windows they give each
     part's share of the run's net drift). The angular momentum per unit mass about the starting centre of mass
     (APIC's affine part included): at the window's start (L_start), its change by the grid's steps (L_grid) and by
-    the position updates below the grid (L_jump, D99). Uniform mass."""
+    the position updates below the grid (L_jump, D99), split into the minimum spacing's (L_space), u's (L_u) and
+    the rest, the relaxation's (L_relax; D101). Uniform mass."""
     tr, T, N = win.tr, win.T, win.N
     dt, frac = float(tr.prm.dt), 1.0 / float(tr.control_steps)
     nbr = wp.to_torch(tr.space_nbr).reshape(N, -1).long() if tr.space_K > 0 else None
@@ -156,21 +157,24 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
         skew = torch.stack((C[:, 2, 1] - C[:, 1, 2], C[:, 0, 2] - C[:, 2, 0], C[:, 1, 0] - C[:, 0, 1]), 1)
         return (torch.linalg.cross(x - c0, v, dim=1) + aff * skew).sum(0).double()
 
-    L_grid, L_jump = torch.zeros(3, dtype=torch.float64, device=du.device), torch.zeros(3, dtype=torch.float64, device=du.device)
+    L_grid, L_jump, L_space, L_u = (torch.zeros(3, dtype=torch.float64, device=du.device) for _ in range(4))
     for t in range(T):
         x, v = wp.to_torch(tr.x[t]), wp.to_torch(tr.v[t + 1])
         grid += dt * v
         jump = wp.to_torch(tr.x[t + 1]) - x - dt * v
         below += jump
         # the step's change of angular momentum: the grid's (P2G, grid, G2P and the advection) and the position
-        # updates' below the grid, which move r and leave v (D99)
+        # updates' below the grid, which move r and leave v (D99), each update's own (D101)
         L_grid += ang(x + dt * v, v, wp.to_torch(tr.C[t + 1])) - ang(x, wp.to_torch(tr.v[t]), wp.to_torch(tr.C[t]))
         L_jump += torch.linalg.cross(jump, v, dim=1).sum(0).double()
+        if t < tr.control_steps:
+            L_u += torch.linalg.cross(frac * du, v, dim=1).sum(0).double()
         if nbr is not None:
             d = x[:, None, :] - x[nbr]
             L = d.norm(dim=2, keepdim=True)
-            push = torch.where((L < tr.space_r) & (L > 1e-9), (tr.space_r - L) * d / L.clamp_min(1e-9), 0.)
-            space += 0.5 * frac * push.sum(1)
+            push = 0.5 * frac * torch.where((L < tr.space_r) & (L > 1e-9), (tr.space_r - L) * d / L.clamp_min(1e-9), 0.).sum(1)
+            space += push
+            L_space += torch.linalg.cross(push, v, dim=1).sum(0).double()
     r = win.x0 - win.x0.mean(0)
     out = {}
     for k, D in (("grid", grid), ("spacing", space), ("u", du), ("relax", below - du - space), ("body", grid + below)):
@@ -178,7 +182,8 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
         out.update({k + "_com": float(com.norm()), k + "_rot": float(rot.norm()),
                     k + "_vcom": com.tolist(), k + "_vrot": rot.tolist()})
     L0 = ang(wp.to_torch(tr.x[0]), wp.to_torch(tr.v[0]), wp.to_torch(tr.C[0]))
-    out.update(L_start=L0.tolist(), L_grid=L_grid.tolist(), L_jump=L_jump.tolist())
+    out.update(L_start=L0.tolist(), L_grid=L_grid.tolist(), L_jump=L_jump.tolist(), L_space=L_space.tolist(),
+               L_u=L_u.tolist(), L_relax=(L_jump - L_space - L_u).tolist())
     return out
 
 

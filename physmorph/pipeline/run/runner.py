@@ -32,7 +32,7 @@ GUARDS = ("clamped", "nan_x", "nan_state", "F_reset", "F_flip", "F_invert_steps"
 _STAT_FIELDS = ("g_cos", "g_raw_cos", "g_share", "g_phys_norm", "g_rend_norm", "render_work", "u_com", "u_rot",
                 "grid_com", "grid_rot", "spacing_com", "spacing_rot", "relax_com", "relax_rot", "body_com", "body_rot",
                 "grid_vcom", "grid_vrot", "spacing_vcom", "spacing_vrot", "u_vcom", "u_vrot", "relax_vcom", "relax_vrot",
-                "body_vcom", "body_vrot", "L_start", "L_grid", "L_jump",
+                "body_vcom", "body_vrot", "L_start", "L_grid", "L_jump", "L_space", "L_u", "L_relax",
                 "render_work_x", "render_work_F", "phys_work", "phys_work_x", "phys_work_F",
                 "phys_work_v", "step_norm", "render_cos", "phys_cos", "predicted_decrease",
                 "ls_trials", "ls_fail_merit", "ls_fail_state", "ls_fail_state_reason", "ls_probe", "iter_probe",
