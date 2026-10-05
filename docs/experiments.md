@@ -459,6 +459,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D94, u moves the body neither along nor about any axis (pre-registered 2026-10-05 12:10 CDT; code:
+  `window/solve.py` (WindowOptimizer.free_of_rigid); server `repo_r80` = HEAD with this; `output/gpu/d94`).**
+  D93's cause: u's displacement of the layer, g u n per window, is a position update outside the grid's momentum
+  balance, and it is where the body's drift comes from. The definition of u changes: after every step u loses
+  the part of its displacement along the six rigid modes of the layer (Σ g u n = 0, Σ g u (r × n) = 0, r about
+  the window's starting centre of mass), a projection with the 6 × 6 Gram matrix of those modes, so that the
+  control below the grid conserves linear and angular momentum as the grid does. Twenty lines; no constant.
+  The target needs no net translation or rotation (source and target share their centre of mass and frame),
+  so nothing the morph needs is in the removed part. Test: u_com and u_rot under 1e-6 in every window of a
+  small run (it fails on the previous code).
+  Runs: the defaults, render arm (L) and physics-only twin (P), bunny and dragon 300k, read with
+  `runeval3.sh`, against D93's runs of the code before.
+  Criteria: the render arm at or ahead of its twin on every momentum measure on both meshes (centre of mass
+  largest and final, its velocity over the last ten windows, net rotation, what still moves at the end,
+  kinetic energy over the last ten windows), and every display and yardstick measure still at least 10 %
+  ahead of the twin; neither arm's display behind D93's by more than the repeat pair's spread (0.0006 IoU,
+  0.0004 difference).
+  Expectation: the centre of mass's drift falls by an order of magnitude in both arms; the net rotation falls
+  by a half to two thirds; the bunny's render arm turns no more than its twin; the display is unchanged.
+  Risk: the projection takes from u in the windows where the transport moves material as a whole across the
+  body, and the early transit is slower.
 - **D93, where the render arm's small excess of drift on the bunny comes from (a measurement on the defaults;
   pre-registered 2026-10-05 09:33 CDT at launch; the user: "렌더러가 물리 only 를 이기는 방향으로 수정 하고, …
   (모멘텀, metric, loss 전부)"; code: the record `u_com`, `u_rot` (`window/solve.py`, 67f900a); server `repo_r79`;
@@ -477,6 +498,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   What would follow: if u carries the excess, u's displacement field is made free of net translation and
   rotation (projected onto the complement of the six rigid modes of the layer), a definition of the control
   that respects the conservation the grid already has.
+  **Result (runs and readings done by 11:20 CDT, read 12:05; `tmp/u_drift.py`): u is the source of the
+  drift, in both arms.** Summed over the run, u's net translation against the body's centre-of-mass path:
+  bunny L 1.19e-3 against 1.08e-3 wu (ratio 1.10, correlation over windows +0.98), P 1.85e-3 against 1.65e-3
+  (1.13, +0.99); dragon L 2.43e-3 against 2.35e-3 (1.03, +0.99), P 2.86e-3 against 2.83e-3 (1.01, +1.00). u's net
+  rotation against the body's: bunny L 0.48, P 0.62; dragon L 0.65, P 0.66 of it (correlation +0.37 to +0.91);
+  the rest of the rotation is in the other position updates and the grid. The repeat of the render arm's
+  excess on the bunny: net rotation 0.0125° against 0.0087°, centre of mass at the end 0.0043 against 0.0023
+  pitches; on the dragon the render arm is ahead on both (0.072° against 0.105°, 0.019 against 0.022). The
+  display, against the independent sample, repeats D91 (bunny L front 0.9912 / 0.0074, crop 0.9806 / 0.0075,
+  far side 0.9908 / 0.0067 against P 0.9883 / 0.0083, 0.9736 / 0.0102, 0.9884 / 0.0078; dragon L 0.9908 /
+  0.0089, 0.9792 / 0.0128, 0.9911 / 0.0093 against P 0.9871 / 0.0105, 0.9721 / 0.0162, 0.9878 / 0.0110). D94
+  follows.
 - **D92, D91 on the 40k gallery, read against an independent sample (pre-registered 2026-10-05 01:25 CDT at
   launch; `tmp/d92.sh`, `tmp/d92.queue`, `tmp/gallery_ind.py`; `repo_r77`; `output/gpu/d92`).** Three arms on
   the 19 meshes, all with the minimum spacing and D81's weight and D89's one resolution: SK (eight target

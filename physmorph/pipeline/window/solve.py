@@ -125,6 +125,21 @@ class WindowOptimizer:
         self.tele, self.dump = {"ls_trials": 0, "ls_fail_merit": 0, "ls_fail_state": 0, "ls_fail_state_reason": {}}, {}
         self.accepted = self.rejected = 0
         self._it = 0
+        # u moves the layer by g u n over the window (g: the layer and the gate), a position update outside the grid's
+        # momentum balance: the body's centre-of-mass motion per window was u's net translation (ratio 1.0-1.1,
+        # correlation +0.98, D93) and u carried half to two thirds of its rotation. Its displacement keeps no part
+        # along the six rigid modes of the layer (sum g u n = 0, sum g u r x n = 0), as the grid conserves both (D94)
+        with torch.no_grad():
+            g = wp.to_torch(self.win.tr.layer_ug) * self.win.lmask
+            r, n = self.win.x0 - self.win.x0.mean(0), self.win.lnrm
+            A = torch.cat((g[:, None] * n, g[:, None] * torch.linalg.cross(r, n, dim=1)), 1).double()
+            self.rigid = (A, torch.linalg.pinv(A.T @ A))
+
+    def free_of_rigid(self):
+        """u without the part of its displacement that translates or rotates the body (D94)."""
+        A, M = self.rigid
+        with torch.no_grad():
+            self.u -= (A @ (M @ (A.T @ self.u.double()))).float()
 
     def scalar(self, e: Eval) -> float:
         return self.obj.scalar(e, self.lam_r)
@@ -244,6 +259,7 @@ class WindowOptimizer:
                     n = self.dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
                     self.dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
                 self.u.clamp_(-win.sp0, win.sp0)           # one spacing per window
+                self.free_of_rigid()
             e_n = self.eval()
             with torch.no_grad():
                 new = self.scalar(e_n)
