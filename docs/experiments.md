@@ -459,6 +459,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D92, D91 on the 40k gallery, read against an independent sample (pre-registered 2026-10-05 01:25 CDT at
+  launch; `tmp/d92.sh`, `tmp/d92.queue`, `tmp/gallery_ind.py`; `repo_r77`; `output/gpu/d92`).** Three arms on
+  the 19 meshes, all with the minimum spacing and D81's weight and D89's one resolution: SK (eight target
+  samples), SG (one), SP (the physics-only twin). Each end state is read against its own target sample and
+  against an independent 40k sample of the mesh in the same frame (seed 99; the run's silhouette IoU over 24
+  views at 128 px and chamfer), beside the floor (the target sample against the independent one).
+  Criteria: SK's silhouette IoU against the independent sample at or above SG's on most meshes, and above SP's
+  on all; against its own sample it may fall (it no longer fits that one sample).
+  Expectation: at 40k the samples' noise is a smaller part of the picture at 96 px (a pixel is 1.3 pitches) and
+  SK's gain over SG is small (within ±0.001) on most meshes; SK above SP on all 19.
 - **D91, the render's target pictures are the mean over independent samples of the target (pre-registered
   2026-10-05 00:38 CDT at launch; code: `pipeline/target.py` (build_target(draws=)), `prepare.py` (draws),
   `sampling/mesh.py` (stratified_draws, draws_in_frame), `run/runner.py`, `scripts/pipeline_run.py
@@ -485,6 +495,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Risk: the mean picture is softer at its edges than any sample's, and the silhouette term's balance between
   holes and spray (w_hole 2, w_spray 1) reads a soft edge as partly covered; the body may settle a little
   outside.
+  **First result, the end frames (2026-10-05 01:24 CDT; the last five kept frames of each run against the
+  independent sample, `tmp/d90.sh`; the all-frame readings are running): with eight target samples the render
+  arm is 11 to 34 % ahead of its physics-only twin on every display measure of both meshes, and ahead of the
+  one-sample runs.**
+
+  | against the independent sample | bunny front | thin crop | far side | dragon front | horn crop | far side |
+  |---|---|---|---|---|---|---|
+  | floor (the target sample itself) | 0.9907 / 0.0062 | 0.9794 / 0.0069 | 0.9904 / 0.0059 | 0.9909 / 0.0075 | 0.9791 / 0.0114 | 0.9918 / 0.0072 |
+  | PA (twin, D70) | 0.9887 / 0.0083 | 0.9728 / 0.0102 | 0.9895 / 0.0075 | 0.9866 / 0.0112 | 0.9724 / 0.0163 | 0.9876 / 0.0116 |
+  | PN (twin, D89's code) | 0.9884 / 0.0083 | 0.9739 / 0.0102 | 0.9890 / 0.0078 | 0.9869 / 0.0108 | 0.9714 / 0.0158 | 0.9868 / 0.0114 |
+  | LG (K = 1) | 0.9907 / 0.0078 | 0.9800 / 0.0079 | 0.9899 / 0.0069 | 0.9897 / 0.0096 | 0.9765 / 0.0141 | 0.9899 / 0.0101 |
+  | LN (K = 1, repeat) | 0.9901 / 0.0078 | 0.9791 / 0.0079 | 0.9896 / 0.0070 | 0.9895 / 0.0100 | 0.9780 / 0.0139 | 0.9897 / 0.0101 |
+  | LK (K = 8) | 0.9916 / 0.0072 | 0.9809 / 0.0071 | 0.9911 / 0.0067 | 0.9899 / 0.0093 | 0.9796 / 0.0126 | 0.9913 / 0.0098 |
+
+  LK against PN, the twin of the same code, as relative changes of 1 − IoU and of the pictures' difference:
+  bunny front −28 %, −13 %; crop −27 %, −30 %; far side −19 %, −14 %; dragon front −23 %, −14 %; crop −29 %,
+  −20 %; far side −34 %, −14 %. (Against PA: bunny −26/−13, −30/−30, −15/−11; dragon −25/−17, −26/−23,
+  −30/−16 %.) Against the one-sample runs (the pair LG, LN differs by 0.0002–0.0015 in IoU and 0–0.0004 in
+  difference) LK's differences are lower on all six measures (bunny −8, −10, −3 %; dragon −5, −10, −3 %) and its
+  IoUs higher on five. LK passes the floor in IoU on the bunny (0.9916, 0.9809, 0.9911 against 0.9907,
+  0.9794, 0.9904) and in the dragon's crop (0.9796 against 0.9791): it matches an independent draw of the mesh
+  better than another draw does. Run measures: bunny LK 76 commits, silhouette IoU 0.9865, thin 3.5 %,
+  transport energy at the end 2.4e-5 (PN 2.2e-5), kinetic energy over the last ten windows 6.1e-6 (PN 7.9e-6);
+  dragon LK 88 commits, silhouette IoU 0.9854 (PN 0.9835), thin 3.8 % (3.7 %), holes 0.035 % (0.067 %),
+  transport 6.3e-5 (7.1e-5), kinetic energy over the last ten 3.0e-5 (5.0e-5). The soft-edge risk did not
+  show: no measure moved outward.
 - **D90, the display against an independent sample of the mesh: the render arm's lead is half what its own
   target sample showed (a measurement; 2026-10-05 00:28 CDT; `tmp/dense_ref.py`, `tmp/collect_ends.py`,
   `tmp/d90.sh`, `tmp/d90_rows.py`; `surface_layer_probe.py refpitch=run`; `output/gpu/d90`).** Every display
