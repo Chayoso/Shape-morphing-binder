@@ -1,11 +1,12 @@
 """momentum_probe.py LABEL=FRAMES_NPZ [...] — momentum over a whole run, from the kept frames' positions (uniform mass,
 no external force, a start at rest: conserved linear momentum keeps the centre of mass where it is, conserved angular
-momentum keeps the mean of r x dx at zero). Per run, in display pitches a: the centre of mass's displacement from the
-first frame (largest over the run, and at the end), its path length; per pair of kept frames the net over the gross
-linear move |mean dx| / mean |dx| and the net over the gross angular move |mean r x dx| / mean |r| |dx| about the
-centre of mass (largest, mean over the run, mean over the last 20 pairs); the net rotation summed over the run (deg);
-and the mean particle move per kept-frame pair over the last 20 pairs (what is still moving at the end)."""
-import sys
+momentum keeps the mean of r x dx at zero). One JSON row per pair of kept frames (state: the later frame's raw index;
+com: the centre of mass's displacement from the first frame; lin, ang: the net over the gross linear move |mean dx| /
+mean |dx| and angular move |mean r x dx| / mean |r| |dx| about the centre of mass; rot: the net rotation summed so far,
+degrees; move: the mean particle move of the pair), lengths in display pitches a. Then per run one line: the centre of
+mass's largest and final displacement and its path, the two ratios (largest, mean, mean of the last 20 pairs), the net
+rotation over the run, and the mean particle move per pair over the last 20 pairs (what still moves at the end)."""
+import json, sys
 import numpy as np
 import torch
 
@@ -13,6 +14,7 @@ dev = torch.device("cuda")
 for spec in sys.argv[1:]:
     label, path = spec.split("=")
     z = np.load(path, allow_pickle=True)
+    raws = [int(v) for v in z["raws"]]
     tgt = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
     d = torch.cdist(tgt[::50], tgt).topk(9, largest=False).values[:, 8]
     a = .708 * float(d.median())
@@ -33,6 +35,8 @@ for spec in sys.argv[1:]:
             ang.append(float(L.norm() / (r.norm(dim=1) * dx.norm(dim=1)).mean().clamp_min(1e-30)))
             rot += L / r.square().sum(1).mean() * 1.5          # the rigid rotation with that angular move (isotropic body)
             still.append(float(gross) / a)
+            print(json.dumps(dict(run=label, state=raws[i], com=float((c - com0).norm()) / a, lin=lin[-1], ang=ang[-1],
+                                  rot=float(torch.rad2deg(rot.norm())), move=still[-1])), flush=True)
         far = max(far, float((c - com0).norm()))
         prev = x
     end = float((prev.mean(0) - com0).norm())

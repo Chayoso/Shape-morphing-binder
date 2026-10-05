@@ -459,6 +459,53 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D86, the momentum of every 300k run of D70–D84 (a record, at the user's request "momentum 쪽도 잘 기록 해
+  줘"; 2026-10-04 20:46 CDT; `scripts/probes/settled/momentum_probe.py`, now with a row per pair of kept
+  frames; `tmp/momentum_rows.py`, `tmp/momentum_plot.py`; `output/gpu/d86`: `m_*.log`,
+  `momentum_{bunny,dragon}300k.png`, local `output/video_2026-10-04/d81_weight_every_window/`).** No external
+  force acts and every run starts at rest, so conserved linear momentum keeps the centre of mass where it is
+  and conserved angular momentum keeps the body from turning. From the kept frames (every 12 steps, uniform
+  mass): the centre of mass's displacement from the first frame, the net over the gross linear and angular
+  move per pair of frames, the net rotation summed over the run, the mean particle move per pair over the
+  last 20 pairs. From the run's record (every committed window): the centre of mass's velocity and the
+  kinetic energy. Lengths in display pitches (0.048 world units; a body is 100–130 pitches across).
+
+  | bunny 300k | centre of mass, largest / end | its velocity, largest / last ten windows | net / gross linear, run / last 20 | net / gross angular, run / last 20 | net rotation | still moving at the end | kinetic energy, last / last ten |
+  |---|---|---|---|---|---|---|---|
+  | PA, physics-only twin | 0.0077 / 0.0033 | 9.1e-6 / 3.5e-8 | 1.08e-2 / 1.20e-2 | 1.01e-2 / 9.1e-3 | 0.011° | 0.0030 | 3.9e-6 / 4.5e-6 |
+  | LA, weight held (D70) | 0.0047 / 0.0041 | 7.6e-6 / 7.6e-8 | 2.2e-3 / 2.8e-3 | 5.6e-3 / 4.0e-3 | 0.008° | 0.0074 | 1.9e-4 / 3.1e-4 |
+  | LC (D74) | 0.0031 / 0.0026 | 7.7e-6 / 9.3e-8 | 2.3e-3 / 3.4e-3 | 6.3e-3 / 8.5e-3 | 0.004° | 0.0046 | 3.1e-5 / 7.8e-5 |
+  | LD (D77) | 0.0045 / 0.0039 | 9.0e-6 / 3.1e-8 | 8.8e-3 / 9.4e-3 | 1.18e-2 / 5.6e-3 | 0.012° | 0.0033 | 7.6e-6 / 6.6e-6 |
+  | LE (D78) | 0.0047 / 0.0040 | 8.0e-6 / 6.9e-8 | 9.5e-3 / 9.4e-3 | 1.22e-2 / 5.4e-3 | 0.011° | 0.0037 | 7.0e-6 / 8.5e-6 |
+  | LF (D81) | 0.0049 / 0.0046 | 7.1e-6 / 1.6e-8 | 9.9e-3 / 1.40e-2 | 8.6e-3 / 6.9e-3 | 0.014° | 0.0029 | 3.2e-6 / 4.8e-6 |
+  | LH (D84) | 0.0058 / 0.0057 | 6.2e-6 / 3.7e-8 | 4.1e-3 / 4.8e-3 | 6.3e-3 / 3.3e-3 | 0.009° | 0.0029 | 1.1e-5 / 7.7e-6 |
+  | PR (D82, physics-only, no relaxation) | 0.0083 / 0.0013 | 9.0e-6 / 1.2e-8 | 5.6e-3 / 3.8e-3 | 8.9e-3 / 7.8e-3 | 0.008° | 0.0004 | 3.3e-7 / 5.4e-7 |
+
+  | dragon 300k | centre of mass, largest / end | its velocity, largest / last ten windows | net / gross linear, run / last 20 | net / gross angular, run / last 20 | net rotation | still moving at the end | kinetic energy, last / last ten |
+  |---|---|---|---|---|---|---|---|
+  | PA, physics-only twin | 0.0257 / 0.0230 | 7.6e-6 / 6.2e-8 | 6.2e-3 / 8.0e-3 | 9.6e-3 / 7.5e-3 | 0.108° | 0.0065 | 1.7e-5 / 3.4e-5 |
+  | LA, weight held (D70) | 0.0094 / 0.0094 | 8.1e-6 / 1.5e-7 | 2.3e-3 / 3.6e-3 | 3.9e-3 / 5.5e-3 | 0.024° | 0.0132 | 1.7e-3 / 8.3e-4 |
+  | LC (D74) | 0.0116 / 0.0115 | 7.5e-6 / 1.2e-7 | 1.8e-3 / 1.8e-3 | 3.1e-3 / 2.6e-3 | 0.026° | 0.0265 | 1.8e-4 / 1.6e-3 |
+  | LW (D75) | 0.0189 / 0.0182 | 8.9e-6 / 4.3e-8 | 3.6e-3 / 4.2e-3 | 6.9e-3 / 5.0e-3 | 0.072° | 0.0067 | 4.2e-5 / 4.8e-5 |
+  | LD (D77) | 0.0167 / 0.0162 | 7.6e-6 / 1.4e-7 | 4.1e-3 / 6.3e-3 | 8.5e-3 / 8.5e-3 | 0.083° | 0.0104 | 5.8e-5 / 8.2e-5 |
+  | LE (D78) | 0.0170 / 0.0169 | 8.2e-6 / 8.9e-8 | 4.0e-3 / 4.9e-3 | 9.5e-3 / 1.01e-2 | 0.088° | 0.0069 | 3.0e-5 / 3.6e-5 |
+  | LF (D81) | 0.0194 / 0.0184 | 8.5e-6 / 5.7e-8 | 6.9e-3 / 9.5e-3 | 9.0e-3 / 7.3e-3 | 0.079° | 0.0056 | 1.8e-5 / 2.1e-5 |
+  | LG (D83) | 0.0210 / 0.0189 | 7.9e-6 / 5.9e-8 | 6.9e-3 / 1.06e-2 | 8.7e-3 / 8.7e-3 | 0.071° | 0.0077 | 4.5e-5 / 4.3e-5 |
+
+  Reading. In every run the centre of mass moves by less than 0.03 pitches (3e-4 of the body's size) and the
+  body turns by at most 0.11°; the centre of mass's velocity peaks at 6–9e-6 during the transit and is 1e-8 to
+  1.5e-7 over the last ten windows. With the weight held (LA, LC) the drift is smaller than the twin's and the
+  rest is worse: the kinetic energy stays 10 to 100 times the twin's from window 30 on and the particles
+  still move 2 to 4 times as far per pair at the end. With the weight calibrated at every window (LF) the
+  render arm's kinetic energy follows the twin's curve through the whole run (the plot), ends at 3.2e-6 against
+  3.9e-6 (bunny) and 1.8e-5 against 1.7e-5 (dragon), over the last ten windows 4.8e-6 against 4.5e-6 and 2.1e-5
+  against 3.4e-5; what still moves at the end is 0.0029 against 0.0030 and 0.0056 against 0.0065 pitches a
+  pair; the centre of mass's displacement is below the twin's on both (0.0049 against 0.0077, 0.019 against
+  0.026); the net rotation is below it on the dragon (0.079° against 0.108°) and above it on the bunny (0.014°
+  against 0.011°). The net-over-gross ratios are the twin's (about 1e-2): of a pair's motion a hundredth is a
+  common translation or rotation, with or without the render term. D83's dragon run rests a little less well
+  (kinetic energy over the last ten windows 4.3e-5 against the twin's 3.4e-5, 0.0077 against 0.0065 pitches a
+  pair). Without the relaxation (PR) the body ends ten times more at rest than any other run.
 - **D85, D81's and D84's weights at 40k (pre-registered 2026-10-04 18:49 CDT at launch; `tmp/d85.sh`,
   `tmp/d85.queue`; `repo_r71` (arm SF) and `repo_r74` (arm SH); outputs beside the gallery's in
   `output/gpu/d72`).** D80's first six meshes (below) show that D77's form fails at 40k. The two weights that
@@ -490,6 +537,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Expectation: a share of the step of 0.6–0.8 late; the coarse stage as long as LF's; the display between
   LE's and better. Risk: at a third of the merit the render term's 3–7 % movement is 1–2 % of the merit, the
   size of the physics gain of a late window, and the early stops of D77 come back in a milder form.
+  **Result, bunny 300k (2026-10-04 20:35 CDT): not better than D81's weight at 300k.** LH: 79 commits, the
+  render term 0.31–0.32 of the merit as designed, its share of the step 0.80–0.89, a fine stage of about 20
+  commits (animations 62–82). Display: front 0.9940 / 0.0072, crop 0.9864 / 0.0073, far side 0.9940 / 0.0059,
+  roughness 3.7°, against LF's 0.9935 / 0.0066, 0.9873 / 0.0058, 0.9938 / 0.0056, 3.3°: the IoUs level, the
+  pictures' differences 5 to 26 % worse than LF's (still under the twin's 0.0075, 0.0086, 0.0068). The
+  yardstick's exterior silhouette is the lowest of all runs (0.000261; LF 0.000374), its shading LF's
+  (0.000455), the particle cloud's shading above the twin's (0.000222 against 0.000158). The physics objective
+  is behind again: transport energy 2.7 to 3.0 times the twin's at windows 20–60 and 5.7e-5 against 2.1e-5 at
+  the end, kinetic energy over the last ten windows 7.7e-6 against 4.5e-6. The fine stage's length was bought
+  with the physics part. At 40k the same weight keeps the held weight's silhouette (D85).
 - **D83, the fine render picture from the first window (a diagnostic on a server copy, no committed code;
   pre-registered 2026-10-04 18:28 CDT, queued behind the evaluations then running; `repo_r73` = D81's code
   with the starting resolution set to the fine one; `output/gpu/d83`).** What the runs so far show: the render
@@ -507,6 +564,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Expectation: the yardstick's silhouette below LF's from window 20 on; the crop's difference 5–10 % below
   LF's at the end; the first ten windows slower to arrive than with a coarse picture. Risk: a fine picture
   while the body is far from its target gives a poor early guide (the silhouette's reach is a pixel).
+  **Result, dragon 300k (2026-10-04 20:35 CDT; the bunny's run started 20:32): ahead of D81's run on the
+  display and the yardstick, a little behind it in rest.** LG: 101 commits (LF 102, the twin 97), 2435 s
+  against LF's 2905 s, both on shared GPUs. Display: front 0.9932 / 0.0080, horn crop 0.9870 / 0.0104, far
+  side 0.9929 / 0.0089, roughness 4.8°; against the twin 1 − IoU −43 %, −40 %, −35 % and the pictures'
+  difference −22 %, −25 %, −18 % (LF: −36 %, −31 %, −33 % and −18 %, −21 %, −18 %). Yardstick: exterior
+  silhouette 0.000338 and shading 0.000439 (LF 0.000450, 0.000474; the twin 0.001051, 0.000685). The run's own
+  measures: silhouette IoU 0.9857 (LF 0.9843, twin 0.9819), thin share uncovered 3.0 % (4.3 %, 5.3 %), chamfer
+  0.0544 (0.0545, 0.0545), transport energy at the end 5.4e-5 (5.7e-5, 6.8e-5), bands 0.107, 0.159, the field
+  normal's error 10.8°, the density's spread 0.191, discs apart 6.8 %. Behind LF and the twin: holes 0.042 %
+  (0.028 %, 0.037 %), and rest (D86: kinetic energy over the last ten windows 4.3e-5 against LF's 2.1e-5 and
+  the twin's 3.4e-5; 0.0077 pitches a pair still moving against 0.0056 and 0.0065). The criteria of this change
+  are met on the dragon; the early windows were not slower.
 - **D82, the outer layer's relaxation switched off under the minimum spacing (a diagnostic on a server copy, no
   committed code; pre-registered 2026-10-04 18:12 CDT; `repo_r72` = D81's code with the relaxation's fraction
   set to zero, u kept; `output/gpu/d82`).** The question is the user's "detail": D76 measured that a run carries
