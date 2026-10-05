@@ -1,11 +1,13 @@
-"""still_render.py FRAMES_NPZ OUT_DIR [RAW] — stills of one state on a white background (the last kept frame unless RAW).
+"""still_render.py FRAMES_NPZ OUT_DIR [RAW] [focus=top|face] [zoom=A,B] [discs=N] — stills of one state on a white background (the
+last kept frame unless RAW; the close cameras on the top of the body or on the point facing the camera, A and B times
+nearer).
 
 The surface is the display's (surface_layer_probe.py, lattice): flat Gaussian discs, one for each cell of a lattice
 fixed in space that the particles' Zhu–Bridson zero set crosses (about 300k at 300k particles), sigma the lattice
 pitch, opacity 0.92, normals averaged over the base display's reach. Written to OUT_DIR:
   shaded_<colour>.png   the discs under the studio's lights (GGX), each material colour in turn, on white;
-  gaussians_whole.png   the same discs one by one: each in its own colour, shrunk to 25 % of its sigma (opaque), lit by the key
-                        light alone, so the gaps between them show every disc's elliptical footprint;
+  gaussians_whole.png   the same discs one by one: each in its own colour, shrunk to 30 % of its sigma (opaque), lit by the key
+                        light alone, only the discs facing the camera, so the gaps show every disc's elliptical footprint;
   gaussians_head.png, gaussians_close.png  close cameras on the head (8 and 18 times nearer): each disc tens of
                         pixels across;
   sheet.png             the shaded colours side by side."""
@@ -28,7 +30,12 @@ dev = torch.device("cuda")
 z = np.load(sys.argv[1], allow_pickle=True)
 out = Path(sys.argv[2]); out.mkdir(parents=True, exist_ok=True)
 raws = [int(v) for v in z["raws"]]
-k = raws.index(int(sys.argv[3])) if len(sys.argv) > 3 else len(raws) - 1
+opts = dict(a.split("=", 1) for a in sys.argv[3:] if "=" in a)
+raw = [a for a in sys.argv[3:] if "=" not in a]
+k = raws.index(int(raw[0])) if raw else len(raws) - 1
+FOCUS = opts.get("focus", "top")                                # close cameras on the top (the head) or on the point facing the camera
+ZOOMS = [float(v) for v in opts.get("zoom", "8,18").split(",")]
+DISCS = int(opts.get("discs", "300000"))                     # the discs the surface takes (the display: 300k)
 x = torch.as_tensor(np.asarray(z["frames"][k], np.float32), device=dev)
 target = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
 center, radius = target.mean(0), float((target - target.mean(0)).norm(dim=1).max())
@@ -41,8 +48,8 @@ lat = Lattice(center, 2.8 * radius)
 
 with torch.no_grad():
     field = ZhuBridson(x, a)
-    h = .4 * a                                                 # the pitch at which the surface takes about 300k discs
-    h *= (len(lat.discs(field, h)[0]) / 300000) ** .5
+    h = .4 * a                                                 # the pitch at which the surface takes about DISCS discs
+    h *= (len(lat.discs(field, h)[0]) / DISCS) ** .5
     pts, g, _, _ = lat.discs(field, h)
     normals = nnf.normalize(g, dim=1)
     # the base display's treatment of the normals: twice the mean over the neighbours within its reach
@@ -97,7 +104,7 @@ with torch.no_grad():
     sheet = torch.cat([s[::2, ::2] for s in shots], 1)
     save(sheet, "sheet.png")
 
-    # the discs one by one: random hues, each disc shrunk to 25 % of its sigma (opaque), lit by the key light alone
+    # the discs one by one: random hues, each disc shrunk to 30 % of its sigma (opaque), lit by the key light alone
     gen = torch.Generator(device=dev).manual_seed(7)
     hue = torch.rand(len(pts), generator=gen, device=dev)
     hsv = torch.stack((hue, torch.full_like(hue, .55), torch.full_like(hue, .95)), 1)
@@ -109,16 +116,24 @@ with torch.no_grad():
     colour = rgb[i.long(), torch.arange(len(pts), device=dev)]
     key = cam.lights[0][0]
     lit = (.35 + .65 * (shown @ key).clamp(0, 1))[:, None] * colour
-    small = covariance(shown, .25 * sigma)
+    small = covariance(shown, .3 * sigma)
     full = torch.ones_like(opacity)
-    img = cam.raster_colors(pts, shown, small, full, lit)
-    cover = cam.raster_colors(pts, shown, small, full, torch.ones_like(lit))[..., :1]
-    save((img + (1. - cover))[box], "gaussians_whole.png")
-    # a close camera on the head (the top 3 % of the discs): each disc some tens of pixels across
-    head = pts[pts[:, 1] > torch.quantile(pts[::7, 1], .97)].mean(0)
-    for zoom, name in ((8., "gaussians_head.png"), (18., "gaussians_close.png")):
-        near = StudioRaster(head, radius / zoom, 1920, 1080, 35., 18.)
-        img = near.raster_colors(pts, shown, small, full, lit)
-        cover = near.raster_colors(pts, shown, small, full, torch.ones_like(lit))[..., :1]
-        save(img + (1. - cover), name)
+    az, el = np.radians(35.), np.radians(18.)
+    toward = pts.new_tensor((np.cos(el) * np.sin(az), np.sin(el), np.cos(el) * np.cos(az)))
+
+    def drawn(c, look_at, r):
+        """The discs facing the camera (looking at look_at from 3.6 r along the display direction), one by one."""
+        eye = look_at + 3.6 * r * toward
+        f = ((eye - pts) * shown).sum(1) > 0
+        img = c.raster_colors(pts[f], shown[f], small[f], full[f], lit[f])
+        cover = c.raster_colors(pts[f], shown[f], small[f], full[f], torch.ones_like(lit[f]))[..., :1]
+        return img + (1. - cover)
+
+    save(drawn(cam, center, radius)[box], "gaussians_whole.png")
+    if FOCUS == "face":                                        # the surface point nearest the display camera: seen face on
+        head = pts[int(((pts - center) @ toward).argmax())]
+    else:                                                      # the top 3 % of the discs (the head)
+        head = pts[pts[:, 1] > torch.quantile(pts[::7, 1], .97)].mean(0)
+    for zoom, name in zip(ZOOMS, ("gaussians_head.png", "gaussians_close.png")):
+        save(drawn(StudioRaster(head, radius / zoom, 1920, 1080, 35., 18.), head, radius / zoom), name)
 print("wrote", out)
