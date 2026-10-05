@@ -563,6 +563,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   −19 / −30 / −18 %; yardstick silhouette −49 %, shading −25 %, on the particle cloud −33 % and −14 %. Against
   D97 (last 20 frames): L front 0.9914 against 0.9915, crop 0.9814 against 0.9818, far side 0.9910 against
   0.9913; roughness 3.70° against 3.71°. The dragon runs on GPUs 0 and 1 since 15:44 and 15:54.
+  **Dragon result (runs 15:44–16:56, readings 18:12; read 18:13): kept.** Net translation L 3.50e-4 → 1.40e-5
+  wu, P 3.39e-4 → 1.30e-5 (25 and 26 times less; the relaxation's part 1.4e-8 and 1.1e-8); the record's net
+  rotation L 0.0141° → 0.0154°, P 0.0157° → 0.0156° (the relaxation's share was 14–26 %; within the spread).
+  Momentum, L against P: centre of mass largest / end 0.0003 / 0.0003 both (D97 0.0072 and 0.0069 pitches);
+  its velocity largest 7.7e-6 against 7.3e-6, last ten 5.8e-8 against 5.7e-8 (behind by 3–5 %); net-over-gross
+  linear 2.9e-5 / 2.1e-5 against 3.3e-5 / 2.7e-5, angular 3.4e-3 / 1.3e-3 against 3.9e-3 / 1.9e-3 (ahead);
+  net rotation 0.0111° against 0.0096° (behind; D97 0.0153° against 0.0168°, ahead); what still moves 0.0071
+  against 0.0061 (behind); kinetic energy last / last ten 2.6e-5 / 3.3e-5 against 2.6e-5 / 3.3e-5 (level), at
+  matched windows 3.6e-5 against 3.3e-5 (behind). Display over the common range after window 10: 1 − IoU −27 /
+  −26 / −29 %, difference −14 / −19 / −13 %; yardstick silhouette −47 %, shading −25 %, on the particle cloud
+  −31 % and −10 %. Against D97 (last 20 frames): L front 0.9900 against 0.9902, crop 0.9781 against 0.9786, far
+  side 0.9905 against 0.9909; roughness 4.6° both. Verdict on the criteria: the drift (at least five times
+  less, both arms, both meshes) and the display (at least 10 % ahead, not behind D97 beyond the spread) are
+  met; "the render arm at or ahead of its twin on every momentum measure" is not, on remainders whose order
+  flips between repeats (D102 decides whether any is real). D98 stays in the defaults pending D100.
 - **D97, where the remaining drift comes from (a measurement; pre-registered 2026-10-05 13:52 CDT at launch, the bunny
   relaunched 13:55 with the vectors in the record (`*_vcom`, `*_vrot`: summed over windows they attribute the net drift); code:
   the record `grid_*`, `spacing_*`, `relax_*`, `body_*` beside `u_*` (`window/telemetry.py` below_grid_record);
