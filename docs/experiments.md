@@ -517,6 +517,28 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Expectation: SF (the gradient-norm rule at every window) loses part of S's lead at 40k, where the heavy
   weight is what carries the thin parts (silhouette IoU −0.002 to −0.004); SH (a third of the merit by value)
   keeps it within the pair's difference.
+  **Result (2026-10-04 20:57 CDT; a third arm SG, D83's fine picture from the first window with D81's weight,
+  was added at 19:25; SG on four meshes so far): at 40k every one of the new weights gives up part of the
+  held weight's silhouette, and all of them keep the render arm ahead of its twin with the physics measures
+  two to ten times nearer the twin's.** Run's silhouette IoU (S is the held weight, SP the twin):
+
+  | mesh, 40k | SP (twin) | S (held) | SF (D81) | SG (D81 + D83) | SH (D84) | thin uncovered: SP / S / SF / SG / SH | transport energy at the end against S: SF / SG / SH |
+  |---|---|---|---|---|---|---|---|
+  | bunny | 0.9662 | 0.9777 | 0.9719 | 0.9721 | 0.9760 | 9.2 / 5.3 / 7.3 / 7.7 / 5.9 % | 0.44 / 0.41 / 0.58 |
+  | dragon | 0.9650 | 0.9767 | 0.9723 | 0.9720 | 0.9753 | 12.8 / 8.2 / 9.3 / 9.5 / 8.7 % | 0.42 / 0.37 / 0.52 |
+  | A | 0.9681 | 0.9807 | 0.9720 | 0.9743 | 0.9788 | 15.0 / 4.3 / 10.5 / 6.9 / 6.2 % | 0.41 / 0.42 / 0.51 |
+  | armadilo | 0.9614 | 0.9727 | 0.9659 | 0.9668 | 0.9675 | 11.0 / 5.7 / 8.3 / 7.3 / 5.7 % | 0.26 / 0.32 / 0.24 |
+  | beast | 0.9621 | 0.9711 | 0.9663 | | 0.9680 | 8.8 / 4.6 / 7.3 / – / 6.1 % | 0.10 / – / 0.09 |
+  | bimba | 0.9657 | 0.9790 | 0.9721 | | 0.9759 | 19.2 / 6.1 / 13.8 / – / 7.9 % | 0.41 / – / 0.45 |
+
+  Against S: SF −0.0044 to −0.0087, SG −0.0047 to −0.0065, SH −0.0013 to −0.0052 (the pair B1, B2 differs by
+  0.0000–0.0006; beast by 0.0063). Against the twin: SF +0.0039 to +0.0072 (silhouette error −11 to −21 %),
+  SH +0.0059 to +0.0106 (−16 to −34 %); S's own lead is +0.009 to +0.013 (−24 to −39 %), bought with a
+  transport energy 2.4 to 12 times the twin's and a kinetic energy at the end 3.6 to 40 times. SF's expectation
+  was too mild (the loss is −0.004 to −0.009, not −0.002 to −0.004) and SH's too good (it is outside the
+  pair's difference on five of six). The fine picture from the start does not bring the silhouette back at
+  40k. So at 40k the held weight is what makes the run's silhouette IoU, at the physics measures' cost, and
+  no weight read here has both; which of the two the 40k gallery is to show is a choice, not a measurement.
 - **D84, the render weight calibrated by the terms' values (a diagnostic on a server copy, no committed code;
   pre-registered 2026-10-04 18:39 CDT, queued behind an evaluation; `repo_r74` = D81's code with the
   balancer fed the objective without its render term and the render term in place of the two gradients'
@@ -594,6 +616,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Expectation: 0.30–0.40 at 5.4 pitches, 0.80 at 10.8; roughness 4–6°; the run longer than PA's.
   First launch (18:12) failed: it was put on a GPU whose evaluation then grew to 34 GB, and the run ran out of
   memory in its first window; queued again behind that evaluation.
+  **Result (2026-10-04 20:57 CDT): the relaxation is what erases the relief, and it is still what makes the
+  surface smooth.** PR, 114 commits (it stops by itself, at animation 115, unlike D16's 40k runs), against PA:
+
+  | bunny 300k, physics-only with the rule | carried share at 2.7 / 5.4 / 10.8 / 21.6 pitches | roughness | bands below 4 / 4–11 | field normal's error | front IoU / difference | thin crop | far side | yardstick: exterior silhouette / shading |
+  |---|---|---|---|---|---|---|---|---|
+  | 300k sample | 0.36 / 0.66 / 0.86 / 0.95 | 9.8° | 0.103 / 0.132 | 11.5° | 0.9906 / 0.0063 (the floor) | 0.9795 / 0.0071 | 0.9904 / 0.0059 | |
+  | PA, relaxation on | 0.03 / 0.18 / 0.73 / 0.92 | 3.2° | 0.085 / 0.142 | 9.3° | 0.9900 / 0.0075 | 0.9784 / 0.0086 | 0.9907 / 0.0068 | 0.000787 / 0.000568 |
+  | PR, relaxation off | 0.24 / 0.53 / 0.97 / 0.95 | 9.2° | 0.132 / 0.190 | 15.0° | 0.9742 / 0.0136 | 0.9497 / 0.0179 | 0.9724 / 0.0128 | 0.003118 / 0.001605 |
+
+  Without the relaxation the surface carries the relief nearly as a sample does (0.53 of the sample's 0.66 at
+  5.4 pitches, all of it at 10.8), and is as rough as a sample (9.2°), stands 0.17 pitches further out (mean
+  offset +0.476 against +0.308), has 4.3 % of its discs apart from the mesh (1.8 %), 7.3 % of the thin target
+  uncovered (4.8 %), and a display behind PA's on every measure by a factor of 1.8 to 2.6 in the error. It
+  ends ten times more at rest (kinetic energy 3.3e-7). The first criterion is met (5.4 pitches +0.35, 10.8
+  +0.24), the second and third fail (roughness 2.9 times PA's; the pictures behind). The expectation had the
+  relief right and the roughness too low: the minimum spacing does not give the smoothness by itself, the
+  two rules together do. What this settles for the detail: the relief below a cell is there to be had at this
+  N without more particles, and the rule that removes it is the relaxation, which takes out of the layer
+  whatever its neighbourhood's mean does not explain, sampling noise and the target's own relief alike. It
+  relaxes towards zero because it does not know what the target has there.
 - **D81, the render weight is calibrated at every window, and the selection rescores its references
   (pre-registered 2026-10-04 17:51 CDT at launch; the user: "계속 진행 해 줘 지금 10 ~ 20% 이상 나와야 의미 있는
   결과인 거니까"; code: `window/solve.py`, `run/selection.py`, `run/runner.py`, `target.py`; server `repo_r71`,
