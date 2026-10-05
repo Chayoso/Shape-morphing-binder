@@ -1252,6 +1252,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   remove; the bands fall by a tenth to a fifth, the run's own metrics stay inside the pair's spread, the thin
   share uncovered falls on most meshes; beast (ejection) and C (early stop) stay inside their own spread.
   Risk: sheets a few particles thick at 40k (bob's ring, V, fandisk's edges) fatten.
+  **Result (2026-10-05 01:05 CDT, all 19 meshes, every arm; `tmp/d72_table.py`): the minimum spacing passes
+  the gallery.** S (the rule, the held weight of that time) against the pair B1, B2 without it: the run's
+  silhouette IoU at or above the pair's lower value less the pair's difference on 19 of 19 (+0.0001 to +0.0044;
+  C −0.0025 against a pair differing by 0.0024); the thin share uncovered lower on 18 (−1.2 to −9.8 points;
+  teapot 0); the bands below 4 and 4–11 pitches and the density's spread under B1's on 19 of 19; no flag the
+  pair does not have (beast's gate fails in all three, as before); length within a quarter of the pair's on 17
+  (bunny 48 commits against 30–37, V). The thin sheets did not fatten in any measure read: bob's thin share
+  −6.8 points, V's −5.1, fandisk's −2.2. Expectation partly wrong: the bands fell, and so did the thin share,
+  by more than expected (the rule fills thin parts the pair leaves uncovered).
+  D89's one resolution at 40k (arm SG, with D81's weight; the 13 meshes on `repo_r76`, six on `repo_r73`):
+  against its physics-only twin SP the silhouette IoU is higher on 19 of 19 (+0.0026 to +0.0129) and the thin
+  share lower on 19 (−0.4 to −12.7 points); against S (the held weight) lower on 18 (−0.0019 to −0.0075; C
+  +0.0013) with the transport energy at the end 0.10 to 0.85 times S's — D85's reading of D81's weight, now on
+  every mesh.
 - **D71, the minimum spacing lets no material out through the free surface (pre-registered 2026-10-04 13:26
   CDT at launch; code: `kernels.k_update`; server `repo_r67`; `output/gpu/d71`, `tmp/d71.sh`).** The cause is
   D70's last paragraph: the rule's move has a mean of zero inside the body and an outward mean in the outermost
