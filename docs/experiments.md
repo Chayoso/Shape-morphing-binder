@@ -592,6 +592,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   objectives place the surface differently below a pitch (the transport after one target sample's points, the
   render after the mean picture of eight), and the end state is their balance. PCGrad removes the global
   conflict only. Open: whether this local balance is the render arm's 10 % more motion at the end (D94).
+  It is not (read 15:00; `tmp/end_motion.py`, the last 20 kept-frame pairs of D94's and D97's arms): 82–89 % of
+  the squared motion at the end is on the outer layer (6–9 % of the particles), and there along the normals
+  (0.019–0.028 pitches a pair against 0.004–0.010 tangential), in both arms alike: bunny layer 0.0232 against
+  0.0223 (D97), 0.0204 against 0.0203 (D94), dragon 0.0292 against 0.0293; the interior 0.002–0.0045. What still
+  moves at the end is the layer breathing along its normals, the relaxation flattening it every window and
+  the material restoring it, in the twin as much as in the render arm.
 - **D94, u moves the body neither along nor about any axis (pre-registered 2026-10-05 12:04 CDT at launch; code:
   `window/solve.py` (WindowOptimizer.free_of_rigid); server `repo_r80` = HEAD with this; `output/gpu/d94`).**
   D93's cause: u's displacement of the layer, g u n per window, is a position update outside the grid's momentum
