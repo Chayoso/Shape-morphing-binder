@@ -475,6 +475,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Expectation: the trial's extra half second is the render (four times the pixels) and the exterior (a surface
   per evaluation); the start's extra two seconds the finer transport grid; the extra windows come from the
   stopping (the merit keeps finding a little more each window), not from the cost of a window.
+  **Result (run 13:15–13:39, 22.6 min, 72 windows; read 13:42; `output/gpu/d96/prof_rows.txt`).** Per window
+  (windows 5 on, 15.8 s by the record's clocks): the exterior's search for its discs (Zhu–Bridson field on the
+  fixed lattice, `Tracked`, timed inside the render) 5.19 s, 2.3 searches a window at 2.29 s each; the render
+  pictures themselves 0.59 s (21.9 evaluations, 27 ms each); the three adjoints 5.54 s (render 2.03, physics
+  1.77, cleanup 1.74; 8 each, 0.22–0.25 s); the transport geometry 2.18 s (its Sinkhorn solves 1.57, the
+  surface proximity 0.56); the MPM 2.06 s (evaluations 1.29, tape 0.77). The expectation is refuted on its
+  main part: the render's four times the pixels costs half a second a window; the window's extra five seconds
+  against D19 are the exterior's searches, one at the window's start and one or two in the line search when a
+  tenth of the discs has moved more than half a lattice pitch. A run is 22.6 min = 72 windows × 18.8 s: against
+  D19's 8.7 min (44 × 10.7 s), 1.6 times the windows and 1.75 times the window, the exterior making most of the
+  latter. One gradient (0.94 s) is unchanged.
 - **D95, where the render gradient acts (a visualisation on the defaults; pre-registered 2026-10-05 12:16 CDT,
   chains launched 12:29; the user: "랜더 Gradient가 어떻게 영향을 끼치는지도 그 값들 visualization 한 번 해
   줄레?", then "300K 로 돌려서 … gradient 시각화 랜더를 하란 말이었어. 마치 loss_viz.mp4처럼"; probes
