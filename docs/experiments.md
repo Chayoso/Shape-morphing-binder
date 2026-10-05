@@ -459,6 +459,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D102, are the remaining momentum gaps real? Repeat pairs (pre-registered 2026-10-05 17:59 CDT, queued behind
+  D100 and D98's readings; `tmp/d102.sh`, `output/gpu/d102`; server `repo_r86` = D98's code with the record's
+  angular momentum split by update).** After D98 the render arm is level with or ahead of its twin on most
+  momentum measures and behind on a few by small amounts whose order flips between repeats: the bunny's net
+  rotation 0.0040° against 0.0034° (D98), but D94 0.0056° against 0.0113° and D97 0.0092° against 0.0088°;
+  the dragon's 0.0111° against 0.0096° (D98), but 0.0153° against 0.0168° (D97); what still moves on the
+  dragon 0.0071 against 0.0061 (D98), 0.0067 against 0.0064 (D97), 0.0063 against 0.0068 (D94). A single pair
+  cannot tell a gap of this size from the spread. Runs: the defaults at seeds 101 and 103 (the samples differ),
+  L and P, bunny then dragon 300k (eight runs, one per GPU and arm); each read by the momentum probe and the
+  record (drift parts, angular momentum split; `tmp/ang_split.py`), the kept frames then deleted (disk).
+  Read with D98's pair (seed 97): per measure the mean and spread over the three seeds of each arm and the
+  paired difference L − P. A measure is "behind" when L − P is above zero at all three seeds; "level" when
+  its sign changes. The 40k split (`scratch/d101q`, one bunny run, render arm, drag on v): of the angular
+  momentum the updates below the grid put in, the relaxation 6.5 (share +1.41 of their sum), u 1.6 (−0.33),
+  the minimum spacing 2.5 (−0.08); a measure behind at all three seeds is the next definition to change (the
+  relaxation's, if it is the rotation).
 - **D100, D98 and D99 on the 40k gallery (pre-registered 2026-10-05 16:05 CDT at launch; `tmp/d100.sh`, queue
   `tmp/d100.queue`, `output/gpu/d100`; two workers on GPUs 0 and 1 beside the D98 dragon runs).** 19 meshes, seed
   97, the defaults: N = this code (`repo_r85`, render arm), O = the code before both changes (`repo_r82`, render
