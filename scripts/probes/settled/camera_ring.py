@@ -1,7 +1,7 @@
 """camera_ring.py FRAMES_NPZ OUT_DIR [RAW] — the body in the middle of its cameras, seen from a camera further out and
 above (the display's azimuth, 30 degrees up), on white. The body is the display's surface (still_render.py's Gaussian
-discs, terracotta); each camera a drawn glyph whose lens faces the body, with its view cone; cameras behind the body
-are drawn under it. Written to OUT_DIR:
+discs, slate blue); each camera a triangle, its apex at the camera and its base toward the body; cameras behind the
+body are drawn under it. Written to OUT_DIR:
   cameras_8.png             eight cameras evenly on one ring at 15 degrees up (an illustration);
   cameras_render_views.png  the render loss's own views (render_loss.make_views: six azimuths on each of the rings at
                             0 and +-0.5 rad, every ring turned by its share of a step), orthographic in the loss.
@@ -56,7 +56,7 @@ with torch.no_grad():                                          # the display's d
     sig = torch.full((len(pts),), h, device=dev)
     cov = (rot * torch.stack((sig ** 2, sig ** 2, (sig / 4) ** 2), 1)[:, None]) @ rot.transpose(1, 2)
     cam.background = torch.zeros_like(cam.background)
-    cam.albedo = torch.tensor((.45, .13, .06), device=dev)    # terracotta
+    cam.albedo = torch.tensor((.08, .17, .40), device=dev)    # slate blue
     body, cover, _ = cam(pts, normals, cov, torch.full((len(pts),), .92, device=dev),
                          normal_kernel=normal_filter_size(H, False), return_buffers=True)
 
@@ -96,21 +96,6 @@ def project(p):
     return torch.stack((u, v), 1).cpu().numpy(), depth.cpu().numpy()
 
 
-def camera_glyph(size, colour):
-    """A camera seen from the side, lens to the right (+x), as an RGBA sprite."""
-    s = size
-    im = Image.new("RGBA", (int(2.2 * s), int(1.6 * s)), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
-    ox, oy = int(.15 * s), int(.35 * s)
-    d.rounded_rectangle((ox, oy, ox + int(1.25 * s), oy + int(.9 * s)), radius=int(.14 * s), fill=colour)       # body
-    d.rounded_rectangle((ox + int(.2 * s), oy - int(.22 * s), ox + int(.55 * s), oy + int(.05 * s)), radius=int(.05 * s), fill=colour)  # viewfinder
-    lx = ox + int(1.25 * s)
-    d.polygon([(lx - 2, oy + int(.2 * s)), (lx + int(.55 * s), oy + int(.02 * s)), (lx + int(.55 * s), oy + int(.88 * s)), (lx - 2, oy + int(.7 * s))], fill=colour)  # lens hood
-    d.ellipse((ox + int(.42 * s), oy + int(.2 * s), ox + int(.92 * s), oy + int(.7 * s)), fill=(250, 250, 248, 255))  # lens ring
-    d.ellipse((ox + int(.52 * s), oy + int(.3 * s), ox + int(.82 * s), oy + int(.6 * s)), fill=colour)
-    return im
-
-
 def figure(rings, name, label):
     """rings: list of (azimuths, elevation) in radians."""
     cams = [(th, ph) for ths, ph in rings for th in ths]
@@ -133,20 +118,14 @@ def figure(rings, name, label):
     near, far = depth.min(), depth.max()
     for (u, v), dep, (au, av) in sorted(zip(uv, depth, aim), key=lambda e: -e[1]):
         layer = over if dep < cdepth[0] else under
-        size = 70 * (1.25 - .45 * (dep - near) / max(far - near, 1e-9))
-        ang = math.degrees(math.atan2(-(av - v), au - u))
-        dr = ImageDraw.Draw(layer)
-        # the view cone toward the body
-        L = .45 * math.hypot(cuv[0][0] - u, cuv[0][1] - v)
-        dirx, diry = (cuv[0][0] - u), (cuv[0][1] - v)
-        n = math.hypot(dirx, diry) + 1e-9
-        dirx, diry = dirx / n, diry / n
-        half = math.radians(17)
-        p1 = (u + L * (dirx * math.cos(half) - diry * math.sin(half)), v + L * (dirx * math.sin(half) + diry * math.cos(half)))
-        p2 = (u + L * (dirx * math.cos(half) + diry * math.sin(half)), v + L * (-dirx * math.sin(half) + diry * math.cos(half)))
-        dr.polygon([(u, v), p1, p2], fill=(42, 120, 214, 38), outline=(42, 120, 214, 120))
-        glyph = camera_glyph(size, (38, 44, 54, 255)).rotate(ang, expand=True, resample=Image.BICUBIC)
-        layer.alpha_composite(glyph, (int(u - glyph.width / 2), int(v - glyph.height / 2)))
+        size = 62 * (1.2 - .4 * (dep - near) / max(far - near, 1e-9))     # nearer cameras drawn larger
+        n = math.hypot(au - u, av - v) + 1e-9
+        dx, dy = (au - u) / n, (av - v) / n                                # toward the body on screen
+        # the camera: a triangle, its apex at the camera, its base toward the body
+        base = (u + 1.4 * size * dx, v + 1.4 * size * dy)
+        p1 = (base[0] - .7 * size * dy, base[1] + .7 * size * dx)
+        p2 = (base[0] + .7 * size * dy, base[1] - .7 * size * dx)
+        ImageDraw.Draw(layer).polygon([(u, v), p1, p2], fill=(43, 47, 54, 235), outline=(20, 22, 26, 255), width=3)
     canvas.paste(under, (0, 0), under)
     img = (body + (1. - cover[..., None])).clamp(0, 1)
     obj = Image.fromarray((img * 255).round().byte().cpu().numpy())
