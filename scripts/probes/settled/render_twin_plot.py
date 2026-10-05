@@ -20,7 +20,7 @@ runs = []
 for spec in sys.argv[3:]:
     label, paths = spec.split("=")
     log, js, terms = paths.split(",")
-    shown = [r for r in rows_of(log) if r["state"] != "target" and "to_target" in r] if log != "-" else []    # "-": not drawn yet
+    shown = [r for r in rows_of(log) if str(r["state"]).isdigit() and "to_target" in r] if log != "-" else []    # "-": not drawn yet; the reference's and `own` rows left out
     hist = [h for h in next(iter(json.load(open(js))["arms"].values()))["history"] if h.get("frame_end") is not None and h.get("d_sil") is not None]    # the committed windows
     runs.append((label, dict(terms=rows_of(terms), shown=shown, window=hist)))
 

@@ -51,11 +51,13 @@ def parse_args():
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
-    ap.add_argument("--render_exterior", action="store_true",
+    # the defaults below are the recipe whose render arm is ahead of its physics-only twin on every display
+    # measure, read against an independent sample (D91, D92; the minimum spacing D70/D72, the exterior D62)
+    ap.add_argument("--render_exterior", action=argparse.BooleanOptionalAction, default=True,
                     help="read the render terms on the exterior (surface discs) in place of the particle cloud")
-    ap.add_argument("--min_spacing", type=float, default=0.0,
+    ap.add_argument("--min_spacing", type=float, default=0.9,
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
-    ap.add_argument("--render_target_draws", type=int, default=1,
+    ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
     ap.add_argument("--layer_relief", action="store_true",
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
@@ -65,10 +67,10 @@ def parse_args():
     ap.add_argument("--support_weight", type=float, default=8.0, help="local support bound weight")
     ap.add_argument("--support_target_ref", action="store_true",
                     help="support floor from the target density at the nearest target point")
-    ap.add_argument("--support_form", choices=("log", "ratio", "proximity"), default="log",
+    ap.add_argument("--support_form", choices=("log", "ratio", "proximity"), default="proximity",
                     help="per-particle support penalty: log deficit squared, or missing mass fraction squared")
-    ap.add_argument("--loss_follows_n", action="store_true",
-                    help="transport grid and blur follow the particle spacing above mass_ref_n")
+    ap.add_argument("--loss_follows_n", action=argparse.BooleanOptionalAction, default=True,
+                    help="transport grid, blur and render pictures follow the particle spacing above mass_ref_n")
     ap.add_argument("--cell_diag", type=float, default=26.0,
                     help="the MPM cell from the shape: dx = source bbox diagonal / cell_diag")
     ap.add_argument("--save_F_stride", type=int, default=0,

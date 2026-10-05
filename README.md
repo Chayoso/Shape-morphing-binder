@@ -94,8 +94,12 @@ fallback. The only CPU work is the prepare stage (mesh loading and volume sampli
 ssh hyde06j
 source /data/relcfd/chayo/physmorph_v2/repo_settled/scripts/ops/hyde06_env.sh   # REPO, OUT, PY, CuPy
 
-# sphere -> bunny, 300k particles (the validated recipe; the two flags are not yet the defaults)
-$PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --support_form proximity --loss_follows_n \n    --out $OUT/bunny
+# sphere -> bunny, 300k particles (the validated recipe is the default since 2026-10-05: surface proximity, the loss
+# and render pictures following N, the render terms on the exterior at one resolution, the minimum spacing, the
+# render weight calibrated at every window, the render's targets the mean over eight samples; D62-D92)
+$PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --out $OUT/bunny
+# its physics-only twin (the render term off, everything else the same)
+$PY scripts/pipeline_run.py --tgt assets/bunny.obj --n 300000 --seed 97 --render_weight_scale 0 --out $OUT/bunny_phys
 
 # the 4K video
 PYTHONPATH=$REPO $PY scripts/render_splat_photoreal.py $OUT/bunny_render_full_dt_iso_nn.npz $OUT/bunny_4k.mp4 \
