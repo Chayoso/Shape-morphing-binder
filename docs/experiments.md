@@ -459,6 +459,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D89, one render resolution, the fine one, from the first window (adopted from D83; pre-registered
+  2026-10-04 23:10 CDT; the user: "그 다음은 Opus로 진행하는데, 계속 goal 까지 작업 지속 해 줘"; code:
+  `scripts/pipeline_run.py`, `render_res = render_res_hi = the fine resolution following N`; server `repo_r76`
+  = HEAD with this; `output/gpu/d89`).** D83's diagnostic made the definition: the coarse stage fitted a
+  picture whose pixel was wider than the detail (3.2–3.8 pitches at 300k, D73) and left the fine stage three
+  windows at the end under D81's weight. Started at the fine resolution the 300k render arm was 13–43 % ahead
+  of its physics-only twin on every display measure and 24–68 % on the yardstick (D83), and the 40k runs
+  equal D81's (D85's SG). The coarse-to-fine machinery stays in the runner (direct callers and tests) and is
+  inactive from the command line, where both resolutions are now the same. One consequence for the
+  physics-only twins: they too went through the switch, which reset their selection epoch and gave them 5–10
+  more windows after their plateau (PA: plateau at 93, stop at 100); without it they stop at the plateau.
+  Runs: (a) the physics-only twins on this code, bunny and dragon 300k with D70's rule (PN), so that every
+  render arm from now on is read against a twin of the same code; (b) a second render arm on the same code
+  (LN), so that the render arm's own run-to-run spread is known (D83's LG is the first; a single
+  run swings); (c) the 40k gallery's remaining 13 meshes with the one resolution (SG), beside D72's arms. Read
+  as D81, momentum included (D86).
+  Criteria: the user's bar on both meshes: LG and LN each at least 10 % ahead of PN on 1 − IoU and the
+  pictures' difference in front, crop and far side and on the yardstick's two terms; not behind PN on the
+  other measures by more than PA–PN's own difference (the twin's run-to-run spread, read from these two
+  twins); at 40k SG within the pair's difference of SF on most meshes.
+  Expectation: LN within 0.0005 IoU and 5 % difference of LG; PN stops 5–10 windows before PA with the
+  display within 0.001 IoU of PA's; the kinetic energy at the end of the render arms within the twins'
+  spread (PA and PB differed by 20 % on the bunny, D71).
 - **D88, the relaxation's reference is the target's own relief (pre-registered 2026-10-04 21:31 CDT, launched
   again 21:36; code: `kernels.k_layer_project`, `mpm/traj.py`, `window/layer.py` (TargetRelief),
   `window/setup.py`, `pipeline/target.py`, `prepare.py`, `sampling/mesh.py`, `--layer_relief`, off by default;

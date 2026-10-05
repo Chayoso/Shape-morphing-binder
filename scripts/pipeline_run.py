@@ -58,7 +58,7 @@ def parse_args():
     ap.add_argument("--layer_relief", action="store_true",
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
     ap.add_argument("--render_res_hi", type=int, default=None,
-                    help="the fine render resolution of the coarse-to-fine event (default: the config's)")
+                    help="the render resolution, used from the first window (default: the config's fine one, following N)")
     ap.add_argument("--ot_iters", type=int, default=1600, help="Sinkhorn sweep budget per solve")
     ap.add_argument("--support_weight", type=float, default=8.0, help="local support bound weight")
     ap.add_argument("--support_target_ref", action="store_true",
@@ -156,13 +156,15 @@ def main():
     if args.floor:
         prm = dataclasses.replace(prm, floor_friction=args.floor_friction)
     # the render pictures follow the particle spacing as the transport grid does (prepare.py): above mass_ref_n
-    # particles a pixel keeps its size in pitches (D74: at 300k a 64-px pixel was 3.8 pitches, 1.9 at 40k)
+    # particles a pixel keeps its size in pitches (D74: at 300k a 64-px pixel was 3.8 pitches, 1.9 at 40k).
+    # One resolution, the fine one, from the first window (D89): the coarse stage fitted a picture whose pixel
+    # was wider than the detail and left the fine stage a few windows at the end (D73, D81); started fine, the
+    # 300k render arm is 13-43 % ahead of its physics-only twin and the 40k gallery is unchanged (D83, D85)
     per_dx = max(1.0, (args.n / cfg0.mass_ref_n) ** (1.0 / 3.0)) if cfg0.loss_follows_n else 1.0
+    res = args.render_res_hi or int(np.ceil(cfg0.render_res_hi * per_dx))
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
-                              render_exterior=args.render_exterior,
-                              render_res=int(np.ceil(cfg0.render_res * per_dx)),
-                              render_res_hi=args.render_res_hi or int(np.ceil(cfg0.render_res_hi * per_dx)),
+                              render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
                               min_spacing=args.min_spacing,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
