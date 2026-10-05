@@ -605,6 +605,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   pair's difference on five of six). The fine picture from the start does not bring the silhouette back at
   40k. So at 40k the held weight is what makes the run's silhouette IoU, at the physics measures' cost, and
   no weight read here has both; which of the two the 40k gallery is to show is a choice, not a measurement.
+  The whole gallery for D81's weight (2026-10-04 23:00 CDT; SF on 18 of the 19 meshes, with S, the pair and
+  the twin beside it): against S the run's silhouette IoU is lower on all 18 (−0.0017 to −0.0087; inside the
+  pair's own difference on two), the thin share uncovered higher on all 18 (+0.5 to +7.7 points), the
+  transport energy at the end 0.10 to 0.74 times S's on 17 (1.30 on one); against its physics-only twin SF
+  is ahead in silhouette IoU on all 18 (+0.0018 to +0.0100) and in the thin share on 17 (−1.5 to −9.7 points;
+  +0.9 on one). The six meshes were not a special case.
 - **D84, the render weight calibrated by the terms' values (a diagnostic on a server copy, no committed code;
   pre-registered 2026-10-04 18:39 CDT, queued behind an evaluation; `repo_r74` = D81's code with the
   balancer fed the objective without its render term and the render term in place of the two gradients'
