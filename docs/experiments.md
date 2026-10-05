@@ -459,6 +459,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D95, where the render gradient acts (a visualisation on the defaults; pre-registered 2026-10-05 12:16 CDT,
+  chains launched 12:29; the user: "랜더 Gradient가 어떻게 영향을 끼치는지도 그 값들 visualization 한 번 해
+  줄레?", then "300K 로 돌려서 … gradient 시각화 랜더를 하란 말이었어. 마치 loss_viz.mp4처럼"; probes
+  `loss_video.py` (now a fourth panel: the render push along the normal), `render_influence.py`; server
+  `repo_r80`, `tmp/d95.sh`, `output/gpu/d95`).** The render arm of the D94 code with `--grad_dump`, bunny 300k
+  on GPU 0 and dragon 300k on GPU 2, each launched when its D94 chain has finished (the dragon also after the
+  bunny's full archive is gone: one at a time on the disk). The splat video of the morph (every third frame):
+  shape error, render pull |λ g_render|, physics pull |g_physics|, and the render push −λ g_render · n (red out,
+  blue in), each frame coloured by its window's first gradient, the losses below. At every window's first
+  gradient: the weighted render term's position gradient λ(∇silhouette + ∇shading) and the physics objective's
+  (everything but the cleanup) on every particle; each one's push along the outward normal; the particle's
+  signed offset from the target surface; the linear-response rollouts (each channel's control gradient alone,
+  scaled to the window's accepted change, for dFc and for u). Read per window: the render's share of the step,
+  the two gradients' cosine, whether each push points to the target (Σ push·(−offset) / Σ |push||offset| on the
+  outer layer), the outer layer's move under each channel alone, the gradients' share on the outer layer and in
+  their top 5 % particles.
+  Expectation (B2, D81): the render gradient sits on the outer layer (over 90 % of its squared norm) and on few
+  particles (top 5 % over 60 %), at the silhouette's edges and the shading's creases; it points to the target
+  there (corr > 0); it moves the layer more through u than through dFc; the physics gradient is spread through
+  the body and makes the early windows' moves. Caveat: the u rollouts take the raw gradient, not projected free
+  of the rigid modes as D94's step is, so their moves carry a rigid part the run removes.
 - **D94, u moves the body neither along nor about any axis (pre-registered 2026-10-05 12:04 CDT at launch; code:
   `window/solve.py` (WindowOptimizer.free_of_rigid); server `repo_r80` = HEAD with this; `output/gpu/d94`).**
   D93's cause: u's displacement of the layer, g u n per window, is a position update outside the grid's momentum
