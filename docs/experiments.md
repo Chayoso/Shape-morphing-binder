@@ -459,6 +459,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D100, D98 and D99 on the 40k gallery (pre-registered 2026-10-05 16:05 CDT at launch; `tmp/d100.sh`, queue
+  `tmp/d100.queue`, `output/gpu/d100`; two workers on GPUs 0 and 1 beside the D98 dragon runs).** 19 meshes, seed
+  97, the defaults: N = this code (`repo_r85`, render arm), O = the code before both changes (`repo_r82`, render
+  arm), Q = this code's physics-only twin; each end state read against its own target and the independent 40k
+  sample (`gallery_ind.py`, as D92), and the record's drift (the body vectors summed). Criteria: N's silhouette
+  IoU against the independent sample within the single-run spread of O's (a mesh outside it gets a second run of
+  each before a verdict; the gallery's single-run spread: up to 6 points of thin on one mesh, C stops early in 3 of
+  4 runs of any code); the median body net translation lower in N than in O; N ahead of Q on the silhouette on
+  at least 17 of 19 meshes (D92: 19 of 19).
 - **D99, the drag scales the whole velocity field (pre-registered 2026-10-05 16:04 CDT, queued behind D97's dragon
   readings; code: `mpm/kernels.py` k_p2g; the record's angular momentum budget `L_start`, `L_grid`, `L_jump`
   (`window/telemetry.py`); server `repo_r85` = HEAD with this; `tmp/d99.sh`, `output/gpu/d99`).** After D98 the
