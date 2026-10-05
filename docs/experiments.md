@@ -494,7 +494,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   fault is the turning), and corrected: the normals are the mesh's, turned all at once only if as a whole
   they point inward, and a point without weight has a zero value. Largest values now 0.93 and 1.48 pitches (the
   meshes' sharp creases). Tests on hyde06 in `repo_r75`: 277 passed, 2 skipped, exit 0, before the
-  correction; the layer, contract and smoke tests again after it (28 passed), the full suite running.
+  correction, and again after it (277 passed, 2 skipped, exit 0).
 - **D87, whether a relaxation towards the target's relief keeps the relief and the smoothness (a feasibility
   check on kept end frames, no simulation; 2026-10-04 21:00 CDT; `tmp/relief_relax_test.py`, `tmp/d87.sh`;
   `output/gpu/d87`).** The run's own projection (the pipeline's layer data, 1/20 a step over 40 steps) is
