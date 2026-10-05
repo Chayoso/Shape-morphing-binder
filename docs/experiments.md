@@ -459,7 +459,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
-- **D94, u moves the body neither along nor about any axis (pre-registered 2026-10-05 12:10 CDT; code:
+- **D94, u moves the body neither along nor about any axis (pre-registered 2026-10-05 12:04 CDT at launch; code:
   `window/solve.py` (WindowOptimizer.free_of_rigid); server `repo_r80` = HEAD with this; `output/gpu/d94`).**
   D93's cause: u's displacement of the layer, g u n per window, is a position update outside the grid's momentum
   balance, and it is where the body's drift comes from. The definition of u changes: after every step u loses
@@ -498,7 +498,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   What would follow: if u carries the excess, u's displacement field is made free of net translation and
   rotation (projected onto the complement of the six rigid modes of the layer), a definition of the control
   that respects the conservation the grid already has.
-  **Result (runs and readings done by 11:20 CDT, read 12:05; `tmp/u_drift.py`): u is the source of the
+  **Result (runs and readings done by 11:20 CDT, read 12:02; `tmp/u_drift.py`): u is the source of the
   drift, in both arms.** Summed over the run, u's net translation against the body's centre-of-mass path:
   bunny L 1.19e-3 against 1.08e-3 wu (ratio 1.10, correlation over windows +0.98), P 1.85e-3 against 1.65e-3
   (1.13, +0.99); dragon L 2.43e-3 against 2.35e-3 (1.03, +0.99), P 2.86e-3 against 2.83e-3 (1.01, +1.00). u's net
