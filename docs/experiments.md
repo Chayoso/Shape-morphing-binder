@@ -469,6 +469,10 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   on all; against its own sample it may fall (it no longer fits that one sample).
   Expectation: at 40k the samples' noise is a smaller part of the picture at 96 px (a pixel is 1.3 pitches) and
   SK's gain over SG is small (within ±0.001) on most meshes; SK above SP on all 19.
+  **Result (all 57 runs done by 04:00 CDT, read 2026-10-05 08:59; `tmp/d92_rows.py`): as expected.** Against
+  the independent sample SK is above its physics-only twin on 19 of 19 (1 − IoU −9 to −27 %, median −16 %) and
+  level with SG (at or above it on 9 of 19, median difference −0.0001). Eight target samples cost nothing at
+  40k and change nothing there.
 - **D91, the render's target pictures are the mean over independent samples of the target (pre-registered
   2026-10-05 00:38 CDT at launch; code: `pipeline/target.py` (build_target(draws=)), `prepare.py` (draws),
   `sampling/mesh.py` (stratified_draws, draws_in_frame), `run/runner.py`, `scripts/pipeline_run.py
@@ -521,6 +525,14 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   dragon LK 88 commits, silhouette IoU 0.9854 (PN 0.9835), thin 3.8 % (3.7 %), holes 0.035 % (0.067 %),
   transport 6.3e-5 (7.1e-5), kinetic energy over the last ten 3.0e-5 (5.0e-5). The soft-edge risk did not
   show: no measure moved outward.
+  **All frames (finished by 04:06 CDT, read 08:59; `runeval3.sh`, the last 20 kept frames, against the
+  independent sample): the end-frame reading holds.** LK against PN: bunny front 1 − IoU −28 %, difference
+  −13 %; crop −29 %, −31 %; far side −19 %, −15 %; dragon front −23 %, −15 %; crop −26 %, −20 %; far side −34 %,
+  −14 %. The yardstick against the independent sample: exterior silhouette −46 % (bunny) and −51 % (dragon),
+  shading −22 % and −25 %; the particle cloud's silhouette −32 % and −25 %, shading −7 % and −18 %. The one-sample
+  runs LG, LN are behind LK on all twelve display numbers but one (dragon front IoU, level). Criteria met on
+  both meshes: every display measure and both yardstick terms at least 13 % ahead of the twin; physics and
+  momentum measures not behind it (D86's table and D89's rest rows).
 - **D90, the display against an independent sample of the mesh: the render arm's lead is half what its own
   target sample showed (a measurement; 2026-10-05 00:28 CDT; `tmp/dense_ref.py`, `tmp/collect_ends.py`,
   `tmp/d90.sh`, `tmp/d90_rows.py`; `surface_layer_probe.py refpitch=run`; `output/gpu/d90`).** Every display
