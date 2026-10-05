@@ -494,6 +494,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   D 2.51e-6 wu (118 times less); D at most 7e-6 on 18 meshes, C 2.5e-4 (its twin 1.0e-3). By the criteria V
   gets a second run of O and D before a verdict (and C, whose drift stays); queued 18:17 on GPUs 0 and 1
   (`tmp/d100b.sh`, tags *_O2, *_D2).
+  **Second runs (done 18:34; read 18:36).** V: O 0.9754, 0.9748; D 0.9718, 0.9738 (both below both, means
+  −0.0023). C: O 0.9740, 0.9701; D 0.9728, 0.9696 (inside O's own spread of 0.0039). V is outside the spread,
+  and the cause is not D98's shape: under O both V runs stop at 10–11 commits, under D they run 30–31; at window
+  9 both stand at the same silhouette term (2.3e-3 to 2.8e-3), and from there on D's selection merit falls
+  6.4e-4 → 1.1e-4 by the transport (5.8e-4 → 9.5e-5) while the run's own silhouette term rises 2.6e-3 →
+  3.6e-3. The drift D98 removed is what stopped V early. Across the gallery (`tmp/late_sil.py`) the late
+  windows trade the silhouette for the transport in both codes: the silhouette term at the delivered window
+  over its run minimum has median 1.24 in O and in D, above 1.2 on 10 and 11 meshes, above 1.5 on 4 and 6 (A
+  2.3 / 2.7, V 2.4 under D, bob 1.9 / 1.8, heart 2.0 / 1.8), its minimum at windows 10–20 and the transport 2
+  to 20 times lower at the delivered window. Verdict: D98 kept (18 of 19 within the spread, V by its run
+  length); the late trade of the silhouette is the selection merit's weighting at the end (the render's weight
+  follows the physics gradient down, D81) and is the next item for the render arm's lead.
 - **D99, the drag scales the whole velocity field (pre-registered 2026-10-05 16:04 CDT, queued behind D97's dragon
   readings; code: `mpm/kernels.py` k_p2g; the record's angular momentum budget `L_start`, `L_grid`, `L_jump`
   (`window/telemetry.py`); server `repo_r85` = HEAD with this; `tmp/d99.sh`, `output/gpu/d99`).** After D98 the
