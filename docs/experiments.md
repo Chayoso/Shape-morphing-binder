@@ -460,7 +460,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
 - **D89, one render resolution, the fine one, from the first window (adopted from D83; pre-registered
-  2026-10-04 23:10 CDT; the user: "그 다음은 Opus로 진행하는데, 계속 goal 까지 작업 지속 해 줘"; code:
+  2026-10-04 23:04 CDT at launch; the user: "그 다음은 Opus로 진행하는데, 계속 goal 까지 작업 지속 해 줘"; code:
   `scripts/pipeline_run.py`, `render_res = render_res_hi = the fine resolution following N`; server `repo_r76`
   = HEAD with this; `output/gpu/d89`).** D83's diagnostic made the definition: the coarse stage fitted a
   picture whose pixel was wider than the detail (3.2–3.8 pitches at 300k, D73) and left the fine stage three
