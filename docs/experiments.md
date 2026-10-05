@@ -553,6 +553,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   by a half to two thirds; the bunny's render arm turns no more than its twin; the display is unchanged.
   Risk: the projection takes from u in the windows where the transport moves material as a whole across the
   body, and the early transit is slower.
+  **Result (runs 12:04–12:54, readings done 13:43, read 13:46; `output/gpu/d94`, `tmp/allframes.py`,
+  `tmp/matched_rest.py`): u is free of the rigid modes (u_com, u_rot ≤ 1e-12 in every window), the drift of both
+  arms falls 2–6 times and the display holds; the criterion "the render arm at or ahead of its twin on every
+  momentum measure" is not met, on small remainders.** Windows: bunny L 58 commits (D93 73), P 80; dragon L
+  113, P 107 (44 and 47 min). Momentum, L against P (centre of mass largest / end in pitches; net rotation;
+  what still moves at the end, pitches a pair; kinetic energy last / last ten): bunny 0.0044 / 0.0044 against
+  0.0071 / 0.0071, 0.0056° against 0.0113°, 0.0032 against 0.0029, 3.4e-6 / 7.2e-6 against 4.0e-6 / 5.9e-6;
+  dragon 0.0096 / 0.0096 against 0.0074 / 0.0074, 0.0178° against 0.0168°, 0.0063 against 0.0068, 2.2e-5 /
+  2.4e-5 against 2.4e-5 / 2.7e-5. The centre-of-mass velocity's last ten windows and the net-over-gross ratios
+  of the last 20 pairs are L's on both meshes; its largest and the run's linear ratio are P's on the dragon.
+  Against D93 (the code before): bunny L's path 0.0251 → 0.0052 pitches and rotation 0.0125° → 0.0056°, its end
+  0.0043 → 0.0044 (it drifts late, 0.0008 → 0.0042 between frames 720 and 2160, while the body moves 0.003–0.005
+  pitches a pair: not u); dragon L's end 0.019 → 0.0096, rotation 0.072° → 0.018°, P's 0.022 → 0.0074,
+  0.105° → 0.017°. The expected order of magnitude is met by neither; the remainder is the layer's
+  relaxation and the minimum spacing, the other two position updates below the grid (D93). The bunny's rest
+  is L's at matched windows by 10 % (kinetic energy over commits 49–58 7.2e-6 against 6.5e-6) while its move
+  per window is smaller (3.9e-4 against 4.3e-4); the "last ten" gap of 21 % is partly where each run stopped.
+  Display, the common range after window 10 against the independent sample, L against P (1 − IoU / mean
+  difference): bunny front −25 % / −17 %, crop −27 % / −25 %, far side −28 % / −17 %; dragon front −28 % /
+  −14 %, crop −38 % / −24 %, far side −30 % / −14 %. Yardstick, exterior: bunny silhouette −47 %, shading
+  −22 %; dragon −58 %, −32 %; on the particle cloud the bunny's shading is −8 % (dragon −21 %). Detached sets
+  in the dragon's last 60 kept frames: L 6.8 (most 22) against P 9.0 (25). The last 20 frames: bunny front
+  difference −10 %, far side −9 %; the rest at least −18 %. Against D93's display (last 20): bunny L crop
+  0.9795 against 0.9806, dragon L front 0.9899 against 0.9908 and crop 0.9774 against 0.9792; but the twin moved
+  as much (dragon P crop 0.9708 against 0.9721), so the repeat spread at 300k is about 0.0013, not 0.0006. Kept:
+  the u control conserves what the grid conserves, and both arms drift less. Next (D97): the relaxation's and
+  the minimum spacing's net translation and rotation per window, measured as D93 measured u's.
 - **D93, where the render arm's small excess of drift on the bunny comes from (a measurement on the defaults;
   pre-registered 2026-10-05 09:33 CDT at launch; the user: "렌더러가 물리 only 를 이기는 방향으로 수정 하고, …
   (모멘텀, metric, loss 전부)"; code: the record `u_com`, `u_rot` (`window/solve.py`, 67f900a); server `repo_r79`;
