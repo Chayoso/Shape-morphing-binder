@@ -459,7 +459,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
-- **D97, where the remaining drift comes from (a measurement; pre-registered 2026-10-05 13:52 CDT at launch; code:
+- **D97, where the remaining drift comes from (a measurement; pre-registered 2026-10-05 13:52 CDT at launch, the bunny
+  relaunched 13:55 with the vectors in the record (`*_vcom`, `*_vrot`: summed over windows they attribute the net drift); code:
   the record `grid_*`, `spacing_*`, `relax_*`, `body_*` beside `u_*` (`window/telemetry.py` below_grid_record);
   server `repo_r82` = HEAD with the exact exterior speed-up and this record; `tmp/d97.sh`, `output/gpu/d97`).**
   After D94 the render arm is still behind its twin on the dragon's centre of mass (0.0096 against 0.0074

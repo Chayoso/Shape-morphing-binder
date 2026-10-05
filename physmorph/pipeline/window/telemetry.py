@@ -139,7 +139,8 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
     minimum spacing's push (spacing_*, recomputed from each step's positions with the frozen neighbour lists as
     k_update applies it), the u channel's displacement du (u_*), and the rest of what the steps move outside the
     grid: the layer's relaxation and the bonds' re-coupling of decoupled particles (relax_*); body_* is the whole
-    (D93, D97). Uniform mass."""
+    (D93, D97). *_com and *_rot are the sizes, *_vcom and *_vrot the vectors (summed over windows they give each
+    part's share of the run's net drift). Uniform mass."""
     tr, T, N = win.tr, win.T, win.N
     dt, frac = float(tr.prm.dt), 1.0 / float(tr.control_steps)
     nbr = wp.to_torch(tr.space_nbr).reshape(N, -1).long() if tr.space_K > 0 else None
@@ -156,8 +157,9 @@ def below_grid_record(win, du: torch.Tensor) -> dict:
     r = win.x0 - win.x0.mean(0)
     out = {}
     for k, D in (("grid", grid), ("spacing", space), ("u", du), ("relax", below - du - space), ("body", grid + below)):
-        out[k + "_com"] = float(D.sum(0).norm()) / N
-        out[k + "_rot"] = float(torch.linalg.cross(r, D, dim=1).sum(0).norm() / r.square().sum())
+        com, rot = D.sum(0) / N, torch.linalg.cross(r, D, dim=1).sum(0) / r.square().sum()
+        out.update({k + "_com": float(com.norm()), k + "_rot": float(rot.norm()),
+                    k + "_vcom": com.tolist(), k + "_vrot": rot.tolist()})
     return out
 
 
