@@ -104,10 +104,7 @@ def k_p2g(x: wp.array(dtype=wp.vec3), v: wp.array(dtype=wp.vec3),
     Feff = F[p] + dFc[p]
     C0 = 3.0 * inv_dx * inv_dx
     # omega[p] = support gate on the APIC affine term (1 = plain APIC; k_support_gate)
-    # the drag scales the particle's whole velocity field v + C (x - x_p): on v alone it took the
-    # translation and left the spin, and turned a body at rest (D99: the grid's whole change of
-    # angular momentum); scaled together, zero momentum and zero angular momentum stay zero
-    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + omega[p] * m[p] * (1.0 - dt * drag) * C[p]   # total-PK1 form
+    G = -C0 * dt * vol[p] * (P[p] @ wp.transpose(Feff)) + omega[p] * m[p] * C[p]   # total-PK1 form
     vp = v[p]
     if bond_K > 0 and frag[p] > 0.5:
         # FRAGMENT (its occupied-cell component is not the body's): the grid cannot couple

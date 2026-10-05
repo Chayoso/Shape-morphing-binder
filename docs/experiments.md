@@ -468,6 +468,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   each before a verdict; the gallery's single-run spread: up to 6 points of thin on one mesh, C stops early in 3 of
   4 runs of any code); the median body net translation lower in N than in O; N ahead of Q on the silhouette on
   at least 17 of 19 meshes (D92: 19 of 19).
+  **Changed 17:14 (D99 refuted):** the arms N and Q (`repo_r85`, D98 + D99) are skipped from there on (A,
+  armadilo, beast, bimba had run them) and replaced by D = D98's code (`repo_r83`, render arm) and E = its
+  physics-only twin, for all 19 meshes; O stays the code before. Four workers (GPUs 0–3).
 - **D99, the drag scales the whole velocity field (pre-registered 2026-10-05 16:04 CDT, queued behind D97's dragon
   readings; code: `mpm/kernels.py` k_p2g; the record's angular momentum budget `L_start`, `L_grid`, `L_jump`
   (`window/telemetry.py`); server `repo_r85` = HEAD with this; `tmp/d99.sh`, `output/gpu/d99`).** After D98 the
@@ -492,6 +495,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   spin the drag now damps was dissipated before, a little more kinetic energy may remain).
   Expectation: the rotation falls to the jumps' share (the position updates still move r and leave v),
   about a sixth of now; nothing else moves.
+  **Result (bunny runs 16:14–16:41, the render arm's reading 17:11; read 17:13): refuted, reverted.** The
+  APIC angular momentum is now kept: over the run the grid's steps change it by 14.6 (L) and 27.6 (P), the
+  position updates below the grid by 14.6 and 27.4, the two opposite (cosine −1.00), the run's whole change
+  0.47 and 0.49. But the visible net rotation over the run grew eight to twelve times: the kept frames' 0.0040°
+  → 0.0334° (L) and 0.0034° → 0.0404° (P); the record's 0.0075° → 0.0248° and 0.0077° → 0.0292°. The drag on v
+  alone damped the body's bulk rotation (x × v) faster than its local spins; made consistent, it no longer
+  does, and the angular momentum the jumps put in shows as rotation while the drag takes it out. The source of
+  the rotation is the jumps: position updates below the grid (the relaxation, the minimum spacing, u) move r
+  and leave v, Σ δr × v ≠ 0, though each is free of the rigid modes. Also: at the end L's kinetic energy
+  5.3e-6 against P's 4.1e-6 (matched windows 6.2e-6 against 5.9e-6) and what still moves 0.0027 against
+  0.0025, both now behind; display unchanged (last 20 frames L front 0.9911, crop 0.9799, far side 0.9912
+  against D98's 0.9914, 0.9814, 0.9910). The criterion (the rotation at least halved) fails; the kernel is
+  back to the drag on v, the test with it removed; the angular momentum budget stays in the record (it found
+  the jumps). The dragon runs were stopped at 17:14; D100 runs on D98's code instead (below).
 - **D98, the relaxation moves the body neither along nor about any axis (pre-registered 2026-10-05 14:26 CDT, queued
   behind D97's bunny readings; code: `mpm/kernels.py` k_layer_relax / k_layer_project, `mpm/traj.py`; server
   `repo_r83` = HEAD with this; `tmp/d98.sh`, `output/gpu/d98`).** D97's cause (bunny, both arms): the layer's
