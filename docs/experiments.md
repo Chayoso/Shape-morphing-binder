@@ -487,6 +487,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   **Changed 17:14 (D99 refuted):** the arms N and Q (`repo_r85`, D98 + D99) are skipped from there on (A,
   armadilo, beast, bimba had run them) and replaced by D = D98's code (`repo_r83`, render arm) and E = its
   physics-only twin, for all 19 meshes; O stays the code before. Four workers (GPUs 0–3).
+  **Result (all runs done 18:16; read 18:17; `tmp/d100_rows.py`).** Silhouette IoU against the independent
+  sample, D against O: median +0.0001, at or above on 12 of 19, from −0.0036 (V) to +0.0013 (bunny); below by
+  more than 0.0005 on V (−0.0036), C (−0.0011), fandisk (−0.0010), nefertiti (−0.0009). D against E: ahead on
+  19 of 19, 1 − IoU median −11 % (−21 % to −5 %). The body's net translation over the run, median: O 2.97e-4,
+  D 2.51e-6 wu (118 times less); D at most 7e-6 on 18 meshes, C 2.5e-4 (its twin 1.0e-3). By the criteria V
+  gets a second run of O and D before a verdict (and C, whose drift stays); queued 18:17 on GPUs 0 and 1
+  (`tmp/d100b.sh`, tags *_O2, *_D2).
 - **D99, the drag scales the whole velocity field (pre-registered 2026-10-05 16:04 CDT, queued behind D97's dragon
   readings; code: `mpm/kernels.py` k_p2g; the record's angular momentum budget `L_start`, `L_grid`, `L_jump`
   (`window/telemetry.py`); server `repo_r85` = HEAD with this; `tmp/d99.sh`, `output/gpu/d99`).** After D98 the
