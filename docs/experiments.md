@@ -459,6 +459,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D99, the drag scales the whole velocity field (pre-registered 2026-10-05 16:04 CDT, queued behind D97's dragon
+  readings; code: `mpm/kernels.py` k_p2g; the record's angular momentum budget `L_start`, `L_grid`, `L_jump`
+  (`window/telemetry.py`); server `repo_r85` = HEAD with this; `tmp/d99.sh`, `output/gpu/d99`).** After D98 the
+  rotation left is the grid's (bunny L 0.0075°, all of it). The budget per step (APIC's angular momentum, x × v
+  plus the affine part with D = dx²/3) on a 40k bunny run (12 windows, `tmp/ang_budget.py`): the grid's steps
+  changed it by 23.8 over the run (path 75), the position updates below the grid by 3.8; with `--drag 0` the
+  grid's change is 0.15 (path 0.29), 150 times less. P2G damps the particle's velocity v by the drag
+  (m v (1 − dt drag)) and not its affine part m C: the drag took the translation and left the spin, which turns
+  a body whose local spins and bulk motion balance. The definition: the drag scales the particle's whole
+  velocity field v + C (x − x_p), so zero momentum and zero angular momentum stay zero and the dissipation
+  stays. One factor. Test: a ball in rigid rotation with APIC's affine term and no elasticity keeps its angular
+  momentum at the drag's factor per step to 1e-4 (without drag: conserved); it fails on the code before by
+  3 %. Tests: 284 passed, 2 skipped (one contract test with a null first window on the tiny cloud failed once
+  in the full run and passed six of six alone, as before the change).
+  Runs: the defaults, L (GPU 3) and P (GPU 2), bunny then dragon 300k, read with `runeval3.sh`, against D98's
+  runs. Then the 40k gallery (render arm, 19 meshes) of this code against D97's code (`repo_r82`), for the two
+  definition changes together.
+  Criteria: the body's net rotation over the run falls by at least half in both arms on both meshes and the
+  record's L_grid to the size of L_jump or less; the render arm at or ahead of its twin on every momentum
+  measure; the display and yardstick at least 10 % ahead of the twin; neither arm's display behind D98's by
+  more than the repeat spread (0.0013 IoU); kinetic energy at the end not above D98's beyond the spread (the
+  spin the drag now damps was dissipated before, a little more kinetic energy may remain).
+  Expectation: the rotation falls to the jumps' share (the position updates still move r and leave v),
+  about a sixth of now; nothing else moves.
 - **D98, the relaxation moves the body neither along nor about any axis (pre-registered 2026-10-05 14:26 CDT, queued
   behind D97's bunny readings; code: `mpm/kernels.py` k_layer_relax / k_layer_project, `mpm/traj.py`; server
   `repo_r83` = HEAD with this; `tmp/d98.sh`, `output/gpu/d98`).** D97's cause (bunny, both arms): the layer's
