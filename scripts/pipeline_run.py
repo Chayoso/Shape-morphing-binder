@@ -55,6 +55,8 @@ def parse_args():
                     help="read the render terms on the exterior (surface discs) in place of the particle cloud")
     ap.add_argument("--min_spacing", type=float, default=0.0,
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
+    ap.add_argument("--render_target_draws", type=int, default=1,
+                    help="the render's target pictures are the mean over this many independent samples of the target")
     ap.add_argument("--layer_relief", action="store_true",
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
     ap.add_argument("--render_res_hi", type=int, default=None,
@@ -147,7 +149,7 @@ def main():
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
-                   surface=args.n // 4 if args.layer_relief else 0)
+                   surface=args.n // 4 if args.layer_relief else 0, draws=args.render_target_draws)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
@@ -185,7 +187,7 @@ def main():
     t0 = time.time()
     stride = args.save_F_stride if args.save_F_stride > 0 else cfg.T
     res = run_pipeline(src, tgt, prm, cfg, log=lambda s: print(s, flush=True), on_commit=on_commit,
-                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface)
+                       on_iter=on_iter, F_stride=stride, thin=ts, surface=prep.tgt_surface, draws=prep.tgt_draws)
     seconds = time.time() - t0
     frames, dn = res["frames"], res["deliver_n"]
     delivered = [h for h in res["history"] if h.get("frame_end") and not h.get("null_commit")

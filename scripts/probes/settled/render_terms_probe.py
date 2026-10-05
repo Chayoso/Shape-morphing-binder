@@ -1,9 +1,11 @@
-"""render_terms_probe.py FRAMES_NPZ [RES] — D62: the render terms of every kept frame of a run on one yardstick, both
+"""render_terms_probe.py FRAMES_NPZ [RES] [ref=NPZ] — D62: the render terms of every kept frame of a run on one yardstick, both
 definitions: on the particle cloud (d_render, d_pbr) and on the exterior (d_exterior, the discs found at that frame),
 each against the target drawn by the same operator. The pipeline's own functions and constants at render resolution
 RES (default 96, the fine level); the particle shading's normal grid spans three render extents about the origin (the
 run's spans the MPM domain: the same operator on another box, the same box for every run read here).
-One JSON line per frame: its raw index, the two silhouette and the two shading terms, the discs."""
+One JSON line per frame: its raw index, the two silhouette and the two shading terms, the discs. `ref=NPZ`: the
+targets are drawn from that file's sample in place of the run's own (an independent sample of the mesh, D90: the
+run's own sample is also the render term's target)."""
 import json, sys
 from pathlib import Path
 
@@ -20,10 +22,12 @@ from physmorph.render.exterior import Lattice, ZhuBridson      # noqa: E402
 
 dev = torch.device("cuda")
 cfg = PipelineConfig()
-res = int(sys.argv[2]) if len(sys.argv) > 2 else cfg.render_res_hi
+opts = sys.argv[2:]
+res = next((int(s) for s in opts if s.isdigit()), cfg.render_res_hi)
+ref = next((s[4:] for s in opts if s.startswith("ref=")), None)
 z = np.load(sys.argv[1], allow_pickle=True)
 raws, frames = [int(v) for v in z["raws"]], z["frames"]
-tgt = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
+tgt = torch.as_tensor(np.asarray(np.load(ref)["tgt"] if ref else z["tgt"], np.float32), device=dev)
 set_kernel("cic")
 views = make_views(cfg.render_views, cfg.render_elevs)
 extent = float(tgt.abs().max()) * 1.25

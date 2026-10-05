@@ -44,7 +44,12 @@ def sample_volume_stratified(mesh: trimesh.Trimesh, n: int, seed: int = 0) -> np
     is a jittered lattice: the relative shot noise of the blurred density falls from
     1/sqrt(particles per blur volume) to the lattice's own (bunny 40k: layer plane-residual
     RMS 0.35 -> 0.29 spacings, NN-distance CV 0.37 -> 0.29; sampling_test 2026-09-19)."""
-    rng = np.random.default_rng(seed)
+    return stratified_draws(mesh, n, [seed])[0]
+
+
+def stratified_draws(mesh: trimesh.Trimesh, n: int, seeds) -> list:
+    """sample_volume_stratified once per seed on one fill (the fill is found once): independent draws of the
+    same sampler."""
     ext = float(mesh.extents.max())
     lo, hi = 20, 400
     while hi - lo > 1:
@@ -57,10 +62,14 @@ def sample_volume_stratified(mesh: trimesh.Trimesh, n: int, seed: int = 0) -> np
     if len(centers) < n:
         raise ValueError(f"stratified fill at {hi}^3 holds {len(centers)} < n = {n} voxels")
     pitch = ext / hi
-    keep = rng.choice(len(centers), n, replace=False) if len(centers) > n else np.arange(n)
-    jitter = (rng.uniform(-0.5, 0.5, (n, 3)) * pitch).astype(np.float32)
     print(f"[sampling] stratified: fill {hi}^3 = {len(centers)} voxels for n = {n}, pitch {pitch:.4g}", flush=True)
-    return (centers[keep] + jitter).astype(np.float32)
+    out = []
+    for seed in seeds:
+        rng = np.random.default_rng(seed)
+        keep = rng.choice(len(centers), n, replace=False) if len(centers) > n else np.arange(n)
+        jitter = (rng.uniform(-0.5, 0.5, (n, 3)) * pitch).astype(np.float32)
+        out.append((centers[keep] + jitter).astype(np.float32))
+    return out
 
 
 def sample_volume_shell(mesh: trimesh.Trimesh, n: int, shell_thickness: float, ratio: float = 6.0,
@@ -225,14 +234,26 @@ def load_normalized(path: str, n: int, seed: int = 1, size: float = 8.0,
     return (x, vol) if return_volume else x
 
 
-def surface_in_frame(path: str, frame: dict, n: int, seed: int = 0):
-    """(points (n,3), normals (n,3)): n points of the mesh's surface and their faces' normals, in the frame
-    load_normalized put the mesh's cloud in (`frame`, as it filled it)."""
+def _oriented(path: str) -> trimesh.Trimesh:
     mesh = load_mesh(path)
     from .orientation import orient_name, rotation
     o = orient_name(path)
     if o != "id":
         mesh.vertices = np.asarray(mesh.vertices, np.float64) @ rotation(o).T
+    return mesh
+
+
+def draws_in_frame(path: str, frame: dict, n: int, seeds) -> list:
+    """Independent stratified draws of the mesh's volume (one per seed), each in the frame load_normalized put the
+    mesh's cloud in (`frame`, as it filled it): further samples of the same target, for an expectation over them."""
+    return [((x.astype(np.float64) - frame["offset"]) * frame["scale"]).astype(np.float32)
+            for x in stratified_draws(_oriented(path), n, seeds)]
+
+
+def surface_in_frame(path: str, frame: dict, n: int, seed: int = 0):
+    """(points (n,3), normals (n,3)): n points of the mesh's surface and their faces' normals, in the frame
+    load_normalized put the mesh's cloud in (`frame`, as it filled it)."""
+    mesh = _oriented(path)
     pts, face = trimesh.sample.sample_surface(mesh, n, seed=seed)
     return (((np.asarray(pts, np.float64) - frame["offset"]) * frame["scale"]).astype(np.float32),
             np.asarray(mesh.face_normals[face], np.float32))

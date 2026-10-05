@@ -156,6 +156,24 @@ def test_the_render_weight_is_calibrated_at_every_window(prm, clouds, monkeypatc
     assert all(r["lambda"] > 0 for r in res["history"] if r.get("lambda") is not None)
 
 
+def test_the_render_targets_are_the_mean_over_the_draws(prm, clouds):
+    """D91: with further samples of the target the render's target pictures are the mean of every sample's."""
+    from physmorph import gpu
+    from physmorph.pipeline.render_loss import target_silhouettes
+    _, tgt = clouds
+    cfg = _cfg()
+    one = target_mod.build_target(tgt, prm, cfg)
+    same = target_mod.build_target(tgt, prm, cfg, draws=[tgt.copy()])
+    for a, b in zip(one.sils + one.shade, same.sils + same.shade):
+        torch.testing.assert_close(a, b)                             # a draw equal to the sample changes nothing
+    other = np.random.default_rng(3).permutation(tgt + np.float32(0.05))
+    two = target_mod.build_target(tgt, prm, cfg, draws=[other])
+    drawn = target_silhouettes(gpu.tensor(other), one.views, cfg.render_res, one.extent, cfg.sil_k)
+    for a, b, c in zip(two.sils, one.sils, drawn):
+        torch.testing.assert_close(a, 0.5 * (b + c))
+    assert two.draws is not None and len(two.draws) == 1
+
+
 def test_a_changed_render_weight_rescores_the_references():
     sel = Selection(PipelineConfig())
     rec = {"selection_merit": 1.0}

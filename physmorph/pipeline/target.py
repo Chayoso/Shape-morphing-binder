@@ -69,6 +69,7 @@ class TargetPack:
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
     ext: Exterior | None = None         # the render terms' exterior, when they are read on it
     relief: object = None               # window/layer.TargetRelief: the relaxation's reference, from the target's surface
+    draws: list | None = None           # further samples of the target whose pictures the render's targets average
 
 
 def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
@@ -91,9 +92,15 @@ def target_relief(tgt_t: torch.Tensor, surface, cfg: PipelineConfig):
     return relief
 
 
-def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
+def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> TargetPack:
+    """draws: further independent samples of the target in its frame. The render term's target pictures are then the
+    mean of the pictures the operator draws of every sample: what it draws of the mesh in expectation. Drawn from
+    the one sample, a render arm fitted that sample's noise as well, and half its measured lead over the
+    physics-only twin was that fit (D90, D91)."""
     set_kernel("cic")
     tgt_t = gpu.tensor(target_x)
+    samples = [tgt_t] + [gpu.tensor(d) for d in (draws or [])]
+    mean = lambda per: [torch.stack(v).mean(0) for v in zip(*per)]   # noqa: E731  (per sample, a list over views)
     N = tgt_t.shape[0]
     m = torch.ones(N, device=gpu.DEVICE)
     if cfg.support_weight <= 0:
@@ -117,7 +124,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
         gate = (target_mass_grid(tgt_t, m, lgmin, gdx, gdims), gdx, gdims)
     views = make_views(cfg.render_views, cfg.render_elevs)
     extent = float(tgt_t.abs().max()) * 1.25
-    sils = target_silhouettes(tgt_t, views, cfg.render_res, extent, cfg.sil_k)
+    sils = mean([target_silhouettes(s, views, cfg.render_res, extent, cfg.sil_k) for s in samples])
     # shading: the morph's normals on a render-pixel grid blurred by the renderer's 1.5 target
     # spacings; the target image is drawn by the same operator at the target (matched), so
     # the loss compares the operator with itself and no target/operator bias enters
@@ -125,8 +132,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     pdx = 2.0 * extent / cfg.render_res
     pdims = tuple(int(np.ceil((dmax - dmin).max() / pdx)) for _ in range(3))
     pblur = 1.5 * sp_t / pdx
-    shade = shade_targets(tgt_t, views, cfg.render_res, extent, lgmin, pdx, pdims,
-                          cfg.sil_k, cfg.pbr_ambient, blur_cells=pblur)
+    shade = mean([shade_targets(s, views, cfg.render_res, extent, lgmin, pdx, pdims,
+                                cfg.sil_k, cfg.pbr_ambient, blur_cells=pblur) for s in samples])
     print(f"[target] shading target: spacing {sp_t:.4f}, normal grid {pdims[0]}^3 at {pdx:.4f} wu "
           f"({pdx / sp_t:.2f} spacings), blur {pblur:.2f} cells", flush=True)
     ext = None
@@ -138,13 +145,17 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
         center = tgt_t.mean(0)
         lattice = Lattice(center, 2.8 * float((tgt_t - center).norm(dim=1).max()))
         h = min(extent / cfg.render_res, 0.92 * pitch)
-        with torch.no_grad():
-            p_t, g_t, _, _ = lattice.discs(ZhuBridson(tgt_t, pitch), h, refine=False)
-        e_sils, e_shade = exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
-                                           extent, cfg.sil_k, cfg.pbr_ambient)
+        per = []
+        for s in samples:
+            with torch.no_grad():
+                p_t, g_t, _, _ = lattice.discs(ZhuBridson(s, pitch), h, refine=False)
+            per.append(exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
+                                        extent, cfg.sil_k, cfg.pbr_ambient))
+        e_sils, e_shade = mean([e[0] for e in per]), mean([e[1] for e in per])
         ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade)
         print(f"[target] exterior: pitch {pitch:.4f} wu, lattice {h / pitch:.2f} pitches = "
-              f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target", flush=True)
+              f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target"
+              + (f"; the pictures are the mean over {len(samples)} samples" if len(samples) > 1 else ""), flush=True)
     # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range)
     dtdims = (cfg.dt_res,) * 3
     dtdx = 3.0 * extent / cfg.dt_res
@@ -157,7 +168,8 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig) -> TargetPack:
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m, views=views, sils=sils,
                       extent=extent, shade=shade, pgmin=lgmin, pdx=pdx, pdims=pdims, pblur=pblur,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, pts=tgt_t, knn=knn,
-                      nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate, ext=ext)
+                      nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate, ext=ext,
+                      draws=draws)
 
 
 def rebuild_for_resolution(tgt: TargetPack, target_x, prm: MPMParams,
@@ -165,7 +177,7 @@ def rebuild_for_resolution(tgt: TargetPack, target_x, prm: MPMParams,
     """Coarse-to-fine: a fresh target at cfg.render_res. The unit ratios and the transport
     scale and solver survive (no weight changes silently at the switch); the render weight
     and the step warm start are recalibrated for the new images."""
-    new = build_target(target_x, prm, cfg)
+    new = build_target(target_x, prm, cfg, draws=tgt.draws)
     new.unit_ratio, new.unit_grad_ratio = tgt.unit_ratio, tgt.unit_grad_ratio
     new.ot_scale, new.grid_ot, new.relief = tgt.ot_scale, tgt.grid_ot, tgt.relief
     return new

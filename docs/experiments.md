@@ -459,6 +459,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D91, the render's target pictures are the mean over independent samples of the target (pre-registered
+  2026-10-05 00:38 CDT at launch; code: `pipeline/target.py` (build_target(draws=)), `prepare.py` (draws),
+  `sampling/mesh.py` (stratified_draws, draws_in_frame), `run/runner.py`, `scripts/pipeline_run.py
+  --render_target_draws K`, default 1 = as before; server `repo_r77` = HEAD 922b4de with this; `output/gpu/d91`;
+  `tmp/d91.sh`, `tmp/runeval3.sh`).** D90's cause: the render term's target is the one sample whose pictures
+  the operator draws, and half the render arm's measured lead was its fit of that sample. What the render
+  term should match is what the operator draws of the mesh, the expectation over samples; the definition of
+  the target pictures becomes their mean over K samples of the target: the pipeline's own and K − 1 further
+  independent stratified draws (same fill, other seeds: 198, 298, …; seed 99 is kept out, it is the
+  evaluation's reference) in the target's exact frame (checked: a draw with the target's seed reproduces it
+  to 2e-7 wu). Every picture the render term reads is averaged (the exterior's silhouettes and shading, and
+  the particle cloud's for runs without the exterior). K = 8 lowers the pictures' sampling noise √8 times; the
+  transport and the other terms still read the one sample. Tests: a draw equal to the sample changes nothing,
+  two samples give the mean picture (`tests/test_settled_contracts.py`).
+  Runs: bunny and dragon 300k, HEAD's recipe (D81's weight, D89's one resolution, D70's rule, the exterior)
+  with `--render_target_draws 8` (LK), against LG and LN (the same with K = 1) and the physics-only twins PA,
+  PN. From here every run is read against the independent sample (`runeval3.sh`: yardstick and display with
+  `ref=`), on every kept frame, with momentum, arrangement, offsets from the mesh and relief bands.
+  Criteria: against the independent sample, LK ahead of LG/LN on the display's differences and on the
+  yardstick, and at least 10 % ahead of the twin on every display measure (the bunny's front and far side
+  were 4–8 % under K = 1, D90); physics measures and momentum not behind the twin by more than PA–PN's spread.
+  Expectation: the gap between the own-target and the independent reading closes (the render arm no longer
+  fits one sample); against the independent sample the differences fall 5–10 % below LG's, the IoUs stay.
+  Risk: the mean picture is softer at its edges than any sample's, and the silhouette term's balance between
+  holes and spray (w_hole 2, w_spray 1) reads a soft edge as partly covered; the body may settle a little
+  outside.
 - **D90, the display against an independent sample of the mesh: the render arm's lead is half what its own
   target sample showed (a measurement; 2026-10-05 00:28 CDT; `tmp/dense_ref.py`, `tmp/collect_ends.py`,
   `tmp/d90.sh`, `tmp/d90_rows.py`; `surface_layer_probe.py refpitch=run`; `output/gpu/d90`).** Every display
