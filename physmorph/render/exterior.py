@@ -56,23 +56,26 @@ class ZhuBridson:
         self.x, self.pitch, self.radius, self.offset = x, pitch, radius * pitch, offset * pitch
         self.bins = Bins(x, self.radius)
 
-    def __call__(self, q):
-        """f(q), its gradient in q, and the summed weight (zero where no particle is within the radius)."""
+    def __call__(self, q, grad=True):
+        """f(q), its gradient in q (None without `grad`: the lattice's corners need the sign alone, and on a 300k
+        state the gradient was half of the field's 1.2 s at the 3.2M nodes, D96), and the summed weight (zero where
+        no particle is within the radius)."""
         x, R = self.x, self.radius
         f, g, s = [], [], []
         for qc in q.split(max(4096, int(2e6 / self.bins.width))):
             idx = self.bins.around(qc)
             p = x[idx.clamp_min(0)]
-            qc = qc.detach().requires_grad_(True)
-            with torch.enable_grad():
+            qc = qc.detach().requires_grad_(grad)
+            with torch.set_grad_enabled(grad):
                 w = (1. - (qc[:, None, :] - p).square().sum(-1) / (R * R)).clamp_min(0.) ** 3 * (idx >= 0)
                 sw = w.sum(1)
                 xbar = (w[..., None] * p).sum(1) / sw.clamp_min(1e-12)[:, None]
                 fc = (qc - xbar).norm(dim=1) - self.offset
-                gc, = torch.autograd.grad(fc.sum(), qc)
-            f.append(fc.detach()); g.append(gc); s.append(sw.detach())
-        f, g, s = torch.cat(f), torch.cat(g), torch.cat(s)
-        return torch.where(s > 1e-6, f, f.new_full((), float("inf"))), g, s
+                if grad:
+                    g.append(torch.autograd.grad(fc.sum(), qc)[0])
+            f.append(fc.detach()); s.append(sw.detach())
+        f, s = torch.cat(f), torch.cat(s)
+        return torch.where(s > 1e-6, f, f.new_full((), float("inf"))), torch.cat(g) if grad else None, s
 
     def project(self, q, steps=6, stay=None):
         """Newton steps onto the zero set, a step no longer than half a pitch: the points that end on it (and, with
@@ -175,12 +178,12 @@ class Lattice:
         found (D59: 0.2-2 % of the zero set, pockets under the surface for the most part)."""
         first = 2 * h if refine else h
         coarse = self.near_nodes(field.x, first, 2)
-        big = self.crossed(coarse, key(coarse), field(self.at(coarse, first))[0])
+        big = self.crossed(coarse, key(coarse), field(self.at(coarse, first), grad=False)[0])
         if not refine:
             return big, len(coarse)
         big = unkey(torch.unique(key(big[:, None, :] + cube(-1, 2, big.device)[None])))
         fine = torch.unique(key(2 * big[:, None, :] + cube(0, 3, big.device)[None]))
-        f = field(self.at(unkey(fine), h))[0]
+        f = field(self.at(unkey(fine), h), grad=False)[0]
         return self.crossed((2 * big[:, None, :] + cube(0, 2, big.device)[None]).reshape(-1, 3), fine, f), len(coarse) + len(fine)
 
     def discs(self, field, h, refine=True):

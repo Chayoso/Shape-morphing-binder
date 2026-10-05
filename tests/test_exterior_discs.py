@@ -1,5 +1,6 @@
 """The exterior (render/exterior.py) and the render terms read on it (D62), CPU: (1) the discs of a ball of particles
-lie on the field's zero set, a sphere, with radial normals; (2) tracked discs are where they were found, and follow a
+lie on the field's zero set, a sphere, with radial normals, and the field read without its gradient has the same
+values; (2) tracked discs are where they were found, and follow a
 translation of the particles along their normals; (3) a loss on the tracked discs reaches the particles and its
 gradient matches central finite differences; (4) the render terms vanish on the target's own discs and not on a
 shifted body."""
@@ -33,6 +34,17 @@ def test_discs_lie_on_the_zero_set_with_radial_normals():
     r = pts.norm(dim=1)
     assert 5. < float(r.mean()) < 7. and float(r.std()) < .35
     assert float((torch.nn.functional.normalize(g, dim=1) * torch.nn.functional.normalize(pts, dim=1)).sum(1).mean()) > .95
+
+
+def test_the_field_without_its_gradient_has_the_same_values():
+    x = _ball()
+    field = ZhuBridson(x, 1.)
+    q = Lattice(torch.zeros(3, dtype=x.dtype), 30.).at(torch.randint(0, 40, (2000, 3)), .4)
+    with torch.no_grad():                                       # as the window's objective calls it
+        f, g, s = field(q)
+        f2, g2, s2 = field(q, grad=False)
+    assert g2 is None and g.shape == q.shape
+    assert torch.equal(f, f2) and torch.equal(s, s2)
 
 
 def test_tracked_discs_stay_where_found_and_follow_a_translation():

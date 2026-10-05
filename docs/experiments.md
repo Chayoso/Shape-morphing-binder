@@ -486,6 +486,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   tenth of the discs has moved more than half a lattice pitch. A run is 22.6 min = 72 windows × 18.8 s: against
   D19's 8.7 min (44 × 10.7 s), 1.6 times the windows and 1.75 times the window, the exterior making most of the
   latter. One gradient (0.94 s) is unchanged.
+  Inside one search (`tmp/ext_time.py`, the bunny's kept frames, alone on a GPU, 1.7 s): the field at the 3.2M
+  lattice nodes 1.22–1.29 s, of which its gradient (computed and thrown away: the corners need the sign alone)
+  half (the value alone 0.64–0.68 s, bitwise the same); the projection of the 200k crossed cells' centres
+  0.38–0.40 s; the rest 0.08 s. The field now reads the value alone at the corners (`ZhuBridson(q, grad=False)`,
+  test: the same values under no_grad): the search 1.77 → 1.16 s with bitwise the same discs (points, normals,
+  slopes, particle lists; `tmp/ext_same.py`), about 1.4 s of a window's 16–19 s. Tests: 280 passed, 2 skipped
+  (server `repo_r81`).
 - **D95, where the render gradient acts (a visualisation on the defaults; pre-registered 2026-10-05 12:16 CDT,
   chains launched 12:29; the user: "랜더 Gradient가 어떻게 영향을 끼치는지도 그 값들 visualization 한 번 해
   줄레?", then "300K 로 돌려서 … gradient 시각화 랜더를 하란 말이었어. 마치 loss_viz.mp4처럼"; probes
