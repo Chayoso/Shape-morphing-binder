@@ -459,6 +459,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D93, where the render arm's small excess of drift on the bunny comes from (a measurement on the defaults;
+  pre-registered 2026-10-05 09:33 CDT at launch; the user: "렌더러가 물리 only 를 이기는 방향으로 수정 하고, …
+  (모멘텀, metric, loss 전부)"; code: the record `u_com`, `u_rot` (`window/solve.py`, 67f900a); server `repo_r79`;
+  `output/gpu/d93`; `tmp/d93.sh`).** The last measures on which the render arm is behind its physics-only twin
+  are the bunny's net rotation over the run (LK 0.0130°, LG 0.0127°, LF 0.0139° against PN 0.0101°, PA 0.0112°)
+  and its centre of mass at the end (LK 0.0041 pitches against PN 0.0024, PA 0.0033); every other momentum
+  measure is the twin's or better, and on the dragon all are. The grid conserves momentum; three position
+  updates do not by construction: the u channel (the layer moved by u n over a window), the layer's relaxation
+  (by −(d − d̄) n per step) and the minimum spacing where a pair is in one particle's frozen list and not in the
+  other's. The render term acts mostly through u. The record now carries u's net translation and rotation of
+  the body per window. On a three-window 40k run u's net translation per window (2e-5 to 5e-5 wu) is the size
+  of the body's centre-of-mass drift per window.
+  Runs: the defaults, render arm (L) and physics-only twin (P), bunny and dragon 300k; read with
+  `runeval3.sh`. Measured: per window u's net translation and rotation against the body's (from the record's
+  centre of mass and the kept frames' rotation), summed over the run, both arms.
+  What would follow: if u carries the excess, u's displacement field is made free of net translation and
+  rotation (projected onto the complement of the six rigid modes of the layer), a definition of the control
+  that respects the conservation the grid already has.
 - **D92, D91 on the 40k gallery, read against an independent sample (pre-registered 2026-10-05 01:25 CDT at
   launch; `tmp/d92.sh`, `tmp/d92.queue`, `tmp/gallery_ind.py`; `repo_r77`; `output/gpu/d92`).** Three arms on
   the 19 meshes, all with the minimum spacing and D81's weight and D89's one resolution: SK (eight target
