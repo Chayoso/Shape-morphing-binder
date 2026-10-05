@@ -505,6 +505,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   relaxation part is larger where its layer is rougher. What would follow: the same definition as D94's for
   the part that carries the drift (free of the six rigid modes over the layer, or pairwise-symmetric lists for
   the spacing).
+  **Result (bunny runs 13:55–14:19, dragon 14:43–15:28; read 14:20 and 15:40; `tmp/drift_parts.py`): the
+  relaxation is the drift.** Net translation over the run, each part's share of the body's (L / P): bunny
+  relaxation +0.94 / +0.94, grid +0.06 / +0.06, spacing 0.00 / +0.01, u 0; dragon relaxation +0.98 / +0.98,
+  grid +0.02 / +0.02. Net rotation: bunny grid +0.73 / +0.76, relaxation +0.27 / +0.24; dragon grid +0.86 /
+  +0.75, relaxation +0.14 / +0.26; spacing and u nothing. The parts sum to the body within 3e-10 wu. The
+  render arm's relaxation part is the twin's (bunny 2.8e-4 against 3.2e-4 wu, dragon 3.4e-4 against 3.3e-4):
+  the drift is the definition's, not the render's. Second repeat of D94's code (bunny, common range after
+  window 10, L against P): display 1 − IoU −28 / −30 / −29 %, difference −17 / −28 / −18 %, yardstick
+  silhouette −48 %, shading −24 % (particle cloud −4 %); momentum: centre of mass 0.0061 against 0.0070
+  pitches, net rotation 0.0092° against 0.0088° (D94's pair: 0.0056° against 0.0113°: the arms' order on the
+  rotation flips between repeats), what still moves 0.0032 against 0.0030, kinetic energy last ten 6.1e-6
+  against 5.3e-6. Wall: the dragon 39.4 min against D94's 44–47 (the exact exterior speed-up). D98 follows.
 - **D96, where the wall time of a 300k run goes on the defaults (a measurement; pre-registered 2026-10-05 12:56
   CDT; the user: "왜 속도가 느린거야? … 30-40분 쯤 걸리는 거 같은데"; server `repo_r80`, `tmp/d96.sh`,
   `tmp/time_rows.py`, `output/gpu/d96`).** From the records: the 300k bunny took 8.7 min on 2026-10-02 (D19,
