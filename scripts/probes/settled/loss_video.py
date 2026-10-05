@@ -1,16 +1,20 @@
 """loss_video.py ARCHIVE.npz RUN.json GRAD_DUMP_DIR OUT.mp4 — the morph coloured by how wrong each particle
 still is and by how hard each channel pulls on it, red (large) to green (small), with the window losses below.
+ARCHIVE.npz is the run's archive or a kept-frame bundle (run12.sh's TAG_frames12.npz: `frames`, their raw
+indices `raws`); --stride counts the frames of the file.
 
 Panels: (1) shape error, the distance of each particle to the nearest target point in target spacings (green at
 0.5, red at 3 and beyond); (2) the render channel's pull, |lambda (g_sil + w_pbr g_pbr)| on each particle's end
-position at the window start (the gradient dump), log scale, red at the first window's 99th percentile, green two
-decades below; (3) the physics channel's pull |g_phys|, the same scale rule; (4) which way the render channel
-pushes each particle: its descent direction -lambda g_render along the particle's outward normal, red outward,
-blue inward, on panel 2's log scale (full colour at the first window's 99th percentile of the pull, gray below a
-hundredth of it). The gradients of window k colour the frames of window k (the frames up to its frame_end).
-Bottom: the selection merit, the silhouette and shading losses and the transport energy per accepted window,
-each relative to its first value, with the current window marked. Particles are isotropic Gaussians shaded by
-their density normals. Needs a run made with --grad_dump.
+position at the window start (the gradient dump), log scale, red at the window's own 99th percentile, green two
+decades below (the window's own scale shows where the channel acts at every stage; how strong it is against the
+physics is the render share in the status line, and lambda falls about tenfold over a run); (3) the physics
+channel's pull |g_phys|, the same scale rule; (4) which way the render channel pushes each particle: its descent
+direction -lambda g_render along the particle's outward normal, red outward, blue inward, on panel 2's log scale
+(full colour at the window's 99th percentile of the pull, gray below a hundredth of it). The gradients of window
+k colour the frames of window k (the frames up to its frame_end). Bottom: the selection merit, the silhouette and
+shading losses and the transport energy per accepted window, each relative to its first value, with the current
+window marked. Particles are isotropic Gaussians shaded by their density normals. Needs a run made with
+--grad_dump.
 """
 import physmorph  # noqa: F401  (before torch: CuPy's CUDA 12 NVRTC)
 import argparse
@@ -33,12 +37,16 @@ ap = argparse.ArgumentParser()
 ap.add_argument("npz"); ap.add_argument("json"); ap.add_argument("dumps"); ap.add_argument("out")
 ap.add_argument("--stride", type=int, default=3); ap.add_argument("--panel", type=int, default=480)
 ap.add_argument("--azimuth", type=float, default=35.0); ap.add_argument("--elevation", type=float, default=18.0)
-ap.add_argument("--w_pbr", type=float, default=1.0)
+ap.add_argument("--w_pbr", type=float, default=1.0); ap.add_argument("--fps", type=int, default=20)
 a = ap.parse_args()
 dev = "cuda"
 z = np.load(a.npz, allow_pickle=True)
-frames, tgt, _, _ = orient_archive(z, a.npz)
-dn = int(z["deliver_n"]) if "deliver_n" in z.files else len(frames)
+if "raws" in z.files:                                            # a kept-frame bundle of an archive that carried `orient`
+    frames, tgt, raws = z["frames"], np.asarray(z["tgt"]), [int(r) for r in z["raws"]]
+else:
+    frames, tgt, _, _ = orient_archive(z, a.npz)
+    raws = list(range(int(z["deliver_n"]) if "deliver_n" in z.files else len(frames)))
+dn = raws[-1] + 1
 hist = json.load(open(a.json))["arms"]["render_full_dt_iso_nn"]["history"]
 runs = [h for h in hist if h.get("c2f_render_res") is None]      # one record per window, in dump order
 wins = [i for i, h in enumerate(runs) if h.get("frame_end") and not h.get("null_commit")]
@@ -77,17 +85,20 @@ def diverge(v):
     return gray + (torch.where(v > 0, red, blue) - gray) * v.abs()
 
 
+def p99(v):
+    return float(torch.quantile(v[v > 0][:1_000_000].float(), 0.99))
+
+
 def grads(k):
+    """The window's weighted render gradient, |physics gradient|, lambda, render share, and the two colour scales
+    (the window's own 99th percentiles)."""
     d = np.load(os.path.join(a.dumps, dumps[k]))
     lam = float(d["lam_r"])
     render = lam * (torch.as_tensor(d["gx_sil"], device=dev) + a.w_pbr * torch.as_tensor(d["gx_pbr"], device=dev))
-    return render, torch.as_tensor(d["gx_phys"], device=dev).norm(dim=1), lam, float(d["g_share"])
+    phys = torch.as_tensor(d["gx_phys"], device=dev).norm(dim=1)
+    return render, phys, lam, float(d["g_share"]), p99(render.norm(dim=1)), p99(phys)
 
 
-# the colour scale of the gradient panels: the first window's 99th percentiles (fixed for the whole video)
-r0, p0, _, _ = grads(wins[0])
-r0 = r0.norm(dim=1)
-R_ref = float(torch.quantile(r0[r0 > 0][:1_000_000].float(), 0.99)); P_ref = float(torch.quantile(p0[p0 > 0][:1_000_000].float(), 0.99))
 curves = {k: np.array([runs[i][k] for i in wins], np.float64) for k in ("selection_merit", "d_sil", "d_pbr", "transport_energy")}
 curves = {k: v / v[0] for k, v in curves.items()}
 
@@ -120,14 +131,16 @@ def curve_strip(j, W, H):
 light = torch.nn.functional.normalize(torch.tensor([0.4, 0.8, 0.45], device=dev), dim=0)
 center = tgt_t.mean(0); rad = float((tgt_t - center).norm(dim=1).max())
 tmp = tempfile.mkdtemp(dir=os.environ.get("TMPDIR"))
-idx = list(range(0, dn, a.stride)) + [dn - 1]
+idx = list(range(0, len(raws), a.stride))
+idx += [len(raws) - 1] if idx[-1] != len(raws) - 1 else []
 cache = {}
-for kf, f in enumerate(idx):
+for kf, k in enumerate(idx):
+    f = raws[k]
     j = min(int(np.searchsorted(ends, max(f, 1))), len(wins) - 1)      # the accepted window that delivered this frame
     if j not in cache:
         cache.clear(); cache[j] = grads(wins[j])
-    g_r, pmag, lam, share = cache[j]
-    x = torch.as_tensor(np.asarray(frames[f], np.float32), device=dev)
+    g_r, pmag, lam, share, R_ref, P_ref = cache[j]
+    x = torch.as_tensor(np.asarray(frames[k], np.float32), device=dev)
     err = tree.query(x, 1)[0][:, 0].float() / sp_t
     d8, nb = knn_self_torch(x, 17)
     nrm = torch.nn.functional.normalize(x - x[nb[:, 1:]].mean(1), dim=1)
@@ -153,8 +166,8 @@ for kf, f in enumerate(idx):
     for p, t in enumerate(("shape error (distance to target)", "render pull  |lambda g_render|", "physics pull  |g_physics|",
                            "render push along the normal")):
         dr.text((p * a.panel + 16, 6), t, fill=(30, 30, 30), font=FONT)
-    for p, t in enumerate(("green 0.5 sp  ->  red 3 sp", "log; red = window-1 p99, green = 1/100", "log; red = window-1 p99, green = 1/100",
-                           "red out, blue in; log as the pull, gray < 1/100")):
+    for p, t in enumerate(("green 0.5 sp  ->  red 3 sp", "log; red = this window's p99, green = 1/100",
+                           "log; red = this window's p99, green = 1/100", "red out, blue in; log as the pull, gray < 1/100")):
         dr.text((p * a.panel + 16, 34), t, fill=(110, 110, 110), font=SMALL)
     dr.text((16, 64 + a.panel - 30), f"frame {f}/{dn - 1}   window {j + 1}/{len(wins)}   lambda {lam:.3g}   render share {share:.2f}"
             f"   median error {float(err.median()):.2f} sp   >1.5 sp: {100 * float((err > 1.5).float().mean()):.1f} %",
@@ -162,8 +175,8 @@ for kf, f in enumerate(idx):
     im.save(os.path.join(tmp, f"f{kf:04d}.png"))
     if kf % 25 == 0:
         print(f"frame {kf + 1}/{len(idx)}", flush=True)
-for h in range(20):
+for h in range(a.fps):
     im.save(os.path.join(tmp, f"f{len(idx) + h:04d}.png"))
-subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", "20", "-i", os.path.join(tmp, "f%04d.png"),
+subprocess.run(["ffmpeg", "-v", "error", "-y", "-framerate", str(a.fps), "-i", os.path.join(tmp, "f%04d.png"),
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "18", a.out], check=True)
 print("saved", a.out)

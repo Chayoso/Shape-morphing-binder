@@ -459,6 +459,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D96, where the wall time of a 300k run goes on the defaults (a measurement; pre-registered 2026-10-05 12:56
+  CDT; the user: "왜 속도가 느린거야? … 30-40분 쯤 걸리는 거 같은데"; server `repo_r80`, `tmp/d96.sh`,
+  `tmp/time_rows.py`, `output/gpu/d96`).** From the records: the 300k bunny took 8.7 min on 2026-10-02 (D19,
+  96 px: 44 windows, 10.7 s a window: start 0.9, gradients 7.0, line search 2.3, commit 0.5) and takes 22–28 min
+  now (D93, D94: 67–89 windows, 17–20 s a window: start 3.0–3.2, gradients 6.9–7.4, line search 5.5–6.9, commit
+  0.4); the dragon 39–48 min (95–132 windows, 21–23 s a window). One gradient costs what it did (0.94 s against
+  0.90); one line-search trial costs three times as much (0.60–0.75 s against 0.24) and the start of a window
+  three and a half times; the runs are 1.5–2 times longer. Run: the bunny 300k defaults with `--profile` (the
+  timed sections of every evaluation and gradient per window: MPM tape and evaluation, transport geometry,
+  render, exterior, cleanup, the three adjoints) on GPU 1 after D95's effect map. Read: the seconds per window
+  of each section and their calls, set against what each adopted change since D19 adds (the render picture
+  following N, 96 → 188 px, D89; the exterior render terms, D62; the transport grid following N, R2; the
+  minimum spacing, D70; the render weight at every window, D81, and the window count).
+  Expectation: the trial's extra half second is the render (four times the pixels) and the exterior (a surface
+  per evaluation); the start's extra two seconds the finer transport grid; the extra windows come from the
+  stopping (the merit keeps finding a little more each window), not from the cost of a window.
 - **D95, where the render gradient acts (a visualisation on the defaults; pre-registered 2026-10-05 12:16 CDT,
   chains launched 12:29; the user: "랜더 Gradient가 어떻게 영향을 끼치는지도 그 값들 visualization 한 번 해
   줄레?", then "300K 로 돌려서 … gradient 시각화 랜더를 하란 말이었어. 마치 loss_viz.mp4처럼"; probes
@@ -480,6 +496,24 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   there (corr > 0); it moves the layer more through u than through dFc; the physics gradient is spread through
   the body and makes the early windows' moves. Caveat: the u rollouts take the raw gradient, not projected free
   of the rigid modes as D94's step is, so their moves carry a rigid part the run removes.
+  **Bunny (run 12:55–13:29, 84 windows of which 79 committed; read 13:40).** The first video coloured every
+  window on window 1's scale; λ falls tenfold (0.255 → 0.0157 at window 12 → 0.001 from window 40), so from
+  window 20 on both pull panels were uniformly green and the push grey: the video is redrawn with each window
+  on its own 99th percentile (`loss_video.py` now so; from the kept frames, every 12th, and every window's dump),
+  `output/video_2026-10-05/gradient/gradviz_bunny300k_w.mp4`. Read per window (`influence_bunny/rows.txt`):
+  the render gradient is 85–95 % on the outer layer (physics 9 % at window 0, 55–76 % from window 8, 48–50 %
+  at the end) and 98–99.6 % of it in the top 5 % particles in every window (physics 29 % at window 0, 86–93 %
+  later): it acts on few particles, in patches over the surface, not along the silhouette only. It points to
+  the target: toward +0.51 at window 0 (physics −0.02: on the sphere the transport moves material along the
+  surface), +0.73–0.82 at windows 4–10 (physics +0.75–0.90), +0.36–0.44 from window 20 to the end, level with
+  the physics (+0.30–0.45). The two gradients are nearly orthogonal: cosine +0.05–0.21 in the first ten
+  windows, +0.01–0.03 from window 20. At an equal step, the render direction moves the outer layer as far as
+  the physics direction through dFc (6.8 against 4.3 pitches at window 0, 0.02–0.05 each late), and through u
+  further in the late windows (0.03–0.05 against 0.02–0.04). The render's share of the step: 0.33 at window 0,
+  0.68 at window 3, 0.29–0.39 from window 20. The effect map (D94's arms, independent sample) is at the
+  sampling floor: the outer layer's mean |offset| 0.265 against 0.272 pitches at the last frame, beyond one
+  pitch 0.61 % against 0.67 %; per particle the two arms look alike, the render's gain is in the silhouette
+  and shading, not in the mean offset.
 - **D94, u moves the body neither along nor about any axis (pre-registered 2026-10-05 12:04 CDT at launch; code:
   `window/solve.py` (WindowOptimizer.free_of_rigid); server `repo_r80` = HEAD with this; `output/gpu/d94`).**
   D93's cause: u's displacement of the layer, g u n per window, is a position update outside the grid's momentum
