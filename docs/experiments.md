@@ -508,6 +508,19 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (D99 would measure where the grid's rotation comes from: the support gate on the APIC term, the walls and
   the velocity clamp, or the position updates' change of r × v); the surface is as smooth (the rigid part of the
   relaxation's displacement is its mean over the layer, not its rough part).
+  **Bunny result (runs 14:51–15:19, readings 15:54; read 15:58): met on the bunny.** The body's net translation
+  over the run: L 3.00e-4 → 1.9e-5 wu, P 3.42e-4 → 2.6e-5 (16 and 13 times less; the relaxation's part 1.6e-8
+  and 5.8e-9, the record's noise; what is left is the grid's and the spacing's). Net rotation: L 0.0099° →
+  0.0075°, P 0.0095° → 0.0077° (by the relaxation's quarter; all of it is now the grid's). Momentum, L against
+  P: centre of mass largest / end 0.0004 / 0.0004 against 0.0005 / 0.0005 pitches (D97 0.0061 and 0.0070);
+  its velocity largest 8.1e-6 against 9.3e-6, last ten 2.4e-8 against 1.9e-8 (behind, at a tenth of D94's
+  size); net-over-gross linear 6.4e-5 / 7.4e-6 against 7.1e-5 / 1.2e-5, angular 3.7e-3 / 1.7e-3 against
+  4.3e-3 / 2.0e-3; net rotation 0.0040° against 0.0034° (behind); what still moves 0.0032 against 0.0032;
+  kinetic energy last / last ten 4.1e-6 / 6.0e-6 against 5.8e-6 / 6.6e-6, at matched windows 6.0e-6 against
+  6.7e-6 (now ahead). Display over the common range after window 10: 1 − IoU −27 / −32 / −30 %, difference
+  −19 / −30 / −18 %; yardstick silhouette −49 %, shading −25 %, on the particle cloud −33 % and −14 %. Against
+  D97 (last 20 frames): L front 0.9914 against 0.9915, crop 0.9814 against 0.9818, far side 0.9910 against
+  0.9913; roughness 3.70° against 3.71°. The dragon runs on GPUs 0 and 1 since 15:44 and 15:54.
 - **D97, where the remaining drift comes from (a measurement; pre-registered 2026-10-05 13:52 CDT at launch, the bunny
   relaunched 13:55 with the vectors in the record (`*_vcom`, `*_vrot`: summed over windows they attribute the net drift); code:
   the record `grid_*`, `spacing_*`, `relax_*`, `body_*` beside `u_*` (`window/telemetry.py` below_grid_record);
