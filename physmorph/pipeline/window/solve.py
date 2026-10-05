@@ -24,7 +24,7 @@ from ...prof import STATE as PROF_STATE, take as prof_take, timed
 from .objective import Objective, end_drift
 from .rollout import Commit, Eval, commit_rollout, eval_terms, graph_terms, state_ok, state_reason
 from .setup import StartState, Window
-from .telemetry import collect_grad_dump, support_record, work_record, write_grad_dump
+from .telemetry import below_grid_record, collect_grad_dump, support_record, work_record, write_grad_dump
 
 _TELE_KEYS = ("render_work", "render_work_x", "render_work_F", "phys_work", "phys_work_x",
               "phys_work_F", "phys_work_v", "step_norm", "render_cos", "phys_cos")
@@ -487,13 +487,10 @@ class WindowOptimizer:
         if self.obj.discs is not None:                  # the exterior the render terms were read on (a record)
             stats.update(ext_discs=len(self.obj.discs.p0), ext_builds=self.obj.ext_builds)
         if self.accepted > 0:
-            # a record (D93): u moves the layer by u n over the window, a position update outside the grid's momentum
-            # balance; its net translation (world units) and net rotation (radians) of the body
+            # a record (D93, D97): the body's net translation and rotation over the window by each position update
             with torch.no_grad():
                 du = (wp.to_torch(win.tr.layer_ug) * self.u.detach() * win.lmask)[:, None] * win.lnrm
-                r = win.x0 - win.x0.mean(0)
-                stats.update(u_com=float(du.sum(0).norm()) / win.N,
-                             u_rot=float(torch.linalg.cross(r, du, dim=1).sum(0).norm() / r.square().sum()))
+                stats.update(below_grid_record(win, du))
             stats["selection_merit"] = selection_merit
             stats["merit_far"] = self.obj.near_band_far(commit.x[-1])
             stats["merit_w1_gap"] = self.obj.w1_merit_gap(commit.x[-1])

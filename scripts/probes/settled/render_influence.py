@@ -77,7 +77,8 @@ def window(z):
     mv = {}
     for k, base in (("rend", "xT_base"), ("phys", "xT_base"), ("rend_u", "xT_base_u0"), ("phys_u", "xT_base_u0")):
         key = "xT_" + k
-        mv[k] = np.linalg.norm(z[key] - z[base], axis=1) / pitch if key in z.files and base in z.files else np.zeros(len(gr))
+        mv[k] = (np.linalg.norm(z[key] - z[base], axis=1) / pitch if key in z.files and base in z.files
+                 else np.full(len(gr), np.nan))                   # a slimmed dump (slim_dumps.py) has no rollouts
     nr2, np2 = (gr ** 2).sum(1), (gp ** 2).sum(1)
     row = dict(lam=float(z["lam_r"]), g_share=float(z["g_share"]),
                cos=float((gr * gp).sum() / (np.sqrt(nr2.sum() * np2.sum()) + 1e-30)),

@@ -459,6 +459,26 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D97, where the remaining drift comes from (a measurement; pre-registered 2026-10-05 13:52 CDT at launch; code:
+  the record `grid_*`, `spacing_*`, `relax_*`, `body_*` beside `u_*` (`window/telemetry.py` below_grid_record);
+  server `repo_r82` = HEAD with the exact exterior speed-up and this record; `tmp/d97.sh`, `output/gpu/d97`).**
+  After D94 the render arm is still behind its twin on the dragon's centre of mass (0.0096 against 0.0074
+  pitches) and rotation (0.0178° against 0.0168°), and the bunny's render arm drifts late while the body barely
+  moves. Every committed window now records the body's net translation (world units) and rotation (radians)
+  over the window by each position update: the grid's advection dt v, the minimum spacing's push (recomputed
+  from each step's positions with the frozen lists), u (zero since D94), and the rest of what the steps move
+  outside the grid (the layer's relaxation, and the bonds' re-coupling where a particle is decoupled); body =
+  their sum, checked against the centre of mass between consecutive windows (test). Runs: the defaults, L and
+  P, bunny 300k now, dragon 300k once D95's dragon archive is gone; read with `runeval3.sh` (their display and
+  momentum are also a second repeat of D94's code, for the spread). Read: per window and summed over the run,
+  each part's translation and rotation against the body's, their correlation over windows, both arms.
+  Expectation: the grid's part is near zero in both (it conserves momentum but for the boundary and the
+  velocity clamp); the relaxation's part carries most of the body's drift (it acts on every layer particle in
+  every step, along normals that do not balance where the layer is uneven), the spacing's part less (pairs
+  push each other symmetrically but for the pairs in one particle's frozen list only); the render arm's
+  relaxation part is larger where its layer is rougher. What would follow: the same definition as D94's for
+  the part that carries the drift (free of the six rigid modes over the layer, or pairwise-symmetric lists for
+  the spacing).
 - **D96, where the wall time of a 300k run goes on the defaults (a measurement; pre-registered 2026-10-05 12:56
   CDT; the user: "왜 속도가 느린거야? … 30-40분 쯤 걸리는 거 같은데"; server `repo_r80`, `tmp/d96.sh`,
   `tmp/time_rows.py`, `output/gpu/d96`).** From the records: the 300k bunny took 8.7 min on 2026-10-02 (D19,

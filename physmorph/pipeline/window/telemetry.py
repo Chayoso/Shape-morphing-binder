@@ -133,6 +133,34 @@ def write_term_dump(directory, animation, x, grads) -> None:
              **{"g_" + k: gpu.host(g) for k, g in grads.items()})
 
 
+def below_grid_record(win, du: torch.Tensor) -> dict:
+    """The body's net translation (world units) and net rotation (radians, about the window's starting centre of
+    mass) over the committed rollout, by each position update of the steps: the grid's advection dt v (grid_*), the
+    minimum spacing's push (spacing_*, recomputed from each step's positions with the frozen neighbour lists as
+    k_update applies it), the u channel's displacement du (u_*), and the rest of what the steps move outside the
+    grid: the layer's relaxation and the bonds' re-coupling of decoupled particles (relax_*); body_* is the whole
+    (D93, D97). Uniform mass."""
+    tr, T, N = win.tr, win.T, win.N
+    dt, frac = float(tr.prm.dt), 1.0 / float(tr.control_steps)
+    nbr = wp.to_torch(tr.space_nbr).reshape(N, -1).long() if tr.space_K > 0 else None
+    grid, below, space = (torch.zeros(N, 3, device=du.device) for _ in range(3))
+    for t in range(T):
+        x, v = wp.to_torch(tr.x[t]), wp.to_torch(tr.v[t + 1])
+        grid += dt * v
+        below += wp.to_torch(tr.x[t + 1]) - x - dt * v
+        if nbr is not None:
+            d = x[:, None, :] - x[nbr]
+            L = d.norm(dim=2, keepdim=True)
+            push = torch.where((L < tr.space_r) & (L > 1e-9), (tr.space_r - L) * d / L.clamp_min(1e-9), 0.)
+            space += 0.5 * frac * push.sum(1)
+    r = win.x0 - win.x0.mean(0)
+    out = {}
+    for k, D in (("grid", grid), ("spacing", space), ("u", du), ("relax", below - du - space), ("body", grid + below)):
+        out[k + "_com"] = float(D.sum(0).norm()) / N
+        out[k + "_rot"] = float(torch.linalg.cross(r, D, dim=1).sum(0).norm() / r.square().sum())
+    return out
+
+
 def support_record(tgt, x: torch.Tensor) -> dict:
     """The transport term taken apart at a committed state: the transport without the support
     bound E, the support penalty B, the support-gradient weight w (E / (E + w B))^2 that every

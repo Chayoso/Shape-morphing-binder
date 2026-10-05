@@ -165,6 +165,17 @@ def test_u_moves_the_body_neither_along_nor_about_any_axis(prm, clouds):
     assert all(r["u_com"] < 1e-6 and r["u_rot"] < 1e-6 for r in rows), [(r["u_com"], r["u_rot"]) for r in rows]
 
 
+def test_the_position_updates_add_up_to_the_bodys_move(prm, clouds):
+    """D97: the record's parts (grid, minimum spacing, u, relaxation) sum to the body's move over the window, and
+    that is the move of the centre of mass between consecutive committed windows."""
+    res = run_pipeline(*clouds, prm, _cfg(animations=3), log=lambda *_: None)
+    rows = [r for r in res["history"] if r.get("frame_end") and r.get("body_com") is not None]
+    assert len(rows) >= 2
+    for a, b in zip(rows, rows[1:]):
+        moved = float(np.linalg.norm(np.subtract(b["com"], a["com"])))
+        assert abs(moved - b["body_com"]) <= 1e-6 + 0.05 * moved, (moved, b["body_com"])
+
+
 def test_the_render_targets_are_the_mean_over_the_draws(prm, clouds):
     """D91: with further samples of the target the render's target pictures are the mean of every sample's."""
     from physmorph import gpu
