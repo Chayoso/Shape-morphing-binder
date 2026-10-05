@@ -578,6 +578,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   sampling floor: the outer layer's mean |offset| 0.265 against 0.272 pitches at the last frame, beyond one
   pitch 0.61 % against 0.67 %; per particle the two arms look alike, the render's gain is in the silhouette
   and shading, not in the mean offset.
+  **Dragon (run 13:44–14:36, 110 windows; video 14:43, read 14:47).** `gradviz_dragon300k.mp4` (every third
+  step, each window on its own scale). The same picture as the bunny: the render gradient 85–95 % on the outer
+  layer and 98.8–99.5 % in its top 5 % particles (physics 7 % → 47–79 % and 15 % → 63–93 %); toward the target
+  +0.11 at window 0, +0.71 at window 10, +0.48–0.62 later (physics +0.09, +0.35, +0.18–0.36); cosine with the
+  physics +0.06–0.10 (the outer layer +0.09–0.30); the render's share 0.33 → 0.56 at window 10 → 0.31–0.37.
+  **Do the two gradients conflict? (the user's question, read 14:55; `tmp/conflict.py`).** On the control, the
+  cosine of the two gradients before PCGrad: bunny median +0.05, below zero in 8–19 of 62–81 windows (at most
+  −0.07); dragon median +0.23, below zero in 2–3 of 110–115 (at most −0.10); after PCGrad never below zero, so
+  no accepted step works against the physics objective. Per particle it is otherwise: the render pushes a layer
+  particle along its normal against the physics push on 10–26 % of its weight in windows 0–10 and on 40–56 %
+  from window 20 on (dot products below zero 12–38 % of their total size): once the shape has arrived the two
+  objectives place the surface differently below a pitch (the transport after one target sample's points, the
+  render after the mean picture of eight), and the end state is their balance. PCGrad removes the global
+  conflict only. Open: whether this local balance is the render arm's 10 % more motion at the end (D94).
 - **D94, u moves the body neither along nor about any axis (pre-registered 2026-10-05 12:04 CDT at launch; code:
   `window/solve.py` (WindowOptimizer.free_of_rigid); server `repo_r80` = HEAD with this; `output/gpu/d94`).**
   D93's cause: u's displacement of the layer, g u n per window, is a position update outside the grid's momentum
