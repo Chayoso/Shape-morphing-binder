@@ -588,6 +588,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   third of the step is a third of very little, and a merit that is 94 % physics accepts no step that buys
   render at a cost in physics. The display is nonetheless at LE's level or ahead of it in the differences;
   D83 and D84 are the two readings of that weakness.
+  **Result, the dragon (2026-10-04 19:31 CDT): 18 to 36 % ahead of the twin on every display measure, and
+  ahead of or level with it on every other measure read.** LF, 102 commits (the twin 97), the coarse stage to
+  animation 108, the fine stage three commits; 2905 s on a shared GPU:
+
+  | dragon 300k | front IoU / difference | horn crop | far side | roughness | yardstick: exterior silhouette / shading | thin uncovered | transport, kinetic energy at the end |
+  |---|---|---|---|---|---|---|---|
+  | floor | 0.9912 / 0.0074 | 0.9793 / 0.0112 | 0.9918 / 0.0072 | 13.6° | | | |
+  | PA (twin) | 0.9881 / 0.0102 | 0.9784 / 0.0139 | 0.9890 / 0.0108 | 5.0° | 0.001051 / 0.000685 | 5.3 % | 6.8e-5, 1.7e-5 |
+  | LW (D75) | 0.9928 / 0.0086 | 0.9863 / 0.0106 | 0.9923 / 0.0089 | 4.9° | 0.000390 / 0.000494 | 4.4 % | 1.5e-4, 4.2e-5 |
+  | LD (D77) | 0.9918 / 0.0092 | 0.9847 / 0.0115 | 0.9919 / 0.0094 | 4.9° | 0.000426 / 0.000502 | 3.6 % | 1.4e-4, 5.8e-5 |
+  | LF (D81) | 0.9924 / 0.0084 | 0.9852 / 0.0110 | 0.9926 / 0.0089 | 4.9° | 0.000450 / 0.000474 | 4.3 % | 5.7e-5, 1.8e-5 |
+
+  Against the twin, as relative changes: front 1 − IoU −36 %, difference −18 %; horn crop −31 %, −21 %; far
+  side −33 %, −18 %; the yardstick's exterior silhouette −57 % and shading −31 %, and on the particle cloud
+  −41 % and −23 %; the run's silhouette error −13 %; thin share uncovered −19 %; holes 0.028 against 0.037 %;
+  transport energy at the end −16 %; discs apart from the mesh 6.8 against 7.6 %; the centre of mass's
+  displacement 0.019 against 0.026 pitches; net rotation 0.079° against 0.108°; still moving at the end 0.0056
+  against 0.0065 pitches a pair. Level: chamfer (0.0545 in both), the kinetic energy at the end (1.8e-5
+  against 1.7e-5), the bands (0.107, 0.160 against 0.109, 0.166), the field normal's error (11.0° against
+  11.3°), the density's spread (0.194 against 0.198), the roughness. Behind on nothing. By window the arm is
+  ahead from the start: horn crop 0.9662, 0.9779, 0.9796, 0.9817, 0.9842, 0.9841 at windows 20 to 70 against
+  0.9562, 0.9701, 0.9700, 0.9743, 0.9788, 0.9787; front difference 0.0119, 0.0101, 0.0096, 0.0089, 0.0088,
+  0.0086 against 0.0136, 0.0120, 0.0114, 0.0109, 0.0103, 0.0099. It passes the floor in every IoU and in the
+  crop's difference. It equals D75's hand-set weight in the display with the physics measures at the twin's
+  level, which D75 did not have.
   Windows discarded at the commit check: six of 83 (animations 5, 6, 12, 18, 30, 75). That is the base rate:
   the twin has seven, D70's render run two; the accepted candidate and its replay differ by 1e-7 to 1e-6 of
   the objective against a tolerance of 1e-7, with the replay noise measured at the start control at zero to
