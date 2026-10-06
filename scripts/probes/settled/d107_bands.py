@@ -3,7 +3,7 @@ band, from a run's per-window gradient dumps (`pipeline_run.py --grad_dump`, sli
 
 Per window, at the state the gradients are taken at (xT0, the window's end under its starting control), on the outer
 layer (the pipeline's layer rule) within two pitches of the target mesh (fitted to the run's target sample as
-exterior_offset_probe.py fits it, three million surface samples with their face normals): each field's component along
+exterior_offset_probe.py fits it, one million surface samples with their face normals): each field's component along
 the particle's outward normal, in display pitches:
   offset  the signed distance to the mesh (> 0 outside; to the plane of the nearest surface sample);
   render  the render push, -lambda (dsil + dpbr) . n;             physics  the physics push, -dphys . n;
@@ -50,7 +50,7 @@ vb = np.asarray(mesh.bounds, np.float64)
 step = float(knn_self_torch(tgt, 7)[0][:, 6].median())
 mesh.vertices = (np.asarray(mesh.vertices, np.float64) - vb.mean(0)) * float(np.mean((t_np.max(0) - t_np.min(0) + step) / (vb[1] - vb[0]))) \
     + 0.5 * (t_np.max(0) + t_np.min(0))
-points, face = trimesh.sample.sample_surface(mesh, 3000000, seed=0)
+points, face = trimesh.sample.sample_surface(mesh, 1000000, seed=0)
 surface = torch.as_tensor(np.asarray(points, np.float32), device=dev)
 surface_normal = torch.as_tensor(np.asarray(mesh.face_normals[face], np.float32), device=dev)
 surface_tree = gpu.KNN(surface)
@@ -83,9 +83,11 @@ for wi, path in enumerate(files):
     t = lambda k: torch.as_tensor(z[k], device=dev).float()    # noqa: E731
     x = t("xT0")
     lay, nrm = layer_by_asymmetry(x, layer_spacing(x))
-    _, at = surface_tree.query(x, 1)
+    li = torch.nonzero(lay).squeeze(1)                          # only the layer is looked up on the mesh (a tree query of
+    _, at = surface_tree.query(x[li].contiguous(), 1)           #   every particle, most far inside, took 100 s a window)
     at = at.reshape(-1)
-    s_all = ((x - surface[at]) * surface_normal[at]).sum(1) / a
+    s_all = torch.zeros(len(x), device=dev)
+    s_all[li] = ((x[li] - surface[at]) * surface_normal[at]).sum(1) / a
     keep = lay & (s_all.abs() < 2.)
     if int(keep.sum()) < 200:
         continue

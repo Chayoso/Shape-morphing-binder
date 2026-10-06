@@ -628,6 +628,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   21.6 pitches and blind at 5.4 and below (a render pixel is a pitch); the physics push is toward at every band
   through the transport; the actual move at 5.4 pitches is more toward than either push (the relaxation's reference
   acts outside the gradients). No pass or fail: this explains, it does not adopt.
+  **Result (2026-10-06 02:50 CDT; runs bunny300k_G 81 windows, dragon300k_G 112; `d107_bands.py`, `d107_summary.py`,
+  `d107_course_plot.py`; `output/gpu/d107/{bands_*,course_*.png,course_*.log,early_*.log}`; local
+  `output/video_2026-10-06/d107_detail_gradients`).** (1) The relief is born on arrival and then holds. The carried
+  share at 5.4 pitches of D105's render arm: bunny 0.42 at 10 % of the run (14 % of the discs not yet within two
+  pitches of the mesh), 0.50 at 15 %, 0.49–0.52 from 20 to 40 %, 0.55 at the end; dragon 0.49 at 10 % (25 % not
+  arrived), 0.50–0.51 to 35 %, 0.56 at the end. At 10.8 pitches it rises over the run (bunny 0.67 → 0.76 at 15 % →
+  0.84; dragon 0.71 → 0.80 → 0.85); at 21.6 it is 0.91–0.95 throughout. D98's arms stay at 0.19–0.32 at 5.4
+  pitches from the first frame to the last (the relaxation erases what arrives). The physics-only twins follow
+  their render arms within 0.03. (2) The gradients, early (bunny windows 1–17, dragon 1–29) and late (bunny ≥ 25,
+  dragon ≥ 45): the band offsets from the mesh fall 3–4 times in the early windows (bunny 5.4 pitches 0.32 → 0.092
+  pitches rms, dragon 0.45 → 0.13), each window closing 15–23 % of them, then stay (bunny 0.087, dragon 0.113 at the
+  end). Early the physics push is the more toward the mesh at 5.4–21.6 pitches (bunny 5.4: +0.16 against the
+  render's +0.10; 10.8: +0.35 against +0.16; dragon 10.8: +0.24 against +0.09), the render push at 2.7 (+0.06 to
+  +0.08 against +0.03). Late the physics push is level or away from the mesh (bunny 10.8 / 21.6: −0.02 / −0.02;
+  dragon 5.4 / 10.8 / 21.6: 0.00 / −0.04 / −0.07: it pulls towards the 300k target sample, blurred by 1.2–1.4
+  pitches, D104), and the render push is the one still toward it in every band, weakly (bunny +0.00 to +0.11,
+  dragon +0.03 to +0.11). The render gradient on the stress control moves the layer away from the mesh at the fine
+  bands late (dragon 5.4 / 10.8: −0.05 / −0.04 — dFc cannot write below a cell), on the layer control u toward it
+  (dragon 5.4 / 10.8 / 21.6: +0.04 / +0.07 / +0.14; bunny 10.8 / 21.6: +0.05 / +0.13). The window's optimisation
+  moves the layer toward the mesh late (+0.03 to +0.20) and closes 1–4 % of a band's offset per window; the window's
+  whole move closes 0–1 %: what the optimisation writes at these bands, the rest of the window (the MPM's response,
+  the relaxation, the minimum spacing, the released half) takes back. The expectation was right on the timing
+  (the relief appears with arrival) and on the physics push early, wrong on the render push late (toward at every
+  band, weakly, not blind at 5.4), and the actual move is not more toward than the pushes. Open: which part of the
+  window takes back the optimisation's fine-band move.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
