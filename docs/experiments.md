@@ -475,6 +475,27 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   momentum the updates below the grid put in, the relaxation 6.5 (share +1.41 of their sum), u 1.6 (−0.33),
   the minimum spacing 2.5 (−0.08); a measure behind at all three seeds is the next definition to change (the
   relaxation's, if it is the rotation).
+  **Result (runs 18:17–19:40; read 19:41; `tmp/d102_rows.py`, `tmp/ang_mom.py`, `tmp/delivered_rot.py`).**
+  Bunny, L against P at seeds 97 / 101 / 103: ahead at all three on the centre of mass's largest and final
+  displacement (−17 to −20 %), its largest velocity (−11 to −14 %) and the kinetic energy at matched windows (−2
+  to −28 %); behind at all three on one measure, the frame probe's net rotation (+18 / +28 / +29 %: 0.0040° /
+  0.0041° / 0.0040° against 0.0034° / 0.0032° / 0.0031°); level on the rest. Dragon: ahead at all three on the
+  net-over-gross linear and angular move of the run (−8 to −20 %) and the kinetic energy of the last ten windows
+  (−2 / −30 / −56 %); behind at all three on the frame probe's net rotation (+16 / +16 / +40 %); level on the
+  rest. The angular momentum itself (the record's L_start, APIC's affine part included; seeds 101 and 103):
+  bunny end 1.50 / 2.61 against 3.59 / 2.71, largest 317 / 317 against 368 / 371 (−14 %, −15 %); dragon end
+  14.2 / 23.3 against 17.3 / 25.8, largest 506 / 586 against 643 / 603, mean 164 / 189 against 202 / 204: the
+  render arm holds less angular momentum than its twin at both seeds on both meshes. The frame probe's
+  rotation is the rigid rotation an isotropic body would need for the kept frames' net angular move (1.5 Σ r ×
+  dx / Σ r², r about each frame's centre of mass); the record's own estimate over the committed windows (Σ r0 ×
+  D / Σ r0², r0 at each window's start) orders the arms the other way (bunny L 0.0067° / 0.0066° against P
+  0.0083° / 0.0079°), and the delivered windows are all but one or two of them (truncation is not it). Two
+  estimates of the rotation of a body that deforms from a sphere disagree in order; the conserved quantity does
+  not. Reading: on the conserved quantities (momentum, angular momentum) the render arm is level with or ahead
+  of its twin on both meshes; the one measure behind at every seed is an approximate rotation that the
+  isotropic estimate makes of the deformation. At 300k the jumps' angular momentum comes from u (share +0.45 to
+  +0.62) and the minimum spacing (+0.27 to +0.55), the relaxation's ≈ 0 since D98; P's jumps put in more than
+  L's (34.8 / 36.0 against 21.1 / 18.0).
 - **D100, D98 and D99 on the 40k gallery (pre-registered 2026-10-05 16:05 CDT at launch; `tmp/d100.sh`, queue
   `tmp/d100.queue`, `output/gpu/d100`; two workers on GPUs 0 and 1 beside the D98 dragon runs).** 19 meshes, seed
   97, the defaults: N = this code (`repo_r85`, render arm), O = the code before both changes (`repo_r82`, render
