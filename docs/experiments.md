@@ -653,6 +653,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (the relief appears with arrival) and on the physics push early, wrong on the render push late (toward at every
   band, weakly, not blind at 5.4), and the actual move is not more toward than the pushes. Open: which part of the
   window takes back the optimisation's fine-band move.
+- **D108, the mouth and the Gaussians seen during the morph (frame-by-frame forensics; 2026-10-06 03:30 CDT; the
+  user, on D105's 4K video: "살짝 없었던 artifact가 입 주변에 있는 느낌?", "morphing 중에 Gaussian이 살짝 보여";
+  `scripts/probes/settled/region_offsets.py`, `fragment_forensics.py`; `output/gpu/d107/{mouth_*,fragments_*}`;
+  local `output/video_2026-10-06/d105_4k/{mouth_compare.png,mouth_offsets.png,mid*}`).** (1) The mouth, dragon end
+  frames, the discs the display camera sees in the mouth's box (13–14k each), offset from the mesh: D98 P / L mean
+  +0.907 / +0.887, fine (below 4 pitches) rms 0.141 / 0.137; D105 PV / LV +0.881 / +0.848, 0.122 / 0.123; the 300k
+  target sample +0.701, 0.148. D105's mouth is nearer the mesh than D98's, not farther: the lumps inside the mouth
+  are the mesh's teeth and tongue carried at the 300k pitch (the target sample has them too, rougher), not a wrong
+  reference; they read as an artifact because 300k draws them as soft lumps. (2) The Gaussians during the morph,
+  per kept frame of the display records (e3_): discs in sets apart from the body and discs whose field normal opposes
+  its neighbours' (folds) in the first 10 % of the run, dragon D98 L 3590 / 8429, P 1066 / 2593, D105 LV 3749 / 9186,
+  PV 1273 / 2729; bunny 2400–3060 / 3400–3640 in all four; nearly none after 30 %. D105 LV's dragon: 0 until raw 60,
+  then 202 (raw 72), 1727 (96), 6225 (120), 9876 (156), 10758 (168), down to 2–3k by raw 300 and 600 by raw 700, the
+  folds peaking at 22344 (raw 192); its twin peaks at 1676 / 3430. The particles behind them (the dump run, windows
+  0–22): particles outside the largest connected set at a radius of 1.5 spacings, 3 in window 2, 38, 119, 164, 229
+  in windows 3–6, at most 281 (window 10), 2–5 from window 20; of the new ones in windows 3–6 the render push on them
+  is 2.6–5.2 times the outer layer's mean (the physics push 1.5–2.2 times), and what the render gradient on the stress
+  control alone moves them by is 3.5–6.7 times the layer's mean (the physics gradient on it 1.2–3.1, on u 0.03–4.1);
+  they end 2.2–4 spacings from the body. While the render weight is large (lambda 0.4 → 0.1, its share of the
+  step 0.6–0.68), its gradient, concentrated on the protruding particles (D95: 98–99.6 % in the top 5 %), drives a few
+  particles through their own stress control out of the body; each becomes a small separate surface, drawn as
+  Gaussians apart from the body. The stress control is per particle and per step; nothing in its definition
+  ties a particle's control to what its grid cell can carry.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
