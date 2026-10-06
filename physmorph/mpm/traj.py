@@ -275,6 +275,10 @@ class Trajectory:
             # optional per-particle reference of the relaxation (the target's own rough residual; zero without)
             lref = layer[8] if len(layer) > 8 else None
             self.layer_ref = wp.zeros(N, dtype=wp.float32, device=device) if lref is None else A(lref, wp.float32)
+            # optional per-particle gate of the relaxation (1 where it acts; D119: the layer in transit)
+            lrg = layer[9] if len(layer) > 9 else None
+            self.layer_rg = wp.ones(N, dtype=wp.float32, device=device) if lrg is None else A(lrg, wp.float32)
+            self.layer_rg_on = lrg is not None
             self.layer_K = int(lnbr.shape[1])
             self.layer_mask = A(lmask, wp.float32)
             self.layer_nrm = A(lnrm, wp.vec3)
@@ -287,10 +291,9 @@ class Trajectory:
             xt = torch.as_tensor(x0, device=str(device)).double()
             mt, nt = torch.as_tensor(lmask, device=xt.device).double(), torch.as_tensor(lnrm, device=xt.device).double()
             rn = torch.linalg.cross(xt - xt.mean(0), nt, dim=1) * mt[:, None]
-            modes = torch.cat((nt * mt[:, None], rn), 1)
-            Minv = torch.linalg.pinv(modes.T @ modes).cpu().numpy()
+            self._layer_modes = (nt * mt[:, None], rn)
             self.layer_rn = A(rn.float(), wp.vec3)
-            self.layer_M = tuple(wp.mat33(*Minv[i:i + 3, j:j + 3].ravel().tolist()) for i in (0, 3) for j in (0, 3))
+            self._set_layer_M(None if lrg is None else torch.as_tensor(lrg, device=xt.device).double())
             self.xu = scratch(lambda: Z(wp.vec3, rg), T + 1)
             self.ld = scratch(lambda: Z(wp.float32, rg), T + 1)
             self.ls = scratch(lambda: Z(wp.float32, rg), T + 1)
@@ -359,6 +362,23 @@ class Trajectory:
             return self.release_dFc
         return self.dFc if self.dFc_seq is None else self.dFc_seq[t]
 
+    def _set_layer_M(self, gate) -> None:
+        """The inverse Gram matrix (3x3 blocks) of the layer's rigid modes over the particles the relaxation moves
+        (all of the layer without a gate; D119: its gated set, so that the rigid correction moves no arrived particle)."""
+        n_m, rn = self._layer_modes
+        g = 1.0 if gate is None else gate.to(n_m)[:, None]
+        modes = torch.cat((n_m * g, rn * g), 1)
+        Minv = torch.linalg.pinv(modes.T @ modes).cpu().numpy()
+        self.layer_M = tuple(wp.mat33(*Minv[i:i + 3, j:j + 3].ravel().tolist()) for i in (0, 3) for j in (0, 3))
+
+    def set_relax_gate(self, gate: torch.Tensor) -> None:
+        """Set the relaxation's per-particle gate (1 where it acts) and its rigid modes' Gram matrix (D119)."""
+        wp.to_torch(self.layer_rg).copy_(gate)
+        self.layer_rg_on = True
+        self._set_layer_M(gate.double())
+        if getattr(self, "graph", None) is not None:   # the Gram blocks are launch arguments: a captured graph holds
+            self.capture()                              #   the old ones
+
     def step(self, t: int):
         prm, dev, N = self.prm, self.device, self.N
         inv_dx, gmin, fext = 1.0 / prm.dx, wp.vec3(*prm.grid_min), wp.vec3(*prm.f_ext)
@@ -389,12 +409,20 @@ class Trajectory:
             wp.launch(K.k_layer_resid, dim=N, inputs=[self.xu[t + 1], self.layer_mask, self.layer_nrm,
                       self.layer_nbr, self.layer_w, self.layer_K, self.ld[t + 1]], device=dev)
             self.lb[t + 1].zero_()
-            wp.launch(K.k_layer_relax, dim=N, inputs=[self.ld[t + 1], self.layer_mask, self.layer_nrm, self.layer_rn,
-                      self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac, self.layer_ref,
-                      self.ls[t + 1], self.lb[t + 1]], device=dev)
-            wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1], self.layer_mask,
-                      self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u, self.layer_ug,
-                      self.x[t + 1]], device=dev)
+            if self.layer_rg_on:                       # D119: the relaxation gated to the layer in transit
+                wp.launch(K.k_layer_relax_g, dim=N, inputs=[self.ld[t + 1], self.layer_mask, self.layer_nrm,
+                          self.layer_rn, self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac, self.layer_ref,
+                          self.layer_rg, self.ls[t + 1], self.lb[t + 1]], device=dev)
+                wp.launch(K.k_layer_project_g, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1],
+                          self.layer_mask, self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u,
+                          self.layer_ug, self.layer_rg, self.x[t + 1]], device=dev)
+            else:
+                wp.launch(K.k_layer_relax, dim=N, inputs=[self.ld[t + 1], self.layer_mask, self.layer_nrm, self.layer_rn,
+                          self.layer_nbr, self.layer_w, self.layer_K, self.layer_frac, self.layer_ref,
+                          self.ls[t + 1], self.lb[t + 1]], device=dev)
+                wp.launch(K.k_layer_project, dim=N, inputs=[self.xu[t + 1], self.ls[t + 1], self.lb[t + 1],
+                          self.layer_mask, self.layer_nrm, self.layer_rn, *self.layer_M, layer_u, self.layer_frac_u,
+                          self.layer_ug, self.x[t + 1]], device=dev)
             if self.layer_F:
                 wp.launch(K.k_layer_F, dim=N, inputs=[layer_u, self.layer_ug, self.layer_mask, self.layer_nrm,
                           self.layer_nbr, self.layer_g, self.layer_K, self.layer_frac_u, self.layer_inv_depth,

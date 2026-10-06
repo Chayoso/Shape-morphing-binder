@@ -261,3 +261,30 @@ def test_adjoint_matches_finite_differences_with_force():
         # 8 %: the float32 rollout's replay noise over three elastic steps (the isolated check of
         # the two kernels under wp.Tape matches to four digits — scratch layer_adj2.py)
         assert abs(float(fd - an)) <= 8e-2 * max(abs(float(fd)), abs(float(an)), 1e-4), (fd, an)
+
+
+def test_the_relaxation_gate_stops_it_where_the_layer_has_arrived():
+    """D119: layer[9] is the relaxation's per-particle gate (1 where it acts). All ones is the ungated relaxation; a
+    zero on the bumped particle keeps its residual (no relaxation there) while its gated-on neighbours still relax."""
+    x, sp = _slab(n_side=12, layers=4)
+    prm = _params()
+    mask, nrm, nbr, w = layer_relax_data(x, sp, k=8, h_sp=2.0)
+    T = 30
+    top = np.where((mask > 0.5) & (nrm[:, 1] > 0.8) & (np.abs(x[:, 0]) < 0.3) & (np.abs(x[:, 2]) < 0.3))[0]
+    p = top[len(top) // 2]
+    xb = x.copy(); xb[p] += 0.5 * sp * nrm[p]
+    vol0 = compute_rest_volumes(xb, 1.0, prm, DEV)
+
+    def run(rg):
+        layer = (mask, nrm, nbr, w, 1.0 / T) if rg is None else (mask, nrm, nbr, w, 1.0 / T, None, 0.0, None, None, rg)
+        tr = Trajectory(xb, 1.0, 0.0, 0.0, prm, T, device=DEV, requires_grad=False, vol0=vol0, layer=layer)
+        tr.rollout()
+        return tr.x[T].numpy()
+    plain, ones = run(None), run(np.ones(len(x), np.float32))
+    assert np.abs(plain - ones).max() < 1e-6 * sp                       # the gated kernels at an open gate
+    gate = np.ones(len(x), np.float32); gate[p] = 0.0
+    held = run(gate)
+    assert abs(float(np.dot(held[p] - xb[p], nrm[p]))) < 1e-6 * sp + 1e-9   # the arrived particle is not relaxed
+    assert np.linalg.norm(held - xb, axis=1).max() > 1e-4 * sp           # its neighbours still are
+    off = run(np.zeros(len(x), np.float32))
+    assert np.abs(off - xb).max() < 1e-7                                 # no gate open: nothing moves

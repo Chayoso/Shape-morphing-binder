@@ -94,9 +94,14 @@ class Window:
         return self._adj
 
     def set_u_gate(self, gate: torch.Tensor) -> None:
-        """Per-particle gate of u (1 where u may act), in the spec and the eval trajectory."""
-        self.spec.layer = self.spec.layer[:5] + (None, 0.0, gate) + self.spec.layer[8:]
+        """Per-particle gate of u (1 where u may act), in the spec and the eval trajectory; with cfg.relax_in_transit
+        (D119) also the relaxation's gate, its complement: the relaxation acts on the layer still in transit."""
+        ref = self.spec.layer[8] if len(self.spec.layer) > 8 else None
+        rgate = (1.0 - gate) if self.cfg.relax_in_transit else None
+        self.spec.layer = self.spec.layer[:5] + (None, 0.0, gate, ref, rgate)
         wp.to_torch(self.tr.layer_ug).copy_(gate)
+        if rgate is not None:
+            self.tr.set_relax_gate(rgate)
 
     def load(self, leaf: torch.Tensor, u: torch.Tensor | None) -> torch.Tensor:
         """Copy a candidate into the eval trajectory's buffers; returns the expanded control."""

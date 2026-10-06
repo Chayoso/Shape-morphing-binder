@@ -1055,6 +1055,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   objective's (the layer where the transport and the proximity to the target's sample want it), not a blind spot of
   the rest term. The twin, the dragon's evaluation and the gallery were stopped; the dragon's render arm ran on
   (`dragon300k_LV7`). Code back to 79af88a's, the commit before 8721308 (where the definition stays).
+- **D119, the relaxation stops where the layer has arrived (pre-registered 2026-10-06 17:47 CDT; the user, offered
+  it after D117: "도착하면 relaxation 중지"; code: `mpm/kernels.py` (`k_layer_relax_g`, `k_layer_project_g`, the
+  ungated kernels untouched), `mpm/traj.py` (`layer[9]`, the relaxation's gate; `set_relax_gate`), `window/setup.py`
+  (`set_u_gate`), `config.relax_in_transit`, `--relax_in_transit` (an A/B flag until adopted); tests
+  `test_the_relaxation_gate_stops_it_where_the_layer_has_arrived`, `test_the_relaxation_in_transit_runs_and_commits`;
+  289 passed, 2 skipped, four full runs on hyde06, repo_r99).** D116–D117: in the tail the layer relaxation (towards
+  the mesh's relief on the layer's feet) and the objective (the transport and the proximity to the target's sample)
+  want the layer a fraction of a pitch apart, and they pull it two ways every window. The definition changed: the
+  relaxation acts where u does not, on layer particles farther than one MPM cell from their transport image (the
+  gate u already uses, D-era `layer_gate_ot_cells`, read at every window start); where the layer has arrived the
+  objective alone shapes it. Its rigid-mode correction (D98) is taken over the gated particles (their Gram matrix),
+  so it moves no arrived particle. No constant is added. A first version multiplied the gate into the existing
+  kernels: at an open gate the arithmetic differed by rounding and two noise-sensitive one-window tests failed in 7
+  of 13 suite runs (0 of 5 before); the gated kernels are now separate and the default path is the old code. Runs:
+  bunny and dragon 300k, `--layer_relief --relax_in_transit`, seed 97, the render arm with D116's free-move record
+  (`repo_r99d116`) and its twin (repo_r99), runeval3, then the 40k gallery (`tmp/d119.queue`). Criteria: (a) in the
+  last 70 % of the run the actual and the zero-control normal motion of the layer at most half D116's (bunny 0.030–
+  0.042, dragon 0.052–0.077 pitches per window), the tail's body flicker (`d116_flicker.py`, base display) down by a
+  third; (b) the render arm ahead of its twin by D105's margins within the seed spread on the display and the
+  yardstick, momentum not worse; (c) the relief at 5.4 pitches and the roughness within D105's spread (0.55–0.57,
+  bunny 4.0°, dragon 7.6°) — the relaxation no longer smooths the arrived layer, so the roughness is the risk;
+  (d) the 40k gallery: V ahead of W on 19 of 19, none behind D106's V by more than 0.01. Expectation: (a) holds
+  (the free motion without the relaxation was 0.006–0.012); the arrived layer keeps the relief the objective gives
+  it, the roughness up by 10–30 %, the display unchanged or better; runs end earlier (less to chase).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

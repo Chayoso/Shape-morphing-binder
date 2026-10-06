@@ -450,6 +450,44 @@ def k_layer_project(x_in: wp.array(dtype=wp.vec3), s: wp.array(dtype=float), b: 
     x_out[p] = x_in[p] + (frac_u * ug[p] * u[p] + sp) * nrm[p]
 
 
+# ── D119: the relaxation gated to the layer still in transit (A/B; the ungated kernels above are untouched) ──
+@wp.kernel
+def k_layer_relax_g(d: wp.array(dtype=float), mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3),
+                    rn: wp.array(dtype=wp.vec3), nbr: wp.array(dtype=int), w: wp.array(dtype=float), K: int,
+                    frac: float, ref: wp.array(dtype=float), rg: wp.array(dtype=float),
+                    s: wp.array(dtype=float), b: wp.array(dtype=wp.vec3)):
+    """k_layer_relax with the relaxation's per-particle gate rg (1 where it acts): s = -frac rg (d - dbar - ref)."""
+    p = wp.tid()
+    if mask[p] < 0.5:
+        s[p] = 0.0
+        return
+    dbar = float(0.0)
+    for a in range(K):
+        dbar = dbar + w[p * K + a] * d[nbr[p * K + a]]
+    sp = -frac * rg[p] * (d[p] - dbar - ref[p])
+    s[p] = sp
+    wp.atomic_add(b, 0, sp * nrm[p])
+    wp.atomic_add(b, 1, sp * rn[p])
+
+
+@wp.kernel
+def k_layer_project_g(x_in: wp.array(dtype=wp.vec3), s: wp.array(dtype=float), b: wp.array(dtype=wp.vec3),
+                      mask: wp.array(dtype=float), nrm: wp.array(dtype=wp.vec3), rn: wp.array(dtype=wp.vec3),
+                      M11: wp.mat33, M12: wp.mat33, M21: wp.mat33, M22: wp.mat33,
+                      u: wp.array(dtype=float), frac_u: float, ug: wp.array(dtype=float), rg: wp.array(dtype=float),
+                      x_out: wp.array(dtype=wp.vec3)):
+    """k_layer_project with the rigid modes taken over the gated particles (M is their Gram inverse): the rigid
+    correction moves no particle the gate holds, so a layer that has arrived is shaped by the objective alone."""
+    p = wp.tid()
+    if mask[p] < 0.5:
+        x_out[p] = x_in[p]
+        return
+    ct = M11 @ b[0] + M12 @ b[1]
+    cr = M21 @ b[0] + M22 @ b[1]
+    sp = s[p] - rg[p] * (wp.dot(nrm[p], ct) + wp.dot(rn[p], cr))
+    x_out[p] = x_in[p] + (frac_u * ug[p] * u[p] + sp) * nrm[p]
+
+
 # ── geometric deformation gradient — the RENDER kinematics ───────────────────
 # Fg_{t+1} = (I + dt C_{t+1}) Fg_t: transported by the actual spatial velocity
 # derivative only. It receives NO control addition and NO temporal smoothing, so a
