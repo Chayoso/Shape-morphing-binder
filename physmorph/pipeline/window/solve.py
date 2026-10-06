@@ -1,7 +1,6 @@
 """optimize_window — one window of settled-transport optimisation.
 
-Leaves: the driven stress control C (T, M, 3, 3) on the window's grid nodes, read by each particle with the
-transfer kernel (window/basis.py, D109), and the outer-layer offset u (N,). Each
+Leaves: the driven controls dFc (T, N, 3, 3) and the outer-layer offset u (N,). Each
 iteration differentiates the physics and render objectives separately through the same
 2T-step adjoint; the render gradient loses any component that opposes the physics
 gradient (one-sided PCGrad) and is weighted by lambda, calibrated at every window so that lambda
@@ -45,6 +44,11 @@ class WindowResult:
     stats: dict = field(default_factory=dict)
 
 
+def _norm(gs) -> float:
+    """Joint L2 norm over a list of per-leaf gradients."""
+    return float(torch.sqrt(sum(g.pow(2).sum() for g in gs)))
+
+
 def _dot(a, b):
     return sum((x * y).sum() for x, y in zip(a, b))
 
@@ -85,14 +89,12 @@ def direction_stats(ds, gs) -> list:
     return out
 
 
-def pcgrad(g_keep, g_strip, dot_fn=None):
-    """Strip from g_strip its component along g_keep when they conflict (joint over leaves; dot_fn: the inner
-    product, default the plain one)."""
-    dot_fn = dot_fn or _dot
-    dot = dot_fn(g_keep, g_strip)
+def pcgrad(g_keep, g_strip):
+    """Strip from g_strip its component along g_keep when they conflict (joint over leaves)."""
+    dot = _dot(g_keep, g_strip)
     if float(dot) >= 0:
         return list(g_strip)
-    k2 = torch.as_tensor(dot_fn(g_keep, g_keep)).clamp_min(1e-30)
+    k2 = sum(x.pow(2).sum() for x in g_keep).clamp_min(1e-30)
     return [b - (dot / k2) * a for a, b in zip(g_keep, g_strip)]
 
 
@@ -105,10 +107,9 @@ class WindowOptimizer:
         self.win = Window(start, prm, cfg, tgt, vol0, bonds)
         self.obj = Objective(self.win)
         N = self.win.N
-        # the stress control on the window's grid nodes, read by each particle with the transfer kernel (D109)
-        self.C = self.win.basis.zeros(cfg.T, cfg.device).requires_grad_(True)
+        self.dFc = torch.zeros(cfg.T, N, 3, 3, device=cfg.device, requires_grad=True)
         self.u = torch.zeros(N, device=cfg.device, requires_grad=True)
-        self.leaves = [self.C, self.u]
+        self.leaves = [self.dFc, self.u]
         self.mom = [torch.zeros_like(p) for p in self.leaves]
         self.vel = [torch.zeros_like(p) for p in self.leaves]
         self.adam_t = 0
@@ -134,19 +135,6 @@ class WindowOptimizer:
             A = torch.cat((g[:, None] * n, g[:, None] * torch.linalg.cross(r, n, dim=1)), 1).double()
             self.rigid = (A, torch.linalg.pinv(A.T @ A))
 
-    @property
-    def dFc(self) -> torch.Tensor:
-        """The particles' stress control (T, N, 3, 3): the node control read by each particle (differentiable in C)."""
-        return self.win.basis.to_particles(self.C)
-
-    def _dot(self, a, b):
-        """The inner product of two gradients over (C, u), the node part in the nodes' mass metric: for a smooth
-        gradient the per-particle one, so the norms the step control and the render weight read keep their scale."""
-        return self.win.basis.dot(a[0], b[0]) + sum((x * y).sum() for x, y in zip(a[1:], b[1:]))
-
-    def _gnorm(self, g) -> float:
-        return float(torch.sqrt(torch.as_tensor(self._dot(g, g)).clamp_min(0.0)))
-
     def free_of_rigid(self):
         """u without the part of its displacement that translates or rotates the body (D94)."""
         A, M = self.rigid
@@ -157,9 +145,7 @@ class WindowOptimizer:
         return self.obj.scalar(e, self.lam_r)
 
     def eval(self) -> Eval:
-        with torch.no_grad():
-            dfc = self.dFc
-        return eval_terms(self.win, self.obj, dfc, self.u)
+        return eval_terms(self.win, self.obj, self.dFc, self.u)
 
     # ---- window start ----
     def warm_start(self, dfc_init):
@@ -170,14 +156,14 @@ class WindowOptimizer:
         self.tele.update(zero_ok=int(r0 is None), zero_reason=r0)
         E0 = self.scalar(e0) if r0 is None else np.inf
         with torch.no_grad():
-            self.C.copy_(self.win.basis.to_nodes(dfc_init) * self.cfg.warm_decay)   # P2G to the new window's nodes
+            self.dFc.copy_(dfc_init * self.cfg.warm_decay)
         ew = self.eval()
         rw = state_reason(ew)
         self.tele.update(warm_ok=int(rw is None), warm_reason=rw)
         Ew = self.scalar(ew)
         if not (rw is None and np.isfinite(Ew) and Ew < E0):
             with torch.no_grad():
-                self.C.zero_()
+                self.dFc.zero_()
             for b in self.mom + self.vel:
                 b.zero_()
             self.adam_t = 0
@@ -219,7 +205,7 @@ class WindowOptimizer:
             self.dump.update(collect_grad_dump(e, Lp_core, gp, leaves, self.u, cfg.w_pbr))
         with timed("adj_render"):
             gr_raw = [r.detach().clone() for r in torch.autograd.grad(e.lr, leaves)]
-        gr = pcgrad(gp, gr_raw, self._dot)
+        gr = pcgrad(gp, gr_raw)
         if it == 0:
             self._calibrate_lambda(gp, gr, gr_raw)
         g = [a + self.lam_r * b for a, b in zip(gp, gr)]
@@ -232,13 +218,13 @@ class WindowOptimizer:
         decays 30-fold, the render gradient hardly, and the render term was nine tenths of the step and two
         thirds of the merit (D73, D81). The selection rescales its references when the weight moves."""
         bal = self.balancer
-        lam = bal.update(self._gnorm(gp), self._gnorm(gr))
+        lam = bal.update(_norm(gp), _norm(gr))
         self.lam_r = lam * float(self.cfg.render_weight_scale)
         self.lam_capped = int(bool(bal.capped))
-        np_, nr_ = self._gnorm(gp), self._gnorm(gr)
-        np_raw, nr_raw = np_, self._gnorm(gr_raw)
-        self.tele.update(g_cos=float(self._dot(gp, gr)) / max(np_ * nr_, 1e-30),
-                         g_raw_cos=float(self._dot(gp, gr_raw)) / max(np_raw * nr_raw, 1e-30),
+        np_, nr_ = _norm(gp), _norm(gr)
+        np_raw, nr_raw = np_, _norm(gr_raw)
+        self.tele.update(g_cos=float(_dot(gp, gr)) / max(np_ * nr_, 1e-30),
+                         g_raw_cos=float(_dot(gp, gr_raw)) / max(np_raw * nr_raw, 1e-30),
                          g_share=self.lam_r * nr_ / max(np_ + self.lam_r * nr_, 1e-30),
                          g_phys_norm=np_, g_rend_norm=nr_)
         if self.cfg.grad_dump:
@@ -270,8 +256,8 @@ class WindowOptimizer:
                 if cfg.ls_probe and dstats is None:         # moments are restored on rejection: same d each trial
                     dstats = direction_stats(ds, g)
                 if cfg.dfc_clip > 0:
-                    n = self.C.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)   # per node: every particle's under it
-                    self.C *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
+                    n = self.dFc.flatten(2).norm(dim=2, keepdim=True).unsqueeze(-1)
+                    self.dFc *= (cfg.dfc_clip / n.clamp_min(1e-8)).clamp(max=1.0)
                 self.u.clamp_(-win.sp0, win.sp0)           # one spacing per window
                 self.free_of_rigid()
             e_n = self.eval()
@@ -321,8 +307,7 @@ class WindowOptimizer:
         of dFc and u (direction_stats), the accepted dFc step's rms and max entry, the u step's rms over the
         particles u can move and its max, both in spacings]."""
         with torch.no_grad():
-            dd = (self.win.basis.to_particles(self.C.detach() - bak[0]) if a_acc > 0
-                  else torch.zeros(1, device=bak[0].device))
+            dd = (self.dFc.detach() - bak[0]) if a_acc > 0 else torch.zeros(1, device=bak[0].device)
             du = (self.u.detach() - bak[1]) if a_acc > 0 else torch.zeros(1, device=bak[1].device)
             live = g[1].detach() != 0
             du_live = du[live] if a_acc > 0 and bool(live.any()) else du.new_zeros(1)
@@ -341,12 +326,12 @@ class WindowOptimizer:
         caller restores the backup afterwards."""
         parts_n = self._parts(e_n)                          # before the next rollout rewrites the flags
         with torch.no_grad():
-            d_t, u_t = self.C.detach().clone(), self.u.detach().clone()
+            d_t, u_t = self.dFc.detach().clone(), self.u.detach().clone()
             self.u.copy_(bak[1])
         e_a = self.eval()
         parts_a = self._parts(e_a)
         with torch.no_grad():
-            self.C.copy_(bak[0])
+            self.dFc.copy_(bak[0])
             self.u.copy_(u_t)
         e_b = self.eval()
         parts_b = self._parts(e_b)
@@ -357,7 +342,7 @@ class WindowOptimizer:
             er = self.eval()
             reps.append([self.scalar(er)] + self._parts(er)[:2] + [float(er.lr)])
         with torch.no_grad():
-            self.C.copy_(d_t)
+            self.dFc.copy_(d_t)
             self.u.copy_(u_t)
         scale = max(abs(cur), 1e-30)
         spread = [max(r[i] for r in reps) - min(r[i] for r in reps) for i in range(4)]
@@ -406,8 +391,7 @@ class WindowOptimizer:
             self.warm_start(dfc_init)
         replay_rel = self.replay_noise() if cfg.replay_calibrate else 0.0
         clock.lap("t_start")
-        with torch.no_grad():
-            leaf0 = self.dFc.clone() if cfg.grad_dump else None
+        leaf0 = self.dFc.detach().clone() if cfg.grad_dump else None
         hist, grad_converged, ls_exhausted = [], False, False
         g0_norm = L_start = None
         self.tele["null_reason"] = None
@@ -422,7 +406,7 @@ class WindowOptimizer:
                 self.tele["null_reason"] = "nonfinite_loss"
                 break
             L_start = cur if L_start is None else L_start
-            gn = self._gnorm(g)
+            gn = _norm(g)
             g0_norm = max(gn, 1e-12) if g0_norm is None else g0_norm
             if gn < cfg.gd_tol * g0_norm:
                 grad_converged = True
@@ -440,8 +424,7 @@ class WindowOptimizer:
             e_n, a_try, new, bak = found
             if diag is not None:
                 self.tele.update(work_record(diag[0], diag[1], e.state(), e_n.state()))
-                with torch.no_grad():
-                    self.tele["step_norm"] = float(self.win.basis.to_particles(self.C.detach() - bak[0]).norm())
+                self.tele["step_norm"] = float((self.dFc.detach() - bak[0]).norm())
             rec = self.record(it, e_n, new, a_try, gn)
             if self.on_iter is not None:
                 self._stream(it, e_n, rec, diag)
@@ -461,9 +444,7 @@ class WindowOptimizer:
     def commit(self, hist, replay_rel, grad_converged, ls_exhausted, L_start, leaf0) -> WindowResult:
         cfg, win = self.cfg, self.win
         win._adj = None                     # the tape is done: free it before the runner goes on
-        with torch.no_grad():
-            dfc = self.dFc                  # the particles' control, read once from the nodes
-        commit = commit_rollout(win, self.obj, dfc, self.u, self.lam_r)
+        commit = commit_rollout(win, self.obj, self.dFc, self.u, self.lam_r)
         E_accept = hist[-1]["loss"] if hist else None
         replay_tol = (max(cfg.ls_noise_rel, 10.0 * replay_rel)
                       * max(abs(E_accept or 0.0), win.loss_floor_eff))
@@ -491,17 +472,13 @@ class WindowOptimizer:
         if cfg.grad_dump and self.dump.get("gx_phys") is not None:
             commit.x = [t.clone() for t in commit.x]        # the dump's rollouts reuse the buffers
             commit.F = [t.clone() for t in commit.F]
-            for k in ("gl_phys", "gl_sil", "gl_pbr", "gl_rend"):   # the node gradients as particle controls
-                if self.dump.get(k) is not None:
-                    with torch.no_grad():
-                        self.dump[k] = win.basis.to_particles(self.dump[k])
-            write_grad_dump(cfg.grad_dump, self.dump, win, leaf0, dfc.clone(),
-                            self.u.detach().clone(), win.expand(dfc),
+            write_grad_dump(cfg.grad_dump, self.dump, win, leaf0, self.dFc.detach().clone(),
+                            self.u.detach().clone(), win.expand(self.dFc.detach()),
                             commit.x[-1].detach().cpu().numpy())
         stats = {"replay_rel": replay_rel, "accepted": self.accepted, "rejected": self.rejected,
                  "grad_converged": grad_converged, "ls_exhausted": ls_exhausted, "L_start": L_start,
                  "u_gate": self.obj.u_gate_frac, "lambda_capped": self.lam_capped,
-                 "dfc": dfc[:cfg.T].clone(),
+                 "dfc": self.dFc.detach()[:cfg.T].clone(),
                  **{k: self.tele.get(k) for k in _STAT_KEYS + _LS_KEYS}}
         if cfg.profile:
             stats["prof"] = prof_take()
@@ -519,7 +496,7 @@ class WindowOptimizer:
             stats["merit_w1_gap"] = self.obj.w1_merit_gap(commit.x[-1])
             if cfg.work_telemetry:                      # diagnostic records, not read by the run
                 stats.update(self.obj.scale_record(commit.x[-1]))
-                stats.update(self.obj.control_record(win.expand(dfc)))
+                stats.update(self.obj.control_record(win.expand(self.dFc.detach())))
                 stats.update(support_record(self.tgt, commit.x[-1]))
             if cfg.work_telemetry or cfg.term_dump:
                 stats.update(self.obj.active_set_record(commit.x[-1], self.lam_r))

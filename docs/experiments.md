@@ -717,6 +717,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   carry mostly one particle the average returns nearly that particle's own control, so not all go); (b) level;
   (c) level or up (the late anti-aligned sub-cell move is gone); the render weight rises (its sub-cell part no
   longer counts in its norm). Risk: the transport fits fine shape more slowly through cell-scale stress.
+  **Result (runs 06:28–07:07, read 10:15 CDT; `output/gpu/d109`, `twin_*.png`): refuted, withdrawn; the code is
+  reverted.** (a) Not met: discs apart / folded in the first 10 % and 10–30 % of the run, dragon LG 3474 / 1063 and
+  6436 / 3497 against LV's 3749 / 746 and 9186 / 2104; bunny LG 2627 / 831 and 1884 / 1712 against 3057 / 297 and
+  3642 / 631: no fewer, later. (b) Not met: every arm stops earlier (bunny PG 41 windows, LG 52 against 79, 72;
+  dragon 67, 87 against 106, 101) and behind D105's same arm: the display's front 1 − IoU at the end bunny LG 0.0101
+  against 0.0084 (+20 %), dragon 0.0121 against 0.0092 (+31 %), the yardstick's silhouette +29 % and +59 %, the
+  field's roughness 5.1° against 3.5° and 8.6° against 6.1°. Wall time 0.80–0.88 of D105's (fewer windows). The
+  agent's caution held: a protruding particle's outer nodes carry mostly its own mass, so its node control is its
+  own and the fragments stay; and the cell-scale stress fits the shape less well, so the transport ends higher.
+  The per-particle stress control is not the defect to change; the fragments' cause stays open (the render's
+  concentration on protruding particles while its weight is large).
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
