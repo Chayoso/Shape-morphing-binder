@@ -903,6 +903,15 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (15:20 CDT; `tmp/d112e.sh`, repo_r96, tag XP):** bunny and dragon 300k, the paper form with the spray cleanup, the
   whole budget, runeval3. The superseded oracle-form evaluations (XSB) were stopped; their run records stay.
   Expectation: the dragon now converges (silhouette IoU 0.95–0.97), still behind both D105 arms; the horns frayed.
+  **Result (16:01 / 16:03 CDT): refuted, worse.** bunny XP 0.8836 / chamfer 0.069, dragon XP 0.6173 / 0.530. With
+  its full step the baseline's loss falls fast (bunny 95 → 8.9 in seven windows) but the body speeds up (kinetic
+  energy 0.5 → 1.3, |v| max up to 5.2), nothing in Xu et al.'s loss asks for rest, and from window 7 (bunny) and 6
+  (dragon) every window is rejected by our outer acceptance (283 and 297 of 300: the merit rises by more than 5 %
+  from a start state that keeps its speed, and a rejected window restarts from that same state). The compounding
+  scale had acted as an accidental damping (0.952 / 0.768). Neither run is Xu et al.'s method: our settled windows
+  (the released half, the acceptance brake) presume a loss with a rest term. The baseline's protocol is a decision
+  for the user (below, in the reply of 16:30): Xu et al. as published (episodes scored while driven, every episode
+  kept), or Xu et al.'s loss inside our protocol with our rest term (the first rung of an ablation, not "Xu").
 - **D114, the run stops where its objective can no longer tell the body from the target (pre-registered 2026-10-06
   14:29 CDT; the user, offered D113's options (a) slow the arrival, (b) end the tail, (c) retime the video only:
   "ㅇㅇA로 가는 게 맞을 거 같아" (end the tail, so the arrival fills more of the run); `output/gpu/d114`).** D113: after
@@ -977,6 +986,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the rim and in the fur relief, not at a few spots. Open: whether the base display's re-sampling of a surface that
   creeps across its fixed lattice (the tangential part) or the pulse (the normal part) makes the streaks: next, the
   tail's kept frames drawn with each part alone.
+  (4) Each part alone (`d116_variants.py`: from 70 % of the kept frames on, the near-surface particles' steps split
+  into their normal and tangential parts and accumulated; drawn with the base display, h = 0): the body's
+  alternating part 0.000615 for the original tail, 0.000574 with the normal part alone (93 %), 0.000084 with the
+  tangential part alone (14 %). The flicker is the surface moving along its normal, not the display re-sampling a
+  creep across its lattice. (5) Pulse or progress (`d116_pulse.py`, D105's four runs, last 30 %): per window the
+  outer layer's normal excursion is 0.029–0.050 pitches rms and 73–79 % of it stays (net 0.021–0.038); successive
+  normal steps correlate +0.43 to +0.71 within the driven half and about 0 across the release. (6) Where the normal
+  motion comes from (a scratch copy, `repo_r96d116`, not committed: at every committed window the zero-control
+  rollout from the window's start, as it is, without the minimum spacing, without the layer relaxation; bunny 300k,
+  `--layer_relief`, seed 97, 91 windows, silhouette IoU 0.9878, `output/gpu/d116/bunny300k_free.*`), medians in
+  pitches per window:
+
+  | share of the run | actual | zero control | … no spacing | … no relaxation | control's own (actual − free) | corr(actual, free) |
+  |---|---|---|---|---|---|---|
+  | 0–10 % | 1.391 | 0.951 | 0.954 | 0.943 | 1.154 | +0.53 |
+  | 10–30 % | 0.074 | 0.066 | 0.067 | 0.039 | 0.083 | +0.44 |
+  | 30–70 % | 0.035 | 0.042 | 0.043 | 0.008 | 0.047 | +0.22 |
+  | 70–100 % | 0.030 | 0.038 | 0.038 | 0.006 | 0.044 | +0.17 |
+
+  In the tail the window left to itself would move the surface more than the window does (0.038–0.042 against
+  0.030–0.035), and 85 % of that is the layer relaxation (without it 0.006–0.008); the minimum spacing adds
+  nothing. The control's own part (0.044–0.047) is larger than what remains and barely aligned with the free move:
+  the optimiser pushes back each window against what the relaxation does. The tail's flicker is that tug of war:
+  the relaxation keeps pulling the layer toward its reference (the mesh's relief on the layer's feet, D105) and the
+  objective (transport and proximity to the target's sample) wants it elsewhere by a fraction of a pitch. The
+  relaxation moves positions without a velocity, so the released motion term, which reads velocities, does not see
+  it: "the released end is at rest" holds for the grid while the layer keeps being moved. Dragon: running.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
