@@ -783,6 +783,36 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   display ahead of the twin's by more than D105's lead on the independent sample's pictures.
   Expectation: the relief appears as the body arrives (10–20 % of the run) and holds; the end bands at stage 0's
   level; flicker level. Risk: the per-frame refit flickers; regions that arrive late get few steps.
+  **Stage 1, first results (2026-10-06 11:12–12:34 CDT; `morph_*`, `morph1b_*` … `morph1e_*`).** The relief comes
+  with the body's arrival (bunny: 15 % of the run already textured) and holds. Flicker (the alternating part of
+  the grey level over the body, median; D105's display 0.00051): the twin with h = 0 and the field's own normals
+  0.00089, the render arm with a fresh Adam every frame 0.00130 (criterion (b) not met). Measured causes: the field's
+  raw normals (fixed by the base display's averaged normals: the twin 0.00060), and the refit itself (a fit that
+  stops at half the run leaves its last 20 % at the twin's 0.00050; carrying h in place of v changes little). The
+  definition kept (1e): the Adam moments and step count travel with the discs, and a disc's step is the rate over
+  the square root of its fits so far in frames (stochastic approximation of a slowly moving optimum); the slope and
+  the footprint read same-side neighbours only (the bright seams where two parts touch are gone). 1e bunny: flicker
+  0.00069 (1.35 times D105's display: (b) met); end render terms against the fitted pictures silhouette 0.000167,
+  shading 0.000455 against the twin's (h = 0) 0.0035, 0.0013. Fair comparison (the user: "Xu et al. 물리 loss만"
+  vs the full pipeline, each with the same post-hoc fit): the physics-only twin with the same fit ends at 0.000255 /
+  0.000495; the render arm's lead with the same display layer is −35 % / −8 %: the render in the loop's own share.
+- **D112, Xu et al. (TVCG 2025) reimplemented as the baseline (2026-10-06 12:38 CDT; the user: "Xu et al.을 Gaussian에
+  때려 박고 Deform 최적화한 결과 vs 우리 풀 파이프라인", "(B)로 가야지 … C++를 기반으로 Warp로 재구현"; code: the
+  release `680622e` (repo_xu), its `phys` arm; `output/gpu/d112`).** The physics-only twin is not Xu et al.: it
+  carries the whole target in 3D (Sinkhorn transport to a 300k sample, surface proximity, the mesh's relief
+  reference), which is why it is close to the render arm. Xu et al.'s method, read from the C++ oracle at
+  `bffb9e2:legacy/DiffMPMLib3D` and its configuration `legacy/configs/ablation_bunny_ppc6_physics_only.yaml`: the
+  loss is EndLayerMassLoss alone (1/2 the squared log-mass residual on the grid, an out-of-target penalty), the
+  control a per-particle dFc, episodes of 20 steps, one gradient step per episode (alpha 0.01, Adam with the line
+  search and adaptive alpha), no plasticity, shell-biased sampling (216 points a cell in a two-cell shell, 1 inside).
+  The release's `phys` arm with that schedule (`--iters 1 --alpha 0.01 --assim 0 --w_kin 0 --w_ctrl 0 --w_creg 0
+  --w_dt 0 --w_nn 0 --w_fill 0 --w_grow 0 --pace 0 --no_outer_merit --sample shell --phys_loss density --loss_units
+  legacy`), the box leash kept (particles leaving the grid end the run), the same MPM grid as ours (cell_diag 26).
+  Smoke at 40k (bunny): with eight steps a window and no stability terms it diverges (D_vol 986 → 2490, velocity
+  clamps); with Xu's schedule it descends (D_vol 2860 → 132 by window 55) but the silhouette IoU is 0.82–0.89
+  (release metric), the body blobby, the ears a haze, many particles apart (`output/video_2026-10-06/d112_xu`):
+  the failure modes previous_pipeline.md records for the cell-sum loss. Runs: bunny and dragon 300k, seed 97, to
+  their own convergence. Then the same D111 post-hoc fit on Xu, on the physics-only twin and on the render arm.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
