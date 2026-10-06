@@ -588,6 +588,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   0.08–0.11 pitches rms: the display's own normal averaging hides most of it. The detail comes from the target's
   surface through the relaxation, in both arms alike (PV − LV +0.01 to +0.03 at 5.4): the render arm's lead stays
   in the transit, the silhouette and the shading, not in the relief. Next: the 40k gallery before adoption.
+- **D106, D105 on the 40k gallery (pre-registered 2026-10-06 00:25 CDT; `tmp/d106.sh`, `tmp/d106.queue`; repo_r89;
+  `output/gpu/d106`).** The rule before adoption: a change holds on the whole 40k gallery. Runs: the 19 meshes at
+  40k, each as the render arm (`{mesh}_V`) and the physics-only twin (`{mesh}_W`), both with `--layer_relief`,
+  against D100's runs of D98's code (`{mesh}_D`, `{mesh}_E`) and its second runs of V and C (D100b, the single-run
+  spread). Read: each end state against an independent 40k sample (gallery_ind.py: silhouette IoU over 24 views
+  at 128 px, chamfer), and from the records the angular momentum at the window starts (V against W).
+  Criteria: (1) V ahead of W on the independent silhouette on as many meshes as D against E; (2) V not behind D, and
+  W not behind E, by more than the single-run spread (D100b: up to 0.002 in silhouette) on at least 16 of 19
+  meshes, none behind by more than 0.01; (3) V's angular momentum not above W's on most meshes.
+  Expectation: (1) and (2) hold; at 40k the relief below a cell is a smaller share of the picture (a pixel of 128
+  px is 1.6–1.9 pitches), so the silhouette changes are within the spread; the meshes with thin parts (A, V, C,
+  bob, beast) are where a reference read across a thin part's faces would show.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
