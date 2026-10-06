@@ -1054,7 +1054,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   shows: the conflict is between the relaxation's fixed point (the layer smoothed onto the mesh's relief) and the
   objective's (the layer where the transport and the proximity to the target's sample want it), not a blind spot of
   the rest term. The twin, the dragon's evaluation and the gallery were stopped; the dragon's render arm ran on
-  (`dragon300k_LV7`). Code back to 003dc3f's (the definition kept at 8721308).
+  (`dragon300k_LV7`). Code back to 79af88a's, the commit before 8721308 (where the definition stays).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
