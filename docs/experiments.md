@@ -1228,7 +1228,7 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   | D112 XP (Xu's loss, our protocol) | (3 of 300) | 39.7 | 0.6173 | 0.5296 | 2.44 / 5.74 | 0.168 / 0.055 | 0.287 / 0.870 / 0.385 | 1.44 | 145 / 3885 |
   | XPP (Xu et al. as published) | 95 | 5.3 | 0.9408 | 0.1220 | 17.8 / 6.17 | 0.015 / 0.011 | 0.160 / 0.443 / 0.197 | 8.2e-3 | 515 / 25909 |
   | XPZ (ζ = 0.5) | 95 | 5.3 | 0.9409 | 0.1197 | (evaluation running) | | | 8.3e-3 | |
-  | XPS (+ spray cleanup) | 95 | (running) | | | | | | | |
+  | XPS (+ spray cleanup) | 95 | 12.1 (shared GPU) | 0.9520 | 0.1219 | (evaluation running) | | | 7.6e-3 | |
 
   D112's oracle-form runs (XSB: bunny 0.952 / 0.060, dragon 0.768 / 0.169) are not in the tables: their evaluations
   were stopped part-way. The loss: bunny 6493 → 1392 (−79 %), dragon 17080 → 2638 (−85 %), both still falling 2–3 %
@@ -1249,7 +1249,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   yardstick and display measure: met. Few detached particles: refuted (2.8 / 6.2 % at the rest spacing, 23–26
   thousand particles apart). Time: 2.2 / 5.3 min against the predicted 10–25 / 25–50 (I overrated an episode's cost).
   The dragon's run fails the ejection gate (stray share 0.86 % at its worst frame, the gate's bound 0.2 %).
-  Secondary: XPS within 0.005 of XPP's silhouette IoU: +0.006, at the edge; the haze stays (likely because the
+  Secondary: XPS within 0.005 of XPP's silhouette IoU: bunny +0.006, at the edge; dragon +0.011, not met (chamfer
+  level, 0.1219 against 0.1220; stray share 0.74 %, the gate still fails); the haze stays (likely because the
   cleanup pulls down the target's distance field, which is zero inside the target, where the pictures show most of
   the haze; not measured). XPZ further along: refuted (bunny loss
   −0.5 %, IoU +0.0006; dragon loss −2 %, chamfer −2 %; |v| max +7 %): the damping is not what limits it.
