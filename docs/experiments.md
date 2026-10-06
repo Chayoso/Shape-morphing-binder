@@ -459,6 +459,23 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D104, the render's target pictures from a 2.4M sample of the target, the simulation at 300k (pre-registered
+  2026-10-05 22:00 CDT; the user, on detail: "랜더 target 만 2.4M으로 만든 다음에, sim 만 300K로 들어가면 안
+  되려나?"; `output/gpu/d104`).** The run's final surface differs from the physics-only twin's by a few pixels; the
+  render's lead is in the transit. D76: a run carries a third of what its own 300k sample does at 5.4 pitches
+  (bunny 0.18–0.24 against 0.66), and the render arm 0.06–0.12 less than its twin at 10.8 pitches. The render's
+  target pictures are the mean over eight 300k samples' exteriors (D91), each the mesh blurred by 1.2–1.4 pitches:
+  the render pulls towards a blurred target. A 2.4M sample carries 0.87 at 5.4 pitches (D76). Step 1 (a
+  measurement, no simulation): the share of the mesh's relief per octave band (D76's `ag2_bands.py`, band family
+  B) carried by the exterior of (i) a 300k sample at its pitch (today's per-draw target), (ii) a 2.4M sample drawn
+  at the 300k body's field pitch and lattice (the best picture a 300k exterior can make), (iii) a 2.4M sample at its
+  own pitch. Expectation: (ii) carries most of the gap between (i) and (iii) at 5.4 and 10.8 pitches, nothing a
+  300k exterior cannot draw. Step 2 (if (ii) carries at least 0.15 more than (i) at 5.4 pitches): the render's
+  targets drawn from one 2.4M sample at the run's pitch, in place of eight 300k draws; the render arms of bunny
+  and dragon 300k (the twins have no render target), read by the bands against the mesh, the display against the
+  independent sample and a 2.4M one, and the angular momentum. Pass: more relief carried than D98's render arms
+  at 5.4 and 10.8 pitches, beyond the twin's; the display not behind D98's; the angular momentum not above the
+  twin's.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
