@@ -600,6 +600,34 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Expectation: (1) and (2) hold; at 40k the relief below a cell is a smaller share of the picture (a pixel of 128
   px is 1.6–1.9 pitches), so the silhouette changes are within the spread; the meshes with thin parts (A, V, C,
   bob, beast) are where a reference read across a thin part's faces would show.
+  **Result (38 runs done 01:02 CDT; read 01:40, `scripts/probes/settled/d106_rows.py`): the gallery holds and
+  gains.** The independent silhouette IoU at the end, per mesh (E, D: D98's twin and render arm; W, V: D105's):
+  V ahead of W on 19 of 19 (+0.0003 to +0.0046), as D of E (19 of 19); V against D +0.0008 to +0.0073 on 17 meshes,
+  −0.0007 (C) and −0.0003 (heart) on two, inside the single-run spread (D100b: +0.002 V, −0.0033 C); W against E
+  +0.0004 to +0.0085 on all 19. None behind by more than 0.01. The physics-only twin gains as much as the render arm
+  (mean W − E +0.0050, V − D +0.0030): the reference without its crease bias helps the silhouette at 40k too, the
+  thin meshes included (A +0.0075, V +0.0071, beast +0.0084). The angular momentum at the window starts (the mean
+  over the run) is not above the twin's on 10 of 19 meshes; above it on V (+46 %), beast (+69 %), ogre (+34 %),
+  nefertiti (+22 %), armadilo (+14 %), dragon (+11 %), homer (+10 %) and two by 1 %: criterion (3) holds by one mesh,
+  the 40k render arm's angular momentum is mixed (at 300k it was ahead on both meshes, D105).
+- **D107, how the shape detail comes alive, and which gradient writes it (an analysis; pre-registered 2026-10-06
+  01:13 CDT; the user: "Gradient 분석 해 줘. "Shape detail"이 얼마나 잘 살아나는지 면밀하게 관찰해 줘"; `tmp/d107.sh`,
+  `tmp/d107_slim.py`; `output/gpu/d107`).** D105 carries 0.55–0.57 of the mesh's relief at 5.4 pitches at the end,
+  in both arms alike. Open: when it appears during the morph, and what writes it. (1) The time course: D76's bands
+  (family B) of the display at eight kept frames of each run (30 % to 100 % of its frames) for D98's P and L and
+  D105's PV and LV, both meshes (discs farther than two pitches from the mesh are left out and counted: the body
+  not yet arrived). (2) The gradients: D105's render arm again, bunny and dragon 300k, with per-window gradient
+  dumps (`--grad_dump`; slimmed to the states, the three position gradients and the linear-response end states of
+  the render and physics channels). Per window, on the outer layer within two pitches of the mesh: each field's
+  normal component split into octave bands by differences of Gaussian means over the layer (sigma 0.5, 1, 2, 4, 8
+  pitches): the offset from the mesh, the render push (−λ(∂sil + ∂pbr)·n), the physics push, what each channel
+  alone moves in the window (its linear response), and the window's actual move; per band the correlation of each
+  push and move with −offset ("toward": +1 when it undoes the band's offset) and its energy share.
+  Expectation: the relief at 5.4 and 10.8 pitches appears in the last third of the morph, once the layer is
+  within a pitch of the mesh (the reference is zero farther out); the render push is toward the mesh at 10.8 and
+  21.6 pitches and blind at 5.4 and below (a render pixel is a pitch); the physics push is toward at every band
+  through the transport; the actual move at 5.4 pitches is more toward than either push (the relaxation's reference
+  acts outside the gradients). No pass or fail: this explains, it does not adopt.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
