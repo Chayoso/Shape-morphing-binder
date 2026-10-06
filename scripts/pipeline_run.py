@@ -59,8 +59,9 @@ def parse_args():
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
-    ap.add_argument("--baseline", default="", choices=["", "xu"],
-                    help="xu: the comparison baseline, Xu et al.'s objective alone in this simulator (D112)")
+    ap.add_argument("--baseline", default="", choices=["", "xu", "xu_spray"],
+                    help="xu: the comparison baseline, Xu et al.'s objective alone in this simulator (D112); "
+                         "xu_spray: the same with our spray cleanup, the ejection guard")
     ap.add_argument("--layer_relief", action="store_true",
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
     ap.add_argument("--render_res_hi", type=int, default=None,
@@ -177,7 +178,7 @@ def main():
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
                               baseline=args.baseline, xu_mass=1.0 / prep.ppc)
-    if args.baseline == "xu":              # the comparison baseline: Xu et al.'s objective alone, nothing of ours
+    if args.baseline:                      # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "

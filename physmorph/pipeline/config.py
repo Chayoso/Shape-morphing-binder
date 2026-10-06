@@ -83,7 +83,10 @@ class PipelineConfig:
     baseline: str = ""              # "xu": the same simulator, windows and step control with Xu et al.'s objective
                                     #   alone (their EndLayerMassLoss as the C++ oracle computes it, losses/volumetric.
                                     #   d_vol_xu); nothing of ours: no transport, surface proximity, drift or released
-                                    #   motion, cleanup, relaxation, u, minimum spacing, relief reference or render
+                                    #   motion, cleanup, relaxation, u, minimum spacing, relief reference or render;
+                                    #   "xu_spray": the same with our spray cleanup (the ejection guard) as well, in
+                                    #   Xu's units (divided by the scale that makes Xu's gradient norm D_vol's at
+                                    #   the source, as our transport's), so it weighs against the loss as ours does
     xu_mass: float = 1.0            # that loss's per-particle mass: 1 / ppc, so that a full cell holds 1 as in the oracle
 
     # ---- render objective ----

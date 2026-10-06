@@ -52,7 +52,7 @@ class Window:
                                                            h_sp=cfg.layer_h_sp)
         # the relaxation's reference: its own operator on the layer's feet on the target's surface (target.relief)
         ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw)
-        relax = 0.0 if cfg.baseline == "xu" else 1.0 / float(cfg.T)   # the baseline has no relaxation
+        relax = 0.0 if cfg.baseline.startswith("xu") else 1.0 / float(cfg.T)   # the baseline has no relaxation
         layer = (self.lmask, self.lnrm, lnbr, lw, relax, None, 0.0, None, ref)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
         # rest volume gives, among each particle's 16 nearest at the window's start

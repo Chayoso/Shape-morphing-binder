@@ -54,11 +54,20 @@ class Objective:
         self.discs, self.ext_builds = None, 0         # the exterior's discs and how often this window looked for them
         x0 = win.x0
         eps = float(tgt.ldx) ** 2                     # blur: one loss cell
-        self.xu = cfg.baseline == "xu"
+        self.xu = cfg.baseline in ("xu", "xu_spray")
+        self.spray_only = cfg.baseline == "xu_spray"     # the baseline with the spray cleanup alone (the ejection guard)
         if self.xu:                                   # the baseline: none of the transport's machinery, no u
             win.set_u_gate(torch.zeros_like(win.lmask))
             self.u_gate_frac, self.horizon = 0.0, cfg.T * prm.dt
             self.knn_ctrl = gpu.knn(x0, 9)[1][:, 1:]
+            if tgt.ot_scale is None:                  # the scale of Xu's loss against D_vol's at the source (as ours
+                xg = x0.detach().clone().requires_grad_(True)       # transport's): the spray cleanup is divided by it
+                gd = torch.autograd.grad(self.dvol_density(xg), xg)[0].norm()
+                gx = torch.autograd.grad(d_vol_xu(xg, tgt.m * cfg.xu_mass, *tgt.xu), xg)[0].norm()
+                tgt.ot_scale = float(gd / gx.clamp_min(1e-30))
+            if self.spray_only:                       # the spray cleanup's isolation gate, frozen per window as ours
+                self.m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi)
+                self.dt_idx = torch.nonzero(self.m_dt > 0).squeeze(1)
             return
         # the transport gate of u: u acts only on layer particles whose remaining transport
         # (to the label-free transport image of the window start) is within
@@ -187,8 +196,17 @@ class Objective:
         distance that made up two fifths of the merit (R12f); it is a different quantity from the spray cleanup
         and is no longer part of the merit (recorded as `merit_w1_gap`)."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
-        if self.xu:                                   # the baseline has no cleanup
-            return xT.sum() * 0.0
+        if self.xu:                                   # the baseline: no cleanup, or the spray cleanup alone
+            if not self.spray_only:
+                return xT.sum() * 0.0
+            if common_geometry:
+                m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi)
+                return wu * cfg.w_dt * d_w1(xT, m_cur, t.dt3, t.dtgmin, t.dtdx, t.dtdims) / t.ot_scale
+            if self.dt_idx.numel() == 0:
+                return xT.sum() * 0.0
+            return wu * cfg.w_dt / t.ot_scale * d_w1(xT.index_select(0, self.dt_idx),        # in Xu's units
+                                                     self.m_dt.index_select(0, self.dt_idx),
+                                                     t.dt3, t.dtgmin, t.dtdx, t.dtdims)
         if common_geometry:
             m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi)
             L = wu * cfg.w_dt * d_w1(xT, m_cur, t.dt3, t.dtgmin, t.dtdx, t.dtdims)

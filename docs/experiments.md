@@ -829,6 +829,29 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   reference or render. Tests on hyde06 (repo_r91): 285 passed, 2 skipped, exit 0. 40k bunny smoke: 232 windows in
   4.9 min, silhouette IoU 0.906 (the release's metric), chamfer 0.120; few particles apart, the ears frayed and
   the body short of the target (`output/video_2026-10-06/d112_xu/compare40k_ours.png`).
+  **The ejection guard on (`--baseline xu_spray`, 2026-10-06 13:13 CDT; the user: "입자 튀는 안정화 장치 … 정도는
+  켜도 나쁘지 않을 듯").** Particles still fly off in `xu`: the cell-sum loss's out-of-target gradient (x5) acts on the
+  outermost cells' particles one by one, not a numerical difference between the C++ and the port (the port matches
+  the oracle's value and gradient, `tests/test_xu_baseline.py`). The one stabiliser switched on is our spray cleanup
+  (the isolation-gated W1 pull down the target's distance field), in Xu's units: divided by the scale that makes
+  Xu's gradient norm D_vol's at the source (`ot_scale`, the factor our transport carries), so it weighs against Xu's
+  loss as against ours; Xu's loss itself stays in its own units (scaled into ours, the step control stopped the run
+  at window 10). Everything else stays off. 40k bunny, repo_r92, seed 97 (release metric, detached = no particle
+  within 1.8 median kNN distances):
+
+  | arm | windows | silhouette IoU | chamfer | detached |
+  |---|---|---|---|---|
+  | Xu et al., the release's `phys` arm | – | 0.82–0.89 | – | 4.53 % |
+  | `--baseline xu` | 243 | 0.9035 | 0.1207 | 2.04 % (817) |
+  | `--baseline xu_spray` | 273 | 0.9401 | 0.1174 | 0.68 % (272) |
+
+  The body is clean with the guard, the ears still frayed (`output/video_2026-10-06/d112_xu/compare40k_spray.png`).
+  Tests on hyde06 (repo_r92, the final code): 285 passed, 2 skipped, exit 0. **Pre-registered (13:17 CDT, server clock):** bunny
+  and dragon 300k, seed 97, `--baseline xu_spray` (the comparison baseline) and `--baseline xu` (Xu alone), each to
+  its own stop, read by runeval3 against the independent sample as D105's arms; then D111's post-hoc fit on the
+  `xu_spray` frames. Expectation: below the physics-only twin on every shape metric (no 3D target supervision
+  beyond the cell masses), the ears and horns frayed; if `xu_spray` comes within the D105 spread of the twin, the
+  twin's margin over Xu is not where the paper's claim sits.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the

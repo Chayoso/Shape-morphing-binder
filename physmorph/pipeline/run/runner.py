@@ -210,7 +210,7 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         if converged:
             frozen = True
             phys_track = (tgt.ot_scale * (rec["transport_energy"] + rec["stab_end"]) + rec["stab"]
-                          if tgt.ot_scale is not None else rec["loss"])
+                          if tgt.grid_ot is not None else rec["loss"])
             log(f"[v2] converged at anim {a + 1} (phys={phys_track:.4f}); holding still")
         any_guard = any(counts[k] for k in GUARDS)
         if a % max(1, cfg.animations // 10) == 0 or a == cfg.animations - 1 or any_guard:

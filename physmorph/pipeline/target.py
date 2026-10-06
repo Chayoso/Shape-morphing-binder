@@ -170,7 +170,7 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
     nn_sp = gpu.median(knn.query(tgt_t, 2)[0][:, 1])
     m_ref, n_support = density_units(grid)
     xu = None
-    if cfg.baseline == "xu":                  # the baseline's target: the simulation grid, the MPM's cubic B-spline
+    if cfg.baseline.startswith("xu"):         # the baseline's target: the simulation grid, the MPM's cubic B-spline
         xu_gmin = torch.tensor(np.asarray(prm.grid_min, np.float32), device=gpu.DEVICE)
         xu_dims = (prm.nx, prm.ny, prm.nz)
         xu = (rasterize_mass_cubic(tgt_t, m * cfg.xu_mass, xu_gmin, prm.dx, xu_dims).detach(), xu_gmin,
