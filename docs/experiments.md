@@ -502,6 +502,39 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   run nor its 300k sample carries the mesh. So for the detail two limits stack: the display field's width,
   which caps a 300k body at 0.60–0.66 at 5.4 pitches whatever its target, and the relaxation, which takes the
   run from that cap to 0.2; the render term changes neither as they are defined.
+- **D105, the relaxation's reference is its own operator on the target's surface below the layer (pre-registered
+  2026-10-05 22:29 CDT; papers read first (agent, `D105 papers` below); code: `window/layer.py` (TargetRelief),
+  `window/setup.py`, `target.py`; `output/gpu/d105`).** What D104 left: the relaxation takes a run from the
+  0.60–0.66 a 300k body can show at 5.4 pitches to 0.2 (D82). D88 gave it the target's relief as reference and
+  carried 0.5, but stood behind on the display (D90). Measured now (`tmp/d105_where.py` on D76's kept end discs,
+  `tmp/d105_refmean.py`): (1) D88's loss is not at thin parts; its surface stands further out everywhere, mean
+  offset from the mesh bunny PA 0.314 → PT 0.394, LF 0.332 → LR 0.365, dragon PA 0.701 → PT 0.839, LF 0.691 → LR
+  0.765 pitches, by the same amount at a thickness below 3 pitches as above 6, while its fine offset is smaller
+  (0.085 → 0.082, 0.111 → 0.103). (2) The cause: the mesh's value has a mean of zero over its surface (+0.0002,
+  +0.0014 spacings), but read at each layer particle's nearest surface point its mean is +0.011 to +0.031 spacings
+  (target sample's layer and D98's end layer, both meshes), while the layer's own d − d̄ has a mean of −0.001 to
+  −0.005: nearest points gather on convex creases and miss concave ones. A reference with a mean that d − d̄
+  cannot take leaves a push of frac × 0.016–0.032 spacings outward on every layer particle at every step, which
+  no arrangement of the layer answers: the layer inflates until the objective holds it. The change (a
+  definition of the reference, no new term): the reference of a layer particle is the relaxation's own operator,
+  with the window's frozen layer graph (its neighbours, weights and normals), applied to the layer's feet on the
+  target surface (each particle projected onto the tangent plane of its nearest surface point), zero for a
+  particle farther than one spacing from the surface as before. It is what d − d̄ would read if the layer stood
+  on the target, by the same operator over the same particles, so its mean is the layer's own and the crease
+  bias goes; the relief is the mesh's as the layer samples it. Literature (Nicolet 2021, Fleishman 2003, Lind /
+  Khayyer shifting, Yu & Turk 2010): a smoothing that runs on the state at every step must not have a fixed
+  point other than the target's; ours had zero (the relief erased), then a biased one (D88).
+  Runs: bunny and dragon 300k, D98's code with this and `--layer_relief`, the physics-only twin (PV) and the
+  render arm (LV), seed 97; against D98's P and L (seed 97) and their seed spread (D102). Read against the
+  independent sample (display, yardstick), the bands, the display's mean offset from the mesh and its
+  roughness, momentum and angular momentum (D102's measures).
+  Criteria: (a) carried share at 5.4 pitches at least 0.10 above D98's same arm, at 10.8 not below; (b) the
+  display's mean offset from the mesh within 0.03 pitches of D98's same arm; (c) the display not behind D98's same
+  arm beyond D102's seed spread; (d) the render arm ahead of its twin on the display by 10 % and not behind on
+  momentum and angular momentum; (e) roughness at most 1.3 times D98's.
+  Expectation: 0.35–0.50 at 5.4 pitches; offsets within 0.02; the display level with D98's; roughness 3.5–4.5°.
+  Risk: feet on a thin part's far face when a particle is nearer to it (zero beyond one spacing limits it); the
+  minimum spacing presses back where the relief asks inward.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the

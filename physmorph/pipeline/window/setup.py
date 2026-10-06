@@ -50,8 +50,8 @@ class Window:
         self.sp0 = layer_spacing(start.x)
         self.lmask, self.lnrm, lnbr, lw = layer_relax_data(start.x, self.sp0, k=cfg.layer_k,
                                                            h_sp=cfg.layer_h_sp)
-        # the relaxation's reference: the target's own rough residual where the particle stands (target.relief)
-        ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask)
+        # the relaxation's reference: its own operator on the layer's feet on the target's surface (target.relief)
+        ref = None if tgt.relief is None else tgt.relief.at(start.x, self.lmask, self.lnrm, lnbr, lw)
         layer = (self.lmask, self.lnrm, lnbr, lw, 1.0 / float(cfg.T), None, 0.0, None, ref)
         # the minimum spacing (kernels.k_update, D70): no two particles nearer than cfg.min_spacing of the pitch their
         # rest volume gives, among each particle's 16 nearest at the window's start

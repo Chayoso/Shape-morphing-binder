@@ -51,34 +51,31 @@ def layer_relax_data(x0: torch.Tensor, spacing: float, k: int = 24, h_sp: float 
 
 
 class TargetRelief:
-    """What the relaxation would take out of a layer that sat on the target: the rough part d - dbar of the plane
-    residual, measured on the target mesh's own surface with layer_relax_data's weights (a Gaussian of h_sp
-    spacings times the normal agreement, cut where the layer's k-th neighbour lies: `cut`, the median distance to
-    it in the target sample's own layer). Relaxed towards it instead of towards zero, the layer keeps the relief
-    the target has below a cell and still loses the sampling noise, which the mesh's surface does not have (D82:
-    without the relaxation the surface carries the relief and is as rough as a sample; D88)."""
+    """The relaxation's reference: what its own operator, the rough residual d - dbar over the window's layer graph,
+    reads on the layer's feet on the target's surface (each layer particle projected onto the tangent plane of its
+    nearest point of the target mesh's surface). Relaxed towards it instead of towards zero, the layer keeps the
+    relief the target has below a cell and still loses the sampling noise, which the mesh's surface does not have
+    (D82: without the relaxation the surface carries the relief and is as rough as a sample). Read by the same
+    operator over the same particles, the reference has the layer's own mean. D88 precomputed the operator on the
+    mesh and read it at each particle's nearest surface point: nearest points gather on convex creases, the
+    reference's mean was +0.01 to +0.03 spacings where d - dbar has none, and that remainder pushed the whole layer
+    outward at every step (D105)."""
 
-    def __init__(self, points: torch.Tensor, normals: torch.Tensor, spacing: float, h_sp: float, cut: float,
-                 k: int = 128):
-        d, nb = knn_self_torch(points, k + 1)
-        d, nb = d[:, 1:], nb[:, 1:]
-        w = (torch.exp(-(d / (h_sp * spacing)) ** 2) * torch.clamp((normals[nb] * normals[:, None, :]).sum(-1), min=0.0)
-             * (d <= cut))
-        total = w.sum(1, keepdim=True)
-        w = w / total.clamp_min(1e-12)
-        # a point without a same-side neighbour in reach has no plane to be measured against: its value is zero
-        # (a row without weight reads the world's origin as its centroid, D39)
-        res = torch.where(total[:, 0] > 1e-12, (normals * (points - (w[..., None] * points[nb]).sum(1))).sum(1),
-                          torch.zeros((), device=points.device))
-        self.value = (res - (w * res[nb]).sum(1)).float()
+    def __init__(self, points: torch.Tensor, normals: torch.Tensor, spacing: float):
+        self.points, self.normals = points, normals
         self.tree, self.reach = gpu.KNN(points), spacing
 
-    def at(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        """(N,) the reference of each layer particle: the target's value at its nearest surface point, zero for a
-        particle farther than one spacing from the target's surface (it has not arrived) or off the layer."""
+    def at(self, x: torch.Tensor, mask: torch.Tensor, nrm: torch.Tensor, nbr: torch.Tensor,
+           w: torch.Tensor) -> torch.Tensor:
+        """(N,) the reference of each layer particle, zero for a particle farther than one spacing from the target's
+        surface (it has not arrived) or off the layer; nrm, nbr, w: the window's layer graph (layer_relax_data)."""
         d, i = self.tree.query(x, 1)
+        i = i.reshape(-1)
+        q, m = self.points[i], self.normals[i]
+        foot = x - ((x - q) * m).sum(1, keepdim=True) * m
+        res = (nrm * (foot - (w[..., None] * foot[nbr]).sum(1))).sum(1)
         near = (mask > 0.5) & (d.float().reshape(-1) < self.reach)
-        return torch.where(near, self.value[i.reshape(-1)], torch.zeros((), device=x.device))
+        return torch.where(near, res - (w * res[nbr]).sum(1), torch.zeros((), device=x.device))
 
 
 def layer_spacing(x0: torch.Tensor) -> float:

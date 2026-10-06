@@ -178,6 +178,42 @@ def test_position_channel_gradient_matches_finite_differences():
         assert abs(float(fd - an)) <= 8e-2 * max(abs(float(fd)), abs(float(an)), 1e-4), (fd, an)
 
 
+def test_the_reference_is_the_residual_of_the_layer_standing_on_the_target():
+    """D105: TargetRelief reads the relaxation's own operator on the layer's feet on the target's surface. A flat
+    layer under a rippled target surface (wavelength 4 spacings, amplitude 0.1) gets as reference the rough
+    residual it would have with every top particle moved onto the ripple; a layer that stands on the target's
+    surface points itself gets its own rough residual (nothing to relax)."""
+    if not torch.cuda.is_available():
+        return
+    from physmorph.pipeline.window.layer import TargetRelief
+    x, sp = _slab(n_side=16, layers=4)
+    xt = torch.as_tensor(x, device="cuda")
+    mask, nrm, nbr, w = _layer_relax_data(xt, sp, k=8, h_sp=2.0)
+    on = mask > 0.5
+
+    def rough(y):
+        res = (nrm * (y - (w[..., None] * y[nbr]).sum(1))).sum(1)
+        return res - (w * res[nbr]).sum(1)
+
+    top = on & (nrm[:, 1] > 0.8)
+    y0, A, k = float(xt[top, 1].mean()), 0.1 * sp, 2 * np.pi / (4 * sp)
+    g = torch.linspace(-3.0, 3.0, 400, device="cuda")
+    GX, GZ = torch.meshgrid(g, g, indexing="ij")
+    GX, GZ = GX.reshape(-1), GZ.reshape(-1)
+    pts = torch.stack((GX, y0 + A * torch.sin(k * GX), GZ), 1)
+    nrm_s = torch.nn.functional.normalize(torch.stack((-A * k * torch.cos(k * GX), torch.ones_like(GX),
+                                                       torch.zeros_like(GX)), 1), dim=1)
+    ref = TargetRelief(pts, nrm_s, sp).at(xt, mask, nrm, nbr, w)
+    xb = xt.clone()
+    xb[top, 1] = y0 + A * torch.sin(k * xt[top, 0])
+    inner = top & (xt[:, 0].abs() < 1.0) & (xt[:, 2].abs() < 1.0)       # 3.6 spacings in from the slab's edges
+    want = rough(xb)[inner]
+    assert torch.corrcoef(torch.stack((ref[inner], want)))[0, 1] > 0.95
+    assert abs(float(ref[inner].norm() / want.norm()) - 1.0) < 0.1
+    own = TargetRelief(xt[on], nrm[on], sp).at(xt, mask, nrm, nbr, w)
+    assert torch.allclose(own[on], rough(xt)[on], atol=1e-6)
+
+
 def test_target_surface_normals_on_a_sphere():
     from physmorph.render.surface_recon import target_surface_normals
     rng = np.random.default_rng(0)
