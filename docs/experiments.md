@@ -796,6 +796,9 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   shading 0.000455 against the twin's (h = 0) 0.0035, 0.0013. Fair comparison (the user: "Xu et al. 물리 loss만"
   vs the full pipeline, each with the same post-hoc fit): the physics-only twin with the same fit ends at 0.000255 /
   0.000495; the render arm's lead with the same display layer is −35 % / −8 %: the render in the loop's own share.
+  Dragon (1e, read 2026-10-06 13:35 CDT): the render arm with the fit ends at 0.000802 / 0.001203 (frame 330, 92 % of
+  the discs arrived), the twin with the same fit at 0.00111 / 0.00133 (frame 347, 90 %): −28 % / −10 %. The
+  shading lead stays below the 10–20 % bar on the bunny and at it on the dragon.
 - **D112, Xu et al. (TVCG 2025) reimplemented as the baseline (2026-10-06 12:38 CDT; the user: "Xu et al.을 Gaussian에
   때려 박고 Deform 최적화한 결과 vs 우리 풀 파이프라인", "(B)로 가야지 … C++를 기반으로 Warp로 재구현"; code: the
   release `680622e` (repo_xu), its `phys` arm; `output/gpu/d112`).** The physics-only twin is not Xu et al.: it
@@ -852,6 +855,18 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `xu_spray` frames. Expectation: below the physics-only twin on every shape metric (no 3D target supervision
   beyond the cell masses), the ears and horns frayed; if `xu_spray` comes within the D105 spread of the twin, the
   twin's margin over Xu is not where the paper's claim sits.
+  **The first 300k runs stopped on our stopping rule (read 13:50 CDT).** bunny `xu_spray` 214 windows, silhouette IoU
+  0.944, chamfer 0.060; bunny `xu` 179, 0.879, 0.063; dragon `xu_spray` 63 windows, 0.666, 0.375 (6 min). In every
+  baseline run a third of the windows end with no step (40k xu 88 of 243, bunny 300k 60–80 of 179–214, dragon 29 of
+  63; D105's own runs 3–11 of 75–114): mostly `ls_exhausted`, the first line search of a window that starts from
+  the warm start after an accepted window fails all ten trials, alternately. Likely cause (not yet measured): the
+  oracle's gradient is not the gradient of its value (the out-of-target nodes' gradient x5), so its sign step need
+  not descend the value the line search reads; that is Xu et al.'s definition and stays. The patience stop (five
+  windows without a 0.3 % merit gain, null windows counting) is ours, not theirs: their protocol runs a fixed
+  number of episodes. **Pre-registered (13:57 CDT, server clock; `tmp/d112d.sh`):** bunny and dragon 300k,
+  `xu_spray` (XSB) and `xu` (XB), the whole 300-window budget (`--patience 300 --reject_stop 300`), delivered at the
+  best window by the baseline's own loss, read by runeval3 as before. Expectation: the dragon reaches the bunny's
+  level (silhouette IoU 0.93–0.95 for XSB), still below the physics-only twin and frayed at the horns.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
