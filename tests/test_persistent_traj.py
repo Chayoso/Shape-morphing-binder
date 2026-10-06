@@ -174,7 +174,7 @@ def test_persistent_adjoint_matches_the_plain_bridge(dev, bond_history):
 
     def run(fn, d):
         d = d.clone().requires_grad_(True)
-        xT, FT, vT, FgT, V = fn(d)
+        xT, FT, vT, FgT, V = fn(d)[:5]
         L1 = (xT * w).pow(2).sum() * 1e2 + FgT.pow(2).sum() * 1e-1
         L2 = V.pow(2).sum() * 1e2 + (vT * w).sum()
         g1 = torch.autograd.grad(L1, d, retain_graph=True)[0]
@@ -259,3 +259,33 @@ def test_control_release_matches_split_physics_and_leaf_finite_differences(dev, 
         torch.testing.assert_close(actual.reshape(-1), wp.to_torch(expected).reshape(-1),
                                    rtol=2e-5, atol=2e-6)
     assert got[-1].shape == (8, 3, 3)
+
+
+@pytest.mark.parametrize("dev", ["cpu", "cuda"])
+def test_the_per_step_positions_are_outputs_with_their_adjoint(dev):
+    """D117: PersistentAdjoint returns the per-step positions X (X[t-1] = x_t, X[T-1] = x_T) and differentiates a
+    loss on them: the control gradient of sum(w X[t]) for an inner step matches a central finite difference."""
+    if dev == "cuda" and not torch.cuda.is_available():
+        pytest.skip("no CUDA")
+    from physmorph.mpm.function import PersistentAdjoint, RolloutSpec
+    x0, prm, T = _cloud(120), _prm(), 4
+    N = len(x0)
+    vol0 = compute_rest_volumes(x0, 1.0, prm, dev)
+    spec = RolloutSpec(x0=x0, m=1.0, lam=800.0, mu=400.0, prm=prm, T=T, device=dev, vol0=vol0)
+    adj = PersistentAdjoint(spec)
+    torch.manual_seed(1)
+    dfc = torch.randn(T, N, 3, 3, device=dev) * 2e-2
+    w = torch.randn(N, 3, device=dev)
+
+    def loss(d):
+        xT, _, _, _, _, X = adj.apply(d)
+        assert X.shape == (T, N, 3) and torch.equal(X[-1], xT)
+        return (X[1] * w).sum().double() + (X[-1] * w).sum().double()
+
+    d = dfc.clone().requires_grad_(True)
+    g = torch.autograd.grad(loss(d), d)[0]
+    p = torch.randn_like(dfc)
+    eps = 1e-3
+    with torch.no_grad():
+        fd = (loss(dfc + eps * p) - loss(dfc - eps * p)) / (2 * eps)
+    assert float((g * p).sum()) == pytest.approx(float(fd), rel=2e-2)

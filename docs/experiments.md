@@ -1012,7 +1012,31 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   the relaxation keeps pulling the layer toward its reference (the mesh's relief on the layer's feet, D105) and the
   objective (transport and proximity to the target's sample) wants it elsewhere by a fraction of a pitch. The
   relaxation moves positions without a velocity, so the released motion term, which reads velocities, does not see
-  it: "the released end is at rest" holds for the grid while the layer keeps being moved. Dragon: running.
+  it: "the released end is at rest" holds for the grid while the layer keeps being moved. Dragon (101 windows,
+  0.9869): the same, the relaxation 70–77 % of the free move in the tail (zero control 0.065 / 0.052, without the
+  relaxation 0.020 / 0.012 at 30–70 % / 70–100 %), the control's own part 0.075 / 0.065 against 0.077 / 0.056 actual.
+- **D117, at rest means no position changes, edits included (pre-registered 2026-10-06 16:35 CDT; the user, offered
+  "the definition of rest widened" or "the relaxation stops on arrival": "정지의 정의를 넓힘"; code: `mpm/function.py`
+  (the persistent adjoint returns the per-step positions X and takes their seeds), `window/rollout.py`,
+  `window/objective.py` (`released_displacement`); tests `test_the_per_step_positions_are_outputs_with_their_adjoint`,
+  `test_the_released_displacement_is_the_released_motion_without_edits_and_sees_them`; 290 passed, 2 skipped on
+  hyde06, repo_r98).** D116: in the tail the layer relaxation moves the surface every window and the optimiser
+  pushes back, and the stability term cannot see it because it reads the grid's velocities while the relaxation and
+  the minimum spacing move positions without one. The definition changed: the released motion is (T dt)^2 x the mean
+  over the released steps and particles of |x_t − x_t−1|^2 / dt^2 with every edit of the step in x_t (equal to the
+  old term where a step edits nothing). No constant is added. The optimiser now pays for a released layer that the
+  relaxation is still moving, so it is drawn to states the relaxation leaves alone. Runs: bunny and dragon 300k,
+  `--layer_relief`, seed 97, render arm and twin (repo_r98; the render arms with D116's free-move record,
+  `repo_r98d116`), then the 40k gallery (V, W; `tmp/d117.sh`). Criteria: (a) in the last 70 % of the run the
+  window's actual normal motion and the zero-control motion both fall by at least half against D116 (0.030–0.077),
+  and the tail's body flicker (`d116_flicker.py` on the base display) by at least a third; (b) the render arm still
+  ahead of its twin by D105's margins on the display and the yardstick within the seed spread, momentum not worse;
+  (c) the relief at 5.4 pitches within 0.03 of D105's (the relaxation still works during the transit); (d) the 40k
+  gallery: V ahead of W on 19 of 19 as in D106, none behind D106's V by more than 0.01. Expectation: the tail motion
+  falls 2–4 fold, the flicker by half; the arrival and the end shape as D105's; the run may stop earlier (less creep
+  to chase). Risk: the relaxation keeps a fixed point the objective does not want, and the optimiser then holds the
+  layer against it with a control in the driven half only (the fight moves to the driven half and the flicker falls
+  less); or the extra term slows the arrival.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

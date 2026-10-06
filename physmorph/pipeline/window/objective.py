@@ -35,9 +35,19 @@ def velocity_variance(V: torch.Tensor, split: int) -> torch.Tensor:
 
 
 def released_motion(V: torch.Tensor, split: int, horizon: float) -> torch.Tensor:
-    """The stability term: horizon^2 x the mean over the released steps (from `split`) and the particles of |v|^2,
-    in length^2. Invariant under v -> 2v with horizon -> horizon / 2."""
+    """The stability term until D117: horizon^2 x the mean over the released steps (from `split`) and the particles of
+    |v|^2, in length^2. Invariant under v -> 2v with horizon -> horizon / 2. It reads the grid's velocities only."""
     return horizon ** 2 * V[split:].square().sum(2).mean()
+
+
+def released_displacement(X: torch.Tensor, split: int, horizon: float, dt: float) -> torch.Tensor:
+    """The stability term (D117): horizon^2 x the mean over the released steps and the particles of |x_t - x_t-1|^2 / dt^2,
+    with X[t-1] = x_t after every position edit of step t. Where a step makes no edit, x_t - x_t-1 = dt v_t and this is
+    released_motion; the layer's relaxation and the minimum spacing move positions without a velocity, and a body
+    whose layer they keep moving is not at rest (D116: in the tail the relaxation made 85 % of a free window's motion,
+    which the optimiser pushed back every window)."""
+    d = X[split:] - X[split - 1:-1]
+    return (horizon / dt) ** 2 * d.square().sum(2).mean()
 
 
 def end_drift(vT: torch.Tensor, horizon: float) -> torch.Tensor:
@@ -126,9 +136,10 @@ class Objective:
         """The geometry energy of the released end state: the transport divergence plus the fine term."""
         return self.tgt.grid_ot.state_energy(xT, self.tgt.m)
 
-    def stability(self, V):
+    def stability(self, X):
         """The stability term: the released motion (T dt)^2 x the mean over the released steps and particles of
-        |v|^2, length^2, outside the transport's ot_scale. Zero for a body at rest after the release; a release
+        |x_t - x_t-1|^2 / dt^2 (every position edit included, D117; until then |v|^2, the grid's velocities alone),
+        length^2, outside the transport's ot_scale. Zero for a body at rest after the release; a release
         that oscillates and comes to rest only at its end pays as a constant one of the same speed. With the
         residual drift of the released end (inside the geometry energy, see losses) it replaces the end kinetic
         energy w_kin |v_T|^2 (5) and the velocity variance w_kin_var (200). What each piece does was measured:
@@ -138,9 +149,9 @@ class Objective:
         R11e). Magnitude: inside ot_scale (R11) the released motion was 3-6x weaker than the legacy 100 wu and runs
         lost; outside, (T dt)^2 = 6.96e-3 (dt = 0.00417 at every N) equals the legacy 100 wu = 6.5e-3 to 7.0e-3 at
         40k (unit_ratio 1.43e4 to 1.55e4) without a constant, and is 2.2x it at 300k (unit_ratio 3.13e4)."""
-        return released_motion(V, self.cfg.T, self.horizon)
+        return released_displacement(X, self.cfg.T, self.horizon, self.horizon / self.cfg.T)
 
-    def losses(self, xT, FT, vT, V):
+    def losses(self, xT, FT, vT, V, X):
         """(lv, lk, lr, lpbr, d_sil, lstab): the scaled geometry of the released end (the transport energy plus
         its residual drift, (T dt)^2 mean |v_T|^2: the squared displacement the end velocity would add over one
         more horizon, length^2 like the transport), the end kinetic energy (a record), render (silhouette + w_pbr
@@ -151,7 +162,7 @@ class Objective:
         if self.xu:                                   # the baseline: Xu et al.'s mass loss alone, on the released end
             zero = xT.sum() * 0.0
             return d_vol_xu(xT, t.m * cfg.xu_mass, *t.xu, **cfg.xu_kw()), lk, zero, zero, zero.detach(), zero
-        lstab = self.stability(V)
+        lstab = self.stability(X)
         with timed("geom"):
             lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
         with timed("render"):
