@@ -867,6 +867,42 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `xu_spray` (XSB) and `xu` (XB), the whole 300-window budget (`--patience 300 --reject_stop 300`), delivered at the
   best window by the baseline's own loss, read by runeval3 as before. Expectation: the dragon reaches the bunny's
   level (silhouette IoU 0.93–0.95 for XSB), still below the physics-only twin and frayed at the horns.
+  Result (14:28–14:36 CDT): bunny XSB 300 windows (165 with no step), silhouette IoU 0.952, chamfer 0.060 (38 min);
+  dragon XSB 300 (136), 0.768, 0.169 (29 min); D105's render arm 0.988 / 0.055 and 0.988 / 0.054. The dragon stays
+  far behind with the whole budget, so the null windows had to be explained before the comparison could stand.
+  **Fairness check (the user: "공정성의 핵심이라 그 쪽 매우 중요해"; 14:45–15:20 CDT).** (1) The "oracle" is not
+  Xu et al.'s code as published: `legacy/DiffMPMLib3D` at bffb9e2 is PhysMorph-GS's working copy (render-gradient
+  injection, PCGrad, a physics weight and an adaptive initial alpha, all marked `[FIX]`). The paper (arXiv
+  2409.15746) states non-stochastic Adam with a bisection line search (halve until the loss decreases) and the loss
+  1/2 sum (ln(m+1) - ln(m*+1))^2 alone; the oracle's min-mass penalty and its x5 gradient at out-of-target nodes (so
+  not the gradient of its value) are not in it. Added `--xu_form paper` (config `xu_form`, `PipelineConfig.xu_kw`;
+  test `test_the_published_form_is_its_own_gradient`); the oracle form stays the default for the runs above. (2) The
+  x5 was not why windows went without a step: the paper form at 40k (300 windows) still had 108 of them, 74 with the
+  line search exhausted. The window log (switched on in a scratch copy) showed every exhausted search trying steps
+  of 1e-10 to 1e-13: **a defect of our step control, not of the baseline.** `line_search` multiplied the search
+  length by the adaptive scale (min(1, target norm / |g|), at least 0.1) and stored the scaled step as the next
+  length, so the scale compounded at every iteration (0.02, 2e-3, 2e-4 … 3.5e-9 after seven) and, through the
+  carried step (`settled_step`), into the next window; the C++ sets alpha = initial_alpha x scale once per control
+  step. Our runs never engage the scale (D113; 40k bunny: |g| at most 0.0023 against the target norm 0.118), so it
+  was dormant there and the fix changes nothing in them (the 40k bunny recipe run after it: 42 windows, 0.9743 /
+  0.1098, D106's V 0.9746 / 0.1099); the baseline's gradient (2–3 in its own units) always engaged it at 0.1.
+  Fixed (`solve.py`: the scale applies to the unscaled length, which alone is grown, halved and carried; record
+  `alpha_base`; test `test_the_adaptive_scale_applies_once`). (3) The step control's constants (target norm, Adam
+  epsilon) are D_vol's converted to the density units ours is scaled to; the baseline's gradient is 1/ot_scale of
+  those units, so they are divided by ot_scale in baseline mode, as the spray cleanup is (`objective.py`). Tests on
+  hyde06 (repo_r96): 287 passed, 2 skipped, exit 0. 40k bunny, `xu_spray`, the whole budget:
+
+  | baseline loss, step control | windows with no step | silhouette IoU | chamfer |
+  |---|---|---|---|
+  | oracle form, before the fix | 102 of 273 | 0.9401 | 0.1174 |
+  | paper form, before the fix | 108 of 300 | 0.9543 | 0.1167 |
+  | paper form, after the fix | 20 replays; the rest rejected after it converged (loss 90.8 → 1.47 by window 13) | 0.9597 | 0.1159 |
+  | our recipe (`--layer_relief`) | 6 of 42 | 0.9743 | 0.1098 |
+
+  Before the fix the baseline's loss fell 111 → 90 in five windows; after it 90.8 → 1.47 in thirteen. **Pre-registered
+  (15:20 CDT; `tmp/d112e.sh`, repo_r96, tag XP):** bunny and dragon 300k, the paper form with the spray cleanup, the
+  whole budget, runeval3. The superseded oracle-form evaluations (XSB) were stopped; their run records stay.
+  Expectation: the dragon now converges (silhouette IoU 0.95–0.97), still behind both D105 arms; the horns frayed.
 - **D114, the run stops where its objective can no longer tell the body from the target (pre-registered 2026-10-06
   14:29 CDT; the user, offered D113's options (a) slow the arrival, (b) end the tail, (c) retime the video only:
   "ㅇㅇA로 가는 게 맞을 거 같아" (end the tail, so the arrival fills more of the run); `output/gpu/d114`).** D113: after
@@ -917,6 +953,30 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   share 0 and h = 0 there (the source drawn as the twin draws it); (b) the end frame's render terms within 5 % of
   1e's (the relief still arrives with the body); (c) flicker not above 1e's. Expectation: (a) exactly; the arrived
   share lags 1e's by a few frames during the arrival; (b) and (c) hold.
+  **Result (14:49 / 15:03 CDT; `output/gpu/d115/morph1f_*`, local `output/video_2026-10-06/d111_morph/f0_1e_vs_1f.jpg`):
+  passed.** (a) frame 0 arrived 0, h 0 on both meshes; the wrinkle line along the crossing is gone, the source's
+  facets stay. The arrived share lags (bunny frame 20: 0.24 against 0.67). (b) the end frame is better than 1e's,
+  not only within 5 %: silhouette 1.67e-4 → 1.32e-4 (bunny), 8.02e-4 → 7.15e-4 (dragon); shading 4.55e-4 → 4.12e-4,
+  1.20e-3 → 1.10e-3 (the per-disc steps, 1/sqrt of the fits so far, are no longer spent on surfaces in transit).
+  (c) the alternating part over the body in the last 30 % (`d116_flicker.py`, half resolution): bunny 0.000758
+  (1e's run not measured this way), dragon 0.001182 against 1e's 0.001138; ALT/DRIFT 1.37 / 1.21 against 1.21.
+- **D116, what moves the surface in the tail (a measurement; opened 2026-10-06 15:05 CDT; the user, on D111's
+  videos: "뒤로 갈 수록 뭔가 좀 artifact만 보일 뿐 큰 변화는 딱히 없고 … surface에서 지들끼리 싸우는 느낌"; then
+  "2번 문제 해결 해 주고"; `scripts/probes/settled/d116_*.py`, `output/gpu/d116`).** (1) Who flickers: the body-only alternating part
+  of the grey level (|I+1 − 2I + I−1| / 2, median over the body) in the last 30 % of the videos: the physics-only
+  twin drawn with h = 0 (1e dragon PV) 0.001098, ALT/DRIFT 1.21; the render arm with the fitted layer 0.001138 (1e)
+  and 0.001182 (D115), 1.21 (bunny twin, 1b: 0.000652, 1.31; render arm D115: 0.000758, 1.37). The tail's flicker
+  is the body's, seen through the base display; the render and the display fit add 4–16 %. In the tail the
+  alternating part exceeds the drift (1.2–1.4), while in the first fifth it is below it (0.78–0.90). (2) What the
+  outer particles do (`d116_tail.py`, D105 bunny LV and PV, last 30 % of the kept frames, every 12th simulated frame):
+  per kept frame the displacement is 0.018 sampling pitches along the normal and 0.007 across (rms), in a steady
+  direction per particle (median cosine of successive displacements +0.77 / +0.81, reversals in 6–9 % of pairs);
+  the layer's mean normal motion is inward while the control drives (−0.0012 / −0.0011 pitches per kept frame) and
+  outward after the release (+0.0012 / +0.0014): a small in-out pulse every window over a steady creep. (3) Where
+  (`d116_altmap.py`, D115 bunny): the flicker covers the whole surface as fine contour-like streaks, strongest at
+  the rim and in the fur relief, not at a few spots. Open: whether the base display's re-sampling of a surface that
+  creeps across its fixed lattice (the tangential part) or the pulse (the normal part) makes the streaks: next, the
+  tail's kept frames drawn with each part alone.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

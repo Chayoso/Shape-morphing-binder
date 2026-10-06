@@ -59,6 +59,9 @@ def parse_args():
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
+    ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
+                    help="the baseline loss: the C++ code's (min-mass penalty, out-of-target gradient x5) or the "
+                         "published one (Xu et al., arXiv 2409.15746)")
     ap.add_argument("--baseline", default="", choices=["", "xu", "xu_spray"],
                     help="xu: the comparison baseline, Xu et al.'s objective alone in this simulator (D112); "
                          "xu_spray: the same with our spray cleanup, the ejection guard")
@@ -177,7 +180,7 @@ def main():
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
-                              baseline=args.baseline, xu_mass=1.0 / prep.ppc)
+                              baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form)
     if args.baseline:                      # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)

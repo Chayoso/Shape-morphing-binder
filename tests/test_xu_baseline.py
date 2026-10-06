@@ -35,3 +35,21 @@ def test_the_value_and_the_out_of_target_gradient():
     assert torch.allclose(g[-1], 5.0 * gv[-1], rtol=1e-5, atol=1e-12)   # outside the target: five times
     inside = (t_grid > 1e-12).reshape(DIMS)
     assert bool(inside.any())
+
+
+def test_the_published_form_is_its_own_gradient():
+    """xu_form "paper" (Xu et al., arXiv 2409.15746): 1/2 sum (ln(m+1) - ln(m*+1))^2, no min-mass penalty, and the
+    gradient the value's own everywhere, so a line search on the value reads the step it was given."""
+    from physmorph.pipeline.config import PipelineConfig
+    kw = PipelineConfig(xu_form="paper").xu_kw()
+    tgt = torch.rand(400, 3) * 0.6 - 0.3
+    t_grid = rasterize_mass_cubic(tgt, torch.full((400,), 0.05), GMIN, DX, DIMS)
+    x = torch.cat((tgt[:200] * 0.8, torch.tensor([[1.2, 1.2, 1.2]]))).requires_grad_(True)
+    m = torch.full((201,), 0.05)
+    loss = d_vol_xu(x, m, t_grid, GMIN, DX, DIMS, **kw)
+    g, = torch.autograd.grad(loss, x)
+    xv = x.detach().clone().requires_grad_(True)
+    lv = 0.5 * (torch.log(rasterize_mass_cubic(xv, m, GMIN, DX, DIMS) + 1) - torch.log(t_grid + 1)).pow(2).sum()
+    gv, = torch.autograd.grad(lv, xv)
+    assert torch.allclose(loss.detach(), lv.detach(), rtol=1e-6)
+    assert torch.allclose(g, gv, rtol=1e-5, atol=1e-12)

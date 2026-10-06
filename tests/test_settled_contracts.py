@@ -291,3 +291,22 @@ def test_proximity_form_runs_and_records_the_gradient_ratio(prm, clouds):
     res = run_pipeline(*clouds, prm, _cfg(animations=3, support_form="proximity", work_telemetry=True), log=lambda *_: None)
     rec = next(r for r in res["history"] if r.get("frame_end"))
     assert rec["sup_B"] >= 0. and rec["sup_w_eff"] is None and rec["sup_grad_ratio"] >= 0.
+
+
+def test_the_adaptive_scale_applies_once(prm, clouds):
+    """D112: with the adaptive scale engaged (a target norm far below every gradient: the scale is min_alpha_scale),
+    each accepted step is the search's own length times the scale, once. Until D112 the scaled step was stored as the
+    length, so the scale compounded at every iteration (a window's steps fell by 10x each) and, carried, every
+    window."""
+    rows = []
+    run_pipeline(*clouds, prm, _cfg(animations=1, iters=4, target_norm=1e-12), log=lambda *_: None,
+                 on_iter=lambda it, x, F, rec: rows.append(rec))
+    assert len(rows) >= 2
+    cfg = _cfg()
+    for r in rows:
+        assert r["alpha"] == pytest.approx(cfg.min_alpha_scale * r["alpha_base"], rel=1e-6)
+        assert r["alpha_base"] <= cfg.alpha * (1 + 1e-6)
+    # the next search starts at the accepted length grown 1.1x (capped), unscaled, and only halves from there
+    for a, b in zip(rows, rows[1:]):
+        k = np.log2(min(1.1 * a["alpha_base"], cfg.alpha) / b["alpha_base"])
+        assert k > -1e-4 and abs(k - round(k)) < 1e-4, (a["alpha_base"], b["alpha_base"])

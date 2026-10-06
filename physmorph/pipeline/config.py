@@ -88,6 +88,10 @@ class PipelineConfig:
                                     #   Xu's units (divided by the scale that makes Xu's gradient norm D_vol's at
                                     #   the source, as our transport's), so it weighs against the loss as ours does
     xu_mass: float = 1.0            # that loss's per-particle mass: 1 / ppc, so that a full cell holds 1 as in the oracle
+    xu_form: str = "oracle"         # which form of that loss: "oracle", the C++ code's (a min-mass penalty, the out-of-
+                                    #   target nodes' gradient x5, so not the gradient of its value); "paper", the
+                                    #   published one (Xu et al., arXiv 2409.15746): 1/2 sum (ln(m+1) - ln(m*+1))^2 and
+                                    #   its own gradient
 
     # ---- render objective ----
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration
@@ -130,10 +134,16 @@ class PipelineConfig:
     term_dump: str = ""             # diagnostic: directory of each term's per-particle position gradient per window
     device: str = "cuda"
 
+    def xu_kw(self) -> dict:
+        """The keyword arguments of losses/volumetric.d_vol_xu for the baseline's form."""
+        return dict(out_of_target=1.0, penalty_weight=0.0, eps=0.0) if self.xu_form == "paper" else {}
+
     def __post_init__(self):
         import math
         if self.support_form not in ("log", "ratio", "proximity"):
             raise ValueError("support_form must be \"log\", \"ratio\" or \"proximity\"")
+        if self.xu_form not in ("oracle", "paper"):
+            raise ValueError("xu_form must be \"oracle\" or \"paper\"")
         for name in ("support_weight", "render_weight_scale"):
             v = getattr(self, name)
             if not math.isfinite(v) or v < 0:

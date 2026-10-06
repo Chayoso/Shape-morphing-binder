@@ -249,7 +249,7 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) 
                                     tgt.n_support))
         d_dt = float(d_w1(x, tgt.m, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims))
         energy = (float(tgt.grid_ot.state_energy(x, tgt.m)) if tgt.grid_ot is not None      # the geometry energy; the
-                  else float(d_vol_xu(x, tgt.m * cfg.xu_mass, *tgt.xu)))                    #   baseline: its own loss
+                  else float(d_vol_xu(x, tgt.m * cfg.xu_mass, *tgt.xu, **cfg.xu_kw())))   #   baseline: its own loss
         detF = torch.linalg.det(F)
         jmin = float(detF.min())
         diag = {}

@@ -63,8 +63,13 @@ class Objective:
             if tgt.ot_scale is None:                  # the scale of Xu's loss against D_vol's at the source (as ours
                 xg = x0.detach().clone().requires_grad_(True)       # transport's): the spray cleanup is divided by it
                 gd = torch.autograd.grad(self.dvol_density(xg), xg)[0].norm()
-                gx = torch.autograd.grad(d_vol_xu(xg, tgt.m * cfg.xu_mass, *tgt.xu), xg)[0].norm()
+                gx = torch.autograd.grad(d_vol_xu(xg, tgt.m * cfg.xu_mass, *tgt.xu, **cfg.xu_kw()), xg)[0].norm()
                 tgt.ot_scale = float(gd / gx.clamp_min(1e-30))
+            # the step control's constants in the baseline loss's units (they are D_vol's, converted to the density
+            # units ours is scaled to; the baseline's gradient is 1/ot_scale of that): the same step for the same
+            # relative gradient as ours takes, as the spray cleanup is divided (D112)
+            win.eps_eff /= tgt.ot_scale
+            win.target_norm_eff /= tgt.ot_scale
             if self.spray_only:                       # the spray cleanup's isolation gate, frozen per window as ours
                 self.m_dt = tgt.m * isolation_gate(x0, cfg.dt_iso_lo, cfg.dt_iso_hi)
                 self.dt_idx = torch.nonzero(self.m_dt > 0).squeeze(1)
@@ -145,7 +150,7 @@ class Objective:
         lk = vT.pow(2).sum(1).mean()
         if self.xu:                                   # the baseline: Xu et al.'s mass loss alone, on the released end
             zero = xT.sum() * 0.0
-            return d_vol_xu(xT, t.m * cfg.xu_mass, *t.xu), lk, zero, zero, zero.detach(), zero
+            return d_vol_xu(xT, t.m * cfg.xu_mass, *t.xu, **cfg.xu_kw()), lk, zero, zero, zero.detach(), zero
         lstab = self.stability(V)
         with timed("geom"):
             lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))

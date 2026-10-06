@@ -115,6 +115,7 @@ class WindowOptimizer:
         self.adam_t = 0
         self.alpha_scale = alpha_scale
         self.alpha = cfg.alpha * alpha_scale
+        self.alpha_base = self.alpha                   # the last accepted search length, unscaled (line_search)
         if tgt.settled_step is not None:
             # warm-start the step search, not its acceptance: every trial runs the checks
             self.alpha = min(self.alpha, 1.1 * (tgt.settled_step * alpha_scale))
@@ -233,9 +234,15 @@ class WindowOptimizer:
     def line_search(self, g, gn: float, cur: float, e: Eval):
         """Backtracking over the Adam step. Returns the accepted Eval and its step, or None."""
         cfg, win = self.cfg, self.win
-        a_try = self.alpha
-        if cfg.adaptive_alpha:
-            a_try *= max(cfg.min_alpha_scale, min(1.0, win.target_norm_eff / max(gn, 1e-30)))
+        # the adaptive scale shortens the step a large gradient takes; it applies to the search's own length self.alpha
+        # (halved on a rejection, grown 1.1x on an acceptance), which stays unscaled. Stored scaled, as until D112, the
+        # scale compounded: x0.1 at every iteration and, through the carried step, every window (the C++ oracle sets
+        # alpha = initial_alpha x scale once per control step). Dormant while the scale is 1 (D113: our runs' gradients
+        # stay below the target norm); the baseline's collapsed to 1e-9 within a window and wasted every other window
+        scale = (max(cfg.min_alpha_scale, min(1.0, win.target_norm_eff / max(gn, 1e-30))) if cfg.adaptive_alpha
+                 else 1.0)
+        a_base = self.alpha
+        a_try = a_base * scale
         bak = [p.detach().clone() for p in self.leaves]
         bak_m, bak_v = [m.clone() for m in self.mom], [v.clone() for v in self.vel]
         new, e_n, required = cur, None, 0.0
@@ -273,7 +280,8 @@ class WindowOptimizer:
             self.tele["ls_trials"] += 1
             if merit_ok and st_ok:
                 self.adam_t = t_
-                self.alpha = min(a_try * 1.1, cfg.alpha * self.alpha_scale)
+                self.alpha = min(a_base * 1.1, cfg.alpha * self.alpha_scale)
+                self.alpha_base = a_base
                 self.accepted += 1
                 if dstats is not None:
                     self._iter_row(dstats, a_try, bak, g)
@@ -292,7 +300,8 @@ class WindowOptimizer:
                     m_.copy_(b)
                 for v_, b in zip(self.vel, bak_v):
                     v_.copy_(b)
-            a_try *= 0.5
+            a_base *= 0.5
+            a_try = a_base * scale
         self.rejected += 1
         if dstats is not None:
             self._iter_row(dstats, -1.0, bak, g)            # no accepted step: the direction alone
@@ -379,6 +388,7 @@ class WindowOptimizer:
                 "stab_end": float(end_drift(e_n.vT, self.obj.horizon)),
                 "d_sil": float(e_n.d_sil), "d_render": float(e_n.lr) - self.cfg.w_pbr * lpbr,
                 "d_pbr": lpbr, "lambda": self.lam_r, "grad_norm": gn, "alpha": a_try,
+                "alpha_base": self.alpha_base,
                 "predicted_decrease": self.tele.get("predicted_decrease"),
                 **{k: self.tele.get(k) for k in _TELE_KEYS},
                 "dfc_absmax": float(e_n.dfc.abs().max())}
@@ -502,7 +512,7 @@ class WindowOptimizer:
                 stats.update(self.obj.active_set_record(commit.x[-1], self.lam_r))
         elif selection_merit is not None and not np.isfinite(selection_merit):
             stats["invalid_selection"] = True
-        self.tgt.settled_step = (hist[-1]["alpha"] / self.alpha_scale
+        self.tgt.settled_step = (hist[-1]["alpha_base"] / self.alpha_scale
                                  if self.accepted > 0 and self.alpha_scale > 0 else None)
         return WindowResult(commit=commit if self.accepted > 0 else None, hist=hist, stats=stats)
 
