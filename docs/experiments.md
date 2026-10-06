@@ -1160,8 +1160,8 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   returns its old numbers and the runner dispatches before anything of ours runs): our simulator (kernels; E 1.4e5,
   ν 0.2, which are the copy's λ, μ defaults; dt 1/240; dx = diag/26; stratified sampling; N; smoothing 0.955, Table
   II's γ for this morph). An episode is 10 paper timesteps = 1/12 s = 20 of our steps, all driven, the loss read at
-  the 20th; one control layer, the per-particle F̃ held over our first 2 steps (one 1/120 s paper timestep, so its
-  impulse Δt V P is the paper's); 3 passes × 4 iterations; the next episode starts from the committed end (x, F, v,
+  the 20th; one control layer, the per-particle F̃ held over our first 2 steps (one 1/120 s paper timestep; see the
+  deviation below on what that does to the impulse); 3 passes × 4 iterations; the next episode starts from the committed end (x, F, v,
   C); every episode kept; 42 episodes for the bunny (420 timesteps), 95 for the dragon (950). No outer acceptance,
   brake, stopping rule, best-window delivery, plastic assimilation, warm start, bonds, relaxation, u, minimum
   spacing or render; the spray cleanup off (`--baseline xu_spray` adds it). The loss on our simulation grid with the
@@ -1173,6 +1173,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   as their 32³) and N 300k against their 1e4 (the normalised Adam step per entry then lies further below ε); a trial's
   state is checked for finiteness as well (a NaN particle drops out of our loss's scatter); promote clamps to the
   domain and repairs F as in every run (counted).
+  **Deviation in the baseline's favour (recorded 18:38 CDT, not changed):** our F update is F_new = (I + Δt C)(F +
+  F̃) (`kernels.py:322`, the paper's A11), smoothed to F ← (1 − γ) F_new + γ F, so holding F̃ over our two steps puts
+  about 2 (1 − γ) F̃ = 0.09 F̃ into F, where the paper's one step puts 0.045 F̃. The two steps' own stress impulse is
+  the paper's (2 × Δt/2 × V P(F + F̃), 1.02 × with the second step's larger F), but the increment left in F keeps a
+  stress about twice the paper's for the rest of the episode: over an episode the stress impulse is about 1.3–1.5 ×
+  the paper's (an estimate with the residual unrelaxed by the motion, not measured). The pre-registration's "its
+  impulse Δt V P is the paper's" was wrong; corrected above.
   Runs: a 40k bunny smoke, then bunny and dragon 300k, seed 97 (`run12.sh`, tags XPP, `--xu_timesteps 420` / `950`),
   read by `runeval3.sh` against D105's LV and PV and D112's XP.
   Prediction: no stall (every episode is kept; with α = 1e-3 and twelve iterations an episode the control moves at
@@ -1264,6 +1271,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   step it reaches the shape and keeps moving, the oscillation near the optimum the paper reports for Adam (Fig. 8).
   Which of the two stands in the paper's comparison is the user's decision: XPP is the method as published;
   XPA's α is the working copy's, not the paper's (and it is the only parameter changed).
+  **Step-size sweep (pre-registered 2026-10-06 18:38 CDT, before any sweep run; the coordinator: the comparison must
+  hold at any α, since Fig. 8's 1e-3 is stated for the D-to-Dragon optimiser comparison only, and ε = 1e-3 on the
+  norm-normalised gradient shrinks the per-entry step more at 300k than at their ~1e4).** α ∈ {3e-3, 1e-2, 3e-2},
+  everything else XPP's (`--baseline xu --xu_form tvcg --xu_protocol paper`, 420 / 950 timesteps, seed 97). Bunny:
+  3e-3 (tag XPA3) and 3e-2 (XPA30); 1e-2 is XPA above. Dragon: all three (XPA3, XPA, XPA30). Scratch copies
+  `repo_r97x_a003`, `repo_r97x_a01` (XPA's), `repo_r97x_a03` of repo_r97x, the constant `XuPaper.alpha` alone
+  changed, not committed; every run read by `runeval3.sh`, rows as the tables above with the kinetic energy and the
+  momentum record. **Selection rule, fixed now:** "best Xu" for a mesh is the α of {1e-3 (XPP), 3e-3, 1e-2, 3e-2}
+  with the lowest end value of Xu's own objective (the loss at the last committed episode end, `transport_energy`),
+  what a user of the method would tune on; not our yardstick or display. The comparison stated is then the method as
+  published (XPP) and the best Xu, both against D105's LV and PV on every measure.
+  Prediction: 3e-3 lands between XPP and XPA (bunny end loss 150–600, silhouette IoU 0.92–0.95, end kinetic energy
+  between theirs); 3e-2 is unstable (the line search starts halving, |v| max above 10, the loss rising over the last
+  episodes; end loss above XPA's, possibly a non-finite end); best Xu = 1e-2 on the bunny, 3e-3 or 1e-2 on the
+  dragon; the best Xu behind D105's LV and PV on every yardstick and display measure (at least 2 × on the yardstick
+  silhouette) and on the kinetic energy at the end (at least 100 ×).
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
