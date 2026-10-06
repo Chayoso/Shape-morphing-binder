@@ -728,6 +728,61 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   own and the fragments stay; and the cell-scale stress fits the shape less well, so the transport ends higher.
   The per-particle stress control is not the defect to change; the fragments' cause stays open (the render's
   concentration on protruding particles while its weight is large).
+- **D111, a display surface finer than the body, its relief written by the render (stage 0: on a still frame;
+  pre-registered 2026-10-06 10:12 CDT; the user: "4번으로 일단 가 보자" (the surface should look like a 1.5M result
+  while the simulation stays at 300k; the render should act more); papers read first (agent, D109's entry): SC-GS
+  2024, PhysGaussian 2024, Yu, Wojtan, Turk, Yap 2012, Bojsen-Hansen & Wojtan 2013, Mip-Splatting 2024;
+  `scripts/probes/settled/child_detail_static.py`; `output/gpu/d111`).** D104: a 300k body's display cannot be
+  sharper than its field's width; D107: the render cannot write below a cell through the body. The design (the
+  agent's synthesis (ii), Yu 2012's height on a base surface): massless surface points carried by the body, here
+  the exterior's discs on the 300k particles' field, each with a height h along its normal that only the render
+  term moves; the displayed point is p + h n, its normal n corrected by the surface gradient of h (a least-squares
+  fit over its 16 nearest discs in its tangent plane); the base stays the body's surface, so mass, momentum and the
+  physics-only twin are untouched. Stage 0, no simulation: on D105's render arms' end frames (bunny, dragon 300k),
+  h fitted by Adam (300 steps, |h| at most one parent pitch) to the render term (silhouette + shading, the
+  exterior operators) against target pictures drawn by the same operators from a 1.5M sample of the mesh at its
+  own pitch (seed 7), the views the pipeline's 18, a pixel of one 1.5M pitch (0.585 of the 300k pitch: Mip-
+  Splatting's bound for the child scale), the discs on a lattice of 0.92 of that pitch for both.
+  Read: (1) the share of the mesh's relief carried per band (ag2_bands.py, in 300k pitches) of the discs before
+  (h = 0) and after the fit, beside the 300k end frame's own display, the 300k target sample and the 1.5M sample;
+  (2) the render terms before and after against the fitted pictures and against an independent 1.5M sample's
+  (seed 8): a fit that only learns the first sample's noise improves on the first and not on the second; (3) 4K
+  stills (the field's own normals, as `detail_compare.py +smooth=0`).
+  Criteria for stage 1 (carrying the discs through the morph): (a) after the fit, the carried share at 5.4 pitches
+  at least 0.10 above h = 0's and at 2.7 at least 0.10 above; (b) the render terms against the independent
+  sample's pictures fall by at least 20 % (the fit generalises); (c) no band falls below h = 0's by more than 0.03.
+  Expectation: 5.4 pitches 0.55 → 0.70–0.78 (the 1.5M sample ≈ 0.80), 2.7 pitches 0.28 → 0.45; the independent
+  render terms −30 to −50 %; the stills show the dragon's scales and the bunny's fur relief. Risks: h fits
+  the first sample's noise (read by (b)); the shading term sees relief only through the gradient of h, the
+  silhouette only at the rim; discs far from any target disc (the open base, fragments) pull h freely.
+  **Result of stage 0 (2026-10-06 10:29–11:02 CDT; `output/gpu/d111/{static_*,static2_*,bands*_*.log}`; local
+  `output/video_2026-10-06/d111_static`): passed on both meshes.** The fit to one 1.5M sample: carried share at
+  2.7 / 5.4 / 10.8 pitches bunny 0.31 / 0.55 / 0.84 → 0.75 / 0.75 / 0.87 (the 1.5M sample 0.56 / 0.77 / 0.92), dragon
+  0.28 / 0.56 / 0.86 → 0.68 / 0.69 / 0.84 (0.49 / 0.76 / 0.92); the render terms against the independent sample's
+  pictures bunny −83 / −50 %, dragon −78 / −60 % (silhouette / shading); the mean offset from the mesh moves to the
+  1.5M exterior's (bunny +0.290 → −0.144, its −0.145; dragon +0.675 → +0.255, its +0.219). (a), (b), (c) met (the
+  dragon's 10.8 −0.02). But the finest bands are noisy: the offset's rms at 2.0 and 2.7 pitches 0.10 and 0.10–0.12
+  against the 1.5M sample's 0.03 and 0.05–0.06 (the dragon's still shows specks): the "kept" share there is a slope
+  over noise. Two remedies, each a definition (bunny): the target pictures the mean over four 1.5M draws (D91):
+  2.7 / 5.4 / 10.8 0.76 / 0.76 / 0.88, offset rms at 2.7 0.101, independent −89 / −65 %; and h = S v with S the
+  render's own splat footprint (a tent of one pixel: h holds nothing the pictures cannot see): 0.66 / 0.75 / 0.88,
+  offset rms 0.079 at 2.7 and 0.077 at 5.4 (the 1.5M sample's 0.078), independent −89 / −64 %. Both are kept for
+  stage 1. The stills (h = 0, fitted, the 1.5M sample) show the dragon's scales and the bunny's fur relief at the
+  1.5M sample's level.
+  **Stage 1 (pre-registered 2026-10-06 11:15 CDT; `scripts/probes/settled/child_detail_morph.py`;
+  `output/gpu/d111/morph_*`).** The surface carries nothing back to the body, so it runs over a finished run's kept
+  frames in order, which is the same as inside the run: D105's render arm (LV) with the fit, its physics-only twin
+  (PV) with h = 0, bunny and dragon 300k. Per frame: the base discs; v carried from the previous frame (its discs
+  moved by the particles' displacement, read by the one-pixel tent; v, not S v, so the footprint applies once); 15
+  Adam steps (lr 0.02 a_c, fresh each frame) on v to the render term against the mean pictures of four 1.5M draws,
+  the gradient only where a disc stands within one pitch of the 1.5M exterior (D105's reference rule: the body has
+  arrived); 4K frames in the studio look. Read: the render terms per frame, the bands at the end against stage 0's
+  still fit, the flicker (`video_flicker.py`), and the videos side by side with D105's own display.
+  Criteria: (a) the end frame's bands within 0.05 of stage 0's smoothed fit at 5.4 and 10.8 pitches; (b) no visible
+  flicker beyond D105's display (video_flicker's alternating part not above 1.5 times D105's); (c) the render arm's
+  display ahead of the twin's by more than D105's lead on the independent sample's pictures.
+  Expectation: the relief appears as the body arrives (10–20 % of the run) and holds; the end bands at stage 0's
+  level; flicker level. Risk: the per-frame refit flickers; regions that arrive late get few steps.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
