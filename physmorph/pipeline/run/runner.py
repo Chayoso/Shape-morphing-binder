@@ -63,6 +63,9 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
     own relief (target.target_relief). draws: further independent samples of the target in its
     frame; the render's target pictures are then the mean over all samples (target.build_target)."""
     gpu.require_cuda()
+    if cfg.xu_protocol == "paper":                      # the baseline as published (D118): a chain of episodes
+        from .xu_runner import run_xu_paper
+        return run_xu_paper(source_x, target_x, prm, cfg, log=log, F_stride=F_stride, draws=draws)
     cfg = dataclasses.replace(cfg)                      # c2f edits render_res on this copy
     log(f"[v2] settled transport: {cfg.T} controlled + {cfg.T} released steps per commit; "
         "render weight calibrated at every window")

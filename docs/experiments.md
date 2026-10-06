@@ -1120,6 +1120,65 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   passed, 1 failed, 2 skipped, exit 1 (`test_line_search_probe_is_diagnostic_only`: its one-window run committed
   no window that time, a StopIteration); that test alone passed three times out of three, and the full suite
   again 285 passed, 2 skipped, exit 0. The test is nondeterministic (the rollout's atomics), not changed here.
+- **D118, Xu et al. (TVCG 2025) as published, reimplemented in Warp (pre-registered 2026-10-06 16:55 CDT; the user,
+  16:30: Xu et al.'s method as published on our simulator ("C++를 기반으로 Warp로 재구현"), our protocol not imposed
+  on the baseline; 16:50: "SCA 2024도 좋지만 TVCG 2025쪽으로 보는 게 더 좋을거야"; branch `xu-paper-protocol`, server
+  `repo_r97x`; `output/gpu/d118`).** Source: M. Xu, C. Song, D. Levin, D. Hyde, "A Differentiable Material Point
+  Method Framework for Shape Morphing", IEEE TVCG 2025, DOI 10.1109/TVCG.2025.3591729 (the accepted author's version,
+  `tmp/xu_tvcg2025.pdf`; its "Appendix A11" is not in that text, arXiv 2409.15746 v1 appendix A gives the same MPM
+  step). What it specifies, quoted:
+  - Loss (Eqs. 7–9): "L = Lmass + Lpenalty", "Lmass = Σ_i ½ (ln(m_i + 1 + ϵ) − ln(m*_i + 1 + ϵ))²", "Lpenalty =
+    Σ_i 1{m_i < m_min} · w · (m_min − m_i)²", "ϵ = 1 × 10⁻⁴ throughout our experiments", w "which we set to 10.0 in
+    all our experiments"; m_min "a predefined minimum threshold", no value. Its gradient: "the partial derivative of
+    the loss is first computed per grid node with respect to the nodal grid mass m_i … we can then use MLS-MPM
+    interpolatory weights to compute the derivative of loss with respect to a particle's location": the value's own,
+    no out-of-target factor.
+  - Control (IV-A, V-B): per-particle control deformation gradients F̃_p, "accumulate[d] … into Fp" (appendix: the
+    stress at F + F̃, F ← (I + Δt C)(F + F̃)); "a timestep size of ∆t = 1/120 seconds, and we apply control
+    gradients every 10 timesteps"; Algorithm 1 starts "F̃1:N ← 0", m, v, t ← 0.
+  - Optimisation (V-A, Algorithms 1 and 2): per control layer "SIMULATE. Compute the forward pass starting from the
+    control layer to the final layer", "EVALUATE. Compute the loss function via the final layer", "BACKPROP",
+    "DESCENT … with Adam optimizer … we use a bisection line search method (Algorithm 2)"; Algorithm 2 "while L > L0
+    do α ← α/2"; "the non-stochastic version (i.e., all particles are used for each iteration) of the Adam optimizer";
+    Fig. 8 (D to Dragon): "β1 = 0.90; learning rates: Lion/Adam = 1 × 10⁻³". Passes (V-C): "re-run the optimization
+    routine of Algorithm 1 using the computed F̃1:N as initial/improved guesses"; Table II: "4 gradient descent
+    iterations (3 optimization passes)" (Table I: 1 × 12, 3 × 4, 6 × 2, 12 × 1 iterations at equal time).
+  - Chaining (V-D): "We construct a new simulation network using the final layer of the previous optimized network …
+    networks of 10 timesteps each, i.e., 0.083-second segments at 120 FPS."
+  - Simulation (VI, VII): γ, "F^{n+1} ← (1 − γ) F^{n+1} + γ F^n", "generally set around 0.955" (Table II Sphere →
+    Bunny 0.955), applied "not only during forward passes but also in back-propagation"; Table II Sphere → Bunny 420
+    timesteps, density 75, a 32³ grid; Table IV D to Dragon 950 timesteps (no sphere-to-dragon morph in the paper);
+    fixed-corotated elasticity, no plasticity.
+  Not in the text, taken from the C++ working copy (bffb9e2:legacy/DiffMPMLib3D; PhysMorph-GS's copy, so none of its
+  `[FIX]` additions, its x5 out-of-target gradient, its penalty weight 1, nor Descend_Adam's AMSGrad, step clip and
+  EMA): β2 0.999, ε_adam 1e-3 on the control layer's gradient divided by its norm (every Adam variant there), m_min
+  1e-3, at most 10 halvings accepted on a strict decrease, on a failed search the control stays the last accepted
+  one and the layer's iterations end ("Line search failed. Moving to next control step."), κ relative 1e-4; Adam is
+  reset at every pass (Algorithm 1 lines 2–4; the copy keeps it only in a `[FIX]`).
+  Implementation (`--baseline xu --xu_form tvcg --xu_protocol paper`; `window/xu_episode.py`, `run/xu_runner.py`,
+  `config.xu_protocol`, `xu_form "tvcg"`, `pipeline_run.py --xu_timesteps`; our path unchanged: `Window.layout`
+  returns its old numbers and the runner dispatches before anything of ours runs): our simulator (kernels; E 1.4e5,
+  ν 0.2, which are the copy's λ, μ defaults; dt 1/240; dx = diag/26; stratified sampling; N; smoothing 0.955, Table
+  II's γ for this morph). An episode is 10 paper timesteps = 1/12 s = 20 of our steps, all driven, the loss read at
+  the 20th; one control layer, the per-particle F̃ held over our first 2 steps (one 1/120 s paper timestep, so its
+  impulse Δt V P is the paper's); 3 passes × 4 iterations; the next episode starts from the committed end (x, F, v,
+  C); every episode kept; 42 episodes for the bunny (420 timesteps), 95 for the dragon (950). No outer acceptance,
+  brake, stopping rule, best-window delivery, plastic assimilation, warm start, bonds, relaxation, u, minimum
+  spacing or render; the spray cleanup off (`--baseline xu_spray` adds it). The loss on our simulation grid with the
+  MPM's cubic B-spline, a full cell holding 75 (the paper's density on its unit cell; the copy: m_p = point_dx³ ×
+  density, grid_dx 1; D112 used 1).
+  Forced by the simulator (recorded, not tuned): dt 1/240, so the paper's durations are kept in time; γ and the drag
+  act per step, so at our dt F follows its update by 1 − 0.955² = 8.8 % per 1/120 s against 4.5 %, and the momentum
+  decays at 0.9/s against ζ = 0.5/s (our simulator's, as in every arm); our grid (about 15 cells across the sphere,
+  as their 32³) and N 300k against their 1e4 (the normalised Adam step per entry then lies further below ε); a trial's
+  state is checked for finiteness as well (a NaN particle drops out of our loss's scatter); promote clamps to the
+  domain and repairs F as in every run (counted).
+  Runs: a 40k bunny smoke, then bunny and dragon 300k, seed 97 (`run12.sh`, tags XPP, `--xu_timesteps 420` / `950`),
+  read by `runeval3.sh` against D105's LV and PV and D112's XP.
+  Prediction: no stall (every episode is kept; with α = 1e-3 and twelve iterations an episode the control moves at
+  most 0.012 an entry, so the body does not run away: |v| max below 1); the morph incomplete in the paper's 3.5 s at
+  300k: bunny silhouette IoU 0.80–0.92, dragon 0.60–0.80, chamfer above D105's twin; few detached particles (the
+  log loss); behind D105's LV and PV on every yardstick and display measure; 10–25 min (bunny), 25–50 min (dragon).
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the

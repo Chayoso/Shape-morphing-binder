@@ -53,3 +53,27 @@ def test_the_published_form_is_its_own_gradient():
     gv, = torch.autograd.grad(lv, xv)
     assert torch.allclose(loss.detach(), lv.detach(), rtol=1e-6)
     assert torch.allclose(g, gv, rtol=1e-5, atol=1e-12)
+
+
+def test_the_journal_form_is_its_own_gradient():
+    """xu_form "tvcg" (Xu et al., IEEE TVCG 2025, Eqs. 7-9): L_mass = 1/2 sum (ln(m+1+eps) - ln(m*+1+eps))^2 with
+    eps = 1e-4, plus L_penalty = sum 1{m < m_min} w (m_min - m)^2 with w = 10 (m_min 1e-3, the C++ copy's); no
+    out-of-target factor, so the gradient is the value's own, the penalty's included (nodes at the body's fringe)."""
+    from physmorph.pipeline.config import PipelineConfig
+    kw = PipelineConfig(xu_form="tvcg").xu_kw()
+    assert kw == dict(out_of_target=1.0, penalty_weight=10.0, eps=1e-4, min_mass=1e-3)
+    tgt = torch.rand(400, 3) * 0.6 - 0.3
+    t_grid = rasterize_mass_cubic(tgt, torch.full((400,), 0.05), GMIN, DX, DIMS)
+    x = torch.cat((tgt[:200] * 0.8, torch.tensor([[1.2, 1.2, 1.2]]))).requires_grad_(True)
+    m = torch.full((201,), 0.05)
+    loss = d_vol_xu(x, m, t_grid, GMIN, DX, DIMS, **kw)
+    g, = torch.autograd.grad(loss, x)
+    xv = x.detach().clone().requires_grad_(True)
+    cv = rasterize_mass_cubic(xv, m, GMIN, DX, DIMS)
+    lv = (0.5 * (torch.log(cv + 1 + 1e-4) - torch.log(t_grid + 1 + 1e-4)).pow(2).sum()
+          + (10.0 * (1e-3 - cv).pow(2) * (cv < 1e-3)).sum())
+    gv, = torch.autograd.grad(lv, xv)
+    fringe = ((cv > 0) & (cv < 1e-3)).sum()
+    assert int(fringe) > 0                                    # the penalty acts on some node with mass
+    assert torch.allclose(loss.detach(), lv.detach(), rtol=1e-6)
+    assert torch.allclose(g, gv, rtol=1e-5, atol=1e-12)

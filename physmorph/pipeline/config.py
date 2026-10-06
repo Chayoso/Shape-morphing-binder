@@ -91,7 +91,15 @@ class PipelineConfig:
     xu_form: str = "oracle"         # which form of that loss: "oracle", the C++ code's (a min-mass penalty, the out-of-
                                     #   target nodes' gradient x5, so not the gradient of its value); "paper", the
                                     #   published one (Xu et al., arXiv 2409.15746): 1/2 sum (ln(m+1) - ln(m*+1))^2 and
+                                    #   its own gradient; "tvcg", the journal's (IEEE TVCG 2025, DOI 10.1109/TVCG.2025.
+                                    #   3591729, Eqs. 7-9): 1/2 sum (ln(m+1+eps) - ln(m*+1+eps))^2, eps = 1e-4, plus
+                                    #   sum_{m < m_min} w (m_min - m)^2, w = 10 (m_min not given: the C++ copy's 1e-3), and
                                     #   its own gradient
+    xu_protocol: str = "ours"       # the baseline's protocol: "ours", that loss inside our settled windows, acceptance,
+                                    #   plasticity and warm start (D112); "paper", Xu et al. as published, reimplemented
+                                    #   on this simulator (D118; run/xu_runner.py, window/xu_episode.py): episodes of
+                                    #   driven steps scored at their end, one control layer each, Adam with a halving
+                                    #   line search for a fixed number of iterations and passes, every episode kept
 
     # ---- render objective ----
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration
@@ -136,14 +144,24 @@ class PipelineConfig:
 
     def xu_kw(self) -> dict:
         """The keyword arguments of losses/volumetric.d_vol_xu for the baseline's form."""
-        return dict(out_of_target=1.0, penalty_weight=0.0, eps=0.0) if self.xu_form == "paper" else {}
+        if self.xu_form == "paper":
+            return dict(out_of_target=1.0, penalty_weight=0.0, eps=0.0)
+        if self.xu_form == "tvcg":
+            return dict(out_of_target=1.0, penalty_weight=10.0, eps=1e-4, min_mass=1e-3)
+        return {}
 
     def __post_init__(self):
         import math
         if self.support_form not in ("log", "ratio", "proximity"):
             raise ValueError("support_form must be \"log\", \"ratio\" or \"proximity\"")
-        if self.xu_form not in ("oracle", "paper"):
-            raise ValueError("xu_form must be \"oracle\" or \"paper\"")
+        if self.xu_form not in ("oracle", "paper", "tvcg"):
+            raise ValueError("xu_form must be \"oracle\", \"paper\" or \"tvcg\"")
+        if self.xu_protocol not in ("ours", "paper"):
+            raise ValueError("xu_protocol must be \"ours\" or \"paper\"")
+        if self.xu_protocol == "paper" and not (self.baseline in ("xu", "xu_spray")
+                                                and self.xu_form in ("paper", "tvcg")):
+            raise ValueError("xu_protocol \"paper\" is Xu et al. as published: baseline \"xu\" or \"xu_spray\" "
+                             "with a published loss, xu_form \"tvcg\" (or the arXiv v1 \"paper\")")
         for name in ("support_weight", "render_weight_scale"):
             v = getattr(self, name)
             if not math.isfinite(v) or v < 0:

@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from physmorph import gpu, metrics  # noqa: E402
 from physmorph.pipeline import PipelineConfig, run_pipeline  # noqa: E402
+from physmorph.pipeline.window.xu_episode import XU  # noqa: E402
 from physmorph.surface import surface_roughness  # noqa: E402
 from physmorph.thin import thin_metrics, thin_set  # noqa: E402
 from physmorph.prepare import prepare  # noqa: E402
@@ -59,12 +60,18 @@ def parse_args():
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
-    ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper"],
-                    help="the baseline loss: the C++ code's (min-mass penalty, out-of-target gradient x5) or the "
-                         "published one (Xu et al., arXiv 2409.15746)")
+    ap.add_argument("--xu_form", default="oracle", choices=["oracle", "paper", "tvcg"],
+                    help="the baseline loss: the C++ code's (min-mass penalty, out-of-target gradient x5), the arXiv v1 "
+                         "one (2409.15746) or the journal's (IEEE TVCG 2025, Eqs. 7-9)")
     ap.add_argument("--baseline", default="", choices=["", "xu", "xu_spray"],
                     help="xu: the comparison baseline, Xu et al.'s objective alone in this simulator (D112); "
                          "xu_spray: the same with our spray cleanup, the ejection guard")
+    ap.add_argument("--xu_protocol", default="ours", choices=["ours", "paper"],
+                    help="the baseline's protocol: ours (settled windows, acceptance; D112) or Xu et al.'s as published "
+                         "(episodes scored while driven, every episode kept; D118; needs --xu_form tvcg or paper)")
+    ap.add_argument("--xu_timesteps", type=int, default=420,
+                    help="paper protocol: the morph's length in the paper's timesteps of 1/120 s, ten a network (TVCG "
+                         "Table II Sphere to Bunny 420; Table IV D to Dragon 950); replaces --animations")
     ap.add_argument("--layer_relief", action="store_true",
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
     ap.add_argument("--render_res_hi", type=int, default=None,
@@ -154,10 +161,12 @@ def main():
     material = {k: getattr(args, k) for k in ("young", "poisson", "assim") if getattr(args, k) is not None}
     cfg0 = PipelineConfig(support_target_ref=args.support_target_ref, support_form=args.support_form,
                           loss_follows_n=args.loss_follows_n, **material)
+    paper = args.xu_protocol == "paper"         # Xu et al. as published (D118): no render term, so no render targets
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
-                   surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws)
+                   surface=args.n // 4 if args.layer_relief and not args.baseline else 0,
+                   draws=1 if paper else args.render_target_draws)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
@@ -180,9 +189,13 @@ def main():
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
                               profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
-                              baseline=args.baseline, xu_mass=1.0 / prep.ppc, xu_form=args.xu_form)
+                              baseline=args.baseline, xu_form=args.xu_form, xu_protocol=args.xu_protocol,
+                              # the loss's mass of a full cell: 1 (D112), or the paper's density on its unit cell (D118)
+                              xu_mass=(XU.density if paper else 1.0) / prep.ppc)
     if args.baseline:                      # the comparison baseline: Xu et al.'s objective, nothing else of ours
         cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
+    if paper:                              # the episodes of the paper's morph length; the render targets are unused
+        cfg = dataclasses.replace(cfg, animations=XU.episodes(args.xu_timesteps), render_exterior=False)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)

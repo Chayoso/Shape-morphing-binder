@@ -35,12 +35,14 @@ class StartState:
 
 class Window:
     def __init__(self, start: StartState, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
-                 vol0: torch.Tensor, bonds: tuple):
+                 vol0: torch.Tensor, bonds: tuple | None):
         self.cfg, self.prm, self.tgt = cfg, prm, tgt
         self.x0 = start.x
         self.N = N = int(start.x.shape[0])
-        self.Tc = cfg.T                               # driven steps
-        self.T = T = 2 * cfg.T                        # driven + released steps
+        # Tc: the control leaf's steps (driven), T: the simulated steps (driven + released), control: the steps the
+        # control acts on (`layout`; Xu et al.'s episodes override it, window/xu_episode.py)
+        self.Tc, self.T, control = self.layout(cfg)
+        T = self.T
         lam0, mu0 = lame(cfg.young, cfg.poisson)
         # the dynamics mass of the discretisation: the body's mass does not depend on N, so a
         # unit control moves the 300k body as it moves the 40k one (loss-side masses are unit)
@@ -59,11 +61,11 @@ class Window:
         spacing = None
         if cfg.min_spacing > 0:
             spacing = (gpu.knn(start.x, 17)[1][:, 1:], cfg.min_spacing * float(torch.as_tensor(vol0).mean()) ** (1.0 / 3.0))
-        nbr, rest, frag = bonds
+        nbr, rest, frag = bonds if bonds is not None else (None, None, None)   # None: no material bonds
         self.spec = RolloutSpec(x0=start.x, m=m, lam=lam0, mu=mu0, prm=prm, T=T, F0=start.F,
                                 Fp=start.Fp, v0=start.v, C0=start.C, device=cfg.device, vol0=vol0,
                                 bond_nbr=nbr, bond_rest=rest, bond_frag=frag, layer=layer,
-                                bond_history=True, control_steps=cfg.T, polar_adjoint=True, spacing=spacing)
+                                bond_history=True, control_steps=control, polar_adjoint=True, spacing=spacing)
         # the persistent no-grad trajectory: allocated once, rolled out as a CUDA graph for
         # every candidate, the warm-start comparison and the commit rollout; the control is
         # copied into dc_buf, which its dFc sequence views
@@ -72,7 +74,7 @@ class Window:
         self.tr = Trajectory(start.x, m, lam0, mu0, prm, T, F0=start.F, Fp=start.Fp, v0=start.v,
                              C0=start.C, dFc=seq, device=cfg.device, requires_grad=False, vol0=vol0,
                              persistent=True, bonds=bonds, layer=layer, bond_history=True,
-                             control_steps=cfg.T, polar_adjoint=True, spacing=spacing)
+                             control_steps=control, polar_adjoint=True, spacing=spacing)
         self.tr.capture()
         self._adj = None
         # unit constants: every fixed weight and gradient-magnitude constant is a legacy-unit
@@ -81,6 +83,11 @@ class Window:
         self.eps_eff = cfg.eps / tgt.unit_grad_ratio
         self.target_norm_eff = cfg.target_norm / tgt.unit_grad_ratio
         self.loss_floor_eff = 1.0 / tgt.unit_ratio
+
+    def layout(self, cfg: PipelineConfig) -> tuple[int, int, int]:
+        """(control leaf steps, simulated steps, controlled steps): settled transport's T driven steps, each with its
+        own control, then T released steps."""
+        return cfg.T, 2 * cfg.T, cfg.T
 
     def expand(self, leaf: torch.Tensor) -> torch.Tensor:
         """(T, N, 3, 3) driven controls -> (2T, N, 3, 3) with the released half at zero."""
