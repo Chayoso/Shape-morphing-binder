@@ -1186,6 +1186,12 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   D105's arms), bunny and dragon each, read as above. Expectation: XPS within 0.005 of XPP's silhouette IoU (the log
   loss leaves few isolated particles for the gate); XPZ further along (less damping, the same control moves the body
   farther): its loss at the end 10–30 % below XPP's, silhouette IoU +0.01 to +0.03, |v| max higher.
+  **A sensitivity (pre-registered 17:41 CDT, after the bunny's XPP, XPS and XPZ runs had been read: in every
+  episode every line search accepted its first trial and |F̃| reached 12 α, so the step size binds; XPZ's damping
+  changed nothing):** XPA, the bunny with the working copy's α = 0.01 in place of Fig. 8's 1e-3 (a scratch copy,
+  `repo_r97x_a01`, the constant alone changed, not committed). Not Xu et al. as published: it says whether the
+  shortfall against the paper's 98 % loss reduction is the step size. Expectation: the line search starts to halve
+  (a few trials per episode), the loss at the end 30–60 % of XPP's, silhouette IoU 0.90–0.95, the haze denser.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
