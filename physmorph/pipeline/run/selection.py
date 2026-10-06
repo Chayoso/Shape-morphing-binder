@@ -130,8 +130,10 @@ class Selection:
 
 def best_window(hist: list, n_frames: int, tol: float, w_pbr: float = 1.0):
     """The delivered slice: up to the best-merit accepted window of the last epoch, every window's merit
-    scored with the render weight of the last one (the merit is linear in it).
-    Returns (deliver_n, truncation record or None)."""
+    scored with the render weight of the last one (the merit is linear in it). At the epoch's largest weight
+    instead (D103) the 300k runs end a few windows earlier with a slightly lower silhouette term of their own,
+    but no better display against an independent sample and less at rest (angular momentum at the end above
+    the twin's): not kept. Returns (deliver_n, truncation record or None)."""
     acc = [r for r in hist if r.get("frame_end") and not r.get("null_commit")
            and r.get("d_vol") is not None and np.isfinite(r.get("selection_merit", float("nan")))]
     if not acc:

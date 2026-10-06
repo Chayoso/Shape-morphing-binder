@@ -459,6 +459,35 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
+- **D103, the delivered window chosen at the run's largest render weight (pre-registered 2026-10-05 20:40 CDT; the
+  user, on D100's late trade of the silhouette: "2번도 확인 해 줘"; and on D102: the conservation measure is the
+  angular momentum, "각운동량이라고 해도 좋아"; code: `run/selection.py` best_window).** The delivered slice ends at
+  the best window by the selection merit, every window scored at one render weight; that weight is the last
+  window's, which follows the physics gradient down (D81), so late windows that give up silhouette for transport
+  score as better (D100: the delivered silhouette term 1.2 to 2.7 times its run minimum on half the gallery).
+  The definition: windows are compared at the largest render weight of the epoch, the weight at which the run
+  valued its pictures most; the merit stays linear in it, nothing else changes (the optimisation, the stop and
+  the physics-only twin, whose weight is zero, are as before). Evaluation: the choice is made after the run on
+  its records, so it is evaluated exactly on runs already made: the D98 pair's render arms (bunny, dragon 300k;
+  display against the independent sample from their kept frames' readings: the last 20 kept frames up to the
+  new end), D102's render arms (records: kinetic energy, angular momentum at the new end), the D100 gallery's D
+  arms (the run's own silhouette term and transport at the chosen window). Criteria: the delivered silhouette
+  term at most 1.05 times the run minimum in median (now 1.12) and above 1.2 on at most 2 of 19 meshes (now 8);
+  at 300k the display against the independent sample at the new end not worse than at the old (last 20 frames)
+  and the render arm still ahead of its twin by 10 % or more on every display measure; the angular momentum and
+  the kinetic energy at the new end at or below the twin's. Risk: an earlier end leaves the body less at rest.
+  **Result (evaluated 20:50 on D98's and D102's runs, `scripts/probes/settled/d103_eval.py`; tests with the change
+  282 passed, 2 skipped): refuted, reverted.** The render arms end earlier (bunny window 68 → 64, 85 → 84, 68 → 63;
+  dragon 120 → 106, 104 → 87, 90 → 81; the twins, weight zero, unchanged), their own silhouette term 3–13 %
+  lower and transport up to 23 % higher there. The display against the independent sample (last 20 kept frames
+  up to the end) does not follow: bunny front 0.0086 / 0.0072 both, crop 0.0186 / 0.0072 → 0.0188 / 0.0073, far
+  side 0.0090 / 0.0068 → 0.0089 / 0.0068; dragon front 0.0100 / 0.0093 → 0.0100 / 0.0095, crop 0.0219 / 0.0129
+  → 0.0221 / 0.0132, far side 0.0095 / 0.0096 → 0.0098 / 0.0097. The earlier end is less at rest: the angular
+  momentum at the end bunny 2.61 → 3.86 (twin 2.71), dragon 15.7 → 25.5 (twin 19.0) and 23.3 → 28.9 (twin 27.2),
+  now above the twin's; the kinetic energy of the last ten windows up on three of four. At 300k the late trade is
+  small (the silhouette term 1.08–1.12 of its minimum, D100), and ending earlier costs more than it buys; the
+  large trades are 40k meshes (A, V, bob, heart). The gallery's proxy would have improved (median 1.12 → 1.00,
+  above 1.2 on 8 → 2 meshes), but the criteria are the 300k display and rest.
 - **D102, are the remaining momentum gaps real? Repeat pairs (pre-registered 2026-10-05 17:59 CDT, queued behind
   D100 and D98's readings; `tmp/d102.sh`, `output/gpu/d102`; server `repo_r86` = D98's code with the record's
   angular momentum split by update).** After D98 the render arm is level with or ahead of its twin on most
