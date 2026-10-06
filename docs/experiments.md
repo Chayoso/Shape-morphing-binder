@@ -476,6 +476,32 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   independent sample and a 2.4M one, and the angular momentum. Pass: more relief carried than D98's render arms
   at 5.4 and 10.8 pitches, beyond the twin's; the display not behind D98's; the angular momentum not above the
   twin's.
+  **Result of step 1 (2026-10-05 22:21 CDT; `tmp/d104a.sh`, `tmp/d104b.sh`; `output/gpu/d104/bands_*.log`): the
+  denser sample is no sharper at the run's pitch; step 2 is not run.** Family B, the share of the mesh's relief
+  carried, with D98's end frames (seed 97) read beside the targets:
+
+  | carried share at 2.7 / 5.4 / 10.8 / 21.6 pitches | bunny | dragon |
+  |---|---|---|
+  | (i) the run's 300k target sample | 0.36 / 0.66 / 0.86 / 0.95 | 0.27 / 0.60 / 0.87 / 0.95 |
+  | (ii) 2.4M at the 300k pitch | 0.28 / 0.64 / 0.87 / 0.95 | 0.24 / 0.60 / 0.87 / 0.95 |
+  | (iii) 2.4M at its own pitch | 0.72 / 0.85 / 0.95 / 0.98 | 0.67 / 0.83 / 0.95 / 0.98 |
+  | D98 physics-only twin, end | 0.03 / 0.20 / 0.75 / 0.93 | −0.04 / 0.18 / 0.78 / 0.94 |
+  | D98 render arm, end | 0.06 / 0.23 / 0.75 / 0.93 | −0.03 / 0.23 / 0.81 / 0.94 |
+
+  (ii) − (i) at 5.4 pitches is −0.02 and 0.00 against the 0.15 required. Eight times the points drawn with the
+  same field leave the same relief; they take out noise (the offset's rms in the 5.4 band 0.105 → 0.066 on the
+  bunny, 0.123 → 0.100 on the dragon), which D91's mean over eight draws already does for the pictures. The blur
+  of a target picture is the field's width, set by the pitch, i.e. by the run's N; (iii) is sharper only because
+  its pitch is half, and a 300k body cannot be drawn at that pitch (D90: a different shell). The expectation was
+  wrong on this point. D98's render arm is level with its twin at 10.8 pitches on the bunny and 0.03 ahead on
+  the dragon, and 0.03–0.05 ahead at 5.4: the loss at 10.8 that D76 found in the unbounded arms is gone. What a
+  run lacks against its own sample is at 5.4 pitches (0.43 of the mesh's 0.078 pitches rms on the bunny, 0.37–0.42
+  of 0.105 on the dragon: 0.035–0.045 pitches, 0.4–0.5 display pixels in 4K, a slope of about 3°), and less at
+  10.8 (0.02–0.03 pitches); the run's offset from the mesh in the 5.4 band is as large as a sample's (0.10–0.12
+  pitches), made of missing relief where the sample's is noise (D82: the relaxation). Below 2.7 pitches neither a
+  run nor its 300k sample carries the mesh. So for the detail two limits stack: the display field's width,
+  which caps a 300k body at 0.60–0.66 at 5.4 pitches whatever its target, and the relaxation, which takes the
+  run from that cap to 0.2; the render term changes neither as they are defined.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
