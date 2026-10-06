@@ -79,6 +79,13 @@ class PipelineConfig:
     min_spacing: float = 0.0        # the position update keeps particles this far apart, in pitches of the rest
                                     #   volume (0: off; 0.9 is the spacing of a Poisson-disk sample of that density, D70)
 
+    # ---- the comparison baseline (D112) ----
+    baseline: str = ""              # "xu": the same simulator, windows and step control with Xu et al.'s objective
+                                    #   alone (their EndLayerMassLoss as the C++ oracle computes it, losses/volumetric.
+                                    #   d_vol_xu); nothing of ours: no transport, surface proximity, drift or released
+                                    #   motion, cleanup, relaxation, u, minimum spacing, relief reference or render
+    xu_mass: float = 1.0            # that loss's per-particle mass: 1 / ppc, so that a full cell holds 1 as in the oracle
+
     # ---- render objective ----
     lambda_auto: float = 0.5        # lambda |g_render| = lambda_auto |g_physics| at calibration
     lambda_ema: float = 0.3

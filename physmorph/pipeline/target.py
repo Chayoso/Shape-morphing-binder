@@ -16,7 +16,7 @@ import torch
 from .. import gpu
 from ..losses.silhouette import set_kernel
 from ..losses.support import SurfaceProximity, TransportSupport
-from ..losses.volumetric import (d_vol, d_vol_density, density_units, target_dt_grid,
+from ..losses.volumetric import (d_vol, d_vol_density, density_units, rasterize_mass_cubic, target_dt_grid,
                                  target_mass_grid)
 from ..mpm.state import MPMParams
 from .config import PipelineConfig
@@ -69,6 +69,7 @@ class TargetPack:
     gate: tuple | None = None           # (grid, dx, dims) of the u transport gate: the MPM-cell grid
     ext: Exterior | None = None         # the render terms' exterior, when they are read on it
     relief: object = None               # window/layer.TargetRelief: the relaxation's reference, from the target's surface
+    xu: tuple | None = None             # cfg.baseline "xu": (the target mass on the simulation grid, its origin, dx, dims)
     draws: list | None = None           # further samples of the target whose pictures the render's targets average
 
 
@@ -168,11 +169,17 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None) -> T
     knn = gpu.KNN(tgt_t)
     nn_sp = gpu.median(knn.query(tgt_t, 2)[0][:, 1])
     m_ref, n_support = density_units(grid)
+    xu = None
+    if cfg.baseline == "xu":                  # the baseline's target: the simulation grid, the MPM's cubic B-spline
+        xu_gmin = torch.tensor(np.asarray(prm.grid_min, np.float32), device=gpu.DEVICE)
+        xu_dims = (prm.nx, prm.ny, prm.nz)
+        xu = (rasterize_mass_cubic(tgt_t, m * cfg.xu_mass, xu_gmin, prm.dx, xu_dims).detach(), xu_gmin,
+              float(prm.dx), xu_dims)
     return TargetPack(grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m, views=views, sils=sils,
                       extent=extent, shade=shade, pgmin=lgmin, pdx=pdx, pdims=pdims, pblur=pblur,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, pts=tgt_t, knn=knn,
                       nn_spacing=nn_sp, m_ref=m_ref, n_support=n_support, support=support, gate=gate, ext=ext,
-                      draws=draws)
+                      xu=xu, draws=draws)
 
 
 def rebuild_for_resolution(tgt: TargetPack, target_x, prm: MPMParams,

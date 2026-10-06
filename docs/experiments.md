@@ -813,6 +813,22 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (release metric), the body blobby, the ears a haze, many particles apart (`output/video_2026-10-06/d112_xu`):
   the failure modes previous_pipeline.md records for the cell-sum loss. Runs: bunny and dragon 300k, seed 97, to
   their own convergence. Then the same D111 post-hoc fit on Xu, on the physics-only twin and on the render arm.
+  **The C++ loss reproduced (branch `xu-baseline`, 303603a): worse.** The release's loss differs from the oracle's
+  (CIC on a fixed 32^3 grid, no out-of-target gradient, no min-mass penalty, unit masses); the oracle's form
+  (`d_vol_xu`: the simulation grid, the cubic B-spline, a full cell of mass 1, the min-mass penalty, the
+  out-of-target node gradient x5) in the release's windows stops at window 39 with no ears and 4462 particles
+  apart (against 1813): the release's driver and Xu's loss do not fit together at this discretisation. The
+  legacy driver `legacy/run.py` and its `sca_*.yaml` are PhysMorph-GS's pipeline (render F injection, chamfer
+  plasticity), not Xu's alone; no compiled bindings on the server.
+  **Decision (the user: "우리쪽 warp pipeline에서 진짜 그냥 physics만 돌리고, 그거 제외 아무것도 안 돌리면"): the
+  baseline is our pipeline with Xu et al.'s objective alone** (`--baseline xu`; code: `config.baseline`,
+  `losses/volumetric.d_vol_xu` and `rasterize_mass_cubic`, `target.py`, `window/objective.py`, `window/setup.py`,
+  `run/runner.py`, `scripts/pipeline_run.py`; test `tests/test_xu_baseline.py`): the same simulator, windows
+  (scored on the released end), Adam and line search; the objective the oracle's EndLayerMassLoss alone; no
+  transport, surface proximity, drift or released motion, cleanup, relaxation, u, minimum spacing, relief
+  reference or render. Tests on hyde06 (repo_r91): 285 passed, 2 skipped, exit 0. 40k bunny smoke: 232 windows in
+  4.9 min, silhouette IoU 0.906 (the release's metric), chamfer 0.120; few particles apart, the ears frayed and
+  the body short of the target (`output/video_2026-10-06/d112_xu/compare40k_ours.png`).
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the

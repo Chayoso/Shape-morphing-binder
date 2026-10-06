@@ -59,6 +59,8 @@ def parse_args():
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
     ap.add_argument("--render_target_draws", type=int, default=8,
                     help="the render's target pictures are the mean over this many independent samples of the target")
+    ap.add_argument("--baseline", default="", choices=["", "xu"],
+                    help="xu: the comparison baseline, Xu et al.'s objective alone in this simulator (D112)")
     ap.add_argument("--layer_relief", action="store_true",
                     help="the outer layer's relaxation keeps the target mesh's own relief (n / 4 points of its surface)")
     ap.add_argument("--render_res_hi", type=int, default=None,
@@ -151,7 +153,7 @@ def main():
     prep = prepare(args.src, args.tgt, args.n, args.seed, args.cell_diag, cfg0.young, cfg0.poisson,
                    log=lambda s: print(s, flush=True),
                    loss_ref_n=cfg0.mass_ref_n if cfg0.loss_follows_n else 0, floor=args.floor,
-                   surface=args.n // 4 if args.layer_relief else 0, draws=args.render_target_draws)
+                   surface=args.n // 4 if args.layer_relief and not args.baseline else 0, draws=args.render_target_draws)
     src, tgt, prm = prep.src, prep.tgt, prep.prm
     if args.drag is not None:
         prm = dataclasses.replace(prm, drag=args.drag)
@@ -173,7 +175,10 @@ def main():
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,
-                              profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry)
+                              profile=args.profile, term_dump=args.term_dump, work_telemetry=args.telemetry,
+                              baseline=args.baseline, xu_mass=1.0 / prep.ppc)
+    if args.baseline == "xu":              # the comparison baseline: Xu et al.'s objective alone, nothing of ours
+        cfg = dataclasses.replace(cfg, render_weight_scale=0.0, min_spacing=0.0)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     print(f"[v2run] {args.src} -> {args.tgt}  N={args.n}  T={cfg.T}  iters={cfg.iters}  "
           f"anims={cfg.animations} | dx={prm.dx} dt={prm.dt:.5f} smoothing={prm.smoothing}", flush=True)

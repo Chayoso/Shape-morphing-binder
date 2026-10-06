@@ -14,7 +14,7 @@ import dataclasses
 import torch
 
 from ... import gpu
-from ...losses.volumetric import d_vol_density, d_w1, rasterize_mass
+from ...losses.volumetric import d_vol_density, d_vol_xu, d_w1, rasterize_mass
 from ...mpm.state import MPMParams
 from ...mpm.traj import compute_rest_volumes
 from ...plasticity import assimilate_elastic
@@ -209,7 +209,8 @@ def run_pipeline(source_x, target_x, prm: MPMParams, cfg: PipelineConfig, log=pr
         _notify(on_commit, a, x, F, v, rec)
         if converged:
             frozen = True
-            phys_track = tgt.ot_scale * (rec["transport_energy"] + rec["stab_end"]) + rec["stab"]
+            phys_track = (tgt.ot_scale * (rec["transport_energy"] + rec["stab_end"]) + rec["stab"]
+                          if tgt.ot_scale is not None else rec["loss"])
             log(f"[v2] converged at anim {a + 1} (phys={phys_track:.4f}); holding still")
         any_guard = any(counts[k] for k in GUARDS)
         if a % max(1, cfg.animations // 10) == 0 or a == cfg.animations - 1 or any_guard:
@@ -247,12 +248,14 @@ def _record(a, res, x, x_start, v, F, counts, commit, tgt, cfg, prm, thin=None) 
         d_vol = float(d_vol_density(x, tgt.m, tgt.grid, tgt.lgmin, tgt.ldx, tgt.ldims, tgt.m_ref,
                                     tgt.n_support))
         d_dt = float(d_w1(x, tgt.m, tgt.dt3, tgt.dtgmin, tgt.dtdx, tgt.dtdims))
-        energy = float(tgt.grid_ot.state_energy(x, tgt.m))
+        energy = (float(tgt.grid_ot.state_energy(x, tgt.m)) if tgt.grid_ot is not None      # the geometry energy; the
+                  else float(d_vol_xu(x, tgt.m * cfg.xu_mass, *tgt.xu)))                    #   baseline: its own loss
         detF = torch.linalg.det(F)
         jmin = float(detF.min())
         diag = {}
         if cfg.work_telemetry:                      # diagnostic records, not read by the run
-            ot_div = float(tgt.grid_ot(rasterize_mass(x, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims)))
+            ot_div = (float(tgt.grid_ot(rasterize_mass(x, tgt.m, tgt.lgmin, tgt.ldx, tgt.ldims)))
+                      if tgt.grid_ot is not None else float("nan"))
             sv = torch.linalg.svdvals(F)
             aniso = sv[:, 0] / sv[:, -1].clamp_min(1e-9)
             qs = torch.tensor([.01, .5, .9, .99], device=F.device, dtype=detF.dtype)

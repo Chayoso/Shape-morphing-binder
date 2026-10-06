@@ -20,7 +20,7 @@ import torch
 from ... import gpu
 from ...prof import timed
 from ...losses.grid_ot import GridSinkhornLoss, grid_transport_displacement
-from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_w1,
+from ...losses.volumetric import (d_nn_band, d_nn_band_current, d_vol_density, d_vol_xu, d_w1,
                                   isolation_gate, nn_band_assign)
 from ...render.exterior import Tracked, ZhuBridson
 from ..render_loss import d_exterior, d_pbr, d_render
@@ -54,6 +54,12 @@ class Objective:
         self.discs, self.ext_builds = None, 0         # the exterior's discs and how often this window looked for them
         x0 = win.x0
         eps = float(tgt.ldx) ** 2                     # blur: one loss cell
+        self.xu = cfg.baseline == "xu"
+        if self.xu:                                   # the baseline: none of the transport's machinery, no u
+            win.set_u_gate(torch.zeros_like(win.lmask))
+            self.u_gate_frac, self.horizon = 0.0, cfg.T * prm.dt
+            self.knn_ctrl = gpu.knn(x0, 9)[1][:, 1:]
+            return
         # the transport gate of u: u acts only on layer particles whose remaining transport
         # (to the label-free transport image of the window start) is within
         # layer_gate_ot_cells MPM cells; farther off, u's per-particle step rides a moving
@@ -127,10 +133,13 @@ class Objective:
         shading), shading, the silhouette alone (a tensor, for the record) and the stability term (added in
         phys_core)."""
         cfg, t = self.cfg, self.tgt
+        lk = vT.pow(2).sum(1).mean()
+        if self.xu:                                   # the baseline: Xu et al.'s mass loss alone, on the released end
+            zero = xT.sum() * 0.0
+            return d_vol_xu(xT, t.m * cfg.xu_mass, *t.xu), lk, zero, zero, zero.detach(), zero
         lstab = self.stability(V)
         with timed("geom"):
             lv = t.ot_scale * (self.transport(xT) + end_drift(vT, self.horizon))
-        lk = vT.pow(2).sum(1).mean()
         with timed("render"):
             lsil, lpbr = self.render_terms(xT)
         return lv, lk, lsil + cfg.w_pbr * lpbr, lpbr, lsil.detach(), lstab
@@ -178,6 +187,8 @@ class Objective:
         distance that made up two fifths of the merit (R12f); it is a different quantity from the spray cleanup
         and is no longer part of the merit (recorded as `merit_w1_gap`)."""
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
+        if self.xu:                                   # the baseline has no cleanup
+            return xT.sum() * 0.0
         if common_geometry:
             m_cur = t.m * isolation_gate(xT, cfg.dt_iso_lo, cfg.dt_iso_hi)
             L = wu * cfg.w_dt * d_w1(xT, m_cur, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
@@ -194,6 +205,8 @@ class Objective:
     def near_band_far(self, xT) -> float:
         """A record: the near band's value beyond the loss cell at the current state, in the merit's units (what a
         ruler without the band's outer edge would add to the selection merit)."""
+        if self.xu:
+            return 0.0
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         ones = torch.ones_like(t.m)
         with torch.no_grad():
@@ -204,6 +217,8 @@ class Objective:
     def w1_merit_gap(self, xT) -> float:
         """A record: the dense body-to-target distance (the distance field summed over every particle) minus the
         spray cleanup read at the current state, in the merit's units: what the selection merit carried until R13."""
+        if self.xu:
+            return 0.0
         cfg, t, wu = self.cfg, self.tgt, self.win.wu
         with torch.no_grad():
             whole = d_w1(xT, t.m, t.dt3, t.dtgmin, t.dtdx, t.dtdims)
