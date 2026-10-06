@@ -1179,6 +1179,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   most 0.012 an entry, so the body does not run away: |v| max below 1); the morph incomplete in the paper's 3.5 s at
   300k: bunny silhouette IoU 0.80–0.92, dragon 0.60–0.80, chamfer above D105's twin; few detached particles (the
   log loss); behind D105's LV and PV on every yardstick and display measure; 10–25 min (bunny), 25–50 min (dragon).
+  **Secondary runs (pre-registered 17:01 CDT, after only the first episodes of the two above had been seen):** XPS,
+  the same with our spray cleanup (`--baseline xu_spray`, the stabiliser of D112's comparison baseline), and XPZ,
+  the same with the paper's damping (`--drag 0.5`: "We used ζ = 0.5 for all our examples", arXiv v1 appendix A; the
+  TVCG text cites the appendix without containing it; our simulator's 0.9 is kept in the primary runs, as in both of
+  D105's arms), bunny and dragon each, read as above. Expectation: XPS within 0.005 of XPP's silhouette IoU (the log
+  loss leaves few isolated particles for the gate); XPZ further along (less damping, the same control moves the body
+  farther): its loss at the end 10–30 % below XPP's, silhouette IoU +0.01 to +0.03, |v| max higher.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
