@@ -1192,6 +1192,77 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `repo_r97x_a01`, the constant alone changed, not committed). Not Xu et al. as published: it says whether the
   shortfall against the paper's 98 % loss reduction is the step size. Expectation: the line search starts to halve
   (a few trials per episode), the loss at the end 30–60 % of XPP's, silhouette IoU 0.90–0.95, the haze denser.
+  **Tests (repo_r97x, 8e3f40e):** 298 passed, 2 skipped, exit 0. A first full run had one failure on our own path,
+  `test_null_windows_add_no_simulated_time_and_are_not_delivered` (its first window committed no step); that test
+  passed three times of three on this code and on the code before it (repo_r96): the rollout's atomics, as D113
+  recorded for its sibling. The default path is the old one by construction (`Window.layout` returns cfg.T, 2 cfg.T,
+  cfg.T; `test_the_default_window_is_settled_transports`, `test_the_default_run_never_takes_the_papers_path`).
+  **Result (16:58–18:29 CDT; `output/gpu/d118`, `end_bunny.png`, `end_dragon.png`, `end_bunny_a.png`;
+  `tmp/d118_rows.py`): the method as published does not finish the morph in its own schedule at 300k; it leaves a
+  dense core and a haze, and the step size, not the damping, sets how far it gets.** Every episode was kept and in
+  every episode of every run every line search accepted its first trial (504 of 504 bunny, 1140 of 1140 dragon), so
+  |F̃| reached 12 α each time (0.011–0.012): the step size binds throughout. No guard fired (clamps, NaN, F repairs
+  all zero). 40k bunny smoke (XPP):
+  42 episodes in 0.5 min, loss 6512 → 907 (−86 %; the paper's sphere to bunny 5302 → 91, −98 %), silhouette IoU
+  0.8954, chamfer 0.1296 (D112 at 40k, our protocol: oracle `xu` 0.9035 / 0.1207, `xu_spray` 0.9401 / 0.1174, the
+  arXiv form after the step fix 0.9597 / 0.1159; our recipe 0.9743 / 0.1098). 300k, end of the delivered run (the
+  run's metric; detached = nearest particle beyond 1.8 of the frame's own median spacing / of the source's rest
+  spacing; yardstick = runeval3's exterior silhouette / shading against the independent sample; display = 1 − IoU
+  in front / thin crop / far side; kin = the end state's mean |v|²; sets / apart = the display probe's connected sets
+  and particles apart from the body):
+
+  | bunny | episodes (windows) | min | sil IoU | chamfer | detached % | yardstick | display 1 − IoU | kin | sets / apart |
+  |---|---|---|---|---|---|---|---|---|---|
+  | D105 LV (ours) | (72) | 25.5 | 0.9878 | 0.0550 | 0 / 0.09 | 6.8e-4 / 4.8e-4 | 0.0084 / 0.0181 / 0.0084 | 5.2e-6 | 1 / 0 |
+  | D105 PV (twin) | (79) | 27.0 | 0.9869 | 0.0550 | 0 / 0.10 | 1.08e-3 / 5.9e-4 | 0.0104 / 0.0234 / 0.0116 | 4.1e-6 | 1 / 0 |
+  | D112 XP (Xu's loss, our protocol) | (6 of 300) | 42.6 | 0.8836 | 0.0691 | 1.06 / 0.85 | 0.047 / 0.016 | 0.125 / 0.411 / 0.122 | 0.69 | 74 / 2376 |
+  | XPP (Xu et al. as published) | 42 | 2.2 | 0.8658 | 0.0795 | 4.89 / 2.76 | 0.054 / 0.020 | 0.132 / 0.429 / 0.137 | 4.1e-3 | 353 / 23356 |
+  | XPS (+ spray cleanup) | 42 | 2.2 | 0.8717 | 0.0794 | 4.57 / 2.48 | 0.052 / 0.019 | 0.126 / 0.438 / 0.128 | 3.8e-3 | 302 / 22904 |
+  | XPZ (ζ = 0.5) | 42 | 2.2 | 0.8664 | 0.0792 | 4.90 / 2.77 | 0.053 / 0.020 | 0.132 / 0.426 / 0.136 | 4.2e-3 | 380 / 27597 |
+  | XPA (α = 0.01, not the paper's) | 42 | 5.2 | 0.9597 | 0.0589 | 0.60 / 0.30 | 9.9e-3 / 3.8e-3 | 0.039 / 0.098 / 0.035 | 0.39 | 19 / 776 |
+
+  | dragon | episodes (windows) | min | sil IoU | chamfer | detached % | yardstick | display 1 − IoU | kin | sets / apart |
+  |---|---|---|---|---|---|---|---|---|---|
+  | D105 LV (ours) | (101) | 43.0 | 0.9875 | 0.0543 | 0 / 0.13 | 5.2e-4 / 4.5e-4 | 0.0092 / 0.0226 / 0.0088 | 2.0e-5 | 5 / 12 |
+  | D105 PV (twin) | (106) | 44.2 | 0.9875 | 0.0544 | 0 / 0.14 | 1.10e-3 / 6.1e-4 | 0.0126 / 0.0246 / 0.0134 | 2.2e-5 | 9 / 31 |
+  | D112 XP (Xu's loss, our protocol) | (3 of 300) | 39.7 | 0.6173 | 0.5296 | 2.44 / 5.74 | 0.168 / 0.055 | 0.287 / 0.870 / 0.385 | 1.44 | 145 / 3885 |
+  | XPP (Xu et al. as published) | 95 | 5.3 | 0.9408 | 0.1220 | 17.8 / 6.17 | 0.015 / 0.011 | 0.160 / 0.443 / 0.197 | 8.2e-3 | 515 / 25909 |
+  | XPZ (ζ = 0.5) | 95 | 5.3 | 0.9409 | 0.1197 | (evaluation running) | | | 8.3e-3 | |
+  | XPS (+ spray cleanup) | 95 | (running) | | | | | | | |
+
+  D112's oracle-form runs (XSB: bunny 0.952 / 0.060, dragon 0.768 / 0.169) are not in the tables: their evaluations
+  were stopped part-way. The loss: bunny 6493 → 1392 (−79 %), dragon 17080 → 2638 (−85 %), both still falling 2–3 %
+  an episode at the end (bunny 1478.0, 1433.7, 1391.6 over the last three); the next episode's zero-control loss is
+  below the last committed one (the body keeps moving between episodes, |v| max 0.51 / 0.56 over the run). What the pictures show (point projections of the last
+  frame): on both meshes the source's mass stays a dense core (a dome on the bunny, an elliptical lump in the dragon)
+  and a sparse haze of single particles fills the rest of the target; the bunny has no ears or head, the dragon's
+  silhouette is covered by haze, which is why its silhouette IoU (0.94) is high while its chamfer (0.122) and
+  display are not. The log loss explains the preference: an empty target node costs ½ ln(76)² ≈ 9.4, a node at
+  twice the target mass 0.24, so mass is first sent into empty nodes, a particle at a time. Against D105, XPP is
+  behind both arms on every measure: yardstick silhouette 50 × the twin's (bunny) and 14 × (dragon), front display
+  13 × on both; its end kinetic energy is 980 × (bunny) and 375 × (dragon) the twin's. Against D112's XP (the same
+  loss in our protocol, 6 / 3 delivered windows) it is slightly behind on the bunny (front 0.132 against 0.125,
+  yardstick 0.054 against 0.047) and ahead on the dragon (front 0.160 against 0.287, yardstick 0.015 against 0.168),
+  at 1/170 of the kinetic energy.
+  Criteria of the prediction: no stall, |v| max below 1: met (0.51 / 0.56). Bunny silhouette IoU 0.80–0.92: met
+  (0.866); dragon 0.60–0.80: not met (0.941, the haze). Chamfer above the twin's and behind LV and PV on every
+  yardstick and display measure: met. Few detached particles: refuted (2.8 / 6.2 % at the rest spacing, 23–26
+  thousand particles apart). Time: 2.2 / 5.3 min against the predicted 10–25 / 25–50 (I overrated an episode's cost).
+  The dragon's run fails the ejection gate (stray share 0.86 % at its worst frame, the gate's bound 0.2 %).
+  Secondary: XPS within 0.005 of XPP's silhouette IoU: +0.006, at the edge; the haze stays (likely because the
+  cleanup pulls down the target's distance field, which is zero inside the target, where the pictures show most of
+  the haze; not measured). XPZ further along: refuted (bunny loss
+  −0.5 %, IoU +0.0006; dragon loss −2 %, chamfer −2 %; |v| max +7 %): the damping is not what limits it.
+  Sensitivity XPA (the working copy's α = 0.01): the line search still accepted every first trial (refuted: no
+  halving; |F̃| 0.093–0.119); the loss fell to 51 (−99.2 %, 3.7 % of XPP's, past the paper's −98 %), silhouette IoU
+  0.960, chamfer 0.059, a bunny with ears (`end_bunny_a.png`), the haze mostly gone (sets 19, apart 776); but the body
+  does not come to rest: the loss rises again at the end (38.5, 44.0, 51.2 over the last three episodes; the last
+  starts at 70.9), |v| max up to 7.2, end kinetic energy 0.39 (95 × XPP's, 94000 × the twin's), the rest gate fails;
+  yardstick 9 × the twin's, front display 3.8 ×. The
+  shortfall of the method as published is its step size (Fig. 8's 1e-3) over its own morph length; with a tenfold
+  step it reaches the shape and keeps moving, the oscillation near the optimum the paper reports for Adam (Fig. 8).
+  Which of the two stands in the paper's comparison is the user's decision: XPP is the method as published;
+  XPA's α is the working copy's, not the paper's (and it is the only parameter changed).
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
