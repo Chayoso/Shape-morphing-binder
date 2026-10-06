@@ -535,6 +535,59 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   Expectation: 0.35–0.50 at 5.4 pitches; offsets within 0.02; the display level with D98's; roughness 3.5–4.5°.
   Risk: feet on a thin part's far face when a particle is nearer to it (zero beyond one spacing limits it); the
   minimum spacing presses back where the relief asks inward.
+  **Result (2026-10-06 00:20 CDT; all four runs stopped by themselves; `output/gpu/d105`: `bands_*.log`,
+  `pend_*.log`, `e3_/t3_/m_*`, `twin_*.png`; `scripts/probes/settled/d105_rows.py`, `detail_compare.py`): the
+  relief comes back to near what a 300k body can show, the surface no longer inflates, the display holds.**
+  Runs: bunny PV 83 windows (28 min), LV 75 (27 min); dragon PV 114 (46 min), LV 112 (45 min); D98: 80 / 74, 105 /
+  126. The reference on the target sample's layer: mean −0.004 / −0.005 spacings (D88's +0.014 / +0.031).
+
+  | carried share at 2.7 / 5.4 / 10.8 pitches | bunny | dragon |
+  |---|---|---|
+  | the run's 300k target sample (the cap, D104) | 0.36 / 0.66 / 0.86 | 0.27 / 0.60 / 0.87 |
+  | D98 physics-only P / render arm L | 0.03 / 0.20 / 0.75 · 0.06 / 0.23 / 0.75 | −0.04 / 0.18 / 0.78 · −0.03 / 0.23 / 0.81 |
+  | D105 physics-only PV / render arm LV | 0.29 / 0.57 / 0.87 · 0.28 / 0.55 / 0.84 | 0.27 / 0.57 / 0.87 · 0.24 / 0.56 / 0.85 |
+
+  The offset's rms in the 5.4 band falls (bunny 0.097 → 0.081, dragon 0.119 → 0.102 pitches). The display's mean
+  offset from the mesh: bunny PV 0.285 (P 0.309), LV 0.290 (L 0.312); dragon PV 0.698 (0.713), LV 0.674 (0.698):
+  0.015–0.024 pitches nearer the mesh than D98, where D88 stood 0.03–0.14 further out.
+  Display against the independent sample, mean over the common range after window 10 / last value (1 − IoU and the
+  pictures' difference; render_twin_plot.py with P98, L98, PV, LV):
+
+  | LV against L98 | front | thin crop | far side | yardstick sil / shading |
+  |---|---|---|---|---|
+  | bunny | −1 / −1 %, −6 / −11 % | −1 / −6 %, −5 / −12 % | −2 / −6 %, −7 / −11 % | 0 / −10 %, −7 / −15 % |
+  | dragon | −6 / −8 %, −6 / −8 % | +2 / +3 %, −4 / −9 % | −7 / −7 %, −5 / −9 % | −14 / −17 %, −15 / −22 % |
+
+  | LV against its twin PV | front | thin crop | far side | yardstick sil / shading |
+  |---|---|---|---|---|
+  | bunny | −30 / −19 %, −21 / −17 % | −31 / −23 %, −30 / −27 % | −32 / −27 %, −20 / −15 % | −45 / −37 %, −23 / −19 % |
+  | dragon | −35 / −27 %, −17 / −13 % | −39 / −8 %, −28 / −14 % | −37 / −34 %, −19 / −20 % | −63 / −53 %, −38 / −27 % |
+
+  PV against P98: bunny level or ahead (front −5 % at the end, crop −15 %); dragon behind in the thin crop over the
+  common range (1 − IoU 0.0417 against 0.0332, +26 %) and ahead at the end (0.0246 against 0.0271): the twin's horns
+  grow later. Roughness (the field normal against its neighbours' mean): bunny LV 4.04° / 3.47° (L98 3.70° / 3.17°,
+  ×1.09); dragon LV 7.64° / 6.14° (6.61° / 4.64°, ×1.16 / ×1.32): the measure counts the relief carried as roughness
+  (a sample's is 9.8°); the crop's soft pixels +8 % on the dragon. Momentum (d105_rows.py), LV against PV: the
+  angular momentum at the window starts end / largest / mean bunny −7 / −20 / −9 %, dragon −34 / −4 / −9 %; centre of
+  mass −20 % / level; kinetic energy at the end −3 / −13 % bunny, −33 / −47 % dragon; behind: the bunny's
+  last-ten centre-of-mass velocity (+13 %) and linear net-over-gross (+5 %), the dragon's angular net-over-gross over
+  the run (+5 %), and the frame probe's rotation estimate (+18 %, +8 %; D102: unreliable, the angular momentum is
+  the measure). LV against L98: the dragon's kinetic energy at the end −40 %. Render influence: g_share 0.37 / 0.37
+  (bunny), 0.36 / 0.31 (dragon), as D98's.
+  Criteria: (a) passed (5.4 pitches +0.32 to +0.39 over D98's same arm, 10.8 up 0.09–0.12); (b) passed; (c) the
+  render arm passed on both meshes (the dragon's crop IoU +2 / +3 % within D102's seed spread), the twin passed on
+  the bunny and not in the dragon's crop over the common range; (d) passed on every display measure over the
+  common range (17–39 %) and at the end except the dragon crop's IoU (−8 %), and on the angular momentum; (e) passed
+  on the bunny and at the dragon's mean, not at its last value (×1.32). The expectation had the relief too low
+  (0.35–0.50 against 0.55–0.57) and the roughness right on the bunny.
+  What the eye sees (`output/video_2026-10-06/d105_detail`: D98's and D105's render arms beside the 300k target
+  sample and a 2.4M sample at its own pitch, whole and close): with the display's normal averaging (twice over the
+  base reach) the difference is small, a sharper crest on the dragon's head plate and horns; with the field's own
+  normals (`+smooth=0`) D105 shows the plate's ridges and the horns' grooves that D98 lacks, smoother than the 300k
+  sample (whose relief is under its grain) and coarser than the 2.4M sample. The relief carried at 5.4 pitches is
+  0.08–0.11 pitches rms: the display's own normal averaging hides most of it. The detail comes from the target's
+  surface through the relaxation, in both arms alike (PV − LV +0.01 to +0.03 at 5.4): the render arm's lead stays
+  in the transit, the silhouette and the shading, not in the relief. Next: the 40k gallery before adoption.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the

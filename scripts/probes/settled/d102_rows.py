@@ -27,26 +27,27 @@ def measures(mom, run):
                 ang_run=ang[0], ang_last20=ang[1], rotation=rot, still=still, kin_last10=np.mean(k[-10:])), k
 
 
-for mesh in ("bunny", "dragon"):
-    runs = {97: {a: (f"{G}/d98/m_{mesh}300k_{a}.log", f"{G}/d98/{mesh}300k_{a}.json") for a in "LP"}}
-    for seed in (101, 103):
-        runs[seed] = {a: (f"{G}/d102/m_{mesh}300k_{a}s{seed}.log", f"{G}/d102/{mesh}300k_{a}s{seed}.json") for a in "LP"}
-    table = {}
-    for seed, arms in runs.items():
-        try:
-            mL, kL = measures(*arms["L"]); mP, kP = measures(*arms["P"])
-        except (FileNotFoundError, AttributeError, IndexError):
-            continue
-        n = min(len(kL), len(kP))
-        mL["kin_matched"], mP["kin_matched"] = np.mean(kL[n - 10:n]), np.mean(kP[n - 10:n])
-        table[seed] = (mL, mP)
-    print(f"== {mesh}: seeds {sorted(table)}")
-    keys = []
-    for s in sorted(table):
-        keys += [kk for kk in table[s][0] if kk not in keys]
-    for key in keys:
-        seeds = [s for s in sorted(table) if key in table[s][0] and key in table[s][1]]
-        diffs = [(table[s][0][key] - table[s][1][key]) / max(abs(table[s][1][key]), 1e-30) for s in seeds]
-        verdict = "behind" if all(d > 0 for d in diffs) else "ahead" if all(d < 0 for d in diffs) else "level"
-        cells = "  ".join(f"s{s}: L {table[s][0][key]:.3g} P {table[s][1][key]:.3g} ({100 * d:+.0f} %)" for s, d in zip(seeds, diffs))
-        print(f"   {key:12s} {verdict:7s} | {cells}")
+if __name__ == "__main__":
+    for mesh in ("bunny", "dragon"):
+        runs = {97: {a: (f"{G}/d98/m_{mesh}300k_{a}.log", f"{G}/d98/{mesh}300k_{a}.json") for a in "LP"}}
+        for seed in (101, 103):
+            runs[seed] = {a: (f"{G}/d102/m_{mesh}300k_{a}s{seed}.log", f"{G}/d102/{mesh}300k_{a}s{seed}.json") for a in "LP"}
+        table = {}
+        for seed, arms in runs.items():
+            try:
+                mL, kL = measures(*arms["L"]); mP, kP = measures(*arms["P"])
+            except (FileNotFoundError, AttributeError, IndexError):
+                continue
+            n = min(len(kL), len(kP))
+            mL["kin_matched"], mP["kin_matched"] = np.mean(kL[n - 10:n]), np.mean(kP[n - 10:n])
+            table[seed] = (mL, mP)
+        print(f"== {mesh}: seeds {sorted(table)}")
+        keys = []
+        for s in sorted(table):
+            keys += [kk for kk in table[s][0] if kk not in keys]
+        for key in keys:
+            seeds = [s for s in sorted(table) if key in table[s][0] and key in table[s][1]]
+            diffs = [(table[s][0][key] - table[s][1][key]) / max(abs(table[s][1][key]), 1e-30) for s in seeds]
+            verdict = "behind" if all(d > 0 for d in diffs) else "ahead" if all(d < 0 for d in diffs) else "level"
+            cells = "  ".join(f"s{s}: L {table[s][0][key]:.3g} P {table[s][1][key]:.3g} ({100 * d:+.0f} %)" for s, d in zip(seeds, diffs))
+            print(f"   {key:12s} {verdict:7s} | {cells}")
