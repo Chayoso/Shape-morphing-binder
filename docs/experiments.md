@@ -912,6 +912,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (the released half, the acceptance brake) presume a loss with a rest term. The baseline's protocol is a decision
   for the user (below, in the reply of 16:30): Xu et al. as published (episodes scored while driven, every episode
   kept), or Xu et al.'s loss inside our protocol with our rest term (the first rung of an ablation, not "Xu").
+  The user chose the first, with the second as the ablation's first rung (16:30), and the reference version (16:50:
+  "SCA 2024도 좋지만 TVCG 2025쪽으로 보는 게 더 좋을거야"): the TVCG 2025 paper (DOI 10.1109/TVCG.2025.3591729;
+  the author's accepted version on hyde06, `tmp/xu_tvcg2025.{pdf,txt}`), not arXiv v1. Its loss differs from both
+  forms above: L = 1/2 sum (ln(m + 1 + eps) − ln(m* + 1 + eps))^2 + sum 1{m < m_min} w (m_min − m)^2 with eps 1e-4
+  and w = 10 "in all our experiments" (the C++ working copy: w = 1), and the gradient is the loss's own (no x5);
+  Adam with a bisection line search, dt 1/120 s, control every 10 steps, 4 gradient iterations x 3 passes, a 32^3
+  grid. That reimplementation is D118 (branch `xu-paper-protocol`).
 - **D114, the run stops where its objective can no longer tell the body from the target (pre-registered 2026-10-06
   14:29 CDT; the user, offered D113's options (a) slow the arrival, (b) end the tail, (c) retime the video only:
   "ㅇㅇA로 가는 게 맞을 거 같아" (end the tail, so the arrival fills more of the run); `output/gpu/d114`).** D113: after
