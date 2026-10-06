@@ -14,8 +14,9 @@ as running it inside the run. Per kept frame (every STRIDE-th and the last), in 
            already fitted is not restarted at a full step) on v, h = S v with S the render's splat footprint (a tent
            of one pixel), to the render term (silhouette + shading of the drawn discs p + h n, normals tilted by the
            slope of h) against the mean pictures of the dense samples' own exteriors at a pixel of a_c from the
-           pipeline's 18 views; the gradient only where the disc stands within one pitch a of the dense sample's
-           exterior (the body has arrived there: D105's reference rule), |v| <= a;
+           pipeline's 18 views; the gradient only where the body has arrived: the disc within one pitch a of the dense
+           sample's exterior (D105's reference rule) and the particles under it within one pitch of where they end
+           (D115: a surface that only crosses the target's on its way has not arrived), |v| <= a;
   draw     (video=1) the drawn discs at 3840 x 2160 in the studio's look (morph_4k.py's camera), frames/NNNN.jpg.
 fit=0 (the physics-only twin): h stays 0, the base discs drawn the same way. Per frame a JSON line in OUT_DIR/rows.txt:
 the discs, the arrived share, h's rms and the render terms before and after the frame's fit."""
@@ -48,6 +49,7 @@ out = Path(argv[3])
 (out / "frames").mkdir(parents=True, exist_ok=True)
 cfg = PipelineConfig()
 tgt = torch.as_tensor(np.asarray(z["tgt"], np.float32), device=dev)
+X_END = torch.as_tensor(np.asarray(z["frames"][-1], np.float32), device=dev)   # where the run's particles end
 pitch = lambda s: .708 * float(knn_self_torch(s, 9)[0][:, 8].median())   # noqa: E731
 a, a_c = pitch(tgt), pitch(denses[0])
 center = tgt.mean(0)
@@ -107,7 +109,14 @@ class Surface:
         self.idx = torch.cat((torch.arange(M, device=dev)[:, None], self.nb), 1)
         ws = (1.0 - dist / pix).clamp_min(0.0) * torch.cat((torch.ones(M, 1, device=dev), side), 1)
         self.ws = ws / ws.sum(1, keepdim=True)
-        self.arrived = (tree_t.query(self.p, 1)[0].reshape(-1).float() < a)
+        # arrived: the disc stands within one pitch of the dense exterior AND the material under it has done its path
+        # (its 8 nearest particles, Gaussian-weighted as in carried(), within one pitch of where they end, D115). The
+        # position test alone also admits a surface that only crosses the target's on its way (the undeformed sphere:
+        # 6-9 % of its discs), and the fit wrote the target's relief along that crossing as wrinkles
+        dd, ii = gpu.KNN(x).query(self.p, 8)
+        w = torch.exp(-(dd.float() / a) ** 2)
+        left = (w * (x - X_END).norm(dim=1)[ii]).sum(1) / w.sum(1).clamp_min(1e-12)
+        self.arrived = (tree_t.query(self.p, 1)[0].reshape(-1).float() < a) & (left < a)
 
     def smooth(self, v):
         return (self.ws * v[self.idx]).sum(1)

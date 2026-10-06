@@ -867,6 +867,56 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `xu_spray` (XSB) and `xu` (XB), the whole 300-window budget (`--patience 300 --reject_stop 300`), delivered at the
   best window by the baseline's own loss, read by runeval3 as before. Expectation: the dragon reaches the bunny's
   level (silhouette IoU 0.93–0.95 for XSB), still below the physics-only twin and frayed at the horns.
+- **D114, the run stops where its objective can no longer tell the body from the target (pre-registered 2026-10-06
+  14:29 CDT; the user, offered D113's options (a) slow the arrival, (b) end the tail, (c) retime the video only:
+  "ㅇㅇA로 가는 게 맞을 거 같아" (end the tail, so the arrival fills more of the run); `output/gpu/d114`).** D113: after
+  30 % of the run the display moves by 7–25 % of its own end value while the transport creeps 4–8 fold; the run goes
+  on because the merit is then 94–97 % physics and the creep beats the 0.3 % per-window tolerance. The definition
+  that keeps it going is what counts as progress: today any relative merit gain above `tol`, however far below the
+  resolution of the objective itself. Proposed definition: the merit's own resolution is the merit an independent
+  sample of the target scores (the same N, a draw independent of the run's target sample and of the render's eight
+  picture draws, at rest; the same terms, the same window's weight; D90's yardstick sample is such a draw); once a
+  committed window's merit is at or below it, the objective cannot tell the body from another sample of the target,
+  and the run stops there (delivered at its best window, as today). The floor is measured at the run's start: no new
+  constant. Step 1, no runs: the floor's terms for bunny and dragon 300k (`own_terms_probe.py` on
+  `output/gpu/d90/{mesh}_ind300k.npz`: transport energy with proximity, silhouette, shading; cleanup, drift and
+  released motion are zero for a sample at rest, to be checked), the window at which each D105 arm's merit first
+  reaches the floor rescored with that window's weight, and there the display, the yardstick and the momentum
+  (the kept-frame evaluations t3_, e3_ and the window records). Criteria to go on to the code: (a) both arms reach the
+  floor within their runs on both meshes (else the rule never acts); (b) at its crossing the render arm is ahead of
+  the twin at the twin's own crossing by 10 % or more on the display and the yardstick and not behind on the angular
+  momentum; (c) the crossing comes before half of the run. Expectation: crossings at 20–40 % of the run (8–15 min of
+  compute at 300k), the render arm's lead at its crossing 25–35 % on the yardstick. Risk: the floor's transport is
+  above the run's merit from the first windows (the run fits its own target sample better than another sample does
+  long before the shape is done): then the floor is the wrong yardstick for the physics and (a) fails early instead.
+  **Result of step 1 (14:30–14:36 CDT; `output/gpu/d114/floor_{mesh}.log`): refuted, the other way round from the
+  risk.** The floor (D90's independent sample, seed 99, at rest): transport energy with proximity 1.78e-5 / 1.14e-5,
+  silhouette 7.8e-4 / 6.6e-4, shading 5.5e-4 / 4.3e-4 (bunny / dragon; the source 0.454 / 1.76 and 0.209 / 0.288).
+  The physics never reaches it: the transport energy at the end of D105's runs is 2.26e-5 (LV) and 1.97e-5 (PV) on the
+  bunny, 4.98e-5 and 5.28e-5 on the dragon, 1.1–1.3 and 4.4–4.6 times the floor, and the physics core likewise. The
+  render terms of the render arm cross their floor at window 16 of 75 (bunny) and 45 of 112 (dragon); the twin's
+  never do (0.00157, 0.0019 at the end). So the merit (94–97 % physics in the tail) never reaches its floor and the
+  rule would never act: criterion (a) fails. What the tail does, read at the render arm's crossing against the
+  twin's end: the transport energy 1.62e-4 / 2.05e-4, 8.2 / 3.9 times the twin's end; the kinetic energy of the
+  released end 3.5e-4 / 8.6e-5, 55 / 4.5 times the twin's end: the body is still settling and still transporting
+  when the pictures are already at the floor. Cutting the tail there would deliver a moving body, behind the twin
+  on the transport and the kinetic energy (the user's bar, render-must-beat-physics). The tail is physical work
+  below the display; what the eye sees in it ("surface에서 지들끼리 싸우는 느낌", the user, 14:20) is a separate
+  question (D116).
+- **D115, the display layer writes relief only where the body has arrived (pre-registered 2026-10-06 14:36 CDT; the
+  user, on D111's 4K videos: "구 처음에 이미 여기서 보이는 잔 주름도 좀 없애야 할 거 같은데? … 각지는 건 괜찮아" (the
+  facets of the 80-face source are fine, the wrinkles are not); `child_detail_morph.py`; `output/gpu/d115`).** D111's
+  morph fit (1e) already writes relief at frame 0, the undeformed source: 9.2 % (bunny) and 6.4 % (dragon) of its
+  discs count as arrived (h rms 0.043 / 0.036 pitches), because arrival was a position test alone (the disc within
+  one pitch of the dense exterior), which a surface that only crosses the target's on its way also passes: the
+  sphere crosses the bunny's surface along curves, and the fit wrote the target's relief there as wrinkles. The
+  definition changed: arrived = that test AND the material under the disc has done its path (its 8 nearest
+  particles, Gaussian-weighted with sigma one pitch as the carrying uses, within one pitch of where they end; post
+  hoc the run's last frame, inside a run it would be the transport image the u gate reads). Runs: 1e's options
+  (`+fit=1 +steps=15 +carry=h +decay=1`) on D105's LV frames, bunny and dragon. Criteria: (a) frame 0's arrived
+  share 0 and h = 0 there (the source drawn as the twin draws it); (b) the end frame's render terms within 5 % of
+  1e's (the relief still arrives with the body); (c) flicker not above 1e's. Expectation: (a) exactly; the arrived
+  share lags 1e's by a few frames during the arrival; (b) and (c) hold.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

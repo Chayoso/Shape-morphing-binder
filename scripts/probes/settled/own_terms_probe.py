@@ -7,7 +7,8 @@ proximity, length^2), the physics geometry ot_scale x TE (the released motion an
 the kept frames do not carry; they are zero at the source, at rest), the silhouette and shading terms on the exterior
 (discs found afresh at that state), and the arrival: the share of particles within two target spacings of their
 nearest target point and the mean path done, 1 - mean |x_t - x_end| / mean |x_0 - x_end|. FRAMES_NPZ "-": the source
-alone (the window records carry everything after it)."""
+alone (the window records carry everything after it). "ref": FRAMES_NPZ is an independent sample of the target (D90's
+`{mesh}_ind300k.npz`, whose `tgt` field is that sample, not the run's target), read as a state at rest (D114's floor)."""
 import dataclasses
 import json
 import sys
@@ -53,7 +54,7 @@ x_end = None
 if frames_path != "-":
     z = np.load(frames_path, allow_pickle=True)
     dt = float(np.abs(np.asarray(z["tgt"], np.float32) - prep.tgt).max())
-    if dt > 1e-5:
+    if dt > 1e-5 and "ref" not in sys.argv[4:]:
         raise SystemExit(f"the run's target sample differs from this setup's ({dt:.3g})")
     states += [(int(r), None) for r in z["raws"]]
     frames = z["frames"]
