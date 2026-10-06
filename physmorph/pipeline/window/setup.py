@@ -20,6 +20,7 @@ from ...mpm.state import MPMParams
 from ...mpm.traj import Trajectory
 from ..config import PipelineConfig
 from ..target import TargetPack
+from .basis import GridBasis
 from .layer import layer_relax_data, layer_spacing
 
 
@@ -45,6 +46,8 @@ class Window:
         # the dynamics mass of the discretisation: the body's mass does not depend on N, so a
         # unit control moves the 300k body as it moves the 40k one (loss-side masses are unit)
         m = float(cfg.mass_ref_n) / N if cfg.mass_ref_n > 0 and N != cfg.mass_ref_n else 1.0
+        # the stress control's grid nodes and each particle's transfer weights at the window's start (D109)
+        self.basis = GridBasis(start.x, prm.dx, prm.grid_min, (prm.nx, prm.ny, prm.nz))
         # the outer layer: relaxed toward its neighbours' plane over one window (fraction
         # 1/T per driven step) and carrying the u control
         self.sp0 = layer_spacing(start.x)

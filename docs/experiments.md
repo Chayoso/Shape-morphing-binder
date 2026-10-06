@@ -676,6 +676,37 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   particles through their own stress control out of the body; each becomes a small separate surface, drawn as
   Gaussians apart from the body. The stress control is per particle and per step; nothing in its definition
   ties a particle's control to what its grid cell can carry.
+- **D109, the stress control lives on the grid (pre-registered 2026-10-06 06:22 CDT; the user: "이 문제 + 이전 prompt의
+  goal 까지 해결 해 줘"; papers read first (agent): Sundaramoorthi et al. 2007 (Sobolev gradients: an L2 gradient
+  of an image energy is local and lets points move independently; a smoothing from an inner product keeps the
+  minimisers and is a descent direction), Nicolet et al. 2021 (per-component Adam undoes a smoothing of the
+  gradient), SoftZoo 2023 (per-particle designs fracture numerically; voxel and basis designs do not), PAC-NeRF 2023
+  (grid fields read by particles with the MPM's own P2G/G2P pair); code: `window/basis.py` (new), `window/solve.py`,
+  `window/setup.py`; `output/gpu/d109`).** D108's cause: the stress control dFc is a free 3x3 per particle and
+  per step, and Adam scales each entry on its own, so a gradient concentrated on a few particles moves those
+  particles alone, out of the body. The grid cannot carry a stress that differs below a cell anyway; D107 measured
+  that the render gradient's sub-cell part through dFc moves the layer away from the mesh late in the run. The
+  change (a definition, no new constant): the window's stress control is one 3x3 per step on every grid node the
+  window's particles touch, read by each particle with the simulation's own quadratic B-spline weights at its
+  start position (dFc_p = sum_i w_ip C_i, the G2P of the control); the leaf, its Adam moments and the clip
+  (now per node, so every particle's |dFc| stays under it) are on the nodes; the warm start carries the previous
+  window's per-particle control to the new nodes by the mass-weighted average (P2G). The gradient norms the step
+  control and the render weight's calibration read are taken in the nodes' mass metric (sum_i |g_i|^2 / m_i,
+  m_i = sum_p w_ip), which equals the per-particle norm for a smooth gradient, so target_norm, gd_tol and the
+  balancer keep their meaning. u stays per particle (the layer's sub-cell channel, D107).
+  Runs: bunny and dragon 300k, D105's code with this and `--layer_relief`, the physics-only twin (PG) and the
+  render arm (LG), seed 97; against D105's PV and LV. Read: the display records' discs apart from the body and
+  folded discs per frame (D108), the display against the independent sample, the yardstick, the relief bands at
+  the end, momentum and angular momentum, run length and time.
+  Criteria: (a) the discs apart and folded in the first 30 % of the run at most half of D105's same arm on the
+  dragon, not more on the bunny; (b) the display and the yardstick not behind D105's same arm beyond D102's
+  seed spread; (c) the carried relief at 5.4 and 10.8 pitches not below D105's by more than 0.03; (d) the render
+  arm ahead of its twin by 10 % on the display, and not behind on the angular momentum; (e) wall time within
+  1.2 times D105's.
+  Expectation: (a) the early fragments fall 2–5 times (the agent's caution: at a protrusion whose outer nodes
+  carry mostly one particle the average returns nearly that particle's own control, so not all go); (b) level;
+  (c) level or up (the late anti-aligned sub-cell move is gone); the render weight rises (its sub-cell part no
+  longer counts in its norm). Risk: the transport fits fine shape more slowly through cell-scale stress.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
