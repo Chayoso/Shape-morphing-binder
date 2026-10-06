@@ -15,7 +15,7 @@ for b in BANDS:
     at = {r["window"]: r[f"off_{b}"] for r in rows}
     near = min(at, key=lambda w: abs(w - e_end))
     print(f"== {b} pitches: offset rms first {rows[0][f'off_{b}']:.3f}, at window {near} {at[near]:.3f}, last {rows[-1][f'off_{b}']:.3f}")
-    for f in ("render", "physics", "r_dFc", "p_dFc", "r_u", "p_u", "opt", "all"):
+    for f in ("render", "physics", "r_dFc", "p_dFc", "r_u", "p_u", "opt", "all", "free"):
         m = lambda rs, k: float(np.mean([r[k] for r in rs])) if rs else float("nan")   # noqa: E731
         line = f"   {f:8s} toward early {m(early, f'{f}_toward_{b}'):+.3f}, late {m(late, f'{f}_toward_{b}'):+.3f}"
         if f"{f}_closes_{b}" in rows[0]:

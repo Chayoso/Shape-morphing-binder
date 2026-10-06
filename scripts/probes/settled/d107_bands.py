@@ -10,7 +10,8 @@ the particle's outward normal, in display pitches:
   r_dFc, p_dFc, r_u, p_u  what each channel alone moves the layer by in the window (the linear-response rollouts:
           the render or physics gradient on the stress control or on the layer control u, scaled to the window's step);
   opt     what the window's optimisation moved (the committed end state minus xT0);
-  all     the whole window's move (the committed end state minus the window's start: dynamics, relaxation, controls).
+  all     the whole window's move (the committed end state minus the window's start: dynamics, relaxation, controls);
+  free    the window's move under its starting control (xT0 minus the start): all = free + opt.
 Split into octave bands by differences of Gaussian means over the layer (sigma 0.5, 1, 2, 4, 8 pitches; only
 neighbours whose layer normals agree, so a thin part's two faces are not mixed): nominal wavelengths 2.7, 5.4, 10.8,
 21.6 pitches. Per band: the offset's rms; for each field its correlation with -offset ("toward": +1 when it undoes
@@ -57,7 +58,7 @@ surface_tree = gpu.KNN(surface)
 
 SIGMAS = (.5, 1., 2., 4., 8.)
 BANDS = ("2.7", "5.4", "10.8", "21.6")                         # nominal wavelengths of sigma 0.5-1, 1-2, 2-4, 4-8 pitches
-FIELDS = ("render", "physics", "r_dFc", "p_dFc", "r_u", "p_u", "opt", "all")
+FIELDS = ("render", "physics", "r_dFc", "p_dFc", "r_u", "p_u", "opt", "all", "free")
 
 
 def gauss_means(P, n, f):
@@ -98,7 +99,7 @@ for wi, path in enumerate(files):
                      along(-lam * (t("gx_sil") + t("gx_pbr"))), along(-t("gx_phys")),
                      along(t("xT_rend") - t("xT_base")), along(t("xT_phys") - t("xT_base")),
                      along(t("xT_rend_u") - t("xT_base_u0")), along(t("xT_phys_u") - t("xT_base_u0")),
-                     along(t("xT_final") - x), along(t("xT_final") - t("x0"))))
+                     along(t("xT_final") - x), along(t("xT_final") - t("x0")), along(x - t("x0"))))
     G = gauss_means(P, n, f)
     row = dict(window=wi, layer_near=int(keep.sum()), lam=lam, g_share=float(z["g_share"]))
     for b, name in enumerate(BANDS):
@@ -111,7 +112,7 @@ for wi, path in enumerate(files):
             vv = float((v * v).sum())
             row[f"{fld}_toward_{name}"] = float((v * -s).sum() / max((vv * ss) ** .5, 1e-30))
             row[f"{fld}_rms_{name}"] = float(v.square().mean().sqrt())
-            if fld in ("r_dFc", "p_dFc", "r_u", "p_u", "opt", "all"):
+            if fld in ("r_dFc", "p_dFc", "r_u", "p_u", "opt", "all", "free"):
                 row[f"{fld}_closes_{name}"] = float(-(v * s).sum() / max(ss, 1e-30))
     rows.append(row)
     print(json.dumps(row), flush=True)

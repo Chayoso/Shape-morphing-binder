@@ -653,6 +653,16 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (the relief appears with arrival) and on the physics push early, wrong on the render push late (toward at every
   band, weakly, not blind at 5.4), and the actual move is not more toward than the pushes. Open: which part of the
   window takes back the optimisation's fine-band move.
+  **Addendum (2026-10-06 06:45 CDT; `d107_bands.py` with the field `free` = xT0 − x0, the window's move under its
+  starting control, so that all = free + opt; `output/gpu/d107/bands2_*`).** The free move is away from the mesh at
+  10.8 and 21.6 pitches over the whole run (toward, early / late: bunny −0.12 / −0.07 and −0.25 / −0.24; dragon
+  −0.16 / −0.15 and −0.24 / −0.26) and late at 5.4 on the dragon (−0.09); late it opens 1.3–2.6 % of a band's
+  offset per window (bunny 10.8 / 21.6: −1.3 / −2.1 %; dragon 5.4 / 10.8 / 21.6: −1.9 / −2.6 / −2.4 %) while the
+  optimisation closes 2.0–3.8 %. What takes the detail back is the window's own evolution under the decayed warm
+  start, at the scales of elastic deformation (4–8 cells): the material keeps half of each window's elastic
+  stretch as a spring (assimilation 0.5 per window, `assimilate_elastic`), which the next window's free motion
+  releases. The 40k sweep of the material (M1) found the end silhouette level for assimilation 0, 0.25, 0.5 and
+  1; the detail at 300k was not measured then.
 - **D108, the mouth and the Gaussians seen during the morph (frame-by-frame forensics; 2026-10-06 03:30 CDT; the
   user, on D105's 4K video: "살짝 없었던 artifact가 입 주변에 있는 느낌?", "morphing 중에 Gaussian이 살짝 보여";
   `scripts/probes/settled/region_offsets.py`, `fragment_forensics.py`; `output/gpu/d107/{mouth_*,fragments_*}`;
