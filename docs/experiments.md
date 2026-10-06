@@ -459,7 +459,21 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   that quality sooner and then keeps finding about 1 % a window until the budget ends (D5's slow tail). The
   open part is therefore the stopping and step-length behaviour without the relaxation, and beast's ejection, not
   the surface.
-- **D103, the delivered window chosen at the run's largest render weight (pre-registered 2026-10-05 20:40 CDT; the
+- **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
+  끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
+  D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
+  minimum spacing +0.27 to +0.55, the relaxation ≈ 0. The definition tried: at every step the layer's normal
+  displacement s n (u and the relaxation together) loses its part along nine modes, the six rigid ones (n, r × n;
+  static, D98's inverse) and the three along which it puts angular momentum in (q = n × v, the displacement
+  carrying the particle's momentum: Σ s n × v = Σ s q), the 9 × 9 Gram system solved per step on the tape by the
+  Schur complement of the static block (`k_layer_relax` moments, a one-thread `k_layer_solve`, `k_layer_project`).
+  A new test (a turning slab: every step's displacement free of translation, rotation and injection to 1e-3) passed;
+  the adjoint against finite differences with the layer on (`test_adjoint_matches_finite_differences_with_force`)
+  failed, −0.0527 against −0.0333 (D98's kernels pass it). The cause is in the definition: q scales with the
+  velocity, so the Schur block S ~ |v|² and the coefficient ~ s / |v|; near rest (the test's first steps, every
+  run's late windows) the projection's direction is set by the velocity's noise and its derivative grows as
+  1 / |v|². Damping it needs a velocity scale, a new constant. Reverted (the kernels are D98's); the angular
+  momentum the jumps put in is left as it is, the render arm already holding less of it than its twin (D102).
   user, on D100's late trade of the silhouette: "2번도 확인 해 줘"; and on D102: the conservation measure is the
   angular momentum, "각운동량이라고 해도 좋아"; code: `run/selection.py` best_window).** The delivered slice ends at
   the best window by the selection merit, every window scored at one render weight; that weight is the last
