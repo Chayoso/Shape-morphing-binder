@@ -1,8 +1,9 @@
 """sim_camera.py FRAMES_NPZ OUT_DIR — the simulation seen by one camera: the run's first frame (the sphere) and its last
 (the morphed body) side by side with three dots between them (the simulation), drawn as the display draws them
 (still_render.py's Gaussian discs, slate blue, from the display's azimuth), and below them one camera looking up at the
-row: camera_ring.py's spotlight triangle, apex at the camera and its open side toward the row, with no beam. Both
-bodies are drawn at one scale (the target's radius), each about its own centre. Written to OUT_DIR:
+row: a body, a lens ring and a hood opening toward the row (camera_ring.py's spotlight shape, unlit). The dots and the
+camera stand on the picture's middle. Both bodies are drawn at one scale (the target's radius), each about its own
+centre. Written to OUT_DIR:
   sim_camera.png          the row and the camera;
   sim_camera_frustum.png  the same with the camera's field of view as two thin dashed lines (no light)."""
 import math, sys
@@ -74,30 +75,46 @@ widths = [b[2] - b[0] + 1 for b in boxes]
 row_h = max(b[3] - b[1] + 1 for b in boxes)
 m = int(.08 * S)
 cam_room = int(.34 * S)                                        # below the row: the camera and its distance to the row
-W = m + widths[0] + gap + widths[1] + m
+slot = max(widths)                                             # each body centred in a slot of the wider one's width,
+W = m + slot + gap + slot + m                                  # so the dots and the camera stand on the picture's middle
 H = m + row_h + cam_room + m
 bodies = np.zeros((H, W, 3), np.float32)
 alpha = np.zeros((H, W, 1), np.float32)
 mid_y = m + row_h / 2                                          # the row's centre line
-lefts = [m, m + widths[0] + gap]
+lefts = [m + (slot - widths[0]) // 2, m + slot + gap + (slot - widths[1]) // 2]
 for (img, cover), (x0, y0, x1, y1), left in zip(panels, boxes, lefts):
     top = int(round(mid_y - (y1 - y0 + 1) / 2))                # each body centred on the row's line
     bodies[top:top + y1 - y0 + 1, left:left + x1 - x0 + 1] = img[y0:y1 + 1, x0:x1 + 1]
     alpha[top:top + y1 - y0 + 1, left:left + x1 - x0 + 1] = cover[y0:y1 + 1, x0:x1 + 1, None]
-dots_x = m + widths[0] + gap / 2
+dots_x = W / 2
+
+
+def camera(dr, cx, bottom, size):
+    """A camera pointing up, its foot at `bottom`: a rounded body, a lens ring, and a hood that opens toward the row
+    (the spotlight's shape, unlit). Returns the hood's two upper corners."""
+    ink, edge, ring = (43, 47, 54), (20, 22, 26), (92, 99, 112)
+    bw, bh = 1.25 * size, 1.15 * size                          # the body
+    top = bottom - bh
+    dr.rounded_rectangle([cx - bw / 2, top, cx + bw / 2, bottom], radius=.16 * size, fill=ink, outline=edge, width=4)
+    rw, rh = .62 * size, .16 * size                            # the lens ring
+    dr.rectangle([cx - rw / 2, top - rh, cx + rw / 2, top], fill=ring, outline=edge, width=3)
+    hb, ht, hh = .62 * size, 1.45 * size, .62 * size           # the hood, widening upward
+    y0, y1 = top - rh, top - rh - hh
+    dr.polygon([(cx - hb / 2, y0), (cx + hb / 2, y0), (cx + ht / 2, y1), (cx - ht / 2, y1)], fill=ink, outline=edge, width=4)
+    return (cx - ht / 2, y1), (cx + ht / 2, y1)
 
 
 def finish(frustum, name):
     pic = Image.new("RGB", (W, H), (255, 255, 255))
     dr = ImageDraw.Draw(pic)
-    size = .06 * S
-    cx, cy = W / 2, H - m - .2 * size                          # the camera, under the row's middle, looking up
-    base_y = cy - 1.3 * size
+    size = .075 * S
+    cx, bottom = W / 2, H - m                                  # the camera, under the dots, looking up
+    corners = camera(ImageDraw.Draw(Image.new("RGB", (1, 1))), cx, bottom, size)   # where the hood's corners fall
     if frustum:                                                 # its field of view: two thin dashed lines behind the bodies, no light
         top_y = m * .6
-        for side in (-1, 1):
+        for side, corner in zip((-1, 1), corners):
             x_end = cx + side * (W / 2 - m * .6)
-            p0, p1 = np.array((cx + side * .75 * size, base_y)), np.array((x_end, top_y))
+            p0, p1 = np.array(corner), np.array((x_end, top_y))
             L = float(np.linalg.norm(p1 - p0)); u = (p1 - p0) / L
             dash, s = .018 * S, 0.
             while s < L:
@@ -111,7 +128,7 @@ def finish(frustum, name):
     for k in (-1, 0, 1):                                        # the simulation: three dots
         dx = dots_x + k * 4.2 * r
         dr.ellipse([dx - r, mid_y - r, dx + r, mid_y + r], fill=(110, 118, 132))
-    dr.polygon([(cx, cy), (cx - .75 * size, base_y), (cx + .75 * size, base_y)], fill=(43, 47, 54), outline=(20, 22, 26), width=4)
+    camera(dr, cx, bottom, size)
     pic.save(out / name)
     print("wrote", out / name, pic.size, flush=True)
 
