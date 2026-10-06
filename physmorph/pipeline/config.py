@@ -362,6 +362,10 @@ class PipelineConfig:
     dvol_form: str = "log"          # density-unit residual: "log" (log(1+m/m_ref)) or "linear"
                                     # ((m - m_t)/m_ref: gradient proportional to the deficit, no
                                     # empty-cell amplification)
+    xu_loss: bool = False           # the baseline: Xu et al.'s EndLayerMassLoss as the C++ oracle computes it
+                                    # (losses/volumetric.d_vol_xu: the simulation grid, cubic B-spline P2G,
+                                    # a full cell of mass 1, the out-of-target gradient x5)
+    xu_mass: float = 1.0            # per-particle mass of that loss: 1 / ppc, so that a full cell holds 1
     loss_units: str = "legacy"      # "legacy": D_vol = 1/2 sum_cells log-mass residual^2
                                     # (Xu et al., grid-count units); "density": the same
                                     # residual on m/m_ref averaged over target-support

@@ -130,6 +130,7 @@ def arm_config(arm: str, args) -> PipelineConfig:
                           w_coh=args.w_coh, coh_k=args.coh_k,
                           continuity=args.continuity, bonds=args.bonds, reattach=args.reattach,
                           phys_loss=args.phys_loss, ot_eps_cells=args.ot_eps_cells,
+                          xu_loss=args.xu_loss, xu_mass=(1.0 / args.ppc if args.ppc > 0 else 1.0),
                           ot_samples=args.ot_samples, ot_iters=args.ot_iters, ot_debias=args.ot_debias,
                           ot_tol=args.ot_tol,
                           eject_veto=args.eject_veto, eject_iso_k=args.eject_iso_k,
@@ -587,6 +588,8 @@ def main():
     ap.add_argument("--render_gs_cheb", action="store_true")
     ap.add_argument("--gauss_robust_eps", type=float, default=0.0)
     ap.add_argument("--loss_units", default="legacy", choices=["legacy", "density"])
+    ap.add_argument("--xu_loss", action="store_true",
+                    help="the baseline: Xu et al.'s EndLayerMassLoss as the C++ oracle computes it (losses/volumetric.d_vol_xu)")
     ap.add_argument("--dvol_form", default="log", choices=["log", "linear"],
                     help="density-unit residual: log(1+m/m_ref) (default) or linear (m-m_t)/m_ref")
     ap.add_argument("--sample", default="volume", choices=["volume", "shell"],

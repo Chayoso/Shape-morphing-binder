@@ -616,3 +616,48 @@ def d_h1(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor,
         E_self = 0.5 * (m * m) * ((W @ G8) * W).sum(1)
         L = L - E_self.sum()
     return L
+
+
+# ---- Xu et al.'s EndLayerMassLoss, reproduced for the baseline (legacy/DiffMPMLib3D/CompGraph.cpp) ----
+
+def _cubic(r: torch.Tensor) -> torch.Tensor:
+    """The MPM's cubic B-spline of a distance in cells (constitutive.bspline_w)."""
+    ar = r.abs()
+    return torch.where(ar < 1.0, 0.5 * ar ** 3 - ar ** 2 + 2.0 / 3.0,
+                       torch.where(ar < 2.0, (2.0 - ar).clamp_min(0.0) ** 3 / 6.0, torch.zeros_like(ar)))
+
+
+def rasterize_mass_cubic(x: torch.Tensor, m: torch.Tensor, grid_min: torch.Tensor, dx: float, dims) -> torch.Tensor:
+    """P2G of particle mass with the MPM's cubic B-spline (the 4^3 stencil of kernels.base_node) onto a flat grid:
+    the C++ oracle's G_Reset + P2G before EndLayerMassLoss."""
+    nx, ny, nz = dims
+    X = (x - grid_min) / dx
+    base = torch.floor(X).long() - 1
+    grid = x.new_zeros(nx * ny * nz)
+    w = [[_cubic(base[:, a] + o - X[:, a]) for o in range(4)] for a in range(3)]
+    for ox in range(4):
+        for oy in range(4):
+            wxy = w[0][ox] * w[1][oy]
+            for oz in range(4):
+                ii, jj, kk = base[:, 0] + ox, base[:, 1] + oy, base[:, 2] + oz
+                valid = (ii >= 0) & (ii < nx) & (jj >= 0) & (jj < ny) & (kk >= 0) & (kk < nz)
+                idx = ((ii * ny + jj) * nz + kk).clamp(0, nx * ny * nz - 1)
+                grid = grid.index_add(0, idx, torch.where(valid, wxy * w[2][oz] * m, torch.zeros_like(m)))
+    return grid
+
+
+def d_vol_xu(x: torch.Tensor, m: torch.Tensor, target_grid: torch.Tensor, grid_min: torch.Tensor, dx: float, dims,
+             out_of_target: float = 5.0, eps: float = 1e-4, min_mass: float = 1e-3,
+             penalty_weight: float = 1.0) -> torch.Tensor:
+    """Xu et al.'s EndLayerMassLoss as the C++ oracle computes it: on the simulation grid (cubic B-spline P2G), the
+    value 1/2 sum (log(c + 1 + eps) - log(t + 1 + eps))^2 + penalty_weight sum_{c < min_mass} (min_mass - c)^2, and
+    the gradient the oracle back-propagates: each node's dL/dm times out_of_target (5) where the target node is
+    empty, so a particle outside the target is pulled back five times as hard (the value is unchanged)."""
+    cur = rasterize_mass_cubic(x, m, grid_min, dx, dims)
+    log_diff = torch.log(cur + 1.0 + eps) - torch.log(target_grid + 1.0 + eps)
+    low = (cur < min_mass).to(cur.dtype)
+    value = 0.5 * log_diff.pow(2).sum() + penalty_weight * ((min_mass - cur).pow(2) * low).sum()
+    dLdm = log_diff / (cur + 1.0 + eps) - 2.0 * penalty_weight * (min_mass - cur) * low
+    pen = torch.where(target_grid > 1e-12, torch.ones_like(target_grid), torch.full_like(target_grid, out_of_target))
+    surrogate = ((pen * dLdm).detach() * cur).sum()
+    return value.detach() + surrogate - surrogate.detach()

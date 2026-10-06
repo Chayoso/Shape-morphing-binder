@@ -244,7 +244,14 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, w_tgt=None, w_sr
         jd_dx = float((dmax - dmin).max() / cfg.jdens_res)
         jd = dict(jd_gmin=lgmin, jd_dx=jd_dx, jd_dims=jd_dims)
     m_ref, n_support = density_units(grid)      # loss_units="density" constants
-    return TargetPack(**jd, points=tgt_t, grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
+    xu = {}
+    if getattr(cfg, "xu_loss", False):              # the baseline's target: the simulation grid, cubic B-spline
+        from ..losses.volumetric import rasterize_mass_cubic
+        xu_gmin = torch.tensor(np.asarray(prm.grid_min, np.float32), device=dev)
+        xu_dims = (prm.nx, prm.ny, prm.nz)
+        xu = dict(xu_grid=rasterize_mass_cubic(tgt_t, m_t * cfg.xu_mass, xu_gmin, prm.dx, xu_dims).detach(),
+                  xu_gmin=xu_gmin, xu_dx=float(prm.dx), xu_dims=xu_dims)
+    return TargetPack(**jd, **xu, points=tgt_t, grid=grid, lgmin=lgmin, ldx=ldx, ldims=ldims, m=m,
                       views=views, sils=sils, extent=extent, shade=shade,
                       dt3=dt3, dtgmin=dtgmin, dtdx=dtdx, dtdims=dtdims, tmass3=tmass3,
                       pts=pts, nn_spacing=nn_sp, gauss=gauss,

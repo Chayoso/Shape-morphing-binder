@@ -30,7 +30,7 @@ import numpy as np
 import torch
 import warp as wp
 
-from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_density, d_w1,
+from ..losses.volumetric import (d_h1, d_jdens, d_kde, d_nn_band, d_vol, d_vol_density, d_vol_xu, d_w1,
                                  deficit_field, gather_cic, isolation_gate, kde_assign,
                                  nn_band_assign, rasterize_mass, w1_budget)
 from ..mpm.constitutive import lame
@@ -78,6 +78,10 @@ class TargetPack:
     ot_pull: object = None               # losses/ot.SinkhornPull (phys_loss = "ot")
     ot_scale: float | None = None        # one-shot equal-norm calibration of the OT loss vs D_vol
     h1_scale: float | None = None        # H^-1 mass-balance term: equal-norm vs D_vol
+    xu_grid: torch.Tensor | None = None  # cfg.xu_loss: the target mass on the simulation grid (cubic B-spline)
+    xu_gmin: torch.Tensor | None = None
+    xu_dx: float = 0.0
+    xu_dims: tuple = ()
     kde_h: float = 0.0                  # particle-scale density term (w_kde>0)
     kde_rho_ref: float = 1.0
     kde_scale: float | None = None      # one-shot equal-norm calibration vs D_vol
@@ -368,6 +372,8 @@ def optimize_window(x0, prm: MPMParams, cfg: PipelineConfig, tgt: TargetPack,
     grid_eff = tgt.grid if frontier is None else tgt.grid * frontier
 
     def dvol_density(xT):
+        if getattr(cfg, "xu_loss", False):           # the baseline: Xu et al.'s loss as the C++ oracle computes it
+            return d_vol_xu(xT, tgt.m * cfg.xu_mass, tgt.xu_grid, tgt.xu_gmin, tgt.xu_dx, tgt.xu_dims)
         if cfg.loss_units == "density":
             return d_vol_density(xT, tgt.m, grid_eff, tgt.lgmin, tgt.ldx, tgt.ldims,
                                  tgt.m_ref, tgt.n_support, form=getattr(cfg, "dvol_form", "log"))
