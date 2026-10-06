@@ -867,6 +867,113 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   `xu_spray` (XSB) and `xu` (XB), the whole 300-window budget (`--patience 300 --reject_stop 300`), delivered at the
   best window by the baseline's own loss, read by runeval3 as before. Expectation: the dragon reaches the bunny's
   level (silhouette IoU 0.93–0.95 for XSB), still below the physics-only twin and frayed at the horns.
+- **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
+  entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
+  아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
+  수는 없나?"; branch `gradual-descent`, server `repo_r93g`; `scripts/probes/settled/own_terms_probe.py`,
+  `descent_course.py`; `tmp/d113_*`; `output/gpu/d113`; local `output/video_2026-10-06/d113_gradual`).** The
+  picture to test: the physics objective converges in a few windows, then the render gradient only retouches the
+  surface. Measured on D105's 300k runs (bunny, dragon; render arm LV, twin PV) and D106's 40k gallery (V, W).
+  Definitions. Physics core per window: ot_scale (transport energy + end drift) + released motion, from the
+  window records; at the source ot_scale x transport energy (at rest), from `own_terms_probe.py` (the run's own
+  setup: ot_scale reproduced, 0.6025 bunny, 0.3490 dragon). Render: the run's own silhouette + shading on the
+  exterior; at the source from the probe; per kept frame also the yardstick against the independent sample
+  (D90's t3 logs) and the arrival (the body's mean path done to its end state). Time: the run fraction of the
+  delivered frames. Progress of a term: c(t) = (X0 − X(t)) / (X0 − X_end), linear and on log X (the terms span
+  2.5–4.3 decades). The simultaneity number: A = the area between the physics and render progress curves over
+  the run (0: together; signed < 0: the render ahead), on both scales; gradualness: the run fraction at which
+  the physics core reaches 90 % of its linear drop (P90). Target set for a change (written after the before-state
+  below was read, so it is a target, not a prediction): A_lin ≤ 0.02 and A_log ≤ 0.03, and P90 ≥ 0.3, with the
+  user's bar unchanged.
+  **Before-state (14:11–14:30 CDT; `course_*_D105.{json,png}`, `gallery_d106_VW.json`, `gallery40k_D106.png`).**
+
+  | run fraction at 50 / 90 % of the drop | physics lin | render lin | A_lin | physics log | render log | A_log (signed) | path done 50 / 90 % |
+  |---|---|---|---|---|---|---|---|
+  | bunny 300k LV (70 windows) | 0.034 / 0.062 | 0.031 / 0.079 | 0.009 | 0.110 / 0.403 | 0.114 / 0.248 | 0.037 (−0.036) | 0.045 / 0.096 |
+  | bunny 300k PV (78) | 0.030 / 0.056 | 0.039 / 0.115 | 0.020 | 0.103 / 0.356 | 0.120 / 0.210 | 0.030 (−0.020) | 0.040 / 0.085 |
+  | dragon 300k LV (99) | 0.033 / 0.061 | 0.029 / 0.063 | 0.007 | 0.117 / 0.500 | 0.093 / 0.267 | 0.069 (−0.069) | 0.047 / 0.134 |
+  | dragon 300k PV (104) | 0.031 / 0.060 | 0.041 / 0.089 | 0.017 | 0.115 / 0.528 | 0.100 / 0.284 | 0.052 (−0.051) | 0.045 / 0.149 |
+  | 40k gallery V, median of 18 (48 windows) | 0.064 / 0.118 | 0.055 / 0.098 | 0.012 | 0.176 / 0.495 | 0.105 / 0.202 | 0.115 (−0.115) | – |
+  | 40k gallery W, median of 18 (45) | 0.064 / 0.119 | 0.080 / 0.138 | 0.015 | 0.180 / 0.496 | 0.140 / 0.240 | 0.093 (−0.093) | – |
+
+  (nefertiti left out: its extra target draws fail to load in the probe's `prepare`, a trimesh scene conversion
+  in `draws_in_frame`.) The yardstick render on the independent sample: 90 % of its linear drop at 0.073 (bunny
+  LV) and 0.058 (dragon LV), of its log drop at 0.203 and 0.215.
+  Readings. (1) The two fall together: on the linear scale both reach 90 % of their drop within 2 % of the run of
+  each other (A_lin 0.007–0.012 in the render arms); on the log scale the render term is ahead by the signed area
+  on 18 of 18 gallery meshes (its 90 % crossing first on 17; V is the exception) and on both 300k meshes (render 90
+  % at 0.20–0.27 of the run, the physics core at 0.40–0.50: the
+  transport keeps creeping below what the render sees). There is no "physics first, render after" order in the
+  terms. (2) Neither falls gradually: both do 90 % of their drop in the first 6–12 % of the run, while the body
+  travels (path 90 % done at 0.10 / 0.13 of the run at 300k). (3) The timing is the arrival's, not the render
+  weight's: the twins, with no render weight, have the same physics profile (P90 0.056 / 0.060 against 0.062 /
+  0.061; gallery 0.119 against 0.118), and their render term, never optimised, falls with the arrival on the
+  same profile, later by 2.6–4.0 % of the run; the render weight moves the render term's 90 % crossing earlier
+  (bunny 0.115 → 0.079), not later. (4) The render acts most during the arrival: its share of the step is 0.51 /
+  0.46 (bunny / dragon) in the first third of the run, 0.36 / 0.35 in the second and 0.34 in the last (λ 0.25 →
+  1.5e-3 on the bunny, 170-fold, while |g_phys| falls 340-fold and |g_render| 1.8-fold); the yardstick's render arm
+  against its twin is at its best at 0.38 (8.6 % of the run, bunny) and 0.31 (6.1 %, dragon), and 0.52–0.67 at the
+  end. (5) What follows the arrival is a tail of 70 % of the frames in which little moves: from 30 % of the run to
+  the end the render arm's yardstick falls 7 % (bunny) and 25 % (dragon), the display's front 1 − IoU 12 % on both,
+  the physics core 4-fold (bunny) and 8-fold (dragon); the twin closes part of the render arm's lead there on the
+  bunny (front 1 − IoU ratio LV / PV 0.63 → 0.79) and not on the dragon (0.75 → 0.71). The run goes on because the
+  merit, 94–97 % physics late (λR / merit 0.03–0.06), improves by more than the 0.3 % tolerance per window through
+  the transport's creep.
+  What sets the pace (the candidates checked): the step is Adam with fresh moments per window, so each window's
+  first step is a sign-like step of length alpha on every control entry; alpha sits at its cap (0.01–0.02)
+  during the arrival; the adaptive step never binds (|g| 1e-3 to 3e-3 against target_norm_eff 0.056 at 300k and
+  0.12 at 40k, and |g| only falls from the source); the bunny's move per window is 0.06 / 0.11 / 0.15 / 0.14 / 0.09
+  wu in windows 0–4 at 300k and 40k alike (the peak about half an MPM cell), so its arrival takes 6–8 windows at
+  either N (the dragon's about 10–13), and the 300k run is long because of its tail, not its arrival. PCGrad does
+  not hold the render back: the raw cosine is positive in the arrival (bunny +0.10 to +0.40 except −0.01 at window
+  1; dragon −0.07 / −0.09 at windows 3–4) and −0.07 to −0.15 on about half the late windows, so the projection
+  removes at most 2.3 % of the render gradient's squared norm. The render's information is not late: (4) above.
+  Papers (rule: read before an ambiguous mechanism): GradNorm (Chen et al. 2018): the training rate is the loss
+  ratio L(t)/L(0); α = 0 pins the gradient norms (ours is that rule with a ratio of 0.5), α > 0 moves weight to
+  the task whose ratio is higher in proportion to its ratio^α. FAMO (Liu et al. 2023): balanced descent is an
+  equal relative improvement (ℓ_t − ℓ_t+1) / ℓ_t of every loss, the direction Σ z_i ∇ℓ_i / ℓ_i, the weights adapted
+  from the observed log-loss decreases with a rate β and a decay γ; integrating its update with β = 1, γ = 0
+  gives weights in proportion to the loss ratios, i.e. the objective Σ L_i / L_i(0), a weight held at the
+  source's values (the family D73 measured), and its equal-weight direction is the sum of the log losses (λ = P /
+  R). DWA (Liu, Johns and Davison 2019): weights from the last two epochs' loss ratios through a temperature T (a
+  constant). Nash-MTL (Navon et al. 2022): maximise Σ log(g_i · d), GᵀGα = 1/α, invariant to loss scaling; for
+  orthogonal gradients α_i = 1 / |g_i|, equal norms, close to the present rule. MGDA (Sener and Koltun 2018): the
+  min-norm point of the gradients' hull, a common descent direction, on raw gradients. What these give here: every
+  "equal rate" rule moves weight to the term whose relative loss falls slower, which is the render after the
+  arrival by a factor r_render / r_phys of 1.4–2 in the first tenth of the run, 11–14 to 30 %, 34–37 to 60 % and
+  57–79 after. Rescored on D105 LV's window records (`tmp/rescore`-style, the merit linear in λ):
+
+  | run fraction | share of the step now / GradNorm α = 1 / log-sum (λ = P/R) | render's share of the merit now / GradNorm / log-sum |
+  |---|---|---|
+  | bunny 0–0.1, 0.1–0.3, 0.3–0.6, 0.6–1 | 0.57 / 0.45 / 0.87, 0.51 / 0.87 / 0.88, 0.37 / 0.94 / 0.92, 0.33 / 0.97 / 0.89 | 0.15 / 0.11 / 0.50, 0.14 / 0.49 / 0.50, 0.05 / 0.59 / 0.50, 0.06 / 0.78 / 0.50 |
+  | dragon (same bins) | 0.56 / 0.39 / 0.92, 0.43 / 0.83 / 0.94, 0.35 / 0.94 / 0.94, 0.34 / 0.97 / 0.91 | 0.08 / 0.05 / 0.50, 0.05 / 0.23 / 0.50, 0.03 / 0.51 / 0.50, 0.05 / 0.80 / 0.50 |
+
+  After the arrival these weights give the render 0.83–0.97 of the step, the regimes D73 (held weight, 0.91–0.96:
+  transport 2–8 times the twin's, the render arm behind its twin at 300k) and D84 (λR = half the rest, 0.80–0.89:
+  transport 2.7–3.0 times the twin's, kinetic energy over the last ten windows 1.7 times the twin's) measured.
+  Equal relative progress to the end is not reachable at all: the physics core falls 4.3 decades on the bunny and
+  the render 2.5, so the render would have to fall 57–79 times below where it ends or the physics stop that far
+  above.
+  **Decision: no change is run.** The measured root cause of the picture is not a definition that orders the
+  two terms: they already fall together (A_lin 0.007–0.012, under the target), the render first on the log scale;
+  what is not met is gradualness (P90 0.06–0.12 against the target 0.3), and that is the pace of the arrival,
+  identical with the render weight at zero, set by the step's constants (alpha's cap, Adam's normalised first
+  step; the adaptive step that could shrink it never binds). The render weight's definition does not set the
+  timing, so changing it would be a patch on a symptom (the method rule), and the rate-based weights that would
+  spread the render's work over the run put the render at 0.83–0.97 of the step, where the twin has won twice on
+  the physics and the kinetic energy (the user's bar). Momentum and the render's influence of these runs are
+  D105's (angular momentum at the window starts LV against PV end / largest / mean −7 / −20 / −9 % bunny, −34 / −4
+  / −9 % dragon; kinetic energy at the end −3 / −13 % bunny, −33 / −47 % dragon; g_share 0.37 / 0.37 bunny, 0.36 /
+  0.31 dragon). Open for the user: (a) a
+  slower arrival as a design choice (a pace or a per-window displacement bound), which the rules exclude as a
+  constant and which lengthens the 300k runs (27 / 45 min now); (b) ending the tail earlier, so the arrival fills
+  more of the delivered run: at 30 % of the run the render arm stands at front 1 − IoU 0.0097 / 0.0104 and
+  yardstick 1.26e-3 / 1.28e-3 (bunny / dragon), 13–14 % and 8–33 % above its own end, still 10 / 19 % and 28 / 31 %
+  below its twin's end, about 8 / 13 minutes of 26 / 43 (momentum at that point not read). Tests on hyde06
+  (repo_r93g; only the two probes and this entry are new, no package code changed): the first full run 284
+  passed, 1 failed, 2 skipped, exit 1 (`test_line_search_probe_is_diagnostic_only`: its one-window run committed
+  no window that time, a StopIteration); that test alone passed three times out of three, and the full suite
+  again 285 passed, 2 skipped, exit 0. The test is nondeterministic (the rollout's atomics), not changed here.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
