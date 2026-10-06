@@ -1044,6 +1044,17 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   to chase). Risk: the relaxation keeps a fixed point the objective does not want, and the optimiser then holds the
   layer against it with a control in the driven half only (the fight moves to the driven half and the flicker falls
   less); or the extra term slows the arrival.
+  **Result (bunny render arm, 17:21 CDT; `output/gpu/d117/bunny300k_LV7.*`): refuted on (a), reverted.** 76 windows
+  (42.9 min), silhouette IoU 0.9875, chamfer 0.0550, thin uncovered 0.034 (D116's run 0.9878 / 0.0550 / 0.034). The
+  tail is unchanged: at 30–70 % / 70–100 % of the run the actual normal motion 0.034 / 0.029 pitches (D116 0.035 /
+  0.030), the zero-control motion 0.040 / 0.036 (0.042 / 0.038), without the relaxation 0.009 / 0.006 (0.008 /
+  0.006), the control's own part 0.044 / 0.040 (0.047 / 0.044). The widened term does see the relaxation (the
+  released motion at the end 2.46e-7 against 2.82e-8, 9x) but it is 0.8 % of the merit there (transport 2.35e-5,
+  loss 3.06e-5): the transport's pull on the layer outweighs it a hundredfold and the tug of war goes on. What it
+  shows: the conflict is between the relaxation's fixed point (the layer smoothed onto the mesh's relief) and the
+  objective's (the layer where the transport and the proximity to the target's sample want it), not a blind spot of
+  the rest term. The twin, the dragon's evaluation and the gallery were stopped; the dragon's render arm ran on
+  (`dragon300k_LV7`). Code back to 003dc3f's (the definition kept at 8721308).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

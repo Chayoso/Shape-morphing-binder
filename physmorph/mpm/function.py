@@ -246,14 +246,12 @@ class PersistentAdjoint:
         self.sv = torch.zeros(N, 3, device=dev)
         self.sFg = torch.zeros(N, 3, 3, device=dev)
         self.sV = torch.zeros(max(T - 1, 1), N, 3, device=dev)
-        self.sX = torch.zeros(max(T - 1, 1), N, 3, device=dev)    # the per-step positions (D117: every edit included)
         self.seeds = {tr.x[T]: wp.from_torch(self.sx, dtype=wp.vec3),
                       tr.F[T]: wp.from_torch(self.sF, dtype=wp.mat33),
                       tr.v[T]: wp.from_torch(self.sv, dtype=wp.vec3),
                       tr.Fg[T]: wp.from_torch(self.sFg, dtype=wp.mat33)}
         for t in range(1, T):
             self.seeds[tr.v[t]] = wp.from_torch(self.sV[t - 1], dtype=wp.vec3)
-            self.seeds[tr.x[t]] = wp.from_torch(self.sX[t - 1], dtype=wp.vec3)
         # every gradient buffer the adjoint accumulates into (tape.zero() only knows the
         # arrays of a tape that has already run backward — a fresh tape zeroes nothing)
         self.grad_arrays = []
@@ -309,8 +307,7 @@ class PersistentAdjoint:
 
 
 class _WarpMPMPersistent(torch.autograd.Function):
-    """The _WarpMPMExt bridge on a PersistentAdjoint (its outputs and seeds) and the per-step positions X (T,N,3),
-    X[t-1] = x_t after every position edit of the step (the layer's u and relaxation, the minimum spacing; D117)."""
+    """The _WarpMPMExt bridge on a PersistentAdjoint (same outputs, same seeds)."""
 
     @staticmethod
     def forward(ctx, dFc_t: torch.Tensor, u_t, adj: PersistentAdjoint):
@@ -323,22 +320,16 @@ class _WarpMPMPersistent(torch.autograd.Function):
         ctx.adj = adj
         tr = adj.traj
         V = torch.stack([wp.to_torch(tr.v[t]).clone() for t in range(1, T + 1)])
-        X = torch.stack([wp.to_torch(tr.x[t]).clone() for t in range(1, T + 1)])
         return (wp.to_torch(tr.x[T]).clone(), wp.to_torch(tr.F[T]).reshape(N, 9).clone(),
                 wp.to_torch(tr.v[T]).clone(),
-                wp.to_torch(tr.Fg[T]).reshape(N, 9).clone(), V, X)
+                wp.to_torch(tr.Fg[T]).reshape(N, 9).clone(), V)
 
     @staticmethod
-    def backward(ctx, gx, gF, gv, gFg, gV, gX=None):
+    def backward(ctx, gx, gF, gv, gFg, gV):
         adj = ctx.adj
         N, T = adj.N, adj.T
         with torch.no_grad():
-            gxT = (gx if gx is not None else 0.0) + (gX[T - 1] if gX is not None else 0.0)   # x_T is also X[T-1]
-            adj.sx.copy_(gxT) if isinstance(gxT, torch.Tensor) else adj.sx.zero_()
-            if gX is not None and T > 1:
-                adj.sX.copy_(gX[:T - 1])
-            else:
-                adj.sX.zero_()
+            adj.sx.copy_(gx) if gx is not None else adj.sx.zero_()
             adj.sF.copy_(gF.reshape(N, 3, 3)) if gF is not None else adj.sF.zero_()
             adj.sFg.copy_(gFg.reshape(N, 3, 3)) if gFg is not None else adj.sFg.zero_()
             gvT = (gv if gv is not None else 0.0) + (gV[T - 1] if gV is not None else 0.0)

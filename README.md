@@ -41,10 +41,8 @@ render term its calibration and internal constants.
     particle against half the kernel at one sampling pitch. It charges a target point that has no particle within
     1.53 spacings; no weight, no bound.
   - Residual drift of the released end, `(T·dt)² mean |v_T|²`: the end is at rest.
-- Settling: the released motion, `(T·dt)²` times the mean of `|Δx / dt|²` over the released steps and particles,
-  where `Δx` is a step's whole position change: the grid's `dt·v` plus the position edits of the layer relaxation
-  and the minimum spacing, which move positions without a velocity (D117). Without it runs stop while the body is
-  still moving.
+- Settling: the released motion, `(T·dt)²` times the mean of `|v|²` over the released steps and particles. Without
+  it runs stop while the body is still moving.
 - Local:
   - Near band: a pull to the nearest target point for particles between the sampling berth (about two target
     spacings) and one loss cell from the target, where the transport's blur cannot tell positions apart. Early in a

@@ -60,8 +60,8 @@ def state_ok(e: Eval) -> bool:
     return state_reason(e) is None
 
 
-def _evaluate(obj: Objective, xT, FT, vT, dfc, V, X, **kw) -> Eval:
-    lv, lk, lr, lpbr, d_sil, lstab = obj.losses(xT, FT, vT, V, X)
+def _evaluate(obj: Objective, xT, FT, vT, dfc, V, **kw) -> Eval:
+    lv, lk, lr, lpbr, d_sil, lstab = obj.losses(xT, FT, vT, V)
     T, norm = obj.cfg.T, V.shape[0] * V.shape[1]
     lk_drv = (V[:T] - V[:T].mean(0)).square().sum() / norm
     lk_rel = V[T:].square().sum() / norm
@@ -73,8 +73,8 @@ def graph_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor
     """Differentiable rollout (the persistent tape; forward and adjoint as CUDA graphs)."""
     dfc = win.expand(leaf)
     with timed("mpm_tape"):
-        xT, FT, vT, _, V, X = win.adjoint().apply(dfc, u)
-    return _evaluate(obj, xT, FT, vT, dfc, V, X)
+        xT, FT, vT, _, V = win.adjoint().apply(dfc, u)
+    return _evaluate(obj, xT, FT, vT, dfc, V)
 
 
 def _trajectory_min_det(win: Window, dc: torch.Tensor) -> float:
@@ -99,8 +99,7 @@ def eval_terms(win: Window, obj: Objective, leaf: torch.Tensor, u: torch.Tensor)
         FT = wp.to_torch(tr.F[T]).reshape(N, 9).clone()
         vT = wp.to_torch(tr.v[T]).clone()
         V = torch.stack([wp.to_torch(tr.v[t]) for t in range(1, T + 1)])
-        X = torch.stack([wp.to_torch(tr.x[t]) for t in range(1, T + 1)])
-        e = _evaluate(obj, xT, FT, vT, dc, V, X)
+        e = _evaluate(obj, xT, FT, vT, dc, V)
         e.jt = _trajectory_min_det(win, dc)
         e.in_domain = win.positions_in_domain()
         return e

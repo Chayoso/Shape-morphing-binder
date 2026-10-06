@@ -139,7 +139,7 @@ def test_position_control_adjoint_preserves_mid_rollout_bond_switch(dev):
     dfc = torch.zeros(4, 3, 3, 3, device=dev)
 
     def loss(u):
-        xt, _, vt, _, _, _ = adj.apply(dfc, u)
+        xt, _, vt, _, _ = adj.apply(dfc, u)
         return xt[0, 0].double() + vt.double().square().sum()
 
     u = torch.tensor([1., 0., 0.], device=dev, requires_grad=True)

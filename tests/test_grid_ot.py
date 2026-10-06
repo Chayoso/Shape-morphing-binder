@@ -281,20 +281,3 @@ def test_grid_transport_moves_mass_toward_target_and_ignores_mass_units():
     assert float((d - torch.tensor([-.1, 0., 0.])).norm(dim=1).mean()) < .025
     assert torch.allclose(scaled, d, atol=2e-5)
 
-
-
-def test_the_released_displacement_is_the_released_motion_without_edits_and_sees_them():
-    """D117: from positions, the stability term equals the velocity form when every step moves by dt v, and it
-    counts a released step's position edit (a relaxation moving a particle without a velocity) as motion."""
-    import torch
-    from physmorph.pipeline.window.objective import released_displacement, released_motion
-    T, dt = 4, 0.01
-    torch.manual_seed(0)
-    V = torch.randn(2 * T, 5, 3)
-    X = torch.randn(1, 5, 3) + dt * torch.cumsum(V, 0)
-    assert float(released_displacement(X, T, T * dt, dt)) == pytest.approx(float(released_motion(V, T, T * dt)), rel=1e-5)
-    Xe = X.clone()
-    Xe[T + 1:, 0, 0] += 0.05                                      # an edit at a released step, kept afterwards
-    assert float(released_displacement(Xe, T, T * dt, dt)) > float(released_displacement(X, T, T * dt, dt))
-    still = torch.zeros(2 * T, 5, 3)
-    assert float(released_displacement(still, T, T * dt, dt)) == 0.
