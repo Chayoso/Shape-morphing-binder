@@ -1110,6 +1110,39 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   tail's flicker is the price of that hold as the relaxation is defined; stopping it removes the hold with the fight.
   Code back to 2d5a6ae's (`--relax_in_transit`, the gated kernels and their tests removed); the D116 record and the
   probes stay on the server.
+- **D120, the render weight is the calibration rule's value at every window, not a moving average of it
+  (pre-registered 2026-10-06 22:25 CDT; the user, on the Gaussians seen at 1–3 s of the D111 videos and the dragon's
+  side view (`output/video_2026-10-06/dragon_side`): "저 dragon 중간에 저 떠 있는 gaussian 같은 거 어떻게 지울 것인가";
+  code: `scripts/pipeline_run.py --lambda_ema` (an A/B flag exposing `config.lambda_ema`, 0.3; 1 = no average), server
+  `repo_r100` (c4a51ce's code + the flag); `output/gpu/d120`).** D108: in windows 3–10 the render gradient, concentrated
+  on protruding particles, drives a few hundred of them out of the body through their own stress control (dragon
+  LV at most 281 apart at window 10, 2–5 from window 20), and the display draws them as Gaussians apart from the
+  body; D109 (the control on the grid) did not remove them. What D105's records show now: the design is a render
+  share of 1/3 of the step at calibration, but the share recorded at each window's first gradient is 0.46–0.70 in
+  windows 3–11 (dragon 0.46, 0.55, 0.62, 0.66, 0.62, 0.63, 0.60, 0.58, 0.57; bunny 0.49–0.70), falling to 0.44–0.53
+  by window 12–14 and about 1/3 later. The cause is in the weight's definition: λ is the rule's value passed through a
+  moving average (`LambdaBalancer`, EMA 0.3 per window), kept from when the ratio was fed every iteration (D81 moved
+  the calibration to once a window). Early in the run the physics gradient falls several-fold from one window to the
+  next as the body arrives, the rule's λ falls with it, and the average lags behind: the render keeps the previous
+  windows' larger weight for 5–10 windows, exactly where the ejection happens. The change: λ = the rule's value at the
+  window's first gradient (the cap as before); no constant is added, one (the EMA) is removed when adopted. The twin is
+  unchanged by construction (its weight is zero), so D105's twins stand as the twins; fresh twins are run on the same
+  copy for the spread. Runs: bunny and dragon 300k, `--layer_relief --lambda_ema 1`, seed 97, the render arm (LE)
+  and the twin (PE, `--render_weight_scale 0`), runeval3, the dragon's side view; then the 40k gallery (V/W) if (a)–(d)
+  hold. Measures: `g_share` and `lambda` per window from the records; particles apart from the body per kept frame
+  (the largest connected set at 1.5 spacings, `tmp/d120_apart.py`, on D105's and D120's frames alike); the display's
+  `apart` and folded discs in the first 10 % (e3_); the end values as D119's table. Criteria: (a) the render share in
+  windows 3–11 within 0.25–0.45 at every window; (b) the particles apart from the body in windows 3–10 at most half
+  D105 LV's by the same probe; (c) the display's apart discs in the first 10 %: LV's excess over its twin at most half
+  D105's (dragon 10758 against 5779, bunny 9707 against 8116); (d) the end as D105's: the render arm ahead of its twin
+  by D105's margins within the seed spread on the display and the yardstick, momentum not worse, relief at 5.4 pitches
+  and roughness within D105's spread, the window count within 20 % of D105's; (e) the dragon's side view at 0.8–2 s
+  with fewer pieces apart from the body (visual, secondary). Expectation: (a) and (b) hold (the share near 1/3 from
+  window 2 on, the ejection down 2–3 fold); (c) partly: the twin's own apart discs (stretched material drawn by the
+  display) stay, so LV's count falls to near the twin's and not below; (d) holds (the weight at the tail is already the
+  rule's). Risk: without the average λ follows the raw ratio's window-to-window noise at the tail, so more windows are
+  rejected and the run stops earlier with a smaller render lead; if so the definition keeps the average only where the
+  ratio is noisy, which is a different change, not a tuning of this one.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
