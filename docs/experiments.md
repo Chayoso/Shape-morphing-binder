@@ -1143,6 +1143,13 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   rule's). Risk: without the average λ follows the raw ratio's window-to-window noise at the tail, so more windows are
   rejected and the run stops earlier with a smaller render lead; if so the definition keeps the average only where the
   ratio is noisy, which is a different change, not a tuning of this one.
+  Baseline for (b), read before any D120 frame existed (22:35 CDT; `output/gpu/d120/apart_d105_*.log`; the probe's
+  radius 1.5 of the volume sample's pitch, 0.0489 / 0.0482 wu, so the count includes stretched material as well as
+  ejected particles; D108's dump counted differently and smaller): particles apart from the largest connected set per
+  kept frame, bunny LV / PV: 5305 / 3745 at the peak (windows 3.0–3.6), 322 / 392 at window 10, 54 / 23 at window 20;
+  dragon LV / PV: 13053 / 4245 at the peak (windows 3.6–4.2), 3190 / 3068 at window 10, 359 / 489 at window 20. The
+  render arm's excess over its twin is the render's part: dragon 3.1x at the peak, bunny 1.4x; the twin's count is the
+  floor (b) can reach, so (b) reads as LV's excess over the twin at most half D105's.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
