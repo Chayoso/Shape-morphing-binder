@@ -1526,6 +1526,99 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   display held (D105's margins within D102's seed spread); momentum and angular momentum not worse than D105's
   same arm; thin uncovered within +1 point, roughness ≤ 1.3 ×, flicker ≤ 1.3 ×; wall time ≤ 1.2 × D105's. One card
   per run, ≥ 24 GB free, nothing else disturbed. The flag's old path is checked by the test suite before the runs.
+  **Result of the measurement (sweeps 05:24–06:40 CDT; `tmp/d123/{d123_offset,d123_layer,d123_morph,d123_table}.py`,
+  `d123_sweep.sh`, `d123_flicker.sh`; `output/gpu/d123`: `o_/e3_/bands_{mesh}_r{r}_{fix,prop}.log`, `discs/`,
+  `tail/draw_*.mp4`, `tail/flicker_{fix,prop}.txt`): the relief is in the particles and the radius hides it; the field
+  closes at 2.5 pitches on all six states, the runs alone at 2.25 under the fixed offset; the proportional offset
+  keeps the surface where it is; the roughness bound as pre-registered is not met because the measure counts the
+  relief, while the per-band error falls at 5.4 pitches and above.** The r = 3 rows reproduce D105 exactly (bunny LV
+  offset +0.290, bands 0.28 / 0.55 / 0.84, e3 front 1 − IoU 0.0084, 3.47°, D116's tail ALT 0.000615). Per state and
+  radius (fix: offset 0.8; prop: 0.8 r / 3; sample = the 300k target sample; closure = empty nodes / pockets (lattice
+  nodes inside the r = 3 body with no particle within r / well inside it and outside at r) / holes front, back /
+  disc sets / discs apart / opposed; relief = family B kept at 2.7 / 5.4 / 10.8 base pitches; error = the band's
+  offset rms at 2.0 / 2.7 / 5.4 / 10.8; display = 1 − IoU front / crop / back against the independent sample drawn
+  at the same radius):
+
+  | bunny | offset | closure | rough | relief | error | display |
+  |---|---|---|---|---|---|---|
+  | sample r 3 | +0.202 | 0 / 0, 0 / 0, 12, 4056, 490 | 9.7° | 0.36 / 0.66 / 0.86 | .018 / .057 / .105 / .135 | .0093 / .0206 / .0096 (the floor) |
+  | LV r 3 · PV r 3 | +0.290 · +0.285 | 0 / 0, 0 / 0, 1, 0, 0 · same | 3.5 · 3.4° | 0.28 / 0.55 / 0.84 · 0.29 / 0.57 / 0.87 | .014 / .038 / .081 / .135 · .014 / .039 / .083 / .140 | .0084 / .0181 / .0084 · .0104 / .0234 / .0116 |
+  | sample 2.5 fix · prop | +0.383 · +0.173 | 0 / 0, 0 / 0, 7, 3857, 758 · 0 / 0, 0 / 0, 12, 4476, 767 | 15.2 · 15.5° | 0.48 / 0.74 / 0.90 · 0.49 / 0.74 / 0.90 | .027 / .082 / .125 / .136 · same | .0124 / .0274 / .0126 · .0122 / .0274 / .0123 |
+  | LV 2.5 fix · prop | +0.433 · +0.264 | 0 / 0, 0 / 0, 1, 0, 5 · 0 / 0, 0 / 0, 2, 10, 34 | 5.7 · 6.2° | 0.38 / 0.61 / 0.86 · 0.38 / 0.61 / 0.86 | .016 / .043 / .080 / .131 · .016 / .045 / .083 / .134 | .0120 / .0278 / .0118 · .0106 / .0236 / .0105 |
+  | PV 2.5 fix · prop | +0.424 · +0.257 | 0 / 0, 0 / 0, 1, 0, 1 · 0 / 0, 0 / 0, 3, 4, 10 | 5.4 · 5.8° | 0.39 / 0.62 / 0.88 · 0.37 / 0.62 / 0.88 | .016 / .044 / .083 / .136 · .016 / .045 / .085 / .140 | .0133 / .0276 / .0140 · .0124 / .0256 / .0132 |
+  | sample 2.25 fix · prop | +0.444 · +0.140 | 3 / 1, 0 / 0, 6, 3843 · 3 / 2, 0 / 0, 11, 4717 | 18.9 · 20.2° | 0.57 / 0.77 / 0.91 · 0.59 / 0.78 / 0.91 | .034 / .095 / .134 · .036 / .101 / .137 | .0128 / .0283 / .0126 · .0131 / .0292 / .0133 |
+  | LV 2.25 fix · prop | +0.479 · +0.240 | 0 / 0, 0 / 0, 1, 0, 27 · 0 / 2, 0 / 0, 8, 161, 214 | 7.5 · 9.1° | 0.42 / 0.62 / 0.86 · 0.43 / 0.62 / 0.86 | .018 / .047 / .080 · .019 / .052 / .088 | .0146 / .0354 / .0134 · .0125 / .0293 / .0121 |
+  | PV 2.25 fix · prop | +0.469 · +0.232 | 0 / 1, 0 / 0, 1, 0, 6 · 0 / 4, 0 / 0, 6, 267, 140 | 7.2 · 8.6° | 0.43 / 0.63 / 0.89 · 0.43 / 0.63 / 0.88 | .018 / .047 / .082 · .019 / .051 / .089 | .0152 / .0331 / .0153 · .0136 / .0287 / .0144 |
+  | LV 2 fix · prop | +0.505 · +0.198 | 0 / 2, 0 / 0, 3, 29, 74 · 0 / 66, 0 / 0, 58, 2419, 1493 | 10.7 · 16.2° | 0.47 / 0.63 / 0.86 · 0.49 / 0.63 / 0.85 | .022 / .052 / .082 · .025 / .065 / .108 | .0159 / .0384 / .0144 · .0140 / .0334 / .0128 |
+  | LV 1.75 fix · 1.5 fix | +0.505 · +0.465 | 0 / 26, 35 sets, 750 apart · 0 / 161, 95, 2685 | 16.7 · 26.8° | 0.52 / 0.64 / 0.86 · 0.58 / 0.63 / 0.84 | .028 / .061 / .087 · .036 / .081 / .123 | .0160 / .0387 / .0147 · .0160 / .0385 / .0151 |
+
+  | dragon | offset | closure | rough | relief | error | display |
+  |---|---|---|---|---|---|---|
+  | sample r 3 | +0.562 | 0 / 0, 0 / 0, 18, 138, 1512 | 13.7° | 0.27 / 0.60 / 0.87 | .020 / .068 / .123 / .153 | .0091 / .0209 / .0082 (the floor) |
+  | LV r 3 · PV r 3 | +0.674 · +0.698 | 0 / 0, 0 / 0, 5, 12, 81 · 0 / 0, 0 / 0, 9, 31, 33 | 6.1 · 6.0° | 0.24 / 0.56 / 0.86 · 0.27 / 0.57 / 0.87 | .017 / .050 / .102 / .149 · .017 / .050 / .101 / .151 | .0092 / .0226 / .0088 · .0126 / .0246 / .0133 |
+  | sample 2.5 fix · prop | +0.723 · +0.536 | 3 / 0, 0 / 0, 10, 39, 864 · 3 / 0, 0 / 0, 14, 76, 840 | 17.7 · 17.8° | 0.38 / 0.69 / 0.90 · 0.38 / 0.68 / 0.89 | .029 / .087 / .136 / .149 · .029 / .088 / .138 / .155 | .0114 / .0229 / .0106 · .0110 / .0237 / .0103 |
+  | LV 2.5 fix · prop | +0.791 · +0.649 | 0 / 0, 0 / 0, 5, 70, 109 · 0 / 0, 0 / 0, 11, 269, 215 | 8.4 · 9.3° | 0.36 / 0.61 / 0.86 · 0.33 / 0.61 / 0.86 | .019 / .053 / .100 / .143 · .019 / .055 / .110 / .151 | .0114 / .0241 / .0108 · .0106 / .0244 / .0100 |
+  | PV 2.5 fix · prop | +0.810 · +0.671 | 0 / 0, 0 / 0, 5, 31, 74 · 0 / 0, 0 / 0, 14, 247, 202 | 8.3 · 9.3° | 0.36 / 0.62 / 0.87 · 0.36 / 0.62 / 0.87 | .019 / .053 / .097 / .143 · .020 / .055 / .110 / .152 | .0140 / .0261 / .0132 · .0135 / .0261 / .0132 |
+  | sample 2.25 fix · prop | +0.775 · +0.509 | 8 / 0, 9 / 0, 7, 12 · 8 / 0, 0 / 0, 11, 23 | 21.2 · 22.3° | 0.43 / 0.73 / 0.91 · 0.47 / 0.72 / 0.90 | .035 / .098 / .141 · .037 / .104 / .147 | .0114 / .0233 / .0109 · .0118 / .0250 / .0111 |
+  | LV 2.25 fix · prop | +0.829 · +0.622 | 0 / 0, 0 / 0, 7, 173, 211 · 0 / 19, 0 / 0, 55, 1247, 792 | 10.6 · 13.2° | 0.39 / 0.63 / 0.87 · 0.39 / 0.64 / 0.86 | .021 / .056 / .103 · .022 / .063 / .130 | .0127 / .0245 / .0123 · .0115 / .0243 / .0111 |
+  | PV 2.25 fix · prop | +0.844 · +0.642 | 0 / 1, 0 / 0, 10, 149, 177 · 0 / 19, 0 / 0, 61, 1503, 882 | 10.6 · 13.6° | 0.40 / 0.64 / 0.87 · 0.42 / 0.65 / 0.87 | .021 / .056 / .100 · .022 / .063 / .128 | .0152 / .0286 / .0141 · .0142 / .0275 / .0135 |
+  | LV 2 fix · prop | +0.848 · +0.565 | 1 / 9, 0 / 0, 20, 381, 367 · 1 / 231, 0 / 0, 156, 4346, 4437 | 13.7 · 23.0° | 0.44 / 0.65 / 0.87 · 0.48 / 0.68 / 0.84 | .025 / .061 / .111 · .028 / .079 / .172 | .0134 / .0263 / .0133 · .0122 / .0253 / .0120 |
+  | LV 1.75 fix · 1.5 fix | +0.842 · +0.787 | 2 / 64, 90 sets, 1693 apart · 16 / 422, 246, 4239 | 19.9 · 31.6° | 0.49 / 0.68 / 0.87 · 0.59 / 0.73 / 0.86 | .030 / .071 / .131 · .038 / .092 / .186 | .0133 / .0254 / .0133 · .0134 / .0260 / .0137 |
+
+  The tail flicker (bunny LV's kept frames 163–233, ALT over the whole clip; D116: 0.000615 at r = 3): fixed offset
+  2.5 / 2.25 / 2 / 1.75 / 1.5: 0.000659 / 0.000670 / 0.000673 / 0.000699 / (not drawn) = ×1.07 / 1.09 / 1.09 / 1.14; in
+  proportion 0.000667 / 0.000696 / 0.000711 / 0.000804 / 0.001116 = ×1.08 / 1.13 / 1.16 / 1.31 / 1.81; ALT / DRIFT
+  1.34–1.41 throughout (D116: 1.2–1.4).
+  (1) Closure. With the offset held at 0.8 the field is closed at 2.5 on all six states (pockets 0, holes 0, the
+  dragon sample 3 empty nodes of 500 000, the runs' sets as at r = 3; the dragon LV's discs apart 12 → 70 are beads
+  around stray particles that r = 3 bridged, not pockets), still closed on the four runs at 2.25 (pockets ≤ 1 node,
+  sets 1 / 1 / 7 / 10) while the samples open there (empty nodes 3 / 8, the dragon sample 9 hole pixels in front),
+  and open at 2 (pockets 2–11, sets 3–24) and below (a foam of beads by 1.5: 95–278 sets). With the offset in
+  proportion the opening comes one step earlier: closed at 2.5 (pockets 0 everywhere, more beads: bunny 2–3 sets,
+  dragon 11–14), open at 2.25 (pockets 2–19, 160–1500 discs apart) and a foam by 2. So the smallest radius that
+  closes the samples and the runs alike is 2.5 pitches under either offset rule, and the runs (their surface evened
+  by the minimum spacing: nearest-neighbour median 1.07 pitches against a sample's 0.84) close at 2.25 with the
+  fixed offset. (2) The relief at 2.5: bunny LV 0.38 / 0.61 / 0.86 (r = 3: 0.28 / 0.55 / 0.84), PV 0.39 / 0.62 /
+  0.88 (0.29 / 0.57 / 0.87); dragon LV 0.36 / 0.61 / 0.86 (0.24 / 0.56 / 0.86), PV 0.36 / 0.62 / 0.87 (0.27 / 0.57 /
+  0.87): +0.09 to +0.12 at 2.7 pitches, +0.05 to +0.06 at 5.4, 0 to +0.02 at 10.8, the same under both offset rules
+  at 5.4; the samples' caps rise with it (0.66 → 0.74, 0.60 → 0.69 at 5.4), so a run still carries 82–90 % of its
+  own sample's cap at 5.4 (r = 3: 83–95 %). Below 2.5 the kept share at 2.7 keeps rising (0.47 at 2, 0.58 at 1.5)
+  but as a foam: the band's error rises with it. The prediction (0.60–0.64 at 5.4, 0.35–0.40 at 2.7 at the closing
+  radius) is met. (3) The roughness (e3 angle rms) at 2.5: bunny 5.7 / 5.4° against 3.5 / 3.4° (×1.6), dragon 8.4 /
+  8.3° against 6.1 / 6.0° (×1.4); in proportion ×1.7–1.8 and ×1.5: the pre-registered bound (≤ 1.3 ×) is not met,
+  but the samples' own roughness rises by the same factor (9.7 → 15.2°, 13.7 → 17.7°), the run-to-sample ratio
+  stays (bunny 0.36 → 0.37, dragon 0.45 → 0.48), and the band errors say what the angle rms cannot: against the
+  mesh the run's error at 5.4 pitches falls 1–2 % (bunny 0.081 → 0.080, dragon 0.102 → 0.100) and at 10.8 3–4 %,
+  while at 2.7 it rises 6–13 % and at 2.0 12–14 % (grain the coarser field hid) — under the fixed offset; in
+  proportion the dragon's 5.4 error rises 8 % (0.102 → 0.110) and the bunny's 2 %. The mean offset: fixed +0.14
+  (bunny runs), +0.12 (dragon runs), +0.16 to +0.18 (the samples) outward at 2.5; in proportion −0.026 to −0.029
+  on every state: the proportional rule keeps the surface where r = 3 has it, as predicted (and the loss's two
+  surfaces, the target's and the run's, move together under it: 0.003 pitches apart, against 0.04 under the fixed
+  rule). (4) The display against the independent sample at the same radius rises for the runs and for the floor
+  alike (bunny front: floor 0.0093 → 0.0124, LV 0.0084 → 0.0120 fixed / 0.0106 prop, PV 0.0104 → 0.0133 / 0.0124;
+  dragon: floor 0.0091 → 0.0114, LV 0.0092 → 0.0114 / 0.0106, PV 0.0126 → 0.0140 / 0.0135): two independent 300k
+  samples differ more through a finer field (their sampling noise shows), and the render arm's lead over its twin
+  on D105's frames narrows (bunny front 19 % → 10 % fixed / 15 % prop, crop 23 % → −1 % / 8 %; dragon 27 % → 19 /
+  21 %) — these runs were optimised with the r = 3 field, which is what the second stage changes. (5) The flicker
+  at 2.5 is ×1.07–1.08 (met), ×1.3 only at 1.75 in proportion.
+  The chosen radius and its rule: 2.5 pitches, the offset in proportion (0.8 × 2.5 / 3 = 0.667; the judgement call
+  stated: the fixed offset gives the slightly better surface — fewer beads, the 5.4 error down on the dragon — at the
+  price of moving every surface 0.12–0.18 pitches outward, which thickens every thin part by a quarter pitch; the
+  pre-registered criterion was the mean offset, and it picks the proportional rule). In the measured spacing: the
+  outer layer's 8th-neighbour distance has median 1.66–1.70 pitches and 95th percentile 1.93–2.06 on all six states
+  (the samples 1.67–1.68 / 1.98–2.00), so 2.5 = 1.5 × the median = 1.25 × the 95th percentile = the offset (0.8) + the
+  median; the sweep cannot tell these three apart (one N, two meshes, the same sampler), and for the uniform
+  sampler every one of them is a constant in pitches (the half-space geometry at the surface sets 1.67, not N), so
+  the rule reads: the kernel of a surface point, at the offset outside the outermost particles, reaches the median
+  8th neighbour of the particle beneath it (r − offset ≥ 1.67 pitches; it predicts the samples' opening at 2.25
+  fixed (1.45) and at 2.25 in proportion (1.65) and the closure at 2.5 under both (1.70, 1.83); the runs, evened,
+  close at 1.45). Implemented as the number: `--exterior_radius 2.5` (the offset in proportion inside the code,
+  no second flag), `physmorph/pipeline/config.py` (`exterior_radius`, default 3), `target.py` (the field, the
+  lattice cap 0.92 × offset / 0.8, `Exterior.radius/offset`), `window/objective.py` (the tracked discs' field),
+  `scripts/pipeline_run.py`; `tests/test_exterior_discs.py` + 1 (at 3 the field is D59's bit for bit; at 2.5 the
+  ball's shell is one closed sphere within 0.1 pitch of the old one — the first form of the test asserted the shell
+  lies inside the old one and failed: on a jittered unit ball it lies 0.017 outside, the direction is
+  state-dependent); the suite on `repo_r102` (= repo_r101 + this, `tmp/d123_tests_final.log`): 294 passed, 2 skipped, exit 0.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할

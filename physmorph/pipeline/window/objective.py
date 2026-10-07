@@ -178,7 +178,7 @@ class Objective:
                 self.discs = None
         if self.discs is None:
             with torch.no_grad(), timed("exterior"):
-                self.discs = Tracked(ZhuBridson(xT.detach(), e.pitch), e.lattice, e.h, e.skin)
+                self.discs = Tracked(ZhuBridson(xT.detach(), e.pitch, radius=e.radius, offset=e.offset), e.lattice, e.h, e.skin)
             self.ext_builds += 1
             p, n, move = self.discs.read(xT)
         return d_exterior(p, n, e.sils, e.shade, t.views, cfg.render_res, t.extent, cfg.sil_k, cfg.w_hole,

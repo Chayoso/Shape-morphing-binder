@@ -34,6 +34,8 @@ class Exterior:
     skin: float
     sils: list
     shade: list
+    radius: float = 3.0                 # the field's kernel radius and offset, in pitches (D123; 3 and 0.8 = D59's)
+    offset: float = 0.8
 
 
 @dataclass
@@ -172,20 +174,24 @@ def build_target(target_x, prm: MPMParams, cfg: PipelineConfig, draws=None, w=No
     if cfg.render_exterior:
         # the field's pitch is the volume sample's (0.708 of the 8th-neighbour distance); the discs sit on a lattice
         # of half a render pixel, no coarser than the field resolves (its smallest body, a sphere of 0.8 pitches,
-        # holds a node of any lattice up to 0.92 pitches); the discs' particle lists reach one pitch past the kernel
+        # holds a node of any lattice up to 0.92 pitches); the discs' particle lists reach one pitch past the kernel.
+        # D123 (--exterior_radius): the kernel radius in pitches, the offset in proportion (0.8 at 3), the lattice cap with
+        # the offset; at 3 every number is the old one bit for bit
         pitch = 0.708 * sp_t
+        radius = cfg.exterior_radius
+        offset = 0.8 * (radius / 3.0)
         center = geom.mean(0)
         lattice = Lattice(center, 2.8 * float((geom - center).norm(dim=1).max()))
-        h = min(extent / cfg.render_res, 0.92 * pitch)
+        h = min(extent / cfg.render_res, 0.92 * pitch * (radius / 3.0))
         per = []
         for s in samples:
             with torch.no_grad():
-                p_t, g_t, _, _ = lattice.discs(ZhuBridson(s, pitch), h, refine=False)
+                p_t, g_t, _, _ = lattice.discs(ZhuBridson(s, pitch, radius=radius, offset=offset), h, refine=False)
             per.append(exterior_targets(p_t, torch.nn.functional.normalize(g_t, dim=1), views, cfg.render_res,
                                         extent, cfg.sil_k, cfg.pbr_ambient))
         e_sils, e_shade = mean([e[0] for e in per]), mean([e[1] for e in per])
-        ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade)
-        print(f"[target] exterior: pitch {pitch:.4f} wu, lattice {h / pitch:.2f} pitches = "
+        ext = Exterior(pitch, lattice, h, pitch, e_sils, e_shade, radius, offset)
+        print(f"[target] exterior: pitch {pitch:.4f} wu, kernel {radius:g} pitches, offset {offset:.3f}, lattice {h / pitch:.2f} pitches = "
               f"{h / (2.0 * extent / cfg.render_res):.2f} render pixels, {len(p_t)} discs on the target"
               + (f"; the pictures are the mean over {len(samples)} samples" if len(samples) > 1 else ""), flush=True)
     # the W1 cleanup's fine target-fitted grid (1.5 extents each way, the box leash's range)

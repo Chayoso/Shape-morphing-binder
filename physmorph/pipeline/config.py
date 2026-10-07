@@ -99,6 +99,9 @@ class PipelineConfig:
     render_weight_scale: float = 1.0  # x lambda wherever it is set; 0 = the render-off twin
     render_exterior: bool = False   # the render terms read on the exterior (surface discs on the particles' zero set,
                                     #   render/exterior.py) in place of the particle cloud (D62)
+    exterior_radius: float = 3.0    # D123 A/B: the exterior field's kernel radius in pitches (D59's 3 = the old path bit
+                                    #   for bit); its offset follows in proportion, 0.8 x radius / 3, the rule that keeps the
+                                    #   surface's mean offset from the mesh where the radius 3 has it (D123)
     render_views: int = 6           # azimuths per elevation ring
     render_elevs: tuple = (0.0, 0.5, -0.5)
     render_res: int = 64

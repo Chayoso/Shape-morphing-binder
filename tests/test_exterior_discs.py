@@ -80,3 +80,24 @@ def test_the_render_terms_vanish_on_the_target_and_not_on_a_shifted_body():
     p, n, _ = tr.read(x + torch.tensor([.8, 0., 0.], dtype=x.dtype))
     sil, pbr = d_exterior(p, n, sils, shade, views, res, extent)
     assert float(sil) > 1e-5 and float(pbr) > 1e-6
+
+
+def test_the_radius_flag_at_3_is_the_old_field_bit_for_bit_and_a_smaller_one_a_thinner_shell():
+    """D123 (--exterior_radius): at 3 the kernel radius and the offset in proportion (0.8 x 3 / 3) are D59's numbers
+    exactly; at 2.5 (the offset 0.667 pitches) the ball's zero set is still one closed sphere within a tenth of a pitch of the
+    old one (on this jittered ball it lies 0.02 outside it: the smaller kernel's mean sits nearer the surface)."""
+    from physmorph.pipeline.config import PipelineConfig
+    cfg = PipelineConfig()
+    assert cfg.exterior_radius == 3.0 and .8 * (cfg.exterior_radius / 3.) == .8 and .92 * (cfg.exterior_radius / 3.) == .92
+    x = _ball()
+    q = Lattice(torch.zeros(3, dtype=x.dtype), 30.).at(torch.randint(0, 40, (2000, 3)), .4)
+    old, new = ZhuBridson(x, 1.), ZhuBridson(x, 1., radius=3., offset=.8 * (3. / 3.))
+    assert old.radius == new.radius and old.offset == new.offset
+    with torch.no_grad():
+        assert torch.equal(old(q, grad=False)[0], new(q, grad=False)[0])
+    fine = ZhuBridson(x, 1., radius=2.5, offset=.8 * (2.5 / 3.))
+    pts, g, _, _ = Lattice(torch.zeros(3, dtype=x.dtype), 30.).discs(fine, .4)
+    r = pts.norm(dim=1)
+    assert len(pts) > 500 and float(r.std()) < .35
+    assert abs(float(r.mean()) - float(Lattice(torch.zeros(3, dtype=x.dtype), 30.).discs(old, .4)[0].norm(dim=1).mean())) < .1
+    assert float((torch.nn.functional.normalize(g, dim=1) * torch.nn.functional.normalize(pts, dim=1)).sum(1).mean()) > .95
