@@ -51,6 +51,8 @@ def parse_args():
                     help="consecutive rejected windows that stop the run at the best window")
     ap.add_argument("--render_weight_scale", type=float, default=1.0,
                     help="multiplies the render weight; 0 = the render-off twin")
+    ap.add_argument("--lambda_ema", type=float, default=None,
+                    help="D120 A/B: the render weight's moving average (config 0.3); 1 = the rule's value at every window")
     # the defaults below are the recipe whose render arm is ahead of its physics-only twin on every display
     # measure, read against an independent sample (D91, D92; the minimum spacing D70/D72, the exterior D62)
     ap.add_argument("--render_exterior", action=argparse.BooleanOptionalAction, default=True,
@@ -174,6 +176,7 @@ def main():
     res = args.render_res_hi or int(np.ceil(cfg0.render_res_hi * per_dx))
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
+                              lambda_ema=cfg0.lambda_ema if args.lambda_ema is None else args.lambda_ema,
                               render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
                               min_spacing=args.min_spacing,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
