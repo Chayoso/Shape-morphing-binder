@@ -1287,6 +1287,33 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   episodes; end loss above XPA's, possibly a non-finite end); best Xu = 1e-2 on the bunny, 3e-3 or 1e-2 on the
   dragon; the best Xu behind D105's LV and PV on every yardstick and display measure (at least 2 × on the yardstick
   silhouette) and on the kinetic energy at the end (at least 100 ×).
+  **Sweep result, bunny (18:39–19:47 CDT; `tmp/d118s.sh`, `tmp/d118_rows.py`).** Columns as above, plus: Xu loss =
+  the TVCG objective (Eqs. 7–9, a full cell 75) on the last kept frame of every run, the run's own simulation grid
+  (for XPP and XPA it reproduces the logged end loss to the second decimal: 1391.6, 51.2); |v| max over the run;
+  momentum = runeval3's record: the centre of mass's largest displacement (pitches), the largest net / gross angular
+  move, the net rotation over the run (degrees); clamps = particles promote put back into the domain.
+
+  | bunny | min | Xu loss | sil IoU | chamfer | detached % | yardstick | display 1 − IoU | kin | |v| max | momentum | clamps |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | D105 LV | 25.5 | 0.68 | 0.9878 | 0.0550 | 0 / 0.09 | 6.8e-4 / 4.8e-4 | .0084 / .0181 / .0084 | 5.2e-6 | 2.94 | .0004 / .0187 / .0039 | 0 |
+  | D105 PV | 27.0 | 0.62 | 0.9869 | 0.0550 | 0 / 0.10 | 1.08e-3 / 5.9e-4 | .0104 / .0234 / .0116 | 4.1e-6 | 2.96 | .0005 / .0252 / .0033 | 0 |
+  | α 1e-3 (XPP) | 2.2 | 1391.6 | 0.8658 | 0.0795 | 4.89 / 2.76 | .054 / .020 | .132 / .429 / .137 | 4.1e-3 | 0.51 | .0000 / .0015 / .0024 | 0 |
+  | α 3e-3 (XPA3) | 2.3 | 115.6 | 0.9658 | 0.0595 | 1.02 / 0.74 | 9.2e-3 / 4.9e-3 | .075 / .241 / .047 | 0.088 | 2.10 | .0001 / .0039 / .0375 | 0 |
+  | **α 1e-2 (XPA), best Xu** | 5.2 | **51.2** | 0.9597 | 0.0589 | 0.60 / 0.30 | 9.9e-3 / 3.8e-3 | .039 / .098 / .035 | 0.39 | 7.19 | .0016 / .0066 / .0623 | 0 |
+  | α 3e-2 (XPA30) | 2.6 | 96.5 | 0.5836 | 0.0677 | 2.85 / 0.59 | .091 / .048 | .296 / .447 / .207 | 0.91 | 17.0 | .492 / .0115 / .198 | 273 |
+
+  XPA3's loss is still falling at the end (131.1, 115.6 over the last two episodes); XPA30 is the only run whose line search halved
+  (13 of 517 trials), its loss rose over the last three episodes (57.2, 70.6, 96.5), its body drifted half a pitch
+  and was clamped 273 times; its silhouette IoU is read on a moving last frame. Best Xu on the bunny by the pre-set
+  rule: α = 1e-2 (end loss 51.2 against 115.6, 96.5, 1391.6). Against D105 it is behind both arms on the silhouette
+  IoU, the chamfer, the detached share, the yardstick (silhouette 9.2 × the twin's, shading 6.4 ×), every display
+  measure (3.0–4.2 ×), the end kinetic energy (94 000 ×), the centre of mass's displacement (3.2 ×), the net
+  rotation (19 ×) and Xu's own objective (51.2 against 0.62–0.68, 75–83 ×); it is ahead on the momentum record's net /
+  gross ratios (angular largest 0.0066 against 0.0187 / 0.0252, linear largest 9.9e-5 against 3.2e-4 / 3.4e-4):
+  ratios over a gross motion that is 100–1000 × ours, and our arms' position updates (relaxation, u) are absent in
+  Xu's. Prediction (bunny): 3e-3 between XPP and XPA: on the loss and the kinetic energy yes, its loss 115.6 below
+  the predicted 150–600 and its silhouette IoU 0.966 above the predicted 0.92–0.95 (and above XPA's); 3e-2 unstable:
+  met (halving, |v| 17, loss rising, end loss above XPA's), no non-finite end; best Xu 1e-2: met.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
