@@ -1329,6 +1329,20 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   1e-3 comes within 5 points of −98 %, the implementation reproduces the paper at its scale and the 300k shortfall is
   the method's step at a higher N; if it stays near the 300k figure, an implementation difference is looked for
   before anything else.
+  **First result (21:02–21:03 CDT; `bunny11k_XPP`, `bunny11k_XPA`; ppc 7.2 against their about 8, grid 35³):** α =
+  1e-3: 6545 → 744 (−88.6 %), silhouette IoU 0.900, chamfer 0.193, 0.8 min; α = 1e-2: 6545 → 135 (−97.9 %), 0.931,
+  0.185, 0.8 min (the paper: 5302.69 → 91.09, −98.3 %). α = 1e-3 moved from −79 % (300k) towards the paper but stays
+  9.7 points short: the pre-registered "within 5 points" is not met, so by the rule an implementation difference is
+  looked for first. **Diagnostic (pre-registered 21:04 CDT):** the differences our simulator forces are all tied to
+  its dt: 1/240 against the paper's 1/120, so γ = 0.955 acts per step (F follows its update by 8.8 % per 1/120 s
+  against 4.5 %: the material resists a change of shape about twice as fast), the drag 0.9/s against ζ = 0.5/s, and
+  the control layer spread over two steps. Both are removable at the paper's own scale: the CFL at N = 11 160 and dt
+  = 1/120 is 0.37, the paper's own (c ≈ 43 cells/s in both). Runs: scratch copies `repo_r97x_dt120` (MPMParams.dt =
+  1/120 alone changed) and `repo_r97x_dt120_a01` (that and α = 1e-2), with `--drag 0.5`, N = 11 160, 420 timesteps (42
+  episodes of 10 steps, one-step control layer, γ 0.955 per 1/120 s: the paper's simulation as specified), tags XPD
+  and XPDA. Prediction: α = 1e-3 reaches −94 to −98.5 % (the γ rate was holding it back); if it stays near −89 %, the
+  remaining difference is not the dt mapping and lies in the optimiser's unspecified details (ε, the normalisation,
+  m_min), which the paper does not let us settle.
 - **D101, the layer's displacement puts no angular momentum in (designed 2026-10-05 20:45 CDT, the user: "일단 D101
   끝나면 300K dragon, bunny 랜더 해서 physics only vs render 포함해서 보여 줘"; not run: the design failed its tests).**
   D102's split at 300k: of the angular momentum the updates below the grid put in, u carries +0.45 to +0.62, the
