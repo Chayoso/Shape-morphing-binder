@@ -1714,6 +1714,38 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   margins between the arms narrow or reverse; the windows end at a similar count or earlier (less to gain). What it
   establishes for the paper: u's share of the arrival, the thin parts and the relief (an ablation row), and that
   what u puts there is held by the released physics to the measured degree.
+  **Result (runs 13:40–14:21 CDT, read 15:20; `output/gpu/d124`: logs, `t3_/e3_/m_/a_/o_`, `pend_*`, `bands_*.log`,
+  `rows_*.txt`; the frames12 were removed after their readings, `cleanup.log` 14:56): u is not what makes the shape or
+  the relief; it is what covers the thin parts and matches the surface to the independent sample.** End values (LU / PU
+  = u off, render arm / twin; D105's LV / PV with u):
+
+  | | sil IoU | chamfer | thin | yardstick sil / shade | display front / crop | roughness | relief 2.7 / 5.4 | kin | ang. largest | windows / min |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | bunny LV / PV | 0.9878 / 0.9869 | 0.0550 / 0.0550 | 3.5 / 3.3 % | 6.8e-4 4.8e-4 / 1.08e-3 5.9e-4 | 0.0084 0.0181 / 0.0104 0.0234 | 3.5 / 3.4° | 0.28 0.55 / 0.29 0.57 | 5.2e-6 / 4.1e-6 | 0.0187 / 0.0252 | 72 25.5 / 79 27.0 |
+  | bunny LU / PU | 0.9869 / 0.9872 | 0.0554 / 0.0553 | 7.4 / 6.4 % | 1.22e-3 7.7e-4 / 1.45e-3 7.9e-4 | 0.0111 0.0279 / 0.0136 0.0302 | 5.1 / 4.5° | 0.31 0.60 / 0.32 0.62 | 7.2e-5 / 2.7e-5 | 0.0156 / 0.0263 | 62 24.7 / 59 21.2 |
+  | dragon LV / PV | 0.9875 / 0.9875 | 0.0543 / 0.0544 | 3.2 / 3.4 % | 5.2e-4 4.5e-4 / 1.10e-3 6.1e-4 | 0.0092 0.0226 / 0.0126 0.0246 | 6.1 / 6.0° | 0.24 0.56 / 0.27 0.57 | 2.0e-5 / 2.2e-5 | 0.0144 / 0.0133 | 101 43.0 / 106 44.2 |
+  | dragon LU / PU | 0.9846 / 0.9831 | 0.0551 / 0.0552 | 11.1 / 11.4 % | 9.2e-4 8.5e-4 / 1.57e-3 1.02e-3 | 0.0136 0.0271 / 0.0164 0.0357 | 8.4 / 7.8° | 0.33 0.60 / 0.36 0.61 | 7.9e-5 / 1.2e-4 | 0.0110 / 0.0170 | 81 35.9 / 72 31.6 |
+
+  Against the prediction: the thin parts fall behind as predicted (bunny 3.5 → 7.4 %, dragon 3.2 → 11.1 %, 2–3.5×);
+  the silhouette IoU barely moves (−0.001 / −0.003, predicted −0.003 to −0.013) and the chamfer by +0.0004–0.0008: the
+  stress control makes the shape; the display (front 1.3–1.5×, crop 1.4–1.5×) and the yardstick (silhouette 1.3–1.8×,
+  shading 1.6–1.9×) fall behind as predicted; the roughness rises 1.3–1.5×. The relief is the reverse of the prediction:
+  without u the kept share at 2.7 / 5.4 pitches is HIGHER (bunny 0.31 / 0.60 against 0.28 / 0.55, dragon 0.33 / 0.60
+  against 0.24 / 0.56; the twins alike), with a larger offset rms in the fine bands: the layer's relief at these
+  wavelengths is the relaxation's (its reference is the mesh's relief on the layer's feet, D105), and u, moved by the
+  objective toward the 300k sample (transport, proximity) and the render's pictures, trades some of the mesh's relief
+  for the sample's surface, which is what the display and the yardstick read. The render arm stays ahead of its twin
+  without u (yardstick silhouette −16 % / −41 %, display front −18 % / −17 %; with u −37 % / −53 %, −19 % / −27 %): the
+  render reaches the shape through dFc (D121) and u carries about half of its lead on the bunny. Momentum: the bunny's
+  largest angular momentum is lower in the render arm than its twin without u (0.0156 against 0.0263) but the end kinetic
+  energy is higher (7.2e-5 against 2.7e-5, both above D105's). The runs end earlier without u (62 / 59 against 72 / 79;
+  81 / 72 against 101 / 106). Hold (`tmp/d116_pulse.py`, the last 30 %, the layer's normal excursion in a window against
+  the net move to the next window): without u 0.026 / 0.025 (bunny LU), 0.023 / 0.022 (PU), 0.037 / 0.036 (dragon LU),
+  0.040 / 0.039 (PU): what moves stays (98–99 %); with u (D105 LV) 0.029 / 0.021 and 0.045 / 0.032 (69–72 %): the part
+  that comes back within the window (about 30 %) is the driven push of u and the relaxation's answer to it (D116), and the
+  rest is held by the released physics. For the paper (an ablation row): without u the shape holds (IoU −0.001 to −0.003)
+  but the thin parts are uncovered 2–3.5× as often and the display and yardstick are 1.3–1.9× worse; about 70 % of the
+  layer's motion with u is held after the controls are switched off.
 - **D125, the particles apart from the body in the morph's first seconds: what they are, where they come from, what
   moves them out and what brings them back (frame-by-frame forensics, no new mechanism; pre-registered 2026-10-07
   14:05 CDT; the user's goal: the floating Gaussians removed entirely; scratch `tmp/d125/` on hyde06 (not committed),
