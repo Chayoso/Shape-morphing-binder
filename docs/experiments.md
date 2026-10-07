@@ -1714,6 +1714,260 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   margins between the arms narrow or reverse; the windows end at a similar count or earlier (less to gain). What it
   establishes for the paper: u's share of the arrival, the thin parts and the relief (an ablation row), and that
   what u puts there is held by the released physics to the measured degree.
+- **D125, the particles apart from the body in the morph's first seconds: what they are, where they come from, what
+  moves them out and what brings them back (frame-by-frame forensics, no new mechanism; pre-registered 2026-10-07
+  14:05 CDT; the user's goal: the floating Gaussians removed entirely; scratch `tmp/d125/` on hyde06 (not committed),
+  `output/gpu/d125/`).** Known so far: two populations, the render-driven ejection through the per-particle stress
+  control (D108; D120 removed about half of it) and a twin-level population present at λ = 0 (bunny 3745 / dragon 4245
+  particles apart at 1.5 pitches at windows 3–4, `d120_apart.py`; `d120_sets.py`: 87 % in sets of 1–3, median 1.7–1.9
+  pitches from the body). The machinery that could act on them: the material bonds (`kernels.k_update`: a particle
+  flagged `frag` is projected toward its frozen source bonds' rest lengths, tension only, 1/T per step; `frag` is set
+  per step where the particle's 3³ cells hold no other particle, `k_frag_step`, or at the commit by the runner's
+  `fragment_mask`: its cell's 26-connected component of the occupancy dilated by one cell is not the largest), the
+  spray cleanup (W1 on the isolation gate, `dt_iso_lo/hi` 1.2–1.8 of the median 8th-neighbour distance), the near
+  band, the minimum spacing (pushes apart only) and the transport. The grid: dx = diag / 26 = 0.3055 wu ≈ 6.25
+  pitches, cubic B-spline, 4³ stencil: two particles share a node iff their cells are within 3 cells on every axis.
+  Read first, before any probe: the runner logs "fragments N particles" at every 10th window and whenever N > 0; in
+  every D105 / D120 / D121 300k log N = 0 at every window (the commit-level fragment flag never fired; whatever acts
+  on the apart particles, it is not the bonds through that flag). The per-window `g_spray` / `n_spray` /
+  `active_set` records are off in these runs (D17), so the terms' pulls are re-evaluated on the frames.
+  Runs and frames: D120 LE / PE on bunny and dragon, D105 LV as the before-state (`*_frames12.npz`, every 12th step;
+  a window = 40 steps, raw r ↔ window ⌈r / 40⌉, history[⌈r / 40⌉ − 1]); D121's LVg run (D105's recipe) with its dumps
+  at windows 1, 2, 3, 5, 10 (`x0`, `gx_sil`, `gx_pbr`, `lam_r`, `gl_phys_psum`, `gl_rend_psum`, `layer_mask`).
+  Measures, every kept frame of windows 0–12 (raw ≤ 480): (1) every apart set (connected components at 1.5 pitches,
+  pitch = 0.708 × the target sample's median 8th-neighbour distance) classed (i) OUTSIDE the body's grid support (no
+  particle of the set within 3 cells of a body cell on every axis: no node shared, no force from the body) or (ii)
+  INSIDE (shares nodes: stretched or sparse but coupled); counts of sets and particles per class per frame, the
+  distance to the body (nearest body particle, pitches) per class, the sets by size, and the per-step `frag` test
+  (`k_frag_step`: no other particle in the 3³ cells) per apart particle. (2) Origin: the particles apart at the peak
+  (max over windows 3–4) at window 0: depth below the source sphere's surface in pitches and membership of the
+  source's outer layer (neighbourhood asymmetry, 32 neighbours, half a spacing), against all particles; at the
+  delivered frame: the local thickness of the target where they end (the target sample's depth field: the largest
+  depth within one dx of the nearest target point; thin = below two cells, the run's thin-set rule), their distance to
+  the target surface, and their end clusters (components at 2 pitches, centroids in target-box coordinates). (3) What
+  moved them out: on LVg at windows 1, 2, 3, 5 (10 as a check), for the particles newly apart within the window (apart
+  at a kept frame of the window or the first of the next, not at the window's start `x0`): the render position pull
+  λ |∇x(sil + w_pbr pbr)|, the render and physics gradients on dFc (`gl_*_psum`) as multiples of the outer layer's
+  mean (D108's reading), the share on the layer, and the direction of the render pull against the outward normal; for
+  the twin (PE, bunny and dragon; LE beside it) the physics terms' position gradients re-evaluated on the frame's
+  state with the run's own target (`prepare` + `build_target` + `calibrate_units` as `own_terms_probe.py`; ot_scale ×
+  transport, ot_scale × proximity, wu w_nn near band with the assignment at the state, wu w_dt spray on the isolation
+  gate at the state, and for LE λ(window) × the exterior render terms): per term the magnitude on the apart set and on
+  the newly-apart set as multiples of the layer's mean, which term is the largest per particle, the cosine of each
+  term's descent direction with the direction to the nearest body particle (positive = toward the body), and the
+  isolation gate's value on the apart particles. (4) Fate: the peak frame's apart particles tracked forward through the
+  kept frames: the window they rejoin the body's component (two consecutive kept frames inside), the share not back by
+  window 12, re-leaving; the gap closed per kept interval split into the particle's own motion toward the body and
+  the body's advance toward the particle; their motion against the nearest body particles' (carried by the grid or
+  not); the per-window records beside them (λ, g_share, u_gate, transport energy, move) and the `frag` tests of (1).
+  (5) Display: on the peak frames and windows 2, 6, 10, the exterior field at r = 3 and 2.5 (offset in proportion, the
+  e3 lattice pitch of the run) with the discs apart from the largest disc set (linked within 2.2 h, the e3 rule): each
+  apart disc assigned to its nearest particle's class; the discs per class and the share of particle sets drawn as
+  their own disc set against merged into the body's surface.
+  Predictions: (i) ≈ 0 % of the apart particles (they sit 1.5–4 pitches from the body, the stencil reaches 18; the
+  runner's fragment count 0 agrees), so no apart particle is free of the grid and none is bonded: the twin-level
+  population is class (ii), coupled through nodes the body dominates (≈ 170 particles a cell), so it moves with the
+  body's velocity field and nothing in the physics returns it; the per-step `frag` test flags none. Origin: the
+  source's outer layer (depth < 1 pitch) for 70–90 %, far above the layer's share of all particles (≈ 8 %); they end
+  in the thin parts (ears, horns) more than the body's share. Moved out: on LVg the render pull on the newly apart is
+  2–5 × the layer's mean (D108), outward; for the twin the transport's gradient is the largest term on the apart set
+  (the near band's and the spray's gate mostly zero: a set of 2–3 particles at 1.7 pitches has its 8th neighbour at
+  1.2–1.5 × the median, inside the ramp), and its descent direction is not toward the body (toward the target). Return:
+  the body's advance closes most of the gap (the transport moves the body onto them) in windows 4–8; 5–15 % are not
+  back by window 12 and these are the ones the display draws. Display: at r = 3 a set of 1–3 particles within 2
+  pitches of the body merges into the body's surface (few discs apart), the display's apart discs come from the sets
+  farther than ≈ 2.2 pitches and from the sets of ≥ 4 particles; at 2.5 more sets are drawn apart.
+  Conclusion to be stated as "population (i) is X % of the apart particles, made by …; population (ii) is Y %, made
+  by …; the term that returns them is …", then one proposed definition change per population (no new constant, or
+  one that replaces an existing one), with the predicted effect and the measurement that would confirm it; nothing
+  implemented here.
+  **Result (probes 14:13–14:27 CDT, CPU for (1), (2), (4) and the dumps, GPU 0 beside the D124 runs for (3b) and (5);
+  read 14:30; `tmp/d125/d125_{common,classify,origin,fate,push,terms,display,split,tables,terms_compact}.py`,
+  `run_cpu.sh`, `run_cpu2.sh`, `run_gpu.sh`; `output/gpu/d125/{classify,origin,fate,push,terms,display}_*.{jsonl,npz,
+  log}`, 20 MB): population (i) does not exist; the twin-level population is the thin parts' material in transit,
+  stretched to 1.5–2 spacings, on which the transport and the spray cleanup pull along the stream; the render arm
+  adds flakes that reach the target surface ahead of the body; both are carried by the grid and come back when the
+  body arrives.** (1) Classification, every kept frame of windows 0–12, all seven runs (D120 LE / PE, D105 LV, D121
+  LVg on the bunny; D120 LE / PE, D105 LV on the dragon): class (i) 0 sets and 0 particles at every frame (every apart
+  set has a particle within 3 cells of a body cell: the body's 4³ stencils cover every apart particle, whose
+  distance to the body is 1.5–17 pitches against the stencil's 18.7); the per-step `frag` test (`k_frag_step`) 0 at
+  every frame; the runner's commit-level fragment count 0 in every log. No apart particle is ever free of the grid
+  and the bonds never act, through either route. Class (ii) = all of them:
+
+  | run | raw (window) | apart | sets | d median / p90 / max (pitches) | at 1.5–2 / 2–3 / 3–4 / 4–6 / > 6 | sets:particles of size 1 / 2–3 / 4–10 / 11–100 |
+  |---|---|---|---|---|---|---|
+  | bunny LE | 72 (2) | 887 | 481 | 1.63 / 2.26 / 3.6 | 737 / 141 / 9 / 0 / 0 | 337:337 / 102:228 / 37:213 / 5:109 |
+  | bunny LE | 132 (4, peak) | 4590 | 2003 | 2.21 / 6.49 / 13.5 | 1923 / 1112 / 471 / 526 / 558 | 1155:1155 / 561:1303 / 249:1395 / 38:737 |
+  | bunny LE | 240 (6) / 396 (10) / 480 (12) | 1491 / 377 / 117 | 782 / 191 / 70 | 2.08 / 4.41 / 8.5; 1.74 / 4.63 / 10.7; 1.68 / 4.04 / 8.4 | 703 / 407 / 175 / 179 / 27 at 240 | 484:484 / 213:492 / 78:411 / 7:104 at 240 |
+  | bunny PE | 72 (2) | 687 | 308 | 1.69 / 2.50 / 3.8 | 527 / 135 / 25 / 0 / 0 | 206:206 / 73:172 / 22:135 / 7:174 |
+  | bunny PE | 132 (4, peak) | 3744 | 1677 | 2.30 / 6.56 / 12.1 | 1475 / 894 / 432 / 486 / 457 | 965:965 / 471:1094 / 212:1184 / 29:501 |
+  | bunny PE | 240 / 396 / 480 | 1570 / 424 / 238 | 756 / 199 / 118 | 2.13 / 4.91 / 9.7; 1.73 / 3.27 / 8.2; 1.65 / 2.08 / 7.2 | 683 / 433 / 209 / 178 / 67 at 240 | 440:440 / 220:515 / 85:468 / 11:147 at 240 |
+  | bunny LV (D105) | 120 (3, peak) | 5305 | 2098 | 2.44 / 6.81 / 13.9 | 1988 / 1200 / 607 / 795 / 715 | 1206:1206 / 556:1282 / 276:1621 / 60:1196 |
+  | bunny LV | 240 / 396 / 480 | 1531 / 322 / 178 | 706 / 174 / 93 | 2.14 / 4.13 / 7.7; 1.78 / 4.09 / 7.4; 1.65 / 3.02 / 7.4 | 667 / 498 / 197 / 134 / 35 at 240 | 418:418 / 185:439 / 91:480 / 12:194 at 240 |
+  | dragon LE | 72 (2) | 1992 | 1073 | 1.65 / 2.32 / 5.0 | 1638 / 286 / 54 / 14 / 0 | 743:743 / 234:530 / 88:514 / 8:205 |
+  | dragon LE | 156 (4, peak) | 9234 | 4348 | 1.99 / 4.72 / 14.5 | 4649 / 2360 / 907 / 799 / 519 | 2641:2641 / 1144:2644 / 483:2680 / 80:1269 |
+  | dragon LE | 240 / 396 / 480 | 5509 / 3264 / 2247 | 2868 / 1763 / 1200 | 2.06 / 5.03 / 13.2; 1.97 / 4.17 / 10.6; 1.92 / 3.81 / 11.8 | 2572 / 1493 / 566 / 515 / 363 at 240 | 1815:1815 / 756:1738 / 267:1461 / 30:495 at 240 |
+  | dragon PE | 72 (2) | 563 | 385 | 1.59 / 1.85 / 3.0 | 535 / 27 / 1 / 0 / 0 | 289:289 / 75:171 / 21:103 / 0 |
+  | dragon PE | 144 (4, peak) | 4245 | 2066 | 1.86 / 3.51 / 8.5 | 2479 / 1091 / 407 / 239 / 29 | 1210:1210 / 592:1385 / 243:1271 / 21:379 |
+  | dragon PE | 240 / 396 / 480 | 1943 / 3340 / 2036 | 1010 / 1738 / 1128 | 1.81 / 2.96 / 6.3; 1.93 / 3.85 / 8.8; 1.94 / 3.58 / 10.1 | 1238 / 527 / 132 / 45 / 1 at 240 | 625:625 / 262:596 / 116:621 / 7:101 at 240 |
+  | dragon LV (D105) | 156 (4, peak) | 13053 | 6080 | 2.18 / 5.80 / 16.9 | 5671 / 3175 / 1526 / 1460 / 1221 | 3711:3711 / 1573:3650 / 697:3938 / 98:1627 |
+  | dragon LV | 240 / 396 / 480 | 7094 / 3190 / 2234 | 3729 / 1655 / 1193 | 2.17 / 5.68 / 17.3; 1.96 / 3.92 / 9.3; 1.94 / 3.70 / 9.9 | 3056 / 1912 / 752 / 744 / 630 at 240 | 2349:2349 / 988:2250 / 361:1997 / 31:498 at 240 |
+
+  The apart particles split cleanly by their distance to the TARGET sample (`d125_split.py`), and the split separates
+  the two populations: at the peak, bunny LE / PE: 923 / 231 within 2 pitches of the target, 148 / 66 at 2–4, 527 / 461
+  at 4–8, 2992 / 2986 at ≥ 8; dragon LE / PE (raw 156): 4520 / 256, 450 / 39, 490 / 192, 3774 / 3754. The ≥ 8 bin (the
+  stream population, in transit) is the SAME in the render arm and the twin on both meshes (2992 against 2986, 3774
+  against 3754); the render arm's whole excess sits within 2 pitches of the target (bunny +692 of +846, dragon +4264
+  of +4993: flakes that have reached the target surface ahead of the body). Both bins are sets of 1–10 (bunny ≥ 8:
+  720 / 851 / 923 particles in sets of 1 / 2–3 / 4–10, 498 in larger; dragon LE < 2: 1336 / 1263 / 1242 and 679 in
+  sets of > 10), both have their 8th-neighbour distance at 1.5–1.7 × the frame's median (all particles: 97–99 % below
+  1.5 ×): stretched material, not isolated points. A third, late population: at window 10 (raw 384) the dragon's 3600
+  apart particles in BOTH arms (LE 2103 / 699 / 779 / 20, PE 2054 / 714 / 775 / 25 by the same bins) sit at the target
+  surface in its thin parts (stretch 1.8–2.1 ×): the arrived material of the thin parts at the 300k sample's density,
+  not a transient and not the render's (the dragon PE's apart count rises again in windows 8–10, 1943 → 3568, as the
+  u gate opens, 0.06 → 0.78); the bunny has 324 of them.
+  (2) Origin. The peak sets come from the source sphere's outer four pitches: depth at window 0 below 4 pitches for
+  57 % (bunny LE), 49 % (PE), 68 % (LV), 71 % (dragon LE), 43 % (dragon PE) against 17 % of all particles; on the
+  source's outer layer (asymmetry) 19 / 15 / 21 / 23 / 11 % against 3.6 %; depth median 3.5 / 4.1 / 2.9 / 2.6 / 4.6
+  pitches. At the peak they are far from the target on the twins (bunny PE 11.8, dragon PE 16.1 pitches median) and
+  on the bunny's render arm (10.6), near it on the dragon's render arm (2.3: the flakes), and the target there is thin
+  (1–2 dx thick for 96 / 86 % of them on the twins). At the delivered frame 74–77 % (bunny) and 65–71 % (dragon) sit
+  where the target is 1–2 dx thick (all particles 11 / 19 %), 0.60–0.63 pitches from the target sample, 0.0–0.12 %
+  still apart; the bunny's peak set ends 78–86 % in one cluster at target-box (0.34–0.36, 0.71–0.75, 0.70), thickness
+  1.7–1.8 dx (the ear); the dragon's in a dozen clusters of 2–22 % (horns, legs, tail, jaw). The twin-level population
+  is the thin parts' material in transit.
+  (3a) What moved them out, LVg with D121's dumps (`d125_push.py`; multiples of the outer layer's mean, median / mean):
+
+  | window (λ, g_share) | newly apart (on the layer at x0) | render position pull | render on dFc | physics on dFc | render > physics (layer) | render step outward: cos median (share) [layer] |
+  |---|---|---|---|---|---|---|
+  | 1 (0.253, 0.33) | 270 (91 %) | 1.07 / 1.89 | 1.81 / 1.84 | 0.70 / 0.84 | 0.94 (0.76) | 0.93 (0.82) [0.80] |
+  | 2 (0.210, 0.49) | 1875 (54 %) | 0.32 / 1.11 | 1.71 / 1.91 | 1.01 / 1.45 | 0.94 (0.95) | 0.00 (0.49) [0.27] |
+  | 3 (0.166, 0.57) | 5350 (23 %) | 0.002 / 0.50 | 1.06 / 1.41 | 1.72 / 1.98 | 0.83 (0.94) | 0.00 (0.28) [0.28] |
+  | 5 (0.096, 0.61) | 756 (32 %) | 0.16 / 0.47 | 0.30 / 0.59 | 1.04 / 1.12 | 0.82 (0.97) | 0.00 (0.44) [−0.38] |
+  | 10 (0.025, 0.62) | 95 (87 %) | 0.18 / 0.68 | 0.53 / 1.11 | 0.97 / 1.12 | 1.00 (1.00) | −0.04 (0.47) [−0.33] |
+
+  Window 1 is D108's picture (the render's control gradient 1.8 × the layer's on the new ones, 94 % above their
+  physics, the step outward on 82 %, as on the whole expanding layer); from window 2 the render step on them has no
+  outward sense (cos 0), and at the peak window 3 the newly apart are interior at the window's start (77 %), with the
+  PHYSICS gradient on their control at 1.7 × the layer's mean and the render's at 1.06 × (its position pull on them
+  0.002 ×). The particles already apart at a window's start carry the larger render control gradient (window 2: 2.66 ×
+  against physics 0.55 ×; window 3: 1.80 against 1.34 ×), the render's attention to what is already out.
+  (3b) The terms re-evaluated on the frames (`d125_terms.py`, the run's own target; magnitudes as multiples of the
+  outer layer's mean |g| of the same term; the twin PE, the render arm LE in brackets):
+
+  | run, raw (window) | set (n; on the layer) | d body / d target (pitches) | isolation gate median (share > 0) | spray | transport | near, surf | render | the largest term: ot / spray / rend | spray's descent cos to the target; physics cos to the body (share > 0) |
+  |---|---|---|---|---|---|---|---|---|---|
+  | bunny PE 84 (3) | newly apart next (1324; 32 %) | 0 / 15.8 | 0.47 (0.99) | 3.17 | 2.27 | 0, 0 | – | 0.84 / 0.13 / – | 0.99; – |
+  | bunny PE 108 (3) | apart (3093; 33 %) | 2.21 / 14.6 | 0.71 (1.00) | 4.97 | 2.45 | 0, 0 | – | 0.55 / 0.43 / – | 0.99; 0.36 (0.70) |
+  | bunny PE 108 (3) | newly apart next (663; 15 %) | 0 / 11.9 | 0.52 (1.00) | 3.59 | 1.97 | 0, 0 | – | 0.61 / 0.37 / – | 0.98; – |
+  | bunny PE 132 (4) | apart (3744; 29 %) | 2.30 / 11.8 | 0.79 (1.00) | 6.08 | 2.42 | 0, 0 | – | 0.24 / 0.74 / – | 0.98; 0.47 (0.77) |
+  | bunny PE 156 (4) | apart (3582; 35 %) | 2.30 / 9.3 | 0.89 (1.00) | 7.08 | 2.57 | 0, 0 | – | 0.13 / 0.83 / – | 0.98; 0.53 (0.78) |
+  | bunny PE 228 (6) | apart (1782; 62 %) | 2.19 / 5.0 | 0.97 (1.00) | 10.8 | 2.96 | 0, 0 | – | 0.19 / 0.70 / – | 0.94; 0.53 (0.74) |
+  | bunny PE 384 (10) | apart (449; 89 %) | 1.76 / 0.9 | 0.78 (1.00) | 0.00 (the DT's zero set) | 1.40 | 0, 0 | – | 0.57 / 0.30 / – | –; 0.03 (0.51) |
+  | bunny LE 108 (3) | apart (3473; 36 %) [new next 1234; 19 %] | 2.02 / 12.1 | 0.68 (1.00) [0.52] | 4.49 [3.41] | 2.25 [2.19] | 0, 0 | 0.16 [0.00] | 0.56 / 0.30 / 0.08 [0.72 / 0.18 / 0.07] | 0.98; 0.11 (0.56) |
+  | bunny LE 132 (4) | apart (4590; 33 %) | 2.21 / 10.6 | 0.78 (1.00) | 5.37 | 2.30 | 0, 0 | 0.20 | 0.30 / 0.60 / 0.05 | 0.98; 0.35 (0.69) |
+  | dragon PE 108 (3) | newly apart next (1110; 24 %) | 0 / 20.8 | 0.29 (0.94) | 1.63 | 1.00 | 0, 0 | – | 0.75 / 0.25 / – | 0.99; – |
+  | dragon PE 120 (3) | apart (3574; 42 %) | 1.78 / 19.7 | 0.51 (0.98) | 2.72 | 1.01 | 0, 0 | – | 0.42 / 0.58 / – | 0.99; 0.40 (0.73) |
+  | dragon PE 156 (4) | apart (4241; 43 %) | 1.86 / 14.2 | 0.58 (0.99) | 3.11 | 0.98 | 0, 0 | – | 0.23 / 0.76 / – | 0.98; 0.46 (0.76) |
+  | dragon PE 228 (6) | apart (1944; 56 %) | 1.81 / 7.0 | 0.73 (1.00) | 5.38 | 1.20 | 0, 0 | – | 0.10 / 0.83 / – | 0.95; 0.40 (0.71) |
+  | dragon PE 384 (10) | apart (3568; 73 %) | 1.93 / 1.3 | 1.00 (1.00) | 0.00 | 1.59 | 0, 0 | – | 0.41 / 0.37 / – | –; 0.20 (0.59) |
+  | dragon LE 120 (3) | apart (7003; 43 %) | 1.83 / 0.9 | 0.40 (0.96) | 0.00 | 1.04 | 0, 0 | 0.16 | 0.68 / 0.12 / 0.14 | –; −0.12 (0.45) |
+  | dragon LE 156 (4) | apart (9234; 39 %) | 1.99 / 2.3 | 0.50 (0.98) | 0.37 | 1.00 | 0, 0 | 0.16 | 0.56 / 0.28 / 0.09 | 0.48; 0.02 (0.51) |
+
+  On the stream population (the twins, and the bunny's render arm) the spray cleanup is the largest pull: 3–7 × the
+  layer's mean at the peak and 5–11 × at window 6, the largest term on 43–83 % of the apart particles, pointing at the
+  target's distance-field minimum 10–20 pitches away (cos 0.98–0.99), i.e. along the stream; the transport pulls at
+  1–2.5 × with the same sense (cos 0.24–0.85 to the target); the near band and the proximity term are zero on them
+  (eligible 1–3 %). The isolation gate is already open on the particles that become apart at the next frame while
+  they are still in the body (gate 0.29–0.56 at d body 0; the stretch precedes the separation), and it is open on
+  64–77 % of the outer layer (median 0.1–0.24) and on 10 % of all particles (30k at raw 108): the kNN ratio does not
+  tell stretched material from isolated particles. On the render arm's flakes at the target surface (dragon LE, d
+  target 0.9–2.3) no physics term acts: the spray is zero there (inside the target's distance field), the near band
+  zero (inside the berth), the transport at the layer's mean, the render at 0.16 × (its position gradient sits on the
+  body's layer). The late dragon population (raw 384, both arms) is the same: gate 1.0, spray 0, transport 1.6 ×.
+  (4) Fate (`d125_fate.py`; the peak set tracked through the kept frames to raw 480):
+
+  | run | tracked | back by window 12 (not back) | re-leave | rejoin window 4 / 5 / 6 / 7 / 8 / 9 / 10–12 | carried while apart: ‖v_p − v_b‖ / ‖v_b‖ median, cos (windows 4 / 5 / 6) | the body's advance's share of the gap closed in the rejoin intervals (windows 4 / 5 / 6) |
+  |---|---|---|---|---|---|---|
+  | bunny LE | 4590 | 4578 (12, 0.3 %) | 8.2 % | 1470 / 1443 / 885 / 296 / 195 / 183 / 106 | 0.13, 1.00 / 0.21, 0.99 / 0.26, 0.99 | 0.80 / 0.65 / 0.73 |
+  | bunny PE | 3744 | 3741 (3, 0.1 %) | 9.8 % | 955 / 1250 / 723 / 361 / 187 / 129 / 136 | 0.14, 1.00 / 0.22, 0.99 / 0.26, 0.99 | 0.65 / 0.58 / 0.73 |
+  | dragon LE | 9234 | 9109 (125, 1.4 %) | 15.5 % | 0 / 3725 / 2466 / 1283 / 784 / 429 / 422 | – / 0.10, 1.00 / 0.16, 1.00 | – / 0.78 / 0.83 |
+  | dragon PE | 4245 | 4232 (13, 0.3 %) | 16.0 % | 770 / 1927 / 901 / 361 / 153 / 86 / 34 | 0.09, 1.00 / 0.12, 1.00 / 0.15, 1.00 | 0.54 / 0.45 / 0.52 |
+
+  While apart they move with their nearest sixteen body particles (the relative velocity 9–26 % of the body's, cos
+  0.99–1.00): carried by the grid's velocity field, as class (ii) must be. The gap closes when the body arrives (its
+  advance 45–83 % of the gap closed in the intervals of rejoining, the particle's own relative motion the rest); no
+  bond ever acts (frag 0), the spray's and the transport's pulls on them point at the target, not at the body (the
+  body-ward cosine 0.36–0.53, 70–78 %). Per window on the bunny twin, newly apart / returned: 183 / 130, 711 / 120,
+  3717 / 848, 1776 / 1750, 1236 / 2200, 726 / 1774, 454 / 913, 128 / 522, 170 / 421, 197 / 239, 181 / 334, 152 / 185
+  (windows 1–12) while the transport energy falls 0.39 → 0.043 (window 4) → 0.0003 and the u gate rises 0.05 → 0.56
+  (window 4) → 1.0: the stream forms in windows 2–3 (u still gated, λ = 0: the stress control alone, driven by the
+  terms above) and refills in windows 4–7; on the dragon twin 4062 / 1051 (window 3), 3228 / 2561 (4), then a second
+  wave 2594 / 1378 at window 8 as the u gate opens (0.32 → 0.63).
+  (5) Display (`d125_display.py`, the e3 lattice pitch, r = 3 | r = 2.5 with the offset in proportion; the r = 3 apart
+  discs agree with the e3 records within 2 %):
+
+  | run, raw | apart discs r = 3 (e3) | r = 2.5 | nearest to body / apart particles (r = 3 | 2.5) | particle sets drawn as their own disc set (r = 3) | drawn share by distance 0–2 / 2–3 / 3–4 / ≥ 4 pitches | by set size 1 / 2–3 / 4–10 / ≥ 11 |
+  |---|---|---|---|---|---|---|
+  | bunny LE 132 | 6378 (6404) | 28230 | 1854 / 4524 ‖ 17945 / 10285 | 220 of 2003 (11 %) | 6 / 13 / 16 / 21 % | 8 / 12 / 20 / 42 % |
+  | bunny PE 132 | 5596 (5631) | 17473 | 1553 / 4043 ‖ 10480 / 6993 | 198 of 1677 (12 %) | 7 / 13 / 17 / 20 % | 7 / 13 / 24 / 59 % |
+  | bunny LV 144 | 9431 (9707) | 23859 | 1757 / 7674 ‖ 15559 / 8300 | 342 of 2245 (15 %) | 7 / 14 / 25 / 26 % | 10 / 20 / 24 / 35 % |
+  | dragon LE 144 | 4554 (4711) | 18788 | 1790 / 2764 ‖ 13724 / 5064 | 213 of 4097 (5 %) | 3 / 5 / 9 / 12 % | 3 / 5 / 10 / 29 % |
+  | dragon PE 144 | 663 (701) | 7672 | 113 / 550 ‖ 5632 / 2040 | 52 of 2066 (2.5 %) | 1.9 / 3.7 / 5.6 / 3.4 % | 1.1 / 3.5 / 6.6 / 10 % |
+  | window 10 (raw 396) bunny LE / PE, dragon LE / PE | 1424 / 463 / 3906 / 3161 | 7627 / 2932 / 13336 / 14402 | 914 / 12 / 2680 / 2123 nearest to body particles | 21 of 191 / 18 of 199 / 107 of 1763 / 99 of 1738 | | |
+
+  At r = 3 the display merges 85–98 % of the apart particle sets into the body's surface; what it draws apart comes from
+  the farther sets (≥ 3 pitches: 16–26 % drawn against 6–7 % at 1.5–2 on the bunny) and the larger ones (≥ 11
+  particles: 29–59 % drawn), and 17–39 % of the apart discs sit nearest to BODY particles (the body's own thinned
+  regions break off in the field). At r = 2.5 the apart discs are 2.5–12 × as many and 60–73 % of them nearest to body particles: the finer
+  field breaks the stretched body itself into pieces during the transit (D123's foam), so the display's apart count
+  is not a count of apart particles.
+  Conclusion. Population (i) is 0 % of the apart particles: no apart particle is ever outside the body's grid support
+  (none in 7 runs × 41 frames), the fragment flag never fires and the bonds never act; a definition that acts on
+  decoupled particles has nothing to act on here. Population (ii) is 100 %, of two kinds. (ii-a), the twin-level
+  population (bunny 2990 / dragon 3750 at ≥ 8 pitches from the target at the peak, the same in both arms): the thin
+  parts' material drawn from the source's outer four pitches toward the ears and horns through a stream whose spacing
+  reaches 1.5–2 × the median, made by the transport's pull along the stream (1–2.5 × the layer's mean) and by the
+  spray cleanup, whose isolation gate opens on the stretched material before it separates (gate 0.3–0.6 at d body 0)
+  and whose pull is then the largest term on 43–83 % of them (3–7 × at the peak, 5–11 × at window 6), pointing along
+  the stream at the target; the particles of 300k sampling at a thin part arriving at its own density make the same
+  picture late (the dragon's 3600 at window 10 in both arms). (ii-b), the render arm's excess (bunny +690, dragon
+  +4260 at the peak): flakes of 1–100 particles that reach the target surface ahead of the body through the
+  per-particle stress control (D108; D120 halved it), on which no physics term acts once they are there (spray 0
+  inside the target's distance field, near band 0 inside the berth, transport 1 ×). The term that returns them is
+  none: both kinds are carried with the body by the grid (relative velocity 9–26 %) and rejoin when the body arrives
+  (99–99.9 % by window 12, 77–86 % in windows 4–6; the body's advance 45–83 % of the gap closed); what the display
+  draws as Gaussians apart from the body in the first seconds are the farther and larger sets of (ii-a) and the
+  flakes of (ii-b), and at r = 2.5 the body's own thinned regions.
+  Proposals (definitions, nothing implemented; one per population). P1, for (ii-a): the spray cleanup's isolation gate
+  is the MPM's own decoupling test instead of the kNN ratio: a particle is isolated for the W1 term iff the grid
+  cannot act on it (`k_frag_step`: no other particle in the 3³ cells around its own; or the commit's `fragment_mask`),
+  the test the bonds already use. It removes two constants (`dt_iso_lo`, `dt_iso_hi`) and adds none, and it makes the
+  cleanup act on exactly the population it was written for (true strays: SF's dragon strays with gate 1.00, the 40k
+  beast ejections) while the stretched material coupled through the grid is left to the transport, which returns it
+  anyway. Predicted effect: the spray's pull along the stream disappears (today the largest term on 43–83 % of the
+  stream population); the apart particles at 1.5–3 pitches in windows 3–6 fall by 30–50 % on both twins and the
+  render arms alike, the far tail (> 4 pitches, the transport's) and the late thin-part population change little, the
+  e3 apart discs in the first 10 % fall in proportion, the end values stay within the seed spread (the spray's
+  gradient is zero on the arrived particles: `d_dt` and the W1 gap are flat at the end); if the counts do NOT fall the
+  spray's position pull was not followed by the control and the stream is the transport's alone (the measurement
+  decides). Confirming measurement: twin and render-arm runs on bunny and dragon 300k with the gate so defined (and
+  `w_dt 0` as the limiting case), read with `d125_classify.py` / `d125_split.py` / `d125_fate.py` and the e3 records
+  against PE / LE, then the 40k gallery (V / W) for the strays. P2, for (ii-b): the render terms read the exterior of
+  the body's connected surface: the tracked discs that are not in the largest connected disc set (the display's own
+  rule, `connected_sets`: discs linked within 2.2 h, no new constant) carry no silhouette or shading credit, so a
+  flake that reaches the target surface ahead of the body earns the render nothing and its gradient has no reason
+  to send one (today the render's control gradient on the particles already apart is 1.8–2.7 × the layer's mean,
+  (3a)). Predicted effect: the render arm's excess within 2 pitches of the target at windows 3–4 (dragon +4260, bunny
+  +690) falls to the twin's level and with it the render arm's excess of e3 apart discs in the first 10 % (dragon LE
+  6254 against PE 5891 in D120; LV 10758 against 5779 in D105); the end display and yardstick lead over the twin
+  unchanged (no apart disc sets at the end); the risk is a thin part whose early discs are not yet linked to the
+  body's at the lattice pitch (an ear tip forming ahead) losing the render's pull for a few windows, read in the thin
+  uncovered at the end and the window count. Confirming measurement: the render arm with this rule against LE on both
+  meshes (the split table's < 2-pitch bin per kept frame, the e3 apart discs, the end table), and D121's window
+  counterfactual at windows 3–4 with and without the rule. Not addressed by either: the late thin-part population
+  (the 300k sample's density in parts 1–2 dx thick), which is D122's question, not an ejection. Space: output 47 GB
+  (D124's 3.0 GB joined since D123; D125 adds 20 MB; nothing deleted while D124 runs).
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
