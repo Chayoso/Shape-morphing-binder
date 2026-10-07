@@ -310,10 +310,3 @@ def test_the_adaptive_scale_applies_once(prm, clouds):
     for a, b in zip(rows, rows[1:]):
         k = np.log2(min(1.1 * a["alpha_base"], cfg.alpha) / b["alpha_base"])
         assert k > -1e-4 and abs(k - round(k)) < 1e-4, (a["alpha_base"], b["alpha_base"])
-
-
-def test_the_relaxation_in_transit_runs_and_commits(prm, clouds):
-    """D119 (A/B flag): with relax_in_transit the window sets the relaxation's gate to the complement of u's and the
-    run commits windows as before."""
-    res = run_pipeline(*clouds, prm, _cfg(animations=2, relax_in_transit=True), log=lambda *_: None)
-    assert any(r.get("frame_end") for r in res["history"])

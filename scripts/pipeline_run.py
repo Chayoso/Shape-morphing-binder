@@ -55,8 +55,6 @@ def parse_args():
     # measure, read against an independent sample (D91, D92; the minimum spacing D70/D72, the exterior D62)
     ap.add_argument("--render_exterior", action=argparse.BooleanOptionalAction, default=True,
                     help="read the render terms on the exterior (surface discs) in place of the particle cloud")
-    ap.add_argument("--relax_in_transit", action="store_true",
-                    help="D119 (A/B): the layer relaxation acts only on the layer still in transit (where u does not)")
     ap.add_argument("--min_spacing", type=float, default=0.9,
                     help="the position update keeps particles this far apart, in pitches of the rest volume (0: off)")
     ap.add_argument("--render_target_draws", type=int, default=8,
@@ -177,7 +175,7 @@ def main():
     cfg = dataclasses.replace(cfg0, animations=args.animations, patience=args.patience,
                               reject_stop=args.reject_stop, render_weight_scale=args.render_weight_scale,
                               render_exterior=args.render_exterior, render_res=res, render_res_hi=res,
-                              min_spacing=args.min_spacing, relax_in_transit=args.relax_in_transit,
+                              min_spacing=args.min_spacing,
                               ot_iters=args.ot_iters, support_weight=args.support_weight,
                               loss_res=prep.loss_res, unit_ref_res=prep.unit_ref_res,
                               nn_berth_k=prep.nn_berth_k, grad_dump=args.grad_dump, ls_probe=args.ls_probe,

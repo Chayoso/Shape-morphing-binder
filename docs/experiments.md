@@ -1079,6 +1079,37 @@ failures. Stamps use the server clock (CDT). The full record of the earlier pipe
   (d) the 40k gallery: V ahead of W on 19 of 19, none behind D106's V by more than 0.01. Expectation: (a) holds
   (the free motion without the relaxation was 0.006–0.012); the arrived layer keeps the relief the objective gives
   it, the roughness up by 10–30 %, the display unchanged or better; runs end earlier (less to chase).
+  **Result (runs 17:48–21:58 CDT, read 22:20; `output/gpu/d119`: the runs, `t3_/e3_/m_/a_/o_` logs, `pend_*`,
+  `bands_{bunny,dragon}.log`, `tail/flicker.txt`; `tmp/d119_bands.sh`, `tmp/d119_course.py`, `tmp/d118_rows.py`):
+  refuted on (c), worse than D105 on the display and the yardstick; reverted.** The tug of war goes: where the layer has
+  arrived the zero-control move falls 8–13 fold (bunny windows 65–91: 0.0032 against 0.038 pitches; dragon 0.010
+  against 0.055) and the actual move to a half or a third (0.013 / 0.020 against 0.030 / 0.062). (a) Met at windows
+  65–91 and on the flicker (base display over D105's tail frames: ALT 0.000256 against 0.000615, −58 %; over the
+  run's own last 30 %: 0.000089); not met at windows 28–64 (0.021 / 0.060 against 0.035 / 0.080, the layer partly in
+  transit there). Unforeseen: the runs no longer stop where D105's did (bunny LV9 164 windows, 89.6 min with the
+  record; dragon 123, 68.2 min; D116's 87 / 92): the stop came from the windows the tug of war left without a gain;
+  without it the merit keeps falling 0.2–0.5 % a window (bunny's merit 2.67e-5 at window 91, 2.20e-5 at 170).
+  End values (yardstick = t3 exterior silhouette / shading; display = e3 front 1 − IoU; roughness = e3 angle rms; relief
+  = band family B at 5.4 pitches, kept share; kin = end mean |v|^2):
+
+  | | sil IoU | chamfer | thin uncovered | yardstick | display front | roughness | relief 5.4 | mean offset | kin | ang. largest |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | bunny D105 LV / PV | 0.9878 / 0.9869 | 0.0550 / 0.0550 | 3.5 / 3.3 % | 6.8e-4 / 1.08e-3 | 0.0084 / 0.0104 | 3.5 / 3.4° | 0.55 / 0.57 | 0.290 / 0.285 | 5.2e-6 / 4.1e-6 | 0.0187 / 0.0252 |
+  | bunny D119 LV9 / PV9 | 0.9889 / 0.9849 | 0.0550 / 0.0554 | 5.3 / 7.2 % | 8.4e-4 / 3.20e-3 | 0.0098 / 0.0264 | 6.4 / 8.4° | 0.49 / 0.53 | 0.305 / 0.453 | 4.1e-7 / 2.2e-7 | 0.0186 / 0.0232 |
+  | dragon D105 LV / PV | 0.9875 / 0.9875 | 0.0543 / 0.0544 | 3.2 / 3.4 % | 5.2e-4 / 1.10e-3 | 0.0092 / 0.0126 | 6.1 / 6.0° | 0.56 / 0.57 | 0.674 / 0.698 | 2.0e-5 / 2.2e-5 | 0.0144 / 0.0133 |
+  | dragon D119 LV9 / PV9 | 0.9891 / 0.9822 | 0.0549 / 0.0558 | 6.0 / 7.9 % | 8.0e-4 / 3.94e-3 | 0.0117 / 0.0304 | 10.4 / 14.0° | 0.46 / 0.51 | 0.737 / 0.911 | 1.5e-5 / 3.7e-5 | 0.0094 / 0.0094 |
+
+  (b) The render arm leads its twin by more than in D105 (yardstick 74–80 % below), but only because the twin fell
+  behind (PV9's display 2.5 times PV's); LV9 itself is behind D105's LV on the yardstick (+24 % / +53 %) and the display
+  (+17 % / +27 %), and the bunny's end kinetic energy is above its twin's (4.1e-7 against 2.2e-7). (c) Not met: the
+  kept relief at 5.4 pitches 0.46–0.53 against 0.55–0.57, the roughness 1.7–2.3 times D105's, the thin uncovered share
+  1.6–2.4 times, the surface 0.02–0.21 pitches further out (the twin most). (d) Not run: the 40k gallery queue was held
+  (`tmp/d119.queue.held`) once (c) failed at 300k. What it shows: the relaxation on the arrived layer is not only the
+  tug of war's other end; it is what keeps the arrived layer on the mesh's relief at the pitch, which the objective
+  (transport to the sample, proximity, render) does not hold by itself, most of all without the render (the twin). The
+  tail's flicker is the price of that hold as the relaxation is defined; stopping it removes the hold with the fight.
+  Code back to 2d5a6ae's (`--relax_in_transit`, the gated kernels and their tests removed); the D116 record and the
+  probes stay on the server.
 - **D113, do the physics and the render fall together, and can both fall gradually over the run? (a measurement;
   entry opened 2026-10-06 14:11 CDT; the user: "물리가 빠르게 훅 끝나고 나서 랜더 gradient가 그 뒤 surface를 만지는 게
   아니라 둘이 서서히 동시에 떨어지도록 해 볼래?", earlier "physics가 전 구간에서 서서히 바뀌면서 랜더까지 영향 받게 할
